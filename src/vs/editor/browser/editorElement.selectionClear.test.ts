@@ -31,7 +31,6 @@ describe("EditorElement in app frame loop", () => {
         editor.focusable = true;
         editor.focus();
 
-        // Select "ello": cursor to end, then select left 4 times
         viewState.cursorEnd();
         viewState.cursorLeft(true);
         viewState.cursorLeft(true);
@@ -46,12 +45,10 @@ describe("EditorElement in app frame loop", () => {
             expect(backend.getBgAt(new Point(gw + x, 0))).not.toBe(DEFAULT_COLOR);
         }
 
-        // Deselect by collapsing selection
         viewState.cursorRight();
         editor.markDirty();
         backend.sendKey("F12"); // trigger render
 
-        // Previously selected cells should now be cleared back to DEFAULT_COLOR
         for (let x = 1; x <= 4; x++) {
             expect(backend.getBgAt(new Point(gw + x, 0))).toBe(DEFAULT_COLOR);
         }

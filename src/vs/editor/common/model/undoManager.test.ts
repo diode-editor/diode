@@ -137,7 +137,6 @@ describe("UndoManager", () => {
         const element = viewState.type(" world");
         undoManager.pushUndoElement(element!);
 
-        // External edit that changes versionId
         doc.applyEdits([{ range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } }, text: "!" }]);
 
         expect(undoManager.undo(viewState)).toBe(false);

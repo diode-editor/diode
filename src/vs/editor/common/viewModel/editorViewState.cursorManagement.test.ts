@@ -7,8 +7,6 @@ import { TextDocument } from "../model/textDocument.ts";
 
 import { EditorViewState } from "./editorViewState.ts";
 
-// ─── Folding: Basic Mapping ────────────────────────────────
-
 describe("EditorViewState.Folding — basic mapping", () => {
     it("getViewLineCount equals document lineCount when no folds", () => {
         const state = parseDSL(editorState`
@@ -32,10 +30,6 @@ describe("EditorViewState.Folding — basic mapping", () => {
             folding: ^
             cursor: █
         `);
-        // Lines 1,2 are hidden (startLine+1..endLine = 1..3), but startLine(0) and endLine(3) — wait:
-        // startLine=0, endLine=3, collapsed. Hidden = lines 1,2,3. Visible = line 0 only? No:
-        // Hidden = startLine+1 .. endLine = 1..3. So lines 0 is visible. Lines 1,2,3 hidden.
-        // Total doc lines = 4, hidden = 3, visible = 1
         expect(state.getViewLineCount()).toBe(1);
     });
 
@@ -50,7 +44,6 @@ describe("EditorViewState.Folding — basic mapping", () => {
             text: footer
             cursor: █
         `);
-        // 4 doc lines. Collapsed region startLine=0, endLine=2. Hidden = 1,2. Visible = [0, 3]
         expect(state.getViewLineCount()).toBe(2);
         expect(state.getViewLine(0)).toBe("header");
         expect(state.getViewLine(1)).toBe("footer");
@@ -69,8 +62,6 @@ describe("EditorViewState.Folding — basic mapping", () => {
             text: e
             cursor: █
         `);
-        // Regions: (0,1 collapsed), (2,3 collapsed)
-        // Hidden: 1, 3. Visible: [0, 2, 4]
         expect(state.getViewLineCount()).toBe(3);
         expect(state.getViewLine(0)).toBe("a");
         expect(state.getViewLine(1)).toBe("c");
@@ -123,11 +114,9 @@ describe("EditorViewState.Folding — basic mapping", () => {
         `);
         expect(state.visualToLogicalLine(0)).toBe(0);
         expect(state.visualToLogicalLine(1)).toBe(3);
-        expect(state.visualToLogicalLine(2)).toBe(-1); // out of range
+        expect(state.visualToLogicalLine(2)).toBe(-1);
     });
 });
-
-// ─── Folding: Cursor Navigation ────────────────────────────
 
 describe("EditorViewState.Folding — cursor navigation", () => {
     it("cursorDown skips collapsed region", () => {
@@ -193,7 +182,6 @@ describe("EditorViewState.Folding — cursor navigation", () => {
             text: c
             cursor: █
         `);
-        // cursor at line 2, which is the last visible line
         state.cursorDown();
         expect(state.selections[0].active.line).toBe(2);
     });
@@ -220,9 +208,7 @@ describe("EditorViewState.Folding — cursor navigation", () => {
             folding: ^
             text: ef
         `);
-        // cursor at line 0, char 2 (end of line)
         state.cursorRight();
-        // Should wrap to line 2 (next visible), char 0
         expect(state.selections[0].active.line).toBe(2);
         expect(state.selections[0].active.character).toBe(0);
     });
@@ -236,9 +222,7 @@ describe("EditorViewState.Folding — cursor navigation", () => {
             text: ef
             cursor: █
         `);
-        // cursor at line 2, char 0
         state.cursorLeft();
-        // Should wrap to line 0 (previous visible), char 2 (end of "ab")
         expect(state.selections[0].active.line).toBe(0);
         expect(state.selections[0].active.character).toBe(2);
     });
@@ -252,14 +236,11 @@ describe("EditorViewState.Folding — cursor navigation", () => {
             folding: ^
             text: xy
         `);
-        // cursor at line 0, char 5. Target (line 2) has length 2
         state.cursorDown();
         expect(state.selections[0].active.line).toBe(2);
         expect(state.selections[0].active.character).toBe(2);
     });
 });
-
-// ─── Folding: Auto-expand ──────────────────────────────────
 
 describe("EditorViewState.Folding — auto-expand", () => {
     it("ensureLineVisible expands collapsed region containing the line", () => {
@@ -286,9 +267,9 @@ describe("EditorViewState.Folding — auto-expand", () => {
             text: c
             cursor: █
         `);
-        state.ensureLineVisible(0); // startLine — always visible
+        state.ensureLineVisible(0);
         expect(state.foldedRegions[0].isCollapsed).toBe(true);
-        state.ensureLineVisible(2); // outside region
+        state.ensureLineVisible(2);
         expect(state.foldedRegions[0].isCollapsed).toBe(true);
     });
 
@@ -304,8 +285,6 @@ describe("EditorViewState.Folding — auto-expand", () => {
         expect(state.foldedRegions[0].isCollapsed).toBe(true);
     });
 });
-
-// ─── Folding: Toggle & Fold/Unfold All ─────────────────────
 
 describe("EditorViewState.Folding — toggle and foldAll/unfoldAll", () => {
     it("toggleFold collapses an expanded region", () => {
@@ -342,7 +321,7 @@ describe("EditorViewState.Folding — toggle and foldAll/unfoldAll", () => {
             folding: ^
             cursor: █
         `);
-        state.toggleFold(1); // no region starts at line 1
+        state.toggleFold(1);
         expect(state.foldedRegions[0].isCollapsed).toBe(false);
     });
 
@@ -379,15 +358,12 @@ describe("EditorViewState.Folding — toggle and foldAll/unfoldAll", () => {
     });
 });
 
-// ─── Folding: Edit Tracking ────────────────────────────────
-
 describe("EditorViewState.Folding — edit tracking", () => {
     it("inserting lines above a region shifts its boundaries", () => {
         const doc = new TextDocument("a\nb\nc\nd");
         const state = new EditorViewState(doc, [createCursorSelection(0, 1)]);
         state.setFoldingRegions([createFoldingRegion(2, 3, false)]);
 
-        // Type newline at end of line 0 → inserts a line, pushing everything down
         state.type("\n");
 
         expect(state.foldedRegions[0].startLine).toBe(3);
@@ -399,7 +375,6 @@ describe("EditorViewState.Folding — edit tracking", () => {
         const state = new EditorViewState(doc, [createCursorSelection(1, 1)]);
         state.setFoldingRegions([createFoldingRegion(0, 2, false)]);
 
-        // Type newline inside the region (at line 1)
         state.type("\n");
 
         expect(state.foldedRegions[0].startLine).toBe(0);
@@ -411,7 +386,6 @@ describe("EditorViewState.Folding — edit tracking", () => {
         const state = new EditorViewState(doc, [createCursorSelection(1, 0)]);
         state.setFoldingRegions([createFoldingRegion(2, 3, false)]);
 
-        // Delete left at beginning of line 1 → merges line 1 into line 0
         state.deleteLeft();
 
         expect(state.foldedRegions[0].startLine).toBe(1);
@@ -423,42 +397,31 @@ describe("EditorViewState.Folding — edit tracking", () => {
         const state = new EditorViewState(doc, [createCursorSelection(1, 0)]);
         state.setFoldingRegions([createFoldingRegion(0, 1, false)]);
 
-        // Select from line 0 char 0 to line 1 char 0 and type "x" — crosses region start
-        // Actually let's use the existing API: position cursor at start of line 1 and deleteLeft
-        // That merges line 0 and line 1 → edit range (0, lineLen(0)) to (1, 0)
+        // deleteLeft в начале строки 1 склеивает её с 0 — правка пересекает startLine региона.
         state.deleteLeft();
 
-        // Region should be removed because edit crossed startLine boundary
         expect(state.foldedRegions.length).toBe(0);
     });
 });
 
-// ─── Construction ───────────────────────────────────────────
-
 describe("EditorViewState.CursorManagement", () => {
-    // ─── idealColumn: vertical navigation preserves column memory ────
-
     it("cursorDown through short line preserves idealColumn", () => {
-        // Lines: "abcdef" (6), "hi" (2), "xyzwv" (5)
         const doc = new TextDocument("abcdef\nhi\nxyzwv");
         const state = new EditorViewState(doc, [createCursorSelection(0, 5)]);
-        // idealColumn defaults to 5
-        state.cursorDown(); // line 1 len=2 → char=2, idealColumn still 5
+        state.cursorDown();
         expect(state.selections[0].active).toEqual({ line: 1, character: 2 });
-        state.cursorDown(); // line 2 len=5 → char=5, idealColumn still 5
+        state.cursorDown();
         expect(state.selections[0].active).toEqual({ line: 2, character: 5 });
     });
 
     it("cursorUp through short line preserves idealColumn", () => {
         const doc = new TextDocument("xyzwv\nhi\nabcdef");
         const state = new EditorViewState(doc, [createCursorSelection(2, 5)]);
-        state.cursorUp(); // line 1 len=2 → char=2, idealColumn still 5
+        state.cursorUp();
         expect(state.selections[0].active).toEqual({ line: 1, character: 2 });
-        state.cursorUp(); // line 0 len=5 → char=5, idealColumn still 5
+        state.cursorUp();
         expect(state.selections[0].active).toEqual({ line: 0, character: 5 });
     });
-
-    // ─── cursorEnd sets ideal to MAX_SAFE_INTEGER ("sticky right edge") ────
 
     it("cursorEnd then cursorDown sticks to right edge", () => {
         const doc = new TextDocument("short\nlonger line\nhi");
@@ -466,14 +429,12 @@ describe("EditorViewState.CursorManagement", () => {
         state.cursorEnd();
         expect(state.selections[0].active).toEqual({ line: 0, character: 5 });
 
-        state.cursorDown(); // "longer line" len=11 → char=11
+        state.cursorDown();
         expect(state.selections[0].active).toEqual({ line: 1, character: 11 });
 
-        state.cursorDown(); // "hi" len=2 → char=2
+        state.cursorDown();
         expect(state.selections[0].active).toEqual({ line: 2, character: 2 });
     });
-
-    // ─── cursorHome sets ideal to 0 ────
 
     it("cursorHome sets activeColumn and idealColumn to 0", () => {
         const doc = new TextDocument("hello\nworld");
@@ -481,11 +442,9 @@ describe("EditorViewState.CursorManagement", () => {
         state.cursorHome();
         expect(state.selections[0].active).toEqual({ line: 0, character: 0 });
 
-        state.cursorDown(); // idealColumn=0, so char stays 0
+        state.cursorDown();
         expect(state.selections[0].active).toEqual({ line: 1, character: 0 });
     });
-
-    // ─── Smart Home (VS Code style) ────
 
     it("cursorHome jumps to the first non-whitespace character on a space-indented line", () => {
         const doc = new TextDocument("    hello");
@@ -497,27 +456,27 @@ describe("EditorViewState.CursorManagement", () => {
     it("cursorHome toggles between first non-whitespace and column 0", () => {
         const doc = new TextDocument("    hello");
         const state = new EditorViewState(doc, [createCursorSelection(0, 6)]);
-        state.cursorHome(); // → first non-ws
+        state.cursorHome();
         expect(state.selections[0].active).toEqual({ line: 0, character: 4 });
-        state.cursorHome(); // already at first non-ws → column 0
+        state.cursorHome();
         expect(state.selections[0].active).toEqual({ line: 0, character: 0 });
-        state.cursorHome(); // back to first non-ws
+        state.cursorHome();
         expect(state.selections[0].active).toEqual({ line: 0, character: 4 });
     });
 
     it("cursorHome jumps to first non-whitespace from within the indent", () => {
         const doc = new TextDocument("    hello");
         const state = new EditorViewState(doc, [createCursorSelection(0, 2)]);
-        state.cursorHome(); // inside the indent, not yet at first non-ws → first non-ws
+        state.cursorHome();
         expect(state.selections[0].active).toEqual({ line: 0, character: 4 });
     });
 
     it("cursorHome sets idealColumn to the display column of the target with tabs", () => {
         const doc = new TextDocument("\thello\n\tworld");
         const state = new EditorViewState(doc, [createCursorSelection(0, 3)]);
-        state.cursorHome(); // → char 1 (first non-ws), idealColumn = display col 4 (one tab)
+        state.cursorHome();
         expect(state.selections[0].active).toEqual({ line: 0, character: 1 });
-        state.cursorDown(); // idealColumn=4 → char 1 on next tab-indented line
+        state.cursorDown();
         expect(state.selections[0].active).toEqual({ line: 1, character: 1 });
     });
 
@@ -526,7 +485,7 @@ describe("EditorViewState.CursorManagement", () => {
         const state = new EditorViewState(doc, [createCursorSelection(0, 3)]);
         state.cursorHome();
         expect(state.selections[0].active).toEqual({ line: 0, character: 0 });
-        state.cursorHome(); // firstNonWs is 0, so it stays at 0
+        state.cursorHome();
         expect(state.selections[0].active).toEqual({ line: 0, character: 0 });
     });
 
@@ -535,7 +494,7 @@ describe("EditorViewState.CursorManagement", () => {
         const state = new EditorViewState(doc, [createCursorSelection(0, 4)]);
         state.cursorHome(); // active === firstNonWs (line length 4) → column 0
         expect(state.selections[0].active).toEqual({ line: 0, character: 0 });
-        state.cursorHome(); // → first non-ws == line length
+        state.cursorHome();
         expect(state.selections[0].active).toEqual({ line: 0, character: 4 });
     });
 
@@ -547,27 +506,23 @@ describe("EditorViewState.CursorManagement", () => {
         expect(state.selections[1].active).toEqual({ line: 1, character: 2 });
     });
 
-    // ─── cursorLeft / cursorRight reset idealColumn ────
-
     it("cursorLeft resets idealColumn", () => {
         const doc = new TextDocument("abcdef\nhi\nabcdef");
         const state = new EditorViewState(doc, [createCursorSelection(0, 5)]);
-        state.cursorDown(); // now at (1, 2), idealColumn=5
-        state.cursorLeft(); // now at (1, 1), idealColumn=1
-        state.cursorDown(); // idealColumn=1 → (2, 1)
+        state.cursorDown();
+        state.cursorLeft();
+        state.cursorDown();
         expect(state.selections[0].active).toEqual({ line: 2, character: 1 });
     });
 
     it("cursorRight resets idealColumn", () => {
         const doc = new TextDocument("abcdef\nhi\nabcdef");
         const state = new EditorViewState(doc, [createCursorSelection(0, 5)]);
-        state.cursorDown(); // now at (1, 2), idealColumn=5
-        state.cursorRight(); // wraps to (2, 0), idealColumn=0
-        state.cursorDown(); // no more lines, stays at (2, 0)
+        state.cursorDown();
+        state.cursorRight();
+        state.cursorDown();
         expect(state.selections[0].active).toEqual({ line: 2, character: 0 });
     });
-
-    // ─── Selection mode: cursorRight(true) creates selection ────
 
     it("cursorRight with inSelectionMode creates selection", () => {
         const doc = new TextDocument("hello");
@@ -601,17 +556,13 @@ describe("EditorViewState.CursorManagement", () => {
         expect(state.selections[0].anchor).toEqual({ line: 1, character: 3 });
     });
 
-    // ─── Selection mode: collapse when inSelectionMode=false ────
-
     it("cursorRight without selection mode collapses existing selection", () => {
         const doc = new TextDocument("hello");
         const state = new EditorViewState(doc, [createSelection(0, 1, 0, 4)]);
-        state.cursorRight(); // active was 4, now 5; anchor collapses to 5
+        state.cursorRight();
         expect(state.selections[0].active).toEqual({ line: 0, character: 5 });
         expect(state.selections[0].anchor).toEqual({ line: 0, character: 5 });
     });
-
-    // ─── cursorHome / cursorEnd with selection mode ────
 
     it("cursorEnd with inSelectionMode selects to end of line", () => {
         const doc = new TextDocument("hello world");
@@ -637,20 +588,14 @@ describe("EditorViewState.CursorManagement", () => {
         expect(state.selections[0].anchor).toEqual({ line: 0, character: 7 });
     });
 
-    // ─── normalizeSelections sorts multi-cursors ────
-
     it("normalizeSelections sorts cursors by document order", () => {
         const doc = new TextDocument("aaa\nbbb\nccc");
-        // Provide cursors in reverse order
         const state = new EditorViewState(doc, [createCursorSelection(2, 0), createCursorSelection(0, 0)]);
-        state.cursorRight(); // triggers normalizeSelections
-        // After sort, line 0 cursor should be first
+        state.cursorRight();
         expect(state.selections[0].active.line).toBe(0);
         expect(state.selections[1].active.line).toBe(2);
     });
 });
-
-// ─── Scroll: ensureCursorVisible ────────────────────────────
 
 describe("EditorViewState.Scroll — ensureCursorVisible", () => {
     function makeLines(count: number): string {
@@ -662,9 +607,7 @@ describe("EditorViewState.Scroll — ensureCursorVisible", () => {
         const state = new EditorViewState(doc);
         state.viewportHeight = 5;
         state.viewportWidth = 80;
-        // Cursor starts at line 0, scrollTop = 0
         for (let i = 0; i < 5; i++) state.cursorDown();
-        // Cursor is now on visual line 5 — beyond viewport (0..4)
         expect(state.scrollTop).toBe(1);
     });
 
@@ -675,7 +618,6 @@ describe("EditorViewState.Scroll — ensureCursorVisible", () => {
         state.viewportWidth = 80;
         state.scrollTop = 5;
         for (let i = 0; i < 3; i++) state.cursorUp();
-        // Cursor is on line 4, scrollTop was 5 → should scroll up
         expect(state.scrollTop).toBe(4);
     });
 
@@ -685,7 +627,6 @@ describe("EditorViewState.Scroll — ensureCursorVisible", () => {
         state.viewportWidth = 20;
         state.viewportHeight = 5;
         state.cursorEnd();
-        // Cursor at character 100, viewportWidth 20 → scrollLeft = 100 - 20 + 1 = 81
         expect(state.scrollLeft).toBe(81);
     });
 
@@ -704,12 +645,8 @@ describe("EditorViewState.Scroll — ensureCursorVisible", () => {
         const state = new EditorViewState(doc);
         state.viewportHeight = 5;
         state.viewportWidth = 80;
-        // Collapse lines 2..5 (hide lines 3,4,5 → 3 visual lines removed)
         state.setFoldingRegions([createFoldingRegion(2, 5, true)]);
-        // Move cursor down 5 times
-        // Visual lines: 0,1,2(collapsed shows line2 header),6,7,8,9,...
         for (let i = 0; i < 5; i++) state.cursorDown();
-        // Cursor should have jumped over collapsed region
         expect(state.selections[0].active.line).toBeGreaterThanOrEqual(6);
         expect(state.scrollTop).toBeGreaterThanOrEqual(1);
     });
@@ -719,7 +656,6 @@ describe("EditorViewState.Scroll — ensureCursorVisible", () => {
         const state = new EditorViewState(doc, [createCursorSelection(4, 6)]);
         state.viewportHeight = 5;
         state.viewportWidth = 80;
-        // Cursor on last visible line. Insert newline pushes cursor below viewport
         state.type("\n");
         expect(state.scrollTop).toBe(1);
     });
@@ -730,7 +666,6 @@ describe("EditorViewState.Scroll — ensureCursorVisible", () => {
         state.viewportHeight = 5;
         state.viewportWidth = 80;
         state.scrollTop = 5;
-        // Backspace at beginning of line 5 → merges with line 4 → cursor on line 4
         state.deleteLeft();
         expect(state.selections[0].active.line).toBe(4);
         expect(state.scrollTop).toBe(4);

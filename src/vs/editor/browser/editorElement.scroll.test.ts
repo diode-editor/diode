@@ -30,7 +30,6 @@ function fireWheel(editor: EditorElement, direction: WheelDirection): void {
     );
 }
 
-// Generate text with N lines, each line is "line{i}" (5 chars wide)
 function makeLines(count: number): string {
     return Array.from({ length: count }, (_, i) => `line${i}`).join("\n");
 }
@@ -97,7 +96,6 @@ describe("EditorElement – wheel scroll", () => {
 
     describe("horizontal scroll (scrollLeft)", () => {
         it("wheel right increases scrollLeft by 3", () => {
-            // Each line is 60 chars wide to allow horizontal scroll
             const longLine = "a".repeat(60);
             const { editor } = createEditor(longLine, 20, 5);
 

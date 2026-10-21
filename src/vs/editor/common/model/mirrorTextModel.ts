@@ -3,9 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 //@diode:shim microsoft/vscode@1.127.0 src/vs/editor/common/model/mirrorTextModel.ts
-// Узкое извлечение (см. шапку src/vs/base/common/arrays.ts): только форма
-// правки — её принимает `acceptChanges` перенесённого model/textModelTokens.ts
-// и строит перенесённый PieceTree (`IInternalModelContentChange` в model.ts).
+// Узкое извлечение: только форма правки для перенесённых textModelTokens и PieceTree.
 
 import type { IRange } from "../core/range.ts";
 

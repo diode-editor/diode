@@ -27,15 +27,15 @@ function collapsedOf(state: EditorViewState, startLine: number): boolean | undef
 describe("EditorViewState – foldRecursively / unfoldRecursively", () => {
     it("collapses the region at the cursor and every region nested inside it", () => {
         const state = tree();
-        state.foldRecursively(0); // fn1 + its nested if
+        state.foldRecursively(0);
         expect(collapsedOf(state, 0)).toBe(true);
         expect(collapsedOf(state, 1)).toBe(true);
-        expect(collapsedOf(state, 4)).toBe(false); // sibling untouched
+        expect(collapsedOf(state, 4)).toBe(false);
     });
 
     it("only collapses the innermost region when it has no children", () => {
         const state = tree();
-        state.foldRecursively(4); // fn2 has no nested regions
+        state.foldRecursively(4);
         expect(collapsedOf(state, 4)).toBe(true);
         expect(collapsedOf(state, 0)).toBe(false);
         expect(collapsedOf(state, 1)).toBe(false);
@@ -43,15 +43,15 @@ describe("EditorViewState – foldRecursively / unfoldRecursively", () => {
 
     it("is a no-op when no region covers the line", () => {
         const state = tree();
-        state.foldRecursively(6); // "tail" — outside every region
+        state.foldRecursively(6);
         expect(state.foldedRegions.every((r) => !r.isCollapsed)).toBe(true);
     });
 
     it("snaps the cursor to a visible header when recursion hides it", () => {
         const state = tree();
-        state.selections = [createCursorSelection(2, 0)]; // inside if, inside fn1
+        state.selections = [createCursorSelection(2, 0)];
         state.foldRecursively(0);
-        expect(state.selections[0].active.line).toBe(0); // snapped to fn1 header
+        expect(state.selections[0].active.line).toBe(0);
         expect(state.logicalToVisualLine(0)).toBeGreaterThanOrEqual(0);
     });
 
@@ -61,17 +61,17 @@ describe("EditorViewState – foldRecursively / unfoldRecursively", () => {
         state.unfoldRecursively(0);
         expect(collapsedOf(state, 0)).toBe(false);
         expect(collapsedOf(state, 1)).toBe(false);
-        expect(collapsedOf(state, 4)).toBe(true); // sibling still folded
+        expect(collapsedOf(state, 4)).toBe(true);
     });
 });
 
 describe("EditorViewState – foldLevel", () => {
     it("folds only regions at or below the requested nesting level", () => {
         const state = tree();
-        state.foldLevel(2); // level 1 open, level ≥ 2 folded
-        expect(collapsedOf(state, 0)).toBe(false); // fn1 — level 1
-        expect(collapsedOf(state, 4)).toBe(false); // fn2 — level 1
-        expect(collapsedOf(state, 1)).toBe(true); // if — level 2
+        state.foldLevel(2);
+        expect(collapsedOf(state, 0)).toBe(false);
+        expect(collapsedOf(state, 4)).toBe(false);
+        expect(collapsedOf(state, 1)).toBe(true);
     });
 
     it("folds every region at level 1", () => {
@@ -88,7 +88,7 @@ describe("EditorViewState – foldLevel", () => {
 
     it("keeps the cursor visible after folding", () => {
         const state = tree();
-        state.selections = [createCursorSelection(2, 0)]; // inside the level-2 region
+        state.selections = [createCursorSelection(2, 0)];
         state.foldLevel(2);
         expect(state.logicalToVisualLine(state.selections[0].active.line)).toBeGreaterThanOrEqual(0);
     });
@@ -99,9 +99,9 @@ describe("EditorViewState – gotoNextFold / gotoPreviousFold", () => {
         const state = tree();
         state.selections = [createCursorSelection(0, 0)];
         state.gotoNextFold(0);
-        expect(state.selections[0].active).toEqual({ line: 1, character: 0 }); // if
+        expect(state.selections[0].active).toEqual({ line: 1, character: 0 });
         state.gotoNextFold(1);
-        expect(state.selections[0].active).toEqual({ line: 4, character: 0 }); // fn2
+        expect(state.selections[0].active).toEqual({ line: 4, character: 0 });
     });
 
     it("moves the cursor to the previous region header", () => {
@@ -114,10 +114,10 @@ describe("EditorViewState – gotoNextFold / gotoPreviousFold", () => {
     it("is a no-op past the last / before the first region", () => {
         const state = tree();
         state.selections = [createCursorSelection(6, 0)];
-        state.gotoNextFold(6); // nothing starts after line 6
+        state.gotoNextFold(6);
         expect(state.selections[0].active.line).toBe(6);
         state.selections = [createCursorSelection(0, 0)];
-        state.gotoPreviousFold(0); // nothing starts before line 0
+        state.gotoPreviousFold(0);
         expect(state.selections[0].active.line).toBe(0);
     });
 
@@ -127,6 +127,6 @@ describe("EditorViewState – gotoNextFold / gotoPreviousFold", () => {
         expect(state.logicalToVisualLine(1)).toBe(-1);
         state.gotoNextFold(0);
         expect(state.selections[0].active.line).toBe(1);
-        expect(state.logicalToVisualLine(1)).toBeGreaterThanOrEqual(0); // revealed
+        expect(state.logicalToVisualLine(1)).toBeGreaterThanOrEqual(0);
     });
 });

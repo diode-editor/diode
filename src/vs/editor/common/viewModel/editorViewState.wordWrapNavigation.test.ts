@@ -38,10 +38,10 @@ describe("word wrap navigation — cursorUp/cursorDown по рядам", () => {
 
     it("липкая колонка переживает короткий фрагмент", () => {
         const state = makeState();
-        state.selections = [createCursorSelection(0, 9)]; // колонка 9 первого фрагмента
+        state.selections = [createCursorSelection(0, 9)];
         state.cursorDown(); // "cccc" — всего 4 колонки, каретка в конец
         expect(active(state)).toEqual({ line: 0, character: 14 });
-        state.cursorUp(); // обратно — липкая колонка 9 восстановилась
+        state.cursorUp();
         expect(active(state)).toEqual({ line: 0, character: 9 });
     });
 
@@ -49,7 +49,7 @@ describe("word wrap navigation — cursorUp/cursorDown по рядам", () => {
         // Вторая строка длинная: спуск с конца первого ряда не должен дать offset границы.
         const state = makeState("aaaa bbbb cccc\naaaa bbbb cccc");
         state.selections = [createCursorSelection(0, 14)]; // конец "cccc" (ряд 2)
-        state.cursorDown(); // ряд 3 — первый фрагмент строки 1, колонка 4
+        state.cursorDown();
         expect(active(state)).toEqual({ line: 1, character: 4 });
         state.selections = [createCursorSelection(0, 9)];
         state.cursorDown(); // ряд 2 ("cccc"): липкая колонка 9 клампится в конец строки
@@ -70,7 +70,7 @@ describe("word wrap navigation — cursorUp/cursorDown по рядам", () => {
         const state = makeState();
         state.setViewZones([{ afterLine: 0, size: 1 }]);
         state.selections = [createCursorSelection(0, 12)]; // второй фрагмент
-        state.cursorDown(); // через зону на "short"
+        state.cursorDown();
         expect(active(state)).toEqual({ line: 1, character: 2 });
     });
 
@@ -105,7 +105,7 @@ describe("word wrap navigation — скрытые строки и зоны", () 
     it("посадка с липкой колонкой за границей фрагмента клампится к последней графеме", () => {
         const state = makeState("short\naaaa bbbb cccc");
         state.selections = [createCursorSelection(0, 5)];
-        state.cursorEnd(); // idealColumn = MAX
+        state.cursorEnd();
         state.cursorDown(); // ряд 1 — НЕ-последний фрагмент строки 1
         expect(active(state)).toEqual({ line: 1, character: 9 });
     });
@@ -232,7 +232,7 @@ describe("word wrap navigation — мультикурсор и страницы"
         const state = makeState("ab\ncd");
         state.viewportHeight = 2; // страница = 1 ряд
         state.setViewZones([{ afterLine: 0, size: 1 }]);
-        state.selections = [createCursorSelection(1, 0)]; // ряд 2
+        state.selections = [createCursorSelection(1, 0)];
         state.cursorPageUp(); // целевой ряд 1 — зона → откат вверх к ряду 0
         expect(active(state)).toEqual({ line: 0, character: 0 });
     });

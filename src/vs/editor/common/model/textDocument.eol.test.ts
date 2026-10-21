@@ -5,8 +5,6 @@ import { EndOfLine } from "../core/endOfLine.ts";
 import { TextDocument } from "./textDocument.ts";
 
 describe("TextDocument EOL model", () => {
-    // ─── Detection on load ──────────────────────────────────
-
     it("defaults to LF for empty / single-line text", () => {
         expect(new TextDocument("").eol).toBe(EndOfLine.LF);
         expect(new TextDocument("hello").eol).toBe(EndOfLine.LF);
@@ -24,8 +22,6 @@ describe("TextDocument EOL model", () => {
         expect(new TextDocument("a\r\nb\r\nc\nd").eol).toBe(EndOfLine.CRLF);
         expect(new TextDocument("a\r\nb\nc\nd").eol).toBe(EndOfLine.LF);
     });
-
-    // ─── LF-canonical internal storage ──────────────────────
 
     it("strips \\r from line content when loading CRLF text", () => {
         const doc = new TextDocument("a\r\nb\r\nc");
@@ -46,8 +42,6 @@ describe("TextDocument EOL model", () => {
         expect(doc.getLineLength(1)).toBe(4);
     });
 
-    // ─── serialize() ────────────────────────────────────────
-
     it("serialize() joins with the document's eol", () => {
         expect(new TextDocument("a\r\nb\r\nc").serialize()).toBe("a\r\nb\r\nc");
         expect(new TextDocument("a\nb\nc").serialize()).toBe("a\nb\nc");
@@ -64,8 +58,6 @@ describe("TextDocument EOL model", () => {
         const doc = new TextDocument(original);
         expect(doc.serialize()).toBe(original);
     });
-
-    // ─── setEol() ───────────────────────────────────────────
 
     it("setEol changes eol and serialize output but not getText or version", () => {
         const doc = new TextDocument("a\nb");
@@ -84,8 +76,6 @@ describe("TextDocument EOL model", () => {
         doc.setEol(EndOfLine.LF);
         expect(doc.serialize()).toBe("a\nb");
     });
-
-    // ─── onDidChangeEol ─────────────────────────────────────
 
     it("onDidChangeEol fires when setEol changes the sequence", () => {
         const doc = new TextDocument("a\nb");
@@ -120,8 +110,6 @@ describe("TextDocument EOL model", () => {
         expect(fired).toBe(0);
         other.dispose();
     });
-
-    // ─── setText re-detects eol ─────────────────────────────
 
     it("setText объявляет смену EOL ровно тогда, когда он сменился", () => {
         const doc = new TextDocument("a\nb");

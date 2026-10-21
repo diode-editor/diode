@@ -7,13 +7,11 @@ function makeDoc(lines: string[]): TextDocument {
     return new TextDocument(lines.join("\n"));
 }
 
-/** Дефолты «как в реестре настроек» — чтобы видеть, когда файл промолчал. */
 const SPACES_4: IIndentationDefaults = { tabSize: 4, insertSpaces: true };
 
 describe("detectIndentation", () => {
     it("detects 2 spaces in a package.json-shaped file", () => {
-        // Регрессия: файл целиком состоит из уровней 2 и 4, и «самая частая
-        // ширина отступа» здесь равна 4 — шаг же равен 2.
+        // Регрессия: самая частая ширина здесь 4, а шаг — 2.
         const doc = makeDoc([
             "{",
             '  "name": "diode",',
@@ -31,8 +29,7 @@ describe("detectIndentation", () => {
     });
 
     it("is not thrown off by the single-space continuation of a block comment", () => {
-        // Регрессия: ` * …` даёт ширину отступа 1, и любой счёт по абсолютным
-        // ширинам (GCD) обнулял бы им весь файл.
+        // Регрессия: ` * …` даёт ширину 1, и счёт по абсолютным ширинам (GCD) обнулял бы файл.
         const doc = makeDoc([
             "/**",
             " * Does things.",
@@ -89,8 +86,6 @@ describe("detectIndentation", () => {
     });
 
     it("при отступе табами ширина берётся из defaults, а не из пробельных строк файла", () => {
-        // Табов больше, чем пробельных строк, — файл табовый; шаг 2, набранный
-        // по пробельным строкам, к ширине таба отношения не имеет.
         const doc = makeDoc(["\ta", "\tb", "\tc", "  x", "    y"]);
 
         expect(detectIndentation(doc, { tabSize: 8, insertSpaces: true })).toEqual({
@@ -125,32 +120,26 @@ describe("detectIndentation", () => {
     });
 
     it("ширина пробельной строки не попадает в гистограмму шагов", () => {
-        // Пробельные строки на 6 позиций среди двухпробельного кода: посчитай их
-        // за содержательные — и шаг 4 забьёт настоящую двойку.
+        // Посчитай пробельные строки содержательными — шаг 4 забьёт настоящую двойку.
         const doc = makeDoc(["a", "  b", "      ", "  c", "      ", "  d"]);
 
         expect(detectIndentation(doc, SPACES_4)).toEqual({ insertSpaces: true, tabSize: 2 });
     });
 
     it("пробельная строка не считается отступлённой на один символ", () => {
-        // Тот же капкан с другой стороны: если у пробельной строки «отступ 1»,
-        // шаги с четвёрок съезжают на тройки и tabSize становится 3.
+        // Если у пробельной строки «отступ 1», шаги съезжают на тройки.
         const doc = makeDoc(["a", "    b", "    ", "    c", "    ", "    d", "    ", "    e"]);
 
         expect(detectIndentation(doc, SPACES_4)).toEqual({ insertSpaces: true, tabSize: 4 });
     });
 
     it("пробельная строка не голосует в споре табов с пробелами", () => {
-        // Таб против пробелов — ничья, решают defaults. Пробельная строка в шесть
-        // пробелов не должна её ломать: отступа в ней нет, есть только пробелы.
         const doc = makeDoc(["\ta", "  b", "      "]);
 
         expect(detectIndentation(doc, { tabSize: 4, insertSpaces: false }).insertSpaces).toBe(false);
     });
 
     it("строки с одним ведущим пробелом не делают файл пробельным", () => {
-        // Файл целиком из блочного комментария: ` * …` — это выравнивание
-        // звёздочек, а не отступ, и голоса за пробелы здесь нет вовсе.
         const doc = makeDoc(["/**", " * a", " */"]);
 
         expect(detectIndentation(doc, { tabSize: 4, insertSpaces: false }).insertSpaces).toBe(false);
@@ -184,7 +173,6 @@ describe("detectIndentation", () => {
 
     describe("mixed tabs and spaces", () => {
         it("ignores a step where either side mixes tabs and spaces", () => {
-            // Первая строка ловит смешанный хвост как «текущая», вторая — как «предыдущая».
             const doc = makeDoc(["  \ta", "x"]);
 
             expect(detectIndentation(doc, SPACES_4)).toEqual({ insertSpaces: false, tabSize: 4 });

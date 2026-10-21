@@ -17,10 +17,7 @@ function createEditor(text: string, width = 30, height = 10): { app: TestApp; ed
     return { app, editor };
 }
 
-// The gutter reserves a 3-column fold margin after the digits: a blank gap, the
-// fold-control column (chevron on foldable headers), and a blank gap before text.
-
-// ─── gutterWidth ────────────────────────────────────────────
+// Гуттер: 2 колонки отступа + цифры + 3 колонки фолдинга (зазор, шеврон, зазор).
 
 describe("gutterWidth", () => {
     it("returns GUTTER_LEFT_PADDING + 1 digit + 3 fold margin for 1–9 lines", () => {
@@ -59,18 +56,12 @@ describe("gutterWidth", () => {
     });
 });
 
-// ─── Gutter rendering ───────────────────────────────────────
-
 describe("gutter rendering", () => {
     it("renders line numbers right-aligned with left padding", () => {
         const { app } = createEditor("AAA\nBBB\nCCC", 15, 5);
         app.render();
 
         const backend = app.backend;
-        // gutterWidth = 6 (2 pad + 1 digit + 3 fold margin)
-        // Row 0: "  1   AAA      "
-        // Row 1: "  2   BBB      "
-        // Row 2: "  3   CCC      "
         expect(backend.getTextAt(new Point(0, 0), 6)).toBe("  1   ");
         expect(backend.getTextAt(new Point(0, 1), 6)).toBe("  2   ");
         expect(backend.getTextAt(new Point(0, 2), 6)).toBe("  3   ");
@@ -82,7 +73,6 @@ describe("gutter rendering", () => {
         app.render();
 
         const backend = app.backend;
-        // gutterWidth = 7 (2 pad + 2 digits + 3 fold margin)
         expect(backend.getTextAt(new Point(0, 0), 7)).toBe("   1   ");
         expect(backend.getTextAt(new Point(0, 8), 7)).toBe("   9   ");
         expect(backend.getTextAt(new Point(0, 9), 7)).toBe("  10   ");
@@ -96,10 +86,8 @@ describe("gutter rendering", () => {
         app.render();
 
         const backend = app.backend;
-        // gutterWidth = 8 (2 pad + 3 digits + 3 fold margin); row 1 is logical line 150,
-        // whose units digit must survive the fold-shrunken view (regression: showed "15").
-        // Row 0 is the collapsed header — its fold column holds a chevron, so only
-        // the digit part is asserted there.
+        // Ряд 1 — логическая строка 150: её последняя цифра обязана пережить свёрнутую
+        // проекцию (регрессия: показывало «15»). В ряду 0 шеврон, поэтому проверяем только цифры.
         expect(backend.getTextAt(new Point(0, 0), 6)).toBe("    1 ");
         expect(backend.getTextAt(new Point(0, 1), 8)).toBe("  150   ");
     });
@@ -109,8 +97,7 @@ describe("gutter rendering", () => {
         app.render();
 
         const backend = app.backend;
-        // Lines 0,1 have content; lines 2,3,4 should be fully blank (no vim-style tildes)
-        // gutterWidth = 6
+        // VS Code не рисует vim-тильды за концом документа.
         expect(backend.getTextAt(new Point(0, 2), 6)).toBe("      ");
         expect(backend.getTextAt(new Point(0, 3), 6)).toBe("      ");
         expect(backend.getTextAt(new Point(0, 4), 6)).toBe("      ");
@@ -121,7 +108,6 @@ describe("gutter rendering", () => {
         app.render();
 
         const backend = app.backend;
-        // gutterWidth = 6
         expect(backend.getTextAt(new Point(6, 0), 5)).toBe("Hello");
     });
 
@@ -130,7 +116,6 @@ describe("gutter rendering", () => {
         app.render();
 
         const backend = app.backend;
-        // gutterWidth = 6
         expect(backend.getTextAt(new Point(0, 0), 10)).toBe("  1   AB  ");
         expect(backend.getTextAt(new Point(0, 1), 10)).toBe("  2   CD  ");
         expect(backend.getTextAt(new Point(0, 2), 10)).toBe("  3   EF  ");
@@ -138,8 +123,6 @@ describe("gutter rendering", () => {
         expect(backend.getTextAt(new Point(0, 4), 10)).toBe("          ");
     });
 });
-
-// ─── Gutter colors ──────────────────────────────────────────
 
 describe("gutter colors", () => {
     it("uses lineNumberForeground for non-active lines", () => {
@@ -149,8 +132,7 @@ describe("gutter colors", () => {
         app.render();
 
         const backend = app.backend;
-        // Line 1 (row 0) is active (cursor is at line 0), so check line 2 (row 1)
-        // Digit "2" is at column 2 (after 2-char padding)
+        // Ряд 0 активен (курсор на строке 0) — проверяем ряд 1.
         expect(backend.getFgAt(new Point(2, 1))).toBe(lnFg);
     });
 
@@ -161,7 +143,6 @@ describe("gutter colors", () => {
         app.render();
 
         const backend = app.backend;
-        // Cursor is at line 0 → row 0 is active → digit "1" at column 2
         expect(backend.getFgAt(new Point(2, 0))).toBe(lnActiveFg);
     });
 
@@ -172,7 +153,6 @@ describe("gutter colors", () => {
         app.render();
 
         const backend = app.backend;
-        // All gutter columns (0..5) should have gutBg
         for (let x = 0; x < 6; x++) {
             expect(backend.getBgAt(new Point(x, 0))).toBe(gutBg);
             expect(backend.getBgAt(new Point(x, 1))).toBe(gutBg);
@@ -187,7 +167,6 @@ describe("gutter colors", () => {
         app.render();
 
         const backend = app.backend;
-        // Content starts at gutterWidth = 6
         expect(backend.getBgAt(new Point(6, 0))).toBe(editorBg);
         expect(backend.getBgAt(new Point(7, 0))).toBe(editorBg);
     });
@@ -199,7 +178,6 @@ describe("gutter colors", () => {
         app.render();
 
         const backend = app.backend;
-        // "H" at column 6 (gutterWidth)
         expect(backend.getFgAt(new Point(6, 0))).toBe(editorFg);
     });
 
@@ -210,7 +188,6 @@ describe("gutter colors", () => {
         app.render();
 
         const backend = app.backend;
-        // Gutter columns should inherit editor background
         expect(backend.getBgAt(new Point(0, 0))).toBe(editorBg);
         expect(backend.getBgAt(new Point(2, 0))).toBe(editorBg);
     });
@@ -219,9 +196,7 @@ describe("gutter colors", () => {
         const editorBg = packRgb(25, 26, 27);
         const gutterBg = packRgb(18, 19, 20);
 
-        // Тема, прибившая editorGutter.background к фону редактора вкладки
-        // (так делает dark2026): у редактора со своим фоном — Output живёт на
-        // фоне панели — гуттер иначе остался бы полосой чужого цвета.
+        // Тема, прибившая editorGutter.background к фону редактора (dark2026): у Output свой фон.
         const themed = createEditor("Hi", 15, 3);
         themed.editor.setStyleVars({ "editorGutter.background": gutterBg });
         themed.editor.style = { bg: editorBg };
@@ -244,14 +219,10 @@ describe("gutter colors", () => {
         const defaultLnFg = packRgb(133, 133, 133);
         const defaultLnActiveFg = packRgb(198, 198, 198);
 
-        // Row 0 is active (cursor at line 0) → active color
         expect(backend.getFgAt(new Point(2, 0))).toBe(defaultLnActiveFg);
-        // Row 1 is not active → default line number color
         expect(backend.getFgAt(new Point(2, 1))).toBe(defaultLnFg);
     });
 });
-
-// ─── Content area ───────────────────────────────────────────
 
 describe("content area rendering", () => {
     it("renders text content after gutter", () => {
@@ -259,7 +230,6 @@ describe("content area rendering", () => {
         app.render();
 
         const backend = app.backend;
-        // gutterWidth = 6, content starts at 6
         expect(backend.getTextAt(new Point(6, 0), 11)).toBe("Hello World");
     });
 
@@ -268,8 +238,6 @@ describe("content area rendering", () => {
         app.render();
 
         const backend = app.backend;
-        // gutterWidth = 6, content area = 6 cols
-        // "Hi" takes 2 chars, rest should be spaces
         expect(backend.getTextAt(new Point(6, 0), 6)).toBe("Hi    ");
     });
 
@@ -278,29 +246,23 @@ describe("content area rendering", () => {
         app.render();
 
         const backend = app.backend;
-        // Line 0: "  1   " gutter + empty content
         expect(backend.getTextAt(new Point(0, 0), 6)).toBe("  1   ");
-        // Past end: fully blank, no tildes
         expect(backend.getTextAt(new Point(6, 1), 1)).toBe(" ");
     });
 
     it("correctly shows selection background in content area", () => {
         const selBg = packRgb(38, 79, 120);
         const { app, editor } = createEditor("Hello World", 20, 3);
-        // Select "ello" (chars 1-5) by setting selection directly
         editor.viewState.selections = [{ anchor: { line: 0, character: 1 }, active: { line: 0, character: 5 } }];
         app.render();
 
         const backend = app.backend;
-        // "ello" should have selection bg at columns 6+1..6+4 = 7,8,9,10
         expect(backend.getBgAt(new Point(7, 0))).toBe(selBg);
         expect(backend.getBgAt(new Point(8, 0))).toBe(selBg);
         expect(backend.getBgAt(new Point(9, 0))).toBe(selBg);
         expect(backend.getBgAt(new Point(10, 0))).toBe(selBg);
     });
 });
-
-// ─── Scrolling ──────────────────────────────────────────────
 
 describe("scrolling", () => {
     const tenLines = Array.from({ length: 10 }, (_, i) => `Line${String(i + 1)}`).join("\n");
@@ -313,7 +275,6 @@ describe("scrolling", () => {
             app.render();
 
             const backend = app.backend;
-            // Visible lines: 4,5,6,7 (0-indexed: 3,4,5,6)
             expect(backend.getTextAt(new Point(0, 0), 7)).toBe("   4   ");
             expect(backend.getTextAt(new Point(0, 1), 7)).toBe("   5   ");
             expect(backend.getTextAt(new Point(0, 2), 7)).toBe("   6   ");
@@ -326,7 +287,6 @@ describe("scrolling", () => {
             app.render();
 
             const backend = app.backend;
-            // gutterWidth = 7
             expect(backend.getTextAt(new Point(7, 0), 5)).toBe("Line4");
             expect(backend.getTextAt(new Point(7, 1), 5)).toBe("Line5");
         });
@@ -337,10 +297,8 @@ describe("scrolling", () => {
             app.render();
 
             const backend = app.backend;
-            // Lines 9,10 are visible + 2 rows past end
             expect(backend.getTextAt(new Point(0, 0), 7)).toBe("   9   ");
             expect(backend.getTextAt(new Point(0, 1), 7)).toBe("  10   ");
-            // Past end — fully blank gutter + content, no tildes
             expect(backend.getTextAt(new Point(0, 2), 7)).toBe("       ");
             expect(backend.getTextAt(new Point(0, 3), 7)).toBe("       ");
         });
@@ -353,16 +311,13 @@ describe("scrolling", () => {
                 "editorLineNumber.foreground": lnFg,
                 "editorLineNumber.activeForeground": lnActiveFg,
             });
-            // Cursor on line 5, scroll to show it
             editor.viewState.selections = [{ anchor: { line: 5, character: 0 }, active: { line: 5, character: 0 } }];
             editor.viewState.scrollTop = 3;
             app.render();
 
             const backend = app.backend;
-            // Line 5 is at screenY=2 (scrollTop=3, line5 is viewLine=5, screenY=5-3=2)
-            // Digit column = 2 (GUTTER_LEFT_PADDING)
+            // scrollTop=3: строка 5 — на screenY=2.
             expect(backend.getFgAt(new Point(2, 2))).toBe(lnActiveFg);
-            // Line 4 at screenY=0 is not active
             expect(backend.getFgAt(new Point(2, 0))).toBe(lnFg);
         });
     });
@@ -375,7 +330,6 @@ describe("scrolling", () => {
             app.render();
 
             const backend = app.backend;
-            // Content shifts: scrollLeft=3, so first visible char at docChar=3 → "D"
             expect(backend.getTextAt(new Point(6, 0), 6)).toBe("DEFGHI");
         });
 
@@ -385,7 +339,6 @@ describe("scrolling", () => {
             app.render();
 
             const backend = app.backend;
-            // Gutter still shows "  1   " regardless of horizontal scroll
             expect(backend.getTextAt(new Point(0, 0), 6)).toBe("  1   ");
         });
 
@@ -396,7 +349,6 @@ describe("scrolling", () => {
             app.render();
 
             const backend = app.backend;
-            // "Hi" with scrollLeft=1 → visible char at docChar=1 is "i", then spaces
             expect(backend.getTextAt(new Point(6, 0), 6)).toBe("i     ");
         });
     });
@@ -411,10 +363,8 @@ describe("scrolling", () => {
             app.render();
 
             const backend = app.backend;
-            // Line numbers: 5,6,7
             expect(backend.getTextAt(new Point(0, 0), 7)).toBe("   5   ");
             expect(backend.getTextAt(new Point(0, 1), 7)).toBe("   6   ");
-            // Content of line 5 ("ABCDEFGH_5") scrollLeft=2 → "CDEFGH_5"
             expect(backend.getTextAt(new Point(7, 0), 8)).toBe("CDEFGH_5");
         });
     });

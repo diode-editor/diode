@@ -1,17 +1,6 @@
 /**
- * Performance tests for EditorElement / EditorViewState render-loop hot paths.
- *
- * Both operations are now cached by document versionId so cursor navigation
- * (which does not change versionId) costs O(1) instead of O(n) per frame.
- *
- *   1. EditorElement.contentWidth — cached by versionId; O(n × Intl.Segmenter)
- *      only on the first call after a content change, O(1) thereafter.
- *
- *   2. EditorViewState.buildVisibleLines() — cached by versionId + foldsVersion;
- *      O(n) only when content or fold state changes, O(1) for all render reads.
- *
- * Observed real-world impact of the fix: navigating a 3500-line file drops from
- * ~44 ms/frame (contentWidth alone) to effectively 0 ms for cursor moves.
+ * Горячие пути рендера при движении курсора: кэши по versionId (и foldsVersion) делают
+ * кадр O(1) — до них навигация по файлу в 3500 строк стоила ~44 мс/кадр.
  */
 
 import { DisplayLine } from "@tuidom/core/common/displayLine";
@@ -25,13 +14,6 @@ import { LONG_LINE_TRUNCATION_BADGE_WIDTH, STOP_RENDERING_LINE_AFTER } from "../
 
 import { EditorElement } from "./editorElement.ts";
 
-// ─── Helpers ────────────────────────────────────────────────
-
-/**
- * Generates JSON-like content representative of a lockfile.
- * Each entry ≈ 2 lines of JSON, total ~lineCount lines with typical
- * key/value structure and varied line lengths.
- */
 function generateJsonLikeText(lineCount: number): string {
     const lines: string[] = ["{"];
     let i = 1;
@@ -48,34 +30,18 @@ function generateJsonLikeText(lineCount: number): string {
     return lines.join("\n");
 }
 
-// ─── Constants ──────────────────────────────────────────────
-
 // Realistic package-lock.json scale: ~3500 lines, ~120 KB.
 const DOC_LINE_COUNT = 3_500;
 const VIEWPORT_HEIGHT = 40;
-// Number of simulated "cursor movements" (each triggers one render frame).
 const CURSOR_MOVES = 100;
 
-// ─── Tests ──────────────────────────────────────────────────
-
 describe("EditorElement / EditorViewState render-loop performance (cached)", () => {
-    /**
-     * Bottleneck 1: EditorElement.contentWidth
-     *
-     * The implementation iterates ALL document lines to find the maximum display
-     * width, creating a new DisplayLine (via Intl.Segmenter) for each line.
-     * This exact loop is the contentWidth getter in EditorElement.ts.
-     *
-     * Called every render frame (by ScrollBarDecorator / layout system).
-     * PASSES when slow (> 3000 ms for 100 frames). Fix target: < 100 ms.
-     */
     it("contentWidth: cached by versionId — 100 cursor-move frames must be fast", () => {
         const text = generateJsonLikeText(DOC_LINE_COUNT);
         const doc = new TextDocument(text);
         const viewState = new EditorViewState(doc, [createCursorSelection(0, 0)]);
         const editor = new EditorElement(viewState);
 
-        // Warm up JIT + first cache population
         void editor.contentWidth;
 
         const t0 = performance.now();
@@ -89,43 +55,25 @@ describe("EditorElement / EditorViewState render-loop performance (cached)", () 
                 ` (${(ms / CURSOR_MOVES).toFixed(2)} ms/frame)`,
         );
 
-        // Cache hit on every frame (versionId unchanged by cursor moves).
-        // 100 frames on a 3500-line doc should complete in well under 300 ms.
         expect(ms).toBeLessThan(300);
     }, 120_000);
 
-    /**
-     * Bottleneck 2: EditorViewState.buildVisibleLines() called for every visible line
-     *
-     * During render, visualToLogicalLine() is called ~3 times per visible line
-     * (gutter draw, getViewLine, getViewLineTokens). Each call runs buildVisibleLines()
-     * which allocates and fills a number[] of ALL document lines.
-     *
-     * For a 40-line viewport: ~120 buildVisibleLines() calls per render frame.
-     * For a 3500-line document: ~120 × 3500 = 420 000 loop iterations per frame.
-     *
-     * PASSES when slow (> 300 ms for 100 frames). Fix target: < 10 ms.
-     */
     it("buildVisibleLines: cached by versionId — 100 render frames must be fast", () => {
         const text = generateJsonLikeText(DOC_LINE_COUNT);
         const doc = new TextDocument(text);
         const viewState = new EditorViewState(doc, [createCursorSelection(0, 0)]);
 
-        // Replicate the call pattern during a single render frame:
-        // - 3 calls per visible line (visualToLogicalLine is called 3× in render loop)
-        // - plus getViewLineCount() calls from layout
         const simulateOneFrame = (): void => {
-            viewState.getViewLineCount(); // layout call
+            viewState.getViewLineCount();
             for (let screenY = 0; screenY < VIEWPORT_HEIGHT; screenY++) {
-                const viewLine = screenY; // scrollTop = 0 for simplicity
-                viewState.visualToLogicalLine(viewLine); // gutter
-                viewState.getViewLine(viewLine); // content
-                viewState.getViewLineTokens(viewLine); // tokens
+                const viewLine = screenY;
+                viewState.visualToLogicalLine(viewLine);
+                viewState.getViewLine(viewLine);
+                viewState.getViewLineTokens(viewLine);
             }
-            viewState.getViewLineCount(); // scrollbar layout
+            viewState.getViewLineCount();
         };
 
-        // Warm up JIT
         simulateOneFrame();
 
         const t0 = performance.now();
@@ -139,19 +87,9 @@ describe("EditorElement / EditorViewState render-loop performance (cached)", () 
                 ` (${(ms / CURSOR_MOVES).toFixed(2)} ms/frame)`,
         );
 
-        // Cache hit on every frame (versionId and foldsVersion unchanged by cursor moves).
-        // 12 200 calls on a 3500-line doc should complete in well under 20 ms.
         expect(ms).toBeLessThan(20);
     }, 120_000);
 
-    /**
-     * Combined: both bottlenecks together, simulating a realistic render frame.
-     *
-     * This test measures the combined cost the user experiences as cursor lag:
-     * contentWidth (Intl.Segmenter × n) + buildVisibleLines (array × 120 × n).
-     *
-     * PASSES when slow (> 3000 ms for 100 moves). Fix target: < 100 ms.
-     */
     it("combined render frame: contentWidth + buildVisibleLines × 100 cursor moves — must be fast", () => {
         const text = generateJsonLikeText(DOC_LINE_COUNT);
         const doc = new TextDocument(text);
@@ -159,10 +97,8 @@ describe("EditorElement / EditorViewState render-loop performance (cached)", () 
         const editor = new EditorElement(viewState);
 
         const simulateFrame = (): void => {
-            // --- Layout: contentWidth (called by ScrollBarDecorator) ---
             void editor.contentWidth;
 
-            // --- Render: visualToLogicalLine × 3 per visible line ---
             viewState.getViewLineCount();
             for (let screenY = 0; screenY < VIEWPORT_HEIGHT; screenY++) {
                 viewState.visualToLogicalLine(screenY);
@@ -172,7 +108,6 @@ describe("EditorElement / EditorViewState render-loop performance (cached)", () 
             viewState.getViewLineCount();
         };
 
-        // Warm up
         simulateFrame();
 
         const t0 = performance.now();
@@ -186,23 +121,14 @@ describe("EditorElement / EditorViewState render-loop performance (cached)", () 
                 ` (${(ms / CURSOR_MOVES).toFixed(2)} ms/frame)`,
         );
 
-        // Both caches hit on every cursor-move frame.
-        // 100 frames on a 3500-line doc should complete in well under 300 ms.
         expect(ms).toBeLessThan(300);
     }, 120_000);
 });
 
-// ─── Extremely long lines ───────────────────────────────────
-//
-// The regression that froze the editor: `contentWidth` re-segmented the whole
-// document (a `new DisplayLine` per line) on every versionId bump, and the
-// render loop built a full-line DisplayLine per visible line. One 200 k-char
-// line cost ~72 ms per pass — and the Output panel bumps versionId on every
-// appended record, so active RPC tracing meant a full rescan per log line.
-//
-// After the fix: `contentWidth` is an incremental per-line width cache and the
-// render/caret paths cap the DisplayLine at STOP_RENDERING_LINE_AFTER. Cost is
-// O(cap), not O(line length), and an append re-measures only the changed lines.
+// Длинные строки: `contentWidth` раньше пересегментировал весь документ на каждый
+// versionId, а Output поднимает его на каждую запись — строка в 200k символов стоила
+// ~72 мс на проход. Теперь кэш ширин инкрементальный, а DisplayLine ограничен
+// STOP_RENDERING_LINE_AFTER.
 
 const EXTREME_LINE_LENGTH = 200_000;
 
@@ -214,38 +140,26 @@ describe("EditorElement — extremely long lines must not freeze", () => {
         return new TextDocument(lines.join("\n"));
     }
 
-    /**
-     * The Output-panel freeze, reproduced: append 200 records to a document that
-     * already holds one 200 k-char line, reading `contentWidth` after each append
-     * exactly as the horizontal scrollbar does every layout. Each append bumps
-     * versionId. The OLD code re-segmented the 200 k line every time (~72 ms × 200
-     * ≈ 14 s); the incremental cache re-measures only the two changed lines.
-     */
     it("contentWidth stays cheap across appends that bump versionId", () => {
         const doc = makeDocWithLongLine();
         const viewState = new EditorViewState(doc, [createCursorSelection(0, 0)]);
         const editor = new EditorElement(viewState);
 
-        void editor.contentWidth; // warm up + prime the cache
+        void editor.contentWidth;
 
         const APPENDS = 200;
         const t0 = performance.now();
         for (let i = 0; i < APPENDS; i++) {
             const lastLine = doc.lineCount - 1;
             doc.applyEdits([createInsertEdit(lastLine, doc.getLineLength(lastLine), `\nlog record ${i}`)]);
-            void editor.contentWidth; // scrollbar layout read
+            void editor.contentWidth;
         }
         const ms = performance.now() - t0;
 
         console.log(`[long-line] ${APPENDS} appends + contentWidth reads: ${ms.toFixed(1)} ms`);
-        // Comfortably under a second; the old whole-document rescan took seconds.
         expect(ms).toBeLessThan(1_000);
     }, 120_000);
 
-    /**
-     * The first `contentWidth` after opening a file whose single line is 200 k
-     * chars. The cap bounds the scan to STOP_RENDERING_LINE_AFTER.
-     */
     it("first contentWidth on open is bounded by the cap, not the line length", () => {
         const doc = makeDocWithLongLine();
         const viewState = new EditorViewState(doc, [createCursorSelection(0, 0)]);
@@ -256,19 +170,13 @@ describe("EditorElement — extremely long lines must not freeze", () => {
         const ms = performance.now() - t0;
 
         console.log(`[long-line] first contentWidth on ${EXTREME_LINE_LENGTH}-char line: ${ms.toFixed(1)} ms`);
-        // Width is capped (prefix 10 000 + the truncation button), and the scan
-        // cost is bounded well under 100 ms — never the 200 000-char line length.
         expect(width).toBeLessThanOrEqual(STOP_RENDERING_LINE_AFTER + LONG_LINE_TRUNCATION_BADGE_WIDTH);
         expect(ms).toBeLessThan(100);
     }, 120_000);
 
     /**
-     * Building the visible line's DisplayLine (what the render loop does each
-     * frame) must be O(cap) on the extreme line, not O(200 000). Two proofs: the
-     * slot array is capped (structural), and capping makes a batch of rebuilds
-     * dramatically cheaper than segmenting the whole line. The timing check is
-     * relative (capped vs uncapped on the same line), so it scales with the
-     * machine and does not flake on slow CI — an absolute ms budget did.
+     * Проверка времени относительная (с капом против без капа на той же строке):
+     * абсолютный бюджет в мс флакал на медленном CI.
      */
     it("displayLineFor caps the visible long line", () => {
         const doc = makeDocWithLongLine();
@@ -278,12 +186,11 @@ describe("EditorElement — extremely long lines must not freeze", () => {
 
         const dl = viewState.displayLineFor(longLine);
         expect(dl.isTruncated).toBe(true);
-        // Slot count is bounded by the cap, not the 200 000-char line length.
         expect(dl.slots.length).toBeLessThanOrEqual(10_000);
 
         const ITER = 10;
         const timeBatch = (build: () => void): number => {
-            build(); // warm up (JIT) so the comparison is fair
+            build();
             const t0 = performance.now();
             for (let i = 0; i < ITER; i++) build();
             return performance.now() - t0;
@@ -294,8 +201,7 @@ describe("EditorElement — extremely long lines must not freeze", () => {
         console.log(
             `[long-line] ${ITER}× DisplayLine — capped ${capped.toFixed(1)} ms vs uncapped ${uncapped.toFixed(1)} ms`,
         );
-        // The real ratio is ~20–35×; require at least 3× to stay robust to noise
-        // while still failing loudly if the cap ever stops taking effect.
+        // Реальное отношение ~20–35×; 3× — запас на шум, но кап, переставший работать, виден.
         expect(capped * 3).toBeLessThan(uncapped);
     }, 120_000);
 });

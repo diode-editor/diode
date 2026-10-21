@@ -49,10 +49,8 @@ describe("TokenIndex", () => {
 
     it("rewinds the internal cursor when an offset moves backwards", () => {
         const index = new TokenIndex(tokens, 15);
-        // Advance the cursor to the last token...
         expect(index.metadataAt(12)).toBe(C);
-        // ...then query an earlier offset: the cursor (at the "c" token, whose
-        // start 10 > 2) must rewind to 0 before scanning forward again.
+        // Курсор на токене «c» (старт 10 > 2) обязан перемотаться в 0.
         expect(index.metadataAt(2)).toBe(A);
     });
 });

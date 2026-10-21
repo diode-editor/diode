@@ -7,12 +7,7 @@ import { EditorViewState } from "./editorViewState.ts";
 
 type Sel = ReturnType<typeof createCursorSelection>;
 
-/**
- * Tab добирает каретку ДО следующего табстопа, а не вставляет всегда `tabSize`
- * пробелов. Сьют смотрит на наблюдаемый результат: текст документа И колонку
- * каретки после нажатия — именно колонку пользователь видит в статус-баре
- * (`Ln 1, Col 7` вместо `Col 5` и был симптомом).
- */
+/** Симптомом была колонка каретки в статус-баре: `Ln 1, Col 7` вместо `Col 5`. */
 function spacesState(text: string, selections: Sel[], tabSize = 4): EditorViewState {
     const state = new EditorViewState(new TextDocument(text), selections);
     state.insertSpaces = true;
@@ -30,8 +25,6 @@ function tabsState(text: string, selections: Sel[], tabSize = 4): EditorViewStat
 }
 
 describe("Tab выравнивает каретку по табстопам (insertSpaces, tabSize=4)", () => {
-    // Колонка каретки до Tab → текст после Tab и колонка каретки после.
-    // Все каретки доезжают ровно до табстопа: 4 или 8, и ни колонкой дальше.
     const cases: { from: number; text: string; to: number }[] = [
         { from: 0, text: "    abcdefgh", to: 4 },
         { from: 1, text: "a   bcdefgh", to: 4 },

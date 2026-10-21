@@ -16,12 +16,10 @@ describe("DocumentTokenStore.getEndState", () => {
         const doc = new TextDocument("a\nb\nc");
         const store = new DocumentTokenStore(doc, new PlainTextTokenizer());
 
-        // Before tokenization there is no cached end state.
         expect(store.getEndState(0)).toBeUndefined();
 
         store.forceTokenization(2);
 
-        // PlainTextTokenizer is stateless, so every line ends in the NULL_STATE singleton.
         const s0 = store.getEndState(0);
         expect(s0).toBeDefined();
         expect(s0!.equals(s0!)).toBe(true);
@@ -36,7 +34,6 @@ describe("DocumentTokenStore.handleContentChange — точность после
         store.forceTokenization(4);
         expect(store.hasAccurateTokensForLine(4)).toBe(true);
 
-        // Delete lines 2..4 (range (2,0)-(4,0)): a, b, e.
         doc.applyEdits([createDeleteEdit(2, 0, 4, 0)]);
         expect(store.hasAccurateTokensForLine(1)).toBe(true);
         expect(store.hasAccurateTokensForLine(2)).toBe(false);
@@ -51,7 +48,6 @@ describe("DocumentTokenStore.handleContentChange — точность после
         const store = new DocumentTokenStore(doc, new PlainTextTokenizer());
         store.forceTokenization(2);
 
-        // Delete the final two lines, collapsing onto line 0.
         doc.applyEdits([createDeleteEdit(0, 1, 2, 1)]);
         expect(doc.lineCount).toBe(1);
         expect(store.hasAccurateTokensForLine(0)).toBe(false);
@@ -66,7 +62,6 @@ describe("DocumentTokenStore.setLineTokens — out-of-range guard", () => {
         const store = new DocumentTokenStore(doc, new PlainTextTokenizer());
         const custom = storedTokens([[0, markedMetadata(42)]], 1);
 
-        // lineCount is 2 → indices -1 and 2 are out of range and must be ignored.
         store.setLineTokens(-1, custom);
         store.setLineTokens(2, custom);
 
@@ -80,13 +75,11 @@ describe("DocumentTokenStore.forceTokenization — resume from a middle line", (
         const doc = new TextDocument("a\nb\nc\nd\ne");
         const store = new DocumentTokenStore(doc, new PlainTextTokenizer());
 
-        // Tokenize only [0..1]: the untouched tail stays inaccurate.
         store.forceTokenization(1);
         expect(store.hasAccurateTokensForLine(1)).toBe(true);
         expect(store.hasAccurateTokensForLine(2)).toBe(false);
         expect(store.getLineTokens(3)).toBeUndefined();
 
-        // Resuming starts at line 2, seeded from line 1's end state.
         store.forceTokenization(3);
         expect(store.getLineTokens(2)).toBeDefined();
         expect(store.getLineTokens(3)).toBeDefined();

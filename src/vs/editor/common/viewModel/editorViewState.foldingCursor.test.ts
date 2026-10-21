@@ -27,9 +27,9 @@ function cursorLine(state: EditorViewState): number {
 describe("EditorViewState – cursor reconciliation on fold", () => {
     it("snaps the cursor to the header when foldRegionContaining hides it", () => {
         const state = nested();
-        state.selections = [createCursorSelection(2, 3)]; // inside inner body (1..3)
+        state.selections = [createCursorSelection(2, 3)];
         state.foldRegionContaining(2);
-        expect(cursorLine(state)).toBe(1); // inner header
+        expect(cursorLine(state)).toBe(1);
         expect(state.logicalToVisualLine(cursorLine(state))).toBeGreaterThanOrEqual(0);
     });
 
@@ -42,23 +42,22 @@ describe("EditorViewState – cursor reconciliation on fold", () => {
 
     it("snaps the cursor when a gutter toggleFold hides it", () => {
         const state = nested();
-        state.selections = [createCursorSelection(3, 1)]; // body of inner (1..3)
-        state.toggleFold(1); // collapse the region whose header is line 1
+        state.selections = [createCursorSelection(3, 1)];
+        state.toggleFold(1);
         expect(cursorLine(state)).toBe(1);
         expect(state.logicalToVisualLine(1)).toBeGreaterThanOrEqual(0);
     });
 
     it("snaps to the OUTERMOST visible header when foldAll hides a deeply nested cursor", () => {
         const state = nested();
-        state.selections = [createCursorSelection(2, 0)]; // inside both outer and inner
+        state.selections = [createCursorSelection(2, 0)];
         state.foldAll();
         expect(cursorLine(state)).toBe(0); // outer header — the only visible one
         expect(state.logicalToVisualLine(0)).toBeGreaterThanOrEqual(0);
     });
 
     it("finds the outermost hiding region regardless of region array order", () => {
-        // Regions supplied inner-first: outermostCollapsedRegionHiding must still
-        // pick the enclosing (smaller startLine) region.
+        // Регионы изнутри наружу: всё равно выбирается объемлющий.
         const doc = new TextDocument("a\n  b\n    c\n  d\n  e\n  f\ng");
         const state = new EditorViewState(doc);
         state.setFoldingRegions([createFoldingRegion(1, 3), createFoldingRegion(0, 5)]);
@@ -71,7 +70,7 @@ describe("EditorViewState – cursor reconciliation on fold", () => {
         const state = nested();
         state.selections = [createCursorSelection(2, 4)]; // char 4 on "    c"
         state.foldRegionContaining(2);
-        // Header "  b" has length 3 → column clamped.
+        // Заголовок "  b" длиной 3 — колонка клампится.
         expect(cursorLine(state)).toBe(1);
         expect(state.selections[0].active.character).toBeLessThanOrEqual(3);
     });
@@ -96,9 +95,9 @@ describe("EditorViewState – cursor reconciliation on fold", () => {
     it("leaves the cursor put when folding does not hide it (cursor on header)", () => {
         const state = nested();
         state.selections = [createCursorSelection(1, 2)]; // inner header — stays visible
-        state.foldRegionContaining(1); // collapses inner; its header line 1 stays shown
+        state.foldRegionContaining(1);
         expect(cursorLine(state)).toBe(1);
-        expect(state.selections[0].active.character).toBe(2); // untouched
+        expect(state.selections[0].active.character).toBe(2);
     });
 
     it("reconciles only the hidden cursors of a multi-selection", () => {
@@ -106,8 +105,8 @@ describe("EditorViewState – cursor reconciliation on fold", () => {
         state.selections = [createCursorSelection(0, 0), createCursorSelection(2, 1)];
         state.foldRegionContaining(2); // collapses inner (1..3), hides line 2 only
         const lines = state.selections.map((s) => s.active.line).sort((a, b) => a - b);
-        expect(lines).toContain(0); // visible cursor untouched
-        expect(lines).toContain(1); // hidden cursor snapped to inner header
+        expect(lines).toContain(0);
+        expect(lines).toContain(1);
     });
 
     it("does not move the cursor on unfold operations", () => {
@@ -131,7 +130,7 @@ describe("EditorViewState – cursorBottom with a folded tail", () => {
         const doc = new TextDocument("a\nb\nblock\n  x\n  y");
         const state = new EditorViewState(doc);
         state.setFoldingRegions([createFoldingRegion(2, 4)]);
-        state.foldRegionContaining(2); // collapse the tail region
+        state.foldRegionContaining(2);
         state.selections = [createCursorSelection(0, 0)];
         state.cursorBottom();
         // Last logical line 4 is hidden → cursor reconciled onto header line 2.

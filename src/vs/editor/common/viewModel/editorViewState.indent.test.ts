@@ -7,8 +7,7 @@ import { EditorViewState } from "./editorViewState.ts";
 
 type Sel = ReturnType<typeof createCursorSelection>;
 
-// Editor default is tabs. These helpers pin insertSpaces/tabSize explicitly and
-// disable detection so the leading whitespace of the fixture can't flip them.
+// Детекция выключена: ведущие пробелы фикстуры не должны перещёлкнуть insertSpaces/tabSize.
 function tabsState(text: string, selections: Sel[]): EditorViewState {
     const state = new EditorViewState(new TextDocument(text), selections);
     state.insertSpaces = false;

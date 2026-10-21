@@ -11,19 +11,6 @@ import type { EditorViewState } from "../common/viewModel/editorViewState.ts";
 import type { SemanticTokenIndex, TokenIndex } from "./tokenIndex.ts";
 import { applySemanticStyle, packStyleFlags } from "./tokenIndex.ts";
 
-/**
- * Отрисовка и hit-test текстовой поверхности — общее у редактора
- * (`editorElement.ts`) и inline-диффа (`diffViewElement.ts`).
- *
- * Всё здесь — свободные функции над {@link EditorViewState} и геометрией
- * вьюпорта: у двух виджетов свои гуттеры и свои слои фона, а вот «пройти по
- * ячейкам диапазона», «нарисовать строку текста с токенами» и «где каретка на
- * экране» у них совпадают до символа. Наследование вместо этого не годится:
- * `render()` у диффа всё равно свой, зато `instanceof EditorElement` стал бы
- * истинным там, где смысл именно «редактируемый буфер» (см. `iTextViewElement.ts`).
- */
-
-/** Геометрия вьюпорта, общая для проходов подсветки диапазонов. */
 export interface ITextViewportGeometry {
     scrollTop: number;
     scrollLeft: number;
@@ -31,82 +18,51 @@ export interface ITextViewportGeometry {
     viewLineCount: number;
     contentCols: number;
     gutterW: number;
-    /** Фантомные колонки кадра ({@link ILinePhantom}); `null` — фантома нет. */
     phantom: ILinePhantom | null;
 }
 
 /**
- * Фантомные колонки, вклеенные в layout ОДНОЙ строки, — аналог injected-text
- * декораций upstream: текст, которого нет в документе, занимает колонки внутри
- * строки, и её хвост уезжает вправо. Носитель — ghost text инлайн-подсказки,
- * стоящей в середине строки.
- *
- * Один объект на кадр: и отрисовка строки, и overlay-проходы (фоны диапазонов,
- * волны диагностик, каретки, hit-test) считают колонки по ОДНОЙ композитной
- * строке ({@link composedLineContent}), поэтому подсветка хвоста не разъезжается
- * с самим хвостом.
+ * Аналог injected-text декораций upstream: текст, которого нет в документе, занимает
+ * колонки внутри ОДНОЙ строки, и её хвост уезжает вправо. Один объект на кадр: отрисовка
+ * и все overlay-проходы считают колонки по одной композитной строке, иначе подсветка
+ * хвоста разъедется с самим хвостом.
  */
 export interface ILinePhantom {
-    /** Документная строка, в чью отрисовку вставлены колонки. */
     readonly line: number;
-    /** Документный offset, ПЕРЕД которым стоят фантомные колонки. */
+    /** Фантомные колонки стоят ПЕРЕД этим документным offset'ом. */
     readonly offset: number;
-    /** Текст фантомных колонок (первая строка подсказки). */
     readonly text: string;
 }
 
-/**
- * Текст строки с вклеенным фантомом — по нему строится `DisplayLine`, поэтому
- * табы и широкие символы фантома занимают колонки от НАЧАЛА строки, как
- * настоящий текст. Строки без фантома отдаются как есть.
- */
 export function composedLineContent(phantom: ILinePhantom | null, line: number, lineContent: string): string {
     if (phantom?.line !== line) return lineContent;
     return lineContent.slice(0, phantom.offset) + phantom.text + lineContent.slice(phantom.offset);
 }
 
-/**
- * Документный offset СИМВОЛА → offset в композитной строке: символ, стоявший на
- * точке вставки, уехал вправо на длину фантома вместе со всем хвостом. Этой
- * математикой считают колонки отрисовка строки, подсветки диапазонов и hit-test —
- * то есть всё, что должно совпасть с картинкой.
- */
+/** Offset СИМВОЛА: символ на точке вставки уезжает вправо вместе с хвостом. */
 export function composedOffset(phantom: ILinePhantom | null, line: number, offset: number): number {
     if (phantom?.line !== line || offset < phantom.offset) return offset;
     return offset + phantom.text.length;
 }
 
 /**
- * Документный offset ТОЧКИ ВСТАВКИ (каретка) → offset в композитной строке:
- * отличается от {@link composedOffset} ровно на самой точке вставки — каретка
- * обязана остаться СЛЕВА от подсказки (affinity injected-text у upstream), иначе
- * она уехала бы в конец фантома.
+ * Offset ТОЧКИ ВСТАВКИ: в отличие от {@link composedOffset}, каретка на самой точке
+ * остаётся СЛЕВА от подсказки (affinity injected-text у upstream).
  */
 export function composedCaretOffset(phantom: ILinePhantom | null, line: number, offset: number): number {
     if (phantom?.line !== line || offset <= phantom.offset) return offset;
     return offset + phantom.text.length;
 }
 
-/**
- * Обратное отображение для hit-test: offset в композитной строке → документный.
- * Клик по самим фантомным колонкам отдаёт точку вставки — щёлкнуть «внутрь»
- * текста, которого нет в буфере, нельзя.
- */
+/** Клик по самим фантомным колонкам отдаёт точку вставки. */
 export function documentOffset(phantom: ILinePhantom | null, line: number, offset: number): number {
-    // Ровно на точке вставки обе ветки дают один ответ: `Math.max` вернёт
-    // `phantom.offset`, то есть тот же `offset`. Мутант `<=` → `<` поэтому
-    // эквивалентен — гасим с причиной, а не ассертом ради балла.
+    // Ровно на точке вставки обе ветки дают `phantom.offset` — мутант `<=` → `<` эквивалентен.
     // Stryker disable next-line EqualityOperator: см. выше
     if (phantom?.line !== line || offset <= phantom.offset) return offset;
     return Math.max(phantom.offset, offset - phantom.text.length);
 }
 
-/**
- * Дисплейная колонка начала фрагмента ряда — то же, что
- * {@link EditorViewState.viewLineStartColumn}, но посчитанная по УЖЕ построенной
- * композитной строке: фантомные колонки учтены, и строка не сегментируется
- * второй раз.
- */
+/** Как {@link EditorViewState.viewLineStartColumn}, но по уже построенной композитной строке. */
 function fragmentStartColumn(
     viewState: EditorViewState,
     displayLine: DisplayLine,
@@ -118,12 +74,6 @@ function fragmentStartColumn(
     return displayLine.offsetToColumn(composedOffset(phantom, line, start));
 }
 
-/**
- * Walks every screen cell covered by `range` within the visible viewport and
- * invokes `visit(screenX, screenY)` (absolute grid coordinates). Shared by the
- * background-highlight and diagnostic-squiggle passes so the viewport/column
- * math lives in one place.
- */
 export function forEachRangeCell(
     viewState: EditorViewState,
     range: IRange,
@@ -138,13 +88,9 @@ export function forEachRangeCell(
         if (logLine < range.start.line || logLine > range.end.line) continue;
 
         const lineContent = viewState.getViewLine(viewLine);
-        // Фантомные колонки строки (ghost text) сдвигают её хвост — колонки
-        // считаем по композитной строке, иначе подсветка уехала бы относительно
-        // текста, который подсвечивает.
+        // По композитной строке, иначе подсветка уедет относительно хвоста после фантома.
         const dl = viewState.displayLineFor(composedLineContent(geo.phantom, logLine, lineContent));
-        // Диапазон пересекается с фрагментом ряда: у целой строки фрагмент —
-        // `[0, length)`, и математика вырождается в прежнюю. Виртуальную ячейку
-        // перевода строки (+1 за концом) несёт только последний фрагмент.
+        // Виртуальную ячейку перевода строки (+1 за концом) несёт только последний фрагмент.
         const frag = viewState.viewLineRange(viewLine);
         const isLastFragment = frag.end === lineContent.length;
         const rangeStartChar = logLine === range.start.line ? range.start.character : 0;
@@ -168,11 +114,7 @@ export function forEachRangeCell(
     }
 }
 
-/**
- * Paints a solid background colour over the cells covered by `range` within
- * the visible viewport. Only `bg` is set, so the glyph and fg underneath are
- * preserved. Used by both the selection and search-match highlight passes.
- */
+/** Только `bg`: глиф и fg под подсветкой сохраняются. */
 export function paintRangeBackground(
     context: RenderContext,
     viewState: EditorViewState,
@@ -186,66 +128,36 @@ export function paintRangeBackground(
 }
 
 export interface IPaintTextLineParams {
-    /** Дисплейные слоты строки — считает вызывающий (у него свой tabSize). */
+    /** Считает вызывающий — у него свой tabSize. */
     displayLine: DisplayLine;
-    /** Токены строки; `null` — рисуем без подсветки. */
     tokenIndex: TokenIndex | null;
     resolveStyle: (metadata: number) => ResolvedTokenStyle;
-    /**
-     * Семантические токены строки — второй слой поверх TextMate: перекрывают
-     * только заданные темой атрибуты (цвет, начертание). `null` — слоя нет.
-     */
+    /** Перекрывает TextMate только в атрибутах, заданных темой. */
     semanticIndex: SemanticTokenIndex | null;
     screenY: number;
     gutterW: number;
     contentCols: number;
     scrollLeft: number;
-    /**
-     * Дисплейная колонка начала фрагмента при word wrap — сдвигает «колоночное
-     * окно» строки, как scrollLeft, но по-строчно. 0 — ряд несёт строку с начала.
-     */
+    /** Сдвигает «колоночное окно» строки при word wrap, как scrollLeft, но по-строчно. */
     startColumn: number;
-    /**
-     * Эксклюзивная колонка конца фрагмента: дальше при word wrap лежит текст
-     * СЛЕДУЮЩЕГО фрагмента — вместо него до края рисуются пробелы. У
-     * последнего/единственного фрагмента это ширина всей строки: заливка
-     * хвоста фоном совпадает с прежней отрисовкой out-of-range колонок.
-     */
+    /** Дальше лежит текст СЛЕДУЮЩЕГО фрагмента — вместо него до края рисуются пробелы. */
     endColumnExclusive: number;
-    /** Цвета по умолчанию — там, где токен ничего не сказал. */
     fg: number;
     bg: number;
-    /**
-     * Пускать ли `bg` токена. У редактора — да; у диффа — нет: фон строки
-     * added/deleted должен побеждать фон токена, иначе полоса изменения рвётся.
-     */
+    /** У диффа — нет: фон строки added/deleted должен побеждать фон токена. */
     allowTokenBg: boolean;
-    /**
-     * Фантомные колонки внутри `displayLine` ({@link ILinePhantom}) — их слоты
-     * не принадлежат документу: красятся своим стилем и токен не ищут, а
-     * offset'ы правее фантома пересчитываются в документные, иначе подсветка
-     * уехала бы относительно хвоста. `null` — строка без фантома.
-     */
+    /** Слоты фантома токен не ищут, а offset'ы правее него пересчитываются в документные. */
     phantom: IPaintTextLinePhantom | null;
 }
 
-/** Фантомный участок композитной строки для {@link paintTextLine}. */
 export interface IPaintTextLinePhantom {
-    /** Offset в композитной строке, с которого идут фантомные символы. */
     readonly startOffset: number;
-    /** Длина фантома в символах. */
     readonly length: number;
-    /** Цвет фантома (`editorGhostText.foreground`). */
     readonly fg: number;
-    /** Пакованные {@link StyleFlags} фантома (ghost text — курсив). */
     readonly style: number;
 }
 
-/**
- * Рисует одну строку текста в контентной области: поцельный обход по
- * ДИСПЛЕЙНЫМ колонкам, поэтому корректно отрабатывают широкие символы, табы и
- * горизонтальная прокрутка.
- */
+/** Обход по ДИСПЛЕЙНЫМ колонкам — ради широких символов, табов и горизонтального скролла. */
 export function paintTextLine(context: RenderContext, params: IPaintTextLineParams): void {
     const {
         displayLine,
@@ -258,17 +170,12 @@ export function paintTextLine(context: RenderContext, params: IPaintTextLinePara
         scrollLeft,
         startColumn,
     } = params;
-    // Граница фантома считается раз на строку: в цикле по колонкам она
-    // сравнивается с каждым слотом.
     const phantomEnd = params.phantom === null ? 0 : params.phantom.startOffset + params.phantom.length;
 
     let screenX = 0;
     while (screenX < contentCols) {
         const displayCol = scrollLeft + startColumn + screenX;
         if (displayCol >= params.endColumnExclusive) {
-            // Конец фрагмента: дальше в строке текст следующего ряда — до края
-            // области идёт фон (у последнего фрагмента — как прежняя отрисовка
-            // колонок за концом строки).
             context.setCell(gutterW + screenX, screenY, {
                 char: " ",
                 fg: params.fg,
@@ -281,7 +188,6 @@ export function paintTextLine(context: RenderContext, params: IPaintTextLinePara
         }
         const char = displayLine.charAtColumn(displayCol);
         if (char === "") {
-            // Continuation column of a wide char — skip, already handled by Grid
             screenX++;
             continue;
         }
@@ -295,19 +201,15 @@ export function paintTextLine(context: RenderContext, params: IPaintTextLinePara
         /* v8 ignore stop */
         const width = slot.displayWidth;
 
-        // Resolve style for this offset.
         let fg = params.fg;
         let bg = params.bg;
         let style: number = StyleFlags.None;
         const phantom = params.phantom;
         if (phantom !== null && slot.offset >= phantom.startOffset && slot.offset < phantomEnd) {
-            // Фантомная колонка: своего токена у неё быть не может — весь
-            // фантом красится одним стилем (серый курсив ghost text).
             fg = phantom.fg;
             style = phantom.style;
         } else {
-            // Правее фантома композитный offset забегает вперёд документного —
-            // возвращаем его назад, иначе подсветка хвоста уедет.
+            // Правее фантома композитный offset забегает вперёд документного.
             const offset = phantom !== null && slot.offset >= phantomEnd ? slot.offset - phantom.length : slot.offset;
             const metadata = tokenIndex?.metadataAt(offset);
             // Stryker disable next-line ConditionalExpression: без токена резолвер на `undefined` даёт пустой стиль — те же fg/bg/style
@@ -322,14 +224,12 @@ export function paintTextLine(context: RenderContext, params: IPaintTextLinePara
         }
 
         if (slot.grapheme === "\t") {
-            // Tab: render each column as an individual space so Grid/TerminalRenderer
-            // tracks the cursor correctly (they only support width=1 and width=2).
+            // Grid/TerminalRenderer знают только width 1 и 2 — таб раскладываем на пробелы.
             for (let i = 0; i < width && screenX + i < contentCols; i++) {
                 context.setCell(gutterW + screenX + i, screenY, { char: " ", fg, bg, style, width: 1 });
             }
             screenX += width;
         } else if (width === 2 && screenX + 1 >= contentCols) {
-            // Wide char doesn't fit at the right edge — render space instead
             context.setCell(gutterW + screenX, screenY, { char: " ", fg, bg, style, width: 1 });
             screenX++;
         } else {
@@ -340,34 +240,26 @@ export function paintTextLine(context: RenderContext, params: IPaintTextLinePara
 }
 
 export interface IPaintPhantomTextParams {
-    /** Дисплейные слоты фантомной строки — считает вызывающий (свой tabSize). */
     displayLine: DisplayLine;
     screenY: number;
     gutterW: number;
     contentCols: number;
     fg: number;
     bg: number;
-    /** Пакованные {@link StyleFlags} фантома (ghost text — курсив). */
+    /** Пакованные {@link StyleFlags}. */
     style: number;
 }
 
 /**
- * Рисует целую строку-зону фантомного текста, которого нет в документе
- * (`lines[1..]` ghost text инлайн-подсказок) — с колонки 0 контентной области.
- * Тот же поцельный обход по дисплейным колонкам, что у {@link paintTextLine} —
- * табы и широкие символы ведут себя как в настоящем тексте, — но без токенов:
- * весь фантом красится одним стилем. Первая строка подсказки сюда не приходит:
- * она вклеивается в layout своей строки фантомными колонками (см.
- * {@link ILinePhantom}) и рисуется общим проходом текста.
+ * Строка-зона ghost text (`lines[1..]`); первая строка подсказки сюда не приходит —
+ * она вклеивается фантомными колонками в свою строку ({@link ILinePhantom}).
  */
 export function paintPhantomText(context: RenderContext, params: IPaintPhantomTextParams): void {
     const { displayLine, screenY, gutterW, contentCols, fg, bg, style } = params;
 
     let col = 0;
-    // Отсев за концом строки — про скорость, а не про картинку: RenderContext
-    // клиппит по прямоугольнику элемента (см. paintCarets), а лишняя итерация
-    // за displayWidth упирается в защитные гарды слотов. Мутанты границ
-    // неубиваемы — гасим, как в paintCarets.
+    // Отсев за концом строки — про скорость: RenderContext клиппит по прямоугольнику
+    // элемента, мутанты границ неубиваемы.
     // Stryker disable next-line EqualityOperator: см. выше
     while (col < displayLine.displayWidth) {
         // Stryker disable next-line ConditionalExpression,EqualityOperator: клип по вьюпорту — про скорость, setCell за прямоугольником и так молча выходит
@@ -376,7 +268,6 @@ export function paintPhantomText(context: RenderContext, params: IPaintPhantomTe
         /* v8 ignore start -- defensive: col шагает по ширинам слотов от 0 и на колонку-продолжение широкого символа не попадает (в отличие от paintTextLine, где displayCol стартует с произвольного scrollLeft) */
         // Stryker disable ConditionalExpression,EqualityOperator,BlockStatement,StringLiteral,UpdateOperator: недостижимый защитный гард, см. v8 ignore
         if (char === "") {
-            // Колонка-продолжение широкого символа — её красит Grid.
             col++;
             continue;
         }
@@ -394,12 +285,8 @@ export function paintPhantomText(context: RenderContext, params: IPaintPhantomTe
         const width = slot.displayWidth;
 
         if (slot.grapheme === "\t") {
-            // Таб — по пробелу на колонку (Grid поддерживает только width 1 и 2).
-            // Пробельные ячейки таба неотличимы от фоновых пробелов, которыми
-            // хвост строки уже залит (paintTextLine) — сама заливка нужна ради
-            // fg/style, невидимых на пробеле; наблюдаемое у ветки — только шаг
-            // col (его проверяют позиции следующих символов). Мутанты заливки
-            // неубиваемы — гасим оптом.
+            // Пробелы таба неотличимы от фоновых пробелов хвоста: заливка нужна ради
+            // невидимых на пробеле fg/style, наблюдаемо только шаг col — мутанты заливки неубиваемы.
             // Stryker disable ConditionalExpression,LogicalOperator,EqualityOperator,ArithmeticOperator,BlockStatement,ObjectLiteral,StringLiteral,CallExpression: см. выше
             for (let i = 0; i < width && col + i < contentCols; i++) {
                 context.setCell(gutterW + col + i, screenY, { char: " ", fg, bg, style, width: 1 });
@@ -407,9 +294,8 @@ export function paintPhantomText(context: RenderContext, params: IPaintPhantomTe
             // Stryker restore ConditionalExpression,LogicalOperator,EqualityOperator,ArithmeticOperator,BlockStatement,ObjectLiteral,StringLiteral,CallExpression
             col += width;
         } else if (width === 2 && col + 1 >= contentCols) {
-            // Широкий символ не влезает у правого края — вместо него пробел.
-            // Пробел у края неотличим от фонового пробела (см. таб выше);
-            // наблюдаемое у ветки — что широкий символ НЕ нарисован (тест края).
+            // Пробел у края неотличим от фонового (см. таб выше); наблюдаемо лишь то, что
+            // широкий символ НЕ нарисован.
             // Stryker disable next-line ArithmeticOperator,ObjectLiteral,StringLiteral,CallExpression: см. выше
             context.setCell(gutterW + col, screenY, { char: " ", fg, bg, style, width: 1 });
             col++;
@@ -420,11 +306,7 @@ export function paintPhantomText(context: RenderContext, params: IPaintPhantomTe
     }
 }
 
-/**
- * Локальные (внутри виджета) координаты ячейки каретки первичного курсора, или
- * `null`, если каретка вне видимой области. Одна математика на два потребителя:
- * аппаратный курсор в `render()` и якорь completion-попапа.
- */
+/** `null` — каретка вне видимой области. */
 export function caretLocalCell(
     viewState: EditorViewState,
     gutterW: number,
@@ -448,27 +330,15 @@ export function caretLocalCell(
     return new Point(localX, localY);
 }
 
-/** Цвета блочной каретки, нарисованной ячейкой. */
 export interface ICaretColors {
-    /** Цвет символа ПОД кареткой (`editorCursor.background`). */
     readonly fg: number;
-    /** Цвет самой каретки (`editorCursor.foreground`). */
     readonly bg: number;
 }
 
 /**
- * Рисует каретки ячейками — инверсным блоком поверх уже отрисованного текста.
- * Аппаратный курсор терминала физически один, поэтому мультикурсор показать иначе нечем.
- *
- * Патч частичный (`fg`/`bg`/`style` без `char`/`width`): глиф и ширина ячейки сохраняются,
- * а у широкого символа `Grid.updateCell` сам прокрашивает ячейку-продолжение. `style`
- * сбрасывается явно — блочная каретка не должна тащить bold/undercurl символа под ней
- * (заодно гасит squiggle диагностики).
- *
- * Прямой проход по кареткам: {@link EditorViewState.viewLineForPosition} — O(1)
- * по строке (плюс шаг по её фрагментам), поэтому даже «выделить все вхождения»
- * на большом файле остаётся O(кареток); кэш `DisplayLine` на строку добивает
- * повторную сегментацию кареток одной строки.
+ * Аппаратный курсор терминала один — мультикурсор рисуем ячейками. Патч без
+ * `char`/`width`: глиф сохраняется, а ячейку-продолжение широкого символа прокрашивает
+ * `Grid.updateCell`. `style` сбрасывается явно — каретка не тащит bold/undercurl символа.
  */
 export function paintCarets(
     context: RenderContext,
@@ -477,21 +347,17 @@ export function paintCarets(
     colors: ICaretColors,
     geo: ITextViewportGeometry,
 ): void {
-    // Отсевы по вьюпорту ниже — про скорость, а не про картинку:
-    // RenderContext.setCell клиппит по прямоугольнику элемента и на промахе
-    // молча выходит, так что снятие границ отрисовку не меняет — меняется
-    // только объём холостой работы. Мутанты в них неубиваемы — гасим оптом.
+    // Отсевы по вьюпорту ниже — про скорость: setCell клиппит по прямоугольнику элемента
+    // и на промахе молча выходит. Мутанты в них неубиваемы.
     // Stryker disable EqualityOperator,ConditionalExpression,LogicalOperator: см. выше
     const displayLineByDocLine = new Map<number, DisplayLine>();
     for (const selection of selections) {
         const row = viewState.viewLineForPosition(selection.active.line, selection.active.character);
-        // Строка свёрнута фолдингом — каретке некуда встать.
         if (row < 0) continue;
         const screenY = row - geo.scrollTop;
         if (screenY < 0 || screenY >= geo.visibleLines) continue;
 
-        // Кэш DisplayLine на строку — чистая мемоизация: без него результат
-        // тот же, только пересчитанный на каждой каретке.
+        // Кэш DisplayLine на строку — чистая мемоизация.
         // Stryker disable next-line CallExpression: см. выше
         let dl = displayLineByDocLine.get(selection.active.line);
         if (dl === undefined) {
@@ -521,10 +387,7 @@ export function paintCarets(
     }
 }
 
-/**
- * Документная позиция под локальной точкой (клики, контекстное меню). Клик по
- * гуттеру маппится в колонку 0 — как клик по номеру строки в VS Code.
- */
+/** Клик по гуттеру маппится в колонку 0 ряда — как клик по номеру строки в VS Code. */
 export function docPositionAt(
     viewState: EditorViewState,
     gutterW: number,
@@ -538,19 +401,16 @@ export function docPositionAt(
     /* v8 ignore stop */
 
     const viewLine = Math.min(viewState.scrollTop + localY, viewLineCount - 1);
-    // Клик по строке-зоне (виртуальной) маппится в ближайшую документную — как
-    // клик по view zone в VS Code отдаёт соседнюю позицию, а не падает.
+    // Строка-зона маппится в ближайшую документную, как view zone в VS Code.
     const logLine = viewState.docLineForViewLine(viewLine);
     const lineContent = viewState.document.getLineContent(logLine);
     const dl = viewState.displayLineFor(composedLineContent(phantom, logLine, lineContent));
-    // Клик по гуттеру — колонка 0 РЯДА: у продолжения wrap это начало фрагмента.
+    // У продолжения wrap колонка 0 ряда — начало фрагмента.
     const fragStartCol = fragmentStartColumn(viewState, dl, phantom, logLine, viewLine);
     const displayCol = fragStartCol + (localX < gutterW ? 0 : localX - gutterW + viewState.scrollLeft);
-    // Клик по фантомным колонкам отдаёт точку вставки — в документе их нет.
     let charOffset = documentOffset(phantom, logLine, dl.columnToOffset(displayCol));
-    // Кламп к фрагменту ряда: клик правее конца не-последнего фрагмента не
-    // должен утащить каретку на следующий ряд (offset границы принадлежит ему).
-    // У рядов-зон и пустых строк frag.end = 0 — кламп не про них.
+    // Клик правее не-последнего фрагмента не должен утащить каретку на следующий ряд
+    // (offset границы принадлежит ему). У зон и пустых строк frag.end = 0.
     const frag = viewState.viewLineRange(viewLine);
     if (frag.end > 0 && frag.end < lineContent.length && charOffset >= frag.end) {
         charOffset = documentOffset(

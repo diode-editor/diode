@@ -10,12 +10,6 @@ import { EditorViewState } from "../common/viewModel/editorViewState.ts";
 
 import { EditorElement } from "./editorElement.ts";
 
-/**
- * Призрачные подсказки (ghost text): хвост первой строки — на строке каретки,
- * остальные строки — view zones под ней; всё серым цветом
- * `editorGhostText.foreground`, документа не трогает.
- */
-
 const GHOST_FG = packRgb(0x6a, 0x6a, 0x6a);
 const EDITOR_FG = packRgb(0xd4, 0xd4, 0xd4);
 const BG = packRgb(0x1e, 0x1e, 0x1e);
@@ -26,7 +20,6 @@ const STYLE_VARS = {
     "editorGhostText.foreground": GHOST_FG,
 };
 
-/** Стиль как у EditorComponent.applyEditorStyle — фон/цвет редактора настоящие. */
 function styleEditor(editor: EditorElement): void {
     editor.setStyleVars(STYLE_VARS);
     editor.style = { fg: "editor.foreground", bg: "editor.background" };
@@ -57,7 +50,6 @@ describe("EditorElement — ghost text", () => {
         const gutterW = editor.gutterWidth;
         expect(app.backend.getTextAt(new Point(gutterW, 0), 16)).toBe("const x = 1 + 2;");
         expect(app.backend.getFgAt(new Point(gutterW + 12, 0))).toBe(GHOST_FG);
-        // Настоящий текст остался в цвете редактора, а не в призрачном.
         expect(app.backend.getFgAt(new Point(gutterW, 0))).not.toBe(GHOST_FG);
         expect(editor.viewState.document.getText()).toBe("const x = 1");
     });
@@ -74,7 +66,6 @@ describe("EditorElement — ghost text", () => {
         expect(app.backend.getTextAt(new Point(gutterW, 1), 5)).toBe("two()");
         expect(app.backend.getFgAt(new Point(gutterW, 1))).toBe(GHOST_FG);
         expect(app.backend.getTextAt(new Point(gutterW, 2), 5)).toBe("three");
-        // Гуттер зоны пуст — номер строки не тратится.
         expect(app.backend.getTextAt(new Point(0, 1), gutterW)).toBe(" ".repeat(gutterW));
         // Хвост zone-строки за текстом залит фоном редактора (не мусором грида).
         const contentCols = 24 - gutterW;
@@ -118,10 +109,8 @@ describe("EditorElement — ghost text", () => {
         expect(gutterW).toBe(6);
         // Таб: «x» на колонке 0, дальше пробелы до колонки 4, затем «你ok».
         expect(app.backend.getTextAt(new Point(gutterW, 1), 8)).toBe("x   你ok");
-        // Широкий символ у правого края целиком не влезает → пробел вместо него.
         const wideRow = app.backend.getTextAt(new Point(gutterW, 2), contentCols);
         expect(wideRow).toBe("a".repeat(contentCols - 1) + " ");
-        // Обрезка: ровно contentCols колонок, ничего не вылезло за край.
         expect(app.backend.getTextAt(new Point(gutterW, 3), contentCols)).toBe("b".repeat(contentCols));
     });
 
@@ -243,7 +232,6 @@ describe("EditorElement — ghost text", () => {
         // Полное равенство до последней колонки: обрезка не превращает
         // обычные символы в пробелы (это судьба только широких у края).
         expect(row).toBe("ab-очень-длинный-призрачный-хвост".slice(0, contentCols));
-        // Ничего не вылезло за границу элемента (ширина приложения = 24).
         expect(row.length).toBe(contentCols);
     });
 
@@ -260,7 +248,6 @@ describe("EditorElement — ghost text", () => {
         // DisplayLine строится от композитного текста «x你\tok».
         expect(app.backend.getTextAt(new Point(gutterW + 1, 0), 1)).toBe("你");
         const tabWidth = 4 - (3 % 4); // таб на колонке 3 строки → до границы 4
-        // Ячейки таба — пробелы (не литеральный "\t").
         expect(app.backend.getTextAt(new Point(gutterW + 1 + 2, 0), tabWidth)).toBe(" ".repeat(tabWidth));
         expect(app.backend.getTextAt(new Point(gutterW + 1 + 2 + tabWidth, 0), 2)).toBe("ok");
         expect(app.backend.getFgAt(new Point(gutterW + 1 + 2 + tabWidth, 0))).toBe(GHOST_FG);

@@ -7,7 +7,6 @@ import { TextDocument } from "../model/textDocument.ts";
 
 import { EditorViewState } from "./editorViewState.ts";
 
-/** Read-only view-state над `hello world` с курсором в середине строки. */
 function readOnlyState(text = "hello world", selection = createCursorSelection(0, 5)) {
     const doc = new TextDocument(text);
     const state = new EditorViewState(doc, [selection]);
@@ -16,8 +15,7 @@ function readOnlyState(text = "hello world", selection = createCursorSelection(0
 }
 
 describe("EditorViewState read-only: мутаторы", () => {
-    // Каждый мутатор проверяем по трём признакам сразу: текст не поехал,
-    // versionId не вырос (иначе буфер стал бы dirty) и undo-элемента нет.
+    // versionId проверяем отдельно: вырос бы — буфер стал бы dirty.
     const mutators: readonly [name: string, run: (state: EditorViewState) => unknown][] = [
         ["type", (s) => s.type("X")],
         ["insertText", (s) => s.insertText("X")],
@@ -77,7 +75,6 @@ describe("EditorViewState read-only: мутаторы", () => {
 });
 
 describe("EditorViewState read-only: view-состояние остаётся живым", () => {
-    // Как и в VS Code, read-only запрещает правку документа, но не навигацию.
     it("курсор двигается", () => {
         const { state } = readOnlyState();
         state.cursorRight();

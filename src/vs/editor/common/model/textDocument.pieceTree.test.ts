@@ -1,8 +1,3 @@
-/**
- * Адаптер TextDocument → PieceTreeTextBuffer: то, что появилось вместе с
- * буфером эталона, — приведение правок к документу, EOL как у эталона, BOM,
- * отказ на пересечение, батчи без схлопывания.
- */
 import { describe, expect, it } from "vitest";
 
 import { EndOfLine } from "../core/endOfLine.ts";

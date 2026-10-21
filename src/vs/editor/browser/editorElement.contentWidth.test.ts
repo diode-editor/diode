@@ -15,8 +15,6 @@ function createEditor(text: string): { app: TestApp; editor: EditorElement; view
     return { app, editor, viewState };
 }
 
-// ─── Basic correctness ───────────────────────────────────────
-
 describe("EditorElement.contentWidth", () => {
     it("returns 0 for empty document", () => {
         const { editor } = createEditor("");
@@ -25,7 +23,6 @@ describe("EditorElement.contentWidth", () => {
 
     it("returns the display width of the widest line", () => {
         const { editor } = createEditor("ab\nabcde\nabc");
-        // widest line is "abcde" = 5 columns
         expect(editor.contentWidth).toBe(5);
     });
 
@@ -36,14 +33,11 @@ describe("EditorElement.contentWidth", () => {
         expect(second).toBe(first);
     });
 
-    // ─── Cache invalidation ────────────────────────────────────
-
     it("reflects a newly inserted wider line after content change", () => {
         const { editor, viewState } = createEditor("ab\nabc");
         const before = editor.contentWidth;
         expect(before).toBe(3);
 
-        // Insert a line much wider than any existing line
         viewState.cursorBottom();
         viewState.type("\n" + "x".repeat(20));
 
@@ -56,7 +50,6 @@ describe("EditorElement.contentWidth", () => {
         const { editor, viewState } = createEditor("abc\n" + "x".repeat(20) + "\nab");
         expect(editor.contentWidth).toBe(20);
 
-        // Delete the wide line (line 1)
         viewState.selections = [
             { anchor: { line: 1, character: 0 }, active: { line: 2, character: 0 }, idealColumn: undefined },
         ];

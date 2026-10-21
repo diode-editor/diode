@@ -12,10 +12,8 @@ import { EditorViewState } from "../common/viewModel/editorViewState.ts";
 
 import { EditorElement } from "./editorElement.ts";
 
-// Продюсер источника жеста: обработчики ввода редактора обязаны объявить его на
-// время своей работы — мост расширений снимает источник СИНХРОННО из слушателя
-// смены каретки и отдаёт расширению как `TextEditorSelectionChangeKind`.
-// Без разметки любое движение каретки приезжало бы с `kind === undefined`.
+// Мост расширений снимает источник СИНХРОННО из слушателя смены каретки: без разметки
+// в обработчиках ввода любое движение приезжало бы с `kind === undefined`.
 
 /** Редактор + журнал источников, снятых в момент каждой смены каретки. */
 function createEditor(text = "hello world\nsecond line\nthird") {

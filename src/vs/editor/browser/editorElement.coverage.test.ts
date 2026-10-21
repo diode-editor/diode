@@ -19,7 +19,6 @@ import { EditorViewState } from "../common/viewModel/editorViewState.ts";
 
 import { EditorElement } from "./editorElement.ts";
 
-// A tokenizer that puts a single token covering the whole line.
 class WholeLineTokenizer implements ITokenizationSupport {
     public constructor(private readonly metadata: number) {}
     public getInitialState(): IState {
@@ -117,9 +116,7 @@ describe("EditorElement — selection highlight across non-selected lines", () =
 
         const gw = editor.gutterWidth;
         const SELECTION_BG = packRgb(38, 79, 120);
-        // Line 1 is highlighted.
         expect(app.backend.getBgAt(new Point(gw, 1))).toBe(SELECTION_BG);
-        // Line 0 (above) and line 2 (below) are NOT highlighted.
         expect(app.backend.getBgAt(new Point(gw, 0))).not.toBe(SELECTION_BG);
         expect(app.backend.getBgAt(new Point(gw, 2))).not.toBe(SELECTION_BG);
     });
@@ -136,12 +133,9 @@ describe("EditorElement — selection highlight across non-selected lines", () =
 
         const gw = editor.gutterWidth;
         const SELECTION_BG = packRgb(38, 79, 120);
-        // Start line: char 0 is before the selection start (char 1) → not highlighted.
         expect(app.backend.getBgAt(new Point(gw, 0))).not.toBe(SELECTION_BG);
         expect(app.backend.getBgAt(new Point(gw + 1, 0))).toBe(SELECTION_BG);
-        // Middle line: fully highlighted from column 0.
         expect(app.backend.getBgAt(new Point(gw, 1))).toBe(SELECTION_BG);
-        // End line: char 0 and 1 highlighted (up to char 2), char 2 not.
         expect(app.backend.getBgAt(new Point(gw, 2))).toBe(SELECTION_BG);
         expect(app.backend.getBgAt(new Point(gw + 2, 2))).not.toBe(SELECTION_BG);
     });

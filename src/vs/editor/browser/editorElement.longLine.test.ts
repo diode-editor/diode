@@ -33,17 +33,14 @@ describe("EditorElement — long-line truncation button", () => {
         const gw = editor.gutterWidth;
         const contentCols = 60 - gw;
 
-        // Scroll so the whole button lands inside the content area.
         const buttonScreenCol = 5;
         vs.scrollLeft = STOP_RENDERING_LINE_AFTER - buttonScreenCol;
         app.render();
 
         const backend = app.backend;
-        // The button's full label is rendered at the cut point.
         expect(backend.getTextAt(new Point(gw + buttonScreenCol, 0), LONG_LINE_TRUNCATION_BADGE_WIDTH)).toBe(
             LONG_LINE_TRUNCATION_BADGE,
         );
-        // Whole button fits inside the content area.
         expect(buttonScreenCol + LONG_LINE_TRUNCATION_BADGE_WIDTH).toBeLessThanOrEqual(contentCols);
     });
 
@@ -54,7 +51,6 @@ describe("EditorElement — long-line truncation button", () => {
         vs.scrollLeft = STOP_RENDERING_LINE_AFTER - buttonScreenCol;
         app.render();
 
-        // A cell inside the label carries the warning colour as its background.
         const labelCell = new Point(gw + buttonScreenCol + 1, 0);
         expect(app.backend.getBgAt(labelCell)).toBe(STYLE_TOKEN_DEFAULTS["editorWarning.foreground"]);
     });
@@ -72,7 +68,6 @@ describe("EditorElement — long-line truncation button", () => {
     it("draws no button for a line at or below the cap", () => {
         const { app, editor, vs } = createEditor("z".repeat(STOP_RENDERING_LINE_AFTER), 60, 3);
         const gw = editor.gutterWidth;
-        // Scroll to the very end of the (non-truncated) line.
         vs.scrollLeft = STOP_RENDERING_LINE_AFTER - 10;
         app.render();
 

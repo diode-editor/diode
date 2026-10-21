@@ -6,16 +6,12 @@ import { createSelection, isSelectionCollapsed } from "../core/iSelection.ts";
 import type { ITextEdit } from "../core/iTextEdit.ts";
 
 /**
- * Выделения после программного батча правок — аналог `ICursorStateComputer`
- * эталона (`model.pushEditOperations`/`editor.executeEdits`). Получает обратные
- * правки В ПОРЯДКЕ ВХОДНОГО батча (а не документном): диапазон i-й обратной
- * правки накрывает текст, вставленный i-й правкой, в координатах нового
- * документа. `null` — «решай сам»: выделения сдвигаются вслед за правками
- * ({@link resolveTrackedSelections}), как у `executeEdits` без `endCursorState`.
+ * Аналог `ICursorStateComputer` эталона. Обратные правки — В ПОРЯДКЕ ВХОДНОГО батча, а не
+ * документном. `null` — выделения сдвигаются вслед за правками, как у `executeEdits` без `endCursorState`.
  */
 export type ICursorStateComputer = (inverseEdits: readonly ITextEdit[]) => ISelection[] | null;
 
-/** Где окажется граница выделения: сдвиг вслед за правкой `edit` (−1 — до всех правок) или смещение внутрь её вставки. */
+/** `edit: −1` — до всех правок. */
 type IMarkerPlan =
     | { readonly kind: "shift"; readonly edit: number; readonly position: IPosition }
     | { readonly kind: "inEdit"; readonly edit: number; readonly offset: number };
@@ -27,28 +23,20 @@ interface ISelectionPlan {
     readonly reversed: boolean;
 }
 
-/** Снимок, снятый ДО применения батча: планы границ выделений. */
+/** Снимается ДО применения батча. */
 export interface ITrackedSelectionsPlan {
     readonly selections: readonly ISelectionPlan[];
 }
 
-/** Минимум документа для плана: длины текста внутри правок считаются по исходному документу. */
+/** Длины текста внутри правок считаются по исходному документу. */
 export interface ITrackedSelectionsSource {
     getTextInRange(range: IRange): string;
 }
 
 /**
- * Планирует, куда сдвинутся выделения при батче `edits` (документный порядок,
- * без перекрытий). Снимается ДО применения: смещение границы внутри
- * заменяемого диапазона меряется по исходному тексту.
- *
- * Семантика — маркеры эталона (`intervalTree.nodeAcceptEdit`) со стикостью
- * курсора `AlwaysGrowsWhenTypingAtEdges`: начало выделения липнет к тексту
- * слева, конец — нет. Удаление/замена, начинающаяся ровно на маркере, его не
- * двигает; маркер внутри общей части заменяемого и вставленного остаётся на
- * своём смещении; глубже — уезжает в конец вставки. Схлопнутая каретка,
- * которую вставка «растянула», схлопывается в конец (`readSelectionFromMarkers`
- * эталона: «не выделять текст при восстановлении из маркеров»).
+ * Маркеры эталона (`intervalTree.nodeAcceptEdit`) со стикостью `AlwaysGrowsWhenTypingAtEdges`:
+ * начало выделения липнет к тексту слева, конец — нет. Схлопнутая каретка, которую вставка
+ * «растянула», схлопывается в конец (`readSelectionFromMarkers`).
  */
 export function planTrackedSelections(
     source: ITrackedSelectionsSource,
@@ -71,11 +59,7 @@ export function planTrackedSelections(
     };
 }
 
-/**
- * Достраивает выделения по плану, когда батч уже применён: `edits` — тот же
- * документный порядок, что у плана, `inverseEdits` — обратные правки документа
- * (тоже в документном порядке, координаты нового документа).
- */
+/** `edits` и `inverseEdits` — в документном порядке, как у плана. */
 export function resolveTrackedSelections(
     plan: ITrackedSelectionsPlan,
     edits: readonly ITextEdit[],
@@ -84,8 +68,6 @@ export function resolveTrackedSelections(
     return plan.selections.map((sel) => {
         const end = resolveMarker(sel.end, edits, inverseEdits);
         if (sel.collapsed) return createSelection(end.line, end.character, end.line, end.character);
-        // Начало не обгоняет конец: внутри одной правки начало остаётся не
-        // дальше общей части, а конец — не ближе неё (`nodeAcceptEdit`).
         const start = resolveMarker(sel.start, edits, inverseEdits);
         return sel.reversed
             ? createSelection(end.line, end.character, start.line, start.character)
@@ -105,9 +87,8 @@ function planMarker(
     // Stryker disable next-line StringLiteral: resolveMarker различает только "inEdit", любая другая метка — сдвиг
     if (last < first) return { kind: "shift", edit: first - 1, position };
 
-    // Маркер накрыт правками first..last: у всех, кроме, может быть, первой,
-    // начало ровно на маркере (стык). Эталон применяет батч снизу вверх:
-    // правка, сдвинувшая маркер в свою вставку, уводит его за конец нижних.
+    // Эталон применяет батч снизу вверх: правка, сдвинувшая маркер в свою вставку,
+    // уводит его за конец нижних (у всех, кроме первой, начало ровно на маркере).
     // Stryker disable next-line EqualityOperator: на j === first смещение 0 даёт не-0 только вставке ровно в маркер, где и полное смещение — 0
     for (let j = last; j > first; j--) {
         const offset = offsetAfterEdit(source, edits[j], 0, stickToPrevious);
@@ -120,10 +101,7 @@ function planMarker(
     return { kind: "inEdit", edit: first, offset: offsetAfterEdit(source, edit, markerOffset, stickToPrevious) };
 }
 
-/**
- * Смещение маркера от начала вставки после правки — `nodeAcceptEdit` эталона
- * без `forceMoveMarkers`, для маркера внутри [start, end] правки.
- */
+/** `nodeAcceptEdit` эталона без `forceMoveMarkers`. */
 function offsetAfterEdit(
     source: ITrackedSelectionsSource,
     edit: ITextEdit,
@@ -132,15 +110,13 @@ function offsetAfterEdit(
 ): number {
     const deleting = positionsEqual(edit.range.start, edit.range.end) ? 0 : source.getTextInRange(edit.range).length;
     const inserting = edit.text.length;
-    // Внутри общей части маркер держит смещение; на её конце — только липкий
-    // влево. Удаление, начинающееся на маркере, и конец общей части, совпавший
-    // с концом вставки, сюда же: «остаться» и «уехать в конец вставки» там —
-    // одна и та же точка.
+    // На конце общей части остаётся только липкий влево; в вырожденных случаях
+    // «остаться» и «уехать в конец вставки» — одна точка.
     const common = Math.min(deleting, inserting);
     return markerOffset < common || (markerOffset === common && stickToPrevious) ? markerOffset : inserting;
 }
 
-/** Индекс первой правки, чей конец не раньше `position` (концы правок без перекрытий отсортированы). */
+/** Концы правок без перекрытий отсортированы — бинпоиск. */
 function firstEditEndingAtOrAfter(edits: readonly ITextEdit[], position: IPosition): number {
     let lo = 0;
     let hi = edits.length;
@@ -162,8 +138,7 @@ function resolveMarker(plan: IMarkerPlan, edits: readonly ITextEdit[], inverseEd
             : createPosition(start.line + lines.length - 1, tail.length);
     }
     if (plan.edit < 0) return plan.position;
-    // Точка отсчёта — конец предыдущей правки в старых и новых координатах,
-    // как в `TextDocument.computeInverseEdits`.
+    // Точка отсчёта — конец предыдущей правки, как в `TextDocument.computeInverseEdits`.
     const oldEnd = edits[plan.edit].range.end;
     const newEnd = inverseEdits[plan.edit].range.end;
     if (plan.position.line === oldEnd.line) {

@@ -33,7 +33,6 @@ function documentWithDecoration(
     return { doc, id };
 }
 
-/** Декорация после одной правки документа {@link SAMPLE}. */
 function decorationAfterEdit(
     decoration: RangeTuple,
     stickiness: TrackedRangeStickiness,
@@ -45,10 +44,8 @@ function decorationAfterEdit(
     return doc.getDecorationRange(id);
 }
 
-// Таблица — дословный перенос suite «Decorations and editing» эталона
-// (`modelDecorations.test.ts`, колонки без forceMoveMarkers), координаты
-// переведены в 0-based. Ожидания по stickiness: Always, Never, Before, After.
-// Таблица — строка на кейс, как у эталона: prettier развернул бы её в ~750 строк.
+// Перенос suite «Decorations and editing» эталона (`modelDecorations.test.ts`), 0-based.
+// Ожидания по stickiness: Always, Never, Before, After. Без prettier — иначе ~750 строк.
 // prettier-ignore
 const UPSTREAM_CASES: readonly (readonly [string, RangeTuple, RangeTuple, string, readonly RangeTuple[]])[] = [
     ["insert / collapsed dec / before", [0, 3, 0, 3], [0, 2, 0, 2], "xx", [[0, 5, 0, 5], [0, 5, 0, 5], [0, 5, 0, 5], [0, 5, 0, 5]]],
@@ -124,8 +121,6 @@ describe("TrackedDecorations — upstream «Decorations and editing»", () => {
     }
 });
 
-// SAMPLE: 0 "My First Line" (13), 1 "My Second Line" (14), 2 "Third Line" (10).
-// Декорация «Second» — (1,3)-(1,9).
 const SECOND: RangeTuple = [1, 3, 1, 9];
 
 describe("TrackedDecorations — правки через строки", () => {
@@ -154,8 +149,7 @@ describe("TrackedDecorations — правки через строки", () => {
     });
 
     it("в общей части многострочной замены край держит смещение от её начала", () => {
-        // Старое «Line\nMy Se» (10 символов) → «ab\ncdefghij» (11): начало «Second»
-        // — 7-й символ замены, им и остаётся (после «ab\n» + 4); конец — за правкой.
+        // «Line\nMy Se» (10) → «ab\ncdefghij» (11): начало «Second» — 7-й символ замены, им и остаётся.
         expect(
             decorationAfterEdit(
                 SECOND,
@@ -167,8 +161,7 @@ describe("TrackedDecorations — правки через строки", () => {
     });
 
     it("край на старой строке после многострочной замены сдвигается к концу вставки", () => {
-        // «Third» (2,0)-(2,5); замена (1,10)-(2,2) на «X\nYZ»: край (2,5) был на
-        // последней строке правки — встаёт за «YZ» со своим хвостом «ird».
+        // Край (2,5) был на последней строке правки — встаёт за «YZ» со своим хвостом «ird».
         expect(
             decorationAfterEdit(
                 [2, 0, 2, 5],
@@ -180,8 +173,7 @@ describe("TrackedDecorations — правки через строки", () => {
     });
 
     it("в общей части край, попавший на конец не последней вставленной строки, остаётся на ней", () => {
-        // «My First Line» → «My First\nLine» той же длины: «First» (0,3)-(0,8) —
-        // конец ровно на конце первой вставленной строки, а не в начале второй.
+        // Замена той же длины: конец «First» — на конце первой вставленной строки, а не в начале второй.
         expect(
             decorationAfterEdit(
                 [0, 3, 0, 8],
@@ -193,8 +185,7 @@ describe("TrackedDecorations — правки через строки", () => {
     });
 
     it("смещение внутри замены считает и целые строки между её краями", () => {
-        // Старое «ine\nMy Second Line\nThir» (23 символа) → 30 символов одной строкой:
-        // начало «rd» — 21-й символ замены (3 + 1 + 14 + 1 + 2), им и остаётся.
+        // 23 символа → 30 одной строкой: начало «rd» — 21-й символ замены (3 + 1 + 14 + 1 + 2), им и остаётся.
         expect(
             decorationAfterEdit(
                 [2, 2, 2, 10],
@@ -206,8 +197,6 @@ describe("TrackedDecorations — правки через строки", () => {
     });
 
     it("начало многострочной декорации строкой выше правки остаётся на месте", () => {
-        // Правка «Second» → «Secund» внутри декорации (0,3)-(2,5): начало на строке
-        // выше правки не двигается, конец — ниже правки и тоже на месте.
         expect(
             decorationAfterEdit(
                 [0, 3, 2, 5],

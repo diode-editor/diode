@@ -35,9 +35,7 @@ describe("EditorElement — search-match highlight", () => {
         viewState.currentSearchMatchIndex = 1;
         app.render();
 
-        // First (non-current) match.
         expect(app.backend.getBgAt(new Point(gw, 0))).toBe(FIND_MATCH_BG);
-        // Second (current) match starts at content column 8.
         expect(app.backend.getBgAt(new Point(gw + 8, 0))).toBe(FIND_MATCH_CURRENT_BG);
     });
 

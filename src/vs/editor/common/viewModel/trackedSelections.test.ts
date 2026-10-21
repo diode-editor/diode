@@ -24,7 +24,6 @@ const insert = (line: number, character: number, text: string): ITextEdit =>
 const replace = (sl: number, sc: number, el: number, ec: number, text: string): ITextEdit =>
     createTextEdit(createRange(sl, sc, el, ec), text);
 
-/** Каретки и выделения как `[anchorLine, anchorChar, activeLine, activeChar]`. */
 function flat(selections: readonly ISelection[]): number[][] {
     return selections.map((s) => [s.anchor.line, s.anchor.character, s.active.line, s.active.character]);
 }

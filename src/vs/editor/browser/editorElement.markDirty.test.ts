@@ -8,10 +8,8 @@ import { EditorViewState } from "../common/viewModel/editorViewState.ts";
 
 import { EditorElement } from "./editorElement.ts";
 
-// Кадр ввода рендерится только по dirty-флагу (dirty-гейт TuiApplication).
-// Редактор помечает себя грязным на любое движение курсора/правку через
-// подписку на onDidChangeCursorPosition — раньше перерисовку standalone-
-// редактора спасала лишь побочная цепочка «selections → статус-бар».
+// Кадр ввода рендерится только по dirty-флагу: у standalone-редактора нет побочной
+// цепочки «selections → статус-бар», и пометить себя он обязан сам.
 
 describe("EditorElement — markDirty на смену курсора", () => {
     it("reassign selections (печать, мышь, undo, команды) помечает layout грязным", () => {

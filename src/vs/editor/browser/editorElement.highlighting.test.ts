@@ -54,7 +54,6 @@ describe("EditorElement syntax highlighting", () => {
     it("colours a keyword cell with the resolver's foreground", () => {
         const { app, gw } = createHighlightedEditor("if x");
         app.render();
-        // "if" starts at column 0 of the content area
         expect(app.backend.getFgAt(new Point(gw, 0))).toBe(KEYWORD_FG);
         expect(app.backend.getFgAt(new Point(gw + 1, 0))).toBe(KEYWORD_FG);
     });

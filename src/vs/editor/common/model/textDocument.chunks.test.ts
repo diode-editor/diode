@@ -1,7 +1,3 @@
-/**
- * Текст мимо одной большой строки (A4, docs/TODO/VscodeModel.md): документ
- * собирается из кусков чтения файла и пишется на диск снимком по кускам.
- */
 import { describe, expect, it } from "vitest";
 
 import { EndOfLine } from "../core/endOfLine.ts";
@@ -10,7 +6,6 @@ import { createInsertEdit, createTextEdit } from "../core/iTextEdit.ts";
 
 import { createTextBufferFactoryFromChunks, TextDocument } from "./textDocument.ts";
 
-/** Все разрезы текста на два куска плюс посимвольный (по кодовым единицам). */
 function splits(text: string): string[][] {
     const result: string[][] = [text.split("")];
     for (let at = 0; at <= text.length; at++) result.push([text.slice(0, at), text.slice(at)]);
@@ -71,8 +66,6 @@ describe("TextDocument.createSnapshot", () => {
         for (let i = 0; i < 2000; i++) doc.applyEdits([createInsertEdit(0, i * 2, "y")]);
         const chunks = [...doc.createSnapshot()];
         expect(chunks.join("")).toBe(doc.serialize());
-        // Все, кроме последнего, — не меньше порога: тысячи однобуквенных кусков
-        // правок не доходят до кодировщика по одному.
         for (const chunk of chunks.slice(0, -1)) expect(chunk.length).toBeGreaterThanOrEqual(64 * 1024);
         expect(chunks.length).toBeGreaterThanOrEqual(2);
         expect(chunks.length).toBeLessThanOrEqual(3);

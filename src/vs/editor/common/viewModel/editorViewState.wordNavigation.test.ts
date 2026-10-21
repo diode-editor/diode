@@ -5,8 +5,6 @@ import { TextDocument } from "../model/textDocument.ts";
 
 import { EditorViewState } from "./editorViewState.ts";
 
-// ─── cursorWordLeft ─────────────────────────────────────────
-
 describe("EditorViewState.cursorWordLeft", () => {
     it("moves to the start of the current word", () => {
         const doc = new TextDocument("hello world");
@@ -92,8 +90,6 @@ describe("EditorViewState.cursorWordLeft", () => {
     });
 });
 
-// ─── cursorWordRight ────────────────────────────────────────
-
 describe("EditorViewState.cursorWordRight", () => {
     it("moves to the end of the current word and past whitespace", () => {
         const doc = new TextDocument("hello world");
@@ -172,8 +168,6 @@ describe("EditorViewState.cursorWordRight", () => {
     });
 });
 
-// ─── deleteWordLeft ─────────────────────────────────────────
-
 describe("EditorViewState.deleteWordLeft", () => {
     it("deletes the word to the left of cursor", () => {
         const doc = new TextDocument("hello world");
@@ -219,8 +213,6 @@ describe("EditorViewState.deleteWordLeft", () => {
         expect(result!.label).toBe("deleteWordLeft");
     });
 });
-
-// ─── deleteWordRight ────────────────────────────────────────
 
 describe("EditorViewState.deleteWordRight", () => {
     it("deletes the word to the right of cursor and trailing whitespace", () => {

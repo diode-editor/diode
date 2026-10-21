@@ -4,10 +4,6 @@ import { TextDocument } from "../model/textDocument.ts";
 
 import { EditorViewState } from "./editorViewState.ts";
 
-// onDidChangeView — уведомление о визуальных изменениях view-состояния мимо
-// курсора (скролл, фолдинг, подсветка поиска): под damage-tracking редактор
-// помечает себя по нему на перерисовку (контракт markDirty, docs/LAYOUT.md).
-
 function createState(): EditorViewState {
     return new EditorViewState(new TextDocument("a\nb\nc\nd\ne"));
 }
@@ -56,7 +52,7 @@ describe("EditorViewState.onDidChangeView", () => {
         expect(fired).toBe(1);
 
         subscription.dispose();
-        subscription.dispose(); // повторный dispose — no-op
+        subscription.dispose();
         state.scrollTop = 4;
         expect(fired).toBe(1);
     });

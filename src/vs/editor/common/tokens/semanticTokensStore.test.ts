@@ -10,7 +10,6 @@ import { SemanticTokensStore } from "./semanticTokensStore.ts";
 
 const LEGEND: ISemanticTokensLegend = { tokenTypes: ["a"], tokenModifiers: [] };
 
-/** Токен `[start, start+length)` на строке `line` (одна пятёрка с абсолютной строкой). */
 function oneToken(line: number, start: number, length: number) {
     return decodeSemanticTokens(new Uint32Array([line, start, length, 0, 0]), LEGEND);
 }

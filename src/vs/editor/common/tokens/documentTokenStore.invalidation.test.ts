@@ -16,7 +16,6 @@ describe("DocumentTokenStore invalidation", () => {
         doc.applyEdits([createInsertEdit(1, 1, "X")]);
 
         expect(store.getLineTokens(1)).toBeUndefined();
-        // Lines outside the change keep their cached tokens.
         expect(store.getLineTokens(0)).toBeDefined();
         expect(store.getLineTokens(2)).toBeDefined();
     });
@@ -39,11 +38,9 @@ describe("DocumentTokenStore invalidation", () => {
         store.forceTokenization(2);
 
         doc.applyEdits([createInsertEdit(1, 0, "X\nY\n")]);
-        // After insert: a, X, Y, b, c
         expect(store.getLineTokens(1)).toBeUndefined();
         expect(store.getLineTokens(2)).toBeUndefined();
         expect(store.getLineTokens(3)).toBeUndefined();
-        // Line 0 and the line after the inserted block are still valid.
         expect(store.getLineTokens(0)).toBeDefined();
         expect(store.getLineTokens(4)).toBeDefined();
     });

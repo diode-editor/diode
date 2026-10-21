@@ -5,8 +5,6 @@ import { TextDocument } from "../model/textDocument.ts";
 
 import { EditorViewState } from "./editorViewState.ts";
 
-// ─── Helpers ────────────────────────────────────────────────
-
 function makeDoc(lines: string): TextDocument {
     return new TextDocument(lines);
 }
@@ -14,8 +12,6 @@ function makeDoc(lines: string): TextDocument {
 function makeState(lines: string): EditorViewState {
     return new EditorViewState(makeDoc(lines), [createCursorSelection(0, 0)]);
 }
-
-// ─── Basic mapping without folding ──────────────────────────
 
 describe("EditorViewState visible lines (no folding)", () => {
     it("getViewLineCount equals document lineCount", () => {
@@ -56,8 +52,6 @@ describe("EditorViewState visible lines (no folding)", () => {
     });
 });
 
-// ─── Cache invalidation: document change ────────────────────
-
 describe("EditorViewState visible lines cache — document change", () => {
     it("getViewLineCount updates after inserting a new line", () => {
         const doc = new TextDocument("a\nb\nc");
@@ -65,7 +59,7 @@ describe("EditorViewState visible lines cache — document change", () => {
 
         expect(state.getViewLineCount()).toBe(3);
 
-        state.type("\n"); // inserts a newline at start → 4 lines
+        state.type("\n");
         expect(state.getViewLineCount()).toBe(4);
     });
 
@@ -73,16 +67,12 @@ describe("EditorViewState visible lines cache — document change", () => {
         const doc = new TextDocument("a\nb\nc");
         const state = new EditorViewState(doc, [createCursorSelection(1, 0)]);
 
-        // Before insert: visual 1 → logical 1
         expect(state.visualToLogicalLine(1)).toBe(1);
 
-        state.type("x\n"); // inserts line before line 1
-        // After insert: visual 2 → logical 2 (one line added above)
+        state.type("x\n");
         expect(state.getViewLineCount()).toBe(4);
     });
 });
-
-// ─── Cache invalidation: fold mutations ─────────────────────
 
 describe("EditorViewState visible lines cache — fold mutations", () => {
     function makeRegion(startLine: number, endLine: number, isCollapsed = false) {
@@ -94,10 +84,9 @@ describe("EditorViewState visible lines cache — fold mutations", () => {
         const state = new EditorViewState(doc);
         state.setFoldingRegions([makeRegion(1, 3)]);
 
-        expect(state.getViewLineCount()).toBe(5); // no collapse yet
+        expect(state.getViewLineCount()).toBe(5);
 
         state.toggleFold(1);
-        // lines 2,3 are hidden → 3 visible lines (0,1,4)
         expect(state.getViewLineCount()).toBe(3);
     });
 
@@ -138,7 +127,6 @@ describe("EditorViewState visible lines cache — fold mutations", () => {
 
         expect(state.getViewLineCount()).toBe(5);
         state.setFoldingRegions([makeRegion(0, 2, true)]);
-        // lines 1,2 are hidden → 3 visible lines (0,3,4)
         expect(state.getViewLineCount()).toBe(3);
     });
 });

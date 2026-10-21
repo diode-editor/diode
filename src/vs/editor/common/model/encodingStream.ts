@@ -7,29 +7,16 @@ import {
     stripBOM,
 } from "./encoding.ts";
 
-/**
- * Чтение и запись по кускам — то же, что разовые `decodeBuffer`/`encodeText`
- * (`encoding.ts`), но без буфера всего файла и строки всего текста: открытие
- * файла собирает документ из кусков чтения, сохранение кодирует снимок
- * документа (A4, docs/TODO/VscodeModel.md; у эталона —
- * `createTextBufferFactoryFromStream` и `toEncodeReadable`). Правила кодировок
- * — те же функции `encoding.ts`; равенство разовому пути держат тесты
- * `encodingStream.test.ts` на всех разрезах. Отдельным модулем — чтобы
- * extension host, которому нужен только разовый декод, не тащил это в свою роль.
- */
+// Отдельным от `encoding.ts` модулем — чтобы extension host, которому нужен
+// только разовый декод, не тащил это в свою роль.
 
-/**
- * Streaming decoder: disk bytes in, text out, chunk by chunk. Whatever the
- * chunk boundaries, the joined output is the one-shot decode of the joined
- * input — a boundary may cut a multi-byte sequence, the decoder carries the cut
- * part over to the next chunk.
- */
+/** Склеенный выход при любых границах кусков — ровно разовый декод склеенного входа. */
 interface IChunkDecoder {
     write(chunk: Buffer): string;
     end(): string;
 }
 
-/** Streaming encoder, the mirror of {@link IChunkDecoder}: a chunk may end mid surrogate pair. */
+/** Кусок может кончаться посреди суррогатной пары. */
 interface IChunkEncoder {
     write(text: string): Buffer;
     end(): Buffer;
@@ -41,18 +28,14 @@ interface IStreamCodec {
 }
 
 /**
- * How many trailing bytes of `bytes` are a utf-8 sequence still waiting for
- * its continuation bytes (0 — the chunk ends on a sequence boundary). Carrying
- * them over never changes the decode: a lead byte always starts a new maximal
- * subpart, so cutting right before it splits nothing the one-shot decoder
- * would have read as one character.
+ * Перенос хвоста декод не меняет: ведущий байт всегда начинает новую maximal
+ * subpart, разрез перед ним не делит ничего, что разовый декодер прочёл бы одним символом.
  */
 function utf8IncompleteTail(bytes: Buffer): number {
     // Stryker disable next-line MethodExpression: без нижней границы цикл идёт левее, но ведущий байт там отстоит от конца больше чем на 4 — хвост 0, как и после цикла
     const stop = Math.max(0, bytes.length - 3);
     for (let i = bytes.length - 1; i >= stop; i--) {
         const byte = bytes[i];
-        // Байт продолжения (10xxxxxx) — ищем ведущий дальше влево.
         if ((byte & 0xc0) === 0x80) continue;
         // C0/C1 никогда не начинают допустимую последовательность — U+FFFD сразу.
         const expected = byte >= 0xf0 ? 4 : byte >= 0xe0 ? 3 : byte >= 0xc2 ? 2 : 1;
@@ -82,11 +65,9 @@ function createUtf8Decoder(): IChunkDecoder {
 }
 
 /**
- * UTF-16 by code units: a pair split by the chunk boundary decodes as two lone
- * code units that join back into the pair — only an odd byte needs carrying.
- * BE has no node decoder: swap the bytes of each pair and read as LE (a copy,
- * the caller's buffer stays intact). The odd trailing byte of the whole input
- * is dropped, as iconv-lite does.
+ * Разрезанная пара декодируется двумя одиночными code unit'ами и склеивается
+ * обратно — переносить нужно только нечётный байт. Нечётный байт в конце всего
+ * входа отбрасывается, как у iconv-lite. BE — swap16 копии: буфер вызывающего цел.
  */
 function createUtf16Decoder(bigEndian: boolean): IChunkDecoder {
     let pending: Buffer | null = null;
@@ -106,11 +87,7 @@ function createUtf16Decoder(bigEndian: boolean): IChunkDecoder {
     };
 }
 
-/**
- * Encoder over a one-shot `encode`: a trailing high surrogate waits for the
- * next chunk — encoded alone, its pair would become two replacement sequences
- * in utf-8 instead of one 4-byte character.
- */
+/** Хвостовой high surrogate ждёт следующего куска: один он стал бы заменой в utf-8. */
 function createNativeEncoder(encode: (text: string) => Buffer): IChunkEncoder {
     let pending = "";
     return {
@@ -128,7 +105,6 @@ function createNativeEncoder(encode: (text: string) => Buffer): IChunkEncoder {
     };
 }
 
-/** Streaming native codecs by iconv name — the same set as the one-shot ones of `encoding.ts`. */
 const STREAM_CODECS: ReadonlyMap<string, IStreamCodec> = new Map<string, IStreamCodec>([
     [
         "utf8",
@@ -155,11 +131,9 @@ const STREAM_CODECS: ReadonlyMap<string, IStreamCodec> = new Map<string, IStream
 ]);
 
 /**
- * iconv-lite one-shot behind the streaming interface: the chunks are gathered
- * and decoded at the end. Its own stream decoder is not chunk-safe — gb18030
- * (iconv-lite 0.7.3) loses characters when a chunk boundary cuts a 4-byte
- * sequence. Non-Unicode charsets come only from an explicit «Reopen with
- * Encoding», so the whole buffer here costs nothing on the open path.
+ * Копит куски и декодирует разом: потоковый декодер iconv-lite 0.7.3 теряет
+ * символы gb18030 на разрезе. Не-Unicode бывает только по явному «Reopen with
+ * Encoding», так что открытию файла буфер целиком ничего не стоит.
  */
 function iconvDecoder(iconv: IconvLite, iconvName: string): IChunkDecoder {
     const parts: Buffer[] = [];
@@ -172,7 +146,6 @@ function iconvDecoder(iconv: IconvLite, iconvName: string): IChunkDecoder {
     };
 }
 
-/** iconv-lite one-shot behind the streaming interface — same reason as {@link iconvDecoder}. */
 function iconvEncoder(iconv: IconvLite, iconvName: string): IChunkEncoder {
     const parts: string[] = [];
     return {
@@ -184,24 +157,16 @@ function iconvEncoder(iconv: IconvLite, iconvName: string): IChunkEncoder {
     };
 }
 
-/** Document text decoded from disk bytes in chunks, plus the encoding id it is read in. */
 export interface IDecodedStream {
-    /** Table id (`SUPPORTED_ENCODINGS`), never an iconv name. */
+    /** Id таблицы `SUPPORTED_ENCODINGS`, не имя iconv. */
     readonly encoding: string;
-    /**
-     * The text in chunks, BOM stripped; joined — exactly the one-shot decode.
-     * Lazy and single-pass: iterating it pulls the byte chunks.
-     */
+    /** Ленивый и однопроходный: итерация тянет куски байт. */
     readonly text: Iterable<string>;
 }
 
-/** Longest BOM (utf-8) — how many bytes the sniff needs. */
+/** Самый длинный BOM (utf-8). */
 const SNIFF_LENGTH = 3;
 
-/**
- * The first chunks of `bytes`, glued until there are enough bytes for the BOM
- * sniff or the input ends.
- */
 function readHead(bytes: Iterator<Buffer>): Buffer {
     const parts: Buffer[] = [];
     let length = 0;
@@ -234,12 +199,7 @@ function streamCodec(info: IEncodingInfo): IStreamCodec {
     return codec;
 }
 
-/**
- * Decodes disk bytes, arriving in chunks, by the BOM sniff alone — opening a
- * file, no explicit encoding. The chunked form of `decodeBufferByBOM`:
- * synchronous and iconv-free (the sniff only ever yields utf-8 or UTF-16), the
- * BOM is stripped.
- */
+/** Синхронно и без iconv: сниф даёт только utf-8 или UTF-16. */
 export function decodeStreamByBOM(bytes: Iterable<Buffer>): IDecodedStream {
     const source = bytes[Symbol.iterator]();
     const head = readHead(source);
@@ -247,11 +207,7 @@ export function decodeStreamByBOM(bytes: Iterable<Buffer>): IDecodedStream {
     return { encoding: info.id, text: decodeChunks(stripBOM(head, info), source, streamCodec(info).createDecoder()) };
 }
 
-/**
- * Decodes disk bytes arriving in chunks — the chunked form of `decodeBuffer`,
- * same encoding rules. Asynchronous only to load iconv-lite: the bytes are
- * read as {@link IDecodedStream.text} is iterated.
- */
+/** Асинхронно только ради загрузки iconv-lite: байты читаются при итерации {@link IDecodedStream.text}. */
 export async function decodeStream(bytes: Iterable<Buffer>, explicitEncoding?: string): Promise<IDecodedStream> {
     const source = bytes[Symbol.iterator]();
     const head = readHead(source);
@@ -268,14 +224,7 @@ export async function decodeStream(bytes: Iterable<Buffer>, explicitEncoding?: s
     return { encoding: info.id, text: decodeChunks(stripBOM(head, info), source, decoder) };
 }
 
-/**
- * Encodes document text arriving in chunks (a document snapshot,
- * `TextDocument.createSnapshot`) — the chunked form of `encodeText`, same BOM
- * policy and fallback, and no string of the whole document is ever built
- * (`toEncodeReadable` of the reference). A chunk may end mid surrogate pair.
- * The chunks are read after iconv-lite is loaded, so a snapshot must already be
- * taken.
- */
+/** Куски читаются после загрузки iconv-lite — снимок должен быть уже снят. */
 export async function encodeChunks(chunks: Iterable<string>, encoding: string): Promise<Buffer> {
     const info = resolveEncodeEncoding(encoding);
     const codec = STREAM_CODECS.get(info.iconvName);

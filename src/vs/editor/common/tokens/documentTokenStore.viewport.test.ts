@@ -8,7 +8,7 @@ import { TextDocument } from "../model/textDocument.ts";
 
 import { DocumentTokenStore } from "./documentTokenStore.ts";
 
-/** Цвет токена, которым токенизатор метит входящее состояние `counter` (смещение от цветов по умолчанию). */
+/** Смещение от цветов по умолчанию. */
 const stateMark = (counter: number): number => 10 + counter;
 
 class CounterState implements IState {
@@ -24,7 +24,7 @@ class CounterState implements IState {
     }
 }
 
-/** Lines starting with `>` (after indentation) bump the counter; the token's foreground records the incoming state. */
+/** `>` после отступа поднимает счётчик; foreground токена — входящее состояние. */
 class StatefulTokenizer implements ITokenizationSupport {
     public readonly tokenized: string[] = [];
     public getInitialState(): IState {
@@ -67,12 +67,10 @@ describe("DocumentTokenStore.tokenizeViewport", () => {
         expect(tokenizer.tokenized).toHaveLength(50);
         expect(store.getLineTokens(doc.lineCount - 1)).toBeDefined();
         expect(store.getLineTokens(doc.lineCount - 51)).toBeUndefined();
-        // Эвристика — не точные токены: их перепишет фон.
         expect(store.hasAccurateTokensForLine(doc.lineCount - 1)).toBe(false);
     });
 
     it("стартовое состояние угадано по строкам с меньшим отступом над вьюпортом", () => {
-        // Блок `>block` переводит состояние в 1; тело блока — с отступом.
         const text = [...lines(50, "a"), ">block", ...lines(49, "  body")];
         const { store, tokenizer } = createStore(text);
 
@@ -104,10 +102,8 @@ describe("DocumentTokenStore.tokenizeViewport", () => {
     });
 
     it("фон перекрашивает угаданное — ровно строки вьюпорта, даже когда сошёлся раньше", async () => {
-        // Состояние за `>` — 1 до конца файла; фон его уже посчитал.
         const { doc, store, tokenizer } = createStore([">", ...lines(999)]);
         store.forceTokenization(doc.lineCount - 1);
-        // Правка строки 0 состояния не меняет: фон сойдётся на ней же.
         doc.applyEdits([createInsertEdit(0, 1, "x")]);
 
         // Отступов нет — угадано начальное состояние, то есть неверно (метка состояния 0 вместо 1).
@@ -146,7 +142,6 @@ describe("DocumentTokenStore.tokenizeViewport", () => {
         store.tokenizeViewport(900, 909);
         expect(tokenizer.tokenized).toHaveLength(calls);
 
-        // Сдвиг вьюпорта — угадываем заново.
         store.tokenizeViewport(901, 910);
         expect(tokenizer.tokenized.length).toBeGreaterThan(calls);
 
@@ -160,8 +155,7 @@ describe("DocumentTokenStore.tokenizeViewport", () => {
     });
 
     it("правка нижней строки вьюпорта — она перекрашивается к кадру, не ждёт фона", () => {
-        // Нижняя строка — ровно первая невалидная: эталон считает, что «делать
-        // нечего», а у нас её кэш правка очистила.
+        // Нижняя строка — ровно первая невалидная: эталон её не трогает, а у нас кэш правка очистила.
         const { doc, store } = createStore(lines(10));
         store.tokenizeViewport(0, 9);
         doc.applyEdits([createInsertEdit(9, 0, "y")]);
