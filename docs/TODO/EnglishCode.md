@@ -44,7 +44,7 @@
 - [x] `workbench/browser`, `workbench/common` (1861) — #750
 - [~] `workbench/api` (1982)
 - [~] `workbench/contrib` и прочее `workbench/` (3897)
-- [~] `e2e` (2879)
+- [x] `e2e` (2879) — #752
 - [x] scripts, extensions, packaging, `.github`, конфиги (2344) — волны 1+2+3 одним PR — #749
 
 ## Финал
