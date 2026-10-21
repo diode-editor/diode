@@ -54,8 +54,8 @@ describe("Workbench — bottom panel visibility commands", () => {
         expect(h.workbench.workbenchLayout.getBottomPanelVisible()).toBe(false);
         expect(contextKeys.get("panelVisible")).toBe(false);
 
-        // Панель уже закрыта — `enablement: panelVisible` гасит команду, и
-        // повторный вызов её не «открывает обратно».
+        // The panel is already closed — `enablement: panelVisible` disables the command, and
+        // a repeated call doesn't reopen it.
         h.commands.execute(CLOSE_PANEL);
         expect(h.workbench.workbenchLayout.getBottomPanelVisible()).toBe(false);
     });

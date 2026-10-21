@@ -6,9 +6,9 @@ import { isSubmenuContribution, type MenuContribution } from "../../../platform/
 import { MENU_CONTRIBUTIONS } from "../../workbench.common.main.ts";
 
 /**
- * Пункты группы с равным `order` сортируются по индексу вставки — перестановка
- * `WORKBENCH_ACTIONS` молча переставила бы меню. Группы — по имени: их порядок
- * задаёт ключ. Пересобрать эталон: `UPDATE_SLICE=1 npx vitest run <этот файл>`.
+ * Items of a group with equal `order` sort by insertion index — reordering
+ * `WORKBENCH_ACTIONS` would silently reorder the menu. Groups sort by name: the key
+ * sets their order. Regenerate the snapshot: `UPDATE_SLICE=1 npx vitest run <this file>`.
  */
 
 const SLICE_URL = new URL("./menuContributions.slice.json", import.meta.url);

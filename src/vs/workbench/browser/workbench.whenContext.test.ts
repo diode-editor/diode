@@ -62,11 +62,11 @@ describe("Workbench when-context integration", () => {
         expect(contextKeys.get("scmViewletVisible")).toBe(false);
 
         sidebar.showViewlet("scm", false);
-        h.testApp.sendKey("Escape"); // любой ввод — контекст-ключи пересчитываются диспетчером
+        h.testApp.sendKey("Escape"); // any input: the dispatcher recomputes context keys
         expect(contextKeys.get("scmViewletVisible")).toBe(true);
         expect(contextKeys.get("searchViewletVisible")).toBe(false);
 
-        // Ключ объявляет дескриптор контейнера — у Search он свой.
+        // The key is declared by the container descriptor; Search has its own.
         sidebar.showViewlet("search", false);
         h.testApp.sendKey("Escape");
         expect(contextKeys.get("searchViewletVisible")).toBe(true);

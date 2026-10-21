@@ -20,8 +20,8 @@ import { PanelServiceDIToken } from "./parts/panel/panelService.ts";
 const NEW = "workbench.action.terminal.new";
 
 /**
- * Из состояния «панель спрятана на другой вкладке, фокус в редакторе» видно, что
- * команда сама показывает TERMINAL, отдаёт фокус и освежает ключи.
+ * Starting from "panel hidden behind another tab, focus in the editor" shows that the
+ * command itself reveals TERMINAL, hands over focus and refreshes the keys.
  */
 describe("Workbench — terminal commands from the editor", () => {
     let ws: ITempWorkspace;
@@ -166,7 +166,7 @@ describe("Workbench — terminal commands from the editor", () => {
         const picked = h.commands.execute("workbench.action.quickOpenTerm") as Promise<void>;
         h.testApp.render();
         expect(h.testApp.backend.screenToString()).toContain("Type the name of a terminal to open.");
-        // Пикер открыт на активном (#3): Enter его же и выбирает.
+        // The picker opens on the active one (#3): Enter selects it.
         h.testApp.sendKey("Enter");
         await picked;
         h.testApp.render();

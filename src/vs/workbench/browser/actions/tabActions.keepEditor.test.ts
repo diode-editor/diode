@@ -60,7 +60,7 @@ describe("keepEditorAction — цель команды", () => {
     });
 
     it("протухший адрес не прикалывает НИЧЕГО и не бросает", () => {
-        // Откатываться на активную команда меню не имеет права.
+        // A menu command must not fall back to the active tab.
         const group = makeGroup(3, ["a.ts"], 0);
 
         expect(() => {
@@ -71,7 +71,8 @@ describe("keepEditorAction — цель команды", () => {
     });
 
     it("пустая группа без адреса — команда молчит, а не падает", () => {
-        // Палитра гейт `editorGroupHasEditors` не проходит — «цели нет» обязана ловить сама команда.
+        // The command palette skips the `editorGroupHasEditors` gate, so the command itself
+        // must handle "no target".
         const group = makeGroup(3, [], -1);
 
         expect(() => {

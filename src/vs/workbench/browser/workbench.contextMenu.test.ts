@@ -112,8 +112,8 @@ describe("Workbench — Shift+F10 context menu", () => {
         const menu = h.testApp.querySelectorAll("PopupMenuElement");
         expect(menu).toHaveLength(1);
         expect(menu[0].globalPosition.x).toBe(caret!.x);
-        // Канон openPopupSession: попап открывается строкой ниже якоря
-        // (preferBelow), у нижнего края экрана флипается вверх.
+        // The openPopupSession convention: the popup opens one row below the anchor
+        // (preferBelow) and flips up at the bottom edge of the screen.
         expect(menu[0].globalPosition.y).toBe(caret!.y + 1);
     });
 

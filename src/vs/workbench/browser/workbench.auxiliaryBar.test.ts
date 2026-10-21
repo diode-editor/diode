@@ -102,10 +102,10 @@ describe("Workbench — вторичная боковая панель", () => {
         h.testApp.sendKey("Ctrl+Alt+B");
         expect(visible()).toBe(true);
         expect(contextKey("auxiliaryBarVisible")).toBe(true);
-        // Строка 1 — первая строка части (под строкой меню): кнопка `×` в правом конце.
+        // Row 1 is the part's first row (below the menu bar): the `×` button is at its right end.
         expect(frame()[1].endsWith(" × ")).toBe(true);
         const close = part().inspectState().close as { x: number };
-        // 100 колонок: ширина по умолчанию — четверть окна, 25.
+        // 100 columns: the default width is a quarter of the window, 25.
         expect(close.x).toBe(SIZE.width - 3);
         expect(part().globalPosition.x).toBe(SIZE.width - 25);
 
@@ -135,7 +135,7 @@ describe("Workbench — вторичная боковая панель", () => {
         expect(row.slice(part().globalPosition.x)).toContain("ONE");
 
         h.commands.execute(TOGGLE);
-        // Булево, а не toBe по элементам: дифф двух узлов дерева vitest сериализует целиком.
+        // A boolean rather than toBe on elements: vitest serializes a diff of two tree nodes in full.
         expect(focused()?.getAncestorPath().includes(h.activeEditor().view) ?? false).toBe(true);
         expect(contextKey("auxiliaryBarFocus")).toBe(false);
         expect(contextKey("activeAuxiliary")).toBe("");
@@ -149,7 +149,7 @@ describe("Workbench — вторичная боковая панель", () => {
     });
 
     it("Next/Previous Secondary Side Bar View ходят по вкладкам по кругу", () => {
-        // Три вкладки: на двух шаг вперёд и шаг назад неразличимы.
+        // Three tabs: with two, a step forward and a step back are indistinguishable.
         addContainer("test.aux.one", "ONE", 1);
         const two = addContainer("test.aux.two", "TWO", 2);
         addContainer("test.aux.three", "THREE", 3);
@@ -246,7 +246,7 @@ describe("Workbench — вторичная боковая панель пере�
         const second = launch();
         const restored = second.h.workbench.workbenchLayout;
         expect(restored.getRightPanelWidth()).toBe(30);
-        // Контейнеров во вторичной панели нет — показывать нечего (как у эталона).
+        // The secondary panel has no containers, so there is nothing to show (as upstream).
         expect(restored.getRightPanelVisible()).toBe(false);
         second.h.dispose();
     });

@@ -151,7 +151,7 @@ describe("WorkbenchLayoutElement", () => {
     });
 
     describe("getChildren", () => {
-        // Структура ≠ видимость: скрытые панели и сашы остаются детьми с hidden=true.
+        // Structure ≠ visibility: hidden panels and sashes remain children with hidden=true.
         it("панели и сашы в списке, sash идёт после панелей (hit-test поверх)", () => {
             const layout = new WorkbenchLayoutElement();
             const leftPanel = createPanel();
@@ -486,9 +486,9 @@ describe("WorkbenchLayoutElement", () => {
         it("скрытая панель укоренена всегда — root производный от цепочки родителей", () => {
             const layout = new WorkbenchLayoutElement();
             const panel = createPanel();
-            layout.setBottomPanel(panel); // до укоренения layout
+            layout.setBottomPanel(panel); // before layout is rooted
             layout.setAsRoot();
-            // root выводится из живой цепочки родителей, а не протухает у скрытой панели.
+            // root is derived from the live parent chain, so it does not go stale on a hidden panel.
             expect(panel.getRoot()).toBe(layout);
 
             layout.setBottomPanelVisible(true);

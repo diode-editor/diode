@@ -9,7 +9,7 @@ import { TestApp } from "../../../TestUtils/TestApp.ts";
 
 import { WorkbenchLayoutElement } from "./workbenchLayoutElement.ts";
 
-/** Мышь в колонке/строке экрана (0-based; токен мыши — 1-based). */
+/** Mouse at a screen column/row (0-based; the mouse token is 1-based). */
 function mouse(action: MouseToken["action"], x: number, y: number): MouseToken {
     return {
         kind: "mouse",
@@ -24,7 +24,7 @@ function mouse(action: MouseToken["action"], x: number, y: number): MouseToken {
     };
 }
 
-/** Так drag идёт через настоящий диспетчер мыши. */
+/** So that drag goes through the real mouse dispatcher. */
 function rooted(origin: Offset, options: { bottom?: boolean; right?: boolean } = {}): WorkbenchLayoutElement {
     const layout = new WorkbenchLayoutElement();
     layout.setLeftPanel(new TUIElement());
@@ -53,7 +53,7 @@ describe("WorkbenchLayoutElement: drag сашей мышью", () => {
     it("вертикальный саш сайдбара ведёт ширину по колонке курсора, с учётом смещения раскладки", () => {
         const layout = rooted(new Offset(5, 2));
         const dispatcher = new MouseEventDispatcher();
-        // Саш — на колонке 5 + 20; тянем до колонки 40 → ширина 35.
+        // The sash is at column 5 + 20; dragging to column 40 → width 35.
         dispatcher.handleMouseToken(mouse("press", 25, 10), layout);
         dispatcher.handleMouseToken(mouse("move", 40, 3), layout);
         dispatcher.handleMouseToken(mouse("release", 40, 3), layout);
@@ -63,7 +63,7 @@ describe("WorkbenchLayoutElement: drag сашей мышью", () => {
     it("горизонтальный саш панели ведёт высоту по строке курсора", () => {
         const layout = rooted(new Offset(0, 1), { bottom: true });
         const dispatcher = new MouseEventDispatcher();
-        // Низ панели — строка 1 + 24; верх панели высотой 6 — строка 19.
+        // The panel bottom is row 1 + 24; the top of a 6-row panel is row 19.
         dispatcher.handleMouseToken(mouse("press", 40, 19), layout);
         dispatcher.handleMouseToken(mouse("move", 70, 15), layout);
         dispatcher.handleMouseToken(mouse("release", 70, 15), layout);
@@ -73,16 +73,16 @@ describe("WorkbenchLayoutElement: drag сашей мышью", () => {
     it("вертикальный саш правой панели ведёт ширину по колонке курсора, а не по строке", () => {
         const layout = rooted(new Offset(5, 2), { right: true });
         const dispatcher = new MouseEventDispatcher();
-        // Правая по умолчанию — 20 колонок (четверть от 80): саш на колонке 5 + 60.
-        // Тянем влево на 10 колонок и вверх на 7 строк → ширина 30.
+        // The right panel defaults to 20 columns (a quarter of 80): the sash is at column 5 + 60.
+        // Drag 10 columns left and 7 rows up → width 30.
         dispatcher.handleMouseToken(mouse("press", 65, 10), layout);
         dispatcher.handleMouseToken(mouse("move", 55, 3), layout);
         dispatcher.handleMouseToken(mouse("release", 55, 3), layout);
         expect(layout.getRightPanelWidth()).toBe(30);
     });
 
-    // Флаг кадра (`needsRepaint`) снимает только настоящий кадр, а layout-грязь
-    // гасит и сам хит-тест мыши — поэтому заказ перерисовки виден лишь так.
+    // Only a real frame clears the frame flag (`needsRepaint`), while the mouse hit test itself
+    // clears layout dirtiness — so this is the only way to see the repaint request.
     it.each([
         ["сайдбара", 20, 12, 40, 12],
         ["панели", 40, 18, 40, 10],

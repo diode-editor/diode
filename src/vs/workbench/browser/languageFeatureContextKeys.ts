@@ -10,10 +10,10 @@ import { EditorServiceDIToken } from "../services/editor/common/editorService.ts
 export const LanguageFeatureContextKeysDIToken = token<LanguageFeatureContextKeys>("LanguageFeatureContextKeys");
 
 /**
- * Upstream `EditorContextKeys.has*Provider`: меню не обещает нерабочее. Опрос
- * перед резолвом биндинга подхватывает провайдера, приехавшего позже, без
- * подписки на реестр. Без активного редактора все ключи — `false`: иначе они
- * залипали бы от прошлого документа.
+ * Upstream's `EditorContextKeys.has*Provider`: menus do not promise what does not work. Polling
+ * before keybinding resolution picks up a provider that arrived later, without
+ * subscribing to the registry. Without an active editor all keys are `false`: otherwise they
+ * would stick from the previous document.
  */
 export class LanguageFeatureContextKeys implements IContextKeyContributor {
     public static dependencies = [EditorServiceDIToken, LanguageFeaturesServiceDIToken] as const;
@@ -35,7 +35,7 @@ export class LanguageFeatureContextKeys implements IContextKeyContributor {
             "editorHasDocumentSelectionFormattingProvider",
             this.has("documentRangeFormattingEditProvider", target),
         );
-        // Format Selection без выделения в эталоне не показывается.
+        // Upstream hides Format Selection when there is no selection.
         const selection = editor?.viewState.selections[0];
         const empty =
             selection === undefined ||

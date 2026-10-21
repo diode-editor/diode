@@ -22,7 +22,7 @@ import type { SidebarService } from "./parts/sidebar/sidebarService.ts";
 import { SidebarServiceDIToken } from "./parts/sidebar/sidebarService.ts";
 import { WorkbenchComponent, WorkbenchComponentDIToken } from "./workbenchComponent.ts";
 
-/** Роль git играют заглушки (`git:`-провайдер + `originalResource`), путь ядра — настоящий. */
+/** Stubs play git (a `git:` provider + `originalResource`); the core path is real. */
 
 const AT_HEAD = "alpha\nbravo\ncharlie\ndelta\n";
 const SHOW_SCM = "workbench.view.scm";
@@ -59,8 +59,8 @@ describe("Workbench — Source Control в сайдбаре end-to-end", () => {
     }
 
     /**
-     * Открытие диффа читает диск асинхронно — фиксированная пауза флачит на CI под
-     * coverage. По таймауту отдаёт последний кадр, чтобы ассерт упал с диффом.
+     * Opening a diff reads the disk asynchronously — a fixed sleep flakes on CI under
+     * coverage. On timeout it returns the last frame so the assert fails with a diff.
      */
     async function waitForScreen(predicate: (screen: string) => boolean, timeoutMs = 5000): Promise<string> {
         const deadline = Date.now() + timeoutMs;
@@ -79,8 +79,8 @@ describe("Workbench — Source Control в сайдбаре end-to-end", () => {
         });
 
         const { container, bindApp } = createTestContainer();
-        // Штатный реестр уже знает file: (markersModule); git: добавляем, как адаптер
-        // расширения. Untracked-файлу originalResource отвечает null, как git-расширение.
+        // The built-in registry already knows file: (markersModule); git: is added the way an extension
+        // adapter does. For an untracked file originalResource returns null, like the git extension.
         container.get(IFileServiceDIToken).registerProvider("git", {
             capabilities: FileSystemProviderCapabilities.Readonly,
             readFile: () => Promise.resolve(new TextEncoder().encode(AT_HEAD)),
@@ -101,8 +101,8 @@ describe("Workbench — Source Control в сайдбаре end-to-end", () => {
 
         workbench.setWorkspaceFolder(ws.dir);
         workbench.mount();
-        // 26 строк: секция Source Control отдаёт 5 верхних строк контролам коммита, и на
-        // 20 строках список не вмещал бы весь набор.
+        // 26 rows: the Source Control section gives its top 5 rows to the commit controls, and
+        // with 20 rows the list wouldn't fit the whole set.
         testApp = TestApp.create(workbench.view, new Size(150, 26));
         bindApp(testApp.app);
 
@@ -179,8 +179,8 @@ describe("Workbench — Source Control в сайдбаре end-to-end", () => {
         activate("nested/b.txt");
 
         expect(await waitForScreen((s) => s.includes("b.txt ↔ HEAD"))).toContain("b.txt ↔ HEAD");
-        // fsPath не бросает на не-file схемах (дифф несёт тот же путь) — файловую
-        // вкладку отличаем схемой.
+        // fsPath doesn't throw on non-file schemes (the diff carries the same path) — the file
+        // tab is told apart by its scheme.
         const panes = editors.editorGroups.activeGroup.getPanes();
         expect(panes.filter((p) => p.uri.scheme === "diode-diff")).toHaveLength(1);
         expect(panes.some((p) => p.uri.scheme === "file" && p.uri.fsPath === ws.path("nested/b.txt"))).toBe(false);

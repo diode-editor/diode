@@ -15,14 +15,14 @@ import { statusTexts } from "./parts/statusbar/statusBarComponent.testUtils.ts";
 import { StatusBarComponentDIToken } from "./parts/statusbar/statusBarComponent.ts";
 
 function visiblePicker(h: IAppHarness): QuickPickElement {
-    // Quick open держит свой QuickPickElement — нужный тот, где есть элементы.
+    // Quick open holds its own QuickPickElement; we need the one with items.
     const pickers = h.testApp.querySelectorAll("QuickPickElement") as QuickPickElement[];
     const picker = pickers.find((p) => p.items.length > 0);
     if (picker === undefined) throw new Error("Quick pick with items not found");
     return picker;
 }
 
-/** Доступность «Reopen» проверяется по диску асинхронно — ждём первый уровень пикера. */
+/** "Reopen" availability is checked against disk asynchronously, so wait for the picker's first level. */
 async function changeEncoding(h: IAppHarness): Promise<void> {
     h.commands.execute("workbench.action.editor.changeEncoding");
     await vi.waitFor(() => {
@@ -35,8 +35,8 @@ async function pick(h: IAppHarness, query: string): Promise<void> {
     h.testApp.render();
     const picker = visiblePicker(h);
     picker.setQuery(query);
-    // setQuery не дёргает колбэк — фильтрацию запускает QuickInputService
-    // через onQueryChange (как при живом вводе).
+    // setQuery does not fire the callback: filtering is triggered by QuickInputService
+    // via onQueryChange (as with live typing).
     picker.onQueryChange?.(query);
     h.testApp.sendKey("Enter");
     await flushMicrotasks();
@@ -85,7 +85,7 @@ describe("Workbench — Change File Encoding", () => {
     });
 
     it("read-only безымянный буфер не открывает пикер вовсе", async () => {
-        // Ни перечитать, ни записать — пустой список был бы тупиком.
+        // Neither reread nor write: an empty list would be a dead end.
         h.commands.execute("workbench.action.files.newUntitledFile");
         h.testApp.render();
         h.commands.execute("workbench.action.files.toggleActiveEditorReadonlyInSession");
@@ -120,7 +120,7 @@ describe("Workbench — Change File Encoding", () => {
         await pick(h, "Reopen");
         await pick(h, "Cyrillic (Windows 1251)");
 
-        // Декод windows-1251 ждёт ленивый кусок iconv-lite — по времени, не по тикам.
+        // Decoding windows-1251 waits for the iconv-lite lazy chunk, so wait by time, not by ticks.
         await vi.waitFor(() => {
             expect(editor.encoding).toBe("windows1251");
         });
@@ -270,7 +270,7 @@ describe("Workbench — Change End of Line Sequence", () => {
 
         h.commands.execute("workbench.action.editor.changeEOL");
         await flushMicrotasks();
-        // Запрос "LF" матчит и "LF", и "CRLF" — активным становится первый (LF).
+        // The query "LF" matches both "LF" and "CRLF"; the first one (LF) becomes active.
         await pick(h, "LF");
 
         expect(h.activeEditor().eol).toBe(1); // EndOfLine.LF

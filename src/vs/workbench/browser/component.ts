@@ -3,10 +3,10 @@ import type { TUIElement } from "@tuidom/core/dom/tuiElement";
 import { Disposable } from "../../base/common/lifecycle.ts";
 
 /**
- * Компонент владеет корневым контролом ({@link view}), но не наследует
- * TUIElement. Отдельных mount()/activate() нет: всё — в конструкторе,
- * async-инициализация живёт в сервисах (`IActivatable`). Цвета — ИМЕНАМИ
- * токенов один раз при создании (Н3): hot-swap темы разъезжается каскадом.
+ * A component owns its root control ({@link view}) but does not extend
+ * TUIElement. There are no separate mount()/activate(): everything happens in the constructor,
+ * async initialization lives in services (`IActivatable`). Colors are set by token NAMES
+ * once at creation (N3): a theme hot-swap propagates through the cascade.
  */
 export abstract class Component extends Disposable {
     public abstract readonly view: TUIElement;

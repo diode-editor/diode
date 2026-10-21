@@ -10,9 +10,9 @@ describe("Workbench — suggest widget keyboard integration", () => {
         disposeSuggestApp(ctx);
     });
 
-    /** Word-based, без провайдеров. */
+    /** Word-based, no providers. */
     async function open(): Promise<void> {
-        ctx.testApp.sendKey("End"); // каретка в конец строки → префикс "i"
+        ctx.testApp.sendKey("End"); // cursor to end of line → prefix "i"
         await ctx.completion.trigger();
     }
 
@@ -54,13 +54,13 @@ describe("Workbench — suggest widget keyboard integration", () => {
     it("Enter принимает выбранный пункт без вставки перевода строки", async () => {
         ctx = createSuggestApp("indent_style indent_size i");
         await open();
-        ctx.testApp.sendKey("ArrowDown"); // выбираем indent_size
+        ctx.testApp.sendKey("ArrowDown"); // select indent_size
 
         ctx.testApp.sendKey("Enter");
 
         const text = ctx.activeEditor().getText();
         expect(text).toBe("indent_style indent_size indent_size");
-        expect(text).not.toContain("\n"); // парный Enter-keypress не вставил \n
+        expect(text).not.toContain("\n"); // the paired Enter keypress did not insert \n
         expect(ctx.completion.isOpen()).toBe(false);
     });
 
@@ -79,7 +79,7 @@ describe("Workbench — suggest widget keyboard integration", () => {
         ctx = createSuggestApp("indent_style indent_size i");
         await open();
         expect(ctx.completion.isOpen()).toBe(true);
-        // Дефолт — панель свёрнута (как в VS Code).
+        // Default: the details panel is collapsed (as in VS Code).
         expect(ctx.component.detailsVisible).toBe(false);
 
         ctx.testApp.sendKey("Ctrl+Space");

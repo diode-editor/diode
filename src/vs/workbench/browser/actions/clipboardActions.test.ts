@@ -84,7 +84,7 @@ describe("clipboardCopyAction", () => {
 
     it("без открытой панели буфер обмена не трогает", async () => {
         const clipboard = memoryClipboard("прежнее");
-        const ctrl = createTestActiveEditorService(null); // ни одной открытой вкладки
+        const ctrl = createTestActiveEditorService(null); // no open tabs
         const commands = new CommandRegistry();
         const accessor = new Container();
         accessor.bind(EditorServiceDIToken, () => ctrl);
@@ -93,7 +93,7 @@ describe("clipboardCopyAction", () => {
 
         await commands.execute(clipboardCopyAction.id);
 
-        // Окажись на месте пустого списка непустая заглушка — буфер затёрло бы невыделенным текстом.
+        // Were a non-empty stub in place of the empty list, the clipboard would get overwritten with unselected text.
         expect(await clipboard.readText()).toBe("прежнее");
     });
 
@@ -128,7 +128,7 @@ describe("clipboardCopyAction", () => {
         const accessor = new Container();
         accessor.bind(EditorServiceDIToken, () => ctrl);
         accessor.bind(ClipboardDIToken, () => clipboard);
-        // NULL-сервис возвращает undefined — сработать обязан дефолт `?? true`.
+        // The NULL service returns undefined, so the `?? true` default must kick in.
         accessor.bind(IConfigurationServiceDIToken, () => createTestConfigurationService());
         registerAction(commands, new KeybindingRegistry(), accessor, clipboardCopyAction);
 
@@ -193,7 +193,7 @@ describe("clipboardCutAction", () => {
     });
 
     it("в мультикурсоре копирует ровно то, что удаляет", async () => {
-        // Регрессия: Cut брал текст только первичного выделения, а удалял все.
+        // Regression: Cut took the text of the primary selection only but deleted all selections.
         const clipboard = memoryClipboard();
         const { editor, exec } = openEditor("alpha beta gamma", clipboard);
         editor.viewState.selections = [createSelection(0, 0, 0, 6), createSelection(0, 11, 0, 16)];
@@ -234,15 +234,15 @@ describe("clipboardPasteAction", () => {
         await exec(clipboardPasteAction);
 
         expect(editor.getText()).toBe("hello world");
-        // Ранний выход обязан случиться ДО правки: пустая вставка иначе бампает
-        // версию документа и пачкает буфер («грязная» вкладка без изменений).
+        // The early exit must happen BEFORE the edit: otherwise an empty paste bumps the
+        // document version and dirties the buffer (a "dirty" tab with no changes).
         expect(editor.isModified).toBe(false);
     });
 });
 
 describe("clipboardCutAction defensive delete handling", () => {
     it("still copies to the clipboard but pushes no undo when the delete is a no-op", async () => {
-        // Реальный редактор с выделением всегда даёт undo; стаб форсит pushUndo(undefined).
+        // A real editor with a selection always yields undo; the stub forces pushUndo(undefined).
         const clipboard = memoryClipboard();
         const pushUndo = vi.fn();
         const editor = {
@@ -287,8 +287,8 @@ describe("линейная вставка строки, скопированно
         await exec(clipboardCutAction);
         expect(editor.getText()).toBe("second");
 
-        // Каретка не в нулевой колонке: обычная вставка разорвала бы слово, и
-        // только линейная кладёт строку целиком выше курсорной.
+        // The cursor is not in column zero: a regular paste would split the word, and
+        // only a line paste puts the whole line above the cursor line.
         editor.viewState.selections = [createCursorSelection(0, 3)];
         await exec(clipboardPasteAction);
         expect(editor.getText()).toBe("first\nsecond");
@@ -298,7 +298,7 @@ describe("линейная вставка строки, скопированно
     it("строка, скопированная НЕпустым выделением, вставляется в позицию каретки", async () => {
         const clipboard = memoryClipboard();
         const { editor, exec } = openEditor("first\nsecond", clipboard);
-        editor.viewState.selections = [createSelection(0, 0, 1, 0)]; // "first\n" целиком
+        editor.viewState.selections = [createSelection(0, 0, 1, 0)]; // the whole "first\n"
         await exec(clipboardCopyAction);
 
         editor.viewState.selections = [createCursorSelection(1, 3)];
@@ -333,7 +333,7 @@ describe("линейная вставка строки, скопированно
 
 describe("copy→paste round-trip via OscClipboard (internal register)", () => {
     it("pastes copied text instantly through the internal register, never querying the terminal", async () => {
-        // Paste не должен слать OSC 52 read-запрос (`\x1b]52;c;?\x07`) — он виснет в kitty+ssh+tmux.
+        // Paste must not send an OSC 52 read request (`\x1b]52;c;?\x07`): it hangs in kitty+ssh+tmux.
         const writeFn = vi.fn();
         const clipboard = new OscClipboard(writeFn);
         const { editor, exec } = openEditor("hello world", clipboard);

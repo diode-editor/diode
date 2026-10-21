@@ -15,8 +15,8 @@ import { ThemeServiceDIToken } from "../services/themes/common/themeTokens.ts";
 
 import type { EditorTitleBarMenuContext } from "./actions/menuContexts.ts";
 
-// Форма вклада стокового Claude Code: accept/reject с `$(check)`/`$(discard)`
-// и пункт без рисуемой иконки (SVG), который уходит в «⋯».
+// Shaped like the stock Claude Code extension's contribution: accept/reject with `$(check)`/`$(discard)`
+// and an item without a drawable icon (SVG), which goes into "⋯".
 
 const CHECK = "";
 const DISCARD = "";

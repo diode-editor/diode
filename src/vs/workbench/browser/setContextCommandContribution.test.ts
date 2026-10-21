@@ -14,7 +14,7 @@ function setup(): { commands: CommandRegistry; contextKeys: ContextKeyService } 
 }
 
 describe("SetContextCommandContribution", () => {
-    // До регистрации команды вызов отклонялся как «команда не найдена».
+    // Before the command was registered, the call was rejected as "command not found".
     it("setContext кладёт значение в when-контекст, и when-выражение его видит", () => {
         const { commands, contextKeys } = setup();
 
@@ -59,11 +59,11 @@ describe("SetContextCommandContribution", () => {
         expect(commands.execute("setContext", 42, true)).toBeUndefined();
         expect(commands.execute("setContext")).toBeUndefined();
 
-        // Ключ с пустым именем в наборе имён вычислителя не нужен.
+        // The evaluator's name set has no use for a key with an empty name.
         expect(contextKeys.get("" as ContextKey)).toBeUndefined();
         expect(contextKeys.get("42" as ContextKey)).toBeUndefined();
 
-        // Негодное имя ломает компиляцию, то есть ВСЕ when-выражения сразу.
+        // An invalid name breaks compilation, i.e. ALL when expressions at once.
         contextKeys.set("textInputFocus", true);
         expect(contextKeys.evaluate("textInputFocus")).toBe(true);
     });

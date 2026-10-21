@@ -21,8 +21,8 @@ import { StatusBarServiceDIToken } from "../services/statusbar/common/statusBarS
 import { WorkbenchComponent, WorkbenchComponentDIToken } from "./workbenchComponent.ts";
 
 /**
- * Роль SCM играет заглушка, отдающая «версию из HEAD», как git-расширение; весь
- * путь ядра от команды до кадра — настоящий.
+ * A stub plays the SCM role and serves the "HEAD version" like the git extension does;
+ * the whole core path from command to frame is real.
  */
 
 const AT_HEAD = "alpha\nbravo\ncharlie\ndelta\n";
@@ -71,7 +71,7 @@ describe("Workbench — вкладка diff", () => {
         ws.dispose();
     });
 
-    /** Правит буфер, не сохраняя: дифф должен показать именно несохранённое. */
+    /** Edits the buffer without saving: the diff must show exactly the unsaved state. */
     function editBuffer(): void {
         const editor = editors.getActiveEditor();
         editor?.goToPosition(1, 0);
@@ -97,8 +97,8 @@ describe("Workbench — вкладка diff", () => {
         await settle(10);
 
         const pane = editors.getActivePane();
-        // Modified-сторона — живой буфер с правками, но диалог не нужен: правки живут
-        // в общей модели и видны во вкладке файла.
+        // The modified side is the live buffer with edits, yet no dialog is needed: the edits
+        // live in the shared model and show in the file's tab.
         expect(pane?.isModified).toBe(true);
         expect(pane === null ? true : editors.needsCloseConfirm(pane)).toBe(false);
 
@@ -160,7 +160,7 @@ describe("Workbench — вкладка diff", () => {
     });
 
     it("без версии в git вкладка не открывается, а в статус-баре появляется сообщение", async () => {
-        // Убираем команду SCM — так выглядит untracked-файл или отсутствие расширения.
+        // Remove the SCM command: this is how an untracked file or a missing extension looks.
         const { container, bindApp } = createTestContainer();
         const bare = container.get(WorkbenchComponentDIToken);
         const bareCommands = container.get(CommandRegistryDIToken);
@@ -229,7 +229,7 @@ describe("Workbench — вкладка diff", () => {
         const copied = await container.get(ClipboardDIToken).readText();
         expect(copied).toContain("XXbravo");
         expect(copied).not.toMatch(/^\s*\d+\s+\d+\s+[-+]/mu);
-        // И плейсхолдеры свёрнутых кусков — не текст файла.
+        // Placeholders of collapsed regions are not file text either.
         expect(copied).not.toContain("unchanged line");
     });
 
@@ -299,7 +299,7 @@ describe("Workbench — вкладка diff, отказы", () => {
         vi.useFakeTimers();
         commands.execute(COMPARE);
         await vi.advanceTimersByTimeAsync(10);
-        // Запись адресуема своим id — по нему её прячут и переписывают.
+        // The entry is addressable by its id, which is used to hide and rewrite it.
         expect(statusBar.entries().map((e) => e.id)).toContain("diff.compare.notice");
 
         await vi.advanceTimersByTimeAsync(COMPARE_NOTICE_MS);
@@ -322,7 +322,7 @@ describe("Workbench — дифф без открытого файла (openDiffW
         ws.dispose();
     });
 
-    /** Штатный реестр уже знает `file:` (markersModule); `git:` добавляем, как адаптер расширения. */
+    /** The built-in registry already knows `file:` (markersModule); `git:` is added as an extension adapter would. */
     function mountWorkbench() {
         const { container, bindApp } = createTestContainer();
         container.get(IFileServiceDIToken).registerProvider("git", {
@@ -362,8 +362,8 @@ describe("Workbench — дифф без открытого файла (openDiffW
     it("нечитающийся с диска файл (удалён) даёт дифф «HEAD ↔ пусто»", async () => {
         const { container, workbench, app } = mountWorkbench();
 
-        // Расширение неизвестно языковому сервису — заодно покрывается откат
-        // languageId на plaintext.
+        // The extension is unknown to the language service, which also covers the languageId
+        // fallback to plaintext.
         const result = await openDiffWithHead(container, Uri.file(ws.path("gone.weird")));
         await settle(10);
         app.render();
@@ -378,7 +378,7 @@ describe("Workbench — дифф без открытого файла (openDiffW
     });
 
     it("«оригинала нет» возвращается вызывающему без побочных эффектов", async () => {
-        // ORIGINAL_RESOURCE_COMMAND не зарегистрирована — SCM-расширения нет.
+        // ORIGINAL_RESOURCE_COMMAND is not registered: there is no SCM extension.
         const { container, bindApp } = createTestContainer();
         const workbench = container.get(WorkbenchComponentDIToken);
         const editors = container.get(EditorServiceDIToken);
@@ -446,7 +446,7 @@ describe("Workbench — дифф на широком терминале (side-by
             .screenToString()
             .split("\n")
             .map((l) => l.replace(/\s+$/, ""));
-        // Строку табов («a.txt ↔ HEAD ×») отсекаем по «↔».
+        // The tab row ("a.txt ↔ HEAD ×") is excluded by "↔".
         const header = lines.find((l) => l.includes("HEAD") && l.includes("│") && !l.includes("↔"));
         expect(header).toBeDefined();
         expect(header).toContain("a.txt");
@@ -502,7 +502,7 @@ describe("Workbench — вкладка diff, вырожденные случаи
         await settle(10);
 
         expect(editors.editorGroups.activeGroup.editorCount).toBe(1);
-        // Для пользователя это то же «сравнивать не с чем», а не ошибка чтения.
+        // To the user this is the same "nothing to compare with", not a read error.
         testApp.render();
         expect(testApp.backend.screenToString()).toContain("No changes to compare");
         workbench.dispose();
@@ -522,7 +522,7 @@ describe("Workbench — вкладка diff, вырожденные случаи
         const workbench = container.get(WorkbenchComponentDIToken);
         const commands = container.get(CommandRegistryDIToken);
         const editors = container.get(EditorServiceDIToken);
-        // Так отвечает git-расширение про untracked-файл.
+        // This is how the git extension answers for an untracked file.
         commands.register(ORIGINAL_RESOURCE_COMMAND, () => null);
         workbench.setWorkspaceFolder(ws.dir);
         workbench.mount();

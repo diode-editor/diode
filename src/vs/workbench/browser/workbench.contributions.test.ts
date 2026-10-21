@@ -21,8 +21,8 @@ describe("Workbench contributions", () => {
     });
 
     it("фаза Ready наступает в mount(): статус-contribution'ы опубликовали сегменты", () => {
-        // Terminal env + editor-status contribution'ы инстанцируются в mount()
-        // (Ready), поэтому к этому моменту в статус-баре уже есть записи.
+        // The terminal env + editor-status contributions are instantiated in mount()
+        // (Ready), so the status bar already has entries by now.
         const statusBar = h.container.get(StatusBarServiceDIToken);
         expect(h.container.get(LifecycleServiceDIToken).phase).toBe("ready");
         expect(statusBar.entries().length).toBeGreaterThan(0);
@@ -34,9 +34,9 @@ describe("Workbench contributions", () => {
         }).not.toThrow();
     });
 
-    // Эталон держит каналы Output на `LifecyclePhase.Restored` и инстанцирует
-    // их по idle: на Ready их ещё нет, они приходят первыми в переходе в
-    // Eventually (у приложения — после кадра с подсветкой).
+    // Upstream keeps Output channels on `LifecyclePhase.Restored` and instantiates
+    // them on idle: at Ready they are not there yet, they arrive first in the
+    // transition to Eventually (in the app — after the highlighted frame).
     it("afterRestored: на Ready селектора каналов Output ещё нет, с Eventually — есть", () => {
         const menus = h.container.get(MenuServiceDIToken);
         const hasSwitchOutput = (): boolean =>

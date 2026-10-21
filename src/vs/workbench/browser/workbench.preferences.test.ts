@@ -32,8 +32,8 @@ describe("Workbench — Preferences commands", () => {
             // Nested, not-yet-existing paths — the handler must create the parent dir + file.
             settingsFile = ws.path("user-data/User/settings.json");
             keybindingsFile = ws.path("user-data/User/keybindings.json");
-            // 120 колонок: в дефолтные 80 рядом с сайдбаром шапка вкладки шорткатов
-            // обрезается («Keybindi…»).
+            // 120 columns: at the default 80, next to the sidebar, the keybindings tab
+            // header is truncated ("Keybindi…").
             h = createAppTestHarness({
                 environment: { settingsResource: settingsFile, keybindingsResource: keybindingsFile },
                 size: new Size(120, 24),
@@ -72,8 +72,8 @@ describe("Workbench — Preferences commands", () => {
             expect(pane!.label).toBe("Keyboard Shortcuts");
             expect(fs.existsSync(keybindingsFile)).toBe(false);
 
-            // Список алфавитный, конкретный бинд может не попасть в окно — достаточно
-            // колонки Source с дефолтными записями.
+            // The list is alphabetical and a specific binding may fall outside the viewport —
+            // the Source column with default entries is enough.
             h.testApp.render();
             const screen = h.testApp.backend.screenToString();
             expect(screen).toContain("Keybinding");
@@ -168,7 +168,7 @@ describe("Workbench — Preferences commands", () => {
                 .map((command) => command.id);
         }
 
-        // Как у эталона: настройки воркспейса такого окна — блок `settings` файла.
+        // As upstream: the workspace settings of such a window are the file's `settings` block.
         it("Open Workspace Settings открывает сам файл воркспейса и его не трогает", async () => {
             const file = openWorkspaceFile();
 
@@ -241,8 +241,8 @@ describe("Workbench — Preferences commands", () => {
             h.testApp.sendKey("F6");
             h.testApp.sendKey("Enter");
 
-            // Запись асинхронная: под нагрузкой прогона (8 воркеров, coverage/Stryker) не
-            // укладывается в дефолтную секунду `vi.waitFor`.
+            // The write is async: under run load (8 workers, coverage/Stryker) it does not
+            // fit into the default one second of `vi.waitFor`.
             await vi.waitFor(
                 () => {
                     expect(fs.existsSync(keybindingsFile)).toBe(true);
@@ -252,8 +252,8 @@ describe("Workbench — Preferences commands", () => {
             );
             expect(fs.readFileSync(keybindingsFile, "utf-8")).toContain('"command": "test.custom"');
 
-            // Фильтр — чтобы строка попала в окно. Ждём именно кадр: обновление реестра
-            // отстаёт от записи на диск на загруженной машине (красный CI, dry run Stryker'а).
+            // The filter brings the row into the viewport. Wait for the frame itself: the registry
+            // update lags behind the disk write on a loaded machine (red CI, Stryker's dry run).
             (pane as KeybindingsEditorPane).setFilter("Recorder Target");
             await vi.waitFor(
                 () => {
@@ -264,7 +264,7 @@ describe("Workbench — Preferences commands", () => {
                 },
                 { timeout: 5000 },
             );
-            // …и команда исполняется по новой комбинации в том же сеансе (урок #194).
+            // …and the command runs on the new combination in the same session (lesson #194).
             h.testApp.sendKey("F6");
             expect(executed).toEqual(["test.custom"]);
         }, 15_000);

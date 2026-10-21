@@ -6,7 +6,7 @@ import {
     NotificationsComponentDIToken,
 } from "../parts/notifications/notificationsComponent.ts";
 
-/** Живые вопросы получают «закрыто без выбора» — расширение не остаётся висеть. */
+/** Live questions get "closed without a choice", so the extension is not left hanging. */
 export const clearNotificationsAction: CommandAction = {
     id: "notifications.clearAll",
     title: "Notifications: Clear All",
@@ -16,8 +16,8 @@ export const clearNotificationsAction: CommandAction = {
 };
 
 /**
- * ЕДИНСТВЕННЫЙ клавиатурный путь к ответу: тост фокуса не забирает (как в
- * эталоне). Бинд назван в подсказке внутри тоста — иначе о нём никто не узнает.
+ * The ONLY keyboard path to an answer: a toast does not take focus (as
+ * upstream). The binding is named in a hint inside the toast — otherwise nobody would know about it.
  */
 export const focusNotificationAction: CommandAction = {
     id: FOCUS_MESSAGE_COMMAND_ID,

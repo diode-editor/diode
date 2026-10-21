@@ -11,15 +11,15 @@ import { EditorPartComponentDIToken } from "../parts/editor/editorPartComponent.
 import { resolveAddressedTab } from "./editorTabTarget.ts";
 import { editorTabTargetArg } from "./menuContexts.ts";
 
-/** Kitty/CSI-u — единственные tier'ы, где Ctrl+цифра доходит до приложения. */
+/** Kitty/CSI-u are the only tiers where Ctrl+digit reaches the application. */
 const EXTENDED_TIERS = "tier == 'kitty' || tier == 'csi-u'";
 
-/** В ячейках, как у сайдбара. */
+/** In cells, like the sidebar. */
 const GROUP_RESIZE_STEP = 3;
 
 /**
- * Единственная группа — ось просто меняется (как в VS Code); полоса уже разложена —
- * отказ с записью в лог (одна ось — решение постановки №2).
+ * With a single group the axis simply changes (as in VS Code); once the strip is laid out,
+ * refuse and log it (one axis only — spec decision #2).
  */
 function ensureAxis(accessor: ServiceAccessor, wanted: "columns" | "rows"): boolean {
     const part = accessor.get(EditorPartComponentDIToken);
@@ -36,12 +36,12 @@ function ensureAxis(accessor: ServiceAccessor, wanted: "columns" | "rows"): bool
     return false;
 }
 
-/** Вкладку из контекст-меню таба перед сплитом делаем активной: сплит оставляет активным свой редактор. */
+/** Activates the tab from the tab context menu before splitting: the split keeps its own editor active. */
 function directionalSplit(
     accessor: ServiceAccessor,
     axis: "columns" | "rows",
     position: "before" | "after",
-    // Stryker disable next-line ArrayDeclaration: значение по умолчанию нужно лишь для вызовов без аргументов, а адресом считается только пара чисел — любой другой список ведёт себя как пустой
+    // Stryker disable next-line ArrayDeclaration: the default only serves argument-less calls, and only a pair of numbers counts as an address — any other list behaves as empty
     args: readonly unknown[] = [],
 ): void {
     const groups = accessor.get(EditorGroupsServiceDIToken);
@@ -59,7 +59,7 @@ function directionalNewGroup(accessor: ServiceAccessor, axis: "columns" | "rows"
     accessor.get(EditorGroupsServiceDIToken).newGroup(position);
 }
 
-/** Поперёк оси — no-op (US-10). */
+/** Across the axis it is a no-op (US-10). */
 function directionalFocus(accessor: ServiceAccessor, axis: "columns" | "rows", direction: "next" | "previous"): void {
     const part = accessor.get(EditorPartComponentDIToken);
     if (part.orientation !== axis) return;
@@ -70,7 +70,7 @@ export const splitEditorAction: CommandAction = {
     id: "workbench.action.splitEditor",
     title: "View: Split Editor",
     shortTitle: "Split Editor",
-    // 0x1C (FS) — единственный «сплитовый» бинд, доходящий на любом tier.
+    // 0x1C (FS) is the only split binding that arrives on every tier.
     keybinding: parseKeybinding("mod+\\"),
     when: "editorGroupHasEditors",
     run(accessor) {
@@ -85,7 +85,7 @@ export const splitEditorRightAction: CommandAction = {
     menus: [{ menuId: MenuId.EditorTitleContext, group: "2_split", order: 10, args: editorTabTargetArg }],
     when: "editorGroupHasEditors",
     run(accessor, ...args) {
-        // Stryker disable next-line StringLiteral: splitActiveGroup сравнивает позицию только с "before", поэтому "after" и любая другая строка кладут группу в одно и то же место
+        // Stryker disable next-line StringLiteral: splitActiveGroup compares the position only with "before", so "after" and any other string put the group in the same place
         directionalSplit(accessor, "columns", "after", args);
     },
 };
@@ -106,7 +106,7 @@ export const splitEditorDownAction: CommandAction = {
     menus: [{ menuId: MenuId.EditorTitleContext, group: "2_split", order: 20, args: editorTabTargetArg }],
     when: "editorGroupHasEditors",
     run(accessor, ...args) {
-        // Stryker disable next-line StringLiteral: см. splitEditorRightAction — позиция сравнивается только с "before"
+        // Stryker disable next-line StringLiteral: see splitEditorRightAction — the position is compared only with "before"
         directionalSplit(accessor, "rows", "after", args);
     },
 };
@@ -153,8 +153,8 @@ export const newGroupAboveAction: CommandAction = {
 };
 
 /**
- * Ctrl+цифра — только kitty/csi-u, чорд Ctrl+K цифра — везде. Дефолтные бинды —
- * до пятой группы: Ctrl+6 занят alternate editor (решение постановки №1).
+ * Ctrl+digit works only on kitty/csi-u, the Ctrl+K digit chord works everywhere. Default
+ * bindings go up to the fifth group: Ctrl+6 is taken by alternate editor (spec decision #1).
  */
 function focusGroupByIndexAction(ordinal: string, index: number, withKeys: boolean): CommandAction {
     const digit = String(index + 1);
@@ -241,7 +241,8 @@ export const moveEditorToNextGroupAction: CommandAction = {
     title: "View: Move Editor into Next Group",
     when: "editorGroupHasEditors",
     keybinding: { keys: parseKeybinding("ctrl+alt+right"), when: EXTENDED_TIERS },
-    // Ctrl+K ←/→ заняты word-motion-фолбэками legacy — чорд с Alt (см. docs/arch/workbench/EditorPart.md).
+    // Ctrl+K ←/→ are taken by legacy word-motion fallbacks, hence the Alt chord
+    // (see docs/arch/workbench/EditorPart.md).
     keybindings: [parseChord("ctrl+k alt+right")],
     run(accessor) {
         accessor.get(EditorGroupsServiceDIToken).moveActiveEditorToGroup("next");
@@ -255,8 +256,8 @@ export const moveEditorToPreviousGroupAction: CommandAction = {
     keybinding: { keys: parseKeybinding("ctrl+alt+left"), when: EXTENDED_TIERS },
     keybindings: [parseChord("ctrl+k alt+left")],
     run(accessor) {
-        // Всё, что не "next", полоса читает как "previous": пустая строка — тот же шаг.
-        // Stryker disable next-line StringLiteral: эквивалентен — см. выше
+        // The strip reads anything other than "next" as "previous": an empty string is the same step.
+        // Stryker disable next-line StringLiteral: equivalent — see above
         accessor.get(EditorGroupsServiceDIToken).moveActiveEditorToGroup("previous");
     },
 };
@@ -284,7 +285,7 @@ export const moveActiveEditorGroupLeftAction: CommandAction = {
     title: "View: Move Editor Group Left",
     when: "multipleEditorGroups",
     run(accessor) {
-        // Stryker disable next-line StringLiteral: всё, что не "next", полоса читает как "previous" — эквивалентен
+        // Stryker disable next-line StringLiteral: the strip reads anything other than "next" as "previous" — equivalent
         accessor.get(EditorGroupsServiceDIToken).moveActiveGroup("previous");
     },
 };
@@ -327,8 +328,8 @@ export const editorLayoutSingleAction: CommandAction = {
 export const toggleEditorGroupLayoutAction: CommandAction = {
     id: "workbench.action.toggleEditorGroupLayout",
     title: "View: Toggle Vertical/Horizontal Editor Layout",
-    // Канонический Shift+Alt+0 — только на расширенных tier'ах (в legacy `ESC )`
-    // неотличим от ввода символа).
+    // The canonical Shift+Alt+0 only on extended tiers (in legacy, `ESC )` is
+    // indistinguishable from typing the character).
     keybinding: parseChord("ctrl+k alt+0"),
     keybindings: [{ keys: parseKeybinding("shift+alt+0"), when: EXTENDED_TIERS }],
     run(accessor) {
@@ -407,7 +408,7 @@ export const closeEditorsAndGroupAction: CommandAction = {
     id: "workbench.action.closeEditorsAndGroup",
     title: "View: Close Editor Group",
     run(accessor) {
-        // Группа схлопывается сама по опустении.
+        // The group collapses by itself once empty.
         const service = accessor.get(EditorServiceDIToken);
         void service.closeAllEditors(accessor.get(EditorGroupsServiceDIToken).activeGroup);
     },
@@ -424,7 +425,7 @@ export const closeAllEditorsAction: CommandAction = {
         const service = accessor.get(EditorServiceDIToken);
         const groups = accessor.get(EditorGroupsServiceDIToken);
         void (async () => {
-            // Не по активной группе: она может быть пустой, а уже-пустое не схлопывается.
+            // Not by the active group: it may be empty, and an already empty group does not collapse.
             for (;;) {
                 const group = groups.groups.find((candidate) => candidate.editorCount > 0);
                 if (group === undefined) return;
@@ -438,8 +439,8 @@ export const closeAllEditorsAction: CommandAction = {
 export const explorerOpenToSideAction: CommandAction = {
     id: "explorer.openToSide",
     title: "File: Open to the Side",
-    // Ctrl+Enter в legacy-потоке — это сам Enter (0x0d), поэтому канонический бинд
-    // под tier-гейтом, а досягаемый путь — Alt+Enter (`ESC CR`, отдельный токен).
+    // In the legacy stream Ctrl+Enter is plain Enter (0x0d), so the canonical binding sits
+    // behind a tier gate and the reachable path is Alt+Enter (`ESC CR`, a separate token).
     keybinding: parseKeybinding("alt+enter"),
     keybindings: [{ keys: parseKeybinding("ctrl+enter"), when: "tier != 'legacy'" }],
     when: "filesExplorerFocus",

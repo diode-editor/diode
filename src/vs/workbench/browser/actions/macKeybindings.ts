@@ -11,23 +11,23 @@ import {
 import { macKeysAtLeast, type MacKeysRung, notMacKeys } from "../../../platform/keybinding/common/macKeys.ts";
 
 /**
- * Мак-дельты дефолтных биндов VS Code 1.138 — то, где Ctrl ↔ Cmd (`mod`) не 1:1:
- * pc-бинды, которых на маке нет (`pcOnly`), и мак-бинды без pc-пары (`mac`).
+ * Mac deltas of the VS Code 1.138 default bindings — where Ctrl ↔ Cmd (`mod`) is not 1:1:
+ * PC bindings absent on the Mac (`pcOnly`) and Mac bindings without a PC counterpart (`mac`).
  *
- * Правила (закрыты тестами `macKeybindings.test.ts`):
- *  - `from` — самый низкий рунг, где комбинация физически доезжает; Ctrl-аккорд,
- *    который ниже cmd занят фоллбэком `mod` другой команды (⌃N, ⌃P…), — с рунга cmd;
- *  - не `alt+<буква>`: на немецкой/французской раскладке Option+буква даёт `@ [ ] { }`;
- *  - не `ctrl+←/→`: их забирает Mission Control;
- *  - Cmd+C/V/X не биндим: копипаст остаётся эмулятору (решение человека).
+ * Rules (covered by `macKeybindings.test.ts`):
+ *  - `from` is the lowest rung where the combination physically arrives; a Ctrl chord
+ *    that below cmd is taken by another command's `mod` fallback (⌃N, ⌃P…) starts at the cmd rung;
+ *  - no `alt+<letter>`: on German/French layouts Option+letter produces `@ [ ] { }`;
+ *  - no `ctrl+←/→`: Mission Control takes them;
+ *  - Cmd+C/V/X stay unbound: copy/paste is left to the emulator (the maintainer's decision).
  *
- * Отклонения от эталона — docs/TODO/MacKeybindings.md.
+ * Deviations from upstream: docs/TODO/MacKeybindings.md.
  */
 export interface MacKeybindingDelta {
     readonly command: string;
-    /** Как объявлены при команде. */
+    /** As declared on the command. */
     readonly pcOnly?: readonly string[];
-    /** Мак-бинды: с какого рунга действуют. */
+    /** Mac bindings and the rung each applies from. */
     readonly mac?: readonly { readonly keys: string; readonly from: MacKeysRung }[];
 }
 
@@ -209,7 +209,7 @@ function toConditional(entry: KeybindingEntry): { keys: KeybindingChord; when: s
     return { keys: Array.isArray(entry) ? entry : [entry], when: undefined };
 }
 
-/** `pcOnly`, не найденный среди биндов команды, — ошибка таблицы, а не тихий no-op. */
+/** A `pcOnly` entry missing from the command's bindings is a table error, not a silent no-op. */
 export function withMacKeybindings(
     action: CommandAction,
     deltas: ReadonlyMap<string, MacKeybindingDelta> = DELTAS_BY_COMMAND,

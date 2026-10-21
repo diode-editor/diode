@@ -7,13 +7,13 @@ import type { NotificationService } from "../services/notification/browser/notif
 import { NotificationServiceDIToken } from "../services/notification/browser/notificationService.ts";
 
 export const UndoRefusalNotificationContributionDIToken =
-    // Stryker disable next-line StringLiteral: token() возвращает новый Token, и зависимости резолвятся по ссылке на него — строка внутри остаётся отладочной меткой
+    // Stryker disable next-line StringLiteral: token() returns a new Token and dependencies resolve by reference to it; the string inside is only a debug label
     token<UndoRefusalNotificationContribution>("UndoRefusalNotificationContribution");
 
 /**
- * Эталон шлёт это предупреждение из самого сервиса отмены; у нас сервис
- * платформенный и о сообщениях не знает. Молчать нельзя: отказ выглядел бы
- * как сломанная клавиша.
+ * Upstream sends this warning from the undo service itself; ours is a platform
+ * service and knows nothing about messages. Staying silent is not an option: a
+ * refusal would look like a broken key.
  */
 export class UndoRefusalNotificationContribution extends Disposable implements IWorkbenchContribution {
     public static dependencies = [UndoRedoServiceDIToken, NotificationServiceDIToken] as const;

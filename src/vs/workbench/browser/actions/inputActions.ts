@@ -83,7 +83,7 @@ export const inputDeleteRightAction: CommandAction = {
     },
 };
 
-/** Alt+Backspace — досягаемый везде путь (см. `deleteWordLeft`). */
+/** Alt+Backspace is the path reachable everywhere (see `deleteWordLeft`). */
 export const inputDeleteWordLeftAction: CommandAction = {
     id: "input.deleteWordLeft",
     title: "Input: Delete Word Left",

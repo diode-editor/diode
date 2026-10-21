@@ -6,21 +6,21 @@ import { HistoryServiceDIToken } from "../../services/history/browser/historySer
 
 /**
  /**
-  * Не VS Code'шная `1_history_nav`: группы сортируются строкой, и
-  * `"1_goto" < "1_history_nav"` увёл бы переходы под «Go to File».
+  * Not VS Code's `1_history_nav`: groups sort as strings, and
+  * `"1_goto" < "1_history_nav"` would push the navigation items below "Go to File".
   */
 const HISTORY_GROUP = "0_history_nav";
 
 /**
- * Канонический бинд — только где терминал его передаёт (на legacy Ctrl+Alt+-
- * неотличим от Alt+-); рабочий путь везде — Ctrl+K Ctrl+B.
+ * The canonical binding applies only where the terminal delivers it (on legacy Ctrl+Alt+-
+ * is indistinguishable from Alt+-); Ctrl+K Ctrl+B works everywhere.
  *
- * Вторая часть аккорда — с модификатором: парный keypress закреплён за целью
- * своего keydown (`TuiApplication.pinnedKeypressTarget`), а команда переключает
- * вкладку — цель уезжает из дерева, и голый символ напечатался бы в покинутый документ.
+ * The chord's second part has a modifier: the paired keypress is pinned to the target of
+ * its keydown (`TuiApplication.pinnedKeypressTarget`), and the command switches the
+ * tab — the target leaves the tree, and a bare character would be typed into the abandoned document.
  *
- * `when` нет намеренно: без истории — no-op, как в VS Code; заодно без
- * focus-scoped ключа шаг корректно подавляется модальным оверлеем.
+ * No `when` on purpose: without history it is a no-op, as in VS Code; and without a
+ * focus-scoped key the step is correctly suppressed by a modal overlay.
  */
 export const navigateBackAction: CommandAction = {
     id: "workbench.action.navigateBack",
@@ -36,7 +36,7 @@ export const navigateBackAction: CommandAction = {
 
 export const navigateForwardAction: CommandAction = {
     id: "workbench.action.navigateForward",
-    // Чорд Ctrl+K Ctrl+F делит с pc-биндом `editor.action.formatSelection` и сейчас его перебивает (так было и при порядке регистрации; коллизия записана в docs/arch/workbench/Commands.md#коллизии-дефолтов). Вес держит это поведение, пока коллизию не развели.
+    // The Ctrl+K Ctrl+F chord is shared with the pc binding of `editor.action.formatSelection` and currently wins over it (the collision is recorded in docs/arch/workbench/Commands.md#коллизии-дефолтов). The weight keeps this behavior until the collision is resolved.
     weight: KeybindingWeight.WorkbenchContrib,
     title: "Go Forward",
     shortTitle: "Forward",

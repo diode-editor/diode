@@ -36,7 +36,7 @@ export function createSuggestApp(text: string): SuggestContext {
         focusEditor: true,
     });
 
-    // Тот же синглтон-инстанс, что резолвил Workbench (контейнер кэширует).
+    // The same singleton instance Workbench resolved (the container caches it).
     const service = harness.container.get(CompletionServiceDIToken);
     const component = harness.container.get(SuggestComponentDIToken);
     const view = component.view;

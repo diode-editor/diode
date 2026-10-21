@@ -18,7 +18,7 @@ import type { QuickPickElement } from "./parts/quickinput/quickPickElement.ts";
 /** runRename awaits the QuickInput promise, then refresh → reveal; drain enough turns. */
 const FLUSH_TURNS = 20;
 
-/** setQuery сам имя не перепроверяет, а проверка по диску асинхронная — ждём, пока признает годным. */
+/** setQuery does not revalidate the name itself, and the on-disk check is async — wait until it is accepted. */
 async function typeInto(input: QuickPickElement, text: string): Promise<void> {
     input.setQuery(text);
     input.onQueryChange?.(text);
@@ -71,8 +71,8 @@ describe("Workbench — Rename", () => {
         await vi.waitFor(() => {
             expect(fs.existsSync(ws.path("new.txt"))).toBe(true);
         });
-        // Файл на диске появляется раньше, чем вкладка узнаёт о переименовании:
-        // под нагрузкой фиксированного числа микротасков не хватает — ждём кадр.
+        // The file appears on disk before the tab learns about the rename:
+        // under load a fixed number of microtasks is not enough — wait for a frame.
         await vi.waitFor(async () => {
             await flushMicrotasks(FLUSH_TURNS);
             h.testApp.render();
@@ -189,7 +189,7 @@ describe("Workbench — Rename", () => {
     it("falls back to the selected tree path when invoked without an argument", async () => {
         await h.workbench.activate();
         h.testApp.render();
-        // Курсор фокусированного дерева встаёт на единственный old.txt — его и вернёт getSelectedPaths().
+        // The focused tree's cursor lands on the only old.txt — that is what getSelectedPaths() returns.
         h.testApp.querySelector("TreeViewElement")!.focus();
         h.testApp.render();
 

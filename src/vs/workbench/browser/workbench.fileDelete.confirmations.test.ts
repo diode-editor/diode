@@ -18,11 +18,11 @@ import { WorkbenchComponent, WorkbenchComponentDIToken } from "./workbenchCompon
 let savedXdg: string | undefined;
 let ws: ITempWorkspace;
 
-// Дерево: dirs-first → row 0 = "target/", row 1 = "a.txt".
+// Tree: dirs-first → row 0 = "target/", row 1 = "a.txt".
 function createWorkspace(): ITempWorkspace {
     const workspace = createTempWorkspace({ prefix: "diode-del-confirm-", files: { "a.txt": "hello" } });
     fs.mkdirSync(workspace.path("target"));
-    // Изолированная корзина, чтобы не трогать ~/.local.
+    // An isolated trash so that ~/.local stays untouched.
     process.env.XDG_DATA_HOME = workspace.path(".xdg");
     return workspace;
 }
@@ -37,8 +37,8 @@ interface Ctx {
     commands: CommandRegistry;
 }
 
-// Не через createAppTestHarness: контроллер читает конфиг в конструкторе, а
-// контейнер кэширует сервисы — стаб нужен до резолва Workbench.
+// Not via createAppTestHarness: the controller reads the config in its constructor and
+// the container caches services, so the stub must be in place before Workbench resolves.
 function createApp(workspaceDir: string | null, config?: IConfigurationService): Ctx {
     const { container, bindApp } = createTestContainer();
     if (config) {
@@ -132,8 +132,8 @@ describe.skipIf(process.platform !== "linux")("Delete confirmations — explorer
         await vi.waitFor(() => {
             expect(fs.existsSync(alpha)).toBe(false);
         });
-        // Enter, подтвердивший диалог, не должен «протечь» вернувшемуся в фокус дереву
-        // и активировать (открыть в редакторе) только что удалённый файл.
+        // The Enter that confirmed the dialog must not "leak" into the tree that regains focus
+        // and activate (open in the editor) the just-deleted file.
         expect(ctx.testApp.focusedElement).toBe(ctx.testApp.querySelector("TreeViewElement"));
         ctx.workbench.dispose();
     });
@@ -151,7 +151,7 @@ describe("Delete confirmations — permanent delete (no trash)", () => {
         expect(ctx.testApp.querySelector("#confirmDialog")).not.toBeNull();
         expect(ctx.testApp.backend.screenToString()).toContain("Delete Permanently");
 
-        // Enter жмёт дефолтную кнопку.
+        // Enter presses the default button.
         ctx.testApp.sendKey("Enter");
         ctx.testApp.render();
         expect(ctx.testApp.querySelector("#confirmDialog")).toBeNull();
@@ -166,7 +166,7 @@ describe("Delete confirmations — permanent delete (no trash)", () => {
 
         ctx.commands.execute("fileOperations.deleteFile", alpha);
         ctx.testApp.render();
-        ctx.testApp.sendKey("ArrowLeft"); // фокус на "Delete Permanently"
+        ctx.testApp.sendKey("ArrowLeft"); // focus on "Delete Permanently"
         ctx.testApp.sendKey("Enter");
         ctx.testApp.render();
 
@@ -196,7 +196,7 @@ describe.skipIf(process.platform !== "linux")("Workspace undo — confirmation e
         const ctx = createApp(ws.dir, createTestConfigurationService());
         await activate(ctx);
 
-        // Копируем и вставляем a.txt в target/ — undo такой операции деструктивен.
+        // Copy a.txt and paste it into target/: undoing this operation is destructive.
         ctx.testApp.sendKey("ArrowDown");
         ctx.commands.execute("fileOperations.copy");
         ctx.testApp.sendKey("ArrowUp");
@@ -225,7 +225,7 @@ describe("File operations without a workspace root (empty selection)", () => {
         ctx.commands.execute("fileOperations.copy");
         ctx.commands.execute("fileOperations.cut");
 
-        // Правый клик без дерева невозможен — проверяем косвенно: paste после copy/cut остаётся no-op.
+        // A right click without the tree is impossible, so check indirectly: paste after copy/cut stays a no-op.
         expect(() => ctx.commands.execute("fileOperations.paste")).not.toThrow();
         ctx.workbench.dispose();
     });

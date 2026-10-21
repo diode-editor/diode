@@ -64,8 +64,8 @@ describe("FileTree opens file in editor", () => {
         testApp.sendKey("Enter");
         testApp.render();
 
-        // Обход дерева не копит таб-строку: вкладка-предпросмотр в группе одна,
-        // и следующее превью занимает её слот (`workbench.editor.enablePreview`).
+        // Walking the tree doesn't pile up tabs: a group has a single preview tab,
+        // and the next preview takes its slot (`workbench.editor.enablePreview`).
         const editorGroupCtrl = (workbench as unknown as { editorService: IEditorService }).editorService;
         expect(editorGroupCtrl.editorGroups.activeGroup.editorCount).toBe(1);
         expect(editorGroupCtrl.getActiveEditor()?.fileName).toBe("notes.md");

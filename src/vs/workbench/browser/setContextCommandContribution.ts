@@ -7,22 +7,22 @@ import { token } from "../../platform/instantiation/common/diContainer.ts";
 import type { IWorkbenchContribution } from "../common/iWorkbenchContribution.ts";
 
 export const SetContextCommandContributionDIToken =
-    // Stryker disable next-line StringLiteral: token() возвращает новый Token, и зависимости резолвятся по ссылке на него — строка внутри остаётся отладочной меткой
+    // Stryker disable next-line StringLiteral: token() returns a new Token and dependencies resolve by reference to it; the string inside is only a debug label
     token<SetContextCommandContribution>("SetContextCommandContribution");
 
 export const SET_CONTEXT_COMMAND_ID = "setContext";
 
 /**
- * `null`/`undefined` — «сбросить», то есть `false`: непрописанный boolean-ключ
- * и так читается как `false`. Массив и объект хранятся как есть — под оператор
- * `in` (`resource in ext.supportedFiles`); из массива остаются только примитивы.
+ * `null`/`undefined` mean "reset", i.e. `false`: an unset boolean key reads
+ * as `false` anyway. Arrays and objects are stored as is for the `in` operator
+ * (`resource in ext.supportedFiles`); arrays keep only primitives.
  */
 export function normalizeContextValue(value: unknown): ContextKeySettableValue {
     if (typeof value === "string") return value;
     if (Array.isArray(value)) return value.filter(isPrimitive);
     if (typeof value === "object" && value !== null) return value as Readonly<Record<string, unknown>>;
-    // NaN/Infinity как значение ключа бессмысленны — их истинность честнее.
-    // Stryker disable next-line ConditionalExpression: эквивалентный мутант — `Number.isFinite` истинен только для number, так что проверка `typeof` рядом с ним ничего не решает; оставлена ради читаемости
+    // NaN/Infinity make no sense as a key value; their truthiness is more honest.
+    // Stryker disable next-line ConditionalExpression: equivalent mutant — `Number.isFinite` is true only for numbers, so the `typeof` check next to it decides nothing; kept for readability
     if (typeof value === "number" && Number.isFinite(value)) return value;
     return Boolean(value);
 }
@@ -32,8 +32,8 @@ function isPrimitive(item: unknown): item is boolean | string | number {
 }
 
 /**
- * Без неё `executeCommand("setContext", …)` отклоняется как «команда не
- * найдена», и все `when` расширений мертвы. Без `title`: в палитре её нет и в VS Code.
+ * Without it `executeCommand("setContext", …)` is rejected as "command not
+ * found" and every extension `when` is dead. No `title`: VS Code keeps it out of the palette too.
  */
 export class SetContextCommandContribution extends Disposable implements IWorkbenchContribution {
     public static dependencies = [CommandRegistryDIToken, ContextKeyServiceDIToken] as const;

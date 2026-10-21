@@ -33,7 +33,7 @@ interface GroupStub {
     cycleEditor?: (direction: 1 | -1) => void;
     activeGroup?: TabGroupStub;
     groups?: readonly TabGroupStub[];
-    /** Диалоги проверяют харнесс-тесты `EditorService.closeEditor`. */
+    /** Dialogs are covered by the `EditorService.closeEditor` harness tests. */
     closeEditor?: (group: TabGroupStub, index: number) => Promise<boolean>;
 }
 
@@ -128,7 +128,7 @@ describe("TabActions", () => {
         commands.execute("workbench.action.previousEditor");
         expect(cycleEditor).toHaveBeenCalledWith(-1);
 
-        // Ничего не взведено даже при запуске с зажатым Ctrl.
+        // Nothing is armed even when invoked with Ctrl held.
         armory.fireRelease("Control");
         expect(endMruCycle).not.toHaveBeenCalled();
     });
@@ -178,7 +178,7 @@ describe("TabActions", () => {
         expect(endMruCycle).not.toHaveBeenCalled();
     });
 
-    // Keyup модификатора на legacy не приходит — шаг фиксируется сразу.
+    // Legacy delivers no modifier keyup, so the step is committed immediately.
     it("openPreviousRecentlyUsedEditorInGroup toggles and commits the step immediately", () => {
         const calls: string[] = [];
         const group: GroupStub = {
@@ -200,7 +200,7 @@ describe("TabActions", () => {
 
         expect(calls).toEqual(["cycle:1", "end"]);
 
-        // Ничего не взведено: отпускание Ctrl не должно дёргать фиксацию повторно.
+        // Nothing is armed: releasing Ctrl must not trigger the commit again.
         armory.fireRelease("Control");
         expect(calls).toEqual(["cycle:1", "end"]);
     });
@@ -249,7 +249,7 @@ describe("TabActions", () => {
         const { commands, keybindings, accessor } = setupActionTest(group);
         registerAction(commands, keybindings, accessor, closeActiveEditorAction);
 
-        // Правый клик по вкладке ЧУЖОЙ группы активную не меняет — адрес приходит аргументами.
+        // A right click on a tab of ANOTHER group does not change the active one — the address comes as arguments.
         commands.execute("workbench.action.closeActiveEditor", 2, 1);
 
         expect(otherClose).toHaveBeenCalledWith(1);
@@ -288,7 +288,7 @@ describe("TabActions", () => {
         const { commands, keybindings, accessor } = setupActionTest(group);
         registerAction(commands, keybindings, accessor, closeActiveEditorAction);
 
-        // Группа есть, а вкладки по индексу уже нет — и адрес из чужой группы тоже.
+        // The group exists but the tab at that index no longer does — and an address from another group too.
         commands.execute("workbench.action.closeActiveEditor", 1, 5);
         commands.execute("workbench.action.closeActiveEditor", 99, 0);
 

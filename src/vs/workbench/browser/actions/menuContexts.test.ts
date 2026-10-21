@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { editorTabIsFile, editorTabPathArg, editorTabTargetArg, type EditorTitleMenuContext } from "./menuContexts.ts";
 
-/** Ошибка здесь не видна в UI — команда просто отработает не по той вкладке. */
+/** A bug here is invisible in the UI — the command just acts on the wrong tab. */
 const context: EditorTitleMenuContext = {
     groupId: 3,
     index: 2,
@@ -20,7 +20,7 @@ describe("аргументы пунктов контекст-меню вклад
     });
 
     it("обе части адреса — именно числа", () => {
-        // Пустые или нечисловые аргументы команда примет за вызов из палитры.
+        // The command treats empty or non-numeric arguments as an invocation from the command palette.
         expect(editorTabTargetArg(context).map((value) => typeof value)).toEqual(["number", "number"]);
     });
 

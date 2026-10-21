@@ -3,8 +3,8 @@ import { parseKeybinding } from "../../../platform/keybinding/common/keybindingR
 import { EditorServiceDIToken } from "../../services/editor/common/editorService.ts";
 
 /**
- * Спискам и деревьям отдельная команда не нужна: Shift+F10 для них синтезирует
- * движок ("contextmenu"), а этот бинд перехватывает его только при фокусе в тексте.
+ * Lists and trees need no separate command: for them the engine synthesizes Shift+F10
+ * ("contextmenu"), and this binding intercepts it only when focus is in text.
  */
 export const showEditorContextMenuAction: CommandAction = {
     id: "editor.action.showContextMenu",

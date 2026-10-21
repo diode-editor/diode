@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTestHarness.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
 
-// Дерево: dirs-first → row 0 = "target/", row 1 = "a.txt".
+// Tree: dirs-first → row 0 = "target/", row 1 = "a.txt".
 function createWorkspace(): ITempWorkspace {
     const ws = createTempWorkspace({ prefix: "diode-wsundo-", files: { "a.txt": "hello" } });
     fs.mkdirSync(ws.path("target"));

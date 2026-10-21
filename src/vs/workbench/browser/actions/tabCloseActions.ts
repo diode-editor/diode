@@ -28,7 +28,7 @@ export const closeOtherEditorsAction: CommandAction = {
         const service = accessor.get(EditorServiceDIToken);
         const target = resolveTabTarget(accessor.get(EditorGroupsServiceDIToken), args);
         if (target === null) return;
-        // С хвоста: диалоги по несохранённым идут справа налево, как у Ctrl+K W.
+        // From the tail: prompts for unsaved tabs go right to left, as with Ctrl+K W.
         const panes = target.group
             .getPanes()
             .filter((_pane, index) => index !== target.index)
@@ -79,10 +79,10 @@ export const closeUnmodifiedEditorsAction: CommandAction = {
         const service = accessor.get(EditorServiceDIToken);
         const target = resolveTabTarget(accessor.get(EditorGroupsServiceDIToken), args);
         if (target === null) return;
-        // Диалогов нет: закрываем ровно неизменённое, позиция ищется заново перед каждым
-        // закрытием — набор закрытых вкладок от порядка не зависит.
+        // No dialogs: close exactly the unmodified tabs, re-finding each position before every
+        // close — the set of closed tabs does not depend on the order.
         const unmodified = target.group.getPanes().filter((pane) => !pane.isModified);
-        // Stryker disable next-line MethodExpression: см. выше
+        // Stryker disable next-line MethodExpression: see above
         const panes = unmodified.toReversed();
         void service.closeEditors(target.group, panes);
     },

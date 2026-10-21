@@ -12,19 +12,19 @@ import { MENU_CONTRIBUTIONS, WORKBENCH_ACTIONS } from "../../workbench.common.ma
 
 import { withMacKeybindings } from "./macKeybindings.ts";
 
-/** Источник правды — сам интерфейс `ContextKeyTypes`; тест читает его, а не дублирует. */
+/** The source of truth is the `ContextKeyTypes` interface itself; the test reads it instead of duplicating it. */
 function declaredContextKeys(): Set<string> {
     const source = readFileSync(new URL("../../../platform/contextkey/common/contextKeys.ts", import.meta.url), "utf8");
     return new Set([...source.matchAll(/^ {4}(\w+)\??:/gm)].map((match) => match[1]));
 }
 
-/** Динамические семейства ключей: свои моды окружения и capability терминала. */
+/** Dynamic key families: environment modes and terminal capabilities. */
 const DYNAMIC_KEY_PREFIXES = ["mode_", "cap_"];
 
-/** Так, как их видит вычислитель: с мак-вариантами и `combineWhen`. */
+/** As the evaluator sees them: with mac variants and `combineWhen`. */
 function builtinWhens(): Set<string> {
     const keybindings = new KeybindingRegistry();
-    const accessor = {} as ServiceAccessor; // enablement резолвится только при исполнении
+    const accessor = {} as ServiceAccessor; // enablement resolves only on execution
     for (const builtin of WORKBENCH_ACTIONS) {
         registerAction(new CommandRegistry(), keybindings, accessor, withMacKeybindings(builtin));
     }
@@ -54,8 +54,8 @@ describe("when-строки встроенных регистраций", () => 
 
     it("каждая ссылается только на объявленные ключи (опечатка в when иначе молча даёт false)", () => {
         const declared = declaredContextKeys();
-        expect(declared.has("textInputFocus")).toBe(true); // разбор интерфейса жив
-        expect(declared.has("editorFocus")).toBe(false); // закомментированные поля — не объявлены
+        expect(declared.has("textInputFocus")).toBe(true); // interface parsing works
+        expect(declared.has("editorFocus")).toBe(false); // commented-out fields are not declared
         const unknown = new Set<string>();
         for (const when of builtinWhens()) {
             for (const key of whenKeys(parseWhen(when)!)) {

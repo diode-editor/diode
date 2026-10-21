@@ -6,7 +6,7 @@ import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTe
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
 import type { EditorElement } from "../../editor/browser/editorElement.ts";
 
-/** `editorCursor.foreground` из Dark+ — фон блочной каретки в кадре. */
+/** `editorCursor.foreground` from Dark+: the block cursor's background in the frame. */
 const CARET_BG = packRgb(0xae, 0xaf, 0xad);
 
 describe("Workbench — мультикурсор с настоящей клавиатуры", () => {

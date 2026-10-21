@@ -49,7 +49,7 @@ describe("Workbench — оверлей Ctrl+Tab и цикл Ctrl+PgUp/PgDn", () 
     it("Ctrl+Tab показывает MRU-список с позицией цикла; отпускание Ctrl гасит и фиксирует", () => {
         expect(switcher.isOpen()).toBe(false);
 
-        // Правка в активной вкладке (c.ts): в оверлее у неё должен быть маркер ●.
+        // An edit in the active tab (c.ts): the overlay must show the ● marker for it.
         h.testApp.sendKey("x");
         h.testApp.sendKey("Ctrl+Tab");
         h.testApp.render();
@@ -66,7 +66,7 @@ describe("Workbench — оверлей Ctrl+Tab и цикл Ctrl+PgUp/PgDn", () 
         expect(frame).toMatch(new RegExp(`│\\s*${tsIcon} c\\.ts\\s+● │`));
         expect(frame).toMatch(new RegExp(`│\\s*${tsIcon} a\\.ts\\s+│`));
 
-        // Как у quick pick'а: центр по горизонтали, ~10% от верха; ширина 48 на 80×24.
+        // Like the quick pick: horizontally centered, ~10% from the top; width 48 at 80×24.
         expect(switcher.view.globalPosition.x).toBe(16);
         expect(switcher.view.globalPosition.y).toBe(2);
         expect(switcher.view.layoutSize.width).toBe(48);
@@ -77,7 +77,7 @@ describe("Workbench — оверлей Ctrl+Tab и цикл Ctrl+PgUp/PgDn", () 
         expect(activeName()).toBe("a.ts");
         expect(switcher.view.inspectState()).toMatchObject({ currentIndex: 2 });
         const rowBg = (y: number) => h.testApp.backend.getBgAt(new Point(20, y));
-        // Оверлей в (16,2): рамка y=2, строки y=3..5; текущая — третья (y=5).
+        // Overlay at (16,2): border y=2, rows y=3..5; the current one is the third (y=5).
         expect(rowBg(4)).toBe(rowBg(3));
         expect(rowBg(5)).not.toBe(rowBg(3));
 
@@ -89,9 +89,9 @@ describe("Workbench — оверлей Ctrl+Tab и цикл Ctrl+PgUp/PgDn", () 
         expect(frameAfter).not.toMatch(/│\s*\S+ c\.ts.*│/);
     });
 
-    // Legacy-терминал keyup модификатора не присылает вовсе, поэтому конец серии
-    // обязан быть и без него: иначе список висел бы поверх редактора до
-    // следующего переключения.
+    // A legacy terminal never sends the modifier keyup, so the series must end
+    // without it too: otherwise the list would hang over the editor until the
+    // next switch.
     it("любая другая клавиша завершает серию: список гаснет, выбор зафиксирован", () => {
         h.testApp.sendKey("Ctrl+Tab");
         h.testApp.render();
@@ -126,7 +126,7 @@ describe("Workbench — оверлей Ctrl+Tab и цикл Ctrl+PgUp/PgDn", () 
     });
 
     it("Ctrl+PgDn/PgUp циклируют по визуальному порядку вкладок без оверлея", () => {
-        // Активна c (последняя открытая); визуальный порядок: a, b, c.
+        // c is active (opened last); visual order: a, b, c.
         h.testApp.sendKey("Ctrl+PageDown");
         h.testApp.render();
         expect(activeName()).toBe("a.ts");
@@ -137,8 +137,8 @@ describe("Workbench — оверлей Ctrl+Tab и цикл Ctrl+PgUp/PgDn", () 
         expect(activeName()).toBe("c.ts");
         expect(switcher.isOpen()).toBe(false);
 
-        // MRU-порядок при этом обновился (каждый шаг коммитится сразу): серия
-        // Ctrl+Tab после визуального цикла начинает с него, а не со старого MRU.
+        // The MRU order was updated along the way (each step commits immediately): a
+        // Ctrl+Tab series after the visual cycle starts from it, not from the old MRU.
         expect(editorService.editorGroups.activeGroup.getMruOrder()[0]?.label).toBe("c.ts");
     });
 
@@ -169,8 +169,8 @@ describe("Workbench — оверлей Ctrl+Tab и цикл Ctrl+PgUp/PgDn", () 
         h.testApp.render();
         expect(switcher.isOpen()).toBe(true);
 
-        // Не-фокусный глобальный бинд (Ctrl+B, без when) обязан сработать поверх
-        // видимого оверлея — сессия не capturesKeyboard, в отличие от квик-пика.
+        // A non-focus global binding (Ctrl+B, no when) must fire over the
+        // visible overlay — the session doesn't set capturesKeyboard, unlike the quick pick.
         const layout = h.testApp.querySelector("WorkbenchLayoutElement") as unknown as {
             getLeftPanelVisible: () => boolean;
         };
@@ -206,7 +206,7 @@ describe("Workbench — оверлей Ctrl+Tab и цикл Ctrl+PgUp/PgDn", () 
             narrow.testApp.render();
 
             const view = narrow.container.get(TabSwitcherComponentDIToken).view;
-            // min(48, max(24, 40−4)) = 36; центр: (40−36)/2 = 2.
+            // min(48, max(24, 40−4)) = 36; center: (40−36)/2 = 2.
             expect(view.layoutSize.width).toBe(36);
             expect(view.globalPosition.x).toBe(2);
         } finally {

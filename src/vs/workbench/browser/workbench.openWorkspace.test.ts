@@ -66,7 +66,7 @@ describe("Workbench — Open Workspace from File", () => {
             });
         }
 
-        // Пустое поле ошибкой не помечается — как у Open Folder.
+        // An empty field is not flagged as an error — same as Open Folder.
         input.onQueryChange?.("");
         await vi.waitFor(() => {
             expect(input.validationMessage).toBeNull();
@@ -85,7 +85,7 @@ describe("Workbench — Open Workspace from File", () => {
         expect(prompt().placeholder).toBe("Enter a .code-workspace file path");
     });
 
-    // Команда возвращает промис: отказ внутри неё дошёл бы сюда, а не потерялся.
+    // The command returns a promise: a rejection inside it would surface here instead of getting lost.
     it("Escape и пустой Enter ничего не открывают, команда завершается без отказа", async () => {
         const escaped = h.commands.execute("workbench.action.openWorkspace");
         h.testApp.render();

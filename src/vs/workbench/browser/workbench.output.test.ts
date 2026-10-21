@@ -42,7 +42,7 @@ describe("Workbench — Output panel", () => {
 
     beforeEach(() => {
         ws = createTempWorkspace({ prefix: "diode-output-", files: { "alpha.txt": "Alpha" } });
-        // Настоящие LogService + RingBufferSink: связка «лог → буфер → панель» и есть предмет проверки.
+        // Real LogService + RingBufferSink: the log → buffer → panel chain is what's under test.
         logService = new LogService();
         const history = new RingBufferSink();
         logService.addSink(history);
@@ -120,8 +120,8 @@ describe("Workbench — Output panel", () => {
     });
 
     it("записи до открытия вкладки не теряются — при открытии они уже в кадре", () => {
-        // Редактор поднимается лениво, поэтому хвост, прилетевший раньше, обязан
-        // приехать из истории, а не потеряться между сервисом и редактором.
+        // The editor is created lazily, so a tail that arrived earlier must come
+        // from history instead of getting lost between the service and the editor.
         logService.createLogger("bootstrap").info("before opening");
 
         h.commands.execute(TOGGLE_OUTPUT);
@@ -139,8 +139,8 @@ describe("Workbench — Output panel", () => {
     });
 
     it("клик по вкладке OUTPUT наполняет её, а не только команда", () => {
-        // Клик по табу идёт через `activateView`, toggle-команда — через `setActiveView`
-        // без события активации: без подписки на activateView вкладка была бы пустой.
+        // A tab click goes through `activateView`, the toggle command through `setActiveView`
+        // without an activation event: without an activateView subscription the tab would be empty.
         const panelService = h.container.get(PanelServiceDIToken);
         h.commands.execute("workbench.action.togglePanel");
 
@@ -164,7 +164,7 @@ describe("Workbench — Output panel", () => {
     });
 
     it("фон лога — фон панели, а не редактора", () => {
-        // Фон editor.background выбивался прямоугольником из панели (Dark+: #181818 против #1E1E1E).
+        // editor.background stood out as a rectangle inside the panel (Dark+: #181818 vs #1E1E1E).
         const theme = h.container.get(ThemeServiceDIToken).theme;
         const panelBg = theme.getRequiredColor("panel.background");
         expect(panelBg).not.toBe(theme.getRequiredColor("editor.background"));
@@ -174,7 +174,7 @@ describe("Workbench — Output panel", () => {
 
         const editor = h.container.get(EditorServiceDIToken).getActiveEditor()!.view.getChild();
         const origin = editor.globalPosition;
-        // Гуттер и последняя строка вьюпорта — «пустой» фон редактора.
+        // The gutter and the last viewport line use the editor's "empty" background.
         expect(h.testApp.backend.getBgAt(new Point(origin.x, origin.y))).toBe(panelBg);
         expect(h.testApp.backend.getBgAt(new Point(origin.x, origin.y + editor.layoutSize.height - 1))).toBe(panelBg);
     });
@@ -228,8 +228,8 @@ describe("Workbench — Output: селектор канала", () => {
     });
 
     it("селектор в шапке не дублируется кнопкой «⋯» с тем же списком", () => {
-        // Кнопки «⋯» нет: её единственный пункт дублировал селектор; в VS Code submenu
-        // с `isSelection` рисуется SelectBox'ом и в overflow не попадает.
+        // No "⋯" button: its only item duplicated the selector; in VS Code a submenu
+        // with `isSelection` renders as a SelectBox and stays out of the overflow.
         const tabRow = frame()
             .split("\n")
             .find((line) => line.includes("PROBLEMS  OUTPUT  TERMINAL"));
@@ -246,8 +246,8 @@ describe("Workbench — Output: селектор канала", () => {
     });
 
     it("канал зарегистрирован как команда — её видно и в палитре", () => {
-        // Канал заводится после подъёма панели (хост расширений стартует позже) —
-        // метка обязана доехать и до селектора, и до палитры.
+        // The channel is registered after the panel comes up (the extension host starts later) —
+        // the label must still reach both the selector and the command palette.
         h.container.get(ILogServiceDIToken).createLogger("extensions.host", { label: "Extension Host" });
         const titles = h.commands.listCommands().map((c) => c.title);
         expect(titles).toContain("Output: Show Extension Host");
@@ -277,8 +277,8 @@ describe("Workbench — Output: селектор канала", () => {
     });
 
     it("выбор в селекторе переключает канал — через ту же команду", () => {
-        // Выбор исполняет `workbench.action.output.show.<id>`, а не зовёт сервис:
-        // у мыши и палитры один маршрут.
+        // Selection runs `workbench.action.output.show.<id>` instead of calling the service:
+        // mouse and command palette share one route.
         const selector = h.testApp.querySelector("SelectBoxElement") as SelectBoxElement | null;
         expect(selector).not.toBeNull();
         selector!.focus();
@@ -302,7 +302,7 @@ describe("Workbench — Output: селектор канала", () => {
     });
 
     it("повторное появление канала не двоит пункт селектора", () => {
-        // Канал приходит и из реестра, и из живого потока — регистрация идемпотентна.
+        // A channel arrives both from the registry and from the live stream — registration is idempotent.
         const logService = h.container.get(ILogServiceDIToken);
         logService.createLogger("brand.new").info("one");
         logService.createLogger("brand.new").info("two");
@@ -314,7 +314,7 @@ describe("Workbench — Output: селектор канала", () => {
     });
 });
 
-/** Регрессии из чёрноящичного прогона PR #197: каждый кейс — воспроизведение репорта. */
+/** Regressions from the black-box run of PR #197: each case reproduces a report. */
 describe("Workbench — Output: регрессии", () => {
     let ws: ITempWorkspace;
     let userData: ITempWorkspace;
@@ -357,8 +357,8 @@ describe("Workbench — Output: регрессии", () => {
 
     afterEach(() => {
         h.dispose();
-        // Писателей глушим ДО сноса каталогов: debounced-запись, сработавшая
-        // после `rmSync`, пересоздаёт каталог (`mkdir` с `recursive`).
+        // Silence the writers BEFORE removing the directories: a debounced write firing
+        // after `rmSync` recreates the directory (`mkdir` with `recursive`).
         for (const writer of writers) writer.dispose();
         ws.dispose();
         userData.dispose();
@@ -372,14 +372,14 @@ describe("Workbench — Output: регрессии", () => {
     }
 
     it("BUG-1: смена канала не теряет фокус", () => {
-        // `replaceOwnedContent` пересобирает `EditorElement`; старый уходил с дерева
-        // вместе с фокусом, и клавиатура никуда не доходила.
+        // `replaceOwnedContent` rebuilds the `EditorElement`; the old one left the tree
+        // along with focus, and keystrokes went nowhere.
         outputPane();
 
         h.container.get(OutputServiceDIToken).showChannel("configuration");
 
-        // Ассерт на живой виджет: снятый с дерева редактор хранит ссылку на родителя,
-        // и «фокус где-то под панелью» прошёл бы и со сломанным фокусом.
+        // Assert on the live widget: an editor detached from the tree keeps its parent reference,
+        // so "focus somewhere under the panel" would pass even with broken focus.
         const pane = h.container.get(EditorServiceDIToken).getActiveEditor();
         expect(pane?.uri.scheme).toBe("output");
         expect(h.testApp.focusedElement).toBe(pane!.view.getChild());
@@ -401,7 +401,7 @@ describe("Workbench — Output: регрессии", () => {
     });
 
     it("BUG-2: у обычной вкладки read-only по-прежнему переключается", () => {
-        // Контроль: гард не должен зарубить команду там, где она и нужна.
+        // Control: the guard must not block the command where it is actually needed.
         h.workbench.focusEditor();
 
         h.commands.execute("workbench.action.files.toggleActiveEditorReadonlyInSession");
@@ -443,7 +443,7 @@ describe("Workbench — Output: регрессии", () => {
     });
 
     it("BUG-3: у конца документа автоскролл продолжает работать", () => {
-        // Контроль: гард не должен убить сам автоскролл.
+        // Control: the guard must not kill autoscroll itself.
         const pane = outputPane();
         const before = pane.viewState.selections[0].active.line;
 
@@ -453,7 +453,7 @@ describe("Workbench — Output: регрессии", () => {
     });
 
     it("BUG-4: Ctrl+F при фокусе в Output ищет по логу, а не по файлу за панелью", () => {
-        // `diode starting` есть только в логе, `Alpha` — только в файле.
+        // `diode starting` exists only in the log, `Alpha` only in the file.
         outputPane();
         const find = h.container.get(FindComponentDIToken);
         const groupId = h.container.get(EditorServiceDIToken).editorGroups.activeGroup.id;
@@ -468,8 +468,8 @@ describe("Workbench — Output: регрессии", () => {
     });
 
     it("BUG-6: после восстановления сессии вкладка сразу наполнена", () => {
-        // Панель осталась открытой на OUTPUT — на следующем запуске события
-        // активации уже не будет, и контент обязан подтянуться сам.
+        // The panel stayed open on OUTPUT — on the next launch there is no activation
+        // event, so the content must load by itself.
         const state1 = newState();
         const first = boot(state1);
         first.commands.execute(TOGGLE_OUTPUT);
@@ -487,8 +487,8 @@ describe("Workbench — Output: регрессии", () => {
 });
 
 /**
- * Focus-aware `getActiveEditor()` отдаёт detached-панель всем подряд, и
- * потребители с «вкладочной» семантикой ломаются об это по-разному.
+ * Focus-aware `getActiveEditor()` hands the detached panel to everyone, and
+ * consumers with tab semantics break on it in different ways.
  */
 describe("Workbench — Output: потребители, которым нужна вкладка", () => {
     let ws: ITempWorkspace;
@@ -522,9 +522,9 @@ describe("Workbench — Output: потребители, которым нужн�
     });
 
     it("живая запись в Output не гасит область редактора", () => {
-        // Хвост дёргает onDidChangeEditors → группа пере-вставляла контент по
-        // focus-aware активному редактору и подсовывала себе Output вместо файла:
-        // весь центр экрана оказывался пустым.
+        // The tail fires onDidChangeEditors → the group re-inserted content from the
+        // focus-aware active editor and swapped in Output instead of the file:
+        // the whole center of the screen went blank.
         h.testApp.render();
         expect(h.testApp.backend.screenToString()).toContain("AAAA");
 
@@ -535,8 +535,8 @@ describe("Workbench — Output: потребители, которым нужн�
     });
 
     it("Ctrl+W при фокусе в Output спрашивает про несохранённую вкладку", async () => {
-        // dirty спрашивали у focus-aware активного редактора — Output никогда не
-        // modified, и изменённая вкладка закрывалась бы молча.
+        // dirty was asked of the focus-aware active editor — Output is never
+        // modified, so a modified tab would close silently.
         const editorService = h.container.get(EditorServiceDIToken);
         const tab = editorService.getEditors()[0];
         tab.viewState.type("X");
@@ -565,15 +565,15 @@ describe("Workbench — Output: потребители, которым нужн�
 
         stateService.captureOpenEditors();
 
-        // Активная вкладка — открытый файл; Output пути на диске не имеет, и
-        // индекс схлопывался бы в -1.
+        // The active tab is an open file; Output has no path on disk, and
+        // the index would collapse to -1.
         expect(h.container.get(EditorServiceDIToken).getActiveTabEditor()?.absoluteFilePath).toBe(ws.path("alpha.txt"));
     });
 });
 
 describe("Workbench — Output: пустые каналы", () => {
     it("канал без записей открывается пустым редактором, а не падением", () => {
-        // Как в VS Code: канал с меткой виден с создания логгера, даже пустой.
+        // As in VS Code: a labeled channel is visible from logger creation, even when empty.
         const ws = createTempWorkspace({ prefix: "diode-output-empty-" });
         const logService = new LogService();
         logService.createLogger("bootstrap", { label: "Bootstrap" });
@@ -595,9 +595,9 @@ describe("Workbench — Output: пустые каналы", () => {
     });
 
     it("с пустым реестром вкладка показывает placeholder", () => {
-        // Ветка «активного канала нет вовсе»: в приложении недостижима, потому что
-        // bootstrap заводит каналы с метками до подъёма UI, но контракт компонента
-        // обязан её держать — иначе пустой реестр давал бы редактор без канала.
+        // The "no active channel at all" branch: unreachable in the app, because
+        // bootstrap registers labeled channels before the UI comes up, but the component contract
+        // must hold it — otherwise an empty registry would yield an editor without a channel.
         const ws = createTempWorkspace({ prefix: "diode-output-noreg-" });
         const h = createAppTestHarness({
             workspaceFolder: ws.dir,
@@ -653,7 +653,7 @@ describe("Workbench — Output: редактор вне таб-строки", ()
     });
 
     it("пока фокус в Output, активный редактор — он, а не файл за панелью", () => {
-        // Иначе стрелки и Ctrl+F в панели правили бы/двигали курсор в файле.
+        // Otherwise arrows and Ctrl+F in the panel would edit / move the cursor in the file.
         const editorService = h.container.get(EditorServiceDIToken);
         h.commands.execute(TOGGLE_OUTPUT);
 
@@ -674,16 +674,16 @@ describe("Workbench — Output: редактор вне таб-строки", ()
     });
 
     it("скрытие панели уводит фокус во вкладку, а не обратно в Output", () => {
-        // `PanelFocusContribution` зовёт `focusEditor()`; ходи он через focus-aware
-        // getActiveEditor — фокус вернулся бы в скрытую панель.
+        // `PanelFocusContribution` calls `focusEditor()`; if it went through the focus-aware
+        // getActiveEditor, focus would return to the hidden panel.
         const editorService = h.container.get(EditorServiceDIToken);
         h.commands.execute(TOGGLE_OUTPUT);
         expect(editorService.getActiveEditor()?.uri.scheme).toBe("output");
 
         h.commands.execute(TOGGLE_OUTPUT);
 
-        // Ассерт на то, ГДЕ фокус: `getActiveEditor()` вернул бы вкладку и в сломанном
-        // варианте. Наблюдаемая разница — попал ли фокус в файл.
+        // Assert on WHERE focus is: `getActiveEditor()` would return the tab even in the broken
+        // variant. The observable difference is whether focus landed in the file.
         const tabEditor = editorService.getEditors()[0];
         const focused = h.testApp.focusedElement;
         expect(focused).not.toBeNull();

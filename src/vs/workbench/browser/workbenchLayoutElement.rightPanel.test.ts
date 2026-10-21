@@ -59,7 +59,7 @@ function frameRow(layout: WorkbenchLayoutElement, row = 0): string {
 }
 
 function rightSash(layout: WorkbenchLayoutElement): SashElement {
-    // Порядок сашей: левый, правый, нижний.
+    // Sash order: left, right, bottom.
     return layout.getChildren().filter((c) => c instanceof SashElement)[1];
 }
 
@@ -136,7 +136,7 @@ describe("WorkbenchLayoutElement: правая панель (вторичная 
         it("совсем вырожденное окно — правая уступает целиком", () => {
             const layout = build({ width: 14, leftWidth: 30, rightWidth: 40 });
             expect(frameRow(layout)).toBe("L".repeat(12) + "R".repeat(2));
-            // Кадр обрезан окном — ширину видно только по боксу.
+            // The frame is clipped by the window; the width is visible only through the box.
             expect(layout.getRightPanel()!.layoutSize.width).toBe(2);
         });
 
@@ -226,7 +226,7 @@ describe("WorkbenchLayoutElement: правая панель (вторичная 
             const layout = build({ width: 100 });
             const leftSash = layout.getChildren().find((c) => c instanceof SashElement)!;
             leftSash.onDrag?.(99);
-            // 100 - 20 (редактор) - 12 (минимум правой) = 68.
+            // 100 - 20 (editor) - 12 (right minimum) = 68.
             expect(layout.getLeftPanelWidth()).toBe(68);
             layout.layout(BoxConstraints.tight(new Size(100, 10)));
             expect(frameRow(layout)).toBe("L".repeat(68) + "C".repeat(20) + "R".repeat(12));
