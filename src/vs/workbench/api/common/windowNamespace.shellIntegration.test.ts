@@ -5,7 +5,7 @@ import { createNodeExtHostDisk } from "../node/extHostDisk.ts";
 import { makeStubRpc } from "./testStubRpc.ts";
 import { buildVscodeNamespace } from "./vscodeNamespace.ts";
 
-/** Claude Code подписывается на `onDidChangeTerminalShellIntegration`: без подписки падал запуск CLI в терминале. */
+/** Claude Code subscribes to `onDidChangeTerminalShellIntegration`: without it, launching the CLI in a terminal failed. */
 describe("window — события shell integration", () => {
     it("подписка на все три события проходит и снимается; новый терминал без shellIntegration", () => {
         const stub = makeStubRpc();

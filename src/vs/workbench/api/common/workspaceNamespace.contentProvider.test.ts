@@ -113,7 +113,7 @@ describe("WorkspaceNamespace — registerTextDocumentContentProvider", () => {
         expect(doc.getText()).toBe("class Foo {}\nsecond\n");
         expect(doc.uri.toString()).toBe(Uri.parse(JDT).toString());
         expect(doc.lineCount).toBe(3);
-        // Провайдер отдаёт текст, а не байты: кодировки исходника нет — utf8, как у эталона.
+        // The provider returns text, not bytes: there is no source encoding — utf8, as upstream.
         expect(doc.encoding).toBe("utf8");
     });
 

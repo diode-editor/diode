@@ -13,7 +13,7 @@ import { WorkspaceConfigStore } from "./workspaceConfigStore.ts";
 const FILE = Uri.file("/ws/main.ts").toString();
 const OTHER = Uri.file("/ws/other.ts").toString();
 
-/** Wire-выделение (0-based). */
+/** Wire selection (0-based). */
 function wire(anchorLine: number, anchorCharacter: number, activeLine: number, activeCharacter: number) {
     return { anchorLine, anchorCharacter, activeLine, activeCharacter };
 }
@@ -150,7 +150,7 @@ describe("WindowNamespace — window.onDidChangeTextEditorSelection", () => {
         window.onDidChangeTextEditorSelection(() => fired++);
         const editor = window.activeTextEditor;
         expect(editor).toBeDefined();
-        // Присваивание уходит хосту нотификацией, локального события не рождает.
+        // Assignment goes to the host as a notification and raises no local event.
         editor!.selection = new Selection(new Position(5, 0), new Position(5, 2)) as unknown as vscode.Selection;
         expect(fired).toBe(0);
         expect(stub.notifies.at(-1)?.method).toBe("editor.setSelection");

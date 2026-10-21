@@ -41,12 +41,12 @@ import {
 import type { WorkspaceConfigStore } from "./workspaceConfigStore.ts";
 import { simulateWorkspaceFoldersUpdate } from "./workspaceFoldersUpdate.ts";
 
-/** На один waitUntil-thenable. */
+/** For each waitUntil thenable separately. */
 const WILL_SAVE_LISTENER_TIMEOUT_MS = 1500;
 
 /**
- * Строковый шаблон — во ВСЕХ папках воркспейса (у `createFileSystemWatcher` —
- * в первой): результат поиска складывается, терять папки нельзя.
+ * A string pattern searches ALL workspace folders (`createFileSystemWatcher` uses
+ * only the first): search results add up, folders must not be lost.
  */
 function findFilesBases(
     include: unknown,
@@ -60,14 +60,14 @@ function findFilesBases(
 }
 
 /**
- * `undefined` — только `files.exclude`, без `search.exclude` (так в контракте);
- * `null` — ничего, явная ветка не нужна: `resolveGlobPattern` отвечает на него `null`.
- * Шаблон `RelativePattern` матчим относительно базы ПОИСКА — второго корня у обхода нет.
+ * `undefined` means `files.exclude` only, without `search.exclude` (per the contract);
+ * `null` means nothing; no explicit branch needed: `resolveGlobPattern` returns `null` for it.
+ * A `RelativePattern` is matched against the SEARCH base — the traversal has no second root.
  */
 function findFilesExcludes(exclude: unknown, base: string, configStore: WorkspaceConfigStore): readonly string[] {
     if (exclude === undefined) return filesExcludeGlobs(configStore);
     const pattern = resolveGlobPattern(exclude, base)?.pattern;
-    // Stryker disable next-line ArrayDeclaration: мутант эквивалентен — «ни одного шаблона» и «шаблон, не совпадающий ни с одним путём» для обхода неразличимы; сам контракт («мусорный exclude не исключает ничего») закрыт тестом
+    // Stryker disable next-line ArrayDeclaration: equivalent mutant — "no patterns" and "a pattern matching no path" are indistinguishable for the traversal; the contract itself ("a garbage exclude excludes nothing") is covered by a test
     return pattern === undefined ? [] : [pattern];
 }
 
@@ -84,7 +84,7 @@ function naiveEvent<T = never>(): vscode.Event<T> {
     return new EventEmitter<T>().event;
 }
 
-/** Не `naiveEvent<void>()`: `void` нельзя явным type-аргументом вызова (линт). */
+/** Not `naiveEvent<void>()`: `void` cannot be an explicit type argument of a call (lint). */
 function naiveVoidEvent(): vscode.Event<void> {
     return naiveEvent();
 }
@@ -112,20 +112,20 @@ interface IWorkspaceFolder {
     readonly index: number;
 }
 
-/** Значение не проверяем: секции под непонятный язык нет, чтение вернёт значения без неё. */
+/** The value is not validated: there is no section for an unknown language, so reads return values without it. */
 function languageIdOfScope(scope: unknown): string | undefined {
     if (typeof scope !== "object" || scope === null || !("languageId" in scope)) return undefined;
     return String(scope.languageId);
 }
 
-/** Как `scopeToOverrides` эталона. */
+/** As upstream `scopeToOverrides`. */
 function resourceOfScope(scope: unknown): string | undefined {
     if (scope instanceof Uri) return scope.toString();
     if (typeof scope !== "object" || scope === null || !("uri" in scope)) return undefined;
     return scope.uri instanceof Uri ? scope.uri.toString() : undefined;
 }
 
-/** `undefined` — цель не задана, её выводит хост. */
+/** `undefined` means no target given; the host infers it. */
 function parseConfigurationTarget(arg: unknown): WireConfigurationTarget | undefined {
     if (typeof arg === "boolean") return arg ? "user" : "workspace";
     switch (arg) {
@@ -140,8 +140,8 @@ function parseConfigurationTarget(arg: unknown): WireConfigurationTarget | undef
 }
 
 /**
- * `registerTaskProvider` приходит снаружи: `tasks` собирается позже `workspace`
- * и ждёт его папки.
+ * `registerTaskProvider` comes from outside: `tasks` is built after `workspace`
+ * and waits for its folders.
  */
 export function createWorkspaceNamespace(
     ctx: IVscodeHostContext,
@@ -181,8 +181,8 @@ export function createWorkspaceNamespace(
         return { content: Buffer.from(content).toString("base64") };
     });
 
-    // Ресурса нет — `null`, а не отказ: по проводу едет только текст ошибки, а
-    // ядру (запись нового файла) нужен именно код `FileNotFound`.
+    // Missing resource is `null`, not a refusal: only the error text goes over the wire, while
+    // the core (writing a new file) needs exactly the `FileNotFound` code.
     rpc.handleRequest("workspace.fs.stat", async (params): Promise<IWireFileStat | null> => {
         const p: { uri?: unknown } = params;
         const { uri, provider } = providedResource("workspace.fs.stat", p.uri);
@@ -231,7 +231,7 @@ export function createWorkspaceNamespace(
         },
     );
 
-    // Слежение ведёт ядро: оно владеет `files.watcherExclude` и бюджетом inotify.
+    // Watching is done by the core: it owns `files.watcherExclude` and the inotify budget.
     const fsWatchers = new SubprocessFileSystemWatchers({
         create: (request) => {
             rpc.notify("workspace.watcher.create", request);
@@ -252,7 +252,7 @@ export function createWorkspaceNamespace(
     const onWillSaveTextDocumentEmitter = new EventEmitter<vscode.TextDocumentWillSaveEvent>();
     const onDidSaveTextDocumentEmitter = new EventEmitter<vscode.TextDocument>();
 
-    // Без слушателей хост не гоняет will/did-save и полнотекстовый document sync.
+    // Without listeners the host skips will/did-save and full-text document sync.
     let willSaveCount = 0;
     let didSaveCount = 0;
     let documentSyncCount = 0;
@@ -269,7 +269,7 @@ export function createWorkspaceNamespace(
         onCountChanged: (delta: 1 | -1) => void,
     ): (listener: (e: T) => unknown, thisArgs?: unknown, disposables?: vscode.Disposable[]) => vscode.Disposable {
         return (listener, thisArgs, disposables) => {
-            // `disposables` — не внутренней подписке, а wrapper'у: иначе dispose не уменьшит счётчик.
+            // `disposables` go to the wrapper, not the inner subscription: otherwise dispose would not decrement the counter.
             const inner = emitter.event(listener as never, thisArgs);
             onCountChanged(1);
             const wrapper = new DisposableImpl(() => {
@@ -288,7 +288,7 @@ export function createWorkspaceNamespace(
         }
     }
 
-    // Flush (замена содержимого целиком) приезжает в didChange снапшотом.
+    // A flush (whole-content replacement) arrives in didChange as a snapshot.
     rpc.handleNotification("editor.didOpen", (params) => {
         const snap = parseWireDocumentSyncSnapshot(params);
         if (snap !== null) documentSync.open(snap);
@@ -336,7 +336,7 @@ export function createWorkspaceNamespace(
         });
     });
 
-    // Текста запрос не везёт: документ — из зеркала, устаревший или не открытый — правок нет.
+    // The request carries no text: the document comes from the mirror; stale or not open — no edits.
     rpc.handleRequest("workspace.willSaveTextDocument", async (params): Promise<WireTextEdit[]> => {
         const p: IWireWillSaveParams = params;
         const doc = documentSync.resolve(p.uri, p.version, p.languageId);
@@ -353,7 +353,7 @@ export function createWorkspaceNamespace(
             document: doc,
             reason: p.reason ?? TextDocumentSaveReason.Manual,
             waitUntil: (thenable: Thenable<unknown>): void => {
-                // waitUntil валиден только во время диспетча события (как в VS Code).
+                // waitUntil is valid only during event dispatch (as in VS Code).
                 if (collecting) thenables.push(Promise.resolve(thenable) as Thenable<readonly vscode.TextEdit[]>);
             },
         };
@@ -392,7 +392,7 @@ export function createWorkspaceNamespace(
     function getConfiguration(section?: string, scope?: unknown): vscode.WorkspaceConfiguration {
         const prefix = section !== undefined && section !== "" ? section + "." : "";
         const languageId = languageIdOfScope(scope);
-        // `T` у get/inspect — утверждение вызывающего (как в эталоне), проверить его нечем.
+        // `T` of get/inspect is the caller's assertion (as upstream); there is nothing to check it against.
         const config: vscode.WorkspaceConfiguration & Record<string, unknown> = {
             get: <T>(key: string, defaultValue?: T): T | undefined =>
                 configStore.get(prefix + key, defaultValue, languageId) as T | undefined,
@@ -410,17 +410,17 @@ export function createWorkspaceNamespace(
             update: (key: string, value: unknown, target?: unknown, overrideInLanguage?: boolean) =>
                 updateConfiguration(prefix + key, value, target, overrideInLanguage, scope, languageId),
         };
-        // VS Code выставляет значения секции как поля объекта конфигурации.
+        // VS Code exposes the section values as fields of the configuration object.
         for (const key of configStore.sectionKeys(section, languageId)) {
-            if (key in config) continue; // не затираем get/has/inspect/update
+            if (key in config) continue; // do not overwrite get/has/inspect/update
             config[key] = configStore.get(prefix + key, undefined, languageId);
         }
         return config;
     }
 
     /**
-     * К резолву новое значение уже приехало `configurationChanged`: хост шлёт его
-     * по тому же каналу раньше ответа. Отказ — rejected promise без тоста.
+     * By the time it resolves, the new value has already arrived via `configurationChanged`: the host
+     * sends it over the same channel before the response. Refusal is a rejected promise without a toast.
      */
     async function updateConfiguration(
         key: string,
@@ -431,8 +431,8 @@ export function createWorkspaceNamespace(
         languageId: string | undefined,
     ): Promise<void> {
         const target = parseConfigurationTarget(targetArg);
-        // Запись в секцию `"[lang]"` (условие — как у эталона) не умеем: отказ, а не
-        // запись мимо секции, которую `get()` для языка всё равно перекроет.
+        // Writing into a `"[lang]"` section (condition as upstream) is not supported: refuse rather than
+        // write outside the section, which `get()` for the language would override anyway.
         if (languageId !== undefined) {
             const layer = target ?? "workspace";
             const toSection = overrideInLanguage ?? configStore.hasLanguageOverride(key, languageId, layer);
@@ -468,12 +468,12 @@ export function createWorkspaceNamespace(
         uriOrPathOrOptions?: vscode.Uri | string | IUntitledDocumentOptions,
         options?: { encoding?: string },
     ): Promise<vscode.TextDocument> {
-        // Каст: `vscode.Uri` у расширения — всегда наш `Uri`, его отсекла проверка.
+        // Cast: an extension's `vscode.Uri` is always our `Uri`; the check filtered the rest.
         if (typeof uriOrPathOrOptions !== "string" && !(uriOrPathOrOptions instanceof Uri)) {
             return createUntitledDocument((uriOrPathOrOptions ?? {}) as IUntitledDocumentOptions);
         }
         const uriOrPath = uriOrPathOrOptions;
-        // Строка — путь на диске (перегрузка `openTextDocument(path)`), а не uri.
+        // A string is a disk path (the `openTextDocument(path)` overload), not a uri.
         const uri = typeof uriOrPath === "string" ? Uri.file(uriOrPath) : uriOrPath;
         const open = registry.get(uri);
         if (open !== undefined) return open;
@@ -493,7 +493,7 @@ export function createWorkspaceNamespace(
             return makeEphemeralDocument(uri, text, encoding);
         }
 
-        // У не-file схем `fsPath` — не путь, в node:fs его не отдаём.
+        // For non-file schemes `fsPath` is not a path; do not pass it to node:fs.
         if (uri.scheme !== "file") throw FileSystemError.Unavailable(uri);
 
         const buffer = await ctx.disk.readFile(uri.fsPath);
@@ -502,15 +502,15 @@ export function createWorkspaceNamespace(
     }
 
     /**
-     * `editor.didOpen` приезжает раньше ответа, так что документ уже в реестре.
-     * Нет его там только сверх порога синхронизации — такой отдаём эфемерным.
+     * `editor.didOpen` arrives before the response, so the document is already in the registry.
+     * It is missing only beyond the sync threshold — then it is returned as ephemeral.
      */
     async function createUntitledDocument({
         content,
         language,
         encoding,
     }: IUntitledDocumentOptions): Promise<vscode.TextDocument> {
-        // Опции — из JS расширения, тип им не гарантия.
+        // Options come from extension JS; the type is no guarantee.
         const text = typeof content === "string" ? content : undefined;
         const { uri: created } = await rpc.request("workspace.createUntitledDocument", {
             ...(text !== undefined ? { content: text } : {}),
@@ -521,7 +521,7 @@ export function createWorkspaceNamespace(
         return registry.get(uri) ?? makeEphemeralDocument(uri, text ?? "", "utf8");
     }
 
-    /** Вне реестра: это не открытый буфер. */
+    /** Outside the registry: this is not an open buffer. */
     function makeEphemeralDocument(uri: Uri, text: string, encoding: string): ExtHostTextDocument {
         const doc = new ExtHostTextDocument(uri, registry.wordDefinitionFor, registry.saveDocument);
         doc.applyFull({
@@ -540,7 +540,7 @@ export function createWorkspaceNamespace(
         },
 
         get name(): string | undefined {
-            // `getWorkspaceLabel` эталона: `web.code-workspace` → `web (Workspace)`.
+            // Upstream `getWorkspaceLabel`: `web.code-workspace` → `web (Workspace)`.
             if (workspaceFile !== undefined) return `${workspaceFileLabel(workspaceFile.fsPath)} (Workspace)`;
             return workspaceFolders[0]?.name;
         },
@@ -568,7 +568,7 @@ export function createWorkspaceNamespace(
 
         getConfiguration,
         asRelativePath,
-        // Каст к трём перегрузкам d.ts: форму реализация различает в рантайме.
+        // Cast to the three d.ts overloads: the implementation tells the shape apart at runtime.
         openTextDocument: openTextDocument as unknown as typeof vscode.workspace.openTextDocument,
 
         onDidChangeConfiguration: onDidChangeConfigurationEmitter.event,
@@ -576,10 +576,10 @@ export function createWorkspaceNamespace(
         onDidChangeTextDocument: countedEvent(onDidChangeTextDocumentEmitter, onDocumentSyncCountChanged),
         onDidCloseTextDocument: onDidCloseTextDocumentEmitter.event,
 
-        // Немые события — поверхность, которую трогает vscode-languageclient.
+        // Silent events: vscode-languageclient touches this surface.
         onDidChangeWorkspaceFolders: naiveEvent(),
-        // Multi-root нет (docs/TODO/MultiRoot.md): выполнима только смена, оставляющая
-        // одну папку, — хост открывает её как Open Folder; прочее — `false` и тост (решение человека).
+        // No multi-root (docs/TODO/MultiRoot.md): only a change that leaves a single folder is
+        // possible — the host opens it like Open Folder; anything else is `false` plus a toast (owner's decision).
         updateWorkspaceFolders: (
             start: number,
             deleteCount: number | undefined | null,
@@ -612,9 +612,9 @@ export function createWorkspaceNamespace(
         applyEdit: (edit: vscode.WorkspaceEdit, metadata?: vscode.WorkspaceEditMetadata): Thenable<boolean> => {
             if (!(edit instanceof WorkspaceEdit)) return Promise.resolve(false);
             const ops = serializeWorkspaceEdit(edit);
-            // All-or-nothing, как у VS Code: «наполовину» применять нельзя.
+            // All-or-nothing, as in VS Code: applying "halfway" is not allowed.
             if (ops === null) return Promise.resolve(false);
-            // Пустой edit — вакуумный успех, как у VS Code.
+            // An empty edit is a vacuous success, as in VS Code.
             if (ops.length === 0) return Promise.resolve(true);
             const params: IWireApplyWorkspaceEditParams = {
                 ops,
@@ -622,14 +622,14 @@ export function createWorkspaceNamespace(
             };
             return rpc.request("workspace.applyEdit", params);
         },
-        // `saveAs` не поднят: ему нужен диалог Save As на чужой буфер.
+        // `saveAs` is not wired: it needs a Save As dialog for someone else's buffer.
         save: async (uri: vscode.Uri): Promise<vscode.Uri | undefined> => {
             const saved = await rpc.request("workspace.save", { uri: uri.toString() });
             return saved === null ? undefined : Uri.parse(saved.uri);
         },
         saveAll: (includeUntitled?: boolean): Thenable<boolean> =>
             rpc.request("workspace.saveAll", includeUntitled === true ? { includeUntitled: true } : {}),
-        // Без fallback на `workspaceFolders[0]`: файл вне папок — `undefined`, как в эталоне.
+        // No fallback to `workspaceFolders[0]`: a file outside the folders gets `undefined`, as upstream.
         getWorkspaceFolder: (uri: vscode.Uri): vscode.WorkspaceFolder | undefined => {
             const p = uri.fsPath;
             const found = workspaceFolders.find((f) => p === f.uri.fsPath || p.startsWith(f.uri.fsPath + "/"));
@@ -642,13 +642,13 @@ export function createWorkspaceNamespace(
             ignoreDeleteEvents = false,
         ): vscode.FileSystemWatcher => {
             const resolved = resolveGlobPattern(globPattern, workspaceFolders[0]?.uri.fsPath);
-            // Пустое окно или мусорный шаблон — немой watcher: расширение не обязано это проверять.
+            // Empty window or a garbage pattern gives a silent watcher: the extension does not have to check for this.
             if (resolved === null) {
                 return fsWatchers.createInert(ignoreCreateEvents, ignoreChangeEvents, ignoreDeleteEvents);
             }
             return fsWatchers.create(resolved, ignoreCreateEvents, ignoreChangeEvents, ignoreDeleteEvents);
         },
-        /** Свой обход в субпроцессе, а не ripgrep ядра, как у эталона, — почему, см. `findFiles.ts`. */
+        /** Our own traversal in the subprocess, not the core's ripgrep as upstream — see `findFiles.ts` for why. */
         findFiles: async (
             include: vscode.GlobPattern,
             exclude?: vscode.GlobPattern | null,
@@ -657,7 +657,7 @@ export function createWorkspaceNamespace(
         ): Promise<vscode.Uri[]> => {
             const results: Uri[] = [];
             const isCancelled = (): boolean => token?.isCancellationRequested === true;
-            // Отмену и нулевой остаток отдельно не ловим: обход сам вернёт на них пустой список.
+            // Cancellation and a zero remainder are not handled separately: the traversal returns an empty list for them.
             for (const resolved of findFilesBases(include, workspaceFolders)) {
                 const relativePaths = await walkForFiles(
                     ctx.disk.findFilesScanner,
@@ -665,7 +665,7 @@ export function createWorkspaceNamespace(
                         base: resolved.base,
                         include: resolved.pattern,
                         excludes: findFilesExcludes(exclude, resolved.base, configStore),
-                        // `maxResults` — на результат целиком, а не на папку.
+                        // `maxResults` applies to the whole result, not per folder.
                         maxResults: (maxResults ?? Number.POSITIVE_INFINITY) - results.length,
                     },
                     { isCancelled },
@@ -686,8 +686,8 @@ export function createWorkspaceNamespace(
             });
         },
 
-        // Модели доверия нет — как VS Code с выключенным workspace trust. `false`
-        // уводил бы Ruff в принудительный bundled-путь с предупреждением в логе.
+        // No trust model — like VS Code with workspace trust disabled. `false`
+        // would push Ruff into the forced bundled path with a warning in the log.
         isTrusted: true,
         onDidGrantWorkspaceTrust: naiveVoidEvent(),
 
@@ -696,7 +696,7 @@ export function createWorkspaceNamespace(
             thisArgs?: unknown,
             disposables?: vscode.Disposable[],
         ): vscode.Disposable => {
-            // `disposables` — не внутренней подписке, а wrapper'у: иначе dispose не уменьшит счётчик.
+            // `disposables` go to the wrapper, not the inner subscription: otherwise dispose would not decrement the counter.
             const inner = onWillSaveTextDocumentEmitter.event(listener as never, thisArgs);
             willSaveCount++;
             if (willSaveCount === 1) pushSubscriptions();

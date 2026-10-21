@@ -19,7 +19,7 @@ import type {
     SerializableEnvironmentVariableCollection,
 } from "../../../platform/terminal/common/environmentVariable.ts";
 
-/** `setEndOfLine` — `vscode.EndOfLine` всего документа: 1=LF, 2=CRLF. */
+/** `setEndOfLine` is the whole document's `vscode.EndOfLine`: 1=LF, 2=CRLF. */
 export type WireTextEdit = ITextEdit | { readonly setEndOfLine: 1 | 2 };
 
 export interface IWireWillSaveParams {
@@ -31,7 +31,7 @@ export interface IWireWillSaveParams {
     readonly reason: number;
     /** `vscode.EndOfLine`: 1=LF, 2=CRLF. */
     readonly eol: number;
-    /** id из SUPPORTED_ENCODINGS ("windows1251"). */
+    /** An id from SUPPORTED_ENCODINGS ("windows1251"). */
     readonly encoding?: string;
 }
 
@@ -40,7 +40,7 @@ export interface IWireDidSaveParams {
     readonly languageId: string;
 }
 
-/** Без слушателей хост не гоняет will/did-save и document sync по RPC. */
+/** Without listeners the host skips will/did-save and document sync over RPC. */
 export interface IWireSubscriptions {
     readonly willSave: boolean;
     readonly didSave: boolean;
@@ -56,7 +56,7 @@ export interface IWireWorkspaceFolder {
 export interface IWireWorkspaceInitialize {
     readonly configuration: IConfigurationData;
     readonly workspaceFolders: readonly IWireWorkspaceFolder[];
-    /** Нет поля — окно не из `.code-workspace`. */
+    /** Absent when the window is not opened from a `.code-workspace`. */
     readonly workspaceFile?: string;
 }
 
@@ -65,12 +65,12 @@ export interface IWireConfigurationChanged {
     readonly affectedKeys: readonly string[];
 }
 
-/** `ConfigurationTarget` эталона; нет поля — цель выводит хост (`deriveConfigurationTarget`). */
+/** Upstream `ConfigurationTarget`; when absent, the host derives the target (`deriveConfigurationTarget`). */
 export type WireConfigurationTarget = "user" | "workspace" | "workspaceFolder";
 
 /**
- * `key` — полный dotted; нет `value` — снять ключ (`$removeConfigurationOption`).
- * `resource` — scope `getConfiguration`: по нему цель `workspaceFolder` ищет папку.
+ * `key` is the full dotted key; no `value` removes the key (`$removeConfigurationOption`).
+ * `resource` is the `getConfiguration` scope: the `workspaceFolder` target finds its folder by it.
  */
 export interface IWireConfigurationUpdate {
     readonly key: string;
@@ -87,26 +87,26 @@ export interface IWireUriParams {
     readonly uri: string;
 }
 
-/** `editor.didOpen` и flush (замена содержимого целиком); обычные правки едут дельтой. */
+/** `editor.didOpen` and flush (full content replacement); regular edits travel as deltas. */
 export interface IWireDocumentSyncSnapshot {
     readonly uri: string;
     readonly languageId: string;
-    /** Монотонна per-document — требование LSP (`TextDocumentItem.version`). */
+    /** Monotonic per document — an LSP requirement (`TextDocumentItem.version`). */
     readonly version: number;
-    /** LF-канонический. */
+    /** LF-normalized. */
     readonly text: string;
     readonly isDirty?: boolean;
 }
 
-/** `range` — в координатах документа ДО этой правки. */
+/** `range` is in document coordinates BEFORE this edit. */
 export interface IWireDocumentContentChange {
     readonly range: IRange;
     readonly text: string;
 }
 
 /**
- * Батч модели целиком, в порядке применения (по убыванию); `version` — после
- * батча, как `$acceptModelChanged` эталона.
+ * The whole model batch, in application order (descending); `version` is after
+ * the batch, as in upstream `$acceptModelChanged`.
  */
 export interface IWireDocumentChangedEvent {
     readonly uri: string;
@@ -115,7 +115,7 @@ export interface IWireDocumentChangedEvent {
     readonly isDirty?: boolean;
 }
 
-/** Одна битая правка отбрасывает весь батч: применённый частично, он испортил бы зеркало. */
+/** One malformed change drops the whole batch: applied partially, it would corrupt the mirror. */
 export function parseWireDocumentChangedEvent(raw: unknown): IWireDocumentChangedEvent | null {
     if (typeof raw !== "object" || raw === null) return null;
     const obj = raw as Record<string, unknown>;
@@ -153,20 +153,20 @@ export function parseWireDocumentSyncSnapshot(raw: unknown): IWireDocumentSyncSn
     };
 }
 
-/** `selections` — только у активной вкладки группы: из них сеется `visibleTextEditors[i].selection`. */
+/** `selections` only on the group's active tab: they seed `visibleTextEditors[i].selection`. */
 export interface IWireTabSnapshot {
     readonly uri: string;
     readonly label: string;
-    /** Активна в СВОЕЙ группе. */
+    /** Active within ITS OWN group. */
     readonly isActive: boolean;
     readonly isDirty: boolean;
-    /** `unknown` — вкладка не текстового и не дифф-вида (Keyboard Shortcuts, страница расширения). */
+    /** `unknown` is a tab that is neither text nor diff (Keyboard Shortcuts, extension page). */
     readonly kind: "text" | "diff" | "unknown";
     readonly original?: string;
     readonly modified?: string;
     /**
-     * Документы сторон-моделей — `visibleTextEditors`, как два редактора диффа
-     * эталона; сторона-снимок (git-ревизия) своего документа не имеет и не входит.
+     * Documents of the model-backed sides are `visibleTextEditors`, like upstream's two
+     * diff editors; a snapshot side (git revision) has no document of its own and is left out.
      */
     readonly sideEditors?: readonly string[];
     readonly languageId?: string;
@@ -181,8 +181,8 @@ export interface IWireTabGroupSnapshot {
 }
 
 /**
- * Гранулярных событий в проводе нет: субпроцесс диффит снимок с прошлым и сам
- * производит события API — состояние восстановимо идемпотентно.
+ * No granular events over the wire: the subprocess diffs the snapshot against the previous
+ * one and produces API events itself — state is idempotently recoverable.
  */
 export interface IWireEditorLayout {
     readonly groups: readonly IWireTabGroupSnapshot[];
@@ -227,13 +227,13 @@ export function parseWireEditorLayout(raw: unknown): IWireEditorLayout | null {
 
 export interface IWireShowTextDocumentParams {
     readonly uri: string;
-    /** `vscode.ViewColumn`: -1 Active (дефолт), -2 Beside, 1..9. */
+    /** `vscode.ViewColumn`: -1 Active (default), -2 Beside, 1..9. */
     readonly viewColumn?: number;
     readonly preserveFocus?: boolean;
     readonly selection?: IWireSelection;
 }
 
-/** `$tryCreateDocument` эталона: безымянный документ без вкладки; ответ — {@link IWireUriParams}. */
+/** Upstream `$tryCreateDocument`: an untitled document without a tab; the reply is {@link IWireUriParams}. */
 export interface IWireCreateUntitledParams {
     readonly content?: string;
     readonly language?: string;
@@ -254,7 +254,7 @@ export interface IWireCloseGroupsParams {
     readonly groupIds: readonly number[];
 }
 
-/** `vscode.Uri` приезжает компонентами своего `toJSON()` (`{$mid: 1, scheme, …}`); строка тоже принимается. */
+/** `vscode.Uri` arrives as the components of its `toJSON()` (`{$mid: 1, scheme, …}`); a string is accepted too. */
 export function reviveWireUri(raw: unknown): Uri | null {
     if (typeof raw === "string" && raw !== "") return Uri.parse(raw);
     if (typeof raw !== "object" || raw === null) return null;
@@ -270,8 +270,8 @@ export function reviveWireUri(raw: unknown): Uri | null {
 }
 
 /**
- * Текст не едет: субпроцесс берёт его из своего зеркала той же версии.
- * Ресурсы на проводе (здесь и во всём файле) — `uri.toString()`. Получатель читает параметры как {@link Received}.
+ * Text is not sent: the subprocess takes it from its own mirror of the same version.
+ * Resources on the wire (here and throughout this file) are `uri.toString()`. The receiver reads params as {@link Received}.
  */
 export interface IWireDocumentParams {
     readonly uri: string;
@@ -279,7 +279,7 @@ export interface IWireDocumentParams {
     readonly version: number;
 }
 
-/** Позиция 0-based. */
+/** 0-based position. */
 export interface IWirePositionParams extends IWireDocumentParams {
     readonly line: number;
     readonly character: number;
@@ -289,29 +289,29 @@ export interface IWireProviderHandle {
     readonly handle: number;
 }
 
-/** Ответ — массив, выровненный по `handles`. */
+/** The reply is an array aligned with `handles`. */
 export interface IWireProviderHandles {
     readonly handles: readonly number[];
 }
 
 /**
- * Глазами получателя обязательны только `uri` и `K`: дефолты получателя —
- * обработка недоехавшего поля, а не украшение.
+ * From the receiver's side only `uri` and `K` are required: the receiver's defaults
+ * handle a field that did not arrive, they are not decoration.
  */
 export type Received<T extends IWireDocumentParams, K extends keyof T = never> = Pick<T, "uri" | K> & Partial<T>;
 
 export interface IWireCompletionParams extends IWirePositionParams, IWireProviderHandles {
-    /** Чем спровоцирован запрос; по умолчанию `Invoke`. */
+    /** What triggered the request; defaults to `Invoke`. */
     readonly triggerKind?: CompletionTriggerKind;
     readonly triggerCharacter?: string;
 }
 
 export interface IWireInlineCompletionParams extends IWirePositionParams, IWireProviderHandles {
-    /** `InlineCompletionTriggerKind`: 0 — Invoke, 1 — Automatic. */
+    /** `InlineCompletionTriggerKind`: 0 = Invoke, 1 = Automatic. */
     readonly triggerKind: number;
 }
 
-/** `start`/`end` — 0-based строки; `kind` ядро пока игнорирует. */
+/** `start`/`end` are 0-based lines; the core ignores `kind` for now. */
 export interface WireFoldingRange {
     readonly start: number;
     readonly end: number;
@@ -320,13 +320,13 @@ export interface WireFoldingRange {
 
 export type IWireFoldingParams = IWireDocumentParams & IWireProviderHandles;
 
-/** Едет метаданными регистрации — ядро стилизует токены без RPC. */
+/** Sent as registration metadata — the core styles tokens without RPC. */
 export interface IWireSemanticTokensLegend {
     readonly tokenTypes: readonly string[];
     readonly tokenModifiers: readonly string[];
 }
 
-/** `previousResultId` 0 — прошлого ответа нет; иначе субпроцесс отвечает дельтой. */
+/** `previousResultId` 0 means no previous result; otherwise the subprocess replies with a delta. */
 export interface IWireDocumentSemanticTokensParams extends IWireDocumentParams, IWireProviderHandle {
     readonly previousResultId: number;
 }
@@ -335,7 +335,7 @@ export interface IWireRangeSemanticTokensParams extends IWireDocumentParams, IWi
     readonly range: IRange;
 }
 
-/** Правка прошлого ответа: индексы — в массиве `data` (по 5 чисел на токен), не в токенах. */
+/** An edit of the previous result: indices are into the `data` array (5 numbers per token), not into tokens. */
 export interface IWireSemanticTokensEdit {
     readonly start: number;
     readonly deleteCount: number;
@@ -343,19 +343,19 @@ export interface IWireSemanticTokensEdit {
 }
 
 /**
- * `SemanticTokensDto` эталона, но JSON. `id` 0 у range-провайдера (дельт к нему
- * нет); `data` — пятёрки deltaLine, deltaStartChar, length, tokenType, tokenModifiers.
+ * Upstream `SemanticTokensDto`, but as JSON. `id` is 0 for a range provider (it has no
+ * deltas); `data` is quintuples of deltaLine, deltaStartChar, length, tokenType, tokenModifiers.
  */
 export type WireSemanticTokensResult =
     | { readonly id: number; readonly type: "full"; readonly data: readonly number[] }
     | { readonly id: number; readonly type: "delta"; readonly deltas: readonly IWireSemanticTokensEdit[] };
 
-/** `$releaseDocumentSemanticTokens` эталона. */
+/** Upstream `$releaseDocumentSemanticTokens`. */
 export interface IWireReleaseSemanticTokens extends IWireProviderHandle {
     readonly resultId: number;
 }
 
-/** Ответ — `IRange[][]` по `positions`, цепочка `parent` развёрнута изнутри наружу. */
+/** The reply is `IRange[][]` per `positions`, with the `parent` chain unrolled from inside out. */
 export interface IWireSelectionRangeParams extends IWireDocumentParams, IWireProviderHandle {
     readonly positions: readonly IPosition[];
 }
@@ -364,7 +364,7 @@ export type IWireDefinitionParams = IWirePositionParams & IWireProviderHandle;
 
 export type IWireHoverParams = IWirePositionParams & IWireProviderHandle;
 
-/** Аналог `$registerXxxProvider(handle, selector)` + `$unregister(handle)` эталона. */
+/** Counterpart of upstream `$registerXxxProvider(handle, selector)` + `$unregister(handle)`. */
 export const WIRE_LANGUAGE_FEATURE_KINDS = [
     "hover",
     "definition",
@@ -383,7 +383,7 @@ export const WIRE_LANGUAGE_FEATURE_KINDS = [
 ] as const;
 export type WireLanguageFeatureKind = (typeof WIRE_LANGUAGE_FEATURE_KINDS)[number];
 
-/** Строковый селектор субпроцесс разворачивает в `{ language }`, `RelativePattern` — в `{ base: fsPath, pattern }`. */
+/** The subprocess expands a string selector to `{ language }` and a `RelativePattern` to `{ base: fsPath, pattern }`. */
 export interface IWireLanguageFilter {
     readonly language?: string;
     readonly scheme?: string;
@@ -392,15 +392,15 @@ export interface IWireLanguageFilter {
     readonly exclusive?: boolean;
 }
 
-/** Едут с регистрацией: ядро читает их у подошедших провайдеров без RPC. */
+/** Sent with the registration: the core reads them from matching providers without RPC. */
 export interface IWireLanguageProviderMetadata {
     readonly triggerCharacters?: readonly string[];
-    /** Символы, перезапрашивающие подсказку, пока она показана (signature help). */
+    /** Characters that re-request the hint while it is shown (signature help). */
     readonly retriggerCharacters?: readonly string[];
-    /** Ядро не спрашивает провайдера, чьи виды не пересекаются с запрошенным `only`. */
+    /** The core skips a provider whose kinds do not intersect the requested `only`. */
     readonly providedCodeActionKinds?: readonly string[];
     readonly legend?: IWireSemanticTokensLegend;
-    /** Событие придёт нотификацией `languages.didChangeSemanticTokens`. */
+    /** The event arrives as a `languages.didChangeSemanticTokens` notification. */
     readonly hasOnDidChange?: boolean;
 }
 
@@ -410,11 +410,11 @@ export interface IWireLanguageProviderRegistration extends IWireLanguageProvider
     readonly selector: readonly IWireLanguageFilter[];
 }
 
-/** Слой поверх `language-configuration.json`; снятие — `languages.unsetLanguageConfiguration` с тем же `handle`. */
+/** A layer over `language-configuration.json`; removed via `languages.unsetLanguageConfiguration` with the same `handle`. */
 export interface IWireLanguageConfiguration {
     readonly handle: number;
     readonly languageId: string;
-    /** Только секции, которые ядро умеет применить, в формате файла (`notIn` — строками). */
+    /** Only the sections the core can apply, in file format (`notIn` as strings). */
     readonly configuration: ILanguageConfiguration;
 }
 
@@ -426,7 +426,7 @@ export interface IWireReferenceParams extends IWirePositionParams, IWireProvider
     readonly includeDeclaration: boolean;
 }
 
-/** `activeSignatureHelp` — что показано сейчас: по нему сервер удерживает выбранную перегрузку. */
+/** `activeSignatureHelp` is what is shown now: the server uses it to keep the selected overload. */
 export interface IWireSignatureHelpParams extends IWirePositionParams, IWireProviderHandle {
     readonly triggerKind: SignatureHelpTriggerKind;
     readonly triggerCharacter?: string;
@@ -434,7 +434,7 @@ export interface IWireSignatureHelpParams extends IWirePositionParams, IWireProv
     readonly activeSignatureHelp?: ICoreSignatureHelp;
 }
 
-/** С `range` — range-провайдер (Format Selection), без — документный. */
+/** With `range` — a range provider (Format Selection); without — a document provider. */
 export interface IWireFormattingParams extends IWireDocumentParams {
     readonly handle: number;
     readonly tabSize?: number;
@@ -443,22 +443,22 @@ export interface IWireFormattingParams extends IWireDocumentParams {
 }
 
 /**
- * Диагностики контекста не едут: субпроцесс собирает их из своих
- * DiagnosticCollection, чтобы провайдер получил те же объекты, что публиковал сервер.
+ * Context diagnostics are not sent: the subprocess collects them from its own
+ * DiagnosticCollections so the provider gets the same objects the server published.
  */
 export interface IWireCodeActionParams extends IWireDocumentParams, IWireProviderHandle {
     readonly range: IRange;
     readonly only?: string;
 }
 
-/** Правки остаются в кэше субпроцесса. */
+/** The edits stay in the subprocess cache. */
 export interface WireCodeAction {
-    /** `"<cacheId>.<index>"` для `languages.applyCodeAction`. */
+    /** `"<cacheId>.<index>"` for `languages.applyCodeAction`. */
     readonly id: string;
     readonly title: string;
     readonly kind?: string;
     readonly isPreferred?: boolean;
-    /** Действие видно, но не применяется. */
+    /** The action is shown but cannot be applied. */
     readonly disabled?: string;
 }
 
@@ -468,7 +468,7 @@ export interface IWireRenameParams extends IWirePositionParams, IWireProviderHan
     readonly newName: string;
 }
 
-/** Оба поля отсутствуют — провайдеру сказать нечего. */
+/** Both fields absent — the provider has nothing to say. */
 export interface WireRenamePrepare {
     readonly placeholder?: string;
     readonly rejectReason?: string;
@@ -487,7 +487,7 @@ export interface IWireProgressStart {
 export interface IWireProgressReport {
     readonly handle: number;
     readonly message?: string;
-    /** Проценты; суммируются потребителем с клампом 0–100. */
+    /** Percent; the consumer accumulates them, clamped to 0–100. */
     readonly increment?: number;
 }
 
@@ -496,25 +496,25 @@ export interface IWireProgressEnd {
 }
 
 /**
- * Upsert полного состояния на `show()` и на каждую правку ПОКАЗАННОГО пункта;
- * созданный, но не показанный пункт в проводе не появляется.
+ * Full-state upsert on `show()` and on every change to a SHOWN item;
+ * an item created but never shown does not appear on the wire.
  */
 export interface IWireStatusBarItem {
     readonly handle: number;
-    /** Хост добавляет свой префикс, чтобы пункт расширения не столкнулся со встроенным сегментом. */
+    /** The host adds its own prefix so an extension item cannot collide with a built-in segment. */
     readonly id: string;
     readonly alignment: "left" | "right";
-    /** Выше — левее; `undefined` встаёт правее всех приоритетных, как в VS Code. */
+    /** Higher goes further left; `undefined` goes right of all prioritized items, as in VS Code. */
     readonly priority?: number;
-    /** С разметкой значков `$(name)`. */
+    /** With `$(name)` icon markup. */
     readonly text: string;
-    /** Без него пункт в меню видимости полосы не показывается. */
+    /** Without it the item is not listed in the status bar visibility menu. */
     readonly name?: string;
     readonly command?: string;
     readonly arguments?: readonly unknown[];
 }
 
-/** Он же `hide()`. */
+/** Also sent for `hide()`. */
 export interface IWireStatusBarItemDispose {
     readonly handle: number;
 }
@@ -523,7 +523,7 @@ export type WireOutputLevel = "trace" | "debug" | "info" | "warn" | "error";
 
 export interface IWireOutputAppend {
     readonly channel: string;
-    /** Канал регистрируется лениво — по первой строке. */
+    /** The channel registers lazily, on its first line. */
     readonly label: string;
     readonly level: WireOutputLevel;
     readonly value: string;
@@ -531,40 +531,40 @@ export interface IWireOutputAppend {
 
 export interface IWireOutputShow {
     readonly channel: string;
-    /** `show` мог прийти до первой строки, канал регистрируется лениво. */
+    /** `show` may arrive before the first line; the channel registers lazily. */
     readonly label: string;
 }
 
-// Хост минтит `id` каждого инстанса терминала, субпроцесс — `extHostId` своих
-// (`extHostTerminalId` эталона); пока `terminal.opened` не пришёл, субпроцесс
-// адресует свой терминал по `extHostId`.
+// The host mints the `id` of every terminal instance, the subprocess mints `extHostId` for
+// its own (upstream `extHostTerminalId`); until `terminal.opened` arrives, the subprocess
+// addresses its terminal by `extHostId`.
 
 export type IWireTerminalRef = { readonly id: number } | { readonly extHostId: number };
 
-/** Строковые `shellArgs` (Windows-форма) сюда не доезжают — субпроцесс режет их по пробелам. */
+/** String `shellArgs` (Windows form) never reach here — the subprocess splits them on spaces. */
 export interface IWireTerminalCreate {
     readonly extHostId: number;
     /**
-     * Процессом владеет расширение (`ExtensionTerminalOptions.pty`): хост держит
-     * только эмулятор, байты ходят `terminal.pty.*`, шелловые опции не шлются.
+     * The extension owns the process (`ExtensionTerminalOptions.pty`): the host holds
+     * only the emulator, bytes travel via `terminal.pty.*`, shell options are not sent.
      */
     readonly pty?: true;
     readonly name?: string;
     readonly shellPath?: string;
     readonly shellArgs?: readonly string[];
     readonly cwd?: string;
-    /** `null` — снять переменную из окружения шелла (семантика `TerminalOptions.env`). */
+    /** `null` removes the variable from the shell environment (`TerminalOptions.env` semantics). */
     readonly env?: Readonly<Record<string, string | null>>;
     readonly strictEnv?: boolean;
     readonly hideFromUser?: boolean;
     readonly message?: string;
-    /** Без поля — `terminal.integrated.defaultLocation`. */
+    /** Absent means `terminal.integrated.defaultLocation`. */
     readonly location?: IWireTerminalLocation;
 }
 
 /**
- * `_serializeParentTerminal` эталона: 1 — панель, 2 — редакторы (`vscode.TerminalLocation`);
- * `viewColumn` — `vscode.ViewColumn`.
+ * Upstream `_serializeParentTerminal`: 1 = panel, 2 = editor area (`vscode.TerminalLocation`);
+ * `viewColumn` is a `vscode.ViewColumn`.
  */
 export type IWireTerminalLocation =
     | 1
@@ -581,14 +581,14 @@ export interface IWireTerminalTarget {
     readonly terminal: IWireTerminalRef;
 }
 
-/** Enter нормализует хост. */
+/** The host normalizes Enter. */
 export interface IWireTerminalSendText {
     readonly terminal: IWireTerminalRef;
     readonly text: string;
     readonly shouldExecute: boolean;
 }
 
-/** `creationOptions` терминала, которого субпроцесс не заводил. */
+/** `creationOptions` of a terminal the subprocess did not create. */
 export interface IWireTerminalLaunch {
     readonly name?: string;
     readonly shellPath?: string;
@@ -598,7 +598,7 @@ export interface IWireTerminalLaunch {
     readonly hideFromUser?: boolean;
 }
 
-/** `extHostId` — у терминала этого субпроцесса; `pid` — только у настоящего шелла. */
+/** `extHostId` only for this subprocess's terminals; `pid` only for a real shell. */
 export interface IWireTerminalOpened {
     readonly id: number;
     readonly extHostId?: number;
@@ -617,7 +617,7 @@ export interface IWireTerminalPtyExit {
     readonly code?: number | undefined;
 }
 
-/** `terminal.pty.start` — эмулятор подключён, пора звать `pty.open`; `terminal.pty.resize` — `pty.setDimensions`. */
+/** `terminal.pty.start`: the emulator is attached, time to call `pty.open`; `terminal.pty.resize`: `pty.setDimensions`. */
 export interface IWireTerminalPtyDimensions {
     readonly id: number;
     readonly cols: number;
@@ -662,7 +662,7 @@ export function parseWireStringArray(raw: unknown): string[] | undefined {
     return Array.isArray(raw) ? raw.filter((a): a is string => typeof a === "string") : undefined;
 }
 
-/** Поля читаются опциональной цепочкой: у примитива их нет так же, как у `null`. */
+/** Fields are read via optional chaining: a primitive lacks them just like `null` does. */
 type WireEnvelope = Readonly<Record<string, unknown>> | null | undefined;
 
 function parseWireTerminalLaunch(raw: unknown): IWireTerminalLaunch {
@@ -691,7 +691,7 @@ export function parseWireTerminalOpened(raw: unknown): IWireTerminalOpened | nul
     };
 }
 
-/** Незнакомая причина (хост новее) — `unknown`. */
+/** An unfamiliar reason (newer host) becomes `unknown`. */
 export function parseWireTerminalClosed(raw: unknown): IWireTerminalClosed | null {
     const p = raw as WireEnvelope;
     if (typeof p?.id !== "number") return null;
@@ -720,7 +720,7 @@ export function parseWireTerminalActive(raw: unknown): IWireTerminalActive {
     return { id: typeof id === "number" ? id : null };
 }
 
-/** `severity` — `vscode.DiagnosticSeverity` (0=Error…3=Hint); в `MarkerSeverity` маппит потребитель sink'а. */
+/** `severity` is `vscode.DiagnosticSeverity` (0=Error…3=Hint); the sink's consumer maps it to `MarkerSeverity`. */
 export interface WireMarker {
     readonly severity: number;
     readonly range: IRange;
@@ -735,18 +735,18 @@ export interface IWireDiagnosticsPublish {
     readonly markers: readonly WireMarker[];
 }
 
-/** Маркеры не из коллекций субпроцесса (настройки, задачи): полный набор на замену, пустой — их не осталось. */
+/** Markers not from the subprocess's collections (settings, tasks): a full replacement set; empty means none remain. */
 export interface IWireForeignMarkers {
     readonly resource: string;
     readonly markers: readonly WireMarker[];
 }
 
-/** `$acceptMarkersChange` эталона. */
+/** Upstream `$acceptMarkersChange`. */
 export interface IWireMarkersChanged {
     readonly entries: readonly IWireForeignMarkers[];
 }
 
-/** 0-based; anchor — якорь, active — курсор. */
+/** 0-based; anchor is the selection anchor, active is the cursor. */
 export interface IWireSelection {
     readonly anchorLine: number;
     readonly anchorCharacter: number;
@@ -764,11 +764,11 @@ export interface IWireApplyEditParams {
 export interface IWireSetSelectionParams {
     readonly uri: string;
     readonly selections: readonly IWireSelection[];
-    /** `TextEditor` адресуется парой группа + документ. */
+    /** A `TextEditor` is addressed by the group + document pair. */
     readonly groupId: number;
 }
 
-/** Нормализованный патч `TextEditor.options`; `indentSize` — алиас `tabSize`. */
+/** A normalized `TextEditor.options` patch; `indentSize` is an alias of `tabSize`. */
 export interface IWireSetEditorOptionsParams {
     readonly tabSize?: number;
     readonly insertSpaces?: boolean;
@@ -796,7 +796,7 @@ export function parseWireSelection(raw: unknown): IWireSelection | null {
     };
 }
 
-/** `vscode.TextEditorSelectionChangeKind`; нет поля — источник не распознан (у upstream `kind` опционален). */
+/** `vscode.TextEditorSelectionChangeKind`; absent when the source is unrecognized (`kind` is optional upstream). */
 export type WireSelectionChangeKind = 1 | 2 | 3;
 
 export function selectionChangeKindOf(source: CursorChangeSource | undefined): WireSelectionChangeKind | undefined {
@@ -807,9 +807,9 @@ export function selectionChangeKindOf(source: CursorChangeSource | undefined): W
             return 2;
         case "command":
             return 3;
-        // Stryker disable next-line ConditionalExpression: мутант сносит `default`,
-        // но функция и без него возвращает undefined, вывалившись из switch —
-        // эквивалентный мутант, отличить его тестом нельзя.
+        // Stryker disable next-line ConditionalExpression: the mutant removes `default`,
+        // but the function still returns undefined by falling out of the switch —
+        // an equivalent mutant that no test can distinguish.
         default:
             return undefined;
     }
@@ -835,8 +835,8 @@ export interface IWireResourceTextEdits {
 }
 
 /**
- * Порядок значим: «Move to a new file» создаёт файл и тут же пишет в него. Без
- * `overwrite`/`ignoreIfExists` коллизия отбивает edit целиком; `contents` — UTF-8.
+ * Order matters: "Move to a new file" creates a file and immediately writes to it. Without
+ * `overwrite`/`ignoreIfExists` a collision rejects the whole edit; `contents` is UTF-8.
  */
 export type IWireWorkspaceEditOp =
     | ({ readonly kind: "text" } & IWireResourceTextEdits)
@@ -858,7 +858,7 @@ export type IWireWorkspaceEditOp =
 
 export interface IWireApplyWorkspaceEditParams {
     readonly ops: readonly IWireWorkspaceEditOp[];
-    /** После применения затронутые файлы сохраняются по `files.refactoring.autoSave`. */
+    /** After applying, affected files are saved per `files.refactoring.autoSave`. */
     readonly isRefactoring?: boolean;
 }
 
@@ -866,10 +866,10 @@ export interface IWireSaveAllParams {
     readonly includeUntitled?: boolean;
 }
 
-/** `null` — не открыт или не сохранился (`undefined` эталона). */
+/** `null` when not open or not saved (upstream's `undefined`). */
 export type IWireSaveResult = IWireUriParams | null;
 
-/** Голый `string` в тех же полях — CSS-цвет, который хост игнорирует: hex инлайн-цветов не парсим. */
+/** A bare `string` in the same fields is a CSS color the host ignores: inline hex colors are not parsed. */
 export interface ISerializedThemeColor {
     readonly $themeColor: string;
 }
@@ -877,8 +877,8 @@ export interface ISerializedThemeColor {
 export type SerializedColor = string | ISerializedThemeColor;
 
 /**
- * Только поля, которые хост проецирует: `overviewRulerColor` делает тип
- * «gutter change-bar»; прочие CSS-поля в TUI не рендерятся.
+ * Only the fields the host projects: `overviewRulerColor` makes the type a
+ * "gutter change-bar"; other CSS fields are not rendered in the TUI.
  */
 export interface SerializedDecorationRenderOptions {
     readonly isWholeLine?: boolean;
@@ -897,7 +897,7 @@ export interface IWireSetDecorations {
     readonly key: number;
     readonly uri: string;
     readonly ranges: readonly IRange[];
-    /** Хост пока красит ресурс во всех группах и поле не читает. */
+    /** The host currently decorates the resource in all groups and ignores this field. */
     readonly groupId: number;
 }
 
@@ -934,18 +934,18 @@ export function parseRange(raw: unknown): IRange | null {
     return createRange(start.line, start.character, end.line, end.character);
 }
 
-/** Base64: `Uint8Array` не переживает JSON round-trip. */
+/** Base64: a `Uint8Array` does not survive a JSON round-trip. */
 export interface IWireReadFileResult {
     content: string;
 }
 
-/** `content` — base64. */
+/** `content` is base64. */
 export interface IWireWriteFileParams {
     readonly uri: string;
     readonly content: string;
 }
 
-/** `vscode.FileStat` без `permissions`. */
+/** `vscode.FileStat` without `permissions`. */
 export interface IWireFileStat {
     readonly type: number;
     readonly ctime: number;
@@ -953,12 +953,12 @@ export interface IWireFileStat {
     readonly size: number;
 }
 
-/** `readonly` — подмножество `schemes` без записи (`isReadonly` или нет `writeFile`). */
+/** `readonly` is the subset of `schemes` without write support (`isReadonly` or no `writeFile`). */
 export interface IWireFileSystemSchemes extends IWireSchemes {
     readonly readonly?: readonly string[];
 }
 
-/** Строкой, не base64: провайдер отдаёт текст. `null` — провайдер схемы отказался отдать ресурс. */
+/** A string, not base64: the provider returns text. `null` means the scheme provider declined to provide the resource. */
 export interface IWireTextContentResult {
     content: string | null;
 }
@@ -972,8 +972,8 @@ export interface IWireChangedFiles {
 }
 
 /**
- * `pattern` — glob относительно `base` (пара `RelativePattern`): строковый
- * `GlobPattern` субпроцесс приводит к ней сам, подставляя папку воркспейса.
+ * `pattern` is a glob relative to `base` (a `RelativePattern` pair): the subprocess converts
+ * a string `GlobPattern` to it itself, substituting the workspace folder.
  */
 export interface IWireWatcherCreate {
     readonly id: number;
@@ -998,7 +998,7 @@ export interface IWireWatcherEvents {
     readonly events: readonly IWireWatcherEvent[];
 }
 
-/** Мусорные записи молча отбрасываются. */
+/** Malformed entries are silently dropped. */
 export function parseWireWatcherEvents(raw: unknown): IWireWatcherEvents | null {
     if (typeof raw !== "object" || raw === null) return null;
     const p = raw as { id?: unknown; events?: unknown };
@@ -1015,8 +1015,8 @@ export function parseWireWatcherEvents(raw: unknown): IWireWatcherEvents | null 
 }
 
 /**
- * Едет только `kind`: имя темы расширению не обещано. Сеется и на handshake —
- * `activeColorTheme` обязан быть верным уже в `activate()`.
+ * Only `kind` is sent: the theme name is not promised to extensions. Also seeded at handshake —
+ * `activeColorTheme` must be correct already in `activate()`.
  */
 export interface IWireColorTheme {
     /** `vscode.ColorThemeKind`: 1 Light, 2 Dark, 3 HighContrast, 4 HighContrastLight. */
@@ -1030,8 +1030,8 @@ export function parseWireColorTheme(raw: unknown): IWireColorTheme | null {
     return { kind };
 }
 
-// Сессия quick input адресуется `handle` (общий счётчик с window.progress.*): по
-// нему расширение отменяет показ своим токеном, а хост спрашивает валидацию.
+// A quick input session is addressed by `handle` (a counter shared with window.progress.*):
+// the extension uses it to cancel the prompt with its token, and the host to request validation.
 
 export type WireValidationSeverity = "error" | "warning" | "info";
 
@@ -1042,11 +1042,11 @@ export interface IWireInputBoxRequest {
     readonly placeHolder?: string;
     readonly value?: string;
     readonly password: boolean;
-    /** Без флага хост не гоняет раунд-трип `window.inputBox.validate`. */
+    /** Without the flag the host skips the `window.inputBox.validate` round-trip. */
     readonly validates: boolean;
 }
 
-/** Только то, что однострочный ряд умеет показать. */
+/** Only what a single-line row can show. */
 export interface IWireQuickPickItem {
     readonly label: string;
     readonly description?: string;
@@ -1058,7 +1058,7 @@ export interface IWireQuickPickRequest {
     readonly placeHolder?: string;
     readonly canPickMany: boolean;
     readonly items: readonly IWireQuickPickItem[];
-    /** Пусто без `canPickMany`. */
+    /** Empty without `canPickMany`. */
     readonly picked: readonly number[];
 }
 
@@ -1076,40 +1076,40 @@ export interface IWireQuickInputCancel {
     readonly handle: number;
 }
 
-/** `null` — человек отменил. */
+/** `null` means the user cancelled. */
 export interface IWireInputBoxResult {
     readonly value: string | null;
 }
 
 /**
- * Индексы в `items` расширения, а не предметы: `showQuickPick<T>` обязан вернуть
- * СВОИ объекты. `null` — отмена.
+ * Indices into the extension's `items`, not the items: `showQuickPick<T>` must return
+ * ITS OWN objects. `null` means cancelled.
  */
 export interface IWireQuickPickResult {
     readonly indices: readonly number[] | null;
 }
 
 export function parseWireInputBoxResult(raw: unknown): IWireInputBoxResult {
-    // Stryker disable next-line ConditionalExpression: `typeof raw !== "object"` — быстрый выход; не-объект всё равно отсеет проверка ниже (нужного поля у него нет), так что подмена операнда на `false` наблюдаемого эффекта не даёт
+    // Stryker disable next-line ConditionalExpression: `typeof raw !== "object"` is a fast path; the check below rejects a non-object anyway (it lacks the needed field), so replacing the operand with `false` has no observable effect
     if (typeof raw !== "object" || raw === null) return { value: null };
     const { value } = raw as { value?: unknown };
     return { value: typeof value === "string" ? value : null };
 }
 
 export function parseWireQuickPickResult(raw: unknown): IWireQuickPickResult {
-    // Stryker disable next-line ConditionalExpression: `typeof raw !== "object"` — быстрый выход; не-объект всё равно отсеет проверка ниже (нужного поля у него нет), так что подмена операнда на `false` наблюдаемого эффекта не даёт
+    // Stryker disable next-line ConditionalExpression: `typeof raw !== "object"` is a fast path; the check below rejects a non-object anyway (it lacks the needed field), so replacing the operand with `false` has no observable effect
     if (typeof raw !== "object" || raw === null) return { indices: null };
     const { indices } = raw as { indices?: unknown };
     if (!Array.isArray(indices)) return { indices: null };
     return { indices: indices.filter((i): i is number => Number.isInteger(i) && i >= 0) };
 }
 
-// Форма эталона (`$createOrUpdate`/`$onDid*`): свойства едут ДИФФОМ, действия
-// человека — событиями; `handle` — общий счётчик с показами `showQuickPick`.
+// Upstream shape (`$createOrUpdate`/`$onDid*`): properties travel as a DIFF, user actions
+// as events; `handle` is a counter shared with `showQuickPick` prompts.
 
 /**
- * `handle` — индекс в `items` расширения: разделители не едут, и позиции расходятся.
- * `detail` нужен поиску (`matchOnDetail`), даже когда на экране его не видно.
+ * `handle` is an index into the extension's `items`: separators are not sent, so positions diverge.
+ * `detail` is needed for filtering (`matchOnDetail`) even when it is not visible on screen.
  */
 export interface IWireQuickPickSessionItem {
     readonly handle: number;
@@ -1119,7 +1119,7 @@ export interface IWireQuickPickSessionItem {
     readonly alwaysShow?: boolean;
 }
 
-/** Нет поля — «не трогали», `null` — «сбросили в `undefined`» (`_pendingUpdate` эталона). */
+/** Absent means "untouched", `null` means "reset to `undefined`" (upstream `_pendingUpdate`). */
 export interface IWireQuickPickUpdate {
     readonly handle: number;
     readonly visible?: boolean;
@@ -1134,9 +1134,9 @@ export interface IWireQuickPickUpdate {
     readonly matchOnDetail?: boolean;
     readonly keepScrollPosition?: boolean;
     readonly items?: readonly IWireQuickPickSessionItem[];
-    /** Handle'ы пунктов. */
+    /** Item handles. */
     readonly activeItems?: readonly number[];
-    /** Handle'ы пунктов. */
+    /** Item handles. */
     readonly selectedItems?: readonly number[];
 }
 
@@ -1144,7 +1144,7 @@ export interface IWireQuickPickDispose {
     readonly handle: number;
 }
 
-/** `$onDid*` эталона одной нотификацией. */
+/** Upstream `$onDid*` as a single notification. */
 export type IWireQuickPickEvent =
     | { readonly handle: number; readonly kind: "changeValue"; readonly value: string }
     | { readonly handle: number; readonly kind: "accept" }
@@ -1153,7 +1153,7 @@ export type IWireQuickPickEvent =
     | { readonly handle: number; readonly kind: "hide" };
 
 export function parseWireQuickPickEvent(raw: unknown): IWireQuickPickEvent | null {
-    // Stryker disable next-line ConditionalExpression: `typeof raw !== "object"` — быстрый выход; не-объект всё равно отсеет проверка ниже (нужного поля у него нет), так что подмена операнда на `false` наблюдаемого эффекта не даёт
+    // Stryker disable next-line ConditionalExpression: `typeof raw !== "object"` is a fast path; the check below rejects a non-object anyway (it lacks the needed field), so replacing the operand with `false` has no observable effect
     if (typeof raw !== "object" || raw === null) return null;
     const p = raw as { handle?: unknown; kind?: unknown; value?: unknown; items?: unknown };
     if (typeof p.handle !== "number") return null;
@@ -1173,7 +1173,7 @@ export function parseWireQuickPickEvent(raw: unknown): IWireQuickPickEvent | nul
     }
 }
 
-/** Фильтр диалога: `{ "Images": ["png", "jpg"] }` расширения — массивом пар. */
+/** Dialog filter: the extension's `{ "Images": ["png", "jpg"] }` as an array of pairs. */
 export interface IWireDialogFilter {
     readonly name: string;
     readonly extensions: readonly string[];
@@ -1215,39 +1215,39 @@ export function parseWireSaveDialogResult(raw: unknown): IWireSaveDialogResult {
     return { uri: typeof uri === "string" ? uri : null };
 }
 
-/** Проверки эталона уже прошли; `folders` — итоговый набор `fsPath`, хост открывает его, только если папка одна. */
+/** Upstream checks have already passed; `folders` is the resulting `fsPath` set, the host opens it only if there is a single folder. */
 export interface IWireUpdateWorkspaceFolders {
     readonly extensionId: string | null;
     readonly folders: readonly string[];
 }
 
-// Сообщение с кнопками — запрос: ждёт выбора. Адреса показа нет: у `show*Message`
-// нет токена отмены.
+// A message with buttons is a request: it waits for a choice. There is no prompt address:
+// `show*Message` has no cancellation token.
 
 export type WireMessageSeverity = "error" | "warn" | "info";
 
 export interface IWireMessageItem {
     readonly title: string;
-    /** Возвращается, когда модальное сообщение закрыли Escape'ом; у немодального игнорируется (как в эталоне). */
+    /** Returned when a modal message is dismissed with Escape; ignored for non-modal ones (as upstream). */
     readonly isCloseAffordance: boolean;
 }
 
 export interface IWireShowMessageRequest {
     readonly severity: WireMessageSeverity;
     readonly message: string;
-    /** Только у модального. */
+    /** Modal only. */
     readonly detail?: string;
     readonly modal: boolean;
     readonly items: readonly IWireMessageItem[];
 }
 
-/** Индекс в `items`, а не предмет: расширению вернётся ЕГО объект. `null` — закрыли, не выбрав. */
+/** An index into `items`, not the item: the extension gets back ITS OWN object. `null` means dismissed without a choice. */
 export interface IWireShowMessageResult {
     readonly index: number | null;
 }
 
 export function parseWireShowMessageResult(raw: unknown): IWireShowMessageResult {
-    // Stryker disable next-line ConditionalExpression: `typeof raw !== "object"` — быстрый выход; не-объект всё равно отсеет проверка ниже (нужного поля у него нет), так что подмена операнда на `false` наблюдаемого эффекта не даёт
+    // Stryker disable next-line ConditionalExpression: `typeof raw !== "object"` is a fast path; the check below rejects a non-object anyway (it lacks the needed field), so replacing the operand with `false` has no observable effect
     if (typeof raw !== "object" || raw === null) return { index: null };
     const { index } = raw as { index?: unknown };
     if (!Number.isInteger(index)) return { index: null };
@@ -1255,26 +1255,26 @@ export function parseWireShowMessageResult(raw: unknown): IWireShowMessageResult
     return { index: value >= 0 ? value : null };
 }
 
-// Буфер и ссылки — на хосте: у него терминал (OSC 52) и право запускать системный обработчик.
+// Clipboard and links live on the host: it owns the terminal (OSC 52) and the right to launch the system handler.
 
 export interface IWireClipboardText {
     readonly text: string;
 }
 
 export function parseWireClipboardText(raw: unknown): IWireClipboardText {
-    // Stryker disable next-line ConditionalExpression: `typeof raw !== "object"` — быстрый выход; не-объект всё равно отсеет проверка ниже (нужного поля у него нет), так что подмена операнда на `false` наблюдаемого эффекта не даёт
+    // Stryker disable next-line ConditionalExpression: `typeof raw !== "object"` is a fast path; the check below rejects a non-object anyway (it lacks the needed field), so replacing the operand with `false` has no observable effect
     if (typeof raw !== "object" || raw === null) return { text: "" };
     const { text } = raw as { text?: unknown };
     return { text: typeof text === "string" ? text : "" };
 }
 
-/** Приходит до первой активации: `env.machineId` и `env.shell` синхронны и читаются уже в `activate()`. */
+/** Arrives before the first activation: `env.machineId` and `env.shell` are synchronous and read already in `activate()`. */
 export interface IWireEnvInitialize {
     readonly machineId: string;
     readonly shell: string;
 }
 
-/** Не-строка — пустая строка, как «неизвестно» у эталона. */
+/** A non-string becomes an empty string, like upstream's "unknown". */
 export function parseWireEnvInitialize(raw: unknown): IWireEnvInitialize {
     const { machineId, shell } = (typeof raw === "object" && raw !== null ? raw : {}) as {
         machineId?: unknown;
@@ -1290,7 +1290,7 @@ export interface IWireEnvironmentVariableCollections {
     readonly collections: readonly (readonly [string, SerializableEnvironmentVariableCollection])[];
 }
 
-/** Без `collection` — пустая. */
+/** Without `collection` it is empty. */
 export interface IWireSetEnvironmentVariableCollection {
     readonly extensionId: string;
     readonly persistent: boolean;
@@ -1298,7 +1298,7 @@ export interface IWireSetEnvironmentVariableCollection {
     readonly description: SerializableEnvironmentDescriptionMap;
 }
 
-/** Replace, Append, Prepend числами: enum потянул бы модуль слияния в бандл субпроцесса (бюджет ленивых кусков). */
+/** Replace, Append, Prepend as numbers: the enum would pull the merge module into the subprocess bundle (lazy chunk budget). */
 const MUTATOR_TYPES: readonly number[] = [1, 2, 3];
 
 function parseWireEnvironmentScope(raw: unknown): IEnvironmentVariableScope | undefined | null {
@@ -1404,12 +1404,12 @@ export interface IWireOpenExternalResult {
 }
 
 export function parseWireOpenExternalResult(raw: unknown): boolean {
-    // Stryker disable next-line ConditionalExpression: `typeof raw !== "object"` — быстрый выход; не-объект всё равно отсеет проверка ниже (нужного поля у него нет), так что подмена операнда на `false` наблюдаемого эффекта не даёт
+    // Stryker disable next-line ConditionalExpression: `typeof raw !== "object"` is a fast path; the check below rejects a non-object anyway (it lacks the needed field), so replacing the operand with `false` has no observable effect
     if (typeof raw !== "object" || raw === null) return false;
     return (raw as { opened?: unknown }).opened === true;
 }
 
-// Адрес секрета — «id расширения + ключ»: у каждого расширения свой лоток, как в эталоне.
+// A secret is addressed by "extension id + key": each extension has its own slot, as upstream.
 
 export interface IWireSecretRef {
     readonly extensionId: string;
@@ -1421,7 +1421,7 @@ export interface IWireSecretWrite extends IWireSecretRef {
 }
 
 export function parseWireSecretRef(raw: unknown): IWireSecretRef | null {
-    // Stryker disable next-line ConditionalExpression: `typeof raw !== "object"` — быстрый выход; не-объект всё равно отсеют проверки полей ниже
+    // Stryker disable next-line ConditionalExpression: `typeof raw !== "object"` is a fast path; the field checks below reject a non-object anyway
     if (typeof raw !== "object" || raw === null) return null;
     const p = raw as { extensionId?: unknown; key?: unknown };
     if (typeof p.extensionId !== "string" || p.extensionId === "") return null;
@@ -1441,7 +1441,7 @@ export interface IWireSecretValue {
     readonly value: string | null;
 }
 
-/** Словарь целиком; `shared` — `globalState`, иначе `workspaceState`. */
+/** The whole dictionary; `shared` means `globalState`, otherwise `workspaceState`. */
 export interface IWireMementoUpdate {
     readonly extensionId: string;
     readonly shared: boolean;
@@ -1453,14 +1453,14 @@ export function parseWireMementoValue(raw: unknown): Readonly<Record<string, unk
 }
 
 export function parseWireSecretValue(raw: unknown): string | undefined {
-    // Stryker disable next-line ConditionalExpression: `typeof raw !== "object"` — быстрый выход; не-объект всё равно отсеет проверка поля ниже
+    // Stryker disable next-line ConditionalExpression: `typeof raw !== "object"` is a fast path; the field check below rejects a non-object anyway
     if (typeof raw !== "object" || raw === null) return undefined;
     const { value } = raw as { value?: unknown };
     return typeof value === "string" ? value : undefined;
 }
 
 export function parseWireSecretKeys(raw: unknown): string[] {
-    // Stryker disable next-line ConditionalExpression: `typeof raw !== "object"` — быстрый выход; не-объект всё равно отсеет проверка поля ниже
+    // Stryker disable next-line ConditionalExpression: `typeof raw !== "object"` is a fast path; the field check below rejects a non-object anyway
     if (typeof raw !== "object" || raw === null) return [];
     const { keys } = raw as { keys?: unknown };
     if (!Array.isArray(keys)) return [];
@@ -1468,8 +1468,8 @@ export function parseWireSecretKeys(raw: unknown): string[] {
 }
 
 /**
- * `exports` по проводу не ездят (их даёт `activate()` в субпроцессе); `extensionKind`
- * без удалённого extension host'а — всегда `UI`, константа субпроцесса.
+ * `exports` do not travel over the wire (`activate()` provides them in the subprocess); without
+ * a remote extension host `extensionKind` is always `UI`, a subprocess constant.
  */
 export interface IWireExtensionDescription {
     readonly id: string;
@@ -1482,9 +1482,9 @@ export interface IWireExtensionCatalog {
     readonly extensions: readonly IWireExtensionDescription[];
 }
 
-/** Негодные записи выбрасываются поштучно: потерять одного соседа лучше, чем всех. */
+/** Invalid entries are dropped one by one: losing one neighbor beats losing all. */
 export function parseWireExtensionCatalog(raw: unknown): IWireExtensionCatalog | null {
-    // Stryker disable next-line ConditionalExpression: `typeof raw !== "object"` — быстрый выход; не-объект всё равно отсеет проверка поля ниже
+    // Stryker disable next-line ConditionalExpression: `typeof raw !== "object"` is a fast path; the field check below rejects a non-object anyway
     if (typeof raw !== "object" || raw === null) return null;
     const { extensions } = raw as { extensions?: unknown };
     if (!Array.isArray(extensions)) return null;
@@ -1504,7 +1504,7 @@ export function parseWireExtensionCatalog(raw: unknown): IWireExtensionCatalog |
 }
 
 export function parseWireExtensionActivated(raw: unknown): string | null {
-    // Stryker disable next-line ConditionalExpression: `typeof raw !== "object"` — быстрый выход; не-объект всё равно отсеет проверка поля ниже
+    // Stryker disable next-line ConditionalExpression: `typeof raw !== "object"` is a fast path; the field check below rejects a non-object anyway
     if (typeof raw !== "object" || raw === null) return null;
     const { id } = raw as { id?: unknown };
     return typeof id === "string" && id !== "" ? id : null;
@@ -1514,25 +1514,25 @@ export interface IWireExtensionId {
     readonly id: string;
 }
 
-/** Ровно одно из `mainPath`/`source` (у `source` — ещё `filename`); проверяет получатель. */
+/** Exactly one of `mainPath`/`source` (`source` also needs `filename`); the receiver validates. */
 export interface IWireActivateExtensionParams {
     readonly id: string;
     readonly mainPath?: string;
     readonly source?: string;
     readonly filename?: string;
-    /** `"type"` из package.json как есть: нормализует сторона, разбирающая параметры. */
+    /** `"type"` from package.json as is: the side parsing the params normalizes it. */
     readonly moduleType: unknown;
     readonly extensionPath?: string;
     readonly globalStoragePath: string;
-    /** `null` — папка не открыта. */
+    /** `null` when no folder is open. */
     readonly storagePath: string | null;
     readonly logPath: string;
-    /** `get` у расширения синхронный. */
+    /** `get` is synchronous for the extension. */
     readonly globalState: Readonly<Record<string, unknown>>;
     readonly workspaceState: Readonly<Record<string, unknown>>;
 }
 
-/** В обе стороны: хост тоже исполняет команды, заведённые расширением. */
+/** Both directions: the host also executes commands registered by extensions. */
 export interface IWireExecuteCommandParams {
     readonly id: string;
     readonly args: readonly unknown[];

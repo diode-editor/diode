@@ -21,7 +21,7 @@ export interface IResponseMessage {
     readonly kind: "res";
     readonly id: number;
     readonly result?: unknown;
-    /** Доезжает целиком, с `name`/`stack`/`code`/`cause` — как `ReplyErrError` эталона. */
+    /** Arrives whole, with `name`/`stack`/`code`/`cause` — like upstream's `ReplyErrError`. */
     readonly error?: SerializedError;
 }
 
@@ -34,13 +34,13 @@ export interface INotificationMessage {
 export type IProtocolMessage = IRequestMessage | IResponseMessage | INotificationMessage;
 
 /**
- * Долгая работа обязана смотреть на токен, короткая вправе игнорировать — ответ
- * отменённого запроса вызывающий отбросит сам.
+ * Long work must watch the token; short work may ignore it — the caller drops the reply
+ * to a cancelled request itself.
  */
 export type IRequestHandler = (params: unknown, token: ICancellationToken) => unknown;
 export type INotificationHandler = (params: unknown) => void;
 
-/** Только типы: на проводе карта ничего не меняет. */
+/** Types only: the map changes nothing on the wire. */
 export interface IRpcProtocol {
     readonly requests: object;
     readonly notifications: object;
@@ -67,8 +67,8 @@ export type RequestResult<P extends IRpcProtocol, K extends RequestMethod<P>> = 
 export type NotificationMethod<P extends IRpcProtocol> = keyof P["notifications"] & string;
 export type NotificationParams<P extends IRpcProtocol, K extends NotificationMethod<P>> = P["notifications"][K];
 
-/** Аналог LSP `$/cancelRequest`: отменой владеет сторона, пославшая запрос. */
-// Stryker disable next-line StringLiteral: имя метода — контракт с самим собой, обе стороны читают эту же константу; наблюдаемо только против чужой реализации протокола
+/** Like LSP `$/cancelRequest`: cancellation is owned by the side that sent the request. */
+// Stryker disable next-line StringLiteral: the method name is a contract with itself, both sides read this same constant; observable only against a foreign protocol implementation
 export const CANCEL_REQUEST_METHOD = "$/cancelRequest";
 
 export interface ICancelRequestParams {
@@ -76,8 +76,8 @@ export interface ICancelRequestParams {
 }
 
 /**
- * Отмены-сироты, обогнавшие свой запрос на переупорядоченном транспорте; граница —
- * чтобы множество не росло на чужом мусоре.
+ * Orphan cancellations that overtook their request on a reordering transport; bounded
+ * so the set does not grow on foreign garbage.
  */
 const EARLY_CANCEL_MEMORY = 64;
 
@@ -115,8 +115,8 @@ export class RpcEndpoint<
     }
 
     /**
-     * Ответ ожидается и после отмены: отмена — просьба, а не разрыв. Истёкший
-     * `timeoutMs` отменяет запрос так же и отклоняет промис, не дожидаясь опоздавшего ответа.
+     * A reply is still expected after cancellation: cancellation is a request, not a disconnect. An expired
+     * `timeoutMs` cancels the request the same way and rejects the promise without waiting for a late reply.
      */
     public request<K extends RequestMethod<TOut>>(
         method: K,
@@ -139,16 +139,16 @@ export class RpcEndpoint<
             const msg: IRequestMessage = { kind: "req", id, method, params };
             this.logger?.trace(`-> req#${String(id)} ${method}`, params);
             this.channel.postMessage(msg);
-            // Подписка ПОСЛЕ отправки: у уже отменённого токена слушатель
-            // зовётся синхронно, и отмена обязана уйти следом за запросом,
-            // а не впереди него.
+            // Subscribe AFTER sending: an already-cancelled token calls the listener
+            // synchronously, and the cancellation must go out after the request,
+            // not ahead of it.
             pending.cancelSubscription =
                 token?.onCancellationRequested(() => {
                     this.cancelOutgoing(id, method);
                 }) ?? null;
             if (timeoutMs !== undefined) {
                 pending.timer = setTimeout(() => {
-                    // Stryker disable next-line CallExpression: гигиена — опоздавший ответ нашёл бы уже отклонённый промис (повторный resolve — no-op), разница лишь в росте карты
+                    // Stryker disable next-line CallExpression: hygiene — a late reply would find an already rejected promise (a second resolve is a no-op); the only difference is map growth
                     this.pendingRequests.delete(id);
                     pending.cancelSubscription?.dispose();
                     this.cancelOutgoing(id, method);
@@ -162,7 +162,7 @@ export class RpcEndpoint<
         this.sendNotification(method, params);
     }
 
-    /** Отправка нотификации мимо карты протокола: служебный `$/cancelRequest` в ней не значится. */
+    /** Sends a notification bypassing the protocol map: the internal `$/cancelRequest` is not listed there. */
     private sendNotification(method: string, params: unknown): void {
         if (this.disposed) return;
         const msg: INotificationMessage = { kind: "notif", method, params };
@@ -177,7 +177,7 @@ export class RpcEndpoint<
             token: ICancellationToken,
         ) => RequestResult<TIn, K> | Promise<RequestResult<TIn, K>>,
     ): IDisposable {
-        // Второй обработчик молча вытеснил бы первый — у запроса один ответчик.
+        // A second handler would silently replace the first — a request has one responder.
         if (this.requestHandlers.has(method)) {
             throw new BugIndicatingError(`request handler for "${method}" is already registered`);
         }
@@ -215,44 +215,44 @@ export class RpcEndpoint<
             pending.reject(new Error("RpcEndpoint disposed"));
         }
         this.pendingRequests.clear();
-        // Ответ некуда слать; ещё считающим обработчикам — отмена. Уборка ниже поведения
-        // не меняет: endpoint мёртв, читать коллекции некому.
+        // There is nowhere to send replies; handlers still running get cancelled. The cleanup below
+        // does not change behavior: the endpoint is dead and nobody reads the collections.
         for (const source of this.incomingCancellations.values()) {
             source.cancel();
-            // Stryker disable next-line CallExpression: уборка, см. выше
+            // Stryker disable next-line CallExpression: cleanup, see above
             source.dispose();
         }
-        // Stryker disable next-line CallExpression: уборка, см. выше
+        // Stryker disable next-line CallExpression: cleanup, see above
         this.incomingCancellations.clear();
-        // Stryker disable next-line CallExpression: уборка, см. выше
+        // Stryker disable next-line CallExpression: cleanup, see above
         this.earlyCancellations.clear();
         this.requestHandlers.clear();
         this.notificationHandlers.clear();
     }
 
     /**
-     * Отмена уже отвеченного запроса сюда не доходит: подписка на токен снимается
-     * вместе с ответом — на этом держится «после ответа молчим».
+     * Cancellation of an already answered request never gets here: the token subscription is removed
+     * together with the reply — this is what keeps us silent after the reply.
      */
     private cancelOutgoing(id: number, method: string): void {
-        // Stryker disable next-line StringLiteral: текст trace-строки ненаблюдаем (логгера в тестах endpoint'а нет)
+        // Stryker disable next-line StringLiteral: the trace line text is unobservable (endpoint tests have no logger)
         this.logger?.trace(`-> cancel req#${String(id)} ${method}`);
         this.sendNotification(CANCEL_REQUEST_METHOD, { id } satisfies ICancelRequestParams);
     }
 
     private handleCancelMessage(params: unknown): void {
-        // Stryker disable next-line OptionalChaining: без `?.` мусорные параметры заставляют handleCancelMessage кинуть прямо из доставки канала, то есть мимо стека теста. Тест на этот случай есть («отмена с чужой формой параметров и отмена без пары — тихие»), но он ПРОХОДИТ: unhandled-ошибка роняет раннер (RuntimeError) вместо падения теста. Это дыра в локализации ошибок слушателей (docs/MUTATION.md → #275), а не пробел в тестах этой строки.
+        // Stryker disable next-line OptionalChaining: without `?.` garbage params make handleCancelMessage throw straight from channel delivery, i.e. outside the test's stack. A test for this case exists (malformed and unpaired cancellations are silent), but it PASSES: the unhandled error crashes the runner (RuntimeError) instead of failing the test. This is a gap in listener error localization (docs/MUTATION.md → #275), not a gap in this line's tests.
         const id = (params as ICancelRequestParams | null | undefined)?.id;
-        // Без гарда нечисловой id осел бы в earlyCancellations и ни с чем не совпал — ненаблюдаемо.
-        // Stryker disable next-line ConditionalExpression: см. выше
+        // Without the guard a non-numeric id would settle in earlyCancellations and match nothing — unobservable.
+        // Stryker disable next-line ConditionalExpression: see above
         if (typeof id !== "number") return;
         const source = this.incomingCancellations.get(id);
         if (source !== undefined) {
             source.cancel();
             return;
         }
-        // Пары нет: запрос уже отвечен (молчим) или отмена обогнала его — тогда обработчик
-        // получит уже отменённый токен.
+        // No match: either the request is already answered (stay silent) or the cancellation overtook it —
+        // then the handler receives an already cancelled token.
         this.earlyCancellations.add(id);
         for (const stale of this.earlyCancellations) {
             if (this.earlyCancellations.size <= EARLY_CANCEL_MEMORY) break;
@@ -301,7 +301,7 @@ export class RpcEndpoint<
             .then(() => handler(message.params, source.token))
             .then(
                 (result) => {
-                    // Stryker disable next-line CallExpression: уборка токена, см. finishIncoming
+                    // Stryker disable next-line CallExpression: token cleanup, see finishIncoming
                     this.finishIncoming(message.id, source);
                     if (this.disposed) return;
                     const response: IResponseMessage = { kind: "res", id: message.id, result };
@@ -309,7 +309,7 @@ export class RpcEndpoint<
                     this.channel.postMessage(response);
                 },
                 (reason: unknown) => {
-                    // Stryker disable next-line CallExpression: уборка токена, см. finishIncoming
+                    // Stryker disable next-line CallExpression: token cleanup, see finishIncoming
                     this.finishIncoming(message.id, source);
                     if (this.disposed) return;
                     const error = serializeRejection(reason);
@@ -320,8 +320,8 @@ export class RpcEndpoint<
             );
     }
 
-    // Опоздавшая отмена по этому id никому не адресована: уборка лишь против роста коллекций.
-    // Stryker disable BlockStatement,CallExpression: уборка без наблюдаемого эффекта, см. выше
+    // A late cancellation for this id is addressed to no one: cleanup only prevents collection growth.
+    // Stryker disable BlockStatement,CallExpression: cleanup with no observable effect, see above
     private finishIncoming(id: number, source: CancellationTokenSource): void {
         this.incomingCancellations.delete(id);
         source.dispose();
@@ -344,7 +344,7 @@ export class RpcEndpoint<
     private handleNotificationMessage(message: INotificationMessage): void {
         const handler = this.notificationHandlers.get(message.method);
         if (handler === undefined) {
-            // Расхождение сторон протокола; поток таких сообщений не должен топить лог.
+            // The protocol sides disagree; a stream of such messages must not flood the log.
             if (!this.unknownNotifications.has(message.method)) {
                 this.unknownNotifications.add(message.method);
                 this.logger?.warn(`no handler for notification "${message.method}"`);
@@ -405,7 +405,7 @@ export class TimeoutError extends Error {
     }
 }
 
-/** Бросили не `Error` — значение едет текстом сообщения обычной ошибки. */
+/** A non-`Error` was thrown — the value travels as the message text of a plain error. */
 function serializeRejection(reason: unknown): SerializedError {
     if (reason instanceof Error) return transformErrorForSerialization(reason);
     return { $isError: true, name: "Error", message: String(reason), stack: "" };

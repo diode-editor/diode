@@ -6,8 +6,8 @@ import { Emitter } from "../../../base/common/event.ts";
 import { callWithVscodeToken } from "./vscodeCancellation.ts";
 
 /**
- * Провайдер содержимого — НЕ `FileSystemProvider`: готовый текст и только чтение,
- * поэтому схема здесь не мешает той же схеме в реестре ФС (в эталоне тоже два реестра).
+ * A content provider is NOT a `FileSystemProvider`: ready-made text, read-only,
+ * so a scheme here does not clash with the same scheme in the FS registry (upstream also has two registries).
  */
 interface IProviderEntry {
     readonly provider: vscode.TextDocumentContentProvider;
@@ -33,8 +33,8 @@ export class SubprocessTextDocumentContentProviders {
         this.fireSchemesChanged();
         return {
             dispose: () => {
-                // Гейт по идентичности: если схему успели перерегистрировать,
-                // снятие старой регистрации не должно убивать нового провайдера.
+                // Identity gate: if the scheme has been re-registered meanwhile,
+                // disposing the old registration must not kill the new provider.
                 if (this.entries.get(scheme) !== entry) return;
                 this.entries.delete(scheme);
                 entry.changed?.dispose();
@@ -51,7 +51,7 @@ export class SubprocessTextDocumentContentProviders {
         return this.entries.has(scheme);
     }
 
-    /** Сбой провайдера пробрасывается: ядру нужно показать причину, а не молча ничего не открыть. */
+    /** Provider failures propagate: the core must show the cause rather than silently open nothing. */
     public async provide(uri: vscode.Uri, token: ICancellationToken = CancellationTokenNone): Promise<string | null> {
         const entry = this.entries.get(uri.scheme);
         if (entry === undefined) return null;

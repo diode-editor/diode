@@ -7,7 +7,7 @@ import { makeStubRpc } from "./testStubRpc.ts";
 import { buildVscodeNamespace } from "./vscodeNamespace.ts";
 import { UIKind } from "./vscodeTypes.ts";
 
-/** Первое падение стокового `redhat.java`: `reading 'Desktop'` в `switch (env.uiKind)` прямо в `activate()`. */
+/** First crash of the stock `redhat.java`: `reading 'Desktop'` in `switch (env.uiKind)` right inside `activate()`. */
 
 function makeEnv(): typeof vscode.env {
     return buildVscodeNamespace(makeStubRpc().rpc, createNodeExtHostDisk()).namespace.env;
@@ -47,7 +47,7 @@ describe("vscode.env — окружение и телеметрия", () => {
     it("sessionId — непустая строка, стабильная внутри одного шима", () => {
         const env = makeEnv();
         expect(env.sessionId).toMatch(/\S/u);
-        // Расширение сравнивает сохранённый id с текущим — геттер обязан быть стабилен.
+        // The extension compares a saved id with the current one — the getter must be stable.
         expect(env.sessionId).toBe(env.sessionId);
     });
 

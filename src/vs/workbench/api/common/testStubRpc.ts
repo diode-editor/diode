@@ -6,11 +6,11 @@ import type { IRequestHandler } from "./rpcEndpoint.ts";
 export interface IStubRpc {
     readonly rpc: SubprocessRpc;
     fire(method: string, params: unknown): void;
-    /** `token` по умолчанию неотменяемый. */
+    /** `token` defaults to a non-cancellable one. */
     callRequest(method: string, params: unknown, token?: ICancellationToken): Promise<unknown>;
     readonly requests: { method: string; params: unknown }[];
     readonly notifies: { method: string; params: unknown }[];
-    /** По умолчанию отвечает `undefined`. */
+    /** Replies `undefined` by default. */
     responder: ((method: string, params: unknown) => unknown) | null;
 }
 

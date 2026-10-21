@@ -41,8 +41,8 @@ describe("parseWireExtensionCatalog", () => {
 
     it.each([
         ["строкой", "не объект"],
-        // `typeof null === "object"` — без отдельной проверки на null он проехал
-        // бы в `packageJSON`, а расширения читают его без оглядки (`ext.packageJSON.name`).
+        // `typeof null === "object"` — without an explicit null check it would slip
+        // into `packageJSON`, and extensions read it unguarded (`ext.packageJSON.name`).
         ["null", null],
         ["отсутствующим", undefined],
     ])("манифест %s становится пустым объектом, но запись остаётся", (_name, packageJSON) => {
@@ -56,8 +56,8 @@ describe("parseWireExtensionCatalog", () => {
         const parsed = parseWireExtensionCatalog({
             extensions: [
                 null,
-                // Дырка в массиве: на ней разыменование `entry.id` бросило бы
-                // TypeError и унесло весь каталог, а не одну запись.
+                // A hole in the array: dereferencing `entry.id` on it would throw
+                // a TypeError and lose the whole catalog, not just one entry.
                 undefined,
                 "строка",
                 { extensionPath: "/a", packageJSON: {} },

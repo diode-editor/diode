@@ -3,9 +3,9 @@ import type * as vscode from "vscode";
 import { EventEmitter } from "./vscodeTypes.ts";
 
 /**
- * `ExtHostTelemetryLogger` эталона при навсегда выключенной телеметрии — не заглушка, а полный
- * ответ: эталон с выключенными usage/errors тоже не зовёт `send*Data`. Без члена
- * `@vscode/extension-telemetry` ронял `activate()` (`hashicorp.terraform`).
+ * Upstream's `ExtHostTelemetryLogger` with telemetry permanently off — not a stub but the complete
+ * answer: upstream with usage/errors disabled does not call `send*Data` either. Without this member
+ * `@vscode/extension-telemetry` crashed `activate()` (`hashicorp.terraform`).
  */
 export function createTelemetryLogger(
     sender: vscode.TelemetrySender,
@@ -22,13 +22,13 @@ export function createTelemetryLogger(
         dispose: (): void => {
             const flushing = pending;
             pending = undefined;
-            // Эталон тоже не ждёт `flush` и не смотрит в его исход.
+            // Upstream does not await `flush` or check its outcome either.
             if (flushing?.flush) Promise.resolve(flushing.flush()).catch(() => undefined);
         },
     });
 }
 
-/** Дословно `ExtHostTelemetryLogger.validateSender`. */
+/** Verbatim upstream `ExtHostTelemetryLogger.validateSender`. */
 function validateSender(sender: vscode.TelemetrySender): void {
     const candidate = sender as Partial<vscode.TelemetrySender> | null;
     if (typeof candidate !== "object") {

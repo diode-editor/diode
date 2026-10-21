@@ -10,7 +10,7 @@ import { Range, Uri } from "./vscodeTypes.ts";
 import { createWindowNamespace } from "./windowNamespace.ts";
 import { WorkspaceConfigStore } from "./workspaceConfigStore.ts";
 
-/** Стаб-RPC отвечает undefined, а здесь нужен настоящий ответ `editor.showTextDocument`. */
+/** The stub RPC answers undefined, but this needs a real `editor.showTextDocument` reply. */
 function makeCtx(requestResult?: unknown) {
     const stub = makeStubRpc();
     if (requestResult !== undefined) {
@@ -83,7 +83,7 @@ describe("WindowNamespace — showTextDocument (нормализация пер�
 
     it("ответ хоста (uri, groupId) адресует редактор конкретной группы", async () => {
         const { stub, window } = makeCtx({ uri: B.toString(), groupId: 2 });
-        // Хост открыл файл в группе 2 (колонка 2) — снимок уже применён к моменту ответа.
+        // The host opened the file in group 2 (column 2); the snapshot is already applied by the time of the reply.
         stub.fire("editor.layoutChanged", {
             groups: [
                 {

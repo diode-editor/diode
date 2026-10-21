@@ -83,7 +83,7 @@ describe("WindowNamespace", () => {
         expect(doc.encoding).toBe("windows1251");
         expect(doc.eol).toBe(2);
 
-        // Мета без encoding/eol (старый хост) не затирает известные значения.
+        // Meta without encoding/eol (an older host) does not overwrite known values.
         stub.fire("editor.activeEditorChanged", { uri: Uri.file("/a.txt").toString() });
         expect(doc.encoding).toBe("windows1251");
     });
@@ -288,7 +288,7 @@ describe("WindowNamespace", () => {
         d.dispose();
         stub.fire("editor.activeEditorChanged", { uri: Uri.file("/b.ts").toString() });
         expect(received).toHaveLength(1);
-        // повторный dispose безопасен (idx < 0)
+        // a repeated dispose is safe (idx < 0)
         expect(() => {
             d.dispose();
         }).not.toThrow();
@@ -317,7 +317,7 @@ describe("WindowNamespace", () => {
     it("options с мусорными строками деградирует безопасно", () => {
         const { stub, window } = makeCtx();
         stub.fire("editor.activeEditorChanged", { uri: Uri.file("/a.ts").toString() });
-        // tabSize невалидна → 4; indentSize невалидна → не форвардится
+        // invalid tabSize → 4; invalid indentSize → not forwarded
         window.activeTextEditor!.options = { tabSize: "bad", indentSize: "bad" } as never;
         expect(stub.requests.at(-1)).toEqual({
             method: "editor.setOptions",
@@ -329,11 +329,11 @@ describe("WindowNamespace", () => {
         const { stub, window } = makeCtx();
         stub.fire("editor.activeEditorChanged", { uri: Uri.file("/a.ts").toString() });
         const editor = window.activeTextEditor!;
-        // options = не-объект → set-trap возвращает false (TypeError в strict mode)
+        // options = non-object → the set trap returns false (TypeError in strict mode)
         expect(() => {
             (editor as unknown as { options: unknown }).options = null;
         }).toThrow();
-        // любое другое свойство editor — только для чтения
+        // any other editor property is read-only
         expect(() => {
             (editor as unknown as { document: unknown }).document = {};
         }).toThrow();
@@ -459,7 +459,7 @@ describe("WindowNamespace", () => {
                         badge: "M",
                         colorId: "gitDecoration.modifiedResourceForeground",
                     },
-                    // other.ts без декорации → голый uri (снятие на стороне host'а)
+                    // other.ts without a decoration → bare uri (the host clears it)
                     { uri: "file:///proj/other.ts" },
                 ],
             },
@@ -478,7 +478,7 @@ describe("WindowNamespace", () => {
                 return d;
             },
         } as unknown as vscode.FileDecorationProvider);
-        emitter.fire(Uri.file("/proj/x.ts")); // одиночный Uri → ветка «не массив» в normalizeChangedUris
+        emitter.fire(Uri.file("/proj/x.ts")); // a single Uri → the "not an array" branch in normalizeChangedUris
         await flushMicrotasks();
         expect(stub.notifies.at(-1)).toEqual({
             method: "window.fileDecorationsChanged",
@@ -536,7 +536,7 @@ describe("WindowNamespace — editor write (#194)", () => {
         const { editor } = activeEditor({ selection: null });
         expect(editor.selection.anchor).toEqual({ line: 0, character: 0 });
         expect(editor.selection.active).toEqual({ line: 0, character: 0 });
-        // Контракт vscode: у активного редактора всегда хотя бы одна каретка.
+        // vscode contract: the active editor always has at least one cursor.
         expect(editor.selections).toHaveLength(1);
         expect(editor.selections[0].active).toEqual({ line: 0, character: 0 });
     });
@@ -617,7 +617,7 @@ describe("WindowNamespace — editor write (#194)", () => {
             builder.insert(new Position(0, 0), "X");
             builder.replace(new Range(1, 0, 1, 2), "Y");
             builder.delete(new Range(2, 0, 3, 0));
-            builder.setEndOfLine(1); // no-op в MVP
+            builder.setEndOfLine(1); // no-op in the MVP
         });
         const req = stub.requests.find((r) => r.method === "editor.applyEdit");
         expect(req?.params).toEqual({
@@ -633,7 +633,7 @@ describe("WindowNamespace — editor write (#194)", () => {
     it("editor.edit без правок резолвится true без RPC", async () => {
         const { stub, editor } = activeEditor();
         const ok = await editor.edit(() => {
-            /* ничего не пишем */
+            /* write nothing */
         });
         expect(ok).toBe(true);
         expect(stub.requests.find((r) => r.method === "editor.applyEdit")).toBeUndefined();

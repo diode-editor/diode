@@ -76,7 +76,7 @@ describe("workspace.applyEdit — продюсер RPC", () => {
                 },
             ],
         });
-        // Ответ — то, что вернул RPC (стаб отвечает undefined), а не литерал.
+        // The result is what the RPC returned (the stub answers undefined), not a literal.
         expect(result).toBeUndefined();
     });
 
@@ -140,9 +140,9 @@ describe("workspace.applyEdit — продюсер RPC", () => {
     it("пропускается ТОЛЬКО чистая EOL-правка: пустая замена и EOL с текстом едут как текст", () => {
         const { stub, workspace } = makeWorkspace();
         const edit = new WorkspaceEdit();
-        // Пустая замена БЕЗ newEol — обычная правка: версия документа растёт, как в VS Code.
+        // An empty replace WITHOUT newEol is a regular edit: the document version grows, as in VS Code.
         edit.replace(URI_A, new Range(1, 1, 1, 1), "");
-        // EOL-правка, к которой приклеен настоящий текст, — текстовая.
+        // An EOL edit carrying real text is a text edit.
         const withText = new TextEdit(new Range(0, 0, 0, 0), "x");
         withText.newEol = EndOfLine.LF;
         edit.set(URI_B, [withText]);
@@ -229,8 +229,8 @@ describe("workspace.applyEdit — продюсер RPC", () => {
         void workspace.applyEdit(edit as unknown as vscode.WorkspaceEdit);
 
         const req = stub.requests.find((r) => r.method === "workspace.applyEdit");
-        // Строгое сравнение: `contents: undefined` в проводе — не то же, что
-        // отсутствие поля (хост различает их по `typeof === "string"`).
+        // Strict comparison: `contents: undefined` on the wire is not the same as
+        // a missing field (the host tells them apart by `typeof === "string"`).
         expect(req?.params).toStrictEqual({ ops: [{ kind: "create", resource: URI_B.toString() }] });
     });
 

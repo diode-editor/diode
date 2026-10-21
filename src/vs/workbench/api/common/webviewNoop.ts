@@ -4,15 +4,15 @@ import type { SubprocessRpc } from "./extHostProtocol.ts";
 import { DisposableImpl, EventEmitter } from "./vscodeTypes.ts";
 
 /**
- * Webview в Diode не будет by design, но отсутствующий член убивал расширение
- * целиком: `activate()` чат-панели падал на `is not a function` вместе с
- * не-webview частью. Вызовы возвращают инертный объект и пишут ОДНУ строку в Output.
+ * Diode will not have webviews by design, but a missing member killed the whole
+ * extension: a chat panel's `activate()` failed on `is not a function` together with
+ * the non-webview part. Calls return an inert object and write ONE line to Output.
  */
 
 const OUTPUT_CHANNEL = "extensions";
 const OUTPUT_LABEL = "Extensions";
 
-/** Главное — первым: строка Output обрезается шириной панели. */
+/** Key part first: the Output line is cut at the panel width. */
 function reportUnsupported(rpc: SubprocessRpc, member: string, id: string): void {
     rpc.notify("output.append", {
         channel: OUTPUT_CHANNEL,
@@ -22,7 +22,7 @@ function reportUnsupported(rpc: SubprocessRpc, member: string, id: string): void
     });
 }
 
-/** `html` расширение пишет сразу после создания — свойство обязано быть записываемым. */
+/** Extensions write `html` right after creation — the property must be writable. */
 interface IInertWebview {
     options: object;
     html: string;
@@ -32,7 +32,7 @@ interface IInertWebview {
     asWebviewUri: (localResource: vscode.Uri) => vscode.Uri;
 }
 
-/** `dispose()` идемпотентен (панель кладут и в `context.subscriptions`, и закрывают сами) и стреляет `onDidDispose`. */
+/** `dispose()` is idempotent (the panel goes into `context.subscriptions` and is also closed by hand) and fires `onDidDispose`. */
 interface IInertWebviewPanel {
     readonly viewType: string;
     title: string;
@@ -64,9 +64,9 @@ function createInertWebview(): IInertWebview {
     return {
         options: {},
         html: "",
-        // Вшивается в CSP никогда не рисуемого html — произвольное, но непустое.
+        // Embedded into the CSP of html that is never rendered — arbitrary, but non-empty.
         cspSource: "diode-webview:",
-        // postMessage отвечает «не доставлено» — так же отвечает скрытая панель vscode.
+        // postMessage answers "not delivered" — the same as a hidden vscode panel.
         onDidReceiveMessage: new EventEmitter<unknown>().event,
         postMessage: (): Thenable<boolean> => Promise.resolve(false),
         asWebviewUri: (localResource: vscode.Uri): vscode.Uri => localResource,
@@ -88,7 +88,7 @@ function createInertPanel(viewType: string, title: string): IInertWebviewPanel {
         onDidChangeViewState: new EventEmitter<unknown>().event,
         onDidDispose: onDidDispose.event,
         reveal: (): void => {
-            /* показывать нечего: панели нет */
+            /* nothing to show: there is no panel */
         },
         dispose: (): void => {
             if (disposed) return;
@@ -115,8 +115,8 @@ export function createWebviewNoopMembers(rpc: SubprocessRpc): IWebviewNoopMember
             return new DisposableImpl(() => undefined);
         },
 
-        // У `redhat.java` на нём редактор настроек форматтера: регистрация идёт в
-        // `activate()` первой строкой и обязана не падать.
+        // `redhat.java` hosts its formatter settings editor on it: registration runs as the
+        // first line of `activate()` and must not throw.
         registerCustomEditorProvider: (viewType: string): vscode.Disposable => {
             reportUnsupported(rpc, "registerCustomEditorProvider", viewType);
             return new DisposableImpl(() => undefined);

@@ -20,8 +20,8 @@ describe("parseWireColorTheme", () => {
     });
 
     it("нотификация вообще без параметров — null, а не TypeError", () => {
-        // `rpc.notify("window.themeChanged")` без params отдаёт обработчику
-        // `undefined`, и разбор обязан пережить это, не разыменовав его.
+        // `rpc.notify("window.themeChanged")` without params hands the handler
+        // `undefined`, and parsing must survive that without dereferencing it.
         expect(parseWireColorTheme(undefined)).toBeNull();
     });
 

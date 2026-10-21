@@ -258,7 +258,7 @@ describe("RpcEndpoint", () => {
         const [chA, chB] = createInProcessChannelPair();
         const a = new RpcEndpoint(chA);
         const b = new RpcEndpoint(chB);
-        // Сырой ответ на проводе — форма SerializedError и для не-Error отказа.
+        // The raw reply on the wire has the SerializedError shape even for a non-Error rejection.
         const wire: unknown[] = [];
         chA.onMessage((message) => wire.push(message));
         b.handleRequest("strthrow", () => {

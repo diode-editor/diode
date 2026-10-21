@@ -24,7 +24,7 @@ describe("webviewNoop — webview-члены window как честный no-op"
             const { members } = makeMembers();
 
             const panel = members.createWebviewPanel("test.chat", "Chat", 1, {});
-            // Расширения читают html до первой записи — понять, рисовали ли уже.
+            // Extensions read html before the first write to tell whether they have rendered already.
             expect(panel.webview.html).toBe("");
 
             panel.webview.html = "<h1>chat</h1>";
@@ -66,7 +66,7 @@ describe("webviewNoop — webview-члены window как честный no-op"
 
             expect(stateChanges).toBe(0);
             expect(received).toBe(0);
-            // Ни одна из операций панели не шлёт хосту ничего сверх строки отказа.
+            // None of the panel operations sends anything to the host beyond the refusal line.
             expect(outputLines(stub)).toHaveLength(1);
         });
 

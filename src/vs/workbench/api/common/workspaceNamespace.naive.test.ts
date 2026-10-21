@@ -10,7 +10,7 @@ import { Uri } from "./vscodeTypes.ts";
 import { WorkspaceConfigStore } from "./workspaceConfigStore.ts";
 import { createWorkspaceNamespace } from "./workspaceNamespace.ts";
 
-/** Члены, которых нет в активной части vscode.d.ts: runtime опережает декларацию. */
+/** Members missing from the active part of vscode.d.ts: the runtime is ahead of the declaration. */
 interface INaiveWorkspaceSurface {
     notebookDocuments: readonly unknown[];
     registerTextDocumentContentProvider(scheme: string, provider: unknown): { dispose(): void };
@@ -76,7 +76,7 @@ describe("WorkspaceNamespace — наивная поверхность LSP", () 
     });
 
     describe("getWorkspaceFolder", () => {
-        /** Две папки: однопапочным набором матч не проверишь — «первая» и «та самая» совпадут. */
+        /** Two folders: a single-folder set cannot verify matching — "the first" and "the right one" coincide. */
         function folderLookup(): (p: string) => string | undefined {
             const { stub, naive } = makeWorkspace();
             stub.fire("workspace.initialize", {
@@ -97,8 +97,8 @@ describe("WorkspaceNamespace — наивная поверхность LSP", () 
             expect(folderLookup()("/proj/a")).toBe("a");
         });
 
-        // Эталон: «Returns `undefined` when the given uri doesn't match any workspace
-        // folder». Fallback на первую папку в мульти-руте адресовал бы чужой проект.
+        // Upstream: "Returns `undefined` when the given uri doesn't match any workspace
+        // folder". Falling back to the first folder in a multi-root would address a foreign project.
         it("файл вне всех папок — undefined, а НЕ первая папка", () => {
             expect(folderLookup()("/elsewhere/x.ts")).toBeUndefined();
         });

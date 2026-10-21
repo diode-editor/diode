@@ -65,7 +65,7 @@ describe("TreeItem — значение для узлов дерева", () => {
     });
 
     it("необязательные поля не затеняют геттеры подкласса (поля — не собственные свойства)", () => {
-        // TS такой override запрещает (TS2611), а JS-бандл расширения — нет.
+        // TS forbids such an override (TS2611), but an extension's JS bundle does not.
         class Lazy extends TreeItem {}
         Object.defineProperty(Lazy.prototype, "tooltip", { get: () => "из геттера" });
         Object.defineProperty(Lazy.prototype, "description", { get: () => "из геттера, тоже" });

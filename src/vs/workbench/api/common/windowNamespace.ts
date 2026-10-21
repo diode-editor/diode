@@ -61,7 +61,7 @@ function makeListenerEvent<T>(listeners: ((e: T) => unknown)[]): vscode.Event<T>
 
 const NEVER_CANCELLED: vscode.CancellationToken = {
     isCancellationRequested: false,
-    /* v8 ignore next -- defensive stub: host-мост никогда не отменяет provideFileDecoration, слушатель не вызывается */
+    /* v8 ignore next -- defensive stub: the host bridge never cancels provideFileDecoration, so the listener is never called */
     onCancellationRequested: () => new DisposableImpl(() => undefined),
 };
 
@@ -70,7 +70,7 @@ function normalizeChangedUris(changed: undefined | vscode.Uri | vscode.Uri[]): v
     return Array.isArray(changed) ? changed : [changed];
 }
 
-/** Одна пустая каретка в начале документа — выделение свежей модели (1:1 эталона). */
+/** A single empty cursor at the document start: the selection of a fresh model (upstream 1:1). */
 function isInitialSelection(selections: readonly IWireSelection[]): boolean {
     const [only] = selections;
     return (
@@ -94,7 +94,7 @@ export function slugifyChannelName(name: string): string {
     return slugify(name, "channel");
 }
 
-/** `terminals` передают, когда терминалы с `window` делит `vscode.tasks` (pty `CustomExecution`). */
+/** `terminals` is passed when `vscode.tasks` shares terminals with `window` (pty `CustomExecution`). */
 export function createWindowNamespace(
     ctx: IVscodeHostContext,
     terminals: ITerminalNamespace = createTerminalNamespace(ctx.rpc),
@@ -105,22 +105,22 @@ export function createWindowNamespace(
     const messages = createMessageApi(rpc);
 
     let activeEditorUri: string | null = null;
-    /** null — до первой меты с группой. */
+    /** null until the first meta that carries a group. */
     let activeEditorGroupId: number | null = null;
     let nextProgressHandle = 1;
     let nextStatusBarItemHandle = 1;
     let activeSelections: readonly IWireSelection[] = [];
-    /** Единственный источник `visibleTextEditors`/`tabGroups`/`viewColumn`: события API производит дифф снимков. */
+    /** Single source of `visibleTextEditors`/`tabGroups`/`viewColumn`: API events come from diffing snapshots. */
     let layout: IWireEditorLayout = { groups: [] };
     const selectionsByEditor = new Map<string, readonly IWireSelection[]>();
-    /** Их событие выделения ждёт `editor.activeEditorChanged` (см. {@link announceRestoredSelections}). */
+    /** Their selection event waits for `editor.activeEditorChanged` (see {@link announceRestoredSelections}). */
     const pendingRestoredSelections = new Map<
         string,
         { readonly uri: string; readonly groupId: number; readonly selections: readonly IWireSelection[] }
     >();
     /**
-     * Ключ — groupId, не viewColumn: колонка пересчитывается при схлопывании, а
-     * редактор обязан пережить перенумерацию (AS-9). Один файл в двух группах — два редактора (AS-7).
+     * Keyed by groupId, not viewColumn: columns are renumbered when groups collapse, and
+     * an editor must survive renumbering (AS-9). One file in two groups is two editors (AS-7).
      */
     const editorCache = new Map<number, Map<string, vscode.TextEditor>>();
     const activeEditorListeners: ((editor: vscode.TextEditor | undefined) => void)[] = [];
@@ -130,10 +130,10 @@ export function createWindowNamespace(
     const tabGroupsListeners: ((e: vscode.TabGroupChangeEvent) => void)[] = [];
     const selectionListeners: ((e: vscode.TextEditorSelectionChangeEvent) => void)[] = [];
     const colorThemeListeners: ((e: vscode.ColorTheme) => void)[] = [];
-    /** Семя Dark — дефолт VS Code: до первой `window.themeChanged` `activeColorTheme.kind` читают без проверок. */
+    /** Seeded with Dark, the VS Code default: `activeColorTheme.kind` is read unchecked before the first `window.themeChanged`. */
     let activeColorTheme: vscode.ColorTheme = { kind: ColorThemeKind.Dark };
 
-    // Хост знает тип декорации только по числу.
+    // The host knows a decoration type only by its number.
     let nextDecorationKey = 1;
     const decorationTypeKeys = new WeakMap<vscode.TextEditorDecorationType, number>();
 
@@ -150,7 +150,7 @@ export function createWindowNamespace(
         return layout.groups.find((group) => group.isActive)?.groupId ?? 1;
     }
 
-    /** Кэш выделений к вызову уже свежий. */
+    /** The selection cache is already up to date when this is called. */
     function fireSelectionChanged(
         uri: string,
         groupId: number,
@@ -167,9 +167,9 @@ export function createWindowNamespace(
     }
 
     /**
-     * Эталон шлёт `onDidChangeTextEditorSelection` вкладке, ставшей видимой с выделением
-     * не в 1:1 (`restoreState` меняет 1:1 свежей модели). Редактору активной группы — после
-     * `onDidChangeActiveTextEditor`: Claude Code фильтрует по `e.textEditor === activeTextEditor`.
+     * Upstream fires `onDidChangeTextEditorSelection` for a tab that becomes visible with a selection
+     * other than 1:1 (`restoreState` replaces a fresh model's 1:1). For the active group's editor it fires
+     * after `onDidChangeActiveTextEditor`: Claude Code filters by `e.textEditor === activeTextEditor`.
      */
     function announceRestoredSelections(previous: IWireEditorLayout, next: IWireEditorLayout): void {
         pendingRestoredSelections.clear();
@@ -213,14 +213,14 @@ export function createWindowNamespace(
         for (const listener of [...activeEditorListeners]) {
             listener(editor);
         }
-        // Stryker disable next-line StringLiteral: подстановка без uri — любой не-uri ключ ни с одной вкладкой не совпадёт
+        // Stryker disable next-line StringLiteral: fallback for a missing uri; any non-uri key matches no tab
         const restored = pendingRestoredSelections.get(selectionKey(effectiveActiveGroupId(), meta.uri ?? ""));
         if (restored !== undefined)
             fireSelectionChanged(restored.uri, restored.groupId, restored.selections, undefined);
         pendingRestoredSelections.clear();
     });
 
-    // Активный редактор не сменился (иначе пришёл бы `editor.activeEditorChanged`) — обновляем только кэш.
+    // The active editor did not change (otherwise `editor.activeEditorChanged` would arrive): update only the cache.
     rpc.handleNotification("editor.selectionChanged", (params) => {
         const p: { uri?: unknown; selections?: unknown; groupId?: unknown; kind?: unknown } = params;
         if (typeof p.uri !== "string") return;
@@ -228,12 +228,12 @@ export function createWindowNamespace(
         const groupId = typeof p.groupId === "number" ? p.groupId : effectiveActiveGroupId();
         selectionsByEditor.set(selectionKey(groupId, p.uri), selections);
         if (p.uri === activeEditorUri) activeSelections = selections;
-        // Кэш обновлён ДО рассылки: слушатель читает `editor.selections`.
+        // The cache is updated BEFORE dispatch: listeners read `editor.selections`.
         fireSelectionChanged(p.uri, groupId, selections, parseWireSelectionChangeKind(p.kind));
     });
 
-    // Стреляем на КАЖДОЕ сообщение, даже без смены вида (Dark+ → Abyss): upstream
-    // объявляет событие как «тема сменилась ИЛИ изменилась».
+    // Fire on EVERY message, even when the kind stays the same (Dark+ → Abyss): upstream
+    // documents the event as "the theme changed OR was modified".
     rpc.handleNotification("window.themeChanged", (params) => {
         const parsed = parseWireColorTheme(params);
         if (parsed === null) return;
@@ -265,7 +265,7 @@ export function createWindowNamespace(
         return visibleDocuments(snapshot).map(({ groupId, uri }) => selectionKey(groupId, uri));
     }
 
-    /** У эталона дифф — два редактора: дифф-вкладка даёт документы обеих сторон. */
+    /** Upstream treats a diff as two editors: a diff tab yields the documents of both sides. */
     function visibleDocuments(snapshot: IWireEditorLayout): { groupId: number; uri: string }[] {
         const visible: { groupId: number; uri: string }[] = [];
         for (const group of snapshot.groups) {
@@ -290,7 +290,7 @@ export function createWindowNamespace(
             }
         }
 
-        // Застрявшая у расширения ссылка на редактор мёртвой группы даёт viewColumn === undefined, не TypeError.
+        // A stale extension reference to an editor of a dead group gets viewColumn === undefined, not a TypeError.
         const aliveGroups = new Set(next.groups.map((group) => group.groupId));
         for (const [groupId, editors] of [...editorCache]) {
             if (!aliveGroups.has(groupId)) {
@@ -386,7 +386,7 @@ export function createWindowNamespace(
         return editor;
     }
 
-    /** Нетекстовая вкладка и дифф без ресурсных сторон — `undefined`, как `TabInputUnknown` у vscode. */
+    /** A non-text tab or a diff without resource sides gives `undefined`, like vscode's `TabInputUnknown`. */
     function tabInputOf(tab: IWireTabSnapshot): TabInputText | TabInputTextDiff | undefined {
         if (tab.kind === "text") return new TabInputText(Uri.parse(tab.uri));
         if (tab.kind === "diff" && tab.original !== undefined && tab.modified !== undefined) {
@@ -395,7 +395,7 @@ export function createWindowNamespace(
         return undefined;
     }
 
-    /** Вне `Tab`, чтобы расширение не видело служебных полей. */
+    /** Kept outside `Tab` so the extension does not see internal fields. */
     const tabAddress = new WeakMap<vscode.Tab, { groupId: number; uri: string }>();
 
     function makeTab(group: IWireTabGroupSnapshot, tab: IWireTabSnapshot): vscode.Tab {
@@ -413,7 +413,7 @@ export function createWindowNamespace(
         return tabGroup;
     }
 
-    /** Ленивая обратная ссылка `group`, как в upstream `extHostEditorTabs`. */
+    /** Lazy `group` back-reference, as in upstream `extHostEditorTabs`. */
     function makeTabOnly(
         group: IWireTabGroupSnapshot,
         tab: IWireTabSnapshot,
@@ -464,7 +464,7 @@ export function createWindowNamespace(
         const editorData: vscode.TextEditor = {
             options: {},
             document,
-            /** От текущего снимка: перенумерация не рвёт объект (AS-9). */
+            /** Read from the current snapshot: renumbering does not break the object (AS-9). */
             get viewColumn(): number | undefined {
                 return layoutGroup(groupId)?.viewColumn;
             },
@@ -487,9 +487,9 @@ export function createWindowNamespace(
                 _options?: { undoStopBefore: boolean; undoStopAfter: boolean },
             ): Thenable<boolean> => {
                 const edits: IWireEditorEdit[] = [];
-                // Правка с битым диапазоном выпадает (её отбросил бы и разбор
-                // хоста); выпали все — ответ `false`, как хост ответил бы на
-                // пустой батч, а не вакуумный успех пустого callback'а.
+                // An edit with a broken range is dropped (the host's parser would drop it
+                // too); if all are dropped the answer is `false`, as the host would answer
+                // for an empty batch, not the vacuous success of an empty callback.
                 let dropped = false;
                 const push = (location: vscode.Position | vscode.Range, text: string): void => {
                     const range = toWireEditRange(location);
@@ -507,7 +507,7 @@ export function createWindowNamespace(
                         push(location, "");
                     },
                     setEndOfLine: () => {
-                        /* смена EOL из edit() пока не поддержана (MVP #194) */
+                        /* changing EOL from edit() is not supported yet (MVP #194) */
                     },
                 };
                 callback(builder);
@@ -570,8 +570,8 @@ export function createWindowNamespace(
         });
     }
 
-    // uri без декорации уходит «голым» — хост снимает её с файла. `undefined` (все
-    // файлы) не разворачивается: списка всех uri у субпроцесса нет.
+    // A uri without a decoration is sent bare, so the host clears it from the file. `undefined` (all
+    // files) is not expanded: the subprocess has no list of all uris.
     async function pushFileDecorations(
         provider: vscode.FileDecorationProvider,
         changed: undefined | vscode.Uri | vscode.Uri[],
@@ -592,8 +592,8 @@ export function createWindowNamespace(
         rpc.notify("window.fileDecorationsChanged", { decorations });
     }
 
-    // Провод молчит, пока пункт не показан: в VS Code `createStatusBarItem` НЕ показывает
-    // пункт. Отклонения: `tooltip` не показывается, цвета и `accessibilityInformation` ни на что не влияют.
+    // Nothing goes over the wire until the item is shown: in VS Code `createStatusBarItem` does NOT show
+    // the item. Deviations: `tooltip` is not shown; colors and `accessibilityInformation` have no effect.
     const createStatusBarItem = (
         idOrAlignment?: string | vscode.StatusBarAlignment,
         alignmentOrPriority?: vscode.StatusBarAlignment | number,
@@ -604,7 +604,7 @@ export function createWindowNamespace(
         const alignment = (withId ? alignmentOrPriority : idOrAlignment) as vscode.StatusBarAlignment | undefined;
         const priority = withId ? priorityArg : alignmentOrPriority;
         const handle = nextStatusBarItemHandle++;
-        // Номинально разные enum'ы с одними значениями — сравниваем числами.
+        // Nominally different enums with the same values: compare as numbers.
         const side: "left" | "right" =
             (alignment as number | undefined) === (StatusBarAlignment.Right as number) ? "right" : "left";
 
@@ -615,8 +615,8 @@ export function createWindowNamespace(
         let disposed = false;
 
         /**
-         * Id из имени — чтобы скрытие пункта пережило перезапуск. Владелец (`<owner>.<id>`,
-         * как `asStatusBarItemIdentifier`) фиксируется здесь: к `name =` его уже нет.
+         * The id derives from the name so that hiding the item survives a restart. The owner (`<owner>.<id>`,
+         * as `asStatusBarItemIdentifier`) is captured here: it is gone by the time of `name =`.
          */
         const fallbackId = `item-${String(handle)}`;
         const prefix = owner.current === undefined ? "" : `${owner.current}.`;
@@ -682,7 +682,7 @@ export function createWindowNamespace(
                 command = value;
                 push();
             },
-            // Читаются обратно, но на полосу не влияют: нужны виджет подсказки и токены темы.
+            // Read back but do not affect the bar: that needs a hover widget and theme tokens.
             tooltip: undefined,
             color: undefined,
             backgroundColor: undefined,
@@ -692,7 +692,7 @@ export function createWindowNamespace(
                 visible = true;
                 push();
             },
-            // Гейт по `disposed` не нужен: `unpush` молчит на непоказанном пункте, после dispose инертны `show`/`push`.
+            // No `disposed` check needed: `unpush` is silent on a hidden item, and `show`/`push` are inert after dispose.
             hide: (): void => {
                 unpush();
             },
@@ -705,13 +705,13 @@ export function createWindowNamespace(
     };
 
     const windowNs = {
-        // Webview не будет, но без этих членов расширение с чат-панелью умирало на активации целиком.
+        // There are no webviews, but without these members an extension with a chat panel failed activation entirely.
         ...createWebviewNoopMembers(rpc),
-        // Деревья не рисуются, но без регистрации расширение с деревом умирало на активации.
+        // Trees are not rendered, but without registration an extension with a tree failed activation.
         ...createTreeViewNoopMembers(rpc),
 
         createStatusBarItem,
-        // Пункт сообщений ничей: id без префикса расширения.
+        // The message item has no owner: its id has no extension prefix.
         setStatusBarMessage: createStatusBarMessage(() =>
             owner.runAs(undefined, () =>
                 createStatusBarItem("status.extensionMessage", StatusBarAlignment.Left, Number.MIN_VALUE),
@@ -723,7 +723,7 @@ export function createWindowNamespace(
             return getEditorFor(registry.getOrCreate(Uri.parse(activeEditorUri)), effectiveActiveGroupId());
         },
 
-        // Пустой снимок (до первого layoutChanged) деградирует в «только активный».
+        // An empty snapshot (before the first layoutChanged) degrades to "active editor only".
         get visibleTextEditors(): readonly vscode.TextEditor[] {
             if (layout.groups.length === 0) {
                 if (activeEditorUri === null) return [];
@@ -752,7 +752,7 @@ export function createWindowNamespace(
             return disposable;
         },
 
-        // Выделение, поставленное самим расширением, эхом не приходит — эхо-гард на стороне хоста.
+        // A selection set by the extension itself is not echoed back: the echo guard lives on the host side.
         onDidChangeTextEditorSelection: makeListenerEvent(selectionListeners),
 
         get activeColorTheme(): vscode.ColorTheme {
@@ -770,7 +770,7 @@ export function createWindowNamespace(
             return disposable;
         },
 
-        // Каст к перегрузкам d.ts: одна реализация обслуживает все четыре.
+        // Cast to the d.ts overloads: one implementation serves all four.
         showErrorMessage: messages.showErrorMessage as typeof vscode.window.showErrorMessage,
         showWarningMessage: messages.showWarningMessage as typeof vscode.window.showWarningMessage,
         showInformationMessage: messages.showInformationMessage as typeof vscode.window.showInformationMessage,
@@ -801,7 +801,7 @@ export function createWindowNamespace(
             });
         },
 
-        // Геттеры, а не копии: список и активный живые.
+        // Getters, not copies: the list and the active terminal stay live.
         createTerminal: terminals.createTerminal.bind(terminals) as typeof vscode.window.createTerminal,
         get terminals(): readonly vscode.Terminal[] {
             return terminals.terminals;
@@ -812,16 +812,16 @@ export function createWindowNamespace(
         onDidOpenTerminal: terminals.onDidOpenTerminal,
         onDidCloseTerminal: terminals.onDidCloseTerminal,
         onDidChangeActiveTerminal: terminals.onDidChangeActiveTerminal,
-        // Shell integration нет, события не стреляют: Claude Code после 3 с ожидания
-        // уходит в фоллбэк на `sendText`.
+        // No shell integration, so these events never fire: after a 3 s wait Claude Code
+        // falls back to `sendText`.
         onDidChangeTerminalShellIntegration: new EventEmitter<vscode.TerminalShellIntegrationChangeEvent>().event,
         onDidStartTerminalShellExecution: new EventEmitter<vscode.TerminalShellExecutionStartEvent>().event,
         onDidEndTerminalShellExecution: new EventEmitter<vscode.TerminalShellExecutionEndEvent>().event,
 
         registerUriHandler: createUriHandlers(rpc, owner),
 
-        // Ошибки vscode-languageclient идут ТОЛЬКО сюда — канал обязан быть настоящим.
-        // id `extensions.<owner>.<slug>`: одноимённые каналы расширений и логгеры хоста не сталкиваются.
+        // vscode-languageclient reports errors ONLY here, so the channel must be real.
+        // id `extensions.<owner>.<slug>`: same-named channels of different extensions and host loggers do not collide.
         createOutputChannel: (name: string): vscode.OutputChannel => {
             const prefix = owner.current === undefined ? "extensions." : `extensions.${owner.current}.`;
             const channel = prefix + slugifyChannelName(name);
@@ -833,7 +833,7 @@ export function createWindowNamespace(
                 (value: unknown): void => {
                     send(level, typeof value === "string" ? value : JSON.stringify(value));
                 };
-            // append без перевода строки буферизуется до `\n` — панель строчная.
+            // append without a newline is buffered until `\n`: the panel is line-based.
             let pending = "";
             const flushPending = (): void => {
                 if (pending === "") return;
@@ -841,7 +841,7 @@ export function createWindowNamespace(
                 pending = "";
                 send("info", value);
             };
-            // Перегрузка `{ log: true }` в d.ts не поднята, но расширения зовут `channel.info(...)` и на обычном канале.
+            // The `{ log: true }` d.ts overload is not implemented, but extensions call `channel.info(...)` on a plain channel too.
             const logChannelExtras = {
                 logLevel: 3, // vscode.LogLevel.Info
                 onDidChangeLogLevel: new EventEmitter<never>().event,
@@ -867,10 +867,10 @@ export function createWindowNamespace(
                     send("info", value);
                 },
                 replace: () => {
-                    /* no-op: журнал ретенционный */
+                    /* no-op: the log is append-only */
                 },
                 clear: () => {
-                    /* no-op: журнал ретенционный */
+                    /* no-op: the log is append-only */
                 },
                 show: () => {
                     rpc.notify("output.show", { channel, label: name });
@@ -888,8 +888,8 @@ export function createWindowNamespace(
         onDidChangeVisibleTextEditors: makeListenerEvent(visibleEditorsListeners),
         onDidChangeTextEditorViewColumn: makeListenerEvent(viewColumnListeners),
 
-        // Идентичность Tab-объектов между снимками не гарантируется — расширения
-        // сравнивают по `input.uri` (осознанное отклонение).
+        // Tab object identity across snapshots is not guaranteed; extensions
+        // compare by `input.uri` (deliberate deviation).
         tabGroups: {
             get all(): readonly vscode.TabGroup[] {
                 return layout.groups.map(makeTabGroup);
@@ -919,7 +919,7 @@ export function createWindowNamespace(
                     return rpc.request("editor.closeTabs", { tabs });
                 }
                 const groupIds = (items as vscode.TabGroup[]).map((group) => {
-                    // У vscode.TabGroup viewColumn — enum ViewColumn, та же величина числом.
+                    // vscode.TabGroup.viewColumn is the ViewColumn enum, the same value as a number.
                     const column: number = group.viewColumn;
                     const snapshot = layout.groups.find((g) => g.viewColumn === column);
                     return snapshot?.groupId ?? -1;
@@ -932,7 +932,7 @@ export function createWindowNamespace(
             options?: vscode.InputBoxOptions,
             token?: vscode.CancellationToken,
         ): Thenable<string | undefined> => quickInput.showInputBox(options, token),
-        // Каст к четырём перегрузкам d.ts: форму ответа реализация выбирает по `canPickMany`.
+        // Cast to the four d.ts overloads: the implementation picks the result shape by `canPickMany`.
         showQuickPick: quickInput.showQuickPick as typeof vscode.window.showQuickPick,
         createQuickPick: <T extends vscode.QuickPickItem>(): vscode.QuickPick<T> => quickInput.createQuickPick<T>(),
         showOpenDialog: async (options?: vscode.OpenDialogOptions): Promise<vscode.Uri[] | undefined> => {
@@ -961,7 +961,7 @@ export function createWindowNamespace(
             return result.uri === null ? undefined : Uri.parse(result.uri);
         },
 
-        // К резолву `editor.layoutChanged` уже применён: хост флашит его перед ответом.
+        // By the time this resolves, `editor.layoutChanged` is already applied: the host flushes it before replying.
         showTextDocument: (
             documentOrUri: vscode.TextDocument | vscode.Uri,
             columnOrOptions?: vscode.ViewColumn | vscode.TextDocumentShowOptions,
@@ -993,16 +993,16 @@ export function createWindowNamespace(
                 params,
             );
             return shown.then((result) => {
-                // Харнессы со стаб-RPC отвечают undefined; `getEditorFor` мемоизирует по
-                // (группа, uri), так что это тот же объект, что и `activeTextEditor`.
+                // Harnesses with a stub RPC answer undefined; `getEditorFor` memoizes by
+                // (group, uri), so this is the same object as `activeTextEditor`.
                 if (result === null || typeof result !== "object") {
                     return getEditorFor(registry.getOrCreate(uri), effectiveActiveGroupId());
                 }
                 return getEditorFor(registry.getOrCreate(Uri.parse(result.uri)), result.groupId);
             });
         },
-        // Location игнорируется (в TUI всё — Window); токен никогда не стреляет — ProgressPart
-        // languageclient'а это переживает.
+        // Location is ignored (in a TUI everything is Window); the token never fires, which
+        // languageclient's ProgressPart tolerates.
         withProgress: <R>(
             options: vscode.ProgressOptions,
             task: (
@@ -1062,7 +1062,7 @@ function normalizeInsertSpaces(value: boolean | string): boolean {
     return value === "true";
 }
 
-/** `indentSize` может быть числом либо `"tabSize"` (= совпадает с tabSize → скип). */
+/** `indentSize` is either a number or `"tabSize"` (same as tabSize, so skipped). */
 function normalizeIndentSize(value: number | string): number | undefined {
     if (typeof value === "number") return Math.max(1, Math.floor(value));
     if (value === "tabSize") return undefined;

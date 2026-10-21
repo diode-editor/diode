@@ -33,8 +33,8 @@ describe("SemanticTokensBuilder — числовая перегрузка", () =
         const builder = new SemanticTokensBuilder();
         builder.push(2, 4, 1, 0, 0);
         builder.push(2, 8, 1, 1, 0);
-        builder.push(0, 3, 2, 2, 0); // строка раньше
-        builder.push(2, 1, 1, 0, 2); // символ раньше на той же строке
+        builder.push(0, 3, 2, 2, 0); // earlier line
+        builder.push(2, 1, 1, 0, 2); // earlier character on the same line
         expect([...builder.build().data]).toEqual([0, 3, 2, 2, 0, 2, 1, 1, 0, 2, 0, 3, 1, 0, 0, 0, 4, 1, 1, 0]);
     });
 

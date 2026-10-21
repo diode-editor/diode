@@ -10,7 +10,7 @@ import { Position, Selection, TabInputText, TabInputTextDiff, Uri } from "./vsco
 import { createWindowNamespace } from "./windowNamespace.ts";
 import { WorkspaceConfigStore } from "./workspaceConfigStore.ts";
 
-/** Поверхность tabGroups/событий, которой ещё нет в типе d.ts на момент теста. */
+/** tabGroups/event surface not yet in the d.ts type at the time of the test. */
 interface ITabsWindow {
     tabGroups: vscode.TabGroups;
     onDidChangeVisibleTextEditors(l: (e: readonly vscode.TextEditor[]) => void): { dispose(): void };
@@ -141,7 +141,7 @@ describe("WindowNamespace — layout-диффер (editor.layoutChanged)", () =>
         expect(visible[0].document === visible[1].document).toBe(true);
         expect(fired.length).toBe(1);
 
-        // Тот же снимок по составу видимых — событие не стреляет повторно.
+        // Same set of visible editors in the snapshot: the event does not fire again.
         stub.fire("editor.layoutChanged", {
             groups: [
                 { groupId: 1, viewColumn: 1, isActive: true, tabs: [tab(A, { isActive: true })] },
@@ -165,7 +165,7 @@ describe("WindowNamespace — layout-диффер (editor.layoutChanged)", () =>
         const events: vscode.TextEditorViewColumnChangeEvent[] = [];
         tabs.onDidChangeTextEditorViewColumn((e) => events.push(e));
 
-        // Группа 1 схлопнулась: группа 2 стала колонкой 1.
+        // Group 1 collapsed: group 2 became column 1.
         stub.fire("editor.layoutChanged", {
             groups: [{ groupId: 2, viewColumn: 1, isActive: true, tabs: [tab(B, { isActive: true })] }],
         });
@@ -246,7 +246,7 @@ describe("WindowNamespace — layout-диффер (editor.layoutChanged)", () =>
                     tabs: [
                         { ...tab("diff://1", { isActive: true }), kind: "diff", original: A },
                         { ...tab("diff://2"), kind: "diff", modified: B },
-                        // Стороны у вкладки не-диффа input не делают диффом.
+                        // Sides on a non-diff tab do not make its input a diff.
                         { ...tab("keybindings:global"), kind: "unknown", original: A, modified: B },
                     ],
                 },
@@ -316,8 +316,8 @@ describe("WindowNamespace — layout-диффер (editor.layoutChanged)", () =>
     });
 
     it("активная diff-вкладка: стороны-модели (sideEditors) — видимые редакторы, событие на появление и уход", () => {
-        // Claude Code ставит `viewingProposedDiff` по onDidChangeVisibleTextEditors:
-        // видна ли сторона на его схеме.
+        // Claude Code sets `viewingProposedDiff` from onDidChangeVisibleTextEditors:
+        // whether a side with its scheme is visible.
         const { stub, window, tabs } = makeCtx();
         const right = "_claude_fs_right:/p/b.ts";
         const seen: string[][] = [];
@@ -390,7 +390,7 @@ describe("WindowNamespace — layout-диффер (editor.layoutChanged)", () =>
         stub.fire("editor.layoutChanged", {
             groups: [{ groupId: 1, viewColumn: 1, isActive: true, tabs: [tab(B, { isActive: true })] }],
         });
-        // Повторное открытие без seeded-выделения — дефолт (0,0), не прошлый кэш.
+        // Reopening without a seeded selection gives the default (0,0), not the old cache.
         stub.fire("editor.layoutChanged", {
             groups: [{ groupId: 1, viewColumn: 1, isActive: true, tabs: [tab(A, { isActive: true })] }],
         });
@@ -402,7 +402,7 @@ describe("WindowNamespace — layout-диффер (editor.layoutChanged)", () =>
         const events: vscode.TextEditorViewColumnChangeEvent[] = [];
         tabs.onDidChangeTextEditorViewColumn((e) => events.push(e));
 
-        // Активная вкладка группы 2 — дифф: текстового редактора (и кэша) у неё нет.
+        // Group 2's active tab is a diff: it has no text editor (and no cache).
         const diffTab = {
             ...tab("diff://1", { isActive: true, label: "дифф" }),
             kind: "diff",
@@ -486,7 +486,7 @@ describe("WindowNamespace — группа активного редактора
             selection: { anchorLine: 1, anchorCharacter: 1, activeLine: 1, activeCharacter: 1 },
         });
 
-        // Тот же файл, но ЧУЖАЯ группа: активный редактор (группа 1) не меняется.
+        // Same file but ANOTHER group: the active editor (group 1) does not change.
         const ofGroup2 = window.visibleTextEditors[1];
         ofGroup2.selection = new Selection(new Position(5, 0), new Position(5, 3)) as unknown as vscode.Selection;
 
@@ -541,7 +541,7 @@ describe("WindowNamespace — подписки layout-событий (thisArgs/d
         });
         expect(thisArg.count).toBe(1);
 
-        // Повторный dispose уже отписанного слушателя ничего не ломает.
+        // Disposing an already unsubscribed listener again breaks nothing.
         disposables[0].dispose();
         expect(thisArg.count).toBe(1);
     });

@@ -34,7 +34,7 @@ function layout(root: string, files: Record<string, string>): string {
     return root;
 }
 
-/** `configuration` — ВЛОЖЕННОЕ дерево, как присылает хост, а не плоские dotted-ключи. */
+/** `configuration` is a NESTED tree, as the host sends it, not flat dotted keys. */
 function makeWorkspace(
     folders: readonly string[],
     configuration: Record<string, unknown> = {},
@@ -130,8 +130,8 @@ describe("workspace.findFiles — exclude", () => {
     });
 
     it("undefined при пустой настройке — исключений нет", async () => {
-        // Дефолты живут в настройке, а не в коде обхода: снапшот без
-        // `files.exclude` значит «ничего не исключать», а не «взять что-то своё».
+        // Defaults live in the setting, not in the traversal code: a snapshot without
+        // `files.exclude` means "exclude nothing", not "use some defaults of our own".
         const root = layout(tmpRoot, tree);
         const workspace = makeWorkspace([root]);
 
@@ -141,8 +141,8 @@ describe("workspace.findFiles — exclude", () => {
     });
 
     it("search.exclude в дефолты НЕ входит — так в контракте", async () => {
-        // «default file-excludes (e.g. the `files.exclude`-setting but not
-        // `search.exclude`)»: расширение ищет файл, чтобы с ним работать.
+        // "default file-excludes (e.g. the `files.exclude`-setting but not
+        // `search.exclude`)": the extension looks for a file in order to work with it.
         const root = layout(tmpRoot, tree);
         const workspace = makeWorkspace([root], { search: { exclude: { "**/web": true } } });
 
@@ -180,7 +180,7 @@ describe("workspace.findFiles — exclude", () => {
 
         const found = await workspace.findFiles("**/pom.xml", "**/web/**");
 
-        // `web` вырезан заданным шаблоном, а `node_modules` — уже нет: дефолт снят.
+        // `web` is cut by the given pattern, but `node_modules` is not: the default is lifted.
         expect(relative(root, found)).toEqual([
             path.join(".git", "pom.xml"),
             path.join("node_modules", "dep", "pom.xml"),
@@ -192,8 +192,8 @@ describe("workspace.findFiles — exclude", () => {
         const root = layout(tmpRoot, tree);
         const workspace = makeWorkspace([root], FILES_EXCLUDE_SNAPSHOT);
 
-        // Объект без `pattern` разобрать нечем. Трактуем как «исключений нет»:
-        // отбросить результат целиком было бы хуже молчаливого отсутствия фильтра.
+        // An object without `pattern` cannot be parsed. Treat it as "no excludes":
+        // dropping the whole result would be worse than a silently missing filter.
         const found = await workspace.findFiles("**/pom.xml", { nonsense: true } as never);
 
         expect(relative(root, found)).toContain(path.join("node_modules", "dep", "pom.xml"));

@@ -46,7 +46,7 @@ const URI = Uri.file("/proj/a.ts");
 
 describe("vscodeTypes — LSP value-классы", () => {
     it("SignatureHelp: конструктор без аргументов даёт пустые поля", () => {
-        // Конвертер клиента делает `new code.SignatureHelp()`, присваивает поля и сразу обходит `signatures`.
+        // The client converter calls `new code.SignatureHelp()`, assigns fields and immediately iterates `signatures`.
         const help = new SignatureHelp();
         expect(help.signatures).toEqual([]);
         expect(help.activeSignature).toBe(0);
@@ -154,7 +154,7 @@ describe("vscodeTypes — LSP value-классы", () => {
         source.cancel();
         expect(fired).toBe(1);
         expect(source.token.isCancellationRequested).toBe(true);
-        // Повторный cancel — идемпотентен.
+        // A repeated cancel is idempotent.
         source.cancel();
         expect(fired).toBe(1);
         source.dispose();
@@ -199,7 +199,7 @@ describe("vscodeTypes — LSP value-классы", () => {
         edit.set(URI, [new TextEdit(RANGE, "a")]);
         expect(edit.get(URI).map((e) => e.newText)).toEqual(["a"]);
 
-        // set ЗАМЕНЯЕТ прежний список.
+        // set REPLACES the previous list.
         edit.set(URI, [
             [new TextEdit(RANGE, "b"), { needsConfirmation: false, label: "l" }],
             [new TextEdit(RANGE, "c"), undefined],

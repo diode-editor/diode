@@ -3,14 +3,14 @@ import type * as vscode from "vscode";
 import { DisposableImpl } from "./vscodeTypes.ts";
 
 /**
- * `StatusBarMessage` эталона: один общий пункт на все расширения, сообщения стеком.
- * Пункт заводится на первом сообщении.
+ * Upstream's `StatusBarMessage`: one item shared by all extensions, messages form a stack.
+ * The item is created on the first message.
  */
 export function createStatusBarMessage(
     createItem: () => vscode.StatusBarItem,
 ): typeof vscode.window.setStatusBarMessage {
     let item: vscode.StatusBarItem | undefined;
-    // Объекты, а не строки: два одинаковых текста — два разных сообщения.
+    // Objects, not strings: two identical texts are two distinct messages.
     const messages: { readonly text: string }[] = [];
 
     const update = (): void => {

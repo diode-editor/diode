@@ -9,7 +9,7 @@ import { Uri } from "./vscodeTypes.ts";
 import { createWindowNamespace, slugifyChannelName } from "./windowNamespace.ts";
 import { WorkspaceConfigStore } from "./workspaceConfigStore.ts";
 
-/** Runtime опережает активную часть vscode.d.ts. */
+/** The runtime is ahead of the active part of vscode.d.ts. */
 interface INaiveWindowSurface {
     showTextDocument(doc: unknown): Thenable<unknown>;
     tabGroups: {
@@ -99,7 +99,7 @@ describe("WindowNamespace — наивная поверхность LSP", () => 
         let appends = stub.notifies.filter((n) => n.method === "output.append");
         expect(appends.map((n) => (n.params as { value: string }).value)).toEqual(["partial line"]);
 
-        // appendLine доливает накопленный хвост отдельной строкой перед своей.
+        // appendLine flushes the buffered tail as a separate line before its own.
         channel.appendLine("tail");
         appends = stub.notifies.filter((n) => n.method === "output.append");
         expect(appends.map((n) => (n.params as { value: string }).value)).toEqual(["partial line", "next ", "tail"]);
@@ -129,7 +129,7 @@ describe("WindowNamespace — наивная поверхность LSP", () => 
         const channel = owner.runAs("diode.diode-lsp-typescript", () =>
             window.createOutputChannel("TypeScript (Diode)"),
         );
-        // Строка пишется уже вне создающего вызова — id канала от этого не меняется.
+        // The line is written outside the creating call; the channel id does not change.
         channel.appendLine("started");
         channel.show();
 
@@ -165,8 +165,8 @@ describe("WindowNamespace — наивная поверхность LSP", () => 
         const { stub, window, naive } = makeWindow();
         stub.fire("editor.activeEditorChanged", { uri: Uri.file("/f.ts").toString() });
 
-        // Стаб-RPC отвечает undefined — реальный адрес открытия даёт хост
-        // (см. windowNamespace.showTextDocument.test.ts).
+        // The stub RPC answers undefined; the real open location comes from the host
+        // (see windowNamespace.showTextDocument.test.ts).
         await expect(naive.showTextDocument(Uri.file("/f.ts"))).resolves.toBe(window.activeTextEditor);
         const request = stub.requests.pop();
         expect(request?.method).toBe("editor.showTextDocument");

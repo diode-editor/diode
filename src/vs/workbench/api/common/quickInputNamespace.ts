@@ -13,12 +13,12 @@ import {
 } from "./wireTypes.ts";
 
 /**
- * Ответ на пикер приходит ИНДЕКСАМИ: расширение обязано получить обратно свои
- * предметы (`showQuickPick<T>` возвращает `T`), а пересобранный по проводу ими не был бы.
+ * The picker reply comes back as INDICES: the extension must get back its own
+ * items (`showQuickPick<T>` returns `T`), and items rebuilt from the wire would not be them.
  */
 export interface IQuickInputApi {
     showInputBox(options?: vscode.InputBoxOptions, token?: vscode.CancellationToken): Thenable<string | undefined>;
-    // Свойство-стрелка, а не метод: `window` раздаёт его расширению как есть.
+    // An arrow property, not a method: `window` hands it to the extension as is.
     readonly showQuickPick: (
         items: unknown,
         options?: vscode.QuickPickOptions,
@@ -32,7 +32,7 @@ export function toWireValidation(
 ): IWireValidationMessage | null {
     if (outcome === undefined || outcome === null) return null;
     if (typeof outcome === "string") {
-        // Голая строка — всегда ошибка (так задокументировано в vscode.d.ts).
+        // A bare string is always an error (as documented in vscode.d.ts).
         return outcome === "" ? null : { message: outcome, severity: "error" };
     }
     if (typeof outcome.message !== "string" || outcome.message === "") return null;
@@ -40,8 +40,8 @@ export function toWireValidation(
 }
 
 /**
- * Сравниваем ЧИСЛА: у расширения свой `InputBoxValidationSeverity` из его копии
- * `vscode.d.ts`, общего enum-типа с нашим нет.
+ * Compare NUMBERS: the extension has its own `InputBoxValidationSeverity` from its copy
+ * of `vscode.d.ts`; there is no enum type shared with ours.
  */
 function toWireSeverity(severity: number | undefined): WireValidationSeverity {
     if (severity === InputBoxValidationSeverity.Warning) return "warning";
@@ -50,8 +50,8 @@ function toWireSeverity(severity: number | undefined): WireValidationSeverity {
 }
 
 /**
- * `detail` отдельной строкой наш однострочный ряд не умеет — он идёт на место
- * описания, но только когда описания нет (docs/public/API-COVERAGE.md).
+ * Our single-line row cannot show `detail` on a separate line — it takes the place of
+ * the description, but only when there is no description (docs/public/API-COVERAGE.md).
  */
 export function toWireQuickPickItem(item: string | vscode.QuickPickItem): IWireQuickPickItem {
     if (typeof item === "string") return { label: item };
@@ -59,21 +59,21 @@ export function toWireQuickPickItem(item: string | vscode.QuickPickItem): IWireQ
 }
 
 function nonEmpty(text: string | undefined): string | undefined {
-    // Stryker disable next-line ConditionalExpression: первый операнд — быстрый выход; `undefined === ""` тоже ложно, так что отсутствующий текст отсеет и второй
+    // Stryker disable next-line ConditionalExpression: the first operand is a fast path; `undefined === ""` is false too, so the second one filters out missing text as well
     return text === undefined || text === "" ? undefined : text;
 }
 
-/** `this` внутри `validateInput` должен остаться объектом опций расширения. */
+/** `this` inside `validateInput` must stay the extension's options object. */
 function makeValidator(options: vscode.InputBoxOptions | undefined): ((value: string) => unknown) | undefined {
     if (options?.validateInput === undefined) return undefined;
-    // Stryker disable next-line OptionalChaining: наличие метода проверено строкой выше; `?.` стоит на случай, если расширение переписало свои опции между вызовом и валидацией
+    // Stryker disable next-line OptionalChaining: the line above checks the method exists; `?.` covers an extension rewriting its options between the call and validation
     return (value: string): unknown => options.validateInput?.(value);
 }
 
 export function createQuickInputApi(rpc: SubprocessRpc): IQuickInputApi {
     let nextHandle = 1;
-    // Map, а не слот: расширение может держать два `showInputBox` одновременно, и
-    // валидация первого ещё может быть в полёте.
+    // A map, not a single slot: an extension may hold two `showInputBox` calls at once, and
+    // validation of the first may still be in flight.
     const validators = new Map<number, ((value: string) => unknown) | undefined>();
 
     const quickPicks = new Map<number, ExtHostQuickPick<vscode.QuickPickItem>>();
@@ -85,7 +85,7 @@ export function createQuickInputApi(rpc: SubprocessRpc): IQuickInputApi {
 
     rpc.handleRequest("window.inputBox.validate", async (params): Promise<IWireValidationMessage | null> => {
         const p: { handle?: unknown; value?: unknown } = params;
-        // Stryker disable next-line ConditionalExpression: проверка handle — быстрый выход; мусорный handle всё равно не найдётся в карте валидаторов, и ответом будет тот же null
+        // Stryker disable next-line ConditionalExpression: the handle check is a fast path; a garbage handle is not found in the validator map anyway, and the reply is the same null
         if (typeof p.handle !== "number" || typeof p.value !== "string") return null;
         const validate = validators.get(p.handle);
         if (validate === undefined) return null;
@@ -105,7 +105,7 @@ export function createQuickInputApi(rpc: SubprocessRpc): IQuickInputApi {
 
     return {
         createQuickPick: <T extends vscode.QuickPickItem>(): vscode.QuickPick<T> => {
-            // Счётчик общий с show*-показами: хост адресует ими один оверлей.
+            // The counter is shared with show* calls: the host uses it to address a single overlay.
             const handle = nextHandle++;
             const quickPick = new ExtHostQuickPick<T>(rpc, handle, () => quickPicks.delete(handle));
             quickPicks.set(handle, quickPick as unknown as ExtHostQuickPick<vscode.QuickPickItem>);
@@ -116,7 +116,7 @@ export function createQuickInputApi(rpc: SubprocessRpc): IQuickInputApi {
             if (token?.isCancellationRequested === true) return undefined;
             const handle = nextHandle++;
             const validate = makeValidator(options);
-            // Кладём даже `undefined`: на отсутствующем валидаторе хендлер отвечает «в порядке».
+            // Store even `undefined`: with no validator the handler replies "ok".
             validators.set(handle, validate);
             const unbind = bindCancellation(handle, token);
             try {
@@ -140,13 +140,13 @@ export function createQuickInputApi(rpc: SubprocessRpc): IQuickInputApi {
 
         showQuickPick: async (items, options, token) => {
             const canPickMany = options?.canPickMany === true;
-            // Промис списка ЖДЁМ: пустой оверлей с индикатором загрузки — состояние объектного
-            // пикера, которого у нас нет.
+            // AWAIT the items promise: an empty overlay with a busy indicator is a state of the object
+            // picker, which we don't have.
             const awaited = (await Promise.resolve(items)) as readonly (string | vscode.QuickPickItem)[];
-            // Заголовков групп у нашего оверлея нет: показанный разделитель стал бы выбираемым пунктом.
+            // Our overlay has no group headers: a shown separator would become a pickable item.
             const resolved = awaited.filter(
                 (item) =>
-                    // Stryker disable next-line ConditionalExpression,StringLiteral: отсев строк — быстрый выход; у строки `kind` нет (`undefined`), и второй операнд оставит её сам
+                    // Stryker disable next-line ConditionalExpression,StringLiteral: the string check is a fast path; a string has no `kind` (`undefined`), so the second operand keeps it anyway
                     typeof item === "string" ||
                     (item.kind as number | undefined) !== (QuickPickItemKind.Separator as number),
             );
@@ -165,7 +165,7 @@ export function createQuickInputApi(rpc: SubprocessRpc): IQuickInputApi {
                     }),
                 );
                 if (result.indices === null) return undefined;
-                // Индекс за пределами — ответ не про этот показ: иначе в массиве был бы `undefined`.
+                // An out-of-range index is a reply to another prompt: otherwise the array would hold `undefined`.
                 const picked = result.indices
                     .filter((index) => index < resolved.length)
                     .map((index) => resolved[index]);
@@ -182,7 +182,7 @@ function pickedIndices(items: readonly (string | vscode.QuickPickItem)[], canPic
     if (!canPickMany) return [];
     const indices: number[] = [];
     for (const [index, item] of items.entries()) {
-        // Stryker disable next-line ConditionalExpression,StringLiteral: отсев строк — быстрый выход; у строкового пункта `picked` всё равно `undefined`, и второй операнд отсеет его сам
+        // Stryker disable next-line ConditionalExpression,StringLiteral: the string check is a fast path; a string item's `picked` is `undefined` anyway, so the second operand filters it out
         if (typeof item !== "string" && item.picked === true) indices.push(index);
     }
     return indices;

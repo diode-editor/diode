@@ -6,7 +6,7 @@ import { createNodeExtHostDisk } from "../node/extHostDisk.ts";
 import { makeStubRpc } from "./testStubRpc.ts";
 import { buildVscodeNamespace } from "./vscodeNamespace.ts";
 
-// Юнит-тесты languagesNamespace дают фейковые deps — проводку ассемблера видит только этот файл.
+// languagesNamespace unit tests use fake deps — only this file sees the assembler wiring.
 
 const SNAPSHOT = { uri: "file:///proj/a.py", languageId: "python", version: 1, text: "line one\n" };
 
@@ -35,7 +35,7 @@ describe("VscodeNamespace — сборка code-action-deps", () => {
         } as unknown as vscode.CodeActionProvider);
 
         const actions = (await stub.callRequest("languages.provideCodeActions", PARAMS)) as { id: string }[];
-        // Стаб отвечает undefined → false; проверяется сам запрос.
+        // The stub answers undefined → false; what is checked is the request itself.
         expect(await stub.callRequest("languages.applyCodeAction", { id: actions[0].id })).toBe(false);
         const applyRequest = stub.requests.find((r) => r.method === "workspace.applyEdit");
         expect(applyRequest?.params).toEqual({

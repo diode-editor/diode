@@ -98,7 +98,7 @@ describe("workspace.updateWorkspaceFolders", () => {
 
     it("вторая папка — false, а хосту уходит просьба (он скажет человеку, почему нет)", () => {
         const { workspace, owner, sent } = makeWorkspace(["/ws/a"]);
-        // Так зовёт golang.go («Go: Add Package to Workspace»): deleteCount = null.
+        // This is how golang.go calls it ("Go: Add Package to Workspace"): deleteCount = null.
         const ok = owner.runAs("golang.go", () => workspace.updateWorkspaceFolders(1, null, { uri: B }));
         expect(ok).toBe(false);
         expect(sent()).toEqual([{ extensionId: "golang.go", folders: ["/ws/a", "/ws/b"] }]);

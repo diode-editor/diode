@@ -26,7 +26,7 @@ function makeWindow(): { stub: IStubRpc; window: typeof vscode.window; owner: Ex
     return { stub, window: createWindowNamespace(ctx), owner };
 }
 
-/** `null` — пункт скрыт или не заведён. */
+/** `null` means the item is hidden or not created. */
 function shownMessage(stub: IStubRpc): string | null {
     let shown: IWireStatusBarItem | null = null;
     for (const n of stub.notifies) {
@@ -52,7 +52,7 @@ describe("window.setStatusBarMessage", () => {
 
     it("показывает сообщение пунктом эталона: ничей id, слева, имя «Extension Status»", () => {
         const { stub, window, owner } = makeWindow();
-        // Зовёт расширение — но пункт общий, префикса владельца у id нет.
+        // Called by an extension, but the item is shared: its id has no owner prefix.
         owner.runAs("anthropic.claude-code", () => window.setStatusBarMessage("Claude Code: hi"));
         expect(lastUpdate(stub)).toStrictEqual({
             handle: 1,
@@ -66,7 +66,7 @@ describe("window.setStatusBarMessage", () => {
 
     it("пока сообщений не было, пункта нет и по проводу ничего не едет", () => {
         const { stub, window } = makeWindow();
-        // Пункты расширений не сдвигаются: первый получает свой handle 1.
+        // Extension items are not shifted: the first one gets its handle 1.
         window.createStatusBarItem().show();
         expect(lastUpdate(stub)?.handle).toBe(1);
         expect(stub.notifies.filter((n) => n.method.startsWith("window.statusBarItem.")).length).toBe(1);

@@ -20,7 +20,7 @@ function outputLines(
         .map((n) => n.params as { channel: string; label: string; level: string; value: string });
 }
 
-/** Провайдер, который кричит, если его позвали: дерева нет — звать некому. */
+/** A provider that fails loudly if called: there is no tree, so nobody should call it. */
 function silentProvider(): vscode.TreeDataProvider<string> {
     return {
         getTreeItem: (): never => {

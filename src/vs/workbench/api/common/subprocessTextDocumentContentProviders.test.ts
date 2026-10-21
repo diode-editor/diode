@@ -37,8 +37,8 @@ describe("SubprocessTextDocumentContentProviders", () => {
 
         await registry.provide(JDT);
 
-        // Провайдер вправе читать токен и подписываться: заглушка обязана быть настоящим
-        // токеном, иначе стоковое расширение падает на первой же строке.
+        // A provider may read the token and subscribe to it: the stub must be a real
+        // token, or a stock extension crashes on its very first line.
         expect(seen?.isCancellationRequested).toBe(false);
         expect(() => seen?.onCancellationRequested(() => undefined)).not.toThrow();
     });

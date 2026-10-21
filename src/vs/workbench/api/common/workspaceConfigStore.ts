@@ -1,10 +1,10 @@
 import { ConfigurationModel } from "../../../platform/configuration/common/configurationModel.ts";
 
 /**
- * `get` в расширениях синхронный, поэтому слои главного процесса приезжают
- * push-моделью, а не RPC-per-get, и сливаются той же {@link ConfigurationModel}.
- * `workspaceFolder` — один слой, а не `folders` эталона: папка у нас одна. Фильтра
- * `language-overridable` нет — схем ядра субпроцесс не знает.
+ * `get` is synchronous in extensions, so main-process layers arrive via push
+ * rather than RPC-per-get, and are merged by the same {@link ConfigurationModel}.
+ * `workspaceFolder` is a single layer instead of upstream `folders`: we have one folder.
+ * No `language-overridable` filter — the subprocess does not know the core schemas.
  */
 
 export interface IConfigInspectResult {
@@ -23,7 +23,7 @@ export class WorkspaceConfigStore {
     private workspaceFolder = ConfigurationModel.EMPTY;
     private merged = ConfigurationModel.EMPTY;
 
-    /** Всё, что не объект, — пустой слой. */
+    /** Anything that is not an object becomes an empty layer. */
     public setData(data: unknown): void {
         const layers = isPlainObject(data) ? data : {};
         this.defaults = ConfigurationModel.fromRaw(layers.defaults);
@@ -52,13 +52,13 @@ export class WorkspaceConfigStore {
         };
     }
 
-    /** VS Code выставляет значения секции полями `WorkspaceConfiguration`. */
+    /** VS Code exposes the section values as `WorkspaceConfiguration` fields. */
     public sectionKeys(section: string | undefined, languageId?: string): string[] {
         const node = this.model(languageId).getValue(section);
         return isPlainObject(node) ? Object.keys(node) : [];
     }
 
-    /** `inspect(...).<layer>.override` эталона: по нему запись решает, писать ли в секцию языка. */
+    /** Upstream `inspect(...).<layer>.override`: writes use it to decide whether to target the language section. */
     public hasLanguageOverride(
         dottedKey: string,
         languageId: string,
@@ -68,7 +68,7 @@ export class WorkspaceConfigStore {
     }
 
     private model(languageId: string | undefined): ConfigurationModel {
-        // Stryker disable next-line ConditionalExpression: override() без секции и так отдаёт ту же модель — ветка нужна только типу
+        // Stryker disable next-line ConditionalExpression: override() without a section returns the same model anyway — the branch is only for the type
         return languageId === undefined ? this.merged : this.merged.override(languageId);
     }
 }

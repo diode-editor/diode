@@ -10,7 +10,7 @@ function makeApi() {
     return { stub, api: createQuickInputApi(stub.rpc) };
 }
 
-/** Ответ хоста резолвится руками — им держим показ открытым, пока идут запросы валидации. */
+/** The host reply is resolved by hand — it keeps the prompt open while validation requests run. */
 function pendingAnswer(): { promise: Promise<unknown>; answer: (value: unknown) => void } {
     let answer!: (value: unknown) => void;
     const promise = new Promise<unknown>((resolve) => {
@@ -156,7 +156,7 @@ describe("window.showInputBox (шим)", () => {
             validateInput: (value) => (value === "плохо" ? "Только цифры" : null),
         });
         await pending;
-        // Валидатор живёт, пока показ не закрылся: спрашиваем в рамках того же handle.
+        // The validator lives until the prompt closes: ask under the same handle.
         const { api: api2, stub: stub2 } = makeApi();
         let liveHandle = 0;
         const show = pendingAnswer();
@@ -308,7 +308,7 @@ describe("window.showQuickPick (шим)", () => {
     it("разделители не показываются и не выбираются; индексы ответа — по оставшимся пунктам", async () => {
         const { stub, api } = makeApi();
         stub.responder = () => ({ indices: [1] });
-        // Форма `Go: Choose Go Environment`: заголовки групп между вариантами.
+        // Shape of `Go: Choose Go Environment`: group headers between the options.
         const items: vscode.QuickPickItem[] = [
             { label: "Locally discovered", kind: QuickPickItemKind.Separator },
             { label: "go1.27.2" },

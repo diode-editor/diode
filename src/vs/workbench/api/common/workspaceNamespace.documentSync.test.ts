@@ -43,7 +43,7 @@ describe("WorkspaceNamespace — document sync (editor.didOpen)", () => {
         expect(opened[0].getText()).toBe("const a = 1;\n");
         expect(opened[0].version).toBe(1);
         expect(opened[0].languageId).toBe("typescript");
-        // Идентичность стабильна: событие несёт тот же объект, что и реестр.
+        // Identity is stable: the event carries the same object as the registry.
         expect(ctx.registry.get(Uri.parse(URI))).toBe(opened[0] as unknown);
         expect(workspace.textDocuments).toHaveLength(1);
     });
@@ -100,7 +100,7 @@ describe("WorkspaceNamespace — document sync (editor.didChange)", () => {
         expect(event.reason).toBeUndefined();
         expect(event.contentChanges).toHaveLength(1);
         const change = event.contentChanges[0];
-        // Диапазон покрывает ВЕСЬ старый текст ("ab\ncd" — 2 строки).
+        // The range covers the WHOLE old text ("ab\ncd" — 2 lines).
         expect(change.range.start.line).toBe(0);
         expect(change.range.start.character).toBe(0);
         expect(change.range.end.line).toBe(1);
@@ -131,8 +131,8 @@ describe("WorkspaceNamespace — document sync (editor.didChange)", () => {
     });
 
     it("didChange неизвестного ресурса — это открытие: didOpen с полным текстом, а не правка", () => {
-        // LSP-клиент обязан послать серверу didOpen раньше любого didChange —
-        // change-событие по неанонсированному документу сервер молча отбросит.
+        // An LSP client must send didOpen to the server before any didChange —
+        // the server silently drops a change event for an unannounced document.
         const { stub, workspace } = makeCtx();
         const opens: vscode.TextDocument[] = [];
         const changes: vscode.TextDocumentChangeEvent[] = [];
@@ -185,7 +185,7 @@ describe("WorkspaceNamespace — document sync (editor.didClose)", () => {
 
         expect(closed).toHaveLength(1);
         expect(closed[0].isClosed).toBe(true);
-        // Документ остаётся в реестре — расширения вправе держать ссылку.
+        // The document stays in the registry — extensions may keep a reference.
         expect(ctx.registry.get(Uri.parse(URI)) === (closed[0] as unknown)).toBe(true);
     });
 

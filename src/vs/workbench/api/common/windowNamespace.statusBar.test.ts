@@ -59,8 +59,8 @@ describe("window.createStatusBarItem — состояние пункта в су
         item.command = "demo.click";
         item.show();
 
-        // toStrictEqual, а не toEqual: сообщение не должно нести ключей со
-        // значением undefined — у полосы их нечем отличить от «не задано».
+        // toStrictEqual, not toEqual: the message must not carry keys with
+        // undefined values; the bar cannot tell them apart from "not set".
         expect(lastUpdate(stub)).toStrictEqual({
             handle: 1,
             id: "status-bar-demo",
@@ -299,7 +299,7 @@ describe("window.createStatusBarItem — состояние пункта в су
 
     it("нечисловой priority в провод не попадает", () => {
         const { stub, window } = makeWindow();
-        // Расширение может передать что угодно — типы у него необязательны.
+        // An extension may pass anything: types are optional for it.
         const item = window.createStatusBarItem(undefined, Number.NaN);
         item.show();
 
