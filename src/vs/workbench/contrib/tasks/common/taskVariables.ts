@@ -1,6 +1,6 @@
-// Неизвестная `${foo}` остаётся как есть, как у эталона; известная, но не
-// поддержанная (`${input:…}`, `${command:…}`) — ошибка: запуск с
-// литералом вместо значения хуже явного отказа (docs/TODO/Tasks.md).
+// An unknown `${foo}` stays as is, as upstream; a known but unsupported one
+// (`${input:…}`, `${command:…}`) is an error: running with the literal instead
+// of the value is worse than an explicit refusal (docs/TODO/Tasks.md).
 
 import * as paths from "node:path";
 
@@ -19,7 +19,7 @@ export class TaskVariableError extends Error {}
 
 const VARIABLE = /\$\{(.*?)\}/g;
 
-/** `resolved` копит подставленное (`${name}` → значение) — его отдаёт событие старта задачи. */
+/** `resolved` collects substitutions (`${name}` → value); the task start event reports it. */
 export function resolveVariables(value: string, context: ITaskVariableContext, resolved?: Map<string, string>): string {
     return value.replace(VARIABLE, (match: string, inner: string) => {
         const result = resolveOne(match, inner, context);
@@ -68,7 +68,7 @@ function resolveOne(match: string, inner: string, context: ITaskVariableContext)
         case "workspaceFolderBasename":
             return paths.basename(folderPath());
         case "cwd":
-            // Как у эталона: у задачи с папкой `${cwd}` — папка, без неё — каталог процесса.
+            // As upstream: for a task with a folder `${cwd}` is the folder, without one the process directory.
             return context.folderPath === undefined && argument === undefined ? context.cwd : folderPath();
         case "userHome":
             if (context.userHome !== undefined) return context.userHome;

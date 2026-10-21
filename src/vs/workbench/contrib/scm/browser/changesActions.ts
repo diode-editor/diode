@@ -17,8 +17,8 @@ export const showScmAction: CommandAction = {
     title: "View: Show Source Control",
     shortTitle: "Source Control",
     menus: [{ menuId: MenuId.MenubarViewMenu, group: "3_views", order: 15 }],
-    // Парно с Search: аккорд работает на любом терминале, канонический Ctrl+Shift+G
-    // объявлен там, где терминал способен его передать.
+    // Same as Search: the chord works on any terminal; the canonical Ctrl+Shift+G
+    // is declared where the terminal can deliver it.
     keybinding: parseChord("ctrl+k g"),
     keybindings: [{ keys: parseKeybinding("ctrl+shift+g"), when: "tier != 'legacy'" }],
     run(accessor) {
@@ -26,7 +26,7 @@ export const showScmAction: CommandAction = {
     },
 };
 
-/** `workbench.view.scm` при этом по-прежнему фокусит список изменений (инвариант e2e). */
+/** `workbench.view.scm` still focuses the changes list (e2e invariant). */
 export const scmFocusInputAction: CommandAction = {
     id: "workbench.scm.focus",
     title: "Source Control: Focus on Source Control View",
@@ -36,7 +36,7 @@ export const scmFocusInputAction: CommandAction = {
     },
 };
 
-/** InputElement ArrowDown не обрабатывает — событие доходит до диспетчера кейбиндов. */
+/** InputElement does not handle ArrowDown, so the event reaches the keybinding dispatcher. */
 export const scmFocusChangesAction: CommandAction = {
     id: "scm.action.focusChanges",
     title: "Source Control: Focus Changes List",
@@ -73,8 +73,8 @@ export const scmOpenFileAction: CommandAction = {
 };
 
 /**
- * Файл без версии в git откатывается на открытие самого файла: его контент и есть «всё
- * новое», а notice оставлен палитре.
+ * A file with no git version falls back to opening the file itself: its content is "all
+ * new", and the notice is left to the palette.
  */
 export const scmOpenChangesAction: CommandAction = {
     id: "scm.action.openChanges",
@@ -99,7 +99,7 @@ export const scmOpenChangesAction: CommandAction = {
     },
 };
 
-/** Пара команд вместо тоггла — как у поиска и VS Code. */
+/** A pair of commands instead of a toggle, as in search and VS Code. */
 export const scmViewAsTreeAction: CommandAction = {
     id: "scm.action.viewAsTree",
     title: "Source Control: View as Tree",

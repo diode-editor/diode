@@ -1,7 +1,6 @@
-// @xterm/headless не применяет тему: в palette-режиме `getFgColor()` отдаёт индекс 0..255, а не
-// RGB, — разворачиваем сами по канонической таблице xterm (0..15 системные, 16..231 куб 6×6×6,
-// 232..255 серые). Первые 16 у живой сессии подменяет `buildXtermPalette` по
-// `terminal.integrated.colorSource`.
+// @xterm/headless doesn't apply a theme: in palette mode `getFgColor()` returns an index 0..255, not RGB, so we
+// expand it ourselves using the canonical xterm table (0..15 system, 16..231 6×6×6 cube, 232..255 grays). A live
+// session replaces the first 16 via `buildXtermPalette` according to `terminal.integrated.colorSource`.
 
 import { packRgb } from "@tuidom/core/common/colorUtils";
 
@@ -26,10 +25,10 @@ const SYSTEM_16: readonly number[] = [
 
 const CUBE_LEVELS: readonly number[] = [0, 95, 135, 175, 215, 255];
 
-/** Таблица palette-индекс (0..255) → packed RGB. */
+/** Palette index (0..255) → packed RGB. */
 export type XtermPalette = readonly number[];
 
-/** `ansi[i]` — цвет индекса i (0..15); куб и серые — канонические. */
+/** `ansi[i]` is the color of index i (0..15); the cube and grays stay canonical. */
 export function buildXtermPalette(ansi: readonly number[]): XtermPalette {
     const table = ansi.slice(0, 16);
 
@@ -54,7 +53,7 @@ export function buildXtermPalette(ansi: readonly number[]): XtermPalette {
 
 export const DEFAULT_XTERM_PALETTE = buildXtermPalette(SYSTEM_16);
 
-/** Вне таблицы — цвет индекса 7 (white), чтобы текст не пропал. */
+/** Outside the table falls back to index 7 (white) so text doesn't disappear. */
 export function xtermPaletteToRgb(index: number, palette: XtermPalette = DEFAULT_XTERM_PALETTE): number {
     return palette[index] ?? palette[7];
 }

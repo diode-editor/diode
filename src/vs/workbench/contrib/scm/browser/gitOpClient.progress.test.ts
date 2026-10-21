@@ -11,7 +11,7 @@ import { runGitOp } from "./gitOpClient.ts";
 import { runGitTransport, STAGE_TRANSPORT_COMMAND } from "./stagingActions.ts";
 import { runGitQuery } from "./syncActions.ts";
 
-/** Команда расширения висит, пока тест не отпустит, — занятость видна во время операции. */
+/** The extension command hangs until the test releases it, so the busy state is visible mid-operation. */
 function makeAccessor(hasCommand = true): {
     accessor: ServiceAccessor;
     progress: ProgressService;
@@ -92,8 +92,8 @@ describe("прогресс git-операций", () => {
 
         expect(h.progress.isBusy(SCM_CHANGES_VIEW_ID)).toBe(true);
 
-        // Подпись берётся из имени операции, а его у транспорта надо достать из
-        // id команды: иначе вместо «Staging…» будет нейтральное «Working…».
+        // The title comes from the operation name, which the transport must extract from
+        // the command id: otherwise a neutral "Working…" shows instead of "Staging…".
         vi.advanceTimersByTime(300);
         expect(h.progress.viewProgress().get(SCM_CHANGES_VIEW_ID)?.title).toBe("Staging…");
 

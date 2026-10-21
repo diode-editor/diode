@@ -3,18 +3,18 @@ import type { CommandRegistry } from "../../../../platform/commands/common/comma
 
 import type { IOriginalResourceProvider } from "./quickDiffService.ts";
 
-/** Аналог `provideOriginalResource`. */
+/** Counterpart of `provideOriginalResource`. */
 export const ORIGINAL_RESOURCE_COMMAND = "diode.scm.originalResource";
 
 /**
- * Транспорт временный: канонический `scm`-неймспейс с `quickDiffProvider` в `vscode.d.ts`
- * ещё закомментирован (docs/TODO/Diff.md). Переход заменит этот класс, а не `QuickDiffService`.
+ * Temporary transport: the canonical `scm` namespace with `quickDiffProvider` in `vscode.d.ts`
+ * is still commented out (docs/TODO/Diff.md). Moving to it will replace this class, not `QuickDiffService`.
  */
 export class CommandOriginalResourceProvider implements IOriginalResourceProvider {
     public constructor(private readonly commands: CommandRegistry) {}
 
     public async provideOriginalResource(uri: Uri, ref?: string): Promise<Uri | null> {
-        // Нет SCM-расширения — нет и оригинала; это штатная ситуация, а не сбой.
+        // No SCM extension means no original; this is normal, not a failure.
         if (!this.commands.has(ORIGINAL_RESOURCE_COMMAND)) return null;
 
         const raw: unknown =

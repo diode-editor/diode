@@ -23,7 +23,7 @@ describe("resolveNodePty", () => {
     });
 
     it("упакованная сборка: модуль грузится из распакованного кэша, нативные файлы исполняемы", () => {
-        // Вместо настоящего аддона — JS-модуль той же формы: проверяем распаковку и загрузку, не PTY.
+        // A JS module of the same shape instead of the real addon: tests extraction and loading, not the PTY.
         const bundle = packBundle([
             { virtualPath: "node-pty/package.json", data: Buffer.from(JSON.stringify({ main: "index.js" })) },
             {

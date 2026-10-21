@@ -10,7 +10,7 @@ import { GRAPH_LOAD_MORE_COMMAND } from "./graphViewComponent.ts";
 /** nf-cod-refresh. */
 const REFRESH_ICON = "\ueb37";
 
-/** До активации расширения команды `git.refresh` нет — тихий no-op. */
+/** Before the extension activates there is no `git.refresh` command: silent no-op. */
 export const scmGraphRefreshAction: CommandAction = {
     id: "scm.graph.refresh",
     title: "Source Control: Refresh Graph",
@@ -28,12 +28,12 @@ export const scmGraphRefreshAction: CommandAction = {
     run(accessor) {
         const commands = accessor.get(CommandRegistryDIToken);
         if (!commands.has("git.refresh")) return undefined;
-        // Промис прокси-команды не выбрасываем: его держит спиннер.
+        // Don't drop the proxy command's promise: the spinner holds it.
         return withGitProgress(accessor, "refresh", () => Promise.resolve(commands.execute("git.refresh")));
     },
 };
 
-/** Предел держит расширение (`logLoadMore` растит его на `scm.graph.pageSize`); ядро только просит. */
+/** The extension owns the limit (`logLoadMore` grows it by `scm.graph.pageSize`); the core only asks. */
 export const scmGraphLoadMoreAction: CommandAction = {
     id: GRAPH_LOAD_MORE_COMMAND,
     title: "Source Control: Load More Commits",

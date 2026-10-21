@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { ExtensionPtySession } from "./extensionPtySession.ts";
 
-// Эмулятор над pty расширения — настоящий @xterm/headless, процесса нет.
+// Emulator over an extension pty — real @xterm/headless, no process.
 
 function row(session: ExtensionPtySession, y: number, width: number): string {
     const out: TerminalCell = { char: "", fg: 0, bg: 0, style: 0, width: 1 };
@@ -85,7 +85,7 @@ describe("ExtensionPtySession — эмулятор без процесса", () 
             [30, 6],
             [40, 6],
         ]);
-        // Эмулятор стал шире: строка в 35 символов не переносится.
+        // The emulator got wider: a 35-character line doesn't wrap.
         session.feed("x".repeat(35));
         await vi.waitFor(() => {
             expect(row(session, 0, 40)).toBe("x".repeat(35));

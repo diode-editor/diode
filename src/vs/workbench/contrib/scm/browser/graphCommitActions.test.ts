@@ -192,7 +192,7 @@ describe("команды коммита в графе", () => {
     });
 
     it("без git-расширения операции молчат: notice показывать не о чем", async () => {
-        // `runGitOp` отдаёт null, когда моста нет, — вызывающий не должен падать.
+        // `runGitOp` returns null when there is no bridge; the caller must not fail.
         const h = makeHarness();
         h.setOpResults([null]);
         await graphCherryPickAction.run(h.accessor, SHA);

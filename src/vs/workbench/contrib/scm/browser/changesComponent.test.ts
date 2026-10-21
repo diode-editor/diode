@@ -44,7 +44,7 @@ function fakeMenu(entries: FakeMenuEntry[] = []): { service: MenuService; menu: 
     };
     const service = {
         createMenu: () => menu,
-        // Живой резолв: ассерты на аргументы `getEntries` остаются про контекст открытия.
+        // Live resolution: assertions on `getEntries` arguments stay about the open context.
         getEntries: (_menuId: unknown, context: unknown) => menu.getEntries(context, () => null),
         getEntryGroups: () => [],
     } as unknown as MenuService;
@@ -149,7 +149,7 @@ function rowIdOf(rel: string, group = "worktree"): string {
     return `scmRow-${group}-${rel.replace(/[^A-Za-z0-9_-]+/g, "-")}`;
 }
 
-/** Без контролов коммита — их проверяет scmInputComponent.test. */
+/** Without the commit controls: scmInputComponent.test checks those. */
 function frame(h: IHarness, w = 40, ht = 10): string {
     return renderElement(h.component.listView, w, ht, { themeVars: true }).screenToString();
 }
@@ -170,9 +170,9 @@ describe("ChangesComponent — flat-режим (по умолчанию)", () =>
         expect(screen).toContain("a.txt");
         expect(screen).toContain("nested/b.txt");
         expect(screen).toContain("U");
-        // Кнопка перехода к файлу раскрывается только на активной строке.
+        // The open-file button appears only on the active row.
         expect(screen).not.toContain(OPEN_FILE_GLYPH);
-        // Untracked своего заголовка не получает — оба файла под «Changes».
+        // Untracked gets no header of its own: both files are under "Changes".
         expect(screen).toContain("Changes");
         expect(screen).not.toContain("Untracked Changes");
         expect(h.component.list.rowCount).toBe(3);
@@ -242,9 +242,9 @@ describe("ChangesComponent — flat-режим (по умолчанию)", () =>
         const width = 30;
         const app = TestApp.createWithContent(h.component.view, new Size(width, 14));
         const list = h.component.list;
-        const rowY = list.globalPosition.y + 2; // третья строка (заголовок группы, a.txt, b.txt)
+        const rowY = list.globalPosition.y + 2; // third row (group header, a.txt, b.txt)
 
-        // Кнопка раскрывается по наведению — без mousemove её колонок в строке нет.
+        // The button appears on hover: without mousemove its columns are not in the row.
         list.dispatchEvent(
             new TUIMouseEvent("mousemove", {
                 button: "none",
@@ -256,7 +256,7 @@ describe("ChangesComponent — flat-режим (по умолчанию)", () =>
         );
         app.render();
 
-        // Кнопка занимает колонки слева от буквы статуса (fixed 1 у правого края).
+        // The button occupies the columns left of the status letter (fixed 1 at the right edge).
         const buttonX = list.globalPosition.x + list.layoutSize.width - 1 - OPEN_FILE_BUTTON_WIDTH;
         list.dispatchEvent(
             new TUIMouseEvent("click", {
@@ -316,7 +316,7 @@ describe("ChangesComponent — flat-режим (по умолчанию)", () =>
         const h = make();
         publish(h.commands, [{ rel: "a.b" }, { rel: "a-b" }, { rel: "a?b" }]);
 
-        // Все три строки живы, id уникальны.
+        // All three rows are alive, ids are unique.
         expect(h.component.list.rowCount).toBe(4);
         h.component.list.setCursorTo("scmRow-worktree-a-b");
         expect(h.component.getCursorChange()).not.toBeNull();
@@ -348,8 +348,8 @@ describe("ChangesComponent — flat-режим (по умолчанию)", () =>
 describe("ChangesComponent — tree-режим", () => {
     it("setViewMode('tree') группирует по папкам с компакцией и collapse работает", () => {
         const h = make();
-        // src/vs — компакт-цепочка; src/vs/sub рядом с файлами ломает компакцию
-        // ниже и гоняет рекурсивный сбор файлов папки (rowMeta папки src/vs).
+        // src/vs is a compact chain; src/vs/sub next to files breaks compaction below
+        // and exercises recursive collection of folder files (rowMeta of folder src/vs).
         publish(h.commands, [
             { rel: "src/vs/a.ts" },
             { rel: "src/vs/b.ts" },
@@ -390,7 +390,7 @@ describe("ChangesComponent — tree-режим", () => {
 
         h.component.setViewMode("tree");
         expect(stored.get(SCM_VIEW_MODE_STATE.key)).toBe("tree");
-        h.component.setViewMode("tree"); // повтор — no-op
+        h.component.setViewMode("tree"); // repeat is a no-op
 
         stored.set(SCM_VIEW_MODE_STATE.key, "flat");
         const writes = vi.spyOn(service, "store");
@@ -398,7 +398,7 @@ describe("ChangesComponent — tree-режим", () => {
         expect(h.component.getViewMode()).toBe("flat");
         expect(writes).not.toHaveBeenCalled();
 
-        h.component.restoreViewMode(); // повтор — no-op
+        h.component.restoreViewMode(); // repeat is a no-op
         expect(h.component.getViewMode()).toBe("flat");
     });
 
@@ -417,11 +417,11 @@ describe("ChangesComponent — тема и контекстное меню", () 
     it("смена темы перекрашивает строки на месте, без пересборки (в т.ч. папки дерева)", () => {
         const h = make();
         publish(h.commands, [{ rel: "nested/a.txt" }]);
-        h.component.setViewMode("tree"); // папочная строка проходит рестайл нетронутой
+        h.component.setViewMode("tree"); // the folder row passes the restyle untouched
         const rowBefore = h.component.list.getChildren()[0];
         const before = frame(h);
 
-        h.themeService.setTheme(theme); // повторное применение гоняет рестайл по строкам
+        h.themeService.setTheme(theme); // reapplying runs the restyle over the rows
 
         expect(frame(h)).toBe(before);
         expect(h.component.list.getChildren()[0]).toBe(rowBefore);
@@ -447,14 +447,14 @@ describe("ChangesComponent — тема и контекстное меню", () 
 
     it("правый клик по файлу открывает контекстное меню, Enter выбирает, Escape закрывает", () => {
         const onSelect = vi.fn();
-        // Сепаратор — проверка, что он проходит обёртку onSelect без изменений.
+        // The separator checks that it passes the onSelect wrapper unchanged.
         const h = make({ menuEntries: [{ label: "Open File", onSelect }, { type: "separator" }] });
         publish(h.commands, [{ rel: "a.txt" }]);
 
         const app = TestApp.createWithContent(h.component.view, new Size(40, 12));
 
         const list = h.component.list;
-        // Строка 0 — заголовок группы, файл a.txt — строка 1.
+        // Row 0 is the group header, file a.txt is row 1.
         const rightClick = () => {
             list.dispatchEvent(
                 new TUIContextMenuEvent({
@@ -476,17 +476,17 @@ describe("ChangesComponent — тема и контекстное меню", () 
         );
         expect(app.backend.screenToString()).toContain("Open File");
 
-        // Повторный вызов закрывает прежнюю сессию и открывает новую.
+        // A repeated call closes the previous session and opens a new one.
         rightClick();
         expect(app.backend.screenToString()).toContain("Open File");
 
-        // Enter выбирает пункт: сессия закрывается ДО original onSelect.
+        // Enter picks the item: the session closes BEFORE the original onSelect.
         app.querySelector("PopupMenuElement")!.dispatchEvent(new TUIKeyboardEvent("keydown", { key: "Enter" }));
         app.render();
         expect(onSelect).toHaveBeenCalledTimes(1);
         expect(app.backend.screenToString()).not.toContain("Open File");
 
-        // Escape закрывает через menu.onClose → session.close() (гард onClose).
+        // Escape closes via menu.onClose → session.close() (onClose guard).
         rightClick();
         app.querySelector("PopupMenuElement")!.dispatchEvent(new TUIKeyboardEvent("keydown", { key: "Escape" }));
         app.render();
@@ -532,7 +532,7 @@ describe("ChangesComponent — тема и контекстное меню", () 
             app.render();
         };
 
-        // Строки: заголовок Changes (0), папка nested (1), a.txt (2), b.txt (3), root.txt (4).
+        // Rows: Changes header (0), folder nested (1), a.txt (2), b.txt (3), root.txt (4).
         rightClickRow(1);
         expect(h.menu.getEntries).toHaveBeenLastCalledWith(
             { kind: "folder", uris: [uriOf("nested/a.txt"), uriOf("nested/b.txt")], groups: ["worktree"] },
@@ -556,7 +556,7 @@ describe("ChangesComponent — тема и контекстное меню", () 
         const app = TestApp.createWithContent(h.component.view, new Size(40, 12));
         const list = h.component.list;
 
-        // Выделяем a.txt и b.txt (строки 1–2): курсор на a.txt, Shift+Down.
+        // Select a.txt and b.txt (rows 1–2): cursor on a.txt, Shift+Down.
         list.setCursorTo(rowIdOf("a.txt"));
         list.dispatchEvent(new TUIKeyboardEvent("keypress", { key: "ArrowDown", shiftKey: true }));
         const rightClickRow = (row: number) => {
@@ -573,7 +573,7 @@ describe("ChangesComponent — тема и контекстное меню", () 
             app.render();
         };
 
-        // Клик по b.txt (в выделении) — контекст из обеих строк.
+        // Click on b.txt (inside the selection): context from both rows.
         rightClickRow(2);
         expect(h.menu.getEntries).toHaveBeenLastCalledWith(
             { kind: "resource", uris: [uriOf("a.txt"), uriOf("b.txt")], groups: ["worktree"] },
@@ -581,15 +581,15 @@ describe("ChangesComponent — тема и контекстное меню", () 
         );
         expect(h.component.getSelectedChanges().map((c) => c.path)).toEqual(["a.txt", "b.txt"]);
 
-        // Клик по c.txt (вне выделения) — контекст из одной строки.
+        // Click on c.txt (outside the selection): context from that row only.
         rightClickRow(3);
         expect(h.menu.getEntries).toHaveBeenLastCalledWith(
             { kind: "resource", uris: [uriOf("c.txt")], groups: ["worktree"] },
             expect.any(Function),
         );
 
-        // Прямой вызов колбэка по строке вне текущего выделения (движок так шлёт
-        // keyboard-trigger) — контекст из этой строки, не из выделения.
+        // Direct callback call for a row outside the current selection (the engine sends
+        // keyboard-trigger this way): context from that row, not from the selection.
         h.component.list.setCursorTo(rowIdOf("a.txt"));
         const rowA = h.component.list.getCursorElement()!;
         h.component.list.setCursorTo(rowIdOf("b.txt"));

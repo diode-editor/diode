@@ -35,17 +35,17 @@ import { ScmRepoStateServiceDIToken } from "./repoStateService.ts";
 export const ScmInputComponentDIToken = token<ScmInputComponent>("ScmInputComponent");
 
 /**
- * Поле, зазор, кнопка, padding снизу. Сверху padding'а нет: заголовок секции CHANGES
- * уже отбивает блок, вторая пустая строка выглядела отступом в никуда.
+ * Field, gap, button, bottom padding. No top padding: the CHANGES section header
+ * already sets the block apart, a second blank line looked like a gap to nowhere.
  */
 export const SCM_INPUT_HEIGHT = 4;
 
-/** Маркер: по нему выставляется `scmInputFocus`, на котором живёт Ctrl+Enter = commit. */
+/** Marker that sets `scmInputFocus`, which Ctrl+Enter = commit depends on. */
 export class ScmCommitInputElement extends InputElement {}
 
 /**
- * VS Code SCM action button. Не `ButtonElement`: тому нужен неизменяемый label и
- * естественная ширина, здесь — сменный текст по центру на всю ширину.
+ * VS Code SCM action button. Not `ButtonElement`: that one needs an immutable label and
+ * natural width, here the text changes and is centered across the full width.
  */
 export class ScmActionButtonElement extends TUIElement {
     public onActivate?: () => void;
@@ -135,7 +135,7 @@ export interface IScmActionButtonState {
     readonly command: string | null;
 }
 
-/** Правила VS Code SCM action button. */
+/** VS Code SCM action button rules. */
 export function computeActionButton(
     hasChanges: boolean,
     repo: {
@@ -162,8 +162,8 @@ export function computeActionButton(
 }
 
 /**
- * Черновик персистится по-проектно: write-through на каждый ввод, восстановление —
- * строго после `openWorkspace`.
+ * The draft is persisted per project: write-through on every input, restore
+ * strictly after `openWorkspace`.
  */
 export class ScmInputComponent extends Component implements IContextKeyContributor {
     public static dependencies = [
@@ -210,7 +210,7 @@ export class ScmInputComponent extends Component implements IContextKeyContribut
 
         const stack = new VFlexElement();
         stack.addChild(this.input, { height: vflexFit(), width: "fill" });
-        // Понятия gap в layout-модели нет: зазор — филлер с унаследованным фоном.
+        // The layout model has no gap concept: the gap is a filler with inherited background.
         stack.addChild(new FillerElement(), { height: vflexFixed(1), width: "fill" });
         stack.addChild(this.actionButton, { height: vflexFit(), width: "fill" });
         this.view = new PaddingContainerElement(stack, { left: 1, right: 1, top: 0, bottom: 1 });
@@ -232,11 +232,11 @@ export class ScmInputComponent extends Component implements IContextKeyContribut
                 this.updateActionButton();
             }),
         );
-        // Подпись бинда переезжает: ОС и Cmd выясняются после старта (Ctrl+Enter → ⌘Enter),
-        // tier — по первой CSI-u клавише (Alt+Enter → Ctrl+Enter).
+        // The binding label changes: OS and Cmd are learned after startup (Ctrl+Enter → ⌘Enter),
+        // tier on the first CSI-u key (Alt+Enter → Ctrl+Enter).
         this.register(
             this.contextKeys.onDidChange((changed) => {
-                // Stryker disable next-line ConditionalExpression: лишний пересчёт на постороннем ключе даёт тот же текст — ненаблюдаем.
+                // Stryker disable next-line ConditionalExpression: recompute on an unrelated key gives the same text
                 if (changed.has("isMac") || changed.has("macKeys") || changed.has("tier")) this.updatePlaceholder();
             }),
         );
@@ -247,7 +247,7 @@ export class ScmInputComponent extends Component implements IContextKeyContribut
         contextKeys.set("scmInputFocus", active instanceof ScmCommitInputElement);
     }
 
-    /** Бинд живёт под `scmInputFocus`, а поле может быть не в фокусе — ищем «как если бы в фокусе». */
+    /** The binding lives under `scmInputFocus` and the field may be unfocused — look up "as if focused". */
     private updatePlaceholder(): void {
         const chord = this.keybindings.getKeybindingForCommand("git.commit", this.contextKeys, {
             scmInputFocus: true,
@@ -272,7 +272,7 @@ export class ScmInputComponent extends Component implements IContextKeyContribut
         this.input.focus();
     }
 
-    /** Строго после `openWorkspace`, без write-through. */
+    /** Strictly after `openWorkspace`, no write-through. */
     public restoreDraft(): void {
         const stored = this.stateService.get(SCM_INPUT_MESSAGE_STATE);
         if (stored === this.input.inputState.value) return;
@@ -291,8 +291,8 @@ export class ScmInputComponent extends Component implements IContextKeyContribut
         this.buttonCommand = state.command;
         this.actionButton.hidden = !state.visible;
 
-        // Идёт операция — подписью владеет прогресс. Дизейбл — сразу (isBusy), а показ
-        // ждёт задержку: клик гаснет мгновенно, быстрая операция не мигает текстом.
+        // An operation is running — progress owns the label. Disable is immediate (isBusy), while display
+        // waits for a delay: the click is disabled instantly and a fast operation does not flash text.
         const running = this.progress.viewProgress().get(SCM_CHANGES_VIEW_ID);
         if (running !== undefined) {
             this.actionButton.setLabel(`${running.spinner} ${running.title}`);

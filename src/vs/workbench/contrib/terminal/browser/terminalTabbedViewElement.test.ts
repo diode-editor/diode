@@ -32,7 +32,7 @@ describe("TerminalTabbedViewElement", () => {
         expect(view.isTabsVisible).toBe(false);
 
         view.setTerminal(second);
-        view.setTerminal(second); // повтор — no-op
+        view.setTerminal(second); // repeat is a no-op
         app.render();
         expect(first.getParent()).toBeNull();
         expect(second.layoutSize.width).toBe(40);
@@ -77,7 +77,7 @@ describe("TerminalTabbedViewElement", () => {
         const view = new TerminalTabbedViewElement(tabs, 30);
         view.setTerminal(new TextLabelElement("t"));
         view.setTabsVisible(true);
-        view.setTabsVisible(true); // повтор — no-op
+        view.setTabsVisible(true); // repeat is a no-op
         view.setLocation("right");
         TestApp.createWithContent(view, new Size(40, 3)).render();
         expect(tabs.layoutSize.width).toBe(20);

@@ -4,8 +4,8 @@ import { viewMenuVisible } from "../../../browser/actions/menuContexts.ts";
 import { SCM_CHANGES_VIEW_ID } from "../common/scmViews.ts";
 
 /**
- * Зеркала submenu-точек git-расширения VS Code (`scm/title`). Пустое подменю резолвер
- * выбрасывает сам — точки «зажигаются» по мере наполнения.
+ * Mirrors of the VS Code git extension's submenu points (`scm/title`). The resolver drops an
+ * empty submenu itself, so points light up as they get filled.
  */
 export const GitCommitMenu = new MenuId("GitCommitMenu");
 export const GitChangesMenu = new MenuId("GitChangesMenu");

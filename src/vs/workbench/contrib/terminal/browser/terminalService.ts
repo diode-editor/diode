@@ -23,14 +23,14 @@ export const TERMINAL_VIEW_ID = "terminal";
 
 export const TerminalServiceDIToken = token<TerminalService>("TerminalService");
 
-/** До первого performLayout. */
+/** Until the first performLayout. */
 export const INITIAL_COLS = 80;
 export const INITIAL_ROWS = 24;
 
-/** `user` — команда Kill, `extension` — `Terminal.dispose()` расширения. */
+/** `user` — the Kill command, `extension` — the extension's `Terminal.dispose()`. */
 export type TerminalExitReason = "process" | "user" | "extension";
 
-/** То, что расширение видит как `Terminal.creationOptions` чужого терминала. */
+/** What an extension sees as `Terminal.creationOptions` of a foreign terminal. */
 export interface ITerminalLaunchInfo {
     readonly shellPath: string;
     readonly shellArgs: readonly string[] | undefined;
@@ -39,22 +39,22 @@ export interface ITerminalLaunchInfo {
     readonly hideFromUser: boolean;
 }
 
-/** Список вкладок вида TERMINAL и активный инстанс — только панельные; редакторными владеет `TerminalEditorService`. */
+/** The TERMINAL view tab list and the active instance are panel-only; `TerminalEditorService` owns editor ones. */
 export type TerminalTarget = "panel" | "editor";
 
 export interface ITerminalInstance {
     readonly id: number;
     readonly target: TerminalTarget;
     /**
-     * Номер «N:» приписывают только quick pick и дропдаун, одинаковые заголовки не
-     * дедуплицируются — как у эталона.
+     * The "N:" number is prepended only by the quick pick and dropdown; identical titles aren't
+     * deduplicated — as in upstream.
      */
     readonly title: string;
     readonly session: ITerminalSurface & Pick<ITerminalSession, "setAnsiColors">;
-    /** `undefined`, если процесса на нашей стороне нет. */
+    /** `undefined` if there is no process on our side. */
     readonly processId: number | undefined;
     readonly launch: ITerminalLaunchInfo;
-    /** `undefined`, пока шелл жив или если инстанс закрыли не выходом. */
+    /** `undefined` while the shell is alive or if the instance was closed by something other than exit. */
     readonly exitCode: number | undefined;
     readonly exitReason: TerminalExitReason | undefined;
 }
@@ -68,22 +68,25 @@ export interface ITerminalCreateOptions {
     readonly shellPath?: string;
     readonly shellArgs?: readonly string[];
     readonly cwd?: string;
-    /** `null` снимает переменную из унаследованного окружения. */
+    /** `null` removes the variable from the inherited environment. */
     readonly env?: Readonly<Record<string, string | null>>;
-    /** Окружение шелла — ровно `env`, без наследования от процесса. */
+    /** The shell environment is exactly `env`, nothing inherited from the process. */
     readonly strictEnv?: boolean;
-    /** Печатается до вывода шелла, в шелл не уходит. */
+    /** Printed before shell output; not sent to the shell. */
     readonly message?: string;
-    /** Процесс жив, но вкладки нет и активным не становится, пока не покажут ({@link TerminalService.showInstance}). */
+    /**
+     * The process runs, but it has no tab and doesn't become active until shown
+     * ({@link TerminalService.showInstance}).
+     */
     readonly hideFromUser?: boolean;
-    /** Процессом владеет pty расширения; из шелловых опций при ней работает только `message`. */
+    /** An extension pty owns the process; of the shell options only `message` applies with it. */
     readonly session?: ITerminalSession;
     /**
-     * Не снимать инстанс после выхода процесса: печатается код выхода (если не 0) и
-     * `waitOnExit`; закрывает любая клавиша или Kill.
+     * Don't remove the instance after the process exits: print the exit code (if not 0) and
+     * `waitOnExit`; any key or Kill closes it.
      */
     readonly waitOnExit?: TerminalWaitOnExit;
-    /** Без него — панель; вкладку редакторному открывает `TerminalEditorService`. */
+    /** Absent — the panel; `TerminalEditorService` opens a tab for an editor terminal. */
     readonly target?: TerminalTarget;
 }
 
@@ -106,16 +109,16 @@ interface TerminalInstanceRecord extends ITerminalInstance {
     exitCode: number | undefined;
     exitReason: TerminalExitReason | undefined;
     waitOnExit: TerminalWaitOnExit | undefined;
-    /** Процесс вышел, инстанс ждёт клавишу (`waitOnExit`). */
+    /** The process exited; the instance waits for a key (`waitOnExit`). */
     waiting: boolean;
-    /** Процессом владеет pty расширения — командной строки нет. */
+    /** An extension pty owns the process — there is no command line. */
     readonly external: boolean;
 }
 
 /**
- * Шелл спавнится лениво — по активации вкладки TERMINAL или командам toggle/new.
- * Виджеты строит `TerminalPanelComponent` по событиям сервиса. Групп (сплитов)
- * нет: группа эталона здесь — один инстанс.
+ * The shell spawns lazily — on TERMINAL tab activation or toggle/new commands.
+ * `TerminalPanelComponent` builds widgets from service events. There are no groups (splits):
+ * an upstream group is a single instance here.
  */
 export class TerminalService extends Disposable implements IContextKeyContributor {
     public static dependencies = [
@@ -146,7 +149,7 @@ export class TerminalService extends Disposable implements IContextKeyContributo
         private readonly factory: TerminalSessionFactory,
     ) {
         super();
-        // Без тела view рисует подсказку; шелл спавнится при активации.
+        // Without a body the view draws a hint; the shell spawns on activation.
         viewsService.registerContainer({ id: TERMINAL_VIEW_ID, title: "TERMINAL", location: "panel", order: 2 });
         viewsService.registerView({
             canMoveView: true,
@@ -160,7 +163,7 @@ export class TerminalService extends Disposable implements IContextKeyContributo
                 this.ensureAndFocus();
             },
         });
-        // Вид активируется в любой части (панель, вторичная панель, вьюлет).
+        // The view activates in any part (panel, secondary panel, viewlet).
         this.register(
             viewsService.onDidActivateView((id) => {
                 if (id === TERMINAL_VIEW_ID) this.ensureAndFocus();
@@ -177,7 +180,7 @@ export class TerminalService extends Disposable implements IContextKeyContributo
         contextKeys.set("terminalCount", this.instances.length);
     }
 
-    /** Без редакторных и фоновых. */
+    /** Excludes editor and background ones. */
     public getInstances(): readonly ITerminalInstance[] {
         return this.instances;
     }
@@ -186,7 +189,7 @@ export class TerminalService extends Disposable implements IContextKeyContributo
         return this.active() ?? null;
     }
 
-    /** В том числе фоновый. */
+    /** Including background ones. */
     public getInstance(id: number | undefined): ITerminalInstance | null {
         return this.find(id) ?? null;
     }
@@ -213,8 +216,8 @@ export class TerminalService extends Disposable implements IContextKeyContributo
     }
 
     /**
-     * Без фокуса. Фоновый и редакторный в список вкладок не попадают и активными не
-     * становятся, но {@link onDidCreateInstance} о них сообщает.
+     * Without focus. Background and editor instances don't enter the tab list and don't become
+     * active, but {@link onDidCreateInstance} reports them.
      */
     public createInstance(options: ITerminalCreateOptions = {}): ITerminalInstance {
         const id = this.nextId++;
@@ -222,7 +225,7 @@ export class TerminalService extends Disposable implements IContextKeyContributo
         const session =
             options.session ??
             this.factory({ cols: INITIAL_COLS, rows: INITIAL_ROWS, ...sessionOptions(options, cwd) });
-        // Готовой сессии `message` печатаем сами — шелловая печатает его при спавне.
+        // For a ready session we print `message` ourselves — a shell session prints it on spawn.
         if (options.session !== undefined && options.message !== undefined)
             session.printMessage(`${options.message}\r\n`);
         const hideFromUser = options.hideFromUser === true;
@@ -242,10 +245,12 @@ export class TerminalService extends Disposable implements IContextKeyContributo
                 session.onExit((code) => {
                     this.handleProcessExit(instance, code);
                 }),
-                // Клавиша после выхода закрывает только ждущий терминал: у
-                // прочих вышедших процесса инстанс к этому моменту уже снят.
+                // A key after exit closes only a waiting terminal: for other exited
+                // processes the instance is already removed by now.
                 session.onDidInputAfterExit(() => {
-                    // Stryker disable next-line ConditionalExpression: эквивалентный — вышедший не ждущий инстанс снят на выходе вместе с этой подпиской; проверка — страховка
+                    // An exited non-waiting instance is removed on exit along with this subscription;
+                    // the check is a safeguard.
+                    // Stryker disable next-line ConditionalExpression: equivalent — see above
                     if (instance.waiting) this.removeInstance(instance, "user");
                 }),
             ],
@@ -263,7 +268,7 @@ export class TerminalService extends Disposable implements IContextKeyContributo
         return instance;
     }
 
-    /** Эмулятор, вкладка и id те же, процесс новый (`reuseTerminal` эталона). Не ждущий инстанс — `undefined`. */
+    /** Same emulator, tab and id, new process (upstream `reuseTerminal`). A non-waiting instance — `undefined`. */
     public relaunchInstance(id: number, options: ITerminalRelaunchInstanceOptions = {}): ITerminalInstance | undefined {
         const instance = this.find(id);
         if (instance?.waiting !== true) return undefined;
@@ -285,7 +290,7 @@ export class TerminalService extends Disposable implements IContextKeyContributo
         return instance;
     }
 
-    /** Панель, вкладку редактора и фокус показывает вызывающий. */
+    /** The caller shows the panel, editor tab and focus. */
     public showInstance(id: number): void {
         const background = this.backgroundInstances.find((i) => i.id === id);
         if (background !== undefined) {
@@ -300,7 +305,7 @@ export class TerminalService extends Disposable implements IContextKeyContributo
         this.setActiveInstance(id);
     }
 
-    /** Процесс и эмулятор те же; вкладку редактора открывает вызывающий. */
+    /** Same process and emulator; the caller opens the editor tab. */
     public moveToEditor(id: number): ITerminalInstance | undefined {
         const instance = this.instances.find((i) => i.id === id);
         if (instance === undefined) return undefined;
@@ -311,7 +316,7 @@ export class TerminalService extends Disposable implements IContextKeyContributo
         return instance;
     }
 
-    /** Встаёт последним и становится активным; вкладку редактора снимает вызывающий. */
+    /** Goes last and becomes active; the caller removes the editor tab. */
     public moveToPanel(id: number): ITerminalInstance | undefined {
         const instance = this.editorInstances.find((i) => i.id === id);
         if (instance === undefined) return undefined;
@@ -324,7 +329,7 @@ export class TerminalService extends Disposable implements IContextKeyContributo
         return instance;
     }
 
-    /** Переводы строк уходят нажатиями Enter (`\r`); `shouldExecute` дописывает Enter, если его нет в конце. */
+    /** Line breaks are sent as Enter presses (`\r`); `shouldExecute` appends Enter if it's not at the end. */
     public sendText(id: number | undefined, text: string, shouldExecute: boolean): void {
         const instance = this.find(id);
         if (instance === undefined) return;
@@ -332,7 +337,7 @@ export class TerminalService extends Disposable implements IContextKeyContributo
         instance.session.write(shouldExecute && !normalized.endsWith("\r") ? `${normalized}\r` : normalized);
     }
 
-    /** Без фокуса — как стрелки и клик по списку вкладок эталона. */
+    /** Without focus — like arrows and clicks in upstream's tab list. */
     public setActiveInstance(id: number): void {
         const instance = this.instances.find((i) => i.id === id);
         if (instance === undefined || this.activeId === id) return;
@@ -353,7 +358,7 @@ export class TerminalService extends Disposable implements IContextKeyContributo
         this.setActiveByOffset(-1);
     }
 
-    /** Активным становится сосед с тем же индексом, иначе последний — как `removeGroup` эталона. */
+    /** The neighbor at the same index becomes active, otherwise the last one — like upstream `removeGroup`. */
     public closeInstance(id: number | undefined, reason: TerminalExitReason = "user"): void {
         this.removeInstance(this.find(id), reason);
     }
@@ -362,15 +367,15 @@ export class TerminalService extends Disposable implements IContextKeyContributo
         this.fireFocus();
     }
 
-    /** В том числе фоновый; для виджетов — {@link onDidOpenInstance}. */
+    /** Including background ones; for widgets see {@link onDidOpenInstance}. */
     public readonly onDidCreateInstance = this.onDidCreateInstanceEmitter.event;
 
-    /** В том числе фоновый; `exitReason`/`exitCode` уже заполнены. */
+    /** Including background ones; `exitReason`/`exitCode` are already set. */
     public readonly onDidDisposeInstance = this.onDidDisposeInstanceEmitter.event;
 
     /**
-     * Приходит раньше снятия инстанса; ждущий (`waitOnExit`) после него остаётся.
-     * Закрытие Kill'ом и расширением этим событием не сообщается.
+     * Fires before the instance is removed; a waiting one (`waitOnExit`) stays after it.
+     * Closing via Kill or by an extension is not reported by this event.
      */
     public readonly onDidExitInstance = this.onDidExitInstanceEmitter.event;
 
@@ -380,13 +385,13 @@ export class TerminalService extends Disposable implements IContextKeyContributo
 
     public readonly onDidCloseInstance = this.onDidCloseInstanceEmitter.event;
 
-    /** `null` — терминалов не осталось. */
+    /** `null` — no terminals left. */
     public readonly onDidChangeActiveInstance = this.onDidChangeActiveInstanceEmitter.event;
 
     public readonly onDidRequestFocus = this.onDidRequestFocusEmitter.event;
 
     public override dispose(): void {
-        // События close не файрим: виджеты чистит их владелец в своём dispose.
+        // Don't fire close events: their owner cleans up the widgets in its own dispose.
         for (const instance of [...this.instances, ...this.backgroundInstances, ...this.editorInstances])
             this.destroyInstance(instance);
         this.instances = [];
@@ -403,7 +408,7 @@ export class TerminalService extends Disposable implements IContextKeyContributo
 
     private setActiveByOffset(offset: number): void {
         const count = this.instances.length;
-        // При одном терминале «следующий» — он сам, и setActiveInstance это погасит.
+        // With one terminal the "next" one is itself, and setActiveInstance makes that a no-op.
         if (count === 0) return;
         const current = this.instances.findIndex((i) => i.id === this.activeId);
         const next = this.instances[(current + offset + count) % count];
@@ -427,17 +432,17 @@ export class TerminalService extends Disposable implements IContextKeyContributo
     }
 
     /**
-     * Последний закрытый прячет панель (`hideOnLastClosed`), если активна вкладка
-     * TERMINAL — как `hidePanel` эталона.
+     * Closing the last one hides the panel (`hideOnLastClosed`) if the TERMINAL tab
+     * is active — like upstream `hidePanel`.
      */
     private removeInstance(instance: TerminalInstanceRecord | undefined, reason: TerminalExitReason): void {
         if (instance === undefined) return;
-        // Причина — до любых событий: подписчики close/dispose её уже видят.
+        // Set the reason before any events: close/dispose subscribers already see it.
         const disposed: IDisposedTerminalInstance = Object.assign(instance, { exitReason: reason });
         for (const list of [this.backgroundInstances, this.editorInstances]) {
             const index = list.indexOf(instance);
             if (index === -1) continue;
-            // Фоновых и редакторных нет среди вкладок вида — только снять.
+            // Background and editor instances aren't among the view tabs — just remove.
             list.splice(index, 1);
             this.destroyInstance(instance);
             this.onDidDisposeInstanceEmitter.fire(disposed);
@@ -454,7 +459,7 @@ export class TerminalService extends Disposable implements IContextKeyContributo
         );
     }
 
-    /** `detach` — до события закрытия (убить или переселить), `closed` — после него. */
+    /** `detach` — before the close event (kill or relocate), `closed` — after it. */
     private removeFromPanel(instance: TerminalInstanceRecord, detach: () => void, closed?: () => void): void {
         const index = this.instances.indexOf(instance);
         const wasActive = this.activeId === instance.id;
@@ -504,7 +509,7 @@ function sessionOptions(
     };
 }
 
-/** Пустое имя у эталона — «не задано»: заголовок по процессу. */
+/** Upstream treats an empty name as "not set": the title comes from the process. */
 function titleOf(options: ITerminalRelaunchInstanceOptions, session: ITerminalSession): string {
     return options.name !== undefined && options.name !== "" ? options.name : basename(session.shell);
 }
@@ -518,7 +523,7 @@ function launchInfo(
     return { shellPath: session.shell, shellArgs: options.shellArgs, cwd, env: options.env, hideFromUser };
 }
 
-/** Как `parseExitResult` эталона; у pty расширения командной строки нет. */
+/** Like upstream `parseExitResult`; an extension pty has no command line. */
 function exitMessage(instance: TerminalInstanceRecord, code: number): string {
     if (instance.external) return `The terminal process terminated with exit code: ${code}.`;
     const args = (instance.launch.shellArgs ?? []).map((a) => ` '${a}'`).join();

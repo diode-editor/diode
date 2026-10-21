@@ -20,7 +20,7 @@ export interface IScmRepoState {
     readonly state: ScmRepoOpState;
 }
 
-/** До первой публикации: репозитория нет или расширение не активно. */
+/** Before the first publish: no repository, or the extension is not active. */
 const NO_REPO: IScmRepoState = {
     branch: null,
     detached: false,
@@ -35,7 +35,7 @@ const OP_STATES: readonly ScmRepoOpState[] = ["idle", "merging", "rebasing", "ch
 
 export const ScmRepoStateServiceDIToken = token<ScmRepoStateService>("ScmRepoStateService");
 
-/** Паттерн — {@link ScmChangesService}; на деривированных when-ключах висят sync/branch/stash-команды. */
+/** Same pattern as {@link ScmChangesService}; sync/branch/stash commands depend on the derived when-keys. */
 export class ScmRepoStateService extends Disposable {
     public static dependencies = [CommandRegistryDIToken, ContextKeyServiceDIToken] as const;
 
@@ -61,7 +61,7 @@ export class ScmRepoStateService extends Disposable {
         return this.repoState;
     }
 
-    /** Расширение активно и репозиторий есть. */
+    /** The extension is active and a repository exists. */
     public get hasRepository(): boolean {
         return this.hasRepo;
     }
@@ -90,7 +90,7 @@ export class ScmRepoStateService extends Disposable {
     }
 }
 
-/** Непохожее — null: снимок не трогаем. */
+/** Unrecognized payload yields null: the snapshot is left untouched. */
 function parseRepoState(payload: unknown): IScmRepoState | null {
     if (typeof payload !== "object" || payload === null) return null;
     const raw = payload as Record<string, unknown>;

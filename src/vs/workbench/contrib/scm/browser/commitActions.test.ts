@@ -209,12 +209,12 @@ describe("варианты commit-семейства", () => {
     it("commitStaged не задаёт smart/all; commitAll шлёт all", async () => {
         const h = makeHarness();
         h.message.value = "msg";
-        h.setChanges([]); // smart-ветка не должна включиться
+        h.setChanges([]); // the smart branch must not kick in
 
         await gitCommitStagedAction.run(h.accessor);
         expect(h.ops[0].params?.all).toBe(false);
 
-        h.message.value = "msg"; // успех первого коммита очистил input
+        h.message.value = "msg"; // the first successful commit cleared the input
         await gitCommitAllAction.run(h.accessor);
         expect(h.ops[1].params?.all).toBe(true);
         expect(h.confirms).toBe(0);

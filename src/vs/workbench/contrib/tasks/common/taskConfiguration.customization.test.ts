@@ -134,7 +134,7 @@ describe("parseTasksJson — кастомизации задач провайд�
             () => strict,
         );
         expect(configuring).toStrictEqual([]);
-        // Сначала — сообщение схемы о негодном обязательном свойстве, затем — эталонное «unknown type».
+        // First the schema message about the invalid required property, then upstream's "unknown type".
         expect(problems).toHaveLength(2);
         expect(problems.at(-1)).toBe(
             `Error: the task configuration '{"type":"npm"}' is using an unknown type. The task configuration will be ignored.`,

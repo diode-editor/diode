@@ -1,19 +1,19 @@
 /**
- * Дословный порт pipe-модели lazygit (`pkg/gui/presentation/graph/{graph,cell}.go`):
- * порядок шагов {@link getNextPipes} и проходов {@link renderPipeSet} решает, какая
- * линия куда сдвинется и чей цвет победит, — фикстуры `graph_test.go` держат его.
- * Отличие: вместо ANSI-строки — {@link IGraphLine} с токеном темы на символ.
+ * Verbatim port of the lazygit pipe model (`pkg/gui/presentation/graph/{graph,cell}.go`):
+ * the order of steps in {@link getNextPipes} and passes in {@link renderPipeSet} decides which
+ * line moves where and whose color wins — the `graph_test.go` fixtures pin it down.
+ * Difference: instead of an ANSI string, an {@link IGraphLine} with a theme token per char.
  */
 
-/** Порядок значений — ключ сортировки пайпов. */
+/** Value order is the pipe sort key. */
 export enum PipeKind {
-    /** Коммит — родитель линии. */
+    /** The commit is the line's parent. */
     Terminates,
     Starts,
     Continues,
 }
 
-/** `fromPos` — колонка в строке предыдущего коммита, `toPos` — в текущей. */
+/** `fromPos` is the column in the previous commit's row, `toPos` in the current one. */
 export interface IPipe {
     readonly fromHash: string;
     readonly toHash: string;
@@ -25,38 +25,38 @@ export interface IPipe {
 
 export interface IGraphCommit {
     readonly sha: string;
-    /** В порядке git; пусто — корневой коммит. */
+    /** In git order; empty means a root commit. */
     readonly parents: readonly string[];
 }
 
 export interface IGraphLine {
     readonly text: string;
-    /** `undefined` — символ без окраски. */
+    /** `undefined` means an uncolored char. */
     readonly styles: readonly (string | undefined)[];
 }
 
 /**
- * `inherited` — цвет продолжаемой линии, `null` — новая дорожка. Отклонение от lazygit
- * (цвет по автору коммита): цвет живёт на дорожке, как в vscode, — иначе каждый коммит
- * линейной истории красился бы в свой цвет.
+ * `inherited` is the color of the continued line, `null` means a new lane. Deviates from lazygit
+ * (color by commit author): the color lives on the lane, as in vscode — otherwise every commit
+ * of a linear history would get its own color.
  */
 export type GraphStyleProvider = (sha: string, inherited: string | null) => string;
 
-/** Пустое дерево git — родитель корневого коммита (`git hash-object -t tree /dev/null`). */
+/** The git empty tree is the root commit's parent (`git hash-object -t tree /dev/null`). */
 export const EMPTY_TREE_HASH = "4b825dc642cb6eb9a060e54bf8d69288fbee4904";
 
 export const START_HASH = "START";
 
-/** Аналог `FgLightWhite.SetBold()` lazygit. */
+/** Counterpart of lazygit `FgLightWhite.SetBold()`. */
 export const GRAPH_HIGHLIGHT_STYLE = "list.highlightForeground";
 
-/** Затравочного пайпа и нетронутых клеток — до кадра почти не доживает. */
+/** Style of the seed pipe and untouched cells; it almost never reaches the frame. */
 export const GRAPH_DEFAULT_STYLE = "foreground";
 
 const MERGE_SYMBOL = "◎";
 const COMMIT_SYMBOL = "○";
 
-/** `null` не равен ничему: «нет выделенного коммита» не совпадёт с пайпом без источника. */
+/** `null` equals nothing: "no selected commit" must not match a pipe without a source. */
 function equalHashes(a: string | null, b: string | null): boolean {
     if (a === null || b === null) return false;
     return a === b;
@@ -77,8 +77,8 @@ export function renderCommitGraph(
 }
 
 /**
- * Затравка — фиктивный STARTS-пайп из {@link START_HASH}: без него первый коммит
- * не нашёл бы потомка и уехал бы в колонку 1.
+ * The seed is a fake STARTS pipe from {@link START_HASH}: without it the first commit
+ * would find no child and drift to column 1.
  */
 export function getPipeSets(commits: readonly IGraphCommit[], getStyle: GraphStyleProvider): IPipe[][] {
     if (commits.length === 0) return [];
@@ -101,8 +101,8 @@ export function getPipeSets(commits: readonly IGraphCommit[], getStyle: GraphSty
 }
 
 /**
- * Порядок шагов — как в оригинале: `maxPos` считается по всем предыдущим пайпам,
- * включая терминировавшие, и только потом они отбрасываются.
+ * Step order follows the original: `maxPos` is computed over all previous pipes,
+ * including terminated ones, and only then are those dropped.
  */
 export function getNextPipes(prevPipes: readonly IPipe[], commit: IGraphCommit, getStyle: GraphStyleProvider): IPipe[] {
     let maxPos = 0;
@@ -113,21 +113,21 @@ export function getNextPipes(prevPipes: readonly IPipe[], commit: IGraphCommit, 
     const currentPipes = prevPipes.filter((pipe) => pipe.kind !== PipeKind.Terminates);
 
     const newPipes: IPipe[] = [];
-    // Не связан ни с чем (бывает только при `git log --all`) — в дальний конец.
+    // Not connected to anything (only happens with `git log --all`) — goes to the far end.
     let pos = maxPos + 1;
-    // Линия, оканчивающаяся в колонке коммита, отдаёт свой цвет линии к первому родителю.
+    // A line ending in the commit column hands its color to the line to the first parent.
     let inherited: string | null = null;
     for (const pipe of currentPipes) {
         if (equalHashes(pipe.toHash, commit.sha)) {
             pos = pipe.toPos;
-            // Затравка цвета не несёт: первый коммит начинает дорожку с нуля.
+            // The seed carries no color: the first commit starts a lane from scratch.
             inherited = pipe.fromHash === START_HASH ? null : pipe.style;
             break;
         }
     }
 
-    // Занятая колонка — где пайп оканчивается; пройденная — которую он начинает,
-    // оканчивает или пересекает.
+    // An occupied column is where a pipe ends; a traversed one is where it starts,
+    // ends or crosses.
     const takenSpots = new Set<number>();
     const traversedSpots = new Set<number>();
 
@@ -193,14 +193,14 @@ export function getNextPipes(prevPipes: readonly IPipe[], commit: IGraphCommit, 
     if (commit.parents.length > 1) {
         for (const parent of commit.parents.slice(1)) {
             const availablePos = getNextAvailablePosForNewPipe();
-            // Считаем, что продолжающиеся линии останутся на своих колонках.
+            // Assume continuing lines stay in their columns.
             newPipes.push({
                 fromPos: pos,
                 toPos: availablePos,
                 fromHash: commit.sha,
                 toHash: parent,
                 kind: PipeKind.Starts,
-                // Влитая ветка — новая дорожка: цвет мержа значил бы «та же ветка».
+                // A merged branch is a new lane: the merge's color would mean "same branch".
                 style: getStyle(parent, null),
             });
             takenSpots.add(availablePos);
@@ -209,7 +209,7 @@ export function getNextPipes(prevPipes: readonly IPipe[], commit: IGraphCommit, 
 
     for (const pipe of currentPipes) {
         if (!equalHashes(pipe.toHash, commit.sha) && pipe.toPos > pos) {
-            // Продолжается — и по дороге может подвинуться влево, заполняя дырку.
+            // Continues — and may shift left on the way, filling a hole.
             let last = pipe.toPos;
             for (let i = pipe.toPos; i > pos; i--) {
                 if (takenSpots.has(i) || traversedSpots.has(i)) break;
@@ -232,7 +232,7 @@ export function getNextPipes(prevPipes: readonly IPipe[], commit: IGraphCommit, 
     return newPipes;
 }
 
-/** Клетка строки: два символа — узел/угол и соединитель справа. */
+/** A row cell: two chars — node/corner and the connector to its right. */
 class Cell {
     private up = false;
     private down = false;
@@ -263,7 +263,7 @@ class Cell {
 
     public setLeft(style: string): this {
         this.left = true;
-        // Вертикаль важнее горизонтали: её цвет не перебиваем.
+        // Vertical wins over horizontal: its color is not overridden.
         if (!this.up && !this.down) this.style = style;
         return this;
     }
@@ -284,7 +284,7 @@ class Cell {
         return this;
     }
 
-    /** Пробел не красим: тесты сверяют стиль каждого символа (как в lazygit). */
+    /** Spaces stay uncolored: tests check every char's style (as in lazygit). */
     public render(): { chars: [string, string]; styles: [string | undefined, string | undefined] } {
         const [box, connector] = getBoxDrawingChars(this.up, this.down, this.left, this.right);
         const first = this.type === "commit" ? COMMIT_SYMBOL : this.type === "merge" ? MERGE_SYMBOL : box;
@@ -297,7 +297,7 @@ class Cell {
 }
 
 /**
- * Экспорт ради теста: таблица на 16 комбинаций, а фикстуры lazygit задевают не все.
+ * Exported for tests: the table has 16 combinations, and the lazygit fixtures do not hit all of them.
  */
 export function getBoxDrawingChars(up: boolean, down: boolean, left: boolean, right: boolean): [string, string] {
     if (up && down && left && right) return ["│", "─"];
@@ -319,8 +319,8 @@ export function getBoxDrawingChars(up: boolean, down: boolean, left: boolean, ri
 }
 
 /**
- * Три прохода задают приоритет цвета: невыделенные STARTS (перекрывают соединитель
- * справа), прочие невыделенные, последними — линии выделенного коммита поверх.
+ * Three passes set color priority: unselected STARTS (they override the right connector),
+ * other unselected, and last the selected commit's lines on top.
  */
 export function renderPipeSet(
     pipes: readonly IPipe[],
@@ -358,7 +358,7 @@ export function renderPipeSet(
         if (pipe.kind === PipeKind.Terminates || pipe.kind === PipeKind.Continues) cells[pipe.fromPos].setUp(style);
     };
 
-    // Подсветка — только если в строке есть видимая линия выделенного коммита.
+    // Highlight only if the row has a visible line of the selected commit.
     let highlight = true;
     if (prevCommitHash !== null && equalHashes(prevCommitHash, selectedHash)) {
         highlight = false;
@@ -383,8 +383,8 @@ export function renderPipeSet(
     }
 
     for (const pipe of nonSelectedPipes) {
-        // Вырожденный TERMINATES ровно в колонке коммита пропускаем — иначе он
-        // перебил бы цвет стартующей отсюда линии.
+        // Skip a degenerate TERMINATES in the commit column — otherwise it
+        // would override the color of the line starting here.
         const degenerateTerminator =
             pipe.kind === PipeKind.Terminates && pipe.fromPos === commitPos && pipe.toPos === commitPos;
         if (pipe.kind !== PipeKind.Starts && !degenerateTerminator) renderPipe(pipe, pipe.style, false);

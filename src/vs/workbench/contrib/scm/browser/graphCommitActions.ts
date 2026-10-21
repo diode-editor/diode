@@ -10,14 +10,14 @@ import { createBranch, inputRefName } from "./branchActions.ts";
 import { runGitOp, showGitNotice } from "./gitOpClient.ts";
 
 /**
- * Группы — как VS Code `scm/historyItem/context`; сверх него Reset и Revert: без них
- * история в TUI — смотровая площадка. Из палитры sha не подставится — без аргумента
- * команды выходят тихо, как прочие resource-команды SCM.
+ * Groups follow VS Code `scm/historyItem/context`, plus Reset and Revert: without them
+ * the history in a TUI is view-only. The palette cannot supply a sha, so without an argument
+ * the commands exit silently, like other SCM resource commands.
  */
 
 const WHEN_IDLE_REPO = "gitHasRepo && !gitMerging && !gitRebasing";
 
-/** Описания — по `git reset --help`. */
+/** Descriptions follow `git reset --help`. */
 const RESET_MODES = [
     { label: "Mixed", mode: "mixed", description: "Keep working tree, reset index (default)" },
     { label: "Soft", mode: "soft", description: "Keep working tree and index" },
@@ -117,7 +117,7 @@ export const graphRevertAction: CommandAction = {
     },
 };
 
-/** `--hard` теряет правки рабочего дерева — с подтверждением, как Delete Branch и Discard. */
+/** `--hard` loses working tree changes, so it asks for confirmation, like Delete Branch and Discard. */
 export const graphResetAction: CommandAction = {
     id: "git.graph.reset",
     title: "Git: Reset to Commit...",

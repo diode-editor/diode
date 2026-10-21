@@ -9,15 +9,15 @@ import type { ITerminalInstance } from "./terminalService.ts";
 export const TERMINAL_TABS_LIST_ID = "terminalTabsList";
 
 /**
- * Ширина списка вкладок в колонках. У эталона список по умолчанию 120px
- * (≈15 знаков) и тянется sash'ем; перетаскиваемой ширины и «narrow»-режима
- * (одни иконки при ≤63px) у нас нет — см. docs/TODO/IntegratedTerminal.md.
+ * Tab list width in columns. Upstream's list defaults to 120px
+ * (≈15 chars) and is resized with a sash; we have no draggable width or "narrow" mode
+ * (icons only at ≤63px) — see docs/TODO/IntegratedTerminal.md.
  */
 export const TERMINAL_TABS_WIDTH = 20;
 
 export const SWITCH_TERMINAL_SHOW_TABS = "Show Tabs";
 
-/** `$(terminal)` (`tabs.defaultIcon` эталона). */
+/** `$(terminal)` (upstream `tabs.defaultIcon`). */
 const TERMINAL_ICON = "\uea85";
 
 const ROW_ID_PREFIX = "terminalTab-";
@@ -26,7 +26,7 @@ export function terminalTabRowId(instanceId: number): string {
     return `${ROW_ID_PREFIX}${instanceId}`;
 }
 
-/** Как `getSingleTabLabel` эталона. */
+/** Like upstream `getSingleTabLabel`. */
 export function terminalTabLabel(instance: ITerminalInstance): string {
     return `${TERMINAL_ICON} ${instance.title}`;
 }
@@ -36,19 +36,20 @@ export function terminalIndexedLabel(index: number, instance: ITerminalInstance)
 }
 
 export interface ITerminalTabsListHandlers {
-    /** Терминал становится активным без фокуса. */
+    /** The terminal becomes active without focus. */
     onDidSelectInstance(instanceId: number): void;
-    /** Строка к этому моменту уже активна — её выбрали стрелками или первым кликом. */
+    /** By now the row is already active — chosen with arrows or the first click. */
     onDidActivateInstance(): void;
     onDidRequestContextMenu(instanceId: number, screenX: number, screenY: number): void;
 }
 
-/** Курсор списка = активный терминал. Семантика (активировать, фокус, kill, меню) — у владельца через колбэки. */
+/** List cursor = active terminal. Semantics (activate, focus, kill, menu) belong to the owner via callbacks. */
 export class TerminalTabsList {
     public readonly list = new ListViewElement({ typeahead: false });
 
-    /** Пока список сам переставляет курсор, его `onSelect` — эхо, не действие пользователя. */
-    // Stryker disable next-line BooleanLiteral: до первого setInstances строк нет, и onSelect не приходит — начальное значение ни на что не влияет
+    /** While the list moves the cursor itself, its `onSelect` is an echo, not a user action. */
+    // No rows before the first setInstances, so onSelect never fires — the initial value has no effect.
+    // Stryker disable next-line BooleanLiteral: the initial value is unobservable — see above
     private syncing = false;
 
     public constructor(handlers: ITerminalTabsListHandlers) {
@@ -71,10 +72,10 @@ export class TerminalTabsList {
         for (const instance of instances) {
             const row = new TextLabelElement(` ${terminalTabLabel(instance)}`);
             row.id = terminalTabRowId(instance.id);
-            // Без `label`: он нужен только typeahead'у, а тот выключен.
+            // No `label`: only typeahead needs it, and typeahead is off.
             this.list.appendRow(row);
         }
-        // Терминалов нет — и строки нет (setCursorTo бросает на неизвестной).
+        // No terminals — no row either (setCursorTo throws on an unknown one).
         if (activeId !== null) this.list.setCursorTo(terminalTabRowId(activeId));
         this.syncing = false;
     }
@@ -85,7 +86,7 @@ export class TerminalTabsList {
     }
 }
 
-/** Строки списка — только наши (`terminalTab-<id>`), поэтому разбор без проверок. */
+/** List rows are only ours (`terminalTab-<id>`), so parse without checks. */
 function instanceIdOf(element: TUIElement): number {
     return Number(listRowId(element).slice(ROW_ID_PREFIX.length));
 }

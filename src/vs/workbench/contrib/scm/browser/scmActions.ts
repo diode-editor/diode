@@ -28,8 +28,8 @@ import { STASH_ACTIONS } from "./stashActions.ts";
 import { SYNC_ACTIONS } from "./syncActions.ts";
 
 /**
- * Мутирующее гасится на время операции ({@link gitMutating}): в VS Code это поле каждой
- * команды манифеста, у нас — один список, чтобы не расходился с транспортными швами.
+ * Mutating commands are disabled during an operation ({@link gitMutating}): in VS Code this is a field
+ * of each manifest command, here it is one list so it does not drift from the transport seams.
  */
 export const SCM_ACTIONS: readonly CommandAction[] = [
     compareWithHeadAction,

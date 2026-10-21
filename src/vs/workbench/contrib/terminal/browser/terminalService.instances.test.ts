@@ -7,7 +7,7 @@ import { makeViewsHarness } from "../../../browser/parts/views/viewsService.test
 
 import { TERMINAL_VIEW_ID, TerminalService } from "./terminalService.ts";
 
-/** Последний из N — активный. */
+/** The last of N is active. */
 function buildHarness(count: number, settings: Readonly<Record<string, unknown>> = {}) {
     const views = makeViewsHarness();
     const sessions: FakeTerminalSurface[] = [];
@@ -38,7 +38,7 @@ describe("TerminalService — switching the active instance", () => {
         expect(h.activeIndex()).toBe(0);
         expect(onActive).toHaveBeenCalledTimes(1);
         expect(onActive).toHaveBeenCalledWith(h.service.getInstance(first));
-        // Активация — не фокус: так ходят стрелки по списку вкладок эталона.
+        // Activation is not focus: that's how arrows move through upstream's tab list.
         expect(onFocus).not.toHaveBeenCalled();
 
         h.service.setActiveInstance(first);
@@ -61,7 +61,7 @@ describe("TerminalService — switching the active instance", () => {
     });
 
     it("next/previous cycle through the instances in both directions", () => {
-        const h = buildHarness(3); // активен #3 (индекс 2)
+        const h = buildHarness(3); // #3 is active (index 2)
         h.service.setActiveToNext();
         expect(h.activeIndex()).toBe(0);
         h.service.setActiveToNext();
@@ -139,7 +139,7 @@ describe("TerminalService — closeInstance (kill)", () => {
 
         h.service.closeInstance(h.ids()[1]);
 
-        // Был средний — активным стал следующий (тот, что встал на его индекс).
+        // The middle one was active — the next one (now at its index) became active.
         expect(h.service.getActiveInstance()?.session).toBe(h.sessions[2]);
         expect(onActive).toHaveBeenCalledTimes(1);
         h.service.dispose();

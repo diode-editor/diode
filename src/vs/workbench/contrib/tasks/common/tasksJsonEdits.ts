@@ -1,5 +1,5 @@
-// Запись дописывается вставкой перед `]` массива `tasks`, а не `modify`: тот
-// переформатировал бы соседнюю запись и унёс бы её хвостовой комментарий.
+// An entry is appended by inserting before `]` of the `tasks` array rather than with `modify`: that
+// would reformat the neighbor entry and carry away its trailing comment.
 
 import {
     applyEdits,
@@ -53,12 +53,12 @@ export function tasksJsonHasTasks(text: string): boolean {
     return Array.isArray(tasks) && tasks.length > 0;
 }
 
-/** Не группа по умолчанию — строкой (`GroupKind.to`). */
+/** A non-default group is written as a string (`GroupKind.to`). */
 function groupToJson(group: ITaskGroup): string | Json {
     return group.isDefault === true ? { kind: group.id, isDefault: true } : group.id;
 }
 
-/** `_createCustomizableTask` эталона: матчеры — пустым списком, если у задачи их нет. */
+/** Upstream's `_createCustomizableTask`: matchers as an empty list if the task has none. */
 export function customizationEntryOf(task: ITask): Json {
     const { _key: _ignored, ...identifier } = task.definition;
     return {
@@ -76,7 +76,10 @@ export function newTasksJsonWith(entry: Json, indentation: ITasksJsonIndentation
     return expandTemplateTabs(content, indentation);
 }
 
-/** Нет `version` — ставится 2.0.0: без неё Diode файл не читает. Текст обязан пройти {@link isWritableTasksJson}. */
+/**
+ * Without `version`, 2.0.0 is set: Diode does not read the file without it.
+ * The text must pass {@link isWritableTasksJson}.
+ */
 export function appendTaskEntry(
     text: string,
     entry: Json,
@@ -85,7 +88,7 @@ export function appendTaskEntry(
     if (text.trim() === "") return { text: newTasksJsonWith(entry, indentation), index: 0 };
     const options = { formattingOptions: formattingOf(text, indentation) };
     let next = text;
-    // Stryker disable next-line OptionalChaining: эквивалентный — текст пригоден для записи (контракт), разбор даёт объект; `?.` — для типов
+    // Stryker disable next-line OptionalChaining: equivalent: the text is writable (contract), so parsing gives an object; `?.` is for types
     if (parseObject(next)?.version === undefined) {
         next = applyEdits(next, modify(next, ["version"], "2.0.0", options));
     }
@@ -93,16 +96,16 @@ export function appendTaskEntry(
     if (tasks?.type !== "array") {
         return { text: applyEdits(next, modify(next, ["tasks"], [entry], options)), index: 0 };
     }
-    // Stryker disable next-line ArrayDeclaration: эквивалентный — у узла-массива jsonc-parser `children` есть всегда (у пустого — []); фоллбэк — для типов
+    // Stryker disable next-line ArrayDeclaration: equivalent: a jsonc-parser array node always has `children` ([] when empty); fallback is for types
     const children = tasks.children ?? [];
     return { text: insertLastElement(next, tasks, children, entry, options.formattingOptions), index: children.length };
 }
 
-/** Пустой текст — `undefined`. */
+/** Empty text gives `undefined`. */
 function findTasksNode(text: string, rest: readonly number[]): Node | undefined {
-    // Разбор терпимый сам: висячие запятые — ошибка в `errors`, дерево строится всё равно.
+    // The parse is tolerant itself: trailing commas are an error in `errors`, the tree is built anyway.
     const root = parseTree(text);
-    // Stryker disable next-line ConditionalExpression: эквивалентный — findNodeAtLocation без корня сам отвечает undefined; проверка — для типов
+    // Stryker disable next-line ConditionalExpression: equivalent: findNodeAtLocation without a root returns undefined itself; the check is for types
     return root === undefined ? undefined : findNodeAtLocation(root, ["tasks", ...rest]);
 }
 
@@ -117,7 +120,7 @@ function lineIndentAt(text: string, offset: number): string {
     return text.slice(lineStart, end);
 }
 
-/** Отступ — как у последнего элемента на своей строке, иначе отступ строки массива плюс шаг. */
+/** Indent as the last element on its own line, otherwise the array line's indent plus one step. */
 function insertLastElement(
     text: string,
     array: Node,
@@ -128,8 +131,8 @@ function insertLastElement(
     const { eol } = formatting;
     const unit = formatting.insertSpaces ? " ".repeat(formatting.tabSize) : "\t";
     const close = array.offset + array.length - 1;
-    // Пробелы и переводы строк перед `]` уходят: элемент встаёт за последним непробельным
-    // (запятой, комментарием или `[`).
+    // Whitespace and newlines before `]` are dropped: the element goes after the last non-whitespace
+    // (a comma, a comment or `[`).
     let insertAt = close;
     while (/\s/u.test(text.charAt(insertAt - 1))) insertAt--;
     const elementAt = (indent: string): string => {
@@ -141,7 +144,8 @@ function insertLastElement(
     const last = children.at(-1);
     const arrayStepIndent = lineIndentAt(text, array.offset) + unit;
     if (last === undefined) return text.slice(0, insertAt) + elementAt(arrayStepIndent) + text.slice(close);
-    // Последний элемент один в начале своей строки — его отступ; иначе (делит строку с `[`) — от массива.
+    // The last element alone at the start of its line gives its indent; otherwise (sharing a line with `[`),
+    // the array's.
     const lastIndent = lineIndentAt(text, last.offset);
     const ownLine = lineStartOf(text, last.offset) + lastIndent.length === last.offset;
     const element = elementAt(ownLine ? lastIndent : arrayStepIndent);
@@ -150,19 +154,19 @@ function insertLastElement(
     return text.slice(0, lastEnd) + comma + text.slice(lastEnd, insertAt) + element + text.slice(close);
 }
 
-/** Двоеточия там не бывает — любой разделитель в этом промежутке запятая. */
+/** There is never a colon there, so any separator in this range is a comma. */
 function hasComma(text: string, from: number, to: number): boolean {
     let found = false;
     visit(text, {
         onSeparator: (_character, offset) => {
-            // Stryker disable next-line EqualityOperator: эквивалентный — на `to` стоит `]`, разделителя там не бывает
+            // Stryker disable next-line EqualityOperator: equivalent: `to` holds `]`, never a separator
             if (offset >= from && offset < to) found = true;
         },
     });
     return found;
 }
 
-/** Пустой файл получает шаблон целиком, иначе в файл переносятся ключи шаблона. */
+/** An empty file gets the whole template, otherwise the template's keys are moved into the file. */
 export function applyTaskTemplate(text: string, template: string, indentation: ITasksJsonIndentation): string {
     const content = expandTemplateTabs(template, indentation);
     if (text.trim() === "") return content;

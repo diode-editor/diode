@@ -22,7 +22,7 @@ function buildHarness(shell?: string, settings: Readonly<Record<string, unknown>
     };
     const configuration = createTestConfigurationService(settings);
     const service = new TerminalService(views.service, configuration, factory);
-    // Контейнер TERMINAL строит mount() workbench'а — здесь его роль.
+    // The workbench mount() builds the TERMINAL container — this stands in for it.
     views.service.attachRegisteredContainers();
     return { panelService, views, service, created: sessions, factoryOptions };
 }
@@ -170,7 +170,7 @@ describe("TerminalService — exit handling", () => {
         const h = buildHarness();
         const onActive = vi.fn();
         h.service.newTerminal();
-        h.service.newTerminal(); // #2 — активный
+        h.service.newTerminal(); // #2 is active
         h.service.onDidChangeActiveInstance(onActive);
 
         h.created[0].emitExit(0);
@@ -189,8 +189,8 @@ describe("TerminalService — exit handling", () => {
         h.created[0].emitExit(0);
         expect(h.service.hasOpenTerminals).toBe(false);
 
-        // Подписку рвёт destroyInstance, поэтому повторный сигнал выхода до сервиса
-        // уже не доходит и ничего не ломает.
+        // destroyInstance cuts the subscription, so a repeated exit signal never
+        // reaches the service and breaks nothing.
         expect(() => {
             h.created[0].emitExit(0);
         }).not.toThrow();
@@ -203,7 +203,7 @@ describe("TerminalService — exit handling", () => {
         h.service.openTerminal();
         h.service.dispose();
 
-        // dispose() снял подписки — «поздний» выход PTY не должен трогать сервис.
+        // dispose() removed the subscriptions — a "late" PTY exit must not touch the service.
         expect(() => {
             h.created[0].emitExit(0);
         }).not.toThrow();

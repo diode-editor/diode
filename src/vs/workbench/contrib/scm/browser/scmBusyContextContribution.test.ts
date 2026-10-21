@@ -36,8 +36,8 @@ describe("ScmBusyContextContribution", () => {
                     }),
             );
 
-            // Ключ обязан подняться до задержки показа: команда должна погаснуть
-            // мгновенно, а не через 300 мс.
+            // The key must be raised before the show delay: the command must be disabled
+            // immediately, not after 300 ms.
             expect(h.contextKeys.get("gitOperationInProgress")).toBe(true);
 
             done();

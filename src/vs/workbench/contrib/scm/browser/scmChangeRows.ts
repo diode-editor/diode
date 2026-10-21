@@ -18,20 +18,20 @@ export const GIT_STATUS_COLOR_IDS = [
     "gitDecoration.ignoredResourceForeground",
 ] as const satisfies readonly (keyof IWorkbenchColors)[];
 
-/** Выделение и hover красит сам ListViewElement. */
+/** Selection and hover are painted by ListViewElement itself. */
 export interface IScmRowStyles {
     readonly statusColors: Partial<Record<string, StyleColor>>;
 }
 
-/** nf-cod-go_to_file; клик делегирует контейнер. */
+/** nf-cod-go_to_file; the container delegates the click. */
 export const OPEN_FILE_GLYPH = "";
 
-/** Воздух по бокам глифа — зона клика. */
+/** Padding around the glyph is the click area. */
 export const OPEN_FILE_BUTTON_WIDTH = OPEN_FILE_GLYPH.length + 2;
 
 /**
- * Кнопка Open File получает колонки, только пока строка активна ({@link LIST_ROW_ACTIVE_STATE}),
- * в покое — ширину 0. В layout, а не в стиле: кнопка «в цвет фона» держала бы колонки впустую.
+ * The Open File button gets columns only while the row is active ({@link LIST_ROW_ACTIVE_STATE}),
+ * width 0 at rest. Done in layout, not style: a background-colored button would waste the columns.
  */
 export class ScmFileRowElement extends HFlexElement {
     public constructor(private readonly openButton: TextLabelElement) {
@@ -48,7 +48,7 @@ export class ScmFileRowElement extends HFlexElement {
     }
 }
 
-/** Вместе — чтобы перекрашивать строку при смене темы без пересборки. */
+/** Kept together to recolor the row on theme change without rebuilding. */
 export interface IScmFileRowParts {
     readonly root: ScmFileRowElement;
     readonly name: TextLabelElement;
@@ -57,8 +57,8 @@ export interface IScmFileRowParts {
 }
 
 /**
- * `rowId` — конвенция `scmRow-<group>-<path>` у вызывающего. Кнопка потребляет click
- * `preventDefault()` (делегация ListViewElement), парный dblclick — чтобы не активировал строку.
+ * `rowId` follows the caller's `scmRow-<group>-<path>` convention. The button consumes click via
+ * `preventDefault()` (ListViewElement delegation), and the paired dblclick so it does not activate the row.
  */
 export function buildFileRow(
     rowId: string,
@@ -71,8 +71,8 @@ export function buildFileRow(
     const openButton = new TextLabelElement(` ${OPEN_FILE_GLYPH} `);
     const status = new TextLabelElement("");
 
-    // Своего hover нет намеренно: мышь принадлежит списку, и `in:hover` был бы истиной
-    // для всех раскрытых кнопок разом.
+    // No own hover on purpose: the mouse belongs to the list, and `in:hover` would be true
+    // for all expanded buttons at once.
     openButton.style = { fg: "descriptionForeground" };
     openButton.addEventListener("click", (event) => {
         event.preventDefault();

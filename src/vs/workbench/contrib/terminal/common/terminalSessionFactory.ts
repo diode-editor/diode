@@ -10,34 +10,34 @@ export interface ITerminalSessionOptions {
     shell?: string;
     args?: string[];
     cwd?: string;
-    /** Поверх унаследованного окружения; `null` снимает переменную (`TerminalOptions.env`). */
+    /** Applied over the inherited environment; `null` unsets a variable (`TerminalOptions.env`). */
     env?: Record<string, string | null>;
-    /** `true` — окружение шелла ровно `env`, без наследования от процесса (`TerminalOptions.strictEnv`). */
+    /** `true`: the shell environment is exactly `env`, not inherited from the process (`TerminalOptions.strictEnv`). */
     strictEnv?: boolean;
-    /** Печатается в эмулятор до вывода шелла (`initialText` эталона); в шелл не уходит. */
+    /** Printed to the emulator before shell output (upstream `initialText`); never sent to the shell. */
     message?: string;
 }
 
 export type ITerminalRelaunchOptions = Omit<ITerminalSessionOptions, "cols" | "rows"> & {
-    /** Очистить буфер эмулятора перед новым процессом (`presentation.clear` задачи). */
+    /** Clear the emulator buffer before the new process (task `presentation.clear`). */
     clear?: boolean;
 };
 
 export type ITerminalSession = ITerminalSurface &
     IDisposable & {
         readonly shell: string;
-        /** `undefined` — процесса на нашей стороне нет (pty расширения). */
+        /** `undefined` when there is no process on our side (extension pty). */
         readonly pid: number | undefined;
         /**
-         * Процесс уже вышел — новый в том же эмуляторе (`reuseTerminal` эталона). Pty расширения
-         * шелловые поля пропускает: новый процесс подключит расширение.
+         * The process has exited — start a new one in the same emulator (upstream `reuseTerminal`). An extension
+         * pty ignores the shell fields: the extension attaches the new process.
          */
         relaunch(options: ITerminalRelaunchOptions): void;
-        /** В процесс текст не уходит. */
+        /** The text isn't sent to the process. */
         printMessage(text: string): void;
-        /** Индексы 0..15; перекрашивает и уже выведенное. */
+        /** Indices 0..15; recolors already printed output too. */
         setAnsiColors(ansi: readonly number[]): void;
-        /** Клавиша «press any key to close» (`waitOnExit` эталона). */
+        /** Key press for "press any key to close" (upstream `waitOnExit`). */
         readonly onDidInputAfterExit: Event<void>;
     };
 
@@ -45,7 +45,7 @@ export type TerminalSessionFactory = (options: ITerminalSessionOptions) => ITerm
 
 export const TerminalSessionFactoryDIToken = token<TerminalSessionFactory>("TerminalSessionFactory");
 
-/** Процессом владеет расширение (`window.createTerminal({ pty })`): на нашей стороне только эмулятор. */
+/** The extension owns the process (`window.createTerminal({ pty })`): only the emulator is on our side. */
 export interface IExtensionPtySession extends ITerminalSession {
     feed(data: string): void;
     exit(code: number | undefined): void;
@@ -54,7 +54,7 @@ export interface IExtensionPtySession extends ITerminalSession {
 export interface IExtensionPtySessionOptions {
     cols: number;
     rows: number;
-    /** Имя терминала — им сессия представляется вместо шелла (`shell`). */
+    /** Terminal name; the session reports it instead of a shell (`shell`). */
     name: string;
     onInput(data: string): void;
     onResize(cols: number, rows: number): void;

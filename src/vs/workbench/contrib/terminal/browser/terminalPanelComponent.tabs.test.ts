@@ -84,7 +84,7 @@ function buildHarness(settings: Readonly<Record<string, unknown>> = {}, shells: 
             raw: "",
         });
     };
-    /** Координаты кадра 0-based. */
+    /** Frame coordinates are 0-based. */
     const clickRow = (instanceIndex: number, button: MouseToken["button"] = "left"): void => {
         screen();
         const pos = rowOf(instanceIndex).globalPosition;
@@ -160,7 +160,7 @@ describe("TerminalPanelComponent — tabs list in the frame", () => {
         expect(count(screen, tab("zsh"))).toBe(1);
         const bashRow = h.lines().find((line) => line.includes(tab("bash"))) ?? "";
         expect(bashRow.indexOf(tab("bash"))).toBe(WIDTH - TERMINAL_TABS_WIDTH - 1);
-        // Имени активного в заголовке больше нет — его роль играет список.
+        // The active terminal's name is no longer in the title — the list plays that role.
         const tabRow = h.lines().find((line) => line.includes("TERMINAL")) ?? "";
         expect(tabRow).not.toContain("zsh");
         h.dispose();
@@ -388,7 +388,7 @@ describe("TerminalPanelComponent — dropdown keyboard", () => {
         h.testApp.render();
         h.testApp.sendKey("Enter");
         expect((switcher as SelectBoxElement).isOpen()).toBe(true);
-        // Попап открывается на первом пункте: «1: bash» → «2: bash» → (черта пропущена) «Show Tabs».
+        // The popup opens on the first item: "1: bash" → "2: bash" → (separator skipped) "Show Tabs".
         h.testApp.sendKey("ArrowDown");
         h.testApp.sendKey("ArrowDown");
         h.testApp.sendKey("Enter");
@@ -478,7 +478,7 @@ describe("TerminalPanelComponent — list interaction", () => {
         const spy = vi.spyOn(h.service, "setActiveInstance");
         h.service.newTerminal();
         h.service.setActiveToPrevious();
-        expect(spy).toHaveBeenCalledTimes(1); // только явный вызов из setActiveToPrevious
+        expect(spy).toHaveBeenCalledTimes(1); // only the explicit call from setActiveToPrevious
         h.dispose();
     });
 
@@ -531,7 +531,7 @@ describe("TerminalPanelComponent — focus and context keys", () => {
         h.screen();
         h.component.focusTabs();
         h.testApp.render();
-        h.testApp.sendKey("z"); // с typeahead курсор прыгнул бы на zsh
+        h.testApp.sendKey("z"); // with typeahead the cursor would jump to zsh
         expect(h.activeIndex()).toBe(2);
         h.dispose();
     });

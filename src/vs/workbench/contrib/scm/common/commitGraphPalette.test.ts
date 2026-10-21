@@ -49,7 +49,7 @@ describe("createGraphPalette", () => {
     it("colorOf помнит цвет дорожки коммита; первое присвоение побеждает", () => {
         const palette = createGraphPalette([commit("a")]);
         const lane = palette.styleFor("a", null);
-        // Ниже по графу тот же коммит спросят снова — цвет не должен «переехать».
+        // Further down the graph the same commit is asked again — its color must not "move".
         palette.styleFor("a", GRAPH_PALETTE[4]);
         expect(palette.colorOf("a")).toBe(lane);
     });
@@ -59,14 +59,14 @@ describe("createGraphPalette", () => {
     });
 
     it("повторный sha в странице берётся по первому вхождению", () => {
-        // `git log` печатает коммит дважды, когда в него приходят две ветки.
+        // `git log` prints a commit twice when two branches lead into it.
         const palette = createGraphPalette([commit("a", [{ kind: "head", current: true }]), commit("a", [])]);
         expect(palette.styleFor("a", null)).toBe(GRAPH_CURRENT_REF_STYLE);
     });
 });
 
 describe("цвета на уложенном графе", () => {
-    /** Цвет узла строки — символ коммита стоит в его колонке. */
+    /** Node color per row — the commit symbol sits in its column. */
     function nodeStyles(commits: readonly IGraphCommit[], palette = createGraphPalette([])): (string | undefined)[] {
         const lines = renderCommitGraph(commits, null, palette.styleFor);
         return lines.map((line) => {

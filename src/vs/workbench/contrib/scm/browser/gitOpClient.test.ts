@@ -63,7 +63,7 @@ describe("runGitOp", () => {
         const loud = makeAccessor({ execute: () => failure });
         expect(await runGitOp(loud.accessor, "commit")).toEqual(failure);
         expect(loud.notices).toEqual(["Git: boom"]);
-        vi.runAllTimers(); // dispose notice — не бросает
+        vi.runAllTimers(); // disposing the notice does not throw
 
         const silent = makeAccessor({ execute: () => failure });
         expect(await runGitOp(silent.accessor, "commit", undefined, { silent: true })).toEqual(failure);

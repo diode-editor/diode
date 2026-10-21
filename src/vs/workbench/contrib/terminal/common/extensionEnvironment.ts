@@ -6,14 +6,17 @@ import type {
 import type { IWorkspaceContextService } from "../../../../platform/workspace/common/iWorkspaceContextService.ts";
 
 /**
- * `_resolveEnvironment` у `TerminalProcessManager` эталона: зовётся на каждый запуск процесса, в том
- * числе перезапуск терминала задачи; терминал со `strictEnv` его не получает.
+ * Upstream `TerminalProcessManager._resolveEnvironment`: called on every process launch, including a task
+ * terminal relaunch; a terminal with `strictEnv` doesn't get it.
  */
 export interface ITerminalEnvironmentContributor {
     apply(env: Record<string, string | undefined>, cwd: string): void;
 }
 
-/** `getWorkspaceForTerminal` эталона: папка с cwd терминала, иначе первый корень (у эталона — последний активный). */
+/**
+ * Upstream `getWorkspaceForTerminal`: the folder containing the terminal cwd, else the first root
+ * (upstream: the last active one).
+ */
 export function terminalEnvironmentScope(
     cwd: string,
     workspace: Pick<IWorkspaceContextService, "getWorkspace" | "getWorkspaceFolder">,
@@ -24,7 +27,7 @@ export function terminalEnvironmentScope(
         : { workspaceFolder: { uri: folder.uri.toString(), name: folder.name, index: folder.index } };
 }
 
-/** Довесок из слияния коллекций расширений, текущего на момент запуска процесса. */
+/** Additions from the merged extension collections as of the process launch. */
 export function createExtensionEnvironmentContributor(
     merged: () => MergedEnvironmentVariableCollection,
     workspace: Pick<IWorkspaceContextService, "getWorkspace" | "getWorkspaceFolder">,

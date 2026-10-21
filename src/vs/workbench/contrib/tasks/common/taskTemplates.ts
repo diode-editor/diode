@@ -1,8 +1,8 @@
-// Тексты дословно из `taskTemplates.ts` эталона.
+// Texts verbatim from upstream's `taskTemplates.ts`.
 
 import type { QuickPickItem } from "../../../common/quickPickItem.ts";
 
-/** Отступы текста — табами, как у эталона. */
+/** Text is indented with tabs, as upstream. */
 export interface ITaskTemplate extends QuickPickItem {
     readonly id: string;
     readonly sort?: string;
@@ -124,7 +124,7 @@ const maven: ITaskTemplate = {
     ].join("\n"),
 };
 
-/** «Others» — последним. */
+/** "Others" goes last. */
 export function getTaskTemplates(): ITaskTemplate[] {
     const sorted = [dotnetBuild, msbuild, maven].sort((a, b) => (a.sort ?? a.label).localeCompare(b.sort ?? b.label));
     return [...sorted, command];

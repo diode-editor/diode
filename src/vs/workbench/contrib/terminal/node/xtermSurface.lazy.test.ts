@@ -8,7 +8,7 @@ import { EmbeddedTerminalSession } from "./embeddedTerminalSession.ts";
 import { ExtensionPtySession } from "./extensionPtySession.ts";
 import type { XtermNamespace } from "./xtermSurface.ts";
 
-// Загрузчик куска придерживаем вручную: гонки «человек или процесс успели раньше куска».
+// The chunk loader is held back manually: races where the user or the process gets ahead of the chunk.
 
 function row(session: ExtensionPtySession | EmbeddedTerminalSession, y: number, width: number): string {
     const out: TerminalCell = { char: "", fg: 0, bg: 0, style: 0, width: 1 };
@@ -79,7 +79,7 @@ describe("XtermSurface — эмулятор из ленивого куска", (
         session.scrollLines(-3);
         session.sendMouse({ col: 1, row: 0, button: "left", action: "down", ctrl: false, alt: false, shift: false });
         await new Promise((resolve) => setTimeout(resolve, 10));
-        // Ячейки нет — и `out` не тронут.
+        // No cell — and `out` is untouched.
         const out: TerminalCell = { char: "?", fg: 1, bg: 2, style: 3, width: 1 };
         expect(session.readCell(0, 0, out)).toBe(false);
         expect(out).toStrictEqual({ char: "?", fg: 1, bg: 2, style: 3, width: 1 });
@@ -96,7 +96,7 @@ describe("XtermSurface — эмулятор из ленивого куска", (
             expect(row(session, 1, 30)).toBe("second");
         });
         expect(session.getCursor()).toStrictEqual({ x: 6, y: 1 });
-        // Режим мыши из накопленного вывода дошёл до эмулятора.
+        // The mouse mode from queued output reached the emulator.
         expect(session.mouseEventsActive).toBe(true);
         expect(updates).toHaveBeenCalled();
         session.dispose();
@@ -112,7 +112,7 @@ describe("XtermSurface — эмулятор из ленивого куска", (
         session.feed("x".repeat(35));
         loader.release();
         await session.xtermReady;
-        // Ширина 40, а не исходные 10: строка не перенеслась.
+        // Width 40, not the initial 10: the line didn't wrap.
         await vi.waitFor(() => {
             expect(row(session, 0, 40)).toBe("x".repeat(35));
         });

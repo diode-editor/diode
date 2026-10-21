@@ -150,7 +150,7 @@ describe("resolveScmTargets", () => {
             [uriOf("mm.ts"), uriOf("mm.ts"), uriOf("staged.ts"), uriOf("plain.ts"), uriOf("ghost.ts")],
             ["worktree", "untracked", "merge"],
         );
-        // staged.ts только в индексе — для stage неприменим; mm.ts один раз.
+        // staged.ts is only in the index — not applicable to stage; mm.ts once.
         expect(targets.map((u) => u.toString())).toEqual([uriOf("mm.ts"), uriOf("plain.ts")]);
     });
 
@@ -200,7 +200,7 @@ describe("runGitTransport", () => {
         h.setTransport({ ok: false, message: "fatal: pathspec 'x' did not match" });
         await runGitTransport(h.accessor, UNSTAGE_TRANSPORT_COMMAND, [Uri.file("/repo/a.ts")]);
         expect(h.notices).toEqual(["Git: fatal: pathspec 'x' did not match"]);
-        vi.runAllTimers(); // dispose таймера notice — не должен бросать
+        vi.runAllTimers(); // disposing the notice timer must not throw
     });
 
     it("реджект канала и пустое сообщение — generic notice", async () => {

@@ -56,7 +56,7 @@ function build(options: Parameters<typeof buildTaskServiceHarness>[0] = {}) {
     return { ...h, accessor, withNpm, launched };
 }
 
-/** Запуск идёт в фоне за сохранением редакторов — дождаться его. */
+/** The run happens in the background after saving editors; wait for it. */
 const flush = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
 
 const folderLabel = (type: string): string => `${CODICON_GLYPHS.folder ?? ""} ${type}`;

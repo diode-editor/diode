@@ -39,7 +39,7 @@ import { SCM_INPUT_HEIGHT, ScmInputComponentDIToken } from "./scmInputComponent.
 
 export const ChangesComponentDIToken = token<ChangesComponent>("ChangesComponent");
 
-/** Как в эталоне, минус клон: команды клонирования у нас нет. */
+/** As upstream, minus clone: there is no clone command. */
 const SCM_WELCOME: readonly IViewWelcomeBlock[] = [
     { kind: "text", text: "To use source control, open a folder containing a Git repository." },
     { kind: "text", text: "" },
@@ -51,7 +51,7 @@ type ScmRowMeta =
     | { readonly kind: "folder"; readonly group: ScmGroupId; readonly changes: readonly IScmChange[] }
     | { readonly kind: "group"; readonly group: ScmGroupId; readonly changes: readonly IScmChange[] };
 
-/** e2e-селектор `#id` матчит только `[A-Za-z0-9_-]`; коллизии ("a.b" ↔ "a-b") разводит суффикс. */
+/** The e2e selector `#id` matches only `[A-Za-z0-9_-]`; a suffix separates collisions ("a.b" ↔ "a-b"). */
 function sanitizeIdSegment(value: string): string {
     return value.replace(/[^A-Za-z0-9_-]+/g, "-");
 }
@@ -68,14 +68,14 @@ export class ChangesComponent extends Component {
 
     public readonly list = new ListViewElement();
     public readonly view: VFlexElement;
-    /** Якорь координат для e2e. */
+    /** Coordinate anchor for e2e. */
     public readonly listView: PaddingContainerElement;
 
     private readonly scrollBars: ScrollBarDecorator;
 
     private viewMode: ScmViewMode;
     private rowMeta = new Map<string, ScmRowMeta>();
-    // Имена gitDecoration.* резолвит каскад — рестайл на смену темы не нужен.
+    // The cascade resolves gitDecoration.* names, so no restyle is needed on theme change.
     private readonly rowStyles: IScmRowStyles = {
         statusColors: Object.fromEntries(GIT_STATUS_COLOR_IDS.map((id) => [id, id])),
     };
@@ -103,19 +103,19 @@ export class ChangesComponent extends Component {
         this.listView.style = { fg: "sideBar.foreground", bg: "sideBar.background" };
         this.list.style = { fg: "sideBar.foreground", bg: "sideBar.background" };
 
-        // Контролы коммита — в теле секции, а не шапкой контейнера (как в VS Code):
-        // свернул секцию — убрались и они.
+        // Commit controls live in the section body, not the container header (as in VS Code):
+        // collapsing the section hides them too.
         this.view = new VFlexElement();
         this.view.id = "scmView";
         this.view.style = { fg: "sideBar.foreground", bg: "sideBar.background" };
         this.view.addChild(scmInput.view, { height: vflexFit(), width: "fill" });
         this.view.addChild(this.listView, { height: vflexFill(), width: "fill" });
 
-        // Контейнер регистрирует первая секция; GRAPH записывается в него из своего компонента.
+        // The first section registers the container; GRAPH adds itself from its own component.
         viewsService.registerContainer({
             id: SCM_VIEWLET_ID,
             title: "SOURCE CONTROL",
-            // Stryker disable next-line StringLiteral: ViewsService различает только "panel"; любое другое значение (в том числе испорченное) уходит в сайдбар, так что подмена строки наблюдаемого эффекта не имеет
+            // Stryker disable next-line StringLiteral: ViewsService only checks "panel", anything else means sidebar
             location: "sidebar",
             order: 2,
             visibleContextKey: "scmViewletVisible",
@@ -127,14 +127,14 @@ export class ChangesComponent extends Component {
             title: "CHANGES",
             order: 10,
             body: this.view,
-            // Без папки git не активируется, и поле коммита выглядело бы рабочим,
-            // ничего не делая, — честное пустое состояние вместо этого.
+            // Without a folder git does not activate, and the commit input would look functional
+            // while doing nothing; an honest empty state instead.
             requiresWorkspaceFolder: true,
             placeholder: SCM_WELCOME,
             focus: () => {
                 this.focus();
             },
-            // Поле + зазор + кнопка + padding: дефолтных трёх строк на секцию не хватает.
+            // Input + gap + button + padding: the default three rows per section are not enough.
             minBodyHeight: SCM_INPUT_HEIGHT + 3,
         });
 
@@ -159,7 +159,7 @@ export class ChangesComponent extends Component {
         this.list.focus();
     }
 
-    /** Цель SCM-команд без явного uri-аргумента. */
+    /** Target of SCM commands without an explicit uri argument. */
     public getCursorChange(): IScmChange | null {
         const id = this.list.getCursorElement()?.id;
         if (id === undefined) return null;
@@ -167,7 +167,7 @@ export class ChangesComponent extends Component {
         return meta?.kind === "file" ? meta.change : null;
     }
 
-    /** Пустое выделение — строка под курсором; порядок — как в показе. */
+    /** Empty selection means the row under the cursor; order is display order. */
     public getSelectedChanges(): readonly IScmChange[] {
         const changes: IScmChange[] = [];
         for (const element of this.list.getSelectedElements()) {
@@ -188,7 +188,7 @@ export class ChangesComponent extends Component {
         this.rebuild();
     }
 
-    /** Зовётся после `openWorkspace`, без write-through. */
+    /** Called after `openWorkspace`, without write-through. */
     public restoreViewMode(): void {
         const mode = this.stateService.get(SCM_VIEW_MODE_STATE);
         if (mode === this.viewMode) return;
@@ -207,8 +207,8 @@ export class ChangesComponent extends Component {
     }
 
     /**
-     * Свёрнутость групп переживает пересборку, курсор возвращается на строку по id;
-     * свёрнутость папок сбрасывается — принято (как у поиска при новом запросе).
+     * Group collapse state survives the rebuild, the cursor returns to its row by id;
+     * folder collapse state resets, by design (as search does on a new query).
      */
     private rebuild(): void {
         const cursorId = this.list.getCursorElement()?.id;
@@ -255,8 +255,8 @@ export class ChangesComponent extends Component {
     }
 
     /**
-     * Id несёт настоящую группу записи, а не заголовок: untracked едет под «Changes»,
-     * но остаётся `scmRow-untracked-…` — селектор говорит правду о файле.
+     * The id carries the entry's real group, not its header: untracked shows under "Changes"
+     * but stays `scmRow-untracked-…`, so the selector tells the truth about the file.
      */
     private appendFileRow(change: IScmChange, label: string, parentId: string): void {
         const rowId = this.uniqueRowId(`scmRow-${change.group}-${sanitizeIdSegment(displayPath(change))}`);
@@ -287,8 +287,8 @@ export class ChangesComponent extends Component {
     }
 
     /**
-     * Цели: файл в выделении → всё выделение, вне его — одна строка; папка → её файлы;
-     * заголовок группы → вся группа (и своя точка меню `ScmResourceGroupContext`).
+     * Targets: a file in the selection → the whole selection, outside it → that row; folder → its files;
+     * group header → the whole group (and its own menu point `ScmResourceGroupContext`).
      */
     private showContextMenu(meta: ScmRowMeta, screenX: number, screenY: number): void {
         let kind: ScmMenuContext["kind"];

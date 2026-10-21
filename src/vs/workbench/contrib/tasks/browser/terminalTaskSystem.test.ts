@@ -29,7 +29,7 @@ function buildHarness() {
         sessions.push(session);
         return session;
     });
-    // Соседняя вкладка панели — чтобы «панель видна, но не на терминале».
+    // A neighbor panel tab, for "panel visible, but not on the terminal".
     views.service.registerContainer({ id: "other", title: "OTHER", location: "panel", order: 1 });
     views.service.registerView({
         id: "other",
@@ -293,7 +293,7 @@ describe("TerminalTaskSystem — показ терминала", () => {
 
     it("silent: задачу остановили — терминал не показывается (показ — только при выходе процесса)", async () => {
         const h = buildHarness();
-        // Ещё один терминал открыт — панель не прячется вместе с последним.
+        // Another terminal is open, so the panel does not hide with the last one.
         h.terminals.createInstance({});
         const task = makeTask({ presentation: { reveal: "silent" } });
         h.system.run(task, h.context());
@@ -323,7 +323,7 @@ describe("TerminalTaskSystem — показ терминала", () => {
         expect(h.system.isTaskVisible(a)).toBe(true);
         expect(h.system.isTaskVisible(b)).toBe(false);
         h.sessions[0].emitExit(0);
-        // Отработавшая — терминал, где она бежала последней.
+        // A finished task: the terminal where it ran last.
         h.views.panelService.setVisible(false);
         expect(h.system.revealTask(a)).toBe(true);
         expect(h.views.panelService.visible).toBe(true);
@@ -334,7 +334,7 @@ describe("TerminalTaskSystem — показ терминала", () => {
         h.views.panelService.setVisible(false);
         expect(h.system.isTaskVisible(a)).toBe(false);
         expect(h.focus).not.toHaveBeenCalled();
-        // Задача, которая нигде не бежала, чужой терминал своим не считает.
+        // A task that never ran anywhere does not claim someone else's terminal.
         const c = makeTask({ label: "c" });
         expect(h.system.revealTask(c)).toBe(false);
         h.views.panelService.setVisible(true);
@@ -403,14 +403,14 @@ describe("TerminalTaskSystem — терминал задачи по presentation
         h.sessions[0].emitExit(0);
         h.sessions[1].emitExit(0);
         h.sessions[2].emitExit(0);
-        // Без группы — только терминал задачи без группы (c, id 3).
+        // No group: only the terminal of the task without a group (c, id 3).
         h.system.run(makeTask({ label: "d" }), h.context());
         expect(h.sessions[2].relaunches).toHaveLength(1);
-        // Группа g — последний освободившийся из g (b, id 2).
+        // Group g: the last released one from g (b, id 2).
         h.system.run(makeTask({ label: "e", presentation: { group: "g" } }), h.context());
         expect(h.sessions[1].relaunches).toHaveLength(1);
         expect(h.sessions[0].relaunches).toHaveLength(0);
-        // Чужой группы нет ни у кого — новый терминал.
+        // Nobody has the other group, so a new terminal.
         h.system.run(makeTask({ label: "f", presentation: { group: "other" } }), h.context());
         expect(h.factoryCalls).toHaveLength(4);
         h.dispose();
@@ -425,7 +425,7 @@ describe("TerminalTaskSystem — терминал задачи по presentation
         h.sessions[0].emitExit(0);
         h.system.run(makeTask({ label: "b" }), h.context());
         h.system.run(makeTask({ label: "c" }), h.context());
-        // Ждущий терминал был один: b его забрал, c получил новый.
+        // There was a single idle terminal: b took it, c got a new one.
         expect(h.factoryCalls).toHaveLength(2);
         h.dispose();
     });
@@ -493,7 +493,7 @@ describe("TerminalTaskSystem — терминал задачи по presentation
         h.system.run(makeTask({ label: "b" }), h.context());
         h.sessions[0].emitExit(0);
         h.sessions[1].emitExit(0);
-        // Последним освободился b — его и закрыли.
+        // b was released last, so it was the one closed.
         h.sessions[1].write("x");
         h.system.run(makeTask({ label: "c" }), h.context());
         expect(h.sessions[0].relaunches).toHaveLength(1);
@@ -520,7 +520,7 @@ describe("TerminalTaskSystem — терминал задачи по presentation
         const h = buildHarness();
         h.system.run(makeTask({ label: "a" }), h.context());
         h.sessions[0].emitExit(0);
-        // b забрал ждущий терминал a и тоже отработал.
+        // b took a's idle terminal and finished too.
         h.system.run(makeTask({ label: "b" }), h.context());
         h.sessions[0].emitExit(0);
         h.system.run(makeTask({ label: "a", presentation: { panel: "dedicated" } }), h.context());
@@ -704,7 +704,7 @@ describe("TerminalTaskSystem — CustomExecution", () => {
         h.system.run(customTask({ presentation: { echo: false } }), h.context());
         expect(created[0]).not.toHaveProperty("message");
         sessions[0].exit(0);
-        // Шелловая задача не берёт pty-терминал, а pty-задача — шелловый.
+        // A shell task does not take a pty terminal, and a pty task does not take a shell one.
         h.system.run(makeTask({ label: "sh" }), h.context());
         expect(h.factoryCalls).toHaveLength(1);
         h.sessions[0].emitExit(0);
@@ -724,12 +724,12 @@ describe("TerminalTaskSystem — CustomExecution", () => {
         const pty = customTask({ presentation: { panel: "dedicated" } });
         h.system.run(shell, h.context());
         h.sessions[0].emitExit(0);
-        // Свой терминал шелловый — pty-задача заводит свой.
+        // The task's own terminal is a shell one, so the pty task creates its own.
         h.system.run(pty, h.context());
         expect(created).toHaveLength(1);
         expect(h.sessions[0].relaunches).toHaveLength(0);
         sessions[0].exit(0);
-        // Человек закрыл прежний шелловый терминал задачи — pty-терминал за ней остаётся.
+        // The user closed the task's old shell terminal; the pty terminal stays with the task.
         h.sessions[0].write("x");
         h.system.run(pty, h.context());
         expect(created).toHaveLength(1);
@@ -747,7 +747,7 @@ describe("TerminalTaskSystem — CustomExecution", () => {
         h.system.run(pty, h.context());
         expect(created).toHaveLength(1);
         expect(h.sessions[0].relaunches).toHaveLength(0);
-        // pty-терминал отработал — в очереди у задачи теперь он, шелловый забыт.
+        // The pty terminal finished: it is now the task's queued one, the shell one is forgotten.
         sessions[0].exit(0);
         h.system.run(shell, h.context());
         expect(h.factoryCalls).toHaveLength(2);

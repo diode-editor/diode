@@ -1,4 +1,4 @@
-// Зеркало `extensions/git/lib/protocol.ts` по значению: через границу процесса не импортируем.
+// Mirrors `extensions/git/lib/protocol.ts` by value: no imports across the process boundary.
 export const GIT_OP_COMMAND = "diode.git.op";
 
 export type GitErrorKind =

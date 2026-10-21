@@ -19,7 +19,7 @@ export const CHECKOUT_DETACHED_LABEL = "⇢ Checkout detached...";
 
 type RefKind = "head" | "remote" | "tag";
 
-/** Сортировку по свежести делает расширение. */
+/** The extension sorts refs by recency. */
 async function pickRef(
     accessor: ServiceAccessor,
     title: string,
@@ -40,7 +40,7 @@ async function pickRef(
     return ref === undefined ? null : { name: ref.name, kind: ref.kind };
 }
 
-/** Валидацию имени делает git — ошибка придёт notice-ом. */
+/** git validates the name; an error arrives as a notice. */
 export function inputRefName(
     accessor: ServiceAccessor,
     title: string,
@@ -59,7 +59,7 @@ function inputBranchName(accessor: ServiceAccessor, title: string, value?: strin
     return inputRefName(accessor, title, "Branch name", value);
 }
 
-/** `baseLabel` — вместо base в заголовке: граф передаёт короткий sha, сорок знаков нечитаемы. */
+/** `baseLabel` replaces base in the title: the graph passes a short sha, forty chars are unreadable. */
 export async function createBranch(accessor: ServiceAccessor, base?: string, baseLabel?: string): Promise<void> {
     const title = base === undefined ? "Create Branch" : `Create Branch From ${baseLabel ?? base}`;
     const name = await inputBranchName(accessor, title);
@@ -107,8 +107,8 @@ export const gitCheckoutAction: CommandAction = {
 
         const ref = refs.find((r) => r.name === picked.label);
         if (ref === undefined) return;
-        // Remote-ветка чекаутится коротким именем: git DWIM создаст локальную
-        // трекающую; тег — как есть (HEAD станет detached сам).
+        // A remote branch is checked out by its short name so git DWIM creates a local
+        // tracking branch; a tag is used as is (HEAD becomes detached on its own).
         const target = ref.kind === "remote" ? ref.name.slice(ref.name.indexOf("/") + 1) : ref.name;
         await runGitOp(accessor, "checkout", { ref: target });
     },

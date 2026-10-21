@@ -52,7 +52,7 @@ describe("resolveVariables — значения", () => {
 
     it("настройки: строка как есть, число — текстом", () => {
         expect(resolve("${config:a.str}/${config:a.num}")).toBe("s/3");
-        // В карту подстановок (определение в событии старта) уходит тоже текст.
+        // The substitution map (the definition in the start event) also gets the text.
         const resolved = new Map<string, string>();
         resolveVariables("${config:a.num}", context(), resolved);
         expect(resolved.get("${config:a.num}")).toBe("3");

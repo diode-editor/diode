@@ -15,7 +15,7 @@ function readRow(session: EmbeddedTerminalSession, row: number): string {
     return text.trimEnd();
 }
 
-/** Шелл остаётся жив — иначе гонка с onExit. */
+/** The shell stays alive — otherwise it races with onExit. */
 async function withOutput(count: number): Promise<EmbeddedTerminalSession> {
     const session = new EmbeddedTerminalSession({
         cols: COLS,
@@ -40,8 +40,8 @@ describe("EmbeddedTerminalSession — вьюпорт и скролбэк", () =>
 
             session.scrollLines(-10);
             expect(session.scrollOffset).toBe(10);
-            // Дно (offset=0) показывало …50 в предпоследней строке; уехав на 10 строк
-            // вверх, там же должно оказаться 40.
+            // The bottom (offset=0) showed …50 on the second-to-last row; after scrolling 10 lines
+            // up, the same row must show 40.
             expect(readRow(session, ROWS - 2)).toBe("40");
 
             session.scrollLines(10);
@@ -55,12 +55,12 @@ describe("EmbeddedTerminalSession — вьюпорт и скролбэк", () =>
     it("клампит смещение: ниже дна и выше начала скролбэка не уезжает", async () => {
         const session = await withOutput(20);
         try {
-            session.scrollLines(5); // вниз с дна — некуда
+            session.scrollLines(5); // down from the bottom — nowhere to go
             expect(session.scrollOffset).toBe(0);
 
-            session.scrollLines(-10_000); // вверх дальше начала истории
+            session.scrollLines(-10_000); // up past the start of history
             expect(session.scrollOffset).toBeGreaterThan(0);
-            expect(readRow(session, 0)).toBe("1"); // самый верх скролбэка — первая строка вывода
+            expect(readRow(session, 0)).toBe("1"); // top of scrollback — the first output line
         } finally {
             session.dispose();
         }
@@ -92,8 +92,8 @@ describe("EmbeddedTerminalSession — вьюпорт и скролбэк", () =>
     }, 20000);
 
     it("возвращает вьюпорт на дно при новом выводе", async () => {
-        // Шелл печатает историю, ждёт, и допечатывает ещё строку — второй пакет вывода
-        // приходит уже после того, как мы уехали в скролбэк.
+        // The shell prints history, waits, and prints one more line — the second output batch
+        // arrives after we've scrolled into scrollback.
         const session = new EmbeddedTerminalSession({
             cols: COLS,
             rows: ROWS,
@@ -133,7 +133,7 @@ describe("EmbeddedTerminalSession — вьюпорт и скролбэк", () =>
             expect(updates).toBe(1);
             session.scrollLines(2);
             expect(updates).toBe(2);
-            session.scrollLines(2); // уже на дне — молчим
+            session.scrollLines(2); // already at the bottom — no event
             expect(updates).toBe(2);
             sub.dispose();
         } finally {

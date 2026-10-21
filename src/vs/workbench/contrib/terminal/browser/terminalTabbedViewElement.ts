@@ -3,14 +3,14 @@ import { BoxConstraints as Constraints, Size } from "@tuidom/core/common/geometr
 import type { RenderContext } from "@tuidom/core/dom/tuiElement";
 import { TUIElement } from "@tuidom/core/dom/tuiElement";
 
-/** Та же черта, что у колонок диффа. */
+/** The same divider as between diff columns. */
 const DIVIDER = "│";
 
 export type TerminalTabsLocation = "left" | "right";
 
 /**
- * Контейнер стабилен: меняются только ребёнок-терминал и видимость списка —
- * переключение терминала не пересобирает тело секции панели.
+ * The container is stable: only the terminal child and list visibility change —
+ * switching terminals doesn't rebuild the panel section body.
  */
 export class TerminalTabbedViewElement extends TUIElement {
     private terminal: TUIElement | null = null;
@@ -31,7 +31,7 @@ export class TerminalTabbedViewElement extends TUIElement {
         this.setChildren(terminal === null ? [this.tabs] : [this.tabs, terminal]);
     }
 
-    /** Перерисовку метит сам сеттер `hidden`. */
+    /** The `hidden` setter itself marks a redraw. */
     public setTabsVisible(visible: boolean): void {
         this.tabs.hidden = !visible;
     }
@@ -55,7 +55,7 @@ export class TerminalTabbedViewElement extends TUIElement {
         const dividerWidth = this.isTabsVisible ? 1 : 0;
         const terminalWidth = size.width - tabsWidth - dividerWidth;
         const tabsX = this.tabsOnLeft ? 0 : terminalWidth + dividerWidth;
-        // Скрытый список раскладывать незачем, но и вреда нет — он не рисуется.
+        // No need to lay out a hidden list, but no harm either — it isn't drawn.
         this.layoutChild(this.tabs, tabsX, 0, Constraints.tight(new Size(tabsWidth, size.height)));
         if (this.terminal !== null) {
             const terminalX = this.tabsOnLeft ? tabsWidth + dividerWidth : 0;
@@ -71,7 +71,7 @@ export class TerminalTabbedViewElement extends TUIElement {
         const column = this.tabsOnLeft ? this.tabsColumns(width) : width - this.tabsColumns(width) - 1;
         const fg = this.styleVar("panel.border");
         const bg = this.resolvedStyle.bg;
-        // Stryker disable next-line EqualityOperator: лишняя строка за нижним краем отсекается клипом контекста
+        // Stryker disable next-line EqualityOperator: the context clip cuts the extra row past the bottom edge
         for (let y = 0; y < this.layoutSize.height; y++) {
             context.setCell(column, y, { char: DIVIDER, fg, bg, width: 1 });
         }

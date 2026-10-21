@@ -223,7 +223,7 @@ describe("branch-операции", () => {
         await gitRenameBranchAction.run(h.accessor);
         expect(h.ops).toEqual([{ op: "branchRename", params: { name: "renamed" } }]);
 
-        // То же имя — no-op.
+        // Same name is a no-op.
         h.ops.length = 0;
         h.setInputs(["main"]);
         await gitRenameBranchAction.run(h.accessor);
@@ -317,7 +317,7 @@ describe("branch-операции", () => {
         expect(h.ops).toEqual([]);
 
         h.setRefs([{ name: "v1.0", kind: "tag" }]);
-        h.setPicks(["ghost"]); // label вне списка (защитная ветка find)
+        h.setPicks(["ghost"]); // label not in the list (defensive find branch)
         await gitCheckoutDetachedAction.run(h.accessor);
         expect(h.ops).toEqual([]);
 
@@ -431,26 +431,26 @@ describe("branch-операции", () => {
         const h = makeHarness();
         h.setRefs([{ name: "main", kind: "head" }]);
 
-        // Спец-пункты: второй пикер отменён — операций нет.
+        // Special items: second picker cancelled, no operations.
         h.setPicks([CREATE_BRANCH_FROM_LABEL, undefined]);
         await gitCheckoutAction.run(h.accessor);
         h.setPicks([CHECKOUT_DETACHED_LABEL, undefined]);
         await gitCheckoutAction.run(h.accessor);
         expect(h.ops).toEqual([]);
 
-        // Rename при detached (branch null): prefill пустой, ввод работает.
+        // Rename while detached (branch null): empty prefill, input still works.
         h.setBranch(null);
         h.setInputs(["from-detached"]);
         await gitRenameBranchAction.run(h.accessor);
         expect(h.ops).toEqual([{ op: "branchRename", params: { name: "from-detached" } }]);
 
-        // Rebase: отмена пикера.
+        // Rebase: picker cancelled.
         h.ops.length = 0;
         h.setPicks([undefined]);
         await gitRebaseAction.run(h.accessor);
         expect(h.ops).toEqual([]);
 
-        // Merge: не-конфликтная ошибка — notice с сообщением git.
+        // Merge: non-conflict error shows a notice with the git message.
         h.setPicks(["main"]);
         h.setOpResults([{ ok: false, kind: "git-error", message: "merge refused" }]);
         await gitMergeAction.run(h.accessor);

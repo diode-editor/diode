@@ -23,7 +23,10 @@ interface ISerializableExtensionEnvironmentVariableCollection {
     readonly description?: SerializableEnvironmentDescriptionMap;
 }
 
-/** Ключ и область эталона (`TerminalStorageKeys.EnvironmentVariableCollections`); у эталона значение — JSON-строка, у нас массив. */
+/**
+ * Upstream key and scope (`TerminalStorageKeys.EnvironmentVariableCollections`); upstream stores a JSON string,
+ * we store an array.
+ */
 export const ENVIRONMENT_VARIABLE_COLLECTIONS_STATE: IStateDescriptor<unknown> = {
     key: "terminal.integrated.environmentVariableCollectionsV2",
     scope: "workspace",
@@ -33,13 +36,13 @@ export const ENVIRONMENT_VARIABLE_COLLECTIONS_STATE: IStateDescriptor<unknown> =
 export const EnvironmentVariableServiceDIToken = token<EnvironmentVariableService>("EnvironmentVariableService");
 
 /**
- * `EnvironmentVariableService` эталона. Коллекции с `persistent` живут в состоянии воркспейса;
- * коллекции удалённых расширений забываются, как только известен состав установленных.
+ * Upstream `EnvironmentVariableService`. Collections with `persistent` live in workspace state;
+ * collections of uninstalled extensions are dropped once the installed set is known.
  */
 export class EnvironmentVariableService extends Disposable implements IEnvironmentVariableCollectionStore {
     private collectionsValue = new Map<string, IEnvironmentVariableCollectionWithPersistence>();
     private merged = new MergedEnvironmentVariableCollection(this.collectionsValue);
-    /** Установлено ли расширение; до {@link setInstalledExtensions} — любое. */
+    /** Whether the extension is installed; every extension counts as installed until {@link setInstalledExtensions}. */
     private isInstalled: (extensionIdentifier: string) => boolean = () => true;
 
     public static dependencies = [StateServiceDIToken] as const;
@@ -67,7 +70,7 @@ export class EnvironmentVariableService extends Disposable implements IEnvironme
         this.update();
     }
 
-    /** Коллекции удалённых — забыть, в том числе в состоянии. */
+    /** Drops collections of uninstalled extensions, including from state. */
     public setInstalledExtensions(isInstalled: (extensionIdentifier: string) => boolean): void {
         this.isInstalled = isInstalled;
         const stale = [...this.collectionsValue.keys()].filter((id) => !isInstalled(id));
@@ -103,7 +106,7 @@ export class EnvironmentVariableService extends Disposable implements IEnvironme
         const raw = this.state.get(ENVIRONMENT_VARIABLE_COLLECTIONS_STATE);
         const collections = new Map<string, IEnvironmentVariableCollectionWithPersistence>();
         let dropped = false;
-        // Stryker disable next-line ArrayDeclaration: эквивалентный — элемент-заглушка не объект с id и отбрасывается ниже
+        // Stryker disable next-line ArrayDeclaration: equivalent: the placeholder has no id and is dropped below
         for (const entry of Array.isArray(raw) ? (raw as unknown[]) : []) {
             const { extensionIdentifier, collection, description } = (
                 typeof entry === "object" && entry !== null ? entry : {}

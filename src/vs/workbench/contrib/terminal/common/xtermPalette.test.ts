@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import { buildXtermPalette, xtermPaletteToRgb } from "./xtermPalette.ts";
 
-// Ожидания — каноническая таблица xterm-256color (та же, что печатает `infocmp`/xterm).
+// Expectations follow the canonical xterm-256color table (the same one `infocmp`/xterm prints).
 
 describe("xtermPaletteToRgb — 16 системных цветов", () => {
     it.each([
@@ -32,14 +32,14 @@ describe("xtermPaletteToRgb — куб 6×6×6 (16..231)", () => {
     const LEVELS = [0, 95, 135, 175, 215, 255];
 
     it.each([
-        [16, 0, 0, 0], // начало куба — чёрный
-        [17, 0, 0, 95], // +1 по b
-        [21, 0, 0, 255], // максимум по b
-        [22, 0, 95, 0], // +1 по g
-        [52, 95, 0, 0], // +1 по r
-        [196, 255, 0, 0], // чистый красный куба
-        [46, 0, 255, 0], // чистый зелёный куба
-        [231, 255, 255, 255], // конец куба — белый
+        [16, 0, 0, 0], // cube start — black
+        [17, 0, 0, 95], // +1 in b
+        [21, 0, 0, 255], // max b
+        [22, 0, 95, 0], // +1 in g
+        [52, 95, 0, 0], // +1 in r
+        [196, 255, 0, 0], // pure cube red
+        [46, 0, 255, 0], // pure cube green
+        [231, 255, 255, 255], // cube end — white
     ])("index %i → rgb(%i, %i, %i)", (index, r, g, b) => {
         expect(xtermPaletteToRgb(index)).toBe(packRgb(r, g, b));
     });
@@ -58,10 +58,10 @@ describe("xtermPaletteToRgb — куб 6×6×6 (16..231)", () => {
 
 describe("xtermPaletteToRgb — серая шкала (232..255)", () => {
     it.each([
-        [232, 8], // начало рампы
+        [232, 8], // ramp start
         [233, 18],
-        [243, 118], // середина
-        [255, 238], // конец рампы
+        [243, 118], // middle
+        [255, 238], // ramp end
     ])("index %i → серый %i", (index, level) => {
         expect(xtermPaletteToRgb(index)).toBe(packRgb(level, level, level));
     });
@@ -75,7 +75,7 @@ describe("xtermPaletteToRgb — серая шкала (232..255)", () => {
 });
 
 describe("xtermPaletteToRgb — индексы вне диапазона", () => {
-    // Вне 0..255 таблицы нет — откатываемся на index 7 (белый), чтобы текст не пропал.
+    // Outside 0..255 there is no table — fall back to index 7 (white) so text doesn't disappear.
     const WHITE = packRgb(192, 192, 192);
 
     it.each([[-1], [256], [1000], [0.5], [Number.NaN]])("index %p → фоллбэк на белый index 7", (index) => {

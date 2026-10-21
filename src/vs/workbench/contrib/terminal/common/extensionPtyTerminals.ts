@@ -1,17 +1,17 @@
-// Терминал на pty расширения, который заводит ядро, — терминал задачи с `CustomExecution`
-// (`customPtyImplementation` эталона). Pty субпроцесс подключает позже, по id инстанса
-// (`attachPtyToTerminal` эталона); реализация есть только при extension host'е.
+// A terminal on an extension pty created by the core — a task terminal with `CustomExecution`
+// (upstream `customPtyImplementation`). The subprocess attaches the pty later by instance id
+// (upstream `attachPtyToTerminal`); the implementation exists only with an extension host.
 
 import type { TerminalWaitOnExit } from "../browser/terminalService.ts";
 
 export interface IExtensionPtyTerminalOptions {
     readonly name: string;
-    /** Строка до вывода pty (`initialText` эталона — «Executing task: …»). */
+    /** Line printed before pty output (upstream `initialText` — "Executing task: …"). */
     readonly message?: string;
     readonly waitOnExit?: TerminalWaitOnExit;
 }
 
 export interface IExtensionPtyTerminals {
-    /** Результат — id инстанса. */
+    /** Returns the instance id. */
     createPtyInstance(options: IExtensionPtyTerminalOptions): number;
 }

@@ -16,7 +16,7 @@ describe("buildShellCommandLine — posix", () => {
     it("подстановка изменила строку без пробелов в исходнике — экранируется", () => {
         expect(linux("my tool", [], "${env:TOOL}")).toBe("'my tool'");
         expect(linux("tool", [], "${env:TOOL}")).toBe("tool");
-        // Исходник с пробелами — как есть.
+        // A source with spaces goes as is.
         expect(linux("echo x", [], "echo ${env:X}")).toBe("echo x");
     });
 
@@ -33,13 +33,13 @@ describe("buildShellCommandLine — posix", () => {
     });
 
     it("«уже в кавычках» — только когда та же кавычка открывает и закрывает значение", () => {
-        // Открыта и закрыта strong — как есть, хотя между кавычками пробел.
+        // Opened and closed with strong: as is, even though there is a space between the quotes.
         expect(linux("cmd", ["'a' 'b'"])).toBe("cmd 'a' 'b'");
-        // Открыта и закрыта weak — тоже как есть.
+        // Opened and closed with weak: also as is.
         expect(linux("cmd", ['"a" "b"'])).toBe('cmd "a" "b"');
-        // Открыта weak, закрыта strong — не «в кавычках»: пробел снаружи — экранируется.
+        // Opened with weak, closed with strong: not "quoted", so the outer space is escaped.
         expect(linux("cmd", ['"a" b\''])).toBe("cmd '\"a\" b''");
-        // Без открывающей кавычки окончание значения не важно.
+        // Without an opening quote the value's ending does not matter.
         expect(linux("cmd", ["say undefined"])).toBe("cmd 'say undefined'");
     });
 
@@ -56,13 +56,13 @@ describe("buildShellCommandLine — posix", () => {
     });
 
     it("пути шелла — по правилам ОС задачи: на posix обратная косая — часть имени", () => {
-        // Имя `x\\powershell` на posix — не powershell: правила ОС (bash).
+        // `x\\powershell` on posix is not powershell: OS rules (bash).
         expect(
             buildShellCommandLine("linux", "/opt/x\\powershell", undefined, "c", "c", [
                 { value: "a b", quoting: "escape" },
             ]),
         ).toBe("c a\\ b");
-        // pwsh на posix — без `&`: он только для Windows.
+        // pwsh on posix gets no `&`: that is Windows-only.
         expect(buildShellCommandLine("linux", "/usr/bin/pwsh", undefined, "my cmd", "my cmd", ["x"])).toBe(
             "'my cmd' x",
         );
@@ -118,11 +118,11 @@ describe("buildShellCommandLine — Windows", () => {
             '""my cmd" "a b""',
         );
         expect(buildShellCommandLine("windows", "cmd.exe", undefined, "cmd", "cmd", ["a b"])).toBe('cmd "a b"');
-        // Аргументы без кавычек — строка не оборачивается, даже если команда в кавычках.
+        // Unquoted args: the line is not wrapped, even if the command is quoted.
         expect(buildShellCommandLine("windows", "cmd.exe", undefined, "my cmd", "my cmd", ["x", "y"])).toBe(
             '"my cmd" x y',
         );
-        // escape строкой из своих правил — тоже «в кавычках».
+        // escape as a string from the shell's own rules also counts as "quoted".
         expect(
             buildShellCommandLine(
                 "windows",
@@ -145,11 +145,11 @@ describe("buildShellCommandLine — Windows", () => {
         expect(
             buildShellCommandLine("windows", "pwsh", undefined, "c", "c", [{ value: "a (b)", quoting: "escape" }]),
         ).toBe("c a` `(b`)");
-        // Команда и аргумент в кавычках — у powershell `&`, а не кавычки cmd.
+        // Quoted command and argument: powershell uses `&`, not cmd quotes.
         expect(buildShellCommandLine("windows", "powershell.exe", undefined, "my cmd", "my cmd", ["a b"])).toBe(
             "& 'my cmd' 'a b'",
         );
-        // weak и escape у команды — тоже «в кавычках»; без правила вида — нет.
+        // weak and escape on the command also count as "quoted"; without a rule for that kind they don't.
         expect(buildShellCommandLine("windows", "pwsh.exe", undefined, { value: "c", quoting: "weak" }, "c", [])).toBe(
             '& "c"',
         );
@@ -159,7 +159,7 @@ describe("buildShellCommandLine — Windows", () => {
         expect(
             buildShellCommandLine("windows", "pwsh.exe", { quoting: {} }, { value: "c", quoting: "strong" }, "c", []),
         ).toBe("c");
-        // Неизвестный шелл на Windows — правила powershell, но без `&`.
+        // An unknown shell on Windows uses powershell rules, but without `&`.
         expect(buildShellCommandLine("windows", "sh.exe", undefined, "my c", "my c", ["x"])).toBe("'my c' x");
     });
 });
@@ -178,10 +178,10 @@ describe("shellArgsOf", () => {
         expect(shellArgsOf("linux", shell("/bin/bash", ["-C", "-l"]), "x")).toStrictEqual(["-C", "-l", "x"]);
         expect(shellArgsOf("linux", shell("/bin/bash", ["-c", "-l"]), "x")).toStrictEqual(["-c", "-l", "x"]);
         expect(shellArgsOf("linux", shell("/bin/bash", ["-c", "y"]), "x")).toStrictEqual(["-c", "y", "-c", "x"]);
-        // Хвост проверяется только у самого `-c`: флаги после других аргументов не в счёт.
+        // The tail is checked only for `-c` itself: flags after other args don't count.
         expect(shellArgsOf("linux", shell("/bin/bash", ["-l", "-i"]), "x")).toStrictEqual(["-l", "-i", "-c", "x"]);
         expect(shellArgsOf("linux", shell("/bin/bash", ["y", "-c", "-l"]), "x")).toStrictEqual(["y", "-c", "-l", "x"]);
-        // Хвост из одних флагов — да; хотя бы один не-флаг — `-c` добавляется.
+        // A tail of flags only: yes; at least one non-flag: `-c` is added.
         expect(shellArgsOf("linux", shell("/bin/bash", ["-c", "-l", "y"]), "x")).toStrictEqual([
             "-c",
             "-l",

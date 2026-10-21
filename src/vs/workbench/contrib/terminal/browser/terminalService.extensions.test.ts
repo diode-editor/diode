@@ -73,7 +73,7 @@ describe("TerminalService — инстансы с опциями", () => {
         const h = buildHarness();
         const instance = h.service.createInstance({ name: "", cwd: "/explicit" });
         expect(h.factoryCalls).toStrictEqual([{ cols: 80, rows: 24, cwd: "/explicit" }]);
-        // Пустое имя у эталона — «не задано».
+        // Upstream treats an empty name as "not set".
         expect(instance.title).toBe("bash");
         h.service.createInstance({ strictEnv: false });
         expect(h.factoryCalls[1]).toStrictEqual({ cols: 80, rows: 24, cwd: process.cwd() });
@@ -119,7 +119,7 @@ describe("TerminalService — фоновые инстансы (hideFromUser)", (
         expect(h.events).toStrictEqual([`open:${String(hidden.id)}`, `active:${String(hidden.id)}`]);
         expect(h.service.getInstances().at(-1)).toBe(hidden);
         expect(h.service.getBackgroundInstances()).toStrictEqual([]);
-        // Повторный показ уже видимого — только активация (здесь no-op).
+        // Re-showing an already visible one only activates it (a no-op here).
         h.service.showInstance(hidden.id);
         h.service.showInstance(999);
         expect(h.events).toHaveLength(2);

@@ -10,12 +10,12 @@ import { OriginalResourceProviderDIToken } from "./quickDiffService.ts";
 
 export { COMPARE_NOTICE_MS } from "../../diff/browser/openDiffPair.ts";
 
-/** `"no-original"` = сравнивать не с чем; реакцию (notice, открыть файл) выбирает вызывающий. */
+/** `"no-original"` means nothing to compare with; the caller picks the reaction (notice, open the file). */
 export type OpenDiffResult = "opened" | "no-original";
 
 /**
- * modified-сторона — открытый буфер uri (несохранённые правки видны), без него — снимок
- * с диска; удалённый файл (status D) даёт дифф «ревизия ↔ пусто».
+ * The modified side is the uri's open buffer (unsaved edits are visible), otherwise a snapshot
+ * from disk; a deleted file (status D) yields a "revision ↔ empty" diff.
  */
 export async function openDiffWithHead(accessor: ServiceAccessor, uri: Uri, ref = "HEAD"): Promise<OpenDiffResult> {
     const options = await buildHeadPairOptions(accessor, uri, ref);
@@ -25,9 +25,9 @@ export async function openDiffWithHead(accessor: ServiceAccessor, uri: Uri, ref 
 }
 
 /**
- * Справа сбой чтения — всегда «пусто» (status D). Слева: для HEAD сбой — сломанный git
- * (untracked отсекло расширение), отказ честнее пустоты; для явного ref «файла нет» —
- * штатно, весь дифф добавлен.
+ * On the right a read failure always means "empty" (status D). On the left: for HEAD a failure
+ * means broken git (the extension already filtered out untracked), so refusing is more honest
+ * than empty; for an explicit ref "no file" is normal and the whole diff is added.
  */
 export async function buildHeadPairOptions(
     accessor: ServiceAccessor,
@@ -38,7 +38,7 @@ export async function buildHeadPairOptions(
     if (originalUri === null) return null;
 
     const editors = accessor.get(EditorServiceDIToken);
-    // Метка — как у открытой вкладки файла, в какой бы группе она ни была.
+    // The label matches the file's open tab, whatever group it is in.
     const pane = editors.getEditors().find((p) => p.uri.toString() === uri.toString());
     const label = pane ? editors.displayName(pane) : uri.path.slice(uri.path.lastIndexOf("/") + 1);
 
@@ -57,7 +57,7 @@ export async function buildHeadPairOptions(
 async function resolveOriginalUri(accessor: ServiceAccessor, uri: Uri, ref: string): Promise<Uri | null> {
     try {
         const original = await accessor.get(OriginalResourceProviderDIToken).provideOriginalResource(uri, ref);
-        // Схема без провайдера не проверяется: HEAD не прочитается, исход тот же.
+        // A scheme without a provider is not checked: HEAD will not read, same outcome.
         return original;
     } catch {
         return null;
@@ -66,15 +66,15 @@ async function resolveOriginalUri(accessor: ServiceAccessor, uri: Uri, ref: stri
 
 async function compareWithHead(accessor: ServiceAccessor): Promise<void> {
     const editors = accessor.get(EditorServiceDIToken);
-    // На самой дифф-вкладке повторный вызов обязан целиться в её исходный файл,
-    // а не в ресурс активной стороны (у снимка он синтетический).
+    // On the diff tab itself a repeated call must target its source file,
+    // not the active side's resource (synthetic for a snapshot).
     const activeTab = editors.getActiveTabPane();
     const uri = activeTab instanceof DiffEditorPane2 ? activeTab.modifiedUri : (editors.getActiveEditor()?.uri ?? null);
     if (uri === null) return;
 
     const result = await openDiffWithHead(accessor, uri);
     if (result === "no-original") {
-        // Untracked, вне репозитория, git недоступен — для пользователя одно и то же.
+        // Untracked, outside the repository, git unavailable: all the same to the user.
         showCompareNotice(accessor, "No changes to compare: the file has no version in git");
     }
 }

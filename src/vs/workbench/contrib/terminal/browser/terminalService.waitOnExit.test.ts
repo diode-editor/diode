@@ -178,9 +178,9 @@ describe("TerminalService — relaunchInstance", () => {
             env: { A: "1" },
             hideFromUser: false,
         });
-        // Имя то же — события заголовка нет.
+        // Same name — no title event.
         expect(h.events).toStrictEqual(["exit:1:0"]);
-        // Перезапущенный процесс жив: клавиша идёт в него, а не закрывает терминал.
+        // The restarted process is alive: the key goes to it instead of closing the terminal.
         h.sessions[0].write("y");
         expect(h.sessions[0].writes).toStrictEqual(["y"]);
         h.sessions[0].emitExit(0);

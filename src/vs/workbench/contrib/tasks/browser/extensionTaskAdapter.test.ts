@@ -114,7 +114,7 @@ describe("ExtensionTaskAdapter", () => {
     it("запуск, упавший после старта, лишнего конца не шлёт", async () => {
         const { h, adapter, events } = setup();
         adapter.subscribe(events);
-        // Тот же id уже бежит: повторный запуск отказа не даёт, но и не стартует — конца нет.
+        // The same id is already running: the rerun is not refused but does not start either, so no end event is sent.
         void h.service.run(makeTask({ label: "a", runOptions: { instancePolicy: "silent" } }));
         await vi.waitFor(() => {
             expect(events.started).toHaveBeenCalledTimes(1);

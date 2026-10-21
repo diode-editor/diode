@@ -3,9 +3,9 @@ import { describe, expect, it, vi } from "vitest";
 
 import { EmbeddedTerminalSession } from "./embeddedTerminalSession.ts";
 
-// Сквозной путь на реальном шелле: sendMouse → coreMouseService xterm → SGR → pty → `cat -v`
-// (ESC виден как `^[`). `stty -echo -icanon` убирает эхо и построчную буферизацию, иначе отчёт
-// не дойдёт до cat без перевода строки.
+// End-to-end path on a real shell: sendMouse → xterm coreMouseService → SGR → pty → `cat -v`
+// (ESC shows as `^[`). `stty -echo -icanon` disables echo and line buffering, otherwise the report
+// won't reach cat without a newline.
 const MOUSE_SHELL = 'stty -echo -icanon; printf "\\033[?1003h\\033[?1006h"; cat -v';
 
 const COLS = 70;
@@ -27,7 +27,7 @@ interface MouseCase {
     expected: string;
 }
 
-/** Порядок байтов в PTY гарантирован, поэтому достаточно дождаться последней строки. */
+/** PTY byte order is guaranteed, so waiting for the last line is enough. */
 async function collectReports(cases: readonly MouseCase[]): Promise<string[]> {
     const session = new EmbeddedTerminalSession({
         cols: COLS,
@@ -36,7 +36,7 @@ async function collectReports(cases: readonly MouseCase[]): Promise<string[]> {
         args: ["-c", MOUSE_SHELL],
     });
     try {
-        // Ждём, пока шелл реально включит mouse-режимы: до этого эмулятор отчёты не шлёт.
+        // Wait until the shell actually enables mouse modes: until then the emulator sends no reports.
         await new Promise((resolve) => setTimeout(resolve, 700));
         for (const item of cases) {
             session.sendMouse({
@@ -64,17 +64,17 @@ async function collectReports(cases: readonly MouseCase[]): Promise<string[]> {
 
 describe("EmbeddedTerminalSession — sendMouse", () => {
     it("разворачивает семантические button/action в отчёты xterm (SGR)", async () => {
-        // SGR: ESC [ < <кнопка> ; <col+1> ; <row+1> M(нажатие)|m(отпускание).
-        // Кнопки: left=0 middle=1 right=2; +32 — motion; колесо: up=64 down=65 left=66 right=67.
-        // У "move" координаты уникальные: xterm глушит motion-события без смены позиции.
+        // SGR: ESC [ < <button> ; <col+1> ; <row+1> M(press)|m(release).
+        // Buttons: left=0 middle=1 right=2; +32 — motion; wheel: up=64 down=65 left=66 right=67.
+        // "move" coordinates are unique: xterm drops motion events that don't change position.
         const cases: MouseCase[] = [
             { button: "left", action: "down", col: 4, row: 2, expected: "^[[<0;5;3M" },
             { button: "middle", action: "down", col: 4, row: 2, expected: "^[[<1;5;3M" },
             { button: "right", action: "down", col: 4, row: 2, expected: "^[[<2;5;3M" },
             { button: "left", action: "up", col: 4, row: 2, expected: "^[[<0;5;3m" },
-            // move без кнопки: NONE(3) + бит motion(32) = 35.
+            // move without a button: NONE(3) + motion bit(32) = 35.
             { button: "none", action: "move", col: 9, row: 6, expected: "^[[<35;10;7M" },
-            // drag: LEFT(0) + бит motion(32) = 32 (а не «ещё одно нажатие левой»).
+            // drag: LEFT(0) + motion bit(32) = 32 (not "another left press").
             { button: "left", action: "move", col: 8, row: 5, expected: "^[[<32;9;6M" },
             { button: "wheel", action: "wheelUp", col: 4, row: 2, expected: "^[[<64;5;3M" },
             { button: "wheel", action: "wheelDown", col: 4, row: 2, expected: "^[[<65;5;3M" },
@@ -86,7 +86,7 @@ describe("EmbeddedTerminalSession — sendMouse", () => {
     }, 25000);
 
     it("пробрасывает модификаторы ctrl/alt/shift в отчёт", async () => {
-        // Биты модификаторов SGR: shift=4, alt(meta)=8, ctrl=16 → left(0)+4+8+16 = 28.
+        // SGR modifier bits: shift=4, alt(meta)=8, ctrl=16 → left(0)+4+8+16 = 28.
         const session = new EmbeddedTerminalSession({
             cols: COLS,
             rows: 6,

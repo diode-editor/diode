@@ -71,7 +71,7 @@ describe("TaskService — задачи tasks.json", () => {
             "There are task errors. See the output for details.",
             ["Show Output"],
         ]);
-        // Второе чтение того же текста тост не повторяет.
+        // A second read of the same text does not repeat the toast.
         expect(h.notifications.queuedCount()).toBe(0);
         expect(h.logger.warn.mock.calls[0][0]).toBe(
             "Error: The content of the tasks.json file has syntax errors. Please correct them before executing a task.",
@@ -399,7 +399,7 @@ describe("TaskService — запуск уже бегущей (instancePolicy)", 
             expect(h.service.getActiveTasks()).toHaveLength(1);
         });
         void h.service.run(task);
-        // Повторный запуск дошёл до политики (сохранение, обращение к системе задач).
+        // The rerun reached the policy (save, call into the task system).
         await vi.waitFor(() => {
             expect(h.saveAll).toHaveBeenCalledTimes(2);
         });
@@ -507,7 +507,7 @@ describe("TaskService — запуск уже бегущей (instancePolicy)", 
         });
         h.terminals.newTerminal();
         void h.service.run(task);
-        // Терминал задачи снова активен — значит, её показали.
+        // The task's terminal is active again, so it was revealed.
         await vi.waitFor(() => {
             expect(h.terminals.getActiveInstance()?.id).toBe(1);
         });
@@ -552,7 +552,7 @@ describe("TaskService — rerun и restart", () => {
         const h = buildTaskServiceHarness();
         const openRunTask = vi.fn(() => Promise.resolve());
         await h.service.run(makeTask({ command: { name: "${file}" } })).catch(() => undefined);
-        // Последней задачи нет: запуск отказал до старта.
+        // There is no last task: the run was refused before start.
         await h.service.rerun(openRunTask);
         expect(openRunTask).toHaveBeenCalledTimes(1);
         h.setActiveEditor("/ws/a.ts");

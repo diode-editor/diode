@@ -48,7 +48,7 @@ describe("buildEnv — довесок коллекций", () => {
             target.UNSET = undefined;
         });
         expect(seen).toEqual({ KEEP: "1", ADD: "3", TMUX: "t" });
-        // Строго: переменная, которую довесок оставил `undefined`, в окружение не попадает вовсе.
+        // Strict: a variable the contributor left `undefined` doesn't reach the environment at all.
         expect(env).toStrictEqual({ KEEP: "1", ADD: "3", FROM_EXT: "x", TERM: "xterm-256color" });
     });
 });

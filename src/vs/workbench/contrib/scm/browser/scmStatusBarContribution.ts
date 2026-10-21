@@ -13,7 +13,7 @@ export const BRANCH_GLYPH = "";
 
 export const ScmStatusBarContributionDIToken = token<ScmStatusBarContribution>("ScmStatusBarContribution");
 
-/** Появляется с первой публикацией repo-state — только в git-репозитории. */
+/** Appears with the first repo-state publish — only in a git repository. */
 export class ScmStatusBarContribution extends Disposable {
     public static dependencies = [StatusBarServiceDIToken, ScmRepoStateServiceDIToken, CommandRegistryDIToken] as const;
 

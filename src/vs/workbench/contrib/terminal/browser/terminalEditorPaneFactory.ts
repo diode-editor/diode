@@ -4,13 +4,13 @@ import type { IEditorPaneFactory } from "../../../services/editor/browser/editor
 import { TerminalEditorPane } from "./terminalEditorPane.ts";
 import { TerminalEditorServiceDIToken } from "./terminalEditorService.ts";
 
-/** Повтор — всегда новый шелл, параметров нет. */
+/** Reopening always starts a new shell, so there are no parameters. */
 export type ITerminalEditorPaneDescriptor = Readonly<Record<string, never>>;
 
 /** upstream `TerminalEditorInput.ID`. */
 export const TERMINAL_EDITOR_PANE_TYPE_ID = "workbench.editors.terminal";
 
-/** Сплит и копия заводят НОВЫЙ терминал, как `TerminalEditorInput.copy()` эталона. Рестарт вкладка не переживает. */
+/** Split and copy create a NEW terminal, like upstream `TerminalEditorInput.copy()`. Tabs don't survive a restart. */
 export function createTerminalEditorPaneFactory(
     accessor: ServiceAccessor,
 ): IEditorPaneFactory<ITerminalEditorPaneDescriptor> {

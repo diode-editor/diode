@@ -55,7 +55,7 @@ describe("scmChangeRows — file row", () => {
         expect(backend.getTextAt(new Point(WIDTH - 1, 0), 1)).toBe("M");
         expect(backend.getFgAt(new Point(WIDTH - 1, 0))).toBe(MODIFIED);
         expect(backend.getFgAt(new Point(0, 0))).toBe(MODIFIED);
-        // Кнопки в покое нет вовсе — её колонки достались имени.
+        // At rest the button is absent entirely — its columns go to the name.
         expect(backend.getTextAt(new Point(0, 0), WIDTH - 1)).not.toContain(OPEN_FILE_GLYPH);
         expect(parts.openButton.layoutSize.width).toBe(0);
     });
@@ -108,7 +108,7 @@ describe("scmChangeRows — file row", () => {
         const parts = buildFileRow("row", change(), "src/a.ts", STYLES, onOpenFile);
 
         const click = new TUIMouseEvent("click", { button: "left", screenX: 0, screenY: 0, localX: 0, localY: 0 });
-        expect(parts.openButton.dispatchEvent(click)).toBe(false); // потреблено
+        expect(parts.openButton.dispatchEvent(click)).toBe(false); // consumed
         expect(onOpenFile).toHaveBeenCalledTimes(1);
 
         const dbl = new TUIMouseEvent("dblclick", { button: "left", screenX: 0, screenY: 0, localX: 0, localY: 0 });

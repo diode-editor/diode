@@ -3,12 +3,12 @@ import type { DetailedLineRangeMapping } from "../../../../editor/common/diff/ra
 import type { IGutterChangeDecoration } from "../../../../editor/common/model/iGutterChangeDecoration.ts";
 
 /**
- * Единственная точка стыка координат (docs/arch/Editor.md): upstream `LineRange` — с 1 и
- * `endExclusive`, наш `IRange` гуттера — с 0 и `end.line` включительно. Адаптер, а не
- * миграция ядра: место вызова одно (долг — docs/TODO/Diff.md).
+ * The single coordinate seam (docs/arch/Editor.md): upstream `LineRange` is 1-based with
+ * `endExclusive`, our gutter `IRange` is 0-based with inclusive `end.line`. An adapter rather than
+ * a core migration: there is one call site (debt — docs/TODO/Diff.md).
  */
 
-/** Уже резолвнутые темой в packed-RGB. */
+/** Already resolved by the theme to packed RGB. */
 export interface IQuickDiffColors {
     readonly added: number;
     readonly modified: number;
@@ -16,8 +16,8 @@ export interface IQuickDiffColors {
 }
 
 /**
- * Вид ханка — по пустоте диапазонов, как у upstream. У удаления своей строки нет: оно
- * рисуется граничной строкой НАД местом удаления, а в начале файла — первой строкой.
+ * Hunk kind is derived from empty ranges, as upstream. A deletion has no line of its own: it is
+ * drawn on the boundary line ABOVE the deleted spot, or on the first line at the start of the file.
  */
 export function toGutterDecorations(
     changes: readonly DetailedLineRangeMapping[],
@@ -37,7 +37,7 @@ export function toGutterDecorations(
         if (change.original.isEmpty) {
             decorations.push({ range: createRange(firstLine, 0, lastLine, 0), color: colors.added });
         } else {
-            // VS Code рисует правку пунктиром, а вставку/удаление — сплошным.
+            // VS Code draws a modification dashed and an insertion/deletion solid.
             decorations.push({ range: createRange(firstLine, 0, lastLine, 0), color: colors.modified, dashed: true });
         }
     }

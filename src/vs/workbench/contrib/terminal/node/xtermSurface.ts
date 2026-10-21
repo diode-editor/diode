@@ -1,7 +1,7 @@
-// VT-эмулятор поверх @xterm/headless — общая половина `EmbeddedTerminalSession` и
-// `ExtensionPtySession`; откуда вывод и куда ввод, решает наследник. @xterm/headless —
-// ленивый кусок бандла (как `_xtermReadyPromise` эталона): до загрузки вывод копится
-// в очереди, ввод и ресайз идут в процесс сразу, сетка читается пустой.
+// VT emulator over @xterm/headless — the shared half of `EmbeddedTerminalSession` and
+// `ExtensionPtySession`; the subclass decides where output comes from and input goes. @xterm/headless is a
+// lazy chunk (like upstream `_xtermReadyPromise`): until it loads, output is queued,
+// input and resize go to the process immediately, and the grid reads as empty.
 
 import { DEFAULT_COLOR } from "@tuidom/core/common/colorUtils";
 import type {
@@ -42,24 +42,24 @@ interface ICoreMouseService {
     readonly areMouseEventsActive: boolean;
 }
 
-// Значения enum-ов xterm CoreMouseButton/CoreMouseAction: виджет про xterm не знает.
+// Values of the xterm CoreMouseButton/CoreMouseAction enums: the widget doesn't know about xterm.
 const CORE_BUTTON: Record<Exclude<TerminalMouseButton, "wheel">, number> = { left: 0, middle: 1, right: 2, none: 3 };
 const WHEEL_BUTTON = 4;
 const ACTION_UP = 0;
 const ACTION_DOWN = 1;
-// MOVE — 32, а не 4: в xterm это бит «motion», подмешиваемый в кнопку; с 4 эмулятор
-// глушил move, а drag кодировал как повторное нажатие левой.
+// MOVE is 32, not 4: in xterm it's the "motion" bit OR-ed into the button; with 4 the emulator
+// dropped moves and encoded drag as a repeated left press.
 const ACTION_MOVE = 32;
 const WHEEL_ACTION: Record<"up" | "down" | "left" | "right", number> = { up: 0, down: 1, left: 2, right: 3 };
 
-/** Новый процесс в переиспользуемом терминале начинается с новой строки (`'\n\x1b[G'` эталона). */
+/** A new process in a reused terminal starts on a new line (upstream `'\n\x1b[G'`). */
 const NEW_LINE_AT_START = "\n\x1b[G";
-/** Стереть экран и скролбэк, курсор — в начало (`presentation.clear` задачи). */
+/** Erase screen and scrollback, cursor to home (task `presentation.clear`). */
 const CLEAR_ALL = "\x1b[2J\x1b[3J\x1b[H";
 
 /**
- * CJS-сборка (ленивый кусок) кладёт значения в `default`; ESM (загрузчик tsx из
- * исходников) — только именованные экспорты.
+ * The CJS build (lazy chunk) puts the values in `default`; ESM (the tsx loader from
+ * sources) has only named exports.
  */
 export type XtermNamespace = { readonly default: typeof XtermModule } | typeof XtermModule;
 
@@ -67,7 +67,7 @@ export function xtermModuleOf(namespace: XtermNamespace): typeof XtermModule {
     return "default" in namespace ? namespace.default : namespace;
 }
 
-/** @xterm/headless — ленивый кусок: грузится при первой сессии терминала, не на старте. */
+/** @xterm/headless is a lazy chunk: loaded on the first terminal session, not at startup. */
 export function loadXterm(): Promise<XtermNamespace> {
     return importLazyModule("@xterm/headless", () => import("@xterm/headless") as Promise<XtermNamespace>);
 }
@@ -79,21 +79,21 @@ export interface XtermSurfaceOptions {
 }
 
 export abstract class XtermSurface implements ITerminalSurface, IDisposable {
-    // `undefined` до загрузки куска и после отказа загрузки.
+    // `undefined` until the chunk loads and after a load failure.
     private term: Terminal | undefined;
     private readonly pendingOutput: string[] = [];
     private disposed = false;
-    /** Никогда не отклоняется: резолвится и при отказе загрузки (`xtermReadyPromise` эталона). */
+    /** Never rejects: resolves on load failure too (upstream `xtermReadyPromise`). */
     public readonly xtermReady: Promise<void>;
     private readonly onUpdateEmitter = new Emitter<void>();
     private readonly onExitEmitter = new Emitter<number>();
     private readonly onDidInputAfterExitEmitter = new Emitter<void>();
-    // Переиспользуемая ячейка — getCell(x, cell) не аллоцирует новый объект на каждую ячейку.
+    // Reused cell — getCell(x, cell) doesn't allocate a new object per cell.
     private cellBuffer: IBufferCell | undefined;
     protected cols: number;
     protected rows: number;
     private exited = false;
-    // Смещение вьюпорта в скролбэк, в строках вверх от дна (0 = живой вывод).
+    // Viewport offset into scrollback, in lines up from the bottom (0 = live output).
     private viewportScrollOffset = 0;
     private palette: XtermPalette = DEFAULT_XTERM_PALETTE;
 
@@ -110,11 +110,11 @@ export abstract class XtermSurface implements ITerminalSurface, IDisposable {
             });
     }
 
-    /** Ресайз до загрузки уже ушёл процессу и лёг в `cols`/`rows`. */
+    /** A resize before load has already reached the process and landed in `cols`/`rows`. */
     private attachTerminal(xterm: typeof XtermModule, scrollback: number): void {
         if (this.disposed) return;
         const term = new xterm.Terminal({ cols: this.cols, rows: this.rows, allowProposedApi: true, scrollback });
-        // Ответы эмулятора (DSR/DA, отчёты мыши) — тем же путём, что ввод, с защитой от мёртвого процесса.
+        // Emulator replies (DSR/DA, mouse reports) take the input path, guarded against a dead process.
         term.onData((data) => {
             this.write(data);
         });
@@ -122,7 +122,7 @@ export abstract class XtermSurface implements ITerminalSurface, IDisposable {
         for (const data of this.pendingOutput.splice(0)) this.writeToTerm(term, data);
     }
 
-    /** Битый кусок: процесс останавливаем, сессия выходит с кодом 1 — терминал не висит пустым молча. */
+    /** Broken chunk: stop the process and exit the session with code 1 so the terminal isn't silently blank. */
     private failToLoad(error: unknown): void {
         onUnexpectedError(error);
         this.pendingOutput.length = 0;
@@ -140,8 +140,8 @@ export abstract class XtermSurface implements ITerminalSurface, IDisposable {
     protected abstract relaunchProcess(options: ITerminalRelaunchOptions): void;
 
     /**
-     * `term.write()` асинхронный: emitUpdate — в write-колбэке, после обновления
-     * buffer.active, иначе картинка отстаёт на одно событие.
+     * `term.write()` is async: emitUpdate runs in the write callback, after buffer.active
+     * is updated, otherwise the frame lags one event behind.
      */
     protected feedOutput(data: string): void {
         if (this.term === undefined) this.pendingOutput.push(data);
@@ -150,7 +150,7 @@ export abstract class XtermSurface implements ITerminalSurface, IDisposable {
 
     private writeToTerm(term: Terminal, data: string): void {
         term.write(data, () => {
-            // Новый вывод возвращает вьюпорт на дно — иначе картинка уезжает относительно растущего baseY.
+            // New output returns the viewport to the bottom — otherwise the frame drifts against the growing baseY.
             this.viewportScrollOffset = 0;
             this.emitUpdate();
         });
@@ -166,7 +166,10 @@ export abstract class XtermSurface implements ITerminalSurface, IDisposable {
         return this.exited;
     }
 
-    /** `reuseTerminal` эталона: вывод прежнего остаётся выше (или стирается при `clear`). Звать после выхода прежнего. */
+    /**
+     * Upstream `reuseTerminal`: the previous output stays above (or is erased with `clear`). Call after the
+     * previous process exits.
+     */
     public relaunch(options: ITerminalRelaunchOptions): void {
         this.feedOutput(options.clear === true ? CLEAR_ALL : NEW_LINE_AT_START);
         if (options.message !== undefined) this.feedOutput(`${options.message}\r\n`);
@@ -174,18 +177,18 @@ export abstract class XtermSurface implements ITerminalSurface, IDisposable {
         this.relaunchProcess(options);
     }
 
-    /** Буфер хранит palette-индексы, поэтому смена перекрашивает и уже выведенное. */
+    /** The buffer stores palette indices, so a change recolors already printed output too. */
     public setAnsiColors(ansi: readonly number[]): void {
         this.palette = buildXtermPalette(ansi);
         this.emitUpdate();
     }
 
-    /** Текст в эмулятор как вывод процесса; в сам процесс не уходит. */
+    /** Text goes to the emulator as process output; it isn't sent to the process. */
     public printMessage(text: string): void {
         this.feedOutput(text);
     }
 
-    /** Клампим на чтении: `baseY` может уменьшиться (ресайз, clear) после прокрутки вверх. */
+    /** Clamped on read: `baseY` can shrink (resize, clear) after scrolling up. */
     public get scrollOffset(): number {
         return Math.min(this.viewportScrollOffset, this.maxScrollOffset);
     }
@@ -194,14 +197,14 @@ export abstract class XtermSurface implements ITerminalSurface, IDisposable {
         return this.term !== undefined && coreMouseService(this.term).areMouseEventsActive;
     }
 
-    /** `delta < 0` — вверх; клампится в `[0, baseY]`. */
+    /** `delta < 0` scrolls up; clamped to `[0, baseY]`. */
     public scrollLines(delta: number): void {
         this.setScrollOffset(this.scrollOffset - delta);
     }
 
     /**
-     * Строка — с учётом прокрутки (`baseY - scrollOffset + y`). `false` — continuation-ячейка
-     * wide-char (голова уже отдана с width=2) или вне диапазона; `out` тогда не тронут.
+     * The row accounts for scrolling (`baseY - scrollOffset + y`). `false` for a wide-char continuation cell
+     * (the head was already returned with width=2) or out of range; `out` is then untouched.
      */
     public readCell(x: number, y: number, out: TerminalCell): boolean {
         if (this.term === undefined) return false;
@@ -210,7 +213,7 @@ export abstract class XtermSurface implements ITerminalSurface, IDisposable {
         if (!line) return false;
         const cell = line.getCell(x, this.cellBuffer);
         if (!cell) return false;
-        // Stryker disable next-line AssignmentExpression,ExpressionStatement: кэш переиспользуемой ячейки — без него только лишние аллокации, результат тот же
+        // Stryker disable next-line AssignmentExpression,ExpressionStatement: cell reuse only saves allocations
         this.cellBuffer = cell;
         const width = cell.getWidth();
         if (width === 0) return false;
@@ -224,8 +227,8 @@ export abstract class XtermSurface implements ITerminalSurface, IDisposable {
     }
 
     /**
-     * `null` в скролбэке (курсор живёт на дне) и когда строка дописана до края:
-     * xterm держит `cursorX` до переноса ровно `cols`.
+     * `null` in scrollback (the cursor lives at the bottom) and when the line is filled to the edge:
+     * xterm keeps `cursorX` at exactly `cols` until the wrap.
      */
     public getCursor(): { x: number; y: number } | null {
         if (this.term === undefined || this.scrollOffset > 0) return null;
@@ -234,7 +237,7 @@ export abstract class XtermSurface implements ITerminalSurface, IDisposable {
         return { x, y };
     }
 
-    /** Любой ввод возвращает вьюпорт на дно. */
+    /** Any input returns the viewport to the bottom. */
     public write(data: string): void {
         this.setScrollOffset(0);
         if (this.exited) this.onDidInputAfterExitEmitter.fire();
@@ -246,16 +249,16 @@ export abstract class XtermSurface implements ITerminalSurface, IDisposable {
         if (cols === this.cols && rows === this.rows) return;
         this.cols = cols;
         this.rows = rows;
-        // Рефлоу меняет длину скролбэка; смещение клампит геттер `scrollOffset`.
+        // Reflow changes the scrollback length; the `scrollOffset` getter clamps the offset.
         this.term?.resize(cols, rows);
         if (!this.exited) this.onDidResize(cols, rows);
     }
 
-    /** Слать ли отчёт и в какой кодировке, решает эмулятор по mouse-режиму программы; col/row 0-based. */
+    /** The emulator decides whether and how to encode a report from the program's mouse mode; col/row are 0-based. */
     public sendMouse(event: TerminalMouseEventData): void {
-        // Эмулятора ещё нет — не знает и mouse-режима программы, отчёт слать некому.
+        // No emulator yet — so no known mouse mode, nobody to send a report to.
         if (this.term === undefined) return;
-        // После выхода отчёт эмулятора упрётся в `write`, который мёртвому процессу не шлёт.
+        // After exit the emulator's report hits `write`, which doesn't send to a dead process.
         coreMouseService(this.term).triggerMouseEvent({
             col: event.col,
             row: event.row,
@@ -271,13 +274,13 @@ export abstract class XtermSurface implements ITerminalSurface, IDisposable {
 
     public readonly onExit = this.onExitEmitter.event;
 
-    /** Ввод после выхода процесса (клавиша «press any key to close» у `waitOnExit`). */
+    /** Input after the process exits (the "press any key to close" key of `waitOnExit`). */
     public readonly onDidInputAfterExit = this.onDidInputAfterExitEmitter.event;
 
     public dispose(): void {
         this.disposed = true;
         this.disposeProcess();
-        // Stryker disable next-line OptionalChaining,CallExpression: освобождение ресурсов эмулятора снаружи не наблюдается
+        // Stryker disable next-line OptionalChaining,CallExpression: emulator disposal isn't observable from outside
         this.term?.dispose();
     }
 
@@ -298,7 +301,7 @@ export abstract class XtermSurface implements ITerminalSurface, IDisposable {
 }
 
 function coreMouseService(term: Terminal): ICoreMouseService {
-    // Сменятся внутренности xterm — упадут тесты мыши, а не тихо погаснет колесо.
+    // If xterm internals change, mouse tests fail instead of the wheel silently going dead.
     return (term as unknown as { _core: { coreMouseService: ICoreMouseService } })._core.coreMouseService;
 }
 
@@ -322,8 +325,8 @@ function mapAction(action: TerminalMouseAction): number {
 
 function resolveFg(cell: IBufferCell, palette: XtermPalette): number {
     if (cell.isFgDefault()) return DEFAULT_COLOR;
-    if (cell.isFgRGB()) return cell.getFgColor(); // уже 0xRRGGBB
-    return xtermPaletteToRgb(cell.getFgColor(), palette); // palette-индекс
+    if (cell.isFgRGB()) return cell.getFgColor(); // already 0xRRGGBB
+    return xtermPaletteToRgb(cell.getFgColor(), palette); // palette index
 }
 
 function resolveBg(cell: IBufferCell, palette: XtermPalette): number {

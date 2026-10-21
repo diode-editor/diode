@@ -4,8 +4,8 @@ import type { IPipe } from "./commitGraph.ts";
 import { getBoxDrawingChars, GRAPH_HIGHLIGHT_STYLE, PipeKind, renderPipeSet } from "./commitGraph.ts";
 
 /**
- * Кейсы `TestRenderPipeSet` из lazygit — сверяют и цвет каждого символа. Цвета —
- * непрозрачные ядру строки; `undefined` — оригинальный `style.Nothing`.
+ * lazygit `TestRenderPipeSet` cases — they also check each char's color. Colors are
+ * strings opaque to the core; `undefined` is the original `style.Nothing`.
  */
 const CYAN = "cyan";
 const RED = "red";
@@ -21,8 +21,8 @@ function pipe(fromPos: number, toPos: number, fromHash: string, toHash: string, 
 }
 
 /**
- * Сверка как в Go: ожидаемая строка без хвостового пробела последней клетки —
- * его дописываем сами, вместе с его «нецветом».
+ * Compared as in Go: the expected string lacks the last cell's trailing space —
+ * we append it ourselves, along with its "no color".
  */
 function check(
     pipes: readonly IPipe[],
@@ -218,7 +218,7 @@ describe("renderPipeSet — символы и цвета", () => {
     });
 
     it("клетка, которой не коснулась ни одна линия, остаётся пустой", () => {
-        // Дырка между дорожками: колонка 1 не занята и не пересечена.
+        // Hole between lanes: column 1 is neither occupied nor crossed.
         check(
             [pipe(0, 0, "a1", "a2", PipeKind.Continues, RED), pipe(2, 2, "c1", "c2", PipeKind.Continues, GREEN)],
             null,

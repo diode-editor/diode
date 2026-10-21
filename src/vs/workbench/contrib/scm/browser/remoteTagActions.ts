@@ -12,7 +12,7 @@ import { pickRemote, queryRefs } from "./syncActions.ts";
 
 const inChangesMenu = viewMenuVisible(SCM_CHANGES_VIEW_ID);
 
-/** Канал, куда субпроцесс git-расширения пишет свои логи (`[git] …`). */
+/** Channel where the git extension's subprocess writes its logs (`[git] …`). */
 const GIT_OUTPUT_SHOW_COMMAND = "workbench.action.output.show.extensions.host.stdout";
 
 async function pickTag(accessor: ServiceAccessor, title: string): Promise<string | null> {
@@ -29,7 +29,7 @@ async function pickTag(accessor: ServiceAccessor, title: string): Promise<string
     return picked?.label ?? null;
 }
 
-/** URL, потом имя — порядок VS Code. */
+/** URL first, then name — VS Code order. */
 export const gitAddRemoteAction: CommandAction = {
     id: "git.addRemote",
     title: "Git: Add Remote...",
@@ -67,7 +67,7 @@ export const gitRemoveRemoteAction: CommandAction = {
     },
 };
 
-/** Пустое сообщение — lightweight-тег, иначе аннотированный. */
+/** An empty message makes a lightweight tag, otherwise an annotated one. */
 export const gitCreateTagAction: CommandAction = {
     id: "git.createTag",
     title: "Git: Create Tag",
@@ -86,7 +86,7 @@ export const gitCreateTagAction: CommandAction = {
             title: "Create Tag",
             placeholder: "Tag message (optional — empty for a lightweight tag)",
         });
-        if (message === undefined) return; // Escape — отмена
+        if (message === undefined) return; // Escape cancels
         await runGitOp(accessor, "tagCreate", { name: name.trim(), message });
     },
 };
@@ -103,7 +103,7 @@ export const gitDeleteTagAction: CommandAction = {
     },
 };
 
-/** Отклонение от VS Code (там теги remote через `ls-remote`): берём локальные теги. */
+/** Deviates from VS Code (which lists remote tags via `ls-remote`): we take local tags. */
 export const gitDeleteRemoteTagAction: CommandAction = {
     id: "git.deleteRemoteTag",
     title: "Git: Delete Remote Tag",
@@ -130,8 +130,8 @@ export const gitShowOutputAction: CommandAction = {
 };
 
 /**
- * Мутирующая часть. `git.showOutput` сюда не входит: гасить его на время операции
- * значило бы прятать её же лог.
+ * The mutating part. `git.showOutput` is excluded: disabling it during an operation
+ * would hide that operation's own log.
  */
 export const REMOTE_TAG_ACTIONS: readonly CommandAction[] = [
     gitAddRemoteAction,

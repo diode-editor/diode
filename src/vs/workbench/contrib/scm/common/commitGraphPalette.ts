@@ -2,12 +2,12 @@ import type { GraphStyleProvider } from "./commitGraph.ts";
 import { GRAPH_DEFAULT_STYLE } from "./commitGraph.ts";
 
 /**
- * Модель vscode, а не lazygit (`md5(автор) → HSL` truecolor мимо тем): цвет у дорожки;
- * коммит с текущей или remote-веткой перекрашивает дорожку в семантический цвет;
- * новая дорожка берёт следующий цвет палитры по кругу.
+ * The vscode model, not lazygit's (`md5(author) → HSL` truecolor bypassing themes): color belongs to the lane;
+ * a commit with the current or a remote branch recolors the lane to a semantic color;
+ * a new lane takes the next palette color round-robin.
  */
 
-/** Colorblind-safe палитра, как в vscode. */
+/** Colorblind-safe palette, as in vscode. */
 export const GRAPH_PALETTE = [
     "scmGraph.foreground1",
     "scmGraph.foreground2",
@@ -26,11 +26,11 @@ export interface IGraphPaletteCommit {
 
 export interface IGraphPalette {
     readonly styleFor: GraphStyleProvider;
-    /** До укладки — дефолт. */
+    /** Default before layout. */
     colorOf(sha: string): string;
 }
 
-/** `undefined` — цвет наследуется или берётся из палитры. */
+/** `undefined` means the color is inherited or taken from the palette. */
 function semanticStyle(commit: IGraphPaletteCommit | undefined): string | undefined {
     if (commit === undefined) return undefined;
     if (commit.refs.some((ref) => ref.current)) return GRAPH_CURRENT_REF_STYLE;
@@ -38,7 +38,7 @@ function semanticStyle(commit: IGraphPaletteCommit | undefined): string | undefi
     return undefined;
 }
 
-/** Счётчик цвета живёт внутри: на каждую укладку — свежая палитра, иначе цвета не воспроизводимы. */
+/** The color counter lives inside: a fresh palette per layout, otherwise colors are not reproducible. */
 export function createGraphPalette(commits: readonly IGraphPaletteCommit[]): IGraphPalette {
     const byHash = new Map<string, IGraphPaletteCommit>();
     for (const commit of commits) {
@@ -55,8 +55,8 @@ export function createGraphPalette(commits: readonly IGraphPaletteCommit[]): IGr
             colorIndex = (colorIndex + 1) % GRAPH_PALETTE.length;
             style = GRAPH_PALETTE[colorIndex];
         }
-        // Первое присвоение побеждает: дорожку к влитой ветке заводит merge, а
-        // сам её коммит приходит ниже и должен остаться того же цвета.
+        // First assignment wins: the merge opens the lane to the merged branch, and
+        // the branch's commit itself comes later and must keep the same color.
         if (!assigned.has(sha)) assigned.set(sha, style);
         return style;
     };

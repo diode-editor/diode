@@ -49,7 +49,7 @@ function fakeState(): { service: IStateService; stored: Map<string, unknown> } {
 const REPO_STATE = {
     branch: "main",
     detached: false,
-    // `null` — ветка без upstream (git.publish); тип должен это допускать.
+    // `null` is a branch without upstream (git.publish); the type must allow it.
     upstream: "origin/main" as string | null,
     ahead: 0,
     behind: 0,
@@ -74,8 +74,8 @@ function make(): IHarness {
     const changes = new ScmChangesService(commands);
     const repoState = new ScmRepoStateService(commands, new ContextKeyService());
     const progress = new ProgressService();
-    // Досягаемый всюду Alt+Enter и канонический mod+Enter под tier-гейтом (в legacy
-    // Ctrl+Enter — это сам Enter): плейсхолдер подписывает работающий.
+    // Alt+Enter works everywhere, canonical mod+Enter sits behind the tier gate (in legacy
+    // Ctrl+Enter is plain Enter): the placeholder names the one that works.
     const keybindings = new KeybindingRegistry();
     keybindings.register(parseKeybinding("alt+enter"), "git.commit", "scmInputFocus");
     keybindings.register(parseKeybinding("mod+enter"), "git.commit", "scmInputFocus && tier != 'legacy'");
@@ -171,17 +171,17 @@ describe("ScmInputComponent — поле", () => {
         h.contextKeys.set("macKeys", 1);
         await Promise.resolve();
         expect(h.component.input.placeholder).toBe("Message (Ctrl+Enter to commit)");
-        h.contextKeys.set("isMac", true); // ОС уточнилась после старта — одной сменой isMac
+        h.contextKeys.set("isMac", true); // OS was refined after startup — by a single isMac change
         await Promise.resolve();
-        expect(h.component.input.placeholder).toBe("Message (⌃Enter to commit)"); // mac-legacy: commit на Control
-        h.contextKeys.set("macKeys", 3); // увидели Cmd — одной сменой рунга
+        expect(h.component.input.placeholder).toBe("Message (⌃Enter to commit)"); // mac-legacy: commit on Control
+        h.contextKeys.set("macKeys", 3); // Cmd seen — by a single rung change
         await Promise.resolve();
         expect(h.component.input.placeholder).toBe("Message (⌘Enter to commit)");
     });
 
     it("на legacy-терминале плейсхолдер подписывает Alt+Enter, а не недоезжающий Ctrl+Enter", async () => {
-        // Ctrl+Enter в legacy-потоке — это сам Enter: бинд под tier-гейтом, и
-        // подсказка обязана назвать тот путь, который там работает.
+        // In the legacy stream Ctrl+Enter is plain Enter: the binding is behind the tier gate, and
+        // the hint must name the path that works there.
         const h = make();
         h.contextKeys.set("tier", "legacy");
         await Promise.resolve();
@@ -220,17 +220,17 @@ describe("ScmInputComponent — поле", () => {
     it("поле начинается с первой строки блока — сверху padding'а нет", () => {
         const h = make();
         h.publishRepoState();
-        // Ширина с запасом: боковые padding'и съедают две колонки, и на 30
-        // плейсхолдер обрезается.
+        // Width with headroom: side paddings eat two columns, and at 30
+        // the placeholder gets clipped.
         const screen = renderElement(h.component.view, 40, SCM_INPUT_HEIGHT, { themeVars: true });
 
-        // Абсолютная позиция, а не разница с кнопкой: относительные смещения переживают
-        // лишний отступ сверху.
+        // Absolute position, not the offset from the button: relative offsets survive
+        // an extra top padding.
         expect(h.component.input.globalPosition.y).toBe(0);
         expect(screen.screenToString().split("\n")[0]).toContain("Message (Ctrl+Enter to commit)");
 
-        // Боковые отступы при этом на месте. Без этой пары одной проверки `y === 0`
-        // мало: она проходит и когда padding'ов не осталось вовсе.
+        // Side paddings are still in place. Without this pair the `y === 0` check alone
+        // is not enough: it also passes when no paddings remain at all.
         expect(h.component.input.globalPosition.x).toBe(1);
         expect(h.component.input.layoutSize.width).toBe(40 - 2);
     });
@@ -293,7 +293,7 @@ describe("ScmInputComponent — поле", () => {
         expect(component.message).toBe("draft message");
         expect(writes).not.toHaveBeenCalled();
 
-        component.restoreDraft(); // повтор — no-op
+        component.restoreDraft(); // repeat is a no-op
         expect(component.message).toBe("draft message");
     });
 });
@@ -334,7 +334,7 @@ describe("ScmInputComponent — кнопка действия", () => {
         expect(h.component.actionButton.isDisabled()).toBe(true);
         expect(h.component.actionButton.focusable).toBe(false);
 
-        h.component.actionButton.onActivate?.(); // команда null — no-op
+        h.component.actionButton.onActivate?.(); // null command is a no-op
         h.component.actionButton.dispatchEvent(new TUIKeyboardEvent("keydown", { key: "Enter" }));
         expect(h.executed).toEqual([]);
     });
@@ -359,7 +359,7 @@ describe("ScmInputComponent — кнопка действия", () => {
         h.publishRepoState();
         h.publishChanges(1);
         const screen = renderElement(h.component.view, 30, SCM_INPUT_HEIGHT, { themeVars: true }).screenToString();
-        expect(screen).toContain("Message (Ctrl+Enter to comm"); // безрамочный input, клип по ширине
+        expect(screen).toContain("Message (Ctrl+Enter to comm"); // borderless input, clipped by width
         const buttonLine = screen.split("\n").find((l) => l.includes("Commit"))!;
         expect(buttonLine.indexOf("Commit")).toBeGreaterThan(3);
 
@@ -382,12 +382,12 @@ describe("ScmInputComponent — кнопка действия", () => {
         expect(h.executed).toEqual(["git.commit"]);
 
         h.executed.length = 0;
-        h.publishChanges(0); // синхронно и чисто → disabled
+        h.publishChanges(0); // synced and clean → disabled
         click();
         h.component.actionButton.dispatchEvent(new TUIKeyboardEvent("keydown", { key: " " }));
         expect(h.executed).toEqual([]);
 
-        // Space активирует включённую (вторая клавиша performDefaultAction).
+        // Space activates the enabled button (the second performDefaultAction key).
         h.publishChanges(1);
         h.component.actionButton.dispatchEvent(new TUIKeyboardEvent("keydown", { key: " " }));
         expect(h.executed).toEqual(["git.commit"]);
@@ -443,7 +443,7 @@ describe("ScmInputComponent — кнопка во время операции", 
                 }),
         );
 
-        // Клик перестал работать мгновенно, подпись ещё прежняя.
+        // The click stopped working immediately; the label is still the old one.
         expect(h.component.actionButton.inspectState()).toMatchObject({ label: "Commit", disabled: true });
 
         vi.advanceTimersByTime(300);

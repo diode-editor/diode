@@ -35,7 +35,7 @@ describe("scmGraphRefreshAction", () => {
         const progress = new ProgressService({ delayMs: 0, minVisibleMs: 0, intervalMs: 100 });
 
         const running = scmGraphRefreshAction.run(makeAccessor(commands, progress)) as Promise<void>;
-        // Нулевая задержка показа — это всё равно таймер: ждём макрозадачу.
+        // A zero show delay is still a timer: wait for a macrotask.
         await new Promise((resolve) => setTimeout(resolve, 0));
         expect(progress.isBusy(SCM_GRAPH_VIEW_ID)).toBe(true);
         expect(progress.isBusy(SCM_CHANGES_VIEW_ID)).toBe(false);
@@ -51,7 +51,7 @@ describe("scmGraphRefreshAction", () => {
         const commands = new CommandRegistry();
         const progress = new ProgressService();
         expect(() => scmGraphRefreshAction.run(makeAccessor(commands, progress))).not.toThrow();
-        // Спиннер без операции — обман: расширения нет, гонять нечего.
+        // A spinner without an operation would lie: no extension, nothing to run.
         expect(progress.isBusy()).toBe(false);
     });
 });

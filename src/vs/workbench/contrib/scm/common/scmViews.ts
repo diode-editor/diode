@@ -1,5 +1,5 @@
-// В `common/`, а не рядом с компонентами: объявление в `changesComponent.ts`
-// замкнуло бы импорты в цикл через `ScmInputComponent`.
+// In `common/`, not next to the components: declaring it in `changesComponent.ts`
+// would create an import cycle through `ScmInputComponent`.
 
 export const SCM_VIEWLET_ID = "scm";
 

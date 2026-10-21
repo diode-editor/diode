@@ -15,7 +15,7 @@ import { TerminalEditorPane } from "./terminalEditorPane.ts";
 import type { ITerminalCreateOptions, ITerminalInstance, TerminalService } from "./terminalService.ts";
 import { TerminalServiceDIToken } from "./terminalService.ts";
 
-/** Без колонки — активная группа; `preserveFocus` — не забирая фокус и не меняя активную группу. */
+/** No column — the active group; `preserveFocus` — without taking focus or changing the active group. */
 export interface ITerminalEditorLocation {
     readonly viewColumn?: number;
     readonly group?: EditorGroup;
@@ -23,10 +23,10 @@ export interface ITerminalEditorLocation {
 }
 
 /**
- * Жизни вкладки и инстанса связаны в обе стороны: закрыли вкладку — процесс
- * убит (`user`), инстанс снят — вкладка закрыта. Перенос между панелью и
- * областью редакторов процесс не трогает. Активным терминалом сервиса
- * (`window.activeTerminal`) вкладка не становится — отступление,
+ * Tab and instance lifetimes are bound both ways: closing the tab kills the process
+ * (`user`), removing the instance closes the tab. Moving between the panel and the
+ * editor area doesn't touch the process. The tab never becomes the service's active
+ * terminal (`window.activeTerminal`) — a deviation, see
  * docs/arch/Extensions.md.
  */
 export class TerminalEditorService extends Disposable implements IContextKeyContributor {
@@ -67,12 +67,12 @@ export class TerminalEditorService extends Disposable implements IContextKeyCont
         contextKeys.set("terminalEditorActive", this.editors.getActiveTabPane() instanceof TerminalEditorPane);
     }
 
-    /** `undefined` — инстанс не в области редакторов либо фоновый. */
+    /** `undefined` — the instance is not in the editor area or is in the background. */
     public paneOf(instanceId: number): TerminalEditorPane | undefined {
         return this.panes.get(instanceId);
     }
 
-    /** Фоновый (`hideFromUser`) вкладку получит по {@link reveal}. */
+    /** A background (`hideFromUser`) instance gets a tab on {@link reveal}. */
     public createTerminal(
         options: Omit<ITerminalCreateOptions, "target"> = {},
         location: ITerminalEditorLocation = {},
@@ -82,18 +82,18 @@ export class TerminalEditorService extends Disposable implements IContextKeyCont
         return instance;
     }
 
-    /** Группа родителя становится активной, новый встаёт в группу справа. */
+    /** The parent's group becomes active; the new one goes into the group to the right. */
     public splitInstance(parentId: number, options: Omit<ITerminalCreateOptions, "target"> = {}): ITerminalInstance {
         const parent = this.panes.get(parentId);
-        // Stryker disable next-line ConditionalExpression: эквивалентный — groupOf панели, которой нет ни в одной группе, и так null
+        // Stryker disable next-line ConditionalExpression: equivalent — groupOf for a pane in no group is null anyway
         const group = parent === undefined ? null : this.editors.editorGroups.groupOf(parent);
-        // Фокус следом забирает новая вкладка — здесь важна только активная группа.
-        // Stryker disable next-line ObjectLiteral,BooleanLiteral: эквивалентный — фокус группы родителя сразу уходит в новую вкладку справа
+        // The new tab takes focus right after — only the active group matters here.
+        // Stryker disable next-line ObjectLiteral,BooleanLiteral: equivalent — the new right tab takes focus at once
         if (group !== null) this.editors.editorGroups.focusGroup(group.id, { focus: false });
         return this.createTerminal(options, { viewColumn: SIDE_GROUP });
     }
 
-    /** Нет вкладки (фоновый только что показан) — открыть в активной группе. */
+    /** No tab (a background instance was just shown) — open in the active group. */
     public reveal(instanceId: number, preserveFocus: boolean): void {
         const pane = this.panes.get(instanceId);
         if (pane === undefined) {
@@ -105,9 +105,9 @@ export class TerminalEditorService extends Disposable implements IContextKeyCont
             this.editors.editorGroups.revealPane(pane);
             return;
         }
-        // Вкладка из `panes` всегда стоит в группе: закрытая уходит из `panes` раньше.
+        // A tab from `panes` is always in a group: a closed one leaves `panes` earlier.
         const group = this.editors.editorGroups.groupOf(pane);
-        // Stryker disable next-line OptionalChaining: недостижимо — см. выше
+        // Stryker disable next-line OptionalChaining: unreachable — see above
         group?.activateTab(group.getPanes().indexOf(pane), { focus: false });
     }
 
@@ -123,7 +123,7 @@ export class TerminalEditorService extends Disposable implements IContextKeyCont
         this.terminals.moveToPanel(instanceId);
     }
 
-    /** С `preserveFocus` активная группа остаётся прежней, как у `showTextDocument`. */
+    /** With `preserveFocus` the active group stays the same, like `showTextDocument`. */
     private openEditor(instance: ITerminalInstance, location: ITerminalEditorLocation): void {
         const groups = this.editors.editorGroups;
         const previous = groups.activeGroup;
@@ -131,8 +131,8 @@ export class TerminalEditorService extends Disposable implements IContextKeyCont
         const focus = location.preserveFocus !== true;
         const pane = new TerminalEditorPane(instance, this.colors.colors);
         this.panes.set(instance.id, pane);
-        // Из `panes` вкладку снимает `closePane` — по снятию инстанса, которое
-        // закрытие и вызывает.
+        // `closePane` removes the tab from `panes` — on the instance removal that
+        // the close itself triggers.
         pane.onDidClose(() => {
             this.terminals.closeInstance(instance.id, "user");
         });
@@ -141,13 +141,13 @@ export class TerminalEditorService extends Disposable implements IContextKeyCont
         if (!focus) groups.focusGroup(previous.id, { focus: false });
     }
 
-    /** Снять вкладку, не трогая процесс: он уже снят либо переезжает. */
+    /** Removes the tab without touching the process: it is already gone or moving. */
     private closePane(pane: TerminalEditorPane): void {
         this.panes.delete(pane.instance.id);
         pane.detach();
-        // Вкладка из `panes` всегда стоит в группе (см. `reveal`).
+        // A tab from `panes` is always in a group (see `reveal`).
         const group = this.editors.editorGroups.groupOf(pane);
-        // Stryker disable next-line ConditionalExpression: недостижимо — вкладка из `panes` всегда в группе
+        // Stryker disable next-line ConditionalExpression: unreachable — a tab from `panes` is always in a group
         if (group !== null) void this.editors.closeEditor(group, pane);
     }
 }
