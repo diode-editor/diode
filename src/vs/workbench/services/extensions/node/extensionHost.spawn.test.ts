@@ -43,14 +43,13 @@ const spawnMock = vi.mocked(spawn);
 
 class FakeChild extends EventEmitter {
     public exitCode: number | null = null;
+    public signalCode: string | null = null;
     public killed = false;
     public stdout = null;
     public stderr = null;
     public readonly sent: IProtocolMessage[] = [];
     public readonly signals: string[] = [];
 
-    /** When false, a SIGTERM/SIGKILL does NOT flip `killed` — models a child that ignores signals. */
-    public markKilled = true;
     public exitOnSignal: string | null = null;
     public autoRespond = true;
 
@@ -66,10 +65,10 @@ class FakeChild extends EventEmitter {
     public kill(signal?: string): boolean {
         const sig = signal ?? "SIGTERM";
         this.signals.push(sig);
-        if (this.markKilled) this.killed = true;
+        this.killed = true;
         if (this.exitOnSignal !== null && sig === this.exitOnSignal) {
-            this.exitCode = 0;
-            this.emit("exit", 0, sig);
+            this.signalCode = sig;
+            this.emit("exit", null, sig);
         }
         return true;
     }
@@ -144,11 +143,10 @@ afterEach(() => {
     seaState.mode = "real";
 });
 
-describe("ExtensionHost — SIGKILL escalation (lines 242-247)", () => {
+describe("ExtensionHost — SIGKILL escalation", () => {
     it("escalates to SIGKILL when the child ignores host.shutdown and survives SIGTERM", async () => {
         const child = new FakeChild();
-        child.markKilled = false; // SIGTERM does not flip `killed`, so the second guard passes…
-        child.exitOnSignal = "SIGKILL"; // …and SIGKILL finally takes it down (keeps the test fast).
+        child.exitOnSignal = "SIGKILL";
         const host = spawnReadyHost(child, {
             spawnArgs: () => ({ command: "node", args: ["h.js"] }),
             shutdownTimeoutMs: 10,

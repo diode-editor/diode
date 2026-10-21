@@ -103,11 +103,13 @@ export class ExtensionHostProcess {
         } catch {
             // ignore
         }
-        if (child.exitCode === null && !child.killed) {
+        // Not `child.killed`: it only means a signal was sent, and the direct `kill` (win32, failed
+        // group kill) sets it for a surviving child too, so SIGKILL would never follow.
+        if (!hasExited(child)) {
             this.killTree("SIGTERM");
             await Promise.race([exit, sleep(500)]);
         }
-        if (child.exitCode === null && !child.killed) {
+        if (!hasExited(child)) {
             this.killTree("SIGKILL");
             await Promise.race([exit, sleep(500)]);
         }
@@ -142,6 +144,10 @@ export class ExtensionHostProcess {
             // ignore
         }
     }
+}
+
+function hasExited(child: ChildProcess): boolean {
+    return child.exitCode !== null || child.signalCode !== null;
 }
 
 function isNoSuchProcess(err: unknown): boolean {
@@ -190,7 +196,7 @@ function waitForReady(rpc: HostRpc, guard: GuardedChildProcess, timeoutMs: numbe
 function waitForExit(child: ChildProcess): Promise<void> {
     return new Promise((resolve) => {
         /* v8 ignore start -- defensive: handleSubprocessDeath handles subprocess death and clears the host's process, so only a live child reaches shutdown */
-        if (child.exitCode !== null || child.killed) {
+        if (hasExited(child)) {
             resolve();
             return;
         }
