@@ -162,7 +162,7 @@ describe("CommandsCustomer — onCommand activator stubs", () => {
         expect(h.commands.service.execute).not.toHaveBeenCalled();
     });
 
-    it("activation "succeeded" but there is no spawn (subprocess gone) — a warning instead of a crash", async () => {
+    it("activation `succeeded` but there is no spawn (subprocess gone) — a warning instead of a crash", async () => {
         const h = setup();
         h.customer.arm("ext.run");
 

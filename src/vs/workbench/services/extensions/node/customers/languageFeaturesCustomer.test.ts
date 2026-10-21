@@ -383,7 +383,7 @@ describe("LanguageFeaturesCustomer — subprocess reply in core form", () => {
         });
     });
 
-    it("subprocess "nothing to say" is empty in core form", async () => {
+    it("subprocess `nothing to say` is empty in core form", async () => {
         const empty = setupAnswering(
             Object.fromEntries(Object.entries(EMPTY_WIRE).map(([method, value]) => [method, () => value])),
         );

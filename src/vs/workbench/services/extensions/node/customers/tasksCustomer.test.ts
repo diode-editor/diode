@@ -144,7 +144,7 @@ function setup() {
 }
 
 describe("vscode.tasks — over the wire", () => {
-    it("extension provider: its tasks are in the core list labelled "source: name", id is the extension and the definition key", async () => {
+    it("extension provider: its tasks are in the core list labelled `source: name`, id is the extension and the definition key", async () => {
         const s = setup();
         const registration = s.register({ provideTasks: () => [s.shellTask("ok", "echo ok")] });
         await flush();
