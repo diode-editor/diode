@@ -4,7 +4,7 @@ export const scmConfiguration = {
     id: "scm",
     title: "Source Control",
     properties: {
-        // Границы 1..1000 держит git-расширение (`refreshLog`): схема min/max здесь не выражает.
+        // The git extension enforces the 1..1000 bounds (`refreshLog`): the schema can't express min/max here.
         "scm.graph.pageSize": {
             scope: "resource",
             type: "number",

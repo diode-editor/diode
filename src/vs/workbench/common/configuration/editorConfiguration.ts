@@ -24,14 +24,14 @@ export const editorConfiguration = {
                 "Controls whether `editor.tabSize` and `editor.insertSpaces` are automatically detected " +
                 "from the file contents when a file is opened.",
         },
-        // У эталона дефолт 0; отступ — по issue #89: курсор не прилипает к краю при прокрутке в вид.
+        // Upstream defaults to 0; the margin comes from issue #89: the cursor doesn't hug the edge when scrolled into view.
         "editor.cursorSurroundingLines": {
             scope: "language-overridable",
             type: "number",
             default: 3,
             description: "Controls the minimal number of visible leading lines around the cursor.",
         },
-        // "multiFile" не поддержан и ведёт себя как "singleFile".
+        // "multiFile" is not supported and behaves like "singleFile".
         "editor.occurrencesHighlight": {
             scope: "language-overridable",
             type: "string",
@@ -39,7 +39,7 @@ export const editorConfiguration = {
             default: "singleFile",
             description: "Controls whether the editor highlights semantic symbol occurrences.",
         },
-        // `type` у эталона нет (только `enum`); наша схема его требует.
+        // Upstream has no `type` (only `enum`); our schema requires it.
         "editor.semanticHighlighting.enabled": {
             scope: "language-overridable",
             type: ["boolean", "string"],
@@ -97,7 +97,7 @@ export const editorConfiguration = {
             default: false,
             description: "Format a file on save. A formatter must be available (an extension providing it).",
         },
-        // Как у эталона, гейтит только автозапрос: `editor.action.inlineSuggest.trigger` работает и при `false`.
+        // As upstream, gates only the automatic request: `editor.action.inlineSuggest.trigger` works even with `false`.
         "editor.inlineSuggest.enabled": {
             scope: "language-overridable",
             type: "boolean",
@@ -112,8 +112,8 @@ export const editorConfiguration = {
                 "Controls how inline suggestions interact with the suggest widget. If enabled, the suggest widget is " +
                 "not shown automatically when inline suggestions are available.",
         },
-        // У эталона схема — anyOf; у нас anyOf нет, поэтому три типа без enum, а режимы
-        // проверяет `readQuickSuggestions` (мусор → дефолт, как `validate` эталона).
+        // Upstream's schema is anyOf; we have no anyOf, so three types without enum, and
+        // `readQuickSuggestions` validates the modes (garbage → default, like upstream's `validate`).
         "editor.quickSuggestions": {
             scope: "language-overridable",
             type: ["boolean", "string", "object"],
@@ -129,7 +129,7 @@ export const editorConfiguration = {
             type: "number",
             default: 10,
             minimum: 0,
-            // Constants.MAX_SAFE_SMALL_INTEGER эталона (1 << 30).
+            // Upstream's Constants.MAX_SAFE_SMALL_INTEGER (1 << 30).
             maximum: 1073741824,
             description: "Controls the delay in milliseconds after which quick suggestions will show up.",
         },
@@ -139,8 +139,8 @@ export const editorConfiguration = {
             default: true,
             description: "Controls whether suggestions should automatically show up when typing trigger characters.",
         },
-        // `offWithInlineSuggestions` смотрит не на `editor.inlineSuggest.enabled`, а на
-        // `github.copilot.enable`, как у эталона (`CompletionService.wordBasedSuggestionsOff`).
+        // `offWithInlineSuggestions` looks at `github.copilot.enable`, not `editor.inlineSuggest.enabled`,
+        // like upstream (`CompletionService.wordBasedSuggestionsOff`).
         "editor.wordBasedSuggestions": {
             scope: "language-overridable",
             type: "string",
@@ -157,7 +157,7 @@ export const editorConfiguration = {
                 "Controls whether completions should be computed based on words in the document and from which " +
                 "documents they are computed.",
         },
-        // Наши ключи: у эталона дебаунс адаптивный и зашит константой, а таймаута нет (CancellationToken).
+        // Our own keys: upstream's debounce is adaptive and hardcoded, and it has no timeout (CancellationToken).
         "editor.inlineSuggest.delay": {
             scope: "language-overridable",
             type: "number",
@@ -176,7 +176,7 @@ export const editorConfiguration = {
                 "Milliseconds to wait for an inline suggestion provider to answer. " +
                 "After that the request is given up on and no suggestion is shown.",
         },
-        // "explicit" ≡ true: все сохранения diode ручные.
+        // "explicit" ≡ true: every diode save is manual.
         "editor.codeActionsOnSave": {
             scope: "language-overridable",
             type: ["object", "array"],

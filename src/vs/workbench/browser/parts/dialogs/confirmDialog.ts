@@ -12,13 +12,13 @@ export interface ConfirmDialogOptions {
     readonly message: string | readonly string[];
     readonly confirmLabel: string;
     readonly cancelLabel?: string;
-    /** Для необратимых действий. */
+    /** For irreversible actions. */
     readonly warning?: boolean;
-    /** По умолчанию — Cancel (безопаснее). */
+    /** Defaults to Cancel (safer). */
     readonly defaultButton?: "confirm" | "cancel";
 }
 
-/** Метки кнопок неизменяемы — под разные вопросы создаётся новый экземпляр. */
+/** Button labels are immutable: create a new instance for a different question. */
 export class ConfirmDialog extends DialogComponent {
     public onConfirm?: () => void;
     public onCancel?: () => void;
@@ -40,7 +40,7 @@ export class ConfirmDialog extends DialogComponent {
         const confirmWidth = options.confirmLabel.length + 4;
         const cancelWidth = (options.cancelLabel ?? "Cancel").length + 4;
         const buttonsWidth = confirmWidth + 2 + cancelWidth;
-        // Ряд кнопок расширяется левым спейсером до innerWidth, центрируя кнопки.
+        // A left spacer widens the button row to innerWidth, centering the buttons.
         const innerWidth = Math.min(MAX_INNER_WIDTH, Math.max(MIN_INNER_WIDTH, maxLine, buttonsWidth));
         const buttonsLeftPad = Math.max(0, Math.floor((innerWidth - buttonsWidth) / 2));
 

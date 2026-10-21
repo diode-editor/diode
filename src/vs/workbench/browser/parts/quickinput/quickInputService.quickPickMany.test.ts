@@ -38,7 +38,7 @@ describe("QuickInputService.quickPickMany", () => {
     it("порядок ответа — исходного списка, а не порядка отметки", async () => {
         const { service, testApp } = createService();
         const result = service.quickPickMany({ items: FRUITS });
-        // Отмечаем снизу вверх: gamma, потом alpha.
+        // Check bottom-up: gamma first, then alpha.
         testApp.sendKey("ArrowDown");
         testApp.sendKey("ArrowDown");
         testApp.sendKey(" ");
@@ -87,7 +87,7 @@ describe("QuickInputService.quickPickMany", () => {
         const result = service.quickPickMany({ items: FRUITS });
         testApp.sendKey(" "); // alpha
         testApp.sendKey("g");
-        testApp.sendKey("a"); // фильтр «ga» оставляет только gamma
+        testApp.sendKey("a"); // filter "ga" leaves only gamma
         testApp.sendKey(" "); // gamma
         testApp.sendKey("Enter");
         expect(labels(await result)).toEqual(["alpha", "gamma"]);
@@ -135,7 +135,7 @@ describe("QuickInputService.quickPickMany", () => {
 
         const value = service.input({});
         expect(component.view.canPickMany).toBe(false);
-        // Пробел в поле ввода — обычный символ, а не переключатель отметки.
+        // In an input box Space is a plain character, not a check toggle.
         testApp.sendKey("a");
         testApp.sendKey(" ");
         testApp.sendKey("b");

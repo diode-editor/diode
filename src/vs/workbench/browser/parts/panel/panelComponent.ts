@@ -9,8 +9,8 @@ import { PanelServiceDIToken } from "./panelService.ts";
 export const PanelComponentDIToken = token<PanelComponent>("PanelComponent");
 
 /**
- * Объявлена у потребителя, а экшен её импортирует: иначе компоненту пришлось
- * бы тянуть весь модуль экшенов воркбенча ради одной строки.
+ * Declared at the consumer and imported by the action: otherwise the component would
+ * pull in the whole workbench actions module for one string.
  */
 export const CLOSE_PANEL_COMMAND_ID = "workbench.action.closePanel";
 

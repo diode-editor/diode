@@ -21,7 +21,7 @@ function render(picker: QuickPickElement, width = 24) {
     return renderElement(picker, width, picker.getMinIntrinsicHeight(width), { themeVars: true });
 }
 
-/** Клавиша прямо на виджет — минуя фокус: нас интересует его собственный разбор. */
+/** Sends the key straight to the widget, bypassing focus: we're testing its own key handling. */
 function key(picker: QuickPickElement, name: string): void {
     picker.dispatchEvent(new TUIKeyboardEvent("keydown", { key: name }));
 }
@@ -342,7 +342,7 @@ describe("QuickPickElement.inspectState — отметки", () => {
 });
 
 describe("QuickPickElement — клик в множественном выборе", () => {
-    /** Мышиный токен движка (координаты 1-based, как в терминале). */
+    /** Engine mouse token (1-based coordinates, as in the terminal). */
     function token(overrides: Partial<MouseToken>): MouseToken {
         return {
             kind: "mouse",
@@ -358,7 +358,7 @@ describe("QuickPickElement — клик в множественном выбор
         };
     }
 
-    /** Экранная строка первого элемента: рамка(1) + запрос(2) + сепаратор(3). */
+    /** Screen row of the first item, after border(1) + query(2) + separator(3). */
     const FIRST_ROW_Y = 4;
 
     function mount(): { picker: QuickPickElement; app: TestApp } {

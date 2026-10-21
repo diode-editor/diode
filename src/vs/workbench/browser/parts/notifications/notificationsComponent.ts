@@ -25,21 +25,21 @@ import { Component } from "../../component.ts";
 import { MessageDialog } from "./messageDialog.ts";
 import { NotificationToast, TOAST_TEXT_WIDTH } from "./notificationToast.ts";
 
-// Stryker disable next-line StringLiteral: token() возвращает новый Token, и зависимости резолвятся по ссылке на него — строка внутри остаётся отладочной меткой
+// Stryker disable next-line StringLiteral: token() returns a new Token and dependencies resolve by reference to it — the string inside is just a debug label
 export const NotificationsComponentDIToken = token<NotificationsComponent>("NotificationsComponent");
 
 /**
- * Объявлена здесь, а не в файле экшена: подсказку с её биндом рисует тост, а
- * импорт parts → actions замкнул бы кольцо — экшен сам зависит от компонента.
+ * Declared here, not in the action file: the toast renders the hint with its binding,
+ * and a parts → actions import would create a cycle since the action depends on the component.
  */
 export const FOCUS_MESSAGE_COMMAND_ID = "notifications.focusMessage";
 
-/** Рамка (2) и отступы контента (2×2). */
+/** Frame (2) plus content padding (2×2). */
 export const TOAST_WIDTH = TOAST_TEXT_WIDTH + 6;
 
 const RIGHT_MARGIN = 1;
 
-/** Слот BodyElement занимает РОВНО один ряд (контракт движка). */
+/** The BodyElement slot takes EXACTLY one row (engine contract). */
 const STATUS_BAR_ROWS = 1;
 
 interface IAttachedHost {
@@ -51,19 +51,19 @@ interface IOpenAsk {
     readonly id: number;
     readonly widget: NotificationToast | MessageDialog;
     /**
-     * У тоста — обёртка фиксированной ширины: иначе он был бы уже пассивных (те
-     * живут в такой же обёртке), и правые края стека разъехались бы.
+     * For a toast, a fixed-width wrapper: otherwise it would be narrower than passive ones
+     * (which live in the same wrapper), and the right edges of the stack would not line up.
      */
     readonly element: TUIElement;
     readonly session: OverlaySessionHandle;
 }
 
 /**
- * Жизнью показов управляет {@link NotificationService}, компонент только
- * отражает его состояние на overlay-слой. Сессий две — это разница в поведении:
- * пассивный стек (без кнопок) не гасит глобальные бинды — человек печатает
- * сквозь тост; вопрос (с кнопками) тоже фокус не крадёт (как в эталоне), до
- * кнопок ведёт клик или F6. Модальное сообщение держит и фокус, и экран.
+ * {@link NotificationService} owns the lifetime of shown notifications; the component only
+ * mirrors its state onto the overlay layer. There are two sessions because behavior differs:
+ * the passive stack (no buttons) does not swallow global bindings — the user types right
+ * through the toast; a question (with buttons) does not steal focus either (as upstream),
+ * a click or F6 reaches the buttons. A modal message holds both focus and the screen.
  */
 export class NotificationsComponent extends Component {
     public static dependencies = [
@@ -74,12 +74,12 @@ export class NotificationsComponent extends Component {
 
     public readonly view: SizedBoxElement;
 
-    /** Хост и сессия ОДНИМ полем: появляются вместе, раздельные nullable-поля защищали бы от небывалых состояний. */
+    /** Host and session in ONE field: they appear together, and separate nullable fields would guard against impossible states. */
     private attached: IAttachedHost | null = null;
     private readonly stack = new VFlexElement();
     private passiveToasts: NotificationToast[] = [];
 
-    /** Одним полем по той же причине, что {@link attached}. */
+    /** One field for the same reason as {@link attached}. */
     private ask: IOpenAsk | null = null;
 
     public constructor(
@@ -99,7 +99,7 @@ export class NotificationsComponent extends Component {
         this.register({
             dispose: () => {
                 this.closeAsk();
-                // Stryker disable next-line CallExpression: виджеты снимаются с экрана строкой ниже — их dispose ненаблюдаем
+                // Stryker disable next-line CallExpression: the next line removes the widgets from the screen — their dispose is unobservable
                 this.disposePassive();
                 this.stack.replaceChildren([]);
                 this.attached?.session.dispose();
@@ -108,19 +108,19 @@ export class NotificationsComponent extends Component {
         });
     }
 
-    /** До первого показа. */
+    /** Before the first show. */
     public attachHost(host: BodyElement): void {
         const session = host.overlayLayer.createSession(this.view, new Point(0, 0), {
-            // Stryker disable next-line BooleanLiteral: сессию открывает явный `open()` следующим же проходом sync, а пустой стек она тут же и закрывает — начальная видимость ненаблюдаема
+            // Stryker disable next-line BooleanLiteral: an explicit `open()` on the very next sync pass opens the session, and an empty stack closes it right away — initial visibility is unobservable
             visible: false,
-            // Stryker disable next-line BooleanLiteral: стек не focusable — фокус не двигается ни при open, ни при close; флаг фиксирует намерение и наблюдаемого эффекта в тестах не имеет
+            // Stryker disable next-line BooleanLiteral: the stack is not focusable — focus moves neither on open nor on close; the flag states intent and has no observable effect in tests
             restoreFocus: false,
-            // Stryker disable next-line BooleanLiteral: та же причина — focusOnOpen некому отдать фокус
+            // Stryker disable next-line BooleanLiteral: same reason — focusOnOpen has nobody to give focus to
             focusOnOpen: false,
-            // Escape нужен тому, кто в фокусе; стек гасит таймер или «Clear All».
-            // Stryker disable next-line BooleanLiteral: ветки неотличимы — фокуса в стеке нет, и до closeOnEscape слоя Escape не доходит
+            // Escape belongs to whoever has focus; the stack is cleared by the timer or "Clear All".
+            // Stryker disable next-line BooleanLiteral: the branches are indistinguishable — the stack has no focus, so Escape never reaches the layer's closeOnEscape
             closeOnEscape: false,
-            // Stryker disable next-line StringLiteral: по мыши "" ведёт себя как passthrough (не modal и не close-on-outside) — наблюдаемой разницы нет, а клавиатуру гасит явный capturesKeyboard ниже
+            // Stryker disable next-line StringLiteral: for the mouse "" behaves like passthrough (neither modal nor close-on-outside) — no observable difference, and the explicit capturesKeyboard below handles the keyboard
             pointerPolicy: "passthrough",
             capturesKeyboard: false,
         });
@@ -128,7 +128,7 @@ export class NotificationsComponent extends Component {
         this.sync();
     }
 
-    /** Для команды палитры: фокус ушёл в редактор, а сообщение висит неотвеченным. */
+    /** For the palette command: focus went to the editor while the message is still unanswered. */
     public focusAsk(): boolean {
         const ask = this.ask;
         if (ask === null) return false;
@@ -136,7 +136,7 @@ export class NotificationsComponent extends Component {
         return true;
     }
 
-    /** Живой `ask` без открытой сессии не бывает — показ открывает её тем же проходом sync. */
+    /** A live `ask` always has an open session: showing it opens one in the same sync pass. */
     public getOpenAsk(): NotificationToast | MessageDialog | null {
         return this.ask?.widget ?? null;
     }
@@ -151,16 +151,16 @@ export class NotificationsComponent extends Component {
 
     private syncPassive(session: OverlaySessionHandle): void {
         const all = this.notifications.passive();
-        // Stryker disable next-line CallExpression: виджеты снимаются из дерева строкой ниже — их dispose ненаблюдаем
+        // Stryker disable next-line CallExpression: the next line removes the widgets from the tree — their dispose is unobservable
         this.disposePassive();
-        // Детей снимаем ВМЕСТЕ с их dispose: освобождённые виджеты в дереве однажды отрисовались бы.
+        // Remove children TOGETHER with disposing them: disposed widgets left in the tree would eventually get rendered.
         this.stack.replaceChildren([]);
         if (all.length === 0) {
-            // Stryker disable next-line ConditionalExpression,CallExpression: у пустого стека нет детей, поэтому открытая сессия и закрытая рисуют одно и то же — ничего
+            // Stryker disable next-line ConditionalExpression,CallExpression: an empty stack has no children, so an open and a closed session render the same thing — nothing
             if (session.isOpen()) session.close();
             return;
         }
-        // Не «спрятано насовсем»: очередь доедет до экрана, когда передний тост уйдёт.
+        // Not "hidden for good": the queue reaches the screen once the front toast goes away.
         const queued = this.notifications.queuedPassiveCount();
         if (queued > 0) {
             this.stack.addChild(makeQueueLabel(queued), { height: vflexFit(), width: "fill" });
@@ -186,24 +186,24 @@ export class NotificationsComponent extends Component {
             this.notifications.dismiss(current.id);
         };
         const session = attached.host.overlayLayer.createSession(element, new Point(0, 0), {
-            // Stryker disable next-line BooleanLiteral: та же причина, что у пассивной сессии — её открывает явный `open()` в updatePositions
+            // Stryker disable next-line BooleanLiteral: same reason as for the passive session — an explicit `open()` in updatePositions opens it
             visible: false,
-            // Только если фокус вообще уходил в тост (по F6 или клику).
+            // Only matters if focus ever went into the toast (via F6 or a click).
             restoreFocus: true,
-            // Тост-вопрос фокуса НЕ берёт (как в эталоне): сообщение приходит незвано.
+            // A question toast does NOT take focus (as upstream): the message arrives unasked.
             focusOnOpen: current.modal,
-            // Escape разбирает виджет (он знает про `isCloseAffordance`): сессия
-            // закрыла бы оверлей, не ответив тому, кто сообщение поднял.
-            // Stryker disable next-line BooleanLiteral: ненаблюдаемо — Escape доходит до виджета раньше слоя, и показ снимается его обработчиком в обоих случаях
+            // The widget handles Escape (it knows about `isCloseAffordance`): the session
+            // would close the overlay without answering whoever raised the message.
+            // Stryker disable next-line BooleanLiteral: unobservable — Escape reaches the widget before the layer, and its handler removes the notification in both cases
             closeOnEscape: false,
-            // Stryker disable next-line StringLiteral: ветку тоста подменить нечем — по мыши "" ведёт себя как passthrough; отличие держит ветка "modal", её проверяет тест «клик мимо модального окна»
+            // Stryker disable next-line StringLiteral: nothing can replace the toast branch — for the mouse "" behaves like passthrough; the "modal" branch carries the difference and the click-outside-the-modal test covers it
             pointerPolicy: current.modal ? "modal" : "passthrough",
             capturesKeyboard: current.modal,
         });
         this.ask = { id: current.id, widget, element, session };
     }
 
-    /** Ставит оба оверлея на места: вопрос-тост снизу, пассивный стек над ним. */
+    /** Positions both overlays: the question toast at the bottom, the passive stack above it. */
     private updatePositions(attached: IAttachedHost): void {
         const screenW = attached.host.layoutSize.width;
         const screenH = attached.host.layoutSize.height;
@@ -214,8 +214,8 @@ export class NotificationsComponent extends Component {
         const ask = this.ask;
         if (ask !== null) {
             if (ask.widget instanceof MessageDialog) {
-                // Фокус ставит САМА сессия (`focusOnOpen`): пересчёт позиций бывает и
-                // когда погас пассивный тост, и свой `focusDefault()` сбросил бы выбор кнопки.
+                // The session ITSELF sets focus (`focusOnOpen`): positions are also recomputed
+                // when a passive toast expires, and our own `focusDefault()` would reset the button choice.
                 this.openCentered(ask, attached.host);
             } else {
                 askRows = ask.element.getMaxIntrinsicHeight(TOAST_WIDTH);
@@ -225,7 +225,7 @@ export class NotificationsComponent extends Component {
         }
 
         const passive = attached.session;
-        // Stryker disable next-line ConditionalExpression: позиция закрытой сессии ненаблюдаема — её всё равно никто не рисует
+        // Stryker disable next-line ConditionalExpression: a closed session's position is unobservable — nobody renders it anyway
         if (passive.isOpen()) {
             const passiveRows = this.view.getMaxIntrinsicHeight(TOAST_WIDTH);
             passive.setPosition(new Point(right, clampRow(bottom - askRows - passiveRows, screenH)));
@@ -246,26 +246,26 @@ export class NotificationsComponent extends Component {
         if (ask === null) return;
         this.ask = null;
         ask.session.close();
-        // Stryker disable next-line CallExpression: гигиена — закрытая сессия и так не рисуется; dispose лишь освобождает её запись в слое
+        // Stryker disable next-line CallExpression: hygiene — a closed session is not rendered anyway; dispose only frees its entry in the layer
         ask.session.dispose();
-        // Stryker disable next-line CallExpression: то же про виджет: он уже снят с экрана вместе с сессией
+        // Stryker disable next-line CallExpression: same for the widget: it already left the screen with the session
         ask.widget.dispose();
     }
 
-    /** Гигиена: к этому моменту виджеты уже сняты из дерева стека. */
-    // Stryker disable next-line BlockStatement: см. выше — освобождение уже снятых виджетов ненаблюдаемо
+    /** Hygiene: by now the widgets have already been removed from the stack tree. */
+    // Stryker disable next-line BlockStatement: see above — disposing already removed widgets is unobservable
     private disposePassive(): void {
-        // Stryker disable next-line CallExpression: та же причина
+        // Stryker disable next-line CallExpression: same reason
         for (const toast of this.passiveToasts) toast.dispose();
         this.passiveToasts = [];
     }
 
-    /** В подсказке — ДЕЙСТВУЮЩИЙ бинд «ответить»: человек вправе его переназначить. */
+    /** The hint shows the CURRENT "answer" binding: the user may rebind it. */
     private makeToast(notification: IActiveNotification): NotificationToast {
         const chord = this.keybindings.getKeybindingForCommand(FOCUS_MESSAGE_COMMAND_ID, this.contextKeys);
         const label = chord === undefined ? undefined : formatKeybinding(chord, keybindingLabelStyle(this.contextKeys));
         const toast = new NotificationToast(notification, label);
-        // У пассивного тоста нет другого способа уйти раньше таймаута.
+        // A passive toast has no other way to go away before the timeout.
         toast.onClose = () => {
             this.notifications.dismiss(notification.id);
         };
@@ -285,7 +285,7 @@ function makeQueueLabel(queued: number): TextLabelElement {
     return label;
 }
 
-/** Ниже строки меню (ряд 0): высокий тост на низком экране иначе уехал бы за кадр или накрыл меню. */
+/** Below the menu row (row 0): otherwise a tall toast on a short screen would go off-frame or cover the menu. */
 export function clampRow(row: number, screenH: number): number {
     return Math.min(Math.max(1, row), Math.max(1, screenH - 1));
 }

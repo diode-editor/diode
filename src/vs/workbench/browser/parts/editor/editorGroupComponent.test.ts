@@ -118,8 +118,8 @@ describe("EditorGroupComponent", () => {
         });
 
         it("disambiguates same-named files while untitled buffers keep their own labels", () => {
-            // Смешанный случай: безымянные буферы не участвуют в разводке тёзок (их метки
-            // уникальны по построению), а их uri не file — путь у них брать нельзя.
+            // Mixed case: untitled buffers take no part in same-name disambiguation (their labels
+            // are unique by construction), and their uri is not `file`, so there is no path to take.
             const { service, component } = createEditorGroup();
 
             service.newUntitled();
@@ -172,7 +172,7 @@ describe("EditorGroupComponent", () => {
     });
 
     describe("content host", () => {
-        /** Житель контент-слота — второй ряд vflex, под tab strip. */
+        /** The content slot occupant: the second vflex row, below the tab strip. */
         function contentSlot(component: EditorGroupComponent): TUIElement {
             return component.view.getContent()!.getChildren()[1];
         }
@@ -357,7 +357,7 @@ describe("EditorGroupComponent", () => {
 
             expect(item().getDeleted()).toBe(true);
             expect(tabLabels(component)).toEqual(["a.ts (deleted)"]);
-            // Кадр: имя окрашено list.errorForeground (дефолт реестра — #F88070).
+            // Frame: the name is painted with list.errorForeground (registry default #F88070).
             const backend = renderElement(component.view, 40, 3, { themeVars: true });
             const labelX =
                 item().globalPosition.x + backend.getTextAt(new Point(item().globalPosition.x, 0), 20).indexOf("a.ts");
@@ -378,8 +378,8 @@ describe("EditorGroupComponent", () => {
             const { service, component } = createEditorGroup({ themeService });
             service.openFile(writeFile("a.ts", "a"));
 
-            // fromThemeFile слоит дефолты реестра ПОД цвета темы — токены
-            // editor.* всегда резолвятся, даже на пустой теме.
+            // fromThemeFile layers registry defaults UNDER the theme colors, so editor.*
+            // tokens always resolve, even with an empty theme.
             applyThemeVars(component.view, emptyTheme);
             expect(() => renderElement(component.view, 10, 5, { resolveStyles: true })).not.toThrow();
             expect(component.view.resolvedStyle.fg).toBe(0xd4d4d4); // default dark "editor.foreground"

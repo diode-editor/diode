@@ -25,7 +25,7 @@ import { EditorStatusContribution } from "../editor/editorStatusContribution.ts"
 
 import { StatusBarComponent } from "./statusBarComponent.ts";
 
-/** Поверх настоящих `TextDocument` + `EditorViewState`: курсор/EOL/язык файрят те же события, что в проде. */
+/** Built on real `TextDocument` + `EditorViewState`, so cursor/EOL/language fire the same events as in production. */
 export class FakeStatusEditor implements IActiveEditorStatus {
     public readonly viewState: EditorViewState;
     private readonly doc: TextDocument;
@@ -91,7 +91,7 @@ export class FakeStatusEditor implements IActiveEditorStatus {
         return { dispose: () => this.indentListeners.delete(listener) };
     }
 
-    /** Смена активного редактора обязана снимать indent-подписки. */
+    /** Switching the active editor must drop the indent subscriptions. */
     public get indentListenerCount(): number {
         return this.indentListeners.size;
     }
@@ -127,12 +127,12 @@ export interface IStatusSegment {
     side: "left" | "right";
 }
 
-/** Без краевых пробелов: за них отвечает пофреймовый render-тест. */
+/** Without the edge spaces: the frame-level render test covers those. */
 function segmentText(label: TextLabelElement): string {
     return label.getText().slice(1, -1);
 }
 
-/** Лейблы до fill-ребёнка (centerFill) — левая сторона, после — правая. */
+/** Labels before the fill child (centerFill) are the left side, labels after it the right side. */
 export function statusSegments(view: HFlexElement): IStatusSegment[] {
     const segments: IStatusSegment[] = [];
     let side: "left" | "right" = "left";
@@ -171,11 +171,11 @@ export interface StatusBarHarness {
     terminalContribution: TerminalEnvStatusContribution;
 }
 
-/** Тесты чистят env-переменные, чтобы терминальный сегмент детерминированно резолвился в "legacy". */
+/** Tests clear the env variables so the terminal segment deterministically resolves to "legacy". */
 export function createStatusBarHarness(languageService: ILanguageService = NULL_LANGUAGE_SERVICE): StatusBarHarness {
     const statusBarService = new StatusBarService(NULL_STATE_SERVICE);
     const commands = new CommandRegistry();
-    // Меню полосы реестровых пунктов не берёт — реестр пустой.
+    // The status bar menu takes no registry items, so the registry stays empty.
     const contextMenuService = new ContextMenuService(
         new MenuService(new MenuRegistry(commands, new KeybindingRegistry(), new ContextKeyService(), [])),
     );

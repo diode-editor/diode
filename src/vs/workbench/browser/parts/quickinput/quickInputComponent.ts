@@ -10,15 +10,15 @@ import { QuickPickElement } from "./quickPickElement.ts";
 export const QuickInputComponentDIToken = token<QuickInputComponent>("QuickInputComponent");
 
 /**
- * Владеет ЕДИНСТВЕННЫМ {@link QuickPickElement} и его overlay-сессией: виджет
- * общий для QuickInputService и QuickOpenService, одновременно открыт максимум один.
+ * Owns the SINGLE {@link QuickPickElement} and its overlay session: the widget is shared by
+ * QuickInputService and QuickOpenService, and at most one is open at a time.
  */
 export class QuickInputComponent extends Component {
     public static dependencies = [] as const;
 
     public readonly view: QuickPickElement;
 
-    /** О ЛЮБОМ закрытии сессии — так отмена доходит до владельца показа единым путём. */
+    /** Fires on ANY session close, so cancellation reaches whoever opened the picker through one path. */
     public onDidClose: (() => void) | null = null;
 
     private host: BodyElement | null = null;
@@ -36,7 +36,7 @@ export class QuickInputComponent extends Component {
         });
     }
 
-    /** До первого показа пикера. */
+    /** Must be called before the picker is first shown. */
     public attachHost(host: BodyElement): void {
         this.host = host;
         this.session = host.overlayLayer.createSession(this.view, new Point(0, 0), {
@@ -54,14 +54,14 @@ export class QuickInputComponent extends Component {
         return this.session?.isOpen() ?? false;
     }
 
-    /** Без прикреплённого хоста — no-op по позиции и сессии. */
+    /** Without an attached host, positioning and the session are no-ops. */
     public show(): void {
         this.updatePosition();
         this.session?.open();
         this.view.focus();
     }
 
-    /** No-op, если уже закрыта. */
+    /** No-op if already closed. */
     public hide(): void {
         if (this.session?.isOpen()) {
             this.session.close();
@@ -76,7 +76,7 @@ export class QuickInputComponent extends Component {
 
         const width = Math.min(80, Math.max(40, screenW - 4));
         const px = Math.max(0, Math.floor((screenW - width) / 2));
-        // Ниже строки меню (row 0).
+        // Below the menu bar (row 0).
         const py = Math.max(1, Math.floor(screenH * 0.1));
 
         this.view.preferredWidth = width;

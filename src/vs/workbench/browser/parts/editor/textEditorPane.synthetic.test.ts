@@ -61,7 +61,7 @@ describe("TextEditorPane над синтетической моделью", () =
 
         pane.model.appendContent("tail\n");
 
-        // Правка владельца — это контент (вкладка перерисуется), но не «файл».
+        // An owner edit is a content change (the tab repaints), not a "file" change.
         expect(fired).toBe(1);
         for (const subscription of subscriptions) subscription.dispose();
         pane.dispose();

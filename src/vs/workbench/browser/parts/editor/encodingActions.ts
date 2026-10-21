@@ -9,8 +9,8 @@ import { EditorServiceDIToken } from "../../../services/editor/common/editorServ
 import { QuickInputServiceDIToken } from "../quickinput/quickInputService.ts";
 
 /**
- * VS Code `workbench.action.editor.changeEncoding`. «Reopen» на грязном буфере
- * спрашивает подтверждение: перечитка отбрасывает несохранённые правки.
+ * VS Code `workbench.action.editor.changeEncoding`. "Reopen" on a dirty buffer asks for
+ * confirmation, since re-reading discards unsaved changes.
  */
 async function changeFileEncoding(accessor: ServiceAccessor): Promise<void> {
     const editorGroup = accessor.get(EditorServiceDIToken);
@@ -20,10 +20,10 @@ async function changeFileEncoding(accessor: ServiceAccessor): Promise<void> {
     const editor = editorGroup.getActiveEditor();
     if (editor === null) return;
 
-    // У `untitled:` нет провайдера в файловом сервисе — exists для него ложь.
+    // `untitled:` has no file service provider, so exists is false for it.
     const canReopen = await accessor.get(IFileServiceDIToken).exists(editor.uri);
-    // Read-only запрещает запись, но не перечитывание: убирается только «Save with
-    // Encoding» (как в VS Code).
+    // Read-only forbids writing but not re-reading, so only "Save with Encoding"
+    // is dropped (like VS Code).
     const modeItems = [
         ...(canReopen ? [{ label: "Reopen with Encoding", description: "Reinterpret the file on disk" }] : []),
         ...(editor.readOnly
@@ -71,7 +71,7 @@ async function changeFileEncoding(accessor: ServiceAccessor): Promise<void> {
             );
             return;
         }
-        // Не-Unicode декодируется асинхронно (iconv): команда завершается после перечитки.
+        // Non-Unicode encodings decode asynchronously (iconv): the command completes after the re-read.
         await editor.reopenWithEncoding(encoding);
         return;
     }

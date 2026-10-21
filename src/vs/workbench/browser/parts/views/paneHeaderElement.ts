@@ -13,16 +13,16 @@ export interface IPaneMenuAnchor {
 }
 
 /**
- * Дети презентационные: хит-тест всегда возвращает сам заголовок, потому что pointer capture
- * работает, только когда захватчик — цель хит-теста; попадание по кнопке считает
+ * Children are presentational: hit testing always returns the header itself, because pointer capture
+ * only works when the capturing element is the hit-test target; which button was hit is computed by
  * {@link ViewTitleRowElement.hitZone}.
  *
- * Заголовок — и drag-handle границы над собой (отдельный сэш-ряд съел бы строку). Клик и
- * drag различаются на сырых mousedown/up: capture синтезирует `click` даже после drag.
+ * The header is also the drag handle for the boundary above it (a separate sash row would cost a line).
+ * Click and drag are told apart on raw mousedown/up: capture synthesizes `click` even after a drag.
  */
 export class PaneHeaderElement extends TUIElement {
     public onToggle?: () => void;
-    /** Абсолютная экранная строка, куда тянут верх заголовка. */
+    /** Absolute screen row the top of the header is dragged to. */
     public onDrag?: (boundaryScreenY: number) => void;
     public onMenu?: (anchor: IPaneMenuAnchor) => void;
     public onAction?: (actionId: string) => void;
@@ -42,8 +42,8 @@ export class PaneHeaderElement extends TUIElement {
         this.collapsible = options?.collapsible ?? true;
         this.focusable = true;
         this.capturesPointer = true;
-        // Фон покоя наследуется от вьюлета, как в VS Code с прозрачным sideBarSectionHeader.background:
-        // альфа при парсинге тем отбрасывается, и «прозрачный» из dark+ выродился бы в чёрный.
+        // The idle background is inherited from the viewlet, like VS Code with a transparent
+        // sideBarSectionHeader.background: theme parsing drops alpha, so dark+'s "transparent" would turn black.
         this.style = {
             fg: this.collapsible ? "sideBarSectionHeader.foreground" : "sideBarTitle.foreground",
             when: [{ states: ["focus"], bg: "list.hoverBackground" }],
@@ -64,7 +64,7 @@ export class PaneHeaderElement extends TUIElement {
             this.row.setHoveredZone(this.row.hitZone(event.localX));
             if (!this.pressed) return;
             if (!this.dragMoved && event.screenY === this.pressScreenY) return;
-            // Любой сдвиг по Y — drag, даже если ресайз в эту сторону запрещён.
+            // Any Y movement is a drag, even if resizing in that direction is not allowed.
             this.dragMoved = true;
             if (this.dragEnabled) this.onDrag?.(event.screenY);
         });
@@ -153,7 +153,7 @@ export class PaneHeaderElement extends TUIElement {
     }
 
     protected override hitTestChildren(point: Point): TUIElement | null {
-        // Мышь лейблов принадлежит заголовку (pointer capture drag'а); виджет — настоящий контрол.
+        // Mouse input on the labels belongs to the header (drag pointer capture); the widget is a real control.
         return this.row.hitTestWidget(point);
     }
 

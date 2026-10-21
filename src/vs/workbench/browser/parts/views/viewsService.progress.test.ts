@@ -6,7 +6,7 @@ import { makeViewsHarness, testView } from "./viewsService.testUtils.ts";
 
 const PANEL = "workbench.panel.output";
 
-/** Занят ли заголовок секции — тот же путь, которым это читает e2e. */
+/** Whether the section header is busy — the same path e2e reads it by. */
 function paneBusy(paneView: PaneViewElement, id: string): boolean {
     const header = paneView.querySelector(`#paneHeader-${id.replaceAll(".", "-")}`);
     return header?.inspectState()?.busy === true;
@@ -41,7 +41,7 @@ describe("ViewsService — спиннер занятости", () => {
         const h = scmHarness(["scm.changes", "scm.graph"]);
         h.service.setViewSpinner("scm.changes", "⠋");
 
-        // Скрытие соседа пересоздаёт панели контейнера.
+        // Hiding the neighbor recreates the container's panes.
         h.service.setViewVisible("scm.graph", false);
         expect(paneBusy(h.paneView("scm"), "scm.changes")).toBe(true);
 
@@ -68,7 +68,7 @@ describe("ViewsService — спиннер занятости", () => {
         h.service.setViewSpinner("panel.output", "⠋");
         expect(h.header(PANEL)?.inspectState()).toEqual({ title: "", busy: true });
 
-        // Кадр сменился — полоса на месте и лишний раз не пересобирается.
+        // The frame changed — the strip stays and is not rebuilt needlessly.
         h.service.setViewSpinner("panel.output", "⠙");
         expect(h.header(PANEL)?.inspectState()).toEqual({ title: "", busy: true });
 
@@ -77,8 +77,8 @@ describe("ViewsService — спиннер занятости", () => {
     });
 
     it("в панели с несколькими секциями кадр уходит в заголовок своей секции", () => {
-        // Не-merged панель: заголовка-цели у контейнера нет, и путь «отдать кадр
-        // полосе таб-строки» здесь не должен даже пытаться его читать.
+        // Non-merged panel: the container has no header target, and the "hand the frame
+        // to the tab bar strip" path must not even try to read it here.
         const h = makeViewsHarness();
         h.service.registerContainer({ id: PANEL, title: "PANEL", location: "panel" });
         h.service.registerView(testView("panel.output", PANEL, 10));

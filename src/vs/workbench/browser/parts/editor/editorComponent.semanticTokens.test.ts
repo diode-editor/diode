@@ -20,7 +20,7 @@ import { SemanticTokenStyleResolver } from "../../../services/themes/common/sema
 import { darkModernTheme } from "../../../services/themes/common/themes/darkModern.ts";
 import { lightModernTheme } from "../../../services/themes/common/themes/lightModern.ts";
 
-/** Ответ провайдера / range-провайдера разрешается макрозадачей (setTimeout 0 планировщика). */
+/** A provider / range provider reply resolves in a macrotask (the scheduler's setTimeout 0). */
 function flush(ms = 0): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -54,7 +54,7 @@ describe("EditorComponent — семантическая подсветка от
         pane.openFile(Uri.file(ws.writeFile("Doc.txt", text)));
         const app = TestApp.createWithContent(pane.view, new Size(30, 4));
         app.render();
-        // Гуттер: 2 паддинга + 1 цифра + fold-маржин (3).
+        // Gutter: 2 padding + 1 digit + fold margin (3).
         return { pane, app, gutter: 6 };
     }
 
@@ -73,7 +73,7 @@ describe("EditorComponent — семантическая подсветка от
         expect(app.backend.getFgAt(new Point(gutter + 8, 0))).toBe(CLASS_FG);
         expect(app.backend.getFgAt(new Point(gutter, 0))).not.toBe(CLASS_FG);
 
-        // Смена темы перекрашивает уже пришедшие токены — без нового ответа провайдера.
+        // A theme change recolors tokens that already arrived — without a new provider reply.
         resolver.setTheme(WorkbenchTheme.fromThemeFile(lightModernTheme).tokenTheme);
         app.render();
         expect(app.backend.getFgAt(new Point(gutter + 4, 0))).toBe(parseHexColor("#267f99"));
@@ -96,7 +96,7 @@ describe("EditorComponent — семантическая подсветка от
         pane.viewState.viewportHeight = 10;
         pane.viewState.scrollTop = 50;
         expect(viewport?.getVisibleLineRange()).toEqual({ startLine: 50, endLine: 59 });
-        // Скролл за конец документа прижимается к последней строке.
+        // Scrolling past the end of the document is clamped to the last line.
         pane.viewState.scrollTop = 200;
         expect(viewport?.getVisibleLineRange()).toEqual({ startLine: 99, endLine: 99 });
     });
@@ -133,7 +133,7 @@ describe("EditorComponent — семантическая подсветка от
         };
         languageFeatures.documentRangeSemanticTokensProvider.register("*", rangeProvider);
         const { app, gutter } = open("x\nHello");
-        // Пауза range-провайдера — от 100 мс (адаптивная, без истории — 150).
+        // The range provider debounce is at least 100 ms (adaptive; 150 with no history).
         await flush(200);
         app.render();
         expect(ranges).toEqual([[0, 1]]);

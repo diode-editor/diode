@@ -19,10 +19,10 @@ interface ISidebarViewlet {
 }
 
 /**
- * Аналог `IViewletService` VS Code без activity bar: переключают команды
- * `workbench.view.*`. Регистрирует вьюлеты **только** `ViewsService`. Ключи
- * «вьюлет показан» — pull: видимость сайдбара меняется и мимо сервиса (Ctrl+B,
- * восстановление layout'а), а опрос перед нажатием её не пропустит.
+ * Counterpart of VS Code `IViewletService` without an activity bar: `workbench.view.*`
+ * commands switch viewlets. **Only** `ViewsService` registers viewlets. The
+ * "viewlet visible" keys are pull-based: sidebar visibility also changes bypassing the
+ * service (Ctrl+B, layout restore), and polling before a key press never misses it.
  */
 export class SidebarService implements IContextKeyContributor {
     public static dependencies = [LayoutServiceDIToken] as const;
@@ -31,12 +31,12 @@ export class SidebarService implements IContextKeyContributor {
     private activeId: string | null = null;
     private readonly onDidChangeActiveViewletEmitter = new Emitter<string>();
 
-    /** И стартовая установка, и команда показа. */
+    /** Both the startup setup and the show command. */
     public readonly onDidChangeActiveViewlet = this.onDidChangeActiveViewletEmitter.event;
 
     public constructor(private readonly layout: LayoutService) {}
 
-    /** Повторная регистрация заменяет. */
+    /** Registering again replaces the previous one. */
     public registerViewlet(
         id: string,
         view: TUIElement,
@@ -46,7 +46,7 @@ export class SidebarService implements IContextKeyContributor {
         this.viewlets.set(id, { view, focus, visibleContextKey });
     }
 
-    /** Какой вьюлет показать вместо снятого активного, решает `ViewsService`. */
+    /** `ViewsService` decides which viewlet replaces a removed active one. */
     public unregisterViewlet(id: string): void {
         if (!this.viewlets.delete(id) || this.activeId !== id) return;
         this.activeId = null;
@@ -74,8 +74,8 @@ export class SidebarService implements IContextKeyContributor {
     }
 
     /**
-     * `reveal: false` (стартовая установка) — только контент, не трогая видимость:
-     * её восстанавливает персист layout'а. Неизвестный id — no-op.
+     * `reveal: false` (startup setup) sets only the content and leaves visibility alone:
+     * persisted layout restores it. Unknown id is a no-op.
      */
     public showViewlet(id: string, reveal = true): void {
         const viewlet = this.viewlets.get(id);

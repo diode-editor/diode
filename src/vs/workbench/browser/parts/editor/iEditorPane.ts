@@ -5,14 +5,14 @@ import type { Uri } from "../../../../base/common/uri.ts";
 import type { EditorViewState } from "../../../../editor/common/viewModel/editorViewState.ts";
 
 /**
- * Что группе нужно от любой панели (у vscode это `EditorInput` + `EditorPane`, у нас
- * панель сама себе и модель, и view). Всё текстовое — на {@link TextEditorPane}.
+ * What a group needs from any pane (in vscode that is `EditorInput` + `EditorPane`; here the pane
+ * is both its own model and view). Everything text-specific lives on {@link TextEditorPane}.
  */
 export interface IEditorPane extends IDisposable {
-    /** Он же идентичность вкладки: повторное открытие ресурса переключает на неё. */
+    /** Also the tab identity: reopening the resource switches to this tab. */
     readonly uri: Uri;
 
-    /** Отдельно от {@link uri}: у диффа метка вроде `a.ts ↔ HEAD`, которой нет в пути. */
+    /** Separate from {@link uri}: a diff has a label like `a.ts ↔ HEAD` that is not in the path. */
     readonly label: string;
 
     readonly view: TUIElement;
@@ -21,20 +21,20 @@ export interface IEditorPane extends IDisposable {
 
     readonly readOnly: boolean;
 
-    /** Файл удалён с диска, а модель жива (orphaned эталона): вкладка зачёркнута. */
+    /** The file is deleted on disk but the model lives on (upstream "orphaned"): the tab is struck through. */
     readonly isOrphaned?: boolean;
 
-    /** Через него работают команды курсора; у панели любого вида (картинка) его может не быть. */
+    /** Cursor commands work through it; a pane of another kind (an image) may not have one. */
     readonly viewState?: EditorViewState;
 
     /**
-     * В документном порядке, по выделению: в мультикурсоре Cut обязан скопировать ровно
-     * то, что удаляет. Отдельно от `viewState.getSelectedTexts()`: панель вправе решить
-     * иначе (дифф выбрасывает плейсхолдеры свёрнутых кусков).
+     * One per selection, in document order: with multiple cursors Cut must copy exactly what it
+     * deletes. Separate from `viewState.getSelectedTexts()` because a pane may decide differently
+     * (the diff drops placeholders of collapsed regions).
      */
     getSelectedTexts(): string[];
 
-    /** Маркер правки, метка — группе незачем знать про EOL и состояние файла на диске. */
+    /** Modified marker and label only: the group has no need to know about EOL or the on-disk file state. */
     onDidChangeState(cb: () => void): IDisposable;
 
     focusEditor(): void;

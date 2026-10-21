@@ -64,7 +64,7 @@ describe("DiffEditorPane2 — юнит без workbench", () => {
     function ownedModel(text: string): TextFileModel {
         const model = new TextFileModel(NULL_LANGUAGE_SERVICE, new UndoRedoService(), diskFileService());
         model.setUntitled(1);
-        // До создания панели у модели нет вью — сеем контент прямо в документ.
+        // Before the pane is created the model has no view — seed content straight into the document.
         if (text !== "") model.document.setText(text);
         return model;
     }
@@ -105,7 +105,7 @@ describe("DiffEditorPane2 — юнит без workbench", () => {
         expect(original.wordWrapForcedOff).toBe(true);
         expect(modified.wordWrapForcedOff).toBe(true);
 
-        // Применение конфига/Alt+Z идёт через setWordWrap — сторона форсит off.
+        // Applying the setting / Alt+Z goes through setWordWrap — the side forces it off.
         modified.setWordWrap("on", 80);
         expect(modified.viewState.wordWrap).toBe("off");
         pane.dispose();
@@ -173,8 +173,8 @@ describe("DiffEditorPane2 — юнит без workbench", () => {
             if (region.isCollapsed) modified.viewState.toggleFold(region.startLine);
         }
         await settle(5);
-        // Reveal каретки сдвигает вьюпорт, но сам ПЕРЕСЧЁТ не должен сдвигать его
-        // дальше; у original появляется зона-филлер, а окно остаётся зеркальным.
+        // Revealing the cursor moves the viewport, but the RECOMPUTE itself must not move it
+        // further; original gets a filler zone, and the viewports stay mirrored.
         modified.goToPosition(59, 0);
         modified.viewState.type("Z");
         const anchorDoc = modified.viewState.docLineForViewLine(modified.viewState.scrollTop);
@@ -186,7 +186,7 @@ describe("DiffEditorPane2 — юнит без workbench", () => {
     });
 
     it("кусок, накрывший каретку ДРУГОЙ стороны, разворачивается при пересчёте", async () => {
-        // Правка в original не трогает каретку modified в скрытой части куска.
+        // An edit in original does not touch the modified cursor sitting in the hidden part of the region.
         const base = Array.from({ length: 40 }, (_, i) => `line${String(i)}`).join("\n");
         const original = ownedModel(base);
         const modified = ownedModel(base);
@@ -201,7 +201,7 @@ describe("DiffEditorPane2 — юнит без workbench", () => {
         sidePanes[1].viewState.selections = [
             { anchor: { line: 20, character: 0 }, active: { line: 20, character: 0 } },
         ];
-        sidePanes[0].viewState.type("X"); // правка original на строке 0
+        sidePanes[0].viewState.type("X"); // edit original on line 0
         await settle(5);
 
         expect(sidePanes[1].viewState.logicalToVisualLine(20)).toBeGreaterThanOrEqual(0);
@@ -209,8 +209,8 @@ describe("DiffEditorPane2 — юнит без workbench", () => {
     });
 
     it("слившиеся куски наследуют свёрнутость по большему пересечению", async () => {
-        // Два изменения делят файл на два unchanged-куска; первый разворачиваем,
-        // затем правкой убираем первое изменение — куски сливаются в один.
+        // Two changes split the file into two unchanged regions; expand the first,
+        // then remove the first change with an edit — the regions merge into one.
         const base = Array.from({ length: 40 }, (_, i) => `line${String(i)}`);
         const originalText = base.join("\n");
         const modifiedLines = [...base];
@@ -236,8 +236,8 @@ describe("DiffEditorPane2 — юнит без workbench", () => {
     });
 
     it("регион без прежних пар сворачивается, скрывая якорь скролла без прыжка", async () => {
-        // Стороны полностью разные; замена снимка делает их идентичными — первый
-        // регион (без прежних пар — свёрнут), прежний якорь вьюпорта скрыт.
+        // The sides differ completely; replacing the snapshot makes them identical — the first
+        // region (no previous pairs, so collapsed) hides the old viewport anchor.
         const originalText = Array.from({ length: 40 }, (_, i) => `A${String(i)}`).join("\n");
         const modifiedText = Array.from({ length: 40 }, (_, i) => `B${String(i)}`).join("\n");
         const pane = makePane(originalText, modifiedText, { debounceMs: 0 });
@@ -276,8 +276,8 @@ describe("DiffEditorPane2 — юнит без workbench", () => {
         expect(added.getText()).toBe("alpha\nbravo");
         addedPane.dispose();
 
-        // Удалённый из modified блок: каретка в ORIGINAL стороне на удалённых
-        // строках (в modified диапазон пуст) — строки возвращаются.
+        // A block removed from modified: the cursor is on the removed lines in the ORIGINAL
+        // side (the modified range is empty) — the lines come back.
         const removed = ownedModel("alpha\ndelta");
         const removedPane = makePane(
             "alpha\nbravo\ncharlie\ndelta",
@@ -293,7 +293,7 @@ describe("DiffEditorPane2 — юнит без workbench", () => {
     });
 
     it("revert hunk: хвостовые крайние случаи — удаление до конца файла и вставка за концом", async () => {
-        // Добавленный хвост (удаляется вместе с разделителем слева).
+        // An added tail (removed together with the separator on its left).
         const tail = ownedModel("alpha\nbravo\nTAIL");
         const tailPane = makePane("alpha\nbravo", { kind: "owned", model: tail }, { debounceMs: 0 });
         tailPane.sidePanes()[1].goToPosition(2, 0);
@@ -301,7 +301,7 @@ describe("DiffEditorPane2 — юнит без workbench", () => {
         expect(tail.getText()).toBe("alpha\nbravo");
         tailPane.dispose();
 
-        // Удалённый хвост original: вставка за концом modified.
+        // A removed tail of original: insertion past the end of modified.
         const cut = ownedModel("alpha");
         const cutPane = makePane("alpha\nomega", { kind: "owned", model: cut }, { debounceMs: 0 });
         cutPane.sidePanes()[0].component.focus();
@@ -403,7 +403,7 @@ describe("DiffEditorPane2 — юнит без workbench", () => {
         pane.setModeOverride("inline");
         await settle(5);
 
-        // original [1..2) ↔ modified [1..2) — обычная пара.
+        // original [1..2) ↔ modified [1..2) — a regular pair.
         pane.sidePanes()[1].goToPosition(1, 0);
         expect(pane.revertHunkAtCaret()).toBe("reverted");
         expect(model.getText()).toBe(["keep", "dead", "tail"].join("\n"));
@@ -413,10 +413,10 @@ describe("DiffEditorPane2 — юнит без workbench", () => {
 
     it("смена режима на умершей панели — no-op (dispose перегоняет микрозадачу)", async () => {
         const pane = makePane("a", "b");
-        pane.setModeOverride("inline"); // микрозадача применения ещё в очереди
+        pane.setModeOverride("inline"); // the apply microtask is still queued
         pane.dispose();
         await settle(5);
-        expect(pane.mode).toBe("inline"); // элемент переключился, панель — молча нет
+        expect(pane.mode).toBe("inline"); // the element switched; the pane silently did not
     });
 
     it("inspectState элемента пары несёт режим и override (e2e-селекторы)", () => {
@@ -429,7 +429,7 @@ describe("DiffEditorPane2 — юнит без workbench", () => {
         const pane = makePane("a", "b");
         await refreshDiffSnapshots(new FileService(), pane);
         expect(pane.sidePanes()[0].getText()).toBe("a");
-        // Рецепта у такой панели тоже нет — сплит её не повторит.
+        // Such a pane has no recipe either — a split will not reproduce it.
         expect(diffPaneRecipe(pane)).toBeUndefined();
         pane.dispose();
     });
@@ -483,7 +483,7 @@ describe("Workbench — дифф v2", () => {
             },
         });
         container.bind(IFileServiceDIToken, () => registry);
-        // In-memory стейт вместо NULL-заглушки: тумблер US-22 персистит режим.
+        // In-memory state instead of the NULL stub: the US-22 toggle persists the mode.
         const stateStore = new Map<string, unknown>();
         container.bind(StateServiceDIToken, () => ({
             get: (descriptor) => (stateStore.get(descriptor.key) ?? descriptor.default) as never,
@@ -561,7 +561,7 @@ describe("Workbench — дифф v2", () => {
         const pane = await openV2();
         const [original, modified] = pane.sidePanes();
 
-        // Правим через вкладку файла, даже не активную: модель общая.
+        // Edit through the file tab, even though it is not active: the model is shared.
         fileEditor?.applyExternalEdits(
             [{ range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } }, text: "W" }],
             "test",
@@ -658,12 +658,12 @@ describe("Workbench — дифф v2", () => {
         await openV2();
         const countAfterFirst = editors.editorGroups.activeGroup.editorCount;
 
-        // Повторный вызов С АКТИВНОЙ дифф-вкладкой целится в её исходный файл.
+        // A repeated call WITH the diff tab active targets its source file.
         container.get(CommandRegistryDIToken).execute("diode.scm.compareWithHead");
         await settle(20);
         expect(editors.editorGroups.activeGroup.editorCount).toBe(countAfterFirst);
 
-        // Несохранённые правки живут в модели файла — дифф закрывается молча.
+        // Unsaved edits live in the file model — the diff closes silently.
         editors.editorGroups.activeGroup.closeTab(editors.editorGroups.activeGroup.activeIndex);
         expect(editors.editorGroups.activeGroup.editorCount).toBe(countAfterFirst - 1);
     });
@@ -673,18 +673,18 @@ describe("Workbench — дифф v2", () => {
         const original = pane.sidePanes()[0];
         expect(original.getText()).toContain("old line");
 
-        // «Коммит из терминала»: HEAD теперь равен буферу.
+        // "Commit from the terminal": HEAD now equals the buffer.
         headContent = AT_HEAD.replace("old line", "XXold line");
         expect(pane.originalUri).not.toBeNull();
-        // Пачка событий (rebase шевелит .git несколько раз) схлопывается debounce'ом.
+        // A burst of events (rebase touches .git several times) is collapsed by the debounce.
         fireGitChange?.([pane.originalUri!]);
         fireGitChange?.([pane.originalUri!]);
-        // Debounce контрибуции (200) + чтение + пересчёт.
+        // Contribution debounce (200) + read + recompute.
         await settle(300);
 
         expect(original.getText()).toContain("XXold line");
-        // Стороны сравнялись — дифф говорит об этом (нотис-зона живёт над первой
-        // строкой; якорь скролла честно удержал контент — поднимаемся к ней).
+        // The sides are now equal and the diff says so (the notice zone sits above the first
+        // line; the scroll anchor kept the content in place, so scroll up to it).
         pane.activeTextPane.viewState.scrollTop = 0;
         app.render();
         expect(app.backend.screenToString()).toContain("The files are identical");
@@ -725,8 +725,8 @@ describe("Workbench — дифф v2", () => {
         });
         await settle(20);
         const pane = editors.getActiveTabPane() as DiffEditorPane2;
-        // И пара со снимочной modified-стороной (git-ресурс справа): матчинг
-        // обязан проверить ресурс обеих снимочных сторон.
+        // Plus a pair with a snapshot modified side (git resource on the right): matching
+        // must check the resource of both snapshot sides.
         await openDiffPair(container, {
             original: { text: "x", label: "L", identity: "l2" },
             modified: { uri: Uri.from({ scheme: "git", path: "/head", query: "r" }), label: "R", identity: "r2" },
@@ -737,8 +737,8 @@ describe("Workbench — дифф v2", () => {
         await settle(300);
         expect(pane.sidePanes()[0].getText()).toBe("clip");
 
-        // Оставляем таймер висеть: afterEach диспозит workbench — контрибуция
-        // обязана снять его, не стреляя после смерти.
+        // Leave the timer pending: afterEach disposes the workbench — the contribution
+        // must clear it and not fire after disposal.
         fireGitChange?.([Uri.from({ scheme: "git", path: "/y" })]);
     });
 
@@ -776,7 +776,7 @@ describe("Workbench — дифф v2", () => {
         const pane = await openV2();
         expect(pane.mode).toBe("side-by-side");
 
-        // Панель уже порога — inline.
+        // The pane is narrower than the threshold — inline.
         app.backend.resize(new Size(90, 24));
         await settle(10);
         app.render();
@@ -812,14 +812,14 @@ describe("Workbench — дифф v2", () => {
 
     it("US-21: переход в inline не крадёт фокус, когда он вне original-стороны", async () => {
         const pane = await openV2();
-        // Последняя активная сторона — original, но фокус ушёл во вкладку файла.
+        // The last active side is original, but focus has moved to the file tab.
         pane.sidePanes()[0].component.focus();
         editors.editorGroups.activeGroup.activateTab(0);
         await settle(5);
         const fileEditor = editors.getActiveTabEditor();
         expect(fileEditor).not.toBeNull();
 
-        // Тумблер на фоновой вкладке: сторона переезжает, фокус остаётся у файла.
+        // Toggle on a background tab: the active side moves, focus stays on the file.
         pane.setModeOverride("inline");
         await settle(5);
 
@@ -836,7 +836,7 @@ describe("Workbench — дифф v2", () => {
         await settle(10);
         expect(pane.mode).toBe("inline");
 
-        // Персист: следующая дифф-вкладка рождается в inline.
+        // Persisted: the next diff tab opens in inline mode.
         container.get(CommandRegistryDIToken).execute("workbench.files.action.compareNewUntitledTextFiles");
         await settle(30);
         const untitled = editors.getActiveTabPane() as DiffEditorPane2;
@@ -866,8 +866,8 @@ describe("Workbench — дифф v2", () => {
         app.render();
         expect(app.backend.screenToString()).toContain("Untitled-2");
 
-        // Save: у untitled нет пути («no-file») — текст не должен молча пропасть,
-        // вкладка остаётся открытой.
+        // Save: untitled has no path ("no-file") — the text must not silently vanish,
+        // so the tab stays open.
         dialogs.getOpenConfirmSaveDialog()?.onSave?.();
         await settle(10);
         expect(editors.getActiveTabPane()).toBe(pane);
@@ -881,7 +881,7 @@ describe("Workbench — дифф v2", () => {
 
     it("диалог закрытия диффа с file-стороной: Save пишет файл и закрывает вкладку", async () => {
         await openV2();
-        // Файловая вкладка закрыта — dirty-модель живёт только в стороне диффа.
+        // The file tab is closed — the dirty model lives only in the diff side.
         editors.editorGroups.activeGroup.closeTab(0);
         const pane = editors.getActiveTabPane() as DiffEditorPane2;
         expect(editors.needsCloseConfirm(pane)).toBe(true);
@@ -921,8 +921,8 @@ describe("Workbench — дифф v2", () => {
     it("закрытие вкладки файла при открытом диффе — без диалога: правки живут в стороне", async () => {
         await openV2();
 
-        // Закрываем вкладку файла (индекс 0): модель dirty, но дифф-сторона
-        // держит тот же документ — диалог не нужен.
+        // Close the file tab (index 0): the model is dirty, but the diff side
+        // holds the same document — no dialog needed.
         editors.editorGroups.activeGroup.activateTab(0);
         const fileEditor = editors.getActiveTabEditor();
         expect(fileEditor?.isModified).toBe(true);
@@ -930,7 +930,7 @@ describe("Workbench — дифф v2", () => {
         expect(await editors.closeEditor(editors.editorGroups.activeGroup, fileEditor!)).toBe(true);
         expect(container.get(DialogServiceDIToken).getOpenConfirmSaveDialog()).toBeNull();
 
-        // А дифф после этого — последняя поверхность документа: ему диалог нужен.
+        // After that the diff is the document's last surface, so it does need the dialog.
         const diffPane = editors.getActiveTabPane() as DiffEditorPane2;
         expect(editors.needsCloseConfirm(diffPane)).toBe(true);
         expect(editors.dirtyExclusiveDiffSides(diffPane).map((s) => s.label)).toEqual(["a.txt"]);

@@ -36,15 +36,15 @@ describe("computeTabLabels — разводка тёзок минимальны�
     });
 
     it("совпадающий последний сегмент — суффикс растёт до различающего хвоста", () => {
-        // dirs: [x, s] и [s]: k=1 коллизия (s/s), у длинного пути уникальность
-        // на k=2 ("x/s"), у короткого — тоже на k=2 (хвост тот же "s", но чужой
-        // хвост уже "x/s"). Уникальность ровно на k = maxK — граница цикла.
+        // dirs: [x, s] and [s]: k=1 collides (s/s); the long path becomes unique
+        // at k=2 ("x/s"), the short one at k=2 too (its tail is still "s", but the
+        // other tail is now "x/s"). Uniqueness exactly at k = maxK is the loop boundary.
         expect(labels("/x/s/a.ts", "/s/a.ts")).toEqual(["a.ts — x/s", "a.ts — s"]);
     });
 
     it("файл у корня: пустые сегменты пути не участвуют в суффиксе", () => {
-        // Без filter(Boolean) dirname("/") дал бы [""], а "/m/n" — ["", "m", "n"],
-        // и суффиксы получили бы ведущий разделитель.
+        // Without filter(Boolean), dirname("/") would yield [""] and "/m/n" ["", "m", "n"],
+        // giving the suffixes a leading separator.
         expect(labels("/n/a.ts", "/m/n/a.ts")).toEqual(["a.ts — n", "a.ts — m/n"]);
     });
 });

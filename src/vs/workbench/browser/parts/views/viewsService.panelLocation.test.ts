@@ -12,12 +12,12 @@ import { makeViewsHarness, testView } from "./viewsService.testUtils.ts";
 const OUTPUT = "workbench.panel.output";
 const CHANNELS = new MenuId("test.panel.channels");
 const LEVELS = new MenuId("test.panel.levels");
-/** Пункт подменю каналов: пустое подменю резолвер выбрасывает. */
+/** A channel submenu item: the resolver drops an empty submenu. */
 const channelItem: MenuContribution = { menuId: CHANNELS, command: "output.show.main", title: "Main" };
 
 /**
- * Заголовком служит таб: единственная секция рисуется без своей строки заголовка, а её
- * кнопки и виджет уезжают в таб-строку.
+ * The tab serves as the header: the single section is drawn without its own header row, and its
+ * buttons and widget move into the tab bar.
  */
 function panelHarness(views: string[], contributions: MenuContribution[] = []): IViewsHarness {
     const h = makeViewsHarness(contributions);
@@ -58,7 +58,7 @@ describe("ViewsService — контейнер в нижней панели", () 
 
     it("reveal контейнера ведёт фокус в его единственную секцию", () => {
         const h = panelHarness(["output.view"]);
-        // Дескриптор стенда несёт focus по умолчанию — важно, что место зовёт его.
+        // The fixture descriptor carries a default focus — what matters is that the location calls it.
         expect(() => {
             h.service.focusContainer(OUTPUT);
         }).not.toThrow();
@@ -80,7 +80,7 @@ describe("ViewsService — контейнер в нижней панели", () 
         h.service.registerView(testView("output.view", OUTPUT, 10));
         const widget = new FillerElement();
         widget.id = "channel-picker";
-        // Контейнера ещё нет — сервис только запоминает виджет.
+        // No container yet — the service only remembers the widget.
         h.service.setViewTitleWidget("output.view", widget);
         h.service.attachContainer(OUTPUT);
 
@@ -105,8 +105,8 @@ describe("ViewsService — полоса контролов в таб-строк�
     });
 
     it("одной кнопки хватает, чтобы полоса появилась", () => {
-        // Кнопка — такое же содержимое полосы, как виджет, «⋯» или спиннер:
-        // без неё полосы нет, с ней обязана быть.
+        // A button is strip content just like a widget, "⋯" or a spinner:
+        // without it there is no strip, with it there must be one.
         const h = panelHarness(
             ["output.view"],
             [
@@ -141,7 +141,7 @@ describe("ViewsService — полоса контролов в таб-строк�
         h.service.setViewTitleWidget("output.view", widget);
 
         expect(h.paneView(OUTPUT).querySelector("#channel-picker")).toBe(widget);
-        // Полоса всё равно есть: у контейнера с двумя секциями в «⋯» лежит переключатель.
+        // The strip is there anyway: a two-section container has the toggle in "⋯".
         expect(h.tabActions(OUTPUT)!.querySelector("#channel-picker")).toBeNull();
     });
 
@@ -180,8 +180,8 @@ describe("ViewsService — полоса контролов в таб-строк�
     });
 
     it("submenu-выбор навигации — это виджет, а не пункт «⋯»: кнопки ради него нет", () => {
-        // Догфудинг: у OUTPUT «⋯» открывала один пункт «Switch Output ›» —
-        // копию селектора каналов рядом с ней.
+        // Dogfooding: OUTPUT's "⋯" opened a single "Switch Output ›" item —
+        // a copy of the channel selector right next to it.
         const h = panelHarness(
             ["output.view"],
             [
@@ -207,8 +207,8 @@ describe("ViewsService — полоса контролов в таб-строк�
     });
 
     it("submenu-выбор вне навигации и обычное submenu навигации остаются в «⋯»", () => {
-        // В VS Code в тулбар (а значит, в SelectBox) уходит только группа
-        // `navigation`; остальное — пункты «Views and More Actions...».
+        // In VS Code only the `navigation` group goes to the toolbar (and hence
+        // to the SelectBox); the rest become "Views and More Actions..." items.
         const h = panelHarness(
             ["output.view"],
             [
@@ -318,8 +318,8 @@ describe("ViewsService — полоса контролов в таб-строк�
     });
 
     it("одна лишь навигация из submenu-выбора «⋯» не зажигает", () => {
-        // Статическая проверка (`hasOverflow`) обязана сходиться с попапом:
-        // кнопка без пунктов выглядит сломанной.
+        // The static check (`hasOverflow`) must agree with the popup:
+        // a button with no items looks broken.
         const h = panelHarness(
             ["output.view"],
             [

@@ -2,8 +2,8 @@ import { BoxConstraints, Size } from "@tuidom/core/common/geometryPromitives";
 import { TUIElement } from "@tuidom/core/dom/tuiElement";
 
 /**
- * Шапка натуральной высоты сверху, остаток — телу. `VStackElement` так не умеет (ряды
- * фиксированной высоты), а шапка обязана дышать: Search раскрывает блок include/exclude.
+ * Header at its natural height on top, the rest goes to the body. `VStackElement` can't do this
+ * (fixed-height rows), but the header must be able to grow: Search expands the include/exclude block.
  */
 export class HeaderBodyViewElement extends TUIElement {
     public constructor(

@@ -3,14 +3,14 @@ import * as path from "node:path";
 import type { IEditorPane } from "./iEditorPane.ts";
 
 /**
- * Отступление от эталона по решению человека: VS Code показывает удаление только
- * зачёркиванием (SGR 9), а его рисуют не все терминалы.
+ * A deliberate deviation from upstream (the maintainer's call): VS Code shows deletion only with
+ * strikethrough (SGR 9), which not every terminal renders.
  */
 export const DELETED_TAB_SUFFIX = " (deleted)";
 
 /**
- * Тёзкам добавляется минимальный различающий суффикс пути (как в VS Code). Общая для
- * tab strip'а и оверлея Ctrl+Tab: списки разного порядка, но имена обязаны совпадать.
+ * Same-named files get the shortest distinguishing path suffix (like VS Code). Shared by the tab
+ * strip and the Ctrl+Tab overlay: the lists are ordered differently, but the names must match.
  */
 export function computeTabLabels(
     editors: readonly IEditorPane[],
@@ -29,18 +29,19 @@ export function computeTabLabels(
         if (indices.length < 2) continue;
         const dirs = indices.map((i) => {
             const uri = editors[i].uri;
-            // Гейт по схеме, а не «путь непустой»: fsPath у не-file схемы вернёт мусор, а не бросит.
-            /* v8 ignore start -- defensive: одинаковый displayName бывает только у файлов */
-            // Stryker disable next-line ConditionalExpression,ArrayDeclaration: ветка недостижима по той же причине, что и для покрытия
+            // Gate on the scheme, not on "path is non-empty": fsPath of a non-file scheme
+            // returns garbage instead of throwing.
+            /* v8 ignore start -- defensive: only files can share a displayName */
+            // Stryker disable next-line ConditionalExpression,ArrayDeclaration: unreachable for the same reason as for coverage
             if (uri.scheme !== "file") return [];
             /* v8 ignore stop */
-            // Путь уже абсолютный: Uri.file идёт через path.resolve.
+            // The path is already absolute: Uri.file goes through path.resolve.
             return path.dirname(uri.fsPath).split(path.sep).filter(Boolean);
         });
         const maxK = Math.max(0, ...dirs.map((d) => d.length));
         indices.forEach((editorIndex, a) => {
-            // Тёзки всегда различаются по пути (дедуп в openFile) — цикл находит
-            // уникальный хвост не позже k = maxK.
+            // Same-named files always differ by path (openFile dedupes), so the loop finds
+            // a unique tail by k = maxK at the latest.
             for (let k = 1; k <= maxK; k++) {
                 const mine = dirs[a].slice(-k).join(path.sep);
                 const collision = dirs.some((d, b) => b !== a && d.slice(-k).join(path.sep) === mine);
@@ -51,6 +52,6 @@ export function computeTabLabels(
             }
         });
     }
-    // После различающего суффикса: тёзок различаем по пути, а не по удалённости.
+    // Appended after the distinguishing suffix: same-named files are told apart by path, not by deletion.
     return labels.map((label, i) => (editors[i].isOrphaned === true ? label + DELETED_TAB_SUFFIX : label));
 }

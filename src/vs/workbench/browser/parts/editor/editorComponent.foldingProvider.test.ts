@@ -44,11 +44,11 @@ describe("EditorComponent – extension folding provider merge", () => {
     }
 
     it("provider-регион появляется там, где indentation-фолдов нет", async () => {
-        // Пять строк без отступов — indentation folding не даёт ни одной области.
+        // Five unindented lines — indentation folding yields no regions.
         const ctrl = open("a\nb\nc\nd\ne");
         expect(starts(ctrl)).toEqual([]);
 
-        // Регистрация провайдера сама пересчитывает области открытого документа.
+        // Registering a provider by itself recomputes the regions of an open document.
         providers.register("*", providerOf([{ startLine: 0, endLine: 3, isCollapsed: false }]));
         await flush();
 
@@ -57,7 +57,7 @@ describe("EditorComponent – extension folding provider merge", () => {
     });
 
     it("union: provider ∪ indentation (обе области сохраняются)", async () => {
-        // Indentation-область 0..2 (header + два отступа); provider добавляет 3..4.
+        // Indentation region 0..2 (header + two indented lines); the provider adds 3..4.
         const ctrl = open("header\n  x\n  y\nfooter\nmore");
         expect(starts(ctrl)).toEqual([0]);
 
@@ -68,7 +68,7 @@ describe("EditorComponent – extension folding provider merge", () => {
     });
 
     it("provider выигрывает по общей startLine", async () => {
-        // Indentation даёт 0..2; provider отдаёт 0..3 на той же строке → берём 0..3.
+        // Indentation gives 0..2; the provider returns 0..3 on the same line → 0..3 wins.
         const ctrl = open("header\n  x\n  y\nfooter");
         expect(ctrl.viewState.foldedRegions.find((r) => r.startLine === 0)?.endLine).toBe(2);
 
@@ -188,7 +188,7 @@ describe("EditorComponent – extension folding provider merge", () => {
             },
         });
         await flush();
-        // Ранние пересчёты уже отменены поздними — живой только последний.
+        // Earlier recomputes are already cancelled by later ones — only the last is live.
         expect(tokens.at(-1)?.isCancellationRequested).toBe(false);
 
         ctrl.component.dispose();
@@ -197,9 +197,9 @@ describe("EditorComponent – extension folding provider merge", () => {
     });
 
     describe("правка до ответа провайдера", () => {
-        // Многострочная сигнатура, как в Java: по отступам «first(» — область
-        // только параметров (1..2), а тело — своя область с «) {» (3..4);
-        // провайдер отдаёт метод целиком (1..4).
+        // A multi-line signature, as in Java: by indentation, "first(" is a region of
+        // the parameters only (1..2), and the body is its own region at ") {" (3..4);
+        // the provider returns the whole method (1..4).
         const source = [
             "class A {",
             "    void first(",
@@ -218,7 +218,7 @@ describe("EditorComponent – extension folding provider merge", () => {
             { startLine: 6, endLine: 7, isCollapsed: false },
         ];
 
-        /** Отвечает сразу, пока не позван `defer`; после — запросы ждут `answer`. */
+        /** Replies immediately until `defer` is called; after that, requests wait for `answer`. */
         function registerDeferredProvider(): { defer: () => void; answer: (regions: IFoldingRegion[]) => void } {
             const pending: ((regions: IFoldingRegion[]) => void)[] = [];
             let deferred = false;
@@ -246,16 +246,16 @@ describe("EditorComponent – extension folding provider merge", () => {
             const ctrl = open(source);
             const provider = registerDeferredProvider();
             await flush();
-            ctrl.viewState.foldRegionContaining(1); // свернули first целиком
+            ctrl.viewState.foldRegionContaining(1); // fold the whole of first
             expect(frame(ctrl)).not.toContain("body1");
 
             provider.defer();
             ctrl.viewState.selections = [createCursorSelection(7, 16)];
-            ctrl.viewState.type("!"); // печатаем в развёрнутом second
+            ctrl.viewState.type("!"); // type into the expanded second
             await flush();
 
-            // Провайдер ещё думает: тело first обязано оставаться скрытым,
-            // иначе текст выше каретки прыгает на каждое нажатие.
+            // The provider is still thinking: the body of first must stay hidden,
+            // or the text above the cursor jumps on every keystroke.
             expect(frame(ctrl)).not.toContain("body1");
             expect(frame(ctrl)).toContain("body2();!");
 
@@ -275,18 +275,18 @@ describe("EditorComponent – extension folding provider merge", () => {
             await flush();
             const methodEnd = (): number | undefined =>
                 ctrl.viewState.foldedRegions.find((r) => r.startLine === 1)?.endLine;
-            expect(methodEnd()).toBe(4); // метод целиком — от провайдера
+            expect(methodEnd()).toBe(4); // the whole method, from the provider
 
             provider.defer();
             ctrl.viewState.selections = [createCursorSelection(7, 16)];
             ctrl.viewState.type("!");
             await flush();
-            expect(methodEnd()).toBe(4); // до ответа — прежние области
+            expect(methodEnd()).toBe(4); // until the reply, the previous regions stay
 
             provider.answer([]);
             await flush();
 
-            expect(methodEnd()).toBe(2); // провайдеру нечего сказать — стоят отступы
+            expect(methodEnd()).toBe(2); // the provider has nothing to say — indentation folds apply
         });
     });
 });

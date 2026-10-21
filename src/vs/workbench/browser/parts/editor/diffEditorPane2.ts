@@ -32,18 +32,18 @@ import { EditorComponent } from "./editorComponent.ts";
 import type { IEditorPane } from "./iEditorPane.ts";
 import { TextEditorPane } from "./textEditorPane.ts";
 
-/** Максимум времени на дифф; сверх — грубый результат вместо залипшей вкладки. */
+/** Time budget for the diff; past it we take a coarse result instead of a hung tab. */
 const MAX_DIFF_COMPUTATION_MS = 2000;
 
 const EOL_SPLIT = /\r\n|\n/;
 
-/** Значение VS Code `diffEditorViewModel`, совпадает с QuickDiff. */
+/** Same value as upstream `diffEditorViewModel`; matches QuickDiff. */
 export const DIFF_RECOMPUTE_DEBOUNCE_MS = 200;
 
 /**
- * `shared` — общая модель файла из реестра `EditorService`: правки и undo общие с
- * обычными вкладками; `owned` — модель панели (untitled-стороны); `snapshot` —
- * read-only снимок, меняется только {@link DiffEditorPane2.replaceSnapshotContent}.
+ * `shared` — the file model from the `EditorService` registry: edits and undo are shared with
+ * regular tabs; `owned` — a model owned by the pane (untitled sides); `snapshot` — a
+ * read-only snapshot, changed only by {@link DiffEditorPane2.replaceSnapshotContent}.
  */
 export type DiffV2SideSource =
     | { readonly kind: "shared"; readonly ref: ITextFileModelReference }
@@ -51,16 +51,16 @@ export type DiffV2SideSource =
     | { readonly kind: "snapshot"; readonly text: string };
 
 export interface IDiffEditorPane2Input {
-    /** Он же идентичность вкладки в группе. */
+    /** Also the tab's identity within the group. */
     readonly uri: Uri;
     readonly label: string;
     readonly originalLabel: string;
     readonly modifiedLabel: string;
     readonly original: DiffV2SideSource;
     readonly modified: DiffV2SideSource;
-    /** Только для snapshot-сторон: у моделей язык свой. */
+    /** Only for snapshot sides: models carry their own language. */
     readonly languageId: string;
-    /** Сторона может не существовать как ресурс (Clipboard). */
+    /** A side may not exist as a resource (Clipboard). */
     readonly originalUri?: Uri;
     readonly modifiedUri?: Uri;
     readonly debounceMs?: number;
@@ -70,9 +70,9 @@ export interface IDiffEditorPane2Input {
 const EMPTY_SIDE_LAYOUT: IDiffV2SideLayout = { zones: [], foldingRegions: [], decorations: {} };
 
 /**
- * Композиция двух настоящих редакторов (`TextEditorPane` на сторону): выравнивание —
- * зоны, свёртка unchanged — фолдинг, подсветка — внешние декорации. Поэтому каретка,
- * копирование и команды — код редактора, а не вторая реализация.
+ * Composes two real editors (one `TextEditorPane` per side): alignment is view zones,
+ * collapsing unchanged regions is folding, highlighting is external decorations. So the cursor,
+ * copying and commands are the editor's own code, not a second implementation.
  */
 export class DiffEditorPane2 extends Component implements IEditorPane {
     public readonly uri: Uri;
@@ -88,7 +88,7 @@ export class DiffEditorPane2 extends Component implements IEditorPane {
     private regionPairs: { original: number; modified: number; collapsed: boolean }[] = [];
     private layout: { original: IDiffV2SideLayout; modified: IDiffV2SideLayout } | null = null;
     private changes: readonly DetailedLineRangeMapping[] = [];
-    /** Реэнтрантный гард зеркалирования скролла и фолд-синка. */
+    /** Reentrancy guard for scroll mirroring and folding sync. */
     private syncing = false;
     private readonly viewSyncSubscriptions: Record<DiffSide, IDisposable | null> = { original: null, modified: null };
     private recomputeTimer: ReturnType<typeof setTimeout> | undefined;
@@ -99,7 +99,7 @@ export class DiffEditorPane2 extends Component implements IEditorPane {
     public constructor(
         private readonly languageService: ILanguageService,
         private readonly undoRedoService: UndoRedoService,
-        // Стороны-снимки синтетические и на диск не пишут; сервис нужен модели по контракту.
+        // Snapshot sides are synthetic and never write to disk; the model needs the service by contract.
         private readonly files: IFileService,
         tokenizationRegistry: TokenizationRegistry,
         tokenStyleResolver: ITokenStyleResolver,
@@ -124,12 +124,12 @@ export class DiffEditorPane2 extends Component implements IEditorPane {
         this.view = this.paneElement;
         this.view.id = "diffEditorV2";
         this.view.style = { fg: "editor.foreground", bg: "editor.background" };
-        // Одна полоса прокрутки на пару: скролл синхронен, левая была бы дублем
-        // и съедала бы колонку текста.
+        // One scrollbar per pair: scrolling is synced, so a left one would be a duplicate
+        // eating a text column.
         this.sides.original.component.view.verticalScrollBar = "never";
-        // Смену режима элемент объявляет из layout — зоны перекладываем
-        // ОТЛОЖЕННО: правка зон прямо из layout оставила бы корень
-        // layout-грязным после кадра (dirty-гейт TuiApplication).
+        // The element reports mode changes from layout — re-lay out zones
+        // DEFERRED: changing zones right inside layout would leave the root
+        // layout-dirty after the frame (TuiApplication dirty gate).
         this.paneElement.onDidChangeMode = () => {
             queueMicrotask(() => {
                 if (this.paneDisposed) return;
@@ -148,11 +148,11 @@ export class DiffEditorPane2 extends Component implements IEditorPane {
                 if (this.recomputeTimer !== undefined) clearTimeout(this.recomputeTimer);
                 this.viewSyncSubscriptions.original?.dispose();
                 this.viewSyncSubscriptions.modified?.dispose();
-                // Компонент и модель (или ссылку реестра) освобождает сама сторона.
+                // Each side disposes its own component and model (or registry reference).
                 this.sides.original.dispose();
                 this.sides.modified.dispose();
-                // view из дерева НЕ отцепляем: как и у первой панели, это
-                // делает контент-слот группы при смене контента.
+                // Do NOT detach the view from the tree: as with the first pane, the group's
+                // content slot does that when the content changes.
             },
         });
     }
@@ -186,8 +186,8 @@ export class DiffEditorPane2 extends Component implements IEditorPane {
         component.foldingOwnedExternally = true;
         const pane = new TextEditorPane(model, component, ownership);
         pane.detached = true;
-        // Стороны выравниваются по view-строкам через зоны — wrap развёл бы их
-        // (docs/TODO/WordWrap.md); wrap в диффе — non-goal (docs/TODO/Diff.md).
+        // Sides are aligned by view lines via zones — wrapping would misalign them
+        // (docs/TODO/WordWrap.md); wrap in the diff is a non-goal (docs/TODO/Diff.md).
         pane.wordWrapForcedOff = true;
         pane.labelOverride = side === "original" ? input.originalLabel : input.modifiedLabel;
         pane.readOnly = source.kind === "snapshot";
@@ -198,11 +198,11 @@ export class DiffEditorPane2 extends Component implements IEditorPane {
         return (["original", "modified"] as const).filter((side) => this.sideKinds[side] === "snapshot");
     }
 
-    /** Неизменившийся текст — no-op: замена пересоздаёт view-state и потеряла бы каретку. */
+    /** Unchanged text is a no-op: replacing recreates the view state and would lose the cursor. */
     public replaceSnapshotContent(side: DiffSide, text: string): void {
         const snapshot = this.snapshotModels[side];
         if (snapshot === undefined || snapshot.getText() === text) return;
-        // Раскладку на замену содержимого целиком перезальёт wireLiveness.
+        // wireLiveness recomputes the layout on a full content replace.
         snapshot.replaceContent(text);
     }
 
@@ -218,7 +218,7 @@ export class DiffEditorPane2 extends Component implements IEditorPane {
         this.paneElement.setModeOverride(override);
     }
 
-    /** `hidden` фокус не двигает — переносим явно, иначе ввод ушёл бы в невидимый редактор. */
+    /** `hidden` does not move focus — move it explicitly, or input would go to an invisible editor. */
     private handleModeChange(): void {
         if (this.paneElement.mode === "inline" && this.activeSideValue === "original") {
             this.activeSideValue = "modified";
@@ -231,8 +231,8 @@ export class DiffEditorPane2 extends Component implements IEditorPane {
     }
 
     /**
-     * Как VS Code `diffEditor.revert`. У пустого на этой стороне диапазона якорь —
-     * строка перед местом изменения, как у зоны-филлера.
+     * Like upstream `diffEditor.revert`. A range that is empty on this side is anchored at
+     * the line before the change, same as a filler zone.
      */
     public revertHunkAtCaret(): "reverted" | "no-hunk" | "read-only" {
         if (this.sides.modified.readOnly) return "read-only";
@@ -264,7 +264,7 @@ export class DiffEditorPane2 extends Component implements IEditorPane {
         );
     }
 
-    /** Подписки — на моделях сторон: переживают Save As со сменой uri. */
+    /** Subscribes on the side models so it survives Save As with a uri change. */
     private wireLiveness(): void {
         for (const side of ["original", "modified"] as const) {
             this.register(
@@ -272,8 +272,8 @@ export class DiffEditorPane2 extends Component implements IEditorPane {
                     this.scheduleRecompute();
                 }),
             );
-            // Замена содержимого целиком — раскладка сразу, без паузы набора: прежняя
-            // ничего не говорит о новом тексте.
+            // A full content replace recomputes the layout right away, without the typing debounce:
+            // the old layout says nothing about the new text.
             this.register(
                 this.sides[side].model.document.onDidChangeContent((change) => {
                     if (change.isFlush === true) this.recomputeLayout({ preserveView: true });
@@ -291,9 +291,9 @@ export class DiffEditorPane2 extends Component implements IEditorPane {
     }
 
     /**
-     * `preserveView`: свёрнутость переносится со старых пар, скролл якорится по
-     * документной строке (проекция doc↔view меняется вместе с зонами), каретки не
-     * трогаются — позиции документные.
+     * `preserveView`: collapsed state carries over from the old pairs, scroll is anchored to
+     * a document line (the doc↔view projection changes along with zones), cursors are left
+     * alone — their positions are in document coordinates.
      */
     private recomputeLayout({ preserveView }: { preserveView: boolean }): void {
         const originalLines = this.sides.original.model.document.getLinesContent();
@@ -301,9 +301,9 @@ export class DiffEditorPane2 extends Component implements IEditorPane {
 
         this.syncing = true;
         try {
-            // Вьюпорт на самом верху остаётся на самом верху: якорение по
-            // документной строке утащило бы его ПОД зону над первой строкой
-            // (нотис «The files are identical»), появившуюся этим пересчётом.
+            // A viewport at the very top stays at the very top: anchoring to a
+            // document line would push it BELOW a zone above the first line
+            // (the "The files are identical" notice) that this recompute added.
             const scrollTopBefore = this.sides.modified.viewState.scrollTop;
             const anchorDocLine =
                 preserveView && scrollTopBefore > 0
@@ -321,8 +321,8 @@ export class DiffEditorPane2 extends Component implements IEditorPane {
             this.changes = diff.changes;
             const previous = { pairs: this.regionPairs, layout: this.layout };
             const innerRanges = new DiffInnerRanges(diff.changes);
-            // Скрытой стороне заливается пустота, чтобы возврат в side-by-side не
-            // встретил устаревшие зоны/фолды.
+            // The hidden side gets an empty layout so that switching back to side-by-side
+            // does not hit stale zones/folds.
             this.layout =
                 this.paneElement.mode === "inline"
                     ? {
@@ -356,8 +356,8 @@ export class DiffEditorPane2 extends Component implements IEditorPane {
     }
 
     /**
-     * Свёрнутость переносится по пересечению диапазонов, новые куски свёрнуты.
-     * Кусок, накрывший каретку, разворачивается: `setFoldingRegions` каретку не переносит.
+     * Collapsed state carries over by range overlap; new regions start collapsed.
+     * A region covering the cursor is expanded: `setFoldingRegions` does not move the cursor.
      */
     private buildRegionPairs(
         previous: {
@@ -366,11 +366,11 @@ export class DiffEditorPane2 extends Component implements IEditorPane {
         } | null,
     ): { original: number; modified: number; collapsed: boolean }[] {
         const layout = this.layout;
-        /* v8 ignore start -- defensive: зовётся только после computeDiffV2Layout */
+        /* v8 ignore start -- defensive: only called after computeDiffV2Layout */
         if (layout === null) return [];
         /* v8 ignore stop */
-        // Первичны регионы modified: в inline у original их нет вовсе (сторона
-        // скрыта, раскладка пустая) — пара тогда вырождается в modified-координаты.
+        // Modified regions are primary: in inline mode original has none at all (the side
+        // is hidden, its layout empty) — the pair then degenerates to modified coordinates.
         return layout.modified.foldingRegions.map((modifiedRegion, i) => {
             const originalRegion =
                 (layout.original.foldingRegions[i] as (typeof layout.original.foldingRegions)[number] | undefined) ??
@@ -391,8 +391,8 @@ export class DiffEditorPane2 extends Component implements IEditorPane {
     }
 
     /**
-     * По original сравнивается, только когда координаты есть у обоих поколений:
-     * inline не держит original-регионов.
+     * Original is compared only when both generations have its coordinates:
+     * inline mode keeps no original regions.
      */
     private carryCollapsed(
         previous: {
@@ -402,7 +402,7 @@ export class DiffEditorPane2 extends Component implements IEditorPane {
         originalRegion: { startLine: number; endLine: number } | null,
         modifiedRegion: { startLine: number; endLine: number },
     ): boolean {
-        /* v8 ignore start -- defensive: prev-раскладка есть у любой живой панели */
+        /* v8 ignore start -- defensive: every live pane has a previous layout */
         if (previous.layout === null) return true;
         /* v8 ignore stop */
         let best: { overlap: number; collapsed: boolean } | null = null;
@@ -421,7 +421,7 @@ export class DiffEditorPane2 extends Component implements IEditorPane {
         return best?.collapsed ?? true;
     }
 
-    /** Каретка стороны — строго внутри скрытой части региона (заголовок видим). */
+    /** The side's cursor is strictly inside the hidden part of the region (the header line is visible). */
     private caretInsideHiddenPart(side: DiffSide, region: { startLine: number; endLine: number }): boolean {
         const caret = this.sides[side].primaryCursorLine;
         return caret > region.startLine && caret <= region.endLine;
@@ -429,7 +429,7 @@ export class DiffEditorPane2 extends Component implements IEditorPane {
 
     private applySideLayout(side: DiffSide): void {
         const layout = this.layout;
-        /* v8 ignore start -- defensive: зовётся только после recomputeLayout */
+        /* v8 ignore start -- defensive: only called after recomputeLayout */
         if (layout === null) return;
         /* v8 ignore stop */
         const sideLayout = layout[side];
@@ -439,19 +439,19 @@ export class DiffEditorPane2 extends Component implements IEditorPane {
         const folding = sideLayout.foldingRegions.map((region) => ({
             startLine: region.startLine,
             endLine: region.endLine,
-            /* v8 ignore start -- ?? недостижим: пары построены из этих же регионов */
+            /* v8 ignore start -- ?? unreachable: the pairs are built from these same regions */
             isCollapsed: collapsedByStart.get(region.startLine) ?? true,
             /* v8 ignore stop */
         }));
         viewState.setFoldingRegions(folding);
 
-        // Плашка живёт только у свёрнутого куска: развёрнутый показывает сами
-        // строки, и парная зона с обеих сторон исчезает согласованно. Текстовая
-        // зона ВНЕ регионов (нотис «The files are identical») живёт всегда.
+        // A plaque exists only on a collapsed region: an expanded one shows the lines
+        // themselves, and the paired zone disappears on both sides together. A text
+        // zone OUTSIDE regions (the "The files are identical" notice) is always shown.
         const plaqueAnchors = new Set(
             sideLayout.decorations.zones
                 ?.filter((zone) => zone.text !== undefined)
-                /* v8 ignore start -- ?? недостижим: computeSide всегда отдаёт массив зон-декораций */
+                /* v8 ignore start -- ?? unreachable: computeSide always returns a zone decoration array */
                 .map((zone) => zone.afterLine) ?? [],
             /* v8 ignore stop */
         );
@@ -469,9 +469,9 @@ export class DiffEditorPane2 extends Component implements IEditorPane {
         viewState.setViewZones(
             sideLayout.zones.filter((zone) => !plaqueAnchors.has(zone.afterLine) || plaqueVisible(zone.afterLine)),
         );
-        // Плашка и зона-призрак inline-ганка могут делить якорь — содержимое
-        // склеивается в одну многострочную декорацию (setViewZones сливает
-        // такие зоны, а рендер адресует декорации по якорю).
+        // A plaque and an inline hunk's ghost zone may share an anchor — their content
+        // is merged into one multi-line decoration (setViewZones merges such
+        // zones, and rendering looks decorations up by anchor).
         this.sides[side].component.setDecorations({
             ...sideLayout.decorations,
             zones: mergeZoneDecorationsByAnchor(
@@ -485,8 +485,8 @@ export class DiffEditorPane2 extends Component implements IEditorPane {
     private wireSync(): void {
         for (const side of ["original", "modified"] as const) {
             this.wireViewSync(side);
-            // Активная сторона — по фокусу внутри её view (ScrollBarDecorator
-            // переживает пересоздание EditorElement, слушатель ставится один раз).
+            // The active side follows focus inside its view (ScrollBarDecorator
+            // survives EditorElement recreation, so the listener is added once).
             this.sides[side].component.view.addEventListener(
                 "focus",
                 () => {
@@ -497,7 +497,7 @@ export class DiffEditorPane2 extends Component implements IEditorPane {
         }
     }
 
-    /** Перечитка документа пересоздаёт view-state — без перевешивания синк молча отваливается. */
+    /** Reloading the document recreates the view state — without re-subscribing, sync silently breaks. */
     private wireViewSync(side: DiffSide): void {
         const other: DiffSide = side === "original" ? "modified" : "original";
         this.viewSyncSubscriptions[side]?.dispose();
@@ -534,12 +534,12 @@ export class DiffEditorPane2 extends Component implements IEditorPane {
         return this.sides.original.isModified || this.sides.modified.isModified;
     }
 
-    /** Замок на табе — только когда заперты обе стороны (чистый снимок). */
+    /** Lock icon on the tab only when both sides are locked (a pure snapshot). */
     public get readOnly(): boolean {
         return this.sides.original.readOnly && this.sides.modified.readOnly;
     }
 
-    /** Сторона, в которой живут каретка и команды; в inline это всегда modified. */
+    /** The side that owns the cursor and commands; in inline mode it is always modified. */
     public get activeSide(): DiffSide {
         return this.paneElement.mode === "inline" ? "modified" : this.activeSideValue;
     }
@@ -566,7 +566,7 @@ export class DiffEditorPane2 extends Component implements IEditorPane {
     }
 
     public getSelectedTexts(): string[] {
-        // Плейсхолдеров и филлеров в тексте сторон нет — фильтровать нечего.
+        // Side text has no placeholders or fillers — nothing to filter out.
         return this.viewState.getSelectedTexts();
     }
 }
@@ -576,8 +576,8 @@ function rangeOverlap(a: { startLine: number; endLine: number }, b: { startLine:
 }
 
 /**
- * 1-based LineRange движка → символьный ITextEdit. Удаление съедает ровно один
- * разделитель строк, вставка добавляет свой.
+ * Diff engine's 1-based LineRange → character-based ITextEdit. A deletion consumes exactly one
+ * line separator; an insertion adds its own.
  */
 function buildLineReplaceEdit(
     document: { lineCount: number; getLineLength(line: number): number },
@@ -589,7 +589,7 @@ function buildLineReplaceEdit(
     const at = (line: number, character: number): { line: number; character: number } => ({ line, character });
 
     if (endExclusive === start) {
-        // Вставка перед строкой start; за концом файла — в хвост последней строки.
+        // Insert before line `start`; past the end of file — append to the last line.
         if (start < document.lineCount) {
             return { range: { start: at(start, 0), end: at(start, 0) }, text: `${lines.join("\n")}\n` };
         }
@@ -599,14 +599,14 @@ function buildLineReplaceEdit(
     }
 
     if (lines.length === 0) {
-        // Удаление строк [start..endExclusive): у хвостового блока разделитель
-        // съедается слева, иначе — справа.
+        // Delete lines [start..endExclusive): for a trailing block the separator
+        // is consumed on the left, otherwise on the right.
         if (endExclusive < document.lineCount) {
             return { range: { start: at(start, 0), end: at(endExclusive, 0) }, text: "" };
         }
-        /* v8 ignore start -- start === 0 недостижим: удаление всего файла означало бы
-           пустой original-диапазон при пустом original-файле, а у TextDocument минимум
-           одна строка — такой ганк движок строит как замену, не вставку */
+        /* v8 ignore start -- start === 0 is unreachable: deleting the whole file would mean
+           an empty original range with an empty original file, but a TextDocument has at least
+           one line — the engine builds such a hunk as a replacement, not an insertion */
         const from = start > 0 ? at(start - 1, document.getLineLength(start - 1)) : at(0, 0);
         /* v8 ignore stop */
         return {

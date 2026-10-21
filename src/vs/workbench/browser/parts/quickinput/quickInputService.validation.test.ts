@@ -130,7 +130,7 @@ describe("QuickInputService.input — асинхронная валидация"
         });
         testApp.sendKey("a");
         testApp.sendKey("b");
-        // Отвечаем В ОБРАТНОМ порядке: сначала на «ab», потом на устаревшее «a».
+        // Resolve in REVERSE order: "ab" first, then the stale "a".
         const forAb = gates.find((g) => g.value === "ab");
         const forA = gates.find((g) => g.value === "a");
         forAb?.gate.resolve("про ab");

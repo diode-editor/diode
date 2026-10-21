@@ -116,7 +116,7 @@ describe("WorkbenchContributionsRegistry", () => {
                 [afterRestoredToken, new FakeContribution()],
             ]),
         );
-        // Порядок записей обратный ожидаемому — порядок держит фаза, а не список.
+        // Entries are in reverse of the expected order: the phase defines the order, not the list.
         const registry = new WorkbenchContributionsRegistry(accessor, [
             { token: eventuallyToken, phase: "eventually" },
             { token: afterRestoredToken, phase: "afterRestored" },
@@ -157,7 +157,7 @@ describe("WorkbenchContributionsRegistry", () => {
                 ["Dep", "Contrib", "blockStartup", false],
                 ["Contrib", "contributions:blockStartup", "blockStartup", true],
             ]);
-            // Создание вне фазы — без фазы и без флага, даже сразу после неё.
+            // An instantiation outside a phase gets neither phase nor flag, even right after one.
             const LaterDIToken = token<object>("Later");
             container.bind(LaterDIToken, () => ({})).get(LaterDIToken);
             expect(tracer.getEntries().at(-1)).toMatchObject({ id: "Later", phase: null, contribution: false });

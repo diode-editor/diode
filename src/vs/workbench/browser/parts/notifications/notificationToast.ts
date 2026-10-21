@@ -21,31 +21,31 @@ const TOAST_STYLES: IDialogStyles = {
     linkFg: "textLink.foreground",
 };
 
-/** Как `$(info)`/`$(warning)` в эталоне. */
+/** Like `$(info)`/`$(warning)` upstream. */
 const SEVERITY_HEADERS: Readonly<Record<NotificationSeverity, { readonly title: string; readonly fg: StyleColor }>> = {
     info: { title: "$(info) Information", fg: "notificationsInfoIcon.foreground" },
     warn: { title: "$(warning) Warning", fg: "notificationsWarningIcon.foreground" },
     error: { title: "$(error) Error", fg: "notificationsErrorIcon.foreground" },
 };
 
-/** Один на все тосты: их бывает несколько сразу, и адресовать нужно «любой тост». */
+/** Shared by all toasts: several can be shown at once, and selectors must match "any toast". */
 export const TOAST_ELEMENT_ID = "notificationToast";
 
-/** Сообщения расширений длинные, но угол экрана узкий. */
+/** Extension messages are long, but the screen corner is narrow. */
 export const TOAST_TEXT_WIDTH = 46;
 
-/** Остальное — в логе расширений. */
+/** The rest is in the extension log. */
 export const TOAST_MAX_LINES = 6;
 
-/** Как «×» на тосте эталона (`notification.clear`). */
+/** Like the "×" on an upstream toast (`notification.clear`). */
 export const TOAST_CLOSE_LABEL = "×";
 
 export const TOAST_HINT_FOCUSED = "←/→ · Enter — выбрать · Esc — закрыть";
 
 /**
- * Тост фокус не забирает, поэтому первым делом говорим, ЧЕМ добраться до
- * кнопок, — иначе вопрос остаётся без ответа у всех, кто без мыши. Комбинация —
- * от действующего бинда (человек вправе переназначить); бинда нет — называем команду.
+ * A toast never takes focus, so first tell HOW to reach the buttons — otherwise
+ * keyboard-only users cannot answer. The key combo comes from the current binding
+ * (the user may rebind it); without a binding, name the command.
  */
 export function toastUnfocusedHint(answerKeyLabel: string | undefined): string {
     if (answerKeyLabel === undefined) return "«Notifications: Focus Message» — ответить";
@@ -53,15 +53,15 @@ export function toastUnfocusedHint(answerKeyLabel: string | undefined): string {
 }
 
 /**
- * Фокус тост НЕ забирает никогда (как в эталоне): сообщение приходит незвано,
- * и перехватывать набор текста ему нельзя. Tab обрабатывается здесь, а не в
- * базе: сессия тоста passthrough'ная, и без перехвата фокус ушёл бы в дерево
- * под ним — у модальных диалогов фокус запирает сессия.
+ * A toast NEVER takes focus (as upstream): the message arrives unasked and must not
+ * steal typing. Tab is handled here, not in the base class: the toast session is
+ * passthrough, and without the interception focus would leave for the tree below —
+ * for modal dialogs the session traps focus.
  */
 export class NotificationToast extends DialogComponent {
-    /** Индекс в `notification.items`. */
+    /** Index into `notification.items`. */
     public onSelect?: (index: number) => void;
-    /** Закрыт без выбора (Escape). */
+    /** Closed without a choice (Escape). */
     public onClose?: () => void;
 
     public readonly notification: IActiveNotification;
@@ -86,14 +86,14 @@ export class NotificationToast extends DialogComponent {
             button.onActivate = () => this.onSelect?.(index);
             return button;
         });
-        // Есть у ЛЮБОГО тоста, как в эталоне: сообщение обязано быть чем убрать
-        // сейчас, не дожидаясь таймаута и не открывая палитру.
+        // EVERY toast has it, as upstream: a message must be dismissable right away,
+        // without waiting for the timeout or opening the palette.
         const closeButton = new ButtonElement(TOAST_CLOSE_LABEL);
         closeButton.onActivate = () => this.onClose?.();
         const buttons = [...answerButtons, closeButton];
         this.buttons = buttons;
 
-        // Stryker disable next-line StringLiteral: спецификация ширины ряда — пустая строка даёт ту же раскладку, кадр не меняется
+        // Stryker disable next-line StringLiteral: row width spec — an empty string gives the same layout, the frame does not change
         stack.addChild(new TextLabelElement(""), { width: "stretch", height: 1 });
         stack.addChild(buildButtonRow(buttons), { width: "stretch", height: 1 });
         if (answerButtons.length > 0) {
@@ -101,7 +101,7 @@ export class NotificationToast extends DialogComponent {
             hint.style = { fg: TOAST_STYLES.descriptionFg };
             this.hint = hint;
             stack.addChild(hint, { width: "stretch", height: 1 });
-            // На переходе между кнопками blur приходит раньше focus'а — смотрим на весь ряд.
+            // When moving between buttons blur arrives before focus, so check the whole row.
             for (const button of buttons) {
                 button.addEventListener("focus", () => {
                     this.syncHint(hint);
@@ -113,12 +113,12 @@ export class NotificationToast extends DialogComponent {
         }
     }
 
-    /** Кнопка закрытия есть у любого тоста и вопросом его не делает. */
+    /** Every toast has a close button; it does not make the toast a question. */
     public get isInteractive(): boolean {
         return this.notification.items.length > 0;
     }
 
-    /** Ряд не пуст никогда: даже у пассивного тоста в нём есть кнопка закрытия. */
+    /** The row is never empty: even a passive toast has the close button. */
     public focusDefault(): void {
         this.buttons[0].focus();
     }
@@ -146,17 +146,17 @@ export class NotificationToast extends DialogComponent {
 
     protected override handleExtraKeydown(event: TUIKeyboardEvent): void {
         if (event.key !== "Tab") return;
-        // Stryker disable next-line CallExpression: ненаблюдаемо — Tab-обход слоя в этой сессии не срабатывает (проверено тестом с соседним фокусируемым), а глобальный бинд Tab до редактора не доходит: фокус не в нём. Вызов оставлен как заявление «ряд разбирает Tab сам»
+        // Stryker disable next-line CallExpression: unobservable — layer Tab traversal does not fire in this session (checked by a test with a neighboring focusable), and the global Tab binding never reaches the editor since focus is not there. The call states that "the row handles Tab itself"
         event.preventDefault();
         const focused = this.buttons.findIndex((button) => button.isFocused);
         const step = event.shiftKey ? -1 : 1;
-        // Кольцо: сессия passthrough'ная, и без него Tab увёл бы фокус из тоста.
+        // Wrap around: the session is passthrough, and without it Tab would move focus out of the toast.
         const next = (focused + step + this.buttons.length) % this.buttons.length;
         this.buttons[next].focus();
     }
 }
 
-/** Лишние строки — с многоточием: тост не должен вырастать во весь экран. */
+/** Extra lines are elided: a toast must not grow to fill the screen. */
 export function toastLines(message: string): string[] {
     const lines = wrapText(message, TOAST_TEXT_WIDTH);
     if (lines.length <= TOAST_MAX_LINES) return lines;
@@ -167,7 +167,7 @@ function buildButtonRow(buttons: readonly ButtonElement[]): HFlexElement {
     const row = new HFlexElement();
     row.addChild(new TextLabelElement(""), { width: hflexFill(), height: 1 });
     for (const [index, button] of buttons.entries()) {
-        // Stryker disable next-line ConditionalExpression,EqualityOperator: лишний зазор ПЕРЕД первой кнопкой невидим — ряд прижат вправо растягивающимся спейсером, и тот просто станет на колонку короче
+        // Stryker disable next-line ConditionalExpression,EqualityOperator: an extra gap BEFORE the first button is invisible — a stretching spacer right-aligns the row and just gets one column shorter
         if (index > 0) row.addChild(new TextLabelElement(""), { width: hflexFixed(1), height: 1 });
         row.addChild(button, { width: hflexFit(), height: 1 });
     }

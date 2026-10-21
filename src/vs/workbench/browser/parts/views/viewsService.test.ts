@@ -59,7 +59,7 @@ describe("ViewsService", () => {
         h.paneView("scm").toggleCollapsed("scm.graph");
         expect(h.stored.get(SIDEBAR_VIEWS_STATE.key)).toEqual({
             scm: {
-                // Пишутся ОБА состояния: развёрнутость — тоже выбор пользователя.
+                // BOTH states are written: being expanded is also the user's choice.
                 collapsed: { "scm.changes": false, "scm.graph": true },
                 weights: { "scm.changes": 1, "scm.graph": 1 },
                 hidden: [],
@@ -76,7 +76,7 @@ describe("ViewsService", () => {
         h.service.registerView(view("scm.changes", "scm", 10));
         h.service.registerView(view("scm.graph", "scm", 20));
         h.service.attachContainer("scm");
-        // Контейнер без сохранённого состояния и неприаттаченный — пропускаются.
+        // A container without saved state and an unattached one are skipped.
         h.service.registerContainer({ id: "explorer", title: "EXPLORER", location: "sidebar" });
         h.service.registerView(view("files", "explorer", 10));
         h.service.attachContainer("explorer");
@@ -104,7 +104,7 @@ describe("ViewsService", () => {
         expect(focusChanges).not.toHaveBeenCalled();
         expect(focusGraph).toHaveBeenCalledOnce();
 
-        // Харнесс не молчит на опечатке в id контейнера.
+        // The harness doesn't stay silent on a typo in the container id.
         expect(() => {
             h.focus("nope");
         }).toThrow(/is not registered/);
@@ -194,7 +194,7 @@ describe("ViewsService — merged контейнер выводится из ч�
         const header = paneView.querySelector("#paneHeader-search-results")!;
         expect(header.inspectState()).toMatchObject({ title: "SEARCH", collapsible: false });
 
-        // Несворачиваемость: и протухший персист, и программный путь — no-op.
+        // Not collapsible: both a stale persisted state and the programmatic path are no-ops.
         paneView.setCollapsed("search.results", true);
         expect(paneView.isCollapsed("search.results")).toBe(false);
     });
@@ -208,7 +208,7 @@ describe("ViewsService — merged контейнер выводится из ч�
 
         h.service.registerView(view("search.extra", "search", 20));
 
-        // Корень контейнера стабилен — место держит ту же ссылку.
+        // The container root is stable — the location holds the same reference.
         expect(h.root("search")).toBe(rootBefore);
         expect(h.header("search")?.inspectState()).toEqual({ title: "SEARCH", busy: false });
         expect(paneTitles(h.paneView("search"))).toEqual(["SEARCH.RESULTS", "SEARCH.EXTRA"]);

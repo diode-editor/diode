@@ -10,7 +10,7 @@ import { QuickPickElement } from "./quickPickElement.ts";
 function makePicker(width = 30): QuickPickElement {
     const picker = new QuickPickElement();
     picker.preferredWidth = width;
-    // Дефолтный плейсхолдер в кадре мешает — тест, которому он нужен, ставит свой.
+    // The default placeholder clutters the frame; tests that need one set their own.
     picker.placeholder = "";
     return picker;
 }
@@ -24,7 +24,7 @@ function makeItems(count: number): QuickPickItem[] {
 }
 
 describe("QuickPickElement — раскладка", () => {
-    // Баг, ради которого виджет переехал: запрос рисовался вплотную к рамке, а список — правее.
+    // The bug that prompted moving the widget: the query was drawn flush against the border, the list further right.
     it("запрос, сообщение и строки списка начинаются в одной колонке", () => {
         const picker = makePicker(24);
         picker.setQuery("cfg");
@@ -96,7 +96,7 @@ describe("QuickPickElement — раскладка", () => {
         picker.items = [{ label: "Alpha" }];
         const backend = render(picker, 24);
 
-        // Контент кончается на колонке w-3, дальше — паддинг и рамка.
+        // Content ends at column w-3, followed by padding and the border.
         expect(backend.getTextAt(new Point(21, 2), 1)).not.toBe(" ");
         expect(backend.getTextAt(new Point(22, 2), 1)).toBe(" ");
         expect(backend.getTextAt(new Point(23, 2), 1)).toBe("│");
@@ -142,19 +142,19 @@ describe("QuickPickElement — раскладка", () => {
         picker.items = makeItems(2);
         const backend = render(picker, 24);
 
-        // Строка 3 — первый элемент (он же выделен по умолчанию), строка 4 — второй.
+        // Row 3 is the first item (selected by default), row 4 the second.
         const selectedBg = backend.getBgAt(new Point(2, 3));
         const plainBg = backend.getBgAt(new Point(2, 4));
         expect(selectedBg).not.toBe(plainBg);
     });
 
-    // Регрессия #94: подсветка выделения не должна залезать на рамку.
+    // Regression #94: the selection highlight must not spill onto the border.
     it("выделение заливает интерьер целиком и не трогает колонки рамки", () => {
         const picker = makePicker(24);
         picker.items = makeItems(2);
         const backend = render(picker, 24);
 
-        const frameBg = backend.getBgAt(new Point(0, 4)); // рамка невыделенной строки
+        const frameBg = backend.getBgAt(new Point(0, 4)); // border of an unselected row
         expect(backend.getBgAt(new Point(0, 3))).toBe(frameBg);
         expect(backend.getBgAt(new Point(23, 3))).toBe(frameBg);
 
@@ -235,7 +235,7 @@ describe("QuickPickElement — раскладка", () => {
         expect(picker.getMinIntrinsicHeight(30)).toBe(6); // 1 + 1 + 1 + 2 + 1
     });
 
-    // Пикер обязан ужаться в выделенную высоту с целой нижней рамкой, а не обрезаться клипом.
+    // The picker must shrink into the given height with an intact bottom border, not get clipped.
     it("на низком терминале окно списка ужимается, нижняя рамка цела", () => {
         const picker = makePicker(24);
         picker.items = makeItems(10);

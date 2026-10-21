@@ -4,7 +4,7 @@ import type { IDisposable } from "../../../../base/common/lifecycle.ts";
 
 import type { TextEditorPane } from "./textEditorPane.ts";
 
-/** Подмножество upstream `CodeEditorStateFlag`: `Selection`/`Scroll` нашим потребителям не нужны. */
+/** Subset of upstream `CodeEditorStateFlag`: our consumers don't need `Selection`/`Scroll`. */
 export enum EditorStateFlag {
     Value = 1,
     Position = 2,
@@ -13,9 +13,9 @@ export enum EditorStateFlag {
 export type IEditorStateSource = Pick<TextEditorPane, "onDidChangeContent" | "onDidChangeCursorPosition">;
 
 /**
- * Аналог upstream `EditorStateCancellationTokenSource`: ответ, пришедший после того,
- * как человек ушёл печатать, не применяется (переход к определению не уносит каретку
- * задним числом).
+ * Counterpart of upstream `EditorStateCancellationTokenSource`: a response that arrives after the
+ * user has moved on to typing is not applied (go to definition does not yank the cursor away
+ * after the fact).
  */
 export class EditorStateCancellationTokenSource extends CancellationTokenSource {
     private readonly subscriptions: IDisposable[] = [];

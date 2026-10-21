@@ -9,7 +9,7 @@ import { TestApp } from "../../../../../TestUtils/TestApp.ts";
 import type { IViewWelcomeBlock } from "./viewWelcomeElement.ts";
 import { ViewWelcomeElement } from "./viewWelcomeElement.ts";
 
-/** Пустое состояние Explorer — ровно то, что рисуется без открытой папки. */
+/** Explorer's empty state, exactly what is rendered with no folder open. */
 const EXPLORER_WELCOME: readonly IViewWelcomeBlock[] = [
     { kind: "text", text: "You have not yet opened a folder." },
     { kind: "text", text: "" },
@@ -32,8 +32,8 @@ function buttons(welcome: ViewWelcomeElement): ButtonElement[] {
 }
 
 /**
- * Строки кадра без отступа слева и без хвостовых пробелов: отступ welcome — его
- * выравнивание с заголовком секции, а тест читает содержимое.
+ * Frame lines without leading indent or trailing spaces: the welcome indent is its
+ * alignment with the section header, while the test reads the content.
  */
 function lines(backend: MockTerminalBackend, count: number): string[] {
     const width = backend.size.width;
@@ -45,7 +45,7 @@ describe("ViewWelcomeElement — отрисовка", () => {
         const { welcome } = make();
         const backend = renderElement(welcome, 29, 6, { themeVars: true });
 
-        // Ширина 29 рубит эталонную фразу на две строки, зазор остаётся пустым.
+        // Width 29 splits the upstream sentence into two lines; the gap stays empty.
         expect(lines(backend, 6)).toEqual(["You have not yet opened a", "folder.", "", "[ Open Folder ]", "", ""]);
     });
 
@@ -79,7 +79,7 @@ describe("ViewWelcomeElement — отрисовка", () => {
         const { welcome } = make([{ kind: "text", text: "unsplittableverylongword" }]);
         const backend = renderElement(welcome, 10, 3, { themeVars: true });
 
-        // Ширина секции 10, одну колонку забирает отступ — режем по девяти.
+        // Section width is 10 and the indent takes one column, so cut at nine.
         expect(lines(backend, 3)).toEqual(["unsplitta", "bleverylo", "ngword"]);
     });
 

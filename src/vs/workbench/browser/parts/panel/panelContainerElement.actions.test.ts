@@ -36,7 +36,7 @@ class LabelStub extends TUIElement {
     }
 }
 
-/** Палитра обязательна: кнопка `×` читает наши токены, дефолтов в движке у них нет. */
+/** A theme is required: the `×` button reads our tokens, which have no engine defaults. */
 function render(panel: PanelContainerElement, width: number, height = 8) {
     return renderElement(panel, width, height, { themeVars: true });
 }
@@ -54,7 +54,7 @@ describe("PanelContainerElement: контролы вкладки в шапке",
     it("рисует контролы активной вкладки, прижав их вплотную к кнопке закрытия", () => {
         const { backend } = panelWithActions(new LabelStub("Bootstrap"));
 
-        // Метка должна кончаться у кнопки `×`, а не идти сразу за табами.
+        // The label must end at the `×` button, not right after the tabs.
         const row = backend.getTextAt(new Point(0, 1), 60);
         expect(row).toContain("PROBLEMS");
         expect(row.trimEnd().endsWith("Bootstrap ×")).toBe(true);
@@ -104,8 +104,8 @@ describe("PanelContainerElement: контролы вкладки в шапке",
     });
 
     it("клик по контролам не переключает вкладку", () => {
-        // Координата ВНУТРИ сегмента вкладки: справа от табов вкладки нет, и
-        // пропавшую проверку источника там не отличить. Важно лишь, что target — не панель.
+        // A coordinate INSIDE a tab segment: right of the tabs there is no tab, so a
+        // missing source check is indistinguishable there. All that matters is that target is not the panel.
         const actions = new LabelStub("Bootstrap");
         const { panel } = panelWithActions(actions);
         const onActivate = vi.fn();

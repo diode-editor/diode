@@ -13,18 +13,18 @@ import {
 
 export const QuickInputServiceDIToken = token<QuickInputService>("QuickInputService");
 
-/** Голая строка — ошибка (блокирует Enter); объект со своей строгостью Enter не блокирует. */
+/** A bare string is an error (blocks Enter); an object with its own severity doesn't block Enter. */
 export type InputValidation = string | { message: string; severity: ValidationSeverity };
 
 export interface InputBoxOptions {
     title?: string;
     prompt?: string;
     placeholder?: string;
-    /** Курсор ставится в конец. */
+    /** The cursor is placed at the end. */
     value?: string;
-    /** Маска только на экране и в инспекторе; `validateInput` и результат получают настоящее значение. */
+    /** Masked only on screen and in the inspector; `validateInput` and the result get the real value. */
     password?: boolean;
-    /** Ответы, устаревшие к моменту прихода, отбрасываются — на экране сообщение о текущем тексте. */
+    /** Responses that are stale by the time they arrive are dropped, so the message always matches the current text. */
     validateInput?: (value: string) => InputValidation | null | Promise<InputValidation | null>;
 }
 
@@ -32,18 +32,18 @@ export interface QuickPickOptions {
     title?: string;
     placeholder?: string;
     items: readonly QuickPickItem[];
-    /** Клампится в границы; по умолчанию 0. */
+    /** Clamped to the list bounds; defaults to 0. */
     activeIndex?: number;
-    /** Файрится и на открытии и фильтрации, не только на навигации; `undefined` — список пуст. */
+    /** Fires on open and on filtering too, not just on navigation; `undefined` means the list is empty. */
     onDidChangeActive?: (item: QuickPickItem | undefined, index: number) => void;
 }
 
-/** Options for a multi-select list pick (`showQuickPick` с `canPickMany`). */
+/** Options for a multi-select list pick (`showQuickPick` with `canPickMany`). */
 export interface QuickPickManyOptions {
     title?: string;
     placeholder?: string;
     items: readonly QuickPickItem[];
-    /** Идентичность — по ссылке на предмет. */
+    /** Matched by item reference. */
     picked?: readonly QuickPickItem[];
 }
 
@@ -54,9 +54,8 @@ function isThenable(value: unknown): value is Promise<InputValidation | null> {
 }
 
 /**
- * Виджетом и overlay-сессией владеет {@link QuickInputComponent}, общий с
- * QuickOpenService: на каждый показ состояние и колбэки виджета ре-инициализируются,
- * новый показ отменяет предыдущий.
+ * The widget and overlay session are owned by {@link QuickInputComponent}, shared with QuickOpenService:
+ * every show re-initializes the widget's state and callbacks, and a new show cancels the previous one.
  */
 export class QuickInputService {
     public static dependencies = [QuickInputComponentDIToken] as const;
@@ -65,9 +64,9 @@ export class QuickInputService {
 
     public constructor(private readonly component: QuickInputComponent) {}
 
-    /** `undefined` — отмена: Escape, клик мимо, перехват другим показом. */
+    /** `undefined` means cancelled: Escape, a click outside, or another show taking over. */
     public input(opts: InputBoxOptions = {}): Promise<string | undefined> {
-        // Включая чужой показ на общем виджете — например, открытый Quick Open.
+        // Including someone else's show on the shared widget, e.g. an open Quick Open.
         this.settle(undefined);
         this.component.hide();
 
@@ -85,12 +84,12 @@ export class QuickInputService {
             view.placeholder = opts.placeholder ?? "";
             view.password = opts.password === true;
             view.validationSeverity = "error";
-            // Иначе accept прошлого quickPick() сработал бы здесь.
+            // Otherwise the previous quickPick()'s accept handler would fire here.
             view.onAccept = null;
             view.onActiveItemChanged = null;
 
             const validate = opts.validateInput;
-            // Асинхронная валидация — гонка: ответ про `ab` может прийти после `abcde`.
+            // Async validation races: the response for `ab` may arrive after the one for `abcde`.
             const validation = new LatestRequest();
             const showValidation = (outcome: InputValidation | null): void => {
                 if (outcome === null) {
@@ -131,7 +130,7 @@ export class QuickInputService {
     }
 
     public quickPick(opts: QuickPickOptions): Promise<QuickPickItem | undefined> {
-        // Включая чужой показ на общем виджете — например, открытый Quick Open.
+        // Including someone else's show on the shared widget, e.g. an open Quick Open.
         this.settle(undefined);
         this.component.hide();
 
@@ -146,7 +145,7 @@ export class QuickInputService {
                 onDidChangeActive: opts.onDidChangeActive,
             });
             view.onAccept = (item) => {
-                // Отложенное закрытие: хвост этого Enter не должен долететь до редактора, получившего фокус.
+                // Deferred close: the rest of this Enter must not reach the editor that regains focus.
                 queueMicrotask(() => {
                     this.settle(item);
                 });
@@ -159,9 +158,9 @@ export class QuickInputService {
         });
     }
 
-    /** Резолвится в порядке исходного списка, как в VS Code; `[]` — ничего не отмечено, `undefined` — отмена. */
+    /** Resolves in the original list order, as in VS Code; `[]` means nothing checked, `undefined` means cancelled. */
     public quickPickMany(opts: QuickPickManyOptions): Promise<readonly QuickPickItem[] | undefined> {
-        // Stryker disable next-line CallExpression: дублируется строкой ниже — `hide()` и так дёргает onDidClose прошлого владельца, а тот доводит его обещание до undefined; явный settle только называет намерение
+        // Stryker disable next-line CallExpression: duplicated by the next line — `hide()` already fires the previous owner's onDidClose, which resolves its promise to undefined; the explicit settle only states the intent
         this.settle(undefined);
         this.component.hide();
 
@@ -175,12 +174,12 @@ export class QuickInputService {
                 placeholder: opts.placeholder,
                 canPickMany: true,
             });
-            // Отметки — ПОСЛЕ заполнения списка: их рисуют сами строки.
-            // Stryker disable next-line ArrayDeclaration: подмена пустого массива непустым ничего не меняет — отметки ищутся по идентичности предметов списка, и чужой объект в наборе не совпадёт ни с одним из них
+            // Checks go in AFTER the list is filled: the rows themselves render them.
+            // Stryker disable next-line ArrayDeclaration: replacing the empty array with a non-empty one changes nothing — checks are matched by list item identity, and a foreign object in the set matches none of them
             view.setCheckedItems(opts.picked ?? []);
             view.onAccept = null;
             view.onAcceptMany = () => {
-                // Фильтруем allItems, а не `view.items`: иначе отмеченное, но отсеянное запросом, потерялось бы.
+                // Filter allItems, not `view.items`: checked items hidden by the query would be lost otherwise.
                 const checked = view.checkedItems;
                 const picked = allItems.filter((item) => checked.has(item));
                 queueMicrotask(() => {
@@ -202,9 +201,9 @@ export class QuickInputService {
         },
     ): typeof this.component.view {
         const view = this.component.view;
-        // Stryker disable next-line CallExpression: страховка на общем виджете; оба list-флейвора ниже сами выставляют canPickMany, а набор отметок перетирает quickPickMany своим setCheckedItems — наблюдаемого следа от снятия сброса нет. Настоящий его потребитель — QuickOpenService, там он под тестом
+        // Stryker disable next-line CallExpression: a safety net on the shared widget; both list flavors below set canPickMany themselves, and quickPickMany overwrites the checked set with setCheckedItems — removing the reset leaves no observable trace. Its real consumer is QuickOpenService, where it is tested
         view.resetFlavorState();
-        // Stryker disable next-line StringLiteral: режим читается единственным сравнением `acceptMode === "value"`, поэтому любая другая строка ведёт себя как "item"
+        // Stryker disable next-line StringLiteral: the mode is read by a single `acceptMode === "value"` comparison, so any other string behaves like "item"
         view.acceptMode = "item";
         view.canPickMany = opts.canPickMany;
         view.title = opts.title;
@@ -218,9 +217,9 @@ export class QuickInputService {
         };
 
         view.onQueryChange = (query) => {
-            // Stryker disable next-line MethodExpression: trim здесь косметический — набрать ведущий пробел в строке запроса нельзя (в множественном выборе его съедает отметка, а лишние пробелы внутри слова фильтр и так не сужают)
+            // Stryker disable next-line MethodExpression: trim is cosmetic here — a leading space can't be typed into the query (in multi-select the check toggle eats it, and extra spaces inside a word don't narrow the filter anyway)
             const needle = query.trim().toLowerCase();
-            // Stryker disable next-line ConditionalExpression,StringLiteral: ветка с пустым запросом — только чтобы не гонять фильтр вхолостую; `includes("")` истинно для любой строки, так что отфильтрованный список совпал бы с исходным
+            // Stryker disable next-line ConditionalExpression,StringLiteral: the empty-query branch only skips a no-op filter pass; `includes("")` is true for any string, so the filtered list would equal the original
             view.items = needle === "" ? allItems : allItems.filter((it) => it.label.toLowerCase().includes(needle));
             notifyActive();
         };
@@ -233,15 +232,15 @@ export class QuickInputService {
         return view;
     }
 
-    /** `createQuickPick` эталона: закрывается только владельцем, Escape-ом или перехватом виджета. */
+    /** Upstream `createQuickPick`: closed only by its owner, Escape, or another show taking over the widget. */
     public createQuickPick<T extends QuickPickSessionItem>(events: QuickPickSessionEvents<T>): QuickPickSession<T> {
         return new QuickPickSession<T>(this.slot, events);
     }
 
-    /** Владелец показа — `pendingResolve`, как у промисных флейворов: перехват (`settle`) доводит до него потерю. */
+    /** The show's owner is `pendingResolve`, as with the promise flavors: a takeover (`settle`) tells it it lost. */
     private readonly slot: IQuickInputSlot = {
         claim: (onLost) => {
-            // Stryker disable next-line CallExpression: дублируется строкой ниже — `hide()` и так дёргает onDidClose прошлого владельца, а тот доводит его показ до конца сам; явный settle только называет намерение (как в quickPickMany)
+            // Stryker disable next-line CallExpression: duplicated by the next line — `hide()` already fires the previous owner's onDidClose, which ends its show itself; the explicit settle only states the intent (as in quickPickMany)
             this.settle(undefined);
             this.component.hide();
             this.pendingResolve = onLost;
@@ -260,15 +259,15 @@ export class QuickInputService {
         this.settle(undefined);
     }
 
-    /** Quick Open при своём открытии перенастраивает колбэки виджета обратно на себя. */
+    /** Quick Open rebinds the widget callbacks back to itself when it opens. */
     private takeOwnership(): void {
         const view = this.component.view;
         view.onCancel = () => {
             this.settle(undefined);
         };
         view.onAcceptValue = (value) => {
-            // Отложенное закрытие (как в QuickOpenService): синхронный возврат фокуса посреди
-            // нажатия отдал бы хвост того же Enter редактору.
+            // Deferred close (as in QuickOpenService): returning focus synchronously mid-keypress
+            // would hand the rest of the same Enter to the editor.
             queueMicrotask(() => {
                 this.settle(value);
             });

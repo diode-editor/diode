@@ -17,7 +17,7 @@ export interface IDialogStyles {
     readonly linkFg: StyleColor;
 }
 
-/** Резолвит каскад — пере-пуш при смене темы не нужен. */
+/** Resolved through the cascade, so no re-push is needed on theme change. */
 export const DIALOG_STYLES: IDialogStyles = {
     bg: "editorWidget.background",
     fg: "editorWidget.foreground",
@@ -27,11 +27,11 @@ export const DIALOG_STYLES: IDialogStyles = {
     linkFg: "textLink.foreground",
 };
 
-/** База модальных диалогов и тостов нотификаций: рамка с заголовком, стрелки по ряду кнопок, Escape → {@link onDismiss}. */
+/** Base for modal dialogs and notification toasts: titled frame, arrow keys across the button row, Escape → {@link onDismiss}. */
 export abstract class DialogComponent extends Component {
     public readonly view: FitContentElement;
 
-    /** У компонента, в отличие от элемента, нет имени класса в дереве — `id` даёт `querySelector("#...")`. */
+    /** Unlike an element, a component has no class name in the tree; `id` enables `querySelector("#...")`. */
     protected constructor(id: string) {
         super();
         this.view = new FitContentElement();
@@ -42,14 +42,14 @@ export abstract class DialogComponent extends Component {
     }
 
     /**
-     * Зовётся из {@link buildFrame}, то есть ещё из конструктора наследника —
-     * читать в переопределении поля наследника нельзя, только константы.
+     * Called from {@link buildFrame}, i.e. still inside the subclass constructor, so an
+     * override must not read subclass fields — only constants.
      */
     protected styles(): IDialogStyles {
         return DIALOG_STYLES;
     }
 
-    /** Цвета контента раздаёт каскад от контейнера отступов. */
+    /** Content colors come through the cascade from the padding container. */
     protected buildFrame(title: string, titleFg?: StyleColor): VStackElement {
         const { bg, fg, borderFg } = this.styles();
         const box = new BoxContainerElement();
@@ -67,14 +67,14 @@ export abstract class DialogComponent extends Component {
         return stack;
     }
 
-    /** Слева направо. */
+    /** Left to right. */
     protected abstract rowButtons(): readonly ButtonElement[];
 
     protected abstract onDismiss(): void;
 
-    /** Зовётся, когда нажатие не подошло ни под одну ветку разбора базы. */
+    /** Called when a key press matches none of the base class branches. */
     protected handleExtraKeydown(_event: TUIKeyboardEvent): void {
-        // База лишних клавиш не разбирает — переопределяют наследники.
+        // The base handles no extra keys; subclasses override.
     }
 
     private handleDialogKeydown(event: TUIKeyboardEvent): void {

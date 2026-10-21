@@ -5,15 +5,15 @@ export const workbenchConfiguration = {
     id: "workbench",
     title: "Workbench",
     properties: {
-        // enum встроенных тем дописывает в каталог автодополнения генератор схемы из ThemeRegistry.
+        // The schema generator adds the enum of built-in themes from ThemeRegistry to the completion catalog.
         "workbench.colorTheme": {
             scope: "window",
             type: "string",
             default: DEFAULT_COLOR_THEME,
             description: "Specifies the color theme used in the workbench.",
         },
-        // Превью открывает только Explorer: у эталона `enablePreviewFromQuickOpen` и
-        // `enablePreviewFromCodeNavigation` по умолчанию выключены.
+        // Only the Explorer opens previews: upstream's `enablePreviewFromQuickOpen` and
+        // `enablePreviewFromCodeNavigation` are off by default.
         "workbench.editor.enablePreview": {
             scope: "window",
             type: "boolean",
@@ -24,7 +24,7 @@ export const workbenchConfiguration = {
                 "preview mode. Making a change in a preview mode editor will persist it, as will the " +
                 "'Keep Open' option in its tab context menu.",
         },
-        // Заголовка окна у нас нет, поэтому `titleBar` прячет панель — как эталон без своего title bar.
+        // We have no window title, so `titleBar` hides the editor actions, like upstream without a custom title bar.
         "workbench.editor.editorActionsLocation": {
             scope: "window",
             type: "string",
@@ -56,7 +56,7 @@ export const workbenchConfiguration = {
                 "Controls how tree folders are expanded when clicking the folder names. Note that some trees and " +
                 "lists might choose to ignore this setting if it is not applicable.",
         },
-        // Развёртывания части у нас нет — `maximized*` значат «видима». Пустую часть, как эталон, не показываем.
+        // We can't maximize a part, so `maximized*` means "visible". Like upstream, an empty part is not shown.
         "workbench.secondarySideBar.defaultVisibility": {
             scope: "window",
             type: "string",

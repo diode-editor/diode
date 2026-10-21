@@ -28,7 +28,7 @@ function firstForeground(ctrl: TextEditorPane): number | undefined {
     return tokenStore?.getLineTokens(0)?.getForeground(0);
 }
 
-/** Метка токенов ленивого токенайзера: цвет, которого у plain text не бывает. */
+/** Marks tokens from the lazy tokenizer: a color plain text never has. */
 const LAZY_FOREGROUND = 7;
 
 describe("EditorComponent + TextFileModel (пара)", () => {
@@ -47,8 +47,8 @@ describe("EditorComponent + TextFileModel (пара)", () => {
     }
 
     /**
-     * Проверяет `markDirty`: без него правка доедет до экрана только с чужой
-     * перерисовкой.
+     * Checks `markDirty`: without it an edit reaches the screen only with someone else's
+     * repaint.
      */
     function repaintsEditor(act: (ctrl: TextEditorPane) => void): boolean {
         const ctrl = createEditorPane();
@@ -212,8 +212,8 @@ describe("EditorComponent + TextFileModel (пара)", () => {
             const ctrl = createEditorPane();
             ctrl.openFile(Uri.file(writeFile("a.ts", "x")));
 
-            // tabSize 4 / insertSpaces false — уже действующие значения. Совпало
-            // ≠ не решало: расширение всё равно высказалось про этот файл.
+            // tabSize 4 / insertSpaces false are already the effective values. Matching
+            // ≠ not deciding: the extension still made a decision about this file.
             ctrl.setIndentOptions({ tabSize: 4, insertSpaces: false });
 
             expect(ctrl.viewState.tabSize).toBe(4);
@@ -288,7 +288,7 @@ describe("EditorComponent + TextFileModel (пара)", () => {
 
     describe("токены вне кадра", () => {
         it("строка на экране получила токены из стора (фон, доводка) — редактор перерисован", () => {
-            // Сброс токенизатора мимо компонента кадра не просит — просит событие стора.
+            // Resetting the tokenizer behind the component's back does not request a frame — the store event does.
             expect(
                 repaintsEditor((ctrl) => {
                     ctrl.viewState.tokenStore?.setTokenizationSupport(new PlainTextTokenizer());
@@ -425,7 +425,7 @@ describe("EditorComponent + TextFileModel (пара)", () => {
             const ctrl = createEditorPane({ themeService });
             ctrl.openFile(Uri.file(writeFile("a.ts", "x")));
 
-            // У editorGutter.background нет дефолта в реестре — гуттер падает на фон редактора.
+            // editorGutter.background has no registry default — the gutter falls back to the editor background.
             const sparseTheme = WorkbenchTheme.fromThemeFile({
                 name: "sparse",
                 type: "dark",
@@ -441,8 +441,8 @@ describe("EditorComponent + TextFileModel (пара)", () => {
     describe("backgroundToken", () => {
         const panelBg = WorkbenchTheme.fromThemeFile(darkPlusTheme).getRequiredColor("panel.background");
 
-        /** Фон ячейки первой строки: col 0 — гуттер, col 12 — пустое место за текстом
-         * (символ под кареткой красит occurrence-highlight, он тут ни при чём). */
+        /** Background of a first-row cell: col 0 is the gutter, col 12 is empty space past the text
+         * (the character under the cursor is painted by occurrence-highlight, which is unrelated here). */
         function renderBgAt(ctrl: TextEditorPane, col: number): number {
             const app = TestApp.createWithContent(ctrl.view, new Size(20, 3));
             app.render();
@@ -595,7 +595,7 @@ describe("EditorComponent + TextFileModel (пара)", () => {
             expect(fired).toBeGreaterThan(afterReload);
 
             sub.dispose();
-            sub.dispose(); // повторный dispose безопасен
+            sub.dispose(); // a repeated dispose is safe
             const afterDispose = fired;
             ctrl.viewState.selections = [createCursorSelection(0, 0)];
             expect(fired).toBe(afterDispose);

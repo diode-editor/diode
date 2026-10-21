@@ -45,7 +45,7 @@ import { EditorGroupComponent } from "./editorGroupComponent.ts";
 const SCREEN = new Size(90, 12);
 const TAB_ROW = 0;
 
-/** Из co-located размещений экшенов `WORKBENCH_ACTIONS` — тот состав, что увидит пользователь. */
+/** Taken from the co-located placements of `WORKBENCH_ACTIONS`, i.e. the set the user will see. */
 const TAB_MENU_ACTIONS = [
     keepEditorAction,
     closeActiveEditorAction,
@@ -82,7 +82,7 @@ interface Harness {
     component: EditorGroupComponent;
     openMenuOnTab: (index: number) => void;
     rightClickCloseButton: (index: number) => void;
-    /** Контрольный «крестик работает». */
+    /** Control case: the close button works. */
     leftClickCloseButton: (index: number) => void;
     tabLabels: () => string[];
     activeIndex: () => number;
@@ -106,8 +106,8 @@ function createHarness(): Harness {
         new TokenizationRegistry(),
         NULL_TOKEN_STYLE_RESOLVER,
         NULL_LANGUAGE_SERVICE,
-        // Дефолты реестра, а не NULL-сервис: `workbench.editor.enablePreview`
-        // читается типизированной перегрузкой, и дефолт ей даёт реестр.
+        // Registry defaults rather than the NULL service: `workbench.editor.enablePreview`
+        // is read through the typed overload, which gets its default from the registry.
         createTestConfigurationService(),
         new UndoRedoService(),
         NULL_FILE_WATCHER,
@@ -148,10 +148,10 @@ function createHarness(): Harness {
         component,
         openMenuOnTab: (index) => {
             const { start } = tabBox(index);
-            // По метке, а не по краю: центр вкладки — обычная её область.
+            // On the label, not the edge: the middle of the tab is its plain area.
             clickAt(start + 2, "right");
         },
-        // Крестик живёт в предпоследней колонке (paddingRight=2 у стрипа).
+        // The close button sits in the second-to-last column (the strip has paddingRight=2).
         rightClickCloseButton: (index) => {
             const { start, width } = tabBox(index);
             clickAt(start + width - 3, "right");
@@ -324,9 +324,9 @@ describe("EditorGroupComponent — контекстное меню вкладк�
 
         harness.openMenuOnTab(0);
 
-        // Смешанный набор — единственный случай, где «есть хоть одна чистая» и
-        // «чисты все» расходятся: на всех чистых и на всех грязных пункт ведёт
-        // себя одинаково, и проверки выше эту разницу не видят.
+        // A mixed set is the only case where "at least one is saved" and "all are saved"
+        // differ: with all saved or all dirty the item behaves the same, so the checks
+        // above cannot see the difference.
         expect(menuItems(harness.app)).toContain("Close Saved");
     });
 
@@ -366,13 +366,13 @@ describe("EditorGroupComponent — контекстное меню вкладк�
         openFiles(harness, "a.ts");
         openPreview(harness, "b.ts");
 
-        // Меню по приколотой вкладке — пункта нет, хотя активна превью…
+        // The menu on the pinned tab has no item, even though the preview is active…
         harness.openMenuOnTab(0);
         expect(menuItems(harness.app)).not.toContain("Keep Open");
         harness.app.sendKey("Escape");
         harness.app.render();
 
-        // …а меню по самой превью его показывает.
+        // …while the menu on the preview itself shows it.
         harness.openMenuOnTab(1);
         expect(menuItems(harness.app)).toContain("Keep Open");
     });

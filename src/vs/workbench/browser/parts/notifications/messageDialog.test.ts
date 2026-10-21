@@ -27,7 +27,7 @@ function screen(testApp: TestApp): string {
 
 describe("MessageDialog — что видно на кадре", () => {
     it("окно собрано ровно так: текст, пустая строка, detail, кнопки ПО ЦЕНТРУ", () => {
-        // Ассерт на всю рамку: держит порядок строк, отступ detail'а и центрирование кнопок.
+        // Assert the whole frame: pins line order, detail indent and button centering.
         const dialog = new MessageDialog(
             notification({ message: "Delete 12 files?", detail: "Нельзя отменить.", items: ["Delete", "Cancel"] }),
         );
@@ -55,8 +55,8 @@ describe("MessageDialog — что видно на кадре", () => {
     });
 
     it("кнопки центрированы по ширине окна, а не прижаты к краю", () => {
-        // Широкое сообщение — отступ не нулевой. Три кнопки: на двух `gap * 1` и
-        // `gap / 1` дают одно и то же.
+        // A wide message gives a non-zero offset. Three buttons: with two, `gap * 1` and
+        // `gap / 1` give the same result.
         const dialog = new MessageDialog(notification({ message: "x".repeat(50), items: ["Ok", "No", "Maybe"] }));
         const backend = renderElement(dialog.view, 60, 12, {
             constraints: BoxConstraints.loose(new Size(60, 12)),
@@ -212,7 +212,7 @@ describe("MessageDialog — ответ", () => {
     });
 
     it("ряд кнопок строится с ОДНИМ растягивающимся спейсером (два кидают в движке)", () => {
-        // Центрирование двумя fill-детьми валило окно на постройке, и отказ доезжал до расширения.
+        // Centering with two fill children crashed the window on build, and the failure reached the extension.
         expect(() => mount({ items: ["One", "Two", "Three"] })).not.toThrow();
     });
 });

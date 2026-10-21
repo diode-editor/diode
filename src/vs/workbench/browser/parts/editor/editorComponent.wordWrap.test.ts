@@ -23,7 +23,7 @@ function openPane(content = "aaaa bbbb cccc"): TextEditorPane {
     return pane;
 }
 
-/** Попал ли редактор в кадр после `act` — см. editorComponent.test.ts. */
+/** Whether the editor got into the frame after `act` — see editorComponent.test.ts. */
 function repaintsEditor(act: (pane: TextEditorPane) => void): boolean {
     const pane = openPane();
     const app = TestApp.createWithContent(pane.view, new Size(20, 3));
@@ -57,7 +57,7 @@ describe("EditorComponent.setWordWrap", () => {
     it("включение переноса сбрасывает горизонтальный скролл и показывает ряд каретки", () => {
         const pane = openPane(`${"aaaa bbbb ".repeat(250)}end`);
         const viewState = pane.viewState;
-        viewState.goToPosition(0, 2400); // хвост длинной строки — скролл уехал вправо
+        viewState.goToPosition(0, 2400); // end of a long line — scrolled to the right
         expect(viewState.scrollLeft).toBeGreaterThan(0);
         expect(viewState.scrollTop).toBe(0);
 
@@ -70,7 +70,7 @@ describe("EditorComponent.setWordWrap", () => {
     it("смена колонки при выключенном переносе скролл не трогает", () => {
         const pane = openPane(`${"aaaa bbbb ".repeat(20)}end`);
         const viewState = pane.viewState;
-        // Каретка внутри видимого окна — reveal в setWordWrap не двигает скролл.
+        // The cursor is inside the visible window — the reveal in setWordWrap does not move the scroll.
         viewState.goToPosition(0, 50);
         viewState.scrollLeft = 5;
 

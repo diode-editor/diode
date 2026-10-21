@@ -10,7 +10,7 @@ import { NotificationService } from "../../../services/notification/browser/noti
 
 import { clampRow, FOCUS_MESSAGE_COMMAND_ID, NotificationsComponent } from "./notificationsComponent.ts";
 
-// Полный маршрут «сервис → overlay → кадр» — в workbench.notifications.test.ts.
+// The full "service → overlay → frame" path is covered in workbench.notifications.test.ts.
 
 function makeComponent(binding?: string) {
     const notifications = new NotificationService();

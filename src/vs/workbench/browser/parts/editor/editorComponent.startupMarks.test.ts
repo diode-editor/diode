@@ -9,7 +9,7 @@ import type { ILanguageService } from "../../../../editor/common/languages/iLang
 import { NULL_LANGUAGE_SERVICE } from "../../../../editor/common/languages/iLanguageService.ts";
 import { TokenizationRegistry } from "../../../../editor/common/languages/tokenizationRegistry.ts";
 
-// Вехи лестницы старта бенч читает из трассы DIODE_STARTUP_TRACE.
+// The bench reads the startup ladder marks from the DIODE_STARTUP_TRACE trace.
 describe("EditorComponent + TextFileModel — вехи старта", () => {
     let ws: ITempWorkspace;
     const typescriptLanguageService: ILanguageService = {
@@ -59,8 +59,8 @@ describe("EditorComponent + TextFileModel — вехи старта", () => {
         const ready = getMarks().filter((m) => m.name === "editor:tokenizer-ready");
         expect(ready.length).toBeGreaterThanOrEqual(1);
         expect(ready[0].detail).toEqual({ languageId: "typescript" });
-        // Токенайзер приходит ДО построения документа? Нет: сначала документ,
-        // потом редактор — веха стоит после textfile:document-built.
+        // Does the tokenizer arrive BEFORE the document is built? No: document first,
+        // then the editor — the mark comes after textfile:document-built.
         const built = getMarks().find((m) => m.name === "textfile:document-built");
         expect(built).toBeDefined();
         expect(ready[0].startTime).toBeGreaterThanOrEqual(built?.startTime ?? Infinity);

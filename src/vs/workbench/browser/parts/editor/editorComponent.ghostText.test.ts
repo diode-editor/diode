@@ -27,7 +27,7 @@ describe("EditorComponent/TextEditorPane — setGhostText", () => {
         ctrl.setGhostText({ line: 0, character: 11, lines: [" + 2;"] });
         app.render();
 
-        // Гуттер: 2 паддинга + 1 цифра + fold-маржин (3) = 6; хвост с колонки 11.
+        // Gutter: 2 padding + 1 digit + fold margin (3) = 6; the tail starts at column 11.
         const gutterW = 6;
         expect(app.backend.getTextAt(new Point(gutterW, 0), 16)).toBe("const x = 1 + 2;");
 

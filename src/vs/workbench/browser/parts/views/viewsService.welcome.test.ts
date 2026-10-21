@@ -21,8 +21,8 @@ function placeholderOf(h: IViewsHarness, containerId: string, viewId: string): T
 }
 
 /**
- * Дескриптор с телом, чей id годится в селектор: `testView` зовёт тело
- * `<id>-body`, а в id view есть точка, которую `querySelector` не разберёт.
+ * A descriptor with a body whose id works as a selector: `testView` names the body
+ * `<id>-body`, and the view id has a dot that `querySelector` can't parse.
  */
 function viewWithBody(
     id: string,
@@ -85,7 +85,7 @@ describe("ViewsService: интерактивное пустое состояни
 });
 
 describe("ViewsService: секция требует открытой папки", () => {
-    /** Search в миниатюре: тело построено заранее, но без папки искать негде. */
+    /** Search in miniature: the body is built up front, but without a folder there is nowhere to search. */
     function makeSearch(): { h: IViewsHarness; descriptor: IViewDescriptor } {
         const h = makeViewsHarness();
         const descriptor = viewWithBody("search.results", "search", 10, {
@@ -124,7 +124,7 @@ describe("ViewsService: секция требует открытой папки"
         expect(placeholderOf(h, "ext", "ext.list")).toBeNull();
         expect(bodyShown(h, "ext", descriptor)).toBe(true);
 
-        // Открытие папки её состояние не меняет: гейта нет — нечего обновлять.
+        // Opening a folder doesn't change its state: there's no gate, nothing to refresh.
         h.workspace.setWorkspaceFolder("/tmp/some-project");
         expect(bodyShown(h, "ext", descriptor)).toBe(true);
     });

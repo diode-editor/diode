@@ -36,7 +36,7 @@ function bodyHeights(view: PaneViewElement): Record<string, number> {
 describe("PaneViewElement layout", () => {
     it("делит остаток поровну между развёрнутыми секциями при равных весах", () => {
         const { view } = makeView([{ id: "a" }, { id: "b" }]);
-        layout(view, 30, 20); // 2 заголовка → остаток 18
+        layout(view, 30, 20); // 2 headers → 18 rows left
         expect(bodyHeights(view)).toEqual({ a: 9, b: 9 });
     });
 
@@ -49,7 +49,7 @@ describe("PaneViewElement layout", () => {
 
     it("largest remainder детерминирован: остаток уходит ранним секциям", () => {
         const { view } = makeView([{ id: "a" }, { id: "b" }, { id: "c" }]);
-        layout(view, 30, 20); // 3 заголовка → остаток 17 = 6 + 6 + 5
+        layout(view, 30, 20); // 3 headers → 17 rows left = 6 + 6 + 5
         expect(bodyHeights(view)).toEqual({ a: 6, b: 6, c: 5 });
     });
 
@@ -74,7 +74,7 @@ describe("PaneViewElement layout", () => {
 
     it("min-высота поднимает долю тесной секции, хвост клипуется", () => {
         const { view } = makeView([{ id: "a" }, { id: "b" }, { id: "c" }]);
-        layout(view, 30, 10); // остаток 7, min 3: доли 3/2/2 → desired 3/3/3 → 3/3/1
+        layout(view, 30, 10); // 7 rows left, min 3: shares 3/2/2 → desired 3/3/3 → 3/3/1
         expect(bodyHeights(view)).toEqual({ a: 3, b: 3, c: 1 });
     });
 
@@ -116,7 +116,7 @@ describe("PaneViewElement layout", () => {
         expect(() => {
             view.addPane({ id: "a", title: "A", body: new FillerElement() });
         }).toThrow(/duplicate pane id/);
-        view.removePane("ghost"); // незнакомый id — тихий no-op
+        view.removePane("ghost"); // unknown id is a silent no-op
         view.removePane("b");
         expect(view.getPaneIds()).toEqual(["a"]);
         layout(view, 30, 20);
@@ -156,7 +156,7 @@ describe("PaneViewElement layout", () => {
         view.setPaneBody("a", next);
         expect(view.querySelector("#a-next")).toBe(next);
         expect(view.querySelector("#a-body")).toBeNull();
-        // Скрытость свёрнутой секции переезжает на новое тело.
+        // The collapsed section's hidden state carries over to the new body.
         expect(next.hidden).toBe(true);
 
         view.setPaneBody("a", next);

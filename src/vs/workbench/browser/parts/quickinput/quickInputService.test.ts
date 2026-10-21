@@ -75,7 +75,7 @@ describe("QuickInputService.input", () => {
             validateInput: (v) => (v.trim() === "" ? "Please enter a file name" : null),
         });
 
-        // Пустое начальное значение невалидно — Enter ничего не делает.
+        // The empty initial value is invalid, so Enter does nothing.
         testApp.sendKey("Enter");
         expect(body.overlayLayer.hasVisibleItems()).toBe(true);
 
@@ -91,7 +91,7 @@ describe("QuickInputService.input", () => {
         testApp.sendKey("b");
 
         expect(component.view.password).toBe(true);
-        // На экран уходит маска, наружу — сам текст.
+        // The screen shows the mask; the caller gets the real text.
         expect(component.view.inspectState().query).toBe("**");
 
         testApp.sendKey("Enter");
@@ -146,7 +146,7 @@ describe("QuickInputService.input", () => {
         const component = new QuickInputComponent();
         const service = new QuickInputService(component);
         expect(() => void service.input({ value: "x" })).not.toThrow();
-        // preferredWidth не тронут — позиционирование пропущено.
+        // preferredWidth is untouched: positioning was skipped.
         expect(component.view.preferredWidth).toBe(60);
         expect(component.isOpen()).toBe(false);
     });

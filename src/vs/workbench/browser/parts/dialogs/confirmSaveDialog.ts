@@ -11,7 +11,7 @@ const BUTTONS_TOTAL_WIDTH = 14 + 2 + 10 + 2 + 8;
 const MAX_INNER_WIDTH = 70;
 const MAX_FILENAME_DISPLAY = MAX_INNER_WIDTH - 4; // -3 for "   " prefix, -1 for "?" suffix
 
-/** Один экземпляр на приложение — `DialogService` переиспользует его через {@link setFilename}. */
+/** One instance per app: `DialogService` reuses it via {@link setFilename}. */
 export class ConfirmSaveDialog extends DialogComponent {
     public onSave?: () => void;
     public onDontSave?: () => void;
@@ -76,7 +76,7 @@ export class ConfirmSaveDialog extends DialogComponent {
         const naturalInnerWidth = Math.max(STATIC_TEXT_MIN_WIDTH, filenameRowWidth);
         const buttonsLeftPad = Math.floor((naturalInnerWidth - BUTTONS_TOTAL_WIDTH) / 2);
         this.buttonsSpacer.layoutStyle = { width: hflexFixed(buttonsLeftPad), height: 1 };
-        // layoutStyle — голое поле, лэйаут сам не перезапустится.
+        // layoutStyle is a plain field; setting it does not trigger layout.
         this.buttonsSpacer.markDirty();
     }
 

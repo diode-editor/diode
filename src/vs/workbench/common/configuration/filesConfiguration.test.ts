@@ -28,8 +28,8 @@ describe("filesConfiguration — files.watcherExclude, схема", () => {
     });
 });
 
-// Пути перечислены явно, а не выведены из шаблонов: иначе тест переписывался бы
-// вместе с опечаткой в дефолте.
+// Paths are listed explicitly rather than derived from the patterns; otherwise the test would be rewritten
+// along with a typo in the default.
 describe("filesConfiguration — files.watcherExclude, дефолты на живых путях", () => {
     const excluded = [
         ".git",
@@ -66,7 +66,7 @@ describe("filesConfiguration — files.watcherExclude, дефолты на жи�
         "distribution",
         "outline.ts",
         "node_modules_backup",
-        // `.claude` исключён не весь: настройки и скиллы правят руками.
+        // `.claude` is not excluded entirely: settings and skills are edited by hand.
         ".claude",
         ".claude/settings.json",
         ".claude/skills/run/SKILL.md",
@@ -86,7 +86,7 @@ describe("filesConfiguration — files.watcherExclude, дефолты на жи�
     });
 
     it("`**/.git` не задевает собственный watcher расширения git", () => {
-        // Корень его watcher'а — сам `.git` (`startWatchers` в extensions/git/main.ts).
+        // Its watcher's root is `.git` itself (`startWatchers` in extensions/git/main.ts).
         expect(isExcluded("/repo/.git", "/repo/.git/HEAD", DEFAULT_EXCLUDES)).toBe(false);
         expect(isExcluded("/repo/.git", "/repo/.git/index", DEFAULT_EXCLUDES)).toBe(false);
         expect(isExcluded("/repo/.git", "/repo/.git/refs/heads/main", DEFAULT_EXCLUDES)).toBe(false);
@@ -149,7 +149,7 @@ describe("filesConfiguration — files.watcherExclude на живом обход
     async function watchedDirs(excludes: readonly string[]): Promise<string[]> {
         const watcher = new CapturingTreeWatcher();
         const subscription = watcher.watchTree(root, { recursive: true, excludes }, () => {
-            /* события в этом тесте не нужны: смотрим на сам обход */
+            /* this test needs no events: it checks the traversal itself */
         });
         try {
             await new Promise((resolve) => setTimeout(resolve, 600));

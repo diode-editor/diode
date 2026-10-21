@@ -10,7 +10,7 @@ import { describe, expect, it } from "vitest";
 import type { IPanelContainerOptions } from "./panelContainerElement.ts";
 import { PanelContainerElement } from "./panelContainerElement.ts";
 
-// Экран больше панели, чтобы запись за край была видна.
+// Screen larger than the panel so writes past its edge are visible.
 const SCREEN = new Size(24, 8);
 const ORIGIN = new Offset(1, 1);
 
@@ -53,7 +53,7 @@ class HostElement extends TUIElement {
     }
 }
 
-/** Нажатие левой кнопки в колонке/строке экрана (0-based; токен мыши — 1-based). */
+/** Left button press at a screen column/row (0-based; the mouse token is 1-based). */
 function press(x: number, y: number): MouseToken {
     return {
         kind: "mouse",
@@ -139,7 +139,7 @@ describe("PanelContainerElement: опции вида части", () => {
             const { root, panel, dispatcher } = scene();
             const activated: string[] = [];
             panel.onActivateView = (id) => activated.push(id);
-            // TWO: колонки 6..10 панели; токены мыши 1-based.
+            // TWO: panel columns 6..10; mouse tokens are 1-based.
             dispatcher.handleMouseToken(press(8, 0), root);
             expect(panel.getActiveViewId()).toBe("b");
             expect(activated).toEqual(["b"]);

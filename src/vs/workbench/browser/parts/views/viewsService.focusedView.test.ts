@@ -9,7 +9,7 @@ import { makeViewsHarness, testView } from "./viewsService.testUtils.ts";
 
 const PANEL = "workbench.panel.output";
 
-/** Контейнер панели с двумя секциями внутри окна (BodyElement) с overlay-слоем. */
+/** A panel container with two sections inside a window (BodyElement) with an overlay layer. */
 function scene() {
     const h = makeViewsHarness();
     const first = testView("first", PANEL, 10);

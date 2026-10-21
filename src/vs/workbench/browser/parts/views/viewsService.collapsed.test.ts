@@ -4,7 +4,7 @@ import { SIDEBAR_VIEWS_STATE } from "../../../common/stateKeys.ts";
 
 import { makeViewsHarness, testView as view } from "./viewsService.testUtils.ts";
 
-/** Source Control в миниатюре: CHANGES развёрнут по дефолту, GRAPH — свёрнут, как в живом редакторе. */
+/** Source Control in miniature: CHANGES expanded by default, GRAPH collapsed, as in the live editor. */
 function makeScm(): ReturnType<typeof makeViewsHarness> {
     const h = makeViewsHarness();
     h.service.registerContainer({ id: "scm", title: "SOURCE CONTROL", location: "sidebar" });
@@ -62,7 +62,7 @@ describe("ViewsService: дефолт свёрнутости дескриптор
 
     it("секции, которой в сторе нет, достаётся дефолт — а не состояние соседей", () => {
         const h = makeScm();
-        // Стор знает только про CHANGES: GRAPH появился в новой версии редактора.
+        // The store only knows CHANGES: GRAPH appeared in a newer editor version.
         h.stored.set(SIDEBAR_VIEWS_STATE.key, {
             scm: { collapsed: { "scm.changes": false }, weights: {}, hidden: [] },
         });

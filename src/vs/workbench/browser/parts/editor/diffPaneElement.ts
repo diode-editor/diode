@@ -6,18 +6,18 @@ const COLUMN_SEPARATOR = "│";
 const LABEL_PADDING = 1;
 
 /**
- * Модульная константа, а не статик класса: статическая само-ссылка заставляет
- * esbuild переименовать класс (`class _X`), и e2e-селекторы по `constructor.name` слепнут.
+ * A module constant, not a static class field: a static self-reference makes esbuild
+ * rename the class (`class _X`), which blinds e2e selectors that match on `constructor.name`.
  */
 export const DIFF_HEADER_ROWS = 1;
 
 /**
- * Аналог `diffEditor.renderSideBySideInlineBreakpoint`. Порог — ширина САМОГО
- * ЭЛЕМЕНТА, не терминала: порог по терминалу оставлял inline даже на 140.
+ * Counterpart of `diffEditor.renderSideBySideInlineBreakpoint`. The threshold is the width of the
+ * ELEMENT ITSELF, not the terminal: a terminal-based threshold kept inline mode even at 140 columns.
  */
 export const SIDE_BY_SIDE_MIN_COLS = 100;
 
-/** Гистерезис: дрожание ширины (сайдбар, скроллбар) не переклеивает режим. */
+/** Hysteresis: width jitter (sidebar, scrollbar) does not flip the mode back and forth. */
 const SIDE_BY_SIDE_EXIT_COLS = SIDE_BY_SIDE_MIN_COLS + 4;
 
 export type DiffPaneMode = "side-by-side" | "inline";
@@ -25,8 +25,8 @@ export type DiffPaneMode = "side-by-side" | "inline";
 export type DiffPaneModeOverride = "auto" | DiffPaneMode;
 
 /**
- * О смене режима сообщает из layout; владелец перекладывает зоны ОТЛОЖЕННО — правка
- * зон прямо из layout оставила бы корень layout-грязным после кадра (dirty-гейт).
+ * Reports mode changes from layout; the owner re-lays out zones DEFERRED — changing zones
+ * right inside layout would leave the root layout-dirty after the frame (dirty gate).
  */
 export class DiffPaneElement extends TUIElement {
     public onDidChangeMode?: (mode: DiffPaneMode) => void;
@@ -52,8 +52,8 @@ export class DiffPaneElement extends TUIElement {
         if (this.overrideValue === override) return;
         this.overrideValue = override;
         this.markDirty();
-        // Ширина известна до layout — применяем сразу, чтобы владелец переложил
-        // зоны синхронно с командой.
+        // The width is known before layout — apply right away so the owner re-lays out
+        // zones synchronously with the command.
         this.applyMode(this.resolveMode(this.layoutSize.width));
     }
 
@@ -115,7 +115,7 @@ export class DiffPaneElement extends TUIElement {
         }
 
         const separator = this.separatorColumn;
-        // Обрезка по своей колонке: длинная метка не переползает разделитель.
+        // Clip to its own column: a long label must not run over the separator.
         const leftLabel = this.labels.original.slice(0, Math.max(0, separator - LABEL_PADDING));
         const rightWidth = Math.max(0, this.layoutSize.width - separator - 1);
         const rightLabel = this.labels.modified.slice(0, Math.max(0, rightWidth - LABEL_PADDING));

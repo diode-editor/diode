@@ -14,7 +14,7 @@ export interface IPaneCompositeView {
     readonly id: string;
     readonly title: string;
     readonly content: TUIElement | null;
-    /** Строка заголовка view, как в сайдбаре, но без названия (`ViewContainerHeaderElement`). */
+    /** View title row, as in the sidebar but without the name (`ViewContainerHeaderElement`). */
     readonly actions: TUIElement | null;
     readonly placeholder?: string;
 }
@@ -22,7 +22,7 @@ export interface IPaneCompositeView {
 export interface IPaneCompositeTabContextMenuRequest {
     readonly id: string;
     readonly anchor: { readonly screenX: number; readonly screenY: number };
-    /** По нему ищется overlay-слой показа. */
+    /** Used to find the overlay layer to show in. */
     readonly owner: TUIElement;
 }
 
@@ -35,9 +35,9 @@ interface PaneCompositeViewRecord {
 }
 
 /**
- * Общая основа нижней панели и вторичной боковой (у эталона обе —
- * `AbstractPaneCompositePart`). Вкладку заводит и наполняет `ViewsService` —
- * фичи сюда не ходят, они регистрируют свои view.
+ * Common base of the bottom panel and the auxiliary bar (upstream both are
+ * `AbstractPaneCompositePart`). `ViewsService` creates and fills the tabs;
+ * features never call this directly, they register their views.
  */
 export class PaneCompositePartService {
     public static dependencies = [] as const;
@@ -59,14 +59,14 @@ export class PaneCompositePartService {
     public readonly onDidChangeVisibility = this.onDidChangeVisibilityEmitter.event;
 
     private readonly onDidRequestTabContextMenuEmitter = new Emitter<IPaneCompositeTabContextMenuRequest>();
-    /** Пункты («Move To», «Reset Location») собирает `ViewsService` — он знает места контейнеров. */
+    /** `ViewsService` builds the entries ("Move To", "Reset Location"): it knows container locations. */
     public readonly onDidRequestTabContextMenu = this.onDidRequestTabContextMenuEmitter.event;
 
     public requestTabContextMenu(request: IPaneCompositeTabContextMenuRequest): void {
         this.onDidRequestTabContextMenuEmitter.fire(request);
     }
 
-    /** Первая зарегистрированная становится активной. */
+    /** The first registered one becomes active. */
     public addView(view: IPaneCompositeViewDescriptor): void {
         this.viewList.splice(view.index ?? this.viewList.length, 0, {
             id: view.id,
@@ -79,7 +79,7 @@ export class PaneCompositePartService {
         this.onDidChangeViewsEmitter.fire();
     }
 
-    /** Снятая активная передаёт активность первой оставшейся. Неизвестный id — no-op. */
+    /** Removing the active one activates the first remaining one. Unknown id is a no-op. */
     public removeView(id: string): void {
         const index = this.viewList.findIndex((v) => v.id === id);
         if (index < 0) return;
@@ -90,7 +90,7 @@ export class PaneCompositePartService {
         if (wasActive && this.activeId !== null) this.onDidChangeActiveViewEmitter.fire(this.activeId);
     }
 
-    /** Неизвестный id — no-op. */
+    /** Unknown id is a no-op. */
     public setViewContent(id: string, content: TUIElement | null): void {
         const view = this.viewList.find((v) => v.id === id);
         if (view === undefined) return;
@@ -98,7 +98,7 @@ export class PaneCompositePartService {
         this.onDidChangeViewsEmitter.fire();
     }
 
-    /** Владелец контролов — фича вкладки, поэтому они, как и контент, идут через реестр. */
+    /** The tab's feature owns the controls, so they go through the registry like the content. */
     public setViewActions(id: string, actions: TUIElement | null): void {
         const view = this.viewList.find((v) => v.id === id);
         if (view === undefined) return;
@@ -106,12 +106,12 @@ export class PaneCompositePartService {
         this.onDidChangeViewsEmitter.fire();
     }
 
-    /** В порядке регистрации (порядок табов). */
+    /** In registration order (tab order). */
     public getViews(): readonly IPaneCompositeView[] {
         return this.viewList;
     }
 
-    /** Без семантики «пользователь кликнул» — {@link onDidActivateView} не файрит. */
+    /** Without "user clicked" semantics: does not fire {@link onDidActivateView}. */
     public setActiveView(id: string): void {
         if (this.viewList.every((v) => v.id !== id) || this.activeId === id) return;
         this.activeId = id;
@@ -122,13 +122,13 @@ export class PaneCompositePartService {
         return this.activeId;
     }
 
-    /** Файрит {@link onDidActivateView}: на него подписаны ленивые фичи (терминал спавнит шелл). */
+    /** Fires {@link onDidActivateView}: lazy features listen to it (the terminal spawns a shell). */
     public activateView(id: string): void {
         this.setActiveView(id);
         this.onDidActivateViewEmitter.fire(id);
     }
 
-    /** Истина реестра; layout следует за ней через подписку. */
+    /** Source of truth in the registry; layout follows it via a subscription. */
     public get visible(): boolean {
         return this.visibleState;
     }

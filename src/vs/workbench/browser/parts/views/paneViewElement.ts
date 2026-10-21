@@ -5,20 +5,20 @@ import type { IPaneMenuAnchor } from "./paneHeaderElement.ts";
 import { PaneHeaderElement } from "./paneHeaderElement.ts";
 import type { IViewTitleAction } from "./viewTitleRowElement.ts";
 
-/** Секция под заголовком короче этого не имеет смысла — кламп drag и раздачи высот. */
+/** A section body shorter than this is useless; clamps both drag and height distribution. */
 const DEFAULT_MIN_BODY_HEIGHT = 3;
 
 export interface IPaneOptions {
-    /** Уникален в контейнере; точки в id заголовка меняются на дефисы — селекторы инспектора/e2e их не поддерживают. */
+    /** Unique within the container; dots become dashes in the header id because inspector/e2e selectors don't support them. */
     readonly id: string;
     readonly title: string;
     readonly body: TUIElement;
     readonly minBodyHeight?: number;
-    /** `false` — merged-секция: без шеврона, клик/Enter по заголовку ничего не делают. По умолчанию `true`. */
+    /** `false` for a merged section: no chevron, click/Enter on the header does nothing. Defaults to `true`. */
     readonly collapsible?: boolean;
     /**
-     * `false` — строки заголовка нет вовсе: у единственной секции вкладки панели заголовок —
-     * сам таб. По умолчанию `true`.
+     * `false` means no header row at all: for the only section of a panel tab, the tab itself is
+     * the header. Defaults to `true`.
      */
     readonly headerVisible?: boolean;
 }
@@ -31,19 +31,19 @@ interface PaneRecord {
     readonly collapsible: boolean;
     readonly headerVisible: boolean;
     collapsed: boolean;
-    /** Доля высоты среди развёрнутых секций; после drag — фактические строки. */
+    /** Share of height among expanded sections; after a drag, the actual row count. */
     weight: number;
-    /** Высота тела из последнего layout — база для перевода drag-дельты в строки. */
+    /** Body height from the last layout; the base for converting a drag delta into rows. */
     lastBodyHeight: number;
 }
 
 /**
- * Стопка сворачиваемых секций (аналог PaneView/SplitView). Развёрнутые тела делят остаток
- * высоты по весам; свёрнутое тело остаётся в дереве с `hidden = true`. Граница — сам заголовок
- * нижней секции: drag перекидывает строки между соседями и замораживает веса в фактические высоты.
+ * Stack of collapsible sections (like upstream PaneView/SplitView). Expanded bodies split the remaining
+ * height by weight; a collapsed body stays in the tree with `hidden = true`. The boundary is the header of
+ * the lower section: dragging it moves rows between neighbors and freezes the weights to the actual heights.
  */
 export class PaneViewElement extends TUIElement {
-    /** Только по действию пользователя — не из performLayout и программных сеттеров. */
+    /** Fires only on user action, not from performLayout or programmatic setters. */
     public onDidChangeState?: () => void;
     public onDidRequestPaneMenu?: (paneId: string, anchor: IPaneMenuAnchor) => void;
     public onDidRequestPaneAction?: (paneId: string, actionId: string) => void;
@@ -95,7 +95,7 @@ export class PaneViewElement extends TUIElement {
         this.markDirty();
     }
 
-    /** Свёрнутость, вес и позиция сохраняются — пересборка через remove/add их бы сбросила. */
+    /** Keeps collapsed state, weight and position, which a remove/add rebuild would reset. */
     public setPaneBody(id: string, body: TUIElement): void {
         const pane = this.paneOrThrow(id);
         if (pane.body === body) return;
@@ -130,12 +130,12 @@ export class PaneViewElement extends TUIElement {
         return this.paneOrThrow(id).collapsed;
     }
 
-    /** Программный путь (restore из персиста) — без {@link onDidChangeState}. */
+    /** Programmatic path (restore from persisted state); does not fire {@link onDidChangeState}. */
     public setCollapsed(id: string, collapsed: boolean): void {
         this.applyCollapsed(this.paneOrThrow(id), collapsed);
     }
 
-    /** Пользовательский путь (клик/Enter по заголовку) — с {@link onDidChangeState}. */
+    /** User path (click/Enter on the header); fires {@link onDidChangeState}. */
     public toggleCollapsed(id: string): void {
         const pane = this.paneOrThrow(id);
         if (!pane.collapsible) return;
@@ -147,7 +147,7 @@ export class PaneViewElement extends TUIElement {
         return Object.fromEntries(this.panes.map((p) => [p.id, p.weight]));
     }
 
-    /** Restore весов: незнакомые id игнорируются, отсутствующие остаются как есть. */
+    /** Restores weights: unknown ids are ignored, missing ones stay as they are. */
     public setWeights(weights: Readonly<Record<string, number>>): void {
         for (const pane of this.panes) {
             const weight = weights[pane.id];
@@ -173,8 +173,8 @@ export class PaneViewElement extends TUIElement {
     }
 
     private applyCollapsed(pane: PaneRecord, collapsed: boolean): void {
-        // Несворачиваемая секция игнорирует и протухший персист, и (теоретический)
-        // пользовательский путь — заголовок onToggle и так не шлёт.
+        // A non-collapsible section ignores both stale persisted state and the (theoretical)
+        // user path; its header doesn't send onToggle anyway.
         if (!pane.collapsible) return;
         if (pane.collapsed === collapsed) return;
         pane.collapsed = collapsed;
@@ -184,7 +184,7 @@ export class PaneViewElement extends TUIElement {
         this.markDirty();
     }
 
-    /** Фокус из скрываемого тела переносится на заголовок его секции. */
+    /** Moves focus out of a body being hidden onto its section header. */
     private rescueFocus(pane: PaneRecord): void {
         let element = this.getRoot()?.focusManager?.activeElement ?? null;
         while (element !== null) {
@@ -196,13 +196,13 @@ export class PaneViewElement extends TUIElement {
         }
     }
 
-    /** Держит производные флаги детей: hidden свёрнутых тел, доступность drag. */
+    /** Keeps the children's derived flags in sync: hidden for collapsed bodies, whether drag is enabled. */
     private syncPanes(): void {
         for (let i = 0; i < this.panes.length; i++) {
             const pane = this.panes[i];
             pane.body.hidden = pane.collapsed;
-            // Drag заголовка двигает границу над собой — нужен развёрнутый сосед
-            // сверху (у кого забирать строки) и развёрнутый от себя и ниже.
+            // Dragging a header moves the boundary above it, so it needs an expanded section
+            // above (to take rows from) and an expanded one at or below itself.
             const hasExpandedAbove = this.panes.slice(0, i).some((p) => !p.collapsed);
             const hasExpandedBelow = this.panes.slice(i).some((p) => !p.collapsed);
             pane.header.setDragEnabled(hasExpandedAbove && hasExpandedBelow);
@@ -219,8 +219,8 @@ export class PaneViewElement extends TUIElement {
         if (delta === 0) return;
         const heightAbove = abovePane.lastBodyHeight;
         const heightBelow = belowPane.lastBodyHeight;
-        // Двум секциям может быть тесно (сумма меньше двух минимумов после
-        // клипа) — тогда границу не двигаем вовсе.
+        // The two sections may be too cramped (their sum is below two minimums after
+        // clipping); then the boundary doesn't move at all.
         if (heightAbove + heightBelow < abovePane.minBodyHeight + belowPane.minBodyHeight) return;
         const newAbove = Math.max(
             abovePane.minBodyHeight,
@@ -231,8 +231,8 @@ export class PaneViewElement extends TUIElement {
 
         abovePane.lastBodyHeight = heightAbove + applied;
         belowPane.lastBodyHeight = heightBelow - applied;
-        // Веса замораживаются в фактические высоты: следующий layout при том же
-        // остатке воспроизводит их точно (largest remainder без дробей).
+        // Freeze the weights to the actual heights: the next layout with the same
+        // remaining height reproduces them exactly (largest remainder with no fractions).
         for (const p of this.panes) {
             if (!p.collapsed) p.weight = Math.max(1, p.lastBodyHeight);
         }
@@ -249,9 +249,9 @@ export class PaneViewElement extends TUIElement {
         let y = 0;
         for (let i = 0; i < this.panes.length; i++) {
             const pane = this.panes[i];
-            // Заголовки раскладываются всегда: при нехватке высоты хвостовые
-            // клипуются нулевой высотой (инвариант вложенности). Секция без
-            // заголовка (вкладка панели) строки под него не занимает.
+            // Headers are always laid out: when height runs short, trailing ones
+            // are clipped to zero height (nesting invariant). A section without a
+            // header (panel tab) takes no row for it.
             const headerHeight = pane.headerVisible ? Math.max(0, Math.min(1, size.height - y)) : 0;
             this.layoutChild(pane.header, 0, y, BoxConstraints.tight(new Size(size.width, headerHeight)));
             y += headerHeight;
@@ -267,7 +267,7 @@ export class PaneViewElement extends TUIElement {
         return size;
     }
 
-    /** Высоты тел по индексам секций (0 — свёрнутые/за пределами высоты). */
+    /** Body heights by section index (0 for collapsed ones and those past the available height). */
     private computeBodyHeights(avail: number): number[] {
         const heights = this.panes.map(() => 0);
         const expanded = this.panes.map((pane, index) => ({ pane, index })).filter(({ pane }) => !pane.collapsed);
@@ -280,8 +280,8 @@ export class PaneViewElement extends TUIElement {
             avail,
             expanded.map(({ pane }) => pane.weight),
         );
-        // Кламп minBodyHeight жадно в порядке секций: сумма desired ≥ avail,
-        // поэтому остаток исчерпывается, а хвостовые могут получить 0.
+        // Clamp to minBodyHeight greedily in section order: the sum of desired ≥ avail,
+        // so the remainder runs out and trailing sections may get 0.
         let remaining = avail;
         expanded.forEach(({ pane, index }, k) => {
             const desired = Math.max(pane.minBodyHeight, shares[k]);
@@ -305,8 +305,8 @@ export class PaneViewElement extends TUIElement {
 }
 
 /**
- * Детерминированный largest remainder: остаток — по убыванию дробной части, при равенстве —
- * более ранней секции. Веса всегда положительные.
+ * Deterministic largest remainder: leftover rows go by descending fractional part, ties to the
+ * earlier section. Weights are always positive.
  */
 function distributeByWeight(total: number, weights: readonly number[]): number[] {
     const sum = weights.reduce((a, b) => a + b, 0);

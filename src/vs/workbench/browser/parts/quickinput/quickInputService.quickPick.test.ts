@@ -108,7 +108,7 @@ describe("QuickInputService.quickPick", () => {
         for (const ch of "light") testApp.sendKey(ch);
         expect(component.view.items).toHaveLength(1);
 
-        // Пустой запрос — отдельная ветка, отдающая весь список.
+        // An empty query takes a separate branch that returns the whole list.
         for (const _ch of "light") testApp.sendKey("Backspace");
         expect(component.view.items.map((i) => i.label)).toEqual(ITEMS.map((i) => i.label));
     });

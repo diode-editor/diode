@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { QuickPickElement } from "./quickPickElement.ts";
 
-/** Публичный контракт: едет по проводу инспектора и в e2e (`NodeSnapshot.state`) — меняется вместе с ними. */
+/** Public contract: sent over the inspector wire and into e2e (`NodeSnapshot.state`); change them together. */
 describe("QuickPickElement — inspectState", () => {
     it("отдаёт запрос, активный индекс, заголовок и лейблы строк", () => {
         const picker = new QuickPickElement();

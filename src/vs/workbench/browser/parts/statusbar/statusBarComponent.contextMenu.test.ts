@@ -31,9 +31,9 @@ function rightClick(x: number, y: number, action: "press" | "release"): MouseTok
 interface MenuHarness {
     app: TestApp;
     statusBarService: StatusBarService;
-    /** null — по пустому месту полосы. */
+    /** null clicks an empty spot of the bar. */
     openMenuOn: (text: string | null) => void;
-    /** Правый клик их дёргать не должен. */
+    /** A right click must not trigger these. */
     clicks: string[];
     segments: () => string[];
 }
@@ -45,7 +45,7 @@ function menuState(app: TestApp): { items: (string | null)[]; selectedIndex: num
     return { items: state.items as (string | null)[], selectedIndex: state.selectedIndex as number };
 }
 
-/** Сепараторы — null. */
+/** Separators are null. */
 function menuItems(app: TestApp): (string | null)[] {
     return menuState(app).items;
 }
@@ -84,7 +84,7 @@ function setup(): MenuHarness {
         const children = harness.component.view.getChildren();
         let x: number;
         if (text === null) {
-            // Центральный распорный Filler между сторонами.
+            // The center spacer Filler between the two sides.
             const fill = children.find((child) => (child.layoutStyle as HFlexLayoutStyle).width.type === "fill");
             if (!fill) throw new Error("на полосе нет центрального распора");
             x = fill.globalPosition.x + Math.floor(fill.layoutSize.width / 2);
@@ -116,7 +116,7 @@ describe("StatusBarComponent — меню видимости", () => {
 
         openMenuOn("Alpha");
 
-        // Правые сегменты идут после левых, как в порядке отрисовки.
+        // Right segments come after left ones, matching render order.
         expect(menuItems(app)).toEqual(["Terminal Environment", "Alpha", "Beta", "Omega", null, "Hide 'Alpha'"]);
         expect(app.backend.screenToString()).toContain(`${CHECKED_ICON} Alpha`);
     });

@@ -10,9 +10,9 @@ export const filesConfiguration = {
             default: true,
             description: "Move files to the OS trash when available; when disabled, delete permanently.",
         },
-        // Дословно эталон (`files.contribution.ts`). Автосохранения у нас нет — исполняется
-        // только `off`, но ключ читают расширения: Claude Code считает сохранение
-        // предложенного диффа принятием правки только при `off`.
+        // Verbatim from upstream (`files.contribution.ts`). We have no auto save, so only `off` is honored,
+        // but extensions read the key: Claude Code treats saving a proposed diff as accepting the edit
+        // only when it is `off`.
         "files.autoSave": {
             scope: "language-overridable",
             type: "string",
@@ -27,18 +27,17 @@ export const filesConfiguration = {
             description:
                 "Controls [auto save](https://code.visualstudio.com/docs/editor/codebasics#_save-auto-save) of editors that have unsaved changes.",
         },
-        // Дословно эталон (`bulkEditService.ts`). Без него «Move to a new file» оставляет
-        // исходник грязным в буфере, и закрытие без сохранения дублирует класс.
+        // Verbatim from upstream (`bulkEditService.ts`). Without it "Move to a new file" leaves the source
+        // dirty in its buffer, and closing without saving duplicates the class.
         "files.refactoring.autoSave": {
             scope: "window",
             type: "boolean",
             default: true,
             description: "Controls if files that were part of a refactoring are saved automatically",
         },
-        // Форма `**/<имя>`, как у эталона: `**/<имя>/**` оставил бы каталог в дереве пустым.
-        // К набору эталона добавлены только кеши Python-инструментов: их содержимое человек
-        // не читает никогда. Прочее машинное (сборка, кеши сборщиков) открывают — оно в
-        // `search.exclude`.
+        // `**/<name>` form, as upstream: `**/<name>/**` would leave the directory in the tree as empty.
+        // Only Python tool caches are added to upstream's set: nobody ever reads them. Other generated
+        // output (builds, build tool caches) does get opened, so it goes in `search.exclude`.
         "files.exclude": {
             scope: "resource",
             type: "object",
@@ -55,17 +54,17 @@ export const filesConfiguration = {
             },
             description: "Glob patterns to hide from the file tree and from search. Matched relative to the folder.",
         },
-        // Отличия от эталона — из-за chokidar с inotify-watch'ем на каждый каталог:
-        // 1. `**/<имя>`, а не `**/<имя>/**`: второй каталог не матчит, и chokidar в него
-        //    заходит, stat'ит каждый вход и вешает watch, отбрасывая лишь детей;
-        // 2. список длиннее: упёршись в `fs.inotify.max_user_watches`, watcher получает
-        //    ENOSPC и умирает целиком. Критерий — каталог порождается машиной и меняется пачками.
+        // Differs from upstream because chokidar puts an inotify watch on every directory:
+        // 1. `**/<name>`, not `**/<name>/**`: the latter doesn't match the directory, so chokidar
+        //    enters it, stats every entry and adds a watch, dropping only the children;
+        // 2. the list is longer: on hitting `fs.inotify.max_user_watches` the watcher gets
+        //    ENOSPC and dies entirely. The criterion: the directory is generated and changes in bulk.
         "files.watcherExclude": {
             scope: "resource",
             type: "object",
             default: {
-                // Расширение git следит за `.git` своим watcher'ом с корнем в нём, а корень
-                // исключения не задевают.
+                // The git extension watches `.git` with its own watcher rooted there, and
+                // exclusions never apply to the root.
                 "**/.git": true,
                 "**/.hg": true,
                 "**/.svn": true,
@@ -85,15 +84,16 @@ export const filesConfiguration = {
                 "**/.pytest_cache": true,
                 "**/.ruff_cache": true,
                 "**/.stryker-tmp": true,
-                // Каждый worktree агента — полная копия репозитория с `node_modules`. Не весь
-                // `.claude`: рядом настройки и скиллы, которые правят руками.
+                // Each agent worktree is a full repository copy with `node_modules`. Not all of
+                // `.claude`: settings and skills next to it are edited by hand.
                 "**/.claude/worktrees": true,
             },
             description:
                 "Glob patterns to exclude from file watching. Patterns are matched relative to the watched folder.",
         },
-        // Каталоги-симлинки обход не обходит, как parcel-watcher эталона (иначе `bazel-out`
-        // тащит в слежение кэш Bazel вне воркспейса). `items: string` эталона схема не выражает.
+        // Traversal doesn't follow directory symlinks, like upstream's parcel-watcher (otherwise `bazel-out`
+        // drags the Bazel cache outside the workspace into watching). Our schema can't express upstream's
+        // `items: string`.
         "files.watcherInclude": {
             scope: "resource",
             type: "array",

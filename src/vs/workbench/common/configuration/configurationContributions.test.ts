@@ -6,13 +6,13 @@ import { ConfigurationRegistry } from "../../../platform/configuration/common/co
 import { CONFIGURATION_CONTRIBUTIONS } from "./configurationContributions.ts";
 
 /**
- * `scope` пока никем не читается (docs/TODO/MultiRoot.md, M6): таблица — единственное
- * место, где решение «можно ли на уровне папки» записано. Скоупы — как у эталона
- * (без `scope` там — `window`); наши ключи без пары в эталоне идут за семьёй.
+ * Nothing reads `scope` yet (docs/TODO/MultiRoot.md, M6): this table is the only place that records
+ * whether a key may be set per folder. Scopes match upstream (no `scope` there means `window`);
+ * our keys with no upstream counterpart follow their family.
  * - `terminal.tier`, `keyboard.platform`, `terminal.capabilities`, `terminal.modes` —
- *   `machine`: свойства терминала машины (`keyboard.platform` ставят из-за ssh с другой ОС);
- * - `terminal.customModes` — `window`: это объявление режимов под `when`, проекту
- *   осмысленно завести своё.
+ *   `machine`: properties of the machine's terminal (`keyboard.platform` is set because of ssh from another OS);
+ * - `terminal.customModes` — `window`: it declares modes for `when` clauses, and a project may
+ *   reasonably define its own.
  */
 const EXPECTED_SCOPES: Readonly<Record<string, ConfigurationScope>> = {
     "workbench.colorTheme": "window",
@@ -78,7 +78,7 @@ const EXPECTED_SCOPES: Readonly<Record<string, ConfigurationScope>> = {
     "terminal.integrated.tabs.focusMode": "window",
     "terminal.integrated.hideOnLastClosed": "window",
     "terminal.integrated.defaultLocation": "window",
-    // Хост-терминал один на процесс — не на окно и не на папку.
+    // There is one host terminal per process, not per window or folder.
     "terminal.integrated.colorSource": "application",
 
     "task.autoDetect": "window",
@@ -93,7 +93,7 @@ const EXPECTED_SCOPES: Readonly<Record<string, ConfigurationScope>> = {
 const registered = new ConfigurationRegistry(CONFIGURATION_CONTRIBUTIONS).getConfigurationProperties();
 
 describe("CONFIGURATION_CONTRIBUTIONS — scope каждого ключа", () => {
-    // Новый ключ без записи здесь роняет тест: вопрос «а этот можно на папке?» задаётся при заведении ключа.
+    // A new key without an entry here fails the test, so "can this be set per folder?" is decided when the key is added.
     it("таблица ожиданий покрывает ровно зарегистрированные ключи", () => {
         expect([...registered.keys()].sort()).toEqual(Object.keys(EXPECTED_SCOPES).sort());
     });
@@ -102,7 +102,7 @@ describe("CONFIGURATION_CONTRIBUTIONS — scope каждого ключа", () =
         expect(registered.get(key)?.scope).toBe(scope);
     });
 
-    // Ловит описку вроде "resources", даже если таблицу выше обновят вместе с узлом.
+    // Catches a typo like "resources" even if the table above is updated together with the registration.
     it("все скоупы — из объявленного набора", () => {
         const allowed: readonly ConfigurationScope[] = [
             "application",

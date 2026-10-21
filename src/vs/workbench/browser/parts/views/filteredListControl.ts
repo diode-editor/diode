@@ -12,13 +12,13 @@ export interface IFilteredListOptions {
     readonly viewId: string;
     readonly listId: string;
     readonly placeholder?: string;
-    /** У фильтруемых списков выключен — печать уходит в input. */
+    /** Off for filtered lists: typing goes to the input. */
     readonly typeahead?: boolean;
 }
 
 /**
- * Каркас «поиск + список» (Extensions, Keyboard Shortcuts). Владеет только проводкой; строки
- * (`list.clear()` + `list.appendRow(...)`) строит потребитель.
+ * Search box + list scaffold (Extensions, Keyboard Shortcuts). Owns only the wiring; the consumer
+ * builds the rows (`list.clear()` + `list.appendRow(...)`).
  */
 export class FilteredListControl {
     public readonly view: TUIElement;
@@ -26,7 +26,7 @@ export class FilteredListControl {
     public readonly list: ListViewElement;
 
     public onQueryChange: ((query: string) => void) | null = null;
-    /** id у строк списка обязателен — прокидывается non-null. */
+    /** List rows always have an id, so it is passed as non-null. */
     public onActivateRow: ((rowId: string) => void) | null = null;
 
     public constructor(options: IFilteredListOptions) {
@@ -38,7 +38,7 @@ export class FilteredListControl {
         this.list = new ListViewElement({ typeahead: options.typeahead ?? false });
         this.list.id = options.listId;
         this.list.onActivate = (element) => {
-            // Строки без id потребитель не кладёт.
+            // The consumer never adds rows without an id.
             const rowId = element.id;
             if (rowId === undefined) return;
             this.onActivateRow?.(rowId);

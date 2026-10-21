@@ -4,7 +4,7 @@ import { SIDEBAR_VIEWS_STATE } from "../../../common/stateKeys.ts";
 
 import { makeViewsHarness, testView as view } from "./viewsService.testUtils.ts";
 
-/** Контейнер из двух секций — минимум, при котором они сворачиваются. */
+/** A two-section container — the minimum at which sections can collapse. */
 function makeScm(): ReturnType<typeof makeViewsHarness> {
     const h = makeViewsHarness();
     h.service.registerContainer({ id: "scm", title: "SOURCE CONTROL", location: "sidebar" });
@@ -45,7 +45,7 @@ describe("ViewsService: раскрытость секций", () => {
         h.paneView("scm").toggleCollapsed("scm.graph");
         expect(h.service.isViewExpanded("scm.graph")).toBe(false);
 
-        // Скрыли соседа — GRAPH остался один и забрал заголовок контейнера.
+        // The neighbor is hidden — GRAPH is left alone and takes over the container header.
         h.service.setViewVisible("scm.changes", false);
         expect(h.service.isViewExpanded("scm.graph")).toBe(true);
     });
@@ -79,7 +79,7 @@ describe("ViewsService: раскрытость секций", () => {
         h.paneView("scm").toggleCollapsed("scm.graph");
         expect(seen).toEqual([["scm.graph", false]]);
 
-        // Пересборка контейнера свёрнутость сохраняет — о ней не извещаем заново.
+        // A container rebuild keeps the collapsed state, so it is not announced again.
         seen.length = 0;
         h.service.registerView(view("scm.stashes", "scm", 30));
         expect(seen).toEqual([["scm.stashes", true]]);

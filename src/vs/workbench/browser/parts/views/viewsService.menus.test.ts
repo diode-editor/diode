@@ -14,8 +14,8 @@ const CHANGES = "scm.changes";
 const GRAPH = "scm.graph";
 
 /**
- * Меню SCM-контейнера в миниатюре: у CHANGES — inline-обновление и пункт в
- * попапе, у GRAPH — только inline, у самого контейнера — своя команда.
+ * The SCM container's menus in miniature: CHANGES has an inline refresh and a popup
+ * item, GRAPH has only inline, and the container itself has its own command.
  */
 const CONTRIBUTIONS: MenuContribution[] = [
     {
@@ -34,8 +34,8 @@ const CONTRIBUTIONS: MenuContribution[] = [
         group: "2_commit",
         visible: viewMenuVisible(CHANGES),
     },
-    // Пункт группы navigation БЕЗ иконки: кнопкой его не нарисовать (подписи в
-    // 30 колонок сайдбара не влезут), поэтому он обязан уехать в «⋯».
+    // A navigation group item WITHOUT an icon can't be drawn as a button (labels won't fit
+    // in the sidebar's 30 columns), so it must go into "⋯".
     {
         menuId: MenuId.ViewTitle,
         command: "scm.stageAll",
@@ -85,7 +85,7 @@ function submenu(entries: readonly MenuEntry[], label: string): MenuSubmenuEntry
     return found as MenuSubmenuEntry;
 }
 
-/** Иконки inline-кнопок заголовка секции: лейблы без названия, «⋯» и разделителей. */
+/** Icons of a section header's inline buttons: labels without the title, "⋯" and separators. */
 function buttonIcons(h: IViewsHarness, viewId: string): string[] {
     const header = h.paneView("scm").querySelector(`#paneHeader-${viewId.replaceAll(".", "-")}`)!;
     const [, ...rest] = header.querySelectorAll("TextLabelElement");
@@ -94,7 +94,7 @@ function buttonIcons(h: IViewsHarness, viewId: string): string[] {
         .filter((text) => text !== "\u2502" && text !== "⋯");
 }
 
-/** Токены цвета inline-кнопок: по ним видно, какая из них погашена. */
+/** Color tokens of the inline buttons: they show which one is disabled. */
 function buttonForegrounds(h: IViewsHarness, viewId: string): (string | number | undefined)[] {
     const header = h.paneView("scm").querySelector(`#paneHeader-${viewId.replaceAll(".", "-")}`)!;
     const [, ...rest] = header.querySelectorAll("TextLabelElement");
@@ -154,8 +154,8 @@ describe("ViewsService — inline-кнопки заголовка", () => {
         expect(buttonForegrounds(h, CHANGES)).toEqual(["descriptionForeground"]);
 
         h.contextKeys.set("gitOperationInProgress", true);
-        // Пока никто не пере-резолвил заголовок, кнопка выглядит прежней —
-        // именно это и чинит ViewTitleActionsContribution.
+        // Until someone re-resolves the header, the button looks the same —
+        // that is exactly what ViewTitleActionsContribution fixes.
         h.service.refreshTitleActions();
         expect(buttonForegrounds(h, CHANGES)).toEqual(["disabledForeground"]);
 
@@ -169,19 +169,19 @@ describe("ViewsService — inline-кнопки заголовка", () => {
         expect(run).toHaveBeenCalledOnce();
     });
 
-    // `registerView` легально заводит контейнеры без собранного контрола — обход по
-    // контекст-ключам обязан их пропускать, а не падать на attached().
+    // `registerView` legitimately creates containers without a built control — the
+    // context key pass must skip them rather than crash in attached().
     it("refreshTitleActions пропускает зарегистрированный, но не собранный контейнер", () => {
         const h = makeViewsHarness(CONTRIBUTIONS);
         h.service.registerContainer({ id: "scm", title: "SOURCE CONTROL", location: "sidebar" });
         h.service.registerView(testView(CHANGES, "scm", 10));
-        // attachContainer НЕ зовём — paneView остаётся null.
+        // attachContainer is NOT called — paneView stays null.
 
         expect(() => {
             h.service.refreshTitleActions();
         }).not.toThrow();
 
-        // И контейнер не «протух»: собранный позже, он получает свои кнопки.
+        // And the container isn't stale: built later, it gets its buttons.
         h.service.attachContainer("scm");
         h.showViewlet("scm");
         expect(buttonForegrounds(h, CHANGES)).toEqual(["descriptionForeground"]);
@@ -214,8 +214,8 @@ describe("ViewsService — попап «⋯» секции", () => {
     it("показывает только overflow — inline-пункты в попапе не дублируются", () => {
         const h = scmHarness();
         h.paneView("scm").onDidRequestPaneMenu?.(CHANGES, { screenX: 0, screenY: 0 });
-        // Stage All — из группы navigation, но без иконки: кнопкой не нарисовать,
-        // поэтому он тут, а Refresh (с иконкой) уехал в кнопку и не дублируется.
+        // Stage All is in the navigation group but has no icon, so it can't be a button
+        // and lands here, while Refresh (with an icon) became a button and isn't duplicated.
         expect(labels(lastEntries(h))).toEqual(["Stage All", "---", "Commit All"]);
     });
 
@@ -259,7 +259,7 @@ describe("ViewsService — попап «⋯» контейнера", () => {
         const h = scmHarness();
         h.service.setViewVisible(GRAPH, false);
         h.header("scm")?.onMenu?.({ screenX: 1, screenY: 0 });
-        // Контейнер стал merged — своего заголовка нет, меню открывает секция.
+        // The container became merged — it has no header of its own, the section opens the menu.
         h.paneView("scm").onDidRequestPaneMenu?.(CHANGES, { screenX: 0, screenY: 0 });
         const views = submenu(entriesOf(submenu(lastEntries(h), "SOURCE CONTROL")), "Views");
         expect(entriesOf(views).map((e) => (e.type === "separator" ? null : e.icon))).toEqual([
@@ -287,7 +287,7 @@ describe("ViewsService — попап «⋯» контейнера", () => {
         h.service.registerView(testView(GRAPH, "scm", 20));
         h.service.attachContainer("scm");
         h.service.setViewVisible(GRAPH, false);
-        // Секция скрыта, но зарегистрирована — переключатель нужен, чтобы её вернуть.
+        // The section is hidden but registered — the toggle is needed to bring it back.
         h.paneView("scm").onDidRequestPaneMenu?.(CHANGES, { screenX: 0, screenY: 0 });
         expect(labels(entriesOf(submenu(lastEntries(h), "SOURCE CONTROL")))).toEqual([
             "Checkout to…",
@@ -360,8 +360,8 @@ describe("ViewsService — merged: меню контейнера уезжает 
     });
 });
 
-// Как у эталона, скрытый контейнер кнопки заголовка не резолвит, а досчитывает при показе:
-// на старте собраны все контейнеры при двух видимых, а резолв меню дорог.
+// As upstream, a hidden container doesn't resolve its title buttons but catches up when shown:
+// at startup all containers are built while two are visible, and menu resolution is expensive.
 describe("ViewsService — кнопки заголовка скрытого контейнера", () => {
     function hiddenScm(contributions: MenuContribution[] = CONTRIBUTIONS): IViewsHarness {
         const h = makeViewsHarness(contributions);
@@ -407,7 +407,7 @@ describe("ViewsService — кнопки заголовка скрытого ко
         h.showViewlet("explorer");
         h.contextKeys.set("gitOperationInProgress", true);
         h.service.refreshTitleActions();
-        // Скрытый заголовок не трогали — в нём прежнее состояние.
+        // The hidden header was not touched — it keeps the old state.
         expect(buttonForegrounds(h, CHANGES)).toEqual(["descriptionForeground"]);
 
         h.showViewlet("scm");
@@ -445,7 +445,7 @@ describe("ViewsService — кнопки заголовка скрытого ко
         h.service.registerContainer({ id: "output", title: "OUTPUT", location: "panel", order: 1 });
         h.service.registerView(testView("output.view", "output", 10));
         h.service.attachRegisteredContainers();
-        // Первая вкладка панели активна — вторая собрана, но не показана.
+        // The panel's first tab is active — the second is built but not shown.
         expect(h.panelService.getActiveViewId()).toBe("problems");
         expect(h.tabActions("output")).toBeNull();
 

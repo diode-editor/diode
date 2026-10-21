@@ -7,7 +7,7 @@ import { TestApp } from "../../../../../TestUtils/TestApp.ts";
 
 import { CaretAnchoredOverlay } from "./caretAnchoredOverlay.ts";
 
-/** Попап в три строки высотой на экране 80×24. */
+/** A three-line popup on an 80×24 screen. */
 function setup(): { body: BodyElement; app: TestApp; element: TextLabelElement; overlay: CaretAnchoredOverlay } {
     const body = new BodyElement();
     const app = TestApp.create(body, new Size(80, 24));

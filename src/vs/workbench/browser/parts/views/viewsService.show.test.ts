@@ -7,7 +7,7 @@ const PROBLEMS = "workbench.panel.markers";
 const TERMINAL = "workbench.panel.terminal";
 const SEARCH = "workbench.view.search";
 
-/** Панель (PROBLEMS, TERMINAL) и сайдбар (SEARCH); события показа и активации — в журналы. */
+/** Panel (PROBLEMS, TERMINAL) and sidebar (SEARCH); show and activate events go to logs. */
 function scene(): { h: IViewsHarness; shown: string[]; activated: string[] } {
     const h = makeViewsHarness();
     h.service.registerContainer({ id: SEARCH, title: "SEARCH", location: "sidebar", order: 0 });
@@ -132,7 +132,7 @@ describe("ViewsService — события показа и активации в�
     it("переехавший вид шлёт события из новой части", () => {
         const { h, shown, activated } = scene();
         h.service.moveViewToLocation("terminal", "auxiliarybar");
-        // Единственная вкладка вторичной панели стала активной при сборке.
+        // The auxiliary bar's only tab became active during the build.
         expect(shown.at(-1)).toBe("terminal");
         const container = h.service.getViewContainerByViewId("terminal")!;
         h.auxiliaryBarService.activateView(container);

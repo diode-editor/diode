@@ -11,8 +11,8 @@ import { terminalConfiguration } from "./terminalConfiguration.ts";
 import { workbenchConfiguration } from "./workbenchConfiguration.ts";
 
 /**
- * Узлы — чистые данные: этот файл бандлит генератор схемы
- * (`scripts/generate-settings-schema.mjs`) для автодополнения diode-settings.
+ * Nodes are plain data: the schema generator (`scripts/generate-settings-schema.mjs`) bundles this file
+ * for diode-settings completion.
  */
 export const CONFIGURATION_CONTRIBUTIONS = [
     workbenchConfiguration,
@@ -60,6 +60,6 @@ export type SettingsOf<Nodes extends readonly IConfigurationNode[]> = UnionToInt
 export type DiodeSettings = SettingsOf<typeof CONFIGURATION_CONTRIBUTIONS>;
 
 declare module "../../../platform/configuration/common/iConfigurationService.ts" {
-    // eslint-disable-next-line @typescript-eslint/no-empty-object-type -- наполнение точки расширения типами узлов
+    // eslint-disable-next-line @typescript-eslint/no-empty-object-type -- fills the extension point with the node types
     interface IConfigurationKeys extends DiodeSettings {}
 }

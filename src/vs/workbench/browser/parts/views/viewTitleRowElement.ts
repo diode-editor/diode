@@ -9,21 +9,21 @@ const ICON_COLLAPSED = ""; //  nf-fa-angle_right
 
 const MENU_ICON = "⋯";
 
-/** Пробел-глиф-пробел: hover-фон читается кнопкой, соседние кнопки не слипаются. */
+/** Space-glyph-space: the hover background reads as a button, and adjacent buttons don't run together. */
 const BUTTON_WIDTH = 3;
 
 /**
- * Черта, а не рамка: рамка вокруг каждой кнопки в одну строку слишком тяжела, а без границы
- * глиф не выглядит нажимаемым.
+ * A bar, not a border: a border around each button in a single row is too heavy, and without any
+ * boundary the glyph doesn't look clickable.
  */
 const SEPARATOR = "\u2502"; // │
 
-/** Inline-кнопка заголовка — пункт меню группы `navigation`, у которого есть иконка. */
+/** Inline title button: a `navigation` group menu item that has an icon. */
 export interface IViewTitleAction {
-    /** Что вернёт {@link ViewTitleRowElement.hitZone}; обычно id команды. */
+    /** What {@link ViewTitleRowElement.hitZone} returns; usually the command id. */
     readonly id: string;
     readonly icon: string;
-    /** `false` — кнопка на месте, но приглушена и не срабатывает (`enablement` пункта). */
+    /** `false`: the button stays in place but is dimmed and does nothing (the item's `enablement`). */
     readonly enabled?: boolean;
 }
 
@@ -34,11 +34,11 @@ export interface IViewTitleRowOptions {
 }
 
 /**
- * `[ ␣шеврон? ␣НАЗВАНИЕ ][ fill ][ виджет? ][ inline-кнопки ][ ⋯ ]`
+ * `[ ␣chevron? ␣TITLE ][ fill ][ widget? ][ inline buttons ][ ⋯ ]`
  *
- * Жесты ведёт владелец: мышь по лейблам он забирает себе (иначе pointer capture для drag
- * границы не сработает), поэтому попадание по кнопке — арифметика зон {@link hitZone}.
- * Исключение — {@link hitTestWidget}: виджет — настоящий контрол.
+ * The owner handles gestures: it takes mouse input on the labels (otherwise pointer capture for the
+ * boundary drag won't work), so which button was hit is zone arithmetic in {@link hitZone}.
+ * The exception is {@link hitTestWidget}: the widget is a real control.
  */
 export class ViewTitleRowElement extends HFlexElement {
     private readonly titleLabel: TextLabelElement;
@@ -60,7 +60,7 @@ export class ViewTitleRowElement extends HFlexElement {
         this.chevron = options?.chevron ?? true;
         this.titleLabel = new TextLabelElement(this.composeTitle());
         this.menuLabel = new TextLabelElement(buttonLabel(MENU_ICON));
-        // «⋯» доступна всегда: она открывает попап, а не исполняет команду.
+        // "⋯" is always enabled: it opens a popup rather than running a command.
         this.menuLabel.style = buttonStyle(true);
         this.syncChildren();
     }
@@ -91,7 +91,7 @@ export class ViewTitleRowElement extends HFlexElement {
         this.syncChildren();
     }
 
-    /** В таб-строке панели пустая «⋯» стоит в ряду с табами и только мешает. */
+    /** In the panel tab row an empty "⋯" sits next to the tabs and only gets in the way. */
     public setMenuVisible(visible: boolean): void {
         if (this.menuVisible === visible) return;
         this.menuVisible = visible;
@@ -99,15 +99,15 @@ export class ViewTitleRowElement extends HFlexElement {
     }
 
     /**
-     * Сразу после названия, чтобы ряд кнопок не дёргался: лишние колонки съедает филлер, а
-     * `hitZone` считает по разложенным ширинам.
+     * Right after the title so the button row doesn't jump: the filler absorbs the extra columns, and
+     * `hitZone` works from the laid-out widths.
      */
     public setSpinnerFrame(frame: string | null): void {
         this.spinner = frame;
         this.titleLabel.setText(this.composeTitle());
     }
 
-    /** Для инспектора/e2e; сам кадр крутится, его не отдаём. */
+    /** For the inspector/e2e; the spinner frame itself keeps changing, so it isn't exposed. */
     public get isBusy(): boolean {
         return this.spinner !== null;
     }
@@ -118,25 +118,25 @@ export class ViewTitleRowElement extends HFlexElement {
         this.syncChildren();
     }
 
-    /** Кнопка, схлопнутая layout'ом в ноль колонок на узком заголовке, зоны не имеет. */
+    /** A button that layout collapsed to zero columns on a narrow header has no zone. */
     public hitZone(localX: number): ViewTitleZone {
         for (let i = 0; i < this.actionLabels.length; i++) {
             if (inZone(this.actionLabels[i], localX)) return { kind: "action", actionId: this.actions[i].id };
         }
-        // Скрытая «⋯» зоны не имеет: она осталась вне дерева со старым layout'ом,
-        // и без этой проверки её прошлые колонки продолжали бы «кликаться».
+        // A hidden "⋯" has no zone: it is left outside the tree with its stale layout,
+        // and without this check its old columns would still be clickable.
         if (this.menuVisible && inZone(this.menuLabel, localX)) return { kind: "menu" };
         return { kind: "title" };
     }
 
-    /** Локальная X кнопки «⋯» — якорь меню, открытого с клавиатуры. */
+    /** Local X of the "⋯" button; the anchor for a menu opened from the keyboard. */
     public get menuAnchorX(): number {
         return this.menuLabel.localPosition.dx;
     }
 
     /**
-     * Лейблы не участвуют в хит-тесте (мышь забирает заголовок), поэтому `hover` им ставит
-     * владелец по mousemove.
+     * Labels don't take part in hit testing (the header takes the mouse), so the owner sets
+     * their `hover` on mousemove.
      */
     public setHoveredZone(zone: ViewTitleZone | null): void {
         const hoveredAction = zone?.kind === "action" ? zone.actionId : null;
@@ -146,7 +146,7 @@ export class ViewTitleRowElement extends HFlexElement {
         this.menuLabel.setStyleState("hover", zone?.kind === "menu");
     }
 
-    /** Только виджет: лейблы презентационные, а виджет обязан получать клики, иначе не нажимается. */
+    /** Only the widget: labels are presentational, but the widget must receive clicks or it can't be pressed. */
     public hitTestWidget(point: Point): TUIElement | null {
         return this.titleWidget?.elementFromPoint(point) ?? null;
     }
@@ -172,7 +172,7 @@ export class ViewTitleRowElement extends HFlexElement {
             this.titleWidget.layoutStyle = { width: hflexFit(), height: 1 };
             children.push(this.titleWidget);
         }
-        // Черта только МЕЖДУ контролами: ведущая/хвостовая превратила бы ряд в рамку.
+        // Bars only BETWEEN controls: a leading/trailing one would turn the row into a border.
         const controls: TUIElement[] = [...this.actionLabels];
         if (this.menuVisible) controls.push(this.menuLabel);
         controls.forEach((control, index) => {
@@ -183,10 +183,10 @@ export class ViewTitleRowElement extends HFlexElement {
     }
 }
 
-/** Приглушена, но видима всегда (мыши может не быть вовсе); `hover` ставит владелец. */
+/** Dimmed but always visible (there may be no mouse at all); the owner sets `hover`. */
 function buttonStyle(enabled: boolean): TUIElement["style"] {
-    // У выключенной кнопки hover-варианта нет вовсе: подсвеченный фон читался бы
-    // как «нажимается», а она не нажимается.
+    // A disabled button has no hover variant at all: a highlighted background would read
+    // as clickable, and it isn't.
     if (!enabled) return { fg: "disabledForeground" };
     return {
         fg: "descriptionForeground",
@@ -194,7 +194,7 @@ function buttonStyle(enabled: boolean): TUIElement["style"] {
     };
 }
 
-/** Разделитель между кнопками — та же приглушённая палитра, что у пунктов меню. */
+/** Separator between buttons; uses the same muted color as menu separators. */
 function separatorLabel(): TextLabelElement {
     const label = new TextLabelElement(SEPARATOR);
     label.style = { fg: "menu.separatorBackground" };
@@ -213,19 +213,19 @@ function inZone(label: TextLabelElement, localX: number): boolean {
     return localX >= start && localX < start + width;
 }
 
-// Stryker disable next-line BlockStatement: пустое тело = «составы всегда разные» = лишняя пересборка, ненаблюдаемая по кадру
+// Stryker disable next-line BlockStatement: an empty body means "sets always differ", i.e. an extra rebuild not observable in the frame
 function sameActions(a: readonly IViewTitleAction[], b: readonly IViewTitleAction[]): boolean {
-    // Stryker disable next-line ConditionalExpression: «считать составы всегда разными» даёт лишнюю пересборку — кнопки от неё те же; пропуск нужной закрыт тестами ниже
+    // Stryker disable next-line ConditionalExpression: "treat sets as always different" gives an extra rebuild with the same buttons; skipping a needed one is covered by the tests
     if (a.length !== b.length) return false;
-    // Stryker disable next-line ConditionalExpression,ArrowFunction: ослабление сравнения даёт лишнюю пересборку — кнопки от неё те же; обратная подмена (пропустить нужную) закрыта тестами
+    // Stryker disable next-line ConditionalExpression,ArrowFunction: a weaker comparison gives an extra rebuild with the same buttons; the opposite mutation (skipping a needed one) is covered by the tests
     return a.every((action, index) => sameAction(action, b[index]));
 }
 
 /**
- * Доступность сравнивается наравне с id и иконкой: иначе ранний выход `setActions` съест
- * её смену, и кнопка навсегда останется такой, какой её собрали.
+ * Enabled state is compared along with id and icon: otherwise the early return in `setActions` would
+ * swallow its change, and the button would stay as it was first built.
  */
 function sameAction(a: IViewTitleAction, b: IViewTitleAction): boolean {
-    // Stryker disable next-line ConditionalExpression: «кнопки всегда разные» — это лишняя пересборка, ненаблюдаемая по кадру; пропуск нужной закрыт тестами на смену id, иконки и доступности
+    // Stryker disable next-line ConditionalExpression: "buttons always differ" is an extra rebuild not observable in the frame; skipping a needed one is covered by the id, icon and enabled-change tests
     return a.id === b.id && a.icon === b.icon && (a.enabled !== false) === (b.enabled !== false);
 }

@@ -12,10 +12,10 @@ import { DIALOG_STYLES, DialogComponent } from "../dialogs/dialogComponent.ts";
 
 export const MESSAGE_DIALOG_ELEMENT_ID = "messageDialog";
 
-/** Окно по центру — места больше, чем у тоста. */
+/** A centered window has more room than a toast. */
 export const MESSAGE_DIALOG_TEXT_WIDTH = 60;
 
-/** Модальное сообщение без кнопок закрыть человек обязан сам. */
+/** A modal message without buttons must be closed by the user. */
 export const MESSAGE_DIALOG_CLOSE_LABEL = "OK";
 
 const SEVERITY_TITLES: Readonly<Record<NotificationSeverity, string>> = {
@@ -25,11 +25,11 @@ const SEVERITY_TITLES: Readonly<Record<NotificationSeverity, string>> = {
 };
 
 /**
- * Escape отдаёт кнопку `isCloseAffordance` (так в vscode.d.ts), а если такой
- * нет — закрывает без выбора; «OK» сообщения без кнопок тоже значит «без выбора».
+ * Escape picks the `isCloseAffordance` button (per vscode.d.ts), or closes without a choice
+ * when there is none; "OK" of a message without buttons also means "no choice".
  */
 export class MessageDialog extends DialogComponent {
-    /** Индекс в `notification.items`. */
+    /** Index into `notification.items`. */
     public onSelect?: (index: number) => void;
     public onClose?: () => void;
 
@@ -48,7 +48,7 @@ export class MessageDialog extends DialogComponent {
             stack.addChild(new TextLabelElement(line), { width: "stretch", height: 1 });
         }
         if (detailLines.length > 0) {
-            // Stryker disable next-line StringLiteral: спецификация ширины ряда — пустая строка даёт ту же раскладку, кадр не меняется
+            // Stryker disable next-line StringLiteral: row width spec — an empty string gives the same layout, the frame does not change
             stack.addChild(new TextLabelElement(""), { width: "stretch", height: 1 });
             for (const line of detailLines) {
                 const label = new TextLabelElement(line);
@@ -67,15 +67,15 @@ export class MessageDialog extends DialogComponent {
                 : [makeCloseButton(() => this.onClose?.())];
         this.buttons = buttons;
 
-        // По ФАКТИЧЕСКОЙ ширине окна, а не по предельной: у короткого сообщения
-        // отступ от предела увёл бы кнопки к правому краю.
+        // Use the ACTUAL window width, not the maximum: for a short message an offset
+        // computed from the maximum would push the buttons to the right edge.
         const innerWidth = Math.max(0, ...messageLines.map((line) => line.length), ...detailLines.map((l) => l.length));
-        // Stryker disable next-line StringLiteral: та же спецификация ширины ряда
+        // Stryker disable next-line StringLiteral: same row width spec
         stack.addChild(new TextLabelElement(""), { width: "stretch", height: 1 });
         stack.addChild(buildCenteredRow(buttons, innerWidth), { width: "stretch", height: 1 });
     }
 
-    /** Кнопка есть всегда: сообщению без кнопок конструктор даёт «OK». */
+    /** There is always a button: the constructor gives a message without buttons an "OK". */
     public focusDefault(): void {
         this.buttons[0].focus();
     }
@@ -101,8 +101,8 @@ function makeCloseButton(onActivate: () => void): ButtonElement {
 }
 
 /**
- * ФИКСИРОВАННЫЙ левый отступ и один правый спейсер: `HFlexElement` допускает
- * максимум один `fill`-ребёнок (два кидают на постройке окна).
+ * A FIXED left offset and a single right spacer: `HFlexElement` allows at most
+ * one `fill` child (two throw when the window is built).
  */
 export function buildCenteredRow(buttons: readonly ButtonElement[], innerWidth: number): HFlexElement {
     const gap = 2;

@@ -27,7 +27,7 @@ function notification(patch: Partial<IActiveNotification> = {}): IActiveNotifica
 
 const TOAST_WIDTH = TOAST_TEXT_WIDTH + 6;
 
-/** Обёртка ФИКСИРОВАННОЙ ширины, как в `NotificationsComponent`: иначе спейсер ряда кнопок растянул бы рамку на весь экран. */
+/** A FIXED-width wrapper, as in `NotificationsComponent`: otherwise the button row spacer would stretch the frame across the screen. */
 function mount(patch: Partial<IActiveNotification> = {}, keyLabel = "F6") {
     const toast = new NotificationToast(notification(patch), keyLabel);
     const holder = new SizedBoxElement(TOAST_WIDTH);
@@ -42,7 +42,7 @@ function screen(testApp: TestApp): string {
     return testApp.backend.screenToString();
 }
 
-/** Под tight-constraints тестового приложения ряд кнопок растянул бы рамку на весь экран. */
+/** Under the test app's tight constraints the button row would stretch the frame across the screen. */
 function renderToast(patch: Partial<IActiveNotification> = {}, keyLabel = "F6"): MockTerminalBackend {
     const toast = new NotificationToast(notification(patch), keyLabel);
     const holder = new SizedBoxElement(TOAST_WIDTH);
@@ -53,7 +53,7 @@ function renderToast(patch: Partial<IActiveNotification> = {}, keyLabel = "F6"):
     });
 }
 
-/** Значки codicon (приватная область Unicode) вырезаются: в текстовом сравнении они только мешают. */
+/** Codicon glyphs (Unicode private use area) are stripped: they only get in the way of text comparison. */
 function boxLines(backend: MockTerminalBackend): string[] {
     return backend
         .screenToString()
@@ -80,7 +80,7 @@ describe("toastLines", () => {
     });
 
     it("ровно предельное число строк сохраняется целиком, без многоточия", () => {
-        // Ровно TOAST_MAX_LINES строк — это ещё НЕ «слишком много».
+        // Exactly TOAST_MAX_LINES lines is NOT yet "too many".
         const exact = Array.from({ length: TOAST_MAX_LINES }, (_, i) => "x".repeat(40) + String(i)).join(" ");
         const lines = toastLines(exact);
         expect(lines).toHaveLength(TOAST_MAX_LINES);
@@ -101,11 +101,11 @@ describe("toastUnfocusedHint", () => {
 
 describe("NotificationToast — что видно на кадре", () => {
     it("рамка вопроса собрана ровно так: текст, пустая строка, кнопки справа, подсказка", () => {
-        // Ассерт на ВСЮ рамку: держит порядок строк, отступы и прижатие кнопок вправо.
+        // Assert the WHOLE frame: pins line order, padding and right-aligned buttons.
         const box = boxLines(renderToast({ severity: "warn", message: "Upload failed", items: ["Retry", "Cancel"] }));
         expect(box).toEqual([
             "╭──────────────────────────────────────────────────╮",
-            // Значок строгости — codicon из приватной области Unicode, в тексте «невидим».
+            // The severity icon is a codicon from the Unicode private use area, "invisible" in text.
             "│                     Warning                     │",
             "├──────────────────────────────────────────────────┤",
             "│  Upload failed                                   │",
@@ -257,7 +257,7 @@ describe("NotificationToast — ответ с клавиатуры", () => {
     });
 
     it("Tab идёт вперёд, Shift+Tab назад — видно на трёх кнопках", () => {
-        // На двух кнопках обе стороны кольца ведут в одну — направление различимо с трёх.
+        // With two buttons both wrap directions lead to the same one; direction is distinguishable from three.
         const forward = mount({ items: ["A", "B"] });
         forward.toast.focusDefault();
         forward.testApp.focusedElement?.dispatchEvent(new TUIKeyboardEvent("keydown", { key: "Tab" }));
@@ -270,7 +270,7 @@ describe("NotificationToast — ответ с клавиатуры", () => {
     });
 
     it("Tab не уводит фокус из тоста к соседям по дереву", () => {
-        // Сессия passthrough'ная: без перехвата Tab фокус ушёл бы к другому фокусируемому.
+        // The session is passthrough: without intercepting Tab, focus would go to another focusable.
         const toast = new NotificationToast(notification({ items: ["A", "B"] }), "F6");
         const outsider = new ButtonElement("outside");
         const stack = new VStackElement();
@@ -289,7 +289,7 @@ describe("NotificationToast — ответ с клавиатуры", () => {
     });
 
     it("тост без обработчиков не падает ни на Enter, ни на Escape, ни на Tab", () => {
-        // Клавиши доходят и до пассивного тоста (фокус привели командой и нажали Escape).
+        // Keys reach a passive toast too (focused via the command, then Escape).
         const { toast, testApp, buttons } = mount({ items: ["One"] });
         toast.focusDefault();
         expect(() => {
@@ -300,7 +300,7 @@ describe("NotificationToast — ответ с клавиатуры", () => {
         const passive = mount();
         expect(() => {
             passive.toast.view.dispatchEvent(new TUIKeyboardEvent("keydown", { key: "Tab" }));
-            // Обработчик кнопке закрытия ставит компонент, а виджет живёт и без него.
+            // The component sets the close button handler; the widget works without it too.
             passive.buttons[0].dispatchEvent(new TUIKeyboardEvent("keydown", { key: "Enter" }));
         }).not.toThrow();
     });

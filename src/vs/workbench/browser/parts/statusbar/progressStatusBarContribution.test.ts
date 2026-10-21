@@ -41,7 +41,7 @@ describe("ProgressStatusBarContribution", () => {
 
         vi.advanceTimersByTime(300);
         expect(texts()).toEqual(["⠋ Pushing…"]);
-        // По id запись переиспользуется, а не плодится на каждый кадр.
+        // The entry is reused by id instead of a new one being added every frame.
         expect(statusBar.entries().map((entry) => entry.id)).toEqual(["status.progress"]);
         vi.advanceTimersByTime(100);
         expect(texts()).toEqual(["⠙ Pushing…"]);

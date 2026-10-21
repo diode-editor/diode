@@ -1,8 +1,8 @@
 import type { IConfigurationNode } from "../../../platform/configuration/common/configurationRegistry.ts";
 
 /**
- * Дословно `task.contribution.ts` эталона; `markdownDescription` идёт в `description`.
- * Ключи без функции не зарегистрированы — docs/TODO/Tasks.md.
+ * Verbatim from upstream's `task.contribution.ts`; `markdownDescription` goes into `description`.
+ * Keys without an implementation are not registered — docs/TODO/Tasks.md.
  */
 export const tasksConfiguration = {
     id: "task",
@@ -16,7 +16,7 @@ export const tasksConfiguration = {
             description:
                 "Controls enablement of `provideTasks` for all task provider extension. If the Tasks: Run Task command is slow, disabling auto detect for task providers may help. Individual extensions may also provide settings that disable auto detection.",
         },
-        // `oneOf` эталона (булево для всех задач или массив типов) — списком типов значения.
+        // Upstream's `oneOf` (a boolean for all tasks or an array of types) becomes a list of value types.
         "task.slowProviderWarning": {
             scope: "window",
             type: ["boolean", "array"],

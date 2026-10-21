@@ -13,7 +13,7 @@ import { TerminalService, TerminalServiceDIToken } from "../../../contrib/termin
 
 const TOGGLE_TERMINAL = "workbench.action.terminal.toggleTerminal";
 
-/** #175: `TerminalViewElement` оставался `activeElement` после `Ctrl+J` — ввод уходил в невидимый шелл. */
+/** #175: `TerminalViewElement` stayed `activeElement` after `Ctrl+J`, so typing went into an invisible shell. */
 describe("PanelFocusContribution — фокус не остаётся на ушедшем со сцены содержимом панели", () => {
     let ws: ITempWorkspace;
     let h: IAppHarness;
@@ -34,17 +34,17 @@ describe("PanelFocusContribution — фокус не остаётся на уш�
 
     function activeSurface(): FakeTerminalSurface {
         const instance = terminal.getActiveInstance();
-        /* v8 ignore start -- тестовый хелпер: сценарий обязан открыть терминал до обращения к сессии */
+        /* v8 ignore start -- test helper: the scenario must open the terminal before accessing the session */
         if (instance === null) throw new Error("expected an open terminal");
         /* v8 ignore stop */
         return instance.session as unknown as FakeTerminalSurface;
     }
 
     it("после скрытия панели фокус возвращается в редактор, а не остаётся на терминале", () => {
-        h.commands.execute(TOGGLE_TERMINAL); // показать + сфокусировать
+        h.commands.execute(TOGGLE_TERMINAL); // show + focus
         expect(h.testApp.focusedElement).toBeInstanceOf(TerminalViewElement);
 
-        h.commands.execute(TOGGLE_TERMINAL); // спрятать
+        h.commands.execute(TOGGLE_TERMINAL); // hide
 
         expect(h.testApp.focusedElement).toBeInstanceOf(EditorElement);
         expect(contextKeys.get("terminalFocus")).toBe(false);
@@ -55,7 +55,7 @@ describe("PanelFocusContribution — фокус не остаётся на уш�
         const surface = activeSurface();
         surface.writes.length = 0;
 
-        h.commands.execute(TOGGLE_TERMINAL); // спрятать
+        h.commands.execute(TOGGLE_TERMINAL); // hide
         h.testApp.sendKey("x");
 
         expect(surface.writes).toEqual([]);
@@ -80,19 +80,19 @@ describe("PanelFocusContribution — фокус не остаётся на уш�
         h.commands.execute(TOGGLE_TERMINAL);
         expect(h.testApp.focusedElement).toBeInstanceOf(TerminalViewElement);
 
-        // Панель уже видима — команда лишь переключает вкладку.
+        // The panel is already visible; the command only switches the tab.
         h.commands.execute("workbench.actions.view.problems");
 
         expect(h.testApp.focusedElement).not.toBeInstanceOf(TerminalViewElement);
     });
 
     it("фокус в редакторе скрытие панели не трогает", () => {
-        h.commands.execute(TOGGLE_TERMINAL); // показать панель с терминалом
+        h.commands.execute(TOGGLE_TERMINAL); // show the panel with the terminal
         h.workbench.focusEditor();
         const focused = h.testApp.focusedElement;
         expect(focused).toBeInstanceOf(EditorElement);
 
-        h.commands.execute(TOGGLE_TERMINAL); // спрятать
+        h.commands.execute(TOGGLE_TERMINAL); // hide
 
         expect(h.testApp.focusedElement).toBe(focused);
     });

@@ -10,7 +10,7 @@ function makePicker(items: QuickPickItem[] = []): QuickPickElement {
     const picker = new QuickPickElement();
     picker.preferredWidth = 30;
     picker.items = items;
-    // Без раскладки у навигации нет геометрии, к которой прокручивать.
+    // Without a layout pass, navigation has no geometry to scroll to.
     picker.layout(BoxConstraints.tight(new Size(30, picker.getMinIntrinsicHeight(30))));
     return picker;
 }
@@ -137,8 +137,8 @@ describe("QuickPickElement — onActiveItemChanged", () => {
         expect(onActive).toHaveBeenCalledWith(expect.objectContaining({ label: "file-2.ts" }), 1);
     });
 
-    // Контракт, на который опирается QuickInputService: программное
-    // перепозиционирование он компенсирует своим notifyActive().
+    // QuickInputService relies on this contract: it covers programmatic repositioning
+    // with its own notifyActive().
     it("молчит на items=, refreshItems и setActiveIndex", () => {
         const picker = makePicker(makeItems(3));
         const onActive = vi.fn();

@@ -6,9 +6,9 @@ import type { PaneCompositePartComponent } from "./paneCompositePartComponent.ts
 import type { PaneCompositePartService } from "./paneCompositePartService.ts";
 
 /**
- * Скрытая часть оставляет `activeElement` на hidden-виджете, и тот продолжает
- * получать клавиатуру — ввод уходил в невидимый шелл. Как VS Code
- * (`focusPanelOrEditor`), отдаём фокус редактору, а без редакторов — снимаем.
+ * A hidden part leaves `activeElement` on the hidden widget, which keeps receiving
+ * keyboard input — typing went into an invisible shell. Like VS Code
+ * (`focusPanelOrEditor`), move focus to the editor, or clear it when no editors are open.
  */
 export class PaneCompositeFocusContribution extends Disposable implements IWorkbenchContribution {
     protected constructor(
@@ -36,7 +36,7 @@ export class PaneCompositeFocusContribution extends Disposable implements IWorkb
         if (active === null) return;
         if (!active.getAncestorPath().includes(this.partComponent.view)) return;
         this.editorService.focusEditor();
-        // Клавиатура уйдёт диспатчеру команд на body.
+        // Keys go to the command dispatcher on body.
         if (focusManager.activeElement === active) focusManager.setFocus(null);
     }
 }

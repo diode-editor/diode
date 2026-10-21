@@ -5,14 +5,14 @@ import { EditorServiceDIToken } from "../../../services/editor/common/editorServ
 import { QuickInputServiceDIToken } from "../quickinput/quickInputService.ts";
 
 /**
- * `when: "!editorReadonly"` у команд ниже — лишь декларация: клик по сегменту
- * статус-бара зовёт команду напрямую мимо `when`, поэтому read-only проверяем здесь —
- * иначе пикер в read-only открывался бы и молча ничего не делал.
+ * `when: "!editorReadonly"` on the commands below is only declarative: a click on the status bar
+ * segment runs the command directly, bypassing `when`, so read-only is checked here; otherwise
+ * the picker would open in a read-only editor and silently do nothing.
  */
 function setActiveEditorEol(accessor: Parameters<CommandAction["run"]>[0], eol: EndOfLine): void {
     const editor = accessor.get(EditorServiceDIToken).getActiveEditor();
     if (editor === null || editor.readOnly) return;
-    // Сегмент статус-бара подписан на onDidChangeEol и обновится сам.
+    // The status bar segment listens to onDidChangeEol and updates itself.
     editor.setEol(eol);
 }
 

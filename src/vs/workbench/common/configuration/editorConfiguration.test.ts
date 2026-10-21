@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { editorConfiguration } from "./editorConfiguration.ts";
 
-// Дефолты onSave обязаны быть выключены (#196): с ними сохранение не меняется ни на байт.
+// onSave defaults must be off (#196): with them a save leaves the file byte-for-byte unchanged.
 
 describe("editorConfiguration — emptySelectionClipboard", () => {
     it("boolean, включён по умолчанию — как в VS Code", () => {
@@ -25,7 +25,7 @@ describe("editorConfiguration — призрачные подсказки", () =
         const schema = editorConfiguration.properties["editor.inlineSuggest.delay"];
         expect(schema.type).toBe("number");
         expect(schema.default).toBe(50);
-        // Обе половины склейки описания — их видит автодополнение settings.json.
+        // Both halves of the concatenated description: settings.json completion shows them.
         expect(schema.description).toContain("before automatically requesting an inline suggestion");
         expect(schema.description).toContain("slow or metered provider");
     });
@@ -78,7 +78,7 @@ describe("editorConfiguration — onSave-настройки", () => {
         const schema = editorConfiguration.properties["editor.codeActionsOnSave"];
         expect(schema.type).toEqual(["object", "array"]);
         expect(schema.default).toEqual({});
-        // По одной фразе из каждой половины склейки.
+        // One phrase from each half of the concatenation.
         expect(schema.description).toContain("run on save");
         expect(schema.description).toContain("hierarchically");
     });

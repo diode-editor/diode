@@ -17,9 +17,9 @@ import type { UndoRedoService } from "../../../platform/undoRedo/common/undoRedo
 let nextUndoContextId = 1;
 
 /**
- * Правки модели идут через view-state действующей вью — там живут выделения и
- * inverse-edits для undo. Целей несколько (документ в нескольких группах):
- * действующую передаёт вызывающий, `markDirty` вещается всем.
+ * Model edits go through the acting view's view state, which holds selections and the
+ * inverse edits for undo. There can be several targets (a document in several groups):
+ * the caller passes the acting one, and `markDirty` is broadcast to all.
  */
 export interface ITextEditTarget {
     cloneSelections(): ISelection[];
@@ -33,13 +33,13 @@ export interface ITextEditTarget {
 
 export abstract class BaseTextEditorModel extends Disposable {
     /**
-     * Один на всю жизнь модели: перечитка меняет текст в нём ({@link replaceText}),
-     * а не подменяет объект — view, токены и расширения видят её обычной правкой.
+     * One for the model's whole lifetime: a reload replaces the text inside it ({@link replaceText})
+     * instead of swapping the object, so views, tokens and extensions see it as a regular edit.
      */
     protected readonly doc: TextDocument;
     /**
-     * Ретрансляция событий документа ждёт, пока {@link replaceText} согласует
-     * «сохранённую» версию, — иначе подписчик увидел бы свежий текст несохранённым.
+     * Relaying document events waits until {@link replaceText} reconciles the
+     * "saved" version; otherwise a subscriber would see the fresh text as unsaved.
      */
     private replacingText = false;
     private readonly onDidChangeLanguageEmitter = this.register(new Emitter<IDocumentLanguageChange>());
@@ -50,32 +50,32 @@ export abstract class BaseTextEditorModel extends Disposable {
     protected savedEol: EndOfLine;
     protected readonly languageService: ILanguageService;
     private readonly undoRedoService: UndoRedoService;
-    /** Первая — цель по умолчанию для программных путей без действующей вью (save-участник). */
+    /** The first one is the default target for programmatic paths with no acting view (a save participant). */
     private editTargets: ITextEditTarget[] = [];
-    /** История одна на документ, сколько бы вью его ни показывало. */
+    /** One history per document, however many views show it. */
     private readonly undoManagerValue: UndoManager;
     /**
-     * Живёт только на синхронное окно вызова: обёртка-элемент в `UndoRedoService`
-     * исполняется до первого await внутри `undo(context)`.
+     * Lives only for the synchronous window of the call: the wrapper element in `UndoRedoService`
+     * runs before the first await inside `undo(context)`.
      */
     private actingView: IUndoViewBinding | null = null;
-    /** Не `null` — шаги забирает вызывающий {@link applyExternalEditsDetached}, а не общий бакет. */
+    /** When not `null`, steps go to the caller of {@link applyExternalEditsDetached} instead of the shared bucket. */
     private detachedUndoSteps: IUndoRedoElement[] | null = null;
 
     /**
-     * Намеренно НЕ путь и НЕ uri: на пути все безымянные буферы сходились в общий
-     * бакет `"untitled"`, а `saveAs` осиротлял накопленную историю. Модель одна на
-     * документ, поэтому сплит-вью делят историю через неё.
+     * Deliberately NOT a path or uri: with paths, all untitled buffers collapsed into one shared
+     * `"untitled"` bucket, and `saveAs` orphaned the accumulated history. There is one model per
+     * document, so split views share history through it.
      */
-    // Уникальность держится и при счёте вниз (0, -1, …) — мутант ненаблюдаем.
-    // Stryker disable next-line UpdateOperator: эквивалентен — см. выше
+    // Ids stay unique when counting down too (0, -1, …), so the mutant is unobservable.
+    // Stryker disable next-line UpdateOperator: equivalent, see above
     public readonly undoContext = `editor-${nextUndoContextId++}`;
 
     public readonly onDidChangeContent = this.onDidChangeContentEmitter.event;
 
     public readonly onDidChangeLanguage = this.onDidChangeLanguageEmitter.event;
 
-    /** Любым путём: командой, undo/redo, перечиткой с другим EOL. */
+    /** Fires on any path: a command, undo/redo, a reload with a different EOL. */
     public readonly onDidChangeEol = this.onDidChangeEolEmitter.event;
 
     protected constructor(languageService: ILanguageService, undoRedoService: UndoRedoService, uri: Uri) {
@@ -125,7 +125,7 @@ export abstract class BaseTextEditorModel extends Disposable {
         return this.doc.getText();
     }
 
-    /** Disposable снимает цель, когда вью закрывается раньше модели (сплиты). */
+    /** The disposable detaches the target when the view closes before the model (splits). */
     public attachEditTarget(target: ITextEditTarget): IDisposable {
         this.editTargets.push(target);
         return {
@@ -144,20 +144,20 @@ export abstract class BaseTextEditorModel extends Disposable {
         for (const target of [...this.editTargets]) target.markDirty();
     }
 
-    /** `IUndoRedoElement.resources`: у буфера без файла на диске — пусто. */
+    /** `IUndoRedoElement.resources`: empty for a buffer with no file on disk. */
     protected get undoResources(): string[] {
         return [];
     }
 
     /**
-     * Каждый шаг регистрирует обёртку-токен порядка в `UndoRedoService`; её undo/redo
-     * делегируют в {@link UndoManager} (LIFO 1:1, поэтому стеки идут в ногу).
+     * Each step registers an ordering token wrapper in `UndoRedoService`; its undo/redo
+     * delegate to {@link UndoManager} (LIFO 1:1, so the stacks stay in step).
      */
     private createUndoManager(): UndoManager {
         const undoManager = new UndoManager(this.doc);
         undoManager.onDidPush = (element) => {
             const wrapper = this.wrapUndoStep(element.label);
-            // Иначе на один workspace edit пришлось бы столько Ctrl+Z, сколько документов он тронул.
+            // Otherwise one workspace edit would take as many Ctrl+Z presses as documents it touched.
             if (this.detachedUndoSteps !== null) {
                 this.detachedUndoSteps.push(wrapper);
                 return;
@@ -172,7 +172,7 @@ export abstract class BaseTextEditorModel extends Disposable {
         this.undoManagerValue.clear();
     }
 
-    /** Шаги нескольких документов, тронувшие файл до открытия буфера, встают и в его историю. */
+    /** Multi-document steps that touched the file before its buffer was opened also go into its history. */
     protected adoptWorkspaceUndo(resource: string, label: string): void {
         this.undoRedoService.adopt(this.undoContext, resource, label);
     }
@@ -183,8 +183,8 @@ export abstract class BaseTextEditorModel extends Disposable {
     }
 
     /**
-     * Буфер после этого без истории и чистый, кроме `unsaved` — текст не с диска
-     * (правки, переехавшие за перенесённым файлом): «сохранённой» остаётся прежняя версия.
+     * Afterwards the buffer has no history and is clean, except with `unsaved` — text not from disk
+     * (edits that followed a moved file): the previous version stays the "saved" one.
      */
     protected replaceText(text: TextSource, { unsaved = false }: { unsaved?: boolean } = {}): void {
         const eolBefore = this.doc.eol;
@@ -201,8 +201,8 @@ export abstract class BaseTextEditorModel extends Disposable {
     }
 
     /**
-     * Токен шага отвечает на «снимется ли ИМЕННО мой шаг» ({@link IUndoRedoElement.canUndo});
-     * при откате/повторе запись переезжает в другой стек новым объектом — токен перечитывается.
+     * The step token answers "will MY step be the one undone" ({@link IUndoRedoElement.canUndo});
+     * on undo/redo the entry moves to the other stack as a new object, so the token re-reads it.
      */
     private wrapUndoStep(label: string): IUndoRedoElement {
         let undoToken = this.undoManagerValue.peekUndoStep();
@@ -225,7 +225,7 @@ export abstract class BaseTextEditorModel extends Disposable {
         };
     }
 
-    /** EOL — отдельная от контента ось «изменён» ({@link isModified}). */
+    /** EOL is a "modified" axis separate from content ({@link isModified}). */
     public setEol(eol: EndOfLine, target?: ITextEditTarget): void {
         const previous = this.doc.eol;
         if (previous === eol) return;
@@ -238,9 +238,9 @@ export abstract class BaseTextEditorModel extends Disposable {
             label: "Change End of Line Sequence",
             versionBefore: version,
             versionAfter: version,
-            // Текст шаг не трогает: undo/redo гоняют backwardEdits, а forwardEdits
-            // шага EOL не исполняются никогда — мутант массива ненаблюдаем.
-            // Stryker disable next-line ArrayDeclaration: эквивалентен — см. выше
+            // The step doesn't touch text: undo/redo run backwardEdits, and an EOL step's
+            // forwardEdits never run, so the array mutant is unobservable.
+            // Stryker disable next-line ArrayDeclaration: equivalent, see above
             forwardEdits: [],
             backwardEdits: [],
             beforeSelections: selections,
@@ -252,8 +252,8 @@ export abstract class BaseTextEditorModel extends Disposable {
     }
 
     /**
-     * Один undo-шаг. Выделения точно пересчитывает только `target`; остальные вью
-     * ремапятся по событию документа. Без `computeCursorState` выделения сдвигаются за правками.
+     * One undo step. Only `target` recomputes selections exactly; other views remap on
+     * the document event. Without `computeCursorState` selections shift along with the edits.
      */
     public applyExternalEdits(
         edits: readonly ITextEdit[],
@@ -269,10 +269,10 @@ export abstract class BaseTextEditorModel extends Disposable {
     }
 
     /**
-     * Шаг не идёт в общий `UndoRedoService`: bulk edit собирает один шаг на весь
-     * `workspace.applyEdit`. В {@link UndoManager} документа он ложится как обычно —
-     * иначе version-гейт отбросил бы историю документа как устаревшую.
-     * `null` — применять нечего (нет вью либо правки ничего не изменили).
+     * The step doesn't go into the shared `UndoRedoService`: bulk edit makes one step for the whole
+     * `workspace.applyEdit`. It still lands in the document's {@link UndoManager} as usual;
+     * otherwise the version gate would discard the document history as stale.
+     * `null` means nothing to apply (no view, or the edits changed nothing).
      */
     public applyExternalEditsDetached(
         edits: readonly ITextEdit[],
@@ -293,7 +293,7 @@ export abstract class BaseTextEditorModel extends Disposable {
         return captured.at(0) ?? null;
     }
 
-    /** `view` — куда восстановить снимок выделений. */
+    /** `view` is where to restore the selection snapshot. */
     public undo(view?: IUndoViewBinding): void {
         this.actingView = view ?? null;
         try {
@@ -313,8 +313,8 @@ export abstract class BaseTextEditorModel extends Disposable {
     }
 
     /**
-     * Фичи языка поднимаются на каждой модели (как `requestRichLanguageFeatures`
-     * vscode): расширение с `onLanguage:<id>` встаёт не только для активного редактора.
+     * Language features start for every model (like vscode's `requestRichLanguageFeatures`):
+     * an extension with `onLanguage:<id>` activates not only for the active editor.
      */
     private bindDocumentListeners(): void {
         this.languageService.requestLanguageFeatures(this.doc.languageId);

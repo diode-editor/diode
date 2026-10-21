@@ -21,15 +21,15 @@ export interface IEditorTitleActionsServices {
 }
 
 /**
- * `editor/title` эталона (`EditorTabsControl` + `editorActionsToolbar`). Пере-резолвится
- * по смене контекст-ключей: `when` пунктов меняется без событий группы. `hidden` и
- * `titleBar` — панели нет (заголовка окна у нас нет).
+ * Upstream `editor/title` (`EditorTabsControl` + `editorActionsToolbar`). Re-resolves on context
+ * key changes, since item `when` clauses change without group events. With `hidden` and
+ * `titleBar` there is no bar (we have no window title bar).
  */
 export class EditorTitleActions extends Disposable {
     public readonly element: ViewContainerHeaderElement;
 
     private readonly onDidChangeVisibilityEmitter = this.register(new Emitter<void>());
-    // Stryker disable next-line BooleanLiteral: начальное значение перезаписывает первый refresh конструктора — до подписки владельца, событие никто не слышит
+    // Stryker disable next-line BooleanLiteral: the constructor's first refresh overwrites the initial value before the owner subscribes, so nobody hears the event
     private visible = false;
 
     public constructor(
@@ -39,7 +39,7 @@ export class EditorTitleActions extends Disposable {
         super();
         this.element = new ViewContainerHeaderElement("");
         this.element.id = `editorTitleActions-${String(groupId)}`;
-        // Кнопки — мышью и командами; Tab по ним не ходит (у вкладок фокуса тоже нет).
+        // Buttons are for the mouse and commands; Tab skips them (tabs aren't focusable either).
         this.element.focusable = false;
         this.element.style = { fg: "descriptionForeground", bg: "editorGroupHeader.tabsBackground" };
         this.element.onAction = (actionId) => {
@@ -89,7 +89,7 @@ export class EditorTitleActions extends Disposable {
         this.element.setActions(actions);
         this.element.setMenuVisible(hasMenu);
         const visible = actions.length > 0 || hasMenu;
-        // Stryker disable next-line ConditionalExpression: лишнее событие — лишняя перекладка того же ряда вкладок, видимого следа нет
+        // Stryker disable next-line ConditionalExpression: an extra event only re-lays out the same tab row, with no visible effect
         if (visible === this.visible) return;
         this.visible = visible;
         this.onDidChangeVisibilityEmitter.fire();

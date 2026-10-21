@@ -5,15 +5,15 @@ import type { TUIElement } from "@tuidom/core/dom/tuiElement";
 import { Disposable } from "../../../../base/common/lifecycle.ts";
 
 /**
- * Upstream `ContentWidgetPositionPreference`, сведённый к двум случаям.
- * `aboveElseBelow` — parameter hints: так они не ложатся на попап автодополнения.
+ * Upstream `ContentWidgetPositionPreference`, reduced to two cases.
+ * `aboveElseBelow` is for parameter hints, so they don't cover the completion popup.
  */
 export type CaretOverlayPlacement = "below" | "aboveElseBelow";
 
 /**
- * Аналог upstream `IContentWidget`. Попап фокус не забирает — набор идёт в редактор;
- * команды попапа не focus-scoped, поэтому `capturesKeyboard: false` — иначе
- * диспатчер заглушил бы их.
+ * Counterpart of upstream `IContentWidget`. The popup does not take focus, so typing goes to the editor;
+ * its commands are not focus-scoped, hence `capturesKeyboard: false` — otherwise the dispatcher
+ * would swallow them.
  */
 export class CaretAnchoredOverlay extends Disposable {
     private readonly session: OverlaySessionHandle;
@@ -25,10 +25,10 @@ export class CaretAnchoredOverlay extends Disposable {
         super();
         this.session = host.overlayLayer.createSession(element, new Point(0, 0), {
             visible: false,
-            // Stryker disable next-line BooleanLiteral: попап фокус не забирает, поэтому возвращать его слою некому — флаг стоит ради контракта сессии
+            // Stryker disable next-line BooleanLiteral: the popup never takes focus, so there is nothing for the layer to restore; the flag is kept for the session contract
             restoreFocus: true,
             capturesKeyboard: false,
-            // Stryker disable next-line StringLiteral: клик мимо попапа и так закрывает его раньше — переносом каретки или сменой фокуса; политика стоит ради обратного контракта (клик ПО попапу его не закрывает)
+            // Stryker disable next-line StringLiteral: a click outside the popup already closes it earlier, by moving the cursor or the focus; the policy is kept for the reverse contract (a click ON the popup does not close it)
             pointerPolicy: "close-on-outside",
         });
         this.register({
@@ -43,8 +43,8 @@ export class CaretAnchoredOverlay extends Disposable {
     }
 
     /**
-     * Анкорить на КАЖДОМ показе, даже открытом: слой запоминает геометрию при анкоре,
-     * и более широкий контент без пере-анкора остался бы «в дереве, но не на кадре».
+     * Re-anchors on EVERY show, even when already open: the layer captures geometry when anchoring,
+     * so wider content without a re-anchor would end up "in the tree but not in the frame".
      */
     public openAt(anchor: OverlayAnchorPosition, placement: CaretOverlayPlacement = "below"): void {
         this.setAnchor(anchor, placement);
@@ -52,9 +52,9 @@ export class CaretAnchoredOverlay extends Disposable {
     }
 
     /**
-     * `aboveElseBelow`: `preferBelow: false` лишь снимает сдвиг вниз, и попап накрыл бы
-     * каретку — поднимает его `offsetY` на свою высоту. Сверху места нет — падаем на низ,
-     * иначе слой прижал бы попап к нулевой строке поверх каретки.
+     * `aboveElseBelow`: `preferBelow: false` only drops the downward shift, so the popup would cover
+     * the cursor; `offsetY` lifts it by its own height. With no room above, falls back to below,
+     * otherwise the layer would clamp the popup to row 0 on top of the cursor.
      */
     public setAnchor(anchor: OverlayAnchorPosition, placement: CaretOverlayPlacement = "below"): void {
         switch (placement) {
@@ -72,7 +72,7 @@ export class CaretAnchoredOverlay extends Disposable {
         }
     }
 
-    /** No-op, если уже закрыта (это гарантирует сам слой). */
+    /** No-op when already closed (guaranteed by the layer itself). */
     public close(): void {
         this.session.close();
     }
