@@ -18,8 +18,8 @@ const REQUEST: IDefinitionRequest = {
 };
 const target = (line: number) => ({ uri: "file:///w/defs.ts", range: createRange(line, 0, line, 1) });
 
-describe("getDefinitions — агрегация по реестру", () => {
-    it("склеивает ответы в порядке реестра; сбойный провайдер — «целей нет»", async () => {
+describe("getDefinitions — aggregation over the registry", () => {
+    it("concatenates responses in registry order; a failing provider means 'no targets'", async () => {
         const registry = new LanguageFeaturesService().definitionProvider;
         registry.register("*", { provideDefinition: () => Promise.resolve([target(2)]) });
         registry.register("*", { provideDefinition: () => Promise.reject(new Error("boom")) });
@@ -31,7 +31,7 @@ describe("getDefinitions — агрегация по реестру", () => {
         ]);
     });
 
-    it("каждый провайдер получает токен запроса", async () => {
+    it("each provider gets the request token", async () => {
         const registry = new LanguageFeaturesService().definitionProvider;
         const seen: ICancellationToken[] = [];
         const provider = {

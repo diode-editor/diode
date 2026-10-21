@@ -276,7 +276,7 @@ function makeConfiguration(settings: TestSettings): IConfigurationService {
 
 function setSetting(service: CompletionService, key: string, value: unknown): void {
     const settings = settingsOf.get(service);
-    if (settings === undefined) throw new Error("сервис создан мимо createService");
+    if (settings === undefined) throw new Error("service created bypassing createService");
     settings[key] = value;
 }
 
@@ -352,7 +352,7 @@ const ITEMS: ICoreCompletionItem[] = [
 ];
 
 describe("CompletionService", () => {
-    it("нет источника и пустой документ → trigger no-op (попап скрыт)", async () => {
+    it("no source and an empty document → trigger is a no-op (popup hidden)", async () => {
         const fake = makeEditor("", 0);
         const { service, component, body } = createService(makeGroup(fake.editor, undefined));
         TestApp.create(body, new Size(80, 24));
@@ -360,13 +360,13 @@ describe("CompletionService", () => {
         expect(body.overlayLayer.hasVisibleItems()).toBe(false);
     });
 
-    it("пустой ответ провайдеров → попап не открывается", async () => {
+    it("an empty provider response → the popup does not open", async () => {
         const { service, body } = setup([]);
         await service.trigger();
         expect(body.overlayLayer.hasVisibleItems()).toBe(false);
     });
 
-    it("открывает попап и фильтрует по префиксу под курсором, не забирая фокус", async () => {
+    it("opens the popup and filters by the prefix at the cursor without taking focus", async () => {
         const { service, component, body } = setup(ITEMS);
         await service.trigger();
         expect(body.overlayLayer.hasVisibleItems()).toBe(true);
@@ -375,7 +375,7 @@ describe("CompletionService", () => {
         expect(component.view.items.map((i) => i.label)).toEqual(["indent_style", "indent_size"]);
     });
 
-    it("префикс — слово под кареткой, а не вся строка до неё", async () => {
+    it("the prefix is the word at the cursor, not the whole line before it", async () => {
         const { service, component, fake } = setup(ITEMS, "x = ind", 7);
         await service.trigger();
         // A filter over the whole line `x = ind` would find nothing and fall back to the full list with `root`.
@@ -386,7 +386,7 @@ describe("CompletionService", () => {
         expect(edits[0].range).toEqual({ start: { line: 0, character: 4 }, end: { line: 0, character: 7 } });
     });
 
-    it("onDidClose фаерится на закрытии ОТКРЫТОГО попапа и молчит на холостых close", async () => {
+    it("onDidClose fires when an OPEN popup closes and stays silent on idle close calls", async () => {
         const { service } = setup(ITEMS);
         const closed = vi.fn();
         const subscription = service.onDidClose(closed);
@@ -413,7 +413,7 @@ describe("CompletionService", () => {
         expect(other).toHaveBeenCalledTimes(1);
     });
 
-    it("передаёт корректный запрос источнику: версия документа вместо текста", async () => {
+    it("passes a correct request to the source: the document version instead of the text", async () => {
         const { service, source, fake } = setup(ITEMS);
         fake.type("ind", 3); // version 2: the request takes the current one, not the initial one
         service.close();
@@ -432,7 +432,7 @@ describe("CompletionService", () => {
         );
     });
 
-    describe("панель описания", () => {
+    describe("details pane", () => {
         const RESOLVABLE: ICoreCompletionItem[] = [
             { label: "indent_style", insertText: "indent_style", id: "1.0", kind: 9 },
             { label: "indent_size", insertText: "indent_size", id: "1.1", kind: 9 },
@@ -454,7 +454,7 @@ describe("CompletionService", () => {
             return { ...created, fake, body };
         }
 
-        it("по умолчанию скрыта и описание не запрашивается", async () => {
+        it("hidden by default and details are not requested", async () => {
             const resolver = vi.fn(() => Promise.resolve({ detail: "(property) indent_style" }));
             const { service, component } = setupWithResolver(resolver);
 
@@ -465,7 +465,7 @@ describe("CompletionService", () => {
             expect(component.widget.showsDetails).toBe(false);
         });
 
-        it("тумблер разворачивает панель и догружает описание выбранного пункта", async () => {
+        it("the toggle expands the pane and loads details of the selected item", async () => {
             const resolver = vi.fn(() => Promise.resolve({ detail: "(property) indent_style" }));
             const { service, component } = setupWithResolver(resolver);
 
@@ -479,7 +479,7 @@ describe("CompletionService", () => {
             expect(component.details.linesFor(40).join(" ")).toContain("(property) indent_style");
         });
 
-        it("переход по списку показывает описание нового пункта", async () => {
+        it("moving through the list shows details of the new item", async () => {
             const resolver = vi.fn((id: string) => Promise.resolve({ detail: `detail for ${id}` }));
             const { service, component } = setupWithResolver(resolver);
 
@@ -493,7 +493,7 @@ describe("CompletionService", () => {
             expect(component.details.linesFor(40).join(" ")).toContain("detail for 1.1");
         });
 
-        it("состояние тумблера переживает пересоздание сервиса", async () => {
+        it("the toggle state survives service re-creation", async () => {
             const state = makeStateService();
             const first = setupWithResolver(
                 vi.fn(() => Promise.resolve(null)),
@@ -510,7 +510,7 @@ describe("CompletionService", () => {
             expect(second.component.detailsVisible).toBe(true);
         });
 
-        it("у края экрана панель уезжает влево от списка", async () => {
+        it("at the screen edge the pane moves to the left of the list", async () => {
             const fake = makeEditor("ind", 3, "ind");
             const group = makeGroup(
                 fake.editor,
@@ -529,7 +529,7 @@ describe("CompletionService", () => {
             expect(component.widget.detailsSide).toBe("left");
         });
 
-        it("при нулевой ширине корня сторона панели не пересчитывается", () => {
+        it("with zero root width the pane side is not recomputed", () => {
             const fake = makeEditor("ind", 3, "ind");
             const { component, body } = createService(makeGroup(fake.editor, undefined));
             // The root is laid out with width 0: "doesn't fit on the right" would be true
@@ -539,7 +539,7 @@ describe("CompletionService", () => {
             expect(component.widget.detailsSide).toBe("right");
         });
 
-        it("пустой выбор очищает панель", async () => {
+        it("an empty selection clears the pane", async () => {
             const { service, component } = setupWithResolver(() => Promise.resolve({ detail: "d" }));
             await service.trigger();
             service.toggleDetails();
@@ -550,7 +550,7 @@ describe("CompletionService", () => {
             expect(component.details.isEmpty).toBe(true);
         });
 
-        it("повторный переход на пункт берёт описание из кэша, параллельные запросы склеиваются", async () => {
+        it("revisiting an item takes details from the cache, parallel requests are merged", async () => {
             const resolver = vi.fn(() => Promise.resolve({ detail: "cached" }));
             const { service, component } = setupWithResolver(resolver);
 
@@ -565,7 +565,7 @@ describe("CompletionService", () => {
             expect(resolver).toHaveBeenCalledTimes(2);
         });
 
-        it("источник без резолвера панель не ломает", async () => {
+        it("a source without a resolver does not break the pane", async () => {
             const fake = makeEditor("ind", 3, "ind");
             const group = makeGroup(
                 fake.editor,
@@ -581,7 +581,7 @@ describe("CompletionService", () => {
             expect(component.widget.showsDetails).toBe(false);
         });
 
-        it("сигнатура из labelDetail показывается, пустая документация игнорируется", async () => {
+        it("the signature from labelDetail is shown, empty documentation is ignored", async () => {
             const fake = makeEditor("ind", 3, "ind");
             const items: ICoreCompletionItem[] = [
                 { label: "indent_style", insertText: "indent_style", labelDetail: "(property)", documentation: "" },
@@ -602,7 +602,7 @@ describe("CompletionService", () => {
             expect(component.details.linesFor(40).join(" ")).not.toContain("undefined");
         });
 
-        it("accept с уже догруженным описанием берёт правки из кэша, без повторного resolve", async () => {
+        it("accept with already loaded details takes edits from the cache, without another resolve", async () => {
             const resolver = vi.fn(() =>
                 Promise.resolve({
                     detail: "(property) indent_style",
@@ -630,7 +630,7 @@ describe("CompletionService", () => {
             expect(component.detailsVisible).toBe(true);
         });
 
-        it("резолвер вернул null — в кэш ничего не кладём и панель пуста", async () => {
+        it("the resolver returned null — nothing is cached and the pane is empty", async () => {
             const resolver = vi.fn(() => Promise.resolve(null));
             const { service, component } = setupWithResolver(resolver);
 
@@ -646,7 +646,7 @@ describe("CompletionService", () => {
             expect(component.details.isEmpty).toBe(true);
         });
 
-        it("сбойный резолвер не роняет попап", async () => {
+        it("a failing resolver does not crash the popup", async () => {
             const { service, component } = setupWithResolver(() => Promise.reject(new Error("boom")));
 
             await service.trigger();
@@ -657,7 +657,7 @@ describe("CompletionService", () => {
             expect(component.details.isEmpty).toBe(true);
         });
 
-        it("ушли на другой пункт, пока грузилось описание — старое не показываем", async () => {
+        it("moved to another item while details were loading — the stale details are not shown", async () => {
             let release: ((value: { detail: string }) => void) | null = null;
             const resolver = vi.fn((id: string) =>
                 id === "1.0"
@@ -681,14 +681,14 @@ describe("CompletionService", () => {
             expect(component.details.linesFor(40).join(" ")).toContain("detail for 1.1");
         });
 
-        it("документация из самого пункта показывается без резолвера", async () => {
+        it("documentation from the item itself is shown without a resolver", async () => {
             const fake = makeEditor("ind", 3, "ind");
             const items: ICoreCompletionItem[] = [
                 {
                     label: "indent_style",
                     insertText: "indent_style",
                     detail: "EditorConfig",
-                    documentation: "Отступы: tab или space.",
+                    documentation: "Indentation: tab or space.",
                 },
             ];
             const { service, component, body } = createService(
@@ -704,10 +704,10 @@ describe("CompletionService", () => {
 
             const text = component.details.linesFor(40).join(" ");
             expect(text).toContain("EditorConfig");
-            expect(text).toContain("Отступы");
+            expect(text).toContain("Indentation");
         });
 
-        it("нет описания — панель не показывается даже при включённом тумблере", async () => {
+        it("no details — the pane is not shown even with the toggle on", async () => {
             const { service, component } = setupWithResolver(vi.fn(() => Promise.resolve(null)));
 
             await service.trigger();
@@ -719,7 +719,7 @@ describe("CompletionService", () => {
         });
     });
 
-    describe("вставка с правками-спутниками (авто-импорт)", () => {
+    describe("insertion with additional edits (auto-import)", () => {
         const IMPORTABLE: ICoreCompletionItem[] = [{ label: "greet", insertText: "greet", id: "1.0", kind: 2 }];
         const IMPORT_EDIT: ITextEdit = {
             range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } },
@@ -744,7 +744,7 @@ describe("CompletionService", () => {
             return { service, fake };
         }
 
-        it("accept ждёт resolve и применяет импорт одной транзакцией со вставкой", async () => {
+        it("accept waits for resolve and applies the import in one transaction with the insertion", async () => {
             const { service, fake } = setupImportable(() =>
                 Promise.resolve({ detail: "greet", additionalEdits: [IMPORT_EDIT] }),
             );
@@ -761,7 +761,7 @@ describe("CompletionService", () => {
             expect(edits[1].text).toContain("import { greet }");
         });
 
-        it("провайдер без resolve — вставка сразу, без ожидания", async () => {
+        it("a provider without resolve — inserts right away, without waiting", async () => {
             const { service, fake } = setupImportable(undefined);
 
             await service.trigger();
@@ -772,7 +772,7 @@ describe("CompletionService", () => {
             expect(edits[0].text).toBe("greet");
         });
 
-        it("пункт без id resolve не зовёт ни на выборе, ни на вставке", async () => {
+        it("an item without an id calls resolve neither on selection nor on insertion", async () => {
             const resolver = vi.fn(() => Promise.resolve({ detail: "greet", additionalEdits: [IMPORT_EDIT] }));
             const { service, fake } = setupImportable(resolver, [{ label: "greet", insertText: "greet", kind: 2 }]);
 
@@ -787,7 +787,7 @@ describe("CompletionService", () => {
             expect(edits).toHaveLength(1);
         });
 
-        it("молчащий resolve не блокирует вставку", async () => {
+        it("a silent resolve does not block insertion", async () => {
             const { service, fake } = setupImportable(() => new Promise(() => {}));
 
             await service.trigger();
@@ -800,7 +800,7 @@ describe("CompletionService", () => {
         });
     });
 
-    it("набор триггер-символа источника открывает попап как TriggerCharacter", async () => {
+    it("typing a source trigger character opens the popup as TriggerCharacter", async () => {
         const fake = makeEditor("d", 1, "d");
         const source = vi.fn(() => Promise.resolve(completionResult(ITEMS)));
         const group = makeGroup(fake.editor, source);
@@ -821,7 +821,7 @@ describe("CompletionService", () => {
         expect(service.isOpen()).toBe(true);
     });
 
-    it("триггер-символ провайдера чужого языка попап не открывает и RPC не будит", async () => {
+    it("a trigger character of another language's provider neither opens the popup nor triggers an RPC", async () => {
         const fake = makeEditor("d", 1, "d"); // an editorconfig document
         const provide = vi.fn(() => Promise.resolve(completionResult(ITEMS)));
         const languageFeatures = new LanguageFeaturesService();
@@ -850,7 +850,7 @@ describe("CompletionService", () => {
         expect(service.isOpen()).toBe(false);
     });
 
-    it("триггер-символом считается только одиночная вставка нужного символа", async () => {
+    it("only a single insertion of the character counts as a trigger character", async () => {
         const fake = makeEditor("d", 1, "d");
         const source = vi.fn(() => Promise.resolve(completionResult(ITEMS)));
         const group = makeGroup(fake.editor, source);
@@ -870,7 +870,7 @@ describe("CompletionService", () => {
         expect(source).not.toHaveBeenCalled();
     });
 
-    it("расходящиеся range провайдеров → префикс считает ядро", async () => {
+    it("diverging provider ranges → the core computes the prefix", async () => {
         const items: ICoreCompletionItem[] = [
             {
                 label: "indent_style",
@@ -894,7 +894,7 @@ describe("CompletionService", () => {
         expect(component.view.items).toHaveLength(2);
     });
 
-    it("серверные filterText/sortText и единый range доезжают до виджета", async () => {
+    it("server filterText/sortText and a shared range reach the widget", async () => {
         // The tsserver response shape after a dot: a common range for all items, the label
         // without the dot, filtering and sorting by their own fields.
         const items: ICoreCompletionItem[] = [
@@ -922,7 +922,7 @@ describe("CompletionService", () => {
         expect(component.view.items.map((i) => i.label)).toEqual(["toISOString", "getTime"]);
     });
 
-    it("триггер-символ при открытом попапе переоткрывает список, отменяя отложенный запрос", async () => {
+    it("a trigger character with the popup open reopens the list, cancelling the pending request", async () => {
         const fake = makeEditor("d", 1, "d");
         const source = vi.fn(() => Promise.resolve(completionResult(ITEMS)));
         const group = makeGroup(fake.editor, source);
@@ -944,7 +944,7 @@ describe("CompletionService", () => {
         );
     });
 
-    it("явный Ctrl+Space отменяет уже запланированный авто-запрос", async () => {
+    it("an explicit Ctrl+Space cancels an already scheduled auto request", async () => {
         const { service, source, fake } = setup(ITEMS);
         setSetting(service, "editor.quickSuggestionsDelay", 50); // enough time to cancel
 
@@ -956,7 +956,7 @@ describe("CompletionService", () => {
         expect(source).toHaveBeenCalledTimes(1);
     });
 
-    it("range провайдера, начинающийся ПОСЛЕ каретки, отдаёт префикс ядру", async () => {
+    it("a provider range starting AFTER the cursor leaves the prefix to the core", async () => {
         const items: ICoreCompletionItem[] = [
             {
                 label: "indent_style",
@@ -970,7 +970,7 @@ describe("CompletionService", () => {
         expect(component.view.items).toHaveLength(1);
     });
 
-    it("неполный список перезапрашивается при доборе символа, а не сужается локально", async () => {
+    it("an incomplete list is re-requested on further typing instead of being narrowed locally", async () => {
         const fake = makeEditor("ind", 3, "ind");
         const source = vi.fn(() => Promise.resolve(completionResult(ITEMS, true)));
         const { service, component, body } = createService(makeGroup(fake.editor, source));
@@ -985,7 +985,7 @@ describe("CompletionService", () => {
         expect(source).toHaveBeenCalledTimes(2);
     });
 
-    it("устаревший ответ источника не перекрывает свежий", async () => {
+    it("a stale source response does not override a fresh one", async () => {
         const fake = makeEditor("ind", 3, "ind");
         let resolveSlow: ((value: ICoreCompletionResult) => void) | null = null;
         const source = vi
@@ -1011,7 +1011,7 @@ describe("CompletionService", () => {
         expect(service.isOpen()).toBe(false);
     });
 
-    it("ответ, пришедший после закрытия, попап не поднимает", async () => {
+    it("a response arriving after close does not bring the popup up", async () => {
         const fake = makeEditor("ind", 3, "ind");
         let resolveSlow: ((value: ICoreCompletionResult) => void) | null = null;
         const source = vi.fn<() => Promise<ICoreCompletionResult>>(
@@ -1032,7 +1032,7 @@ describe("CompletionService", () => {
         expect(service.isOpen()).toBe(false);
     });
 
-    it("закрытие попапа отменяет запрос и у провайдера", () => {
+    it("closing the popup cancels the request at the provider too", () => {
         const fake = makeEditor("ind", 3, "ind");
         const tokens: ICancellationToken[] = [];
         const source = vi.fn((_request: ICompletionRequest, token: ICancellationToken) => {
@@ -1050,7 +1050,7 @@ describe("CompletionService", () => {
     });
 
     // No response deadline (an LS on a cold start takes seconds): an in-flight request itself knows whether its answer is needed.
-    describe("запрос в полёте: ответа ещё нет, попап не открыт", () => {
+    describe("request in flight: no response yet, popup not open", () => {
         /** Request tokens are in `cancelled()`. */
         function pendingSetup(line: string, character: number) {
             const fake = makeEditor(line, character, line);
@@ -1071,7 +1071,7 @@ describe("CompletionService", () => {
             return { fake, service, component, focusTracker, group, source, answers, cancelled };
         }
 
-        it("медленный ответ дожидается и открывает попап пунктами провайдера, а не словами буфера", async () => {
+        it("a slow response is awaited and opens the popup with provider items, not buffer words", async () => {
             const h = pendingSetup("ind", 3);
             const pending = h.service.trigger();
             // However long the server thinks, no popup of buffer words appears instead.
@@ -1084,7 +1084,7 @@ describe("CompletionService", () => {
             expect(h.component.view.items.map((i) => i.label)).toEqual(["indent_style", "indent_size"]);
         });
 
-        it("каретка ушла на другую строку — запрос отменён, опоздавший ответ попап не поднимает", async () => {
+        it("the cursor moved to another line — the request is cancelled, a late response does not bring the popup up", async () => {
             const h = pendingSetup("ind", 3);
             const pending = h.service.trigger();
             h.fake.move(1, 3);
@@ -1095,7 +1095,7 @@ describe("CompletionService", () => {
             expect(h.service.isOpen()).toBe(false);
         });
 
-        it("шаг каретки влево от точки запроса отменяет запрос", async () => {
+        it("a cursor step left of the request position cancels the request", async () => {
             const h = pendingSetup("ind", 3);
             const pending = h.service.trigger();
             h.fake.move(0, 2);
@@ -1106,7 +1106,7 @@ describe("CompletionService", () => {
             expect(h.service.isOpen()).toBe(false);
         });
 
-        it("выделение и мультикурсор отменяют запрос", () => {
+        it("a selection and multiple cursors cancel the request", () => {
             const selected = pendingSetup("ind", 3);
             void selected.service.trigger();
             selected.fake.setSelection(1, 3);
@@ -1118,7 +1118,7 @@ describe("CompletionService", () => {
             expect(multi.cancelled()).toEqual([true]);
         });
 
-        it("несловесный добор (пробел) отменяет запрос", async () => {
+        it("typing a non-word character (space) cancels the request", async () => {
             const h = pendingSetup("ind", 3);
             const pending = h.service.trigger();
             h.fake.type("ind ", 4);
@@ -1129,7 +1129,7 @@ describe("CompletionService", () => {
             expect(h.service.isOpen()).toBe(false);
         });
 
-        it("событие каретки без сдвига запрос не трогает", async () => {
+        it("a cursor event without movement leaves the request alone", async () => {
             const h = pendingSetup("ind", 3);
             const pending = h.service.trigger();
             h.fake.move(0, 3);
@@ -1140,7 +1140,7 @@ describe("CompletionService", () => {
             expect(h.service.isOpen()).toBe(true);
         });
 
-        it("добор слова, пока ждали ответ: список сужен под набранное, accept заменяет всё слово", async () => {
+        it("typing more of the word while awaiting the response: the list is narrowed to the typed text, accept replaces the whole word", async () => {
             const h = pendingSetup("ind", 3);
             const pending = h.service.trigger();
             h.fake.type("inden", 5); // word typing keeps the request alive
@@ -1166,7 +1166,7 @@ describe("CompletionService", () => {
             range: { start: { line: 0, character: 8 }, end: { line: 0, character: 8 } },
         });
 
-        it("неполный ответ под устаревший префикс сразу перезапрашивается под набранное", async () => {
+        it("an incomplete response for a stale prefix is re-requested for the typed text right away", async () => {
             const h = pendingSetup("strings", 7);
             (h.group as unknown as IFakeLanguageSeams).completionTriggerCharacters = ["."];
             h.fake.type("strings.", 8);
@@ -1202,7 +1202,7 @@ describe("CompletionService", () => {
             expect(h.source).toHaveBeenCalledTimes(2);
         });
 
-        it("неполный ответ без добора и полный с добором не перезапрашиваются", async () => {
+        it("an incomplete response without further typing and a complete one with it are not re-requested", async () => {
             const unmoved = pendingSetup("ind", 3);
             const pending = unmoved.service.trigger();
             unmoved.answers[0](completionResult(ITEMS, true));
@@ -1221,7 +1221,7 @@ describe("CompletionService", () => {
             expect(complete.component.view.items.map((i) => i.label)).toEqual(["indent_style", "indent_size"]);
         });
 
-        it("добор при провайдерском range: конец range догоняет каретку от точки ЗАПРОСА", async () => {
+        it("further typing with a provider range: the range end catches up with the cursor from the REQUEST position", async () => {
             const h = pendingSetup('{ "e', 4);
             const pending = h.service.trigger();
             h.fake.type('{ "edi', 6);
@@ -1245,7 +1245,7 @@ describe("CompletionService", () => {
             expect(edits[0].range).toEqual({ start: { line: 0, character: 2 }, end: { line: 0, character: 6 } });
         });
 
-        it("уход фокуса с редактора отменяет запрос", async () => {
+        it("losing editor focus cancels the request", async () => {
             const h = pendingSetup("ind", 3);
             const pending = h.service.trigger();
             h.focusTracker.fire(new EditorElement(new EditorViewState(new TextDocument(""))));
@@ -1258,7 +1258,7 @@ describe("CompletionService", () => {
             expect(h.service.isOpen()).toBe(false);
         });
 
-        it("триггер-символ отменяет запрос прежнего слова: его ответ не поднимает старый список", async () => {
+        it("a trigger character cancels the previous word's request: its response does not bring up the old list", async () => {
             const h = pendingSetup("re", 2);
             (h.group as unknown as IFakeLanguageSeams).completionTriggerCharacters = ["."];
             const pending = h.service.trigger();
@@ -1271,7 +1271,7 @@ describe("CompletionService", () => {
         });
     });
 
-    it("accept вставляет элемент, заменяя префикс, и исполняет item.command через CommandRegistry", async () => {
+    it("accept inserts the item replacing the prefix and runs item.command via CommandRegistry", async () => {
         const { service, fake, execute } = setup(ITEMS);
         await service.trigger();
         service.acceptSelected(); // accepts the selected one (indent_style)
@@ -1287,7 +1287,7 @@ describe("CompletionService", () => {
         expect(execute).toHaveBeenCalledWith("ec._retrigger");
     });
 
-    it("если префикс отфильтровал всё — показываем полный список", async () => {
+    it("if the prefix filtered out everything, the full list is shown", async () => {
         const { service, component } = setup(ITEMS, "zzz", 3);
         await service.trigger();
         expect(component.view.items).toHaveLength(3);
@@ -1306,7 +1306,7 @@ describe("CompletionService", () => {
             },
         ];
 
-        it("уважает range провайдера, когда с триггера ничего не добрали", async () => {
+        it("respects the provider range when nothing was typed after the trigger", async () => {
             const { service, fake } = setup(QUOTED, '{ "e', 4);
             await service.trigger();
             service.acceptSelected();
@@ -1316,7 +1316,7 @@ describe("CompletionService", () => {
             expect(edits[0].range).toEqual({ start: { line: 0, character: 2 }, end: { line: 0, character: 4 } });
         });
 
-        it("догоняет кареткой конец range, когда добрали символы после триггера", async () => {
+        it("moves the range end to the cursor when characters were typed after the trigger", async () => {
             const { service, fake } = setup(QUOTED, '{ "e', 4);
             await service.trigger();
             expect(service.isOpen()).toBe(true);
@@ -1333,7 +1333,7 @@ describe("CompletionService", () => {
             expect(edits[0].range).toEqual({ start: { line: 0, character: 2 }, end: { line: 0, character: 6 } });
         });
 
-        it("сдвигает конец range назад при удалении символа после триггера", async () => {
+        it("moves the range end back when a character after the trigger is deleted", async () => {
             const { service, fake } = setup(QUOTED, '{ "e', 4);
             await service.trigger();
 
@@ -1347,7 +1347,7 @@ describe("CompletionService", () => {
             expect(edits[0].range).toEqual({ start: { line: 0, character: 2 }, end: { line: 0, character: 3 } });
         });
 
-        it("многострочный range провайдера берётся как есть (посимвольный сдвиг неприменим)", async () => {
+        it("a multi-line provider range is taken as is (per-character shift does not apply)", async () => {
             const multiline: ICoreCompletionItem[] = [
                 {
                     label: "editor.tabSize",
@@ -1364,7 +1364,7 @@ describe("CompletionService", () => {
             expect(edits[0].range).toEqual({ start: { line: 0, character: 2 }, end: { line: 1, character: 4 } });
         });
 
-        it("без range провайдера заменяет живой префикс", async () => {
+        it("without a provider range replaces the live prefix", async () => {
             const { service, fake } = setup(ITEMS, "ind", 3);
             await service.trigger();
             fake.type("inde", 4);
@@ -1377,7 +1377,7 @@ describe("CompletionService", () => {
 
     // While the popup is visible, Enter belongs to `acceptSelectedSuggestion`: a popup open "just in case"
     // steals the newline — with a provider prefix boundary too.
-    describe("несловесный добор закрывает попап", () => {
+    describe("typing a non-word character closes the popup", () => {
         /** tsserver-shaped items: all share a range, i.e. the boundary is "from the provider". */
         const PROVIDER_ANCHORED: ICoreCompletionItem[] = [
             {
@@ -1392,7 +1392,7 @@ describe("CompletionService", () => {
             },
         ];
 
-        it("`{` после провайдерского префикса закрывает попап (Enter снова печатает)", async () => {
+        it("`{` after a provider prefix closes the popup (Enter types again)", async () => {
             const { service, fake } = setup(PROVIDER_ANCHORED, "cons", 4, "cons");
             await service.trigger();
             expect(service.isOpen()).toBe(true);
@@ -1402,7 +1402,7 @@ describe("CompletionService", () => {
             expect(service.isOpen()).toBe(false);
         });
 
-        it("тот же добор буквами попап не трогает", async () => {
+        it("the same typing with letters leaves the popup alone", async () => {
             const { service, fake } = setup(PROVIDER_ANCHORED, "cons", 4, "cons");
             await service.trigger();
 
@@ -1411,7 +1411,7 @@ describe("CompletionService", () => {
             expect(service.isOpen()).toBe(true);
         });
 
-        it("`(` и пробел закрывают его так же", async () => {
+        it("`(` and space close it the same way", async () => {
             for (const tail of ["(", " "]) {
                 const { service, fake } = setup(PROVIDER_ANCHORED, "cons", 4, "cons");
                 await service.trigger();
@@ -1424,7 +1424,7 @@ describe("CompletionService", () => {
         });
     });
 
-    it("word-based: без источника предлагает слова из документа", async () => {
+    it("word-based: without a source suggests words from the document", async () => {
         const fake = makeEditor("ind", 3, "indent_style indent_size root ab");
         const { service, component, body } = createService(makeGroup(fake.editor, undefined));
         TestApp.create(body, new Size(80, 24));
@@ -1434,7 +1434,7 @@ describe("CompletionService", () => {
         expect(component.view.items[0].kind).toBe(0);
     });
 
-    it("word-based: слова не подмешиваются к пунктам с провайдерским range", async () => {
+    it("word-based: words are not mixed into items with a provider range", async () => {
         const items: ICoreCompletionItem[] = [
             {
                 label: "indent_style",
@@ -1447,7 +1447,7 @@ describe("CompletionService", () => {
         expect(component.view.items.map((i) => i.label)).toEqual(["indent_style"]);
     });
 
-    it("word-based: собирает слова из всех открытых редакторов и дедупит с провайдерами", async () => {
+    it("word-based: collects words from all open editors and dedupes against providers", async () => {
         const fake = makeEditor("", 0, "alpha beta");
         const other = makeEditor("", 0, "beta gamma indent_style");
         const source = vi.fn(() => Promise.resolve(completionResult(ITEMS)));
@@ -1459,7 +1459,7 @@ describe("CompletionService", () => {
         expect(labels).toEqual(["indent_style", "indent_size", "root", "alpha", "beta", "gamma"]);
     });
 
-    it("нет активного редактора → no-op", async () => {
+    it("no active editor → no-op", async () => {
         const group = {
             getActiveEditor: () => null,
             onActiveEditorChanged: () => ({ dispose: () => {} }),
@@ -1471,7 +1471,7 @@ describe("CompletionService", () => {
         expect(body.overlayLayer.hasVisibleItems()).toBe(false);
     });
 
-    it("hide() закрывает попап", async () => {
+    it("hide() closes the popup", async () => {
         const { service, body } = setup(ITEMS);
         await service.trigger();
         expect(body.overlayLayer.hasVisibleItems()).toBe(true);
@@ -1480,7 +1480,7 @@ describe("CompletionService", () => {
         expect(service.isOpen()).toBe(false);
     });
 
-    it("каретка вне вьюпорта (anchor null) → попап не открывается", async () => {
+    it("cursor outside the viewport (anchor null) → the popup does not open", async () => {
         const fake = makeEditor("ind", 3, "ind");
         fake.setAnchorNull(true);
         const { service, component, body } = createService(
@@ -1494,7 +1494,7 @@ describe("CompletionService", () => {
         expect(body.overlayLayer.hasVisibleItems()).toBe(false);
     });
 
-    it("безымянный буфер уходит в запрос как untitled:-ресурс, а не пустой строкой", async () => {
+    it("an untitled buffer goes into the request as an untitled: resource, not an empty string", async () => {
         const fake = makeEditor("ind", 3, "ind");
         (fake.editor as unknown as { uri: Uri }).uri = Uri.parse("untitled:Untitled-1");
         const source = vi.fn(() => Promise.resolve(completionResult(ITEMS)));
@@ -1504,7 +1504,7 @@ describe("CompletionService", () => {
         expect(source).toHaveBeenCalledWith(expect.objectContaining({ uri: "untitled:Untitled-1" }), expect.anything());
     });
 
-    it("accept без активного редактора (после close) — no-op", async () => {
+    it("accept without an active editor (after close) is a no-op", async () => {
         const { service, fake } = setup(ITEMS);
         await service.trigger();
         service.close(); // activeEditor = null, but the view keeps the list
@@ -1512,7 +1512,7 @@ describe("CompletionService", () => {
         expect(fake.applyExternalEdits).not.toHaveBeenCalled();
     });
 
-    it("accept элемента без command не дёргает CommandRegistry", async () => {
+    it("accepting an item without a command does not call CommandRegistry", async () => {
         const { service, fake, execute } = setup(ITEMS, "", 0, "");
         await service.trigger();
         service.selectNext();
@@ -1523,7 +1523,7 @@ describe("CompletionService", () => {
         expect(execute).not.toHaveBeenCalled();
     });
 
-    it("item.command без arguments исполняется c пустым списком аргументов", async () => {
+    it("item.command without arguments runs with an empty argument list", async () => {
         const items: ICoreCompletionItem[] = [{ label: "only", insertText: "only", command: { command: "c.noargs" } }];
         const { service, execute } = setup(items, "", 0, "");
         await service.trigger();
@@ -1532,7 +1532,7 @@ describe("CompletionService", () => {
         expect(execute).toHaveBeenCalledWith("c.noargs");
     });
 
-    it("набор сужает список и попап следует за кареткой", async () => {
+    it("typing narrows the list and the popup follows the cursor", async () => {
         const { service, component, fake } = setup(ITEMS);
         await service.trigger();
         expect(component.view.items).toHaveLength(2);
@@ -1541,7 +1541,7 @@ describe("CompletionService", () => {
         expect(service.isOpen()).toBe(true);
     });
 
-    it("набор без совпадений оставляет последний непустой список (не закрывает)", async () => {
+    it("typing with no matches keeps the last non-empty list (does not close)", async () => {
         const { service, component, fake } = setup(ITEMS);
         await service.trigger();
         fake.type("indq", 4);
@@ -1549,21 +1549,21 @@ describe("CompletionService", () => {
         expect(service.isOpen()).toBe(true);
     });
 
-    it("смена строки закрывает попап", async () => {
+    it("changing the line closes the popup", async () => {
         const { service, fake } = setup(ITEMS);
         await service.trigger();
         fake.move(1, 0);
         expect(service.isOpen()).toBe(false);
     });
 
-    it("непустое выделение закрывает попап", async () => {
+    it("a non-empty selection closes the popup", async () => {
         const { service, fake } = setup(ITEMS);
         await service.trigger();
         fake.setSelection(1, 3);
         expect(service.isOpen()).toBe(false);
     });
 
-    it("мультикурсор закрывает попап и не даёт открыть его заново", async () => {
+    it("multiple cursors close the popup and prevent reopening it", async () => {
         const { service, fake } = setup(ITEMS);
         await service.trigger();
         expect(service.isOpen()).toBe(true);
@@ -1575,7 +1575,7 @@ describe("CompletionService", () => {
         expect(service.isOpen()).toBe(false);
     });
 
-    it("каретка ушла из вьюпорта при наборе закрывает попап", async () => {
+    it("the cursor leaving the viewport while typing closes the popup", async () => {
         const { service, fake } = setup(ITEMS);
         await service.trigger();
         fake.setAnchorNull(true);
@@ -1583,7 +1583,7 @@ describe("CompletionService", () => {
         expect(service.isOpen()).toBe(false);
     });
 
-    it("набор word-символа авто-открывает попап", async () => {
+    it("typing a word character auto-opens the popup", async () => {
         const { service, fake, source } = setup(ITEMS); // start: "ind", cursor 3
         expect(service.isOpen()).toBe(false);
         fake.type("inde", 4); // one word character inserted
@@ -1592,7 +1592,7 @@ describe("CompletionService", () => {
         expect(service.isOpen()).toBe(true);
     });
 
-    it("движение каретки при закрытом попапе не снимает запланированный авто-запрос", async () => {
+    it("cursor movement with the popup closed does not cancel a scheduled auto request", async () => {
         const { service, fake, source } = setup(ITEMS);
         setSetting(service, "editor.quickSuggestionsDelay", 20);
         fake.type("inde", 4); // auto suggest scheduled
@@ -1601,7 +1601,7 @@ describe("CompletionService", () => {
         expect(source).toHaveBeenCalled();
     });
 
-    it("чистое движение каретки НЕ открывает попап", async () => {
+    it("pure cursor movement does NOT open the popup", async () => {
         const { service, fake, source } = setup(ITEMS);
         fake.move(0, 2); // no content change
         await flushTimers();
@@ -1609,7 +1609,7 @@ describe("CompletionService", () => {
         expect(service.isOpen()).toBe(false);
     });
 
-    it("принятие пункта не приводит к авто-переоткрытию", async () => {
+    it("accepting an item does not cause an auto reopen", async () => {
         const { service, fake } = setup(ITEMS);
         await service.trigger();
         service.acceptSelected(); // close() + applyExternalEdits (mock, no emit)
@@ -1619,7 +1619,7 @@ describe("CompletionService", () => {
         expect(service.isOpen()).toBe(false);
     });
 
-    it("уход фокуса с редактора закрывает открытый попап, фокус в редакторе — нет", async () => {
+    it("losing editor focus closes an open popup, focus in the editor does not", async () => {
         const { service, focusTracker } = setup(ITEMS);
         await service.trigger();
         expect(service.isOpen()).toBe(true);
@@ -1629,7 +1629,7 @@ describe("CompletionService", () => {
         expect(service.isOpen()).toBe(false);
     });
 
-    it("suggestWidgetVisible — открыт ли попап", async () => {
+    it("suggestWidgetVisible reflects whether the popup is open", async () => {
         const { service } = setup(ITEMS);
         const keys = new ContextKeyService();
         service.updateContextKeys(keys);
@@ -1639,7 +1639,7 @@ describe("CompletionService", () => {
         expect(keys.get("suggestWidgetVisible")).toBe(true);
     });
 
-    it("клик по пункту (view.onAccept) принимает через сервис", async () => {
+    it("a click on an item (view.onAccept) accepts via the service", async () => {
         const { service, component, fake } = setup(ITEMS);
         await service.trigger();
         // A click on the first row (localY=1) → view.onAccept → service.accept.
@@ -1649,7 +1649,7 @@ describe("CompletionService", () => {
         expect(fake.applyExternalEdits).toHaveBeenCalledTimes(1);
     });
 
-    it("selectPrevious / page-навигация делегируются в view", async () => {
+    it("selectPrevious / page navigation are delegated to the view", async () => {
         const items = Array.from({ length: 15 }, (_, i) => ({ label: `w${i}`, insertText: `w${i}` }));
         const { service, component } = setup(items, "", 0, "");
         await service.trigger();
@@ -1663,7 +1663,7 @@ describe("CompletionService", () => {
         expect(component.view.selectedIndex).toBe(0);
     });
 
-    it("смена активного редактора закрывает открытый попап", async () => {
+    it("changing the active editor closes an open popup", async () => {
         const fake = makeEditor("ind", 3, "ind");
         let activeCb: (e: TextEditorPane | null) => void = () => {};
         const group = {
@@ -1684,14 +1684,14 @@ describe("CompletionService", () => {
         expect(service.isOpen()).toBe(false);
     });
 
-    it("набор небуквенного символа (граница слова) закрывает открытый попап", async () => {
+    it("typing a non-letter character (word boundary) closes an open popup", async () => {
         const { service, fake } = setup(ITEMS);
         await service.trigger();
         fake.type("ind ", 4); // a space is non-word typing
         expect(service.isOpen()).toBe(false);
     });
 
-    it("уехавшее начало слова закрывает попап, даже когда добора не было", async () => {
+    it("a shifted word start closes the popup even without further typing", async () => {
         // An edit LEFT of the cursor: nothing typed since the trigger, so the word-typing check passes, but the word
         // no longer starts where the prefix was set.
         const { service, fake } = setup(ITEMS, "a ind", 5, "a ind");
@@ -1703,7 +1703,7 @@ describe("CompletionService", () => {
         expect(service.isOpen()).toBe(false);
     });
 
-    it("авто-suggest открывает только набор word-символа одной кареткой", async () => {
+    it("auto suggest opens only on typing a word character with a single cursor", async () => {
         const attempts: ((fake: FakeEditor) => void)[] = [
             (fake) => {
                 fake.edit("inde", 4); // paste/undo of one character is not typing
@@ -1729,7 +1729,7 @@ describe("CompletionService", () => {
         }
     });
 
-    it("acceptSelected без выбранного пункта — no-op", async () => {
+    it("acceptSelected without a selected item is a no-op", async () => {
         const { service, component, fake } = setup(ITEMS);
         await service.trigger();
         component.view.setFilter("zzzz"); // the list is empty → getSelectedItem null
@@ -1737,7 +1737,7 @@ describe("CompletionService", () => {
         expect(fake.applyExternalEdits).not.toHaveBeenCalled();
     });
 
-    it("конструктор с непустым начальным выделением безопасен", () => {
+    it("the constructor is safe with a non-empty initial selection", () => {
         const fake = makeEditor("ind", 3, "ind", 1); // anchor=1, active=3 (not collapsed)
         const { service } = createService(makeGroup(fake.editor, undefined));
         expect(service.isOpen()).toBe(false);
@@ -1789,8 +1789,8 @@ function quickSetup(options: { line?: string; character?: number; settings?: Tes
     return { service, fake, source, inline, registration, group };
 }
 
-describe("CompletionService — quick suggest (эталон suggestModel)", () => {
-    it("открывается, только когда каретка в конце слова, которое не число", async () => {
+describe("CompletionService — quick suggest (upstream suggestModel)", () => {
+    it("opens only when the cursor is at the end of a word that is not a number", async () => {
         const { service, fake, source } = quickSetup({ line: "x", character: 1 });
         for (const [line, character] of [
             ["x ", 2],
@@ -1809,9 +1809,9 @@ describe("CompletionService — quick suggest (эталон suggestModel)", () =
         void service;
     });
 
-    it("не-ASCII буква тоже запрашивает: слово — по определению эталона, а не по \\w", async () => {
+    it("a non-ASCII letter also requests: a word per the upstream definition, not \\w", async () => {
         const { service, fake, source } = quickSetup({ line: "", character: 0 });
-        fake.type("п", 1);
+        fake.type("\u043f", 1); // "p"
         await flushTimers();
         expect(source).toHaveBeenCalled();
         // The prefix is the typed letter, not an empty string: nothing in ITEMS matches it,
@@ -1819,24 +1819,36 @@ describe("CompletionService — quick suggest (эталон suggestModel)", () =
         expect(service.isOpen()).toBe(false);
     });
 
-    it("набор кириллицей сужает открытый попап, а не закрывает и переоткрывает его на каждой букве", async () => {
-        const fake = makeEditor("", 0, "привет пример проверка");
+    it("typing Cyrillic narrows the open popup instead of closing and reopening it on every letter", async () => {
+        // "privet primer proverka"
+        const fake = makeEditor(
+            "",
+            0,
+            "\u043f\u0440\u0438\u0432\u0435\u0442 \u043f\u0440\u0438\u043c\u0435\u0440 \u043f\u0440\u043e\u0432\u0435\u0440\u043a\u0430",
+        );
         const { service, component, body } = createService(makeGroup(fake.editor, undefined), makeStateService(), {});
         TestApp.create(body, new Size(80, 24));
-        fake.type("п", 1);
+        fake.type("\u043f", 1); // "p"
         await flushTimers();
-        expect(component.view.items.map((i) => i.label)).toEqual(["привет", "пример", "проверка"]);
+        expect(component.view.items.map((i) => i.label)).toEqual([
+            "\u043f\u0440\u0438\u0432\u0435\u0442", // "privet"
+            "\u043f\u0440\u0438\u043c\u0435\u0440", // "primer"
+            "\u043f\u0440\u043e\u0432\u0435\u0440\u043a\u0430", // "proverka"
+        ]);
         let closes = 0;
         service.onDidClose(() => closes++);
-        fake.type("пр", 2);
-        fake.type("при", 3);
+        fake.type("\u043f\u0440", 2); // "pr"
+        fake.type("\u043f\u0440\u0438", 3); // "pri"
         await flushTimers();
         expect(closes).toBe(0);
         expect(service.isOpen()).toBe(true);
-        expect(component.view.items.map((i) => i.label)).toEqual(["привет", "пример"]);
+        expect(component.view.items.map((i) => i.label)).toEqual([
+            "\u043f\u0440\u0438\u0432\u0435\u0442", // "privet"
+            "\u043f\u0440\u0438\u043c\u0435\u0440", // "primer"
+        ]);
     });
 
-    it("набор внутри слова — нет, а буква перед словом — да", async () => {
+    it("typing inside a word — no, but a letter before a word — yes", async () => {
         const inside = quickSetup({ line: "indent", character: 3 });
         inside.fake.type("indeent", 4);
         await flushTimers();
@@ -1848,7 +1860,7 @@ describe("CompletionService — quick suggest (эталон suggestModel)", () =
         expect(before.service.isOpen()).toBe(true);
     });
 
-    it("editor.quickSuggestions: false — набор не открывает, Ctrl+Space работает", async () => {
+    it("editor.quickSuggestions: false — typing does not open, Ctrl+Space works", async () => {
         const { service, fake, source } = quickSetup({ settings: { "editor.quickSuggestions": false } });
         fake.type("inde", 4);
         await flushTimers();
@@ -1857,7 +1869,7 @@ describe("CompletionService — quick suggest (эталон suggestModel)", () =
         expect(service.isOpen()).toBe(true);
     });
 
-    it("режим берётся для вида токена перед кареткой: строки и комментарии по умолчанию off", async () => {
+    it("the mode is taken for the token kind before the cursor: strings and comments are off by default", async () => {
         const { service, fake, source } = quickSetup({ line: '"ind', character: 4 });
         fake.setTokens([[0, STRING_TOKEN]]);
         fake.type('"inde', 5);
@@ -1875,7 +1887,7 @@ describe("CompletionService — quick suggest (эталон suggestModel)", () =
         expect(service.isOpen()).toBe(true);
     });
 
-    it("вид токена — у символа СЛЕВА от каретки, а не под ней", async () => {
+    it("the token kind is of the character LEFT of the cursor, not under it", async () => {
         // `"ind"`: the quotes are a string, `ind` is code; the cursor sits between `d` and the closing quote.
         const { service, fake } = quickSetup({ line: '"in"', character: 3 });
         fake.setTokens([
@@ -1888,7 +1900,7 @@ describe("CompletionService — quick suggest (эталон suggestModel)", () =
         expect(service.isOpen()).toBe(true);
     });
 
-    it("секция языка включает строки (как `[json]` у json-language-features)", async () => {
+    it("a language section enables strings (like `[json]` in json-language-features)", async () => {
         const { service, fake } = quickSetup({
             line: '"ind',
             settings: { "[editorconfig]": { "editor.quickSuggestions": { strings: true } } },
@@ -1899,14 +1911,14 @@ describe("CompletionService — quick suggest (эталон suggestModel)", () =
         expect(service.isOpen()).toBe(true);
     });
 
-    it("режим inline попап не открывает (ghost из пунктов suggest не поддержан)", async () => {
+    it("inline mode does not open the popup (ghost text from suggest items is not supported)", async () => {
         const { fake, source } = quickSetup({ settings: { "editor.quickSuggestions": "inline" } });
         fake.type("inde", 4);
         await flushTimers();
         expect(source).not.toHaveBeenCalled();
     });
 
-    it("editor.quickSuggestionsDelay: попап ждёт задержку", async () => {
+    it("editor.quickSuggestionsDelay: the popup waits for the delay", async () => {
         const { service, fake } = quickSetup({
             settings: { "[editorconfig]": { "editor.quickSuggestionsDelay": 40 } },
         });
@@ -1917,7 +1929,7 @@ describe("CompletionService — quick suggest (эталон suggestModel)", () =
         expect(service.isOpen()).toBe(true);
     });
 
-    it("дефолт задержки — 10 мс, как quickSuggestionsDelay эталона", async () => {
+    it("the default delay is 10 ms, like upstream quickSuggestionsDelay", async () => {
         const { service, fake } = quickSetup();
         setSetting(service, "editor.quickSuggestionsDelay", undefined);
         fake.type("inde", 4);
@@ -1927,8 +1939,8 @@ describe("CompletionService — quick suggest (эталон suggestModel)", () =
         expect(service.isOpen()).toBe(true);
     });
 
-    describe("offWhenInlineCompletions — уступает призраку", () => {
-        it("призрак уже на экране — попап не открывается", async () => {
+    describe("offWhenInlineCompletions — yields to ghost text", () => {
+        it("ghost text already on screen — the popup does not open", async () => {
             const { fake, source, inline } = quickSetup({ inline: true });
             inline.visible = true;
             fake.type("inde", 4);
@@ -1936,7 +1948,7 @@ describe("CompletionService — quick suggest (эталон suggestModel)", () =
             expect(source).not.toHaveBeenCalled();
         });
 
-        it("ждёт ответа призрака: пришёл призрак — попапа нет", async () => {
+        it("waits for the ghost text response: ghost text arrived — no popup", async () => {
             const { fake, source, inline } = quickSetup({ inline: true });
             inline.loading = true;
             fake.type("inde", 4);
@@ -1948,7 +1960,7 @@ describe("CompletionService — quick suggest (эталон suggestModel)", () =
             expect(source).not.toHaveBeenCalled();
         });
 
-        it("ждёт ответа призрака: призрака нет — попап открывается", async () => {
+        it("waits for the ghost text response: no ghost text — the popup opens", async () => {
             const { service, fake, inline } = quickSetup({ inline: true });
             inline.loading = true;
             fake.type("inde", 4);
@@ -1965,7 +1977,7 @@ describe("CompletionService — quick suggest (эталон suggestModel)", () =
             expect(service.isOpen()).toBe(true);
         });
 
-        it("призрак не ответил за 750 мс — попап открывается, а запрос призрака бросается", async () => {
+        it("ghost text did not respond within 750 ms — the popup opens and the ghost text request is abandoned", async () => {
             vi.useFakeTimers();
             try {
                 const { service, fake, inline } = quickSetup({ inline: true });
@@ -1982,7 +1994,7 @@ describe("CompletionService — quick suggest (эталон suggestModel)", () =
             }
         });
 
-        it("исход ожидания окончателен: таймер после пришедшего призрака не открывает попап", async () => {
+        it("the wait outcome is final: the timer after arrived ghost text does not open the popup", async () => {
             vi.useFakeTimers();
             try {
                 const { service, fake, inline } = quickSetup({ inline: true });
@@ -2000,7 +2012,7 @@ describe("CompletionService — quick suggest (эталон suggestModel)", () =
             }
         });
 
-        it("набор за время ожидания: старое ожидание не открывает попап", async () => {
+        it("typing during the wait: the old wait does not open the popup", async () => {
             const { fake, source, inline } = quickSetup({
                 inline: true,
                 settings: { "editor.quickSuggestionsDelay": 30 },
@@ -2014,7 +2026,7 @@ describe("CompletionService — quick suggest (эталон suggestModel)", () =
             expect(source).not.toHaveBeenCalled();
         });
 
-        it("правка и уход каретки, пока ждали, — попап не открывается", async () => {
+        it("an edit and cursor move during the wait — the popup does not open", async () => {
             const edited = quickSetup({ inline: true });
             edited.inline.loading = true;
             edited.fake.type("inde", 4);
@@ -2061,7 +2073,7 @@ describe("CompletionService — quick suggest (эталон suggestModel)", () =
             expect(selected.source).not.toHaveBeenCalled();
         });
 
-        it("закрытие (Esc) снимает ожидание: ответ призрака попап не поднимает", async () => {
+        it("close (Esc) cancels the wait: the ghost text response does not bring the popup up", async () => {
             const { service, fake, source, inline } = quickSetup({ inline: true });
             inline.loading = true;
             fake.type("inde", 4);
@@ -2072,7 +2084,7 @@ describe("CompletionService — quick suggest (эталон suggestModel)", () =
             expect(source).not.toHaveBeenCalled();
         });
 
-        it("призрака нет и запрос не идёт — попап открывается сразу, без ожидания", async () => {
+        it("no ghost text and no request in flight — the popup opens right away, without waiting", async () => {
             vi.useFakeTimers();
             try {
                 const { service, fake } = quickSetup({ inline: true });
@@ -2084,7 +2096,7 @@ describe("CompletionService — quick suggest (эталон suggestModel)", () =
             }
         });
 
-        it("после ожидания запрос остаётся авто: под набранное ничего не подошло — попапа нет", async () => {
+        it("after the wait the request stays automatic: nothing matched the typed text — no popup", async () => {
             const { service, fake, source, inline } = quickSetup({ inline: true, line: "inde " });
             inline.loading = true;
             fake.type("inde q", 6);
@@ -2096,7 +2108,7 @@ describe("CompletionService — quick suggest (эталон suggestModel)", () =
             expect(service.isOpen()).toBe(false);
         });
 
-        it("смена активного редактора за время ожидания — попап не открывается ни в одном", async () => {
+        it("changing the active editor during the wait — the popup opens in neither", async () => {
             const { fake, source, inline, group } = quickSetup({ inline: true });
             const other = makeEditor("indent", 6);
             inline.loading = true;
@@ -2108,7 +2120,7 @@ describe("CompletionService — quick suggest (эталон suggestModel)", () =
             expect(source).not.toHaveBeenCalled();
         });
 
-        it("попап, открытый за время ожидания, не открывается повторно", async () => {
+        it("a popup opened during the wait is not opened again", async () => {
             const { service, fake, source, inline } = quickSetup({ inline: true });
             inline.loading = true;
             fake.type("inde", 4);
@@ -2120,7 +2132,7 @@ describe("CompletionService — quick suggest (эталон suggestModel)", () =
             expect(source).toHaveBeenCalledTimes(1);
         });
 
-        it("без inline-провайдера или при editor.inlineSuggest.enabled: false — не ждёт", async () => {
+        it("without an inline provider or with editor.inlineSuggest.enabled: false — does not wait", async () => {
             const noProvider = quickSetup();
             noProvider.inline.loading = true;
             noProvider.fake.type("inde", 4);
@@ -2137,7 +2149,7 @@ describe("CompletionService — quick suggest (эталон suggestModel)", () =
             expect(disabled.service.isOpen()).toBe(true);
         });
 
-        it("состояние призрака не подключено — открывает сразу, по тем же правилам авто-запроса", async () => {
+        it("ghost text state not connected — opens right away, by the same auto request rules", async () => {
             const { service, fake, inline, registration } = quickSetup({ inline: true });
             // The removed state is "loading" forever: had it stayed connected,
             // the popup would wait for it.
@@ -2154,7 +2166,7 @@ describe("CompletionService — quick suggest (эталон suggestModel)", () =
             expect(service.isOpen()).toBe(false);
         });
 
-        it("dispose устаревшей регистрации не снимает текущую", async () => {
+        it("disposing a stale registration does not remove the current one", async () => {
             const { service, fake, registration } = quickSetup({ inline: true });
             const current = fakeInlineState();
             current.visible = true;
@@ -2166,7 +2178,7 @@ describe("CompletionService — quick suggest (эталон suggestModel)", () =
             expect(service.isOpen()).toBe(false);
         });
 
-        it("режим on не ждёт призрака и открывает поверх него", async () => {
+        it("mode on does not wait for ghost text and opens over it", async () => {
             const { service, fake, inline } = quickSetup({
                 inline: true,
                 settings: { "editor.quickSuggestions": true },
@@ -2179,7 +2191,7 @@ describe("CompletionService — quick suggest (эталон suggestModel)", () =
         });
     });
 
-    it("editor.inlineSuggest.suppressSuggestions: призрак на экране гасит авто-открытие (и по набору, и по символу)", async () => {
+    it("editor.inlineSuggest.suppressSuggestions: ghost text on screen suppresses auto open (both on typing and on a trigger character)", async () => {
         const settings = {
             "editor.quickSuggestions": true,
             "[editorconfig]": { "editor.inlineSuggest.suppressSuggestions": true },
@@ -2201,7 +2213,7 @@ describe("CompletionService — quick suggest (эталон suggestModel)", () =
         expect(service.isOpen()).toBe(true);
     });
 
-    it("editor.suggestOnTriggerCharacters: false — символ не открывает попап", async () => {
+    it("editor.suggestOnTriggerCharacters: false — a character does not open the popup", async () => {
         const fake = makeEditor("d", 1, "d");
         const source = vi.fn(() => Promise.resolve(completionResult(ITEMS)));
         const group = makeGroup(fake.editor, source);
@@ -2216,7 +2228,7 @@ describe("CompletionService — quick suggest (эталон suggestModel)", () =
         expect(service.isOpen()).toBe(false);
     });
 
-    it("триггер-символ, продолжающий слово, идёт путём quick suggest (Invoke, не TriggerCharacter)", async () => {
+    it("a trigger character continuing a word goes the quick suggest path (Invoke, not TriggerCharacter)", async () => {
         const fake = makeEditor("d", 1, "d");
         const source = vi.fn(() => Promise.resolve(completionResult(ITEMS)));
         const group = makeGroup(fake.editor, source);
@@ -2232,7 +2244,7 @@ describe("CompletionService — quick suggest (эталон suggestModel)", () =
         );
     });
 
-    it("под набранное ничего не подошло — авто-попапа нет, Ctrl+Space показывает весь список", async () => {
+    it("nothing matched the typed text — no auto popup, Ctrl+Space shows the whole list", async () => {
         const { service, fake, source } = quickSetup({ line: "", character: 0 });
         fake.type("q", 1);
         await flushTimers();
@@ -2243,7 +2255,7 @@ describe("CompletionService — quick suggest (эталон suggestModel)", () =
         expect(service.isOpen()).toBe(true);
     });
 
-    it("авто-попап закрывается, когда добор отфильтровал всё; явный держит список", async () => {
+    it("the auto popup closes when further typing filtered out everything; an explicit one keeps the list", async () => {
         const auto = quickSetup({ line: "in", character: 2 });
         auto.fake.type("ind", 3);
         await flushTimers();
@@ -2257,7 +2269,7 @@ describe("CompletionService — quick suggest (эталон suggestModel)", () =
         expect(explicit.service.isOpen()).toBe(true);
     });
 
-    it("неполный авто-список перезапрашивается авто-запросом: пустой ответ закрывает попап", async () => {
+    it("an incomplete auto list is re-requested with an auto request: an empty response closes the popup", async () => {
         const fake = makeEditor("in", 2, "in");
         const source = vi
             .fn<() => Promise<ICoreCompletionResult>>()
@@ -2275,7 +2287,7 @@ describe("CompletionService — quick suggest (эталон suggestModel)", () =
         expect(service.isOpen()).toBe(false);
     });
 
-    it("onDidShow — один раз на открытие закрытого попапа", async () => {
+    it("onDidShow fires once per opening of a closed popup", async () => {
         const { service } = quickSetup();
         const shown = vi.fn();
         service.onDidShow(shown);
@@ -2310,7 +2322,7 @@ describe("CompletionService — editor.wordBasedSuggestions", () => {
         return { service, labels };
     }
 
-    it("по умолчанию — открытые документы того же языка", async () => {
+    it("by default — open documents of the same language", async () => {
         expect(await wordSetup({}).labels()).toEqual(["alpha", "beta", "gamma"]);
         expect(await wordSetup({ "editor.wordBasedSuggestions": "matchingDocuments" }).labels()).toEqual([
             "alpha",
@@ -2319,7 +2331,7 @@ describe("CompletionService — editor.wordBasedSuggestions", () => {
         ]);
     });
 
-    it("allDocuments — все открытые; currentDocument — только активный; off — ничего", async () => {
+    it("allDocuments — all open; currentDocument — only the active one; off — nothing", async () => {
         expect(await wordSetup({ "editor.wordBasedSuggestions": "allDocuments" }).labels()).toEqual([
             "alpha",
             "beta",
@@ -2335,7 +2347,7 @@ describe("CompletionService — editor.wordBasedSuggestions", () => {
         expect(off.service.isOpen()).toBe(false);
     });
 
-    it("режим читается для языка документа; гашение — только в режиме offWithInlineSuggestions", async () => {
+    it("the mode is read for the document language; suppression only in offWithInlineSuggestions mode", async () => {
         expect(
             await wordSetup({ "[editorconfig]": { "editor.wordBasedSuggestions": "currentDocument" } }).labels(),
         ).toEqual(["alpha", "beta"]);
@@ -2348,7 +2360,7 @@ describe("CompletionService — editor.wordBasedSuggestions", () => {
         ).toEqual(["alpha", "beta", "gamma"]);
     });
 
-    it("offWithInlineSuggestions гасит слова, только если есть inline-провайдер И включены AI-подсказки продукта", async () => {
+    it("offWithInlineSuggestions suppresses words only if there is an inline provider AND product AI suggestions are enabled", async () => {
         // An inline provider exists, but `github.copilot.enable` is unset — words stay (like upstream without Copilot).
         expect(await wordSetup({}, { inline: true }).labels()).toEqual(["alpha", "beta", "gamma"]);
         expect(await wordSetup({ "github.copilot.enable": { "*": true } }, { inline: true }).labels()).toEqual([]);

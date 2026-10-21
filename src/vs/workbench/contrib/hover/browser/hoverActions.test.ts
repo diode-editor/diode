@@ -9,7 +9,7 @@ import { EditorServiceDIToken } from "../../../services/editor/common/editorServ
 
 import { HoverServiceDIToken } from "./hoverService.ts";
 
-describe("hoverActions — команды и кейбинды", () => {
+describe("hoverActions — commands and keybindings", () => {
     let ws: ITempWorkspace;
     let h: IAppHarness;
 
@@ -30,7 +30,7 @@ describe("hoverActions — команды и кейбинды", () => {
 
     const service = () => h.container.get(HoverServiceDIToken);
 
-    it("editor.action.showHover открывает попап, editor.action.hideHover закрывает", async () => {
+    it("editor.action.showHover opens the popup, editor.action.hideHover closes it", async () => {
         h.commands.execute("editor.action.showHover");
         await flushMicrotasks();
         expect(service().isOpen()).toBe(true);
@@ -39,7 +39,7 @@ describe("hoverActions — команды и кейбинды", () => {
         expect(service().isOpen()).toBe(false);
     });
 
-    it("показ — чорд: одиночный Ctrl+K не открывает, Ctrl+K Ctrl+U открывает", async () => {
+    it("show is a chord: Ctrl+K alone doesn't open, Ctrl+K Ctrl+U does", async () => {
         h.testApp.sendKey("Ctrl+K");
         await flushMicrotasks();
         expect(service().isOpen()).toBe(false);

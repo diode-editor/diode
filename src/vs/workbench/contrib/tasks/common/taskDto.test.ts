@@ -38,7 +38,7 @@ const wire = (overrides: Partial<IWireTask> = {}): IWireTask => ({
 });
 
 describe("taskFromWire", () => {
-    it("задача провайдера: id по ключу определения из схемы, подпись «source: name», первая папка", () => {
+    it("provider task: id by the definition key from the schema, label 'source: name', first folder", () => {
         const task = taskFromWire(wire(), context());
         expect(task).toStrictEqual({
             _id: "pub.ext.target,a,type,demo,",
@@ -55,11 +55,11 @@ describe("taskFromWire", () => {
         });
     });
 
-    it("без исполнения — задачи нет", () => {
+    it("no execution — no task", () => {
         expect(taskFromWire(wire({ execution: undefined }), context())).toBeUndefined();
     });
 
-    it("область: глобальная — без папки; воркспейс без папок — глобальная; папка — по пути, чужая — без папки", () => {
+    it("scope: global — no folder; workspace without folders — global; folder — by path, unknown one — no folder", () => {
         expect(
             taskFromWire(wire({ source: { label: "s", extensionId: "e", scope: 1 } }), context())?.source,
         ).toMatchObject({
@@ -87,7 +87,7 @@ describe("taskFromWire", () => {
         });
     });
 
-    it("определение не проходит схему — «только исполнить», со случайным ключом и сообщением", () => {
+    it("definition fails the schema — 'execute only', with a random key and a message", () => {
         const report = vi.fn();
         const task = taskFromWire(
             wire({ definition: { type: "demo" } }),
@@ -99,7 +99,7 @@ describe("taskFromWire", () => {
         expect(report).toHaveBeenCalledTimes(1);
     });
 
-    it("процесс: аргументы, cwd по умолчанию ${workspaceFolder}, env", () => {
+    it("process: args, default cwd ${workspaceFolder}, env", () => {
         expect(
             taskFromWire(wire({ execution: { process: "node", args: ["a"], options: { env: { A: "1" } } } }), context())
                 ?.command,
@@ -118,7 +118,7 @@ describe("taskFromWire", () => {
         });
     });
 
-    it("шелл командой: правила кавычек числами; options.shell — только с исполняемым файлом", () => {
+    it("shell command: quoting rules as numbers; options.shell only with an executable", () => {
         const command = taskFromWire(
             wire({
                 execution: {
@@ -159,7 +159,7 @@ describe("taskFromWire", () => {
         expect(taskFromWire(wire({ execution: {} }), context())?.command.name).toBe("");
     });
 
-    it("presentation — числа enum'ов поверх дефолтов; неизвестные числа — дефолт", () => {
+    it("presentation — enum numbers over defaults; unknown numbers — default", () => {
         const presentation = (p: IWireTask["presentationOptions"]) =>
             taskFromWire(wire({ presentationOptions: p }), context())?.command.presentation;
         expect(
@@ -192,7 +192,7 @@ describe("taskFromWire", () => {
         expect(presentation({ reveal: 7, panel: 0 })).toStrictEqual(DEFAULT_PRESENTATION);
     });
 
-    it("кастомное исполнение: id из ядра сохраняется; прочее — поля как есть", () => {
+    it("custom execution: the id from core is kept; other fields as is", () => {
         const task = taskFromWire(
             wire({
                 id: "kept",
@@ -222,7 +222,7 @@ describe("taskFromWire", () => {
 });
 
 describe("taskToWire", () => {
-    it("задача tasks.json: $core, папка, командная строка, presentation числами, без _key", () => {
+    it("tasks.json task: $core, folder, command line, presentation as numbers, no _key", () => {
         expect(taskToWire(makeTask({ label: "a", command: { name: "make" } }))).toStrictEqual({
             id: "$core.a",
             name: "a",
@@ -244,7 +244,7 @@ describe("taskToWire", () => {
         });
     });
 
-    it("шелл с аргументами и опциями шелла; процесс; кастомное", () => {
+    it("shell with args and shell options; process; custom", () => {
         expect(
             taskToWire(
                 makeTask({
@@ -311,7 +311,7 @@ describe("taskToWire", () => {
         });
     });
 
-    it("задача провайдера: расширение и область — папка, воркспейс без папки, глобальная; группа", () => {
+    it("provider task: extension and scope — folder, workspace without a folder, global; group", () => {
         const ext = { type: "demo", extensionId: "pub.ext", source: "demo" };
         expect(taskToWire(makeTask({ extension: ext, definition: { target: "x" } })).source).toStrictEqual({
             label: "demo",

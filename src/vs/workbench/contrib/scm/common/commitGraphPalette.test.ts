@@ -15,7 +15,7 @@ function commit(sha: string, refs: IGraphPaletteCommit["refs"] = []): IGraphPale
 }
 
 describe("createGraphPalette", () => {
-    it("новая дорожка берёт следующий цвет палитры, продолжение — наследует", () => {
+    it("a new lane takes the next palette color, a continuation inherits it", () => {
         const { styleFor } = createGraphPalette([commit("a"), commit("b")]);
         const first = styleFor("a", null);
         expect(first).toBe(GRAPH_PALETTE[0]);
@@ -23,19 +23,19 @@ describe("createGraphPalette", () => {
         expect(styleFor("c", first)).toBe(first);
     });
 
-    it("палитра замыкается после последнего цвета", () => {
+    it("the palette wraps around after the last color", () => {
         const { styleFor } = createGraphPalette([]);
         for (let i = 0; i < GRAPH_PALETTE.length; i++) styleFor(`lane${i}`, null);
         expect(styleFor("next", null)).toBe(GRAPH_PALETTE[0]);
     });
 
-    it("текущая ветка перекрашивает свою дорожку и цвет палитры не тратит", () => {
+    it("the current branch recolors its lane and does not use up a palette color", () => {
         const { styleFor } = createGraphPalette([commit("head", [{ kind: "head", current: true }])]);
         expect(styleFor("head", GRAPH_PALETTE[3])).toBe(GRAPH_CURRENT_REF_STYLE);
         expect(styleFor("next", null)).toBe(GRAPH_PALETTE[0]);
     });
 
-    it("remote-ветка красится своим цветом, тег и обычная ветка наследуют дорожку", () => {
+    it("a remote branch gets its own color, a tag and an ordinary branch inherit the lane", () => {
         const palette = createGraphPalette([
             commit("r", [{ kind: "remote", current: false }]),
             commit("t", [{ kind: "tag", current: false }]),
@@ -46,7 +46,7 @@ describe("createGraphPalette", () => {
         expect(palette.styleFor("f", GRAPH_PALETTE[1])).toBe(GRAPH_PALETTE[1]);
     });
 
-    it("colorOf помнит цвет дорожки коммита; первое присвоение побеждает", () => {
+    it("colorOf remembers a commit's lane color; the first assignment wins", () => {
         const palette = createGraphPalette([commit("a")]);
         const lane = palette.styleFor("a", null);
         // Further down the graph the same commit is asked again — its color must not "move".
@@ -54,18 +54,18 @@ describe("createGraphPalette", () => {
         expect(palette.colorOf("a")).toBe(lane);
     });
 
-    it("colorOf до укладки — дефолтный цвет", () => {
+    it("colorOf before layout gives the default color", () => {
         expect(createGraphPalette([commit("a")]).colorOf("a")).toBe(GRAPH_DEFAULT_STYLE);
     });
 
-    it("повторный sha в странице берётся по первому вхождению", () => {
+    it("a repeated sha in a page is taken by its first occurrence", () => {
         // `git log` prints a commit twice when two branches lead into it.
         const palette = createGraphPalette([commit("a", [{ kind: "head", current: true }]), commit("a", [])]);
         expect(palette.styleFor("a", null)).toBe(GRAPH_CURRENT_REF_STYLE);
     });
 });
 
-describe("цвета на уложенном графе", () => {
+describe("colors on a laid-out graph", () => {
     /** Node color per row — the commit symbol sits in its column. */
     function nodeStyles(commits: readonly IGraphCommit[], palette = createGraphPalette([])): (string | undefined)[] {
         const lines = renderCommitGraph(commits, null, palette.styleFor);
@@ -75,7 +75,7 @@ describe("цвета на уложенном графе", () => {
         });
     }
 
-    it("линейная история — одна ветка одного цвета", () => {
+    it("linear history: one branch of one color", () => {
         const styles = nodeStyles([
             { sha: "1", parents: ["2"] },
             { sha: "2", parents: ["3"] },
@@ -85,7 +85,7 @@ describe("цвета на уложенном графе", () => {
         expect(styles[0]).toBe(GRAPH_PALETTE[0]);
     });
 
-    it("влитая ветка получает свой цвет, основная его не меняет", () => {
+    it("a merged branch gets its own color, the main one does not change", () => {
         // main: M(merge) → V → S; feature: F → S.
         const styles = nodeStyles([
             { sha: "M", parents: ["V", "F"] },
@@ -99,7 +99,7 @@ describe("цвета на уложенном графе", () => {
         expect(rootStyle).toBe(mergeStyle);
     });
 
-    it("текущая ветка красит свою дорожку семантическим цветом", () => {
+    it("the current branch paints its lane with a semantic color", () => {
         const palette = createGraphPalette([
             { sha: "1", refs: [{ kind: "head", current: true }] },
             { sha: "2", refs: [] },

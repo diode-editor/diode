@@ -21,70 +21,66 @@ import { FocusTrackerDIToken } from "../../../services/focus/browser/focusTracke
 import { HoverComponentDIToken } from "./hoverComponent.ts";
 import { HoverServiceDIToken, splitMarkdownSections, stripMarkdown } from "./hoverService.ts";
 
-describe("stripMarkdown — плоский текст для TUI-попапа", () => {
-    it("снимает fenced-ограждения, инлайн-код, жирный/курсив и ссылки", () => {
+describe("stripMarkdown — plain text for the TUI popup", () => {
+    it("strips code fences, inline code, bold/italic and links", () => {
         expect(stripMarkdown("```ts\nconst a: number\n```")).toBe("const a: number");
-        expect(stripMarkdown("Вызовите `compute()` **обязательно**")).toBe("Вызовите compute() обязательно");
-        expect(stripMarkdown("*курсив* и __жирный__")).toBe("курсив и жирный");
-        expect(stripMarkdown("Смотри [доку](https://example.com) тут")).toBe("Смотри доку тут");
-        expect(stripMarkdown("экранированный \\*символ\\*")).toBe("экранированный *символ*");
+        expect(stripMarkdown("Call `compute()` **always**")).toBe("Call compute() always");
+        expect(stripMarkdown("*italic* and __bold__")).toBe("italic and bold");
+        expect(stripMarkdown("See [the docs](https://example.com) here")).toBe("See the docs here");
+        expect(stripMarkdown("escaped \\*symbol\\*")).toBe("escaped *symbol*");
     });
 
-    it("`_курсив_` снимается только на границе слова — snake_case не трогается", () => {
+    it("`_italic_` is stripped only at a word boundary — snake_case is left alone", () => {
         // terraform-ls marks the type like this: "`var.region` _string_".
         expect(stripMarkdown("`var.region`\n_string_")).toBe("var.region\nstring");
-        expect(stripMarkdown("тип (_строка_), см. aws_instance_type")).toBe("тип (строка), см. aws_instance_type");
-        expect(stripMarkdown("a_b_c и _x_y")).toBe("a_b_c и _x_y");
-        expect(stripMarkdown("_ не курсив _ и __")).toBe("_ не курсив _ и __");
-        expect(stripMarkdown("_слово_ы")).toBe("_слово_ы");
+        expect(stripMarkdown("type (_string_), see aws_instance_type")).toBe("type (string), see aws_instance_type");
+        expect(stripMarkdown("a_b_c and _x_y")).toBe("a_b_c and _x_y");
+        expect(stripMarkdown("_ not italic _ and __")).toBe("_ not italic _ and __");
+        // A non-ASCII letter after the closing `_` is a word character too (\p{L}, not \w).
+        expect(stripMarkdown("_\u0441\u043b\u043e\u0432\u043e_\u044b")).toBe("_\u0441\u043b\u043e\u0432\u043e_\u044b"); // "_slovo_y"
         expect(stripMarkdown("_a_")).toBe("a");
-        expect(stripMarkdown("экранированный \\_символ\\_")).toBe("экранированный _символ_");
+        expect(stripMarkdown("escaped \\_symbol\\_")).toBe("escaped _symbol_");
     });
 
-    it("многострочный hover tsserver'а: сигнатура + документация", () => {
-        expect(stripMarkdown("```typescript\nconst answer: number\n```\nОтвет на главный вопрос.")).toBe(
-            "const answer: number\nОтвет на главный вопрос.",
+    it("multi-line tsserver hover: signature + documentation", () => {
+        expect(stripMarkdown("```typescript\nconst answer: number\n```\nThe answer to the ultimate question.")).toBe(
+            "const answer: number\nThe answer to the ultimate question.",
         );
     });
 
-    it("обрамляющие пробелы и переводы строк срезаются", () => {
+    it("surrounding whitespace and newlines are trimmed", () => {
         // tsserver returns documentation with a trailing newline; in the popup
         // frame it would turn into an empty line.
         expect(stripMarkdown("\n  const a: number  \n\n")).toBe("const a: number");
     });
 
-    it("fenced-блок без перевода строки перед закрывающими кавычками", () => {
+    it("fenced block without a newline before the closing backticks", () => {
         // tsserver closes the block right after the text; the optional `\n?` in
         // the regex is exactly for this case.
         expect(stripMarkdown("```ts\nconst a: number```")).toBe("const a: number");
     });
 
-    it("больше девяти экранированных символов подряд восстанавливаются каждый", () => {
+    it("more than nine escaped characters in a row are each restored", () => {
         // The hiding index is two-digit: the restore regex must read `\d+`, not `\d`.
         const source = Array.from({ length: 12 }, (_, i) => `\\*${String(i)}\\*`).join(" ");
         expect(stripMarkdown(source)).toBe("*0* *1* *2* *3* *4* *5* *6* *7* *8* *9* *10* *11*");
     });
 });
 
-describe("splitMarkdownSections — секции по thematic break", () => {
-    it("`---`, `***`, `___` (с пробелами и отступом до 3) режут на секции; пустые остаются", () => {
+describe("splitMarkdownSections — sections by thematic break", () => {
+    it("`---`, `***`, `___` (with spaces and indent up to 3) split into sections; empty ones stay", () => {
         expect(splitMarkdownSections("a\n\n---\n\nb\n\n***\n\nc\n\n_ _ _\n\nd")).toEqual(["a", "b", "c", "d"]);
-        expect(splitMarkdownSections("---\n\n   - - - -  \n\nтолько текст\n\n---")).toEqual([
-            "",
-            "",
-            "только текст",
-            "",
-        ]);
+        expect(splitMarkdownSections("---\n\n   - - - -  \n\ntext only\n\n---")).toEqual(["", "", "text only", ""]);
     });
 
-    it("не разделитель: две черты, смесь символов, отступ 4, символ после", () => {
+    it("not a separator: two dashes, mixed characters, indent 4, trailing character", () => {
         expect(splitMarkdownSections("a\n\n--\n\n-*-\n\n    ---\n\n---x")).toEqual([
             "a\n\n--\n\n-*-\n\n    ---\n\n---x",
         ]);
     });
 
-    it("`---` внутри fenced-блока — содержимое; закрывающее ограждение — того же вида и не короче", () => {
-        expect(splitMarkdownSections("```yaml\n---\nkey: 1\n```\n\n---\n\nдока")).toEqual(["---\nkey: 1", "дока"]);
+    it("`---` inside a fenced block is content; the closing fence is of the same kind and no shorter", () => {
+        expect(splitMarkdownSections("```yaml\n---\nkey: 1\n```\n\n---\n\ndocs")).toEqual(["---\nkey: 1", "docs"]);
         // Inside a ````-block neither ``` nor ~~~~ closes it: one split, after the block.
         // (stripMarkdown strips the ```` themselves imprecisely, a known limitation; here we only check the split.)
         const sections = splitMarkdownSections("````\n```\n---\n~~~~\n````\n---\nx");
@@ -92,21 +88,21 @@ describe("splitMarkdownSections — секции по thematic break", () => {
         expect(sections[1]).toBe("x");
     });
 
-    it("`---` под строкой абзаца — setext-заголовок: линия выпадает, `***` под абзацем — разделитель", () => {
-        expect(splitMarkdownSections("Заголовок\n---\nтекст")).toEqual(["Заголовок\nтекст"]);
-        expect(splitMarkdownSections("абзац\n***\nтекст")).toEqual(["абзац", "текст"]);
+    it("`---` under a paragraph line is a setext heading: the line drops out; `***` under a paragraph is a separator", () => {
+        expect(splitMarkdownSections("Heading\n---\ntext")).toEqual(["Heading\ntext"]);
+        expect(splitMarkdownSections("paragraph\n***\ntext")).toEqual(["paragraph", "text"]);
         // Below a separator and below a whitespace-only line there's no paragraph, so `---` is a separator again.
-        expect(splitMarkdownSections("абзац\n***\n---\nтекст")).toEqual(["абзац", "", "текст"]);
-        expect(splitMarkdownSections("абзац\n   \n---\nтекст")).toEqual(["абзац", "текст"]);
-        expect(splitMarkdownSections("Заголовок\n  ---\nтекст")).toEqual(["Заголовок\nтекст"]);
+        expect(splitMarkdownSections("paragraph\n***\n---\ntext")).toEqual(["paragraph", "", "text"]);
+        expect(splitMarkdownSections("paragraph\n   \n---\ntext")).toEqual(["paragraph", "text"]);
+        expect(splitMarkdownSections("Heading\n  ---\ntext")).toEqual(["Heading\ntext"]);
     });
 
-    it("секции стрипаются по отдельности", () => {
+    it("sections are stripped separately", () => {
         expect(splitMarkdownSections("**a**\n\n---\n\n[b](https://x)")).toEqual(["a", "b"]);
     });
 });
 
-describe("HoverService — показ и закрытие попапа", () => {
+describe("HoverService — showing and closing the popup", () => {
     let ws: ITempWorkspace;
     let h: IAppHarness;
 
@@ -148,8 +144,8 @@ describe("HoverService — показ и закрытие попапа", () => {
             .map((hover) => registry.register("*", { provideHover: () => Promise.resolve(hover) }));
     };
 
-    it("показывает попап с очищенным от markdown контентом у каретки", async () => {
-        useHovers(hoverOf(["```ts\nconst answer: number\n```", "Документация **ответа**"]));
+    it("shows the popup with markdown-stripped content at the cursor", async () => {
+        useHovers(hoverOf(["```ts\nconst answer: number\n```", "Documentation for **answer**"]));
 
         const keys = new ContextKeyService();
         service().updateContextKeys(keys);
@@ -162,11 +158,11 @@ describe("HoverService — показ и закрытие попапа", () => {
         expect(keys.get("editorHoverVisible")).toBe(true);
         const lines = component().view.linesFor(60);
         expect(lines).toContain("const answer: number");
-        expect(lines).toContain("Документация ответа");
+        expect(lines).toContain("Documentation for answer");
         expect(group().getActiveEditor()).not.toBeNull();
     });
 
-    it("закрытие попапа отменяет запрос и у провайдера", async () => {
+    it("closing the popup cancels the request at the provider too", async () => {
         const tokens: ICancellationToken[] = [];
         useProvider((_request, token) => {
             tokens.push(token);
@@ -180,34 +176,34 @@ describe("HoverService — показ и закрытие попапа", () => {
         expect(tokens.map((token) => token.isCancellationRequested)).toEqual([true]);
     });
 
-    it("несколько провайдеров: по блоку на каждого, между ними линия-разделитель", async () => {
-        useHovers(hoverOf(["первый провайдер"]), hoverOf(["второй провайдер"]));
+    it("several providers: one block each, separated by a line", async () => {
+        useHovers(hoverOf(["first provider"]), hoverOf(["second provider"]));
 
         await service().showHover();
 
         const lines = component().view.linesFor(30);
-        expect(lines[0]).toBe("первый провайдер");
+        expect(lines[0]).toBe("first provider");
         expect(lines[1]).toBe("─".repeat(30));
-        expect(lines[2]).toBe("второй провайдер");
+        expect(lines[2]).toBe("second provider");
     });
 
-    it("разделитель с краю контента отделяет его от соседнего; без разделителя контенты в одном блоке", async () => {
-        useHovers(hoverOf(["сигнатура\n\n---", "дока", "ещё", "***\n\nссылка"]));
+    it("a separator at a content's edge splits it from its neighbor; without one contents share a block", async () => {
+        useHovers(hoverOf(["signature\n\n---", "docs", "more", "***\n\nlink"]));
 
         await service().showHover();
 
         expect(component().view.linesFor(20)).toEqual([
-            "сигнатура",
+            "signature",
             "─".repeat(20),
-            "дока",
+            "docs",
             "",
-            "ещё",
+            "more",
             "─".repeat(20),
-            "ссылка",
+            "link",
         ]);
     });
 
-    it("thematic break внутри hover'а (gopls) рисуется на кадре линией, как граница блоков", async () => {
+    it("a thematic break inside a hover (gopls) is drawn in the frame as a line, like a block boundary", async () => {
         useHovers(
             hoverOf([
                 "```go\nfunc greet.Hello(name string) string\n```\n\n---\n\nHello greets.\n\n\n---\n\n[`greet.Hello` on pkg.go.dev](https://pkg.go.dev/x/greet#Hello)",
@@ -227,7 +223,7 @@ describe("HoverService — показ и закрытие попапа", () => {
         expect(rows[at + 4]).toContain("│ greet.Hello on pkg.go.dev");
     });
 
-    it("пустой результат, пустой после стрипа и отсутствие провайдеров — попап не открывается", async () => {
+    it("an empty result, empty after stripping, or no providers — the popup doesn't open", async () => {
         // No providers.
         await service().showHover();
         expect(service().isOpen()).toBe(false);
@@ -243,14 +239,14 @@ describe("HoverService — показ и закрытие попапа", () => {
         expect(service().isOpen()).toBe(false);
     });
 
-    it("провайдер чужого языка не спрашивается вовсе", async () => {
+    it("a provider for another language isn't asked at all", async () => {
         let asked = false;
         const registry = h.container.get(LanguageFeaturesServiceDIToken).hoverProvider;
         providers = [
             registry.register("python", {
                 provideHover: () => {
                     asked = true;
-                    return Promise.resolve(hoverOf(["питон"]));
+                    return Promise.resolve(hoverOf(["python"]));
                 },
             }),
         ];
@@ -261,34 +257,34 @@ describe("HoverService — показ и закрытие попапа", () => {
         expect(service().isOpen()).toBe(false);
     });
 
-    it("порядок блоков — по score селектора: точный язык выше `*`, хоть и зарегистрирован раньше", async () => {
+    it("block order follows selector score: an exact language ranks above `*` even if registered earlier", async () => {
         const registry = h.container.get(LanguageFeaturesServiceDIToken).hoverProvider;
         const languageId = group().getActiveEditor()!.languageId;
         providers = [
-            registry.register(languageId, { provideHover: () => Promise.resolve(hoverOf(["точный"])) }),
-            registry.register("*", { provideHover: () => Promise.resolve(hoverOf(["любой"])) }),
+            registry.register(languageId, { provideHover: () => Promise.resolve(hoverOf(["exact"])) }),
+            registry.register("*", { provideHover: () => Promise.resolve(hoverOf(["any"])) }),
         ];
 
         await service().showHover();
 
         const lines = component().view.linesFor(30);
-        expect(lines[0]).toBe("точный");
-        expect(lines[2]).toBe("любой");
+        expect(lines[0]).toBe("exact");
+        expect(lines[2]).toBe("any");
     });
 
-    it("сбойный провайдер не роняет остальных", async () => {
+    it("a failing provider doesn't break the others", async () => {
         const registry = h.container.get(LanguageFeaturesServiceDIToken).hoverProvider;
         providers = [
-            registry.register("*", { provideHover: () => Promise.resolve(hoverOf(["живой"])) }),
+            registry.register("*", { provideHover: () => Promise.resolve(hoverOf(["alive"])) }),
             registry.register("*", { provideHover: () => Promise.reject(new Error("boom")) }),
         ];
 
         await service().showHover();
 
-        expect(component().view.linesFor(30)).toEqual(["живой"]);
+        expect(component().view.linesFor(30)).toEqual(["alive"]);
     });
 
-    it("запрос несёт версию документа и позицию каретки, но не текст", async () => {
+    it("the request carries the document version and cursor position, but not the text", async () => {
         const seen: { uri?: string; line?: number; character?: number; versionId?: number } = {};
         useProvider((request) => {
             Object.assign(seen, request);
@@ -303,7 +299,7 @@ describe("HoverService — показ и закрытие попапа", () => {
         expect(seen).not.toHaveProperty("text");
     });
 
-    it("Ctrl+K Ctrl+U открывает попап, Escape закрывает — фокус остаётся в редакторе", async () => {
+    it("Ctrl+K Ctrl+U opens the popup, Escape closes it — focus stays in the editor", async () => {
         useHovers(hoverOf(["const answer: number"]));
 
         h.testApp.sendKey("Ctrl+K");
@@ -316,7 +312,7 @@ describe("HoverService — показ и закрытие попапа", () => {
         expect(group().getActiveEditor()?.viewState.selections[0].active).toMatchObject({ line: 0, character: 0 });
     });
 
-    it("движение каретки и правка закрывают попап", async () => {
+    it("cursor movement and edits close the popup", async () => {
         useHovers(hoverOf(["x"]));
 
         await service().showHover();
@@ -330,7 +326,7 @@ describe("HoverService — показ и закрытие попапа", () => {
         expect(service().isOpen()).toBe(false);
     });
 
-    it("устаревший ответ не переоткрывает закрытый попап", async () => {
+    it("a stale response doesn't reopen a closed popup", async () => {
         let release: (hover: ICoreHover) => void = () => undefined;
         useProvider(
             () =>
@@ -342,27 +338,27 @@ describe("HoverService — показ и закрытие попапа", () => {
         const pending = service().showHover();
         // While the response is in flight the popup was closed (Escape), so seq is stale.
         service().close();
-        release(hoverOf(["опоздавший"]));
+        release(hoverOf(["late"]));
         await pending;
 
         expect(service().isOpen()).toBe(false);
     });
 
-    it("повторный showHover при открытом попапе обновляет контент и пере-анкорит сессию", async () => {
-        let text = "первая версия";
+    it("showHover again with the popup open updates the content and re-anchors the session", async () => {
+        let text = "first version";
         useProvider(() => Promise.resolve(hoverOf([text])));
 
         await service().showHover();
         expect(service().isOpen()).toBe(true);
 
-        text = "вторая версия";
+        text = "second version";
         await service().showHover();
 
         expect(service().isOpen()).toBe(true);
-        expect(component().view.linesFor(60)).toContain("вторая версия");
+        expect(component().view.linesFor(60)).toContain("second version");
     });
 
-    it("нет активного редактора — источник не вызывается", async () => {
+    it("no active editor — the source isn't called", async () => {
         let called = false;
         useProvider(() => {
             called = true;
@@ -377,7 +373,7 @@ describe("HoverService — показ и закрытие попапа", () => {
         expect(service().isOpen()).toBe(false);
     });
 
-    it("каретка ушла из вьюпорта за время запроса — попап не открывается", async () => {
+    it("the cursor left the viewport during the request — the popup doesn't open", async () => {
         useHovers(hoverOf(["x"]));
         const editor = group().getActiveEditor()!;
         // The anchor is gone (cursor outside the visible area): same contract as
@@ -389,7 +385,7 @@ describe("HoverService — показ и закрытие попапа", () => {
         expect(service().isOpen()).toBe(false);
     });
 
-    it("клик мимо попапа закрывает его (pointer-политика overlay-сессии)", async () => {
+    it("a click outside the popup closes it (overlay session pointer policy)", async () => {
         useHovers(hoverOf(["const answer: number"]));
         await service().showHover();
         expect(service().isOpen()).toBe(true);
@@ -411,7 +407,7 @@ describe("HoverService — показ и закрытие попапа", () => {
         expect(service().isOpen()).toBe(false);
     });
 
-    it("настоящий уход фокуса в другой виджет закрывает попап", async () => {
+    it("focus really moving to another widget closes the popup", async () => {
         useHovers(hoverOf(["const answer: number"]));
         await service().showHover();
         expect(service().isOpen()).toBe(true);
@@ -424,7 +420,7 @@ describe("HoverService — показ и закрытие попапа", () => {
         expect(service().isOpen()).toBe(false);
     });
 
-    it("уход фокуса с редактора закрывает попап, возврат фокуса — нет", async () => {
+    it("focus leaving the editor closes the popup, focus returning doesn't", async () => {
         useHovers(hoverOf(["x"]));
         await service().showHover();
         expect(service().isOpen()).toBe(true);
@@ -438,17 +434,17 @@ describe("HoverService — показ и закрытие попапа", () => {
         expect(service().isOpen()).toBe(false);
     });
 
-    it("пустые блоки внутри одного hover'а не дают пустых строк в попапе", async () => {
-        useHovers(hoverOf(["```ts\nconst a: number\n```", "```\n\n```", "документация"]));
+    it("empty blocks inside one hover don't produce empty lines in the popup", async () => {
+        useHovers(hoverOf(["```ts\nconst a: number\n```", "```\n\n```", "documentation"]));
 
         await service().showHover();
 
         // The block that's empty after stripping is dropped: exactly one empty line
         // between the signature and the docs, not two.
-        expect(component().view.linesFor(60)).toEqual(["const a: number", "", "документация"]);
+        expect(component().view.linesFor(60)).toEqual(["const a: number", "", "documentation"]);
     });
 
-    it("смена активного редактора закрывает попап и переносит подписки на новый", async () => {
+    it("switching the active editor closes the popup and moves subscriptions to the new one", async () => {
         useHovers(hoverOf(["x"]));
         const first = group().getActiveEditor()!;
         await service().showHover();
@@ -467,14 +463,14 @@ describe("HoverService — показ и закрытие попапа", () => {
         expect(service().isOpen()).toBe(false);
     });
 
-    it("правка ниже каретки закрывает попап (текст под ним устарел)", async () => {
+    it("an edit below the cursor closes the popup (the text under it is stale)", async () => {
         useHovers(hoverOf(["x"]));
         await service().showHover();
         expect(service().isOpen()).toBe(true);
 
         // An edit below the cursor: the cursor stays, but the content changed.
         const editor = group().getActiveEditor()!;
-        editor.applyExternalEdits([createTextEdit(createRange(1, 0, 1, 0), "// добавили\n")], "test");
+        editor.applyExternalEdits([createTextEdit(createRange(1, 0, 1, 0), "// added\n")], "test");
         expect(service().isOpen()).toBe(false);
     });
 });

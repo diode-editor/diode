@@ -51,14 +51,14 @@ function harness(answer: string | undefined, stored: Record<string, unknown> = {
 }
 
 describe("Developer: Open URL", () => {
-    it("id, заголовок и категория — эталонные; в списке экшенов URL", () => {
+    it("id, title and category match upstream; in the URL action list", () => {
         expect(openUrlAction.id).toBe("workbench.action.url.openUrl");
         expect(openUrlAction.title).toBe("Developer: Open URL");
         expect(openUrlAction.shortTitle).toBe("Open URL");
         expect(URL_ACTIONS).toEqual([openUrlAction]);
     });
 
-    it("состояние — эталонный ключ в области воркспейса, пусто по умолчанию", () => {
+    it("state uses the upstream key in workspace scope, empty by default", () => {
         expect(OPEN_URL_LAST_INPUT_STATE).toEqual({
             key: "workbench.action.url.openUrl.lastInput",
             scope: "workspace",
@@ -66,7 +66,7 @@ describe("Developer: Open URL", () => {
         });
     });
 
-    it("ввод открывается через URL-сервис с исходной строкой и запоминается", async () => {
+    it("input is opened via the URL service with the original string and remembered", async () => {
         const raw = "diode://anthropic.claude-code/install-plugin?name=a%20b";
         const h = harness(raw);
         await openUrlAction.run(h.accessor);
@@ -78,19 +78,16 @@ describe("Developer: Open URL", () => {
         expect(h.state.get("workbench.action.url.openUrl.lastInput")).toBe(raw);
     });
 
-    it("поле предзаполнено прошлым вводом", async () => {
+    it("the field is prefilled with the previous input", async () => {
         const h = harness(undefined, { "workbench.action.url.openUrl.lastInput": "diode://a.b/prev" });
         await openUrlAction.run(h.accessor);
         expect(h.inputs[0]?.value).toBe("diode://a.b/prev");
     });
 
-    it.each([undefined, ""])(
-        "отмена или пустой ввод — ничего не открывается и не запоминается (%j)",
-        async (answer) => {
-            const h = harness(answer, { "workbench.action.url.openUrl.lastInput": "diode://a.b/prev" });
-            await openUrlAction.run(h.accessor);
-            expect(h.opened).toEqual([]);
-            expect(h.state.get("workbench.action.url.openUrl.lastInput")).toBe("diode://a.b/prev");
-        },
-    );
+    it.each([undefined, ""])("cancel or empty input: nothing is opened or remembered (%j)", async (answer) => {
+        const h = harness(answer, { "workbench.action.url.openUrl.lastInput": "diode://a.b/prev" });
+        await openUrlAction.run(h.accessor);
+        expect(h.opened).toEqual([]);
+        expect(h.state.get("workbench.action.url.openUrl.lastInput")).toBe("diode://a.b/prev");
+    });
 });

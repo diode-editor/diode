@@ -58,44 +58,44 @@ function makeDoctor(initial: KeyboardDoctorEnv = PC, lookup?: BindingLookup) {
 }
 
 describe("KeyboardDoctorComponent", () => {
-    it("ведёт по шагам, записывает нажатия и резолвится отчётом", async () => {
+    it("walks through the steps, records presses and resolves with the report", async () => {
         const { testApp, doctor, screen } = makeDoctor();
         const run = doctor.run();
         expect(screen()).toContain("Keyboard Doctor");
-        expect(screen()).toContain("Шаг 1/8: нажми Ctrl+S");
-        expect(screen()).toContain("os: linux (источник: default)");
-        expect(screen()).toContain("Ловим: работает ли базовый набор");
-        expect(screen()).toContain("Пока ничего не нажато");
-        expect(screen()).toContain("Escape — ничего не произошло");
+        expect(screen()).toContain("Step 1/8: press Ctrl+S");
+        expect(screen()).toContain("os: linux (source: default)");
+        expect(screen()).toContain("Checks: whether the basic set works");
+        expect(screen()).toContain("Nothing pressed yet");
+        expect(screen()).toContain("Escape — nothing happened");
 
         testApp.sendKey("Ctrl+S");
-        expect(screen()).toContain("Шаг 2/8");
-        expect(screen()).toContain('Было: key="s"');
-        expect(screen()).toContain("бинд: save · OK");
+        expect(screen()).toContain("Step 2/8");
+        expect(screen()).toContain('Last: key="s"');
+        expect(screen()).toContain("keybinding: save · OK");
 
         // Ctrl+Shift+P "did not arrive" on this step — Escape.
         testApp.sendKey("Escape");
-        expect(screen()).toContain("Было: ничего · бинд: нет · не дошла вовсе");
+        expect(screen()).toContain("Last: nothing · keybinding: none · did not arrive at all");
 
         for (let i = 2; i < PC_STEPS - 1; i++) testApp.sendKey("Escape");
-        expect(screen()).toContain("Шаг 8/8: нажми Ctrl+Tab — подержи Ctrl и отпусти");
+        expect(screen()).toContain("Step 8/8: press Ctrl+Tab — hold Ctrl, then release");
 
         // Hold: keydown Ctrl+Tab (CSI-u), then keyup Control (Kitty event type 3).
         testApp.backend.sendRaw("\x1b[9;5u");
-        expect(screen()).toContain("теперь отпусти модификатор");
-        expect(screen()).toContain("Enter — keyup так и не пришёл");
+        expect(screen()).toContain("now release the modifier");
+        expect(screen()).toContain("Enter — keyup never came");
         testApp.backend.sendRaw("\x1b[57442;5:3u");
 
         const report = await run;
         expect(doctor.isOpen()).toBe(false);
         expect(report).toContain("[1] Ctrl+S");
-        expect(report).toContain("    вердикт: OK");
+        expect(report).toContain("    verdict: OK");
         expect(report).toContain("[2] Ctrl+Shift+P");
-        expect(report).toContain("    keyup Control: да");
-        expect(report.match(/вердикт: не дошла вовсе/g)).toHaveLength(PC_STEPS - 2);
+        expect(report).toContain("    keyup Control: yes");
+        expect(report.match(/verdict: did not arrive at all/g)).toHaveLength(PC_STEPS - 2);
     });
 
-    it("hold без keyup: голый Enter закрывает шаг с вердиктом «keyup не пришёл»", async () => {
+    it("hold without keyup: a bare Enter closes the step with the «keyup never came» verdict", async () => {
         const { testApp, doctor } = makeDoctor();
         const run = doctor.run();
         for (let i = 0; i < PC_STEPS - 1; i++) testApp.sendKey("Escape");
@@ -106,11 +106,11 @@ describe("KeyboardDoctorComponent", () => {
         expect(doctor.isOpen()).toBe(true);
         testApp.sendKey("Enter");
         const report = await run;
-        expect(report).toContain("    keyup Control: нет");
-        expect(report).toContain("keyup модификатора не пришёл");
+        expect(report).toContain("    keyup Control: no");
+        expect(report).toContain("the modifier keyup never came");
     });
 
-    it("голая клавиша и Escape с модификатором — это нажатия, а не «ничего не пришло»", async () => {
+    it("a bare key and Escape with a modifier are presses, not «nothing arrived»", async () => {
         const { testApp, doctor } = makeDoctor();
         const run = doctor.run();
         testApp.sendKey("Home");
@@ -119,11 +119,11 @@ describe("KeyboardDoctorComponent", () => {
         testApp.sendKey("Ctrl+Tab");
         testApp.sendKey("Enter");
         const report = await run;
-        expect(report).toContain('    событие: key="Home" code=Home mods=—');
-        expect(report).toContain('    событие: key="Escape" code=Escape mods=Shift');
+        expect(report).toContain('    event: key="Home" code=Home mods=—');
+        expect(report).toContain('    event: key="Escape" code=Escape mods=Shift');
     });
 
-    it("по завершении фокус возвращается туда, где был", async () => {
+    it("on completion focus returns to where it was", async () => {
         const { testApp, doctor, body } = makeDoctor();
         const target = new FitContentElement();
         target.id = "target";
@@ -139,36 +139,38 @@ describe("KeyboardDoctorComponent", () => {
         expect(testApp.focusedElement?.id).toBe("target");
     });
 
-    it("keyup вне шага с keyup ничего не делает; одиночные модификаторы — не нажатие шага", async () => {
+    it("keyup outside a keyup step does nothing; lone modifiers are not a step press", async () => {
         const { testApp, doctor, screen } = makeDoctor();
         const run = doctor.run();
         testApp.backend.sendRaw("\x1b[57442;5:3u");
         // Control, Shift, CapsLock as separate keydowns (Kitty) — they have no paired keypress.
         for (const raw of ["\x1b[57442u", "\x1b[57441u", "\x1b[57358u"]) testApp.backend.sendRaw(raw);
-        expect(screen()).toContain("Шаг 1/8");
+        expect(screen()).toContain("Step 1/8");
         testApp.sendKey("Ctrl+S");
         for (let i = 1; i < PC_STEPS - 1; i++) testApp.sendKey("Escape");
         testApp.sendKey("Ctrl+Tab");
         testApp.sendKey("Enter");
         const report = await run;
-        expect(report).toContain("[1] Ctrl+S — ловим: работает ли базовый набор\n    ожидали: Ctrl+S\n    байты: 13");
+        expect(report).toContain(
+            "[1] Ctrl+S — checks: whether the basic set works\n    expected: Ctrl+S\n    bytes: 13",
+        );
         expect(report).not.toMatch(/key="(Control|Shift|CapsLock)"/);
     });
 
-    it("на шаге hold: keyup до нажатия и голая клавиша во время ожидания keyup шаг не закрывают", async () => {
+    it("on the hold step: a keyup before the press and a bare key while awaiting keyup do not close the step", async () => {
         const { testApp, doctor, screen } = makeDoctor();
         const run = doctor.run();
         for (let i = 0; i < PC_STEPS - 1; i++) testApp.sendKey("Escape");
         testApp.backend.sendRaw("\x1b[57442;5:3u"); // Ctrl released before Ctrl+Tab itself
-        expect(screen()).toContain("Шаг 8/8");
+        expect(screen()).toContain("Step 8/8");
         testApp.sendKey("Ctrl+Tab");
         testApp.sendKey("a"); // not Enter — keep waiting for keyup
         expect(doctor.isOpen()).toBe(true);
         testApp.backend.sendRaw("\x1b[57442;5:3u");
-        expect(await run).toContain("    keyup Control: да");
+        expect(await run).toContain("    keyup Control: yes");
     });
 
-    it("Cmd (super-бит) доходит до доктора как Meta, бинд ищется по пришедшему", async () => {
+    it("Cmd (super bit) reaches the doctor as Meta, the keybinding is looked up by what arrived", async () => {
         const macCmd: KeyboardDoctorEnv = { ...PC, os: "mac", macKeysRung: "cmd", capabilities: ["super"] };
         const { testApp, doctor, lookups } = makeDoctor(macCmd, (part) => {
             lookups.push(part);
@@ -180,15 +182,15 @@ describe("KeyboardDoctorComponent", () => {
         for (let i = 1; i < 30 && doctor.isOpen(); i++) testApp.sendKey("Escape");
         const report = await run;
         expect(report).toContain("[1] Cmd+S");
-        expect(report).toContain("    байты: 1b 5b 31 31 35 3b 39 75");
-        expect(report).toContain("    вердикт: дошла, но не сматчилась");
+        expect(report).toContain("    bytes: 1b 5b 31 31 35 3b 39 75");
+        expect(report).toContain("    verdict: arrived, but did not match");
     });
 
-    it("смена окружения (рунг поднялся на лету) перерисовывает шапку; после конца подписка снята", async () => {
+    it("an environment change (rung raised on the fly) redraws the header; the subscription is dropped after the end", async () => {
         const { testApp, doctor, setEnv, screen, listeners } = makeDoctor();
         const run = doctor.run();
         setEnv({ ...PC, os: "mac", osSource: "terminal" });
-        expect(screen()).toContain("os: mac (источник: terminal)");
+        expect(screen()).toContain("os: mac (source: terminal)");
         for (let i = 0; i < PC_STEPS - 1; i++) testApp.sendKey("Escape");
         testApp.sendKey("Ctrl+Tab");
         testApp.sendKey("Enter");
@@ -196,12 +198,12 @@ describe("KeyboardDoctorComponent", () => {
         expect(listeners.size).toBe(0);
     });
 
-    it("повторный run начинает заново; run без attachHost — честная ошибка; dispose закрывает", () => {
+    it("a repeated run starts over; run without attachHost throws; dispose closes", () => {
         const { testApp, doctor, screen } = makeDoctor();
         void doctor.run();
         testApp.sendKey("Ctrl+S");
         void doctor.run();
-        expect(screen()).toContain("Шаг 1/8");
+        expect(screen()).toContain("Step 1/8");
         doctor.dispose();
         expect(doctor.isOpen()).toBe(false);
 

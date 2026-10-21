@@ -26,7 +26,7 @@ const B = {
 };
 
 describe("ScmChangesService", () => {
-    it("публикует набор командой и отдаёт его снимком + событием", () => {
+    it("publishes the set via a command and exposes it as a snapshot + event", () => {
         const { service, commands } = setup();
         const changed = vi.fn();
         service.onDidChangeChanges(changed);
@@ -40,7 +40,7 @@ describe("ScmChangesService", () => {
         ]);
     });
 
-    it("отбрасывает мусорные записи (включая мусорную группу), не-массив — пустой набор", () => {
+    it("drops garbage entries (a garbage group included), a non-array is an empty set", () => {
         const { service, commands } = setup();
 
         commands.execute(PUBLISH_CHANGES_COMMAND, [
@@ -58,7 +58,7 @@ describe("ScmChangesService", () => {
         expect(service.changes).toEqual([]);
     });
 
-    it("colorId и path необязательны: без них — пустые строки", () => {
+    it("colorId and path are optional: empty strings without them", () => {
         const { service, commands } = setup();
 
         commands.execute(PUBLISH_CHANGES_COMMAND, [{ uri: "file:///x", status: "M", group: "index" }]);
@@ -68,7 +68,7 @@ describe("ScmChangesService", () => {
         expect(service.changes[0].group).toBe("index");
     });
 
-    it("идентичную повторную публикацию гасит — событие не файрится", () => {
+    it("an identical repeated publish is suppressed: the event does not fire", () => {
         const { service, commands } = setup();
         const changed = vi.fn();
         service.onDidChangeChanges(changed);
@@ -79,7 +79,7 @@ describe("ScmChangesService", () => {
         expect(changed).toHaveBeenCalledTimes(1);
     });
 
-    it("пустой набор очищает список и файрит событие", () => {
+    it("an empty set clears the list and fires the event", () => {
         const { service, commands } = setup();
         const changed = vi.fn();
         commands.execute(PUBLISH_CHANGES_COMMAND, [A]);
@@ -91,7 +91,7 @@ describe("ScmChangesService", () => {
         expect(service.changes).toEqual([]);
     });
 
-    it("подписку можно снять", () => {
+    it("the subscription can be removed", () => {
         const { service, commands } = setup();
         const changed = vi.fn();
         const sub = service.onDidChangeChanges(changed);
@@ -102,7 +102,7 @@ describe("ScmChangesService", () => {
         expect(changed).not.toHaveBeenCalled();
     });
 
-    it("dispose снимает регистрацию команды", () => {
+    it("dispose removes the command registration", () => {
         const { service, commands } = setup();
 
         service.dispose();

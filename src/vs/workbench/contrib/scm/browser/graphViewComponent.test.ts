@@ -92,7 +92,7 @@ function publish(commands: CommandRegistry, entries: IEntry[], hasMore = false):
 }
 
 describe("GraphViewComponent", () => {
-    it("регистрирует себя view-секцией GRAPH контейнера Source Control", () => {
+    it("registers itself as the GRAPH view section of the Source Control container", () => {
         const { registered } = make();
         expect(registered).toHaveLength(1);
         expect(registered[0]).toMatchObject({
@@ -105,25 +105,25 @@ describe("GraphViewComponent", () => {
         });
     });
 
-    it("рисует граф и subject коммита, sha в кадр не выводит; id строки — полный sha", () => {
+    it("draws the graph and the commit subject, keeps the sha out of the frame; the row id is the full sha", () => {
         const { component, commands } = make();
         publish(commands, [
-            { sha: SHA_A, subject: "feat: панель", parents: [SHA_B] },
-            { sha: SHA_B, subject: "fix: сэш" },
+            { sha: SHA_A, subject: "feat: panel", parents: [SHA_B] },
+            { sha: SHA_B, subject: "fix: cache" },
         ]);
 
         expect(component.list.rowCount).toBe(2);
         const screen = renderElement(component.view, 40, 6, { themeVars: true }).screenToString();
         expect(screen).toContain("○");
-        expect(screen).toContain("feat: панель");
-        expect(screen).toContain("fix: сэш");
+        expect(screen).toContain("feat: panel");
+        expect(screen).toContain("fix: cache");
         // The graph has no sha column: the hash is fetched with the Copy Commit ID command.
         expect(screen).not.toContain("aaaaaaaa");
         component.list.setCursorTo(SHA_B);
         expect(component.list.getCursorElement()?.id).toBe(SHA_B);
     });
 
-    it("тема коммита идёт сразу за графикой своей строки, а не выравнивается в таблицу", () => {
+    it("the commit subject follows its row's graphics directly instead of aligning into a table", () => {
         const { component, commands } = make();
         // A linear commit on top (one lane), below it a merge forks a second one,
         // so rows have different graph widths.
@@ -143,7 +143,7 @@ describe("GraphViewComponent", () => {
         expect(columnOf("base")).toBe(columnOf("merge"));
     });
 
-    it("merge-коммит рисуется своим символом и ветвлением", () => {
+    it("a merge commit is drawn with its own symbol and a fork", () => {
         const { component, commands } = make();
         publish(commands, [
             { sha: SHA_A, subject: "merge", parents: [SHA_B, SHA_C] },
@@ -155,12 +155,12 @@ describe("GraphViewComponent", () => {
         expect(screen).toContain("◎─╮");
     });
 
-    it("бейджи ветки и тега попадают в строку перед темой коммита", () => {
+    it("branch and tag badges go into the row before the commit subject", () => {
         const { component, commands } = make();
         publish(commands, [
             {
                 sha: SHA_A,
-                subject: "feat: панель",
+                subject: "feat: panel",
                 refs: [
                     { name: "v1.0", kind: "tag", current: false },
                     { name: "main", kind: "head", current: true },
@@ -169,10 +169,10 @@ describe("GraphViewComponent", () => {
         ]);
 
         const screen = renderElement(component.view, 40, 4, { themeVars: true }).screenToString();
-        expect(screen).toMatch(/main.*v1\.0.*feat: панель/);
+        expect(screen).toMatch(/main.*v1\.0.*feat: panel/);
     });
 
-    it("строка Load More появляется, пока история продолжается, и зовёт команду догрузки", () => {
+    it("the Load More row appears while history continues and calls the load-more command", () => {
         const { component, commands } = make();
         const loadMore = vi.fn();
         commands.register(GRAPH_LOAD_MORE_COMMAND, loadMore);
@@ -190,7 +190,7 @@ describe("GraphViewComponent", () => {
         expect(component.list.rowCount).toBe(1);
     });
 
-    it("активация строки коммита команду догрузки не зовёт", () => {
+    it("activating a commit row does not call the load-more command", () => {
         const { component, commands } = make();
         const loadMore = vi.fn();
         commands.register(GRAPH_LOAD_MORE_COMMAND, loadMore);
@@ -201,9 +201,9 @@ describe("GraphViewComponent", () => {
         expect(loadMore).not.toHaveBeenCalled();
     });
 
-    it("контекстное меню строки открывается с sha коммита в контексте", () => {
+    it("the row context menu opens with the commit sha in the context", () => {
         const { component, commands, shownMenus } = make();
-        publish(commands, [{ sha: SHA_A, subject: "feat: панель" }]);
+        publish(commands, [{ sha: SHA_A, subject: "feat: panel" }]);
 
         component.list.setCursorTo(SHA_A);
         component.list.onContextMenu?.(component.list.getCursorElement()!, 5, 5);
@@ -213,13 +213,13 @@ describe("GraphViewComponent", () => {
         expect(shownMenus[0].menuContext).toEqual({
             sha: SHA_A,
             shortSha: SHA_A.slice(0, 8),
-            subject: "feat: панель",
+            subject: "feat: panel",
         } satisfies ScmGraphMenuContext);
         expect(shownMenus[0].owner).toBe(component.list);
         expect(shownMenus[0].anchor).toEqual({ screenX: 5, screenY: 5 });
     });
 
-    it("контекстное меню на строке Load More не открывается", () => {
+    it("the context menu does not open on the Load More row", () => {
         const { component, commands, shownMenus } = make();
         publish(commands, [{ sha: SHA_A, subject: "first" }], true);
 
@@ -228,7 +228,7 @@ describe("GraphViewComponent", () => {
         expect(shownMenus).toHaveLength(0);
     });
 
-    it("выделение коммита подсвечивает его линии, не пересобирая строки", () => {
+    it("selecting a commit highlights its lines without rebuilding rows", () => {
         const { component, commands } = make();
         publish(commands, [
             { sha: SHA_A, subject: "first", parents: [SHA_B] },
@@ -247,7 +247,7 @@ describe("GraphViewComponent", () => {
         expect(rowBefore?.id).toBe(SHA_A);
     });
 
-    it("выделенный коммит, ушедший из страницы, подсветку не залипляет", () => {
+    it("a selected commit that left the page does not keep the highlight stuck", () => {
         const { component, commands } = make();
         publish(commands, [
             { sha: SHA_A, subject: "first", parents: [SHA_B] },
@@ -268,7 +268,7 @@ describe("GraphViewComponent", () => {
         expect(component.list.rowCount).toBe(2);
     });
 
-    it("курсор на исчезнувшем коммите не переезжает на строку догрузки", () => {
+    it("the cursor on a vanished commit does not jump to the load-more row", () => {
         const { component, commands } = make();
         publish(commands, [{ sha: SHA_A, subject: "first" }], true);
         component.list.setCursorTo(SHA_A);
@@ -279,7 +279,7 @@ describe("GraphViewComponent", () => {
         expect(component.list.getCursorElement()?.id).not.toBe(LOAD_MORE_ROW_ID);
     });
 
-    it("перепубликация пересобирает строки, курсор переживает её по sha", () => {
+    it("republishing rebuilds rows, the cursor survives it by sha", () => {
         const { component, commands } = make();
         publish(commands, [
             { sha: SHA_A, subject: "first" },
@@ -295,14 +295,14 @@ describe("GraphViewComponent", () => {
         expect(component.list.getCursorElement()?.id).toBe(SHA_B);
     });
 
-    it("пустая публикация очищает список", () => {
+    it("an empty publish clears the list", () => {
         const { component, commands } = make();
         publish(commands, [{ sha: SHA_A, subject: "first" }]);
         publish(commands, []);
         expect(component.list.rowCount).toBe(0);
     });
 
-    it("focus фокусирует список через дескриптор view", () => {
+    it("focus focuses the list via the view descriptor", () => {
         const { component, registered } = make();
         // Standalone component without a root: focus must not throw.
         expect(() => {
@@ -312,30 +312,30 @@ describe("GraphViewComponent", () => {
     });
 });
 
-describe("GraphViewComponent: ленивость", () => {
-    it("пока секция не раскрыта, публикации не строят строк", () => {
+describe("GraphViewComponent: laziness", () => {
+    it("while the section is collapsed, publishes build no rows", () => {
         const { component, commands } = make(false);
         publish(commands, [
-            { sha: SHA_A, subject: "feat: панель", parents: [SHA_B] },
-            { sha: SHA_B, subject: "fix: сэш" },
+            { sha: SHA_A, subject: "feat: panel", parents: [SHA_B] },
+            { sha: SHA_B, subject: "fix: cache" },
         ]);
         expect(component.list.rowCount).toBe(0);
     });
 
-    it("раскрытие достраивает секцию из накопленного снимка", () => {
+    it("expanding builds the section from the accumulated snapshot", () => {
         const { component, commands, setExpanded } = make(false);
         publish(commands, [
-            { sha: SHA_A, subject: "feat: панель", parents: [SHA_B] },
-            { sha: SHA_B, subject: "fix: сэш" },
+            { sha: SHA_A, subject: "feat: panel", parents: [SHA_B] },
+            { sha: SHA_B, subject: "fix: cache" },
         ]);
 
         setExpanded(true);
         expect(component.list.rowCount).toBe(2);
         const screen = renderElement(component.view, 40, 6, { themeVars: true }).screenToString();
-        expect(screen).toContain("feat: панель");
+        expect(screen).toContain("feat: panel");
     });
 
-    it("сворачивание освобождает строки, раскрытие возвращает их вместе с курсором", () => {
+    it("collapsing frees the rows, expanding brings them back together with the cursor", () => {
         const { component, commands, setExpanded } = make();
         publish(commands, [
             { sha: SHA_A, subject: "first" },
@@ -351,7 +351,7 @@ describe("GraphViewComponent: ленивость", () => {
         expect(component.list.getCursorElement()?.id).toBe(SHA_B);
     });
 
-    it("байт-идентичная публикация после раскрытия не оставляет секцию пустой", () => {
+    it("a byte-identical publish after expanding does not leave the section empty", () => {
         const { component, commands, setExpanded } = make();
         const page = [{ sha: SHA_A, subject: "first" }];
         publish(commands, page);
@@ -364,7 +364,7 @@ describe("GraphViewComponent: ленивость", () => {
         expect(component.list.rowCount).toBe(1);
     });
 
-    it("свёрнутой с самого старта секции расширение истории не считает", () => {
+    it("the extension does not compute history for a section collapsed from the very start", () => {
         const { commands } = make(false);
         // GRAPH, collapsed by default, tells the extension "`git log` not needed".
         expect(commands.execute(GRAPH_ENABLED_COMMAND)).toBe(false);
@@ -372,7 +372,7 @@ describe("GraphViewComponent: ленивость", () => {
         expect(make(true).commands.execute(GRAPH_ENABLED_COMMAND)).toBe(true);
     });
 
-    it("раскрытость едет расширению операцией logSetEnabled", () => {
+    it("expanded state reaches the extension via the logSetEnabled operation", () => {
         const ops: unknown[] = [];
         const { commands, setExpanded } = make(false);
         commands.register(GIT_OP_COMMAND, (payload) => {

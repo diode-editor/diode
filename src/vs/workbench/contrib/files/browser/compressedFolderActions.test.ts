@@ -16,7 +16,7 @@ describe("compressedFolderActions", () => {
         [nextCompressedFolderAction, "next"],
         [firstCompressedFolderAction, "first"],
         [lastCompressedFolderAction, "last"],
-    ] as const)("%s двигает текущий сегмент строки под курсором", (action, target) => {
+    ] as const)("%s moves the current segment of the row under the cursor", (action, target) => {
         const moves: string[] = [];
         const accessor = new Container();
         accessor.bind(

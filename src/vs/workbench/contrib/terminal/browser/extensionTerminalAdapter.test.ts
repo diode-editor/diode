@@ -49,7 +49,7 @@ function setup(settings: Record<string, unknown> = {}) {
 }
 
 describe("ExtensionTerminalAdapter", () => {
-    it("адрес, которого нет, — молча: ни инстансов, ни панели, ни записи", () => {
+    it("an unknown address is ignored silently: no instances, no panel, no write", () => {
         const h = setup();
         h.service.createInstance();
         const ghost = { extHostId: 42 };
@@ -63,7 +63,7 @@ describe("ExtensionTerminalAdapter", () => {
         h.service.dispose();
     });
 
-    it("hide без активного терминала панель не трогает", () => {
+    it("hide without an active terminal leaves the panel alone", () => {
         const h = setup();
         h.views.panelService.setActiveView(TERMINAL_VIEW_ID);
         h.views.panelService.setVisible(true);
@@ -73,7 +73,7 @@ describe("ExtensionTerminalAdapter", () => {
         h.service.dispose();
     });
 
-    it("повтор метки не заводит второй инстанс", () => {
+    it("a repeated tag doesn't create a second instance", () => {
         const h = setup();
         h.adapter.create({ extHostId: 1, name: "a" });
         h.adapter.create({ extHostId: 1, name: "b" });
@@ -81,7 +81,7 @@ describe("ExtensionTerminalAdapter", () => {
         h.service.dispose();
     });
 
-    it("hide: показан не этот терминал или активна чужая вкладка — панель остаётся", () => {
+    it("hide: another terminal is shown or another tab is active — the panel stays", () => {
         const h = setup();
         h.views.panelService.addView({ id: "output", title: "OUTPUT", content: null });
         h.adapter.create({ extHostId: 1, name: "a" });
@@ -98,7 +98,7 @@ describe("ExtensionTerminalAdapter", () => {
         h.service.dispose();
     });
 
-    it("opened: своя метка и launch терминала расширения; у шелла человека — без метки", () => {
+    it("opened: own tag and launch for an extension terminal; the user's shell has no tag", () => {
         const h = setup();
         h.service.setWorkingDirectory("/ws");
         h.adapter.create({
@@ -141,7 +141,7 @@ describe("ExtensionTerminalAdapter", () => {
         h.service.dispose();
     });
 
-    it("snapshot: все инстансы по порядку создания (фоновый — на своём месте) и активный", () => {
+    it("snapshot: all instances in creation order (a background one in its place) and the active one", () => {
         const h = setup();
         h.service.newTerminal();
         h.adapter.create({ extHostId: 1, name: "bg", hideFromUser: true });
@@ -161,7 +161,7 @@ describe("ExtensionTerminalAdapter", () => {
         expect(h.adapter.snapshot()).toStrictEqual({ terminals: [], activeId: null });
     });
 
-    it("closed: код выхода только у вышедшего шелла; после отписки событий нет", () => {
+    it("closed: exit code only for an exited shell; no events after unsubscribing", () => {
         const h = setup();
         h.adapter.create({ extHostId: 1 });
         h.adapter.create({ extHostId: 2 });
@@ -184,7 +184,7 @@ describe("ExtensionTerminalAdapter", () => {
         h.service.dispose();
     });
 
-    it("pty: имя или пустое, ptyStart сразу с начальным размером, вывод и выход по адресу", () => {
+    it("pty: name or empty, ptyStart right away with the initial size, output and exit by address", () => {
         const h = setup();
         h.adapter.create({ extHostId: 1, pty: true, name: "log" });
         h.adapter.create({ extHostId: 2, pty: true });
@@ -222,7 +222,7 @@ describe("ExtensionTerminalAdapter", () => {
         h.service.dispose();
     });
 
-    it("подписчик — последний: отписка прежнего не глушит нового; вывод в закрытый pty не идёт", () => {
+    it("the latest subscriber wins: unsubscribing the previous one doesn't silence the new one; output to a closed pty is dropped", () => {
         const h = setup();
         const second = { ...h.events, ptyStart: vi.fn<IExtensionTerminalEvents["ptyStart"]>() };
         h.adapter.subscribe(second);
@@ -235,7 +235,7 @@ describe("ExtensionTerminalAdapter", () => {
         h.service.dispose();
     });
 
-    it("reset закрывает pty-терминалы с причиной process", () => {
+    it("reset closes pty terminals with reason process", () => {
         const h = setup();
         h.adapter.create({ extHostId: 1, pty: true, name: "p" });
         h.adapter.reset();
@@ -243,7 +243,7 @@ describe("ExtensionTerminalAdapter", () => {
         h.service.dispose();
     });
 
-    it("без подписчика pty заводится молча; reset закрывает pty, шеллы живут", () => {
+    it("without a subscriber a pty is created silently; reset closes the pty, shells survive", () => {
         const h = setup();
         h.subscription.dispose();
         h.adapter.create({ extHostId: 1, pty: true, name: "p" });
@@ -258,8 +258,8 @@ describe("ExtensionTerminalAdapter", () => {
     });
 });
 
-describe("ExtensionTerminalAdapter — pty-терминал задачи (CustomExecution)", () => {
-    it("инстанс на pty: имя, сообщение, ожидание после выхода; ptyStart сразу; чужой для субпроцесса (без метки)", () => {
+describe("ExtensionTerminalAdapter — task pty terminal (CustomExecution)", () => {
+    it("pty instance: name, message, wait after exit; ptyStart right away; foreign to the subprocess (no tag)", () => {
         const h = setup();
         const id = h.adapter.createPtyInstance({ name: "pty task", message: "Executing", waitOnExit: "bye" });
         const instance = h.service.getInstance(id);
@@ -275,7 +275,7 @@ describe("ExtensionTerminalAdapter — pty-терминал задачи (Custom
         h.service.dispose();
     });
 
-    it("код выхода — о последнем выходе pty: «без кода» после перезапуска с кодом забывается", () => {
+    it("the exit code reflects the last pty exit: a code-less exit after a restart forgets the earlier code", () => {
         const h = setup();
         const id = h.adapter.createPtyInstance({ name: "t", waitOnExit: true });
         h.adapter.ptyExit({ id }, undefined);
@@ -286,7 +286,7 @@ describe("ExtensionTerminalAdapter — pty-терминал задачи (Custom
         h.service.dispose();
     });
 
-    it("без кода на последнем выходе — closed без кода", () => {
+    it("no code on the last exit — closed without a code", () => {
         const h = setup();
         const id = h.adapter.createPtyInstance({ name: "t", waitOnExit: true });
         h.adapter.ptyExit({ id }, 3);
@@ -298,8 +298,8 @@ describe("ExtensionTerminalAdapter — pty-терминал задачи (Custom
     });
 });
 
-describe("ExtensionTerminalAdapter — место терминала", () => {
-    it("без location — terminal.integrated.defaultLocation: view в вид, editor вкладкой", () => {
+describe("ExtensionTerminalAdapter — terminal location", () => {
+    it("without location — terminal.integrated.defaultLocation: view goes to the view, editor to a tab", () => {
         const view = setup();
         view.adapter.create({ extHostId: 1 });
         expect(view.service.getInstances()).toHaveLength(1);
@@ -314,7 +314,7 @@ describe("ExtensionTerminalAdapter — место терминала", () => {
         editor.service.dispose();
     });
 
-    it("родитель в виде — новый тоже в вид; неизвестный родитель — как без location", () => {
+    it("parent in the view — the new one goes to the view too; unknown parent — as without location", () => {
         const h = setup({ "terminal.integrated.defaultLocation": "editor" });
         h.adapter.create({ extHostId: 1, location: 1 });
         h.adapter.create({ extHostId: 2, location: { parentTerminal: { extHostId: 1 } } });
@@ -324,7 +324,7 @@ describe("ExtensionTerminalAdapter — место терминала", () => {
         h.service.dispose();
     });
 
-    it("снимок нового субпроцесса содержит и вкладки-терминалы; hide редакторного вид не трогает", () => {
+    it("a new subprocess snapshot includes terminal tabs too; hiding an editor terminal leaves the view alone", () => {
         const h = setup();
         h.adapter.create({ extHostId: 1 });
         h.adapter.create({ extHostId: 2, location: 2 });

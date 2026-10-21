@@ -48,7 +48,7 @@ describe("TerminalEditorService", () => {
         ws.dispose();
     });
 
-    it("Beside — вкладка с именем терминала в новой группе справа, вывод в кадре, фокус в терминале", () => {
+    it("Beside — a tab named after the terminal in a new group to the right, output in the frame, focus in the terminal", () => {
         boot();
         const instance = service().createTerminal({ name: "Claude Code" }, { viewColumn: SIDE_GROUP });
         sessionOf(instance.id).setGrid(["claude> ready"]);
@@ -70,7 +70,7 @@ describe("TerminalEditorService", () => {
         expect(pane?.getSelectedTexts()).toStrictEqual([]);
     });
 
-    it("без колонки — активная группа; preserveFocus оставляет фокус и активную группу", () => {
+    it("no column — the active group; preserveFocus keeps focus and the active group", () => {
         boot();
         const before = h.testApp.focusedElement;
         service().createTerminal({}, { viewColumn: SIDE_GROUP, preserveFocus: true });
@@ -82,7 +82,7 @@ describe("TerminalEditorService", () => {
         expect(groups().groups[0].activePane).toBeInstanceOf(TerminalEditorPane);
     });
 
-    it("preserveFocus при фокусе вне группы (терминал вида) — фокус остаётся там", () => {
+    it("preserveFocus with focus outside the group (view terminal) — focus stays there", () => {
         boot();
         h.commands.execute("workbench.action.terminal.new");
         h.testApp.render();
@@ -93,7 +93,7 @@ describe("TerminalEditorService", () => {
         expect(h.testApp.focusedElement).toBe(panelTerminal);
     });
 
-    it("hideFromUser — без вкладки, пока reveal её не откроет", () => {
+    it("hideFromUser — no tab until reveal opens it", () => {
         boot();
         const instance = service().createTerminal({ hideFromUser: true }, { viewColumn: SIDE_GROUP });
         expect(groups().groups).toHaveLength(1);
@@ -105,7 +105,7 @@ describe("TerminalEditorService", () => {
         expect(h.testApp.focusedElement).toBeInstanceOf(TerminalViewElement);
     });
 
-    it("reveal фонового с preserveFocus — вкладка открыта, фокус на месте", () => {
+    it("reveal of a background one with preserveFocus — the tab opens, focus stays", () => {
         boot();
         h.commands.execute("workbench.action.terminal.new");
         h.testApp.render();
@@ -118,7 +118,7 @@ describe("TerminalEditorService", () => {
         expect(h.testApp.focusedElement).toBe(before);
     });
 
-    it("reveal открытой вкладки активирует её: с фокусом — и группу, preserveFocus — только вкладку", () => {
+    it("reveal of an open tab activates it: with focus also the group, with preserveFocus only the tab", () => {
         boot();
         const instance = service().createTerminal({}, { viewColumn: SIDE_GROUP });
         h.container.get(EditorServiceDIToken).openFile(`${ws.dir}/a.txt`, { group: groups().groups[1] });
@@ -135,7 +135,7 @@ describe("TerminalEditorService", () => {
         service().reveal(999, false);
     });
 
-    it("закрытие вкладки убивает процесс с причиной user", () => {
+    it("closing the tab kills the process with reason user", () => {
         boot();
         const instance = service().createTerminal({}, { viewColumn: SIDE_GROUP });
         const session = sessionOf(instance.id);
@@ -159,7 +159,7 @@ describe("TerminalEditorService", () => {
         expect(screen()).not.toContain("bash");
     });
 
-    it("выход процесса закрывает вкладку (и пустую группу)", () => {
+    it("process exit closes the tab (and the empty group)", () => {
         boot();
         const instance = service().createTerminal({ name: "Claude Code" }, { viewColumn: SIDE_GROUP });
         expect(screen()).toContain("Claude Code");
@@ -170,7 +170,7 @@ describe("TerminalEditorService", () => {
         expect(groups().groups).toHaveLength(1);
     });
 
-    it("waitOnExit: вкладка ждёт клавишу, закрывается по ней", () => {
+    it("waitOnExit: the tab waits for a key and closes on it", () => {
         boot();
         const instance = service().createTerminal({ waitOnExit: true }, { viewColumn: SIDE_GROUP });
         const session = sessionOf(instance.id);
@@ -180,7 +180,7 @@ describe("TerminalEditorService", () => {
         expect(service().paneOf(instance.id)).toBeUndefined();
     });
 
-    it("смена заголовка терминала вида вкладок не трогает", () => {
+    it("a title change of a view terminal leaves tabs alone", () => {
         boot();
         h.commands.execute("workbench.action.terminal.new");
         const [panel] = terminals().getInstances();
@@ -190,14 +190,14 @@ describe("TerminalEditorService", () => {
         expect(() => terminals().relaunchInstance(waiting.id, { name: "task 2" })).not.toThrow();
     });
 
-    it("смена темы перекрашивает палитру вкладки-терминала", () => {
+    it("a theme change repaints the terminal tab palette", () => {
         boot();
         const instance = service().createTerminal();
         h.container.get(ThemeServiceDIToken).setTheme(LIGHT);
         expect(sessionOf(instance.id).ansiColors?.[2]).toBe(LIGHT.getRequiredColor("terminal.ansiGreen"));
     });
 
-    it("контекст-ключ фокуса без элемента в фокусе — ложь", () => {
+    it("the focus context key is false with no focused element", () => {
         boot();
         service().createTerminal();
         const keys = h.container.get(ContextKeyServiceDIToken);
@@ -205,7 +205,7 @@ describe("TerminalEditorService", () => {
         expect(keys.get("terminalEditorFocus")).toBe(false);
     });
 
-    it("смена заголовка перерисовывает метку вкладки", () => {
+    it("a title change redraws the tab label", () => {
         boot();
         const instance = service().createTerminal({ name: "one", waitOnExit: true }, { viewColumn: SIDE_GROUP });
         sessionOf(instance.id).emitExit(0);
@@ -215,7 +215,7 @@ describe("TerminalEditorService", () => {
         expect(frame).not.toContain("one ×");
     });
 
-    it("moveToEditor и обратно moveToPanel: процесс тот же, вывод на месте", () => {
+    it("moveToEditor and back with moveToPanel: same process, output kept", () => {
         boot();
         h.commands.execute("workbench.action.terminal.new");
         const instance = terminals().getInstances()[0];
@@ -235,7 +235,7 @@ describe("TerminalEditorService", () => {
         service().moveToEditor(999);
     });
 
-    it("splitInstance — справа от группы родителя", () => {
+    it("splitInstance — to the right of the parent's group", () => {
         boot();
         const parent = service().createTerminal({}, { viewColumn: SIDE_GROUP });
         groups().focusGroup({ index: 0 });
@@ -246,14 +246,14 @@ describe("TerminalEditorService", () => {
         expect(service().paneOf(orphan.id)).toBeDefined();
     });
 
-    it("цвета терминала доезжают до сессии вкладки", () => {
+    it("terminal colors reach the tab session", () => {
         boot();
         const instance = service().createTerminal();
         const colors = h.container.get(TerminalColorsServiceDIToken);
         expect(sessionOf(instance.id).ansiColors).toStrictEqual(colors.colors.ansi);
     });
 
-    it("контекст-ключи: terminalEditorFocus и terminalEditorActive", () => {
+    it("context keys: terminalEditorFocus and terminalEditorActive", () => {
         boot();
         const keys = h.container.get(ContextKeyServiceDIToken);
         const refresh = () => {
@@ -271,7 +271,7 @@ describe("TerminalEditorService", () => {
         expect(keys.get("terminalEditorActive")).toBe(false);
     });
 
-    it("сплит вкладки-терминала заводит в новой группе НОВЫЙ терминал", () => {
+    it("splitting a terminal tab creates a NEW terminal in a new group", () => {
         boot();
         const instance = service().createTerminal();
         h.commands.execute("workbench.action.splitEditor");
@@ -285,7 +285,7 @@ describe("TerminalEditorService", () => {
         expect(h.testApp.focusedElement).toBe(copy?.view);
     });
 
-    it("фабрика вкладки открывает новый терминал ровно в указанной группе, без фокуса — без фокуса", async () => {
+    it("the tab factory opens a new terminal exactly in the given group, without focus when asked", async () => {
         boot();
         h.commands.execute("workbench.action.splitEditor");
         const [first, second] = groups().groups;

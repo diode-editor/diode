@@ -25,7 +25,7 @@ function setup() {
 }
 
 describe("ExtensionTaskAdapter", () => {
-    it("задача провайдера без исполнения выпадает с предупреждением в лог `tasks`", async () => {
+    it("a provider task without execution is dropped with a warning in the `tasks` log", async () => {
         const { h, adapter } = setup();
         adapter.registerProvider("pub.ext", "demo", () =>
             Promise.resolve([
@@ -45,7 +45,7 @@ describe("ExtensionTaskAdapter", () => {
         h.dispose();
     });
 
-    it("описание без исполнения в execute — «Task is not valid»", async () => {
+    it("a description without execution in execute — 'Task is not valid'", async () => {
         const { h, adapter } = setup();
         await expect(
             adapter.execute({
@@ -63,7 +63,7 @@ describe("ExtensionTaskAdapter", () => {
         h.dispose();
     });
 
-    it("подписка: события ядра; после отписки — тишина; terminate чужого id — ничего", async () => {
+    it("subscription: core events; after unsubscribing — silence; terminate of an unknown id — nothing", async () => {
         const { h, adapter, events } = setup();
         const subscription = adapter.subscribe(events);
         void h.service.run(makeTask({ label: "a" }));
@@ -88,7 +88,7 @@ describe("ExtensionTaskAdapter", () => {
         h.dispose();
     });
 
-    it("отписка прежнего подписчика не глушит нового; конец не стартовавшей задачи — новому", async () => {
+    it("unsubscribing the previous subscriber does not silence the new one; the end of a task that never started goes to the new one", async () => {
         const { h, adapter, events } = setup();
         const first = adapter.subscribe(events);
         const second = { ...events, ended: vi.fn<IExtensionTaskEvents["ended"]>() };
@@ -111,7 +111,7 @@ describe("ExtensionTaskAdapter", () => {
         h.dispose();
     });
 
-    it("запуск, упавший после старта, лишнего конца не шлёт", async () => {
+    it("a run that fails after start sends no extra end", async () => {
         const { h, adapter, events } = setup();
         adapter.subscribe(events);
         // The same id is already running: the rerun is not refused but does not start either, so no end event is sent.
@@ -125,7 +125,7 @@ describe("ExtensionTaskAdapter", () => {
     });
 });
 
-describe("ExtensionTaskAdapter — края", () => {
+describe("ExtensionTaskAdapter — edge cases", () => {
     const wire = (overrides: Partial<IWireTask> = {}): IWireTask => ({
         name: "x",
         execution: { commandLine: "echo x" },
@@ -137,7 +137,7 @@ describe("ExtensionTaskAdapter — края", () => {
         ...overrides,
     });
 
-    it("годные задачи провайдера проходят без предупреждений, без исполнения — выпадают по одной", async () => {
+    it("valid provider tasks pass without warnings, ones without execution are dropped one by one", async () => {
         const { h, adapter } = setup();
         adapter.registerProvider("pub.ext", "demo", () =>
             Promise.resolve([wire({ name: "ok" }), wire({ name: "bad", execution: undefined })]),
@@ -147,7 +147,7 @@ describe("ExtensionTaskAdapter — края", () => {
         h.dispose();
     });
 
-    it("fetch: с типом — только задачи типа, без типа — все", async () => {
+    it("fetch: with a type — only tasks of the type, without a type — all", async () => {
         const { h, adapter } = setup();
         adapter.registerProvider("pub.ext", "demo", () => Promise.resolve([wire({ name: "d" })]));
         adapter.registerProvider("pub.ext", "other", () =>
@@ -158,7 +158,7 @@ describe("ExtensionTaskAdapter — края", () => {
         h.dispose();
     });
 
-    it("отписавшийся подписчик конца не получает, и без подписчика отказ запуска тихий", async () => {
+    it("an unsubscribed subscriber gets no end, and without a subscriber a run refusal is silent", async () => {
         const { h, adapter, events } = setup();
         const unhandled = vi.fn();
         process.on("unhandledRejection", unhandled);
@@ -174,7 +174,7 @@ describe("ExtensionTaskAdapter — края", () => {
         }
     });
 
-    it("полная жизнь задачи — по одному событию каждого вида", async () => {
+    it("full task lifecycle — one event of each kind", async () => {
         const { h, adapter, events } = setup();
         adapter.subscribe(events);
         void h.service.run(makeTask({ label: "a" }));
@@ -195,7 +195,7 @@ describe("ExtensionTaskAdapter — края", () => {
         h.dispose();
     });
 
-    it("terminate неизвестного id сервис не трогает", () => {
+    it("terminate of an unknown id does not touch the service", () => {
         const { h, adapter } = setup();
         const terminate = vi.spyOn(h.service, "terminate").mockResolvedValue(true);
         adapter.terminate("nope");
@@ -203,7 +203,7 @@ describe("ExtensionTaskAdapter — края", () => {
         h.dispose();
     });
 
-    it("определение против схемы типа: несоответствие — предупреждение в лог `tasks`", async () => {
+    it("definition against the type schema: a mismatch is a warning in the `tasks` log", async () => {
         const { h, adapter } = setup();
         h.service.registerTaskDefinitions([
             {
@@ -242,7 +242,7 @@ describe("bindExtensionTasks", () => {
         } as unknown as IExtensionService;
     }
 
-    it("типы всех расширений; активация без типа — runTask и onTaskType всех типов, с типом — только его", async () => {
+    it("types of all extensions; activation without a type — runTask and onTaskType of all types, with a type — only its own", async () => {
         const { h } = setup();
         const activated: string[] = [];
         const binding = bindExtensionTasks(h.service, extensions(activated), { createPtyInstance: () => 1 }, h.logger);

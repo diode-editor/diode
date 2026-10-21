@@ -26,7 +26,7 @@ function awaitExit(session: EmbeddedTerminalSession): Promise<number> {
 }
 
 describe("buildEnv", () => {
-    it("поверх базы: строки задают, null снимает; TERM наш, TMUX снят всегда", () => {
+    it("over the base: strings set, null unsets; TERM is ours, TMUX is always unset", () => {
         expect(
             buildEnv(
                 { KEEP: "1", DROP: "2", TERM: "dumb", TMUX: "/tmp/tmux" },
@@ -37,8 +37,8 @@ describe("buildEnv", () => {
     });
 });
 
-describe("EmbeddedTerminalSession — опции терминала расширения", () => {
-    it("env доходит до шелла, null снимает унаследованную переменную, pid — процесса шелла", async () => {
+describe("EmbeddedTerminalSession — extension terminal options", () => {
+    it("env reaches the shell, null unsets an inherited variable, pid is the shell process's", async () => {
         vi.stubEnv("DIODE_TERM_INHERITED", "inherited");
         vi.stubEnv("DIODE_TERM_DROPPED", "dropped");
         const session = new EmbeddedTerminalSession({
@@ -61,7 +61,7 @@ describe("EmbeddedTerminalSession — опции терминала расшир
         session.dispose();
     }, 15000);
 
-    it("strictEnv: унаследованного нет, только env терминала", async () => {
+    it("strictEnv: nothing inherited, only the terminal env", async () => {
         vi.stubEnv("DIODE_TERM_INHERITED", "inherited");
         const session = new EmbeddedTerminalSession({
             cols: 60,
@@ -83,7 +83,7 @@ describe("EmbeddedTerminalSession — опции терминала расшир
         session.dispose();
     }, 15000);
 
-    it("message сам будит перерисовку — даже пока шелл молчит", async () => {
+    it("message triggers a redraw by itself — even while the shell is silent", async () => {
         const session = new EmbeddedTerminalSession({
             cols: 40,
             rows: 4,
@@ -100,7 +100,7 @@ describe("EmbeddedTerminalSession — опции терминала расшир
         session.dispose();
     }, 15000);
 
-    it("message печатается первой строкой, до вывода шелла, и в шелл не уходит", async () => {
+    it("message is printed as the first line, before shell output, and isn't sent to the shell", async () => {
         const session = new EmbeddedTerminalSession({
             cols: 60,
             rows: 6,
@@ -123,7 +123,7 @@ describe("EmbeddedTerminalSession — опции терминала расшир
         session.dispose();
     }, 15000);
 
-    it("dispose живой сессии убивает процесс шелла", async () => {
+    it("dispose of a live session kills the shell process", async () => {
         const session = new EmbeddedTerminalSession({ cols: 20, rows: 4, shell: "/bin/sh", args: ["-c", "sleep 30"] });
         const { pid } = session;
         const exited = awaitExit(session);

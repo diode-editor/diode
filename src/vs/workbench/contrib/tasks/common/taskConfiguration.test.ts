@@ -17,8 +17,8 @@ function one(task: unknown, extra: Record<string, unknown> = {}) {
     return { task: tasks.at(0), problems };
 }
 
-describe("parseTasksJson — задача shell/process", () => {
-    it("полная форма задачи tasks.json", () => {
+describe("parseTasksJson — shell/process task", () => {
+    it("full form of a tasks.json task", () => {
         const { task, problems } = one({
             label: "build",
             type: "shell",
@@ -77,7 +77,7 @@ describe("parseTasksJson — задача shell/process", () => {
         });
     });
 
-    it("минимальная: без типа — процесс; cwd по умолчанию — ${workspaceFolder}; дефолты presentation и runOptions", () => {
+    it("minimal: no type — process; default cwd — ${workspaceFolder}; presentation and runOptions defaults", () => {
         const { task } = one({ label: "t", command: "node" });
         expect(task?.type).toBe("process");
         expect(task?.command).toStrictEqual({
@@ -96,12 +96,12 @@ describe("parseTasksJson — задача shell/process", () => {
         expect(task).not.toHaveProperty("group");
     });
 
-    it("type: process и null — процесс; isWatching (устаревший) — фоновая", () => {
+    it("type: process and null — process; isWatching (deprecated) — background", () => {
         expect(one({ label: "t", type: "process", command: "x" }).task?.type).toBe("process");
         expect(one({ label: "t", type: null, command: "x", isWatching: true }).task?.isBackground).toBe(true);
     });
 
-    it("команда массивом и {value: массив} — через пробел; quoting неизвестный — strong", () => {
+    it("command as an array and {value: array} — space-joined; unknown quoting — strong", () => {
         expect(one({ label: "t", command: ["a", "b"] }).task?.command.name).toBe("a b");
         expect(one({ label: "t", command: ["a", 1] }).task).toBeUndefined();
         expect(one({ label: "t", command: { value: ["a", "b"], quoting: "weak" } }).task?.command.name).toStrictEqual({
@@ -114,7 +114,7 @@ describe("parseTasksJson — задача shell/process", () => {
         });
     });
 
-    it("неверный аргумент — ошибка эталона и пропуск аргумента", () => {
+    it("invalid argument — upstream error and the argument is skipped", () => {
         const { task, problems } = one({ label: "t", command: "x", args: ["ok", 5, { value: "" }] });
         expect(task?.command.args).toStrictEqual(["ok"]);
         expect(problems).toStrictEqual([
@@ -123,13 +123,13 @@ describe("parseTasksJson — задача shell/process", () => {
         ]);
     });
 
-    it("нестроковый options.cwd — предупреждение, остаётся cwd по умолчанию", () => {
+    it("non-string options.cwd — a warning, the default cwd stays", () => {
         const { task, problems } = one({ label: "t", command: "x", options: { cwd: 3 } });
         expect(task?.command.options).toStrictEqual({ cwd: "${workspaceFolder}" });
         expect(problems).toStrictEqual(["Warning: options.cwd must be of type string. Ignoring value 3"]);
     });
 
-    it("presentation: неизвестные reveal/panel — always/shared; лишние типы полей пропускаются", () => {
+    it("presentation: unknown reveal/panel — always/shared; fields of wrong types are skipped", () => {
         const { task } = one({
             label: "t",
             command: "x",
@@ -149,7 +149,7 @@ describe("parseTasksJson — задача shell/process", () => {
         });
     });
 
-    it("шелл: quoting с escape-строкой или объектом, мусор в шелле — без полей", () => {
+    it("shell: quoting with an escape string or object, garbage in shell — no fields", () => {
         const options = (shell: unknown) => one({ label: "t", command: "x", options: { shell } }).task?.command.options;
         expect(options({ quoting: { escape: "^", strong: "'", weak: '"' } })).toStrictEqual({
             cwd: "${workspaceFolder}",
@@ -172,7 +172,7 @@ describe("parseTasksJson — задача shell/process", () => {
         expect(options("bash")).toStrictEqual({ cwd: "${workspaceFolder}" });
     });
 
-    it("runOptions: неизвестная политика — prompt; reevaluateOnRerun не булево — дефолт", () => {
+    it("runOptions: unknown policy — prompt; non-boolean reevaluateOnRerun — default", () => {
         expect(
             one({ label: "t", command: "x", runOptions: { instancePolicy: "x", reevaluateOnRerun: 1 } }).task
                 ?.runOptions,
@@ -185,7 +185,7 @@ describe("parseTasksJson — задача shell/process", () => {
         }
     });
 
-    it("group: объект с kind и isDefault; без kind или числом — без группы", () => {
+    it("group: object with kind and isDefault; without kind or as a number — no group", () => {
         expect(one({ label: "t", command: "x", group: { kind: "test", isDefault: true } }).task?.group).toStrictEqual({
             id: "test",
             isDefault: true,
@@ -197,7 +197,7 @@ describe("parseTasksJson — задача shell/process", () => {
         expect(one({ label: "t", command: "x", group: 1 }).task).not.toHaveProperty("group");
     });
 
-    it("problemMatcher массивом — строки; не строка и не массив — нет матчеров", () => {
+    it("problemMatcher as an array — strings; neither string nor array — no matchers", () => {
         expect(one({ label: "t", command: "x", problemMatcher: ["$a", 1, "$b"] }).task?.problemMatchers).toStrictEqual([
             "$a",
             "$b",
@@ -208,8 +208,8 @@ describe("parseTasksJson — задача shell/process", () => {
     });
 });
 
-describe("parseTasksJson — неподдержанное и ошибки", () => {
-    it("без label — ошибка эталона; без команды — ошибка эталона; задача пропускается", () => {
+describe("parseTasksJson — unsupported and errors", () => {
+    it("no label — upstream error; no command — upstream error; the task is skipped", () => {
         const noLabel = one({ type: "shell", command: "x" });
         expect(noLabel.task).toBeUndefined();
         expect(noLabel.problems[0]).toMatch(
@@ -226,7 +226,7 @@ describe("parseTasksJson — неподдержанное и ошибки", () =
         );
     });
 
-    it("запись с незнакомым типом провайдера — ошибка эталона, ни задачи, ни кастомизации", () => {
+    it("entry with an unknown provider type — upstream error, neither a task nor a customization", () => {
         const result = parse({ version: "2.0.0", tasks: [{ label: "b", type: "bazel", target: "//a" }] });
         expect(result.tasks).toStrictEqual([]);
         expect(result.configuring).toStrictEqual([]);
@@ -235,7 +235,7 @@ describe("parseTasksJson — неподдержанное и ошибки", () =
         ]);
     });
 
-    it("dependsOn, runOn folderOpen, instanceLimit > 1, inputs — предупреждения, задача остаётся", () => {
+    it("dependsOn, runOn folderOpen, instanceLimit > 1, inputs — warnings, the task stays", () => {
         const { task, problems } = one(
             { label: "t", command: "x", dependsOn: ["a"], runOptions: { runOn: "folderOpen", instanceLimit: 3 } },
             { inputs: [] },
@@ -254,7 +254,7 @@ describe("parseTasksJson — неподдержанное и ошибки", () =
         expect(one({ label: "t", command: "x", options: { env: { A: "1" } } }).problems).toStrictEqual([]);
     });
 
-    it("битый JSON — ни одной задачи и ошибка с кодом; комментарии и висячие запятые — можно", () => {
+    it("broken JSON — no tasks and an error with a code; comments and trailing commas are allowed", () => {
         const broken = parseTasksJson('{ "version": "2.0.0", "tasks": [ }', folder, "linux");
         expect(broken.tasks).toStrictEqual([]);
         expect(broken.problems[0]).toBe(
@@ -270,7 +270,7 @@ describe("parseTasksJson — неподдержанное и ошибки", () =
         expect(jsonc.problems).toStrictEqual([]);
     });
 
-    it("версия не 2.0.0 — ни одной задачи и ошибка; не объект и без tasks — пусто молча", () => {
+    it("version other than 2.0.0 — no tasks and an error; non-object and no tasks — silently empty", () => {
         expect(parse({ version: "0.1.0", tasks: [{ label: "a", command: "x" }] })).toStrictEqual({
             tasks: [],
             configuring: [],
@@ -283,8 +283,8 @@ describe("parseTasksJson — неподдержанное и ошибки", () =
     });
 });
 
-describe("parseTasksJson — платформа и глобальные опции", () => {
-    it("секция платформы перекрывает команду и аргументы, опции и presentation сливаются", () => {
+describe("parseTasksJson — platform and global options", () => {
+    it("platform section overrides command and args, options and presentation are merged", () => {
         const task = {
             label: "t",
             command: "base",
@@ -305,7 +305,7 @@ describe("parseTasksJson — платформа и глобальные опци
         expect(osx.command.args).toStrictEqual(["b"]);
     });
 
-    it("глобальные options и presentation — под опциями задачи; шелл задачи поверх глобального", () => {
+    it("global options and presentation sit under the task options; the task shell goes over the global one", () => {
         const { task } = one(
             {
                 label: "t",
@@ -326,14 +326,14 @@ describe("parseTasksJson — платформа и глобальные опци
         expect(task?.command.presentation).toMatchObject({ echo: true, clear: true });
     });
 
-    it("секция платформы на верхнем уровне — тоже глобальные опции", () => {
+    it("top-level platform section is global options too", () => {
         const { task } = one({ label: "t", command: "x" }, { linux: { options: { env: { L: "1" } } } });
         expect(task?.command.options).toStrictEqual({ cwd: "${workspaceFolder}", env: { L: "1" } });
     });
 });
 
 describe("currentTaskPlatform", () => {
-    it("win32 → windows, darwin → osx, прочее → linux", () => {
+    it("win32 → windows, darwin → osx, anything else → linux", () => {
         expect(currentTaskPlatform("win32")).toBe("windows");
         expect(currentTaskPlatform("darwin")).toBe("osx");
         expect(currentTaskPlatform("linux")).toBe("linux");

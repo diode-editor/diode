@@ -40,7 +40,7 @@ describe("showScmAction", () => {
         expect(sidebar.showViewlet).toHaveBeenCalledWith(SCM_VIEWLET_ID);
     });
 
-    it("аккорд Ctrl+K G работает всегда, подсказка зависит от терминала", () => {
+    it("the Ctrl+K G chord always works, the hint depends on the terminal", () => {
         const commands = new CommandRegistry();
         const keybindings = new KeybindingRegistry();
         const accessor = new Container();
@@ -68,7 +68,7 @@ describe("showScmAction", () => {
 });
 
 describe("workbench.scm.focus / scm.action.focusChanges", () => {
-    it("workbench.scm.focus показывает вьюлет без reveal-фокуса и фокусит input", () => {
+    it("workbench.scm.focus shows the viewlet without reveal focus and focuses the input", () => {
         const sidebar = { showViewlet: vi.fn() };
         const input = { focus: vi.fn() };
         scmFocusInputAction.run(
@@ -83,7 +83,7 @@ describe("workbench.scm.focus / scm.action.focusChanges", () => {
         expect(input.focus).toHaveBeenCalledTimes(1);
     });
 
-    it("scm.action.focusChanges висит на Down при scmInputFocus и фокусит список", () => {
+    it("scm.action.focusChanges is bound to Down on scmInputFocus and focuses the list", () => {
         expect(scmFocusChangesAction.when).toBe("scmInputFocus");
         const component = { focus: vi.fn() };
         scmFocusChangesAction.run(accessorWith(new Map<unknown, unknown>([[ChangesComponentDIToken, component]])));

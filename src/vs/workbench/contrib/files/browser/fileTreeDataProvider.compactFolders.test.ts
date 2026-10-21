@@ -75,18 +75,18 @@ describe("FileTreeDataProvider — explorer.compactFolders", () => {
     async function pkgNode(): Promise<FileTreeNode> {
         // By key, not by name: a compact node's `name` is the last folder.
         const node = (await provider.getChildren()).find((child) => provider.getKey(child) === ws.path("pkg"));
-        if (!node) throw new Error("pkg не найден в корне");
+        if (!node) throw new Error("pkg not found in root");
         return node;
     }
 
-    it("до раскрытия цепочка не известна — каталог показывается как есть", async () => {
+    it("before expansion the chain is unknown — the directory is shown as is", async () => {
         const pkg = await pkgNode();
         expect(pkg.path).toBe(ws.path("pkg"));
         expect(pkg.compactParents).toBeUndefined();
         expect(provider.getTreeItem(pkg).label).toBe("pkg");
     });
 
-    it("раскрытие проходит цепочку: дети последней папки, узел переписан, ключ — голова", async () => {
+    it("expansion walks the chain: children of the last folder, node rewritten, key is the head", async () => {
         const pkg = await pkgNode();
 
         const children = await provider.getChildren(pkg);
@@ -99,7 +99,7 @@ describe("FileTreeDataProvider — explorer.compactFolders", () => {
         expect(provider.getTreeItem(pkg)).toMatchObject({ label: "pkg/a/b", collapsible: true });
     });
 
-    it("следующий листинг родителя сразу отдаёт компактный узел", async () => {
+    it("the parent's next listing returns the compact node right away", async () => {
         await provider.getChildren(await pkgNode());
 
         const again = await pkgNode();
@@ -110,7 +110,7 @@ describe("FileTreeDataProvider — explorer.compactFolders", () => {
         expect(provider.keyForPath(ws.path("README.md"))).toBe(ws.path("README.md"));
     });
 
-    it("цепочка сжалась до одной папки — тот же узел снова обычный, и листинг родителя тоже", async () => {
+    it("chain shrank to one folder — the same node is plain again, and so is the parent's listing", async () => {
         const pkg = await pkgNode();
         await provider.getChildren(pkg);
         expect(provider.getTreeItem(pkg).label).toBe("pkg/a/b");
@@ -126,13 +126,13 @@ describe("FileTreeDataProvider — explorer.compactFolders", () => {
         expect(provider.keyForPath(ws.path("pkg/a/b"))).toBe(ws.path("pkg/a/b"));
     });
 
-    it("findNode знает только каталоги", async () => {
+    it("findNode knows only directories", async () => {
         await provider.getChildren();
         expect(provider.findNode(ws.path("pkg"))).toBeDefined();
         expect(provider.findNode(ws.path("README.md"))).toBeUndefined();
     });
 
-    it("выключенная настройка — без спуска", async () => {
+    it("setting disabled — no descent", async () => {
         compact = false;
         const pkg = await pkgNode();
 
@@ -141,7 +141,7 @@ describe("FileTreeDataProvider — explorer.compactFolders", () => {
         expect(provider.getTreeItem(pkg).label).toBe("pkg");
     });
 
-    it("resetCompactFolders забывает цепочки", async () => {
+    it("resetCompactFolders forgets the chains", async () => {
         await provider.getChildren(await pkgNode());
         provider.resetCompactFolders();
 
@@ -149,11 +149,11 @@ describe("FileTreeDataProvider — explorer.compactFolders", () => {
         expect(provider.keyForPath(ws.path("pkg/a/b"))).toBe(ws.path("pkg/a/b"));
     });
 
-    it("спуск останавливается на файле, на двух детях и на симлинке", async () => {
+    it("descent stops at a file, at two children and at a symlink", async () => {
         fs.mkdirSync(ws.path("link-holder"));
         fs.symlinkSync(ws.path("pkg"), ws.path("link-holder/to-pkg"));
         const holder = (await provider.getChildren()).find((child) => child.name === "link-holder");
-        if (!holder) throw new Error("link-holder не найден");
+        if (!holder) throw new Error("link-holder not found");
 
         // The only child is a symlink to a directory: don't descend (a link to
         // an ancestor would loop the descent).
@@ -161,16 +161,16 @@ describe("FileTreeDataProvider — explorer.compactFolders", () => {
         expect(provider.getTreeItem(holder).label).toBe("link-holder");
     });
 
-    it("единственный ребёнок-файл цепочку не продолжает", async () => {
+    it("a single file child does not extend the chain", async () => {
         ws.writeFile("solo/only.ts", "");
         const solo = (await provider.getChildren()).find((child) => child.name === "solo");
-        if (!solo) throw new Error("solo не найден");
+        if (!solo) throw new Error("solo not found");
 
         expect((await provider.getChildren(solo)).map((child) => child.name)).toEqual(["only.ts"]);
         expect(solo.compactParents).toBeUndefined();
     });
 
-    it("files.exclude решает, единственный ли ребёнок", async () => {
+    it("files.exclude decides whether the child is the only one", async () => {
         ws.writeFile("pkg/a/notes.log", "");
         const pkg = await pkgNode();
         expect((await provider.getChildren(pkg)).map((child) => child.name)).toEqual(["b", "notes.log"]);
@@ -181,8 +181,8 @@ describe("FileTreeDataProvider — explorer.compactFolders", () => {
         expect(provider.getTreeItem(pkg).label).toBe("pkg/a/b");
     });
 
-    describe("слежка", () => {
-        it("за раскрытым компактным узлом следим по каждой папке цепочки; свернули — снимаем все", async () => {
+    describe("watching", () => {
+        it("an expanded compact node is watched on every folder of the chain; collapsed — all are removed", async () => {
             const pkg = await pkgNode();
             await provider.getChildren(pkg);
 
@@ -193,7 +193,7 @@ describe("FileTreeDataProvider — explorer.compactFolders", () => {
             expect(watcher.live()).toEqual([]);
         });
 
-        it("цепочка раскрытого узла поменялась — слежка переезжает", async () => {
+        it("the expanded node's chain changed — watching moves", async () => {
             const pkg = await pkgNode();
             await provider.getChildren(pkg);
             provider.watchNode(pkg);
@@ -216,7 +216,7 @@ describe("FileTreeDataProvider — explorer.compactFolders", () => {
             expect(watcher.watches.filter((watch) => watch.path === ws.path("pkg/a"))).toHaveLength(1);
         });
 
-        it("цепочка выросла после подписки — свёрнутый узел снимает и новую папку", async () => {
+        it("chain grew after subscribing — the collapsed node removes the new folder too", async () => {
             ws.writeFile("pkg/a/x.ts", "");
             const pkg = await pkgNode();
             await provider.getChildren(pkg);
@@ -230,13 +230,13 @@ describe("FileTreeDataProvider — explorer.compactFolders", () => {
             expect(watcher.live()).toEqual([]);
         });
 
-        it("свёрнутый узел перечитывание не подписывает", async () => {
+        it("re-reading a collapsed node does not subscribe it", async () => {
             const pkg = await pkgNode();
             await provider.getChildren(pkg);
             expect(watcher.live()).toEqual([]);
         });
 
-        it("после unwatchNode перечитывание узла слежку не возвращает", async () => {
+        it("after unwatchNode re-reading the node does not bring watching back", async () => {
             const pkg = await pkgNode();
             await provider.getChildren(pkg);
             provider.watchNode(pkg);
@@ -246,7 +246,7 @@ describe("FileTreeDataProvider — explorer.compactFolders", () => {
             expect(watcher.live()).toEqual([]);
         });
 
-        it("без подписчика уведомления не падают", async () => {
+        it("notifications do not throw without a subscriber", async () => {
             vi.useFakeTimers();
             const pkg = await pkgNode();
             await provider.getChildren(pkg);
@@ -257,7 +257,7 @@ describe("FileTreeDataProvider — explorer.compactFolders", () => {
             expect(() => vi.advanceTimersByTime(300)).not.toThrow();
         });
 
-        it("unwatchNode без записи о слежке снимает папки самого узла", async () => {
+        it("unwatchNode without a watch record removes the node's own folders", async () => {
             const pkg = await pkgNode();
             await provider.getChildren(pkg);
             for (const dir of ["pkg", "pkg/a", "pkg/a/b", "README.md"]) provider.watchDirectory(ws.path(dir));
@@ -266,7 +266,7 @@ describe("FileTreeDataProvider — explorer.compactFolders", () => {
             expect(watcher.live()).toEqual([ws.path("README.md")]);
         });
 
-        it("изменение в последней папке — перечитывается сам компактный узел (объект строки)", async () => {
+        it("change in the last folder — the compact node itself (the row object) is re-read", async () => {
             vi.useFakeTimers();
             const pkg = await pkgNode();
             await provider.getChildren(pkg);
@@ -283,15 +283,15 @@ describe("FileTreeDataProvider — explorer.compactFolders", () => {
             expect(provider.keyForPath(ws.path("pkg/a/b"))).toBe(ws.path("pkg"));
         });
 
-        it("изменение в промежуточной папке рвёт цепочку и перечитывает родителя головы", async () => {
+        it("change in an intermediate folder breaks the chain and re-reads the head's parent", async () => {
             vi.useFakeTimers();
             fs.mkdirSync(ws.path("outer"));
             fs.renameSync(ws.path("pkg"), ws.path("outer/pkg"));
             fs.mkdirSync(ws.path("outer/other"));
             const outer = (await provider.getChildren()).find((child) => child.name === "outer");
-            if (!outer) throw new Error("outer не найден");
+            if (!outer) throw new Error("outer not found");
             const pkg = (await provider.getChildren(outer)).find((child) => child.name === "pkg");
-            if (!pkg) throw new Error("pkg не найден");
+            if (!pkg) throw new Error("pkg not found");
             await provider.getChildren(pkg);
             provider.watchNode(pkg);
             const onChange = vi.fn();
@@ -306,7 +306,7 @@ describe("FileTreeDataProvider — explorer.compactFolders", () => {
             expect(provider.keyForPath(ws.path("outer/pkg/a/b"))).toBe(ws.path("outer/pkg/a/b"));
         });
 
-        it("голова в корне — разрыв перечитывает всё дерево", async () => {
+        it("head at the root — a break re-reads the whole tree", async () => {
             vi.useFakeTimers();
             const pkg = await pkgNode();
             await provider.getChildren(pkg);
@@ -321,7 +321,7 @@ describe("FileTreeDataProvider — explorer.compactFolders", () => {
             expect(onChange).toHaveBeenCalledExactlyOnceWith(undefined);
         });
 
-        it("разрыв у головы: хвост ниже неё остаётся цепочкой и сразу показывается компактным", async () => {
+        it("break at the head: the tail below it stays a chain and shows as compact right away", async () => {
             vi.useFakeTimers();
             const pkg = await pkgNode();
             await provider.getChildren(pkg);
@@ -339,7 +339,7 @@ describe("FileTreeDataProvider — explorer.compactFolders", () => {
             expect(provider.getTreeItem(row).label).toBe("pkg");
         });
 
-        it("каталог вне цепочек — перечитывается его узел из листинга", async () => {
+        it("directory outside chains — its node from the listing is re-read", async () => {
             vi.useFakeTimers();
             compact = false;
             const pkg = await pkgNode();

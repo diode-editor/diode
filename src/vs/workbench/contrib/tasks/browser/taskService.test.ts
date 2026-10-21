@@ -25,8 +25,8 @@ afterEach(() => {
     vi.useRealTimers();
 });
 
-describe("TaskService — задачи tasks.json", () => {
-    it("читает .diode/tasks.json первой папки", async () => {
+describe("TaskService — tasks.json tasks", () => {
+    it("reads .diode/tasks.json of the first folder", async () => {
         const h = buildTaskServiceHarness({ tasksJson: tasksJsonOf([{ label: "a", command: "x" }]) });
         const tasks = await h.service.getWorkspaceTasks();
         expect(tasks.map((t) => t._label)).toStrictEqual(["a"]);
@@ -34,7 +34,7 @@ describe("TaskService — задачи tasks.json", () => {
         h.dispose();
     });
 
-    it("нет файла или папки — пусто, без сообщений", async () => {
+    it("no file or folder — empty, no messages", async () => {
         const noFile = buildTaskServiceHarness();
         await expect(noFile.service.getWorkspaceTasks()).resolves.toStrictEqual([]);
         noFile.dispose();
@@ -47,7 +47,7 @@ describe("TaskService — задачи tasks.json", () => {
         noFolder.dispose();
     });
 
-    it("проблемы разбора — в лог `tasks` один раз на текст файла", async () => {
+    it("parse problems go to the `tasks` log once per file text", async () => {
         const h = buildTaskServiceHarness({ tasksJson: tasksJsonOf([{ command: "x" }]) });
         await h.service.getWorkspaceTasks();
         await h.service.getWorkspaceTasks();
@@ -59,7 +59,7 @@ describe("TaskService — задачи tasks.json", () => {
         h.dispose();
     });
 
-    it("ошибка в tasks.json — тост эталона один раз на текст; «Show Output» — панель Output на канале Tasks", async () => {
+    it("error in tasks.json — upstream toast once per text; 'Show Output' — the Output panel on the Tasks channel", async () => {
         const h = buildTaskServiceHarness({ tasksJson: '{ "version": "2.0.0", "tasks": [ { "label": "x", ' });
         const openView = vi.spyOn(h.views.service, "openView");
         await h.service.getWorkspaceTasks();
@@ -84,7 +84,7 @@ describe("TaskService — задачи tasks.json", () => {
         h.dispose();
     });
 
-    it("только предупреждения — без тоста; закрытый без выбора тост Output не открывает", async () => {
+    it("warnings only — no toast; a toast closed without a choice does not open Output", async () => {
         const warned = buildTaskServiceHarness({
             tasksJson: tasksJsonOf([{ label: "a", command: "x", dependsOn: ["b"] }]),
         });
@@ -100,8 +100,8 @@ describe("TaskService — задачи tasks.json", () => {
     });
 });
 
-describe("TaskService — провайдеры и типы", () => {
-    it("tasks(): tasks.json, затем задачи провайдеров; с типом — только задачи провайдера этого типа", async () => {
+describe("TaskService — providers and types", () => {
+    it("tasks(): tasks.json, then provider tasks; with a type — only tasks of that type's provider", async () => {
         const h = buildTaskServiceHarness({ tasksJson: tasksJsonOf([{ label: "w", type: "shell", command: "x" }]) });
         h.service.registerTaskProvider(provider([{ label: "a", extension: ext("npm") }]), "npm");
         h.service.registerTaskProvider(provider([{ label: "b", extension: ext("gulp") }]), "gulp");
@@ -112,7 +112,7 @@ describe("TaskService — провайдеры и типы", () => {
         h.dispose();
     });
 
-    it("активатор зовётся с типом (без типа — undefined) до опроса провайдеров", async () => {
+    it("the activator is called with the type (undefined without one) before providers are queried", async () => {
         const h = buildTaskServiceHarness();
         const activator = vi.fn(() => Promise.resolve());
         h.service.setProviderActivator(activator);
@@ -122,7 +122,7 @@ describe("TaskService — провайдеры и типы", () => {
         h.dispose();
     });
 
-    it("снятый активатор и снятый провайдер больше не зовутся; чужое снятие не трогает активный", async () => {
+    it("an unregistered activator and provider are no longer called; another registration's dispose does not touch the active one", async () => {
         const h = buildTaskServiceHarness();
         const first = vi.fn(() => Promise.resolve());
         const second = vi.fn(() => Promise.resolve());
@@ -143,7 +143,7 @@ describe("TaskService — провайдеры и типы", () => {
         h.dispose();
     });
 
-    it("task.autoDetect: off — провайдеров не спрашивают, типов нет", async () => {
+    it("task.autoDetect: off — providers are not queried, no types", async () => {
         const h = buildTaskServiceHarness({ settings: { "task.autoDetect": "off" } });
         const p = vi.fn(() => Promise.resolve([]));
         h.service.registerTaskProvider({ provideTasks: p }, "npm");
@@ -155,7 +155,7 @@ describe("TaskService — провайдеры и типы", () => {
         h.dispose();
     });
 
-    it("типы с невыполненным when скрыты и их провайдер не опрашивается", async () => {
+    it("types with an unmet when are hidden and their provider is not queried", async () => {
         const h = buildTaskServiceHarness();
         h.service.registerTaskDefinitions([definition("npm"), definition("hidden", "taskRunning")]);
         const p = vi.fn(() => Promise.resolve([]));
@@ -170,7 +170,7 @@ describe("TaskService — провайдеры и типы", () => {
         h.dispose();
     });
 
-    it("повтор типа в определениях — последний побеждает; onDidChangeDefinitions", () => {
+    it("a repeated type in definitions — the last one wins; onDidChangeDefinitions", () => {
         const h = buildTaskServiceHarness();
         const changed = vi.fn();
         h.service.onDidChangeDefinitions(changed);
@@ -181,7 +181,7 @@ describe("TaskService — провайдеры и типы", () => {
         h.dispose();
     });
 
-    it("сбой провайдера — сообщение в лог и пусто; задача чужого типа — предупреждение эталона", async () => {
+    it("provider failure — a log message and empty; a task of another type — upstream warning", async () => {
         const h = buildTaskServiceHarness();
         h.service.registerTaskProvider({ provideTasks: () => Promise.reject(new Error("boom")) }, "a");
         h.service.registerTaskProvider({ provideTasks: () => Promise.reject("raw" as unknown as Error) }, "b");
@@ -203,7 +203,7 @@ describe("TaskService — провайдеры и типы", () => {
         h.dispose();
     });
 
-    it("медленный провайдер и активация ждутся не дольше 5 с", async () => {
+    it("a slow provider and activation are awaited for no longer than 5 s", async () => {
         vi.useFakeTimers();
         const h = buildTaskServiceHarness();
         h.service.setProviderActivator(() => new Promise(() => undefined));
@@ -220,7 +220,7 @@ describe("TaskService — провайдеры и типы", () => {
         h.dispose();
     });
 
-    it("getTaskById ищет среди всех задач", async () => {
+    it("getTaskById searches all tasks", async () => {
         const h = buildTaskServiceHarness({ tasksJson: tasksJsonOf([{ label: "w", command: "x" }]) });
         h.service.registerTaskProvider(provider([{ label: "a", extension: ext("npm") }]), "npm");
         expect((await h.service.getTaskById("$core.w"))?.name).toBe("w");
@@ -230,8 +230,8 @@ describe("TaskService — провайдеры и типы", () => {
     });
 });
 
-describe("TaskService — запуск", () => {
-    it("task.saveBeforeRun: always — сохранить всё и запустить", async () => {
+describe("TaskService — running", () => {
+    it("task.saveBeforeRun: always — save all and run", async () => {
         const h = buildTaskServiceHarness();
         const done = h.service.run(makeTask());
         await vi.waitFor(() => {
@@ -244,7 +244,7 @@ describe("TaskService — запуск", () => {
         h.dispose();
     });
 
-    it("always с грязными редакторами — сохранить без вопроса", async () => {
+    it("always with dirty editors — save without asking", async () => {
         const h = buildTaskServiceHarness({ settings: { "task.saveBeforeRun": "always" } });
         h.setDirty([{}]);
         void h.service.run(makeTask());
@@ -256,7 +256,7 @@ describe("TaskService — запуск", () => {
         h.dispose();
     });
 
-    it("never — не сохранять; prompt без грязных — сохранить без вопроса", async () => {
+    it("never — do not save; prompt without dirty editors — save without asking", async () => {
         const never = buildTaskServiceHarness({ settings: { "task.saveBeforeRun": "never" } });
         void never.service.run(makeTask());
         await vi.waitFor(() => {
@@ -274,7 +274,7 @@ describe("TaskService — запуск", () => {
         prompt.dispose();
     });
 
-    it("prompt с грязными — диалог эталона; Save — сохранить, Don't Save — запустить без сохранения", async () => {
+    it("prompt with dirty editors — upstream dialog; Save — save, Don't Save — run without saving", async () => {
         const h = buildTaskServiceHarness({ settings: { "task.saveBeforeRun": "prompt" } });
         h.setDirty([{}]);
         void h.service.run(makeTask({ label: "a" }));
@@ -298,7 +298,7 @@ describe("TaskService — запуск", () => {
         h.dispose();
     });
 
-    it("отказ запуска — тост с текстом ошибки, строка в лог, обещание отклонено", async () => {
+    it("run refusal — a toast with the error text, a log line, the promise is rejected", async () => {
         const h = buildTaskServiceHarness();
         await expect(h.service.run(makeTask({ command: { name: "${input:x}" } }))).rejects.toThrow(
             "Variable ${input:x} is not supported in tasks yet.",
@@ -310,7 +310,7 @@ describe("TaskService — запуск", () => {
         h.dispose();
     });
 
-    it("переменные — из папки и активного файлового редактора (строка каретки 1-based)", async () => {
+    it("variables come from the folder and the active file editor (1-based cursor line)", async () => {
         const h = buildTaskServiceHarness();
         h.setActiveEditor("/ws/src/a.ts", 4);
         void h.service.run(makeTask({ command: { name: "echo ${relativeFile}:${lineNumber} ${cwd}" } }));
@@ -325,7 +325,7 @@ describe("TaskService — запуск", () => {
         h.dispose();
     });
 
-    it("без папки воркспейса задача запускается; ${userHome} — домашний каталог", async () => {
+    it("without a workspace folder the task runs; ${userHome} is the home directory", async () => {
         const h = buildTaskServiceHarness({ folder: null });
         vi.stubEnv("HOME", "/home/someone");
         vi.stubEnv("USERPROFILE", undefined);
@@ -338,7 +338,7 @@ describe("TaskService — запуск", () => {
         h.dispose();
     });
 
-    it("настройки и окружение доступны переменным", async () => {
+    it("config and env are available to variables", async () => {
         const h = buildTaskServiceHarness({ settings: { "task.autoDetect": "on" } });
         vi.stubEnv("DIODE_TASK_VAR", "env-value");
         void h.service.run(makeTask({ command: { name: "echo ${config:task.autoDetect} ${env:DIODE_TASK_VAR}" } }));
@@ -350,7 +350,7 @@ describe("TaskService — запуск", () => {
         h.dispose();
     });
 
-    it("task.verboseLogging — события задач в лог; без неё — тишина", async () => {
+    it("task.verboseLogging — task events go to the log; without it — silence", async () => {
         const verbose = buildTaskServiceHarness({ settings: { "task.verboseLogging": true } });
         void verbose.service.run(makeTask());
         await vi.waitFor(() => {
@@ -366,7 +366,7 @@ describe("TaskService — запуск", () => {
         quiet.dispose();
     });
 
-    it("taskRunning — пока бежит хоть одна задача; выставляется на старте и конце, без опроса", async () => {
+    it("taskRunning — while at least one task runs; set on start and end, without polling", async () => {
         const h = buildTaskServiceHarness();
         expect(h.contextKeys.evaluate("taskRunning")).toBe(false);
         void h.service.run(makeTask());
@@ -386,7 +386,7 @@ describe("TaskService — запуск", () => {
     });
 });
 
-describe("TaskService — запуск уже бегущей (instancePolicy)", () => {
+describe("TaskService — running an already running task (instancePolicy)", () => {
     async function runTwice(
         policy: "prompt" | "warn" | "silent" | "terminateNewest" | "terminateOldest",
         answers: (string | undefined)[] = [],
@@ -407,7 +407,7 @@ describe("TaskService — запуск уже бегущей (instancePolicy)", 
         return h;
     }
 
-    it("prompt: пикер «Select an instance to terminate»; выбор — остановить и запустить заново", async () => {
+    it("prompt: 'Select an instance to terminate' picker; picking stops and runs it again", async () => {
         const h = buildTaskServiceHarness();
         h.answerPicks("build");
         const task = makeTask({ presentation: { reveal: "never" } });
@@ -429,7 +429,7 @@ describe("TaskService — запуск уже бегущей (instancePolicy)", 
         h.dispose();
     });
 
-    it("prompt: в пикере только копии этой задачи, соседние бегущие — нет", async () => {
+    it("prompt: the picker shows only instances of this task, not other running ones", async () => {
         const h = buildTaskServiceHarness();
         h.answerPicks(undefined);
         void h.service.run(makeTask({ label: "other" }));
@@ -446,7 +446,7 @@ describe("TaskService — запуск уже бегущей (instancePolicy)", 
         h.dispose();
     });
 
-    it("prompt: отмена пикера — задача бежит дальше", async () => {
+    it("prompt: cancelling the picker — the task keeps running", async () => {
         const h = await runTwice("prompt", [undefined]);
         await vi.waitFor(() => {
             expect(h.picks).toHaveLength(1);
@@ -458,7 +458,7 @@ describe("TaskService — запуск уже бегущей (instancePolicy)", 
         h.dispose();
     });
 
-    it("prompt: сбой перезапуска выбранной копии — тост с текстом ошибки", async () => {
+    it("prompt: failure to restart the picked instance — a toast with the error text", async () => {
         const h = buildTaskServiceHarness();
         vi.spyOn(h.service, "restart").mockRejectedValue(new Error("restart failed"));
         h.answerPicks("build");
@@ -474,7 +474,7 @@ describe("TaskService — запуск уже бегущей (instancePolicy)", 
         h.dispose();
     });
 
-    it("warn: предупреждение эталона, задача бежит дальше", async () => {
+    it("warn: upstream warning, the task keeps running", async () => {
         const h = await runTwice("warn");
         expect(h.notifications.passive().map((n) => [n.severity, n.message])).toStrictEqual([
             ["warn", "The instance limit for this task has been reached."],
@@ -483,7 +483,7 @@ describe("TaskService — запуск уже бегущей (instancePolicy)", 
         h.dispose();
     });
 
-    it("silent: ничего; terminateNewest/Oldest — перезапуск без вопроса", async () => {
+    it("silent: nothing; terminateNewest/Oldest — restart without asking", async () => {
         const silent = await runTwice("silent");
         expect(silent.picks).toStrictEqual([]);
         expect(silent.sessions).toHaveLength(1);
@@ -498,7 +498,7 @@ describe("TaskService — запуск уже бегущей (instancePolicy)", 
         }
     });
 
-    it("невидимая бегущая задача при повторном запуске показывается", async () => {
+    it("an invisible running task is revealed when run again", async () => {
         const h = buildTaskServiceHarness();
         const task = makeTask({ runOptions: { instancePolicy: "silent" } });
         void h.service.run(task);
@@ -515,8 +515,8 @@ describe("TaskService — запуск уже бегущей (instancePolicy)", 
     });
 });
 
-describe("TaskService — rerun и restart", () => {
-    it("rerun: нечего повторять и ничего не бежит — открыть Run Task; редакторы сохраняются всегда", async () => {
+describe("TaskService — rerun and restart", () => {
+    it("rerun: nothing to rerun and nothing running — open Run Task; editors are always saved", async () => {
         const h = buildTaskServiceHarness({ settings: { "task.saveBeforeRun": "never" } });
         const openRunTask = vi.fn(() => Promise.resolve());
         await h.service.rerun(openRunTask);
@@ -525,7 +525,7 @@ describe("TaskService — rerun и restart", () => {
         h.dispose();
     });
 
-    it("rerun: повторяет последнюю; бегущая без повтора — Run Task не открывается", async () => {
+    it("rerun: reruns the last one; a running task without a rerun — Run Task does not open", async () => {
         const h = buildTaskServiceHarness();
         const openRunTask = vi.fn(() => Promise.resolve());
         void h.service.run(makeTask());
@@ -548,7 +548,7 @@ describe("TaskService — rerun и restart", () => {
         busy.dispose();
     });
 
-    it("rerun: отказ повтора — тост, Run Task не открывается", async () => {
+    it("rerun: rerun refusal — a toast, Run Task does not open", async () => {
         const h = buildTaskServiceHarness();
         const openRunTask = vi.fn(() => Promise.resolve());
         await h.service.run(makeTask({ command: { name: "${file}" } })).catch(() => undefined);
@@ -570,7 +570,7 @@ describe("TaskService — rerun и restart", () => {
         h.dispose();
     });
 
-    it("rerun бегущей без пересчёта: её instancePolicy (warn — предупреждение эталона)", async () => {
+    it("rerun of a running task without reevaluation: its instancePolicy (warn — upstream warning)", async () => {
         const h = buildTaskServiceHarness();
         const openRunTask = vi.fn(() => Promise.resolve());
         void h.service.run(makeTask({ runOptions: { reevaluateOnRerun: false, instancePolicy: "warn" } }));
@@ -584,7 +584,7 @@ describe("TaskService — rerun и restart", () => {
         h.dispose();
     });
 
-    it("rerun: исключение системы задач — тост с текстом, Run Task не открывается", async () => {
+    it("rerun: task system exception — a toast with the text, Run Task does not open", async () => {
         const h = buildTaskServiceHarness();
         const openRunTask = vi.fn(() => Promise.resolve());
         void h.service.run(makeTask({ runOptions: { reevaluateOnRerun: false } }));
@@ -601,7 +601,7 @@ describe("TaskService — rerun и restart", () => {
         h.dispose();
     });
 
-    it("restart: бегущую остановить и запустить; задачу tasks.json — в нынешнем виде файла", async () => {
+    it("restart: stop and run the running task; a tasks.json task — as the file is now", async () => {
         const h = buildTaskServiceHarness({ tasksJson: tasksJsonOf([{ label: "a", type: "shell", command: "old" }]) });
         const [task] = await h.service.getWorkspaceTasks();
         void h.service.run(task);
@@ -617,7 +617,7 @@ describe("TaskService — rerun и restart", () => {
         h.dispose();
     });
 
-    it("restart: задача провайдера и пропавшая из tasks.json — та же", async () => {
+    it("restart: a provider task and one gone from tasks.json — the same", async () => {
         const h = buildTaskServiceHarness({ tasksJson: tasksJsonOf([]) });
         await h.service.restart(makeTask({ label: "gone", command: { name: "echo gone" } }));
         await h.service.restart(makeTask({ label: "p", extension: ext("npm"), command: { name: "echo p" } }));
@@ -631,7 +631,7 @@ describe("TaskService — rerun и restart", () => {
         h.dispose();
     });
 
-    it("terminate/terminateAll/revealTask — к системе задач", async () => {
+    it("terminate/terminateAll/revealTask go to the task system", async () => {
         const h = buildTaskServiceHarness();
         const task = makeTask({ presentation: { reveal: "never" } });
         expect(h.service.revealTask(task)).toBe(false);
@@ -651,8 +651,8 @@ describe("TaskService — rerun и restart", () => {
     });
 });
 
-describe("TaskService — аргументы команд и пикеры", () => {
-    it("taskIdentifierOf: строка — как есть; определение — ключ по схеме типа; прочее — undefined", () => {
+describe("TaskService — command arguments and pickers", () => {
+    it("taskIdentifierOf: a string as is; a definition — the key by the type schema; anything else — undefined", () => {
         const h = buildTaskServiceHarness();
         h.service.registerTaskDefinitions([{ ...definition("npm"), properties: { script: { type: "string" } } }]);
         expect(h.service.taskIdentifierOf("build")).toBe("build");
@@ -667,7 +667,7 @@ describe("TaskService — аргументы команд и пикеры", () =
         h.dispose();
     });
 
-    it("taskIdentifierOf: обязательное без значения — undefined и предупреждение", () => {
+    it("taskIdentifierOf: a required property without a value — undefined and a warning", () => {
         const h = buildTaskServiceHarness();
         h.service.registerTaskDefinitions([
             { ...definition("npm"), required: ["o"], properties: { o: { type: "object" } } },
@@ -677,7 +677,7 @@ describe("TaskService — аргументы команд и пикеры", () =
         h.dispose();
     });
 
-    it("findTask — по подписи или ключу определения", () => {
+    it("findTask — by label or definition key", () => {
         const h = buildTaskServiceHarness();
         const a = makeTask({ label: "a" });
         const b = makeTask({ label: "b", extension: ext("npm") });
@@ -688,7 +688,7 @@ describe("TaskService — аргументы команд и пикеры", () =
         h.dispose();
     });
 
-    it("pickTask: строки по подписи, отсортированы; выбор возвращает строку с задачей", async () => {
+    it("pickTask: items by label, sorted; picking returns the item with the task", async () => {
         const h = buildTaskServiceHarness();
         h.answerPicks("a");
         const entry = await h.service.pickTask([makeTask({ label: "b" }), makeTask({ label: "a" })], "Pick", {
@@ -700,7 +700,7 @@ describe("TaskService — аргументы команд и пикеры", () =
         h.dispose();
     });
 
-    it("pickTask: пусто — строка по умолчанию; дополнительная — только при нескольких строках", async () => {
+    it("pickTask: empty — the default item; the extra one — only with several items", async () => {
         const h = buildTaskServiceHarness();
         await h.service.pickTask([], "P", { label: "None" }, { label: "All" });
         expect(h.lastPickLabels()).toStrictEqual(["None"]);
@@ -718,7 +718,7 @@ describe("TaskService — аргументы команд и пикеры", () =
         h.dispose();
     });
 
-    it("pickTask: task.quickOpen.skip и одна строка — без показа", async () => {
+    it("pickTask: task.quickOpen.skip and a single item — not shown", async () => {
         const h = buildTaskServiceHarness({ settings: { "task.quickOpen.skip": true } });
         const entry = await h.service.pickTask([makeTask({ label: "a" })], "P", { label: "None" });
         expect(entry?.task?.name).toBe("a");
@@ -728,7 +728,7 @@ describe("TaskService — аргументы команд и пикеры", () =
         h.dispose();
     });
 
-    it("taskEntries: одинаковые id нумеруются; detail — в описание при task.quickOpen.detail", () => {
+    it("taskEntries: equal ids are numbered; detail goes to the description with task.quickOpen.detail", () => {
         const h = buildTaskServiceHarness();
         const entries = h.service.taskEntries([
             makeTask({ label: "a", detail: "Details" }),
@@ -747,7 +747,7 @@ describe("TaskService — аргументы команд и пикеры", () =
         off.dispose();
     });
 
-    it("showRunningTasks: одна — сразу её терминал; ни одной — пикер «No task is running»", async () => {
+    it("showRunningTasks: one — its terminal right away; none — the 'No task is running' picker", async () => {
         const h = buildTaskServiceHarness();
         await h.service.showRunningTasks();
         expect(h.picks[0].placeholder).toBe("Select the task to show its output");
@@ -762,7 +762,7 @@ describe("TaskService — аргументы команд и пикеры", () =
         h.dispose();
     });
 
-    it("showRunningTasks: несколько одной группы — первая; разных — пикер и выбранная", async () => {
+    it("showRunningTasks: several in one group — the first; in different ones — the picker and the picked one", async () => {
         const h = buildTaskServiceHarness();
         const grouped = { reveal: "never" as const, panel: "new" as const, group: "g" };
         void h.service.run(makeTask({ label: "a", presentation: grouped }));
@@ -787,7 +787,7 @@ describe("TaskService — аргументы команд и пикеры", () =
         h.dispose();
     });
 
-    it("showRunningTasks: несколько без группы — пикер", async () => {
+    it("showRunningTasks: several without a group — the picker", async () => {
         const h = buildTaskServiceHarness();
         h.answerPicks(undefined);
         void h.service.run(makeTask({ label: "a", presentation: { reveal: "never" } }));
@@ -800,7 +800,7 @@ describe("TaskService — аргументы команд и пикеры", () =
         h.dispose();
     });
 
-    it("showRunningTasks: группа только у первой — пикер", async () => {
+    it("showRunningTasks: only the first has a group — the picker", async () => {
         const h = buildTaskServiceHarness();
         void h.service.run(makeTask({ label: "a", presentation: { reveal: "never", group: "g" } }));
         void h.service.run(makeTask({ label: "b", presentation: { reveal: "never", panel: "new" } }));
@@ -812,7 +812,7 @@ describe("TaskService — аргументы команд и пикеры", () =
         h.dispose();
     });
 
-    it("мост pty для CustomExecution: снятие возвращает отказ «нужен extension host»", async () => {
+    it("pty bridge for CustomExecution: unregistering returns the 'extension host required' refusal", async () => {
         const h = buildTaskServiceHarness();
         const registration = h.service.setCustomExecutionTerminals({ createPtyInstance: () => 1 });
         registration.dispose();

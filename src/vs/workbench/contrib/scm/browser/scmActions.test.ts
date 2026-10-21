@@ -40,19 +40,19 @@ function actionById(id: string): { enablement?: string } | undefined {
     return SCM_ACTIONS.find((action) => action.id === id);
 }
 
-describe("SCM-команды и enablement занятости", () => {
-    it("мутирующие команды гаснут на время идущей операции", () => {
+describe("SCM commands and busy enablement", () => {
+    it("mutating commands are disabled while an operation is running", () => {
         for (const id of MUTATING) {
             const action = actionById(id);
-            expect(action, `нет команды ${id}`).toBeDefined();
-            expect(action!.enablement, `у ${id} нет enablement занятости`).toContain("!gitOperationInProgress");
+            expect(action, `no command ${id}`).toBeDefined();
+            expect(action!.enablement, `${id} has no busy enablement`).toContain("!gitOperationInProgress");
         }
     });
 
-    it("read-only команды SCM остаются доступными", () => {
+    it("read-only SCM commands stay available", () => {
         for (const id of READ_ONLY) {
             const action = actionById(id);
-            expect(action, `нет команды ${id}`).toBeDefined();
+            expect(action, `no command ${id}`).toBeDefined();
             expect(action!.enablement ?? "").not.toContain("gitOperationInProgress");
         }
     });

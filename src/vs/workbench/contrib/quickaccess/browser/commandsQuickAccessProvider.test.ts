@@ -16,29 +16,29 @@ function labels(provider: CommandsQuickAccessProvider, query: string): string[] 
     return provider.getItems(`>${query}`).map((item) => item.label);
 }
 
-describe("CommandsQuickAccessProvider — префикс категории", () => {
-    it("команда с категорией рисуется как «Category: Title» (эталон VS Code)", () => {
+describe("CommandsQuickAccessProvider — category prefix", () => {
+    it("a command with a category renders as `Category: Title` (upstream VS Code)", () => {
         const { provider, commands } = createProvider();
         commands.register("java.server.mode.switch", () => undefined, "Switch to Standard Mode", undefined, "Java");
 
         expect(labels(provider, "")).toEqual(["Java: Switch to Standard Mode"]);
     });
 
-    it("без категории подпись — сам заголовок", () => {
+    it("without a category the label is the title itself", () => {
         const { provider, commands } = createProvider();
         commands.register("java.open.serverLog", () => undefined, "Open Java Language Server Log File");
 
         expect(labels(provider, "")).toEqual(["Open Java Language Server Log File"]);
     });
 
-    it("пустая категория префикса не даёт", () => {
+    it("an empty category yields no prefix", () => {
         const { provider, commands } = createProvider();
         commands.register("x.y", () => undefined, "Do It", undefined, "");
 
         expect(labels(provider, "")).toEqual(["Do It"]);
     });
 
-    it("фильтр матчит по категории — `java` находит всю группу", () => {
+    it("the filter matches on the category — `java` finds the whole group", () => {
         const { provider, commands } = createProvider();
         commands.register("java.clean", () => undefined, "Clean Workspace", undefined, "Java");
         commands.register("files.save", () => undefined, "Save", undefined, "File");
@@ -46,7 +46,7 @@ describe("CommandsQuickAccessProvider — префикс категории", ()
         expect(labels(provider, "java")).toEqual(["Java: Clean Workspace"]);
     });
 
-    it("фильтр матчит и по заголовку, и по склейке с категорией", () => {
+    it("the filter matches both on the title and on the category-joined label", () => {
         const { provider, commands } = createProvider();
         commands.register("java.clean", () => undefined, "Clean Workspace", undefined, "Java");
 
@@ -55,7 +55,7 @@ describe("CommandsQuickAccessProvider — префикс категории", ()
         expect(labels(provider, "python")).toEqual([]);
     });
 
-    it("accept исполняет команду по id, а не по подписи", () => {
+    it("accept runs the command by id, not by label", () => {
         const { provider, commands } = createProvider();
         let ran = 0;
         commands.register(
@@ -75,7 +75,7 @@ describe("CommandsQuickAccessProvider — префикс категории", ()
         expect(ran).toBe(1);
     });
 
-    it("команда без заголовка в палитре не показывается даже с категорией", () => {
+    it("a command without a title is not shown in the palette even with a category", () => {
         const { provider, commands } = createProvider();
         commands.register("java.internal", () => undefined, undefined, undefined, "Java");
 
@@ -83,15 +83,15 @@ describe("CommandsQuickAccessProvider — префикс категории", ()
     });
 });
 
-describe("CommandsQuickAccessProvider — fuzzy-фильтр", () => {
-    it("`go line` находит «Go to Line/Column...» (подстрочный поиск не находил ничего)", () => {
+describe("CommandsQuickAccessProvider — fuzzy filter", () => {
+    it("`go line` finds `Go to Line/Column...` (substring search found nothing)", () => {
         const { provider, commands } = createProvider();
         commands.register("workbench.action.gotoLine", () => undefined, "Go to Line/Column...");
 
         expect(labels(provider, "go line")).toEqual(["Go to Line/Column..."]);
     });
 
-    it("`toggle panel` находит «Toggle Panel Visibility»", () => {
+    it("`toggle panel` finds `Toggle Panel Visibility`", () => {
         const { provider, commands } = createProvider();
         commands.register(
             "workbench.action.togglePanel",
@@ -104,21 +104,21 @@ describe("CommandsQuickAccessProvider — fuzzy-фильтр", () => {
         expect(labels(provider, "toggle panel")).toEqual(["View: Toggle Panel Visibility"]);
     });
 
-    it("термы матчатся в любом порядке", () => {
+    it("terms match in any order", () => {
         const { provider, commands } = createProvider();
         commands.register("workbench.action.gotoLine", () => undefined, "Go to Line/Column...");
 
         expect(labels(provider, "line go")).toEqual(["Go to Line/Column..."]);
     });
 
-    it("найтись обязаны ВСЕ термы", () => {
+    it("ALL terms must be found", () => {
         const { provider, commands } = createProvider();
         commands.register("workbench.action.gotoLine", () => undefined, "Go to Line/Column...");
 
         expect(labels(provider, "go zebra")).toEqual([]);
     });
 
-    it("несколько пробелов подряд и хвостовой пробел ничего не меняют", () => {
+    it("repeated spaces and a trailing space change nothing", () => {
         const { provider, commands } = createProvider();
         commands.register("workbench.action.gotoLine", () => undefined, "Go to Line/Column...");
 
@@ -127,14 +127,14 @@ describe("CommandsQuickAccessProvider — fuzzy-фильтр", () => {
         expect(labels(provider, " go line")).toEqual(["Go to Line/Column..."]);
     });
 
-    it("запрос из одних пробелов отдаёт весь список, а не пустой", () => {
+    it("a whitespace-only query returns the whole list, not an empty one", () => {
         const { provider, commands } = createProvider();
         commands.register("a.b", () => undefined, "Save");
 
         expect(labels(provider, "   ")).toEqual(["Save"]);
     });
 
-    it("fuzzy, а не подстрока: буквы могут идти с разрывами", () => {
+    it("fuzzy, not substring: letters may have gaps", () => {
         const { provider, commands } = createProvider();
         commands.register("a.b", () => undefined, "Toggle Word Wrap");
 
@@ -142,8 +142,8 @@ describe("CommandsQuickAccessProvider — fuzzy-фильтр", () => {
     });
 });
 
-describe("CommandsQuickAccessProvider — порядок и подсветка", () => {
-    it("лучшее совпадение идёт первым, а не в порядке регистрации", () => {
+describe("CommandsQuickAccessProvider — order and highlights", () => {
+    it("the best match comes first, not in registration order", () => {
         const { provider, commands } = createProvider();
         // Register the mid-word match FIRST so registry order can't
         // coincide with score order by accident.
@@ -153,7 +153,7 @@ describe("CommandsQuickAccessProvider — порядок и подсветка",
         expect(labels(provider, "go line")).toEqual(["Go to Line/Column...", "Toggle Goal Baseline"]);
     });
 
-    it("пустой запрос сохраняет порядок реестра (сортировка стабильная)", () => {
+    it("an empty query keeps the registry order (stable sort)", () => {
         const { provider, commands } = createProvider();
         commands.register("a.b", () => undefined, "Zebra");
         commands.register("c.d", () => undefined, "Apple");
@@ -161,7 +161,7 @@ describe("CommandsQuickAccessProvider — порядок и подсветка",
         expect(labels(provider, "")).toEqual(["Zebra", "Apple"]);
     });
 
-    it("подсвечиваются совпавшие куски подписи — по куску на терм", () => {
+    it("the matched parts of the label are highlighted — one part per term", () => {
         const { provider, commands } = createProvider();
         commands.register("c.d", () => undefined, "Go Line");
 
@@ -171,7 +171,7 @@ describe("CommandsQuickAccessProvider — порядок и подсветка",
         ]);
     });
 
-    it("у пустого запроса подсветки нет", () => {
+    it("an empty query has no highlights", () => {
         const { provider, commands } = createProvider();
         commands.register("c.d", () => undefined, "Go Line");
 

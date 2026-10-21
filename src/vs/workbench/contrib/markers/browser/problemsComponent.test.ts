@@ -128,7 +128,7 @@ describe("ProblemsComponent", () => {
         expect(revealTarget.editor.revealRange).toHaveBeenCalledWith(createRange(2, 2, 2, 7));
     });
 
-    it("ресурс не открылся — каретку в ЧУЖОМ редакторе не двигаем", async () => {
+    it("resource failed to open — the cursor in ANOTHER editor is not moved", async () => {
         // A non-disk marker (`jdt:`) without a scheme provider: `openUri` does not create
         // a tab, the previous editor stays active. Moving its cursor to the
         // coordinates of someone else's marker is wrong.
@@ -154,7 +154,7 @@ describe("ProblemsComponent", () => {
         expect(revealTarget.editor.revealRange).not.toHaveBeenCalled();
     });
 
-    it("редакторов нет вовсе — переход по маркеру не падает", async () => {
+    it("no editors at all — navigating to a marker does not throw", async () => {
         // A non-disk marker (`jdt:`) without a scheme provider with an empty tab
         // strip: `openUri` opened nothing, there is no active editor.
         revealTarget.state.active = null;
@@ -193,7 +193,7 @@ describe("ProblemsComponent", () => {
         expect(component.tree.isFocused).toBe(true);
     });
 
-    it("reveal контейнера панели ведёт фокус в дерево (шов focus дескриптора)", async () => {
+    it("revealing the panel container moves focus into the tree (descriptor focus seam)", async () => {
         markerService.changeOne("settings", RESOURCE, [warning("x")]);
         await settleMarkers();
         testApp.render();
@@ -218,8 +218,8 @@ describe("ProblemsComponent", () => {
         expect(screen).toContain("[Ln 2, Col 1]");
         expect(screen).toContain("[Ln 3, Col 1]");
     });
-    describe("сведение изменений маркеров (монорепа: тысячи публикаций подряд)", () => {
-        it("всплеск публикаций по многим файлам — один пересчёт дерева, и в нём все файлы", async () => {
+    describe("coalescing marker changes (monorepo: thousands of publications in a row)", () => {
+        it("burst of publications across many files — one tree refresh containing all files", async () => {
             const refresh = vi.spyOn(component.tree, "refresh");
             for (let i = 0; i < 20; i++) {
                 markerService.changeOne("java", `/ws/F${String(i)}.java`, [warning(`err ${String(i)}`)]);
@@ -234,7 +234,7 @@ describe("ProblemsComponent", () => {
             expect(screen).toContain("err 0");
         });
 
-        it("смена маркеров посреди пересчёта: второй не идёт параллельно, но и не теряется", async () => {
+        it("markers change mid-refresh: the second refresh does not run in parallel but is not lost", async () => {
             let release: () => void = () => undefined;
             const gate = new Promise<void>((resolve) => {
                 release = resolve;
@@ -269,7 +269,7 @@ describe("ProblemsComponent", () => {
             expect(screen).toContain("second");
         });
 
-        it("таймер, сработавший после того, как пересчёт догнал версию, лишнего пересчёта не делает", async () => {
+        it("a timer firing after the refresh caught up with the version does no extra refresh", async () => {
             let release: () => void = () => undefined;
             const gate = new Promise<void>((resolve) => {
                 release = resolve;
@@ -291,7 +291,7 @@ describe("ProblemsComponent", () => {
             expect(refresh).toHaveBeenCalledTimes(2);
         });
 
-        it("файлы раскрываются одной пачкой, а не expand на каждый (иначе пересборка списка на файл)", async () => {
+        it("files are expanded in one batch, not one expand each (otherwise the list is rebuilt per file)", async () => {
             const expandElements = vi.spyOn(component.tree, "expandElements");
             const expand = vi.spyOn(component.tree, "expand");
             for (let i = 0; i < 5; i++) {
@@ -309,7 +309,7 @@ describe("ProblemsComponent", () => {
             expect(screen).toContain("err 4");
         });
 
-        it("после dispose отложенный пересчёт не выполняется", async () => {
+        it("a pending refresh does not run after dispose", async () => {
             const refresh = vi.spyOn(component.tree, "refresh");
             markerService.changeOne("java", "/ws/A.java", [warning("x")]);
             component.dispose();

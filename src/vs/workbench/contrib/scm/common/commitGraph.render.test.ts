@@ -36,7 +36,7 @@ function check(
     expect(line.styles).toEqual([...expectedStyles, undefined]);
 }
 
-describe("renderPipeSet — символы и цвета", () => {
+describe("renderPipeSet — symbols and colors", () => {
     it("single cell", () => {
         check(
             [pipe(0, 0, "a", "b", PipeKind.Terminates, CYAN), pipe(0, 0, "b", "c", PipeKind.Starts, GREEN)],
@@ -217,7 +217,7 @@ describe("renderPipeSet — символы и цвета", () => {
         );
     });
 
-    it("клетка, которой не коснулась ни одна линия, остаётся пустой", () => {
+    it("a cell no line touched stays empty", () => {
         // Hole between lanes: column 1 is neither occupied nor crossed.
         check(
             [pipe(0, 0, "a1", "a2", PipeKind.Continues, RED), pipe(2, 2, "c1", "c2", PipeKind.Continues, GREEN)],
@@ -227,7 +227,7 @@ describe("renderPipeSet — символы и цвета", () => {
         );
     });
 
-    it("без выделенного коммита подсветки нет", () => {
+    it("no highlight without a selected commit", () => {
         const line = renderPipeSet(
             [pipe(0, 0, "a", "b", PipeKind.Terminates, CYAN), pipe(0, 0, "b", "c", PipeKind.Starts, GREEN)],
             null,
@@ -258,7 +258,7 @@ describe("getBoxDrawingChars", () => {
         [false, false, false, false, " ", " "],
     ];
 
-    it("покрывает все 16 комбинаций направлений", () => {
+    it("covers all 16 direction combinations", () => {
         expect(TABLE).toHaveLength(16);
         for (const [up, down, left, right, box, connector] of TABLE) {
             expect(getBoxDrawingChars(up, down, left, right), `${up} ${down} ${left} ${right}`).toEqual([

@@ -33,7 +33,7 @@ function recordGroupFocus(groups: IEditorGroupsService): number[] {
     return focused;
 }
 
-describe("Команды сравнения файлов", () => {
+describe("File compare commands", () => {
     let ws: ITempWorkspace;
     let h: IAppHarness;
 
@@ -76,7 +76,7 @@ describe("Команды сравнения файлов", () => {
     }
 
     describe("Compare with Saved (US-6)", () => {
-        it("открывает дифф «диск ↔ буфер» с подписями сторон", async () => {
+        it("opens a 'disk ↔ buffer' diff with side labels", async () => {
             await openAndEdit("a.txt");
 
             h.commands.execute("workbench.files.action.compareWithSaved");
@@ -88,7 +88,7 @@ describe("Команды сравнения файлов", () => {
             expect(screen).toMatch(/2\+\s+XXbravo/u);
         });
 
-        it("файл без правок даёт вкладку «The files are identical» (US-11)", async () => {
+        it("an unmodified file gives a 'The files are identical' tab (US-11)", async () => {
             h.commands.execute("workbench.openFile", ws.path("a.txt"));
             await settle(0);
 
@@ -99,7 +99,7 @@ describe("Команды сравнения файлов", () => {
             expect(h.testApp.backend.screenToString()).toMatch(/The files are iden/u);
         });
 
-        it("untitled-буфер получает нотис вместо вкладки", async () => {
+        it("an untitled buffer gets a notice instead of a tab", async () => {
             h.commands.execute("workbench.action.files.newUntitledFile");
             await settle(0);
 
@@ -112,7 +112,7 @@ describe("Команды сравнения файлов", () => {
     });
 
     describe("Compare with Clipboard (US-5)", () => {
-        it("сравнивает содержимое буфера обмена с активным файлом", async () => {
+        it("compares clipboard contents with the active file", async () => {
             h.commands.execute("workbench.openFile", ws.path("a.txt"));
             await settle(0);
             await h.container.get(ClipboardDIToken).writeText("alpha\nCLIP\n");
@@ -126,7 +126,7 @@ describe("Команды сравнения файлов", () => {
             expect(screen).toMatch(/2\+\s+bravo/u);
         });
 
-        it("пустой буфер — сравнение с пустым, а не ошибка", async () => {
+        it("empty clipboard compares against empty, not an error", async () => {
             h.commands.execute("workbench.openFile", ws.path("a.txt"));
             await settle(0);
 
@@ -138,7 +138,7 @@ describe("Команды сравнения файлов", () => {
     });
 
     describe("Select for Compare / Compare with Selected (US-4)", () => {
-        it("пара из Explorer-меню открывает дифф, выбранный первым — слева", async () => {
+        it("a pair from the Explorer menu opens a diff, the first selected on the left", async () => {
             h.commands.execute("selectForCompare", ws.path("a.txt"));
             expect(h.container.get(ContextKeyServiceDIToken).evaluate("resourceSelectedForCompare")).toBe(true);
 
@@ -151,14 +151,14 @@ describe("Команды сравнения файлов", () => {
             expect(screen).toMatch(/2\+\s+BRAVO/u);
         });
 
-        it("до Select for Compare команда Compare with Selected — тихий no-op", async () => {
+        it("Compare with Selected before Select for Compare is a silent no-op", async () => {
             h.commands.execute("compareFiles", ws.path("b.txt"));
             await settle(10);
 
             expect(diffPanes()).toHaveLength(0);
         });
 
-        it("правый файл исчез с диска — нотис вместо вкладки", async () => {
+        it("right file gone from disk: a notice instead of a tab", async () => {
             h.commands.execute("selectForCompare", ws.path("a.txt"));
             const { rmSync } = await import("node:fs");
             rmSync(ws.path("b.txt"));
@@ -170,7 +170,7 @@ describe("Команды сравнения файлов", () => {
             expect(diffPanes()).toHaveLength(0);
         });
 
-        it("повторный Select for Compare заменяет отложенный файл", async () => {
+        it("a repeated Select for Compare replaces the pending file", async () => {
             h.commands.execute("selectForCompare", ws.path("a.txt"));
             h.commands.execute("selectForCompare", ws.path("b.txt"));
 
@@ -182,7 +182,7 @@ describe("Команды сравнения файлов", () => {
     });
 
     describe("Compare Active File With... (US-3, US-9)", () => {
-        it("пикер открывает дифф с выбранным файлом, активный — слева", async () => {
+        it("the picker opens a diff with the picked file, the active one on the left", async () => {
             h.commands.execute("workbench.openFile", ws.path("a.txt"));
             await settle(0);
 
@@ -200,7 +200,7 @@ describe("Команды сравнения файлов", () => {
             expect(h.testApp.backend.screenToString()).toContain("a.txt ↔ b.txt");
         });
 
-        it("Esc в пикере ничего не открывает", async () => {
+        it("Esc in the picker opens nothing", async () => {
             h.commands.execute("workbench.openFile", ws.path("a.txt"));
             await settle(0);
 
@@ -230,7 +230,7 @@ describe("Команды сравнения файлов", () => {
             return { requestedRefs };
         }
 
-        it("пикер ref'ов открывает дифф против выбранной ревизии", async () => {
+        it("the ref picker opens a diff against the picked revision", async () => {
             const git = stubGit([{ name: "dev", kind: "head", sha: "abc1234def", subject: "wip" }]);
             h.container.get(IFileServiceDIToken).registerProvider("git", {
                 capabilities: FileSystemProviderCapabilities.Readonly,
@@ -256,7 +256,7 @@ describe("Команды сравнения файлов", () => {
             expect(screen).toMatch(/2-\s+DEV/u);
         });
 
-        it("нет ref'ов — нотис, пикер не открывается", async () => {
+        it("no refs: a notice, the picker does not open", async () => {
             stubGit([]);
             h.commands.execute("workbench.openFile", ws.path("a.txt"));
             await settle(0);
@@ -268,7 +268,7 @@ describe("Команды сравнения файлов", () => {
             expect(diffPanes()).toHaveLength(0);
         });
 
-        it("Open File at Revision: read-only вкладка `имя (ref)` с контентом ревизии", async () => {
+        it("Open File at Revision: a read-only `name (ref)` tab with the revision content", async () => {
             stubGit([{ name: "dev", kind: "head", sha: "abc1234def", subject: "wip" }]);
             h.container.get(IFileServiceDIToken).registerProvider("git", {
                 capabilities: FileSystemProviderCapabilities.Readonly,
@@ -309,7 +309,7 @@ describe("Команды сравнения файлов", () => {
             expect(editors.editorGroups.activeGroup.editorCount).toBe(countBefore);
         });
 
-        it("Open File at Revision: провайдер оригинала бросил — нотис «no version in git»", async () => {
+        it("Open File at Revision: original provider threw, a 'no version in git' notice", async () => {
             stubGit([{ name: "dev", kind: "head", sha: "abc1234def", subject: "wip" }]);
             h.commands.register(ORIGINAL_RESOURCE_COMMAND, () => {
                 throw new Error("git exploded");
@@ -329,7 +329,7 @@ describe("Команды сравнения файлов", () => {
             expect(h.container.get(EditorServiceDIToken).editorGroups.activeGroup.editorCount).toBe(countBefore);
         });
 
-        it("Open File at Revision: файла нет на ревизии — нотис, вкладки нет", async () => {
+        it("Open File at Revision: file missing at the revision, a notice and no tab", async () => {
             stubGit([{ name: "dev", kind: "head", sha: "abc1234def", subject: "wip" }]);
             h.container.get(IFileServiceDIToken).registerProvider("git", {
                 capabilities: FileSystemProviderCapabilities.Readonly,
@@ -352,8 +352,8 @@ describe("Команды сравнения файлов", () => {
         });
     });
 
-    describe("границы команд", () => {
-        it("без активного редактора все команды — тихие no-op", async () => {
+    describe("command edge cases", () => {
+        it("without an active editor all commands are silent no-ops", async () => {
             h.commands.execute("workbench.files.action.compareWithSaved");
             h.commands.execute("workbench.files.action.compareWithClipboard");
             h.commands.execute("workbench.files.action.compareFileWith");
@@ -365,7 +365,7 @@ describe("Команды сравнения файлов", () => {
             expect(h.container.get(EditorServiceDIToken).editorGroups.activeGroup.editorCount).toBe(0);
         });
 
-        it("selectForCompare без пути не взводит ключ, compareFiles без пути — no-op", async () => {
+        it("selectForCompare without a path does not set the key, compareFiles without a path is a no-op", async () => {
             h.commands.execute("selectForCompare");
             expect(h.container.get(ContextKeyServiceDIToken).evaluate("resourceSelectedForCompare")).toBe(false);
 
@@ -375,7 +375,7 @@ describe("Команды сравнения файлов", () => {
             expect(diffPanes()).toHaveLength(0);
         });
 
-        it("Saved: файл исчез с диска — нотис вместо вкладки", async () => {
+        it("Saved: file gone from disk, a notice instead of a tab", async () => {
             await openAndEdit("a.txt");
             const { rmSync } = await import("node:fs");
             rmSync(ws.path("a.txt"));
@@ -388,8 +388,8 @@ describe("Команды сравнения файлов", () => {
         });
     });
 
-    describe("Compare Active File With... — состав пикера", () => {
-        it("открытая вкладка показывается один раз с бейджем open (US-9)", async () => {
+    describe("Compare Active File With... — picker items", () => {
+        it("an open tab is shown once with the open badge (US-9)", async () => {
             h.commands.execute("workbench.openFile", ws.path("b.txt"));
             await settle(0);
             h.commands.execute("workbench.openFile", ws.path("a.txt"));
@@ -406,7 +406,7 @@ describe("Команды сравнения файлов", () => {
             h.testApp.sendKey("Escape");
         });
 
-        it("выбранный файл исчез с диска — нотис вместо вкладки", async () => {
+        it("picked file gone from disk: a notice instead of a tab", async () => {
             h.commands.execute("workbench.openFile", ws.path("a.txt"));
             await settle(0);
 
@@ -426,8 +426,8 @@ describe("Команды сравнения файлов", () => {
         });
     });
 
-    describe("Compare with Revision — текущая ветка", () => {
-        it("текущая ветка помечена бейджем current", async () => {
+    describe("Compare with Revision — current branch", () => {
+        it("the current branch has the current badge", async () => {
             h.commands.register(QUERY_COMMAND, () => ({
                 refs: [
                     { name: "main", kind: "head", sha: "abc1234def", subject: "tip" },
@@ -459,7 +459,7 @@ describe("Команды сравнения файлов", () => {
             expect(diffPanes()).toHaveLength(0);
         });
 
-        it("провайдер оригинала бросил — нотис «no version in git»", async () => {
+        it("original provider threw: a 'no version in git' notice", async () => {
             h.commands.register(QUERY_COMMAND, () => ({
                 refs: [{ name: "dev", kind: "head", sha: "abc", subject: "x" }],
             }));
@@ -480,7 +480,7 @@ describe("Команды сравнения файлов", () => {
     });
 
     describe("Compare New Untitled Text Files (US-37)", () => {
-        it("открывает дифф двух пустых untitled — обе стороны редактируются прямо в диффе", async () => {
+        it("opens a diff of two empty untitled buffers, both sides editable right in the diff", async () => {
             h.commands.execute("workbench.files.action.compareNewUntitledTextFiles");
             await settleUntilDiff();
 
@@ -504,7 +504,7 @@ describe("Команды сравнения файлов", () => {
             expect(h.container.get(EditorServiceDIToken).needsCloseConfirm(pane)).toBe(true);
         });
 
-        it("повторная команда открывает новую пару со следующими номерами", async () => {
+        it("a repeated command opens a new pair with the next numbers", async () => {
             h.commands.execute("workbench.files.action.compareNewUntitledTextFiles");
             await settleUntilDiff();
             h.commands.execute("workbench.files.action.compareNewUntitledTextFiles");
@@ -517,7 +517,7 @@ describe("Команды сравнения файлов", () => {
     });
 
     describe("Diff: Revert Hunk", () => {
-        it("на диффе со снимочной modified-стороной — нотис read-only", async () => {
+        it("on a diff with a snapshot modified side: a read-only notice", async () => {
             // Neither resource exists (empty): both sides are snapshots, editing is forbidden.
             h.commands.execute(
                 "vscode.diff",
@@ -535,7 +535,7 @@ describe("Команды сравнения файлов", () => {
     });
 
     describe("vscode.diff (US-12)", () => {
-        it("открывает дифф по паре uri-строк с переданным title", async () => {
+        it("opens a diff from a pair of uri strings with the given title", async () => {
             h.commands.execute(
                 "vscode.diff",
                 Uri.file(ws.path("a.txt")).toString(),
@@ -548,14 +548,14 @@ describe("Команды сравнения файлов", () => {
             expect(h.testApp.backend.screenToString()).toMatch(/2\+\s+BRAVO/u);
         });
 
-        it("принимает Uri-объекты, без title метка собирается из имён", async () => {
+        it("accepts Uri objects; without a title the label is built from names", async () => {
             h.commands.execute("vscode.diff", Uri.file(ws.path("a.txt")), Uri.file(ws.path("b.txt")));
             await settleUntilDiff();
 
             expect(tabLabels(h.testApp).some((l) => l.includes("a.txt ↔ b.txt"))).toBe(true);
         });
 
-        it("4-й аргумент viewColumn: Beside открывает дифф в новой группе (AS-20)", async () => {
+        it("4th argument viewColumn: Beside opens the diff in a new group (AS-20)", async () => {
             const editors = h.container.get(EditorServiceDIToken);
             h.commands.execute("workbench.openFile", ws.path("a.txt"));
             await settle(0);
@@ -577,7 +577,7 @@ describe("Команды сравнения файлов", () => {
             expect(focusedGroups).toEqual([]);
         });
 
-        it("4-й аргумент viewColumn за краем полосы — новая группа справа", async () => {
+        it("4th argument viewColumn past the edge of the strip: a new group on the right", async () => {
             const editors = h.container.get(EditorServiceDIToken);
             h.commands.execute("workbench.openFile", ws.path("a.txt"));
             await settle(0);
@@ -595,7 +595,7 @@ describe("Команды сравнения файлов", () => {
             expect(editors.editorGroups.groups[1].getPanes().some((p) => p.uri.scheme === "diode-diff")).toBe(true);
         });
 
-        it("4-й аргумент viewColumn числом целится в существующую колонку", async () => {
+        it("4th argument viewColumn as a number targets an existing column", async () => {
             const editors = h.container.get(EditorServiceDIToken);
             h.commands.execute("workbench.openFile", ws.path("a.txt"));
             await settle(0);
@@ -618,7 +618,7 @@ describe("Команды сравнения файлов", () => {
             expect(focusedGroups).toEqual([]);
         });
 
-        it("мусорные аргументы — тихий no-op", async () => {
+        it("garbage arguments are a silent no-op", async () => {
             h.commands.execute("vscode.diff", 42, { not: "a uri" });
             h.commands.execute("vscode.diff", Uri.file(ws.path("a.txt")).toString(), "");
             await settle(10);
@@ -626,20 +626,20 @@ describe("Команды сравнения файлов", () => {
             expect(diffPanes()).toHaveLength(0);
         });
 
-        it("аргументы одним массивом (мост субпроцесса) и uri JSON-компонентами", async () => {
+        it("arguments as a single array (subprocess bridge) and uris as JSON components", async () => {
             // From an extension the command goes through commands.executeCommand: args are
             // one array, uris are serialized by their `toJSON()` into components.
             h.commands.execute("vscode.diff", [
                 { scheme: "file", path: ws.path("a.txt") },
                 { scheme: "file", path: ws.path("b.txt") },
-                "Мой дифф",
+                "My diff",
             ]);
             await settleUntilDiff();
 
-            expect(tabLabels(h.testApp).some((l) => l.includes("Мой дифф"))).toBe(true);
+            expect(tabLabels(h.testApp).some((l) => l.includes("My diff"))).toBe(true);
         });
 
-        it("недоступный ресурс — пустая сторона, вкладка всё равно открывается", async () => {
+        it("an unavailable resource gives an empty side, the tab still opens", async () => {
             h.commands.execute("vscode.diff", "untitled:missing", Uri.file(ws.path("b.txt")).toString());
             await settleUntilDiff();
 
@@ -649,7 +649,7 @@ describe("Команды сравнения файлов", () => {
             expect(pane.activeTextPane.getText()).toContain("BRAVO");
         });
 
-        it("ресурсы сторон доезжают до вкладки (TabInputTextDiff)", async () => {
+        it("side resources reach the tab (TabInputTextDiff)", async () => {
             const left = Uri.file(ws.path("a.txt"));
             const right = Uri.file(ws.path("b.txt"));
             h.commands.execute("vscode.diff", left.toString(), right.toString());
@@ -660,7 +660,7 @@ describe("Команды сравнения файлов", () => {
             expect(pane.modifiedUri?.toString()).toBe(right.toString());
         });
 
-        it("повторный diff той же пары не плодит вкладок; file-стороны — живые буферы", async () => {
+        it("a repeated diff of the same pair does not multiply tabs; file sides are live buffers", async () => {
             const left = Uri.file(ws.path("a.txt")).toString();
             const right = Uri.file(ws.path("b.txt")).toString();
             h.commands.execute("vscode.diff", left, right);

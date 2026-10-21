@@ -128,11 +128,11 @@ function screenOf(pane: ExtensionEditorPane, w = 50, h = 20): string {
 }
 
 describe("ExtensionEditorPane", () => {
-    it("ресурс вкладки — id расширения под схемой extension", () => {
+    it("the tab resource is the extension id under the extension scheme", () => {
         expect(extensionUri("acme.tools").toString()).toBe("extension:acme.tools");
     });
 
-    it("метка вкладки — displayName, правки запрещены", () => {
+    it("the tab label is the displayName, editing is disallowed", () => {
         const { service } = fakeService([entry()]);
         const pane: IEditorPane = new ExtensionEditorPane(service, fakeActions(), entry(), META, null);
 
@@ -144,7 +144,7 @@ describe("ExtensionEditorPane", () => {
         expect(pane.getSelectedTexts()).toEqual([]);
     });
 
-    it("панель несёт id и цвета редактора — вкладку видно инспектору", () => {
+    it("the pane carries an id and editor colors — the tab is visible to the inspector", () => {
         const { service } = fakeService([entry()]);
         const pane = new ExtensionEditorPane(service, fakeActions(), entry(), META, null);
         renderElement(pane.view, 50, 20, { themeVars: true });
@@ -154,7 +154,7 @@ describe("ExtensionEditorPane", () => {
         expect(pane.view.style).toMatchObject({ fg: "editor.foreground", bg: "editor.background" });
     });
 
-    it("страница показывает шапку и readme", () => {
+    it("the page shows the header and readme", () => {
         const { service } = fakeService([entry()]);
         const screen = screenOf(new ExtensionEditorPane(service, fakeActions(), entry(), META, null));
 
@@ -164,7 +164,7 @@ describe("ExtensionEditorPane", () => {
         expect(screen).toContain("Readme body");
     });
 
-    it("мета и причина её отсутствия переживают обновление карточки", () => {
+    it("the metadata and the reason it is missing survive a card update", () => {
         const { service, update } = fakeService([entry()]);
         const pane = new ExtensionEditorPane(service, fakeActions(), entry(), undefined, "boom");
 
@@ -175,7 +175,7 @@ describe("ExtensionEditorPane", () => {
         expect(screen).toContain("boom");
     });
 
-    it("смена состояния расширения доезжает до открытой страницы", () => {
+    it("an extension state change reaches the open page", () => {
         const { service, update } = fakeService([entry()]);
         const pane = new ExtensionEditorPane(service, fakeActions(), entry(), META, null);
         expect(screenOf(pane)).toContain("Not installed");
@@ -184,7 +184,7 @@ describe("ExtensionEditorPane", () => {
         expect(screenOf(pane)).toContain("Installed 1.0.0");
     });
 
-    it("страница следит за своей карточкой, а не за первой в списке", () => {
+    it("the page tracks its own card, not the first one in the list", () => {
         const { service, update } = fakeService([entry()]);
         const pane = new ExtensionEditorPane(service, fakeActions(), entry(), META, null);
 
@@ -196,7 +196,7 @@ describe("ExtensionEditorPane", () => {
         expect(screenOf(pane)).toContain("Not installed");
     });
 
-    it("исчезнувшая карточка страницу не ломает — остаётся последнее известное", () => {
+    it("a vanished card does not break the page — the last known state stays", () => {
         const { service, update } = fakeService([entry()]);
         const pane = new ExtensionEditorPane(service, fakeActions(), entry(), META, null);
 
@@ -204,7 +204,7 @@ describe("ExtensionEditorPane", () => {
         expect(screenOf(pane)).toContain("Acme Tools");
     });
 
-    it("смена displayName перерисовывает вкладку", () => {
+    it("a displayName change redraws the tab", () => {
         const { service, update } = fakeService([entry()]);
         const pane = new ExtensionEditorPane(service, fakeActions(), entry(), META, null);
         let stateChanges = 0;
@@ -217,7 +217,7 @@ describe("ExtensionEditorPane", () => {
         expect(stateChanges).toBe(1);
     });
 
-    it("прежнее имя вкладки лишних перерисовок не вызывает", () => {
+    it("an unchanged tab name causes no extra redraws", () => {
         const { service, update } = fakeService([entry()]);
         const pane = new ExtensionEditorPane(service, fakeActions(), entry(), META, null);
         let stateChanges = 0;
@@ -229,7 +229,7 @@ describe("ExtensionEditorPane", () => {
         expect(stateChanges).toBe(0);
     });
 
-    it("подписка на смену метки снимается своим dispose", () => {
+    it("the label change subscription is removed by its dispose", () => {
         const { service, update } = fakeService([entry()]);
         const pane = new ExtensionEditorPane(service, fakeActions(), entry(), META, null);
         let stateChanges = 0;
@@ -241,7 +241,7 @@ describe("ExtensionEditorPane", () => {
         expect(stateChanges).toBe(0);
     });
 
-    it("после dispose панель на события сервиса не реагирует", () => {
+    it("after dispose the pane ignores service events", () => {
         const { service, update } = fakeService([entry()]);
         const pane = new ExtensionEditorPane(service, fakeActions(), entry(), META, null);
         pane.dispose();
@@ -250,7 +250,7 @@ describe("ExtensionEditorPane", () => {
         expect(pane.label).toBe("Acme Tools");
     });
 
-    it("страница отдаёт свои строки инспектору — по ним ассертят e2e", () => {
+    it("the page exposes its lines to the inspector — e2e asserts on them", () => {
         const { service } = fakeService([entry()]);
         const pane = new ExtensionEditorPane(service, fakeActions(), entry(), META, null);
         renderElement(pane.view, 50, 20, { themeVars: true });
@@ -261,7 +261,7 @@ describe("ExtensionEditorPane", () => {
         expect(pane.view.inspectState()?.lines as string[]).toContain("Readme body");
     });
 
-    it("focusEditor отдаёт фокус первому действию — с него начинают на этой странице", () => {
+    it("focusEditor gives focus to the first action — that is where this page starts", () => {
         const { service } = fakeService([entry()]);
         const pane = new ExtensionEditorPane(service, fakeActions(), entry(), META, null);
         const app = TestApp.createWithContent(pane.view);
@@ -271,7 +271,7 @@ describe("ExtensionEditorPane", () => {
         expect(pane.view.querySelector("#extensionPageButton-install")?.isFocused).toBe(true);
     });
 
-    it("Install ставит расширение и зовёт перезагрузить окно", async () => {
+    it("Install installs the extension and asks to reload the window", async () => {
         const { service } = fakeService([entry()]);
         const actions = fakeActions();
         const pane = new ExtensionEditorPane(service, actions, entry(), META, null);
@@ -286,7 +286,7 @@ describe("ExtensionEditorPane", () => {
         expect(pane.view.querySelector("#extensionPageButton-reload")?.isFocused).toBe(true);
     });
 
-    it("Update — та же установка: отдельной операции обновления нет", async () => {
+    it("Update is the same install: there is no separate update operation", async () => {
         const outdated = entry({ installedVersion: "0.9.0", availability: "outdated" });
         const { service } = fakeService([outdated]);
         const actions = fakeActions();
@@ -298,7 +298,7 @@ describe("ExtensionEditorPane", () => {
         expect(actions.calls).toEqual(["install:acme.tools"]);
     });
 
-    it("Uninstall удаляет и тоже просит перезагрузку", async () => {
+    it("Uninstall removes and also asks for a reload", async () => {
         const installed = entry({ installedVersion: "1.0.0", availability: "installed" });
         const { service } = fakeService([installed]);
         const actions = fakeActions();
@@ -311,7 +311,7 @@ describe("ExtensionEditorPane", () => {
         expect(buttonLabels(pane)).toContain("Reload Window");
     });
 
-    it("ошибка установки остаётся на странице, а кнопка снова доступна", async () => {
+    it("an install error stays on the page and the button is enabled again", async () => {
         const { service } = fakeService([entry()]);
         const actions = fakeActions({ install: { ok: false, error: "sha256 mismatch" } });
         const pane = new ExtensionEditorPane(service, actions, entry(), META, null);
@@ -325,7 +325,7 @@ describe("ExtensionEditorPane", () => {
         expect(enabledFlags(pane)).toEqual([true]);
     });
 
-    it("на время операции кнопки погашены — второй установки не запустить", async () => {
+    it("buttons are disabled during an operation — a second install cannot start", async () => {
         const { service } = fakeService([entry()]);
         let finish = (): void => {};
         const actions: IExtensionPageActions & { calls: string[] } = {
@@ -348,7 +348,7 @@ describe("ExtensionEditorPane", () => {
         expect(enabledFlags(pane)).toEqual([true, true]);
     });
 
-    it("ожидание перезагрузки приезжает и из карточки — ставили из другого места", () => {
+    it("a pending reload also comes from the card — installed from elsewhere", () => {
         const { service, update } = fakeService([entry()]);
         const pane = new ExtensionEditorPane(service, fakeActions(), entry(), META, null);
         mount(pane);
@@ -358,7 +358,7 @@ describe("ExtensionEditorPane", () => {
         expect(buttonLabels(pane)).toEqual(["Reload Window", "Uninstall"]);
     });
 
-    it("чужое обновление карточки не выдумывает ожидание перезагрузки", () => {
+    it("an unrelated card update does not invent a pending reload", () => {
         const { service, update } = fakeService([entry()]);
         const pane = new ExtensionEditorPane(service, fakeActions(), entry(), META, null);
         mount(pane);
@@ -369,7 +369,7 @@ describe("ExtensionEditorPane", () => {
         expect(buttonLabels(pane)).toEqual(["Uninstall"]);
     });
 
-    it("кнопка Reload Window зовёт перезагрузку окна", () => {
+    it("the Reload Window button reloads the window", () => {
         const pending = entry({ installedVersion: "1.0.0", availability: "installed", needsReload: true });
         const { service } = fakeService([pending]);
         const actions = fakeActions();
@@ -381,7 +381,7 @@ describe("ExtensionEditorPane", () => {
         expect(actions.calls).toEqual(["reload"]);
     });
 
-    it("исчезнувшая карточка больше не предлагает удаление — удалять уже нечего", () => {
+    it("a vanished card no longer offers uninstall — nothing left to remove", () => {
         const installed = entry({ latestVersion: null, installedVersion: "0.1.0", availability: "installed" });
         const { service, update } = fakeService([installed]);
         const pane = new ExtensionEditorPane(service, fakeActions(), installed, undefined, null);

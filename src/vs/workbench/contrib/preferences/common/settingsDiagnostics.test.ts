@@ -72,8 +72,8 @@ describe("validateSettingsJson", () => {
     });
 });
 
-describe("validateSettingsJson — ключи, не действующие в этом файле", () => {
-    it("известный ключ с причиной — подсказка (Hint) на ключе, неизвестный — прежнее предупреждение", () => {
+describe("validateSettingsJson — keys that do not apply in this file", () => {
+    it("a known key with a reason gets a Hint on the key, an unknown one keeps the warning", () => {
         const text = ["{", '    "editor.tabSize": 2,', '    "workbench.colorTheme": "x",', '    "nope": 1', "}"].join(
             "\n",
         );
@@ -90,12 +90,12 @@ describe("validateSettingsJson — ключи, не действующие в э
         expect(markers[0].range.end).toEqual({ line: 2, character: 26 });
     });
 
-    it("без предиката причин — известные ключи молчат (user settings.json)", () => {
+    it("without a reason predicate known keys stay silent (user settings.json)", () => {
         expect(validateSettingsJson(`{ "workbench.colorTheme": "x" }`, isKnown)).toEqual([]);
     });
 });
 
-describe("workspaceUnsupportedSettingMessage — тексты эталона", () => {
+describe("workspaceUnsupportedSettingMessage — upstream texts", () => {
     it.each([
         [
             "application",
@@ -110,7 +110,7 @@ describe("workspaceUnsupportedSettingMessage — тексты эталона", (
     });
 
     it.each(["window", "resource", "language-overridable", "machine-overridable", undefined] as const)(
-        "%s — действует в воркспейсе",
+        "%s — applies in the workspace",
         (scope) => {
             expect(workspaceUnsupportedSettingMessage(scope)).toBeNull();
         },

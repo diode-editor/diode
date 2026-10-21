@@ -46,7 +46,7 @@ function filtered(
 const WIDTH = 80;
 
 describe("describeKeybindingRow", () => {
-    it("колонки стоят на одинаковых позициях у всех строк", () => {
+    it("columns sit at the same positions in all rows", () => {
         const a = describeKeybindingRow(filtered({ title: "Short" }), WIDTH);
         const b = describeKeybindingRow(filtered({ title: "A much longer command title here" }), WIDTH);
 
@@ -55,13 +55,13 @@ describe("describeKeybindingRow", () => {
         expect(a.sourceSpan.start).toBe(b.sourceSpan.start);
     });
 
-    it("на маке колонка Keybinding — глифами", () => {
+    it("on mac the Keybinding column uses glyphs", () => {
         const layout = describeKeybindingRow(filtered({ chord: parseChord("shift+meta+p") }), WIDTH, "mac");
         const keyText = layout.text.slice(layout.keySpan.start, layout.keySpan.start + layout.keySpan.length);
         expect(keyText.trimEnd()).toBe("⇧⌘P");
     });
 
-    it("содержимое колонок читается по спанам", () => {
+    it("column contents are read by spans", () => {
         const layout = describeKeybindingRow(
             filtered({ title: "Save File", when: "textViewFocus", source: "extension" }),
             WIDTH,
@@ -79,7 +79,7 @@ describe("describeKeybindingRow", () => {
         ).toBe("Extension");
     });
 
-    it("строка без биндинга показывает тире и пустой источник", () => {
+    it("a row without a keybinding shows a dash and an empty source", () => {
         const layout = describeKeybindingRow(filtered({ chord: null, source: null }), WIDTH);
 
         expect(layout.text.slice(layout.keySpan.start, layout.keySpan.start + layout.keySpan.length).trimEnd()).toBe(
@@ -90,7 +90,7 @@ describe("describeKeybindingRow", () => {
         ).toBe("");
     });
 
-    it("длинный title обрезается многоточием, не сдвигая колонки", () => {
+    it("a long title is truncated with an ellipsis without shifting columns", () => {
         const title = "X".repeat(200);
         const layout = describeKeybindingRow(filtered({ title }), WIDTH);
         const short = describeKeybindingRow(filtered(), WIDTH);
@@ -99,7 +99,7 @@ describe("describeKeybindingRow", () => {
         expect(layout.keySpan.start).toBe(short.keySpan.start);
     });
 
-    it("подсветка не уезжает на многоточие: индексы за срезом отбрасываются", () => {
+    it("highlights do not spill onto the ellipsis: indices past the cut are dropped", () => {
         const title = "Y".repeat(200);
         const match = { score: 0, matchedIndices: [0, 1, 150] };
         const layout = describeKeybindingRow(filtered({ title }, match), WIDTH);
@@ -107,7 +107,7 @@ describe("describeKeybindingRow", () => {
         expect(layout.matchIndices).toEqual([0, 1]);
     });
 
-    it("узкая вкладка не роняет раскладку: ширина клампится к минимуму таблицы", () => {
+    it("a narrow tab does not break the layout: width is clamped to the table minimum", () => {
         const layout = describeKeybindingRow(filtered(), 10);
 
         expect(layout.keySpan.length).toBeGreaterThan(0);
@@ -115,8 +115,8 @@ describe("describeKeybindingRow", () => {
     });
 });
 
-describe("конфликт", () => {
-    it("прокидывается в раскладку и красит колонку Keybinding при сборке", () => {
+describe("conflict", () => {
+    it("is passed into the layout and colors the Keybinding column on build", () => {
         const layout = describeKeybindingRow(filtered({ hasConflict: true }), WIDTH);
         expect(layout.conflict).toBe(true);
 
@@ -129,13 +129,13 @@ describe("конфликт", () => {
         expect(row.getText()).toBe(layout.text);
     });
 
-    it("бесконфликтная строка флага не несёт", () => {
+    it("a conflict-free row carries no flag", () => {
         expect(describeKeybindingRow(filtered(), WIDTH).conflict).toBe(false);
     });
 });
 
-describe("шапка таблицы", () => {
-    it("колонки шапки совпадают с колонками строк", () => {
+describe("table header", () => {
+    it("header columns match row columns", () => {
         const header = describeKeybindingHeaderRow(WIDTH);
         const row = describeKeybindingRow(filtered(), WIDTH);
 
@@ -145,7 +145,7 @@ describe("шапка таблицы", () => {
         expect(header.slice(row.sourceSpan.start)).toMatch(/^Source/);
     });
 
-    it("buildKeybindingHeaderRow даёт строку с id и текстом шапки", () => {
+    it("buildKeybindingHeaderRow yields a row with the id and header text", () => {
         const row = buildKeybindingHeaderRow("kbHeader", WIDTH, "descriptionForeground");
 
         expect(row.id).toBe("kbHeader");
@@ -153,21 +153,21 @@ describe("шапка таблицы", () => {
     });
 });
 
-describe("describeKeybindingRow — колонка When и подсветка", () => {
-    it("пустой when даёт пустую колонку (не литерал-плейсхолдер)", () => {
+describe("describeKeybindingRow — When column and highlights", () => {
+    it("an empty when gives an empty column (not a literal placeholder)", () => {
         const layout = describeKeybindingRow(filtered({ when: undefined }), WIDTH);
         expect(layout.text.slice(layout.whenSpan.start, layout.whenSpan.start + layout.whenSpan.length).trim()).toBe(
             "",
         );
     });
 
-    it("подсветка последнего символа НЕполного title сохраняется (keptLength = длина title)", () => {
+    it("a highlight on the last char of a NON-truncated title is kept (keptLength = title length)", () => {
         // A short title fits entirely: the index of the last character must pass the filter.
         const layout = describeKeybindingRow(filtered({ title: "Ab" }, match([1])), WIDTH);
         expect(layout.matchIndices).toEqual([1]);
     });
 
-    it("на обрезанном title индекс на границе keptLength отбрасывается (строгое <)", () => {
+    it("on a truncated title the index at the keptLength boundary is dropped (strict <)", () => {
         // A long title is truncated; keptLength = visible prefix length − 1 (room for "…").
         const title = "C".repeat(60);
         const layout = describeKeybindingRow(filtered({ title }, match([0, 1, 200])), WIDTH);
@@ -180,19 +180,19 @@ describe("describeKeybindingRow — колонка When и подсветка", 
     });
 });
 
-describe("buildKeybindingRow — покраска колонок", () => {
+describe("buildKeybindingRow — column coloring", () => {
     function fgAt(row: ReturnType<typeof buildKeybindingRow>, col: number): number {
         return renderElement(row, WIDTH, 1, { themeVars: true }).getFgAt(new Point(col, 0));
     }
 
-    it("несёт id и полный текст раскладки", () => {
+    it("carries the id and the full layout text", () => {
         const layout = describeKeybindingRow(filtered({ when: "listFocus" }), WIDTH);
         const row = buildKeybindingRow("kb-0", layout, STYLES);
         expect(row.id).toBe("kb-0");
         expect(row.getText()).toBe(layout.text);
     });
 
-    it("When и Source приглушены — их цвет отличается от команды", () => {
+    it("When and Source are dimmed — their color differs from the command's", () => {
         const layout = describeKeybindingRow(filtered({ when: "listFocus", source: "extension" }), WIDTH);
         const row = buildKeybindingRow("kb-0", layout, STYLES);
         const commandFg = fgAt(row, 0);
@@ -203,7 +203,7 @@ describe("buildKeybindingRow — покраска колонок", () => {
         expect(fgAt(row, layout.whenSpan.start + layout.whenSpan.length)).toBe(commandFg);
     });
 
-    it("конфликт красит колонку Keybinding, обычная строка — нет", () => {
+    it("a conflict colors the Keybinding column, a plain row does not", () => {
         const conflictRow = buildKeybindingRow(
             "kb-c",
             describeKeybindingRow(filtered({ hasConflict: true }), WIDTH),
@@ -219,14 +219,14 @@ describe("buildKeybindingRow — покраска колонок", () => {
         expect(fgAt(conflictRow, key)).not.toBe(fgAt(plainRow, key));
     });
 
-    it("совпавший символ title подсвечен — его цвет отличается от несопоставленного", () => {
+    it("a matched title char is highlighted — its color differs from an unmatched one", () => {
         const highlighted = buildKeybindingRow("kb-h", describeKeybindingRow(filtered({}, match([0])), WIDTH), STYLES);
         const plain = buildKeybindingRow("kb-n", describeKeybindingRow(filtered({}, null), WIDTH), STYLES);
 
         expect(fgAt(highlighted, 0)).not.toBe(fgAt(plain, 0));
     });
 
-    it("шапка приглушена — её цвет отличается от команды обычной строки", () => {
+    it("the header is dimmed — its color differs from a plain row's command", () => {
         const header = buildKeybindingHeaderRow("kbHeader", WIDTH, "descriptionForeground");
         const row = buildKeybindingRow("kb-0", describeKeybindingRow(filtered(), WIDTH), STYLES);
 

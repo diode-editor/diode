@@ -15,8 +15,8 @@ const HINT: IParameterHint = {
     documentation: [],
 };
 
-describe("ParameterHintsComponent — overlay-сессия попапа", () => {
-    it("создаёт скрытую сессию на слое корневой view уже в конструкторе", () => {
+describe("ParameterHintsComponent — the popup's overlay session", () => {
+    it("creates a hidden session on the root view's layer right in the constructor", () => {
         const body = new BodyElement();
         const component = new ParameterHintsComponent(testLayoutService(body));
         // The id is a contract for the inspector and e2e tree queries.
@@ -27,7 +27,7 @@ describe("ParameterHintsComponent — overlay-сессия попапа", () => 
         component.dispose();
     });
 
-    it("openAt открывает сессию, close закрывает и идемпотентен", () => {
+    it("openAt opens the session, close closes it and is idempotent", () => {
         const component = new ParameterHintsComponent(testLayoutService());
 
         component.setHint(HINT);
@@ -44,7 +44,7 @@ describe("ParameterHintsComponent — overlay-сессия попапа", () => 
         component.dispose();
     });
 
-    it("попап встаёт НАД строкой каретки, даже когда якорь просит низ", () => {
+    it("the popup goes ABOVE the cursor line even when the anchor asks for below", () => {
         const body = new BodyElement();
         const app = TestApp.create(body, new Size(80, 24));
         const component = new ParameterHintsComponent(testLayoutService(body));
@@ -60,7 +60,7 @@ describe("ParameterHintsComponent — overlay-сессия попапа", () => 
         component.dispose();
     });
 
-    it("места ровно в высоту попапа хватает — он остаётся сверху", () => {
+    it("room of exactly the popup's height is enough — it stays above", () => {
         const body = new BodyElement();
         const app = TestApp.create(body, new Size(80, 24));
         const component = new ParameterHintsComponent(testLayoutService(body));
@@ -76,7 +76,7 @@ describe("ParameterHintsComponent — overlay-сессия попапа", () => 
         component.dispose();
     });
 
-    it("сверху места нет — попап уходит под каретку, а не накрывает её", () => {
+    it("no room above — the popup goes below the cursor instead of covering it", () => {
         const body = new BodyElement();
         const app = TestApp.create(body, new Size(80, 24));
         const component = new ParameterHintsComponent(testLayoutService(body));
@@ -90,7 +90,7 @@ describe("ParameterHintsComponent — overlay-сессия попапа", () => 
         component.dispose();
     });
 
-    it("dispose закрывает живую сессию", () => {
+    it("dispose closes the live session", () => {
         const component = new ParameterHintsComponent(testLayoutService());
         component.setHint(HINT);
         component.openAt({ screenX: 1, screenY: 1, preferBelow: true });

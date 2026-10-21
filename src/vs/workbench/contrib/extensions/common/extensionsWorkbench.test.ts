@@ -25,19 +25,19 @@ const ENTRIES = [
 ];
 
 describe("filterExtensionEntries", () => {
-    it("пустой запрос отдаёт весь список", () => {
+    it("an empty query returns the whole list", () => {
         expect(filterExtensionEntries(ENTRIES, "")).toEqual(ENTRIES);
         expect(filterExtensionEntries(ENTRIES, "   ")).toEqual(ENTRIES);
     });
 
-    it("ищет по id, displayName и описанию, без учёта регистра", () => {
+    it("searches by id, displayName and description, case-insensitively", () => {
         expect(filterExtensionEntries(ENTRIES, "ACME").map((e) => e.id)).toEqual(["acme.tools"]);
         expect(filterExtensionEntries(ENTRIES, "Other Thing").map((e) => e.id)).toEqual(["other.thing"]);
         expect(filterExtensionEntries(ENTRIES, "other.").map((e) => e.id)).toEqual(["other.thing"]);
         expect(filterExtensionEntries(ENTRIES, "formatting").map((e) => e.id)).toEqual(["acme.tools"]);
     });
 
-    it("ничего не совпало — пустой список", () => {
+    it("no matches — an empty list", () => {
         expect(filterExtensionEntries(ENTRIES, "zzz")).toEqual([]);
     });
 });

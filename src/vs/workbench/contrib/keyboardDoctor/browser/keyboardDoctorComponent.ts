@@ -41,8 +41,8 @@ export type BindingLookup = (part: Keybinding, env: KeyboardDoctorEnv) => readon
 // Modifiers arrive as separate keydowns (Kitty protocol) — they are not a check step.
 const MODIFIER_KEY_NAMES = new Set(["Control", "Shift", "Alt", "Meta", "Hyper", "Super", "AltGraph", "CapsLock"]);
 
-const HINT = "Escape — ничего не произошло (тоже ответ)";
-const KEYUP_HINT = "Enter — keyup так и не пришёл";
+const HINT = "Escape — nothing happened (that is an answer too)";
+const KEYUP_HINT = "Enter — keyup never came";
 
 function observed(event: TUIKeyboardEvent): ObservedKey {
     return {
@@ -253,9 +253,9 @@ export class KeyboardDoctorComponent extends Disposable {
         // render is called only while steps remain: advance after the last one closes the doctor.
         const current = this.steps[this.results.length];
         this.stepLabel.setText(
-            `Шаг ${String(this.results.length + 1)}/${String(this.steps.length)}: нажми ${current.prompt}`,
+            `Step ${String(this.results.length + 1)}/${String(this.steps.length)}: press ${current.prompt}`,
         );
-        this.catchesLabel.setText(`Ловим: ${current.catches}`);
+        this.catchesLabel.setText(`Checks: ${current.catches}`);
         this.lastLabel.setText(this.lastText(env));
         this.hintLabel.setText(this.awaitingKeyUp === null ? HINT : KEYUP_HINT);
         // Stryker disable next-line all: re-centering for the new text width — position cosmetics, not checked per frame.
@@ -264,12 +264,12 @@ export class KeyboardDoctorComponent extends Disposable {
 
     private lastText(env: KeyboardDoctorEnv): string {
         if (this.awaitingKeyUp !== null) {
-            return `Пришло: ${describeEvent(this.awaitingKeyUp.received)} — теперь отпусти модификатор`;
+            return `Received: ${describeEvent(this.awaitingKeyUp.received)} — now release the modifier`;
         }
         const last = this.results.at(-1);
-        if (last === undefined) return "Пока ничего не нажато";
-        const arrived = last.received === null ? "ничего" : describeEvent(last.received);
-        return `Было: ${arrived} · бинд: ${describeBindings(last.bindings)} · ${describeVerdict(judge(last, env))}`;
+        if (last === undefined) return "Nothing pressed yet";
+        const arrived = last.received === null ? "nothing" : describeEvent(last.received);
+        return `Last: ${arrived} · keybinding: ${describeBindings(last.bindings)} · ${describeVerdict(judge(last, env))}`;
     }
 
     private openCentered(host: BodyElement, session: OverlaySessionHandle): void {

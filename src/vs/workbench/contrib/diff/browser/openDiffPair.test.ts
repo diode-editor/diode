@@ -48,7 +48,7 @@ describe("openDiffPair", () => {
         return { uri, label: name, identity: uri.toString() };
     }
 
-    it("открывает вкладку пары файлов с метками сторон", async () => {
+    it("opens a tab for a file pair with side labels", async () => {
         const result = await openDiffPair(container, { original: fileSide("a.txt"), modified: fileSide("b.txt") });
         await settle(10);
         app.render();
@@ -60,7 +60,7 @@ describe("openDiffPair", () => {
         expect(screen).toMatch(/2\+\s+BRAVO/u);
     });
 
-    it("стороны новой вкладки получают editor.*-настройки, как любой редактор", async () => {
+    it("sides of a new tab get editor.* settings like any editor", async () => {
         const applied = vi.spyOn(editors.editorConfiguration, "apply");
 
         await openDiffPair(container, { original: fileSide("a.txt"), modified: fileSide("b.txt") });
@@ -70,7 +70,7 @@ describe("openDiffPair", () => {
         for (const side of (pane as DiffEditorPane2).sidePanes()) expect(applied).toHaveBeenCalledWith(side);
     });
 
-    it("та же пара — одна вкладка, повторный вызов обновляет снимок на месте (US-32)", async () => {
+    it("the same pair is one tab, a repeated call refreshes the snapshot in place (US-32)", async () => {
         await openDiffPair(container, { original: fileSide("a.txt"), modified: fileSide("b.txt") });
         await settle(10);
         await openDiffPair(container, { original: fileSide("a.txt"), modified: fileSide("b.txt") });
@@ -79,7 +79,7 @@ describe("openDiffPair", () => {
         expect(editors.editorGroups.activeGroup.getPanes().filter((p) => p instanceof DiffEditorPane2)).toHaveLength(1);
     });
 
-    it("другая пара того же файла — отдельная вкладка (US-33)", async () => {
+    it("another pair of the same file is a separate tab (US-33)", async () => {
         await openDiffPair(container, { original: fileSide("a.txt"), modified: fileSide("b.txt") });
         await settle(10);
         await openDiffPair(container, { original: fileSide("same.txt"), modified: fileSide("b.txt") });
@@ -88,7 +88,7 @@ describe("openDiffPair", () => {
         expect(editors.editorGroups.activeGroup.getPanes().filter((p) => p instanceof DiffEditorPane2)).toHaveLength(2);
     });
 
-    it("перевёрнутая пара — другая вкладка: (лево, право) ≠ (право, лево)", async () => {
+    it("a swapped pair is another tab: (left, right) ≠ (right, left)", async () => {
         await openDiffPair(container, { original: fileSide("a.txt"), modified: fileSide("b.txt") });
         await settle(10);
         await openDiffPair(container, { original: fileSide("b.txt"), modified: fileSide("a.txt") });
@@ -97,7 +97,7 @@ describe("openDiffPair", () => {
         expect(editors.editorGroups.activeGroup.getPanes().filter((p) => p instanceof DiffEditorPane2)).toHaveLength(2);
     });
 
-    it("текстовая сторона без uri (Clipboard) сравнивается с файлом", async () => {
+    it("a text side without a uri (Clipboard) is compared with a file", async () => {
         const result = await openDiffPair(container, {
             original: { text: "alpha\nCLIP\n", label: "Clipboard", identity: "clipboard:" },
             modified: fileSide("a.txt"),
@@ -112,7 +112,7 @@ describe("openDiffPair", () => {
         expect(screen).toMatch(/2\+\s+bravo/u);
     });
 
-    it("идентичные стороны дают вкладку с сообщением, а не пустой дифф (US-11)", async () => {
+    it("identical sides give a tab with a message, not an empty diff (US-11)", async () => {
         const result = await openDiffPair(container, { original: fileSide("a.txt"), modified: fileSide("same.txt") });
         await settle(10);
         app.render();
@@ -127,7 +127,7 @@ describe("openDiffPair", () => {
         expect(editors.editorGroups.activeGroup.getPanes().filter((p) => p instanceof DiffEditorPane2)).toHaveLength(0);
     });
 
-    it("нечитаемая сторона с политикой error — отказ без вкладки", async () => {
+    it("an unreadable side with the error policy is a refusal without a tab", async () => {
         const result = await openDiffPair(container, {
             original: { uri: Uri.file(ws.path("gone.txt")), label: "gone.txt", identity: "gone" },
             modified: fileSide("a.txt"),
@@ -138,7 +138,7 @@ describe("openDiffPair", () => {
         expect(editors.editorGroups.activeGroup.getPanes().filter((p) => p instanceof DiffEditorPane2)).toHaveLength(0);
     });
 
-    it("нечитаемая сторона с политикой empty — дифф против пустого (US-10)", async () => {
+    it("an unreadable side with the empty policy diffs against empty (US-10)", async () => {
         const result = await openDiffPair(container, {
             original: { uri: Uri.file(ws.path("gone.txt")), label: "gone.txt", identity: "gone", onMissing: "empty" },
             modified: fileSide("a.txt"),
@@ -150,7 +150,7 @@ describe("openDiffPair", () => {
         expect(app.backend.screenToString()).toMatch(/1\+\s+alpha/u);
     });
 
-    it("пара без единого uri (текст ↔ текст) живёт на синтетическом пути", async () => {
+    it("a pair without any uri (text ↔ text) lives on a synthetic path", async () => {
         const result = await openDiffPair(container, {
             original: { text: "one\n", label: "L", identity: "l" },
             modified: { label: "R", identity: "r" },
@@ -164,7 +164,7 @@ describe("openDiffPair", () => {
         expect(app.backend.screenToString()).toMatch(/1-\s+one/u);
     });
 
-    it("файл слева и текст справа: путь вкладки берётся у левой стороны", async () => {
+    it("file on the left and text on the right: the tab path comes from the left side", async () => {
         const result = await openDiffPair(container, {
             original: fileSide("a.txt"),
             modified: { text: "alpha\n", label: "snippet", identity: "snippet" },
@@ -176,7 +176,7 @@ describe("openDiffPair", () => {
         expect(pane?.uri.path.endsWith("a.txt")).toBe(true);
     });
 
-    it("повторный вызов с исчезнувшей снимочной стороной — unreadable, вкладка остаётся", async () => {
+    it("a repeated call with a vanished snapshot side is unreadable, the tab stays", async () => {
         // The snapshot side is preferDisk (like "Compare with Saved").
         const spec = {
             original: {
@@ -197,7 +197,7 @@ describe("openDiffPair", () => {
         expect(editors.editorGroups.activeGroup.getPanes().filter((p) => p instanceof DiffEditorPane2)).toHaveLength(1);
     });
 
-    it("текстовая сторона слева и нечитаемая справа — отказ без утечки", async () => {
+    it("a text side on the left and an unreadable one on the right: a refusal without a leak", async () => {
         const result = await openDiffPair(container, {
             original: { text: "one\n", label: "L", identity: "l" },
             modified: { uri: Uri.file(ws.path("gone.txt")), label: "gone", identity: "gone" },
@@ -207,7 +207,7 @@ describe("openDiffPair", () => {
         expect(editors.editorGroups.activeGroup.getPanes().filter((p) => p instanceof DiffEditorPane2)).toHaveLength(0);
     });
 
-    it("обе стороны — несуществующие файлы с политикой empty: язык по расширению пути", async () => {
+    it("both sides are missing files with the empty policy: language from the path extension", async () => {
         // Own container: the language service is replaced BEFORE the first get (DI cache);
         // the files are neither in buffers nor on disk, so the language must come from the extension.
         const local = createTestContainer();
@@ -243,7 +243,7 @@ describe("openDiffPair", () => {
         bench.dispose();
     });
 
-    it("повторный вызов освежает текстовую сторону и терпит сторону без ничего", async () => {
+    it("a repeated call refreshes the text side and tolerates an empty side", async () => {
         const spec = (clip: string) => ({
             original: { text: clip, label: "L", identity: "l" },
             modified: { label: "R", identity: "r" },
@@ -261,7 +261,7 @@ describe("openDiffPair", () => {
         expect(app.backend.screenToString()).toMatch(/1-\s+two/u);
     });
 
-    it("сторона со схемой без провайдера — отказ", async () => {
+    it("a side with a scheme without a provider is a refusal", async () => {
         const result = await openDiffPair(container, {
             original: { uri: Uri.from({ scheme: "weird", path: "/x" }), label: "x", identity: "weird:/x" },
             modified: fileSide("a.txt"),
@@ -270,7 +270,7 @@ describe("openDiffPair", () => {
         expect(result).toBe("unreadable");
     });
 
-    it("язык подсветки берётся по расширению файла, когда буфер не открыт", async () => {
+    it("the highlighting language comes from the file extension when the buffer is not open", async () => {
         // Own container: the language service is replaced BEFORE the first get (DI cache).
         const { writeFileSync } = await import("node:fs");
         writeFileSync(ws.path("c.ts"), "const x = 1;\n");
@@ -304,7 +304,7 @@ describe("openDiffPair", () => {
         bench.dispose();
     });
 
-    it("несохранённые правки открытого буфера видны в диффе", async () => {
+    it("unsaved edits of an open buffer are visible in the diff", async () => {
         container.get(CommandRegistryDIToken).execute("workbench.openFile", ws.path("a.txt"));
         await settle(0);
         const editor = editors.getActiveEditor();

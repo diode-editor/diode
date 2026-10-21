@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { parseGitOpResult } from "./gitProtocol.ts";
 
 describe("parseGitOpResult", () => {
-    it("пропускает валидные envelope обоих исходов", () => {
+    it("accepts valid envelopes of both outcomes", () => {
         expect(parseGitOpResult({ ok: true })).toEqual({ ok: true });
         expect(parseGitOpResult({ ok: true, data: { message: "m" } })).toEqual({ ok: true, data: { message: "m" } });
         expect(parseGitOpResult({ ok: false, kind: "git-error", message: "boom" })).toEqual({
@@ -13,7 +13,7 @@ describe("parseGitOpResult", () => {
         });
     });
 
-    it("мусор из-за границы процесса — null", () => {
+    it("garbage from across the process boundary gives null", () => {
         expect(parseGitOpResult(null)).toBeNull();
         expect(parseGitOpResult("ok")).toBeNull();
         expect(parseGitOpResult({})).toBeNull();

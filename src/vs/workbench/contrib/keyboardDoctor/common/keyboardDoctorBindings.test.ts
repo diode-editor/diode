@@ -17,7 +17,7 @@ const MAC_CMD: KeyboardDoctorEnv = {
 };
 
 describe("editorContextFor", () => {
-    it("окружение и фокус «в редакторе» — в контекст-ключах", () => {
+    it("the environment and «in editor» focus are in context keys", () => {
         const context = editorContextFor({ ...MAC_CMD, macKeysRung: "bogus" });
         expect(context.evaluate("isMac && tier == 'kitty' && macKeys == 0")).toBe(true);
         const cmd = editorContextFor(MAC_CMD);
@@ -33,7 +33,7 @@ describe("editorContextFor", () => {
 });
 
 describe("lookupBindings", () => {
-    it("все бинды комбинации — с пометкой, действует ли каждый в этом окружении", () => {
+    it("all keybindings of a combination are marked as active or not in this environment", () => {
         const registry = new KeybindingRegistry();
         registry.register(parseKeybinding("mod+s"), "save");
         registry.register(parseKeybinding("meta+s"), "other", "listFocus");
@@ -50,7 +50,7 @@ describe("lookupBindings", () => {
         expect(lookupBindings(registry, parseKeybinding("alt+s"), MAC_CMD)).toEqual([]);
     });
 
-    it("бинд без условия действует всегда", () => {
+    it("a keybinding without a condition is always active", () => {
         const registry = new KeybindingRegistry();
         registry.register(parseKeybinding("f12"), "definition");
         expect(lookupBindings(registry, parseKeybinding("f12"), MAC_CMD)).toEqual([

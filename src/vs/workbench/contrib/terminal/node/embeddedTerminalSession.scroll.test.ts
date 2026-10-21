@@ -32,8 +32,8 @@ async function withOutput(count: number): Promise<EmbeddedTerminalSession> {
     return session;
 }
 
-describe("EmbeddedTerminalSession — вьюпорт и скролбэк", () => {
-    it("после scrollLines показывает историю, а не дно вывода", async () => {
+describe("EmbeddedTerminalSession — viewport and scrollback", () => {
+    it("after scrollLines shows history, not the bottom of the output", async () => {
         const session = await withOutput(50);
         try {
             expect(session.scrollOffset).toBe(0);
@@ -52,7 +52,7 @@ describe("EmbeddedTerminalSession — вьюпорт и скролбэк", () =>
         }
     }, 20000);
 
-    it("клампит смещение: ниже дна и выше начала скролбэка не уезжает", async () => {
+    it("clamps the offset: doesn't go below the bottom or above the start of scrollback", async () => {
         const session = await withOutput(20);
         try {
             session.scrollLines(5); // down from the bottom — nowhere to go
@@ -66,7 +66,7 @@ describe("EmbeddedTerminalSession — вьюпорт и скролбэк", () =>
         }
     }, 20000);
 
-    it("прячет курсор, пока смотрим в скролбэк", async () => {
+    it("hides the cursor while viewing scrollback", async () => {
         const session = await withOutput(30);
         try {
             expect(session.getCursor()).not.toBeNull();
@@ -79,7 +79,7 @@ describe("EmbeddedTerminalSession — вьюпорт и скролбэк", () =>
         }
     }, 20000);
 
-    it("возвращает вьюпорт на дно при вводе", async () => {
+    it("returns the viewport to the bottom on input", async () => {
         const session = await withOutput(30);
         try {
             session.scrollLines(-5);
@@ -91,7 +91,7 @@ describe("EmbeddedTerminalSession — вьюпорт и скролбэк", () =>
         }
     }, 20000);
 
-    it("возвращает вьюпорт на дно при новом выводе", async () => {
+    it("returns the viewport to the bottom on new output", async () => {
         // The shell prints history, waits, and prints one more line — the second output batch
         // arrives after we've scrolled into scrollback.
         const session = new EmbeddedTerminalSession({
@@ -122,7 +122,7 @@ describe("EmbeddedTerminalSession — вьюпорт и скролбэк", () =>
         }
     }, 20000);
 
-    it("дёргает onUpdate, когда смещение реально изменилось", async () => {
+    it("fires onUpdate when the offset actually changed", async () => {
         const session = await withOutput(30);
         try {
             let updates = 0;
@@ -141,7 +141,7 @@ describe("EmbeddedTerminalSession — вьюпорт и скролбэк", () =>
         }
     }, 20000);
 
-    it("mouseEventsActive: false у обычного шелла, true когда программа включила режим", async () => {
+    it("mouseEventsActive: false for a plain shell, true once a program enables the mode", async () => {
         const session = new EmbeddedTerminalSession({
             cols: COLS,
             rows: ROWS,

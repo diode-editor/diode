@@ -6,7 +6,7 @@ import { SCM_CHANGES_VIEW_ID, SCM_GRAPH_VIEW_ID } from "../common/scmViews.ts";
 import { gitMutating, gitProgressTarget, gitProgressTitle } from "./gitProgress.ts";
 
 describe("gitProgressTitle", () => {
-    it("герундий по имени операции", () => {
+    it("gerund by operation name", () => {
         expect(gitProgressTitle("commit")).toBe("Committing…");
         expect(gitProgressTitle("undoCommit")).toBe("Undoing Commit…");
         expect(gitProgressTitle("stage")).toBe("Staging…");
@@ -20,7 +20,7 @@ describe("gitProgressTitle", () => {
         expect(gitProgressTitle("checkout")).toBe("Checking Out…");
     });
 
-    it("семейства операций делят подпись", () => {
+    it("operation families share a label", () => {
         for (const op of ["branchCreate", "branchDelete", "branchRename"]) {
             expect(gitProgressTitle(op)).toBe("Updating Branch…");
         }
@@ -37,23 +37,23 @@ describe("gitProgressTitle", () => {
         expect(gitProgressTitle("revert")).toBe("Reverting…");
     });
 
-    it("неизвестная операция — нейтральная подпись, а не пустая", () => {
+    it("an unknown operation gets a neutral label, not an empty one", () => {
         expect(gitProgressTitle("somethingNew")).toBe("Working…");
     });
 });
 
 describe("gitProgressTarget", () => {
-    it("по умолчанию — секция CHANGES без дубля в статус-баре", () => {
+    it("by default: the CHANGES section, not duplicated in the status bar", () => {
         expect(gitProgressTarget("commit")).toEqual({ viewId: SCM_CHANGES_VIEW_ID, window: false });
         expect(gitProgressTarget("stage")).toEqual({ viewId: SCM_CHANGES_VIEW_ID, window: false });
     });
 
-    it("история — секция GRAPH", () => {
+    it("history: the GRAPH section", () => {
         expect(gitProgressTarget("logLoadMore")).toEqual({ viewId: SCM_GRAPH_VIEW_ID, window: false });
         expect(gitProgressTarget("refresh")).toEqual({ viewId: SCM_GRAPH_VIEW_ID, window: false });
     });
 
-    it("сетевые операции дублируются в статус-баре: их видно и из Explorer'а", () => {
+    it("network operations are duplicated in the status bar so they are visible from the Explorer too", () => {
         for (const op of ["pull", "push", "fetch", "sync"]) {
             expect(gitProgressTarget(op)).toEqual({ viewId: SCM_CHANGES_VIEW_ID, window: true });
         }
@@ -68,17 +68,17 @@ describe("gitMutating", () => {
         ...overrides,
     });
 
-    it("вешает ключ занятости на доступность команды", () => {
+    it("adds the busy key to the command's enablement", () => {
         expect(gitMutating(action()).enablement).toBe("!gitOperationInProgress");
     });
 
-    it("своё enablement команды сохраняется и сужается", () => {
+    it("the command's own enablement is kept and narrowed", () => {
         expect(gitMutating(action({ enablement: "gitHasRemotes" })).enablement).toBe(
             "(gitHasRemotes) && (!gitOperationInProgress)",
         );
     });
 
-    it("остальные поля не трогает — в том числе when видимости", () => {
+    it("leaves the other fields alone, including the visibility when clause", () => {
         const original = action({ when: "gitHasRepo", shortTitle: "Commit" });
         expect(gitMutating(original)).toMatchObject({
             id: "git.commit",

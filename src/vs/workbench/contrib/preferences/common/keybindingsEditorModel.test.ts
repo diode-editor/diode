@@ -20,7 +20,7 @@ function command(id: string, title: string): ICommandSnapshot {
 }
 
 describe("buildKeybindingItems", () => {
-    it("даёт строку на каждую запись реестра с title из реестра команд", () => {
+    it("yields a row per registry entry with the title from the command registry", () => {
         const items = buildKeybindingItems(
             [
                 binding({ commandId: "save", chord: parseChord("ctrl+s") }),
@@ -34,7 +34,7 @@ describe("buildKeybindingItems", () => {
         expect(items.map((item) => item.when)).toEqual([undefined, "textViewFocus"]);
     });
 
-    it("команды без биндинга получают строку с chord null и без источника", () => {
+    it("commands without a keybinding get a row with chord null and no source", () => {
         const items = buildKeybindingItems(
             [binding({ commandId: "save" })],
             [command("save", "Save File"), command("open", "Open File")],
@@ -46,14 +46,14 @@ describe("buildKeybindingItems", () => {
         expect(unbound!.source).toBeNull();
     });
 
-    it("биндинг неизвестной команды показывается по её id", () => {
+    it("a keybinding of an unknown command is shown by its id", () => {
         const items = buildKeybindingItems([binding({ commandId: "ext.mystery" })], []);
 
         expect(items).toHaveLength(1);
         expect(items[0].title).toBe("ext.mystery");
     });
 
-    it("сортирует по title, затем по id команды", () => {
+    it("sorts by title, then by command id", () => {
         const items = buildKeybindingItems(
             [binding({ commandId: "z.cmd" }), binding({ commandId: "a.cmd" })],
             [command("z.cmd", "Alpha"), command("a.cmd", "Alpha"), command("m.cmd", "Beta")],
@@ -62,7 +62,7 @@ describe("buildKeybindingItems", () => {
         expect(items.map((item) => item.commandId)).toEqual(["a.cmd", "z.cmd", "m.cmd"]);
     });
 
-    it("конфликтующие записи помечены, остальные — нет", () => {
+    it("conflicting entries are flagged, the rest are not", () => {
         const items = buildKeybindingItems(
             [
                 binding({ commandId: "save", chord: parseChord("ctrl+s") }),
@@ -79,7 +79,7 @@ describe("buildKeybindingItems", () => {
         expect(items.find((item) => item.commandId === "free")!.hasConflict).toBe(false);
     });
 
-    it("источник записи доезжает до строки", () => {
+    it("the entry's source reaches the row", () => {
         const items = buildKeybindingItems(
             [binding({ commandId: "save", source: "user" })],
             [command("save", "Save File")],
@@ -108,14 +108,14 @@ describe("filterKeybindingItems", () => {
         ],
     );
 
-    it("пустой запрос пропускает всё без подсветки", () => {
+    it("an empty query passes everything without highlights", () => {
         const filtered = filterKeybindingItems(items, "");
 
         expect(filtered).toHaveLength(items.length);
         expect(filtered.every((entry) => entry.titleMatch === null)).toBe(true);
     });
 
-    it("fuzzy по title даёт подсветку", () => {
+    it("fuzzy match on title gives highlights", () => {
         const filtered = filterKeybindingItems(items, "savf");
 
         expect(filtered).toHaveLength(1);
@@ -124,7 +124,7 @@ describe("filterKeybindingItems", () => {
         expect(filtered[0].titleMatch!.matchedIndices.length).toBe(4);
     });
 
-    it("матч ТОЛЬКО по id команды (title не совпадает) проходит без подсветки", () => {
+    it("a match ONLY on the command id (title does not match) passes without highlights", () => {
         // "workbench" is in the id zeta.workbenchThing, but not in the title "Reveal Panel".
         const filtered = filterKeybindingItems(items, "workbench");
 
@@ -132,7 +132,7 @@ describe("filterKeybindingItems", () => {
         expect(filtered[0].titleMatch).toBeNull();
     });
 
-    it("матч ТОЛЬКО по display-форме биндинга (ни title, ни id) находит строку", () => {
+    it("a match ONLY on the keybinding's display form (neither title nor id) finds the row", () => {
         // "f6" occurs neither in the title "My Custom" nor in the id "custom".
         const filtered = filterKeybindingItems(items, "f6");
 
@@ -140,7 +140,7 @@ describe("filterKeybindingItems", () => {
         expect(filtered[0].titleMatch).toBeNull();
     });
 
-    it("на маке комбинацию находят и по глифу, и словами (cmd / option): ⌘ с клавиатуры не набрать", () => {
+    it("on mac a combination is found both by glyph and by words (cmd / option): ⌘ cannot be typed on a keyboard", () => {
         const mac = buildKeybindingItems(
             [
                 binding({ commandId: "save", chord: parseChord("meta+s"), source: "default" }),
@@ -157,28 +157,28 @@ describe("filterKeybindingItems", () => {
         expect(ids("meta+s", "pc")).toEqual(["save"]);
     });
 
-    it("многословный запрос фильтрует по title (текст склеивается через пробел)", () => {
+    it("a multi-word query filters by title (text is joined with a space)", () => {
         const filtered = filterKeybindingItems(items, "reveal panel");
         expect(filtered.map((entry) => entry.item.commandId)).toEqual(["zeta.workbenchThing"]);
     });
 
-    it("слова запроса — отдельные термы: порядок относительно title не важен", () => {
+    it("query words are separate terms: their order relative to the title does not matter", () => {
         // Gluing the query remainder with a space is observable here: "panelreveal"
         // is not a subsequence of "Reveal Panel".
         const filtered = filterKeybindingItems(items, "panel reveal");
         expect(filtered.map((entry) => entry.item.commandId)).toEqual(["zeta.workbenchThing"]);
     });
 
-    it("найтись обязаны все термы", () => {
+    it("all terms must match", () => {
         expect(filterKeybindingItems(items, "reveal zebra")).toEqual([]);
     });
 
-    it("подсветка title собирается из кусков по терму", () => {
+    it("title highlights are assembled from per-term pieces", () => {
         const [entry] = filterKeybindingItems(items, "rev panel");
         expect(entry.titleMatch!.matchedIndices).toEqual([0, 1, 2, 7, 8, 9, 10, 11]);
     });
 
-    it("лишние пробелы выдачу не меняют, хвостовой её не гасит", () => {
+    it("extra spaces do not change the results, a trailing one does not clear them", () => {
         for (const query of ["reveal panel", "reveal  panel", " reveal panel", "reveal panel "]) {
             expect(
                 filterKeybindingItems(items, query).map((entry) => entry.item.commandId),
@@ -187,14 +187,14 @@ describe("filterKeybindingItems", () => {
         }
     });
 
-    it("запрос из одних пробелов ведёт себя как пустой", () => {
+    it("a whitespace-only query behaves as empty", () => {
         const filtered = filterKeybindingItems(items, "   ");
 
         expect(filtered).toHaveLength(items.length);
         expect(filtered.every((entry) => entry.titleMatch === null)).toBe(true);
     });
 
-    it("точное совпадение по подписи идёт первым, а не по алфавиту", () => {
+    it("an exact label match comes first, not alphabetically", () => {
         // Regression: the `Show Hover` terms also find commands whose `show` and
         // `hover` were found somewhere in the id ("Parameter Hints: Previous Signature" —
         // `editor.action.showPrevParameterHint`). In alphabetical order
@@ -214,7 +214,7 @@ describe("filterKeybindingItems", () => {
         expect(filtered.map((entry) => entry.item.commandId)).toHaveLength(3);
     });
 
-    it("совпадение по подписи выше совпадения только по id — даже при худших очках", () => {
+    it("a label match ranks above an id-only match — even with a worse score", () => {
         const haystack = buildKeybindingItems(
             [],
             [
@@ -232,7 +232,7 @@ describe("filterKeybindingItems", () => {
         ]);
     });
 
-    it("совпадение по id выше совпадения только по комбинации", () => {
+    it("an id match ranks above a combination-only match", () => {
         const haystack = buildKeybindingItems(
             // The row with the F6 binding is first alphabetically — only a score
             // difference can sort it down.
@@ -246,7 +246,7 @@ describe("filterKeybindingItems", () => {
         ]);
     });
 
-    it("при равных очках порядок остаётся исходным (сортировка стабильная)", () => {
+    it("with equal scores the original order stays (the sort is stable)", () => {
         // Same title — same score: the order must stay as
         // buildKeybindingItems set it (title, then id), otherwise rows of the same
         // command would scatter across the list.
@@ -258,16 +258,16 @@ describe("filterKeybindingItems", () => {
         ]);
     });
 
-    it("@source: оставляет свой отбор, а остаток разбирается на термы", () => {
+    it("@source: keeps its selection, and the rest is split into terms", () => {
         const filtered = filterKeybindingItems(items, "@source:user panel reveal");
         expect(filtered.map((entry) => entry.item.commandId)).toEqual(["zeta.workbenchThing"]);
     });
 
-    it("несовпавшее отфильтровывается", () => {
+    it("non-matching entries are filtered out", () => {
         expect(filterKeybindingItems(items, "zzzzzz")).toEqual([]);
     });
 
-    it("@conflicts отбирает только конфликтующие; добавка комбинации сужает до её группы", () => {
+    it("@conflicts selects only conflicting entries; an added combination narrows to its group", () => {
         const conflicted = buildKeybindingItems(
             [
                 binding({ commandId: "save", chord: parseChord("ctrl+s") }),
@@ -286,7 +286,7 @@ describe("filterKeybindingItems", () => {
         expect(group.map((entry) => entry.item.commandId).sort()).toEqual(["dupF6a", "dupF6b"]);
     });
 
-    it("@source: отбирает по источнику, остаток запроса — fuzzy", () => {
+    it("@source: selects by source, the rest of the query is fuzzy", () => {
         const user = filterKeybindingItems(items, "@source:user");
         expect(user.map((entry) => entry.item.commandId).sort()).toEqual(["custom", "zeta.workbenchThing"]);
 

@@ -33,8 +33,8 @@ function click(app: TestApp, x: number, y: number): void {
     }
 }
 
-describe("SuggestComponent — overlay-сессия", () => {
-    it("сессия на слое корня создаётся скрытой", () => {
+describe("SuggestComponent — overlay session", () => {
+    it("the session on the root layer is created hidden", () => {
         const body = new BodyElement();
         const component = new SuggestComponent(testLayoutService(body));
 
@@ -43,7 +43,7 @@ describe("SuggestComponent — overlay-сессия", () => {
         expect(body.overlayLayer.hasVisibleItems()).toBe(false);
     });
 
-    it("клик мимо попапа закрывает его (pointer-политика сессии)", () => {
+    it("a click outside the popup closes it (session pointer policy)", () => {
         const { component, app } = setup();
         component.openAt({ screenX: 10, screenY: 5, preferBelow: true });
         app.render();
@@ -54,7 +54,7 @@ describe("SuggestComponent — overlay-сессия", () => {
         expect(component.isOpen()).toBe(false);
     });
 
-    it("dispose снимает попап со слоя корня", () => {
+    it("dispose removes the popup from the root layer", () => {
         const body = new BodyElement();
         const component = new SuggestComponent(testLayoutService(body));
 
@@ -65,8 +65,8 @@ describe("SuggestComponent — overlay-сессия", () => {
 });
 
 /** Every show and move path must re-anchor the session, otherwise the layer leaves the popup in place. */
-describe("SuggestComponent — позиция попапа у каретки", () => {
-    it("openAt ставит попап под якорь", () => {
+describe("SuggestComponent — popup position at the cursor", () => {
+    it("openAt places the popup below the anchor", () => {
         const { component, app } = setup();
 
         component.openAt({ screenX: 10, screenY: 5, preferBelow: true });
@@ -76,7 +76,7 @@ describe("SuggestComponent — позиция попапа у каретки", (
         expect(component.widget.globalPosition.y).toBe(6);
     });
 
-    it("setAnchor двигает открытый попап вслед за кареткой", () => {
+    it("setAnchor moves the open popup along with the cursor", () => {
         const { component, app } = setup();
         component.openAt({ screenX: 10, screenY: 5, preferBelow: true });
         app.render();
@@ -88,7 +88,7 @@ describe("SuggestComponent — позиция попапа у каретки", (
         expect(component.widget.globalPosition.y).toBe(9);
     });
 
-    it("refreshDetailsLayout пере-анкорит к последнему якорю", () => {
+    it("refreshDetailsLayout re-anchors to the last anchor", () => {
         const { component, app } = setup();
         component.openAt({ screenX: 10, screenY: 5, preferBelow: true });
         app.render();

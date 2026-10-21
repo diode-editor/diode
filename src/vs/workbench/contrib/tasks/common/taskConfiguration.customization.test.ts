@@ -24,8 +24,8 @@ function configure(tasks: unknown[], platform: "linux" | "windows" = "linux") {
     return parseTasksJson(JSON.stringify({ version: "2.0.0", tasks }), folder, platform, lookup);
 }
 
-describe("parseTasksJson — кастомизации задач провайдеров", () => {
-    it("запись с типом провайдера — кастомизация: ключ по схеме, id расширения, индекс записи, поля", () => {
+describe("parseTasksJson — provider task customizations", () => {
+    it("entry with a provider type is a customization: key by schema, extension id, entry index, fields", () => {
         const element = {
             type: "npm",
             script: "build",
@@ -67,7 +67,7 @@ describe("parseTasksJson — кастомизации задач провайд�
         ]);
     });
 
-    it("без label — «тип: первое обязательное», без него — тип; секция платформы поверх; лишнего нет", () => {
+    it("without label — 'type: first required', without it — the type; platform section on top; nothing extra", () => {
         const [withScript, bare] = configure(
             [
                 { type: "npm", script: "lint", windows: { options: { cwd: "w" }, presentation: { focus: true } } },
@@ -85,7 +85,7 @@ describe("parseTasksJson — кастомизации задач провайд�
         expect(bare.customization).toStrictEqual({ presentation: {}, runOptions: DEFAULT_RUN_OPTIONS });
     });
 
-    it("label не строкой или пустой — подпись по обязательному; обязательное не строкой — JSON", () => {
+    it("non-string or empty label — label from the required property; non-string required property — JSON", () => {
         const labels = configure([
             { type: "npm", script: "a", label: 5 },
             { type: "npm", script: "b", label: "" },
@@ -104,7 +104,7 @@ describe("parseTasksJson — кастомизации задач провайд�
         expect(withObject._label).toBe('npm: {"a":1}');
     });
 
-    it("незнакомый тип, тип не строкой, dependsOn, кривые опции — сообщения эталона", () => {
+    it("unknown type, non-string type, dependsOn, malformed options — upstream messages", () => {
         const { configuring, problems } = configure([
             { type: 1, label: "t" },
             { type: "", label: "e" },
@@ -125,7 +125,7 @@ describe("parseTasksJson — кастомизации задач провайд�
         ]);
     });
 
-    it("определение негодно по схеме — ошибка эталона, запись пропускается", () => {
+    it("definition fails the schema — upstream error, the entry is skipped", () => {
         const strict: ITaskDefinitionSchema = { ...npmSchema, required: ["obj"], properties: { obj: {} } };
         const { configuring, problems } = parseTasksJson(
             JSON.stringify({ version: "2.0.0", tasks: [{ type: "npm" }] }),
@@ -141,7 +141,7 @@ describe("parseTasksJson — кастомизации задач провайд�
         );
     });
 
-    it("без схем (по умолчанию) — запись с типом провайдера не кастомизация, а ошибка", () => {
+    it("without schemas (default) — an entry with a provider type is an error, not a customization", () => {
         const result = parseTasksJson(
             JSON.stringify({ version: "2.0.0", tasks: [{ type: "npm", script: "a" }] }),
             folder,
@@ -163,7 +163,7 @@ describe("createCustomizedTask", () => {
         isBackground: true,
     });
 
-    it("заданное в записи — поверх задачи провайдера; id, определение и исполнение — провайдера", () => {
+    it("what the entry sets goes on top of the provider task; id, definition and execution are the provider's", () => {
         const [configuring] = configure([
             { type: "npm", script: "build", label: "B", presentation: { echo: false }, options: { env: { B: "2" } } },
         ]).configuring;
@@ -181,7 +181,7 @@ describe("createCustomizedTask", () => {
         });
     });
 
-    it("подробность, скрытие, фон, матчеры, группа и runOptions записи перекрывают провайдера", () => {
+    it("the entry's detail, hide, isBackground, matchers, group and runOptions override the provider", () => {
         const [full] = configure([
             {
                 type: "npm",
@@ -205,7 +205,7 @@ describe("createCustomizedTask", () => {
         });
     });
 
-    it("пустая запись над задачей без опций, подробности и группы — ключей не добавляет", () => {
+    it("an empty entry over a task without options, detail and group adds no keys", () => {
         const bare = makeTask({
             extension: { type: "npm", extensionId: "pub.ext", source: "npm" },
             command: { runtime: "custom" },

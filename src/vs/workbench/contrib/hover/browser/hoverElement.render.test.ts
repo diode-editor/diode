@@ -15,8 +15,8 @@ function render(element: HoverElement) {
     return renderElement(element, width, height, { themeVars: true });
 }
 
-describe("HoverElement — раскладка", () => {
-    it("рамка + текст: ширина по самой длинной строке, минимум 20", () => {
+describe("HoverElement — layout", () => {
+    it("border + text: width follows the longest line, minimum 20", () => {
         const element = new HoverElement();
         element.setBlocks(["const answer: number"]);
 
@@ -33,26 +33,26 @@ describe("HoverElement — раскладка", () => {
         );
     });
 
-    it("длинный текст переносится по словам в maxWidth", () => {
+    it("long text word-wraps within maxWidth", () => {
         const element = new HoverElement();
         element.maxWidth = 24;
-        element.setBlocks(["очень длинное описание символа под кареткой"]);
+        element.setBlocks(["long description for the symbol at the cursor"]);
 
         expectScreen(
             render(element),
             screen`
                 ╭──────────────────────╮
-                │ очень длинное        │
-                │ описание символа под │
-                │ кареткой             │
+                │ long description for │
+                │ the symbol at the    │
+                │ cursor               │
                 ╰──────────────────────╯
             `,
         );
     });
 
-    it("цвета: рамка и фон — токены hover-виджета, текст — свой, разделитель — цветом рамки", () => {
+    it("colors: border and background use hover widget tokens, text its own, separator the border color", () => {
         const element = new HoverElement();
-        element.setBlocks(["первый", "второй"]);
+        element.setBlocks(["first", "second"]);
         const backend = render(element);
         const vars = computeThemeVars(WorkbenchTheme.fromThemeFile(darkPlusTheme));
 
@@ -66,30 +66,30 @@ describe("HoverElement — раскладка", () => {
         expect(backend.getFgAt(new Point(2, 2))).toBe(vars["editorHoverWidget.border"]);
     });
 
-    it("попап не забирает фокус — как suggest, живёт при активном редакторе", () => {
+    it("the popup doesn't take focus — like suggest, it lives while the editor is active", () => {
         expect(new HoverElement().focusable).toBe(false);
     });
 
-    it("блоки провайдеров разделяются горизонтальной линией", () => {
+    it("provider blocks are separated by a horizontal line", () => {
         const element = new HoverElement();
-        element.setBlocks(["первый", "второй"]);
+        element.setBlocks(["first", "second"]);
 
         expectScreen(
             render(element),
             screen`
                 ╭──────────────────╮
-                │ первый           │
+                │ first            │
                 │ ──────────────── │
-                │ второй           │
+                │ second           │
                 ╰──────────────────╯
             `,
         );
     });
 
-    it("высота клампится maxHeight: лишние строки обрезаются", () => {
+    it("height is clamped to maxHeight: extra lines are cut off", () => {
         const element = new HoverElement();
         element.maxHeight = 4;
-        element.setBlocks(["один\nдва\nтри\nчетыре\nпять"]);
+        element.setBlocks(["one\ntwo\nthree\nfour\nfive"]);
 
         const width = element.getMinIntrinsicWidth(0);
         expect(element.getMinIntrinsicHeight(width)).toBe(4);
@@ -97,14 +97,14 @@ describe("HoverElement — раскладка", () => {
             render(element),
             screen`
                 ╭──────────────────╮
-                │ один             │
-                │ два              │
+                │ one              │
+                │ two              │
                 ╰──────────────────╯
             `,
         );
     });
 
-    it("пустой элемент не занимает места; пустые блоки отбрасываются", () => {
+    it("an empty element takes no space; empty blocks are dropped", () => {
         const element = new HoverElement();
         expect(element.isEmpty).toBe(true);
         expect(element.getMinIntrinsicWidth(0)).toBe(0);
@@ -117,7 +117,7 @@ describe("HoverElement — раскладка", () => {
         element.setBlocks(["   ", ""]);
         expect(element.isEmpty).toBe(true);
 
-        element.setBlocks(["текст"]);
+        element.setBlocks(["text"]);
         expect(element.isEmpty).toBe(false);
     });
 });

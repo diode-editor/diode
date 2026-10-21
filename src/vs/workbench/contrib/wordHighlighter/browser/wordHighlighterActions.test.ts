@@ -39,26 +39,26 @@ afterEach(() => {
 });
 
 describe("WORD_HIGHLIGHTER_ACTIONS", () => {
-    it("wordHighlight.next ведёт каретку на следующее вхождение", () => {
+    it("wordHighlight.next moves the cursor to the next occurrence", () => {
         const { editor, commands } = openEditor("foo\nbar foo");
         commands.execute("editor.action.wordHighlight.next");
         expect(editor.viewState.selections).toEqual([createCursorSelection(1, 4)]);
     });
 
-    it("wordHighlight.prev — на предыдущее, циклически", () => {
+    it("wordHighlight.prev moves to the previous one, cyclically", () => {
         const { editor, commands } = openEditor("foo\nbar foo\nfoo");
         commands.execute("editor.action.wordHighlight.prev");
         expect(editor.viewState.selections).toEqual([createCursorSelection(2, 0)]);
     });
 
-    it("без активного редактора — тихий no-op", () => {
+    it("without an active editor: a silent no-op", () => {
         const { commands } = setup(createTestActiveEditorService(null));
         for (const action of WORD_HIGHLIGHTER_ACTIONS) {
             expect(() => commands.execute(action.id)).not.toThrow();
         }
     });
 
-    it("F7 / Shift+F7 — при фокусе в тексте редактора", () => {
+    it("F7 / Shift+F7 work with focus in the editor text", () => {
         const { keybindings } = openEditor("foo");
         const contextKeys = new ContextKeyService();
         contextKeys.set("editorTextFocus", true);
@@ -72,7 +72,7 @@ describe("WORD_HIGHLIGHTER_ACTIONS", () => {
         });
     });
 
-    it("вне текста редактора F7 свободен", () => {
+    it("outside the editor text F7 is free", () => {
         const { keybindings } = openEditor("foo");
         const contextKeys = new ContextKeyService();
         contextKeys.set("editorTextFocus", false);

@@ -30,7 +30,7 @@ function expected(block: string): string {
         .join("\n");
 }
 
-describe("renderCommitGraph — фикстуры lazygit", () => {
+describe("renderCommitGraph — lazygit fixtures", () => {
     it("with some merges", () => {
         expect(
             render(
@@ -82,7 +82,7 @@ describe("renderCommitGraph — фикстуры lazygit", () => {
         );
     });
 
-    it("with a new commit (несвязанный корень, git log --all)", () => {
+    it("with a new commit (unrelated root, git log --all)", () => {
         expect(render(commits("1 2", "2 3 4", "4 3 5", "Z Z", "3 5", "5 6", "6 7"))).toBe(
             expected(`
                 1 ○
@@ -131,7 +131,7 @@ describe("renderCommitGraph — фикстуры lazygit", () => {
         );
     });
 
-    it("new merge path fills gap before continuing path on right (октопус)", () => {
+    it("new merge path fills gap before continuing path on right (octopus)", () => {
         expect(render(commits("1 2 3 4 5", "4 2", "2 A", "A 6 B", "B C"))).toBe(
             expected(`
                 1 ◎─┬─┬─╮
@@ -172,7 +172,7 @@ describe("renderCommitGraph — фикстуры lazygit", () => {
         );
     });
 
-    it("пустой список коммитов — пустой граф", () => {
+    it("an empty commit list gives an empty graph", () => {
         expect(renderCommitGraph([], null, () => "graphStyle")).toEqual([]);
     });
 });

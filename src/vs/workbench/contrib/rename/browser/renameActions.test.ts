@@ -11,7 +11,7 @@ import type {
 } from "../../../../editor/common/languages/iRenameSource.ts";
 import { LanguageFeaturesServiceDIToken } from "../../../../editor/common/services/languageFeatures.ts";
 
-describe("renameActions — команда Rename Symbol", () => {
+describe("renameActions — Rename Symbol command", () => {
     let ws: ITempWorkspace;
     let h: IAppHarness;
 
@@ -30,7 +30,7 @@ describe("renameActions — команда Rename Symbol", () => {
         ws.dispose();
     });
 
-    it("editor.action.rename доходит до провайдера под кареткой", async () => {
+    it("editor.action.rename reaches the provider at the cursor", async () => {
         const prepareRename = vi.fn(
             (_request: IRenameRequest): Promise<ICoreRenameLocation> =>
                 Promise.resolve({ kind: "name", name: "value" }),

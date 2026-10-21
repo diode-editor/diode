@@ -28,8 +28,8 @@ function awaitExit(session: EmbeddedTerminalSession): Promise<number> {
 
 const WAIT = { timeout: 5000, interval: 50 };
 
-describe("EmbeddedTerminalSession.relaunch — новый процесс в том же эмуляторе", () => {
-    it("вывод прежнего остаётся выше, новый начинается с новой строки после сообщения; pid и шелл новые", async () => {
+describe("EmbeddedTerminalSession.relaunch — a new process in the same emulator", () => {
+    it("the previous output stays above, the new one starts on a new line after the message; new pid and shell", async () => {
         const session = new EmbeddedTerminalSession({
             cols: 40,
             rows: 8,
@@ -50,7 +50,7 @@ describe("EmbeddedTerminalSession.relaunch — новый процесс в то
         session.dispose();
     });
 
-    it("clear стирает прежний вывод; без shell — системный шелл; размер — эмулятора", async () => {
+    it("clear erases the previous output; without shell — the system shell; size is the emulator's", async () => {
         const session = new EmbeddedTerminalSession({ cols: 30, rows: 5, shell: "/bin/sh", args: ["-c", "echo old"] });
         await awaitExit(session);
         session.resize(33, 6);
@@ -70,8 +70,8 @@ describe("EmbeddedTerminalSession.relaunch — новый процесс в то
     });
 });
 
-describe("XtermSurface — сообщения редактора и ввод после выхода", () => {
-    it("printMessage рисует текст как вывод, в процесс не шлёт", async () => {
+describe("XtermSurface — editor messages and input after exit", () => {
+    it("printMessage draws text as output and doesn't send it to the process", async () => {
         const onInput = vi.fn<(data: string) => void>();
         const session = new ExtensionPtySession({ cols: 20, rows: 3, name: "t", onInput, onResize: () => undefined });
         session.printMessage("hello\r\n");
@@ -82,7 +82,7 @@ describe("XtermSurface — сообщения редактора и ввод п�
         session.dispose();
     });
 
-    it("ввод после выхода будит onDidInputAfterExit, а не процесс; до выхода — наоборот", () => {
+    it("input after exit fires onDidInputAfterExit, not the process; before exit the opposite", () => {
         const onInput = vi.fn<(data: string) => void>();
         const session = new ExtensionPtySession({ cols: 20, rows: 3, name: "t", onInput, onResize: () => undefined });
         const afterExit = vi.fn();
@@ -96,7 +96,7 @@ describe("XtermSurface — сообщения редактора и ввод п�
         session.dispose();
     });
 
-    it("pty расширения после relaunch снова принимает вывод и ввод и может выйти ещё раз", async () => {
+    it("an extension pty after relaunch accepts output and input again and can exit once more", async () => {
         const onInput = vi.fn<(data: string) => void>();
         const session = new ExtensionPtySession({ cols: 20, rows: 4, name: "t", onInput, onResize: () => undefined });
         const exits = vi.fn();

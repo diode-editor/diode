@@ -58,7 +58,7 @@ const A = "/proj/a.ts";
 const B = "/proj/b.ts";
 
 describe("BulkEditBuffers.get", () => {
-    it("вкладка ресурса — буфер: текст и правки идут через неё", () => {
+    it("the resource's tab is the buffer: text and edits go through it", () => {
         const active = pane(A);
         const buffers = new BulkEditBuffers(...fakes({ active }));
 
@@ -73,14 +73,14 @@ describe("BulkEditBuffers.get", () => {
         expect(active.applyExternalEditsDetached).toHaveBeenCalledExactlyOnceWith([edit], "Workspace Edit");
     });
 
-    it("save сохраняет только изменённый буфер (files.refactoring.autoSave)", async () => {
+    it("save saves only the changed buffer (files.refactoring.autoSave)", async () => {
         const dirty = pane(A);
         const clean = pane(B, { isModified: false });
         const buffers = new BulkEditBuffers(...fakes({ active: dirty, rest: [clean] }));
 
         const targets = [buffers.get(dirty.uri.toString()), buffers.get(clean.uri.toString())];
         for (const target of targets) {
-            if (target === null || target === "read-only") throw new Error("ожидался буфер");
+            if (target === null || target === "read-only") throw new Error("expected a buffer");
             await target.save();
         }
 
@@ -88,37 +88,37 @@ describe("BulkEditBuffers.get", () => {
         expect(clean.save).not.toHaveBeenCalled();
     });
 
-    it("ресурс без вкладки и без модели — null: его правит диск", () => {
+    it("a resource with no tab and no model is null: the disk edits it", () => {
         const buffers = new BulkEditBuffers(...fakes({ active: pane(A) }));
         expect(buffers.get(Uri.file(B).toString())).toBeNull();
     });
 
-    it('read-only вкладка — "read-only": edit отбивается целиком', () => {
+    it('a read-only tab is "read-only": the edit is refused entirely', () => {
         const ro = pane(B, { readOnly: true });
         const buffers = new BulkEditBuffers(...fakes({ active: pane(A), rest: [ro] }));
         expect(buffers.get(ro.uri.toString())).toBe("read-only");
     });
 
-    it('модель в реестре без вкладки — "read-only": писать мимо живого буфера нельзя', () => {
+    it('a model in the registry without a tab is "read-only": no writing past the live buffer', () => {
         const resource = Uri.file(B).toString();
         const buffers = new BulkEditBuffers(...fakes({ active: pane(A), models: new Set([resource]) }));
         expect(buffers.get(resource)).toBe("read-only");
     });
 
-    it("правка адресуется АКТИВНОЙ вкладке ресурса, а не первой найденной", () => {
+    it("the edit targets the ACTIVE tab of the resource, not the first one found", () => {
         const active = pane(A, { undoContext: "ctx:active" });
         const other = pane(A, { undoContext: "ctx:other" });
         const buffers = new BulkEditBuffers(...fakes({ active, rest: [other] }));
 
         const target = buffers.get(active.uri.toString());
-        if (target === null || target === "read-only") throw new Error("ожидался буфер");
+        if (target === null || target === "read-only") throw new Error("expected a buffer");
         target.applyEdits([], "Workspace Edit");
 
         expect(active.applyExternalEditsDetached).toHaveBeenCalledOnce();
         expect(other.applyExternalEditsDetached).not.toHaveBeenCalled();
     });
 
-    it("неактивная вкладка ресурса тоже находится (правка адресует документ)", () => {
+    it("an inactive tab of the resource is found too (the edit targets the document)", () => {
         const other = pane(B);
         const buffers = new BulkEditBuffers(...fakes({ active: pane(A), rest: [other] }));
         expect(buffers.get(other.uri.toString())).not.toBeNull();
@@ -126,7 +126,7 @@ describe("BulkEditBuffers.get", () => {
 });
 
 describe("BulkEditBuffers.undoParticipants", () => {
-    it("каждая вкладка тронутого ресурса — участник со своей правкой (Ctrl+Z из любой)", () => {
+    it("every tab of a touched resource is a participant with its own edit (Ctrl+Z from any)", () => {
         const active = pane(A);
         const other = pane(B);
         const buffers = new BulkEditBuffers(...fakes({ active, rest: [other] }));
@@ -137,7 +137,7 @@ describe("BulkEditBuffers.undoParticipants", () => {
         ]);
     });
 
-    it("сплит одного документа — один участник: бакет у них общий", () => {
+    it("a split of one document is one participant: they share the bucket", () => {
         const active = pane(A);
         const split = pane(A);
         const buffers = new BulkEditBuffers(...fakes({ active, rest: [split, pane(B)] }));
@@ -148,7 +148,7 @@ describe("BulkEditBuffers.undoParticipants", () => {
         ]);
     });
 
-    it("ни один тронутый ресурс не открыт — якорь на активной вкладке, без своей правки", () => {
+    it("no touched resource is open: the anchor is the active tab, without its own edit", () => {
         const active = pane(A);
         const buffers = new BulkEditBuffers(...fakes({ active }));
 
@@ -157,7 +157,7 @@ describe("BulkEditBuffers.undoParticipants", () => {
         expect(buffers.undoParticipants([Uri.file("/proj/closed.ts").toString()])).toEqual(anchor);
     });
 
-    it("вкладок нет вовсе — участников нет: шаг уйдёт в бакет workspace-операций", () => {
+    it("no tabs at all means no participants: the step goes to the workspace operations bucket", () => {
         const buffers = new BulkEditBuffers(...fakes());
         expect(buffers.undoParticipants([])).toEqual([]);
         expect(buffers.undoParticipants([Uri.file(A).toString()])).toEqual([]);
@@ -165,7 +165,7 @@ describe("BulkEditBuffers.undoParticipants", () => {
 });
 
 describe("BulkEditBuffers.didDelete", () => {
-    it("удаление мимо файлового сервиса уходит в EditorService.handleDeletedFile тем же ресурсом", () => {
+    it("a delete bypassing the file service goes to EditorService.handleDeletedFile with the same resource", () => {
         const handleDeletedFile = vi.fn();
         const [, registry] = fakes();
         const editors = { handleDeletedFile } as unknown as IEditorService;

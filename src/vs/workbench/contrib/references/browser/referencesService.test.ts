@@ -118,7 +118,7 @@ function reference(absolutePath: string, line: number, from: number, to: number)
 }
 
 describe("ReferencesService — findReferences", () => {
-    it("спрашивает провайдеров по каретке, добирает текст строк и показывает вьюлет", async () => {
+    it("queries providers at the cursor, fetches line text and shows the viewlet", async () => {
         const panel = fakeComponent();
         const sidebar = fakeSidebar();
         const requests: IReferenceRequest[] = [];
@@ -161,16 +161,16 @@ describe("ReferencesService — findReferences", () => {
         expect(sidebar.shown).toEqual([REFERENCES_VIEWLET_ID]);
     });
 
-    it("несохранённая правка видна: текст берётся из открытой модели, а не с диска", async () => {
+    it("an unsaved edit is visible: text comes from the open model, not from disk", async () => {
         const panel = fakeComponent();
         const service = createService(
             panel.component,
             fakeGroup({
                 source: () => Promise.resolve([reference(MAIN, 0, 0, 5)]),
-                openModels: { [MAIN]: "hello world (в буфере)\n" },
+                openModels: { [MAIN]: "hello world (in buffer)\n" },
             }),
             fakeWorkspace(),
-            fakeProviders({ [MAIN]: "на диске другое\n" }),
+            fakeProviders({ [MAIN]: "different on disk\n" }),
             fakeSidebar().service,
         );
 
@@ -179,7 +179,7 @@ describe("ReferencesService — findReferences", () => {
         expect(panel.shown[0][0].matches[0].preview.inside).toBe("hello");
     });
 
-    it("пустой результат всё равно показывает панель — «No results» объясняет себя сам", async () => {
+    it("an empty result still shows the panel: 'No results' explains itself", async () => {
         const panel = fakeComponent();
         const sidebar = fakeSidebar();
         const service = createService(
@@ -196,7 +196,7 @@ describe("ReferencesService — findReferences", () => {
         expect(sidebar.shown).toEqual([REFERENCES_VIEWLET_ID]);
     });
 
-    it("устаревший ответ отбрасывается до чтения файлов", async () => {
+    it("a stale response is dropped before reading files", async () => {
         const panel = fakeComponent();
         const sidebar = fakeSidebar();
         let release: ((refs: readonly ICoreReference[]) => void) | null = null;
@@ -233,7 +233,7 @@ describe("ReferencesService — findReferences", () => {
         expect(reads).toBe(1);
     });
 
-    it("запрос, устаревший уже во время добора строк, панель не наполняет", async () => {
+    it("a request that goes stale while fetching lines does not fill the panel", async () => {
         const panel = fakeComponent();
         // Reading the file for A hangs: while A fetches previews, B arrives.
         let releaseRead: (() => void) | null = null;
@@ -267,7 +267,7 @@ describe("ReferencesService — findReferences", () => {
         expect(panel.shown).toHaveLength(1);
     });
 
-    it("clear обесценивает запрос так, что следующий его не «усыновит»", async () => {
+    it("clear invalidates the request so the next one does not 'adopt' it", async () => {
         const panel = fakeComponent();
         let release: ((refs: readonly ICoreReference[]) => void) | null = null;
         let calls = 0;
@@ -298,7 +298,7 @@ describe("ReferencesService — findReferences", () => {
         expect(panel.shown[0][0].matches[0].lineNumber).toBe(1);
     });
 
-    it("Clear отменяет запрос и у провайдера", () => {
+    it("Clear also cancels the request at the provider", () => {
         const tokens: ICancellationToken[] = [];
         const service = createService(
             fakeComponent().component,
@@ -320,7 +320,7 @@ describe("ReferencesService — findReferences", () => {
         expect(tokens.map((token) => token.isCancellationRequested)).toEqual([true]);
     });
 
-    it("нет активного редактора, нет источника, каретка не на слове — ничего не происходит", async () => {
+    it("no active editor, no source, cursor not on a word: nothing happens", async () => {
         const panel = fakeComponent();
         const sidebar = fakeSidebar();
         const providers = fakeProviders({});
@@ -361,7 +361,7 @@ describe("ReferencesService — findReferences", () => {
         expect(sidebar.shown).toEqual([]);
     });
 
-    it("без открытой папки пути показываются как есть", async () => {
+    it("without an open folder paths are shown as is", async () => {
         const panel = fakeComponent();
         const service = createService(
             panel.component,
@@ -378,7 +378,7 @@ describe("ReferencesService — findReferences", () => {
 });
 
 describe("ReferencesService — clear", () => {
-    it("чистит панель и обесценивает ответ уже отправленного запроса", async () => {
+    it("clears the panel and invalidates the response of an already sent request", async () => {
         const panel = fakeComponent();
         let release: ((refs: readonly ICoreReference[]) => void) | null = null;
         const service = createService(

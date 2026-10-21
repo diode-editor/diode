@@ -58,8 +58,8 @@ function build(options: Parameters<typeof buildTaskServiceHarness>[0] = {}) {
 
 const flush = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
 
-describe("Configure Task — пикер", () => {
-    it("нет своих задач и файла: задачи провайдеров и «Create tasks.json file from template»", async () => {
+describe("Configure Task — picker", () => {
+    it("no own tasks and no file: provider tasks and 'Create tasks.json file from template'", async () => {
         const h = build();
         h.withNpm(["lint", "build"]);
         h.answerPicks(undefined);
@@ -70,7 +70,7 @@ describe("Configure Task — пикер", () => {
         h.dispose();
     });
 
-    it("файл есть, но задач в нём нет — «Open tasks.json file»; свои задачи есть — строки файла нет", async () => {
+    it("file exists but has no tasks — 'Open tasks.json file'; own tasks exist — no file item", async () => {
         const empty = build({ tasksJson: tasksJsonOf([]) });
         empty.answerPicks(undefined);
         await configureTaskAction.run(empty.accessor);
@@ -84,7 +84,7 @@ describe("Configure Task — пикер", () => {
         h.dispose();
     });
 
-    it("одна своя задача и ничего больше — без пикера: файл открыт на её записи", async () => {
+    it("a single own task and nothing else — no picker: the file opens at its entry", async () => {
         const text = '{\n    "version": "2.0.0",\n    "tasks": [\n        { "label": "a", "command": "x" }\n    ]\n}';
         const h = build({ tasksJson: text });
         await configureTaskAction.run(h.accessor);
@@ -99,7 +99,7 @@ describe("Configure Task — пикер", () => {
         h.dispose();
     });
 
-    it("своя задача из нескольких — файл на её записи; отмена — ничего", async () => {
+    it("own task among several — the file at its entry; cancel — nothing", async () => {
         const h = build({
             tasksJson: tasksJsonOf([
                 { label: "a", command: "x" },
@@ -115,7 +115,7 @@ describe("Configure Task — пикер", () => {
         h.dispose();
     });
 
-    it("без папки — пикер без строки файла, выбор ничего не пишет", async () => {
+    it("without a folder — picker without the file item, picking writes nothing", async () => {
         const h = build({ folder: null });
         h.withNpm(["lint"]);
         h.answerPicks("npm: lint");
@@ -126,13 +126,13 @@ describe("Configure Task — пикер", () => {
     });
 });
 
-describe("Configure Task — открытие на записи", () => {
+describe("Configure Task — opening at the entry", () => {
     const twoTasks = tasksJsonOf([
         { label: "a", command: "x" },
         { label: "b", command: "y" },
     ]);
 
-    it("файл не открылся — каретку не трогаем ни в чём (ни без редактора, ни в чужом)", async () => {
+    it("file failed to open — the cursor is not touched anywhere (neither without an editor nor in another one)", async () => {
         const h = build({ tasksJson: twoTasks });
         h.setOpenFails(true);
         h.answerPicks("b");
@@ -148,7 +148,7 @@ describe("Configure Task — открытие на записи", () => {
         h.dispose();
     });
 
-    it("файл поменялся между чтениями и записи уже нет — файл открыт, каретка на месте", async () => {
+    it("file changed between reads and the entry is gone — the file opens, the cursor stays", async () => {
         const h = build({ tasksJson: twoTasks });
         // The first read is the service's task list, the second is the text to locate the entry in.
         h.readFile.mockImplementationOnce(() =>
@@ -167,8 +167,8 @@ describe("Configure Task — открытие на записи", () => {
     });
 });
 
-describe("Configure Task — кастомизация задачи провайдера", () => {
-    it("файла нет: создаётся tasks.json (каталог — тоже) с записью эталона, файл — на записи", async () => {
+describe("Configure Task — provider task customization", () => {
+    it("no file: tasks.json is created (the directory too) with the upstream entry, opened at the entry", async () => {
         const h = build();
         h.withNpm(["build"], { detail: "tsc -p ." });
         h.answerPicks("npm: build");
@@ -196,13 +196,13 @@ describe("Configure Task — кастомизация задачи провай�
         h.dispose();
     });
 
-    it("файл есть: запись дописана в конец tasks, комментарии и форматирование целы", async () => {
+    it("file exists: the entry is appended to the end of tasks, comments and formatting are intact", async () => {
         const text = [
             "{",
-            "\t// мои задачи",
+            "\t// my tasks",
             '\t"version": "2.0.0",',
             '\t"tasks": [',
-            '\t\t{ "label": "a", "command": "x" } // первая',
+            '\t\t{ "label": "a", "command": "x" } // first',
             "\t]",
             "}",
         ].join("\n");
@@ -214,10 +214,10 @@ describe("Configure Task — кастомизация задачи провай�
         expect(h.tasksJson()).toBe(
             [
                 "{",
-                "\t// мои задачи",
+                "\t// my tasks",
                 '\t"version": "2.0.0",',
                 '\t"tasks": [',
-                '\t\t{ "label": "a", "command": "x" }, // первая',
+                '\t\t{ "label": "a", "command": "x" }, // first',
                 "\t\t{",
                 '\t\t\t"type": "npm",',
                 '\t\t\t"script": "lint",',
@@ -232,7 +232,7 @@ describe("Configure Task — кастомизация задачи провай�
         h.dispose();
     });
 
-    it("дописанная запись — задача в Run Task «configured» под своей подписью, запуск — команда провайдера", async () => {
+    it("the appended entry is a 'configured' task in Run Task under its own label, running it runs the provider command", async () => {
         const h = build({ tasksJson: tasksJsonOf([]) });
         h.withNpm(["lint"]);
         h.answerPicks("npm: lint");
@@ -255,7 +255,7 @@ describe("Configure Task — кастомизация задачи провай�
         h.dispose();
     });
 
-    it("кастомизированную задачу Configure Task открывает на её записи, а не дописывает вторую", async () => {
+    it("Configure Task opens a customized task at its entry instead of appending a second one", async () => {
         const h = build({ tasksJson: tasksJsonOf([{ type: "npm", script: "lint", label: "L" }]) });
         h.withNpm(["lint"]);
         await configureTaskAction.run(h.accessor);
@@ -265,7 +265,7 @@ describe("Configure Task — кастомизация задачи провай�
         h.dispose();
     });
 
-    it("битый tasks.json — предупреждение эталона, файл не трогаем", async () => {
+    it("broken tasks.json — upstream warning, the file is left alone", async () => {
         const h = build({ tasksJson: '{ "version": "2.0.0", "tasks": [ ' });
         h.withNpm(["lint"]);
         h.answerPicks("npm: lint");
@@ -281,7 +281,7 @@ describe("Configure Task — кастомизация задачи провай�
         h.dispose();
     });
 
-    it("tasks.json открыт с несохранёнными правками — ошибка эталона; чистый — перечитывается", async () => {
+    it("tasks.json open with unsaved edits — upstream error; a clean one is re-read", async () => {
         const dirty = build({ tasksJson: tasksJsonOf([]) });
         dirty.withNpm(["lint"]);
         dirty.openTasksJsonModel(true);
@@ -309,8 +309,8 @@ describe("Configure Task — кастомизация задачи провай�
     });
 });
 
-describe("Configure Task — шаблоны", () => {
-    it("Create: пикер шаблонов эталона; выбранный пишется с отступом редактора и открывается", async () => {
+describe("Configure Task — templates", () => {
+    it("Create: upstream template picker; the picked one is written with the editor indent and opened", async () => {
         const h = build({ settings: { "editor.tabSize": 2 } });
         h.answerPicks(CREATE_TASKS_JSON, "Others");
         await configureTaskAction.run(h.accessor);
@@ -342,7 +342,7 @@ describe("Configure Task — шаблоны", () => {
         h.dispose();
     });
 
-    it("отмена шаблона — ничего не пишется и не открывается", async () => {
+    it("cancelled template — nothing is written or opened", async () => {
         const h = build();
         h.answerPicks(CREATE_TASKS_JSON, undefined);
         await configureTaskAction.run(h.accessor);
@@ -351,12 +351,12 @@ describe("Configure Task — шаблоны", () => {
         h.dispose();
     });
 
-    it("Open: файл без задач получает ключи шаблона, остальное в нём остаётся", async () => {
-        const h = build({ tasksJson: '{\n    // своё\n    "options": { "cwd": "sub" }\n}' });
+    it("Open: a file without tasks gets the template keys, the rest of it stays", async () => {
+        const h = build({ tasksJson: '{\n    // mine\n    "options": { "cwd": "sub" }\n}' });
         h.answerPicks(OPEN_TASKS_JSON, "maven");
         await configureTaskAction.run(h.accessor);
         const written = h.tasksJson() ?? "";
-        expect(written).toContain("// своё");
+        expect(written).toContain("// mine");
         // `modify` moves the keys and reformats the neighboring value, but does not lose it.
         expect((await h.service.getWorkspaceTasks())[0].command.options?.cwd).toBe("sub");
         expect((await h.service.getWorkspaceTasks()).map((t) => t._label)).toStrictEqual(["verify", "test"]);
@@ -364,7 +364,7 @@ describe("Configure Task — шаблоны", () => {
         h.dispose();
     });
 
-    it("Open: битый файл без задач — открыть как есть, без шаблона", async () => {
+    it("Open: a broken file without tasks opens as is, without a template", async () => {
         const h = build({ tasksJson: "{ oops" });
         h.answerPicks(OPEN_TASKS_JSON);
         await configureTaskAction.run(h.accessor);

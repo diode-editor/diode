@@ -37,8 +37,8 @@ async function printed(script: string, marker: string): Promise<EmbeddedTerminal
     return session;
 }
 
-describe("EmbeddedTerminalSession — цвета ячеек", () => {
-    it("разворачивает palette-индексы (SGR 38;5;n / 48;5;n) в RGB по таблице xterm", async () => {
+describe("EmbeddedTerminalSession — cell colors", () => {
+    it("expands palette indices (SGR 38;5;n / 48;5;n) to RGB via the xterm table", async () => {
         // 196 = pure cube red (255,0,0), 21 = pure cube blue (0,0,255).
         const session = await printed("\\033[38;5;196m\\033[48;5;21mP\\033[0m", "P");
         const out = emptyCell();
@@ -49,7 +49,7 @@ describe("EmbeddedTerminalSession — цвета ячеек", () => {
         session.dispose();
     }, 15000);
 
-    it("отдаёт truecolor (SGR 38;2;r;g;b) как есть", async () => {
+    it("returns truecolor (SGR 38;2;r;g;b) as is", async () => {
         const session = await printed("\\033[38;2;10;20;30m\\033[48;2;40;50;60mT\\033[0m", "T");
         const out = emptyCell();
 
@@ -59,7 +59,7 @@ describe("EmbeddedTerminalSession — цвета ячеек", () => {
         session.dispose();
     }, 15000);
 
-    it("16 ANSI-цветов (SGR 31/42/91) — из setAnsiColors; смена перекрашивает выведенное и будит onUpdate", async () => {
+    it("16 ANSI colors (SGR 31/42/91) come from setAnsiColors; a change repaints existing output and fires onUpdate", async () => {
         const session = await printed("\\033[31;42mA\\033[91mB\\033[38;5;196mC\\033[0m", "ABC");
         const out = emptyCell();
         // Before setAnsiColors — the canonical xterm table.
@@ -83,7 +83,7 @@ describe("EmbeddedTerminalSession — цвета ячеек", () => {
         session.dispose();
     }, 15000);
 
-    it("отдаёт DEFAULT_COLOR для ячейки без явных цветов", async () => {
+    it("returns DEFAULT_COLOR for a cell without explicit colors", async () => {
         const session = await printed("D", "D");
         const out = emptyCell();
 
@@ -94,8 +94,8 @@ describe("EmbeddedTerminalSession — цвета ячеек", () => {
     }, 15000);
 });
 
-describe("EmbeddedTerminalSession — стили ячеек", () => {
-    it("собирает битмаску из всех поддерживаемых SGR-атрибутов сразу", async () => {
+describe("EmbeddedTerminalSession — cell styles", () => {
+    it("builds a bitmask from all supported SGR attributes at once", async () => {
         // 1=bold 3=italic 4=underline 2=dim 7=inverse 9=strikethrough
         const session = await printed("\\033[1;3;4;2;7;9mS\\033[0m", "S");
         const out = emptyCell();
@@ -112,7 +112,7 @@ describe("EmbeddedTerminalSession — стили ячеек", () => {
         session.dispose();
     }, 15000);
 
-    it("отдаёт пустую битмаску для ячейки без атрибутов (все ветки resolveStyle — false)", async () => {
+    it("returns an empty bitmask for a cell without attributes (all resolveStyle branches false)", async () => {
         const session = await printed("N", "N");
         const out = emptyCell();
 
@@ -129,7 +129,7 @@ describe("EmbeddedTerminalSession — стили ячеек", () => {
         ["\\033[7m", StyleFlags.Inverse],
         ["\\033[9m", StyleFlags.Strikethrough],
     ])(
-        "разворачивает одиночный атрибут %s в свой флаг",
+        "maps a single attribute %s to its flag",
         async (sgr, flag) => {
             const session = await printed(`${sgr}A\\033[0m`, "A");
             const out = emptyCell();
@@ -142,8 +142,8 @@ describe("EmbeddedTerminalSession — стили ячеек", () => {
     );
 });
 
-describe("EmbeddedTerminalSession — форма сетки", () => {
-    it("отдаёт wide-char головой width=2 и false на continuation-ячейке", async () => {
+describe("EmbeddedTerminalSession — grid shape", () => {
+    it("returns a wide char as a head with width=2 and false on the continuation cell", async () => {
         const session = await printed("世X", "世");
         const out = emptyCell();
 
@@ -158,7 +158,7 @@ describe("EmbeddedTerminalSession — форма сетки", () => {
         session.dispose();
     }, 15000);
 
-    it('отдаёт пробел для пустой ячейки внутри диапазона (getChars() === "")', async () => {
+    it('returns a space for an empty cell within range (getChars() === "")', async () => {
         const session = await printed("ab", "ab");
         const out = emptyCell();
 
@@ -169,7 +169,7 @@ describe("EmbeddedTerminalSession — форма сетки", () => {
         session.dispose();
     }, 15000);
 
-    it("отдаёт false для x вне строки и для отсутствующей строки", async () => {
+    it("returns false for x outside the line and for a missing line", async () => {
         const session = await printed("ab", "ab");
         const out = emptyCell();
 
@@ -181,8 +181,8 @@ describe("EmbeddedTerminalSession — форма сетки", () => {
     }, 15000);
 });
 
-describe("EmbeddedTerminalSession — курсор", () => {
-    it("отдаёт null, когда курсор в состоянии pending wrap (cursorX === cols)", async () => {
+describe("EmbeddedTerminalSession — cursor", () => {
+    it("returns null when the cursor is in pending wrap state (cursorX === cols)", async () => {
         // Exactly cols characters without a newline: xterm leaves the cursor at cols
         // (deferred wrap), i.e. outside the visible range 0..cols-1.
         const session = new EmbeddedTerminalSession({

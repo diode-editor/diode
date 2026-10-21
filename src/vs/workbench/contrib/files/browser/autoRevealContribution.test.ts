@@ -46,7 +46,7 @@ function setup(): { editor: FakeEditorService; explorer: FakeExplorerService; co
 }
 
 describe("AutoRevealContribution", () => {
-    it("на смену активного редактора зовёт autoRevealActiveFile с путём активного файла", () => {
+    it("on active editor change calls autoRevealActiveFile with the active file's path", () => {
         const { editor, explorer } = setup();
         editor.activePath = "/ws/alpha.txt";
 
@@ -55,7 +55,7 @@ describe("AutoRevealContribution", () => {
         expect(explorer.revealed).toEqual(["/ws/alpha.txt"]);
     });
 
-    it("без активного редактора передаёт null", () => {
+    it("passes null when there is no active editor", () => {
         const { editor, explorer } = setup();
         editor.activePath = null;
 
@@ -64,7 +64,7 @@ describe("AutoRevealContribution", () => {
         expect(explorer.revealed).toEqual([null]);
     });
 
-    it("dispose снимает подписку", () => {
+    it("dispose removes the subscription", () => {
         const { editor, explorer, contribution } = setup();
         contribution.dispose();
 

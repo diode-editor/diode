@@ -24,7 +24,7 @@ const JDT_TARGET =
 
 const JDT_SOURCE = "package org.apache.commons.lang3;\n\npublic class StringUtils {\n    // capitalize\n}\n";
 
-describe("DefinitionService — цель на недисковом ресурсе", () => {
+describe("DefinitionService — target on a non-disk resource", () => {
     let ws: ITempWorkspace;
     let h: IAppHarness;
 
@@ -54,7 +54,7 @@ describe("DefinitionService — цель на недисковом ресурс�
     const service = () => h.container.get(DefinitionServiceDIToken);
     const caret = () => group().getActiveEditor()?.viewState.selections[0].active;
 
-    it("открывает read-only вкладку с исходником из jar и доводит каретку до цели", async () => {
+    it("opens a read-only tab with the source from a jar and moves the cursor to the target", async () => {
         group().virtualDocumentSource = {
             canProvide: (scheme) => scheme === "jdt",
             provide: () => Promise.resolve(JDT_SOURCE),
@@ -72,7 +72,7 @@ describe("DefinitionService — цель на недисковом ресурс�
         expect(caret()).toMatchObject({ line: 2, character: 13 });
     });
 
-    it("F12 с живым провайдером не роняет процесс и доезжает до цели", async () => {
+    it("F12 with a live provider does not crash the process and reaches the target", async () => {
         group().virtualDocumentSource = {
             canProvide: () => true,
             provide: () => Promise.resolve(JDT_SOURCE),
@@ -87,7 +87,7 @@ describe("DefinitionService — цель на недисковом ресурс�
         expect(caret()).toMatchObject({ line: 0, character: 8 });
     });
 
-    it("провайдера схемы нет — F12 сообщает человеку и оставляет исходный файл", async () => {
+    it("no provider for the scheme: F12 tells the user and keeps the original file", async () => {
         const failures: string[] = [];
         group().onDidFailOpen(({ reason }) => failures.push(reason));
         useDefinitions(() => Promise.resolve([{ uri: JDT_TARGET, range: createRange(2, 13, 2, 24) }]));
@@ -104,7 +104,7 @@ describe("DefinitionService — цель на недисковом ресурс�
         service();
     });
 
-    it("прыжок кладёт в историю обе точки, и Go Back/Forward ходят между ними", async () => {
+    it("a jump records both points in history, and Go Back/Forward move between them", async () => {
         group().virtualDocumentSource = {
             canProvide: (scheme) => scheme === "jdt",
             provide: () => Promise.resolve(JDT_SOURCE),
@@ -134,7 +134,7 @@ describe("DefinitionService — цель на недисковом ресурс�
         expect(caret()).toMatchObject({ line: 2, character: 13 });
     });
 
-    it("цель в АКТИВНОМ редакторе не переоткрывается, но каретка доезжает", async () => {
+    it("a target in the ACTIVE editor is not reopened, but the cursor gets there", async () => {
         const provide = vi.fn<() => Promise<string | null>>().mockResolvedValue(JDT_SOURCE);
         group().virtualDocumentSource = { canProvide: () => true, provide };
         useDefinitions(() => Promise.resolve([{ uri: JDT_TARGET, range: createRange(2, 13, 2, 24) }]));
@@ -151,7 +151,7 @@ describe("DefinitionService — цель на недисковом ресурс�
         expect(caret()).toMatchObject({ line: 2, character: 13 });
     });
 
-    it("активного редактора нет — прыжок не падает и ничего не открывает", async () => {
+    it("no active editor: the jump does not fail and opens nothing", async () => {
         group().virtualDocumentSource = {
             canProvide: () => true,
             provide: () => Promise.resolve(JDT_SOURCE),
@@ -167,7 +167,7 @@ describe("DefinitionService — цель на недисковом ресурс�
         expect(group().editorGroups.activeGroup.editorCount).toBe(0);
     });
 
-    it("Ctrl+K F12 в недисковую цель открывает её в соседней группе", async () => {
+    it("Ctrl+K F12 to a non-disk target opens it in the neighbor group", async () => {
         group().virtualDocumentSource = {
             canProvide: () => true,
             provide: () => Promise.resolve(JDT_SOURCE),

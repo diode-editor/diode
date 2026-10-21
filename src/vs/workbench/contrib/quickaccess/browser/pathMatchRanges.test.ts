@@ -6,28 +6,28 @@ import { splitPathMatchRanges, toMatchRanges } from "./pathMatchRanges.ts";
 const BASENAME_OFFSET = 4;
 
 describe("splitPathMatchRanges", () => {
-    it("совпадение целиком в имени файла уезжает в лейбл с локальным оффсетом", () => {
+    it("a match entirely in the file name goes to the label with a local offset", () => {
         expect(splitPathMatchRanges([4, 5, 6], BASENAME_OFFSET)).toEqual({
             labelRanges: [[0, 3]],
             descriptionRanges: [],
         });
     });
 
-    it("совпадение целиком в каталоге уезжает в описание как есть", () => {
+    it("a match entirely in the directory goes to the description as is", () => {
         expect(splitPathMatchRanges([0, 1, 2], BASENAME_OFFSET)).toEqual({
             labelRanges: [],
             descriptionRanges: [[0, 3]],
         });
     });
 
-    it("совпадение на границе разносится по обеим колонкам", () => {
+    it("a match across the boundary is split between both columns", () => {
         expect(splitPathMatchRanges([2, 3, 4], BASENAME_OFFSET)).toEqual({
             labelRanges: [[0, 1]],
             descriptionRanges: [[2, 4]],
         });
     });
 
-    it("разрывы дают отдельные диапазоны, а соседние индексы склеиваются", () => {
+    it("gaps yield separate ranges, adjacent indices are merged", () => {
         expect(splitPathMatchRanges([4, 5, 8], BASENAME_OFFSET)).toEqual({
             labelRanges: [
                 [0, 2],
@@ -37,24 +37,24 @@ describe("splitPathMatchRanges", () => {
         });
     });
 
-    it("нет совпадений — нет диапазонов", () => {
+    it("no matches — no ranges", () => {
         expect(splitPathMatchRanges([], BASENAME_OFFSET)).toEqual({ labelRanges: [], descriptionRanges: [] });
     });
 
-    it("описания нет (оффсет 0) — всё уходит в лейбл", () => {
+    it("no description (offset 0) — everything goes to the label", () => {
         expect(splitPathMatchRanges([0, 1], 0)).toEqual({ labelRanges: [[0, 2]], descriptionRanges: [] });
     });
 });
 
-describe("splitPathMatchRanges — запрос из нескольких термов", () => {
-    it("куски из разных половин остаются каждый в своей колонке", () => {
+describe("splitPathMatchRanges — multi-term query", () => {
+    it("parts from different halves each stay in their own column", () => {
         expect(splitPathMatchRanges([0, 1, 2, 4, 5, 6, 7, 8], 4)).toEqual({
             labelRanges: [[0, 5]],
             descriptionRanges: [[0, 3]],
         });
     });
 
-    it("два куска внутри лейбла — два диапазона, а не один сплошной", () => {
+    it("two parts inside the label are two ranges, not one solid range", () => {
         expect(splitPathMatchRanges([4, 5, 6, 10, 11], 4)).toEqual({
             labelRanges: [
                 [0, 3],
@@ -64,7 +64,7 @@ describe("splitPathMatchRanges — запрос из нескольких тер
         });
     });
 
-    it("два куска внутри описания — два диапазона", () => {
+    it("two parts inside the description are two ranges", () => {
         expect(splitPathMatchRanges([0, 1, 3], 4)).toEqual({
             labelRanges: [],
             descriptionRanges: [
@@ -74,7 +74,7 @@ describe("splitPathMatchRanges — запрос из нескольких тер
         });
     });
 
-    it("диапазон лейбла не продлевается хвостом описания на стыке", () => {
+    it("the label range is not extended by the description's head at the seam", () => {
         // Index 3 is the directory's last char, 4 the name's first: after
         // remapping they become positions 3 and 0 and must not merge.
         expect(splitPathMatchRanges([3, 4], 4)).toEqual({
@@ -85,26 +85,26 @@ describe("splitPathMatchRanges — запрос из нескольких тер
 });
 
 describe("toMatchRanges", () => {
-    it("пустой набор индексов — пустой список диапазонов", () => {
+    it("an empty index set yields an empty range list", () => {
         expect(toMatchRanges([])).toEqual([]);
     });
 
-    it("одиночный индекс — диапазон из одной позиции", () => {
+    it("a single index yields a one-position range", () => {
         expect(toMatchRanges([2])).toEqual([[2, 3]]);
     });
 
-    it("соседние индексы склеиваются в один диапазон", () => {
+    it("adjacent indices merge into one range", () => {
         expect(toMatchRanges([0, 1, 2])).toEqual([[0, 3]]);
     });
 
-    it("разрыв начинает новый диапазон", () => {
+    it("a gap starts a new range", () => {
         expect(toMatchRanges([0, 1, 5, 6])).toEqual([
             [0, 2],
             [5, 7],
         ]);
     });
 
-    it("диапазоны идут слева направо, в порядке индексов", () => {
+    it("ranges go left to right, in index order", () => {
         expect(toMatchRanges([1, 4, 9])).toEqual([
             [1, 2],
             [4, 5],

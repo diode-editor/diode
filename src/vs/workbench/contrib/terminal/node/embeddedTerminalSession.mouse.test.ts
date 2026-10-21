@@ -63,7 +63,7 @@ async function collectReports(cases: readonly MouseCase[]): Promise<string[]> {
 }
 
 describe("EmbeddedTerminalSession — sendMouse", () => {
-    it("разворачивает семантические button/action в отчёты xterm (SGR)", async () => {
+    it("maps semantic button/action to xterm reports (SGR)", async () => {
         // SGR: ESC [ < <button> ; <col+1> ; <row+1> M(press)|m(release).
         // Buttons: left=0 middle=1 right=2; +32 — motion; wheel: up=64 down=65 left=66 right=67.
         // "move" coordinates are unique: xterm drops motion events that don't change position.
@@ -85,7 +85,7 @@ describe("EmbeddedTerminalSession — sendMouse", () => {
         expect(await collectReports(cases)).toEqual(cases.map((c) => c.expected));
     }, 25000);
 
-    it("пробрасывает модификаторы ctrl/alt/shift в отчёт", async () => {
+    it("passes ctrl/alt/shift modifiers into the report", async () => {
         // SGR modifier bits: shift=4, alt(meta)=8, ctrl=16 → left(0)+4+8+16 = 28.
         const session = new EmbeddedTerminalSession({
             cols: COLS,
@@ -104,7 +104,7 @@ describe("EmbeddedTerminalSession — sendMouse", () => {
         session.dispose();
     }, 25000);
 
-    it("молча игнорирует мышь после выхода шелла", async () => {
+    it("silently ignores the mouse after the shell exits", async () => {
         const session = new EmbeddedTerminalSession({
             cols: 40,
             rows: 6,

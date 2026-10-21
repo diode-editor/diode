@@ -56,17 +56,17 @@ function query(filter: string): string {
     return OpenEditorsQuickAccessProvider.PREFIX + filter;
 }
 
-describe("OpenEditorsQuickAccessProvider — список и порядок", () => {
-    it("префикс — «edt » с пробелом, как у vscode", () => {
+describe("OpenEditorsQuickAccessProvider — list and order", () => {
+    it("the prefix is `edt ` with a space, as in vscode", () => {
         expect(OpenEditorsQuickAccessProvider.PREFIX).toBe("edt ");
     });
 
-    it("плейсхолдер — заголовок пикера открытых редакторов", () => {
+    it("the placeholder is the open editors picker title", () => {
         const { provider } = createProvider([]);
         expect(provider.getPlaceholder()).toBe("Show All Opened Editors");
     });
 
-    it("пустой запрос отдаёт все вкладки в MRU-порядке источника", () => {
+    it("an empty query returns all tabs in the source's MRU order", () => {
         const { provider } = createProvider([
             makePane(`${ROOT}/src/index.ts`),
             makePane(`${ROOT}/readme.md`),
@@ -78,25 +78,25 @@ describe("OpenEditorsQuickAccessProvider — список и порядок", ()
         expect(items.map((item) => item.label)).toEqual(["index.ts", "readme.md", "core.ts"]);
     });
 
-    it("описание — путь относительно корня воркспейса; у файла в корне пусто", () => {
+    it("the description is the path relative to the workspace root; empty for a file at the root", () => {
         const { provider } = createProvider([makePane(`${ROOT}/src/vs/editor/core.ts`), makePane(`${ROOT}/readme.md`)]);
 
         expect(provider.getItems(query("")).map((item) => item.description)).toEqual(["src/vs/editor", ""]);
     });
 
-    it("файл вне корня показан абсолютным путём, а не цепочкой «..»", () => {
+    it("a file outside the root is shown with an absolute path, not a chain of `..`", () => {
         const { provider } = createProvider([makePane("/etc/hosts")]);
 
         expect(provider.getItems(query(""))[0].description).toBe("/etc");
     });
 
-    it("без корня воркспейса описание — абсолютный путь", () => {
+    it("without a workspace root the description is the absolute path", () => {
         const { provider } = createProvider([makePane(`${ROOT}/src/index.ts`)], null);
 
         expect(provider.getItems(query(""))[0].description).toBe("/repo/src");
     });
 
-    it("у безымянного буфера описания нет (пути на диске тоже)", () => {
+    it("an untitled buffer has no description (and no path on disk)", () => {
         const { provider } = createProvider([makeUntitledPane("Untitled-1")]);
 
         const [item] = provider.getItems(query(""));
@@ -104,7 +104,7 @@ describe("OpenEditorsQuickAccessProvider — список и порядок", ()
         expect(item.description).toBe("");
     });
 
-    it("нет открытых вкладок — одна информационная строка, принимать нечего", () => {
+    it("no open tabs — a single info row, nothing to accept", () => {
         const { provider } = createProvider([]);
 
         const items = provider.getItems(query(""));
@@ -114,7 +114,7 @@ describe("OpenEditorsQuickAccessProvider — список и порядок", ()
         expect(items[0].accept).toBeUndefined();
     });
 
-    it("у каждой строки иконка своего типа файла — список читается как таб-строка", () => {
+    it("each row has its file type's icon — the list reads like the tab bar", () => {
         const { provider } = createProvider([makePane(`${ROOT}/src/index.ts`), makePane(`${ROOT}/readme.md`)]);
 
         expect(provider.getItems(query("")).map((item) => item.icon)).toEqual([
@@ -124,7 +124,7 @@ describe("OpenEditorsQuickAccessProvider — список и порядок", ()
     });
 });
 
-describe("OpenEditorsQuickAccessProvider — фильтрация", () => {
+describe("OpenEditorsQuickAccessProvider — filtering", () => {
     function threeFiles(): Harness {
         return createProvider([
             makePane(`${ROOT}/src/index.ts`),
@@ -133,19 +133,19 @@ describe("OpenEditorsQuickAccessProvider — фильтрация", () => {
         ]);
     }
 
-    it("fuzzy по имени файла оставляет только совпавшие", () => {
+    it("fuzzy on the file name keeps only the matches", () => {
         const { provider } = threeFiles();
 
         expect(provider.getItems(query("cor")).map((item) => item.label)).toEqual(["core.ts"]);
     });
 
-    it("fuzzy по каталогу находит вкладку, имя которой запросу не подходит", () => {
+    it("fuzzy on the directory finds a tab whose name does not match the query", () => {
         const { provider } = threeFiles();
 
         expect(provider.getItems(query("editor")).map((item) => item.label)).toEqual(["core.ts"]);
     });
 
-    it("совпадение в имени бьёт совпадение только в пути", () => {
+    it("a match in the name beats a match only in the path", () => {
         const { provider } = createProvider([
             // `src` is in both paths, but only the second matches by name.
             makePane(`${ROOT}/src/index.ts`),
@@ -155,13 +155,13 @@ describe("OpenEditorsQuickAccessProvider — фильтрация", () => {
         expect(provider.getItems(query("sr")).map((item) => item.label)).toEqual(["srv.ts", "index.ts"]);
     });
 
-    it("ничего не совпало — пустой список", () => {
+    it("nothing matched — an empty list", () => {
         const { provider } = threeFiles();
 
         expect(provider.getItems(query("zzz"))).toEqual([]);
     });
 
-    it("совпавшие буквы имени подсвечены в лейбле, а не в описании", () => {
+    it("matched name letters are highlighted in the label, not in the description", () => {
         const { provider } = threeFiles();
 
         const [item] = provider.getItems(query("cor"));
@@ -169,7 +169,7 @@ describe("OpenEditorsQuickAccessProvider — фильтрация", () => {
         expect(item.descriptionMatchRanges).toEqual([]);
     });
 
-    it("совпадение в каталоге подсвечено в описании локальными оффсетами", () => {
+    it("a directory match is highlighted in the description with local offsets", () => {
         const { provider } = threeFiles();
 
         const [item] = provider.getItems(query("editor"));
@@ -178,7 +178,7 @@ describe("OpenEditorsQuickAccessProvider — фильтрация", () => {
         expect(item.labelMatchRanges).toEqual([]);
     });
 
-    it("у файла в корне пути нет — запрос со слэшем его не находит", () => {
+    it("a file at the root has no path — a query with a slash does not find it", () => {
         const { provider } = threeFiles();
 
         // readme.md is at the root: its search text has neither a directory nor a slash,
@@ -186,7 +186,7 @@ describe("OpenEditorsQuickAccessProvider — фильтрация", () => {
         expect(provider.getItems(query("/")).map((item) => item.label)).toEqual(["index.ts", "core.ts"]);
     });
 
-    it("лишние пробелы вокруг запроса не попадают в fuzzy", () => {
+    it("extra spaces around the query do not reach fuzzy", () => {
         const { provider } = threeFiles();
 
         expect(provider.getItems(`${OpenEditorsQuickAccessProvider.PREFIX}  cor  `).map((i) => i.label)).toEqual([
@@ -195,8 +195,8 @@ describe("OpenEditorsQuickAccessProvider — фильтрация", () => {
     });
 });
 
-describe("OpenEditorsQuickAccessProvider — запрос из нескольких термов", () => {
-    it("`edt ` остаётся рабочим префиксом: он срезается ДО разбора по пробелам", () => {
+describe("OpenEditorsQuickAccessProvider — multi-term query", () => {
+    it("`edt ` stays a working prefix: it is stripped BEFORE splitting on spaces", () => {
         // Parsing the whole query would leave `edt` as a separate term that
         // no tab matches.
         const { provider } = createProvider([makePane(`${ROOT}/src/index.ts`)]);
@@ -204,7 +204,7 @@ describe("OpenEditorsQuickAccessProvider — запрос из нескольк�
         expect(provider.getItems(query("")).map((item) => item.label)).toEqual(["index.ts"]);
     });
 
-    it("термы матчатся по каталогу и по имени разом", () => {
+    it("terms match on the directory and the name at once", () => {
         const { provider } = createProvider([
             makePane(`${ROOT}/src/editor/core.ts`),
             makePane(`${ROOT}/lib/editor/core.ts`),
@@ -214,13 +214,13 @@ describe("OpenEditorsQuickAccessProvider — запрос из нескольк�
         expect(provider.getItems(query("src core")).map((item) => item.label)).toEqual(["core.ts"]);
     });
 
-    it("найтись обязаны все термы", () => {
+    it("all terms must be found", () => {
         const { provider } = createProvider([makePane(`${ROOT}/src/core.ts`)]);
 
         expect(provider.getItems(query("src zebra"))).toEqual([]);
     });
 
-    it("несколько пробелов подряд и хвостовой пробел не меняют выдачу", () => {
+    it("repeated spaces and a trailing space do not change the results", () => {
         const { provider } = createProvider([makePane(`${ROOT}/src/core.ts`), makePane(`${ROOT}/lib/main.ts`)]);
 
         for (const filter of ["src core", "src  core", "src core "]) {
@@ -231,7 +231,7 @@ describe("OpenEditorsQuickAccessProvider — запрос из нескольк�
         }
     });
 
-    it("подсветка разносится по обеим половинам строки, кусок на терм", () => {
+    it("highlights are split between both halves of the row, one part per term", () => {
         const { provider } = createProvider([makePane(`${ROOT}/src/core.ts`)]);
 
         const [item] = provider.getItems(query("src core"));
@@ -241,14 +241,14 @@ describe("OpenEditorsQuickAccessProvider — запрос из нескольк�
     });
 });
 
-describe("OpenEditorsQuickAccessProvider — строка и принятие", () => {
-    it("несохранённая вкладка помечена точкой, сохранённая — нет", () => {
+describe("OpenEditorsQuickAccessProvider — row and accept", () => {
+    it("a dirty tab is marked with a dot, a saved one is not", () => {
         const { provider } = createProvider([makePane(`${ROOT}/a.ts`, { modified: true }), makePane(`${ROOT}/b.ts`)]);
 
         expect(provider.getItems(query("")).map((item) => item.hint)).toEqual(["●", undefined]);
     });
 
-    it("принятие строки показывает её вкладку", () => {
+    it("accepting a row shows its tab", () => {
         const panes = [makePane(`${ROOT}/a.ts`), makePane(`${ROOT}/b.ts`)];
         const { provider, revealed } = createProvider(panes);
 

@@ -104,7 +104,7 @@ describe("FileTreeDataProvider", () => {
             expect(children.map((c) => c.name)).toEqual(["a.ts", "m.ts", "z.ts"]);
         });
 
-        it("скрывает входы по шаблонам files.exclude", async () => {
+        it("hides entries by files.exclude patterns", async () => {
             fs.mkdirSync(ws.path("__pycache__"));
             ws.writeFile(".DS_Store", "");
             ws.writeFile("index.ts", "");
@@ -114,14 +114,14 @@ describe("FileTreeDataProvider", () => {
             expect(children.map((c) => c.name)).toEqual(["index.ts"]);
         });
 
-        it("без шаблонов не скрывает ничего — захардкоженного списка больше нет", async () => {
+        it("without patterns hides nothing — no hardcoded list anymore", async () => {
             fs.mkdirSync(ws.path("node_modules"));
             ws.writeFile("index.ts", "");
 
             expect((await provider.getChildren()).map((c) => c.name)).toEqual(["node_modules", "index.ts"]);
         });
 
-        it("шаблон матчится против пути ОТНОСИТЕЛЬНО корня дерева", async () => {
+        it("a pattern matches against the path RELATIVE to the tree root", async () => {
             // `**/x` cuts an entry at any depth, `x` only at the root: otherwise
             // the pattern would either miss nested directories or cut
             // same-named ones anywhere.
@@ -138,7 +138,7 @@ describe("FileTreeDataProvider", () => {
             expect(await provider.getChildren(pkg)).toEqual([]);
         });
 
-        it("набор читается на каждое обращение — настройка применяется без рестарта", async () => {
+        it("the set is read on every access — the setting applies without a restart", async () => {
             fs.mkdirSync(ws.path("__pycache__"));
             excludes = ["**/__pycache__"];
             expect(await provider.getChildren()).toEqual([]);
@@ -332,7 +332,7 @@ describe("FileTreeDataProvider", () => {
     });
 
     describe("file watching", () => {
-        it("следит за раскрытым каталогом без рекурсии и без собственных excludes", () => {
+        it("watches an expanded directory non-recursively and without its own excludes", () => {
             provider.watchDirectory(ws.dir);
             provider.watchDirectory(ws.dir); // again — the same subscription
             expect(watcher.watches).toHaveLength(1);
@@ -340,7 +340,7 @@ describe("FileTreeDataProvider", () => {
             expect(watcher.watches[0].options).toEqual({ recursive: false, excludes: [] });
         });
 
-        it("событие в каталоге — onChange с узлом каталога после дебаунса; пачка — одно уведомление", () => {
+        it("an event in a directory — onChange with the directory node after debounce; a batch is one notification", () => {
             vi.useFakeTimers();
             const callback = vi.fn();
             provider.onChange = callback;
@@ -360,7 +360,7 @@ describe("FileTreeDataProvider", () => {
             });
         });
 
-        it("правка только скрытых настройкой файлов дерево не трогает", () => {
+        it("changes to files hidden by the setting only do not touch the tree", () => {
             vi.useFakeTimers();
             const callback = vi.fn();
             provider.onChange = callback;
@@ -377,7 +377,7 @@ describe("FileTreeDataProvider", () => {
             expect(callback).toHaveBeenCalledOnce();
         });
 
-        it("unwatch снимает подписку и гасит ждущее уведомление; чужой каталог — no-op", () => {
+        it("unwatch removes the subscription and cancels the pending notification; another directory is a no-op", () => {
             vi.useFakeTimers();
             const callback = vi.fn();
             provider.onChange = callback;
@@ -396,7 +396,7 @@ describe("FileTreeDataProvider", () => {
             expect(watcher.watches).toHaveLength(2);
         });
 
-        it("dispose снимает подписки и гасит ждущие уведомления", () => {
+        it("dispose removes subscriptions and cancels pending notifications", () => {
             vi.useFakeTimers();
             const callback = vi.fn();
             provider.onChange = callback;

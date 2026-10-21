@@ -153,14 +153,14 @@ async function settle(): Promise<void> {
 }
 
 describe("QuickDiffService", () => {
-    it("без правок баров нет", async () => {
+    it("no edits, no bars", async () => {
         const { ed } = setup({ text: "a\nb\nc", original: "a\nb\nc" });
         await settle();
 
         expect(ed.last).toEqual([]);
     });
 
-    it("правка буфера БЕЗ сохранения даёт бар — это и есть починенный дефект", async () => {
+    it("editing the buffer WITHOUT saving gives a bar: this is the fixed defect", async () => {
         const { ed } = setup({ text: "a\nb\nc", original: "a\nb\nc" });
         await settle();
 
@@ -176,7 +176,7 @@ describe("QuickDiffService", () => {
         ]);
     });
 
-    it("вставленная строка красится цветом added", async () => {
+    it("an inserted line is painted with the added color", async () => {
         const { ed } = setup({ text: "a\nc", original: "a\nc" });
         await settle();
 
@@ -188,7 +188,7 @@ describe("QuickDiffService", () => {
         ]);
     });
 
-    it("серия правок схлопывается в один пересчёт (debounce)", async () => {
+    it("a series of edits collapses into one recompute (debounce)", async () => {
         const { ed } = setup({ config: { "git.refreshDebounce": 20 } });
         await settle();
         const before = ed.pushed.length;
@@ -201,14 +201,14 @@ describe("QuickDiffService", () => {
         expect(ed.pushed.length).toBe(before + 1);
     });
 
-    it("нет оригинала (untracked) — баров нет и ничего не падает", async () => {
+    it("no original (untracked): no bars and nothing breaks", async () => {
         const { ed } = setup({ original: null });
         await settle();
 
         expect(ed.last).toEqual([]);
     });
 
-    it("провайдера схемы нет (расширение не поднялось) — баров нет", async () => {
+    it("no provider for the scheme (the extension did not start): no bars", async () => {
         const ed = fakeEditor(FILE, "a\nX\nc");
         const src = fakeSource(ed.editor);
         const cfg = fakeConfig({ "git.refreshDebounce": 0 });
@@ -221,13 +221,13 @@ describe("QuickDiffService", () => {
         expect(ed.last).toEqual([]);
     });
 
-    it("ошибка чтения оригинала не роняет сервис", async () => {
+    it("an error reading the original does not crash the service", async () => {
         const ed = fakeEditor(FILE, "a");
         const src = fakeSource(ed.editor);
         const registry = new FileService();
         registry.registerProvider("git", {
             capabilities: FileSystemProviderCapabilities.Readonly,
-            readFile: () => Promise.reject(new Error("git недоступен")),
+            readFile: () => Promise.reject(new Error("git unavailable")),
             onDidChangeFile: Event.None,
         });
         const cfg = fakeConfig({ "git.refreshDebounce": 0 });
@@ -240,7 +240,7 @@ describe("QuickDiffService", () => {
         expect(ed.last).toEqual([]);
     });
 
-    it("сдвиг HEAD инвалидирует кэш и пересчитывает", async () => {
+    it("a HEAD move invalidates the cache and recomputes", async () => {
         const { ed, prov } = setup({ text: "a\nb\nc", original: "a\nb\nc" });
         await settle();
         expect(ed.last).toEqual([]);
@@ -251,7 +251,7 @@ describe("QuickDiffService", () => {
         expect(ed.last).toHaveLength(1);
     });
 
-    it("смена темы перекрашивает существующие бары", async () => {
+    it("a theme change recolors existing bars", async () => {
         const { ed, theme } = setup({ text: "a\nX\nc", original: "a\nb\nc" });
         await settle();
         expect(ed.last?.[0].color).toBe(MODIFIED);
@@ -266,7 +266,7 @@ describe("QuickDiffService", () => {
         expect(ed.last?.[0].color).toBe(0x123456);
     });
 
-    it("git.gutter.enabled=false снимает бары", async () => {
+    it("git.gutter.enabled=false removes the bars", async () => {
         const { ed, cfg } = setup({ text: "a\nX\nc", original: "a\nb\nc" });
         await settle();
         expect(ed.last).toHaveLength(1);
@@ -277,7 +277,7 @@ describe("QuickDiffService", () => {
         expect(ed.last).toEqual([]);
     });
 
-    it("git.enabled=false тоже снимает бары", async () => {
+    it("git.enabled=false removes the bars too", async () => {
         const { ed, cfg } = setup({ text: "a\nX\nc", original: "a\nb\nc" });
         await settle();
 
@@ -287,7 +287,7 @@ describe("QuickDiffService", () => {
         expect(ed.last).toEqual([]);
     });
 
-    it("настройка вне секции git пересчёт не триггерит", async () => {
+    it("a setting outside the git section does not trigger a recompute", async () => {
         const { ed, cfg } = setup();
         await settle();
         const before = ed.pushed.length;
@@ -298,7 +298,7 @@ describe("QuickDiffService", () => {
         expect(ed.pushed.length).toBe(before);
     });
 
-    it("смена активного редактора пересчитывает бары для нового", async () => {
+    it("an active editor change recomputes bars for the new one", async () => {
         const { src } = setup();
         await settle();
 
@@ -309,7 +309,7 @@ describe("QuickDiffService", () => {
         expect(other.last).toHaveLength(1);
     });
 
-    it("без активного редактора ничего не делает", async () => {
+    it("does nothing without an active editor", async () => {
         const src = fakeSource(null);
         const cfg = fakeConfig({ "git.refreshDebounce": 0 });
         const theme = fakeTheme({});
@@ -321,7 +321,7 @@ describe("QuickDiffService", () => {
         await settle();
     });
 
-    it("устаревший асинхронный ответ не применяется поверх свежего", async () => {
+    it("a stale async response is not applied over a fresh one", async () => {
         // The original resolves with a delay; the editor changes meanwhile.
         const ed = fakeEditor(FILE, "a\nX\nc");
         const src = fakeSource(ed.editor);
@@ -346,7 +346,7 @@ describe("QuickDiffService", () => {
         expect(ed.pushed).toEqual([]);
     });
 
-    it("расширение активировалось ПОЗЖЕ открытия файла — бары появляются без правки", async () => {
+    it("the extension activated AFTER the file was opened: bars appear without an edit", async () => {
         // Regression from a live run: the git extension starts after the first recompute,
         // and a cached "no provider" kept bars away until the first edit.
         const ed = fakeEditor(FILE, "a\nX\nc");
@@ -366,7 +366,7 @@ describe("QuickDiffService", () => {
         expect(ed.last).toHaveLength(1);
     });
 
-    it("отсутствие оригинала не кэшируется — иначе не пережить позднюю активацию", async () => {
+    it("a missing original is not cached, otherwise late activation cannot be survived", async () => {
         const ed = fakeEditor(FILE, "a\nX\nc");
         const src = fakeSource(ed.editor);
         const registry = new FileService();
@@ -389,7 +389,7 @@ describe("QuickDiffService", () => {
 
         expect(ed.last).toHaveLength(1);
     });
-    it("прочитанный оригинал кэшируется — правка его не перечитывает", async () => {
+    it("a read original is cached: an edit does not reread it", async () => {
         const ed = fakeEditor(FILE, "a\nb\nc");
         const src = fakeSource(ed.editor);
         const registry = new FileService();
@@ -413,7 +413,7 @@ describe("QuickDiffService", () => {
         expect(asked).toBe(1);
     });
 
-    it("dispose снимает подписки и таймер", async () => {
+    it("dispose removes subscriptions and the timer", async () => {
         const { ed, service } = setup({ config: { "git.refreshDebounce": 50 } });
         await settle();
         const before = ed.pushed.length;
@@ -425,7 +425,7 @@ describe("QuickDiffService", () => {
         expect(ed.pushed.length).toBe(before);
     });
 
-    it("невалидный debounce откатывается на дефолт", async () => {
+    it("an invalid debounce falls back to the default", async () => {
         const { ed } = setup({ text: "a\nX\nc", original: "a\nb\nc", config: { "git.refreshDebounce": -5 } });
         await settle();
 
@@ -439,7 +439,7 @@ describe("QuickDiffService", () => {
         expect(ed.pushed.length).toBe(before + 1);
     });
 
-    it("огромный debounce ограничивается сверху", async () => {
+    it("a huge debounce is capped", async () => {
         const { ed } = setup({ config: { "git.refreshDebounce": 10_000_000 } });
         await settle();
         const before = ed.pushed.length;
@@ -451,7 +451,7 @@ describe("QuickDiffService", () => {
         expect(ed.pushed.length).toBe(before);
     });
 
-    it("цвет, которого нет в теме, не роняет расчёт", async () => {
+    it("a color missing from the theme does not break the computation", async () => {
         const ed = fakeEditor(FILE, "a\nX\nc");
         const src = fakeSource(ed.editor);
         const registry = new FileService();

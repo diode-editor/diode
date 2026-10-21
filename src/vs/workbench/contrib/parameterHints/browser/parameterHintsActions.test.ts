@@ -42,21 +42,21 @@ function keybindingOf(action: CommandAction): string | undefined {
     return bound == null ? undefined : formatKeybinding(bound);
 }
 
-describe("parameterHintsActions — объявления", () => {
-    it("id команд совпадают с VS Code", () => {
+describe("parameterHintsActions — declarations", () => {
+    it("command ids match VS Code", () => {
         expect(triggerParameterHintsAction.id).toBe("editor.action.triggerParameterHints");
         expect(showNextParameterHintAction.id).toBe("showNextParameterHint");
         expect(showPrevParameterHintAction.id).toBe("showPrevParameterHint");
         expect(closeParameterHintsAction.id).toBe("closeParameterHints");
     });
 
-    it("ручной вызов: аккорд основной, Ctrl+Shift+Space — вторым биндом", () => {
+    it("manual trigger: the chord is primary, Ctrl+Shift+Space is the secondary keybinding", () => {
         expect(keybindingOf(triggerParameterHintsAction)).toBe("Ctrl+K Ctrl+Space");
         expect(triggerParameterHintsAction.keybindings).toHaveLength(1);
         expect(triggerParameterHintsAction.when).toBe("textInputFocus");
     });
 
-    it("стрелки перехватываются только при показанном попапе и нескольких сигнатурах", () => {
+    it("arrows are captured only while the popup is shown with several signatures", () => {
         expect(keybindingOf(showNextParameterHintAction)).toBe("Down");
         expect(keybindingOf(showPrevParameterHintAction)).toBe("Up");
         expect(showNextParameterHintAction.keybindings).toHaveLength(1);
@@ -68,14 +68,14 @@ describe("parameterHintsActions — объявления", () => {
         }
     });
 
-    it("Escape закрывает попап и не трогает редактор, пока попапа нет", () => {
+    it("Escape closes the popup and leaves the editor alone while there is no popup", () => {
         expect(keybindingOf(closeParameterHintsAction)).toBe("Escape");
         expect(closeParameterHintsAction.when).toBe("parameterHintsVisible && !suggestWidgetVisible");
     });
 });
 
-describe("parameterHintsActions — делегирование", () => {
-    it("каждый экшен дёргает свой метод сервиса", () => {
+describe("parameterHintsActions — delegation", () => {
+    it("each action calls its own service method", () => {
         const h = makeAccessor();
 
         triggerParameterHintsAction.run(h.accessor);

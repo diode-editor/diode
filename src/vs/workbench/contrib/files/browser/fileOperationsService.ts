@@ -100,8 +100,8 @@ export class FileOperationsService {
         const chord = this.keybindings.getKeybindingForCommand("fileOperations.undo", this.contextKeys, {
             listFocus: true,
         });
-        if (chord === undefined) return "Можно восстановить из корзины.";
-        return `Можно восстановить (${formatKeybinding(chord, keybindingLabelStyle(this.contextKeys))} или из корзины).`;
+        if (chord === undefined) return "You can restore this file from the Trash.";
+        return `You can restore this file using the Undo command (${formatKeybinding(chord, keybindingLabelStyle(this.contextKeys))}) or from the Trash.`;
     }
 
     public copySelected(): void {
@@ -148,15 +148,15 @@ export class FileOperationsService {
             willTrash
                 ? {
                       title: "Delete",
-                      message: [`«${name}» будет перемещён в корзину.`, this.undoHint()],
+                      message: [`Are you sure you want to delete '${name}'?`, this.undoHint()],
                       confirmLabel: "Move to Trash",
                       defaultButton: "confirm",
                   }
                 : {
                       title: "Delete",
                       message: [
-                          "⚠ Системная корзина не найдена.",
-                          `«${name}» будет удалён безвозвратно — отменить нельзя.`,
+                          "⚠ The system Trash is not available.",
+                          `Are you sure you want to permanently delete '${name}'? This action is irreversible!`,
                       ],
                       confirmLabel: "Delete Permanently",
                       warning: true,

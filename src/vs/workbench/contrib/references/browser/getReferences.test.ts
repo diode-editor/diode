@@ -19,8 +19,8 @@ const REQUEST: IReferenceRequest = {
 };
 const ref = (line: number) => ({ uri: "file:///w/use.ts", range: createRange(line, 0, line, 1) });
 
-describe("getReferences — агрегация по реестру", () => {
-    it("склеивает ответы в порядке реестра; сбойный провайдер — «ссылок нет»", async () => {
+describe("getReferences — aggregation over the registry", () => {
+    it("concatenates responses in registry order; a failing provider means 'no references'", async () => {
         const registry = new LanguageFeaturesService().referenceProvider;
         registry.register("*", { provideReferences: () => Promise.resolve([ref(2)]) });
         registry.register("*", { provideReferences: () => Promise.reject(new Error("boom")) });
@@ -32,7 +32,7 @@ describe("getReferences — агрегация по реестру", () => {
         ]);
     });
 
-    it("каждый провайдер получает токен запроса", async () => {
+    it("each provider gets the request token", async () => {
         const registry = new LanguageFeaturesService().referenceProvider;
         const seen: ICancellationToken[] = [];
         const provider = {

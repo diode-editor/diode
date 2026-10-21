@@ -53,7 +53,7 @@ function collection(persistent: boolean, value = "1"): IEnvironmentVariableColle
 }
 
 describe("EnvironmentVariableService", () => {
-    it("ключ и область состояния — эталонные", () => {
+    it("state key and scope match upstream", () => {
         expect(ENVIRONMENT_VARIABLE_COLLECTIONS_STATE).toEqual({
             key: "terminal.integrated.environmentVariableCollectionsV2",
             scope: "workspace",
@@ -61,7 +61,7 @@ describe("EnvironmentVariableService", () => {
         });
     });
 
-    it("set: коллекция в слиянии, persistent — в состоянии (с описаниями), остальные — нет", () => {
+    it("set: the collection is in the merge, persistent ones are in state (with descriptions), others aren't", () => {
         const state = memoryState();
         const service = new EnvironmentVariableService(state.service);
         service.set("keep.ext", collection(true));
@@ -79,14 +79,14 @@ describe("EnvironmentVariableService", () => {
         ]);
     });
 
-    it("коллекция без описаний — в состоянии пустой список описаний", () => {
+    it("a collection without descriptions has an empty description list in state", () => {
         const state = memoryState();
         const service = new EnvironmentVariableService(state.service);
         service.set("a.b", { persistent: true, map: new Map([["P", mutator]]) });
         expect(state.stored()).toEqual([{ extensionIdentifier: "a.b", collection: [["P", mutator]], description: [] }]);
     });
 
-    it("delete убирает коллекцию из слияния и состояния", () => {
+    it("delete removes the collection from the merge and state", () => {
         const state = memoryState();
         const service = new EnvironmentVariableService(state.service);
         service.set("a.b", collection(true));
@@ -98,7 +98,7 @@ describe("EnvironmentVariableService", () => {
         expect(service.collections.size).toBe(0);
     });
 
-    it("на старте читает сохранённые коллекции (persistent), чужие записи пропускает", () => {
+    it("reads stored (persistent) collections at startup, skips foreign entries", () => {
         const state = memoryState({
             [ENVIRONMENT_VARIABLE_COLLECTIONS_STATE.key]: [
                 { extensionIdentifier: "a.b", collection: [["P", mutator]], description: [["", { description: "d" }]] },
@@ -117,14 +117,14 @@ describe("EnvironmentVariableService", () => {
         expect(env.P).toBe("1");
     });
 
-    it("состояние не списком — пусто", () => {
+    it("state that isn't a list — empty", () => {
         const service = new EnvironmentVariableService(
             memoryState({ [ENVIRONMENT_VARIABLE_COLLECTIONS_STATE.key]: { broken: true } }).service,
         );
         expect(service.collections.size).toBe(0);
     });
 
-    it("смена воркспейса — коллекции перечитываются из его стора", () => {
+    it("workspace change — collections are reread from its storage", () => {
         const state = memoryState();
         const service = new EnvironmentVariableService(state.service);
         service.set("a.b", collection(true));
@@ -137,7 +137,7 @@ describe("EnvironmentVariableService", () => {
         expect([...service.collections.keys()]).toEqual(["a.b"]);
     });
 
-    it("состав установленных: коллекции удалённых забываются и в памяти, и в состоянии", () => {
+    it("installed set: collections of removed extensions are forgotten both in memory and in state", () => {
         const state = memoryState();
         const service = new EnvironmentVariableService(state.service);
         service.set("kept.ext", collection(true));
@@ -152,14 +152,14 @@ describe("EnvironmentVariableService", () => {
         expect(env.P).toBe("1");
     });
 
-    it("все установлены — состояние не переписывается", () => {
+    it("all installed — state isn't rewritten", () => {
         const state = memoryState({ [ENVIRONMENT_VARIABLE_COLLECTIONS_STATE.key]: "untouched" });
         const service = new EnvironmentVariableService(state.service);
         service.setInstalledExtensions(() => true);
         expect(state.stored()).toBe("untouched");
     });
 
-    it("после состава установленных чтение другого воркспейса отбрасывает удалённые и переписывает состояние", () => {
+    it("after the installed set, reading another workspace drops removed ones and rewrites state", () => {
         const state = memoryState();
         const service = new EnvironmentVariableService(state.service);
         service.setInstalledExtensions((id) => id === "kept.ext");
@@ -182,14 +182,14 @@ describe("EnvironmentVariableService", () => {
         ]);
     });
 
-    it("чтение без удалённых состояние не переписывает", () => {
+    it("reading without removed ones doesn't rewrite state", () => {
         const raw = [{ extensionIdentifier: "a.b", collection: [["P", mutator]] }];
         const state = memoryState({ [ENVIRONMENT_VARIABLE_COLLECTIONS_STATE.key]: raw });
         new EnvironmentVariableService(state.service);
         expect(state.stored()).toBe(raw);
     });
 
-    it("dispose снимает подписку на смену воркспейса", () => {
+    it("dispose unsubscribes from workspace changes", () => {
         const state = memoryState();
         const service = new EnvironmentVariableService(state.service);
         service.set("a.b", collection(true));

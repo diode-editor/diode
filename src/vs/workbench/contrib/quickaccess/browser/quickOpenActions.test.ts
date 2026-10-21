@@ -23,42 +23,42 @@ function makeAccessor(): { accessor: ServiceAccessor; shown: string[] } {
     return { accessor, shown };
 }
 
-describe("quick open actions — аргумент-префилл", () => {
-    it("quickOpen без аргумента открывается пустым", () => {
+describe("quick open actions — prefill argument", () => {
+    it("quickOpen without an argument opens empty", () => {
         const { accessor, shown } = makeAccessor();
         quickOpenAction.run(accessor);
         expect(shown).toEqual([""]);
     });
 
-    it("quickOpen: строковый аргумент — запрос целиком (работают и префиксы «>», «:»)", () => {
+    it("quickOpen: a string argument is the whole query (the `>` and `:` prefixes work too)", () => {
         const { accessor, shown } = makeAccessor();
         quickOpenAction.run(accessor, "src/main");
         quickOpenAction.run(accessor, ">git");
         expect(shown).toEqual(["src/main", ">git"]);
     });
 
-    it("не-строковый аргумент игнорируется (как в VS Code)", () => {
+    it("a non-string argument is ignored (as in VS Code)", () => {
         const { accessor, shown } = makeAccessor();
         quickOpenAction.run(accessor, { text: "src/" });
         quickOpenAction.run(accessor, 42);
         expect(shown).toEqual(["", ""]);
     });
 
-    it("gotoLine: аргумент дописывается после префикса «:»", () => {
+    it("gotoLine: the argument is appended after the `:` prefix", () => {
         const { accessor, shown } = makeAccessor();
         gotoLineAction.run(accessor);
         gotoLineAction.run(accessor, "12:3");
         expect(shown).toEqual([":", ":12:3"]);
     });
 
-    it("showCommands: аргумент дописывается после префикса «>»", () => {
+    it("showCommands: the argument is appended after the `>` prefix", () => {
         const { accessor, shown } = makeAccessor();
         showCommandsAction.run(accessor);
         showCommandsAction.run(accessor, "git");
         expect(shown).toEqual([">", ">git"]);
     });
 
-    it("showAllEditors: аргумент дописывается после префикса «edt »", () => {
+    it("showAllEditors: the argument is appended after the `edt ` prefix", () => {
         const { accessor, shown } = makeAccessor();
         showAllEditorsAction.run(accessor);
         showAllEditorsAction.run(accessor, "index");
@@ -66,13 +66,13 @@ describe("quick open actions — аргумент-префилл", () => {
     });
 });
 
-describe("quick open actions — кейбинды палитры и пикера редакторов", () => {
-    it("Ctrl+K Ctrl+P открывает пикер открытых редакторов (как в VS Code), без tier-условия", () => {
+describe("quick open actions — keybindings of the palette and the editors picker", () => {
+    it("Ctrl+K Ctrl+P opens the open editors picker (as in VS Code), with no tier condition", () => {
         expect(showAllEditorsAction.keybinding).toEqual(parseChord("ctrl+k ctrl+p"));
         expect(showAllEditorsAction.keybindings).toBeUndefined();
     });
 
-    it("палитре достался F1 (аккорд Ctrl+K Ctrl+P занят пикером), и он БЕЗУСЛОВЕН", () => {
+    it("the palette gets F1 (the Ctrl+K Ctrl+P chord belongs to the picker), and it is UNCONDITIONAL", () => {
         expect(showCommandsAction.keybinding).toEqual(parseKeybinding("mod+shift+p"));
         // No tier condition on purpose: under `tier == 'legacy'` F1 vanished exactly where
         // it's needed (tmux raises the tier but doesn't deliver extended keys) —

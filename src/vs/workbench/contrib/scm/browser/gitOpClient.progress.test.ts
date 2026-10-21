@@ -36,7 +36,7 @@ function makeAccessor(hasCommand = true): {
     };
 }
 
-describe("прогресс git-операций", () => {
+describe("git operation progress", () => {
     beforeEach(() => {
         vi.useFakeTimers();
     });
@@ -45,7 +45,7 @@ describe("прогресс git-операций", () => {
         vi.useRealTimers();
     });
 
-    it("операция диспетчера держит занятой свою секцию", async () => {
+    it("a dispatcher operation keeps its own section busy", async () => {
         const h = makeAccessor();
         const running = runGitOp(h.accessor, "commit");
 
@@ -57,7 +57,7 @@ describe("прогресс git-операций", () => {
         expect(h.progress.isBusy()).toBe(false);
     });
 
-    it("сетевая операция видна ещё и в статус-баре, обычная — только в секции", async () => {
+    it("a network operation also shows in the status bar, an ordinary one only in the section", async () => {
         const network = makeAccessor();
         const pulling = runGitOp(network.accessor, "pull");
         vi.advanceTimersByTime(300);
@@ -75,7 +75,7 @@ describe("прогресс git-операций", () => {
         await committing;
     });
 
-    it("догрузка истории адресована секции GRAPH", async () => {
+    it("loading more history is addressed to the GRAPH section", async () => {
         const h = makeAccessor();
         const running = runGitOp(h.accessor, "logLoadMore");
 
@@ -86,7 +86,7 @@ describe("прогресс git-операций", () => {
         await running;
     });
 
-    it("стейджинг идёт своим транспортом и тоже даёт прогресс", async () => {
+    it("staging goes through its own transport and also reports progress", async () => {
         const h = makeAccessor();
         const running = runGitTransport(h.accessor, STAGE_TRANSPORT_COMMAND, [Uri.file("/repo/app.ts")]);
 
@@ -102,7 +102,7 @@ describe("прогресс git-операций", () => {
         expect(h.progress.isBusy()).toBe(false);
     });
 
-    it("read-only запрос расширения прогресса не поднимает", async () => {
+    it("a read-only extension request does not raise progress", async () => {
         const h = makeAccessor();
         const running = runGitQuery(h.accessor, "refs");
 
@@ -112,13 +112,13 @@ describe("прогресс git-операций", () => {
         await running;
     });
 
-    it("расширения нет — нет и прогресса", async () => {
+    it("no extension, no progress", async () => {
         const h = makeAccessor(false);
         await runGitOp(h.accessor, "commit");
         expect(h.progress.isBusy()).toBe(false);
     });
 
-    it("упавшая операция прогресс закрывает", async () => {
+    it("a failed operation closes the progress", async () => {
         const progress = new ProgressService();
         const services = new Map<unknown, unknown>([
             [ProgressServiceDIToken, progress],

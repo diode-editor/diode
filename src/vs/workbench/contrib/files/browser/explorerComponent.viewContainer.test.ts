@@ -18,7 +18,7 @@ import { EXPLORER_VIEW_ID, EXPLORER_VIEWLET_ID, ExplorerComponent } from "./expl
 import { ExplorerService } from "./explorerService.ts";
 
 /** The component draws nothing itself: the header, "⋯" menu and buttons come from the shared container model. */
-describe("ExplorerComponent — контейнер сайдбара", () => {
+describe("ExplorerComponent — sidebar container", () => {
     let ws: ITempWorkspace;
     let h: IViewsHarness;
     let service: ExplorerService;
@@ -51,7 +51,7 @@ describe("ExplorerComponent — контейнер сайдбара", () => {
         ws.dispose();
     });
 
-    it("контейнер merged: единственная секция несёт заголовок EXPLORER и не сворачивается", () => {
+    it("merged container: the single section carries the EXPLORER header and does not collapse", () => {
         service.setRootPath(ws.dir);
         attach();
 
@@ -65,7 +65,7 @@ describe("ExplorerComponent — контейнер сайдбара", () => {
         expect(h.service.canMoveView(EXPLORER_VIEW_ID)).toBe(true);
     });
 
-    it("до открытия папки секция рисует welcome с кнопкой Open Folder, после — дерево", () => {
+    it("before a folder is opened the section renders the welcome with an Open Folder button, after — the tree", () => {
         attach();
         const paneView = h.paneView(EXPLORER_VIEWLET_ID);
         const placeholder = paneView.querySelector("#viewPlaceholder-workbench-explorer-fileView");
@@ -78,7 +78,7 @@ describe("ExplorerComponent — контейнер сайдбара", () => {
         expect(paneView.querySelector("#viewPlaceholder-workbench-explorer-fileView")).toBeNull();
     });
 
-    it("смена корня меняет тело на месте — сайдбар держит тот же корень контейнера", () => {
+    it("changing the root swaps the body in place — the sidebar keeps the same container root", () => {
         service.setRootPath(ws.dir);
         attach();
         const root = h.root(EXPLORER_VIEWLET_ID);
@@ -93,7 +93,7 @@ describe("ExplorerComponent — контейнер сайдбара", () => {
         other.dispose();
     });
 
-    it("заголовок несёт кнопки New File / New Folder / Refresh", () => {
+    it("the header carries New File / New Folder / Refresh buttons", () => {
         service.setRootPath(ws.dir);
         attach();
         const header = h.paneView(EXPLORER_VIEWLET_ID).querySelector("#paneHeader-workbench-explorer-fileView")!;
@@ -105,7 +105,7 @@ describe("ExplorerComponent — контейнер сайдбара", () => {
         expect(buttons).toEqual(["\uEA7F", "\uEA80", "\uEB37", "⋯"]);
     });
 
-    it("«⋯» merged-секции держит подменю контейнера, а не пункты заголовка", () => {
+    it("the merged section's '⋯' holds the container submenu, not the header items", () => {
         service.setRootPath(ws.dir);
         attach();
         h.paneView(EXPLORER_VIEWLET_ID).onDidRequestPaneMenu?.(EXPLORER_VIEW_ID, { screenX: 0, screenY: 0 });

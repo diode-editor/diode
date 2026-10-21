@@ -58,8 +58,8 @@ function write(rel: string, content = "x"): string {
     return full;
 }
 
-describe("WorkspaceEditService — подтверждение отмены", () => {
-    it("берётся у операции, которая его просит, а не у первой в наборе", async () => {
+describe("WorkspaceEditService — undo confirmation", () => {
+    it("is taken from the operation that asks for it, not the first one in the set", async () => {
         const { service } = makeService();
         const src = write("copied.txt", "payload");
         const targetDir = path.join(tmpDir, "dest");
@@ -75,12 +75,12 @@ describe("WorkspaceEditService — подтверждение отмены", () 
             "Paste",
         );
 
-        expect(element?.confirmBeforeUndo).toBe("Удалить вставленный «copied.txt»?");
+        expect(element?.confirmBeforeUndo).toBe("Are you sure you want to delete 'copied.txt'?");
     });
 });
 
-describe("WorkspaceEditService — вставка: имена и вложенность", () => {
-    it("copy рядом с оригиналом подбирает имя: «copy», затем «copy 2», расширение сохраняется", async () => {
+describe("WorkspaceEditService — paste: names and nesting", () => {
+    it("copy next to the original picks a name: 'copy', then 'copy 2', keeping the extension", async () => {
         const { service } = makeService();
         const src = write("a.txt", "A");
         write("a copy.txt", "taken");
@@ -91,7 +91,7 @@ describe("WorkspaceEditService — вставка: имена и вложенн�
         expect(fs.readFileSync(path.join(tmpDir, "a copy.txt"), "utf8")).toBe("taken");
     });
 
-    it("каталог без расширения копируется рекурсивно под именем «copy»", async () => {
+    it("a directory without an extension is copied recursively under the name 'copy'", async () => {
         const { service } = makeService();
         write("dir/inner/f.txt", "F");
 
@@ -100,7 +100,7 @@ describe("WorkspaceEditService — вставка: имена и вложенн�
         expect(fs.readFileSync(path.join(tmpDir, "dir copy", "inner", "f.txt"), "utf8")).toBe("F");
     });
 
-    it("каталог нельзя скопировать или перенести внутрь самого себя — шаг не записан", async () => {
+    it("a directory cannot be copied or moved into itself — no step is recorded", async () => {
         const { service, undoRedo } = makeService();
         const dir = path.join(tmpDir, "dir");
         write("dir/sub/f.txt");
@@ -113,7 +113,7 @@ describe("WorkspaceEditService — вставка: имена и вложенн�
         expect(undoRedo.canUndo(WORKSPACE_UNDO_CONTEXT)).toBe(false);
     });
 
-    it("перенос в каталог, где файл уже лежит, ничего не двигает", async () => {
+    it("moving into the directory the file is already in moves nothing", async () => {
         const { service } = makeService();
         const src = write("a.txt", "A");
 
@@ -123,8 +123,8 @@ describe("WorkspaceEditService — вставка: имена и вложенн�
     });
 });
 
-describe("WorkspaceEditService — откат создания", () => {
-    it("уже исчезнувший созданный файл не мешает откату", async () => {
+describe("WorkspaceEditService — undoing a create", () => {
+    it("a created file that is already gone does not break undo", async () => {
         const { service } = makeService();
         const created = path.join(tmpDir, "fresh.txt");
         const element = await service.applyFileEdits([{ kind: "create", to: created }], "New File");
@@ -135,7 +135,7 @@ describe("WorkspaceEditService — откат создания", () => {
         expect(fs.existsSync(created)).toBe(false);
     });
 
-    it("ошибка удаления, отличная от «нет такого», доходит до отката", async () => {
+    it("a delete error other than 'not found' reaches undo", async () => {
         const disk = diskFileService();
         const failingDel: IFileService = Object.assign(Object.create(disk) as IFileService, {
             del: () => Promise.reject(new Error("EACCES")),
@@ -338,7 +338,7 @@ describe.skipIf(process.platform !== "linux")("WorkspaceEditService — delete (
         expect(fs.existsSync(src)).toBe(false);
     });
 
-    it("корзина идёт мимо файлового сервиса — об удалении (и о redo) сообщает буферам сама", async () => {
+    it("trash bypasses the file service, so it notifies the buffers of the delete (and of redo) itself", async () => {
         const deleted: string[] = [];
         const service = new WorkspaceEditService(
             new UndoRedoService(),

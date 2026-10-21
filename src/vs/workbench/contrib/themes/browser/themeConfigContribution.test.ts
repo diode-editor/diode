@@ -70,7 +70,7 @@ function setup(options: { active: string; known?: Record<string, WorkbenchTheme>
 }
 
 describe("ThemeConfigContribution", () => {
-    it("применяет новую тему при смене workbench.colorTheme", () => {
+    it("applies the new theme when workbench.colorTheme changes", () => {
         const dark = { name: "Dark" } as WorkbenchTheme;
         const { config, themeService } = setup({ active: "Light", known: { Dark: dark } });
         config.colorTheme = "Dark";
@@ -80,7 +80,7 @@ describe("ThemeConfigContribution", () => {
         expect(themeService.applied).toEqual([dark]);
     });
 
-    it("игнорирует события, не затрагивающие workbench.colorTheme", () => {
+    it("ignores events that do not affect workbench.colorTheme", () => {
         const { config, themeService } = setup({
             active: "Light",
             known: { Dark: { name: "Dark" } as WorkbenchTheme },
@@ -92,7 +92,7 @@ describe("ThemeConfigContribution", () => {
         expect(themeService.applied).toEqual([]);
     });
 
-    it("ничего не делает, если ключ отсутствует", () => {
+    it("does nothing when the key is missing", () => {
         const { config, themeService } = setup({ active: "Light" });
         config.colorTheme = undefined;
 
@@ -101,7 +101,7 @@ describe("ThemeConfigContribution", () => {
         expect(themeService.applied).toEqual([]);
     });
 
-    it("не перекрашивает, если тема уже активна (guard по имени)", () => {
+    it("does not repaint when the theme is already active (guard by name)", () => {
         const { config, themeService } = setup({
             active: "Light",
             known: { Light: { name: "Light" } as WorkbenchTheme },
@@ -113,7 +113,7 @@ describe("ThemeConfigContribution", () => {
         expect(themeService.applied).toEqual([]);
     });
 
-    it("игнорирует неизвестное имя темы", () => {
+    it("ignores an unknown theme name", () => {
         const { config, themeService } = setup({ active: "Light", known: {} });
         config.colorTheme = "Nonexistent";
 

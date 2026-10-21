@@ -37,8 +37,8 @@ function contributor() {
     return { environment, calls };
 }
 
-describe("buildEnv — довесок коллекций", () => {
-    it("видит базу с `env` терминала (снятые — уже без них), его правки — в окружении, TERM/TMUX — наши", () => {
+describe("buildEnv — collection overlay", () => {
+    it("sees the base with the terminal `env` (unset ones already gone), its edits land in the environment, TERM/TMUX are ours", () => {
         let seen: Record<string, string | undefined> | undefined;
         const env = buildEnv({ KEEP: "1", DROP: "2", TMUX: "t" }, { ADD: "3", DROP: null }, (target) => {
             seen = { ...target };
@@ -53,8 +53,8 @@ describe("buildEnv — довесок коллекций", () => {
     });
 });
 
-describe("EmbeddedTerminalSession — коллекции окружения расширений", () => {
-    it("довесок доходит до шелла, зовётся с cwd запуска; на перезапуске — снова, на свежем окружении", async () => {
+describe("EmbeddedTerminalSession — extension environment collections", () => {
+    it("the overlay reaches the shell and is called with the launch cwd; on relaunch again, on a fresh environment", async () => {
         const { environment, calls } = contributor();
         vi.stubEnv("DIODE_EXT_PATH", "/base");
         const session = new EmbeddedTerminalSession(
@@ -82,7 +82,7 @@ describe("EmbeddedTerminalSession — коллекции окружения ра
         session.dispose();
     }, 20000);
 
-    it("cwd по умолчанию — каталог процесса", async () => {
+    it("cwd defaults to the process directory", async () => {
         const { environment, calls } = contributor();
         const session = new EmbeddedTerminalSession(
             { cols: 40, rows: 4, shell: "/bin/sh", args: ["-c", "exit 0"] },
@@ -93,7 +93,7 @@ describe("EmbeddedTerminalSession — коллекции окружения ра
         session.dispose();
     }, 20000);
 
-    it("strictEnv — довесок не зовётся, окружение ровно `env`", async () => {
+    it("strictEnv — the overlay isn't called, the environment is exactly `env`", async () => {
         const { environment, calls } = contributor();
         const session = new EmbeddedTerminalSession(
             {

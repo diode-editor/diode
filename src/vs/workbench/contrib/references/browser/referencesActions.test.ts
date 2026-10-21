@@ -61,15 +61,15 @@ function keybindingOf(action: typeof findAllReferencesAction): string | undefine
     return bound == null ? undefined : formatKeybinding(bound);
 }
 
-describe("referencesActions — объявления", () => {
-    it("id команд совпадают с VS Code", () => {
+describe("referencesActions — declarations", () => {
+    it("command ids match VS Code", () => {
         expect(findAllReferencesAction.id).toBe("references-view.findReferences");
         expect(nextReferenceAction.id).toBe("references-view.next");
         expect(previousReferenceAction.id).toBe("references-view.prev");
         expect(clearReferencesAction.id).toBe("references-view.clear");
     });
 
-    it("Find All References: аккорд как основной путь, Shift+Alt+F12 — вторым биндом", () => {
+    it("Find All References: the chord is the primary path, Shift+Alt+F12 the second keybinding", () => {
         expect(keybindingOf(findAllReferencesAction)).toBe("Ctrl+K Ctrl+R");
         // The canonical VS Code binding stays, but F-keys with modifiers don't
         // reach us on every terminal — hence the chord is the primary one.
@@ -77,14 +77,14 @@ describe("referencesActions — объявления", () => {
         expect(findAllReferencesAction.when).toBe("textInputFocus");
     });
 
-    it("F4/Shift+F4 работают, пока в панели есть результат", () => {
+    it("F4/Shift+F4 work while the panel has a result", () => {
         expect(keybindingOf(nextReferenceAction)).toBe("F4");
         expect(keybindingOf(previousReferenceAction)).toBe("Shift+F4");
         expect(nextReferenceAction.when).toBe("hasReferenceResult");
         expect(previousReferenceAction.when).toBe("hasReferenceResult");
     });
 
-    it("показ вьюлета живёт в меню View после Extensions", () => {
+    it("showing the viewlet lives in the View menu after Extensions", () => {
         expect(keybindingOf(showReferencesAction)).toBe("Ctrl+K R");
         const placement = showReferencesAction.menus?.[0];
         expect(placement?.menuId).toBe(MenuId.MenubarViewMenu);
@@ -93,7 +93,7 @@ describe("referencesActions — объявления", () => {
         expect(placement?.order).toBe(18);
     });
 
-    it("кнопки заголовка принадлежат только своей секции и делят один слот", () => {
+    it("title buttons belong only to their own section and share one slot", () => {
         for (const action of [collapseReferencesAction, expandReferencesAction, clearReferencesAction]) {
             const placement = action.menus?.[0];
             expect(placement?.menuId).toBe(MenuId.ViewTitle);
@@ -115,8 +115,8 @@ describe("referencesActions — объявления", () => {
     });
 });
 
-describe("referencesActions — делегирование", () => {
-    it("каждый экшен дёргает свой сервис", () => {
+describe("referencesActions — delegation", () => {
+    it("each action calls its own service", () => {
         const h = makeAccessor();
 
         findAllReferencesAction.run(h.accessor);

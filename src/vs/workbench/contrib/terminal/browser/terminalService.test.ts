@@ -238,7 +238,7 @@ describe("TerminalService — instance title", () => {
         h.service.dispose();
     });
 
-    it("reveal контейнера панели лениво спавнит шелл (шов focus дескриптора)", () => {
+    it("revealing the panel container lazily spawns a shell (descriptor focus seam)", () => {
         const h = buildHarness();
         expect(h.created).toHaveLength(0);
         h.views.service.focusContainer(TERMINAL_VIEW_ID);

@@ -9,30 +9,30 @@ const linux = (
 ) => buildShellCommandLine("linux", "/bin/bash", undefined, command, original, args);
 
 describe("buildShellCommandLine — posix", () => {
-    it("строка без аргументов — как есть, даже с пробелами и кавычками", () => {
+    it("a string without args — as is, even with spaces and quotes", () => {
         expect(linux("echo a b; exit 3")).toBe("echo a b; exit 3");
     });
 
-    it("подстановка изменила строку без пробелов в исходнике — экранируется", () => {
+    it("resolution changed a string without spaces in the source — it is escaped", () => {
         expect(linux("my tool", [], "${env:TOOL}")).toBe("'my tool'");
         expect(linux("tool", [], "${env:TOOL}")).toBe("tool");
         // A source with spaces goes as is.
         expect(linux("echo x", [], "echo ${env:X}")).toBe("echo x");
     });
 
-    it("аргументы: с пробелом — strong, уже в кавычках — как есть; `\\ ` у bash не спасает (как у эталона)", () => {
+    it("args: with a space — strong, already quoted — as is; `\\ ` does not help in bash (as upstream)", () => {
         expect(linux("cmd", ["a b", "'c d'", '"e f"', "g\\ h", "x'y z'"])).toBe(
             "cmd 'a b' 'c d' \"e f\" 'g\\ h' x'y z'",
         );
     });
 
-    it("кавычка внутри: пробел внутри открытых кавычек не считается, после закрытия — считается", () => {
+    it("quote inside: a space inside open quotes does not count, after closing — it does", () => {
         expect(linux("cmd", ["'a b'c d"])).toBe("cmd ''a b'c d'");
         expect(linux("cmd", ['a"b c"'])).toBe('cmd a"b c"');
         expect(linux("cmd", ["'"])).toBe("cmd '");
     });
 
-    it("«уже в кавычках» — только когда та же кавычка открывает и закрывает значение", () => {
+    it("'already quoted' — only when the same quote opens and closes the value", () => {
         // Opened and closed with strong: as is, even though there is a space between the quotes.
         expect(linux("cmd", ["'a' 'b'"])).toBe("cmd 'a' 'b'");
         // Opened and closed with weak: also as is.
@@ -43,11 +43,11 @@ describe("buildShellCommandLine — posix", () => {
         expect(linux("cmd", ["say undefined"])).toBe("cmd 'say undefined'");
     });
 
-    it("escape: запятая тоже экранируется (класс символов эталона собран через запятую)", () => {
+    it("escape: a comma is escaped too (the upstream character class is joined with commas)", () => {
         expect(linux("cmd", [{ value: "a,b", quoting: "escape" }])).toBe("cmd a\\,b");
     });
 
-    it("правило вида кавычек не задано — значение как есть, другим правилом не подменяется", () => {
+    it("no rule for the quoting kind — the value as is, not replaced by another rule", () => {
         expect(
             buildShellCommandLine("linux", "/bin/bash", { quoting: { escape: "^" } }, "c", "c", [
                 { value: "a b", quoting: "strong" },
@@ -55,7 +55,7 @@ describe("buildShellCommandLine — posix", () => {
         ).toBe("c a b");
     });
 
-    it("пути шелла — по правилам ОС задачи: на posix обратная косая — часть имени", () => {
+    it("shell paths follow the task OS rules: on posix a backslash is part of the name", () => {
         // `x\\powershell` on posix is not powershell: OS rules (bash).
         expect(
             buildShellCommandLine("linux", "/opt/x\\powershell", undefined, "c", "c", [
@@ -68,7 +68,7 @@ describe("buildShellCommandLine — posix", () => {
         );
     });
 
-    it("явное правило: strong, weak, escape (по таблице bash)", () => {
+    it("explicit rule: strong, weak, escape (per the bash table)", () => {
         expect(
             linux("cmd", [
                 { value: "a b", quoting: "strong" },
@@ -79,12 +79,12 @@ describe("buildShellCommandLine — posix", () => {
         expect(linux({ value: "my cmd", quoting: "weak" })).toBe('"my cmd"');
     });
 
-    it("неизвестный шелл — правила ОС; zsh — как bash", () => {
+    it("unknown shell — OS rules; zsh — like bash", () => {
         expect(buildShellCommandLine("linux", "/usr/bin/fish", undefined, "c", "c", ["a b"])).toBe("c 'a b'");
         expect(buildShellCommandLine("osx", "/bin/zsh", undefined, "c", "c", ["a b"])).toBe("c 'a b'");
     });
 
-    it("свои правила из options.shell.quoting; escape строкой; без нужного правила — как есть", () => {
+    it("own rules from options.shell.quoting; escape as a string; without the needed rule — as is", () => {
         const quoting = { escape: "^", strong: "<", weak: ">" };
         expect(
             buildShellCommandLine("linux", "/bin/bash", { quoting }, "c", "c", [
@@ -103,7 +103,7 @@ describe("buildShellCommandLine — posix", () => {
         ).toBe("c a b a b a b s t");
     });
 
-    it("escape-символ правила пропускает следующий символ при поиске пробела", () => {
+    it("the rule's escape character skips the next character when looking for a space", () => {
         expect(
             buildShellCommandLine("linux", "/bin/bash", { quoting: { escape: "\\", strong: "'" } }, "c", "c", [
                 "a\\ b",
@@ -113,7 +113,7 @@ describe("buildShellCommandLine — posix", () => {
 });
 
 describe("buildShellCommandLine — Windows", () => {
-    it("cmd: команда и аргумент в кавычках — вся строка в кавычках", () => {
+    it("cmd: quoted command and argument — the whole line is quoted", () => {
         expect(buildShellCommandLine("windows", "C:\\Windows\\cmd.exe", undefined, "my cmd", "my cmd", ["a b"])).toBe(
             '""my cmd" "a b""',
         );
@@ -135,7 +135,7 @@ describe("buildShellCommandLine — Windows", () => {
         ).toBe('"a^ b "c d""');
     });
 
-    it("powershell/pwsh: команда в кавычках — через `&`; escape — обратной кавычкой", () => {
+    it("powershell/pwsh: a quoted command — via `&`; escape — with a backtick", () => {
         expect(buildShellCommandLine("windows", "powershell.exe", undefined, "my cmd", "my cmd", ["x"])).toBe(
             "& 'my cmd' x",
         );
@@ -167,13 +167,13 @@ describe("buildShellCommandLine — Windows", () => {
 describe("shellArgsOf", () => {
     const shell = (executable: string, args: string[] = [], specified = false) => ({ executable, args, specified });
 
-    it("posix: `-c` и командная строка; заданный шелл — без `-c`", () => {
+    it("posix: `-c` and the command line; a configured shell — without `-c`", () => {
         expect(shellArgsOf("linux", shell("/bin/bash"), "make")).toStrictEqual(["-c", "make"]);
         expect(shellArgsOf("osx", shell("/bin/zsh", ["-l"]), "make")).toStrictEqual(["-l", "-c", "make"]);
         expect(shellArgsOf("linux", shell("/bin/zsh", ["-i"], true), "make")).toStrictEqual(["-i", "make"]);
     });
 
-    it("`-c` не дублируется, если уже стоит; стоит с хвостом не-флагов — добавляется", () => {
+    it("`-c` is not duplicated if already present; present with a tail of non-flags — it is added", () => {
         expect(shellArgsOf("linux", shell("/bin/bash", ["-c"]), "x")).toStrictEqual(["-c", "x"]);
         expect(shellArgsOf("linux", shell("/bin/bash", ["-C", "-l"]), "x")).toStrictEqual(["-C", "-l", "x"]);
         expect(shellArgsOf("linux", shell("/bin/bash", ["-c", "-l"]), "x")).toStrictEqual(["-c", "-l", "x"]);
@@ -191,7 +191,7 @@ describe("shellArgsOf", () => {
         ]);
     });
 
-    it("Windows: по шеллу", () => {
+    it("Windows: by shell", () => {
         expect(shellArgsOf("windows", shell("C:\\x\\PowerShell.exe"), "c")).toStrictEqual(["-Command", "c"]);
         expect(shellArgsOf("windows", shell("pwsh.exe"), "c")).toStrictEqual(["-Command", "c"]);
         expect(shellArgsOf("windows", shell("bash.exe"), "c")).toStrictEqual(["-c", "c"]);

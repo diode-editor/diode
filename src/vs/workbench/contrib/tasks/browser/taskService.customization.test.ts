@@ -52,8 +52,8 @@ function build(options: Parameters<typeof buildTaskServiceHarness>[0] = {}) {
 
 const flush = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
 
-describe("TaskService — кастомизации задач провайдеров", () => {
-    it("groupedTasks/tasks: задача провайдера приходит слитой с записью; остальные — как были", async () => {
+describe("TaskService — provider task customizations", () => {
+    it("groupedTasks/tasks: a provider task comes merged with its entry; the rest stay as they were", async () => {
         const h = build({ tasksJson: tasksJsonOf([{ type: "npm", script: "lint", label: "Lint!" }]) });
         h.withNpm(["lint", "build"]);
         const grouped = await h.service.groupedTasks();
@@ -66,7 +66,7 @@ describe("TaskService — кастомизации задач провайдер
         h.dispose();
     });
 
-    it("сопоставление — по ключу определения, а не по id задачи (id `CustomExecution` даёт расширение)", async () => {
+    it("matching is by definition key, not by task id (the extension sets the `CustomExecution` id)", async () => {
         const h = build({ tasksJson: tasksJsonOf([{ type: "npm", script: "lint", label: "L" }]) });
         const custom = {
             ...makeTask({
@@ -81,7 +81,7 @@ describe("TaskService — кастомизации задач провайдер
         h.dispose();
     });
 
-    it("запись, которой провайдер задачи не дал, — ошибка эталона в лог один раз; с чужим типом-фильтром — молча", async () => {
+    it("an entry the provider gave no task for — upstream error logged once; with another type filter — silent", async () => {
         const h = build({ tasksJson: tasksJsonOf([{ type: "npm", script: "gone" }]) });
         h.withNpm(["lint"]);
         await h.service.groupedTasks("gulp");
@@ -96,7 +96,7 @@ describe("TaskService — кастомизации задач провайдер
         h.dispose();
     });
 
-    it("две записи без задачи — по сообщению на каждую", async () => {
+    it("two entries without a task — a message for each", async () => {
         const h = build({
             tasksJson: tasksJsonOf([
                 { type: "npm", script: "x" },
@@ -109,7 +109,7 @@ describe("TaskService — кастомизации задач провайдер
         h.dispose();
     });
 
-    it("провайдеры выключены (`task.autoDetect: off`) — предупреждение «недоступны», а не ошибка", async () => {
+    it("providers disabled (`task.autoDetect: off`) — an 'unavailable' warning, not an error", async () => {
         const h = build({
             tasksJson: tasksJsonOf([{ type: "npm", script: "lint" }]),
             settings: { "task.autoDetect": "off" },
@@ -122,7 +122,7 @@ describe("TaskService — кастомизации задач провайдер
         h.dispose();
     });
 
-    it("тип провайдера зарегистрирован после чтения — проблемы файла пересказываются заново", async () => {
+    it("provider type registered after the read — the file problems are reported again", async () => {
         const h = buildTaskServiceHarness({ tasksJson: tasksJsonOf([{ type: "npm", script: "lint" }]) });
         await h.service.getWorkspaceConfiguration();
         expect(h.logger.warn.mock.calls[0][0]).toMatch(/^Error: there is no registered task type 'npm'\./u);
@@ -134,7 +134,7 @@ describe("TaskService — кастомизации задач провайдер
         h.dispose();
     });
 
-    it("resolveConfiguringTask — слитая задача той записи; провайдер не дал — undefined", async () => {
+    it("resolveConfiguringTask — the merged task of that entry; the provider gave none — undefined", async () => {
         const h = build({
             tasksJson: tasksJsonOf([
                 { label: "own", command: "x" },
@@ -149,7 +149,7 @@ describe("TaskService — кастомизации задач провайдер
         h.dispose();
     });
 
-    it("tasksJsonUri — tasks.json первой папки; без папки — undefined", () => {
+    it("tasksJsonUri — tasks.json of the first folder; without a folder — undefined", () => {
         const h = build();
         expect(h.service.tasksJsonUri()?.fsPath).toBe("/ws/.diode/tasks.json");
         h.dispose();
@@ -159,8 +159,8 @@ describe("TaskService — кастомизации задач провайдер
     });
 });
 
-describe("Run Task — кастомизации на первом уровне", () => {
-    it("запись — в «configured» среди своих по подписи, без опроса провайдеров; выбор — запуск слитой задачи", async () => {
+describe("Run Task — customizations on the first level", () => {
+    it("the entry is in 'configured' among own tasks by label, without querying providers; picking runs the merged task", async () => {
         const h = build({
             tasksJson: tasksJsonOf([
                 { label: "zz", command: "x" },
@@ -184,7 +184,7 @@ describe("Run Task — кастомизации на первом уровне",
         h.dispose();
     });
 
-    it("единственная запись и `task.quickOpen.skip` — без пикера; провайдер её не дал — ничего не запускается", async () => {
+    it("a single entry and `task.quickOpen.skip` — no picker; the provider gave no task — nothing runs", async () => {
         const h = build({
             tasksJson: tasksJsonOf([{ type: "npm", script: "lint", label: "Lint" }]),
             settings: { "task.quickOpen.skip": true },
@@ -206,7 +206,7 @@ describe("Run Task — кастомизации на первом уровне",
         gone.dispose();
     });
 
-    it("первый уровень провайдеров не опрашивает — только выбор записи", async () => {
+    it("the first level does not query providers — only picking an entry does", async () => {
         const h = build({ tasksJson: tasksJsonOf([{ type: "npm", script: "lint", label: "Lint" }]) });
         h.withNpm(["lint"]);
         h.answerPicks(undefined);

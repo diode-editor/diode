@@ -65,7 +65,7 @@ async function until<T>(what: string, probe: () => Promise<T | null>, timeoutMs 
     }
 }
 
-describe("Expand Selection от стокового typescript-language-server", () => {
+describe("Expand Selection from the stock typescript-language-server", () => {
     beforeAll(async () => {
         // Fresh client bundle: the test covers exactly what ships in the app.
         const { buildExtensions } = (await import(
@@ -74,7 +74,7 @@ describe("Expand Selection от стокового typescript-language-server", 
         await buildExtensions({ repoRoot: REPO_ROOT });
     }, 120_000);
 
-    it("ступени синтаксиса сервера: строка-литерал, вызов, объявление", { timeout: 180_000 }, async () => {
+    it("server syntax steps: string literal, call, declaration", { timeout: 180_000 }, async () => {
         const outputLines: { level: string; value: string }[] = [];
         const harness: IExtensionHarness = await createExtensionTestHarness({
             languageService: TS_LANGUAGE_SERVICE,
@@ -98,7 +98,7 @@ describe("Expand Selection от стокового typescript-language-server", 
 
             // Cursor inside `world` in `greet("world")`, line 4.
             const caret = { line: 4, character: 23 };
-            await until("сервер отвечает иерархией выделений", async () => {
+            await until("the server answers with a selection hierarchy", async () => {
                 const provider = harness.languageFeatures.selectionRangeProvider.ordered(editor).at(0);
                 if (provider === undefined) return null;
                 const request = {

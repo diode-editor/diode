@@ -123,8 +123,8 @@ afterEach(() => {
     vi.useRealTimers();
 });
 
-describe("stash push-семейство", () => {
-    it("git.stash: сообщение опционально, Escape отменяет", async () => {
+describe("stash push family", () => {
+    it("git.stash: the message is optional, Escape cancels", async () => {
         const h = makeHarness();
         h.setInputs(["wip work"]);
         await gitStashAction.run(h.accessor);
@@ -143,7 +143,7 @@ describe("stash push-семейство", () => {
         expect(h.ops).toEqual([]);
     });
 
-    it("includeUntracked и staged пробрасывают флаги", async () => {
+    it("includeUntracked and staged pass their flags through", async () => {
         const h = makeHarness();
         h.setInputs(["", ""]);
         await gitStashIncludeUntrackedAction.run(h.accessor);
@@ -154,7 +154,7 @@ describe("stash push-семейство", () => {
 });
 
 describe("pop / apply", () => {
-    it("latest-варианты идут без индекса", async () => {
+    it("latest variants go without an index", async () => {
         const h = makeHarness();
         await gitStashPopLatestAction.run(h.accessor);
         await gitStashApplyLatestAction.run(h.accessor);
@@ -164,7 +164,7 @@ describe("pop / apply", () => {
         ]);
     });
 
-    it("пикерные варианты передают выбранный индекс; пустой список — notice", async () => {
+    it("picker variants pass the selected index; an empty list gives a notice", async () => {
         const h = makeHarness();
         h.setStashes([{ index: "stash@{0}", description: "WIP" }]);
         h.setPicks(["stash@{0}", "stash@{0}"]);
@@ -182,7 +182,7 @@ describe("pop / apply", () => {
         expect(h.notices.some((n) => n.includes("no stashes"))).toBe(true);
     });
 
-    it("конфликт при pop — notice, что стэш сохранён", async () => {
+    it("a conflict on pop gives a notice that the stash is kept", async () => {
         const h = makeHarness();
         h.setOpResults([{ ok: false, kind: "conflict", message: "CONFLICT" }]);
         await gitStashPopLatestAction.run(h.accessor);
@@ -195,7 +195,7 @@ describe("pop / apply", () => {
 });
 
 describe("drop", () => {
-    it("git.stashDrop: пикер + confirm; отказ — no-op", async () => {
+    it("git.stashDrop: picker + confirm; declining is a no-op", async () => {
         const h = makeHarness();
         h.setStashes([{ index: "stash@{1}", description: "old" }]);
         h.setPicks(["stash@{1}"]);
@@ -210,7 +210,7 @@ describe("drop", () => {
         expect(h.ops).toEqual([]);
     });
 
-    it("git.stashDropAll: confirm с количеством → stash clear; пустой список — notice", async () => {
+    it("git.stashDropAll: confirm with the count → stash clear; an empty list gives a notice", async () => {
         const h = makeHarness();
         h.setStashes([{ index: "stash@{0}" }, { index: "stash@{1}" }]);
         await gitStashDropAllAction.run(h.accessor);
@@ -225,8 +225,8 @@ describe("drop", () => {
     });
 });
 
-describe("хелперы и номенклатура", () => {
-    it("queryStashes фильтрует мусор и переживает null", async () => {
+describe("helpers and nomenclature", () => {
+    it("queryStashes filters garbage and survives null", async () => {
         const h = makeHarness();
         h.setStashes(null);
         expect(await queryStashes(h.accessor)).toEqual([]);
@@ -235,7 +235,7 @@ describe("хелперы и номенклатура", () => {
         expect(await queryStashes(h.accessor)).toEqual([{ index: "stash@{0}", description: "ok" }]);
     });
 
-    it("добивка отмен: пикер отменён (pop/apply/drop), один стэш в dropAll, dropAll отклонён", async () => {
+    it("remaining cancels: picker cancelled (pop/apply/drop), a single stash in dropAll, dropAll declined", async () => {
         const h = makeHarness();
         h.setStashes([{ index: "stash@{0}", description: "one" }]);
         h.setPicks([undefined]); // Escape in the picker
@@ -251,7 +251,7 @@ describe("хелперы и номенклатура", () => {
         expect(h.dialogs).toContain("Drop All Stashes");
     });
 
-    it("id в номенклатуре VS Code", () => {
+    it("ids in VS Code nomenclature", () => {
         expect(STASH_ACTIONS.map((a) => a.id)).toEqual([
             "git.stash",
             "git.stashIncludeUntracked",

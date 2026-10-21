@@ -34,7 +34,7 @@ function recordingViewsService(): { service: ViewsService; descriptor: () => { f
     return {
         service,
         descriptor: () => {
-            expect(captured, "view не зарегистрирована").toBeDefined();
+            expect(captured, "view is not registered").toBeDefined();
             return captured!;
         },
     };
@@ -148,12 +148,12 @@ function typeQuery(component: ExtensionsComponent, text: string): void {
 
 function activate(component: ExtensionsComponent, rowId: string): void {
     const row = component.view.querySelector(`#${rowId}`);
-    expect(row, `строка #${rowId} не найдена`).not.toBeNull();
+    expect(row, `row #${rowId} not found`).not.toBeNull();
     component.list.onActivate?.(row!);
 }
 
 describe("ExtensionsComponent", () => {
-    it("контейнер магазина чужих видов не принимает", () => {
+    it("the marketplace container accepts no foreign views", () => {
         const containers: { id: string; rejectAddedViews?: boolean }[] = [];
         const views = {
             registerContainer: (d: { id: string; rejectAddedViews?: boolean }) => containers.push(d),
@@ -164,7 +164,7 @@ describe("ExtensionsComponent", () => {
         expect(containers[0].rejectAddedViews).toBe(true);
     });
 
-    it("список и корень несут свои id и цвета сайдбара", () => {
+    it("the list and the root carry their ids and sidebar colors", () => {
         const component = make(new FakeService([entry({ id: "acme.tools" })]));
         expect(component.view.id).toBe("extensionsView");
         expect(component.list.id).toBe("extensionsList");
@@ -175,14 +175,14 @@ describe("ExtensionsComponent", () => {
         expect(screen.getBgAt(new Point(0, 0))).toBe(sideBar);
     });
 
-    it("строка поиска не прижата к краям панели", () => {
+    it("the search box is not flush with the panel edges", () => {
         const component = make(new FakeService([]));
         const line = render(component).screenToString().split("\n")[0];
         expect(line.startsWith(" ")).toBe(true);
         expect(line.endsWith(" ")).toBe(true);
     });
 
-    it("буквы в списке — не typeahead: курсор остаётся на месте", () => {
+    it("letters in the list are not typeahead: the cursor stays put", () => {
         const service = new FakeService([
             entry({ id: "acme.tools", displayName: "Acme Tools" }),
             entry({ id: "other.thing", displayName: "Other Thing" }),
@@ -195,7 +195,7 @@ describe("ExtensionsComponent", () => {
         expect(component.list.getCursorElement()?.id).toBe("extensionsGroup-marketplace-acme-tools");
     });
 
-    it("записи лежат под своими группами — свёрнутая группа их прячет", () => {
+    it("entries sit under their groups — a collapsed group hides them", () => {
         const service = new FakeService([entry({ id: "acme.tools", displayName: "Acme Tools" })]);
         const component = make(service);
         expect(render(component).screenToString()).toContain("Acme Tools");
@@ -204,7 +204,7 @@ describe("ExtensionsComponent", () => {
         expect(render(component).screenToString()).not.toContain("Acme Tools");
     });
 
-    it("установленное вне реестра не попадает в каталог, а реестровое без установки — в INSTALLED", () => {
+    it("installed extensions outside the registry do not go into the catalog, and uninstalled registry ones do not go into INSTALLED", () => {
         const service = new FakeService([
             entry({ id: "acme.tools", displayName: "Acme Tools" }),
             entry({
@@ -224,12 +224,12 @@ describe("ExtensionsComponent", () => {
         expect(component.view.querySelector("#extensionsGroup-installed-acme-tools")).toBeNull();
     });
 
-    it("пустое состояние показывается только когда список правда пуст", () => {
+    it("the empty state is shown only when the list is really empty", () => {
         const component = make(new FakeService([entry({ id: "acme.tools", displayName: "Acme Tools" })]));
         expect(render(component).screenToString()).not.toContain("No extensions found");
     });
 
-    it("строки прошлого состава не оставляют за собой действий", async () => {
+    it("rows of the previous contents leave no actions behind", async () => {
         const service = new FakeService([
             entry({ id: "acme.tools", displayName: "Acme Tools" }),
             entry({ id: "other.thing", displayName: "Other Thing" }),
@@ -249,7 +249,7 @@ describe("ExtensionsComponent", () => {
         expect(service.refreshCalls).toBe(0);
     });
 
-    it("показывает строку поиска, каталог и секцию установленных", () => {
+    it("shows the search box, the catalog and the installed section", () => {
         const service = new FakeService([
             entry({ id: "acme.tools", displayName: "Acme Tools" }),
             entry({ id: "local.helper", displayName: "Helper", installedVersion: "0.1.0", availability: "installed" }),
@@ -263,7 +263,7 @@ describe("ExtensionsComponent", () => {
         expect(screen).toContain("Helper");
     });
 
-    it("установленное из магазина видно и в каталоге с бейджем, и в своей секции", () => {
+    it("an extension installed from the marketplace shows both in the catalog with a badge and in its own section", () => {
         const service = new FakeService([
             entry({
                 id: "acme.tools",
@@ -279,7 +279,7 @@ describe("ExtensionsComponent", () => {
         expect(screen).toContain("Installed");
     });
 
-    it("бейджи обновления и несовместимости видны в кадре", () => {
+    it("update and incompatibility badges are visible in the frame", () => {
         const service = new FakeService([
             entry({
                 id: "acme.tools",
@@ -296,7 +296,7 @@ describe("ExtensionsComponent", () => {
         expect(screen).toContain("Incompatible");
     });
 
-    it("фильтрует по мере ввода", () => {
+    it("filters as you type", () => {
         const service = new FakeService([
             entry({ id: "acme.tools", displayName: "Acme Tools" }),
             entry({ id: "other.thing", displayName: "Other Thing" }),
@@ -309,18 +309,18 @@ describe("ExtensionsComponent", () => {
         expect(screen).not.toContain("Other Thing");
     });
 
-    it("ничего не нашлось — так и говорит", () => {
+    it("nothing found — says so", () => {
         const component = make(new FakeService([entry({ id: "acme.tools" })]));
 
         typeQuery(component, "zzz");
         expect(render(component).screenToString()).toContain("No extensions found");
     });
 
-    it("пустой каталог без установленных — тоже пустое состояние", () => {
+    it("an empty catalog with nothing installed is the empty state too", () => {
         expect(render(make(new FakeService([]))).screenToString()).toContain("No extensions found");
     });
 
-    it("ошибка каталога показывается с причиной и предлагает повтор", () => {
+    it("a catalog error is shown with its reason and offers a retry", () => {
         const service = new FakeService([], "getaddrinfo ENOTFOUND example.invalid");
         const screen = render(make(service), 70).screenToString();
 
@@ -330,7 +330,7 @@ describe("ExtensionsComponent", () => {
         expect(screen).toContain("ENOTFOUND");
     });
 
-    it("при ошибке каталога установленные всё равно видны", () => {
+    it("installed extensions are still visible on a catalog error", () => {
         const service = new FakeService(
             [
                 entry({
@@ -349,7 +349,7 @@ describe("ExtensionsComponent", () => {
         expect(screen).toContain("Helper");
     });
 
-    it("строка ошибки живёт под заголовком каталога", () => {
+    it("the error row sits under the catalog header", () => {
         const component = make(new FakeService([], "offline"));
         expect(render(component, 70).screenToString()).toContain("Retry");
 
@@ -358,7 +358,7 @@ describe("ExtensionsComponent", () => {
         expect(render(component, 70).screenToString()).not.toContain("Retry");
     });
 
-    it("активация строки ошибки перечитывает каталог", () => {
+    it("activating the error row rereads the catalog", () => {
         const service = new FakeService([], "offline");
         const component = make(service);
 
@@ -366,7 +366,7 @@ describe("ExtensionsComponent", () => {
         expect(service.refreshCalls).toBe(1);
     });
 
-    it("смена данных сервиса перестраивает список", () => {
+    it("a service data change rebuilds the list", () => {
         const service = new FakeService([entry({ id: "acme.tools", displayName: "Acme Tools" })]);
         const component = make(service);
 
@@ -376,7 +376,7 @@ describe("ExtensionsComponent", () => {
         expect(screen).not.toContain("Acme Tools");
     });
 
-    it("фильтр переживает смену данных", () => {
+    it("the filter survives a data change", () => {
         const service = new FakeService([entry({ id: "acme.tools", displayName: "Acme Tools" })]);
         const component = make(service);
         typeQuery(component, "acme");
@@ -390,7 +390,7 @@ describe("ExtensionsComponent", () => {
         expect(screen).not.toContain("Other Thing");
     });
 
-    it("пока каталог читается — «Loading», а не «ничего не найдено»", async () => {
+    it("while the catalog loads — 'Loading', not 'nothing found'", async () => {
         let release = (): void => {};
         const service = new FakeService([]);
         service.ensureLoaded = () =>
@@ -408,7 +408,7 @@ describe("ExtensionsComponent", () => {
         expect(render(component).screenToString()).toContain("No extensions found");
     });
 
-    it("показ секции ведёт в строку поиска и читает каталог", () => {
+    it("showing the section moves to the search box and reads the catalog", () => {
         const service = new FakeService([entry({ id: "acme.tools" })]);
         const views = recordingViewsService();
         const component = new ExtensionsComponent(service, views.service, fakeTarget().target, PAGE_ACTIONS);
@@ -419,7 +419,7 @@ describe("ExtensionsComponent", () => {
         expect(views.descriptor().title).toBe("EXTENSIONS");
     });
 
-    it("focus читает каталог: до показа вьюлета в сеть не ходим", () => {
+    it("focus reads the catalog: no network until the viewlet is shown", () => {
         const service = new FakeService([entry({ id: "acme.tools" })]);
         const component = make(service);
         expect(service.ensureLoadedCalls).toBe(0);
@@ -428,7 +428,7 @@ describe("ExtensionsComponent", () => {
         expect(service.ensureLoadedCalls).toBe(1);
     });
 
-    it("focus ставит курсор в строку поиска", () => {
+    it("focus puts the cursor in the search box", () => {
         const component = make(new FakeService([entry({ id: "acme.tools" })]));
         TestApp.createWithContent(component.view).render();
 
@@ -436,13 +436,13 @@ describe("ExtensionsComponent", () => {
         expect((component.view.querySelectorAll("InputElement")[0] as InputElement).isFocused).toBe(true);
     });
 
-    it("refresh компонента делегирует сервису", async () => {
+    it("the component's refresh delegates to the service", async () => {
         const service = new FakeService([]);
         await make(service).refresh();
         expect(service.refreshCalls).toBe(1);
     });
 
-    describe("открытие страницы", () => {
+    describe("opening the page", () => {
         const meta: IRegistryExtensionMeta = {
             schemaVersion: REGISTRY_SCHEMA_VERSION,
             id: "acme.tools",
@@ -456,7 +456,7 @@ describe("ExtensionsComponent", () => {
             versions: [],
         };
 
-        it("Enter на записи открывает вкладку расширения", async () => {
+        it("Enter on an entry opens the extension tab", async () => {
             const service = new FakeService([entry({ id: "acme.tools", displayName: "Acme Tools" })], null, {
                 "acme.tools": meta,
             });
@@ -473,7 +473,7 @@ describe("ExtensionsComponent", () => {
             expect(opened[0]?.label).toBe("Acme Tools");
         });
 
-        it("страница несёт readme из меты", async () => {
+        it("the page carries the readme from the metadata", async () => {
             const service = new FakeService([entry({ id: "acme.tools", displayName: "Acme Tools" })], null, {
                 "acme.tools": meta,
             });
@@ -486,7 +486,7 @@ describe("ExtensionsComponent", () => {
             );
         });
 
-        it("сбой чтения меты не оставляет пустую вкладку — причина на странице", async () => {
+        it("a metadata read failure does not leave an empty tab — the reason is on the page", async () => {
             const service = new FakeService([entry({ id: "acme.tools", displayName: "Acme Tools" })]);
             service.metaError = new Error("fetch failed (ENOTFOUND)");
             const { target, opened } = fakeTarget();
@@ -496,7 +496,7 @@ describe("ExtensionsComponent", () => {
             expect(renderElement(opened[0].view, 70, 20, { themeVars: true }).screenToString()).toContain("ENOTFOUND");
         });
 
-        it("запись из секции установленных открывает ту же вкладку", async () => {
+        it("an entry from the installed section opens the same tab", async () => {
             const service = new FakeService([
                 entry({
                     id: "acme.tools",
@@ -514,7 +514,7 @@ describe("ExtensionsComponent", () => {
             expect(opened[0]?.uri.toString()).toBe("extension:acme.tools");
         });
 
-        it("Enter на заголовке группы ничего не открывает", async () => {
+        it("Enter on a group header opens nothing", async () => {
             const service = new FakeService([entry({ id: "acme.tools", displayName: "Acme Tools" })]);
             const { target, opened } = fakeTarget();
             const component = make(service, target);
@@ -524,7 +524,7 @@ describe("ExtensionsComponent", () => {
             expect(opened).toHaveLength(0);
         });
 
-        it("не-Error отказ реестра тоже доезжает текстом", async () => {
+        it("a non-Error registry refusal also arrives as text", async () => {
             const service = new FakeService([entry({ id: "acme.tools", displayName: "Acme Tools" })]);
             // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors -- the suite checks a non-Error rejection SPECIFICALLY
             service.getMeta = () => Promise.reject("registry said no");
@@ -537,7 +537,7 @@ describe("ExtensionsComponent", () => {
             );
         });
 
-        it("чужой id вкладку не открывает, даже когда карточки есть", async () => {
+        it("an unknown id opens no tab, even when there are cards", async () => {
             const service = new FakeService([entry({ id: "acme.tools", displayName: "Acme Tools" })]);
             const { target, opened } = fakeTarget();
             const component = make(service, target);

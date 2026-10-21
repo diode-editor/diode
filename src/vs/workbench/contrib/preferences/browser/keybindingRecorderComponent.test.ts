@@ -20,8 +20,8 @@ function makeHost(tier = "kitty", os = "linux") {
     return { body, testApp, recorder };
 }
 
-describe("KeybindingRecorderComponent — запись", () => {
-    it("копит части чорда и принимает по Enter", async () => {
+describe("KeybindingRecorderComponent — recording", () => {
+    it("accumulates chord parts and accepts on Enter", async () => {
         const { testApp, recorder } = makeHost();
 
         const recording = recorder.record("Save File");
@@ -42,7 +42,7 @@ describe("KeybindingRecorderComponent — запись", () => {
         expect(recorder.isOpen()).toBe(false);
     });
 
-    it("на маке чорд подписан глифами", () => {
+    it("on mac the chord is labeled with glyphs", () => {
         const { testApp, recorder } = makeHost("kitty", "mac");
         void recorder.record("Save File");
         testApp.backend.sendRaw("\x1b[107;9u"); // Cmd+K
@@ -50,7 +50,7 @@ describe("KeybindingRecorderComponent — запись", () => {
         expect(testApp.backend.screenToString()).toContain("⌘K");
     });
 
-    it("Escape отменяет запись", async () => {
+    it("Escape cancels recording", async () => {
         const { testApp, recorder } = makeHost();
 
         const recording = recorder.record("Save File");
@@ -61,7 +61,7 @@ describe("KeybindingRecorderComponent — запись", () => {
         expect(recorder.isOpen()).toBe(false);
     });
 
-    it("Enter при пустом чорде не принимает — рекордер остаётся открыт", () => {
+    it("Enter with an empty chord does not accept — the recorder stays open", () => {
         const { testApp, recorder } = makeHost();
 
         void recorder.record("Save File");
@@ -70,7 +70,7 @@ describe("KeybindingRecorderComponent — запись", () => {
         expect(recorder.isOpen()).toBe(true);
     });
 
-    it("Ctrl+Enter — часть чорда, а не принятие", async () => {
+    it("Ctrl+Enter is part of the chord, not acceptance", async () => {
         const { testApp, recorder } = makeHost();
 
         const recording = recorder.record("Save File");
@@ -81,7 +81,7 @@ describe("KeybindingRecorderComponent — запись", () => {
         expect(serializeChord(chord!)).toBe("ctrl+enter");
     });
 
-    it("одиночный модификатор (Kitty) не попадает в чорд", async () => {
+    it("a lone modifier (Kitty) does not enter the chord", async () => {
         const { testApp, recorder } = makeHost();
 
         const recording = recorder.record("Save File");
@@ -94,7 +94,7 @@ describe("KeybindingRecorderComponent — запись", () => {
         expect(serializeChord(chord!)).toBe("ctrl+s");
     });
 
-    it("dispose закрывает и освобождает overlay-сессию", () => {
+    it("dispose closes and releases the overlay session", () => {
         const { recorder } = makeHost();
 
         void recorder.record("Save File");
@@ -103,7 +103,7 @@ describe("KeybindingRecorderComponent — запись", () => {
         expect(recorder.isOpen()).toBe(false);
     });
 
-    it("повторный record отменяет предыдущую запись", async () => {
+    it("a repeated record cancels the previous recording", async () => {
         const { recorder } = makeHost();
 
         const first = recorder.record("Save File");
@@ -114,14 +114,14 @@ describe("KeybindingRecorderComponent — запись", () => {
         void second;
     });
 
-    it("record до прикрепления корня — честная ошибка", () => {
+    it("record before the root is attached — an explicit error", () => {
         const recorder = new KeybindingRecorderComponent({ tier: "kitty", os: "linux" }, detachedLayoutService());
 
         expect(recorder.isOpen()).toBe(false);
         expect(() => recorder.record("x")).toThrow(/root is not attached/);
     });
 
-    it("dispose до первой записи не падает (session ещё null)", () => {
+    it("dispose before the first recording does not throw (session still null)", () => {
         const recorder = new KeybindingRecorderComponent({ tier: "kitty", os: "linux" }, testLayoutService());
 
         // session === null — ?. in dispose is required, otherwise TypeError.
@@ -130,7 +130,7 @@ describe("KeybindingRecorderComponent — запись", () => {
         }).not.toThrow();
     });
 
-    it("оверлей: id рекордера, фокус на нём и заголовок «Define Keybinding»", () => {
+    it("overlay: recorder id, focus on it and the 'Define Keybinding' title", () => {
         const { testApp, recorder } = makeHost();
 
         void recorder.record("Save File");
@@ -142,8 +142,8 @@ describe("KeybindingRecorderComponent — запись", () => {
     });
 });
 
-describe("KeybindingRecorderComponent — терминальные предупреждения", () => {
-    it("непереносимая комбинация показывает предупреждение", () => {
+describe("KeybindingRecorderComponent — terminal warnings", () => {
+    it("a non-portable combination shows a warning", () => {
         const { testApp, recorder } = makeHost();
 
         void recorder.record("Command Palette");
@@ -154,7 +154,7 @@ describe("KeybindingRecorderComponent — терминальные предуп�
         expect(testApp.backend.screenToString()).toContain("May not be available on legacy terminals");
     });
 
-    it("на kitty-tier переносимая комбинация не несёт НИ предупреждения, НИ legacy-заметки", () => {
+    it("on kitty tier a portable combination carries NEITHER a warning NOR the legacy note", () => {
         const { testApp, recorder } = makeHost("kitty");
 
         void recorder.record("Save File");
@@ -172,7 +172,7 @@ describe("KeybindingRecorderComponent — терминальные предуп�
         expect(lines[hintRow + 1]).not.toMatch(/[A-Za-z]/);
     });
 
-    it("на legacy-tier видна постоянная приглушённая заметка", () => {
+    it("on legacy tier a permanent dimmed note is visible", () => {
         const { testApp, recorder } = makeHost("legacy");
 
         void recorder.record("Save File");

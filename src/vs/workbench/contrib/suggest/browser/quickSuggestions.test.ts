@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import { QUICK_SUGGESTIONS_DEFAULT, readQuickSuggestions, shouldAutoTrigger, valueFor } from "./quickSuggestions.ts";
 
-describe("readQuickSuggestions — validate эталона", () => {
-    it("дефолт эталона: код — offWhenInlineCompletions, комментарии и строки — off", () => {
+describe("readQuickSuggestions — upstream validate", () => {
+    it("upstream default: code — offWhenInlineCompletions, comments and strings — off", () => {
         expect(QUICK_SUGGESTIONS_DEFAULT).toEqual({
             other: "offWhenInlineCompletions",
             comments: "off",
@@ -11,12 +11,12 @@ describe("readQuickSuggestions — validate эталона", () => {
         });
     });
 
-    it("boolean включает/выключает все виды", () => {
+    it("a boolean turns all kinds on/off", () => {
         expect(readQuickSuggestions(true)).toEqual({ other: "on", comments: "on", strings: "on" });
         expect(readQuickSuggestions(false)).toEqual({ other: "off", comments: "off", strings: "off" });
     });
 
-    it("строка — один режим на все виды; незнакомая строка — дефолт `other`", () => {
+    it("a string is one mode for all kinds; an unknown string is the `other` default", () => {
         expect(readQuickSuggestions("inline")).toEqual({ other: "inline", comments: "inline", strings: "inline" });
         expect(readQuickSuggestions("bogus")).toEqual({
             other: "offWhenInlineCompletions",
@@ -25,7 +25,7 @@ describe("readQuickSuggestions — validate эталона", () => {
         });
     });
 
-    it("объект — по полям: boolean и режимы, недостающее и мусор — дефолт поля", () => {
+    it("an object is read per field: booleans and modes; missing and garbage fields get the field default", () => {
         expect(readQuickSuggestions({ strings: true })).toEqual({
             other: "offWhenInlineCompletions",
             comments: "off",
@@ -38,13 +38,13 @@ describe("readQuickSuggestions — validate эталона", () => {
         });
     });
 
-    it("не объект и null — дефолт", () => {
+    it("a non-object and null give the default", () => {
         expect(readQuickSuggestions(null)).toBe(QUICK_SUGGESTIONS_DEFAULT);
         expect(readQuickSuggestions(7)).toBe(QUICK_SUGGESTIONS_DEFAULT);
         expect(readQuickSuggestions(undefined)).toBe(QUICK_SUGGESTIONS_DEFAULT);
     });
 
-    it("valueFor берёт режим своего вида", () => {
+    it("valueFor takes the mode of its kind", () => {
         const config = { other: "on", comments: "inline", strings: "off" } as const;
         expect(valueFor(config, "other")).toBe("on");
         expect(valueFor(config, "comment")).toBe("inline");
@@ -52,14 +52,14 @@ describe("readQuickSuggestions — validate эталона", () => {
     });
 });
 
-describe("shouldAutoTrigger — LineContext.shouldAutoTrigger эталона", () => {
-    it("каретка в конце слова — да", () => {
+describe("shouldAutoTrigger — upstream LineContext.shouldAutoTrigger", () => {
+    it("cursor at the end of a word — yes", () => {
         expect(shouldAutoTrigger("const fo", 8)).toBe(true);
         expect(shouldAutoTrigger("x", 1)).toBe(true);
-        expect(shouldAutoTrigger("привет", 6)).toBe(true);
+        expect(shouldAutoTrigger("\u043f\u0440\u0438\u0432\u0435\u0442", 6)).toBe(true); // "privet": a non-ASCII word
     });
 
-    it("не на слове: пробел, скобка, точка, дефис — нет", () => {
+    it("not on a word: space, paren, dot, hyphen — no", () => {
         expect(shouldAutoTrigger("foo ", 4)).toBe(false);
         expect(shouldAutoTrigger("foo(", 4)).toBe(false);
         expect(shouldAutoTrigger("foo.", 4)).toBe(false);
@@ -67,13 +67,13 @@ describe("shouldAutoTrigger — LineContext.shouldAutoTrigger эталона", (
         expect(shouldAutoTrigger("", 0)).toBe(false);
     });
 
-    it("числа — нет", () => {
+    it("numbers — no", () => {
         expect(shouldAutoTrigger("x = 42", 6)).toBe(false);
         expect(shouldAutoTrigger("x = 1.5", 7)).toBe(false);
         expect(shouldAutoTrigger("x = 4a", 6)).toBe(true);
     });
 
-    it("каретка внутри слова — нет, но сразу за его первым символом — да", () => {
+    it("cursor inside a word — no, but right after its first character — yes", () => {
         // Typed `x` before the word `foo`: the word is `xfoo`, the cursor past its first character.
         expect(shouldAutoTrigger("xfoo", 1)).toBe(true);
         expect(shouldAutoTrigger("xfoo", 2)).toBe(false);

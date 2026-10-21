@@ -103,7 +103,7 @@ function makeSetup(
 const ACTION = { id: "1.0", title: "Organize" };
 
 describe("editor.action.organizeImports / fixAll", () => {
-    it("запрос: полный диапазон документа + свой only; применяется первое действие", async () => {
+    it("request: full document range + its own only; the first action is applied", async () => {
         const setup = makeSetup({
             provide: () => Promise.resolve([ACTION, { id: "1.1", title: "Second" }]),
             apply: () => Promise.resolve(true),
@@ -126,7 +126,7 @@ describe("editor.action.organizeImports / fixAll", () => {
         expect(fixAll.requests[0].only).toBe("source.fixAll");
     });
 
-    it("предпочтительное действие выигрывает у первого", async () => {
+    it("the preferred action wins over the first", async () => {
         const setup = makeSetup({
             provide: () =>
                 Promise.resolve([
@@ -139,7 +139,7 @@ describe("editor.action.organizeImports / fixAll", () => {
         expect(setup.appliedIds).toEqual(["1.1"]);
     });
 
-    it("нет провайдера для документа или нет действий ([]) — notice, apply не зовётся", async () => {
+    it("no provider for the document or no actions ([]): a notice, apply is not called", async () => {
         const noSource = makeSetup(undefined);
         await organizeImportsAction.run(noSource.accessor);
         expect(noSource.notices).toEqual(["codeAction.notice: No organize imports action for 'python'"]);
@@ -149,13 +149,13 @@ describe("editor.action.organizeImports / fixAll", () => {
         expect(emptyAnswer.notices).toEqual(["codeAction.notice: No fix all action for 'python'"]);
     });
 
-    it("отказ apply — notice с названием действия; успех — тишина", async () => {
+    it("apply refusal gives a notice with the action title; success is silent", async () => {
         const failing = makeSetup({ provide: () => Promise.resolve([ACTION]), apply: () => Promise.resolve(false) });
         await organizeImportsAction.run(failing.accessor);
         expect(failing.notices).toEqual(["codeAction.notice: Code action failed: Organize"]);
     });
 
-    it("без активного редактора — тихий выход", async () => {
+    it("without an active editor: a silent exit", async () => {
         const provide = vi.fn();
         const setup = makeSetup({ provide, apply: () => Promise.resolve(true) } as unknown as FakeCodeActions);
         (setup.accessor.get(EditorServiceDIToken) as { getActiveEditor: () => unknown }).getActiveEditor = () => null;
@@ -164,7 +164,7 @@ describe("editor.action.organizeImports / fixAll", () => {
         expect(setup.notices).toEqual([]);
     });
 
-    it("quickFix: запрос по строке каретки БЕЗ only, меню с kind/badge, выбранное применяется", async () => {
+    it("quickFix: request on the cursor line WITHOUT only, a menu with kind/badge, the picked one is applied", async () => {
         const setup = makeSetup(
             {
                 provide: () =>
@@ -208,7 +208,7 @@ describe("editor.action.organizeImports / fixAll", () => {
         expect(setup.notices).toEqual([]);
     });
 
-    it("quickFix: сортировка меню — quickfix выше refactor/source, preferred первым в группе, apply по своему id", async () => {
+    it("quickFix: menu sorting puts quickfix above refactor/source, preferred first in its group, apply by its own id", async () => {
         // Provider order (verbose tsserver first) must not
         // push linter fixes past the popup edge — caught on a live run of the
         // tsserver+eslint pair: 16 refactorings buried 9 quickfixes.
@@ -254,7 +254,7 @@ describe("editor.action.organizeImports / fixAll", () => {
         expect(setup.appliedIds).toEqual(["1.0"]);
     });
 
-    it("quickFix: отмена меню — тишина; отказ apply — notice; пусто/нет источника — notice без меню", async () => {
+    it("quickFix: menu cancel is silent; apply refusal gives a notice; empty/no source gives a notice without a menu", async () => {
         const cancelled = makeSetup({
             provide: () => Promise.resolve([{ id: "1.0", title: "Fix" }]),
             apply: () => Promise.resolve(true),
@@ -280,7 +280,7 @@ describe("editor.action.organizeImports / fixAll", () => {
         expect(noSource.notices).toEqual(["codeAction.notice: No code actions available"]);
     });
 
-    it("quickFix: без активного редактора — тихий выход", async () => {
+    it("quickFix: without an active editor, a silent exit", async () => {
         const provide = vi.fn();
         const setup = makeSetup({ provide, apply: () => Promise.resolve(true) } as unknown as FakeCodeActions);
         (setup.accessor.get(EditorServiceDIToken) as { getActiveEditor: () => unknown }).getActiveEditor = () => null;
@@ -288,7 +288,7 @@ describe("editor.action.organizeImports / fixAll", () => {
         expect(provide).not.toHaveBeenCalled();
     });
 
-    it("Refactor…: запрос с only=refactor, свой заголовок меню и свой текст «пусто»", async () => {
+    it("Refactor…: request with only=refactor, its own menu title and its own 'empty' text", async () => {
         const setup = makeSetup(
             {
                 provide: () => Promise.resolve([{ id: "2.0", title: "Extract method", kind: "refactor.extract" }]),
@@ -319,7 +319,7 @@ describe("editor.action.organizeImports / fixAll", () => {
         expect(empty.notices).toEqual(["codeAction.notice: No refactorings available"]);
     });
 
-    it("Source Action…: запрос с only=source, свой заголовок меню и свой текст «пусто»", async () => {
+    it("Source Action…: request with only=source, its own menu title and its own 'empty' text", async () => {
         const setup = makeSetup(
             {
                 provide: () =>
@@ -340,7 +340,7 @@ describe("editor.action.organizeImports / fixAll", () => {
         expect(empty.notices).toEqual(["codeAction.notice: No source actions available"]);
     });
 
-    it("disabled: organize imports применяет активное, а без активных показывает причину неактивного", async () => {
+    it("disabled: organize imports applies the enabled one, and without enabled ones shows the disabled reason", async () => {
         const mixed = makeSetup({
             provide: () =>
                 Promise.resolve([
@@ -362,7 +362,7 @@ describe("editor.action.organizeImports / fixAll", () => {
         expect(onlyDisabled.notices).toEqual(["codeAction.notice: Nothing to organize"]);
     });
 
-    it("disabled: Quick Fix их не показывает; без активных — «нет действий», без меню", async () => {
+    it("disabled: Quick Fix does not show them; without enabled ones, 'no actions' and no menu", async () => {
         const mixed = makeSetup(
             {
                 provide: () =>
@@ -387,7 +387,7 @@ describe("editor.action.organizeImports / fixAll", () => {
         expect(onlyDisabled.notices).toEqual(["codeAction.notice: No code actions available"]);
     });
 
-    it("disabled: Refactor… прячет их рядом с активными, а без активных показывает причиной и не применяет", async () => {
+    it("disabled: Refactor… hides them next to enabled ones, and without enabled ones shows the reason and applies nothing", async () => {
         const mixed = makeSetup({
             provide: () =>
                 Promise.resolve([
@@ -418,7 +418,7 @@ describe("editor.action.organizeImports / fixAll", () => {
         expect(onlyDisabled.notices).toEqual(["codeAction.notice: Not a variable"]);
     });
 
-    it("метаданные запиннены: id/title/бинды/when — пользовательский контракт", () => {
+    it("metadata is pinned: id/title/keybindings/when are a user contract", () => {
         expect(organizeImportsAction.id).toBe("editor.action.organizeImports");
         expect(organizeImportsAction.title).toBe("Organize Imports");
         // Primary is a chord reachable on any terminal; the canonical Shift+Alt+O

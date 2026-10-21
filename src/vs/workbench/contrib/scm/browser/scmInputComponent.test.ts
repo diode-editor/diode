@@ -111,15 +111,15 @@ function make(): IHarness {
     };
 }
 
-describe("computeActionButton (правила VS Code)", () => {
+describe("computeActionButton (VS Code rules)", () => {
     const repo = { hasRepository: true, branch: "main", upstream: "origin/main", ahead: 0, behind: 0 };
 
-    it("вне репозитория — скрыта; изменения есть — Commit", () => {
+    it("outside a repository: hidden; with changes: Commit", () => {
         expect(computeActionButton(true, { ...repo, hasRepository: false }).visible).toBe(false);
         expect(computeActionButton(true, repo)).toEqual({ visible: true, label: "Commit", command: "git.commit" });
     });
 
-    it("чисто: без upstream — Publish Branch; с расхождением — Sync; синхронно — disabled Commit", () => {
+    it("clean: without upstream Publish Branch; diverged Sync; in sync disabled Commit", () => {
         expect(computeActionButton(false, { ...repo, upstream: null })).toEqual({
             visible: true,
             label: "Publish Branch",
@@ -133,7 +133,7 @@ describe("computeActionButton (правила VS Code)", () => {
         expect(computeActionButton(false, repo)).toEqual({ visible: true, label: "Commit", command: null });
     });
 
-    it("detached без upstream — не Publish (ветки нет), а disabled Commit", () => {
+    it("detached without upstream: not Publish (there is no branch) but disabled Commit", () => {
         expect(computeActionButton(false, { ...repo, branch: null, upstream: null })).toEqual({
             visible: true,
             label: "Commit",
@@ -142,8 +142,8 @@ describe("computeActionButton (правила VS Code)", () => {
     });
 });
 
-describe("ScmInputComponent — поле", () => {
-    it("scmInputFocus — только поле сообщения коммита", () => {
+describe("ScmInputComponent — field", () => {
+    it("scmInputFocus is the commit message field only", () => {
         const h = make();
         const keys = new ContextKeyService();
         const focusKey = (active: TUIElement | null): unknown => {
@@ -156,7 +156,7 @@ describe("ScmInputComponent — поле", () => {
         expect(focusKey(null)).toBe(false);
     });
 
-    it("безрамочное поле с плейсхолдером и id для e2e; обвязка — sideBar-фон", () => {
+    it("borderless field with a placeholder and an id for e2e; the chrome has the sideBar background", () => {
         const h = make();
         expect(h.component.input).toBeInstanceOf(ScmCommitInputElement);
         expect(h.component.input.id).toBe("scmCommitInput");
@@ -166,7 +166,7 @@ describe("ScmInputComponent — поле", () => {
         expect(h.component.view.style.bg).toBe("sideBar.background");
     });
 
-    it("плейсхолдер подписывает действующий бинд commit и следует за клавиатурой", async () => {
+    it("the placeholder shows the effective commit keybinding and follows the keyboard", async () => {
         const h = make();
         h.contextKeys.set("macKeys", 1);
         await Promise.resolve();
@@ -179,7 +179,7 @@ describe("ScmInputComponent — поле", () => {
         expect(h.component.input.placeholder).toBe("Message (⌘Enter to commit)");
     });
 
-    it("на legacy-терминале плейсхолдер подписывает Alt+Enter, а не недоезжающий Ctrl+Enter", async () => {
+    it("on a legacy terminal the placeholder shows Alt+Enter, not the undeliverable Ctrl+Enter", async () => {
         // In the legacy stream Ctrl+Enter is plain Enter: the binding is behind the tier gate, and
         // the hint must name the path that works there.
         const h = make();
@@ -191,7 +191,7 @@ describe("ScmInputComponent — поле", () => {
         expect(h.component.input.placeholder).toBe("Message (Ctrl+Enter to commit)");
     });
 
-    it("без бинда commit плейсхолдер — просто «Message»", () => {
+    it("without a commit keybinding the placeholder is just 'Message'", () => {
         const commands = new CommandRegistry();
         const { service } = fakeState();
         const component = new ScmInputComponent(
@@ -206,7 +206,7 @@ describe("ScmInputComponent — поле", () => {
         expect(component.input.placeholder).toBe("Message");
     });
 
-    it("между полем и кнопкой — пустая строка, весь блок укладывается в SCM_INPUT_HEIGHT", () => {
+    it("an empty line between the field and the button, the whole block fits in SCM_INPUT_HEIGHT", () => {
         const h = make();
         h.publishRepoState();
         renderElement(h.component.view, 20, SCM_INPUT_HEIGHT, { themeVars: true });
@@ -217,7 +217,7 @@ describe("ScmInputComponent — поле", () => {
         expect(h.component.view.layoutSize.height).toBe(SCM_INPUT_HEIGHT);
     });
 
-    it("поле начинается с первой строки блока — сверху padding'а нет", () => {
+    it("the field starts on the first line of the block: no padding on top", () => {
         const h = make();
         h.publishRepoState();
         // Width with headroom: side paddings eat two columns, and at 30
@@ -235,7 +235,7 @@ describe("ScmInputComponent — поле", () => {
         expect(h.component.input.layoutSize.width).toBe(40 - 2);
     });
 
-    it("ввод пишет черновик write-through, setMessage заменяет значение и персистит", () => {
+    it("typing writes the draft write-through, setMessage replaces the value and persists", () => {
         const h = make();
         h.component.input.inputState.insert("fix: typo");
         h.component.input.onChange?.(h.component.input.inputState.value);
@@ -247,14 +247,14 @@ describe("ScmInputComponent — поле", () => {
         expect(h.stored.get(SCM_INPUT_MESSAGE_STATE.key)).toBe("");
     });
 
-    it("focus() делегирует полю ввода", () => {
+    it("focus() delegates to the input field", () => {
         const h = make();
         const focus = vi.spyOn(h.component.input, "focus").mockImplementation(() => {});
         h.component.focus();
         expect(focus).toHaveBeenCalledTimes(1);
     });
 
-    it("открытие стора проекта восстанавливает черновик без вызова извне", () => {
+    it("opening the project store restores the draft without an external call", () => {
         const { service, stored } = fakeState();
         const commands = new CommandRegistry();
         const component = new ScmInputComponent(
@@ -273,7 +273,7 @@ describe("ScmInputComponent — поле", () => {
         expect(component.message).toBe("draft message");
     });
 
-    it("restoreDraft читает workspace-стор без write-through; совпадение — no-op", () => {
+    it("restoreDraft reads the workspace store without write-through; a match is a no-op", () => {
         const { service, stored } = fakeState();
         stored.set(SCM_INPUT_MESSAGE_STATE.key, "draft message");
         const commands = new CommandRegistry();
@@ -298,8 +298,8 @@ describe("ScmInputComponent — поле", () => {
     });
 });
 
-describe("ScmInputComponent — кнопка действия", () => {
-    it("скрыта до публикации repo-state; с изменениями — Commit, клик исполняет git.commit", () => {
+describe("ScmInputComponent — action button", () => {
+    it("hidden before repo-state is published; with changes Commit, a click runs git.commit", () => {
         const h = make();
         expect(h.component.actionButton.hidden).toBe(true);
 
@@ -313,7 +313,7 @@ describe("ScmInputComponent — кнопка действия", () => {
         expect(h.executed).toEqual(["git.commit"]);
     });
 
-    it("чисто и без upstream — Publish Branch; с расхождением — Sync Changes с счётчиками", () => {
+    it("clean and without upstream Publish Branch; diverged Sync Changes with counters", () => {
         const h = make();
         h.publishRepoState({ upstream: null });
         expect(h.component.actionButton.getLabel()).toBe("Publish Branch");
@@ -327,7 +327,7 @@ describe("ScmInputComponent — кнопка действия", () => {
         expect(h.executed).toEqual(["git.sync"]);
     });
 
-    it("чисто и синхронно — Commit задизейблен: не активируется ни кликом, ни Enter", () => {
+    it("clean and in sync: Commit is disabled, neither a click nor Enter activates it", () => {
         const h = make();
         h.publishRepoState();
         expect(h.component.actionButton.getLabel()).toBe("Commit");
@@ -339,7 +339,7 @@ describe("ScmInputComponent — кнопка действия", () => {
         expect(h.executed).toEqual([]);
     });
 
-    it("переходы: Commit → (после коммита) Sync → (после sync) disabled Commit", () => {
+    it("transitions: Commit → (after commit) Sync → (after sync) disabled Commit", () => {
         const h = make();
         h.publishRepoState();
         h.publishChanges(1);
@@ -354,7 +354,7 @@ describe("ScmInputComponent — кнопка действия", () => {
         expect(h.component.actionButton.isDisabled()).toBe(true);
     });
 
-    it("рендер: label по центру на всю ширину; header рендерится с полем и кнопкой", () => {
+    it("render: label centered across the full width; header renders with the field and the button", () => {
         const h = make();
         h.publishRepoState();
         h.publishChanges(1);
@@ -370,7 +370,7 @@ describe("ScmInputComponent — кнопка действия", () => {
         );
     });
 
-    it("клик мышью активирует включённую кнопку и игнорирует задизейбленную", () => {
+    it("a mouse click activates an enabled button and ignores a disabled one", () => {
         const h = make();
         h.publishRepoState();
         h.publishChanges(1);
@@ -393,7 +393,7 @@ describe("ScmInputComponent — кнопка действия", () => {
         expect(h.executed).toEqual(["git.commit"]);
     });
 
-    it("метрики: высота всегда 1; без ограничения ширины layout падает на minWidth", () => {
+    it("metrics: height is always 1; without a width limit layout falls back to minWidth", () => {
         const h = make();
         expect(h.component.actionButton.getMinIntrinsicHeight(10)).toBe(1);
         expect(h.component.actionButton.getMaxIntrinsicHeight(10)).toBe(1);
@@ -404,7 +404,7 @@ describe("ScmInputComponent — кнопка действия", () => {
         expect(size.height).toBe(1);
     });
 
-    it("inspectState кнопки отдаёт label/disabled/hidden; Enter активирует включённую", () => {
+    it("button inspectState returns label/disabled/hidden; Enter activates an enabled one", () => {
         const h = make();
         h.publishRepoState();
         h.publishChanges(1);
@@ -419,7 +419,7 @@ describe("ScmInputComponent — кнопка действия", () => {
     });
 });
 
-describe("ScmInputComponent — кнопка во время операции", () => {
+describe("ScmInputComponent — button during an operation", () => {
     beforeEach(() => {
         vi.useFakeTimers();
     });
@@ -428,7 +428,7 @@ describe("ScmInputComponent — кнопка во время операции", 
         vi.useRealTimers();
     });
 
-    it("гаснет сразу, а спиннер в подписи появляется только у долгой операции", async () => {
+    it("disables at once, while the spinner in the label appears only for a long operation", async () => {
         const h = make();
         h.publishRepoState();
         h.publishChanges(1);
@@ -458,7 +458,7 @@ describe("ScmInputComponent — кнопка во время операции", 
         expect(h.component.actionButton.inspectState()).toMatchObject({ label: "Commit", disabled: false });
     });
 
-    it("операция чужой секции кнопку не трогает", () => {
+    it("an operation of another section leaves the button alone", () => {
         const h = make();
         h.publishRepoState();
         h.publishChanges(1);

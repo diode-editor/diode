@@ -23,7 +23,7 @@ class FakeContextKeys {
 }
 
 describe("OpenFileCommandContribution", () => {
-    it("регистрирует workbench.openFile: открывает файл и обновляет контекст-ключи", () => {
+    it("registers workbench.openFile: opens the file and updates context keys", () => {
         const commands = new CommandRegistry();
         const editorService = new FakeEditorService();
         const contextKeys = new FakeContextKeys();
@@ -39,7 +39,7 @@ describe("OpenFileCommandContribution", () => {
         expect(contextKeys.updates).toBe(1);
     });
 
-    it("второй аргумент — опции открытия: дерево просит предпросмотр", () => {
+    it("the second argument is open options: the tree asks for preview", () => {
         const commands = new CommandRegistry();
         const editorService = new FakeEditorService();
         new OpenFileCommandContribution(
@@ -53,7 +53,7 @@ describe("OpenFileCommandContribution", () => {
         expect(editorService.options).toEqual([{ preview: true }]);
     });
 
-    it("без второго аргумента (CLI, Quick Open) опций нет — постоянная вкладка", () => {
+    it("without the second argument (CLI, Quick Open) there are no options — a pinned tab", () => {
         const commands = new CommandRegistry();
         const editorService = new FakeEditorService();
         new OpenFileCommandContribution(
@@ -68,7 +68,7 @@ describe("OpenFileCommandContribution", () => {
         expect(editorService.options).toEqual([{}]);
     });
 
-    it("команда без title — не попадает в палитру команд", () => {
+    it("a command without title does not appear in the command palette", () => {
         const commands = new CommandRegistry();
         new OpenFileCommandContribution(
             commands,

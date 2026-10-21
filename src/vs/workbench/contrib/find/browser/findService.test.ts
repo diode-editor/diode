@@ -122,7 +122,7 @@ describe("FindService", () => {
         expect(widgetVisibleKey()).toBe(false);
     });
 
-    it("повторная активация той же вкладки не закрывает сессию поиска", () => {
+    it("reactivating the same tab does not close the find session", () => {
         const { find, group } = setup("foo bar foo");
         find.open();
         expect(find.isVisible()).toBe(true);
@@ -175,7 +175,7 @@ describe("FindService", () => {
         expect(editor.viewState.currentSearchMatchIndex).toBe(1);
     });
 
-    it("close() без открытого поиска — no-op", () => {
+    it("close() without an open find is a no-op", () => {
         // Escape/close button when find was never opened in the group: there is no session.
         const { find, editor } = setup("foo bar foo");
         expect(() => {
@@ -185,8 +185,8 @@ describe("FindService", () => {
         expect(editor.viewState.currentSearchMatchIndex).toBe(-1);
     });
 
-    describe("навигация с закрытым виджетом", () => {
-        it("next() ищет по последнему запросу и не показывает виджет", () => {
+    describe("navigation with the widget closed", () => {
+        it("next() searches with the last query and does not show the widget", () => {
             const { find, widget, editor } = setup("foo bar foo baz foo");
             find.open();
             typeQuery(widget, "foo");
@@ -206,7 +206,7 @@ describe("FindService", () => {
             expect(editor.viewState.selections[0].anchor).toEqual({ line: 0, character: 8 });
         });
 
-        it("prev() с закрытым виджетом идёт назад с заворотом", () => {
+        it("prev() with the widget closed goes backward with wrap-around", () => {
             const { find, widget, editor } = setup("foo bar foo baz foo");
             find.open();
             typeQuery(widget, "foo");
@@ -219,7 +219,7 @@ describe("FindService", () => {
             expect(editor.viewState.currentSearchMatchIndex).toBe(2);
         });
 
-        it("пустой запрос сеется из выделения — виджет по-прежнему не нужен", () => {
+        it("an empty query is seeded from the selection; the widget is still not needed", () => {
             const { find, widget, editor } = setup("foo bar foo");
             editor.viewState.selections = [createSelection(0, 4, 0, 7)]; // "bar"
 
@@ -230,7 +230,7 @@ describe("FindService", () => {
             expect(editor.viewState.searchMatches).toHaveLength(1);
         });
 
-        it("запрос без совпадений — тихий no-op, виджет не всплывает", () => {
+        it("a query without matches is a silent no-op, the widget does not pop up", () => {
             const { find, widget, editor } = setup("foo bar foo");
             find.open();
             typeQuery(widget, "zzz");
@@ -244,7 +244,7 @@ describe("FindService", () => {
             expect(editor.viewState.selections[0].active).toEqual({ line: 0, character: 0 });
         });
 
-        it("без запроса и без выделения открывает виджет — искать нечего", () => {
+        it("with no query and no selection opens the widget: nothing to search for", () => {
             const { find, editor } = setup("foo bar foo");
             editor.viewState.selections = [createSelection(0, 0, 0, 0)];
 
@@ -392,7 +392,7 @@ describe("FindService", () => {
         expect(find.isVisible()).toBe(false);
     });
 
-    it("next()/prev() до присоединения view-слоя — no-op: виджета нет и не создать", () => {
+    it("next()/prev() before the view layer is attached is a no-op: no widget and none can be created", () => {
         // No host: widgetFor returns null, navigation silently exits.
         const { group } = makeGroup();
         const component = new FindComponent(NO_GROUP_HOSTS);
@@ -405,7 +405,7 @@ describe("FindService", () => {
         expect(find.isVisible()).toBe(false);
     });
 
-    it("ввод запроса до первого open() — no-op: сессии ещё нет", () => {
+    it("typing a query before the first open() is a no-op: no session yet", () => {
         // The widget is created lazily (setup), but only open()/navigation starts a session;
         // recompute on onQueryChange must silently exit without touching the editor.
         const { widget, editor } = setup("foo bar foo");

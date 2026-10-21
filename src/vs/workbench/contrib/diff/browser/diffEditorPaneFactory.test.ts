@@ -10,7 +10,7 @@ import { EditorServiceDIToken } from "../../../services/editor/common/editorServ
 import { DIFF_EDITOR_PANE_TYPE_ID } from "./diffEditorPaneFactory.ts";
 import { type IOpenDiffPairOptions, openDiffPair } from "./openDiffPair.ts";
 
-describe("Фабрика дифф-вкладки", () => {
+describe("Diff tab factory", () => {
     let ws: ITempWorkspace;
     let h: IAppHarness;
 
@@ -27,7 +27,7 @@ describe("Фабрика дифф-вкладки", () => {
     const service = () => h.container.get(EditorServiceDIToken);
     const factory = () => {
         const found = h.container.get(EditorPaneFactoriesDIToken).find((f) => f.typeId === DIFF_EDITOR_PANE_TYPE_ID);
-        if (found === undefined) throw new Error("фабрики диффа нет в списке профиля");
+        if (found === undefined) throw new Error("the diff factory is missing from the profile list");
         return found;
     };
     const files = (): IOpenDiffPairOptions => ({
@@ -41,7 +41,7 @@ describe("Фабрика дифф-вкладки", () => {
         return service().getActiveTabPane() as DiffEditorPane2;
     }
 
-    it("сплит повторяет дифф файлов в новой группе — стороны на тех же документах", async () => {
+    it("a split repeats a file diff in a new group, sides on the same documents", async () => {
         const source = await openFilesDiff();
 
         const group = service().splitActiveGroup();
@@ -57,7 +57,7 @@ describe("Фабрика дифф-вкладки", () => {
         expect(copy.sidePanes()[1].model).toBe(source.sidePanes()[1].model);
     });
 
-    it("копия в соседнюю группу — дифф там, источник на месте", async () => {
+    it("a copy to the neighbor group: the diff is there, the source stays", async () => {
         await openFilesDiff();
 
         service().copyActiveEditorToGroup("next");
@@ -69,7 +69,7 @@ describe("Фабрика дифф-вкладки", () => {
         expect(service().editorGroups.groups[1].activePane instanceof DiffEditorPane2).toBe(true);
     });
 
-    it("повтор в группу ищет вкладку только там: дифф в соседней группе не мешает", async () => {
+    it("repeating into a group looks for the tab only there: a diff in the neighbor group does not interfere", async () => {
         const source = await openFilesDiff();
         const right = service().editorGroups.newGroup("after", { focus: false })!;
 
@@ -80,7 +80,7 @@ describe("Фабрика дифф-вкладки", () => {
         expect(service().editorGroups.groups[0].activePane).toBe(source);
     });
 
-    it("повтор в группу, где дифф уже открыт, активирует его без фокуса", async () => {
+    it("repeating into a group where the diff is already open activates it without focus", async () => {
         const source = await openFilesDiff();
         service().openFile(ws.path("a.txt"));
 
@@ -92,7 +92,7 @@ describe("Фабрика дифф-вкладки", () => {
         expect(h.testApp.focusedElement).toBeNull();
     });
 
-    it("повтор в группу освежает снимок уже открытого там диффа", async () => {
+    it("repeating into a group refreshes the snapshot of the diff already open there", async () => {
         const clip = (text: string): IOpenDiffPairOptions => ({
             ...files(),
             original: { text, label: "Clipboard", identity: "clip" },
@@ -109,7 +109,7 @@ describe("Фабрика дифф-вкладки", () => {
         expect(service().editorGroups.activeGroup).toBe(right);
     });
 
-    it("команда сравнения находит дифф в другой группе и делает её активной", async () => {
+    it("the compare command finds the diff in another group and makes that group active", async () => {
         const source = await openFilesDiff();
         service().editorGroups.newGroup("after");
         service().openFile(ws.path("a.txt"));
@@ -125,7 +125,7 @@ describe("Фабрика дифф-вкладки", () => {
         expect(h.testApp.focusedElement).not.toBe(focusedBefore);
     });
 
-    it("дифф со стороной-моделью слева не повторить", async () => {
+    it("a diff with a model side on the left cannot be repeated", async () => {
         const owned = service().textFileModels.createUntitledModel();
         await openDiffPair(h.container, {
             original: { ownedModel: owned, label: "Untitled", identity: "u" },
@@ -136,7 +136,7 @@ describe("Фабрика дифф-вкладки", () => {
         expect(factory().describe(pane)).toBeUndefined();
     });
 
-    it("дифф со стороной-моделью справа не повторить", async () => {
+    it("a diff with a model side on the right cannot be repeated", async () => {
         const owned = service().textFileModels.createUntitledModel();
         await openDiffPair(h.container, {
             original: { uri: Uri.file(ws.path("a.txt")), label: "a.txt", identity: "a" },
@@ -147,7 +147,7 @@ describe("Фабрика дифф-вкладки", () => {
         expect(factory().describe(pane)).toBeUndefined();
     });
 
-    it("untitled-пару не повторить: её стороны принадлежат одной панели", async () => {
+    it("an untitled pair cannot be repeated: its sides belong to one pane", async () => {
         h.commands.execute("workbench.files.action.compareNewUntitledTextFiles");
         await vi.waitFor(() => {
             expect(service().getActiveTabPane() instanceof DiffEditorPane2).toBe(true);
@@ -158,7 +158,7 @@ describe("Фабрика дифф-вкладки", () => {
         expect(group?.editorCount).toBe(0);
     });
 
-    it("рецепт файлов переживает строку сессии туда и обратно", async () => {
+    it("a file recipe survives a round trip through the session string", async () => {
         const pane = await openFilesDiff();
         const recipe = factory().describe(pane);
 
@@ -168,7 +168,7 @@ describe("Фабрика дифф-вкладки", () => {
         expect(factory().deserialize(value!)).toEqual(files());
     });
 
-    it("в сессию не идут буфер обмена и git:-сторона", () => {
+    it("clipboard and git: sides do not go into the session", () => {
         const clipboard: IOpenDiffPairOptions = {
             ...files(),
             original: { text: "clip", label: "Clipboard", identity: "c" },
@@ -194,7 +194,7 @@ describe("Фабрика дифф-вкладки", () => {
         ).toBeUndefined();
     });
 
-    it("чужая или битая строка сессии — undefined, а не исключение", () => {
+    it("a foreign or broken session string is undefined, not an exception", () => {
         const side = { uri: "file:///a", label: "a", identity: "a" };
         for (const value of [
             JSON.stringify({ original: null, modified: side }),
@@ -211,7 +211,7 @@ describe("Фабрика дифф-вкладки", () => {
         }
     });
 
-    it("необязательные поля стороны читаются только своего вида", () => {
+    it("optional side fields are read only for their own kind", () => {
         const value = JSON.stringify({
             original: { uri: "file:///a", label: "a", identity: "a", preferDisk: "yes", onMissing: "maybe" },
             modified: { uri: "file:///b", label: "b", identity: "b", preferDisk: false, onMissing: "error" },

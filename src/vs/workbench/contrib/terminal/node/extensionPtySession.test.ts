@@ -21,8 +21,8 @@ function make() {
     return { session, onInput, onResize };
 }
 
-describe("ExtensionPtySession — эмулятор без процесса", () => {
-    it("feed рисует вывод расширения в сетку (ANSI-цвета — эмулятору); имя вместо шелла, pid нет", async () => {
+describe("ExtensionPtySession — emulator without a process", () => {
+    it("feed draws extension output into the grid (ANSI colors handled by the emulator); name instead of shell, no pid", async () => {
         const { session } = make();
         expect(session.shell).toBe("Bazel Build Status");
         expect(session.pid).toBeUndefined();
@@ -37,7 +37,7 @@ describe("ExtensionPtySession — эмулятор без процесса", () 
         session.dispose();
     });
 
-    it("набор человека уходит в onInput, ресайз — в onResize; одинаковый размер — no-op", () => {
+    it("user typing goes to onInput, resize to onResize; the same size is a no-op", () => {
         const { session, onInput, onResize } = make();
         session.write("abc");
         session.resize(30, 4);
@@ -47,7 +47,7 @@ describe("ExtensionPtySession — эмулятор без процесса", () 
         session.dispose();
     });
 
-    it("exit: onExit с кодом (undefined → 0) один раз; после — ни вывода, ни ввода, ни ресайза", async () => {
+    it("exit: onExit with the code (undefined → 0) once; afterwards no output, input or resize", async () => {
         const { session, onInput, onResize } = make();
         const exits = vi.fn();
         session.onExit(exits);
@@ -65,7 +65,7 @@ describe("ExtensionPtySession — эмулятор без процесса", () 
         session.dispose();
     });
 
-    it("exit с кодом отдаёт его как есть", () => {
+    it("exit with a code passes it as is", () => {
         const { session } = make();
         const exits = vi.fn();
         session.onExit(exits);
@@ -74,7 +74,7 @@ describe("ExtensionPtySession — эмулятор без процесса", () 
         session.dispose();
     });
 
-    it("ресайз: тот же размер — no-op; сменилась одна сторона — эмулятор и pty узнают", async () => {
+    it("resize: the same size is a no-op; one side changed — the emulator and pty learn about it", async () => {
         const { session, onResize } = make(); // 30x4
         session.resize(30, 4);
         session.resize(30, 6);
@@ -93,7 +93,7 @@ describe("ExtensionPtySession — эмулятор без процесса", () 
         session.dispose();
     });
 
-    it("курсор: позиция после вывода; строка до края (перенос ещё не случился) — курсора нет", async () => {
+    it("cursor: position after output; a line up to the edge (wrap pending) — no cursor", async () => {
         const { session } = make(); // 30x4
         session.feed("abc\r\nde");
         await vi.waitFor(() => {
@@ -106,7 +106,7 @@ describe("ExtensionPtySession — эмулятор без процесса", () 
         session.dispose();
     });
 
-    it("мышь: без режима программы — молчит; с SGR-режимом — down/move/up уходят в pty", async () => {
+    it("mouse: silent without a program mode; with SGR mode down/move/up go to the pty", async () => {
         const { session, onInput } = make();
         expect(session.mouseEventsActive).toBe(false);
         session.sendMouse({ col: 1, row: 0, button: "left", action: "down", ctrl: false, alt: false, shift: false });

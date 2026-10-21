@@ -40,7 +40,7 @@ describe("showSearchAction", () => {
         return { keybindings, commands };
     }
 
-    it("подсказка следует за терминалом: аккорд на legacy, Ctrl+Shift+F на kitty", () => {
+    it("the hint follows the terminal: chord on legacy, Ctrl+Shift+F on kitty", () => {
         const { keybindings } = registerSearch();
         const ctx = new ContextKeyService();
 
@@ -53,7 +53,7 @@ describe("showSearchAction", () => {
         expect(modern && formatKeybinding(modern)).toBe("Ctrl+Shift+F");
     });
 
-    it("аккорд Ctrl+K F резолвится и на терминале с расширенными клавишами", () => {
+    it("the Ctrl+K F chord also resolves on a terminal with extended keys", () => {
         const { keybindings } = registerSearch();
         const ctx = new ContextKeyService();
         ctx.set("tier", "kitty");
@@ -107,7 +107,7 @@ describe("search view-mode actions", () => {
     });
 });
 
-describe("collapse/expand, кольцо фокуса и детали — делегируют в SearchComponent", () => {
+describe("collapse/expand, focus ring and details delegate to SearchComponent", () => {
     function accessorWith(component: object): ServiceAccessor {
         return {
             get(token: unknown) {
@@ -125,12 +125,12 @@ describe("collapse/expand, кольцо фокуса и детали — дел�
         expect(component.expandAll).toHaveBeenCalledOnce();
     });
 
-    it("пара Collapse/Expand в «⋯»-меню сменяется по viewHasSomeCollapsibleResult", () => {
+    it("the Collapse/Expand pair in the '⋯' menu switches on viewHasSomeCollapsibleResult", () => {
         expect(collapseSearchResultsAction.menus?.[0].when).toBe("!hasSearchResult || viewHasSomeCollapsibleResult");
         expect(expandSearchResultsAction.menus?.[0].when).toBe("hasSearchResult && !viewHasSomeCollapsibleResult");
     });
 
-    it("кольцо фокуса: next/previous из инпутов, возврат с первой строки результатов", () => {
+    it("focus ring: next/previous from inputs, return from the first result row", () => {
         const component = {
             focusNextInputBox: vi.fn(),
             focusPreviousInputBox: vi.fn(),
@@ -147,7 +147,7 @@ describe("collapse/expand, кольцо фокуса и детали — дел�
         expect(focusSearchFromResultsAction.when).toBe("searchViewletVisible && firstMatchFocus");
     });
 
-    it("toggleQueryDetails зовёт тумблер деталей (Ctrl+Shift+J, when searchViewletFocus)", () => {
+    it("toggleQueryDetails calls the details toggle (Ctrl+Shift+J, when searchViewletFocus)", () => {
         const component = { toggleQueryDetails: vi.fn() };
         toggleSearchDetailsAction.run(accessorWith(component));
         expect(component.toggleQueryDetails).toHaveBeenCalledOnce();

@@ -34,7 +34,7 @@ function source(
 }
 
 describe("buildReferenceGroups", () => {
-    it("группирует по файлам, режет строку вокруг ссылки и даёт путь от корня", async () => {
+    it("groups by file, trims the line around the reference and gives the path from the root", async () => {
         const src = source({
             [`${ROOT}/src/a.ts`]: "const greet = 1;\nexport { greet };\n",
             [`${ROOT}/src/b.ts`]: 'import { greet } from "./a";\n',
@@ -84,7 +84,7 @@ describe("buildReferenceGroups", () => {
         ]);
     });
 
-    it("файл читается один раз на запрос, даже если ссылок в нём много", async () => {
+    it("a file is read once per request even with many references in it", async () => {
         const src = source({ [`${ROOT}/a.ts`]: "aaa\nbbb\nccc\n" });
 
         await buildReferenceGroups(
@@ -100,17 +100,17 @@ describe("buildReferenceGroups", () => {
         expect(src.reads).toEqual([`${ROOT}/a.ts`]);
     });
 
-    it("открытая модель важнее диска: видны несохранённые правки", async () => {
-        const src = source({ [`${ROOT}/a.ts`]: "на диске старое\n" }, { [`${ROOT}/a.ts`]: "в буфере новое\n" });
+    it("the open model wins over disk: unsaved edits are visible", async () => {
+        const src = source({ [`${ROOT}/a.ts`]: "an old disk text\n" }, { [`${ROOT}/a.ts`]: "a new buffer text\n" });
 
         const groups = await buildReferenceGroups([ref("a.ts", createRange(0, 0, 0, 2))], src, ROOT);
 
-        expect(groups[0].matches[0].preview).toEqual({ before: "", inside: "в ", after: "буфере новое" });
+        expect(groups[0].matches[0].preview).toEqual({ before: "", inside: "a ", after: "new buffer text" });
         expect(src.reads).toEqual([]);
     });
 
-    it("недоступный файл и строка за пределами текста отбрасываются без пустых групп", async () => {
-        const src = source({ [`${ROOT}/a.ts`]: "одна строка\n" });
+    it("an unavailable file and a line past the text are dropped without empty groups", async () => {
+        const src = source({ [`${ROOT}/a.ts`]: "one line\n" });
 
         const groups = await buildReferenceGroups(
             [
@@ -131,7 +131,7 @@ describe("buildReferenceGroups", () => {
         expect(src.reads).toEqual([`${ROOT}/gone.ts`, `${ROOT}/a.ts`]);
     });
 
-    it("колонки за концом строки прижимаются к её длине", async () => {
+    it("columns past the end of the line are clamped to its length", async () => {
         const src = source({ [`${ROOT}/a.ts`]: "abc\n" });
 
         const groups = await buildReferenceGroups(
@@ -146,7 +146,7 @@ describe("buildReferenceGroups", () => {
         ]);
     });
 
-    it("многострочный диапазон подсвечивается до конца первой строки", async () => {
+    it("a multiline range is highlighted to the end of the first line", async () => {
         const src = source({ [`${ROOT}/a.ts`]: "first line\nsecond line\n" });
 
         const groups = await buildReferenceGroups([ref("a.ts", createRange(0, 6, 1, 3))], src, ROOT);
@@ -159,7 +159,7 @@ describe("buildReferenceGroups", () => {
         });
     });
 
-    it("CRLF не оставляет \\r в конце превью", async () => {
+    it("CRLF leaves no \\r at the end of the preview", async () => {
         const src = source({ [`${ROOT}/a.ts`]: "const a = 1;\r\nconst b = 2;\r\n" });
 
         const groups = await buildReferenceGroups([ref("a.ts", createRange(0, 6, 0, 7))], src, ROOT);
@@ -167,7 +167,7 @@ describe("buildReferenceGroups", () => {
         expect(groups[0].matches[0].preview).toEqual({ before: "const ", inside: "a", after: " = 1;" });
     });
 
-    it("длинный хвост строки каппится и не разрывает суррогатную пару", async () => {
+    it("a long line tail is capped without splitting a surrogate pair", async () => {
         const emojiAt255 = `${"x".repeat(255)}🙂${"y".repeat(50)}`;
         const src = source({
             [`${ROOT}/min.js`]: `ref${emojiAt255}\n`,
@@ -188,7 +188,7 @@ describe("buildReferenceGroups", () => {
         expect(groups[1].matches[0].preview.after).toBe("z".repeat(256));
     });
 
-    it("строка ровно в кап не режется, даже если кончается половинкой пары", async () => {
+    it("a line exactly at the cap is not cut, even if it ends with half a pair", async () => {
         // The boundary is inclusive: 256 chars are not cut yet, even though the last
         // code unit looks like the start of a surrogate pair.
         const exact = `${"x".repeat(255)}\ud83d`;
@@ -199,7 +199,7 @@ describe("buildReferenceGroups", () => {
         expect(groups[0].matches[0].preview.after).toBe(exact);
     });
 
-    it("суррогатная пара на самой границе капа отрезается целиком", async () => {
+    it("a surrogate pair right at the cap boundary is cut whole", async () => {
         // Edge points of the high-surrogate range: U+10000 (D800 DC00) and
         // U+10FFFF (DBFF DFFF) — both halves must go together.
         const lowest = `${"x".repeat(255)}\u{10000}${"y".repeat(10)}`;
@@ -219,7 +219,7 @@ describe("buildReferenceGroups", () => {
         expect(groups[1].matches[0].preview.after).toBe("x".repeat(255));
     });
 
-    it("символ выше диапазона суррогатов на границе капа не режется лишний раз", async () => {
+    it("a character above the surrogate range at the cap boundary is not cut needlessly", async () => {
         // U+F900 is not half of a pair: the upper bound of the check must let it
         // through, otherwise an extra char is bitten off the tail.
         const tail = `${"x".repeat(255)}\uf900${"y".repeat(50)}`;
@@ -230,7 +230,7 @@ describe("buildReferenceGroups", () => {
         expect(groups[0].matches[0].preview.after).toBe(`${"x".repeat(255)}\uf900`);
     });
 
-    it("возврат каретки режется только на конце строки", async () => {
+    it("a carriage return is stripped only at the end of the line", async () => {
         // \r in the middle of a line is part of the text (that's how the server sees it
         // when counting columns); only the trailing one from CRLF is stripped.
         const src = source({ [`${ROOT}/a.ts`]: "aa\rbb cc\r\n" });
@@ -240,7 +240,7 @@ describe("buildReferenceGroups", () => {
         expect(groups[0].matches[0].preview).toEqual({ before: "", inside: "aa", after: "\rbb cc" });
     });
 
-    it("лишние разделители после корня и обратные слэши в пути нормализуются", async () => {
+    it("extra separators after the root and backslashes in the path are normalized", async () => {
         const src = source({
             [`${ROOT}//src/a.ts`]: "const a = 1;\n",
             [`${ROOT}/dir\\odd.ts`]: "const b = 2;\n",
@@ -258,7 +258,7 @@ describe("buildReferenceGroups", () => {
         expect(groups.map((g) => g.relPath)).toEqual(["src/a.ts", "dir/odd.ts"]);
     });
 
-    it("файл вне корня воркспейса показывается абсолютным путём", async () => {
+    it("a file outside the workspace root is shown with an absolute path", async () => {
         const outside = Uri.file("/opt/lib/other.ts").toString();
         const src = source({ "/opt/lib/other.ts": "export const x = 1;\n" });
 
@@ -268,7 +268,7 @@ describe("buildReferenceGroups", () => {
         expect(groups[0].absolutePath).toBe("/opt/lib/other.ts");
     });
 
-    it("без корня воркспейса путь остаётся абсолютным", async () => {
+    it("without a workspace root the path stays absolute", async () => {
         const src = source({ [`${ROOT}/a.ts`]: "abc\n" });
 
         const groups = await buildReferenceGroups([ref("a.ts", createRange(0, 0, 0, 1))], src, "");
@@ -276,7 +276,7 @@ describe("buildReferenceGroups", () => {
         expect(groups[0].relPath).toBe(`${ROOT}/a.ts`);
     });
 
-    it("сосед с общим префиксом корня не считается лежащим внутри него", async () => {
+    it("a sibling sharing the root prefix is not considered inside it", async () => {
         // "/work/project2" is not "/work/project": the path is shown whole, not
         // trimmed to "2/a.ts".
         const sibling = "/work/project2/a.ts";
@@ -291,7 +291,7 @@ describe("buildReferenceGroups", () => {
         expect(groups[0].relPath).toBe(sibling);
     });
 
-    it("пустой список ссылок — пустой список групп", async () => {
+    it("an empty reference list gives an empty group list", async () => {
         expect(await buildReferenceGroups([], source({}), ROOT)).toEqual([]);
     });
 });

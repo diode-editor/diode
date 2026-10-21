@@ -64,7 +64,7 @@ describe("ExtensionPageActions", () => {
         };
     });
 
-    it("установка идёт под индикатором прогресса", async () => {
+    it("install runs under a progress indicator", async () => {
         const service = fakeService();
         const { actions, progress } = createActions(service);
 
@@ -77,7 +77,7 @@ describe("ExtensionPageActions", () => {
         expect(progress.isBusy()).toBe(false);
     });
 
-    it("подпись прогресса называет операцию и расширение — иначе спиннер безымянный", async () => {
+    it("the progress title names the operation and the extension — otherwise the spinner is anonymous", async () => {
         // A service that "thinks", so progress has time to become visible.
         let finishInstall = (): void => {};
         let finishUninstall = (): void => {};
@@ -113,7 +113,7 @@ describe("ExtensionPageActions", () => {
         await uninstalling;
     });
 
-    it("после установки сообщение зовёт перезагрузить окно и само уходит", async () => {
+    it("after install the message asks to reload the window and goes away by itself", async () => {
         const { actions, statusBar } = createActions(fakeService());
 
         await actions.install("acme.tools");
@@ -123,7 +123,7 @@ describe("ExtensionPageActions", () => {
         expect(statusTexts(statusBar)).toEqual([]);
     });
 
-    it("после удаления сообщение говорит про применение, а не про активацию", async () => {
+    it("after uninstall the message talks about applying, not activation", async () => {
         const { actions, statusBar } = createActions(fakeService());
 
         await actions.uninstall("acme.tools");
@@ -131,7 +131,7 @@ describe("ExtensionPageActions", () => {
         expect(statusTexts(statusBar)).toEqual(["Uninstalled acme.tools — reload window to apply"]);
     });
 
-    it("неудача молчит в статус-баре — её место на странице", async () => {
+    it("a failure stays silent in the status bar — it belongs on the page", async () => {
         const service = fakeService({
             install: { ok: false, error: "sha256 mismatch" },
             uninstall: { ok: false, error: "not installed" },
@@ -146,7 +146,7 @@ describe("ExtensionPageActions", () => {
         expect(statusTexts(statusBar)).toEqual([]);
     });
 
-    it("удаление идёт под своим прогрессом и доходит до магазина", async () => {
+    it("uninstall runs under its own progress and reaches the marketplace", async () => {
         const service = fakeService();
         const { actions, progress } = createActions(service);
 
@@ -157,7 +157,7 @@ describe("ExtensionPageActions", () => {
         expect(service.uninstalled).toEqual(["acme.tools"]);
     });
 
-    it("перезагрузка идёт командой — тем же путём, что палитра и меню", () => {
+    it("reload goes through the command — the same path as the command palette and menus", () => {
         const { actions, commands } = createActions(fakeService());
         const run = vi.fn();
         commands.register("workbench.action.reloadWindow", run);

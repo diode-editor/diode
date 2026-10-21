@@ -44,14 +44,14 @@ function serviceWith(options: { cursor: FileTreeNode | null; selection?: FileTre
     return { service, view };
 }
 
-describe("ExplorerService — сегменты компактной строки", () => {
-    it("путь строки — папка текущего сегмента; у обычной строки — её путь", () => {
+describe("ExplorerService — compact row segments", () => {
+    it("the row path is the current segment's folder; for a plain row — its path", () => {
         const { service } = serviceWith({ cursor: CHAIN, segment: 1 });
         expect(service.nodePath(CHAIN)).toBe("/w/src/main");
         expect(service.nodePath(PLAIN_DIR)).toBe("/w/docs");
     });
 
-    it("без view путь компактной строки — её последняя папка", () => {
+    it("without a view the compact row path is its last folder", () => {
         const service = new ExplorerService(
             new InMemoryFileClipboard(),
             createTestConfigurationService(),
@@ -66,18 +66,18 @@ describe("ExplorerService — сегменты компактной строки
         }
     });
 
-    it("выбор, цель вставки и New File идут в папку текущего сегмента", () => {
+    it("selection, paste target and New File go to the current segment's folder", () => {
         const { service } = serviceWith({ cursor: CHAIN, segment: 0 });
         expect(service.getSelectedPaths()).toEqual(["/w/src"]);
         expect(service.getPasteTargetDir()).toBe("/w/src");
     });
 
-    it("мультивыбор: компактная строка отдаёт все папки цепочки, как getContext эталона", () => {
+    it("multi-select: a compact row yields all folders of the chain, like upstream getContext", () => {
         const { service } = serviceWith({ cursor: CHAIN, selection: [CHAIN, FILE], segment: 0 });
         expect(service.getSelectedPaths()).toEqual(["/w/src", "/w/src/main", "/w/src/main/java", "/w/a.txt"]);
     });
 
-    it("ключи explorerViewletCompressed*: первый, середина, последний сегмент; обычная строка — null", () => {
+    it("explorerViewletCompressed* keys: first, middle, last segment; plain row — null", () => {
         expect(serviceWith({ cursor: CHAIN, segment: 0 }).service.getCompressedFocus()).toEqual({
             first: true,
             last: false,
@@ -94,7 +94,7 @@ describe("ExplorerService — сегменты компактной строки
         expect(serviceWith({ cursor: null }).service.getCompressedFocus()).toBeNull();
     });
 
-    it("moveCompressedFocus зовёт соответствующий метод дерева", () => {
+    it("moveCompressedFocus calls the matching tree method", () => {
         const { service, view } = serviceWith({ cursor: CHAIN });
         service.moveCompressedFocus("previous");
         service.moveCompressedFocus("next");

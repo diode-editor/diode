@@ -25,7 +25,7 @@ import { MENU_CONTRIBUTIONS } from "../../../workbench.common.main.ts";
 import { ExplorerComponent } from "./explorerComponent.ts";
 import { ExplorerService } from "./explorerService.ts";
 
-describe("ExplorerService — revealPath (через дерево ExplorerComponent)", () => {
+describe("ExplorerService — revealPath (via the ExplorerComponent tree)", () => {
     let ws: ITempWorkspace;
     let service: ExplorerService;
     let component: ExplorerComponent;

@@ -56,14 +56,14 @@ function frame(screen: MockTerminalBackend): string[] {
 }
 
 describe("ExtensionPageHeaderElement", () => {
-    it("до раскладки строк нет, но кнопки уже собраны — страницу фокусируют раньше первого кадра", () => {
+    it("before layout there are no lines, but buttons are already built — the page gets focus before the first frame", () => {
         const header = createHeader({ buttons: [INSTALL, UNINSTALL] });
 
         expect(lines(header)).toEqual([]);
         expect(header.getButtons().map((b) => b.getLabel())).toEqual(["Install", "Uninstall"]);
     });
 
-    it("высота = строки под этой шириной плюс ряд кнопок с зазором", () => {
+    it("height = lines at this width plus the button row with a gap", () => {
         const header = createHeader();
 
         // The answer must be honest before layout: the parent ("header on
@@ -81,7 +81,7 @@ describe("ExtensionPageHeaderElement", () => {
         ]);
     });
 
-    it("раскладка сама собирает строки — шапку можно рисовать и без родителя", () => {
+    it("layout builds the lines itself — the header can be drawn without a parent", () => {
         const header = createHeader();
         const screen = renderElement(header, 40, 12, { themeVars: true });
 
@@ -91,7 +91,7 @@ describe("ExtensionPageHeaderElement", () => {
         expect(header.querySelector("#extensionPageHeaderLine-0")).not.toBeNull();
     });
 
-    it("ряд кнопок идёт под текстом: два пробела между кнопками и пустая строка под ними", () => {
+    it("the button row goes below the text: two spaces between buttons and an empty line below them", () => {
         const header = createHeader({ buttons: [INSTALL, UNINSTALL] });
         const rows = frame(renderElement(header, 40, 12, { themeVars: true }));
         const buttonRow = rows.findIndex((row) => row.includes("[ Install ]"));
@@ -101,7 +101,7 @@ describe("ExtensionPageHeaderElement", () => {
         expect(rows[buttonRow + 1]).toBe("");
     });
 
-    it("перенос считает по ширине минус отступ и колонку под бегунок", () => {
+    it("wrapping uses the width minus the padding and the scrollbar column", () => {
         const long = content({ entry: { ...ENTRY, description: "alpha beta gamma delta epsilon zeta eta theta" } });
         const header = createHeader({ content: long });
         renderElement(header, 20, 12, { themeVars: true });
@@ -113,7 +113,7 @@ describe("ExtensionPageHeaderElement", () => {
         expect(Math.max(...wrapped.map((l) => l.length))).toBeLessThanOrEqual(18);
     });
 
-    it("смена ширины пересобирает перенос", () => {
+    it("a width change rewraps", () => {
         const long = content({ entry: { ...ENTRY, description: "alpha beta gamma delta epsilon zeta eta theta" } });
         const header = createHeader({ content: long });
         renderElement(header, 60, 12, { themeVars: true });
@@ -123,7 +123,7 @@ describe("ExtensionPageHeaderElement", () => {
         expect(lines(header).length).toBeGreaterThan(wide);
     });
 
-    it("тон строки виден цветом: имя, справочная строка и ошибка операции", () => {
+    it("the line tone shows as color: name, info line and operation error", () => {
         const header = createHeader({ content: content({ operationError: "install failed" }) });
         const screen = renderElement(header, 60, 12, { themeVars: true });
         const rendered = lines(header);
@@ -134,7 +134,7 @@ describe("ExtensionPageHeaderElement", () => {
         expect(fg(rendered.indexOf("install failed"))).not.toBe(fg(rendered.indexOf("acme.tools")));
     });
 
-    it("выключенная кнопка не берёт фокус, гаснет текстом, но остаётся кнопкой", () => {
+    it("a disabled button takes no focus, is dimmed, but stays a button", () => {
         const disabled = createHeader({ buttons: [{ kind: "install", label: "Install", enabled: false }] });
         const disabledScreen = renderElement(disabled, 40, 12, { themeVars: true });
         const enabled = createHeader();
@@ -152,7 +152,7 @@ describe("ExtensionPageHeaderElement", () => {
         expect(disabledScreen.getBgAt(at)).toBe(enabledScreen.getBgAt(at));
     });
 
-    it("Enter на кнопке зовёт обработчик, фокус встаёт на первую доступную", () => {
+    it("Enter on a button calls the handler, focus lands on the first enabled one", () => {
         const onActivate = vi.fn();
         const header = createHeader({ buttons: [INSTALL, UNINSTALL], onActivate });
         TestApp.createWithContent(header).render();
@@ -164,7 +164,7 @@ describe("ExtensionPageHeaderElement", () => {
         expect(onActivate).toHaveBeenCalledExactlyOnceWith("install");
     });
 
-    it("setContent перерисовывает и текст, и ряд кнопок", () => {
+    it("setContent redraws both the text and the button row", () => {
         const header = createHeader();
         const app = TestApp.createWithContent(header);
         app.render();

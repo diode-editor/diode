@@ -154,8 +154,8 @@ describe("FindWidget — counter", () => {
     });
 });
 
-describe("FindWidget — overlay-сессия", () => {
-    it("show() до attachHost — no-op: виджет не открывается и не падает", () => {
+describe("FindWidget — overlay session", () => {
+    it("show() before attachHost is a no-op: the widget does not open and does not crash", () => {
         const component = make();
 
         expect(() => {
@@ -165,7 +165,7 @@ describe("FindWidget — overlay-сессия", () => {
         expect(component.isOpen()).toBe(false);
     });
 
-    it("повторный attachHost с тем же хостом — no-op, живая сессия не пересоздаётся", () => {
+    it("a repeated attachHost with the same host is a no-op, the live session is not recreated", () => {
         const component = make();
         const host = new OverlayHostElement();
         component.attachHost(host);
@@ -178,7 +178,7 @@ describe("FindWidget — overlay-сессия", () => {
         expect(component.isOpen()).toBe(true);
     });
 
-    it("hide() без открытой сессии — no-op", () => {
+    it("hide() without an open session is a no-op", () => {
         const component = make();
 
         expect(() => {

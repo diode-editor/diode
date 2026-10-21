@@ -18,7 +18,7 @@ function makeAccessor(commands: CommandRegistry, progress = new ProgressService(
 }
 
 describe("scmGraphRefreshAction", () => {
-    it("делегирует git.refresh, когда команда расширения зарегистрирована", () => {
+    it("delegates to git.refresh when the extension command is registered", () => {
         const commands = new CommandRegistry();
         let refreshed = 0;
         commands.register("git.refresh", () => {
@@ -28,7 +28,7 @@ describe("scmGraphRefreshAction", () => {
         expect(refreshed).toBe(1);
     });
 
-    it("прогресс обновления адресован секции GRAPH", async () => {
+    it("refresh progress is addressed to the GRAPH section", async () => {
         const commands = new CommandRegistry();
         let release!: () => void;
         commands.register("git.refresh", () => new Promise<void>((resolve) => (release = resolve)));
@@ -47,7 +47,7 @@ describe("scmGraphRefreshAction", () => {
         progress.dispose();
     });
 
-    it("до активации расширения — ни команды, ни прогресса", () => {
+    it("before the extension activates: neither the command nor progress", () => {
         const commands = new CommandRegistry();
         const progress = new ProgressService();
         expect(() => scmGraphRefreshAction.run(makeAccessor(commands, progress))).not.toThrow();
@@ -57,7 +57,7 @@ describe("scmGraphRefreshAction", () => {
 });
 
 describe("scmGraphLoadMoreAction", () => {
-    it("просит расширение расширить страницу истории", async () => {
+    it("asks the extension to extend the history page", async () => {
         const ops: unknown[] = [];
         const services = new Map<unknown, unknown>([
             [ProgressServiceDIToken, new ProgressService()],
@@ -79,7 +79,7 @@ describe("scmGraphLoadMoreAction", () => {
         expect(ops).toEqual([{ op: "logLoadMore", params: undefined }]);
     });
 
-    it("без git-расширения — тихий no-op, без notice в статус-баре", async () => {
+    it("without the git extension: silent no-op, no notice in the status bar", async () => {
         const notices: string[] = [];
         const services = new Map<unknown, unknown>([
             [ProgressServiceDIToken, new ProgressService()],
