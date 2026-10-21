@@ -173,6 +173,12 @@ describe("FileOperationsService — what reaches the edit executor", () => {
         ]);
     });
 
+    it("rename to the same name (padded with spaces) adds no 'Rename' step", async () => {
+        const { service, calls } = recording(" a.txt ");
+        await service.runRename("/ws/a.txt");
+        expect(calls).toEqual([]);
+    });
+
     it("pasting cut entries — 'Move' step, the clipboard empties", async () => {
         const { service, calls, clipboard } = recording();
         clipboard.write(["/ws/a.txt"], "cut");

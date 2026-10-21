@@ -1896,6 +1896,7 @@ export class EditorViewState {
 
             if (editStartLine > region.startLine && editEndLine <= region.endLine) {
                 region.endLine += lineDelta;
+                // Stryker disable next-line ConditionalExpression,EqualityOperator: always true, the edit starts past startLine and removes at most endLine - startLine - 1 lines; a safeguard
                 return region.endLine > region.startLine;
             }
 

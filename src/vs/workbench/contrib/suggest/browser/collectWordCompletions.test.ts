@@ -39,6 +39,12 @@ describe("collectWordCompletions", () => {
         expect(collectWordCompletions([big, "small tiny"], "", { maxBytesPerText: 100 })).toEqual(["small", "tiny"]);
     });
 
+    it("a document exactly at the size limit is still read", () => {
+        const atLimit = "alpha beta"; // 10 characters
+        expect(collectWordCompletions([atLimit], "", { maxBytesPerText: 10 })).toEqual(["alpha", "beta"]);
+        expect(collectWordCompletions([atLimit], "", { maxBytesPerText: 9 })).toEqual([]);
+    });
+
     it("caps the number of words", () => {
         const words = collectWordCompletions(["aa bb cc dd ee"], "", { maxWords: 3 });
         expect(words).toEqual(["aa", "bb", "cc"]);
