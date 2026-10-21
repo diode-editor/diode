@@ -1,8 +1,3 @@
-/**
- * Снимок настроек редактора, относящихся к indent. В Phase 1 — только
- * `tabSize`/`insertSpaces`. По мере реализации API сюда добавятся другие
- * `TextEditorOptions` (например, `cursorStyle`, `lineNumbers`).
- */
 export interface IEditorOptionsState {
     readonly tabSize: number;
     readonly insertSpaces: boolean;
@@ -14,45 +9,31 @@ export interface IEditorOptionsPatch {
 }
 
 /**
- * Выделения активного редактора, проецируемые в subprocess на каждое движение
- * каретки (`editor.selectionChanged`). Отдельно от {@link IActiveEditorMeta},
- * потому что смена выделения — не смена активного редактора: слушатели
- * `onDidChangeActiveTextEditor` на неё дёргаться не должны.
+ * Отдельно от {@link IActiveEditorMeta}: смена выделения — не смена активного
+ * редактора, слушатели `onDidChangeActiveTextEditor` дёргаться не должны.
  */
 export interface IActiveEditorSelections {
-    /** Ресурс редактора, которому принадлежат выделения (`uri.toString()`). */
     readonly uri: string;
-    /** Все выделения, первое — первичное. */
+    /** Первое — первичное. */
     readonly selections: readonly IWireSelection[];
-    /** Группа редактора (стабильный id) — субпроцесс адресует per-editor кэш. */
+    /** Стабильный id группы: субпроцесс адресует per-editor кэш. */
     readonly groupId?: number;
-    /**
-     * Источник смены (`vscode.TextEditorSelectionChangeKind`): 1 Keyboard,
-     * 2 Mouse, 3 Command. Отсутствует, если жест не размечен — например
-     * undo/redo или переход по find (см. `cursorChangeSource.ts`).
-     */
+    /** Нет, если жест не размечен: undo/redo, переход по find (`cursorChangeSource.ts`). */
     readonly kind?: WireSelectionChangeKind;
 }
 
-/**
- * Метаданные активного редактора, проецируемые в subprocess на смене фокуса
- * (`editor.activeEditorChanged`). Только метаданные — без текста (полный снапшот
- * приходит лишь на пути will-save, WP6).
- */
 export interface IActiveEditorMeta {
-    /** Ресурс активного документа как `uri.toString()`; `null` — активного редактора нет. */
+    /** `null` — активного редактора нет. */
     readonly uri: string | null;
     readonly languageId: string | null;
     readonly isDirty: boolean;
-    /** Кодировка дискового представления (id из SUPPORTED_ENCODINGS); `null` — нет редактора. */
+    /** id из SUPPORTED_ENCODINGS. */
     readonly encoding: string | null;
-    /** Текущий EOL (`vscode.EndOfLine`: 1=LF, 2=CRLF); `null` — нет редактора. */
+    /** `vscode.EndOfLine`: 1=LF, 2=CRLF. */
     readonly eol: 1 | 2 | null;
-    /** Первичное выделение активного редактора; `null` — нет редактора. */
     readonly selection: IWireSelection | null;
-    /** Группа активного редактора (стабильный id); нет редактора — отсутствует. */
     readonly groupId?: number;
-    /** Номер колонки группы (1..N, производный). */
+    /** 1..N, производный. */
     readonly viewColumn?: number;
 }
 
@@ -60,63 +41,28 @@ import type { IDisposable } from "../../../base/common/lifecycle.ts";
 
 import type { IWireEditorEdit, IWireSelection, IWireWorkspaceEditOp, WireSelectionChangeKind } from "./wireTypes.ts";
 
-/**
- * Тонкий «port» поверх {@link EditorService}, нужный
- * {@link ExtensionHost} для применения изменений `TextEditor.options`
- * к активному редактору без прямого знания о слоях Workbench/Editor
- * внутри runtime'а расширения. С #194 — также чтение/запись выделения и
- * применение правок `TextEditor.edit`.
- */
 export interface IEditorOptionsService {
     getActiveEditorOptions(): IEditorOptionsState | null;
     setActiveEditorOptions(patch: IEditorOptionsPatch): void;
     getActiveEditorFilePath(): string | null;
-    /** Метаданные активного редактора для проекции в subprocess. */
     getActiveEditorMeta(): IActiveEditorMeta;
     onActiveEditorChanged(cb: (meta: IActiveEditorMeta) => void): IDisposable;
-    /**
-     * Смена курсора/выделения в активном редакторе. События коалесятся в пределах
-     * тика — многошаговая операция редактора даёт одну нотификацию, а не пачку.
-     */
+    /** События коалесятся в пределах тика: многошаговая операция даёт одну нотификацию. */
     onActiveEditorSelectionChanged(cb: (selections: IActiveEditorSelections) => void): IDisposable;
-    /**
-     * Устанавливает выделения активного редактора (`TextEditor.selection(s) =`).
-     * No-op, если активного редактора нет либо его uri не совпадает с `uri`
-     * (редактор сменился, пока RPC ехал).
-     */
+    /** No-op, если uri активного не совпадает с `uri`: редактор сменился, пока RPC ехал. */
     setActiveEditorSelections(uri: string, selections: readonly IWireSelection[], groupId?: number): void;
-    /**
-     * Применяет правки к активному редактору одним undoable-батчем
-     * (`TextEditor.edit`). Возвращает `false`, если активного редактора нет,
-     * его uri не совпадает с `uri`, либо применять нечего.
-     */
+    /** Одним undoable-батчем; `false` — нет активного, uri не совпал или применять нечего. */
     applyActiveEditorEdits(uri: string, edits: readonly IWireEditorEdit[]): boolean;
     /**
-     * Применяет workspace edit (`workspace.applyEdit`): упорядоченный набор
-     * текстовых правок по ресурсам (открытым И закрытым) и файловых операций
-     * (create/rename/delete), ОДНИМ шагом отмены на весь edit.
-     *
-     * All-or-nothing по валидации: не прошёл хоть один ресурс (read-only
-     * буфер, нечитаемый файл, недисковая схема у файловой операции,
-     * пересекающиеся правки) — не применяется НИЧЕГО и возвращается `false`.
-     * Пустой список — тоже `false`: вакуумный успех пустого edit'а субпроцесс
-     * отвечает сам, без RPC.
-     *
-     * `isRefactoring` — после применения затронутые грязные буферы
+     * Одним шагом отмены. All-or-nothing: не прошёл валидацию хоть один ресурс —
+     * не применяется ничего, `false`. Пустой список — тоже `false`: успех пустого
+     * edit'а субпроцесс отвечает сам. `isRefactoring` — затронутые грязные буферы
      * сохраняются по `files.refactoring.autoSave`.
      */
     applyWorkspaceEdit(ops: readonly IWireWorkspaceEditOp[], options?: { isRefactoring?: boolean }): Promise<boolean>;
 
-    /**
-     * `workspace.saveAll`: сохраняет все несохранённые документы. `true` —
-     * сохранено всё (с `includeUntitled` — и безымянные буферы).
-     */
     saveAll(includeUntitled: boolean): Promise<boolean>;
 
-    /**
-     * `workspace.save`: сохраняет открытый документ ресурса (`uri.toString()`).
-     * Результат — ресурс сохранённого документа, `null` — не открыт или не
-     * сохранился.
-     */
+    /** `null` — не открыт или не сохранился. */
     save(uri: string): Promise<string | null>;
 }

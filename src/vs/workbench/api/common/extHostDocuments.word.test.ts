@@ -3,11 +3,6 @@ import { describe, expect, it } from "vitest";
 import { DocumentRegistry, type ExtHostTextDocument } from "./extHostDocuments.ts";
 import { Position, Range, Uri } from "./vscodeTypes.ts";
 
-// `getWordRangeAtPosition` и `save` объявлены в активной поверхности
-// `vscode.d.ts`, но реализации не было: касты `as unknown as
-// vscode.TextDocument` прятали это от компилятора, а `provideHover` типового
-// расширения начинается именно с `document.getWordRangeAtPosition(position)`.
-
 function docWith(text: string): ExtHostTextDocument {
     const registry = new DocumentRegistry();
     return registry.upsertFull({ uri: Uri.file("/a.txt").toString(), text });
@@ -33,7 +28,6 @@ describe("ExtHostTextDocument — getWordRangeAtPosition", () => {
     it("на стыке двух слов — левое", () => {
         const doc = docWith(TEXT);
         expect(doc.getWordRangeAtPosition(new Position(0, 15))).toEqual(new Range(0, 12, 0, 15));
-        // Слова без зазора: `x` и число `-1.5`.
         expect(docWith("x-1.5").getWordRangeAtPosition(new Position(0, 1))).toEqual(new Range(0, 0, 0, 1));
     });
 

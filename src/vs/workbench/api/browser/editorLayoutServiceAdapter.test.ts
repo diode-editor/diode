@@ -25,10 +25,6 @@ import type { IWireEditorLayout } from "../common/wireTypes.ts";
 
 import { EditorLayoutServiceAdapter } from "./editorLayoutServiceAdapter.ts";
 
-/**
- * Продюсер снимков полосы групп для `editor.layoutChanged` + исполнение
- * `showTextDocument` (семантика ViewColumn) поверх настоящего EditorService.
- */
 describe("EditorLayoutServiceAdapter", () => {
     let ws: ITempWorkspace;
     let service: EditorService;
@@ -74,7 +70,6 @@ describe("EditorLayoutServiceAdapter", () => {
         expect(layout.groups[0].viewColumn).toBe(1);
         expect(layout.groups[1].viewColumn).toBe(2);
         expect(layout.groups[1].isActive).toBe(true);
-        // Группа 1: a + b; активная вкладка b несёт выделения, неактивная — нет.
         const tabs = layout.groups[0].tabs;
         expect(tabs.map((tab) => path.basename(tab.uri))).toEqual(["a.ts", "b.ts"]);
         expect(tabs[0].selections).toBeUndefined();
@@ -113,10 +108,9 @@ describe("EditorLayoutServiceAdapter", () => {
         adapter.onDidChangeLayout((layout) => pushes.push(layout));
 
         service.splitActiveGroup();
-        expect(pushes.length).toBe(0); // ещё в микротаске
+        expect(pushes.length).toBe(0);
         adapter.flushPendingLayout();
         expect(pushes.length).toBe(1);
-        // Повторный флаш без изменений — no-op.
         adapter.flushPendingLayout();
         expect(pushes.length).toBe(1);
     });
@@ -147,9 +141,8 @@ describe("EditorLayoutServiceAdapter", () => {
         ws.writeFile("long.ts", Array.from({ length: 20 }, (_, i) => `l${i}`).join("\n"));
         service.openFile(ws.path("a.ts"));
         const before = service.editorGroups.activeGroup;
-        // Сам фокус живёт в дереве контролов, которого у голого сервиса нет,
-        // — здесь проверяем, что флаг доезжает до двери открытия. Что он там
-        // делает, закрыто `editorService.virtualDocument.test.ts`.
+        // Фокус живёт в дереве контролов, которого у голого сервиса нет: тут — что флаг доезжает
+        // до openUri, сам фокус закрыт `editorService.virtualDocument.test.ts`.
         const openUri = vi.spyOn(service, "openUri");
 
         await adapter.showTextDocument({
@@ -163,12 +156,7 @@ describe("EditorLayoutServiceAdapter", () => {
         expect(service.getActiveEditor()!.viewState.selections[0].active).toEqual({ line: 5, character: 1 });
     });
 
-    /**
-     * Позиции приезжают от расширения и про наш текст ничего не знают: от
-     * устаревшего индекса до чужой ревизии файла. Каретка за концом строки —
-     * это падение первого же кадра на highlight вхождений, поэтому дверь
-     * клампит, как и `editor.selections` в соседнем адаптере.
-     */
+    /** Каретка за концом строки роняет первый же кадр на highlight вхождений. */
     it("showTextDocument: выделение за границами документа клампится", async () => {
         ws.writeFile("short.ts", "ab\ncd");
         service.openFile(ws.path("a.ts"));
@@ -190,7 +178,6 @@ describe("EditorLayoutServiceAdapter", () => {
         const uri = group.activePane!.uri.toString();
 
         await expect(adapter.closeTabs({ tabs: [{ groupId: group.id, uri }] })).resolves.toBe(true);
-        // Группа схлопнулась; повторное закрытие — успех.
         expect(service.editorGroups.groups.length).toBe(1);
         await expect(adapter.closeTabs({ tabs: [{ groupId: group.id, uri }] })).resolves.toBe(true);
     });
@@ -213,7 +200,6 @@ describe("EditorLayoutServiceAdapter", () => {
         const group = service.editorGroups.activeGroup;
 
         const closed = adapter.closeTabs({ tabs: [{ groupId: group.id, uri: editor.uri.toString() }] });
-        // Решение за пользователем: тот же диалог, что у Ctrl+W.
         expect(dialogs.getOpenConfirmSaveDialog()).not.toBeNull();
         dialogs.getOpenConfirmSaveDialog()?.onCancel?.();
 
@@ -252,7 +238,6 @@ describe("EditorLayoutServiceAdapter", () => {
     });
 
     describe("ViewColumn и фокус по полосе", () => {
-        /** Две группы: первая с a.ts, вторая (активная) с b.ts; фокусы содержимого групп — в журнал. */
         function twoGroups() {
             service.openFile(ws.path("a.ts"));
             service.editorGroups.newGroup("after", { focus: false });
@@ -401,7 +386,6 @@ describe("EditorLayoutServiceAdapter", () => {
         expect(tabs[1].modified).toBe(Uri.file(ws.path("a.ts")).toString());
         expect(tabs[2].original).toBeUndefined();
         expect(tabs[2].modified).toBeUndefined();
-        // Снимки своего документа под uri стороны не имеют — редакторов нет.
         expect(tabs[1].sideEditors).toEqual([]);
     });
 

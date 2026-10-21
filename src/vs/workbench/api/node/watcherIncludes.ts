@@ -2,32 +2,19 @@ import * as path from "node:path";
 
 import { passesThroughSymlink } from "../../../platform/files/node/passesThroughSymlink.ts";
 
-/** Ключ настройки «за этими каталогами-симлинками тоже следим». */
 export const WATCHER_INCLUDE_SETTING = "files.watcherInclude";
 
 /**
- * Дополнительные корни слежения для рекурсивного watcher'а расширения на
- * `base` — то, что эталон даёт настройкой `files.watcherInclude`.
- *
- * Обход по симлинкам не ходит (как parcel-watcher), поэтому каталог-ссылка
- * внутри воркспейса без явного запроса немой. В эталоне `workspaceWatcher`
- * заводит на каждый путь настройки отдельный рекурсивный watch, а его события
- * попадают в общий поток, который видят все watcher'ы расширений. У нас поток
- * у каждого watcher'а свой, поэтому путь подмешивается к тем watcher'ам, чья
- * база его покрывает.
- *
- * Разрешение — как у `workspaceWatcher.watchWorkspace`: абсолютный путь
- * принимается только внутри папки воркспейса, относительный приклеивается к
- * каждой папке. Остаются пути **строго внутри** `base` и только те, что лежат
- * за симлинком: до обычного каталога обход `base` дойдёт сам, и второй watch
- * дал бы расширению каждое событие дважды (эталон такой вложенный запрос тоже
- * выбрасывает — `removeDuplicateRequests`).
+ * Обход по симлинкам не ходит, поэтому каталог-ссылку надо следить явно. У эталона
+ * события таких watch'ей идут в общий поток; у нас поток у каждого watcher'а свой —
+ * путь подмешивается к тем, чья база его покрывает. Разрешение путей — как у
+ * `workspaceWatcher.watchWorkspace`. Обычный каталог не берём: обход `base` дойдёт
+ * до него сам, второй watch задвоил бы события (`removeDuplicateRequests` эталона).
  */
 export function watcherIncludesUnder(base: string, setting: unknown, folders: readonly string[]): string[] {
     if (!Array.isArray(setting)) return [];
     const resolved = new Set<string>();
-    // Пустая строка отдельной проверки не требует: разрешается в саму папку, а
-    // база (и всё, что её покрывает) отсеивается ниже.
+    // Пустая строка разрешается в саму папку и отсеивается ниже как база.
     for (const entry of setting) {
         if (typeof entry !== "string") continue;
         if (path.isAbsolute(entry)) {
@@ -46,7 +33,7 @@ export function watcherIncludesUnder(base: string, setting: unknown, folders: re
     return result;
 }
 
-/** `candidate` — сам `parent` или лежит внутри (каталог `..foo` — внутри, `..` — нет). */
+/** Каталог `..foo` — внутри, `..` — нет. */
 function isEqualOrInside(parent: string, candidate: string): boolean {
     const relative = path.relative(parent, candidate);
     return relative !== ".." && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative);

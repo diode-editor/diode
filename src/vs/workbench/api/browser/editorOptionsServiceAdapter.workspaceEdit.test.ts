@@ -9,12 +9,6 @@ import type { IWireWorkspaceEditOp } from "../common/wireTypes.ts";
 
 import { EditorOptionsServiceAdapter } from "./editorOptionsServiceAdapter.ts";
 
-// `applyWorkspaceEdit` в адаптере — ПЕРЕВОДЧИК: wire-операции в модель правок
-// ядра, ответ — ответ исполнителя. Сама семантика применения (all-or-nothing,
-// закрытые файлы, один шаг отмены) живёт и проверяется в
-// `contrib/bulkEdit/node/workspaceEditService`.
-
-/** Исполнитель-шпион: запоминает модель, с которой его позвали. */
 function spyService(result = true): {
     service: IBulkEditService;
     calls: { edits: BulkEdit; label: string; options?: { respectAutoSaveConfig?: boolean } }[];
@@ -46,7 +40,6 @@ const A = Uri.file("/proj/a.ts");
 const B = Uri.file("/proj/b.ts");
 const EDIT_A = { range: { start: { line: 0, character: 0 }, end: { line: 0, character: 2 } }, text: "hi" };
 
-/** Фейк сервиса редакторов отвечает и за полосу групп (groupOf/activeGroup/viewColumnOf). */
 function createAdapter(fake: IEditorService, workspaceEdits: IBulkEditService): EditorOptionsServiceAdapter {
     return new EditorOptionsServiceAdapter(fake, fake as unknown as IEditorGroupsService, workspaceEdits);
 }

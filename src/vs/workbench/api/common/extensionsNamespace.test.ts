@@ -106,7 +106,6 @@ describe("extensionsNamespace", () => {
         });
         stub.fire("extensions.catalog", { extensions: [description("pub.one")] });
         expect(fired).toBe(1);
-        // Тот же состав — события нет.
         stub.fire("extensions.catalog", { extensions: [description("pub.one", { isActive: true })] });
         expect(fired).toBe(1);
         stub.fire("extensions.activated", { id: "pub.one" });
@@ -131,8 +130,7 @@ describe("extensionsNamespace", () => {
     });
 
     it("замена ОДНОГО расширения из двух — тоже смена состава", () => {
-        // Длина та же, первый id совпадает, отличается только второй: сравнение
-        // «хоть один разошёлся», а не «все разошлись».
+        // Отличается только второй id: сравнение «хоть один разошёлся», а не «все».
         const stub = makeStubRpc();
         const { extensions } = createExtensionsNamespace(stub.rpc);
         let fired = 0;
@@ -164,9 +162,7 @@ describe("extensionsNamespace", () => {
         const active = extensions.getExtension("pub.one")!;
         await expect(active.activate()).resolves.toEqual({ api: 1 });
 
-        // Сообщение отказа проверяем целиком: расширение читает его в логе, и
-        // «not implemented» без объяснения «активацией распоряжается хост»
-        // отправляет автора чинить свой код вместо нашего.
+        // Сообщение целиком: без «активацией распоряжается хост» автор расширения пойдёт чинить свой код.
         const sleeping = extensions.getExtension("pub.two")!;
         await expect(sleeping.activate()).rejects.toThrow(
             "extension.activate() is not implemented in Diode: activation is driven by the host. " +
@@ -175,9 +171,7 @@ describe("extensionsNamespace", () => {
     });
 
     it("идентичность записи стабильна в пределах состава и обновляется с новым каталогом", () => {
-        // Сравнение по ссылке в расширениях встречается (на `activeTextEditor`
-        // мы уже обжигались), а `all` зовут в циклах — новый объект на каждый
-        // геттер был бы и ложью, и мусором.
+        // Сравнение по ссылке в расширениях встречается (обжигались на `activeTextEditor`).
         const stub = makeStubRpc();
         const { extensions } = createExtensionsNamespace(stub.rpc);
         stub.fire("extensions.catalog", { extensions: [description("pub.one")] });

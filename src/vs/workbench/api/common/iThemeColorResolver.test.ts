@@ -5,8 +5,7 @@ import { ColorThemeKind } from "./vscodeTypes.ts";
 
 describe("NULL_THEME_COLOR_RESOLVER", () => {
     it("вид темы — Dark, а не undefined: расширение читает activeColorTheme.kind без проверок", () => {
-        // Профиль без моста темы (тесты, минимальные контейнеры) всё равно
-        // обязан отдать расширению настоящий вид — дефолт VS Code без настройки.
+        // Профиль без моста темы всё равно отдаёт расширению настоящий вид — дефолт VS Code.
         expect(NULL_THEME_COLOR_RESOLVER.kind()).toBe(ColorThemeKind.Dark);
     });
 

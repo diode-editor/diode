@@ -11,7 +11,6 @@ import type { IWireDocumentContentChange } from "./wireTypes.ts";
 
 const URI = Uri.file("/a.ts").toString();
 
-/** Батч модели ядра в проводной форме — как его шлёт адаптер document sync. */
 function toWire(event: IModelContentChangedEvent): IWireDocumentContentChange[] {
     return event.changes.map(({ range, text }) => ({ range, text }));
 }
@@ -106,8 +105,7 @@ describe("ExtHostTextDocument — зеркало правками", () => {
         };
         const pick = (n: number): number => Math.floor(random() * n);
         const pieces = ["", "x", "yz", "\n", "a\nb", "\r\n", "é"];
-        // Свежий маленький документ на раунд и несколько батчей подряд в нём:
-        // проверяется и цепочка версий, а документ не разрастается.
+        // Свежий маленький документ на раунд: проверяется цепочка версий, а документ не разрастается.
         for (let round = 0; round < 100; round++) {
             const model = new TextDocument(["ab", "", "cde", "f"].slice(0, 1 + pick(4)).join("\n"));
             const { tracker, doc } = setup(model.getText());

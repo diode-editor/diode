@@ -4,12 +4,8 @@ import type { IFileDialogSink } from "../common/iExtensionWindowSinks.ts";
 import type { IWireOpenDialogRequest, IWireSaveDialogRequest } from "../common/wireTypes.ts";
 
 /**
- * Мост `window.showOpenDialog` / `showSaveDialog` расширений к
- * {@link IFileDialogService} (реализация {@link IFileDialogSink}) — как
- * `MainThreadDialogs` эталона. Диалог у нас только локальный: `defaultUri` не
- * со схемой `file` отбрасывается (диалог откроется в папке по умолчанию).
- * Ярлыки кнопок (`openLabel`/`saveLabel`) едут дальше, хотя кнопок у
- * терминального диалога нет — подтверждает Enter.
+ * Диалог только локальный: `defaultUri` не со схемой `file` отбрасывается.
+ * `openLabel`/`saveLabel` едут дальше, хотя кнопок у терминального диалога нет.
  */
 export class FileDialogExtensionAdapter implements IFileDialogSink {
     public constructor(private readonly dialogs: IFileDialogService) {}

@@ -45,16 +45,12 @@ import type { IFoldingRegion } from "../../../editor/contrib/folding/iFoldingReg
 import type { IWireLanguageProviderRegistration } from "./wireTypes.ts";
 
 /**
- * «Port» поверх {@link ExtensionHost}: языковые провайдеры субпроцесса и вызов
- * каждого по handle. Как {@link IExtensionFileSystemBridge}, описывает, что
- * Workbench'у нужно от host'а: реализует его сам `ExtensionHost` (структурно), а
- * в `ILanguageFeaturesService` прокси регистрирует `LanguageFeaturesAdapter`
- * (upstream `MainThreadLanguageFeatures`).
+ * Реализует сам `ExtensionHost`, структурно; прокси в `ILanguageFeaturesService`
+ * регистрирует `LanguageFeaturesAdapter` (upstream `MainThreadLanguageFeatures`).
  */
 export interface IExtensionLanguageFeaturesBridge {
-    /** Живые регистрации провайдеров (`languages.register`). */
     getLanguageProviders(): readonly IWireLanguageProviderRegistration[];
-    /** Состав регистраций изменился (регистрация, снятие, смерть субпроцесса). */
+    /** В том числе на смерти субпроцесса. */
     onLanguageProvidersChanged(cb: () => void): IDisposable;
     provideHover(handle: number, request: IHoverRequest, token: ICancellationToken): Promise<ICoreHover | undefined>;
     provideDefinition(
@@ -125,6 +121,5 @@ export interface IExtensionLanguageFeaturesBridge {
     ): Promise<ISemanticTokens | null>;
     /** Ответ `resultId` ядру больше не нужен (`$releaseDocumentSemanticTokens`). */
     releaseDocumentSemanticTokens(handle: number, resultId: number): void;
-    /** `onDidChangeSemanticTokens` провайдера `handle`. */
     onDidChangeSemanticTokens(cb: (handle: number) => void): IDisposable;
 }

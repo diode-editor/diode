@@ -27,7 +27,6 @@ const URI = "file:///proj/main.ts";
 
 const TEXT = "const a = b;\n";
 
-/** Открывает документ в зеркале субпроцесса — как `editor.didOpen` хоста. */
 function openDoc(ctx: IVscodeHostContext, text = TEXT, languageId = "typescript", uri = URI): void {
     ctx.documentSync.open({ uri, languageId, version: 1, text });
 }
@@ -217,7 +216,6 @@ describe("LanguagesNamespace — languages.provideHover", () => {
         expect(await stub.callRequest("languages.provideHover", requestParams({ handle: 1 }))).toBeNull();
         expect(calls).toEqual(["second", "throwing", "empty"]);
 
-        // Неизвестный и отсутствующий handle — никого не зовём и документ не синхронизируем.
         const stale = "file:///proj/stale.ts";
         expect(await stub.callRequest("languages.provideHover", requestParams({ handle: 42, uri: stale }))).toBeNull();
         expect(ctx.registry.get(Uri.parse(stale))).toBeUndefined();

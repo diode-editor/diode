@@ -22,10 +22,6 @@ const REQ = {
     character: 2,
 };
 
-/**
- * Контекст субпроцесса с открытым документом запроса {@link REQ}: текст
- * провайдер читает из зеркала, которое хост завёл `editor.didOpen`.
- */
 function makeCtx(stub: IStubRpc = makeStubRpc()): { ctx: IVscodeHostContext; stub: IStubRpc } {
     const registry = new DocumentRegistry();
     const ctx: IVscodeHostContext = {
@@ -173,7 +169,6 @@ describe("LanguagesNamespace — completion: сериализация полей
         const first = await ids();
         const bucket = Number(first[0]?.split(".")[0]);
         expect(first).toEqual([`${String(bucket)}.0`, `${String(bucket)}.1`]);
-        // Следующий ответ — следующее ведро.
         expect(await ids()).toEqual([`${String(bucket + 1)}.0`, `${String(bucket + 1)}.1`]);
         expect(provideCompletionItems.mock.calls[0][1]).toMatchObject({ line: 3, character: 2 });
     });
@@ -233,7 +228,6 @@ describe("LanguagesNamespace — completion: сериализация полей
 });
 
 describe("LanguagesNamespace — resolveCompletionItem", () => {
-    /** Регистрирует провайдер с resolve и возвращает id первого пункта. */
     async function completeOnce(
         provider: Record<string, unknown>,
     ): Promise<{ id: string; stub: ReturnType<typeof makeCtx>["stub"] }> {

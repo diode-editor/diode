@@ -3,13 +3,6 @@ import type { IGutterChangeDecoration } from "../../../editor/common/model/iGutt
 import type { IEditorService } from "../../services/editor/common/editorService.ts";
 import type { IEditorDecorationsService } from "../common/iEditorDecorationsService.ts";
 
-/**
- * Реализация {@link IEditorDecorationsService} поверх {@link IEditorService}.
- * Живёт в слое Extensions (Workbench ничего не знает про host).
- *
- * Находит открытые редакторы по совпадению ресурса (образец —
- * `DiagnosticsService.editorsForResource`) и проталкивает набор в каждый.
- */
 export class EditorDecorationsServiceAdapter implements IEditorDecorationsService {
     private readonly group: IEditorService;
 

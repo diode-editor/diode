@@ -10,7 +10,6 @@ import type { IWireStatusBarItem } from "../common/wireTypes.ts";
 
 import { ExtensionStatusBarAdapter, renderStatusBarItemText } from "./extensionStatusBarAdapter.ts";
 
-/** Реестр команд на минималках: пишет вызовы, умеет падать и отдавать промис. */
 function makeCommands(behaviour?: (id: string) => unknown): {
     service: ICommandService;
     calls: { id: string; args: readonly unknown[] }[];

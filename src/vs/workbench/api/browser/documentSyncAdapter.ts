@@ -6,7 +6,6 @@ import type { IEditorService } from "../../services/editor/common/editorService.
 import type { IDocumentSyncTarget } from "../common/iDocumentSyncTarget.ts";
 import type { IWireDocumentChangedEvent, IWireDocumentSyncSnapshot } from "../common/wireTypes.ts";
 
-/** Снапшот документа модели для document sync push'а (`editor.didOpen`/`didChange`). */
 export function documentSyncSnapshotOfModel(model: BaseTextEditorModel): IWireDocumentSyncSnapshot {
     return {
         uri: model.uri.toString(),
@@ -17,10 +16,7 @@ export function documentSyncSnapshotOfModel(model: BaseTextEditorModel): IWireDo
     };
 }
 
-/**
- * Батч правок модели в проводной форме `editor.didChange`: правки как есть (в
- * порядке применения), версия модели после батча.
- */
+/** Правки — в порядке применения, версия — модели после батча. */
 export function documentChangedEventOfModel(
     model: BaseTextEditorModel,
     event: IModelContentChangedEvent,
@@ -34,20 +30,14 @@ export function documentChangedEventOfModel(
 }
 
 /**
- * Снапшоты ВСЕХ открытых документов (по одному на модель — документ в двух
- * группах не дублируется). Хост пушит их как `editor.didOpen` на `host.ready`,
- * чтобы `workspace.textDocuments` был полон ДО активации расширений (стоковый
- * vscode-languageclient читает его на `start()`).
+ * Хост пушит их `editor.didOpen` на `host.ready`: `workspace.textDocuments` должен быть полон
+ * до активации расширений (стоковый vscode-languageclient читает его на `start()`).
  */
 export function openDocumentSnapshots(group: IEditorService): IWireDocumentSyncSnapshot[] {
     return [...openDocumentModels(group)].map(documentSyncSnapshotOfModel);
 }
 
-/**
- * Модели документов, открытых расширениям: текстовых поверхностей (по одной на
- * модель) и безымянных буферов без вкладки — `openTextDocument({ content })`
- * открывает документ раньше, чем его кто-то покажет, как в эталоне.
- */
+/** Плюс безымянные буферы без вкладки: `openTextDocument({ content })` открывает документ до показа, как в эталоне. */
 function openDocumentModels(group: IEditorService): Set<BaseTextEditorModel> {
     const models = new Set<BaseTextEditorModel>();
     for (const editor of group.getTextSurfaces()) models.add(editor.model);
@@ -55,48 +45,28 @@ function openDocumentModels(group: IEditorService): Set<BaseTextEditorModel> {
     return models;
 }
 
-/** Под каким uri и языком документ открыт субпроцессу. */
 type IOpenedDocument = Pick<IWireDocumentSyncSnapshot, "uri" | "languageId">;
 
-/** Документ, открытый субпроцессу, и подписки на его модель. */
 interface ITrackedDocument {
     openedAs: IOpenedDocument;
     readonly subscriptions: DisposableStore;
 }
 
 /**
- * Продюсер document sync (core → host), пер-ДОКУМЕНТНЫЙ (AS-11): `didOpen` на
- * первое открытие ресурса, `didChange` на правку его модели — в какой бы группе
- * (и активна ли она) правка ни случилась; `didClose` — когда закрыта последняя
- * вкладка документа. Подписка на МОДЕЛЬ, не на вкладку: документ в двух группах
- * даёт один didChange, а не два. Документы — всех текстовых поверхностей
- * (`getTextSurfaces`): вкладок и сторон дифф-вкладок, по которым тоже зовут
- * провайдеров, — плюс безымянные буферы без вкладки (`openTextDocument({ content })`).
- * Панели Output — нет: их содержимое — лог, в том числе канал
- * «Extension Host (RPC)», и каждая его строка, уехав субпроцессу правкой,
- * порождала бы новую строку того же канала. didChange — дельта: точные правки батча
- * модели (`onDidChangeModelContent`), а не полный текст; полный снапшот — только
- * на открытии и на замене содержимого целиком (flush).
+ * Подписка на МОДЕЛЬ, а не на вкладку: документ в двух группах даёт один didChange (AS-11).
+ * Панели Output не синхронизируются: их строка, уехав субпроцессу правкой, порождала бы
+ * новую строку канала «Extension Host (RPC)».
  */
 export function bindDocumentSync(group: IEditorService, groups: IEditorGroupsService, host: IDocumentSyncTarget): void {
-    /**
-     * Живые подписки по модели и то, под какими uri и языком документ открыт
-     * субпроцессу; смерть последней вкладки снимает и шлёт didClose.
-     */
     const tracked = new Map<BaseTextEditorModel, ITrackedDocument>();
 
-    /** didOpen снапшота модели; возвращает, под чем документ открыт. */
     const openModel = (model: BaseTextEditorModel): IOpenedDocument => {
         const snapshot = documentSyncSnapshotOfModel(model);
         host.didOpenTextDocument(snapshot);
         return { uri: snapshot.uri, languageId: snapshot.languageId };
     };
 
-    /**
-     * Save As меняет uri (и язык) у той же модели, смена языка — язык. Для
-     * расширений это другой документ, как в эталоне (`$acceptModelLanguageChanged`,
-     * Save As в новый ресурс): didClose прежнего и didOpen нового.
-     */
+    /** Новый uri (Save As) или язык — для расширений другой документ, как в эталоне: didClose и didOpen. */
     const resyncIdentity = (model: BaseTextEditorModel, record: ITrackedDocument): void => {
         const { uri, languageId } = record.openedAs;
         if (uri === model.uri.toString() && languageId === model.languageId) return;
@@ -113,17 +83,15 @@ export function bindDocumentSync(group: IEditorService, groups: IEditorGroupsSer
         const subscriptions = new DisposableStore();
         const record: ITrackedDocument = { openedAs: openModel(model), subscriptions };
         tracked.set(model, record);
-        // Батч модели — сразу, без коалесинга: запрос провайдера, ушедший
-        // следом, едет по тому же каналу ПОСЛЕ правки (порядок сообщений
-        // заменяет версию в запросе, как у `$acceptModelChanged` эталона).
+        // Без коалесинга: запрос провайдера, ушедший следом, едет по тому же каналу ПОСЛЕ
+        // правки — порядок сообщений заменяет версию в запросе, как у `$acceptModelChanged`.
         subscriptions.add(
             model.document.onDidChangeModelContent((event) => {
                 if (event.isFlush) host.didChangeTextDocument(documentSyncSnapshotOfModel(model));
                 else host.didChangeTextDocumentContent(documentChangedEventOfModel(model, event));
             }),
         );
-        // Язык меняется и без смены набора вкладок (Save As шлёт его раньше,
-        // чем вкладки узнают о сохранении).
+        // Язык меняется и без смены набора вкладок: Save As шлёт его раньше, чем вкладки узнают о сохранении.
         subscriptions.add(
             model.onDidChangeLanguage(() => {
                 resyncIdentity(model, record);
@@ -131,7 +99,6 @@ export function bindDocumentSync(group: IEditorService, groups: IEditorGroupsSer
         );
     };
 
-    /** Согласует множество отслеживаемых моделей с открытыми вкладками. */
     const reconcile = (): void => {
         const alive = openDocumentModels(group);
         for (const [model, record] of [...tracked]) {
@@ -143,11 +110,8 @@ export function bindDocumentSync(group: IEditorService, groups: IEditorGroupsSer
         for (const model of alive) trackModel(model);
     };
 
-    // Открытия/закрытия вкладок любой группы + структурные изменения полосы.
     group.onDidChangeEditors(reconcile);
-    // Структура полосы без смены вкладок набор документов не меняет (перенос и
-    // слияние вкладок приходят через onDidChangeEditors) — подписка страхует.
-    // Stryker disable next-line CallExpression: эквивалентен — см. выше
+    // Stryker disable next-line CallExpression: эквивалентен — перенос и слияние вкладок и так приходят через onDidChangeEditors, подписка страхует
     groups.onDidGroupsChange(reconcile);
     reconcile();
 }

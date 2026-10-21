@@ -9,22 +9,14 @@ import { createNodeExtHostDisk } from "../node/extHostDisk.ts";
 import { createFileSystemNamespace } from "./fileSystemNamespace.ts";
 import { FileType, Uri } from "./vscodeTypes.ts";
 
-/**
- * Мутирующая и перечисляющая половина `workspace.fs`: `createDirectory`,
- * `readDirectory`, `delete`, `rename`, `copy`, `isWritableFileSystem`.
- *
- * Поднята под стоковый `redhat.java` — он раскладывает `-configuration` jdt.ls в
- * `globalStorageUri` и падал на `fs.createDirectory is not a function`.
- */
+// Поднята под стоковый `redhat.java`: падал на `fs.createDirectory is not a function`.
 
 const uri = (p: string) => Uri.file(p) as never;
 
 let tmpDir: string;
 /**
- * Неймспейс собираем на КАЖДЫЙ тест, а не один раз на модуль: сборка на уровне
- * модуля случается вне теста, и per-test-покрытие Stryker'а не приписывает её
- * ни одному из них — мутант в замыкании фабрики отмечается «покрытым» чужими
- * сьютами и выживает при живом ассерте.
+ * Собираем на КАЖДЫЙ тест: сборку на уровне модуля per-test-покрытие Stryker'а
+ * не приписывает ни одному тесту, и мутант в фабрике выживает при живом ассерте.
  */
 let wfs: ReturnType<typeof createFileSystemNamespace>;
 

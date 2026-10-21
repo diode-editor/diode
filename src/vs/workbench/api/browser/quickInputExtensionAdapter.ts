@@ -15,50 +15,30 @@ import type {
     IWireValidationMessage,
 } from "../common/wireTypes.ts";
 
-/** Строка объектного пикера расширения: handle едет обратно в событиях. */
 interface IExtensionQuickPickItem extends QuickPickSessionItem {
     readonly handle: number;
 }
 
-/** Объектный пикер расширения на нашей стороне: сессия плюс handle → строка. */
 interface IExtensionQuickPick {
     readonly session: QuickPickSession<IExtensionQuickPickItem>;
     byHandle: ReadonlyMap<number, IExtensionQuickPickItem>;
 }
 
 /**
- * Мост `window.showInputBox` / `window.showQuickPick` расширений к
- * QuickInput-оверлею приложения (реализация {@link IQuickInputSink}): просьба
- * субпроцесса поднимает тот же виджет, которым пользуются палитра, Quick Open и
- * наши команды, а введённое/выбранное уезжает обратно расширению. Проводка —
- * `extensionHostModule` (сток `ExtensionHost.quickInputSink`).
- *
- * Все ЯРЛЫКИ просьбы (заголовок, подсказка, placeholder, метки и описания
- * пунктов, сообщение валидации) проходят через {@link renderCodicons}: разметку
- * `$(check)` расширения пишут именно в них, и без подмены человек видел бы
- * литерал. Исключение одно — `value`: это не ярлык, а текст, который правят и
- * который уезжает обратно расширению. Перечень раковин и обоснование по каждому
- * полю — в `extensionTextSinks.test.ts`.
- *
- * Оверлей один на всё приложение, и хозяев у него теперь четверо. Отсюда
- * {@link currentHandle}: гасить по токену расширения можно ТОЛЬКО свой живой
- * показ — если оверлей уже перехватили (открылся Quick Open, пришла следующая
- * просьба), наш промис сервис к этому моменту уже довёл до `undefined` сам.
+ * Ярлыки просьбы проходят {@link renderCodicons}, кроме `value`: его правят, и он уезжает
+ * обратно расширению. Оверлей один на всё приложение: гасить по токену можно только свой живой
+ * показ — перехваченный сервис уже довёл до `undefined` сам.
  */
 export class QuickInputExtensionAdapter implements IQuickInputSink {
-    /** Handle показа, который сейчас держит оверлей; null — ничего нашего не открыто. */
     private currentHandle: number | null = null;
-    /** Живые объектные пикеры расширений по handle. */
     private readonly quickPicks = new Map<number, IExtensionQuickPick>();
 
     public constructor(private readonly quickInput: QuickInputService) {}
 
     public async showInputBox(request: IQuickInputBoxRequest): Promise<string | undefined> {
         const ask = request.validate;
-        // Валидатор отдаём ВСЕГДА, даже когда расширение его не прислало: без
-        // канала он отвечает «значение в порядке» на любой текст, и для виджета
-        // это ровно то же, что отсутствие валидации. Ветка здесь была бы
-        // неотличимой от этой — лишний шов.
+        // Валидатор отдаём всегда: без канала он отвечает «в порядке» на любой текст — для
+        // виджета то же, что отсутствие валидации.
         const validateInput = async (value: string): Promise<InputValidation | null> =>
             // Stryker disable next-line OptionalChaining: без `?.` validateInput отклоняется, когда расширение валидатора не прислало, — а зовут его из fire-and-forget ветки runValidation, мимо стека теста. Тесты «без валидации» при этом ПРОХОДЯТ: unhandled rejection роняет раннер (RuntimeError) вместо падения теста. Дыра в локализации ошибок слушателей (docs/MUTATION.md → #275), а не пробел в тестах этой строки.
             toValidation(await ask?.(value));
@@ -70,8 +50,7 @@ export class QuickInputExtensionAdapter implements IQuickInputSink {
                 title: renderLabel(request.title),
                 prompt: renderLabel(request.prompt),
                 placeholder: renderLabel(request.placeHolder),
-                // `value` — НЕ ярлык: это текст, который человек правит и который
-                // уезжает обратно расширению. Подмена испортила бы данные.
+                // `value` — не ярлык: человек его правит, и он уезжает обратно расширению.
                 value: request.value,
                 password: request.password,
                 validateInput,
@@ -161,41 +140,24 @@ export class QuickInputExtensionAdapter implements IQuickInputSink {
         this.quickInput.cancel();
     }
 
-    /**
-     * Показ закончился (человек ответил, отменил или его перехватили). Слот
-     * чистим, только если он всё ещё наш: перехват уже поставил туда чужой
-     * handle, и затирать его нельзя.
-     */
+    /** Слот чистим, только если он ещё наш: перехват уже поставил туда чужой handle. */
     private release(handle: number): void {
         if (this.currentHandle === handle) this.currentHandle = null;
     }
 }
 
-/**
- * Ответ расширения на валидацию → исход для QuickInputService. Молчание
- * (`undefined` — валидатора нет вовсе) и `null` значат одно: значение годное.
- */
+/** Молчание (валидатора нет) и `null` значат одно: значение годное. */
 function toValidation(message: IWireValidationMessage | null | undefined): InputValidation | null {
     if (message == null) return null;
     return { message: renderCodicons(message.message), severity: message.severity };
 }
 
-/**
- * {@link renderCodicons} для необязательного ярлыка: «поля нет» остаётся
- * `undefined` — у опций пикера отсутствие и пустая строка значат разное.
- */
+/** У опций пикера отсутствие поля и пустая строка значат разное. */
 function renderLabel(text: string | undefined): string | undefined {
     return text === undefined ? undefined : renderCodicons(text);
 }
 
-/**
- * Дифф провода → изменения сессии. Ярлыки (лейбл, описание, заголовок,
- * placeholder, prompt) проходят {@link renderCodicons}; `value` — нет: это
- * текст, который человек правит и который уезжает обратно расширению.
- *
- * Предметы пересобираются целиком (новый набор handle'ов), и уже по НОВОМУ
- * набору разрешаются `activeItems`/`selectedItems` того же диффа.
- */
+/** Предметы пересобираются целиком, и `activeItems`/`selectedItems` разрешаются по НОВОМУ набору. */
 function toSessionChanges(
     update: IWireQuickPickUpdate,
     pick: IExtensionQuickPick,
@@ -222,13 +184,9 @@ function toSessionChanges(
     return changes as Partial<QuickPickSessionState<IExtensionQuickPickItem>>;
 }
 
-/** Поля диффа — ярлыки: значки `$(name)` в них подменяются. */
 const LABEL_FIELDS = ["title", "placeholder", "prompt"] as const;
 
-/**
- * Поля диффа, которые едут как есть (`null` — «сброшено»). `value` среди них:
- * это не ярлык, а текст, который человек правит и который уезжает обратно.
- */
+/** `null` — «сброшено»; `value` — не ярлык, его правят. */
 const PLAIN_FIELDS = [
     "step",
     "totalSteps",
@@ -240,9 +198,8 @@ const PLAIN_FIELDS = [
 ] as const;
 
 /**
- * Строка провода → строка сессии. `detail` отдельной строкой наш однострочный
- * ряд не умеет — он встаёт НА МЕСТО описания, когда описания нет (та же
- * политика, что у `showQuickPick`), а для поиска остаётся собой.
+ * `detail` наш однострочный ряд не умеет — он встаёт на место описания, когда описания нет
+ * (как у `showQuickPick`), а для поиска остаётся собой.
  */
 function toSessionItem(item: IWireQuickPickSessionItem): IExtensionQuickPickItem {
     const shown = nonEmpty(item.description) ?? nonEmpty(item.detail);
@@ -255,7 +212,6 @@ function toSessionItem(item: IWireQuickPickSessionItem): IExtensionQuickPickItem
     };
 }
 
-/** Текст, если в нём что-то есть; пустая строка и отсутствие — одно и то же. */
 function nonEmpty(text: string | undefined): string | undefined {
     return text === "" ? undefined : text;
 }

@@ -4,11 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import { findFiles, type IFindFilesEntry, type IFindFilesScanner } from "./findFiles.ts";
 
-/**
- * Обход по карте каталогов в памяти: ключ — абсолютный путь, значение — записи.
- * Каталог, которого в карте нет, отвечает пустым списком — так же ведёт себя
- * настоящий сканер на каталоге без прав доступа.
- */
+/** Каталога нет в карте — пустой список, как у настоящего сканера на каталоге без прав. */
 function scannerFromTree(tree: Record<string, readonly string[]>): IFindFilesScanner & { reads: string[] } {
     const reads: string[] = [];
     return {
@@ -106,7 +102,6 @@ describe("findFiles — исключения", () => {
         const found = await findFiles(scanner, {
             base: ROOT,
             include: "**/pom.xml",
-            // Форма дефолтов `files.exclude`: по шаблону на каталог.
             excludes: ["**/.git", "**/node_modules"],
         });
         expect(found.toSorted()).toEqual(["core/pom.xml", "pom.xml", "web/pom.xml"]);

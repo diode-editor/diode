@@ -9,11 +9,7 @@ import type { IDocumentSyncTarget } from "../common/iDocumentSyncTarget.ts";
 
 import { bindDocumentSync } from "./documentSyncAdapter.ts";
 
-/**
- * Стороны дифф-вкладки — тоже документы для расширений: по ним зовут
- * провайдеров (активной может быть сторона), а сторона бывает правимой моделью
- * без своей вкладки (untitled-пара, «Open Changes» неоткрытого файла).
- */
+/** Сторона диффа — документ расширений: по ней зовут провайдеров, и она бывает моделью без своей вкладки. */
 describe("documentSyncAdapter — стороны дифф-вкладок", () => {
     let ws: ITempWorkspace;
     let h: IAppHarness;

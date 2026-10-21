@@ -42,65 +42,29 @@ import { NotificationExtensionAdapter } from "./notificationExtensionAdapter.ts"
 import { ProgressStatusBarAdapter } from "./progressStatusBarAdapter.ts";
 import { QuickInputExtensionAdapter } from "./quickInputExtensionAdapter.ts";
 
-// ─────────────────────────────────────────────────────────────────────────────
-// ПЕРЕЧЕНЬ РАКОВИН «текст, который написало расширение, → интерфейс».
-//
-// Подменщик значков (`renderCodicons`) написан давно и работал ровно в одной
-// раковине из десятка — поэтому пользователь и видел литерал `$(check)`. Этот
-// файл закрывает пункт так, чтобы СЛЕДУЮЩАЯ раковина не приехала без подмены:
-// он не набор кейсов, а перечень, и у перечня два гейта.
-//
-//  1. ГЕЙТ ТИПОВ (ловит новое поле). Таблицы ниже типизированы как
-//     `Readonly<Record<TextFields<IWire…>, …>>`: `TextFields` собирает поля
-//     сообщения, ТИП которых — свободная строка. Добавил расширяемое текстовое
-//     поле в wire-тип и не вписал его в таблицу — красный `npm run typecheck`,
-//     потому что в Record'е не хватает ключа.
-//  2. ГЕЙТ ПОВЕДЕНИЯ (ловит незаведённую подмену). На каждое поле политики
-//     `icons`/`verbatim` в {@link CASES} обязан быть кейс, который гонит текст
-//     через НАСТОЯЩУЮ раковину и смотрит, что оттуда вышло. Множества сверяются
-//     тестом «перечень покрыт целиком»: классифицировал поле и не завёл кейс —
-//     красно.
-//
-// ГДЕ СТОИТ ПОДМЕНА и почему не на границе RPC. Подмена живёт в раковине —
-// в адаптере, который превращает просьбу расширения в нашу модель интерфейса.
-// Один общий фильтр на входе RPC был бы короче, но он неверен: подменять можно
-// далеко не всё, что пишет расширение. Содержимое канала Output, тела
-// диагностик/ховеров/дополнений/code action'ов — это ТЕКСТ, а не разметка, и
-// `$(…)` в нём бывает настоящей шелл-подстановкой; `InputBox.value` человек
-// правит, и он уезжает обратно расширению. Политика `renderCodicons`
-// (неизвестное имя ВЫБРАСЫВАЕТСЯ) превратила бы такой текст в кашу. Поэтому
-// решение по каждому полю принимается отдельно и записано здесь.
-//
-// ЧЕГО В ПЕРЕЧНЕ НЕТ (проверено, раковин пока не существует):
-//  - `window.setStatusBarMessage` — в `vscode.d.ts` ещё закомментирован;
-//  - `languages.createLanguageStatusItem` — заглушка, в интерфейс не проецируется;
-//  - заголовки view/контейнеров и `contributes.menus` — не реализованы;
-//  - SCM: placeholder инпута и заголовки групп — НАШ текст, у расширений
-//    SCM-API нет вовсе (в `vscode`-пространстве нет `scm`);
-//  - `QuickPickItem.detail` у `showQuickPick` — поля нет на проводе: наш ряд
-//    списка однострочный. Отдельный пробел API, не раковина значков;
-//  - `MarkdownString.supportThemeIcons` (ховеры) — флаг не ездит по проводу.
-// ─────────────────────────────────────────────────────────────────────────────
+// Перечень раковин «текст расширения → интерфейс», у него два гейта:
+//  1. Типов: таблицы — `Record<TextFields<IWire…>, …>`; новое строковое поле wire-типа без
+//     строки в таблице — красный typecheck.
+//  2. Поведения: на каждое поле `icons`/`verbatim` обязан быть кейс в {@link CASES}, гоняющий
+//     текст через настоящую раковину; сверяет тест «перечень покрыт целиком».
+// Подмена значков живёт в раковине, а не на входе RPC: содержимое Output и тела диагностик —
+// текст, где `$(…)` бывает шелл-подстановкой, `InputBox.value` уезжает обратно расширению,
+// а `renderCodicons` выбрасывает неизвестные имена.
+// Раковин пока нет: `window.setStatusBarMessage`, `languages.createLanguageStatusItem`,
+// заголовки view и `contributes.menus`, SCM (нет API), `QuickPickItem.detail` (нет на проводе),
+// `MarkdownString.supportThemeIcons`.
 
 /**
- * Что делаем с полем:
- *  - `icons` — подменяем разметку значков (поле показывается как ЯРЛЫК);
- *  - `verbatim` — показываем дословно (свободный текст либо значение,
- *    которое едет обратно расширению);
- *  - `internal` — человеку не показывается вовсе (идентификатор, имя команды).
+ * `icons` — ярлык, значки подменяем; `verbatim` — дословно (свободный текст или значение,
+ * едущее обратно расширению); `internal` — человеку не показывается.
  */
 type Policy = "icons" | "verbatim" | "internal";
 
-/**
- * Поля типа `T`, ТИП которых — свободная строка. Литеральные объединения
- * (`severity`, `alignment`, `level`) сюда не попадают: это перечисления, а не
- * текст, и классифицировать их незачем.
- */
+/** Литеральные объединения (`severity`, `level`) — перечисления, а не текст. */
 type TextFields<T> = {
     [K in keyof T]-?: string extends T[K] ? K : never;
 }[keyof T];
 
-/** Политика поля плюс обоснование — его тут и читают при ревизии перечня. */
 interface IFieldPolicy {
     readonly policy: Policy;
     readonly why: string;
@@ -226,7 +190,6 @@ const MANIFEST_FIELDS: Readonly<Record<string, IFieldPolicy>> = {
     category: { policy: "icons", why: "та же подпись: категория идёт её префиксом («Java: Clean Workspace»)" },
 };
 
-/** Перечень целиком: `<сообщение>.<поле>` → политика. */
 const SINKS: Readonly<Record<string, IFieldPolicy>> = Object.fromEntries(
     (
         [
@@ -250,26 +213,18 @@ const SINKS: Readonly<Record<string, IFieldPolicy>> = Object.fromEntries(
     ),
 );
 
-// ─── Как проверяем ──────────────────────────────────────────────────────────
-
 const CHECK = CODICON_GLYPHS.check ?? "";
 const ZAP = CODICON_GLYPHS.zap ?? "";
 
-/** Что подаём в раковину и что обязано из неё выйти при политике `icons`. */
 const FEED = "$(check) Готово";
 const RENDERED = `${CHECK} Готово`;
 
-/** Второй вход — для полей, которые проверяются парой с первым. */
 const FEED_2 = "$(zap) Живо";
 const RENDERED_2 = `${ZAP} Живо`;
 
-/** Кейс раковины: прогнать текст через настоящий сток и вернуть показанное. */
 interface ISinkCase {
-    /** Ключ перечня {@link SINKS}. */
     readonly sink: string;
-    /** Текст, который «написало расширение». */
     readonly feed: string;
-    /** Что оказалось в интерфейсе. */
     readonly shown: () => Promise<string> | string;
 }
 
@@ -309,7 +264,6 @@ function quickInputSetup(): {
     return { adapter: new QuickInputExtensionAdapter(service), component, testApp };
 }
 
-/** Объектный пикер расширения, показанный одним диффом; отдаёт виджет. */
 function showObjectPick(patch: Partial<IWireQuickPickUpdate>): QuickInputComponent {
     const { adapter, component } = quickInputSetup();
     adapter.updateQuickPick({ handle: 1, visible: true, ...patch }, () => undefined);
@@ -320,7 +274,6 @@ function pickRequest(patch: Partial<IWireQuickPickRequest> = {}): IWireQuickPick
     return { handle: 1, canPickMany: false, items: [{ label: "alpha" }], picked: [], ...patch };
 }
 
-/** Канал Output, зарегистрированный с данным именем: его подпись в селекторе. */
 function channelLabel(registry: OutputChannelRegistry, id: string): string {
     const found = registry.getChannels().find((c) => c.id === id);
     if (found === undefined) throw new Error(`канал "${id}" не зарегистрирован`);
@@ -338,12 +291,7 @@ const NOOP_EDITOR_OPTIONS = {
     applyActiveEditorEdits: () => true,
 } as unknown as IEditorOptionsService;
 
-/**
- * Подпись команды расширения в палитре, собранная ровно так, как её собирает
- * провайдер палитры: заголовок и категория манифеста → реестр команд →
- * {@link commandPaletteLabel}. Субпроцесс при этом не поднимается — заголовок
- * приезжает с заглушки-активатора `onCommand:`.
- */
+/** Как собирает провайдер палитры; заголовок приезжает с заглушки-активатора `onCommand:`. */
 function paletteLabel(title: string, category: string): string {
     const registry = new CommandRegistry();
     const host = new ExtensionHost(NOOP_EDITOR_OPTIONS, new CommandServiceAdapter(registry), {});

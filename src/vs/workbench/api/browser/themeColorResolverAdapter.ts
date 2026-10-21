@@ -5,12 +5,6 @@ import type { ThemeService } from "../../services/themes/common/themeService.ts"
 import type { IThemeColorResolver } from "../common/iThemeColorResolver.ts";
 import { ColorThemeKind } from "../common/vscodeTypes.ts";
 
-/**
- * Вид темы для расширения: `WorkbenchTheme.type` → `vscode.ColorThemeKind`.
- * Экспортирован ради теста маппинга — все четыре вида темы у нас есть, и
- * промах здесь расширение видит как «не та тема» (иконки/цвета под тёмную на
- * светлой).
- */
 export function colorThemeKindOf(type: WorkbenchTheme["type"]): ColorThemeKind {
     switch (type) {
         case "light":
@@ -24,16 +18,6 @@ export function colorThemeKindOf(type: WorkbenchTheme["type"]): ColorThemeKind {
     }
 }
 
-/**
- * Реализация {@link IThemeColorResolver} поверх {@link ThemeService}. Живёт в
- * слое Extensions (Theme ничего не знает про host).
- *
- * `resolve` читает цвет активной темы по id (`theme.getColor`); неизвестный id
- * (или цвет без дефолта в реестре) → `undefined`. `kind` отдаёт вид активной
- * темы для `window.activeColorTheme`. `onDidChange` подписывается на смену темы,
- * гася немедленный синхронный вызов `onThemeChange` (нам нужен только *переход*,
- * чтобы пере-резолвить держимые декорации и разослать расширениям новую тему).
- */
 export class ThemeColorResolverAdapter implements IThemeColorResolver {
     private readonly themeService: ThemeService;
 

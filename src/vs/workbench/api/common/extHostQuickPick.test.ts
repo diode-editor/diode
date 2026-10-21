@@ -79,7 +79,6 @@ describe("ExtHostQuickPick — состояние и провод", () => {
         expect(updates()[1]).toEqual({ handle: expect.any(Number) as number, prompt: null, items: [WIRE_A] });
     });
 
-    // Каждый сеттер обязан положить в дифф СВОЁ поле — под своим именем.
     it.each([
         ["title", "T"],
         ["step", 2],
@@ -118,7 +117,6 @@ describe("ExtHostQuickPick — состояние и провод", () => {
         pick.title = undefined;
         pick.hide();
         expect(updates().at(-1)).toEqual({ handle: expect.any(Number) as number, title: null, visible: false });
-        // Отложенный дифф ушёл вместе с hide() — пустой второй не нужен.
         vi.runAllTimers();
         expect(updates()).toHaveLength(2);
     });
@@ -297,7 +295,6 @@ describe("ExtHostQuickPick — события хоста", () => {
         pick.show();
         pick.hide();
         pick.show();
-        // Ответ хоста на первый hide() приходит уже во время второго показа.
         hostEvent({ kind: "hide" });
         pick.hide();
         hostEvent({ kind: "hide" });

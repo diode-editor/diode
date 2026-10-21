@@ -301,7 +301,6 @@ describe("LanguagesNamespace — запросы семантических то�
         const { stub, languages } = setup();
         languages.registerDocumentSemanticTokensProvider("csharp", fullProvider([1, 1, 1, 1, 1]), LEGEND);
         await stub.callRequest("languages.provideDocumentSemanticTokens", { ...DOC, handle: 0, previousResultId: 0 });
-        // Чужой handle и битые параметры — тихо.
         stub.fire("languages.releaseDocumentSemanticTokens", { handle: 9, resultId: 1 });
         stub.fire("languages.releaseDocumentSemanticTokens", null);
         stub.fire("languages.releaseDocumentSemanticTokens", { handle: 0 });

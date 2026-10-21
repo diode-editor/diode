@@ -5,58 +5,31 @@ import type { ICommandService } from "../common/iCommandService.ts";
 import type { IStatusBarItemSink } from "../common/iExtensionWindowSinks.ts";
 import type { IWireStatusBarItem } from "../common/wireTypes.ts";
 
-/**
- * Префикс id записей, пришедших от расширений. Разделяет пространства имён:
- * расширение не может ни перебить встроенный сегмент (`status.editor.encoding`),
- * ни скрыть его через меню видимости, каким бы id оно ни назвалось.
- */
+/** Расширение не может ни перебить встроенный сегмент, ни скрыть его через меню видимости. */
 export const EXTENSION_ENTRY_PREFIX = "extensions.";
 
 /**
- * Приоритет пункта, созданного без `priority`. В VS Code такой пункт встаёт
- * правее всех приоритетных внутри своей стороны; у нас порядок — по убыванию
- * priority, поэтому «без приоритета» = очень маленькое число. Не
- * `-Number.MAX_SAFE_INTEGER`: разность двух таких в компараторе должна
- * оставаться конечной и равной нулю.
+ * В VS Code пункт без `priority` встаёт правее всех. Не `-Number.MAX_SAFE_INTEGER`: разность
+ * двух таких в компараторе должна оставаться конечной.
  */
 const NO_PRIORITY = -1_000_000;
 
 /**
- * Потолок ширины пункта расширения в символах. Отклонение от VS Code (там
- * полоса просто растёт): ширина терминала дефицитна, и текст на 200 символов
- * вытеснил бы за край `Ln X, Col Y` и язык. Хвост заменяется на «…».
- *
- * Почему 24, а не «треть ширины полосы»: полоса режется по фактической ширине
- * уже на уровне layout'а, а число здесь — про то, сколько один пункт вправе
- * отъесть у встроенных сегментов. 24 — примерно треть 80 колонок, самой узкой
- * ширины, на которой встроенная правая группа (`Ln X, Col Y`, отступ, кодировка,
- * EOL, язык) ещё помещается целиком. Настоящим пунктам расширений этого хватает
- * с запасом (`$(check) Ready`, `Supermaven Pro`), режется только злоупотребление.
+ * Отклонение от VS Code (там полоса растёт): в терминале длинный пункт вытеснил бы `Ln X, Col Y`
+ * и язык. 24 — треть 80 колонок, самой узкой ширины, где встроенная правая группа ещё помещается.
  */
 const MAX_ITEM_WIDTH = 24;
 
-/**
- * Запасной видимый символ. Нужен пункту, от текста которого после подстановки
- * значков ничего не осталось (текст был только из неизвестных `$(name)`):
- * пустой пункт не видно и не по чему кликнуть, а команда на нём живая.
- */
+/** Пункт, чей текст схлопнулся при подстановке значков, иначе стал бы невидим, а команда на нём жива. */
 const FALLBACK_GLYPH = "•";
 
-/** Живой пункт: запись полосы + то, что нужно знать при клике. */
 interface IItemRecord {
-    /** Id записи в {@link StatusBarService} — по нему видно, что пункт «тот же». */
     readonly entryId: string;
     readonly bar: IStatusBarEntryHandle;
     command: string | undefined;
     args: readonly unknown[];
 }
 
-/**
- * Готовит текст пункта к показу в полосе: подставляет значки (`$(check)` →
- * глиф), режет длинный хвост и не даёт пункту стать невидимым.
- *
- * Экспортируется ради тестов — сама по себе логика чисто текстовая.
- */
 export function renderStatusBarItemText(raw: string, maxWidth: number = MAX_ITEM_WIDTH): string {
     const rendered = renderCodicons(raw);
     // Кодпоинтами, а не по `.length`: резать суррогатную пару пополам нельзя.
@@ -68,7 +41,6 @@ export function renderStatusBarItemText(raw: string, maxWidth: number = MAX_ITEM
     return raw === "" ? "" : FALLBACK_GLYPH;
 }
 
-/** Поля записи полосы, которые целиком задаёт пункт расширения. */
 function entryFields(item: IWireStatusBarItem): {
     text: string;
     alignment: "left" | "right";
@@ -84,18 +56,6 @@ function entryFields(item: IWireStatusBarItem): {
     };
 }
 
-/**
- * Мост `window.createStatusBarItem` расширений в статус-бар (реализация
- * {@link IStatusBarItemSink}): на каждый показанный пункт заводится запись
- * {@link StatusBarService}, клик по ней исполняет команду расширения.
- *
- * Все id записей живут под префиксом {@link EXTENSION_ENTRY_PREFIX}: так
- * пункты расширений не сталкиваются со встроенными сегментами. Видимость
- * остаётся за пользователем — скрытый через меню полосы id не покажется,
- * сколько бы `show()` расширение ни звало (фильтрует {@link StatusBarService}).
- *
- * Проводка — `extensionHostModule` (сток `ExtensionHost.statusBarItemSink`).
- */
 export class ExtensionStatusBarAdapter implements IStatusBarItemSink {
     private readonly items = new Map<number, IItemRecord>();
 
@@ -139,17 +99,11 @@ export class ExtensionStatusBarAdapter implements IStatusBarItemSink {
         record.bar.dispose();
     }
 
-    /** Снимает все пункты: субпроцесс умер либо приложение выключается. */
     public clear(): void {
         for (const handle of [...this.items.keys()]) this.remove(handle);
     }
 
-    /**
-     * Исполняет команду пункта. Команда принадлежит расширению и может как
-     * отсутствовать в реестре (расширение умерло между кликом и исполнением),
-     * так и упасть — ни то, ни другое не должно ронять редактор, поэтому обе
-     * ветки уходят в лог.
-     */
+    /** Команда расширения может отсутствовать или упасть — редактор не роняем, обе ветки в лог. */
     private runCommand(record: IItemRecord): void {
         const command = record.command;
         if (command === undefined) return;

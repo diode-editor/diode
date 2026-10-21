@@ -3,14 +3,7 @@ import type { IDisposable } from "../../../base/common/lifecycle.ts";
 
 import type { IMessageChannel } from "./iMessageChannel.ts";
 
-/**
- * Создаёт пару связанных in-process каналов. Сообщения, отправленные в один
- * конец, доставляются в другой через `queueMicrotask` (асинхронно, чтобы
- * семантика совпадала с будущим транспортом поверх IPC/MessagePort).
- *
- * Если канал был disposed — `postMessage` no-op, новые `onMessage`-листенеры
- * никогда не вызываются.
- */
+/** Доставка через `queueMicrotask` — асинхронно, как у настоящего IPC. */
 export function createInProcessChannelPair(): [IMessageChannel, IMessageChannel] {
     const a = new InProcessChannel();
     const b = new InProcessChannel();

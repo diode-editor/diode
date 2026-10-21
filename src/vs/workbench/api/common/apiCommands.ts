@@ -4,29 +4,20 @@ import { Uri } from "./vscodeTypes.ts";
 
 type ApiCommandHandler = (...args: unknown[]) => unknown;
 
-/** Чем API-команды открывают ресурс: те же пути, что у `window.showTextDocument` и `env.openExternal`. */
 export interface IApiCommandsDeps {
     showTextDocument(uri: vscode.Uri, options?: vscode.TextDocumentShowOptions): Thenable<unknown>;
     openExternal(target: vscode.Uri): Thenable<boolean>;
 }
 
-/**
- * Встроенные API-команды extension host'а (upstream `extHostApiCommands.ts`):
- * регистрируются в subprocess'е локально, в реестр хоста не уходят
- * (`registerCommand(false, …)` эталона), валидируют аргументы и открывают
- * ресурс уже имеющимися мостами. Набор — по нужде стоковых расширений.
- */
+/** Регистрируются локально, в реестр хоста не уходят (`registerCommand(false, …)` эталона). */
 export function createApiCommands(deps: IApiCommandsDeps): ReadonlyMap<string, ApiCommandHandler> {
     return new Map<string, ApiCommandHandler>([["vscode.open", (...args) => open(deps, args)]]);
 }
 
 /**
- * `vscode.open(uriOrString, columnOrOptions?, label?)`: Uri — в редактор
- * (колонка/опции как у `showTextDocument`), http(s) — системному обработчику,
  * `command:` — молча ничего (эталон не даёт исполнять команды отсюда).
- * Отступление: эталон с опциями открыл бы и http(s) редактором — у нас
- * веб-редактора нет, ссылка всегда уходит наружу; `label` (подпись вкладки)
- * принимается и не применяется — своей подписи у вкладок нет.
+ * Отступление: эталон с опциями открыл бы http(s) редактором — у нас веб-редактора
+ * нет, ссылка всегда уходит наружу; `label` не применяется.
  */
 async function open(deps: IApiCommandsDeps, args: readonly unknown[]): Promise<void> {
     const [uriOrString, columnOrOptions, label] = args;

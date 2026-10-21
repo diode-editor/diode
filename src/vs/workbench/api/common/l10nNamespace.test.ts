@@ -2,9 +2,8 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import { createL10nNamespace } from "./l10nNamespace.ts";
 
-// Namespace собирается в beforeEach, а не на уровне модуля: вызов при импорте
-// исполняется до активации мутанта Stryker в том же воркере, и мутант тела
-// createL10nNamespace выживал бы ложно (поймано CI-джобой mutation).
+// В beforeEach, а не на уровне модуля: вызов при импорте идёт до активации мутанта
+// Stryker в воркере, и мутант тела createL10nNamespace выживал бы ложно.
 let l10n: ReturnType<typeof createL10nNamespace>;
 
 describe("vscode.l10n (без бандла переводов)", () => {

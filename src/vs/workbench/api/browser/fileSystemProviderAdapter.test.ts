@@ -13,10 +13,6 @@ import { NULL_EXTENSION_FILE_SYSTEM_BRIDGE } from "../common/iExtensionFileSyste
 
 import { FileSystemProviderAdapter } from "./fileSystemProviderAdapter.ts";
 
-/**
- * Управляемый мост: схемы, их записываемость и события изменений задаются
- * тестом; записи ложатся в память (`stat` видит только записанное).
- */
 function fakeBridge(initial: string[] = [], initialWritable: string[] = []) {
     let schemes = [...initial];
     let writable = new Set(initialWritable);

@@ -14,7 +14,6 @@ import {
 import { ExtensionPaths } from "./extensionPaths.ts";
 import { ExtensionOwner } from "./vscodeHostContext.ts";
 
-/** Вызов члена общего namespace, как его увидела общая фабрика. */
 interface ICall {
     readonly member: string;
     readonly owner: string | undefined;
@@ -22,16 +21,12 @@ interface ICall {
     readonly args: unknown[];
 }
 
-/** Value-тип-подделка: важна только идентичность класса. */
+/** Важна только идентичность класса. */
 class FakePosition {
     public readonly fake = true;
 }
 
-/**
- * Общий namespace-подделка: каждый «создающий» член пишет, с каким владельцем
- * его позвали, — так видно, что выставил оверлей. Плюс живой геттер и
- * не-создающий член для проверки делегирования.
- */
+/** Каждый «создающий» член пишет, с каким владельцем его позвали, — так видно, что выставил оверлей. */
 function makeShared(owner: ExtensionOwner): {
     shared: typeof vscode;
     calls: ICall[];

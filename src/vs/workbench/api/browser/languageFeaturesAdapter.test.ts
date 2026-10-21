@@ -21,7 +21,6 @@ const REQUEST: IHoverRequest = {
     character: 0,
 };
 
-/** Мост-заглушка: регистрации задаёт тест, событие — `fire()`. */
 function makeBridge(): IExtensionLanguageFeaturesBridge & {
     providers: IWireLanguageProviderRegistration[];
     fire(): void;
@@ -271,7 +270,6 @@ describe("LanguageFeaturesAdapter", () => {
         expect(bridge.provideCodeActions).toHaveBeenCalledWith(3, request, token);
         expect(await codeActions.applyCodeAction("3.0")).toBe(true);
         expect(bridge.applyCodeAction).toHaveBeenCalledWith("3.0", undefined);
-        // Повод «при сохранении» доезжает до моста.
         await codeActions.applyCodeAction("3.0", { onSave: true });
         expect(bridge.applyCodeAction).toHaveBeenLastCalledWith("3.0", { onSave: true });
         expect(features.codeActionProvider.ordered(MD)[0].providedCodeActionKinds).toEqual([]);
@@ -314,7 +312,6 @@ describe("LanguageFeaturesAdapter", () => {
         new LanguageFeaturesAdapter(bridge, features);
         const [provider] = features.documentSemanticTokensProvider.ordered(TS);
         expect(provider.getLegend()).toBe(legend);
-        // Без hasOnDidChange события у прокси нет.
         expect(provider.onDidChange).toBeUndefined();
 
         const token = new CancellationTokenSource().token;

@@ -4,30 +4,18 @@ import type { SubprocessRpc } from "./extHostProtocol.ts";
 import { EventEmitter, QuickPickItemKind } from "./vscodeTypes.ts";
 import type { IWireQuickPickEvent, IWireQuickPickSessionItem } from "./wireTypes.ts";
 
-/** Изменённые поля, копящиеся до отправки; `null` — «сброшено в undefined». */
+/** `null` — «сброшено в undefined». */
 type PendingUpdate = Record<string, unknown>;
 
 /**
- * Объектная форма пикера (`window.createQuickPick`) на стороне субпроцесса —
- * `ExtHostQuickPick` эталона (`extHostQuickOpen.ts`).
- *
- * Объект держит СВОЮ копию состояния (геттеры отвечают сразу, без раунд-трипа),
- * а каждый сеттер кладёт поле в дифф: пока пикер виден, дифф уходит хосту
- * таймером на следующий тик (пачка присваиваний подряд — одна отправка), а
- * `show()`/`hide()` шлют накопленное немедленно. Действия человека хост
- * пересказывает событиями `window.quickPick.event`; пункты в них — handle'ы,
- * то есть индексы в массиве `items` расширения: расширение получает обратно
- * СВОИ объекты.
- *
- * Кнопок (`buttons`, кнопки пунктов) нет: их декларации в нашем `vscode.d.ts`
- * не подняты, а оверлей их не рисует. `busy`, `enabled` и `ignoreFocusOut`
- * хранятся, но хосту не едут: индикатора загрузки, блокировки поля и опции
- * «не закрываться по клику мимо» у общего оверлея нет (API-COVERAGE).
+ * `ExtHostQuickPick` эталона: своя копия состояния, сеттеры копят дифф, пока
+ * пикер виден, он уходит хосту таймером на следующий тик; `show()`/`hide()` шлют
+ * накопленное сразу. Handle пункта — индекс в `items` расширения.
+ * `busy`, `enabled`, `ignoreFocusOut` хранятся, но хосту не едут: у оверлея их нет.
  */
 export class ExtHostQuickPick<T extends vscode.QuickPickItem> implements vscode.QuickPick<T> {
-    // Дефолты геттеров — эталонные (`extHostQuickOpen.ts`), даже там, где d.ts
-    // говорит иное: хост получает поле только после присваивания, и до него
-    // действуют его собственные дефолты.
+    // Дефолты — эталонные, даже где d.ts говорит иное: до присваивания
+    // действуют дефолты хоста.
     public enabled = true;
     public busy = false;
     public ignoreFocusOut = true;
@@ -38,7 +26,6 @@ export class ExtHostQuickPick<T extends vscode.QuickPickItem> implements vscode.
     private valueValue = "";
     private placeholderValue: string | undefined;
     private promptValue: string | undefined;
-    /** Предметы расширения; handle предмета — его индекс здесь. */
     private itemsValue: readonly T[] = [];
     private canSelectManyValue = false;
     private matchOnDescriptionValue = true;
@@ -48,10 +35,7 @@ export class ExtHostQuickPick<T extends vscode.QuickPickItem> implements vscode.
     private selectedItemsValue: readonly T[] = [];
 
     private visible = false;
-    /**
-     * Ждём ли `hide` от хоста: событие скрытия отдаём расширению один раз на
-     * показ (эталон, #135747).
-     */
+    /** Скрытие отдаём расширению один раз на показ (эталон, #135747). */
     private expectingHide = false;
     private disposed = false;
     private pending: PendingUpdate = {};
@@ -127,14 +111,12 @@ export class ExtHostQuickPick<T extends vscode.QuickPickItem> implements vscode.
         return this.itemsValue;
     }
     public set items(items: readonly T[]) {
-        // Копия: расширение вправе дальше менять свой массив, а handle'ы уже
-        // уехали хосту по этому составу.
+        // Копия: handle'ы уже уехали хосту по этому составу.
         this.itemsValue = items.slice();
         const wire: IWireQuickPickSessionItem[] = [];
         for (const [handle, item] of items.entries()) {
-            // Разделитель — не строка списка: наш однострочный список его не
-            // рисует, а выбрать его нельзя и в эталоне. Сравнение — числом:
-            // enum у расширения из его копии d.ts, значения те же.
+            // Разделитель наш список не рисует. Сравнение — числом: enum у
+            // расширения из его копии d.ts.
             if ((item.kind as number | undefined) === QuickPickItemKind.Separator) continue;
             wire.push({
                 handle,
@@ -220,7 +202,6 @@ export class ExtHostQuickPick<T extends vscode.QuickPickItem> implements vscode.
         this.rpc.notify("window.quickPick.dispose", { handle: this.handle });
     }
 
-    /** Событие хоста про этот пикер. */
     public acceptEvent(event: IWireQuickPickEvent): void {
         switch (event.kind) {
             case "changeValue":
@@ -239,10 +220,8 @@ export class ExtHostQuickPick<T extends vscode.QuickPickItem> implements vscode.
                 this.onDidChangeSelectionEmitter.fire(this.selectedItemsValue);
                 break;
             case "hide":
-                // Видимость объекта НЕ снимаем — как эталон: ответ хоста на
-                // прошлый hide() может прийти уже во время следующего показа.
-                // Цена та же, что в vscode: после Escape `dispose()` даёт
-                // второй onDidHide.
+                // Видимость НЕ снимаем — как эталон: ответ на прошлый hide() может
+                // прийти во время следующего показа. Цена: после Escape `dispose()` даёт второй onDidHide.
                 this.fireDidHide();
                 break;
         }
@@ -250,13 +229,11 @@ export class ExtHostQuickPick<T extends vscode.QuickPickItem> implements vscode.
 
     private fireDidHide(): void {
         if (!this.expectingHide) return;
-        // Показ между `hide()` и пришедшим `hide` уже ждёт своего скрытия —
-        // флаг наследует видимость (эталон: show→hide→show→hide = два события).
+        // Эталон: show→hide→show→hide = два события.
         this.expectingHide = this.visible;
         this.onDidHideEmitter.fire();
     }
 
-    /** Только предметы из текущего `items` — у чужих нет handle'а. */
     private ownItems(items: readonly T[]): T[] {
         return items.filter((item) => this.itemsValue.includes(item));
     }
@@ -265,7 +242,7 @@ export class ExtHostQuickPick<T extends vscode.QuickPickItem> implements vscode.
         return items.map((item) => this.itemsValue.indexOf(item));
     }
 
-    /** Handle'ы хоста → предметы; не из текущего `items` (опоздавшее событие) выпадают. */
+    /** Опоздавшие handle'ы (не из текущего `items`) выпадают. */
     private toItems(handles: readonly number[]): T[] {
         return handles.flatMap((handle) => {
             const item = this.itemsValue[handle] as T | undefined;
@@ -279,12 +256,10 @@ export class ExtHostQuickPick<T extends vscode.QuickPickItem> implements vscode.
             this.pending[key] = value === undefined ? null : value;
         }
         if ("visible" in this.pending) {
-            // Отложенный дифф уходит этой же отправкой — второй, пустой, не нужен.
             clearTimeout(this.updateTimer);
             this.updateTimer = undefined;
             this.dispatchUpdate();
         } else if (this.visible && this.updateTimer === undefined) {
-            // Пачка присваиваний подряд — одна отправка и один кадр.
             this.updateTimer = setTimeout(() => {
                 this.updateTimer = undefined;
                 this.dispatchUpdate();

@@ -3,10 +3,8 @@ import type * as vscode from "vscode";
 import { implementsApi } from "./apiSurface.ts";
 
 /**
- * `vscode.l10n` без бандлов переводов: локализованных строк у Diode нет
- * (`bundle`/`uri` честно `undefined`), но подстановка плейсхолдеров обязана
- * работать — VS Code подставляет аргументы и БЕЗ загруженного бандла, а
- * расширения (ruff) зовут `l10n.t` на каждое пользовательское сообщение.
+ * Бандлов переводов нет, но подстановка обязана работать: VS Code подставляет и
+ * без бандла, а расширения (ruff) зовут `l10n.t` на каждое сообщение.
  */
 
 // Элементы и значения — с `undefined`: чтение по индексу за краем или по
@@ -18,7 +16,7 @@ function isPositionalArgs(args: L10nArgs): args is readonly (string | number | b
     return Array.isArray(args);
 }
 
-/** `{0}`/`{name}` → значение из args; незнакомый плейсхолдер остаётся как есть. */
+/** Незнакомый плейсхолдер остаётся как есть. */
 function substitute(message: string, args: L10nArgs | undefined): string {
     if (args === undefined) return message;
     return message.replace(/\{([^}]+)\}/g, (whole, key: string) => {
@@ -27,14 +25,12 @@ function substitute(message: string, args: L10nArgs | undefined): string {
     });
 }
 
-/** Все три перегрузки `t`: rest-аргументы, record и объект-options. */
 function t(...params: unknown[]): string {
     const [first, second] = params;
     if (typeof first !== "string") {
         const options = first as { message: string; args?: L10nArgs };
         return substitute(options.message, options.args);
     }
-    // Одинокий plain-object вторым аргументом — форма t(message, record).
     if (params.length === 2 && typeof second === "object" && second !== null && !Array.isArray(second)) {
         return substitute(first, second as Record<string, string | number | boolean>);
     }

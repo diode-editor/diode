@@ -3,7 +3,6 @@ import { SPINNER_FRAMES } from "../../../platform/progress/common/progressServic
 import type { IStatusBarEntryHandle, StatusBarService } from "../../services/statusbar/common/statusBarService.ts";
 import type { IProgressSink } from "../common/iExtensionWindowSinks.ts";
 
-/** Период смены кадра спиннера, мс. */
 const SPINNER_INTERVAL_MS = 100;
 
 /** Приоритет записей прогресса: левее chord-хинта (50), правее terminal-env (100). */
@@ -27,18 +26,7 @@ class ProgressEntry {
     }
 }
 
-/**
- * Мост `window.withProgress` расширений в статус-бар (реализация
- * {@link IProgressSink}): на `start` появляется запись с анимированным
- * спиннером, `report` обновляет сообщение/процент, `end` снимает запись.
- * Несколько одновременных прогрессов — независимые записи. Проводка —
- * `extensionHostModule` (сток `ExtensionHost.progressSink`).
- *
- * Заголовок и сообщение проходят через {@link renderCodicons}: у эталона это
- * `ProgressLocation.Window`, и его подпись значки разворачивает
- * (`vscode.d.ts`, `ProgressLocation.Window`). Перечень раковин —
- * `extensionTextSinks.test.ts`.
- */
+/** Подписи проходят {@link renderCodicons}: у эталона это `ProgressLocation.Window`, он значки разворачивает. */
 export class ProgressStatusBarAdapter implements IProgressSink {
     private readonly entries = new Map<number, ProgressEntry>();
 
@@ -82,7 +70,6 @@ export class ProgressStatusBarAdapter implements IProgressSink {
         entry.bar.dispose();
     }
 
-    /** Гасит все живые записи и таймеры (остановка приложения/пере-проводка). */
     public dispose(): void {
         for (const handle of [...this.entries.keys()]) this.end(handle);
     }

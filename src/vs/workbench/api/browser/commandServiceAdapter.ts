@@ -2,10 +2,6 @@ import type { IDisposable } from "../../../base/common/lifecycle.ts";
 import type { CommandRegistry } from "../../../platform/commands/common/commandRegistry.ts";
 import type { ICommandService } from "../common/iCommandService.ts";
 
-/**
- * Реализация {@link ICommandService} поверх {@link CommandRegistry}. Живёт в
- * слое Extensions (Workbench ничего не должен знать про host).
- */
 export class CommandServiceAdapter implements ICommandService {
     private readonly registry: CommandRegistry;
 
@@ -26,9 +22,7 @@ export class CommandServiceAdapter implements ICommandService {
         title?: string,
         category?: string,
     ): IDisposable {
-        // `enablement` у команд расширений нет: доступность пункта палитры
-        // решает `when` вклада меню (отдельный узел), поэтому между title и
-        // category здесь `undefined`.
+        // `enablement` у команд расширений нет: доступность пункта палитры решает `when` вклада меню.
         return this.registry.register(id, (...args) => invoke(args), title, undefined, category);
     }
 }

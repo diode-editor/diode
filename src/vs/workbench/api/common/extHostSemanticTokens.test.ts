@@ -13,7 +13,6 @@ function tokens(data: number[], resultId?: string): SemanticTokens {
     return new SemanticTokens(new Uint32Array(data), resultId);
 }
 
-/** Провайдер, отдающий ответы по очереди; запоминает аргументы вызовов. */
 function sequence(results: unknown[], withEdits?: unknown[]) {
     const full = vi.fn(() => results.shift());
     const edits = vi.fn((_doc: unknown, _previousResultId: string) => withEdits?.shift());
@@ -33,7 +32,6 @@ describe("DocumentSemanticTokensAdapter", () => {
             type: "full",
             data: [0, 1, 2, 3, 4],
         });
-        // Неизвестный id прошлого ответа — как «прошлого нет».
         expect(await adapter.provideDocumentSemanticTokens(DOC, 99, TOKEN)).toEqual({
             id: 2,
             type: "full",
@@ -82,19 +80,16 @@ describe("DocumentSemanticTokensAdapter", () => {
             type: "delta",
             deltas: [{ start: 2, deleteCount: 3, data: [9, 9, 9] }],
         });
-        // Полное совпадение — пустая дельта.
         expect(await adapter.provideDocumentSemanticTokens(DOC, 2, TOKEN)).toEqual({
             id: 3,
             type: "delta",
             deltas: [],
         });
-        // Укоротилось: суффикс ограничен остатком после префикса.
         expect(await adapter.provideDocumentSemanticTokens(DOC, 3, TOKEN)).toEqual({
             id: 4,
             type: "delta",
             deltas: [{ start: 3, deleteCount: 3, data: [] }],
         });
-        // Удлинилось.
         expect(await adapter.provideDocumentSemanticTokens(DOC, 4, TOKEN)).toEqual({
             id: 5,
             type: "delta",

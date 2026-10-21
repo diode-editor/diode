@@ -11,7 +11,6 @@ function makeVscode() {
     return { stub, vscode: namespace };
 }
 
-/** warn-строки Output, которые ушли человеку. */
 function warnings(stub: ReturnType<typeof makeStubRpc>): string[] {
     return stub.notifies
         .filter((n) => n.method === "output.append")
@@ -83,7 +82,6 @@ describe("vscode.debug — null-объект: сессий нет и не буд
         vscode.debug.registerDebugConfigurationProvider("go", {});
         vscode.debug.registerDebugAdapterDescriptorFactory("go", { createDebugAdapterDescriptor: () => undefined });
         vscode.debug.registerDebugConfigurationProvider("delve", {});
-        // Фабрика адаптера своего типа — тоже повод сказать (без провайдера конфигураций).
         vscode.debug.registerDebugAdapterDescriptorFactory("lldb", { createDebugAdapterDescriptor: () => undefined });
         vscode.debug.registerDebugAdapterTrackerFactory("*", { createDebugAdapterTracker: () => undefined });
         await vscode.debug.startDebugging(undefined, "a");

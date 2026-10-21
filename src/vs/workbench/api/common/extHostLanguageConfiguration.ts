@@ -11,22 +11,10 @@ import type { IVscodeHostContext } from "./vscodeHostContext.ts";
 import { DisposableImpl, SyntaxTokenType } from "./vscodeTypes.ts";
 
 /**
- * `languages.setLanguageConfiguration` — по эталону
- * (`ExtHostLanguageFeatures.setLanguageConfiguration`):
- *
- * - `wordPattern` живёт в субпроцессе: становится определением слова языка
- *   для `TextDocument.getWordRangeAtPosition` (регекс, матчащий пустую
- *   строку, — эталонное исключение);
- * - секции, которые ядро умеет применить (`comments`, `brackets`,
- *   `autoClosingPairs`), уезжают хосту слоем поверх `language-configuration.json`
- *   (`languages.setLanguageConfiguration`); dispose снимает слой, но — как у
- *   эталона — не определение слова;
- * - `indentationRules`, `onEnterRules` и устаревшие `__electricCharacterSupport`/
- *   `__characterPairSupport` принимаются и не применяются: ядро не умеет их и
- *   из файла конфигурации (API-COVERAGE).
- *
- * `golang.go` зовёт его последним шагом `activate()` (`wordPattern` для `go`) —
- * без члена падала активация.
+ * По эталону: `wordPattern` живёт в субпроцессе; `comments`/`brackets`/
+ * `autoClosingPairs` уезжают хосту слоем поверх `language-configuration.json`
+ * (dispose снимает слой, но — как у эталона — не определение слова); прочие
+ * секции принимаются и не применяются — ядро их не умеет.
  */
 export function createSetLanguageConfiguration(
     ctx: IVscodeHostContext,
@@ -54,7 +42,6 @@ export function createSetLanguageConfiguration(
     };
 }
 
-/** Секции, которые применяет ядро, в формате файла конфигурации. */
 function toWireConfiguration(configuration: vscode.LanguageConfiguration): ILanguageConfiguration {
     const { comments, brackets, autoClosingPairs } = configuration;
     return {
@@ -64,10 +51,7 @@ function toWireConfiguration(configuration: vscode.LanguageConfiguration): ILang
     };
 }
 
-/**
- * Строчный комментарий API бывает и правилом `{ comment, noIndent }`; ядро знает
- * только сам маркер — `noIndent` не применяется.
- */
+/** Ядро знает только сам маркер — `noIndent` не применяется. */
 function toWireComments(comments: vscode.CommentRule): ICommentRule {
     const { lineComment, blockComment } = comments;
     return {
@@ -76,11 +60,7 @@ function toWireComments(comments: vscode.CommentRule): ICommentRule {
     };
 }
 
-/**
- * `notIn` API — `SyntaxTokenType[]`, в файле — строки (эталон
- * `_serializeAutoClosingPairs` + `SyntaxTokenType.toString`). Ядро различает
- * только строки и комментарии; `regex`/`other` отбрасываются.
- */
+/** Ядро различает только строки и комментарии; `regex`/`other` отбрасываются. */
 function toWireAutoClosingPair(pair: vscode.AutoClosingPair): IAutoClosingPair {
     const notIn: ("string" | "comment")[] = [];
     // Stryker disable next-line ArrayDeclaration: фолбэк-массив пуст по смыслу — любой не-SyntaxTokenType элемент отсеялся бы ниже, наблюдаемо то же

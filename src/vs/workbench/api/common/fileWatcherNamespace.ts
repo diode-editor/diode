@@ -5,31 +5,19 @@ import { Uri } from "../../../base/common/uri.ts";
 import { EventEmitter, RelativePattern } from "./vscodeTypes.ts";
 import type { IWireWatcherCreate, IWireWatcherEvents } from "./wireTypes.ts";
 
-/**
- * Транспорт запросов watcher'а на хост. Отдельным интерфейсом — чтобы реестр
- * тестировался без RPC (та же причина, что у `SubprocessFileSystemProviders`).
- */
 export interface IWatcherTransport {
     create(request: IWireWatcherCreate): void;
     dispose(id: number): void;
 }
 
-/** Разобранный `GlobPattern`: база (абсолютный путь каталога) + шаблон относительно неё. */
 export interface IResolvedGlobPattern {
     readonly base: string;
     readonly pattern: string;
 }
 
 /**
- * Приводит `GlobPattern` к паре база+шаблон.
- *
- * Строковый шаблон в VS Code означает «во всех папках воркспейса»; папка у нас
- * одна, поэтому базой становится она. Если воркспейса нет вовсе — `null`:
- * следить не за чем, и watcher останется валидным, но немым (так же ведёт себя
- * VS Code в пустом окне).
- *
- * `RelativePattern` принимается и «чужой» — расширение могло собрать объект
- * руками или прийти из своего рантайма; нам достаточно `baseUri`/`base`+`pattern`.
+ * Строковый шаблон — «во всех папках воркспейса», а папка у нас одна. Нет
+ * воркспейса — `null`: watcher валиден, но нем, как в пустом окне VS Code.
  */
 export function resolveGlobPattern(
     // `unknown`, а не `vscode.GlobPattern`: сюда штатно приезжает чужой объект из
@@ -47,7 +35,7 @@ export function resolveGlobPattern(
     return base === null ? null : { base, pattern: raw.pattern };
 }
 
-/** `baseUri` (наш Uri или чужой uri-подобный) либо устаревшее строковое `base` → путь. */
+/** Строковое `base` — устаревшая форма `RelativePattern`. */
 function baseFsPath(baseUri: unknown, base: unknown): string | null {
     if (baseUri instanceof Uri) return baseUri.fsPath;
     if (typeof baseUri === "object" && baseUri !== null) {
@@ -57,15 +45,7 @@ function baseFsPath(baseUri: unknown, base: unknown): string | null {
     return typeof base === "string" && base !== "" ? base : null;
 }
 
-/**
- * Реестр `vscode.FileSystemWatcher`'ов субпроцесса.
- *
- * Каждый watcher — это id, живущий по обе стороны RPC: субпроцесс просит хост
- * следить за базой, хост присылает уже отфильтрованные шаблоном события
- * (`workspace.watcher.events`), реестр разводит их по эмиттерам. Само слежение
- * ведёт ядро — субпроцессу нельзя раздавать бюджет inotify и знание про
- * `files.watcherExclude`.
- */
+/** Слежение ведёт ядро: субпроцессу нельзя раздавать бюджет inotify и знание про `files.watcherExclude`. */
 export class SubprocessFileSystemWatchers {
     private readonly emitters = new Map<
         number,
@@ -79,11 +59,7 @@ export class SubprocessFileSystemWatchers {
 
     public constructor(private readonly transport: IWatcherTransport) {}
 
-    /**
-     * Заводит watcher по уже разобранному шаблону. Флаги `ignore*Events` едут на
-     * хост, а не фильтруются здесь: событие, которое расширению не нужно, не
-     * должно даже пересекать границу процесса.
-     */
+    /** Флаги `ignore*Events` едут на хост: ненужное событие не должно пересекать границу процесса. */
     public create(
         resolved: IResolvedGlobPattern,
         ignoreCreateEvents: boolean,
@@ -124,7 +100,6 @@ export class SubprocessFileSystemWatchers {
         return watcher;
     }
 
-    /** Валидный watcher, который никогда не стреляет: следить не за чем (нет воркспейса). */
     public createInert(
         ignoreCreateEvents: boolean,
         ignoreChangeEvents: boolean,
@@ -144,7 +119,6 @@ export class SubprocessFileSystemWatchers {
         };
     }
 
-    /** Разводит пачку событий хоста по эмиттерам своего watcher'а. */
     public dispatch(events: IWireWatcherEvents): void {
         const emitters = this.emitters.get(events.id);
         // Гонка на закрытии: хост успел отправить пачку до `workspace.watcher.dispose`.

@@ -11,10 +11,6 @@ const microtasks = async (turns = 4): Promise<void> => {
     for (let i = 0; i < turns; i++) await Promise.resolve();
 };
 
-/**
- * Поднимает пару endpoint'ов: `sub` — «subprocess» с commands namespace,
- * `host` — «хост», на котором тест регистрирует хендлеры/наблюдает уведомления.
- */
 function createBridge(
     getActiveTextEditor?: () => vscode.TextEditor | undefined,
     owner?: ExtensionOwner,
@@ -121,12 +117,11 @@ describe("CommandsNamespace (subprocess)", () => {
         host.handleNotification("commands.unregisterCommand", (p) => unregistered.push((p as { id: string }).id));
 
         const first = commands.registerCommand("ext.dup", () => "one");
-        commands.registerCommand("ext.dup", () => "two"); // перезаписывает bound
-        first.dispose(); // get(id) !== bound первого → ничего не снимаем
+        commands.registerCommand("ext.dup", () => "two");
+        first.dispose();
 
         await microtasks();
         expect(unregistered).toEqual([]);
-        // Команда всё ещё исполняется вторым колбэком.
         await expect(commands.executeCommand<string>("ext.dup")).resolves.toBe("two");
         dispose();
     });
@@ -170,21 +165,18 @@ describe("CommandsNamespace (subprocess)", () => {
 
     it("host → subprocess: некорректные params (не объект) → reject", async () => {
         const { host, dispose } = createBridge();
-        // Намеренный мусор вместо параметров.
         await expect(host.request("commands.executeCommand", 42 as never)).rejects.toThrow(/must be an object/);
         dispose();
     });
 
     it("host → subprocess: пустой id → reject", async () => {
         const { host, dispose } = createBridge();
-        // Намеренно кривые параметры: пустой id и без `args`.
         await expect(host.request("commands.executeCommand", { id: "" } as never)).rejects.toThrow(/non-empty string/);
         dispose();
     });
 
     it("executeCommand несуществующей нигде команды reject'ится (хост без хендлера)", async () => {
         const { commands, dispose } = createBridge();
-        // host не регистрирует commands.executeCommand → RpcEndpoint вернёт No handler.
         await expect(commands.executeCommand("ghost")).rejects.toThrow();
         dispose();
     });
@@ -216,7 +208,6 @@ describe("CommandsNamespace (subprocess)", () => {
 
         expect(seen).toHaveLength(1);
         expect(seen[0][0]).toBe(editor);
-        // Инертный edit-builder существует и не бросает (все методы — no-op).
         const edit = seen[0][1] as vscode.TextEditorEdit;
         const pos = { line: 0, character: 0 } as vscode.Position;
         expect(() => {
@@ -257,7 +248,6 @@ describe("CommandsNamespace (subprocess)", () => {
         const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
         try {
             owner.runAs("pub.editor-ext", () => commands.registerTextEditorCommand("ext.te.owned", () => undefined));
-            // Регистрация вне оверлея (владельца нет) — строка без id.
             commands.registerTextEditorCommand("ext.te.shared", () => undefined);
 
             // Исполнение — уже вне runAs: владелец запомнен при регистрации.
@@ -275,7 +265,7 @@ describe("CommandsNamespace (subprocess)", () => {
     });
 
     it("registerTextEditorCommand: сборка без геттера редактора (нет window) — no-op, не TypeError", async () => {
-        const { commands, dispose } = createBridge(); // геттер не передан
+        const { commands, dispose } = createBridge();
         const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
         try {
             let ran = false;

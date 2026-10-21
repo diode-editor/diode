@@ -20,7 +20,6 @@ function makeCtx(stub: IStubRpc = makeStubRpc()): { ctx: IVscodeHostContext; stu
         disk: createNodeExtHostDisk(),
         owner: new ExtensionOwner(),
     };
-    // Документ запросов открыт зеркалом (`editor.didOpen`): запросы текста не везут.
     ctx.documentSync.open({ uri: URI, languageId: "typescript", version: 1, text: TEXT });
     return { ctx, stub };
 }
@@ -42,7 +41,6 @@ function requestParams(overrides: Record<string, unknown> = {}): Record<string, 
 
 const WIRE_EDIT = { range: { start: { line: 0, character: 5 }, end: { line: 0, character: 7 } }, text: " " };
 
-/** Провайдер, отдающий один TextEdit (схлопнуть двойной пробел). */
 function oneEditProvider(): vscode.DocumentFormattingEditProvider {
     return {
         provideDocumentFormattingEdits: () => [new TextEdit(new Range(0, 5, 0, 7), " ")],
@@ -129,7 +127,6 @@ describe("LanguagesNamespace — провайдеры форматировани
         }
         expect(ctx.registry.get(Uri.parse(stale))).toBeUndefined();
 
-        // Ненулевой handle доходит до своего провайдера как есть.
         expect(await stub.callRequest("languages.provideFormattingEdits", requestParams({ handle: 1 }))).toHaveLength(
             1,
         );
@@ -191,7 +188,6 @@ describe("LanguagesNamespace — провайдеры форматировани
         } as unknown as vscode.DocumentFormattingEditProvider);
         expect(await stub2.callRequest("languages.provideFormattingEdits", requestParams())).toEqual([]);
 
-        // Невалидные элементы результата отбрасываются поштучно.
         const { ctx: ctx3, stub: stub3 } = makeCtx();
         const { languages: languages3 } = createLanguagesNamespace(ctx3);
         languages3.registerDocumentFormattingEditProvider({ language: "typescript" }, {
@@ -320,7 +316,6 @@ describe("LanguagesNamespace — провайдеры форматировани
         }
         expect(ctx.registry.get(Uri.parse(unknown))).toBeUndefined();
         expect(provide).not.toHaveBeenCalled();
-        // Актуальная версия — провайдер зовётся.
         expect(await stub.callRequest("languages.provideFormattingEdits", requestParams({ version: 2 }))).toEqual([
             WIRE_EDIT,
         ]);

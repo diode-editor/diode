@@ -3,12 +3,8 @@ import { describe, expect, it } from "vitest";
 import { DocumentRegistry, type ExtHostTextDocument } from "./extHostDocuments.ts";
 import { Position, Range, Uri } from "./vscodeTypes.ts";
 
-// `offsetAt`/`positionAt`/`validateRange`/`validatePosition` объявлены в
-// активной поверхности `vscode.d.ts`, но в субпроцессе их не было вовсе — и
-// обращение к ним падало TypeError внутри провайдера, который языковой шов
-// глотает. Именно на этом молча ломался стоковый prettier: его `minimalEdit`
-// строит правку через `positionAt`, а формат документа возвращал пустой список
-// правок (#381).
+// Стоковый prettier строит правку через `positionAt` — без него формат молча
+// возвращал пустой список правок (#381).
 
 function docWith(text: string): ExtHostTextDocument {
     const registry = new DocumentRegistry();

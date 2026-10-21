@@ -10,14 +10,10 @@ import { ExtensionOwner, type IVscodeHostContext } from "./vscodeHostContext.ts"
 import { CodeAction, CodeActionKind, CompletionItem, Range, TextEdit } from "./vscodeTypes.ts";
 import { WorkspaceConfigStore } from "./workspaceConfigStore.ts";
 
-// Ответ языкового провайдера хост не перепроверяет: форму провода гарантирует
-// сериализатор субпроцесса. Здесь — проверки, которые раньше делал только
-// хостовый разбор `parseWire*`: конечность чисел, кламп индексов подсказки,
-// пустые строки, испорченные поля объектов расширения.
+// Ответ провайдера хост не перепроверяет: форму провода гарантирует сериализатор субпроцесса.
 
 const URI = "file:///proj/main.ts";
 const TARGET = "file:///proj/target.ts";
-/** Диапазон на проводе — core `IRange`. */
 const RANGE = { start: { line: 0, character: 1 }, end: { line: 0, character: 2 } };
 
 function setup(): { languages: typeof vscode.languages; stub: IStubRpc } {
@@ -163,7 +159,6 @@ describe("languagesNamespace — диапазоны: координаты тол
 });
 
 describe("languagesNamespace — подсказка параметров: индексы и числа приводятся здесь", () => {
-    /** Ответ провайдера одной сигнатурой с двумя параметрами. */
     function signatureHelpWith(fields: Record<string, unknown>, signature: Record<string, unknown> = {}): unknown {
         return {
             signatures: [{ label: "greet(a, b)", parameters: [{ label: "a" }, { label: "b" }], ...signature }],

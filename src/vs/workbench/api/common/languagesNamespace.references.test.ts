@@ -27,7 +27,6 @@ const URI = "file:///proj/main.ts";
 
 const TEXT = "const a = b;\n";
 
-/** Открывает документ в зеркале субпроцесса — как `editor.didOpen` хоста. */
 function openDoc(ctx: IVscodeHostContext, text = TEXT, languageId = "typescript"): void {
     ctx.documentSync.open({ uri: URI, languageId, version: 1, text });
 }
@@ -45,7 +44,6 @@ function requestParams(overrides: Record<string, unknown> = {}): Record<string, 
     };
 }
 
-/** `vscode.Location` в форме, которую отдают настоящие провайдеры. */
 function location(uri: string, line: number): vscode.Location {
     return new Location(Uri.parse(uri), new Range(line, 2, line, 7)) as unknown as vscode.Location;
 }
@@ -176,8 +174,7 @@ describe("LanguagesNamespace — languages.provideReferences", () => {
     it("не-массив от провайдера и мусор внутри массива отбрасываются", async () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
-        // Одиночный Location вместо массива — форма definition, для references
-        // она не по контракту (`ProviderResult<Location[]>`), и мы её не принимаем.
+        // Одиночный Location — форма definition; для references (`ProviderResult<Location[]>`) не принимаем.
         languages.registerReferenceProvider(
             { language: "typescript" },
             { provideReferences: () => location("file:///proj/single.ts", 0) as unknown as vscode.Location[] },
@@ -202,7 +199,6 @@ describe("LanguagesNamespace — languages.provideReferences", () => {
             wireLocation("file:///proj/ok.ts", 4),
         ]);
 
-        // Отсутствующий и неизвестный handle — никого не зовём и документ не синхронизируем.
         expect(await stub.callRequest("languages.provideReferences", requestParams({ handle: undefined }))).toEqual([]);
         const stale = "file:///proj/stale.ts";
         expect(
@@ -285,9 +281,8 @@ describe("LanguagesNamespace — languages.provideReferences", () => {
 
 describe("LanguagesNamespace — Position/Location стаба", () => {
     it("Position из vscodeTypes конструируется так же, как ждёт провайдер", () => {
-        // Дежурная проверка, что стаб-классы, которыми пользуется конвертер
-        // стокового vscode-languageclient (`new code.Location(uri, range)`),
-        // остаются конструируемыми: без них конвертация ответа падает целиком.
+        // Конвертер стокового languageclient зовёт `new code.Location(uri, range)`: без
+        // конструируемых стаб-классов конвертация ответа падает целиком.
         const loc = new Location(Uri.parse(URI), new Position(1, 2));
         expect(loc.range.start.line).toBe(1);
         expect(loc.range.end.character).toBe(2);

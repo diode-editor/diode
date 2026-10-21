@@ -25,37 +25,21 @@ import {
     selectionChangeKindOf,
 } from "../common/wireTypes.ts";
 
-/**
- * Реализация {@link IEditorOptionsService} поверх {@link IEditorService}.
- * Живёт в слое Extensions (Workbench ничего не должен знать про host).
- */
 export class EditorOptionsServiceAdapter implements IEditorOptionsService {
     private readonly group: IEditorService;
-    /** Полоса групп: группа вкладки и её колонка для меты, адресация по `groupId`. */
     private readonly groups: IEditorGroupsService;
-    /**
-     * Исполнитель `workspace.applyEdit`: правки по закрытым файлам и файловые
-     * операции живут в ядре (node), а не здесь — адаптер только переводит
-     * wire-форму в его модель.
-     */
     private readonly workspaceEdits: IBulkEditService;
 
-    /** Группа вкладки (для меты/таргетинга); вкладка уже закрыта — фолбэк активная. */
+    /** Вкладка уже закрыта — активная группа. */
     private groupIdOf(editor: TextEditorPane): number {
         return this.groups.groupOf(editor)?.id ?? this.groups.activeGroup.id;
     }
-    /**
-     * Выделение, которое прямо сейчас ставит сам субпроцесс
-     * (`TextEditor.selection =`). Присваивание фаерит cursor-change, и без этого
-     * флага мы бы отправили расширению обратно то, что оно только что прислало.
-     */
+    /** Выделение ставит сам субпроцесс: без флага присланное уехало бы ему обратно эхом. */
     private applyingRemoteSelection = false;
-    /** Коалесинг: за тик отправляем одну нотификацию, а не по одной на шаг операции. */
     private selectionFlushScheduled = false;
     /**
-     * Источник последней смены каретки в текущем тике. Снимается СИНХРОННО в
-     * обработчике (в отложенном флаше область жеста уже закрыта), и побеждает
-     * последний: отправляем мы итоговые выделения тика, а не первые.
+     * Снимается СИНХРОННО в обработчике (в отложенном флаше область жеста уже закрыта);
+     * побеждает последний — отправляем итоговые выделения тика.
      */
     private pendingSelectionSource: CursorChangeSource | undefined;
 
@@ -97,7 +81,6 @@ export class EditorOptionsServiceAdapter implements IEditorOptionsService {
         });
     }
 
-    /** Мета + координата группы (groupId/viewColumn) для субпроцесса. */
     private metaOfEditor(editor: TextEditorPane | null): IActiveEditorMeta {
         const base = metaOf(editor);
         if (editor === null) return base;
@@ -147,18 +130,14 @@ export class EditorOptionsServiceAdapter implements IEditorOptionsService {
     }
 
     public applyActiveEditorEdits(uri: string, edits: readonly IWireEditorEdit[]): boolean {
-        // Правка адресует ДОКУМЕНТ (модель общая для всех вкладок ресурса) —
-        // достаточно найти любую вкладку с этим uri в любой группе.
+        // Правка адресует документ (модель общая) — годится любая вкладка ресурса в любой группе.
         const editor = this.anyEditorFor(uri);
-        // Read-only: правка не состоится (её отобьёт `EditorViewState`), поэтому
-        // честно отвечаем `false` — у расширения `TextEditor.edit()` резолвится
-        // этим значением, и врать ему об успехе нельзя. Так же ведёт себя VS Code.
+        // Read-only правку отобьёт `EditorViewState`: `TextEditor.edit()` расширения резолвится
+        // этим ответом, врать об успехе нельзя (так же VS Code).
         if (editor === null || editor.readOnly || edits.length === 0) return false;
         const textEdits = this.toTextEdits(editor, edits);
-        // Перекрытые правки документ применил бы по уже съеденному тексту —
-        // порча содержимого и сломанный undo. Отбиваем батч целиком, как
-        // `Overlapping ranges are not allowed` в vscode: `TextEditor.edit()`
-        // резолвится `false`.
+        // Перекрытые правки применились бы по съеденному тексту: батч отбиваем целиком,
+        // как `Overlapping ranges are not allowed` в vscode.
         if (textEdits === null) return false;
         editor.applyExternalEdits(textEdits, "extension edit");
         return true;
@@ -168,13 +147,10 @@ export class EditorOptionsServiceAdapter implements IEditorOptionsService {
         ops: readonly IWireWorkspaceEditOp[],
         options?: { isRefactoring?: boolean },
     ): Promise<boolean> {
-        // Пустой список — мусорный запрос: вакуумный успех пустого edit'а
-        // субпроцесс отвечает сам, не отправляя RPC. Здесь ничего не применено —
-        // врать `true` нельзя.
+        // Пустой edit субпроцесс резолвит успехом сам, без RPC; здесь ничего не применено.
         if (ops.length === 0) return false;
         const edits = toWorkspaceEdit(ops);
-        // Файловая операция по недисковому ресурсу (`output:`, `jdt:`) —
-        // создавать и переименовывать там нечего: отбиваем edit целиком.
+        // Файловая операция по недисковому ресурсу (`output:`, `jdt:`): отбиваем edit целиком.
         if (edits === null) return false;
         return this.workspaceEdits.applyWorkspaceEdit(edits, "Workspace Edit", {
             respectAutoSaveConfig: options?.isRefactoring === true,
@@ -189,11 +165,7 @@ export class EditorOptionsServiceAdapter implements IEditorOptionsService {
         return (await this.group.save(Uri.parse(uri)))?.toString() ?? null;
     }
 
-    /**
-     * Wire-правки в правки документа: позиции клампятся к содержимому (их автор
-     * — расширение, про наш текст оно ничего не знает). `null` — батч с
-     * пересечениями, применять его нельзя (см. {@link hasOverlappingEdits}).
-     */
+    /** Позиции клампятся к содержимому; `null` — батч с пересечениями. */
     private toTextEdits(editor: TextEditorPane, edits: readonly IWireEditorEdit[]): ITextEdit[] | null {
         const doc = editor.model.document;
         const textEdits: ITextEdit[] = edits.map((edit) => {
@@ -204,10 +176,7 @@ export class EditorOptionsServiceAdapter implements IEditorOptionsService {
         return hasOverlappingEdits(textEdits) ? null : textEdits;
     }
 
-    /**
-     * Редактор-адресат: с `groupId` — вкладка ресурса в ТОЙ группе (AS-10:
-     * выделение ставится конкретной вью); без — активная вкладка с этим uri.
-     */
+    /** С `groupId` — вкладка ресурса в той группе (AS-10), без — активная вкладка с этим uri. */
     private editorFor(uri: string, groupId?: number): TextEditorPane | null {
         if (groupId !== undefined) {
             const target = this.groups.groups.find((candidate) => candidate.id === groupId);
@@ -221,7 +190,7 @@ export class EditorOptionsServiceAdapter implements IEditorOptionsService {
         return editor;
     }
 
-    /** Любая текстовая вкладка ресурса (модель у всех одна). */
+    /** Модель у всех вкладок ресурса одна. */
     private anyEditorFor(uri: string): TextEditorPane | null {
         const active = this.group.getActiveTabEditor();
         if (active !== null && active.uri.toString() === uri) return active;
@@ -230,10 +199,8 @@ export class EditorOptionsServiceAdapter implements IEditorOptionsService {
 }
 
 /**
- * Переводит операции провода в модель правок ядра. Координаты правок едут как
- * есть — клампит их сам исполнитель (у закрытого ресурса их не к чему
- * приложить здесь). `null` — файловая операция адресует НЕ диск: создавать,
- * удалять и переименовывать там нечего, и весь edit отбивается.
+ * Координаты едут как есть — клампит исполнитель. `null` — файловая операция не по диску:
+ * весь edit отбивается.
  */
 function toWorkspaceEdit(ops: readonly IWireWorkspaceEditOp[]): BulkEdit | null {
     const result: BulkEditOperation[] = [];
@@ -276,13 +243,12 @@ function toWorkspaceEdit(ops: readonly IWireWorkspaceEditOp[]): BulkEdit | null 
     return result;
 }
 
-/** Путь на диске за ресурсом; `null` — схема не `file`. */
 function filePathOf(resource: string): string | null {
     const uri = Uri.parse(resource);
     return uri.scheme === "file" ? uri.fsPath : null;
 }
 
-/** Все выделения редактора в wire-форме (первое — первичное). */
+/** Первое — первичное. */
 function wireSelectionsOf(editor: TextEditorPane): IWireSelection[] {
     return editor.viewState.selections.map((sel) => ({
         anchorLine: sel.anchor.line,

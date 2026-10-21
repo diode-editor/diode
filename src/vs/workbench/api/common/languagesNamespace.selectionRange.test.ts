@@ -11,9 +11,6 @@ import { ExtensionOwner, type IVscodeHostContext } from "./vscodeHostContext.ts"
 import { Position, Range, SelectionRange } from "./vscodeTypes.ts";
 import { WorkspaceConfigStore } from "./workspaceConfigStore.ts";
 
-// Субпроцессная сторона Expand/Shrink Selection: ядро зовёт провайдера по
-// handle с позициями кареток, цепочка `parent` уезжает развёрнутой.
-
 const URI = "file:///proj/main.ts";
 const TEXT = "call(alpha, beta);\n";
 
@@ -116,7 +113,6 @@ describe("LanguagesNamespace — languages.provideSelectionRanges", () => {
         expect(await stub.callRequest("languages.provideSelectionRanges", params({ handle: 1 }))).toHaveLength(1);
         expect(second).toHaveBeenCalledOnce();
         expect(first).not.toHaveBeenCalled();
-        // Без handle — ничей запрос: никого не зовём.
         expect(await stub.callRequest("languages.provideSelectionRanges", params({ handle: undefined }))).toEqual([]);
         expect(second).toHaveBeenCalledOnce();
     });

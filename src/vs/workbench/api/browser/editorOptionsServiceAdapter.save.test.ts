@@ -7,9 +7,6 @@ import type { IEditorService } from "../../services/editor/common/editorService.
 
 import { EditorOptionsServiceAdapter } from "./editorOptionsServiceAdapter.ts";
 
-// `saveAll`/`save` в адаптере — переводчики wire ↔ сервис редакторов; что и
-// когда сохраняется, проверяет `services/editor/browser/editorService.test.ts`.
-
 const NO_BULK_EDITS: IBulkEditService = { applyWorkspaceEdit: () => Promise.resolve(false) };
 const MAIN = Uri.file("/proj/main.go");
 

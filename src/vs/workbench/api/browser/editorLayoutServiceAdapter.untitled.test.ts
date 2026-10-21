@@ -12,11 +12,6 @@ import type { IWireDocumentSyncSnapshot } from "../common/wireTypes.ts";
 import { bindDocumentSync, openDocumentSnapshots } from "./documentSyncAdapter.ts";
 import { EditorLayoutServiceAdapter } from "./editorLayoutServiceAdapter.ts";
 
-/**
- * `workspace.openTextDocument({ content, language })` (`$tryCreateDocument`
- * эталона): безымянный буфер ядра без вкладки — сразу документ расширений, а
- * `showTextDocument` показывает его вкладкой `Untitled-N` поверх той же модели.
- */
 describe("EditorLayoutServiceAdapter — безымянный документ без вкладки", () => {
     let ws: ITempWorkspace;
     let h: IAppHarness;
@@ -95,7 +90,6 @@ describe("EditorLayoutServiceAdapter — безымянный документ �
         expect(screen).toContain("Untitled-1");
         expect(screen).toContain("go: /usr/bin/go");
 
-        // Вкладка правит тот же документ, что уже открыт расширениям: дельта по его uri.
         if (isTextEditorPane(pane)) pane.viewState.type("x");
         expect(log).toEqual([`change ${uri}`]);
     });

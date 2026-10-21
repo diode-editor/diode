@@ -84,9 +84,7 @@ describe("LanguagesNamespace — createDiagnosticCollection", () => {
     it("диагностика с related information публикуется; само поле в wire не едет", () => {
         const { stub, languages } = makeLanguages();
         const collection = languages.createDiagnosticCollection("ts");
-        // Так приходит TS2741 «Property … is missing»: сообщение + место
-        // объявления. Раньше такая диагностика вообще не доживала до публикации
-        // — конвертер клиента падал на отсутствующем классе.
+        // Так приходит TS2741: сообщение + место объявления.
         const diag = new Diagnostic(new Range(5, 4, 5, 10), "Property 'retries' is missing");
         diag.relatedInformation = [
             new DiagnosticRelatedInformation(
@@ -147,7 +145,6 @@ describe("LanguagesNamespace — createDiagnosticCollection", () => {
                 message: "ok",
             },
         ]);
-        // Оригиналы в коллекции целы — их читают code actions.
         expect(collection.get(FILE as unknown as vscode.Uri)).toHaveLength(3);
     });
 
@@ -155,11 +152,9 @@ describe("LanguagesNamespace — createDiagnosticCollection", () => {
         const { stub, languages } = makeLanguages();
         const collection = languages.createDiagnosticCollection("rich");
         collection.set(FILE as unknown as vscode.Uri, [
-            // MarkdownString и подобные несут текст в `value`.
             { message: { value: "**bold** rule" } } as unknown as vscode.Diagnostic,
             // Объект без `value` текстом не является — пустая строка, а не «[object Object]».
             { message: { nope: 1 } } as unknown as vscode.Diagnostic,
-            // Примитив нестрокового типа печатается как есть.
             { message: 42 } as unknown as vscode.Diagnostic,
         ]);
 
@@ -229,8 +224,7 @@ describe("LanguagesNamespace — createDiagnosticCollection", () => {
         ];
         for (const collection of collections) collection.set(FILE as unknown as vscode.Uri, []);
 
-        // Одноимённые/безымянные коллекции — в т. ч. разных расширений — больше
-        // не делят ключ MarkerService и не затирают маркеры друг друга.
+        // Одноимённые и безымянные коллекции разных расширений не делят ключ MarkerService.
         expect(published(stub).map((p) => p.owner)).toEqual([
             "ext:pub.a:ts",
             "ext:pub.a:ts#1",
@@ -242,7 +236,6 @@ describe("LanguagesNamespace — createDiagnosticCollection", () => {
             "ext:diagnostics#1",
             "ext:pub.a:ts#2",
         ]);
-        // Публичное имя коллекции — то, что дало расширение.
         expect(collections.map((c) => c.name)).toEqual([
             "ts",
             "ts",

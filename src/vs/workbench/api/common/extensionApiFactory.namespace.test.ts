@@ -8,16 +8,7 @@ import { createExtensionApi, OWNED_MEMBERS } from "./extensionApiFactory.ts";
 import { makeStubRpc } from "./testStubRpc.ts";
 import { buildVscodeNamespace } from "./vscodeNamespace.ts";
 
-/**
- * Оверлей поверх НАСТОЯЩЕГО общего namespace: список обёрнутых членов сверен с
- * ним, а поведение через оверлей то же, что напрямую.
- */
-
-/**
- * `register*Provider` общего `languages`, которые оверлей сознательно не
- * оборачивает: no-op заглушки вне активной поверхности `vscode.d.ts`. Новый
- * `register*Provider` в шиме обязан попасть либо в OWNED_MEMBERS, либо сюда.
- */
+/** No-op заглушки вне поверхности `vscode.d.ts`: новый `register*Provider` обязан попасть либо в OWNED_MEMBERS, либо сюда. */
 const NOOP_PROVIDERS = [
     "registerCallHierarchyProvider",
     "registerCodeLensProvider",

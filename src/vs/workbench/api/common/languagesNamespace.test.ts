@@ -22,15 +22,10 @@ const COMPLETION_PARAMS = {
 
 const PROGRAM_CS = Uri.file("/proj/Program.cs").toString();
 
-/** Открывает документ в зеркале субпроцесса — как `editor.didOpen` хоста. */
 function openDoc(ctx: IVscodeHostContext, uri: string, languageId: string, text: string): void {
     ctx.documentSync.open({ uri, languageId, version: 1, text });
 }
 
-/**
- * Контекст субпроцесса с открытым документом completion-запроса
- * ({@link COMPLETION_PARAMS}): текст провайдер читает из зеркала.
- */
 function makeCtx(stub: IStubRpc = makeStubRpc()): { ctx: IVscodeHostContext; stub: IStubRpc } {
     const registry = new DocumentRegistry();
     const ctx: IVscodeHostContext = {
@@ -73,7 +68,6 @@ describe("LanguagesNamespace", () => {
         expect(stub.notifies.filter((n) => n.method === "languages.unregister")).toEqual([
             { method: "languages.unregister", params: { handle: 0 } },
         ]);
-        // Бит completion в updateSubscriptions больше не ездит.
         expect(stub.notifies.filter((n) => n.method === "languages.updateSubscriptions")).toEqual([]);
     });
 
@@ -101,7 +95,7 @@ describe("LanguagesNamespace", () => {
         // Провайдер ini (handle 1) не прислан — его не спрашивают.
         expect(result.items).toHaveLength(1);
         expect(result.items[0].label).toBe("indent_style");
-        expect(result.items[0].insertText).toBe("indent_style"); // fallback на label
+        expect(result.items[0].insertText).toBe("indent_style");
         expect(result.items[0].kind).toBe(CompletionItemKind.Property);
         expect(result.items[0].detail).toBe("EditorConfig");
         expect(result.items[0].command?.command).toBe("editorconfig._triggerSuggestAfterDelay");
@@ -156,8 +150,6 @@ describe("LanguagesNamespace", () => {
         const { languages } = createLanguagesNamespace(ctx);
         const items = [
             {
-                // объектный label, SnippetString insertText, MarkdownString documentation,
-                // range как { replacing }, команда с аргументами
                 label: { label: "objlabel" },
                 insertText: { value: "snippet" },
                 documentation: { value: "md" },
@@ -178,7 +170,7 @@ describe("LanguagesNamespace", () => {
                 range: { foo: 1 },
                 command: { command: "" }, // пустая команда отбрасывается
             },
-            { label: "e", range: null }, // range null
+            { label: "e", range: null },
         ];
         languages.registerCompletionItemProvider({ language: "editorconfig" }, {
             provideCompletionItems: () => items,
@@ -198,7 +190,7 @@ describe("LanguagesNamespace", () => {
         expect(a.range).toEqual({ start: { line: 0, character: 0 }, end: { line: 0, character: 1 } });
         expect(a.command).toEqual({ command: "c", arguments: [1] });
         const d = result.items[1];
-        expect(d.insertText).toBe("d"); // fallback на label
+        expect(d.insertText).toBe("d");
         expect(d.documentation).toBeUndefined();
         expect(d.range).toBeUndefined();
         expect(d.command).toBeUndefined();
@@ -208,7 +200,7 @@ describe("LanguagesNamespace", () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
         const item = new CompletionItem("root");
-        item.documentation = "root docs"; // строка (не MarkdownString)
+        item.documentation = "root docs";
         languages.registerCompletionItemProvider(
             { pattern: "**/.editorconfig" }, // матч по пути, без language
             { provideCompletionItems: () => [item] } as never,
@@ -261,7 +253,6 @@ describe("LanguagesNamespace", () => {
         expect(stub.notifies.filter((n) => n.method === "languages.unregister").map((n) => n.params)).toEqual([
             { handle: 0 },
         ]);
-        // Бит folding в updateSubscriptions больше не ездит.
         const subs = stub.notifies.filter((n) => n.method === "languages.updateSubscriptions");
         expect(subs.map((n) => n.params)).not.toContainEqual(expect.objectContaining({ hasFoldingProviders: true }));
     });
@@ -312,14 +303,9 @@ describe("LanguagesNamespace", () => {
     });
 
     it("provide*-запрос не пишет в зеркало: провайдер — только после didOpen и по версии запроса, без событий", async () => {
-        // Регрессия двух реальных отказов LSP-клиента (vscode-languageclient
-        // транслирует события документа в didOpen/didChange серверу):
-        // 1) провайдер звался до didOpen → сервер получал foldingRange по
-        //    неизвестному документу («Unexpected resource»);
-        // 2) запрос с обогнавшим текстом писал в реестр мимо событий → следующий
-        //    didChange считал диапазон от УЖЕ нового текста → правка за пределами
-        //    серверной копии (крэш tsserver «reading 'charCount'»).
-        // Теперь запрос текста не везёт вовсе: документ — только из зеркала.
+        // Регрессия LSP-клиента: провайдер звался до didOpen («Unexpected resource»), а запрос
+        // с обогнавшим текстом писал в реестр мимо событий, и следующий didChange ронял tsserver
+        // («reading 'charCount'»). Документ — только из зеркала.
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
         const log: string[] = [];
@@ -342,7 +328,6 @@ describe("LanguagesNamespace", () => {
                 version,
             });
 
-        // До didOpen провайдер не зовётся и документ не заводится.
         expect(await request(1)).toEqual([]);
         expect(log).toEqual([]);
         expect(ctx.registry.get(Uri.parse(PROGRAM_CS))).toBeUndefined();
@@ -351,9 +336,7 @@ describe("LanguagesNamespace", () => {
         await request(1);
         expect(log).toEqual(["open:a", "provider:a"]);
 
-        // Правка хоста — событие с диапазоном по старому тексту ("a" → длина 1,
-        // конец 0:1); запрос, отставший от неё, провайдера не будит и событий
-        // не порождает.
+        // Правка хоста — диапазон по старому тексту; отставший от неё запрос провайдера не будит.
         log.length = 0;
         ctx.documentSync.change({
             uri: PROGRAM_CS,

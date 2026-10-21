@@ -20,10 +20,6 @@ import type { IWireDocumentChangedEvent, IWireDocumentSyncSnapshot } from "../co
 
 import { bindDocumentSync, openDocumentSnapshots } from "./documentSyncAdapter.ts";
 
-/**
- * Пер-документный продюсер document sync поверх настоящего EditorService:
- * документ (модель), а не вкладка — единица didOpen/didChange/didClose.
- */
 describe("documentSyncAdapter", () => {
     let ws: ITempWorkspace;
     let service: EditorService;
@@ -47,7 +43,6 @@ describe("documentSyncAdapter", () => {
             undefined,
             [],
             undefined,
-            // Save As пишет на диск.
             diskFileService(),
         );
     });
@@ -57,7 +52,6 @@ describe("documentSyncAdapter", () => {
         ws.dispose();
     });
 
-    /** Host-стаб: записывает push'и вместо RPC в субпроцесс. */
     function recordingHost(): {
         host: IDocumentSyncTarget;
         opened: string[];
@@ -88,7 +82,7 @@ describe("documentSyncAdapter", () => {
 
     it("openDocumentSnapshots: документ в двух группах даёт один снапшот", () => {
         service.openFile(ws.path("a.ts"));
-        service.splitActiveGroup(); // дубль вкладки — та же модель
+        service.splitActiveGroup();
         service.openFile(ws.path("b.ts"));
 
         const snapshots = openDocumentSnapshots(service);
@@ -102,20 +96,17 @@ describe("documentSyncAdapter", () => {
         const uri = service.getActiveEditor()!.uri.toString();
 
         bindDocumentSync(service, service.editorGroups, host);
-        // Документ открыт в двух группах — один didOpen, не два.
         expect(opened).toEqual([uri]);
 
         service.getActiveEditor()!.viewState.type("x");
         expect(changed).toEqual([uri]);
 
-        // Закрытие дубля: документ жив в первой группе — didClose не шлётся.
         service.editorGroups.activeGroup.closeTab(0);
         expect(closed).toEqual([]);
 
-        // Закрытие последней вкладки документа — didClose.
         service.editorGroups.activeGroup.closeTab(0);
         expect(closed).toEqual([uri]);
-        expect(opened).toEqual([uri]); // повторных didOpen не было
+        expect(opened).toEqual([uri]);
     });
 
     it("bindDocumentSync: правка — дельта батча модели с версией и dirty, синхронно", () => {
@@ -149,7 +140,6 @@ describe("documentSyncAdapter", () => {
         ws.writeFile("a.ts", "from disk");
         editor.revertToDisk();
 
-        // Хост узнаёт о перечитке снапшотом: текст с диска, версия не откатилась.
         expect(flushes.at(-1)?.text).toBe("from disk");
         expect(flushes.at(-1)!.version).toBeGreaterThan(versionBefore);
     });
@@ -167,7 +157,6 @@ describe("documentSyncAdapter", () => {
         expect(closed).toEqual([oldUri]);
         expect(opened).toEqual([oldUri, newUri]);
 
-        // Закрытие — по новому uri.
         service.editorGroups.activeGroup.closeTab(0);
         expect(closed).toEqual([oldUri, newUri]);
     });
@@ -194,7 +183,6 @@ describe("documentSyncAdapter", () => {
             [uri, "javascript"],
         ]);
 
-        // Тот же язык повторно — документ не меняется, переоткрытия нет.
         service.openFile(ws.path("b.ts"));
         expect(closed).toEqual([uri]);
     });

@@ -6,10 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { watcherIncludesUnder } from "./watcherIncludes.ts";
 
-/**
- * `<tmp>/ws` с обычным `src` и двумя ссылками наружу: `bazel-out` (каталог) и
- * `src/gen` (ссылка поглубже). `junction` — ссылка без прав админа на Windows.
- */
+/** `junction` — ссылка без прав админа на Windows. */
 let base: string;
 let ws: string;
 
@@ -38,7 +35,6 @@ describe("watcherIncludesUnder", () => {
     });
 
     it("абсолютный путь вне воркспейса отбрасывается, как у эталона", () => {
-        // Ссылка лежит под базой watcher'а, но вне папки воркспейса.
         const outsideLink = path.join(base, "outside-link");
         fs.symlinkSync(path.join(base, "cache"), outsideLink, "junction");
         expect(watcherIncludesUnder(base, [outsideLink], [ws])).toEqual([]);
@@ -52,7 +48,6 @@ describe("watcherIncludesUnder", () => {
     });
 
     it("предок папки воркспейса — не внутри неё", () => {
-        // Папка лежит за ссылкой, а путь настройки — ровно на уровень выше папки.
         const folder = path.join(ws, "bazel-out", "lib");
         expect(watcherIncludesUnder(ws, [path.join(ws, "bazel-out")], [folder])).toEqual([]);
     });

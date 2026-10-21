@@ -7,20 +7,8 @@ import type { IOutputSink } from "../common/iExtensionWindowSinks.ts";
 import type { WireOutputLevel } from "../common/wireTypes.ts";
 
 /**
- * Мост output-каналов расширений в панель Output (реализация
- * {@link IOutputSink}): канал регистрируется в {@link IOutputChannelRegistry}
- * лениво (label = имя из `createOutputChannel`; повторная регистрация — no-op
- * по контракту реестра), строки пишутся логгером канала — дальше их
- * подхватывает штатный конвейер Output (RingBufferSink → селектор → живой
- * хвост). `show` — семантика VS Code `OutputChannel.show()`: открыть панель
- * Output (порт `revealPanel`, в module — `PanelService.setActiveView` +
- * `LayoutService.setPanelVisible`) и переключить селектор на канал.
- * Имя канала — ярлык: оно приезжает заголовком команды
- * `Output: Show <имя>` (палитра) и подписью пункта селектора, то есть в те же
- * раковины, что метки quick pick'а, — поэтому разметка `$(name)` в нём
- * подменяется ({@link renderCodicons}). СОДЕРЖИМОЕ канала не трогаем никогда:
- * это лог, и `$(…)` в нём бывает настоящей шелл-подстановкой. Перечень раковин
- * — `extensionTextSinks.test.ts`. Проводка — `extensionHostModule`.
+ * Имя канала — ярлык (`Output: Show <имя>`, пункт селектора), и `$(name)` в нём подменяется.
+ * Содержимое — лог, где `$(…)` бывает шелл-подстановкой: его не трогаем.
  */
 export class ExtensionOutputAdapter implements IOutputSink {
     private readonly loggers = new Map<string, ILogger>();

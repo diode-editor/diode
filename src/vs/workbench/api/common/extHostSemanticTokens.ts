@@ -4,10 +4,8 @@ import { SemanticTokens, SemanticTokensEdit, SemanticTokensEdits } from "./vscod
 import type { WireSemanticTokensResult } from "./wireTypes.ts";
 
 /**
- * Адаптеры провайдеров семантических токенов на стороне субпроцесса — перенос
- * `DocumentSemanticTokensAdapter`/`DocumentRangeSemanticTokensAdapter` из
- * `extHostLanguageFeatures.ts` эталона. Ответ уходит JSON-формой
- * {@link WireSemanticTokensResult} вместо бинарного `SemanticTokensDto`.
+ * Перенос `DocumentSemanticTokensAdapter`/`DocumentRangeSemanticTokensAdapter`
+ * эталона; ответ — JSON-форма вместо бинарного `SemanticTokensDto`.
  */
 
 class SemanticTokensPreviousResult {
@@ -17,7 +15,6 @@ class SemanticTokensPreviousResult {
     ) {}
 }
 
-/** Провайдеры вправе вернуть `data` обычным массивом — эталон это терпит. */
 interface IRelaxedSemanticTokens {
     readonly resultId?: string;
     readonly data: Uint32Array | readonly number[];
@@ -40,7 +37,6 @@ function isSemanticTokensEdits(v: unknown): v is IRelaxedSemanticTokensEdits {
     return typeof v === "object" && v !== null && Array.isArray((v as Partial<IRelaxedSemanticTokensEdits>).edits);
 }
 
-/** `_fixProvidedSemanticTokens`: массивы → `Uint32Array`; чужая форма — `null`. */
 function fixProvidedSemanticTokens(v: unknown): SemanticTokens | SemanticTokensEdits | null {
     if (isSemanticTokens(v)) {
         return new SemanticTokens(v.data instanceof Uint32Array ? v.data : new Uint32Array(v.data), v.resultId);
@@ -61,11 +57,7 @@ function fixProvidedSemanticTokens(v: unknown): SemanticTokens | SemanticTokensE
     return null;
 }
 
-/**
- * `_convertToEdits`: полный ответ при сохранённом прошлом превращается в одну
- * правку «общий префикс / общий суффикс» — ядро получает дельту, даже если
- * провайдер дельт не умеет.
- */
+/** Ядро получает дельту, даже если провайдер дельт не умеет. */
 function convertToEdits(
     previousResult: SemanticTokensPreviousResult | undefined,
     newResult: SemanticTokens | SemanticTokensEdits,
@@ -111,10 +103,9 @@ function convertToEdits(
 }
 
 /**
- * Провайдер токенов всего документа. Каждый ответ получает одноразовый
- * числовой id; по нему следующий запрос ядра находит `resultId` расширения
- * (для `provideDocumentSemanticTokensEdits`) и прошлые данные (для дельты).
- * Запись забывается при следующем запросе с этим id и по `release`.
+ * Каждый ответ получает одноразовый id: по нему следующий запрос находит
+ * `resultId` расширения и прошлые данные; запись забывается при следующем
+ * запросе с этим id и по `release`.
  */
 export class DocumentSemanticTokensAdapter {
     private readonly previousResults = new Map<number, SemanticTokensPreviousResult>();
@@ -156,7 +147,7 @@ export class DocumentSemanticTokensAdapter {
             this.previousResults.set(id, new SemanticTokensPreviousResult(value.resultId, value.data));
             return { id, type: "full", data: Array.from(value.data) };
         }
-        // Дельта: хранится исходный полный ответ (от него посчитают следующую),
+        // Хранится исходный полный ответ (от него посчитают следующую дельту),
         // а если провайдер сам прислал правки — только его resultId.
         this.previousResults.set(
             id,
@@ -176,7 +167,7 @@ export class DocumentSemanticTokensAdapter {
     }
 }
 
-/** Провайдер токенов диапазона: ответ всегда полный, id 0 — дельт к нему нет. */
+/** Ответ всегда полный, id 0 — дельт к нему нет. */
 export class DocumentRangeSemanticTokensAdapter {
     public constructor(private readonly provider: vscode.DocumentRangeSemanticTokensProvider) {}
 

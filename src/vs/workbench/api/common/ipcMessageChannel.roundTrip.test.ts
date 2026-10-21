@@ -87,9 +87,7 @@ describe("IpcMessageChannel — real subprocess round-trip", () => {
     });
 
     it("RpcEndpoint поверх IpcMessageChannel работает с настоящим subprocess", async () => {
-        // Эхо-фикстура не использует RPC-конверт, поэтому проверяем тут
-        // именно канальный round-trip; полноценный RPC-сценарий покрыт
-        // тестами `ExtensionHost.Subprocess.test.ts`.
+        // Эхо-фикстура без RPC-конверта — здесь только канальный round-trip.
         const { channel, rpc } = await startEchoChild();
         expect(rpc).toBeDefined();
         const received: unknown[] = [];

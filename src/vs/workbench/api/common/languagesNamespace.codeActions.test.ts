@@ -19,11 +19,6 @@ import {
 } from "./vscodeTypes.ts";
 import { WorkspaceConfigStore } from "./workspaceConfigStore.ts";
 
-// Субпроцессная сторона code actions (#196): контекст собирается из локальных
-// DiagnosticCollection, действия кэшируются для apply/resolve, правки ложатся
-// через deps.applyEdit (существующий путь workspace.applyEdit), команды — через
-// deps.executeCommand.
-
 function makeCtx(deps?: Partial<ICodeActionDeps>): {
     ctx: IVscodeHostContext;
     stub: IStubRpc;
@@ -259,7 +254,6 @@ describe("LanguagesNamespace — registerCodeActionsProvider", () => {
         expect(contexts[0].only).toBeInstanceOf(CodeActionKind);
         expect(contexts[0].only?.value).toBe("source.fixAll");
 
-        // Без only голая команда проходит.
         const all = (await stub.callRequest("languages.provideCodeActions", requestParams())) as {
             title: string;
             kind?: string;
@@ -276,7 +270,6 @@ describe("LanguagesNamespace — registerCodeActionsProvider", () => {
         languages.registerCodeActionsProvider("python", provider, metadata);
         languages.registerCodeActionsProvider("python", provider, metadata);
 
-        // Пересекающийся only — провайдер вызван, действие проходит фильтр вида.
         const sorted = (await stub.callRequest("languages.provideCodeActions", requestParams({ only: "source" }))) as {
             title: string;
         }[];
@@ -334,7 +327,6 @@ describe("LanguagesNamespace — languages.applyCodeAction", () => {
         return result[index].id;
     }
 
-    /** Строки console.error (сбои — в stderr субпроцесса). */
     function spyErrors(): unknown[][] {
         return vi.spyOn(console, "error").mockImplementation(() => undefined).mock.calls;
     }
