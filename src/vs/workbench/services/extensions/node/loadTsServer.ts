@@ -77,9 +77,9 @@ function computeTarget(): ITsServerPaths | null {
  */
 function bundleSource(): IBundleSource | null {
     if (cachedSource !== undefined) return cachedSource;
-    // Stryker disable next-line all: file is outside coverage (the bundle source depends on SEA/self-extract); the source logic is covered by packagedAsset (units), the whole path by e2e lspBundled
+    // Stryker disable all: file is outside coverage (the bundle source depends on SEA/self-extract); the source logic is covered by packagedAsset (units), the whole path by e2e lspBundled
     const cacheDir = packagedAssetCacheDirByName("ts-server", ASSET_NAME);
-    // Stryker disable next-line all: file is outside coverage (the bundle source depends on SEA/self-extract); the source logic is covered by packagedAsset (units), the whole path by e2e lspBundled
     cachedSource = cacheDir === null ? null : { cacheDir };
+    // Stryker restore all
     return cachedSource;
 }

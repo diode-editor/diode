@@ -70,25 +70,18 @@ export class KeybindingRecorderComponent extends Disposable {
         for (const label of [this.titleLabel, this.chordLabel, this.hintLabel, this.warningLabel]) {
             stack.addChild(label, { width: "stretch", height: 1 });
         }
-        // Stryker disable next-line CallExpression: pure color setup — the palette is not checked per frame.
-        this.titleLabel.setColors(DIALOG_STYLES.fg, DIALOG_STYLES.bg);
-        // Stryker disable next-line CallExpression: pure color setup — the palette is not checked per frame.
-        this.hintLabel.setColors(DIALOG_STYLES.descriptionFg, DIALOG_STYLES.bg);
-
         const box = new BoxContainerElement();
-        // Stryker disable next-line CallExpression: box background is color, not behavior.
-        box.setBg(DIALOG_STYLES.bg);
-        // Stryker disable next-line CallExpression: border color is not behavior.
-        box.setBorderFg(DIALOG_STYLES.borderFg);
         box.setTitle("Define Keybinding");
-        // Stryker disable next-line CallExpression: title color is not behavior.
+        // Stryker disable CallExpression,BooleanLiteral,ObjectLiteral: colors, separator and padding are cosmetics, not checked per frame.
+        this.titleLabel.setColors(DIALOG_STYLES.fg, DIALOG_STYLES.bg);
+        this.hintLabel.setColors(DIALOG_STYLES.descriptionFg, DIALOG_STYLES.bg);
+        box.setBg(DIALOG_STYLES.bg);
+        box.setBorderFg(DIALOG_STYLES.borderFg);
         box.setTitleFg(DIALOG_STYLES.fg);
-        // Stryker disable next-line BooleanLiteral,CallExpression: the separator is box cosmetics, not checked per frame.
         box.setHasSeparator(true);
-        // Stryker disable next-line ObjectLiteral: window padding is layout cosmetics.
         const padding = new PaddingContainerElement(stack, { left: 2, right: 2 });
-        // Stryker disable next-line ObjectLiteral: container colors are not behavior.
         padding.style = { fg: DIALOG_STYLES.fg, bg: DIALOG_STYLES.bg };
+        // Stryker restore CallExpression,BooleanLiteral,ObjectLiteral
         box.setChild(padding);
         this.root.setChild(box);
 
