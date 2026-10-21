@@ -18,12 +18,6 @@ import { ThemeService } from "../../themes/common/themeService.ts";
 
 import { EditorService } from "./editorService.ts";
 
-/**
- * Шов «в группе может жить панель не только текстового вида». Проверяем на
- * фейковой панели: настоящий второй вид (дифф) появится на этапе 5, но
- * абстракция обязана держать его уже сейчас — иначе она декоративная.
- */
-
 function createEditorService(): EditorService {
     return new EditorService(
         new ThemeService(WorkbenchTheme.fromThemeFile(darkPlusTheme)),
@@ -38,7 +32,6 @@ function createEditorService(): EditorService {
     );
 }
 
-/** Минимальная панель не-текстового вида — ровно контракт IEditorPane, без текста. */
 class FakePane implements IEditorPane {
     public readonly view = new TUIElement();
     public isModified = false;
@@ -63,7 +56,6 @@ class FakePane implements IEditorPane {
         };
     }
 
-    /** Имитация «во вкладке что-то поменялось» (маркер правки). */
     public markModified(): void {
         this.isModified = true;
         for (const cb of [...this.listeners]) cb();
@@ -109,7 +101,6 @@ describe("EditorService — панели не-текстового вида", ()
         const afterOpen = changed.mock.calls.length;
         pane.markModified();
 
-        // onDidChangeState панели доходит до группы — таб перерисуется с маркером.
         expect(changed.mock.calls.length).toBe(afterOpen + 1);
     });
 
@@ -123,7 +114,6 @@ describe("EditorService — панели не-текстового вида", ()
 
         expect(service.editorGroups.activeGroup.editorCount).toBe(2);
         expect(service.editorGroups.activeGroup.activeIndex).toBe(0);
-        // Лишнюю панель обязаны утилизировать, иначе она утечёт.
         expect(duplicate.disposed).toBe(true);
     });
 
@@ -164,8 +154,7 @@ describe("EditorService — сужение текстовой поверхнос
     });
 
     it("подписчики активного редактора видят переключение на дифф как «нет редактора»", () => {
-        // Это и есть причина сужения: статус-бар, find, host-адаптеры не должны
-        // получать панель, у которой нет ни курсора, ни языка, ни кодировки.
+        // Статус-бар, find, host-адаптеры не должны получать панель без курсора, языка и кодировки.
         const service = createEditorService();
         const seen: unknown[] = [];
         service.onActiveEditorChanged((editor) => seen.push(editor));
@@ -228,7 +217,6 @@ describe("EditorService — смешанная группа", () => {
     it("сессия и shutdown видят только текстовые вкладки", () => {
         const { ws, service } = openMixed();
         try {
-            // Не-текстовую вкладку нечего восстанавливать по пути и нечего сохранять.
             expect(service.getOpenFilePaths()).toEqual([ws.path("a.ts")]);
             expect(service.collectDirty()).toEqual([]);
 

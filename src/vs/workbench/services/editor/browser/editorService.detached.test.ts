@@ -15,10 +15,6 @@ import { ThemeService } from "../../themes/common/themeService.ts";
 
 import { EditorService } from "./editorService.ts";
 
-/**
- * Detached-панель — редактор вне таб-строки (нижняя Panel: Output). Здесь
- * проверяется её изоляция: всё, что перечисляет вкладки, обязано её НЕ видеть.
- */
 function createEditorService(): EditorService {
     return new EditorService(
         new ThemeService(WorkbenchTheme.fromThemeFile(darkPlusTheme)),
@@ -48,8 +44,6 @@ describe("EditorService.openDetached", () => {
     });
 
     it("не попадает ни в одну перечисляющую вкладки поверхность", () => {
-        // Это и есть весь смысл отдельного списка: код табов, персиста сессии и
-        // shutdown-протокола ходит по `editors` и о detached не знает.
         const service = createEditorService();
 
         service.openDetached(OUTPUT_URI, "log");
@@ -72,8 +66,6 @@ describe("EditorService.openDetached", () => {
     });
 
     it("getActiveEditor не отдаёт detached, пока фокус не внутри неё", () => {
-        // Без фокуса активным остаётся редактор-вкладка; detached всплывает
-        // только когда пользователь реально работает в панели.
         const service = createEditorService();
         service.newUntitled({ focus: false });
         const tab = service.getEditors()[0];
@@ -108,8 +100,7 @@ describe("TextFileModel: owner-write для detached", () => {
     });
 
     it("appendOwnedContent проходит в read-only редакторе", () => {
-        // Ключевое свойство: read-only запрещает правки ПОЛЬЗОВАТЕЛЯ, но владелец
-        // документа писать обязан — иначе живой хвост лога встал бы намертво.
+        // Read-only запрещает правки человека, но владелец документа писать обязан — иначе хвост лога встал бы.
         const service = createEditorService();
         const pane = service.openDetached(OUTPUT_URI, "log");
         pane.readOnly = true;
@@ -117,7 +108,6 @@ describe("TextFileModel: owner-write для detached", () => {
         pane.model.appendContent("line\n");
 
         expect(pane.getText()).toBe("line\n");
-        // А вот обычная правка через ту же модель по-прежнему заблокирована.
         expect(pane.viewState.type("X")).toBeUndefined();
         expect(pane.getText()).toBe("line\n");
         service.dispose();

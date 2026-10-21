@@ -7,11 +7,7 @@ import type { ILanguageService } from "../../../../editor/common/languages/iLang
 import type { IExtension } from "../../../../platform/extensions/common/iExtension.ts";
 import type { ILanguageContribution } from "../../../../platform/extensions/common/iLanguageContribution.ts";
 
-/**
- * Запись о зарегистрированном языке. Несколько расширений могут
- * contribute'ить один и тот же `languageId` — мы сливаем их данные
- * (extensions, filenames, aliases) в одну запись.
- */
+/** Несколько расширений могут вносить один `languageId` — их данные сливаются в одну запись. */
 export interface ILanguageEntry {
     readonly id: string;
     readonly aliases: readonly string[];
@@ -20,7 +16,6 @@ export interface ILanguageEntry {
     readonly filenamePatterns: readonly string[];
     readonly firstLine: string | undefined;
     readonly mimetypes: readonly string[];
-    /** Виртуальный путь к `language-configuration.json`, если есть. */
     readonly configurationPath: string | undefined;
 }
 
@@ -35,35 +30,18 @@ interface MutableLanguageEntry {
     configurationPath: string | undefined;
 }
 
-/**
- * Сводный реестр языков из `contributes.languages` всех загруженных
- * расширений. Заменяет старый хардкод `BUILTIN_LANGUAGES` и
- * `getLanguageIdForFile` из `Editor/Tokenization/languageDetection.ts`.
- *
- * Язык, не пришедший ни от одного расширения, в реестре не появится —
- * тогда `getLanguageIdForResource` вернёт `undefined` и потребитель
- * (`EditorComponent.ensureTokenizerForLanguage`) откатится на `plaintext`.
- */
 export class LanguageRegistry implements ILanguageService {
     private readonly languages = new Map<string, MutableLanguageEntry>();
     private readonly requestedLanguages = new Set<string>();
     private readonly onDidRequestLanguageFeaturesEmitter = new Emitter<string>();
 
     public constructor() {
-        // plaintext — core-язык (аналог modesRegistry в VS Code): его не
-        // contribute'ит ни один языковой пак, но он всегда должен быть в
-        // реестре — как fallback для документов без языка и как запись
-        // для будущего пикера. Refcount никогда не опускается до нуля.
+        // plaintext не вносит ни один пак (аналог modesRegistry в VS Code), но он нужен как fallback;
+        // refcount никогда не опускается до нуля.
         this.applyContribution({ id: "plaintext", aliases: ["Plain Text"], extensions: [".txt"] }, "builtin:core/", 1);
     }
 
-    /**
-     * Регистрирует все языки из манифеста расширения.
-     * Возвращает Disposable, который удаляет contributions именно этого
-     * расширения (для будущей выгрузки расширений). При множественных
-     * contribute'ах одного `languageId` запись остаётся, пока хотя бы один
-     * источник его удерживает.
-     */
+    /** Запись языка живёт, пока её удерживает хотя бы один источник. */
     public register(extension: IExtension): IDisposable {
         const langs = extension.manifest.contributes?.languages;
         if (langs === undefined || langs.length === 0) {
@@ -108,26 +86,14 @@ export class LanguageRegistry implements ILanguageService {
     }
 
     /**
-     * Основное расширение языка. Как и у alias'ов — первое заявленное: при
-     * нескольких расширениях (`.yml`/`.yaml`) предлагаем то, что расширение
-     * назвало первым.
-     *
-     * Внимание: у dotfile-языков «расширение» — это всё имя файла целиком
-     * (`.editorconfig`), так что склеивать результат с именем buffer'а осмысленно
-     * не для любого языка. Для безымянных буферов это не стреляет: их язык —
-     * `plaintext` (`.txt`), пока его явно не сменят.
+     * Первое заявленное, как и у alias'ов. У dotfile-языков «расширение» — всё имя (`.editorconfig`),
+     * так что склейка с именем буфера осмысленна не для любого языка; безымянный буфер — `plaintext`.
      */
     public getExtensionForLanguage(languageId: string): string | undefined {
         return this.languages.get(languageId)?.extensions[0];
     }
 
-    /**
-     * Определяет language id по пути к файлу.
-     * Порядок матчинга (как в VS Code):
-     *   1) точное совпадение `filenames`
-     *   2) match по `filenamePatterns` (glob)
-     *   3) совпадение `extensions` (case-insensitive)
-     */
+    /** Порядок, как в VS Code: `filenames`, затем `filenamePatterns`, затем `extensions` (без учёта регистра). */
     public getLanguageIdForResource(filePath: string): string | undefined {
         const baseName = path.basename(filePath);
         const baseNameLower = baseName.toLowerCase();
@@ -144,12 +110,8 @@ export class LanguageRegistry implements ILanguageService {
             }
         }
 
-        // При конфликте расширений (несколько языков заявляют один `.ext`)
-        // побеждает зарегистрированный ПОЗЖЕ — как в VS Code, где user-расширение
-        // грузится после builtin и переопределяет ассоциацию. Пример: и builtin
-        // `properties` (ini), и user `editorconfig` заявляют `.editorconfig`;
-        // должен выиграть `editorconfig` (стоковый editorconfig-vscode). Поэтому
-        // не возвращаем на первом совпадении, а берём последнее.
+        // Несколько языков заявляют один `.ext` — побеждает зарегистрированный позже, как в VS Code
+        // (user-расширение после builtin: `editorconfig` бьёт `properties`). Поэтому берём последнее.
         const ext = path.extname(baseName).toLowerCase();
         let match: string | undefined;
         for (const entry of this.languages.values()) {
@@ -197,8 +159,7 @@ export class LanguageRegistry implements ILanguageService {
                 entry.configurationPath = joinVirtualPath(extensionLocation, lang.configuration);
             }
         }
-        // Замечание: при unregister мы оставляем firstLine/configurationPath как есть —
-        // снимется при удалении пустой записи ниже. Это упрощение, достаточное для Phase 1.
+        // firstLine/configurationPath при unregister не откатываются — снимаются вместе с пустой записью.
 
         if (
             delta < 0 &&
@@ -225,12 +186,7 @@ function mergeStrings(target: string[], source: readonly string[] | undefined, d
     }
 }
 
-/**
- * Минимальный glob-matcher для `filenamePatterns`. Поддерживает `*` (любая
- * последовательность символов) и `?` (один символ). Этого достаточно для
- * паттернов из реальных VS Code-расширений (например `tsconfig.*.json`).
- * Полный bracket/extglob-поддержки не требуется.
- */
+/** Только `*` и `?` — достаточно для `filenamePatterns` реальных расширений. */
 function matchGlob(pattern: string, lowerName: string): boolean {
     const lowerPattern = pattern.toLowerCase();
     let regexSource = "^";

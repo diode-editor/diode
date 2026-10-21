@@ -27,17 +27,12 @@ import { ThemeService } from "../../themes/common/themeService.ts";
 
 import { EditorService } from "./editorService.ts";
 
-// Герметичный контракт пайплайна сохранения (#196, хвост): настройки
-// `editor.codeActionsOnSave` / `editor.formatOnSave` включают участников поверх
-// фейковых источников (стоковый стек закрыт отдельным сетевым сьютом
-// extensionHost.ruffLsp.onSave.test.ts). Порядок VS Code: code actions →
-// формат → will-save расширений; на диск уходит уже поправленный текст.
+// Герметичный контракт (#196); стоковый стек — сетевой сьют extensionHost.ruffLsp.onSave.test.ts.
 
 function stubConfigurationService(values: Record<string, unknown>): IConfigurationService {
     return createTestConfigurationService(values);
 }
 
-/** Реестры каждого созданного сервиса — тесты кладут в них провайдеров. */
 const registries = new WeakMap<EditorService, LanguageFeaturesService>();
 
 function createEditorService(configuration: Record<string, unknown> = {}): EditorService {
@@ -62,7 +57,6 @@ function createEditorService(configuration: Record<string, unknown> = {}): Edito
     return service;
 }
 
-/** Code-action-провайдер теста под `*`: что вернуть на запрос и чем ответить на apply. */
 function useCodeActions(
     ctrl: EditorService,
     source: {
@@ -77,7 +71,6 @@ function useCodeActions(
     });
 }
 
-/** Документный форматтер теста под `*`. */
 function useFormatter(
     ctrl: EditorService,
     format: (request: IFormattingRequest) => Promise<readonly ITextEdit[] | null>,
@@ -170,11 +163,9 @@ describe("EditorService — сохранение по настройкам onSav
             expect(provided[0].languageId).toBe("plaintext");
             // Полный диапазон документа: 3 «строки» сплита, последняя пустая.
             expect(provided[0].range).toEqual(createRange(0, 0, 2, 0));
-            // Версия документа на момент запроса — до правок apply.
             expect(provided[0].versionId).toBe(versionBefore);
             expect(pane.model.document.versionId).not.toBe(versionBefore);
             expect(applied).toEqual(["fix.1", "fix.2"]);
-            // Правка применена ДО записи: на диске уже поправленный текст.
             expect(fs.readFileSync(fp, "utf-8")).toBe("import os\n");
             ctrl.dispose();
         });
@@ -267,8 +258,7 @@ describe("EditorService — сохранение по настройкам onSav
             expect(requests[0].versionId).toBe(versionBefore);
             expect(requests[0].range).toBeUndefined();
             expect(fs.readFileSync(fp, "utf-8")).toBe("a = 1\nb=2\n");
-            // Одна каретка на прежнем месте первичного выделения (сеттер
-            // viewState сортирует мультикурсоры по позиции — первичное (0,2)).
+            // Сеттер viewState сортирует мультикурсоры по позиции — первичное (0,2).
             expect(pane.viewState.selections).toHaveLength(1);
             expect(pane.viewState.selections[0].active).toEqual({ line: 0, character: 2 });
             ctrl.dispose();
@@ -304,7 +294,6 @@ describe("EditorService — сохранение по настройкам onSav
 
             await pane.save();
 
-            // Правка форматтера НЕ применена; на диск ушёл текст с правкой пользователя.
             expect(fs.readFileSync(fp, "utf-8")).toBe("typed:old\n");
             ctrl.dispose();
         });
@@ -353,7 +342,6 @@ describe("EditorService — сохранение по настройкам onSav
             });
             ctrl.saveParticipant = (snapshot) => {
                 order.push("willSave");
-                // Will-save расширений видит текст после формата.
                 expect(snapshot.text).toBe("fmt:fixed:base\n");
                 return Promise.resolve([]);
             };
@@ -389,15 +377,13 @@ describe("EditorService — сохранение по настройкам onSav
             fs.rmSync(fp);
             await ctrl.getActiveEditor()!.save();
 
-            // Пайплайн пуст (обе настройки выключены, host не подключён).
             expect(fs.readFileSync(fp, "utf-8")).toBe("as is\n");
             expect(touched).toBe(0);
             ctrl.dispose();
         });
 
         it("настройка включена, но её источник не подключён — участник не в списке", async () => {
-            // Гейты collectSaveParticipants попарные: codeActions без источника
-            // и формат с выключенной настройкой обязаны выпасть из пайплайна.
+            // Гейты попарные: codeActions без источника и формат с выключенной настройкой обязаны выпасть.
             const ctrl = createEditorService({ "editor.codeActionsOnSave": { "source.fixAll": true } });
             const fp = writeFile("halfoff.txt", "x\n");
             ctrl.openFile(fp);
@@ -436,7 +422,6 @@ describe("EditorService — сохранение по настройкам onSav
             await model.saveAs(dst);
 
             expect(fs.existsSync(dst)).toBe(true);
-            // Формат без панели — no-op ещё до запроса к источнику.
             expect(formatCalled).toBe(0);
             ctrl.dispose();
         });

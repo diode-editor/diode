@@ -21,9 +21,6 @@ import {
 
 import { FileSearchService } from "./fileSearchService.ts";
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-/** Настройки с изменяемой картой и живым событием — exclude'ы правятся на ходу. */
 class StubConfig implements IConfigurationService {
     public values: Record<string, unknown> = {};
     private readonly listeners: ((event: IConfigurationChangeEvent) => void)[] = [];
@@ -59,7 +56,6 @@ class StubConfig implements IConfigurationService {
         this.set(key, value);
         return Promise.resolve();
     }
-    /** Ставит значение и эмитит событие — как reload() настоящего сервиса. */
     public set(key: string, value: unknown): void {
         this.values[key] = value;
         const event = createConfigurationChangeEvent([key]);
@@ -76,8 +72,6 @@ function mkdir(dir: string, relPath: string): string {
 function indexedPaths(service: FileSearchService): string[] {
     return service.search("").map((r) => r.entry.relativePath);
 }
-
-// ─── Tests ────────────────────────────────────────────────────────────────────
 
 describe("FileSearchService — indexing", () => {
     let ws: ITempWorkspace;
@@ -219,7 +213,6 @@ describe("FileSearchService — indexing", () => {
             ws.writeFile("a.ts", "");
             await service.activate(ws.dir);
 
-            // Add a file but do not advance time — refresh should skip (throttled).
             ws.writeFile("b.ts", "");
             service.refreshIfStale();
             await service.ready;
@@ -244,8 +237,7 @@ describe("FileSearchService — indexing", () => {
 
             ws.writeFile("b.ts", "");
 
-            // Jump the clock forward past the staleness window (fake Date only,
-            // leaving setImmediate/setTimeout real so the walk still runs).
+            // Fake Date only: setImmediate/setTimeout stay real so the walk still runs.
             vi.useFakeTimers({ toFake: ["Date"] });
             vi.setSystemTime(new Date(base + 60_000));
 
@@ -276,8 +268,6 @@ describe("FileSearchService — indexing", () => {
 
     describe("exclusions", () => {
         it("индекс режет по ОБОИМ наборам: files.exclude и search.exclude", () => {
-            // Поиск по именам файлов — это поиск, поэтому `search.exclude`
-            // сюда входит наравне с `files.exclude`.
             config.values[FILES_EXCLUDE_SETTING] = { "**/.git": true };
             config.values[SEARCH_EXCLUDE_SETTING] = { "**/node_modules": true };
             ws.writeFile(".git/COMMIT_EDITMSG", "");
@@ -306,10 +296,8 @@ describe("FileSearchService — indexing", () => {
         });
 
         it("шаблон матчится против пути ОТНОСИТЕЛЬНО корня, в posix-форме", async () => {
-            // `**/<имя>` обязан достать каталог НА ГЛУБИНЕ, а `<имя>` — только
-            // вход в корне. Сегменты склеиваются через `/` (на Windows
-            // `path.sep` другой) — иначе `pkg/out` превратился бы в `pkgout` и
-            // ни один шаблон его бы не задел.
+            // `**/<имя>` обязан достать каталог на глубине, `<имя>` — только вход в корне. Сегменты
+            // склеиваются через `/`, не `path.sep`, — иначе на Windows `pkg/out` не задел бы ни один шаблон.
             config.values[FILES_EXCLUDE_SETTING] = { "**/__pycache__": true, out: true };
             ws.writeFile("pkg/__pycache__/app.cpython-312.pyc", "");
             ws.writeFile("pkg/out/keep.txt", "");
@@ -338,7 +326,6 @@ describe("FileSearchService — indexing", () => {
             await service.ready;
             expect(indexedPaths(service)).toEqual(["app.py"]);
 
-            // И обратно: погашенный шаблон возвращает файлы в индекс.
             config.set(FILES_EXCLUDE_SETTING, { "**/__pycache__": false });
             await service.ready;
             expect(indexedPaths(service)).toHaveLength(2);
@@ -355,7 +342,6 @@ describe("FileSearchService — indexing", () => {
         });
 
         it("правка до activate() обхода не запускает", () => {
-            // Корня ещё нет (пустое окно) — пересобирать нечего.
             expect(() => {
                 config.set(FILES_EXCLUDE_SETTING, { "**/x": true });
             }).not.toThrow();
@@ -426,7 +412,6 @@ describe("FileSearchService — indexing", () => {
             // rg ищет его в `$XDG_CONFIG_HOME/git/ignore` (если в `~/.gitconfig`
             // нет `core.excludesFile`) — оба подменены на временные, чтобы
             // настройки машины не влияли на тест.
-            // Снимает `vi.unstubAllEnvs()` в afterEach.
             vi.stubEnv("HOME", ws.path("home"));
             vi.stubEnv("XDG_CONFIG_HOME", ws.path("xdg"));
             ws.writeFile("xdg/git/ignore", "*.secret\n");

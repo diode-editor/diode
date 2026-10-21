@@ -19,11 +19,7 @@ export class ThemeService {
         this.onDidChangeThemeEmitter.fire(theme);
     }
 
-    /**
-     * Subscribe to theme changes. The listener is called immediately
-     * with the current theme and then on every subsequent change.
-     * Returns a disposable to unsubscribe.
-     */
+    /** The listener is called immediately with the current theme, then on every change. */
     public onThemeChange(listener: (theme: WorkbenchTheme) => void): IDisposable {
         const subscription = this.onDidChangeThemeEmitter.event(listener);
         listener(this.currentTheme);

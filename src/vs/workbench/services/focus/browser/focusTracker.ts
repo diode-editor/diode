@@ -7,15 +7,9 @@ import { token } from "../../../../platform/instantiation/common/diContainer.ts"
 export const FocusTrackerDIToken = token<FocusTracker>("FocusTracker");
 
 /**
- * Смена фокуса в дереве workbench как событие. Фичи подписываются сами (попапы
- * редактора гаснут, когда фокус ушёл с редактора), вместо того чтобы центр
- * знал каждую из них поимённо. Источник — `WorkbenchContextKeys.handleFocusChange`
- * (capture-листенеры focus/blur корневой view): он сначала освежает контекст-ключи,
- * потом зовёт {@link fire}, так что подписчик видит уже свежий контекст.
- *
- * Отдельный сервис без зависимостей, а не событие на самом центре: центр
- * резолвит фичи-контрибьюторы при своём создании, и подписка фичи на центр
- * замкнула бы граф DI в цикл.
+ * Отдельный сервис без зависимостей, а не событие центра: центр резолвит фичи при создании,
+ * и подписка фичи на него замкнула бы DI в цикл. `WorkbenchContextKeys.handleFocusChange`
+ * зовёт {@link fire} после обновления контекст-ключей — подписчик видит свежий контекст.
  */
 export class FocusTracker implements IDisposable {
     public static dependencies = [] as const;
@@ -24,7 +18,6 @@ export class FocusTracker implements IDisposable {
 
     public readonly onDidChangeFocus = this.onDidChangeFocusEmitter.event;
 
-    /** Фокус сменился; `active` — новый сфокусированный элемент (или `null`). */
     public fire(active: TUIElement | null): void {
         this.onDidChangeFocusEmitter.fire(active);
     }

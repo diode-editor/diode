@@ -2,9 +2,6 @@ import { describe, expect, it } from "vitest";
 
 import { parseRgMatchLine } from "./textSearch.ts";
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-/** Builds a `rg --json` "match" event line for the given fields. */
 function matchLine(opts: {
     path: string;
     text: string;
@@ -23,11 +20,7 @@ function matchLine(opts: {
     });
 }
 
-// ─── Tests ────────────────────────────────────────────────────────────────────
-
 describe("parseRgMatchLine", () => {
-    // ── Non-match events / junk ───────────────────────────────────────────────────
-
     it("returns null for a blank line", () => {
         expect(parseRgMatchLine("")).toBeNull();
         expect(parseRgMatchLine("   ")).toBeNull();
@@ -112,8 +105,6 @@ describe("parseRgMatchLine", () => {
         expect(parseRgMatchLine(line)).toBeNull();
     });
 
-    // ── Basic match ───────────────────────────────────────────────────────────────
-
     it("extracts file, line number and match column range", () => {
         const line = matchLine({
             path: "/work/project/a.ts",
@@ -155,8 +146,6 @@ describe("parseRgMatchLine", () => {
         expect(matches.map((m) => m.startColumn)).toEqual([0, 8]);
     });
 
-    // ── Byte-offset correctness (multibyte) ───────────────────────────────────────
-
     it("maps ripgrep byte offsets to character columns for multibyte lines", () => {
         // "café " is 5 chars but 6 bytes (é = 2 bytes); "foo" starts at byte 6.
         const line = matchLine({
@@ -167,7 +156,6 @@ describe("parseRgMatchLine", () => {
         });
         const m = parseRgMatchLine(line)!.matches[0];
         expect(m.preview).toEqual({ before: "café ", inside: "foo", after: "" });
-        // Columns are character offsets, not byte offsets.
         expect(m.startColumn).toBe(5);
         expect(m.endColumn).toBe(8);
     });
@@ -176,8 +164,6 @@ describe("parseRgMatchLine", () => {
         const line = matchLine({ path: "/a.ts", text: "x\n", lineNumber: 1, submatches: [] });
         expect(parseRgMatchLine(line)).toBeNull();
     });
-
-    // ── Кап хвоста превью ─────────────────────────────────────────────────────────
 
     it("режет preview.after до 256 символов — матч в минифицированной строке остаётся ограниченным", () => {
         const line = matchLine({

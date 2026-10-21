@@ -16,22 +16,12 @@ import { TextFileSaveParticipant } from "./textFileSaveParticipant.ts";
 
 export const TextFileModelServiceDIToken = token<TextFileModelService>("TextFileModelService");
 
-/**
- * Участник пайплайна сохранения: по модели решает, участвует ли он в ЭТОМ
- * save (`null` — нет). Спрашивается в момент сохранения, а не при регистрации:
- * настройки и провайдеры живые.
- */
+/** `null` — не участвует в ЭТОМ save. Спрашивается при сохранении: настройки и провайдеры живые. */
 export type SaveParticipantProvider = (model: TextFileModel) => SaveParticipant | null;
 
 /**
- * Модели текстовых файлов — аналог upstream `ITextFileService.files` /
- * `.untitled` поверх `ITextModelService`: реестр файловых моделей (одна на
- * ресурс, ref-count), безымянные буферы со сквозной нумерацией, модельная
- * обвязка (watcher, пайплайн save-участников) и агрегатное событие
- * сохранения. Вкладок и вью не знает — их строит `EditorService`.
- *
- * Синтетические буферы (Output, `jdt:`, снимки) сюда не входят: у них нет ни
- * файла, ни сохранения, и владеет ими тот, кто их создал.
+ * Аналог `ITextFileService.files`/`.untitled`. Вкладок и вью не знает — их строит
+ * `EditorService`; синтетические буферы (Output, `jdt:`, снимки) сюда не входят.
  */
 export class TextFileModelService extends Disposable {
     public static dependencies = [
@@ -42,17 +32,9 @@ export class TextFileModelService extends Disposable {
     ] as const;
 
     private readonly registry = new TextFileModelRegistry((uri) => this.createFileModel(uri));
-    /**
-     * Монотонный счётчик номеров безымянных буферов (`Untitled-1`, `Untitled-2`, …).
-     * Не переиспользуется при закрытии вкладок — как в VS Code, номер стабилен за
-     * буфером всю его жизнь.
-     */
+    /** Не переиспользуется при закрытии вкладок — как в VS Code, номер стабилен за буфером. */
     private untitledCounter = 0;
     private readonly saveParticipantProviders: SaveParticipantProvider[] = [];
-    /**
-     * Пайплайн save-участников — один на все модели сервиса; состав собирается
-     * в момент сохранения ({@link addSaveParticipant}).
-     */
     private readonly saveParticipant = new TextFileSaveParticipant((model) =>
         // Мусор вместо пропуска пайплайн и так проглотил бы как сбойного
         // участника — мутант ненаблюдаем.
@@ -63,19 +45,13 @@ export class TextFileModelService extends Disposable {
     private readonly onDidChangeModelLanguageEmitter = this.register(new Emitter<TextFileModel>());
     private readonly onDidChangeModelOrphanedEmitter = this.register(new Emitter<TextFileModel>());
 
-    /**
-     * Сохранение любой модели сервиса — после того, как реестр перепривязал
-     * ключ (saveAs мог сменить ресурс).
-     */
+    /** После того, как реестр перепривязал ключ (saveAs мог сменить ресурс). */
     public readonly onDidSaveModel = this.onDidSaveModelEmitter.event;
 
-    /** Смена языка документа любой модели сервиса (настройки `"[lang]"` читаются заново). */
+    /** Настройки `"[lang]"` читаются заново. */
     public readonly onDidChangeModelLanguage = this.onDidChangeModelLanguageEmitter.event;
 
-    /**
-     * Файл модели удалён с диска или вернулся ({@link TextFileModel.isOrphaned}) —
-     * аналог `ITextFileEditorModelManager.onDidChangeOrphaned` эталона.
-     */
+    /** `ITextFileEditorModelManager.onDidChangeOrphaned` эталона. */
     public readonly onDidChangeModelOrphaned = this.onDidChangeModelOrphanedEmitter.event;
 
     public constructor(
@@ -87,10 +63,7 @@ export class TextFileModelService extends Disposable {
         super();
     }
 
-    /**
-     * Добавляет участника в пайплайн сохранения. Порядок регистрации — порядок
-     * исполнения: правки каждого ложатся в буфер до следующего и до записи.
-     */
+    /** Порядок регистрации — порядок исполнения. */
     public addSaveParticipant(provider: SaveParticipantProvider): IDisposable {
         this.saveParticipantProviders.push(provider);
         return {
@@ -101,20 +74,12 @@ export class TextFileModelService extends Disposable {
         };
     }
 
-    /**
-     * Ссылка на общую модель файла: тот же документ, что у всех вкладок и
-     * сторон диффа этого файла, поэтому несохранённые правки видны везде, а
-     * undo общий. Владелец обязан освободить ссылку.
-     */
+    /** Тот же документ у всех вкладок и сторон диффа файла. Владелец обязан освободить ссылку. */
     public acquire(uri: Uri): ITextFileModelReference {
         return this.registry.acquire(uri);
     }
 
-    /**
-     * {@link acquire} ресурса пишущего провайдера ФС расширения: та же общая
-     * модель, но первое открытие сначала читает ресурс файловым сервисом
-     * (чтение провайдера асинхронное). Отказ чтения — отказ промиса.
-     */
+    /** Первое открытие читает ресурс файловым сервисом (чтение провайдера асинхронное). */
     public async acquireProvided(uri: Uri): Promise<ITextFileModelReference> {
         if (this.registry.get(uri) === null) {
             const { value } = await this.files.readFile(uri);
@@ -124,16 +89,11 @@ export class TextFileModelService extends Disposable {
         return this.registry.acquire(uri);
     }
 
-    /** Открытая модель ресурса, если есть; без создания и без изменения ref-count. */
     public get(uri: Uri): TextFileModel | null {
         return this.registry.get(uri);
     }
 
-    /**
-     * Безымянный буфер мимо реестра (уникален по построению), номер — из
-     * общего счётчика: `Untitled-N` стабилен, Save As работает штатно.
-     * Владение — у вызывающего (вкладка или панель диффа).
-     */
+    /** Мимо реестра (уникален по построению). Владение — у вызывающего (вкладка или панель диффа). */
     public createUntitledModel(): TextFileModel {
         const model = new TextFileModel(this.languageService, this.undoRedoService, this.files);
         this.wireModel(model);
@@ -141,11 +101,7 @@ export class TextFileModelService extends Disposable {
         return model;
     }
 
-    /**
-     * Фабрика реестра моделей: модель файла + модельная обвязка + загрузка.
-     * Наблюдатель ставится до openFile ({@link wireModel}), чтобы слежение
-     * началось с первой загрузки.
-     */
+    /** Наблюдатель ставится до openFile ({@link wireModel}), чтобы слежение началось с первой загрузки. */
     private createFileModel(uri: Uri): TextFileModel {
         const model = new TextFileModel(this.languageService, this.undoRedoService, this.files);
         this.wireModel(model);
@@ -153,7 +109,6 @@ export class TextFileModelService extends Disposable {
         return model;
     }
 
-    /** Фабрика ресурса провайдера: байты уже прочитаны ({@link acquireProvided}). */
     private createProvidedModel(uri: Uri, bytes: Uint8Array): TextFileModel {
         const model = new TextFileModel(this.languageService, this.undoRedoService, this.files);
         this.wireModel(model);
@@ -161,17 +116,12 @@ export class TextFileModelService extends Disposable {
         return model;
     }
 
-    /**
-     * Модельная обвязка — ставится один раз на документ, а не на вкладку:
-     * watcher, save-участник и событие сохранения принадлежат файлу, сколько бы
-     * вью его ни показывало.
-     */
+    /** Один раз на документ, а не на вкладку: обвязка принадлежит файлу. */
     private wireModel(model: TextFileModel): void {
         model.fileWatcher = this.fileWatcher;
         model.saveParticipant = this.saveParticipant;
-        // Подписка ставится первой — раньше вкладок: реестр должен перепривязать
-        // ключ до того, как вкладки перерисуют имя после saveAs. Живёт, сколько
-        // модель: эмиттер модели снимает её вместе с собой.
+        // Подписка первой — раньше вкладок: реестр должен перепривязать ключ до того, как
+        // вкладки перерисуют имя после saveAs. Эмиттер модели снимает её вместе с собой.
         model.onDidSaveDocument(() => {
             this.registry.handleUriChanged(model);
             this.onDidSaveModelEmitter.fire(model);

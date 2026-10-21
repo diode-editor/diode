@@ -4,7 +4,6 @@ import { DialogService } from "../../dialogs/browser/dialogService.ts";
 
 import { LifecycleService, SHUTDOWN_JOIN_TIMEOUT_MS } from "./lifecycleService.ts";
 
-/** Промис, который резолвит тест, — «участник ещё прощается». */
 function deferred(): { promise: Promise<void>; resolve: () => void } {
     let resolve!: () => void;
     const promise = new Promise<void>((r) => {

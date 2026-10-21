@@ -105,10 +105,8 @@ describe("TextFileModelRegistry", () => {
         await ref.model.saveAs(newPath);
         registry.handleUriChanged(ref.model);
 
-        // Повторное открытие нового пути попадает в ту же модель…
         const refNew = registry.acquire(Uri.file(newPath));
         expect(refNew.model === ref.model).toBe(true);
-        // …а старый ключ свободен: свежая модель, не та же.
         const refOld = registry.acquire(uri);
         expect(refOld.model === ref.model).toBe(false);
     });
@@ -123,9 +121,7 @@ describe("TextFileModelRegistry", () => {
         await refA.model.saveAs(uriB.fsPath);
         registry.handleUriChanged(refA.model);
 
-        // Лукап отдаёт модель-владельца ключа, а не перемещённую.
         expect(registry.get(uriB) === refB.model).toBe(true);
-        // Перемещённая модель осталась живой и корректно освобождается.
         const disposeSpy = vi.spyOn(refA.model, "dispose");
         refA.dispose();
         expect(disposeSpy).toHaveBeenCalledTimes(1);
@@ -138,12 +134,10 @@ describe("TextFileModelRegistry", () => {
         const refA = registry.acquire(uriA);
         const refB = registry.acquire(uriB);
 
-        // Коллизия: ключ занят B, модель A остаётся без ключа.
         await refA.model.saveAs(uriB.fsPath);
         registry.handleUriChanged(refA.model);
 
-        // Второй переезд — уже с key === null: старого ключа снимать не с чего,
-        // свободный путь снова индексирует модель.
+        // Второй переезд — уже с key === null: снимать старый ключ не с чего.
         const freePath = ws.path("c.txt");
         await refA.model.saveAs(freePath);
         registry.handleUriChanged(refA.model);

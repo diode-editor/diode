@@ -39,7 +39,6 @@ describe("TextMateGrammarLoader", () => {
         expect(support).not.toBeNull();
 
         const result = support!.tokenizeEncoded("const x = 1;", true, support!.getInitialState());
-        // Пары [начало, метаданные], первый токен — с нуля.
         expect(result.tokens.length).toBeGreaterThanOrEqual(2);
         expect(result.tokens[0]).toBe(0);
         loader.dispose();
@@ -57,7 +56,6 @@ describe("TextMateGrammarLoader", () => {
         const b = await loader.loadSupport("source.js");
         expect(a).not.toBeNull();
         expect(b).not.toBeNull();
-        // Both wrappers tokenize identically (same underlying grammar).
         const ra = a!.tokenizeEncoded("let y", true, a!.getInitialState());
         const rb = b!.tokenizeEncoded("let y", true, b!.getInitialState());
         expect([...ra.tokens]).toEqual([...rb.tokens]);
@@ -123,7 +121,6 @@ function builtinTheme(label: string): WorkbenchTheme {
     return theme;
 }
 
-/** Цвет токена, накрывающего `offset`, по парам [начало, метаданные]. */
 function colorAt(tokens: Uint32Array, offset: number, colorMap: readonly string[]): string | undefined {
     let metadata = tokens[1];
     for (let i = 0; i < tokens.length; i += 2) {

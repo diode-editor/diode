@@ -11,11 +11,8 @@ import { QuickInputServiceDIToken } from "../../../browser/parts/quickinput/quic
 import { type IOpenDialogOptions, type ISaveDialogOptions, SimpleFileDialog } from "./simpleFileDialog.ts";
 
 /**
- * Диалоги выбора файлов — `IFileDialogService` эталона (его `showOpenDialog` /
- * `showSaveDialog`). Нативного диалога в терминале нет, поэтому оба всегда
- * идут через {@link SimpleFileDialog} — у эталона это тот же диалог при
- * `files.simpleDialog.enable`. Без `defaultUri` диалог открывается в папке
- * воркспейса, а без неё — в домашнем каталоге (`defaultFilePath` эталона).
+ * `IFileDialogService` эталона. Нативного диалога в терминале нет — всегда {@link SimpleFileDialog}
+ * (`files.simpleDialog.enable` эталона). Без `defaultUri` — папка воркспейса, без неё — дом.
  */
 export interface IFileDialogService {
     showOpenDialog(options?: IOpenDialogOptions): Promise<Uri[] | undefined>;

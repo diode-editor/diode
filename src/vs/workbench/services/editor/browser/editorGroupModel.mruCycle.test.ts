@@ -52,7 +52,6 @@ describe("EditorGroup — событие серии Ctrl+Tab (onDidChangeMruCycl
 
         group.cycleMru(1);
         expect(events).toHaveLength(2);
-        // Список тот же (заморожен), позиция уехала глубже.
         expect(names(events[1])).toEqual(["/c.ts", "/b.ts", "/a.ts"]);
         expect(events[1]?.pointer).toBe(2);
     });

@@ -2,8 +2,6 @@ import { describe, expect, it } from "vitest";
 
 import { buildRgArgs, type ITextSearchQuery, validateRegex } from "./textSearch.ts";
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
 function query(overrides: Partial<ITextSearchQuery> = {}): ITextSearchQuery {
     return {
         pattern: "foo",
@@ -18,8 +16,6 @@ function query(overrides: Partial<ITextSearchQuery> = {}): ITextSearchQuery {
 }
 
 const ROOT = "/work/project";
-
-// ─── Tests ────────────────────────────────────────────────────────────────────
 
 describe("buildRgArgs", () => {
     it("returns null for an empty pattern", () => {
@@ -48,8 +44,6 @@ describe("buildRgArgs", () => {
         expect(args[i + 1]).toBe("-foo");
     });
 
-    // ── Case sensitivity ────────────────────────────────────────────────────────
-
     it("uses --ignore-case when case sensitivity is off", () => {
         expect(buildRgArgs(query({ isCaseSensitive: false }), ROOT)).toContain("--ignore-case");
     });
@@ -60,14 +54,10 @@ describe("buildRgArgs", () => {
         expect(args).not.toContain("--ignore-case");
     });
 
-    // ── Whole word ──────────────────────────────────────────────────────────────
-
     it("adds --word-regexp only when whole-word is on", () => {
         expect(buildRgArgs(query({ isWholeWord: false }), ROOT)).not.toContain("--word-regexp");
         expect(buildRgArgs(query({ isWholeWord: true }), ROOT)).toContain("--word-regexp");
     });
-
-    // ── Literal vs regex ──────────────────────────────────────────────────────────
 
     it("adds --fixed-strings for a literal query", () => {
         expect(buildRgArgs(query({ isRegExp: false }), ROOT)).toContain("--fixed-strings");
@@ -77,14 +67,11 @@ describe("buildRgArgs", () => {
         expect(buildRgArgs(query({ pattern: "fo+", isRegExp: true }), ROOT)).not.toContain("--fixed-strings");
     });
 
-    // ── Include / exclude globs ───────────────────────────────────────────────────
-
     it("maps includes to --glob and excludes to negated --glob", () => {
         const args = buildRgArgs(query({ includes: ["**/*.ts", "**/*.js"], excludes: ["**/dist"] }), ROOT)!;
         expect(args).toContain("**/*.ts");
         expect(args).toContain("**/*.js");
         expect(args).toContain("!**/dist");
-        // one --glob per include + exclude
         expect(args.filter((a) => a === "--glob")).toHaveLength(3);
     });
 
@@ -110,8 +97,6 @@ describe("buildRgArgs", () => {
         const args = buildRgArgs(query({ includes: [""], excludes: [""] }), ROOT)!;
         expect(args).not.toContain("--glob");
     });
-
-    // ── Ignore files / hidden ───────────────────────────────────────────────────
 
     it("searches dot-files and passes the ignore-file flags before the path", () => {
         const args = buildRgArgs(query({ useIgnoreFiles: { local: false, parent: false, global: false } }), ROOT)!;

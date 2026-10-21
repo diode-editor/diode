@@ -8,14 +8,8 @@ import { UndoRedoService } from "../../../../platform/undoRedo/common/undoRedoSe
 import { TextFileModel } from "./textFileModel.ts";
 
 /**
- * Гейт схемы у {@link TextFileModel.openFile}: модель файла работает ТОЛЬКО с
- * диском. Без гейта промах тихий и разрушительный — `fsPath` у не-file uri не
- * бросает, а отдаёт «путь» как есть, и `git:`-ресурс показал бы рабочее дерево,
- * повесив watcher на чужой путь.
- *
- * Гейт — инвариант самой модели, а не способ сообщить пользователю: недисковые
- * ресурсы до него больше не доезжают, их разбирает `EditorService.openUri`
- * (см. `editorService.virtualDocument.test.ts`).
+ * Без гейта промах тихий: `fsPath` у не-file uri отдаёт «путь» как есть. Недисковые
+ * ресурсы до модели не доезжают — их разбирает `EditorService.openUri`.
  */
 describe("TextFileModel.openFile — гейт схемы", () => {
     function make(): TextFileModel {
@@ -39,7 +33,6 @@ describe("TextFileModel.openFile — гейт схемы", () => {
             model.openFile(Uri.from({ scheme: "git", path: "/repo/a.ts" }));
         }).toThrow();
 
-        // Ресурс не подменён, содержимое чужого пути не прочитано.
         expect(model.uri.scheme).toBe("untitled");
         expect(model.getText()).toBe("");
         model.dispose();

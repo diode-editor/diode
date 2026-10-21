@@ -1,13 +1,7 @@
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { IUserDataProfile } from "../../../../platform/userDataProfile/common/userDataProfile.ts";
 
-/**
- * Активный профиль окна (аналог `IUserDataProfileService` эталона,
- * `workbench/services/userDataProfile/common/userDataProfile.ts`). У эталона
- * профиль переключается на лету (`onDidChangeCurrentProfile`); у нас он
- * фиксирован на процесс, смена — перезагрузка окна (`IHostProcess.restart` с
- * `IRelaunchRequest`), поэтому здесь только текущее значение.
- */
+/** У эталона профиль переключается на лету; у нас он фиксирован на процесс, смена — перезагрузка окна. */
 export interface IUserDataProfileService {
     readonly currentProfile: IUserDataProfile;
 }

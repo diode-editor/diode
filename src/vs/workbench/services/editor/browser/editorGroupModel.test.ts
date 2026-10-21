@@ -7,7 +7,6 @@ import type { IEditorPane } from "../../../browser/parts/editor/iEditorPane.ts";
 
 import { EditorGroup } from "./editorGroupModel.ts";
 
-/** Минимальная фейковая вкладка: события состояния + следы dispose/focus. */
 interface IFakePane extends IEditorPane {
     disposed: boolean;
     focused: number;
@@ -139,7 +138,6 @@ describe("EditorGroup", () => {
         expect(detached === panes[1]).toBe(true);
         expect(panes[1].disposed).toBe(false);
         expect(group.editorCount).toBe(1);
-        // Снятая вкладка больше не дёргает перерисовку этой группы.
         const before = editorsFired;
         panes[1].fireStateChange();
         expect(editorsFired).toBe(before);
@@ -202,7 +200,6 @@ describe("EditorGroup", () => {
         // MRU: c, b, a. Один шаг серии уходит к b.
         group.cycleMru(1);
         expect(group.activePane === panes[1]).toBe(true);
-        // Второй шаг той же серии идёт глубже — к a (список заморожен).
         group.cycleMru(1);
         expect(group.activePane === panes[0]).toBe(true);
         group.endMruCycle();

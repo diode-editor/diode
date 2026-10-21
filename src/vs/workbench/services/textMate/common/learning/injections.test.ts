@@ -5,12 +5,8 @@ import { describe, expect, it } from "vitest";
 import { createTestRegistry } from "./testRegistry.ts";
 
 /**
- * Учебные тесты на injection-грамматики.
- *
- * jsdoc-injection регистрируется в `Registry.options.getInjections(scopeName)`
- * — для хост-грамматики `source.js` мы возвращаем `documentation.injection.js.jsx`.
- * `vscode-textmate` сам вызывает её внутри подходящих участков (по
- * `injectionSelector` грамматики).
+ * Учебные тесты на injection-грамматики: jsdoc отдаётся из `getInjections("source.js")`, а
+ * `vscode-textmate` сам применяет её по `injectionSelector`.
  */
 describe("vscode-textmate :: injections (jsdoc)", () => {
     it("`@param` внутри `/** ... */` получает scope `storage.type.class.jsdoc`", async () => {

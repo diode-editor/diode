@@ -70,9 +70,7 @@ describe("HistoryService — чистка стека и группы", () => {
         fs.rmSync(ws.path("beta.ts"));
         service.goForward();
 
-        // beta выпала из-под указателя, значит он встаёт на alpha — и Forward
-        // уводит на gamma. Уехал бы указатель вперёд, Forward упёрся бы в конец
-        // стека и каретка осталась бы на beta.
+        // Уехал бы указатель вперёд — Forward упёрся бы в конец стека, и каретка осталась бы на beta.
         expect(source.caret()).toMatchObject({ uri: gamma() });
         expect(service.getEntries()).toHaveLength(2);
     });
@@ -86,10 +84,7 @@ describe("HistoryService — чистка стека и группы", () => {
         fs.rmSync(ws.path("gamma.ts"));
         service.goBack();
 
-        // gamma выпала за указателем, на его позицию это влиять не должно —
-        // Back с beta уводит на alpha. Проверка выше про то же берёт указатель в
-        // нуле, где Math.max зажимает любой лишний декремент; здесь он в единице,
-        // и лишний декремент виден.
+        // Кейс выше берёт указатель в нуле, где Math.max прячет лишний декремент; здесь он в единице.
         expect(source.caret()).toMatchObject({ uri: alpha() });
         expect(service.currentIndex).toBe(0);
     });
@@ -99,15 +94,13 @@ describe("HistoryService — чистка стека и группы", () => {
         source.open(alpha());
         source.moveCaret(150);
         source.open(beta());
-        // Файл переоткроется коротким: строки 150 в нём больше нет.
+        // Строки 150 в переоткрытом файле больше нет.
         source.close(alpha());
         source.lineCounts.set(alpha(), 3);
 
         service.goBack();
 
-        // Каретка встала на последнюю строку — это далеко от записанной, и такой
-        // прыжок был бы значимым, запиши его история. Но восстановление записью не
-        // считается, иначе Back отрезал бы хвост собственным же переходом.
+        // Прыжок на последнюю строку был бы значимым, но восстановление записью не считается.
         expect(source.caret()).toMatchObject({ uri: alpha(), line: 2 });
         service.goForward();
         expect(source.caret()).toMatchObject({ uri: beta() });
@@ -123,8 +116,6 @@ describe("HistoryService — чистка стека и группы", () => {
         service.goBack();
         expect(source.caret()).toMatchObject({ uri: alpha() });
 
-        // Возврат сам по себе записью стать не должен: иначе он отрезал бы хвост
-        // истории собственным же переходом, и Forward стал бы no-op.
         service.goForward();
         expect(source.caret()).toMatchObject({ uri: beta() });
     });
@@ -161,8 +152,7 @@ describe("HistoryService — чистка стека и группы", () => {
         source.close(UNTITLED);
         source.openUriCalls.length = 0;
 
-        // Настоящий openUri по закрытому untitled: бросил бы — чистка обязана
-        // снять запись раньше, чем до неё дойдёт восстановление.
+        // Настоящий openUri по закрытому untitled: бросил бы — запись обязана уйти раньше.
         service.goBack();
 
         expect(source.openUriCalls).toEqual([]);

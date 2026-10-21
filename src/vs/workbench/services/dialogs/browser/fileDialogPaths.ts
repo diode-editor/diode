@@ -1,13 +1,9 @@
 import * as path from "node:path";
 
-/**
- * Строковая арифметика путей диалога файлов. Диалог держит путь строкой — как
- * его видит человек в строке запроса: у каталога разделитель на конце, а
- * сравнение, как у эталона на локальной ФС (`extUriIgnorePathCase`), — без
- * учёта регистра.
- */
+// Путь — строкой, как в строке запроса: у каталога разделитель на конце; сравнение —
+// без учёта регистра, как `extUriIgnorePathCase` эталона на локальной ФС.
 
-/** Фильтр по расширениям (`{ name: "Images", extensions: ["png"] }`); `*` — любое. */
+/** `*` в `extensions` — любое. */
 export interface IFileDialogFilter {
     readonly name: string;
     readonly extensions: readonly string[];
@@ -30,12 +26,10 @@ export function stripTrailingSeparator(value: string): string {
     return value.length > 1 && endsWithSeparator(value) ? value.substring(0, value.length - 1) : value;
 }
 
-/** Сравнение путей без учёта регистра и разделителя на конце. */
 export function pathsEqual(a: string, b: string): boolean {
     return equalsIgnoreCase(stripTrailingSeparator(path.normalize(a)), stripTrailingSeparator(path.normalize(b)));
 }
 
-/** `~` в начале — домашний каталог: `~/src` → `<home>/src`. */
 export function expandTilde(value: string, home: string): string {
     return path.join(home, value.substring(1));
 }
@@ -58,16 +52,12 @@ export function isValidBasename(name: string, platform: NodeJS.Platform = proces
     return name.length <= 255;
 }
 
-/** Файл проходит фильтры: без фильтров — любой. */
 export function matchesFilters(file: string, filters: readonly IFileDialogFilter[] | undefined): boolean {
     if (filters === undefined) return true;
     return filters.some((filter) => filter.extensions.some((ext) => ext === "*" || file.endsWith(`.${ext}`)));
 }
 
-/**
- * Имя сохраняемого файла с расширением по фильтрам: подходящего нет —
- * дописывается первое расширение первого фильтра (`addPostfix` эталона).
- */
+/** Подходящего расширения нет — дописывается первое расширение первого фильтра (`addPostfix` эталона). */
 export function withFilterExtension(picked: string, filters: readonly IFileDialogFilter[] | undefined): string {
     if (filters === undefined || endsWithSeparator(picked)) return picked;
     const current = path.extname(picked).substring(1);

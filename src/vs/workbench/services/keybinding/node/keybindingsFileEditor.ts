@@ -3,11 +3,8 @@ import { applyEdits, modify, parse as parseJsonc } from "jsonc-parser";
 import type { IUserKeybindingRule } from "../../../../platform/keybinding/common/userKeybindings.ts";
 
 /**
- * Правки текста `keybindings.json` (массив правил, JSONC): чистые функции над
- * содержимым файла. Правки — минимальные text edits jsonc-parser (`modify` +
- * `applyEdits`), поэтому комментарии и форматирование пользователя выживают.
- * Чтение/запись на диск и семантика операций (unbind-пары, reset) — в
- * `KeybindingsEditorService`.
+ * Минимальные text edits jsonc-parser (`modify` + `applyEdits`): комментарии и
+ * форматирование пользователя выживают.
  */
 
 const MODIFY_OPTIONS = { formattingOptions: { insertSpaces: true, tabSize: 4 } };
@@ -28,7 +25,6 @@ function ruleAsJson(rule: IUserKeybindingRule): Record<string, unknown> {
     return json;
 }
 
-/** Дописывает правило в конец массива. */
 export function appendKeybindingRule(content: string, rule: IUserKeybindingRule): string {
     const base = ensureArrayContent(content);
     // Stryker disable next-line BooleanLiteral: для пути [-1] modify дописывает элемент и без isArrayInsertion — флаг здесь на явность, поведение то же.
@@ -36,11 +32,7 @@ export function appendKeybindingRule(content: string, rule: IUserKeybindingRule)
     return applyEdits(base, edits);
 }
 
-/**
- * Удаляет все правила, для которых истинен `predicate`. Толерантна к мусору в
- * массиве (не-объекты и правила без command предикату не показываются) —
- * файл руками правит пользователь, и битая запись не должна ронять операцию.
- */
+/** Толерантна к мусору в массиве: файл правят руками, битая запись не должна ронять операцию. */
 export function removeKeybindingRules(content: string, predicate: (rule: IUserKeybindingRule) => boolean): string {
     const base = ensureArrayContent(content);
     // Stryker disable next-line ObjectLiteral,ArrayDeclaration,BooleanLiteral: опции толерантности парсера — на корректном и на tolerant-разбираемом входе результат тот же.

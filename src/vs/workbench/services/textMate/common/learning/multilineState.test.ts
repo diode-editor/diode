@@ -4,12 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import { createTestRegistry } from "./testRegistry.ts";
 
-/**
- * Учебные тесты на передачу `ruleStack` между строками.
- * Показывают как state «течёт» через многострочные конструкции и как
- * `equals()` помогает обнаружить convergence (когда дальше всё токенизируется
- * одинаково и можно прервать перетокенизацию хвоста).
- */
+/** Учебные тесты: `ruleStack` течёт через многострочные конструкции, `equals()` ловит сходимость. */
 describe("vscode-textmate :: multiline state", () => {
     it("после открытия `/*` состояние НЕ равно INITIAL", async () => {
         const reg = createTestRegistry();

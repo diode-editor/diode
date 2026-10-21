@@ -24,20 +24,13 @@ import { buildRgFilesArgs } from "../common/ripgrepArgs.ts";
 
 import { loadRipgrepPath } from "./loadRipgrep.ts";
 
-/** Debounce for onIndexChanged so a background walk does not spam subscribers. */
 const NOTIFY_DEBOUNCE_MS = 50;
 
-/** Skip an on-demand re-walk if the index was rebuilt more recently than this. */
 const STALE_AFTER_MS = 10_000;
 
 /**
- * In-memory file index for Quick Open.
- *
- * The index is built **in the background** from `rg --files` output, parsed as
- * it streams in, so the editor stays responsive even on huge trees. There is no
- * always-on recursive filesystem watcher (it used to starve the render/input
- * loop); freshness is best-effort via `refreshIfStale()` (called when Quick Open
- * opens). A just-created file may therefore appear with a small delay.
+ * Без постоянного рекурсивного watcher'а — он морил цикл рендера и ввода; свежесть —
+ * `refreshIfStale()` при открытии Quick Open, новый файл может появиться с задержкой.
  */
 export class FileSearchService extends Disposable implements IFileSearchService {
     public static dependencies = [IConfigurationServiceDIToken] as const;
@@ -45,32 +38,23 @@ export class FileSearchService extends Disposable implements IFileSearchService 
     private entries: FileSearchEntry[] = [];
     private rootPath: string | null = null;
 
-    /** True once an initial background walk has fully completed. */
     public isIndexed = false;
 
     private readonly onIndexChangedEmitter = new Emitter<void>();
-    /** Fired (debounced) as the index grows or changes. */
     public readonly onIndexChanged = this.onIndexChangedEmitter.event;
 
     private isDisposedLocal = false;
-    /** Bumped on every walk; an in-flight walk bails when it sees a newer one. */
     private walkGeneration = 0;
     private indexing = false;
     private lastIndexedAt = 0;
     private readyPromise: Promise<void> = Promise.resolve();
     private notifyTimer: ReturnType<typeof setTimeout> | null = null;
-    /** Идущий `rg --files`; снимается, когда его обход отменён. */
     private walker: GuardedChildProcess | null = null;
     private resolvedRgPath: string | null;
 
     /**
-     * @param configurationService Источник `files.exclude`/`search.exclude` —
-     * индекс режет по обоим наборам (поиск по именам файлов это ПОИСК, см.
-     * `searchExcludeGlobs`) — и `search.useIgnoreFiles` с соседями. Настройки
-     * читаются на каждый обход, а их правка пересобирает индекс сразу: иначе
-     * исключённое висело бы в Quick Open до перезапуска.
-     * @param ripgrepPath Явный путь к `rg` (тесты). В проде не передаётся —
-     * резолвится лениво через {@link loadRipgrepPath}.
+     * Индекс режет и `files.exclude`, и `search.exclude` (`searchExcludeGlobs`); правка
+     * настроек пересобирает его сразу — иначе исключённое висело бы до перезапуска.
      */
     public constructor(
         private readonly configurationService: IConfigurationService,
@@ -91,22 +75,16 @@ export class FileSearchService extends Disposable implements IFileSearchService 
         );
     }
 
-    /** Resolves when the current (initial) background walk completes. */
     public get ready(): Promise<void> {
         return this.readyPromise;
     }
 
-    /** Point the index at `rootPath` and start building it in the background. */
     public activate(rootPath: string): Promise<void> {
         this.rootPath = rootPath;
         this.readyPromise = this.startIndexing();
         return this.readyPromise;
     }
 
-    /**
-     * Rebuild the index in the background if it is stale and not already being
-     * built. Cheap to call on every Quick Open; throttled internally.
-     */
     public refreshIfStale(): void {
         if (this.rootPath === null || this.isDisposedLocal) return;
         if (this.indexing) return;
@@ -114,22 +92,8 @@ export class FileSearchService extends Disposable implements IFileSearchService 
         this.readyPromise = this.startIndexing();
     }
 
-    /**
-     * Search the index for files matching `query`. Works on a partial index
-     * while a background walk is still in progress.
-     *
-     * - Empty query (or whitespace only): returns first `maxResults` entries
-     *   with score 0.
-     * - Non-empty query: tries fuzzy match on the basename first (with bonus),
-     *   falls back to matching the full relative path. Sorted by score desc.
-     *
-     * A query is split into space-separated terms, all of which must match
-     * (`prepareQuery`) — `src other` finds `src/.../other.ts`.
-     */
     public search(query: string, maxResults = 50): FileSearchResult[] {
-        // Parse the query once per keystroke, before the loop over the index:
-        // lowercasing, the term split and the char mask must not repeat per
-        // entry (that is the whole point of the prepared query / `*Lower` API).
+        // Prepared once per keystroke, never per index entry.
         const prepared = prepareQuery(query);
         if (prepared.terms.length === 0) {
             return this.entries.slice(0, maxResults).map((entry) => ({
@@ -140,27 +104,18 @@ export class FileSearchService extends Disposable implements IFileSearchService 
         }
 
         const results: FileSearchResult[] = [];
-        // Char-presence mask of the query, computed once by `prepareQuery`. A
-        // fuzzy match needs every query char present in the text, so an entry
-        // whose path lacks any of them cannot match at all — reject it with one
-        // integer AND before touching the matcher. The path mask covers the
-        // basename too (the path contains it), so it is the necessary condition
-        // for either match path.
+        // A fuzzy match needs every query char, and the path mask covers the basename too:
+        // one integer AND rejects the entry for both match paths.
         const queryBits = prepared.bits;
 
         for (const entry of this.entries) {
-            // Cheap reject: path lacks some query char → neither basename nor
-            // path can match. Skips the expensive matcher for most entries.
             if ((entry.relativePathBits & queryBits) !== queryBits) continue;
 
-            // First try matching against the basename only, but only when the
-            // basename itself could contain every query char.
             const basenameMatch =
                 (entry.basenameBits & queryBits) === queryBits
                     ? fuzzyMatchPreparedLower(prepared, entry.basename, entry.basenameLower)
                     : null;
             if (basenameMatch !== null) {
-                // Re-map indices from basename space to relativePath space
                 const offset = entry.relativePath.length - entry.basename.length;
                 results.push({
                     entry,
@@ -170,7 +125,6 @@ export class FileSearchService extends Disposable implements IFileSearchService 
                 continue;
             }
 
-            // Fall back to matching against the full relative path
             const pathMatch = fuzzyMatchPreparedLower(prepared, entry.relativePath, entry.relativePathLower);
             if (pathMatch !== null) {
                 results.push({
@@ -195,16 +149,11 @@ export class FileSearchService extends Disposable implements IFileSearchService 
         super.dispose();
     }
 
-    // ─── Private: background indexing ─────────────────────────────────────────
-
     private startIndexing(): Promise<void> {
-        // Окна без папки воркспейса достаточно: правка `files.exclude` прилетает
-        // и туда, а обходить там нечего (ветка живая, см. тест «правка до
-        // activate() обхода не запускает»).
+        // Окно без папки сюда тоже попадает (правка `files.exclude`), но обходить там нечего.
         if (this.rootPath === null) return Promise.resolve();
         const root = this.rootPath;
         const generation = ++this.walkGeneration;
-        // Вывод прежнего обхода уже никому не нужен — снимаем его rg сразу.
         this.killWalker();
         this.indexing = true;
         this.isIndexed = false;
@@ -222,25 +171,18 @@ export class FileSearchService extends Disposable implements IFileSearchService 
     }
 
     /**
-     * Список файлов — `rg --files`, как у эталона (`ripgrepFileSearch.ts`):
-     * ripgrep уважает ignore-файлы (`search.useIgnoreFiles` и соседи) и режет
-     * исключённые ветки до спуска в них. Свой обход ФС ignore-файлов не знал —
-     * в Quick Open ехало всё, что игнорирует git. Вывод разбирается построчно по
-     * мере прихода: индекс растёт вживую, цикл событий между кусками stdout
-     * свободен.
+     * `rg --files`, как у эталона: rg уважает ignore-файлы и режет исключённые ветки до
+     * спуска в них. Вывод разбирается по мере прихода — индекс растёт вживую.
      */
     private walk(root: string, generation: number): Promise<void> {
         if (this.cancelled(generation)) return Promise.resolve();
         const next: FileSearchEntry[] = [];
-        // When the index is empty (initial build) publish `next` immediately so
-        // results grow live. On a refresh keep the old list and swap at the end
-        // to avoid flicker through a partial/empty state.
+        // Initial build publishes `next` live; a refresh swaps at the end to avoid
+        // flickering through a partial list.
         const live = this.entries.length === 0;
         if (live) this.entries = next;
 
-        // Настройки — одни на обход: правка любой из них пересобирает индекс
-        // целиком (см. конструктор), а половина обхода по старому набору была
-        // бы хуже.
+        // Настройки — одни на обход: их правка всё равно пересобирает индекс целиком.
         const args = buildRgFilesArgs(
             searchExcludeGlobs(this.configurationService),
             readUseIgnoreFiles(this.configurationService),
@@ -277,9 +219,7 @@ export class FileSearchService extends Disposable implements IFileSearchService 
     }
 
     /**
-     * Снимает идущий `rg --files` (уже вышедшему — безвредно). `kill`, а не
-     * `dispose` guard'а: dispose гасит и `onDidEnd`, и промис обхода (а с ним
-     * `ready`) не дорешился бы никогда.
+     * `kill`, а не `dispose` guard'а: dispose гасит и `onDidEnd`, и `ready` не дорешился бы.
      */
     private killWalker(): void {
         this.walker?.child.kill();
@@ -311,13 +251,9 @@ export class FileSearchService extends Disposable implements IFileSearchService 
         this.onIndexChangedEmitter.fire();
     }
 
-    /**
-     * Builds a {@link FileSearchEntry}, pre-computing the case-folded basename and
-     * relative path so `search()` does zero string allocation per keystroke.
-     */
+    /** Case-folds up front so `search()` allocates no strings per keystroke. */
     private makeEntry(rootPath: string, absPath: string, basename: string): FileSearchEntry {
         const rel = path.relative(rootPath, absPath);
-        // Normalise to forward slashes on all platforms
         const relativePath = rel.split(path.sep).join("/");
         const basenameLower = basename.toLowerCase();
         const relativePathLower = relativePath.toLowerCase();

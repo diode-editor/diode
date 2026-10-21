@@ -1,21 +1,9 @@
-/**
- * Матчер TextMate-селекторов правил темы — перенос
- * `vs/workbench/services/themes/common/textMateScopeMatcher.ts` эталона.
- * Грамматика: дизъюнкция через `,`/`|`, конъюнкция — пробел (путь скоупов),
- * отрицание `-`, скобки, приоритеты `L:`/`R:` (пропускаются).
- *
- * Им пользуется фоллбэк семантического токена на TM-скоупы
- * (`SemanticTokenStyleResolver.resolveScopes`); подсветку TextMate по-прежнему
- * красит `TokenThemeResolver` с его longest-prefix-матчем.
- */
+// Перенос `textMateScopeMatcher.ts` эталона. Дизъюнкция — `,`/`|`, конъюнкция — пробел
+// (путь скоупов), отрицание `-`, скобки, приоритеты `L:`/`R:` пропускаются.
 
 export type Matcher<T> = (matcherInput: T) => number;
 
-/**
- * Матчеры альтернатив селектора (через `,`) — в `results`. Поле `priority`
- * эталона опущено: единственный его потребитель здесь, как и `resolveScopes`
- * эталона, приоритет не читает.
- */
+/** Поле `priority` эталона опущено: его здесь никто не читает (как и `resolveScopes` эталона). */
 export function createMatchers<T>(
     selector: string,
     matchesName: (names: readonly string[], matcherInput: T) => number,
@@ -81,7 +69,6 @@ export function createMatchers<T>(
             matcher = parseOperand();
         }
         return (matcherInput) => {
-            // and
             let min = matchers[0](matcherInput);
             // Stryker disable next-line ConditionalExpression: ранний выход — оптимизация, min от отрицательного не растёт
             for (let i = 1; min >= 0 && i < matchers.length; i++) {
@@ -105,11 +92,10 @@ export function createMatchers<T>(
             if (token !== "|" && token !== ",") break;
             do {
                 token = tokenizer.next();
-            } while (token === "|" || token === ","); // ignore subsequent commas
+            } while (token === "|" || token === ",");
             matcher = parseConjunction();
         }
         return (matcherInput) => {
-            // or
             let max = matchers[0](matcherInput);
             for (let i = 1; i < matchers.length; i++) {
                 max = Math.max(max, matchers[i](matcherInput));

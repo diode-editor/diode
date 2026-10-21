@@ -2,11 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { parseSearchFieldGlobs } from "./textSearch.ts";
 
-/**
- * Поле «files to include/exclude» → шаблоны от корня. Ожидания — то, что даёт
- * `parseSearchPaths` эталона (`queryBuilder.ts`) для одной папки; что из них
- * в итоге находит rg, проверяет `textSearchService.globs.integration.test.ts`.
- */
+// Ожидания — `parseSearchPaths` эталона (`queryBuilder.ts`) для одной папки.
 describe("parseSearchFieldGlobs", () => {
     it.each<[string, string, string[]]>([
         ["пустое поле", "", []],

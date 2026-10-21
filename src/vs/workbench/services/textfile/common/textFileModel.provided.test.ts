@@ -13,24 +13,15 @@ import { UndoRedoService } from "../../../../platform/undoRedo/common/undoRedoSe
 import type { TextFileModel } from "./textFileModel.ts";
 import { TextFileModelService } from "./textFileModelService.ts";
 
-/**
- * Ресурс пишущего провайдера ФС расширения (правая сторона предложенного диффа
- * Claude Code, `_claude_fs_right:`) — общая модель, как файл: правится,
- * сохраняется записью провайдера через файловый сервис (с save-участниками),
- * чистый буфер перечитывается по `onDidChangeFile`, а своя же запись историю
- * отмены не стирает.
- */
+// Ресурс пишущего провайдера ФС (`_claude_fs_right:` Claude Code) — общая модель, как файл;
+// своя же запись историю отмены не стирает.
 
-/**
- * Провайдер в памяти, который, как провайдер Claude Code, сообщает о каждой
- * записи. Тест может писать молча, ронять чтения и придерживать прочитанное.
- */
+/** Как провайдер Claude Code, сообщает о каждой записи. */
 class ChangeFiringProvider extends InMemoryFileSystemProvider {
     private readonly changes = new Emitter<readonly Uri[]>();
     public override readonly onDidChangeFile = this.changes.event;
     public writes = 0;
     public failReads = false;
-    /** Пока задан — прочитанное отдаётся только после него (медленное чтение). */
     public hold: Promise<void> | null = null;
 
     public override async writeFile(resource: Uri, content: Uint8Array, options?: IProviderWriteOptions) {

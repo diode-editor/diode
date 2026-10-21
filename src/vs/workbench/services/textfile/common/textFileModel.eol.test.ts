@@ -84,8 +84,7 @@ describe("TextFileModel EOL", () => {
         let fired = 0;
         ctrl.onDidChangeEol(() => fired++);
 
-        // Подписка сделана до openFile — документ внутри пересоздаётся,
-        // но слушатель контроллера должен продолжать работать.
+        // Подписка до openFile: документ внутри пересоздаётся, слушатель обязан пережить.
         ctrl.openFile(Uri.file(writeFile("lf.txt", "a\nb")));
 
         ctrl.setEol(EndOfLine.CRLF);

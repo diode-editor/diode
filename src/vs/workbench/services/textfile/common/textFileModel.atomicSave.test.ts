@@ -7,11 +7,7 @@ import { createEditorPane } from "../../../../../TestUtils/TextEditorPaneFactory
 import { Uri } from "../../../../base/common/uri.ts";
 import { ChokidarFileWatcher } from "../../../../platform/files/node/chokidarFileWatcher.ts";
 
-/**
- * Атомарный save заменяет файл новым (временный сосед + rename, новый inode).
- * Настоящий наблюдатель обязан это пережить: собственную запись не принять за
- * чужую, а следующую внешнюю правку — увидеть.
- */
+/** Атомарный save — новый inode (временный сосед + rename): настоящий наблюдатель обязан это пережить. */
 describe("TextFileModel — атомарный save и настоящий наблюдатель", () => {
     let ws: ITempWorkspace;
 

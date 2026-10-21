@@ -8,10 +8,8 @@ export const ACTIVE_GROUP = -1;
 export const SIDE_GROUP = -2;
 
 /**
- * Колонка редактора → группа (`columnToEditorGroup` эталона): {@link ACTIVE_GROUP}
- * — активная; {@link SIDE_GROUP} — сосед справа от активной (создаётся при
- * отсутствии); 1..9 — по позиции, за краем — догоняющее создание хвостовых
- * групп (AS-5; отказ по месту оставляет последнюю).
+ * `columnToEditorGroup` эталона. За краем полосы — догоняющее создание хвостовых групп
+ * (AS-5; не влезло — последняя).
  */
 export function columnToEditorGroup(groups: IEditorGroupsService, column: number): EditorGroup {
     if (column === ACTIVE_GROUP) return groups.activeGroup;

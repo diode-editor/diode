@@ -13,11 +13,6 @@ import { EditorServiceDIToken } from "../common/editorService.ts";
 
 import type { EditorGroup } from "./editorGroupModel.ts";
 
-/**
- * Закрытие вкладок с подтверждением — единая точка `EditorService.closeEditor`
- * / `closeEditors` / `closeAllEditors`. Смотрим на то, что видит человек:
- * открыт ли диалог, какие вкладки остались, что легло на диск.
- */
 describe("EditorService.closeEditor (confirm на закрытии)", () => {
     let ws: ITempWorkspace;
     let h: IAppHarness;
@@ -188,7 +183,6 @@ describe("EditorService.closeEditor (confirm на закрытии)", () => {
 
         expect(await first).toBe(true);
         expect(await second).toBe(true);
-        // Закрыта ровно одна вкладка — повторный запрос не задел соседку.
         expect(labels()).toEqual(["a.txt"]);
     });
 

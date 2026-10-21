@@ -21,14 +21,8 @@ import type { BaseTextEditorModel } from "../../../common/editor/textEditorModel
 export const TextEditorPaneBuilderDIToken = token<TextEditorPaneBuilder>("TextEditorPaneBuilder");
 
 /**
- * Строит view-часть текстовой вкладки поверх готовой модели:
- * {@link EditorComponent} (токенизация, стиль токенов, языковая конфигурация,
- * folding-провайдеры) + транзитный {@link TextEditorPane} и контекстное меню
- * редактора. Модели не создаёт и настроек `editor.*` не применяет — это
- * `TextFileModelService` и `TextEditorConfiguration`.
- *
- * Не путать с фабриками вкладок по `typeId` (`IEditorPaneFactory`): те
- * описывают и восстанавливают вкладку, этот — собирает её вью.
+ * Модели не создаёт и `editor.*` не применяет. Не путать с `IEditorPaneFactory`: те описывают
+ * и восстанавливают вкладку, этот собирает её вью.
  */
 export class TextEditorPaneBuilder {
     public static dependencies = [
@@ -49,10 +43,7 @@ export class TextEditorPaneBuilder {
         private readonly semanticTokens?: DocumentSemanticTokensFeature,
     ) {}
 
-    /**
-     * Вкладка поверх модели. `modelOwnership` — ссылка реестра, которой владеет
-     * вкладка; без неё вкладка владеет моделью единолично (untitled, detached).
-     */
+    /** `modelOwnership` — ссылка реестра, которой владеет вкладка; без неё вкладка владеет моделью единолично. */
     public build<TModel extends BaseTextEditorModel>(
         model: TModel,
         modelOwnership?: IDisposable,

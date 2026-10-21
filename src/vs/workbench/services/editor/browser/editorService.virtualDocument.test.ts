@@ -24,16 +24,10 @@ import { NULL_VIRTUAL_DOCUMENT_SOURCE } from "../common/iVirtualDocumentSource.t
 import { EditorService } from "./editorService.ts";
 
 /**
- * Недисковые ресурсы в {@link EditorService.openUri}: Go to Definition в
- * библиотеку (`jdt:` у стокового redhat.java), `git:`-ревизия, любая схема с
- * `registerTextDocumentContentProvider`.
- *
- * Главное здесь — то, ради чего всё и делалось: **ни один исход не убивает
- * процесс**. До этого не-file uri доезжал до `TextFileModel.openFile`, тот
- * бросал, отказ команды никто не ловил, и Node клал редактор целиком.
+ * Главное — ни один исход не убивает процесс: раньше не-file uri доезжал до `TextFileModel.openFile`,
+ * тот бросал, отказ команды никто не ловил, и Node клал редактор целиком.
  */
 
-/** Язык по расширению — ровно то, что нужно для `…/StringUtils.java`. */
 const JAVA_LANGUAGE_SERVICE: ILanguageService = {
     getLanguageIdForResource: (filePath) => (filePath.endsWith(".java") ? "java" : undefined),
     getLanguageDisplayName: () => undefined,
@@ -42,12 +36,10 @@ const JAVA_LANGUAGE_SERVICE: ILanguageService = {
     onDidRequestLanguageFeatures: () => ({ dispose: () => undefined }),
 };
 
-/** Конфиг-стаб: точечные ключи из карты, остальное — как у NULL-сервиса. */
 function stubConfigurationService(values: Record<string, unknown>): IConfigurationService {
     return createTestConfigurationService(values);
 }
 
-/** Лог-сервис, копящий `error`-строки: по ним проверяется, что причина названа. */
 function recordingLogService(sink: string[]): ILogService {
     return {
         ...NULL_LOG_SERVICE,
@@ -79,16 +71,11 @@ function createEditorService(
     );
 }
 
-/** Источник-фейк: одна схема, содержимое по замыканию. */
 function makeSource(scheme: string, provide: (uri: Uri) => Promise<string | null>): IVirtualDocumentSource {
     return { canProvide: (s) => s === scheme, provide };
 }
 
-/**
- * Настоящая цель jdt.ls: огромный query с процентным кодированием. Записана
- * ровно в том виде, в каком приходит от сервера, — нормализацию `Uri` проверяем
- * на ней, а не на причёсанной строке.
- */
+/** Ровно как приходит от jdt.ls: нормализацию `Uri` проверяем на ней, а не на причёсанной строке. */
 const JDT_URI_RAW =
     "jdt://contents/commons-lang3-3.14.0.jar/org.apache.commons.lang3/StringUtils.java" +
     "?=mvn-proj/%5C/home%5C/vscode%5C/.m2%5C/repository%3D/maven.pomderived=/true";
@@ -103,7 +90,6 @@ describe("EditorService.openUri — недисковые ресурсы", () => 
         const pane = service.getActiveTabPane();
         expect(pane?.uri.toString()).toBe(Uri.parse(JDT_URI_RAW).toString());
         expect(service.getEditors()[0]?.getText()).toBe("public class StringUtils {}\n");
-        // Метка — basename «пути» ресурса: у jdt: он честный, с расширением.
         expect(service.getEditors()[0]?.label).toBe("StringUtils.java");
         expect(service.getEditors()[0]?.readOnly).toBe(true);
         expect(service.getEditors()[0]?.viewState.document.languageId).toBe("java");
@@ -129,8 +115,7 @@ describe("EditorService.openUri — недисковые ресурсы", () => 
         service.openFile("/tmp/other.txt");
         expect(service.editorGroups.activeGroup.editorCount).toBe(2);
 
-        // Синхронность важна навигации: Go Back открывает ресурс и ТУТ ЖЕ ведёт
-        // каретку — между этими двумя шагами тика нет.
+        // Go Back открывает ресурс и тут же ведёт каретку — между шагами тика нет.
         void service.openUri(uri);
 
         expect(service.editorGroups.activeGroup.activeIndex).toBe(0);
@@ -220,8 +205,7 @@ describe("EditorService.openUri — недисковые ресурсы", () => 
 
         void service.openUri(Uri.file("/tmp/sync.txt"));
 
-        // Ни одного await: вкладка обязана быть уже здесь, иначе сломались бы
-        // все сайты, которые открывают файл и сразу двигают каретку.
+        // Ни одного await: сайты, которые открывают файл и сразу двигают каретку, иначе сломались бы.
         expect(service.editorGroups.activeGroup.editorCount).toBe(1);
         service.dispose();
     });
@@ -232,8 +216,7 @@ describe("EditorService.openUri — недисковые ресурсы", () => 
 
         await service.openUri(Uri.parse("jdt:///Foo.java"), { group: "beside" });
 
-        // Пустая группа справа — худший исход неудачи: человек получил бы
-        // перекроенный экран вместо сообщения.
+        // Пустая группа справа — худший исход: перекроенный экран вместо сообщения.
         expect(service.editorGroups.groups.length).toBe(1);
         service.dispose();
     });
@@ -280,8 +263,7 @@ describe("EditorService.openUri — недисковые ресурсы", () => 
 
         await service.openUri(uri, { group: "beside" });
 
-        // Третьей группы нет, вкладка одна, провайдера дёрнули ровно раз:
-        // «соседняя справа» ищется без побочных эффектов.
+        // «Соседняя справа» ищется без побочных эффектов.
         expect(service.editorGroups.groups.length).toBe(2);
         expect(service.editorGroups.groups[1].editorCount).toBe(1);
         expect(provide).toHaveBeenCalledTimes(1);
@@ -297,8 +279,7 @@ describe("EditorService.openUri — недисковые ресурсы", () => 
 
         await service.openUri(uri, { group: "beside" });
 
-        // Ресурс открыт в ЛЕВОЙ группе; справа его нет — значит открываем там свою
-        // вкладку, а не «уже открыто, ничего не делаем».
+        // Справа ресурса нет — открываем там свою вкладку, а не «уже открыто».
         expect(service.editorGroups.groups.length).toBe(2);
         expect(service.editorGroups.groups[1].editorCount).toBe(1);
         expect(provide).toHaveBeenCalledTimes(2);
@@ -319,7 +300,6 @@ describe("EditorService.canRestore — что история умеет откр
         const service = createEditorService();
         const jdt = Uri.parse("jdt:///Foo.java");
 
-        // Источника нет вовсе.
         expect(service.canRestore(jdt)).toBe(false);
 
         service.virtualDocumentSource = makeSource("jdt", () => Promise.resolve("x"));
@@ -369,7 +349,6 @@ describe("EditorService.canRestore — что история умеет откр
 
             expect(service.getEditors()[0]?.getText()).toBe("a v2\n");
             expect(service.getEditors()[1]?.getText()).toBe("b v1\n");
-            // Файловая вкладка рядом — не цель освежения, и освежение не споткнулось о неё.
             expect(errors).toEqual([]);
             service.dispose();
         });
@@ -457,8 +436,7 @@ describe("EditorService.canRestore — что история умеет откр
             await Promise.resolve();
 
             expect(service.getEditors()[0]?.getText()).toBe("v1\n");
-            // «Нечего освежать» — штатный ответ провайдера, а не сбой: в лог
-            // ничего не уходит (иначе `null` доехал бы до заливки текста).
+            // `null` — штатный ответ провайдера, а не сбой: в лог ничего не уходит.
             expect(logged).toEqual([]);
             service.dispose();
         });
@@ -478,10 +456,8 @@ describe("EditorService.openUri — фокус при открытии неди�
 
             await editors.openUri(Uri.parse("demo:///a"), { focus: false });
 
-            // Вкладка открыта и активна, но фокус в неё НЕ уехал — на этом
-            // держится `preserveFocus` у `showTextDocument`. Прежний редактор
-            // при смене вкладки уходит из дерева, поэтому «фокус не взяли»
-            // видно как отсутствие сфокусированного элемента вовсе.
+            // На этом держится `preserveFocus` у `showTextDocument`: прежний редактор ушёл из дерева,
+            // поэтому «фокус не взяли» видно как отсутствие сфокусированного элемента.
             expect(editors.editorGroups.activeGroup.editorCount).toBe(2);
             expect(editors.getActiveTabPane()?.uri.scheme).toBe("demo");
             expect(h.testApp.focusedElement).toBeNull();
@@ -502,8 +478,6 @@ describe("EditorService.openUri — фокус при открытии неди�
 
             await editors.openUri(Uri.parse("demo:///a"));
 
-            // Фокус в новой вкладке — это её собственный EditorElement
-            // (у прежней он из дерева уже ушёл).
             expect(h.testApp.focusedElement).toBe(h.testApp.querySelector("EditorElement"));
             expect(editors.getActiveTabPane()?.uri.scheme).toBe("demo");
         } finally {

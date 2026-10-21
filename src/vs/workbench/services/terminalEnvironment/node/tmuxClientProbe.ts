@@ -1,14 +1,9 @@
 import { execFile } from "node:child_process";
 
 /**
- * Живые сведения о клиенте tmux. Свой `process.env` под tmux читать нельзя: он
- * застыл на момент создания сессии, а клиент мог с тех пор переподключиться с
- * другой машины. tmux же знает про текущего клиента:
- *  - `#{client_termtype}` — tmux сам опрашивает внешний терминал (XTVERSION),
- *    напр. `kitty(0.45.0)`, `iTerm2 3.5.0`;
- *  - `show-environment` — переменные, обновлённые при attach. LC_DIODE_PLATFORM
- *    туда попадает, только если у пользователя
- *    `set -ag update-environment "LC_DIODE_PLATFORM"`.
+ * Свой `process.env` под tmux застыл на момент создания сессии, а клиент мог переподключиться
+ * с другой машины. `#{client_termtype}` — tmux сам спрашивает XTVERSION; `show-environment`
+ * видит LC_DIODE_PLATFORM, только если у пользователя `set -ag update-environment "LC_DIODE_PLATFORM"`.
  */
 export interface TmuxClientInfo {
     readonly termType?: string;
@@ -16,7 +11,6 @@ export interface TmuxClientInfo {
     readonly lcTerminal?: string;
 }
 
-/** Выполняет `tmux <args>` и отдаёт stdout (или undefined при любой ошибке). */
 export type TmuxRunner = (args: readonly string[]) => Promise<string | undefined>;
 
 const TMUX_TIMEOUT_MS = 1000;

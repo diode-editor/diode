@@ -28,30 +28,20 @@ import { TerminalEnvironmentServiceDIToken } from "../../terminalEnvironment/nod
 
 export const KeybindingDispatcherDIToken = token<KeybindingDispatcher>("KeybindingDispatcher");
 
-/**
- * Минимальный срез TerminalEnvironmentService, нужный диспатчеру: runtime-детект
- * extended-keys по фактически пришедшему CSI-u ключу и super (Cmd) по увиденному
- * super-биту (см. observeExtendedKeys).
- */
 export interface IExtendedKeysObserver {
     hasCapability(cap: "extended-keys" | "super"): boolean;
     noteExtendedKeysObserved(): void;
     noteSuperObserved(): void;
 }
 
-// How long to wait for the next chord part before cancelling (matches VS Code).
+// Как в VS Code.
 const CHORD_TIMEOUT_MS = 5000;
 
-// How long the "… is not a command" status message lingers after a broken chord.
 const CHORD_NOT_FOUND_MS = 4000;
 
-// Context keys that reflect WHAT IS FOCUSED (set from `activeElement` in the host's
-// updateContextKeys). A keybinding whose `when` names one of these is scoped to the focused
-// input/list/editor — e.g. clipboard / undo / cursor commands that edit the focused widget.
-// While a capturing overlay (quickpick, dialog, menu) owns the keyboard, only such
-// focus-scoped commands may run; everything else (workbench/navigation commands, which carry
-// no focus-scoped `when`) is suppressed so a shortcut can't act on a panel behind the
-// still-visible overlay. See dispatchKeyDown.
+// Focus-scoped context keys (set from `activeElement`). While a capturing overlay owns the
+// keyboard, only bindings whose `when` names one of these may run — otherwise a shortcut
+// would act on a panel behind the still-visible overlay. See dispatchKeyDown.
 const FOCUS_SCOPED_CONTEXT_KEYS = ["inputWidgetFocus", "textInputFocus", "textViewFocus", "listFocus"] as const;
 
 /** Бинд требует фокус-ключ истинным (в позиции не под отрицанием: `!listFocus` — не фокус-скоупный). */
@@ -63,8 +53,7 @@ function isFocusScopedWhen(when: string | undefined): boolean {
     return FOCUS_SCOPED_CONTEXT_KEYS.some((key) => positive.includes(key));
 }
 
-// Modifier keys that arrive as standalone keydowns (Kitty protocol). They must
-// not break or advance an in-progress chord.
+// Standalone modifier keydowns (Kitty protocol) must not break or advance a chord.
 const modifierKeyNames = new Set(["Control", "Shift", "Alt", "Meta", "Hyper", "Super", "AltGraph", "CapsLock"]);
 
 function isModifierKey(key: string): boolean {
@@ -72,9 +61,8 @@ function isModifierKey(key: string): boolean {
 }
 
 /**
- * A CSI-u encoded key (`ESC [ <code>[;<mods>] u`). A key only arrives in this form when the
- * Kitty keyboard protocol / xterm modifyOtherKeys is actually engaged — so receiving one is
- * proof of `extended-keys` support, even behind tmux where the capability probe can't confirm.
+ * A key arrives CSI-u encoded only when Kitty protocol / modifyOtherKeys is engaged — proof of
+ * `extended-keys` support even behind tmux, where the capability probe can't confirm.
  */
 // eslint-disable-next-line no-control-regex
 const CSI_U_KEY_RAW = /^\x1b\[[0-9;:]*u$/;
@@ -90,14 +78,8 @@ function eventToKeybinding(event: TUIKeyboardEvent): Keybinding {
 }
 
 /**
- * Клавиатурный диспатчер Workbench: резолвит key-события против KeybindingRegistry
- * и применяет результат — запуск команды (через ModifierReleaseArmory для hold-сессий),
- * ведение chord-режима (таймауты, «swallow» продолжения, хинт в статус-баре через
- * StatusBarService) и применение пользовательских keybindings.json-правил.
- *
- * Сервис не владеет view: владелец корневого дерева (WorkbenchComponent) вешает
- * capture/bubble-листенеры на BodyElement и подключает два хука —
- * {@link updateContextKeys} и {@link hasKeyboardCapturingOverlay}.
+ * Не владеет view: WorkbenchComponent вешает capture/bubble-листенеры на BodyElement и
+ * подставляет хуки {@link updateContextKeys} и {@link hasKeyboardCapturingOverlay}.
  */
 export class KeybindingDispatcher extends Disposable {
     public static dependencies = [
@@ -110,18 +92,10 @@ export class KeybindingDispatcher extends Disposable {
         ILogServiceDIToken,
     ] as const;
 
-    /**
-     * Хук владельца view: обновить контекстные ключи (фокус/панели/окружение) перед
-     * резолвом биндинга. WorkbenchComponent подставляет свой updateContextKeys().
-     */
     public updateContextKeys: () => void = () => {
         /* по умолчанию no-op; владелец view подставляет свою реализацию */
     };
 
-    /**
-     * Хук владельца view: владеет ли клавиатурой модальный оверлей (quickpick / диалог /
-     * меню). WorkbenchComponent подставляет view.overlayLayer.hasKeyboardCapturingOverlay().
-     */
     public hasKeyboardCapturingOverlay: () => boolean = () => false;
 
     private keybindings: KeybindingRegistry;
@@ -132,7 +106,6 @@ export class KeybindingDispatcher extends Disposable {
     private terminalEnv: IExtendedKeysObserver;
     private logger: ILogger;
 
-    /** Запись chord-хинта в статус-баре; null, когда хинт скрыт. */
     private chordHintEntry: IStatusBarEntryHandle | null = null;
     private chordTimer: ReturnType<typeof setTimeout> | null = null;
     private notFoundTimer: ReturnType<typeof setTimeout> | null = null;
@@ -165,9 +138,8 @@ export class KeybindingDispatcher extends Disposable {
         });
     }
 
-    // Capture phase: while a chord is in progress, intercept the next key
-    // before it reaches the focused widget and swallow it entirely — so the
-    // continuation key never leaks into the editor, matched or not.
+    // Capture phase: while a chord is pending, swallow the next key before it reaches the
+    // focused widget, matched or not.
     public readonly handleKeyDownCapture = (event: TUIKeyboardEvent): void => {
         this.observeExtendedKeys(event);
         if (this.keybindings.pendingLength === 0) return; // not in a chord — let the bubble handler run
@@ -184,8 +156,7 @@ export class KeybindingDispatcher extends Disposable {
         event.stopImmediatePropagation();
     };
 
-    // Bubble phase: only reached when no chord is pending (otherwise the capture
-    // handler stops propagation). Handles ordinary bindings and chord starts.
+    // Bubble phase: reached only when no chord is pending (capture stops propagation otherwise).
     public readonly handleKeyDown = (event: TUIKeyboardEvent): void => {
         if (this.dispatchKeyDown(event)) {
             event.preventDefault();
@@ -194,38 +165,24 @@ export class KeybindingDispatcher extends Disposable {
         }
     };
 
-    // Отпускание модификатора завершает «hold-сессии» команд (MRU-переключение
-    // вкладок и т.п.) через ModifierReleaseArmory. Какой именно модификатор ждать,
-    // решает сама команда по своему аккорду — здесь только маршрутизация keyup.
-    // Требует Kitty keyboard protocol с event types: только он присылает keyup для
-    // одиночного модификатора.
+    // Отпускание модификатора завершает «hold-сессии» команд (MRU-вкладки) через
+    // ModifierReleaseArmory. keyup одиночного модификатора шлёт только Kitty с event types.
     public readonly handleKeyUp = (event: TUIKeyboardEvent): void => {
         this.armory.fireRelease(event.key);
     };
 
-    /**
-     * Promote the terminal tier off `legacy` the moment a CSI-u key actually arrives — the only
-     * reliable extended-keys signal behind tmux, which drops the startup capability probe.
-     */
     private observeExtendedKeys(event: TUIKeyboardEvent): void {
-        // Super-бит (Cmd) кодирует только Kitty-протокол, так что увиденный meta
-        // доказывает и его, и extended-keys. Помечаем ДО резолва: контекст-ключи
-        // перечитываются на этом же нажатии, и первый же Cmd+S уже найдёт Cmd-бинд.
+        // Super-бит кодирует только Kitty, так что увиденный meta доказывает и его, и extended-keys.
+        // ДО резолва: контекст-ключи перечитываются на этом же нажатии, и первый Cmd+S уже найдёт Cmd-бинд.
         if (event.metaKey && !this.terminalEnv.hasCapability("super")) this.terminalEnv.noteSuperObserved();
         if (this.terminalEnv.hasCapability("extended-keys")) return;
         if (CSI_U_KEY_RAW.test(event.raw)) this.terminalEnv.noteExtendedKeysObserved();
     }
 
-    /**
-     * Resolves a key against the keybinding registry and applies the outcome
-     * (run command, enter/cancel chord mode, update the status-bar hint).
-     * Returns true if the key was consumed (caller should preventDefault).
-     */
+    /** `true` — клавиша съедена (вызывающий делает preventDefault). */
     public dispatchKeyDown(event: TUIKeyboardEvent): boolean {
-        // Нажатие, которое не продлило идущую hold-сессию, её завершает: на
-        // legacy-терминале keyup модификатора не приходит вовсе, и серия Ctrl+Tab
-        // (вместе с её видимым списком) иначе жила бы до следующего переключения.
-        // Сами модификаторы приходят отдельными keydown — они серию не рвут.
+        // Нажатие, не продлившее hold-сессию, её завершает: на legacy-терминале keyup модификатора
+        // не приходит, и серия Ctrl+Tab жила бы до следующего переключения.
         const armedBefore = isModifierKey(event.key) ? null : this.armory.pendingGeneration;
         try {
             return this.dispatchResolvedKeyDown(event);
@@ -258,11 +215,7 @@ export class KeybindingDispatcher extends Disposable {
             chord: res.kind === "chord" ? formatKeybinding(res.chord) : undefined,
         });
 
-        // Keyboard modality, symmetric to the pointer path (OverlayLayer.elementFromPoint stops a
-        // click landing behind a modal). While a quickpick / dialog / menu owns the keyboard, only
-        // commands scoped to the focused input/list/editor (their `when` names a focus context key
-        // — e.g. clipboard / undo inside the quickpick query) may run. Workbench/navigation commands
-        // are suppressed so a shortcut can't act on a panel behind the still-visible overlay.
+        // Keyboard modality, symmetric to OverlayLayer.elementFromPoint; see FOCUS_SCOPED_CONTEXT_KEYS.
         const overlayCaptures = this.hasKeyboardCapturingOverlay();
 
         if (res.kind === "chord") {
@@ -294,33 +247,24 @@ export class KeybindingDispatcher extends Disposable {
                 return false;
             }
             this.setChordHint(null);
-            // Даём команде контекст модификаторов аккорда: команды с «hold-сессией»
-            // (MRU-вкладки) взводят коммит на отпускание удерживающего модификатора
-            // именно по ним. Через контекст, а не позиционный аргумент — чтобы не
-            // конфликтовать с командами, у которых есть свои аргументы.
+            // Модификаторы аккорда — для hold-сессий (MRU-вкладки). Через контекст, а не позиционный
+            // аргумент — чтобы не конфликтовать с собственными аргументами команд.
             const trigger: CommandTrigger = {
                 ctrlKey: event.ctrlKey,
                 shiftKey: event.shiftKey,
                 altKey: event.altKey,
                 metaKey: event.metaKey,
             };
-            // `args` пользовательского правила (keybindings.json) — первым аргументом
-            // команды, как в VS Code. Без args команда зовётся без аргументов, чтобы
-            // не подсовывать undefined командам с дефолтами параметров.
+            // Без args команда зовётся без аргументов: не подсовывать undefined командам с дефолтами.
             const commandArgs = res.args === undefined ? [] : [res.args];
-            // Кейбинд — источник `keyboard` для смены каретки: стрелки и
-            // выделение с Shift у нас исполняются командами, а расширение
-            // обязано увидеть их как Keyboard, а не Command (см.
-            // cursorChangeSource.ts).
+            // Стрелки и Shift-выделение у нас — команды, а расширение обязано увидеть их как
+            // Keyboard, а не Command (cursorChangeSource.ts).
             withCursorChangeSource("keyboard", () => {
                 this.armory.withTrigger(trigger, () => this.commands.execute(res.commandId, ...commandArgs));
             });
-            // Every keydown emits a paired keypress (preventDefault on keydown does not
-            // suppress it — only swallowNextKeyPress does). Once a command consumed the
-            // keydown, that keypress must not ALSO trigger the focused widget's default
-            // action: Enter would insert a newline behind acceptSelectedSuggestion,
-            // PageDown would move a list cursor a second page after list.focusPageDown.
-            // Consuming the command consumes the whole key.
+            // Keydown always emits a paired keypress (preventDefault doesn't suppress it). Once a command
+            // consumed the keydown, the keypress must not also hit the widget: Enter would insert a newline
+            // behind acceptSelectedSuggestion, PageDown would page a list twice.
             this.swallowNextKeyPress = true;
             return true;
         }
@@ -339,12 +283,7 @@ export class KeybindingDispatcher extends Disposable {
         return false;
     }
 
-    /**
-     * Показывает (или скрывает, при null) транзиентный хинт аккорда в статус-баре,
-     * например "(Ctrl+K) was pressed. Waiting for next key…". Живёт как обычная
-     * запись StatusBarService левее прочих левых сегментов (priority ниже
-     * терминального индикатора).
-     */
+    /** Живёт обычной записью StatusBarService левее прочих левых сегментов. */
     private setChordHint(text: string | null): void {
         if (text === null) {
             this.chordHintEntry?.dispose();
@@ -394,7 +333,6 @@ export class KeybindingDispatcher extends Disposable {
         }
     }
 
-    /** Сбрасывает in-progress chord и swallow-состояние (смена фокуса, teardown). */
     public cancelPendingChord(): void {
         if (this.keybindings.pendingLength > 0) {
             this.logger.debug("chord cancelled (focus change / timeout)");

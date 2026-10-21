@@ -73,7 +73,6 @@ describe("EditorGroupsService — переключение вкладок (Ctrl+
             ctrl.editorGroups.cycleEditor(1);
             expect(activeName(ctrl)).toBe("b.ts");
 
-            // Шаг внутри группы активную группу не трогает и её событий не шлёт.
             expect(groupChanges).toEqual([]);
         });
 
@@ -225,7 +224,6 @@ describe("EditorGroupsService — переключение вкладок (Ctrl+
             ctrl.editorGroups.notifyGroupFocused(ctrl.editorGroups.groups[1]);
 
             expect(events.at(-1)).toBeNull();
-            // Выбранная в серии вкладка (b) встала в начало MRU группы-источника.
             expect(ctrl.editorGroups.groups[0].getMruOrder()[0]?.label).toBe("b.ts");
         });
 
@@ -240,8 +238,6 @@ describe("EditorGroupsService — переключение вкладок (Ctrl+
             ctrl.editorGroups.activeGroup.activateTab(0, { mru: true }); // остаёмся в серии, на первой вкладке полосы
             ctrl.editorGroups.cycleEditor(-1); // шаг назад через границу полосы — в g2
 
-            // Кросс-групповой шаг завершил серию g1: последнее событие — null,
-            // оверлей должен погаснуть, а активной стала последняя вкладка g2.
             expect(events.at(-1)).toBeNull();
             expect(ctrl.editorGroups.activeGroup).toBe(ctrl.editorGroups.groups[1]);
         });

@@ -3,12 +3,8 @@ import type { StateStack } from "vscode-textmate";
 import type { IState } from "../../../../editor/common/languages/iState.ts";
 
 /**
- * Обёртка `vscode-textmate.StateStack` под наш {@link IState}.
- *
- * `StateStack` иммутабельный: `clone()` фактически возвращает self, `equals()`
- * нативный (сравнение фреймов по reference equality + контент). Мы используем
- * это, чтобы `DocumentTokenStore` мог обрывать перетокенизацию хвоста, когда
- * end-state стабилизировался.
+ * `StateStack` иммутабелен (`clone()` — self), `equals()` сравнивает контент: так
+ * `DocumentTokenStore` обрывает перетокенизацию хвоста, когда end-state стабилизировался.
  */
 export class TextMateState implements IState {
     public readonly stack: StateStack;
@@ -18,8 +14,6 @@ export class TextMateState implements IState {
     }
 
     public clone(): IState {
-        // StateStack иммутабелен: его собственный clone() возвращает self.
-        // Никаких аллокаций.
         return new TextMateState(this.stack.clone());
     }
 

@@ -9,22 +9,13 @@ import { nullTokenizeEncoded } from "../../../../editor/common/languages/nullTok
 
 import { TextMateState } from "./textMateState.ts";
 
-/**
- * Защита от ReDoS в oniguruma — экстремально длинные строки не токенизируются:
- * один токен цвета по умолчанию (upstream `editor.maxTokenizationLineLength`,
- * 20000, `TokenizationSupportWithLineLimit` → `nullTokenizeEncoded`).
- */
+/** Защита от ReDoS в oniguruma — upstream `editor.maxTokenizationLineLength`; длиннее — один токен. */
 const MAX_LINE_LENGTH = 20_000;
 
 /** Upstream: строку, на которую грамматика тратит больше, бросаем недотокенизированной. */
 const TIME_LIMIT_MS = 500;
 
-/**
- * Адаптер `vscode-textmate.IGrammar` под токенизатор модели — upstream
- * `TextMateTokenizationSupport.tokenizeEncoded`: бинарные токены
- * `IGrammar.tokenizeLine2` (цвет — индекс в colorMap темы, заданной
- * `Registry.setTheme`, см. `TextMateGrammarLoader.setTheme`).
- */
+/** Upstream `TextMateTokenizationSupport.tokenizeEncoded`: цвет в токенах — индекс colorMap темы. */
 export class TextMateTokenizationSupport implements ITokenizationSupport {
     private readonly grammar: IGrammar;
 

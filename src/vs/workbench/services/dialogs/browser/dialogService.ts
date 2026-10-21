@@ -11,14 +11,11 @@ import type { DialogComponent } from "../../../browser/parts/dialogs/dialogCompo
 
 export const DialogServiceDIToken = token<DialogService>("DialogService");
 
-/** Ответ пользователя в диалоге «сохранить изменения?». */
 export type ConfirmSaveChoice = "save" | "dontSave" | "cancel";
 
 /**
- * Сервис модальных диалогов (аналог vscode `IDialogService`): владеет
- * компонентами диалогов и их overlay-сессиями. Компоненты общаются только с
- * сервисами (тема), а хост (корневой BodyElement с overlay-слоем) прикрепляет
- * оркестратор через {@link attachHost} после построения своей view.
+ * Аналог vscode `IDialogService`. Хост с overlay-слоем прикрепляется через {@link attachHost}
+ * после построения своей view.
  */
 export class DialogService extends Disposable {
     public static dependencies = [] as const;
@@ -44,15 +41,11 @@ export class DialogService extends Disposable {
         });
     }
 
-    /** Вызывается владельцем корневой view до первого показа диалога. */
     public attachHost(host: BodyElement): void {
         this.host = host;
     }
 
-    /**
-     * Диалог «сохранить изменения?» для файла `filename`. Живёт один экземпляр
-     * на всё приложение — повторный показ обновляет имя файла и колбэки.
-     */
+    /** Один экземпляр на приложение: повторный показ обновляет имя файла и колбэки. */
     public showConfirmSaveDialog(
         filename: string,
         callbacks: { onSave: () => void; onDontSave: () => void; onCancel: () => void },
@@ -88,10 +81,6 @@ export class DialogService extends Disposable {
         dialog.focusDefault();
     }
 
-    /**
-     * Promise-обёртка над {@link showConfirmSaveDialog} — для async-оркестрации
-     * (`LifecycleService`): резолвится выбором пользователя.
-     */
     public confirmSave(filename: string): Promise<ConfirmSaveChoice> {
         return new Promise((resolve) => {
             this.showConfirmSaveDialog(filename, {
@@ -108,15 +97,11 @@ export class DialogService extends Disposable {
         });
     }
 
-    /** Открыт ли сейчас диалог «сохранить изменения?» — и какой (для тестов/оркестрации). */
     public getOpenConfirmSaveDialog(): ConfirmSaveDialog | null {
         return (this.confirmSaveSession?.isOpen() ?? false) ? this.confirmSaveDialog : null;
     }
 
-    /**
-     * Универсальный диалог подтверждения. Под каждый вопрос создаётся новый
-     * компонент; закрытие (в т.ч. по Escape) освобождает его.
-     */
+    /** Под каждый вопрос — новый компонент; закрытие (в т.ч. Escape) его освобождает. */
     public showConfirmDialog(
         options: ConfirmDialogOptions,
         callbacks: { onConfirm: () => void; onCancel?: () => void },
@@ -155,10 +140,7 @@ export class DialogService extends Disposable {
         dialog.focusDefault();
     }
 
-    /**
-     * Promise-обёртка над {@link showConfirmDialog} — для async-оркестрации:
-     * `true` = подтверждено, `false` = отмена (в т.ч. Escape).
-     */
+    /** `false` — отмена, в т.ч. Escape. */
     public confirm(options: ConfirmDialogOptions): Promise<boolean> {
         return new Promise((resolve) => {
             this.showConfirmDialog(options, {
@@ -172,7 +154,6 @@ export class DialogService extends Disposable {
         });
     }
 
-    /** Открыт ли сейчас универсальный confirm-диалог (для тестов/оркестрации). */
     public getOpenConfirmDialog(): ConfirmDialog | null {
         return (this.confirmSession?.isOpen() ?? false) ? this.confirmDialog : null;
     }
@@ -203,12 +184,10 @@ export class DialogService extends Disposable {
         this.aboutDialog.focusDefault();
     }
 
-    /** Открыт ли сейчас диалог «About» (для тестов/оркестрации). */
     public getOpenAboutDialog(): AboutDialog | null {
         return (this.aboutSession?.isOpen() ?? false) ? this.aboutDialog : null;
     }
 
-    /** Центрирует окно по экрану хоста и открывает сессию. */
     private openCentered(session: OverlaySessionHandle | null, dialog: DialogComponent): void {
         const host = this.requireHost();
         const screenW = host.layoutSize.width;

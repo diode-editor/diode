@@ -26,7 +26,6 @@ import { ThemeService } from "../../themes/common/themeService.ts";
 
 import { EditorService } from "./editorService.ts";
 
-/** Сервис с заданным конфигом: настройки применяет его `editorConfiguration`. */
 function createEditorService(overrides: { configurationService?: IConfigurationService } = {}): EditorService {
     return new EditorService(
         new ThemeService(WorkbenchTheme.fromThemeFile(darkPlusTheme)),
@@ -46,15 +45,10 @@ function createEditorService(overrides: { configurationService?: IConfigurationS
     );
 }
 
-/** Minimal IConfigurationService that serves a fixed key/value map. */
 function stubConfigurationService(values: Record<string, unknown>): IConfigurationService {
     return createTestConfigurationService(values);
 }
 
-/**
- * `TextEditorConfiguration` поверх настоящего `EditorService`: настройки
- * новых редакторов, Alt+Z, live-reload и отступ с defaults-слоем реестра.
- */
 describe("TextEditorConfiguration", () => {
     let tmpDir: string;
     let ws: ITempWorkspace;
@@ -248,9 +242,7 @@ describe("TextEditorConfiguration", () => {
     });
 
     describe("live-reloads editor settings into already-open editors", () => {
-        // Real ConfigurationService over a temp settings.json — editing the file and
-        // calling reload() emits onDidChangeConfiguration, which the service must apply
-        // to editors that are ALREADY open (not just newly created ones).
+        // Real ConfigurationService over a temp settings.json: reload() must reach ALREADY open editors.
         async function realConfig(initial: string) {
             const cfgWs = createTempWorkspace({ prefix: "diode-es-cfg-" });
             const p = resolveUserDataPaths({ homedir: "/never", userDataDir: cfgWs.dir });
@@ -294,8 +286,7 @@ describe("TextEditorConfiguration", () => {
             expect(editor.viewState.tabSize).toBe(2);
             const reapplied = vi.spyOn(editor, "applyIndentConfiguration");
 
-            // Only a workbench key changes → affectsConfiguration("editor") is false,
-            // the service's handler early-returns and the editor is left as-is.
+            // Only a workbench key changes → the handler early-returns, the editor is left as-is.
             write(`{ "editor.tabSize": 2, "workbench.colorTheme": "Monokai" }`);
             await cfg.reload();
 
@@ -307,9 +298,8 @@ describe("TextEditorConfiguration", () => {
         });
     });
 
-    // Конфиг ровно как в проде: defaults-слой собран из реестра. Именно его
-    // отсутствие в стабах и прятало баг — `get("editor.tabSize")` отдавал
-    // дефолт 4 на файле с любым отступом, а `setIndentOptions` глушил детекцию.
+    // Defaults-слой из реестра, как в проде: его отсутствие в стабах прятало баг — `get("editor.tabSize")`
+    // отдавал 4 на файле с любым отступом, а `setIndentOptions` глушил детекцию.
     describe("indentation: конфиг с defaults-слоем реестра", () => {
         const TWO_SPACE_FILE = "function foo() {\n  const x = 1;\n}\n";
 

@@ -8,12 +8,6 @@ import { NULL_CONFIGURATION_SERVICE } from "../../../../platform/configuration/c
 
 import { FileSearchService } from "./fileSearchService.ts";
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-/**
- * Creates a service with a pre-populated temp directory and awaits the initial
- * background index build. `files` is a list of relative paths to create.
- */
 async function makeService(files: string[]): Promise<{ service: FileSearchService; ws: ITempWorkspace }> {
     const ws = createTempWorkspace({ prefix: "diode-filesearch-search-" });
     for (const f of files) {
@@ -24,8 +18,6 @@ async function makeService(files: string[]): Promise<{ service: FileSearchServic
     return { service, ws };
 }
 
-// ─── Tests ────────────────────────────────────────────────────────────────────
-
 describe("FileSearchService — search()", () => {
     let ws: ITempWorkspace;
     let service: FileSearchService;
@@ -34,8 +26,6 @@ describe("FileSearchService — search()", () => {
         service.dispose();
         ws.dispose();
     });
-
-    // ── Empty query ────────────────────────────────────────────────────────────
 
     describe("empty query", () => {
         it("returns all files when query is empty", async () => {
@@ -58,8 +48,6 @@ describe("FileSearchService — search()", () => {
             expect(results).toHaveLength(2);
         });
     });
-
-    // ── Basic matching ─────────────────────────────────────────────────────────
 
     describe("basic matching", () => {
         const FILES = [
@@ -96,8 +84,6 @@ describe("FileSearchService — search()", () => {
         });
     });
 
-    // ── Ranking: word-boundary ─────────────────────────────────────────────────
-
     describe("ranking — word boundaries", () => {
         it("AppContainer ranks above abstract_class for query 'ac'", async () => {
             ({ service, ws } = await makeService(["AppContainer.ts", "abstract_class.ts"]));
@@ -118,12 +104,8 @@ describe("FileSearchService — search()", () => {
         });
     });
 
-    // ── Ranking: basename vs path ──────────────────────────────────────────────
-
     describe("ranking — basename priority", () => {
         it("file matching in basename ranks above file matching only in path", async () => {
-            // "ac" matches the basename "AppContainer.ts"
-            // "ac" also matches "src/actions/config.ts" via path only
             ({ service, ws } = await makeService([
                 "src/actions/config.ts", // 'a'ctions + 'c'onfig in path
                 "AppContainer.ts", // basename match
@@ -140,15 +122,11 @@ describe("FileSearchService — search()", () => {
             const results = service.search("ac");
             const basenameIdx = results.findIndex((r) => r.entry.relativePath === "ActionContainer.ts");
             const pathIdx = results.findIndex((r) => r.entry.relativePath === "controllers/actions/util.ts");
-            // Both should be found
             expect(basenameIdx).not.toBe(-1);
             expect(pathIdx).not.toBe(-1);
-            // Basename should rank first (lower index)
             expect(basenameIdx).toBeLessThan(pathIdx);
         });
     });
-
-    // ── Ranking: path search ───────────────────────────────────────────────────
 
     describe("ranking — path search", () => {
         it("finds files when query contains path separator segments", async () => {
@@ -166,8 +144,6 @@ describe("FileSearchService — search()", () => {
             expect(paths).toContain("a/b/c/d/e/DeepFile.ts");
         });
     });
-
-    // ── Result structure ──────────────────────────────────────────────────────
 
     describe("result structure", () => {
         it("result contains entry with relativePath and absolutePath", async () => {
@@ -200,8 +176,6 @@ describe("FileSearchService — search()", () => {
             }
         });
     });
-
-    // ── Bitmask prefilter: soundness ───────────────────────────────────────────
 
     describe("bitmask prefilter does not change results", () => {
         const FILES = [
@@ -252,8 +226,6 @@ describe("FileSearchService — search()", () => {
         });
     });
 
-    // ── Search before activate ─────────────────────────────────────────────────
-
     describe("search before activate", () => {
         it("returns empty array when not yet indexed", () => {
             const s = new FileSearchService(NULL_CONFIGURATION_SERVICE);
@@ -261,8 +233,6 @@ describe("FileSearchService — search()", () => {
             s.dispose();
         });
     });
-
-    // ── Large result set ───────────────────────────────────────────────────────
 
     describe("maxResults capping", () => {
         it("never returns more than maxResults items", async () => {
@@ -280,14 +250,11 @@ describe("FileSearchService — search()", () => {
         });
     });
 
-    // ── Space-separated terms ──────────────────────────────────────────────────
-
     describe("multi-term query", () => {
         const TREE = ["src/other.ts", "src/main.ts", "lib/other.ts"];
 
         it("`src other` matches path + basename across the separator", async () => {
-            // The space used to go into the matcher as a literal char, so a
-            // two-word query found nothing at all.
+            // Регрессия: пробел уходил в матчер буквой, и запрос из двух слов не находил ничего.
             ({ service, ws } = await makeService(TREE));
             const paths = service.search("src other").map((r) => r.entry.relativePath);
             expect(paths).toEqual(["src/other.ts"]);

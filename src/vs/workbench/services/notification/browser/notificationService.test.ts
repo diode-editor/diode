@@ -79,16 +79,12 @@ describe("NotificationService — сообщения без кнопок", () =>
         for (const text of ["one", "two", "three", "four"]) {
             service.show(message({ severity: "info", message: text }));
         }
-        // Ждущий («four») не должен истечь, пока стоит в очереди: ровно один
-        // таймер на каждый ВИДИМЫЙ тост.
         expect(vi.getTimerCount()).toBe(MAX_VISIBLE_NOTIFICATIONS);
 
-        // Первые трое уезжают по своему сроку — и «four» наконец показывается.
         vi.advanceTimersByTime(NOTIFICATION_AUTO_HIDE_MS.info);
         expect(service.passive().map((n) => n.message)).toEqual(["four"]);
         expect(service.queuedPassiveCount()).toBe(0);
 
-        // И только теперь пошло его собственное время.
         vi.advanceTimersByTime(NOTIFICATION_AUTO_HIDE_MS.info - 1);
         expect(service.passive()).toHaveLength(1);
         vi.advanceTimersByTime(1);
@@ -116,7 +112,6 @@ describe("NotificationService — сообщения без кнопок", () =>
 
         service.dismiss(handle.id);
         expect(service.passive()).toEqual([]);
-        // Оставленный таймер выстрелил бы в снятый показ — его быть не должно.
         expect(vi.getTimerCount()).toBe(0);
 
         service.dismiss(handle.id); // повторный — no-op
@@ -145,8 +140,6 @@ describe("NotificationService — сообщения без кнопок", () =>
     it("clearAll гасит таймеры всех тостов, включая ждущих места", () => {
         const service = new NotificationService();
         for (const text of ["one", "two", "three", "four"]) service.show(message({ message: text }));
-        // Таймер есть только у видимых; у ждущего его ещё нет — и снятие обоих
-        // родов должно проходить одинаково спокойно.
         expect(vi.getTimerCount()).toBe(MAX_VISIBLE_NOTIFICATIONS);
 
         service.clearAll();
@@ -217,7 +210,7 @@ describe("NotificationService — вопросы", () => {
             const service = new NotificationService();
             const handle = service.show(message({ items: ["Activate"] }));
 
-            // Живёт заметно дольше пассивного тоста — человеку нужно время.
+            // Переживает даже самый долгий пассивный тост.
             vi.advanceTimersByTime(NOTIFICATION_AUTO_HIDE_MS.error);
             expect(service.current()).not.toBeNull();
 
@@ -235,7 +228,6 @@ describe("NotificationService — вопросы", () => {
             const service = new NotificationService();
             const first = service.show(message({ message: "first", items: ["One"] }));
             const second = service.show(message({ message: "second", items: ["Two"] }));
-            // Таймер только у показанного.
             expect(vi.getTimerCount()).toBe(1);
 
             vi.advanceTimersByTime(NOTIFICATION_ASK_TIMEOUT_MS);
@@ -312,7 +304,6 @@ describe("NotificationService — вопросы", () => {
         const service = new NotificationService();
         const handle = service.show(message({ items: ["One", "Two"] }));
 
-        // У двух кнопок последний валидный индекс — 1; 2 это уже мимо.
         service.answer(handle.id, 2);
         await expect(handle.answered).resolves.toBeUndefined();
     });
@@ -349,7 +340,6 @@ describe("NotificationService — вопросы", () => {
 
         service.answer(queued.id, 0);
         await expect(queued.answered).resolves.toBe(0);
-        // Первый по-прежнему на экране — снятие второго его не тронуло.
         expect(service.current()?.message).toBe("first");
     });
 

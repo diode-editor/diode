@@ -28,12 +28,10 @@ import type { IKeybindingMutationResult, IKeybindingsEditorService } from "../co
 
 import { appendKeybindingRule, removeKeybindingRules } from "./keybindingsFileEditor.ts";
 
-/** Итог записи файла: при успехе — записанное содержимое. */
 type IKeybindingWriteResult =
     | { readonly ok: true; readonly content: string }
     | { readonly ok: false; readonly error: string };
 
-/** User-правило файла как правило слоя реестра: `key` разобран в комбинацию. */
 function toLayerRule(rule: IUserKeybindingRule): IKeybindingLayerRule {
     return {
         command: rule.command,
@@ -44,16 +42,12 @@ function toLayerRule(rule: IUserKeybindingRule): IKeybindingLayerRule {
 }
 
 /**
- * См. контракт {@link IKeybindingsEditorService}. Источник правды —
- * `keybindings.json`: после каждой правки файла слой user реестра
- * пересобирается из записанного содержимого целиком, поэтому журнала
- * эффектов нет, а reset просто убирает правила из файла и не сдвигает
- * приоритет восстановленных дефолтов.
+ * Источник правды — `keybindings.json`: после каждой правки слой user реестра пересобирается
+ * из записанного целиком, поэтому журнала эффектов нет и reset не сдвигает приоритет дефолтов.
  */
 export class KeybindingsEditorService extends Disposable implements IKeybindingsEditorService {
     public static dependencies = [KeybindingRegistryDIToken, IEnvironmentServiceDIToken, ILogServiceDIToken] as const;
 
-    /** Действующие user-правила — содержимое `keybindings.json`. */
     // Stryker disable next-line ArrayDeclaration: эквивалентный — посторонний элемент без command ни с одной командой не совпадёт
     private rules: readonly IUserKeybindingRule[] = [];
     private readonly onDidChangeEmitter = this.register(new Emitter<void>());
@@ -130,7 +124,6 @@ export class KeybindingsEditorService extends Disposable implements IKeybindings
         return this.applyWritten(result);
     }
 
-    /** Записанный файл — новый слой user реестра. */
     private applyWritten(written: IKeybindingWriteResult): IKeybindingMutationResult {
         if (!written.ok) return written;
         this.applyUserKeybindings(parseUserKeybindings(written.content, this.resource, this.logger));
@@ -138,7 +131,6 @@ export class KeybindingsEditorService extends Disposable implements IKeybindings
         return { ok: true };
     }
 
-    /** Предикат «то самое user-правило в файле»: команда + комбинация + when. */
     private matchesUserRule(entry: IKeybindingEntrySnapshot): (rule: IUserKeybindingRule) => boolean {
         return (rule) =>
             rule.command === entry.commandId &&
@@ -148,10 +140,6 @@ export class KeybindingsEditorService extends Disposable implements IKeybindings
             rule.when === entry.when;
     }
 
-    /**
-     * Правка файла: чтение (отсутствующий файл — пустой массив) → мутация →
-     * запись с созданием каталога. Ошибка — результатом, не исключением.
-     */
     private async mutateFile(mutate: (content: string) => string): Promise<IKeybindingWriteResult> {
         try {
             const next = mutate(await this.readContent(this.resource));
@@ -169,7 +157,6 @@ export class KeybindingsEditorService extends Disposable implements IKeybindings
         }
     }
 
-    /** Содержимое файла; отсутствующий файл (ENOENT) — пустая строка. */
     private async readContent(resource: string): Promise<string> {
         try {
             return await fs.promises.readFile(resource, "utf-8");

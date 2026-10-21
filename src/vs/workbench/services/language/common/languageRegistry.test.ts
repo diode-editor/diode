@@ -52,7 +52,6 @@ describe("LanguageRegistry", () => {
         registry.register(makeExt("p", [{ id: "plusfile", filenamePatterns: ["c++.*"] }]));
 
         expect(registry.getLanguageIdForResource("/p/c++.zzz")).toBe("plusfile");
-        // 'cc.zzz' would match if '+' were treated as a quantifier — it must NOT.
         expect(registry.getLanguageIdForResource("/p/cc.zzz")).toBeUndefined();
     });
 
@@ -67,7 +66,6 @@ describe("LanguageRegistry", () => {
         const registry = new LanguageRegistry();
         const disposable = registry.register(makeExt("nolang", []));
 
-        // No languages registered (кроме seed'а plaintext), и dispose no-op'а не бросает.
         expect(registry.allLanguages().map((l) => l.id)).toEqual(["plaintext"]);
         expect(() => {
             disposable.dispose();
@@ -90,9 +88,7 @@ describe("LanguageRegistry", () => {
 
         expect(registry.getLanguageIdForResource("/proj/.editorconfig")).toBe("editorconfig");
         expect(registry.getLanguageIdForResource("/proj/.EditorConfig")).toBe("editorconfig");
-        // Обычный файл с тем же расширением тоже матчится (через path.extname).
         expect(registry.getLanguageIdForResource("/proj/sub.editorconfig")).toBe("editorconfig");
-        // Не-совпадающий dotfile не матчится.
         expect(registry.getLanguageIdForResource("/proj/.gitignore")).toBeUndefined();
     });
 
@@ -160,10 +156,8 @@ describe("LanguageRegistry", () => {
         const registry = new LanguageRegistry();
         registry.register(makeExt("q", [{ id: "qlang", filenamePatterns: ["file?.zzz"] }]));
 
-        // '?' матчит ровно один символ.
         expect(registry.getLanguageIdForResource("/p/fileA.zzz")).toBe("qlang");
         expect(registry.getLanguageIdForResource("/p/file1.zzz")).toBe("qlang");
-        // Ноль или два символа в позиции '?' матчиться не должны.
         expect(registry.getLanguageIdForResource("/p/file.zzz")).toBeUndefined();
         expect(registry.getLanguageIdForResource("/p/fileAB.zzz")).toBeUndefined();
     });
@@ -174,7 +168,7 @@ describe("LanguageRegistry", () => {
 
         d.dispose();
         expect(registry.getLanguage("typescript")).toBeUndefined();
-        // Второй dispose не должен бросать: запись для языка уже удалена (delta<0, entry===undefined).
+        // Второй dispose: запись языка уже удалена (delta<0, entry===undefined).
         expect(() => {
             d.dispose();
         }).not.toThrow();
@@ -183,7 +177,6 @@ describe("LanguageRegistry", () => {
 
     it("повторный dispose не удаляет строки, которых уже нет в записи", () => {
         const registry = new LanguageRegistry();
-        // Два расширения держат язык живым разными extensions.
         const d1 = registry.register(makeExt("a", [{ id: "typescript", extensions: [".ts"] }]));
         registry.register(makeExt("b", [{ id: "typescript", extensions: [".js"] }]));
 
@@ -251,17 +244,12 @@ describe("LanguageRegistry", () => {
         expect(registry.getExtensionForLanguage("extensionless")).toBeUndefined();
     });
 
-    // WP8/WP9: completion-провайдер editorconfig завязан на languageId "editorconfig".
-    // Стоковый editorconfig-vscode вносит язык через contributes.languages
-    // **.extensions: [".editorconfig"]** (а `filenames` — пустой!), поэтому
-    // резолв держится на dotfile-матче имени против «расширения» (FIX WP9).
+    // Стоковый editorconfig-vscode вносит язык через `extensions: [".editorconfig"]` при пустых
+    // `filenames` — резолв держится на dotfile-матче имени против «расширения».
     it("резолвит .editorconfig в 'editorconfig' по .extensions стокового расширения", () => {
         const registry = new LanguageRegistry();
-        // Без editorconfig-расширения .editorconfig не резолвится.
         expect(registry.getLanguageIdForResource("/p/.editorconfig")).toBeUndefined();
 
-        // Регистрируем язык ровно так, как стоковый EditorConfig.EditorConfig:
-        // extensions: [".editorconfig"], filenames: [].
         registry.register(
             makeExt(
                 "editorconfig",
@@ -275,14 +263,11 @@ describe("LanguageRegistry", () => {
 
     it("при конфликте расширений побеждает зарегистрированный позже (user > builtin)", () => {
         const registry = new LanguageRegistry();
-        // Builtin ini-пак заявляет .editorconfig среди .extensions языка 'properties'
-        // (как в microsoft/vscode). Регистрируется ПЕРВЫМ (builtin грузится раньше).
+        // Builtin ini-пак (как в microsoft/vscode) регистрируется первым.
         registry.register(makeExt("ini", [{ id: "properties", extensions: [".ini", ".editorconfig"] }]));
         expect(registry.getLanguageIdForResource("/p/.editorconfig")).toBe("properties");
 
-        // User editorconfig-расширение заявляет тот же .editorconfig — и должно
-        // переопределить builtin (иначе completion-селектор {language:'editorconfig'}
-        // не сматчит и подсказки в .editorconfig не работают).
+        // Иначе completion-селектор {language:'editorconfig'} не сматчит.
         registry.register(
             makeExt(
                 "editorconfig",
@@ -291,7 +276,6 @@ describe("LanguageRegistry", () => {
             ),
         );
         expect(registry.getLanguageIdForResource("/p/.editorconfig")).toBe("editorconfig");
-        // Расширение .ini у 'properties' не затронуто.
         expect(registry.getLanguageIdForResource("/p/app.ini")).toBe("properties");
     });
 });

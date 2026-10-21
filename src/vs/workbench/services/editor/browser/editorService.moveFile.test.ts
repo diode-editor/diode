@@ -26,12 +26,7 @@ import { ThemeService } from "../../themes/common/themeService.ts";
 
 import { EditorService, movedResource } from "./editorService.ts";
 
-/**
- * Перенос файла через файловый сервис (rename/move проводника и их отмена) —
- * вкладки едут за файлом, как `EditorService.handleMovedFile` эталона. Баг из
- * догфудинга: вкладка оставалась на старом пути, сохранение воскрешало
- * переименованный файл, и git показывал «новый + изменённый старый».
- */
+/** Баг из догфудинга: вкладка оставалась на старом пути, и сохранение воскрешало переименованный файл. */
 describe("EditorService — вкладки едут за перенесённым файлом", () => {
     let ws: ITempWorkspace;
     let files: FileService;
@@ -97,7 +92,6 @@ describe("EditorService — вкладки едут за перенесённы�
         expect(moved.model.getText()).toBe("one\ntwo\n");
         expect(moved.isModified).toBe(false);
         expect(moved.viewState.selections).toEqual([createCursorSelection(1, 2)]);
-        // editor.*-настройки применены и к новой вкладке.
         expect(moved.viewState.wordWrap).toBe("on");
 
         moved.applyExternalEdits([createTextEdit(createRange(0, 0, 0, 0), "X")], "type");
@@ -158,7 +152,6 @@ describe("EditorService — вкладки едут за перенесённы�
             { path: ws.path("src2/b.txt"), label: "b.txt" },
         ]);
         expect(textPane(0, 0).model.getText()).toBe("alpha\n");
-        // Активной была вторая вкладка — она активной и осталась.
         expect(service.editorGroups.groups[0].activeIndex).toBe(1);
     });
 

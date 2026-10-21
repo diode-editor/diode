@@ -18,12 +18,8 @@ const SILENT_LOGGER: ILogger = {
 };
 
 /**
- * Интеграция по конвенции «фича поверх стокового расширения»: та же цепочка,
- * что в production bootstrap (`main.ts`) — scanExtensions → LanguageRegistry
- * (даёт `configurationPath`) → LanguageConfigurationService — на НАСТОЯЩИХ
- * файлах builtin-паков из `extensions/`. Ловит то, чего не видят юниты на
- * синтетике: реальный JSONC с комментариями/висячими запятыми и склейку
- * виртуального пути из манифеста.
+ * На настоящих файлах builtin-паков, цепочкой production bootstrap: ловит то, чего не видят
+ * юниты на синтетике, — реальный JSONC и склейку виртуального пути из манифеста.
  */
 async function createBuiltinService(): Promise<LanguageConfigurationService> {
     const assets = createDevAssetAccess();

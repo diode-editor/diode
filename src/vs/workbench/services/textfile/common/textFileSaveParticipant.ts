@@ -7,16 +7,12 @@ import type { ISaveEdit, ISaveSnapshot, SaveParticipant } from "./iSaveParticipa
 import type { TextFileModel } from "./textFileModel.ts";
 
 /**
- * Потолок ожидания ОДНОГО save-участника, мс. Тот же порядок, что таймауты
- * языковых RPC (5000 — холодный language server): участники живут за RPC к
- * subprocess extension host'у, и молчащий участник не должен вешать сохранение.
+ * На одного участника. Порядок языковых RPC (5000 — холодный language server): молчащий
+ * участник за RPC к host'у не должен вешать сохранение.
  */
 const SAVE_PARTICIPANT_TIMEOUT_MS = 5000;
 
-/**
- * Ограничивает ответ участника таймаутом: по истечении резолвится пустым
- * набором правок (сохраняем как есть), не дожидаясь зависшего промиса.
- */
+/** По истечении — пустой набор правок (сохраняем как есть). */
 function raceSaveParticipantTimeout(run: Promise<readonly ISaveEdit[]>): Promise<readonly ISaveEdit[]> {
     return new Promise((resolve, reject) => {
         const timer = setTimeout(() => {
@@ -37,34 +33,16 @@ function raceSaveParticipantTimeout(run: Promise<readonly ISaveEdit[]>): Promise
 }
 
 /**
- * Пайплайн save-участников (аналог upstream `TextFileSaveParticipant`): один
- * экземпляр на все модели, его держит владелец моделей (`TextFileModelService`), а
- * модель зовёт перед записью на диск — и в `save`, и в `saveAs`.
- *
- * Состав пайплайна (`onWillSaveTextDocument`, code actions / формат on-save)
- * берётся у провайдера В МОМЕНТ сохранения: он зависит от живых настроек.
- * Участники исполняются последовательно: каждый получает СВЕЖИЙ снапшот
- * (предыдущий мог править буфер — code actions применяются субпроцессом через
- * `workspace.applyEdit` прямо во время await), его правки ложатся в буфер
- * (undoable) до вызова следующего.
+ * Аналог `TextFileSaveParticipant`. Участники последовательны: каждый получает СВЕЖИЙ
+ * снапшот — предыдущий мог править буфер (code actions применяются субпроцессом через
+ * `workspace.applyEdit` прямо во время await).
  */
 export class TextFileSaveParticipant {
-    /**
-     * @param participants — состав пайплайна для модели: часть участников зависит
-     * от того, есть ли у её документа провайдер (code actions, форматтер).
-     */
     public constructor(private readonly participants: (model: TextFileModel) => readonly SaveParticipant[]) {}
 
     /**
-     * Прогоняет участников по модели. `null` — участников нет: вызывающий
-     * пишет на диск в том же тике, без единого await (`save()` без await
-     * остаётся синхронным).
-     *
-     * Участник ограничен {@link SAVE_PARTICIPANT_TIMEOUT_MS}: провайдеры живут
-     * в subprocess extension host, и зависший участник не должен блокировать
-     * запись — по таймауту сохраняем как есть (как VS Code). Правки, доехавшие
-     * после, лягут в буфер обычным путём и просто оставят его «грязным».
-     * Сбойный (бросивший) участник пропускается по той же причине.
+     * `null` — участников нет: запись в том же тике, без единого await. По таймауту
+     * сохраняем как есть (как VS Code); доехавшие позже правки оставят буфер «грязным».
      */
     public participate(model: TextFileModel): Promise<void> | null {
         const participants = this.participants(model);
@@ -79,10 +57,8 @@ export class TextFileSaveParticipant {
                 languageId: document.languageId,
                 versionId: document.versionId,
                 isDirty: model.isModified,
-                // Полный текст строится, только если участник его прочёл: им
-                // почти никто не пользуется (will-save расширений читает
-                // зеркало, code actions/формат — панель), а строка всего файла
-                // на каждого участника каждого сохранения — цена размера файла.
+                // Полный текст — только если участник его прочёл: почти никто не читает (will-save
+                // расширений читает зеркало), а строка всего файла на каждого участника — цена размера.
                 get text() {
                     return document.getText();
                 },
@@ -100,9 +76,8 @@ export class TextFileSaveParticipant {
 }
 
 /**
- * Применяет правки save-участника. Текстовые правки клампятся к текущим
- * границам документа (во время await пользователь мог печатать) и уходят одним
- * undoable-батчем; смена EOL — отдельным undoable-элементом (setEol).
+ * Правки клампятся к текущим границам (во время await пользователь мог печатать) и
+ * уходят одним undoable-батчем; EOL — отдельным undoable-элементом.
  */
 function applySaveEdits(model: TextFileModel, edits: readonly ISaveEdit[]): void {
     const textEdits: ITextEdit[] = [];
@@ -122,7 +97,6 @@ function applySaveEdits(model: TextFileModel, edits: readonly ISaveEdit[]): void
     }
 }
 
-/** Ограничивает диапазон текущими границами документа (строки и колонки). */
 function clampRange(model: TextFileModel, range: IRange): IRange {
     const start = clampPosition(model, range.start.line, range.start.character);
     const end = clampPosition(model, range.end.line, range.end.character);

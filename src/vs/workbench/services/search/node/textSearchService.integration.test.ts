@@ -9,8 +9,6 @@ import type { IFileMatch, ISearchHandle, ITextSearchQuery } from "../common/text
 
 import { TextSearchService } from "./textSearchService.ts";
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
 function query(overrides: Partial<ITextSearchQuery> = {}): ITextSearchQuery {
     return {
         pattern: "foo",
@@ -24,19 +22,15 @@ function query(overrides: Partial<ITextSearchQuery> = {}): ITextSearchQuery {
     };
 }
 
-/** Runs a search to completion, returning the streamed matches and the summary. */
 async function runSearch(service: TextSearchService, q: ITextSearchQuery, folder: string) {
     const results: IFileMatch[] = [];
     const complete = await service.search(q, folder, (m) => results.push(m)).complete;
     return { results, complete };
 }
 
-/** Total matched spans across all streamed file results. */
 function totalMatches(results: IFileMatch[]): number {
     return results.reduce((n, r) => n + r.matches.length, 0);
 }
-
-// ─── Tests ────────────────────────────────────────────────────────────────────
 
 describe("TextSearchService (against real ripgrep)", () => {
     let ws: ITempWorkspace;
@@ -52,8 +46,6 @@ describe("TextSearchService (against real ripgrep)", () => {
         for (const [name, content] of Object.entries(files)) ws.writeFile(name, content);
         service = new TextSearchService();
     }
-
-    // ── Basic streaming ───────────────────────────────────────────────────────────
 
     it("streams matches and reports file/match counts", async () => {
         setup({ "a.ts": "const foo = 1\nlet bar = foo\n", "b.ts": "// nothing here\n" });
@@ -76,8 +68,6 @@ describe("TextSearchService (against real ripgrep)", () => {
         expect(complete.fileCount).toBe(0);
         expect(results).toEqual([]);
     });
-
-    // ── Toggles ───────────────────────────────────────────────────────────────────
 
     it("honors the case-sensitive toggle", async () => {
         setup({ "a.ts": "Foo foo FOO\n" });
@@ -104,11 +94,8 @@ describe("TextSearchService (against real ripgrep)", () => {
     it("treats regex metacharacters literally when the regex toggle is off", async () => {
         setup({ "a.ts": "a.b axb\n" });
         const { complete } = await runSearch(service, query({ pattern: "a.b" }), ws.dir);
-        // Literal "a.b" matches only "a.b", not "axb".
         expect(complete.matchCount).toBe(1);
     });
-
-    // ── Include / exclude globs ───────────────────────────────────────────────────
 
     it("restricts the search to include globs", async () => {
         setup({ "a.ts": "foo\n", "b.js": "foo\n" });
@@ -122,16 +109,12 @@ describe("TextSearchService (against real ripgrep)", () => {
         expect(complete.fileCount).toBe(1);
     });
 
-    // ── Empty / invalid query ─────────────────────────────────────────────────────
-
     it("completes immediately with no results for an empty query", async () => {
         setup({ "a.ts": "foo\n" });
         const handle = service.search(query({ pattern: "" }), ws.dir, () => {});
         handle.cancel(); // no-op on an already-finished search
         expect(await handle.complete).toEqual({ matchCount: 0, fileCount: 0, limitHit: false });
     });
-
-    // ── Cancellation & limit ──────────────────────────────────────────────────────
 
     it("stops at the result cap and flags limitHit", async () => {
         const manyLines = Array.from({ length: 10_050 }, () => "foo").join("\n") + "\n";
@@ -152,7 +135,6 @@ describe("TextSearchService (against real ripgrep)", () => {
             handle.cancel();
         });
         const complete = await handle.complete;
-        // We cancelled almost immediately, so far fewer than all 20k matches surface.
         expect(seen).toBeLessThan(20_000);
         expect(complete.limitHit).toBe(false);
     });
@@ -165,8 +147,6 @@ describe("TextSearchService (against real ripgrep)", () => {
         handle.cancel();
         await expect(handle.complete).resolves.toMatchObject({ limitHit: false });
     });
-
-    // ── Errors ────────────────────────────────────────────────────────────────────
 
     it("surfaces a ripgrep error (exit code 2) via complete.error", async () => {
         setup({ "a.ts": "foo\n" });
@@ -183,8 +163,6 @@ describe("TextSearchService (against real ripgrep)", () => {
         expect(complete.error).toBeTruthy();
     });
 
-    // ── Disposal ──────────────────────────────────────────────────────────────────
-
     it("kills in-flight searches on dispose", async () => {
         const manyLines = Array.from({ length: 5000 }, () => "foo").join("\n") + "\n";
         setup({ "big.txt": manyLines });
@@ -192,8 +170,6 @@ describe("TextSearchService (against real ripgrep)", () => {
         service.dispose();
         await expect(handle.complete).resolves.toBeDefined();
     });
-
-    // ── Конец поиска — когда вывод дочитан, а не когда rg вышел ───────────────────
 
     it.skipIf(process.platform === "win32")("строки, дописанные в stdout после выхода rg, не теряются", async () => {
         ws = createTempWorkspace({ prefix: "diode-textsearch-" });

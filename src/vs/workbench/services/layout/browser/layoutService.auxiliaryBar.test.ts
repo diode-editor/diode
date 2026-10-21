@@ -21,17 +21,12 @@ import {
 import { LayoutService } from "./layoutService.ts";
 
 interface Options {
-    /** Значение `workbench.secondarySideBar.defaultVisibility`; не задано — дефолт эталона. */
     readonly defaultVisibility?: string;
-    /** Открыта ли папка (иначе — пустое окно). */
     readonly folder?: boolean;
-    /** Вкладки, заведённые во вторичной панели до рестора. */
     readonly views?: readonly string[];
-    /** Сохранённое состояние (ключ → значение). */
     readonly stored?: Readonly<Record<string, unknown>>;
 }
 
-/** Фокусируемая заглушка части: фокус ставится на неё саму. */
 class FocusablePart extends TUIElement {
     public constructor() {
         super();
@@ -41,7 +36,7 @@ class FocusablePart extends TUIElement {
 
 function setup(options: Options = {}) {
     const stored = new Map<string, unknown>(Object.entries(options.stored ?? {}));
-    /** Журнал записей в стор — и тех, что значение не меняют. */
+    /** И те записи, что значение не меняют. */
     const writes: string[] = [];
     const state: IStateService = {
         ...NULL_STATE_SERVICE,
