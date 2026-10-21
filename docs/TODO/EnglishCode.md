@@ -25,14 +25,14 @@
 - [x] `workbench/services/extensions`: остальное (1828) — #735
 - [x] `workbench/services`: остальное (2563) — #736
 - [x] `workbench/api`: browser, node, common a–l (1926) — #737
-- [~] `workbench/api/common` m–z (1595)
+- [x] `workbench/api/common` m–z (1595) — #738
 - [x] `workbench/contrib`: scm, terminal, tasks (1917) — #739
 - [~] `workbench/contrib`: files, extensions, diff, search, suggest, parameterHints, inlineCompletions, quickaccess (2236)
 - [x] `workbench/contrib`: остальные фичи и прочее `workbench/` (1734) — #742
 - [x] `src/vs/diode`, TestUtils, demos, StoryRunner, tools (904) — #741
 - [~] `e2e/scenarios` (1052)
 - [~] `e2e`: остальное (1827)
-- [ ] scripts, extensions, packaging, `.github`, конфиги (2330) — уехал в общий PR волн 1+2+3, см. ниже
+- [x] scripts, extensions, packaging, `.github`, конфиги (2330) — уехал в общий PR волн 1+2+3, см. ниже
 
 ## Волны 2+3 — остальная кириллица, оптом по областям
 
@@ -41,11 +41,11 @@
 - [~] `src/vs/base`, `src/vs/platform`, `src/vs/diode`, TestUtils, demos, StoryRunner, tools (2158)
 - [~] `src/vs/editor` (1412)
 - [~] `workbench/services` (2752)
-- [ ] `workbench/browser`, `workbench/common` (1861)
-- [ ] `workbench/api` (1982) — после волны 1 m–z
+- [~] `workbench/browser`, `workbench/common` (1861)
+- [~] `workbench/api` (1982)
 - [ ] `workbench/contrib` и прочее `workbench/` (3897) — после волны 1 files…quickaccess
 - [ ] `e2e` (2879) — после волны 1 e2e
-- [ ] scripts, extensions, packaging, `.github`, конфиги (2344) — волны 1+2+3 одним PR
+- [~] scripts, extensions, packaging, `.github`, конфиги (2344) — волны 1+2+3 одним PR
 
 ## Финал
 
