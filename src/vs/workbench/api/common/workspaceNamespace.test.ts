@@ -437,7 +437,10 @@ describe("WorkspaceNamespace — openTextDocument from disk (WP7)", () => {
     it("non-utf8 encoding really decodes the file (windows1251) without warnings", async () => {
         const { stub, workspace } = makeCtx();
         const file = path.join(tmpDir, "a.txt");
-        fs.writeFileSync(file, iconv.encode("\u041f\u0440\u0438\u0432\u0435\u0442, \u043c\u0438\u0440!\n", "windows1251")); // "Privet, mir!": Cyrillic is needed to exercise windows1251
+        fs.writeFileSync(
+            file,
+            iconv.encode("\u041f\u0440\u0438\u0432\u0435\u0442, \u043c\u0438\u0440!\n", "windows1251"),
+        ); // "Privet, mir!": Cyrillic is needed to exercise windows1251
 
         const doc = (await workspace.openTextDocument(
             Uri.file(file) as never,

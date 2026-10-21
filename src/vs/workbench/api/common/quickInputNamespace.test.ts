@@ -41,9 +41,9 @@ describe("toWireValidation", () => {
             message: "oops",
             severity: "warning",
         });
-        expect(toWireValidation({ message: "for your information", severity: InputBoxValidationSeverity.Info } as never)).toEqual(
-            { message: "for your information", severity: "info" },
-        );
+        expect(
+            toWireValidation({ message: "for your information", severity: InputBoxValidationSeverity.Info } as never),
+        ).toEqual({ message: "for your information", severity: "info" });
         expect(toWireValidation({ message: "trouble", severity: InputBoxValidationSeverity.Error } as never)).toEqual({
             message: "trouble",
             severity: "error",
