@@ -50,7 +50,7 @@ describe("TokenIndex", () => {
     it("rewinds the internal cursor when an offset moves backwards", () => {
         const index = new TokenIndex(tokens, 15);
         expect(index.metadataAt(12)).toBe(C);
-        // Курсор на токене «c» (старт 10 > 2) обязан перемотаться в 0.
+        // The cursor is on token "c" (start 10 > 2), so it must rewind to 0.
         expect(index.metadataAt(2)).toBe(A);
     });
 });

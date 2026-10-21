@@ -15,7 +15,7 @@ import { EditorViewState } from "../common/viewModel/editorViewState.ts";
 
 import { EditorElement } from "./editorElement.ts";
 
-/** Каретка В СЕРЕДИНЕ строки (n-4): по композитной строке считают колонки и все overlay-проходы. */
+/** Cursor IN THE MIDDLE of a line (n-4): columns and all overlay passes are computed on the composed line. */
 
 const GHOST_FG = packRgb(0x6a, 0x6a, 0x6a);
 const EDITOR_FG = packRgb(0xd4, 0xd4, 0xd4);
@@ -25,7 +25,7 @@ const WARNING_FG = packRgb(0xcc, 0xa7, 0x00);
 const KEYWORD_FG = packRgb(0xff, 0x00, 0x00);
 const NUMBER_FG = packRgb(0x00, 0xff, 0x00);
 
-/** Раскрашивает только ключевые слова и числа — как в highlighting-тестах. */
+/** Colors only keywords and numbers, as in the highlighting tests. */
 const COLOR_MAP: string[] = ["", "#000000", "#000000"];
 COLOR_MAP[WordTokenColor.keyword] = "#ff0000";
 COLOR_MAP[WordTokenColor.number] = "#00ff00";
@@ -74,8 +74,8 @@ describe("EditorElement — ghost text в середине строки", () => 
     });
 
     it("многострочная подсказка: хвост остаётся на строке каретки, продолжение — в зонах", () => {
-        // Люфт против upstream (он уводит хвост под последнюю строку фантома):
-        // зона несёт только фантомный текст, документной строке в неё не уехать.
+        // Deviation from upstream (which moves the tail below the last ghost text line):
+        // the view zone holds only ghost text; a document line cannot move into it.
         const { app, editor } = createEditor("call();", {
             line: 0,
             character: 5,
@@ -96,10 +96,10 @@ describe("EditorElement — ghost text в середине строки", () => 
         app.render();
 
         const gutterW = editor.gutterWidth;
-        // Аппаратный курсор (первичная каретка) — на колонке 5, слева от фантома.
+        // Hardware cursor (primary cursor) is at column 5, left of the ghost text.
         expect(editor.getCaretScreenCell()).toEqual(new Point(gutterW + 5, 0));
-        // Вторичная каретка стояла на конце строки — она уехала вместе с хвостом
-        // (offset 7 → колонка 7 + 3 фантомных).
+        // The secondary cursor was at the end of the line and moved with the tail
+        // (offset 7 → column 7 + 3 ghost columns).
         expect(app.backend.getBgAt(new Point(gutterW + 10, 0))).toBe(CARET_BG);
     });
 
@@ -107,7 +107,7 @@ describe("EditorElement — ghost text в середине строки", () => 
         const { app, editor } = createEditor("call();", { line: 0, character: 5, lines: ["arg"] });
         editor.occurrenceHighlightEnabled = false;
         editor.setStyleVars({ ...STYLE_VARS, "editorWarning.foreground": WARNING_FG });
-        // Диагностика на хвосте «);» — документные колонки 5..7.
+        // Diagnostic on the tail ");": document columns 5..7.
         editor.markerDecorations = [{ range: createRange(0, 5, 0, 7), severity: MarkerSeverity.Warning }];
         app.render();
 
@@ -121,10 +121,10 @@ describe("EditorElement — ghost text в середине строки", () => 
         const { editor } = createEditor("call();", { line: 0, character: 5, lines: ["arg"] });
 
         const gutterW = editor.gutterWidth;
-        // «)» нарисован на колонке 8, но в документе это offset 5.
+        // ")" is drawn at column 8, but in the document it is offset 5.
         expect(editor.docPositionAt(gutterW + 8, 0)).toEqual({ line: 0, character: 5 });
         expect(editor.docPositionAt(gutterW + 9, 0)).toEqual({ line: 0, character: 6 });
-        // Колонки самого фантома в документ не отображаются — отдают точку вставки.
+        // Ghost text columns do not map into the document: they return the insertion point.
         expect(editor.docPositionAt(gutterW + 6, 0)).toEqual({ line: 0, character: 5 });
         expect(editor.docPositionAt(gutterW + 2, 0)).toEqual({ line: 0, character: 2 });
     });
@@ -146,20 +146,20 @@ describe("EditorElement — подсветка токенов вокруг фа�
     }
 
     it("токены хвоста красятся своими цветами, фантом — призрачным", () => {
-        // Фантом «zz » перед числом: композитная строка — «if zz 1».
+        // Ghost text "zz " before a number: the composed line is "if zz 1".
         const { app, editor } = createTokenizedEditor("if 1", { line: 0, character: 3, lines: ["zz "] });
 
         const gutterW = editor.gutterWidth;
         expect(app.backend.getTextAt(new Point(gutterW, 0), 7)).toBe("if zz 1");
         expect(app.backend.getFgAt(new Point(gutterW, 0))).toBe(KEYWORD_FG);
         expect(app.backend.getFgAt(new Point(gutterW + 3, 0))).toBe(GHOST_FG);
-        // Число уехало на колонку 6 и УТАЩИЛО свой токен с собой.
+        // The number moved to column 6 and TOOK its token with it.
         expect(app.backend.getFgAt(new Point(gutterW + 6, 0))).toBe(NUMBER_FG);
     });
 
     it("токены ЛЕВЕЕ фантома ищутся по своим offset'ам, а не по сдвинутым", () => {
-        // Подсказка в конце строки: весь настоящий текст левее фантома. Если
-        // сдвиг применить и к нему, число на колонке 3 возьмёт токен «if».
+        // Ghost text at the end of the line: all real text is left of it. If the
+        // shift were applied to it too, the number at column 3 would get the "if" token.
         const { app, editor } = createTokenizedEditor("if 1", { line: 0, character: 4, lines: ["zz"] });
 
         const gutterW = editor.gutterWidth;

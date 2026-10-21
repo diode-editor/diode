@@ -15,7 +15,7 @@ function readOnlyState(text = "hello world", selection = createCursorSelection(0
 }
 
 describe("EditorViewState read-only: мутаторы", () => {
-    // versionId проверяем отдельно: вырос бы — буфер стал бы dirty.
+    // versionId is checked separately: if it grew, the buffer would become dirty.
     const mutators: readonly [name: string, run: (state: EditorViewState) => unknown][] = [
         ["type", (s) => s.type("X")],
         ["insertText", (s) => s.insertText("X")],
@@ -52,8 +52,8 @@ describe("EditorViewState read-only: мутаторы", () => {
     });
 
     it("indentLines — no-op и на однострочном пути (через type), и на многострочном (через shiftIndent)", () => {
-        // Однострочная ветка indentLines делегирует в type(), многострочная — в shiftIndent();
-        // закрыты они разными гардами, поэтому проверяем обе.
+        // The single-line branch of indentLines delegates to type(), the multi-line one to shiftIndent();
+        // they are guarded separately, so both are checked.
         const single = readOnlyState("hello\nworld", createCursorSelection(0, 2));
         expect(single.state.indentLines()).toBeUndefined();
         expect(single.doc.getText()).toBe("hello\nworld");
@@ -64,8 +64,8 @@ describe("EditorViewState read-only: мутаторы", () => {
     });
 
     it("type с выделением не съедает выделенный текст", () => {
-        // Отдельный кейс: путь замены выделения идёт мимо «вставить в позицию»,
-        // и незакрытым он стирал бы текст даже без вставки.
+        // Separate case: the replace-selection path bypasses "insert at position",
+        // and unguarded it would erase text even without inserting.
         const { doc, state } = readOnlyState("hello world", createSelection(0, 0, 0, 5));
 
         expect(state.type("X")).toBeUndefined();

@@ -10,7 +10,7 @@ import { applySemanticStyle, resolveSemanticTokenStyle, SemanticTokenIndex } fro
 const LEGEND: ISemanticTokensLegend = { tokenTypes: ["a", "b", ""], tokenModifiers: ["m0", "m1", "m2"] };
 
 describe("SemanticTokenIndex", () => {
-    // [2..4) тип 0, [6..9) тип 1, [9..10) тип 0.
+    // [2..4) type 0, [6..9) type 1, [9..10) type 0.
     const line = { legend: LEGEND, tokens: [2, 4, 0, 0, 6, 9, 1, 5, 9, 10, 0, 2] };
     const lookup = (legend: ISemanticTokensLegend, type: number, mods: number) => ({
         fg: legend === LEGEND ? type * 100 + mods : -1,
@@ -39,7 +39,7 @@ describe("SemanticTokenIndex", () => {
         expect(index.styleAt(9)?.fg).toBe(2);
         expect(index.styleAt(3)?.fg).toBe(0);
         expect(index.styleAt(7)?.fg).toBe(105);
-        // Курсор ушёл за последний токен — откат и оттуда.
+        // The cursor went past the last token; it rewinds from there too.
         expect(index.styleAt(11)).toBeNull();
         expect(index.styleAt(3)?.fg).toBe(0);
     });

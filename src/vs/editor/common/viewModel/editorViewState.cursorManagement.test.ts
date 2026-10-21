@@ -397,7 +397,7 @@ describe("EditorViewState.Folding — edit tracking", () => {
         const state = new EditorViewState(doc, [createCursorSelection(1, 0)]);
         state.setFoldingRegions([createFoldingRegion(0, 1, false)]);
 
-        // deleteLeft в начале строки 1 склеивает её с 0 — правка пересекает startLine региона.
+        // deleteLeft at the start of line 1 joins it with 0 — the edit crosses the region's startLine.
         state.deleteLeft();
 
         expect(state.foldedRegions.length).toBe(0);

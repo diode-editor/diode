@@ -6,12 +6,12 @@ import { createSelection, isSelectionCollapsed } from "../core/iSelection.ts";
 import type { ITextEdit } from "../core/iTextEdit.ts";
 
 /**
- * Аналог `ICursorStateComputer` эталона. Обратные правки — В ПОРЯДКЕ ВХОДНОГО батча, а не
- * документном. `null` — выделения сдвигаются вслед за правками, как у `executeEdits` без `endCursorState`.
+ * Mirrors upstream `ICursorStateComputer`. Inverse edits come IN INPUT BATCH ORDER, not document
+ * order. `null` means selections follow the edits, as with `executeEdits` without `endCursorState`.
  */
 export type ICursorStateComputer = (inverseEdits: readonly ITextEdit[]) => ISelection[] | null;
 
-/** `edit: −1` — до всех правок. */
+/** `edit: −1` means before all edits. */
 type IMarkerPlan =
     | { readonly kind: "shift"; readonly edit: number; readonly position: IPosition }
     | { readonly kind: "inEdit"; readonly edit: number; readonly offset: number };
@@ -23,20 +23,20 @@ interface ISelectionPlan {
     readonly reversed: boolean;
 }
 
-/** Снимается ДО применения батча. */
+/** Taken BEFORE the batch is applied. */
 export interface ITrackedSelectionsPlan {
     readonly selections: readonly ISelectionPlan[];
 }
 
-/** Длины текста внутри правок считаются по исходному документу. */
+/** Text lengths inside edits are measured against the original document. */
 export interface ITrackedSelectionsSource {
     getTextInRange(range: IRange): string;
 }
 
 /**
- * Маркеры эталона (`intervalTree.nodeAcceptEdit`) со стикостью `AlwaysGrowsWhenTypingAtEdges`:
- * начало выделения липнет к тексту слева, конец — нет. Схлопнутая каретка, которую вставка
- * «растянула», схлопывается в конец (`readSelectionFromMarkers`).
+ * Upstream markers (`intervalTree.nodeAcceptEdit`) with `AlwaysGrowsWhenTypingAtEdges` stickiness:
+ * the selection start sticks to the text on its left, the end doesn't. A collapsed cursor that an
+ * insert "stretched" collapses to the end (`readSelectionFromMarkers`).
  */
 export function planTrackedSelections(
     source: ITrackedSelectionsSource,
@@ -45,7 +45,7 @@ export function planTrackedSelections(
 ): ITrackedSelectionsPlan {
     return {
         selections: selections.map((sel) => {
-            // Stryker disable next-line EqualityOperator: равенство — схлопнутая каретка, у неё направления нет
+            // Stryker disable next-line EqualityOperator: equality means a collapsed cursor, which has no direction
             const reversed = comparePositions(sel.active, sel.anchor) < 0;
             const start = reversed ? sel.active : sel.anchor;
             const end = reversed ? sel.anchor : sel.active;
@@ -59,7 +59,7 @@ export function planTrackedSelections(
     };
 }
 
-/** `edits` и `inverseEdits` — в документном порядке, как у плана. */
+/** `edits` and `inverseEdits` are in document order, as in the plan. */
 export function resolveTrackedSelections(
     plan: ITrackedSelectionsPlan,
     edits: readonly ITextEdit[],
@@ -84,12 +84,12 @@ function planMarker(
     const first = firstEditEndingAtOrAfter(edits, position);
     let last = first - 1;
     while (last + 1 < edits.length && comparePositions(edits[last + 1].range.start, position) <= 0) last++;
-    // Stryker disable next-line StringLiteral: resolveMarker различает только "inEdit", любая другая метка — сдвиг
+    // Stryker disable next-line StringLiteral: resolveMarker only distinguishes "inEdit", any other tag is a shift
     if (last < first) return { kind: "shift", edit: first - 1, position };
 
-    // Эталон применяет батч снизу вверх: правка, сдвинувшая маркер в свою вставку,
-    // уводит его за конец нижних (у всех, кроме первой, начало ровно на маркере).
-    // Stryker disable next-line EqualityOperator: на j === first смещение 0 даёт не-0 только вставке ровно в маркер, где и полное смещение — 0
+    // Upstream applies the batch bottom-up: an edit that moved the marker into its insert
+    // carries it past the end of the lower ones (all but the first start exactly at the marker).
+    // Stryker disable next-line EqualityOperator: at j === first, offset 0 yields non-0 only for an insert exactly at the marker, where the full offset is 0 too
     for (let j = last; j > first; j--) {
         const offset = offsetAfterEdit(source, edits[j], 0, stickToPrevious);
         if (offset !== 0) return { kind: "inEdit", edit: j, offset };
@@ -101,7 +101,7 @@ function planMarker(
     return { kind: "inEdit", edit: first, offset: offsetAfterEdit(source, edit, markerOffset, stickToPrevious) };
 }
 
-/** `nodeAcceptEdit` эталона без `forceMoveMarkers`. */
+/** Upstream `nodeAcceptEdit` without `forceMoveMarkers`. */
 function offsetAfterEdit(
     source: ITrackedSelectionsSource,
     edit: ITextEdit,
@@ -110,13 +110,13 @@ function offsetAfterEdit(
 ): number {
     const deleting = positionsEqual(edit.range.start, edit.range.end) ? 0 : source.getTextInRange(edit.range).length;
     const inserting = edit.text.length;
-    // На конце общей части остаётся только липкий влево; в вырожденных случаях
-    // «остаться» и «уехать в конец вставки» — одна точка.
+    // At the end of the common part only a left-sticky marker stays; in degenerate cases
+    // "stay" and "move to the end of the insert" are the same point.
     const common = Math.min(deleting, inserting);
     return markerOffset < common || (markerOffset === common && stickToPrevious) ? markerOffset : inserting;
 }
 
-/** Концы правок без перекрытий отсортированы — бинпоиск. */
+/** Non-overlapping edits have sorted ends, hence binary search. */
 function firstEditEndingAtOrAfter(edits: readonly ITextEdit[], position: IPosition): number {
     let lo = 0;
     let hi = edits.length;
@@ -138,7 +138,7 @@ function resolveMarker(plan: IMarkerPlan, edits: readonly ITextEdit[], inverseEd
             : createPosition(start.line + lines.length - 1, tail.length);
     }
     if (plan.edit < 0) return plan.position;
-    // Точка отсчёта — конец предыдущей правки, как в `TextDocument.computeInverseEdits`.
+    // Relative to the end of the preceding edit, as in `TextDocument.computeInverseEdits`.
     const oldEnd = edits[plan.edit].range.end;
     const newEnd = inverseEdits[plan.edit].range.end;
     if (plan.position.line === oldEnd.line) {

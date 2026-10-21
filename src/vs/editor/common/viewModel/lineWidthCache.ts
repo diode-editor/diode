@@ -9,9 +9,9 @@ import { LONG_LINE_TRUNCATION_BADGE_WIDTH, STOP_RENDERING_LINE_AFTER } from "./l
 const UNCOMPUTED = -1;
 
 /**
- * Инкрементальный кеш вместо пересканирования документа на каждую правку: оно морозило
- * Output-панель, где каждая запись бампает `versionId`, на строке в 200 k символов.
- * Ширина с потолком {@link STOP_RENDERING_LINE_AFTER} — экстремальная строка стоит O(потолка).
+ * Incremental cache instead of rescanning the document on every edit: the rescan froze the
+ * Output panel (every append bumps `versionId`) on a 200k-char line.
+ * Width is capped at {@link STOP_RENDERING_LINE_AFTER}, so an extreme line costs O(cap).
  */
 export class LineWidthCache extends Disposable {
     private readonly document: ITextDocument;
@@ -44,8 +44,8 @@ export class LineWidthCache extends Disposable {
 
     public getMaxWidth(): number {
         const lineCount = this.document.lineCount;
-        // Рендер идёт через setImmediate и может застать документ уже укороченным (revert,
-        // teardown) — правку кеш не видел. Источник правды — документ: пересобираем.
+        // Render runs via setImmediate and may see the document already shortened (revert,
+        // teardown) by an edit the cache never saw. The document is the source of truth: rebuild.
         if (this.lineWidths.length > lineCount) {
             this.lineWidths = new Array<number>(lineCount).fill(UNCOMPUTED);
             this.dirty = true;
@@ -59,7 +59,7 @@ export class LineWidthCache extends Disposable {
             if (w === UNCOMPUTED) {
                 const content = this.document.getLineContent(i);
                 w = measureTextWidth(content, this.tabSizeInternal, STOP_RENDERING_LINE_AFTER);
-                // Плашка «Long line trimmed» за обрезанным содержимым — иначе горизонтальный скролл до неё не дотянется.
+                // The "Long line trimmed" badge follows the truncated content; count it or horizontal scroll can't reach it.
                 if (content.length > STOP_RENDERING_LINE_AFTER) w += LONG_LINE_TRUNCATION_BADGE_WIDTH;
                 this.lineWidths[i] = w;
             }

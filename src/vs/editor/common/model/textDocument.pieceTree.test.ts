@@ -140,7 +140,7 @@ describe("TextDocument поверх PieceTree — правки", () => {
 
         doc.applyEdits([createTextEdit(createRange(0, 2, 2, 1), "XYZ12345"), createInsertEdit(2, 3, "!")]);
 
-        // Офсет края от начала правки — 2 ("aa") + 1 ("\n") + 2 ("bb") = 5 → "XYZ12|345".
+        // Edge offset from the edit start: 2 ("aa") + 1 ("\n") + 2 ("bb") = 5 → "XYZ12|345".
         expect(doc.getText()).toBe("aaXYZ12345cc!c");
         expect(doc.getDecorationRange(id)).toEqual(createRange(0, 7, 0, 7));
     });

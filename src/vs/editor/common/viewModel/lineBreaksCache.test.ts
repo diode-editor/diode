@@ -6,8 +6,8 @@ import { TextDocument } from "../model/textDocument.ts";
 import { LineBreaksCache } from "./lineBreaksCache.ts";
 
 const WIDTH = 10;
-// Строки с РАЗЛИЧИМЫМИ раскладками переносов: сдвиг кеша, потерявший позицию,
-// подставит чужой результат — и идентичность/значение это поймают.
+// Lines with DISTINCT wrap layouts: a cache shift that lost its position would
+// substitute someone else's result — and identity/value checks catch it.
 const ONE_BREAK = "x".repeat(15); // → [10]
 const TWO_BREAKS = "aaaa bbbb cccc dddd eeee"; // → [10, 20]
 
@@ -38,8 +38,8 @@ describe("LineBreaksCache", () => {
         expect(shifted).toEqual([10, 20]);
         expect(cache.getBreaks(3)).toBeNull();
 
-        // Вставка строки перед "zz": TWO_BREAKS уезжает на строку 3 —
-        // ТЕМ ЖЕ экземпляром массива (сдвиг без пересчёта); строка 0 не тронута.
+        // Insert a line before "zz": TWO_BREAKS moves to line 3 —
+        // as THE SAME array instance (shift without recompute); line 0 is untouched.
         doc.applyEdits([createInsertEdit(1, 0, "inserted\n")]);
         expect(cache.getBreaks(0)).toBe(untouched);
         expect(cache.getBreaks(3)).toBe(shifted);
@@ -82,10 +82,10 @@ describe("LineBreaksCache", () => {
         const cache = new LineBreaksCache(doc, 4, WIDTH);
         expect(cache.getBreaks(0)).toBeNull();
 
-        // Имитация пропущенного события: правка после отписки кеша.
+        // Simulate a missed event: an edit after the cache unsubscribed.
         cache.dispose();
-        doc.applyEdits([createDeleteEdit(0, 0, 2, 0)]); // остаётся одна строка ONE_BREAK
-        // Без гарда осталось бы протухшее null от бывшей строки "aa".
+        doc.applyEdits([createDeleteEdit(0, 0, 2, 0)]); // a single ONE_BREAK line remains
+        // Without the guard a stale null from the former "aa" line would remain.
         expect(cache.getBreaks(0)).toEqual([10]);
     });
 
@@ -96,11 +96,11 @@ describe("LineBreaksCache", () => {
         cache.dispose();
 
         doc.applyEdits([createDeleteEdit(0, 0, 1, 0)]); // [bb, ONE_BREAK]
-        expect(cache.getBreaks(0)).toBeNull(); // "bb" — первый reset по гарду
+        expect(cache.getBreaks(0)).toBeNull(); // "bb" — the first reset by the guard
 
         doc.applyEdits([createDeleteEdit(0, 0, 1, 0)]); // [ONE_BREAK]
-        // Второй рассинхрон ловится, только если reset пересобрал массив по
-        // размеру документа, а не пустым.
+        // The second desync is caught only if reset rebuilt the array sized to
+        // the document, not empty.
         expect(cache.getBreaks(0)).toEqual([10]);
     });
 

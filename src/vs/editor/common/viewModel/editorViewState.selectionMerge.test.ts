@@ -29,7 +29,7 @@ describe("EditorViewState.selections — нормализация в сетте�
 
         state.selections = [createCursorSelection(0, 3), createCursorSelection(0, 3), createCursorSelection(0, 5)];
 
-        // Одно событие, и слушатель уже видит слитый набор — не промежуточный.
+        // One event, and the listener already sees the merged set — not an intermediate one.
         expect(seen).toEqual([2]);
     });
 
@@ -81,7 +81,7 @@ describe("EditorViewState — слияние по ходу навигации и
         const doc = new TextDocument("abc");
         const state = new EditorViewState(doc, [createCursorSelection(0, 0), createCursorSelection(0, 1)]);
         state.cursorLeft();
-        // Левая упирается в начало строки и стоит, правая приезжает в ту же точку.
+        // The left one hits the line start and stays, the right one arrives at the same point.
         expect(state.selections).toHaveLength(1);
         expect(state.selections[0].active).toEqual({ line: 0, character: 0 });
     });

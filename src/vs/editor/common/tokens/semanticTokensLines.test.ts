@@ -8,7 +8,7 @@ import { countEOL, decodeSemanticTokens, SemanticTokensLines } from "./semanticT
 const LEGEND: ISemanticTokensLegend = { tokenTypes: ["a", "b"], tokenModifiers: ["m"] };
 const OTHER: ISemanticTokensLegend = { tokenTypes: ["x"], tokenModifiers: [] };
 
-/** Тип 1, модификаторы 2. */
+/** Type 1, modifiers 2. */
 function linesOf(spec: Record<number, readonly (readonly [number, number])[]>, legend = LEGEND): SemanticTokensLines {
     const lines = new SemanticTokensLines();
     for (const [line, tokens] of Object.entries(spec)) {
@@ -67,7 +67,7 @@ describe("decodeSemanticTokens", () => {
             new Uint32Array([0, 0, 4, 1, 0, 0, 2, 3, 1, 0, 0, 2, 0, 1, 0, 0, 2, 1, 1, 0]),
             LEGEND,
         );
-        // [0,4]; [2,5] налезает; [4,4] нулевой; [6,7] после [4,4] (дельта от отброшенного) — встык с концом нет.
+        // [0,4]; [2,5] overlaps; [4,4] is zero-length; [6,7] after [4,4] (delta from the dropped one), not adjacent.
         expect(lines.getLine(0)?.tokens).toEqual([0, 4, 1, 0, 6, 7, 1, 0]);
     });
 
@@ -167,7 +167,7 @@ describe("SemanticTokensLines — удаление в одной строке (�
         const multi = new SemanticTokensLines();
         multi.ensureLine(0, LEGEND).tokens.push(0, 1, 3, 4);
         multi.ensureLine(1, LEGEND).tokens.push(0, 1, 5, 6, 2, 4, 7, 8, 5, 7, 9, 10);
-        multi.applyEdit(createRange(0, 2, 1, 3), ""); // 1a, 3b, 3c, 4 на последней строке
+        multi.applyEdit(createRange(0, 2, 1, 3), ""); // 1a, 3b, 3c, 4 on the last line
         expect(multi.getLine(0)?.tokens).toEqual([0, 1, 3, 4, 2, 3, 7, 8, 4, 6, 9, 10]);
     });
 });
@@ -188,7 +188,7 @@ describe("SemanticTokensLines — многострочное удаление", 
             ],
             3: [[1, 2]],
         });
-        // (0,5)..(2,4): [2,6] на последней — 3c → [5,7]; [7,9] — 4 → [8,10]; [1,3] — 3a.
+        // (0,5)..(2,4): [2,6] on the last one — 3c → [5,7]; [7,9] — 4 → [8,10]; [1,3] — 3a.
         expect(edit(lines, 0, 5, 2, 4, "")).toEqual({
             0: [
                 [0, 2],
@@ -201,7 +201,7 @@ describe("SemanticTokensLines — многострочное удаление", 
     });
 
     it("на первой строке токен ровно с начала удаления — удаляется (2a/2b)", () => {
-        // Строка 1 сливается с нулевой: её токен уезжает за точку склейки.
+        // Line 1 merges into line zero: its token moves past the join point.
         expect(edit(linesOf({ 0: [[5, 9]], 1: [[0, 1]] }), 0, 5, 1, 0, "")).toEqual({ 0: [[5, 6]] });
     });
 
@@ -331,7 +331,7 @@ describe("SemanticTokensLines — вставка (случаи эталона)",
     });
 
     it("замена: удаление и вставка одной правкой", () => {
-        // [5,10] с заменой (1..3) → "abcd": сдвиг -2, затем +4.
+        // [5,10] with replacement (1..3) → "abcd": shift -2, then +4.
         expect(edit(token(), 0, 1, 0, 3, "abcd")).toEqual({ 0: [[7, 12]] });
     });
 

@@ -44,8 +44,8 @@ function decorationAfterEdit(
     return doc.getDecorationRange(id);
 }
 
-// Перенос suite «Decorations and editing» эталона (`modelDecorations.test.ts`), 0-based.
-// Ожидания по stickiness: Always, Never, Before, After. Без prettier — иначе ~750 строк.
+// Port of upstream suite "Decorations and editing" (`modelDecorations.test.ts`), 0-based.
+// Expectations by stickiness: Always, Never, Before, After. No prettier — otherwise ~750 lines.
 // prettier-ignore
 const UPSTREAM_CASES: readonly (readonly [string, RangeTuple, RangeTuple, string, readonly RangeTuple[]])[] = [
     ["insert / collapsed dec / before", [0, 3, 0, 3], [0, 2, 0, 2], "xx", [[0, 5, 0, 5], [0, 5, 0, 5], [0, 5, 0, 5], [0, 5, 0, 5]]],
@@ -149,7 +149,7 @@ describe("TrackedDecorations — правки через строки", () => {
     });
 
     it("в общей части многострочной замены край держит смещение от её начала", () => {
-        // «Line\nMy Se» (10) → «ab\ncdefghij» (11): начало «Second» — 7-й символ замены, им и остаётся.
+        // "Line\nMy Se" (10) → "ab\ncdefghij" (11): the start of "Second" stays the replacement's 7th char.
         expect(
             decorationAfterEdit(
                 SECOND,
@@ -161,7 +161,7 @@ describe("TrackedDecorations — правки через строки", () => {
     });
 
     it("край на старой строке после многострочной замены сдвигается к концу вставки", () => {
-        // Край (2,5) был на последней строке правки — встаёт за «YZ» со своим хвостом «ird».
+        // Edge (2,5) was on the edit's last line — it lands after "YZ" with its tail "ird".
         expect(
             decorationAfterEdit(
                 [2, 0, 2, 5],
@@ -173,7 +173,7 @@ describe("TrackedDecorations — правки через строки", () => {
     });
 
     it("в общей части край, попавший на конец не последней вставленной строки, остаётся на ней", () => {
-        // Замена той же длины: конец «First» — на конце первой вставленной строки, а не в начале второй.
+        // Same-length replace: the end of "First" stays at the end of the first inserted line, not the second's start.
         expect(
             decorationAfterEdit(
                 [0, 3, 0, 8],
@@ -185,7 +185,7 @@ describe("TrackedDecorations — правки через строки", () => {
     });
 
     it("смещение внутри замены считает и целые строки между её краями", () => {
-        // 23 символа → 30 одной строкой: начало «rd» — 21-й символ замены (3 + 1 + 14 + 1 + 2), им и остаётся.
+        // 23 characters → 30 in one line: the start of "rd" stays the 21st char (3 + 1 + 14 + 1 + 2).
         expect(
             decorationAfterEdit(
                 [2, 2, 2, 10],

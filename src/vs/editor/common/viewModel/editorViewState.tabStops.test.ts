@@ -7,7 +7,7 @@ import { EditorViewState } from "./editorViewState.ts";
 
 type Sel = ReturnType<typeof createCursorSelection>;
 
-/** Симптомом была колонка каретки в статус-баре: `Ln 1, Col 7` вместо `Col 5`. */
+/** The symptom was the cursor column in the status bar: `Ln 1, Col 7` instead of `Col 5`. */
 function spacesState(text: string, selections: Sel[], tabSize = 4): EditorViewState {
     const state = new EditorViewState(new TextDocument(text), selections);
     state.insertSpaces = true;
@@ -66,8 +66,8 @@ describe("Tab выравнивает каретку по табстопам (ins
 
 describe("Tab считает табстоп по ВИДИМОЙ колонке", () => {
     it("таб слева от каретки занимает своё расстояние до табстопа", () => {
-        // "\ta|b": таб — это колонки 0..3, "a" — колонка 4, каретка на 5.
-        // По символьному offset'у (2) вышло бы 2 пробела вместо 3.
+        // "\ta|b": the tab is columns 0..3, "a" is column 4, cursor at 5.
+        // By character offset (2) it would be 2 spaces instead of 3.
         const state = spacesState("\tab", [createCursorSelection(0, 2)]);
         state.indentLines();
         expect(state.document.getText()).toBe("\ta   b");
@@ -75,7 +75,7 @@ describe("Tab считает табстоп по ВИДИМОЙ колонке",
     });
 
     it("широкая графема занимает две колонки", () => {
-        // "你a|b": 你 — колонки 0..1, "a" — колонка 2, каретка на 3.
+        // "你a|b": 你 is columns 0..1, "a" is column 2, cursor at 3.
         const state = spacesState("你ab", [createCursorSelection(0, 2)]);
         state.indentLines();
         expect(state.document.getText()).toBe("你a b");
@@ -87,7 +87,7 @@ describe("Tab у мультикурсора — своя добавка на к�
     it("каретки на разных колонках одной строки получают разное число пробелов", () => {
         const state = spacesState("abcdefgh", [createCursorSelection(0, 1), createCursorSelection(0, 6)]);
         state.indentLines();
-        // Колонка 1 → 3 пробела (до 4), колонка 6 → 2 пробела (до 8).
+        // Column 1 → 3 spaces (to 4), column 6 → 2 spaces (to 8).
         expect(state.document.getText()).toBe("a   bcdef  gh");
         expect(state.selections.map((sel) => sel.active)).toEqual([
             { line: 0, character: 4 },
@@ -108,7 +108,7 @@ describe("Tab у мультикурсора — своя добавка на к�
     it("одна строка с табом, другая без — каждая по своей видимой колонке", () => {
         const state = spacesState("\tab\nab", [createCursorSelection(0, 2), createCursorSelection(1, 2)]);
         state.indentLines();
-        // Строка 0: видимая колонка 5 → 3 пробела. Строка 1: колонка 2 → 2 пробела.
+        // Line 0: visible column 5 → 3 spaces. Line 1: column 2 → 2 spaces.
         expect(state.document.getText()).toBe("\ta   b\nab  ");
         expect(state.selections.map((sel) => sel.active)).toEqual([
             { line: 0, character: 5 },
@@ -121,7 +121,7 @@ describe("Tab с выделением внутри строки", () => {
     it("заменяет выделение добавкой до табстопа от его НАЧАЛА", () => {
         const state = spacesState("abcdefgh", [createSelection(0, 1, 0, 3)]);
         state.indentLines();
-        // Выделение "bc" стёрто, вставлены 3 пробела: каретка на табстопе 4.
+        // Selection "bc" is erased, 3 spaces inserted: cursor on tab stop 4.
         expect(state.document.getText()).toBe("a   defgh");
         expect(state.selections[0].active).toEqual({ line: 0, character: 4 });
     });

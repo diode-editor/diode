@@ -4,7 +4,7 @@ import type { ITextDocument } from "../model/iTextDocument.ts";
 
 import { type ISemanticLineTokens, SemanticTokensLines } from "./semanticTokensLines.ts";
 
-/** Семантическая половина `TokenizationTextModelPart` эталона; одна на документ, общая для вью. */
+/** The semantic half of upstream `TokenizationTextModelPart`; one per document, shared by views. */
 export class SemanticTokensStore extends Disposable {
     private lines = new SemanticTokensLines();
     private complete = false;
@@ -36,7 +36,7 @@ export class SemanticTokensStore extends Disposable {
         return this.lines.getLine(line);
     }
 
-    /** `isComplete` — ответ провайдера документа, даже пустой: range-провайдер после него не зовётся. */
+    /** `isComplete` marks a document provider answer, even an empty one: the range provider is not called after it. */
     public set(lines: SemanticTokensLines | null, isComplete: boolean): void {
         this.lines = lines ?? new SemanticTokensLines();
         this.complete = isComplete;

@@ -5,8 +5,8 @@ import type { ITextDocument } from "../model/iTextDocument.ts";
 import { computeLineBreakOffsets } from "./lineBreaksComputer.ts";
 
 /**
- * Без кеша каждый rebuild проекции пересегментировал бы весь документ. Значение по строке:
- * `null` — не переносится, `undefined` — не посчитано.
+ * Without the cache every projection rebuild would re-segment the whole document. Per-line value:
+ * `null` means not wrapped, `undefined` means not computed yet.
  */
 export class LineBreaksCache extends Disposable {
     private readonly document: ITextDocument;
@@ -28,7 +28,7 @@ export class LineBreaksCache extends Disposable {
         );
     }
 
-    /** No-op при тех же параметрах: зовётся на каждый rebuild проекции. */
+    /** No-op for the same params: called on every projection rebuild. */
     public setParams(tabSize: number, wrapWidth: number): void {
         if (tabSize === this.tabSize && wrapWidth === this.wrapWidth) return;
         this.tabSize = tabSize;
@@ -36,7 +36,7 @@ export class LineBreaksCache extends Disposable {
         this.breaks = new Array<number[] | null | undefined>(this.document.lineCount);
     }
 
-    /** Гард рассинхрона — как у {@link LineWidthCache.getMaxWidth}. */
+    /** Desync guard, same as {@link LineWidthCache.getMaxWidth}. */
     public getBreaks(line: number): number[] | null {
         if (this.breaks.length > this.document.lineCount) {
             this.breaks = new Array<number[] | null | undefined>(this.document.lineCount);
@@ -53,11 +53,11 @@ export class LineBreaksCache extends Disposable {
         const { startLine, oldEndLine, newEndLine } = change;
         const lineDelta = newEndLine - oldEndLine;
 
-        // Один splice на любой знак дельты: ветвление оставило бы нулевой случай мёртвым.
+        // One splice for any delta sign: branching would leave the zero case dead.
         const placeholders = new Array<undefined>(Math.max(0, lineDelta));
         this.breaks.splice(Math.min(oldEndLine, newEndLine) + 1, Math.max(0, -lineDelta), ...placeholders);
 
-        // Stryker disable next-line ArithmeticOperator: кламп по длине — защитный на рассинхрон (кеш короче документа возможен только при уже потерянном событии); в синхронном кеше min всегда выбирает newEndLine
+        // Stryker disable next-line ArithmeticOperator: the length clamp guards against desync (a cache shorter than the document only happens after a lost event); in a synced cache min always picks newEndLine
         const lastInvalidated = Math.min(newEndLine, this.breaks.length - 1);
         for (let i = startLine; i <= lastInvalidated; i++) {
             this.breaks[i] = undefined;

@@ -80,7 +80,7 @@ describe("LineWidthCache", () => {
         doc.applyEdits([createInsertEdit(0, 5, "\nline1")]);
         cache.getMaxWidth();
 
-        // Перемеряются только две тронутые строки — это и снимает фриз под RPC-трассировкой.
+        // Only the two touched lines are remeasured — this is what removes the freeze under RPC tracing.
         const measuredLines = new Set(getLineContent.mock.calls.map((c) => c[0]));
         expect(measuredLines.size).toBeLessThanOrEqual(2);
     });
@@ -123,12 +123,12 @@ describe("LineWidthCache", () => {
 
         cache.dispose();
         doc.applyEdits([createInsertEdit(1, 1, "\nlongerline")]);
-        // Устаревшее значение — намеренно: освобождённый кеш документ не отслеживает.
+        // Stale value on purpose: a disposed cache doesn't track the document.
         expect(cache.getMaxWidth()).toBe(1);
     });
 
     it("clamps to the document length if it shrank behind the cache's back", () => {
-        // dispose отцепляет кеш от событий — так воспроизводится рассинхрон после сжатия документа.
+        // dispose detaches the cache from events — this reproduces the desync after the document shrinks.
         const doc = new TextDocument("aa\nbbbb\ncccccc");
         const cache = new LineWidthCache(doc, 4);
         expect(cache.getMaxWidth()).toBe(6);

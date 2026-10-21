@@ -11,7 +11,7 @@ const SPACES_4: IIndentationDefaults = { tabSize: 4, insertSpaces: true };
 
 describe("detectIndentation", () => {
     it("detects 2 spaces in a package.json-shaped file", () => {
-        // Регрессия: самая частая ширина здесь 4, а шаг — 2.
+        // Regression: the most frequent width here is 4, but the step is 2.
         const doc = makeDoc([
             "{",
             '  "name": "diode",',
@@ -29,7 +29,7 @@ describe("detectIndentation", () => {
     });
 
     it("is not thrown off by the single-space continuation of a block comment", () => {
-        // Регрессия: ` * …` даёт ширину 1, и счёт по абсолютным ширинам (GCD) обнулял бы файл.
+        // Regression: ` * …` gives width 1, and counting by absolute widths (GCD) would zero out the file.
         const doc = makeDoc([
             "/**",
             " * Does things.",
@@ -120,14 +120,14 @@ describe("detectIndentation", () => {
     });
 
     it("ширина пробельной строки не попадает в гистограмму шагов", () => {
-        // Посчитай пробельные строки содержательными — шаг 4 забьёт настоящую двойку.
+        // If whitespace-only lines counted as content, step 4 would drown out the real 2.
         const doc = makeDoc(["a", "  b", "      ", "  c", "      ", "  d"]);
 
         expect(detectIndentation(doc, SPACES_4)).toEqual({ insertSpaces: true, tabSize: 2 });
     });
 
     it("пробельная строка не считается отступлённой на один символ", () => {
-        // Если у пробельной строки «отступ 1», шаги съезжают на тройки.
+        // If a whitespace-only line had "indent 1", the steps would shift to 3.
         const doc = makeDoc(["a", "    b", "    ", "    c", "    ", "    d", "    ", "    e"]);
 
         expect(detectIndentation(doc, SPACES_4)).toEqual({ insertSpaces: true, tabSize: 4 });
@@ -158,14 +158,14 @@ describe("detectIndentation", () => {
     });
 
     it("ровно половина частоты четвёрки — двойка ещё выигрывает", () => {
-        // Шаги: 4 × 4, 2 × 2 — граница правила «хотя бы вполовину так же часто».
+        // Steps: 4 × 4, 2 × 2 — the boundary of the "at least half as often" rule.
         const doc = makeDoc(["a", "    b", "a", "    b", "a", "  c", "a"]);
 
         expect(detectIndentation(doc, SPACES_4)).toEqual({ insertSpaces: true, tabSize: 2 });
     });
 
     it("правило «двойка вместо четвёрки» не трогает победившую шестёрку", () => {
-        // Шаги: 6 × 5, 2 × 3, 4 × 1 — побеждает 6, и переезд на 2 был бы враньём.
+        // Steps: 6 × 5, 2 × 3, 4 × 1 — 6 wins, and switching to 2 would be wrong.
         const doc = makeDoc(["a", "      b", "a", "      b", "a", "      b", "    c", "a", "  d", "a"]);
 
         expect(detectIndentation(doc, SPACES_4)).toEqual({ insertSpaces: true, tabSize: 6 });
@@ -196,7 +196,7 @@ describe("detectIndentation", () => {
 
     describe("continuation lines", () => {
         it("ignores a line aligned under the arguments of the previous one", () => {
-            // Без этой эвристики шаг 7 стал бы единственным кандидатом и победил.
+            // Without this heuristic step 7 would be the only candidate and win.
             const doc = makeDoc(["foo(a, b,", "       c);"]);
 
             expect(detectIndentation(doc, SPACES_4)).toEqual({ insertSpaces: true, tabSize: 4 });

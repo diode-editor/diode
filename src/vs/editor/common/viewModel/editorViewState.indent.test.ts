@@ -7,7 +7,7 @@ import { EditorViewState } from "./editorViewState.ts";
 
 type Sel = ReturnType<typeof createCursorSelection>;
 
-// Детекция выключена: ведущие пробелы фикстуры не должны перещёлкнуть insertSpaces/tabSize.
+// Detection off: the fixture's leading spaces must not flip insertSpaces/tabSize.
 function tabsState(text: string, selections: Sel[]): EditorViewState {
     const state = new EditorViewState(new TextDocument(text), selections);
     state.insertSpaces = false;

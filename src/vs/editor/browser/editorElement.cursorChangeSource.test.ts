@@ -12,10 +12,10 @@ import { EditorViewState } from "../common/viewModel/editorViewState.ts";
 
 import { EditorElement } from "./editorElement.ts";
 
-// Мост расширений снимает источник СИНХРОННО из слушателя смены каретки: без разметки
-// в обработчиках ввода любое движение приезжало бы с `kind === undefined`.
+// The extension bridge reads the source SYNCHRONOUSLY from the cursor-change listener: without
+// tagging in the input handlers every move would arrive with `kind === undefined`.
 
-/** Редактор + журнал источников, снятых в момент каждой смены каретки. */
+/** Editor plus a log of sources captured at each cursor change. */
 function createEditor(text = "hello world\nsecond line\nthird") {
     const viewState = new EditorViewState(new TextDocument(text));
     const editor = new EditorElement(viewState);

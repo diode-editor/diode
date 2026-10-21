@@ -13,7 +13,7 @@ function record(doc: TextDocument): IModelContentChangedEvent[] {
     return events;
 }
 
-/** Как это сделает субпроцесс: по одной к строкам ДО батча. */
+/** As the extension host applies them: one by one, against the lines BEFORE the batch. */
 function mirror(text: string, changes: readonly IModelContentChange[]): string {
     let lines = text.split("\n");
     for (const { range, text: inserted } of changes) {

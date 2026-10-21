@@ -10,7 +10,7 @@ export interface IUndoElement {
     readonly backwardEdits: readonly ITextEdit[];
     readonly beforeSelections: readonly ISelection[];
     readonly afterSelections: readonly ISelection[];
-    /** Только у элементов, меняющих EOL. */
+    /** Only on elements that change the EOL. */
     readonly eolBefore?: EndOfLine;
     readonly eolAfter?: EndOfLine;
 }

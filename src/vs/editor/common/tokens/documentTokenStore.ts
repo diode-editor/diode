@@ -15,16 +15,17 @@ import { ContiguousMultilineTokensBuilder } from "./contiguousMultilineTokensBui
 import { toUint32Array } from "./contiguousTokensEditing.ts";
 import { LineTokens } from "./lineTokens.ts";
 
-/** Строки документа, чьи токены сменились; 0-based, `toLine` включительно. */
+/** Document lines whose tokens changed; 0-based, `toLine` inclusive. */
 export interface ITokensChangedEvent {
     readonly fromLine: number;
     readonly toLine: number;
 }
 
 /**
- * Адаптер к перенесённой токенизации эталона (`model/textModelTokens.ts`),
- * аналог upstream `TokenizerSyntaxTokenBackend`. Вендор — в строках с 1, здесь
- * 0-based: ±1 только в этом файле (docs/arch/Editor.md, «Координаты»).
+ * Adapter to the ported upstream tokenization (`model/textModelTokens.ts`), the
+ * counterpart of upstream `TokenizerSyntaxTokenBackend`. The vendored copy counts lines
+ * from 1, here they are 0-based: the ±1 lives only in this file
+ * (docs/arch/Editor.md#координаты-ядро-0-based-вендор-1-based).
  */
 export class DocumentTokenStore extends Disposable {
     private readonly document: ITextDocument;
@@ -32,23 +33,23 @@ export class DocumentTokenStore extends Disposable {
     private readonly textModel: ITextModel;
 
     /**
-     * Как `ContiguousTokensStore` эталона: по два числа на токен — смещение КОНЦА
-     * и метаданные. `undefined` — не токенизирована или правлена после.
+     * Like upstream `ContiguousTokensStore`: two numbers per token, the END offset and
+     * metadata. `undefined` means not tokenized or edited since.
      */
     private cachedTokens!: (Uint32Array | undefined)[];
-    /** Языки по id не кодируем: в метаданных всегда 0, обратно — язык документа. */
+    /** Languages are not encoded by id: metadata always holds 0, decoding returns the document language. */
     private readonly languageIdCodec: ILanguageIdCodec;
-    // Все три ставит resetTokenization() из конструктора.
+    // All three are set by resetTokenization() from the constructor.
     private tokenizer!: TokenizerWithStateStoreAndTextModel;
     private backgroundTokenizer!: DefaultBackgroundTokenizer;
     private backgroundTokenizationCompleted!: boolean;
 
-    /** Ключ памяти эвристического вьюпорта: тот же вьюпорт той же версии второй раз не угадываем. */
+    /** Memo key for the heuristic viewport: the same viewport at the same version is not guessed twice. */
     private version = 0;
     private heuristicViewport: { start: number; end: number; version: number } | undefined;
 
     private readonly onDidChangeTokensEmitter = this.register(new Emitter<ITokensChangedEvent>());
-    /** Только не по запросу рендера: фон или {@link forceTokenization}. */
+    /** Only for changes not requested by rendering: background or {@link forceTokenization}. */
     public readonly onDidChangeTokens: Event<ITokensChangedEvent> = this.onDidChangeTokensEmitter.event;
 
     public constructor(document: ITextDocument, support: ITokenizationSupport) {
@@ -56,20 +57,20 @@ export class DocumentTokenStore extends Disposable {
         this.document = document;
         this.support = support;
         this.languageIdCodec = {
-            // Stryker disable next-line ArrowFunction: `undefined` в метаданных сдвигом даёт тот же 0
+            // Stryker disable next-line ArrowFunction: `undefined` shifted into metadata gives the same 0
             encodeLanguageId: () => LanguageId.Null,
             decodeLanguageId: () => document.languageId,
         };
         this.textModel = {
-            // Язык эталон кладёт только в метаданные токенов через кодек, а наш кодек отдаёт 0 на любой язык.
-            // Stryker disable next-line ArrowFunction: эквивалентный — значение никуда не доходит
+            // Upstream puts the language only into token metadata via the codec; ours returns 0 for any language.
+            // Stryker disable next-line ArrowFunction: equivalent, the value goes nowhere
             getLanguageId: () => document.languageId,
             getLineCount: () => document.lineCount,
             getLineContent: (lineNumber) => document.getLineContent(lineNumber - 1),
             getLineLength: (lineNumber) => document.getLineLength(lineNumber - 1),
             getLineFirstNonWhitespaceColumn: (lineNumber) =>
                 firstNonWhitespaceColumn(document.getLineContent(lineNumber - 1)),
-            // Стор живёт ровно столько, сколько вью; после dispose фон глушит сам DefaultBackgroundTokenizer.
+            // The store lives as long as the view; after dispose DefaultBackgroundTokenizer stops itself.
             isAttachedToEditor: () => true,
         };
 
@@ -87,7 +88,7 @@ export class DocumentTokenStore extends Disposable {
         });
     }
 
-    /** Правка позже флаг не сбрасывает — как у эталона. */
+    /** A later edit does not reset the flag, as upstream. */
     public get isBackgroundTokenizationCompleted(): boolean {
         return this.backgroundTokenizationCompleted;
     }
@@ -104,17 +105,17 @@ export class DocumentTokenStore extends Disposable {
         return new LineTokens(tokens, this.document.getLineContent(line), this.languageIdCodec);
     }
 
-    /** Последний конец токена — длина строки; следующая токенизация строки перезапишет. */
+    /** The last token end is the line length; the next tokenization of the line overwrites these. */
     public setLineTokens(line: number, tokens: Uint32Array): void {
         if (line < 0 || line >= this.document.lineCount) return;
         this.cachedTokens[line] = tokens;
     }
 
     /**
-     * Upstream `refreshRange`, синхронно и без событий: рендер прочтёт сразу.
-     * Отличие от эталона: тот обновляет вьюпорт при смене видимых строк и красит
-     * правку сдвигом старых токенов; у нас правленые строки пусты, поэтому зовём
-     * на каждый кадр, а повторную эвристику того же вьюпорта той же версии отсекаем.
+     * Upstream `refreshRange`, synchronous and event-free: rendering reads it right away.
+     * Deviation: upstream refreshes the viewport when visible lines change and paints an
+     * edit by shifting old tokens; our edited lines are empty, so this runs every frame,
+     * and a repeated heuristic for the same viewport at the same version is skipped.
      */
     public tokenizeViewport(startLine: number, endLine: number): void {
         const lineCount = this.document.lineCount;
@@ -126,10 +127,10 @@ export class DocumentTokenStore extends Disposable {
         const builder = new ContiguousMultilineTokensBuilder();
         const { heuristicTokens } = this.tokenizer.tokenizeHeuristically(builder, start, end);
         if (!heuristicTokens && !this.tokenizer.hasAccurateTokensForLine(end)) {
-            // Эталон не трогает строку, равную первой невалидной (`end <=
-            // firstInvalid` — «нечего делать»): её стартовое состояние точно, а
-            // токены у него пережили правку сдвигом. У нас правленая строка
-            // пуста — досчитываем её, иначе низ вьюпорта мигнёт без подсветки.
+            // Upstream skips the line equal to the first invalid one (`end <= firstInvalid`
+            // means "nothing to do"): its start state is exact and its tokens survived the
+            // edit by shifting. Our edited line is empty, so tokenize it, or the viewport
+            // bottom flashes unhighlighted.
             this.tokenizer.updateTokensUntilLine(builder, end);
         }
         const changes = this.setTokens(builder.finalize(), false);
@@ -147,7 +148,7 @@ export class DocumentTokenStore extends Disposable {
         this.backgroundTokenizer.checkFinished();
     }
 
-    /** Не для рендера: на большом файле за фронтиром фона это долго. */
+    /** Not for rendering: on a large file past the background frontier this is slow. */
     public forceTokenization(line: number): void {
         const builder = new ContiguousMultilineTokensBuilder();
         this.tokenizer.updateTokensUntilLine(builder, line + 1);
@@ -170,10 +171,10 @@ export class DocumentTokenStore extends Disposable {
     private resetTokenization(): void {
         this.cachedTokens = [];
         this.cachedTokens.length = this.document.lineCount;
-        // Stryker disable next-line UpdateOperator: версии важно лишь отличаться — «--» даёт такие же
+        // Stryker disable next-line UpdateOperator: versions only need to differ, "--" works too
         this.version++;
         this.backgroundTokenizationCompleted = false;
-        // Undefined только на первом вызове — из конструктора.
+        // Undefined only on the first call, from the constructor.
         // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
         this.backgroundTokenizer?.dispose();
 
@@ -198,9 +199,9 @@ export class DocumentTokenStore extends Disposable {
         const changes: ITokensChangedEvent[] = [];
         for (const block of tokens) {
             for (let lineNumber = block.startLineNumber; lineNumber <= block.endLineNumber; lineNumber++) {
-                // ArrayBuffer и null у эталона бывают только после правки внутри блока, не из builder'а.
+                // Upstream yields ArrayBuffer and null only after an edit inside the block, never from the builder.
                 const tokens = block.getLineTokens(lineNumber);
-                // Stryker disable next-line ConditionalExpression: null из builder'а не приходит (см. выше)
+                // Stryker disable next-line ConditionalExpression: the builder never yields null (see above)
                 this.cachedTokens[lineNumber - 1] = tokens === null ? undefined : toUint32Array(tokens);
             }
             changes.push({ fromLine: block.startLineNumber - 1, toLine: block.endLineNumber - 1 });
@@ -224,18 +225,18 @@ export class DocumentTokenStore extends Disposable {
         } else if (lineDelta < 0) {
             this.cachedTokens.splice(newEndLine + 1, -lineDelta);
         }
-        // Правленые строки пусты до пересчёта: старые токены легли бы на чужие
-        // смещения. Вьюпорт их пересчитает к кадру, остальное — фон.
+        // Edited lines stay empty until retokenized: old tokens would land on wrong offsets.
+        // The viewport retokenizes them by the next frame, the background does the rest.
         this.cachedTokens.fill(undefined, startLine, newEndLine + 1);
 
-        // Stryker disable next-line UpdateOperator: версии важно лишь отличаться — «--» даёт такие же
+        // Stryker disable next-line UpdateOperator: versions only need to differ, "--" works too
         this.version++;
         this.tokenizer.store.acceptChange(new LineRange(startLine + 1, oldEndLine + 2), newEndLine - startLine + 1);
         this.backgroundTokenizer.handleChanges();
     }
 }
 
-/** Колонка с 1; 0 — не-пробелов нет (search даёт -1). */
+/** 1-based column; 0 when there is no non-whitespace (search returns -1). */
 function firstNonWhitespaceColumn(text: string): number {
     return text.search(/[^ \t]/) + 1;
 }

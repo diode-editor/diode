@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 //@diode:shim microsoft/vscode@1.127.0 src/vs/editor/common/model/mirrorTextModel.ts
-// Узкое извлечение: только форма правки для перенесённых textModelTokens и PieceTree.
+// Narrow extract: only the edit shape for the ported textModelTokens and PieceTree.
 
 import type { IRange } from "../core/range.ts";
 

@@ -90,8 +90,8 @@ describe("EditorElement.onDidType", () => {
             neighbour.dispose();
         });
         neighbour = editor.onDidType((text) => seen.push(text));
-        // Сосед, отписанный посреди рассылки и ещё не достигнутый, текущий символ
-        // уже не получает (гарантия Emitter, docs/arch/Common.md#события-eventts, G2).
+        // A neighbour disposed mid-dispatch and not yet reached no longer receives the current
+        // character (Emitter guarantee, docs/arch/Common.md#события-eventts, G2).
         press(editor, "a");
         press(editor, "b");
         expect(seen).toEqual([]);
@@ -99,7 +99,7 @@ describe("EditorElement.onDidType", () => {
         const last: string[] = [];
         editor.onDidType((text) => last.push(text));
         subscription.dispose();
-        // Повторная отписка безвредна и не снимает чужих (в том числе последнего в списке).
+        // Disposing twice is harmless and removes no other listeners (including the last one in the list).
         subscription.dispose();
         press(editor, "c");
         expect(typed.map((t) => t.text)).toEqual(["a", "b"]);

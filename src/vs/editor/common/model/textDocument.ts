@@ -17,12 +17,12 @@ import { PieceTreeTextBufferBuilder } from "./pieceTreeTextBuffer/pieceTreeTextB
 import { type IModelDeltaDecoration, TrackedDecorations } from "./trackedDecorations.ts";
 
 /**
- * Адаптер 0-based {@link ITextDocument} к 1-based `PieceTreeTextBuffer` эталона:
- * ±1 живёт только здесь (docs/arch/Editor.md).
+ * Adapts 0-based {@link ITextDocument} to the 1-based upstream `PieceTreeTextBuffer`:
+ * the ±1 lives only here (docs/arch/Editor.md).
  *
- * EOL при загрузке приводится к преобладающему (`normalizeEOL`), одиночный `\r` —
- * тоже перевод строки. Наружу — LF: {@link getText} и правки с `\n`,
- * {@link serialize} — с `eol`.
+ * On load EOLs are normalized to the dominant one (`normalizeEOL`); a lone `\r` is
+ * a line break too. Outward everything is LF: {@link getText} and edits use `\n`,
+ * {@link serialize} uses `eol`.
  */
 export class TextDocument implements ITextDocument {
     private buffer: ITextBuffer;
@@ -55,7 +55,7 @@ export class TextDocument implements ITextDocument {
         return this.languageIdValue;
     }
 
-    /** Не трогает `versionId`: смена языка не делает документ dirty. */
+    /** Leaves `versionId` alone: a language change does not make the document dirty. */
     public setLanguage(languageId: string): void {
         if (languageId === this.languageIdValue) return;
         const oldLanguageId = this.languageIdValue;
@@ -73,8 +73,8 @@ export class TextDocument implements ITextDocument {
     }
 
     /**
-     * Через содержимое, а не `buffer.getLineLength`: тот дважды спускается по
-     * дереву без кэша. Проход по 200k строк — ~20 мс против ~110 мс.
+     * Goes through the content, not `buffer.getLineLength`: that one walks down the
+     * tree twice without a cache. A pass over 200k lines takes ~20 ms vs ~110 ms.
      */
     public getLineLength(lineIndex: number): number {
         return this.getLineContent(lineIndex).length;
@@ -88,7 +88,7 @@ export class TextDocument implements ITextDocument {
         return this.buffer.getValueInRange(this.fullRange(), EndOfLinePreference.TextDefined);
     }
 
-    /** {@link serialize} по кускам; содержимое — на момент вызова, поздние правки не попадут. */
+    /** {@link serialize} in chunks; content is as of the call, later edits are not included. */
     public createSnapshot(): Iterable<string> {
         return readSnapshot(this.buffer.createSnapshot(false));
     }
@@ -103,12 +103,12 @@ export class TextDocument implements ITextDocument {
         this.onDidChangeEolEmitter.fire();
     }
 
-    /** В том же документе, событием с `isFlush`: перечитка — обычная правка для всех подписчиков. */
+    /** Same document, `isFlush` event: a reload is an ordinary edit for every subscriber. */
     public setText(text: TextSource): void {
         const oldEndLine = this.lineCount - 1;
         const eolBefore = this.eol;
         this.innerVersionId++;
-        // Stryker disable next-line CallExpression: у буфера только свой эмиттер без подписчиков — наблюдаемого эффекта нет
+        // Stryker disable next-line CallExpression: the buffer only owns an emitter with no subscribers, no observable effect
         this.buffer.dispose();
         this.buffer = createTextBuffer(text);
         this.decorations.acceptFlush(this);
@@ -144,46 +144,45 @@ export class TextDocument implements ITextDocument {
             return { appliedVersion: this.innerVersionId, inverseEdits: [] };
         }
 
-        // Тот же порядок, что `_sortOpsAscending` буфера, — обратные правки приходят ровно в нём.
+        // Same order as the buffer's `_sortOpsAscending`; inverse edits come back in exactly this order.
         const docOrder = edits.map((edit) => this.validateEdit(edit)).sort(compareTextEditsInDocumentOrder);
         for (let i = 1; i < docOrder.length; i++) {
             if (comparePositions(docOrder[i].range.start, docOrder[i - 1].range.end) < 0) {
-                // Тот же отказ, что у буфера, но до того, как сдвинулись декорации.
+                // Same rejection as the buffer's, but before decorations have moved.
                 throw new Error("Overlapping ranges are not allowed!");
             }
         }
 
         this.innerVersionId++;
 
-        // Обратный docOrder, а не сортировка по убыванию: стабильная сортировка
-        // оставила бы правки с СОВПАДАЮЩИМИ диапазонами (две вставки в одну
-        // точку — обратные правки соседних удалений) задом наперёд.
+        // Reversed docOrder, not a descending sort: a stable sort would leave edits with
+        // IDENTICAL ranges (two inserts at one point, i.e. inverses of adjacent deletes)
+        // backwards.
         const reversed = [...docOrder].reverse();
 
-        // Декорации двигаются, пока текст ещё старый: смещения меряются по
-        // прежнему тексту. Снизу вверх нижние правки не трогают строки верхних,
-        // поэтому длины берутся из буфера до батча.
+        // Decorations move while the text is still old: offsets are measured against the
+        // previous text. Going bottom-up, lower edits never touch the lines of upper ones,
+        // so line lengths come from the pre-batch buffer.
         for (const edit of reversed) {
             this.decorations.acceptEdit(edit, (line) => this.getLineLength(line));
         }
 
         const result = this.buffer.applyEdits(
             docOrder.map((edit) => toBufferOperation(toBufferRange(edit.range), edit.text)),
-            // Stryker disable next-line BooleanLiteral: автопробелы буфер считает, но мы их не читаем
+            // Stryker disable next-line BooleanLiteral: the buffer computes auto-whitespace but we never read it
             false,
             true,
         );
 
-        // Обратные правки — в координатах УЖЕ ПРИМЕНЁННОГО документа, в
-        // документном порядке; текст буфера — с его EOL, наружу — LF.
-        // Stryker disable next-line ArrayDeclaration: при computeUndoEdits буфер всегда отдаёт массив
+        // Inverse edits are in coordinates of the ALREADY APPLIED document, in document
+        // order; buffer text carries its EOL, outward it is LF.
+        // Stryker disable next-line ArrayDeclaration: with computeUndoEdits the buffer always returns an array
         const reverseEdits = result.reverseEdits ?? [];
         const inverseEdits = reverseEdits.map((op) => createTextEdit(fromBufferRange(op.range), toLf(op.text)));
 
-        // Каждое следующее событие адресует документ, где предыдущие УЖЕ
-        // применены, поэтому границы сдвигаются на накопленную разницу строк.
-        // Без сдвига `EditorViewState.remapForDocumentChange` падал на
-        // `getLineLength` за концом документа.
+        // Each next event addresses a document where the previous ones are ALREADY
+        // applied, so bounds shift by the accumulated line delta. Without the shift
+        // `EditorViewState.remapForDocumentChange` crashed on `getLineLength` past the end.
         let lineShift = 0;
         for (const edit of docOrder) {
             const startLine = edit.range.start.line;
@@ -197,8 +196,8 @@ export class TextDocument implements ITextDocument {
             lineShift += newEndLine - oldEndLine;
         }
 
-        // `reversed` — порядок применения в исходных координатах: последовательно
-        // к копии строк до батча даёт текст после него.
+        // `reversed` is the apply order in original coordinates: applied in sequence to a
+        // copy of the pre-batch lines, it yields the post-batch text.
         this.onDidChangeModelContentEmitter.fire({
             changes: reversed.map((edit) => ({ range: edit.range, text: edit.text })),
             versionId: this.innerVersionId,
@@ -210,8 +209,8 @@ export class TextDocument implements ITextDocument {
     }
 
     /**
-     * Переводы строк текста — к `\n`: буфер считает переводами и `\r`/`\r\n`, а
-     * события, декорации и зеркало расширений режут по `\n` — разошлись бы.
+     * Normalizes line breaks to `\n`: the buffer also treats `\r`/`\r\n` as breaks, while
+     * events, decorations and the extension mirror split on `\n`; they would diverge.
      */
     private validateEdit(edit: ITextEdit): ITextEdit {
         return { range: this.validateRange(edit.range), text: toLf(edit.text) };
@@ -243,27 +242,27 @@ export class TextDocument implements ITextDocument {
 
 export type TextSource = string | ITextBufferFactory;
 
-/** Граница куска может резать `\r\n` и суррогатную пару — билдер держит хвост до следующего. */
+/** A chunk boundary may split `\r\n` or a surrogate pair; the builder holds the tail until the next chunk. */
 export function createTextBufferFactoryFromChunks(chunks: Iterable<string>): ITextBufferFactory {
     const builder = new PieceTreeTextBufferBuilder();
     for (const chunk of chunks) builder.acceptChunk(chunk);
-    // Stryker disable next-line BooleanLiteral: без нормализации буфер приводит EOL на каждом чтении (регэксп по тексту) — та же семантика, другая цена
+    // Stryker disable next-line BooleanLiteral: without normalization the buffer converts EOL on every read (regex over text); same semantics, different cost
     return builder.finish(true);
 }
 
 function createTextBuffer(text: TextSource): ITextBuffer {
     const factory = typeof text === "string" ? createTextBufferFactoryFromChunks([text]) : text;
     const { textBuffer } = factory.create(DefaultEndOfLine.LF);
-    // Билдер снимает ведущий BOM в отдельное поле, но наш декодер BOM уже снял
-    // (`encoding.ts`): здесь U+FEFF — обычный символ, возвращаем его в текст.
+    // The builder strips a leading BOM into a separate field, but our decoder already
+    // removed the BOM (`encoding.ts`): here U+FEFF is an ordinary character, put it back.
     if (textBuffer.getBOM() !== "") {
-        // Stryker disable next-line BooleanLiteral: ни автопробелы, ни обратная правка здесь не читаются
+        // Stryker disable next-line BooleanLiteral: neither auto-whitespace nor the inverse edit is read here
         textBuffer.applyEdits([toBufferOperation(new Range(1, 1, 1, 1), UTF8_BOM_CHARACTER)], false, false);
     }
     return textBuffer;
 }
 
-/** Порог склейки кусков снимка — как у `TextModelSnapshot` эталона. */
+/** Snapshot chunk merge threshold, as in upstream `TextModelSnapshot`. */
 const SNAPSHOT_CHUNK_LENGTH = 64 * 1024;
 
 function* readSnapshot(snapshot: ITextSnapshot): Generator<string> {
@@ -281,11 +280,11 @@ function* readSnapshot(snapshot: ITextSnapshot): Generator<string> {
     if (parts.length > 0) yield parts.join("");
 }
 
-/** `_isTracked` — чтобы буфер не схлопнул батч от 1000 правок в одну (`_reduceOperations`). */
+/** `_isTracked` keeps the buffer from collapsing a batch of 1000+ edits into one (`_reduceOperations`). */
 function toBufferOperation(range: Range, text: string): ValidAnnotatedEditOperation {
-    // Stryker disable next-line BooleanLiteral: буфер лишь переносит флаг в результат
+    // Stryker disable next-line BooleanLiteral: the buffer only copies the flag into the result
     const forceMoveMarkers = false;
-    // Stryker disable next-line BooleanLiteral: без recordTrimAutoWhitespace флаг не читается
+    // Stryker disable next-line BooleanLiteral: without recordTrimAutoWhitespace the flag is never read
     const isAutoWhitespaceEdit = false;
     return new ValidAnnotatedEditOperation(null, range, text, forceMoveMarkers, isAutoWhitespaceEdit, true);
 }

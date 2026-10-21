@@ -8,8 +8,8 @@ import { EditorViewState } from "../common/viewModel/editorViewState.ts";
 
 import { EditorElement } from "./editorElement.ts";
 
-// Кадр ввода рендерится только по dirty-флагу: у standalone-редактора нет побочной
-// цепочки «selections → статус-бар», и пометить себя он обязан сам.
+// An input frame renders only on the dirty flag: a standalone editor has no side
+// "selections → status bar" chain, so it must mark itself.
 
 describe("EditorElement — markDirty на смену курсора", () => {
     it("reassign selections (печать, мышь, undo, команды) помечает layout грязным", () => {

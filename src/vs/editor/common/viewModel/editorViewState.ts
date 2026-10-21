@@ -48,12 +48,12 @@ interface IViewMarkerDecoration {
     readonly severity: IMarkerDecoration["severity"];
 }
 
-/** Параллельные массивы, а не объекты на ряд: проекция длиной с документ, аллокация на ряд ударила бы по большим файлам. */
+/** Parallel arrays, not per-row objects: the projection is document-sized, a per-row allocation would hurt large files. */
 interface IViewProjection {
-    /** `>= 0` — номер документной строки, `< 0` — код зоны ({@link encodeViewZoneRow}). */
+    /** `>= 0` is a document line number, `< 0` is a view zone code ({@link encodeViewZoneRow}). */
     rowDocLine: number[];
     rowStartOffset: number[];
-    /** -1 — строка скрыта свёрткой. */
+    /** -1 means the line is hidden by a fold. */
     firstRowOfDocLine: Int32Array;
 }
 
@@ -61,13 +61,13 @@ export class EditorViewState {
     private scrollLeftValue = 0;
     private scrollTopValue = 0;
 
-    /** Сеттеры шлют {@link onDidChangeView}: damage-tracking рисует только помеченное, молчаливый скролл оставил бы экран несвежим. */
+    /** Setters fire {@link onDidChangeView}: damage tracking paints only what's marked, a silent scroll would leave the screen stale. */
     public get scrollLeft(): number {
         return this.scrollLeftValue;
     }
 
     public set scrollLeft(value: number) {
-        // Инвариант «wrap ⇒ scrollLeft ≡ 0» держится здесь, а не проверками у каждого потребителя.
+        // The "wrap ⇒ scrollLeft ≡ 0" invariant is held here, not by checks in every consumer.
         const clamped = this.isWordWrapActive ? 0 : value;
         if (this.scrollLeftValue === clamped) return;
         this.scrollLeftValue = clamped;
@@ -86,25 +86,25 @@ export class EditorViewState {
 
     public viewportWidth = 80;
     public viewportHeight = 24;
-    /** Упрощение v1: `wordWrapColumn` ведёт себя как `bounded` — docs/TODO/WordWrap.md. */
+    /** v1 simplification: `wordWrapColumn` behaves like `bounded`, see docs/TODO/WordWrap.md. */
     public wordWrap: WordWrapMode = "off";
     public wordWrapColumn = 80;
     public cursorSurroundingLines = 0;
     /**
-     * Не настройка, а результат {@link runDetectIndentation}: {@link indentExplicitlySet}
-     * → детекция по содержимому → {@link configuredTabSize}.
+     * Not a setting but the result of {@link runDetectIndentation}: {@link indentExplicitlySet}
+     * → detection from content → {@link configuredTabSize}.
      */
     public tabSize = 4;
     public insertSpaces = false;
     public configuredTabSize = 4;
     public configuredInsertSpaces = false;
     public detectIndentation = true;
-    /** Отступ из `editor.options` (например, стоковый EditorConfig) главнее и детекции, и конфига. */
+    /** Indentation from `editor.options` (e.g. the stock EditorConfig extension) wins over both detection and config. */
     public indentExplicitlySet = false;
     /**
-     * Живёт здесь, а не на `EditorElement`: все мутации (клавиатура, paste, completion,
-     * rename/bulkEdit, `editor.applyEdit`) идут через эту точку. Мутаторы — no-op с
-     * `undefined`, как `executeEdits` → `false` в VS Code; курсор, скролл, фолдинг работают.
+     * Lives here, not on `EditorElement`: all mutations (keyboard, paste, completion,
+     * rename/bulkEdit, `editor.applyEdit`) go through this point. Mutators are no-ops returning
+     * `undefined`, like upstream `executeEdits` → `false`; cursor, scroll and folding still work.
      */
     public readOnly = false;
     private selectionsValue!: ISelection[];
@@ -121,7 +121,7 @@ export class EditorViewState {
         this.fireViewChange();
     }
 
-    /** -1 — активного совпадения нет. */
+    /** -1 means no active match. */
     public get currentSearchMatchIndex(): number {
         return this.currentSearchMatchIndexValue;
     }
@@ -137,44 +137,44 @@ export class EditorViewState {
     public readonly document: ITextDocument;
     public foldedRegions: IFoldingRegion[] = [];
     private viewZonesValue: readonly IViewZone[] = [];
-    /** Перед чтением токенов рендер обязан позвать `tokenStore.tokenizeViewport(top, bottom)`. */
+    /** Render must call `tokenStore.tokenizeViewport(top, bottom)` before reading tokens. */
     public tokenStore: DocumentTokenStore | undefined;
     public semanticTokens: SemanticTokensStore | undefined;
 
     /**
-     * Сессия Ctrl+D живёт здесь, чтобы умереть вместе со вью; логика — в
-     * `editor/contrib/multicursor/`, импорт type-only: рантайм-зависимости common → contrib нет.
+     * The Ctrl+D session lives here so it dies with the view; the logic is in
+     * `editor/contrib/multicursor/`, the import is type-only: no runtime common → contrib dependency.
      */
     public multiCursorSession: IMultiCursorFindSession | null = null;
 
     private projectionCache: IViewProjection | null = null;
     private zoneStartRowsCache: Map<number, number> | null = null;
-    // Сентинелы версий не несут смысла: первый rebuild гейтится projectionCache === null.
-    // Stryker disable next-line UnaryOperator: см. выше
+    // Version sentinels carry no meaning: the first rebuild is gated by projectionCache === null.
+    // Stryker disable next-line UnaryOperator: see above
     private projectionCacheDocVersion = -1;
     private foldsVersion = 0;
-    // Stryker disable next-line UnaryOperator: см. выше
+    // Stryker disable next-line UnaryOperator: see above
     private projectionCacheFoldsVersion = -1;
     private zonesVersion = 0;
-    // Stryker disable next-line UnaryOperator: см. выше
+    // Stryker disable next-line UnaryOperator: see above
     private projectionCacheZonesVersion = -1;
     /**
-     * Снапшоты wrap-входов, а не версии-счётчики: писателей у wordWrap/viewportWidth/tabSize
-     * много, «не забудь bump-нуть версию» — приглашение к багу. `-1` — wrap выключен.
+     * Snapshots of the wrap inputs, not version counters: wordWrap/viewportWidth/tabSize have many
+     * writers, and "don't forget to bump the version" invites bugs. `-1` means wrap is off.
      */
-    // Stryker disable next-line UnaryOperator: сентинел не несёт смысла — первый rebuild гейтится projectionCache === null
+    // Stryker disable next-line UnaryOperator: the sentinel carries no meaning, the first rebuild is gated by projectionCache === null
     private projectionCacheWrapWidth = -1;
-    // Stryker disable next-line UnaryOperator: см. выше
+    // Stryker disable next-line UnaryOperator: see above
     private projectionCacheTabSize = -1;
     private lineBreaksCacheValue: LineBreaksCache | null = null;
 
     /**
-     * Свои мутаторы пересчитывают выделения и фолды точно — ремап
-     * {@link remapForDocumentChange} для них был бы вторым сдвигом.
+     * Own mutators recompute selections and folds exactly; the
+     * {@link remapForDocumentChange} remap would shift them a second time.
      */
     private applyingOwnEdits = false;
     private readonly docContentSubscription: IDisposable;
-    // Stryker disable next-line ArrayDeclaration: мусорный элемент без id документ не знает — getDecorationRange даёт null
+    // Stryker disable next-line ArrayDeclaration: the document doesn't know a junk element without an id, getDecorationRange returns null
     private markerDecorationIds: readonly IViewMarkerDecoration[] = [];
 
     public constructor(document: ITextDocument, selections?: ISelection[]) {
@@ -192,14 +192,14 @@ export class EditorViewState {
         this.lineBreaksCacheValue?.dispose();
     }
 
-    /** Диапазоны становятся декорациями документа и едут с текстом (upstream `MarkerDecorations.update`). */
+    /** Ranges become document decorations and move with the text (upstream `MarkerDecorations.update`). */
     public setMarkerDecorations(decorations: readonly IMarkerDecoration[]): void {
         const ids = this.document.deltaDecorations(
             this.markerDecorationIds.map((decoration) => decoration.id),
             decorations.map((decoration) => ({
                 range: decoration.range,
                 options: {
-                    // Stryker disable next-line StringLiteral: описание — только для отладки, как в эталоне
+                    // Stryker disable next-line StringLiteral: the description is for debugging only, as in upstream
                     description: "marker-decoration",
                     stickiness: TrackedRangeStickiness.NeverGrowsWhenTypingAtEdges,
                 },
@@ -212,8 +212,8 @@ export class EditorViewState {
         const result: IMarkerDecoration[] = [];
         for (const { id, severity } of this.markerDecorationIds) {
             const range = this.document.getDecorationRange(id);
-            // Декорации вью снимает только она сама, так что null — лишь защита от чужого id.
-            // Stryker disable next-line ConditionalExpression: см. выше — снаружи её id никто не снимает
+            // Only the view itself removes its decorations, so null only guards against a foreign id.
+            // Stryker disable next-line ConditionalExpression: see above, nobody outside removes its ids
             if (range !== null) result.push({ range, severity });
         }
         return result;
@@ -223,7 +223,7 @@ export class EditorViewState {
         return this.wordWrap !== "off";
     }
 
-    /** `null` — wrap выключен. Скаляр — он же ключ инвалидации кеша; нижний кламп — в {@link computeLineBreakOffsets}. */
+    /** `null` means wrap is off. The scalar doubles as the cache invalidation key; the lower clamp is in {@link computeLineBreakOffsets}. */
     private effectiveWrapWidth(): number | null {
         if (this.wordWrap === "off") return null;
         if (this.wordWrap === "on") return this.viewportWidth;
@@ -231,13 +231,13 @@ export class EditorViewState {
     }
 
     private wrapBreaks(wrapWidth: number): LineBreaksCache {
-        // Stryker disable next-line ConditionalExpression: чистая мемоизация — пересозданный с теми же параметрами кеш даёт тот же результат, только медленнее
+        // Stryker disable next-line ConditionalExpression: pure memoization, a cache recreated with the same params gives the same result, only slower
         this.lineBreaksCacheValue ??= new LineBreaksCache(this.document, this.tabSize, wrapWidth);
         this.lineBreaksCacheValue.setParams(this.tabSize, wrapWidth);
         return this.lineBreaksCacheValue;
     }
 
-    /** Единственная законная дверь мутаторов к `document.applyEdits`. */
+    /** The only legitimate path from mutators to `document.applyEdits`. */
     private applyDocumentEdits(edits: readonly ITextEdit[]): ReturnType<ITextDocument["applyEdits"]> {
         this.applyingOwnEdits = true;
         try {
@@ -248,8 +248,8 @@ export class EditorViewState {
     }
 
     /**
-     * Ремап под чужую правку (другая вью, undo/redo, синтетический буфер) — строчный:
-     * позиции внутри изменённого диапазона клампятся к его концу, колоночный дрейф принят.
+     * Remap for a foreign edit (another view, undo/redo, synthetic buffer) is line-based:
+     * positions inside the changed range clamp to its end, column drift is accepted.
      */
     private remapForDocumentChange(change: IDocumentContentChange): void {
         const lineDelta = change.newEndLine - change.oldEndLine;
@@ -263,13 +263,13 @@ export class EditorViewState {
                 ? sel
                 : { anchor, active, idealColumn: sel.idealColumn };
         });
-        // Только при реальном сдвиге: холостой cursor-change дёргал бы статус-бар и host.
+        // Only on a real shift: an idle cursor change would poke the status bar and the extension host.
         if (remapped.some((sel, i) => sel !== this.selectionsValue[i])) {
             this.selections = remapped;
         }
 
-        // Правка выше вьюпорта: держим на экране те же строки. Со свёртками и зонами
-        // логический сдвиг ≠ визуальному, честный пересчёт не стоит своей цены.
+        // Edit above the viewport: keep the same lines on screen. With folds and view zones
+        // the logical shift ≠ the visual one, and an exact recompute isn't worth its cost.
         if (
             lineDelta !== 0 &&
             this.scrollTopValue > 0 &&
@@ -291,15 +291,15 @@ export class EditorViewState {
         return line === pos.line && character === pos.character ? pos : { line, character };
     }
 
-    /** Порог {@link STOP_RENDERING_LINE_AFTER} — чтобы экстремально длинная строка не была O(длины) ни на одном пути. */
+    /** The {@link STOP_RENDERING_LINE_AFTER} cap keeps an extremely long line from being O(length) on any path. */
     public displayLineFor(lineContent: string): DisplayLine {
         return new DisplayLine(lineContent, this.tabSize, STOP_RENDERING_LINE_AFTER);
     }
 
     /**
-     * Присваивание нормализует через {@link sortAndMergeSelections} и шлёт событие;
-     * мутация массива на месте события не шлёт. Нормализация здесь, а не у мутаторов:
-     * писателей много. Первичное — `selections[0]`, самое верхнее в документе.
+     * Assignment normalizes via {@link sortAndMergeSelections} and fires the event;
+     * mutating the array in place does not. Normalization is here, not in the mutators:
+     * there are many writers. The primary one is `selections[0]`, the topmost in the document.
      */
     public get selections(): ISelection[] {
         return this.selectionsValue;
@@ -323,7 +323,7 @@ export class EditorViewState {
         this.fireViewChange();
     }
 
-    /** Пересчитывается целиком на каждое изменение конфига: иначе выключение `editor.detectIndentation` некуда откатывать. */
+    /** Fully recomputed on every config change: otherwise turning off `editor.detectIndentation` has nothing to revert to. */
     public runDetectIndentation(): void {
         if (this.indentExplicitlySet) return;
         const defaults = { tabSize: this.configuredTabSize, insertSpaces: this.configuredInsertSpaces };
@@ -337,8 +337,8 @@ export class EditorViewState {
     }
 
     /**
-     * Нормализует: пустые зоны выбрасывает, якоря клампит в `[-1, lineCount-1]`, одинаковые
-     * якоря сливает. Тот же набор — no-op без события: сеттер зовут на каждый пересчёт диффа.
+     * Normalizes: drops empty view zones, clamps anchors to `[-1, lineCount-1]`, merges equal
+     * anchors. The same set is a no-op without an event: the setter is called on every diff recompute.
      */
     public setViewZones(zones: readonly IViewZone[]): void {
         const byAnchor = new Map<number, number>();
@@ -376,19 +376,19 @@ export class EditorViewState {
         return decodeViewZoneAnchor(row);
     }
 
-    /** O(1): стартовые строки зон кэшируются с проекцией — в кодировке ряда offset не хранится. */
+    /** O(1): view zone start rows are cached with the projection, since the row encoding doesn't store the offset. */
     public zoneRowForViewLine(viewLine: number): { anchor: number; offset: number } | null {
         const rows = this.buildVisibleLines();
         const row = rows.at(viewLine);
         if (viewLine < 0 || row === undefined || row >= 0) return null;
         const anchor = decodeViewZoneAnchor(row);
-        /* v8 ignore start -- ?? недостижимы: кэш стартов строит тот же buildVisibleLines, якорь взят из проекции */
+        /* v8 ignore start -- ?? is unreachable: the same buildVisibleLines builds the start cache, the anchor comes from the projection */
         const start = this.zoneStartRowsCache?.get(anchor) ?? 0;
         /* v8 ignore stop */
         return { anchor, offset: viewLine - start };
     }
 
-    /** У зоны — её якорь (видимая строка выше), у зоны перед началом файла — первая видимая ниже. */
+    /** For a view zone, its anchor (the visible line above); for a zone before the file start, the first visible line below. */
     public docLineForViewLine(viewLine: number): number {
         const rows = this.buildVisibleLines();
         const clamped = Math.min(Math.max(0, viewLine), rows.length - 1);
@@ -398,7 +398,7 @@ export class EditorViewState {
         for (let i = clamped + 1; i < rows.length; i++) {
             if (rows[i] >= 0) return rows[i];
         }
-        /* v8 ignore start -- недостижимо: документ не бывает пустым, хотя бы одна doc-строка во вью есть */
+        /* v8 ignore start -- unreachable: a document is never empty, the view has at least one doc line */
         return 0;
         /* v8 ignore stop */
     }
@@ -419,7 +419,7 @@ export class EditorViewState {
         }
     }
 
-    /** «Innermost» — кандидат с наибольшим `startLine`. */
+    /** "Innermost" is the candidate with the largest `startLine`. */
     private innermostRegionContaining(
         line: number,
         accept: (region: IFoldingRegion) => boolean,
@@ -539,7 +539,7 @@ export class EditorViewState {
         if (target !== undefined) this.goToPosition(target.startLine, 0);
     }
 
-    /** Наружный — его заголовок всегда виден. */
+    /** The outermost one: its header is always visible. */
     private outermostCollapsedRegionHiding(line: number): IFoldingRegion | undefined {
         let best: IFoldingRegion | undefined;
         for (const region of this.foldedRegions) {
@@ -550,11 +550,11 @@ export class EditorViewState {
         return best;
     }
 
-    /** Курсор, скрытый свёрткой, — на заголовок региона, как в VS Code. */
+    /** A cursor hidden by a fold moves to the region header, as in upstream. */
     private reconcileHiddenCursors(): void {
         const previous = this.selections;
-        // Сравниваем ДО присваивания: сеттер сливает выделения, поэтому после него длины
-        // могли разойтись и поэлементное сличение по индексу врало бы.
+        // Compare BEFORE assigning: the setter merges selections, so afterwards the lengths
+        // may differ and an index-wise comparison would lie.
         const mapped = previous.map((sel) => {
             if (this.logicalToVisualLine(sel.active.line) >= 0) return sel;
             const region = this.outermostCollapsedRegionHiding(sel.active.line);
@@ -590,7 +590,7 @@ export class EditorViewState {
         return this.document.getLineContent(logicalLine);
     }
 
-    /** Не токенизирует: рендер обязан сначала позвать `tokenStore.tokenizeViewport(...)`. */
+    /** Doesn't tokenize: render must call `tokenStore.tokenizeViewport(...)` first. */
     public getViewLineTokens(visualLineNumber: number): LineTokens | undefined {
         if (!this.tokenStore) return undefined;
         const logicalLine = this.visualToLogicalLine(visualLineNumber);
@@ -605,14 +605,14 @@ export class EditorViewState {
         return this.semanticTokens.getLineTokens(this.visualToLogicalLine(visualLineNumber));
     }
 
-    /** -1 — строка скрыта свёрткой. */
+    /** -1 means the line is hidden by a fold. */
     public logicalToVisualLine(logicalLine: number): number {
         const { firstRowOfDocLine } = this.buildProjection();
         if (logicalLine < 0 || logicalLine >= firstRowOfDocLine.length) return -1;
         return firstRowOfDocLine[logicalLine];
     }
 
-    /** -1 и за границей, и у ряда-зоны: различает {@link viewLineKind}, ближайшую строку даёт {@link docLineForViewLine}. */
+    /** -1 both out of bounds and on a view zone row: {@link viewLineKind} tells them apart, {@link docLineForViewLine} gives the nearest line. */
     public visualToLogicalLine(visualLine: number): number {
         const visible = this.buildVisibleLines();
         if (visualLine < 0 || visualLine >= visible.length) {
@@ -622,13 +622,13 @@ export class EditorViewState {
         return row >= 0 ? row : -1;
     }
 
-    /** `[start, end)`; `{0, 0}` у зон и за границами вью. */
+    /** `[start, end)`; `{0, 0}` for view zones and outside the view. */
     public viewLineRange(viewLine: number): { start: number; end: number } {
         const { rowDocLine, rowStartOffset } = this.buildProjection();
         const doc = rowDocLine.at(viewLine);
         if (viewLine < 0 || doc === undefined || doc < 0) return { start: 0, end: 0 };
         const start = rowStartOffset[viewLine];
-        // Фрагменты строки контигуозны (зона встаёт только после последнего).
+        // A line's fragments are contiguous (a view zone only goes after the last one).
         const end = rowDocLine[viewLine + 1] === doc ? rowStartOffset[viewLine + 1] : this.document.getLineLength(doc);
         return { start, end };
     }
@@ -640,7 +640,7 @@ export class EditorViewState {
         return this.displayLineFor(this.document.getLineContent(rowDocLine[viewLine])).offsetToColumn(start);
     }
 
-    /** Offset на границе фрагментов — СЛЕДУЮЩИЙ ряд (без cursor affinity, упрощение v1 — docs/TODO/WordWrap.md). */
+    /** An offset on a fragment boundary maps to the NEXT row (no cursor affinity, v1 simplification, see docs/TODO/WordWrap.md). */
     public viewLineForPosition(line: number, character: number): number {
         let row = this.logicalToVisualLine(line);
         const { rowDocLine, rowStartOffset } = this.buildProjection();
@@ -658,7 +658,7 @@ export class EditorViewState {
         return this.document.getTextInRange(selectionToRange(sel));
     }
 
-    /** Для мультикурсорных Copy/Cut: на одном первичном Cut удалял бы больше, чем скопировал. */
+    /** For multi-cursor Copy/Cut: with only the primary one, Cut would delete more than it copied. */
     public getSelectedTexts(): string[] {
         return this.selections.map((sel) =>
             isSelectionCollapsed(sel) ? "" : this.document.getTextInRange(selectionToRange(sel)),
@@ -673,7 +673,7 @@ export class EditorViewState {
         return this.typeEach(() => text);
     }
 
-    /** Текст у каждой каретки свой: Tab добирает пробелами до СВОЕГО табстопа. */
+    /** Each cursor gets its own text: Tab pads with spaces to ITS OWN tab stop. */
     private typeEach(textFor: (range: IRange) => string): IUndoElement | undefined {
         if (this.readOnly) return undefined;
         const beforeSelections = this.cloneSelections();
@@ -694,15 +694,15 @@ export class EditorViewState {
         };
     }
 
-    /** Каретка между `text` и `close`; решение «закрывать ли» — у вызывающего (`planAutoClose`). `close` однострочный. */
+    /** The cursor lands between `text` and `close`; the caller decides whether to close (`planAutoClose`). `close` is single-line. */
     public typeWithAutoClose(text: string, close: string): IUndoElement | undefined {
         if (this.readOnly) return undefined;
         const beforeSelections = this.cloneSelections();
         const versionBefore = this.document.versionId;
         const edits = this.buildEditsFromSelections(() => text + close);
         const { appliedVersion, inverseEdits } = this.applyDocumentEdits(edits);
-        // Stryker disable next-line CallExpression: токены пары однострочные, число строк не
-        // меняется — двигать границы фолдов нечего; вызов держит общий порядок мутаторов
+        // Stryker disable next-line CallExpression: pair tokens are single-line, the line count doesn't
+        // change, so no fold bounds move; the call keeps the common mutator order
         this.adjustFoldingRegionsForEdits(edits);
         this.selections = this.selectionsAfterEdits(inverseEdits).map((sel) =>
             createCursorSelection(sel.active.line, sel.active.character - close.length),
@@ -719,7 +719,7 @@ export class EditorViewState {
         };
     }
 
-    /** Документ не меняется — undo-шага нет. Прекондицию «под кареткой этот символ» держит вызывающий. */
+    /** The document doesn't change, so no undo step. The caller ensures the precondition "this char is under the cursor". */
     public typeOverClosingChar(): void {
         this.selections = this.selections.map((sel) =>
             createCursorSelection(sel.active.line, sel.active.character + 1),
@@ -750,11 +750,11 @@ export class EditorViewState {
             );
         }
         const { appliedVersion, inverseEdits } = this.applyDocumentEdits(edits);
-        // Stryker disable next-line CallExpression: как и в typeWithAutoClose — обрамление
-        // однострочными токенами не меняет число строк, границам фолдов двигаться некуда
+        // Stryker disable next-line CallExpression: as in typeWithAutoClose, surrounding with
+        // single-line tokens doesn't change the line count, fold bounds have nowhere to move
         this.adjustFoldingRegionsForEdits(edits);
 
-        // Токены однострочные — дрейф только по колонкам, сдвиг копится по строкам в документном порядке.
+        // Tokens are single-line: drift is column-only, the shift accumulates per line in document order.
         const lineDelta = new Map<number, number>();
         const remapped: ISelection[] = [];
         for (const sel of sorted) {
@@ -764,8 +764,8 @@ export class EditorViewState {
                 range.end.character +
                 (lineDelta.get(range.end.line) ?? 0) +
                 (range.end.line === range.start.line ? open.length : 0);
-            // Stryker disable next-line EqualityOperator: у схлопнутого выделения (равенство)
-            // обе ветки строят одну и ту же пустую пару позиций — направление неразличимо
+            // Stryker disable next-line EqualityOperator: for a collapsed selection (equality)
+            // both branches build the same empty position pair, the direction is indistinguishable
             const ltr = comparePositions(sel.anchor, sel.active) <= 0;
             remapped.push(
                 ltr
@@ -789,9 +789,9 @@ export class EditorViewState {
     }
 
     /**
-     * Выделения после — как у `editor.executeEdits` эталона: их назначает `computeCursorState`
-     * (обратные правки — в порядке `edits`), без него или при `null` прежние сдвигаются вслед
-     * за правками. Каретку на каждую правку не ставим: правок несколько, каретка одна.
+     * Selections afterwards follow upstream `editor.executeEdits`: `computeCursorState` assigns them
+     * (inverse edits in `edits` order); without it or on `null` the previous ones follow the
+     * edits. No cursor per edit: there are several edits but one cursor.
      */
     public applyEdits(
         edits: readonly ITextEdit[],
@@ -801,13 +801,13 @@ export class EditorViewState {
         if (this.readOnly || edits.length === 0) return undefined;
         const beforeSelections = this.cloneSelections();
         const versionBefore = this.document.versionId;
-        // Документный порядок — тот же, в котором документ вернёт обратные правки.
+        // Document order is the order in which the document returns inverse edits.
         const order = edits.map((_, i) => i).sort((a, b) => compareTextEditsInDocumentOrder(edits[a], edits[b]));
         const sorted = order.map((i) => edits[i]);
         const tracked = planTrackedSelections(this.document, sorted, this.selections);
         const { appliedVersion, inverseEdits } = this.applyDocumentEdits(edits);
         this.adjustFoldingRegionsForEdits(edits);
-        // Stryker disable next-line ArrayDeclaration: order — перестановка индексов edits, каждый слот перезаписывается
+        // Stryker disable next-line ArrayDeclaration: order is a permutation of edits indices, every slot is overwritten
         const inverseInInputOrder: ITextEdit[] = [];
         order.forEach((input, k) => (inverseInInputOrder[input] = inverseEdits[k]));
         this.selections =
@@ -841,7 +841,7 @@ export class EditorViewState {
         const edits = sorted.map((sel, i) => createTextEdit(selectionToRange(sel), plans[i].editText));
         const { appliedVersion, inverseEdits } = this.applyDocumentEdits(edits);
         this.adjustFoldingRegionsForEdits(edits);
-        // У раскрытия блока закрывающая скобка заняла последнюю вставленную строку — каретка на строку выше.
+        // On block expansion the closing bracket takes the last inserted line, so the cursor goes one line up.
         this.selections = this.selectionsAfterEdits(inverseEdits).map((sel, i) =>
             plans[i].blockExpand ? createCursorSelection(sel.active.line - 1, plans[i].cursorColumn) : sel,
         );
@@ -977,13 +977,13 @@ export class EditorViewState {
         this.ensureCursorVisible();
     }
 
-    /** idealColumn не меняет — вертикальная навигация его сохраняет. */
+    /** Keeps idealColumn: vertical navigation preserves it. */
     public cursorUp(inSelectionMode = false): void {
         this.selections = this.selections.map((sel) => this.moveVertically(sel, -1, inSelectionMode));
         this.ensureCursorVisible();
     }
 
-    /** idealColumn не меняет — вертикальная навигация его сохраняет. */
+    /** Keeps idealColumn: vertical navigation preserves it. */
     public cursorDown(inSelectionMode = false): void {
         this.selections = this.selections.map((sel) => this.moveVertically(sel, 1, inSelectionMode));
         this.ensureCursorVisible();
@@ -996,9 +996,9 @@ export class EditorViewState {
     }
 
     /**
-     * При wrap ходит по РЯДАМ. Липкая колонка держится относительно начала фрагмента
-     * (`idealAbs − startCol`), а возвращённый `idealColumn` — снова абсолютный: следующий
-     * шаг вычтет стартовую колонку и получит ту же относительную. `null` — край вью.
+     * With wrap, steps by visual ROWS. The sticky column is kept relative to the fragment start
+     * (`idealAbs − startCol`), while the returned `idealColumn` is absolute again: the next step
+     * subtracts the start column and gets the same relative one. `null` means the view edge.
      */
     private stepPositionVertically(
         pos: IPosition,
@@ -1007,7 +1007,7 @@ export class EditorViewState {
     ): { line: number; character: number; idealColumn: number } | null {
         const currentRow = this.viewLineForPosition(pos.line, pos.character);
         if (currentRow < 0) {
-            // Каретка на скрытой строке (до reconcileHiddenCursors) — построчная посадка.
+            // Cursor on a hidden line (before reconcileHiddenCursors): land line by line.
             const fallbackLine = direction === -1 ? this.previousVisibleLine(pos.line) : this.nextVisibleLine(pos.line);
             if (fallbackLine < 0) return null;
             const dl = this.displayLineFor(this.document.getLineContent(fallbackLine));
@@ -1016,7 +1016,7 @@ export class EditorViewState {
 
         const { rowDocLine } = this.buildProjection();
         let targetRow = currentRow + direction;
-        // Индекс за краем даёт undefined — он сам останавливает скан (не < 0).
+        // An out-of-range index yields undefined, which stops the scan by itself (not < 0).
         while (rowDocLine[targetRow] < 0) {
             targetRow += direction;
         }
@@ -1026,7 +1026,7 @@ export class EditorViewState {
         return this.landOnRow(targetRow, idealInRow);
     }
 
-    /** У не-последнего фрагмента — кламп к последней графеме: offset на границе принадлежит следующему ряду. */
+    /** On a non-last fragment, clamps to the last grapheme: the boundary offset belongs to the next row. */
     private landOnRow(targetRow: number, idealInRow: number): { line: number; character: number; idealColumn: number } {
         const targetLine = this.buildProjection().rowDocLine[targetRow];
         const targetStartCol = this.viewLineStartColumn(targetRow);
@@ -1063,12 +1063,12 @@ export class EditorViewState {
         this.ensureCursorVisible();
     }
 
-    /** Smart home, как в VS Code: отступ ↔ колонка 0. */
+    /** Smart home, as in upstream: indentation ↔ column 0. */
     public cursorHome(inSelectionMode = false): void {
         this.selections = this.selections.map((sel) => {
             const content = this.document.getLineContent(sel.active.line);
-            // На ряду-продолжении wrap — к началу фрагмента; smart-home с продолжения нет
-            // (упрощение v1, docs/TODO/WordWrap.md).
+            // On a wrapped continuation row, go to the fragment start; no smart home from a
+            // continuation (v1 simplification, docs/TODO/WordWrap.md).
             const row = this.viewLineForPosition(sel.active.line, sel.active.character);
             const rowStart = this.viewLineRange(row).start;
             if (rowStart > 0) {
@@ -1083,7 +1083,7 @@ export class EditorViewState {
         this.ensureCursorVisible();
     }
 
-    /** VS Code `cursorLineStart` (Mac Ctrl+A): в отличие от {@link cursorHome}, на отступе не останавливается. */
+    /** Upstream `cursorLineStart` (Mac Ctrl+A): unlike {@link cursorHome}, doesn't stop at the indentation. */
     public cursorLineStart(inSelectionMode = false): void {
         this.selections = this.selections.map((sel) => {
             const row = this.viewLineForPosition(sel.active.line, sel.active.character);
@@ -1093,12 +1093,12 @@ export class EditorViewState {
         this.ensureCursorVisible();
     }
 
-    /** idealColumn = MAX_SAFE_INTEGER — Up/Down «липнут» к правому краю. */
+    /** idealColumn = MAX_SAFE_INTEGER makes Up/Down stick to the right edge. */
     public cursorEnd(inSelectionMode = false): void {
         this.selections = this.selections.map((sel) => {
             const lineLen = this.document.getLineLength(sel.active.line);
-            // На не-последнем фрагменте — к последней графеме фрагмента: offset границы
-            // принадлежит следующему ряду (без cursor affinity, docs/TODO/WordWrap.md).
+            // On a non-last fragment, go to its last grapheme: the boundary offset belongs to
+            // the next row (no cursor affinity, docs/TODO/WordWrap.md).
             const rowEnd = this.viewLineRange(this.viewLineForPosition(sel.active.line, sel.active.character)).end;
             if (rowEnd !== lineLen) {
                 const dl = this.displayLineFor(this.document.getLineContent(sel.active.line));
@@ -1163,15 +1163,15 @@ export class EditorViewState {
         this.insertCursorVertically(1);
     }
 
-    /** Выживает первичное — самое верхнее, за ним стоит аппаратный курсор терминала. */
+    /** The primary (topmost) one survives: the terminal's hardware cursor follows it. */
     public removeSecondaryCursors(): void {
-        // Холостое присваивание разбудило бы статус-бар, историю и ext-host впустую.
+        // An idle assignment would wake the status bar, history and extension host for nothing.
         if (this.selections.length <= 1) return;
         this.selections = [this.selections[0]];
         this.ensureCursorVisible();
     }
 
-    /** Последнюю каретку не снимаем: редактор без курсора не бывает. */
+    /** Never removes the last cursor: an editor always has one. */
     public toggleCursorAt(line: number, character: number): void {
         const position = createPosition(line, character);
         const covering = this.selections.findIndex((sel) => rangeContainsPosition(selectionToRange(sel), position));
@@ -1186,8 +1186,8 @@ export class EditorViewState {
     }
 
     /**
-     * Повторное нажатие наращивает пачку даром: копии внутренних кареток схлопываются
-     * слиянием в сеттере — как `addCursorUp` в VS Code полагается на `normalize()`.
+     * Repeated presses grow the stack for free: copies of inner cursors collapse via the
+     * setter's merge, just as upstream `addCursorUp` relies on `normalize()`.
      */
     private insertCursorVertically(direction: 1 | -1): void {
         const added: ISelection[] = [];
@@ -1201,7 +1201,7 @@ export class EditorViewState {
         this.revealSelection(direction === -1 ? this.selections[0] : this.selections[this.selections.length - 1]);
     }
 
-    /** `anchor` — по своей дисплейной колонке, а не по `idealColumn`: иначе выделение перекосит на табах. */
+    /** `anchor` moves by its own display column, not `idealColumn`: otherwise tabs would skew the selection. */
     private translateSelectionToAdjacentLine(selection: ISelection, direction: 1 | -1): ISelection | null {
         const idealColumn = this.idealColumnOf(selection);
         const activeStep = this.stepPositionVertically(selection.active, idealColumn, direction);
@@ -1214,8 +1214,8 @@ export class EditorViewState {
         const anchorContent = this.document.getLineContent(selection.anchor.line);
         const anchorColumn = this.displayLineFor(anchorContent).offsetToColumn(selection.anchor.character);
         const anchorStep = this.stepPositionVertically(selection.anchor, anchorColumn, direction);
-        // Якорь упёрся в край, а active — нет: копия легла бы внутрь исходного выделения,
-        // слияние съело бы её, а событие смены курсора вылетело бы холостым.
+        // The anchor hit the edge but active didn't: the copy would land inside the original
+        // selection, the merge would eat it, and the cursor change event would fire idle.
         if (anchorStep === null) return null;
 
         return createSelection(
@@ -1227,7 +1227,7 @@ export class EditorViewState {
         );
     }
 
-    /** Без `idealColumn` — колонка с учётом табов и широких символов, а не посимвольный fallback `getIdealColumn`. */
+    /** Without `idealColumn`, the column accounts for tabs and wide chars, unlike the per-char fallback of `getIdealColumn`. */
     private idealColumnOf(selection: ISelection): number {
         if (selection.idealColumn !== undefined) return selection.idealColumn;
         const content = this.document.getLineContent(selection.active.line);
@@ -1242,18 +1242,18 @@ export class EditorViewState {
         this.cursorPage(-1, inSelectionMode);
     }
 
-    /** Страница — в строках ВЬЮ: зоны тоже занимают экран, шаг по документным уводил бы дальше видимого. */
+    /** A page is measured in VIEW lines: view zones take screen space too, stepping by document lines would overshoot. */
     private cursorPage(direction: 1 | -1, inSelectionMode: boolean): void {
         const pageSize = Math.max(1, this.viewportHeight - 1);
         this.selections = this.selections.map((sel) => {
             const pos = sel.active;
             const idealAbs = this.idealColumnOf(sel);
             const currentView = this.viewLineForPosition(pos.line, pos.character);
-            /* v8 ignore start -- defensive: скрытая каретка выправляется reconcileHiddenCursors до команд */
+            /* v8 ignore start -- defensive: reconcileHiddenCursors fixes a hidden cursor before commands run */
             if (currentView < 0) return sel;
             /* v8 ignore stop */
             const targetView = Math.min(Math.max(0, currentView + direction * pageSize), this.getViewLineCount() - 1);
-            // Ряд-зона — ближайший документный, как docLineForViewLine: сначала выше, потом ниже.
+            // A view zone row maps to the nearest document row, as in docLineForViewLine: above first, then below.
             const { rowDocLine } = this.buildProjection();
             let targetRow = targetView;
             while (rowDocLine[targetRow] < 0) targetRow--;
@@ -1417,7 +1417,7 @@ export class EditorViewState {
         return undefined;
     }
 
-    /** Однострочное выделение — вставка до следующего табстопа ({@link indentUnitAt}), многострочное — уровень каждой строке. */
+    /** A single-line selection inserts up to the next tab stop ({@link indentUnitAt}), a multi-line one adds a level to each line. */
     public indentLines(): IUndoElement | undefined {
         const spansMultipleLines = this.selections.some((sel) => {
             const range = selectionToRange(sel);
@@ -1433,14 +1433,14 @@ export class EditorViewState {
         return this.shiftIndent(-1);
     }
 
-    /** К табстопам не выравнивает: эталон тоже добавляет строке ровно один уровень. */
+    /** Doesn't align to tab stops: upstream also adds exactly one level per line. */
     private indentUnit(): string {
         return this.insertSpaces ? " ".repeat(this.tabSize) : "\t";
     }
 
     /**
-     * До СЛЕДУЮЩЕГО табстопа, как VS Code (`ab|` при tabSize 4 → колонка 4, а не 6), по
-     * видимой колонке, а не по offset: таб слева и широкая графема сдвигают табстоп.
+     * Up to the NEXT tab stop, as in upstream (`ab|` with tabSize 4 → column 4, not 6), by
+     * visible column, not offset: a tab on the left or a wide grapheme shifts the tab stop.
      */
     private indentUnitAt(pos: IPosition): string {
         if (!this.insertSpaces) return "\t";
@@ -1486,7 +1486,7 @@ export class EditorViewState {
         };
     }
 
-    /** Конец выделения на колонке 0 следующей строки её не захватывает — как VS Code. */
+    /** A selection end at column 0 of the next line doesn't include that line, as in upstream. */
     private collectTouchedLines(): number[] {
         const lines = new Set<number>();
         for (const sel of this.selections) {
@@ -1502,7 +1502,7 @@ export class EditorViewState {
         return [...lines].sort((a, b) => a - b);
     }
 
-    /** На indent конец на колонке 0 остаётся на 0; на outdent точка внутри удалённого — к началу строки. */
+    /** On indent, an end at column 0 stays at 0; on outdent, a point inside the removed part goes to line start. */
     private remapSelectionForIndent(sel: ISelection, perLine: Map<number, number>): ISelection {
         const remap = (pos: IPosition): IPosition => {
             const delta = perLine.get(pos.line);
@@ -1544,7 +1544,7 @@ export class EditorViewState {
         return this.applyLineOperation("deleteLines", computeDeleteLines(this.document, this.sortedSelections()));
     }
 
-    /** Кламп к документу: чистые функции держат колонку каретки, а строка под ней могла стать короче. */
+    /** Clamps to the document: the pure functions keep the cursor column, but the line under it may have shrunk. */
     private applyLineOperation(label: string, computed: ILineOperationResult | null): IUndoElement | undefined {
         if (this.readOnly || computed === null) return undefined;
         const beforeSelections = this.cloneSelections();
@@ -1564,7 +1564,7 @@ export class EditorViewState {
         };
     }
 
-    /** Не только защита: deleteLines сажает каретку на строку ЗА новым концом документа — кламп возвращает её. */
+    /** Not just a guard: deleteLines puts the cursor on a line PAST the new document end, and the clamp brings it back. */
     private clampSelectionToDocument(sel: ISelection): ISelection {
         const clamp = (pos: IPosition): IPosition => {
             const line = Math.max(0, Math.min(pos.line, this.document.lineCount - 1));
@@ -1599,11 +1599,11 @@ export class EditorViewState {
     }
 
     /**
-     * `pasteOnNewLine` — линейная вставка VS Code: строка, скопированная ПУСТЫМ выделением,
-     * ложится строкой выше курсорной; действует на каждую пустую каретку отдельно.
+     * `pasteOnNewLine` is upstream's whole-line paste: a line copied from an EMPTY selection
+     * goes in as a line above the cursor line; applies to each empty cursor separately.
      */
     public pasteText(text: string, pasteOnNewLine: boolean): IUndoElement | undefined {
-        // Пустой текст (-1 === -1) тоже проходит — безобидно: обе ветки дают пустые правки.
+        // Empty text (-1 === -1) passes too, harmlessly: both branches produce empty edits.
         const linewise = pasteOnNewLine && text.indexOf("\n") === text.length - 1;
         if (!linewise) return this.insertText(text);
         if (this.readOnly) return undefined;
@@ -1617,7 +1617,7 @@ export class EditorViewState {
         );
         const { appliedVersion, inverseEdits } = this.applyDocumentEdits(edits);
         this.adjustFoldingRegionsForEdits(edits);
-        // Каретку в конце вставленного (начало съехавшей строки) возвращаем в её колонку.
+        // A cursor at the end of the inserted text (start of the shifted line) goes back to its column.
         this.selections = this.selectionsAfterEdits(inverseEdits).map((after, i) =>
             isSelectionCollapsed(sorted[i])
                 ? createCursorSelection(after.active.line, sorted[i].active.character)
@@ -1650,7 +1650,7 @@ export class EditorViewState {
         this.revealPosition(range.start);
     }
 
-    /** Для команд, добавляющих выделение: после нормализации новое может оказаться где угодно, а не в `selections[0]`. */
+    /** For commands that add a selection: after normalization the new one may end up anywhere, not in `selections[0]`. */
     public revealSelection(selection: ISelection): void {
         const range = selectionToRange(selection);
         this.ensureLineVisible(range.start.line);
@@ -1658,7 +1658,7 @@ export class EditorViewState {
         this.revealPosition(selection.active);
     }
 
-    /** После пересчёта фолдинга, который мог свернуть регион вокруг правленой строки. */
+    /** After a folding recompute that may have collapsed a region around the edited line. */
     public ensurePrimaryCursorVisible(): void {
         if (this.selections.length === 0) return;
         this.ensureLineVisible(this.selections[0].active.line);
@@ -1699,13 +1699,13 @@ export class EditorViewState {
     private revealPosition(pos: IPosition): void {
         if (this.viewportWidth <= 0 || this.viewportHeight <= 0) return;
 
-        // При wrap — РЯД позиции, а не первый фрагмент: иначе хвост длинной строки остался бы за краем.
+        // With wrap, use the position's ROW, not the first fragment: otherwise a long line's tail stays off screen.
         const visualLine = this.viewLineForPosition(pos.line, pos.character);
         /* v8 ignore start -- callers (goToPosition/revealRange/restoreSelections) expand folds before revealing, so a hidden line never reaches here */
         if (visualLine < 0) return;
         /* v8 ignore stop */
 
-        // Отступ ограничен половиной вьюпорта, иначе края сойдутся и вытолкнут курсор.
+        // The margin is capped at half the viewport, otherwise the edges would meet and push the cursor out.
         const maxMargin = Math.floor((this.viewportHeight - 1) / 2);
         const margin = Math.max(0, Math.min(this.cursorSurroundingLines, maxMargin));
 
@@ -1715,11 +1715,11 @@ export class EditorViewState {
             this.scrollTop = visualLine - this.viewportHeight + 1 + margin;
         }
 
-        // При wrap не гейтим: сеттер scrollLeft держит «wrap ⇒ 0», записи ниже — no-op.
+        // No wrap gate here: the scrollLeft setter holds "wrap ⇒ 0", so the writes below are no-ops.
         const lineContent = this.document.getLineContent(pos.line);
         const dl = this.displayLineFor(lineContent);
         const col = dl.offsetToColumn(pos.character);
-        // На обрезанной строке — до последней клетки плашки «[…]», а не её обрезка у края.
+        // On a truncated line, reveal up to the last cell of the truncation badge, not a clipped badge at the edge.
         const revealCol = dl.isTruncated && col >= dl.displayWidth ? col + LONG_LINE_TRUNCATION_BADGE_WIDTH - 1 : col;
         if (col < this.scrollLeft) {
             this.scrollLeft = col;
@@ -1735,7 +1735,7 @@ export class EditorViewState {
     private buildProjection(): IViewProjection {
         const wrapWidth = this.effectiveWrapWidth() ?? -1;
         if (
-            // Stryker disable next-line ConditionalExpression: null-гейт — чистая мемоизация; сентинелы версий не совпадают с реальными, так что мутант всё равно уходит в rebuild
+            // Stryker disable next-line ConditionalExpression: the null gate is pure memoization; version sentinels never match real versions, so the mutant still rebuilds
             this.projectionCache !== null &&
             this.projectionCacheDocVersion === this.document.versionId &&
             this.projectionCacheFoldsVersion === this.foldsVersion &&
@@ -1786,19 +1786,19 @@ export class EditorViewState {
         }
 
         const { rowDocLine, rowStartOffset } =
-            // Stryker disable next-line ConditionalExpression: fast path — insertViewZones с пустым списком зон возвращает те же массивы
+            // Stryker disable next-line ConditionalExpression: fast path, insertViewZones with an empty zone list returns the same arrays
             this.viewZonesValue.length === 0
                 ? { rowDocLine: visible, rowStartOffset: startOffsets }
                 : insertViewZones(visible, startOffsets, this.viewZonesValue);
 
-        // Якоря после нормализации уникальны — первая встреченная строка зоны и есть её начало.
+        // Anchors are unique after normalization, so the first row seen for a view zone is its start.
         let zoneStarts: Map<number, number> | null = null;
         if (this.viewZonesValue.length > 0) {
             zoneStarts = new Map();
-            // Мутанты отсева неубиваемы: «якорь» от документного ряда (decode
-            // положительного числа) уходит в чужое пространство ключей (<= -3
-            // против реальных >= -1) и никогда не читается.
-            // Stryker disable EqualityOperator,ConditionalExpression: см. выше
+            // Filter mutants are unkillable: an "anchor" from a document row (decoding a
+            // positive number) lands in a foreign key space (<= -3 vs real >= -1)
+            // and is never read.
+            // Stryker disable EqualityOperator,ConditionalExpression: see above
             for (let i = 0; i < rowDocLine.length; i++) {
                 if (rowDocLine[i] < 0) {
                     const anchor = decodeViewZoneAnchor(rowDocLine[i]);
@@ -1810,10 +1810,10 @@ export class EditorViewState {
         this.zoneStartRowsCache = zoneStarts;
 
         const firstRowOfDocLine = new Int32Array(this.document.lineCount).fill(-1);
-        // Stryker disable next-line EqualityOperator: лишняя итерация читает undefined и отсеивается сравнением с -1
+        // Stryker disable next-line EqualityOperator: the extra iteration reads undefined and is filtered by the -1 comparison
         for (let i = 0; i < rowDocLine.length; i++) {
             const doc = rowDocLine[i];
-            // Коды зон отсеиваются сами: Int32Array по отрицательному индексу даёт undefined, а не -1.
+            // View zone codes filter themselves out: an Int32Array at a negative index gives undefined, not -1.
             if (firstRowOfDocLine[doc] === -1) firstRowOfDocLine[doc] = i;
         }
 
@@ -1849,7 +1849,7 @@ export class EditorViewState {
         const { rowDocLine: visible, firstRowOfDocLine } = this.buildProjection();
         const currentIdx = firstRowOfDocLine[logicalLine];
         if (currentIdx >= 0) {
-            // Ряды идут по возрастанию строк: `>` отсеивает и зоны, и wrap-фрагменты той же строки.
+            // Rows ascend by line: `>` filters out both view zones and wrap fragments of the same line.
             for (let i = currentIdx + 1; i < visible.length; i++) {
                 if (visible[i] > logicalLine) return visible[i];
             }
@@ -1863,7 +1863,7 @@ export class EditorViewState {
         return -1;
     }
 
-    /** Публичный: {@link UndoManager} применяет правки мимо {@link applyEdits} и обязан сдвинуть регионы так же. */
+    /** Public: {@link UndoManager} applies edits bypassing {@link applyEdits} and must shift regions the same way. */
     public adjustFoldingRegionsForEdits(edits: readonly ITextEdit[]): void {
         const sorted = [...edits].sort((a, b) => comparePositions(b.range.start, a.range.start));
 
@@ -1910,8 +1910,8 @@ export class EditorViewState {
     }
 
     /**
-     * Зоны переживают правки до пересчёта владельцем. Кэш и событие не трогаем: правка
-     * уже меняет versionId и уведомляет рендер сама.
+     * View zones survive edits until the owner recomputes them. Cache and event are left alone:
+     * the edit already bumps versionId and notifies render itself.
      */
     private adjustViewZonesForLineChange(editStartLine: number, editEndLine: number, lineDelta: number): void {
         if (this.viewZonesValue.length === 0 || lineDelta === 0) return;
@@ -1941,10 +1941,10 @@ export class EditorViewState {
     }
 
     /**
-     * Позиции — из ОБРАТНЫХ правок: их диапазон в координатах применённого документа ровно
-     * накрывает вставленный текст, конец — каретка. Порядок документный, вызывающие зипают
-     * по индексу со `sortedSelections()`. Арифметика по исходным координатам уводила каретки
-     * за конец строки на многострочных батчах и роняла рендер.
+     * Positions come from the INVERSE edits: their range, in applied-document coordinates, exactly
+     * covers the inserted text, and its end is the cursor. Document order; callers zip by index
+     * with `sortedSelections()`. Arithmetic on the original coordinates pushed cursors past the
+     * line end on multi-line batches and crashed render.
      */
     private selectionsAfterEdits(inverseEdits: readonly ITextEdit[]): ISelection[] {
         return inverseEdits.map((inverse) =>
@@ -1970,7 +1970,7 @@ export class EditorViewState {
     }
 }
 
-/** Один ведущий таб или до `tabSize` пробелов. */
+/** One leading tab or up to `tabSize` spaces. */
 function computeOutdentRemoval(content: string, tabSize: number): number {
     if (content.length === 0) return 0;
     if (content.startsWith("\t")) return 1;
@@ -1989,17 +1989,16 @@ function firstNonWhitespaceIndex(content: string): number {
 }
 
 /**
- * Батч удаляющих правок в документном порядке: начало поднимается до конца предыдущей,
- * накрытая целиком выбрасывается. Перекрытия (две каретки в одном слове) `applyEdits`
- * документа не переносит: съедал «hello wo» вместо «hello» и давал отрицательные колонки.
- * Слияние — поведение vscode.
+ * A batch of deleting edits in document order: each start is raised to the previous end, a fully
+ * covered edit is dropped. The document's `applyEdits` can't handle overlaps (two cursors in one
+ * word): it ate "hello wo" instead of "hello" and produced negative columns. Merging is upstream behavior.
  */
 function clipDeletionOverlaps(edits: readonly ITextEdit[]): ITextEdit[] {
     const clipped: ITextEdit[] = [];
     let previousEnd: IPosition | null = null;
     for (const edit of edits) {
         const limit = previousEnd ?? edit.range.start;
-        // Stryker disable next-line EqualityOperator: на равенстве обе ветки дают одну и ту же позицию (`limit` и есть `edit.range.start`), мутант `<` → `<=` эквивалентен
+        // Stryker disable next-line EqualityOperator: on equality both branches give the same position (`limit` is `edit.range.start`), the `<` → `<=` mutant is equivalent
         const start = comparePositions(edit.range.start, limit) < 0 ? limit : edit.range.start;
         if (comparePositions(start, edit.range.end) >= 0) continue;
         clipped.push(
@@ -2013,7 +2012,7 @@ function clipDeletionOverlaps(edits: readonly ITextEdit[]): ITextEdit[] {
     return clipped;
 }
 
-/** Как VS Code Ctrl+Left: пробелы, затем символы одного класса. */
+/** Like upstream Ctrl+Left: whitespace, then chars of one class. */
 function findWordBoundaryLeft(line: string, offset: number): number {
     let pos = offset;
     while (pos > 0 && charClass(line[pos - 1]) === 0) {
@@ -2027,7 +2026,7 @@ function findWordBoundaryLeft(line: string, offset: number): number {
     return pos;
 }
 
-/** Как VS Code Ctrl+Right: символы одного класса, затем пробелы. */
+/** Like upstream Ctrl+Right: chars of one class, then whitespace. */
 function findWordBoundaryRight(line: string, offset: number): number {
     let pos = offset;
     const len = line.length;
@@ -2044,20 +2043,20 @@ function findWordBoundaryRight(line: string, offset: number): number {
     return pos;
 }
 
-/** `-(afterLine + 3)`: `-1` остаётся сентинелом «не найдено», якорь `-1` кодируется `-2`. */
+/** `-(afterLine + 3)`: `-1` stays the "not found" sentinel, anchor `-1` encodes as `-2`. */
 function encodeViewZoneRow(afterLine: number): number {
     return -(afterLine + 3);
 }
 
 function decodeViewZoneAnchor(row: number): number {
-    // `-3 - row`, а не `-(row + 3)`: последнее для якоря 0 дало бы -0.
+    // `-3 - row`, not `-(row + 3)`: the latter would give -0 for anchor 0.
     return -3 - row;
 }
 
 /**
- * Зона встаёт после последней видимой строки с `docLine <= afterLine`: скрытый свёрткой
- * якорь не теряет зону — дифф обязан держать выравнивание (upstream: `showInHiddenAreas`).
- * У промежуточных wrap-фрагментов `next === visible[i]` — зона встаёт только после последнего.
+ * A view zone goes after the last visible line with `docLine <= afterLine`: an anchor hidden by a
+ * fold doesn't lose its zone, since the diff must keep alignment (upstream: `showInHiddenAreas`).
+ * Intermediate wrap fragments have `next === visible[i]`, so the zone goes only after the last one.
  */
 function insertViewZones(
     visible: readonly number[],
@@ -2073,7 +2072,7 @@ function insertViewZones(
         }
     };
     let zi = 0;
-    /* v8 ignore start -- ?? недостижим: видимый список пуст не бывает — фолд не прячет собственный заголовок */
+    /* v8 ignore start -- ?? is unreachable: the visible list is never empty, a fold doesn't hide its own header */
     const firstVisible = visible[0] ?? Number.MAX_SAFE_INTEGER;
     /* v8 ignore stop */
     while (zi < zones.length && zones[zi].afterLine < firstVisible) {

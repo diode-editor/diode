@@ -11,7 +11,7 @@ import { EditorViewState } from "../common/viewModel/editorViewState.ts";
 
 import { EditorElement } from "./editorElement.ts";
 
-/** Дефолты токенов `editorCursor.*` в Dark+ (тема их не переопределяет). */
+/** Dark+ defaults for the `editorCursor.*` tokens (the theme does not override them). */
 const CARET_BG = packRgb(0xae, 0xaf, 0xad); // editorCursor.foreground
 const CARET_FG = packRgb(0x51, 0x50, 0x52); // editorCursor.background
 
@@ -63,8 +63,8 @@ describe("EditorElement — вторичные каретки в кадре", ()
     });
 
     it("при одном курсоре кадр остаётся прежним — каретку рисует терминал", () => {
-        // Каретка на пробеле: слова под ней нет, значит и occurrence-подсветки нет —
-        // ячейка обязана остаться с чистым фоном редактора.
+        // Cursor on a space: no word under it, so no occurrence highlight —
+        // the cell must keep the plain editor background.
         const { app, editor, viewState, gw } = createEditor("a b");
         viewState.selections = [createCursorSelection(0, 1)];
         editor.focus();
@@ -112,7 +112,7 @@ describe("EditorElement — каретка поверх остальных сл�
         editor.focus();
         app.render();
 
-        // Активный конец выделения (колонка 4) — каретка; соседняя колонка — фон выделения.
+        // The active end of the selection (column 4) is the cursor; the column next to it has the selection bg.
         expect(app.backend.getBgAt(new Point(gw + 4, 0))).toBe(CARET_BG);
         expect(app.backend.getBgAt(new Point(gw + 3, 0))).not.toBe(CARET_BG);
     });

@@ -2,7 +2,7 @@ import type { IPosition } from "../core/iPosition.ts";
 import { clampPositionToDocument, comparePositions, type IPositionClampTarget } from "../core/iPosition.ts";
 import type { IRange } from "../core/iRange.ts";
 
-/** Значения — как у upstream `TrackedRangeStickiness`. */
+/** Values match upstream `TrackedRangeStickiness`. */
 export enum TrackedRangeStickiness {
     AlwaysGrowsWhenTypingAtEdges = 0,
     NeverGrowsWhenTypingAtEdges = 1,
@@ -10,10 +10,10 @@ export enum TrackedRangeStickiness {
     GrowsOnlyWhenTypingAfter = 3,
 }
 
-/** Срез upstream `IModelDecorationOptions`: модели нужно только поведение краёв. */
+/** A slice of upstream `IModelDecorationOptions`: the model only needs edge behavior. */
 export interface IModelDecorationOptions {
     readonly description: string;
-    /** По умолчанию — `AlwaysGrowsWhenTypingAtEdges`, как в эталоне. */
+    /** Defaults to `AlwaysGrowsWhenTypingAtEdges`, as upstream. */
     readonly stickiness?: TrackedRangeStickiness;
 }
 
@@ -22,33 +22,33 @@ export interface IModelDeltaDecoration {
     readonly options: IModelDecorationOptions;
 }
 
-/** В координатах документа ДО правки. */
+/** In document coordinates BEFORE the edit. */
 export interface ITrackedEdit {
     readonly range: IRange;
     readonly text: string;
 }
 
-/** Длина строки документа ДО правки. */
+/** Document line length BEFORE the edit. */
 export type OldLineLength = (line: number) => number;
 
 /**
- * Upstream `adjustMarkerBeforeColumn`, `cmp` = маркер − колонка. `MarkerMoveSemantics`
- * не нужен: `ForceMove` — только с `forceMoveMarkers`, а `ForceStay` даёт ту же
- * позицию, что и следующая ступень {@link adjustPosition}.
+ * Upstream `adjustMarkerBeforeColumn`, `cmp` = marker - column. No `MarkerMoveSemantics`:
+ * `ForceMove` only comes with `forceMoveMarkers`, and `ForceStay` gives the same position
+ * as the next stage of {@link adjustPosition}.
  */
 function markerBefore(cmp: number, stickToPreviousCharacter: boolean): boolean {
-    // Stryker disable next-line EqualityOperator: при cmp !== 0 «< 0» и «<= 0» совпадают
+    // Stryker disable next-line EqualityOperator: with cmp !== 0, "< 0" and "<= 0" coincide
     if (cmp !== 0) return cmp < 0;
     return stickToPreviousCharacter;
 }
 
-/** Офсеты — в символах, `\n` — один символ. */
+/** Offsets are in characters; `\n` counts as one. */
 class EditGeometry {
     public readonly start: IPosition;
     public readonly end: IPosition;
     public readonly deleted: number;
     public readonly inserted: number;
-    /** В координатах ПОСЛЕ правки. */
+    /** In coordinates AFTER the edit. */
     public readonly newEnd: IPosition;
     private readonly insertedLines: readonly string[];
 
@@ -64,7 +64,7 @@ class EditGeometry {
         this.newEnd = this.positionInInserted(this.inserted);
     }
 
-    /** start ≤ position ≤ end, в старом тексте. */
+    /** start ≤ position ≤ end, in the old text. */
     public offsetInOld(position: IPosition): number {
         if (position.line === this.start.line) return position.character - this.start.character;
         let offset = this.oldLineLength(this.start.line) - this.start.character + 1;
@@ -75,7 +75,7 @@ class EditGeometry {
     }
 
     public positionInInserted(offset: number): IPosition {
-        // offset ≤ длины вставленного, поэтому цикл кончается не позже последней строки.
+        // offset ≤ inserted length, so the loop ends by the last line at the latest.
         let rest = offset;
         let index = 0;
         while (rest > this.insertedLines[index].length) {
@@ -94,18 +94,18 @@ class EditGeometry {
 }
 
 /**
- * Upstream `nodeAcceptEdit` для одного края, в позициях вместо офсетов; порядок
- * ступеней тот же: до правки — на месте; в общей части замены — держит смещение;
- * в остальной замене — к концу вставленного; после — сдвиг на разницу.
+ * Upstream `nodeAcceptEdit` for one edge, in positions instead of offsets; same stage
+ * order: before the edit, stays; in the common part of a replace, keeps its offset; in
+ * the rest of the replace, moves to the inserted end; after, shifts by the delta.
  */
 function adjustPosition(position: IPosition, stickToPreviousCharacter: boolean, edit: EditGeometry): IPosition {
     if (markerBefore(comparePositions(position, edit.start), stickToPreviousCharacter)) {
         return position;
     }
     const afterEnd = comparePositions(position, edit.end);
-    // Охрана — только про цену: за концом правки ступень 2 всё равно не
-    // срабатывает, но смещение мерилось бы по всем строкам до края.
-    // Stryker disable next-line ConditionalExpression,EqualityOperator: эквивалентна, см. выше
+    // The guard is only about cost: past the edit end stage 2 never fires anyway, but the
+    // offset would be measured across every line up to the edge.
+    // Stryker disable next-line ConditionalExpression,EqualityOperator: equivalent, see above
     if (afterEnd <= 0) {
         const offset = edit.offsetInOld(position);
         if (markerBefore(offset - Math.min(edit.deleted, edit.inserted), stickToPreviousCharacter)) {
@@ -130,7 +130,7 @@ function adjustRange(range: IRange, stickiness: TrackedRangeStickiness, edit: Ed
         stickiness === TrackedRangeStickiness.GrowsOnlyWhenTypingBefore;
     const start = adjustPosition(range.start, startStick, edit);
     const end = adjustPosition(range.end, endStick, edit);
-    // Stryker disable next-line EqualityOperator: при start == end обе ветки дают один диапазон
+    // Stryker disable next-line EqualityOperator: with start == end both branches give the same range
     return comparePositions(start, end) > 0 ? { start, end: start } : { start, end };
 }
 
@@ -140,8 +140,8 @@ interface ITrackedDecoration {
 }
 
 /**
- * Вместо `IntervalTree` эталона — плоский словарь, O(декораций) за правку; дерево —
- * когда декораций станут тысячи (docs/TODO/TrackedDecorations.md).
+ * A flat map instead of upstream `IntervalTree`, O(decorations) per edit; a tree once
+ * decorations number in the thousands (docs/TODO/TrackedDecorations.md).
  */
 export class TrackedDecorations {
     private readonly decorations = new Map<string, ITrackedDecoration>();
@@ -154,7 +154,7 @@ export class TrackedDecorations {
     ): string[] {
         for (const id of oldIds) this.decorations.delete(id);
         return newDecorations.map((decoration) => {
-            // Stryker disable next-line UpdateOperator: id нужен лишь уникальный, «--» даёт такие же
+            // Stryker disable next-line UpdateOperator: the id only has to be unique, "--" gives unique ones too
             const id = String(++this.lastId);
             this.decorations.set(id, {
                 range: clampRange(document, decoration.range),
@@ -168,13 +168,13 @@ export class TrackedDecorations {
         return this.decorations.get(id)?.range ?? null;
     }
 
-    /** Звать, пока строки документа ещё старые. */
+    /** Call while the document lines are still old. */
     public acceptEdit(edit: ITrackedEdit, oldLineLength: OldLineLength): void {
-        // Stryker disable next-line ConditionalExpression: короткий путь ради цены — без декораций цикл пуст
+        // Stryker disable next-line ConditionalExpression: a fast path for cost; with no decorations the loop is empty
         if (this.decorations.size === 0) return;
         const geometry = new EditGeometry(edit, oldLineLength);
         for (const decoration of this.decorations.values()) {
-            // Stryker disable next-line ConditionalExpression: короткий путь ради цены — adjustRange вернул бы тот же диапазон
+            // Stryker disable next-line ConditionalExpression: a fast path for cost; adjustRange would return the same range
             if (comparePositions(decoration.range.end, edit.range.start) < 0) continue;
             decoration.range = adjustRange(decoration.range, decoration.stickiness, geometry);
         }

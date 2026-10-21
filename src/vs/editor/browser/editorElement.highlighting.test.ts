@@ -18,9 +18,9 @@ const KEYWORD_FG = packRgb(255, 0, 0);
 const NUMBER_FG = packRgb(0, 255, 0);
 
 /**
- * colorMap «темы»: ключевые слова и числа WordTokenizer — свои цвета; индексы
- * цветов по умолчанию (1, 2) нарочно чёрные — ячейка должна брать цвета
- * редактора, а не colorMap.
+ * Theme colorMap: WordTokenizer keywords and numbers get their own colors; the default
+ * color indices (1, 2) are deliberately black — the cell must take the editor
+ * colors, not colorMap.
  */
 const COLOR_MAP: string[] = ["", "#000000", "#000000"];
 COLOR_MAP[WordTokenColor.keyword] = "#ff0000";
@@ -94,7 +94,7 @@ describe("EditorElement tokenization — вырожденный вьюпорт",
         const backendScreen = new TerminalScreen(new Size(20, 1));
         editor.localPosition = new Offset(0, 0);
         editor.layout(BoxConstraints.tight(size));
-        // Хостовый токен выделения без дефолта tuidom — явная таблица styleVars.
+        // Host selection token with no tuidom default: an explicit styleVars table.
         editor.performStyleResolution({
             ...ROOT_STYLE_CONTEXT,
             vars: extendVarScope(ROOT_STYLE_CONTEXT.vars, { "editor.selectionBackground": packRgb(38, 79, 120) }),

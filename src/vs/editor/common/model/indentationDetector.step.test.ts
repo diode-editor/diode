@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { computeIndentationStep } from "./indentationDetector.ts";
 
-// Напрямую: через `detectIndentation` шаги 0, 1 и >8 в `tabSize` не попадают — проверить нечем.
+// Tested directly: via `detectIndentation` steps 0, 1 and >8 never reach `tabSize`, so there's no way to check them.
 
 function indentOf(line: string): number {
     const match = /^[ \t]*/.exec(line);
@@ -98,7 +98,7 @@ describe("computeIndentationStep — выровненное продолжени
     });
 
     it("продолжение само отступлено пробелом на этой позиции — обычный отступ", () => {
-        // Символ на позиции `bSpaces` — пробел, значит это ещё отступ, а не текст.
+        // The character at position `bSpaces` is a space, so it's still indentation, not text.
         expect(step("    foo(a, b,", "     c);")).toEqual({ step: 1, looksLikeAlignment: false });
     });
 
@@ -107,7 +107,7 @@ describe("computeIndentationStep — выровненное продолжени
     });
 
     it("выравнивание проверяется только при равном числе табов", () => {
-        // Числа табов разошлись → ветка деления, а у неё признака выравнивания нет.
+        // Tab counts differ → the division branch, which has no alignment flag.
         expect(step("\tfoo(a, b,", ALIGNED)).toEqual({ step: 7, looksLikeAlignment: false });
     });
 });

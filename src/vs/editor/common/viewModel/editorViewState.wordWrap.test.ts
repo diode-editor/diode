@@ -16,7 +16,7 @@ describe("EditorViewState word wrap — проекция", () => {
         const state = makeState("aaaa bbbb cccc\nshort");
         expect(state.getViewLineCount()).toBe(2);
         state.wordWrap = "on";
-        // "aaaa bbbb " + "cccc" = 2 ряда, плюс "short".
+        // "aaaa bbbb " + "cccc" = 2 rows, plus "short".
         expect(state.getViewLineCount()).toBe(3);
     });
 
@@ -49,7 +49,7 @@ describe("EditorViewState word wrap — проекция", () => {
     it("viewLineStartColumn — дисплейная колонка начала фрагмента (табы считаются)", () => {
         const state = makeState("\taaaa bbb cc");
         state.wordWrap = "on";
-        // "\taaaa bbb cc": таб=4 + aaaa=8, ws=9 → "bbb" не влезает → break offset 6.
+        // "\taaaa bbb cc": tab=4 + aaaa=8, ws=9 → "bbb" doesn't fit → break offset 6.
         expect(state.viewLineRange(0)).toEqual({ start: 0, end: 6 });
         expect(state.viewLineStartColumn(0)).toBe(0);
         expect(state.viewLineStartColumn(1)).toBe(9);
@@ -86,7 +86,7 @@ describe("EditorViewState word wrap — режимы и инвалидация",
         const state = makeState("aaaa bbbb cccc", 40);
         state.wordWrap = "on";
         state.wordWrapColumn = 10;
-        // Колонка 10 сломала бы строку; ширина вьюпорта 40 — нет.
+        // Column 10 would break the line; viewport width 40 doesn't.
         expect(state.getViewLineCount()).toBe(1);
     });
 
@@ -107,7 +107,7 @@ describe("EditorViewState word wrap — режимы и инвалидация",
     it("вырожденная (нулевая) ширина вьюпорта клампится к MIN_WRAP_WIDTH, а не выключает перенос", () => {
         const state = makeState("aaaa bbbb cccc", 0);
         state.wordWrap = "on";
-        // Кламп к 8 колонкам: "aaaa " + "bbbb " + "cccc" = 3 ряда.
+        // Clamped to 8 columns: "aaaa " + "bbbb " + "cccc" = 3 rows.
         expect(state.getViewLineCount()).toBe(3);
     });
 
@@ -124,11 +124,11 @@ describe("EditorViewState word wrap — режимы и инвалидация",
     it("смена tabSize перестраивает проекцию: точки переноса зависят от табов", () => {
         const state = makeState("\t\taaaa bbbb");
         state.wordWrap = "on";
-        // tabSize 4: 2 таба = 8 колонок → aaaa не влезает.
+        // tabSize 4: 2 tabs = 8 columns → aaaa doesn't fit.
         const before = state.getViewLineCount();
         state.tabSize = 2;
-        // tabSize 2: 2 таба = 4 колонки → "\t\taaaa " = 9… bbbb не влезает всё равно,
-        // но раскладка иная — сравниваем диапазоны, а не только счётчик.
+        // tabSize 2: 2 tabs = 4 columns → "\t\taaaa " = 9… bbbb still doesn't fit,
+        // but the layout differs — compare ranges, not just the count.
         const after = state.viewLineRange(0);
         state.tabSize = 4;
         expect(state.getViewLineCount()).toBe(before);
@@ -149,7 +149,7 @@ describe("EditorViewState word wrap — фолдинг и зоны", () => {
     it("свёрнутый регион прячет фрагменты скрытых строк целиком", () => {
         const state = makeState("header\naaaa bbbb cccc\ntail");
         state.wordWrap = "on";
-        expect(state.getViewLineCount()).toBe(4); // header + 2 фрагмента + tail
+        expect(state.getViewLineCount()).toBe(4); // header + 2 fragments + tail
         state.setFoldingRegions([{ startLine: 0, endLine: 1, isCollapsed: true }]);
         expect(state.getViewLineCount()).toBe(2); // header + tail
         expect(state.logicalToVisualLine(1)).toBe(-1);
@@ -159,7 +159,7 @@ describe("EditorViewState word wrap — фолдинг и зоны", () => {
         const state = makeState("aaaa bbbb cccc\ntail");
         state.wordWrap = "on";
         state.setViewZones([{ afterLine: 0, size: 1 }]);
-        // Ряды: фрагмент 1, фрагмент 2, зона, tail.
+        // Rows: fragment 1, fragment 2, zone, tail.
         expect(state.getViewLineCount()).toBe(4);
         expect(state.viewLineKind(0)).toBe("doc");
         expect(state.viewLineKind(1)).toBe("doc");

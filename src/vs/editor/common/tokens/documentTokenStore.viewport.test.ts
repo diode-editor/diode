@@ -8,7 +8,7 @@ import { TextDocument } from "../model/textDocument.ts";
 
 import { DocumentTokenStore } from "./documentTokenStore.ts";
 
-/** Смещение от цветов по умолчанию. */
+/** Offset from the default colors. */
 const stateMark = (counter: number): number => 10 + counter;
 
 class CounterState implements IState {
@@ -24,7 +24,7 @@ class CounterState implements IState {
     }
 }
 
-/** `>` после отступа поднимает счётчик; foreground токена — входящее состояние. */
+/** `>` after the indent bumps the counter; the token foreground is the incoming state. */
 class StatefulTokenizer implements ITokenizationSupport {
     public readonly tokenized: string[] = [];
     public getInitialState(): IState {
@@ -40,7 +40,7 @@ class StatefulTokenizer implements ITokenizationSupport {
 
 const lines = (count: number, line = "x"): string[] => new Array<string>(count).fill(line);
 
-/** Store без шанса фону вмешаться: тест синхронный, setImmediate не успевает. */
+/** Store with no chance for the background to interfere: the test is synchronous, setImmediate never runs. */
 function createStore(text: readonly string[]): {
     doc: TextDocument;
     store: DocumentTokenStore;
@@ -76,13 +76,13 @@ describe("DocumentTokenStore.tokenizeViewport", () => {
 
         store.tokenizeViewport(90, 95);
 
-        // Кроме вьюпорта токенизирована только строка-«родитель» по отступу.
+        // Besides the viewport only the indentation "parent" line is tokenized.
         expect(tokenizer.tokenized).toEqual([">block", ...lines(6, "  body")]);
         expect(store.getLineTokens(90)?.getForeground(0)).toBe(stateMark(1));
     });
 
     it("пустые строки над вьюпортом угадыванию не мешают, таб — тоже отступ", () => {
-        // Пустая строка не «родитель» (колонка 0) — обход идёт дальше вверх к `>block`.
+        // An empty line is not a "parent" (column 0) — the walk continues up to `>block`.
         const text = [...lines(50, "a"), ">block", "", ...lines(48, "\tbody")];
         const { store, tokenizer } = createStore(text);
 
@@ -106,18 +106,18 @@ describe("DocumentTokenStore.tokenizeViewport", () => {
         store.forceTokenization(doc.lineCount - 1);
         doc.applyEdits([createInsertEdit(0, 1, "x")]);
 
-        // Отступов нет — угадано начальное состояние, то есть неверно (метка состояния 0 вместо 1).
+        // No indentation — the initial state is guessed, i.e. wrongly (state mark 0 instead of 1).
         store.tokenizeViewport(900, 909);
         expect(store.getLineTokens(909)?.getForeground(0)).toBe(stateMark(0));
 
         tokenizer.tokenized.length = 0;
         const deadline = Date.now() + 2000;
-        // Флаг «закончено» правка не сбрасывает (как у эталона) — ждём саму строку.
+        // An edit doesn't reset the "finished" flag (as in upstream) — wait for the line itself.
         while (!store.hasAccurateTokensForLine(909)) {
             if (Date.now() > deadline) throw new Error("фон не дошёл за 2 с");
             await new Promise<void>((resolve) => setImmediate(resolve));
         }
-        // Правленая строка плюс десять угаданных — и ничего сверх.
+        // The edited line plus ten guessed ones — and nothing more.
         expect(tokenizer.tokenized).toHaveLength(11);
         expect(store.getLineTokens(900)?.getForeground(0)).toBe(stateMark(1));
         expect(store.getLineTokens(909)?.getForeground(0)).toBe(stateMark(1));
@@ -145,7 +145,7 @@ describe("DocumentTokenStore.tokenizeViewport", () => {
         store.tokenizeViewport(901, 910);
         expect(tokenizer.tokenized.length).toBeGreaterThan(calls);
 
-        // Правка — тоже: правленая строка пуста, пока её не пересчитали.
+        // Same for an edit: the edited line is empty until recomputed.
         const afterScroll = tokenizer.tokenized.length;
         doc.applyEdits([createInsertEdit(905, 0, "y")]);
         expect(store.getLineTokens(905)).toBeUndefined();
@@ -155,7 +155,7 @@ describe("DocumentTokenStore.tokenizeViewport", () => {
     });
 
     it("правка нижней строки вьюпорта — она перекрашивается к кадру, не ждёт фона", () => {
-        // Нижняя строка — ровно первая невалидная: эталон её не трогает, а у нас кэш правка очистила.
+        // The bottom line is exactly the first invalid one: upstream doesn't touch it, but our edit cleared the cache.
         const { doc, store } = createStore(lines(10));
         store.tokenizeViewport(0, 9);
         doc.applyEdits([createInsertEdit(9, 0, "y")]);

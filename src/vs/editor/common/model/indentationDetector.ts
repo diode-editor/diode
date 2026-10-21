@@ -2,7 +2,7 @@ import { CharCode } from "../../../base/common/charCode.ts";
 
 import type { ITextDocument } from "./iTextDocument.ts";
 
-// number против enum CharCode линтер сравнивать не даёт (no-unsafe-enum-comparison).
+// The linter forbids comparing number against enum CharCode (no-unsafe-enum-comparison).
 const SPACE: number = CharCode.Space;
 const TAB: number = CharCode.Tab;
 const COMMA: number = CharCode.Comma;
@@ -12,7 +12,7 @@ export interface DetectedIndentation {
     readonly tabSize: number;
 }
 
-/** То, о чём файл промолчал: нет отступов, ничья табов и пробелов, ширина таба при отступе табами. */
+/** What the file does not tell: no indentation, a tabs/spaces tie, tab width for tab indentation. */
 export interface IIndentationDefaults {
     readonly tabSize: number;
     readonly insertSpaces: boolean;
@@ -20,31 +20,31 @@ export interface IIndentationDefaults {
 
 const MAX_SCAN_LINES = 10000;
 const MAX_TAB_SIZE_GUESS = 8;
-/** Порядок перебора: при равном счёте побеждает более ранний кандидат. */
+/** Probe order: on equal score the earlier candidate wins. */
 const TAB_SIZE_GUESSES = [2, 4, 6, 8, 3, 5, 7];
 
 export interface IIndentationStep {
-    /** 0 — шага нет либо сигнал негодный. */
+    /** 0 means no step or an unusable signal. */
     readonly step: number;
-    /** Строка не отступлена, а выровнена под содержимое предыдущей. */
+    /** The line is not indented but aligned to the previous line's content. */
     readonly looksLikeAlignment: boolean;
 }
 
 const NO_STEP: IIndentationStep = { step: 0, looksLikeAlignment: false };
 
 /**
- * РАЗНИЦА соседних строк, а не абсолютные ширины: у отступа в 4 уровни 4, 8, 12,
- * и самая частая ширина — не шаг. `aIndent`/`bIndent` — длины отступов.
+ * The DIFFERENCE between adjacent lines, not absolute widths: with indent 4 the levels
+ * are 4, 8, 12, and the most frequent width is not the step. `aIndent`/`bIndent` are indent lengths.
  */
 export function computeIndentationStep(a: string, aIndent: number, b: string, bIndent: number): IIndentationStep {
-    // Stryker disable next-line MethodExpression: min и max тут неразличимы —
-    // за более коротким отступом у одной строки стоит непробельный символ, а у
-    // другой пробел или таб, так что цикл всё равно останавливается на min.
+    // Stryker disable next-line MethodExpression: min and max are indistinguishable here:
+    // past the shorter indent one line has a non-whitespace char and the other a space
+    // or tab, so the loop stops at min anyway.
     const common = Math.min(aIndent, bIndent);
     let i = 0;
-    // Stryker disable next-line EqualityOperator: лишний шаг ненаблюдаем — он
-    // уходит за отступ хотя бы одной строки, а счётчики ниже ограничены её
-    // длиной и всё равно ничего не насчитают.
+    // Stryker disable next-line EqualityOperator: the extra iteration is unobservable: it
+    // goes past the indent of at least one line, and the counters below are bounded by
+    // that indent and count nothing.
     for (; i < common; i++) {
         if (a.charCodeAt(i) !== b.charCodeAt(i)) break;
     }
@@ -62,27 +62,27 @@ export function computeIndentationStep(a: string, aIndent: number, b: string, bI
         else bTabs++;
     }
 
-    // Смешанный хвост (и табы, и пробелы) — разницу не с чем сопоставить.
+    // A mixed tail (both tabs and spaces) gives nothing to compare the difference to.
     if (aSpaces > 0 && aTabs > 0) return NO_STEP;
     if (bSpaces > 0 && bTabs > 0) return NO_STEP;
 
-    // Сумма, а не модуль разности: после общего префикса хвосты однородны, и в
-    // каждой паре одно из слагаемых всегда ноль.
+    // A sum, not an absolute difference: past the common prefix the tails are uniform,
+    // and in each pair one of the terms is always zero.
     const tabsDiff = aTabs + bTabs;
     const spacesDiff = aSpaces + bSpaces;
 
     if (tabsDiff === 0) {
-        // Продолжение, выровненное под символ предыдущей строки (`foo(a,` →
-        // `    b`), — не отступ. Проверка «шаг ненулевой» не нужна: при
-        // `bSpaces === 0` чтение `a` по индексу −1 даёт NaN.
+        // A continuation aligned to a char of the previous line (`foo(a,` → `    b`) is
+        // not indentation. No "step is non-zero" check needed: with `bSpaces === 0`
+        // reading `a` at index -1 yields NaN.
         const looksLikeAlignment =
             b.charCodeAt(bSpaces) !== SPACE &&
             a.charCodeAt(bSpaces - 1) === SPACE &&
             a.charCodeAt(a.length - 1) === COMMA;
         return { step: spacesDiff, looksLikeAlignment };
     }
-    // Табы и пробелы вперемешку по строкам: сигнал годен, только если пробелы
-    // делятся на число «съеденных» табов нацело — тогда это ширина таба.
+    // Tabs on one line, spaces on the other: the signal is usable only if the spaces
+    // divide evenly by the number of "consumed" tabs; then that is the tab width.
     if (spacesDiff % tabsDiff !== 0) return NO_STEP;
     return { step: spacesDiff / tabsDiff, looksLikeAlignment: false };
 }
@@ -92,15 +92,14 @@ export function detectIndentation(document: ITextDocument, defaults: IIndentatio
 
     let tabIndentedLines = 0;
     let spaceIndentedLines = 0;
-    // Индекс — величина шага. Типизированный массив ради жёсткого размера: запись
-    // шага больше 8 молча отбрасывается, отдельная проверка не нужна.
+    // Indexed by step size. A typed array for its fixed size: writing a step above 8 is
+    // silently dropped, no separate check needed.
     const diffCounts = new Int32Array(MAX_TAB_SIZE_GUESS + 1);
 
-    // Stryker disable next-line StringLiteral: текст затравки ненаблюдаем — при
-    // нулевом отступе из него читается только последний символ в проверке
-    // выравнивания, а она требует и запятую в конце, и пробел под первым
-    // непробельным символом следующей строки; для любого литерала-затравки
-    // одновременно это недостижимо.
+    // Stryker disable next-line StringLiteral: the seed text is unobservable: with zero
+    // indent only its last char is read by the alignment check, which needs both a
+    // trailing comma and a space under the next line's first non-whitespace char; no
+    // seed literal can satisfy both at once.
     let previousLineText = "";
     let previousLineIndent = 0;
 
@@ -118,15 +117,15 @@ export function detectIndentation(document: ITextDocument, defaults: IIndentatio
                 break;
             }
         }
-        // Пробельные строки предыдущую не сбрасывают: отступ сравнивается сквозь них.
+        // Whitespace-only lines do not reset the previous one: indent is compared across them.
         if (indent === -1) continue;
 
         if (tabs > 0) tabIndentedLines++;
-        // Ровно один ведущий пробел — это `*` в блочном комментарии, а не отступ.
+        // Exactly one leading space is a `*` in a block comment, not indentation.
         else if (spaces > 1) spaceIndentedLines++;
 
         const diff = computeIndentationStep(previousLineText, previousLineIndent, lineText, indent);
-        // И не база для следующей строки — иначе сдвинуло бы и её шаг.
+        // Nor a base for the next line, or it would skew that line's step too.
         if (diff.looksLikeAlignment) continue;
         diffCounts[diff.step]++;
 
@@ -138,7 +137,7 @@ export function detectIndentation(document: ITextDocument, defaults: IIndentatio
     if (spaceIndentedLines > tabIndentedLines) insertSpaces = true;
     else if (tabIndentedLines > spaceIndentedLines) insertSpaces = false;
 
-    // Ширина таба — свойство просмотра, а не файла: отступ табами о ней молчит.
+    // Tab width is a view property, not a file one: tab indentation says nothing about it.
     if (!insertSpaces) return { insertSpaces, tabSize: defaults.tabSize };
 
     let tabSize = defaults.tabSize;
@@ -149,7 +148,7 @@ export function detectIndentation(document: ITextDocument, defaults: IIndentatio
             tabSize = guess;
         }
     }
-    // При отступе 2 шаг 4 встречается на каждом двойном переходе и может обогнать 2.
+    // With indent 2, step 4 shows up on every double jump and can outscore 2.
     if (tabSize === 4 && diffCounts[4] > 0 && diffCounts[2] >= diffCounts[4] / 2) tabSize = 2;
 
     return { insertSpaces, tabSize };

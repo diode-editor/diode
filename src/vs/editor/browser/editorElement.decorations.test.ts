@@ -14,7 +14,7 @@ const REMOVED_TEXT_BG = packRgb(0x66, 0x22, 0x22);
 const FILLER_FG = packRgb(0x41, 0x41, 0x41);
 const BG = packRgb(0x1e, 0x1e, 0x1e);
 
-/** Полупрозрачный фон строки — как везут стоковые темы (Catppuccin: `#a6e3a11a`). */
+/** Translucent line background, as stock themes ship it (Catppuccin: `#a6e3a11a`). */
 const TRANSLUCENT_BG = packRgba(0xa6, 0xe3, 0xa1, 0x1a);
 
 const STYLE_VARS = {
@@ -35,8 +35,8 @@ function createEditor(
     viewState.setViewZones(zones);
     const editor = new EditorElement(viewState);
     editor.setStyleVars(STYLE_VARS);
-    // Собственный фон редактора, как в приложении: подложка для декораций с
-    // альфой; без него композитинг над DEFAULT_COLOR отбрасывал бы альфу.
+    // The editor's own background, as in the app: the base for decorations with
+    // alpha; without it compositing over DEFAULT_COLOR would drop the alpha.
     editor.style = { bg: "editor.background" };
     editor.decorations = decorations;
     const app = TestApp.createWithContent(editor, new Size(24, 6));
@@ -50,7 +50,7 @@ describe("EditorElement — внешние декорации", () => {
             lineBackgrounds: [{ startLine: 1, endLine: 1, colorToken: "diffEditor.removedLineBackground" }],
         });
 
-        expect(app.backend.getBgAt(new Point(0, 1))).toBe(REMOVED_BG); // гуттер
+        expect(app.backend.getBgAt(new Point(0, 1))).toBe(REMOVED_BG); // gutter
         expect(app.backend.getBgAt(new Point(editor.gutterWidth + 2, 1))).toBe(REMOVED_BG);
         expect(app.backend.getBgAt(new Point(0, 0))).not.toBe(REMOVED_BG);
     });
@@ -99,7 +99,7 @@ describe("EditorElement — внешние декорации", () => {
         expect(app.backend.getTextAt(new Point(gutterW, 1), 3)).toBe("░░░");
         expect(app.backend.getFgAt(new Point(gutterW, 1))).toBe(FILLER_FG);
         expect(app.backend.getTextAt(new Point(gutterW, 3), 5)).toBe("⋯ 5 u");
-        // Зона без своего фона — на фоне редактора, и под филлером, и под плашкой.
+        // A view zone without its own background uses the editor background, under the filler and the placeholder.
         expect(app.backend.getBgAt(new Point(gutterW, 1))).toBe(BG);
         expect(app.backend.getBgAt(new Point(gutterW + 1, 3))).toBe(BG);
     });
@@ -116,12 +116,12 @@ describe("EditorElement — внешние декорации", () => {
 
         const gutterW = editor.gutterWidth;
         const once = compositeOver(TRANSLUCENT_BG, BG);
-        // Вью: alpha, ghost (зона), bravo (декорированная строка).
-        expect(app.backend.getBgAt(new Point(gutterW, 1))).toBe(once); // текст зоны
-        expect(app.backend.getBgAt(new Point(gutterW + 8, 1))).toBe(once); // заливка зоны за текстом
-        expect(app.backend.getBgAt(new Point(gutterW, 2))).toBe(once); // текст строки
-        expect(app.backend.getBgAt(new Point(0, 2))).toBe(once); // гуттер строки
-        // Двойной слой дал бы другой цвет.
+        // View: alpha, ghost (view zone), bravo (decorated line).
+        expect(app.backend.getBgAt(new Point(gutterW, 1))).toBe(once); // view zone text
+        expect(app.backend.getBgAt(new Point(gutterW + 8, 1))).toBe(once); // view zone fill past the text
+        expect(app.backend.getBgAt(new Point(gutterW, 2))).toBe(once); // line text
+        expect(app.backend.getBgAt(new Point(0, 2))).toBe(once); // line gutter
+        // A double layer would give a different color.
         expect(once).not.toBe(compositeOver(TRANSLUCENT_BG, once));
     });
 
@@ -152,7 +152,7 @@ describe("EditorElement — внешние декорации", () => {
             [{ afterLine: 0, size: 3 }],
         );
 
-        // Вью: alpha, ghost-one, ghost-two…, (пустая строка зоны), bravo.
+        // View: alpha, ghost-one, ghost-two…, (empty view zone row), bravo.
         const gutterW = editor.gutterWidth;
         expect(app.backend.getTextAt(new Point(gutterW, 1), 9)).toBe("ghost-one");
         expect(app.backend.getBgAt(new Point(gutterW + 1, 1))).toBe(REMOVED_BG);

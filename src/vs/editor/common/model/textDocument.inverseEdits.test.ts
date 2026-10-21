@@ -6,7 +6,7 @@ import { createTextEdit } from "../core/iTextEdit.ts";
 
 import { TextDocument } from "./textDocument.ts";
 
-// Формы батчей, на которых ломался round-trip обратных правок (единственный пейлоад undo).
+// Batch shapes that broke the round-trip of inverse edits (the only undo payload).
 
 function roundTrip(text: string, edits: readonly ITextEdit[]): { after: string; undone: string } {
     const doc = new TextDocument(text);
@@ -18,8 +18,8 @@ function roundTrip(text: string, edits: readonly ITextEdit[]): { after: string; 
 
 describe("TextDocument.applyEdits — обратные правки батча", () => {
     it("возвращает импорт на место после quick fix «удалить неиспользуемый assert»", () => {
-        // Снято с живого typescript-language-server: обратные правки — две
-        // вставки нулевой ширины В ОДНУ ТОЧКУ (0,13), порядок решает всё.
+        // Captured from a live typescript-language-server: the inverse edits are two
+        // zero-width insertions AT THE SAME POINT (0,13), so order is everything.
         const line = 'import { test, assert } from "./test.js";';
         const { after, undone } = roundTrip(line, [
             createTextEdit(createRange(0, 13, 0, 15), ""),
@@ -31,7 +31,7 @@ describe("TextDocument.applyEdits — обратные правки батча",
     });
 
     it("не переставляет местами вставки, попавшие в одну точку", () => {
-        // Перепутанный порядок дал бы "cdab" той же длины — ассерт смотрит на содержимое.
+        // A swapped order would give "cdab" of the same length — the assertion checks the content.
         const { after, undone } = roundTrip("abcdXY", [
             createTextEdit(createRange(0, 0, 0, 2), ""),
             createTextEdit(createRange(0, 2, 0, 4), ""),
@@ -42,7 +42,7 @@ describe("TextDocument.applyEdits — обратные правки батча",
     });
 
     it("учитывает склейку строк: правка на строке, приклеенной предыдущей правкой", () => {
-        // Вторая правка едет и по строке, И по колонке — сдвиг только по строке промахнулся бы.
+        // The second edit shifts by line AND by column — shifting by line only would miss.
         const text = "ab\ncdef\n";
         const { after, undone } = roundTrip(text, [
             createTextEdit(createRange(0, 1, 1, 1), ""),

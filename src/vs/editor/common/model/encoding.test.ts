@@ -190,7 +190,7 @@ describe("roundtrips (byte-exact)", () => {
     }
 });
 
-// Результат одинаковый (тесты ниже) — отличить можно только по тому, позвали ли iconv.
+// The result is the same (tests below) — the only difference is whether iconv was called.
 describe("utf-8 и UTF-16 не идут через iconv-lite", () => {
     afterEach(() => {
         vi.restoreAllMocks();
@@ -252,7 +252,7 @@ describe("iconv-lite — ленивый кусок", () => {
     });
 });
 
-// Эталон сравнения — прежняя реализация: BOM снимаем сами, тело — через iconv-lite.
+// The reference for comparison is the previous implementation: strip the BOM ourselves, decode the body via iconv-lite.
 
 describe("native codecs == iconv-lite", () => {
     const UNICODE_IDS = ["utf8", "utf8bom", "utf16le", "utf16be"];
@@ -272,7 +272,7 @@ describe("native codecs == iconv-lite", () => {
         return Buffer.concat([Buffer.from(info.bom ?? []), body]);
     }
 
-    /** Эталон декодирует в кодировке, которую сообщил результат: utf8 на BOM повышается до utf8bom. */
+    /** The reference decodes in the encoding the result reported: utf8 with a BOM is promoted to utf8bom. */
     async function expectDecodeMatchesIconv(buffer: Buffer): Promise<void> {
         const label = buffer.toString("hex");
         for (const id of UNICODE_IDS) {
@@ -338,7 +338,7 @@ describe("native codecs == iconv-lite", () => {
     }
 
     it("seeded fuzz: random bytes and strings", async () => {
-        // Перекос в старшие и суррогатные байты — там кодеки и расходятся.
+        // Skewed towards high and surrogate bytes — that's where codecs diverge.
         let seed = 0x1c0f;
         const random = (): number => {
             seed = (seed + 0x6d2b79f5) | 0;

@@ -5,7 +5,7 @@ import { TextDocument } from "../model/textDocument.ts";
 
 import { EditorViewState } from "./editorViewState.ts";
 
-// Пробелы — ради читаемых ассертов; дефолт редактора — табы.
+// Spaces for readable assertions; the editor default is tabs.
 function spacesState(text: string, selections: ReturnType<typeof createCursorSelection>[]): EditorViewState {
     const state = new EditorViewState(new TextDocument(text), selections);
     state.insertSpaces = true;

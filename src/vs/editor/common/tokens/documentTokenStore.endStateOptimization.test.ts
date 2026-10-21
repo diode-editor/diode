@@ -8,7 +8,7 @@ import { TextDocument } from "../model/textDocument.ts";
 
 import { DocumentTokenStore } from "./documentTokenStore.ts";
 
-/** Смещение от цветов по умолчанию. */
+/** Offset from the default colors. */
 const stateMark = (counter: number): number => 10 + counter;
 
 class CounterState implements IState {
@@ -24,7 +24,7 @@ class CounterState implements IState {
     }
 }
 
-/** `>` поднимает счётчик, остальные строки пропускают состояние как есть. */
+/** `>` bumps the counter; other lines pass the state through as is. */
 class StatefulTokenizer implements ITokenizationSupport {
     public getInitialState(): IState {
         return new CounterState(0);
@@ -47,8 +47,8 @@ describe("DocumentTokenStore end-state optimisation", () => {
 
         const spy = vi.spyOn(tokenizer, "tokenizeEncoded");
         store.forceTokenization(doc.lineCount - 1);
-        // Старый end-state строки 0 переживает правку (как TokenizationStateStore эталона)
-        // и равен новому — строка 1 остаётся валидной.
+        // The old end-state of line 0 survives the edit (as in upstream TokenizationStateStore)
+        // and equals the new one — line 1 stays valid.
         expect(spy).toHaveBeenCalledTimes(1);
         expect(store.hasAccurateTokensForLine(doc.lineCount - 1)).toBe(true);
     });

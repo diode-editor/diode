@@ -7,16 +7,16 @@ import {
     stripBOM,
 } from "./encoding.ts";
 
-// Отдельным от `encoding.ts` модулем — чтобы extension host, которому нужен
-// только разовый декод, не тащил это в свою роль.
+// A module separate from `encoding.ts` so the extension host, which only needs one-shot
+// decoding, does not pull this into its role.
 
-/** Склеенный выход при любых границах кусков — ровно разовый декод склеенного входа. */
+/** For any chunk boundaries, the joined output equals a one-shot decode of the joined input. */
 interface IChunkDecoder {
     write(chunk: Buffer): string;
     end(): string;
 }
 
-/** Кусок может кончаться посреди суррогатной пары. */
+/** A chunk may end in the middle of a surrogate pair. */
 interface IChunkEncoder {
     write(text: string): Buffer;
     end(): Buffer;
@@ -28,16 +28,16 @@ interface IStreamCodec {
 }
 
 /**
- * Перенос хвоста декод не меняет: ведущий байт всегда начинает новую maximal
- * subpart, разрез перед ним не делит ничего, что разовый декодер прочёл бы одним символом.
+ * Carrying the tail over does not change decoding: a lead byte always starts a new maximal
+ * subpart, so a cut before it splits nothing a one-shot decoder would read as one character.
  */
 function utf8IncompleteTail(bytes: Buffer): number {
-    // Stryker disable next-line MethodExpression: без нижней границы цикл идёт левее, но ведущий байт там отстоит от конца больше чем на 4 — хвост 0, как и после цикла
+    // Stryker disable next-line MethodExpression: without the lower bound the loop goes further left, but a lead byte there is more than 4 from the end, so the tail is 0, same as after the loop
     const stop = Math.max(0, bytes.length - 3);
     for (let i = bytes.length - 1; i >= stop; i--) {
         const byte = bytes[i];
         if ((byte & 0xc0) === 0x80) continue;
-        // C0/C1 никогда не начинают допустимую последовательность — U+FFFD сразу.
+        // C0/C1 never start a valid sequence: U+FFFD right away.
         const expected = byte >= 0xf0 ? 4 : byte >= 0xe0 ? 3 : byte >= 0xc2 ? 2 : 1;
         const present = bytes.length - i;
         return present < expected ? present : 0;
@@ -51,8 +51,8 @@ function createUtf8Decoder(): IChunkDecoder {
         write(chunk) {
             const bytes = pending === null ? chunk : Buffer.concat([pending, chunk]);
             const cut = bytes.length - utf8IncompleteTail(bytes);
-            // Копия хвоста: буфер чтения вызывающий может переиспользовать.
-            // Stryker disable next-line ConditionalExpression,EqualityOperator: пустой хвост буфером вместо null — тот же декод, null лишь экономит копию
+            // Copy the tail: the caller may reuse its read buffer.
+            // Stryker disable next-line ConditionalExpression,EqualityOperator: an empty tail buffer instead of null decodes the same, null only saves a copy
             pending = cut < bytes.length ? Buffer.from(bytes.subarray(cut)) : null;
             return bytes.toString("utf8", 0, cut);
         },
@@ -65,9 +65,9 @@ function createUtf8Decoder(): IChunkDecoder {
 }
 
 /**
- * Разрезанная пара декодируется двумя одиночными code unit'ами и склеивается
- * обратно — переносить нужно только нечётный байт. Нечётный байт в конце всего
- * входа отбрасывается, как у iconv-lite. BE — swap16 копии: буфер вызывающего цел.
+ * A split pair decodes as two lone code units and joins back, so only an odd byte needs
+ * carrying over. An odd byte at the very end of input is dropped, as in iconv-lite.
+ * BE swaps a copy (swap16): the caller's buffer stays intact.
  */
 function createUtf16Decoder(bigEndian: boolean): IChunkDecoder {
     let pending: Buffer | null = null;
@@ -75,7 +75,7 @@ function createUtf16Decoder(bigEndian: boolean): IChunkDecoder {
         write(chunk) {
             const bytes = pending === null ? chunk : Buffer.concat([pending, chunk]);
             const even = bytes.length & ~1;
-            // Stryker disable next-line ConditionalExpression,EqualityOperator: пустой хвост буфером вместо null — тот же декод, null лишь экономит копию
+            // Stryker disable next-line ConditionalExpression,EqualityOperator: an empty tail buffer instead of null decodes the same, null only saves a copy
             pending = even < bytes.length ? Buffer.from(bytes.subarray(even)) : null;
             const units = bytes.subarray(0, even);
             return (bigEndian ? Buffer.from(units).swap16() : units).toString("utf16le");
@@ -87,14 +87,14 @@ function createUtf16Decoder(bigEndian: boolean): IChunkDecoder {
     };
 }
 
-/** Хвостовой high surrogate ждёт следующего куска: один он стал бы заменой в utf-8. */
+/** A trailing high surrogate waits for the next chunk: alone it would become a replacement char in utf-8. */
 function createNativeEncoder(encode: (text: string) => Buffer): IChunkEncoder {
     let pending = "";
     return {
         write(text) {
             const joined = pending + text;
             const last = joined.charCodeAt(joined.length - 1);
-            // Stryker disable next-line ConditionalExpression: «придержать любой последний символ» даёт те же байты в сумме — отличие только в разбивке по кускам
+            // Stryker disable next-line ConditionalExpression: "hold back any last char" yields the same total bytes, only the chunk split differs
             const cut = last >= 0xd800 && last <= 0xdbff ? joined.length - 1 : joined.length;
             pending = joined.slice(cut);
             return encode(joined.slice(0, cut));
@@ -110,7 +110,7 @@ const STREAM_CODECS: ReadonlyMap<string, IStreamCodec> = new Map<string, IStream
         "utf8",
         {
             createDecoder: createUtf8Decoder,
-            // Stryker disable next-line StringLiteral: Buffer.from с пустым именем кодировки — тоже utf-8
+            // Stryker disable next-line StringLiteral: Buffer.from with an empty encoding name is utf-8 too
             createEncoder: () => createNativeEncoder((text) => Buffer.from(text, "utf8")),
         },
     ],
@@ -131,9 +131,9 @@ const STREAM_CODECS: ReadonlyMap<string, IStreamCodec> = new Map<string, IStream
 ]);
 
 /**
- * Копит куски и декодирует разом: потоковый декодер iconv-lite 0.7.3 теряет
- * символы gb18030 на разрезе. Не-Unicode бывает только по явному «Reopen with
- * Encoding», так что открытию файла буфер целиком ничего не стоит.
+ * Accumulates chunks and decodes at once: the iconv-lite 0.7.3 streaming decoder loses
+ * gb18030 characters at a cut. Non-Unicode only comes from an explicit "Reopen with
+ * Encoding", so buffering the whole file costs file open nothing.
  */
 function iconvDecoder(iconv: IconvLite, iconvName: string): IChunkDecoder {
     const parts: Buffer[] = [];
@@ -158,13 +158,13 @@ function iconvEncoder(iconv: IconvLite, iconvName: string): IChunkEncoder {
 }
 
 export interface IDecodedStream {
-    /** Id таблицы `SUPPORTED_ENCODINGS`, не имя iconv. */
+    /** Id from the `SUPPORTED_ENCODINGS` table, not the iconv name. */
     readonly encoding: string;
-    /** Ленивый и однопроходный: итерация тянет куски байт. */
+    /** Lazy and single-pass: iteration pulls byte chunks. */
     readonly text: Iterable<string>;
 }
 
-/** Самый длинный BOM (utf-8). */
+/** The longest BOM (utf-8). */
 const SNIFF_LENGTH = 3;
 
 function readHead(bytes: Iterator<Buffer>): Buffer {
@@ -185,21 +185,21 @@ function* decodeChunks(head: Buffer, rest: Iterator<Buffer>, decoder: IChunkDeco
         for (let next = rest.next(); next.done !== true; next = rest.next()) yield decoder.write(next.value);
         yield decoder.end();
     } finally {
-        // Брошенный на полпути проход закрывает и источник байт (файл).
+        // A pass abandoned midway also closes the byte source (the file).
         rest.return?.();
     }
 }
 
 function streamCodec(info: IEncodingInfo): IStreamCodec {
     const codec = STREAM_CODECS.get(info.iconvName);
-    /* v8 ignore start -- сниф даёт только utf8/utf8bom/utf16le/utf16be, у всех есть нативный кодек; throw — инвариант-гард */
-    // Stryker disable next-line all: недостижимый инвариант-гард, см. v8 ignore выше
+    /* v8 ignore start -- sniffing yields only utf8/utf8bom/utf16le/utf16be, all with a native codec; the throw is an invariant guard */
+    // Stryker disable next-line all: unreachable invariant guard, see v8 ignore above
     if (codec === undefined) throw new Error(`No native codec for sniffed encoding: ${info.id}`);
     /* v8 ignore stop */
     return codec;
 }
 
-/** Синхронно и без iconv: сниф даёт только utf-8 или UTF-16. */
+/** Synchronous and iconv-free: sniffing yields only utf-8 or UTF-16. */
 export function decodeStreamByBOM(bytes: Iterable<Buffer>): IDecodedStream {
     const source = bytes[Symbol.iterator]();
     const head = readHead(source);
@@ -207,7 +207,7 @@ export function decodeStreamByBOM(bytes: Iterable<Buffer>): IDecodedStream {
     return { encoding: info.id, text: decodeChunks(stripBOM(head, info), source, streamCodec(info).createDecoder()) };
 }
 
-/** Асинхронно только ради загрузки iconv-lite: байты читаются при итерации {@link IDecodedStream.text}. */
+/** Async only to load iconv-lite: bytes are read while iterating {@link IDecodedStream.text}. */
 export async function decodeStream(bytes: Iterable<Buffer>, explicitEncoding?: string): Promise<IDecodedStream> {
     const source = bytes[Symbol.iterator]();
     const head = readHead(source);
@@ -217,18 +217,18 @@ export async function decodeStream(bytes: Iterable<Buffer>, explicitEncoding?: s
     try {
         decoder = codec !== undefined ? codec.createDecoder() : iconvDecoder(await loadIconv(), info.iconvName);
     } catch (error) {
-        // Источник уже начат (сниф) — отказ загрузки iconv его закрывает.
+        // The source is already started (sniffing); a failed iconv load closes it.
         source.return?.();
         throw error;
     }
     return { encoding: info.id, text: decodeChunks(stripBOM(head, info), source, decoder) };
 }
 
-/** Куски читаются после загрузки iconv-lite — снимок должен быть уже снят. */
+/** Chunks are read after iconv-lite loads, so the snapshot must already be taken. */
 export async function encodeChunks(chunks: Iterable<string>, encoding: string): Promise<Buffer> {
     const info = resolveEncodeEncoding(encoding);
     const codec = STREAM_CODECS.get(info.iconvName);
-    // addBOM, как и stripBOM в decodeBuffer, у не-Unicode кодеков пустой.
+    // Like stripBOM in decodeBuffer, addBOM is a no-op for non-Unicode codecs.
     const encoder = codec !== undefined ? codec.createEncoder() : iconvEncoder(await loadIconv(), info.iconvName);
     const parts: Buffer[] = info.bom === undefined ? [] : [Buffer.from(info.bom)];
     for (const chunk of chunks) parts.push(encoder.write(chunk));

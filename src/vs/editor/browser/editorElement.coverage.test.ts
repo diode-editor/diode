@@ -32,8 +32,8 @@ class WholeLineTokenizer implements ITokenizationSupport {
 const STYLED_FG = packRgb(10, 20, 30);
 const STYLED_BG = packRgb(200, 100, 50);
 
-// colorMap темы: индексы 1 и 2 (цвета по умолчанию) нарочно не совпадают с
-// цветами редактора — ячейка всё равно должна взять цвета редактора.
+// Theme colorMap: indices 1 and 2 (default colors) deliberately differ from the
+// editor colors — the cell must still take the editor colors.
 const COLOR_MAP = ["", "#ff0000", "#00ff00", "#0a141e", "#c86432"];
 const STYLED_FG_ID = 3;
 const STYLED_BG_ID = 4;

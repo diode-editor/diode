@@ -98,7 +98,7 @@ describe("EditorElement – folding gutter", () => {
     });
 
     it("never overwrites the header's last character with the marker", () => {
-        // Маркер стоит на колонку ЗА заголовком и ни одного символа не прячет.
+        // The marker sits one column PAST the header and hides no character.
         const { app, editor } = createEditor("abc\n  x\n  y\nz", [{ start: 0, end: 2, collapsed: true }]);
         app.render();
         const gw = editor.gutterWidth;
