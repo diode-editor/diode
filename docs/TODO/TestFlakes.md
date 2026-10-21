@@ -11,6 +11,10 @@
 
 Известные флаки юнит-набора и e2e; PR-диффом не задеты, `gh run rerun --failed` зеленит.
 
+- [ ] `extensionHost.goLsp.test.ts` › «ExtensionHost — stock golang.go (gopls, end to end)»: сеть —
+  `https://open-vsx.org/…/golang.Go-0.56.1.vsix: no data for 30000ms` в `beforeAll`, следом
+  `Cannot read properties of undefined (reading 'dispose')` в `afterAll`. Job `test` на #753
+  (ран 39653146369, PR меняет только тексты в contrib).
 - [ ] `explorerComponent.decorations.test.ts` › «свёрнутая папка с изменённым файлом глубоко внутри
   — цвет файла и «●»»: `expected '  old\n  pkg/a/b\n C.java\n …' to contain 'util.ts'`. Локально
   на main — 4 из 10. Валит и job `test`, и dry run мутаций (`There were failed tests in the initial
