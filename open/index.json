@@ -1286,5 +1286,19 @@
       "large",
       "xlarge"
     ]
+  },
+  {
+    "file": "2026-10-21-f3cacd2fa7dd.json",
+    "generatedAt": "2026-10-21T10:11:31.156Z",
+    "commit": "f3cacd2fa7dd",
+    "binaryVersion": "nightly-f3cacd2",
+    "ci": true,
+    "conditions": "CI, shared runner (GitHub Actions)",
+    "sizes": [
+      "small",
+      "medium",
+      "large",
+      "xlarge"
+    ]
   }
 ]
