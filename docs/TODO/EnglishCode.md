@@ -19,8 +19,8 @@
 - [~] `src/vs/platform` f–z: extensions…workspace (1620)
 - [x] `src/vs/editor`: core, diff, languages, services, contrib, test (1160) — #727
 - [~] `src/vs/editor`: browser, viewModel, model, tokens (1923)
-- [~] `workbench/browser/parts` и `workbench/common` (2657)
-- [ ] `workbench/browser`: верхний уровень и actions (1503)
+- [x] `workbench/browser/parts` и `workbench/common` (2657) — #729
+- [~] `workbench/browser`: верхний уровень и actions (1503)
 - [ ] `workbench/services/extensions/node/extensionHost.*` (1308)
 - [ ] `workbench/services/extensions`: остальное (1828)
 - [ ] `workbench/services`: остальное (2563)
