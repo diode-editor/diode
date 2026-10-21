@@ -110,9 +110,9 @@ describe("provideSelectionRanges — слияние эталона", () => {
         const text = "aa bb cc dd";
         const lsp = provider(() => [
             [
-                createRange(0, 0, 0, 5), // «aa bb»
-                createRange(0, 9, 0, 11), // «dd» — мимо каретки
-                createRange(0, 3, 0, 8), // «bb cc» — уже, чем «aa bb», и пересекает его сбоку
+                createRange(0, 0, 0, 5), // `aa bb`
+                createRange(0, 9, 0, 11), // `dd` misses the cursor
+                createRange(0, 3, 0, 8), // `bb cc` is narrower than `aa bb` and overlaps its side
             ],
         ]);
         expect(await steps(text, [createPosition(0, 4)], { providers: [lsp] })).toEqual([["bb", "bb cc", text]]);

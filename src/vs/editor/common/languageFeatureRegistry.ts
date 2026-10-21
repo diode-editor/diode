@@ -4,7 +4,7 @@ import type { Uri } from "../../base/common/uri.ts";
 
 import { isExclusive, type LanguageSelector, score } from "./languageSelector.ts";
 
-/** Структурный минимум upstream `ITextModel` для скоринга. */
+/** Structural minimum of upstream `ITextModel` needed for scoring. */
 export interface ILanguageFeatureTarget {
     readonly uri: Uri;
     readonly languageId: string;
@@ -18,14 +18,14 @@ interface Entry<T> {
 }
 
 /**
- * upstream `languageFeatureRegistry.ts` без notebook-резолвера, `recursive`,
- * `all` и понижения встроенных провайдеров — нет ни ноутбуков, ни builtin-расширений.
+ * Upstream `languageFeatureRegistry.ts` without the notebook resolver, `recursive`, `all`
+ * and builtin provider demotion: there are neither notebooks nor builtin extensions.
  */
 export class LanguageFeatureRegistry<T> {
     private clock = 0;
     private readonly entries: Entry<T>[] = [];
     private readonly onDidChangeEmitter = new Emitter<number>();
-    /** Документ, под который посчитаны `entry.score`; `undefined` — пересчитать. */
+    /** Document the `entry.score` values were computed for; `undefined` means recompute. */
     private lastCandidate: { readonly uri: string; readonly languageId: string } | undefined;
 
     public register(selector: LanguageSelector, provider: T): IDisposable {
@@ -37,7 +37,7 @@ export class LanguageFeatureRegistry<T> {
         return {
             dispose: () => {
                 if (entry === undefined) return;
-                // Запись снимает только свой dispose и только раз — она всегда на месте.
+                // Only its own dispose removes the entry, and only once, so it is always present.
                 this.entries.splice(this.entries.indexOf(entry), 1);
                 entry = undefined;
                 this.lastCandidate = undefined;
@@ -46,14 +46,14 @@ export class LanguageFeatureRegistry<T> {
         };
     }
 
-    /** На каждую регистрацию и снятие, а не только на переходе пусто↔непусто; аргумент — число регистраций. */
+    /** Fires on every register and dispose, not only on empty↔non-empty; the argument is the registration count. */
     public readonly onDidChange = this.onDidChangeEmitter.event;
 
     public has(target: ILanguageFeatureTarget): boolean {
         return this.ordered(target).length > 0;
     }
 
-    /** По убыванию score, при равном — новые первыми. */
+    /** By descending score; on ties, newest first. */
     public ordered(target: ILanguageFeatureTarget): T[] {
         this.updateScores(target);
         const result: T[] = [];
@@ -63,7 +63,7 @@ export class LanguageFeatureRegistry<T> {
         return result;
     }
 
-    /** upstream `orderedGroups`: группы равного score по убыванию. */
+    /** Upstream `orderedGroups`: groups of equal score, in descending order. */
     public orderedGroups(target: ILanguageFeatureTarget): T[][] {
         this.updateScores(target);
         const groups: { score: number; providers: T[] }[] = [];

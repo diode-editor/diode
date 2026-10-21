@@ -62,8 +62,9 @@ describe("computeWordOccurrences", () => {
     });
 
     /**
-     * Каретка из состояния вью бывает «протухшей» (правка мимо вью, позиция от расширения):
-     * колонка за концом строки роняла из `render` ВЕСЬ редактор (`TypeError` в `isWordChar`).
+     * The cursor from view state can be stale (an edit bypassing the view, a position from an
+     * extension): a column past the line end crashed the WHOLE editor from `render`
+     * (`TypeError` in `isWordChar`).
      */
     it("колонка за концом строки не роняет highlight, а берёт слово у конца", () => {
         expect(occurrences("bar\nbar", 0, 9)).toEqual([createRange(0, 0, 0, 3), createRange(1, 0, 1, 3)]);

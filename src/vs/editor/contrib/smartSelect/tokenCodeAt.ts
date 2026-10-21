@@ -5,8 +5,8 @@ import type { DocumentTokenStore } from "../../common/tokens/documentTokenStore.
 import type { IsCodeAt } from "./bracketSelections.ts";
 
 /**
- * `forceTokenization` до нижней каретки — явной команде можно; у строк за ней
- * токены эвристические или устаревшие — их скобки считаются кодом.
+ * `forceTokenization` up to the lowest cursor is fine for an explicit command; lines past it
+ * have heuristic or stale tokens, so their brackets count as code.
  */
 export function tokenCodeAt(store: DocumentTokenStore | undefined, positions: readonly IPosition[]): IsCodeAt {
     if (store === undefined) return () => true;

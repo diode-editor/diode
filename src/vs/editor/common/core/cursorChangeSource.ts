@@ -1,22 +1,22 @@
 /**
- * Источник жеста для `TextEditorSelectionChangeKind`. Не параметр через пять
- * сигнатур, а **синхронная область** вокруг обработчика жеста: цепочка от
- * жеста до слушателя смены выделения синхронна. Смена каретки после `await`
- * выедет из области и даст `undefined` — upstream это допускает (`kind` у
- * `TextEditorSelectionChangeEvent` опционален).
+ * Gesture source for `TextEditorSelectionChangeKind`. Not a parameter threaded through five
+ * signatures but a **synchronous scope** around the gesture handler: the chain from the
+ * gesture to the selection change listener is synchronous. A cursor change after `await`
+ * falls outside the scope and yields `undefined`, which upstream allows (`kind` on
+ * `TextEditorSelectionChangeEvent` is optional).
  */
 export type CursorChangeSource = "keyboard" | "mouse" | "command";
 
 let currentSource: CursorChangeSource | undefined;
 
-/** Читать только синхронно, внутри обработчика смены выделения. */
+/** Read only synchronously, inside the selection change handler. */
 export function currentCursorChangeSource(): CursorChangeSource | undefined {
     return currentSource;
 }
 
 /**
- * Вложенность сохраняет внешний источник: кейбинд, запустивший команду,
- * остаётся `keyboard` — как в VS Code.
+ * Nesting keeps the outer source: a keybinding that runs a command stays
+ * `keyboard`, as in VS Code.
  */
 export function withCursorChangeSource<T>(source: CursorChangeSource, fn: () => T): T {
     const previous = currentSource;

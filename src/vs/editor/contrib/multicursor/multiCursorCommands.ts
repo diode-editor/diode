@@ -23,7 +23,7 @@ function selectionFromRange(range: IRange): ISelection {
     return createSelection(range.start.line, range.start.character, range.end.line, range.end.character);
 }
 
-/** `null` — шаг израсходован на подготовку (первый Ctrl+D только выделяет слово) или искать нечего. */
+/** `null` when the step was spent on setup (the first Ctrl+D only selects the word) or there is nothing to search. */
 function ensureSession(viewState: EditorViewState): IMultiCursorFindSession | null {
     const versionId = viewState.document.versionId;
     const session = viewState.multiCursorSession;
@@ -32,8 +32,8 @@ function ensureSession(viewState: EditorViewState): IMultiCursorFindSession | nu
     viewState.multiCursorSession = null;
     const selections = viewState.selections;
 
-    // Несколько кареток с РАЗНЫМ текстом: продолжать один поиск нечем — расширяем каждую
-    // схлопнутую до слова под ней и на этом шаг заканчиваем (паритет с VS Code).
+    // Several cursors with DIFFERENT text: there is no single search to continue, so expand each
+    // collapsed one to the word under it and end the step there (parity with VS Code).
     if (selections.length > 1 && !selectionsShareText(viewState.document, selections, true)) {
         expandCollapsedToWords(viewState);
         return null;
@@ -65,15 +65,15 @@ function expandCollapsedToWords(viewState: EditorViewState): void {
     }
 }
 
-/** `"move"` переносит на найденное последнее добавленное (VS Code Ctrl+K Ctrl+D). */
+/** `"move"` moves the last added selection to the found match (VS Code Ctrl+K Ctrl+D). */
 function step(viewState: EditorViewState, direction: 1 | -1, mode: "add" | "move"): void {
     const session = ensureSession(viewState);
     if (session === null) return;
 
     const selections = viewState.selections;
     const ranges = selections.map((sel) => selectionToRange(sel));
-    // При переносе прежнее место освобождается — иначе поиск счёл бы его занятым и
-    // на единственной паре вхождений команда встала бы намертво.
+    // On move the old spot is freed; otherwise the search would treat it as taken and with only
+    // two occurrences the command would get stuck.
     const taken = mode === "add" ? ranges : ranges.filter((range) => !rangesEqual(range, session.lastAdded));
 
     const match = findNextOccurrence(viewState.document, session, session.lastAdded, direction, taken);
@@ -84,7 +84,7 @@ function step(viewState: EditorViewState, direction: 1 | -1, mode: "add" | "move
             ? selections
             : selections.filter((sel) => !rangesEqual(selectionToRange(sel), session.lastAdded));
     const added = selectionFromRange(match);
-    // Новое выделение — в хвосте: при слиянии направление наследуется от позже добавленного.
+    // The new selection goes last: on merge, direction is inherited from the later added one.
     viewState.selections = [...base, added];
     viewState.multiCursorSession = captureSession(session, match, viewState.selections, viewState.document.versionId);
     viewState.revealSelection(added);
@@ -99,18 +99,18 @@ export function addSelectionToPreviousFindMatch(viewState: EditorViewState): voi
 }
 
 export function moveSelectionToNextFindMatch(viewState: EditorViewState): void {
-    // Stryker disable next-line StringLiteral: step() сравнивает режим только с "add", поэтому "move" и любая другая строка идут одной ветвью — подмена ненаблюдаема
+    // Stryker disable next-line StringLiteral: step() compares the mode only with "add", so "move" and any other string take the same branch; the mutation is unobservable
     step(viewState, 1, "move");
 }
 
 export function moveSelectionToPreviousFindMatch(viewState: EditorViewState): void {
-    // Stryker disable next-line StringLiteral: см. moveSelectionToNextFindMatch — режим сравнивается только с "add"
+    // Stryker disable next-line StringLiteral: see moveSelectionToNextFindMatch; the mode is compared only with "add"
     step(viewState, -1, "move");
 }
 
 /**
- * Вьюпорт намеренно не двигаем: прыжок к первичному (самому верхнему) выделению увёз бы
- * в начало файла. Хотя бы одно вхождение всегда есть — искомый текст взят из документа.
+ * The viewport is intentionally not moved: jumping to the primary (topmost) selection would scroll
+ * to the top of the file. There is always at least one match: the search text comes from the document.
  */
 export function selectHighlights(viewState: EditorViewState): void {
     const versionId = viewState.document.versionId;
@@ -129,7 +129,7 @@ export function selectHighlights(viewState: EditorViewState): void {
     viewState.multiCursorSession = captureSession(spec, matches[matches.length - 1], viewState.selections, versionId);
 }
 
-/** У последней строки каретка — только если выделение в неё зашло (`getCursorsForSelection` VS Code). */
+/** The last line gets a cursor only if the selection extends into it (VS Code `getCursorsForSelection`). */
 export function insertCursorAtEndOfEachLineSelected(viewState: EditorViewState): void {
     const carets: ISelection[] = [];
     for (const selection of viewState.selections) {

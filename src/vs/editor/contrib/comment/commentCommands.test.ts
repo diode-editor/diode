@@ -72,7 +72,7 @@ describe("toggleLineComment", () => {
     });
 
     it("выделения, отданные в обратном документном порядке, обрабатываются как прямые", () => {
-        // Alt+клик снизу вверх; без сортировки дедуп строк и сдвиги едут.
+        // Alt+click bottom-up; without sorting, line dedup and shifts go wrong.
         const reversed = makeState("aaa\nbbb\nccc", [
             createCursorSelection(2, 1),
             createCursorSelection(1, 0),
@@ -91,7 +91,7 @@ describe("toggleLineComment", () => {
     it("язык без lineComment (CSS) оборачивает содержимое строки блочной парой", () => {
         const state = makeState("    color: red;", [createCursorSelection(0, 6)]);
         const element = toggleLineComment(state, CSS);
-        // Фолбэк остаётся шагом «toggle line comment» — им его и звали.
+        // The fallback stays a "toggle line comment" step, since that is what was invoked.
         expect(element?.label).toBe("toggleLineComment");
         expect(state.document.getText()).toBe("    /* color: red; */");
 
@@ -197,7 +197,7 @@ describe("toggleBlockComment", () => {
         toggleBlockComment(state, TS);
 
         expect(state.document.getText()).toBe("/* aa */ /* bb */");
-        // Без сортировки сдвиг от правок соседа лёг бы не на то выделение.
+        // Without sorting, the shift from the neighbor's edits would hit the wrong selection.
         const texts = state.selections.map((sel) => state.document.getTextInRange(selectionToRange(sel)));
         expect(texts).toEqual(["aa", "bb"]);
     });

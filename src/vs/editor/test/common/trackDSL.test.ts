@@ -12,7 +12,7 @@ import { createFoldingRegion } from "../../contrib/folding/iFoldingRegion.ts";
 
 import { editorState, expectEditorState, parseDSL, renderToDSL } from "./trackDSL.ts";
 
-/** Пробел («нет токена») — цвет 0. */
+/** A space ("no token") is color 0. */
 function trackToken(ch: string): number {
     return ((ch === " " ? 0 : ch.charCodeAt(0)) << MetadataConsts.FOREGROUND_OFFSET) >>> 0;
 }

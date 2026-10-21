@@ -52,7 +52,7 @@ describe("LanguageFeatureRegistry", () => {
         const registry = new LanguageFeatureRegistry<string>();
         registry.register({ language: "*", exclusive: true }, "exclusive");
         registry.register("typescript", "later");
-        // По score «later» (10) обогнал бы «exclusive» (5), но эксклюзивный обнуляет всех.
+        // By score "later" (10) would beat "exclusive" (5), but the exclusive one zeroes out all the others.
         expect(registry.ordered(ts)).toEqual(["exclusive"]);
         expect(registry.ordered(md)).toEqual(["exclusive"]);
     });

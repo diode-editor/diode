@@ -5,7 +5,7 @@ import { TextDocument } from "../../common/model/textDocument.ts";
 
 import { planToggleBlockComment } from "./blockComments.ts";
 
-/** Выделение — `[al, ac, ll, lc]`. */
+/** Selection as `[al, ac, ll, lc]`. */
 function toggle(text: string, range: ReturnType<typeof createRange>, open = "/*", close = "*/") {
     const doc = new TextDocument(text);
     const plan = planToggleBlockComment(doc, range, open, close);
@@ -45,7 +45,7 @@ describe("planToggleBlockComment — пустое выделение", () => {
     });
 
     it("закрывающий ищется за концом открывающего, а не внутри него", () => {
-        // Подстрока `*/` начинается уже на втором символе открывающего токена.
+        // The substring `*/` already starts at the second character of the open token.
         const [text, sel] = toggle("/*/ x */", createRange(0, 3, 0, 3));
         expect(text).toBe("/ x");
         expect(sel).toEqual([0, 1, 0, 1]);
@@ -70,21 +70,21 @@ describe("planToggleBlockComment — пустое выделение", () => {
 });
 
 describe("planToggleBlockComment — каретка по всем позициям пары", () => {
-    // `x/* foo */y`: пара занимает [1, 10), содержимое `foo` — [4, 7).
+    // `x/* foo */y`: the pair spans [1, 10), the content `foo` spans [4, 7).
     const TEXT = "x/* foo */y";
 
     for (let caret = 1; caret <= 10; caret++) {
         it(`каретка на ${String(caret)} внутри пары снимает её целиком`, () => {
             const [text, sel] = toggle(TEXT, createRange(0, caret, 0, caret));
             expect(text).toBe("xfooy");
-            // В пределах бывшего содержимого вместе с краями — не в чужом тексте.
+            // Within the former content including its edges, not in the surrounding text.
             expect(sel[3]).toBeGreaterThanOrEqual(1);
             expect(sel[3]).toBeLessThanOrEqual(4);
         });
     }
 
     it("каретка ровно на содержимом отслеживает свой символ", () => {
-        // На `o` (индекс 5) → после снятия `/* ` слева символ уезжает на 2.
+        // On `o` (index 5): after removing `/* ` on the left, the character moves to 2.
         const [text, sel] = toggle(TEXT, createRange(0, 5, 0, 5));
         expect(text).toBe("xfooy");
         expect(sel).toEqual([0, 2, 0, 2]);
@@ -188,7 +188,7 @@ describe("planToggleBlockComment — выделение", () => {
     });
 
     it("наружные токены без пробелов снимаются и посреди строки", () => {
-        // Посторонний текст по краям важен: токен ищется у границы выделения, а не строки.
+        // The surrounding text matters: tokens are looked up at the selection boundary, not the line's.
         const [text, sel] = toggle("x/*a*/y", createRange(0, 3, 0, 4));
         expect(text).toBe("xay");
         expect(sel).toEqual([0, 1, 0, 2]);

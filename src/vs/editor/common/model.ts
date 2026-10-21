@@ -3,9 +3,9 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 //@diode:shim microsoft/vscode@1.127.0 src/vs/editor/common/model.ts
-// Узкое извлечение: `ITextModel` под model/textModelTokens.ts (адаптер —
-// tokens/documentTokenStore.ts) и контракт буфера под pieceTreeTextBuffer/*
-// дословно из upstream. Координаты — с 1; ±1 только в адаптерах (docs/arch/Editor.md).
+// Narrow extraction: `ITextModel` for model/textModelTokens.ts (adapter:
+// tokens/documentTokenStore.ts) and the buffer contract for pieceTreeTextBuffer/*,
+// verbatim from upstream. Coordinates are 1-based; ±1 only in adapters (docs/arch/Editor.md).
 
 import type { Event } from "../../base/common/event.ts";
 import type { IDisposable } from "../../base/common/lifecycle.ts";
@@ -22,7 +22,7 @@ export interface ITextModel {
     getLineCount(): number;
     getLineContent(lineNumber: number): string;
     getLineLength(lineNumber: number): number;
-    /** 0 — строка пуста или из одних пробелов. */
+    /** 0 when the line is empty or whitespace only. */
     getLineFirstNonWhitespaceColumn(lineNumber: number): number;
     isAttachedToEditor(): boolean;
 }

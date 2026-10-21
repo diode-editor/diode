@@ -8,7 +8,7 @@ export interface ITextMatchOptions {
     readonly wholeWord: boolean;
 }
 
-/** Построчно, без перекрытий. Пустой запрос не находит ничего — как в VS Code. */
+/** Line by line, no overlaps. An empty query finds nothing, as in VS Code. */
 export function findTextMatches(document: ITextDocument, query: string, options: ITextMatchOptions): IRange[] {
     if (query.length === 0) return [];
 
@@ -23,7 +23,7 @@ export function findTextMatches(document: ITextDocument, query: string, options:
         for (;;) {
             const idx = haystack.indexOf(needle, from);
             if (idx === -1) break;
-            // Не `idx + 1` и у отбракованного совпадения: перекрытий потребители не ждут.
+            // Not `idx + 1` even for a rejected match: consumers don't expect overlaps.
             from = idx + queryLen;
             if (options.wholeWord && !isWholeWordAt(content, idx, queryLen)) continue;
             matches.push(createRange(line, idx, line, idx + queryLen));
@@ -34,14 +34,14 @@ export function findTextMatches(document: ITextDocument, query: string, options:
 }
 
 function isWholeWordAt(content: string, idx: number, length: number): boolean {
-    // Stryker disable next-line StringLiteral: isWordChar отвечает false на всё, что не ровно один символ, поэтому любая непустая подмена ведёт себя как пустая строка
+    // Stryker disable next-line StringLiteral: isWordChar returns false for anything but exactly one char, so any non-empty replacement behaves like the empty string
     const before = idx > 0 ? content[idx - 1] : "";
-    // Stryker disable next-line StringLiteral: см. выше — подмена заглушки ненаблюдаема
+    // Stryker disable next-line StringLiteral: see above — replacing the placeholder is unobservable
     const after = idx + length < content.length ? content[idx + length] : "";
     return !isWordChar(before) && !isWordChar(after);
 }
 
 export function findMatches(document: ITextDocument, query: string): IRange[] {
-    // Stryker disable next-line ObjectLiteral: findTextMatches читает поля как истинностные значения, и отсутствующее поле равносильно false
+    // Stryker disable next-line ObjectLiteral: findTextMatches reads the fields as truthy values, and a missing field equals false
     return findTextMatches(document, query, { matchCase: false, wholeWord: false });
 }

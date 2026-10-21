@@ -3,8 +3,8 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 //@diode:shim microsoft/vscode@1.127.0 src/vs/editor/common/languages.ts
-// Узкое извлечение: из ~2.5k строк upstream — только контракт токенизатора
-// под перенесённую токенизацию.
+// Narrow extraction: of upstream's ~2.5k lines, only the tokenizer contract
+// needed by the ported tokenization.
 
 import type { LanguageId } from "./encodedTokenAttributes.ts";
 import type { IState } from "./languages/iState.ts";
@@ -38,7 +38,7 @@ export class TokenizationResult {
     }
 }
 
-/** Наш vscode-textmate шрифтов не отдаёт: массив всегда пуст, держим ради формы upstream-конструктора. */
+/** Our vscode-textmate returns no fonts: the array is always empty, kept for the upstream constructor shape. */
 export interface IFontToken {
     readonly startIndex: number;
     readonly endIndex: number;
@@ -64,13 +64,13 @@ export class EncodedTokenizationResult {
     }
 }
 
-/** Без upstream `tokenize` и `createBackgroundTokenizer`: нужен только бинарный путь. */
+/** Without upstream `tokenize` and `createBackgroundTokenizer`: only the binary path is needed. */
 export interface ITokenizationSupport {
     getInitialState(): IState;
     tokenizeEncoded(line: string, hasEOL: boolean, state: IState): EncodedTokenizationResult;
 }
 
-/** Встроенные языки грамматик не различаем: кодек токен-стора отдаёт 0. */
+/** Embedded grammar languages are not distinguished: the token store codec returns 0. */
 export interface ILanguageIdCodec {
     encodeLanguageId(languageId: string): LanguageId;
     decodeLanguageId(languageId: LanguageId): string;

@@ -14,9 +14,9 @@ import type { IUnchangedRegion } from "./diffViewModel.ts";
 import type { DetailedLineRangeMapping } from "./rangeMapping.ts";
 
 /**
- * docs/arch/workbench/EditorPart.md, «Дифф-вкладка». Инвариант (гейт панели):
- * при одинаковой свёртке у обеих сторон одинаковое число строк вью — зоны
- * компенсируют разницу длин изменённых блоков, плашки парные.
+ * docs/arch/workbench/EditorPart.md, the diff tab section. Invariant (the pane's gate):
+ * with the same folding both sides have the same number of view lines; zones make up
+ * for the length difference of changed blocks, and placeholders come in pairs.
  */
 
 export const DIFF_FILLER_CHAR = "░";
@@ -75,7 +75,7 @@ function computeSide(
         const ownLength = endExclusive - start;
         const otherLength = other.endLineNumberExclusive - other.startLineNumber;
 
-        // При чистой вставке/удалении (own пуст) якорь — строка перед местом изменения.
+        // On a pure insert/delete (own is empty) the anchor is the line before the change.
         if (otherLength > ownLength) {
             const afterLine = endExclusive - 1;
             zones.push({ afterLine, size: otherLength - ownLength });
@@ -116,14 +116,14 @@ function computeSide(
         const regionStart = side === "original" ? region.originalStartLine : region.modifiedStartLine;
         const firstHidden = regionStart + region.visibleTop;
         const lastHidden = regionStart + region.lineCount - region.visibleBottom - 1;
-        // Заголовок фолда — строка над первой скрытой: тогда прячется РОВНО
-        // весь скрытый кусок. Кусок с начала файла заголовка выше не имеет —
-        // первая строка остаётся видимой (осознанный компромисс).
+        // The fold header is the line above the first hidden one, so EXACTLY the whole
+        // hidden chunk is hidden. A chunk at the start of the file has no header above it,
+        // so the first line stays visible (a deliberate compromise).
         const headerLine = Math.max(0, firstHidden - 1);
         const endLine = Math.min(lastHidden, lineCount - 1);
         if (endLine <= headerLine) continue;
         foldingRegions.push({ startLine: headerLine, endLine, isCollapsed: true });
-        // Якорь на скрытой строке — плашка выживает после заголовка свернувшего региона.
+        // Anchored on a hidden line, the placeholder survives past the header of the collapsed region.
         const placeholderAnchor = Math.max(headerLine, firstHidden);
         zones.push({ afterLine: placeholderAnchor, size: 1 });
         zoneDecorations.push({
@@ -146,10 +146,10 @@ function computeSide(
 }
 
 /**
- * Один редактор modified; удалённые строки — зоны-призраки перед своим ганком
- * (механика upstream inline view). Плашка свёртки и призрак могут делить якорь —
- * их склеивает {@link mergeZoneDecorationsByAnchor} на выходе панели, ПОСЛЕ
- * фильтрации плашек по свёрнутости.
+ * A single modified editor; deleted lines are ghost zones before their hunk (the upstream
+ * inline view mechanism). A fold placeholder and a ghost may share an anchor: the pane
+ * output joins them with {@link mergeZoneDecorationsByAnchor}, AFTER placeholders are
+ * filtered by collapsed state.
  */
 export function computeInlineLayout(
     changes: readonly DetailedLineRangeMapping[],
@@ -164,8 +164,8 @@ export function computeInlineLayout(
     const gutterMarkers: { line: number; char: string }[] = [];
     const rangeBackgrounds: IRangeBackgroundDecoration[] = [];
 
-    // Плашки свёртки — ПЕРВЫМИ в списке декораций: при склейке общего якоря
-    // плашка обязана встать НАД призраком (порядок массива = порядок строк).
+    // Fold placeholders go FIRST in the decoration list: when a shared anchor is joined,
+    // the placeholder must sit ABOVE the ghost (array order = line order).
     const foldingRegions: IFoldingRegion[] = [];
     for (const region of regions) {
         if (region.hiddenLineCount <= 0) continue;
@@ -190,7 +190,7 @@ export function computeInlineLayout(
         const origStart = change.original.startLineNumber - 1;
         const origEndExclusive = change.original.endLineNumberExclusive - 1;
 
-        // `-1` у ганка в начале файла setViewZones понимает как зону перед первой строкой.
+        // For a hunk at the start of the file, setViewZones reads `-1` as a zone before the first line.
         if (origEndExclusive > origStart) {
             const afterLine = modStart - 1;
             const lines = originalLines.slice(origStart, origEndExclusive).map((text) => ({
@@ -241,8 +241,8 @@ export function computeInlineLayout(
 }
 
 /**
- * `setViewZones` сливает зоны с общим якорем, а рендер адресует декорации
- * `Map<якорь, декорация>` — без склейки вторая декорация молча пропала бы.
+ * `setViewZones` merges zones with a shared anchor, and render looks decorations up in a
+ * `Map<anchor, decoration>`: without joining, the second decoration would silently vanish.
  */
 export function mergeZoneDecorationsByAnchor(decorations: readonly IViewZoneDecoration[]): IViewZoneDecoration[] {
     const byAnchor = new Map<number, IViewZoneDecoration[]>();

@@ -18,7 +18,7 @@ export const EMPTY_RESOLVED_TOKEN_STYLE: ResolvedTokenStyle = {
     strikethrough: false,
 };
 
-/** Цвета по умолчанию (`ColorId.Default*`) — `undefined`: ячейка берёт цвета редактора. */
+/** Default colors (`ColorId.Default*`) resolve to `undefined`: the cell uses the editor colors. */
 export interface ITokenStyleResolver {
     resolve(metadata: number): ResolvedTokenStyle;
 }
@@ -29,5 +29,5 @@ export const NULL_TOKEN_STYLE_RESOLVER: ITokenStyleResolver = {
     },
 };
 
-// Stryker disable next-line StringLiteral: token() возвращает новый Token, и зависимости резолвятся по ссылке на него — строка внутри остаётся отладочной меткой
+// Stryker disable next-line StringLiteral: token() returns a new Token and dependencies resolve by its reference; the string is only a debug label
 export const TokenStyleResolverDIToken = token<ITokenStyleResolver>("TokenStyleResolver");

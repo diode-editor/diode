@@ -13,7 +13,7 @@ import { getDocumentRangeSemanticTokens } from "../common/getSemanticTokens.ts";
 
 import type { ISemanticTokensModel } from "./documentSemanticTokens.ts";
 
-/** Строки документа, 0-based, включительно. */
+/** Document lines, 0-based, inclusive. */
 export interface IVisibleLineRange {
     readonly startLine: number;
     readonly endLine: number;
@@ -24,7 +24,7 @@ export interface ISemanticTokensViewport {
     readonly onDidChangeVisibleRange: Event<void>;
 }
 
-/** Перенос `ViewportSemanticTokensContribution` эталона, по экземпляру на вью. */
+/** Port of upstream `ViewportSemanticTokensContribution`, one instance per view. */
 export class ViewportSemanticTokens extends Disposable {
     private readonly scheduler: RunOnceScheduler;
     private outstandingRequests: CancellationTokenSource[] = [];
@@ -123,9 +123,9 @@ export class ViewportSemanticTokens extends Disposable {
                 this.debounce.update(this.model.uri.toString(), Date.now() - started);
                 this.outstandingRequests = this.outstandingRequests.filter((request) => request !== cancellation);
                 if (cancellation.token.isCancellationRequested) return;
-                // Страховка: registry.has проверен в том же такте, а правка документа
-                // отменяет запрос — ответ по старой версии сюда не доходит.
-                // Stryker disable next-line ConditionalExpression,LogicalOperator: эквивалентны — см. выше
+                // Safety net: registry.has was checked in the same tick, and a document edit
+                // cancels the request, so a response for an old version never gets here.
+                // Stryker disable next-line ConditionalExpression,LogicalOperator: equivalent — see above
                 if (result === null || this.model.document.versionId !== requestVersionId) return;
                 if (result.tokens == null) return;
                 this.tokens.setPartial(

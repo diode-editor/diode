@@ -5,17 +5,17 @@ export interface IHoverRequest {
     /** `uri.toString()`. */
     readonly uri: string;
     readonly languageId: string;
-    /** Текст провайдер берёт из своей синхронизированной копии этой версии. */
+    /** The provider reads the text from its own synced copy of this version. */
     readonly versionId: number;
     /** 0-based. */
     readonly line: number;
     readonly character: number;
 }
 
-/** `contents` — сырой markdown: стрип разметки — забота UI, протокол её не трогает. */
+/** `contents` is raw markdown: stripping markup is the UI's job, the protocol leaves it alone. */
 export interface ICoreHover {
     readonly contents: readonly string[];
-    /** Нет — UI считает позицией запроса. */
+    /** Absent: the UI uses the request position. */
     readonly range?: IRange;
 }
 

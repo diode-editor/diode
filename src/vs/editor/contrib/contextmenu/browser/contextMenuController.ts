@@ -15,7 +15,7 @@ import { createCursorSelection, selectionToRange } from "../../../common/core/iS
 
 export const ContextMenuControllerDIToken = token<ContextMenuController>("EditorContextMenuController");
 
-/** Границы включительно, как в upstream `containsPosition`. */
+/** Inclusive bounds, like upstream `containsPosition`. */
 function selectionsContain(editor: EditorElement, position: IPosition): boolean {
     return editor.viewState.selections.some((selection) =>
         rangeContainsPosition(selectionToRange(selection), position),
@@ -32,9 +32,9 @@ function findEditor(target: TUIElement | null): EditorElement | null {
 }
 
 /**
- * Аналог `editor/contrib/contextmenu` VS Code. {@link attach} — на
- * `EditorComponent.view`: обвязка переживает пересоздание EditorElement при
- * перечитке, поэтому сам редактор берётся из цели события.
+ * Counterpart of VS Code `editor/contrib/contextmenu`. {@link attach} goes on
+ * `EditorComponent.view`: the wiring outlives EditorElement being recreated on reload,
+ * so the editor itself is taken from the event target.
  */
 export class ContextMenuController {
     public static dependencies = [ContextMenuServiceDIToken, IConfigurationServiceDIToken] as const;
@@ -58,7 +58,7 @@ export class ContextMenuController {
 
         let anchor: OverlayAnchorPosition;
         if (event.trigger === "mouse") {
-            // Upstream двигает каретку и при выключенном editor.contextmenu.
+            // Upstream moves the cursor even when editor.contextmenu is off.
             const pos = editor.docPositionAt(
                 event.screenX - editor.globalPosition.x,
                 event.screenY - editor.globalPosition.y,

@@ -75,8 +75,8 @@ describe("findTextMatches — границы слова", () => {
     });
 
     it("часть слова не находится — ни по левому соседу, ни по правому", () => {
-        // `textual` отсекается символом СПРАВА, `pretext` — слева. Без правой
-        // проверки нашлось бы и начало `textual`.
+        // `textual` is rejected by the char on the RIGHT, `pretext` by the left one. Without
+        // the right check, the start of `textual` would match too.
         expect(whole("textual text pretext", "text")).toEqual([8]);
     });
 });

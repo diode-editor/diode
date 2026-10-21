@@ -1,7 +1,7 @@
 /**
- * Перенос `FeatureDebounceInformation` эталона. Отличие — ключ: документ, а не
- * документ плюс набор провайдеров (смена провайдеров редка, запрос после неё и
- * так уходит сразу).
+ * Port of upstream `FeatureDebounceInformation`. The difference is the key: the document,
+ * not the document plus the provider set (provider changes are rare, and the request
+ * after one goes out immediately anyway).
  */
 
 const WINDOW = 6;
@@ -32,19 +32,19 @@ export class FeatureDebounce {
         private readonly max: number,
     ) {}
 
-    /** Мс. */
+    /** In ms. */
     public get(key: string): number {
         const avg = this.cache.get(key);
         return avg === undefined ? this.default() : this.clamp(avg.value);
     }
 
-    /** `elapsed` в мс. */
+    /** `elapsed` in ms. */
     public update(key: string, elapsed: number): number {
         let avg = this.cache.get(key);
         if (avg === undefined) {
             avg = new SlidingWindowAverage();
             this.cache.set(key, avg);
-            // Stryker disable next-line EqualityOperator: на границе лимита разница в одну запись кэша ненаблюдаема
+            // Stryker disable next-line EqualityOperator: at the limit boundary a one-entry cache difference is unobservable
             if (this.cache.size > CACHE_SIZE) this.evictOldest();
         }
         return this.clamp(avg.update(elapsed));
@@ -58,7 +58,7 @@ export class FeatureDebounce {
     }
 
     private default(): number {
-        // Пустой кэш: 0 / 0 = NaN, и срабатывает тот же запасной вариант.
+        // Empty cache: 0 / 0 = NaN, which falls through to the same fallback.
         let total = 0;
         for (const avg of this.cache.values()) total += avg.value;
         return this.clamp(total / this.cache.size || this.min * 1.5);

@@ -97,7 +97,7 @@ export function parseDSL(dsl: string): EditorViewState {
 
     parseSelections(cursorTrackByLine, selectTrackByLine, textLines, selections);
 
-    // PlainTextTokenizer — заглушка: токены кладутся снаружи через setLineTokens.
+    // PlainTextTokenizer is a stub: tokens are set from outside via setLineTokens.
     let tokenStore: DocumentTokenStore | undefined;
     for (const [lineIdx, track] of tokensTrackByLine) {
         const tokens = parseTokenTrack(track, doc.getLineContent(lineIdx).length);
@@ -204,7 +204,7 @@ function parseSelections(
     }
 }
 
-/** Символ трека кодируется индексом цвета (`foreground` = код символа); последний токен тянется до конца строки. */
+/** A track character is encoded as the color index (`foreground` = char code); the last token extends to line end. */
 function parseTokenTrack(track: string, lineLength: number): Uint32Array | undefined {
     const starts: [number, number][] = [];
     for (let i = 0; i < Math.min(track.length, lineLength); i++) {
@@ -275,7 +275,7 @@ function renderTokensTrack(tokens: LineTokens): string {
     const chars: string[] = [];
     tokens.forEach((i) => {
         const foreground: number = TokenMetadata.getForeground(tokens.getMetadata(i));
-        // Цвет 0 — токен без цвета (не из трека): пробел.
+        // Color 0 is a token without a color (not from the track): a space.
         const ch = foreground === 0 ? " " : String.fromCharCode(foreground);
         for (let c = tokens.getStartOffset(i); c < tokens.getEndOffset(i); c++) chars.push(ch);
     });

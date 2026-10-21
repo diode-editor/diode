@@ -5,13 +5,13 @@ export interface IFoldingRequest {
     /** `uri.toString()`. */
     readonly uri: string;
     readonly languageId: string;
-    /** Текст провайдер берёт из своей синхронизированной копии этой версии. */
+    /** The provider reads the text from its own synced copy of this version. */
     readonly versionId: number;
 }
 
 /**
- * upstream `languages.FoldingRangeProvider`. Ответы всех подошедших провайдеров
- * склеиваются поверх indentation-фолдов.
+ * upstream `languages.FoldingRangeProvider`. Results of all matching providers are merged
+ * on top of indentation folds.
  */
 export interface FoldingRangeProvider {
     provideFoldingRanges(request: IFoldingRequest, token: ICancellationToken): Promise<readonly IFoldingRegion[]>;

@@ -5,14 +5,14 @@ export interface IDefinitionRequest {
     /** `uri.toString()`. */
     readonly uri: string;
     readonly languageId: string;
-    /** Текст провайдер берёт из своей синхронизированной копии этой версии. */
+    /** The provider reads the text from its own synced copy of this version. */
     readonly versionId: number;
     /** 0-based. */
     readonly line: number;
     readonly character: number;
 }
 
-/** `range` у LocationLink — `targetSelectionRange ?? targetRange`. */
+/** For a LocationLink, `range` is `targetSelectionRange ?? targetRange`. */
 export interface ICoreDefinitionLocation {
     /** `uri.toString()`. */
     readonly uri: string;

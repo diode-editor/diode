@@ -9,7 +9,7 @@ import type {
     ISemanticTokensRequest,
 } from "../../../common/languages/iSemanticTokensSource.ts";
 
-// Перенос `getSemanticTokens.ts` эталона: спрашивается только старшая группа по score.
+// Port of upstream `getSemanticTokens.ts`: only the highest-score group is asked.
 
 export interface IDocumentSemanticTokensResult {
     readonly provider: DocumentSemanticTokensProvider;
@@ -26,8 +26,8 @@ function highestGroup<T>(registry: LanguageFeatureRegistry<T>, target: ILanguage
 }
 
 /**
- * Ошибка провайдера раньше всех ответов с токенами — исключением: вызывающий
- * оставит прежние токены. Провайдеров нет — `null`.
+ * A provider error before any response with tokens is thrown, so the caller keeps the
+ * previous tokens. `null` when there are no providers.
  */
 export async function getDocumentSemanticTokens(
     registry: LanguageFeatureRegistry<DocumentSemanticTokensProvider>,
@@ -64,7 +64,7 @@ export async function getDocumentSemanticTokens(
     return first === undefined ? null : { provider: first.provider, tokens: null };
 }
 
-/** Как {@link getDocumentSemanticTokens}, но ошибка провайдера — просто «нет токенов». */
+/** Like {@link getDocumentSemanticTokens}, but a provider error just means "no tokens". */
 export async function getDocumentRangeSemanticTokens(
     registry: LanguageFeatureRegistry<DocumentRangeSemanticTokensProvider>,
     target: ILanguageFeatureTarget,

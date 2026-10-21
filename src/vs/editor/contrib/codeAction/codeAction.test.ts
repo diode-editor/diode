@@ -75,7 +75,7 @@ describe("getCodeActions", () => {
         const source = await getCodeActions(registry, PY, { ...REQUEST, only: "source" }, TOKEN);
         expect(source.map((item) => item.action.title)).toEqual(["Any", "Sort"]);
 
-        // Без only виды не участвуют.
+        // Without `only`, kinds play no part.
         await getCodeActions(registry, PY, REQUEST, TOKEN);
         expect(organize.provideCodeActions).toHaveBeenCalledTimes(2);
     });

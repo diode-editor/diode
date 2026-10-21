@@ -6,10 +6,10 @@ import type { ITextDocument } from "../../common/model/iTextDocument.ts";
 
 import { firstNonWhitespaceIndex } from "./lineText.ts";
 
-/** Скобки в литералах и комментариях пару не образуют. */
+/** Brackets inside literals and comments don't form pairs. */
 export type IsCodeAt = (line: number, character: number) => boolean;
 
-/** `key` — открывающая скобка пары. */
+/** `key` is the pair's opening bracket. */
 interface IBracketHit {
     readonly line: number;
     readonly start: number;
@@ -19,10 +19,10 @@ interface IBracketHit {
 }
 
 /**
- * Upstream `smartSelect/browser/bracketSelections.ts`. Отклонения: скобки —
- * пары `brackets` из language configuration, найденные в тексте (а не
- * `model.bracketPairs` токенизатора); бюджета 30 мс на раунд нет — скан
- * линейный и идёт по команде, а не на каждое нажатие.
+ * Upstream `smartSelect/browser/bracketSelections.ts`. Deviations: brackets are the
+ * language configuration `brackets` pairs found in the text (not the tokenizer's
+ * `model.bracketPairs`); there is no 30 ms per-round budget — the scan is linear and runs
+ * on command, not on every keystroke.
  */
 export function provideBracketSelectionRanges(
     document: ITextDocument,
@@ -43,7 +43,7 @@ export function provideBracketSelectionRanges(
     });
 }
 
-/** `_bracketsRightYield`: очередь незакрытых закрывающих по ключу, ближайшая первой. */
+/** `_bracketsRightYield`: per-key queue of unmatched closing brackets, nearest first. */
 function collectUnmatchedClosings(scanner: BracketScanner, position: IPosition): Map<string, IBracketHit[]> {
     const closings = new Map<string, IBracketHit[]>();
     const depth = new Map<string, number>();
@@ -92,13 +92,13 @@ function pairUnmatchedOpenings(
 }
 
 /**
- * Многострочная пара с «заголовком» (upstream `_addBracketLeading`):
+ * Multi-line pair with a "header" (upstream `_addBracketLeading`):
  *
  * ```
- * xxxxxxxx {      ← от первого непробельного и от начала строки
+ * xxxxxxxx {      ← from the first non-whitespace char and from the line start
  * }
  *
- * xxxxxxxx        ← скобка на своей строке под заголовком той же колонки
+ * xxxxxxxx        ← bracket on its own line below a header in the same column
  * {
  * }
  * ```
@@ -108,7 +108,7 @@ function addBracketLeading(document: ITextDocument, bracket: IRange, bucket: IRa
     const { end } = bracket;
     const startLine = bracket.start.line;
     const first = firstNonWhitespaceIndex(document.getLineContent(startLine));
-    // Строка со скобкой не пустая: `first` есть всегда.
+    // The bracket's line is not blank, so `first` always exists.
     if (first !== bracket.start.character) {
         bucket.push(createRange(startLine, first, end.line, end.character));
         bucket.push(createRange(startLine, 0, end.line, end.character));
@@ -124,9 +124,9 @@ function addBracketLeading(document: ITextDocument, bracket: IRange, bucket: IRa
     }
 }
 
-/** Кэш на один запрос: каретки сканируют одни и те же строки. */
+/** Per-request cache: cursors scan the same lines. */
 class BracketScanner {
-    /** Скобки, длинные первыми: `[[` не должна распасться на две `[`. */
+    /** Brackets, longest first: `[[` must not split into two `[`. */
     private readonly candidates: readonly { readonly text: string; readonly isOpen: boolean; readonly key: string }[];
     private readonly cache = new Map<number, readonly IBracketHit[]>();
 
@@ -137,8 +137,8 @@ class BracketScanner {
     ) {
         const candidates: { text: string; isOpen: boolean; key: string }[] = [];
         for (const [open, close] of brackets) {
-            // Пустая «скобка» зациклила бы скан. Симметричную (`|`) отдельно не
-            // отсекаем: открывающая всегда находится первой, закрывающих не будет.
+            // An empty "bracket" would loop the scan forever. A symmetric one (`|`) isn't filtered:
+            // the opening always matches first, so there will be no closings.
             if (open === "" || close === "") continue;
             candidates.push({ text: open, isOpen: true, key: open });
             candidates.push({ text: close, isOpen: false, key: open });
@@ -151,7 +151,7 @@ class BracketScanner {
     }
 
     public hitsOnLine(line: number): readonly IBracketHit[] {
-        // Stryker disable all: кэш — только скорость, ответ с ним и без него один
+        // Stryker disable all: the cache is only for speed, the result is the same with or without it
         let hits = this.cache.get(line);
         if (hits === undefined) {
             hits = this.scanLine(line);
@@ -163,10 +163,10 @@ class BracketScanner {
 
     private scanLine(line: number): IBracketHit[] {
         const text = this.document.getLineContent(line);
-        // Stryker disable next-line ArrayDeclaration: чужой элемент — «скобка» без ключа и позиции, ни с чем не парится
+        // Stryker disable next-line ArrayDeclaration: a foreign element is a "bracket" with no key or position, it pairs with nothing
         const hits: IBracketHit[] = [];
         let i = 0;
-        // Stryker disable next-line EqualityOperator: на i === length непустая скобка не находится — лишний шаг ничего не добавит
+        // Stryker disable next-line EqualityOperator: no non-empty bracket matches at i === length — the extra step adds nothing
         while (i < text.length) {
             const found = this.candidates.find((c) => text.startsWith(c.text, i) && isWholeBracket(text, i, c.text));
             if (found === undefined) {
@@ -182,8 +182,8 @@ class BracketScanner {
 }
 
 /**
- * Скобка-слово (`begin`/`end`) — только целым словом: `endless` скобкой не
- * считается. Скобки из знаков препинания стоят где угодно.
+ * A word bracket (`begin`/`end`) matches only as a whole word: `endless` is not a bracket.
+ * Punctuation brackets match anywhere.
  */
 function isWholeBracket(text: string, start: number, bracket: string): boolean {
     const end = start + bracket.length;

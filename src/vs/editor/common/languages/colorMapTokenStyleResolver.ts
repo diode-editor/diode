@@ -7,13 +7,13 @@ export interface IColorMapSource {
     getColorMap(): readonly string[] | null;
 }
 
-/** Язык и вид токена на стиль не влияют. */
+/** Language and token type do not affect the style. */
 const STYLE_MASK =
     (MetadataConsts.FONT_STYLE_MASK | MetadataConsts.FOREGROUND_MASK | MetadataConsts.BACKGROUND_MASK) >>> 0;
 
 /**
- * У эталона — CSS-классы `mtk<id>`. colorMap читается на каждый вызов: сменилась
- * тема (новый массив) — кэш сбрасывается сам.
+ * Upstream uses CSS classes `mtk<id>`. The colorMap is read on every call, so a theme
+ * change (a new array) resets the cache by itself.
  */
 export class ColorMapTokenStyleResolver implements ITokenStyleResolver {
     private readonly source: IColorMapSource;

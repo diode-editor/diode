@@ -11,7 +11,7 @@ import { planToggleBlockComment } from "./blockComments.ts";
 import type { ILineShift, LineCommentMode } from "./lineComments.ts";
 import { planLineComments, remapPositionForShifts } from "./lineComments.ts";
 
-/** Хвост на колонке 0 не в счёт (как в VS Code). */
+/** A selection end at column 0 does not count its line (as in VS Code). */
 function touchedLines(sel: ISelection): number[] {
     const range = selectionToRange(sel);
     let endLine = range.end.line;
@@ -24,8 +24,8 @@ function touchedLines(sel: ISelection): number[] {
 }
 
 /**
- * Порядок гарантирует сеттер `EditorViewState` (`sortAndMergeSelections`):
- * накопление сдвигов от правок соседей по строке считается слева направо.
+ * The order is guaranteed by the `EditorViewState` setter (`sortAndMergeSelections`):
+ * shifts from edits of neighbors on the same line accumulate left to right.
  */
 function inDocumentOrder(viewState: EditorViewState): readonly ISelection[] {
     return viewState.selections;
@@ -50,18 +50,18 @@ function runLineComments(
 ): IUndoElement | undefined {
     const lineComment = comments.lineComment;
     if (lineComment === undefined) {
-        // Как в VS Code: toggle падает на блочные токены, принудительные add/remove — no-op.
+        // As in VS Code: toggle falls back to block tokens, forced add/remove are no-ops.
         return mode === "toggle" ? blockCommentLines(viewState, comments) : undefined;
     }
 
     const document = viewState.document;
     const usedLines = new Set<number>();
     const edits: ITextEdit[] = [];
-    // Stryker disable next-line ArrayDeclaration: аккумулятор сдвигов; лишняя запись в нём
-    // не наблюдаема — у неё нет строки, и remapPositionForShifts пропускает такую (shift.line !== pos.line)
+    // Stryker disable next-line ArrayDeclaration: shift accumulator; an extra entry is unobservable:
+    // it has no line, and remapPositionForShifts skips it (shift.line !== pos.line)
     const shifts: ILineShift[] = [];
     for (const sel of inDocumentOrder(viewState)) {
-        // Два курсора на одной строке комментируют её однажды.
+        // Two cursors on the same line comment it only once.
         const lines = touchedLines(sel).filter((line) => !usedLines.has(line));
         for (const line of lines) usedLines.add(line);
 
@@ -113,8 +113,8 @@ function blockCommentLines(viewState: EditorViewState, comments: ICommentRule): 
 }
 
 /**
- * Планы построены в изоляции: правки предыдущих на той же строке сдвигают
- * выделение более позднего (только по колонкам — токены без переводов строки).
+ * Plans are built in isolation: edits of earlier plans on the same line shift the selection of
+ * later ones (by columns only, since tokens contain no line breaks).
  */
 function applyBlockCommentPlans(
     viewState: EditorViewState,

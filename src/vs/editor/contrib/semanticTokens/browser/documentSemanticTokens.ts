@@ -39,7 +39,7 @@ export interface ISemanticTokensModel extends ILanguageFeatureTarget {
 
 export interface ISemanticTokensReference extends IDisposable {
     readonly store: SemanticTokensStore;
-    /** Range-провайдер нужен, пока нет полного набора. */
+    /** The range provider is needed until the full set arrives. */
     attachViewport(viewport: ISemanticTokensViewport): IDisposable;
 }
 
@@ -51,8 +51,8 @@ interface IEntry {
 }
 
 /**
- * Перенос `DocumentSemanticTokensFeature` эталона: на документ — одно хранилище
- * токенов на все его вью; последняя снятая ссылка ({@link attach}) забывает документ целиком.
+ * Port of upstream `DocumentSemanticTokensFeature`: one token store per document, shared by all
+ * its views; disposing the last reference ({@link attach}) forgets the document entirely.
  */
 export class DocumentSemanticTokensFeature extends Disposable {
     public static dependencies = [
@@ -155,12 +155,12 @@ export class DocumentSemanticTokensFeature extends Disposable {
     }
 }
 
-// Stryker disable next-line StringLiteral: token() возвращает новый Token, и зависимости резолвятся по ссылке на него — строка внутри остаётся отладочной меткой
+// Stryker disable next-line StringLiteral: token() returns a new Token and dependencies resolve by its reference; the string is only a debug label
 export const DocumentSemanticTokensFeatureDIToken = token<DocumentSemanticTokensFeature>(
     "DocumentSemanticTokensFeature",
 );
 
-/** Ответ, от которого считается следующая дельта. */
+/** The response the next delta is computed against. */
 class SemanticTokensResponse {
     public constructor(
         public readonly provider: DocumentSemanticTokensProvider,
@@ -174,12 +174,11 @@ class SemanticTokensResponse {
 }
 
 /**
- * Перенос `ModelSemanticColoring` эталона: правка не отодвигает уже
- * запланированный запрос и не отменяет запрос в полёте — его ответ сдвигается
- * правками, сделанными за время запроса.
+ * Port of upstream `ModelSemanticColoring`: an edit neither postpones an already scheduled
+ * request nor cancels one in flight — its response is shifted by the edits made while it ran.
  *
- * Отступление (согласовано): смена темы токены не стирает и сервер не
- * перезапрашивает — стиль берётся при отрисовке.
+ * Deviation (agreed): a theme change neither clears the tokens nor re-requests the server —
+ * the style is resolved at render time.
  */
 export class ModelSemanticColoring extends Disposable {
     public static readonly REQUEST_MIN_DELAY = 300;
@@ -191,7 +190,7 @@ export class ModelSemanticColoring extends Disposable {
     private currentRequest: CancellationTokenSource | null = null;
     private relevantProviders = new Set<DocumentSemanticTokensProvider>();
     private readonly providerListeners = this.register(new DisposableStore());
-    // Stryker disable next-line BooleanLiteral: флаг читают лишь ответы на запрос, а fetchNow перед запросом сбрасывает его сам
+    // Stryker disable next-line BooleanLiteral: only request responses read the flag, and fetchNow resets it before each request
     private providersChangedDuringRequest = false;
 
     public constructor(
@@ -309,12 +308,12 @@ export class ModelSemanticColoring extends Disposable {
                     this.debounce.update(this.model.uri.toString(), Date.now() - started);
                     this.currentRequest = null;
                     contentChangeListener.dispose();
-                    // null — лишь когда провайдеров нет, а без них fetchNow не спрашивает (registry.has выше).
-                    // Stryker disable next-line ConditionalExpression: эквивалентен — см. выше
+                    // null only when there are no providers, and fetchNow doesn't ask without them (registry.has above).
+                    // Stryker disable next-line ConditionalExpression: equivalent — see above
                     if (res !== null) this.setDocumentSemanticTokens(res.provider, res.tokens, pendingChanges);
                 },
                 (err: unknown) => {
-                    // getDocumentSemanticTokens отклоняет только Error (не-Error провайдера оборачивает).
+                    // getDocumentSemanticTokens rejects only with Error (it wraps a provider's non-Error).
                     const isExpectedError = isCancellationError(err) || (err as Error).message.includes("busy");
                     if (!isExpectedError) onUnexpectedError(err);
                     // Semantic tokens eats up all errors and considers errors to mean
@@ -387,8 +386,8 @@ export class ModelSemanticColoring extends Disposable {
 }
 
 /**
- * Дельта поверх данных прошлого ответа (правки — в индексах старого массива,
- * накладываются с конца). `null` — правка начинается за его концом.
+ * Applies a delta on top of the previous response's data (edits use old-array indices and are
+ * applied from the end). `null` if an edit starts past its end.
  */
 export function applySemanticTokensEdits(srcData: Uint32Array, edits: ISemanticTokensEdits): Uint32Array | null {
     if (edits.edits.length === 0) {
@@ -407,8 +406,8 @@ export function applySemanticTokensEdits(srcData: Uint32Array, edits: ISemanticT
             return null;
         }
         const copyCount = srcLastStart - (edit.start + edit.deleteCount);
-        // copyCount < 0 — лишь у перекрывающихся правок (протокол их не допускает), 0 — пустое копирование.
-        // Stryker disable next-line ConditionalExpression,EqualityOperator: эквивалентен — см. выше
+        // copyCount < 0 only for overlapping edits (the protocol forbids them), 0 is an empty copy.
+        // Stryker disable next-line ConditionalExpression,EqualityOperator: equivalent — see above
         if (copyCount > 0) {
             copy(srcData, srcLastStart - copyCount, destData, destLastStart - copyCount, copyCount);
             destLastStart -= copyCount;
@@ -424,7 +423,7 @@ export function applySemanticTokensEdits(srcData: Uint32Array, edits: ISemanticT
 }
 
 function copy(src: Uint32Array, srcOffset: number, dest: Uint32Array, destOffset: number, length: number): void {
-    // Stryker disable next-line ArithmeticOperator: запись типизированного массива за границей и так игнорируется, а src вызывающие не перечитывают (srcOffset + length ≤ src.length)
+    // Stryker disable next-line ArithmeticOperator: out-of-bounds typed array writes are ignored anyway, and callers never over-read src (srcOffset + length ≤ src.length)
     const count = Math.min(length, dest.length - destOffset, src.length - srcOffset);
     for (let i = 0; i < count; i++) {
         dest[destOffset + i] = src[srcOffset + i];

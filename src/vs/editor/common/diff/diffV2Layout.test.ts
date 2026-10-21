@@ -177,7 +177,7 @@ describe("computeDiffV2Layout — вырожденные регионы", () => 
             { original: 1, modified: 1 },
         );
 
-        // Первый раскрыт (hidden 0), второй схлопнулся клампом (endLine <= header).
+        // The first is fully expanded (hidden 0), the second collapses under the clamp (endLine <= header).
         expect(layout.original.foldingRegions).toEqual([]);
         expect(layout.modified.foldingRegions).toEqual([]);
     });
@@ -217,7 +217,7 @@ describe("computeInlineLayout — один редактор с зонами-пр
         const layout = inlineOf(["keep", "dead1", "dead2", "tail"], ["keep", "live", "tail"]);
 
         const ghost = layout.decorations.zones?.find((zone) => zone.lines !== undefined);
-        expect(ghost?.afterLine).toBe(0); // после строки перед ганком
+        expect(ghost?.afterLine).toBe(0); // after the line preceding the hunk
         expect(ghost?.lines?.map((line) => line.text)).toEqual(["dead1", "dead2"]);
         expect(ghost?.lines?.every((line) => line.bgToken === "diffEditor.removedLineBackground")).toBe(true);
         expect(layout.zones.find((zone) => zone.afterLine === 0)?.size).toBe(2);

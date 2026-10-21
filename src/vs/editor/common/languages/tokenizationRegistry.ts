@@ -10,16 +10,16 @@ interface ILazyEntry {
 }
 
 /**
- * Как `monaco.languages.TokenizationRegistry`. {@link registerLazy} — чтобы не
- * парсить все грамматики на старте: до {@link load} `get()` отдаёт `undefined`
- * (fallback), по загрузке фаерится {@link onDidChange}.
+ * Like `monaco.languages.TokenizationRegistry`. {@link registerLazy} avoids parsing all
+ * grammars at startup: until {@link load}, `get()` returns `undefined` (fallback), and
+ * loading fires {@link onDidChange}.
  */
 export class TokenizationRegistry {
     private supports = new Map<string, ITokenizationSupport>();
     private lazy = new Map<string, ILazyEntry>();
     private readonly onDidChangeEmitter = new Emitter<string>();
     public readonly onDidChange = this.onDidChangeEmitter.event;
-    /** `undefined` — не держим. */
+    /** `undefined`: not holding. */
     private heldChanges: Set<string> | undefined;
     private colorMap: readonly string[] | null = null;
 
@@ -37,8 +37,8 @@ export class TokenizationRegistry {
     }
 
     /**
-     * `onDidChange` здесь НЕ фаерится: эффективный токенайзер не изменился, а
-     * фаер спровоцировал бы потребителей загрузить все языки разом.
+     * Does NOT fire `onDidChange`: the effective tokenizer is unchanged, and firing would
+     * make consumers load every language at once.
      */
     public registerLazy(languageId: string, factory: () => Promise<ITokenizationSupport | null>): IDisposable {
         const entry: ILazyEntry = { factory };
@@ -53,29 +53,29 @@ export class TokenizationRegistry {
     }
 
     /**
-     * Фабрика зовётся один раз, неудача тоже кешируется. **Никогда не
-     * реджектится** — вызывающие дёргают его fire-and-forget.
+     * The factory is called once; a failure is cached too. **Never rejects**: callers
+     * invoke it fire-and-forget.
      */
     public load(languageId: string): Promise<ITokenizationSupport | undefined> {
         const entry = this.lazy.get(languageId);
         if (entry === undefined) return Promise.resolve(this.supports.get(languageId));
-        // Кеш живёт на entry, а не в `supports`: иначе eager-регистрация того же
-        // языка навсегда перекрыла бы фабрику. Присваиваем ДО первого await —
-        // тогда ре-ентрантный load() из onDidChange-слушателя увидит кеш.
+        // The cache lives on the entry, not in `supports`: otherwise an eager registration of
+        // the same language would shadow the factory forever. Assigned BEFORE the first await
+        // so a re-entrant load() from an onDidChange listener sees the cache.
         entry.loading ??= this.runFactory(languageId, entry);
         return entry.loading;
     }
 
     /**
-     * Токены прежней темы держат прежние индексы `ColorId`, поэтому, как у
-     * эталона, событие уходит по каждому языку — владельцы перетокенизируют.
+     * Tokens from the previous theme hold stale `ColorId` indices, so, like upstream, the
+     * event fires for every language and owners retokenize.
      */
     public setColorMap(colorMap: readonly string[]): void {
         this.colorMap = colorMap;
         for (const languageId of this.supports.keys()) this.fireChange(languageId);
     }
 
-    /** `null` — тему ещё не ставили. */
+    /** `null`: no theme set yet. */
     public getColorMap(): readonly string[] | null {
         return this.colorMap;
     }
@@ -90,10 +90,10 @@ export class TokenizationRegistry {
     }
 
     /**
-     * Пока держим, {@link get} отдаёт `undefined`, а `onDidChange` молчит; отпуск
-     * фаерит по всем языкам. Зачем: стартовый кадр не ждёт первой токенизации —
-     * она компилирует regex'ы грамматики (TypeScript — ~160 мс на вьюпорт).
-     * Эталон тоже токенизирует вьюпорт после рендера (`AttachedViewHandler`).
+     * While held, {@link get} returns `undefined` and `onDidChange` stays silent; release
+     * fires for every language. Why: the first frame does not wait for the first
+     * tokenization, which compiles the grammar regexes (TypeScript: ~160 ms per viewport).
+     * Upstream also tokenizes the viewport after render (`AttachedViewHandler`).
      */
     public hold(): IDisposable {
         if (this.heldChanges !== undefined) throw new Error("TokenizationRegistry: already held");
@@ -113,11 +113,11 @@ export class TokenizationRegistry {
         try {
             support = await entry.factory();
         } catch {
-            // Не ретраим: язык остаётся на fallback. Логирует фабрика — она знает грамматику.
+            // No retry: the language stays on the fallback. The factory logs, it knows the grammar.
             return undefined;
         }
         if (support === null) return undefined;
-        // Запись могли снять или перекрыть, пока фабрика работала.
+        // The entry may have been removed or replaced while the factory was running.
         if (this.lazy.get(languageId) !== entry) return undefined;
         entry.registration = this.register(languageId, support);
         return support;
@@ -132,5 +132,5 @@ export class TokenizationRegistry {
     }
 }
 
-// Stryker disable next-line StringLiteral: token() возвращает новый Token, и зависимости резолвятся по ссылке на него — строка внутри остаётся отладочной меткой
+// Stryker disable next-line StringLiteral: token() returns a new Token and dependencies resolve by its reference; the string is only a debug label
 export const TokenizationRegistryDIToken = token<TokenizationRegistry>("TokenizationRegistry");

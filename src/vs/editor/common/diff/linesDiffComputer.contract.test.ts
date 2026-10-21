@@ -4,8 +4,8 @@ import { DefaultLinesDiffComputer } from "./defaultLinesDiffComputer/defaultLine
 import type { ILinesDiffComputerOptions } from "./linesDiffComputer.ts";
 
 /**
- * Не пересказ upstream (корпус — `diffFixtures.test.ts`), а свойства, на которые
- * мы закладываемся. Ожидания сняты с реальных прогонов, а не выведены из кода.
+ * Not a retelling of upstream (the corpus is `diffFixtures.test.ts`) but the properties
+ * we rely on. Expectations are captured from real runs, not derived from the code.
  */
 
 const BASE: ILinesDiffComputerOptions = {
@@ -37,7 +37,7 @@ describe("DefaultLinesDiffComputer — контракт", () => {
     });
 
     it("вставка строки в середину не трогает соседей", () => {
-        // Оригинальный диапазон пустой ([2,2)) — вставка между строк, а не замена.
+        // The original range is empty ([2,2)): an insertion between lines, not a replacement.
         const result = diff(["a", "c"], ["a", "b", "c"]);
         expect(result.changes.map((c) => c.toString())).toEqual(["{[2,2)->[2,3)}"]);
     });

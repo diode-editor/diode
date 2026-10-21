@@ -10,7 +10,7 @@ function apply(lines: string[], which: number[], mode: "toggle" | "add" | "remov
     const result = [...lines];
     const p = plan(lines, which, mode, token);
     if (p === null) return result;
-    // Правки одной строки не пересекаются: у плана максимум одна правка на строку.
+    // Edits never overlap on a line: a plan has at most one edit per line.
     for (const edit of p.edits) {
         const { start, end } = edit.range;
         result[start.line] =

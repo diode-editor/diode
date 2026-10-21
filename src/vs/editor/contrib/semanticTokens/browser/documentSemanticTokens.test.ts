@@ -35,7 +35,7 @@ interface IPendingCall {
     reject(error: unknown): void;
 }
 
-/** Провайдер с ручными ответами: каждый вызов ждёт `resolve`/`reject` теста. */
+/** Provider with manual responses: each call waits for the test's `resolve`/`reject`. */
 class FakeProvider implements DocumentSemanticTokensProvider {
     public readonly calls: IPendingCall[] = [];
     public readonly releases: (string | undefined)[] = [];
@@ -115,7 +115,7 @@ function setup(selector = "*"): IFixture {
     return { features, configuration, theme, feature, provider, document, model: modelOf(document) };
 }
 
-/** Ставить до attach. */
+/** Install before attach. */
 function countContentListeners(document: TextDocument): () => number {
     const subscribe = document.onDidChangeModelContent;
     let live = 0;
@@ -192,7 +192,7 @@ describe("DocumentSemanticTokensFeature / ModelSemanticColoring", () => {
         document.applyEdits([createInsertEdit(1, 0, "x")]);
         await tick(299);
         expect(provider.calls).toHaveLength(1);
-        // Вторая правка паузу не отодвигает.
+        // A second edit doesn't postpone the delay.
         document.applyEdits([createInsertEdit(1, 0, "y")]);
         await tick(1);
         expect(provider.calls).toHaveLength(2);
@@ -260,7 +260,7 @@ describe("DocumentSemanticTokensFeature / ModelSemanticColoring", () => {
         await tick();
         expect(ref.store.getLineTokens(0)?.tokens).toEqual([0, 3, 0, 0]);
 
-        // Пустая дельта — прежние данные; дальше считается от них же.
+        // An empty delta keeps the previous data; the next delta is computed against it too.
         document.applyEdits([createInsertEdit(1, 4, " ")]);
         await tick(2000);
         expect(provider.last().lastResultId).toBe("2");
@@ -297,7 +297,7 @@ describe("DocumentSemanticTokensFeature / ModelSemanticColoring", () => {
         const ref = feature.attach(model);
         await tick();
         document.applyEdits([createInsertEdit(0, 0, "ab")]);
-        // Запрос в полёте — новый не уходит даже после паузы.
+        // A request is in flight, so no new one goes out even after the delay.
         await tick(2000);
         expect(provider.calls).toHaveLength(1);
         provider.last().resolve(full("1", 0, 4, 3, 0, 0));
@@ -312,7 +312,7 @@ describe("DocumentSemanticTokensFeature / ModelSemanticColoring", () => {
         const ref = feature.attach(model);
         await tick();
         document.applyEdits([createInsertEdit(0, 0, "a")]);
-        // Пауза после правки истекла, пока запрос в полёте: перезапрос — по ответу.
+        // The post-edit delay expired while a request was in flight: re-request on response.
         await tick(2000);
         expect(provider.calls).toHaveLength(1);
         provider.last().resolve(null);
@@ -343,14 +343,14 @@ describe("DocumentSemanticTokensFeature / ModelSemanticColoring", () => {
         document.applyEdits([createInsertEdit(1, 0, " ")]);
         await tick(2000);
         document.applyEdits([createInsertEdit(1, 0, " ")]);
-        // Пауза после правки истекла, пока запрос в полёте: перезапрос — по отказу.
+        // The post-edit delay expired while a request was in flight: re-request on rejection.
         await tick(2000);
         expect(provider.calls).toHaveLength(3);
         provider.last().reject(new Error("server busy"));
         await tick(2000);
         expect(provider.calls).toHaveLength(4);
         expect(unexpected).toHaveLength(1);
-        // Прошлый ответ по-прежнему базовый для дельты.
+        // The previous response is still the delta base.
         expect(provider.last().lastResultId).toBe("1");
         provider.last().reject(new CancellationError());
         await tick(5000);
@@ -364,7 +364,7 @@ describe("DocumentSemanticTokensFeature / ModelSemanticColoring", () => {
         await tick();
         provider.last().reject({ message: 42 });
         await tick();
-        // Не-Error провайдера оборачивается в Error (`getDocumentSemanticTokens`).
+        // A provider's non-Error is wrapped in an Error (`getDocumentSemanticTokens`).
         expect(unexpected).toEqual([new Error("[object Object]")]);
     });
 
@@ -396,7 +396,7 @@ describe("DocumentSemanticTokensFeature / ModelSemanticColoring", () => {
         expect(provider.calls).toHaveLength(1);
         provider.last().resolve(full("1", 0, 4, 3, 0, 0));
         await tick();
-        // Перезапрос по смене во время запроса — с паузой.
+        // A re-request for a change during a request waits for the delay.
         await tick(2000);
         expect(provider.calls).toHaveLength(2);
         provider.last().resolve(full("2", 0, 4, 3, 0, 0));
@@ -455,7 +455,7 @@ describe("DocumentSemanticTokensFeature / ModelSemanticColoring", () => {
         expect(ref.store.hasSomeSemanticTokens()).toBe(false);
         expect(ref.store.hasCompleteSemanticTokens()).toBe(false);
 
-        // Документ без провайдера с самого начала: запросов нет.
+        // A document with no provider from the start: no requests.
         const other = feature.attach(modelOf(new TextDocument("x", "java"), "/w/B.java"));
         const listener = vi.fn();
         other.store.onDidChange(listener);
@@ -474,7 +474,7 @@ describe("DocumentSemanticTokensFeature / ModelSemanticColoring", () => {
         await tick(2000);
         expect(second.calls).toHaveLength(1);
         expect(provider.calls).toHaveLength(1);
-        // onDidChange нового провайдера слушается.
+        // The new provider's onDidChange is listened to.
         second.last().resolve(null);
         await tick(5000);
         second.changeEmitter.fire();
@@ -525,7 +525,7 @@ describe("DocumentSemanticTokensFeature / ModelSemanticColoring", () => {
         await tick();
         expect(provider.calls).toHaveLength(2);
         expect(provider.last().lastResultId).toBeNull();
-        // Посторонняя настройка ничего не пересчитывает.
+        // An unrelated setting recomputes nothing.
         await configuration.updateValue("editor.tabSize", 2);
         await tick();
         expect(provider.calls).toHaveLength(2);
@@ -542,7 +542,7 @@ describe("DocumentSemanticTokensFeature / ModelSemanticColoring", () => {
         await tick();
         provider.last().resolve(full("1", 0, 4, 3, 0, 0));
         await tick();
-        // Стиль берётся при отрисовке — смена темы токены не стирает.
+        // The style is resolved at render time, so a theme change doesn't clear tokens.
         theme.fire();
         await tick(2000);
         expect(ref.store.hasSomeSemanticTokens()).toBe(true);
@@ -689,7 +689,7 @@ describe("applySemanticTokensEdits", () => {
     });
 
     it("удаление за конец данных не роняет копирование (как в эталоне — результат усечён)", () => {
-        // Длина результата 6 + 1 - 5 = 2: копии зажаты границами массивов.
+        // Result length is 6 + 1 - 5 = 2: copies are clamped to the array bounds.
         expect(Array.from(applySemanticTokensEdits(src, edits({ start: 4, deleteCount: 5, data: [9] })) ?? [])).toEqual(
             [1, 2],
         );

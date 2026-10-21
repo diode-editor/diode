@@ -1,14 +1,14 @@
 import { createRange, type IRange } from "../../common/core/iRange.ts";
 import type { ITextDocument } from "../../common/model/iTextDocument.ts";
 
-// Как upstream `strings.firstNonWhitespaceIndex`: пробел — только пробел и табуляция.
+// Like upstream `strings.firstNonWhitespaceIndex`: whitespace is only space and tab.
 
-/** `-1` — строка пустая или из одних пробелов. */
+/** `-1` if the line is empty or all whitespace. */
 export function firstNonWhitespaceIndex(line: string): number {
     return line.search(/[^ \t]/);
 }
 
-/** У строки из одних пробелов — 0. */
+/** 0 for an all-whitespace line. */
 export function lastNonWhitespaceEnd(line: string): number {
     return line.replace(/[ \t]+$/, "").length;
 }

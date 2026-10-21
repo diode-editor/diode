@@ -17,13 +17,13 @@ describe("provideWordSelectionRanges — wordSelections эталона", () => {
         const text = "const fooBarBaz = 1";
         expect(steps(text, 0, 9)).toEqual(["Bar", "fooBarBaz", text]);
         expect(steps(text, 0, 6)).toEqual(["foo", "fooBarBaz", text]);
-        // Каретка сразу за словом — всё ещё на слове.
+        // A cursor right after the word is still on the word.
         expect(steps(text, 0, 15)).toEqual(["Baz", "fooBarBaz", text]);
     });
 
     it("snake_case: границы подслова — подчёркивания", () => {
         expect(steps("foo_bar_baz\n", 0, 5)).toEqual(["bar", "foo_bar_baz", "foo_bar_baz\n"]);
-        // Каретка прямо на `_`: левый проход его не считает границей.
+        // Cursor right on `_`: the left pass doesn't treat it as a boundary.
         expect(steps("foo_bar\n", 0, 3)).toEqual(["foo", "foo_bar", "foo_bar\n"]);
     });
 
@@ -32,11 +32,11 @@ describe("provideWordSelectionRanges — wordSelections эталона", () => {
         expect(steps("zAb\n", 0, 2)).toEqual(["Ab", "zAb", "zAb\n"]);
         expect(steps("aZ\n", 0, 0)).toEqual(["a", "aZ", "aZ\n"]);
         expect(steps("zA\n", 0, 0)).toEqual(["z", "zA", "zA\n"]);
-        // Заглавные подряд — одно подслово с хвостом из строчных.
+        // Consecutive capitals form one subword with a lowercase tail.
         expect(steps("ABc\n", 0, 2)).toEqual(["ABc", "ABc", "ABc\n"]);
-        // Как в эталоне, регистр знают только латинские буквы: `ж` — не строчная.
+        // As upstream, only Latin letters have case: a non-Latin letter is not lowercase.
         expect(steps("жBar\n", 0, 2)).toEqual(["жBar", "жBar", "жBar\n"]);
-        // Цифра — не заглавная: границы подслова нет.
+        // A digit is not a capital: no subword boundary.
         expect(steps("foo1bar\n", 0, 5)).toEqual(["foo1bar", "foo1bar", "foo1bar\n"]);
     });
 

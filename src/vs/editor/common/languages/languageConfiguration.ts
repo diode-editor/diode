@@ -6,7 +6,7 @@ import type {
     ISurroundingPair,
 } from "../../../platform/extensions/common/iLanguageConfiguration.ts";
 
-/** Дефолт VS Code: пара не дописывается посреди слова. */
+/** VS Code default: no pair is auto-closed in the middle of a word. */
 export const DEFAULT_AUTO_CLOSE_BEFORE = ";:.,=}])> \n\t";
 
 export interface IResolvedAutoClosingPair {
@@ -15,7 +15,7 @@ export interface IResolvedAutoClosingPair {
     readonly notIn: readonly ("string" | "comment")[];
 }
 
-/** Как `ResolvedLanguageConfiguration` VS Code: кодировки и наследование секций уже разрешены. */
+/** Like VS Code `ResolvedLanguageConfiguration`: encodings and section inheritance are resolved. */
 export interface IResolvedLanguageConfiguration {
     readonly comments: ICommentRule | undefined;
     readonly brackets: readonly CharacterPair[];
@@ -37,16 +37,16 @@ function isCharacterPair(value: CharacterPair | IAutoClosingPair | ISurroundingP
 }
 
 /**
- * `Array.isArray` на типизированном значении сужает к `any[]` и роняет типы
- * записей в `any`; предикат оставляет элементу его тип.
+ * `Array.isArray` on a typed value narrows to `any[]` and drops the entry types to `any`;
+ * the predicate keeps the element type.
  */
 function isArrayOf<T>(value: readonly T[] | undefined): value is readonly T[] {
     return Array.isArray(value);
 }
 
 function toAutoClosingPair(value: CharacterPair | IAutoClosingPair | null): IResolvedAutoClosingPair | undefined {
-    // JSONC без валидации схемы: отсекаем только null — на нём падает чтение
-    // поля; прочий мусор отсеет проверка на строки ниже.
+    // JSONC without schema validation: reject only null, since reading a field throws on it;
+    // the string checks below filter out other junk.
     if (value === null) return undefined;
     const open = isCharacterPair(value) ? value[0] : value.open;
     const close = isCharacterPair(value) ? value[1] : value.close;
@@ -77,7 +77,7 @@ function mapSection<T, R>(value: readonly T[] | undefined, convert: (entry: T) =
     return result;
 }
 
-/** Битые записи молча отбрасываются: одна кривая пара не должна отключать язык целиком. */
+/** Broken entries are silently dropped: one bad pair must not disable the whole language. */
 export function resolveLanguageConfiguration(raw: ILanguageConfiguration): IResolvedLanguageConfiguration {
     const comments = resolveComments(raw.comments);
 

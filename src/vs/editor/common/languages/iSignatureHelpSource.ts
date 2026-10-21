@@ -1,9 +1,9 @@
 import type { ICancellationToken } from "../../../base/common/cancellation.ts";
-/** Значения `vscode.SignatureHelpTriggerKind`. */
+/** Values of `vscode.SignatureHelpTriggerKind`. */
 export const SignatureHelpTriggerKind = {
     Invoke: 1,
     TriggerCharacter: 2,
-    /** Правка или движение каретки при уже открытой подсказке. */
+    /** An edit or cursor move while the hint is already open. */
     ContentChange: 3,
 } as const;
 
@@ -13,7 +13,7 @@ export interface ISignatureHelpRequest {
     /** `uri.toString()`. */
     readonly uri: string;
     readonly languageId: string;
-    /** Текст провайдер берёт из своей синхронизированной копии этой версии. */
+    /** The provider reads the text from its own synced copy of this version. */
     readonly versionId: number;
     /** 0-based. */
     readonly line: number;
@@ -22,15 +22,15 @@ export interface ISignatureHelpRequest {
     readonly triggerCharacter?: string;
     readonly isRetrigger: boolean;
     /**
-     * Только при ретриггере: чтобы после запятой не сбросить перегрузку,
-     * выбранную стрелками, — tsserver ищет прежнюю сигнатуру среди новых по метке.
+     * Retrigger only: keeps the overload picked with the arrows from resetting after a
+     * comma, since tsserver looks up the previous signature among the new ones by label.
      */
     readonly activeSignatureHelp?: ICoreSignatureHelp;
 }
 
 /**
- * `label` — подстрока метки сигнатуры или офсеты `[start, end)` внутри неё
- * (клиент объявляет `labelOffsetSupport`). Документация — сырой markdown.
+ * `label` is a substring of the signature label or `[start, end)` offsets into it
+ * (the client declares `labelOffsetSupport`). Documentation is raw markdown.
  */
 export interface ICoreParameterInfo {
     readonly label: string | readonly [number, number];
@@ -41,11 +41,11 @@ export interface ICoreSignature {
     readonly label: string;
     readonly documentation?: string;
     readonly parameters: readonly ICoreParameterInfo[];
-    /** Нет — берётся общий. */
+    /** Absent: the shared one is used. */
     readonly activeParameter?: number;
 }
 
-/** `activeParameter` может приехать `-1` — «активного нет» (`noActiveParameterSupport`). */
+/** `activeParameter` may arrive as `-1`, meaning "no active parameter" (`noActiveParameterSupport`). */
 export interface ICoreSignatureHelp {
     readonly signatures: readonly ICoreSignature[];
     readonly activeSignature: number;
@@ -53,12 +53,12 @@ export interface ICoreSignatureHelp {
 }
 
 /**
- * upstream `languages.SignatureHelpProvider`. Потребитель спрашивает по очереди
- * до ПЕРВОГО ответа, а не склеивает, как hover/references — так велит vscode API.
+ * upstream `languages.SignatureHelpProvider`. The consumer asks providers in turn until
+ * the FIRST answer instead of merging like hover/references, as the vscode API requires.
  */
 export interface SignatureHelpProvider {
     readonly triggerCharacters: readonly string[];
-    /** Перезапрашивают подсказку, пока она показана («)»). */
+    /** Re-request the hint while it is shown (`)`). */
     readonly retriggerCharacters: readonly string[];
     provideSignatureHelp(request: ISignatureHelpRequest, token: ICancellationToken): Promise<ICoreSignatureHelp | null>;
 }

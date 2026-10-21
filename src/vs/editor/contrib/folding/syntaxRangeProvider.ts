@@ -4,8 +4,8 @@ import type { FoldingRangeProvider, IFoldingRequest } from "../../common/languag
 import type { IFoldingRegion } from "./iFoldingRegion.ts";
 
 /**
- * Upstream `editor/contrib/folding/browser/syntaxRangeProvider.ts`. Один объект
- * запроса на всех: по нему хост склеит вызовы в один RPC.
+ * Upstream `editor/contrib/folding/browser/syntaxRangeProvider.ts`. All providers share one
+ * request object: the host uses it to batch the calls into a single RPC.
  */
 export async function provideFoldingRanges(
     providers: readonly FoldingRangeProvider[],

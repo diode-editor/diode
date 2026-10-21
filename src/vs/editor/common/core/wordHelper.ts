@@ -1,31 +1,31 @@
 import type { IWordRange } from "./wordClassification.ts";
 
 /**
- * Калька upstream `wordHelper.ts`. Языковых `wordPattern` у нас нет: без регекса
- * расширения действует {@link DEFAULT_WORD_REGEXP}.
+ * Mirrors upstream `wordHelper.ts`. We have no per-language `wordPattern`: without an
+ * extension's regex, {@link DEFAULT_WORD_REGEXP} applies.
  */
 
-/** upstream `createWordRegExp()` без исключений. */
+/** Upstream `createWordRegExp()` without exceptions. */
 export const DEFAULT_WORD_REGEXP = /(-?\d*\.\d\w*)|([^`~!@#$%^&*()\-=+[{\]}\\|;:'",.<>/?\s]+)/g;
 
 /**
- * upstream `regExpLeadsToEndlessLoop`, но БЕЗ его белого списка (`^`, `$`, …):
- * такой регекс — не определение слова, `getWordAtText` на нём зациклился бы.
- * Свежая копия — `lastIndex` пользовательского регекса не трогаем.
+ * Upstream `regExpLeadsToEndlessLoop`, but WITHOUT its allowlist (`^`, `$`, …):
+ * such a regex is not a word definition, and `getWordAtText` would loop forever on it.
+ * Uses a fresh copy so the caller's regex `lastIndex` stays untouched.
  */
 export function regExpMatchesEmptyString(regex: RegExp): boolean {
     return new RegExp(regex.source, regex.flags).test("");
 }
 
 /**
- * Как upstream `getWordAtText`: позиция сразу за словом — «на слове», на стыке
- * побеждает левое. Свежая копия регекса — `lastIndex` не несёт состояния между
- * вызовами.
+ * Like upstream `getWordAtText`: a position right after a word is "on the word", and at a
+ * junction the left word wins. Uses a fresh regex copy, so `lastIndex` carries no state between
+ * calls.
  *
- * Сознательно без окна и бюджетов upstream (`maxLen` 1000, `windowSize` 15,
- * `timeBudget` 150 мс): они защищают UI-поток, а вызов идёт из процесса
- * расширений. Расхождение — только на строках длиннее 1000 со словом длиннее
- * 500: upstream обрезает слово по краю окна, мы отдаём целиком.
+ * Deliberately without upstream's window and budgets (`maxLen` 1000, `windowSize` 15,
+ * `timeBudget` 150 ms): they protect the UI thread, while this is called from the extension
+ * host. Results differ only on lines longer than 1000 with a word longer than 500: upstream
+ * cuts the word at the window edge, we return it whole.
  */
 export function getWordAtText(character: number, wordDefinition: RegExp, text: string): IWordRange | null {
     const regex = new RegExp(
@@ -37,8 +37,8 @@ export function getWordAtText(character: number, wordDefinition: RegExp, text: s
         if (match.index <= character && regex.lastIndex >= character) {
             return { start: match.index, end: regex.lastIndex };
         }
-        // Пустое совпадение (`\b`, опережающая проверка) не сдвигает
-        // `lastIndex` — без шага вручную `exec` вернул бы его же бесконечно.
+        // An empty match (`\b`, a lookahead) does not advance `lastIndex`; without
+        // a manual step `exec` would return it forever.
         if (match[0].length === 0) regex.lastIndex++;
     }
     return null;

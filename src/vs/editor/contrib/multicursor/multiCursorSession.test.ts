@@ -32,7 +32,7 @@ describe("deriveSearchSpec", () => {
     });
 
     it("каретка в пробелах между словами не даёт ничего", () => {
-        // Два пробела: позиция 4 не примыкает ни к одному слову.
+        // Two spaces: position 4 touches no word.
         const doc = new TextDocument("foo  bar");
         expect(deriveSearchSpec(doc, createCursorSelection(0, 4))).toBeNull();
     });
@@ -104,7 +104,7 @@ describe("findNextOccurrence", () => {
 
     it("matchCase: FOO не находится по foo", () => {
         const mixed = new TextDocument("foo FOO");
-        // Само `foo` уже занято — если бы `FOO` считалось совпадением, оно бы нашлось.
+        // `foo` itself is taken, so if `FOO` counted as a match, it would be found.
         const taken = [createRange(0, 0, 0, 3)];
         expect(findNextOccurrence(mixed, SUBSTRING, createRange(0, 0, 0, 3), 1, taken)).toBeNull();
     });
@@ -124,8 +124,8 @@ describe("isSessionCurrent", () => {
     });
 
     it("сдвинулось ОДНО выделение из двух — сессия протухла", () => {
-        // Совпасть должны все: проверка на одном выделении не различает «все совпали»
-        // и «совпал хоть один», а на паре разница видна.
+        // All must match: with a single selection "all match" and "at least one matches" are
+        // indistinguishable, with a pair the difference shows.
         const pair = [createSelection(0, 0, 0, 3), createSelection(0, 4, 0, 7)];
         const pairSession = captureSession(SUBSTRING, createRange(0, 0, 0, 3), pair, doc.versionId);
 
@@ -161,7 +161,7 @@ describe("selectionsShareText", () => {
     });
 
     it("две схлопнутые каретки общего текста не образуют", () => {
-        // Пустые тексты формально «одинаковы» — общность ломает сам факт пустоты.
+        // Empty texts are formally "equal", but emptiness alone rules out shared text.
         expect(selectionsShareText(doc, [createCursorSelection(0, 0), createCursorSelection(1, 0)], true)).toBe(false);
     });
 
@@ -170,8 +170,8 @@ describe("selectionsShareText", () => {
     });
 
     it("регистр складывается вниз — как в самом поиске", () => {
-        // `ß` и `ss` вверх обе дают `SS`, а сканер вхождений сравнивает по нижнему регистру:
-        // разойдись они — Ctrl+D продолжал бы сессию по тексту, которого поиск не находит.
+        // `ß` and `ss` both uppercase to `SS`, but the match scanner compares lowercase: if the two
+        // disagreed, Ctrl+D would continue a session on text the search cannot find.
         const sharp = new TextDocument("ß ss");
         const selections = [createSelection(0, 0, 0, 1), createSelection(0, 2, 0, 4)];
         expect(selectionsShareText(sharp, selections, false)).toBe(false);

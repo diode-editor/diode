@@ -11,7 +11,7 @@ class SelectionRanges {
         public readonly ranges: readonly IRange[],
     ) {}
 
-    /** Ступень, равная текущей, проскакивается. */
+    /** A step equal to the current one is skipped. */
     public mov(forward: boolean): SelectionRanges {
         const index = this.index + (forward ? 1 : -1);
         if (index < 0 || index >= this.ranges.length) return this;
@@ -23,14 +23,14 @@ class SelectionRanges {
 export type ComputeSelectionRanges = (positions: readonly IPosition[]) => Promise<IRange[][]>;
 
 /**
- * Upstream `SmartSelectController`. Любая смена выделения не этим контроллером
- * забывает стек — как и правка документа, даже без сдвига каретки.
+ * Upstream `SmartSelectController`. Any selection change not made by this controller drops
+ * the stack, as does a document edit, even one that doesn't move the cursor.
  */
 export class SmartSelectController {
     private state: SelectionRanges[] | undefined;
     private stateVersionId = 0;
     private selectionListener: IDisposable | undefined;
-    // Stryker disable next-line BooleanLiteral: до первой подписки флаг не читается, а после — всегда сброшен finally
+    // Stryker disable next-line BooleanLiteral: the flag isn't read before the first subscription, and after it `finally` always resets it
     private ignoreSelection = false;
 
     public constructor(private readonly viewState: EditorViewState) {}
