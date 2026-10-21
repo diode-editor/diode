@@ -75,6 +75,13 @@ jobs:
         continue-on-error: true
         run: npm run lazy-chunks-check
 
+      # Code is English, docs stay Russian: per-file Cyrillic only goes down
+      # (scripts/check-cyrillic.mjs, baseline in scripts/cyrillic-baseline.json).
+      - name: Cyrillic
+        id: cyrillic
+        continue-on-error: true
+        run: npm run cyrillic-check
+
       # V8-снапшот ядра (SEA `useSnapshot`): main.cjs собирается в снапшот, верхний
       # уровень модулей не читает окружение сборки (ловушки + отравленная сборка),
       # после десериализации — окружение запуска (scripts/check-snapshot.mjs).
@@ -90,12 +97,13 @@ jobs:
         run: npm run snapshot-check
 
       - name: Gate
-        if: steps.typecheck.outcome == 'failure' || steps.lint.outcome == 'failure' || steps.layers.outcome == 'failure' || steps.lazy.outcome == 'failure' || steps.snapshot.outcome == 'failure'
+        if: steps.typecheck.outcome == 'failure' || steps.lint.outcome == 'failure' || steps.layers.outcome == 'failure' || steps.lazy.outcome == 'failure' || steps.cyrillic.outcome == 'failure' || steps.snapshot.outcome == 'failure'
         run: |
           echo "typecheck: ${{ steps.typecheck.outcome }}"
           echo "lint:      ${{ steps.lint.outcome }}"
           echo "layers:    ${{ steps.layers.outcome }}"
           echo "lazy:      ${{ steps.lazy.outcome }}"
+          echo "cyrillic:  ${{ steps.cyrillic.outcome }}"
           echo "snapshot:  ${{ steps.snapshot.outcome }}"
           echo 'Форматирование и сортировку импортов чинит `npm run lint:fix`, остальное — руками.'
           exit 1
