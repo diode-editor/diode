@@ -42,7 +42,7 @@
 - [x] `src/vs/editor` (1412) — #746
 - [x] `workbench/services` (2752) — #751
 - [x] `workbench/browser`, `workbench/common` (1861) — #750
-- [~] `workbench/api` (1982)
+- [x] `workbench/api` (1982) — #748
 - [~] `workbench/contrib` и прочее `workbench/` (3897)
 - [x] `e2e` (2879) — #752
 - [x] scripts, extensions, packaging, `.github`, конфиги (2344) — волны 1+2+3 одним PR — #749
