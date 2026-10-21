@@ -36,13 +36,6 @@
 - [ ] `workbench.preferences.test.ts` › «рекордер пишет комбинацию»: 2 из 4 dry run'ов Stryker'а на
   одном коммите (`vi.waitFor` с дефолтным таймаутом 1 с ждёт файл на диске); отдельно файл 3/3
   зелёный. Общий случай — ход «таймауты `vi.waitFor`» ниже.
-- [ ] e2e-сценарий `terminal-editor` (ubuntu): `waitUntil(screen text predicate) timed out after 15000ms`
-  на первом `echoed` — красит main с #685 через прогон (#686–#689, #693, #698, #699). Причина видна в
-  кадре: правая группа ~30 колонок, промпт `runner@<хост>:/home/runner/work/diode/diode$` длинный, и
-  команда `echo "agent ready"` переносится внутри слова (`"ag` / `ent ready"`), так что предикат «две
-  строки "agent ready"» видит одну. Точка переноса зависит от длины имени хоста раннера — отсюда
-  «то красный, то зелёный». Чинить в фикстуре `terminal-demo` (короткий `PS1` или команда без
-  пробела) либо в предикате, а не ретраем.
 - [ ] e2e-сценарий `settings-completion` (ubuntu): `waitUntil(screen text predicate) timed out after
   4000ms` на ожидании попапа `editor.` — упал дважды (с автоповтором) на #678.
 
