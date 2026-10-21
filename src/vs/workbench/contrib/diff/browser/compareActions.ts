@@ -301,7 +301,7 @@ export const compareWithSavedAction: CommandAction = {
     title: "File: Compare Active File with Saved",
     keybinding: parseChord("mod+k d"),
     run(accessor) {
-        void compareWithSaved(accessor);
+        return compareWithSaved(accessor);
     },
 };
 
@@ -310,7 +310,7 @@ export const compareWithClipboardAction: CommandAction = {
     title: "File: Compare Active File with Clipboard",
     keybinding: parseChord("mod+k c"),
     run(accessor) {
-        void compareWithClipboard(accessor);
+        return compareWithClipboard(accessor);
     },
 };
 
@@ -339,7 +339,7 @@ export const compareFilesAction: CommandAction = {
         },
     ],
     run(accessor, filePath: unknown) {
-        void compareWithSelected(accessor, filePath);
+        return compareWithSelected(accessor, filePath);
     },
 };
 
@@ -347,7 +347,7 @@ export const compareFileWithAction: CommandAction = {
     id: "workbench.files.action.compareFileWith",
     title: "File: Compare Active File With...",
     run(accessor) {
-        void compareActiveFileWith(accessor);
+        return compareActiveFileWith(accessor);
     },
 };
 
@@ -371,7 +371,7 @@ export const compareNewUntitledTextFilesAction: CommandAction = {
     id: "workbench.files.action.compareNewUntitledTextFiles",
     title: "File: Compare New Untitled Text Files",
     run(accessor) {
-        void compareNewUntitledTextFiles(accessor);
+        return compareNewUntitledTextFiles(accessor);
     },
 };
 
@@ -380,7 +380,7 @@ export const compareWithRevisionAction: CommandAction = {
     title: "Git: Compare Active File with Revision...",
     when: "gitHasRepo",
     run(accessor) {
-        void compareWithRevision(accessor);
+        return compareWithRevision(accessor);
     },
 };
 
@@ -389,7 +389,7 @@ export const openFileAtRevisionAction: CommandAction = {
     title: "Git: Open File at Revision...",
     when: "gitHasRepo",
     run(accessor) {
-        void openFileAtRevision(accessor);
+        return openFileAtRevision(accessor);
     },
 };
 
