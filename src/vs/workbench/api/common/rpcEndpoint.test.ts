@@ -220,10 +220,8 @@ describe("RpcEndpoint", () => {
         const logger = makeSpyLogger();
         const a = new RpcEndpoint(chA, logger);
         const b = new RpcEndpoint(chB);
-        // A primitive on the wire must be ignored by both traceIncoming and handleIncoming.
         chB.postMessage(42);
         await microtasks();
-        // traceIncoming returned early — nothing logged for the primitive.
         const traceCalls = (logger.trace as ReturnType<typeof vi.fn>).mock.calls;
         expect(traceCalls.every((c) => !String(c[0]).includes("42"))).toBe(true);
         a.dispose();
@@ -236,7 +234,6 @@ describe("RpcEndpoint", () => {
         const [chA, chB] = createInProcessChannelPair();
         const a = new RpcEndpoint(chA);
         const b = new RpcEndpoint(chB);
-        // No pending request with id 9999 — must be silently dropped.
         expect(() => {
             chB.postMessage({ kind: "res", id: 9999, result: 1 });
         }).not.toThrow();
@@ -249,7 +246,6 @@ describe("RpcEndpoint", () => {
 
     it("ignores a notification with no registered handler (line 182)", async () => {
         const { a, b, dispose } = createEndpointPair();
-        // No handler registered for "unhandled" — handleNotificationMessage returns early.
         expect(() => {
             a.notify("unhandled", { x: 1 });
         }).not.toThrow();
@@ -303,7 +299,7 @@ describe("RpcEndpoint", () => {
 
         const pending = a.request("slow");
         void pending.catch(() => undefined); // never resolves once b is gone — swallow
-        await microtasks(); // request reaches b, handler starts and parks
+        await microtasks();
 
         const responseSpy = vi.spyOn(chB, "postMessage");
         b.dispose();
@@ -349,9 +345,7 @@ describe("RpcEndpoint", () => {
             b.handleRequest("echo", (p) => p);
             await a.request("echo", { v: 1 });
 
-            // runtime saw an incoming request
             expect(runtimeLogger.trace).toHaveBeenCalledWith(expect.stringContaining("<- req#"), { v: 1 });
-            // host saw an incoming successful response
             expect(hostLogger.trace).toHaveBeenCalledWith(expect.stringMatching(/<- res#\d+/), { v: 1 });
 
             a.dispose();

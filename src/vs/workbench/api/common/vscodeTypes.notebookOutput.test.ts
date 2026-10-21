@@ -6,12 +6,6 @@ import { makeStubRpc } from "./testStubRpc.ts";
 import { buildVscodeNamespace } from "./vscodeNamespace.ts";
 import { NotebookCellOutputItem as RuntimeNotebookCellOutputItem } from "./vscodeTypes.ts";
 
-/**
- * `NotebookCellOutputItem` — значение в namespace: Claude Code зовёт
- * `NotebookCellOutputItem.error(...).mime` на верхнем уровне модуля, и без
- * класса его точка входа не грузилась. Поведение — эталонное
- * (`extHostTypes/notebooks.ts`).
- */
 const { NotebookCellOutputItem } = buildVscodeNamespace(makeStubRpc().rpc, createNodeExtHostDisk()).namespace;
 const decode = (data: Uint8Array): string => new TextDecoder().decode(data);
 

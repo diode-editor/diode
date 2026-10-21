@@ -27,7 +27,6 @@ function makeWindow(): { stub: IStubRpc; window: typeof vscode.window; owner: Ex
     return { stub, window: createWindowNamespace(ctx), owner };
 }
 
-/** Только сообщения статус-бара из журнала нотификаций стаба. */
 function statusBarTraffic(stub: IStubRpc): { method: string; params: IWireStatusBarItem }[] {
     return stub.notifies
         .filter((n) => n.method.startsWith("window.statusBarItem."))

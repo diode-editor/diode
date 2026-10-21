@@ -3,18 +3,9 @@ import type * as vscode from "vscode";
 import { EventEmitter } from "./vscodeTypes.ts";
 
 /**
- * `env.createTelemetryLogger` — эталонный логгер (`ExtHostTelemetryLogger` в
- * `extHostTelemetry.ts`) при навсегда выключенной телеметрии.
- *
- * Телеметрии в Diode нет вовсе (см. `env.isTelemetryEnabled`), поэтому это не
- * заглушка, а полный ответ: эталон с выключенными usage/errors тоже ни разу не
- * зовёт `sendEventData`/`sendErrorData` — `logUsage`/`logError` сразу выходят,
- * а `onDidChangeEnableStates` не стреляет, потому что состояние не меняется.
- * От отправителя остаётся только `flush` на первом `dispose`, как в эталоне.
- *
- * Без члена падал `@vscode/extension-telemetry`: его репортер строит логгер в
- * конструкторе, и расширение (`hashicorp.terraform`) умирало на первой строке
- * `activate()`.
+ * `ExtHostTelemetryLogger` эталона при навсегда выключенной телеметрии — не заглушка, а полный
+ * ответ: эталон с выключенными usage/errors тоже не зовёт `send*Data`. Без члена
+ * `@vscode/extension-telemetry` ронял `activate()` (`hashicorp.terraform`).
  */
 export function createTelemetryLogger(
     sender: vscode.TelemetrySender,
@@ -25,22 +16,19 @@ export function createTelemetryLogger(
     return Object.freeze({
         isUsageEnabled: false,
         isErrorsEnabled: false,
-        // Состояние не меняется никогда — эмиттер не стреляет, и освобождать
-        // в dispose нечего: он уходит в сборщик мусора вместе с логгером.
         onDidChangeEnableStates: new EventEmitter<vscode.TelemetryLogger>().event,
         logUsage: (): void => undefined,
         logError: (): void => undefined,
         dispose: (): void => {
             const flushing = pending;
             pending = undefined;
-            // Буфер отправителя сбрасывается без ожидания и без права уронить
-            // субпроцесс: эталон тоже не ждёт `flush` и не смотрит в его исход.
+            // Эталон тоже не ждёт `flush` и не смотрит в его исход.
             if (flushing?.flush) Promise.resolve(flushing.flush()).catch(() => undefined);
         },
     });
 }
 
-/** Проверка отправителя — дословно эталонная (`ExtHostTelemetryLogger.validateSender`). */
+/** Дословно `ExtHostTelemetryLogger.validateSender`. */
 function validateSender(sender: vscode.TelemetrySender): void {
     const candidate = sender as Partial<vscode.TelemetrySender> | null;
     if (typeof candidate !== "object") {

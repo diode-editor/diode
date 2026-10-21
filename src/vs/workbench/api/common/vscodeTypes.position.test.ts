@@ -25,11 +25,11 @@ describe("VscodeTypes — Position", () => {
 
     it("compareTo возвращает -1/0/1 по строке и символу", () => {
         const a = new Position(1, 2);
-        expect(a.compareTo(new Position(2, 0))).toBe(-1); // меньшая строка
-        expect(a.compareTo(new Position(1, 5))).toBe(-1); // та же строка, меньший символ
+        expect(a.compareTo(new Position(2, 0))).toBe(-1);
+        expect(a.compareTo(new Position(1, 5))).toBe(-1);
         expect(a.compareTo(new Position(1, 2))).toBe(0);
-        expect(a.compareTo(new Position(1, 0))).toBe(1); // та же строка, больший символ
-        expect(a.compareTo(new Position(0, 9))).toBe(1); // большая строка
+        expect(a.compareTo(new Position(1, 0))).toBe(1);
+        expect(a.compareTo(new Position(0, 9))).toBe(1);
     });
 
     it("translate — оба перегруза + дефолты, иммутабельность", () => {
@@ -37,8 +37,8 @@ describe("VscodeTypes — Position", () => {
         expect(p.translate(2, 3).isEqual(new Position(3, 4))).toBe(true);
         expect(p.translate({ characterDelta: 4 }).isEqual(new Position(1, 5))).toBe(true);
         expect(p.translate({ lineDelta: 2 }).isEqual(new Position(3, 1))).toBe(true);
-        expect(p.translate()).toBe(p); // без изменений — та же ссылка
-        expect(p.line).toBe(1); // оригинал не тронут
+        expect(p.translate()).toBe(p);
+        expect(p.line).toBe(1);
     });
 
     it("with — оба перегруза + дефолты", () => {

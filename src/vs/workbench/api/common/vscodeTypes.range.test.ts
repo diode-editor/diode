@@ -24,8 +24,8 @@ describe("VscodeTypes — Range", () => {
     it("contains(Position) — внутри, на границе, снаружи", () => {
         const r = new Range(1, 2, 3, 4);
         expect(r.contains(new Position(2, 0))).toBe(true);
-        expect(r.contains(new Position(1, 2))).toBe(true); // граница
-        expect(r.contains(new Position(3, 4))).toBe(true); // граница
+        expect(r.contains(new Position(1, 2))).toBe(true);
+        expect(r.contains(new Position(3, 4))).toBe(true);
         expect(r.contains(new Position(1, 0))).toBe(false);
         expect(r.contains(new Position(4, 0))).toBe(false);
     });

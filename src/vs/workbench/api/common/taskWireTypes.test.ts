@@ -10,8 +10,6 @@ import {
     parseWireTaskStarted,
 } from "./taskWireTypes.ts";
 
-// Разбор в субпроцессе того, что о задачах присылает ядро.
-
 const task = { name: "b", definition: { type: "t" }, source: { label: "s", extensionId: "e", scope: 2 } };
 
 describe("разбор задач ядра в субпроцессе", () => {

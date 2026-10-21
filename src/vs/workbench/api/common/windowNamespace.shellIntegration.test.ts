@@ -5,12 +5,7 @@ import { createNodeExtHostDisk } from "../node/extHostDisk.ts";
 import { makeStubRpc } from "./testStubRpc.ts";
 import { buildVscodeNamespace } from "./vscodeNamespace.ts";
 
-/**
- * Shell integration не поднята: `Terminal.shellIntegration` навсегда
- * `undefined`, события валидные и молчат. Claude Code подписывается на
- * `onDidChangeTerminalShellIntegration` и через 3 с уходит в `sendText` —
- * подписка обязана проходить, иначе падал запуск CLI в терминале.
- */
+/** Claude Code подписывается на `onDidChangeTerminalShellIntegration`: без подписки падал запуск CLI в терминале. */
 describe("window — события shell integration", () => {
     it("подписка на все три события проходит и снимается; новый терминал без shellIntegration", () => {
         const stub = makeStubRpc();

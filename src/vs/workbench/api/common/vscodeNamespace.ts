@@ -170,43 +170,19 @@ import {
 import { WorkspaceConfigStore } from "./workspaceConfigStore.ts";
 import { createWorkspaceNamespace } from "./workspaceNamespace.ts";
 
-/**
- * Результат сборки шима: сам объект `vscode` (раздаётся расширениям через
- * `Module._cache`) и {@link WorkspaceConfigStore}, в который приезжают слои
- * настроек главного процесса (`workspace.initialize` / `configurationChanged`).
- */
 export interface IVscodeHost {
     readonly namespace: typeof vscode;
     readonly configStore: WorkspaceConfigStore;
-    /**
-     * Публичные API активированных расширений (id → возвращённое `activate()`),
-     * которые отдаёт `extensions.getExtension(id).exports`. Наполняет точка
-     * входа субпроцесса — только она видит результат `activate()`.
-     */
+    /** Наполняет точка входа субпроцесса — только она видит результат `activate()`. */
     readonly extensionExports: Map<string, unknown>;
-    /** Фабрика `ExtensionContext.secrets` — по одному хранилищу на расширение. */
     readonly secrets: IExtensionSecretsFactory;
-    /** `ExtensionContext.environmentVariableCollection` — по коллекции на расширение. */
     readonly environmentVariableCollections: ExtHostEnvironmentVariableCollections;
-    /** Владелец создающего вызова — его выставляет оверлей расширения (`extensionApiFactory.ts`). */
+    /** Выставляет оверлей расширения (`extensionApiFactory.ts`). */
     readonly owner: ExtensionOwner;
-    /** Каталог расширений от хоста — по нему индексируются их корни. */
     readonly onDidReceiveCatalog: vscode.Event<readonly IWireExtensionDescription[]>;
 }
 
-/**
- * Собирает объект `vscode`, раздаваемый расширениям (in-process в тестах или в
- * subprocess через `Module._cache`).
- *
- * Ассемблер держит общее состояние ({@link IVscodeHostContext}: реестр документов
- * со стабильной идентичностью и хранилище конфигурации) и композирует поверх него
- * namespace'ы `window` / `workspace` / `languages` / `commands`. Value-типы
- * (`Position`, `Range`, `TextEdit`, `Uri`, enum'ы, `EventEmitter`) отдаются как
- * runtime-поля — расширение делает `new vscode.Position(...)` и т.п.
- *
- * Все мутирующие действия проксируются хосту как RPC-запросы; прямой ссылки на
- * host-сервисы у `vscode`-неймспейса нет.
- */
+/** Мутирующие действия уходят хосту RPC-запросами: прямой ссылки на host-сервисы у шима нет. */
 export function buildVscodeNamespace(rpc: SubprocessRpc, disk: IExtHostDisk): IVscodeHost {
     const registry = new DocumentRegistry();
     const ctx: IVscodeHostContext = {
@@ -218,49 +194,32 @@ export function buildVscodeNamespace(rpc: SubprocessRpc, disk: IExtHostDisk): IV
         owner: new ExtensionOwner(),
     };
 
-    // Терминалы (состояние — здесь, инстансы — у хоста) делят `window` и
-    // `tasks`: pty `CustomExecution` подключается к терминалу задачи.
+    // Терминалы общие у `window` и `tasks`: pty `CustomExecution` подключается к терминалу задачи.
     const terminals = createTerminalNamespace(rpc);
     const window = createWindowNamespace(ctx, terminals);
-    // `workspace.registerTaskProvider` (устаревший) — тот же вызов, что у
-    // `tasks`; `tasks` ещё не собран (ему нужны папки `workspace`).
+    // Отложенный вызов: `tasks` ещё не собран (ему нужны папки `workspace`).
     const workspace = createWorkspaceNamespace(ctx, (type, provider) => tasks.registerTaskProvider(type, provider));
-    // WP4: commands bridge поверх симметричного rpc (локальная Map команд +
-    // прокси в host CommandRegistry). Геттер активного редактора нужен
-    // registerTextEditorCommand — команда исполняется только при активном редакторе.
     // Собирается ДО languages: applyCodeAction исполняет команды действий.
-    // API-команды открывают ресурс теми же мостами, что `showTextDocument` и
-    // `env.openExternal` (env собирается ниже — отсюда отложенный вызов).
     const apiCommands = createApiCommands({
         showTextDocument: (uri, options) => window.showTextDocument(uri, options),
         openExternal: (target) => env.openExternal(target),
     });
     const commands = buildCommandsNamespace(rpc, () => window.activeTextEditor, ctx.owner, apiCommands);
     const { languages } = createLanguagesNamespace(ctx, {
-        // Правки code action ложатся тем же путём, что workspace.applyEdit;
-        // команды действия — локальный реестр с прокси-мостом до хоста.
         applyEdit: (edit, metadata) => workspace.applyEdit(edit, metadata),
         executeCommand: (command, ...args) => commands.executeCommand(command, ...args),
     });
 
-    // Константы окружения, которые знает только хост (`initData` эталона):
-    // семя `env.initialize` приходит до первой активации. Смены шелла нет —
-    // профилей терминала у нас нет, поэтому `onDidChangeShell` не стреляет.
+    // Семя `env.initialize` приходит до первой активации; профилей терминала нет — `onDidChangeShell` не стреляет.
     let hostEnvironment: IWireEnvInitialize = { machineId: "", shell: "" };
     rpc.handleNotification("env.initialize", (params) => {
         hostEnvironment = parseWireEnvInitialize(params);
     });
 
-    // `env`: буфер обмена и открытие ссылки живут у хоста — он владеет
-    // терминалом (OSC 52) и правом запускать системный обработчик, поэтому
-    // расширение ходит туда запросами. Остальное — константы шима
-    // (vscode-languageclient читает language/appName).
     const env = {
-        /** sha256 MAC-адреса машины (или uuid), стабилен между запусками — кэш хоста. */
         get machineId(): string {
             return hostEnvironment.machineId;
         },
-        /** Шелл, которым запустился бы терминал без `shellPath` (Claude Code берёт из него `PATH` login-шелла). */
         get shell(): string {
             return hostEnvironment.shell;
         },
@@ -276,69 +235,30 @@ export function buildVscodeNamespace(rpc: SubprocessRpc, disk: IExtHostDisk): IV
                 await rpc.request("env.clipboard.writeText", { text: value });
             },
         },
-        /**
-         * `true` — ссылка доехала до человека: либо её открыл системный
-         * обработчик, либо (без графического окружения — ssh, контейнер, голый
-         * сервер) хост показал URL сообщением и положил в буфер обмена. `false`
-         * — не удалось ни то, ни другое.
-         */
+        /** `true` и без графического окружения: хост показал URL сообщением и положил в буфер обмена. */
         openExternal: async (target: vscode.Uri): Promise<boolean> =>
             parseWireOpenExternalResult(
-                // `toString(true)` — skipEncoding, как в эталоне (там ссылка
-                // уезжает системному обработчику ровно в этой форме). Обычный
-                // `toString()` percent-кодирует `=`/`&` в query, и вместо
-                // `?token=42` системе досталось бы `?token%3D42`.
+                // skipEncoding, как в эталоне: обычный `toString()` отдал бы системе `?token%3D42` вместо `?token=42`.
                 await rpc.request("env.openExternal", { uri: target.toString(true) }),
             ),
 
-        /**
-         * Идентификатор сеанса extension host'а. Читается как «тот же запуск или
-         * уже другой» (`redhat.java` этим отличает свою запись-однодневку на
-         * диске от чужой), поэтому важны два свойства: стабильность внутри
-         * запуска и несовпадение между запусками — оба даёт `randomUUID()` на
-         * сборке шима. Отступление от эталона: там id переживает перезапуск
-         * extension host'а, у нас — нет (шим собирается заново вместе с
-         * субпроцессом).
-         */
+        /** Отступление от эталона: id не переживает перезапуск extension host'а. `redhat.java` отличает по нему свой запуск от чужого. */
         sessionId: randomUUID(),
 
-        /**
-         * Телеметрии в Diode нет вовсе — ни своей, ни канала для чужой. Это не
-         * стаб «пока не сделали», а постоянный ответ, поэтому
-         * `onDidChangeTelemetryEnabled` — валидное событие, которое никогда не
-         * стреляет: менять нечего. Расширение, уважающее флаг (redhat-телеметрия
-         * спрашивает его на каждом событии), само ничего не отправит.
-         */
         isTelemetryEnabled: false,
         onDidChangeTelemetryEnabled: new EventEmitter<boolean>().event,
-        /** Логгер с навсегда выключенной телеметрией — см. telemetryLogger.ts. */
         createTelemetryLogger,
 
-        /**
-         * Удалённого extension host'а нет — `undefined` по букве контракта
-         * («value is `undefined` when there is no remote extension host»).
-         */
         remoteName: undefined,
 
-        // Редактор настольный, пусть и в терминале: `Web` в контракте значит
-        // «доступ из браузера» (vscode.dev), а не «не-графический UI».
+        // `Web` в контракте — доступ из браузера (vscode.dev), а не «не-графический UI».
         uiKind: UIKind.Desktop,
     };
 
-    // Каталог установленных расширений приезжает от хоста (`extensions.catalog`
-    // семенем ДО первой активации, `extensions.activated` — на каждое оживление).
-    // Именно этим соседей детектят AI-автодополнения: раньше им всегда отвечали
-    // «ничего не установлено».
     const { extensions, exportsById, onDidReceiveCatalog } = createExtensionsNamespace(rpc);
-    // Секреты расширения (`ExtensionContext.secrets`) — тоже за хостом: он
-    // владеет user-data, в которой они переживают перезапуск.
     const secrets = createExtensionSecretsFactory(rpc);
-    // Коллекции окружения терминалов (`ExtensionContext.environmentVariableCollection`):
-    // живут здесь, хост хранит их и применяет к окружению каждого терминала.
     const environmentVariableCollections = new ExtHostEnvironmentVariableCollections(rpc);
 
-    // Задачи (`ExtHostTask` эталона): провайдеры, исполнение и события жизни
-    // задач ядра — см. tasksNamespace.ts.
     const tasks = createTasksNamespace({
         rpc,
         owner: ctx.owner,
@@ -350,8 +270,7 @@ export function buildVscodeNamespace(rpc: SubprocessRpc, disk: IExtHostDisk): IV
     });
 
     const namespace = {
-        // vscode-languageclient требует валидный VS Code semver (^1.91.0).
-        // Лок-степ с extensions/VSCODE_VERSION — проверяет vscodeNamespace.identity.test.
+        // vscode-languageclient требует валидный semver (^1.91.0); лок-степ с extensions/VSCODE_VERSION.
         version: VSCODE_SHIM_VERSION,
         Disposable: DisposableImpl,
         Position,
@@ -360,29 +279,19 @@ export function buildVscodeNamespace(rpc: SubprocessRpc, disk: IExtHostDisk): IV
         SelectionRange,
         TextEdit,
         Uri,
-        // База для createFileSystemWatcher: встроенный git строит им и watcher
-        // рабочего дерева, и дешёвый нерекурсивный watcher `.git`.
         RelativePattern,
         EventEmitter,
         CompletionItem,
-        // CompletionList/SnippetString конструирует сам languageclient на каждом
-        // ответе сервера — без них конвертация completion падала молча.
         CompletionList,
         CompletionTriggerKind,
-        // Точечный каст (и у трёх классов ниже, которые держат SnippetString в
-        // полях): у нашего SnippetString только `appendText`, и тот без
-        // экранирования; билдеров `appendTabstop`/`appendPlaceholder`/
-        // `appendChoice`/`appendVariable` из d.ts нет — это новый функционал.
+        // Каст и здесь, и у трёх классов ниже, что держат SnippetString в полях: у нашего
+        // SnippetString только `appendText` без экранирования, билдеров из d.ts нет.
         SnippetString: SnippetString as unknown as typeof vscode.SnippetString,
-        // InlineCompletionItem/List конструирует конвертер languageclient на
-        // каждом ответе inline-completion-сервера — классы обязаны быть настоящими.
         InlineCompletionItem: InlineCompletionItem as unknown as typeof vscode.InlineCompletionItem,
         InlineCompletionList: InlineCompletionList as unknown as typeof vscode.InlineCompletionList,
         InlineCompletionTriggerKind,
         EndOfLine,
         TextDocumentSaveReason,
-        // Оба enum'а объявлены в активном d.ts, но рантайм-поля не было:
-        // `vscode.ConfigurationTarget.Global` падал на чтении у undefined.
         TextDocumentChangeReason,
         ConfigurationTarget,
         FileChangeType,
@@ -391,7 +300,6 @@ export function buildVscodeNamespace(rpc: SubprocessRpc, disk: IExtHostDisk): IV
         CompletionItemKind,
         FoldingRange,
         FoldingRangeKind,
-        // Конвертер vscode-languageclient строит их на каждый ответ semanticTokens.
         SemanticTokens,
         SemanticTokensBuilder,
         SemanticTokensEdit,
@@ -399,19 +307,13 @@ export function buildVscodeNamespace(rpc: SubprocessRpc, disk: IExtHostDisk): IV
         SemanticTokensLegend,
         Location,
         Diagnostic,
-        // Класс-ловушка: конвертер клиента конструирует его на каждую диагностику
-        // с related information, без него падала вся пачка диагностик.
         DiagnosticRelatedInformation,
         DiagnosticSeverity,
         DiagnosticTag,
-        // Расширения строят сообщение валидации InputBox через этот enum —
-        // он обязан быть настоящим значением, а не типом.
         InputBoxValidationSeverity,
         CodeLens,
         CodeAction,
         CodeActionKind,
-        // CodeActionTriggerKind читает c2p-конвертер клиента на каждом запросе
-        // code actions (asCodeActionTriggerKind) — enum обязан быть настоящим.
         CodeActionTriggerKind,
         DocumentLink,
         DocumentHighlightKind,
@@ -424,56 +326,32 @@ export function buildVscodeNamespace(rpc: SubprocessRpc, disk: IExtHostDisk): IV
         TypeHierarchyItem,
         CancellationError,
         CancellationTokenSource,
-        // context.extensionMode сравнивают с enum'ом (basedpyright выбирает между
-        // bundled-сервером и dev-обвязкой) — без runtime-поля сравнение всегда false.
         ExtensionMode,
-        // `ext.extensionKind === vscode.ExtensionKind.Workspace` — тем же
-        // сравнением расширение решает, «свой» ли ему сосед из extensions.all.
         ExtensionKind,
         LogLevel,
         ProgressLocation,
         MarkdownString,
         Hover,
-        // SignatureHelp/SignatureInformation/ParameterInformation конструирует
-        // конвертер клиента на каждый ответ signature help, а
-        // SignatureHelpTriggerKind он читает на каждом запросе.
         SignatureHelp,
         SignatureInformation,
         ParameterInformation,
         SignatureHelpTriggerKind,
         WorkspaceEdit,
-        // SnippetTextEdit конструирует конвертер клиента на сниппет-правку
-        // внутри WorkspaceEdit — без класса падала бы конвертация всего edit'а.
         SnippetTextEdit: SnippetTextEdit as unknown as typeof vscode.SnippetTextEdit,
-        // Расширение выбирает сторону полосы этим enum'ом на каждом
-        // createStatusBarItem — без runtime-поля выравнивание всегда падало бы
-        // в Left, а `item.alignment === vscode.StatusBarAlignment.Right` — в false.
         StatusBarAlignment,
-        // Терминалы: причина в `Terminal.exitStatus`; место принимается, но
-        // терминал всегда в панели.
         TerminalExitReason,
         TerminalLocation,
-        // Исполнений нет (shell integration не поднята), но enum — значение.
         TerminalShellExecutionCommandLineConfidence,
         EnvironmentVariableMutatorType,
-        // `switch (env.uiKind) { case vscode.UIKind.Desktop: ... }` — типовой
-        // разбор окружения в `activate()`; без runtime-поля он падал бы на
-        // чтении `Desktop` у undefined, унося с собой всю активацию.
         UIKind,
-        // Расширение сравнивает `window.activeColorTheme.kind` с этим enum'ом,
-        // чтобы выбрать иконки/цвета под светлую и тёмную — без runtime-поля
-        // любое сравнение давало бы false, и тема всегда «не та».
         ColorThemeKind,
-        // `event.kind === vscode.TextEditorSelectionChangeKind.Mouse` —
-        // типовой фильтр слушателя выделения; тоже обязан быть значением.
         TextEditorSelectionChangeKind,
         ThemeColor,
         FileDecoration,
         OverviewRulerLane,
         DecorationRangeBehavior,
         ViewColumn,
-        // Все семь TabInput* — см. комментарий у классов: instanceof-каскад
-        // расширений требует существования каждого, даже непроизводимых.
+        // Все семь TabInput*, даже непроизводимые: instanceof-каскад расширений требует каждого.
         TabInputText,
         TabInputTextDiff,
         TabInputCustom,
@@ -481,8 +359,6 @@ export function buildVscodeNamespace(rpc: SubprocessRpc, disk: IExtHostDisk): IV
         TabInputNotebook,
         TabInputNotebookDiff,
         TabInputTerminal,
-        // Статус language server'а (languages.createLanguageStatusItem) — ruff
-        // сравнивает и выставляет severity этим enum'ом на каждый апдейт статуса.
         LanguageStatusSeverity,
         window,
         workspace,
@@ -490,12 +366,8 @@ export function buildVscodeNamespace(rpc: SubprocessRpc, disk: IExtHostDisk): IV
         commands,
         env: implementsApi<typeof vscode.env>()(env),
         extensions,
-        // l10n без бандлов переводов: t подставляет плейсхолдеры, bundle/uri
-        // честно undefined (ruff зовёт t на каждое пользовательское сообщение).
         l10n: createL10nNamespace(),
         tasks: implementsApi<typeof vscode.tasks>()(tasks),
-        // Задачи: value-типы, которые провайдер конструирует сам
-        // (`new Task(def, TaskScope.Workspace, name, source, new ShellExecution(cmd))`).
         Task,
         TaskScope,
         TaskGroup,
@@ -505,30 +377,19 @@ export function buildVscodeNamespace(rpc: SubprocessRpc, disk: IExtHostDisk): IV
         ShellQuoting,
         ProcessExecution,
         CustomExecution,
-        // Деревья: `class Node extends vscode.TreeItem` стоит на уровне модуля
-        // провайдера — без значения точка входа расширения не загружается вовсе.
-        // Само дерево пока не рисуется (treeViewNoop.ts).
         TreeItem,
         TreeItemCollapsibleState,
         TreeItemCheckboxState,
         ThemeIcon,
-        // Расширения конструируют его при вызове `logUsage` — значение, а не тип.
         TelemetryTrustedValue,
-        // Notebook-редакторов нет, но элементы вывода строят на уровне модуля
-        // (Claude Code — `NotebookCellOutputItem.error(...).mime` при загрузке).
+        // Notebook'ов нет, но Claude Code строит `NotebookCellOutputItem.error(...)` при загрузке модуля.
         NotebookCellOutputItem,
-        // Входа нет: сессии `undefined`, провайдеры принимаются и не зовутся
-        // (authenticationNoop.ts). Без namespace'а `activate()` падал целиком.
         authentication: createAuthenticationNoop(rpc),
-        // Комментарии пока не рисуются: контроллер и треды инертные (commentsNoop.ts),
-        // enum'ы — значения, ими расширение выставляет состояние треда.
         comments: createCommentsNoop(rpc),
         CommentThreadCollapsibleState,
         CommentMode,
         CommentThreadState,
-        // Дебаггера нет (решение человека): сессий не бывает, register* — Disposable
-        // (debugNoop.ts). Без namespace'а `golang.go` обрывал `activate()` посередине.
-        // Классы — значения: расширение само строит дескрипторы адаптера и точки.
+        // Дебаггера нет (решение человека), но без namespace'а `golang.go` обрывал `activate()`.
         debug: createDebugNoop(rpc),
         DebugAdapterExecutable,
         DebugAdapterServer,
@@ -541,8 +402,6 @@ export function buildVscodeNamespace(rpc: SubprocessRpc, disk: IExtHostDisk): IV
         Breakpoint,
         SourceBreakpoint,
         FunctionBreakpoint,
-        // View Testing нет: контроллер инертный, коллекции рабочие (testsNoop.ts).
-        // `TestRunProfileKind.Run` читается в `activate()` у `golang.go`.
         tests: createTestsNoop(rpc),
         TestRunProfileKind,
         TestTag,
@@ -554,11 +413,9 @@ export function buildVscodeNamespace(rpc: SubprocessRpc, disk: IExtHostDisk): IV
         StatementCoverage,
         BranchCoverage,
         DeclarationCoverage,
-        // Символы строят и без outline в ядре (`golang.go` — поиск тестов в файле).
         DocumentSymbol,
         QuickPickItemKind,
         NotebookCellKind,
-        // Значения из `languages.setLanguageConfiguration` (onEnterRules, notIn).
         IndentAction,
         SyntaxTokenType,
     };

@@ -151,7 +151,7 @@ describe("WorkspaceNamespace — configuration", () => {
             { method: "configuration.update", params: { key: "editor.tabSize", value: 2 } },
             { method: "configuration.update", params: { key: "files.autoSave", value: "off" } },
         ]);
-        // Тоста больше нет: отказы — rejected promise, как у эталона (donotNotifyError).
+        // Отказы — rejected promise без тоста, как у эталона (donotNotifyError).
         expect(stub.notifies).toEqual([]);
     });
 
@@ -254,7 +254,6 @@ describe("WorkspaceNamespace — configuration", () => {
         expect(stub.requests.map((r) => (r.params as { target: string }).target)).toEqual(["workspace"]);
     });
 
-    // Без цели секцию языка смотрим в слое воркспейса — так её выведет хост.
     it("запись без цели смотрит на секцию языка слоя воркспейса", async () => {
         const { stub, workspace } = makeCtx();
         stub.fire("workspace.initialize", {
@@ -363,11 +362,8 @@ describe("WorkspaceNamespace — folders & documents", () => {
             workspaceFolders: [{ uri: "/repo", name: "repo", index: 0 }],
         });
         expect(workspace.asRelativePath("/repo/src/a.ts")).toBe("src/a.ts");
-        // Uri вместо строки
         expect(workspace.asRelativePath(Uri.file("/repo/src/a.ts") as never)).toBe("src/a.ts");
-        // сам корень → возвращается как есть
         expect(workspace.asRelativePath("/repo")).toBe("/repo");
-        // вне папки — возвращается как есть
         expect(workspace.asRelativePath("/other/b.ts")).toBe("/other/b.ts");
     });
 
@@ -400,8 +396,7 @@ describe("WorkspaceNamespace — folders & documents", () => {
     });
 
     it("openTextDocument с не-file URI отказывает и НЕ читает диск", async () => {
-        // Тот же класс бага, что #107: раньше схема падала через .fsPath, и
-        // "untitled:Untitled-1" уезжал в nodeFs.readFile как относительный путь.
+        // Класс бага #107: схема падала через .fsPath, и `untitled:` уезжал в nodeFs.readFile относительным путём.
         const { workspace } = makeCtx();
         await expect(workspace.openTextDocument(Uri.parse("untitled:Untitled-1") as never)).rejects.toMatchObject({
             code: "Unavailable",
@@ -482,7 +477,6 @@ describe("WorkspaceNamespace — openTextDocument от диска (WP7)", () => 
         };
         expect(doc.encoding).toBe("utf8bom");
         expect(doc.eol).toBe(2); // vscode.EndOfLine.CRLF
-        // BOM отрезан и не попал в текст.
         expect(doc.getText().charCodeAt(0)).not.toBe(0xfeff);
     });
 });
@@ -495,11 +489,9 @@ describe("WorkspaceNamespace — save subscriptions", () => {
             method: "workspace.updateSubscriptions",
             params: { willSave: true, didSave: false, documentSync: false },
         });
-        // второй слушатель не шлёт повторно
         const before = stub.notifies.length;
         const d2 = workspace.onWillSaveTextDocument(() => undefined);
         expect(stub.notifies.length).toBe(before);
-        // dispose обоих → willSave:false
         d1.dispose();
         d2.dispose();
         expect(stub.notifies.at(-1)).toEqual({
@@ -524,7 +516,6 @@ describe("WorkspaceNamespace — save subscriptions", () => {
             method: "workspace.updateSubscriptions",
             params: { willSave: false, didSave: true, documentSync: false },
         });
-        // второй слушатель не шлёт повторно
         const before = stub.notifies.length;
         const d2 = workspace.onDidSaveTextDocument(() => undefined);
         expect(stub.notifies.length).toBe(before);
@@ -540,7 +531,6 @@ describe("WorkspaceNamespace — save subscriptions", () => {
 describe("WorkspaceNamespace — will-save request handler", () => {
     const REQUEST = "workspace.willSaveTextDocument";
     const F_URI = Uri.file("/f.txt").toString();
-    /** Хост открывает документ в зеркале субпроцесса (`editor.didOpen`, v1). */
     const openDoc = (stub: IStubRpc, text: string, uri = F_URI) => {
         stub.fire("editor.didOpen", { uri, languageId: "plaintext", version: 1, text });
     };
@@ -550,7 +540,6 @@ describe("WorkspaceNamespace — will-save request handler", () => {
     it("сериализует TextEdit[] участника (документ из зеркала + fire + waitUntil)", async () => {
         const { stub, ctx, workspace } = makeCtx();
         workspace.onWillSaveTextDocument((e) => {
-            // документ — зеркало didOpen, мета сохранения — из запроса
             expect(e.document).toBe(ctx.registry.get(Uri.file("/f.txt")));
             expect(e.document.getText()).toBe("abc   \n");
             expect(e.document.isDirty).toBe(true);

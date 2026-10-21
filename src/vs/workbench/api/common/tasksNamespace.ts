@@ -37,30 +37,14 @@ import {
 import type { IWireExtensionDescription } from "./wireTypes.ts";
 
 /**
- * `vscode.tasks` в субпроцессе (`ExtHostTask` эталона).
+ * `ExtHostTask` эталона. Как у эталона, вызвавший `executeTask` получает в `execution.task`
+ * СВОЙ объект; чужая задача — новый `Task` с именем и `source` провайдера.
  *
- * Задачами владеет ядро (`contrib/tasks`): провайдер расширения отвечает на
- * `tasks.provideTasks`, `fetchTasks`/`executeTask`/`terminate` — запросы и
- * нотификации ядру, жизнь исполнений приезжает `tasks.didStart` /
- * `didStartProcess` / `didEndProcess` / `didEnd` — про ВСЕ задачи, в том числе
- * запущенные из палитры.
+ * Id своей задачи — формула ядра `${расширение}.${_key}` (`taskIdentity.ts`), посчитанная
+ * здесь по `contributes.taskDefinitions` (у эталона — запрос `$createTaskId`).
  *
- * Идентичность — как у эталона: расширение, вызвавшее `executeTask`, получает
- * в `execution.task` СВОЙ объект — исполнение заводится по id задачи ДО
- * отправки запроса, и старт, пришедший раньше ответа, его находит. Задача
- * из палитры или чужая — новый `Task` из описания ядра с именем и
- * `source` провайдера (по ним `taskExecutions` и ищут свою задачу).
- *
- * Id задачи: у задачи из ядра — её id (`handleId`); у своей — формула ядра
- * `${расширение}.${_key}` (`taskIdentity.ts`), посчитанная здесь по схемам
- * `contributes.taskDefinitions` из каталога расширений (у эталона — запрос
- * `$createTaskId`). По нему же находится колбэк `CustomExecution`: на старте
- * задачи он даёт pty, и тот подключается к терминалу задачи
- * (`attachPtyToTerminal` эталона).
- *
- * Нотификации ядра обрабатываются строго по очереди: старт задачи с
- * `CustomExecution` ждёт колбэк расширения, а события процесса не должны его
- * обгонять.
+ * Нотификации ядра — строго по очереди: старт с `CustomExecution` ждёт колбэк расширения,
+ * события процесса не должны его обгонять.
  */
 export interface ITasksNamespace {
     registerTaskProvider(type: string, provider: vscode.TaskProvider): vscode.Disposable;
@@ -75,22 +59,16 @@ export interface ITasksNamespace {
 
 export interface ITasksNamespaceDeps {
     readonly rpc: SubprocessRpc;
-    /** Владелец создающего вызова — его id уходит в описание задачи и регистрацию провайдера. */
     readonly owner: ExtensionOwner;
-    /** Папки воркспейса — область задачи из описания ядра. */
     readonly workspaceFolders: () => readonly vscode.WorkspaceFolder[] | undefined;
-    /** Подключить pty `CustomExecution` к терминалу задачи по id инстанса. */
     readonly attachPty: (terminalId: number, pty: vscode.Pseudoterminal) => void;
-    /** Каталог расширений — источник схем `contributes.taskDefinitions`. */
     readonly onDidReceiveCatalog: vscode.Event<readonly IWireExtensionDescription[]>;
 }
 
-/** Строка в stderr субпроцесса (хост зеркалит её в `extensions.host.stderr`). */
 function report(message: string): void {
     console.error(`[ext-host] ${message}`);
 }
 
-/** Исполнение задачи (`TaskExecutionImpl` эталона). */
 class TaskExecution implements vscode.TaskExecution {
     public constructor(
         public readonly id: string,
@@ -103,7 +81,6 @@ class TaskExecution implements vscode.TaskExecution {
     }
 }
 
-/** Область задачи → провод: `TaskScope` числом, папка — путём; без области — воркспейс. */
 function scopeToWire(scope: vscode.Task["scope"]): WireTaskScope {
     if (scope === undefined) return TaskScope.Workspace;
     return typeof scope === "number" ? scope : { folder: scope.uri.fsPath };
@@ -128,7 +105,6 @@ function executionToWire(execution: vscode.Task["execution"]): WireTaskExecution
     return undefined;
 }
 
-/** `vscode.Task` → провод (`TaskDTO.from` эталона); источник — расширение `extensionId`. */
 export function taskToWire(task: vscode.Task, extensionId: string): IWireTask {
     const group = task.group;
     return {
@@ -153,11 +129,8 @@ export function createTasksNamespace(deps: ITasksNamespaceDeps): ITasksNamespace
     const { rpc, owner } = deps;
     const providers = new Map<number, { readonly provider: vscode.TaskProvider; readonly extensionId: string }>();
     let nextHandle = 0;
-    /** Схемы типов из `contributes.taskDefinitions` — для ключа определения. */
     let schemas = new Map<string, ITaskDefinitionSchema>();
-    /** Известные исполнения по id: свои (из `executeTask`) и начатые ядром. */
     const executions = new Map<string, TaskExecution>();
-    /** Колбэки `CustomExecution` по id задачи. */
     const customExecutions = new Map<string, CustomExecution>();
     let queue: Promise<void> = Promise.resolve();
 
@@ -177,7 +150,6 @@ export function createTasksNamespace(deps: ITasksNamespaceDeps): ITasksNamespace
         schemas = next;
     });
 
-    /** Id задачи у ядра: её `id` (кастомное исполнение из ядра), иначе формула ядра. */
     const idOf = (wire: IWireTask): string => {
         if (wire.id !== undefined) return wire.id;
         const keyed = createTaskIdentifier(wire.definition, schemas.get(wire.definition.type), report) ?? {
@@ -188,7 +160,6 @@ export function createTasksNamespace(deps: ITasksNamespaceDeps): ITasksNamespace
         return contributedTaskId(wire.source.extensionId, keyed);
     };
 
-    /** Провод → `vscode.Task` (`TaskDTO.to` эталона); папки области нет — `undefined`. */
     const taskFromWire = (wire: IWireTask): vscode.Task | undefined => {
         const scope = scopeFromWire(wire.source.scope);
         if (scope === undefined) return undefined;
@@ -209,7 +180,6 @@ export function createTasksNamespace(deps: ITasksNamespaceDeps): ITasksNamespace
                     ? Object.assign(new TaskGroup(group.id, group.label), { isDefault: true })
                     : group;
         }
-        // Отсутствующие поля — те же дефолты, что у новой задачи (`{}`, `{}`, без detail).
         task.presentationOptions = { ...wire.presentationOptions } as vscode.TaskPresentationOptions;
         task.runOptions = { ...wire.runOptions };
         task.detail = wire.detail;
@@ -239,7 +209,6 @@ export function createTasksNamespace(deps: ITasksNamespaceDeps): ITasksNamespace
         );
     };
 
-    /** Исполнение по описанию ядра: своё (из `executeTask`) или новое из описания. */
     const executionOf = (wire: IWireTaskExecution): TaskExecution | undefined => {
         const known = executions.get(wire.id);
         if (known !== undefined) return known;
@@ -253,7 +222,6 @@ export function createTasksNamespace(deps: ITasksNamespaceDeps): ITasksNamespace
         return execution;
     };
 
-    /** Задачи провайдера → провод; колбэки `CustomExecution` запоминаются по id. */
     const tasksToWire = (tasks: readonly vscode.Task[], extensionId: string): IWireTask[] =>
         tasks.map((task) => {
             const wire = taskToWire(task, extensionId);
@@ -359,7 +327,6 @@ export function createTasksNamespace(deps: ITasksNamespaceDeps): ITasksNamespace
             request = { id };
         }
         // Своё исполнение заводится ДО запроса: старт может прийти раньше ответа.
-        // Уже известное (задача бежит) — оно и есть, как `getTaskExecution` эталона.
         const known = executions.get(id);
         const execution = known ?? new TaskExecution(id, task, rpc);
         executions.set(id, execution);

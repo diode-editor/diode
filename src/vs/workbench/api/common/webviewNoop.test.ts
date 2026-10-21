@@ -5,17 +5,11 @@ import { makeStubRpc } from "./testStubRpc.ts";
 import { Uri } from "./vscodeTypes.ts";
 import { createWebviewNoopMembers } from "./webviewNoop.ts";
 
-// Инертная webview-поверхность: вызов не падает, панели нет, в Output —
-// ровно одна внятная строка. Форма объекта повторяет upstream ровно настолько,
-// насколько её трогает типовое расширение с чат-панелью (html сразу после
-// создания, панель в context.subscriptions, сброс ссылки по onDidDispose).
-
 function makeMembers() {
     const stub = makeStubRpc();
     return { stub, members: createWebviewNoopMembers(stub.rpc) };
 }
 
-/** Строки, ушедшие в панель Output (`output.append`). */
 function outputLines(
     stub: ReturnType<typeof makeStubRpc>,
 ): { channel: string; label: string; level: string; value: string }[] {
@@ -30,8 +24,7 @@ describe("webviewNoop — webview-члены window как честный no-op"
             const { members } = makeMembers();
 
             const panel = members.createWebviewPanel("test.chat", "Chat", 1, {});
-            // Свежая панель — с пустым html, как в vscode: расширения читают его
-            // до первой записи, чтобы понять, рисовали уже содержимое или нет.
+            // Расширения читают html до первой записи — понять, рисовали ли уже.
             expect(panel.webview.html).toBe("");
 
             panel.webview.html = "<h1>chat</h1>";
@@ -68,7 +61,6 @@ describe("webviewNoop — webview-члены window как честный no-op"
                 received++;
             });
 
-            // postMessage честно отвечает «не доставлено» — как скрытая панель в vscode.
             expect(await panel.webview.postMessage({ type: "ping" })).toBe(false);
             panel.dispose();
 
@@ -162,7 +154,6 @@ describe("webviewNoop — webview-члены window как честный no-op"
         it("возвращает честный disposable и пишет в Output одну строку", () => {
             const { members, stub } = makeMembers();
 
-            // Форма регистрации — как у `redhat.java` (редактор настроек форматтера).
             const disposable = members.registerCustomEditorProvider(
                 "java.formatterSettings",
                 { resolveCustomTextEditor: () => Promise.resolve() },

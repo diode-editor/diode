@@ -81,7 +81,6 @@ describe("window.createTerminal — формы вызова уходят одн�
         expect(create({ viewColumn: 1, preserveFocus: false })).toStrictEqual({ viewColumn: 1 });
         expect(create({ parentTerminal: own })).toStrictEqual({ parentTerminal: { extHostId: 1 } });
         expect(create({ parentTerminal: foreign })).toStrictEqual({ parentTerminal: { id: 7 } });
-        // Отпущенный и незнакомый родитель — поля нет вовсе (а не `{}`).
         ns.createTerminal({ location: { parentTerminal: gone } });
         ns.createTerminal({ location: { parentTerminal: {} as vscode.Terminal } });
         for (const params of sent("terminal.create").slice(-2)) expect(params).not.toHaveProperty("location");
@@ -329,7 +328,6 @@ describe("pty расширения — сторона субпроцесса", (
             stub.fire("terminal.pty.input", { id: 1, data: "x" });
             stub.fire("terminal.pty.resize", { id: 1, cols: 12, rows: 6 });
             stub.fire("terminal.closed", { id: 1, reason: "process" });
-            // Шелл без pty: закрытие не трогает pty-уборку.
             stub.fire("terminal.closed", { id: 2, reason: "process" });
         }).not.toThrow();
         expect(terminal.exitStatus?.reason).toBe(TerminalExitReason.Process);
@@ -377,7 +375,6 @@ describe("pty расширения — сторона субпроцесса", (
         await new Promise((r) => setTimeout(r, 20));
         expect(sent("terminal.pty.data")).toStrictEqual([{ terminal: { extHostId: 1 }, data: "xy" }]);
 
-        // Выход досылает склейку сразу; пустую — не шлёт.
         write.fire("z");
         close.fire(4);
         close.fire(undefined);
@@ -387,7 +384,6 @@ describe("pty расширения — сторона субпроцесса", (
             { terminal: { extHostId: 1 } },
         ]);
 
-        // Закрытие инстанса: несработавший таймер снят, слушатели отписаны.
         write.fire("late");
         stub.fire("terminal.closed", { id: 1, reason: "process" });
         write.fire("later");

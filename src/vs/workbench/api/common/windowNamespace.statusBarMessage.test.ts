@@ -26,7 +26,7 @@ function makeWindow(): { stub: IStubRpc; window: typeof vscode.window; owner: Ex
     return { stub, window: createWindowNamespace(ctx), owner };
 }
 
-/** Что видит полоса: текст показанного пункта сообщений или `null`, если он скрыт/не заведён. */
+/** `null` — пункт скрыт или не заведён. */
 function shownMessage(stub: IStubRpc): string | null {
     let shown: IWireStatusBarItem | null = null;
     for (const n of stub.notifies) {

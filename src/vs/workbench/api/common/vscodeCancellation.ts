@@ -4,28 +4,18 @@ import type { ICancellationToken } from "../../../base/common/cancellation.ts";
 
 import { CancellationTokenSource } from "./vscodeTypes.ts";
 
-/**
- * Переводит транспортный токен RPC в `vscode.CancellationToken`. Отдать свой
- * напрямую нельзя: расширения ждут vscode-семантику `Event` (`thisArgs`,
- * `disposables`), которую даёт только {@link CancellationTokenSource} из
- * vscodeTypes. Возвращённый `dispose` снимает подписку на транспортный токен —
- * запрос отработал, держать слушателя больше незачем.
- */
+/** Свой токен напрямую не отдать: расширения ждут vscode-семантику `Event` (`thisArgs`, `disposables`). */
 export function toVscodeCancellationToken(token: ICancellationToken): {
     token: vscode.CancellationToken;
     dispose: () => void;
 } {
     const source = new CancellationTokenSource();
-    // Уже отменённый токен зовёт слушателя синхронно — провайдер получит
-    // отменённый токен, не успев начать (отмена обогнала запрос).
     const subscription = token.onCancellationRequested(() => {
         source.cancel();
     });
     return {
         token: source.token,
-        // Уборка после отработавшего запроса: отписка от транспортного токена
-        // наблюдаемого поведения не меняет (сам токен живёт ровно до ответа),
-        // поэтому проверять тут нечего — только не течь.
+        // Отписка от транспортного токена наблюдаемо ничего не меняет (он живёт ровно до ответа) — только не течь.
         // Stryker disable BlockStatement,CallExpression: см. выше
         dispose: (): void => {
             subscription.dispose();
@@ -35,11 +25,6 @@ export function toVscodeCancellationToken(token: ICancellationToken): {
     };
 }
 
-/**
- * Зовёт провайдера расширения с vscode-токеном поверх транспортного и
- * отписывается, когда вызов отработал (успехом или отказом). Отказ провайдера
- * пробрасывается как есть.
- */
 export async function callWithVscodeToken<T>(
     token: ICancellationToken,
     call: (token: vscode.CancellationToken) => T,

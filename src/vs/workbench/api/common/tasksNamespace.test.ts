@@ -19,10 +19,6 @@ import {
 } from "./vscodeTypes.ts";
 import type { IWireExtensionDescription } from "./wireTypes.ts";
 
-// `vscode.tasks` субпроцесса на заглушке RPC: что уходит хосту (продюсер
-// `tasks.registerProvider`/`unregisterProvider`/`fetch`/`execute`/`terminate`)
-// и как разбираются его ответы и нотификации.
-
 const FOLDER = { uri: Uri.file("/ws"), name: "ws", index: 0 } as unknown as vscode.WorkspaceFolder;
 
 async function settle(): Promise<void> {

@@ -1,33 +1,12 @@
 import { ConfigurationModel } from "../../../platform/configuration/common/configurationModel.ts";
 
 /**
- * Хранилище конфигурации на стороне subprocess.
- *
- * `getConfiguration(...).get(...)` в расширениях синхронный, поэтому конфиг
- * доставляется push-моделью (см. host: `workspace.initialize` /
- * `workspace.configurationChanged`), а не RPC-per-get. Приезжают **слои**
- * главного процесса (`IConfigurationService.getConfigurationData()`):
- *
- * - `defaults` — дефолты из общего реестра: ядро, `contributes.configuration`
- *   всех расширений (в том числе ещё не активированных и декларативных) и их
- *   переопределения;
- * - `user` — пользовательские настройки активного профиля;
- * - `workspace` — `.diode/settings.json` открытой папки или блок `settings`
- *   файла `.code-workspace` (хост уже отбросил ключи, чей `scope` воркспейсу
- *   не положен); пустой, если папки нет;
- * - `workspaceFolder` — `.diode/settings.json` папки поверх воркспейса, только
- *   у окна из `.code-workspace` (у эталона — `folders` в `IConfigurationData`;
- *   папка у нас одна, поэтому слой один).
- *
- * Слияние — та же {@link ConfigurationModel}, что в главном процессе (аналог
- * `ExtHostConfigProvider` vscode поверх `configurationModels.ts`): своего
- * merge-кода и своего defaults-слоя у субпроцесса нет. Секции языков
- * (`"[python]"`) приезжают в тех же слоях; `languageId` у чтений выбирает
- * значение для языка. Фильтра `language-overridable` здесь нет — схем ядра
- * субпроцесс не знает.
+ * `get` в расширениях синхронный, поэтому слои главного процесса приезжают
+ * push-моделью, а не RPC-per-get, и сливаются той же {@link ConfigurationModel}.
+ * `workspaceFolder` — один слой, а не `folders` эталона: папка у нас одна. Фильтра
+ * `language-overridable` нет — схем ядра субпроцесс не знает.
  */
 
-/** Результат покомпонентного inspect (подмножество `vscode`). */
 export interface IConfigInspectResult {
     readonly key: string;
     readonly defaultValue: unknown;
@@ -44,10 +23,7 @@ export class WorkspaceConfigStore {
     private workspaceFolder = ConfigurationModel.EMPTY;
     private merged = ConfigurationModel.EMPTY;
 
-    /**
-     * Заменяет слои данными главного процесса (`{ defaults, user, workspace, workspaceFolder }` — деревья).
-     * Всё, что не объект, трактуется как пустой слой.
-     */
+    /** Всё, что не объект, — пустой слой. */
     public setData(data: unknown): void {
         const layers = isPlainObject(data) ? data : {};
         this.defaults = ConfigurationModel.fromRaw(layers.defaults);
@@ -57,12 +33,10 @@ export class WorkspaceConfigStore {
         this.merged = ConfigurationModel.merge(this.defaults, this.user, this.workspace, this.workspaceFolder);
     }
 
-    /** Значение по dotted-ключу (для языка `languageId`, если задан); `defaultValue`, если ключа нет. */
     public get(dottedKey: string, defaultValue?: unknown, languageId?: string): unknown {
         return this.model(languageId).get(dottedKey) ?? defaultValue;
     }
 
-    /** Есть ли ключ (в любом слое). */
     public has(dottedKey: string, languageId?: string): boolean {
         return this.model(languageId).get(dottedKey) !== undefined;
     }
@@ -78,20 +52,13 @@ export class WorkspaceConfigStore {
         };
     }
 
-    /**
-     * Собственные ключи поддерева `section` (для зеркалирования на объект
-     * `WorkspaceConfiguration` — VS Code выставляет значения секции как поля).
-     */
+    /** VS Code выставляет значения секции полями `WorkspaceConfiguration`. */
     public sectionKeys(section: string | undefined, languageId?: string): string[] {
         const node = this.model(languageId).getValue(section);
         return isPlainObject(node) ? Object.keys(node) : [];
     }
 
-    /**
-     * Есть ли у ключа своё значение в секции языка `languageId` слоя `layer`
-     * (`inspect(...).user/workspace/workspaceFolder.override` эталона) — по нему
-     * запись решает, писать ли в секцию языка.
-     */
+    /** `inspect(...).<layer>.override` эталона: по нему запись решает, писать ли в секцию языка. */
     public hasLanguageOverride(
         dottedKey: string,
         languageId: string,

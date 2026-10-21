@@ -10,13 +10,6 @@ import { Uri } from "./vscodeTypes.ts";
 import { WorkspaceConfigStore } from "./workspaceConfigStore.ts";
 import { createWorkspaceNamespace } from "./workspaceNamespace.ts";
 
-/**
- * `openTextDocument(options?)` на стороне субпроцесса: опции уезжают хосту
- * запросом `workspace.createUntitledDocument`, документ берётся из реестра (его
- * туда кладёт `editor.didOpen`, приехавший раньше ответа). Весь провод до
- * вкладки — `extensionHost.untitledDocument.test.ts`.
- */
-
 const UNTITLED = "untitled:Untitled-1";
 
 function makeCtx() {
@@ -57,7 +50,7 @@ describe("WorkspaceNamespace — openTextDocument безымянного док�
 
         await workspace.openTextDocument({ encoding: 8 } as unknown as { encoding: string });
 
-        // Строго: поле `undefined` в запросе — тоже «уехало».
+        // `toStrictEqual`: поле `undefined` в запросе — тоже «уехало».
         expect(createRequests(stub)).toStrictEqual([{}, { language: "go" }, {}]);
     });
 

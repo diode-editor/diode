@@ -1,24 +1,12 @@
-// Идентичность задачи — общая для ядра и субпроцесса расширений.
-//
-// Задачу провайдера ядро называет `${id расширения}.${_key определения}`
-// (`TaskDTO.to` в `mainThreadTask.ts` эталона), а `_key` — сортированная
-// строка свойств определения (`KeyedTaskIdentifier` в `contrib/tasks/common/
-// tasks.ts`), отфильтрованных по схеме типа из `contributes.taskDefinitions`.
-// Эталон считает id только на главной стороне и спрашивает его запросом
-// `$createTaskId`; у нас субпроцесс считает ту же формулу сам (отступление —
-// без лишнего круга RPC), поэтому она живёт здесь, в одном месте для обеих
-// сторон.
+// Id задачи провайдера по формуле эталона (`TaskDTO.to` + `KeyedTaskIdentifier`). Эталон
+// считает его только на главной стороне (`$createTaskId`); у нас субпроцесс считает сам,
+// без лишнего круга RPC (отступление), поэтому формула общая для обеих сторон.
 
-/** Свойство определения из схемы типа: важны только `type` и `default`. */
 export interface ITaskDefinitionPropertySchema {
     readonly type?: unknown;
     readonly default?: unknown;
 }
 
-/**
- * Тип задачи из `contributes.taskDefinitions` расширения (`ITaskDefinition`
- * эталона): обязательные и известные свойства и условие `when`.
- */
 export interface ITaskDefinitionSchema {
     readonly extensionId: string;
     readonly taskType: string;
@@ -27,22 +15,16 @@ export interface ITaskDefinitionSchema {
     readonly when: string | undefined;
 }
 
-/** Определение задачи (`vscode.TaskDefinition`): `type` и произвольные свойства. */
 export interface ITaskIdentifier {
     readonly type: string;
     readonly [name: string]: unknown;
 }
 
-/** Определение с ключом: по `_key` задачи сравниваются между собой. */
 export interface IKeyedTaskIdentifier extends ITaskIdentifier {
     readonly _key: string;
 }
 
-/**
- * `contributes.taskDefinitions` манифеста → схемы типов (`Configuration.from`
- * эталона). Запись без строкового `type` пропускается и называется в `report`;
- * нестроковые элементы `required` отбрасываются молча, как у эталона.
- */
+/** `Configuration.from` эталона: нестроковые элементы `required` отбрасываются молча, как у него. */
 export function parseTaskDefinitions(
     extensionId: string,
     contributions: unknown,
@@ -94,14 +76,7 @@ function keyed(literal: ITaskIdentifier): IKeyedTaskIdentifier {
     return { ...literal, _key: sortedStringify(literal) };
 }
 
-/**
- * Определение с ключом (`TaskDefinition.createTaskIdentifier` эталона). Тип
- * без схемы берётся как есть (без прежнего `_key`); у типа со схемой остаются
- * только объявленные свойства, а пропущенное обязательное получает дефолт
- * схемы или нулевое значение своего типа. Обязательное свойство без дефолта и
- * без простого типа делает определение негодным — `undefined` и сообщение в
- * `report` (текст эталона).
- */
+/** `TaskDefinition.createTaskIdentifier` эталона, тексты сообщений — его же. */
 export function createTaskIdentifier(
     external: ITaskIdentifier,
     schema: ITaskDefinitionSchema | undefined,
@@ -136,7 +111,6 @@ export function createTaskIdentifier(
     return keyed(literal as ITaskIdentifier);
 }
 
-/** Значение пропущенного обязательного свойства без дефолта — по его типу в схеме. */
 const ZERO_VALUES: ReadonlyMap<string, unknown> = new Map<string, unknown>([
     ["boolean", false],
     ["number", 0],
@@ -144,7 +118,7 @@ const ZERO_VALUES: ReadonlyMap<string, unknown> = new Map<string, unknown>([
     ["string", ""],
 ]);
 
-/** Id задачи провайдера (`TaskDTO.to` эталона): расширение плюс ключ определения. */
+/** `TaskDTO.to` эталона. */
 export function contributedTaskId(extensionId: string, definition: IKeyedTaskIdentifier): string {
     return `${extensionId}.${definition._key}`;
 }

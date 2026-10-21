@@ -13,17 +13,8 @@ import {
 } from "./wireTypes.ts";
 
 /**
- * `window.showInputBox` / `window.showQuickPick` на стороне subprocess'а.
- *
- * UI живёт у хоста (общий QuickInput-оверлей приложения), поэтому оба вызова —
- * это один запрос по проводу и ожидание ответа. Показ адресуется `handle`,
- * уникальным в рамках subprocess'а: по нему токен отмены расширения снимает
- * показ, а хост на каждое изменение значения спрашивает `validateInput`
- * обратным запросом.
- *
- * Ответ на пикер приходит ИНДЕКСАМИ в присланном массиве — расширение обязано
- * получить обратно свои собственные предметы (`showQuickPick<T>` возвращает
- * `T`), а пересобранный по проводу предмет ими бы не был.
+ * Ответ на пикер приходит ИНДЕКСАМИ: расширение обязано получить обратно свои
+ * предметы (`showQuickPick<T>` возвращает `T`), а пересобранный по проводу ими не был бы.
  */
 export interface IQuickInputApi {
     showInputBox(options?: vscode.InputBoxOptions, token?: vscode.CancellationToken): Thenable<string | undefined>;
@@ -36,7 +27,6 @@ export interface IQuickInputApi {
     createQuickPick<T extends vscode.QuickPickItem>(): vscode.QuickPick<T>;
 }
 
-/** Исход `validateInput` расширения → сообщение на проводе. */
 export function toWireValidation(
     outcome: string | vscode.InputBoxValidationMessage | undefined | null,
 ): IWireValidationMessage | null {
@@ -50,9 +40,8 @@ export function toWireValidation(
 }
 
 /**
- * Строгость приходит от расширения, поэтому сравниваем ЧИСЛА: у расширения свой
- * `vscode.InputBoxValidationSeverity` из его копии `vscode.d.ts`, общего enum-типа
- * с нашим у него нет, а значения одни и те же.
+ * Сравниваем ЧИСЛА: у расширения свой `InputBoxValidationSeverity` из его копии
+ * `vscode.d.ts`, общего enum-типа с нашим нет.
  */
 function toWireSeverity(severity: number | undefined): WireValidationSeverity {
     if (severity === InputBoxValidationSeverity.Warning) return "warning";
@@ -61,27 +50,20 @@ function toWireSeverity(severity: number | undefined): WireValidationSeverity {
 }
 
 /**
- * Предмет списка → строка на проводе. Строковый пункт сам себе лейбл.
- *
- * `detail` отдельной строкой под пунктом наш однострочный ряд не умеет, поэтому
- * он показывается НА МЕСТЕ описания — но только когда описания нет: при обоих
- * заполненных полях описание важнее (docs/public/API-COVERAGE.md).
+ * `detail` отдельной строкой наш однострочный ряд не умеет — он идёт на место
+ * описания, но только когда описания нет (docs/public/API-COVERAGE.md).
  */
 export function toWireQuickPickItem(item: string | vscode.QuickPickItem): IWireQuickPickItem {
     if (typeof item === "string") return { label: item };
     return { label: item.label, description: nonEmpty(item.description) ?? nonEmpty(item.detail) };
 }
 
-/** Текст, если в нём что-то есть; пустая строка и отсутствие — одно и то же. */
 function nonEmpty(text: string | undefined): string | undefined {
     // Stryker disable next-line ConditionalExpression: первый операнд — быстрый выход; `undefined === ""` тоже ложно, так что отсутствующий текст отсеет и второй
     return text === undefined || text === "" ? undefined : text;
 }
 
-/**
- * Валидатор расширения, привязанный к его же объекту опций: `this` внутри
- * `validateInput` должен остаться тем, на что расширение рассчитывает.
- */
+/** `this` внутри `validateInput` должен остаться объектом опций расширения. */
 function makeValidator(options: vscode.InputBoxOptions | undefined): ((value: string) => unknown) | undefined {
     if (options?.validateInput === undefined) return undefined;
     // Stryker disable next-line OptionalChaining: наличие метода проверено строкой выше; `?.` стоит на случай, если расширение переписало свои опции между вызовом и валидацией
@@ -90,14 +72,10 @@ function makeValidator(options: vscode.InputBoxOptions | undefined): ((value: st
 
 export function createQuickInputApi(rpc: SubprocessRpc): IQuickInputApi {
     let nextHandle = 1;
-    /**
-     * Валидаторы живых показов по handle. Map, а не один слот: ничто не мешает
-     * расширению держать два `showInputBox` одновременно (второй перехватит
-     * оверлей, но запрос валидации на первый ещё может быть в полёте).
-     */
+    // Map, а не слот: расширение может держать два `showInputBox` одновременно, и
+    // валидация первого ещё может быть в полёте.
     const validators = new Map<number, ((value: string) => unknown) | undefined>();
 
-    /** Живые объектные пикеры (`createQuickPick`) — адресаты событий хоста. */
     const quickPicks = new Map<number, ExtHostQuickPick<vscode.QuickPickItem>>();
     rpc.handleNotification("window.quickPick.event", (params) => {
         const event = parseWireQuickPickEvent(params);
@@ -111,15 +89,10 @@ export function createQuickInputApi(rpc: SubprocessRpc): IQuickInputApi {
         if (typeof p.handle !== "number" || typeof p.value !== "string") return null;
         const validate = validators.get(p.handle);
         if (validate === undefined) return null;
-        // Расширение вправе отвечать и синхронно, и промисом — await ровняет оба.
         const outcome = (await validate(p.value)) as string | vscode.InputBoxValidationMessage | undefined | null;
         return toWireValidation(outcome);
     });
 
-    /**
-     * Подписывает токен расширения на снятие показа. Возвращает функцию отписки:
-     * жить дольше самого показа подписка не должна.
-     */
     const bindCancellation = (handle: number, token: vscode.CancellationToken | undefined): (() => void) => {
         if (token === undefined) return () => undefined;
         const subscription = token.onCancellationRequested(() => {
@@ -143,8 +116,7 @@ export function createQuickInputApi(rpc: SubprocessRpc): IQuickInputApi {
             if (token?.isCancellationRequested === true) return undefined;
             const handle = nextHandle++;
             const validate = makeValidator(options);
-            // Кладём даже `undefined`: хендлер валидации всё равно спрашивает
-            // карту и на отсутствующем валидаторе отвечает «значение в порядке».
+            // Кладём даже `undefined`: на отсутствующем валидаторе хендлер отвечает «в порядке».
             validators.set(handle, validate);
             const unbind = bindCancellation(handle, token);
             try {
@@ -168,13 +140,10 @@ export function createQuickInputApi(rpc: SubprocessRpc): IQuickInputApi {
 
         showQuickPick: async (items, options, token) => {
             const canPickMany = options?.canPickMany === true;
-            // Список, приходящий промисом, ЖДЁМ и показываем уже заполненным:
-            // пустой оверлей с индикатором загрузки — состояние объектной формы
-            // пикера, которой у нас нет.
+            // Промис списка ЖДЁМ: пустой оверлей с индикатором загрузки — состояние объектного
+            // пикера, которого у нас нет.
             const awaited = (await Promise.resolve(items)) as readonly (string | vscode.QuickPickItem)[];
-            // Разделители (`kind: QuickPickItemKind.Separator`) у эталона — заголовки
-            // групп, выбрать их нельзя; заголовков у нашего оверлея нет, поэтому
-            // разделитель просто не показываем — иначе он стал бы выбираемым пунктом.
+            // Заголовков групп у нашего оверлея нет: показанный разделитель стал бы выбираемым пунктом.
             const resolved = awaited.filter(
                 (item) =>
                     // Stryker disable next-line ConditionalExpression,StringLiteral: отсев строк — быстрый выход; у строки `kind` нет (`undefined`), и второй операнд оставит её сам
@@ -196,8 +165,7 @@ export function createQuickInputApi(rpc: SubprocessRpc): IQuickInputApi {
                     }),
                 );
                 if (result.indices === null) return undefined;
-                // Индекс за пределами списка — ответ не про этот показ; выбрасываем,
-                // иначе расширение получило бы `undefined` в массиве предметов.
+                // Индекс за пределами — ответ не про этот показ: иначе в массиве был бы `undefined`.
                 const picked = result.indices
                     .filter((index) => index < resolved.length)
                     .map((index) => resolved[index]);
@@ -210,7 +178,6 @@ export function createQuickInputApi(rpc: SubprocessRpc): IQuickInputApi {
     };
 }
 
-/** Индексы предотмеченных пунктов (`QuickPickItem.picked`); без canPickMany — пусто. */
 function pickedIndices(items: readonly (string | vscode.QuickPickItem)[], canPickMany: boolean): number[] {
     if (!canPickMany) return [];
     const indices: number[] = [];

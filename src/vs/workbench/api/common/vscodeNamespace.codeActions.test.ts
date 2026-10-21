@@ -6,13 +6,8 @@ import { createNodeExtHostDisk } from "../node/extHostDisk.ts";
 import { makeStubRpc } from "./testStubRpc.ts";
 import { buildVscodeNamespace } from "./vscodeNamespace.ts";
 
-// Проводка code-action-deps в ассемблере: applyCodeAction обязан ходить в
-// НАСТОЯЩИЙ workspace.applyEdit (RPC до хоста) и в НАСТОЯЩИЙ commands-мост —
-// юнит-тесты languagesNamespace дают фейковые deps и эту сборку не видят
-// (субпроцессные интеграции не инструментируются per-test покрытием Stryker).
+// Юнит-тесты languagesNamespace дают фейковые deps — проводку ассемблера видит только этот файл.
 
-// Документ открыт document sync'ом (`editor.didOpen`): запрос текста не везёт,
-// только версию зеркала.
 const SNAPSHOT = { uri: "file:///proj/a.py", languageId: "python", version: 1, text: "line one\n" };
 
 const PARAMS = {
@@ -40,8 +35,7 @@ describe("VscodeNamespace — сборка code-action-deps", () => {
         } as unknown as vscode.CodeActionProvider);
 
         const actions = (await stub.callRequest("languages.provideCodeActions", PARAMS)) as { id: string }[];
-        // Стаб-RPC отвечает undefined → applyEdit честно false, но сам ЗАПРОС
-        // обязан уйти правильным методом и с сериализованными правками.
+        // Стаб отвечает undefined → false; проверяется сам запрос.
         expect(await stub.callRequest("languages.applyCodeAction", { id: actions[0].id })).toBe(false);
         const applyRequest = stub.requests.find((r) => r.method === "workspace.applyEdit");
         expect(applyRequest?.params).toEqual({
@@ -54,7 +48,6 @@ describe("VscodeNamespace — сборка code-action-deps", () => {
                     ],
                 },
             ],
-            // Правка code action — рефакторинг: files.refactoring.autoSave.
             isRefactoring: true,
         });
     });

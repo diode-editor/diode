@@ -6,10 +6,6 @@ import { createNodeExtHostDisk } from "../node/extHostDisk.ts";
 import { makeStubRpc } from "./testStubRpc.ts";
 import { buildVscodeNamespace } from "./vscodeNamespace.ts";
 
-// Проводка `vscode.tasks` внутри собранного namespace: устаревший
-// `workspace.registerTaskProvider` — тот же вызов, папки задач — из `workspace`,
-// pty `CustomExecution` — терминалам `window`. Сам `tasks` — tasksNamespace.test.ts.
-
 async function settle(): Promise<void> {
     for (let i = 0; i < 5; i++) await new Promise<void>((r) => setTimeout(r, 0));
 }

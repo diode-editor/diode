@@ -6,7 +6,6 @@ import { CancellationTokenSource } from "../../../base/common/cancellation.ts";
 import { SubprocessTextDocumentContentProviders } from "./subprocessTextDocumentContentProviders.ts";
 import { EventEmitter, Uri } from "./vscodeTypes.ts";
 
-/** Провайдер-фикстура: содержимое по замыканию плюс необязательный `onDidChange`. */
 function provider(content: string | null | undefined, changed?: EventEmitter<Uri>): vscode.TextDocumentContentProvider {
     return {
         ...(changed !== undefined ? { onDidChange: changed.event as unknown as vscode.Event<vscode.Uri> } : {}),
@@ -38,10 +37,8 @@ describe("SubprocessTextDocumentContentProviders", () => {
 
         await registry.provide(JDT);
 
-        // Контракт `provideTextDocumentContent(uri, token)`: провайдер вправе
-        // читать `isCancellationRequested` и подписываться — заглушка обязана
-        // быть настоящим токеном, иначе стоковое расширение падает на первой
-        // же строке.
+        // Провайдер вправе читать токен и подписываться: заглушка обязана быть настоящим
+        // токеном, иначе стоковое расширение падает на первой же строке.
         expect(seen?.isCancellationRequested).toBe(false);
         expect(() => seen?.onCancellationRequested(() => undefined)).not.toThrow();
     });

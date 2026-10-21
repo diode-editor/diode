@@ -9,9 +9,6 @@ import { Uri } from "./vscodeTypes.ts";
 import { WorkspaceConfigStore } from "./workspaceConfigStore.ts";
 import { createWorkspaceNamespace } from "./workspaceNamespace.ts";
 
-// Продюсер RPC `workspace.saveAll` / `workspace.save`: вызов расширения — один
-// запрос хосту с параметрами эталона, ответ хоста — результат вызова.
-
 function makeWorkspace() {
     const stub = makeStubRpc();
     const registry = new DocumentRegistry();

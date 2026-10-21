@@ -10,11 +10,6 @@ import { RelativePattern, Uri } from "./vscodeTypes.ts";
 import { WorkspaceConfigStore } from "./workspaceConfigStore.ts";
 import { createWorkspaceNamespace } from "./workspaceNamespace.ts";
 
-/**
- * Проводка `workspace.createFileSystemWatcher` в субпроцессе: запрос на хост,
- * разводка присланных событий, снятие. Сам реестр тестируется без RPC в
- * `fileWatcherNamespace.test.ts` — здесь именно шов с каналом.
- */
 function makeWorkspace(root: string | null = "/repo") {
     const stub = makeStubRpc();
     const registry = new DocumentRegistry();

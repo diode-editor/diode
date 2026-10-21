@@ -7,9 +7,6 @@ import { makeStubRpc } from "./testStubRpc.ts";
 import { createTreeViewNoopMembers } from "./treeViewNoop.ts";
 import { buildVscodeNamespace } from "./vscodeNamespace.ts";
 
-// Деревья как заглушка: регистрация проходит, дерева нет, в Output — одна
-// внятная строка на view. Форма — эталонная (extHostTreeViews.ts).
-
 function makeMembers() {
     const stub = makeStubRpc();
     return { stub, members: createTreeViewNoopMembers(stub.rpc) };
@@ -96,7 +93,6 @@ describe("treeViewNoop — деревья расширений как заглу
         expect(view.description).toBeUndefined();
         expect(view.badge).toBeUndefined();
 
-        // Расширения обновляют заголовок и сообщение на каждый рефреш.
         view.title = "Bazel Run Targets";
         view.message = "загрузка…";
         view.description = "3 цели";
@@ -111,7 +107,6 @@ describe("treeViewNoop — деревья расширений как заглу
         view.dispose();
 
         expect(fired).toBe(0);
-        // Ничего сверх строки отказа хосту не уходит.
         expect(stub.notifies).toHaveLength(1);
         expect(stub.requests).toHaveLength(0);
     });

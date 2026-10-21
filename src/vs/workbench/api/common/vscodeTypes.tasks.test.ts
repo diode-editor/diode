@@ -5,9 +5,6 @@ import { Uri } from "../../../base/common/uri.ts";
 
 import { CustomExecution, ProcessExecution, ShellExecution, Task, TaskGroup, TaskScope } from "./vscodeTypes.ts";
 
-// Value-типы задач (`extHostTypes.ts` эталона): провайдер расширения
-// конструирует их сам, ядро читает поля и `handleId`.
-
 const folder = { uri: Uri.file("/ws"), name: "ws", index: 0 } as unknown as vscode.WorkspaceFolder;
 
 describe("TaskGroup", () => {
@@ -185,7 +182,6 @@ describe("Task", () => {
         const empty = new Task({ type: "$empty" }, folder, "n", "s");
         expect(empty.definition.type).toBe("$empty");
         expect(empty.definition.id).toMatch(/^[0-9a-f-]{36}$/u);
-        // Тип провайдера по исполнению не пересчитывается.
         expect(new Task({ type: "demo" }, folder, "n", "s", new ShellExecution("x")).definition).toStrictEqual({
             type: "demo",
         });
@@ -226,7 +222,6 @@ describe("Task", () => {
         const kept = fresh();
         kept.detail = "d";
         expect(kept.handleId).toBe("core-id");
-        // Новое определение — после сброса.
         const redefined = fresh();
         redefined.definition = { type: "demo", target: "x" };
         expect([redefined.handleId, redefined.definition]).toStrictEqual([undefined, { type: "demo", target: "x" }]);

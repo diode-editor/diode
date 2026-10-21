@@ -122,7 +122,6 @@ describe("SemanticTokensBuilder — перегрузка с Range и имена�
         expect(() => {
             builder.push(new Range(0, 0, 0, 1), "class", ["nope"]);
         }).toThrow("`tokenModifier` is not in the provided legend");
-        // Ничего из упавшего не попало в данные.
         expect([...builder.build().data]).toEqual([]);
     });
 });

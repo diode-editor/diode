@@ -5,11 +5,6 @@ import { createNodeExtHostDisk } from "../node/extHostDisk.ts";
 import { makeStubRpc } from "./testStubRpc.ts";
 import { buildVscodeNamespace } from "./vscodeNamespace.ts";
 
-/**
- * `env.machineId` и `env.shell` знает только хост: они приходят семенем
- * `env.initialize` до первой активации (Claude Code читает `env.shell` и
- * спрашивает у login-шелла `PATH`, `env.machineId` — в телеметрию CLI).
- */
 describe("vscode.env — константы хоста (env.initialize)", () => {
     it("machineId и shell — из семени хоста", () => {
         const stub = makeStubRpc();

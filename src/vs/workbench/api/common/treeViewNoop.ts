@@ -4,40 +4,22 @@ import type { SubprocessRpc } from "./extHostProtocol.ts";
 import { DisposableImpl, EventEmitter } from "./vscodeTypes.ts";
 
 /**
- * Деревья расширений (`window.registerTreeDataProvider` / `createTreeView`)
- * как заглушка до честного дерева (Phase 8b в docs/TODO/Extensions.md).
+ * Заглушка до честного дерева (Phase 8b в docs/TODO/Extensions.md): без члена `activate()`
+ * падал на `is not a function` и уносил команды и задачи. Форма эталонная (`extHostTreeViews.ts`).
  *
- * Отсутствие члена убивало расширение ЦЕЛИКОМ: типовое «дерево целей сборки»
- * регистрирует провайдер второй строкой `activate()`, ловит `is not a function`
- * и уносит с собой команды и задачи. Поэтому регистрация принимается, а
- * провайдер никто не зовёт: дерева не будет, остальное расширение работает.
- *
- * Форма — эталонная (`extHostTreeViews.ts`): `registerTreeDataProvider` —
- * это `createTreeView` + dispose, а `createTreeView` без `treeDataProvider`
- * бросает. Честная проводка заменит эту заглушку без смены поверхности.
- *
- * Отступление от эталона: незаконтрибьюченный view эталон встречает тостом-
- * ошибкой (`mainThreadTreeViews.ts`), а у нас view законтрибьючен, но не
- * рисуется — человеку уходит одна warn-строка в Output на каждый `viewId` за
- * жизнь субпроцесса (иначе единственным следом остался бы `diode.log`).
+ * Отступление: незаконтрибьюченный view эталон встречает тостом-ошибкой, у нас — одна warn-строка
+ * в Output на `viewId` за жизнь субпроцесса.
  */
 
-/** Канал панели Output для отказа: `extensions` уже в реестре ядра (label «Extensions»). */
 const OUTPUT_CHANNEL = "extensions";
 const OUTPUT_LABEL = "Extensions";
 
-/** Члены `vscode.window` про деревья; подмешиваются в неймспейс окна. */
 export interface ITreeViewNoopMembers {
     registerTreeDataProvider: <T>(viewId: string, treeDataProvider: vscode.TreeDataProvider<T>) => vscode.Disposable;
     createTreeView: <T>(viewId: string, options: vscode.TreeViewOptions<T>) => vscode.TreeView<T>;
 }
 
-/**
- * Инертный `TreeView`: дерева нет, поэтому `visible` — честный `false`,
- * выделение пустое, события не стреляют, `reveal` резолвится сразу (показывать
- * нечего). `title`/`message`/`description`/`badge` записываемые — расширения
- * обновляют их на каждый рефреш, и присваивание не должно падать.
- */
+/** `title`/`message`/`description`/`badge` записываемые: расширения присваивают их на каждый рефреш. */
 function createInertTreeView<T>(): vscode.TreeView<T> {
     return {
         onDidExpandElement: new EventEmitter<vscode.TreeViewExpansionEvent<T>>().event,
@@ -52,7 +34,6 @@ function createInertTreeView<T>(): vscode.TreeView<T> {
         description: undefined,
         badge: undefined,
         reveal: (): Thenable<void> => Promise.resolve(),
-        // Отписываться не от чего — повторный dispose (subscriptions + сам) безвреден.
         dispose: (): void => undefined,
     };
 }
@@ -73,7 +54,6 @@ export function createTreeViewNoopMembers(rpc: SubprocessRpc): ITreeViewNoopMemb
     }
 
     function createTreeView<T>(viewId: string, options: vscode.TreeViewOptions<T>): vscode.TreeView<T> {
-        // Расширение без типов может прийти без опций — эталон бросает так же.
         const provider = (options as { treeDataProvider?: unknown } | null | undefined)?.treeDataProvider;
         if (provider === undefined || provider === null) throw new Error("Options with treeDataProvider is mandatory");
         reportUnsupported(viewId);
@@ -85,9 +65,7 @@ export function createTreeViewNoopMembers(rpc: SubprocessRpc): ITreeViewNoopMemb
             viewId: string,
             treeDataProvider: vscode.TreeDataProvider<T>,
         ): vscode.Disposable => {
-            // Через createTreeView, как эталон: проверка провайдера и строка в
-            // Output — общие. Эталон в dispose освобождает view; у инертного view
-            // освобождать нечего — честная проводка вернёт сюда `treeView.dispose()`.
+            // Эталон в dispose освобождает view; у инертного нечего — честная проводка вернёт сюда `treeView.dispose()`.
             createTreeView(viewId, { treeDataProvider });
             return new DisposableImpl(() => undefined);
         },

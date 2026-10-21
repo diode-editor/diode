@@ -19,9 +19,6 @@ import {
 import { WorkspaceConfigStore } from "./workspaceConfigStore.ts";
 import { createWorkspaceNamespace } from "./workspaceNamespace.ts";
 
-// Продюсер RPC `workspace.applyEdit`: кто, когда и с каким payload'ом шлёт
-// запрос хосту — и в каких случаях честно отвечает сам, не отправляя ничего.
-
 function makeWorkspace() {
     const stub = makeStubRpc();
     const registry = new DocumentRegistry();
@@ -143,8 +140,7 @@ describe("workspace.applyEdit — продюсер RPC", () => {
     it("пропускается ТОЛЬКО чистая EOL-правка: пустая замена и EOL с текстом едут как текст", () => {
         const { stub, workspace } = makeWorkspace();
         const edit = new WorkspaceEdit();
-        // Пустая замена пустого диапазона БЕЗ newEol — обычная правка, не EOL:
-        // хост должен её получить (как VS Code — версия документа растёт).
+        // Пустая замена БЕЗ newEol — обычная правка: версия документа растёт, как в VS Code.
         edit.replace(URI_A, new Range(1, 1, 1, 1), "");
         // EOL-правка, к которой приклеен настоящий текст, — текстовая.
         const withText = new TextEdit(new Range(0, 0, 0, 0), "x");
@@ -173,8 +169,6 @@ describe("workspace.applyEdit — продюсер RPC", () => {
     it("файловые операции едут В ПОРЯДКЕ добавления вперемешку с текстовыми", () => {
         const { stub, workspace } = makeWorkspace();
         const edit = new WorkspaceEdit();
-        // Порядок как у «Move to a new file»: создать файл, написать в него,
-        // убрать исходный.
         edit.createFile(URI_B, { contents: new TextEncoder().encode("seed\n") });
         edit.insert(URI_B, new Position(1, 0), "moved");
         edit.deleteFile(URI_A, { ignoreIfNotExists: true });

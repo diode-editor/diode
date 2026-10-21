@@ -121,8 +121,6 @@ describe("WorkspaceConfigStore — слой воркспейса", () => {
         });
     });
 
-    // Окно из `.code-workspace`: `.diode/settings.json` папки — слой поверх
-    // воркспейса, `workspaceFolderValue` — его значение.
     it("слой папки перекрывает воркспейс; inspect отдаёт workspaceFolderValue; секция языка действует", () => {
         const store = new WorkspaceConfigStore();
         store.setData({

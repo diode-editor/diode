@@ -3,13 +3,8 @@ import type * as vscode from "vscode";
 import { DisposableImpl } from "./vscodeTypes.ts";
 
 /**
- * `window.setStatusBarMessage` — `StatusBarMessage` эталона (`extHostStatusBar.ts`):
- * один общий пункт полосы на все расширения, сообщения стеком — видно самое
- * свежее, снятие верхнего возвращает предыдущее, пустой стек прячет пункт.
- *
- * `createItem` заводит обычный пункт статус-бара расширений без владельца
- * (`status.extensionMessage`, слева, приоритет `Number.MIN_VALUE` — всё как у
- * эталона). Зовётся на первом сообщении: пока сообщений не было, пункта нет.
+ * `StatusBarMessage` эталона: один общий пункт на все расширения, сообщения стеком.
+ * Пункт заводится на первом сообщении.
  */
 export function createStatusBarMessage(
     createItem: () => vscode.StatusBarItem,

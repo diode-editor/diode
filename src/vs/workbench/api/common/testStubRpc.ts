@@ -3,28 +3,14 @@ import { CancellationTokenNone, type ICancellationToken } from "../../../base/co
 import type { SubprocessRpc } from "./extHostProtocol.ts";
 import type { IRequestHandler } from "./rpcEndpoint.ts";
 
-/**
- * Лёгкий стаб {@link RpcEndpoint} для unit-тестов namespace'ов subprocess.
- * Захватывает зарегистрированные notification-хендлеры (чтобы «прислать» notif
- * с хоста) и записывает исходящие request/notify.
- */
 export interface IStubRpc {
     readonly rpc: SubprocessRpc;
-    /** Имитирует приход notif от хоста. */
     fire(method: string, params: unknown): void;
-    /**
-     * Имитирует приход request от хоста; возвращает результат хендлера.
-     * `token` — токен отмены этого запроса (по умолчанию неотменяемый), как его
-     * выдаёт настоящий {@link RpcEndpoint} по `$/cancelRequest`.
-     */
+    /** `token` по умолчанию неотменяемый. */
     callRequest(method: string, params: unknown, token?: ICancellationToken): Promise<unknown>;
     readonly requests: { method: string; params: unknown }[];
     readonly notifies: { method: string; params: unknown }[];
-    /**
-     * Чем хост отвечает на исходящий request. По умолчанию — `undefined` (как
-     * было): неймспейсу, который ответ не читает, разницы нет. Ставится тестам,
-     * которым ответ хоста важен (`window.showQuickPick` резолвится выбранным).
-     */
+    /** По умолчанию отвечает `undefined`. */
     responder: ((method: string, params: unknown) => unknown) | null;
 }
 

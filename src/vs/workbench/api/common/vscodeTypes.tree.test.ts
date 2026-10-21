@@ -14,17 +14,12 @@ import {
     Uri,
 } from "./vscodeTypes.ts";
 
-// Значения деревьев: провайдер объявляет `class Node extends vscode.TreeItem`
-// на уровне модуля — без класса точка входа расширения не грузится вовсе.
-// Форма и дефолты — эталонные (`extHostTypes.ts`).
-
 describe("TreeItem — значение для узлов дерева", () => {
     it("подпись строкой: label задан, resourceUri нет, collapsibleState по умолчанию None", () => {
         const item = new TreeItem("//app:main");
 
         expect(item.label).toBe("//app:main");
         expect(item.resourceUri).toBeUndefined();
-        // Дефолт эталона — None (0), а не undefined: рендер и провайдеры сравнивают с enum'ом.
         expect(item.collapsibleState).toBe(TreeItemCollapsibleState.None);
     });
 
@@ -70,8 +65,7 @@ describe("TreeItem — значение для узлов дерева", () => {
     });
 
     it("необязательные поля не затеняют геттеры подкласса (поля — не собственные свойства)", () => {
-        // TS такой override запрещает (TS2611), а JS-бандл расширения — нет:
-        // геттер на прототипе подкласса, как его оставляет сборщик.
+        // TS такой override запрещает (TS2611), а JS-бандл расширения — нет.
         class Lazy extends TreeItem {}
         Object.defineProperty(Lazy.prototype, "tooltip", { get: () => "из геттера" });
         Object.defineProperty(Lazy.prototype, "description", { get: () => "из геттера, тоже" });

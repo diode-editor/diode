@@ -15,13 +15,6 @@ import { RelativePattern, Uri } from "./vscodeTypes.ts";
 import { WorkspaceConfigStore } from "./workspaceConfigStore.ts";
 import { createWorkspaceNamespace } from "./workspaceNamespace.ts";
 
-/**
- * Проводка `workspace.findFiles`: разбор `GlobPattern`, три значения `exclude`,
- * `maxResults` поверх нескольких папок, токен отмены и сборка результата в
- * абсолютные `file:`-Uri. Сам обход дерева тестируется на карте в памяти в
- * `findFiles.test.ts` — здесь шов с неймспейсом на НАСТОЯЩЕЙ ФС.
- */
-
 let tmpRoot: string;
 
 beforeEach(() => {
@@ -32,7 +25,6 @@ afterEach(() => {
     fs.rmSync(tmpRoot, { recursive: true, force: true });
 });
 
-/** Раскладывает дерево: ключ — относительный путь файла, значение — содержимое. */
 function layout(root: string, files: Record<string, string>): string {
     for (const [rel, content] of Object.entries(files)) {
         const target = path.join(root, rel);
@@ -42,12 +34,7 @@ function layout(root: string, files: Record<string, string>): string {
     return root;
 }
 
-/**
- * Поднимает неймспейс на указанных папках. `configuration` — снапшот настроек
- * в той же форме, в которой его присылает хост: ВЛОЖЕННОЕ дерево (`getValue()`),
- * а не плоские dotted-ключи. Возвращает ещё и `setConfiguration` — правку
- * настроек на живом неймспейсе (notif `workspace.configurationChanged`).
- */
+/** `configuration` — ВЛОЖЕННОЕ дерево, как присылает хост, а не плоские dotted-ключи. */
 function makeWorkspace(
     folders: readonly string[],
     configuration: Record<string, unknown> = {},
@@ -81,10 +68,8 @@ function makeWorkspace(
     });
 }
 
-/** Снапшот с дефолтами `files.exclude` — в форме дерева, как у хоста. */
 const FILES_EXCLUDE_SNAPSHOT = { files: { exclude: { "**/.git": true, "**/node_modules": true } } };
 
-/** Пути результата относительно корня — читаемее абсолютных в ассертах. */
 function relative(root: string, uris: readonly vscode.Uri[]): string[] {
     return uris.map((uri) => path.relative(root, (uri as unknown as Uri).fsPath)).toSorted();
 }
