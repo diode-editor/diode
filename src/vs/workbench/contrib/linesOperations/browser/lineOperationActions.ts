@@ -3,7 +3,7 @@ import { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import { parseChord, parseKeybinding } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import { EditorServiceDIToken } from "../../../services/editor/common/editorService.ts";
 
-// Копирование строк — `ctrl+shift+alt+↑/↓` (линуксовый канон VS Code): `shift+alt+↑/↓` занят мультикурсором.
+// Copy lines is `ctrl+shift+alt+↑/↓` (VS Code's Linux canon): `shift+alt+↑/↓` is taken by multicursor.
 
 export const copyLinesUpAction: CommandAction = {
     id: "editor.action.copyLinesUpAction",
@@ -64,7 +64,7 @@ export const moveLinesDownAction: CommandAction = {
 export const duplicateSelectionAction: CommandAction = {
     id: "editor.action.duplicateSelection",
     title: "Duplicate Selection",
-    // Без дефолтного бинда — как в VS Code.
+    // No default binding — like VS Code.
     when: "textInputFocus && !editorReadonly",
     menus: [{ menuId: MenuId.MenubarSelectionMenu, group: "2_line", order: 50 }],
     run(accessor) {
@@ -79,9 +79,9 @@ export const deleteLinesAction: CommandAction = {
     id: "editor.action.deleteLines",
     title: "Delete Line",
     keybinding: parseKeybinding("mod+shift+k"),
-    // `ctrl+shift+k` неотличим от `ctrl+k` (лидера аккордов) там, где нет extended
-    // keys — та же норма, что у selectHighlights: досягаемый везде аккорд-фолбэк,
-    // безусловный (гейт по tier снимал его ровно в нужном окружении).
+    // `ctrl+shift+k` is indistinguishable from `ctrl+k` (the chord leader) where there are no extended
+    // keys — same rule as selectHighlights: a chord fallback reachable everywhere,
+    // unconditional (a tier gate removed it exactly in the environment that needs it).
     keybindings: [parseChord("ctrl+k ctrl+k")],
     when: "textInputFocus && !editorReadonly",
     run(accessor) {

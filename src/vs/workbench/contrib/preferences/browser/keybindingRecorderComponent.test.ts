@@ -85,7 +85,7 @@ describe("KeybindingRecorderComponent — запись", () => {
         const { testApp, recorder } = makeHost();
 
         const recording = recorder.record("Save File");
-        // Kitty шлёт keydown для одиночного Control (CSI-u 57442 — упрощённо шлём key).
+        // Kitty sends keydown for a lone Control (CSI-u 57442 — simplified, we send just the key).
         testApp.backend.sendRaw("\x1b[57442u");
         testApp.sendKey("Ctrl+S");
         testApp.sendKey("Enter");
@@ -124,7 +124,7 @@ describe("KeybindingRecorderComponent — запись", () => {
     it("dispose до первой записи не падает (session ещё null)", () => {
         const recorder = new KeybindingRecorderComponent({ tier: "kitty", os: "linux" }, testLayoutService());
 
-        // session === null — ?. в dispose обязателен, иначе TypeError.
+        // session === null — ?. in dispose is required, otherwise TypeError.
         expect(() => {
             recorder.dispose();
         }).not.toThrow();
@@ -147,7 +147,7 @@ describe("KeybindingRecorderComponent — терминальные предуп�
         const { testApp, recorder } = makeHost();
 
         void recorder.record("Command Palette");
-        // Ctrl+Shift+P как CSI-u (p=112, мод 6 = shift+ctrl) — sendKey такой формы не знает.
+        // Ctrl+Shift+P as CSI-u (p=112, mod 6 = shift+ctrl) — sendKey doesn't know this form.
         testApp.backend.sendRaw("\x1b[112;6u");
         testApp.render();
 
@@ -162,10 +162,10 @@ describe("KeybindingRecorderComponent — терминальные предуп�
         testApp.render();
 
         const screen = testApp.backend.screenToString();
-        // Kitty и переносимая комбинация: не должна сработать ни ветка переносимости, ни legacy-ветка.
+        // Kitty and a portable combination: neither the portability branch nor the legacy branch may fire.
         expect(screen).not.toContain("May not be available");
         expect(screen).not.toContain("Legacy terminal");
-        // Строка предупреждения под подсказкой пуста.
+        // The warning row under the hint is empty.
         const lines = screen.split("\n");
         const hintRow = lines.findIndex((l) => l.includes("accept"));
         expect(hintRow).toBeGreaterThanOrEqual(0);

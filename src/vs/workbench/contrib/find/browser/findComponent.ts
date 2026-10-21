@@ -26,8 +26,8 @@ const BUTTON_GAP = 1;
 const COUNTER_GAP = 2;
 
 /**
- * Дерево строится один раз и мутируется на месте — строка запроса не переподключается и не
- * теряет фокус между нажатиями. Кнопки non-focusable: клик не уводит фокус из строки запроса.
+ * The tree is built once and mutated in place, so the query input is never reattached and doesn't
+ * lose focus between keystrokes. Buttons are non-focusable: a click doesn't steal focus from the query input.
  */
 export class FindWidget extends Disposable {
     public readonly view: SizedBoxElement;
@@ -112,16 +112,16 @@ export class FindWidget extends Disposable {
         this.refreshCounter();
     }
 
-    /** Зовётся ПОСЛЕ {@link setQuery}: сеттер `InputState.value` сбрасывает выделение. */
+    /** Call AFTER {@link setQuery}: the `InputState.value` setter resets the selection. */
     public selectQuery(): void {
-        // Пустой запрос выделять нечего — а selectAll на пустой строке оставил бы
-        // якорь выделения в 0, что сломало бы первый же ввод символа.
+        // An empty query has nothing to select, and selectAll on an empty string would leave
+        // the selection anchor at 0, breaking the very first typed character.
         if (this.input.inputState.value.length === 0) return;
         this.input.inputState.selectAll();
         this.input.markDirty();
     }
 
-    /** Обновляет счётчик совпадений. `current` — 1-based; `total` 0 — совпадений нет. */
+    /** Updates the match counter. `current` is 1-based; `total` 0 means no matches. */
     public setCounter(current: number, total: number): void {
         this.matchCurrent = current;
         this.matchTotal = total;
@@ -132,7 +132,7 @@ export class FindWidget extends Disposable {
         this.input.focus();
     }
 
-    /** Прикрепляет виджет к overlay-слою СВОЕЙ группы (один раз, до первого показа). */
+    /** Attaches the widget to its OWN group's overlay layer (once, before the first show). */
     public attachHost(host: OverlayHostElement): void {
         if (this.host === host) return;
         this.session?.dispose();
@@ -140,7 +140,7 @@ export class FindWidget extends Disposable {
         this.session = host.overlayLayer.createSession(this.view, new Point(0, 0), {
             visible: false,
             restoreFocus: true,
-            // Find — это док-виджет: клики мимо него намеренно уходят в редактор (как в VS Code).
+            // Find is a docked widget: clicks outside it intentionally go to the editor (as in VS Code).
             pointerPolicy: "passthrough",
         });
     }
@@ -184,17 +184,17 @@ export class FindWidget extends Disposable {
         this.preferredWidth = widgetW;
         this.view.setPreferredWidth(widgetW);
         const px = Math.max(0, groupWidth - widgetW - 1); // right-align with a 1-col margin to the group's edge
-        const py = 1; // хост — группа редакторов, её ряд 0 занимает tab strip
+        const py = 1; // the host is the editor group; its row 0 is the tab strip
         this.session?.setPosition(new Point(px, py));
     }
 }
 
 export interface IGroupOverlayHosts {
-    /** `null` — группа неизвестна view-слою. */
+    /** `null` if the view layer doesn't know the group. */
     groupOverlayHost(groupId: GroupId): OverlayHostElement | null;
 }
 
-/** Виджет на группу, создаётся лениво; виджет схлопнутой группы освобождает FindService (`disposeWidget`). */
+/** One widget per group, created lazily; FindService disposes the widget of a collapsed group (`disposeWidget`). */
 export class FindComponent extends Disposable {
     public static dependencies = [EditorPartComponentDIToken] as const;
 
@@ -209,7 +209,7 @@ export class FindComponent extends Disposable {
         super();
     }
 
-    /** `null` — хост недоступен. */
+    /** `null` if the host is unavailable. */
     public widgetFor(groupId: GroupId): FindWidget | null {
         const existing = this.widgets.get(groupId);
         if (existing !== undefined) return existing;

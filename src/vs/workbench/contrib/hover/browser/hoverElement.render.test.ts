@@ -20,7 +20,7 @@ describe("HoverElement — раскладка", () => {
         const element = new HoverElement();
         element.setBlocks(["const answer: number"]);
 
-        // Max-интринсики совпадают с min: попап не тянется (их читает overlay-слой).
+        // Max intrinsics equal min: the popup doesn't stretch (the overlay layer reads them).
         expect(element.getMaxIntrinsicWidth(0)).toBe(element.getMinIntrinsicWidth(0));
         expect(element.getMaxIntrinsicHeight(0)).toBe(element.getMinIntrinsicHeight(0));
         expectScreen(
@@ -58,8 +58,8 @@ describe("HoverElement — раскладка", () => {
 
         expect(backend.getFgAt(new Point(0, 0))).toBe(vars["editorHoverWidget.border"]);
         expect(backend.getBgAt(new Point(2, 1))).toBe(vars["editorHoverWidget.background"]);
-        // Заливка кроет всю внутренность, включая пустое место за текстом:
-        // без неё под попапом просвечивал бы редактор.
+        // The fill covers the whole interior, including empty space past the text:
+        // without it the editor would show through under the popup.
         const inner = backend.getBgAt(new Point(element.getMinIntrinsicWidth(0) - 2, 1));
         expect(inner).toBe(vars["editorHoverWidget.background"]);
         expect(backend.getFgAt(new Point(2, 1))).toBe(vars["editorHoverWidget.foreground"]);
@@ -111,7 +111,7 @@ describe("HoverElement — раскладка", () => {
         expect(element.getMaxIntrinsicWidth(0)).toBe(0);
         expect(element.getMinIntrinsicHeight(0)).toBe(0);
         expect(element.getMaxIntrinsicHeight(0)).toBe(0);
-        // Даже в кадре, где рамка поместилась бы, пустой попап не рисует ничего.
+        // Even in a frame where the border would fit, an empty popup draws nothing.
         expectScreen(renderElement(element, 3, 3, { themeVars: true }), "");
 
         element.setBlocks(["   ", ""]);

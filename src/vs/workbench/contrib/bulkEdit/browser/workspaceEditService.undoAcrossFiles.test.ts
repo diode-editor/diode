@@ -58,7 +58,7 @@ function harness(settings: Record<string, unknown> = {}): IHarness {
         new BulkEditBuffers(editors, models),
         diskFileService(),
     );
-    // Свой каталог на каждый харнесс: в одном тесте их бывает несколько.
+    // A directory per harness: one test can have several.
     const dir = fs.mkdtempSync(path.join(ws.dir, "h-"));
     const file = (name: string): string => path.join(dir, name);
     return {
@@ -102,7 +102,7 @@ describe("WorkspaceEditService — отмена во всех затронуты
         expect(a.getText()).toBe("class Bar {}\n");
         expect(fs.readFileSync(h.file("Foo.ts"), "utf8")).toBe("export class Foo {}\n");
 
-        // Отмена из ВТОРОЙ вкладки (не той, где вызвали действие).
+        // Undo from the SECOND tab (not the one where the action was invoked).
         b.undo();
         await vi.waitFor(() => {
             expect(fs.existsSync(h.file("Foo.ts"))).toBe(false);
@@ -110,7 +110,7 @@ describe("WorkspaceEditService — отмена во всех затронуты
         expect(a.getText()).toBe(SOURCE);
         expect(b.getText()).toBe(USER);
 
-        // Повтор — из первой.
+        // Redo — from the first.
         a.redo();
         await vi.waitFor(() => {
             expect(fs.existsSync(h.file("Foo.ts"))).toBe(true);

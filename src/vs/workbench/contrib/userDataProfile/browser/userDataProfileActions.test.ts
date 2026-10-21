@@ -62,11 +62,11 @@ interface IHarness {
     readonly inputValidators: ((value: string) => unknown)[];
     setCurrent(profile: IUserDataProfile): void;
     setWorkspace(workspace: IWorkspace): void;
-    /** Ответы пикера одиночного выбора по порядку: label строки либо `undefined` — отмена. */
+    /** Single-pick answers in order: a row label or `undefined` for cancel. */
     setPicks(labels: (string | undefined)[]): void;
     setManyPicks(labels: string[] | undefined): void;
     setInputs(values: (string | undefined)[]): void;
-    /** Пропускает прощание (`requestShutdown` зовёт продолжение или нет). */
+    /** Skips the farewell (`requestShutdown` calls the continuation or not). */
     cancelShutdown: { value: boolean };
 }
 
@@ -326,7 +326,7 @@ describe("экшены профилей", () => {
 
             const created = h.profiles.profiles.find((p) => p.name === "My Work");
             expect(created).toBeDefined();
-            // Empty: настройки текущего профиля не копируются, расширений нет.
+            // Empty: the current profile's settings aren't copied, no extensions.
             expect(fs.existsSync(created!.settingsResource)).toBe(false);
             expect(fs.readFileSync(created!.extensionsResource, "utf-8")).toBe("[]");
             expect(h.inputOptions).toEqual([{ title: "New Profile", placeholder: "Profile name" }]);
@@ -401,7 +401,7 @@ describe("экшены профилей", () => {
         });
 
         it("отмена имени, пустое имя или отмена второго шага — профиль не создаётся", async () => {
-            // Дойди отмена или пробелы до второго шага — «Empty» создал бы профиль.
+            // If cancel or blanks reached the second step, "Empty" would create a profile.
             h.setInputs([undefined]);
             h.setPicks([NEW_PROFILE_EMPTY_LABEL]);
             await createProfileAction.run(h.accessor);
@@ -457,7 +457,7 @@ describe("экшены профилей", () => {
             const dir = path.join(ws.dir, "proj");
             await h.profiles.setProfileForWorkspace(profileWorkspaceKeyOf(dir), home);
             h.setWorkspace(folderWorkspace(dir));
-            h.setCurrent(work); // окно поднято флагом `--profile work`, привязка — на `home`
+            h.setCurrent(work); // window started with `--profile work`, bound to `home`
             h.setManyPicks(["work", "tmp"]);
 
             await deleteProfileAction.run(h.accessor);
@@ -504,7 +504,7 @@ describe("экшены профилей", () => {
         });
 
         it("withoutKeys: снимает только перечисленные ключи, остальное дословно; не-объект — как есть", () => {
-            // jsonc `modify` переформатирует соседей снятого ключа — это норма редактора настроек.
+            // jsonc `modify` reformats the neighbors of the removed key — normal for the settings editor.
             expect(withoutKeys(`{ "a": 1, "b": 2 }`, ["a", "zzz"])).toBe(`{\n    "b": 2\n}`);
             expect(withoutKeys(`{ "a": 1 }`, ["b"])).toBe(`{ "a": 1 }`);
             expect(withoutKeys(`[1, 2]`, ["a"])).toBe(`[1, 2]`);
@@ -519,7 +519,7 @@ describe("экшены профилей", () => {
             );
             expect(withoutKeys(`{\n\t"a": false,\n\t// c\n\t"b": "x"\n}\n`, ["b"])).toBe(`{\n\t"a": false\n}\n`);
             expect(formattingOptionsOf(`{\n   "a": 1\n}`)).toEqual({ insertSpaces: true, tabSize: 3 });
-            // Строка из одних пробелов — не отступ.
+            // A whitespace-only line is not an indent.
             expect(formattingOptionsOf(`{\n \n  "a": 1\n}`)).toEqual({ insertSpaces: true, tabSize: 2 });
             expect(formattingOptionsOf(`{ "a": 1 }`)).toEqual({ insertSpaces: true, tabSize: 4 });
             expect(formattingOptionsOf(`{\n\t"a": 1\n}`)).toMatchObject({ insertSpaces: false });

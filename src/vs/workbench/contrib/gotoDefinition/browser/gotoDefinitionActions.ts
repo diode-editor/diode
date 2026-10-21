@@ -9,8 +9,8 @@ export const revealDefinitionAction: CommandAction = {
     title: "Go to Definition",
     keybinding: parseKeybinding("f12"),
     when: "textInputFocus",
-    // Группа и порядок — дословно upstream (`goToCommands.ts`): пункт виден
-    // только там, где определение кто-то отдаёт.
+    // Group and order are copied from upstream (`goToCommands.ts`): the item is visible
+    // only where someone provides a definition.
     menus: [
         {
             menuId: MenuId.EditorContext,

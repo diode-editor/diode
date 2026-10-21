@@ -4,18 +4,18 @@ import { tokenize } from "@tuidom/core/input/tokenize";
 import type { Keybinding } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import { parseKeybinding } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 
-// Отчёт должен показать, ГДЕ потерялась клавиша: не дошла, дошла без модификатора или не сматчилась.
-// Протокол проверок — docs/TODO/MacKeybindings.md («Протокол фидбека»).
+// The report must show WHERE the key got lost: did not arrive, arrived without the modifier, or did not match.
+// Check protocol: docs/TODO/MacKeybindings.md#протокол-фидбека-от-маковода.
 
 export interface KeyboardDoctorEnv {
     readonly os: string;
     readonly osSource: string;
     readonly tier: string;
-    /** Рунг мак-лестницы; `undefined` — клавиатура не маковская. */
+    /** Mac ladder rung; `undefined` — not a Mac keyboard. */
     readonly macKeysRung: string | undefined;
     readonly capabilities: readonly string[];
     readonly modes: readonly string[];
-    /** Как назвался внешний терминал (tmux client_termtype / XTVERSION / LC_TERMINAL / TERM_PROGRAM). */
+    /** How the outer terminal identified itself (tmux client_termtype / XTVERSION / LC_TERMINAL / TERM_PROGRAM). */
     readonly terminalName: string | undefined;
     readonly term: string | undefined;
 }
@@ -39,10 +39,10 @@ export interface MatchedBinding {
 export interface DoctorStep {
     readonly id: string;
     readonly prompt: string;
-    /** Что должно приехать; `undefined` — ждём печатный символ без модификаторов. */
+    /** What should arrive; `undefined` — wait for a printable character without modifiers. */
     readonly expected: Keybinding | undefined;
     readonly expectsBinding: boolean;
-    /** Ждём keyup этой клавиши-модификатора (hold-сессии: Ctrl+Tab). */
+    /** Wait for keyup of this modifier key (hold sessions: Ctrl+Tab). */
     readonly keyUp?: string;
     readonly catches: string;
 }
@@ -57,7 +57,7 @@ export type Verdict =
 
 export interface StepResult {
     readonly step: DoctorStep;
-    /** `null` — человек отметил «ничего не произошло». */
+    /** `null` — the user marked "nothing happened". */
     readonly received: ObservedKey | null;
     readonly bindings: readonly MatchedBinding[];
     readonly keyUpSeen: boolean;
@@ -71,7 +71,7 @@ function inTmux(env: KeyboardDoctorEnv): boolean {
     return env.modes.includes("tmux");
 }
 
-/** `mod` в конкретный модификатор — как его развернёт реестр на этом рунге. */
+/** `mod` to a concrete modifier — as the registry expands it on this rung. */
 function concrete(spec: string, env: KeyboardDoctorEnv): Keybinding {
     return parseKeybinding(spec.replace("mod+", env.macKeysRung === "cmd" ? "meta+" : "ctrl+"));
 }
@@ -94,12 +94,12 @@ function step(
     };
 }
 
-/** Опасные комбинации (Cmd+Q/W/H, Ctrl+C/D/Z вне редактора, префикс tmux) нажимать не просим — спрашиваем словами. */
+/** Dangerous combinations (Cmd+Q/W/H, Ctrl+C/D/Z outside the editor, the tmux prefix) are not pressed — we ask in words. */
 export function doctorSteps(env: KeyboardDoctorEnv): DoctorStep[] {
     const mac = isMac(env);
     const tmux = inTmux(env);
     const steps: DoctorStep[] = [];
-    // Ctrl+S под tmux бывает префиксом — уйдёт мультиплексору.
+    // Under tmux Ctrl+S can be the prefix — it goes to the multiplexer.
     if (!tmux) steps.push(step(env, "base.save", "mod+s", "работает ли базовый набор"));
     steps.push(
         step(env, "base.palette", "mod+shift+p", "работает ли базовый набор"),
@@ -155,7 +155,7 @@ const PRINTABLE_CHAR = /^\P{C}$/u;
 
 function keysMatch(expected: Keybinding, received: ObservedKey): boolean {
     if (received.key.toLowerCase() === expected.key.toLowerCase()) return true;
-    // Раскладка-независимо, по физической клавише: `KeyS` бывает только у букв.
+    // Layout-independent, by physical key: only letters have `KeyS`.
     return received.code === `Key${expected.key.toUpperCase()}`;
 }
 
@@ -171,7 +171,7 @@ export function judge(result: StepResult, env: KeyboardDoctorEnv): Verdict {
     if (received === null) return { kind: "lost" };
     const expected = s.expected;
     if (expected === undefined) {
-        // Один печатный кодпоинт (не имя клавиши вроде «Enter»), без модификаторов-аккордов.
+        // A single printable code point (not a key name like "Enter"), without chord modifiers.
         const printable =
             PRINTABLE_CHAR.test(received.key) && !received.ctrlKey && !received.altKey && !received.metaKey;
         return printable ? { kind: "ok" } : { kind: "different" };
@@ -182,7 +182,7 @@ export function judge(result: StepResult, env: KeyboardDoctorEnv): Verdict {
     if (missing.length > 0 && extra.length === 0) {
         return { kind: "missing-modifier", missing: missing.map((m) => modifierName(m, isMac(env))) };
     }
-    // Сюда с непустым `missing` доходим только вместе с непустым `extra`.
+    // We get here with a non-empty `missing` only together with a non-empty `extra`.
     if (extra.length > 0) return { kind: "different" };
     if (s.expectsBinding && !result.bindings.some((b) => b.active)) return { kind: "not-matched" };
     if (s.keyUp !== undefined && !result.keyUpSeen) return { kind: "no-keyup" };
@@ -257,7 +257,7 @@ export function describeEnv(env: KeyboardDoctorEnv): string[] {
     ];
 }
 
-// Рецепты эмуляторов не проверены на живом маке.
+// Emulator recipes are not verified on a real Mac.
 
 type TerminalFamily = "iterm2" | "apple_terminal" | "kitty" | "ghostty" | "wezterm";
 
@@ -270,7 +270,7 @@ const FAMILY_PREFIXES: readonly [string, TerminalFamily][] = [
 ];
 
 export function terminalFamily(name: string | undefined): TerminalFamily | undefined {
-    // Stryker disable next-line StringLiteral: любой непустой заменитель тоже не совпадёт ни с одним префиксом — эквивалентный мутант.
+    // Stryker disable next-line StringLiteral: any non-empty replacement also matches no prefix — equivalent mutant.
     const normalized = name?.trim().toLowerCase() ?? "";
     return FAMILY_PREFIXES.find(([prefix]) => normalized.startsWith(prefix))?.[1];
 }

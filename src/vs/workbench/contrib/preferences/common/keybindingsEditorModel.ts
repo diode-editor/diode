@@ -13,14 +13,14 @@ import {
 } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 
 /**
- * Строка на КАЖДУЮ запись {@link IKeybindingEntrySnapshot} (у команды с двумя биндингами — две строки)
- * плюс строки команд без биндинга, как в VS Code.
+ * A row for EACH {@link IKeybindingEntrySnapshot} entry (a command with two bindings gets two rows)
+ * plus rows for commands without a binding, as in VS Code.
  */
 export interface IKeybindingItem {
     readonly commandId: string;
-    /** У биндинга неизвестной команды — её id. */
+    /** For a binding of an unknown command — its id. */
     readonly title: string;
-    /** `null` — команда без биндинга (показывается «—»). */
+    /** `null` — a command without a binding (shown as "—"). */
     readonly chord: KeybindingChord | null;
     readonly when: string | undefined;
     readonly source: KeybindingSource | null;
@@ -64,8 +64,8 @@ export function buildKeybindingItems(
         });
     }
 
-    // Сортировка по title (дальше по id — у биндинга неизвестной команды title
-    // и есть id), чтобы биндинги одной команды стояли рядом.
+    // Sort by title (then by id — for a binding of an unknown command the title
+    // is the id) so bindings of the same command stay together.
     return items.sort((a, b) => a.title.localeCompare(b.title) || a.commandId.localeCompare(b.commandId));
 }
 
@@ -75,7 +75,7 @@ interface IParsedQuery {
     readonly text: string;
 }
 
-// Partial: ключ — произвольное слово запроса, и «не фильтр» — штатный исход.
+// Partial: the key is an arbitrary query word, and "not a filter" is a normal outcome.
 const SOURCE_FILTERS: Partial<Record<string, KeybindingSource>> = {
     "@source:default": "default",
     "@source:extension": "extension",
@@ -86,19 +86,19 @@ function parseQuery(query: string): IParsedQuery {
     let source: KeybindingSource | null = null;
     let conflictsOnly = false;
     const rest: string[] = [];
-    // Stryker disable next-line Regex: вид разделителя тут не наблюдаем — лишние пробелы и пустые токены прореживает prepareQuery ниже, а не этот сплит.
+    // Stryker disable next-line Regex: the separator shape is unobservable here — extra spaces and empty tokens are thinned out by prepareQuery below, not by this split.
     for (const word of query.split(/\s+/)) {
         const filter = SOURCE_FILTERS[word.toLowerCase()];
         if (filter !== undefined) source = filter;
         else if (word.toLowerCase() === "@conflicts") conflictsOnly = true;
         else rest.push(word);
     }
-    // Пробел обязателен: остаток запроса едет в prepareQuery, который режет его
-    // на термы по пробелам — склейка в одно слово сузила бы выдачу.
+    // The space is required: the query remainder goes to prepareQuery, which splits it
+    // into terms by spaces — gluing into one word would narrow the results.
     return { source, conflictsOnly, text: rest.join(" ") };
 }
 
-/** На маке — ещё и по словам («cmd+s», «option»): глиф «⌘» с клавиатуры не набрать. */
+/** On mac also by words ("cmd+s", "option"): the "⌘" glyph can't be typed on a keyboard. */
 function matchesKeyLabel(query: PreparedQuery, chord: KeybindingChord, style: KeybindingLabelStyle): boolean {
     const labels =
         style === "mac"
@@ -108,8 +108,8 @@ function matchesKeyLabel(query: PreparedQuery, chord: KeybindingChord, style: Ke
 }
 
 /**
- * Как `BASENAME_BONUS` файлового пикера: совпасть в том, что пользователь читает, важнее, чем в id.
- * Совпадение только по подписи комбинации очков не приносит и оседает в хвосте.
+ * Like the file picker's `BASENAME_BONUS`: matching what the user reads matters more than matching the id.
+ * A match only on the key combination label earns no points and sinks to the tail.
  */
 const TITLE_MATCH_BONUS = 200;
 
@@ -125,10 +125,10 @@ function passesPrefixFilters(item: IKeybindingItem, parsed: IParsedQuery): boole
 }
 
 /**
- * `@source:`/`@conflicts` — точный отбор, остальное — fuzzy по title, id и подписи биндинга; подсветка —
- * только для совпадения по title. Выдача ранжируется: иначе точное совпадение по подписи тонет среди
- * команд, чьи термы нашлись в id («Show Hover» vs `editor.action.showPrevParameterHint`). Сортировка
- * стабильная — строки одной команды держатся рядом.
+ * `@source:`/`@conflicts` are exact selection, the rest is fuzzy over title, id and binding label; highlight is
+ * only for a title match. Results are ranked: otherwise an exact label match drowns among
+ * commands whose terms were found in the id ("Show Hover" vs `editor.action.showPrevParameterHint`). The sort
+ * is stable — rows of the same command stay together.
  */
 export function filterKeybindingItems(
     items: readonly IKeybindingItem[],

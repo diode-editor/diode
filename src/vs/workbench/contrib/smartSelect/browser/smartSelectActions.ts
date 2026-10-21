@@ -4,7 +4,7 @@ import { parseKeybinding } from "../../../../platform/keybinding/common/keybindi
 
 import { SmartSelectServiceDIToken } from "./smartSelectService.ts";
 
-/** Мак-бинды эталона — в `macKeybindings.ts`. Гейт `textViewFocus`, как у мультикурсора: выделение ничего не правит. */
+/** Upstream's Mac bindings live in `macKeybindings.ts`. Gated on `textViewFocus`, like multi-cursor: selection edits nothing. */
 export const smartSelectExpandAction: CommandAction = {
     id: "editor.action.smartSelect.expand",
     title: "Expand Selection",

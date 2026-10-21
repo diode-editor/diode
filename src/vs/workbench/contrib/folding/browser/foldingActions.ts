@@ -2,10 +2,10 @@ import type { CommandAction } from "../../../../platform/actions/common/commandA
 import { parseChord, parseKeybinding } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import { EditorServiceDIToken } from "../../../services/editor/common/editorService.ts";
 
-// Канонические Ctrl+Shift+[ / Ctrl+Shift+] недостижимы без extended keys (Ctrl+[
-// это сам ESC, а Shift с печатным символом в legacy-поток не попадает), поэтому
-// рядом — безусловные лидер-аккорды. Вторая часть не `alt+[`/`alt+]`: `ESC [` и
-// `ESC ]` — вводители CSI и OSC, разбор ввода их не отдаёт как Alt+символ.
+// The canonical Ctrl+Shift+[ / Ctrl+Shift+] are unreachable without extended keys (Ctrl+[
+// is ESC itself, and Shift with a printable character never reaches the legacy stream), so
+// unconditional leader chords sit alongside. The second part isn't `alt+[`/`alt+]`: `ESC [` and
+// `ESC ]` introduce CSI and OSC, and input parsing never reports them as Alt+char.
 export const foldAction: CommandAction = {
     id: "editor.fold",
     title: "Fold",

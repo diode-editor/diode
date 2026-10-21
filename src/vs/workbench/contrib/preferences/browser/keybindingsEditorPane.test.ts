@@ -70,7 +70,7 @@ class FakeService implements IKeybindingsEditorService {
 }
 
 class FakeRecorder {
-    /** null — отмена. */
+    /** null means cancel. */
     public nextChord: KeybindingChord | null = null;
     public recordedTitles: string[] = [];
 
@@ -218,7 +218,7 @@ describe("KeybindingsEditorPane — кадр", () => {
         const h = makeHarness(() => "mac");
         const screen = h.render();
 
-        expect(screen).toContain("⌃S"); // ctrl+s на маке — это Control
+        expect(screen).toContain("⌃S"); // ctrl+s on mac is Control
         expect(screen).toContain("⌃K ⌃U");
         expect(screen).not.toContain("Ctrl+S");
     });
@@ -270,7 +270,7 @@ describe("KeybindingsEditorPane — кадр", () => {
 
     it("до первой раскладки строки не строятся — guard по width", () => {
         const h = makeHarness();
-        // setFilter триггерит rebuildRows, но раскладки ещё не было (width null).
+        // setFilter triggers rebuildRows, but there was no layout yet (width null).
         h.pane.setFilter("hover");
         const list = h.pane.view.querySelector("#keybindingsList") as unknown as { rowCount: number };
         expect(list.rowCount).toBe(0);
@@ -426,8 +426,8 @@ describe("KeybindingsEditorPane — действия строки", () => {
         h.service.result = { ok: true };
         h.activateRowOf("Save File");
         await settle();
-        // Успешная мутация сама список НЕ перестраивает — обновление приходит
-        // событием сервиса; до emit строка ошибки ещё на месте.
+        // A successful mutation does NOT rebuild the list by itself — the update comes
+        // via the service event; until emit the error row is still there.
         expect(h.render()).toContain("disk full");
         h.service.emit();
         expect(h.render()).not.toContain("disk full");

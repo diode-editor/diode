@@ -65,8 +65,8 @@ describe("WorkspaceEditService — подтверждение отмены", () 
         const targetDir = path.join(tmpDir, "dest");
         fs.mkdirSync(targetDir);
 
-        // Создание подтверждения не требует, вставка — требует: шаг обязан
-        // донести именно её сообщение.
+        // Create needs no confirmation, insert does: the step must carry
+        // exactly its message.
         const element = await service.applyFileEdits(
             [
                 { kind: "create", to: path.join(tmpDir, "fresh.txt") },
@@ -298,7 +298,7 @@ describe("WorkspaceEditService — delete (permanent)", () => {
 describe("WorkspaceEditService — edge cases", () => {
     it("ignores an unsupported edit kind (returns null, records nothing)", async () => {
         const { service, undoRedo } = makeService();
-        // Приводим заведомо неизвестный вид — applyOne бросит, ошибка проглотится.
+        // Force a deliberately unknown kind — applyOne throws, the error is swallowed.
         const element = await service.applyFileEdits(
             [{ kind: "bogus" as unknown as "create", to: path.join(tmpDir, "x.txt") }],
             "Bogus",
@@ -308,7 +308,7 @@ describe("WorkspaceEditService — edge cases", () => {
     });
 
     it.skipIf(process.platform !== "linux")("treats a missing files.enableTrash setting as enabled", () => {
-        const config = createTestConfigurationService(); // настройка не задана вовсе — дефолт схемы
+        const config = createTestConfigurationService(); // setting not set at all — schema default
         const service = new WorkspaceEditService(
             new UndoRedoService(),
             new TrashService(),

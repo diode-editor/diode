@@ -4,7 +4,7 @@ import { parseKeybinding } from "../../../../platform/keybinding/common/keybindi
 import { KeybindingWeight } from "../../../../platform/keybinding/common/keybindingResolver.ts";
 import { EditorServiceDIToken } from "../../../services/editor/common/editorService.ts";
 
-// Вес и `when` — как у upstream; F7 в диффе отличается предусловием `isInDiffEditor` (docs/TODO/Diff.md, «Интерактив»).
+// Weight and `when` as upstream; F7 in diff differs by the `isInDiffEditor` precondition (docs/TODO/Diff.md#интерактив-фаза-2).
 
 export const nextWordHighlightAction: CommandAction = {
     id: "editor.action.wordHighlight.next",

@@ -21,7 +21,7 @@ function make(): FindWidget {
     return new FindWidget();
 }
 
-/** `resolveStyles` — чтобы счётчик получил цвет темы (в приложении это делает рендер-конвейер). */
+/** `resolveStyles` so the counter gets the theme color (in the app the render pipeline does this). */
 function render(component: FindWidget, width = WIDTH): MockTerminalBackend {
     return renderElement(component.view, width, 3, { resolveStyles: true });
 }
@@ -172,7 +172,7 @@ describe("FindWidget — overlay-сессия", () => {
         component.show();
         expect(component.isOpen()).toBe(true);
 
-        // Тот же хост второй раз: без guard'а сессия была бы пересоздана закрытой.
+        // Same host again: without the guard the session would be recreated closed.
         component.attachHost(host);
 
         expect(component.isOpen()).toBe(true);

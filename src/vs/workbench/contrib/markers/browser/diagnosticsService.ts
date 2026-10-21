@@ -30,9 +30,9 @@ import {
 const SETTINGS_OWNER = "settings";
 
 interface ISettingsFile {
-    /** `settings` у `.code-workspace`; нет — корень. */
+    /** `settings` for `.code-workspace`; absent — the root. */
     readonly section?: string;
-    /** Почему ключ со `scope` в этом файле не действует; нет — действуют все известные. */
+    /** Why a key with this `scope` has no effect in this file; absent — all known keys apply. */
     readonly unsupported?: (scope: ConfigurationScope | undefined) => string | null;
 }
 
@@ -48,7 +48,7 @@ export interface IDiagnosticsEditor {
 }
 
 export interface IDiagnosticsEditorSource {
-    /** Открытые редакторы ВСЕХ групп: маркеры ресурса нужны каждой его вкладке. */
+    /** Open editors of ALL groups: every tab of a resource needs its markers. */
     getEditors(): readonly IDiagnosticsEditor[];
     getActiveEditor(): IDiagnosticsEditor | null;
     onActiveEditorChanged(listener: (editor: IDiagnosticsEditor | null) => void): IDisposable;
@@ -83,10 +83,10 @@ export class DiagnosticsService extends Disposable {
         super();
         this.editorSource = editorSource;
         this.markerService = markerService;
-        // path.resolve строго ДО Uri.file: Uri.file относительный путь не резолвит.
+        // path.resolve strictly BEFORE Uri.file: Uri.file does not resolve a relative path.
         this.settingsResource = Uri.file(path.resolve(environment.settingsResource));
-        // Известные ключи — ядро и `contributes.configuration` всех расширений
-        // (у ключа расширения дефолта может не быть — тогда в дереве его нет).
+        // Known keys are the core plus `contributes.configuration` of all extensions
+        // (an extension key may have no default — then it is not in the tree).
         this.knownSettingKeys = collectKnownSettingKeys(configurationRegistry.getDefaultConfiguration());
         for (const key of configurationRegistry.getExtensionConfigurationProperties().keys()) {
             this.knownSettingKeys.add(key);
@@ -121,14 +121,14 @@ export class DiagnosticsService extends Disposable {
 
     private validate(editor: IDiagnosticsEditor | null): void {
         if (editor === null) return;
-        // Сверяем ресурс целиком, а не basename: чужой settings.json (самого VS Code,
-        // `.vscode/settings.json` проекта) остаётся нетронутым.
+        // Compare the whole resource, not the basename: a foreign settings.json (VS Code's own,
+        // a project's `.vscode/settings.json`) stays untouched.
         const resource = editor.uri.toString();
         const file = this.settingsFile(resource);
         if (file === null) return;
 
         const { unsupported } = file;
-        // Секции языков (`"[python]": { … }`) — тоже известные ключи верхнего уровня.
+        // Language sections (`"[python]": { … }`) are also known top-level keys.
         const markers = validateSettingsJson(
             editor.getText(),
             (key) => this.knownSettingKeys.has(key) || isOverrideKey(key),
@@ -138,7 +138,7 @@ export class DiagnosticsService extends Disposable {
         this.markerService.changeOne(SETTINGS_OWNER, resource, markers);
     }
 
-    /** `null` — не наш файл; у папки окна из `.code-workspace` не действует ещё и `window`. */
+    /** `null` — not our file; for a window folder from `.code-workspace`, `window` has no effect either. */
     private settingsFile(resource: string): ISettingsFile | null {
         if (resource === this.settingsResource.toString()) return {};
         const workspace = this.workspace.getWorkspace();

@@ -9,7 +9,7 @@ import type {
     IDefinitionRequest,
 } from "../../../../editor/common/languages/iDefinitionSource.ts";
 
-/** Сбойный провайдер не роняет остальных: его ответ — «целей нет». */
+/** A failing provider doesn't take down the others: its answer is "no targets". */
 export async function getDefinitions(
     registry: LanguageFeatureRegistry<DefinitionProvider>,
     target: ILanguageFeatureTarget,

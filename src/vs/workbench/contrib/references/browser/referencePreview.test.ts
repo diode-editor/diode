@@ -115,7 +115,7 @@ describe("buildReferenceGroups", () => {
         const groups = await buildReferenceGroups(
             [
                 ref("gone.ts", createRange(0, 0, 0, 1)),
-                // Файл есть, но такой строки в нём нет (поменялся, пока сервер думал).
+                // The file exists but has no such line (it changed while the server was thinking).
                 ref("a.ts", createRange(99, 0, 99, 1)),
                 ref("a.ts", createRange(0, 0, 0, 4)),
             ],
@@ -126,8 +126,8 @@ describe("buildReferenceGroups", () => {
         expect(groups).toHaveLength(1);
         expect(groups[0].relPath).toBe("a.ts");
         expect(groups[0].matches).toHaveLength(1);
-        // Неудачное чтение тоже кэшируется — второй ссылки в тот же файл не было,
-        // но повторных попыток чтения быть не должно.
+        // A failed read is cached too — there was no second reference into that file,
+        // but there must be no read retries.
         expect(src.reads).toEqual([`${ROOT}/gone.ts`, `${ROOT}/a.ts`]);
     });
 
@@ -180,7 +180,7 @@ describe("buildReferenceGroups", () => {
             ROOT,
         );
 
-        // Пара 🙂 начинается ровно на границе среза — отрезаем её целиком.
+        // The 🙂 pair starts exactly at the cut boundary — drop it whole.
         const emojiTail = groups[0].matches[0].preview.after;
         expect(emojiTail).toBe("x".repeat(255));
         expect(emojiTail).not.toContain("\ud83d");
@@ -189,8 +189,8 @@ describe("buildReferenceGroups", () => {
     });
 
     it("строка ровно в кап не режется, даже если кончается половинкой пары", async () => {
-        // Граница включительная: 256 символов — ещё не режем, хотя последний
-        // code unit и выглядит как начало суррогатной пары.
+        // The boundary is inclusive: 256 chars are not cut yet, even though the last
+        // code unit looks like the start of a surrogate pair.
         const exact = `${"x".repeat(255)}\ud83d`;
         const src = source({ [`${ROOT}/a.js`]: `ref${exact}\n` });
 
@@ -200,8 +200,8 @@ describe("buildReferenceGroups", () => {
     });
 
     it("суррогатная пара на самой границе капа отрезается целиком", async () => {
-        // Крайние точки диапазона старших суррогатов: U+10000 (D800 DC00) и
-        // U+10FFFF (DBFF DFFF) — обе половинки должны уйти вместе.
+        // Edge points of the high-surrogate range: U+10000 (D800 DC00) and
+        // U+10FFFF (DBFF DFFF) — both halves must go together.
         const lowest = `${"x".repeat(255)}\u{10000}${"y".repeat(10)}`;
         const highest = `${"x".repeat(255)}\u{10FFFF}${"y".repeat(10)}`;
         const src = source({
@@ -220,8 +220,8 @@ describe("buildReferenceGroups", () => {
     });
 
     it("символ выше диапазона суррогатов на границе капа не режется лишний раз", async () => {
-        // U+F900 — не половинка пары: верхняя граница проверки обязана его
-        // пропустить, иначе от хвоста откусывается лишний символ.
+        // U+F900 is not half of a pair: the upper bound of the check must let it
+        // through, otherwise an extra char is bitten off the tail.
         const tail = `${"x".repeat(255)}\uf900${"y".repeat(50)}`;
         const src = source({ [`${ROOT}/a.js`]: `ref${tail}\n` });
 
@@ -231,8 +231,8 @@ describe("buildReferenceGroups", () => {
     });
 
     it("возврат каретки режется только на конце строки", async () => {
-        // \r в середине строки — часть текста (так его видит и сам сервер,
-        // считая колонки), сносим только хвостовой от CRLF.
+        // \r in the middle of a line is part of the text (that's how the server sees it
+        // when counting columns); only the trailing one from CRLF is stripped.
         const src = source({ [`${ROOT}/a.ts`]: "aa\rbb cc\r\n" });
 
         const groups = await buildReferenceGroups([ref("a.ts", createRange(0, 0, 0, 2))], src, ROOT);
@@ -277,8 +277,8 @@ describe("buildReferenceGroups", () => {
     });
 
     it("сосед с общим префиксом корня не считается лежащим внутри него", async () => {
-        // «/work/project2» — не «/work/project»: путь показываем целиком, а не
-        // обрезанным до «2/a.ts».
+        // "/work/project2" is not "/work/project": the path is shown whole, not
+        // trimmed to "2/a.ts".
         const sibling = "/work/project2/a.ts";
         const src = source({ [sibling]: "const a = 1;\n" });
 

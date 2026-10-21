@@ -120,7 +120,7 @@ describe("конфликт", () => {
         const layout = describeKeybindingRow(filtered({ hasConflict: true }), WIDTH);
         expect(layout.conflict).toBe(true);
 
-        // Сборка с конфликтом не падает и несёт тот же текст (цвет — char-стили).
+        // Building with a conflict doesn't throw and carries the same text (color is in char styles).
         const row = buildKeybindingRow("kb-0", layout, {
             dimFg: "descriptionForeground",
             highlightFg: "list.highlightForeground",
@@ -162,19 +162,19 @@ describe("describeKeybindingRow — колонка When и подсветка", 
     });
 
     it("подсветка последнего символа НЕполного title сохраняется (keptLength = длина title)", () => {
-        // Короткий title целиком помещается: индекс последнего символа должен пройти фильтр.
+        // A short title fits entirely: the index of the last character must pass the filter.
         const layout = describeKeybindingRow(filtered({ title: "Ab" }, match([1])), WIDTH);
         expect(layout.matchIndices).toEqual([1]);
     });
 
     it("на обрезанном title индекс на границе keptLength отбрасывается (строгое <)", () => {
-        // Длинный title обрезается; keptLength = длина видимого префикса − 1 (место под «…»).
+        // A long title is truncated; keptLength = visible prefix length − 1 (room for "…").
         const title = "C".repeat(60);
         const layout = describeKeybindingRow(filtered({ title }, match([0, 1, 200])), WIDTH);
-        const kept = title.length; // не важно — важно, что граничные/за-границей индексы уходят
+        const kept = title.length; // exact value doesn't matter — what matters is that boundary/out-of-bounds indices are dropped
         expect(layout.matchIndices).toEqual([0, 1]);
         expect(layout.matchIndices.every((i) => i < kept)).toBe(true);
-        // Индекс ровно на keptLength и за ним отброшены — берём индекс в самом хвосте видимого.
+        // Indices at keptLength and beyond are dropped — take the index at the very tail of the visible part.
         const boundary = describeKeybindingRow(filtered({ title }, match([0, layout.text.indexOf("…")])), WIDTH);
         expect(boundary.matchIndices).toEqual([0]);
     });
@@ -199,7 +199,7 @@ describe("buildKeybindingRow — покраска колонок", () => {
 
         expect(fgAt(row, layout.whenSpan.start)).not.toBe(commandFg);
         expect(fgAt(row, layout.sourceSpan.start)).not.toBe(commandFg);
-        // Ровно за колонкой When (символ разделителя) приглушение НЕ течёт — граница спана точная.
+        // Right past the When column (the separator char) dimming does NOT leak — the span boundary is exact.
         expect(fgAt(row, layout.whenSpan.start + layout.whenSpan.length)).toBe(commandFg);
     });
 

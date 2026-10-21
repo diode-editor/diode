@@ -13,8 +13,8 @@ import { showTransientNotice } from "../../../services/statusbar/common/transien
 import { selectionRange } from "../../format/browser/formatActions.ts";
 
 /**
- * Stale-гардов, как у форматирования, нет: правки применяет субпроцесс через `workspace.applyEdit`,
- * атомарно (all-or-nothing по открытым документам).
+ * No stale guards like formatting has: the subprocess applies the edits via `workspace.applyEdit`,
+ * atomically (all-or-nothing across open documents).
  */
 async function runSourceAction(accessor: ServiceAccessor, only: string, noun: string): Promise<void> {
     const group = accessor.get(EditorServiceDIToken);
@@ -37,17 +37,17 @@ async function runSourceAction(accessor: ServiceAccessor, only: string, noun: st
             uri: editor.uri.toString(),
             languageId: editor.languageId,
             versionId: editor.model.document.versionId,
-            // Source-действия — на весь файл, выделение роли не играет (как в VS Code).
+            // Source actions apply to the whole file, the selection doesn't matter (as in VS Code).
             range: createRange(0, 0, lastLine, lines[lastLine].length),
             only,
         },
-        // Команда разовая: ответ нужен, даже если человек правит буфер, —
-        // правки субпроцесс валидирует сам при применении.
+        // One-shot command: the answer is needed even if the user edits the buffer —
+        // the subprocess validates the edits itself when applying.
         CancellationTokenNone,
     );
-    // Неактивные (`disabled`) не применяются. Если ничего, кроме них, нет —
-    // человеку показывается причина неактивного, а не «действий нет»
-    // (эталон: `getInvalidActionThatWouldHaveBeenApplied` у авто-применения).
+    // Disabled ones are not applied. If there is nothing but them,
+    // the user is shown the disabled reason, not "no actions"
+    // (upstream: `getInvalidActionThatWouldHaveBeenApplied` in auto-apply).
     const valid = items.filter((item) => item.action.disabled === undefined);
     if (valid.length === 0) {
         notice(items.at(0)?.action.disabled ?? `No ${noun} action for '${editor.languageId}'`);
@@ -60,8 +60,8 @@ async function runSourceAction(accessor: ServiceAccessor, only: string, noun: st
 }
 
 /**
- * Shift+Alt+O терминал без extended keys не передаёт: канонический бинд под tier-гейтом,
- * досягаемый везде путь — лидер-аккорд Ctrl+K Alt+O.
+ * The terminal doesn't send Shift+Alt+O without extended keys: the canonical binding is behind the tier gate,
+ * the path reachable everywhere is the leader chord Ctrl+K Alt+O.
  */
 export const organizeImportsAction: CommandAction = {
     id: "editor.action.organizeImports",
@@ -97,19 +97,19 @@ async function pickCodeAction(
             uri: editor.uri.toString(),
             languageId: editor.languageId,
             versionId: editor.model.document.versionId,
-            // Каретка/выделение — как VS Code: действия по месту (пустое
-            // выделение — строка каретки, чтобы накрыть диагностики строки).
+            // Cursor/selection as in VS Code: actions in place (an empty
+            // selection means the cursor line, to cover the line's diagnostics).
             range: selectionRange(editor.viewState.selections[0], text),
-            // Спред — про чистоту запроса: `only: undefined` значит «любой вид».
+            // The spread keeps the request clean: `only: undefined` means "any kind".
             ...(options.only === undefined ? {} : { only: options.only }),
         },
         CancellationTokenNone,
     );
-    // Неактивные (`CodeAction.disabled`) — как в эталоне
-    // (`CodeActionController.showCodeActionList`): Quick Fix их не показывает
-    // вовсе, а меню с запрошенным видом (рефакторинги, source) показывает их,
-    // только когда активных нет, — с причиной. Переключателя «Show Disabled»
-    // и серой отрисовки пункта у нас нет.
+    // Disabled ones (`CodeAction.disabled`) as upstream
+    // (`CodeActionController.showCodeActionList`): Quick Fix doesn't show them
+    // at all, and a menu with a requested kind (refactorings, source) shows them
+    // only when there are no active ones — with the reason. We have no "Show Disabled"
+    // toggle and no grayed-out item rendering.
     const valid = found.filter(({ action }) => action.disabled === undefined);
     const shown = valid.length > 0 || options.only === undefined ? valid : found;
     if (shown.length === 0) {
@@ -117,10 +117,10 @@ async function pickCodeAction(
         return;
     }
 
-    // Порядок VS Code: quickfix'ы выше рефакторингов и source-действий,
-    // preferred — первым в своей группе. Провайдеры обходятся в порядке
-    // регистрации, и без сортировки один многословный (16 рефакторингов
-    // tsserver) выталкивал фиксы линтера за край попапа.
+    // VS Code order: quickfixes above refactorings and source actions,
+    // preferred first in its group. Providers are walked in registration
+    // order, and without sorting one verbose provider (16 tsserver
+    // refactorings) pushed linter fixes past the popup edge.
     const kindRank = (kind: string | undefined): number => {
         if (kind === undefined) return 3;
         if (kind === "quickfix" || kind.startsWith("quickfix.")) return 0;
@@ -132,9 +132,9 @@ async function pickCodeAction(
         const byKind = kindRank(a.kind) - kindRank(b.kind);
         if (byKind !== 0) return byKind;
         const aPreferred = a.isPreferred === true;
-        // Stryker disable next-line ConditionalExpression,BooleanLiteral: какой элемент пары попадёт в `b` — деталь TimSort; для подъёма preferred достаточно aPreferred-ветки, и на стабильных входах мутант неотличим
+        // Stryker disable next-line ConditionalExpression,BooleanLiteral: which element of the pair lands in `b` is a TimSort detail; the aPreferred branch is enough to lift preferred, and on stable inputs the mutant is indistinguishable
         const bPreferred = b.isPreferred === true;
-        // Stryker disable next-line ConditionalExpression: «всегда не равны» вырождается в стабильную вставку тем же порядком — наблюдаемого различия нет
+        // Stryker disable next-line ConditionalExpression: "always unequal" degenerates into a stable insertion in the same order — no observable difference
         if (aPreferred === bPreferred) return 0;
         return aPreferred ? -1 : 1;
     });
@@ -142,8 +142,8 @@ async function pickCodeAction(
         label: action.title,
         ...(action.kind === undefined ? {} : { description: action.kind }),
         ...(action.isPreferred === true ? { badge: "preferred" } : {}),
-        // Причина неактивного — рядом с заголовком: в эталоне её показывает
-        // подсказка пункта (меню с заголовками групп, дефолт), у нас подсказок нет.
+        // The disabled reason goes next to the title: upstream shows it in the
+        // item's hover (menu with group headers, the default), we have no hovers.
         ...(action.disabled === undefined ? {} : { hint: action.disabled }),
     }));
     const picked = await quickInput.quickPick({
@@ -162,14 +162,14 @@ async function pickCodeAction(
     if (!applied) notice(`Code action failed: ${pick.action.title}`);
 }
 
-/** Ctrl+. legacy-терминал с Ctrl не кодирует — досягаемый везде второй бинд Ctrl+K Ctrl+Q. */
+/** The legacy terminal doesn't encode Ctrl+. — the second binding Ctrl+K Ctrl+Q is reachable everywhere. */
 export const quickFixAction: CommandAction = {
     id: "editor.action.quickFix",
     title: "Quick Fix",
     keybinding: parseKeybinding("mod+."),
     keybindings: [parseChord("ctrl+k ctrl+q")],
     when: "textInputFocus && !editorReadonly",
-    // Своя группа эталона (`codeActionCommands.ts`): ниже блока правок.
+    // Upstream's own group (`codeActionCommands.ts`): below the edit block.
     menus: [{ menuId: MenuId.EditorContext, group: "1_quickfix", order: 0, when: "editorHasCodeActionsProvider" }],
     run(accessor) {
         return pickCodeAction(accessor, { title: "Code Actions", empty: "No code actions available" });
@@ -177,8 +177,8 @@ export const quickFixAction: CommandAction = {
 };
 
 /**
- * Ctrl+Shift+R на legacy-терминале неотличим от Ctrl+R: канонический бинд под tier-гейтом,
- * рядом — досягаемый везде лидер-аккорд.
+ * Ctrl+Shift+R is indistinguishable from Ctrl+R on a legacy terminal: the canonical binding is behind the tier gate,
+ * next to it the leader chord reachable everywhere.
  */
 export const refactorAction: CommandAction = {
     id: "editor.action.refactor",

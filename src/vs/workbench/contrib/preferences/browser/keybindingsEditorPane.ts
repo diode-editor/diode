@@ -30,12 +30,12 @@ import type { IKeybindingRowStyles } from "./keybindingRows.ts";
 import { buildKeybindingHeaderRow, buildKeybindingRow, describeKeybindingRow } from "./keybindingRows.ts";
 
 /**
- * Файла за схемой нет — это идентичность вкладки: `EditorService.openPane` по ней переключается на уже
- * открытую вкладку вместо второй (приём `extension:`).
+ * There is no file behind the scheme — it is the tab's identity: `EditorService.openPane` uses it to switch to the already
+ * open tab instead of opening a second one (the `extension:` technique).
  */
 export const KEYBINDINGS_EDITOR_SCHEME = "keybindings";
 
-/** Вкладка одна на окно — путь фиксированный. */
+/** One tab per window — the path is fixed. */
 export function keybindingsEditorUri(): Uri {
     return Uri.from({ scheme: KEYBINDINGS_EDITOR_SCHEME, path: "global" });
 }
@@ -46,7 +46,7 @@ export interface IKeybindingsEditorTarget {
 
 export const KeybindingsEditorTargetDIToken = token<IKeybindingsEditorTarget>("KeybindingsEditorTarget");
 
-/** `null` — отмена. */
+/** `null` means cancel. */
 export interface IKeybindingRecorder {
     record(commandTitle: string): Promise<KeybindingChord | null>;
 }
@@ -62,8 +62,8 @@ const ROW_STYLES: IKeybindingRowStyles = {
 };
 
 /**
- * Ширина известна только в раскладке — приём `ExtensionPageElement`: строки пересобираются на СМЕНУ ширины
- * прямо в `performLayout`, до раскладки ребёнка, чтобы первый кадр был полон.
+ * Width is known only during layout — the `ExtensionPageElement` technique: rows are rebuilt on a width CHANGE
+ * right in `performLayout`, before the child's layout, so the first frame is complete.
  */
 class KeybindingsEditorElement extends TUIElement {
     private lastWidth: number | null = null;
@@ -75,7 +75,7 @@ class KeybindingsEditorElement extends TUIElement {
         super();
         this.appendChild(child);
         this.id = "keybindingsEditor";
-        // Stryker disable next-line ObjectLiteral: цвета корня — токены темы; кадровые тесты фон не пиннят.
+        // Stryker disable next-line ObjectLiteral: root colors are theme tokens; frame tests don't pin the background.
         this.style = { fg: "editor.foreground", bg: "editor.background" };
     }
 
@@ -90,7 +90,7 @@ class KeybindingsEditorElement extends TUIElement {
     }
 }
 
-/** Мутации применяются мгновенно, ошибка записи — строкой. Read-only как вкладка: текстовой проекции нет. */
+/** Mutations apply immediately, a write error shows as a row. Read-only as a tab: there is no text projection. */
 export class KeybindingsEditorPane extends Disposable implements IEditorPane {
     public readonly uri = keybindingsEditorUri();
     public readonly label = "Keyboard Shortcuts";
@@ -105,9 +105,9 @@ export class KeybindingsEditorPane extends Disposable implements IEditorPane {
     });
     private readonly rowItems = new Map<string, IKeybindingItem>();
     private items: IKeybindingItem[];
-    /** `null` — до первой раскладки. */
+    /** `null` until the first layout. */
     private width: number | null = null;
-    /** Держится до следующей успешной мутации. */
+    /** Kept until the next successful mutation. */
     private operationError: string | null = null;
 
     public constructor(
@@ -126,7 +126,7 @@ export class KeybindingsEditorPane extends Disposable implements IEditorPane {
         };
         this.control.onActivateRow = (rowId) => {
             const item = this.rowItems.get(rowId);
-            // Stryker disable next-line ConditionalExpression: снятие guard'а вызывает changeKeybinding(undefined) → item.title кидает из fire-and-forget промиса; unhandled-ошибка из слушателя роняет раннер вместо падения теста (дыра в локализации ошибок эмиттеров, см. docs/MUTATION.md → #275), а не пробел в тестах этой строки.
+            // Stryker disable next-line ConditionalExpression: removing the guard calls changeKeybinding(undefined) → item.title throws from a fire-and-forget promise; an unhandled error from the listener crashes the runner instead of failing a test (a gap in emitter error localization, see docs/MUTATION.md → #275), not a gap in this line's tests.
             if (item !== undefined) void this.changeKeybinding(item);
         };
         this.control.list.onContextMenu = (element, screenX, screenY) => {
@@ -155,7 +155,7 @@ export class KeybindingsEditorPane extends Disposable implements IEditorPane {
     }
 
     public onDidChangeState(): IDisposable {
-        // Метка и маркер правки вкладки неизменны — событию не с чего стрелять.
+        // The tab's label and dirty marker never change — nothing for the event to fire on.
         return {
             dispose: () => {
                 /* no-op */
@@ -171,7 +171,7 @@ export class KeybindingsEditorPane extends Disposable implements IEditorPane {
         this.control.setQuery(query);
     }
 
-    /** У строки без биндинга — добавить. */
+    /** On a row without a binding it adds one. */
     private async changeKeybinding(item: IKeybindingItem): Promise<void> {
         const chord = await this.recorder.record(item.title);
         if (chord === null) return;
@@ -186,8 +186,8 @@ export class KeybindingsEditorPane extends Disposable implements IEditorPane {
 
     private async runMutation(mutation: Promise<{ ok: true } | { ok: false; error: string }>): Promise<void> {
         const result = await mutation;
-        // Успешная мутация перерисует список событием сервиса — ошибку
-        // показываем сами (и сбрасываем прошлую при успехе).
+        // A successful mutation redraws the list via the service event — the error
+        // we show ourselves (and clear the previous one on success).
         this.operationError = result.ok ? null : result.error;
         if (!result.ok) this.rebuildRows();
     }
@@ -243,10 +243,10 @@ export class KeybindingsEditorPane extends Disposable implements IEditorPane {
         return entries;
     }
 
-    /** `undefined` — строка без биндинга. */
+    /** `undefined` for a row without a binding. */
     private snapshotOf(item: IKeybindingItem): IKeybindingEntrySnapshot | undefined {
-        // При инварианте chord⇔source вторая половина недостижима — она лишь сужает тип `source`.
-        // Stryker disable next-line ConditionalExpression,LogicalOperator: избыточная двойная проверка при инварианте chord⇔source — внутренние мутации условия не дают наблюдаемой строки модели.
+        // Under the chord⇔source invariant the second half is unreachable — it only narrows the type of `source`.
+        // Stryker disable next-line ConditionalExpression,LogicalOperator: redundant double check under the chord⇔source invariant — internal mutations of the condition produce no observable model row.
         if (item.chord === null || item.source === null) return undefined;
         return { chord: item.chord, commandId: item.commandId, when: item.when, source: item.source };
     }
@@ -260,7 +260,7 @@ export class KeybindingsEditorPane extends Disposable implements IEditorPane {
         const filtered = filterKeybindingItems(this.items, this.control.getQuery(), this.labelStyle());
 
         this.control.list.clear();
-        // Stryker disable next-line CallExpression: список очищается строкой выше, а id строк — последовательные (kb-0…), поэтому lookup всегда попадает в актуальную запись; повторная чистка карты защитная и ненаблюдаема.
+        // Stryker disable next-line CallExpression: the list is cleared on the line above, and row ids are sequential (kb-0…), so lookup always hits the current entry; clearing the map again is defensive and unobservable.
         this.rowItems.clear();
         this.control.list.appendRow(buildKeybindingHeaderRow(HEADER_ROW_ID, this.width, ROW_STYLES.dimFg));
         if (this.operationError !== null) {
@@ -276,11 +276,11 @@ export class KeybindingsEditorPane extends Disposable implements IEditorPane {
         if (filtered.length === 0) this.control.showPlaceholderRow(EMPTY_ROW_ID, "No keybindings found");
     }
 
-    /** `width` приходит из rebuildRows — единственного вызывающего, где он уже проверен. */
+    /** `width` comes from rebuildRows — the only caller, where it is already checked. */
     private appendItemRow(entry: IFilteredKeybindingItem, index: number, width: number): void {
         const layout = describeKeybindingRow(entry, width, this.labelStyle());
         const rowId = `kb-${String(index)}`;
-        // Stryker disable next-line ObjectLiteral: label — подсказка для typeahead списка, а он у вкладки выключен; на поведение не влияет.
+        // Stryker disable next-line ObjectLiteral: label is a hint for the list's typeahead, which is off in this tab; it doesn't affect behavior.
         this.control.list.appendRow(buildKeybindingRow(rowId, layout, ROW_STYLES), { label: entry.item.title });
         this.rowItems.set(rowId, entry.item);
     }

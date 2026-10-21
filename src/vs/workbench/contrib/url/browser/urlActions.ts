@@ -4,14 +4,14 @@ import { type IStateDescriptor, StateServiceDIToken } from "../../../../platform
 import { URLServiceDIToken } from "../../../../platform/url/common/url.ts";
 import { QuickInputServiceDIToken } from "../../../browser/parts/quickinput/quickInputService.ts";
 
-/** Последний введённый URL — ключ и область эталона (`OpenUrlAction.STORAGE_KEY`). */
+/** Last entered URL — upstream's key and scope (`OpenUrlAction.STORAGE_KEY`). */
 export const OPEN_URL_LAST_INPUT_STATE: IStateDescriptor<string> = {
     key: "workbench.action.url.openUrl.lastInput",
     scope: "workspace",
     default: "",
 };
 
-/** `diode://<id расширения>/…` уходит обработчику URI расширения, как если бы URL открыла ОС. */
+/** `diode://<extension id>/…` goes to the extension's URI handler, as if the OS had opened the URL. */
 export const openUrlAction: CommandAction = {
     id: "workbench.action.url.openUrl",
     title: "Developer: Open URL",

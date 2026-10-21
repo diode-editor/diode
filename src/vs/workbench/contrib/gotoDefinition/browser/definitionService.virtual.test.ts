@@ -14,10 +14,10 @@ import { HistoryServiceDIToken } from "../../../services/history/browser/history
 
 import { DefinitionServiceDIToken } from "./definitionService.ts";
 
-// Недисковая `jdt:`-цель стокового `redhat.java`: такой прыжок раньше ронял процесс —
-// `TextFileModel.openFile` бросал на не-file схеме, промис команды никто не ждал.
+// A non-disk `jdt:` target from the stock `redhat.java` extension: such a jump used to crash the process,
+// `TextFileModel.openFile` threw on a non-file scheme and nobody awaited the command's promise.
 
-/** Query с процентным кодированием, как у jdt.ls: сравнение со строкой ресурса вкладки на этом ломалось. */
+/** Percent-encoded query, as from jdt.ls: comparing against the tab's resource string broke on this. */
 const JDT_TARGET =
     "jdt://contents/commons-lang3-3.14.0.jar/org.apache.commons.lang3/StringUtils.java" +
     "?=mvn-proj/%5C/home%5C/vscode%5C/.m2%5C/repository%3D/maven.pomderived=/true";
@@ -67,8 +67,8 @@ describe("DefinitionService — цель на недисковом ресурс�
         expect(editor?.uri.scheme).toBe("jdt");
         expect(editor?.getText()).toBe(JDT_SOURCE);
         expect(editor?.readOnly).toBe(true);
-        // Ровно та строка, которую назвал сервер, — вот ради чего прыжок ждёт
-        // содержимого провайдера, а не открывает вкладку «когда-нибудь потом».
+        // Exactly the line the server named: this is why the jump waits for the
+        // provider's content instead of opening the tab "sometime later".
         expect(caret()).toMatchObject({ line: 2, character: 13 });
     });
 
@@ -80,7 +80,7 @@ describe("DefinitionService — цель на недисковом ресурс�
         useDefinitions(() => Promise.resolve([{ uri: JDT_TARGET, range: createRange(0, 8, 0, 20) }]));
 
         h.testApp.sendKey("F12");
-        // Команда не ждётся: прокачиваем цепочку «реестр → провайдеры → открытие файла».
+        // The command isn't awaited: pump the registry → providers → file open chain.
         await flushMicrotasks(10);
 
         expect(group().getActiveEditor()?.uri.scheme).toBe("jdt");
@@ -93,12 +93,12 @@ describe("DefinitionService — цель на недисковом ресурс�
         useDefinitions(() => Promise.resolve([{ uri: JDT_TARGET, range: createRange(2, 13, 2, 24) }]));
 
         h.testApp.sendKey("F12");
-        // Команда не ждётся: прокачиваем цепочку «реестр → провайдеры → открытие файла».
+        // The command isn't awaited: pump the registry → providers → file open chain.
         await flushMicrotasks(10);
 
         expect(group().editorGroups.activeGroup.editorCount).toBe(1);
         expect(group().getActiveEditor()?.uri.scheme).toBe("file");
-        // Каретка осталась на месте: чужие координаты в наш файл не уехали.
+        // The cursor stayed put: foreign coordinates didn't leak into our file.
         expect(caret()).toMatchObject({ line: 0, character: 0 });
         expect(failures).toHaveLength(1);
         service();
@@ -116,9 +116,9 @@ describe("DefinitionService — цель на недисковом ресурс�
         await service().revealDefinition();
         const history = h.container.get(HistoryServiceDIToken);
 
-        // Ровно две записи: откуда прыгнули и куда. Промежуточного «открыли
-        // ресурс в начале» быть не должно — за это отвечает jumpAsync, который
-        // снимает точку назначения уже ПОСЛЕ ответа провайдера.
+        // Exactly two entries: where we jumped from and where to. There must be no
+        // intermediate "opened the resource at the top"; that's jumpAsync's job, which
+        // records the destination only AFTER the provider responds.
         expect(history.getEntries().map((e) => e.uri.scheme)).toEqual(["file", "jdt"]);
         expect(history.getEntries()[0]).toMatchObject({ line: 1, character: 4 });
         expect(history.getEntries()[1]).toMatchObject({ line: 2, character: 13 });
@@ -127,8 +127,8 @@ describe("DefinitionService — цель на недисковом ресурс�
         expect(group().getActiveEditor()?.uri.toString()).toBe(appUri);
         expect(caret()).toMatchObject({ line: 1, character: 4 });
 
-        // Возврат в исходник из jar — тоже синхронный: вкладка открыта, и
-        // провайдера ради неё никто заново не тревожит.
+        // Going back to the source from the jar is synchronous too: the tab is open, and
+        // nobody bothers the provider again for it.
         history.goForward();
         expect(group().getActiveEditor()?.uri.scheme).toBe("jdt");
         expect(caret()).toMatchObject({ line: 2, character: 13 });
@@ -141,8 +141,8 @@ describe("DefinitionService — цель на недисковом ресурс�
         await service().revealDefinition();
         expect(provide).toHaveBeenCalledTimes(1);
 
-        // Второй F12 уже ВНУТРИ исходника из jar, цель — он же: вкладка ищется
-        // по ресурсу и переиспользуется, провайдера ради неё не тревожат.
+        // The second F12 is already INSIDE the jar source, targeting that same source: the tab is looked up
+        // by resource and reused, and the provider isn't bothered for it.
         group().getActiveEditor()?.goToPosition(0, 0);
         await service().revealDefinition();
 
@@ -159,7 +159,7 @@ describe("DefinitionService — цель на недисковом ресурс�
         const source = () => Promise.resolve([{ uri: JDT_TARGET, range: createRange(2, 13, 2, 24) }]);
         useDefinitions(source);
 
-        // Вкладок нет — спрашивать провайдеров определения не у чего.
+        // No tabs, so there's nothing to ask definition providers about.
         h.commands.execute("workbench.action.closeActiveEditor");
         expect(group().getActiveEditor()).toBeNull();
         await expect(service().revealDefinition()).resolves.toBeUndefined();

@@ -20,7 +20,7 @@ export const DefinitionServiceDIToken = token<DefinitionService>("DefinitionServ
 export class DefinitionService {
     public static dependencies = [EditorServiceDIToken, JumpRecorderDIToken, LanguageFeaturesServiceDIToken] as const;
 
-    /** Повторный F12 перебивает прежний запрос: прыгает только последний. */
+    /** A repeated F12 supersedes the previous request: only the latest one jumps. */
     private readonly latest = new LatestRequest();
 
     public constructor(
@@ -30,8 +30,8 @@ export class DefinitionService {
     ) {}
 
     /**
-     * Ответ после правки или ухода каретки не применяется (upstream `EditorStateCancellationTokenSource`):
-     * медленный провайдер (jdtls на холодном старте) иначе уносит человека в другой файл задним числом.
+     * A response after an edit or a cursor move is not applied (upstream `EditorStateCancellationTokenSource`):
+     * otherwise a slow provider (jdtls on a cold start) would retroactively carry the user off to another file.
      */
     public async revealDefinition({ toSide = false }: { toSide?: boolean } = {}): Promise<void> {
         const editor = this.group.getActiveEditor();
@@ -41,9 +41,9 @@ export class DefinitionService {
         const ticket = this.latest.start(state.token);
         const caret = editor.viewState.selections[0].active;
         let locations: readonly ICoreDefinitionLocation[];
-        // Уборка подписок отработавшего запроса ненаблюдаема: забытая подписка лишь
-        // отменила бы уже никому не нужный токен.
-        // Stryker disable BlockStatement: см. выше — мутант пустого finally
+        // Cleanup of a finished request's subscriptions is unobservable: a forgotten subscription would only
+        // cancel a token nobody needs anymore.
+        // Stryker disable BlockStatement: see above, the empty-finally mutant
         try {
             locations = await getDefinitions(
                 this.languageFeatures.definitionProvider,
@@ -58,7 +58,7 @@ export class DefinitionService {
                 ticket.token,
             );
         } finally {
-            // Stryker disable next-line CallExpression: см. выше
+            // Stryker disable next-line CallExpression: see above
             state.dispose();
         }
         // Stryker restore BlockStatement
@@ -69,24 +69,24 @@ export class DefinitionService {
     }
 
     /**
-     * `jumpAsync`, а не `jump`: недисковая цель (`jdt:`) открывается через провайдера схемы, и точку
-     * назначения можно снять только после этого — без промежуточного «открыли файл в начале».
+     * `jumpAsync`, not `jump`: a non-disk target (`jdt:`) opens via the scheme provider, and the
+     * destination can be recorded only after that, without an intermediate "opened the file at the top".
      */
     private revealLocation(location: ICoreDefinitionLocation, toSide: boolean): Promise<void> {
         return this.jumps.jumpAsync(() => this.doRevealLocation(location, toSide));
     }
 
     private async doRevealLocation(location: ICoreDefinitionLocation, toSide: boolean): Promise<void> {
-        // Не сравнивать со строкой `location.uri`: `Uri` нормализует процентное кодирование, и у
-        // `jdt:`-целей с огромным query строки НИКОГДА не совпадут.
+        // Don't compare against the `location.uri` string: `Uri` normalizes percent-encoding, and for
+        // `jdt:` targets with a huge query the strings NEVER match.
         const uri = Uri.parse(location.uri);
         const key = uri.toString();
-        // Открываем безусловно, даже в том же файле: дедуп по ресурсу живёт в `openUri`.
+        // Open unconditionally, even in the same file: dedup by resource lives in `openUri`.
         await this.group.openUri(uri, toSide ? { group: "beside" } : {});
         const editor = this.group.getActiveEditor();
-        // Ресурс мог не открыться: недисковую цель отдаёт провайдер схемы, а его
-        // может не быть (человек уже увидел сообщение — см. `onDidFailOpen`).
-        // Stryker disable next-line OptionalChaining: без активного редактора сюда не попасть — `revealDefinition` выходит раньше, чем спросит провайдеров; `?.` держим страховкой для будущих вызывающих
+        // The resource may have failed to open: a non-disk target comes from the scheme provider, which
+        // may be missing (the user has already seen a message, see `onDidFailOpen`).
+        // Stryker disable next-line OptionalChaining: without an active editor we can't get here, since `revealDefinition` exits before asking providers; `?.` stays as a safeguard for future callers
         if (editor?.uri.toString() !== key) return;
         editor.goToPosition(location.range.start.line, location.range.start.character);
         editor.revealRange(location.range);

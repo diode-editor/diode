@@ -43,7 +43,7 @@ function makeSetup(
     const applied: { edits: readonly ITextEdit[]; label: string }[] = [];
     const requests: IFormattingRequest[] = [];
     const contentListeners = new Set<() => void>();
-    // Версия модели: запрос несёт её вместо текста; правка документа её поднимает.
+    // Model version: the request carries it instead of the text; a document edit bumps it.
     const document = { versionId: 1 };
     const editor = {
         uri: Uri.file("/proj/a.py"),
@@ -128,17 +128,17 @@ describe("editor.action.formatDocument", () => {
         const setup = makeSetup(() => Promise.resolve([EDIT]), {
             selection: { anchor: { line: 0, character: 7 }, active: { line: 0, character: 7 } },
         });
-        // Правка до команды поднимает версию: запрос берёт текущую, а не начальную.
+        // An edit before the command bumps the version: the request takes the current one, not the initial.
         setup.setText("const  a=1;\nsecond line\nthird");
         await formatDocumentAction.run(setup.accessor);
         expect(setup.applied).toEqual([{ edits: [EDIT], label: "Format Document" }]);
         expect(setup.notices).toEqual([]);
         expect(setup.contentListenerCount()).toBe(0);
-        // После применения — ОДНА каретка на прежнем месте, а не по каретке на
-        // каждую правку (мультикурсорная семантика applyEdits форматтеру чужая).
+        // After applying there is ONE cursor at its previous place, not a cursor per
+        // edit (applyEdits' multi-cursor semantics don't fit a formatter).
         expect(setup.selections()).toEqual([createSelection(0, 7, 0, 7)]);
-        // Запрос несёт версию модели (не текст) и настройки отступов активного
-        // редактора, БЕЗ range (strict: даже `range: undefined` — лишний ключ).
+        // The request carries the model version (not the text) and the active editor's
+        // indentation options, WITHOUT range (strict: even `range: undefined` is an extra key).
         expect(setup.requests).toStrictEqual([
             {
                 uri: Uri.file("/proj/a.py").toString(),
@@ -156,7 +156,7 @@ describe("editor.action.formatDocument", () => {
         expect(noSource.applied).toEqual([]);
         expect(noSource.notices).toEqual(["formatting.notice: No formatter for 'python' installed"]);
 
-        // Форматтер есть, но для чужого языка — к нему даже не ходят.
+        // There is a formatter, but for another language: it isn't even called.
         const foreign = makeSetup(() => Promise.resolve([EDIT]), { selector: "typescript" });
         await formatDocumentAction.run(foreign.accessor);
         await formatSelectionAction.run(foreign.accessor);
@@ -208,7 +208,7 @@ describe("editor.action.formatDocument", () => {
             selection: { anchor: { line: 99, character: 50 }, active: { line: 99, character: 50 } },
         });
         await formatDocumentAction.run(outOfRange.accessor);
-        // Текст фейка не меняется: 3 строки, последняя "third" (5 символов).
+        // The fake's text doesn't change: 3 lines, the last is "third" (5 chars).
         expect(outOfRange.selections()).toEqual([createSelection(2, 5, 2, 5)]);
 
         const noSelections = makeSetup(() => Promise.resolve([EDIT]), { noSelections: true });
@@ -231,8 +231,8 @@ describe("метаданные формат-команд", () => {
         expect(formatDocumentAction.id).toBe("editor.action.formatDocument");
         expect(formatDocumentAction.title).toBe("Format Document");
         expect(formatDocumentAction.when).toBe("textInputFocus && !editorReadonly");
-        // Первичный — досягаемый везде аккорд: именно он идёт в подпись палитры и
-        // меню там, где Shift+Alt+F не доезжает. Канонический — под tier-гейтом.
+        // Primary is the chord reachable everywhere: it's the one shown in the command palette and
+        // menus where Shift+Alt+F doesn't get through. The canonical one is behind the tier gate.
         expect(formatDocumentAction.keybinding).toEqual(parseChord("ctrl+k ctrl+e"));
         expect(formatDocumentAction.keybindings).toEqual([
             { keys: parseKeybinding("shift+alt+f"), when: "tier != 'legacy'" },
@@ -254,7 +254,7 @@ describe("editor.action.formatSelection", () => {
         expect(forward.requests[0].range).toEqual(createRange(1, 1, 2, 3));
 
         const setup = makeSetup(() => Promise.resolve([EDIT]), {
-            // Перевёрнутое: каретка ВЫШЕ якоря — границы меняются местами.
+            // Reversed: cursor ABOVE the anchor, so the bounds swap.
             selection: { anchor: { line: 2, character: 3 }, active: { line: 1, character: 1 } },
         });
         await formatSelectionAction.run(setup.accessor);
@@ -267,13 +267,13 @@ describe("editor.action.formatSelection", () => {
             selection: { anchor: { line: 1, character: 4 }, active: { line: 1, character: 4 } },
         });
         await formatSelectionAction.run(setup.accessor);
-        // Строка 1 — "second line" (11 символов).
+        // Line 1 is "second line" (11 chars).
         expect(setup.requests[0].range).toEqual(createRange(1, 0, 1, 11));
     });
 
     it("грани: вью без выделений — строка 0; каретка за пределами текста — пустой диапазон", async () => {
-        // Пустой список выделений (в живом редакторе не бывает, защитная ветка):
-        // дефолтная пустая позиция (0,0) — строка 0 ("const  a=1;", 11 символов).
+        // Empty selection list (never happens in a live editor, defensive branch):
+        // the default empty position (0,0) is line 0 ("const  a=1;", 11 chars).
         const noSelections = makeSetup(() => Promise.resolve([]), { noSelections: true });
         await formatSelectionAction.run(noSelections.accessor);
         expect(noSelections.requests[0].range).toEqual(createRange(0, 0, 0, 11));

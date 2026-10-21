@@ -24,12 +24,12 @@ import {
     PROFILES_CATEGORY,
 } from "../../../services/userDataProfile/common/userDataProfile.ts";
 
-/** Строка пикера, несущая свой профиль (виджет возвращает тот же объект). */
+/** A picker row carrying its profile (the widget returns the same object). */
 interface IProfilePickItem extends QuickPickItem {
     readonly profile: IUserDataProfile;
 }
 
-/** Текст отказа редактора профилей эталона на занятое имя. */
+/** Upstream profile editor's refusal text for a taken name. */
 export function profileNameExistsMessage(name: string): string {
     return `Profile with name ${name} already exists.`;
 }
@@ -37,7 +37,7 @@ export function profileNameExistsMessage(name: string): string {
 export const NEW_PROFILE_EMPTY_LABEL = "Empty";
 export const NEW_PROFILE_COPY_LABEL = "Copy from current";
 
-/** Тостом, как `notificationService.error` эталона: иначе человек видит «ничего не произошло». */
+/** As a toast, like upstream's `notificationService.error`: otherwise the user sees "nothing happened". */
 function notifyError(accessor: ServiceAccessor, err: unknown): void {
     accessor.get(NotificationServiceDIToken).show({
         severity: "error",
@@ -57,8 +57,8 @@ async function notifyingErrors(accessor: ServiceAccessor, run: () => Promise<voi
 }
 
 /**
- * Профиль фиксирован на процесс, поэтому вход — перезагрузка окна, как у remote-окна эталона, а не
- * перезапуск extension host (docs/TODO/Profiles.md). Пустое окно привязки не имеет.
+ * The profile is fixed per process, so switching means reloading the window, like upstream's remote window, not
+ * restarting the extension host (docs/TODO/Profiles.md). An empty window has no binding.
  */
 async function enterProfile(accessor: ServiceAccessor, profile: IUserDataProfile): Promise<void> {
     const workspace = profileWorkspaceKey(accessor.get(IWorkspaceContextServiceDIToken).getWorkspace());
@@ -74,8 +74,8 @@ async function switchProfile(accessor: ServiceAccessor): Promise<void> {
     const items: IProfilePickItem[] = [...profiles.profiles]
         .sort((a, b) => a.name.localeCompare(b.name))
         .map((profile) => ({
-            // Разметка эталона `$(check) name`; глиф подставляем сами — виджет
-            // носит метку как есть (подмена живёт на границе с расширениями).
+            // Upstream markup is `$(check) name`; we substitute the glyph ourselves — the widget
+            // carries the label as is (substitution lives at the extension boundary).
             label: profile.id === current.id ? renderCodicons(`$(check) ${profile.name}`) : profile.name,
             profile,
         }));
@@ -87,7 +87,7 @@ async function switchProfile(accessor: ServiceAccessor): Promise<void> {
     await enterProfile(accessor, picked.profile);
 }
 
-/** Два шага quick input вместо формы редактора профилей эталона (docs/TODO/Profiles.md, итерация 4). */
+/** Two quick input steps instead of upstream's profile editor form (docs/TODO/Profiles.md, iteration 4). */
 async function createProfile(accessor: ServiceAccessor): Promise<void> {
     const quickInput = accessor.get(QuickInputServiceDIToken);
     const profiles = accessor.get(IUserDataProfilesServiceDIToken);
@@ -95,7 +95,7 @@ async function createProfile(accessor: ServiceAccessor): Promise<void> {
     const name = await quickInput.input({
         title: "New Profile",
         placeholder: "Profile name",
-        // Пустое имя не отказ (ввод просто не примется), а у профилей пустых имён не бывает.
+        // An empty name is not a refusal (the input just isn't accepted), and profiles never have empty names.
         validateInput: (value) => {
             const trimmed = value.trim();
             return profiles.profiles.some((p) => p.name === trimmed) ? profileNameExistsMessage(trimmed) : null;
@@ -123,8 +123,8 @@ async function createProfile(accessor: ServiceAccessor): Promise<void> {
 }
 
 /**
- * Из настроек вырезаются `application`-ключи: в именованном профиле они не действуют и давали бы warn
- * на каждом старте. Сами расширения лежат в общем каталоге — копия состава есть копия списка.
+ * `application` keys are stripped from settings: they don't apply in a named profile and would warn
+ * on every start. Extensions themselves live in a shared directory — copying the set means copying the list.
  */
 export async function copyProfileContents(
     files: IFileService,
@@ -155,9 +155,9 @@ async function readTextIfExists(files: IFileService, filePath: string): Promise<
     return new TextDecoder().decode((await files.readFile(resource)).value);
 }
 
-/** JSONC без перечисленных ключей верхнего уровня; комментарии и формат остальных — на месте. */
+/** JSONC without the listed top-level keys; comments and formatting of the rest stay in place. */
 export function withoutKeys(content: string, keys: readonly string[]): string {
-    // Stryker disable next-line ArrayDeclaration,ObjectLiteral,BooleanLiteral: ошибки разбора здесь не читаются, а парсер терпим к висячей запятой и без опции
+    // Stryker disable next-line ArrayDeclaration,ObjectLiteral,BooleanLiteral: parse errors aren't read here, and the parser tolerates a trailing comma even without the option
     const parsed: unknown = parseJsonc(content, [], { allowTrailingComma: true });
     if (typeof parsed !== "object" || parsed === null) return content;
     let next = content;
@@ -168,15 +168,15 @@ export function withoutKeys(content: string, keys: readonly string[]): string {
     return next;
 }
 
-/** С чужим отступом `modify` переформатирует соседа снятого ключа. Без отступов (одна строка) — 4 пробела. */
+/** With a foreign indent `modify` reformats the removed key's neighbor. Without indents (one line) — 4 spaces. */
 export function formattingOptionsOf(content: string): FormattingOptions {
     const indent = /^[ \t]+(?=\S)/m.exec(content)?.[0];
     if (indent === undefined) return { insertSpaces: true, tabSize: 4 };
-    // Любой таб в отступе — табуляция; ширина тогда в вывод не попадает, только форма отступа.
+    // Any tab in the indent means tabs; the width then doesn't reach the output, only the indent kind.
     return indent.includes("\t") ? { insertSpaces: false, tabSize: 4 } : { insertSpaces: true, tabSize: indent.length };
 }
 
-/** Удалён текущий — окно перезагружается в профиль воркспейса (эталон предлагает reload сообщением). */
+/** Deleting the current profile reloads the window into the workspace profile (upstream offers a reload via a message). */
 async function deleteProfile(accessor: ServiceAccessor): Promise<void> {
     const profiles = accessor.get(IUserDataProfilesServiceDIToken);
     const current = accessor.get(IUserDataProfileServiceDIToken).currentProfile;

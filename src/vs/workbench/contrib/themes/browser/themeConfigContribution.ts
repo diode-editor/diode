@@ -26,7 +26,7 @@ export class ThemeConfigContribution extends Disposable implements IWorkbenchCon
         );
     }
 
-    /** Уже активную тему (правку внёс сам theme-picker) не перекрашиваем; неизвестное имя игнорируем. */
+    /** Don't recolor to the already active theme (the edit came from the theme picker itself); ignore unknown names. */
     private applyColorThemeFromConfiguration(): void {
         const name = this.configurationService.get("workbench.colorTheme");
         if (name === this.themeService.theme.name) return;

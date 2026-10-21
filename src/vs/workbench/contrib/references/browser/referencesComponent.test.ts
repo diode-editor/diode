@@ -92,7 +92,7 @@ describe("ReferencesComponent — наполнение панели", () => {
         expect(screen).toContain("src/b.ts");
         expect(screen).toContain("7");
         expect(component.resultCount).toBe(3);
-        // 2 файла + 3 ссылки.
+        // 2 files + 3 references.
         expect(component.results.contentHeight).toBe(5);
     });
 
@@ -124,7 +124,7 @@ describe("ReferencesComponent — наполнение панели", () => {
 
         component.clear();
         const backend = render(component);
-        // Шапка ровно пустая, а не «что-нибудь без слова results».
+        // The header is exactly empty, not "anything without the word results".
         expect(line(backend, 0)).toBe("".padEnd(40, " "));
         screen = backend.screenToString();
         expect(screen).not.toContain("c.ts");
@@ -156,8 +156,8 @@ describe("ReferencesComponent — оформление", () => {
         component.setResults(twoFiles());
         const backend = render(component);
 
-        // Вторая ссылка (строка 3 кадра) — под курсором первая, а его фон
-        // перебивает подсветку вхождения.
+        // The second reference (frame row 3): the first is under the cursor, and its background
+        // overrides the match highlight.
         const y = 3;
         const text = line(backend, y);
         const at = text.indexOf("greet");
@@ -197,8 +197,8 @@ describe("ReferencesComponent — клавиатура списка", () => {
     it("typeahead прыгает на файл по началу имени", () => {
         const component = make();
         component.setResults(twoFiles());
-        // Курсор стоит на первой ссылке src/a.ts; набор «src/b» уводит на строку
-        // второго файла (метка строки файла — его путь).
+        // The cursor is on the first reference of src/a.ts; typing "src/b" moves to the row
+        // of the second file (a file row's label is its path).
         for (const key of ["s", "r", "c", "/", "b"]) {
             component.results.dispatchEvent(new TUIKeyboardEvent("keypress", { key }));
         }
@@ -215,8 +215,8 @@ describe("ReferencesComponent — сворачивание", () => {
         component.collapseDeepestLevel();
         expect(component.results.contentHeight).toBe(2);
         expect(component.results.isCollapsed("file:src/a.ts")).toBe(true);
-        // Сворачиваются только файлы: у самих ссылок детей нет, и помечать их
-        // свёрнутыми незачем.
+        // Only files collapse: references themselves have no children, and there's no point
+        // marking them collapsed.
         expect(component.results.isCollapsed("ref:src/a.ts:0")).toBe(false);
 
         component.expandAll();
@@ -252,7 +252,7 @@ describe("ReferencesComponent — открытие ссылки", () => {
         component.results.onActivate!({ id: "ref:src/a.ts:1" } as never);
 
         expect(reveal.opened).toEqual(["/work/project/src/a.ts"]);
-        // lineNumber 7 (1-based) → строка 6 редактора; колонки — из превью.
+        // lineNumber 7 (1-based) → editor line 6; columns come from the preview.
         expect(reveal.positions).toEqual([[6, 9]]);
         expect(reveal.ranges).toEqual([{ start: { line: 6, character: 9 }, end: { line: 6, character: 14 } }]);
     });
@@ -332,8 +332,8 @@ describe("ReferencesComponent — обход по F4", () => {
     it("свёрнутый файл раскрывается — курсор не уезжает в невидимое", () => {
         const component = make();
         component.setResults(twoFiles());
-        // Свернули всё: курсор со ссылки ушёл (её строка скрыта), поэтому шаг
-        // вперёд ведёт на первую ссылку и раскрывает её файл.
+        // Everything collapsed: the cursor left the reference (its row is hidden), so a step
+        // forward goes to the first reference and expands its file.
         component.collapseDeepestLevel();
         expect(component.results.getCursorElement()?.id).not.toBe("ref:src/a.ts:0");
 

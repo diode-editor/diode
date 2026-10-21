@@ -3,34 +3,34 @@ import type { IRange } from "../../../../editor/common/core/iRange.ts";
 import type { ICoreReference } from "../../../../editor/common/languages/iReferenceSource.ts";
 import type { ITextMatch } from "../../../services/search/common/textSearch.ts";
 
-/** Форма файл-группы поиска: строки рисуют те же `buildFileRow`/`buildMatchRow`. */
+/** Shaped like a search file group, so rows are drawn by the same `buildFileRow`/`buildMatchRow`. */
 export interface IReferenceGroup {
     readonly absolutePath: string;
-    /** Разделители `/`. */
+    /** `/` separators. */
     readonly relPath: string;
     readonly matches: ITextMatch[];
 }
 
 /**
- * Сначала открытая модель: несохранённые правки сервер видит через didChange, и колонки иначе
- * разъедутся. Потом диск.
+ * Open model first: the server sees unsaved edits via didChange, otherwise the columns would
+ * drift apart. Then disk.
  */
 export interface IReferenceTextSource {
-    /** `null` — файл не открыт. */
+    /** `null` means the file is not open. */
     openText(uri: Uri): string | null;
-    /** Бросает, если ресурс недоступен. */
+    /** Throws if the resource is unavailable. */
     readText(uri: Uri): Promise<string>;
 }
 
 /**
- * Ссылка в минифицированном или lock-файле иначе тащит в строку списка сотни килобайт
- * (docs/TODO/SearchPerformance.md, случай 1). `before` режет `trimBefore` при отрисовке.
+ * Otherwise a reference in a minified or lock file drags hundreds of kilobytes into a list row
+ * (docs/TODO/SearchPerformance.md, case 1). `before` is cut by `trimBefore` at render time.
  */
 const MAX_AFTER_CHARS = 256;
 
 /**
- * Порядок групп — первое появление файла в ответе (у tsserver: объявление, затем употребления).
- * Файл читается один раз за запрос; ссылка, чья строка вышла за текст, отбрасывается.
+ * Group order is the first appearance of a file in the response (for tsserver: declaration, then usages).
+ * Each file is read once per request; a reference whose line is past the end of the text is dropped.
  */
 export async function buildReferenceGroups(
     references: readonly ICoreReference[],
@@ -86,12 +86,12 @@ function splitLines(text: string): string[] {
 }
 
 /**
- * Колонки LSP — code unit'ы UTF-16, ровно те, в которых режется JS-строка. Многострочный диапазон
- * подсвечивается до конца первой строки.
+ * LSP columns are UTF-16 code units, exactly what a JS string is sliced by. A multi-line range is
+ * highlighted to the end of its first line.
  */
 function toTextMatch(lines: readonly string[], range: IRange): ITextMatch | null {
-    // Не `.at()`: номер строки приходит от провайдера, и на отрицательном `.at()` отсчитал бы с конца
-    // файла. Чтение по индексу даёт undefined и за краем — тип об этом молчит.
+    // Not `.at()`: the line number comes from the provider, and a negative `.at()` would count from the end
+    // of the file. Indexing yields undefined past the edge too — the type doesn't say so.
     const line = lines[range.start.line] as string | undefined;
     if (line === undefined) return null;
 
@@ -99,7 +99,7 @@ function toTextMatch(lines: readonly string[], range: IRange): ITextMatch | null
     const endColumn = range.end.line === range.start.line ? Math.min(range.end.character, line.length) : line.length;
 
     return {
-        // Номер строки — 1-based, как у ripgrep: строки списка общие с поиском.
+        // 1-based line number, like ripgrep: list rows are shared with search.
         lineNumber: range.start.line + 1,
         startColumn,
         endColumn,
@@ -113,22 +113,22 @@ function toTextMatch(lines: readonly string[], range: IRange): ITextMatch | null
 
 function capAfter(after: string): string {
     if (after.length <= MAX_AFTER_CHARS) return after;
-    // Не разрываем суррогатную пару: половинка пары рисуется как U+FFFD.
+    // Don't split a surrogate pair: half a pair renders as U+FFFD.
     let cut = MAX_AFTER_CHARS;
     const lead = after.charCodeAt(cut - 1);
     if (lead >= 0xd800 && lead <= 0xdbff) cut--;
     return after.slice(0, cut);
 }
 
-/** Близнец `labelFor` панели поиска: абсолютный путь съел бы всю ширину узкого сайдбара. */
+/** Twin of the search panel's `labelFor`: an absolute path would eat the whole width of a narrow sidebar. */
 function labelFor(absolutePath: string, root: string): string {
-    // Пустой корень — папка не открыта (файл из CLI): путь показываем как есть,
-    // иначе `startsWith("")` съел бы ведущий слэш.
+    // Empty root means no folder is open (file from the CLI): show the path as is,
+    // otherwise `startsWith("")` would eat the leading slash.
     const rest = root !== "" && absolutePath.startsWith(root) ? absolutePath.slice(root.length) : null;
-    // Сосед с общим префиксом («/work/project2» при корне «/work/project») внутри
-    // корня не лежит: остаток обязан начинаться с разделителя.
-    // Stryker disable next-line Regex: ветка берётся только когда `rest` начинается с разделителя, поэтому якорь `^` на результат не влияет
-    // Stryker disable next-line ConditionalExpression: `rest !== null` — быстрый выход; без него регексп проверил бы строку "null", не нашёл разделителя и ушёл в ту же ветку `absolutePath`
+    // A sibling with a common prefix ("/work/project2" with root "/work/project") is not
+    // inside the root: the remainder must start with a separator.
+    // Stryker disable next-line Regex: the branch is taken only when `rest` starts with a separator, so the `^` anchor doesn't affect the result
+    // Stryker disable next-line ConditionalExpression: `rest !== null` is a fast path; without it the regexp would test the string "null", find no separator and fall into the same `absolutePath` branch
     const rel = rest !== null && /^[/\\]/u.test(rest) ? rest.replace(/^[/\\]+/u, "") : absolutePath;
     return rel.replace(/\\/gu, "/");
 }

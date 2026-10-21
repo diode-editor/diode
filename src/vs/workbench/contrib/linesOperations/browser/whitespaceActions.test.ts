@@ -61,8 +61,8 @@ describe("WhitespaceActions — trimTrailingWhitespace", () => {
     });
 
     it("не плодит каретки по числу строк: одна каретка остаётся одной и сдвигается к обрезанному концу", () => {
-        // Регрессия: батч ставил каретку в конец КАЖДОЙ правки — по каретке на
-        // каждую обрезанную строку. Как в эталоне, выделения лишь сдвигаются.
+        // Regression: the batch put the cursor at the end of EACH edit — one cursor per
+        // trimmed line. As in upstream, selections are only shifted.
         const { editor, exec } = openEditor("a  \nbb   \ncc\t\nd");
         editor.viewState.selections = [createCursorSelection(1, 4)];
 

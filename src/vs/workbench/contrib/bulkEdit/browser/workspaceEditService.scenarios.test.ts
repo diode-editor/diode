@@ -173,7 +173,7 @@ describe("WorkspaceEditService scenarios — multi-edit & ordering", () => {
         const dstMove = mkdir("movedst");
         await service.applyFileEdits([{ kind: "move", from: b, to: dstMove }], "Move");
 
-        // LIFO: сначала откатывается последняя операция (move), потом первая (copy).
+        // LIFO: the last operation (move) is undone first, then the first one (copy).
         await undoRedo.undo(WORKSPACE_UNDO_CONTEXT);
         expect(fs.existsSync(path.join(tmpDir, "b.txt"))).toBe(true);
         expect(fs.existsSync(path.join(dstCopy, "a.txt"))).toBe(true);

@@ -31,7 +31,7 @@ describe("stripMarkdown — плоский текст для TUI-попапа", 
     });
 
     it("`_курсив_` снимается только на границе слова — snake_case не трогается", () => {
-        // terraform-ls помечает тип так: «`var.region` _string_».
+        // terraform-ls marks the type like this: "`var.region` _string_".
         expect(stripMarkdown("`var.region`\n_string_")).toBe("var.region\nstring");
         expect(stripMarkdown("тип (_строка_), см. aws_instance_type")).toBe("тип (строка), см. aws_instance_type");
         expect(stripMarkdown("a_b_c и _x_y")).toBe("a_b_c и _x_y");
@@ -48,19 +48,19 @@ describe("stripMarkdown — плоский текст для TUI-попапа", 
     });
 
     it("обрамляющие пробелы и переводы строк срезаются", () => {
-        // tsserver отдаёт документацию с хвостовым переводом строки — в рамке
-        // попапа он превратился бы в пустую строку.
+        // tsserver returns documentation with a trailing newline; in the popup
+        // frame it would turn into an empty line.
         expect(stripMarkdown("\n  const a: number  \n\n")).toBe("const a: number");
     });
 
     it("fenced-блок без перевода строки перед закрывающими кавычками", () => {
-        // tsserver закрывает блок сразу за текстом — необязательный `\n?` в
-        // регулярке ровно про этот случай.
+        // tsserver closes the block right after the text; the optional `\n?` in
+        // the regex is exactly for this case.
         expect(stripMarkdown("```ts\nconst a: number```")).toBe("const a: number");
     });
 
     it("больше девяти экранированных символов подряд восстанавливаются каждый", () => {
-        // Индекс прятки двузначный — регулярка возврата обязана читать `\d+`, не `\d`.
+        // The hiding index is two-digit: the restore regex must read `\d+`, not `\d`.
         const source = Array.from({ length: 12 }, (_, i) => `\\*${String(i)}\\*`).join(" ");
         expect(stripMarkdown(source)).toBe("*0* *1* *2* *3* *4* *5* *6* *7* *8* *9* *10* *11*");
     });
@@ -85,8 +85,8 @@ describe("splitMarkdownSections — секции по thematic break", () => {
 
     it("`---` внутри fenced-блока — содержимое; закрывающее ограждение — того же вида и не короче", () => {
         expect(splitMarkdownSections("```yaml\n---\nkey: 1\n```\n\n---\n\nдока")).toEqual(["---\nkey: 1", "дока"]);
-        // Внутри ````-блока ни ```, ни ~~~~ его не закрывают — разрез один, после блока.
-        // (Сами ```` stripMarkdown снимает неточно — его старое ограничение, тут смотрим только разрез.)
+        // Inside a ````-block neither ``` nor ~~~~ closes it: one split, after the block.
+        // (stripMarkdown strips the ```` themselves imprecisely, a known limitation; here we only check the split.)
         const sections = splitMarkdownSections("````\n```\n---\n~~~~\n````\n---\nx");
         expect(sections).toHaveLength(2);
         expect(sections[1]).toBe("x");
@@ -95,7 +95,7 @@ describe("splitMarkdownSections — секции по thematic break", () => {
     it("`---` под строкой абзаца — setext-заголовок: линия выпадает, `***` под абзацем — разделитель", () => {
         expect(splitMarkdownSections("Заголовок\n---\nтекст")).toEqual(["Заголовок\nтекст"]);
         expect(splitMarkdownSections("абзац\n***\nтекст")).toEqual(["абзац", "текст"]);
-        // Под разделителем и под строкой из пробелов абзаца нет — `---` снова разделитель.
+        // Below a separator and below a whitespace-only line there's no paragraph, so `---` is a separator again.
         expect(splitMarkdownSections("абзац\n***\n---\nтекст")).toEqual(["абзац", "", "текст"]);
         expect(splitMarkdownSections("абзац\n   \n---\nтекст")).toEqual(["абзац", "текст"]);
         expect(splitMarkdownSections("Заголовок\n  ---\nтекст")).toEqual(["Заголовок\nтекст"]);
@@ -139,7 +139,7 @@ describe("HoverService — показ и закрытие попапа", () => {
         for (const provider of providers) provider.dispose();
         providers = [h.container.get(LanguageFeaturesServiceDIToken).hoverProvider.register("*", { provideHover })];
     };
-    /** Регистрируем с конца: при равном score реестр ставит более позднюю регистрацию первой. */
+    /** Register in reverse: with equal score the registry puts the later registration first. */
     const useHovers = (...hovers: ICoreHover[]): void => {
         for (const provider of providers) provider.dispose();
         const registry = h.container.get(LanguageFeaturesServiceDIToken).hoverProvider;
@@ -228,16 +228,16 @@ describe("HoverService — показ и закрытие попапа", () => {
     });
 
     it("пустой результат, пустой после стрипа и отсутствие провайдеров — попап не открывается", async () => {
-        // Нет провайдеров.
+        // No providers.
         await service().showHover();
         expect(service().isOpen()).toBe(false);
 
-        // Провайдер ответил «hover'а нет».
+        // The provider answered "no hover".
         useProvider(() => Promise.resolve(undefined));
         await service().showHover();
         expect(service().isOpen()).toBe(false);
 
-        // Контент есть, но после стрипа пусто (пустой fenced-блок).
+        // There is content, but it's empty after stripping (an empty fenced block).
         useHovers(hoverOf(["```ts\n\n```"]));
         await service().showHover();
         expect(service().isOpen()).toBe(false);
@@ -340,7 +340,7 @@ describe("HoverService — показ и закрытие попапа", () => {
         );
 
         const pending = service().showHover();
-        // Пока ответ в полёте, попап закрыли (Escape) — seq устарел.
+        // While the response is in flight the popup was closed (Escape), so seq is stale.
         service().close();
         release(hoverOf(["опоздавший"]));
         await pending;
@@ -380,7 +380,7 @@ describe("HoverService — показ и закрытие попапа", () => {
     it("каретка ушла из вьюпорта за время запроса — попап не открывается", async () => {
         useHovers(hoverOf(["x"]));
         const editor = group().getActiveEditor()!;
-        // Якорь пропал (каретка вне видимой области) — тот же контракт, что у
+        // The anchor is gone (cursor outside the visible area): same contract as
         // suggest: getCaretAnchor() === null.
         editor.getCaretAnchor = () => null;
 
@@ -416,8 +416,8 @@ describe("HoverService — показ и закрытие попапа", () => {
         await service().showHover();
         expect(service().isOpen()).toBe(true);
 
-        // Не прямой вызов FocusTracker.fire, а настоящий путь: фокус уходит в
-        // дерево Explorer, WorkbenchContextKeys ловит смену, сервис гасит попап.
+        // Not a direct FocusTracker.fire call but the real path: focus moves into the
+        // Explorer tree, WorkbenchContextKeys catches the change, the service dismisses the popup.
         h.commands.execute("workbench.view.explorer");
         await flushMicrotasks();
 
@@ -430,7 +430,7 @@ describe("HoverService — показ и закрытие попапа", () => {
         expect(service().isOpen()).toBe(true);
 
         const focusTracker = h.container.get(FocusTrackerDIToken);
-        // Фокус остался в редакторе (набор в самом редакторе) — попап живёт.
+        // Focus stayed in the editor (typing in the editor itself), so the popup lives.
         focusTracker.fire(new EditorElement(new EditorViewState(new TextDocument(""))));
         expect(service().isOpen()).toBe(true);
 
@@ -443,8 +443,8 @@ describe("HoverService — показ и закрытие попапа", () => {
 
         await service().showHover();
 
-        // Пустой после стрипа блок отброшен: между сигнатурой и доками ровно
-        // одна пустая строка, а не две.
+        // The block that's empty after stripping is dropped: exactly one empty line
+        // between the signature and the docs, not two.
         expect(component().view.linesFor(60)).toEqual(["const a: number", "", "документация"]);
     });
 
@@ -457,7 +457,7 @@ describe("HoverService — показ и закрытие попапа", () => {
         group().openFile(ws.path("other.ts"));
         expect(service().isOpen()).toBe(false);
 
-        // Правка в ПРЕЖНЕМ редакторе больше не трогает попап нового.
+        // An edit in the PREVIOUS editor no longer affects the new one's popup.
         await service().showHover();
         expect(service().isOpen()).toBe(true);
         first.viewState.insertText("x");
@@ -472,7 +472,7 @@ describe("HoverService — показ и закрытие попапа", () => {
         await service().showHover();
         expect(service().isOpen()).toBe(true);
 
-        // Правка ниже каретки: каретка на месте, но содержимое сменилось.
+        // An edit below the cursor: the cursor stays, but the content changed.
         const editor = group().getActiveEditor()!;
         editor.applyExternalEdits([createTextEdit(createRange(1, 0, 1, 0), "// добавили\n")], "test");
         expect(service().isOpen()).toBe(false);

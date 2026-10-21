@@ -19,13 +19,13 @@ import type { StatusBarService } from "../../../services/statusbar/common/status
 
 import { RenameService } from "./renameService.ts";
 
-// Подменены только поле ввода имени и статус-бар — иначе нечем ни «набрать» имя, ни прочитать ошибку.
+// Only the name input box and the status bar are faked — otherwise there's no way to "type" a name or read an error.
 
 describe("RenameService — Rename Symbol", () => {
     let ws: ITempWorkspace;
     let h: IAppHarness;
     let features: ILanguageFeaturesService;
-    /** Что отдаёт поле ввода на очередной показ (undefined = Escape). */
+    /** What the input box returns on the next show (undefined = Escape). */
     let typed: (string | undefined)[];
     let opened: InputBoxOptions[];
     let notices: string[];
@@ -51,7 +51,7 @@ describe("RenameService — Rename Symbol", () => {
 
     const group = (): IEditorService => h.container.get(EditorServiceDIToken);
 
-    /** Селектор `"*"`: LanguageService в харнессе нет, любой файл — `plaintext`. */
+    /** `"*"` selector: the harness has no LanguageService, every file is `plaintext`. */
     function provider(impl: Partial<RenameProvider>): RenameProvider {
         const full: RenameProvider = {
             prepareRename: impl.prepareRename ?? ((): Promise<null> => Promise.resolve(null)),
@@ -80,7 +80,7 @@ describe("RenameService — Rename Symbol", () => {
         return new RenameService(group(), quickInput, statusBar, features);
     }
 
-    /** Ставит каретку внутрь слова `value` в объявлении (строка 0, колонка 8). */
+    /** Puts the cursor inside the word `value` in the declaration (line 0, column 8). */
     function caretOnValue(): void {
         group().getActiveEditor()?.goToPosition(0, 8);
     }
@@ -145,9 +145,9 @@ describe("RenameService — Rename Symbol", () => {
     it("prepare вернул null И каретка не на слове — поля ввода нет вовсе", async () => {
         const provideRenameEdits = vi.fn((): Promise<ICoreRenameResult> => Promise.resolve({ applied: true }));
         provider({ provideRenameEdits });
-        // Колонка 13 — пробел после `=`: ни на символе под кареткой, ни на
-        // символе перед ней слова нет (каретка сразу ПОСЛЕ слова словом ещё
-        // считается, поэтому колонка 5 не годится).
+        // Column 13 is the space after `=`: there's no word at the cursor or
+        // before it (a cursor right AFTER a word still counts as on the word,
+        // so column 5 won't do).
         group().getActiveEditor()?.goToPosition(0, 13);
 
         await service().rename();
@@ -157,9 +157,9 @@ describe("RenameService — Rename Symbol", () => {
     });
 
     it("каретка за последней строкой — молчаливый no-op, а не падение", async () => {
-        // Группа целиком поддельная: настоящий редактор позицию клампует, а
-        // фолбэк обязан выдержать и «протухшую» на кадр строку (образец —
-        // `referencesService.test.ts`, случай «каретка за пределами текста»).
+        // The whole group is fake: a real editor clamps the position, but the
+        // fallback must survive a line that went stale for a frame (see
+        // `referencesService.test.ts`, the "cursor past the end of the text" case).
         const provideRenameEdits = vi.fn((): Promise<ICoreRenameResult> => Promise.resolve({ applied: true }));
         provider({ provideRenameEdits });
         const fakeGroup = {
@@ -247,7 +247,7 @@ describe("RenameService — Rename Symbol", () => {
         const editor = group().getActiveEditor();
         const quickInput = {
             input: () => {
-                // Пока «набирается» имя, документ уезжает — как от авто-импорта.
+                // While the name is being "typed", the document moves on — as from an auto-import.
                 editor?.pushUndo(editor.viewState.insertText("// touched\n"));
                 return Promise.resolve("renamed");
             },
@@ -275,15 +275,15 @@ describe("RenameService — Rename Symbol", () => {
         caretOnValue();
         const real = group();
         const editor = real.getActiveEditor();
-        // Группа отдаёт редактор до показа поля и `null` после — так ведёт себя
-        // закрытая (или потерявшая активный редактор) группа.
+        // The group returns the editor before the input is shown and `null` after — that's how
+        // a closed group (or one that lost its active editor) behaves.
         let closed = false;
         const closingGroup = {
             getActiveEditor: () => (closed ? null : editor),
         } as unknown as IEditorService;
         const quickInput = {
             input: () => {
-                // Документ ещё и уехал — но живого редактора у группы уже нет.
+                // The document also moved on, but the group has no live editor anymore.
                 editor?.pushUndo(editor.viewState.insertText("// touched\n"));
                 closed = true;
                 return Promise.resolve("renamed");
@@ -293,7 +293,7 @@ describe("RenameService — Rename Symbol", () => {
 
         await new RenameService(closingGroup, quickInput, statusBar, features).rename();
 
-        // Снапшот — тот, что собрали ДО показа поля: живого документа уже нет.
+        // The snapshot is the one taken BEFORE the input was shown: the live document is gone.
         expect(seen.applied).toBeDefined();
         expect(seen.applied).toBe(seen.prepared);
         expect(seen.applied).not.toBe(editor?.model.document.versionId);

@@ -19,20 +19,20 @@ import { type ProblemNode, ProblemsTreeDataProvider } from "./problemsTreeDataPr
 export const PROBLEMS_VIEW_ID = "workbench.panel.markers.view";
 
 /**
- * Как `Event.debounce(onMarkerChanged, …, 64)` у `MarkersView` эталона: на монорепе языковой
- * сервер шлёт тысячи событий подряд, и пересчёт дерева на каждое вешал UI-поток.
+ * Like upstream `MarkersView`'s `Event.debounce(onMarkerChanged, …, 64)`: on a monorepo the language
+ * server sends thousands of events in a row, and rebuilding the tree on each one hung the UI thread.
  */
 export const PROBLEMS_UPDATE_DELAY_MS = 64;
 
 export interface IMarkerRevealEditor {
-    /** Ресурс редактора — по нему сверяется, что открылся именно маркерный. */
+    /** The editor resource — used to check that the marker's resource is what actually opened. */
     readonly uri: Uri;
     goToPosition(line: number, column?: number): void;
     revealRange(range: IRange): void;
 }
 
 export interface IMarkerRevealTarget {
-    /** Обещание не отклоняется: неудачу открытия сервис показывает сам. */
+    /** The promise never rejects: the service reports an open failure by itself. */
     openUri(uri: Uri): Promise<void>;
     getActiveEditor(): IMarkerRevealEditor | null;
 }
@@ -40,7 +40,7 @@ export interface IMarkerRevealTarget {
 export const MarkerRevealTargetDIToken = token<IMarkerRevealTarget>("MarkerRevealTarget");
 export const ProblemsComponentDIToken = token<ProblemsComponent>("ProblemsComponent");
 
-/** Пока маркеров нет, контент вкладки — null (панель рендерит placeholder). */
+/** While there are no markers the tab content is null (the panel renders a placeholder). */
 export class ProblemsComponent extends Component {
     public static dependencies = [
         MarkerServiceDIToken,
@@ -69,7 +69,7 @@ export class ProblemsComponent extends Component {
         this.provider = new ProblemsTreeDataProvider();
         this.tree = new TreeViewElement(this.provider);
         this.tree.style = { fg: "editor.foreground", bg: "panel.background" };
-        // Имена токенов — цвета резолвит дерево (resolveColor) в своём scope.
+        // Token names — the tree resolves colors (resolveColor) in its own scope.
         this.provider.severityColors = {
             error: "editorError.foreground",
             warning: "editorWarning.foreground",
@@ -104,7 +104,7 @@ export class ProblemsComponent extends Component {
         );
         this.register(
             this.markerService.onDidChangeMarkers(() => {
-                // Stryker disable next-line UpdateOperator: эквивалентный — версия сравнивается с отрисованной только на неравенство, направление счёта не наблюдаемо
+                // Stryker disable next-line UpdateOperator: equivalent — the version is compared with the rendered one only for inequality, the counting direction is unobservable
                 this.markersVersion++;
                 this.updateScheduler.schedule();
             }),
@@ -118,8 +118,8 @@ export class ProblemsComponent extends Component {
     }
 
     /**
-     * Не больше одного пересчёта за раз: смена маркеров посреди пересчёта откладывается до его конца
-     * (два перестраивали бы одно дерево вперемешку), и снимок перечитывается ещё раз.
+     * At most one recompute at a time: a marker change mid-recompute is deferred until it ends
+     * (two would rebuild the same tree interleaved), and the snapshot is re-read once more.
      */
     private async update(): Promise<void> {
         if (this.updating) return;
@@ -143,29 +143,29 @@ export class ProblemsComponent extends Component {
             this.viewsService.setViewBody(PROBLEMS_VIEW_ID, shouldShowTree ? this.view : null);
             this.treeShown = shouldShowTree;
         }
-        // Stryker disable next-line ConditionalExpression: эквивалентный — без маркеров дерево снято со вкладки (плейсхолдер), его пересборка невидима; ветка экономит работу
+        // Stryker disable next-line ConditionalExpression: equivalent — without markers the tree is detached from the tab (placeholder), its rebuild is invisible; the branch saves work
         if (shouldShowTree) await this.refreshTree();
     }
 
     private async refreshTree(): Promise<void> {
         await this.tree.refresh();
-        // Пачкой, а не `expand` на файл: каждый `expand` пересобирает весь
-        // плоский список, и на тысячах файлов это минуты.
+        // In a batch, not `expand` per file: each `expand` rebuilds the whole
+        // flat list, and on thousands of files that takes minutes.
         await this.tree.expandElements(this.provider.getChildren());
     }
 
     private async revealMarker(node: ProblemNode): Promise<void> {
         if (node.kind !== "marker") return;
         const { resource, marker } = node;
-        // Переход целиком — одна запись истории (IJumpRecorder). Ресурс — уже uri: Uri.parse, а не
-        // Uri.file, иначе "file:///a.ts" стало бы путём с именем "file:".
+        // The whole jump is one history entry (IJumpRecorder). The resource is already a uri: Uri.parse, not
+        // Uri.file, otherwise "file:///a.ts" would become a path named "file:".
         const uri = Uri.parse(resource);
         await this.jumps.jumpAsync(async () => {
             await this.revealTarget.openUri(uri);
             const editor = this.revealTarget.getActiveEditor();
-            // Недисковый ресурс (`jdt:`) мог не открыться: без сверки каретка уехала бы по координатам
-            // маркера в ЧУЖОМ редакторе, без `?.` — в никуда (маркер активируют и при пустой полосе вкладок).
-            // Stryker disable next-line OptionalChaining: снятие `?.` заставляет переход кинуть ПОСЛЕ await, то есть мимо стека теста — раннер падает на сериализации unhandled error вместо честного «мутант выжил/убит». Локализация ошибок слушателя — #275, см. docs/MUTATION.md
+            // A non-disk resource (`jdt:`) may fail to open: without the check the cursor would move to the marker's
+            // coordinates in SOMEONE ELSE's editor, without `?.` — into nowhere (markers are activated with an empty tab strip too).
+            // Stryker disable next-line OptionalChaining: removing `?.` makes the jump throw AFTER await, i.e. outside the test's stack — the runner crashes serializing an unhandled error instead of an honest "mutant survived/killed". Localizing listener errors — #275, see docs/MUTATION.md
             if (editor?.uri.toString() !== uri.toString()) return;
             const start = marker.range.start;
             editor.goToPosition(start.line, start.character);

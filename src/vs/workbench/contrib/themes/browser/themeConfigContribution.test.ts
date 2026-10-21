@@ -20,7 +20,7 @@ class FakeConfig {
         return { dispose: () => {} };
     }
 
-    // Сигнатура сервиса дженерик, но фейку достаточно отдать значение как есть.
+    // The service signature is generic, but the fake can just return the value as is.
     public get(key: string): never {
         return (key === "workbench.colorTheme" ? this.colorTheme : undefined) as never;
     }

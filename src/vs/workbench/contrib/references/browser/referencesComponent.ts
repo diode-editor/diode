@@ -24,7 +24,7 @@ import type { IReferenceGroup } from "./referencePreview.ts";
 
 export const ReferencesComponentDIToken = token<ReferencesComponent>("ReferencesComponent");
 
-/** Id — как у VS Code. */
+/** Same id as in VS Code. */
 export const REFERENCES_VIEWLET_ID = "references-view";
 export const REFERENCES_VIEW_ID = "references-view.tree";
 
@@ -53,7 +53,7 @@ function referenceRowId(group: IReferenceGroup, index: number): string {
     return `ref:${group.relPath}:${String(index)}`;
 }
 
-/** Строки — общие с панелью поиска: идиома «файл + строки с подсветкой» у нас одна. */
+/** Rows are shared with the search panel: we have one "file + highlighted lines" idiom. */
 export class ReferencesComponent extends Component {
     public static dependencies = [
         ReferencesRevealTargetDIToken,
@@ -66,19 +66,19 @@ export class ReferencesComponent extends Component {
     private readonly countLabel = new TextLabelElement("");
     private readonly scrollBars: ScrollBarDecorator;
     /**
-     * Typeahead включён, в отличие от поиска (там буквы уходят в запрос): ввода в панели нет, и прыжок
-     * по имени файла — бесплатная навигация.
+     * Typeahead is on, unlike search (where letters go into the query): the panel has no input, and jumping
+     * by file name is free navigation.
      */
     public readonly results = new ListViewElement();
 
     private referenceRows = new Map<string, IReferenceRow>();
-    // Stryker disable next-line ArrayDeclaration: начальное значение до первой пересборки ненаблюдаемо — свернуть нечего, а `rebuildRows` его заменяет
+    // Stryker disable next-line ArrayDeclaration: the initial value before the first rebuild is unobservable — nothing to collapse, and `rebuildRows` replaces it
     private fileRowIds: string[] = [];
-    /** Обход по F4 идёт по нему, а не по проекции списка. */
+    /** F4 traversal walks this, not the list projection. */
     private referenceRowIds: string[] = [];
     private referenceCount = 0;
     private fileCount = 0;
-    // Stryker disable next-line BooleanLiteral: до первого setResults/clear шапку никто не пересчитывает — значение поля на кадр не влияет
+    // Stryker disable next-line BooleanLiteral: nobody recomputes the header before the first setResults/clear — the field value doesn't affect the frame
     private searched = false;
 
     public constructor(
@@ -105,12 +105,12 @@ export class ReferencesComponent extends Component {
         this.root.style = { fg: "sideBar.foreground", bg: "sideBar.background" };
         this.countLabel.setColors("descriptionForeground", INHERITED_BG);
 
-        // До первого Find All References контейнер пуст, поэтому по умолчанию
-        // в сайдбаре не показывается.
+        // The container is empty until the first Find All References, so by default
+        // it isn't shown in the sidebar.
         viewsService.registerContainer({
             id: REFERENCES_VIEWLET_ID,
             title: "REFERENCES",
-            // Stryker disable next-line StringLiteral: ViewsService различает только "panel"; любое другое значение (в том числе испорченное) уходит в сайдбар, так что подмена строки наблюдаемого эффекта не имеет
+            // Stryker disable next-line StringLiteral: ViewsService only distinguishes "panel"; any other value (including a mutated one) goes to the sidebar, so replacing the string has no observable effect
             location: "sidebar",
             order: 4,
             visibleContextKey: "referencesViewletVisible",
@@ -118,7 +118,7 @@ export class ReferencesComponent extends Component {
         viewsService.registerView({
             id: REFERENCES_VIEW_ID,
             containerId: REFERENCES_VIEWLET_ID,
-            // Stryker disable next-line StringLiteral: контейнер с единственной видимой view рисуется merged — на экране заголовок КОНТЕЙНЕРА (его задаёт registerContainer выше), а заголовок самой view не виден нигде (проверено подменой строки: кадр не меняется)
+            // Stryker disable next-line StringLiteral: a container with a single visible view is drawn merged — the screen shows the CONTAINER title (set by registerContainer above), and the view's own title is visible nowhere (verified by replacing the string: the frame doesn't change)
             title: "REFERENCES",
             order: 10,
             body: this.root,
@@ -136,7 +136,7 @@ export class ReferencesComponent extends Component {
         this.results.focus();
     }
 
-    /** Пустой список — валидный результат («No results»), а не повод оставить старые ссылки. */
+    /** An empty list is a valid result ("No results"), not a reason to keep the old references. */
     public setResults(groups: readonly IReferenceGroup[]): void {
         this.searched = true;
         this.fileCount = groups.length;
@@ -159,7 +159,7 @@ export class ReferencesComponent extends Component {
         return this.referenceCount;
     }
 
-    /** Уровень один (файлы → ссылки) — поэтапности VS Code не нужно. */
+    /** Single level (files → references) — no need for VS Code's step-by-step behavior. */
     public collapseDeepestLevel(): void {
         for (const id of this.fileRowIds) this.results.setCollapsed(id, true);
     }
@@ -170,7 +170,7 @@ export class ReferencesComponent extends Component {
         }
     }
 
-    /** С последней заворачивается на первую (VS Code: references-view.next). */
+    /** Wraps from the last to the first (VS Code: references-view.next). */
     public goToNextReference(): void {
         this.stepReference(1);
     }
@@ -182,16 +182,16 @@ export class ReferencesComponent extends Component {
     private stepReference(delta: 1 | -1): void {
         const count = this.referenceRowIds.length;
         if (count === 0) return;
-        // Курсор на строке файла — indexOf даст -1: «вперёд» начнёт с первой ссылки, «назад» — с последней.
+        // Cursor on a file row gives indexOf -1: "next" starts from the first reference, "previous" from the last.
         const cursor = this.results.getCursorElement();
-        /* v8 ignore start -- курсор в непустом списке есть всегда (ранний выход выше) */
-        // Stryker disable next-line ConditionalExpression: ветка недостижима по той же причине, что и для покрытия
+        /* v8 ignore start -- a non-empty list always has a cursor (early return above) */
+        // Stryker disable next-line ConditionalExpression: the branch is unreachable for the same reason as for coverage
         if (cursor === null) return;
         /* v8 ignore stop */
         const current = this.referenceRowIds.indexOf(listRowId(cursor));
         const next = current === -1 ? (delta === 1 ? 0 : count - 1) : (((current + delta) % count) + count) % count;
-        // setCursorTo сам раскрывает свёрнутых предков строки, так что
-        // отдельного expand'а тут не нужно.
+        // setCursorTo expands the row's collapsed ancestors itself, so no
+        // separate expand is needed here.
         const id = this.referenceRowIds[next];
         this.results.setCursorTo(id);
         this.activateRow(id);
@@ -207,7 +207,7 @@ export class ReferencesComponent extends Component {
             const fileId = fileRowId(group);
             const fileElement = buildFileRow(fileId, group.relPath, group.matches.length, ROW_STYLES);
             this.fileRowIds.push(fileId);
-            // label — метка для typeahead: набор имени файла прыгает на его строку.
+            // label is the typeahead label: typing a file name jumps to its row.
             this.results.appendRow(fileElement, { label: group.relPath });
 
             group.matches.forEach((match, index) => {
@@ -226,16 +226,16 @@ export class ReferencesComponent extends Component {
     private activateRow(rowId: string): void {
         const row = this.referenceRows.get(rowId);
         if (row === undefined) {
-            // Неизвестная строка (из прошлого, уже очищенного результата) — ничего не делаем.
+            // Unknown row (from a previous, already cleared result) — do nothing.
             if (this.fileRowIds.includes(rowId)) this.results.toggleCollapsed(rowId);
             return;
         }
-        // Переход целиком — одна запись истории (см. IJumpRecorder).
+        // The whole navigation is one history entry (see IJumpRecorder).
         this.jumps.jump(() => {
             this.revealTarget.openUri(Uri.file(row.group.absolutePath));
             const editor = this.revealTarget.getActiveEditor();
             if (editor === null) return;
-            // lineNumber строки списка 1-based, редактор ждёт 0-based.
+            // List row lineNumber is 1-based, the editor expects 0-based.
             const line = row.match.lineNumber - 1;
             editor.goToPosition(line, row.match.startColumn);
             editor.revealRange(createRange(line, row.match.startColumn, line, row.match.endColumn));

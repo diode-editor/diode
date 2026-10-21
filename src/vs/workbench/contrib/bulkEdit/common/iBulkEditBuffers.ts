@@ -4,39 +4,39 @@ import type { IUndoRedoElement } from "../../../../platform/undoRedo/common/iUnd
 import type { IUndoParticipant } from "../../../../platform/undoRedo/common/undoRedoService.ts";
 
 /**
- * Открытый ресурс правится через документ и остаётся грязным, а не переписывается на диске: иначе
- * буфер и файл разъехались бы, а несохранённые правки пропали.
+ * An open resource is edited through the document and stays dirty instead of being rewritten on disk: otherwise
+ * buffer and file would diverge and unsaved edits would be lost.
  */
 export interface IBulkEditBuffer {
-    /** По нему клампятся координаты, присланные расширением. */
+    /** Coordinates sent by the extension are clamped against it. */
     text(): string;
     /**
-     * Шаг отдаётся вызывающему: он войдёт в общий шаг на весь edit, а не в бакет документа.
-     * `null` — правки ничего не изменили.
+     * The step is handed to the caller: it joins the common step for the whole edit, not the document's bucket.
+     * `null` — the edits changed nothing.
      */
     applyEdits(edits: readonly ITextEdit[], label: string): IUndoRedoElement | null;
-    /** Отказ сохранения — не ошибка: буфер остаётся грязным, как у эталона (тот лишь пишет в лог). */
+    /** A save refusal is not an error: the buffer stays dirty, as upstream (which only logs it). */
     save(): Promise<void>;
 }
 
 /**
- * `"read-only"` — открыт, но правка не состоится (`jdt:`, сторона диффа): edit отбивается целиком.
- * `null` — не открыт, правим по диску.
+ * `"read-only"` — open, but the edit won't happen (`jdt:`, a diff side): the whole edit is rejected.
+ * `null` — not open, edit on disk.
  */
 export type BulkEditTarget = IBulkEditBuffer | "read-only" | null;
 
-/** Ресурс — `uri.toString()`. */
+/** Resource is `uri.toString()`. */
 export interface IBulkEditBuffers {
     get(resource: string): BulkEditTarget;
     /**
-     * Бакеты для ОДНОГО шага на весь edit. Каждый открытый тронутый ресурс — участник: Ctrl+Z из любой
-     * его вкладки откатывает весь шаг. Не тронут ни один — участник один, без правки: вкладка, где
-     * вызвали действие. Пусто — шаг идёт в бакет workspace-операций.
+     * Buckets for ONE step for the whole edit. Every open touched resource is a participant: Ctrl+Z from any
+     * of its tabs undoes the whole step. None touched — a single participant without an edit: the tab where
+     * the action was invoked. Empty — the step goes to the workspace-operations bucket.
      */
     undoParticipants(touched: readonly string[]): IUndoParticipant[];
     /**
-     * Удалён в корзину мимо файлового сервиса — `FileOperation.Delete` не придёт; с вкладками
-     * поступаем так же: чистые под ресурсом закрываются.
+     * Deleted to the trash bypassing the file service — `FileOperation.Delete` won't arrive; tabs are handled
+     * the same way: clean ones under the resource are closed.
      */
     didDelete(resource: string): void;
 }
@@ -45,7 +45,7 @@ export const NULL_BULK_EDIT_BUFFERS: IBulkEditBuffers = {
     get: () => null,
     undoParticipants: () => [],
     didDelete: () => {
-        /* вкладок нет — закрывать нечего */
+        /* no tabs — nothing to close */
     },
 };
 

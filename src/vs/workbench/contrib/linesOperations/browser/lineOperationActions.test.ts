@@ -141,7 +141,7 @@ describe("line operation actions", () => {
     });
 
     it("без активного текстового редактора все операции — безопасные no-op", async () => {
-        const ctrl = createTestActiveEditorService(null); // ни одной открытой вкладки
+        const ctrl = createTestActiveEditorService(null); // no open tabs
         const commands = new CommandRegistry();
         const accessor = new Container();
         accessor.bind(EditorServiceDIToken, () => ctrl);
@@ -188,8 +188,8 @@ describe("line operation actions", () => {
         expect(deleteLinesAction.id).toBe("editor.action.deleteLines");
         expect(deleteLinesAction.title).toBe("Delete Line");
         expect(deleteLinesAction.keybinding).toEqual(parseKeybinding("mod+shift+k"));
-        // Аккорд — единственный досягаемый там, где нет extended keys, и он
-        // БЕЗУСЛОВЕН: гейт по tier снимал фолбэк ровно в нужном окружении.
+        // The chord is the only one reachable where there are no extended keys, and it is
+        // UNCONDITIONAL: a tier gate removed the fallback exactly in the environment that needs it.
         expect(deleteLinesAction.keybindings).toEqual([parseChord("ctrl+k ctrl+k")]);
         expect(deleteLinesAction.when).toBe("textInputFocus && !editorReadonly");
     });
@@ -198,10 +198,10 @@ describe("line operation actions", () => {
         const { editor, exec } = openEditor("a\nb");
         editor.viewState.selections = [createCursorSelection(0, 0)];
 
-        await exec(moveLinesUpAction); // первая строка — двигать некуда
+        await exec(moveLinesUpAction); // first line — nowhere to move
         expect(editor.getText()).toBe("a\nb");
 
-        editor.undo(); // стек пуст — документ не меняется
+        editor.undo(); // stack is empty — document does not change
         expect(editor.getText()).toBe("a\nb");
     });
 });

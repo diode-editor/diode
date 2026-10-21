@@ -124,7 +124,7 @@ describe("ProblemsTreeDataProvider", () => {
 
 describe("ProblemsTreeDataProvider — ресурсы вне диска", () => {
     it("метка безымянного буфера берётся из ресурса, а не из basename пути", () => {
-        // path.basename по "untitled:Untitled-1" дал бы неверный ответ — метку даёт uri.
+        // path.basename on "untitled:Untitled-1" would give a wrong answer — the label comes from the uri.
         const p = new ProblemsTreeDataProvider();
         p.setMarkers([
             {

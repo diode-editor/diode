@@ -7,13 +7,13 @@ import { Uri } from "../../../../base/common/uri.ts";
 import type { IMarker } from "../../../../platform/markers/common/iMarker.ts";
 import { MarkerSeverity } from "../../../../platform/markers/common/iMarker.ts";
 
-/** `path.basename` по ресурсу-uri брать нельзя: на `untitled:Untitled-1` он дал бы неверный ответ. */
+/** `path.basename` must not be applied to a uri resource: on `untitled:Untitled-1` it gives a wrong answer. */
 function resourceLabel(resource: string): string {
     const uri = Uri.parse(resource);
     return uri.scheme === "file" ? path.basename(uri.fsPath) : uri.path;
 }
 
-/** Узел-файл без данных (они ищутся по `resource`): на обновлении дерево может вернуть прежний объект узла. */
+/** A file node without data (it is looked up by `resource`): on update the tree may return the previous node object. */
 export type ProblemNode =
     | { readonly kind: "file"; readonly resource: string }
     | { readonly kind: "marker"; readonly resource: string; readonly marker: IMarker; readonly index: number };
@@ -79,8 +79,8 @@ export class ProblemsTreeDataProvider implements ITreeDataProvider<ProblemNode> 
     }
 
     public getKey(element: ProblemNode): string {
-        // Префикс — вид узла, а не схема: `resource` сам уже uri (`file:///a.json`),
-        // и `file:`-префикс поверх него читался бы как удвоенная схема.
+        // The prefix is the node kind, not a scheme: `resource` is already a uri (`file:///a.json`),
+        // and a `file:` prefix on top of it would read as a doubled scheme.
         return element.kind === "file" ? `node:${element.resource}` : `marker:${element.resource}:${element.index}`;
     }
 

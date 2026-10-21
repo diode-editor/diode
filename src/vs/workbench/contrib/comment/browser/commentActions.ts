@@ -14,7 +14,7 @@ import type { ServiceAccessor } from "../../../../platform/instantiation/common/
 import { parseChord, parseKeybinding } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import { EditorServiceDIToken } from "../../../services/editor/common/editorService.ts";
 
-// Токены комментариев — из language configuration; загрузка ленивая, первый вызов на языке ждёт чтения файла.
+// Comment tokens come from the language configuration; loading is lazy, the first call per language waits for the file read.
 
 async function withCommentRule(
     accessor: ServiceAccessor,
@@ -27,9 +27,9 @@ async function withCommentRule(
 
     const configuration = await accessor.get(LanguageConfigurationServiceDIToken).ensureLoaded(document.languageId);
     if (configuration.comments === undefined) return;
-    // Пока конфигурация читалась с диска, пользователь мог переключить
-    // вкладку или продолжить печатать — команда обязана примениться к тому
-    // состоянию, на котором её звали, либо не примениться вовсе.
+    // While the configuration was being read from disk, the user could switch
+    // tabs or keep typing — the command must apply to the
+    // state it was invoked in, or not apply at all.
     if (editor.viewState.document !== document || document.versionId !== versionBefore) return;
 
     editor.pushUndo(apply(editor.viewState, configuration.comments));
@@ -69,10 +69,10 @@ export const removeCommentLineAction: CommandAction = {
 export const blockCommentAction: CommandAction = {
     id: "editor.action.blockComment",
     title: "Toggle Block Comment",
-    // Shift+Alt+<буква> в legacy-потоке приходит как `ESC <буква>` без shift-флага —
-    // канонический бинд объявлен там, где терминал различает Shift, а досягаемый
-    // путь — безусловный лидер-аккорд (Alt во второй части: голая вторая часть
-    // утекает парным keypress'ом, см. docs/TODO/README.md, «Клавиатура»).
+    // Shift+Alt+<letter> arrives in the legacy stream as `ESC <letter>` without the shift flag —
+    // the canonical binding is declared where the terminal distinguishes Shift, and the reachable
+    // path is an unconditional leader chord (Alt in the second part: a bare second part
+    // leaks as a paired keypress, see docs/TODO/README.md#клавиатура).
     keybinding: parseChord("ctrl+k alt+a"),
     keybindings: [{ keys: parseKeybinding("shift+alt+a"), when: "tier != 'legacy'" }],
     when: "textInputFocus && !editorReadonly",

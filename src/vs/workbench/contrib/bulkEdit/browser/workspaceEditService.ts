@@ -35,24 +35,24 @@ import { isResourceFileEdit } from "../common/workspaceEdit.ts";
 interface ReversibleOp {
     undo(): void | Promise<void>;
     redo(): void | Promise<void>;
-    /** См. {@link IUndoRedoElement.canUndo}: отказ одной операции отменяет весь шаг. */
+    /** See {@link IUndoRedoElement.canUndo}: a refusal of one operation cancels the whole step. */
     canUndo?(): boolean | Promise<boolean>;
     canRedo?(): boolean | Promise<boolean>;
     confirmBeforeUndo?: string;
 }
 
 /**
- * Правки ОДНОГО ресурса в его исходных координатах (семантика `vscode.WorkspaceEdit`: не сдвигают
- * друг друга и не пересекаются), поэтому копятся и применяются одной пачкой.
+ * Edits of ONE resource in its original coordinates (`vscode.WorkspaceEdit` semantics: they don't shift
+ * each other and don't overlap), so they are collected and applied as one batch.
  */
 type ITextSlot =
     | {
           /** `uri.toString()`. */
           readonly resource: string;
-          /** `null` — безымянный буфер. */
+          /** `null` — untitled buffer. */
           readonly filePath: string | null;
           readonly buffer: IBulkEditBuffer;
-          /** До правок — по нему клампятся координаты. */
+          /** Before the edits — coordinates are clamped against it. */
           readonly base: string;
           readonly edits: ITextEdit[];
       }
@@ -63,23 +63,23 @@ type ITextSlot =
           readonly base: string;
           readonly encoding: string;
           /**
-           * Файл появился в этом же edit'е: перед повтором шага его ещё нет — его вернёт файловая
-           * операция шага, идущая раньше правки.
+           * The file appeared in this same edit: before the step is redone it doesn't exist yet — the step's
+           * file operation that precedes the edit brings it back.
            */
           readonly bornInEdit: boolean;
           readonly edits: ITextEdit[];
       };
 
-/** В порядке, в котором операции прислало расширение. */
+/** In the order the extension sent the operations. */
 type PlanEntry =
     | { readonly kind: "file"; readonly edit: WorkspaceFileEdit }
     | { readonly kind: "text"; readonly slot: ITextSlot };
 
-/** «Что будет на диске к моменту операции»: без неё не провалидировать «создать файл и тут же в него написать». */
+/** "What will be on disk by the time of the operation": without it "create a file and write to it right away" can't be validated. */
 class ResourceProjection {
     public constructor(private readonly files: IFileService) {}
 
-    /** `null` — «ресурса не будет»; путей, которых здесь нет, edit не трогал — про них отвечает диск. */
+    /** `null` — "the resource won't exist"; paths not here were not touched by the edit — the disk answers for them. */
     private readonly state = new Map<string, string | null>();
 
     public exists(filePath: string): Promise<boolean> {
@@ -88,7 +88,7 @@ class ResourceProjection {
         return Promise.resolve(known !== null);
     }
 
-    /** `null` — файла нет. */
+    /** `null` — no file. */
     public read(filePath: string): Promise<{ text: string; encoding: string } | null> {
         const known = this.state.get(filePath);
         if (known === undefined) return readTextFile(this.files, filePath);
@@ -111,19 +111,19 @@ class ResourceProjection {
     public async rename(from: string, to: string): Promise<void> {
         const kept = await this.read(from);
         this.remove(from);
-        // Каталог проецируем пустым: правка по новому пути всё равно упрётся в ФС, а не в проекцию.
-        // Stryker disable next-line StringLiteral: содержимое такого источника проекции не известно — любое значение одинаково ненаблюдаемо
+        // A directory is projected as empty: an edit on the new path hits the FS anyway, not the projection.
+        // Stryker disable next-line StringLiteral: the contents of such a projection source are unknown — any value is equally unobservable
         this.state.set(to, kept === null ? "" : kept.text);
     }
 }
 
-/** Файл создан самим edit'ом: содержимое пришло строкой, байтового представления не было. */
+/** File created by the edit itself: contents came as a string, there was no byte representation. */
 const DEFAULT_PROJECTION_ENCODING = "utf8";
 
 /**
- * {@link applyFileEdits} (проводник): сбой одной записи не прерывает остальные. {@link applyWorkspaceEdit}:
- * all-or-nothing и ОДИН шаг отмены на весь edit. Удаление — в корзину, если она доступна (тогда
- * отменяемо), иначе безвозвратно и мимо истории.
+ * {@link applyFileEdits} (explorer): a failure of one entry doesn't abort the rest. {@link applyWorkspaceEdit}:
+ * all-or-nothing and ONE undo step for the whole edit. Delete goes to the trash if available (then
+ * undoable), otherwise permanently and bypassing history.
  */
 export class WorkspaceEditService {
     public static readonly dependencies = [
@@ -157,7 +157,7 @@ export class WorkspaceEditService {
         return enabled && this.trash.isAvailable();
     }
 
-    /** `null` — ни одна операция не отменяема (например, только безвозвратное удаление). */
+    /** `null` — no operation is undoable (e.g. only a permanent delete). */
     public async applyFileEdits(edits: readonly ResourceFileEdit[], label: string): Promise<IUndoRedoElement | null> {
         const ops: ReversibleOp[] = [];
         const resources: string[] = [];
@@ -166,7 +166,7 @@ export class WorkspaceEditService {
             try {
                 await this.applyOne(edit, ops, resources);
             } catch {
-                // Ошибка по одной записи не прерывает остальные (как в pasteFiles).
+                // A failure of one entry doesn't abort the rest (as in pasteFiles).
             }
         }
 
@@ -178,18 +178,18 @@ export class WorkspaceEditService {
     }
 
     /**
-     * `false` — не применено НИЧЕГО: весь edit валидируется до применения, ведь у расширения `applyEdit()`
-     * резолвится этим значением. Открытый ресурс правится через буфер и остаётся грязным (как в VS Code),
-     * закрытый — записью на диск.
+     * `false` — NOTHING was applied: the whole edit is validated before applying, since the extension's `applyEdit()`
+     * resolves with this value. An open resource is edited through the buffer and stays dirty (as in VS Code),
+     * a closed one is written to disk.
      */
     public async applyWorkspaceEdit(
         edits: BulkEdit,
         label: string,
         options?: { respectAutoSaveConfig?: boolean },
     ): Promise<boolean> {
-        // Пустой список: вакуумный успех отвечает вызывающий, здесь не применено ничего.
+        // Empty list: the caller answers for the vacuous success, nothing is applied here.
         if (edits.length === 0) return false;
-        // Пустой план (все операции — законные no-op) отказом НЕ является; отказ — только `null`.
+        // An empty plan (all operations are legitimate no-ops) is NOT a refusal; only `null` is.
         const plan = await this.planWorkspaceEdit(edits);
         if (plan === null) return false;
 
@@ -199,7 +199,7 @@ export class WorkspaceEditService {
             try {
                 await this.applyPlanEntry(entry, label, ops, resources);
             } catch {
-                // Сбой записи после валидации (гонка, права): откатываем применённое — половинчатый edit недопустим.
+                // Write failure after validation (race, permissions): roll back what was applied — a half-applied edit is not allowed.
                 for (let i = ops.length - 1; i >= 0; i--) await ops[i].undo();
                 return false;
             }
@@ -220,8 +220,8 @@ export class WorkspaceEditService {
     }
 
     /**
-     * Эталон — `BulkEditService._saveAll`: без сохранения буферов «Move to a new file» оставил бы новый
-     * файл на диске, а исходник — только в буфере.
+     * Upstream: `BulkEditService._saveAll`. Without saving the buffers, "Move to a new file" would leave the new
+     * file on disk and the source only in the buffer.
      */
     private async saveRefactoring(plan: readonly PlanEntry[]): Promise<void> {
         if (!this.config.get("files.refactoring.autoSave")) return;
@@ -232,7 +232,7 @@ export class WorkspaceEditService {
         await Promise.allSettled(buffers.map((buffer) => buffer.save()));
     }
 
-    /** `null` — edit отбивается целиком. */
+    /** `null` — the whole edit is rejected. */
     private async planWorkspaceEdit(edits: BulkEdit): Promise<PlanEntry[] | null> {
         const plan: PlanEntry[] = [];
         const projection = new ResourceProjection(this.files);
@@ -240,8 +240,8 @@ export class WorkspaceEditService {
 
         for (const edit of edits) {
             if (isResourceFileEdit(edit)) {
-                // База текстовых правок ресурса уже снята, перенести её на новый путь нечем. Расширения
-                // присылают обратный порядок (операция, потом правки), поэтому отбиваем edit.
+                // The base of the resource's text edits is already taken, there is no way to move it to the new path. Extensions
+                // send the reverse order (operation, then edits), so the edit is rejected.
                 if (touchesTextSlot(edit, slots)) return null;
                 if (!(await validateFileEdit(edit, projection))) return null;
                 if (await skipsFileEdit(edit, projection)) continue;
@@ -270,8 +270,8 @@ export class WorkspaceEditService {
                     createTextEdit(createRange(start.line, start.character, end.line, end.character), item.text),
                 );
             }
-            // Перекрытые правки документ применил бы по уже съеденному тексту —
-            // порча содержимого и сломанный undo.
+            // The document would apply overlapping edits to already consumed text —
+            // corrupted contents and a broken undo.
             if (hasOverlappingEdits(slot.edits)) return null;
         }
 
@@ -286,8 +286,8 @@ export class WorkspaceEditService {
             const filePath = uri.scheme === "file" ? uri.fsPath : null;
             return { resource, filePath, buffer: target, base: target.text(), edits: [] };
         }
-        // Гейт по СХЕМЕ, а не по выведенному пути: у чужого uri путь бывает валидным (`probe:/etc/x`),
-        // и правка ушла бы в посторонний файл.
+        // Gate on the SCHEME, not the derived path: a foreign uri can have a valid path (`probe:/etc/x`),
+        // and the edit would go to an unrelated file.
         if (uri.scheme !== "file") return null;
         const filePath = uri.fsPath;
         const source = await projection.read(filePath);
@@ -317,7 +317,7 @@ export class WorkspaceEditService {
         if (slot.buffer !== null) {
             if (slot.filePath !== null) resources.push(slot.filePath);
             const step = slot.buffer.applyEdits(slot.edits, label);
-            // `null` — правки ничего не изменили; это не отказ.
+            // `null` — the edits changed nothing; this is not a refusal.
             if (step !== null) ops.push(step);
             return;
         }
@@ -330,7 +330,7 @@ export class WorkspaceEditService {
         const files = this.files;
         await writeTextFile(files, filePath, after, encoding);
         ops.push({
-            // Файл изменили снаружи — откат затёр бы чужую правку.
+            // The file was changed externally — undoing would overwrite someone else's edit.
             canUndo: async () => (await readTextFile(files, filePath))?.text === after,
             canRedo: async () => {
                 const current = await readTextFile(files, filePath);
@@ -343,8 +343,8 @@ export class WorkspaceEditService {
 
     private async applyOne(edit: ResourceFileEdit, ops: ReversibleOp[], resources: string[]): Promise<void> {
         const files = this.files;
-        // Защита от значения, пришедшего в обход типов (kind типизирован строкой намеренно,
-        // чтобы проверка не считалась «всегда истинной» и оставалась осмысленной в рантайме).
+        // Guard against a value that bypassed the types (kind is typed as string on purpose,
+        // so the check isn't considered "always true" and stays meaningful at runtime).
         const kind: string = edit.kind;
         if (kind !== "move" && kind !== "rename" && kind !== "copy" && kind !== "delete" && kind !== "create") {
             throw new Error(`Неподдерживаемый вид правки: ${kind}`);
@@ -364,11 +364,11 @@ export class WorkspaceEditService {
                 },
             });
         } else if (edit.kind === "rename") {
-            // `to` — точный путь, а не каталог. Коллизию отсекает промпт, у `workspace.applyEdit` её
-            // разрешает `overwrite` — затёртое содержимое надо вернуть при отмене.
+            // `to` is an exact path, not a directory. The prompt rules out a collision; for `workspace.applyEdit` it is
+            // resolved by `overwrite` — the overwritten contents must be restored on undo.
             const from = edit.from;
             const to = edit.to;
-            // Снимок цели всегда: если цель заняли в гонке, отмена вернёт её содержимое.
+            // Always snapshot the target: if it was taken in a race, undo restores its contents.
             const replaced = await keepAside(files, to);
             await moveToPath(files, from, to);
             let current = to;
@@ -399,8 +399,8 @@ export class WorkspaceEditService {
             const from = edit.from;
             resources.push(from);
             if (this.willMoveToTrash()) {
-                // Корзина — мимо файлового сервиса: о вкладках удалённого
-                // сообщаем сами (безвозвратное удаление сообщает сервис).
+                // Trash bypasses the file service: we notify the tabs of the deleted
+                // resource ourselves (for a permanent delete the service does it).
                 const trash = async (): Promise<ITrashEntry> => {
                     const trashed = await this.trash.trash(from);
                     this.buffers.didDelete(Uri.file(from).toString());
@@ -416,18 +416,18 @@ export class WorkspaceEditService {
                     },
                 });
             } else {
-                // Безвозвратно — отменить нельзя, шаг в историю не пишем.
+                // Permanent — can't be undone, no history step.
                 await removeIfExists(files, from);
             }
         } else {
             const to = edit.to;
-            // Коллизия при явном имени — ошибка (per-edit try/catch → no-op); защита — валидация в промпте.
+            // Collision with an explicit name is an error (per-edit try/catch → no-op); the prompt's validation guards against it.
             const replaced = edit.overwrite === true ? await keepAside(files, to) : null;
-            // Stryker disable next-line StringLiteral: текст ошибки проглатывает per-edit try/catch вызывающего — наблюдаем только сам отказ
+            // Stryker disable next-line StringLiteral: the error text is swallowed by the caller's per-edit try/catch — only the refusal itself is observable
             if (replaced === null && (await files.exists(Uri.file(to)))) throw new Error(`Уже существует: ${to}`);
 
-            // Самый верхний из создаваемых предков — чтобы undo убрал ровно то, что
-            // добавило create (и не тронул уже существовавшие каталоги).
+            // The topmost of the created ancestors — so undo removes exactly what
+            // create added (and doesn't touch directories that already existed).
             const createdRoot = await shallowestMissingAncestor(files, to);
             const contents = edit.contents ?? "";
             const doCreate = async (): Promise<void> => {
@@ -449,8 +449,8 @@ export class WorkspaceEditService {
 }
 
 /**
- * Отказ любого — отказ всех. Синхронен, пока синхронны все ответы: Ctrl+Z по правке только открытых
- * буферов откатывает их до возврата. Промис — только если кто-то спрашивает диск.
+ * A refusal of any is a refusal of all. Synchronous as long as all answers are: Ctrl+Z on an edit of only open
+ * buffers undoes them before returning. A promise only if someone asks the disk.
  */
 function allAllow(answers: readonly (boolean | Promise<boolean> | undefined)[]): boolean | Promise<boolean> {
     if (answers.some((answer) => answer instanceof Promise)) {
@@ -461,15 +461,15 @@ function allAllow(answers: readonly (boolean | Promise<boolean> | undefined)[]):
     return answers.every((can) => can !== false);
 }
 
-/** Откат — в обратном порядке. */
+/** Undo runs in reverse order. */
 function buildUndoElement(label: string, resources: readonly string[], ops: readonly ReversibleOp[]): IUndoRedoElement {
     const confirmBeforeUndo = ops.map((o) => o.confirmBeforeUndo).find((m): m is string => m !== undefined);
     return {
         label,
         resources,
         ...(confirmBeforeUndo ? { confirmBeforeUndo } : {}),
-        // Отказ ЛЮБОЙ операции отменяет весь шаг: откатить половину (правку
-        // одного файла из трёх) хуже, чем не откатить ничего.
+        // A refusal of ANY operation cancels the whole step: undoing half (an edit
+        // of one file out of three) is worse than undoing nothing.
         canUndo: () => allAllow(ops.map((op) => op.canUndo?.())),
         canRedo: () => allAllow(ops.map((op) => op.canRedo?.())),
         async undo() {
@@ -481,7 +481,7 @@ function buildUndoElement(label: string, resources: readonly string[], ops: read
     };
 }
 
-/** Координаты — исходные, пересечений нет. */
+/** Original coordinates, no overlaps. */
 function applyEditsToText(text: string, edits: readonly ITextEdit[]): string {
     const doc = new TextDocument(text);
     doc.applyEdits(edits);
@@ -509,8 +509,8 @@ async function removeIfExists(files: IFileService, target: string): Promise<void
 }
 
 /**
- * Каталог на месте цели отдельной проверки не требует: `keepAside` его не прочитает, и применение
- * отобьётся гардом «уже существует».
+ * A directory in place of the target needs no separate check: `keepAside` won't read it, and applying
+ * is rejected by the "already exists" guard.
  */
 async function validateFileEdit(edit: WorkspaceFileEdit, projection: ResourceProjection): Promise<boolean> {
     if (edit.kind === "delete") {
@@ -518,14 +518,14 @@ async function validateFileEdit(edit: WorkspaceFileEdit, projection: ResourcePro
     }
     if (edit.kind === "rename" && !(await projection.exists(edit.from))) return false;
     if (!(await projection.exists(edit.to))) return true;
-    // Занятая цель без явного разрешения — edit не применяется.
+    // An occupied target without explicit permission — the edit is not applied.
     if (edit.ignoreIfExists === true) return true;
     return edit.overwrite === true;
 }
 
 /**
- * Зовётся ПОСЛЕ {@link validateFileEdit}, поэтому различает лишь `overwrite` и `ignoreIfExists`:
- * `overwrite` бьёт `ignoreIfExists` (как в vscode API) — с ним операция затирает цель.
+ * Called AFTER {@link validateFileEdit}, so it only distinguishes `overwrite` and `ignoreIfExists`:
+ * `overwrite` beats `ignoreIfExists` (as in the vscode API) — with it the operation overwrites the target.
  */
 async function skipsFileEdit(edit: WorkspaceFileEdit, projection: ResourceProjection): Promise<boolean> {
     if (edit.kind === "delete") return !(await projection.exists(edit.from));
@@ -537,7 +537,7 @@ async function projectFileEdit(edit: WorkspaceFileEdit, projection: ResourceProj
         projection.createFile(edit.to, edit.contents ?? "");
         return;
     }
-    // Stryker disable next-line ConditionalExpression: `true` отправит в эту ветку и удаление, а `rename` начинается с `remove(from)` — запись по несуществующему пути никто не читает, наблюдаемой разницы нет
+    // Stryker disable next-line ConditionalExpression: `true` sends delete into this branch too, and `rename` starts with `remove(from)` — nobody reads the write to a nonexistent path, no observable difference
     if (edit.kind === "rename") {
         await projection.rename(edit.from, edit.to);
         return;
@@ -565,7 +565,7 @@ function touchesTextSlot(edit: WorkspaceFileEdit, slots: ReadonlyMap<string, ITe
     return fileEditPaths(edit).some((filePath) => slots.has(Uri.file(filePath).toString()));
 }
 
-/** Сам файл не трогаем — запись и переименование перекрывают цель сами. `null` — цели нет или она не файл. */
+/** The file itself is left alone — writing and renaming replace the target on their own. `null` — no target or it's not a file. */
 async function keepAside(files: IFileService, target: string): Promise<{ restore(): Promise<void> } | null> {
     const kept = await readTextFile(files, target);
     if (kept === null) return null;
@@ -577,7 +577,7 @@ async function keepAside(files: IFileService, target: string): Promise<{ restore
 async function shallowestMissingAncestor(files: IFileService, target: string): Promise<string> {
     let current = target;
     let parent = path.dirname(current);
-    // Stryker disable next-line ConditionalExpression: стоп на корне — предохранитель от вечного цикла; у дискового провайдера корень существует всегда, и цикл кончается раньше
+    // Stryker disable next-line ConditionalExpression: stopping at the root is a safeguard against an infinite loop; the disk provider's root always exists, and the loop ends earlier
     while (parent !== current && !(await files.exists(Uri.file(parent)))) {
         current = parent;
         parent = path.dirname(current);
@@ -591,7 +591,7 @@ async function moveBack(files: IFileService, src: string, originalPath: string):
     return dest;
 }
 
-/** Как VS Code/Finder: `name` → `name copy` → `name copy 2` → …, расширение файла сохраняется. */
+/** Like VS Code/Finder: `name` → `name copy` → `name copy 2` → …, the file extension is kept. */
 async function resolveNonConflictingDest(files: IFileService, targetDir: string, name: string): Promise<string> {
     const direct = path.join(targetDir, name);
     if (!(await files.exists(Uri.file(direct)))) return direct;
@@ -610,7 +610,7 @@ async function moveToPath(files: IFileService, src: string, dest: string): Promi
     await files.move(Uri.file(src), Uri.file(dest), true);
 }
 
-/** Каталог внутрь самого себя не пустит провайдер (отказ ОС) — отдельной проверки не нужно. */
+/** The provider won't let a directory into itself (OS refusal) — no separate check needed. */
 async function copyInto(files: IFileService, src: string, targetDir: string): Promise<string> {
     const dest = await resolveNonConflictingDest(files, targetDir, path.basename(src));
     await files.copy(Uri.file(src), Uri.file(dest));

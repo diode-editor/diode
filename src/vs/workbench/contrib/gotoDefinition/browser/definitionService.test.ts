@@ -81,7 +81,7 @@ describe("DefinitionService — Go to Definition", () => {
         useDefinitions(() => Promise.resolve([{ uri: defsUri, range: createRange(1, 4, 1, 10) }]));
 
         h.testApp.sendKey("F12");
-        // Команда не ждётся: прокачиваем цепочку «реестр → провайдеры → открытие файла».
+        // The command isn't awaited: pump the registry → providers → file open chain.
         await flushMicrotasks(10);
 
         expect(group().getActiveEditor()?.uri.toString()).toBe(defsUri);
@@ -94,7 +94,7 @@ describe("DefinitionService — Go to Definition", () => {
         useDefinitions(() => Promise.resolve([{ uri: defsUri, range: createRange(0, 16, 0, 23) }]));
 
         h.commands.execute("editor.action.revealDefinitionAside");
-        // Команда не ждётся: прокачиваем цепочку «реестр → провайдеры → открытие файла».
+        // The command isn't awaited: pump the registry → providers → file open chain.
         await flushMicrotasks(10);
 
         const groups = group().editorGroups.groups;
@@ -173,16 +173,16 @@ describe("DefinitionService — Go to Definition", () => {
     });
 
     it("нет источника / пустой результат / нет активного редактора — no-op", async () => {
-        // Нет источника.
+        // No source.
         await service().revealDefinition();
         expect(caret()).toMatchObject({ line: 0, character: 0 });
 
-        // Пустой результат.
+        // Empty result.
         useDefinitions(() => Promise.resolve([]));
         await service().revealDefinition();
         expect(caret()).toMatchObject({ line: 0, character: 0 });
 
-        // Нет активного редактора: источник не должен вызываться вовсе.
+        // No active editor: the source must not be called at all.
         let called = false;
         useDefinitions(() => {
             called = true;
