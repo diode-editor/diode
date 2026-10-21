@@ -16,6 +16,7 @@ class FakeChild extends EventEmitter {
     /** Needed to address the process GROUP. */
     public pid: number | undefined = 4242;
     public exitCode: number | null = null;
+    public signalCode: string | null = null;
     public killed = false;
     public stdout: PassThrough | null = null;
     public stderr: PassThrough | null = null;
@@ -39,7 +40,7 @@ class FakeChild extends EventEmitter {
     public kill(signal?: string): boolean {
         const sig = signal ?? "SIGTERM";
         this.signals.push(sig);
-        // A group `process.kill(-pid)` doesn't set the flag, otherwise signal escalation would stop at the first step.
+        // Set even when the child survives the signal, as in node.
         this.killed = true;
         this.receive(sig);
         return true;
@@ -47,9 +48,10 @@ class FakeChild extends EventEmitter {
 
     private receive(sig: string): void {
         if (sig === this.exitOnSignal) {
+            // Killed by a signal: node leaves `exitCode` null and fills `signalCode`.
             const exit = (): void => {
-                this.exitCode = 0;
-                this.emit("exit", 0, sig);
+                this.signalCode = sig;
+                this.emit("exit", null, sig);
             };
             if (this.exitDelayMs === 0) exit();
             else setTimeout(exit, this.exitDelayMs);
@@ -237,7 +239,34 @@ describe("ExtensionHostProcess — shutdown", () => {
 
         await subprocess.shutdown(10);
 
-        expect(child.exitCode).toBe(0);
+        expect(child.signalCode).toBe("SIGTERM");
+        expect(child.groupSignals).toEqual(["SIGTERM"]);
+    });
+
+    it("a child that exited with a code after host.shutdown gets no signal", async () => {
+        const child = new FakeChild();
+        const { subprocess } = start(child);
+        child.exitCode = 0;
+
+        await subprocess.shutdown(1);
+
+        expect(child.groupSignals).toEqual([]);
+        expect(child.signals).toEqual([]);
+    });
+
+    // The direct `kill` sets `child.killed` for a surviving child too: on win32 it is the only path,
+    // elsewhere it is the fallback after a failed group kill.
+    it("a direct kill escalates to SIGKILL when the child survives SIGTERM", async () => {
+        vi.mocked(process.kill).mockImplementation(() => {
+            throw Object.assign(new Error("operation not permitted"), { code: "EPERM" });
+        });
+        const child = new FakeChild();
+        child.exitOnSignal = "SIGKILL";
+        const { subprocess } = start(child);
+
+        await subprocess.shutdown(1);
+
+        expect(child.signals).toEqual(["SIGTERM", "SIGKILL"]);
     });
 
     it("after shutdown the channel is closed: a request is rejected rather than lost", async () => {

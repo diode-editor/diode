@@ -27,6 +27,7 @@ const spawnMock = vi.mocked(spawn);
 
 class FakeChild extends EventEmitter {
     public exitCode: number | null = null;
+    public signalCode: string | null = null;
     public killed = false;
     public stdout: FakeStream | null = null;
     public stderr: FakeStream | null = null;
@@ -53,7 +54,7 @@ class FakeChild extends EventEmitter {
         this.signals.push(signal ?? "SIGTERM");
         this.killed = true;
         if (this.exitOnSignal !== null && (signal ?? "SIGTERM") === this.exitOnSignal) {
-            this.simulateExit(0, signal ?? null);
+            this.simulateExit(null, signal ?? "SIGTERM");
         }
         return true;
     }
@@ -68,6 +69,7 @@ class FakeChild extends EventEmitter {
 
     public simulateExit(code: number | null, signal: string | null = null): void {
         this.exitCode = code;
+        this.signalCode = signal;
         this.emit("exit", code, signal);
     }
 }
@@ -1592,17 +1594,16 @@ describe("ExtensionHost — shutdown", () => {
         expect(child.signals).not.toContain("SIGKILL");
     });
 
-    it("sends a single SIGTERM when the subprocess ignores both shutdown and the signal", async () => {
-        // Escalation to SIGKILL is unreachable: `kill()` sets `child.killed`, so the second guard
-        // after SIGTERM never passes. A latent bug; the test deliberately does not force it.
+    it("escalates to SIGKILL when the subprocess ignores both shutdown and SIGTERM", async () => {
         const child = new FakeChild();
+        child.exitOnSignal = "SIGKILL";
         const host = spawnReadyHost(child, new FakeEditorOptions(), { shutdownTimeoutMs: 10 });
         await registerAndActivate(host, makeReg("ext.a", "/a.js"));
 
         host.dispose();
 
-        await waitUntil(() => child.signals.includes("SIGTERM"), 2000);
-        expect(child.signals).toEqual(["SIGTERM"]);
+        await waitUntil(() => child.signals.includes("SIGKILL"), 2000);
+        expect(child.signals).toEqual(["SIGTERM", "SIGKILL"]);
     });
 
     it("disposes cleanly when no subprocess was ever spawned", () => {
