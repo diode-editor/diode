@@ -1,0 +1,53 @@
+{
+    "$comment": "Known flaky tests: vitest retries (retry) or skips (skip) them, see src/TestUtils/flakeTestRunner.ts. Process and details: docs/TODO/TestFlakes.md.",
+    "flakes": [
+        {
+            "file": "src/vs/workbench/contrib/files/browser/explorerComponent.decorations.test.ts",
+            "test": "ExplorerComponent — decorations bubble up to folders > a collapsed folder with a modified file deep inside — the file's color and '●'",
+            "action": "retry",
+            "note": "util.ts missing from the frame; 4 of 10 locally, breaks the mutation dry run"
+        },
+        {
+            "file": "src/vs/editor/browser/editorElement.performance.test.ts",
+            "test": "EditorElement / EditorViewState render-loop performance (cached) > combined render frame: contentWidth + buildVisibleLines × 100 cursor moves — must be fast",
+            "action": "retry",
+            "note": "wall-clock threshold of 100 ms on a loaded runner"
+        },
+        {
+            "file": "src/vs/editor/browser/editorElement.performance.test.ts",
+            "test": "EditorElement / EditorViewState render-loop performance (cached) > buildVisibleLines: cached by versionId — 100 render frames must be fast",
+            "action": "retry",
+            "note": "wall-clock threshold, 131 ms on #734"
+        },
+        {
+            "file": "src/vs/editor/browser/editorElement.performance.test.ts",
+            "test": "EditorElement — extremely long lines must not freeze > first contentWidth on open is bounded by the cap, not the line length",
+            "action": "retry",
+            "note": "wall-clock threshold, 206 ms on #738"
+        },
+        {
+            "file": "src/vs/platform/files/node/treeWatcherMain.integration.test.ts",
+            "test": "watcher process — end-to-end run > a file edit on disk reaches the callback in the editor process",
+            "action": "retry",
+            "note": "expected 'changed' to be 'created'"
+        },
+        {
+            "file": "src/vs/workbench/browser/workbench.fileCreate.test.ts",
+            "test": "Workbench — create via context menu > New File... entry prompts and creates a file",
+            "action": "retry",
+            "note": "expected false to be true; broke the mutation dry run on #662"
+        },
+        {
+            "file": "src/vs/workbench/browser/workbench.fileCreate.test.ts",
+            "test": "Workbench — New Untitled File > routes Save on an untitled buffer into Save As and writes the chosen path",
+            "action": "retry",
+            "note": "expected false to be true on #738"
+        },
+        {
+            "file": "src/vs/workbench/browser/workbench.preferences.test.ts",
+            "test": "Workbench — Preferences commands > recording a keybinding from the tab, end to end > the recorder writes the combination: file on disk, row updated, the command works at once",
+            "action": "retry",
+            "note": "vi.waitFor with the default 1 s timeout waits for a file on disk; 2 of 4 Stryker dry runs"
+        }
+    ]
+}

@@ -5,6 +5,8 @@ export default defineConfig({
     include: ["src/**/*.test.ts", "extensions/**/*.test.ts", "tools/**/*.test.ts"],
     // onUnexpectedError (incl. an Emitter listener exception) fails the test instead of drowning in the console.
     setupFiles: ["src/TestUtils/unexpectedErrors.setup.ts"],
+    // Known flakes from test-flakes.json are retried or skipped (docs/TODO/TestFlakes.md); Stryker reuses this config.
+    runner: "src/TestUtils/flakeTestRunner.ts",
     // Temp directories go under one root (TMPDIR) that teardown removes entirely:
     // after SIGKILL/OOM afterEach does not run, and leftovers stayed in /tmp forever.
     globalSetup: ["src/TestUtils/tmpRoot.ts"],
