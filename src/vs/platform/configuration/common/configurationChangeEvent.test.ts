@@ -35,10 +35,10 @@ describe("diffConfigurationKeys", () => {
 describe("createConfigurationChangeEvent", () => {
     it("affectsConfiguration matches exact key, ancestor and descendant", () => {
         const event = createConfigurationChangeEvent(["editor.tabSize"]);
-        expect(event.affectsConfiguration("editor.tabSize")).toBe(true); // exact
-        expect(event.affectsConfiguration("editor")).toBe(true); // ancestor
-        expect(event.affectsConfiguration("editor.tabSize.deep")).toBe(true); // descendant
-        expect(event.affectsConfiguration("workbench")).toBe(false); // unrelated
+        expect(event.affectsConfiguration("editor.tabSize")).toBe(true);
+        expect(event.affectsConfiguration("editor")).toBe(true);
+        expect(event.affectsConfiguration("editor.tabSize.deep")).toBe(true);
+        expect(event.affectsConfiguration("workbench")).toBe(false);
         expect(event.affectsConfiguration("editorX")).toBe(false); // prefix but not a segment boundary
     });
 

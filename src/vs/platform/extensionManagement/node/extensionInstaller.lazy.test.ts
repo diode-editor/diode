@@ -22,8 +22,7 @@ vi.mock("../../../base/node/lazyModule.ts", async (importOriginal) => {
 });
 
 describe("extensionInstaller — yauzl из ленивого куска", () => {
-    // В SEA кусок ищется по id: другой id — другой ассет, и установка падает
-    // (e2e/sea-install.test.ts). Здесь — что шов просит именно кусок yauzl.
+    // В SEA кусок ищется по id: другой id — другой ассет, и установка падает (e2e/sea-install.test.ts).
     it("чтение .vsix грузит yauzl через loadLazyModule под id из LAZY_CHUNKS", async () => {
         await expect(readVsixManifest(path.join(os.tmpdir(), "diode-no-such.vsix"))).rejects.toThrow();
 

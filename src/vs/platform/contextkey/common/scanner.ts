@@ -1,9 +1,6 @@
 /**
- * Лексема when-выражения. Набор и правила — как у upstream
- * `vs/platform/contextkey/common/scanner.ts`: строки только в одинарных кавычках,
- * `/regex/flags`, операторы `== != === !== < <= > >= && || ! =~`, ключевые слова
- * `true false in not`. Всё прочее, что похоже на слово (ключ или значение без
- * кавычек: `editorLangId`, `java`, `.ts`, `foo.bar:baz`), — `str`.
+ * Как upstream `scanner.ts`: строки только в одинарных кавычках; всё, что похоже на
+ * слово (ключ или значение без кавычек: `java`, `.ts`, `foo.bar:baz`), — `str`.
  */
 export type WhenToken =
     | {
@@ -22,18 +19,10 @@ const KEYWORDS = new Map<string, "true" | "false" | "in" | "not">([
 
 const REGEX_FLAGS = new Set(["i", "g", "s", "m", "y", "u"]);
 
-/**
- * Символы слова — тот же класс, что у upstream. Двойная кавычка входит в слово
- * (upstream сохраняет так поведение старого парсера: `a == "x"` сравнивает с `"x"`).
- */
+/** Двойная кавычка входит в слово, как у upstream: `a == "x"` сравнивает с `"x"` вместе с кавычками. */
 const WORD_RE = /[a-zA-Z0-9_<>\-./\\:*?+[\]^,#@;"%$\p{L}-]+/uy;
 
-/**
- * Разбивает when-строку на лексемы; последняя всегда `eof`. Ошибки лексики
- * (одиночные `=`, `&`, `|`, незакрытая кавычка или регекс) становятся лексемой
- * `error` — парсер на ней останавливается. Восстановления после ошибок, как у
- * upstream, нет: битая строка целиком ложна.
- */
+/** Последняя лексема всегда `eof`. */
 export function scanWhen(input: string): WhenToken[] {
     const tokens: WhenToken[] = [];
     let current = 0;
@@ -120,8 +109,7 @@ export function scanWhen(input: string): WhenToken[] {
                 WORD_RE.lastIndex = start;
                 const word = WORD_RE.exec(input);
                 if (word === null) {
-                    // Пробельные символы и символы вне класса слова (`{`, `~`, …)
-                    // пропускаются — как у upstream.
+                    // Символы вне класса слова (`{`, `~`, …) пропускаются — как у upstream.
                     break;
                 }
                 current = start + word[0].length;
@@ -135,11 +123,7 @@ export function scanWhen(input: string): WhenToken[] {
     return tokens;
 }
 
-/**
- * Хвост регекса после открывающего `/`: до неэкранированного `/` вне
- * класса символов, потом флаги. Возвращает позицию за флагами или `undefined`,
- * если закрывающего `/` нет. Слэш внутри регекса экранируется: `/file:\/\//`.
- */
+/** Позиция за флагами; `/` внутри класса символов регекс не закрывает. */
 function scanRegex(input: string, from: number): number | undefined {
     let p = from;
     let inEscape = false;
@@ -150,7 +134,6 @@ function scanRegex(input: string, from: number): number | undefined {
         if (inEscape) {
             inEscape = false;
         } else if (ch === "/" && !inClass) {
-            // За концом строки `input[p]` — undefined, его во флагах нет.
             while (REGEX_FLAGS.has(input[p])) p++;
             return p;
         } else if (ch === "[") {

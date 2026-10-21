@@ -38,50 +38,23 @@ import {
     workspaceSettingsPath,
 } from "../common/workspaceSettings.ts";
 
-/** Откуда читается слой воркспейса или папки. */
 interface ISettingsSource {
-    /** settings.json папки или файл `.code-workspace`. */
     readonly file: string;
     /** Ключ блока настроек внутри файла (`settings` у `.code-workspace`); нет — весь файл. */
     readonly section: string | undefined;
-    /** Скоупы, которые слой принимает. */
     readonly scopes: readonly ConfigurationScope[];
-    /** Почему отброшенные ключи не действуют — для warn'а в лог. */
     readonly ignoredReason: string;
 }
 
 /**
- * Реализация {@link IConfigurationService}.
+ * Слои по возрастанию приоритета (как `ApplicationConfiguration`/`UserConfiguration` эталона):
+ *   1. defaults реестра;
+ *   2. user — `User/settings.json`; у именованного профиля урезан до `APPLICATION_SCOPES`;
+ *   3. profile — файл именованного профиля, ключи `PROFILE_SCOPES`;
+ *   4. workspace — `.diode/settings.json` папки или блок `settings` файла `.code-workspace`;
+ *   5. workspaceFolder — только у окна из `.code-workspace`: файл папки, ключи `FOLDER_SCOPES`.
  *
- * Слои (в порядке возрастания приоритета):
- *   1. defaults — из `ConfigurationRegistry` (узлы `CONFIGURATION_CONTRIBUTIONS`);
- *   2. user — `User/settings.json` (Default-профиль). У именованного профиля
- *      слой **урезан до `APPLICATION_SCOPES`**: как `ApplicationConfiguration`
- *      эталона, из Default в именованный профиль приходят только ключи
- *      `scope: "application"`, остальное профиль задаёт сам;
- *   3. profile — `User/profiles/<id>/settings.json` активного именованного
- *      профиля (у Default пусто), ключи `PROFILE_SCOPES` — `application`-ключ в
- *      файле профиля не действует (warn в лог), как у `UserConfiguration`
- *      эталона с `getLocalUserConfigurationScopes`;
- *   4. workspace — `<папка>/.diode/settings.json` открытой папки (у эталона —
- *      `.vscode/settings.json`, см. `workspaceSettings.ts`) без ключей, чей
- *      `scope` воркспейсу не положен; у окна, открытого файлом
- *      `.code-workspace`, — блок `settings` этого файла;
- *   5. workspaceFolder — только у окна из файла `.code-workspace`:
- *      `.diode/settings.json` его папки, ключи `FOLDER_SCOPES` (как у эталона,
- *      `window`-ключ папки тогда не действует).
- *   Что открыто, сервису сообщает {@link ConfigurationService.setWorkspace}: на
- *   старте, при Open Folder и Open Workspace from File. Без папки оба слоя пусты.
- *
- * Live-reload: если в конструктор передан {@link IFileWatcher} и пути к
- * settings.json, сервис следит за файлом(-ами) и на изменение перечитывает
- * соответствующий слой, пересобирает merged и эмитит `onDidChangeConfiguration`
- * с диффом затронутых ключей. Правки через {@link updateValue} эмитят то же
- * событие. Дифф гарантирует, что пустое изменение (напр. повторный reload после
- * собственной записи) события не порождает.
- *
- * Битые JSONC-файлы логируются через переданный `ILogger` и трактуются как
- * пустой слой — bootstrap не должен падать из-за невалидного settings.json.
+ * Битый JSONC — пустой слой с ошибкой в лог: bootstrap не должен падать из-за settings.json.
  */
 export class ConfigurationService extends Disposable implements IConfigurationService {
     private readonly defaultsLayer: ConfigurationModel;
@@ -90,37 +63,23 @@ export class ConfigurationService extends Disposable implements IConfigurationSe
     private workspaceLayer = ConfigurationModel.EMPTY;
     private folderLayer = ConfigurationModel.EMPTY;
     private snapshot: ConfigurationSnapshot;
-    /** Источник слоя воркспейса; `undefined` — папка не открыта. */
     private workspaceSource: ISettingsSource | undefined;
-    /** Источник слоя папки; есть только у окна из файла `.code-workspace`. */
     private folderSource: ISettingsSource | undefined;
-    /** Watch на файлы слоёв воркспейса и папки — меняются вместе с воркспейсом. */
     private readonly workspaceWatch = this.register(new MutableDisposable());
     private readonly folderWatch = this.register(new MutableDisposable());
     private readonly fileWatcher: IFileWatcher | undefined;
-    /**
-     * Поколение папки воркспейса: загрузка слоя, закончившаяся после следующей
-     * смены папки, результат не применяет.
-     */
+    /** Загрузка слоя, закончившаяся после следующей смены папки, результат не применяет. */
     private workspaceGeneration = 0;
-    /** Хвост очереди записей: read-modify-write одного файла не должны перекрываться. */
+    /** Read-modify-write одного файла не должны перекрываться. */
     private writeQueue: Promise<void> = Promise.resolve();
-    /**
-     * settings.json активного профиля — цель для {@link updateValue}. Для
-     * default-профиля это `User/settings.json` (совпадает с user-слоем); для
-     * именованного — файл профиля (profile-слой).
-     */
     private readonly writeTargetPath: string | undefined;
     private readonly writesToProfileLayer: boolean;
-    /** Путь к `User/settings.json` (user-слой) — для перечитывания при reload. */
     private readonly userSettingsPath: string | undefined;
-    /** Путь к settings.json именованного профиля; undefined для default-профиля. */
     private readonly profileSettingsPath: string | undefined;
     private readonly logger: ILogger | undefined;
-    /** Набор `application`-ключей файла профиля, уже названный warn'ом: повтор на каждую запись — шум. */
+    /** Уже названный warn'ом набор: файл профиля перечитывается на каждую запись, повтор — шум. */
     private warnedProfileKeys: string | undefined;
     private readonly schemas: ReadonlyMap<string, IConfigurationPropertySchema>;
-    /** `scope` ключей ядра и расширений — фильтр и отказ записи в воркспейс. */
     private readonly scopes: ReadonlyMap<string, ConfigurationScope>;
     private readonly onDidChangeConfigurationEmitter = new Emitter<IConfigurationChangeEvent>();
     public readonly onDidChangeConfiguration = this.onDidChangeConfigurationEmitter.event;
@@ -129,20 +88,14 @@ export class ConfigurationService extends Disposable implements IConfigurationSe
         readonly defaultsLayer: ConfigurationModel;
         readonly userLayer: ConfigurationModel;
         readonly profileLayer: ConfigurationModel;
-        /** Путь к settings.json активного профиля; без него запись недоступна. */
+        /** Без него запись недоступна. */
         readonly writeTargetPath?: string;
-        /** true → правка ложится в profile-слой (именованный профиль). */
         readonly writesToProfileLayer?: boolean;
-        /** Путь к `User/settings.json` — включает reload user-слоя. */
         readonly userSettingsPath?: string;
-        /** Путь к settings.json именованного профиля — включает reload profile-слоя. */
         readonly profileSettingsPath?: string;
-        /** Watcher: если передан вместе с путями — включает live-reload. */
         readonly fileWatcher?: IFileWatcher;
         readonly logger?: ILogger;
-        /** Схемы ключей (из реестра): значение, не прошедшее схему, заменяется дефолтом. */
         readonly schemas?: ReadonlyMap<string, IConfigurationPropertySchema>;
-        /** `scope` ключей ядра и расширений (из реестра): какие ключи действуют в воркспейсе. */
         readonly scopes?: ReadonlyMap<string, ConfigurationScope>;
     }) {
         super();
@@ -155,8 +108,7 @@ export class ConfigurationService extends Disposable implements IConfigurationSe
         this.schemas = input.schemas ?? new Map();
         this.scopes = input.scopes ?? new Map();
         this.fileWatcher = input.fileWatcher;
-        // Слои приходят как прочитаны; фильтры скоупов именованного профиля —
-        // здесь, чтобы bootstrap, reload и запись делили одну семантику.
+        // Фильтры скоупов профиля — здесь, чтобы bootstrap, reload и запись делили одну семантику.
         this.userLayer = this.toUserLayer(input.userLayer);
         this.profileLayer = this.toProfileLayer(input.profileLayer);
         this.snapshot = this.computeSnapshot();
@@ -166,11 +118,6 @@ export class ConfigurationService extends Disposable implements IConfigurationSe
         }
     }
 
-    /**
-     * Подписывает reload на изменения settings.json. Следим за user-файлом
-     * всегда (если путь известен) и за profile-файлом для именованного профиля.
-     * Хендлы watch регистрируются в {@link Disposable} — чистятся на `dispose()`.
-     */
     private startWatching(fileWatcher: IFileWatcher): void {
         const paths = new Set<string>();
         if (this.userSettingsPath !== undefined) paths.add(this.userSettingsPath);
@@ -215,7 +162,6 @@ export class ConfigurationService extends Disposable implements IConfigurationSe
         };
     }
 
-    /** Слои по приоритету; чтение — через снапшот (схема, секции языков). */
     private computeSnapshot(): ConfigurationSnapshot {
         return new ConfigurationSnapshot(
             ConfigurationModel.merge(
@@ -229,13 +175,6 @@ export class ConfigurationService extends Disposable implements IConfigurationSe
         );
     }
 
-    /**
-     * Перечитывает settings.json с диска (user + profile, если именованный
-     * профиль, + воркспейс и папка, если открыты), пересобирает merged и эмитит
-     * `onDidChangeConfiguration` с диффом. Ошибки чтения/парсинга трактуются как
-     * пустой слой (тот же best-effort, что в bootstrap). Пустой дифф события не
-     * порождает.
-     */
     public async reload(): Promise<void> {
         const prev = this.snapshot;
         if (this.userSettingsPath !== undefined) {
@@ -248,21 +187,12 @@ export class ConfigurationService extends Disposable implements IConfigurationSe
         this.recompute(prev);
     }
 
-    /**
-     * Слой `User/settings.json` для активного профиля: у Default — целиком, у
-     * именованного — только `APPLICATION_SCOPES` (остальное — его собственный
-     * файл). Отброшенное не логируется: это не ошибка файла, а норма наследования.
-     */
+    /** Отброшенное не логируется: это не ошибка файла, а норма наследования. */
     private toUserLayer(model: ConfigurationModel): ConfigurationModel {
         if (this.profileSettingsPath === undefined) return model;
         return pickRegisteredSettings(model, this.scopes, APPLICATION_SCOPES);
     }
 
-    /**
-     * Слой файла именованного профиля: без `application`-ключей, они названы
-     * warn'ом — один раз на набор ключей (файл перечитывается на каждую запись
-     * в него), снова — когда набор изменился или вернулся после исчезновения.
-     */
     private toProfileLayer(model: ConfigurationModel): ConfigurationModel {
         const { model: filtered, excludedKeys } = filterWorkspaceSettings(model, this.scopes, PROFILE_SCOPES);
         const ignored =
@@ -277,17 +207,7 @@ export class ConfigurationService extends Disposable implements IConfigurationSe
         return filtered;
     }
 
-    /**
-     * Воркспейс окна сменился (старт с папкой или файлом `.code-workspace`, Open
-     * Folder, Open Workspace from File). Слои воркспейса и папки перечитываются
-     * из своих источников ({@link workspaceSources}), watch переезжает на их
-     * файлы, событие изменения — по диффу, как при reload. Те же источники —
-     * no-op.
-     *
-     * Форма папок — список, как у `IWorkspace.folders`: при мульти-руте у каждой
-     * папки будет свой слой (`docs/TODO/MultiRoot.md`, этап D); сейчас папка не
-     * больше одной.
-     */
+    /** Список, как `IWorkspace.folders`, под мульти-рут (`docs/TODO/MultiRoot.md`, этап D); сейчас папка не больше одной. */
     public async setWorkspace(folders: readonly string[], configuration?: string): Promise<void> {
         const sources = workspaceSources(folders, configuration);
         if (sameSource(sources.workspace, this.workspaceSource) && sameSource(sources.folder, this.folderSource))
@@ -321,7 +241,6 @@ export class ConfigurationService extends Disposable implements IConfigurationSe
         });
     }
 
-    /** Перечитать только слои воркспейса и папки (watch их файлов). */
     private async reloadWorkspace(): Promise<void> {
         const prev = this.snapshot;
         await this.reloadWorkspaceLayers();
@@ -339,7 +258,6 @@ export class ConfigurationService extends Disposable implements IConfigurationSe
         this.folderLayer = folderLayer;
     }
 
-    /** Слой из источника без ключей чужого скоупа; отброшенные — warn в лог. */
     private async loadSourceLayer(source: ISettingsSource | undefined): Promise<ConfigurationModel> {
         if (source === undefined) return ConfigurationModel.EMPTY;
         const { model, excludedKeys } = filterWorkspaceSettings(
@@ -355,11 +273,7 @@ export class ConfigurationService extends Disposable implements IConfigurationSe
         return model;
     }
 
-    /**
-     * Пересобирает merged из текущих слоёв и, если появился дифф ключей
-     * относительно `prev`, эмитит событие изменения. Общая точка для reload и
-     * {@link updateValue}.
-     */
+    /** Пустой дифф события не порождает: reload после собственной записи молчит. */
     private recompute(prev: ConfigurationSnapshot): void {
         this.snapshot = this.computeSnapshot();
         const event = this.snapshot.changeFrom(prev);
@@ -368,9 +282,8 @@ export class ConfigurationService extends Disposable implements IConfigurationSe
 
     // Stryker disable next-line StringLiteral: любая цель, кроме "workspace", пишет в user — дефолт виден только типу
     public updateValue(key: string, value: unknown, target: ConfigurationTarget = "user"): Promise<void> {
-        // Записи идут друг за другом: две параллельные правки одного файла
-        // (расширения на старте) иначе прочитали бы одно и то же содержимое и
-        // вторая затёрла бы первую. Отказ одной записи очередь не рвёт.
+        // Две параллельные правки одного файла (расширения на старте) иначе прочитали
+        // бы одно содержимое, и вторая затёрла бы первую. Отказ одной очередь не рвёт.
         const write = this.writeQueue.then(() => this.doUpdateValue(key, value, target));
         this.writeQueue = write.catch(() => undefined);
         return write;
@@ -378,9 +291,7 @@ export class ConfigurationService extends Disposable implements IConfigurationSe
 
     private async doUpdateValue(key: string, value: unknown, target: ConfigurationTarget): Promise<void> {
         if (target === "workspace" || target === "workspaceFolder") {
-            // Цель-папка у окна из папки — тот же `.diode/settings.json`, что у
-            // воркспейса (`getConfigurationFileResource` эталона), а у окна из
-            // `.code-workspace` — свой файл папки.
+            // Цель-папка у окна из папки — тот же файл, что у воркспейса (`getConfigurationFileResource` эталона).
             const source = target === "workspace" ? this.workspaceSource : (this.folderSource ?? this.workspaceSource);
             if (source === undefined) throw new Error(NO_WORKSPACE_OPENED_ERROR);
             const scope = this.scopes.get(key);
@@ -397,9 +308,7 @@ export class ConfigurationService extends Disposable implements IConfigurationSe
         }
 
         if (this.writeTargetPath === undefined) return;
-        // `application`-ключ у именованного профиля — свойство установки: он
-        // пишется в `User/settings.json` Default-профиля и действует во всех
-        // (эталон: `isSettingAppliedForAllProfiles` → цель USER = Default).
+        // `application`-ключ пишется в Default-профиль и действует во всех (`isSettingAppliedForAllProfiles` эталона).
         const scope = this.scopes.get(key);
         // Stryker disable next-line ConditionalExpression: `scope !== undefined` — защита типа (includes(undefined) и так false); у Default `User/settings.json` и есть цель записи, обе ветки ниже совпадают
         const toDefaultProfile = this.writesToProfileLayer && scope !== undefined && APPLICATION_SCOPES.includes(scope);
@@ -412,27 +321,16 @@ export class ConfigurationService extends Disposable implements IConfigurationSe
             return;
         }
         const model = await writeSettingsKey(this.writeTargetPath, key, value);
-        // Обновляем in-memory слой, чтобы get/inspect сразу видели новое значение.
         const prev = this.snapshot;
         if (this.writesToProfileLayer) {
             this.profileLayer = this.toProfileLayer(model);
         } else {
             this.userLayer = model;
         }
-        // Эмитим то же событие, что и watcher-reload. Последующий reload по
-        // событию файлового watcher'а даст пустой дифф → без повторного события.
         this.recompute(prev);
     }
 }
 
-/**
- * Источники слоёв воркспейса и папки для открытого в окне (`IWorkspace`
- * эталона → `WorkspaceConfiguration` / `FolderConfiguration`):
- *
- * - папка открыта напрямую — слой воркспейса = её `.diode/settings.json`;
- * - окно из `.code-workspace` — слой воркспейса = блок `settings` файла, а
- *   `.diode/settings.json` папки — слой папки с `FOLDER_SCOPES`.
- */
 function workspaceSources(
     folders: readonly string[],
     configuration: string | undefined,
@@ -470,13 +368,6 @@ function sameSource(a: ISettingsSource | undefined, b: ISettingsSource | undefin
     return a?.file === b?.file;
 }
 
-/**
- * JSONC-правка одного ключа в settings.json (с сохранением комментариев и
- * форматирования); `value: undefined` снимает ключ. Файла или каталога нет —
- * создаются. `section` — блок настроек внутри файла (`settings` у
- * `.code-workspace`): ключ пишется в него. Возвращает модель нового
- * содержимого этого блока.
- */
 async function writeSettingsKey(
     filePath: string,
     key: string,
@@ -488,13 +379,9 @@ async function writeSettingsKey(
         content = await fs.promises.readFile(filePath, "utf-8");
     } catch (err) {
         if (!isFileNotFound(err)) throw err;
-        // Файла ещё нет — стартуем с пустого объекта, каталог создаём ниже.
     }
 
-    // Пишем плоский dotted-ключ (`"workbench.colorTheme": …`) — так же, как это
-    // делает VS Code и как выглядят фикстуры/дефолты. `ConfigurationModel`
-    // при чтении сам разворачивает точечные ключи во вложенное дерево. Поэтому
-    // ключ идёт ОДНИМ сегментом JSONPath, а не `key.split(".")`.
+    // Плоский dotted-ключ, как пишет VS Code: ОДИН сегмент JSONPath, а не `key.split(".")`.
     const edits = modify(content, section === undefined ? [key] : [section, key], value, {
         formattingOptions: { insertSpaces: true, tabSize: 4 },
     });
@@ -507,39 +394,18 @@ async function writeSettingsKey(
     return ConfigurationModel.fromRaw(sectionOf(parseJsonc(next, [], { allowTrailingComma: true }), section));
 }
 
-/** Блок `section` разобранного файла; без `section` — весь файл. */
 function sectionOf(parsed: unknown, section: string | undefined): unknown {
     if (section === undefined) return parsed;
-    // У `null` и примитивов полей нет — `undefined`, то есть пустой слой.
     return (parsed as Record<string, unknown> | null | undefined)?.[section];
 }
 
-/**
- * Асинхронный bootstrap: читает settings.json (user + profile, если есть),
- * парсит как JSONC, собирает все слои в `ConfigurationService`.
- *
- * `paths.settingsFile` указывает на settings.json активного профиля. Для
- * Default-профиля это `User/settings.json` — он и есть user-слой, profile-слой
- * пуст. Для именованного user-слой урезается до `APPLICATION_SCOPES`, а
- * profile-слой — до `PROFILE_SCOPES` (семантика эталона, см. класс выше):
- * фильтры применяет сам сервис, здесь слои читаются как есть.
- */
+/** Слои читаются как есть, фильтры скоупов профиля применяет сам сервис. */
 export async function loadConfiguration(
     paths: IUserDataPaths,
     logger?: ILogger,
     fileWatcher?: IFileWatcher,
-    /**
-     * Источник defaults-слоя. Production (`main.ts`) передаёт реестр, собранный
-     * из `CONFIGURATION_CONTRIBUTIONS`; без него слой дефолтов пуст (юнит-тесты
-     * слоёв user/profile).
-     */
     registry?: ConfigurationRegistry,
-    /**
-     * Что окно открывает на старте: папка и, если через него, файл
-     * `.code-workspace`. Слои воркспейса читаются ДО первого кадра (тема,
-     * `editor.*` проекта видны сразу). Смена потом —
-     * {@link ConfigurationService.setWorkspace}.
-     */
+    /** Слои воркспейса читаются ДО первого кадра: тема и `editor.*` проекта видны сразу. */
     workspace?: { readonly folder: string; readonly configuration?: string | undefined },
 ): Promise<ConfigurationService> {
     const defaultsLayer = ConfigurationModel.fromRaw(registry?.getDefaultConfiguration() ?? {});
@@ -557,7 +423,6 @@ export async function loadConfiguration(
         defaultsLayer,
         userLayer,
         profileLayer,
-        // Запись идёт в settings.json активного профиля (default → User/settings.json).
         writeTargetPath: paths.settingsFile,
         writesToProfileLayer: !paths.isDefaultProfile,
         userSettingsPath,
@@ -593,9 +458,7 @@ async function loadSettingsLayer(
                 `JSONC parse error in ${filePath} at offset ${String(err.offset)}: ${printParseErrorCode(err.error)}`,
             );
         }
-        // Если ничего распарсить не удалось — пусто. Если parser вернул
-        // частичный объект, используем его (поведение jsonc-parser совместимо
-        // с VS Code: best-effort).
+        // Частичный объект парсера используется, как у VS Code (best-effort).
     }
     return ConfigurationModel.fromRaw(sectionOf(parsed, section));
 }

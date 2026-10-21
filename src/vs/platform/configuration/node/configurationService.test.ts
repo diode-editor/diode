@@ -22,7 +22,6 @@ function fakeLogger(): ILogger {
     return { trace: vi.fn(), debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn(), isEnabled: () => true };
 }
 
-/** Fake watcher: records the onChange callback per path so tests fire it by hand. */
 class FakeFileWatcher implements IFileWatcher {
     private handlers = new Map<string, () => void>();
 
@@ -44,11 +43,6 @@ class FakeFileWatcher implements IFileWatcher {
     }
 }
 
-/**
- * Тестовый реестр дефолтов — минимальный editor-узел, который ассертят тесты
- * слоёв. Реальные узлы приложения (`CONFIGURATION_CONTRIBUTIONS`) живут выше по
- * стеку (Workbench) и сюда не тянутся.
- */
 const TEST_REGISTRY = new ConfigurationRegistry([
     {
         id: "editor",
@@ -61,13 +55,11 @@ const TEST_REGISTRY = new ConfigurationRegistry([
     {
         id: "update",
         properties: {
-            // `application`-ключ: один на все профили (эталон: `update.mode`).
             "update.mode": { scope: "application", type: "string", default: "default" },
         },
     },
 ]);
 
-/** `loadConfiguration` с тестовым defaults-реестром (как production с app-узлами). */
 function loadCfg(paths: IUserDataPaths, logger?: ILogger, fileWatcher?: IFileWatcher) {
     return loadConfiguration(paths, logger, fileWatcher, TEST_REGISTRY).then((cfg) => disposables.add(cfg));
 }
@@ -103,7 +95,7 @@ describe("loadConfiguration", () => {
         writeSettings(p.settingsFile, `{ "editor.tabSize": 2 }`);
         const cfg = await loadCfg(p);
         expect(cfg.get<number>("editor.tabSize")).toBe(2);
-        expect(cfg.get<boolean>("editor.insertSpaces")).toBe(true); // from defaults
+        expect(cfg.get<boolean>("editor.insertSpaces")).toBe(true);
     });
 
     it("значение вне схемы реестра — дефолт схемы (и после live-reload тоже)", async () => {
@@ -249,7 +241,6 @@ describe("loadConfiguration", () => {
             expect(cfg.get("update.mode")).toBe("manual");
             expect(cfg.inspect("update.mode").user).toBe("manual");
             expect(cfg.get("editor.tabSize")).toBe(2);
-            // Обе записи — то же событие, что у reload по watcher'у.
             expect(events.map((e) => e.affectedKeys)).toEqual([["update.mode"], ["editor.tabSize"]]);
         });
 
@@ -288,7 +279,6 @@ describe("loadConfiguration", () => {
                 update: { mode: "default" },
             },
             user: { editor: { tabSize: "eight" }, update: { mode: "none" } },
-            // Папка не открыта — слой воркспейса пуст.
             workspace: {},
             workspaceFolder: {},
         });
@@ -348,7 +338,6 @@ describe("loadConfiguration", () => {
             calls++;
         });
         sub.dispose();
-        // After dispose the listener must not be invoked on subsequent changes.
         writeSettings(path.join(p.userDir, "settings.json"), `{ "editor.tabSize": 2 }`);
         await cfg.reload();
         expect(calls).toBe(0);
@@ -357,8 +346,7 @@ describe("loadConfiguration", () => {
 
     it("logs and falls back to defaults when a settings file can't be read", async () => {
         const p = paths();
-        // Make settings.json a directory → readFile throws EISDIR (not ENOENT),
-        // exercising the error branch rather than the missing-file branch.
+        // EISDIR, а не ENOENT: ветка ошибки чтения, а не отсутствующего файла.
         fs.mkdirSync(p.settingsFile, { recursive: true });
         const logger = {
             trace: vi.fn(),
@@ -399,7 +387,6 @@ describe("ConfigurationService.updateValue", () => {
 
         const written = fs.readFileSync(p.settingsFile, "utf-8");
         expect(JSON.parse(written)).toEqual({ "workbench.colorTheme": "Monokai" });
-        // In-memory model reflects the write immediately (no reload needed).
         expect(cfg.get<string>("workbench.colorTheme")).toBe("Monokai");
     });
 
@@ -436,8 +423,6 @@ describe("ConfigurationService.updateValue", () => {
     });
 
     it("is a no-op when no write target is configured", async () => {
-        // Constructed without `writeTargetPath` (e.g. read-only context) → the write
-        // is silently skipped and the in-memory value stays unchanged.
         const cfg = disposables.add(
             new ConfigurationService({
                 defaultsLayer: ConfigurationModel.EMPTY,
@@ -478,7 +463,6 @@ describe("ConfigurationService.updateValue", () => {
         const events: IConfigurationChangeEvent[] = [];
         disposables.add(cfg.onDidChangeConfiguration((e) => events.push(e)));
 
-        // Write the same value that is already effective — merged doesn't change.
         await cfg.updateValue("editor.tabSize", 4);
 
         expect(events).toHaveLength(0);
@@ -526,7 +510,6 @@ describe("ConfigurationService — live reload", () => {
     });
 
     it("does not set up watching when no watcher is provided", async () => {
-        // loadConfiguration without a watcher must not throw and reload still works manually.
         const cfg = await loadCfg(paths());
         writeSettings(userSettingsPath(), `{ "editor.tabSize": 2 }`);
         await cfg.reload();
@@ -601,7 +584,6 @@ describe("ConfigurationService — live reload", () => {
         fs.rmSync(p.settingsFile);
         await cfg.reload();
 
-        // Missing file → user layer empty → back to defaults, no crash.
         expect(cfg.get<number>("editor.tabSize")).toBe(4);
     });
 
@@ -631,8 +613,6 @@ describe("ConfigurationService — live reload", () => {
     });
 
     it("with a watcher but no paths: watches nothing and reload is a no-op", async () => {
-        // Directly constructed (no loadConfiguration) → no settings paths. The watcher
-        // is provided but there is nothing to watch, and reload() must not emit.
         const watcher = new FakeFileWatcher();
         const cfg = disposables.add(
             new ConfigurationService({

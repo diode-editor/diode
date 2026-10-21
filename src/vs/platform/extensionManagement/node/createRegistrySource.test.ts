@@ -32,10 +32,8 @@ describe("createRegistrySource", () => {
         "/var/lib/diode-registry",
         "./registry",
         "registry",
-        // Виндовый путь разбирается `new URL` как протокол `c:` — потому различаем
-        // строго по префиксу схемы, иначе он уехал бы в HTTP-ветку.
+        // `new URL` разбирает его как протокол `c:` — различаем строго по префиксу схемы, иначе уедет в HTTP-ветку.
         "C:\\registry",
-        // Схема, которую мы не поддерживаем, — это не адрес, а имя каталога.
         "ftp://example.test/registry/",
     ])("значение %j — файловый источник", (spec) => {
         expect(createRegistrySource(spec)).toBeInstanceOf(FileExtensionRegistrySource);

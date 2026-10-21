@@ -23,69 +23,49 @@ import type { IMenuContribution, ISubmenuContribution, MenuContribution } from "
 import { isSubmenuContribution, MenuContributionsDIToken } from "./iMenuContribution.ts";
 import type { MenuId } from "./menuId.ts";
 
-/** Резолвнутая submenu-запись (для меню-бара): label + мнемоника + вложенная точка. */
 export interface ISubmenuEntry {
     readonly title: string;
     readonly mnemonic?: string;
     readonly submenu: MenuId;
-    /** Submenu-выбор: рендерится выпадающим списком, а не вложенным попапом. */
+    /** Рендерится выпадающим списком, а не вложенным попапом (`SelectBox` тулбара VS Code). */
     readonly isSelection?: boolean;
 }
 
-/** Отметка включённого пункта (VS Code рисует галочку у `toggled`-экшена). */
 export const CHECKED_ICON = "\u2713"; // ✓
 
 export const MenuRegistryDIToken = token<MenuRegistry>("MenuRegistry");
 
-/**
- * Пункт-команда с резолвнутой доступностью: `enabled` читает заголовок view
- * (рисует кнопку приглушённой), `disabled` движка — попап (серый пункт,
- * клавиатура его пропускает).
- */
+/** `enabled` читает заголовок view (кнопка приглушена), `disabled` движка — попап. */
 export interface IResolvedMenuItemEntry extends MenuItemEntry {
     readonly enabled: boolean;
 }
 
-/** `MenuEntry` движка, у которого пункты-команды несут резолвнутую доступность. */
 export type ResolvedMenuEntry = IResolvedMenuItemEntry | MenuSeparatorEntry | IResolvedSubmenuEntry;
 
-/**
- * Подменю с пометкой контрибуции «выбор» (`isSelection`): заголовок view рисует
- * его не пунктом попапа «⋯», а выпадающим списком рядом с кнопками — как
- * VS Code превращает такое submenu в `SelectBox` тулбара.
- */
 export interface IResolvedSubmenuEntry extends MenuSubmenuEntry {
     readonly isSelection?: boolean;
 }
 
-/** Непустая группа пунктов одной точки меню (см. {@link MenuRegistry.getMenuItemGroups}). */
 export interface IMenuEntryGroup {
-    /** Ключ группы; `navigation` — спец-группа VS Code, всегда первая. */
     readonly group: string;
     readonly entries: readonly ResolvedMenuEntry[];
 }
 
-/** Склеивает группы в плоский список, разделяя их сепараторами. */
 export function joinMenuGroups(groups: readonly IMenuEntryGroup[]): MenuEntry[] {
     const result: MenuEntry[] = [];
     for (const group of groups) {
-        // Разделитель — только между непустыми группами (без ведущих/хвостовых).
         if (result.length > 0) result.push({ type: "separator" });
         result.push(...group.entries);
     }
     return result;
 }
 
-/**
- * Резолвер submenu-записи во вложенный `MenuSubmenuEntry` (для контекстных
- * меню). `null` — подменю выбрасывается (пустое или цикл `MenuId`).
- */
+/** `null` — подменю выбрасывается (пустое или цикл `MenuId`). */
 export type SubmenuResolver = (submenu: ISubmenuEntry) => MenuSubmenuEntry | null;
 
 /**
- * Порядок групп: спец-группа `navigation` всегда первая (как в
- * `_compareMenuItems` VS Code), остальные — по строковому ключу. Ключи в
- * пределах одного меню уникальны, поэтому ветки равенства нет.
+ * `navigation` всегда первая, как в `_compareMenuItems` VS Code. Ключи в пределах
+ * меню уникальны, поэтому ветки равенства нет.
  */
 function compareGroups(a: string, b: string): number {
     if (a === "navigation") return -1;
@@ -93,10 +73,7 @@ function compareGroups(a: string, b: string): number {
     return a < b ? -1 : 1;
 }
 
-/**
- * Сгруппировать сохраняя порядок вставки, отсортировать группы (navigation →
- * строковый ключ) и пункты внутри по order (стабильно — по индексу вставки).
- */
+/** Пункты внутри группы — по order, при равенстве стабильно по индексу вставки. */
 function collectSorted<T extends { group?: string; order?: number }>(items: readonly T[]): T[][] {
     const groups = new Map<string, { item: T; index: number }[]>();
     items.forEach((item, index) => {
@@ -113,15 +90,7 @@ function collectSorted<T extends { group?: string; order?: number }>(items: read
         });
 }
 
-/**
- * Реестр declarative menu-contributions (аналог `MenuRegistry` VS Code): по
- * `menuId` фильтрует пункты (`when` + `visible`), сортирует по group/order,
- * вставляет разделители между непустыми группами и резолвит в `MenuEntry`
- * (label из title команды / явного, шорткат из `KeybindingRegistry`, args и
- * `onSelect → CommandRegistry.execute`). Чистая функция реестров команд/
- * кейбиндов/контекст-ключей — состояние открытия (напр. буфер обмена) приходит
- * параметром `context`, не через DI.
- */
+/** Состояние открытия (напр. буфер обмена) приходит параметром `context`, не через DI. */
 export class MenuRegistry {
     public static dependencies = [
         CommandRegistryDIToken,
@@ -142,7 +111,6 @@ export class MenuRegistry {
         this.items = [...contributions];
     }
 
-    /** Динамически добавить пункт (напр. из расширения); dispose снимает его. */
     public appendMenuItem(item: MenuContribution): IDisposable {
         this.items.push(item);
         this.fireDidChangeMenu(item.menuId);
@@ -157,35 +125,21 @@ export class MenuRegistry {
         };
     }
 
-    /**
-     * Подписка на изменение состава меню (аналог `onDidChangeMenu` VS Code):
-     * срабатывает при `appendMenuItem` и снятии пункта. Живой пересбор по
-     * событию — забота консюмера (`IMenu` в `MenuService`).
-     */
     public readonly onDidChangeMenu = this.onDidChangeMenuEmitter.event;
 
     private fireDidChangeMenu(menuId: MenuId): void {
         this.onDidChangeMenuEmitter.fire(menuId);
     }
 
-    /**
-     * То же, что {@link getMenuItems}, но без склейки: пункты остаются
-     * разложенными по группам. Нужно потребителям, которые рисуют группы
-     * по-разному — заголовок view показывает `navigation` inline-кнопками, а
-     * остальные группы уводит в попап «⋯».
-     */
     public getMenuItemGroups(menuId: MenuId, context?: unknown, resolveSubmenu?: SubmenuResolver): IMenuEntryGroup[] {
         const visible = this.items.filter((item) => {
             if (item.menuId !== menuId) return false;
-            // Без резолвера submenu-записи в обычных меню не рендерим — их
-            // потребляет только `getSubmenus` (меню-бар). С резолвером они
-            // встраиваются вложенными попапами со своим group/order-слотом.
+            // Без резолвера submenu-записи потребляет только `getSubmenus` (меню-бар).
             if (isSubmenuContribution(item)) {
                 if (resolveSubmenu === undefined) return false;
                 if (item.when !== undefined && !this.contextKeys.evaluate(item.when)) return false;
-                // Императивная видимость по контексту открытия — как у пунктов:
-                // подменю секции сайдбара фильтруются по `menuContext.view`
-                // (when-ключ не годится — в сайдбаре видно несколько секций).
+                // Подменю секции сайдбара фильтруются по `menuContext.view`: when-ключ
+                // не годится — в сайдбаре видно несколько секций.
                 if (item.visible !== undefined && !item.visible(context)) return false;
                 return true;
             }
@@ -199,9 +153,7 @@ export class MenuRegistry {
             const groupEntries: ResolvedMenuEntry[] = [];
             for (const item of bucket) {
                 if (isSubmenuContribution(item)) {
-                    // null от резолвера — подменю выброшено (пустое/цикл). Сам
-                    // резолвер здесь заведомо есть: без него submenu-записи
-                    // отсеял фильтр выше, и «нет резолвера» = тот же выброс.
+                    // Резолвер здесь заведомо есть: без него submenu-записи отсеял фильтр выше.
                     const entry = resolveSubmenu?.(this.toSubmenuEntry(item)) ?? null;
                     if (entry !== null)
                         groupEntries.push(item.isSelection === true ? { ...entry, isSelection: true } : entry);
@@ -216,11 +168,9 @@ export class MenuRegistry {
     }
 
     /**
-     * Есть ли у точки пункты В ПРИНЦИПЕ — с учётом `visible` (он адресует пункт
-     * конкретной view), но БЕЗ `when`. Нужно постоянному UI: кнопка «⋯» живёт в
-     * заголовке всё время, а `when`-ключи меняются без событий (меню у нас
-     * пересобираются при открытии). Спрашивать «пусто ли меню сейчас» значит
-     * навсегда спрятать кнопку, если в момент сборки ключ был ложным.
+     * БЕЗ `when`: кнопка «⋯» живёт в заголовке всё время, а `when`-ключи меняются
+     * без событий — «пусто ли сейчас» навсегда спрятало бы кнопку, если в момент
+     * сборки ключ был ложным.
      */
     public hasItems(menuId: MenuId, context?: unknown, predicate?: (item: MenuContribution) => boolean): boolean {
         return this.items.some((item) => {
@@ -234,10 +184,6 @@ export class MenuRegistry {
         return joinMenuGroups(this.getMenuItemGroups(menuId, context, resolveSubmenu));
     }
 
-    /**
-     * Submenu-записи меню (тот же when-фильтр и group/order-сортировка, но без
-     * разделителей): из них меню-бар строит свои top-уровневые пункты.
-     */
     public getSubmenus(menuId: MenuId): ISubmenuEntry[] {
         const visible = this.items.filter((item): item is ISubmenuContribution => {
             if (item.menuId !== menuId) return false;
@@ -262,9 +208,8 @@ export class MenuRegistry {
     private toEntry(item: IMenuContribution, context: unknown): IResolvedMenuItemEntry {
         const label = item.title ?? this.commands.getTitle(item.command) ?? item.command;
         const resolvedArgs = item.args ? item.args(context) : [];
-        // Доступность фиксируется на момент резолва — как VS Code гасит пункты
-        // при открытии попапа. Для inline-кнопок это не протухает: их группы
-        // пере-резолвятся и на клике, и по смене контекста.
+        // Фиксируется на момент резолва, как VS Code при открытии попапа; inline-кнопки
+        // не протухают — их группы пере-резолвятся и на клике, и по смене контекста.
         const enabled = item.enablement === undefined || this.contextKeys.evaluate(item.enablement);
         return {
             label,
@@ -272,12 +217,9 @@ export class MenuRegistry {
             enabled,
             disabled: !enabled,
             shortcut: this.resolveShortcut(item),
-            // `toggled` рисуется отметкой в колонке иконки — так VS Code помечает
-            // включённый пункт (например текущий канал Output).
             icon: item.toggled !== undefined && this.contextKeys.evaluate(item.toggled) ? CHECKED_ICON : item.icon,
             onSelect: () => {
-                // Второй эшелон к guard'у самой команды: контрибуция может
-                // ссылаться на команду расширения, у которой guard'а нет.
+                // Контрибуция может ссылаться на команду расширения без своего guard'а.
                 if (!enabled) return;
                 this.commands.execute(item.command, ...resolvedArgs);
             },

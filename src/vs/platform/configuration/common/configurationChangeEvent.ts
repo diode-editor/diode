@@ -1,13 +1,7 @@
 import type { ConfigurationModel } from "./configurationModel.ts";
 import type { IConfigurationChangeEvent } from "./iConfigurationService.ts";
 
-/**
- * Множество точечных ключей, значение которых различается между двумя
- * моделями — в основном дереве или в секции любого языка (`"[go]"`).
- * Используется для `affectedKeys` события изменения: потребитель, который читает
- * ключ с `overrideIdentifier`, обязан узнать и о правке секции языка. Значения
- * сравниваются структурно (config всегда JSON-совместим).
- */
+/** И секции языков: читающий ключ с `overrideIdentifier` обязан узнать о правке секции. */
 export function diffConfigurationKeys(prev: ConfigurationModel, next: ConfigurationModel): string[] {
     const changed = new Set(diffTrees(prev, next));
     for (const identifier of diffOverrideIdentifiers(prev, next)) {
@@ -16,7 +10,6 @@ export function diffConfigurationKeys(prev: ConfigurationModel, next: Configurat
     return [...changed];
 }
 
-/** Языки, секция которых различается между двумя моделями. */
 export function diffOverrideIdentifiers(prev: ConfigurationModel, next: ConfigurationModel): string[] {
     const identifiers = new Set([...prev.getOverrideIdentifiers(), ...next.getOverrideIdentifiers()]);
     return [...identifiers].filter(
@@ -29,15 +22,12 @@ function diffTrees(prev: ConfigurationModel, next: ConfigurationModel): string[]
     return [...keys].filter((key) => !valuesEqual(prev.get(key), next.get(key)));
 }
 
+/** Config всегда JSON-совместим. */
 function valuesEqual(a: unknown, b: unknown): boolean {
     return JSON.stringify(a) === JSON.stringify(b);
 }
 
-/**
- * Собирает {@link IConfigurationChangeEvent} из списка изменившихся ключей.
- * `affectsConfiguration(q)` — true, если `q` совпадает с затронутым ключом,
- * является его предком (`editor` ← `editor.tabSize`) или потомком.
- */
+/** `affectsConfiguration(q)` — и для предка (`editor` ← `editor.tabSize`), и для потомка. */
 export function createConfigurationChangeEvent(
     affectedKeys: readonly string[],
     overrideIdentifiers: readonly string[] = [],

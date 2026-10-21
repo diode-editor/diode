@@ -14,43 +14,23 @@ import {
 } from "../common/registryFormat.ts";
 
 /**
- * HTTP-источник реестра: читает опубликованный вид registry-репозитория по сети
- * (`<base>/index.json` + `<base>/meta/<id>.json`) и качает `url`-артефакты.
- * Формат тот же, что у {@link FileExtensionRegistrySource}, — публикуемая
- * раскладка одна на оба транспорта.
- *
- * Модуль чистый: без DI/логгера, диагностики парсера уходят в необязательный
- * `onProblem`. Проверку `sha256` скачанного делает вызывающий
- * ({@link installFromRegistry}) — она одинакова для всех источников и потому не
- * дублируется здесь.
- *
- * Целостность байтов держится на `sha256` из меты, а не на транспорте, поэтому
- * `http:` разрешён наравне с `https:`: локальный каталог, поднятый по http, и своё
- * зеркало — законные сценарии, а выбор транспорта делает тот, кто передал адрес.
+ * `sha256` скачанного проверяет вызывающий ({@link installFromRegistry}). Целостность
+ * держится на нём, а не на транспорте, поэтому `http:` разрешён наравне с `https:`:
+ * локальный каталог по http и своё зеркало — законные сценарии.
  */
 
 const DEFAULT_TIMEOUT_MS = 30_000;
-/** Индекс всего реестра и мета одного расширения — это текст; мегабайты тут аномалия. */
 // Stryker disable next-line ArithmeticOperator: арифметика тут только ради читаемости «8 МиБ»; сам дефолт в тестах не наблюдаем — лимит там задаётся явно, иначе кейс на превышение гонял бы мегабайты
 const DEFAULT_MAX_JSON_BYTES = 8 * 1024 * 1024;
-/**
- * Артефакт льётся в файл потоком, поэтому лимит тут больше не защита памяти — он
- * защищает от «реестр попросил скачать неадекватное». Потолок берём с запасом к
- * реальным артефактам: платформенные сборки со вшитым рантаймом (redhat.java с
- * JRE 21) уже весят ~133 МиБ и растут от версии к версии.
- */
+/** С запасом: redhat.java с вшитым JRE 21 уже весит ~133 МиБ и растёт от версии к версии. */
 export const DEFAULT_MAX_ARTIFACT_BYTES = 256 * 1024 * 1024;
 
 export interface IHttpRegistrySourceOptions {
-    /** Таймаут одного запроса, мс (default 30000). */
     readonly timeoutMs?: number;
-    /** Лимит на `index.json`/`meta/<id>.json` (default 8 МиБ). */
     readonly maxJsonBytes?: number;
-    /** Лимит на `.vsix` (default 256 МиБ). */
     readonly maxArtifactBytes?: number;
 }
 
-/** Приводит базу к URL, пригодному для относительного резолва путей реестра. */
 function toBaseUrl(raw: string): URL {
     let url: URL;
     try {
@@ -73,31 +53,20 @@ function requireHttp(url: URL, message: string): void {
     }
 }
 
-/**
- * `fetch` отдаёт лаконичное «fetch failed», а настоящую причину (DNS, отказ в
- * соединении, TLS) прячет в `cause` — без неё сообщение ничего не объясняет.
- */
+/** `fetch` отдаёт «fetch failed», а настоящую причину (DNS, TLS, …) прячет в `cause`. */
 function describeFetchError(error: unknown): string {
     const message = (error as Error).message;
     const cause = (error as { cause?: unknown }).cause;
     return cause instanceof Error ? `${message} (${cause.message})` : message;
 }
 
-/**
- * Разбирает тело ответа по кускам, отдавая каждый в `onChunk` и обрывая чтение за
- * `limit` байт. `Content-Length` не используем как разрешение читать: заголовок
- * необязателен и может врать — считаем фактические байты.
- *
- * Лимит именно рвёт скачивание, а не проверяется по уже полученному: смысл
- * ограничения в том, чтобы реестр не мог заставить клиента вытянуть гигабайт.
- */
+/** Считаем фактические байты, а не `Content-Length`: заголовок необязателен и может врать. */
 async function consumeCapped(
     response: Response,
     limit: number,
     url: URL,
     onChunk: (chunk: Uint8Array) => Promise<void> | void,
 ): Promise<void> {
-    // Ответы без тела (204 и прочие null body status) — ноль байт, читать нечего.
     if (response.body === null) {
         return;
     }
@@ -108,7 +77,6 @@ async function consumeCapped(
         try {
             chunk = await reader.read();
         } catch (error) {
-            // Обрыв соединения на середине тела — сеть, а не данные реестра.
             throw new Error(`${url.href}: download failed: ${(error as Error).message}`, { cause: error });
         }
         if (chunk.done) break;
@@ -121,7 +89,6 @@ async function consumeCapped(
     }
 }
 
-/** Читает тело целиком в память — для текстовых документов реестра (индекс, мета). */
 async function readCapped(response: Response, limit: number, url: URL): Promise<Buffer> {
     const chunks: Buffer[] = [];
     await consumeCapped(response, limit, url, (chunk) => {
@@ -130,14 +97,7 @@ async function readCapped(response: Response, limit: number, url: URL): Promise<
     return Buffer.concat(chunks);
 }
 
-/**
- * Льёт тело ответа прямо в `target`. Артефакт не буферизуется в памяти: платформенные
- * `.vsix` со вшитым рантаймом весят сотни мегабайт, и держать их целиком в резиденте
- * (да ещё с пиком на склейке кусков) незачем — байты всё равно нужны на диске.
- *
- * Цена потока — полуфайл: на превышении лимита, обрыве сети и ошибке записи
- * недокачанное убирается, чтобы не осталось под видом валидного артефакта.
- */
+/** Цена потока — полуфайл: недокачанное убирается, чтобы не осталось под видом валидного артефакта. */
 async function downloadCapped(
     response: Response,
     limit: number,
@@ -181,10 +141,7 @@ export class HttpExtensionRegistrySource implements IExtensionRegistrySource {
         this.maxArtifactBytes = options.maxArtifactBytes ?? DEFAULT_MAX_ARTIFACT_BYTES;
     }
 
-    /**
-     * GET с таймаутом; сетевой сбой оборачивается адресом, иначе он безымянный.
-     * `signal` передают те, кому общий таймаут не годится — см. `fetchArtifact`.
-     */
+    /** `signal` — для тех, кому общий таймаут не годится (`fetchArtifact`). */
     private async request(url: URL, signal?: AbortSignal): Promise<Response> {
         try {
             return await fetch(url, {
@@ -202,7 +159,6 @@ export class HttpExtensionRegistrySource implements IExtensionRegistrySource {
         }
     }
 
-    /** Запускает парсер формата: диагностики — в `onProblem`, ошибка файла — с адресом. */
     private parse<T>(url: URL, parse: () => { value: T; problems: string[] }): T {
         try {
             const { value, problems } = parse();
@@ -211,12 +167,10 @@ export class HttpExtensionRegistrySource implements IExtensionRegistrySource {
             }
             return value;
         } catch (error) {
-            // Парсеры формата бросают только Error.
             throw new Error(`${url.href}: ${(error as Error).message}`, { cause: error });
         }
     }
 
-    /** Проверяет статус и читает тело как JSON-текст под лимитом. */
     private async readJson(response: Response, url: URL): Promise<string> {
         this.ensureOk(response, url);
         return (await readCapped(response, this.maxJsonBytes, url)).toString("utf8");
@@ -238,8 +192,7 @@ export class HttpExtensionRegistrySource implements IExtensionRegistrySource {
         }
         const url = new URL(`meta/${id}.json`, this.baseUrl);
         const response = await this.request(url);
-        // 404 — «реестр не знает такого id», ровно как ENOENT у файлового источника;
-        // прочие не-2xx это сбой реестра, а не отсутствие записи.
+        // 404 — как ENOENT у файлового источника; прочие не-2xx — сбой реестра.
         if (response.status === 404) {
             return undefined;
         }
@@ -264,19 +217,14 @@ export class HttpExtensionRegistrySource implements IExtensionRegistrySource {
         }
         requireHttp(url, `Artifact URL must be http(s): "${artifact.url}"`);
 
-        // Артефакт нельзя обрывать по ОБЩЕМУ времени: платформенный `.vsix` со
-        // вшитым рантаймом — сотни мегабайт, и на узком канале честная загрузка
-        // идёт минутами. Сторожим не длительность, а МОЛЧАНИЕ: таймер взводится
-        // заново на каждом куске и срабатывает, только если данные перестали
-        // идти. Поймано красным CI: 139-МБ артефакт redhat.java не укладывался в
-        // общий таймаут 30с на windows-раннере, хотя качался штатно.
+        // Сторожим не общее время, а МОЛЧАНИЕ: таймер перевзводится на каждом куске.
+        // Красный CI: 139-МБ redhat.java не укладывался в 30с на windows-раннере.
         const stall = new AbortController();
         const arm = (): ReturnType<typeof setTimeout> =>
             setTimeout(() => {
                 stall.abort(new Error(`no data for ${String(this.timeoutMs)}ms`));
             }, this.timeoutMs);
-        // Сторож взводится СРАЗУ и потому всегда определён: ожидание заголовков
-        // ответа он накрывает наравне с чтением тела.
+        // Взводится СРАЗУ: ожидание заголовков накрывается наравне с телом.
         let watchdog = arm();
         const rearm = (): void => {
             clearTimeout(watchdog);
@@ -287,10 +235,7 @@ export class HttpExtensionRegistrySource implements IExtensionRegistrySource {
             const response = await this.request(url, stall.signal);
             this.ensureOk(response, url);
 
-            // Имя фиксировано, а не выведено из URL: `tempDir` заводится вызывающим на
-            // одну установку (и им же убирается), а имя из чужих данных — только лишний
-            // путь для трюков. Настоящие id и версию `installVsix` всё равно читает из
-            // манифеста.
+            // Имя не из URL: имя из чужих данных — лишний путь для трюков.
             const target = path.join(tempDir, "artifact.vsix");
             await downloadCapped(response, this.maxArtifactBytes, url, target, rearm);
             return target;

@@ -19,50 +19,31 @@ import {
 
 import { installVsix, listInstalledExtensions, readVsixManifest, uninstallExtension } from "./extensionInstaller.ts";
 
-/**
- * Установка расширения из реестра: мета → выбор совместимой версии →
- * артефакт → проверка sha256 → существующий {@link installVsix}; вместе с ним —
- * его `extensionDependencies`, как в VS Code.
- *
- * Модуль чистый (без DI/логгера/UI) — как `extensionInstaller.ts`; печать и
- * коды выхода на вызывающем. Источник артефакта абстрагирован
- * {@link IExtensionRegistrySource}: сегодня файловый каталог, позже HTTP.
- */
-
 export interface IInstallFromRegistryOptions {
     readonly extensionsDir: string;
-    /** Версии хоста для матчинга `engines` (см. {@link IHostVersions}). */
     readonly host: IHostVersions;
-    /** Точная версия; не задана — наивысшая совместимая. Зависимостей не касается. */
+    /** Не задана — наивысшая совместимая. Зависимостей не касается. */
     readonly version?: string;
 }
 
-/** Одно поставленное расширение: id, версия и снесённые прежние версии этого id. */
 export interface IInstalledFromRegistry {
     readonly id: string;
     readonly version: string;
     readonly previous: string[];
 }
 
-/** Что поставилось вместе с расширением и чего поставить не вышло. */
 export interface IDependencyInstallResult {
-    /** Зависимости, которых не было и которые поставились, — включая транзитивные. */
+    /** Включая транзитивные. */
     readonly dependencies: readonly IInstalledFromRegistry[];
-    /**
-     * Зависимости, которых нет в реестре. Расширение при этом поставлено (как
-     * в VS Code): не поднимется оно уже на активации, с тостом о причине.
-     */
+    /** Нет в реестре. Расширение всё равно ставится (как в VS Code) — не поднимется на активации, с тостом. */
     readonly missingDependencies: readonly string[];
 }
 
-/** Результат {@link installFromRegistry}: само расширение плюс его зависимости. */
 export interface IInstallFromRegistryResult extends IInstalledFromRegistry, IDependencyInstallResult {}
 
 /**
- * Строки CLI о зависимостях, поставленных вместе с `rootId`: что поставилось
- * (stdout) и каких нет в реестре (stderr). Эталонный CLI о зависимостях
- * молчит; у нас это единственный способ сказать человеку, что поставилось
- * что-то ещё и почему расширение может не подняться — отступление осознанное.
+ * Осознанное отступление: эталонный CLI о зависимостях молчит, а это единственный
+ * способ сказать, что поставилось что-то ещё и почему расширение может не подняться.
  */
 export function describeDependencyInstall(
     rootId: string,
@@ -77,7 +58,7 @@ export function describeDependencyInstall(
     };
 }
 
-/** sha256 файла стримингом, hex lowercase. Экспортирован для тестов и CI-тулинга реестра. */
+/** hex lowercase. */
 export function sha256File(filePath: string): Promise<string> {
     return new Promise((resolve, reject) => {
         const hash = crypto.createHash("sha256");
@@ -90,7 +71,7 @@ export function sha256File(filePath: string): Promise<string> {
     });
 }
 
-/** `1.2.0 (diode ^0.3.0, vscode ^1.90.0, linux-x64)` — для сообщения «нет совместимой версии». */
+/** `1.2.0 (diode ^0.3.0, vscode ^1.90.0, linux-x64)` */
 function describeVersion(v: IRegistryVersion): string {
     const engines = [
         v.engines.diode !== undefined ? `diode ${v.engines.diode}` : undefined,
@@ -102,25 +83,19 @@ function describeVersion(v: IRegistryVersion): string {
     return `${v.version} (${engines})`;
 }
 
-/** `diode 0.3.0, vscode 1.127.0, linux-x64` — хост в сообщениях об ошибках. */
+/** `diode 0.3.0, vscode 1.127.0, linux-x64` */
 function describeHost(host: IHostVersions): string {
     const parts = [`diode ${host.diode}`, `vscode ${host.vscode}`, host.targetPlatform];
     return parts.filter((part) => part !== undefined).join(", ");
 }
 
-/** Расширение, готовое к установке: артефакт скачан и сверен, манифест прочитан. */
 interface IPreparedExtension {
     readonly id: string;
     readonly vsixPath: string;
     readonly manifest: Record<string, unknown>;
 }
 
-/**
- * Готовит расширение к установке, не трогая `extensionsDir`: версия →
- * артефакт в свой подкаталог `tempDir` → sha256 → манифест из `.vsix`. Id
- * манифеста сверяется с запрошенным здесь же — реестр мог указать чужой
- * артефакт, и такой не ставится вовсе.
- */
+/** Не трогает `extensionsDir`. Id манифеста сверяется здесь же: реестр мог указать чужой артефакт. */
 async function prepare(
     source: IExtensionRegistrySource,
     meta: IRegistryExtensionMeta,
@@ -131,9 +106,8 @@ async function prepare(
 ): Promise<IPreparedExtension> {
     let picked: IRegistryVersion | undefined;
     if (version !== undefined) {
-        // Точная версия обходит engines-матчинг (пользователь сказал «эту»), но
-        // не платформу: платформенных записей одной версии несколько, и чужой
-        // нативный бинарь бесполезен на этом хосте при любом желании.
+        // Точная версия обходит engines (пользователь сказал «эту»), но не платформу:
+        // чужой нативный бинарь бесполезен на этом хосте при любом желании.
         picked = meta.versions.find((v) => v.version === version && matchesHostPlatform(v, host));
         if (picked === undefined) {
             throw new Error(
@@ -149,8 +123,7 @@ async function prepare(
         }
     }
 
-    // Свой подкаталог на расширение: источник волен назвать скачанный файл
-    // одинаково для всех.
+    // Источник волен назвать скачанный файл одинаково для всех.
     const artifactDir = fs.mkdtempSync(path.join(tempDir, "artifact-"));
     const vsixPath = await source.fetchArtifact(picked, artifactDir);
 
@@ -170,13 +143,9 @@ async function prepare(
 }
 
 /**
- * Транзитивное замыкание `extensionDependencies` манифеста `rootManifest`,
- * которых ещё нет в `extensionsDir` (как `getAllDepsAndPackExtensions`
- * эталона): каждая подготовлена к установке. Уже установленная зависимость
- * (любой версии) не трогается; id сравниваются без учёта регистра; цикл не
- * зацикливает. Зависимости нет в реестре — она в `missing`, остальное идёт
- * дальше. Найдена, но поставить нельзя (нет совместимой версии, sha256,
- * чужой артефакт) — отказ с причиной: без неё расширение бесполезно.
+ * Как `getAllDepsAndPackExtensions` эталона. Уже установленная зависимость (любой
+ * версии) не трогается. Нет в реестре — в `missing`; найдена, но поставить нельзя —
+ * отказ всей установки: без неё расширение бесполезно.
  */
 async function prepareDependencies(
     source: IExtensionRegistrySource,
@@ -192,8 +161,7 @@ async function prepareDependencies(
     const queue = [...readExtensionDependencies(rootManifest)];
     for (let dep = queue.shift(); dep !== undefined; dep = queue.shift()) {
         const key = extensionKey(dep);
-        // Встроенного расширения VS Code в магазине нет и не будет — не ищем и
-        // не предупреждаем (см. `isBuiltinVSCodeExtension`).
+        // Встроенного расширения VS Code в магазине нет и не будет — не ищем и не предупреждаем.
         if (visited.has(key) || installed.has(key) || isBuiltinVSCodeExtension(dep)) continue;
         visited.add(key);
         const meta = await source.getMeta(dep);
@@ -218,11 +186,8 @@ async function prepareDependencies(
 }
 
 /**
- * Ставит подготовленное по порядку — зависимости раньше, корень последним.
- * Сорвалась установка — снимается поставленное этим вызовом (rollback
- * эталона): зависимости по одной не нужны, а корень без них не поднимется.
- * Корень последний, поэтому снимать его не приходится никогда, и прежняя его
- * версия при сбое остаётся на месте.
+ * Корень последним. Сбой снимает поставленное этим вызовом (rollback эталона); корень
+ * снимать не приходится никогда, и прежняя его версия остаётся на месте.
  */
 async function installPrepared(
     prepared: readonly IPreparedExtension[],
@@ -238,7 +203,6 @@ async function installPrepared(
     }
 }
 
-/** Временный каталог скачивания на время `run`; убирается в любом случае. */
 async function withTempDir<T>(run: (tempDir: string) => Promise<T>): Promise<T> {
     // В os.tmpdir(), НЕ в extensionsDir: там временные каталоги заводит сам
     // installVsix, и посторонний temp сбил бы его учёт установленных версий.
@@ -252,15 +216,8 @@ async function withTempDir<T>(run: (tempDir: string) => Promise<T>): Promise<T> 
 }
 
 /**
- * Устанавливает `extensionId` из `source` в `extensionsDir` вместе с его
- * `extensionDependencies` — без вопросов, как VS Code (`installExtensions` →
- * `getAllDepsAndPackExtensions`). Всё сначала готовится (версии, артефакты,
- * sha256, манифесты) и только потом ставится: отказ корня или зависимости
- * диска не трогает. Ошибки — понятными сообщениями: неизвестный id, нет
- * совместимой версии (с перечислением имеющихся и их engines), sha256
- * mismatch, артефакт чужого расширения, зависимость, которую поставить нельзя.
- * Зависимость, которой нет в реестре, установку не срывает — она в
- * `missingDependencies`.
+ * Зависимости — без вопросов, как VS Code. Всё сначала готовится и только потом
+ * ставится: отказ корня или зависимости диска не трогает.
  */
 export async function installFromRegistry(
     source: IExtensionRegistrySource,
@@ -283,13 +240,7 @@ export async function installFromRegistry(
     });
 }
 
-/**
- * Ставит из реестра `extensionDependencies` уже поставленного мимо него
- * расширения (`--install-extension foo.vsix`), как VS Code ставит их и для
- * VSIX. Семантика та же, что у {@link installFromRegistry}, но корня нет:
- * отказ — это отказ зависимостей, само расширение остаётся (у эталона сбой
- * зависимостей при установке VSIX — только предупреждение).
- */
+/** Для `--install-extension foo.vsix`: отказ зависимостей расширение не снимает (у эталона — только предупреждение). */
 export function installDependenciesFromRegistry(
     source: IExtensionRegistrySource,
     extensionId: string,

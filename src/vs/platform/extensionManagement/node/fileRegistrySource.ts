@@ -13,16 +13,8 @@ import {
 } from "../common/registryFormat.ts";
 
 /**
- * Файловый источник реестра: читает каталог в публикуемом формате
- * registry-репозитория (`index.json` + `meta/<id>.json` + `artifacts/**`).
- * Фундамент системы тестирования расширений и способ гонять весь install-флоу
- * без сети; артефакты — только `type: "path"` (локальные `.vsix`).
- *
- * Работает по реальным путям через `node:fs`, а не через `IAssetAccess`:
- * каталог реестра — внешние данные, а не ассеты поставки, и `fetchArtifact`
- * обязан вернуть физический путь для `installVsix` (тот же довод, что у
- * `extensionInstaller.ts`). Модуль чистый: без DI/логгера; диагностики парсера
- * уходят в необязательный `onProblem`.
+ * `node:fs`, а не `IAssetAccess`: каталог реестра — внешние данные, а `fetchArtifact`
+ * обязан вернуть физический путь для `installVsix`.
  */
 
 export class FileExtensionRegistrySource implements IExtensionRegistrySource {
@@ -40,7 +32,6 @@ export class FileExtensionRegistrySource implements IExtensionRegistrySource {
         }
     }
 
-    /** Читает и парсит файл; ошибки парсинга оборачиваются путём файла. */
     private async readAndParse<T>(
         filePath: string,
         parse: (text: string) => { value: T; problems: string[] },
@@ -52,7 +43,6 @@ export class FileExtensionRegistrySource implements IExtensionRegistrySource {
             this.report(problems);
             return value;
         } catch (error) {
-            // Парсеры формата бросают только Error.
             throw new Error(`${filePath}: ${(error as Error).message}`, { cause: error });
         }
     }
@@ -85,15 +75,13 @@ export class FileExtensionRegistrySource implements IExtensionRegistrySource {
     }
 
     public async fetchArtifact(version: IRegistryVersion, tempDir: string): Promise<string> {
-        // Файловому источнику скачивать нечего — tempDir не нужен.
         void tempDir;
         const artifact = version.artifact;
         if (artifact.type !== "path") {
             throw new Error(`Artifact type "${artifact.type}" is not supported by the file registry source`);
         }
         const resolved = path.resolve(this.rootDir, artifact.path);
-        // Defense-in-depth: парсер формата отвергает `..`/абсолютные пути, но
-        // IRegistryVersion может быть собран программно, минуя парсер.
+        // Парсер отвергает `..`, но IRegistryVersion может быть собран программно.
         if (resolved !== this.rootDir && !resolved.startsWith(this.rootDir + path.sep)) {
             throw new Error(`Refusing artifact path outside the registry root: ${artifact.path}`);
         }

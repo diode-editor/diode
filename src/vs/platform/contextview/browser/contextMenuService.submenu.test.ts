@@ -85,7 +85,6 @@ describe("ContextMenuService — рекурсивная сборка подме�
         const toB = entries.find((e): e is MenuSubmenuEntry => e.type === "submenu");
         expect(toB).toBeDefined();
         const bEntries = typeof toB!.entries === "function" ? toB!.entries() : toB!.entries;
-        // Обратная ссылка на A выброшена (пустая из-за цикла), остался только пункт.
         expect(bEntries.map((e) => (e.type === "separator" ? "─" : e.label))).toEqual(["Deep"]);
     });
 });

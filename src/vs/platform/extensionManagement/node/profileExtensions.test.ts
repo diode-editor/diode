@@ -38,7 +38,6 @@ describe("profileExtensions", () => {
         ws.dispose();
     });
 
-    /** Расширение в общем каталоге: `<id>-<version>/package.json`. */
     function onDisk(id: string, version = "1.0.0", dependencies?: string[]): void {
         const [publisher, name] = id.split(".");
         ws.writeFile(
@@ -284,7 +283,6 @@ describe("profileExtensions", () => {
             expect(profile(workFile).remove("acme.tools")).toEqual({ removed: false, deleted: [] });
             expect(fs.statSync(workFile).mtimeMs).toBe(before);
             expect(fs.existsSync(ws.path("extensions/acme.tools-1.0.0"))).toBe(true);
-            // Нет файла — тоже «не было».
             expect(profile(defaultFile).remove("acme.tools")).toEqual({ removed: false, deleted: [] });
             expect(fs.existsSync(defaultFile)).toBe(false);
         });
@@ -303,11 +301,9 @@ describe("profileExtensions", () => {
                 removed: true,
                 deleted: ["acme.tools"],
             });
-            // «Остаётся на диске» в лог не пишется — расширение удалено.
             expect(logger.info).not.toHaveBeenCalled();
             expect(ids(workFile)).toEqual(["x.y"]);
             expect(fs.existsSync(ws.path("extensions/acme.tools-1.0.0"))).toBe(false);
-            // Чужой осиротевший каталог удаление одного расширения не трогает.
             expect(fs.existsSync(ws.path("extensions/acme.orphan-1.0.0"))).toBe(true);
         });
 
@@ -331,7 +327,7 @@ describe("profileExtensions", () => {
         it("файлы всех профилей — из реестра и с диска: расширение профиля, неизвестного реестру, не сносится", () => {
             onDisk("acme.tools");
             writeProfileExtensions(defaultFile, [{ identifier: { id: "acme.tools" }, version: "1.0.0" }]);
-            // Профиль, созданный другим окном: в реестре этого процесса его нет.
+            // Создан другим окном: в реестре этого процесса его нет.
             const foreign = ws.path("profiles/foreign/extensions.json");
             writeProfileExtensions(foreign, [{ identifier: { id: "acme.tools" }, version: "1.0.0" }]);
 
@@ -347,7 +343,6 @@ describe("profileExtensions", () => {
             expect(fs.existsSync(ws.path("extensions/acme.tools-1.0.0"))).toBe(true);
             expect(logger.info).toHaveBeenCalled();
 
-            // Последний держатель — и каталог уходит.
             const last = createProfileExtensions({
                 extensionsDir,
                 profile: { extensionsResource: foreign },

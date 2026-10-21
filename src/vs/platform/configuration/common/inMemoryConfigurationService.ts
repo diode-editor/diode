@@ -20,26 +20,16 @@ import type {
 import { folderScopeWriteError, NO_WORKSPACE_OPENED_ERROR, workspaceScopeWriteError } from "./workspaceSettings.ts";
 
 /**
- * {@link IConfigurationService} без диска — аналог `TestConfigurationService`
- * VS Code. Дефолты — из того же {@link ConfigurationRegistry}, что и у
- * приложения, поэтому `get("editor.wordWrapColumn")` отвечает 80, а не
- * `undefined`; `updateValue` пишет в user- или workspace-слой в памяти и эмитит
- * то же событие изменения, что файловая реализация.
- *
- * Профиля в памяти нет: запись и чтение идут в один user-слой. Слой воркспейса
- * есть, если его содержимое передано (пусть и пустое `{}`); без него окно
- * считается пустым — запись в воркспейс отклоняется, как у файловой реализации.
- * Окна из `.code-workspace` в памяти нет: слой папки пуст, а цель-папка пишет в
- * тот же слой воркспейса (как у окна из папки) со своей проверкой скоупа.
+ * Профиля нет: один user-слой. Окна из `.code-workspace` нет: цель-папка пишет в
+ * слой воркспейса со своей проверкой скоупа.
  */
 export class InMemoryConfigurationService implements IConfigurationService {
     private readonly defaultsLayer: ConfigurationModel;
     private readonly schemas: ReadonlyMap<string, IConfigurationPropertySchema>;
-    /** `scope` ключей ядра и расширений — фильтр и отказ записи в воркспейс. */
     private readonly scopes: ReadonlyMap<string, ConfigurationScope>;
-    /** Содержимое user-слоя в форме settings.json — запись заменяет ключ целиком, как в файле. */
+    /** В форме settings.json: запись заменяет ключ целиком, как в файле. */
     private readonly userSettings: Record<string, unknown>;
-    /** Содержимое `.diode/settings.json` воркспейса; `null` — папка не открыта. */
+    /** `null` — папка не открыта. */
     private readonly workspaceSettings: Record<string, unknown> | null;
     private userLayer: ConfigurationModel;
     private workspaceLayer: ConfigurationModel;
@@ -47,13 +37,7 @@ export class InMemoryConfigurationService implements IConfigurationService {
     private readonly onDidChangeConfigurationEmitter = new Emitter<IConfigurationChangeEvent>();
     public readonly onDidChangeConfiguration = this.onDidChangeConfigurationEmitter.event;
 
-    /**
-     * @param registry источник defaults-слоя; без него дефолтов нет.
-     * @param initial начальное содержимое user-слоя (форма settings.json: точечные
-     *        ключи верхнего уровня разворачиваются, `"[lang]"` — секции языков).
-     * @param workspace содержимое settings.json воркспейса в той же форме;
-     *        не передан — папка не открыта.
-     */
+    /** @param workspace не передан — папка не открыта (пустое `{}` — открыта). */
     public constructor(
         registry?: ConfigurationRegistry,
         initial: Readonly<Record<string, unknown>> = {},
@@ -125,7 +109,6 @@ export class InMemoryConfigurationService implements IConfigurationService {
             writeKey(this.workspaceSettings, key, value);
             this.workspaceLayer = this.computeWorkspaceLayer();
         } else {
-            // Тот же плоский точечный ключ, что пишет файловая реализация в settings.json.
             writeKey(this.userSettings, key, value);
             this.userLayer = ConfigurationModel.fromRaw(this.userSettings);
         }
@@ -136,7 +119,6 @@ export class InMemoryConfigurationService implements IConfigurationService {
     }
 }
 
-/** `undefined` снимает ключ (как `jsonc-parser.modify` с `undefined` в файле). */
 function writeKey(settings: Record<string, unknown>, key: string, value: unknown): void {
     if (value === undefined) {
         Reflect.deleteProperty(settings, key);

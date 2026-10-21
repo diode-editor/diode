@@ -8,20 +8,11 @@ import type { IConfigurationPropertySchema } from "./configurationRegistry.ts";
 import { languageConfiguration, sanitizeConfiguration } from "./configurationValidation.ts";
 import type { IConfigurationChangeEvent, IConfigurationOverrides } from "./iConfigurationService.ts";
 
-/**
- * Итог слияния слоёв настроек на один момент — общий для файловой и
- * in-memory реализаций сервиса. Хранит сырую слитую модель (с секциями
- * языков) и лениво выводит из неё модели для чтения: основную и по языку,
- * обе прошедшие схему ключей ядра.
- */
+/** `merged` — сырое слияние для диффа; модели для чтения прошли схему, по языку — лениво. */
 export class ConfigurationSnapshot {
     private readonly base: ConfigurationModel;
     private readonly languages = new Map<string, ConfigurationModel>();
 
-    /**
-     * @param merged слитые слои (defaults → user → profile) как есть.
-     * @param schemas схемы ключей ядра — для валидации значений и фильтра секций языков.
-     */
     public constructor(
         public readonly merged: ConfigurationModel,
         private readonly schemas: ReadonlyMap<string, IConfigurationPropertySchema>,
@@ -29,7 +20,6 @@ export class ConfigurationSnapshot {
         this.base = sanitizeConfiguration(merged, schemas);
     }
 
-    /** Модель для чтения: основная или для языка `overrides.overrideIdentifier`. */
     public model(overrides?: IConfigurationOverrides): ConfigurationModel {
         const identifier = overrides?.overrideIdentifier;
         // Stryker disable next-line ConditionalExpression: без языка путь через секцию даёт равную модель (секции нет) — ветка экономит пересборку
@@ -42,7 +32,6 @@ export class ConfigurationSnapshot {
         return model;
     }
 
-    /** Событие изменения относительно `prev`; `null`, если ничего не поменялось. */
     public changeFrom(prev: ConfigurationSnapshot): IConfigurationChangeEvent | null {
         const affectedKeys = diffConfigurationKeys(prev.merged, this.merged);
         if (affectedKeys.length === 0) return null;

@@ -131,8 +131,7 @@ describe("ContextKeyService", () => {
 
             const listener = vi.fn();
             ctx.onDidChange(listener);
-            // Так делает WorkbenchContextKeys перед каждым кейбиндом — без этого
-            // фильтра тулбар пересобирался бы на каждое нажатие клавиши.
+            // Так делает WorkbenchContextKeys перед каждым кейбиндом.
             ctx.set("textInputFocus", true);
             await Promise.resolve();
             expect(listener).not.toHaveBeenCalled();

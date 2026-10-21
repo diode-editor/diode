@@ -8,7 +8,6 @@ import {
     searchRegistryIndex,
 } from "./registryFormat.ts";
 
-/** Валидная запись index.json; поля переопределяются мутатором. */
 function indexEntry(overrides: Record<string, unknown> = {}): Record<string, unknown> {
     return {
         id: "acme.markdown-tools",
@@ -26,7 +25,6 @@ function indexText(entries: unknown[], envelope: Record<string, unknown> = {}): 
     return JSON.stringify({ schemaVersion: REGISTRY_SCHEMA_VERSION, extensions: entries, ...envelope });
 }
 
-/** Валидная запись версии в meta; поля переопределяются мутатором. */
 function versionRecord(overrides: Record<string, unknown> = {}): Record<string, unknown> {
     return {
         version: "1.2.0",
@@ -196,9 +194,6 @@ describe("parseRegistryMeta", () => {
         expect(meta.versions[0]?.publishedAt).toBeUndefined();
     });
 
-    // Одна semver-версия платформенными записями: словарь таргетов клиент не
-    // сверяет (неизвестный просто не совпадёт с платформой хоста) — обе записи
-    // обязаны пережить разбор как есть.
     it("targetPlatform сохраняется; одна версия несколькими платформенными записями валидна", () => {
         const { meta, problems } = parseRegistryMeta(
             metaText([
@@ -323,8 +318,7 @@ describe("parseRegistryMeta", () => {
 });
 
 describe("searchRegistryIndex", () => {
-    // Индекс собирается внутри тестов, а не при загрузке файла: код, исполненный на уровне
-    // describe, Stryker помечает static-мутантами и гоняет для них весь сьют целиком.
+    // Не на уровне describe: такой код Stryker помечает static-мутантами и гоняет весь сьют.
     const searchableIndex = () =>
         parseRegistryIndex(
             indexText([
@@ -384,8 +378,7 @@ describe("пометка о поддержке", () => {
         ["ограничения не массив", { level: "partial", limits: "webview" }],
         ["пункт списка пустой", { level: "partial", limits: [""] }],
         ["пункт списка не строка", { level: "partial", limits: [42] }],
-        // Смешанный список: `every` отбрасывает, `some` пропустил бы — ровно
-        // та подмена, которую делает мутационный прогон.
+        // `every` отбрасывает, `some` пропустил бы — мутант.
         ["часть пунктов битая", { level: "partial", limits: ["Chat panel", 42] }],
         ["works не массив", { level: "full", works: "everything" }],
         ["не объект", "partial"],
@@ -393,7 +386,6 @@ describe("пометка о поддержке", () => {
         const { meta, problems } = parseRegistryMeta(metaText([versionRecord()], { support }), semver);
         expect(meta.support).toBeUndefined();
         expect(meta.id).toBe("acme.markdown-tools");
-        // Пометка косметическая: её невалидность не повод шуметь в problems.
         expect(problems).toEqual([]);
     });
 });

@@ -184,8 +184,6 @@ describe("InMemoryConfigurationService — слой воркспейса", () =>
         expect(withFolder.getConfigurationData().workspace).toEqual({});
     });
 
-    // Окна из `.code-workspace` в памяти нет: цель-папка пишет в тот же слой
-    // воркспейса, но со своей, папочной, проверкой скоупа.
     it("цель workspaceFolder — тот же слой воркспейса, отказ по скоупу папки", async () => {
         const service = new InMemoryConfigurationService(scopedRegistry(), {}, {});
 

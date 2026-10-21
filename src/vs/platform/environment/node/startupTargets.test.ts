@@ -9,7 +9,6 @@ import { loadWorkspaceFile } from "../../workspace/common/workspaceFile.ts";
 import { CliArgsError, parseCliArgs } from "./cliArgs.ts";
 import { logicalWorkingDirectory, resolveStartupTargets } from "./startupTargets.ts";
 
-/** Порт к FS: перечисленные пути — папки, всё остальное — файлы. */
 function dirsAre(...dirs: string[]): (p: string) => boolean {
     const set = new Set(dirs.map((d) => path.resolve(d)));
     return (p) => set.has(p);
@@ -35,8 +34,6 @@ describe("resolveStartupTargets", () => {
     });
 
     it("leaves the window folderless when the first positional is a file", () => {
-        // `diode a.ts src` — как в VS Code: папкой становится только ПЕРВЫЙ
-        // аргумент, остальные директории просто не открываются.
         const targets = resolveStartupTargets(parseCliArgs(["a.ts", "src"]), dirsAre("src"));
         expect(targets.folder).toBeUndefined();
         expect(targets.files).toEqual([{ path: abs("a.ts") }]);
@@ -54,7 +51,6 @@ describe("resolveStartupTargets", () => {
 });
 
 describe("resolveStartupTargets — файл воркспейса", () => {
-    // `code web.code-workspace` открывает воркспейс, а не файл во вкладке.
     it("первый позиционный *.code-workspace — файл воркспейса, а не вкладка", () => {
         const targets = resolveStartupTargets(parseCliArgs(["web.code-workspace", "a.ts"]), noDirs);
         expect(targets.workspaceFile).toBe(abs("web.code-workspace"));
@@ -68,14 +64,12 @@ describe("resolveStartupTargets — файл воркспейса", () => {
         expect(targets.files).toEqual([{ path: abs("a.ts") }, { path: abs("web.code-workspace") }]);
     });
 
-    // Каталог с таким именем — всё-таки папка: решает диск, а не расширение.
     it("каталог с расширением .code-workspace — папка", () => {
         const targets = resolveStartupTargets(parseCliArgs(["odd.code-workspace"]), dirsAre("odd.code-workspace"));
         expect(targets.folder).toBe(abs("odd.code-workspace"));
         expect(targets.workspaceFile).toBeUndefined();
     });
 
-    // Через симлинк каталога: файл воркспейса — от логического cwd, остальное — от физического.
     it("путь файла воркспейса — от логического cwd", () => {
         const targets = resolveStartupTargets(parseCliArgs(["web.code-workspace", "a.ts"]), noDirs, "/home/me/link");
         expect(targets.workspaceFile).toBe("/home/me/link/web.code-workspace");
@@ -98,9 +92,7 @@ describe("resolveStartupTargets — файл воркспейса", () => {
 describe("resolveStartupTargets — --goto", () => {
     it("splits file:line", () => {
         const targets = resolveStartupTargets(parseCliArgs(["-g", "a.ts:42"]), noDirs);
-        // Строго: без номера колонки ключа `column` быть НЕ должно — условный
-        // спред здесь не украшение, а контракт (`toEqual` не видит лишнего
-        // `column: undefined`).
+        // toStrictEqual: `toEqual` не видит лишнего `column: undefined`.
         expect(targets.files).toStrictEqual([{ path: abs("a.ts"), line: 42 }]);
     });
 
@@ -186,7 +178,6 @@ describe("файл воркспейса через симлинки — на н�
         fs.symlinkSync(path.join(root, "real"), path.join(root, "link"));
         const link = path.join(root, "link");
 
-        // Так стартует бинарь, запущенный из `cd link`: Node видит физический cwd.
         const cwd = logicalWorkingDirectory(link, path.join(root, "real"), sameDirectory);
         const targets = resolveStartupTargets(parseCliArgs(["w.code-workspace"]), () => false, cwd);
         expect(targets.workspaceFile).toBe(path.join(link, "w.code-workspace"));

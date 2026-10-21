@@ -14,7 +14,6 @@ import { installFromRegistry, sha256File } from "./installFromRegistry.ts";
 
 const HOST: IHostVersions = { diode: "0.3.0", vscode: "1.127.0" };
 
-/** Собирает `.vsix` (zip) с манифестом расширения и возвращает его байты. */
 function buildVsixBuffer(manifest: object): Promise<Buffer> {
     return new Promise((resolve, reject) => {
         const zip = new yazl.ZipFile();
@@ -33,9 +32,7 @@ interface IVersionSeed {
     readonly version: string;
     readonly engines: IRegistryEngines;
     readonly manifest?: object;
-    /** Подменить sha256 в записи реестра (для mismatch-кейса). */
     readonly sha256?: string;
-    /** Платформенный таргет записи (universal — не задан). */
     readonly targetPlatform?: string;
 }
 
@@ -56,15 +53,13 @@ describe("installFromRegistry", () => {
         await fs.promises.rm(tempRoot, { recursive: true, force: true });
     });
 
-    /** Кладёт в каталог реестра мету расширения и `.vsix`-артефакты его версий. */
     async function seedExtension(publisher: string, name: string, versions: readonly IVersionSeed[]): Promise<void> {
         const id = `${publisher}.${name}`;
         const versionRecords = [];
         for (const seed of versions) {
             const suffix = seed.targetPlatform === undefined ? "" : `@${seed.targetPlatform}`;
             const relPath = `artifacts/${id}-${seed.version}${suffix}.vsix`;
-            // Платформенный маркер в манифесте — чтобы тест мог доказать, ЧЕЙ
-            // артефакт реально распакован, а не только какая версия выбрана.
+            // Маркер в манифесте доказывает, ЧЕЙ артефакт распакован, а не только какая версия выбрана.
             const vsix = await buildVsixBuffer(
                 seed.manifest ?? {
                     publisher,
@@ -179,12 +174,9 @@ describe("installFromRegistry", () => {
         expect(listInstalledExtensions(extensionsDir)).toEqual([]);
     });
 
-    // Путь платформенных vsix (ruff): одна версия — несколько записей с
-    // разными targetPlatform, установиться обязан артефакт своего таргета.
     describe("targetPlatform", () => {
         const LINUX_HOST: IHostVersions = { ...HOST, targetPlatform: "linux-x64" };
 
-        /** description из манифеста установленного расширения — маркер артефакта из seedExtension. */
         function installedDescription(id: string, version: string): string {
             const manifestPath = path.join(extensionsDir, `${id}-${version}`, "package.json");
             return (JSON.parse(fs.readFileSync(manifestPath, "utf8")) as { description: string }).description;
@@ -257,14 +249,11 @@ describe("installFromRegistry", () => {
         expect(listInstalledExtensions(extensionsDir)).toEqual([]);
     });
 
-    // Временный каталог заводится в os.tmpdir() (не в extensionsDir, где свой temp
-    // держит installVsix) и обязан убираться на обоих исходах.
     it.each([
         ["успешной установки", "1.0.0", false],
         ["провалившейся установки", "b".repeat(64), true],
     ] satisfies [string, string, boolean][])("temp-каталог не остаётся после %s", async (_label, seedSha, fails) => {
-        // Свой os.tmpdir() на тест: общий делят параллельные файлы, которые тоже
-        // ставят из реестра, и счёт каталогов в нём плыл бы.
+        // Общий os.tmpdir() делят параллельные файлы, и счёт каталогов в нём плыл бы.
         const privateTmp = path.join(tempRoot, "tmp");
         await fs.promises.mkdir(privateTmp);
         for (const name of ["TMPDIR", "TMP", "TEMP"]) vi.stubEnv(name, privateTmp);
@@ -291,7 +280,6 @@ describe("installFromRegistry", () => {
     });
 
     it("реестр указывает на чужой .vsix — он не ставится вовсе", async () => {
-        // Манифест внутри артефакта принадлежит другому расширению.
         await seedExtension("acme", "hello", [
             {
                 version: "1.0.0",
@@ -312,7 +300,6 @@ describe("sha256File", () => {
         try {
             const file = path.join(dir, "data.bin");
             await fs.promises.writeFile(file, "hello");
-            // Известный sha256("hello").
             await expect(sha256File(file)).resolves.toBe(
                 "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824",
             );

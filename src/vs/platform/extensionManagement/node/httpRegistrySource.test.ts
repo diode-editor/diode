@@ -9,12 +9,7 @@ import { type IRegistryVersion, REGISTRY_SCHEMA_VERSION } from "../common/regist
 
 import { DEFAULT_MAX_ARTIFACT_BYTES, HttpExtensionRegistrySource } from "./httpRegistrySource.ts";
 
-/**
- * Тесты гоняются против настоящего `node:http`-сервера на 127.0.0.1: HTTP-источник
- * целиком про поведение транспорта (статусы, лимиты, обрывы), а мок fetch'а
- * проверял бы наши же представления о нём. Внешняя сеть при этом не нужна —
- * сквозняк по опубликованному реестру живёт в e2e.
- */
+/** Настоящий `node:http` на 127.0.0.1, а не мок fetch'а: тот проверял бы наши же представления о транспорте. */
 
 const ID = "acme.markdown-tools";
 const BASE_PATH = "/registry/v1/";
@@ -86,7 +81,6 @@ describe("HttpExtensionRegistrySource", () => {
     let origin: string;
     let base: string;
     let routes: Map<string, Handler>;
-    /** Пути, по которым реально сходили — проверка резолва относительно базы. */
     let requested: string[];
     let headers: http.IncomingHttpHeaders;
     let ws: ITempWorkspace | undefined;
@@ -130,8 +124,6 @@ describe("HttpExtensionRegistrySource", () => {
         ws = undefined;
     });
 
-    // ── База и адресация ─────────────────────────────────────────────────────
-
     it("getIndex читает <base>/index.json", async () => {
         routes.set(`${BASE_PATH}index.json`, json(indexJson()));
         const index = await new HttpExtensionRegistrySource(base).getIndex();
@@ -159,8 +151,6 @@ describe("HttpExtensionRegistrySource", () => {
     it("https-база принимается (публичный реестр раздаётся именно так)", () => {
         expect(() => new HttpExtensionRegistrySource("https://diode-editor.github.io/registry/v1/")).not.toThrow();
     });
-
-    // ── index.json ───────────────────────────────────────────────────────────
 
     it("диагностики битых записей уходят в onProblem", async () => {
         routes.set(`${BASE_PATH}index.json`, json(indexJson([{ id: "broken" }])));
@@ -211,7 +201,6 @@ describe("HttpExtensionRegistrySource", () => {
 
     it("недоступный реестр — ошибка с адресом, а не голый сетевой стектрейс", async () => {
         routes.set(`${BASE_PATH}index.json`, (_req, res) => {
-            // Ответ не приходит вовсе — единственный способ увидеть таймаут честно.
             void res;
         });
         const source = new HttpExtensionRegistrySource(base, undefined, { timeoutMs: 60 });
@@ -219,16 +208,12 @@ describe("HttpExtensionRegistrySource", () => {
     });
 
     it("недостижимый хост — сообщение несёт причину из cause, а не голое «fetch failed»", async () => {
-        // Порт занят сервером, соединение на соседний — отказ; undici прячет
-        // ECONNREFUSED в cause, и без него текст ошибки ничего не объясняет.
         const port = (server.address() as AddressInfo).port;
         const source = new HttpExtensionRegistrySource(
             `http://127.0.0.1:${String(port === 65535 ? port - 1 : port + 1)}/r/`,
         );
         await expect(source.getIndex()).rejects.toThrow(/index\.json: fetch failed \(.+\)/);
     });
-
-    // ── meta/<id>.json ───────────────────────────────────────────────────────
 
     it("getMeta читает meta/<id>.json и сверяет id", async () => {
         routes.set(`${BASE_PATH}meta/${ID}.json`, json(metaJson()));
@@ -267,8 +252,6 @@ describe("HttpExtensionRegistrySource", () => {
         },
     );
 
-    // ── fetchArtifact ────────────────────────────────────────────────────────
-
     it("fetchArtifact качает .vsix в tempDir и отдаёт путь", async () => {
         const bytes = Buffer.from("PKfake-vsix-bytes");
         routes.set("/mt-1.2.0.vsix", (_req, res) => {
@@ -283,8 +266,7 @@ describe("HttpExtensionRegistrySource", () => {
     });
 
     it("https-артефакт проходит проверку схемы и падает уже на сети", async () => {
-        // Порт 1 закрыт: до сети дело доходит, значит схему не отвергли. Мутант,
-        // выкинувший https из проверки, дал бы «must be http(s)» вместо отказа сети.
+        // Порт 1 закрыт: мутант, выкинувший https из проверки, дал бы «must be http(s)» вместо отказа сети.
         ws = createTempWorkspace();
         await expect(
             new HttpExtensionRegistrySource(base).fetchArtifact(urlVersion("https://127.0.0.1:1/x.vsix"), ws.dir),
@@ -335,10 +317,7 @@ describe("HttpExtensionRegistrySource", () => {
     });
 
     it("медленная, но ЖИВАЯ загрузка не обрывается: сторожим молчание, а не длительность", async () => {
-        // Кусками по 8 байт с паузой 40мс: суммарно ~280мс, то есть заведомо
-        // дольше таймаута 100мс, но пауз длиннее таймаута нет ни одной. Общий
-        // таймаут на fetch такую загрузку убивал бы — и убивал: платформенный
-        // .vsix redhat.java (139 МБ) падал так на windows-раннере CI.
+        // ~280мс суммарно — дольше таймаута 100мс, но ни одной паузы длиннее него.
         const total = 7;
         routes.set("/slow.vsix", (_req, res) => {
             res.writeHead(200, { "content-type": "application/octet-stream" });
@@ -361,8 +340,6 @@ describe("HttpExtensionRegistrySource", () => {
     });
 
     it("замолчавшая загрузка обрывается по сторожу, недокачанный файл убран", async () => {
-        // Заголовки и первый кусок пришли, дальше тишина — ровно тот случай,
-        // ради которого сторож и нужен.
         routes.set("/stalled.vsix", (_req, res) => {
             res.writeHead(200, { "content-type": "application/octet-stream" });
             res.write(Buffer.alloc(8, 1));
@@ -370,8 +347,6 @@ describe("HttpExtensionRegistrySource", () => {
         });
         ws = createTempWorkspace();
         const source = new HttpExtensionRegistrySource(base, undefined, { timeoutMs: 100 });
-        // Текст причины обязан доехать до вызывающего: «download failed» без неё
-        // не отличает замолчавший канал от любого другого обрыва.
         await expect(source.fetchArtifact(urlVersion(`${origin}/stalled.vsix`), ws.dir)).rejects.toThrow(
             /stalled\.vsix: download failed: no data for 100ms/,
         );
@@ -379,9 +354,7 @@ describe("HttpExtensionRegistrySource", () => {
     });
 
     it("после успешной загрузки сторож снят — висящих таймеров не остаётся", async () => {
-        // Не косметика: несброшенный `setTimeout` держит event loop, и
-        // `diode --install-extension <id>` после успешной установки висел бы ещё
-        // `timeoutMs` вместо мгновенного выхода.
+        // Несброшенный `setTimeout` держит event loop: `--install-extension` висел бы ещё `timeoutMs`.
         const bytes = Buffer.alloc(32, 3);
         routes.set("/tidy.vsix", (_req, res) => {
             res.writeHead(200);
@@ -409,7 +382,6 @@ describe("HttpExtensionRegistrySource", () => {
 
     it("обрыв соединения на середине тела — ошибка загрузки, файл не появляется", async () => {
         routes.set("/truncated.vsix", (_req, res) => {
-            // Обещаем килобайт, отдаём кусок и рвём соединение.
             res.writeHead(200, { "content-length": "1024" });
             res.write(Buffer.alloc(64));
             setTimeout(() => res.socket?.destroy(), 10);
@@ -423,8 +395,7 @@ describe("HttpExtensionRegistrySource", () => {
     });
 
     it("многокусковое тело доезжает в файл целиком и в исходном порядке", async () => {
-        // Артефакт пишется потоком, кусок за куском: тело в один `res.end` этого не
-        // проверяет — файл совпал бы и у записи, которая каждый кусок кладёт с нуля.
+        // Тело в один `res.end` не поймало бы запись, которая каждый кусок кладёт с нуля.
         const parts = [Buffer.alloc(64 * 1024, 1), Buffer.alloc(96 * 1024, 2), Buffer.alloc(48 * 1024, 3)];
         routes.set("/chunked.vsix", (_req, res) => {
             res.writeHead(200);
@@ -442,9 +413,7 @@ describe("HttpExtensionRegistrySource", () => {
     });
 
     it("превышение лимита обрывает скачивание, а не проверяется по уже скачанному", async () => {
-        // Смысл лимита — не дать реестру вытянуть из клиента гигабайт, поэтому сервер
-        // обязан замолчать задолго до конца обещанного тела. Проверка постфактум по
-        // готовому файлу прошла бы предыдущие кейсы, но этот — нет.
+        // Проверка постфактум по готовому файлу прошла бы предыдущие кейсы, но этот — нет.
         const TOTAL = 64 * 1024 * 1024;
         const chunk = Buffer.alloc(64 * 1024, 7);
         let sent = 0;
@@ -479,9 +448,7 @@ describe("HttpExtensionRegistrySource", () => {
     });
 
     it("дефолтный лимит пропускает платформенный .vsix со вшитым рантаймом", () => {
-        // Самая тяжёлая сборка redhat.java@1.57.2026092608 (linux-x64, с JRE 21) —
-        // 139 029 576 байт; в прежние 64 МиБ она не пролезала вовсе. Опускать дефолт
-        // ниже этой отметки значит снова сделать платформенные записи неустановимыми.
+        // redhat.java@1.57.2026092608 (linux-x64, с JRE 21) — самая тяжёлая сборка.
         expect(DEFAULT_MAX_ARTIFACT_BYTES).toBeGreaterThanOrEqual(139_029_576);
     });
 });

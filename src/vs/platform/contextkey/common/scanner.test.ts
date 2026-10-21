@@ -113,9 +113,7 @@ describe("scanWhen", () => {
         });
         expect(scanWhen("r =~ /[/]x/ && y").map((t) => t.type)).toEqual(["str", "=~", "regexStr", "&&", "str", "eof"]);
         expect(scanWhen("r =~ /[/]x/")[2]).toEqual({ type: "regexStr", lexeme: "/[/]x/", offset: 5 });
-        // Слэш в классе после другого символа класса — тоже не закрывает.
         expect(scanWhen("r =~ /[a/]/")[2]).toEqual({ type: "regexStr", lexeme: "/[a/]/", offset: 5 });
-        // После `]` класс закрыт — следующий `/` снова закрывает регекс.
         expect(scanWhen("r =~ /[a]/x")[2]).toEqual({ type: "regexStr", lexeme: "/[a]/", offset: 5 });
     });
 
@@ -159,7 +157,6 @@ describe("scanWhen", () => {
                 { type: "error", offset: 7, lexeme: "/file:\\/ || bar" },
                 { type: "eof", offset: 22 },
             ]);
-            // Слэш внутри незакрытого класса символов регекс не закрывает.
             expect(scanWhen("r =~ /[/x")[2]).toEqual({ type: "error", offset: 5, lexeme: "/[/x" });
         });
     });

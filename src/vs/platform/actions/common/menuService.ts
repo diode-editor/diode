@@ -12,29 +12,15 @@ import { joinMenuGroups, MenuRegistryDIToken } from "./menuRegistry.ts";
 export const MenuServiceDIToken = token<MenuService>("MenuService");
 
 /**
- * Живое меню одной точки `MenuId` (аналог `IMenu` VS Code): резолвит пункты на
- * момент вызова и уведомляет о смене состава реестра (`onDidChange`) — консюмер
- * пересобирает разметку когда захочет. `when` и `enablement` учитываются при
- * каждом `getEntries`: попапы резолвятся при открытии, а постоянный UI
- * (кнопки заголовков view) пере-резолвится по `ContextKeyService.onDidChange`.
+ * `onDidChange` — только смена состава реестра; `when` и `enablement` учитываются
+ * при каждом `getEntries`, постоянный UI пере-резолвится по `ContextKeyService.onDidChange`.
  */
 export interface IMenu extends IDisposable {
-    /**
-     * Пункты меню на текущий момент (см. `MenuRegistry.getMenuItems`).
-     * С `resolveSubmenu` submenu-записи встраиваются вложенными попапами.
-     */
     getEntries(context?: unknown, resolveSubmenu?: SubmenuResolver): MenuEntry[];
-    /** Submenu-записи меню (см. `MenuRegistry.getSubmenus`). */
     getSubmenus(): ISubmenuEntry[];
-    /** Подписка на смену состава этой точки (append/снятие пункта в реестре). */
     onDidChange(listener: () => void): IDisposable;
 }
 
-/**
- * Фабрика живых меню (аналог `IMenuService` VS Code): отделяет данные
- * (`MenuRegistry`) от потребления — консюмеры (меню-бар, контекст-меню)
- * держат `IMenu` и не ходят в реестр напрямую.
- */
 export class MenuService {
     public static dependencies = [MenuRegistryDIToken] as const;
 
@@ -44,21 +30,15 @@ export class MenuService {
         return new Menu(this.registry, menuId);
     }
 
-    /**
-     * Пункты точки, готовые к показу в попапе: submenu-записи резолвятся во
-     * вложенные попапы (eager, на момент вызова — `when` учитывается сейчас).
-     * Разовый резолв без подписки — для тех, кто собирает меню при открытии.
-     */
+    /** Разовый резолв без подписки: подменю раскрываются сразу, `when` — на момент вызова. */
     public getEntries(menuId: MenuId, context?: unknown): MenuEntry[] {
         return joinMenuGroups(this.getEntryGroups(menuId, context));
     }
 
-    /** Есть ли у точки пункты без учёта `when` (см. `MenuRegistry.hasItems`). */
     public hasItems(menuId: MenuId, context?: unknown, predicate?: (item: MenuContribution) => boolean): boolean {
         return this.registry.hasItems(menuId, context, predicate);
     }
 
-    /** То же, но с сохранением групп (см. `MenuRegistry.getMenuItemGroups`). */
     public getEntryGroups(menuId: MenuId, context?: unknown): IMenuEntryGroup[] {
         const seen = new Set<MenuId>([menuId]);
         return this.registry.getMenuItemGroups(menuId, context, this.submenuResolver(context, seen));

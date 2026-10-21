@@ -8,34 +8,25 @@ import type { ContextKey, ContextKeyTypes } from "./contextKeys.ts";
 
 export const ContextKeyServiceDIToken = token<ContextKeyService>("ContextKeyService");
 
-/** Значение ключа в сервисе: всё, что умеет when, кроме «нет значения». */
 export type ContextKeySettableValue = Exclude<ContextKeyValue, undefined>;
 type ContextValue = ContextKeySettableValue;
 
-/** Префикс ключей-настроек (`ConfigAwareContextValuesContainer._keyPrefix` эталона). */
 const CONFIG_KEY_PREFIX = "config.";
 
 /**
- * When-контекст: значения ключей, их вычисление в when-выражениях и событие
- * смены. Ключи `config.<настройка>` (`config.editor.minimap.enabled`,
- * `config.claudeCode.useTerminal`) читаются из настроек сами — как корневой
- * `ConfigAwareContextValuesContainer` эталона: лениво, с кэшем, который сброс
- * настройки чистит и о котором сообщает {@link onDidChange}.
+ * Ключи `config.<настройка>` читаются из настроек сами, как `ConfigAwareContextValuesContainer`
+ * эталона: лениво, с кэшем, который смена настройки чистит и о котором сообщает {@link onDidChange}.
  */
 export class ContextKeyService implements IDisposable {
     private values = new Map<string, ContextValue>();
-    /** Прочитанные `config.*`: ключ → значение (`undefined` — настройки нет). */
+    /** `undefined` — настройки нет. */
     private readonly configValues = new Map<string, ContextValue | undefined>();
     private readonly configListener: IDisposable | undefined;
-    /** Names whose values actually changed since the previous event. */
     private readonly onDidChangeEmitter = new Emitter<ReadonlySet<string>>();
-    /**
-     * Names changed since the last flush. Non-null means a flush is already
-     * queued — several `set` in one tick become one event.
-     */
+    /** Non-null — flush уже запланирован. */
     private pending: Set<string> | null = null;
 
-    /** Без настроек (тесты, витрины) `config.*` — обычные ключи, как любые другие. */
+    /** Без настроек `config.*` — обычные ключи. */
     public constructor(private readonly configuration?: IConfigurationService) {
         this.configListener = configuration?.onDidChangeConfiguration((event) => {
             for (const key of [...this.configValues.keys()]) {
@@ -50,12 +41,7 @@ export class ContextKeyService implements IDisposable {
         this.write(key, value as ContextValue);
     }
 
-    /**
-     * Ключ вне типизированного {@link ContextKeyTypes}: свои моды окружения
-     * (`mode_<name>`), ключи расширений из `setContext` (`publisher.thing`, в том
-     * числе массив или объект под оператор `in`). Регистрировать имя заранее не
-     * нужно — вычислитель читает любой ключ, незнакомый просто `undefined`.
-     */
+    /** Ключ вне {@link ContextKeyTypes}: `mode_<name>`, `setContext` расширений. Регистрировать заранее не нужно. */
     public setRaw(key: string, value: ContextValue): void {
         this.write(key, value);
     }
@@ -64,10 +50,6 @@ export class ContextKeyService implements IDisposable {
         return this.lookup(key) as ContextKeyTypes[K] | undefined;
     }
 
-    /**
-     * Значение любого ключа по имени — парный {@link setRaw} читатель для тех, кто
-     * имя знает только строкой (инспектор: `Diode.getContextKey`).
-     */
     public getRaw(key: string): ContextValue | undefined {
         return this.lookup(key);
     }
@@ -79,27 +61,15 @@ export class ContextKeyService implements IDisposable {
     }
 
     /**
-     * Change notification (VS Code `onDidChangeContext`). Consumers: the live
-     * view-title toolbar, which re-resolves its buttons when `when`/`enablement`
-     * of their commands could have flipped.
-     *
-     * Two properties this event must keep, or it becomes a load generator:
-     * writing the same value is not a change (`WorkbenchContextKeys.update()`
-     * rewrites ~20 keys before every keybinding resolve), and several writes in
-     * one tick coalesce into a single event.
+     * Иначе событие станет генератором нагрузки: запись того же значения — не смена
+     * (`WorkbenchContextKeys.update()` переписывает ~20 ключей перед каждым резолвом
+     * бинда), а несколько записей за тик сливаются в одно событие.
      */
     public readonly onDidChange = this.onDidChangeEmitter.event;
 
     /**
-     * Вычисляет when-выражение над текущими значениями. Грамматика — VS Code
-     * (`platform/contextkey/common/contextKeyExpr.ts`): `&& || ! == != < <= > >=`,
-     * `=~ /regex/`, `in`, `not in`, значение справа без кавычек — строка
-     * (`editorLangId == java`). Разобранное дерево кэшируется по строке.
-     * Битая строка ложна; незнакомый ключ — `undefined`.
-     *
-     * `overlay` — «что если» поверх текущих значений, не меняя их (аналог
-     * `createOverlay` VS Code): например, какой бинд действовал бы при фокусе
-     * в поле, которое сейчас не в фокусе, — для подписи в его плейсхолдере.
+     * Битая строка ложна. `overlay` — «что если» поверх текущих значений, не меняя их
+     * (`createOverlay` VS Code): какой бинд действовал бы при фокусе в другом поле.
      */
     public evaluate(when: string, overlay?: Readonly<Record<string, ContextValue>>): boolean {
         const expr = deserializeWhen(when);
@@ -116,10 +86,7 @@ export class ContextKeyService implements IDisposable {
         this.pending = null;
     }
 
-    /**
-     * Значение ключа: `config.*` — из настроек (запись в такой ключ им не
-     * мешает, как у эталона), остальное — записанное.
-     */
+    /** `config.*` — из настроек, даже если в ключ писали (как у эталона). */
     private lookup(key: string): ContextValue | undefined {
         if (this.configuration === undefined || !key.startsWith(CONFIG_KEY_PREFIX)) return this.values.get(key);
         if (this.configValues.has(key)) return this.configValues.get(key);
@@ -145,20 +112,15 @@ export class ContextKeyService implements IDisposable {
     }
 
     private flush(): void {
-        // Набор забираем ДО обхода: запись из слушателя планирует следующий
-        // микротаск, а не дописывает в тот, который сейчас разбирают. Пустым он
-        // не бывает — flush планирует только `markChanged`, уже положивший ключ.
+        // Забираем ДО обхода: запись из слушателя планирует следующий микротаск.
+        // Пустым набор не бывает — flush планирует только `markChanged`.
         const changed = this.pending ?? new Set<string>();
         this.pending = null;
         this.onDidChangeEmitter.fire(changed);
     }
 }
 
-/**
- * Настройка → значение ключа (`getValue` контейнера эталона): значение
- * настройки — JSON, поэтому примитив и объект (под `in`) идут как есть, массив
- * — JSON-строкой (так его видит `=~`/`==`), `null`/нет настройки — «нет значения».
- */
+/** Как `getValue` контейнера эталона: массив — JSON-строкой (так его видит `=~`/`==`), объект — как есть (под `in`). */
 function toContextValue(value: unknown): ContextValue | undefined {
     if (value === null) return undefined;
     return Array.isArray(value) ? JSON.stringify(value) : (value as ContextValue | undefined);

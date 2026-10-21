@@ -2,12 +2,6 @@ import { describe, expect, it } from "vitest";
 
 import { ContextKeyService } from "./contextKeyService.ts";
 
-/**
- * Ключи расширений (`supermaven.isProUser` — их приносит команда `setContext`).
- * Вычислитель читает имя ключа целиком, каким бы оно ни было: точка, дефис,
- * ведущая цифра, ключевое слово JS — просто символы имени. Регистрировать имя
- * заранее не нужно.
- */
 describe("ContextKeyService — ключи расширений", () => {
     it("точечный ключ читается целиком", () => {
         const ctx = new ContextKeyService();

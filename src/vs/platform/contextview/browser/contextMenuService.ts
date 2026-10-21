@@ -14,12 +14,6 @@ function isMenuDelegate(
     return "menuId" in delegate;
 }
 
-/**
- * Сервис контекстных меню (аналог `ContextMenuService` VS Code): собирает
- * пункты — свои от делегата и/или реестровые по `menuId` (через сепаратор,
- * как `ContextMenuMenuDelegate.transform` в upstream) — и показывает их
- * tuidom-механикой ({@link ContextMenuController}). Пустое меню не открывается.
- */
 export class ContextMenuService {
     public static dependencies = [MenuServiceDIToken] as const;
 
@@ -47,7 +41,7 @@ export class ContextMenuService {
         return this.controller.isOpen();
     }
 
-    /** Свои пункты делегата + реестровые, разделённые сепаратором (только между непустыми половинами). */
+    /** Сепаратор — как `ContextMenuMenuDelegate.transform` upstream. */
     private collectEntries(delegate: IContextMenuDelegate | IContextMenuMenuDelegate): MenuEntry[] {
         const own = delegate.getEntries?.() ?? [];
         let registry: MenuEntry[] = [];

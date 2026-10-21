@@ -4,9 +4,6 @@ import { createTestConfigurationService } from "../../../../TestUtils/testConfig
 
 import { ContextKeyService } from "./contextKeyService.ts";
 
-// `config.*` в when — настройки как контекст-ключи (`ConfigAwareContextValuesContainer`
-// эталона): чтение без регистрации, кэш, сброс и событие на смене настройки.
-
 const flush = (): Promise<void> =>
     new Promise((resolve) => {
         queueMicrotask(resolve);
@@ -53,7 +50,6 @@ describe("ContextKeyService — ключи config.*", () => {
         expect(changes).toStrictEqual([["config.claudeCode.useTerminal"]]);
         expect(keys.evaluate("config.claudeCode.useTerminal")).toBe(true);
 
-        // Чужая настройка прочитанный ключ не трогает.
         await configuration.updateValue("other.setting", 1);
         await flush();
         expect(changes).toHaveLength(1);

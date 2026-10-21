@@ -1,62 +1,34 @@
-/**
- * Точки, куда контрибьютятся пункты меню (аналог класса `MenuId` VS Code).
- * Пункт объявляет свой `menuId`, а сборщик меню (контекст-меню, меню-бар)
- * запрашивает `MenuRegistry.getMenuItems(menuId, …)`. Класс расширяем:
- * новая точка (в т.ч. из расширения) — `new MenuId("my.menu")`; id уникальны,
- * сравнение — по идентичности инстанса.
- */
+/** Сравнение — по идентичности инстанса; id уникальны. */
 export class MenuId {
     private static readonly instances = new Set<string>();
 
     public static readonly EditorContext = new MenuId("EditorContext");
     public static readonly ExplorerContext = new MenuId("ExplorerContext");
     public static readonly ScmContext = new MenuId("ScmContext");
-    /** Контекст-меню заголовка группы ресурсов SCM (VS Code `scm/resourceGroup/context`). */
     public static readonly ScmResourceGroupContext = new MenuId("ScmResourceGroupContext");
-    /** Контекст-меню коммита в графе (VS Code `scm/historyItem/context`). */
     public static readonly ScmGraphContext = new MenuId("ScmGraphContext");
     /**
-     * Контекст-меню ВКЛАДКИ редактора (VS Code `editor/title/context`). Открывается
-     * правым кликом по табу; цель — вкладка под курсором, а не активная, поэтому
-     * пункты адресуются через `menuContext` (см. `EditorTitleMenuContext`), а
-     * видимость решается императивно (`visible`), а не глобальными when-ключами.
+     * Цель — вкладка под курсором, а не активная: пункты адресуются через `menuContext`
+     * (`EditorTitleMenuContext`), видимость — императивно (`visible`), не when-ключами.
      */
     public static readonly EditorTitleContext = new MenuId("EditorTitleContext");
-    /**
-     * Панель действий справа от вкладок группы редакторов (VS Code
-     * `editor/title`, `MenuId.EditorTitle`): группа `navigation` с иконкой —
-     * кнопки, остальное — попап «⋯». У каждой группы своя панель; контекст
-     * открытия — `EditorTitleBarMenuContext` (id группы).
-     */
+    /** Контекст открытия — `EditorTitleBarMenuContext` (id группы). */
     public static readonly EditorTitle = new MenuId("EditorTitle");
-    /**
-     * Контекст-меню вкладки встроенного терминала (VS Code `TerminalTabContext`):
-     * правый клик по строке списка терминалов или по имени активного терминала
-     * в заголовке. Цель — инстанс под курсором (см. `TerminalTabMenuContext`).
-     */
+    /** Цель — инстанс под курсором (`TerminalTabMenuContext`). */
     public static readonly TerminalTabContext = new MenuId("TerminalTabContext");
     /**
-     * Действия заголовка ОДНОЙ view — VS Code `ViewTitle`. Группа `navigation`
-     * рисуется inline-кнопками в заголовке, остальные группы уезжают в попап
-     * «⋯». Пункты фильтруются императивно по `menuContext.view`
-     * (см. `viewMenuVisible`): глобальный when-ключ не годится — в сайдбаре
-     * одновременно видно несколько секций.
+     * Фильтруется по `menuContext.view` (`viewMenuVisible`): глобальный when-ключ не
+     * годится — в сайдбаре одновременно видно несколько секций.
      */
     public static readonly ViewTitle = new MenuId("ViewTitle");
-    /**
-     * Меню «⋯» заголовка КОНТЕЙНЕРА view-секций («активити») — VS Code
-     * `ViewContainerTitle`. Фильтруется императивно по `menuContext.container`
-     * (см. `containerMenuVisible`), как `ViewTitle` по view.
-     */
+    /** Фильтруется по `menuContext.container` (`containerMenuVisible`). */
     public static readonly ViewContainerTitle = new MenuId("ViewContainerTitle");
-    /** Корень меню-бара: содержит только submenu-пункты (File/Edit/…). */
     public static readonly MenubarMainMenu = new MenuId("MenubarMainMenu");
     public static readonly MenubarFileMenu = new MenuId("MenubarFileMenu");
     public static readonly MenubarEditMenu = new MenuId("MenubarEditMenu");
     public static readonly MenubarSelectionMenu = new MenuId("MenubarSelectionMenu");
     public static readonly MenubarViewMenu = new MenuId("MenubarViewMenu");
     public static readonly MenubarGoMenu = new MenuId("MenubarGoMenu");
-    /** Меню Terminal меню-бара: терминалы и задачи (как у эталона). */
     public static readonly MenubarTerminalMenu = new MenuId("MenubarTerminalMenu");
     public static readonly MenubarHelpMenu = new MenuId("MenubarHelpMenu");
 

@@ -4,7 +4,6 @@ import type { ILogger } from "../../log/common/iLogger.ts";
 
 import { commandPaletteLabel, CommandRegistry } from "./commandRegistry.ts";
 
-/** Логгер-фейк: копит только error-строки — остальные уровни здесь не нужны. */
 function makeLogger(sink: string[]): ILogger {
     return {
         trace: () => undefined,

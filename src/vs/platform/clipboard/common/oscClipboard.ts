@@ -1,22 +1,9 @@
 import type { IClipboard } from "./iClipboard.ts";
 
 /**
- * Clipboard implementation backed by an internal register, mirrored to the
- * system clipboard via the OSC 52 *write* escape sequence.
- *
- * Write path:
- *   OSC 52 format: \x1b]52;c;<base64-encoded-text>\x07
- *   Updates the internal buffer and emits the sequence so the host terminal's
- *   clipboard receives a copy (lets the user paste Diode-copied text into other apps).
- *
- * Read path:
- *   readText() returns the internal buffer immediately. We deliberately do NOT
- *   query the terminal (OSC 52 read): many terminals disable clipboard read for
- *   security (e.g. kitty), so the query gets no answer and the round-trip just
- *   hangs — especially over ssh/tmux. Pasting external-app content arrives instead
- *   through the terminal's own paste gesture (bracketed paste), handled elsewhere.
- *
- * See: https://invisible-island.net/xterm/ctlseqs/ctlseqs.html#h3-Operating-System-Commands
+ * Reads come from the internal buffer, deliberately NOT an OSC 52 query: many terminals
+ * disable clipboard read (kitty), so the round-trip just hangs, especially over ssh/tmux.
+ * External content arrives via bracketed paste instead.
  */
 
 export class OscClipboard implements IClipboard {

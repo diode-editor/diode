@@ -132,19 +132,16 @@ describe("ConfigurationService — слой воркспейса", () => {
 
             const cfg = await load({ folder: folder.dir, logger });
 
-            // machine/application — значение из user, воркспейс не перебивает.
             expect(cfg.get("terminal.tier")).toBe("legacy");
             expect(cfg.get("update.mode")).toBe("default");
             expect(cfg.get("java.secret")).toBeUndefined();
             expect(cfg.inspect("terminal.tier").workspace).toBeUndefined();
-            // machine-overridable, незарегистрированный и resource — действуют.
             expect(cfg.get("java.home")).toBe("/jdk");
             expect(cfg.get("unknown.key")).toBe(1);
             expect(cfg.get("files.exclude")).toEqual({ out: true });
             // В секции языка отброшен только machine-ключ.
             expect(cfg.get("terminal.tier", { overrideIdentifier: "go" })).toBe("legacy");
             expect(cfg.get("editor.tabSize", { overrideIdentifier: "go" })).toBe(8);
-            // Хост тоже получает уже отфильтрованный слой.
             expect(cfg.getConfigurationData().workspace).toEqual({
                 java: { home: "/jdk" },
                 unknown: { key: 1 },
@@ -361,7 +358,6 @@ describe("ConfigurationService — слой воркспейса", () => {
             // сохранения (временный сосед + rename) слепли оба.
             const file = folder.writeFile(".diode/settings.json", `{ "editor.tabSize": 8 }`);
             const cfg = await load({ folder: folder.dir, watcher: new ChokidarFileWatcher() });
-            // Модель документа: свой наблюдатель того же файла.
             let modelCalls = 0;
             const editorModelWatch = new ChokidarFileWatcher().watchFile(file, () => {
                 modelCalls++;
@@ -479,7 +475,6 @@ describe("ConfigurationService — слой воркспейса", () => {
             );
             expect(fs.existsSync(path.join(folder.dir, ".diode"))).toBe(false);
 
-            // machine-overridable расширения — можно.
             await cfg.updateValue("java.home", "/jdk", "workspace");
             expect(cfg.get("java.home")).toBe("/jdk");
         });

@@ -4,34 +4,13 @@ import { workspaceConfigFilePath } from "../../workspace/common/workspaceConfigF
 
 import type { ConfigurationScope } from "./configurationRegistry.ts";
 
-/**
- * Слой настроек воркспейса: что и откуда читаем.
- *
- * Эталон в однопапочном окне держит в слое `workspace` файл
- * `<папка>/.vscode/settings.json` (`FOLDER_SETTINGS_PATH`,
- * `workbench/services/configuration/common/configuration.ts`). У нас каталог
- * свой — `.diode/` (`workspaceConfigFolder.ts`). Слой лежит выше профиля: проект уточняет
- * настройки человека, а не наоборот. Фильтр ключей по `scope` —
- * `filterWorkspaceSettings` в `configurationValidation.ts`.
- *
- * Окно, открытое файлом `.code-workspace`, раскладывает так же, как эталон:
- * слой воркспейса — блок `settings` файла (`WORKSPACE_SCOPES`), а
- * `.diode/settings.json` папки — слой папки поверх него (`FOLDER_SCOPES`).
- */
-
-/** Файл настроек воркспейса относительно папки (у эталона — `.vscode/settings.json`). */
+/** У эталона — `.vscode/settings.json` (`FOLDER_SETTINGS_PATH`). */
 export const WORKSPACE_SETTINGS_PATH = workspaceConfigFilePath("settings.json");
 
-/** Абсолютный путь к settings.json воркспейса для папки `folderPath`. */
 export function workspaceSettingsPath(folderPath: string): string {
     return path.join(folderPath, WORKSPACE_SETTINGS_PATH);
 }
 
-/**
- * Скоупы, которые разрешено переопределять в воркспейсе (`WORKSPACE_SCOPES`
- * эталона). `application` и `machine` — свойства человека и машины, проект их
- * не задаёт.
- */
 export const WORKSPACE_SCOPES: readonly ConfigurationScope[] = [
     "window",
     "resource",
@@ -39,26 +18,13 @@ export const WORKSPACE_SCOPES: readonly ConfigurationScope[] = [
     "machine-overridable",
 ];
 
-/**
- * Скоупы, которые принимает слой папки (`FOLDER_SCOPES` эталона), когда окно
- * открыто файлом `.code-workspace`: `.diode/settings.json` папки тогда
- * уточняет только то, что зависит от ресурса и языка, а `window`-ключи берутся
- * из файла воркспейса.
- */
+/** У окна из `.code-workspace` `window`-ключи берутся из файла воркспейса, а не папки. */
 export const FOLDER_SCOPES: readonly ConfigurationScope[] = ["resource", "language-overridable", "machine-overridable"];
 
-/**
- * Скоупы, которые именованный профиль берёт из `User/settings.json`
- * Default-профиля (`APPLICATION_SCOPES` эталона без `application-machine`,
- * которого у нас нет): свойство установки, а не профиля — одно на все профили.
- */
+/** Что именованный профиль берёт из Default: свойство установки, одно на все профили. */
 export const APPLICATION_SCOPES: readonly ConfigurationScope[] = ["application"];
 
-/**
- * Скоупы, которые принимает `settings.json` именованного профиля
- * (`PROFILE_SCOPES` эталона): всё, кроме `application` — такой ключ в файле
- * профиля не действует и пишется в `User/settings.json`.
- */
+/** `application`-ключ в файле профиля не действует — он пишется в `User/settings.json`. */
 export const PROFILE_SCOPES: readonly ConfigurationScope[] = [
     "machine",
     "window",
@@ -67,29 +33,20 @@ export const PROFILE_SCOPES: readonly ConfigurationScope[] = [
     "machine-overridable",
 ];
 
-/** Можно ли держать ключ с таким `scope` в слое воркспейса; незарегистрированный ключ (`undefined`) — можно. */
+/** Незарегистрированный ключ (`undefined`) — можно. */
 export function isWorkspaceScope(scope: ConfigurationScope | undefined): boolean {
     return scope === undefined || WORKSPACE_SCOPES.includes(scope);
 }
 
-/** Отказ записи в воркспейс без открытой папки (`ERROR_NO_WORKSPACE_OPENED` эталона, формулировка его же). */
+/** Формулировка `ERROR_NO_WORKSPACE_OPENED` эталона. */
 export const NO_WORKSPACE_OPENED_ERROR =
     "Unable to write to Workspace Settings because no workspace is opened. Please open a workspace first and try again.";
 
-/**
- * Отказ записи ключа чужого скоупа в настройки папки
- * (`ERROR_INVALID_FOLDER_CONFIGURATION` эталона): текст ошибки либо `null`.
- */
 export function folderScopeWriteError(key: string, scope: ConfigurationScope | undefined): string | null {
     if (scope === undefined || FOLDER_SCOPES.includes(scope)) return null;
     return `Unable to write to Folder Settings because ${key} does not support the folder resource scope.`;
 }
 
-/**
- * Отказ записи ключа чужого скоупа в воркспейс
- * (`ERROR_INVALID_WORKSPACE_CONFIGURATION_APPLICATION`/`…_MACHINE` эталона):
- * текст ошибки либо `null`, если ключ в воркспейс писать можно.
- */
 export function workspaceScopeWriteError(key: string, scope: ConfigurationScope | undefined): string | null {
     if (isWorkspaceScope(scope)) return null;
     return `Unable to write ${key} to Workspace Settings. This setting can be written only into User settings.`;

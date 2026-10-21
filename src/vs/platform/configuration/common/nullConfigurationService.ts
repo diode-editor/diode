@@ -8,13 +8,7 @@ import type {
     IConfigurationService,
 } from "./iConfigurationService.ts";
 
-/**
- * Пустая read-only заглушка `IConfigurationService` для юнитов, которым
- * настройки безразличны: все ключи отвечают `undefined` (дефолтов реестра у
- * неё нет), `inspect()` отдаёт пустые слои, запись —
- * отказ. Где важны дефолты или запись, нужен `InMemoryConfigurationService`
- * (его же биндит тестовый профиль).
- */
+/** Дефолтов реестра нет: все ключи — `undefined`. Где важны дефолты или запись — `InMemoryConfigurationService`. */
 export const NULL_CONFIGURATION_SERVICE: IConfigurationService = {
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-parameters -- T — приведение, как у IConfigurationService.get
     get<T>(_key: string, _overrides?: IConfigurationOverrides): T | undefined {

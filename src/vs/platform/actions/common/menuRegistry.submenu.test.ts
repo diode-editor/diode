@@ -93,7 +93,6 @@ describe("MenuRegistry — submenu-выбор (isSelection)", () => {
             entries: [{ label: "nested" }],
             isSelection: true,
         });
-        // Не-выбор пометки не несёт вовсе — ни `true`, ни ключа.
         expect(Object.keys(navigation.entries[1])).not.toContain("isSelection");
     });
 });
