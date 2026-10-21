@@ -16,22 +16,21 @@ import type { QuickPickAcceptMode, QuickPickItem, ValidationSeverity } from "../
 import { CONTENT_PAD, QuickPickFrameElement } from "./quickPickFrameElement.ts";
 import { buildItemRow, rowId } from "./quickPickRows.ts";
 
-/** ASCII, а не `•`/`●`: у точек в терминале неоднозначная ширина (East Asian Ambiguous). */
+/** ASCII rather than `•`/`●`: dots have ambiguous terminal width (East Asian Ambiguous). */
 export const MASK_CHAR = "*";
 
 /**
- * Составной: хром рисует {@link QuickPickFrameElement}, запрос — `InputElement`,
- * результаты — `ListViewElement`. Фильтрацию не делает: `items` приходят
- * отфильтрованными, с `labelMatchRanges`. Живёт в Diode, а не в `@tuidom/elements`:
- * его API — понятия редактора, а движок держит только виджеты общего назначения.
+ * Composite: {@link QuickPickFrameElement} draws the chrome, `InputElement` the query, `ListViewElement`
+ * the results. It doesn't filter: `items` arrive already filtered, with `labelMatchRanges`. Lives in Diode,
+ * not `@tuidom/elements`, because its API is in editor terms and the engine only holds general-purpose widgets.
  */
 export class QuickPickElement extends TUIElement {
     public placeholder = "Type to search…";
     public maxVisibleItems = 10;
 
     /**
-     * Уходит рамке сразу, а не из layout: пометка посреди раскладки достаётся
-     * следующему кадру, и заголовок, меняемый на ходу, отставал бы на кадр.
+     * Passed to the frame immediately, not during layout: marking dirty mid-layout lands in the next frame,
+     * so a title changed on the fly would lag one frame behind.
      */
     public get title(): string | undefined {
         return this.frame.title;
@@ -39,32 +38,32 @@ export class QuickPickElement extends TUIElement {
     public set title(value: string | undefined) {
         this.frame.setTitle(value);
     }
-    /** Перебивается {@link validationMessage}. */
+    /** Overridden by {@link validationMessage}. */
     public prompt: string | undefined = undefined;
-    /** При severity "error" блокирует Enter. */
+    /** Blocks Enter when severity is "error". */
     public validationMessage: string | null = null;
     public validationSeverity: ValidationSeverity = "error";
-    /** `"item"` — onAccept только на непустом списке; `"value"` — всегда onAcceptValue(getQuery()). */
+    /** `"item"`: onAccept only on a non-empty list; `"value"`: always onAcceptValue(getQuery()). */
     public acceptMode: QuickPickAcceptMode = "item";
-    /** Enter принимает набор отмеченных; подсветка сама по себе выбором не считается. */
+    /** Enter accepts the checked set; the active row alone doesn't count as picked. */
     public canPickMany = false;
-    /** Маска — только представление: getQuery и валидация видят настоящий текст, inspectState — маску. */
+    /** The mask is presentation only: getQuery and validation see the real text, inspectState the mask. */
     public password = false;
     public onAcceptValue: ((value: string) => void) | null = null;
     public preferredWidth = 60;
 
     public onQueryChange: ((query: string) => void) | null = null;
     public onAccept: ((item: QuickPickItem, index: number) => void) | null = null;
-    /** Файрится и на пустом наборе, и на пустом списке. */
+    /** Fires for an empty checked set and for an empty list too. */
     public onAcceptMany: (() => void) | null = null;
-    /** Enter на пустом списке в режиме "item": `QuickPick.onDidAccept` эталона файрится и без выбора. */
+    /** Enter on an empty list in "item" mode: upstream `QuickPick.onDidAccept` fires even with nothing picked. */
     public onAcceptEmpty: (() => void) | null = null;
-    /** Только по действию человека (`Space`, клик). */
+    /** Only on user action (`Space`, click). */
     public onCheckedChange: (() => void) | null = null;
     public onCancel: (() => void) | null = null;
     /**
-     * Только по воле пользователя (стрелки, PageUp/Down) — для живого превью; на
-     * `items =`, {@link refreshItems} и {@link setActiveIndex} не файрится.
+     * Only on user navigation (arrows, PageUp/Down), for live preview; doesn't fire on
+     * `items =`, {@link refreshItems} or {@link setActiveIndex}.
      */
     public onActiveItemChanged: ((item: QuickPickItem, index: number) => void) | null = null;
 
@@ -75,18 +74,18 @@ export class QuickPickElement extends TUIElement {
     private readonly inputRow: PaddingContainerElement;
     private readonly messageLabel: TextLabelElement;
     private readonly messageRow: PaddingContainerElement;
-    /** Фона не красит: линия рамки видна из-под неё. */
+    /** Doesn't paint a background, so the frame's separator line shows through. */
     private readonly separatorRow: TUIElement;
     private readonly list: ListViewElement;
 
     private itemsValue: readonly QuickPickItem[] = [];
-    /** По идентичности, а не по индексу: отметки обязаны пережить смену фильтра. */
+    /** By identity, not index: checks must survive a filter change. */
     private readonly checkedValue = new Set<QuickPickItem>();
     private selectedIndexValue = 0;
-    /** -1 — рядов нет. */
+    /** -1 while no rows are built. */
     private rowsWidth = -1;
     private structureKey = "";
-    /** Список отдаёт в onSelect элемент, а не индекс. */
+    /** The list passes the element to onSelect, not its index. */
     private rowElements: TUIElement[] = [];
     private suppressActiveNotification = false;
 
@@ -97,7 +96,7 @@ export class QuickPickElement extends TUIElement {
 
         this.inputElement = new InputElement();
         this.inputElement.showBorder = false;
-        // Строка запроса — часть пикера: наследует его цвета, а не input.*.
+        // The query line is part of the picker: it inherits the picker's colors, not input.*.
         this.inputElement.style = { fg: INHERITED_FG, bg: INHERITED_BG };
         this.inputElement.onChange = (value) => {
             this.onQueryChange?.(value);
@@ -110,8 +109,8 @@ export class QuickPickElement extends TUIElement {
         this.separatorRow = new TUIElement();
 
         this.list = new ListViewElement({ typeahead: false });
-        // Фокус живёт в строке запроса: список не должен его перехватывать, а
-        // typeahead увёл бы курсор от букв самого запроса.
+        // Focus stays in the query line: the list must not take it, and typeahead
+        // would steal the query's own keystrokes to move the cursor.
         this.list.focusable = false;
         this.list.onSelect = (element) => {
             this.selectedIndexValue = this.rowElements.indexOf(element);
@@ -153,15 +152,15 @@ export class QuickPickElement extends TUIElement {
     }
 
     /**
-     * Без прыжка курсора наверх — для того же запроса: прежний предмет ищется по
-     * label + description, исчез — прежний индекс клампится.
+     * For the same query, without jumping the cursor to the top: the previous item is looked up by
+     * label + description; if it's gone, the previous index is clamped.
      */
     public refreshItems(value: readonly QuickPickItem[]): void {
         if (this.selectedIndexValue < 0) {
             this.itemsValue = value;
             this.rebuildRows();
             this.clearCursorIfNoActive();
-            // Stryker disable next-line CallExpression: пересборка рядов метит список грязным, а `performLayout` начинается с того же `syncStructure` — состав догоняет до кадра
+            // Stryker disable next-line CallExpression: rebuilding rows marks the list dirty, and `performLayout` starts with the same `syncStructure`, so the structure catches up before the frame
             this.syncStructure();
             return;
         }
@@ -185,25 +184,25 @@ export class QuickPickElement extends TUIElement {
         this.syncStructure();
     }
 
-    /** `-1` — ни одна ({@link clearActive}). */
+    /** `-1` when no row is active ({@link clearActive}). */
     public get selectedIndex(): number {
         return this.selectedIndexValue;
     }
 
-    /** Состояние `activeItems = []` эталона: Enter принимает набранное ({@link onAcceptEmpty}). */
+    /** Upstream's `activeItems = []` state: Enter accepts the typed text ({@link onAcceptEmpty}). */
     public clearActive(): void {
         this.selectedIndexValue = -1;
         this.clearCursorIfNoActive();
     }
 
-    /** Порядок — порядок отметки; упорядочить по списку — дело того, кто список отдал. */
+    /** In check order; sorting by list order is up to whoever supplied the list. */
     public get checkedItems(): ReadonlySet<QuickPickItem> {
         return this.checkedValue;
     }
 
     /**
-     * Обязательный первый шаг любого показа: виджет общий, и без сброса чекбоксы и
-     * маска прошлого показа оставались висеть (Enter палитры уходил в onAcceptMany).
+     * Mandatory first step of every show: the widget is shared, and without a reset the previous show's
+     * checkboxes and mask stuck around (Enter in the command palette went to onAcceptMany).
      */
     public resetFlavorState(): void {
         this.canPickMany = false;
@@ -220,7 +219,7 @@ export class QuickPickElement extends TUIElement {
         this.rebuildKeepingView();
     }
 
-    /** {@link onActiveItemChanged} не файрит — это не пользовательская навигация. */
+    /** Doesn't fire {@link onActiveItemChanged}: this isn't user navigation. */
     public setActiveIndex(index: number): void {
         if (this.itemsValue.length === 0) return;
         const clamped = Math.max(0, Math.min(this.itemsValue.length - 1, index));
@@ -232,7 +231,7 @@ export class QuickPickElement extends TUIElement {
         return this.inputElement.inputState.value;
     }
 
-    /** `[start, end)` в графемах; курсор в `end`. Набранное следом заменит выделенное. */
+    /** `[start, end)` in graphemes; the cursor goes to `end`. Typing next replaces the selection. */
     public setQuerySelection(start: number, end: number): void {
         const state = this.inputElement.inputState;
         const length = new DisplayLine(state.value).slots.length;
@@ -241,7 +240,7 @@ export class QuickPickElement extends TUIElement {
         state.moveCursorToStart();
         for (let i = 0; i < from; i++) state.moveCursorRight();
         for (let i = from; i < to; i++) state.selectRight();
-        // Stryker disable next-line CallExpression: без пометки не перезапустится раскладка, и выделение дорисует следующий кадр — наблюдаемо только в живом приложении (TestApp раскладывает кадр безусловно); гейт — e2e-сценарий quick-input (кадр file-dialog-typed)
+        // Stryker disable next-line CallExpression: without marking dirty, layout won't rerun and the selection is drawn only on the next frame — observable only in the live app (TestApp lays out every frame unconditionally); the gate is the quick-input e2e scenario (frame file-dialog-typed)
         this.markDirty();
     }
 
@@ -255,8 +254,8 @@ export class QuickPickElement extends TUIElement {
     }
 
     /**
-     * Запрос отдаётся как виден — под маской, секрет не уходит в инспектор и e2e-снимок.
-     * Отмеченные строки — тоже: иначе отметку не видно ниоткуда, кроме кадра.
+     * The query is reported as displayed — masked, so the secret never reaches the inspector or e2e snapshots.
+     * Checked rows are reported too: otherwise checks are visible nowhere but in the frame.
      */
     public override inspectState(): Record<string, unknown> {
         return {
@@ -270,7 +269,7 @@ export class QuickPickElement extends TUIElement {
         };
     }
 
-    /** По одной {@link MASK_CHAR} на графемный кластер — так считает и `InputElement`. */
+    /** One {@link MASK_CHAR} per grapheme cluster, matching how `InputElement` counts. */
     private get visibleQuery(): string {
         const query = this.getQuery();
         if (!this.password) return query;
@@ -304,20 +303,20 @@ export class QuickPickElement extends TUIElement {
     private get totalHeight(): number {
         const listRows = this.visibleItemCount;
         const chrome = BORDER_THICKNESS + this.headerRows;
-        // Верхняя рамка + шапка + [сепаратор + строки] + нижняя рамка.
+        // Top border + header + [separator + rows] + bottom border.
         if (listRows === 0) return chrome + BORDER_THICKNESS;
         return chrome + 1 + listRows + BORDER_THICKNESS;
     }
 
     private syncStructure(): void {
-        // Поля правят сервисы, а рисует строка запроса — переносим на каждом синке.
+        // Services set these fields, but the query line renders them, so copy them on every sync.
         this.inputElement.placeholder = this.placeholder;
         this.inputElement.maskChar = this.password ? MASK_CHAR : undefined;
         const message = this.message;
         const hasItems = this.visibleItemCount > 0;
 
-        // Сервисы правят поля без сеттеров, а syncStructure зовётся с каждого layout —
-        // пересобираем состав только когда он действительно изменился.
+        // Services set fields without setters, and syncStructure runs on every layout,
+        // so the children are rebuilt only when the structure actually changed.
         const key = `${message === null ? "-" : message.fg}|${hasItems ? "list" : "-"}`;
         if (key !== this.structureKey) {
             this.structureKey = key;
@@ -353,14 +352,14 @@ export class QuickPickElement extends TUIElement {
         }
     }
 
-    /** Ряды неизменяемые: без возврата прокрутки и курсора длинный список прыгал бы на каждый `Space`. */
+    /** Rows are immutable: without restoring scroll and cursor, a long list would jump on every `Space`. */
     private rebuildKeepingView(): void {
         const keepIndex = this.selectedIndexValue;
         const keepScroll = this.list.scrollTop;
         this.rebuildRows();
         this.list.scrollTop = keepScroll;
         this.clearCursorIfNoActive();
-        // Stryker disable next-line ObjectLiteral: отсутствующий `notify` читается как `!undefined`, то есть ровно как `notify: false`
+        // Stryker disable next-line ObjectLiteral: a missing `notify` reads as `!undefined`, i.e. exactly like `notify: false`
         this.moveCursorTo(keepIndex, { notify: false });
     }
 
@@ -374,7 +373,7 @@ export class QuickPickElement extends TUIElement {
         }
     }
 
-    /** Пересборка рядов возвращает курсор списка — снятую подсветку надо снять снова. */
+    /** Rebuilding rows restores the list cursor, so a cleared active row has to be cleared again. */
     private clearCursorIfNoActive(): void {
         if (this.selectedIndexValue < 0) this.list.clearCursor();
     }
@@ -403,7 +402,7 @@ export class QuickPickElement extends TUIElement {
                 this.moveSelection(-Math.max(1, this.visibleItemCount));
                 break;
             case " ":
-                // Вне множественного выбора пробел — символ запроса: без preventDefault.
+                // Outside multi-select, Space is a query character: no preventDefault.
                 if (this.canPickMany) {
                     event.preventDefault();
                     this.toggleChecked();
@@ -422,8 +421,8 @@ export class QuickPickElement extends TUIElement {
 
     private moveSelection(delta: number): void {
         if (this.itemsValue.length === 0) return;
-        // Без подсветки стрелки встают на край списка, а не шагают от «-1».
-        // Stryker disable next-line EqualityOperator: `delta` не бывает нулём — стрелки и страницы шагают минимум на 1
+        // With no active row, arrows land on the list edge instead of stepping from -1.
+        // Stryker disable next-line EqualityOperator: `delta` is never zero — arrows and pages step by at least 1
         const from = this.selectedIndexValue < 0 ? (delta > 0 ? -1 : this.itemsValue.length) : this.selectedIndexValue;
         const next = Math.max(0, Math.min(this.itemsValue.length - 1, from + delta));
         if (next === this.selectedIndexValue) return;
@@ -446,8 +445,8 @@ export class QuickPickElement extends TUIElement {
             return;
         }
         if (this.canPickMany) {
-            // Пустой набор — пустой ответ, а не отмена и не строка под курсором.
-            // Stryker disable next-line OptionalChaining: колбэк ставит владелец показа до открытия; пары «множественный выбор без onAcceptMany» в приложении не бывает, а проверка стоит защитой
+            // An empty checked set is an empty answer, not a cancel and not the row under the cursor.
+            // Stryker disable next-line OptionalChaining: the show's owner sets the callback before opening; multi-select without onAcceptMany never happens in the app, the check is a safeguard
             this.onAcceptMany?.();
             return;
         }
@@ -461,11 +460,11 @@ export class QuickPickElement extends TUIElement {
     private handleMouseMove(event: TUIMouseEvent): void {
         const index = this.itemIndexFromEvent(event);
         if (index === null || index === this.selectedIndexValue) return;
-        // Молча: наведение — не навигация, живое превью от него не дёргается.
+        // Silently: hover isn't navigation and must not trigger the live preview.
         this.moveCursorTo(index, { notify: false });
     }
 
-    /** В множественном выборе клик переключает отметку: иначе первый клик закрыл бы пикер. */
+    /** In multi-select a click toggles the check: otherwise the first click would close the picker. */
     private handleClick(event: TUIMouseEvent): void {
         if (event.button !== "left") return;
         const index = this.itemIndexFromEvent(event);
@@ -479,12 +478,12 @@ export class QuickPickElement extends TUIElement {
         this.accept();
     }
 
-    /** Геометрию берём у самого списка, а не пересчитываем «шапку» руками. */
+    /** Takes geometry from the list itself instead of recomputing the header height by hand. */
     private itemIndexFromEvent(event: TUIMouseEvent): number | null {
         if (this.visibleItemCount === 0) return null;
         const row = event.screenY - this.list.globalPosition.y;
-        // Окно списка ровно по числу видимых строк, поэтому попадание в него уже
-        // означает валидный индекс — второй проверки границ не нужно.
+        // The list viewport is exactly as tall as the visible rows, so a hit inside it is
+        // already a valid index — no second bounds check needed.
         if (row < 0 || row >= this.list.layoutSize.height) return null;
         return this.list.scrollTop + row;
     }
@@ -510,7 +509,7 @@ export class QuickPickElement extends TUIElement {
         const natural = new Size(this.getMaxIntrinsicWidth(1), this.getMaxIntrinsicHeight(0));
         const size = constraints.constrain(natural);
 
-        // Ресайз: бюджеты лейбла и описания посчитаны на старую ширину — пересобираем ДО раскладки детей.
+        // Resize: label and description budgets were computed for the old width, so rebuild BEFORE laying out children.
         const innerWidth = Math.max(0, size.width - BORDER_THICKNESS * 2);
         if (this.itemsValue.length > 0 && innerWidth !== this.rowsWidth) {
             const keep = this.selectedIndexValue;
@@ -521,14 +520,14 @@ export class QuickPickElement extends TUIElement {
 
         super.performLayout(BoxConstraints.tight(size));
 
-        // Обрезаем по месту, а не клипом: хвостовой символ усечения должен быть виден.
-        // `setText` только при изменении: он метит дерево грязным, а мы внутри layout —
-        // оверлей с `prompt` оставался layout-dirty и замирал на первом кадре.
+        // Truncate the text rather than clip it: the trailing ellipsis must be visible.
+        // `setText` only on change: it marks the tree dirty and we're inside layout —
+        // an overlay with a `prompt` stayed layout-dirty and froze on its first frame.
         const message = this.message;
         if (message !== null) {
             const avail = Math.max(0, size.width - BORDER_THICKNESS * 2 - CONTENT_PAD * 2);
             const text = truncateEnd(message.text, avail);
-            // Stryker disable next-line ConditionalExpression: сравнение и есть починка — без него дерево остаётся грязным после каждого кадра и оверлей замирает; наблюдаемо только на живом кадре, гейт — демо-сценарий `quick-input` (e2e)
+            // Stryker disable next-line ConditionalExpression: the comparison is the fix — without it the tree stays dirty after every frame and the overlay freezes; observable only in a live frame, the gate is the `quick-input` demo scenario (e2e)
             if (this.messageLabel.getText() !== text) this.messageLabel.setText(text);
         }
 
@@ -537,7 +536,7 @@ export class QuickPickElement extends TUIElement {
     }
 }
 
-/** Предметы пересобираются на каждый рефреш — сравниваем поля, а не ссылки. */
+/** Items are recreated on every refresh, so compare fields, not references. */
 function sameItem(a: QuickPickItem, b: QuickPickItem): boolean {
     return a.label === b.label && a.description === b.description;
 }

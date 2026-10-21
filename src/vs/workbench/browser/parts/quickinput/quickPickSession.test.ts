@@ -54,8 +54,8 @@ describe("QuickPickSession — показ и живое состояние", () 
     });
 
     it("предметы, присланные ПОСЛЕ показа, появляются в открытом пикере", () => {
-        // Ровно сценарий pickLazyEnum golang.go: show() с пустым списком,
-        // предметы приезжают ответом языкового сервера.
+        // Exactly the golang.go pickLazyEnum scenario: show() with an empty list,
+        // items arrive later in the language server's response.
         const { pick, view, log } = setup();
         pick.show();
         expect(view()).toMatchObject({ items: [] });
@@ -90,7 +90,7 @@ describe("QuickPickSession — ввод", () => {
         type("ch");
 
         expect(view()).toMatchObject({ query: "ch", items: ["cherry"] });
-        // На «c» остаётся одна cherry — подсветка сменилась; «ch» её не двигает.
+        // "c" leaves only cherry, so the active item changes; "ch" doesn't move it.
         expect(log).toEqual([
             ["value", "c"],
             ["active", ["cherry"]],
@@ -286,7 +286,7 @@ describe("QuickPickSession — скрытие", () => {
 describe("QuickPickSession — точечные правки открытого пикера", () => {
     function titleRow(testApp: ReturnType<typeof setup>["testApp"]): string {
         testApp.render();
-        // Оверлей встаёт на 10% высоты (24 строки → строка 2).
+        // The overlay sits at 10% of the height (24 rows → row 2).
         return testApp.backend.getTextAt(new Point(0, 2), 80);
     }
 
@@ -305,10 +305,10 @@ describe("QuickPickSession — точечные правки открытого 
         pick.update({ prompt: "first", items: FRUITS });
         pick.show();
         pick.update({ prompt: "second" });
-        // Текст подсказки переносит раскладка — два кадра: раскладка и отрисовка.
+        // The prompt text is wrapped by layout, so two frames: layout, then paint.
         testApp.render();
         testApp.render();
-        // Рамка — строка 2, запрос — 3, подсказка — 4.
+        // Border is row 2, query row 3, prompt row 4.
         expect(testApp.backend.getTextAt(new Point(0, 4), 80)).toContain("second");
     });
 
@@ -361,7 +361,7 @@ describe("QuickPickSession — точечные правки открытого 
         expect(view()).not.toHaveProperty("checked");
         pick.update({ canSelectMany: true });
         expect(view()).toMatchObject({ checked: ["cherry"] });
-        // Строки — рамка 2, запрос 3, сепаратор 4, apple 5, banana 6, cherry 7.
+        // Rows: border 2, query 3, separator 4, apple 5, banana 6, cherry 7.
         testApp.render();
         testApp.render();
         expect(testApp.backend.getTextAt(new Point(0, 7), 80)).toContain("[✓] cherry");
@@ -373,7 +373,7 @@ describe("QuickPickSession — точечные правки открытого 
         pick.update({ items: FRUITS });
         pick.show();
         testApp.sendKey("ArrowDown");
-        // «a» есть и в apple, и в banana: подсветка — на apple, а не на banana.
+        // "a" matches both apple and banana: the active item is apple, not banana.
         type("a");
         expect(view()).toMatchObject({ items: ["apple", "banana"], activeIndex: 0 });
     });
@@ -606,7 +606,7 @@ describe("QuickPickSession — виджет отдан из обработчик
             onDidHide: () => undefined,
         });
         main.update({ items: FRUITS });
-        // Вопрос поверх: набор в нём — «нет», он закрывается и возвращает главный.
+        // A prompt on top: typing in it means "no", so it hides itself and shows the main picker again.
         const prompt = service.createQuickPick<QuickPickSessionItem>({
             onDidChangeValue: () => {
                 prompt.hide();

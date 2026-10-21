@@ -7,7 +7,7 @@ import { darkPlusTheme } from "../../../services/themes/common/themes/darkPlus.t
 
 import { createStatusBarHarness } from "./statusBarComponent.testUtils.ts";
 
-/** Каждый сегмент несёт по пробелу с краёв, поэтому соседей разделяют ровно два — как в VS Code. */
+/** Each segment carries a space on both edges, so neighbors are separated by exactly two — as in VS Code. */
 const LEFT_TEXT = " legacy ";
 const RIGHT_TEXT = " Ln 1, Col 1  Tab Size: 4  UTF-8  LF  plaintext ";
 
@@ -43,7 +43,7 @@ describe("StatusBarComponent — кадр", () => {
 
     it("паддинги по краям, левые сегменты слева, правые прижаты к правому краю", () => {
         const line = renderLine(62);
-        // 1 (padL) + левый сегмент + centerFill + правая группа + 1 (padR) = 62.
+        // 1 (padL) + left segment + centerFill + right group + 1 (padR) = 62.
         const fill = " ".repeat(62 - 1 - LEFT_TEXT.length - RIGHT_TEXT.length - 1);
         expect(line).toBe(` ${LEFT_TEXT}${fill}${RIGHT_TEXT} `);
     });
@@ -66,7 +66,7 @@ describe("StatusBarComponent — кадр", () => {
 
     it("при нехватке ширины правая группа теряет выравнивание и обрезается краем экрана", () => {
         const line = renderLine(30);
-        // centerFill схлопывается в 0, хвост уезжает за край и клипуется.
+        // centerFill collapses to 0; the tail runs past the edge and is clipped.
         expect(line).toBe(` ${LEFT_TEXT}${RIGHT_TEXT} `.slice(0, 30));
     });
 });

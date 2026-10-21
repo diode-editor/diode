@@ -24,7 +24,7 @@ function press(picker: QuickPickElement, key: string): void {
     picker.dispatchEvent(new TUIKeyboardEvent("keydown", { key }));
 }
 
-/** Подсветка видна только на списке: снятый курсор — это его `isCursorCleared`. */
+/** The highlight is only observable on the list: a cleared cursor shows up as its `isCursorCleared`. */
 function findList(element: TUIElement): ListViewElement | undefined {
     if (element instanceof ListViewElement) return element;
     for (const child of element.getChildren()) {

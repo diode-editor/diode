@@ -6,7 +6,7 @@ import { renderElement } from "../../../../../TestUtils/renderElement.ts";
 
 import { MASK_CHAR, QuickPickElement } from "./quickPickElement.ts";
 
-// Маска — только представление, поэтому тесты смотрят на обе стороны: кадр и запрос.
+// The mask is presentation only, so the tests check both sides: the frame and the query.
 
 function makePicker(width = 24): QuickPickElement {
     const picker = new QuickPickElement();
@@ -96,7 +96,7 @@ describe("QuickPickElement — поле пароля", () => {
     it("графемный кластер закрывается ОДНОЙ маской — и на кадре, и в инспекторе", () => {
         const picker = makePicker();
         picker.password = true;
-        // «е» с комбинирующим акутом плюс эмодзи: три графемы из шести кодовых единиц.
+        // "e" with a combining acute, "x" and an emoji: three graphemes from five UTF-16 code units.
         picker.setQuery("éx\u{1F512}");
 
         expect(picker.inspectState().query).toBe(MASK_CHAR.repeat(3));

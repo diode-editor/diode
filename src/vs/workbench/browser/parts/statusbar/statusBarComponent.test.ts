@@ -10,7 +10,7 @@ describe("StatusBarComponent", () => {
 
     beforeEach(() => {
         savedEnv = { ...process.env };
-        // Иначе на хосте внутри tmux/ssh в сегмент протекло бы "ssh,tmux".
+        // Otherwise, on a host inside tmux/ssh, "ssh,tmux" would leak into the segment.
         delete process.env.TMUX;
         delete process.env.TMUX_PANE;
         delete process.env.SSH_CONNECTION;
@@ -52,7 +52,7 @@ describe("StatusBarComponent", () => {
             { text: "Tab Size: 4", side: "right" },
             { text: "UTF-8", side: "right" },
             { text: "LF", side: "right" },
-            // NULL_LANGUAGE_SERVICE не знает display name — показывается сырой id.
+            // NULL_LANGUAGE_SERVICE has no display names, so the raw id is shown.
             { text: "plaintext", side: "right" },
         ]);
     });
@@ -203,7 +203,7 @@ describe("StatusBarComponent", () => {
 
             hint.dispose();
 
-            // Лейбл живёт в пуле, но его индекс за пределами снапшота.
+            // The label is still in the pool, but its index is past the end of the snapshot.
             label!.dispatchEvent(
                 new TUIMouseEvent("click", { button: "left", screenX: 0, screenY: 0, localX: 0, localY: 0 }),
             );
@@ -234,7 +234,7 @@ describe("StatusBarComponent", () => {
             const countBefore = component.view.getChildren().length;
 
             const hint = statusBarService.addEntry({ id: "hint", text: "hint", alignment: "left", priority: 50 });
-            // Разделителей нет — воздух в самом лейбле.
+            // No separators: the spacing lives inside the label itself.
             expect(component.view.getChildren().length).toBe(countBefore + 1);
             const labelsAfterAdd = component.view.getChildren();
 

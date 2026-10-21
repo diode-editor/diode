@@ -14,7 +14,7 @@ const HOVER_BG = theme.getRequiredColor("statusBarItem.hoverBackground");
 const HOVER_FG = theme.getRequiredColor("statusBarItem.hoverForeground");
 const BAR_BG = theme.getRequiredColor("statusBar.background");
 
-/** Токены мыши 1-based, экранные координаты — 0-based. */
+/** Mouse tokens are 1-based, screen coordinates are 0-based. */
 function move(x: number, y: number): MouseToken {
     return {
         kind: "mouse",
@@ -34,7 +34,7 @@ interface HoverHarness {
     cellsOf: (text: string) => number[];
 }
 
-/** Текст терминального сегмента зависит от env — позиции берутся из фактической геометрии лейблов. */
+/** The terminal segment's text depends on env, so positions come from the actual label geometry. */
 function setup(): HoverHarness {
     const harness = createStatusBarHarness();
     harness.statusBarService.addEntry({
@@ -80,7 +80,7 @@ describe("StatusBarComponent hover", () => {
         app.backend.simulateMouse(move(cells[1], 0));
         app.render();
 
-        // Подсветка накрывает и краевые пробелы — блок сегмента, а не текст.
+        // The highlight covers the edge spaces too: the whole segment block, not just the text.
         for (const x of cells) {
             expect(app.backend.getBgAt(new Point(x, 0))).toBe(HOVER_BG);
         }

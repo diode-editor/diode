@@ -3,18 +3,18 @@ import { BoxConstraints, Size } from "@tuidom/core/common/geometryPromitives";
 import { BORDER_THICKNESS } from "@tuidom/core/dom/borderStyle";
 import { RenderContext, TUIElement } from "@tuidom/core/dom/tuiElement";
 
-/** Один на запрос, сообщение и строки списка: разные литералы сдвигали запрос относительно результатов. */
+/** Shared by the query, the message and list rows: separate literals left the query misaligned with the results. */
 export const CONTENT_PAD = 1;
 
 /**
- * Заголовок, врезанный в рамку (`┤ Save As ├`), и сепаратор на заданной строке —
- * то, чего не умеет движковый `BoxContainerElement`. Отступы контента рамка не
- * считает: их задаёт `PaddingContainerElement` внутри.
+ * A title set into the border (`┤ Save As ├`) and a separator at a given row — things the engine's
+ * `BoxContainerElement` can't do. The frame doesn't handle content padding: a `PaddingContainerElement`
+ * inside provides it.
  */
 export class QuickPickFrameElement extends TUIElement {
     private readonly child: TUIElement;
     private titleValue: string | undefined = undefined;
-    /** В координатах элемента; null — не рисовать. */
+    /** In element coordinates; null means no separator. */
     private separatorRowValue: number | null = null;
 
     public constructor(child: TUIElement) {
@@ -57,8 +57,8 @@ export class QuickPickFrameElement extends TUIElement {
         const border = this.styleVar("quickPick.border");
         const background = this.styleVar("quickInput.background");
 
-        // Сепаратор — часть бокса, а не отдельный цикл: строка-распорка фон не красит,
-        // и линия видна из-под детей.
+        // The separator is part of the box, not a separate loop: the spacer row doesn't paint
+        // its background, so the line shows through from under the children.
         const separator = this.separatorRowValue;
         const separators = separator !== null && separator > 0 && separator < h - 1 ? [separator] : undefined;
         context.drawBox(0, 0, w, h, { fg: border, bg: background, fill: true, separators });
@@ -74,7 +74,7 @@ export class QuickPickFrameElement extends TUIElement {
     private renderTitle(context: RenderContext, title: string, w: number, background: number, border: number): void {
         const label = ` ${title} `;
         const labelWidth = new DisplayLine(label).displayWidth;
-        // Две «крышки» плюс углы рамки.
+        // The two caps plus the border corners.
         if (labelWidth + 4 > w) return;
         const startX = Math.max(2, Math.floor((w - labelWidth) / 2));
         context.setCell(startX - 1, 0, { char: "┤", fg: border, bg: background });

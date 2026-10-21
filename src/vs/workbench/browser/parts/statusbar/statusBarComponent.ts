@@ -18,16 +18,16 @@ import { Component } from "../../component.ts";
 
 export const StatusBarComponentDIToken = token<StatusBarComponent>("StatusBarComponent");
 
-/** Инертные сегменты (`Ln X, Col Y`, язык) подсветку не получают: она обещает клик, которого нет. */
+/** Inert segments (`Ln X, Col Y`, language) get no hover highlight: it would promise a click that does nothing. */
 const CLICKABLE_STYLE: TUIStyle = {
     when: [{ states: ["hover"], bg: "statusBarItem.hoverBackground", fg: "statusBarItem.hoverForeground" }],
 };
 const INERT_STYLE: TUIStyle = {};
 
 /**
- * Дерево строится один раз и мутируется на месте: пока состав сторон не
- * меняется, обновляются только тексты — путь курсора не пересобирает поддерево
- * на каждое нажатие. Лейблы живут в монотонно растущем пуле.
+ * The tree is built once and mutated in place: while the set of entries on each side stays the same,
+ * only texts are updated, so cursor movement doesn't rebuild the subtree on every keystroke.
+ * Labels live in a pool that only grows.
  */
 export class StatusBarComponent extends Component {
     public static dependencies = [StatusBarServiceDIToken, ContextMenuServiceDIToken] as const;
@@ -35,9 +35,8 @@ export class StatusBarComponent extends Component {
     public readonly view: HFlexElement;
 
     /**
-     * Правый паддинг — не только воздух: нижне-правую ячейку терминала рендер не
-     * пишет никогда (hardware scroll, см. terminalRenderer), и значимый символ
-     * последнего сегмента туда не попадёт.
+     * The right padding is not just spacing: the renderer never writes the bottom-right terminal cell
+     * (hardware scroll, see terminalRenderer), so this keeps the last segment's characters out of it.
      */
     private readonly padLeft = new FillerElement();
     private readonly padRight = new FillerElement();
@@ -90,10 +89,9 @@ export class StatusBarComponent extends Component {
     }
 
     /**
-     * Текст сверяем здесь (равный стиль отсекает сам сеттер) — иначе каждое
-     * движение курсора помечало бы лейбл грязным. Id едет за записью, а не за
-     * индексом в пуле; точки в нём меняем на дефисы — селекторы инспектора/e2e
-     * их не поддерживают (как в `ViewsService`).
+     * The text is compared here (the style setter already skips equal values), otherwise every cursor
+     * move would mark the label dirty. The id follows the entry, not the pool index; dots are replaced
+     * with dashes because inspector/e2e selectors don't support them (same as `ViewsService`).
      */
     private syncLabel(label: TextLabelElement, entry: IStatusBarEntry): void {
         const text = ` ${entry.text} `;
@@ -103,9 +101,9 @@ export class StatusBarComponent extends Component {
     }
 
     /**
-     * Колбэк записи резолвится в момент клика из текущего снапшота — переиспользование
-     * лейбла ничего не перевешивает. Команду запускает только ЛЕВАЯ кнопка: правый
-     * клик — запрос меню видимости, чекаутить ветку он не должен.
+     * The entry's callback is resolved at click time from the current snapshot, so reusing a label
+     * needs no rebinding. Only the LEFT button runs the command: a right click asks for the visibility
+     * menu and must not, say, check out a branch.
      */
     private ensureLabels(pool: TextLabelElement[], side: "left" | "right", count: number): void {
         while (pool.length < count) {
@@ -121,8 +119,8 @@ export class StatusBarComponent extends Component {
     }
 
     /**
-     * Разделителей нет — сегменты разделяют собственные краевые пробелы. Каждая
-     * колонка покрыта ребёнком, поэтому фон красится без своего render у HFlex.
+     * No separators: segments are spaced by their own edge spaces. Every column is covered by a child,
+     * so the background gets painted without HFlex needing its own render.
      */
     private rebuildChildren(): void {
         const children: TUIElement[] = [];
@@ -145,8 +143,8 @@ export class StatusBarComponent extends Component {
     }
 
     /**
-     * Галочки — по всем записям, включая скрытые (иначе их нечем вернуть). Клик
-     * мимо сегментов даёт меню без «Hide» — путь назад, когда скрыто всё.
+     * Checkmarks cover all entries, hidden ones included (otherwise there'd be no way to bring them back).
+     * A click outside any segment gives a menu without "Hide" — the way back when everything is hidden.
      */
     private showVisibilityMenu(event: TUIContextMenuEvent): void {
         const target = this.entryOfLabel(event.target);
@@ -186,7 +184,7 @@ export class StatusBarComponent extends Component {
         ];
     }
 
-    /** Ищем среди ТЕКУЩИХ записей: лейбл снятой записи отцеплен от дерева и целью события быть не может. */
+    /** Searches CURRENT entries only: a removed entry's label is detached and can't be an event target. */
     private entryOfLabel(target: TUIElement | null): IStatusBarEntry | null {
         const left = this.currentLeft.findIndex((_, i) => this.leftLabels[i] === target);
         if (left >= 0) return this.currentLeft[left];

@@ -7,7 +7,7 @@ import type { QuickPickItem } from "../../../common/quickPickItem.ts";
 
 import { QuickPickElement } from "./quickPickElement.ts";
 
-/** Мышиный токен движка (координаты 1-based, как в терминале). */
+/** Engine mouse token (1-based coordinates, as in the terminal). */
 function token(overrides: Partial<MouseToken>): MouseToken {
     return {
         kind: "mouse",
@@ -27,7 +27,7 @@ function makeItems(count: number): QuickPickItem[] {
     return Array.from({ length: count }, (_, i) => ({ label: `file-${String(i + 1)}.ts` }));
 }
 
-/** Через настоящее дерево, а не dispatchEvent'ом: пикер ловит события всплытием из строк списка. */
+/** Goes through a real tree rather than dispatchEvent: the picker catches events bubbling up from list rows. */
 function mount(items: QuickPickItem[]): { picker: QuickPickElement; app: TestApp } {
     const picker = new QuickPickElement();
     picker.preferredWidth = 30;
@@ -38,7 +38,7 @@ function mount(items: QuickPickItem[]): { picker: QuickPickElement; app: TestApp
     return { picker, app };
 }
 
-const FIRST_ROW_Y = 4; // 1-based: рамка(1) + запрос(2) + сепаратор(3) + первый(4)
+const FIRST_ROW_Y = 4; // 1-based: border(1) + query(2) + separator(3) + first item(4)
 
 describe("QuickPickElement — мышь", () => {
     it("наведение ведёт выделение за собой", () => {
@@ -118,7 +118,7 @@ describe("QuickPickElement — мышь", () => {
         const { picker, app } = mount(makeItems(2));
         const onAccept = vi.fn();
         picker.onAccept = onAccept;
-        // Список ужат по числу строк, но проверяем клик за последней из них.
+        // The list shrinks to its row count, but we still check a click past the last row.
         app.backend.simulateMouse(token({ action: "press", x: 5, y: FIRST_ROW_Y + 5 }));
         app.backend.simulateMouse(token({ action: "release", x: 5, y: FIRST_ROW_Y + 5 }));
 
@@ -132,7 +132,7 @@ describe("QuickPickElement — мышь", () => {
         picker.validationMessage = "Name is taken";
         app.render();
 
-        // Строка сообщения сдвинула список на строку вниз.
+        // The message line pushed the list down by one row.
         app.backend.simulateMouse(token({ action: "press", x: 5, y: FIRST_ROW_Y + 1 }));
         app.backend.simulateMouse(token({ action: "release", x: 5, y: FIRST_ROW_Y + 1 }));
 

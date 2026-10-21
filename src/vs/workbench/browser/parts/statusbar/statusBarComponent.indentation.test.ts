@@ -61,7 +61,7 @@ describe("StatusBarComponent — индикатор отступов", () => {
         const editor = source.openEditor();
         expect(statusTexts(component.view)).toContain("Tab Size: 4");
 
-        // Частичные патчи — конфиг может прислать один ключ.
+        // Partial patches: the configuration may send a single key.
         editor.setIndentOptions({ insertSpaces: true });
         expect(statusTexts(component.view)).toContain("Spaces: 4");
 

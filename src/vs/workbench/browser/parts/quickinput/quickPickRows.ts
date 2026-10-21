@@ -9,21 +9,21 @@ import type { QuickPickItem } from "../../../common/quickPickItem.ts";
 import { CONTENT_PAD } from "./quickPickFrameElement.ts";
 
 /**
- * Раскладку считаем здесь, на известной ширине: мутация текста в `performLayout`
- * ставила бы дерево грязным на каждом кадре. Лейбл показывается целиком, пока
- * влезает, описание ужимается до остатка, метаданные — всегда целиком.
+ * Row layout is computed here, at a known width: mutating text in `performLayout` would mark the tree
+ * dirty every frame. The label is shown in full while it fits, the description shrinks to whatever
+ * is left, and metadata is always shown in full.
  */
 
 const GAP = "  ";
 const ICON_WIDTH = 2;
 const CHECKBOX_WIDTH = 4;
-/** Не `☐`/`☑`: у них неоднозначная ширина в терминале (East Asian Ambiguous). */
+/** Not `☐`/`☑`: their terminal width is ambiguous (East Asian Ambiguous). */
 const CHECKED_BOX = "[✓] ";
 const UNCHECKED_BOX = "[ ] ";
 
 /**
- * Отдельным when-вариантом, а не пересчётом при смене курсора: `selected` ставит
- * на хост-строку сам `ListViewElement`, а `in:` видит его на предке.
+ * A separate `when` variant instead of recomputing on cursor change: `ListViewElement` itself sets
+ * `selected` on the host row, and `in:` sees it on the ancestor.
  */
 function dimmed(fg: string): { fg: string; when: readonly { states: readonly string[]; fg: string }[] } {
     return {
@@ -36,14 +36,14 @@ export function rowId(index: number): string {
     return `quickPickItem-${String(index)}`;
 }
 
-/** Наличие колонок решается по списку целиком, иначе лейблы разъезжались бы между строками. */
+/** Which columns exist is decided for the whole list, otherwise labels would misalign between rows. */
 export interface IRowColumns {
     readonly hasIcons: boolean;
-    /** `undefined` — колонки чекбоксов нет (одиночный выбор). */
+    /** `undefined` means no checkbox column (single select). */
     readonly checked?: boolean;
 }
 
-/** Фон выделения тянется на весь `innerWidth`, поэтому отступы держат крайние филлеры ряда. */
+/** The selection background spans the full `innerWidth`, so the row's edge fillers provide the padding. */
 export function buildItemRow(
     item: QuickPickItem,
     index: number,
@@ -134,7 +134,7 @@ function textWidth(label: TextLabelElement): number {
     return new DisplayLine(label.getText()).displayWidth;
 }
 
-/** Диапазоны — в code-unit-оффсетах исходного лейбла; за обрез усечённого текста не заходим. */
+/** Ranges are code-unit offsets into the original label; nothing past the end of truncated text is highlighted. */
 function applyMatchHighlight(label: TextLabelElement, text: string, ranges: readonly [number, number][]): void {
     for (const [start, end] of ranges) {
         for (let i = start; i < Math.min(end, text.length); i++) {

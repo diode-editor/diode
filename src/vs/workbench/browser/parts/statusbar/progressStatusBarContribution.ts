@@ -7,15 +7,15 @@ import type { IStatusBarEntryHandle, StatusBarService } from "../../../services/
 import { StatusBarServiceDIToken } from "../../../services/statusbar/common/statusBarService.ts";
 
 export const ProgressStatusBarContributionDIToken =
-    // Stryker disable next-line StringLiteral: token() возвращает новый Token, и зависимости резолвятся по ссылке на него — строка внутри остаётся отладочной меткой
+    // Stryker disable next-line StringLiteral: token() returns a new Token and dependencies resolve by reference to it; the string is only a debug label
     token<ProgressStatusBarContribution>("ProgressStatusBarContribution");
 
-/** Левее chord-хинта, правее terminal-env — как у прогресса расширений. */
+/** Left of the chord hint, right of terminal-env — same as extension progress. */
 const PROGRESS_PRIORITY = 60;
 
 /**
- * Нужен там, где заголовка секции не видно (сетевой push при открытом
- * Explorer'е). Без `name`: транзиентной записи в меню видимости делать нечего.
+ * Shows progress when the owning section's header isn't visible (e.g. a network push while the Explorer
+ * is open). No `name`: a transient entry has no place in the visibility menu.
  */
 export class ProgressStatusBarContribution extends Disposable implements IWorkbenchContribution {
     public static dependencies = [ProgressServiceDIToken, StatusBarServiceDIToken] as const;

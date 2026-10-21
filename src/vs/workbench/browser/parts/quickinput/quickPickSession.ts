@@ -3,7 +3,7 @@ import type { QuickPickItem } from "../../../common/quickPickItem.ts";
 import type { QuickPickElement } from "./quickPickElement.ts";
 
 export interface QuickPickSessionItem extends QuickPickItem {
-    /** Ищется при {@link QuickPickSessionState.matchOnDetail}. */
+    /** Searched when {@link QuickPickSessionState.matchOnDetail} is set. */
     readonly detail?: string;
     readonly alwaysShow?: boolean;
 }
@@ -15,16 +15,16 @@ export interface QuickPickSessionState<T extends QuickPickSessionItem> {
     readonly placeholder: string | undefined;
     readonly prompt: string | undefined;
     readonly value: string;
-    /** `valueSelection` эталона, `[начало, конец)`; `undefined` — курсор в конце. */
+    /** Upstream `valueSelection`, `[start, end)`; `undefined` puts the cursor at the end. */
     readonly valueSelection: readonly [number, number] | undefined;
     readonly validationMessage: string | undefined;
     readonly canSelectMany: boolean;
-    /** Ни одного поля поиска — список не фильтруется. */
+    /** With no `matchOn*` field set, the list isn't filtered. */
     readonly matchOnLabel: boolean;
     readonly matchOnDescription: boolean;
     readonly matchOnDetail: boolean;
     readonly keepScrollPosition: boolean;
-    /** `itemActivation` эталона; `"none"` — Enter принимает набранное, а не строку. */
+    /** Upstream `itemActivation`; with `"none"`, Enter accepts the typed text rather than a row. */
     readonly itemActivation: "first" | "none";
     readonly items: readonly T[];
     readonly activeItems: readonly T[];
@@ -40,13 +40,13 @@ export interface QuickPickSessionEvents<T extends QuickPickSessionItem> {
 }
 
 /**
- * `claim` перехватывает виджет (прежний владелец получает отмену). Потеря
- * доходит СИНХРОННО, поэтому владелец знает, что виджет его, без вопроса слоту.
+ * `claim` takes over the widget (the previous owner gets cancelled). The loss is delivered SYNCHRONOUSLY,
+ * so an owner knows the widget is still its own without asking the slot.
  */
 export interface IQuickInputSlot {
     claim(onLost: () => void): QuickPickElement;
     open(): void;
-    /** Зовёт только текущий владелец. */
+    /** Called only by the current owner. */
     release(): void;
 }
 
@@ -71,13 +71,13 @@ const DEFAULT_STATE: QuickPickSessionState<never> = {
 };
 
 /**
- * `QuickPick` эталона (`platform/quickinput/browser/quickInput.ts`). В отличие от
- * промисного quickPick — живой: владелец меняет состояние на ходу, а Enter пикер
- * НЕ закрывает, только сообщает `onDidAccept` — закрывать решает владелец (эталон).
+ * Upstream `QuickPick` (`platform/quickinput/browser/quickInput.ts`). Unlike the promise-based quickPick,
+ * it is live: the owner changes state on the fly, and Enter does NOT close the picker — it only fires
+ * `onDidAccept`, and the owner decides whether to close (as upstream).
  */
 export class QuickPickSession<T extends QuickPickSessionItem> {
     private state: QuickPickSessionState<T> = DEFAULT_STATE;
-    /** `null` — скрыт. */
+    /** `null` while hidden. */
     private view: QuickPickElement | null = null;
     private disposed = false;
 
@@ -95,8 +95,8 @@ export class QuickPickSession<T extends QuickPickSessionItem> {
     }
 
     /**
-     * Как в эталоне: смена предметов, запроса или правил поиска ставит подсветку на
-     * первую строку, а программная смена запроса тоже даёт `onDidChangeValue`.
+     * As upstream: changing items, the query or the match rules moves the active item to the first row,
+     * and a programmatic query change also fires `onDidChangeValue`.
      */
     public update(changes: Partial<QuickPickSessionState<T>>): void {
         if (this.disposed) return;
@@ -107,33 +107,33 @@ export class QuickPickSession<T extends QuickPickSessionItem> {
         const view = this.view;
         if (view === null) return;
         this.paintChrome(view);
-        // Stryker disable next-line ConditionalExpression: без смены значения в состоянии лежит ровно то, что уже в строке запроса (набранное человеком кладётся туда же, `onQueryChange`), и повторная запись того же текста ничего не меняет
+        // Stryker disable next-line ConditionalExpression: without a value change the state holds exactly what's already in the query line (user typing is stored there too, via `onQueryChange`), and rewriting the same text changes nothing
         if (valueChanged) view.setQuery(this.state.value);
         if (valueChanged || "valueSelection" in changes) this.applyValueSelection(view);
         const listChanged =
             (valueChanged && this.searches()) ||
             "items" in changes ||
-            // Stryker disable next-line ConditionalExpression,StringLiteral: строки с чекбоксами пересоберёт и раскладка (ширина ряда сверяется на каждом layout), перефильтровка тут — явное намерение, кадр без неё тот же
+            // Stryker disable next-line ConditionalExpression,StringLiteral: layout rebuilds the checkbox rows anyway (row width is checked on every layout); refiltering here states the intent, the frame is the same without it
             "canSelectMany" in changes ||
             "matchOnLabel" in changes ||
             "matchOnDescription" in changes ||
             "matchOnDetail" in changes;
-        // Stryker disable next-line ConditionalExpression,LogicalOperator,BooleanLiteral,StringLiteral: проверка — чтобы не пересобирать строки вхолостую; без новых отметок набор тот же (отметки человека кладутся в состояние сразу, `onCheckedChange`), а перефильтровка ставит его сама
+        // Stryker disable next-line ConditionalExpression,LogicalOperator,BooleanLiteral,StringLiteral: the check only avoids rebuilding rows for nothing; without new checks the set is unchanged (user checks go into state immediately, via `onCheckedChange`), and refiltering sets it itself
         const checksChanged = !listChanged && "selectedItems" in changes;
         const ownerMovedActive = "activeItems" in changes;
-        // Stryker disable next-line ConditionalExpression,LogicalOperator,BooleanLiteral: без перефильтрации подсветка не сдвигалась, и notifyActive всё равно промолчит (дедупликация по первой строке)
+        // Stryker disable next-line ConditionalExpression,LogicalOperator,BooleanLiteral: without refiltering the active item didn't move, and notifyActive stays silent anyway (deduplicated by the first item)
         const activeMayHaveMoved = !ownerMovedActive && listChanged;
         if (listChanged) this.fillList(view, this.state.keepScrollPosition && !valueChanged);
-        // Stryker disable next-line ConditionalExpression: без новых отметок setCheckedItems ставит тот же набор (отметки человека уже в состоянии) — кадр тот же
+        // Stryker disable next-line ConditionalExpression: without new checks setCheckedItems sets the same set (user checks are already in state), so the frame is the same
         if (checksChanged) view.setCheckedItems(this.state.selectedItems);
         if (ownerMovedActive) this.applyActive(view);
-        // Stryker disable next-line ConditionalExpression: без перефильтрации подсветка на месте, и notifyActive промолчит сам (дедупликация по первой строке)
+        // Stryker disable next-line ConditionalExpression: without refiltering the active item stays put, and notifyActive stays silent by itself (deduplicated by the first item)
         if (activeMayHaveMoved) this.notifyActive(view);
-        // Stryker disable next-line CallExpression: без пометки не перезапустится раскладка, а подсказку и сообщение переносит именно она — наблюдаемо только в живом приложении (TestApp раскладывает кадр безусловно); гейт — e2e-сценарий quick-input (кадр create-quick-pick-filtered)
+        // Stryker disable next-line CallExpression: without marking dirty, layout won't rerun, and layout is what wraps the prompt and message — observable only in the live app (TestApp lays out every frame unconditionally); the gate is the quick-input e2e scenario (frame create-quick-pick-filtered)
         view.markDirty();
     }
 
-    /** Уже видим или снят — no-op. */
+    /** No-op if already visible or disposed. */
     public show(): void {
         if (this.disposed || this.view !== null) return;
         const view = this.slot.claim(() => {
@@ -145,7 +145,7 @@ export class QuickPickSession<T extends QuickPickSessionItem> {
         this.slot.open();
     }
 
-    /** `onDidHide` придёт тем же путём, что и от Escape. */
+    /** `onDidHide` arrives through the same path as for Escape. */
     public hide(): void {
         if (this.view !== null) this.slot.release();
     }
@@ -157,7 +157,7 @@ export class QuickPickSession<T extends QuickPickSessionItem> {
 
     private configure(view: QuickPickElement): void {
         view.resetFlavorState();
-        // Stryker disable next-line StringLiteral: режим читается единственным сравнением `acceptMode === "value"`, поэтому любая другая строка ведёт себя как "item"
+        // Stryker disable next-line StringLiteral: the mode is read by a single `acceptMode === "value"` comparison, so any other string behaves like "item"
         view.acceptMode = "item";
         view.validationMessage = null;
         this.paintChrome(view);
@@ -165,7 +165,7 @@ export class QuickPickSession<T extends QuickPickSessionItem> {
         view.onQueryChange = (query) => {
             this.state = { ...this.state, value: query };
             this.events.onDidChangeValue(query);
-            // Владелец мог в ответ отдать виджет (диалог файлов) — тогда список уже чужой.
+            // The owner may have handed the widget off in response (file dialog); then the list is no longer ours.
             if (this.view !== view) return;
             if (!this.searches()) return;
             this.fillList(view, false);
@@ -175,7 +175,7 @@ export class QuickPickSession<T extends QuickPickSessionItem> {
             this.notifyActive(view);
         };
         view.onAccept = (item) => {
-            // Сначала выбор, потом принятие — порядок событий эталона.
+            // Selection first, then accept — upstream event order.
             const picked = [item as T];
             this.state = { ...this.state, selectedItems: picked };
             this.events.onDidChangeSelection(picked);
@@ -221,7 +221,7 @@ export class QuickPickSession<T extends QuickPickSessionItem> {
         if (keepPosition) view.refreshItems(visible);
         else view.items = visible;
         if (this.state.itemActivation === "none") view.clearActive();
-        // Отметки — по идентичности: после замены предметов прежние объекты ни с чем не совпадут.
+        // Checks match by identity: after the items are replaced, the old objects match nothing.
         view.setCheckedItems(this.state.selectedItems);
     }
 
@@ -233,7 +233,7 @@ export class QuickPickSession<T extends QuickPickSessionItem> {
     private filtered(): readonly T[] {
         const needle = this.state.value.trim().toLowerCase();
         const { matchOnLabel, matchOnDescription, matchOnDetail } = this.state;
-        // Эталон: так диалог файлов держит каталог, пока в строке запроса — путь.
+        // As upstream: this is how the file dialog keeps the directory listing while the query holds a path.
         if (!this.searches()) return this.state.items;
         const hit = (text: string | undefined): boolean => text?.toLowerCase().includes(needle) === true;
         return this.state.items.filter(
@@ -245,7 +245,7 @@ export class QuickPickSession<T extends QuickPickSessionItem> {
         );
     }
 
-    /** Молча, как в эталоне. Пустой набор снимает подсветку; незнакомый предмет её не трогает. */
+    /** Silent, as upstream. An empty set clears the active item; an unknown item leaves it alone. */
     private applyActive(view: QuickPickElement): void {
         if (this.state.activeItems.length === 0) {
             view.clearActive();
@@ -258,7 +258,7 @@ export class QuickPickSession<T extends QuickPickSessionItem> {
     private notifyActive(view: QuickPickElement): void {
         const index = view.selectedIndex;
         const active = index < 0 ? undefined : (view.items.at(index) as T | undefined);
-        // Событие — только про настоящую смену, как в эталоне.
+        // Fire only on a real change, as upstream.
         if (active === this.state.activeItems.at(0)) return;
         const items = active === undefined ? [] : [active];
         this.state = { ...this.state, activeItems: items };
@@ -266,7 +266,7 @@ export class QuickPickSession<T extends QuickPickSessionItem> {
     }
 }
 
-/** `getTitle` эталона: «Title (2/3)». */
+/** Upstream `getTitle`: "Title (2/3)". */
 function composeTitle(state: QuickPickSessionState<QuickPickSessionItem>): string | undefined {
     const steps =
         state.step === undefined
