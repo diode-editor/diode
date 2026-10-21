@@ -83,9 +83,9 @@ describe("ConfigurationService — окно из файла .code-workspace", ()
             expect(cfg.getConfigurationData().workspaceFolder).toEqual({});
         });
 
-        // Решение человека (вариант «а», эталон): общее для всех режимов монорепы
-        // живёт в `.diode/settings.json` и перебивает файл воркспейса по ключам
-        // папки; различия режимов — только в файлах воркспейса.
+        // Maintainer's decision (option "a", upstream): what is shared by all monorepo modes
+        // lives in `.diode/settings.json` and overrides the workspace file for the folder's
+        // keys; mode differences live only in workspace files.
         it(".diode/settings.json папки — слой поверх файла воркспейса по resource/language-overridable", async () => {
             writeWorkspaceFile({ "editor.tabSize": 2, "files.exclude": { dist: true, out: true } });
             writeFolderSettings({ "editor.tabSize": 8, "files.exclude": { out: false } });
@@ -93,7 +93,7 @@ describe("ConfigurationService — окно из файла .code-workspace", ()
             const cfg = await load();
 
             expect(cfg.get("editor.tabSize")).toBe(8);
-            // Объектные значения сливаются по ключам, как между любыми слоями.
+            // Object values merge by key, as between any layers.
             expect(cfg.get("files.exclude")).toEqual({ dist: true, out: false });
             expect(cfg.inspect("editor.tabSize")).toMatchObject({ workspace: 2, workspaceFolder: 8, value: 8 });
             expect(cfg.getConfigurationData().workspaceFolder).toEqual({
@@ -111,7 +111,7 @@ describe("ConfigurationService — окно из файла .code-workspace", ()
 
             expect(cfg.get("workbench.colorTheme")).toBe("Solar");
             expect(cfg.inspect("workbench.colorTheme").workspaceFolder).toBeUndefined();
-            // `machine-overridable` расширения — свойство машины, которое папке можно уточнить.
+            // An extension's `machine-overridable` is a machine property the folder may refine.
             expect(cfg.get("java.home")).toBe("/jdk");
             expect(logger.warn).toHaveBeenCalledWith(
                 `${folderFile}: ignored settings that cannot be applied in this workspace (set them in the workspace file): workbench.colorTheme`,
@@ -157,8 +157,8 @@ describe("ConfigurationService — окно из файла .code-workspace", ()
     });
 
     describe("смена воркспейса", () => {
-        // Сценарий монорепы: те же папка и `.diode/settings.json`, другой файл —
-        // другие настройки.
+        // Monorepo scenario: same folder and `.diode/settings.json`, a different file
+        // gives different settings.
         it("другой файл над той же папкой — его настройки и событие", async () => {
             const backendFile = repo.path("backend.code-workspace");
             writeWorkspaceFile({ "editor.tabSize": 2 });

@@ -1,7 +1,7 @@
 /**
- * Словарь VS Code Marketplace / Open VSX — свой не изобретаем. Alpine/musl
- * (`alpine-x64` у Open VSX) сознательно не детектится: `process.platform` там тот же
- * `"linux"`, а сборок Diode под musl нет.
+ * The VS Code Marketplace / Open VSX vocabulary; we don't invent our own. Alpine/musl
+ * (`alpine-x64` on Open VSX) is deliberately not detected: `process.platform` there is
+ * still `"linux"`, and there are no musl builds of Diode.
  */
 export function currentTargetPlatform(
     platform: NodeJS.Platform = process.platform,
@@ -21,7 +21,7 @@ export function currentTargetPlatform(
             if (arch === "x64") return "darwin-x64";
             if (arch === "arm64") return "darwin-arm64";
             return undefined;
-        // Stryker disable next-line ConditionalExpression: удаление тела default эквивалентно — выпадение из switch и так возвращает undefined
+        // Stryker disable next-line ConditionalExpression: removing the default body is equivalent, since falling out of the switch returns undefined anyway
         default:
             return undefined;
     }

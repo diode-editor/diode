@@ -22,7 +22,7 @@ import { installVsix, listInstalledExtensions, readVsixManifest, uninstallExtens
 export interface IInstallFromRegistryOptions {
     readonly extensionsDir: string;
     readonly host: IHostVersions;
-    /** Не задана — наивысшая совместимая. Зависимостей не касается. */
+    /** Unset means the highest compatible one. Doesn't apply to dependencies. */
     readonly version?: string;
 }
 
@@ -33,17 +33,17 @@ export interface IInstalledFromRegistry {
 }
 
 export interface IDependencyInstallResult {
-    /** Включая транзитивные. */
+    /** Includes transitive ones. */
     readonly dependencies: readonly IInstalledFromRegistry[];
-    /** Нет в реестре. Расширение всё равно ставится (как в VS Code) — не поднимется на активации, с тостом. */
+    /** Not in the registry. The extension is installed anyway (as in VS Code) and fails to activate with a toast. */
     readonly missingDependencies: readonly string[];
 }
 
 export interface IInstallFromRegistryResult extends IInstalledFromRegistry, IDependencyInstallResult {}
 
 /**
- * Осознанное отступление: эталонный CLI о зависимостях молчит, а это единственный
- * способ сказать, что поставилось что-то ещё и почему расширение может не подняться.
+ * Deliberate deviation: the upstream CLI says nothing about dependencies, but this is the
+ * only way to tell that something else got installed and why the extension may not activate.
  */
 export function describeDependencyInstall(
     rootId: string,
@@ -95,7 +95,7 @@ interface IPreparedExtension {
     readonly manifest: Record<string, unknown>;
 }
 
-/** Не трогает `extensionsDir`. Id манифеста сверяется здесь же: реестр мог указать чужой артефакт. */
+/** Doesn't touch `extensionsDir`. The manifest id is checked here: the registry may point to someone else's artifact. */
 async function prepare(
     source: IExtensionRegistrySource,
     meta: IRegistryExtensionMeta,
@@ -106,8 +106,8 @@ async function prepare(
 ): Promise<IPreparedExtension> {
     let picked: IRegistryVersion | undefined;
     if (version !== undefined) {
-        // Точная версия обходит engines (пользователь сказал «эту»), но не платформу:
-        // чужой нативный бинарь бесполезен на этом хосте при любом желании.
+        // An exact version bypasses engines (the user asked for "this one"), but not the
+        // platform: a foreign native binary is useless on this host no matter what.
         picked = meta.versions.find((v) => v.version === version && matchesHostPlatform(v, host));
         if (picked === undefined) {
             throw new Error(
@@ -123,7 +123,7 @@ async function prepare(
         }
     }
 
-    // Источник волен назвать скачанный файл одинаково для всех.
+    // The source may give every downloaded file the same name.
     const artifactDir = fs.mkdtempSync(path.join(tempDir, "artifact-"));
     const vsixPath = await source.fetchArtifact(picked, artifactDir);
 
@@ -143,9 +143,9 @@ async function prepare(
 }
 
 /**
- * Как `getAllDepsAndPackExtensions` эталона. Уже установленная зависимость (любой
- * версии) не трогается. Нет в реестре — в `missing`; найдена, но поставить нельзя —
- * отказ всей установки: без неё расширение бесполезно.
+ * Like upstream `getAllDepsAndPackExtensions`. An already installed dependency (any
+ * version) is left alone. Missing from the registry goes to `missing`; found but not
+ * installable fails the whole install, since the extension is useless without it.
  */
 async function prepareDependencies(
     source: IExtensionRegistrySource,
@@ -161,7 +161,7 @@ async function prepareDependencies(
     const queue = [...readExtensionDependencies(rootManifest)];
     for (let dep = queue.shift(); dep !== undefined; dep = queue.shift()) {
         const key = extensionKey(dep);
-        // Встроенного расширения VS Code в магазине нет и не будет — не ищем и не предупреждаем.
+        // Built-in VS Code extensions are not and won't be in the store: don't look them up or warn.
         if (visited.has(key) || installed.has(key) || isBuiltinVSCodeExtension(dep)) continue;
         visited.add(key);
         const meta = await source.getMeta(dep);
@@ -171,7 +171,7 @@ async function prepareDependencies(
         }
         let one: IPreparedExtension;
         try {
-            // Регистр id — как у реестра: он же сверяется с манифестом артефакта.
+            // Use the registry's id casing: that's what is checked against the artifact manifest.
             one = await prepare(source, meta, meta.id, options.host, undefined, tempDir);
         } catch (err) {
             const reason = err instanceof Error ? err.message : String(err);
@@ -186,8 +186,8 @@ async function prepareDependencies(
 }
 
 /**
- * Корень последним. Сбой снимает поставленное этим вызовом (rollback эталона); корень
- * снимать не приходится никогда, и прежняя его версия остаётся на месте.
+ * The root goes last. A failure uninstalls what this call installed (upstream rollback);
+ * the root never needs removing, and its previous version stays in place.
  */
 async function installPrepared(
     prepared: readonly IPreparedExtension[],
@@ -204,20 +204,20 @@ async function installPrepared(
 }
 
 async function withTempDir<T>(run: (tempDir: string) => Promise<T>): Promise<T> {
-    // В os.tmpdir(), НЕ в extensionsDir: там временные каталоги заводит сам
-    // installVsix, и посторонний temp сбил бы его учёт установленных версий.
+    // In os.tmpdir(), NOT extensionsDir: installVsix creates its own temp directories
+    // there, and a foreign temp would confuse its tracking of installed versions.
     const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "diode-registry-install-"));
     try {
         return await run(tempDir);
     } finally {
-        // Stryker disable next-line BooleanLiteral: force прикрывает только отсутствующий каталог, а его создаёт mkdtempSync выше по функции — на этом пути подмена ненаблюдаема; флаг оставлен, чтобы сбой уборки не затирал исходную ошибку
+        // Stryker disable next-line BooleanLiteral: force only covers a missing directory, and mkdtempSync creates it earlier in this function, so the change is unobservable here; the flag stays so a cleanup failure never masks the original error
         fs.rmSync(tempDir, { recursive: true, force: true });
     }
 }
 
 /**
- * Зависимости — без вопросов, как VS Code. Всё сначала готовится и только потом
- * ставится: отказ корня или зависимости диска не трогает.
+ * Dependencies install without prompting, as in VS Code. Everything is prepared first
+ * and installed only afterwards, so a root or dependency failure leaves the disk untouched.
  */
 export async function installFromRegistry(
     source: IExtensionRegistrySource,
@@ -240,7 +240,7 @@ export async function installFromRegistry(
     });
 }
 
-/** Для `--install-extension foo.vsix`: отказ зависимостей расширение не снимает (у эталона — только предупреждение). */
+/** For `--install-extension foo.vsix`: a dependency failure doesn't uninstall the extension (upstream only warns). */
 export function installDependenciesFromRegistry(
     source: IExtensionRegistrySource,
     extensionId: string,

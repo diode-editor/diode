@@ -262,7 +262,7 @@ describe("parseRegistryMeta", () => {
         ["path с ..", versionRecord({ artifact: { type: "path", path: "../outside.vsix" } })],
         ["path с пустым сегментом", versionRecord({ artifact: { type: "path", path: "a//b.vsix" } })],
         ["нет sha256", versionRecord({ sha256: undefined })],
-        // Массив с hex-строкой коэрсится RegExp.test'ом в валидный hex — тип обязан проверяться отдельно.
+        // RegExp.test coerces an array holding a hex string into valid hex, so the type needs its own check.
         ["sha256 не строка", versionRecord({ sha256: ["a".repeat(64)] })],
         ["sha256 не hex-64", versionRecord({ sha256: "abc" })],
         ["sha256 длиннее 64", versionRecord({ sha256: "a".repeat(65) })],
@@ -318,7 +318,7 @@ describe("parseRegistryMeta", () => {
 });
 
 describe("searchRegistryIndex", () => {
-    // Не на уровне describe: такой код Stryker помечает static-мутантами и гоняет весь сьют.
+    // Not at describe level: Stryker marks such code as static mutants and runs the whole suite.
     const searchableIndex = () =>
         parseRegistryIndex(
             indexText([
@@ -378,7 +378,7 @@ describe("пометка о поддержке", () => {
         ["ограничения не массив", { level: "partial", limits: "webview" }],
         ["пункт списка пустой", { level: "partial", limits: [""] }],
         ["пункт списка не строка", { level: "partial", limits: [42] }],
-        // `every` отбрасывает, `some` пропустил бы — мутант.
+        // `every` rejects it, `some` would let it through (mutant).
         ["часть пунктов битая", { level: "partial", limits: ["Chat panel", 42] }],
         ["works не массив", { level: "full", works: "everything" }],
         ["не объект", "partial"],

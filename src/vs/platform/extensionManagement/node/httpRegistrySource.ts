@@ -14,15 +14,15 @@ import {
 } from "../common/registryFormat.ts";
 
 /**
- * `sha256` скачанного проверяет вызывающий ({@link installFromRegistry}). Целостность
- * держится на нём, а не на транспорте, поэтому `http:` разрешён наравне с `https:`:
- * локальный каталог по http и своё зеркало — законные сценарии.
+ * The caller ({@link installFromRegistry}) verifies the download's `sha256`. Integrity
+ * rests on that, not on the transport, so `http:` is allowed alongside `https:`: a local
+ * directory over http and a private mirror are legitimate setups.
  */
 
 const DEFAULT_TIMEOUT_MS = 30_000;
-// Stryker disable next-line ArithmeticOperator: арифметика тут только ради читаемости «8 МиБ»; сам дефолт в тестах не наблюдаем — лимит там задаётся явно, иначе кейс на превышение гонял бы мегабайты
+// Stryker disable next-line ArithmeticOperator: the arithmetic only spells out "8 MiB"; the default itself is unobservable in tests, which set the limit explicitly so the over-limit case doesn't push megabytes
 const DEFAULT_MAX_JSON_BYTES = 8 * 1024 * 1024;
-/** С запасом: redhat.java с вшитым JRE 21 уже весит ~133 МиБ и растёт от версии к версии. */
+/** With headroom: redhat.java with a bundled JRE 21 already weighs ~133 MiB and grows with each version. */
 export const DEFAULT_MAX_ARTIFACT_BYTES = 256 * 1024 * 1024;
 
 export interface IHttpRegistrySourceOptions {
@@ -39,8 +39,8 @@ function toBaseUrl(raw: string): URL {
         throw new Error(`Invalid registry URL: "${raw}"`);
     }
     requireHttp(url, `Registry URL must be http(s): "${raw}"`);
-    // `new URL("index.json", base)` отбрасывает последний сегмент базы, если та не
-    // кончается слешем: без нормализации `…/registry/v1` дал бы `…/registry/index.json`.
+    // `new URL("index.json", base)` drops the base's last segment unless it ends with a
+    // slash: without normalization `…/registry/v1` would give `…/registry/index.json`.
     if (!url.pathname.endsWith("/")) {
         url.pathname += "/";
     }
@@ -53,14 +53,14 @@ function requireHttp(url: URL, message: string): void {
     }
 }
 
-/** `fetch` отдаёт «fetch failed», а настоящую причину (DNS, TLS, …) прячет в `cause`. */
+/** `fetch` reports "fetch failed" and hides the real reason (DNS, TLS, …) in `cause`. */
 function describeFetchError(error: unknown): string {
     const message = (error as Error).message;
     const cause = (error as { cause?: unknown }).cause;
     return cause instanceof Error ? `${message} (${cause.message})` : message;
 }
 
-/** Считаем фактические байты, а не `Content-Length`: заголовок необязателен и может врать. */
+/** Counts actual bytes, not `Content-Length`: the header is optional and may lie. */
 async function consumeCapped(
     response: Response,
     limit: number,
@@ -97,7 +97,7 @@ async function readCapped(response: Response, limit: number, url: URL): Promise<
     return Buffer.concat(chunks);
 }
 
-/** Цена потока — полуфайл: недокачанное убирается, чтобы не осталось под видом валидного артефакта. */
+/** Streaming risks a half-written file: an incomplete download is removed so it can't pass for a valid artifact. */
 async function downloadCapped(
     response: Response,
     limit: number,
@@ -116,7 +116,7 @@ async function downloadCapped(
     } finally {
         await file.close();
         if (!complete) {
-            // Stryker disable next-line BooleanLiteral,ObjectLiteral: файл заведён `open` выше по этой же функции, так что отсутствующей цели тут не бывает и подмена `force` ненаблюдаема; флаг оставлен, чтобы сбой уборки не затирал исходную ошибку — она и есть ответ вызывающему
+            // Stryker disable next-line BooleanLiteral,ObjectLiteral: the file was created by `open` earlier in this function, so the target always exists and changing `force` is unobservable; the flag stays so a cleanup failure never masks the original error, which is what the caller gets
             await fs.rm(target, { force: true });
         }
     }
@@ -141,7 +141,7 @@ export class HttpExtensionRegistrySource implements IExtensionRegistrySource {
         this.maxArtifactBytes = options.maxArtifactBytes ?? DEFAULT_MAX_ARTIFACT_BYTES;
     }
 
-    /** `signal` — для тех, кому общий таймаут не годится (`fetchArtifact`). */
+    /** `signal` is for callers that can't use the overall timeout (`fetchArtifact`). */
     private async request(url: URL, signal?: AbortSignal): Promise<Response> {
         try {
             return await fetch(url, {
@@ -192,7 +192,7 @@ export class HttpExtensionRegistrySource implements IExtensionRegistrySource {
         }
         const url = new URL(`meta/${id}.json`, this.baseUrl);
         const response = await this.request(url);
-        // 404 — как ENOENT у файлового источника; прочие не-2xx — сбой реестра.
+        // 404 is like ENOENT for the file source; any other non-2xx is a registry failure.
         if (response.status === 404) {
             return undefined;
         }
@@ -217,14 +217,14 @@ export class HttpExtensionRegistrySource implements IExtensionRegistrySource {
         }
         requireHttp(url, `Artifact URL must be http(s): "${artifact.url}"`);
 
-        // Сторожим не общее время, а МОЛЧАНИЕ: таймер перевзводится на каждом куске.
-        // Красный CI: 139-МБ redhat.java не укладывался в 30с на windows-раннере.
+        // Watch for SILENCE, not total time: the timer re-arms on every chunk.
+        // CI went red when the 139 MB redhat.java didn't fit in 30s on the Windows runner.
         const stall = new AbortController();
         const arm = (): ReturnType<typeof setTimeout> =>
             setTimeout(() => {
                 stall.abort(new Error(`no data for ${String(this.timeoutMs)}ms`));
             }, this.timeoutMs);
-        // Взводится СРАЗУ: ожидание заголовков накрывается наравне с телом.
+        // Armed IMMEDIATELY so waiting for headers is covered just like the body.
         let watchdog = arm();
         const rearm = (): void => {
             clearTimeout(watchdog);
@@ -235,7 +235,7 @@ export class HttpExtensionRegistrySource implements IExtensionRegistrySource {
             const response = await this.request(url, stall.signal);
             this.ensureOk(response, url);
 
-            // Имя не из URL: имя из чужих данных — лишний путь для трюков.
+            // The name doesn't come from the URL: a name from foreign data is one more avenue for tricks.
             const target = path.join(tempDir, "artifact.vsix");
             await downloadCapped(response, this.maxArtifactBytes, url, target, rearm);
             return target;

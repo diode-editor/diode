@@ -34,7 +34,7 @@ describe("ConfigurationSnapshot — значения для языка", () => {
         expect(s.model().get("editor.insertSpaces")).toBe(true);
         expect(s.model({ overrideIdentifier: "makefile" }).get("editor.insertSpaces")).toBe(false);
         expect(s.model({ overrideIdentifier: "go" }).get("editor.insertSpaces")).toBe(true);
-        // Повторное чтение — та же модель (кэш).
+        // A repeated read returns the same (cached) model.
         expect(s.model({ overrideIdentifier: "makefile" })).toBe(s.model({ overrideIdentifier: "makefile" }));
     });
 

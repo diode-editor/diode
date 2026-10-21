@@ -92,7 +92,7 @@ describe("resolveStartupTargets — файл воркспейса", () => {
 describe("resolveStartupTargets — --goto", () => {
     it("splits file:line", () => {
         const targets = resolveStartupTargets(parseCliArgs(["-g", "a.ts:42"]), noDirs);
-        // toStrictEqual: `toEqual` не видит лишнего `column: undefined`.
+        // toStrictEqual: `toEqual` does not see an extra `column: undefined`.
         expect(targets.files).toStrictEqual([{ path: abs("a.ts"), line: 42 }]);
     });
 

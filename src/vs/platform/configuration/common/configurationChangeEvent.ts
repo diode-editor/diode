@@ -1,7 +1,7 @@
 import type { ConfigurationModel } from "./configurationModel.ts";
 import type { IConfigurationChangeEvent } from "./iConfigurationService.ts";
 
-/** И секции языков: читающий ключ с `overrideIdentifier` обязан узнать о правке секции. */
+/** Includes language sections: a reader of a key with `overrideIdentifier` must learn about a section edit. */
 export function diffConfigurationKeys(prev: ConfigurationModel, next: ConfigurationModel): string[] {
     const changed = new Set(diffTrees(prev, next));
     for (const identifier of diffOverrideIdentifiers(prev, next)) {
@@ -22,12 +22,12 @@ function diffTrees(prev: ConfigurationModel, next: ConfigurationModel): string[]
     return [...keys].filter((key) => !valuesEqual(prev.get(key), next.get(key)));
 }
 
-/** Config всегда JSON-совместим. */
+/** Config is always JSON-compatible. */
 function valuesEqual(a: unknown, b: unknown): boolean {
     return JSON.stringify(a) === JSON.stringify(b);
 }
 
-/** `affectsConfiguration(q)` — и для предка (`editor` ← `editor.tabSize`), и для потомка. */
+/** `affectsConfiguration(q)` holds for both an ancestor (`editor` ← `editor.tabSize`) and a descendant. */
 export function createConfigurationChangeEvent(
     affectedKeys: readonly string[],
     overrideIdentifiers: readonly string[] = [],

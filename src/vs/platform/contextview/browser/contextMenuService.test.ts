@@ -68,7 +68,7 @@ describe("ContextMenuService", () => {
             menuId: MenuId.EditorContext,
         });
 
-        // Пункты языковых фич гейтятся `editorHas*Provider`, а контекст-ключей в сетапе нет.
+        // Language feature items are gated by `editorHas*Provider`, and the setup has no context keys.
         expect(openMenuLabels(app)).toEqual([
             "Change All Occurrences",
             "─",

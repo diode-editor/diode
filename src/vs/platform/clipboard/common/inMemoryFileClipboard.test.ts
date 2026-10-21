@@ -61,7 +61,7 @@ describe("InMemoryFileClipboard", () => {
         clip.onDidChange(second);
 
         sub.dispose();
-        sub.dispose(); // повторный dispose — no-op, чужая подписка не должна пострадать
+        sub.dispose(); // a second dispose is a no-op and must not affect another subscription
 
         clip.write(["/a"], "copy");
         expect(first).not.toHaveBeenCalled();

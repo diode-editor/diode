@@ -1,18 +1,18 @@
 import { token } from "../../instantiation/common/diContainer.ts";
 
 /**
- * Как `IEnvironmentService` vscode, **держим интерфейс как можно меньше**: только то,
- * что нужно сервисам за пределами bootstrap'а. Пути — абсолютные строки, без URI.
- * Профиль фиксирован на процесс (смена = перезагрузка окна), поэтому его ресурсы
- * лежат здесь; у vscode профиль переключается на лету.
+ * Like vscode's `IEnvironmentService`, **keep the interface as small as possible**: only what
+ * services outside bootstrap need. Paths are absolute strings, not URIs.
+ * The profile is fixed per process (switching means a window reload), so its resources
+ * live here; vscode switches profiles on the fly.
  */
 export interface IEnvironmentService {
     readonly userDataRoot: string;
     readonly extensionsDir: string;
     readonly logsDir: string;
-    /** `undefined` — публичный магазин Diode. */
+    /** `undefined` means the public Diode marketplace. */
     readonly registry: string | undefined;
-    /** Для `~` в путях, которые вводит человек. */
+    /** For `~` in user-typed paths. */
     readonly userHome: string;
 
     readonly settingsResource: string;
@@ -22,5 +22,5 @@ export interface IEnvironmentService {
     readonly secretsFile: string;
 }
 
-// Stryker disable next-line StringLiteral: token() возвращает новый Token, и зависимости резолвятся по ссылке на него — строка внутри остаётся отладочной меткой
+// Stryker disable next-line StringLiteral: token() returns a new Token and dependencies resolve by its reference; the string inside is just a debug label
 export const IEnvironmentServiceDIToken = token<IEnvironmentService>("EnvironmentService");

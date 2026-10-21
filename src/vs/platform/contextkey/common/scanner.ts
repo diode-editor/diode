@@ -1,6 +1,6 @@
 /**
- * Как upstream `scanner.ts`: строки только в одинарных кавычках; всё, что похоже на
- * слово (ключ или значение без кавычек: `java`, `.ts`, `foo.bar:baz`), — `str`.
+ * Like upstream `scanner.ts`: strings use single quotes only; anything word-like
+ * (a key or an unquoted value: `java`, `.ts`, `foo.bar:baz`) is `str`.
  */
 export type WhenToken =
     | {
@@ -19,10 +19,10 @@ const KEYWORDS = new Map<string, "true" | "false" | "in" | "not">([
 
 const REGEX_FLAGS = new Set(["i", "g", "s", "m", "y", "u"]);
 
-/** Двойная кавычка входит в слово, как у upstream: `a == "x"` сравнивает с `"x"` вместе с кавычками. */
+/** A double quote is part of a word, like upstream: `a == "x"` compares with `"x"` including the quotes. */
 const WORD_RE = /[a-zA-Z0-9_<>\-./\\:*?+[\]^,#@;"%$\p{L}-]+/uy;
 
-/** Последняя лексема всегда `eof`. */
+/** The last token is always `eof`. */
 export function scanWhen(input: string): WhenToken[] {
     const tokens: WhenToken[] = [];
     let current = 0;
@@ -40,7 +40,7 @@ export function scanWhen(input: string): WhenToken[] {
         tokens.push({ type: "error", offset: start, lexeme: input.substring(start, current) });
     };
 
-    // Stryker disable next-line EqualityOperator: эквивалентный — лишний шаг за концом читает undefined, который не входит ни в одно правило и пропускается
+    // Stryker disable next-line EqualityOperator: equivalent, an extra step past the end reads undefined, which matches no rule and is skipped
     while (current < input.length) {
         start = current;
         const ch = input[current++];
@@ -53,7 +53,7 @@ export function scanWhen(input: string): WhenToken[] {
                 break;
             case "!":
                 if (match("=")) {
-                    match("="); // `!==` — то же, что `!=`
+                    match("="); // `!==` is the same as `!=`
                     push("!=");
                 } else {
                     push("!");
@@ -83,7 +83,7 @@ export function scanWhen(input: string): WhenToken[] {
             }
             case "=":
                 if (match("=")) {
-                    match("="); // `===` — то же, что `==`
+                    match("="); // `===` is the same as `==`
                     push("==");
                 } else if (match("~")) {
                     push("=~");
@@ -109,7 +109,7 @@ export function scanWhen(input: string): WhenToken[] {
                 WORD_RE.lastIndex = start;
                 const word = WORD_RE.exec(input);
                 if (word === null) {
-                    // Символы вне класса слова (`{`, `~`, …) пропускаются — как у upstream.
+                    // Characters outside the word class (`{`, `~`, …) are skipped, like upstream.
                     break;
                 }
                 current = start + word[0].length;
@@ -123,12 +123,12 @@ export function scanWhen(input: string): WhenToken[] {
     return tokens;
 }
 
-/** Позиция за флагами; `/` внутри класса символов регекс не закрывает. */
+/** Position past the flags; a `/` inside a character class does not close the regex. */
 function scanRegex(input: string, from: number): number | undefined {
     let p = from;
     let inEscape = false;
     let inClass = false;
-    // Stryker disable next-line EqualityOperator: эквивалентный — шаг за концом читает undefined, ни одна ветка его не берёт, и цикл выходит следующим шагом
+    // Stryker disable next-line EqualityOperator: equivalent, a step past the end reads undefined, no branch takes it, and the loop exits on the next step
     while (p < input.length) {
         const ch = input[p++];
         if (inEscape) {

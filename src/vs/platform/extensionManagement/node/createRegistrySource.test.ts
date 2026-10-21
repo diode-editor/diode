@@ -32,7 +32,7 @@ describe("createRegistrySource", () => {
         "/var/lib/diode-registry",
         "./registry",
         "registry",
-        // `new URL` разбирает его как протокол `c:` — различаем строго по префиксу схемы, иначе уедет в HTTP-ветку.
+        // `new URL` parses this as protocol `c:`; we match strictly on the scheme prefix, or it would take the HTTP branch.
         "C:\\registry",
         "ftp://example.test/registry/",
     ])("значение %j — файловый источник", (spec) => {

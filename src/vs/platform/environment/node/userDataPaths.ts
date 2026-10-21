@@ -4,34 +4,34 @@ import { PROFILE_ID_PATTERN, RESERVED_PROFILE_ID } from "../../userDataProfile/c
 import type { WorkspaceId } from "../../workspace/common/iWorkspaceContextService.ts";
 
 /**
- * Раскладка (docs/arch/Configuration.md, docs/arch/State.md):
+ * Layout (docs/arch/Configuration.md, docs/arch/State.md):
  *
  *     <root>/
- *       extensions/                      ← внешние расширения, плоско (переносится `--extensions-dir`)
+ *       extensions/                      ← external extensions, flat (relocated by `--extensions-dir`)
  *       user-data/
- *         logs/                          ← логи; `<extId>` внутри = ExtensionContext.logUri
- *         User/                          ← Default-профиль
+ *         logs/                          ← logs; `<extId>` inside = ExtensionContext.logUri
+ *         User/                          ← Default profile
  *           settings.json
  *           keybindings.json
- *           globalState.json             ← машинное состояние (global scope)
- *           secrets.json                 ← ExtensionContext.secrets (0600, без шифрования)
- *           globalStorage/               ← приватные каталоги расширений (global)
- *             storage.json               ← состояние application scope: реестр профилей
- *                                          и привязки к воркспейсам (один на установку)
+ *           globalState.json             ← machine state (global scope)
+ *           secrets.json                 ← ExtensionContext.secrets (0600, unencrypted)
+ *           globalStorage/               ← private extension directories (global)
+ *             storage.json               ← application scope state: profile registry
+ *                                          and workspace bindings (one per installation)
  *             <extId>/                   ← ExtensionContext.globalStorageUri
- *           workspaceStorage/            ← машинное состояние по проектам
+ *           workspaceStorage/            ← per-project machine state
  *             <sha256(folder)>/state.json
  *             <sha256(folder)>/<extId>/  ← ExtensionContext.storageUri
  *           profiles/
- *             <profileId>/               ← именованные профили (id — slug имени,
- *               settings.json              реестр — в storage.json, см.
+ *             <profileId>/               ← named profiles (id is the name's slug,
+ *               settings.json              registry in storage.json, see
  *               keybindings.json           platform/userDataProfile/)
  *               globalState.json
  *               secrets.json
  *               globalStorage/
  *               workspaceStorage/
  *
- * Сюда приходит **id** профиля (имя каталога), а не имя: соответствие знает
+ * Receives the profile **id** (directory name), not its name: the mapping is known to
  * `IUserDataProfilesService`.
  */
 export interface IUserDataPaths {
@@ -40,9 +40,9 @@ export interface IUserDataPaths {
     readonly userDataDir: string;
     readonly userDir: string;
     readonly profilesHome: string;
-    /** Один на установку, вне профиля: реестр профилей и привязки к воркспейсам. */
+    /** One per installation, outside the profile: profile registry and workspace bindings. */
     readonly applicationStateFile: string;
-    /** Id (каталог) активного профиля. */
+    /** Id (directory) of the active profile. */
     readonly profileName: string;
     readonly isDefaultProfile: boolean;
     readonly profileDir: string;
@@ -50,25 +50,25 @@ export interface IUserDataPaths {
     readonly keybindingsFile: string;
     readonly globalStateFile: string;
     /**
-     * Per-profile: токены рабочего профиля не должны быть видны из личного.
-     * **Открытым текстом под `0600`** — связки ключей ОС у нас нет (`extensionSecretsStore.ts`).
+     * Per-profile: work profile tokens must not be visible from a personal one.
+     * **Plain text under `0600`**: there is no OS keychain integration (`extensionSecretsStore.ts`).
      */
     readonly secretsFile: string;
-    /** Под `profileDir`, а не `userDir`: именованные профили изолированы. */
+    /** Under `profileDir`, not `userDir`: named profiles are isolated. */
     readonly workspaceStorageDir: string;
     readonly globalStorageDir: string;
-    /** Вне профиля. Отличие от эталона: без подкаталога сессии `logs/<timestamp>/` — ротации по запускам нет. */
+    /** Outside the profile. Unlike upstream, no `logs/<timestamp>/` session subdirectory: no per-launch rotation. */
     readonly logsDir: string;
 }
 
-/** Реестр профилей этот id именованным не выдаёт. */
+/** The profile registry never hands this id to a named profile. */
 export const DEFAULT_PROFILE_NAME = RESERVED_PROFILE_ID;
 
 export const DEFAULT_USER_DATA_ROOT_NAME = ".diode";
 
 export interface IResolveUserDataPathsOptions {
     readonly userDataDir?: string;
-    /** Id, не имя: имя в id превращает реестр профилей (`profileIdFromName`). */
+    /** An id, not a name: the profile registry turns names into ids (`profileIdFromName`). */
     readonly profile?: string;
     readonly extensionsDir?: string;
     readonly homedir: string;
@@ -111,8 +111,8 @@ export function resolveUserDataPaths(options: IResolveUserDataPathsOptions): IUs
 }
 
 /**
- * Принимает **id**, а не путь папки: адресация сторов не должна знать, из чего
- * идентичность выведена (`docs/TODO/MultiRoot.md`, M8).
+ * Takes an **id**, not a folder path: store addressing must not know what the
+ * identity is derived from (`docs/TODO/MultiRoot.md`, M8).
  */
 export function resolveWorkspaceStorageDir(workspaceStorageDir: string, workspaceId: WorkspaceId): string {
     return path.join(workspaceStorageDir, workspaceId);

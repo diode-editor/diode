@@ -16,9 +16,9 @@ function version(v: string, engines: IRegistryEngines, targetPlatform?: string):
 
 const HOST: IHostVersions = { diode: "0.3.0", vscode: "1.127.0" };
 const DEV_HOST: IHostVersions = { diode: "0.0.0-dev", vscode: "1.127.0" };
-/** Ночная сборка: версия вида `nightly-<sha>` — не semver. */
+/** Nightly build: a `nightly-<sha>` version is not semver. */
 const NIGHTLY_HOST: IHostVersions = { diode: "nightly-8263528d", vscode: "1.127.0" };
-/** Хост с prerelease-версией шима — проверяет семантику prerelease в диапазонах. */
+/** Host with a prerelease shim version, for prerelease semantics in ranges. */
 const PRERELEASE_HOST: IHostVersions = { diode: "0.3.0", vscode: "1.128.0-insider" };
 
 describe("isVersionCompatible", () => {
@@ -30,31 +30,31 @@ describe("isVersionCompatible", () => {
         ["оба заданы и проходят", { diode: "^0.3.0", vscode: "^1.90.0" }, HOST, true],
         ["оба заданы, diode не проходит", { diode: "^0.4.0", vscode: "^1.90.0" }, HOST, false],
         ["оба заданы, vscode не проходит", { diode: "^0.3.0", vscode: "^2.0.0" }, HOST, false],
-        // Dev-версия Diode пропускает diode-канал…
+        // A dev Diode version passes the diode channel...
         ["dev-хост пропускает diode-канал", { diode: "^99.0.0" }, DEV_HOST, true],
-        // …но не vscode-канал — версия шима всегда реальна.
+        // ...but not the vscode channel: the shim version is always real.
         ["dev-хост не пропускает vscode-канал", { diode: "^99.0.0", vscode: "^2.0.0" }, DEV_HOST, false],
-        // Ночная сборка (`nightly-<sha>`) — та же логика, что у dev: релизной версии нет.
+        // Nightly (`nightly-<sha>`) behaves like dev: there is no release version.
         ["nightly-хост пропускает diode-канал", { diode: "^99.0.0" }, NIGHTLY_HOST, true],
         ["nightly-хост не пропускает vscode-канал", { vscode: "^2.0.0" }, NIGHTLY_HOST, false],
-        // Полный язык диапазонов node-semver: engines прокси-расширений пишем не мы.
+        // Full node-semver range language: we don't write proxy extensions' engines.
         ["диапазон с ||", { vscode: "^1.60.0 || ^2.0.0" }, HOST, true],
         ["x-диапазон", { vscode: "1.x" }, HOST, true],
         ["x-диапазон другого major", { vscode: "2.x" }, HOST, false],
         ["дефисный диапазон", { vscode: "1.90.0 - 1.130.0" }, HOST, true],
         ["дефисный диапазон мимо", { vscode: "1.0.0 - 1.90.0" }, HOST, false],
-        // Prerelease-версия хоста в диапазон без явного запроса не попадает…
+        // A prerelease host version doesn't match a range that didn't ask for it...
         ["prerelease-хост вне обычного диапазона", { vscode: "^1.128.0" }, PRERELEASE_HOST, false],
-        // …и попадает, когда диапазон её запросил явно.
+        // ...and matches when the range asks for it explicitly.
         ["prerelease-хост в диапазоне с prerelease", { vscode: "^1.128.0-insider" }, PRERELEASE_HOST, true],
-        // Мусорный диапазон не бросает исключение, а даёт «несовместимо».
+        // A garbage range doesn't throw; it yields "incompatible".
         ["неразбираемый диапазон", { vscode: "не-диапазон" }, HOST, false],
     ] satisfies [string, IRegistryEngines, IHostVersions, boolean][])("%s", (_label, engines, host, expected) => {
         expect(isVersionCompatible(version("1.0.0", engines), host, semver)).toBe(expected);
     });
 });
 
-/** Хост с платформенным таргетом — путь платформенных vsix (charliermarsh.ruff). */
+/** Host with a platform target: the platform-specific vsix path (charliermarsh.ruff). */
 const LINUX_HOST: IHostVersions = { diode: "0.3.0", vscode: "1.127.0", targetPlatform: "linux-x64" };
 
 describe("isVersionCompatible: targetPlatform", () => {
@@ -62,7 +62,7 @@ describe("isVersionCompatible: targetPlatform", () => {
         ["universal совместима с платформенным хостом", undefined, LINUX_HOST, true],
         ["таргет совпал", "linux-x64", LINUX_HOST, true],
         ["таргет не совпал", "darwin-arm64", LINUX_HOST, false],
-        // Хост без таргета (экзотическая платформа) не должен получить чужой нативный бинарь.
+        // A host without a target (exotic platform) must not get a foreign native binary.
         ["платформенная запись при хосте без таргета", "linux-x64", HOST, false],
         ["universal при хосте без таргета", undefined, HOST, true],
     ] satisfies [string, string | undefined, IHostVersions, boolean][])("%s", (_label, target, host, expected) => {
@@ -99,8 +99,8 @@ describe("resolveCompatibleVersion", () => {
         expect(resolveCompatibleVersion([], HOST, semver)).toBeUndefined();
     });
 
-    // Оба порядка: не-semver запись не должна ни выигрывать, ни ломать сравнение
-    // с уже выбранным кандидатом.
+    // Both orders: a non-semver record must neither win nor break the comparison
+    // with an already chosen candidate.
     it.each([
         ["перед валидной", ["latest", "1.0.0"]],
         ["после валидной", ["1.0.0", "latest"]],
@@ -123,8 +123,8 @@ describe("resolveCompatibleVersion", () => {
         expect(resolveCompatibleVersion(versions, HOST, semver)?.version).toBe("1.2.0");
     });
 
-    // Обе перестановки: платформенная запись обязана победить не порядком в
-    // списке, а правилом «специфичнее — точнее».
+    // Both permutations: the platform record must win by the "more specific wins"
+    // rule, not by list order.
     it.each([
         ["universal раньше", [undefined, "linux-x64"]],
         ["платформенная раньше", ["linux-x64", undefined]],
@@ -136,8 +136,8 @@ describe("resolveCompatibleVersion", () => {
         },
     );
 
-    // Обе перестановки: специфичность не должна перебивать semver, даже когда
-    // платформенная запись сравнивается с уже выбранной universal повыше.
+    // Both permutations: specificity must not override semver, even when the platform
+    // record is compared against an already chosen higher universal one.
     it.each([
         ["платформенная раньше", ["linux-x64", undefined]],
         ["universal раньше", [undefined, "linux-x64"]],

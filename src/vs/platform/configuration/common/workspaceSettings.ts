@@ -4,7 +4,7 @@ import { workspaceConfigFilePath } from "../../workspace/common/workspaceConfigF
 
 import type { ConfigurationScope } from "./configurationRegistry.ts";
 
-/** У эталона — `.vscode/settings.json` (`FOLDER_SETTINGS_PATH`). */
+/** Upstream uses `.vscode/settings.json` (`FOLDER_SETTINGS_PATH`). */
 export const WORKSPACE_SETTINGS_PATH = workspaceConfigFilePath("settings.json");
 
 export function workspaceSettingsPath(folderPath: string): string {
@@ -18,13 +18,13 @@ export const WORKSPACE_SCOPES: readonly ConfigurationScope[] = [
     "machine-overridable",
 ];
 
-/** У окна из `.code-workspace` `window`-ключи берутся из файла воркспейса, а не папки. */
+/** In a `.code-workspace` window, `window` keys come from the workspace file, not the folder. */
 export const FOLDER_SCOPES: readonly ConfigurationScope[] = ["resource", "language-overridable", "machine-overridable"];
 
-/** Что именованный профиль берёт из Default: свойство установки, одно на все профили. */
+/** What a named profile takes from Default: a property of the installation, shared by all profiles. */
 export const APPLICATION_SCOPES: readonly ConfigurationScope[] = ["application"];
 
-/** `application`-ключ в файле профиля не действует — он пишется в `User/settings.json`. */
+/** An `application` key has no effect in a profile file: it is written to `User/settings.json`. */
 export const PROFILE_SCOPES: readonly ConfigurationScope[] = [
     "machine",
     "window",
@@ -33,12 +33,12 @@ export const PROFILE_SCOPES: readonly ConfigurationScope[] = [
     "machine-overridable",
 ];
 
-/** Незарегистрированный ключ (`undefined`) — можно. */
+/** An unregistered key (`undefined`) is allowed. */
 export function isWorkspaceScope(scope: ConfigurationScope | undefined): boolean {
     return scope === undefined || WORKSPACE_SCOPES.includes(scope);
 }
 
-/** Формулировка `ERROR_NO_WORKSPACE_OPENED` эталона. */
+/** Wording of upstream's `ERROR_NO_WORKSPACE_OPENED`. */
 export const NO_WORKSPACE_OPENED_ERROR =
     "Unable to write to Workspace Settings because no workspace is opened. Please open a workspace first and try again.";
 

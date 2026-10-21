@@ -18,10 +18,10 @@ export interface IInstalledExtension {
     readonly id: string;
     readonly version: string;
     readonly dir: string;
-    /** Странице расширения, поставленного мимо реестра, показать нечего, кроме манифеста. */
+    /** An extension installed outside the registry has nothing but its manifest to show on its page. */
     readonly displayName?: string;
     readonly description?: string;
-    /** Профиль берёт расширение вместе с ними (`ProfileExtensions.add`), даже если на диске они уже лежали. */
+    /** A profile takes the extension together with these (`ProfileExtensions.add`), even if they were already on disk. */
     readonly dependencies: readonly string[];
 }
 
@@ -35,21 +35,21 @@ function requireManifestString(manifest: Record<string, unknown>, field: string,
     return value;
 }
 
-/** Не `loadNlsBundle`: тот ходит через `IAssetAccess` (для builtin'ов в SEA), а installer — по физическим каталогам. */
+/** Not `loadNlsBundle`: it goes through `IAssetAccess` (for builtins in SEA), while the installer works on physical directories. */
 function readNlsBundleSync(dir: string, locale: string): INlsBundle | undefined {
     for (const file of nlsFileCandidates(locale)) {
         try {
-            // Декодирование явным шагом: так кодировка — наблюдаемое решение, а не
-            // подсказка, которую `JSON.parse` сгладил бы, приведя Buffer к строке сам.
+            // Explicit decoding makes the encoding an observable decision rather than a
+            // hint that `JSON.parse` would smooth over by stringifying the Buffer itself.
             return parseNlsBundle(fs.readFileSync(path.join(dir, file)).toString("utf8"));
         } catch {
-            // следующий кандидат
+            // try the next candidate
         }
     }
     return undefined;
 }
 
-/** `displayName`/`description` — **локализованные**: в манифесте там обычно `"%displayName%"`. */
+/** `displayName`/`description` are **localized**: the manifest usually has `"%displayName%"` there. */
 function readInstalled(extensionsDir: string): IInstalledExtension[] {
     let entries: fs.Dirent[];
     try {
@@ -83,8 +83,8 @@ function readInstalled(extensionsDir: string): IInstalledExtension[] {
             continue;
         }
 
-        // Бандл читаем безусловно: проверка «есть ли что локализовать» сэкономила бы
-        // один промах readFileSync ценой ветки, неотличимой по поведению.
+        // The bundle is read unconditionally: an "anything to localize?" check would save
+        // one readFileSync miss at the cost of a behaviorally indistinguishable branch.
         const nls = readNlsBundleSync(dir, UI_LOCALE);
         const { displayName, description } = localizeManifest(
             { displayName: manifest.displayName, description: manifest.description },
@@ -94,7 +94,7 @@ function readInstalled(extensionsDir: string): IInstalledExtension[] {
             id: `${publisher}.${name}`,
             version,
             dir,
-            // Пустое имя — не имя: карточка магазина показала бы пустую строку.
+            // An empty name is no name: the store card would show an empty string.
             displayName: typeof displayName === "string" && displayName.length > 0 ? displayName : undefined,
             description: typeof description === "string" ? description : undefined,
             dependencies: readExtensionDependencies(manifest),
@@ -103,7 +103,7 @@ function readInstalled(extensionsDir: string): IInstalledExtension[] {
     return result;
 }
 
-/** Ленивый кусок бандла (`scripts/build-lazy-chunks.mjs`): в `main.cjs` yauzl нет. */
+/** Lazy chunk (`scripts/build-lazy-chunks.mjs`): yauzl is not in `main.cjs`. */
 function loadYauzl(): Promise<typeof Yauzl> {
     return loadLazyModule("yauzl", () => import("yauzl"));
 }
@@ -136,8 +136,8 @@ async function extractExtensionPayload(vsixPath: string, destDir: string): Promi
                 const rel = name.slice(EXTENSION_PREFIX.length);
                 const target = path.resolve(destRoot, rel);
 
-                /* v8 ignore start -- defense-in-depth: yauzl отвергает `..`-имена
-                   ("error") до эмита "entry", поэтому сюда `..`-путь не доходит */
+                /* v8 ignore start -- defense-in-depth: yauzl rejects `..` names
+                   ("error") before emitting "entry", so a `..` path never gets here */
                 if (target !== destRoot && !target.startsWith(destRoot + path.sep)) {
                     zipfile.close();
                     reject(new Error(`Refusing to extract entry outside target dir (zip-slip): ${name}`));
@@ -145,15 +145,15 @@ async function extractExtensionPayload(vsixPath: string, destDir: string): Promi
                 }
                 /* v8 ignore stop */
 
-                // Unix-права — в верхних 16 битах externalFileAttributes, если архив собран
-                // на unix (versionMadeBy >> 8 === 3). Платформенные vsix несут нативные
-                // серверы (bundled ruff): без exec-бита их spawn падает EACCES.
+                // Unix permissions live in the upper 16 bits of externalFileAttributes when
+                // the archive was built on unix (versionMadeBy >> 8 === 3). Platform vsix
+                // ship native servers (bundled ruff): without the exec bit spawn fails with EACCES.
                 const unixMode = entry.versionMadeBy >>> 8 === 3 ? entry.externalFileAttributes >>> 16 : 0;
                 const executable = (unixMode & 0o111) !== 0;
 
                 zipfile.openReadStream(entry, (streamErr, readStream) => {
-                    /* v8 ignore start -- defensive: openReadStream ошибается лишь на
-                       повреждённых/неподдерживаемых записях, что не воспроизводится в тестах */
+                    /* v8 ignore start -- defensive: openReadStream fails only on
+                       corrupt/unsupported entries, which tests can't reproduce */
                     if (streamErr !== null) {
                         zipfile.close();
                         reject(streamErr);
@@ -165,7 +165,7 @@ async function extractExtensionPayload(vsixPath: string, destDir: string): Promi
                     readStream.on("error", reject);
                     writeStream.on("error", reject);
                     writeStream.on("close", () => {
-                        // Не mode у createWriteStream: тот режется umask'ом процесса.
+                        // Not createWriteStream's mode: that one is masked by the process umask.
                         if (executable) fs.chmodSync(target, 0o755);
                         zipfile.readEntry();
                     });
@@ -178,12 +178,12 @@ async function extractExtensionPayload(vsixPath: string, destDir: string): Promi
     });
 }
 
-/** Без распаковки: зависимости резолвятся до установки, чтобы их отказ не трогал диск (как `getAllDepsAndPackExtensions`). */
+/** No extraction: dependencies resolve before install so their failure leaves the disk untouched (like `getAllDepsAndPackExtensions`). */
 export async function readVsixManifest(vsixPath: string): Promise<Record<string, unknown>> {
     const yauzl = await loadYauzl();
     const malformed = (): Error =>
         new Error(`Invalid .vsix: missing or malformed extension/package.json in ${vsixPath}`);
-    // Нет записи манифеста — пустой текст: разбор ниже отвергнет его той же ошибкой.
+    // No manifest entry yields empty text, which the parsing below rejects with the same error.
     const text = await new Promise<string>((resolve, reject) => {
         yauzl.open(vsixPath, { lazyEntries: true }, (openErr, zipfile) => {
             if (openErr !== null) {
@@ -194,7 +194,7 @@ export async function readVsixManifest(vsixPath: string): Promise<Record<string,
                 reject(err);
             });
             zipfile.on("end", () => {
-                // Stryker disable next-line StringLiteral: любой не-JSON текст разбор ниже отвергнет той же ошибкой — содержимое строки ненаблюдаемо
+                // Stryker disable next-line StringLiteral: parsing below rejects any non-JSON text with the same error, so the string content is unobservable
                 resolve("");
             });
             zipfile.on("entry", (entry: Entry) => {
@@ -203,8 +203,8 @@ export async function readVsixManifest(vsixPath: string): Promise<Record<string,
                     return;
                 }
                 zipfile.openReadStream(entry, (streamErr, readStream) => {
-                    /* v8 ignore start -- defensive: см. extractExtensionPayload */
-                    // Stryker disable all: openReadStream ошибается лишь на повреждённых/неподдерживаемых записях, что не воспроизводится в тестах (та же ветка, что в extractExtensionPayload)
+                    /* v8 ignore start -- defensive: see extractExtensionPayload */
+                    // Stryker disable all: openReadStream fails only on corrupt/unsupported entries, which tests can't reproduce (same branch as in extractExtensionPayload)
                     if (streamErr !== null) {
                         zipfile.close();
                         reject(streamErr);
@@ -214,10 +214,10 @@ export async function readVsixManifest(vsixPath: string): Promise<Record<string,
                     /* v8 ignore stop */
                     const chunks: Buffer[] = [];
                     readStream.on("data", (chunk: Buffer) => chunks.push(chunk));
-                    // Stryker disable next-line StringLiteral,CallExpression: ошибка чтения уже открытой записи (сбой диска посреди чтения) в тестах не воспроизводится — та же защита, что в extractExtensionPayload
+                    // Stryker disable next-line StringLiteral,CallExpression: a read error on an already open entry (disk failure mid-read) can't be reproduced in tests; same guard as in extractExtensionPayload
                     readStream.on("error", reject);
                     readStream.on("end", () => {
-                        // Stryker disable next-line CallExpression: гигиена дескриптора — на Linux незакрытый архив не мешает ни чтению, ни удалению каталога; наблюдаемо разве что на Windows
+                        // Stryker disable next-line CallExpression: descriptor hygiene; on Linux an unclosed archive blocks neither reading nor deleting the directory, observable only on Windows
                         zipfile.close();
                         resolve(Buffer.concat(chunks).toString());
                     });
@@ -230,19 +230,19 @@ export async function readVsixManifest(vsixPath: string): Promise<Record<string,
     try {
         parsed = JSON.parse(text);
     } catch {
-        // та же ошибка, что «не объект», ниже
+        // same error as "not an object" below
     }
     if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) throw malformed();
     return parsed as Record<string, unknown>;
 }
 
-/** Старые версии сносятся только после успешной установки новой: битый `.vsix` не разрушает текущую. */
+/** Old versions are removed only after the new one installs successfully: a broken `.vsix` doesn't destroy the current one. */
 export async function installVsix(
     vsixPath: string,
     extensionsDir: string,
 ): Promise<{ id: string; version: string; previous: string[] }> {
     fs.mkdirSync(extensionsDir, { recursive: true });
-    // Temp в том же каталоге, что и цель: rename атомарен, без EXDEV.
+    // Temp lives in the target's directory so rename is atomic, with no EXDEV.
     const tempDir = fs.mkdtempSync(path.join(extensionsDir, ".vsix-install-"));
 
     try {
@@ -263,7 +263,7 @@ export async function installVsix(
         const id = `${publisher}.${name}`;
 
         const targetDir = path.join(extensionsDir, `${id}-${version}`);
-        // В temp уже лежит package.json — readInstalled принял бы его за установленную версию.
+        // Temp already holds a package.json, which readInstalled would take for an installed version.
         const sameId = readInstalled(extensionsDir).filter((e) => e.id === id && e.dir !== tempDir);
         const previous = sameId.map((e) => e.version);
 

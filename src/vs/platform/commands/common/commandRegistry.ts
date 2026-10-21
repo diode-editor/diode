@@ -22,9 +22,9 @@ interface CommandEntry {
 export interface ICommandSnapshot {
     readonly id: string;
     readonly title: string;
-    /** Реестр его НЕ проверяет — принуждает сам хендлер (`registerAction`); здесь только метаданные. */
+    /** The registry does NOT check it; the handler itself enforces it (`registerAction`). Metadata only. */
     readonly enablement?: string;
-    /** В заголовок не входит, как в VS Code: префикс только в палитре ({@link commandPaletteLabel}). */
+    /** Not part of the title, as in VS Code: the prefix appears only in the command palette ({@link commandPaletteLabel}). */
     readonly category?: string;
 }
 
@@ -55,10 +55,11 @@ export class CommandRegistry implements IDisposable {
     }
 
     /**
-     * Единственная общая точка, где у промиса команды появляется обработчик отказа:
-     * зовут их «выстрелил и забыл», а необработанный отказ убивает процесс со всеми
-     * несохранёнными буферами (так F12 в `jdt:`-ресурс уносил редактор). Обработчик
-     * вешаем на исходный промис, а не подменяем его: ждущему (`executeCommand`) отказ доедет.
+     * The single shared place where a command promise gets a rejection handler:
+     * callers fire and forget, and an unhandled rejection kills the process with all
+     * unsaved buffers (that is how F12 into a `jdt:` resource took the editor down).
+     * The handler is attached to the original promise rather than replacing it, so an
+     * awaiting caller (`executeCommand`) still gets the rejection.
      */
     public execute(id: string, ...args: unknown[]): unknown {
         const entry = this.entries.get(id);

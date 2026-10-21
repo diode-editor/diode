@@ -314,9 +314,9 @@ describe("registerAction — вес кейбиндов", () => {
             weight: 50,
             keybindings: [{ keys: parseKeybinding("f1") }, { keys: parseKeybinding("f2") }],
         });
-        // F1: собственный вес бинда (100) сильнее веса чужого экшена (50).
+        // F1: the binding's own weight (100) beats the other action's weight (50).
         expect(resolve(keybindings, KEY("F1"))).toBe("heavy");
-        // F2: у бинда веса нет — берётся вес экшена (0 против 50).
+        // F2: the binding has no weight, so the action's weight applies (0 vs 50).
         expect(resolve(keybindings, KEY("F2"))).toBe("light");
     });
 });
@@ -369,8 +369,8 @@ describe("registerAction — enablement", () => {
     it("команда без enablement не требует ContextKeyService в контейнере", () => {
         const commands = new CommandRegistry();
         const run = vi.fn();
-        // Пустой контейнер: минимальные стенды тестов экшенов биндят только то,
-        // что нужно самому экшену, и guard не должен этого ломать.
+        // Empty container: minimal action test setups bind only what the action
+        // itself needs, and the guard must not break that.
         registerAction(commands, new KeybindingRegistry(), new Container(), {
             id: "test.action",
             title: "Test",

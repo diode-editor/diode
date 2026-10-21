@@ -124,8 +124,8 @@ describe("MenuRegistry", () => {
             "Title:second",
         ]);
 
-        // И симметрично: когда navigation вставлена первой, остальные группы
-        // всё равно уходят после неё (сравнение с navigation справа).
+        // And symmetrically: when navigation is inserted first, the other groups
+        // still go after it (navigation on the right-hand side of the comparison).
         const first = setup([
             { menuId: MenuId.EditorContext, command: "nav", group: "navigation" },
             { menuId: MenuId.EditorContext, command: "other", group: "1_other" },
@@ -139,7 +139,7 @@ describe("MenuRegistry", () => {
             { menuId: MenuId.EditorContext, command: "ungrouped-b" },
             { menuId: MenuId.EditorContext, command: "ungrouped-a" },
         ]);
-        // "" сортируется раньше "1_g"; внутри "" — стабильно по вставке (order default 0).
+        // "" sorts before "1_g"; within "" the insertion order is stable (order defaults to 0).
         expect(labels(h.registry.getMenuItems(MenuId.EditorContext))).toEqual([
             "Title:ungrouped-b",
             "Title:ungrouped-a",
@@ -188,7 +188,7 @@ describe("MenuRegistry", () => {
         h.contextKeys.set("isMac", true);
         h.contextKeys.set("macKeys", 3);
         expect(items(h.registry.getMenuItems(MenuId.EditorContext)).map((e) => e.shortcut)).toEqual(["⇧⌘P"]);
-        h.contextKeys.set("macKeys", 1); // mac-legacy: Cmd не доезжает — показываем Ctrl-вариант
+        h.contextKeys.set("macKeys", 1); // mac-legacy: Cmd does not get through, so the Ctrl variant is shown
         expect(items(h.registry.getMenuItems(MenuId.EditorContext)).map((e) => e.shortcut)).toEqual(["⌃⇧P"]);
     });
 
@@ -228,7 +228,7 @@ describe("MenuRegistry", () => {
         expect(labels(h.registry.getMenuItems(MenuId.EditorContext))).toEqual(["Title:base", "Added"]);
         handle.dispose();
         expect(labels(h.registry.getMenuItems(MenuId.EditorContext))).toEqual(["Title:base"]);
-        handle.dispose(); // idempotent — пункт уже снят
+        handle.dispose(); // idempotent: the item is already removed
         expect(labels(h.registry.getMenuItems(MenuId.EditorContext))).toEqual(["Title:base"]);
     });
 
@@ -249,10 +249,10 @@ describe("MenuRegistry", () => {
                 mnemonic: "f",
                 order: 10,
             },
-            // Чужая точка и непроходящий when — не попадают в выдачу.
+            // Another menu and a failing when are excluded from the result.
             { menuId: MenuId.EditorContext, submenu: MenuId.MenubarHelpMenu, title: "Elsewhere" },
             { menuId: MenuId.MenubarMainMenu, submenu: MenuId.MenubarViewMenu, title: "Focused", when: "listFocus" },
-            // Обычный пункт-команда в той же точке — не submenu, отфильтрован.
+            // A plain command item in the same menu is not a submenu and is filtered out.
             { menuId: MenuId.MenubarMainMenu, command: "not-a-submenu" },
         ]);
         expect(registry.getSubmenus(MenuId.MenubarMainMenu)).toEqual([
@@ -288,7 +288,7 @@ describe("MenuRegistry", () => {
             entries: [],
         });
 
-        // Контекст другой секции: submenu с visible скрыто; when-гейт тоже false.
+        // Another section's context: the submenu with visible is hidden; the when gate is false too.
         let titles = h.registry
             .getMenuItems(MenuId.ViewTitle, { view: "graph" }, resolver as never)
             .map((e) => ("label" in e ? e.label : "—"));
@@ -313,7 +313,7 @@ describe("MenuRegistry", () => {
         handle.dispose();
         expect(changed).toEqual(["EditorContext", "EditorContext"]);
 
-        handle.dispose(); // пункт уже снят — события нет
+        handle.dispose(); // item already removed: no event
         expect(changed).toEqual(["EditorContext", "EditorContext"]);
     });
 
@@ -350,7 +350,7 @@ describe("MenuRegistry — enablement", () => {
         h.contextKeys.set("gitOperationInProgress", true);
 
         const entries = h.registry.getMenuItems(MenuId.ExplorerContext);
-        // В отличие от `when`, пункт остаётся в списке — гасится, а не исчезает.
+        // Unlike `when`, the item stays in the list: it is disabled, not removed.
         expect(entries).toHaveLength(1);
         expect(entryOf(h).enabled).toBe(false);
         expect(entryOf(h).disabled).toBe(true);

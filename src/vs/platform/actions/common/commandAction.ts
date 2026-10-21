@@ -16,12 +16,12 @@ export interface ConditionalKeybinding {
 
 export type KeybindingEntry = Keybinding | KeybindingChord | ConditionalKeybinding;
 
-/** Как `IMenuContribution` минус `command` (это id экшена); поле `menu` у `registerAction2` VS Code. */
+/** `IMenuContribution` minus `command` (that is the action id); the `menu` field of VS Code `registerAction2`. */
 export interface CommandMenuPlacement {
     readonly menuId: MenuId;
     readonly title?: string;
     readonly when?: string;
-    /** Сужает {@link CommandAction.enablement} (AND). */
+    /** Narrows {@link CommandAction.enablement} (AND). */
     readonly enablement?: string;
     readonly visible?: (context: unknown) => boolean;
     readonly toggled?: string;
@@ -29,21 +29,21 @@ export interface CommandMenuPlacement {
     readonly order?: number;
     readonly icon?: string;
     readonly args?: (context: unknown) => readonly unknown[];
-    /** `false` — не показывать шорткат; строка — литерал; иначе — из `KeybindingRegistry`. */
+    /** `false` hides the shortcut; a string is a literal; otherwise it comes from `KeybindingRegistry`. */
     readonly shortcut?: string | false;
 }
 
 export interface CommandAction {
     readonly id: string;
     readonly title: string;
-    /** Без категории («File: Copy» → «Copy»): палитра показывает `title`, меню — его. */
+    /** Without the category ("File: Copy" → "Copy"): the command palette shows `title`, menus show this. */
     readonly shortTitle?: string;
     readonly keybinding?: KeybindingEntry;
     readonly keybindings?: KeybindingEntry[];
     readonly when?: string;
-    /** По умолчанию `EditorCore`; при равном весе сильнее зарегистрированный позже. */
+    /** Defaults to `EditorCore`; on equal weight the later registration wins. */
     readonly weight?: number;
-    /** Как `precondition` VS Code: `when` прячет пункт, а этот гасит — пункт на месте, но не исполняется. */
+    /** Like VS Code `precondition`: `when` hides the item, this one disables it (the item stays but does not run). */
     readonly enablement?: string;
     readonly menus?: readonly CommandMenuPlacement[];
     run(accessor: ServiceAccessor, ...args: unknown[]): unknown;
@@ -68,8 +68,8 @@ export function registerAction(
 ): IDisposable {
     const disposables: IDisposable[] = [];
 
-    // Guard на самой команде накрывает ВСЕ пути запуска, а не только рисующие пункт.
-    // Сервис резолвим лениво: команды без `enablement` не должны требовать его биндинга.
+    // A guard on the command itself covers ALL invocation paths, not just the ones that render an item.
+    // The service is resolved lazily: commands without `enablement` must not require it to be bound.
     const handler = (...args: unknown[]): unknown => {
         if (action.enablement !== undefined && !accessor.get(ContextKeyServiceDIToken).evaluate(action.enablement)) {
             return undefined;
@@ -86,8 +86,8 @@ export function registerAction(
         allBindings.push(...action.keybindings);
     }
 
-    // `enablement` в when биндинга, как `precondition` у VS Code: иначе диспетчер
-    // проглотил бы клавишу и не сделал ничего, а так она уходит дальше по цепочке.
+    // `enablement` goes into the binding's when, like VS Code `precondition`: otherwise the dispatcher
+    // would swallow the key and do nothing; this way it falls through the chain.
     const scope = combineWhen(action.when, action.enablement);
     for (const entry of allBindings) {
         const { keys, when, weight } = isConditionalKeybinding(entry)

@@ -8,8 +8,8 @@ describe("InMemoryClipboardMetadataManager", () => {
         manager.set("line\n", { isFromEmptySelection: true });
 
         expect(manager.get("line\n")).toEqual({ isFromEmptySelection: true });
-        // Буфер сменился снаружи — метаданные молча устаревают, иначе чужой
-        // текст вставлялся бы «линейно» по памяти о прошлом копировании.
+        // The clipboard changed externally: the metadata silently goes stale, otherwise foreign
+        // text would be pasted "as a line" based on the previous copy.
         expect(manager.get("other")).toBeNull();
     });
 

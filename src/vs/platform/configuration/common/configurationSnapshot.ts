@@ -8,7 +8,7 @@ import type { IConfigurationPropertySchema } from "./configurationRegistry.ts";
 import { languageConfiguration, sanitizeConfiguration } from "./configurationValidation.ts";
 import type { IConfigurationChangeEvent, IConfigurationOverrides } from "./iConfigurationService.ts";
 
-/** `merged` — сырое слияние для диффа; модели для чтения прошли схему, по языку — лениво. */
+/** `merged` is the raw merge for diffing; read models are schema-validated, per-language ones lazily. */
 export class ConfigurationSnapshot {
     private readonly base: ConfigurationModel;
     private readonly languages = new Map<string, ConfigurationModel>();
@@ -22,7 +22,7 @@ export class ConfigurationSnapshot {
 
     public model(overrides?: IConfigurationOverrides): ConfigurationModel {
         const identifier = overrides?.overrideIdentifier;
-        // Stryker disable next-line ConditionalExpression: без языка путь через секцию даёт равную модель (секции нет) — ветка экономит пересборку
+        // Stryker disable next-line ConditionalExpression: without a language the section path yields an equal model (no section); the branch saves a rebuild
         if (identifier === undefined) return this.base;
         let model = this.languages.get(identifier);
         if (model === undefined) {
