@@ -23,7 +23,7 @@
 - [x] `workbench/browser`: верхний уровень и actions (1503) — #733
 - [x] `workbench/services/extensions/node/extensionHost.*` (1308) — #734
 - [x] `workbench/services/extensions`: остальное (1828) — #735
-- [~] `workbench/services`: остальное (2563)
+- [x] `workbench/services`: остальное (2563) — #736
 - [x] `workbench/api`: browser, node, common a–l (1926) — #737
 - [~] `workbench/api/common` m–z (1595)
 - [~] `workbench/contrib`: scm, terminal, tasks (1917)
