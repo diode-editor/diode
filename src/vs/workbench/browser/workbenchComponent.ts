@@ -68,22 +68,9 @@ import { WorkbenchStateServiceDIToken } from "./workbenchStateService.ts";
 export const WorkbenchComponentDIToken = token<WorkbenchComponent>("WorkbenchComponent");
 
 /**
- * Корневой компонент приложения (аналог Workbench-части в VS Code): владеет
- * корневой view (`BodyElement` + `WorkbenchLayoutElement`), вставляет в неё view
- * компонентов, прикрепляет late-init швы (`attachHost`/`attachLayout`/
- * `attachView`), регистрирует встроенные экшены (`CommandActionsDIToken`, список — `WORKBENCH_ACTIONS` агрегатора) и красит
- * собственные контролы (BodyElement/сэши) в {@link updateStyles}. Логика живёт
- * в сервисах Workbench.
- *
- * Фич-проводка (подписки на события, live-reload темы, контекст-меню и т.п.) —
- * НЕ здесь, а в самодостаточных workbench-contribution'ах: корень лишь прогоняет
- * их по фазам `LifecycleService` через реестр (`ready` двигает {@link mount},
- * `eventually` — стартовая последовательность после первого кадра).
- *
- * Единственный компонент с жизненным циклом за пределами конструктора: у корня
- * есть реальная стартовая последовательность, которую ведёт `diode/workbenchStartup.ts`
- * (mount → activate → open/restore файлов) — см. {@link mount}/{@link activate}.
- * Выхода здесь нет: его ведут `quitAction` и `LifecycleService.shutdown`.
+ * Фич-проводка живёт не здесь, а в workbench-contribution'ах, которые корень
+ * прогоняет по фазам `LifecycleService`. Стартовую последовательность
+ * (mount → activate → open/restore) ведёт `diode/workbenchStartup.ts`.
  */
 export class WorkbenchComponent extends Component {
     public static dependencies = [
@@ -121,9 +108,8 @@ export class WorkbenchComponent extends Component {
     private dispatcher: KeybindingDispatcher;
     private lifecycleService: LifecycleService;
     /**
-     * Взведён в {@link mount}. Отличает бутстрап (там единственную загрузку
-     * дерева await'ит `activate()`) от смены корня на живом приложении, где
-     * наполнить дерево обязан сам {@link setWorkspaceFolder}.
+     * Отличает бутстрап (там загрузку дерева await'ит `activate()`) от смены
+     * корня на живом приложении, где наполнить дерево обязан {@link setWorkspaceFolder}.
      */
     private mounted = false;
 
@@ -141,8 +127,7 @@ export class WorkbenchComponent extends Component {
     ) {
         super();
         // Корневая view — первой: оверлеи фич создают сессии на её слое в своих
-        // конструкторах (`LayoutService.mainContainer`), поэтому корень обязан
-        // быть прикреплён до резолва любой фичи.
+        // конструкторах, поэтому корень обязан быть прикреплён до резолва любой фичи.
         this.view = new BodyElement();
         this.view.id = "workbench";
         this.layoutService = this.register(accessor.get(LayoutServiceDIToken));
@@ -151,22 +136,12 @@ export class WorkbenchComponent extends Component {
         this.terminalEnv = terminalEnv;
         this.dialogService = this.register(dialogService);
         this.lifecycleService = lifecycleService;
-        // Несохранённые редакторы участвуют в confirm-save последовательности выхода.
         lifecycleService.registerShutdownParticipant(editorService);
         this.editorService = this.register(editorService);
-        // Editor-кластер: компонент группового контрола (tab strip + контент
-        // активного редактора) поверх IEditorService.
         this.editorPartComponent = this.register(accessor.get(EditorPartComponentDIToken));
-        // Единственный источник правды о папках воркспейса: владельцем набора
-        // папок является этот компонент (см. setWorkspaceFolder), все остальные
-        // читают IWorkspaceContextService.
         this.workspaceContext = accessor.get(WorkspaceContextServiceDIToken);
-        // Реестр workbench-contributions (агрегатор — `workbench.common.main.ts`):
-        // фич-компоненты и их сервисы — фаза `blockStartup`, прямо здесь, после
-        // прикрепления корневой view (хост оверлеев) и до setWorkspaceFolder
-        // бутстрапа; фич-проводка — по фазам жизненного цикла, синхронно в
-        // момент перехода: `ready` наступает в mount(), `eventually` — после
-        // первого кадра (workbenchStartup). Реестр владеет их жизнью.
+        // Фаза `blockStartup` — прямо здесь: после прикрепления корневой view
+        // (хост оверлеев) и до setWorkspaceFolder бутстрапа.
         const contributionsRegistry = this.register(accessor.get(WorkbenchContributionsRegistryDIToken));
         contributionsRegistry.instantiateByPhase("blockStartup");
         this.register(
@@ -174,33 +149,18 @@ export class WorkbenchComponent extends Component {
                 contributionsRegistry.instantiateByPhase(phase);
             }),
         );
-        // Ссылки на фичи, которые корень ещё дёргает сам: корень дерева Explorer'а
-        // и cwd терминала берут ровно ту строку пути, что открыли (см.
-        // setWorkspaceFolder), — владеет ими реестр, здесь только кэш DI.
         this.explorerService = accessor.get(ExplorerServiceDIToken);
         this.terminalService = accessor.get(TerminalServiceDIToken);
-        // Клавиатурный диспатчер: WorkbenchComponent владеет его жизнью и подключает
-        // view-хук модальных оверлеев (хук контекст-ключей замыкает на себя
-        // WorkbenchContextKeys) — сам сервис про view ничего не знает.
         this.dispatcher = this.register(accessor.get(KeybindingDispatcherDIToken));
         this.dispatcher.hasKeyboardCapturingOverlay = () => this.view.overlayLayer.hasKeyboardCapturingOverlay();
-        // Capture-phase listeners run before the focused widget (the target),
-        // so while a chord is in progress they can swallow keys entirely —
-        // keeping them out of the editor whether or not they match a command.
-        // Сама обработка живёт в KeybindingDispatcher; WorkbenchComponent лишь
-        // вешает его листенеры на корневое дерево, которым владеет. Вешаются
-        // ДО главного меню: мнемоники (Alt+буква) слушаются на том же корне в
-        // bubble-фазе, а слушатели одного узла идут в порядке подписки — так
-        // кейбинд (в т.ч. пользовательский `alt+<буква>`) сильнее мнемоники, как в
-        // VS Code; съевший клавишу диспетчер глушит остальных слушателей корня.
-        // Страховка dirty-гейта кадра ввода: съеденный кейбинд (defaultPrevented)
-        // мог выполнить команду, меняющую состояние мимо всех markDirty-сеттеров
-        // (scrollLineUp пишет viewState.scrollTop напрямую, unfold — регионы).
-        // Fallback-вариант под damage-tracking: срабатывает, только если ни один
-        // обработчик ничего не пометил, — иначе markDirty корня превращал бы
-        // каждую съеденную клавишу в полноэкранный damage. Команда, честно
-        // пометившая виджет, даёт частичный кадр; забытый markDirty по-прежнему
-        // даёт полный (rect корня накрывает всё).
+        // Capture-фаза идёт раньше виджета в фокусе: посреди аккорда клавиши
+        // глотаются, не доходя до редактора. Вешаются ДО главного меню: мнемоники
+        // слушаются на том же корне, а слушатели узла идут в порядке подписки —
+        // так кейбинд (в т.ч. `alt+<буква>`) сильнее мнемоники, как в VS Code.
+        // markIfConsumed — страховка dirty-гейта: съеденный кейбинд мог поменять
+        // состояние мимо markDirty-сеттеров (scrollLineUp, unfold). Срабатывает,
+        // только если никто ничего не пометил, — иначе каждая съеденная клавиша
+        // давала бы полноэкранный damage.
         const markIfConsumed =
             (handler: (event: TUIKeyboardEvent) => void) =>
             (event: TUIKeyboardEvent): void => {
@@ -215,19 +175,11 @@ export class WorkbenchComponent extends Component {
         this.view.addEventListener("keypress", this.dispatcher.handleKeyPressCapture, { capture: true });
         this.view.addEventListener("keydown", markIfConsumed(this.dispatcher.handleKeyDown));
         this.view.addEventListener("keyup", this.dispatcher.handleKeyUp);
-        // QuickInput-кластер: файловый индекс, общий виджет-компонент (host
-        // прикрепляется ниже, после постройки view) и InputBox/list-pick сервис.
-        // WorkbenchComponent владеет их жизнью.
         this.fileSearchService = this.register(accessor.get(FileSearchServiceDIToken));
         const quickInputComponent = this.register(accessor.get(QuickInputComponentDIToken));
         this.quickInput = accessor.get(QuickInputServiceDIToken);
         this.statusBarComponent = this.register(statusBarComponent);
-        // Реестр вкладок нижней панели; вкладки — контейнеры фич (см. mount()).
         const panelComponent = this.register(accessor.get(PanelComponentDIToken));
-        // Layout-логика (сайдбар/панель + персист layout'а) и контекст-ключи
-        // workbench'а (фокус/сервисы → ContextKeyService; замыкают хук
-        // dispatcher.updateContextKeys). Сам layout-элемент и корневую view
-        // прикрепляем ниже, как только они построены.
         this.sidebarService = accessor.get(SidebarServiceDIToken);
         this.viewsService = accessor.get(ViewsServiceDIToken);
         this.workbenchContextKeys = this.register(accessor.get(WorkbenchContextKeysDIToken));
@@ -235,54 +187,35 @@ export class WorkbenchComponent extends Component {
         this.workbenchLayout = new WorkbenchLayoutElement();
         this.workbenchLayout.setCenterContent(this.editorPartComponent.view);
         this.workbenchLayout.setBottomPanel(panelComponent.view);
-        // Вторичная боковая панель — правая колонка во всю высоту (у эталона —
-        // с противоположной от сайдбара стороны).
+        // Правая колонка во всю высоту (у эталона — со стороны, противоположной сайдбару).
         this.workbenchLayout.setRightPanel(this.register(accessor.get(AuxiliaryBarComponentDIToken)).view);
         this.layoutService.attachLayout(this.workbenchLayout);
-        // Персист открытых редакторов (write-through подписан на IEditorService
-        // внутри сервиса; layout персистит LayoutService через onDidChangeLayout).
         this.workbenchState = this.register(accessor.get(WorkbenchStateServiceDIToken));
-        // Персист раскладки групп: срез view-части (ось/доли/вместимость) +
-        // write-through по действиям пользователя (drag саша, resize, тумблер оси).
         this.workbenchState.attachEditorLayout(this.editorPartComponent);
         this.editorPartComponent.onDidChangeGroupLayout = () => {
             this.workbenchState.captureOpenEditors();
         };
 
         this.dialogService.attachHost(this.view);
-        // Темизированные стили контекстных меню: сервис показывает попапы сам,
-        // тему знает только workbench — прикрепляем поставщика (как attachHost).
         this.view.setContent(this.workbenchLayout);
         this.view.setStatusBar(this.statusBarComponent.view);
-        // Источник фокуса для контекст-ключей — FocusManager корневой view.
         this.workbenchContextKeys.attachView(this.view);
 
-        // Общий виджет QuickInput/QuickOpen живёт в overlay-слое корневой view.
         quickInputComponent.attachHost(this.view);
-        // Оверлей серии Ctrl+Tab (MRU-список вкладок) — passthrough-сессия
-        // того же слоя; показ/скрытие ведут события IEditorService.
         this.register(accessor.get(TabSwitcherComponentDIToken)).attachHost(this.view);
-        // Сообщения: стек тостов в правом нижнем углу (passthrough) и окно
-        // модального сообщения по центру — тот же слой.
         this.notificationsComponent = this.register(accessor.get(NotificationsComponentDIToken));
         this.notificationsComponent.attachHost(this.view);
         for (const action of accessor.get(CommandActionsDIToken)) {
-            // Мак-дельты (таблица macKeybindings.ts) — поверх объявленных биндов.
             this.register(registerAction(commands, keybindings, accessor, withMacKeybindings(action)));
         }
-        // Слой user реестра: его бинды сильнее default и extension, а снятия
-        // (`-command`) убирают дефолты и бинды расширений — когда бы те ни
-        // зарегистрировались. Слоем владеет KeybindingsEditorService: правки во
-        // вкладке шорткатов пересобирают его из записанного keybindings.json.
+        // Слой user сильнее default и extension, а снятия (`-command`) убирают
+        // бинды, когда бы те ни зарегистрировались.
         this.register(accessor.get(KeybindingsEditorServiceDIToken)).applyUserKeybindings(userKeybindings);
 
-        // Главное меню строится ПОСЛЕ применения user keybindings: шорткаты
-        // пунктов резолвятся из реестра биндингов на момент постройки модели.
         const menuBarComponent = this.register(accessor.get(MenuBarComponentDIToken));
         this.view.setMenuBar(menuBarComponent.view);
 
-        // Единственная точка «тема → корневой var-scope» (Н3): onThemeChange
-        // файрит сразу с текущей темой, дальше цвета расходятся каскадом токенов.
+        // Единственная точка «тема → корневой var-scope» (Н3).
         this.register(
             this.themeService.onThemeChange((theme) => {
                 applyThemeVars(this.view, theme);
@@ -293,33 +226,21 @@ export class WorkbenchComponent extends Component {
 
     public mount(): void {
         this.mounted = true;
-        // Сайдбар собирается до restoreLayout() в хвосте этого же метода —
-        // порядок тот же, что был, когда контейнеры жили в setWorkspaceFolder
-        // (бутстрап зовёт его ДО mount).
+        // До restoreLayout() в хвосте метода: бутстрап зовёт setWorkspaceFolder ДО mount.
         this.viewsService.attachRegisteredContainers();
-        // Свёрнутость/веса/скрытость секций — строго ПОСЛЕ сборки контейнеров:
-        // применять их не на что, пока панелей нет. Собственный restore в
-        // setWorkspaceFolder на бутстрапе именно поэтому и впустую — он нужен
-        // команде Open Folder, которая меняет воркспейс на уже собранном сайдбаре.
+        // Строго ПОСЛЕ сборки контейнеров: применять не на что, пока панелей нет.
+        // restore в setWorkspaceFolder на бутстрапе поэтому впустую — он для Open Folder.
         this.viewsService.restoreViewsState();
-        // Фаза Ready: view построена, лёгкие сервисы готовы — реестр инстанцирует
-        // contribution'ы этой фазы (статус-бар и пр.). Между конструктором и mount
-        // ни один редактор не открывается → эквивалентно прежней проводке в ctor.
         this.lifecycleService.setPhase("ready");
-        // Фокус-события уходят в WorkbenchContextKeys (пересчёт контекст-ключей).
         this.view.addEventListener("focus", this.workbenchContextKeys.handleFocusChange, { capture: true });
         this.view.addEventListener("blur", this.workbenchContextKeys.handleFocusChange, { capture: true });
-        // Применяем сохранённый layout до первого кадра (run() идёт после mount()).
-        // Workspace-стор уже открыт: setWorkspaceFolder вызывается до mount().
-        // restoreLayout также синхронизирует истину видимости панели в PanelService.
+        // До первого кадра; workspace-стор уже открыт (setWorkspaceFolder идёт до mount()).
         this.layoutService.restoreLayout();
     }
 
     public async activate(): Promise<void> {
-        // Terminal tier/modes are already detected synchronously (env vars) in the env
-        // service constructor, so context keys are correct from the first keypress —
-        // push them now. Then kick off the fire-and-forget keyboard-protocol probe; if it
-        // confirms richer support it upgrades the tier via onDidChange. Nothing blocks here.
+        // Тир терминала определён синхронно в конструкторе env-сервиса — ключи
+        // верны с первой клавиши; проба протокола клавиатуры апгрейдит его позже.
         this.workbenchContextKeys.update();
         this.terminalEnv.detect();
         await this.editorService.activate();
@@ -331,70 +252,44 @@ export class WorkbenchComponent extends Component {
         this.workbenchContextKeys.update();
     }
 
-    /** Пути, которые откроет {@link restoreOpenEditors} — бутстрапу для прогрева грамматик. */
     public getOpenEditorsToRestore(): string[] {
         return this.workbenchState.getOpenEditorsToRestore();
     }
 
-    /**
-     * Восстанавливает открытые в прошлой сессии файлы этого воркспейса (реплей
-     * сохранённых путей + активная вкладка). Вызывается из `main.ts`, только если
-     * пользователь НЕ передал файлы в CLI (явные файлы перебивают сессию).
-     */
+    /** Только если пользователь НЕ передал файлы в CLI: явные файлы перебивают сессию. */
     public restoreOpenEditors(): void {
         this.workbenchState.restoreOpenEditors();
         this.workbenchContextKeys.update();
     }
 
     /**
-     * Открывает папку как воркспейс. Здесь остаётся ТОЛЬКО то, что зависит от
-     * папки: контейнеры сайдбара живут своей жизнью (их собирает `mount()`).
-     * Зовётся из бутстрапа (до `mount()`) и из команды Open Folder (после), так
-     * что ничего «одноразового» тут быть не должно.
+     * Зовётся из бутстрапа (до `mount()`) и из Open Folder (после) — ничего
+     * «одноразового» тут быть не должно.
      */
     public setWorkspaceFolder(dirPath: string): void {
-        // Источник правды о папках — IWorkspaceContextService, и ставится он
-        // ПЕРВЫМ: всё ниже (и подписчики onDidChangeWorkspaceFolders) обязано
-        // видеть уже новую папку. Здесь же считается идентичность проекта.
+        // Ставится ПЕРВЫМ: всё ниже (и подписчики onDidChangeWorkspaceFolders)
+        // обязано видеть уже новую папку.
         this.openWorkspaceFolder(dirPath, this.workspaceContext.setWorkspaceFolder(dirPath));
     }
 
-    /**
-     * Открывает воркспейс из файла `.code-workspace` (уже разобранного —
-     * `parseWorkspaceFile`): папка та, что названа в файле, а идентичность
-     * проекта — от пути файла. Зовётся из бутстрапа и из команды Open Workspace
-     * from File; дальше всё как у {@link setWorkspaceFolder}.
-     */
+    /** Папка — названная в файле, идентичность проекта — от пути файла. */
     public openWorkspaceFile(filePath: string, contents: IWorkspaceFileContents): void {
         this.openWorkspaceFolder(contents.folder, this.workspaceContext.setWorkspaceFile(filePath, contents));
     }
 
-    /** Общий хвост открытия: всё, что зависит от папки и идентичности проекта. */
     private openWorkspaceFolder(dirPath: string, workspaceId: WorkspaceId): void {
         this.explorerService.setRootPath(dirPath);
-        // Новые терминалы спавнятся в папке воркспейса.
         this.terminalService.setWorkingDirectory(dirPath);
-        // Открыть per-project стор состояния этого проекта (переключение флашит
-        // предыдущий). Адресуется ИДЕНТИЧНОСТЬЮ воркспейса, а не путём папки —
-        // см. resolveWorkspaceStorageDir. Дальше layout/открытые файлы
-        // читаются/пишутся в него.
+        // Адресуется ИДЕНТИЧНОСТЬЮ воркспейса, а не путём папки (resolveWorkspaceStorageDir).
         this.workbenchState.openWorkspace(workspaceId);
-        // Состояние view (режим поиска и SCM, черновик коммита, свёрнутость/веса
-        // секций) фичи восстанавливают сами по `IStateService.onDidOpenWorkspace`
-        // — синхронно внутри openWorkspace, то есть уже из стора проекта.
-        // Fire-and-forget: the index builds in the background so startup and the
-        // first render are not blocked. `fileIndexReady` exposes completion for
-        // callers (and tests) that need the index populated.
+        // Состояние view фичи восстанавливают сами по `onDidOpenWorkspace` —
+        // синхронно внутри openWorkspace. Индекс строится в фоне, не блокируя первый кадр.
         void this.fileSearchService.activate(dirPath);
-        // Смена корня на живом приложении обязана наполнить дерево: `setRootPath`
-        // только пересоздаёт провайдер, а `TreeViewElement`, который строит по
-        // этому событию ExplorerComponent, грузит узлы ИСКЛЮЧИТЕЛЬНО через
-        // refresh() — без него Open Folder оставлял пустую панель. На бутстрапе
-        // (до mount) не зовём: там единственную загрузку await'ит `activate()`.
+        // `setRootPath` только пересоздаёт провайдер, узлы грузит лишь refresh() —
+        // без него Open Folder оставлял пустую панель. На бутстрапе загрузку await'ит `activate()`.
         if (this.mounted) void this.explorerService.refresh();
     }
 
-    /** Resolves when the background file index has finished its initial build. */
     public get fileIndexReady(): Promise<void> {
         return this.fileSearchService.ready;
     }

@@ -6,7 +6,6 @@ import { NotificationService } from "../services/notification/browser/notificati
 
 import { OpenFailureNotificationContribution } from "./openFailureNotificationContribution.ts";
 
-/** Срез `EditorService`, которого хватает проводке: одно событие. */
 function makeEditors(): {
     failures: Emitter<{ uri: Uri; reason: string }>;
     onDidFailOpen: Emitter<{ uri: Uri; reason: string }>["event"];
@@ -35,7 +34,6 @@ describe("OpenFailureNotificationContribution", () => {
         expect(shown[0].message).toBe(
             `Unable to open 'jdt:/Foo.java': no content provider is registered for the "jdt:" scheme`,
         );
-        // Без кнопок и не модальное: выбирать человеку нечего, тост уедет сам.
         expect(shown[0].items).toEqual([]);
         expect(shown[0].modal).toBe(false);
 

@@ -30,7 +30,6 @@ import { ThemeService } from "../../services/themes/common/themeService.ts";
 
 import { clipboardCopyAction, clipboardCutAction, clipboardPasteAction } from "./clipboardActions.ts";
 
-/** A real (in-memory) clipboard — not a spy. */
 function memoryClipboard(initial = ""): IClipboard {
     let text = initial;
     return {
@@ -94,8 +93,7 @@ describe("clipboardCopyAction", () => {
 
         await commands.execute(clipboardCopyAction.id);
 
-        // Копировать нечего. Окажись на месте пустого списка непустая заглушка —
-        // буфер затёрло бы текстом, которого пользователь не выделял.
+        // Окажись на месте пустого списка непустая заглушка — буфер затёрло бы невыделенным текстом.
         expect(await clipboard.readText()).toBe("прежнее");
     });
 
@@ -195,8 +193,7 @@ describe("clipboardCutAction", () => {
     });
 
     it("в мультикурсоре копирует ровно то, что удаляет", async () => {
-        // Регрессия: раньше Cut брал текст только первичного выделения, а удалял все —
-        // второе выделение исчезало из документа, не попав в буфер.
+        // Регрессия: Cut брал текст только первичного выделения, а удалял все.
         const clipboard = memoryClipboard();
         const { editor, exec } = openEditor("alpha beta gamma", clipboard);
         editor.viewState.selections = [createSelection(0, 0, 0, 6), createSelection(0, 11, 0, 16)];
@@ -245,8 +242,7 @@ describe("clipboardPasteAction", () => {
 
 describe("clipboardCutAction defensive delete handling", () => {
     it("still copies to the clipboard but pushes no undo when the delete is a no-op", async () => {
-        // A real editor with a non-empty selection always produces an undo on
-        // cutSelections(); this stub forces pushUndo(undefined) — pane guards it.
+        // Реальный редактор с выделением всегда даёт undo; стаб форсит pushUndo(undefined).
         const clipboard = memoryClipboard();
         const pushUndo = vi.fn();
         const editor = {
@@ -318,13 +314,11 @@ describe("линейная вставка строки, скопированно
 
         await exec(clipboardPasteAction);
 
-        // Метаданных о линейности нет — текст ложится в позицию каретки.
         expect(editor.getText()).toBe("astranger\nb");
     });
 
     it("при выключенном emptySelectionClipboard линейной вставки нет", async () => {
         const clipboard = memoryClipboard();
-        // Копируем с включённой настройкой, вставляем с выключенной.
         const first = openEditor("line\nrest", clipboard);
         first.editor.viewState.selections = [createCursorSelection(0, 0)];
         await first.exec(clipboardCopyAction);
@@ -339,9 +333,7 @@ describe("линейная вставка строки, скопированно
 
 describe("copy→paste round-trip via OscClipboard (internal register)", () => {
     it("pastes copied text instantly through the internal register, never querying the terminal", async () => {
-        // Real OscClipboard: copy must mirror out via the OSC 52 *write* sequence, and a
-        // subsequent paste must read back the register without emitting an OSC 52 read
-        // query (`\x1b]52;c;?\x07`) — the round-trip that hangs in kitty+ssh+tmux.
+        // Paste не должен слать OSC 52 read-запрос (`\x1b]52;c;?\x07`) — он виснет в kitty+ssh+tmux.
         const writeFn = vi.fn();
         const clipboard = new OscClipboard(writeFn);
         const { editor, exec } = openEditor("hello world", clipboard);
@@ -353,7 +345,6 @@ describe("copy→paste round-trip via OscClipboard (internal register)", () => {
         await exec(clipboardPasteAction);
 
         expect(editor.getText()).toBe("hello worldhello");
-        // The only sequence ever written is the OSC 52 write from copy — no read query.
         expect(writeFn).toHaveBeenCalledOnce();
         expect(writeFn.mock.calls[0][0]).not.toContain("?");
     });

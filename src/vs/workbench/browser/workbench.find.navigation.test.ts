@@ -5,11 +5,7 @@ import type { TestApp } from "../../../TestUtils/TestApp.ts";
 import type { FindContext } from "./workbench.find.testUtils.ts";
 import { createFindApp, disposeFindApp, type } from "./workbench.find.testUtils.ts";
 
-/**
- * Shift+Enter has no legacy escape sequence, so the DSL `sendKey` can't express it.
- * Terminals with the Kitty keyboard protocol report it as CSI-u for codepoint 13
- * with the shift modifier (`CSI 13 ; 2 u`) — feed that raw, then flush the parser.
- */
+/** Shift+Enter has no legacy escape sequence — feed Kitty's CSI-u (`CSI 13 ; 2 u`) raw. */
 function sendShiftEnter(testApp: TestApp): void {
     testApp.backend.sendRaw("\x1b[13;2u");
     testApp.backend.flushInput();
@@ -28,7 +24,6 @@ describe("Workbench — find navigation & recompute", () => {
         type(ctx.testApp, "foo");
         expect(ctx.activeEditor().viewState.currentSearchMatchIndex).toBe(0);
 
-        // From the first match, going back wraps to the last.
         sendShiftEnter(ctx.testApp);
         expect(ctx.activeEditor().viewState.currentSearchMatchIndex).toBe(1);
 
@@ -70,10 +65,9 @@ describe("Workbench — find navigation & recompute", () => {
         ctx = createFindApp("foo food");
         ctx.testApp.sendKey("Ctrl+F");
         type(ctx.testApp, "food");
-        // "food" matches once.
         expect(ctx.activeEditor().viewState.searchMatches).toHaveLength(1);
 
-        ctx.testApp.sendKey("Backspace"); // query → "foo"
+        ctx.testApp.sendKey("Backspace");
         // "foo" now matches twice ("foo" and the "foo" inside "food").
         expect(ctx.activeEditor().viewState.searchMatches).toHaveLength(2);
     });

@@ -26,14 +26,13 @@ const PROBLEMS = "workbench.panel.markers";
 const OUTPUT = "workbench.panel.output";
 const TERMINAL = "workbench.panel.terminal";
 
-/** Ответ выбора из списка: пункт по подписи, `null` — отмена. */
+/** `null` — отмена. */
 type Chooser = (options: QuickPickOptions) => string | null;
 
 interface IScene {
     readonly h: IViewsHarness;
     readonly accessor: ServiceAccessor;
     readonly contextKeys: ContextKeyService;
-    /** Каждый показанный выбор: заголовок, активный пункт и пункты «подпись · описание». */
     readonly picks: { title?: string; activeIndex?: number; items: string[] }[];
     readonly errors: unknown[];
     readonly focused: string[];

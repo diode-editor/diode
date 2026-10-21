@@ -7,11 +7,7 @@ import type { ShutdownReason } from "../../services/lifecycle/browser/lifecycleS
 import { LifecycleServiceDIToken } from "../../services/lifecycle/browser/lifecycleService.ts";
 import { HostProcessDIToken, type IRelaunchRequest } from "../../services/lifecycle/common/hostProcess.ts";
 
-/**
- * Общий путь выхода и перезагрузки: confirm-save (`requestShutdown`), затем
- * единое прощание участников (`shutdown`), затем процесс-владелец — выход или
- * замена процесса новым. Cancel в диалоге оставляет окно на месте.
- */
+/** Cancel в диалоге confirm-save оставляет окно на месте. */
 function closeWindow(
     accessor: ServiceAccessor,
     reason: Extract<ShutdownReason, "quit" | "reload">,
@@ -27,11 +23,7 @@ function closeWindow(
     );
 }
 
-/**
- * Перезагрузка окна из кода фич — тот же путь, что у `workbench.action.reloadWindow`,
- * плюс запрос на другой профиль или воркспейс для следующего окна
- * (переключение профиля, Open Folder в чужом профиле).
- */
+/** Плюс запрос на другой профиль или воркспейс для следующего окна. */
 export function reloadWindow(accessor: ServiceAccessor, relaunch?: IRelaunchRequest): Promise<void> {
     // Stryker disable next-line StringLiteral: причина — литерал типа ShutdownReason; любое не-quit значение ведёт в restart
     return closeWindow(accessor, "reload", relaunch);
@@ -40,7 +32,6 @@ export function reloadWindow(accessor: ServiceAccessor, relaunch?: IRelaunchRequ
 export const quitAction: CommandAction = {
     id: "workbench.action.quit",
     title: "Quit",
-    // Label только в меню — vscode-паттерн per-menu title override.
     menus: [{ menuId: MenuId.MenubarFileMenu, title: "Exit", group: "5_quit", order: 10 }],
     keybinding: parseKeybinding("mod+q"),
     run(accessor) {
@@ -49,14 +40,8 @@ export const quitAction: CommandAction = {
 };
 
 /**
- * Перезагрузка окна: процесс поднимается заново с теми же аргументами, сессия
- * восстанавливается из сохранённого состояния. Это наш ответ на «расширение
- * установлено, но ещё не работает» — вклады сканируются один раз на старте,
- * горячей активации нет (docs/TODO/Extensions.md, Phase 7).
- *
- * Прощание — тот же протокол, что у выхода: несохранённые вкладки спрашиваются
- * через `LifecycleService`, Cancel оставляет окно на месте. Дефолтного бинда
- * нет: перезагрузка — не ежеминутное действие, а `ctrl+r` бережём под Open Recent.
+ * Ответ на «расширение установлено, но ещё не работает»: горячей активации нет
+ * (docs/TODO/Extensions.md, Phase 7). Дефолтного бинда нет: `ctrl+r` бережём под Open Recent.
  */
 export const reloadWindowAction: CommandAction = {
     id: "workbench.action.reloadWindow",

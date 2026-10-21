@@ -15,18 +15,14 @@ import { statusTexts } from "./parts/statusbar/statusBarComponent.testUtils.ts";
 import { StatusBarComponentDIToken } from "./parts/statusbar/statusBarComponent.ts";
 
 function visiblePicker(h: IAppHarness): QuickPickElement {
-    // В дереве может быть несколько QuickPickElement (quick open держит свой);
-    // нужный — тот, в котором есть элементы.
+    // Quick open держит свой QuickPickElement — нужный тот, где есть элементы.
     const pickers = h.testApp.querySelectorAll("QuickPickElement") as QuickPickElement[];
     const picker = pickers.find((p) => p.items.length > 0);
     if (picker === undefined) throw new Error("Quick pick with items not found");
     return picker;
 }
 
-/**
- * Запускает Change File Encoding и ждёт первый уровень пикера: доступность
- * «Reopen» проверяется по диску асинхронно (файловый сервис).
- */
+/** Доступность «Reopen» проверяется по диску асинхронно — ждём первый уровень пикера. */
 async function changeEncoding(h: IAppHarness): Promise<void> {
     h.commands.execute("workbench.action.editor.changeEncoding");
     await vi.waitFor(() => {
@@ -35,7 +31,6 @@ async function changeEncoding(h: IAppHarness): Promise<void> {
     });
 }
 
-/** Фильтрует пикер по подстроке и принимает активный элемент. */
 async function pick(h: IAppHarness, query: string): Promise<void> {
     h.testApp.render();
     const picker = visiblePicker(h);
@@ -90,8 +85,7 @@ describe("Workbench — Change File Encoding", () => {
     });
 
     it("read-only безымянный буфер не открывает пикер вовсе", async () => {
-        // Перечитывать нечего (файла на диске нет), писать нельзя — режимов не
-        // остаётся, и показывать пустой список было бы тупиком.
+        // Ни перечитать, ни записать — пустой список был бы тупиком.
         h.commands.execute("workbench.action.files.newUntitledFile");
         h.testApp.render();
         h.commands.execute("workbench.action.files.toggleActiveEditorReadonlyInSession");
@@ -147,7 +141,6 @@ describe("Workbench — Change File Encoding", () => {
         await pick(h, "Reopen");
         await pick(h, "Cyrillic (Windows 1251)");
 
-        // Ещё не перечитан — ждёт подтверждения.
         expect(editor.encoding).toBe("utf8");
         const dialog = h.container.get(DialogServiceDIToken).getOpenConfirmDialog();
         expect(dialog).not.toBeNull();
@@ -193,7 +186,6 @@ describe("Workbench — Change File Encoding", () => {
         await pick(h, "Save with Encoding");
         await pick(h, "Cyrillic (Windows 1251)");
 
-        // Кодировка уже на редакторе, путь спрашивает диалог Save As.
         expect(h.activeEditor().encoding).toBe("windows1251");
         const dialog = fileDialogDriver(h);
         await dialog.settle({ title: "Save As" });
@@ -202,7 +194,6 @@ describe("Workbench — Change File Encoding", () => {
         dialog.replaceQuery(target);
         await dialog.settle({ query: target });
         dialog.key("Enter");
-        // Save As проверяет цель по диску асинхронно (файловый сервис).
         await vi.waitFor(() => {
             expect([...fs.readFileSync(target)]).toEqual([...iconv.encode("Ёлка", "windows1251")]);
         });
@@ -212,14 +203,12 @@ describe("Workbench — Change File Encoding", () => {
         const filePath = ws.path("plain.txt");
         h.commands.execute("workbench.openFile", filePath);
         h.testApp.render();
-        // Внешняя правка после открытия: save() должен увидеть конфликт.
         fs.writeFileSync(filePath, "external edit that changes size\n", "utf-8");
 
         await changeEncoding(h);
         await pick(h, "Save with Encoding");
         await pick(h, "Cyrillic (Windows 1251)");
 
-        // Файл не перезаписан — ждёт подтверждения.
         expect(fs.readFileSync(filePath, "utf-8")).toBe("external edit that changes size\n");
         const dialog = h.container.get(DialogServiceDIToken).getOpenConfirmDialog();
         expect(dialog).not.toBeNull();

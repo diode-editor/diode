@@ -9,23 +9,17 @@ import { QuickInputServiceDIToken } from "../parts/quickinput/quickInputService.
 import type { IViewContainerSnapshot, ViewContainerLocation } from "../parts/views/viewsService.ts";
 import { ViewsServiceDIToken } from "../parts/views/viewsService.ts";
 
-// Перенос видов между местами — команды эталона (`layoutActions.ts`,
-// `panelActions.ts`) с теми же id и заголовками. Отступление одно: у нашего
-// выбора из списка нет разделителей, поэтому их подпись («Side Bar / …»,
-// «Panel») стоит справа у каждого пункта — у эталона подписи разделителей тоже
-// прижаты вправо.
+// Команды эталона (`layoutActions.ts`, `panelActions.ts`) с теми же id и заголовками.
+// Отступление: разделителей у нашего выбора нет — их подпись стоит справа у каждого пункта.
 
-/** Подписи групп выбора — подписи разделителей эталона. */
 const LOCATION_GROUP_LABELS: Readonly<Record<ViewContainerLocation, string>> = {
     sidebar: "Side Bar",
     panel: "Panel",
     auxiliarybar: "Secondary Side Bar",
 };
 
-/** Порядок групп у эталона: Side Bar, Panel, Secondary Side Bar. */
 const LOCATION_ORDER: readonly ViewContainerLocation[] = ["sidebar", "panel", "auxiliarybar"];
 
-/** «New … Entry» — новый контейнер на месте, как у эталона. */
 const NEW_ENTRY_ITEMS: readonly { readonly location: ViewContainerLocation; readonly label: string }[] = [
     { location: "panel", label: "New Panel Entry" },
     { location: "sidebar", label: "New Side Bar Entry" },
@@ -35,25 +29,21 @@ const NEW_ENTRY_ITEMS: readonly { readonly location: ViewContainerLocation; read
 const NO_FOCUSED_VIEW = "There is no view currently focused.";
 const NOT_MOVABLE_VIEW = "The currently focused view is not movable.";
 
-/** Ошибка команды — модальным сообщением, как `dialogService.error` эталона. */
+/** Как `dialogService.error` эталона. */
 function showError(accessor: ServiceAccessor, message: string): void {
     accessor.get(NotificationServiceDIToken).show({ severity: "error", message, modal: true, items: [] });
 }
 
-/** Вид с фокусом — по ключу `focusedView`, каким он был в момент запуска команды. */
+/** Каким он был в момент запуска команды. */
 function focusedViewId(accessor: ServiceAccessor): string {
     return accessor.get(ContextKeyServiceDIToken).get("focusedView") ?? "";
 }
 
-/** Пункт выбора с прицепленным действием. */
 interface IPick extends QuickPickItem {
     readonly run?: () => void;
 }
 
-/**
- * Выбор места для вида `viewId` и перенос — тело `workbench.action.moveFocusedView`
- * эталона (`MoveFocusedViewAction.run`).
- */
+/** `MoveFocusedViewAction.run` эталона. */
 async function pickDestinationAndMove(accessor: ServiceAccessor, viewId: string): Promise<void> {
     const views = accessor.get(ViewsServiceDIToken);
     if (viewId.trim() === "") {
@@ -106,7 +96,6 @@ async function pickDestinationAndMove(accessor: ServiceAccessor, viewId: string)
     views.openView(viewId, true);
 }
 
-/** Пункты первого шага Move View: переносимые видимые виды по местам и контейнерам. */
 function viewItems(containers: readonly IViewContainerSnapshot[], canMove: (viewId: string) => boolean): IPick[] {
     const items: (IPick & { readonly viewId: string })[] = [];
     for (const location of LOCATION_ORDER) {
@@ -130,7 +119,6 @@ export const moveViewAction: CommandAction = {
     title: "View: Move View",
     async run(accessor) {
         const views = accessor.get(ViewsServiceDIToken);
-        // Вид с фокусом (если его можно двигать) — подсвечен первым выбором.
         const focused = focusedViewId(accessor);
         const items = viewItems(views.getViewContainers(), (id) => views.canMoveView(id));
         const activeIndex = Math.max(
@@ -171,7 +159,7 @@ export const resetFocusedViewLocationAction: CommandAction = {
     run(accessor) {
         const viewId = focusedViewId(accessor);
         const views = accessor.get(ViewsServiceDIToken);
-        // Пустой и пробельный id — тоже «вида нет»: контейнера у него не найдётся.
+        // Пустой и пробельный id — тоже «вида нет».
         if (views.getViewContainerByViewId(viewId) === null) {
             showError(accessor, NO_FOCUSED_VIEW);
             return;
@@ -183,8 +171,7 @@ export const resetFocusedViewLocationAction: CommandAction = {
 };
 
 /**
- * Все контейнеры одного места — в другое (`MoveViewsBetweenPanelsAction`
- * эталона): часть-приёмник показывается, а если она была пуста — в ней
+ * `MoveViewsBetweenPanelsAction` эталона: если приёмник был пуст — в нём
  * открывается бывший активный контейнер источника.
  */
 function moveViewsBetweenParts(
@@ -221,7 +208,6 @@ export const moveSecondarySideBarToPanelAction: CommandAction = {
     },
 };
 
-/** Команды переноса видов — одной строкой в `WORKBENCH_ACTIONS`. */
 export const VIEW_LOCATION_ACTIONS: readonly CommandAction[] = [
     moveViewAction,
     moveFocusedViewAction,

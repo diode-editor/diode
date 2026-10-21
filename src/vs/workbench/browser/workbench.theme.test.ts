@@ -22,7 +22,6 @@ describe("Workbench — theme application", () => {
         themeService.setTheme(theme);
         h.testApp.render();
 
-        // Стиль корня — токены; резолвит каскад из палитры, пушенной setTheme.
         expect(h.workbench.view.resolvedStyle.fg).toBe(0xaabbcc);
         expect(h.workbench.view.resolvedStyle.bg).toBe(0x102030);
     });
@@ -31,8 +30,6 @@ describe("Workbench — theme application", () => {
         const h = createAppTestHarness();
         const themeService = h.container.get(ThemeServiceDIToken);
 
-        // A theme with neither "foreground" nor "editor.background": the dark
-        // default registry supplies both, so the workbench is never left uncolored.
         const sparseTheme = WorkbenchTheme.fromThemeFile({ name: "sparse", type: "dark", colors: {} });
         themeService.setTheme(sparseTheme);
         h.testApp.render();
@@ -43,11 +40,8 @@ describe("Workbench — theme application", () => {
 });
 
 /**
- * Регрессия: «SOURCE CONTROL» рисовался тусклее «EXPLORER»/«SEARCH». Explorer и
- * Search — merged-контейнеры (одна видимая view), их заголовок ведёт
- * PaneHeaderElement, а у SCM две секции, и заголовок контейнера ведёт
- * ViewContainerHeaderElement — он брал tuidom-овский `titledPanel.titleForeground`
- * (#828282 во всех темах). Теперь оба элемента читают `sideBarTitle.foreground`.
+ * Регрессия: заголовок SCM (ViewContainerHeaderElement) брал tuidom-овский
+ * `titledPanel.titleForeground` (#828282) и рисовался тусклее Explorer/Search.
  */
 describe("Workbench — цвет заголовков вьюлетов", () => {
     let ws: ITempWorkspace;
@@ -81,8 +75,7 @@ describe("Workbench — цвет заголовков вьюлетов", () => {
 
         expect(explorer).toBe(scm);
         expect(search).toBe(scm);
-        // Dark+ задаёт sideBarTitle.foreground явно — цвет приходит из темы,
-        // а не остаётся на дефолте tuidom (#828282).
+        // Dark+ задаёт sideBarTitle.foreground явно — не дефолт tuidom (#828282).
         expect(scm).toBe(0xbbbbbb);
     });
 
@@ -115,13 +108,9 @@ describe("Workbench — chord with standalone modifier key", () => {
         h.testApp.sendKey("Ctrl+K");
         expect(chordHints(h.testApp).some((t) => t.includes("Waiting"))).toBe(true);
 
-        // Kitty protocol delivers a standalone Shift keydown while the chord waits.
-        // The capture handler special-cases modifier keys (it returns early instead of
-        // intercepting/swallowing them), so the event is allowed to propagate normally.
+        // The capture handler returns early on modifier keys instead of swallowing them.
         h.testApp.backend.sendRaw("\x1b[57441;1:1u"); // Shift down
 
-        // The waiting hint is gone — the modifier reached the bubble dispatcher rather
-        // than being consumed silently by the chord-capture interceptor.
         expect(chordHints(h.testApp).some((t) => t.includes("Waiting"))).toBe(false);
     });
 });

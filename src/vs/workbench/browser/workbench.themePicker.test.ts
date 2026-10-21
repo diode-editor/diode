@@ -22,7 +22,6 @@ interface ThemeContext {
 
 function createThemeApp(writes: { key: string; value: unknown }[] = []): ThemeContext {
     const { container, bindApp } = createTestContainer();
-    // Config with a recording updateValue so we can assert persistence wiring.
     container.bind(IConfigurationServiceDIToken, () => ({
         ...NULL_CONFIGURATION_SERVICE,
         updateValue: (key: string, value: unknown) => {
@@ -60,7 +59,6 @@ describe("Workbench color-theme picker", () => {
         testApp.sendKey("ArrowDown");
         expect(themeService.theme.name).toBe("Monokai");
 
-        // Escape restores the theme that was active before the picker opened.
         testApp.sendKey("Escape");
         await flush();
         expect(themeService.theme.name).toBe("Dark+");

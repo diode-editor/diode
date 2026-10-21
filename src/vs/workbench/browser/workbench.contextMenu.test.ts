@@ -10,9 +10,6 @@ import { ContextKeyServiceDIToken } from "../../platform/contextkey/common/conte
 
 import { WorkbenchContextKeysDIToken } from "./workbenchContextKeys.ts";
 
-// Shift+F10 opens the context menu on whichever component is focused — the same menu
-// that a right-click produces. `when` (textInputFocus / listFocus) routes the shared
-// binding to the editor or the explorer without collision.
 describe("Workbench — Shift+F10 context menu", () => {
     let ws: ITempWorkspace;
     let h: IAppHarness;
@@ -54,7 +51,6 @@ describe("Workbench — Shift+F10 context menu", () => {
         h.testApp.render();
 
         expect(h.testApp.querySelector("PopupMenuElement")).not.toBeNull();
-        // Editor menu carries clipboard entries.
         expect(h.testApp.backend.screenToString()).toContain("Copy");
     });
 
@@ -78,7 +74,6 @@ describe("Workbench — Shift+F10 context menu", () => {
         h.workbench.focusEditor();
         h.testApp.render();
 
-        // Провайдеров нет: меню не обещает нерабочее.
         h.testApp.sendKey("Shift+F10");
         h.testApp.render();
         const withoutProviders = h.testApp.backend.screenToString();

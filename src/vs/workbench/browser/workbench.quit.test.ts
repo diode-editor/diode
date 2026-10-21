@@ -37,12 +37,9 @@ function createTestContext(exit: () => void = () => undefined): TestQuitContext 
     };
 }
 
-/** Save и confirm-save последовательность выхода async (LifecycleService
- *  ждёт promise DialogService.confirmSave, затем прощание участников) —
- *  выход откладывается на микротаски, поэтому ветки надо «прокрутить» перед проверкой. */
+/** Выход ждёт confirmSave и прощание участников на микротасках — ветки надо прокрутить перед проверкой. */
 const tick = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
 
-/** Выход тем же путём, что Ctrl+Q / меню / палитра. */
 function quit(accessor: ServiceAccessor): void {
     accessor.get(CommandRegistryDIToken).execute("workbench.action.quit");
 }
@@ -135,12 +132,10 @@ describe("Workbench quit with save dialog", () => {
         const dialog = accessor.get(DialogServiceDIToken).getOpenConfirmSaveDialog()!;
         expect(exitSpy).not.toHaveBeenCalled();
 
-        // Don't Save on first file
         dialog.onDontSave?.();
         await tick();
         expect(exitSpy).not.toHaveBeenCalled();
 
-        // Don't Save on second file → quit
         dialog.onDontSave?.();
         await tick();
         expect(exitSpy).toHaveBeenCalledOnce();
@@ -195,19 +190,16 @@ describe("Workbench quit with save dialog", () => {
 
         quit(accessor);
 
-        // First dialog: Save → saves file, advances to second dialog (no quit yet).
         const firstDialog = accessor.get(DialogServiceDIToken).getOpenConfirmSaveDialog()!;
         firstDialog.onSave?.();
         await tick();
         expect(exitSpy).not.toHaveBeenCalled();
 
-        // A second dialog is shown for the remaining unsaved file (after the save lands).
         await vi.waitFor(() => {
             expect(accessor.get(DialogServiceDIToken).getOpenConfirmSaveDialog()).not.toBeNull();
         });
         const secondDialog = accessor.get(DialogServiceDIToken).getOpenConfirmSaveDialog()!;
 
-        // Save on the last file → quit.
         secondDialog.onSave?.();
         await vi.waitFor(() => {
             expect(exitSpy).toHaveBeenCalledOnce();
@@ -236,7 +228,6 @@ describe("Workbench quit with save dialog", () => {
         editorGroup.editorGroups.activeGroup.closeTab(2);
         editorGroup.editorGroups.activeGroup.closeTab(1);
 
-        // Advancing the sequence walks past the now-missing editors and quits at the end.
         dialog.onDontSave?.();
         await tick();
         expect(exitSpy).toHaveBeenCalledOnce();
@@ -290,12 +281,11 @@ describe("Workbench close-tab confirm flow", () => {
         workbench.openFile("/tmp/close-confirm-a.txt");
         workbench.openFile("/tmp/close-confirm-b.txt");
         workbench.focusEditor();
-        testApp.sendKey("z"); // modify the active tab
+        testApp.sendKey("z");
 
         testApp.sendKey("Ctrl+W");
 
         expect(testApp.querySelector("#confirmSaveDialog")).not.toBeNull();
-        // Both tabs still present — close was deferred to the dialog.
         const tabStrip = testApp.querySelector("EditorTabStripElement");
         expect(tabStrip).not.toBeNull();
     });

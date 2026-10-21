@@ -13,12 +13,8 @@ import { EditorServiceDIToken } from "../services/editor/common/editorService.ts
 const TOGGLE_READONLY = "workbench.action.files.toggleActiveEditorReadonlyInSession";
 
 /**
- * Интеграция read-only редактора: контекст-ключ `editorReadonly` (продюсер гейта)
- * и то, что мутирующие команды через него действительно НЕ доезжают до документа.
- *
- * Проверять только `viewState` тут мало: ядро закрыто своими юнит-тестами
- * (`editorViewState.readOnly.test.ts`), а здесь ловится ровно то, что они по
- * устройству не видят — выставляется ли ключ и срабатывает ли when-клауза.
+ * Ловит то, чего юнит-тесты ядра по устройству не видят: выставляется ли
+ * `editorReadonly` и срабатывает ли when-клауза.
  */
 describe("Workbench — read-only editor", () => {
     let ws: ITempWorkspace;
@@ -133,9 +129,8 @@ describe("Workbench — read-only editor", () => {
     });
 
     describe("вкладка помечена замком", () => {
-        // Доводим до кадра, а не до TabInfo: между состоянием и отрисовкой лежит
-        // ещё и подписка EditorService → syncTabs, и без неё замок появлялся бы
-        // только при следующем переключении вкладки.
+        // До кадра, а не до TabInfo: без подписки EditorService → syncTabs замок
+        // появлялся только при следующем переключении вкладки.
         const LOCK = "\uea75"; // nf-cod-lock, см. editorTabItemElement.ts
 
         function frame(): string {
@@ -157,11 +152,8 @@ describe("Workbench — read-only editor", () => {
     });
 
     describe("гейт when-клауз (слой кейбиндов)", () => {
-        // Гарды в EditorViewState/TextEditorPane держат оборону сами по себе, поэтому
-        // по документу разницу не увидеть — when-клаузы наблюдаемы ровно там, где
-        // и применяются (`commandAction.ts` вешает их на регистрацию кейбинда).
-        // Без этих кейсов слой when остаётся непокрытым: проверено — тесты выше
-        // проходят и с полностью снятыми `&& !editorReadonly`.
+        // Гарды EditorViewState/TextEditorPane держат оборону сами, по документу when
+        // не увидеть — проверено: тесты выше проходят и со снятыми `&& !editorReadonly`.
         function resolve(key: string, ctrlKey = false) {
             return h.container
                 .get(KeybindingRegistryDIToken)
@@ -215,9 +207,8 @@ describe("Workbench — read-only editor", () => {
         });
 
         it("applyExternalEdits не проходит — общий вход suggest, rename/bulkEdit и extension host", () => {
-            // Все три сходятся в TextEditorPane.applyExternalEdits → TextFileModel →
-            // EditorViewState.applyEdits, поэтому закрыты одним гардом. When-клаузы
-            // сюда не достают вовсе: это программные пути, а не команды.
+            // Suggest, rename/bulkEdit и extension host сходятся в applyExternalEdits →
+            // EditorViewState.applyEdits; when-клаузы программные пути не покрывают.
             h.commands.execute(TOGGLE_READONLY);
 
             h.activeEditor().applyExternalEdits([createTextEdit(createRange(0, 0, 0, 5), "Beta")], "external edit");
@@ -227,8 +218,7 @@ describe("Workbench — read-only editor", () => {
         });
 
         it("TextEditorPane сам отбивает setEol/setEncoding/redo", () => {
-            // Второй эшелон под командами: сюда приходят программные вызовы,
-            // которым не мешает ни when-клауза, ни ранний выход в самой команде.
+            // Программные вызовы обходят и when-клаузу, и ранний выход в команде.
             const editor = h.activeEditor();
             const eolBefore = editor.eol;
             const encodingBefore = editor.encoding;
@@ -263,19 +253,16 @@ describe("Workbench — read-only editor", () => {
         });
 
         it("перечитка документа не снимает read-only", async () => {
-            // rebuildForReloadedDocument пересоздаёт EditorViewState, и вместе с ним
-            // терялся флаг. Путь достижим пользователем: «Reopen with Encoding» в
-            // read-only разрешён (писать нельзя, перечитывать можно) — после него
-            // вкладка молча становилась редактируемой.
+            // rebuildForReloadedDocument пересоздаёт EditorViewState и терял флаг: после
+            // «Reopen with Encoding» вкладка молча становилась редактируемой.
             const editor = h.activeEditor();
             h.commands.execute(TOGGLE_READONLY);
 
             await editor.reopenWithEncoding("windows1251");
 
             expect(editor.readOnly).toBe(true);
-            // Фокус перечитку переживает (виджет пересоздан, но фокус переносится),
-            // так что ключ обязан остаться поднятым — иначе мутирующие команды
-            // разблокировались бы на всё ещё read-only вкладке.
+            // Фокус перечитку переживает — ключ обязан остаться, иначе мутирующие команды
+            // разблокировались бы на read-only вкладке.
             expect(contextKeys().get("textInputFocus")).toBe(true);
             expect(contextKeys().get("editorReadonly")).toBe(true);
             expect(editor.viewState.type("X")).toBeUndefined();

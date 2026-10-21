@@ -12,7 +12,6 @@ import { SuggestComponentDIToken } from "../contrib/suggest/browser/suggestCompo
 import type { TextEditorPane } from "./parts/editor/textEditorPane.ts";
 import type { WorkbenchComponent } from "./workbenchComponent.ts";
 
-/** Срез пары CompletionService+SuggestComponent для интеграционных тестов. */
 export interface SuggestHandle {
     trigger(): Promise<void>;
     isOpen(): boolean;
@@ -21,7 +20,6 @@ export interface SuggestHandle {
 
 export interface SuggestContext {
     testApp: TestApp;
-    /** Сам компонент попапа — для проверок панели описания. */
     component: SuggestComponent;
     workbench: WorkbenchComponent;
     contextKeys: ContextKeyService;
@@ -31,7 +29,6 @@ export interface SuggestContext {
     workspace: ITempWorkspace;
 }
 
-/** Boots a full Workbench over a real temp file with the editor focused. */
 export function createSuggestApp(text: string): SuggestContext {
     const workspace = createTempWorkspace({ prefix: "diode-suggest-app-", files: { "file.txt": text } });
     const harness = createAppTestHarness({

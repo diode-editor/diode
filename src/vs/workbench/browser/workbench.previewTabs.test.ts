@@ -8,15 +8,6 @@ import { Uri } from "../../base/common/uri.ts";
 import type { IConfigurationService } from "../../platform/configuration/common/iConfigurationService.ts";
 import { EditorServiceDIToken } from "../services/editor/common/editorService.ts";
 
-/**
- * Режим предпросмотра вкладок сквозь весь workbench: настоящее дерево Explorer,
- * настоящий диспетчер биндов, настоящая полоса вкладок. Юниты сервиса
- * (`editorService.preview.test.ts`) проверяют механику замещения, а здесь —
- * что до неё доезжает одиночная активация файла в дереве и что ПРИКАЛЫВАНИЕ
- * видно в той же полосе, на которую смотрит пользователь.
- */
-
-/** Метки вкладок полосы — ровно то, что видно на кадре. */
 function tabLabels(h: IAppHarness): string[] {
     const strip = h.testApp.querySelector("EditorTabStripElement") as EditorTabStripElement;
     return strip.getItemElements().map((item) => item.getLabel());
@@ -48,7 +39,7 @@ describe("Workbench — предпросмотр вкладок из дерев�
         ws.dispose();
     });
 
-    /** Активирует в дереве файл под номером `index` (сверху, с нуля). */
+    /** `index` — номер файла сверху, с нуля. */
     async function activateInTree(index: number): Promise<void> {
         await h.workbench.activate();
         h.testApp.render();
@@ -61,14 +52,12 @@ describe("Workbench — предпросмотр вкладок из дерев�
         h.testApp.render();
     }
 
-    /** Повторная активация — дерево уже поднято, фокус надо вернуть ему. */
     function activateAgainInTree(index: number): void {
         const tree = h.testApp.querySelector("TreeViewElement");
         if (tree === null) throw new Error("дерево не найдено");
         tree.focus();
         h.testApp.render();
-        // Курсор дерева остался там, где его оставила прошлая активация, —
-        // шагаем от нуля, перегнав его в начало.
+        // Курсор дерева остался после прошлой активации — сначала перегоняем его в начало.
         for (let step = 0; step < 10; step++) h.testApp.sendKey("ArrowUp");
         for (let step = 0; step < index; step++) h.testApp.sendKey("ArrowDown");
         h.testApp.sendKey("Enter");
@@ -89,7 +78,6 @@ describe("Workbench — предпросмотр вкладок из дерев�
         boot();
         await activateInTree(0);
 
-        // Печатаем в открытую превью-вкладку: фокус уже в редакторе.
         h.testApp.sendKey("x");
         h.testApp.render();
         activateAgainInTree(1);
@@ -107,7 +95,6 @@ describe("Workbench — предпросмотр вкладок из дерев�
         activateAgainInTree(1);
 
         expect(tabLabels(h)).toEqual(["alpha.txt", "beta.txt"]);
-        // Enter чорда в редактор не протёк — текст файла целый.
         expect(h.activeEditor().getText()).toBe("Beta");
     });
 
@@ -121,7 +108,6 @@ describe("Workbench — предпросмотр вкладок из дерев�
         activateAgainInTree(1);
         activateAgainInTree(2);
 
-        // Третий файл заместил второй (превью), приколотый первый остался.
         expect(tabLabels(h)).toEqual(["alpha.txt", "gamma.txt"]);
     });
 
@@ -133,7 +119,6 @@ describe("Workbench — предпросмотр вкладок из дерев�
         h.commands.execute("workbench.openFile", ws.path("beta.txt"));
         h.testApp.render();
 
-        // Постоянное открытие ПРИКОЛОЛО превью-вкладку: alpha осталась.
         expect(tabLabels(h)).toEqual(["alpha.txt", "beta.txt"]);
     });
 
@@ -145,8 +130,7 @@ describe("Workbench — предпросмотр вкладок из дерев�
         tree.focus();
         h.testApp.render();
 
-        // Превью замещается, но фокус остаётся там, где был: на этом держится
-        // `preserveFocus` у `showTextDocument` и реveal'ов.
+        // На этом держится `preserveFocus` у `showTextDocument` и reveal'ов.
         await h.container.get(EditorServiceDIToken).openUri(Uri.file(ws.path("beta.txt")), {
             preview: true,
             focus: false,

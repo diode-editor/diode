@@ -24,14 +24,11 @@ describe("Workbench — Refresh Explorer", () => {
     });
 
     it("re-reads the directory so a newly added file becomes visible", async () => {
-        // A file created outside the app after the tree was loaded is invisible
-        // until the explorer is refreshed.
         expect(h.testApp.backend.screenToString()).not.toContain("aaa-new.txt");
 
         ws.writeFile("aaa-new.txt", "new");
 
         h.commands.execute("workbench.files.action.refreshFilesExplorer");
-        // Каталог перечитывается файловым сервисом асинхронно.
         await vi.waitFor(() => {
             h.testApp.render();
             expect(h.testApp.backend.screenToString()).toContain("aaa-new.txt");
@@ -43,7 +40,6 @@ describe("Workbench — Refresh Explorer", () => {
         tree.focus();
         h.testApp.render();
 
-        // Right-click the first row to open the context menu.
         tree.localPosition = new Offset(0, 0);
         tree.dispatchEvent(
             new TUIContextMenuEvent({
@@ -60,9 +56,8 @@ describe("Workbench — Refresh Explorer", () => {
 
         ws.writeFile("aaa-new.txt", "new");
 
-        // Menu order (no clipboard): New File, New Folder, Copy, Cut, Copy Path,
-        // Copy Relative Path, Rename, Delete, Refresh Explorer (separators skipped) —
-        // 8 steps down, then Enter.
+        // No clipboard: New File, New Folder, Copy, Cut, Select for Compare, Copy Path,
+        // Copy Relative Path, Rename, Delete, Refresh Explorer — separators are skipped.
         for (let i = 0; i < 9; i++) h.testApp.sendKey("ArrowDown");
         h.testApp.sendKey("Enter");
         await flushMicrotasks();

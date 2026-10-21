@@ -27,7 +27,6 @@ function createWorkspace(): ITempWorkspace {
     return workspace;
 }
 
-/** Конфиг-стаб: заданные ключи возвращают свои значения, остальные — default. */
 function stubConfig(values: Record<string, unknown>): IConfigurationService {
     return createTestConfigurationService(values);
 }
@@ -38,9 +37,8 @@ interface Ctx {
     commands: CommandRegistry;
 }
 
-// Не через createAppTestHarness: конфиг-стаб должен быть забинжен ДО резолва
-// Workbench (контроллер читает IConfigurationService в конструкторе,
-// а контейнер кэширует уже созданные сервисы).
+// Не через createAppTestHarness: контроллер читает конфиг в конструкторе, а
+// контейнер кэширует сервисы — стаб нужен до резолва Workbench.
 function createApp(workspaceDir: string | null, config?: IConfigurationService): Ctx {
     const { container, bindApp } = createTestContainer();
     if (config) {
@@ -91,7 +89,6 @@ describe.skipIf(process.platform !== "linux")("Delete confirmations — explorer
     });
 
     it("treats a missing confirmDelete setting as true and asks", async () => {
-        // Конфиг возвращает undefined для всех ключей — сервис должен подставить true сам.
         const ctx = createApp(ws.dir, createTestConfigurationService());
         await activate(ctx);
         const alpha = ws.path("a.txt");
@@ -126,10 +123,10 @@ describe.skipIf(process.platform !== "linux")("Delete confirmations — explorer
         await activate(ctx);
         const alpha = ws.path("a.txt");
 
-        ctx.testApp.sendKey("ArrowDown"); // курсор на a.txt
+        ctx.testApp.sendKey("ArrowDown");
         ctx.commands.execute("fileOperations.deleteFile");
         ctx.testApp.render();
-        ctx.testApp.sendKey("Enter"); // дефолтная кнопка — "Move to Trash"
+        ctx.testApp.sendKey("Enter");
         ctx.testApp.render();
 
         await vi.waitFor(() => {
@@ -154,7 +151,7 @@ describe("Delete confirmations — permanent delete (no trash)", () => {
         expect(ctx.testApp.querySelector("#confirmDialog")).not.toBeNull();
         expect(ctx.testApp.backend.screenToString()).toContain("Delete Permanently");
 
-        // Дефолтная кнопка — Cancel: Enter закрывает диалог, файл остаётся.
+        // Enter жмёт дефолтную кнопку.
         ctx.testApp.sendKey("Enter");
         ctx.testApp.render();
         expect(ctx.testApp.querySelector("#confirmDialog")).toBeNull();
@@ -177,7 +174,6 @@ describe("Delete confirmations — permanent delete (no trash)", () => {
             expect(fs.existsSync(alpha)).toBe(false);
         });
 
-        // Безвозвратное удаление не отменяемо — undo ничего не возвращает.
         ctx.commands.execute("fileOperations.undo");
         await flush();
         expect(fs.existsSync(alpha)).toBe(false);
@@ -201,9 +197,9 @@ describe.skipIf(process.platform !== "linux")("Workspace undo — confirmation e
         await activate(ctx);
 
         // Копируем и вставляем a.txt в target/ — undo такой операции деструктивен.
-        ctx.testApp.sendKey("ArrowDown"); // a.txt
+        ctx.testApp.sendKey("ArrowDown");
         ctx.commands.execute("fileOperations.copy");
-        ctx.testApp.sendKey("ArrowUp"); // target/
+        ctx.testApp.sendKey("ArrowUp");
         ctx.commands.execute("fileOperations.paste");
         await vi.waitFor(() => {
             expect(fs.existsSync(path.join(ws.dir, "target", "a.txt"))).toBe(true);
@@ -229,8 +225,7 @@ describe("File operations without a workspace root (empty selection)", () => {
         ctx.commands.execute("fileOperations.copy");
         ctx.commands.execute("fileOperations.cut");
 
-        // Буфер пуст → правый клик по несуществующему дереву невозможен; проверяем
-        // косвенно: paste после copy/cut без selection всё ещё no-op.
+        // Правый клик без дерева невозможен — проверяем косвенно: paste после copy/cut остаётся no-op.
         expect(() => ctx.commands.execute("fileOperations.paste")).not.toThrow();
         ctx.workbench.dispose();
     });
@@ -252,7 +247,6 @@ describe.skipIf(process.platform !== "linux")("Workspace redo — empty history"
 
         expect(() => ctx.commands.execute("fileOperations.redo")).not.toThrow();
         await flush();
-        // Файлы на месте, ничего не «повторилось».
         expect(fs.existsSync(ws.path("a.txt"))).toBe(true);
         ctx.workbench.dispose();
     });

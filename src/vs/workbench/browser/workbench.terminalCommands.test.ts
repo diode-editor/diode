@@ -20,9 +20,8 @@ import { PanelServiceDIToken } from "./parts/panel/panelService.ts";
 const NEW = "workbench.action.terminal.new";
 
 /**
- * Команды терминала из состояния «панель спрятана и на другой вкладке, фокус в
- * редакторе»: только так видно, что команда сама показывает TERMINAL, отдаёт
- * фокус терминалу и освежает ключи, а не полагается на то, что это уже сделано.
+ * Из состояния «панель спрятана на другой вкладке, фокус в редакторе» видно, что
+ * команда сама показывает TERMINAL, отдаёт фокус и освежает ключи.
  */
 describe("Workbench — terminal commands from the editor", () => {
     let ws: ITempWorkspace;
@@ -40,7 +39,6 @@ describe("Workbench — terminal commands from the editor", () => {
         terminal = h.container.get(TerminalServiceDIToken);
     }
 
-    /** `n` терминалов, затем панель на PROBLEMS и спрятана — фокус уходит в редактор. */
     function openAndLeave(n: number): void {
         for (let i = 0; i < n; i++) h.commands.execute(NEW);
         h.container.get(PanelServiceDIToken).setActiveView(PROBLEMS_VIEW_ID);

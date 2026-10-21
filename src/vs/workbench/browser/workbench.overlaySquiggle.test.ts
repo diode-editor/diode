@@ -8,17 +8,14 @@ import type { EditorElement } from "../../editor/browser/editorElement.ts";
 import { createRange } from "../../editor/common/core/iRange.ts";
 import { MarkerSeverity } from "../../platform/markers/common/iMarker.ts";
 
-// Подчёркивание диагностик просвечивало сквозь оверлеи: ячейку мерджит частичный
-// патч, а непрозрачные художники (заливка собственного фона виджета, рамка
-// пикера) флаги стиля не сбрасывали — волна из редактора шла по телу quick pick
-// и рвала его вёрстку. Лечится в движке (tuidom#4, @tuidom/core 0.2.1); тест
-// сторожит наблюдаемый результат на кадре, а не устройство фикса.
+// Волна диагностик просвечивала сквозь оверлеи: непрозрачные художники не
+// сбрасывали флаги стиля частичного патча. Лечится в движке (tuidom#4,
+// @tuidom/core 0.2.1); тест сторожит кадр, а не устройство фикса.
 describe("Workbench — оверлей поверх подчёркнутого текста", () => {
     const SIZE = new Size(100, 30);
     let ws: ITempWorkspace;
     let h: IAppHarness;
 
-    /** Ряды и колонки, которые занимает открытый пикер, — считаем по его элементу. */
     function pickerRect(): { x: number; y: number; width: number; height: number } {
         const picker = h.testApp.querySelector("QuickPickFrameElement");
         expect(picker).not.toBeNull();
@@ -27,7 +24,6 @@ describe("Workbench — оверлей поверх подчёркнутого �
         return { x: position.x, y: position.y, width: size.width, height: size.height };
     }
 
-    /** Сколько ячеек прямоугольника несут волну. */
     function undercurledCells(rect: { x: number; y: number; width: number; height: number }): number {
         const screen = h.testApp.app.screen;
         let count = 0;
@@ -88,7 +84,6 @@ describe("Workbench — оверлей поверх подчёркнутого �
         h.testApp.sendKey("Ctrl+P");
         h.testApp.render();
 
-        // Ни одна ячейка пикера — ни заливка тела, ни рамка — волны не несёт.
         expect(undercurledCells(pickerRect())).toBe(0);
     });
 
@@ -100,7 +95,6 @@ describe("Workbench — оверлей поверх подчёркнутого �
         h.testApp.sendKey("Escape");
         h.testApp.render();
 
-        // Тот же прямоугольник снова принадлежит редактору — подчёркивание на месте.
         expect(undercurledCells(rect)).toBeGreaterThan(0);
     });
 });

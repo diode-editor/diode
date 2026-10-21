@@ -9,7 +9,6 @@ import type { QuickPickElement } from "./parts/quickinput/quickPickElement.ts";
 
 const TOGGLE_SIDEBAR = "workbench.action.toggleSidebarVisibility";
 
-/** Walk up the parent chain to confirm `el` lives inside `ancestor`. */
 function isDescendantOf(el: TUIElement | null, ancestor: TUIElement): boolean {
     let cur = el;
     while (cur) {
@@ -59,9 +58,9 @@ describe("Workbench — global keybindings are suppressed while an overlay owns 
         h.testApp.render();
 
         expect(executeSpy).not.toHaveBeenCalledWith(TOGGLE_SIDEBAR);
-        expect(h.workbench.workbenchLayout.getLeftPanelVisible()).toBe(before); // global did NOT fire
-        expect(h.testApp.focusedElement).toBe(picker.inputElement); // focus stayed in the picker
-        expect(h.testApp.root.overlayLayer.hasVisibleItems()).toBe(true); // overlay not orphaned
+        expect(h.workbench.workbenchLayout.getLeftPanelVisible()).toBe(before);
+        expect(h.testApp.focusedElement).toBe(picker.inputElement);
+        expect(h.testApp.root.overlayLayer.hasVisibleItems()).toBe(true);
     });
 
     it("typing still reaches the quickpick input while it owns the keyboard", () => {
@@ -109,10 +108,8 @@ describe("Workbench — global keybindings are suppressed while an overlay owns 
         const picker = h.testApp.querySelector("QuickPickElement") as QuickPickElement;
         expect(picker).toBeTruthy();
 
-        // Ctrl+K is the prefix of the GLOBAL "Ctrl+K S → save" chord (no when), so it would
-        // start a chord anywhere. While the quickpick owns the keyboard it must not: the pending
-        // chord is reset, so the next key still types into the query instead of being swallowed
-        // as a (broken) chord continuation.
+        // Ctrl+K — префикс глобального чорда «Ctrl+K S» без when: пока клавиатура у
+        // квик-пика, чорд не должен начаться, и следующая клавиша идёт в запрос.
         h.testApp.sendKey("Ctrl+K");
         h.testApp.sendKey("z");
         h.testApp.render();
@@ -159,7 +156,7 @@ describe("Workbench — global keybindings are suppressed while an overlay owns 
 
         expect(executeSpy).not.toHaveBeenCalledWith(TOGGLE_SIDEBAR);
         expect(h.workbench.workbenchLayout.getLeftPanelVisible()).toBe(before);
-        expect(h.testApp.root.overlayLayer.hasVisibleItems()).toBe(true); // dialog still up
+        expect(h.testApp.root.overlayLayer.hasVisibleItems()).toBe(true);
     });
 
     it("a passthrough overlay (Find) does NOT suppress globals — Ctrl+B still toggles the sidebar", () => {

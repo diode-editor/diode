@@ -25,7 +25,6 @@ function createNestedWorkspace(): ITempWorkspace {
     });
 }
 
-/** Конфиг-стаб: заданные ключи возвращают свои значения, остальные — default. */
 function stubConfig(values: Record<string, unknown>): IConfigurationService {
     return createTestConfigurationService(values);
 }
@@ -36,9 +35,8 @@ interface Ctx {
     commands: CommandRegistry;
 }
 
-// Не через createAppTestHarness: конфиг-стаб должен быть забинжен ДО резолва
-// Workbench (контроллер читает IConfigurationService в конструкторе,
-// а контейнер кэширует уже созданные сервисы).
+// Не через createAppTestHarness: контроллер читает конфиг в конструкторе, а
+// контейнер кэширует сервисы — стаб нужен до резолва Workbench.
 function createApp(workspaceDir: string, config?: IConfigurationService): Ctx {
     const { container, bindApp } = createTestContainer();
     if (config) {
@@ -75,10 +73,8 @@ describe("reveal active file in explorer", () => {
         await ctx.workbench.activate();
         ctx.testApp.render();
 
-        // Nested file is inside a collapsed directory — not visible yet.
         expect(ctx.testApp.backend.screenToString()).not.toContain("target.ts");
 
-        // Open it via a non-tree path (e.g. Quick Open). autoReveal defaults to true.
         ctx.workbench.openFile(nestedFile);
         // Раскрытие до файла читает каталоги файловым сервисом асинхронно.
         await vi.waitFor(() => {
@@ -111,8 +107,7 @@ describe("reveal active file in explorer", () => {
         await flush();
         ctx.testApp.render();
 
-        // Directory stays collapsed — the ancestor dir is never expanded in the tree.
-        // (the editor tab shows the file name, so assert on the tree-only "deep" dir instead)
+        // Not "target.ts": the editor tab shows it; "deep" lives only in the tree.
         expect(ctx.testApp.backend.screenToString()).not.toContain("deep");
         ctx.workbench.dispose();
     });
@@ -125,7 +120,6 @@ describe("reveal active file in explorer", () => {
         ctx.workbench.openFile(nestedFile);
         await flush();
 
-        // Hide the sidebar and move focus into the editor.
         ctx.testApp.sendKey("Ctrl+B");
         ctx.testApp.render();
         expect(ctx.workbench.workbenchLayout.getLeftPanelVisible()).toBe(false);
@@ -149,7 +143,6 @@ describe("reveal active file in explorer", () => {
         const editorGroup = (ctx.workbench as unknown as { editorService: IEditorService }).editorService;
         expect(editorGroup.getActiveEditor()).toBeNull();
         expect(() => ctx.commands.execute("workbench.files.action.showActiveFileInExplorer")).not.toThrow();
-        // Sidebar stays as-is (visible by default), nothing is revealed.
         expect(ctx.workbench.workbenchLayout.getLeftPanelVisible()).toBe(true);
         ctx.workbench.dispose();
     });

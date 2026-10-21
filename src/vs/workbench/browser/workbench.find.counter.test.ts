@@ -3,7 +3,6 @@ import { afterEach, describe, expect, it } from "vitest";
 import type { FindContext } from "./workbench.find.testUtils.ts";
 import { createFindApp, disposeFindApp, type } from "./workbench.find.testUtils.ts";
 
-/** Full rendered screen as one string — used to assert the widget's match counter. */
 function screen(ctx: FindContext): string {
     ctx.testApp.render();
     return ctx.testApp.backend.screenToString();
@@ -21,7 +20,6 @@ describe("Workbench — find counter", () => {
         ctx.testApp.sendKey("Ctrl+F");
         type(ctx.testApp, "foo");
 
-        // Two matches, the first is current.
         expect(screen(ctx)).toContain("1 of 2");
 
         ctx.testApp.sendKey("Enter");
@@ -42,7 +40,6 @@ describe("Workbench — find counter", () => {
         ctx = createFindApp("foo bar foo");
         ctx.testApp.sendKey("Ctrl+F");
 
-        // Nothing typed yet — no counter, no highlights.
         const blank = screen(ctx);
         expect(blank).not.toContain(" of ");
         expect(blank).not.toContain("No results");

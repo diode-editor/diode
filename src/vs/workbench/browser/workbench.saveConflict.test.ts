@@ -24,7 +24,6 @@ describe("Workbench — save conflict (dirty-write protection)", () => {
 
         h.commands.execute("workbench.openFile", filePath);
         h.testApp.render();
-        // Make the buffer dirty (editor is focused after openFile).
         h.testApp.sendKey("X");
         h.testApp.render();
     });
@@ -46,7 +45,6 @@ describe("Workbench — save conflict (dirty-write protection)", () => {
         h.testApp.render();
 
         expect(dialog()).not.toBeNull();
-        // The parallel change is preserved until the user decides.
         expect(fs.readFileSync(filePath, "utf-8")).toBe("external edit\n");
     });
 

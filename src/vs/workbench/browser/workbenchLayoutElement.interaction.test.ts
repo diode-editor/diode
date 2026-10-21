@@ -24,7 +24,7 @@ function mouse(action: MouseToken["action"], x: number, y: number): MouseToken {
     };
 }
 
-/** Layout корнем дерева, по смещению `origin` на экране: так drag идёт через настоящий диспетчер мыши. */
+/** Так drag идёт через настоящий диспетчер мыши. */
 function rooted(origin: Offset, options: { bottom?: boolean; right?: boolean } = {}): WorkbenchLayoutElement {
     const layout = new WorkbenchLayoutElement();
     layout.setLeftPanel(new TUIElement());

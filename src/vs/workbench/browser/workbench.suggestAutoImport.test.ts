@@ -12,14 +12,10 @@ import { LanguageFeaturesServiceDIToken } from "../../editor/common/services/lan
 const SECONDARY_CARET_BG = packRgb(0xae, 0xaf, 0xad);
 
 /**
- * Регрессия догфудинга: «при автоимпорте курсор встаёт в два места».
- *
- * Вставка пункта и его правки-спутники (`import` сверху файла) идут одной
- * транзакцией — ради одного Undo. Батч ставил каретку в конец КАЖДОЙ правки:
- * вторая каретка появлялась в конце строки импорта, и следующий набор шёл в
- * оба места. Как в эталоне (`suggestController`: спутники — `executeEdits` без
- * cursor computer, курсор ставит основная вставка), каретка одна — за
- * вставленным словом, на строке, сдвинутой импортом.
+ * Регрессия догфудинга: вставка пункта и правки-спутники (`import`) идут одной
+ * транзакцией, и батч ставил каретку в конец каждой правки — вторая каретка
+ * вставала в строку импорта. Как в эталоне (`suggestController`), каретку
+ * ставит только основная вставка.
  */
 describe("Workbench — accept автодополнения с авто-импортом", () => {
     let ws: ITempWorkspace;
@@ -67,7 +63,6 @@ describe("Workbench — accept автодополнения с авто-импо
         expect(editor().viewState.document.getText()).toBe(`${IMPORT}greet\n`);
         expect(editor().viewState.selections.map((sel) => [sel.active.line, sel.active.character])).toEqual([[1, 5]]);
 
-        // Кадр: вторичных кареток (инверсных блоков) нет нигде на экране.
         h.testApp.render();
         const size = h.testApp.backend.size;
         for (let y = 0; y < size.height; y++) {
@@ -76,16 +71,14 @@ describe("Workbench — accept автодополнения с авто-импо
             }
         }
 
-        // Набор после accept идёт в одно место — за словом, не в строку импорта.
         h.testApp.sendKey("x");
         expect(editor().viewState.document.getText()).toBe(`${IMPORT}greetx\n`);
     });
 });
 
 /**
- * Каретку после accept ставит основная вставка, а не сдвиг вслед за правкой.
- * Разница видна, когда диапазон пункта (replace-режим) уходит правее каретки:
- * сдвиг маркера оставил бы каретку внутри вставки, на месте набранного префикса.
+ * Каретку ставит основная вставка, а не сдвиг за правкой: при диапазоне правее
+ * каретки сдвиг оставил бы её на месте набранного префикса.
  */
 describe("Workbench — accept пункта с диапазоном замены правее каретки", () => {
     let ws: ITempWorkspace;
@@ -143,10 +136,8 @@ describe("Workbench — accept пункта с диапазоном замены
 });
 
 /**
- * Правки-спутники могут прийти сразу в списке (gopls: `resolveProvider` у
- * сервера нет). Как в эталоне (`suggestController`, «sync additional edits»),
- * accept применяет их без resolve — и когда резолвить нечем, и когда resolve
- * есть, но молчит.
+ * Спутники приходят сразу в списке (у gopls нет `resolveProvider`); как в эталоне
+ * («sync additional edits»), accept применяет их без resolve.
  */
 describe("Workbench — accept пункта с правками-спутниками из самого списка", () => {
     let ws: ITempWorkspace;

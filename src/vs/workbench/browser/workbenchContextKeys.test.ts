@@ -17,16 +17,10 @@ import type { KeybindingDispatcher } from "../services/keybinding/browser/keybin
 
 import { WorkbenchContextKeys } from "./workbenchContextKeys.ts";
 
-/**
- * Юнит-сценарии поверх фейков — краевые случаи, не достижимые из интеграционных
- * Workbench-тестов: update() до attachView (фокуса ещё нет), проводка хука
- * dispatcher.updateContextKeys и опрос контрибьюторов фич.
- */
+/** Краевые случаи, недостижимые из интеграционных Workbench-тестов: update() до attachView, хук диспетчера. */
 function makeHarness(contributors: IContextKeyContributor[] = []) {
     const contextKeys = new ContextKeyService();
-    // Состояние окна — подменяемое тестом: папку «открывают» прямо в харнессе.
     const workspace = { state: "empty" as WorkbenchState };
-    // Контрибьюторы фич — по токену на каждого, accessor отдаёт их по токену.
     const contributorTokens = contributors.map((_, i) => token<IContextKeyContributor>(`Contributor${String(i)}`));
     const accessor = {
         get: (requested: Token<unknown>) =>
@@ -72,8 +66,7 @@ describe("WorkbenchContextKeys", () => {
         expect(h.contextKeys.get("inputWidgetFocus")).toBe(false);
         expect(h.contextKeys.get("listFocus")).toBe(false);
         expect(h.contextKeys.get("terminalFocus")).toBe(false);
-        // Upstream-имена для `when` расширений: именно под этими ключами их
-        // ищут манифесты (`editorLangId == python`), поэтому имя — контракт.
+        // Имя — контракт: под ним ключ ищут манифесты (`editorLangId == python`).
         expect(h.contextKeys.get("editorTextFocus")).toBe(false);
         expect(h.contextKeys.get("editorLangId")).toBe("");
     });
@@ -92,7 +85,6 @@ describe("WorkbenchContextKeys", () => {
         expect(h.contextKeys.get("workbenchState")).toBe("empty");
         expect(h.contextKeys.evaluate("workbenchState != 'empty'")).toBe(false);
 
-        // Open Folder: следующий пересчёт ключей видит папку.
         h.workspace.state = "folder";
         h.service.update();
         expect(h.contextKeys.get("workbenchState")).toBe("folder");
@@ -123,7 +115,6 @@ describe("WorkbenchContextKeys", () => {
             { name: "second", keys: h.contextKeys, active: focused },
         ]);
 
-        // Тайминг общий с центральными ключами: и хук диспетчера, и смена фокуса.
         h.dispatcher.updateContextKeys();
         h.service.handleFocusChange({} as TUIFocusEvent);
         expect(calls).toHaveLength(6);
@@ -134,7 +125,6 @@ describe("WorkbenchContextKeys", () => {
         const focused = new FillerElement();
         h.service.attachView({ focusManager: { activeElement: focused } } as unknown as BodyElement);
         h.onDidChangeFocus.mockImplementation(() => {
-            // Подписчик видит уже освежённый контекст.
             expect(h.contextKeys.get("textInputFocus")).toBe(false);
         });
         h.service.handleFocusChange({} as TUIFocusEvent);

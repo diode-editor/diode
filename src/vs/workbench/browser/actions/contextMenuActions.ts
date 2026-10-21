@@ -3,11 +3,8 @@ import { parseKeybinding } from "../../../platform/keybinding/common/keybindingR
 import { EditorServiceDIToken } from "../../services/editor/common/editorService.ts";
 
 /**
- * Открывает контекстное меню редактора с клавиатуры (Shift+F10, как в VS Code),
- * заякорив его на каретке. Тот же набор пунктов, что и по правому клику.
- * Спискам/деревьям отдельная команда не нужна: Shift+F10 для них синтезирует
- * движок (событие "contextmenu"), а этот бинд перехватывает его раньше только
- * при фокусе в тексте (`when: textInputFocus`).
+ * Спискам и деревьям отдельная команда не нужна: Shift+F10 для них синтезирует
+ * движок ("contextmenu"), а этот бинд перехватывает его только при фокусе в тексте.
  */
 export const showEditorContextMenuAction: CommandAction = {
     id: "editor.action.showContextMenu",

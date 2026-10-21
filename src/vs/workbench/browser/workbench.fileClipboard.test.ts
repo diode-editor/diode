@@ -37,9 +37,9 @@ describe("File explorer copy/cut/paste commands", () => {
     });
 
     it("copies a file into a folder, leaving the original", async () => {
-        h.testApp.sendKey("ArrowDown"); // cursor on a.txt
+        h.testApp.sendKey("ArrowDown");
         h.commands.execute("fileOperations.copy");
-        h.testApp.sendKey("ArrowUp"); // cursor on target/
+        h.testApp.sendKey("ArrowUp");
         await h.commands.execute("fileOperations.paste");
 
         expect(fs.existsSync(path.join(ws.dir, "target", "a.txt"))).toBe(true);
@@ -47,23 +47,22 @@ describe("File explorer copy/cut/paste commands", () => {
     });
 
     it("cuts a file into a folder, removing the original and clearing the clipboard", async () => {
-        h.testApp.sendKey("ArrowDown"); // cursor on a.txt
+        h.testApp.sendKey("ArrowDown");
         h.commands.execute("fileOperations.cut");
-        h.testApp.sendKey("ArrowUp"); // cursor on target/
+        h.testApp.sendKey("ArrowUp");
         await h.commands.execute("fileOperations.paste");
 
         expect(fs.existsSync(path.join(ws.dir, "target", "a.txt"))).toBe(true);
         expect(fs.existsSync(ws.path("a.txt"))).toBe(false);
 
-        // Pasting again is a no-op because the cut cleared the clipboard.
         await h.commands.execute("fileOperations.paste");
         expect(fs.existsSync(path.join(ws.dir, "target", "a copy.txt"))).toBe(false);
     });
 
     it("auto-renames when pasting a copy alongside the original", async () => {
-        h.testApp.sendKey("ArrowDown"); // cursor on a.txt
+        h.testApp.sendKey("ArrowDown");
         h.commands.execute("fileOperations.copy");
-        // cursor stays on a.txt → target dir is the workspace root, where a.txt already exists
+        // Курсор остался на a.txt → вставка в корень, где a.txt уже есть.
         await h.commands.execute("fileOperations.paste");
 
         expect(fs.existsSync(ws.path("a copy.txt"))).toBe(true);
@@ -115,7 +114,7 @@ describe("File explorer context menu — clipboard entries", () => {
 
     it("Copy entry puts the clicked file on the clipboard", async () => {
         rightClickRow(1); // a.txt
-        h.testApp.sendKey("ArrowDown"); // New Folder
+        h.testApp.sendKey("ArrowDown");
         h.testApp.sendKey("ArrowDown"); // Copy
         h.testApp.sendKey("Enter");
         h.testApp.render();
@@ -129,8 +128,8 @@ describe("File explorer context menu — clipboard entries", () => {
 
     it("Cut entry moves the file on the next paste", async () => {
         rightClickRow(1); // a.txt
-        h.testApp.sendKey("ArrowDown"); // New Folder
-        h.testApp.sendKey("ArrowDown"); // Copy
+        h.testApp.sendKey("ArrowDown");
+        h.testApp.sendKey("ArrowDown");
         h.testApp.sendKey("ArrowDown"); // Cut
         h.testApp.sendKey("Enter");
         h.testApp.render();
@@ -144,14 +143,14 @@ describe("File explorer context menu — clipboard entries", () => {
     });
 
     it("Paste entry appears for a non-empty clipboard and pastes into the clicked folder", async () => {
-        h.testApp.sendKey("ArrowDown"); // a.txt
+        h.testApp.sendKey("ArrowDown");
         h.commands.execute("fileOperations.copy");
 
         rightClickRow(0); // target/
         expect(h.testApp.backend.screenToString()).toContain("Paste");
-        h.testApp.sendKey("ArrowDown"); // New Folder
-        h.testApp.sendKey("ArrowDown"); // Copy
-        h.testApp.sendKey("ArrowDown"); // Cut
+        h.testApp.sendKey("ArrowDown");
+        h.testApp.sendKey("ArrowDown");
+        h.testApp.sendKey("ArrowDown");
         h.testApp.sendKey("ArrowDown"); // Paste
         h.testApp.sendKey("Enter");
         h.testApp.render();
@@ -164,14 +163,14 @@ describe("File explorer context menu — clipboard entries", () => {
     });
 
     // Order (empty clipboard): New File, New Folder, (sep), Copy, Cut, (sep),
-    // Select for Compare, (sep), Copy Path, Copy Relative Path, (sep), Delete.
+    // Select for Compare, (sep), Copy Path, Copy Relative Path, (sep), Rename, Delete.
     it("Copy Path entry puts the clicked file's absolute path on the clipboard", async () => {
         rightClickRow(1); // a.txt
         expect(h.testApp.backend.screenToString()).toContain("Copy Path");
-        h.testApp.sendKey("ArrowDown"); // New Folder
-        h.testApp.sendKey("ArrowDown"); // Copy
-        h.testApp.sendKey("ArrowDown"); // Cut
-        h.testApp.sendKey("ArrowDown"); // Select for Compare
+        h.testApp.sendKey("ArrowDown");
+        h.testApp.sendKey("ArrowDown");
+        h.testApp.sendKey("ArrowDown");
+        h.testApp.sendKey("ArrowDown");
         h.testApp.sendKey("ArrowDown"); // Copy Path
         h.testApp.sendKey("Enter");
         h.testApp.render();
@@ -183,11 +182,11 @@ describe("File explorer context menu — clipboard entries", () => {
     it("Copy Relative Path entry puts the workspace-relative path on the clipboard", async () => {
         rightClickRow(1); // a.txt
         expect(h.testApp.backend.screenToString()).toContain("Copy Relative Path");
-        h.testApp.sendKey("ArrowDown"); // New Folder
-        h.testApp.sendKey("ArrowDown"); // Copy
-        h.testApp.sendKey("ArrowDown"); // Cut
-        h.testApp.sendKey("ArrowDown"); // Select for Compare
-        h.testApp.sendKey("ArrowDown"); // Copy Path
+        h.testApp.sendKey("ArrowDown");
+        h.testApp.sendKey("ArrowDown");
+        h.testApp.sendKey("ArrowDown");
+        h.testApp.sendKey("ArrowDown");
+        h.testApp.sendKey("ArrowDown");
         h.testApp.sendKey("ArrowDown"); // Copy Relative Path
         h.testApp.sendKey("Enter");
         h.testApp.render();
@@ -220,14 +219,14 @@ describe("File explorer copy-path commands", () => {
     });
 
     it("copyPath writes the absolute path of the selected file to the clipboard", async () => {
-        h.testApp.sendKey("ArrowDown"); // cursor on a.txt
+        h.testApp.sendKey("ArrowDown");
         h.commands.execute("fileOperations.copyPath");
 
         expect(await clipboard.readText()).toBe(path.join(tmpDir, "a.txt"));
     });
 
     it("copyRelativePath writes the workspace-relative path to the clipboard", async () => {
-        h.testApp.sendKey("ArrowDown"); // cursor on a.txt
+        h.testApp.sendKey("ArrowDown");
         h.commands.execute("fileOperations.copyRelativePath");
 
         expect(await clipboard.readText()).toBe("a.txt");
@@ -248,8 +247,6 @@ describe("File explorer copy-path commands", () => {
 });
 
 describe("File explorer copy-path — no selection / no workspace root", () => {
-    // App built without a workspace folder: the tree has no nodes (nothing selected)
-    // and getRootPath() returns null.
     function createRootlessApp(): { h: IAppHarness; clipboard: IClipboard } {
         const h = createAppTestHarness();
         return { h, clipboard: h.container.get(ClipboardDIToken) };

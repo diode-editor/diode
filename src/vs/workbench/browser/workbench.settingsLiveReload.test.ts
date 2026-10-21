@@ -20,7 +20,6 @@ import {
 import { resolveUserDataPaths } from "../../platform/environment/node/userDataPaths.ts";
 import { ThemeServiceDIToken } from "../services/themes/common/themeTokens.ts";
 
-/** IConfigurationService with a live emitter and a mutable value map (for edge cases). */
 class EmittingConfig implements IConfigurationService {
     public readonly values: Record<string, unknown> = {};
     private readonly listeners: ((e: IConfigurationChangeEvent) => void)[] = [];
@@ -52,12 +51,7 @@ class EmittingConfig implements IConfigurationService {
     }
 }
 
-/**
- * Live-apply настроек через полный app-харнесс: правим settings.json, дёргаем
- * reload() у реального ConfigurationService и убеждаемся, что UI перестроился
- * без рестарта. Харнесс сидит на теме `Dark+` (darkPlus) — стартовые значения
- * подобраны под это.
- */
+/** Харнесс сидит на теме `Dark+` (darkPlus) — стартовые значения подобраны под это. */
 describe("Workbench — live settings apply", () => {
     let ws: ITempWorkspace;
     let cfgWs: ITempWorkspace;
@@ -101,10 +95,8 @@ describe("Workbench — live settings apply", () => {
     });
 
     it("skips the repaint when the theme name is unchanged (guard)", async () => {
-        // Harness seeds the ThemeService with darkPlus ("Dark+"); the config starts
-        // with no user colorTheme. Writing "Dark+" DOES put the key in the diff (the
-        // config default is "Dark Modern"), so the handler runs — but the resolved
-        // name equals the already-active theme, so the guard must skip re-applying.
+        // Writing "Dark+" puts the key in the diff (the default is "Dark Modern"), so the
+        // handler runs — but the name equals the active theme, so the guard must skip.
         await boot(`{}`, { workspaceFolder: ws.dir });
         const themeService = h.container.get(ThemeServiceDIToken);
         const before = themeService.theme;
@@ -113,7 +105,6 @@ describe("Workbench — live settings apply", () => {
         writeSettings(`{ "workbench.colorTheme": "Dark+" }`);
         await cfg.reload();
 
-        // Same name → no fresh WorkbenchTheme instance applied (identity preserved).
         expect(themeService.theme).toBe(before);
     });
 
@@ -124,7 +115,6 @@ describe("Workbench — live settings apply", () => {
         writeSettings(`{ "workbench.colorTheme": "No Such Theme" }`);
         await cfg.reload();
 
-        // Unknown label → registry.resolve returns undefined → theme left as-is.
         expect(themeService.theme.name).toBe("Dark+");
     });
 
@@ -144,8 +134,6 @@ describe("Workbench — live settings apply", () => {
     });
 
     it("is a no-op when workbench.colorTheme is unset in the changed config", () => {
-        // Edge: the colorTheme key is reported as affected but no value is present
-        // (unusual — defaults normally supply one). The handler must bail out safely.
         const emitting = new EmittingConfig();
         h = createAppTestHarness({ workspaceFolder: ws.dir, configurationService: emitting });
         cfgWs = createTempWorkspace({ prefix: "diode-live-noop-" }); // satisfy afterEach cleanup

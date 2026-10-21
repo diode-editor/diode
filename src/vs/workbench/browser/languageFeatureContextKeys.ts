@@ -10,19 +10,10 @@ import { EditorServiceDIToken } from "../services/editor/common/editorService.ts
 export const LanguageFeatureContextKeysDIToken = token<LanguageFeatureContextKeys>("LanguageFeatureContextKeys");
 
 /**
- * Ключи «у документа есть провайдер такой-то фичи» (upstream
- * `EditorContextKeys.has*Provider`): их читают when-клаузы пунктов
- * контекст-меню редактора, чтобы меню не обещало нерабочее — «Go to
- * Definition» в .txt без языкового сервера пункта не даёт.
- *
- * Считаются по реестрам `ILanguageFeaturesService` для документа АКТИВНОГО
- * редактора — ровно так же, как их потом спросит сама команда. Опрос (как у
- * всех {@link IContextKeyContributor}) идёт перед резолвом биндинга и на смене
- * фокуса: провайдер, приехавший позже (language server поднялся через
- * секунду), подхватывается на следующем же обращении, без подписки на реестр.
- *
- * Без активного редактора все ключи — `false`: иначе они залипали бы от
- * прошлого документа и меню показывало бы пункты чужого языка.
+ * Upstream `EditorContextKeys.has*Provider`: меню не обещает нерабочее. Опрос
+ * перед резолвом биндинга подхватывает провайдера, приехавшего позже, без
+ * подписки на реестр. Без активного редактора все ключи — `false`: иначе они
+ * залипали бы от прошлого документа.
  */
 export class LanguageFeatureContextKeys implements IContextKeyContributor {
     public static dependencies = [EditorServiceDIToken, LanguageFeaturesServiceDIToken] as const;
@@ -44,8 +35,7 @@ export class LanguageFeatureContextKeys implements IContextKeyContributor {
             "editorHasDocumentSelectionFormattingProvider",
             this.has("documentRangeFormattingEditProvider", target),
         );
-        // Непустое выделение: на нём висит Format Selection — пункт «отформатировать
-        // выделенное» без выделения в эталоне не показывается.
+        // Format Selection без выделения в эталоне не показывается.
         const selection = editor?.viewState.selections[0];
         const empty =
             selection === undefined ||

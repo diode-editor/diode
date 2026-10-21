@@ -64,7 +64,6 @@ describe("Workbench — стрелки Вверх/Вниз в видимом с�
         expect(switcher.isOpen()).toBe(true);
         expect(pointer()).toBe(2);
         expect(activeName()).toBe("a.ts");
-        // Состав списка при этом заморожен — стрелка двигает только позицию.
         expect(switcher.view.inspectState()).toMatchObject({ items: ["c.ts", "b.ts", "a.ts"], currentIndex: 2 });
     });
 
@@ -106,8 +105,6 @@ describe("Workbench — стрелки Вверх/Вниз в видимом с�
 
         expect(switcher.isOpen()).toBe(false);
         expect(activeName()).toBe("a.ts");
-        // Выбранная стрелкой вкладка встала наверх MRU — ровно как если бы её
-        // довели Tab'ом: следующая серия начинает отсчёт от неё.
         expect(editorService.editorGroups.activeGroup.getMruOrder().map((pane) => pane.label)).toEqual([
             "a.ts",
             "c.ts",
@@ -144,23 +141,23 @@ describe("Workbench — стрелки Вверх/Вниз в видимом с�
         h.testApp.sendKey("Ctrl+Tab");
         h.testApp.sendKey("Ctrl+ArrowDown");
         h.testApp.render();
-        expect(pointer()).toBe(2); // последняя строка
+        expect(pointer()).toBe(2);
 
         h.testApp.sendKey("Ctrl+ArrowDown");
         h.testApp.render();
-        expect(pointer()).toBe(0); // завернулись на первую
+        expect(pointer()).toBe(0);
         expect(switcher.isOpen()).toBe(true);
 
         h.testApp.sendKey("Ctrl+ArrowUp");
         h.testApp.render();
-        expect(pointer()).toBe(2); // и обратно с первой на последнюю
+        expect(pointer()).toBe(2);
         expect(switcher.isOpen()).toBe(true);
     });
 
     it("серия, начатая с Ctrl+Shift+Tab: направление стрелок привязано к списку", () => {
         h.testApp.sendKey("Ctrl+Shift+Tab");
         h.testApp.render();
-        expect(pointer()).toBe(2); // подсветка на последней строке
+        expect(pointer()).toBe(2);
 
         // Shift пользователь обычно не отпускает — стрелка обязана работать и с ним.
         h.testApp.sendKey("Ctrl+Shift+ArrowDown");
@@ -189,7 +186,6 @@ describe("Workbench — стрелки Вверх/Вниз в видимом с�
     });
 
     it("после того как список погас, Ctrl+Вниз снова прокручивает редактор", () => {
-        // До всякой серии: прокрутка работает, списка нет.
         const before = h.activeEditor();
         before.viewState.scrollTop = 0;
         h.testApp.sendKey("Ctrl+ArrowDown");
@@ -197,7 +193,6 @@ describe("Workbench — стрелки Вверх/Вниз в видимом с�
         expect(before.viewState.scrollTop).toBe(1);
         expect(switcher.isOpen()).toBe(false);
 
-        // Серия открылась и погасла — прокрутка вернулась, список не всплывает.
         h.testApp.sendKey("Ctrl+Tab");
         h.testApp.render();
         expect(switcher.isOpen()).toBe(true);
@@ -247,15 +242,12 @@ describe("Workbench — стрелки Вверх/Вниз в видимом с�
 
             many.testApp.sendKey("Ctrl+Tab");
             many.testApp.render();
-            // Показано не больше maxVisibleItems строк, окно стоит у начала.
             expect(view.inspectState()).toMatchObject({ currentIndex: 1, windowStart: 0 });
 
-            // Шагаем вниз до нижнего края окна и дальше — окно едет за подсветкой.
             for (let i = 0; i < 10; i++) many.testApp.sendKey("Ctrl+ArrowDown");
             many.testApp.render();
             expect(view.inspectState()).toMatchObject({ currentIndex: 11, windowStart: 2 });
 
-            // Вверх — окно едет обратно.
             for (let i = 0; i < 11; i++) many.testApp.sendKey("Ctrl+ArrowUp");
             many.testApp.render();
             expect(view.inspectState()).toMatchObject({ currentIndex: 0, windowStart: 0 });
@@ -278,16 +270,9 @@ describe("Workbench — стрелки Вверх/Вниз в видимом с�
             one.testApp.render();
             expect(switcherOne.isOpen()).toBe(false);
 
-            // Ctrl+Tab при одной вкладке не резолвится (`editorTabsMultiple`),
-            // значит никто не зовёт preventDefault — и движок крутит кольцо
-            // фокуса по Tab, не глядя на модификаторы, уводя фокус в меню-бар.
-            // Это не наш код и не регресс этой задачи (на main то же самое);
-            // починено в tuidom (`fix(core)`, PR tuidom#5, релиз 0.2.2), но
-            // 0.2.2 ещё не опубликована в npm. Подъём пина и прямая проверка
-            // сценария 12 вынесены отдельной заявкой — обход ниже снимать
-            // вместе с ней, а не наследовать молча. Пока возвращаем фокус в
-            // текст и проверяем то, что относится к стрелкам: без видимого
-            // списка Ctrl+Вниз — это прокрутка.
+            // Обход: при одной вкладке Ctrl+Tab не резолвится, и движок крутит кольцо
+            // фокуса по Tab, уводя фокус в меню-бар. Починено в tuidom#5 (0.2.2) — снять
+            // вместе с подъёмом пина.
             one.workbench.focusEditor();
             one.activeEditor().viewState.scrollTop = 0;
             one.testApp.sendKey("Ctrl+ArrowDown");

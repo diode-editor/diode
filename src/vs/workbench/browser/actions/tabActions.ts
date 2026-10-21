@@ -10,16 +10,13 @@ import { EditorServiceDIToken } from "../../services/editor/common/editorService
 import { resolveTabTarget } from "./editorTabTarget.ts";
 import { editorTabIsPreview, editorTabTargetArg } from "./menuContexts.ts";
 
-/** Стрелки по видимому списку tab-switcher сильнее прокрутки строк редактора (upstream: навигация пикера — WorkbenchContrib + 50; ступени хватает). */
+/** Сильнее прокрутки строк редактора (upstream: WorkbenchContrib + 50; ступени хватает). */
 const TAB_SWITCHER_WEIGHT = KeybindingWeight.WorkbenchContrib;
 
 /**
- * Один шаг MRU-переключения вкладок. Каждое нажатие шагает по стеку, а отпускание
- * удерживающего модификатора (Ctrl для Ctrl+Tab, Alt для ребинда Alt+Tab и т.п.)
- * фиксирует выбор — так быстрые нажатия тумблерят два последних редактора, а
- * удержание проходит вглубь. Модификатор берётся из контекста текущего вызова
- * (см. ModifierReleaseArmory); из меню/палитры контекста нет — тогда шаг без
- * «hold-сессии».
+ * Отпускание удерживающего модификатора фиксирует выбор: быстрые нажатия
+ * тумблерят два последних редактора, удержание проходит вглубь. Из меню и
+ * палитры модификатора нет — шаг без «hold-сессии».
  */
 function cycleMruStep(accessor: ServiceAccessor, direction: 1 | -1): void {
     const groups = accessor.get(EditorGroupsServiceDIToken);
@@ -29,19 +26,12 @@ function cycleMruStep(accessor: ServiceAccessor, direction: 1 | -1): void {
     });
 }
 
-/**
- * Фокус в содержимом вкладки, где клавиши вкладок — области редакторов:
- * текст либо вкладка-терминал (у эталона команды вкладок стоят в
- * `commandsToSkipShell` — в шелл они не уходят).
- */
+/** У эталона команды вкладок стоят в `commandsToSkipShell` — в шелл терминала они не уходят. */
 const EDITOR_TABS_FOCUS = "textViewFocus || terminalEditorFocus";
 
 /**
- * Шаг по вкладкам в ВИЗУАЛЬНОМ порядке (VS Code `nextEditor`/`previousEditor`,
- * Ctrl+PgDn/PgUp): все группы слева направо, с заворотом. Без hold-сессии —
- * каждый шаг сразу коммитится; за MRU-переключение отвечает пара Ctrl+Tab
- * ({@link nextEditorInGroupAction}). Alt-дубль — для терминалов, где
- * Ctrl+PgUp/PgDn заняты их собственными вкладками (gnome-terminal и т.п.).
+ * Визуальный порядок, все группы, с заворотом; без hold-сессии. Alt-дубль — для
+ * терминалов, где Ctrl+PgUp/PgDn заняты их собственными вкладками (gnome-terminal).
  */
 export const nextEditorAction: CommandAction = {
     id: "workbench.action.nextEditor",
@@ -70,15 +60,9 @@ export const previousEditorAction: CommandAction = {
 };
 
 /**
- * Стрелки внутри видимого списка серии: пока оверлей на экране, Вниз шагает тем
- * же шагом, что Tab, а Вверх — тем же, что Shift+Tab (направление привязано к
- * списку, а не к тому, с какой стороны серию начали). Shift-варианты — для серии,
- * начатой с Ctrl+Shift+Tab: модификатор там часто остаётся зажатым, и без них
- * первая же стрелка ушла бы мимо списка.
- *
- * Гейт `tabSwitcherVisible` разводит их с `scrollLineUp`/`scrollLineDown`, которые
- * сидят на тех же Ctrl+Вверх/Вниз: список погас — прокрутка вернулась; при
- * видимом списке побеждают эти — у них вес TAB_SWITCHER_WEIGHT.
+ * Направление привязано к списку, а не к стороне, с которой серию начали.
+ * Shift-варианты — для серии с Ctrl+Shift+Tab: модификатор часто остаётся зажатым.
+ * Гейт разводит их с `scrollLineUp`/`scrollLineDown` на тех же Ctrl+Вверх/Вниз.
  */
 const TAB_SWITCHER_ARROWS = "tabSwitcherVisible";
 
@@ -117,12 +101,8 @@ export const previousEditorInGroupAction: CommandAction = {
 };
 
 /**
- * Тумблер двух последних редакторов (VS Code `openPreviousRecentlyUsedEditorInGroup`,
- * у него без дефолтного бинда). Шаг по MRU с немедленной фиксацией — в отличие от
- * Ctrl+Tab здесь нет «hold-сессии»: терминал сообщает об отпускании модификатора
- * только в kitty-протоколе, а Ctrl+6 задуман как работающий везде. Комбинация
- * выбрана под терминал: 0x1e доходит даже на legacy, где Ctrl+Tab неотличим от Tab,
- * и совпадает с вимовским Ctrl+^ («alternate file»).
+ * Без «hold-сессии»: об отпускании модификатора терминал сообщает только в
+ * kitty-протоколе. Ctrl+6 (0x1e) доходит даже на legacy и совпадает с вимовским Ctrl+^.
  */
 export const openPreviousRecentlyUsedEditorInGroupAction: CommandAction = {
     id: "workbench.action.openPreviousRecentlyUsedEditorInGroup",
@@ -139,11 +119,8 @@ export const openPreviousRecentlyUsedEditorInGroupAction: CommandAction = {
 };
 
 /**
- * Прикалывает вкладку: она перестаёт быть предпросмотром и её больше не
- * замещает следующее превью (VS Code `workbench.action.keepEditor`, Ctrl+K Enter
- * и пункт «Keep Open» в меню вкладки). Для уже приколотой — no-op, поэтому
- * команда не гейтится «вкладка сейчас превью»: иначе Ctrl+K Enter на обычной
- * вкладке проглатывался бы диспетчером впустую.
+ * Не гейтится «вкладка сейчас превью»: для приколотой это no-op, а иначе
+ * Ctrl+K Enter на обычной вкладке проглатывался бы диспетчером впустую.
  */
 export const keepEditorAction: CommandAction = {
     id: "workbench.action.keepEditor",
@@ -159,14 +136,11 @@ export const keepEditorAction: CommandAction = {
         },
     ],
     keybinding: parseChord("ctrl+k enter"),
-    // Без гейта по фокусу: превью открывает дерево Explorer, и приколоть
-    // вкладку должно быть можно не уходя из него.
+    // Без гейта по фокусу: превью открывает Explorer, приколоть можно не уходя из него.
     when: "editorGroupHasEditors",
     run(accessor, ...args) {
         const target = resolveTabTarget(accessor.get(EditorGroupsServiceDIToken), args);
-        // Цели нет — вызов из палитры при пустой группе либо протухший адрес из
-        // меню; делать нечего. У живой цели индекс уже проверен резолвером,
-        // поэтому панель берём прямо, без защиты от `null`.
+        // Индекс живой цели уже проверен резолвером — панель берём без защиты от `null`.
         if (target === null) return;
         target.group.pinPane(target.group.getPanes()[target.index]);
     },
@@ -184,15 +158,12 @@ export const closeActiveEditorAction: CommandAction = {
     when: "textViewFocus && editorGroupHasEditors",
     run(accessor, ...args) {
         const service = accessor.get(EditorServiceDIToken);
-        // Из меню вкладки приходит адрес вкладки ПОД КУРСОРОМ (правый клик её не
-        // активирует); с клавиатуры и из палитры аргументов нет — цель активная.
+        // Из меню — вкладка ПОД КУРСОРОМ (правый клик её не активирует); иначе — активная.
         const target = resolveTabTarget(accessor.get(EditorGroupsServiceDIToken), args);
         if (target === null) return;
 
-        // Закрываем вкладку по её адресу, а не focus-aware `getActiveEditor()`:
-        // при фокусе в панели тот вернул бы Output (он никогда не modified) — и
-        // изменённая вкладка закрылась бы молча. Дифф v2 с несохранённой
-        // стороной — тоже вкладка: confirm у него тот же, что у крестика мыши.
+        // По адресу, а не focus-aware `getActiveEditor()`: при фокусе в панели тот вернул
+        // бы Output (никогда не modified) — и изменённая вкладка закрылась бы молча.
         void service.closeEditor(target.group, target.index);
     },
 };

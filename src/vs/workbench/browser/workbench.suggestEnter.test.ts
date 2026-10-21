@@ -8,14 +8,9 @@ import { LanguageFeaturesServiceDIToken } from "../../editor/common/services/lan
 import { EditorServiceDIToken } from "../services/editor/common/editorService.ts";
 
 /**
- * Регрессия: попап автодополнения, переживший несловесный символ, крал Enter.
- *
- * Enter привязан к `acceptSelectedSuggestion` под `when: suggestWidgetVisible`,
- * а список при доборе непопадающего символа оставался видимым (`refineFilter`
- * держит последний непустой набор). В результате `cons{` + Enter не переносили
- * строку, а молча заменяли набранное на `console` — пользователь видел, что
- * «часть текста стирается». Тест смотрит туда же, куда пользователь: настоящие
- * клавиши через диспатчер, проверка — текст буфера.
+ * Регрессия: `refineFilter` держит последний непустой набор, попап переживал `{`,
+ * и Enter (`acceptSelectedSuggestion` под `suggestWidgetVisible`) заменял `cons{`
+ * на `console`.
  */
 describe("Workbench — Enter после несловесного символа при открытом попапе", () => {
     let ws: ITempWorkspace;
@@ -67,8 +62,6 @@ describe("Workbench — Enter после несловесного символа
 
         h.testApp.sendKey("Enter");
 
-        // До починки Enter уходил в acceptSelectedSuggestion и давал "console\n".
-        // Теперь это обычный перевод строки — с отступом на уровень глубже после `{`.
         expect(editor().viewState.document.getText()).toBe("cons{\n    \n");
     });
 

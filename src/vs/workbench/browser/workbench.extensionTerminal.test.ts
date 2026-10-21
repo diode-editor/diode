@@ -17,10 +17,6 @@ import { ExtensionPtySessionFactoryDIToken } from "../contrib/terminal/common/te
 import { PanelServiceDIToken } from "./parts/panel/panelService.ts";
 import { ViewsServiceDIToken } from "./parts/views/viewsService.ts";
 
-// Терминал расширения в кадре: сток `window.createTerminal` (тот же адаптер, что
-// в extensionHostModule) поверх настоящего workbench. Провод и субпроцесс —
-// terminalCustomer.test.ts; здесь — что видит человек.
-
 describe("Workbench — терминал расширения", () => {
     let ws: ITempWorkspace;
     let h: IAppHarness;

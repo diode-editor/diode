@@ -48,7 +48,6 @@ function frame(h: IAppHarness): string[] {
     return h.testApp.backend.screenToString().split("\n");
 }
 
-/** Открыть вид с фокусом и освежить ключи — как это делает пользователь кликом. */
 function focusView(h: IAppHarness, viewId: string): void {
     h.container.get(ViewsServiceDIToken).openView(viewId, true);
     h.container.get(WorkbenchContextKeysDIToken).update();
@@ -78,7 +77,6 @@ describe("Workbench — перенос видов командами", () => {
         expect(h.container.get(ContextKeyServiceDIToken).get("focusedView")).toBe(SEARCH_VIEW_ID);
 
         void h.commands.execute("workbench.action.moveFocusedView");
-        // Заголовок выбора — «View: Move <вид>», первым идёт новая вкладка панели.
         expect(frame(h).join("\n")).toContain("View: Move SEARCH");
         typeText(h, "New Secondary");
         h.testApp.sendKey("Enter");
@@ -92,7 +90,6 @@ describe("Workbench — перенос видов командами", () => {
         h.container.get(WorkbenchContextKeysDIToken).update();
         expect(h.container.get(ContextKeyServiceDIToken).get("auxiliaryBarFocus")).toBe(true);
         expect(h.container.get(ContextKeyServiceDIToken).get("focusedView")).toBe(SEARCH_VIEW_ID);
-        // На кадре вкладка OUTPUT — правее редактора, в первой строке части.
         const part = h.workbench.workbenchLayout.getRightPanel()!;
         expect(frame(h)[1].slice(part.globalPosition.x)).toContain("SEARCH");
     });
@@ -140,7 +137,6 @@ describe("Workbench — перенос видов командами", () => {
         expect(panelTabs(h)).toEqual([]);
         expect(auxiliaryTabs(h)).toEqual(["PROBLEMS", "OUTPUT", "TERMINAL"]);
         expect(h.container.get(AuxiliaryBarServiceDIToken).visible).toBe(true);
-        // Часть была пуста — в ней открыт бывший активный контейнер панели.
         expect(h.container.get(AuxiliaryBarServiceDIToken).getActiveViewId()).toBe(OUTPUT_VIEW_ID);
 
         void h.commands.execute("workbench.action.moveSecondarySideBarToPanel");

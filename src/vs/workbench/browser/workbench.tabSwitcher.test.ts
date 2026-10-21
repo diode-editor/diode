@@ -54,8 +54,6 @@ describe("Workbench — оверлей Ctrl+Tab и цикл Ctrl+PgUp/PgDn", () 
         h.testApp.sendKey("Ctrl+Tab");
         h.testApp.render();
 
-        // Шаг серии: активна предыдущая по MRU (b), оверлей виден и показывает
-        // замороженный MRU-список c позицией на b.
         expect(activeName()).toBe("b.ts");
         expect(switcher.isOpen()).toBe(true);
         expect(switcher.view.inspectState()).toMatchObject({
@@ -63,23 +61,17 @@ describe("Workbench — оверлей Ctrl+Tab и цикл Ctrl+PgUp/PgDn", () 
             currentIndex: 1,
         });
 
-        // Список дошёл до кадра: строки оверлея в рамке поверх редактора — с
-        // настоящей иконкой .ts (глиф nerd font из getFileIcon), меткой и
-        // маркером изменённости у правленой вкладки.
         const frame = h.testApp.backend.screenToString();
         const tsIcon = getFileIcon("c.ts").icon;
         expect(frame).toMatch(new RegExp(`│\\s*${tsIcon} c\\.ts\\s+● │`));
         expect(frame).toMatch(new RegExp(`│\\s*${tsIcon} a\\.ts\\s+│`));
 
-        // Позиция и размер — как у quick pick'а: горизонтальный центр, ~10% от
-        // верха; ширина 48 на экране 80×24, высота = строки + рамка.
+        // Как у quick pick'а: центр по горизонтали, ~10% от верха; ширина 48 на 80×24.
         expect(switcher.view.globalPosition.x).toBe(16);
         expect(switcher.view.globalPosition.y).toBe(2);
         expect(switcher.view.layoutSize.width).toBe(48);
         expect(switcher.view.layoutSize.height).toBe(5);
 
-        // Удержание Ctrl + второй Tab — глубже по стеку (список заморожен), и
-        // подсветка в КАДРЕ уезжает со второй строки на третью (репайнт шага).
         h.testApp.sendKey("Ctrl+Tab");
         h.testApp.render();
         expect(activeName()).toBe("a.ts");
@@ -89,8 +81,6 @@ describe("Workbench — оверлей Ctrl+Tab и цикл Ctrl+PgUp/PgDn", () 
         expect(rowBg(4)).toBe(rowBg(3));
         expect(rowBg(5)).not.toBe(rowBg(3));
 
-        // Отпускание Ctrl (keyup доносит диспатчер через ModifierReleaseArmory):
-        // серия фиксируется, оверлей гаснет.
         armory.fireRelease("Control");
         h.testApp.render();
         expect(switcher.isOpen()).toBe(false);
@@ -108,7 +98,6 @@ describe("Workbench — оверлей Ctrl+Tab и цикл Ctrl+PgUp/PgDn", () 
         expect(switcher.isOpen()).toBe(true);
         expect(activeName()).toBe("b.ts");
 
-        // Обычная навигация в редакторе (не шаг цикла) — серия закрыта.
         h.testApp.sendKey("ArrowDown");
         h.testApp.render();
 
@@ -131,7 +120,6 @@ describe("Workbench — оверлей Ctrl+Tab и цикл Ctrl+PgUp/PgDn", () 
         h.testApp.sendKey("Ctrl+Shift+Tab");
         h.testApp.render();
 
-        // Назад по стеку — к самой давней вкладке (a).
         expect(activeName()).toBe("a.ts");
         expect(switcher.isOpen()).toBe(true);
         expect(switcher.view.inspectState()).toMatchObject({ currentIndex: 2 });

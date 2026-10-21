@@ -24,10 +24,7 @@ import { ThemeService } from "../services/themes/common/themeService.ts";
 
 import { WorkbenchStateService } from "./workbenchStateService.ts";
 
-/**
- * Снимок и рестор открытых редакторов поверх настоящего `EditorService`:
- * смотрим, что легло в стор и что открылось, а не какие методы позвали.
- */
+/** Смотрим, что легло в стор и что открылось, а не какие методы позвали. */
 describe("WorkbenchStateService", () => {
     let ws: ITempWorkspace;
     let state: StateService;
@@ -50,8 +47,7 @@ describe("WorkbenchStateService", () => {
     });
 
     afterEach(() => {
-        // Писателя глушим ДО сноса каталога: debounced-запись,
-        // сработавшая после `rmSync`, пересоздаёт его.
+        // Писателя глушим ДО сноса каталога: debounced-запись после `rmSync` пересоздаёт его.
         state.dispose();
         editors.dispose();
         ws.dispose();
@@ -236,7 +232,6 @@ describe("WorkbenchStateService", () => {
     it("пишет workspace-состояние в стор открытого проекта", () => {
         const paths = resolveUserDataPaths({ homedir: "/never", userDataDir: ws.path(".user") });
         const service = make();
-        // Стор адресуется идентичностью воркспейса, а не путём папки.
         const workspaceId = computeWorkspaceId("/projects/gamma");
         service.openWorkspace(workspaceId);
         editors.openFile(ws.path("c.ts"));

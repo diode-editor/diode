@@ -9,9 +9,6 @@ import { fileDialogDriver } from "../../../TestUtils/fileDialogDriver.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
 import { IWorkspaceContextServiceDIToken } from "../../platform/workspace/common/iWorkspaceContextServiceDIToken.ts";
 
-// File: Open File / Open Folder — диалог файлов (порт SimpleFileDialog эталона)
-// в настоящем приложении на настоящем диске: путь в строке, каталог под ней.
-
 describe("Workbench — Open File / Open Folder", () => {
     let ws: ITempWorkspace;
     let h: IAppHarness;

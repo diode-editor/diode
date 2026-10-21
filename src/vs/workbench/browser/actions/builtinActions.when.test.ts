@@ -12,11 +12,7 @@ import { MENU_CONTRIBUTIONS, WORKBENCH_ACTIONS } from "../../workbench.common.ma
 
 import { withMacKeybindings } from "./macKeybindings.ts";
 
-/**
- * Ключи, объявленные в `ContextKeyTypes` (раскомментированные поля интерфейса).
- * Рантайм-списка имён у вычислителя нет и не нужно — источник правды один,
- * интерфейс, и тест читает его как есть, а не дублирует.
- */
+/** Источник правды — сам интерфейс `ContextKeyTypes`; тест читает его, а не дублирует. */
 function declaredContextKeys(): Set<string> {
     const source = readFileSync(new URL("../../../platform/contextkey/common/contextKeys.ts", import.meta.url), "utf8");
     return new Set([...source.matchAll(/^ {4}(\w+)\??:/gm)].map((match) => match[1]));
@@ -25,7 +21,7 @@ function declaredContextKeys(): Set<string> {
 /** Динамические семейства ключей: свои моды окружения и capability терминала. */
 const DYNAMIC_KEY_PREFIXES = ["mode_", "cap_"];
 
-/** Все when-строки встроенных регистраций — так, как их видит вычислитель (с мак-вариантами и `combineWhen`). */
+/** Так, как их видит вычислитель: с мак-вариантами и `combineWhen`. */
 function builtinWhens(): Set<string> {
     const keybindings = new KeybindingRegistry();
     const accessor = {} as ServiceAccessor; // enablement резолвится только при исполнении
@@ -51,7 +47,6 @@ function builtinWhens(): Set<string> {
 describe("when-строки встроенных регистраций", () => {
     it("каждая разбирается парсером (иначе бинд или пункт молча мёртв)", () => {
         const whens = builtinWhens();
-        // Сотни строк: гейт должен смотреть на реальный набор, а не на пустой.
         expect(whens.size).toBeGreaterThan(50);
         const broken = [...whens].filter((when) => parseWhen(when) === undefined);
         expect(broken).toEqual([]);

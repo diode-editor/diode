@@ -64,14 +64,11 @@ describe("Workbench — bottom panel visibility commands", () => {
         h.commands.execute(TOGGLE_PANEL);
         h.testApp.render();
 
-        // Кнопка нарисована в правом конце строки вкладок — там, где её ищет
-        // пользователь, и там, куда смотрит `inspectState`.
         const state = panel().inspectState();
         const close = state.close as { x: number; width: number };
         const row = h.testApp.backend.screenToString().split("\n")[state.tabRow as number];
         expect(row.slice(close.x, close.x + close.width)).toBe(" × ");
 
-        // Весь провод от виджета: колбэк контрола → компонент → команда → layout.
         panel().onClose?.();
         expect(h.workbench.workbenchLayout.getBottomPanelVisible()).toBe(false);
     });
@@ -81,13 +78,11 @@ describe("Workbench — bottom panel visibility commands", () => {
         expect(h.workbench.workbenchLayout.getBottomPanelVisible()).toBe(true);
         expect(panel().getActiveViewId()).toBe(PROBLEMS_VIEW_ID);
 
-        // End-to-end: the panel actually paints its tab + empty-state on screen.
         h.testApp.render();
         const screen = h.testApp.backend.screenToString();
         expect(screen).toContain("PROBLEMS");
         expect(screen).toContain("No problems have been detected in the workspace.");
 
-        // Problems already visible+active → the command hides the panel.
         h.commands.execute(TOGGLE_PROBLEMS);
         h.testApp.render();
         expect(h.workbench.workbenchLayout.getBottomPanelVisible()).toBe(false);
@@ -95,11 +90,10 @@ describe("Workbench — bottom panel visibility commands", () => {
     });
 
     it("Toggle Problems re-opens the panel when it was toggled off", () => {
-        h.commands.execute(TOGGLE_PANEL); // open (Problems active by default)
-        h.commands.execute(TOGGLE_PANEL); // close
+        h.commands.execute(TOGGLE_PANEL);
+        h.commands.execute(TOGGLE_PANEL);
         expect(h.workbench.workbenchLayout.getBottomPanelVisible()).toBe(false);
 
-        // Panel hidden → Toggle Problems opens it again rather than staying hidden.
         h.commands.execute(TOGGLE_PROBLEMS);
         expect(h.workbench.workbenchLayout.getBottomPanelVisible()).toBe(true);
         expect(panel().getActiveViewId()).toBe(PROBLEMS_VIEW_ID);

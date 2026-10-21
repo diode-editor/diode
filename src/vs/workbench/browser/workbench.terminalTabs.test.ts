@@ -37,7 +37,6 @@ describe("Workbench — multiple terminals", () => {
         component = h.container.get(TerminalPanelComponentDIToken);
     }
 
-    /** Открыть `n` терминалов командой New (последний — активный и в фокусе). */
     function open(n: number): void {
         for (let i = 0; i < n; i++) h.commands.execute(NEW);
         h.testApp.render();
@@ -74,7 +73,6 @@ describe("Workbench — multiple terminals", () => {
 
         h.testApp.sendKey("Ctrl+PageDown");
         expect(activeIndex()).toBe(0);
-        // Фокус переехал в новый активный терминал — следующее нажатие тоже работает.
         expect(h.testApp.focusedElement).toBeInstanceOf(TerminalViewElement);
         h.testApp.sendKey("Ctrl+PageDown");
         expect(activeIndex()).toBe(1);
@@ -128,7 +126,6 @@ describe("Workbench — multiple terminals", () => {
         expect(h.testApp.focusedElement).toBe(component.tabs.list);
 
         h.testApp.sendKey("Delete");
-        // Остался один — список спрятан, фокус в терминал.
         expect(terminal.getInstances()).toHaveLength(1);
         h.testApp.render();
         expect(h.testApp.focusedElement).toBeInstanceOf(TerminalViewElement);
@@ -177,7 +174,6 @@ describe("Workbench — multiple terminals", () => {
         await h.commands.execute("workbench.action.terminal.switchTerminal", "1: bash");
         expect(activeIndex()).toBe(0);
         expect(h.testApp.focusedElement).toBeInstanceOf(TerminalViewElement);
-        // Чужая строка — no-op.
         await h.commands.execute("workbench.action.terminal.switchTerminal", "─");
         expect(activeIndex()).toBe(0);
     });

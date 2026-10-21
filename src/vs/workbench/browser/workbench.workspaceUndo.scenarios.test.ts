@@ -91,7 +91,7 @@ describe("Explorer undo/redo scenarios", () => {
         h.commands.execute("fileOperations.undo");
         await vi.waitFor(() => {
             expect(fs.existsSync(b)).toBe(true);
-        }); // последний удалённый восстановлен первым
+        });
         expect(fs.existsSync(a)).toBe(false);
 
         h.commands.execute("fileOperations.undo");
@@ -123,31 +123,27 @@ describe("Explorer undo/redo scenarios", () => {
         const a = ws.path("a.txt");
         const doc = ws.path("doc.txt");
 
-        // Файловая операция в дереве (cut+paste = move, без диалога), фокус в дереве.
         // Дерево: target/(0), a.txt(1), b.txt(2), doc.txt(3).
-        h.testApp.sendKey("ArrowDown"); // a.txt
+        h.testApp.sendKey("ArrowDown");
         h.commands.execute("fileOperations.cut");
-        h.testApp.sendKey("ArrowUp"); // target/
+        h.testApp.sendKey("ArrowUp");
         await h.commands.execute("fileOperations.paste");
         await vi.waitFor(() => {
             expect(fs.existsSync(a)).toBe(false);
         });
         expect(fs.existsSync(ws.path("target/a.txt"))).toBe(true);
 
-        // Правка текста в редакторе (отдельный стек по пути файла).
         h.commands.execute("workbench.openFile", doc);
         h.testApp.render();
         h.testApp.sendKey("x");
         h.testApp.render();
         expect(activeEditorText(h.workbench)).toContain("x");
 
-        // Отмена в редакторе откатывает ТЕКСТ, файловую операцию не трогает.
         h.commands.execute("undo");
         h.testApp.render();
         expect(activeEditorText(h.workbench)).not.toContain("x");
-        expect(fs.existsSync(a)).toBe(false); // move ещё в силе
+        expect(fs.existsSync(a)).toBe(false);
 
-        // Отмена файловой операции откатывает MOVE, текста не касается.
         h.commands.execute("fileOperations.undo");
         await vi.waitFor(() => {
             expect(fs.existsSync(a)).toBe(true);

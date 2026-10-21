@@ -42,8 +42,7 @@ describe("fileOperations.deleteFile command", () => {
         else process.env.XDG_DATA_HOME = savedXdg;
     });
 
-    // Удаление теперь спрашивает подтверждение; корзина доступна → дефолтная кнопка
-    // ("Move to Trash") в фокусе, подтверждаем её Enter.
+    // Корзина доступна → в фокусе дефолтная кнопка «Move to Trash».
     function confirmDelete(): void {
         expect(h.testApp.querySelector("#confirmDialog")).not.toBeNull();
         h.testApp.sendKey("Enter");
@@ -69,7 +68,6 @@ describe("fileOperations.deleteFile command", () => {
         h.commands.execute("fileOperations.deleteFile", filePath);
         h.testApp.render();
 
-        // Dialog is up, file still on disk.
         expect(h.testApp.querySelector("#confirmDialog")).not.toBeNull();
         expect(fs.existsSync(filePath)).toBe(true);
     });
@@ -161,7 +159,7 @@ describe("Delete key in the file tree", () => {
         // Row 0 (alpha.txt) is selected by default.
         h.testApp.sendKey("Delete");
         h.testApp.render();
-        expect(fs.existsSync(alpha)).toBe(true); // not deleted until confirmed
+        expect(fs.existsSync(alpha)).toBe(true);
         confirmDelete();
 
         await vi.waitFor(() => {
@@ -275,19 +273,17 @@ describe("File tree context menu — right-click opens context menu", () => {
         rightClickRow(tree, 0);
         expect(h.testApp.querySelector("PopupMenuElement")).not.toBeNull();
 
-        // Menu order is New File, New Folder, (sep), Copy, Cut, (sep), Copy Path,
-        // Copy Relative Path, (sep), Rename, Delete — navigate down to Delete
-        // (separators are skipped) and activate it.
+        // New File, New Folder, Copy, Cut, Select for Compare, Copy Path,
+        // Copy Relative Path, Rename, Delete — separators are skipped.
         for (let i = 0; i < 8; i++) h.testApp.sendKey("ArrowDown");
         h.testApp.sendKey("Enter");
         h.testApp.render();
 
-        // Menu closed; confirmation dialog is up; file not yet deleted.
         expect(h.testApp.querySelector("PopupMenuElement")).toBeNull();
         expect(h.testApp.querySelector("#confirmDialog")).not.toBeNull();
         expect(fs.existsSync(alpha)).toBe(true);
 
-        h.testApp.sendKey("Enter"); // confirm "Move to Trash"
+        h.testApp.sendKey("Enter");
         h.testApp.render();
         await vi.waitFor(() => {
             expect(fs.existsSync(alpha)).toBe(false);
@@ -327,14 +323,12 @@ describe("File tree context menu — right-click opens context menu", () => {
         h.testApp.render();
 
         rightClickRow(tree, 0);
-        expect(h.testApp.focusedElement).not.toBe(tree); // фокус ушёл в меню
+        expect(h.testApp.focusedElement).not.toBe(tree);
 
-        // Активируем безобидный пункт (Copy — 3-й: пропускаем New File, New Folder),
-        // который просто закрывает меню. Первые пункты (New File/New Folder) открыли
-        // бы строковый промпт и увели фокус в него, а не в дерево.
-        h.testApp.sendKey("ArrowDown"); // New Folder
+        // Copy: New File/New Folder открыли бы строковый промпт и увели фокус в него.
+        h.testApp.sendKey("ArrowDown");
         h.testApp.sendKey("ArrowDown"); // Copy
-        h.testApp.sendKey("Enter"); // Copy
+        h.testApp.sendKey("Enter");
         h.testApp.render();
 
         expect(h.testApp.querySelector("PopupMenuElement")).toBeNull();

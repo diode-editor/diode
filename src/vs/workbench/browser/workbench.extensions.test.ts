@@ -22,15 +22,8 @@ import { WorkbenchComponentDIToken } from "./workbenchComponent.ts";
 import { WorkbenchContextKeysDIToken } from "./workbenchContextKeys.ts";
 
 /**
- * Сквозной гейт магазина «до кадра»: команда `workbench.view.extensions`
- * показывает вьюлет EXTENSIONS в сайдбаре (вместо Explorer), Enter на записи
- * открывает страницу расширения вкладкой в области редактора.
- *
- * Юниты компонента проверяют его собственный кадр; здесь проверяется проводка,
- * которой у компонента нет: контейнер вьюлета в сайдбаре, контекст-ключ
- * видимости и шов «страница → полоса редакторов» из DI-модуля. Сборка живёт в
- * теле теста, а не в `beforeEach`: покрытие (в том числе мутационное) считается
- * по телу, и проводка, поднятая в хуке, осталась бы «ничьей».
+ * Сборка — в теле теста, а не в `beforeEach`: покрытие (в том числе мутационное)
+ * считается по телу, и проводка, поднятая в хуке, осталась бы «ничьей».
  */
 
 const SHOW_EXTENSIONS = "workbench.view.extensions";
@@ -63,7 +56,6 @@ const META: IRegistryExtensionMeta = {
     versions: [],
 };
 
-/** Магазин с одной записью — сеть и диск в этом тесте не участвуют. */
 function fakeService(): IExtensionsWorkbenchService {
     return {
         ensureLoaded: () => Promise.resolve(),
@@ -80,11 +72,9 @@ function fakeService(): IExtensionsWorkbenchService {
 interface IHarness {
     readonly execute: (command: string) => void;
     readonly screen: () => string;
-    /** Список вьюлета из живого дерева — компонент напрямую не резолвим. */
     readonly extensionsList: () => ListViewElement;
     readonly contextKey: (key: "extensionsViewletVisible") => boolean | undefined;
     readonly activeUri: () => string | undefined;
-    /** id сфокусированного элемента — фокус после открытия вкладки. */
     readonly focusedId: () => string | undefined;
 }
 
@@ -100,8 +90,7 @@ describe("Workbench — магазин расширений в сайдбаре 
         ws = createTempWorkspace({ prefix: "diode-extensions-view-", files: { "a.txt": "alpha\n" } });
 
         const { container, bindApp } = createTestContainer();
-        // Магазин подменяем до первого резолва компонента: в тестовом профиле
-        // он пустой (NULL-сервис), а здесь нужна запись, которую можно открыть.
+        // До первого резолва компонента: в тестовом профиле магазин — пустой NULL-сервис.
         container.bind(ExtensionsWorkbenchServiceDIToken, fakeService);
 
         const workbench = container.get(WorkbenchComponentDIToken);
@@ -179,8 +168,7 @@ describe("Workbench — магазин расширений в сайдбаре 
         const shown = h.screen();
         expect(shown).toContain("Acme Tools");
         expect(shown).toContain("Readme from the registry");
-        // Кнопка установки есть и держит фокус: вкладку фокусируют ещё до
-        // первого кадра страницы, и раньше фокусировать было нечего.
+        // Вкладку фокусируют ещё до первого кадра страницы — кнопка обязана уже быть.
         expect(shown).toContain("[ Install ]");
         expect(h.focusedId()).toBe("extensionPageButton-install");
     });

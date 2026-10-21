@@ -7,7 +7,6 @@ import type { IEditorService } from "../services/editor/common/editorService.ts"
 
 import { LanguageFeatureContextKeys } from "./languageFeatureContextKeys.ts";
 
-/** Активный редактор: реестру нужны только ресурс, язык и выделение. */
 function editorStub(options: { languageId?: string; selection?: { anchorCharacter: number } } = {}): unknown {
     const anchorCharacter = options.selection?.anchorCharacter ?? 0;
     return {

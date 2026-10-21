@@ -8,13 +8,6 @@ import { EditorGroupsServiceDIToken } from "../../services/editor/common/editorG
 
 import { keepEditorAction } from "./tabActions.ts";
 
-/**
- * `workbench.action.keepEditor` адресуется парой (группа, индекс) из меню
- * вкладки либо работает по активной вкладке (Ctrl+K Enter, палитра). Здесь —
- * про ЦЕЛЬ команды: куда она попадает и, главное, куда не попадает. Что именно
- * делает прикалывание, проверяют сьюты группы и сервиса.
- */
-
 interface GroupStub {
     id: number;
     activeIndex: number;
@@ -26,7 +19,6 @@ function makeGroup(id: number, labels: string[], activeIndex: number): GroupStub
     return { id, activeIndex, panes: labels.map((label) => ({ label })), pinned: [] };
 }
 
-/** Полоса групп в объёме, который трогает `resolveTabTarget` + команда. */
 function serviceStub(groups: GroupStub[]) {
     const wrap = (group: GroupStub) => ({
         id: group.id,
@@ -68,8 +60,7 @@ describe("keepEditorAction — цель команды", () => {
     });
 
     it("протухший адрес не прикалывает НИЧЕГО и не бросает", () => {
-        // Вкладку успели закрыть: откатываться на активную команда меню не
-        // имеет права — либо делает то, что в ней написано, либо ничего.
+        // Откатываться на активную команда меню не имеет права.
         const group = makeGroup(3, ["a.ts"], 0);
 
         expect(() => {
@@ -80,8 +71,7 @@ describe("keepEditorAction — цель команды", () => {
     });
 
     it("пустая группа без адреса — команда молчит, а не падает", () => {
-        // Прямой вызов из палитры гейт `editorGroupHasEditors` не проходит,
-        // поэтому «цели нет» обязано отрабатывать и в самой команде.
+        // Палитра гейт `editorGroupHasEditors` не проходит — «цели нет» обязана ловить сама команда.
         const group = makeGroup(3, [], -1);
 
         expect(() => {

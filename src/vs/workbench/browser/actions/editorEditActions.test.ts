@@ -117,7 +117,6 @@ describe("EditorEditActions — deletion mutates the real document", () => {
         const commands = new CommandRegistry();
         const accessor = new Container();
         accessor.bind(EditorServiceDIToken, () => ctrl);
-        // Cover the `if (editor)` false branch of every editing action.
         for (const action of [
             deleteLeftAction,
             deleteRightAction,
@@ -134,12 +133,10 @@ describe("EditorEditActions — deletion mutates the real document", () => {
 
     it("deleteWordLeft / deleteWordRight are no-ops at the document edges", () => {
         const { editor, exec } = openEditor("word");
-        // deleteWordLeft at column 0 — nothing to the left.
         editor.viewState.selections = [createCursorSelection(0, 0)];
         exec(deleteWordLeftAction);
         expect(editor.getText()).toBe("word");
 
-        // deleteWordRight at end of document — nothing to the right.
         editor.viewState.selections = [createCursorSelection(0, 4)];
         exec(deleteWordRightAction);
         expect(editor.getText()).toBe("word");

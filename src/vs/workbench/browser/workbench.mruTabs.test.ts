@@ -10,12 +10,6 @@ import {
 import type { IEditorService } from "../services/editor/common/editorService.ts";
 import { EditorServiceDIToken } from "../services/editor/common/editorService.ts";
 
-/**
- * Проверяет маршрутизацию keyup в Workbench: любое отпускание клавиши идёт в
- * ModifierReleaseArmory.fireRelease. Сама механика MRU покрыта в
- * EditorService.test.ts, взведение — в TabActions.test.ts и
- * ModifierReleaseArmory.test.ts; здесь — только связка keyup → armory.
- */
 describe("Workbench — modifier-release routing (Ctrl release commits MRU cycle)", () => {
     let ws: ITempWorkspace;
     let h: IAppHarness;
@@ -36,7 +30,7 @@ describe("Workbench — modifier-release routing (Ctrl release commits MRU cycle
         group = h.container.get(EditorServiceDIToken);
         armory = h.container.get(ModifierReleaseArmoryDIToken);
         group.openFile(ws.path("a.ts"));
-        group.openFile(ws.path("b.ts")); // MRU: b, a — active b
+        group.openFile(ws.path("b.ts"));
     });
 
     afterEach(() => {
@@ -49,14 +43,13 @@ describe("Workbench — modifier-release routing (Ctrl release commits MRU cycle
     }
 
     it("routes a modifier keyup into the armory, committing the in-progress MRU cycle", () => {
-        // Mimic what the Ctrl+Tab action does: step + arm on Control release.
-        group.editorGroups.activeGroup.cycleMru(1); // → a (frozen, not yet committed)
+        group.editorGroups.activeGroup.cycleMru(1);
         armory.arm("Control", () => {
             group.editorGroups.activeGroup.endMruCycle();
         });
         expect(group.getActiveEditor()?.fileName).toBe("a.ts");
 
-        keyup("Control"); // release Ctrl → armory fires → commit
+        keyup("Control");
 
         expect(group.editorGroups.activeGroup.getMruOrder().map((e) => group.displayName(e))).toEqual(["a.ts", "b.ts"]);
     });
@@ -65,11 +58,11 @@ describe("Workbench — modifier-release routing (Ctrl release commits MRU cycle
         const commit = vi.fn();
         armory.arm("Control", commit);
 
-        keyup("a"); // released a normal key — no armed modifier matches
+        keyup("a");
         keyup("Shift"); // wrong modifier
         expect(commit).not.toHaveBeenCalled();
 
-        keyup("Control"); // the armed modifier
+        keyup("Control");
         expect(commit).toHaveBeenCalledTimes(1);
     });
 
@@ -77,14 +70,12 @@ describe("Workbench — modifier-release routing (Ctrl release commits MRU cycle
     const CONTROL_RELEASE = "\x1b[57442;1:3u";
 
     it("end-to-end: Ctrl+Tab cycles via the real key pipeline and Ctrl release commits", () => {
-        h.workbench.focusEditor(); // focus the EditorElement → textInputFocus is active
+        h.workbench.focusEditor();
         h.testApp.render();
 
-        // Ctrl held, Tab pressed → MRU step from b to a.
         h.testApp.sendKey("Ctrl+Tab");
         expect(group.getActiveEditor()?.fileName).toBe("a.ts");
 
-        // Release Ctrl → armory commits the selection to the MRU front.
         h.testApp.backend.sendRaw(CONTROL_RELEASE);
         h.testApp.backend.flushInput();
         expect(group.editorGroups.activeGroup.getMruOrder().map((e) => group.displayName(e))).toEqual(["a.ts", "b.ts"]);

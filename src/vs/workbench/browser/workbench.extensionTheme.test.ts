@@ -14,14 +14,8 @@ import { ThemeService } from "../services/themes/common/themeService.ts";
 import { ThemeRegistryDIToken, ThemeServiceDIToken } from "../services/themes/common/themeTokens.ts";
 
 /**
- * US-3: тема расширения из `workbench.colorTheme` — уже в **первом** кадре.
- *
- * Порядок старта (`main.ts`): сканирование расширений → регистрация их тем →
- * выбор активной → контейнер → mount → первый кадр. Здесь та же цепочка на
- * харнессе: контрибьютор на синтетическом расширении в памяти, реестр и
- * выбранная по настройке тема уходят в контейнер ДО резолва WorkbenchComponent,
- * и первый отрендеренный кадр (TestApp рендерит его в конструкторе) читается с
- * бэкенда как есть — никакого «в итоге» после перекраса.
+ * Первый кадр TestApp рендерит в конструкторе, поэтому тема уходит в контейнер
+ * ДО резолва WorkbenchComponent — как в порядке старта main.ts.
  */
 
 const SAMPLE_EDITOR_BG = "#101820";
@@ -84,7 +78,6 @@ describe("Workbench — тема расширения на старте (US-3)",
         const statusOrigin = statusBar.globalPosition;
         expect(h.testApp.backend.getBgAt(new Point(statusOrigin.x, statusOrigin.y))).toBe(packRgb(0x0a, 0x0f, 0x14));
 
-        // Открытый файл — тем же цветом редактора из файла темы.
         h.workbench.openFile(`${ws.dir}/sample.ts`);
         h.testApp.render();
         const editor = h.testApp.querySelector("EditorElement") as EditorElement;
@@ -93,7 +86,6 @@ describe("Workbench — тема расширения на старте (US-3)",
         // occurrence-фоном, а не фоном редактора.
         const contentX = editorOrigin.x + editor.gutterWidth;
         expect(h.testApp.backend.getBgAt(new Point(contentX + 2, editorOrigin.y + 1))).toBe(packRgb(0x10, 0x18, 0x20));
-        // Тема расширения — в реестре пикера вслед за встроенными.
         expect(h.container.get(ThemeRegistryDIToken).list().at(-1)).toEqual({ label: "Sample Dark", type: "dark" });
     });
 

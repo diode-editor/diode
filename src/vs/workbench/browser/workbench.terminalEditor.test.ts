@@ -20,9 +20,6 @@ import { EditorServiceDIToken } from "../services/editor/common/editorService.ts
 import type { EditorTitleMenuContext } from "./actions/menuContexts.ts";
 import { PanelServiceDIToken } from "./parts/panel/panelService.ts";
 
-// Команды терминала в области редакторов — из палитры, клавишами и меню
-// вкладок, как их зовёт человек.
-
 describe("Workbench — терминал в области редакторов", () => {
     let ws: ITempWorkspace;
     let h: IAppHarness;
@@ -127,7 +124,6 @@ describe("Workbench — терминал в области редакторов"
         expect(terminal.getInstances()).toStrictEqual([second]);
         expect(groups().activeGroup.activePane).toBe(h.container.get(TerminalEditorServiceDIToken).paneOf(first.id));
 
-        // Из палитры — активный терминал вида.
         h.commands.execute("workbench.action.terminal.moveToEditor");
         expect(terminal.getInstances()).toStrictEqual([]);
         expect(terminal.getEditorInstances()).toStrictEqual([first, second]);

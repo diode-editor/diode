@@ -12,7 +12,6 @@ import { ViewsServiceDIToken } from "../parts/views/viewsService.ts";
 
 import { editorTabIsFile, editorTabPathArg } from "./menuContexts.ts";
 
-// Columns added/removed per increase/decrease Side Bar Width command.
 const SIDEBAR_WIDTH_STEP = 3;
 
 export const toggleSidebarAction: CommandAction = {
@@ -31,9 +30,8 @@ export const showExplorerAction: CommandAction = {
     title: "View: Show Explorer",
     shortTitle: "Explorer",
     menus: [{ menuId: MenuId.MenubarViewMenu, group: "3_views", order: 10 }],
-    // Парно с Search и SCM (см. searchActions): лидер-аккорд безусловен и работает
-    // на любом терминале, а канонический Ctrl+Shift+E объявлен там, где терминал
-    // способен его передать, — иначе подсказка в меню обещала бы нерабочее.
+    // Лидер-аккорд безусловен, канонический Ctrl+Shift+E — только где терминал его
+    // передаёт: иначе подсказка в меню обещала бы нерабочее.
     keybinding: parseChord("ctrl+k e"),
     keybindings: [{ keys: parseKeybinding("mod+shift+e"), when: "tier != 'legacy'" }],
     run(accessor) {
@@ -55,8 +53,7 @@ export const revealActiveFileInExplorerAction: CommandAction = {
         },
     ],
     run(accessor, ...args) {
-        // Путь приходит аргументом из меню вкладки (цель — вкладка под курсором,
-        // а не активная); без аргументов раскрываем активный редактор.
+        // Из меню вкладки — путь вкладки под курсором, а не активной.
         const filePath =
             (args[0] as string | undefined) ?? accessor.get(EditorServiceDIToken).getActiveEditor()?.absoluteFilePath;
         if (!filePath) return;
@@ -65,8 +62,7 @@ export const revealActiveFileInExplorerAction: CommandAction = {
     },
 };
 
-// Side bar width: palette-only, no default keybindings (matching VS Code's
-// increase/decreaseViewWidth). Users can bind them via keybindings.json.
+// Без дефолтных биндов, как increase/decreaseViewWidth VS Code.
 export const increaseSidebarWidthAction: CommandAction = {
     id: "workbench.action.increaseSidebarWidth",
     title: "View: Increase Side Bar Width",
@@ -97,14 +93,9 @@ export const resetSidebarWidthAction: CommandAction = {
     },
 };
 
-// Rows added/removed per increase/decrease Current View Size on the bottom panel.
 const PANEL_HEIGHT_STEP = 1;
 
-/**
- * Ресайз части с фокусом (сайдбар, вторичная панель, нижняя панель или
- * редактор за счёт соседей) — `workbench.action.increaseViewSize` эталона. Как
- * и там, без дефолтного биндинга: только палитра и keybindings.json.
- */
+/** `workbench.action.increaseViewSize` эталона; как и там, без дефолтного биндинга. */
 export const increaseViewSizeAction: CommandAction = {
     id: "workbench.action.increaseViewSize",
     title: "View: Increase Current View Size",
@@ -121,7 +112,6 @@ export const decreaseViewSizeAction: CommandAction = {
     },
 };
 
-// Bottom Panel (Problems/Output/…) visibility.
 export const togglePanelAction: CommandAction = {
     id: "workbench.action.togglePanel",
     title: "View: Toggle Panel Visibility",
@@ -135,9 +125,8 @@ export const togglePanelAction: CommandAction = {
 };
 
 /**
- * Закрыть панель — то, что зовёт кнопка `×` в её таб-строке. Отдельно от
- * toggle, как и в VS Code: у кнопки семантика «закрыть», а не «переключить», и
- * `enablement` по `panelVisible` честно гасит её в палитре на закрытой панели.
+ * Отдельно от toggle, как в VS Code: у кнопки `×` семантика «закрыть», и
+ * `enablement` по `panelVisible` гасит её в палитре на закрытой панели.
  */
 export const closePanelAction: CommandAction = {
     id: CLOSE_PANEL_COMMAND_ID,
@@ -154,12 +143,10 @@ export const toggleProblemsAction: CommandAction = {
     title: "View: Toggle Problems (Errors, Warnings, Infos)",
     shortTitle: "Problems",
     menus: [{ menuId: MenuId.MenubarViewMenu, group: "3_views", order: 20 }],
-    // Как у Explorer выше: безусловный аккорд + канонический под tier-гейтом.
     keybinding: parseChord("ctrl+k m"),
     keybindings: [{ keys: parseKeybinding("mod+shift+m"), when: "tier != 'legacy'" }],
     run(accessor) {
-        // Toggle like VS Code: show + focus Problems, or hide the part if
-        // Problems is already the visible view there (wherever it was moved).
+        // Как VS Code: скрыть часть, если Problems уже видимый вид в ней (куда бы его ни перенесли).
         const views = accessor.get(ViewsServiceDIToken);
         if (views.isViewShown(PROBLEMS_VIEW_ID)) {
             views.closeView(PROBLEMS_VIEW_ID);

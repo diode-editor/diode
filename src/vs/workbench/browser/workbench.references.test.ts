@@ -19,17 +19,8 @@ import { WorkbenchComponentDIToken } from "./workbenchComponent.ts";
 import { WorkbenchContextKeysDIToken } from "./workbenchContextKeys.ts";
 
 /**
- * Сквозной гейт Find All References «до кадра»: команда спрашивает
- * реестр `ILanguageFeaturesService.referenceProvider` (тот самый, в который
- * host кладёт прокси провайдеров расширений), добирает строки кода с диска и показывает вьюлет
- * REFERENCES в сайдбаре; Enter на ссылке открывает её файл на позиции, F4 идёт
- * к следующей.
- *
- * Юниты компонента и сервиса проверяют их собственную логику; здесь — проводка,
- * которой у них нет: контейнер вьюлета, команды в реестре, контекст-ключи и
- * DI-швы. Сборка живёт в теле теста, а не в `beforeEach`: покрытие (в том числе
- * мутационное) считается по телу, и проводка, поднятая в хуке, осталась бы
- * «ничьей».
+ * Сборка — в теле теста, а не в `beforeEach`: покрытие (в том числе мутационное)
+ * считается по телу, и проводка, поднятая в хуке, осталась бы «ничьей».
  */
 
 const FIND_REFERENCES = "references-view.findReferences";
@@ -48,11 +39,8 @@ interface IHarness {
     readonly activeUri: () => string | undefined;
     readonly caret: () => { line: number; character: number } | undefined;
     readonly requests: IReferenceRequest[];
-    /** id элемента под фокусом — команда обязана увести его в список ссылок. */
     readonly focusedId: () => string | undefined;
-    /** Корень вьюлета в живом дереве — контракт с инспектором и сценариями. */
     readonly viewRoot: () => unknown;
-    /** Ждёт, пока асинхронный поиск (шов + чтение файлов) наполнит панель. */
     readonly awaitResults: () => Promise<void>;
 }
 
@@ -78,8 +66,7 @@ describe("Workbench — Find All References end-to-end", () => {
         const workbenchContextKeys = container.get(WorkbenchContextKeysDIToken);
         const editors = container.get(EditorServiceDIToken);
 
-        // Реестр, в который в проде LanguageFeaturesAdapter кладёт провайдеры
-        // расширений: объявление в defs.ts, импорт и вызов в main.ts.
+        // Объявление в defs.ts, импорт и вызов в main.ts.
         const requests: IReferenceRequest[] = [];
         container.get(LanguageFeaturesServiceDIToken).referenceProvider.register("*", {
             provideReferences: (request): Promise<readonly ICoreReference[]> => {
@@ -140,7 +127,6 @@ describe("Workbench — Find All References end-to-end", () => {
         h.execute(FIND_REFERENCES);
         await h.awaitResults();
 
-        // Запрос ушёл с позицией каретки и контекстом LSP.
         expect(h.requests).toHaveLength(1);
         expect(h.requests[0]).toMatchObject({ line: 2, character: 15, includeDeclaration: true });
 
@@ -154,7 +140,6 @@ describe("Workbench — Find All References end-to-end", () => {
         expect(shown).not.toContain("EXPLORER");
         expect(h.contextKey("referencesViewletVisible")).toBe(true);
         expect(h.contextKey("hasReferenceResult")).toBe(true);
-        // Показ вьюлета уводит фокус в список — Enter сразу открывает ссылку.
         expect(h.focusedId()).toBe("referenceResults");
         expect(h.viewRoot()).not.toBeNull();
     });
@@ -167,7 +152,6 @@ describe("Workbench — Find All References end-to-end", () => {
         const shown = h.screen();
         expect(shown).toContain("REFERENCES");
         expect(shown).not.toContain("EXPLORER");
-        // Поиска ещё не было: ни счётчика, ни строк.
         expect(shown).not.toContain("results in");
         expect(h.contextKey("hasReferenceResult")).toBe(false);
     });
@@ -207,7 +191,6 @@ describe("Workbench — Find All References end-to-end", () => {
         h.execute(SHOW_EXPLORER);
         expect(h.screen()).toContain("EXPLORER");
         expect(h.contextKey("referencesViewletVisible")).toBe(false);
-        // Результат жив — ключ данных от видимости вьюлета не зависит.
         expect(h.contextKey("hasReferenceResult")).toBe(true);
 
         h.execute(SHOW_REFERENCES);

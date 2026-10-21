@@ -32,9 +32,8 @@ describe("Workbench — Preferences commands", () => {
             // Nested, not-yet-existing paths — the handler must create the parent dir + file.
             settingsFile = ws.path("user-data/User/settings.json");
             keybindingsFile = ws.path("user-data/User/keybindings.json");
-            // 120 колонок: у окна без папки теперь тоже есть сайдбар, и в
-            // дефолтные 80 шапка колонок вкладки шорткатов уже не влезает
-            // («Keybinding» обрезается до «Keybindi…»).
+            // 120 колонок: в дефолтные 80 рядом с сайдбаром шапка вкладки шорткатов
+            // обрезается («Keybindi…»).
             h = createAppTestHarness({
                 environment: { settingsResource: settingsFile, keybindingsResource: keybindingsFile },
                 size: new Size(120, 24),
@@ -73,9 +72,8 @@ describe("Workbench — Preferences commands", () => {
             expect(pane!.label).toBe("Keyboard Shortcuts");
             expect(fs.existsSync(keybindingsFile)).toBe(false);
 
-            // Вкладка обязана дойти до кадра: шапка колонок и настоящие строки
-            // биндингов (список алфавитный, конкретный бинд может не попасть в
-            // видимое окно — достаточно колонки Source с дефолтными записями).
+            // Список алфавитный, конкретный бинд может не попасть в окно — достаточно
+            // колонки Source с дефолтными записями.
             h.testApp.render();
             const screen = h.testApp.backend.screenToString();
             expect(screen).toContain("Keybinding");
@@ -226,7 +224,6 @@ describe("Workbench — Preferences commands", () => {
             const pane = h.container.get(EditorServiceDIToken).getActivePane()!;
             expect(pane.uri.scheme).toBe("keybindings");
 
-            // Активируем строку команды (Enter/двойной клик) → рекордер.
             const rows = pane.view.querySelectorAll("TextLabelElement");
             const row = rows.find((r) =>
                 (r as unknown as { getText(): string }).getText().startsWith("Recorder Target"),
@@ -236,19 +233,16 @@ describe("Workbench — Preferences commands", () => {
             h.testApp.render();
             expect(h.testApp.backend.screenToString()).toContain("Press desired key combination");
 
-            // Клавиши в рекордере копятся, а не исполняются: Ctrl+S не сохраняет.
             const executeSpy = vi.spyOn(h.commands, "execute");
             h.testApp.sendKey("Ctrl+S");
             expect(executeSpy).not.toHaveBeenCalledWith("workbench.action.files.save");
-            // Передумали: сотрём попытку отменой нельзя — просто примем F6 новой записью.
             h.testApp.sendKey("Escape");
             (list as unknown as { onActivate: ((el: unknown) => void) | null }).onActivate?.(row);
             h.testApp.sendKey("F6");
             h.testApp.sendKey("Enter");
 
-            // Запись асинхронная (`fs.promises`): под полной нагрузкой прогона
-            // (8 воркеров, инструментация покрытия/Stryker) она не укладывается
-            // в секунду `vi.waitFor` по умолчанию — ждём с запасом.
+            // Запись асинхронная: под нагрузкой прогона (8 воркеров, coverage/Stryker) не
+            // укладывается в дефолтную секунду `vi.waitFor`.
             await vi.waitFor(
                 () => {
                     expect(fs.existsSync(keybindingsFile)).toBe(true);
@@ -258,10 +252,8 @@ describe("Workbench — Preferences commands", () => {
             );
             expect(fs.readFileSync(keybindingsFile, "utf-8")).toContain('"command": "test.custom"');
 
-            // Строка вкладки обновилась (фильтр — чтобы строка попала в видимое окно).
-            // Ждём именно КАДР, а не только файл: запись на диск и обновление
-            // реестра в памяти — разные шаги, и на загруженной машине второй
-            // отстаёт от первого (ловилось красным CI и dry run'ом Stryker'а).
+            // Фильтр — чтобы строка попала в окно. Ждём именно кадр: обновление реестра
+            // отстаёт от записи на диск на загруженной машине (красный CI, dry run Stryker'а).
             (pane as KeybindingsEditorPane).setFilter("Recorder Target");
             await vi.waitFor(
                 () => {

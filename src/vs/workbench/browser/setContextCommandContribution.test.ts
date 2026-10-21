@@ -14,8 +14,7 @@ function setup(): { commands: CommandRegistry; contextKeys: ContextKeyService } 
 }
 
 describe("SetContextCommandContribution", () => {
-    // Ровно тот вызов, которым сторонние расширения публикуют свои when-ключи;
-    // до регистрации команды он отклонялся как «команда не найдена».
+    // До регистрации команды вызов отклонялся как «команда не найдена».
     it("setContext кладёт значение в when-контекст, и when-выражение его видит", () => {
         const { commands, contextKeys } = setup();
 
@@ -60,18 +59,15 @@ describe("SetContextCommandContribution", () => {
         expect(commands.execute("setContext", 42, true)).toBeUndefined();
         expect(commands.execute("setContext")).toBeUndefined();
 
-        // Не просто «вернул undefined», а вообще ничего не записал: ключ с
-        // пустым именем в наборе имён вычислителя нам не нужен.
+        // Ключ с пустым именем в наборе имён вычислителя не нужен.
         expect(contextKeys.get("" as ContextKey)).toBeUndefined();
         expect(contextKeys.get("42" as ContextKey)).toBeUndefined();
 
-        // Ни один мусорный ключ не должен был протечь в набор имён вычислителя:
-        // негодное имя ломает компиляцию, то есть ВСЕ when-выражения сразу.
+        // Негодное имя ломает компиляцию, то есть ВСЕ when-выражения сразу.
         contextKeys.set("textInputFocus", true);
         expect(contextKeys.evaluate("textInputFocus")).toBe(true);
     });
 
-    // В палитре VS Code `setContext` нет — это программный шов, не действие.
     it("команда без title — в палитру не попадает", () => {
         const { commands } = setup();
         expect(commands.listCommands().some((c) => c.id === "setContext")).toBe(false);
@@ -102,15 +98,11 @@ describe("normalizeContextValue", () => {
         expect(normalizeContextValue(undefined)).toBe(false);
     });
 
-    // NaN/Infinity как значение ключа бессмысленны, а сравнения с ними всегда
-    // ложны — храним истинность, чтобы `when: "ext.key"` вело себя предсказуемо.
     it("NaN и Infinity сводятся к своей истинности", () => {
         expect(normalizeContextValue(Number.NaN)).toBe(false);
         expect(normalizeContextValue(Number.POSITIVE_INFINITY)).toBe(true);
     });
 
-    // Массивы/объекты VS Code хранит целиком (под оператор `in`), наш
-    // вычислитель работает с примитивами — сохраняем хотя бы истинность.
     it("массив и объект хранятся как есть — под оператор in; из массива остаются примитивы", () => {
         expect(normalizeContextValue([])).toEqual([]);
         expect(normalizeContextValue(["a", 1, true, null, { x: 1 }])).toEqual(["a", 1, true]);

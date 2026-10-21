@@ -39,7 +39,6 @@ describe("FileTree opens file in editor", () => {
         const tree = testApp.querySelector("TreeViewElement");
         expect(tree).not.toBeNull();
 
-        // Focus tree and navigate to a file, then press Enter
         tree!.focus();
         testApp.render();
 
@@ -47,7 +46,6 @@ describe("FileTree opens file in editor", () => {
         testApp.sendKey("Enter");
         testApp.render();
 
-        // File should now be open in the editor group
         const editorGroupCtrl = (workbench as unknown as { editorService: IEditorService }).editorService;
         expect(editorGroupCtrl.editorGroups.activeGroup.editorCount).toBe(1);
         expect(editorGroupCtrl.getActiveEditor()?.fileName).toBe("hello.txt");
@@ -58,11 +56,9 @@ describe("FileTree opens file in editor", () => {
         tree!.focus();
         testApp.render();
 
-        // Activate first file — focus moves to editor
         testApp.sendKey("Enter");
         testApp.render();
 
-        // Return focus to tree to navigate to second file
         tree!.focus();
         testApp.sendKey("ArrowDown");
         testApp.sendKey("Enter");

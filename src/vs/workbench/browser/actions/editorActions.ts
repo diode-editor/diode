@@ -3,8 +3,6 @@ import { MenuId } from "../../../platform/actions/common/menuId.ts";
 import { parseChord, parseKeybinding } from "../../../platform/keybinding/common/keybindingRegistry.ts";
 import { EditorServiceDIToken } from "../../services/editor/common/editorService.ts";
 
-// ─── Basic Cursor Movement ──────────────────────────────────
-
 export const cursorLeftAction: CommandAction = {
     id: "cursorLeft",
     title: "Cursor Left",
@@ -85,8 +83,6 @@ export const cursorDownSelectAction: CommandAction = {
     },
 };
 
-// ─── Home / End ─────────────────────────────────────────────
-
 export const cursorHomeAction: CommandAction = {
     id: "cursorHome",
     title: "Cursor Home",
@@ -127,7 +123,6 @@ export const cursorEndSelectAction: CommandAction = {
     },
 };
 
-// Колонка 0 / конец строки без smart-home — VS Code `cursorLineStart`/`cursorLineEnd`.
 // Своих pc-биндов у них нет, как в эталоне: на маке это Ctrl+A / Ctrl+E (Home/End
 // в мак-терминалах скроллят буфер), бинды — в таблице мак-дельт.
 
@@ -148,8 +143,6 @@ export const cursorLineEndAction: CommandAction = {
         accessor.get(EditorServiceDIToken).getActiveViewState()?.cursorEnd();
     },
 };
-
-// ─── Document Start / End ───────────────────────────────────
 
 export const cursorTopAction: CommandAction = {
     id: "cursorTop",
@@ -191,17 +184,9 @@ export const cursorBottomSelectAction: CommandAction = {
     },
 };
 
-// ─── Word Navigation ────────────────────────────────────────
-
-// Word motions keep the canonical VS Code combo on every tier; where the terminal can't
-// disambiguate Ctrl/Ctrl+Shift+Arrow we add single-key and leader-chord fallbacks so the
-// function is still reachable — breadth preserved, ergonomics degrade gracefully.
-//
-// Фолбэки БЕЗУСЛОВНЫ (а не под `tier == 'legacy'`): индикатор tier ≠ доставка
-// клавиш — под tmux он поднимается по env-хинту внешнего терминала и по первой
-// пришедшей CSI-u клавише, а расширенные клавиши tmux при этом не доставляет.
-// Гейт выключал фолбэк ровно там, где он нужен. Несколько биндов на команду —
-// норма VS Code. Детали: docs/arch/workbench/Keyboard.md.
+// Фолбэки БЕЗУСЛОВНЫ, а не под `tier == 'legacy'`: под tmux tier поднимается по
+// env-хинту и первой CSI-u клавише, а расширенные клавиши tmux не доставляет —
+// гейт выключал фолбэк ровно там, где он нужен (docs/arch/workbench/Keyboard.md).
 export const cursorWordLeftAction: CommandAction = {
     id: "cursorWordLeft",
     title: "Cursor Word Left",
@@ -246,8 +231,6 @@ export const cursorWordRightSelectAction: CommandAction = {
     },
 };
 
-// ─── Page Navigation ────────────────────────────────────────
-
 export const cursorPageDownAction: CommandAction = {
     id: "cursorPageDown",
     title: "Cursor Page Down",
@@ -288,8 +271,6 @@ export const cursorPageUpSelectAction: CommandAction = {
     },
 };
 
-// ─── Scroll View ────────────────────────────────────────────
-
 export const scrollLineUpAction: CommandAction = {
     id: "scrollLineUp",
     title: "Scroll Line Up",
@@ -310,10 +291,7 @@ export const scrollLineDownAction: CommandAction = {
     },
 };
 
-// ─── View ───────────────────────────────────────────────────
-
-// Без when: как в VS Code, toggle доступен из палитры и меню всегда — он
-// переключает session-состояние сервиса, а не конкретный редактор.
+// Без when, как в VS Code: переключает session-состояние сервиса, а не редактор.
 export const toggleWordWrapAction: CommandAction = {
     id: "editor.action.toggleWordWrap",
     title: "View: Toggle Word Wrap",

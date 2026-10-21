@@ -18,8 +18,7 @@ import type { QuickPickElement } from "./parts/quickinput/quickPickElement.ts";
 /** runRename awaits the QuickInput promise, then refresh → reveal; drain enough turns. */
 const FLUSH_TURNS = 20;
 
-/** Simulate typing into an InputBox: set the value AND revalidate (setQuery alone doesn't). */
-/** Вводит имя и ждёт, пока его проверка по диску (асинхронная) признает его годным. */
+/** setQuery сам имя не перепроверяет, а проверка по диску асинхронная — ждём, пока признает годным. */
 async function typeInto(input: QuickPickElement, text: string): Promise<void> {
     input.setQuery(text);
     input.onQueryChange?.(text);
@@ -47,7 +46,7 @@ describe("Workbench — Rename", () => {
         h.testApp.render();
 
         const input = quickPickByTitle(h.testApp, "Rename");
-        expect(input.getQuery()).toBe("old.txt"); // seeded with the current name
+        expect(input.getQuery()).toBe("old.txt");
 
         await typeInto(input, "new.txt");
         h.testApp.sendKey("Enter");
@@ -77,7 +76,6 @@ describe("Workbench — Rename", () => {
         await vi.waitFor(async () => {
             await flushMicrotasks(FLUSH_TURNS);
             h.testApp.render();
-            // Ни дерево, ни полоса вкладок старого имени больше не показывают.
             const frame = h.testApp.backend.screenToString();
             expect(frame).toContain("new.txt");
             expect(frame).not.toContain("old.txt");
@@ -85,7 +83,6 @@ describe("Workbench — Rename", () => {
 
         const editor = h.container.get(EditorServiceDIToken).getActiveEditor();
         expect(editor?.uri.fsPath).toBe(ws.path("new.txt"));
-        // Фокус был в редакторе — он в редакторе и остался (уже в новой вкладке).
         expect(h.testApp.focusedElement?.getAncestorPath().includes(editor!.view)).toBe(true);
         expect(await editor?.save()).toBe("saved");
         expect(fs.existsSync(ws.path("old.txt"))).toBe(false);
@@ -132,7 +129,6 @@ describe("Workbench — Rename", () => {
         h.commands.execute("fileOperations.rename", ws.path("old.txt"));
         h.testApp.render();
 
-        // Accept the pre-filled name as-is → runRename returns before touching disk.
         h.testApp.sendKey("Enter");
         await flushMicrotasks(FLUSH_TURNS);
         h.testApp.render();
@@ -193,8 +189,7 @@ describe("Workbench — Rename", () => {
     it("falls back to the selected tree path when invoked without an argument", async () => {
         await h.workbench.activate();
         h.testApp.render();
-        // Focus the tree: its cursor lands on the only entry (old.txt), which becomes
-        // the selected path getSelectedPaths()[0] returns when rename gets no argument.
+        // Курсор фокусированного дерева встаёт на единственный old.txt — его и вернёт getSelectedPaths().
         h.testApp.querySelector("TreeViewElement")!.focus();
         h.testApp.render();
 
@@ -212,7 +207,6 @@ describe("Workbench — Rename", () => {
     });
 
     it("does nothing when neither an argument nor a selection is available", async () => {
-        // No workspace → empty tree → getSelectedPaths() is empty → no prompt.
         const bare = createAppTestHarness();
         bare.commands.execute("fileOperations.rename");
         bare.testApp.render();
@@ -246,7 +240,6 @@ describe("Workbench — Rename via context menu", () => {
         tree.focus();
         h.testApp.render();
 
-        // Right-click the file row (row 0) to open its context menu.
         tree.localPosition = new Offset(0, 0);
         tree.dispatchEvent(
             new TUIContextMenuEvent({
@@ -261,9 +254,8 @@ describe("Workbench — Rename via context menu", () => {
         h.testApp.render();
         expect(h.testApp.querySelector("PopupMenuElement")).not.toBeNull();
 
-        // Clipboard is empty (no Paste), so the order is New File, New Folder, (sep),
-        // Copy, Cut, (sep), Copy Path, Copy Relative Path, (sep), Rename — six
-        // ArrowDowns land on Rename (separators are skipped).
+        // Clipboard is empty (no Paste): New File, New Folder, Copy, Cut, Select for Compare,
+        // Copy Path, Copy Relative Path, Rename — separators are skipped.
         for (let i = 0; i < 7; i++) h.testApp.sendKey("ArrowDown");
         h.testApp.sendKey("Enter");
         h.testApp.render();

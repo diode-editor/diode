@@ -60,15 +60,12 @@ describe("Workbench — Save As", () => {
         dialog.replaceQuery(newPath);
         await dialog.settle({ query: newPath });
         dialog.key("Enter");
-        // Цель проверяется по диску асинхронно (файловый сервис).
         await vi.waitFor(() => {
             expect(fs.readFileSync(newPath, "utf-8")).toBe("Alpha content");
         });
 
-        // Файл переехал на новый путь той же вкладкой — второй не появилось.
-        // Ждём и метку: атомарная запись кладёт файл на диск раньше, чем
-        // `writeFile` вернётся и модель объявит о сохранении (под нагрузкой —
-        // заметно раньше), а вкладку переименовывает именно это событие.
+        // Ждём и метку: атомарная запись кладёт файл раньше, чем модель объявит о
+        // сохранении, а вкладку переименовывает именно это событие.
         const tabStrip = h.testApp.querySelector("EditorTabStripElement") as EditorTabStripElement;
         await vi.waitFor(() => {
             h.testApp.render();
@@ -111,7 +108,6 @@ describe("Workbench — Save As", () => {
         dialog.replaceQuery(copyPath);
         await dialog.settle({ query: copyPath });
         dialog.key("Enter");
-        // Запись — через файловый сервис, асинхронно.
         await vi.waitFor(() => {
             expect(service.editorGroups.activeGroup.editorCount).toBe(2);
         });

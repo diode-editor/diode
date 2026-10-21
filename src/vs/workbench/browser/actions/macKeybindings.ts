@@ -11,36 +11,21 @@ import {
 import { macKeysAtLeast, type MacKeysRung, notMacKeys } from "../../../platform/keybinding/common/macKeys.ts";
 
 /**
- * Мак-дельты дефолтных биндов — ручная половина мак-раскладки, одной таблицей.
- *
- * Эталон — дефолтные бинды VS Code 1.138 для Linux и macOS. Механическая половина
- * (Ctrl на Linux ↔ Cmd на маке) живёт при командах токеном `mod` (аналог
- * `KeyMod.CtrlCmd`). Сюда — всё, где 1:1 нет: pc-бинды, которых на маке у VS Code
- * нет (`pcOnly`), и мак-бинды без pc-пары (`mac`: явный `mac:`, Option-слова,
- * WinCtrl-подслой ⌃N/⌃P/⌃B/⌃F…). Таблица сверяется с эталоном целиком; слой
- * регистрации ({@link withMacKeybindings}) разворачивает её в обычные
- * per-binding записи с условием по мак-рунгу — механизм биндингов один.
+ * Мак-дельты дефолтных биндов VS Code 1.138 — то, где Ctrl ↔ Cmd (`mod`) не 1:1:
+ * pc-бинды, которых на маке нет (`pcOnly`), и мак-бинды без pc-пары (`mac`).
  *
  * Правила (закрыты тестами `macKeybindings.test.ts`):
- *  - `from` — самый низкий рунг, где комбинация физически доезжает; выше она
- *    действует сама (наследование вверх). Ctrl-аккорд, который ниже cmd занят
- *    фоллбэком `mod` другой команды (⌃N — New File, ⌃P — Quick Open…), действует
- *    с рунга cmd, где `mod` — уже Cmd;
- *  - не `alt+<буква>`: на немецкой/французской раскладке Option+буква даёт
- *    `@ [ ] { }`, бинд съел бы ввод символа;
+ *  - `from` — самый низкий рунг, где комбинация физически доезжает; Ctrl-аккорд,
+ *    который ниже cmd занят фоллбэком `mod` другой команды (⌃N, ⌃P…), — с рунга cmd;
+ *  - не `alt+<буква>`: на немецкой/французской раскладке Option+буква даёт `@ [ ] { }`;
  *  - не `ctrl+←/→`: их забирает Mission Control;
- *  - Cmd+C/V/X не биндим: копипаст остаётся эмулятору (решение человека);
- *  - в пределах семейства условия взаимоисключающие — `pcOnly` снимает на маке
- *    pc-бинд, чья комбинация там значит другое.
+ *  - Cmd+C/V/X не биндим: копипаст остаётся эмулятору (решение человека).
  *
- * Отклонения от эталона — в docs/TODO/MacKeybindings.md: Ctrl+Y у redo остаётся
- * на маке (на mac-legacy ⇧⌘Z не доезжает), rename в проводнике — F2, а не Enter
- * (нет команды «открыть» на ⌘↓), ⌃A/⌃E — с mac-legacy, поэтому «выделить всё»
- * на маке — только ⌘A.
+ * Отклонения от эталона — docs/TODO/MacKeybindings.md.
  */
 export interface MacKeybindingDelta {
     readonly command: string;
-    /** Комбинации pc-биндов команды (как объявлены при команде), которые на маке не действуют. */
+    /** Как объявлены при команде. */
     readonly pcOnly?: readonly string[];
     /** Мак-бинды: с какого рунга действуют. */
     readonly mac?: readonly { readonly keys: string; readonly from: MacKeysRung }[];
@@ -224,12 +209,7 @@ function toConditional(entry: KeybindingEntry): { keys: KeybindingChord; when: s
     return { keys: Array.isArray(entry) ? entry : [entry], when: undefined };
 }
 
-/**
- * Накладывает мак-дельту команды на её бинды: pc-бинды из `pcOnly` получают
- * условие «не мак», мак-бинды добавляются с условием «рунг ≥ from». Команда без
- * дельты возвращается как есть. `pcOnly`, не найденный среди биндов команды, —
- * ошибка таблицы, а не тихий no-op.
- */
+/** `pcOnly`, не найденный среди биндов команды, — ошибка таблицы, а не тихий no-op. */
 export function withMacKeybindings(
     action: CommandAction,
     deltas: ReadonlyMap<string, MacKeybindingDelta> = DELTAS_BY_COMMAND,

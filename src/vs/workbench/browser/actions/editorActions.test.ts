@@ -53,7 +53,6 @@ import {
     toggleWordWrapAction,
 } from "./editorActions.ts";
 
-// Line 0: "hello world", line 1: "second line", then "line 2".."line 29".
 const CONTENT = ["hello world", "second line", ...Array.from({ length: 28 }, (_, i) => `line ${String(i + 2)}`)].join(
     "\n",
 );
@@ -124,7 +123,6 @@ describe("EditorActions — cursor movement moves the real cursor", () => {
             setCursor(from[0], from[1]);
             exec(action);
             expect(editor.viewState.selections[0].active).toEqual({ line: to[0], character: to[1] });
-            // collapsed move: no selection
             expect(editor.viewState.selections[0].anchor).toEqual({ line: to[0], character: to[1] });
         });
     }

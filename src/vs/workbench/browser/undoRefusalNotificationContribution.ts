@@ -11,13 +11,9 @@ export const UndoRefusalNotificationContributionDIToken =
     token<UndoRefusalNotificationContribution>("UndoRefusalNotificationContribution");
 
 /**
- * Говорит человеку, почему Ctrl+Z не откатил шаг нескольких документов
- * ({@link UndoRedoService.onDidRefuse}): «Could not undo '…' across all files
- * because changes were made to b.ts». Эталон шлёт то же предупреждение из
- * самого сервиса отмены; у нас сервис платформенный и о сообщениях не знает —
- * проводка та же, что у `OpenFailureNotificationContribution`.
- *
- * Молчать нельзя: отказ выглядел бы как сломанная клавиша.
+ * Эталон шлёт это предупреждение из самого сервиса отмены; у нас сервис
+ * платформенный и о сообщениях не знает. Молчать нельзя: отказ выглядел бы
+ * как сломанная клавиша.
  */
 export class UndoRefusalNotificationContribution extends Disposable implements IWorkbenchContribution {
     public static dependencies = [UndoRedoServiceDIToken, NotificationServiceDIToken] as const;

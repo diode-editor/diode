@@ -5,32 +5,22 @@ import { KeybindingWeight } from "../../../platform/keybinding/common/keybinding
 import { HistoryServiceDIToken } from "../../services/history/browser/historyService.ts";
 
 /**
- * Группа Back/Forward в меню Go. Не VS Code'шная `1_history_nav`: группы
- * сортируются строкой, а в этом меню уже живут `1_goto` и `2_editors` —
- * `"1_goto" < "1_history_nav"`, и переходы уехали бы под «Go to File».
- */
+ /**
+  * Не VS Code'шная `1_history_nav`: группы сортируются строкой, и
+  * `"1_goto" < "1_history_nav"` увёл бы переходы под «Go to File».
+  */
 const HISTORY_GROUP = "0_history_nav";
 
 /**
- * Шаг назад по истории навигации (VS Code `workbench.action.navigateBack`).
+ * Канонический бинд — только где терминал его передаёт (на legacy Ctrl+Alt+-
+ * неотличим от Alt+-); рабочий путь везде — Ctrl+K Ctrl+B.
  *
- * Канонический бинд VS Code объявлен только там, где терминал способен его
- * передать: на legacy Ctrl+Alt+- приезжает неотличимым от Alt+-. Рабочий путь
- * везде — leader-аккорд Ctrl+K Ctrl+B (паттерн `showSearchAction`/
- * `showCommandsAction`).
+ * Вторая часть аккорда — с модификатором: парный keypress закреплён за целью
+ * своего keydown (`TuiApplication.pinnedKeypressTarget`), а команда переключает
+ * вкладку — цель уезжает из дерева, и голый символ напечатался бы в покинутый документ.
  *
- * Почему вторая часть аккорда С модификатором, а не голая клавиша: парный
- * keypress закреплён за целью своего keydown (`TuiApplication.pinnedKeypressTarget`),
- * и когда команда переключает вкладку, эта цель уезжает из дерева — глобальный
- * capture-обработчик `KeybindingDispatcher` до неё уже не достаёт и проглотить
- * клавишу не может. Голый символ в этот момент печатается в документ, который мы
- * только что покинули; клавиша с Ctrl отбрасывается редактором сама.
- *
- * Action-wide `when` нет намеренно: команда без истории — no-op, как в VS Code,
- * где `canNavigateBack` гейтит только пункт меню. Побочный эффект того же
- * решения полезен: без focus-scoped ключа в `when` шаг по истории не считается
- * командой сфокусированного виджета (`KeybindingDispatcher`), и пока клавиатурой
- * владеет модальный оверлей, он корректно подавляется.
+ * `when` нет намеренно: без истории — no-op, как в VS Code; заодно без
+ * focus-scoped ключа шаг корректно подавляется модальным оверлеем.
  */
 export const navigateBackAction: CommandAction = {
     id: "workbench.action.navigateBack",
@@ -44,7 +34,6 @@ export const navigateBackAction: CommandAction = {
     },
 };
 
-/** Шаг вперёд по истории навигации (VS Code `workbench.action.navigateForward`). */
 export const navigateForwardAction: CommandAction = {
     id: "workbench.action.navigateForward",
     // Чорд Ctrl+K Ctrl+F делит с pc-биндом `editor.action.formatSelection` и сейчас его перебивает (так было и при порядке регистрации; коллизия записана в docs/arch/workbench/Commands.md#коллизии-дефолтов). Вес держит это поведение, пока коллизию не развели.

@@ -30,22 +30,9 @@ import { KeybindingDispatcherDIToken } from "../services/keybinding/browser/keyb
 export const WorkbenchContextKeysDIToken = token<WorkbenchContextKeys>("WorkbenchContextKeys");
 
 /**
- * Выставляет контекст-ключи workbench'а (`ContextKeys.ts`) из фокуса и состояния
- * сервисов: слушает FocusManager корневой view (capture-листенеры focus/blur
- * вешает владелец дерева — `WorkbenchComponent` — на {@link handleFocusChange})
- * и сервисы Editor/History. Хук
- * `KeybindingDispatcher.updateContextKeys` замкнут на {@link update} — перед
- * резолвом каждого биндинга ключи свежие.
- *
- * Здесь живут только ключи workbench-уровня. Ключи фич выставляют сами фичи
- * ({@link IContextKeyContributor}, явный список `ContextKeyContributorsDIToken`):
- * центр опрашивает их в том же {@link update}, поэтому тайминг у них общий.
- * Ключи с единственной точкой перехода пушит их владелец: окружение терминала —
- * `TerminalEnvContextKeysContribution`, `panelVisible` — `LayoutService`.
- *
- * Корневая view приходит через late-init шов {@link attachView} (как
- * `attachHost` у DialogService): до прикрепления фокуса нет — активный элемент
- * считается `null`.
+ * Только ключи workbench-уровня; ключи фич выставляют сами фичи
+ * ({@link IContextKeyContributor}) в том же {@link update}. До {@link attachView}
+ * фокуса нет — активный элемент считается `null`.
  */
 export class WorkbenchContextKeys extends Disposable {
     public static dependencies = [
@@ -60,7 +47,7 @@ export class WorkbenchContextKeys extends Disposable {
     ] as const;
 
     private view: BodyElement | null = null;
-    /** Фичи со своими ключами — резолвятся сразу, чтобы порядок подъёма сервисов не зависел от первого нажатия. */
+    /** Резолвятся сразу, чтобы порядок подъёма сервисов не зависел от первого нажатия. */
     private readonly contributors: readonly IContextKeyContributor[];
 
     public constructor(
@@ -75,23 +62,19 @@ export class WorkbenchContextKeys extends Disposable {
     ) {
         super();
         this.contributors = contributorTokens.map((contributor) => accessor.get(contributor));
-        // Диспатчер освежает ключи перед резолвом каждого биндинга.
         this.dispatcher.updateContextKeys = () => {
             this.update();
         };
     }
 
-    /** Прикрепляет корневую view — источник фокуса (зовёт владелец дерева после её постройки). */
     public attachView(view: BodyElement): void {
         this.view = view;
     }
 
-    /** Смена фокуса: сброс незавершённого чорда, пересчёт ключей, событие {@link FocusTracker}. */
     public handleFocusChange = (_event: TUIFocusEvent): void => {
         this.dispatcher.cancelPendingChord();
         this.update();
-        // Подписчики (попапы редактора гаснут, когда фокус ушёл с редактора)
-        // видят уже освежённый контекст.
+        // После пересчёта: подписчики (попапы редактора) видят уже освежённый контекст.
         this.focusTracker.fire(this.activeElement());
     };
 
@@ -100,24 +83,16 @@ export class WorkbenchContextKeys extends Disposable {
         const editorCount = this.groups.activeGroup.editorCount;
 
         this.contextKeys.set("textInputFocus", active instanceof EditorElement);
-        // Исторически шире, чем textInputFocus: сюда попадала и рисованная
-        // смотрелка диффа. С диффом v2 (стороны — настоящие редакторы) ключи
-        // совпали по значению; оба живут ради семантики when-клауз — «команде
-        // нужна каретка» против «команде нужен ввод» (мутирующие дополнительно
-        // гейтятся `!editorReadonly`).
+        // Шире textInputFocus по семантике when-клауз: «команде нужна каретка»
+        // против «команде нужен ввод» (мутирующие гейтятся ещё `!editorReadonly`).
         this.contextKeys.set("textViewFocus", isTextViewElement(active));
-        // Upstream-имена для `when` расширений: их манифесты пишут
-        // `editorTextFocus` и `editorLangId`, а не наши ключи.
+        // Upstream-имена: манифесты расширений пишут `editorTextFocus` и `editorLangId`.
         this.contextKeys.set("editorTextFocus", active instanceof EditorElement);
         this.contextKeys.set("editorLangId", isTextViewElement(active) ? active.viewState.document.languageId : "");
-        // Парный к textViewFocus: мутирующие команды висят на
-        // `textInputFocus && !editorReadonly` — наш аналог `EditorContextKeys.writable`
-        // (в VS Code это `readOnly.toNegated()`). Без фокуса в тексте ключ
-        // сбрасывается в false, иначе он залипал бы от прошлого редактора.
+        // Наш аналог `EditorContextKeys.writable`. Без фокуса в тексте — false,
+        // иначе ключ залипал бы от прошлого редактора.
         this.contextKeys.set("editorReadonly", isTextViewElement(active) && active.readOnly);
-        // Гейт Escape у `removeSecondaryCursors`: без него Escape перехватывался бы всегда,
-        // хотя убирать нечего. Отдельной подписки на курсор не нужно — диспетчер зовёт
-        // `update()` перед каждым резолвом биндинга.
+        // Гейт Escape у `removeSecondaryCursors`: без него Escape перехватывался бы всегда.
         this.contextKeys.set(
             "editorHasMultipleSelections",
             isTextViewElement(active) && active.viewState.selections.length > 1,
@@ -136,10 +111,8 @@ export class WorkbenchContextKeys extends Disposable {
             this.groups.activeGroup === this.groups.groups[this.groups.groups.length - 1],
         );
         this.contextKeys.set("terminalFocus", active instanceof TerminalViewElement);
-        // Upstream-ключ: команды воркспейса (Open Workspace Settings) в палитре
-        // только при открытой папке.
+        // Upstream-ключ: команды воркспейса в палитре только при открытой папке.
         this.contextKeys.set("workbenchState", this.workspaceContext.getWorkbenchState());
-        // Ключи фич — у самих фич (IContextKeyContributor), тайминг тот же.
         for (const contributor of this.contributors) {
             contributor.updateContextKeys(this.contextKeys, active);
         }

@@ -3,11 +3,6 @@ import { afterEach, describe, expect, it } from "vitest";
 import type { SuggestContext } from "./workbench.suggest.testUtils.ts";
 import { createSuggestApp, disposeSuggestApp } from "./workbench.suggest.testUtils.ts";
 
-/**
- * Интеграция suggest-попапа с клавиатурным слоем: попап не забирает фокус,
- * навигация/принятие/скрытие идут командами по `suggestWidgetVisible` и
- * перебивают editor-команды (cursorDown), а Enter принимает без вставки \n.
- */
 describe("Workbench — suggest widget keyboard integration", () => {
     let ctx: SuggestContext;
 
@@ -15,7 +10,7 @@ describe("Workbench — suggest widget keyboard integration", () => {
         disposeSuggestApp(ctx);
     });
 
-    /** Открывает попап у конца строки со словами (word-based, без провайдеров). */
+    /** Word-based, без провайдеров. */
     async function open(): Promise<void> {
         ctx.testApp.sendKey("End"); // каретка в конец строки → префикс "i"
         await ctx.completion.trigger();
@@ -39,22 +34,20 @@ describe("Workbench — suggest widget keyboard integration", () => {
 
         expect(ctx.contextKeys.get("suggestWidgetVisible")).toBe(true);
         expect(ctx.completion.view.selectedIndex).toBe(1);
-        // Курсор редактора не двигался (сработал selectNextSuggestion, а не cursorDown).
         expect(ctx.activeEditor().viewState.selections[0].active).toEqual(caretBefore);
     });
 
     it("ArrowUp / PageDown / PageUp тоже маршрутизируются в suggest-команды", async () => {
         ctx = createSuggestApp("indent_style indent_size i");
         await open();
-        ctx.testApp.sendKey("ArrowDown"); // → 1
+        ctx.testApp.sendKey("ArrowDown");
         expect(ctx.completion.view.selectedIndex).toBe(1);
-        ctx.testApp.sendKey("ArrowUp"); // → 0 (selectPrevious)
+        ctx.testApp.sendKey("ArrowUp");
         expect(ctx.completion.view.selectedIndex).toBe(0);
-        ctx.testApp.sendKey("PageDown"); // → последний (selectNextPage)
+        ctx.testApp.sendKey("PageDown");
         expect(ctx.completion.view.selectedIndex).toBe(1);
-        ctx.testApp.sendKey("PageUp"); // → первый (selectPreviousPage)
+        ctx.testApp.sendKey("PageUp");
         expect(ctx.completion.view.selectedIndex).toBe(0);
-        // Курсор редактора не двигался ни на одном из этих нажатий.
         expect(ctx.activeEditor().viewState.selections[0].active.line).toBe(0);
     });
 

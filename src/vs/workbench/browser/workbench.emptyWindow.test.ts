@@ -15,15 +15,9 @@ import { TerminalSessionFactoryDIToken } from "../contrib/terminal/common/termin
 import { SidebarServiceDIToken } from "./parts/sidebar/sidebarService.ts";
 import type { PaneViewElement } from "./parts/views/paneViewElement.ts";
 
-/**
- * Пустое окно (`diode` без аргументов): воркспейса нет, но оболочка обязана быть
- * рабочей. До расцепа вьюлетов и `setWorkspaceFolder` сайдбар в этом состоянии
- * не собирался вовсе — из окна нельзя было даже открыть папку.
- */
 describe("Workbench — окно без воркспейса", () => {
     let ws: ITempWorkspace;
     let h: IAppHarness;
-    /** Опции, с которыми поднимали терминалы — их cwd следует за папкой воркспейса. */
     let terminalOptions: ITerminalSessionOptions[];
 
     function screen(): string {
@@ -31,7 +25,6 @@ describe("Workbench — окно без воркспейса", () => {
         return h.testApp.backend.screenToString();
     }
 
-    /** Кнопка пустого состояния Explorer — единственная в его welcome. */
     function welcomeButton(): ButtonElement {
         const welcome = h.testApp.querySelector("#viewPlaceholder-workbench-explorer-fileView");
         const buttons = (welcome?.getChildren() ?? []).filter((child) => child instanceof ButtonElement);
@@ -42,7 +35,6 @@ describe("Workbench — окно без воркспейса", () => {
     beforeEach(() => {
         ws = createTempWorkspace({ prefix: "diode-empty-window-", files: { "alpha.txt": "Alpha" } });
         terminalOptions = [];
-        // Ни workspaceFolder, ни openFile — ровно как запуск без аргументов.
         h = createAppTestHarness({
             size: new Size(80, 24),
             containerOverrides: (container) => {
@@ -104,14 +96,12 @@ describe("Workbench — окно без воркспейса", () => {
 
     it("GRAPH без папки — подсказка вместо пустой истории, и без второй кнопки", () => {
         h.commands.execute("workbench.view.scm");
-        // Секция свёрнута по умолчанию — разворачиваем (пользователь делает это
-        // Enter'ом по заголовку), иначе её тела не видно.
+        // Секция свёрнута по умолчанию — без разворота её тела не видно.
         const paneView = h.testApp.querySelector("#viewContainer-scm") as PaneViewElement;
         paneView.setCollapsed(SCM_GRAPH_VIEW_ID, false);
 
         const shown = screen();
         expect(shown).toContain("No folder opened.");
-        // Кнопка Open Folder в контейнере ровно одна — у CHANGES.
         expect(shown.split("[ Open Folder ]")).toHaveLength(2);
     });
 
@@ -120,8 +110,6 @@ describe("Workbench — окно без воркспейса", () => {
         expect(h.container.get(SidebarServiceDIToken).getActiveViewletId()).toBe(EXTENSIONS_VIEWLET_ID);
         const shown = screen();
         expect(shown).toContain("EXTENSIONS");
-        // Магазину папка не нужна — его секция работает целиком, а не гасится:
-        // поле поиска по каталогу на экране, пустого состояния нет.
         expect(shown).toContain("Search Extensions");
     });
 
@@ -130,10 +118,8 @@ describe("Workbench — окно без воркспейса", () => {
         expect(h.testApp.querySelectorAll("TreeViewElement")).toHaveLength(0);
     });
 
-    // Тест НАРОЧНО не зовёт `activate()`: Open Folder в живом приложении его не
-    // зовёт тоже, а `TreeViewElement` грузит узлы только через refresh(). Без
-    // refresh внутри setWorkspaceFolder подсказка пропадала, а дерево оставалось
-    // пустым — панель выглядела сломанной.
+    // Нарочно без `activate()`: Open Folder его не зовёт, а `TreeViewElement` грузит
+    // узлы только через refresh() — без refresh в setWorkspaceFolder дерево пустое.
     it("Open Folder из пустого окна наполняет дерево, а не просто убирает подсказку", async () => {
         h.workbench.setWorkspaceFolder(ws.dir);
         await h.workbench.fileIndexReady;
@@ -155,9 +141,7 @@ describe("Workbench — окно без воркспейса", () => {
         expect(screen()).not.toContain("To use source control, open a");
     });
 
-    // Продюсер-тест к `terminalService.setWorkingDirectory` в setWorkspaceFolder:
-    // сам сервис свой cwd отдаёт фабрике и без нас, а вот «кто ему сообщает про
-    // папку» проверяется только отсюда.
+    // Продюсер-тест к `terminalService.setWorkingDirectory` в setWorkspaceFolder.
     it("новые терминалы поднимаются в открытой папке, а не в cwd процесса", () => {
         const terminals = h.container.get(TerminalServiceDIToken);
         terminals.newTerminal();

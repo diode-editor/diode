@@ -21,10 +21,8 @@ import { StatusBarServiceDIToken } from "../services/statusbar/common/statusBarS
 import { WorkbenchComponent, WorkbenchComponentDIToken } from "./workbenchComponent.ts";
 
 /**
- * Сквозной гейт этапа 5 «до кадра»: настоящая команда открывает настоящую
- * вкладку, и на экране видны строки диффа. Роль SCM играет заглушка — реестр
- * провайдеров отдаёт «версию из HEAD», как это делает git-расширение; весь путь
- * ядра от команды до пикселей при этом настоящий.
+ * Роль SCM играет заглушка, отдающая «версию из HEAD», как git-расширение; весь
+ * путь ядра от команды до кадра — настоящий.
  */
 
 const AT_HEAD = "alpha\nbravo\ncharlie\ndelta\n";
@@ -88,9 +86,7 @@ describe("Workbench — вкладка diff", () => {
         testApp.render();
 
         const screen = testApp.backend.screenToString();
-        // Вкладка появилась под своей меткой.
         expect(screen).toContain("a.txt ↔ HEAD");
-        // Обе стороны правки видны: старая строка и новая (гуттер v2: `N-`/`N+`).
         expect(screen).toMatch(/2-\s+bravo/u);
         expect(screen).toMatch(/2\+\s+XXbravo/u);
     });
@@ -101,9 +97,8 @@ describe("Workbench — вкладка diff", () => {
         await settle(10);
 
         const pane = editors.getActivePane();
-        // Modified-сторона — живой буфер файла с несохранёнными правками, так
-        // что вкладка честно помечена изменённой; но диалог не нужен: документ
-        // виден и во вкладке файла, правки живут в общей модели.
+        // Modified-сторона — живой буфер с правками, но диалог не нужен: правки живут
+        // в общей модели и видны во вкладке файла.
         expect(pane?.isModified).toBe(true);
         expect(pane === null ? true : editors.needsCloseConfirm(pane)).toBe(false);
 
@@ -127,13 +122,12 @@ describe("Workbench — вкладка diff", () => {
     });
 
     it("повторный вызов после новой правки показывает свежий снимок, а не устаревший", async () => {
-        editBuffer(); // первая правка: XX
+        editBuffer();
         commands.execute(COMPARE);
         await settle(10);
         testApp.render();
         expect(testApp.backend.screenToString()).toMatch(/2\+\s+XXbravo/u);
 
-        // Возврат в редактор и вторая правка.
         editors.editorGroups.activeGroup.activateTab(0);
         const editor = editors.getActiveEditor();
         editor?.goToPosition(1, 0);
@@ -144,9 +138,7 @@ describe("Workbench — вкладка diff", () => {
         testApp.render();
 
         const screen = testApp.backend.screenToString();
-        // Стороны живые: дифф показывает обе правки, а не только первую.
         expect(screen).toMatch(/2\+\s+YYXXbravo/u);
-        // И по-прежнему ровно одна дифф-вкладка — обновили на месте, не завели вторую.
         expect(editors.editorGroups.activeGroup.getPanes().filter((p) => p.uri.scheme === "diode-diff")).toHaveLength(
             1,
         );
@@ -189,9 +181,6 @@ describe("Workbench — вкладка diff", () => {
         bare.dispose();
     });
 
-    // ─── Дифф как текстовая поверхность ───────────────────────────────────────
-
-    /** Открывает дифф с правкой в буфере и уводит в него фокус. */
     async function openDiff(): Promise<void> {
         editBuffer();
         commands.execute(COMPARE);
@@ -204,7 +193,6 @@ describe("Workbench — вкладка diff", () => {
         await openDiff();
 
         expect(editors.getActiveViewState()).not.toBeNull();
-        // Modified-сторона — живой буфер файла: редактируется прямо в диффе.
         expect(editors.getActiveViewState()?.readOnly).toBe(false);
         const side = editors.getActiveEditor();
         expect(side).not.toBeNull();
@@ -216,7 +204,6 @@ describe("Workbench — вкладка diff", () => {
         const contextKeys = container.get(ContextKeyServiceDIToken);
 
         expect(contextKeys.evaluate("textViewFocus")).toBe(true);
-        // Сторона — настоящий редактор: ввод работает, replace-гейт открыт.
         expect(contextKeys.evaluate("textInputFocus")).toBe(true);
         expect(contextKeys.evaluate("editorReadonly")).toBe(false);
     });
@@ -241,7 +228,6 @@ describe("Workbench — вкладка diff", () => {
 
         const copied = await container.get(ClipboardDIToken).readText();
         expect(copied).toContain("XXbravo");
-        // Гуттер остался в гуттере.
         expect(copied).not.toMatch(/^\s*\d+\s+\d+\s+[-+]/mu);
         // И плейсхолдеры свёрнутых кусков — не текст файла.
         expect(copied).not.toContain("unchanged line");
@@ -270,7 +256,6 @@ describe("Workbench — вкладка diff, отказы", () => {
         ws.dispose();
     });
 
-    /** Собирает workbench с провайдером `git:`, чьё чтение падает. */
     async function withFailingProvider() {
         const { container, bindApp } = createTestContainer();
         const registry = new FileService();
@@ -337,10 +322,7 @@ describe("Workbench — дифф без открытого файла (openDiffW
         ws.dispose();
     });
 
-    /**
-     * Собирает workbench, дополняя штатный реестр (в нём уже есть `file:` из
-     * markersModule) провайдером `git:` — как это делает адаптер расширения.
-     */
+    /** Штатный реестр уже знает `file:` (markersModule); `git:` добавляем, как адаптер расширения. */
     function mountWorkbench() {
         const { container, bindApp } = createTestContainer();
         container.get(IFileServiceDIToken).registerProvider("git", {
@@ -373,7 +355,6 @@ describe("Workbench — дифф без открытого файла (openDiffW
         expect(screen).toContain("a.txt ↔ HEAD");
         expect(screen).toMatch(/2-\s+bravo/u);
         expect(screen).toMatch(/2\+\s+BRAVO/u);
-        // Инвариант прямого диффа: единственная вкладка — diode-diff, файл не открыт.
         expect(editors.editorGroups.activeGroup.getPanes().map((p) => p.uri.scheme)).toEqual(["diode-diff"]);
         workbench.dispose();
     });
@@ -390,8 +371,6 @@ describe("Workbench — дифф без открытого файла (openDiffW
         expect(result).toBe("opened");
         const screen = app.backend.screenToString();
         expect(screen).toContain("gone.weird ↔ HEAD");
-        // Вся HEAD-версия — минусами; справа только пустая строка, ни одного
-        // плюса с содержимым.
         expect(screen).toMatch(/1-\s+alpha/u);
         expect(screen).toMatch(/4-\s+delta/u);
         expect(screen).not.toMatch(/\d\+ +\S/u);
@@ -429,7 +408,6 @@ describe("Workbench — дифф на широком терминале (side-by
         ws.dispose();
     });
 
-    /** Тот же стенд, что и в основном блоке, но терминал шире порога режима. */
     async function mountWide() {
         const { container, bindApp } = createTestContainer();
         const registry = new FileService();
@@ -468,14 +446,11 @@ describe("Workbench — дифф на широком терминале (side-by
             .screenToString()
             .split("\n")
             .map((l) => l.replace(/\s+$/, ""));
-        // Заголовок сторон (US-14): слева HEAD, справа имя файла, между ними
-        // разделитель. Строку табов («a.txt ↔ HEAD ×») отсекаем по «↔».
+        // Строку табов («a.txt ↔ HEAD ×») отсекаем по «↔».
         const header = lines.find((l) => l.includes("HEAD") && l.includes("│") && !l.includes("↔"));
         expect(header).toBeDefined();
         expect(header).toContain("a.txt");
         expect(header?.indexOf("HEAD")).toBeLessThan(header?.indexOf("a.txt") ?? -1);
-        // Правка стоит парой на одной строке разделителя: слева `2-` со старой
-        // строкой, справа `2+` с новой.
         const pair = lines.find((l) => /2-\s+bravo/u.test(l));
         expect(pair).toBeDefined();
         expect(pair).toMatch(/2\+\s+XXbravo/u);
@@ -507,7 +482,6 @@ describe("Workbench — вкладка diff, вырожденные случаи
     });
 
     it("SCM дало ресурс, но провайдера схемы нет — вкладка не открывается", async () => {
-        // Расширение объявило git:-ресурс, а провайдер ещё не зарегистрировался.
         const ws = createTempWorkspace({ prefix: "diode-diff-noprov-", files: { "a.txt": AT_HEAD } });
         const { container, bindApp } = createTestContainer();
         container.bind(IFileServiceDIToken, () => new FileService());

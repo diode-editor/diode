@@ -11,17 +11,9 @@ export const OpenFailureNotificationContributionDIToken =
     token<OpenFailureNotificationContribution>("OpenFailureNotificationContribution");
 
 /**
- * Показывает человеку, почему ресурс не открылся. Единственный потребитель
- * {@link IEditorService.onDidFailOpen}.
- *
- * Отдельная проводка, а не зависимость сервиса редакторов от сообщений: открыть
- * ресурс `IEditorService` обязан, а решать, как об этом рассказать, — нет
- * (ровно так же у него разведены `canAddGroupHook` и остальные хуки).
- *
- * Молчать здесь нельзя. Промахивается открытие на недисковых ресурсах — `jdt:`
- * у Java, `git:`-ревизия, — и типовая причина «расширение, поставляющее схему,
- * не установлено или ещё не активировалось». Без сообщения Go to Definition в
- * библиотеку выглядит как сломанная клавиша: ни вкладки, ни ошибки, ни следа.
+ * Молчать нельзя: открытие промахивается на недисковых ресурсах (`jdt:`,
+ * `git:`), когда расширение схемы не установлено или не активировалось, — без
+ * сообщения Go to Definition в библиотеку выглядит как сломанная клавиша.
  */
 export class OpenFailureNotificationContribution extends Disposable implements IWorkbenchContribution {
     public static dependencies = [EditorServiceDIToken, NotificationServiceDIToken] as const;
@@ -30,7 +22,6 @@ export class OpenFailureNotificationContribution extends Disposable implements I
         super();
         this.register(
             editors.onDidFailOpen(({ uri, reason }) => {
-                // Тост без кнопок: выбирать человеку нечего, а уезжает он сам.
                 notifications.show({
                     severity: "error",
                     message: `Unable to open '${uri.toString()}': ${reason}`,

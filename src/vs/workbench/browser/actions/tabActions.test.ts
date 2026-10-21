@@ -20,10 +20,6 @@ import {
     previousEditorInGroupAction,
 } from "./tabActions.ts";
 
-/**
- * Группа: закрытие идёт по ней, а не через focus-aware делегаты сервиса —
- * цель вкладочных команд адресуется парой (группа, индекс).
- */
 interface TabGroupStub {
     id?: number;
     activeIndex: number;
@@ -35,14 +31,9 @@ interface TabGroupStub {
 
 interface GroupStub {
     cycleEditor?: (direction: 1 | -1) => void;
-    /** Активная группа сервиса — цель команды, когда адреса в аргументах нет. */
     activeGroup?: TabGroupStub;
-    /** Полоса групп — по ней резолвится явный адрес `(groupId, index)` из меню. */
     groups?: readonly TabGroupStub[];
-    /**
-     * Единая точка закрытия с подтверждением; в стабе — сразу закрытие по
-     * группе (диалоги проверяют харнесс-тесты `EditorService.closeEditor`).
-     */
+    /** Диалоги проверяют харнесс-тесты `EditorService.closeEditor`. */
     closeEditor?: (group: TabGroupStub, index: number) => Promise<boolean>;
 }
 
@@ -57,7 +48,6 @@ function setupActionTest(group: GroupStub) {
     const accessor = new Container();
     const armory = new ModifierReleaseArmory();
     accessor.bind(EditorServiceDIToken, () => group as never);
-    // Стаб играет обе роли: полосу групп и закрытие с подтверждением.
     accessor.bind(EditorGroupsServiceDIToken, () => group as never);
     accessor.bind(ModifierReleaseArmoryDIToken, () => armory);
     return { commands, keybindings, accessor, armory };
@@ -102,9 +92,6 @@ describe("TabActions", () => {
         expect(cycleMru).toHaveBeenCalledWith(-1);
     });
 
-    // Метаданные пары визуального цикла — пользовательский контракт: заголовки
-    // видит палитра, Alt-дубли нужны терминалам, где Ctrl+PgUp/PgDn заняты их
-    // собственными вкладками, when держит команды в текстовом фокусе.
     it("метаданные nextEditor/previousEditor: заголовки, бинды с Alt-дублями, when", () => {
         expect(nextEditorAction.title).toBe("Open Next Editor");
         expect(previousEditorAction.title).toBe("Open Previous Editor");
@@ -116,8 +103,6 @@ describe("TabActions", () => {
         expect(previousEditorAction.keybindings).toEqual([parseKeybinding("alt+pageup")]);
     });
 
-    // Ctrl+PgDn/PgUp — ВИЗУАЛЬНЫЙ порядок (VS Code nextEditor/previousEditor):
-    // без hold-сессии, отпускание модификатора фиксировать нечего.
     it("nextEditor / previousEditor циклируют по визуальному порядку без hold-сессии", () => {
         const cycleEditor = vi.fn();
         const endMruCycle = vi.fn();
@@ -163,7 +148,6 @@ describe("TabActions", () => {
         const { commands, keybindings, accessor, armory } = setupActionTest(group);
         registerAction(commands, keybindings, accessor, nextEditorInGroupAction);
 
-        // Triggered by Ctrl+Tab → runs inside a Control trigger context → arms on Control release.
         armory.withTrigger({ ctrlKey: true, shiftKey: false, altKey: false, metaKey: false }, () => {
             commands.execute("workbench.action.nextEditorInGroup");
         });
@@ -194,8 +178,7 @@ describe("TabActions", () => {
         expect(endMruCycle).not.toHaveBeenCalled();
     });
 
-    // Ctrl+6 задуман работающим и на legacy-терминале, где keyup модификатора не
-    // приходит вовсе, — поэтому шаг фиксируется сразу, без hold-сессии.
+    // Keyup модификатора на legacy не приходит — шаг фиксируется сразу.
     it("openPreviousRecentlyUsedEditorInGroup toggles and commits the step immediately", () => {
         const calls: string[] = [];
         const group: GroupStub = {
@@ -266,8 +249,7 @@ describe("TabActions", () => {
         const { commands, keybindings, accessor } = setupActionTest(group);
         registerAction(commands, keybindings, accessor, closeActiveEditorAction);
 
-        // Правый клик по второй вкладке ЧУЖОЙ группы: активную вкладку он не
-        // менял, поэтому адрес приходит аргументами.
+        // Правый клик по вкладке ЧУЖОЙ группы активную не меняет — адрес приходит аргументами.
         commands.execute("workbench.action.closeActiveEditor", 2, 1);
 
         expect(otherClose).toHaveBeenCalledWith(1);
