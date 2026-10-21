@@ -1,3 +1,4 @@
+import type { MouseToken } from "@tuidom/core/input/rawTerminalToken";
 import { TerminalViewElement } from "@tuidom/elements/terminal/terminalViewElement";
 import { afterEach, describe, expect, it } from "vitest";
 
@@ -7,6 +8,7 @@ import { createTestConfigurationService } from "../../../TestUtils/testConfigura
 import { Uri } from "../../base/common/uri.ts";
 import { ContextKeyServiceDIToken } from "../../platform/contextkey/common/contextKeyService.ts";
 import { TerminalEditorPane } from "../contrib/terminal/browser/terminalEditorPane.ts";
+import { TerminalEditorServiceDIToken } from "../contrib/terminal/browser/terminalEditorService.ts";
 import { EditorGroupsServiceDIToken } from "../services/editor/common/editorGroupsService.ts";
 
 /** nf-cod-lock: the title's Unlock Group button. */
@@ -36,6 +38,23 @@ describe("Workbench: locked editor group (terminal beside the file)", () => {
     };
     const tabRow = (): string => screen().split("\n")[1];
     const openFromScm = (name: string) => h.commands.execute("scm.action.openFile", Uri.file(ws.path(name)).toString());
+
+    const click = (x: number, y: number): void => {
+        for (const action of ["press", "release"] as const) {
+            const token: MouseToken = {
+                kind: "mouse",
+                button: "left",
+                x: x + 1,
+                y: y + 1,
+                action,
+                shiftKey: false,
+                altKey: false,
+                ctrlKey: false,
+                raw: "",
+            };
+            h.testApp.backend.simulateMouse(token);
+        }
+    };
 
     afterEach(() => {
         h.dispose();
@@ -93,5 +112,37 @@ describe("Workbench: locked editor group (terminal beside the file)", () => {
                 .map((pane) => pane.label),
         ).toEqual(["b.txt"]);
         expect(groups().groups[2]).toBe(right);
+    });
+
+    it("the unlock button of an inactive group unlocks that group, not the active one", async () => {
+        boot();
+        const [left, right] = groups().groups;
+        await openFromScm("b.txt");
+        expect(groups().activeGroup).toBe(left);
+
+        click(tabRow().indexOf(LOCK_GLYPH), 1);
+
+        expect(right.isLocked).toBe(false);
+        expect(tabRow()).not.toContain(LOCK_GLYPH);
+    });
+
+    it("Lock Editor Group with a group id locks that group; the active one stays as it was", () => {
+        boot();
+        const [left, right] = groups().groups;
+        expect(groups().activeGroup).toBe(right);
+
+        h.commands.execute("workbench.action.lockEditorGroup", left.id);
+
+        expect([left.isLocked, right.isLocked]).toEqual([true, true]);
+    });
+
+    it("an explicit column is honored even when that group is locked", () => {
+        boot();
+        const [, right] = groups().groups;
+        groups().focusGroup(groups().groups[0].id);
+
+        h.container.get(TerminalEditorServiceDIToken).createTerminal({}, { viewColumn: 2 });
+
+        expect(right.getPanes()).toHaveLength(2);
     });
 });

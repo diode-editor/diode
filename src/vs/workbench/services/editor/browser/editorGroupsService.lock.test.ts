@@ -5,6 +5,7 @@ import { Uri } from "../../../../base/common/uri.ts";
 import { InMemoryConfigurationService } from "../../../../platform/configuration/common/inMemoryConfigurationService.ts";
 import { NULL_LOG_SERVICE } from "../../../../platform/log/common/nullLogService.ts";
 import type { IEditorPane } from "../../../browser/parts/editor/iEditorPane.ts";
+import { columnToEditorGroup, SIDE_GROUP } from "../common/editorGroupColumn.ts";
 import { findGroup, peekGroup } from "../common/editorGroupFinder.ts";
 
 import type { EditorGroup } from "./editorGroupModel.ts";
@@ -154,5 +155,23 @@ describe("findGroup — locked groups (upstream `editorGroupFinder.ts`)", () => 
     it("an explicit group is honored even when locked: that is a user gesture or a named column", () => {
         const { service, right } = withTerminalBeside();
         expect(findGroup(service, undefined, right)).toBe(right);
+    });
+});
+
+describe("columnToEditorGroup — ViewColumn.Beside next to a locked group", () => {
+    it("an unlocked neighbor is reused", () => {
+        const { service, left } = withTerminalBeside({ "workbench.editor.autoLockGroups": { terminalEditor: false } });
+        service.focusGroup(left.id, { focus: false });
+        expect(columnToEditorGroup(service, SIDE_GROUP)).toBe(service.groups[1]);
+        expect(service.groups).toHaveLength(2);
+    });
+
+    it("a locked neighbor gets a new group in between; the resource it holds still goes there", () => {
+        const { service, left, right } = withTerminalBeside();
+        service.focusGroup(left.id, { focus: false });
+        expect(columnToEditorGroup(service, SIDE_GROUP, Uri.from({ scheme: "fake", path: "/claude" }))).toBe(right);
+
+        const target = columnToEditorGroup(service, SIDE_GROUP);
+        expect(service.groups).toEqual([left, target, right]);
     });
 });

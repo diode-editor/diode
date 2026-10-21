@@ -45,10 +45,8 @@ export function findGroup(
 ): EditorGroup {
     const found = peekGroup(groups, resource, preferred);
     if (found !== undefined) return found;
-    const active = groups.activeGroup;
-    // No neighbor at all: `sideGroup` creates it (and logs when it does not fit).
-    if (preferred === "beside" && groups.groups.at(groups.groups.indexOf(active) + 1) === undefined) {
-        return groups.sideGroup();
-    }
-    return groups.addGroup(active, "after") ?? active;
+    // Beside a locked neighbor or past the strip's end alike: the new group goes right of the active one.
+    // Any position other than "before" means right: an empty string acts as "after".
+    // Stryker disable next-line StringLiteral: equivalent, see above
+    return groups.addGroup(groups.activeGroup, "after") ?? groups.activeGroup;
 }

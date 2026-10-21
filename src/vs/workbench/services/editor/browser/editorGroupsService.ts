@@ -458,8 +458,7 @@ export class EditorGroupsService extends Disposable implements IEditorGroupsServ
         if (index < 0) return;
         /* v8 ignore stop */
         this.groupsList.splice(index, 1);
-        const mruIndex = this.groupMru.indexOf(group);
-        if (mruIndex >= 0) this.groupMru.splice(mruIndex, 1);
+        this.groupMru = this.groupMru.filter((candidate) => candidate !== group);
         /* v8 ignore start -- createGroup sets up subscriptions for every group, the ?? [] fallback is unreachable */
         // Stryker disable next-line ArrayDeclaration: unreachable fallback for the same reason
         for (const subscription of this.groupSubscriptions.get(group.id) ?? []) subscription.dispose();
