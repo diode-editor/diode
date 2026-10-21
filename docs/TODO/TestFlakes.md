@@ -88,3 +88,8 @@ run Stryker'а идёт одним воркером с `bail: 1`, так что 
     и погасить `Stryker disable` с причиной либо убить тестом.
   - `src/vs/workbench/contrib/suggest/browser/collectWordCompletions.ts:28` — `text.length > maxBytes`
     → `>=`: граница `maxBytesPerText` не проверена — тест на источник ровно в `maxBytes`.
+- [ ] #714 (editor) снял хвостовой комментарий с одной строки — 2 выживших (`real`), гейт на PR
+  пропущен разово по решению человека, порог 100.
+  - `src/vs/editor/common/viewModel/editorViewState.ts:1899` — `return region.endLine > region.startLine`
+    (правка внутри свёрнутого региона) → `true` и `>=`: нет теста на правку, схлопнувшую регион в
+    пустой, — убить тестом либо погасить `Stryker disable` с причиной, если эквивалентен.
