@@ -11,7 +11,7 @@ export class TestTag implements vscode.TestTag {
 }
 
 export class TestRunRequest implements vscode.TestRunRequest {
-    // Не параметр-свойство `include?`: у `vscode.TestRunRequest` поля обязательные (со значением `undefined`).
+    // Not an `include?` parameter property: `vscode.TestRunRequest` fields are required (with value `undefined`).
     public readonly include: readonly vscode.TestItem[] | undefined;
     public readonly exclude: readonly vscode.TestItem[] | undefined;
     public readonly profile: vscode.TestRunProfile | undefined;

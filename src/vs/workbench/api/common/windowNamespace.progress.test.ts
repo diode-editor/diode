@@ -86,7 +86,7 @@ describe("WindowNamespace — window.withProgress (настоящий)", () => {
         });
 
         const reports = progressNotifies(stub).filter((n) => n.method === "window.progress.report");
-        // Кривые поля выпали — конверт остаётся валидным (только handle).
+        // Malformed fields are dropped; the envelope stays valid (handle only).
         expect(reports).toEqual([
             { method: "window.progress.report", params: { handle: 1 } },
             { method: "window.progress.report", params: { handle: 1 } },

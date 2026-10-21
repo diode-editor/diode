@@ -4,12 +4,12 @@ import type { SubprocessRpc } from "./extHostProtocol.ts";
 import { type IWireMessageItem, parseWireShowMessageResult, type WireMessageSeverity } from "./wireTypes.ts";
 
 /**
- * Ответ приходит ИНДЕКСОМ: `show*Message<T extends MessageItem>` возвращает `T`, и
- * расширение обязано получить обратно СВОЙ объект. Сообщению без кнопок хост отвечает
- * сразу — промис расширения не висит на времени жизни тоста.
+ * The reply comes back as an INDEX: `show*Message<T extends MessageItem>` returns `T`, and
+ * the extension must get back ITS OWN object. For a message without buttons the host replies
+ * immediately — the extension's promise does not hang for the toast's lifetime.
  */
 export interface IMessageApi {
-    // Свойства-стрелки: `window` раздаёт их как есть (`const { showErrorMessage } = vscode.window`).
+    // Arrow properties: `window` hands them out as is (`const { showErrorMessage } = vscode.window`).
     readonly showInformationMessage: (message: string, ...rest: unknown[]) => Thenable<unknown>;
     readonly showWarningMessage: (message: string, ...rest: unknown[]) => Thenable<unknown>;
     readonly showErrorMessage: (message: string, ...rest: unknown[]) => Thenable<unknown>;
@@ -21,7 +21,7 @@ export interface IParsedMessageArgs {
     readonly items: readonly (string | vscode.MessageItem)[];
 }
 
-/** Признак эталона: у `MessageItem` есть `title`, у `MessageOptions` нет. */
+/** Upstream's test: `MessageItem` has `title`, `MessageOptions` does not. */
 function isMessageItem(value: unknown): value is vscode.MessageItem {
     return typeof value === "object" && value !== null && "title" in value;
 }
@@ -34,8 +34,8 @@ export function parseMessageArgs(first: unknown, rest: readonly unknown[]): IPar
     if (typeof first === "string" || isMessageItem(first)) {
         return { modal: false, items: [first, ...(rest as readonly (string | vscode.MessageItem)[])] };
     }
-    // Что это именно объект, не проверяем: поля читаются через `?.`, и на мусоре результат
-    // тот же — «опций нет».
+    // No check that this is actually an object: fields are read via `?.`, and garbage yields
+    // the same result — "no options".
     const options = first as vscode.MessageOptions | undefined;
     return {
         modal: options?.modal === true,
@@ -52,7 +52,7 @@ export function toWireMessageItem(item: string | vscode.MessageItem): IWireMessa
 export function createMessageApi(rpc: SubprocessRpc): IMessageApi {
     const show = async (
         severity: WireMessageSeverity,
-        // `unknown`: расширение на JS вправе прислать что угодно.
+        // `unknown`: a JS extension may pass anything.
         message: unknown,
         first: unknown,
         rest: readonly unknown[],
@@ -61,7 +61,7 @@ export function createMessageApi(rpc: SubprocessRpc): IMessageApi {
         const result = parseWireShowMessageResult(
             await rpc.request("window.showMessage", {
                 severity,
-                // Без проверки типа: у строки строковое представление — она сама.
+                // No type check: a string's string form is the string itself.
                 message: String(message),
                 modal: parsed.modal,
                 detail: parsed.detail,
@@ -69,7 +69,7 @@ export function createMessageApi(rpc: SubprocessRpc): IMessageApi {
             }),
         );
         if (result.index === null) return undefined;
-        // Индекс за пределами — ответ не про этот показ: дырку в кнопках не отдаём.
+        // An out-of-range index is a reply to another prompt: never return a hole in the buttons.
         return parsed.items.at(result.index);
     };
 

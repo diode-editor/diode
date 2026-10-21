@@ -83,7 +83,7 @@ describe("WorkspaceNamespace — configuration", () => {
         };
         expect(editor.formatOnSave).toBe(true);
         expect(editor.inspect("formatOnSave")?.defaultValue).toBe(false);
-        // Пустой или нестроковый languageId, не-объект — без секции.
+        // An empty or non-string languageId, or a non-object, means no section.
         expect(workspace.getConfiguration("editor", { languageId: "" } as never).get("formatOnSave")).toBe(false);
         expect(workspace.getConfiguration("editor", { languageId: 1 } as never).get("formatOnSave")).toBe(false);
         expect(workspace.getConfiguration("editor", "python" as never).get("formatOnSave")).toBe(false);
@@ -151,7 +151,7 @@ describe("WorkspaceNamespace — configuration", () => {
             { method: "configuration.update", params: { key: "editor.tabSize", value: 2 } },
             { method: "configuration.update", params: { key: "files.autoSave", value: "off" } },
         ]);
-        // Отказы — rejected promise без тоста, как у эталона (donotNotifyError).
+        // Refusals are a rejected promise without a toast, as upstream (donotNotifyError).
         expect(stub.notifies).toEqual([]);
     });
 
@@ -174,7 +174,7 @@ describe("WorkspaceNamespace — configuration", () => {
             undefined,
             undefined,
         ]);
-        // Не задана — поля нет вовсе (`toStrictEqual` различает `target: undefined`).
+        // Not given — the field is absent altogether (`toStrictEqual` tells it apart from `target: undefined`).
         expect(stub.requests[5]?.params).toStrictEqual({ key: "bazel.projectview.open", value: false });
     });
 
@@ -190,7 +190,7 @@ describe("WorkspaceNamespace — configuration", () => {
         await workspace.getConfiguration("x", uri).update("y", 1);
         await workspace.getConfiguration("x", { uri: Uri.file("/ws"), name: "ws", index: 0 }).update("y", 1);
         await workspace.getConfiguration("x", { uri: "не-Uri" } as unknown as Uri).update("y", 1);
-        // scope `null` у эталона — «без ресурса»; запись не должна на нём падать.
+        // Upstream scope `null` means "no resource"; writing must not throw on it.
         await workspace.getConfiguration("x", null).update("y", 1);
         expect(stub.requests.map((r) => (r.params as { resource?: string }).resource)).toEqual([
             uri.toString(),
@@ -216,16 +216,16 @@ describe("WorkspaceNamespace — configuration", () => {
             workspaceFolders: [],
         });
         const goDoc = { uri: Uri.file("/ws/a.go"), languageId: "go" };
-        // Явно в секцию языка — отказ при любой цели.
+        // Explicitly into the language section — refused for any target.
         await expect(workspace.getConfiguration("editor", goDoc).update("tabSize", 2, true, true)).rejects.toThrow(
             'Unable to write editor.tabSize to the "[go]" section',
         );
-        // Не задано, а у языка в целевом слое (user) своё значение — эталон пишет в секцию: отказ.
+        // Not given, but the language has its own value in the target layer (user) — upstream writes into the section: refused.
         await expect(workspace.getConfiguration("editor", goDoc).update("tabSize", 2, true)).rejects.toThrow('"[go]"');
         expect(stub.requests).toEqual([]);
-        // В слое воркспейса секции у go нет — обычная запись ключа.
+        // go has no section in the workspace layer — a regular key write.
         await workspace.getConfiguration("editor", goDoc).update("tabSize", 2, false);
-        // Явно мимо секции — обычная запись даже при значении языка.
+        // Explicitly bypassing the section — a regular write even when the language has a value.
         await workspace.getConfiguration("editor", goDoc).update("tabSize", 2, true, false);
         expect(stub.requests.map((r) => (r.params as { target: string }).target)).toEqual(["workspace", "user"]);
     });
@@ -249,7 +249,7 @@ describe("WorkspaceNamespace — configuration", () => {
         await expect(
             workspace.getConfiguration("editor", goDoc).update("tabSize", 2, ConfigurationTarget.WorkspaceFolder),
         ).rejects.toThrow('"[go]"');
-        // В слое воркспейса секции у go нет — запись туда обычная.
+        // go has no section in the workspace layer — a regular write there.
         await workspace.getConfiguration("editor", goDoc).update("tabSize", 2, ConfigurationTarget.Workspace);
         expect(stub.requests.map((r) => (r.params as { target: string }).target)).toEqual(["workspace"]);
     });
@@ -280,7 +280,7 @@ describe("WorkspaceNamespace — configuration", () => {
             workspaceFolders: [],
         });
         const config = workspace.getConfiguration("section");
-        // `get` остаётся функцией, `value` — зеркалится как поле
+        // `get` stays a function, `value` is mirrored as a field
         expect(typeof config.get).toBe("function");
         expect((config as unknown as { value: number }).value).toBe(2);
     });
@@ -396,7 +396,7 @@ describe("WorkspaceNamespace — folders & documents", () => {
     });
 
     it("openTextDocument с не-file URI отказывает и НЕ читает диск", async () => {
-        // Класс бага #107: схема падала через .fsPath, и `untitled:` уезжал в nodeFs.readFile относительным путём.
+        // Bug class #107: the scheme fell through .fsPath, and `untitled:` went to nodeFs.readFile as a relative path.
         const { workspace } = makeCtx();
         await expect(workspace.openTextDocument(Uri.parse("untitled:Untitled-1") as never)).rejects.toMatchObject({
             code: "Unavailable",
@@ -424,7 +424,7 @@ describe("WorkspaceNamespace — openTextDocument от диска (WP7)", () => 
         };
         expect(doc.fileName).toBe(file);
         expect(doc.getText()).toBe("root = true\n");
-        // Эфемерный: в реестр не попал.
+        // Ephemeral: not added to the registry.
         expect(ctx.registry.all()).toHaveLength(0);
         expect(ctx.registry.get(Uri.file(file))).toBeUndefined();
     });
@@ -534,7 +534,7 @@ describe("WorkspaceNamespace — will-save request handler", () => {
     const openDoc = (stub: IStubRpc, text: string, uri = F_URI) => {
         stub.fire("editor.didOpen", { uri, languageId: "plaintext", version: 1, text });
     };
-    /** Запрос will-save текста не везёт — только версию документа. */
+    /** The will-save request carries no text — only the document version. */
     const PARAMS = { uri: F_URI, languageId: "plaintext", version: 1, isDirty: true, reason: 1 };
 
     it("сериализует TextEdit[] участника (документ из зеркала + fire + waitUntil)", async () => {
@@ -617,8 +617,8 @@ describe("WorkspaceNamespace — will-save request handler", () => {
         const uri = Uri.file("/x.txt").toString();
         stub.fire("editor.didOpen", { uri, languageId: "markdown", version: 1, text: "x" });
         expect(await stub.callRequest(REQUEST, { uri, version: 1 })).toEqual([]);
-        expect(reason).toBe(1); // TextDocumentSaveReason.Manual по умолчанию
-        // Мета без полей запроса остаётся от didOpen.
+        expect(reason).toBe(1); // TextDocumentSaveReason.Manual by default
+        // Metadata not present in the request stays from didOpen.
         const doc = ctx.registry.get(Uri.file("/x.txt"));
         expect(doc?.getText()).toBe("x");
         expect(doc?.languageId).toBe("markdown");
@@ -633,7 +633,7 @@ describe("WorkspaceNamespace — will-save request handler", () => {
             e.waitUntil(Promise.resolve([TextEdit.insert(new Position(0, 0), "x")]));
         });
 
-        // Не открыт: хост не присылал didOpen — документ не заводится.
+        // Not open: the host never sent didOpen — no document is created.
         expect(await stub.callRequest(REQUEST, PARAMS)).toEqual([]);
         expect(ctx.registry.get(Uri.file("/f.txt"))).toBeUndefined();
 
@@ -643,10 +643,10 @@ describe("WorkspaceNamespace — will-save request handler", () => {
             version: 2,
             changes: [{ range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } }, text: "b" }],
         });
-        // Устарел: модель уже на v2; мета запроса (isDirty) не применяется.
+        // Stale: the model is already at v2; the request metadata (isDirty) is not applied.
         expect(await stub.callRequest(REQUEST, PARAMS)).toEqual([]);
         expect(ctx.registry.get(Uri.file("/f.txt"))?.isDirty).toBe(false);
-        // Обогнал зеркало: нарушение порядка, в stderr.
+        // Ahead of the mirror: an ordering violation, goes to stderr.
         const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
         try {
             expect(await stub.callRequest(REQUEST, { ...PARAMS, version: 3 })).toEqual([]);
@@ -654,7 +654,7 @@ describe("WorkspaceNamespace — will-save request handler", () => {
         } finally {
             warn.mockRestore();
         }
-        // Закрыт: версия совпадает, но документа в зеркале больше нет.
+        // Closed: the version matches, but the document is no longer in the mirror.
         stub.fire("editor.didClose", { uri: F_URI });
         expect(await stub.callRequest(REQUEST, { ...PARAMS, version: 2 })).toEqual([]);
         expect(fired).toBe(0);
@@ -701,7 +701,7 @@ describe("WorkspaceNamespace — will-save request handler", () => {
         openDoc(stub, "a\n");
         const result = await stub.callRequest(REQUEST, PARAMS);
         expect(result).toEqual([]);
-        // collecting уже false — правка не подхватится (и не бросит)
+        // collecting is already false — the edit is not picked up (and does not throw)
         captured?.waitUntil(Promise.resolve([TextEdit.insert(new Position(0, 0), "x")]));
     });
 
@@ -939,7 +939,7 @@ describe("WorkspaceNamespace — registerFileSystemProvider", () => {
 describe("WorkspaceNamespace — registerTaskProvider без задач", () => {
     it("без моста задач регистрация — пустой Disposable, хосту ничего не уходит", () => {
         const { stub, workspace } = makeCtx();
-        // eslint-disable-next-line @typescript-eslint/no-deprecated -- проверяется именно устаревший `workspace.registerTaskProvider`
+        // eslint-disable-next-line @typescript-eslint/no-deprecated -- the deprecated `workspace.registerTaskProvider` is exactly what is under test
         const registration = workspace.registerTaskProvider("demo", {
             provideTasks: () => [],
             resolveTask: () => undefined,

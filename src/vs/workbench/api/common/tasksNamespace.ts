@@ -37,14 +37,14 @@ import {
 import type { IWireExtensionDescription } from "./wireTypes.ts";
 
 /**
- * `ExtHostTask` эталона. Как у эталона, вызвавший `executeTask` получает в `execution.task`
- * СВОЙ объект; чужая задача — новый `Task` с именем и `source` провайдера.
+ * Upstream's `ExtHostTask`. As upstream, the caller of `executeTask` gets ITS OWN object in
+ * `execution.task`; a foreign task becomes a new `Task` with the provider's name and `source`.
  *
- * Id своей задачи — формула ядра `${расширение}.${_key}` (`taskIdentity.ts`), посчитанная
- * здесь по `contributes.taskDefinitions` (у эталона — запрос `$createTaskId`).
+ * An own task's id is the core formula `${extension}.${_key}` (`taskIdentity.ts`), computed
+ * here from `contributes.taskDefinitions` (upstream asks via `$createTaskId`).
  *
- * Нотификации ядра — строго по очереди: старт с `CustomExecution` ждёт колбэк расширения,
- * события процесса не должны его обгонять.
+ * Core notifications are handled strictly in order: a start with `CustomExecution` awaits the
+ * extension callback, and process events must not overtake it.
  */
 export interface ITasksNamespace {
     registerTaskProvider(type: string, provider: vscode.TaskProvider): vscode.Disposable;
@@ -153,7 +153,7 @@ export function createTasksNamespace(deps: ITasksNamespaceDeps): ITasksNamespace
     const idOf = (wire: IWireTask): string => {
         if (wire.id !== undefined) return wire.id;
         const keyed = createTaskIdentifier(wire.definition, schemas.get(wire.definition.type), report) ?? {
-            // Stryker disable next-line StringLiteral: тип в id не входит (`contributedTaskId` — расширение и `_key`); строка — форма эталона
+            // Stryker disable next-line StringLiteral: the type is not part of the id (`contributedTaskId` uses the extension and `_key`); the string mirrors upstream
             type: "$executeOnly",
             _key: globalThis.crypto.randomUUID(),
         };
@@ -282,7 +282,7 @@ export function createTasksNamespace(deps: ITasksNamespaceDeps): ITasksNamespace
     rpc.handleNotification("tasks.didEnd", (params) => {
         enqueue(() => {
             const value = parseWireTaskEnded(params);
-            // Конец неизвестного исполнения эталон пропускает: его начала тут не видели.
+            // Upstream skips the end of an unknown execution: its start was never seen here.
             const execution = value === null ? undefined : executions.get(value.execution.id);
             if (execution === undefined) return;
             executions.delete(execution.id);
@@ -309,7 +309,7 @@ export function createTasksNamespace(deps: ITasksNamespaceDeps): ITasksNamespace
     }
 
     function executeTask(task: vscode.Task): Promise<vscode.TaskExecution> {
-        // Владелец — только в синхронной части вызова (`ExtensionOwner`).
+        // The owner is known only in the synchronous part of the call (`ExtensionOwner`).
         const extensionId = owner.current ?? "";
         const handleId = task instanceof Task ? task.handleId : undefined;
         if (task.execution === undefined && handleId === undefined) {
@@ -326,7 +326,7 @@ export function createTasksNamespace(deps: ITasksNamespaceDeps): ITasksNamespace
             id = handleId;
             request = { id };
         }
-        // Своё исполнение заводится ДО запроса: старт может прийти раньше ответа.
+        // The own execution is registered BEFORE the request: the start may arrive before the reply.
         const known = executions.get(id);
         const execution = known ?? new TaskExecution(id, task, rpc);
         executions.set(id, execution);

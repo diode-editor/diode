@@ -4,9 +4,9 @@ import type { SubprocessRpc } from "./extHostProtocol.ts";
 import type { WorkspaceConfigStore } from "./workspaceConfigStore.ts";
 
 /**
- * Id расширения, от имени которого СИНХРОННО исполняется создающий вызов API: объект `vscode`
- * общий, оверлей расширения оборачивает такие члены в {@link runAs}. Асинхронное продолжение
- * владельца не видит — и не должно.
+ * Id of the extension on whose behalf a creating API call runs SYNCHRONOUSLY: the `vscode` object
+ * is shared, and the extension overlay wraps such members in {@link runAs}. An async continuation
+ * does not see the owner — and must not.
  */
 export class ExtensionOwner {
     private id: string | undefined;
@@ -15,7 +15,7 @@ export class ExtensionOwner {
         return this.id;
     }
 
-    /** `undefined` — «ничей»: объект шима, заведённый внутри вызова расширения, но не его (пункт `setStatusBarMessage`). */
+    /** `undefined` means "nobody's": a shim object created inside an extension call but not owned by it (the `setStatusBarMessage` item). */
     public runAs<T>(id: string | undefined, fn: () => T): T {
         const previous = this.id;
         this.id = id;
@@ -30,7 +30,7 @@ export class ExtensionOwner {
 export interface IVscodeHostContext {
     readonly rpc: SubprocessRpc;
     readonly registry: DocumentRegistry;
-    /** Единственная точка входа текста в {@link registry}. */
+    /** The only entry point for text into {@link registry}. */
     readonly documentSync: DocumentSyncTracker;
     readonly configStore: WorkspaceConfigStore;
     readonly disk: IExtHostDisk;

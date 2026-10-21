@@ -4,8 +4,8 @@ import type { SubprocessRpc } from "./extHostProtocol.ts";
 import { CancellationTokenSource, EventEmitter } from "./vscodeTypes.ts";
 
 /**
- * Заглушка до view Testing: обработчики никто не зовёт, но коллекции рабочие — `golang.go`
- * на открытии тест-файла добавляет элементы и спотыкался бы на собственном дереве.
+ * Stub until the Testing view exists: nobody calls the handlers, but the collections work — `golang.go`
+ * adds items when a test file opens and would trip over its own tree otherwise.
  */
 
 const OUTPUT_CHANNEL = "extensions";
@@ -115,7 +115,7 @@ function createInertTestRun(name: string | undefined, persist: boolean): vscode.
 export function createTestsNoop(rpc: SubprocessRpc): typeof vscode.tests {
     const reported = new Set<string>();
 
-    // Главное — первым: строка Output обрезается шириной панели.
+    // The key part first: the Output line is cut off at the panel width.
     function reportUnsupported(id: string): void {
         if (reported.has(id)) return;
         reported.add(id);

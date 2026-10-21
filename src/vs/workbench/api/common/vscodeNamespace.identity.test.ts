@@ -7,7 +7,7 @@ import type { SubprocessRpc } from "./extHostProtocol.ts";
 import { makeStubRpc as makeSharedStubRpc } from "./testStubRpc.ts";
 import { buildVscodeNamespace } from "./vscodeNamespace.ts";
 
-/** Регресс: editorconfig сравнивает `activeTextEditor.document === doc` по ссылке. */
+/** Regression: editorconfig compares `activeTextEditor.document === doc` by reference. */
 interface StubRpc {
     rpc: SubprocessRpc;
     fireActiveEditorChanged: (filePath: string | null) => void;
@@ -162,7 +162,7 @@ describe("VscodeNamespace — стабильная идентичность acti
         ).trim();
         const { rpc } = makeStubRpc();
         const vscode = buildVscodeNamespace(rpc, createNodeExtHostDisk()).namespace;
-        // vscode-languageclient проверяет semver `^1.91.0`.
+        // vscode-languageclient checks semver `^1.91.0`.
         expect(vscode.version).toBe(pinned);
         expect(vscode.version).toMatch(/^\d+\.\d+\.\d+$/);
     });
@@ -183,7 +183,7 @@ describe("VscodeNamespace — стабильная идентичность acti
     it("extensions — каталог от хоста, до его приезда состав честно пуст", () => {
         const stub = makeSharedStubRpc();
         const vscode = buildVscodeNamespace(stub.rpc, createNodeExtHostDisk()).namespace;
-        // Каталог хост ещё не прислал (в жизни — семенем до первой активации): пустой состав — верный ответ.
+        // The host has not sent the catalog yet (in real life it is seeded before the first activation): an empty set is the correct answer.
         expect(vscode.extensions.getExtension("ms-python.vscode-pylance")).toBeUndefined();
         expect(vscode.extensions.all).toEqual([]);
         const sub = vscode.extensions.onDidChange(() => undefined);
@@ -198,7 +198,7 @@ describe("VscodeNamespace — стабильная идентичность acti
 
     it("tasks — наивный namespace: registerTaskProvider отдаёт disposable, события подписываем", () => {
         const { rpc } = makeStubRpc();
-        // Утиный каст: no-op namespace дормантной части d.ts активную поверхность не расширяет.
+        // Duck cast: the no-op namespace of the dormant part of d.ts does not widen the active surface.
         const vscode = buildVscodeNamespace(rpc, createNodeExtHostDisk()).namespace as unknown as {
             tasks: {
                 registerTaskProvider(type: string, provider: unknown): { dispose(): void };
@@ -207,7 +207,7 @@ describe("VscodeNamespace — стабильная идентичность acti
                 onDidEndTask(listener: () => void): { dispose(): void };
             };
         };
-        // vscode-eslint зовёт это при `eslint.lintTask.enable: true`.
+        // vscode-eslint calls this with `eslint.lintTask.enable: true`.
         const registration = vscode.tasks.registerTaskProvider("eslint", {
             provideTasks: () => [],
             resolveTask: () => undefined,

@@ -21,7 +21,7 @@ describe("vscode.tasks в namespace", () => {
     it("workspace.registerTaskProvider регистрирует провайдера задач, dispose — снимает", () => {
         const { stub, host, vscode } = setup();
         const registration = host.owner.runAs("pub.ext", () =>
-            // eslint-disable-next-line @typescript-eslint/no-deprecated -- проверяется именно устаревший `workspace.registerTaskProvider`
+            // eslint-disable-next-line @typescript-eslint/no-deprecated -- the deprecated `workspace.registerTaskProvider` is exactly what is under test
             vscode.workspace.registerTaskProvider("demo", { provideTasks: () => [], resolveTask: () => undefined }),
         );
         expect(stub.notifies.filter((n) => n.method === "tasks.registerProvider")).toStrictEqual([

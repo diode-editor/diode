@@ -1,6 +1,6 @@
-// Id задачи провайдера по формуле эталона (`TaskDTO.to` + `KeyedTaskIdentifier`). Эталон
-// считает его только на главной стороне (`$createTaskId`); у нас субпроцесс считает сам,
-// без лишнего круга RPC (отступление), поэтому формула общая для обеих сторон.
+// Provider task id by upstream's formula (`TaskDTO.to` + `KeyedTaskIdentifier`). Upstream
+// computes it only on the main side (`$createTaskId`); here the subprocess computes it itself,
+// without an extra RPC round trip (a deviation), so the formula is shared by both sides.
 
 export interface ITaskDefinitionPropertySchema {
     readonly type?: unknown;
@@ -24,7 +24,7 @@ export interface IKeyedTaskIdentifier extends ITaskIdentifier {
     readonly _key: string;
 }
 
-/** `Configuration.from` эталона: нестроковые элементы `required` отбрасываются молча, как у него. */
+/** Upstream's `Configuration.from`: non-string `required` entries are dropped silently, as there. */
 export function parseTaskDefinitions(
     extensionId: string,
     contributions: unknown,
@@ -56,7 +56,7 @@ export function parseTaskDefinitions(
     return result;
 }
 
-/** `sortedStringify` эталона: ключи по алфавиту, запятые в строках удвоены, объекты — рекурсивно. */
+/** Upstream's `sortedStringify`: keys sorted, commas in strings doubled, objects recursed into. */
 function sortedStringify(literal: Readonly<Record<string, unknown>>): string {
     let result = "";
     for (const key of Object.keys(literal).sort()) {
@@ -71,12 +71,12 @@ function sortedStringify(literal: Readonly<Record<string, unknown>>): string {
     return result;
 }
 
-/** Определение с ключом (`KeyedTaskIdentifier.create` эталона). */
+/** Definition with a key (upstream's `KeyedTaskIdentifier.create`). */
 function keyed(literal: ITaskIdentifier): IKeyedTaskIdentifier {
     return { ...literal, _key: sortedStringify(literal) };
 }
 
-/** `TaskDefinition.createTaskIdentifier` эталона, тексты сообщений — его же. */
+/** Upstream's `TaskDefinition.createTaskIdentifier`, with its message texts. */
 export function createTaskIdentifier(
     external: ITaskIdentifier,
     schema: ITaskDefinitionSchema | undefined,
@@ -99,7 +99,7 @@ export function createTaskIdentifier(
             literal[property] = structuredClone(propertySchema.default);
             continue;
         }
-        // Stryker disable next-line ConditionalExpression: эквивалентный — не строковый type и так не найдётся в ZERO_VALUES; проверка нужна только типам
+        // Stryker disable next-line ConditionalExpression: equivalent — a non-string type is not found in ZERO_VALUES anyway; the check exists only for the type checker
         if (typeof propertySchema.type !== "string" || !ZERO_VALUES.has(propertySchema.type)) {
             report(
                 `Error: the task identifier '${JSON.stringify(external)}' is missing the required property '${property}'. The task identifier will be ignored.`,
@@ -118,7 +118,7 @@ const ZERO_VALUES: ReadonlyMap<string, unknown> = new Map<string, unknown>([
     ["string", ""],
 ]);
 
-/** `TaskDTO.to` эталона. */
+/** As upstream `TaskDTO.to`. */
 export function contributedTaskId(extensionId: string, definition: IKeyedTaskIdentifier): string {
     return `${extensionId}.${definition._key}`;
 }

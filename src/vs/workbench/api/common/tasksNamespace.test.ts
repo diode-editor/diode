@@ -45,7 +45,7 @@ function setup(folders: () => readonly vscode.WorkspaceFolder[] | undefined = ()
     ns.onDidEndTask((e) => events.push(`end:${e.execution.task.name}`));
     ns.onDidStartTaskProcess((e) => events.push(`pstart:${e.execution.task.name}:${String(e.processId)}`));
     ns.onDidEndTaskProcess((e) => events.push(`pend:${e.execution.task.name}:${String(e.exitCode)}`));
-    // Сырые события — и те, у которых нет исполнения (на них слушатели выше бросили бы).
+    // Raw events — including those without an execution (the listeners above would throw on them).
     const raw: object[] = [];
     const record = (e: object): void => {
         raw.push(e);
@@ -257,7 +257,7 @@ describe("tasks.executeTask", () => {
         const [request] = s.requested("tasks.execute") as { task: IWireTask }[];
         expect(request.task.source).toStrictEqual({ label: "demo", extensionId: "pub.ext", scope: { folder: "/ws" } });
         expect(s.ns.taskExecutions).toStrictEqual([result]);
-        // Старт с этим id — то же исполнение, без пересборки задачи.
+        // A start with this id is the same execution, without rebuilding the task.
         s.stub.fire("tasks.didStart", { execution: execution("pub.ext.target,a,type,demo,"), terminalId: 1 });
         await settle();
         expect(s.events).toStrictEqual(["start:build"]);
@@ -465,7 +465,7 @@ describe("CustomExecution", () => {
         await settle();
         expect(order).toStrictEqual(["callback:resolved", "attach:7", "start"]);
         expect(s.events).toStrictEqual(["start:pty", "pstart:pty:-1"]);
-        // Задача из ядра с таким id получает тот же колбэк.
+        // A core task with this id gets the same callback.
         s.stub.responder = () => [
             wireTask({ id: "pub.ext.target,${x},type,demo,", execution: { customExecution: "customExecution" } }),
         ];
@@ -519,7 +519,7 @@ describe("taskToWire", () => {
         group.isDefault = true;
         task.group = group;
         task.detail = "d";
-        // presentation/runOptions — объекты без прототипа (как у эталона): toEqual.
+        // presentation/runOptions are prototype-less objects (as upstream): hence toEqual.
         expect(taskToWire(task, "e")).toEqual({
             name: "n",
             execution: { process: "node", args: ["a"], options: { cwd: "/c" } },

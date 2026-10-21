@@ -8,7 +8,7 @@ describe("WireTypes — parseWireSelections", () => {
     it("оставляет валидные, отбрасывает битые", () => {
         const raw = [
             { anchorLine: 0, anchorCharacter: 1, activeLine: 2, activeCharacter: 3 },
-            { anchorLine: 0, anchorCharacter: 1, activeLine: 2 }, // неполный
+            { anchorLine: 0, anchorCharacter: 1, activeLine: 2 }, // incomplete
             null,
         ];
         expect(parseWireSelections(raw)).toEqual([

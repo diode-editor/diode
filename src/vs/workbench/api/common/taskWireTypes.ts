@@ -1,13 +1,13 @@
-// Провод задач (`api/common/shared/tasks.ts` эталона); разбор хостом —
+// Task wire types (upstream's `api/common/shared/tasks.ts`); the host parses them in
 // `services/extensions/node/hostWireParsers.ts`.
 
-/** На проводе без `_key`. */
+/** No `_key` on the wire. */
 export interface IWireTaskDefinition {
     readonly type: string;
     readonly [name: string]: unknown;
 }
 
-/** `reveal`/`panel` — числа enum'ов API. */
+/** `reveal`/`panel` are the numeric values of the API enums. */
 export interface IWireTaskPresentation {
     readonly reveal?: number;
     readonly echo?: boolean;
@@ -29,7 +29,7 @@ export interface IWireProcessExecution {
     readonly options?: { readonly cwd?: string; readonly env?: Readonly<Record<string, string>> };
 }
 
-/** `quoting` — число `ShellQuoting`. */
+/** `quoting` is the numeric `ShellQuoting` value. */
 export interface IWireShellQuotedString {
     readonly value: string;
     readonly quoting: number;
@@ -60,7 +60,7 @@ export interface IWireCustomExecution {
 
 export type WireTaskExecutionKind = IWireProcessExecution | IWireShellExecution | IWireCustomExecution;
 
-/** `TaskScope` числом или путь папки воркспейса. */
+/** `TaskScope` as a number, or a workspace folder path. */
 export type WireTaskScope = number | { readonly folder: string };
 
 export interface IWireTaskSource {
@@ -69,7 +69,7 @@ export interface IWireTaskSource {
     readonly scope: WireTaskScope;
 }
 
-/** `id` — `_id` ядра, если задача пришла из ядра. */
+/** `id` is the core's `_id` when the task came from the core. */
 export interface IWireTask {
     readonly id?: string;
     readonly name: string;
@@ -85,7 +85,7 @@ export interface IWireTask {
     readonly runOptions?: IWireTaskRunOptions;
 }
 
-/** id исполнения = id задачи у ядра. */
+/** Execution id = the core's task id. */
 export interface IWireTaskExecution {
     readonly id: string;
     readonly task: IWireTask;
@@ -105,7 +105,7 @@ export interface IWireTaskFilter {
     readonly type?: string;
 }
 
-/** Задача ядра по id (из `fetchTasks`, не менявшаяся) либо описание целиком. */
+/** A core task by id (from `fetchTasks`, unmodified) or the full description. */
 export type WireTaskExecuteRequest = { readonly id: string } | { readonly task: IWireTask };
 
 export interface IWireTaskExecutionId {
@@ -123,7 +123,7 @@ export interface IWireTaskProcessStarted {
     readonly processId: number;
 }
 
-/** Нет `exitCode` — процесс закрыли, кода нет. */
+/** No `exitCode` — the process was closed and has no code. */
 export interface IWireTaskProcessEnded {
     readonly id: string;
     readonly exitCode?: number;
@@ -137,7 +137,7 @@ function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
     return typeof value === "object" && value !== null;
 }
 
-/** Форму гарантирует сериализатор ядра (`taskToWire`) — проверка поверхностная. */
+/** The core serializer (`taskToWire`) guarantees the shape — the check is shallow. */
 export function parseWireTask(value: unknown): IWireTask | null {
     if (!isRecord(value) || typeof value.name !== "string") return null;
     if (!isRecord(value.definition) || typeof value.definition.type !== "string") return null;

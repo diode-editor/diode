@@ -173,16 +173,16 @@ import { createWorkspaceNamespace } from "./workspaceNamespace.ts";
 export interface IVscodeHost {
     readonly namespace: typeof vscode;
     readonly configStore: WorkspaceConfigStore;
-    /** Наполняет точка входа субпроцесса — только она видит результат `activate()`. */
+    /** Filled by the subprocess entry point — only it sees the result of `activate()`. */
     readonly extensionExports: Map<string, unknown>;
     readonly secrets: IExtensionSecretsFactory;
     readonly environmentVariableCollections: ExtHostEnvironmentVariableCollections;
-    /** Выставляет оверлей расширения (`extensionApiFactory.ts`). */
+    /** Set by the extension overlay (`extensionApiFactory.ts`). */
     readonly owner: ExtensionOwner;
     readonly onDidReceiveCatalog: vscode.Event<readonly IWireExtensionDescription[]>;
 }
 
-/** Мутирующие действия уходят хосту RPC-запросами: прямой ссылки на host-сервисы у шима нет. */
+/** Mutating actions go to the host as RPC requests: the shim has no direct reference to host services. */
 export function buildVscodeNamespace(rpc: SubprocessRpc, disk: IExtHostDisk): IVscodeHost {
     const registry = new DocumentRegistry();
     const ctx: IVscodeHostContext = {
@@ -194,12 +194,12 @@ export function buildVscodeNamespace(rpc: SubprocessRpc, disk: IExtHostDisk): IV
         owner: new ExtensionOwner(),
     };
 
-    // Терминалы общие у `window` и `tasks`: pty `CustomExecution` подключается к терминалу задачи.
+    // Terminals are shared by `window` and `tasks`: a `CustomExecution` pty attaches to the task's terminal.
     const terminals = createTerminalNamespace(rpc);
     const window = createWindowNamespace(ctx, terminals);
-    // Отложенный вызов: `tasks` ещё не собран (ему нужны папки `workspace`).
+    // Deferred call: `tasks` is not built yet (it needs the `workspace` folders).
     const workspace = createWorkspaceNamespace(ctx, (type, provider) => tasks.registerTaskProvider(type, provider));
-    // Собирается ДО languages: applyCodeAction исполняет команды действий.
+    // Built BEFORE languages: applyCodeAction runs the actions' commands.
     const apiCommands = createApiCommands({
         showTextDocument: (uri, options) => window.showTextDocument(uri, options),
         openExternal: (target) => env.openExternal(target),
@@ -210,7 +210,7 @@ export function buildVscodeNamespace(rpc: SubprocessRpc, disk: IExtHostDisk): IV
         executeCommand: (command, ...args) => commands.executeCommand(command, ...args),
     });
 
-    // Семя `env.initialize` приходит до первой активации; профилей терминала нет — `onDidChangeShell` не стреляет.
+    // The `env.initialize` seed arrives before the first activation; there are no terminal profiles, so `onDidChangeShell` never fires.
     let hostEnvironment: IWireEnvInitialize = { machineId: "", shell: "" };
     rpc.handleNotification("env.initialize", (params) => {
         hostEnvironment = parseWireEnvInitialize(params);
@@ -235,14 +235,14 @@ export function buildVscodeNamespace(rpc: SubprocessRpc, disk: IExtHostDisk): IV
                 await rpc.request("env.clipboard.writeText", { text: value });
             },
         },
-        /** `true` и без графического окружения: хост показал URL сообщением и положил в буфер обмена. */
+        /** `true` even without a graphical environment: the host showed the URL in a message and put it on the clipboard. */
         openExternal: async (target: vscode.Uri): Promise<boolean> =>
             parseWireOpenExternalResult(
-                // skipEncoding, как в эталоне: обычный `toString()` отдал бы системе `?token%3D42` вместо `?token=42`.
+                // skipEncoding, as upstream: a plain `toString()` would give the system `?token%3D42` instead of `?token=42`.
                 await rpc.request("env.openExternal", { uri: target.toString(true) }),
             ),
 
-        /** Отступление от эталона: id не переживает перезапуск extension host'а. `redhat.java` отличает по нему свой запуск от чужого. */
+        /** Deviation from upstream: the id does not survive an extension host restart. `redhat.java` uses it to tell its own launch from another one. */
         sessionId: randomUUID(),
 
         isTelemetryEnabled: false,
@@ -251,7 +251,7 @@ export function buildVscodeNamespace(rpc: SubprocessRpc, disk: IExtHostDisk): IV
 
         remoteName: undefined,
 
-        // `Web` в контракте — доступ из браузера (vscode.dev), а не «не-графический UI».
+        // `Web` in the contract means browser access (vscode.dev), not "non-graphical UI".
         uiKind: UIKind.Desktop,
     };
 
@@ -270,7 +270,7 @@ export function buildVscodeNamespace(rpc: SubprocessRpc, disk: IExtHostDisk): IV
     });
 
     const namespace = {
-        // vscode-languageclient требует валидный semver (^1.91.0); лок-степ с extensions/VSCODE_VERSION.
+        // vscode-languageclient requires a valid semver (^1.91.0); lock-step with extensions/VSCODE_VERSION.
         version: VSCODE_SHIM_VERSION,
         Disposable: DisposableImpl,
         Position,
@@ -284,8 +284,8 @@ export function buildVscodeNamespace(rpc: SubprocessRpc, disk: IExtHostDisk): IV
         CompletionItem,
         CompletionList,
         CompletionTriggerKind,
-        // Каст и здесь, и у трёх классов ниже, что держат SnippetString в полях: у нашего
-        // SnippetString только `appendText` без экранирования, билдеров из d.ts нет.
+        // Cast here and in the three classes below that hold SnippetString in fields: our
+        // SnippetString has only `appendText` without escaping, no d.ts builders.
         SnippetString: SnippetString as unknown as typeof vscode.SnippetString,
         InlineCompletionItem: InlineCompletionItem as unknown as typeof vscode.InlineCompletionItem,
         InlineCompletionList: InlineCompletionList as unknown as typeof vscode.InlineCompletionList,
@@ -351,7 +351,7 @@ export function buildVscodeNamespace(rpc: SubprocessRpc, disk: IExtHostDisk): IV
         OverviewRulerLane,
         DecorationRangeBehavior,
         ViewColumn,
-        // Все семь TabInput*, даже непроизводимые: instanceof-каскад расширений требует каждого.
+        // All seven TabInput*, even the ones never produced: extensions' instanceof cascades need each one.
         TabInputText,
         TabInputTextDiff,
         TabInputCustom,
@@ -382,14 +382,14 @@ export function buildVscodeNamespace(rpc: SubprocessRpc, disk: IExtHostDisk): IV
         TreeItemCheckboxState,
         ThemeIcon,
         TelemetryTrustedValue,
-        // Notebook'ов нет, но Claude Code строит `NotebookCellOutputItem.error(...)` при загрузке модуля.
+        // No notebooks, but Claude Code builds `NotebookCellOutputItem.error(...)` at module load.
         NotebookCellOutputItem,
         authentication: createAuthenticationNoop(rpc),
         comments: createCommentsNoop(rpc),
         CommentThreadCollapsibleState,
         CommentMode,
         CommentThreadState,
-        // Дебаггера нет (решение человека), но без namespace'а `golang.go` обрывал `activate()`.
+        // No debugger (owner's decision), but without the namespace `golang.go` aborted `activate()`.
         debug: createDebugNoop(rpc),
         DebugAdapterExecutable,
         DebugAdapterServer,

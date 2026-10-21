@@ -213,12 +213,12 @@ describe("Task", () => {
         task.name = "renamed";
         expect(task.scope).toBeUndefined();
         expect(task.definition).toStrictEqual({ type: "shell", id: "shell,x," });
-        // Сброс пересчитывает определение по исполнению и у задачи своего типа (как у эталона).
+        // The reset recomputes the definition from the execution even for a task of its own type (as upstream).
         const typed = new Task({ type: "demo" }, folder, "n", "s", new ShellExecution("x"));
         typed.handleId = "core-id";
         typed.name = "renamed";
         expect(typed.definition).toStrictEqual({ type: "shell", id: "shell,x," });
-        // detail id не сбрасывает (как у эталона).
+        // detail does not clear the id (as upstream).
         const kept = fresh();
         kept.detail = "d";
         expect(kept.handleId).toBe("core-id");

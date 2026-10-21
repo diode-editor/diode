@@ -221,7 +221,7 @@ describe("события от хоста", () => {
         expect(terminal.exitStatus).toStrictEqual({ code: 3, reason: TerminalExitReason.Process });
         await expect(terminal.processId).resolves.toBeUndefined();
 
-        // Метка закрытого терминала больше ничего не значит: opened с ней — чужой.
+        // A closed terminal's tag means nothing anymore: an opened event with it is a foreign terminal.
         stub.fire("terminal.opened", { id: 6, extHostId: 1, name: "other", launch: {} });
         expect(ns.terminals).toHaveLength(1);
         expect(ns.terminals[0]).not.toBe(terminal);
@@ -273,7 +273,7 @@ describe("события от хоста", () => {
         stub.fire("terminal.activeChanged", { id: 77 });
         expect(ns.activeTerminal).toBe(a);
 
-        // Закрытый терминал из адресов выбыл: активным его уже не сделать.
+        // A closed terminal is no longer addressable: it cannot become active again.
         stub.fire("terminal.opened", { id: 2, name: "b", launch: {} });
         stub.fire("terminal.closed", { id: 2, reason: "process" });
         stub.fire("terminal.activeChanged", { id: 2 });

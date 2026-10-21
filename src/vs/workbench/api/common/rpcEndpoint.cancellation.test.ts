@@ -87,7 +87,7 @@ describe("RpcEndpoint — отмена запроса", () => {
         expect(observed).toHaveBeenCalledOnce();
         expect(cancels).toEqual([{ kind: "notif", method: CANCEL_REQUEST_METHOD, params: { id: 1 } }]);
 
-        // Отмена — просьба, а не разрыв: ответ всё равно доезжает.
+        // Cancellation is a request, not a disconnect: the reply still arrives.
         deferred.finish("late");
         expect(await pending).toBe("late");
         dispose();
@@ -110,8 +110,8 @@ describe("RpcEndpoint — отмена запроса", () => {
         const [chA, chB] = createInProcessChannelPair();
         const a = new RpcEndpoint(chA);
         const b = new RpcEndpoint(chB);
-        // `$/cancelRequest` разбирает принимающий endpoint, до хендлеров он не доходит —
-        // наблюдать его можно только на проводе.
+        // The receiving endpoint consumes `$/cancelRequest`; it never reaches handlers —
+        // it is observable only on the wire.
         const cancels = cancelsOn(chB);
         b.handleRequest("fast", () => "done");
 
@@ -132,8 +132,8 @@ describe("RpcEndpoint — отмена запроса", () => {
         const deferred = deferredHandler();
         b.handleRequest("slow", deferred.handler);
 
-        // Отмена #1 приходит раньше самого запроса: на упорядоченном канале это недостижимо,
-        // поэтому нотификацию шлём руками.
+        // Cancellation of #1 arrives before the request itself: impossible on an ordered channel,
+        // so the notification is sent by hand.
         b.handleNotification("noop", () => undefined);
         a.notify(CANCEL_REQUEST_METHOD, { id: 1 });
         await microtasks();
@@ -169,12 +169,12 @@ describe("RpcEndpoint — отмена запроса", () => {
             return new Promise<string>((resolve) => release.push(resolve));
         });
 
-        // 65 отмен-сирот подряд при памяти на 64: вытесняется одна — первая.
+        // 65 orphan cancellations in a row with room for 64: exactly one, the first, is evicted.
         for (let id = 1; id <= 65; id++) a.notify(CANCEL_REQUEST_METHOD, { id });
         await microtasks();
 
-        const first = a.request("slow", {}); // id 1 — его отмену уже забыли
-        const second = a.request("slow", {}); // id 2 — отмена ещё помнится
+        const first = a.request("slow", {}); // id 1 — its cancellation is already forgotten
+        const second = a.request("slow", {}); // id 2 — its cancellation is still remembered
         await microtasks();
 
         expect(seen[0].isCancellationRequested).toBe(false);
@@ -310,7 +310,7 @@ describe("RpcEndpoint — срок ответа (timeoutMs)", () => {
         expect(cancels).toHaveLength(1);
         expect(deferred.tokenOf().isCancellationRequested).toBe(true);
 
-        // Опоздавший ответ никому не адресован и ничего не ломает.
+        // A late reply is addressed to no one and breaks nothing.
         deferred.finish("late");
         await microtasks();
         dispose();

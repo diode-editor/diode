@@ -4,11 +4,11 @@ import type { SubprocessRpc } from "./extHostProtocol.ts";
 import { DisposableImpl, EventEmitter } from "./vscodeTypes.ts";
 
 /**
- * Заглушка до честного дерева (Phase 8b в docs/TODO/Extensions.md): без члена `activate()`
- * падал на `is not a function` и уносил команды и задачи. Форма эталонная (`extHostTreeViews.ts`).
+ * Stub until a real tree (Phase 8b in docs/TODO/Extensions.md): without this member `activate()`
+ * failed with `is not a function` and took commands and tasks down with it. The shape follows upstream (`extHostTreeViews.ts`).
  *
- * Отступление: незаконтрибьюченный view эталон встречает тостом-ошибкой, у нас — одна warn-строка
- * в Output на `viewId` за жизнь субпроцесса.
+ * Deviation: upstream greets a non-contributed view with an error toast; we log one warn line
+ * in Output per `viewId` for the subprocess lifetime.
  */
 
 const OUTPUT_CHANNEL = "extensions";
@@ -19,7 +19,7 @@ export interface ITreeViewNoopMembers {
     createTreeView: <T>(viewId: string, options: vscode.TreeViewOptions<T>) => vscode.TreeView<T>;
 }
 
-/** `title`/`message`/`description`/`badge` записываемые: расширения присваивают их на каждый рефреш. */
+/** `title`/`message`/`description`/`badge` are writable: extensions assign them on every refresh. */
 function createInertTreeView<T>(): vscode.TreeView<T> {
     return {
         onDidExpandElement: new EventEmitter<vscode.TreeViewExpansionEvent<T>>().event,
@@ -41,7 +41,7 @@ function createInertTreeView<T>(): vscode.TreeView<T> {
 export function createTreeViewNoopMembers(rpc: SubprocessRpc): ITreeViewNoopMembers {
     const reported = new Set<string>();
 
-    // Главное — первым: строка Output обрезается шириной панели.
+    // The key part first: the Output line is cut off at the panel width.
     function reportUnsupported(viewId: string): void {
         if (reported.has(viewId)) return;
         reported.add(viewId);
@@ -65,7 +65,7 @@ export function createTreeViewNoopMembers(rpc: SubprocessRpc): ITreeViewNoopMemb
             viewId: string,
             treeDataProvider: vscode.TreeDataProvider<T>,
         ): vscode.Disposable => {
-            // Эталон в dispose освобождает view; у инертного нечего — честная проводка вернёт сюда `treeView.dispose()`.
+            // Upstream frees the view on dispose; an inert one has nothing to free — real wiring will put `treeView.dispose()` back here.
             createTreeView(viewId, { treeDataProvider });
             return new DisposableImpl(() => undefined);
         },

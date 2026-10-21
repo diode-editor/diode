@@ -50,7 +50,7 @@ describe("WorkspaceNamespace — openTextDocument безымянного док�
 
         await workspace.openTextDocument({ encoding: 8 } as unknown as { encoding: string });
 
-        // `toStrictEqual`: поле `undefined` в запросе — тоже «уехало».
+        // `toStrictEqual`: an `undefined` field in the request also counts as "sent".
         expect(createRequests(stub)).toStrictEqual([{}, { language: "go" }, {}]);
     });
 

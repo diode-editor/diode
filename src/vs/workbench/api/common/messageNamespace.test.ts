@@ -38,7 +38,7 @@ describe("parseMessageArgs — четыре перегрузки show*Message", 
     });
 
     it("мусор вместо опций читается как «опций нет», а не роняет показ", () => {
-        // Расширение на JS вправе прислать что угодно; ронять его показ нельзя.
+        // A JS extension may pass anything; showing the message must not crash.
         expect(parseMessageArgs(null, ["One"])).toEqual({ modal: false, items: ["One"] });
         expect(parseMessageArgs(7, ["One"])).toEqual({ modal: false, items: ["One"] });
     });

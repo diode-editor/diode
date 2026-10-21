@@ -11,7 +11,7 @@ import { createWindowNamespace } from "./windowNamespace.ts";
 import type { IWireSelection } from "./wireTypes.ts";
 import { WorkspaceConfigStore } from "./workspaceConfigStore.ts";
 
-// Порядок как у хоста: снимок полосы, затем мета активного редактора.
+// Same order as the host: the layout snapshot, then the active editor meta.
 
 const A = Uri.file("/p/a.ts").toString();
 const B = Uri.file("/p/b.ts").toString();
@@ -168,8 +168,8 @@ describe("WindowNamespace — выделение вкладки, ставшей 
         expect(log).toEqual([`active ${B}`, `active ${A}`]);
     });
 
-    // 1:1 — это ровно одна пустая каретка в начале; отличие в любом поле или
-    // вторая каретка — уже восстановленное выделение.
+    // 1:1 is exactly one empty cursor at the start; a difference in any field or
+    // a second cursor makes it a restored selection.
     const sel = (anchorLine: number, anchorCharacter: number, activeLine: number, activeCharacter: number) => ({
         anchorLine,
         anchorCharacter,

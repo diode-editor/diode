@@ -6,8 +6,8 @@ export interface IWorkspaceFolderToAdd {
 }
 
 /**
- * Проверки `ExtHostWorkspace.updateWorkspaceFolders` эталона; `null` — отказ, в том
- * числе «итог без изменений». Сравнение по `fsPath`: ФС у нас одна, локальная.
+ * Upstream `ExtHostWorkspace.updateWorkspaceFolders` checks; `null` means refusal, including
+ * "no-op result". Compares by `fsPath`: we have a single, local file system.
  */
 export function simulateWorkspaceFoldersUpdate(
     current: readonly { readonly uri: vscode.Uri }[],

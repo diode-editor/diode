@@ -5,7 +5,7 @@ import type { ExtensionOwner } from "./vscodeHostContext.ts";
 import { DisposableImpl, Uri } from "./vscodeTypes.ts";
 import { parseWireHandleUri } from "./wireTypes.ts";
 
-/** `ExtHostUrls` эталона: кому и когда отдать URI (доверие, буфер до активации) решает хост. */
+/** Upstream's `ExtHostUrls`: the host decides who gets a URI and when (trust, buffering until activation). */
 export function createUriHandlers(rpc: SubprocessRpc, owner: ExtensionOwner): typeof vscode.window.registerUriHandler {
     const handlers = new Map<string, vscode.UriHandler>();
 
@@ -13,7 +13,7 @@ export function createUriHandlers(rpc: SubprocessRpc, owner: ExtensionOwner): ty
         const { extensionId, uri } = parseWireHandleUri(params);
         const handler = handlers.get(extensionId.toLowerCase());
         if (handler === undefined) return null;
-        // Сбой обработчика — его забота (`onUnexpectedError` эталона): URI уже отдан, отвечать хосту ошибкой не о чем.
+        // A handler failure is the handler's problem (upstream's `onUnexpectedError`): the URI is already delivered, nothing to report back to the host.
         try {
             await handler.handleUri(Uri.parse(uri));
         } catch (err) {

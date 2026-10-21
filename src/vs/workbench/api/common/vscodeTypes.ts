@@ -280,7 +280,7 @@ export class TextEdit implements vscode.TextEdit {
     }
 }
 
-/** Конвертер languageclient делает `new code.SnippetTextEdit` — без класса падает весь `WorkspaceEdit`. Табстопов нет: применение вырезает плейсхолдеры. */
+/** The languageclient converter calls `new code.SnippetTextEdit`; without the class the whole `WorkspaceEdit` fails. No tabstops: applying strips placeholders. */
 export class SnippetTextEdit {
     public range: Range;
     public snippet: SnippetString;
@@ -346,7 +346,7 @@ function isPositionLike(arg: unknown): arg is vscode.Position {
     return typeof p?.line === "number" && typeof p.character === "number";
 }
 
-/** `Range.isRange` эталона: объект с позициями `start`/`end` (экземпляр `Range` — тоже). */
+/** Upstream `Range.isRange`: an object with `start`/`end` positions (a `Range` instance qualifies too). */
 function isRangeLike(arg: unknown): arg is vscode.Range {
     const r = arg as Partial<vscode.Range> | null | undefined;
     return isPositionLike(r?.start) && isPositionLike(r.end);
@@ -357,11 +357,11 @@ function isStrArrayOrUndefined(arg: unknown): arg is string[] | undefined {
 }
 
 /**
- * Отступление: эталон кодирует на лету, пока `push` упорядочены; здесь `build()`
- * стабильно сортирует (равные — в порядке `push`) — ответ тот же.
+ * Deviation: upstream encodes on the fly while `push` calls are ordered; here `build()`
+ * sorts stably (ties keep `push` order), with the same result.
  */
 export class SemanticTokensBuilder implements vscode.SemanticTokensBuilder {
-    /** `[line, char, length, tokenType, tokenModifiers]` в порядке `push`. */
+    /** `[line, char, length, tokenType, tokenModifiers]` in `push` order. */
     private readonly tokens: [number, number, number, number, number][] = [];
     private readonly tokenTypeStrToInt = new Map<string, number>();
     private readonly tokenModifierStrToInt = new Map<string, number>();
@@ -477,8 +477,8 @@ export class SemanticTokensEdits implements vscode.SemanticTokensEdits {
 export { Uri };
 
 /**
- * `name` — формат VS Code `"${providerCode} (FileSystemError)"`: editorconfig-vscode
- * ловит по `err.name === "EntryNotFound (FileSystemError)"`, а не по `code`.
+ * `name` uses the VS Code format `"${providerCode} (FileSystemError)"`: editorconfig-vscode
+ * matches on `err.name === "EntryNotFound (FileSystemError)"`, not on `code`.
  */
 const PROVIDER_CODE_NAME: Record<string, string> = {
     FileNotFound: "EntryNotFound",
@@ -640,7 +640,7 @@ export class ThemeColor implements vscode.ThemeColor {
     }
 }
 
-/** `base` — аксессор поверх `baseUri`: upstream документирует, что запись `base` обновляет `baseUri`. */
+/** `base` is an accessor over `baseUri`: upstream documents that writing `base` updates `baseUri`. */
 export class RelativePattern {
     private baseUriValue: Uri;
     public pattern: string;
@@ -658,7 +658,7 @@ export class RelativePattern {
         this.baseUriValue = value;
     }
 
-    /** @deprecated upstream — оставлен ради дословности поверхности. */
+    /** @deprecated upstream; kept to match the API surface exactly. */
     public get base(): string {
         return this.baseUriValue.fsPath;
     }
@@ -673,7 +673,7 @@ function toBaseUri(base: vscode.WorkspaceFolder | Uri | string): Uri {
     if (base instanceof Uri) return base;
     const folderUri = (base as { uri?: unknown }).uri;
     if (folderUri instanceof Uri) return folderUri;
-    // Чужая реализация Uri (другой рантайм внутри расширения) — берём её строку.
+    // A foreign Uri implementation (another runtime inside the extension): take its string form.
     if (typeof folderUri === "object" && folderUri !== null)
         return Uri.parse((folderUri as { toString(): string }).toString());
     throw new TypeError("RelativePattern: base must be a WorkspaceFolder, Uri or string");
@@ -706,7 +706,7 @@ export class FileDecoration implements vscode.FileDecoration {
     }
 }
 
-/** `fire` итерирует снапшот слушателей: расширения отписываются во время dispatch. */
+/** `fire` iterates a snapshot of listeners: extensions unsubscribe during dispatch. */
 export class EventEmitter<T> implements vscode.EventEmitter<T> {
     private readonly listeners: ((e: T) => unknown)[] = [];
 
@@ -730,7 +730,7 @@ export class EventEmitter<T> implements vscode.EventEmitter<T> {
             try {
                 listener(data);
             } catch {
-                // Падение одного слушателя не должно валить fire (как в vscode).
+                // One failing listener must not break fire (as in vscode).
             }
         }
     }
@@ -750,7 +750,7 @@ export enum TerminalLocation {
     Editor = 2,
 }
 
-/** Значения совпадают с проводом (`platform/terminal/common/environmentVariable.ts`). */
+/** Values match the wire (`platform/terminal/common/environmentVariable.ts`). */
 export enum EnvironmentVariableMutatorType {
     Replace = 1,
     Append = 2,
@@ -937,7 +937,7 @@ export class Diagnostic implements vscode.Diagnostic {
     public severity: DiagnosticSeverity;
     public source?: string;
     public code?: string | number | { value: string | number; target: Uri };
-    /** До маркеров не доезжает: wire его не несёт. */
+    /** Never reaches the markers: the wire does not carry it. */
     public relatedInformation?: DiagnosticRelatedInformation[];
     public tags?: DiagnosticTag[];
 
@@ -1020,7 +1020,7 @@ export class DocumentSymbol {
         if (!candidate.range.contains(candidate.selectionRange)) {
             throw new Error("selectionRange must be contained in fullRange");
         }
-        // Типы обещают массив, но JS-расширение могло затереть его.
+        // The types promise an array, but a JS extension may have overwritten it.
         (candidate.children as DocumentSymbol[] | undefined)?.forEach((child) => {
             DocumentSymbol.validate(child);
         });
@@ -1177,7 +1177,7 @@ export class SignatureInformation implements vscode.SignatureInformation {
     }
 }
 
-/** Без аргументов: `protocolConverter` клиента делает `new code.SignatureHelp()` и заполняет поля присваиванием. */
+/** No arguments: the client's `protocolConverter` calls `new code.SignatureHelp()` and fills fields by assignment. */
 export class SignatureHelp implements vscode.SignatureHelp {
     public signatures: SignatureInformation[] = [];
     public activeSignature = 0;
@@ -1189,7 +1189,7 @@ export interface IResourceEditEntry {
     readonly edits: readonly (TextEdit | SnippetTextEdit)[];
 }
 
-/** `overwrite` бьёт `ignoreIfExists`. */
+/** `overwrite` wins over `ignoreIfExists`. */
 export interface IFileOperationOptions {
     readonly overwrite?: boolean;
     readonly ignoreIfExists?: boolean;
@@ -1197,7 +1197,7 @@ export interface IFileOperationOptions {
     readonly contents?: string;
 }
 
-/** Текстовая операция копит все правки одного ресурса: их координаты исходные и друг друга не сдвигают. */
+/** A text operation accumulates all edits of one resource: their coordinates are original and do not shift each other. */
 export type WorkspaceEditOperation =
     | { readonly kind: "text"; readonly uri: Uri; readonly edits: (TextEdit | SnippetTextEdit)[] }
     | { readonly kind: "create"; readonly uri: Uri; readonly options: IFileOperationOptions }
@@ -1205,9 +1205,9 @@ export type WorkspaceEditOperation =
     | { readonly kind: "rename"; readonly from: Uri; readonly to: Uri; readonly options: IFileOperationOptions };
 
 /**
- * Порядок операций значим: «Move to a new file» создаёт файл и тут же пишет в него.
- * `set` принимает и пары `[TextEdit, metadata]` конвертера LSP-клиента (metadata
- * отбрасывается); сниппет-правки видны только через {@link resourceEdits}.
+ * Operation order matters: "Move to a new file" creates the file and writes to it right away.
+ * `set` also accepts the LSP client converter's `[TextEdit, metadata]` pairs (metadata
+ * is dropped); snippet edits are visible only through {@link resourceEdits}.
  */
 export class WorkspaceEdit implements vscode.WorkspaceEdit {
     private readonly ops: WorkspaceEditOperation[] = [];
@@ -1238,8 +1238,8 @@ export class WorkspaceEdit implements vscode.WorkspaceEdit {
     ): void {
         const existing = this.textOpFor(uri);
         if (edits === null || edits === undefined || edits.length === 0) {
-            // Пустой набор снимает правки ресурса целиком — вместе с операцией,
-            // иначе `has`/`size` продолжали бы её считать.
+            // An empty set removes the resource's edits entirely, operation included;
+            // otherwise `has`/`size` would still count it.
             if (existing !== undefined) this.ops.splice(this.ops.indexOf(existing), 1);
             return;
         }
@@ -1266,12 +1266,12 @@ export class WorkspaceEdit implements vscode.WorkspaceEdit {
         return this.resourceEdits().map((entry) => [entry.uri, this.get(entry.uri)]);
     }
 
-    /** Вне vscode API — для сериализации applyEdit. */
+    /** Not part of the vscode API: used to serialize applyEdit. */
     public resourceEdits(): readonly IResourceEditEntry[] {
         return this.ops.flatMap((op) => (op.kind === "text" ? [{ uri: op.uri, edits: op.edits }] : []));
     }
 
-    /** Вне vscode API — для сериализации applyEdit. */
+    /** Not part of the vscode API: used to serialize applyEdit. */
     public operations(): readonly WorkspaceEditOperation[] {
         return this.ops;
     }
@@ -1328,7 +1328,7 @@ interface ICreateFileOptions {
     readonly contents?: Uint8Array | { data(): Thenable<Uint8Array> };
 }
 
-/** `DataTransferFile` (асинхронные байты drag-and-drop) у нас взяться негде — такой `contents` игнорируется. */
+/** A `DataTransferFile` (async drag-and-drop bytes) cannot occur here, so such `contents` is ignored. */
 function createFileOptionsOf(options: ICreateFileOptions | undefined): IFileOperationOptions {
     const contents = options?.contents;
     return {
@@ -1360,8 +1360,8 @@ export enum ViewColumn {
     Nine = 9,
 }
 
-// Все виды TabInput* — классы, хотя Diode производит только текст и дифф:
-// `instanceof` по отсутствующему классу — TypeError, а не false.
+// Every TabInput* kind is a class even though Diode produces only text and diff:
+// `instanceof` against a missing class is a TypeError, not false.
 
 export class TabInputText implements vscode.TabInputText {
     public constructor(public readonly uri: Uri) {}
@@ -1400,8 +1400,8 @@ export class TabInputNotebookDiff implements vscode.TabInputNotebookDiff {
     ) {}
 }
 
-/** Пустой класс — поверхность upstream: расширения узнают вкладку через `instanceof`. */
-// eslint-disable-next-line @typescript-eslint/no-extraneous-class -- см. комментарий выше
+/** An empty class is the upstream surface: extensions identify the tab via `instanceof`. */
+// eslint-disable-next-line @typescript-eslint/no-extraneous-class -- see the comment above
 export class TabInputTerminal implements vscode.TabInputTerminal {}
 
 export enum InputBoxValidationSeverity {
@@ -1471,7 +1471,7 @@ const BUILTIN_TASK_GROUPS: ReadonlyMap<string, TaskGroup> = new Map([
     ["test", TaskGroup.Test],
 ]);
 
-/** `computeTaskExecutionId` эталона: значения через запятую, свои запятые удвоены. */
+/** Upstream `computeTaskExecutionId`: comma-separated values, with their own commas doubled. */
 function computeTaskExecutionId(values: readonly string[]): string {
     return values.map((value) => `${value.replace(/,/g, ",,")},`).join("");
 }
@@ -1627,9 +1627,9 @@ type TaskExecutionKind = vscode.ProcessExecution | vscode.ShellExecution | vscod
 type TaskScopeValue = vscode.TaskScope.Global | vscode.TaskScope.Workspace | vscode.WorkspaceFolder;
 
 /**
- * `handleId` — id задачи у ядра (`_id` эталона): по нему исполняют без пересылки
- * описания. Любой сеттер его сбрасывает (`clear` эталона) — изменённая задача
- * уезжает описанием целиком.
+ * `handleId` is the task's id in the core (upstream `_id`): it lets the task run without resending
+ * its definition. Any setter clears it (upstream `clear`), so a modified task
+ * is sent as a full definition.
  */
 export class Task implements vscode.Task {
     private static readonly ExtensionCallbackType = "customExecution";
@@ -1707,7 +1707,7 @@ export class Task implements vscode.Task {
         this.idValue = value;
     }
 
-    /** Создана устаревшим конструктором без области. */
+    /** Created by the deprecated constructor without a scope. */
     public get deprecated(): boolean {
         return this.deprecatedValue;
     }
@@ -1748,7 +1748,7 @@ export class Task implements vscode.Task {
         return this.scopeValue;
     }
 
-    /** Область задачи (`target` эталона): ядро ставит её задачам из своих DTO. */
+    /** Task scope (upstream `target`): the core sets it on tasks built from its DTOs. */
     public set target(value: TaskScopeValue) {
         this.clear();
         this.scopeValue = value;
@@ -1807,7 +1807,7 @@ export class Task implements vscode.Task {
 
     public set isBackground(value: boolean) {
         this.clear();
-        // Не-булево от расширения без типов — `false`, как у эталона.
+        // A non-boolean from an untyped extension becomes `false`, as upstream.
         this.isBackgroundValue = (value as unknown) === true;
     }
 
@@ -1846,7 +1846,7 @@ export class Task implements vscode.Task {
 
     public set presentationOptions(value: vscode.TaskPresentationOptions) {
         this.clear();
-        // Расширение без типов может прислать null/undefined — эталон заменяет пустым.
+        // An untyped extension may pass null/undefined; upstream replaces it with an empty value.
         this.presentationOptionsValue =
             (value as vscode.TaskPresentationOptions | null | undefined) ??
             (Object.create(null) as vscode.TaskPresentationOptions);
@@ -1863,7 +1863,7 @@ export class Task implements vscode.Task {
     }
 }
 
-/** Отступление: без `isThemeIcon` эталона — им проверяет вход только рендер дерева. */
+/** Deviation: no upstream `isThemeIcon`; only the tree renderer uses it to check input. */
 export class ThemeIcon implements vscode.ThemeIcon {
     public static readonly File = new ThemeIcon("file");
     public static readonly Folder = new ThemeIcon("folder");
@@ -1889,9 +1889,9 @@ export enum TreeItemCheckboxState {
 }
 
 /**
- * Необязательные поля — `declare`, как у эталона (`useDefineForClassFields: false`):
- * иначе `undefined` экземпляра затенит геттер подкласса (`get tooltip()`).
- * Отступление: нет статического `isTreeItem` — рендера деревьев у нас нет.
+ * Optional fields are `declare`, as upstream (`useDefineForClassFields: false`):
+ * otherwise an instance `undefined` would shadow a subclass getter (`get tooltip()`).
+ * Deviation: no static `isTreeItem`, since there is no tree renderer.
  */
 export class TreeItem implements vscode.TreeItem {
     declare public label?: string | vscode.TreeItemLabel;
@@ -1906,7 +1906,7 @@ export class TreeItem implements vscode.TreeItem {
     declare public checkboxState?: vscode.TreeItem["checkboxState"];
     public collapsibleState?: vscode.TreeItemCollapsibleState;
 
-    // Две перегрузки эталона (подпись | Uri) — одной сигнатурой: так требует линт.
+    // The two upstream overloads (label | Uri) as a single signature: the linter requires it.
     public constructor(
         arg: string | vscode.TreeItemLabel | vscode.Uri,
         collapsibleState: vscode.TreeItemCollapsibleState = TreeItemCollapsibleState.None,
@@ -1915,14 +1915,14 @@ export class TreeItem implements vscode.TreeItem {
         if (arg instanceof Uri) {
             this.resourceUri = arg;
         } else {
-            // `vscode.Uri` в d.ts — класс, и `instanceof` нашего `Uri` его не сужает.
+            // `vscode.Uri` in the d.ts is a class, and `instanceof` against our `Uri` does not narrow it.
             this.label = arg as string | vscode.TreeItemLabel;
         }
     }
 }
 
 export class TelemetryTrustedValue<T = unknown> implements vscode.TelemetryTrustedValue<T> {
-    // Метка эталона: экземпляр теряется на сериализации, флаг — нет.
+    // Upstream marker: the instance is lost on serialization, the flag is not.
     public readonly isTrustedTelemetryValue = true;
     public readonly value: T;
 
@@ -1946,12 +1946,12 @@ export enum CommentThreadState {
     Resolved = 1,
 }
 
-/** `type/subtype[;параметры]` — `_simplePattern` эталона (`base/common/mime.ts`). */
+/** `type/subtype[;parameters]`: upstream `_simplePattern` (`base/common/mime.ts`). */
 const MIME_PATTERN = /^(.+)\/(.+?)(;.+)?$/;
 
 /**
- * Строгий `normalizeMimeType` эталона: тип и подтип — в нижний регистр,
- * параметры как есть (RFC 2045, 5.1); не-mime — `undefined`.
+ * Upstream strict `normalizeMimeType`: type and subtype are lowercased,
+ * parameters kept as is (RFC 2045, 5.1); a non-mime gives `undefined`.
  */
 function normalizeMimeType(mime: string): string | undefined {
     const match = MIME_PATTERN.exec(mime);
@@ -1993,12 +1993,12 @@ export class NotebookCellOutputItem implements vscode.NotebookCellOutputItem {
     }
 
     public static text(value: string, mime = "text/plain"): NotebookCellOutputItem {
-        // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-conversion -- как эталон: расширение без типов передаёт и не строку
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-conversion -- as upstream: an untyped extension may pass a non-string too
         return new NotebookCellOutputItem(new TextEncoder().encode(String(value)), mime);
     }
 
-    // Дефолт `text/x-json` — эталонный рантайм; JSDoc d.ts обещает
-    // `application/json`, но расширения видят то, что отдаёт рантайм эталона.
+    // The `text/x-json` default comes from the upstream runtime; the d.ts JSDoc promises
+    // `application/json`, but extensions see what the upstream runtime returns.
     public static json(value: unknown, mime = "text/x-json"): NotebookCellOutputItem {
         return NotebookCellOutputItem.text(JSON.stringify(value, undefined, "\t"), mime);
     }
