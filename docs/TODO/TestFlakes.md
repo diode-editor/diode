@@ -20,6 +20,8 @@
   раннере выходит за него. Самый частый флак (≈17 сессий за 12–20.10). Кандидат на перевод с
   порога стенки на счётчик работы. Соседний кейс того же файла «buildVisibleLines: cached by
   versionId — 100 render frames must be fast» флакует так же: 131 мс на #734 (ран 39615191048).
+  И «first contentWidth on open is bounded by the cap, not the line length»: 206 мс при пороге
+  100 на #738 (ран 39631082198).
 - [ ] `fileSearchService.integration.test.ts` › «indexes files in nested directories»: ловили
   несколько сессий 18–20.10.
 - [ ] `treeWatcherMain.integration.test.ts` › «правка файла на диске доезжает до колбэка в процессе
