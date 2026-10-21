@@ -33,7 +33,9 @@ export interface CellInfo {
 /** Includes the code point, since codicon glyphs are indistinguishable by eye. */
 export function cellInfo(frame: GridSnapshot, x: number, y: number): CellInfo {
     if (!Number.isInteger(x) || !Number.isInteger(y) || x < 0 || y < 0 || x >= frame.cols || y >= frame.rows) {
-        throw new Error(`ячейка ${String(x)},${String(y)} вне кадра ${String(frame.cols)}x${String(frame.rows)}`);
+        throw new Error(
+            `cell ${String(x)},${String(y)} is outside the frame ${String(frame.cols)}x${String(frame.rows)}`,
+        );
     }
     const cell: CellSnapshot = frame.cells[y * frame.cols + x];
     const cp = cell.char.codePointAt(0);
@@ -84,7 +86,7 @@ function nodeLine(node: NodeSnapshot, state: boolean): string {
 }
 
 export function treeText(root: NodeSnapshot | null, options: TreeOptions = {}): string {
-    if (root === null) return "<нет документа>";
+    if (root === null) return "<no document>";
     const maxDepth = options.depth ?? Number.POSITIVE_INFINITY;
     const lines: string[] = [];
     const visit = (node: NodeSnapshot, depth: number): void => {
@@ -97,14 +99,14 @@ export function treeText(root: NodeSnapshot | null, options: TreeOptions = {}): 
 
 export function selectedTreesText(root: NodeSnapshot | null, selector: string, options: TreeOptions = {}): string {
     const matches = $$(root, selector);
-    if (matches.length === 0) return `<нет узлов по селектору ${selector}>`;
+    if (matches.length === 0) return `<no nodes match selector ${selector}>`;
     return matches.map((node) => treeText(node, options)).join("\n");
 }
 
 /** `focused` is set only on the leaf in a snapshot, so the path is found by search, not by descending along flags. */
 export function focusText(root: NodeSnapshot | null): string {
     const path = root === null ? null : pathToFocused(root);
-    if (path === null) return "<нет фокуса>";
+    if (path === null) return "<no focus>";
     return path.map((n) => `${n.type}${n.id !== undefined ? `#${n.id}` : ""}`).join(" > ");
 }
 

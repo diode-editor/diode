@@ -31,7 +31,7 @@ describe("ProgressService", () => {
         vi.useRealTimers();
     });
 
-    it("операция короче задержки не показывается и не заводит тикер", async () => {
+    it("an operation shorter than the delay is not shown and does not start the ticker", async () => {
         const task = deferred();
         const running = service.withProgress(
             { location: "view", viewId: VIEW, title: "Committing…" },
@@ -52,7 +52,7 @@ describe("ProgressService", () => {
         expect(service.viewProgress().size).toBe(0);
     });
 
-    it("после задержки показывает кадр, крутит его тикером и зовёт слушателей на каждый кадр", async () => {
+    it("after the delay shows a frame, advances it with the ticker and calls listeners on every frame", async () => {
         const listener = vi.fn();
         disposables.add(service.onDidChange(listener));
         const task = deferred();
@@ -84,7 +84,7 @@ describe("ProgressService", () => {
         vi.advanceTimersByTime(10_000);
     });
 
-    it("дефолтные тайминги: показ через 300 мс, кадр каждые 100 мс, минимум показа 500 мс", async () => {
+    it("default timings: shown after 300 ms, a frame every 100 ms, shown for at least 500 ms", async () => {
         // The only test without injected timings: otherwise nobody checks the
         // defaults, and changing any of them goes unnoticed.
         const defaults = new ProgressService();
@@ -115,7 +115,7 @@ describe("ProgressService", () => {
         defaults.dispose();
     });
 
-    it("короткая операция не оставляет висящих таймеров", async () => {
+    it("a short operation leaves no pending timers", async () => {
         const listener = vi.fn();
         disposables.add(service.onDidChange(listener));
         const task = deferred();
@@ -133,7 +133,7 @@ describe("ProgressService", () => {
         expect(listener).not.toHaveBeenCalled();
     });
 
-    it("после конца долгой операции тикер останавливается", async () => {
+    it("the ticker stops after a long operation ends", async () => {
         const listener = vi.fn();
         disposables.add(service.onDidChange(listener));
         const task = deferred();
@@ -152,7 +152,7 @@ describe("ProgressService", () => {
         expect(listener).not.toHaveBeenCalled();
     });
 
-    it("вторая показанная операция не заводит второй тикер", async () => {
+    it("a second shown operation does not start a second ticker", async () => {
         const first = deferred();
         const second = deferred();
         const a = service.withProgress({ location: "view", viewId: VIEW, title: "Committing…" }, () => first.promise);
@@ -170,7 +170,7 @@ describe("ProgressService", () => {
         expect(vi.getTimerCount()).toBe(0);
     });
 
-    it("после dispose сервис молчит", () => {
+    it("the service is silent after dispose", () => {
         const listener = vi.fn();
         disposables.add(service.onDidChange(listener));
         service.dispose();
@@ -180,7 +180,7 @@ describe("ProgressService", () => {
         expect(listener).not.toHaveBeenCalled();
     });
 
-    it("показанный спиннер досиживает минимум показа", async () => {
+    it("a shown spinner stays for the minimum display time", async () => {
         const task = deferred();
         const running = service.withProgress({ location: "view", viewId: VIEW, title: "Pulling…" }, () => task.promise);
 
@@ -196,7 +196,7 @@ describe("ProgressService", () => {
         expect(service.viewProgress().has(VIEW)).toBe(false);
     });
 
-    it("две операции на одну секцию — один спиннер с подписью самой ранней", async () => {
+    it("two operations on one section show one spinner with the earliest one's title", async () => {
         const first = deferred();
         const second = deferred();
         const a = service.withProgress({ location: "view", viewId: VIEW, title: "Committing…" }, () => first.promise);
@@ -217,7 +217,7 @@ describe("ProgressService", () => {
         expect(service.viewProgress().size).toBe(0);
     });
 
-    it("ошибка задачи пробрасывается наружу и закрывает прогресс", async () => {
+    it("a task error propagates and closes the progress", async () => {
         const task = deferred();
         const running = service.withProgress({ location: "view", viewId: VIEW, title: "Pushing…" }, () => task.promise);
 
@@ -228,7 +228,7 @@ describe("ProgressService", () => {
         expect(service.isBusy()).toBe(false);
     });
 
-    it("window-локация независима от секций", async () => {
+    it("the window location is independent of sections", async () => {
         const task = deferred();
         const running = service.withProgress({ location: "window", title: "Fetching…" }, () => task.promise);
 
@@ -244,7 +244,7 @@ describe("ProgressService", () => {
         expect(service.windowProgress()).toBeNull();
     });
 
-    it("тикер гаснет вместе с последним спиннером", async () => {
+    it("the ticker stops together with the last spinner", async () => {
         const listener = vi.fn();
         disposables.add(service.onDidChange(listener));
         const task = deferred();
@@ -263,7 +263,7 @@ describe("ProgressService", () => {
         expect(listener).not.toHaveBeenCalled();
     });
 
-    it("следующая операция начинает с первого кадра", async () => {
+    it("the next operation starts from the first frame", async () => {
         const first = deferred();
         const a = service.withProgress({ location: "view", viewId: VIEW, title: "Committing…" }, () => first.promise);
         vi.advanceTimersByTime(500);
@@ -282,7 +282,7 @@ describe("ProgressService", () => {
         vi.advanceTimersByTime(10_000);
     });
 
-    it("снятый слушатель больше не зовётся", () => {
+    it("a removed listener is no longer called", () => {
         const listener = vi.fn();
         const subscription = disposables.add(service.onDidChange(listener));
         subscription.dispose();
@@ -290,7 +290,7 @@ describe("ProgressService", () => {
         expect(listener).not.toHaveBeenCalled();
     });
 
-    it("dispose гасит живые записи и таймеры", () => {
+    it("dispose clears live entries and timers", () => {
         const listener = vi.fn();
         disposables.add(service.onDidChange(listener));
         void service.withProgress({ location: "view", viewId: VIEW, title: "Committing…" }, () => deferred().promise);
@@ -306,7 +306,7 @@ describe("ProgressService", () => {
         expect(listener).not.toHaveBeenCalled();
     });
 
-    it("конец операции, пережившей dispose, ничего не ломает", async () => {
+    it("ending an operation that outlived dispose breaks nothing", async () => {
         const task = deferred();
         const running = service.withProgress(
             { location: "view", viewId: VIEW, title: "Committing…" },
@@ -322,7 +322,7 @@ describe("ProgressService", () => {
         expect(service.isBusy()).toBe(false);
     });
 
-    it("конец одной операции не гасит тикер, пока крутится другая", async () => {
+    it("ending one operation does not stop the ticker while another is spinning", async () => {
         const first = deferred();
         const second = deferred();
         const a = service.withProgress({ location: "view", viewId: VIEW, title: "Committing…" }, () => first.promise);
@@ -340,7 +340,7 @@ describe("ProgressService", () => {
         vi.advanceTimersByTime(10_000);
     });
 
-    it("ещё не показанная операция тикер не держит", async () => {
+    it("an operation not shown yet does not hold the ticker", async () => {
         const first = deferred();
         const a = service.withProgress({ location: "view", viewId: VIEW, title: "Committing…" }, () => first.promise);
         vi.advanceTimersByTime(300);
@@ -367,7 +367,7 @@ describe("ProgressService", () => {
         vi.advanceTimersByTime(10_000);
     });
 
-    it("повторный end по завершённой операции — no-op", async () => {
+    it("a repeated end on a finished operation is a no-op", async () => {
         const task = deferred();
         const running = service.withProgress({ location: "window", title: "Fetching…" }, () => task.promise);
         task.resolve();

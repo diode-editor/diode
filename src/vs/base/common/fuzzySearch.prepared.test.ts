@@ -11,111 +11,111 @@ function score(query: string, text: string): number {
     return match(query, text)?.score ?? Number.NaN;
 }
 
-describe("prepareQuery — термы", () => {
-    it("запрос без пробелов — один терм", () => {
+describe("prepareQuery — terms", () => {
+    it("a query without spaces is one term", () => {
         expect(prepareQuery("panel").terms).toEqual(["panel"]);
     });
 
-    it("пробел разделяет термы", () => {
+    it("a space separates terms", () => {
         expect(prepareQuery("toggle panel").terms).toEqual(["toggle", "panel"]);
     });
 
-    it("термы приводятся к нижнему регистру", () => {
+    it("terms are lowercased", () => {
         expect(prepareQuery("Toggle PANEL").terms).toEqual(["toggle", "panel"]);
     });
 
-    it("пустой запрос термов не даёт", () => {
+    it("an empty query gives no terms", () => {
         expect(prepareQuery("").terms).toEqual([]);
     });
 
-    it("запрос из одних пробелов термов не даёт — список не гаснет", () => {
+    it("a whitespace-only query gives no terms — the list does not go blank", () => {
         expect(prepareQuery("   ").terms).toEqual([]);
     });
 
-    it("несколько пробелов подряд — не отдельные термы", () => {
+    it("consecutive spaces are not separate terms", () => {
         expect(prepareQuery("go  line").terms).toEqual(["go", "line"]);
     });
 
-    it("ведущий и хвостовой пробел термами не становятся", () => {
+    it("leading and trailing spaces do not become terms", () => {
         expect(prepareQuery(" go line ").terms).toEqual(["go", "line"]);
     });
 
-    it("табуляция — такой же разделитель, как пробел", () => {
+    it("a tab is a separator just like a space", () => {
         expect(prepareQuery("go\tline").terms).toEqual(["go", "line"]);
     });
 });
 
-describe("prepareQuery — маска символов", () => {
-    it("маска — объединение масок термов", () => {
+describe("prepareQuery — character mask", () => {
+    it("the mask is the union of the term masks", () => {
         expect(prepareQuery("go line").bits).toBe(charMask("goline"));
     });
 
-    it("пробел в маску не попадает: он разделитель, а не искомый символ", () => {
+    it("a space is not in the mask: it is a separator, not a searched character", () => {
         expect(prepareQuery("go line").bits).not.toBe(charMask("go line"));
         expect(prepareQuery("go line").bits & charMask(" ")).toBe(0);
     });
 
-    it("у пустого запроса маска пустая", () => {
+    it("an empty query has an empty mask", () => {
         expect(prepareQuery("  ").bits).toBe(0);
     });
 
-    it("маска — необходимое условие совпадения: текст без символа терма не проходит", () => {
+    it("the mask is a necessary match condition: text without a term character fails", () => {
         const query = prepareQuery("src other");
         expect(charMask("src/main.ts") & query.bits).not.toBe(query.bits);
         expect(charMask("src/other.ts") & query.bits).toBe(query.bits);
     });
 });
 
-describe("fuzzyMatchPrepared — все термы обязаны найтись", () => {
-    it("пробел не ищется в тексте буквально", () => {
+describe("fuzzyMatchPrepared — every term must match", () => {
+    it("a space is not searched for literally in the text", () => {
         expect(match("src other", "src/other.ts")).not.toBeNull();
         expect(fuzzyMatchBest("src other", "src/other.ts")).toBeNull();
     });
 
-    it("термы матчатся в любом порядке относительно текста", () => {
+    it("terms match in any order relative to the text", () => {
         expect(match("other src", "src/other.ts")).not.toBeNull();
     });
 
-    it("ненайденный терм отбрасывает запись целиком", () => {
+    it("an unmatched term rejects the whole entry", () => {
         expect(match("src missing", "src/other.ts")).toBeNull();
     });
 
-    it("ни один терм не найден — null", () => {
+    it("no term matched gives null", () => {
         expect(match("zzz qqq", "src/other.ts")).toBeNull();
     });
 
-    it("текст с пробелом всё ещё находится запросом из двух термов", () => {
+    it("text with a space is still found by a two-term query", () => {
         expect(match("file one", "file one.txt")).not.toBeNull();
     });
 
-    it("`go line` находит «Go to Line/Column...»", () => {
+    it("`go line` finds 'Go to Line/Column...'", () => {
         expect(match("go line", "Go to Line/Column...")).not.toBeNull();
     });
 
-    it("`toggle panel` находит «View: Toggle Panel Visibility»", () => {
+    it("`toggle panel` finds 'View: Toggle Panel Visibility'", () => {
         expect(match("toggle panel", "View: Toggle Panel Visibility")).not.toBeNull();
     });
 
-    it("хвостовой пробел ничего не гасит", () => {
+    it("a trailing space does not blank anything", () => {
         expect(match("go line ", "Go to Line/Column...")).not.toBeNull();
     });
 });
 
-describe("fuzzyMatchPrepared — пустой запрос", () => {
-    it("совпадает со всем на нулевые очки и без подсветки", () => {
+describe("fuzzyMatchPrepared — empty query", () => {
+    it("matches everything with zero score and no highlights", () => {
         expect(match("", "anything")).toEqual({ score: 0, matchedIndices: [] });
     });
 
-    it("запрос из одних пробелов ведёт себя как пустой", () => {
+    it("a whitespace-only query behaves like an empty one", () => {
         expect(match("   ", "anything")).toEqual({ score: 0, matchedIndices: [] });
     });
 
-    it("пустой запрос совпадает даже с пустым текстом", () => {
+    it("an empty query matches even empty text", () => {
         expect(match("", "")).toEqual({ score: 0, matchedIndices: [] });
     });
 });
 
-describe("fuzzyMatchPrepared — одиночный терм не отличим от fuzzyMatchBest", () => {
+describe("fuzzyMatchPrepared — a single term is indistinguishable from fuzzyMatchBest", () => {
     const cases: [string, string][] = [
         ["ac", "AppContainer"],
         ["fss", "FileSearchService.ts"],
@@ -124,53 +124,53 @@ describe("fuzzyMatchPrepared — одиночный терм не отличим
         ["az", "aaaaaaaaaaaaz"],
     ];
 
-    it("очки и индексы совпадают один в один", () => {
+    it("scores and indices match exactly", () => {
         for (const [query, text] of cases) {
             expect(match(query, text)).toEqual(fuzzyMatchBest(query, text));
         }
     });
 
-    it("ранжирование «AC» → AppContainer выше abstract держится", () => {
+    it("the ranking 'AC' → AppContainer above abstract holds", () => {
         expect(score("ac", "AppContainer")).toBeGreaterThan(score("ac", "abstract"));
     });
 });
 
-describe("fuzzyMatchPrepared — скоринг", () => {
-    it("очки суммируются по термам", () => {
+describe("fuzzyMatchPrepared — scoring", () => {
+    it("scores add up across terms", () => {
         const text = "Go to Line/Column...";
         expect(score("go line", text)).toBe(score("go", text) + score("line", text));
     });
 
-    it("бонус за границу слова остаётся: пробел в ТЕКСТЕ — по-прежнему граница", () => {
+    it("the word boundary bonus stays: a space in the TEXT is still a boundary", () => {
         // `panel` after a space beats `anel` inside a word of the same length.
         expect(score("toggle panel", "Toggle Panel")).toBeGreaterThan(score("toggle anel", "Toggle Xanel"));
     });
 
-    it("совпадение на границах слов бьёт совпадение в середине", () => {
+    it("a match at word boundaries beats a match in the middle", () => {
         expect(score("go line", "Go Line")).toBeGreaterThan(score("go line", "ago xxline"));
     });
 });
 
-describe("fuzzyMatchPrepared — индексы совпадений", () => {
-    it("индексы термов сводятся в один возрастающий набор", () => {
+describe("fuzzyMatchPrepared — match indices", () => {
+    it("term indices merge into one ascending set", () => {
         expect(match("src other", "src/other.ts")?.matchedIndices).toEqual([0, 1, 2, 4, 5, 6, 7, 8]);
     });
 
-    it("термы вразнобой приезжают всё равно возрастающими", () => {
+    it("out-of-order terms still come back ascending", () => {
         expect(match("other src", "src/other.ts")?.matchedIndices).toEqual([0, 1, 2, 4, 5, 6, 7, 8]);
     });
 
-    it("позиция, накрытая двумя термами, попадает в набор один раз", () => {
+    it("a position covered by two terms enters the set once", () => {
         // `ab` → 0,1; `ba` → 1,2. Index 1 is shared.
         expect(match("ab ba", "aba")?.matchedIndices).toEqual([0, 1, 2]);
     });
 
-    it("полностью совпавшие термы не удваивают индексы", () => {
+    it("fully identical terms do not duplicate indices", () => {
         expect(match("ab ab", "ab")?.matchedIndices).toEqual([0, 1]);
     });
 });
 
-describe("fuzzyMatchPreparedLower — паритет с обёрткой", () => {
+describe("fuzzyMatchPreparedLower — parity with the wrapper", () => {
     const cases: [string, string][] = [
         ["src other", "src/Other.ts"],
         ["ac", "AppContainer"],
@@ -179,7 +179,7 @@ describe("fuzzyMatchPreparedLower — паритет с обёрткой", () =>
         ["", "anything"],
     ];
 
-    it("с заранее залоуэркейшенным текстом результат тот же", () => {
+    it("with pre-lowercased text the result is the same", () => {
         for (const [query, text] of cases) {
             const prepared = prepareQuery(query);
             expect(fuzzyMatchPreparedLower(prepared, text, text.toLowerCase())).toEqual(
@@ -188,7 +188,7 @@ describe("fuzzyMatchPreparedLower — паритет с обёрткой", () =>
         }
     });
 
-    it("границы слов считаются по оригинальному регистру текста", () => {
+    it("word boundaries are computed from the original text case", () => {
         const prepared = prepareQuery("a c");
         const camel = fuzzyMatchPreparedLower(prepared, "AppContainer", "appcontainer");
         const flat = fuzzyMatchPreparedLower(prepared, "appxcontainer", "appxcontainer");

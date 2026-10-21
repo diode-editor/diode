@@ -8,7 +8,7 @@ import {
 } from "./keybindingResolver.ts";
 
 describe("compareKeybindingPriority", () => {
-    it("сначала слой: старший слой сильнее независимо от веса и номера правила", () => {
+    it("layer first: a higher layer wins regardless of weight and rule number", () => {
         expect(
             compareKeybindingPriority({ layer: 2, weight: 0, seq: 0 }, { layer: 1, weight: 900, seq: 9 }),
         ).toBeGreaterThan(0);
@@ -17,7 +17,7 @@ describe("compareKeybindingPriority", () => {
         ).toBeLessThan(0);
     });
 
-    it("в слое — вес: тяжёлый сильнее независимо от номера правила", () => {
+    it("within a layer, weight: the heavier wins regardless of rule number", () => {
         expect(
             compareKeybindingPriority({ layer: 0, weight: 100, seq: 0 }, { layer: 0, weight: 0, seq: 9 }),
         ).toBeGreaterThan(0);
@@ -26,7 +26,7 @@ describe("compareKeybindingPriority", () => {
         ).toBeLessThan(0);
     });
 
-    it("при равном весе — номер правила: позже зарегистрированное сильнее", () => {
+    it("with equal weight, rule number: the later registered wins", () => {
         expect(
             compareKeybindingPriority({ layer: 0, weight: 5, seq: 2 }, { layer: 0, weight: 5, seq: 1 }),
         ).toBeGreaterThan(0);
@@ -44,7 +44,7 @@ describe("KeybindingLayerRank", () => {
 });
 
 describe("sortByPriority", () => {
-    it("по возрастанию приоритета, устойчиво, исходный массив не трогает", () => {
+    it("ascending by priority, stable, leaves the input array untouched", () => {
         const a = { id: "a", layer: 0, weight: 0, seq: 1 };
         const b = { id: "b", layer: 0, weight: 100, seq: 0 };
         const c = { id: "c", layer: 0, weight: 0, seq: 2 };
@@ -57,7 +57,7 @@ describe("sortByPriority", () => {
 });
 
 describe("KeybindingWeight", () => {
-    it("ступени как у upstream", () => {
+    it("steps as upstream", () => {
         expect(KeybindingWeight).toEqual({ EditorCore: 0, EditorContrib: 100, WorkbenchContrib: 200 });
     });
 });

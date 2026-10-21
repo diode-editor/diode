@@ -286,7 +286,7 @@ describe("registerAction", () => {
     });
 });
 
-describe("registerAction — вес кейбиндов", () => {
+describe("registerAction — keybinding weight", () => {
     const register = (keybindings: KeybindingRegistry, action: Omit<CommandAction, "title" | "run">): void => {
         registerAction(new CommandRegistry(), keybindings, new Container(), {
             title: action.id,
@@ -295,14 +295,14 @@ describe("registerAction — вес кейбиндов", () => {
         });
     };
 
-    it("вес экшена перебивает экшен, зарегистрированный позже", () => {
+    it("action weight beats an action registered later", () => {
         const keybindings = new KeybindingRegistry();
         register(keybindings, { id: "popup.hide", keybinding: parseKeybinding("escape"), weight: 100 });
         register(keybindings, { id: "editor.cancel", keybinding: parseKeybinding("escape") });
         expect(resolve(keybindings, KEY("Escape"))).toBe("popup.hide");
     });
 
-    it("вес условного бинда — свой, иначе — экшена", () => {
+    it("a conditional binding uses its own weight, otherwise the action's", () => {
         const keybindings = new KeybindingRegistry();
         register(keybindings, {
             id: "heavy",
@@ -336,7 +336,7 @@ describe("registerAction — enablement", () => {
         return { commands, keybindings, contextKeys };
     }
 
-    it("ложный enablement не даёт исполнить команду ниоткуда", () => {
+    it("false enablement blocks running the command from anywhere", () => {
         const run = vi.fn();
         const h = setup({ id: "git.commit", title: "Commit", enablement: "!gitOperationInProgress", run });
 
@@ -349,7 +349,7 @@ describe("registerAction — enablement", () => {
         expect(run).toHaveBeenCalledTimes(1);
     });
 
-    it("enablement уезжает в when кейбинда — клавиша не проглатывается впустую", () => {
+    it("enablement moves into the keybinding when clause, so the key is not swallowed", () => {
         const h = setup({
             id: "git.commit",
             title: "Commit",
@@ -366,7 +366,7 @@ describe("registerAction — enablement", () => {
         expect(resolve(h.keybindings, KEY("Enter", { ctrlKey: true }), h.contextKeys)).toBeUndefined();
     });
 
-    it("команда без enablement не требует ContextKeyService в контейнере", () => {
+    it("a command without enablement does not need ContextKeyService in the container", () => {
         const commands = new CommandRegistry();
         const run = vi.fn();
         // Empty container: minimal action test setups bind only what the action
@@ -381,7 +381,7 @@ describe("registerAction — enablement", () => {
         expect(run).toHaveBeenCalledTimes(1);
     });
 
-    it("реестр отдаёт enablement метаданными — их читает палитра", () => {
+    it("the registry exposes enablement as metadata for the command palette", () => {
         const h = setup({ id: "git.push", title: "Git: Push", enablement: "gitHasRemotes", run: vi.fn() });
         expect(h.commands.listCommands()).toContainEqual({
             id: "git.push",

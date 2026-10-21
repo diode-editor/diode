@@ -6,7 +6,7 @@ import { Lazy } from "./lazy.ts";
 /** Consumer: the vendored `core/wordCharacterClassifier.ts`. */
 
 describe("Lazy", () => {
-    it("считает значение один раз — при первом чтении", () => {
+    it("computes the value once — on the first read", () => {
         const executor = vi.fn(() => 42);
         const lazy = new Lazy(executor);
         expect(executor).not.toHaveBeenCalled();
@@ -20,7 +20,7 @@ describe("Lazy", () => {
         expect(lazy.rawValue).toBe(42);
     });
 
-    it("ошибка вычисления перебрасывается при каждом чтении, без повторного вызова", () => {
+    it("a computation error is rethrown on every read without calling again", () => {
         const failure = new Error("boom");
         const executor = vi.fn((): number => {
             throw failure;
@@ -32,7 +32,7 @@ describe("Lazy", () => {
         expect(lazy.hasValue).toBe(true);
     });
 
-    it("чтение изнутри собственного вычисления — ошибка", () => {
+    it("reading from inside its own computation is an error", () => {
         const holder: { lazy?: Lazy<number> } = {};
         const lazy = new Lazy<number>(() => (holder.lazy?.value ?? 0) + 1);
         holder.lazy = lazy;
@@ -41,14 +41,14 @@ describe("Lazy", () => {
 });
 
 describe("safeIntl.Segmenter", () => {
-    it("создаёт сегментатор лениво и режет на слова", () => {
+    it("creates the segmenter lazily and splits into words", () => {
         const segmenter = safeIntl.Segmenter(["en"], { granularity: "word" });
         expect(segmenter.hasValue).toBe(false);
         const words = [...segmenter.value.segment("hello world")].filter((s) => s.isWordLike).map((s) => s.segment);
         expect(words).toEqual(["hello", "world"]);
     });
 
-    it("на битую локаль откатывается к локали по умолчанию", () => {
+    it("falls back to the default locale on a broken locale", () => {
         const segmenter = safeIntl.Segmenter(["not a locale!"], { granularity: "grapheme" });
         expect([...segmenter.value.segment("ab")].map((s) => s.segment)).toEqual(["a", "b"]);
     });

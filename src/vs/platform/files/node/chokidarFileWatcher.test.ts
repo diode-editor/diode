@@ -64,11 +64,11 @@ function ignoredBy(options: ChokidarOptions): (candidate: string) => boolean {
 }
 
 describe("toChokidarPath", () => {
-    it("путь Windows — в прямые слэши, как его видит `ignored` chokidar'а", () => {
+    it("a Windows path becomes forward slashes, as chokidar's `ignored` sees it", () => {
         expect(toChokidarPath("C:\\ws\\.diode\\settings.json")).toBe("C:/ws/.diode/settings.json");
     });
 
-    it("POSIX-путь не меняется", () => {
+    it("a POSIX path is unchanged", () => {
         expect(toChokidarPath("/ws/.diode/settings.json")).toBe("/ws/.diode/settings.json");
     });
 });
@@ -147,7 +147,7 @@ describe("ChokidarFileWatcher", () => {
         expect(calls).toBe(1);
     });
 
-    it("одиночный add (файл создан на месте) — тоже изменение; повторный dispose безопасен", async () => {
+    it("a lone add (file created in place) is a change too; a repeated dispose is safe", async () => {
         const watcher = new TestFileWatcher();
         let calls = 0;
         const handle = watcher.watchFile("/tmp/file.txt", () => {
@@ -164,8 +164,8 @@ describe("ChokidarFileWatcher", () => {
         }).not.toThrow();
     });
 
-    describe("файл без каталога — ждём ближайшего существующего предка", () => {
-        it("следит за предком без рекурсии, пропуская только ожидаемый сегмент", () => {
+    describe("file without a directory: wait on the nearest existing ancestor", () => {
+        it("watches the ancestor non-recursively, letting through only the expected segment", () => {
             const watcher = new TestFileWatcher();
             watcher.existing = new Set(["/ws"]);
             watcher.watchFile("/ws/.diode/settings.json", () => {
@@ -183,7 +183,7 @@ describe("ChokidarFileWatcher", () => {
             expect(ignored("/ws/node_modules")).toBe(true);
         });
 
-        it("появился каталог — перевешивается на файл и считает уже лежащий файл изменением", async () => {
+        it("when the directory appears, rewatches the file and counts an already present file as a change", async () => {
             const watcher = new TestFileWatcher();
             watcher.existing = new Set(["/ws"]);
             let calls = 0;
@@ -209,7 +209,7 @@ describe("ChokidarFileWatcher", () => {
             expect(calls).toBe(2);
         });
 
-        it("появился пустой каталог — файла нет, изменения нет", async () => {
+        it("when an empty directory appears there is no file and no change", async () => {
             const watcher = new TestFileWatcher();
             watcher.existing = new Set(["/ws"]);
             let calls = 0;
@@ -225,7 +225,7 @@ describe("ChokidarFileWatcher", () => {
             expect(calls).toBe(0);
         });
 
-        it("нескольких уровней нет — ждёт их по одному", () => {
+        it("several levels are missing: waits for them one by one", () => {
             const watcher = new TestFileWatcher();
             watcher.existing = new Set(["/ws"]);
             watcher.watchFile("/ws/a/b/settings.json", () => {
@@ -243,7 +243,7 @@ describe("ChokidarFileWatcher", () => {
             expect(ignoredBy(watcher.created[1].options)("/ws/a/other")).toBe(true);
         });
 
-        it("каталог снесли целиком — после unlink снова ждёт каталог", async () => {
+        it("the whole directory is removed: after unlink waits for the directory again", async () => {
             const watcher = new TestFileWatcher();
             watcher.existing = new Set(["/ws", "/ws/.diode"]);
             let calls = 0;
@@ -262,7 +262,7 @@ describe("ChokidarFileWatcher", () => {
             expect(watcher.created[1].options.depth).toBe(0);
         });
 
-        it("не существует ничего — ждёт у корня ФС, а не крутится вечно", () => {
+        it("nothing exists: waits at the file system root instead of spinning forever", () => {
             const watcher = new TestFileWatcher();
             watcher.existing = new Set();
             watcher.watchFile("/a/b/settings.json", () => {
@@ -273,7 +273,7 @@ describe("ChokidarFileWatcher", () => {
             expect(ignoredBy(watcher.created[0].options)("/a")).toBe(false);
         });
 
-        it("dispose в режиме ожидания закрывает watcher предка", () => {
+        it("dispose while waiting closes the ancestor watcher", () => {
             const watcher = new TestFileWatcher();
             watcher.existing = new Set(["/ws"]);
             const handle = watcher.watchFile("/ws/.diode/settings.json", () => {

@@ -74,7 +74,7 @@ const OPTIONS = { recursive: true, excludes: [] as readonly string[] };
 const CHANGES: readonly ITreeFileChange[] = [{ type: "changed", path: "/repo/a.ts" }];
 
 describe("SubprocessTreeWatcher", () => {
-    it("не поднимает процесс, пока следить никто не просил", () => {
+    it("does not spawn the process until someone asks to watch", () => {
         const { spawnProcess, spawned } = processFactory();
 
         new SubprocessTreeWatcher({ spawnProcess });
@@ -82,7 +82,7 @@ describe("SubprocessTreeWatcher", () => {
         expect(spawned).toHaveLength(0);
     });
 
-    it("первый watchTree поднимает процесс и отправляет туда запрос", () => {
+    it("the first watchTree spawns the process and sends the request there", () => {
         const { logService, entries } = createLogService();
         const { spawnProcess, spawned } = processFactory();
         const watcher = new SubprocessTreeWatcher({ spawnProcess, logger: logService.createLogger("files.watcher") });
@@ -97,7 +97,7 @@ describe("SubprocessTreeWatcher", () => {
         expect(entries.map((e) => e.message)).toContain("spawning file watcher process");
     });
 
-    it("второй запрос едет в тот же процесс со своим id", () => {
+    it("a second request goes to the same process with its own id", () => {
         const { spawnProcess, spawned } = processFactory();
         const watcher = new SubprocessTreeWatcher({ spawnProcess });
 
@@ -108,7 +108,7 @@ describe("SubprocessTreeWatcher", () => {
         expect(spawned[0]?.sent.map((m) => m.id)).toEqual([1, 2]);
     });
 
-    it("excludes каждого запроса едут свои — настройка живая", () => {
+    it("each request sends its own excludes; the setting is live", () => {
         const { spawnProcess, spawned } = processFactory();
         const watcher = new SubprocessTreeWatcher({ spawnProcess });
 
@@ -121,7 +121,7 @@ describe("SubprocessTreeWatcher", () => {
         ]);
     });
 
-    it("пачка событий доезжает до колбэка своего запроса", () => {
+    it("an event batch reaches the callback of its own request", () => {
         const { spawnProcess, spawned } = processFactory();
         const watcher = new SubprocessTreeWatcher({ spawnProcess });
         const first: ITreeFileChange[][] = [];
@@ -135,7 +135,7 @@ describe("SubprocessTreeWatcher", () => {
         expect(second).toEqual([CHANGES]);
     });
 
-    it("dispose запроса шлёт unwatch и глушит его поток", () => {
+    it("disposing a request sends unwatch and silences its stream", () => {
         const { spawnProcess, spawned } = processFactory();
         const watcher = new SubprocessTreeWatcher({ spawnProcess });
         const seen: ITreeFileChange[][] = [];
@@ -148,7 +148,7 @@ describe("SubprocessTreeWatcher", () => {
         expect(seen).toEqual([]);
     });
 
-    it("повторный dispose не шлёт второй unwatch", () => {
+    it("a repeated dispose does not send a second unwatch", () => {
         const { spawnProcess, spawned } = processFactory();
         const watcher = new SubprocessTreeWatcher({ spawnProcess });
         const subscription = watcher.watchTree("/repo", OPTIONS, () => undefined);
@@ -159,7 +159,7 @@ describe("SubprocessTreeWatcher", () => {
         expect(spawned[0]?.sent.filter((m) => m.t === "unwatch")).toHaveLength(1);
     });
 
-    it("процесс живёт и без единого подписчика — следующий запрос не платит за спавн", () => {
+    it("the process lives on with no subscribers, so the next request does not pay for a spawn", () => {
         const { spawnProcess, spawned } = processFactory();
         const watcher = new SubprocessTreeWatcher({ spawnProcess });
         watcher.watchTree("/repo", OPTIONS, () => undefined).dispose();
@@ -169,7 +169,7 @@ describe("SubprocessTreeWatcher", () => {
         expect(spawned).toHaveLength(1);
     });
 
-    it("мусор из процесса игнорируется", () => {
+    it("garbage from the process is ignored", () => {
         const { spawnProcess, spawned } = processFactory();
         const watcher = new SubprocessTreeWatcher({ spawnProcess });
         const seen: ITreeFileChange[][] = [];
@@ -181,7 +181,7 @@ describe("SubprocessTreeWatcher", () => {
         expect(seen).toEqual([]);
     });
 
-    it("пачка для уже неизвестного id не роняет хост", () => {
+    it("a batch for an unknown id does not crash the host", () => {
         const { spawnProcess, spawned } = processFactory();
         const watcher = new SubprocessTreeWatcher({ spawnProcess });
         watcher.watchTree("/repo", OPTIONS, () => undefined);
@@ -191,8 +191,8 @@ describe("SubprocessTreeWatcher", () => {
         }).not.toThrow();
     });
 
-    describe("диагностика watcher-процесса", () => {
-        it("запись лога из процесса уезжает в канал хоста вместе с аргументами", () => {
+    describe("watcher process diagnostics", () => {
+        it("a log entry from the process goes to the host channel with its arguments", () => {
             const { logService, entries } = createLogService();
             const { spawnProcess, spawned } = processFactory();
             const watcher = new SubprocessTreeWatcher({
@@ -215,7 +215,7 @@ describe("SubprocessTreeWatcher", () => {
             expect(entry?.args).toEqual([{ code: "ENOSPC" }]);
         });
 
-        it("уровень записи сохраняется (error не приезжает как info)", () => {
+        it("the entry level is preserved (error does not arrive as info)", () => {
             const { logService, entries } = createLogService();
             const { spawnProcess, spawned } = processFactory();
             const watcher = new SubprocessTreeWatcher({
@@ -229,7 +229,7 @@ describe("SubprocessTreeWatcher", () => {
             expect(entries.at(-1)?.level).toBe(LogLevel.Error);
         });
 
-        it("без логгера запись из процесса просто теряется", () => {
+        it("without a logger an entry from the process is simply dropped", () => {
             const { spawnProcess, spawned } = processFactory();
             const watcher = new SubprocessTreeWatcher({ spawnProcess });
             watcher.watchTree("/repo", OPTIONS, () => undefined);
@@ -240,8 +240,8 @@ describe("SubprocessTreeWatcher", () => {
         });
     });
 
-    describe("смерть процесса", () => {
-        it("живые запросы переподписываются на новый процесс", () => {
+    describe("process death", () => {
+        it("live requests resubscribe to the new process", () => {
             const { spawnProcess, spawned } = processFactory();
             const watcher = new SubprocessTreeWatcher({ spawnProcess });
             watcher.watchTree("/repo", { recursive: true, excludes: ["**/out"] }, () => undefined);
@@ -256,7 +256,7 @@ describe("SubprocessTreeWatcher", () => {
             ]);
         });
 
-        it("поток переподписанного запроса идёт в тот же колбэк", () => {
+        it("the stream of a resubscribed request goes to the same callback", () => {
             const { spawnProcess, spawned } = processFactory();
             const watcher = new SubprocessTreeWatcher({ spawnProcess });
             const seen: ITreeFileChange[][] = [];
@@ -268,7 +268,7 @@ describe("SubprocessTreeWatcher", () => {
             expect(seen).toEqual([CHANGES]);
         });
 
-        it("снятый запрос после перезапуска не воскресает", () => {
+        it("a removed request does not come back after a restart", () => {
             const { spawnProcess, spawned } = processFactory();
             const watcher = new SubprocessTreeWatcher({ spawnProcess });
             watcher.watchTree("/repo", OPTIONS, () => undefined).dispose();
@@ -278,7 +278,7 @@ describe("SubprocessTreeWatcher", () => {
             expect(spawned).toHaveLength(1);
         });
 
-        it("серия смертей заканчивается отказом от слежения, а не бесконечным спавном", () => {
+        it("a series of deaths ends with giving up watching, not endless spawning", () => {
             const { logService, entries } = createLogService();
             const { spawnProcess, spawned } = processFactory();
             const watcher = new SubprocessTreeWatcher({
@@ -299,7 +299,7 @@ describe("SubprocessTreeWatcher", () => {
             expect(entry?.args).toEqual([{ restarts: 2, requests: 1 }]);
         });
 
-        it("после отказа новые запросы процесс уже не поднимают", () => {
+        it("after giving up new requests no longer spawn the process", () => {
             const { spawnProcess, spawned } = processFactory();
             const watcher = new SubprocessTreeWatcher({ spawnProcess, maxRestarts: 0 });
             watcher.watchTree("/repo", OPTIONS, () => undefined);
@@ -310,7 +310,7 @@ describe("SubprocessTreeWatcher", () => {
             expect(spawned).toHaveLength(1);
         });
 
-        it("отписка без живого процесса не падает", () => {
+        it("unsubscribing without a live process does not fail", () => {
             const { spawnProcess, spawned } = processFactory();
             const watcher = new SubprocessTreeWatcher({ spawnProcess, maxRestarts: 0 });
             watcher.watchTree("/repo", OPTIONS, () => undefined);
@@ -324,7 +324,7 @@ describe("SubprocessTreeWatcher", () => {
             }).not.toThrow();
         });
 
-        it("перезапуск пишет предупреждение — потерянные за это время события видны в логе", () => {
+        it("a restart logs a warning, so events lost meanwhile are visible in the log", () => {
             const { logService, entries } = createLogService();
             const { spawnProcess, spawned } = processFactory();
             const watcher = new SubprocessTreeWatcher({
@@ -340,7 +340,7 @@ describe("SubprocessTreeWatcher", () => {
             expect(entry?.args).toEqual([{ restart: 1, requests: 1 }]);
         });
 
-        it("не поднявшийся процесс (error без exit) всё равно ведёт к перезапуску", () => {
+        it("a process that failed to start (error without exit) still leads to a restart", () => {
             const { spawnProcess, spawned } = processFactory();
             const watcher = new SubprocessTreeWatcher({ spawnProcess });
             watcher.watchTree("/repo", OPTIONS, () => undefined);
@@ -351,7 +351,7 @@ describe("SubprocessTreeWatcher", () => {
             expect(spawned[1]?.sent).toEqual([{ t: "watch", id: 1, rootPath: "/repo", options: OPTIONS }]);
         });
 
-        it("отказ процесса виден в логе с кодом ошибки", () => {
+        it("a process failure shows in the log with the error code", () => {
             const { logService, entries } = createLogService();
             const { spawnProcess, spawned } = processFactory();
             const watcher = new SubprocessTreeWatcher({
@@ -367,7 +367,7 @@ describe("SubprocessTreeWatcher", () => {
             expect(entry?.args).toEqual([{ code: "EMFILE", error: "Error: spawn EMFILE" }]);
         });
 
-        it("exit следом за обработанным error не поднимает второй процесс", () => {
+        it("exit after a handled error does not spawn a second process", () => {
             const { spawnProcess, spawned } = processFactory();
             const watcher = new SubprocessTreeWatcher({ spawnProcess });
             watcher.watchTree("/repo", OPTIONS, () => undefined);
@@ -379,7 +379,7 @@ describe("SubprocessTreeWatcher", () => {
             expect(spawned).toHaveLength(2);
         });
 
-        it("ошибка канала уже снятого процесса не трогает новый и не сорит в лог", () => {
+        it("a channel error of an already removed process does not touch the new one or litter the log", () => {
             const { logService, entries } = createLogService();
             const { spawnProcess, spawned } = processFactory();
             const watcher = new SubprocessTreeWatcher({
@@ -396,7 +396,7 @@ describe("SubprocessTreeWatcher", () => {
             expect(entries.filter((e) => e.message.includes("file watcher process error"))).toEqual([]);
         });
 
-        it("ошибка без errno-кода логируется без падения", () => {
+        it("an error without an errno code is logged without failing", () => {
             const { logService, entries } = createLogService();
             const { spawnProcess, spawned } = processFactory();
             const watcher = new SubprocessTreeWatcher({
@@ -415,7 +415,7 @@ describe("SubprocessTreeWatcher", () => {
             expect(entry?.args).toEqual([{ code: undefined, error: "undefined" }]);
         });
 
-        it("серия смертей считается ПОДРЯД: прожитый рабочий срок обнуляет счёт", () => {
+        it("deaths are counted CONSECUTIVELY: surviving the working period resets the count", () => {
             const { spawnProcess, spawned } = processFactory();
             let clock = 0;
             const watcher = new SubprocessTreeWatcher({ spawnProcess, maxRestarts: 1, now: () => clock });
@@ -430,7 +430,7 @@ describe("SubprocessTreeWatcher", () => {
             expect(spawned).toHaveLength(4);
         });
 
-        it("смерти в пределах рабочего срока счёт не обнуляют", () => {
+        it("deaths within the working period do not reset the count", () => {
             const { spawnProcess, spawned } = processFactory();
             let clock = 0;
             const watcher = new SubprocessTreeWatcher({ spawnProcess, maxRestarts: 1, now: () => clock });
@@ -443,7 +443,7 @@ describe("SubprocessTreeWatcher", () => {
             expect(spawned).toHaveLength(2);
         });
 
-        it("опоздавший exit старого процесса не трогает новый", () => {
+        it("a late exit of the old process does not touch the new one", () => {
             const { spawnProcess, spawned } = processFactory();
             const watcher = new SubprocessTreeWatcher({ spawnProcess });
             watcher.watchTree("/repo", OPTIONS, () => undefined);
@@ -456,7 +456,7 @@ describe("SubprocessTreeWatcher", () => {
     });
 
     describe("dispose", () => {
-        it("снимает процесс синхронно", () => {
+        it("kills the process synchronously", () => {
             const { spawnProcess, spawned } = processFactory();
             const watcher = new SubprocessTreeWatcher({ spawnProcess });
             watcher.watchTree("/repo", OPTIONS, () => undefined);
@@ -466,7 +466,7 @@ describe("SubprocessTreeWatcher", () => {
             expect(spawned[0]?.kills).toBe(1);
         });
 
-        it("убитый процесс не переподнимается — окно уходит, а не чинится", () => {
+        it("a killed process is not respawned: the window is going away, not recovering", () => {
             const { spawnProcess, spawned } = processFactory();
             const watcher = new SubprocessTreeWatcher({ spawnProcess });
             watcher.watchTree("/repo", OPTIONS, () => undefined);
@@ -476,7 +476,7 @@ describe("SubprocessTreeWatcher", () => {
             expect(spawned).toHaveLength(1);
         });
 
-        it("пачка, пришедшая после dispose, до подписчика не доезжает", () => {
+        it("a batch arriving after dispose does not reach the subscriber", () => {
             const { spawnProcess, spawned } = processFactory();
             const watcher = new SubprocessTreeWatcher({ spawnProcess });
             const seen: ITreeFileChange[][] = [];
@@ -488,7 +488,7 @@ describe("SubprocessTreeWatcher", () => {
             expect(seen).toEqual([]);
         });
 
-        it("без поднятого процесса dispose — no-op", () => {
+        it("dispose without a spawned process is a no-op", () => {
             const { spawnProcess, spawned } = processFactory();
             const watcher = new SubprocessTreeWatcher({ spawnProcess });
 
@@ -498,7 +498,7 @@ describe("SubprocessTreeWatcher", () => {
             expect(spawned).toHaveLength(0);
         });
 
-        it("повторный dispose не убивает второй раз", () => {
+        it("a repeated dispose does not kill a second time", () => {
             const { spawnProcess, spawned } = processFactory();
             const watcher = new SubprocessTreeWatcher({ spawnProcess });
             watcher.watchTree("/repo", OPTIONS, () => undefined);
@@ -509,7 +509,7 @@ describe("SubprocessTreeWatcher", () => {
             expect(spawned[0]?.kills).toBe(1);
         });
 
-        it("запрос после dispose процесс не поднимает", () => {
+        it("a request after dispose does not spawn the process", () => {
             const { spawnProcess, spawned } = processFactory();
             const watcher = new SubprocessTreeWatcher({ spawnProcess });
             watcher.dispose();

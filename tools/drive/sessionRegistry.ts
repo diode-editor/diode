@@ -35,7 +35,7 @@ export const ROOT_PREFIX = "diode-drive-";
 const NAME_RE = /^[A-Za-z0-9._-]{1,64}$/;
 
 export function validateSessionName(name: string): string {
-    if (!NAME_RE.test(name)) throw new Error(`недопустимое имя сессии: ${JSON.stringify(name)} (буквы, цифры, . _ -)`);
+    if (!NAME_RE.test(name)) throw new Error(`invalid session name: ${JSON.stringify(name)} (letters, digits, . _ -)`);
     return name;
 }
 

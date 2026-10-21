@@ -11,14 +11,14 @@ afterEach(() => {
 });
 
 describe("onUnexpectedError", () => {
-    it("по умолчанию пишет в консоль и не бросает", async () => {
+    it("by default logs to the console and does not throw", async () => {
         // The shared setupFiles installs its own handler for every test; the default
         // is visible only on a fresh module instance.
         vi.resetModules();
         const fresh = await import("./errors.ts");
         const spy = vi.spyOn(console, "error").mockImplementation(() => undefined);
         try {
-            const error = new Error("бум");
+            const error = new Error("boom");
             expect(() => {
                 fresh.onUnexpectedError(error);
             }).not.toThrow();
@@ -28,10 +28,10 @@ describe("onUnexpectedError", () => {
         }
     });
 
-    it("зовёт установленный обработчик вместо дефолтного", () => {
+    it("calls the installed handler instead of the default one", () => {
         const handler = vi.fn();
         setUnexpectedErrorHandler(handler);
-        const error = new Error("свой");
+        const error = new Error("custom");
         onUnexpectedError(error);
         expect(handler).toHaveBeenCalledExactlyOnceWith(error);
     });

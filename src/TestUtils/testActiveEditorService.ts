@@ -33,7 +33,7 @@ export function createTestActiveEditorService(editor: TextEditorPane | null): IE
             if (member in target) return target[member as keyof typeof target];
             // Runtime probes (thenable check, inspection symbols) are not role members.
             if (typeof member === "symbol" || member === "then") return undefined;
-            throw new Error(`createTestActiveEditorService: «${member}» вне роли «активный редактор»`);
+            throw new Error(`createTestActiveEditorService: "${member}" is outside the "active editor" role`);
         },
     }) as unknown as IEditorService;
 }

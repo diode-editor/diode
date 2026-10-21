@@ -56,7 +56,7 @@ async function until(predicate: () => boolean, onTick?: () => void): Promise<voi
     }
 }
 
-describe("watcher-процесс — сквозной прогон", () => {
+describe("watcher process — end-to-end run", () => {
     const watchers: SubprocessTreeWatcher[] = [];
     const roots: string[] = [];
 
@@ -83,7 +83,7 @@ describe("watcher-процесс — сквозной прогон", () => {
     }
 
     it(
-        "правка файла на диске доезжает до колбэка в процессе редактора",
+        "a file edit on disk reaches the callback in the editor process",
         async () => {
             const { watcher, root } = setup();
             const seen: ITreeFileChange[] = [];
@@ -105,7 +105,7 @@ describe("watcher-процесс — сквозной прогон", () => {
     );
 
     it(
-        "события под excludes не приезжают — отказ обходить доезжает до chokidar",
+        "events under excludes do not arrive; the exclusion reaches chokidar",
         async () => {
             const { watcher, root } = setup();
             fs.mkdirSync(path.join(root, "node_modules"));
@@ -131,7 +131,7 @@ describe("watcher-процесс — сквозной прогон", () => {
     );
 
     it(
-        "диагностика watcher-процесса приезжает в канал files.watcher хоста",
+        "watcher process diagnostics reach the host's files.watcher channel",
         async () => {
             const { watcher, root, entries } = setup();
             watcher.watchTree(root, { recursive: true, excludes: [] }, () => undefined);
@@ -146,7 +146,7 @@ describe("watcher-процесс — сквозной прогон", () => {
     );
 
     it(
-        "роль не протекает дальше: внутри процесса DIODE_FILE_WATCHER снят, режим — node",
+        "the role does not leak further: inside the process DIODE_FILE_WATCHER is unset and the mode is node",
         async () => {
             // Mirrors `extensionHost.fork.test.ts`: the role flag is inherited through
             // spawn, and if not cleared here it would send any process launched alongside
@@ -163,7 +163,7 @@ describe("watcher-процесс — сквозной прогон", () => {
     );
 
     it(
-        "закрытый IPC-канал уводит watcher-процесс в exit — сироты с подписками не остаётся",
+        "a closed IPC channel makes the watcher process exit, leaving no orphan with subscriptions",
         async () => {
             // This needs the ChildProcess itself, not the host seam: the channel closing without
             // a signal is what happens to the child when the editor dies.

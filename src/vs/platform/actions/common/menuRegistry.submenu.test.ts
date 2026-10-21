@@ -25,8 +25,8 @@ const resolveAsEntry = (submenu: { title: string }): MenuSubmenuEntry => ({
     entries: [{ label: "nested" }],
 });
 
-describe("MenuRegistry — submenu-записи в getMenuItems", () => {
-    it("без резолвера submenu-записи отфильтровываются (поведение меню-бара)", () => {
+describe("MenuRegistry — submenu entries in getMenuItems", () => {
+    it("without a resolver submenu entries are filtered out (menu bar behavior)", () => {
         const registry = makeRegistry([
             { menuId: TEST_MENU, command: "cmd.a" },
             { menuId: TEST_MENU, submenu: TEST_SUB, title: "Nested" },
@@ -36,7 +36,7 @@ describe("MenuRegistry — submenu-записи в getMenuItems", () => {
         expect(labels).toEqual(["Alpha"]);
     });
 
-    it("с резолвером submenu встраивается в свой group/order-слот", () => {
+    it("with a resolver a submenu lands in its group/order slot", () => {
         const registry = makeRegistry([
             { menuId: TEST_MENU, command: "cmd.a", group: "1_a", order: 1 },
             { menuId: TEST_MENU, submenu: TEST_SUB, title: "Nested", group: "1_a", order: 2 },
@@ -49,7 +49,7 @@ describe("MenuRegistry — submenu-записи в getMenuItems", () => {
         expect(labels).toEqual(["Alpha", "Nested", "─", "Beta"]);
     });
 
-    it("null от резолвера выбрасывает пункт; опустевшая группа не оставляет сепаратора", () => {
+    it("null from the resolver drops the item; an emptied group leaves no separator", () => {
         const registry = makeRegistry([
             { menuId: TEST_MENU, command: "cmd.a", group: "1_a" },
             { menuId: TEST_MENU, submenu: TEST_SUB, title: "Dropped", group: "2_b" },
@@ -61,7 +61,7 @@ describe("MenuRegistry — submenu-записи в getMenuItems", () => {
         expect(labels).toEqual(["Alpha"]);
     });
 
-    it("when-фильтр применяется к submenu-записи и с резолвером", () => {
+    it("the when filter applies to submenu entries with a resolver too", () => {
         const contextKeys = new ContextKeyService();
         contextKeys.setRaw("showNested", false);
         const registry = makeRegistry(
@@ -79,8 +79,8 @@ describe("MenuRegistry — submenu-записи в getMenuItems", () => {
     });
 });
 
-describe("MenuRegistry — submenu-выбор (isSelection)", () => {
-    it("пометка выбора доезжает до резолвнутой записи — по ней заголовок view не дублирует виджет", () => {
+describe("MenuRegistry — submenu selection (isSelection)", () => {
+    it("the selection flag reaches the resolved entry, so the view title does not duplicate the widget", () => {
         const registry = makeRegistry([
             { menuId: TEST_MENU, submenu: TEST_SUB, title: "Switch", group: "navigation", isSelection: true },
             { menuId: TEST_MENU, submenu: TEST_SUB, title: "Nested", group: "navigation", isSelection: false },

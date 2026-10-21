@@ -104,7 +104,7 @@ describe("KeybindingRegistry — getKeybindingForCommand", () => {
     });
 });
 
-describe("KeybindingRegistry — подпись выбирается по доставляемости", () => {
+describe("KeybindingRegistry: the label is chosen by deliverability", () => {
     function gatedPlusFallback(): KeybindingRegistry {
         const registry = new KeybindingRegistry();
         registry.register(parseChord("ctrl+k ctrl+e"), "format", "textInputFocus");
@@ -119,19 +119,19 @@ describe("KeybindingRegistry — подпись выбирается по дос
         return contextKeys;
     }
 
-    it("на legacy подписывает фолбэк, хотя в объявлении он идёт первым и условным", () => {
+    it("on legacy labels the fallback, even though it is declared first and conditional", () => {
         // Otherwise the command palette would promise Shift+Alt+F: on legacy that's `ESC F`
         // without the shift flag, and pressing the suggested key does nothing.
         const chord = gatedPlusFallback().getKeybindingForCommand("format", contextFor("legacy"));
         expect(chord && formatKeybinding(chord)).toBe("Ctrl+K Ctrl+E");
     });
 
-    it("на kitty подписывает канонический бинд: tier-гейт — признак «объявлен для этого терминала»", () => {
+    it("on kitty labels the canonical binding: the tier gate means 'declared for this terminal'", () => {
         const chord = gatedPlusFallback().getKeybindingForCommand("format", contextFor("kitty"));
         expect(chord && formatKeybinding(chord)).toBe("Shift+Alt+F");
     });
 
-    it("безусловный доставляемый бинд обгоняет недоставляемый условный", () => {
+    it("an unconditional deliverable binding beats an undeliverable conditional one", () => {
         // Command palette: Ctrl+Shift+P passes `when` on legacy too, but never reaches
         // the app, so F1 is the one to label.
         const registry = new KeybindingRegistry();
@@ -141,21 +141,21 @@ describe("KeybindingRegistry — подпись выбирается по дос
         expect(chord && formatKeybinding(chord)).toBe("F1");
     });
 
-    it("когда доставляемого бинда нет вовсе, подпись — прежний приоритет", () => {
+    it("when no binding is deliverable at all, the label follows the old priority", () => {
         const registry = new KeybindingRegistry();
         registry.register(parseKeybinding("ctrl+shift+m"), "problems", "!(macKeys >= 3)");
         const chord = registry.getKeybindingForCommand("problems", contextFor("legacy"));
         expect(chord && formatKeybinding(chord)).toBe("Ctrl+Shift+M");
     });
 
-    it("без контекста tier неизвестен — подпись по порядку регистрации", () => {
+    it("without a context the tier is unknown; the label follows registration order", () => {
         const chord = gatedPlusFallback().getKeybindingForCommand("format");
         expect(chord && formatKeybinding(chord)).toBe("Ctrl+K Ctrl+E");
     });
 });
 
-describe("KeybindingRegistry — getKeybindingForCommand с overlay", () => {
-    it("бинд под фокус-ключом находится «как если бы в фокусе», не трогая контекст", () => {
+describe("KeybindingRegistry: getKeybindingForCommand with overlay", () => {
+    it("a binding under a focus key is found 'as if focused' without touching the context", () => {
         const registry = new KeybindingRegistry();
         registry.register(parseKeybinding("mod+enter"), "commit", "scmInputFocus");
         const contextKeys = new ContextKeyService();
@@ -169,18 +169,18 @@ describe("KeybindingRegistry — getKeybindingForCommand с overlay", () => {
     });
 });
 
-describe("KeybindingRegistry — подпись по приоритету резолвера", () => {
+describe("KeybindingRegistry: label by resolver priority", () => {
     const label = (registry: KeybindingRegistry, commandId: string, contextKeys?: ContextKeyService): string =>
         formatKeybinding(registry.getKeybindingForCommand(commandId, contextKeys)!);
 
-    it("пользовательский бинд команды подписывается вместо дефолта (старший слой — первым)", () => {
+    it("a user binding of the command is labeled instead of the default (higher layer first)", () => {
         const registry = new KeybindingRegistry();
         registry.register(parseKeybinding("ctrl+s"), "save");
         registry.setUserKeybindings([{ command: "save", chord: parseChord("ctrl+alt+s") }]);
         expect(label(registry, "save")).toBe("Ctrl+Alt+S");
     });
 
-    it("комбинацию, которую перехватывает более сильная запись другой команды, не обещает", () => {
+    it("does not promise a keybinding that a stronger entry of another command intercepts", () => {
         const registry = new KeybindingRegistry();
         registry.register(parseKeybinding("ctrl+i"), "builtin");
         registry.register(parseKeybinding("ctrl+alt+i"), "builtin");
@@ -189,7 +189,7 @@ describe("KeybindingRegistry — подпись по приоритету рез
         expect(label(registry, "ext.cmd")).toBe("Ctrl+I");
     });
 
-    it("перехват считается только активной записью: when перехватчика не прошёл — подпись прежняя", () => {
+    it("only an active entry intercepts: if the interceptor's when fails, the label is unchanged", () => {
         const registry = new KeybindingRegistry();
         registry.register(parseKeybinding("ctrl+i"), "builtin");
         registry.register(parseKeybinding("ctrl+alt+i"), "builtin");
@@ -201,7 +201,7 @@ describe("KeybindingRegistry — подпись по приоритету рез
         expect(label(registry, "builtin", contextKeys)).toBe("Ctrl+Alt+I");
     });
 
-    it("более слабая запись другой команды на той же комбинации не мешает", () => {
+    it("a weaker entry of another command on the same keybinding does not interfere", () => {
         const registry = new KeybindingRegistry();
         registry.register(parseKeybinding("ctrl+i"), "weak");
         registry.register(parseKeybinding("ctrl+i"), "strong");
@@ -209,7 +209,7 @@ describe("KeybindingRegistry — подпись по приоритету рез
         expect(label(registry, "strong")).toBe("Ctrl+I");
     });
 
-    it("чорд, чей префикс — полная комбинация другой команды, недостижим", () => {
+    it("a chord whose prefix is a full keybinding of another command is unreachable", () => {
         const registry = new KeybindingRegistry();
         registry.register(parseChord("ctrl+k ctrl+s"), "chorded");
         registry.register(parseKeybinding("f2"), "chorded");
@@ -218,7 +218,7 @@ describe("KeybindingRegistry — подпись по приоритету рез
         expect(label(registry, "chorded")).toBe("F2");
     });
 
-    it("без доступной комбинации — канонический (первый) бинд команды", () => {
+    it("without an available keybinding: the command's canonical (first) binding", () => {
         const registry = new KeybindingRegistry();
         registry.register(parseKeybinding("ctrl+i"), "builtin");
         registry.register(parseKeybinding("ctrl+i"), "popup");

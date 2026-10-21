@@ -19,7 +19,7 @@ function registry(): ConfigurationRegistry {
 }
 
 describe("InMemoryConfigurationService", () => {
-    it("отвечает дефолтами реестра, а не undefined", () => {
+    it("returns registry defaults, not undefined", () => {
         const service = new InMemoryConfigurationService(registry());
 
         expect(service.get("editor.tabSize")).toBe(4);
@@ -32,18 +32,18 @@ describe("InMemoryConfigurationService", () => {
         expect(service.getValue("editor")).toEqual({ tabSize: 4 });
     });
 
-    it("без реестра дефолтов нет", () => {
+    it("no registry — no defaults", () => {
         expect(new InMemoryConfigurationService().get("editor.tabSize")).toBeUndefined();
     });
 
-    it("начальные значения ложатся в user-слой поверх дефолтов", () => {
+    it("initial values go into the user layer on top of defaults", () => {
         const service = new InMemoryConfigurationService(registry(), { "editor.tabSize": 2 });
 
         expect(service.get("editor.tabSize")).toBe(2);
         expect(service.inspect("editor.tabSize")).toEqual({ default: 4, user: 2, profile: undefined, value: 2 });
     });
 
-    it("updateValue пишет в user-слой и эмитит событие с изменившимся ключом", async () => {
+    it("updateValue writes to the user layer and fires an event with the changed key", async () => {
         const service = new InMemoryConfigurationService(registry());
         const events: IConfigurationChangeEvent[] = [];
         service.onDidChangeConfiguration((event) => events.push(event));
@@ -56,7 +56,7 @@ describe("InMemoryConfigurationService", () => {
         expect(events[0].affectsConfiguration("editor")).toBe(true);
     });
 
-    it("запись того же значения события не порождает", async () => {
+    it("writing the same value fires no event", async () => {
         const service = new InMemoryConfigurationService(registry());
         const events: IConfigurationChangeEvent[] = [];
         service.onDidChangeConfiguration((event) => events.push(event));
@@ -66,7 +66,7 @@ describe("InMemoryConfigurationService", () => {
         expect(events).toEqual([]);
     });
 
-    it("объект заменяется целиком, как в settings.json, а не сливается с прежним", async () => {
+    it("an object is replaced as a whole, as in settings.json, not merged with the previous one", async () => {
         const service = new InMemoryConfigurationService(registry(), { "files.exclude": { "**/a": true } });
 
         await service.updateValue("files.exclude", { "**/b": true });
@@ -76,7 +76,7 @@ describe("InMemoryConfigurationService", () => {
         expect(service.inspect("files.exclude").user).toEqual({ "**/b": true });
     });
 
-    it("getConfigurationData — дефолты реестра и user-слой", () => {
+    it("getConfigurationData — registry defaults and the user layer", () => {
         const service = new InMemoryConfigurationService(registry(), { "editor.tabSize": 2 });
 
         expect(service.getConfigurationData()).toEqual({
@@ -87,7 +87,7 @@ describe("InMemoryConfigurationService", () => {
         });
     });
 
-    it("отписка снимает слушателя", async () => {
+    it("unsubscribing removes the listener", async () => {
         const service = new InMemoryConfigurationService(registry());
         let fired = 0;
         const subscription = service.onDidChangeConfiguration(() => {
@@ -102,7 +102,7 @@ describe("InMemoryConfigurationService", () => {
 });
 
 describe("NULL_CONFIGURATION_SERVICE", () => {
-    it("запись — честный отказ, а не молчаливый no-op", async () => {
+    it("write is an explicit rejection, not a silent no-op", async () => {
         await expect(NULL_CONFIGURATION_SERVICE.updateValue("editor.tabSize", 2)).rejects.toThrow(/read-only/);
         expect(NULL_CONFIGURATION_SERVICE.getConfigurationData()).toEqual({
             defaults: {},
@@ -122,7 +122,7 @@ describe("NULL_CONFIGURATION_SERVICE", () => {
     });
 });
 
-describe("InMemoryConfigurationService — слой воркспейса", () => {
+describe("InMemoryConfigurationService — workspace layer", () => {
     function scopedRegistry(): ConfigurationRegistry {
         const r = registry();
         r.registerConfiguration({
@@ -132,7 +132,7 @@ describe("InMemoryConfigurationService — слой воркспейса", () =>
         return r;
     }
 
-    it("переданный слой — поверх user, отфильтрован по scope, виден в inspect и данных хоста", () => {
+    it("given layer is on top of user, filtered by scope, visible in inspect and host data", () => {
         const service = new InMemoryConfigurationService(
             scopedRegistry(),
             { "editor.tabSize": 2 },
@@ -151,7 +151,7 @@ describe("InMemoryConfigurationService — слой воркспейса", () =>
         expect(service.getConfigurationData().workspace).toEqual({ editor: { tabSize: 8 } });
     });
 
-    it("запись в воркспейс: значение, событие, undefined снимает ключ", async () => {
+    it("writing to the workspace: value, event, undefined removes the key", async () => {
         const service = new InMemoryConfigurationService(scopedRegistry(), {}, {});
         const seen: string[][] = [];
         service.onDidChangeConfiguration((e) => seen.push([...e.affectedKeys]));
@@ -165,14 +165,14 @@ describe("InMemoryConfigurationService — слой воркспейса", () =>
         expect(seen).toEqual([["editor.tabSize"], ["editor.tabSize"]]);
     });
 
-    it("undefined снимает ключ и в user-слое", async () => {
+    it("undefined removes the key in the user layer too", async () => {
         const service = new InMemoryConfigurationService(registry(), { "editor.tabSize": 2 });
         await service.updateValue("editor.tabSize", undefined);
         expect(service.inspect("editor.tabSize").user).toBeUndefined();
         expect(service.getConfigurationData().user).toEqual({});
     });
 
-    it("отказы — как у файловой реализации: без папки и ключ чужого scope", async () => {
+    it("rejections match the file-based implementation: no folder and a key of a foreign scope", async () => {
         await expect(
             new InMemoryConfigurationService(scopedRegistry()).updateValue("editor.tabSize", 8, "workspace"),
         ).rejects.toThrow("no workspace is opened");
@@ -184,7 +184,7 @@ describe("InMemoryConfigurationService — слой воркспейса", () =>
         expect(withFolder.getConfigurationData().workspace).toEqual({});
     });
 
-    it("цель workspaceFolder — тот же слой воркспейса, отказ по скоупу папки", async () => {
+    it("workspaceFolder target — the same workspace layer, rejected by folder scope", async () => {
         const service = new InMemoryConfigurationService(scopedRegistry(), {}, {});
 
         await service.updateValue("editor.tabSize", 6, "workspaceFolder");

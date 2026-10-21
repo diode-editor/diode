@@ -8,27 +8,27 @@ import {
     transformErrorFromSerialization,
 } from "./errorSerialization.ts";
 
-describe("сериализация ошибок через границу процесса", () => {
-    it("имя, сообщение, стек, код и цепочка причин доезжают туда и обратно", () => {
-        const cause = Object.assign(new Error("корень"), { code: 42 });
-        const error = Object.assign(new RangeError("сверху", { cause }), { code: "EFOO" });
+describe("error serialization across a process boundary", () => {
+    it("name, message, stack, code and the cause chain survive the round trip", () => {
+        const cause = Object.assign(new Error("root"), { code: 42 });
+        const error = Object.assign(new RangeError("top", { cause }), { code: "EFOO" });
         const wire = transformErrorForSerialization(error);
         expect(JSON.parse(JSON.stringify(wire))).toEqual({
             $isError: true,
             name: "RangeError",
-            message: "сверху",
+            message: "top",
             stack: error.stack,
             code: "EFOO",
-            cause: { $isError: true, name: "Error", message: "корень", stack: cause.stack, code: 42 },
+            cause: { $isError: true, name: "Error", message: "root", stack: cause.stack, code: 42 },
         });
 
         const back = transformErrorFromSerialization(wire);
         expect(back).toBeInstanceOf(Error);
-        expect(back).toMatchObject({ name: "RangeError", message: "сверху", stack: error.stack, code: "EFOO" });
-        expect(back.cause).toMatchObject({ name: "Error", message: "корень", stack: cause.stack });
+        expect(back).toMatchObject({ name: "RangeError", message: "top", stack: error.stack, code: "EFOO" });
+        expect(back.cause).toMatchObject({ name: "Error", message: "root", stack: cause.stack });
     });
 
-    it("без кода и причины полей нет; `stacktrace` предпочтительнее `stack`, пустой ему уступает", () => {
+    it("without code and cause the fields are absent; `stacktrace` wins over `stack`, an empty one yields to it", () => {
         const plain = transformErrorFromSerialization(transformErrorForSerialization(new Error("x")));
         expect("code" in plain).toBe(false);
         expect(plain.cause).toBeUndefined();
@@ -39,15 +39,15 @@ describe("сериализация ошибок через границу про
         expect(transformErrorForSerialization(emptyTrace).stack).toBe(emptyTrace.stack);
     });
 
-    it("не-Error возвращается как есть", () => {
-        expect(transformErrorForSerialization("строка")).toBe("строка");
+    it("a non-Error is returned as is", () => {
+        expect(transformErrorForSerialization("text")).toBe("text");
         const value = { a: 1 };
         expect(transformErrorForSerialization(value)).toBe(value);
     });
 });
 
 describe("CancellationError", () => {
-    it("узнаётся экземпляром и формой (имя и сообщение — Canceled), но не одним именем", () => {
+    it("is recognized by instance and by shape (name and message are Canceled), but not by name alone", () => {
         expect(new CancellationError()).toMatchObject({ name: canceledName, message: canceledName });
         expect(isCancellationError(new CancellationError())).toBe(true);
         // A cancellation error that crossed a process boundary is no longer an instance.

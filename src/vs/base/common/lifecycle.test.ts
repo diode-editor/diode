@@ -37,12 +37,12 @@ class Owner extends Disposable {
 }
 
 describe("isDisposable", () => {
-    it("узнаёт объект с dispose() без аргументов", () => {
+    it("recognizes an object with a no-argument dispose()", () => {
         expect(isDisposable({ dispose: () => undefined })).toBe(true);
         expect(isDisposable(toDisposable(() => undefined))).toBe(true);
     });
 
-    it("отвергает всё остальное", () => {
+    it("rejects everything else", () => {
         expect(isDisposable(null)).toBe(false);
         expect(isDisposable(undefined)).toBe(false);
         expect(isDisposable("dispose")).toBe(false);
@@ -54,7 +54,7 @@ describe("isDisposable", () => {
 });
 
 describe("dispose", () => {
-    it("одиночное значение освобождает и возвращает как есть", () => {
+    it("disposes a single value and returns it as is", () => {
         const log: string[] = [];
         const d = logged(log, "a");
         expect(dispose(d)).toBe(d);
@@ -62,7 +62,7 @@ describe("dispose", () => {
         expect(dispose(undefined)).toBeUndefined();
     });
 
-    it("массив освобождает по порядку и возвращает новый пустой массив", () => {
+    it("disposes an array in order and returns a new empty array", () => {
         const log: string[] = [];
         const items = [logged(log, "a"), logged(log, "b")];
         const result = dispose(items);
@@ -71,21 +71,21 @@ describe("dispose", () => {
         expect(result).not.toBe(items);
     });
 
-    it("прочую коллекцию возвращает ту же", () => {
+    it("returns any other collection as the same object", () => {
         const log: string[] = [];
         const set = new Set([logged(log, "a"), logged(log, "b")]);
         expect(dispose(set)).toBe(set);
         expect(log).toEqual(["a", "b"]);
     });
 
-    it("одна ошибка не мешает освободить остальных и бросается как есть", () => {
+    it("a single error does not prevent disposing the rest and is thrown as is", () => {
         const log: string[] = [];
         const boom = new Error("boom");
         expect(() => dispose([logged(log, "a"), throwing(boom), logged(log, "b")])).toThrow(boom);
         expect(log).toEqual(["a", "b"]);
     });
 
-    it("несколько ошибок собираются в AggregateError", () => {
+    it("several errors are collected into an AggregateError", () => {
         const log: string[] = [];
         const first = new Error("first");
         const second = new Error("second");
@@ -103,7 +103,7 @@ describe("dispose", () => {
 });
 
 describe("toDisposable", () => {
-    it("зовёт функцию очистки ровно один раз", () => {
+    it("calls the cleanup function exactly once", () => {
         const fn = vi.fn();
         const d = toDisposable(fn);
         expect(fn).not.toHaveBeenCalled();
@@ -114,7 +114,7 @@ describe("toDisposable", () => {
 });
 
 describe("combinedDisposable", () => {
-    it("освобождает все части один раз", () => {
+    it("disposes all parts once", () => {
         const log: string[] = [];
         const d = combinedDisposable(logged(log, "a"), logged(log, "b"));
         expect(log).toEqual([]);
@@ -125,7 +125,7 @@ describe("combinedDisposable", () => {
 });
 
 describe("DisposableStore", () => {
-    it("освобождает в обратном порядке добавления и помечает себя освобождённым", () => {
+    it("disposes in reverse order of addition and marks itself disposed", () => {
         const log: string[] = [];
         const store = new DisposableStore();
         const a = logged(log, "a");
@@ -142,7 +142,7 @@ describe("DisposableStore", () => {
         expect(log).toEqual(["b", "a"]);
     });
 
-    it("clear освобождает содержимое, но стор остаётся рабочим", () => {
+    it("clear disposes the contents but the store keeps working", () => {
         const log: string[] = [];
         const store = new DisposableStore();
         store.add(logged(log, "a"));
@@ -158,7 +158,7 @@ describe("DisposableStore", () => {
         expect(log).toEqual(["a", "b"]);
     });
 
-    it("упавший элемент не мешает освободить остальных, и повторно они не освобождаются", () => {
+    it("a failing item does not prevent disposing the rest, and they are not disposed again", () => {
         const log: string[] = [];
         const boom = new Error("boom");
         const store = new DisposableStore();
@@ -173,7 +173,7 @@ describe("DisposableStore", () => {
         expect(log).toEqual(["b", "a"]);
     });
 
-    it("добавленное после dispose освобождается сразу и один раз", () => {
+    it("an item added after dispose is disposed immediately and once", () => {
         const log: string[] = [];
         const store = new DisposableStore();
         store.dispose();
@@ -185,7 +185,7 @@ describe("DisposableStore", () => {
         expect(log).toEqual(["late"]);
     });
 
-    it("Disposable: зарегистрированное после dispose освобождается сразу", () => {
+    it("Disposable: an item registered after dispose is disposed immediately", () => {
         const log: string[] = [];
         const owner = new Owner();
         owner.dispose();
@@ -193,7 +193,7 @@ describe("DisposableStore", () => {
         expect(log).toEqual(["late"]);
     });
 
-    it("Disposable.None не хранит, себя добавить не даёт", () => {
+    it("Disposable.None stores nothing and refuses to add itself", () => {
         const store = new DisposableStore();
         expect(store.add(Disposable.None)).toBe(Disposable.None);
         expect(() => store.add(store)).toThrow("Cannot register a disposable on itself!");
@@ -202,7 +202,7 @@ describe("DisposableStore", () => {
         }).toThrow("Cannot dispose a disposable on itself!");
     });
 
-    it("delete убирает и освобождает, даже если объекта в сторе не было", () => {
+    it("delete removes and disposes, even if the object was not in the store", () => {
         const log: string[] = [];
         const store = new DisposableStore();
         const a = logged(log, "a");
@@ -216,7 +216,7 @@ describe("DisposableStore", () => {
         expect(log).toEqual(["a", "stranger"]);
     });
 
-    it("deleteAndLeak убирает, не освобождая", () => {
+    it("deleteAndLeak removes without disposing", () => {
         const log: string[] = [];
         const store = new DisposableStore();
         const a = logged(log, "a");
@@ -229,7 +229,7 @@ describe("DisposableStore", () => {
 });
 
 describe("Disposable", () => {
-    it("освобождает зарегистрированное в обратном порядке, повторный dispose — no-op", () => {
+    it("disposes registered items in reverse order, a repeated dispose is a no-op", () => {
         const log: string[] = [];
         const owner = new Owner();
         const a = logged(log, "a");
@@ -241,12 +241,12 @@ describe("Disposable", () => {
         expect(log).toEqual(["b", "a"]);
     });
 
-    it("себя зарегистрировать не даёт", () => {
+    it("refuses to register itself", () => {
         const owner = new Owner();
         expect(() => owner.add(owner)).toThrow("Cannot register a disposable on itself!");
     });
 
-    it("None — замороженная пустышка", () => {
+    it("None is a frozen null object", () => {
         expect(Object.isFrozen(Disposable.None)).toBe(true);
         expect(() => {
             Disposable.None.dispose();
@@ -255,7 +255,7 @@ describe("Disposable", () => {
 });
 
 describe("MutableDisposable", () => {
-    it("новое значение освобождает прежнее, то же самое — нет", () => {
+    it("a new value disposes the previous one, the same value does not", () => {
         const log: string[] = [];
         const slot = new MutableDisposable<IDisposable>();
         expect(slot.value).toBeUndefined();
@@ -271,7 +271,7 @@ describe("MutableDisposable", () => {
         expect(slot.value).toBe(b);
     });
 
-    it("clear освобождает и опустошает слот", () => {
+    it("clear disposes and empties the slot", () => {
         const log: string[] = [];
         const slot = new MutableDisposable<IDisposable>();
         slot.value = logged(log, "a");
@@ -280,7 +280,7 @@ describe("MutableDisposable", () => {
         expect(slot.value).toBeUndefined();
     });
 
-    it("clearAndLeak отдаёт значение, не освобождая", () => {
+    it("clearAndLeak returns the value without disposing", () => {
         const log: string[] = [];
         const slot = new MutableDisposable<IDisposable>();
         expect(slot.clearAndLeak()).toBeUndefined();
@@ -292,7 +292,7 @@ describe("MutableDisposable", () => {
         expect(log).toEqual([]);
     });
 
-    it("после dispose значение освобождено, новые не принимаются", () => {
+    it("after dispose the value is disposed and new ones are rejected", () => {
         const log: string[] = [];
         const slot = new MutableDisposable<IDisposable>();
         slot.value = logged(log, "a");
@@ -308,7 +308,7 @@ describe("MutableDisposable", () => {
 });
 
 describe("DisposableMap", () => {
-    it("перезапись освобождает прежнее значение, если не попросили иначе", () => {
+    it("overwriting disposes the previous value unless asked otherwise", () => {
         const log: string[] = [];
         const map = new DisposableMap<string>();
         const a = logged(log, "a");
@@ -325,7 +325,7 @@ describe("DisposableMap", () => {
         expect(map.size).toBe(1);
     });
 
-    it("deleteAndDispose удаляет и освобождает; deleteAndLeak — только удаляет", () => {
+    it("deleteAndDispose removes and disposes; deleteAndLeak only removes", () => {
         const log: string[] = [];
         const map = new DisposableMap<string>();
         map.set("a", logged(log, "a"));
@@ -344,7 +344,7 @@ describe("DisposableMap", () => {
         expect(log).toEqual(["a"]);
     });
 
-    it("перечисляется как Map", () => {
+    it("iterates like a Map", () => {
         const map = new DisposableMap<string>();
         const a = toDisposable(() => undefined);
         const b = toDisposable(() => undefined);
@@ -358,7 +358,7 @@ describe("DisposableMap", () => {
         ]);
     });
 
-    it("clearAndDisposeAll и dispose освобождают всё", () => {
+    it("clearAndDisposeAll and dispose dispose everything", () => {
         const log: string[] = [];
         const map = new DisposableMap<string>();
         map.clearAndDisposeAll();
@@ -375,7 +375,7 @@ describe("DisposableMap", () => {
     });
 });
 
-describe("хуки учёта утечек", () => {
+describe("leak tracking hooks", () => {
     function recordingTracker(): { tracker: IDisposableTracker; events: string[]; names: Map<IDisposable, string> } {
         const names = new Map<IDisposable, string>();
         const events: string[] = [];
@@ -396,14 +396,14 @@ describe("хуки учёта утечек", () => {
         setDisposableTracker(null);
     });
 
-    it("без трекера хуки — no-op", () => {
+    it("without a tracker the hooks are a no-op", () => {
         const d = toDisposable(() => undefined);
         expect(trackDisposable(d)).toBe(d);
         expect(markAsSingleton(d)).toBe(d);
         markAsDisposed(d);
     });
 
-    it("markAsSingleton доходит до трекера", () => {
+    it("markAsSingleton reaches the tracker", () => {
         const { tracker, events, names } = recordingTracker();
         const d: IDisposable = { dispose: () => undefined };
         names.set(d, "d");
@@ -412,7 +412,7 @@ describe("хуки учёта утечек", () => {
         expect(events).toEqual(["singleton d"]);
     });
 
-    it("trackDisposable и markAsDisposed доходят до трекера", () => {
+    it("trackDisposable and markAsDisposed reach the tracker", () => {
         const { tracker, events, names } = recordingTracker();
         const d: IDisposable = { dispose: () => undefined };
         names.set(d, "d");
@@ -422,7 +422,7 @@ describe("хуки учёта утечек", () => {
         expect(events).toEqual(["track d", "disposed d"]);
     });
 
-    it("toDisposable и combinedDisposable сообщают о создании, родстве и освобождении", () => {
+    it("toDisposable and combinedDisposable report creation, parenting and disposal", () => {
         const { tracker, events, names } = recordingTracker();
         setDisposableTracker(tracker);
         const a = toDisposable(() => undefined);
@@ -433,7 +433,7 @@ describe("хуки учёта утечек", () => {
         expect(events).toEqual(["track ?", "track ?", "parent a ← ?", "disposed parent", "disposed a"]);
     });
 
-    it("стор и Disposable сообщают о родстве и освобождении", () => {
+    it("the store and Disposable report parenting and disposal", () => {
         const { tracker, events, names } = recordingTracker();
         const a: IDisposable = { dispose: () => undefined };
         names.set(a, "a");
@@ -455,7 +455,7 @@ describe("хуки учёта утечек", () => {
         expect(events).toEqual(["track ?", "track ?", "parent ? ← ?", "disposed owner", "disposed ?"]);
     });
 
-    it("слот и карта сообщают о родстве и освобождении", () => {
+    it("the slot and the map report parenting and disposal", () => {
         const { tracker, events, names } = recordingTracker();
         const a: IDisposable = { dispose: () => undefined };
         names.set(a, "a");
@@ -497,7 +497,7 @@ describe("DisposableTracker", () => {
         }
     }
 
-    it("всё освобождённое — утечек нет", () => {
+    it("everything disposed means no leaks", () => {
         const { tracker } = underTracker(() => {
             const store = new DisposableStore();
             store.add(toDisposable(() => undefined));
@@ -509,7 +509,7 @@ describe("DisposableTracker", () => {
         expect(tracker.computeLeakingDisposables()).toBeUndefined();
     });
 
-    it("отчёт — по корням: дети утёкшего владельца не считаются", () => {
+    it("the report is by roots: children of a leaked owner are not counted", () => {
         const { tracker, result: store } = underTracker(() => {
             const store = new DisposableStore();
             store.add(toDisposable(() => undefined));
@@ -525,7 +525,7 @@ describe("DisposableTracker", () => {
         expect(report?.details.match(/\n\s+at /g)?.length).toBeGreaterThan(1);
     });
 
-    it("объект, созданный до трекера, в учёт не попадает, даже став чьим-то ребёнком", () => {
+    it("an object created before the tracker is not tracked, even after becoming a child", () => {
         const early = toDisposable(() => undefined);
         const { tracker } = underTracker(() => {
             new MutableDisposable<IDisposable>().value = early;
@@ -534,7 +534,7 @@ describe("DisposableTracker", () => {
         expect(tracker.computeLeakingDisposables()?.leaks).not.toContain(early);
     });
 
-    it("объект без места создания, отданный из-под владельца, утечкой не считается", () => {
+    it("an object without a creation site released from its owner is not a leak", () => {
         const early = toDisposable(() => undefined);
         const { tracker } = underTracker(() => {
             const store = new DisposableStore();
@@ -545,14 +545,14 @@ describe("DisposableTracker", () => {
         expect(tracker.computeLeakingDisposables()).toBeUndefined();
     });
 
-    it("ребёнок владельца, созданного до трекера, — сам себе корень", () => {
+    it("a child of an owner created before the tracker is its own root", () => {
         const early = new DisposableStore();
         const { tracker, result: child } = underTracker(() => early.add(toDisposable(() => undefined)));
         expect(tracker.computeLeakingDisposables()?.leaks).toEqual([child]);
         early.dispose();
     });
 
-    it("синглтон и всё под ним утечкой не считаются", () => {
+    it("a singleton and everything under it are not leaks", () => {
         const { tracker } = underTracker(() => {
             const registry = markAsSingleton(new DisposableStore());
             const nested = registry.add(new DisposableStore());
@@ -561,7 +561,7 @@ describe("DisposableTracker", () => {
         expect(tracker.computeLeakingDisposables()).toBeUndefined();
     });
 
-    it("отданный из-под владельца объект снова свой корень", () => {
+    it("an object released from its owner is its own root again", () => {
         const { tracker, result: leaked } = underTracker(() => {
             const store = new DisposableStore();
             const child = store.add(toDisposable(() => undefined));
@@ -572,7 +572,7 @@ describe("DisposableTracker", () => {
         expect(tracker.computeLeakingDisposables()?.leaks).toEqual([leaked]);
     });
 
-    it("режет отчёт по maxReported и называет остаток", () => {
+    it("cuts the report at maxReported and names the remainder", () => {
         const { tracker } = underTracker(() => {
             for (let i = 0; i < 3; i++) toDisposable(() => undefined);
         });
@@ -584,7 +584,7 @@ describe("DisposableTracker", () => {
         expect(tracker.computeLeakingDisposables(3)?.details).not.toContain("more leaking");
     });
 
-    it("цикл владельцев без корня — ошибка", () => {
+    it("an owner cycle without a root is an error", () => {
         const tracker = new DisposableTracker();
         const a: IDisposable = { dispose: () => undefined };
         const b: IDisposable = { dispose: () => undefined };
@@ -595,7 +595,7 @@ describe("DisposableTracker", () => {
         expect(() => tracker.computeLeakingDisposables()).toThrow("There are cyclic disposable chains!");
     });
 
-    it("повторный trackDisposable не переписывает место создания", () => {
+    it("a repeated trackDisposable does not overwrite the creation site", () => {
         const tracker = new DisposableTracker();
         const d: IDisposable = { dispose: () => undefined };
         tracker.trackDisposable(d);

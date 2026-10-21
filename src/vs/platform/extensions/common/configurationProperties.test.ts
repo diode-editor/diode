@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { collectConfigurationProperties } from "./configurationProperties.ts";
 
 describe("collectConfigurationProperties", () => {
-    it("одиночный блок: схемы по полному ключу", () => {
+    it("single block: schemas keyed by full key", () => {
         expect(
             collectConfigurationProperties({
                 title: "X",
@@ -18,7 +18,7 @@ describe("collectConfigurationProperties", () => {
         });
     });
 
-    it("массив блоков сливается в одну map", () => {
+    it("an array of blocks merges into one map", () => {
         expect(
             collectConfigurationProperties([
                 { properties: { "a.one": { default: 1 } } },
@@ -27,11 +27,11 @@ describe("collectConfigurationProperties", () => {
         ).toEqual({ "a.one": { default: 1 }, "b.two": { default: 2 } });
     });
 
-    it("схема без default остаётся (ключ известен), блок без properties и не-объекты — пропуск", () => {
+    it("a schema without default is kept (the key is known); a block without properties and non-objects are skipped", () => {
         expect(
             collectConfigurationProperties([
                 { properties: { "x.noDefault": { type: "string" } } },
-                { title: "нет properties" },
+                { title: "no properties" },
                 { properties: { "x.broken": null as unknown as { default: unknown } } },
                 { properties: { "x.scalar": "not a schema" as unknown as { default: unknown } } },
             ]),

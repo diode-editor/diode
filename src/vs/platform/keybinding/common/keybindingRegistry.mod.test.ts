@@ -22,8 +22,8 @@ function press(key: string, mods: Partial<KeyboardEventLike> = {}): KeyboardEven
     return { key, ctrlKey: false, shiftKey: false, altKey: false, metaKey: false, ...mods };
 }
 
-describe("токен mod (Ctrl на pc, Cmd на mac-cmd)", () => {
-    it("parseKeybinding понимает mod и не выставляет конкретный модификатор", () => {
+describe("mod token (Ctrl on pc, Cmd on mac-cmd)", () => {
+    it("parseKeybinding understands mod and sets no concrete modifier", () => {
         expect(parseKeybinding("mod+shift+s")).toEqual({
             key: "s",
             ctrlKey: false,
@@ -35,12 +35,12 @@ describe("токен mod (Ctrl на pc, Cmd на mac-cmd)", () => {
         expect(parseKeybinding("ctrl+s")).not.toHaveProperty("modKey");
     });
 
-    it("expandModKey: чорд без mod — как есть", () => {
+    it("expandModKey: a chord without mod stays as is", () => {
         const chord = parseChord("ctrl+k ctrl+s");
         expect(expandModKey(chord, "textInputFocus")).toEqual([{ chord, when: "textInputFocus" }]);
     });
 
-    it("expandModKey: взаимоисключающие Ctrl-ниже-cmd и Cmd-на-cmd, каждая часть чорда", () => {
+    it("expandModKey: mutually exclusive Ctrl-below-cmd and Cmd-on-cmd, for each chord part", () => {
         const variants = expandModKey(parseChord("mod+k mod+s"), "textInputFocus");
         expect(variants.map((v) => [formatKeybinding(v.chord), v.when])).toEqual([
             ["Ctrl+K Ctrl+S", "(textInputFocus) && (!(macKeys >= 3))"],
@@ -58,7 +58,7 @@ describe("токен mod (Ctrl на pc, Cmd на mac-cmd)", () => {
         ["legacy", "save", undefined],
         ["extended", "save", undefined],
         ["cmd", undefined, "save"],
-    ])("рунг %s: Ctrl+S → %s, Cmd+S → %s", (rung, viaCtrl, viaCmd) => {
+    ])("rung %s: Ctrl+S → %s, Cmd+S → %s", (rung, viaCtrl, viaCmd) => {
         const registry = new KeybindingRegistry();
         registry.register(parseKeybinding("mod+s"), "save");
         const contextKeys = contextAt(rung);
@@ -70,14 +70,14 @@ describe("токен mod (Ctrl на pc, Cmd на mac-cmd)", () => {
         expect(resolve(press("s", { metaKey: true }))).toBe(viaCmd);
     });
 
-    it("отображение берёт вариант активного рунга", () => {
+    it("the label takes the active rung's variant", () => {
         const registry = new KeybindingRegistry();
         registry.register(parseKeybinding("mod+p"), "quickOpen");
         expect(formatKeybinding(registry.getKeybindingForCommand("quickOpen", contextAt("legacy"))!)).toBe("Ctrl+P");
         expect(formatKeybinding(registry.getKeybindingForCommand("quickOpen", contextAt("cmd"))!)).toBe("Meta+P");
     });
 
-    it("dispose снимает оба варианта", () => {
+    it("dispose removes both variants", () => {
         const registry = new KeybindingRegistry();
         const other = registry.register(parseKeybinding("ctrl+o"), "open");
         const handle = registry.register(parseKeybinding("mod+s"), "save");

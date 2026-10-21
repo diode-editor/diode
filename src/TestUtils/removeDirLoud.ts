@@ -8,6 +8,6 @@ export function removeDirLoud(dir: string, label: string): void {
     try {
         fs.rmSync(dir, { recursive: true, force: true });
     } catch (err) {
-        console.warn(`[${label}] не удалось снести временный каталог ${dir}:`, err);
+        console.warn(`[${label}] failed to remove temp directory ${dir}:`, err);
     }
 }

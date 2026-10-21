@@ -46,7 +46,7 @@ function items(entries: MenuEntry[]): MenuItemEntry[] {
 }
 
 describe("MenuRegistry", () => {
-    it("возвращает только пункты запрошенного меню", () => {
+    it("returns only items of the requested menu", () => {
         const h = setup([
             { menuId: MenuId.EditorContext, command: "a" },
             { menuId: MenuId.ExplorerContext, command: "b" },
@@ -55,12 +55,12 @@ describe("MenuRegistry", () => {
         expect(labels(h.registry.getMenuItems(MenuId.ExplorerContext))).toEqual(["Title:b"]);
     });
 
-    it("пустое меню → []", () => {
+    it("empty menu gives []", () => {
         const h = setup([{ menuId: MenuId.ExplorerContext, command: "b" }]);
         expect(h.registry.getMenuItems(MenuId.EditorContext)).toEqual([]);
     });
 
-    it("when: скрывает пункт при непроходящем условии, показывает при проходящем", () => {
+    it("when: hides the item when the condition fails, shows it when it passes", () => {
         const h = setup([
             { menuId: MenuId.EditorContext, command: "always" },
             { menuId: MenuId.EditorContext, command: "gated", when: "textInputFocus" },
@@ -70,7 +70,7 @@ describe("MenuRegistry", () => {
         expect(labels(h.registry.getMenuItems(MenuId.EditorContext))).toEqual(["Title:always", "Title:gated"]);
     });
 
-    it("visible: предикат получает контекст и фильтрует пункт", () => {
+    it("visible: the predicate receives the context and filters the item", () => {
         const seenContexts: unknown[] = [];
         const h = setup([
             {
@@ -87,7 +87,7 @@ describe("MenuRegistry", () => {
         expect(seenContexts).toEqual([{ canPaste: false }, { canPaste: true }]);
     });
 
-    it("сортирует группы по ключу и вставляет разделитель между непустыми группами", () => {
+    it("sorts groups by key and inserts a separator between non-empty groups", () => {
         const h = setup([
             { menuId: MenuId.EditorContext, command: "z", group: "2_second" },
             { menuId: MenuId.EditorContext, command: "a", group: "1_first" },
@@ -95,7 +95,7 @@ describe("MenuRegistry", () => {
         expect(labels(h.registry.getMenuItems(MenuId.EditorContext))).toEqual(["Title:a", "─", "Title:z"]);
     });
 
-    it("сортирует внутри группы по order, при равенстве — стабильно по вставке", () => {
+    it("sorts within a group by order, ties stay in insertion order", () => {
         const h = setup([
             { menuId: MenuId.EditorContext, command: "third", group: "g", order: 30 },
             { menuId: MenuId.EditorContext, command: "first", group: "g", order: 10 },
@@ -110,7 +110,7 @@ describe("MenuRegistry", () => {
         ]);
     });
 
-    it("группа navigation всегда первая, независимо от строкового порядка", () => {
+    it("the navigation group is always first regardless of string order", () => {
         const h = setup([
             { menuId: MenuId.EditorContext, command: "first", group: "1_first" },
             { menuId: MenuId.EditorContext, command: "nav", group: "navigation" },
@@ -133,7 +133,7 @@ describe("MenuRegistry", () => {
         expect(labels(first.registry.getMenuItems(MenuId.EditorContext))).toEqual(["Title:nav", "─", "Title:other"]);
     });
 
-    it("дефолты: без group (→ '') и без order (→ 0)", () => {
+    it("defaults: no group ('') and no order (0)", () => {
         const h = setup([
             { menuId: MenuId.EditorContext, command: "grouped", group: "1_g" },
             { menuId: MenuId.EditorContext, command: "ungrouped-b" },
@@ -148,7 +148,7 @@ describe("MenuRegistry", () => {
         ]);
     });
 
-    it("скрытый пункт схлопывает группу без лишнего разделителя", () => {
+    it("a hidden item collapses the group without an extra separator", () => {
         const h = setup([
             { menuId: MenuId.ExplorerContext, command: "copy", group: "1_clip" },
             { menuId: MenuId.ExplorerContext, command: "paste", group: "1_clip", visible: () => false },
@@ -157,7 +157,7 @@ describe("MenuRegistry", () => {
         expect(labels(h.registry.getMenuItems(MenuId.ExplorerContext))).toEqual(["Title:copy", "─", "Title:rename"]);
     });
 
-    it("label: явный title → title команды → id команды", () => {
+    it("label: explicit title, then command title, then command id", () => {
         const commands = new CommandRegistry();
         commands.register("withTitle", () => {}, "Command Title");
         commands.register("noTitle", () => {});
@@ -169,7 +169,7 @@ describe("MenuRegistry", () => {
         expect(labels(registry.getMenuItems(MenuId.EditorContext))).toEqual(["Explicit", "Command Title", "noTitle"]);
     });
 
-    it("shortcut: резолв из кейбиндов / промах / литерал / подавление false", () => {
+    it("shortcut: resolved from keybindings / miss / literal / suppressed by false", () => {
         const h = setup([
             { menuId: MenuId.EditorContext, command: "bound" },
             { menuId: MenuId.EditorContext, command: "unbound" },
@@ -182,7 +182,7 @@ describe("MenuRegistry", () => {
         expect(entries.map((e) => e.shortcut)).toEqual(["Ctrl+C", undefined, "F2", undefined]);
     });
 
-    it("shortcut на маке (isMac) — глифами, по действующему рунгу", () => {
+    it("shortcut on Mac (isMac) uses glyphs, by the effective rung", () => {
         const h = setup([{ menuId: MenuId.EditorContext, command: "bound" }]);
         h.keybindings.register(parseKeybinding("mod+shift+p"), "bound");
         h.contextKeys.set("isMac", true);
@@ -192,7 +192,7 @@ describe("MenuRegistry", () => {
         expect(items(h.registry.getMenuItems(MenuId.EditorContext)).map((e) => e.shortcut)).toEqual(["⌃⇧P"]);
     });
 
-    it("args резолвятся сразу (даже без выбора пункта) и подставляются в execute", () => {
+    it("args resolve eagerly (even without selecting the item) and are passed to execute", () => {
         let called = 0;
         const h = setup([
             {
@@ -210,18 +210,18 @@ describe("MenuRegistry", () => {
         expect(h.executed).toEqual([{ id: "rename", args: ["/ws/a.txt"] }]);
     });
 
-    it("onSelect без args исполняет команду без аргументов", () => {
+    it("onSelect without args runs the command without arguments", () => {
         const h = setup([{ menuId: MenuId.EditorContext, command: "copy" }]);
         items(h.registry.getMenuItems(MenuId.EditorContext))[0].onSelect?.();
         expect(h.executed).toEqual([{ id: "copy", args: [] }]);
     });
 
-    it("icon пробрасывается в MenuEntry", () => {
+    it("icon is passed through to MenuEntry", () => {
         const h = setup([{ menuId: MenuId.EditorContext, command: "a", icon: "★" }]);
         expect(items(h.registry.getMenuItems(MenuId.EditorContext))[0].icon).toBe("★");
     });
 
-    it("appendMenuItem добавляет пункт, dispose снимает (повторный dispose безопасен)", () => {
+    it("appendMenuItem adds an item, dispose removes it (a repeated dispose is safe)", () => {
         const h = setup([{ menuId: MenuId.EditorContext, command: "base" }]);
         h.commands.register("added", () => {}, "Added");
         const handle = h.registry.appendMenuItem({ menuId: MenuId.EditorContext, command: "added" });
@@ -232,7 +232,7 @@ describe("MenuRegistry", () => {
         expect(labels(h.registry.getMenuItems(MenuId.EditorContext))).toEqual(["Title:base"]);
     });
 
-    it("getSubmenus: фильтр по точке и when, сортировка по order, мнемоника", () => {
+    it("getSubmenus: filters by point and when, sorts by order, mnemonic", () => {
         const h = setup([]);
         const registry = new MenuRegistry(h.commands, h.keybindings, h.contextKeys, [
             {
@@ -261,13 +261,13 @@ describe("MenuRegistry", () => {
         ]);
     });
 
-    it("getMenuItems игнорирует submenu-записи (вложенные попапы не рендерим)", () => {
+    it("getMenuItems ignores submenu entries (nested popups are not rendered)", () => {
         const h = setup([{ menuId: MenuId.EditorContext, command: "cmd" }]);
         h.registry.appendMenuItem({ menuId: MenuId.EditorContext, submenu: MenuId.MenubarFileMenu, title: "Sub" });
         expect(labels(h.registry.getMenuItems(MenuId.EditorContext))).toEqual(["Title:cmd"]);
     });
 
-    it("submenu c резолвером фильтруется по when и императивному visible", () => {
+    it("a submenu with a resolver is filtered by when and the imperative visible", () => {
         const h = setup([{ menuId: MenuId.ViewTitle, command: "cmd" }]);
         h.contextKeys.set("listFocus", false);
         h.registry.appendMenuItem({
@@ -302,7 +302,7 @@ describe("MenuRegistry", () => {
         expect(titles).toContain("WhenGated");
     });
 
-    it("onDidChangeMenu: срабатывает на append и на снятие, но не на повторный dispose", () => {
+    it("onDidChangeMenu: fires on append and on removal, but not on a repeated dispose", () => {
         const h = setup([]);
         const changed: string[] = [];
         h.registry.onDidChangeMenu((menuId) => changed.push(menuId.id));
@@ -317,7 +317,7 @@ describe("MenuRegistry", () => {
         expect(changed).toEqual(["EditorContext", "EditorContext"]);
     });
 
-    it("onDidChangeMenu: dispose подписки прекращает уведомления", () => {
+    it("onDidChangeMenu: disposing the subscription stops notifications", () => {
         const h = setup([]);
         const changed: string[] = [];
         const subscription = h.registry.onDidChangeMenu((menuId) => changed.push(menuId.id));
@@ -340,12 +340,12 @@ describe("MenuRegistry — enablement", () => {
         return entries[0].entries[0] as IResolvedMenuItemEntry;
     }
 
-    it("без enablement пункт доступен", () => {
+    it("without enablement the item is enabled", () => {
         expect(entryOf(setup([item()])).enabled).toBe(true);
         expect(entryOf(setup([item()])).disabled).toBe(false);
     });
 
-    it("ложный enablement гасит пункт, но НЕ прячет его", () => {
+    it("false enablement disables the item but does NOT hide it", () => {
         const h = setup([item({ enablement: "!gitOperationInProgress" })]);
         h.contextKeys.set("gitOperationInProgress", true);
 
@@ -356,7 +356,7 @@ describe("MenuRegistry — enablement", () => {
         expect(entryOf(h).disabled).toBe(true);
     });
 
-    it("погашенный пункт не исполняет команду", () => {
+    it("a disabled item does not run the command", () => {
         const h = setup([item({ enablement: "!gitOperationInProgress" })]);
         h.contextKeys.set("gitOperationInProgress", true);
         entryOf(h).onSelect?.();
@@ -367,7 +367,7 @@ describe("MenuRegistry — enablement", () => {
         expect(h.executed).toHaveLength(1);
     });
 
-    it("видимость кнопки «⋯» к доступности равнодушна", () => {
+    it("the ⋯ button visibility ignores enablement", () => {
         const h = setup([item({ enablement: "!gitOperationInProgress" })]);
         h.contextKeys.set("gitOperationInProgress", true);
         expect(h.registry.hasItems(MenuId.ExplorerContext)).toBe(true);

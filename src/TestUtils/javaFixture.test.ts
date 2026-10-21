@@ -7,19 +7,19 @@ import { APP_JAVA_PATH, createMavenProject, type IMavenProject, JAVA_LANGUAGE_SE
 
 // The network part (`installJava`) is covered by the extensionHost.javaLsp* suites.
 
-describe("javaFixture — языковой сервис", () => {
-    it(".java получает язык java, прочее — undefined", () => {
+describe("javaFixture — language service", () => {
+    it(".java gets the java language, anything else undefined", () => {
         expect(JAVA_LANGUAGE_SERVICE.getLanguageIdForResource("/tmp/App.java")).toBe("java");
         // If the service tagged pom.xml as `java`, the extension would get didOpen for an xml file.
         expect(JAVA_LANGUAGE_SERVICE.getLanguageIdForResource("/tmp/pom.xml")).toBeUndefined();
     });
 
-    it("отображаемого имени языка обвязка не даёт", () => {
+    it("the fixture provides no language display name", () => {
         expect(JAVA_LANGUAGE_SERVICE.getLanguageDisplayName("java")).toBeUndefined();
     });
 });
 
-describe("javaFixture — maven-проект", () => {
+describe("javaFixture — maven project", () => {
     let project: IMavenProject | undefined;
 
     afterEach(() => {
@@ -27,14 +27,14 @@ describe("javaFixture — maven-проект", () => {
         project = undefined;
     });
 
-    it("раскладывает pom.xml и исходник в своём каталоге", () => {
+    it("lays out pom.xml and the source in its own directory", () => {
         project = createMavenProject();
         expect(fs.existsSync(path.join(project.root, "pom.xml"))).toBe(true);
         expect(project.appPath).toBe(path.join(project.root, APP_JAVA_PATH));
         expect(fs.readFileSync(project.appPath, "utf-8")).toContain("int broken = message;");
     });
 
-    it("каталог проекта СВОЙ, а не общий с чем-то ещё", () => {
+    it("the project directory is its OWN, not shared with anything else", () => {
         project = createMavenProject();
         const other = createMavenProject();
         try {
@@ -44,7 +44,7 @@ describe("javaFixture — maven-проект", () => {
         }
     });
 
-    it("dispose убирает каталог целиком", () => {
+    it("dispose removes the whole directory", () => {
         const disposable = createMavenProject();
         const root = disposable.root;
         disposable.dispose();

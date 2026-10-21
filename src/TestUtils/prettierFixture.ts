@@ -51,7 +51,7 @@ export async function installPrettier(): Promise<IInstalledPrettier> {
     const installRoot = path.join(extensionsDir, `${id}-${version}`);
     const manifest = JSON.parse(fs.readFileSync(path.join(installRoot, "package.json"), "utf8")) as IExtensionManifest;
     /* v8 ignore start -- a stock vsix always has main; the branch is reachable only with a broken manifest */
-    if (manifest.main === undefined) throw new Error(`${installRoot}: в манифесте нет main`);
+    if (manifest.main === undefined) throw new Error(`${installRoot}: manifest has no main`);
     /* v8 ignore stop */
     return {
         registration: {

@@ -26,8 +26,8 @@ function serviceWithRefusals(): { service: UndoRedoService; refusals: IUndoRefus
     return { service, refusals };
 }
 
-describe("UndoRedoService — шаг нескольких документов", () => {
-    it("Ctrl+Z из любого бакета откатывает шаг целиком, повтор — из любого другого", async () => {
+describe("UndoRedoService — multi-document element", () => {
+    it("Ctrl+Z from any bucket undoes the whole element, redo works from any other", async () => {
         const { service, refusals } = serviceWithRefusals();
         const { element, undo, redo } = step("Move to a new file");
         service.pushWorkspaceElement(element, [A, B]);
@@ -50,7 +50,7 @@ describe("UndoRedoService — шаг нескольких документов",
         expect(refusals).toEqual([]);
     });
 
-    it("без участников шаг уходит в бакет workspace-операций", async () => {
+    it("without participants the element goes to the workspace operations bucket", async () => {
         const service = new UndoRedoService();
         const { element, undo } = step("Edit");
         service.pushWorkspaceElement(element, []);
@@ -60,7 +60,7 @@ describe("UndoRedoService — шаг нескольких документов",
         expect(undo).toHaveBeenCalledOnce();
     });
 
-    it("правили после шага — отказ с именами файлов (строка эталона), история цела", async () => {
+    it("edited after the element — rejection naming the files (upstream message), history intact", async () => {
         const { service, refusals } = serviceWithRefusals();
         const { element, undo } = step("Move to a new file");
         service.pushWorkspaceElement(element, [A, B, { context: "c", label: "c.ts", owner: true }]);
@@ -82,7 +82,7 @@ describe("UndoRedoService — шаг нескольких документов",
         expect(service.peekUndo("b")).toBe(typingB);
     });
 
-    it("повтор, когда в другом бакете уже новая правка, — отказ «Could not redo»", async () => {
+    it("redo when another bucket already has a newer edit — 'Could not redo' rejection", async () => {
         const { service, refusals } = serviceWithRefusals();
         const { element, redo } = step("Rename");
         service.pushWorkspaceElement(element, [A, B]);
@@ -107,7 +107,7 @@ describe("UndoRedoService — шаг нескольких документов",
         );
     });
 
-    it("отказ самого шага (canUndo: false) — молча, без сообщения", async () => {
+    it("refusal by the element itself (canUndo: false) is silent, no message", async () => {
         const { service, refusals } = serviceWithRefusals();
         const element: IUndoRedoElement = { ...step("Edit").element, canUndo: () => false };
         service.pushWorkspaceElement(element, [A, B]);
@@ -117,7 +117,7 @@ describe("UndoRedoService — шаг нескольких документов",
         expect(service.peekUndo("b")).toBe(element);
     });
 
-    it("асинхронный canUndo: пока ждали диск, в другом бакете появилась правка — шаг не снимается", async () => {
+    it("async canUndo: an edit appeared in another bucket while waiting for the disk — the element is not undone", async () => {
         const service = new UndoRedoService();
         let answer = (_can: boolean): void => {};
         const undo = vi.fn();
@@ -139,7 +139,7 @@ describe("UndoRedoService — шаг нескольких документов",
         expect(service.peekUndo("a")).toBe(element);
     });
 
-    it("асинхронный canRedo: то же для повтора", async () => {
+    it("async canRedo: same for redo", async () => {
         const service = new UndoRedoService();
         let answer = (_can: boolean): void => {};
         const redo = vi.fn();
@@ -163,7 +163,7 @@ describe("UndoRedoService — шаг нескольких документов",
         expect(redo).not.toHaveBeenCalled();
     });
 
-    it("закрыли бакет без своей правки — он просто уходит из участников", async () => {
+    it("closing a bucket with no own edit just removes it from the participants", async () => {
         const { service, refusals } = serviceWithRefusals();
         const { element, undo } = step("Move to a new file");
         service.pushWorkspaceElement(element, [A, ANCHOR_B]);
@@ -177,7 +177,7 @@ describe("UndoRedoService — шаг нескольких документов",
         expect(service.peekRedo("a")).toBe(element);
     });
 
-    it("закрыли бакет СО своей правкой — отмена сбрасывает историю участников (как эталон)", async () => {
+    it("closing a bucket WITH its own edit — undo resets the participants' history (as upstream)", async () => {
         const { service, refusals } = serviceWithRefusals();
         const { element, undo } = step("Move to a new file");
         const older = step("Typing").element;
@@ -201,7 +201,7 @@ describe("UndoRedoService — шаг нескольких документов",
         expect(refusals).toHaveLength(1);
     });
 
-    it("буфер перечитан с диска — другое пояснение; обе причины — двумя строками", async () => {
+    it("buffer reloaded from disk — a different explanation; both reasons on two lines", async () => {
         const { service, refusals } = serviceWithRefusals();
         const replaced = step("Rename").element;
         service.pushWorkspaceElement(replaced, [A, B]);
@@ -223,7 +223,7 @@ describe("UndoRedoService — шаг нескольких документов",
         );
     });
 
-    it("несколько потерянных файлов одной причины — через запятую", async () => {
+    it("several lost files with one reason — comma-separated", async () => {
         const { service, refusals } = serviceWithRefusals();
         const c: IUndoParticipant = { context: "c", label: "c.ts", owner: true };
         const d: IUndoParticipant = { context: "d", label: "d.ts", owner: true };
@@ -242,7 +242,7 @@ describe("UndoRedoService — шаг нескольких документов",
         );
     });
 
-    it("сломанный шаг на повторе — «Could not redo», redo участников сброшен", async () => {
+    it("broken element on redo — 'Could not redo', participants' redo is reset", async () => {
         const { service, refusals } = serviceWithRefusals();
         const { element } = step("Rename");
         service.pushWorkspaceElement(element, [A, B]);
@@ -261,7 +261,7 @@ describe("UndoRedoService — шаг нескольких документов",
         expect(service.canRedo("a") || service.canRedo("b")).toBe(false);
     });
 
-    it("бакет со своей правкой закрыт, пока шаг в redo, — повторять некуда: шаг уходит из redo всех", async () => {
+    it("a bucket with its own edit closed while the element is in redo — nowhere to redo: the element leaves everyone's redo", async () => {
         const service = new UndoRedoService();
         const { element, redo } = step("Rename");
         service.pushWorkspaceElement(element, [A, B]);
@@ -274,7 +274,7 @@ describe("UndoRedoService — шаг нескольких документов",
         expect(redo).not.toHaveBeenCalled();
     });
 
-    it("бакет без своей правки закрыт, пока шаг в redo, — повтор из остальных работает", async () => {
+    it("a bucket with no own edit closed while the element is in redo — redo from the rest works", async () => {
         const service = new UndoRedoService();
         const { element, redo } = step("Move");
         service.pushWorkspaceElement(element, [A, ANCHOR_B]);
@@ -287,7 +287,7 @@ describe("UndoRedoService — шаг нескольких документов",
         expect(service.canUndo("b")).toBe(false);
     });
 
-    it("новая правка в одном бакете обрезает redo шага во всех", async () => {
+    it("a new edit in one bucket truncates the element's redo in all", async () => {
         const service = new UndoRedoService();
         const { element } = step("Move");
         service.pushWorkspaceElement(element, [A, B]);
@@ -299,7 +299,7 @@ describe("UndoRedoService — шаг нескольких документов",
         expect(service.canRedo("b")).toBe(false);
     });
 
-    it("файл, открытый после шага, принимает его в свою историю — в порядке кладки", async () => {
+    it("a file opened after the element takes it into its history, in push order", async () => {
         const service = new UndoRedoService();
         const first = step("Move to a new file", ["/p/a.ts", "/p/Foo.ts"]);
         const second = step("Rename", ["/p/Foo.ts", "/p/x.ts"]);
@@ -327,7 +327,7 @@ describe("UndoRedoService — шаг нескольких документов",
         expect(first.undo).toHaveBeenCalledOnce();
     });
 
-    it("сброс бакета с обычными шагами в undo и redo — шаги просто уходят", async () => {
+    it("resetting a bucket with plain elements in undo and redo just drops them", async () => {
         const service = new UndoRedoService();
         service.pushElement(step("One").element, "a");
         service.pushElement(step("Two").element, "a");
@@ -339,7 +339,7 @@ describe("UndoRedoService — шаг нескольких документов",
         expect(service.canRedo("a")).toBe(false);
     });
 
-    it("сломанный шаг и шаг, где бакет уже участник, повторно не принимаются", () => {
+    it("a broken element and one the bucket already participates in are not taken again", () => {
         const service = new UndoRedoService();
         const broken = step("Broken", ["/p/Foo.ts"]);
         const own = step("Own", ["/p/Foo.ts"]);

@@ -41,8 +41,8 @@ function open(contributions: readonly MenuContribution[], menuId: MenuId): MenuE
     return (items[0].element as PopupMenuElement).entries;
 }
 
-describe("ContextMenuService — рекурсивная сборка подменю", () => {
-    it("собирает вложенное подменю из точки реестра", () => {
+describe("ContextMenuService — recursive submenu building", () => {
+    it("builds a nested submenu from a registry point", () => {
         const entries = open(
             [
                 { menuId: ROOT, command: "cmd.top" },
@@ -59,7 +59,7 @@ describe("ContextMenuService — рекурсивная сборка подме�
         expect(nestedEntries.map((e) => (e.type === "separator" ? "─" : e.label))).toEqual(["Deep"]);
     });
 
-    it("выбрасывает пустые подменю (рекурсивно ни одного пункта)", () => {
+    it("drops empty submenus (no items recursively)", () => {
         const entries = open(
             [
                 { menuId: ROOT, command: "cmd.top" },
@@ -71,7 +71,7 @@ describe("ContextMenuService — рекурсивная сборка подме�
         expect(entries.map((e) => (e.type === "separator" ? "─" : e.label))).toEqual(["Top"]);
     });
 
-    it("рвёт цикл MenuId: A → B → A обрывается на повторном визите", () => {
+    it("breaks a MenuId cycle: A → B → A stops at the repeated visit", () => {
         const entries = open(
             [
                 { menuId: CYCLE_A, command: "cmd.top" },

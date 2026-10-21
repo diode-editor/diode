@@ -21,9 +21,9 @@ vi.mock("../../../base/node/lazyModule.ts", async (importOriginal) => {
     };
 });
 
-describe("extensionInstaller — yauzl из ленивого куска", () => {
+describe("extensionInstaller: yauzl from a lazy chunk", () => {
     // In SEA the chunk is looked up by id: a different id means a different asset, and install fails (e2e/sea-install.test.ts).
-    it("чтение .vsix грузит yauzl через loadLazyModule под id из LAZY_CHUNKS", async () => {
+    it("reading a .vsix loads yauzl via loadLazyModule under its LAZY_CHUNKS id", async () => {
         await expect(readVsixManifest(path.join(os.tmpdir(), "diode-no-such.vsix"))).rejects.toThrow();
 
         expect(lazy.ids).toEqual(["yauzl"]);

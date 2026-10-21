@@ -14,8 +14,8 @@ function resolve(registry: KeybindingRegistry, event = ESCAPE, contextKeys = new
     return resolution.kind === "command" ? resolution.commandId : resolution.kind;
 }
 
-describe("KeybindingRegistry — вес правила", () => {
-    it("тяжёлое правило побеждает зарегистрированное позже лёгкое", () => {
+describe("KeybindingRegistry: rule weight", () => {
+    it("a heavy rule wins over a lighter one registered later", () => {
         const registry = new KeybindingRegistry();
         registry.register(parseKeybinding("escape"), "popup.hide", undefined, "default", undefined, {
             weight: KeybindingWeight.EditorContrib,
@@ -27,14 +27,14 @@ describe("KeybindingRegistry — вес правила", () => {
         expect(registry.listBindings().map((entry) => entry.commandId)).toEqual(["editor.cancel", "popup.hide"]);
     });
 
-    it("при равном весе — по-прежнему последний зарегистрированный", () => {
+    it("with equal weight the last registered still wins", () => {
         const registry = new KeybindingRegistry();
         registry.register(parseKeybinding("escape"), "first");
         registry.register(parseKeybinding("escape"), "second");
         expect(resolve(registry)).toBe("second");
     });
 
-    it("подпись чорда и подпись команды читают тот же приоритет", () => {
+    it("the chord label and the command label read the same priority", () => {
         const registry = new KeybindingRegistry();
         registry.register(parseChord("ctrl+k ctrl+x"), "heavy", undefined, "default", undefined, { weight: 1 });
         registry.register(parseChord("ctrl+K ctrl+y"), "light");
@@ -48,20 +48,27 @@ describe("KeybindingRegistry — вес правила", () => {
     });
 });
 
-describe("KeybindingRegistry — подпись незавершённого чорда", () => {
-    it("единственный кандидат (первая запись) даёт каноническую подпись, а не сырое событие", () => {
+describe("KeybindingRegistry: pending chord label", () => {
+    it("the only candidate (first entry) gives the canonical label, not the raw event", () => {
         const registry = new KeybindingRegistry();
         registry.register(parseChord("ctrl+k ctrl+y"), "only");
         // Russian layout: the Cyrillic "el" key is physically K, matched by code.
-        const event = { key: "л", code: "KeyK", ctrlKey: true, shiftKey: false, altKey: false, metaKey: false };
+        const event = {
+            key: "\u043b" /* "l" */,
+            code: "KeyK",
+            ctrlKey: true,
+            shiftKey: false,
+            altKey: false,
+            metaKey: false,
+        };
 
         expect(registry.resolveKey(event, new ContextKeyService()).kind).toBe("chord");
         expect(serializeChord(registry.getPendingChord())).toBe("ctrl+k");
     });
 });
 
-describe("KeybindingRegistry — кэш приоритета инвалидируется", () => {
-    it("новое правило после чтения учитывается", () => {
+describe("KeybindingRegistry: the priority cache is invalidated", () => {
+    it("a new rule after a read is taken into account", () => {
         const registry = new KeybindingRegistry();
         registry.register(parseKeybinding("escape"), "first");
         expect(resolve(registry)).toBe("first");
@@ -69,7 +76,7 @@ describe("KeybindingRegistry — кэш приоритета инвалидир�
         expect(resolve(registry)).toBe("second");
     });
 
-    it("снятое через dispose правило пропадает", () => {
+    it("a rule removed via dispose disappears", () => {
         const registry = new KeybindingRegistry();
         registry.register(parseKeybinding("escape"), "first");
         const second = registry.register(parseKeybinding("escape"), "second");
@@ -79,7 +86,7 @@ describe("KeybindingRegistry — кэш приоритета инвалидир�
         expect(registry.listBindings().map((entry) => entry.commandId)).toEqual(["first"]);
     });
 
-    it("смена слоя (снятие, затем отмена снятия) учитывается", () => {
+    it("a layer change (removal, then undoing it) is taken into account", () => {
         const registry = new KeybindingRegistry();
         registry.register(parseKeybinding("escape"), "first");
         registry.register(parseKeybinding("escape"), "second");
@@ -90,7 +97,7 @@ describe("KeybindingRegistry — кэш приоритета инвалидир�
         expect(resolve(registry)).toBe("second");
     });
 
-    it("dispose реестра очищает и кэш", () => {
+    it("disposing the registry clears the cache too", () => {
         const registry = new KeybindingRegistry();
         registry.register(parseKeybinding("escape"), "first");
         expect(resolve(registry)).toBe("first");

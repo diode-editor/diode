@@ -26,7 +26,7 @@ async function expectResult(run: () => Promise<unknown>, result: FileOperationRe
 }
 
 describe("InMemoryFileSystemProvider", () => {
-    it("пустое дерево: только корень-каталог, событий извне нет", async () => {
+    it("empty tree: only the root directory, no external events", async () => {
         const provider = new InMemoryFileSystemProvider();
         expect(provider.capabilities).toBe(FileSystemProviderCapabilities.None);
         expect(await provider.stat(mem("/"))).toEqual({ type: FileType.Directory, mtime: 0, size: 0 });
@@ -38,7 +38,7 @@ describe("InMemoryFileSystemProvider", () => {
         );
     });
 
-    it("запись и чтение; mtime растёт на каждой записи", async () => {
+    it("write and read; mtime grows on every write", async () => {
         const provider = new InMemoryFileSystemProvider();
         await provider.writeFile(mem("/a.txt"), bytes("one"), atomic);
         const first = await provider.stat(mem("/a.txt"));
@@ -49,7 +49,7 @@ describe("InMemoryFileSystemProvider", () => {
         expect(second).toEqual({ type: FileType.File, mtime: 2, size: 5 });
     });
 
-    it("запись без родителя и поверх каталога — отказ; чтение каталога — отказ", async () => {
+    it("writing without a parent or over a directory fails; reading a directory fails", async () => {
         const provider = new InMemoryFileSystemProvider();
         await expectResult(
             () => provider.writeFile(mem("/no/a.txt"), bytes(""), atomic),
@@ -71,7 +71,7 @@ describe("InMemoryFileSystemProvider", () => {
         );
     });
 
-    it("mkdir создаёт недостающих родителей, существующий каталог не трогает, поверх файла — отказ", async () => {
+    it("mkdir creates missing parents, leaves an existing directory alone, fails over a file", async () => {
         const provider = new InMemoryFileSystemProvider();
         await provider.mkdir(mem("/a/b/c"));
         expect(await provider.stat(mem("/a/b/c"))).toEqual({ type: FileType.Directory, mtime: 1, size: 0 });
@@ -86,7 +86,7 @@ describe("InMemoryFileSystemProvider", () => {
         await expectResult(() => provider.mkdir(mem("/a/f")), FileOperationResult.Exists, "'/a/f': a file exists");
     });
 
-    it("readdir — только прямые дети, с типами", async () => {
+    it("readdir returns only direct children, with types", async () => {
         const provider = new InMemoryFileSystemProvider();
         await provider.mkdir(mem("/d/sub/deep"));
         await provider.writeFile(mem("/d/a.txt"), bytes(""), atomic);
@@ -106,7 +106,7 @@ describe("InMemoryFileSystemProvider", () => {
         );
     });
 
-    it("delete: файл, каталог рекурсивно; непустой без recursive — отказ; соседи с общим префиксом целы", async () => {
+    it("delete: a file, a directory recursively; non-empty without recursive fails; siblings with a common prefix survive", async () => {
         const provider = new InMemoryFileSystemProvider();
         await provider.mkdir(mem("/d/sub"));
         await provider.writeFile(mem("/d/sub/a"), bytes(""), atomic);
@@ -128,7 +128,7 @@ describe("InMemoryFileSystemProvider", () => {
         );
     });
 
-    it("rename переносит поддерево; занятая цель без overwrite — отказ", async () => {
+    it("rename moves the subtree; an occupied target without overwrite fails", async () => {
         const provider = new InMemoryFileSystemProvider();
         await provider.mkdir(mem("/src/sub"));
         await provider.writeFile(mem("/src/sub/a"), bytes("a"), atomic);
@@ -156,7 +156,7 @@ describe("InMemoryFileSystemProvider", () => {
         );
     });
 
-    it("copy оставляет источник на месте", async () => {
+    it("copy leaves the source in place", async () => {
         const provider = new InMemoryFileSystemProvider();
         await provider.writeFile(mem("/a"), bytes("a"), atomic);
         await provider.copy(mem("/a"), mem("/b"), { overwrite: false });

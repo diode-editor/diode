@@ -5,7 +5,7 @@ import { DisposableStore, DisposableTracker, setDisposableTracker, toDisposable 
 import { ensureNoDisposablesAreLeakedInTestSuite, throwIfLeaked } from "./disposableLeaks.ts";
 
 describe("throwIfLeaked", () => {
-    it("молчит без утечек и бросает с отчётом при утечке", () => {
+    it("silent without leaks, throws with a report on a leak", () => {
         const tracker = new DisposableTracker();
         setDisposableTracker(tracker);
         const kept = new DisposableStore();
@@ -28,23 +28,23 @@ describe("ensureNoDisposablesAreLeakedInTestSuite", () => {
     const store = ensureNoDisposablesAreLeakedInTestSuite();
     let leaked: DisposableStore | undefined;
 
-    it("объекты из add освобождаются после теста", () => {
+    it("objects from add are disposed after the test", () => {
         const d = store.add(new DisposableStore());
         expect(d.isDisposed).toBe(false);
         leaked = d;
     });
 
-    it("…и к следующему тесту уже освобождены, трекер снова стоит", () => {
+    it("…and are already disposed by the next test, the tracker is set again", () => {
         expect(leaked?.isDisposed).toBe(true);
         store.add(new DisposableStore());
     });
 
-    it.fails("утечка валит тест", () => {
+    it.fails("a leak fails the test", () => {
         new DisposableStore();
     });
 
-    it.fails("упавший тест утечки не проверяет — падает своей ошибкой", () => {
+    it.fails("a failed test skips the leak check — fails with its own error", () => {
         new DisposableStore();
-        throw new Error("своя ошибка");
+        throw new Error("own error");
     });
 });

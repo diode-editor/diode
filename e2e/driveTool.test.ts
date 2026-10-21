@@ -127,7 +127,7 @@ describe.skipIf(process.platform === "win32")("npm run drive — live run of the
         expect(badKey.stderr).toContain("ArrowDown");
 
         const stopped = ok("stop");
-        expect(stopped).toContain("остановлена вежливо");
+        expect(stopped).toContain("stopped gracefully");
         expect(markedPids(started.root)).toEqual([]);
         expect(existsSync(started.root)).toBe(false);
         expect(drive("screen").code).toBe(3);
@@ -141,10 +141,10 @@ describe.skipIf(process.platform === "win32")("npm run drive — live run of the
 
         process.kill(started.pid, "SIGKILL");
         const list = ok("list");
-        expect(list).toContain("МЕРТВА");
+        expect(list).toContain("DEAD");
         expect(drive("screen").code).toBe(3);
 
-        expect(ok("gc")).toMatch(/мёртвых сессий убрано: 1/);
+        expect(ok("gc")).toMatch(/dead sessions removed: 1/);
         expect(markedPids(started.root)).toEqual([]);
         expect(existsSync(started.root)).toBe(false);
         expect(ok("list").trim()).not.toContain(session);

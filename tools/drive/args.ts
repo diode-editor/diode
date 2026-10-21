@@ -79,18 +79,18 @@ export function parseArgs(argv: readonly string[]): ParsedArgs {
             name = eq === -1 ? arg.slice(2) : arg.slice(2, eq);
             inline = eq === -1 ? undefined : arg.slice(eq + 1);
         } else {
-            throw new UsageError(`неизвестный флаг ${arg}`);
+            throw new UsageError(`unknown flag ${arg}`);
         }
         if (BOOLEAN_FLAGS.has(name)) {
-            if (inline !== undefined) throw new UsageError(`флаг --${name} не принимает значения`);
+            if (inline !== undefined) throw new UsageError(`flag --${name} takes no value`);
             booleans.add(name);
             continue;
         }
-        if (!VALUE_FLAGS.has(name)) throw new UsageError(`неизвестный флаг --${name}`);
+        if (!VALUE_FLAGS.has(name)) throw new UsageError(`unknown flag --${name}`);
         let value = inline;
         if (value === undefined) {
             i++;
-            if (i >= argv.length) throw new UsageError(`флагу --${name} нужно значение`);
+            if (i >= argv.length) throw new UsageError(`flag --${name} requires a value`);
             value = argv[i];
         }
         const list = flags.get(name) ?? [];
@@ -118,22 +118,22 @@ export function intFlag(args: ParsedArgs, name: string): number | undefined {
 
 export function parseNonNegativeInt(raw: string, what: string): number {
     if (!/^\d+$/.test(raw))
-        throw new UsageError(`${what}: ожидалось неотрицательное целое, получено ${JSON.stringify(raw)}`);
+        throw new UsageError(`${what}: expected a non-negative integer, got ${JSON.stringify(raw)}`);
     return Number(raw);
 }
 
 export function parseSize(raw: string): { cols: number; rows: number } {
     const match = /^(\d+)x(\d+)$/.exec(raw);
-    if (match === null) throw new UsageError(`размер ожидается как <cols>x<rows>, получено ${JSON.stringify(raw)}`);
+    if (match === null) throw new UsageError(`size must be <cols>x<rows>, got ${JSON.stringify(raw)}`);
     const cols = Number(match[1]);
     const rows = Number(match[2]);
-    if (cols === 0 || rows === 0) throw new UsageError(`размер должен быть положительным: ${raw}`);
+    if (cols === 0 || rows === 0) throw new UsageError(`size must be positive: ${raw}`);
     return { cols, rows };
 }
 
 /** `\n` in the content is a newline. */
 export function parseFileSpec(raw: string): [string, string] {
     const eq = raw.indexOf("=");
-    if (eq <= 0) throw new UsageError(`--file ожидается как <путь>=<содержимое>, получено ${JSON.stringify(raw)}`);
+    if (eq <= 0) throw new UsageError(`--file must be <path>=<content>, got ${JSON.stringify(raw)}`);
     return [raw.slice(0, eq), raw.slice(eq + 1).replace(/\\n/g, "\n")];
 }

@@ -41,8 +41,8 @@ function scriptedChild(): ChildProcess {
     return child as unknown as ChildProcess;
 }
 
-describe("GuardedChildProcess — exit или close", () => {
-    it("по умолчанию конец — на exit, close не нужен", () => {
+describe("GuardedChildProcess: exit or close", () => {
+    it("by default the end is on exit; close is not needed", () => {
         const child = scriptedChild();
         const guard = new GuardedChildProcess(child, { label: "t" });
         const { all } = ends(guard);
@@ -52,7 +52,7 @@ describe("GuardedChildProcess — exit или close", () => {
         expect(all).toEqual([{ code: 0, signal: null }]);
     });
 
-    it("waitForStdio: exit ещё не конец — конец на close (вывод дочитан)", () => {
+    it("waitForStdio: exit is not the end yet; the end is on close (output fully read)", () => {
         const child = scriptedChild();
         const guard = new GuardedChildProcess(child, { label: "t", waitForStdio: true });
         const { all } = ends(guard);
@@ -66,7 +66,7 @@ describe("GuardedChildProcess — exit или close", () => {
 });
 
 describe("GuardedChildProcess", () => {
-    it("exit — конец с кодом, ровно один раз", async () => {
+    it("exit is the end with a code, exactly once", async () => {
         const guard = new GuardedChildProcess(node("process.exit(3)"), { label: "t" });
         const { all, first } = ends(guard);
 
@@ -76,7 +76,7 @@ describe("GuardedChildProcess", () => {
         guard.dispose();
     });
 
-    it("waitForStdio: конец — после того, как вывод дочитан", async () => {
+    it("waitForStdio: the end comes after the output is fully read", async () => {
         const child = node('process.stdout.write("a\\nb\\n"); process.exit(0)');
         const guard = new GuardedChildProcess(child, { label: "t", waitForStdio: true });
         const lines: string[] = [];
@@ -89,7 +89,7 @@ describe("GuardedChildProcess", () => {
         guard.dispose();
     });
 
-    it("неудачный спавн: error без exit — тоже конец, с ошибкой (её пишет владелец, не guard)", async () => {
+    it("failed spawn: error without exit is also the end, with the error (the owner logs it, not the guard)", async () => {
         const logger = recordingLogger();
         const guard = new GuardedChildProcess(spawn("/nonexistent/diode-binary"), { label: "rg", logger });
         const { first } = ends(guard);
@@ -103,7 +103,7 @@ describe("GuardedChildProcess", () => {
         guard.dispose();
     });
 
-    it("повторный error (закрытый IPC-канал на каждый send) не роняет процесс и не даёт второй конец", async () => {
+    it("a repeated error (closed IPC channel on every send) does not crash the process or produce a second end", async () => {
         const logger = recordingLogger();
         const child = node("setTimeout(() => {}, 10_000)");
         const guard = new GuardedChildProcess(child, { label: "t", logger });
@@ -118,7 +118,7 @@ describe("GuardedChildProcess", () => {
         guard.dispose();
     });
 
-    it("error на stdio-потоке не роняет процесс; без логгера — тоже", () => {
+    it("an error on a stdio stream does not crash the process, with or without a logger", () => {
         const logger = recordingLogger();
         const child = node("setTimeout(() => {}, 10_000)");
         const guard = new GuardedChildProcess(child, { label: "w", logger });
@@ -139,7 +139,7 @@ describe("GuardedChildProcess", () => {
         quietGuard.dispose();
     });
 
-    it("logStderr: stderr построчно в warn с меткой, хвост без перевода строки — по концу", async () => {
+    it("logStderr: stderr goes line by line to warn with a label; a tail without a newline goes at the end", async () => {
         const logger = recordingLogger();
         const child = node('process.stderr.write("first\\nsecond\\r\\ntail"); process.exit(0)');
         const guard = new GuardedChildProcess(child, {
@@ -156,7 +156,7 @@ describe("GuardedChildProcess", () => {
         guard.dispose();
     });
 
-    it("без logStderr stderr не читается и в лог не попадает", async () => {
+    it("without logStderr, stderr is not read and not logged", async () => {
         const logger = recordingLogger();
         const child = node('process.stderr.write("noise\\n"); process.exit(0)');
         const guard = new GuardedChildProcess(child, { label: "t", logger });
@@ -168,7 +168,7 @@ describe("GuardedChildProcess", () => {
         guard.dispose();
     });
 
-    it("logStderr при stderr: ignore — читать нечего, не падает", async () => {
+    it("logStderr with stderr: ignore has nothing to read and does not fail", async () => {
         const child = node("process.exit(0)", "ignore");
         const guard = new GuardedChildProcess(child, { label: "t", logStderr: true });
         const { first } = ends(guard);
@@ -177,7 +177,7 @@ describe("GuardedChildProcess", () => {
         guard.dispose();
     });
 
-    it("dispose — синхронный SIGKILL; владельцу, снявшему процесс сам, конец уже не приходит", async () => {
+    it("dispose is a synchronous SIGKILL; an owner that disposed the process itself gets no end", async () => {
         const guard = new GuardedChildProcess(node("setInterval(() => {}, 1000)"), { label: "t" });
         const { all } = ends(guard);
         const died = new Promise<NodeJS.Signals | null>((resolve) => {
@@ -195,7 +195,7 @@ describe("GuardedChildProcess", () => {
 });
 
 describe("splitLines", () => {
-    it("режет по \\n, снимает \\r, склеивает строку через границу чанков", () => {
+    it("splits on \\n, strips \\r, joins a line across chunk boundaries", () => {
         const stream = new PassThrough();
         const lines: string[] = [];
         splitLines(stream, (line) => lines.push(line));
@@ -213,7 +213,7 @@ describe("splitLines", () => {
         });
     });
 
-    it("пустой хвост по концу потока лишней строки не даёт", async () => {
+    it("an empty tail at stream end adds no extra line", async () => {
         const stream = new PassThrough();
         const lines: string[] = [];
         splitLines(stream, (line) => lines.push(line));

@@ -7,44 +7,44 @@ const CHECK = CODICON_GLYPHS.check;
 const SYNC = CODICON_GLYPHS.sync;
 
 describe("renderCodicons", () => {
-    it("оставляет текст без разметки как есть", () => {
+    it("leaves text without markup as is", () => {
         expect(renderCodicons("Ln 1, Col 1")).toBe("Ln 1, Col 1");
     });
 
-    it("подменяет известный значок символом шрифта", () => {
+    it("replaces a known icon with the font glyph", () => {
         expect(CHECK).toBeDefined();
         expect(renderCodicons("$(check) Ready")).toBe(`${CHECK ?? ""} Ready`);
     });
 
-    it("подменяет несколько значков в одной строке", () => {
+    it("replaces several icons in one string", () => {
         expect(renderCodicons("$(check)a$(sync)b")).toBe(`${CHECK ?? ""}a${SYNC ?? ""}b`);
     });
 
-    it("игнорирует модификатор анимации", () => {
+    it("ignores the animation modifier", () => {
         expect(renderCodicons("$(sync~spin)")).toBe(SYNC);
     });
 
-    it("игнорирует модификатор с пустым именем", () => {
+    it("ignores a modifier with an empty name", () => {
         expect(renderCodicons("$(sync~)")).toBe(SYNC);
     });
 
-    it("выбрасывает неизвестное имя", () => {
+    it("drops an unknown name", () => {
         expect(renderCodicons("x$(definitely-not-a-codicon)y")).toBe("xy");
     });
 
-    it("не трогает то, что не разметка значка", () => {
+    it("leaves alone what is not icon markup", () => {
         expect(renderCodicons("$notAnIcon ($5) $()")).toBe("$notAnIcon ($5) $()");
     });
 
-    it("снимает экранирование, оставляя литерал", () => {
+    it("unescapes, leaving the literal", () => {
         expect(renderCodicons("\\$(check)")).toBe("$(check)");
     });
 
-    it("сопоставляет имя без учёта регистра (как upstream)", () => {
+    it("matches the name case-insensitively (like upstream)", () => {
         expect(renderCodicons("$(CHECK)")).toBe(CHECK);
     });
 
-    it("таблица кодпоинтов приехала целиком", () => {
+    it("the code point table arrived in full", () => {
         // The lower bound guards against "the generator produced an empty table and tests are green".
         expect(Object.keys(CODICON_GLYPHS).length).toBeGreaterThan(700);
     });

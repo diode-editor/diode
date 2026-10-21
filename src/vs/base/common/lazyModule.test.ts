@@ -8,7 +8,7 @@ afterEach(() => {
 });
 
 describe("importLazyModule", () => {
-    it("загрузчик не подставлен (тесты, dev) — модуль приходит через importer", async () => {
+    it("no loader installed (tests, dev) — the module comes through the importer", async () => {
         const mod = { answer: 42 };
         const importer = vi.fn(() => Promise.resolve(mod));
 
@@ -16,7 +16,7 @@ describe("importLazyModule", () => {
         expect(importer).toHaveBeenCalledTimes(1);
     });
 
-    it("подставленный загрузчик получает id и importer — importer сам не зовётся", async () => {
+    it("an installed loader receives id and importer — the importer itself is not called", async () => {
         const fromChunk = { answer: "chunk" };
         const loader = vi.fn(() => Promise.resolve(fromChunk));
         setLazyModuleLoader(loader as never);
@@ -27,8 +27,8 @@ describe("importLazyModule", () => {
         expect(importer).not.toHaveBeenCalled();
     });
 
-    it("undefined возвращает прямой import()", async () => {
-        const loader = vi.fn(() => Promise.reject(new Error("загрузчик не должен вызываться")));
+    it("undefined returns a direct import()", async () => {
+        const loader = vi.fn(() => Promise.reject(new Error("the loader must not be called")));
         setLazyModuleLoader(loader as never);
         setLazyModuleLoader(undefined);
 
@@ -38,7 +38,7 @@ describe("importLazyModule", () => {
 });
 
 describe("loadSemver", () => {
-    it("берёт кусок semver через загрузчик процесса", async () => {
+    it("loads the semver lazy chunk through the process loader", async () => {
         const loader = vi.fn((_id: string, importer: () => Promise<unknown>) => importer());
         setLazyModuleLoader(loader as never);
 

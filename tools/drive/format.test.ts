@@ -40,19 +40,19 @@ function node(type: string, extra: Partial<NodeSnapshot> = {}, children: NodeSna
 }
 
 describe("colorHex / styleNames", () => {
-    it("packed RGB → #rrggbb с ведущими нулями; сентинел → default", () => {
+    it("packed RGB → #rrggbb with leading zeros; sentinel → default", () => {
         expect(colorHex(0x00ff10)).toBe("#00ff10");
         expect(colorHex(0)).toBe("#000000");
         expect(colorHex(DEFAULT_COLOR)).toBe("default");
     });
-    it("маска стиля → имена через +", () => {
+    it("style mask → names joined with +", () => {
         expect(styleNames(0)).toBe("none");
         expect(styleNames(StyleFlags.Bold | StyleFlags.Undercurl)).toBe("bold+undercurl");
     });
 });
 
 describe("cellInfo", () => {
-    it("символ, код-пойнт, цвета, стиль", () => {
+    it("char, code point, colors, style", () => {
         const f = frame(["ab", "cd"], 2);
         f.cells[3] = { char: "", fg: 0x112233, bg: DEFAULT_COLOR, style: StyleFlags.Italic, width: 1 };
         const info = cellInfo(f, 1, 1);
@@ -69,27 +69,27 @@ describe("cellInfo", () => {
         expect(formatCell(info)).toBe('1,1 "" U+EB99 fg=#112233 bg=default style=italic width=1');
         expect(cellInfo(f, 0, 0).codePoint).toBe("U+0061");
     });
-    it("пустой символ (продолжение широкой ячейки) — без код-пойнта", () => {
+    it("empty char (wide cell continuation) has no code point", () => {
         const f = frame(["a"], 1);
         f.cells[0] = { char: "", fg: 1, bg: 2, style: 0, width: 0 };
         expect(cellInfo(f, 0, 0).codePoint).toBe("");
     });
-    it("вне кадра — ошибка", () => {
+    it("outside the frame is an error", () => {
         const f = frame(["ab"], 2);
-        expect(() => cellInfo(f, 2, 0)).toThrow("ячейка 2,0 вне кадра 2x1");
-        expect(() => cellInfo(f, 0, 1)).toThrow("вне кадра");
-        expect(() => cellInfo(f, -1, 0)).toThrow("вне кадра");
-        expect(() => cellInfo(f, 0, -1)).toThrow("вне кадра");
-        expect(() => cellInfo(f, 0.5, 0)).toThrow("вне кадра");
-        expect(() => cellInfo(f, 0, 0.5)).toThrow("вне кадра");
+        expect(() => cellInfo(f, 2, 0)).toThrow("cell 2,0 is outside the frame 2x1");
+        expect(() => cellInfo(f, 0, 1)).toThrow("outside the frame");
+        expect(() => cellInfo(f, -1, 0)).toThrow("outside the frame");
+        expect(() => cellInfo(f, 0, -1)).toThrow("outside the frame");
+        expect(() => cellInfo(f, 0.5, 0)).toThrow("outside the frame");
+        expect(() => cellInfo(f, 0, 0.5)).toThrow("outside the frame");
     });
 });
 
 describe("screenText", () => {
-    it("строки без хвостовых пробелов", () => {
+    it("lines without trailing spaces", () => {
         expect(screenText(frame(["ab  ", " c  "], 4), false)).toBe("ab\n c");
     });
-    it("--numbered: линейка колонок и номера строк", () => {
+    it("--numbered: column ruler and line numbers", () => {
         const text = screenText(frame(["x"], 12), true);
         expect(text.split("\n")).toEqual(["  |0····+····1·", " 0|x"]);
     });
@@ -103,7 +103,7 @@ describe("treeText / selectedTreesText", () => {
         node("Panel"),
     ]);
 
-    it("отступы, id, роль, box, фокус; state только по запросу", () => {
+    it("indentation, id, role, box, focus; state only on request", () => {
         expect(treeText(root)).toBe(
             [
                 "Body#workbench [0,0 10x1]",
@@ -115,34 +115,34 @@ describe("treeText / selectedTreesText", () => {
         expect(treeText(root, { state: true })).toContain('Editor@textbox [0,0 10x1] *focus {"dirty":true}');
     });
 
-    it("depth обрезает", () => {
+    it("depth truncates", () => {
         expect(treeText(root, { depth: 1 }).split("\n")).toHaveLength(3);
         expect(treeText(root, { depth: 0 })).toBe("Body#workbench [0,0 10x1]");
     });
 
-    it("нет документа", () => {
-        expect(treeText(null)).toBe("<нет документа>");
+    it("no document", () => {
+        expect(treeText(null)).toBe("<no document>");
     });
 
-    it("поддеревья совпадений; нет совпадений — сообщение", () => {
+    it("subtrees of matches; no matches gives a message", () => {
         expect(selectedTreesText(root, "Panel")).toBe("Panel [0,0 10x1]");
-        expect(selectedTreesText(root, "Nope")).toBe("<нет узлов по селектору Nope>");
+        expect(selectedTreesText(root, "Nope")).toBe("<no nodes match selector Nope>");
     });
 });
 
 describe("focusText", () => {
-    it("путь до самого глубокого сфокусированного узла (флаг стоит только на листе)", () => {
+    it("path to the deepest focused node (the flag is set only on the leaf)", () => {
         const root = node("Body", { id: "w" }, [
             node("A"),
             node("B", {}, [node("C", { focused: true } as Partial<NodeSnapshot>)]),
         ]);
         expect(focusText(root)).toBe("Body#w > B > C");
     });
-    it("сам корень в фокусе", () => {
+    it("the root itself is focused", () => {
         expect(focusText(node("Body", { focused: true } as Partial<NodeSnapshot>))).toBe("Body");
     });
-    it("нет фокуса / нет документа", () => {
-        expect(focusText(node("Body"))).toBe("<нет фокуса>");
-        expect(focusText(null)).toBe("<нет фокуса>");
+    it("no focus / no document", () => {
+        expect(focusText(node("Body"))).toBe("<no focus>");
+        expect(focusText(null)).toBe("<no focus>");
     });
 });

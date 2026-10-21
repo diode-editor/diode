@@ -85,7 +85,9 @@ function evaluateChunk(code: string, assetName: string, cachedData: Uint8Array |
         cachedData,
     });
     if (script.cachedDataRejected === true) {
-        onUnexpectedError(new Error(`кэш кода ${assetName} отвергнут V8 — кусок скомпилирован без него`));
+        onUnexpectedError(
+            new Error(`V8 rejected the code cache of ${assetName}; the lazy chunk is compiled without it`),
+        );
     }
     const wrapper = script.runInThisContext() as (
         exports: unknown,

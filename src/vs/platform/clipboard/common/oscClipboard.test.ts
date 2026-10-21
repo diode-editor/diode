@@ -32,7 +32,7 @@ describe("OscClipboard", () => {
     it("correctly base64-encodes unicode text", async () => {
         const writeFn = vi.fn();
         const clipboard = new OscClipboard(writeFn);
-        const text = "Привет мир";
+        const text = "\u041f\u0440\u0438\u0432\u0435\u0442 \u043c\u0438\u0440"; // "Privet mir"
         await clipboard.writeText(text);
         const expected = Buffer.from(text, "utf8").toString("base64");
         expect(writeFn).toHaveBeenCalledWith(`\x1b]52;c;${expected}\x07`);

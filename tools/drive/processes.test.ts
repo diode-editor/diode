@@ -39,14 +39,14 @@ async function until(predicate: () => boolean, timeoutMs = 5000): Promise<void> 
 }
 
 describe("isAlive", () => {
-    it("свой процесс жив, несуществующий pid — нет", () => {
+    it("own process is alive, a nonexistent pid is not", () => {
         expect(isAlive(process.pid)).toBe(true);
         expect(isAlive(2 ** 22 + 12345)).toBe(false);
     });
 });
 
-describe.skipIf(process.platform !== "linux")("isAlive — зомби", () => {
-    it("непожатый ребёнок после SIGKILL — мёртв, хотя kill(pid, 0) его видит", async () => {
+describe.skipIf(process.platform !== "linux")("isAlive — zombie", () => {
+    it("unreaped child after SIGKILL is dead, although kill(pid, 0) sees it", async () => {
         // A child with `ignore` stdio and no exit listener: libuv does not reap it right away,
         // so catch the window while it is a zombie via /proc.
         const child = spawn(process.execPath, ["-e", "setInterval(()=>{},1000)"], { stdio: "ignore" });
@@ -59,15 +59,15 @@ describe.skipIf(process.platform !== "linux")("isAlive — зомби", () => {
 });
 
 describe.skipIf(process.platform !== "linux")("findMarkedProcesses / killSessionProcesses", () => {
-    it("маркер находится по /proc/<pid>/environ, в т.ч. не-ASCII в пути", async () => {
-        const marker = `t1:/tmp/корень-${String(process.pid)}`;
+    it("marker is found via /proc/<pid>/environ, including non-ASCII in the path", async () => {
+        const marker = `t1:/tmp/\u043a\u043e\u0440\u0435\u043d\u044c-${String(process.pid)}`; // "koren"
         const child = await spawnMarked(marker);
         await until(() => findMarkedProcesses().some((p) => p.pid === child.pid));
         expect(findMarkedProcesses().find((p) => p.pid === child.pid)?.marker).toBe(marker);
         expect(findMarkedProcesses().some((p) => p.pid === process.pid)).toBe(false);
     });
 
-    it("гасит лидера группы и маркерных потомков вне группы; SIGTERM-глухих — SIGKILL'ом", async () => {
+    it("kills the group leader and marked descendants outside the group; SIGTERM-deaf ones with SIGKILL", async () => {
         const marker = `t2:/tmp/r-${String(process.pid)}`;
         const leader = await spawnMarked(marker, { detached: true });
         await spawnMarked(marker, { ignoreTerm: true, detached: true });
@@ -79,7 +79,7 @@ describe.skipIf(process.platform !== "linux")("findMarkedProcesses / killSession
         expect(isAlive(stranger.pid ?? -1)).toBe(true);
     });
 
-    it("без лидера — только маркерные", async () => {
+    it("without a leader, only marked ones", async () => {
         const marker = `t3:/tmp/r-${String(process.pid)}`;
         await spawnMarked(marker);
         await until(() => findMarkedProcesses().some((p) => p.marker === marker));

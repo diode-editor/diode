@@ -26,7 +26,7 @@ describe("keyboardDoctorSnapshot", () => {
         process.env = savedEnv;
     });
 
-    it("снимок окружения для доктора: ОС с источником, рунг, включённые caps и отсортированные моды", () => {
+    it("environment snapshot for doctor: OS with source, rung, enabled caps and sorted modes", () => {
         const env = new TerminalEnvironmentService(new MockTerminalBackend(), createTestConfigurationService());
         env.noteTerminalName("kitty(0.45.0)");
         env.setMode("presentation", true); // inserted last — the snapshot sorts

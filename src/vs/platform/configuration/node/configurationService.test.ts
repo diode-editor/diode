@@ -98,7 +98,7 @@ describe("loadConfiguration", () => {
         expect(cfg.get<boolean>("editor.insertSpaces")).toBe(true);
     });
 
-    it("значение вне схемы реестра — дефолт схемы (и после live-reload тоже)", async () => {
+    it("value outside the registry schema becomes the schema default (after live reload too)", async () => {
         const p = paths();
         writeSettings(p.settingsFile, `{ "editor.tabSize": "four", "editor.insertSpaces": false }`);
         const cfg = await loadCfg(p);
@@ -155,8 +155,8 @@ describe("loadConfiguration", () => {
         expect(cfg.get<boolean>("editor.insertSpaces")).toBe(true);
     });
 
-    describe("именованный профиль и application-ключи (семантика эталона)", () => {
-        it("application-ключ Default'а действует в именованном профиле; незарегистрированный — нет", async () => {
+    describe("named profile and application keys (upstream semantics)", () => {
+        it("Default's application key applies in a named profile; an unregistered one does not", async () => {
             writeSettings(paths().settingsFile, `{ "update.mode": "none", "git.enabled": false, "editor.tabSize": 2 }`);
             const cfg = await loadCfg(paths("compact"));
             expect(cfg.get("update.mode")).toBe("none");
@@ -167,7 +167,7 @@ describe("loadConfiguration", () => {
             expect(cfg.getConfigurationData().user).toEqual({ update: { mode: "none" } });
         });
 
-        it("application-ключ в файле профиля не действует и назван warn'ом", async () => {
+        it("application key in the profile file does not apply and is named in a warning", async () => {
             const p = paths("compact");
             writeSettings(paths().settingsFile, `{ "update.mode": "none" }`);
             writeSettings(p.settingsFile, `{ "update.mode": "manual", "editor.tabSize": 8 }`);
@@ -180,7 +180,7 @@ describe("loadConfiguration", () => {
             expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining(p.settingsFile));
         });
 
-        it("warn про application-ключ — один раз на набор: запись в файл профиля не повторяет его, возврат ключа — повторяет", async () => {
+        it("application key warning fires once per set: a write to the profile file does not repeat it, bringing the key back does", async () => {
             const p = paths("compact");
             writeSettings(p.settingsFile, `{ "update.mode": "manual" }`);
             const logger = fakeLogger();
@@ -199,7 +199,7 @@ describe("loadConfiguration", () => {
             expect(logger.warn).toHaveBeenLastCalledWith(expect.stringContaining("update.mode"));
         });
 
-        it("в файле профиля только его ключи — предупреждать не о чем", async () => {
+        it("profile file has only its own keys — nothing to warn about", async () => {
             const p = paths("compact");
             writeSettings(p.settingsFile, `{ "editor.tabSize": 8 }`);
             const logger = fakeLogger();
@@ -208,14 +208,14 @@ describe("loadConfiguration", () => {
             expect(logger.warn).not.toHaveBeenCalled();
         });
 
-        it("без логгера application-ключ в файле профиля отбрасывается молча", async () => {
+        it("without a logger an application key in the profile file is dropped silently", async () => {
             const p = paths("compact");
             writeSettings(p.settingsFile, `{ "update.mode": "manual" }`);
             const cfg = await loadCfg(p);
             expect(cfg.get("update.mode")).toBe("default");
         });
 
-        it("profile-слой без файла профиля (сборка без profileSettingsPath) — warn не о чем", () => {
+        it("profile layer without a profile file (built without profileSettingsPath) — nothing to warn about", () => {
             const logger = fakeLogger();
             disposables.add(
                 new ConfigurationService({
@@ -229,7 +229,7 @@ describe("loadConfiguration", () => {
             expect(logger.warn).not.toHaveBeenCalled();
         });
 
-        it("запись application-ключа из именованного профиля идёт в User/settings.json", async () => {
+        it("writing an application key from a named profile goes to User/settings.json", async () => {
             const p = paths("compact");
             const cfg = await loadCfg(p);
             const events: IConfigurationChangeEvent[] = [];
@@ -244,7 +244,7 @@ describe("loadConfiguration", () => {
             expect(events.map((e) => e.affectedKeys)).toEqual([["update.mode"], ["editor.tabSize"]]);
         });
 
-        it("reload именованного профиля подхватывает application-ключ из User/settings.json", async () => {
+        it("reload of a named profile picks up an application key from User/settings.json", async () => {
             const p = paths("compact");
             const cfg = await loadCfg(p);
             const events: IConfigurationChangeEvent[] = [];
@@ -257,7 +257,7 @@ describe("loadConfiguration", () => {
             expect(events[0].affectedKeys).toEqual(["update.mode"]);
         });
 
-        it("у Default-профиля application-ключ пишется и читается как любой другой", async () => {
+        it("in the Default profile an application key is written and read like any other", async () => {
             const p = paths();
             const cfg = await loadCfg(p);
             await cfg.updateValue("update.mode", "manual");
@@ -266,7 +266,7 @@ describe("loadConfiguration", () => {
         });
     });
 
-    it("getConfigurationData: дефолты реестра и пользовательский слой (profile поверх application-ключей user), как записаны", async () => {
+    it("getConfigurationData: registry defaults and the user layer (profile on top of user application keys) as written", async () => {
         writeSettings(paths().settingsFile, `{ "editor.tabSize": 2, "git.enabled": false, "update.mode": "none" }`);
         const compactPaths = paths("compact");
         writeSettings(compactPaths.settingsFile, `{ "editor.tabSize": "eight" }`);
@@ -284,7 +284,7 @@ describe("loadConfiguration", () => {
         });
     });
 
-    it("секция языка из settings.json: чтение для языка и сырая форма для хоста", async () => {
+    it("language section from settings.json: read for the language and raw form for the host", async () => {
         const p = paths();
         writeSettings(p.settingsFile, `{ "editor.tabSize": 2, "[go]": { "editor.tabSize": 8 } }`);
 

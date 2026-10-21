@@ -9,7 +9,7 @@ import { Disposable } from "./lifecycle.ts";
 const disposables = ensureNoDisposablesAreLeakedInTestSuite();
 
 describe("Emitter", () => {
-    it("доставляет событие всем слушателям по порядку подписки", () => {
+    it("delivers the event to all listeners in subscription order", () => {
         const emitter = new Emitter<number>();
         const log: string[] = [];
         disposables.add(emitter.event((e) => log.push(`a${String(e)}`)));
@@ -19,7 +19,7 @@ describe("Emitter", () => {
         expect(log).toEqual(["a1", "b1", "a2", "b2"]);
     });
 
-    it("отписка снимает слушателя; повторная отписка — no-op", () => {
+    it("unsubscribing removes the listener; a repeated unsubscribe is a no-op", () => {
         const emitter = new Emitter<number>();
         const a = vi.fn();
         const b = vi.fn();
@@ -32,7 +32,7 @@ describe("Emitter", () => {
         expect(b).toHaveBeenCalledOnce();
     });
 
-    it("один и тот же обработчик дважды — две независимые подписки", () => {
+    it("the same handler twice gives two independent subscriptions", () => {
         const emitter = new Emitter<number>();
         const fn = vi.fn();
         const first = emitter.event(fn);
@@ -44,7 +44,7 @@ describe("Emitter", () => {
         expect(fn).toHaveBeenCalledTimes(3);
     });
 
-    it("G1: подписавшийся во время fire в этом fire не зовётся", () => {
+    it("G1: a listener added during fire is not called in that fire", () => {
         const emitter = new Emitter<number>();
         const late = vi.fn();
         disposables.add(
@@ -58,7 +58,7 @@ describe("Emitter", () => {
         expect(late).toHaveBeenCalledWith(2);
     });
 
-    it("G2: снятый во время fire и ещё не достигнутый слушатель не зовётся, следующий за ним — зовётся", () => {
+    it("G2: a listener removed during fire before being reached is not called, the next one is", () => {
         const emitter = new Emitter<number>();
         const second = vi.fn();
         const third = vi.fn();
@@ -74,7 +74,7 @@ describe("Emitter", () => {
         expect(third).toHaveBeenCalledOnce();
     });
 
-    it("слушатель может снять сам себя во время fire", () => {
+    it("a listener may remove itself during fire", () => {
         const emitter = new Emitter<number>();
         const after = vi.fn();
         const self = emitter.event(() => {
@@ -87,14 +87,14 @@ describe("Emitter", () => {
         expect(emitter.hasListeners()).toBe(true);
     });
 
-    describe("G3: ошибки слушателей", () => {
+    describe("G3: listener errors", () => {
         afterEach(() => {
             setUnexpectedErrorHandler((e) => {
                 console.error(e);
             });
         });
 
-        it("по умолчанию уходят в onUnexpectedError, остальные слушатели событие получают", () => {
+        it("go to onUnexpectedError by default, the other listeners still get the event", () => {
             const handler = vi.fn();
             setUnexpectedErrorHandler(handler);
             const emitter = new Emitter<number>();
@@ -113,7 +113,7 @@ describe("Emitter", () => {
             expect(after).toHaveBeenCalledWith(1);
         });
 
-        it("onListenerError перехватывает вместо onUnexpectedError", () => {
+        it("onListenerError intercepts instead of onUnexpectedError", () => {
             const handler = vi.fn();
             setUnexpectedErrorHandler(handler);
             const onListenerError = vi.fn();
@@ -130,7 +130,7 @@ describe("Emitter", () => {
         });
     });
 
-    it("hasListeners отражает число подписок", () => {
+    it("hasListeners reflects the subscription count", () => {
         const emitter = new Emitter<number>();
         expect(emitter.hasListeners()).toBe(false);
         const sub = emitter.event(() => undefined);
@@ -139,7 +139,7 @@ describe("Emitter", () => {
         expect(emitter.hasListeners()).toBe(false);
     });
 
-    it("G6: хуки первого и последнего слушателя", () => {
+    it("G6: first and last listener hooks", () => {
         const log: string[] = [];
         const emitter = new Emitter<number>({
             onWillAddFirstListener: () => log.push(`first(${String(emitter.hasListeners())})`),
@@ -158,7 +158,7 @@ describe("Emitter", () => {
     });
 
     describe("G5: dispose", () => {
-        it("снимает слушателей, зовёт хук последнего один раз; дальше fire — no-op", () => {
+        it("removes listeners, calls the last-listener hook once; later fire is a no-op", () => {
             const onDidRemoveLastListener = vi.fn();
             const emitter = new Emitter<number>({ onDidRemoveLastListener });
             const fn = vi.fn();
@@ -175,13 +175,13 @@ describe("Emitter", () => {
             expect(onDidRemoveLastListener).toHaveBeenCalledOnce();
         });
 
-        it("без слушателей хук последнего не зовётся", () => {
+        it("without listeners the last-listener hook is not called", () => {
             const onDidRemoveLastListener = vi.fn();
             new Emitter<number>({ onDidRemoveLastListener }).dispose();
             expect(onDidRemoveLastListener).not.toHaveBeenCalled();
         });
 
-        it("подписка на мёртвый эмиттер — пустышка, хук первого не зовётся", () => {
+        it("subscribing to a disposed emitter is a no-op, the first-listener hook is not called", () => {
             const onWillAddFirstListener = vi.fn();
             const emitter = new Emitter<number>({ onWillAddFirstListener });
             emitter.dispose();
@@ -190,7 +190,7 @@ describe("Emitter", () => {
             expect(onWillAddFirstListener).not.toHaveBeenCalled();
         });
 
-        it("dispose посреди fire: недостигнутые слушатели не зовутся", () => {
+        it("dispose in the middle of fire: listeners not yet reached are not called", () => {
             const emitter = new Emitter<number>();
             const second = vi.fn();
             const first = emitter.event(() => {
@@ -206,7 +206,7 @@ describe("Emitter", () => {
 });
 
 describe("Event.None", () => {
-    it("подписка возвращает пустышку и слушателя не зовёт никогда", () => {
+    it("subscribing returns a no-op and never calls the listener", () => {
         const fn = vi.fn();
         expect(Event.None(fn)).toBe(Disposable.None);
         expect(fn).not.toHaveBeenCalled();
@@ -214,7 +214,7 @@ describe("Event.None", () => {
 });
 
 describe("Event.once", () => {
-    it("доставляет первое событие и отписывается", () => {
+    it("delivers the first event and unsubscribes", () => {
         const emitter = new Emitter<number>();
         const fn = vi.fn();
         Event.once(emitter.event)(fn);
@@ -224,7 +224,7 @@ describe("Event.once", () => {
         expect(emitter.hasListeners()).toBe(false);
     });
 
-    it("отписка до события — слушатель не зовётся", () => {
+    it("unsubscribing before the event — the listener is not called", () => {
         const emitter = new Emitter<number>();
         const fn = vi.fn();
         Event.once(emitter.event)(fn).dispose();
@@ -233,7 +233,7 @@ describe("Event.once", () => {
         expect(emitter.hasListeners()).toBe(false);
     });
 
-    it("событие, пришедшее синхронно при подписке, доставляется один раз и подписка снимается", () => {
+    it("an event fired synchronously during subscription is delivered once and the subscription is removed", () => {
         const fn = vi.fn();
         let fireNow: ((e: number) => unknown) | undefined;
         const unsubscribe = vi.fn();

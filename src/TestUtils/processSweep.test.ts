@@ -22,9 +22,9 @@ function fakeTable(procs: Record<number, string[] | null>, parents: Record<numbe
     };
 }
 
-describe("processSweep — процессы по метке в окружении", () => {
+describe("processSweep — processes by environment tag", () => {
     describe("findByEnv", () => {
-        it("находит ровно тех, у кого метка с этим значением", () => {
+        it("finds exactly those whose tag has this value", () => {
             const table = fakeTable({
                 10: ["PATH=/bin", "MARK=a"],
                 11: ["MARK=ab"], // value prefix — not a match
@@ -39,7 +39,7 @@ describe("processSweep — процессы по метке в окружени�
             ]);
         });
 
-        it("себя и своих прямых детей не находит никогда — даже с меткой; внуков находит", () => {
+        it("never finds itself or its direct children, even tagged; finds grandchildren", () => {
             const table = fakeTable(
                 { [process.pid]: ["MARK=a"], 40: ["MARK=a"], 41: ["MARK=a"] },
                 { 40: process.pid, 41: 40 }, // 40 is a pool worker, 41 is the editor it spawned
@@ -48,13 +48,13 @@ describe("processSweep — процессы по метке в окружени�
             expect(findByEnv("MARK", "a", table)).toEqual([{ pid: 41, command: "cmd-41" }]);
         });
 
-        it("без таблицы процессов (не Linux) — пусто", () => {
+        it("no process table (not Linux) — empty", () => {
             expect(findByEnv("MARK", "a", null)).toEqual([]);
         });
     });
 
     describe("killByEnv", () => {
-        it("шлёт SIGKILL каждому найденному и возвращает тех, кому сигнал ушёл", () => {
+        it("sends SIGKILL to each found process and returns those signaled", () => {
             const table = fakeTable({ 20: ["MARK=a"], 21: ["MARK=a"], 22: ["MARK=b"] });
             const kill = vi.fn((pid: number) => {
                 if (pid === 21) throw Object.assign(new Error("gone"), { code: "ESRCH" });
@@ -71,7 +71,7 @@ describe("processSweep — процессы по метке в окружени�
     });
 
     describe("reapByEnv", () => {
-        it("ждёт, пока процессы выйдут сами, и тогда не добивает никого", async () => {
+        it("waits for processes to exit on their own and then kills no one", async () => {
             let polls = 0;
             const table: ProcessTable = {
                 pids: () => [30],
@@ -88,7 +88,7 @@ describe("processSweep — процессы по метке в окружени�
             expect(polls).toBeGreaterThanOrEqual(3);
         });
 
-        it("кто не вышел за отведённое время — добит", async () => {
+        it("whoever has not exited in time is killed", async () => {
             const table = fakeTable({ 31: ["MARK=a"] });
             const kill = vi.fn();
             const started = Date.now();
@@ -100,7 +100,7 @@ describe("processSweep — процессы по метке в окружени�
             expect(kill).toHaveBeenCalledWith(31, "SIGKILL");
         });
 
-        it("по умолчанию даёт две секунды и опрашивает часто", async () => {
+        it("by default allows two seconds and polls often", async () => {
             vi.useFakeTimers();
             try {
                 let alive = true;
@@ -125,7 +125,7 @@ describe("processSweep — процессы по метке в окружени�
         });
     });
 
-    it("describeKilled — pid и усечённая командная строка, по строке на процесс", () => {
+    it("describeKilled — pid and truncated command line, one line per process", () => {
         const long = "x".repeat(300);
 
         expect(
@@ -136,18 +136,18 @@ describe("processSweep — процессы по метке в окружени�
         ).toBe(`  1 a b\n  2 ${"x".repeat(200)}`);
     });
 
-    it("parseParentPid — четвёртое поле после последней скобки имени", () => {
+    it("parseParentPid — fourth field after the name's last paren", () => {
         expect(parseParentPid("123 (sleep) S 45 123 45 0")).toBe(45);
         expect(parseParentPid("123 (a) b (c)) R 7 1 1")).toBe(7);
-        expect(parseParentPid("мусор")).toBeNull();
+        expect(parseParentPid("garbage")).toBeNull();
     });
 
-    it("таблицы процессов нет вне Linux", () => {
+    it("no process table outside Linux", () => {
         expect(createProcTable("darwin")).toBeNull();
         expect(createProcTable("win32")).toBeNull();
     });
 
-    describe.skipIf(process.platform !== "linux")("настоящий /proc", () => {
+    describe.skipIf(process.platform !== "linux")("real /proc", () => {
         const children: ChildProcess[] = [];
 
         afterEach(() => {
@@ -189,7 +189,7 @@ describe("processSweep — процессы по метке в окружени�
             return [];
         }
 
-        it("находит и убивает внука с меткой, не трогая ни прямого ребёнка, ни соседа", async () => {
+        it("finds and kills the tagged grandchild, sparing the direct child and the neighbor", async () => {
             const marked = spawnMarked("run-1");
             const neighbour = spawnMarked("run-2");
             const markedExit = exited(marked);
@@ -206,7 +206,7 @@ describe("processSweep — процессы по метке в окружени�
             expect(await waitFound("run-2")).toHaveLength(1);
         });
 
-        it("таблица видит текущие процессы, а исчезнувший — пустой", () => {
+        it("table sees live processes, a vanished one is empty", () => {
             expect(procTable?.pids()).toContain(process.pid);
             expect(procTable?.command(process.pid)).toContain("node");
             // Beyond pid_max (2^22).

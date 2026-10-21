@@ -17,7 +17,7 @@ const KEY = (key: string, mods: Partial<KeyboardEventLike> = {}): KeyboardEventL
     ...mods,
 });
 
-describe("KeybindingRegistry — снятие бинда правилом `-command`", () => {
+describe("KeybindingRegistry: removing a binding with a `-command` rule", () => {
     it("removes all bindings for a command when no chord is given", () => {
         const registry = new KeybindingRegistry();
         registry.register(parseKeybinding("ctrl+s"), "save");

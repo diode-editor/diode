@@ -100,7 +100,7 @@ describe("WorkbenchTheme", () => {
         expect(theme.tokenTheme.rules).toEqual([]);
     });
 
-    it("несёт семантику темы в tokenTheme; без неё — выключено и без правил", () => {
+    it("carries the theme's semantics into tokenTheme; without them, disabled and with no rules", () => {
         const rules = [{ selector: "variable", settings: { foreground: "#FF0000" } }];
         const theme = WorkbenchTheme.fromThemeFile({
             colors: {},

@@ -145,7 +145,7 @@ describe("parseCliArgs", () => {
 });
 
 describe("relaunchArgs", () => {
-    it("снимает прежний --profile в обеих формах и ставит явный", () => {
+    it("drops the previous --profile in both forms and sets the explicit one", () => {
         expect(relaunchArgs(["--profile", "old", "/work"], { profile: "work" })).toEqual([
             "--profile",
             "work",
@@ -160,7 +160,7 @@ describe("relaunchArgs", () => {
         ]);
     });
 
-    it("без смены воркспейса позиционные и прочие флаги едут как были", () => {
+    it("without a workspace change positional args and other flags pass through as is", () => {
         const args = [
             "--user-data-dir",
             "/u",
@@ -190,7 +190,7 @@ describe("relaunchArgs", () => {
         ]);
     });
 
-    it("смена воркспейса замещает позиционные и режимы --goto/--diff", () => {
+    it("a workspace change replaces positional args and the --goto/--diff modes", () => {
         expect(
             relaunchArgs(["--diff", "a", "b", "--user-data-dir=/u"], { profile: "work", workspace: "/other" }),
         ).toEqual(["--user-data-dir=/u", "--profile", "work", "--", "/other"]);
@@ -199,7 +199,7 @@ describe("relaunchArgs", () => {
         ).toEqual(["--profile", "work", "--", "/p/web.code-workspace"]);
     });
 
-    it("короткие -g/-d при смене воркспейса снимаются так же, как длинные", () => {
+    it("short -g/-d are dropped on a workspace change just like the long forms", () => {
         expect(relaunchArgs(["-g", "a.ts:1", "-d", "a", "b"], { profile: "work", workspace: "/o" })).toEqual([
             "--profile",
             "work",
@@ -208,11 +208,11 @@ describe("relaunchArgs", () => {
         ]);
     });
 
-    it("одиночный `-` — позиционный аргумент, а не флаг", () => {
+    it("a lone `-` is a positional argument, not a flag", () => {
         expect(relaunchArgs(["-"], { profile: "work" })).toEqual(["--profile", "work", "--", "-"]);
     });
 
-    it("позиционные после `--` сохраняются; без позиционных `--` не ставится", () => {
+    it("positional args after `--` are kept; without positional args `--` is not added", () => {
         expect(relaunchArgs(["--", "-weird", "x"], { profile: "work" })).toEqual([
             "--profile",
             "work",
@@ -224,11 +224,11 @@ describe("relaunchArgs", () => {
         expect(relaunchArgs([], { profile: "work" })).toEqual(["--profile", "work"]);
     });
 
-    it("флаг со значением в хвосте без значения не роняет и не тянет мусор", () => {
+    it("a trailing value flag without a value neither throws nor picks up garbage", () => {
         expect(relaunchArgs(["/work", "--log"], { profile: "work" })).toEqual(["--profile", "work", "--", "/work"]);
     });
 
-    it("результат разбирается обратно: профиль, воркспейс и флаги на месте", () => {
+    it("the result parses back: profile, workspace and flags are in place", () => {
         const parsed = parseCliArgs(
             relaunchArgs(["--headless=80x24", "--inspect-tui", "/old", "--profile", "x"], {
                 profile: "My Work",
@@ -243,16 +243,16 @@ describe("relaunchArgs", () => {
 });
 
 describe("relaunchWorkspace", () => {
-    it("запрошенный воркспейс побеждает", () => {
+    it("the requested workspace wins", () => {
         expect(relaunchWorkspace("/next", "/start", "/current")).toBe("/next");
     });
 
-    it("окно сменило воркспейс после старта — следующее окно поднимается с текущим", () => {
+    it("the window changed workspace after startup: the next window starts with the current one", () => {
         expect(relaunchWorkspace(undefined, "/start", "/current")).toBe("/current");
         expect(relaunchWorkspace(undefined, undefined, "/current")).toBe("/current");
     });
 
-    it("воркспейс тот же — позиционные этого окна не трогаются", () => {
+    it("same workspace: this window's positional args are left alone", () => {
         expect(relaunchWorkspace(undefined, "/start", "/start")).toBeUndefined();
         expect(relaunchWorkspace(undefined, undefined, undefined)).toBeUndefined();
     });

@@ -21,7 +21,7 @@ describe("userDataProfileModule", () => {
         });
     }
 
-    it("биндит реестр, активный профиль и сток заголовка как есть", () => {
+    it("binds the registry, active profile and title sink as is", () => {
         const profilesService = profiles();
         const titles: string[] = [];
         const container = new Container().use(userDataProfileModule, {
@@ -35,7 +35,7 @@ describe("userDataProfileModule", () => {
         expect(titles).toEqual(["x"]);
     });
 
-    it("без стока заголовка — no-op, а не отсутствие биндинга", () => {
+    it("without a title sink — no-op, not a missing binding", () => {
         const profilesService = profiles();
         const container = new Container().use(userDataProfileModule, {
             profilesService,

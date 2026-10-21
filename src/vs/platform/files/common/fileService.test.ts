@@ -61,8 +61,8 @@ async function rejection(promise: Promise<unknown>): Promise<unknown> {
     throw new Error("expected a rejection");
 }
 
-describe("FileService — регистрация провайдеров", () => {
-    it("занятая схема — ошибка; снятие регистрации освобождает схему", () => {
+describe("FileService — provider registration", () => {
+    it("a taken scheme is an error; unregistering frees the scheme", () => {
         const files = disposables.add(new FileService());
         const seen: unknown[] = [];
         disposables.add(files.onDidChangeFileSystemProviderRegistrations((e) => seen.push(e)));
@@ -82,7 +82,7 @@ describe("FileService — регистрация провайдеров", () => 
         ]);
     });
 
-    it("повторное снятие старой регистрации не трогает перерегистрированную схему", () => {
+    it("disposing an old registration again leaves the re-registered scheme alone", () => {
         const files = disposables.add(new FileService());
         const first = files.registerProvider("mem", new InMemoryFileSystemProvider());
         first.dispose();
@@ -92,14 +92,14 @@ describe("FileService — регистрация провайдеров", () => 
         second.dispose();
     });
 
-    it("hasCapability смотрит на флаги провайдера схемы", () => {
+    it("hasCapability looks at the scheme provider's flags", () => {
         const { files } = setup(FileSystemProviderCapabilities.Readonly | FileSystemProviderCapabilities.Trash);
         expect(files.hasCapability(mem("/a"), FileSystemProviderCapabilities.Trash)).toBe(true);
         expect(files.hasCapability(mem("/a"), FileSystemProviderCapabilities.FileAtomicWrite)).toBe(false);
         expect(files.hasCapability(Uri.file("/a"), FileSystemProviderCapabilities.Trash)).toBe(false);
     });
 
-    it("изменения провайдеров агрегируются; пустые не будят; снятая регистрация замолкает", () => {
+    it("provider changes are aggregated; empty ones do not fire; a removed registration goes silent", () => {
         const files = disposables.add(new FileService());
         const changes = new Emitter<readonly Uri[]>();
         const registration = files.registerProvider("git", readonlyProvider({}, changes));
@@ -115,8 +115,8 @@ describe("FileService — регистрация провайдеров", () => 
     });
 });
 
-describe("FileService — чтение", () => {
-    it("readFile отдаёт содержимое вместе с метаданными", async () => {
+describe("FileService — reading", () => {
+    it("readFile returns the contents together with metadata", async () => {
         const { files } = setup();
         await files.writeFile(mem("/a.txt"), bytes("hello"));
         const content = await files.readFile(mem("/a.txt"));
@@ -130,7 +130,7 @@ describe("FileService — чтение", () => {
         expect(content.resource.toString()).toBe(mem("/a.txt").toString());
     });
 
-    it("каталог и файл больше потолка не читаются", async () => {
+    it("a directory and a file over the size limit are not read", async () => {
         const { files, provider } = setup();
         await files.createFolder(mem("/dir"));
         await files.writeFile(mem("/big.txt"), bytes("12345"));
@@ -148,7 +148,7 @@ describe("FileService — чтение", () => {
         expect(text((await files.readFile(mem("/big.txt"), { limit: 5 })).value)).toBe("12345");
     });
 
-    it("провайдер без stat: метаданные из содержимого, потолок — после чтения", async () => {
+    it("a provider without stat: metadata from the contents, the size limit after reading", async () => {
         const files = disposables.add(new FileService());
         disposables.add(files.registerProvider("git", readonlyProvider({ "/a": "abc" })));
         const uri = Uri.from({ scheme: "git", path: "/a" });
@@ -169,14 +169,14 @@ describe("FileService — чтение", () => {
         expect((statError as Error).message).toBe("'stat' is not supported for 'git:/a'");
     });
 
-    it("схема без провайдера — отказ Unavailable", async () => {
+    it("a scheme without a provider fails with Unavailable", async () => {
         const files = disposables.add(new FileService());
         const error = await rejection(files.readFile(Uri.from({ scheme: "nope", path: "/a" })));
         expect(isFileOperationError(error, FileOperationResult.Unavailable)).toBe(true);
         expect((error as Error).message).toBe('no file system provider for scheme "nope"');
     });
 
-    it("exists и stat", async () => {
+    it("exists and stat", async () => {
         const { files } = setup();
         await files.createFolder(mem("/dir"));
         expect(await files.exists(mem("/dir"))).toBe(true);
@@ -187,7 +187,7 @@ describe("FileService — чтение", () => {
         expect(stat.name).toBe("dir");
     });
 
-    it("resolve: каталог с детьми, файл — без", async () => {
+    it("resolve: a directory with children, a file without", async () => {
         const { files } = setup();
         await files.createFolder(mem("/dir/sub"));
         await files.writeFile(mem("/dir/a.txt"), bytes("a"));
@@ -203,7 +203,7 @@ describe("FileService — чтение", () => {
         expect(file.children).toEqual([]);
     });
 
-    it("resolve файла не читает каталог; симлинк виден в stat", async () => {
+    it("resolve of a file does not read the directory; a symlink shows in stat", async () => {
         const files = disposables.add(new FileService());
         const readdir = vi.fn(() => Promise.resolve<[string, FileType][]>([["x", FileType.File]]));
         disposables.add(
@@ -222,7 +222,7 @@ describe("FileService — чтение", () => {
         expect(readdir).not.toHaveBeenCalled();
     });
 
-    it("resolve каталога без readdir у провайдера — отказ", async () => {
+    it("resolve of a directory without provider readdir fails", async () => {
         const files = disposables.add(new FileService());
         disposables.add(
             files.registerProvider("x", {
@@ -238,8 +238,8 @@ describe("FileService — чтение", () => {
     });
 });
 
-describe("FileService — запись", () => {
-    it("writeFile: Create для нового, Write для существующего; отдаёт stat записанного", async () => {
+describe("FileService — writing", () => {
+    it("writeFile: Create for a new file, Write for an existing one; returns the written stat", async () => {
         const { files, operations } = setup();
         const created = await files.writeFile(mem("/a.txt"), bytes("one"));
         expect(created.size).toBe(3);
@@ -252,7 +252,7 @@ describe("FileService — запись", () => {
         ]);
     });
 
-    it("гард грязной записи: устаревший etag — отказ ModifiedSince, актуальный — запись", async () => {
+    it("dirty write guard: a stale etag fails with ModifiedSince, a current one writes", async () => {
         const { files } = setup();
         const first = await files.writeFile(mem("/a.txt"), bytes("one"));
         await files.writeFile(mem("/a.txt"), bytes("two"));
@@ -269,7 +269,7 @@ describe("FileService — запись", () => {
         await files.writeFile(mem("/new.txt"), bytes("x"), { etag: "stale" });
     });
 
-    it("atomic доходит до провайдера, только если тот умеет атомарную запись", async () => {
+    it("atomic reaches the provider only if it supports atomic writes", async () => {
         for (const [capabilities, expected] of [
             [FileSystemProviderCapabilities.FileAtomicWrite, true],
             [FileSystemProviderCapabilities.None, false],
@@ -282,7 +282,7 @@ describe("FileService — запись", () => {
         }
     });
 
-    it("записи в один ресурс идут по очереди, даже если предыдущая упала", async () => {
+    it("writes to one resource are queued, even if the previous one failed", async () => {
         const { files, provider } = setup();
         const log: string[] = [];
         const write = provider.writeFile.bind(provider);
@@ -315,7 +315,7 @@ describe("FileService — запись", () => {
         expect(text((await files.readFile(mem("/a.txt"))).value)).toBe("second");
     });
 
-    it("только-для-чтения провайдер отказывает в записи, создании, удалении и переносе", async () => {
+    it("a read-only provider refuses write, create, delete and move", async () => {
         const { files } = setup(FileSystemProviderCapabilities.Readonly);
         for (const [operation, attempt] of [
             ["writeFile", files.writeFile(mem("/a"), bytes(""))],
@@ -330,7 +330,7 @@ describe("FileService — запись", () => {
         }
     });
 
-    it("операции, которых провайдер не умеет, — отказ Unavailable", async () => {
+    it("operations the provider does not support fail with Unavailable", async () => {
         const files = disposables.add(new FileService());
         disposables.add(
             files.registerProvider("x", {
@@ -353,14 +353,14 @@ describe("FileService — запись", () => {
         }
     });
 
-    it("ошибка stat перед записью (кроме «нет файла») не глотается — запись не идёт", async () => {
+    it("a stat error before writing (other than file not found) is not swallowed; the write does not happen", async () => {
         const { files, provider } = setup();
         vi.spyOn(provider, "stat").mockRejectedValueOnce(new Error("EIO"));
         await expect(files.writeFile(mem("/a"), bytes("x"))).rejects.toThrow("EIO");
         expect(await files.exists(mem("/a"))).toBe(false);
     });
 
-    it("провайдер со stat, но без writeFile, — запись недоступна", async () => {
+    it("a provider with stat but without writeFile cannot write", async () => {
         const files = disposables.add(new FileService());
         disposables.add(
             files.registerProvider("x", {
@@ -374,7 +374,7 @@ describe("FileService — запись", () => {
         expect(isFileOperationError(error, FileOperationResult.Unavailable)).toBe(true);
     });
 
-    it("провайдер, умеющий писать, но без stat, — запись недоступна", async () => {
+    it("a provider that can write but has no stat cannot write", async () => {
         const files = disposables.add(new FileService());
         const writeFile = vi.fn(() => Promise.resolve());
         disposables.add(
@@ -390,14 +390,14 @@ describe("FileService — запись", () => {
         expect(writeFile).not.toHaveBeenCalled();
     });
 
-    it("createFolder создаёт с родителями и сообщает Create", async () => {
+    it("createFolder creates with parents and reports Create", async () => {
         const { files, operations } = setup();
         await files.createFolder(mem("/a/b/c"));
         expect((await files.stat(mem("/a/b"))).isDirectory).toBe(true);
         expect(operations).toEqual([{ operation: FileOperation.Create, resource: mem("/a/b/c") }]);
     });
 
-    it("del: рекурсивно по просьбе, корзина — только у провайдера с корзиной", async () => {
+    it("del: recursive on request, trash only for a provider with trash", async () => {
         const { files, provider, operations } = setup();
         await files.createFolder(mem("/d/sub"));
         const del = vi.spyOn(provider, "delete");
@@ -422,7 +422,7 @@ describe("FileService — запись", () => {
         expect(trashDelete.mock.calls[0][1]).toEqual({ recursive: false, useTrash: true });
     });
 
-    it("move и copy: внутри схемы, с переписыванием по просьбе; межсхемные — отказ", async () => {
+    it("move and copy: within a scheme, overwriting on request; across schemes fails", async () => {
         const { files, operations } = setup();
         await files.writeFile(mem("/a"), bytes("a"));
         await files.writeFile(mem("/b"), bytes("b"));
@@ -455,7 +455,7 @@ describe("FileService — запись", () => {
         }
     });
 
-    it("FileOperationError несёт код и имя", () => {
+    it("FileOperationError carries the code and the name", () => {
         const error = new FileOperationError("x", FileOperationResult.Exists);
         expect(error.name).toBe("FileOperationError");
         expect(error.result).toBe(FileOperationResult.Exists);
@@ -463,7 +463,7 @@ describe("FileService — запись", () => {
         expect(isFileOperationError(new Error("x"), FileOperationResult.Exists)).toBe(false);
     });
 
-    it("etag — время изменения и размер в форме эталона", () => {
+    it("etag is mtime and size in the upstream format", () => {
         expect(etag({ mtime: 1000, size: 31 })).toBe("15e10");
     });
 });

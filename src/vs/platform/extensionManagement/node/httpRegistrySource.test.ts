@@ -124,35 +124,35 @@ describe("HttpExtensionRegistrySource", () => {
         ws = undefined;
     });
 
-    it("getIndex читает <base>/index.json", async () => {
+    it("getIndex reads <base>/index.json", async () => {
         routes.set(`${BASE_PATH}index.json`, json(indexJson()));
         const index = await new HttpExtensionRegistrySource(base).getIndex();
         expect(index.extensions.map((e) => e.id)).toEqual([ID]);
         expect(requested).toEqual([`${BASE_PATH}index.json`]);
     });
 
-    it("база без слеша на конце указывает на тот же index.json", async () => {
+    it("a base without a trailing slash points at the same index.json", async () => {
         routes.set(`${BASE_PATH}index.json`, json(indexJson()));
         const source = new HttpExtensionRegistrySource(base.slice(0, -1));
         await expect(source.getIndex()).resolves.toBeDefined();
         expect(requested).toEqual([`${BASE_PATH}index.json`]);
     });
 
-    it("запрос представляется User-Agent'ом diode", async () => {
+    it("the request identifies itself with the diode User-Agent", async () => {
         routes.set(`${BASE_PATH}index.json`, json(indexJson()));
         await new HttpExtensionRegistrySource(base).getIndex();
         expect(headers["user-agent"]).toMatch(/^diode\//);
     });
 
-    it.each(["not a url", "ftp://example.test/registry/"])("некорректная база %j — ошибка сразу", (bad) => {
+    it.each(["not a url", "ftp://example.test/registry/"])("invalid base %j fails immediately", (bad) => {
         expect(() => new HttpExtensionRegistrySource(bad)).toThrow(/Invalid registry URL|must be http/);
     });
 
-    it("https-база принимается (публичный реестр раздаётся именно так)", () => {
+    it("an https base is accepted (the public registry is served this way)", () => {
         expect(() => new HttpExtensionRegistrySource("https://diode-editor.github.io/registry/v1/")).not.toThrow();
     });
 
-    it("диагностики битых записей уходят в onProblem", async () => {
+    it("diagnostics for broken entries go to onProblem", async () => {
         routes.set(`${BASE_PATH}index.json`, json(indexJson([{ id: "broken" }])));
         const problems: string[] = [];
         const source = new HttpExtensionRegistrySource(base, (p) => problems.push(p));
@@ -161,45 +161,45 @@ describe("HttpExtensionRegistrySource", () => {
         expect(problems).toHaveLength(1);
     });
 
-    it("битые записи не роняют источник без onProblem", async () => {
+    it("broken entries do not crash a source without onProblem", async () => {
         routes.set(`${BASE_PATH}index.json`, json(indexJson([{ id: "broken" }])));
         const index = await new HttpExtensionRegistrySource(base).getIndex();
         expect(index.extensions).toEqual([]);
     });
 
-    it("getIndex на битом JSON — ошибка с адресом", async () => {
+    it("getIndex on malformed JSON fails with the address", async () => {
         routes.set(`${BASE_PATH}index.json`, json("{oops"));
         await expect(new HttpExtensionRegistrySource(base).getIndex()).rejects.toThrow(
             /index\.json: Invalid registry index: malformed JSON/,
         );
     });
 
-    it("getIndex на ответе без тела — ошибка разбора, а не пустой индекс", async () => {
+    it("getIndex on a response without a body fails to parse instead of returning an empty index", async () => {
         routes.set(`${BASE_PATH}index.json`, status(204));
         await expect(new HttpExtensionRegistrySource(base).getIndex()).rejects.toThrow(/malformed JSON/);
     });
 
-    it.each([404, 500])("getIndex на HTTP %i — ошибка со статусом", async (code) => {
+    it.each([404, 500])("getIndex on HTTP %i fails with the status", async (code) => {
         routes.set(`${BASE_PATH}index.json`, status(code));
         await expect(new HttpExtensionRegistrySource(base).getIndex()).rejects.toThrow(
             new RegExp(`index\\.json: HTTP ${String(code)}`),
         );
     });
 
-    it("getIndex сверх лимита размера — отказ до разбора", async () => {
+    it("getIndex over the size limit fails before parsing", async () => {
         routes.set(`${BASE_PATH}index.json`, json(indexJson()));
         const source = new HttpExtensionRegistrySource(base, undefined, { maxJsonBytes: 8 });
         await expect(source.getIndex()).rejects.toThrow(/exceeds the 8-byte limit/);
     });
 
-    it("ответ ровно в лимит проходит — лимит про «больше», а не «столько же»", async () => {
+    it('a response exactly at the limit passes: the limit means "more than", not "equal to"', async () => {
         const body = indexJson();
         routes.set(`${BASE_PATH}index.json`, json(body));
         const source = new HttpExtensionRegistrySource(base, undefined, { maxJsonBytes: Buffer.byteLength(body) });
         await expect(source.getIndex()).resolves.toBeDefined();
     });
 
-    it("недоступный реестр — ошибка с адресом, а не голый сетевой стектрейс", async () => {
+    it("an unavailable registry fails with the address, not a bare network stack trace", async () => {
         routes.set(`${BASE_PATH}index.json`, (_req, res) => {
             void res;
         });
@@ -207,7 +207,7 @@ describe("HttpExtensionRegistrySource", () => {
         await expect(source.getIndex()).rejects.toThrow(/index\.json: .*(timeout|aborted)/i);
     });
 
-    it("недостижимый хост — сообщение несёт причину из cause, а не голое «fetch failed»", async () => {
+    it('an unreachable host: the message carries the reason from cause, not a bare "fetch failed"', async () => {
         const port = (server.address() as AddressInfo).port;
         const source = new HttpExtensionRegistrySource(
             `http://127.0.0.1:${String(port === 65535 ? port - 1 : port + 1)}/r/`,
@@ -215,28 +215,28 @@ describe("HttpExtensionRegistrySource", () => {
         await expect(source.getIndex()).rejects.toThrow(/index\.json: fetch failed \(.+\)/);
     });
 
-    it("getMeta читает meta/<id>.json и сверяет id", async () => {
+    it("getMeta reads meta/<id>.json and checks the id", async () => {
         routes.set(`${BASE_PATH}meta/${ID}.json`, json(metaJson()));
         const meta = await new HttpExtensionRegistrySource(base).getMeta(ID);
         expect(meta?.id).toBe(ID);
         expect(meta?.versions).toHaveLength(1);
     });
 
-    it("getMeta на 404 — undefined (реестр не знает такого id)", async () => {
+    it("getMeta on 404 returns undefined (the registry does not know the id)", async () => {
         await expect(new HttpExtensionRegistrySource(base).getMeta("acme.unknown")).resolves.toBeUndefined();
     });
 
-    it("getMeta на 500 — ошибка, а не «нет такого расширения»", async () => {
+    it('getMeta on 500 fails instead of reporting "no such extension"', async () => {
         routes.set(`${BASE_PATH}meta/${ID}.json`, status(500));
         await expect(new HttpExtensionRegistrySource(base).getMeta(ID)).rejects.toThrow(/HTTP 500/);
     });
 
-    it("getMeta на мете с чужим id внутри — ошибка", async () => {
+    it("getMeta on meta with a different id inside fails", async () => {
         routes.set(`${BASE_PATH}meta/${ID}.json`, json(metaJson({ id: "other.markdown-tools", publisher: "other" })));
         await expect(new HttpExtensionRegistrySource(base).getMeta(ID)).rejects.toThrow(/does not match expected/);
     });
 
-    it("диагностики битых версий уходят в onProblem", async () => {
+    it("diagnostics for broken versions go to onProblem", async () => {
         routes.set(`${BASE_PATH}meta/${ID}.json`, json(metaJson({ versions: [{ version: "broken" }] })));
         const problems: string[] = [];
         const meta = await new HttpExtensionRegistrySource(base, (p) => problems.push(p)).getMeta(ID);
@@ -245,14 +245,14 @@ describe("HttpExtensionRegistrySource", () => {
     });
 
     it.each(["../evil", "a/b", "..", "noDotSeparator", "acme.hello/../../etc/passwd"])(
-        "getMeta отвергает небезопасный id %j до запроса",
+        "getMeta rejects unsafe id %j before the request",
         async (id) => {
             await expect(new HttpExtensionRegistrySource(base).getMeta(id)).rejects.toThrow(/Invalid extension id/);
             expect(requested).toEqual([]);
         },
     );
 
-    it("fetchArtifact качает .vsix в tempDir и отдаёт путь", async () => {
+    it("fetchArtifact downloads the .vsix into tempDir and returns the path", async () => {
         const bytes = Buffer.from("PKfake-vsix-bytes");
         routes.set("/mt-1.2.0.vsix", (_req, res) => {
             res.writeHead(200, { "content-type": "application/octet-stream" });
@@ -265,7 +265,7 @@ describe("HttpExtensionRegistrySource", () => {
         expect(fs.readFileSync(file)).toEqual(bytes);
     });
 
-    it("https-артефакт проходит проверку схемы и падает уже на сети", async () => {
+    it("an https artifact passes the scheme check and fails only on the network", async () => {
         // Port 1 is closed: a mutant dropping https from the check would give "must be http(s)" instead of a network failure.
         ws = createTempWorkspace();
         await expect(
@@ -273,7 +273,7 @@ describe("HttpExtensionRegistrySource", () => {
         ).rejects.toThrow(/x\.vsix: fetch failed/);
     });
 
-    it("fetchArtifact на path-артефакте — понятная ошибка", async () => {
+    it("fetchArtifact on a path artifact fails with a clear error", async () => {
         ws = createTempWorkspace();
         const version: IRegistryVersion = {
             version: "1.0.0",
@@ -289,21 +289,21 @@ describe("HttpExtensionRegistrySource", () => {
     it.each([
         ["not a url", /Invalid artifact URL/],
         ["file:///etc/passwd", /must be http/],
-    ])("fetchArtifact отвергает артефакт по адресу %j", async (url, expected) => {
+    ])("fetchArtifact rejects an artifact at %j", async (url, expected) => {
         ws = createTempWorkspace();
         await expect(new HttpExtensionRegistrySource(base).fetchArtifact(urlVersion(url), ws.dir)).rejects.toThrow(
             expected,
         );
     });
 
-    it("fetchArtifact на HTTP 404 — ошибка со статусом", async () => {
+    it("fetchArtifact on HTTP 404 fails with the status", async () => {
         ws = createTempWorkspace();
         await expect(
             new HttpExtensionRegistrySource(base).fetchArtifact(urlVersion(`${origin}/missing.vsix`), ws.dir),
         ).rejects.toThrow(/missing\.vsix: HTTP 404/);
     });
 
-    it("fetchArtifact сверх лимита размера — отказ, файл не появляется", async () => {
+    it("fetchArtifact over the size limit fails and no file appears", async () => {
         routes.set("/big.vsix", (_req, res) => {
             res.writeHead(200);
             res.end(Buffer.alloc(4096));
@@ -316,7 +316,7 @@ describe("HttpExtensionRegistrySource", () => {
         expect(fs.existsSync(ws.path("artifact.vsix"))).toBe(false);
     });
 
-    it("медленная, но ЖИВАЯ загрузка не обрывается: сторожим молчание, а не длительность", async () => {
+    it("a slow but LIVE download is not aborted: the watchdog tracks silence, not duration", async () => {
         // ~280ms total: longer than the 100ms timeout, but no single pause exceeds it.
         const total = 7;
         routes.set("/slow.vsix", (_req, res) => {
@@ -339,7 +339,7 @@ describe("HttpExtensionRegistrySource", () => {
         expect(fs.statSync(file).size).toBe(total * 8);
     });
 
-    it("замолчавшая загрузка обрывается по сторожу, недокачанный файл убран", async () => {
+    it("a stalled download is aborted by the watchdog and the partial file is removed", async () => {
         routes.set("/stalled.vsix", (_req, res) => {
             res.writeHead(200, { "content-type": "application/octet-stream" });
             res.write(Buffer.alloc(8, 1));
@@ -353,7 +353,7 @@ describe("HttpExtensionRegistrySource", () => {
         expect(fs.existsSync(ws.path("artifact.vsix"))).toBe(false);
     });
 
-    it("после успешной загрузки сторож снят — висящих таймеров не остаётся", async () => {
+    it("after a successful download the watchdog is cleared and no timers are left", async () => {
         // An uncleared `setTimeout` holds the event loop: `--install-extension` would hang for another `timeoutMs`.
         const bytes = Buffer.alloc(32, 3);
         routes.set("/tidy.vsix", (_req, res) => {
@@ -368,7 +368,7 @@ describe("HttpExtensionRegistrySource", () => {
         expect(timers()).toBe(before);
     });
 
-    it("артефакт ровно в лимит скачивается", async () => {
+    it("an artifact exactly at the limit downloads", async () => {
         const bytes = Buffer.alloc(64, 7);
         routes.set("/exact.vsix", (_req, res) => {
             res.writeHead(200);
@@ -380,7 +380,7 @@ describe("HttpExtensionRegistrySource", () => {
         expect(fs.readFileSync(file)).toEqual(bytes);
     });
 
-    it("обрыв соединения на середине тела — ошибка загрузки, файл не появляется", async () => {
+    it("a connection drop mid-body fails the download and no file appears", async () => {
         routes.set("/truncated.vsix", (_req, res) => {
             res.writeHead(200, { "content-length": "1024" });
             res.write(Buffer.alloc(64));
@@ -394,7 +394,7 @@ describe("HttpExtensionRegistrySource", () => {
         expect(fs.existsSync(ws.path("artifact.vsix"))).toBe(false);
     });
 
-    it("многокусковое тело доезжает в файл целиком и в исходном порядке", async () => {
+    it("a multi-chunk body reaches the file whole and in order", async () => {
         // A single-`res.end` body wouldn't catch a write that puts every chunk at offset zero.
         const parts = [Buffer.alloc(64 * 1024, 1), Buffer.alloc(96 * 1024, 2), Buffer.alloc(48 * 1024, 3)];
         routes.set("/chunked.vsix", (_req, res) => {
@@ -412,7 +412,7 @@ describe("HttpExtensionRegistrySource", () => {
         expect(fs.readFileSync(file)).toEqual(Buffer.concat(parts));
     });
 
-    it("превышение лимита обрывает скачивание, а не проверяется по уже скачанному", async () => {
+    it("exceeding the limit aborts the download instead of checking after the fact", async () => {
         // An after-the-fact check on the finished file would pass the previous cases, but not this one.
         const TOTAL = 64 * 1024 * 1024;
         const chunk = Buffer.alloc(64 * 1024, 7);
@@ -447,7 +447,7 @@ describe("HttpExtensionRegistrySource", () => {
         expect(fs.existsSync(ws.path("artifact.vsix"))).toBe(false);
     });
 
-    it("дефолтный лимит пропускает платформенный .vsix со вшитым рантаймом", () => {
+    it("the default limit admits a platform .vsix with a bundled runtime", () => {
         // redhat.java@1.57.2026092608 (linux-x64, with JRE 21) is the heaviest build.
         expect(DEFAULT_MAX_ARTIFACT_BYTES).toBeGreaterThanOrEqual(139_029_576);
     });

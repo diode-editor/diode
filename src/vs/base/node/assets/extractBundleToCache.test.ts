@@ -26,7 +26,7 @@ describe("extractBundleToCache", () => {
         rmSync(root, { recursive: true, force: true });
     });
 
-    it("распаковывает дерево, ставит .diode-ready, лок не остаётся", async () => {
+    it("extracts the tree, writes .diode-ready, leaves no lock", async () => {
         const target = path.join(root, "v1-abc");
         await extractBundleToCache(bundle(), target);
 
@@ -36,7 +36,7 @@ describe("extractBundleToCache", () => {
         expect(existsSync(`${target}.lock`)).toBe(false);
     });
 
-    it("повторный вызов — мгновенный no-op: распакованное не перезаписывается", async () => {
+    it("a repeated call is an instant no-op: extracted files are not overwritten", async () => {
         const target = path.join(root, "v1-abc");
         await extractBundleToCache(bundle(), target);
         writeFileSync(path.join(target, "server/lib/cli.mjs"), "edited after unpack");
@@ -45,7 +45,7 @@ describe("extractBundleToCache", () => {
         expect(readFileSync(path.join(target, "server/lib/cli.mjs"), "utf8")).toBe("edited after unpack");
     });
 
-    it("незавершённый мусор прошлого падения затирается под локом", async () => {
+    it("unfinished leftovers of a previous crash are wiped under the lock", async () => {
         const target = path.join(root, "v1-abc");
         // A half-extracted directory WITHOUT .diode-ready, as after a crash between
         // writing files and publishing (normally unobservable: we write to tmp).
@@ -57,7 +57,7 @@ describe("extractBundleToCache", () => {
         expect(existsSync(path.join(target, READY_MARKER))).toBe(true);
     });
 
-    it("конкурент с локом: ждём его .diode-ready", async () => {
+    it("a competitor holds the lock: wait for its .diode-ready", async () => {
         const target = path.join(root, "v1-abc");
         mkdirSync(`${target}.lock`); // "another" owner is extracting
         const done = extractBundleToCache(bundle(), target, { waitTimeoutMs: 3_000, pollIntervalMs: 10 });
@@ -73,7 +73,7 @@ describe("extractBundleToCache", () => {
         expect(existsSync(path.join(target, "server/lib/cli.mjs"))).toBe(false);
     });
 
-    it("stale lock: таймаут с внятной подсказкой", async () => {
+    it("stale lock: timeout with a clear hint", async () => {
         const target = path.join(root, "v1-abc");
         mkdirSync(`${target}.lock`);
 
@@ -85,7 +85,7 @@ describe("extractBundleToCache", () => {
         );
     });
 
-    it.skipIf(process.platform === "win32")("не-EEXIST ошибка лока пробрасывается (readonly cacheRoot)", async () => {
+    it.skipIf(process.platform === "win32")("a non-EEXIST lock error is rethrown (readonly cacheRoot)", async () => {
         const readonlyRoot = path.join(root, "ro");
         mkdirSync(readonlyRoot);
         chmodSync(readonlyRoot, 0o500);
@@ -96,7 +96,7 @@ describe("extractBundleToCache", () => {
         }
     });
 
-    it("битый бандл с traversal-путём отвергается, лок снимается", async () => {
+    it("a broken bundle with a traversal path is rejected and the lock is released", async () => {
         const target = path.join(root, "v1-abc");
         // The header is built by hand: packBundle won't let such a path through.
         const evil = packBundle([{ virtualPath: "ok.txt", data: Buffer.from("x") }]);
@@ -114,7 +114,7 @@ describe("extractBundleToCache", () => {
         expect(existsSync(`${target}.lock`)).toBe(false);
     });
 
-    it.skipIf(process.platform === "win32")("executable: отмеченные файлы исполняемы, остальные — нет", async () => {
+    it.skipIf(process.platform === "win32")("executable: marked files are executable, the rest are not", async () => {
         const target = path.join(root, "v1-abc");
         await extractBundleToCache(bundle(), target, { executable: (p) => p.endsWith("cli.mjs") });
 
@@ -136,7 +136,7 @@ describe("extractBundleToCacheSync", () => {
         rmSync(root, { recursive: true, force: true });
     });
 
-    it("распаковывает синхронно, второй вызов — no-op", () => {
+    it("extracts synchronously; the second call is a no-op", () => {
         const target = path.join(root, "v1-abc");
         extractBundleToCacheSync(bundle(), target, { executable: () => true });
 
@@ -147,7 +147,7 @@ describe("extractBundleToCacheSync", () => {
         expect(readFileSync(path.join(target, "bin/rg"), "utf8")).toBe("edited after unpack");
     });
 
-    it("чужой лок без публикации — таймаут с подсказкой про stale lock", () => {
+    it("a foreign lock without publication: timeout with a stale lock hint", () => {
         const target = path.join(root, "v1-abc");
         mkdirSync(`${target}.lock`, { recursive: true });
 
@@ -156,7 +156,7 @@ describe("extractBundleToCacheSync", () => {
         }).toThrow(/stale lock/);
     });
 
-    it("чужой лок: ждём, пока другой процесс опубликует каталог", () => {
+    it("a foreign lock: wait until the other process publishes the directory", () => {
         const target = path.join(root, "v1-abc");
         mkdirSync(`${target}.lock`, { recursive: true });
         // The synchronous wait blocks the thread, so a separate process plays the "owner".
@@ -175,7 +175,7 @@ describe("extractBundleToCacheSync", () => {
         }
     });
 
-    it("чужой лок, но каталог уже опубликован — сразу готово", () => {
+    it("a foreign lock, but the directory is already published: ready at once", () => {
         const target = path.join(root, "v1-abc");
         mkdirSync(target, { recursive: true });
         writeFileSync(path.join(target, READY_MARKER), "");

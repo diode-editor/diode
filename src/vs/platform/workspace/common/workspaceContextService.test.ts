@@ -6,20 +6,20 @@ import { WorkspaceContextService } from "./workspaceContextService.ts";
 import { computeWorkspaceId } from "./workspaceId.ts";
 
 describe("WorkspaceContextService", () => {
-    describe("пустое окно", () => {
-        it("папок нет, идентичности нет, состояние empty", () => {
+    describe("empty window", () => {
+        it("no folders, no identity, state empty", () => {
             const service = new WorkspaceContextService();
             expect(service.getWorkspace()).toEqual({ id: null, folders: [] });
             expect(service.getWorkbenchState()).toBe("empty");
         });
 
-        it("getWorkspaceFolder на любой файл — null", () => {
+        it("getWorkspaceFolder returns null for any file", () => {
             expect(new WorkspaceContextService().getWorkspaceFolder(Uri.file("/any/file.ts"))).toBeNull();
         });
     });
 
     describe("setWorkspaceFolder", () => {
-        it("ставит ровно одну папку с uri, именем-basename и индексом 0", () => {
+        it("sets exactly one folder with uri, basename as name and index 0", () => {
             const service = new WorkspaceContextService();
             service.setWorkspaceFolder("/work/my project");
 
@@ -32,13 +32,13 @@ describe("WorkspaceContextService", () => {
             expect(folders[0]?.uri.fsPath).toBe("/work/my project");
         });
 
-        it("переводит состояние окна в folder", () => {
+        it("switches the window state to folder", () => {
             const service = new WorkspaceContextService();
             service.setWorkspaceFolder("/work/project");
             expect(service.getWorkbenchState()).toBe("folder");
         });
 
-        it("идентичность — computeWorkspaceId от той же папки, и её же возвращает вызов", () => {
+        it("identity is computeWorkspaceId of the same folder, and the call returns it", () => {
             const service = new WorkspaceContextService();
             const returned = service.setWorkspaceFolder("/work/project");
             expect(returned).toBe(computeWorkspaceId("/work/project"));
@@ -47,14 +47,14 @@ describe("WorkspaceContextService", () => {
 
         // The path is resolved to absolute ONCE: both the folder and the id must come
         // from the same path, otherwise `diode .` and `diode /abs` would diverge.
-        it("резолвит относительный путь — и в папке, и в идентичности", () => {
+        it("resolves a relative path in both the folder and the identity", () => {
             const service = new WorkspaceContextService();
             const id = service.setWorkspaceFolder("sub/dir");
             expect(service.getWorkspace().folders[0]?.uri.fsPath).toBe(`${process.cwd()}/sub/dir`);
             expect(id).toBe(computeWorkspaceId(`${process.cwd()}/sub/dir`));
         });
 
-        it("повторный вызов заменяет папку, а не добавляет вторую", () => {
+        it("a repeated call replaces the folder instead of adding a second one", () => {
             const service = new WorkspaceContextService();
             service.setWorkspaceFolder("/work/first");
             service.setWorkspaceFolder("/work/second");
@@ -66,7 +66,7 @@ describe("WorkspaceContextService", () => {
     });
 
     describe("setWorkspaceFile", () => {
-        it("папка — из файла, состояние workspace, файл — в configuration", () => {
+        it("folder comes from the file, state is workspace, the file is in configuration", () => {
             const service = new WorkspaceContextService();
             service.setWorkspaceFile("/repo/web.code-workspace", { folder: "/repo", folderName: undefined });
 
@@ -76,7 +76,7 @@ describe("WorkspaceContextService", () => {
             expect(workspace.folders.map((f) => [f.uri.fsPath, f.name, f.index])).toEqual([["/repo", "repo", 0]]);
         });
 
-        it("name из файла — имя папки", () => {
+        it("name from the file becomes the folder name", () => {
             const service = new WorkspaceContextService();
             service.setWorkspaceFile("/repo/web.code-workspace", { folder: "/repo", folderName: "Web" });
             expect(service.getWorkspace().folders[0]?.name).toBe("Web");
@@ -84,7 +84,7 @@ describe("WorkspaceContextService", () => {
 
         // This is why workspace files exist: two files over one directory have
         // their own tabs and layout, and both differ from the folder itself.
-        it("идентичность — от пути файла: два файла над одной папкой и сама папка — три проекта", () => {
+        it("identity comes from the file path: two files over one folder plus the folder itself are three projects", () => {
             const service = new WorkspaceContextService();
             const web = service.setWorkspaceFile("/repo/web.code-workspace", {
                 folder: "/repo",
@@ -101,7 +101,7 @@ describe("WorkspaceContextService", () => {
             expect(new Set([web, backend, folder]).size).toBe(3);
         });
 
-        it("резолвит относительные пути файла и папки", () => {
+        it("resolves relative file and folder paths", () => {
             const service = new WorkspaceContextService();
             const id = service.setWorkspaceFile("ws/web.code-workspace", { folder: "ws", folderName: undefined });
             expect(service.getWorkspace().configuration?.fsPath).toBe(`${process.cwd()}/ws/web.code-workspace`);
@@ -109,7 +109,7 @@ describe("WorkspaceContextService", () => {
             expect(id).toBe(computeWorkspaceId(`${process.cwd()}/ws/web.code-workspace`));
         });
 
-        it("оповещает подписчиков, а Open Folder после него возвращает состояние folder", () => {
+        it("notifies subscribers, and a later Open Folder restores the folder state", () => {
             const service = new WorkspaceContextService();
             const listener = vi.fn();
             service.onDidChangeWorkspaceFolders(listener);
@@ -130,33 +130,33 @@ describe("WorkspaceContextService", () => {
             return service;
         }
 
-        it("файл внутри папки — эта папка", () => {
+        it("a file inside the folder maps to that folder", () => {
             expect(opened().getWorkspaceFolder(Uri.file("/work/project/src/x.ts"))?.name).toBe("project");
         });
 
-        it("сама папка считается лежащей внутри себя", () => {
+        it("the folder itself counts as inside itself", () => {
             expect(opened().getWorkspaceFolder(Uri.file("/work/project"))?.name).toBe("project");
         });
 
         // Match on a segment boundary, not a string prefix: otherwise the sibling
         // `/work/project-old` would land in the same workspace.
-        it("сосед с общим префиксом имени — null", () => {
+        it("a sibling sharing a name prefix gives null", () => {
             expect(opened().getWorkspaceFolder(Uri.file("/work/project-old/x.ts"))).toBeNull();
         });
 
-        it("файл вне папки — null", () => {
+        it("a file outside the folder gives null", () => {
             expect(opened().getWorkspaceFolder(Uri.file("/elsewhere/x.ts"))).toBeNull();
         });
 
         // An extension resource (`jdt:`, `git:`) doesn't belong to an on-disk folder,
         // even if its path matches textually.
-        it("другая схема — null даже при совпадающем пути", () => {
+        it("a different scheme gives null even with a matching path", () => {
             expect(opened().getWorkspaceFolder(Uri.parse("git:/work/project/src/x.ts"))).toBeNull();
         });
 
         // The FS root is the only folder whose path itself ends with `/`:
         // appending a separator would give `//` and drop everything from the workspace.
-        it("папка-корень `/` вмещает любой файл", () => {
+        it("the root folder `/` contains any file", () => {
             const service = new WorkspaceContextService();
             service.setWorkspaceFolder("/");
             expect(service.getWorkspaceFolder(Uri.file("/etc/hosts"))?.index).toBe(0);
@@ -165,7 +165,7 @@ describe("WorkspaceContextService", () => {
     });
 
     describe("onDidChangeWorkspaceFolders", () => {
-        it("стреляет на смене набора папок", () => {
+        it("fires when the folder set changes", () => {
             const service = new WorkspaceContextService();
             const listener = vi.fn();
             service.onDidChangeWorkspaceFolders(listener);
@@ -178,7 +178,7 @@ describe("WorkspaceContextService", () => {
 
         // The subscriber must ALREADY see the new state: `workspaceContains:`
         // extension activation hangs off this event.
-        it("на момент вызова слушателя папка уже новая", () => {
+        it("the folder is already new when the listener runs", () => {
             const service = new WorkspaceContextService();
             const seen: (string | undefined)[] = [];
             service.onDidChangeWorkspaceFolders(() => {
@@ -189,7 +189,7 @@ describe("WorkspaceContextService", () => {
             expect(seen).toEqual(["project"]);
         });
 
-        it("немедленно после подписки не вызывается", () => {
+        it("is not called immediately on subscribe", () => {
             const service = new WorkspaceContextService();
             service.setWorkspaceFolder("/work/project");
 
@@ -198,7 +198,7 @@ describe("WorkspaceContextService", () => {
             expect(listener).not.toHaveBeenCalled();
         });
 
-        it("dispose отписывает", () => {
+        it("dispose unsubscribes", () => {
             const service = new WorkspaceContextService();
             const listener = vi.fn();
             service.onDidChangeWorkspaceFolders(listener).dispose();
@@ -209,7 +209,7 @@ describe("WorkspaceContextService", () => {
 
         // Listeners are iterated over a copy of the set: unsubscribing from inside a handler
         // (as a one-shot subscriber does) must not skip the next one.
-        it("отписка изнутри обработчика не съедает соседних слушателей", () => {
+        it("unsubscribing from inside a handler does not drop sibling listeners", () => {
             const service = new WorkspaceContextService();
             const second = vi.fn();
             const first = vi.fn(() => {

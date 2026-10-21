@@ -19,12 +19,12 @@ function contextAt(rung: MacKeysRung | undefined): ContextKeyService {
 }
 
 describe("macKeys", () => {
-    it("уровни: 0 — не мак, дальше 1…3 по возрастанию", () => {
+    it("levels: 0 is not mac, then 1…3 ascending", () => {
         expect(macKeysLevel(undefined)).toBe(0);
         expect(MAC_KEYS_RUNGS.map(macKeysLevel)).toEqual([1, 2, 3]);
     });
 
-    it("хелперы строят when-выражения над числовым ключом", () => {
+    it("helpers build when expressions over the numeric key", () => {
         expect(macKeysAtLeast("cmd")).toBe("macKeys >= 3");
         expect(macKeysIs("legacy")).toBe("macKeys == 1");
         expect(macKeysBelow("cmd")).toBe("!(macKeys >= 3)");
@@ -36,7 +36,7 @@ describe("macKeys", () => {
         ["legacy", { atLeastLegacy: true, atLeastCmd: false, isExtended: false, belowCmd: true, notMac: false }],
         ["extended", { atLeastLegacy: true, atLeastCmd: false, isExtended: true, belowCmd: true, notMac: false }],
         ["cmd", { atLeastLegacy: true, atLeastCmd: true, isExtended: false, belowCmd: false, notMac: false }],
-    ])("рунг %s", (rung, expected) => {
+    ])("rung %s", (rung, expected) => {
         const contextKeys = contextAt(rung);
         expect({
             atLeastLegacy: contextKeys.evaluate(macKeysAtLeast("legacy")),
@@ -47,13 +47,13 @@ describe("macKeys", () => {
         }).toEqual(expected);
     });
 
-    it("невыставленный ключ — не мак: мак-бинды не оживают до выставления окружения", () => {
+    it("an unset key is not mac: mac bindings stay inactive until the environment is set", () => {
         const contextKeys = new ContextKeyService();
         expect(contextKeys.evaluate(macKeysAtLeast("legacy"))).toBe(false);
         expect(contextKeys.evaluate(notMacKeys())).toBe(true);
     });
 
-    it("рунг чужого семейства (tier) — ошибка типа, а не соглашение", () => {
+    it("a rung from another family (tier) is a type error, not a convention", () => {
         expectTypeOf(macKeysAtLeast).parameter(0).toEqualTypeOf<MacKeysRung>();
         expectTypeOf(macKeysIs).parameter(0).toEqualTypeOf<MacKeysRung>();
         expectTypeOf<"kitty">().not.toExtend<MacKeysRung>();

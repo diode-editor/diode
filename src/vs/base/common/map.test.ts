@@ -5,18 +5,18 @@ import { SetMap } from "./map.ts";
 /** Consumer: the vendored `computeMovedLines`. */
 
 describe("SetMap", () => {
-    it("копит несколько значений под одним ключом", () => {
+    it("accumulates several values under one key", () => {
         const map = new SetMap<string, number>();
         map.add("a", 1);
         map.add("a", 2);
         expect([...map.get("a")]).toEqual([1, 2]);
     });
 
-    it("на неизвестный ключ отдаёт пустое множество, а не undefined", () => {
-        expect(new SetMap<string, number>().get("нет").size).toBe(0);
+    it("returns an empty set for an unknown key, not undefined", () => {
+        expect(new SetMap<string, number>().get("missing").size).toBe(0);
     });
 
-    it("delete убирает значение, оставляя остальные", () => {
+    it("delete removes the value, keeping the others", () => {
         const map = new SetMap<string, number>();
         map.add("a", 1);
         map.add("a", 2);
@@ -24,20 +24,20 @@ describe("SetMap", () => {
         expect([...map.get("a")]).toEqual([2]);
     });
 
-    it("удаление последнего значения выбрасывает и сам ключ", () => {
+    it("removing the last value drops the key itself", () => {
         const map = new SetMap<string, number>();
         map.add("a", 1);
         map.delete("a", 1);
         expect(map.get("a").size).toBe(0);
     });
 
-    it("delete по неизвестному ключу — no-op", () => {
+    it("delete on an unknown key is a no-op", () => {
         expect(() => {
-            new SetMap<string, number>().delete("нет", 1);
+            new SetMap<string, number>().delete("missing", 1);
         }).not.toThrow();
     });
 
-    it("forEach обходит значения ключа", () => {
+    it("forEach iterates the values of a key", () => {
         const map = new SetMap<string, number>();
         map.add("a", 1);
         map.add("a", 2);
@@ -46,13 +46,13 @@ describe("SetMap", () => {
         expect(seen).toEqual([1, 2]);
     });
 
-    it("forEach по неизвестному ключу ничего не зовёт", () => {
+    it("forEach on an unknown key calls nothing", () => {
         const seen: number[] = [];
-        new SetMap<string, number>().forEach("нет", (v) => seen.push(v));
+        new SetMap<string, number>().forEach("missing", (v) => seen.push(v));
         expect(seen).toEqual([]);
     });
 
-    it("ключи независимы", () => {
+    it("keys are independent", () => {
         const map = new SetMap<string, number>();
         map.add("a", 1);
         map.add("b", 2);

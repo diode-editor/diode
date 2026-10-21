@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { flushMicrotasks, settle } from "./timing.ts";
 
 describe("flushMicrotasks", () => {
-    it("прокачивает цепочку из трёх microtask-оборотов (дефолт)", async () => {
+    it("flushes a chain of three microtask turns (default)", async () => {
         let done = false;
         void Promise.resolve()
             .then(() => undefined)
@@ -15,7 +15,7 @@ describe("flushMicrotasks", () => {
         expect(done).toBe(true);
     });
 
-    it("уважает кастомное число оборотов", async () => {
+    it("honors a custom number of turns", async () => {
         let done = false;
         void Promise.resolve().then(() => {
             done = true;
@@ -30,7 +30,7 @@ describe("settle", () => {
         vi.useRealTimers();
     });
 
-    it("резолвится после дефолтных 200мс", async () => {
+    it("resolves after the default 200ms", async () => {
         vi.useFakeTimers();
         let done = false;
         void settle().then(() => {
@@ -42,7 +42,7 @@ describe("settle", () => {
         expect(done).toBe(true);
     });
 
-    it("уважает кастомную задержку", async () => {
+    it("honors a custom delay", async () => {
         vi.useFakeTimers();
         let done = false;
         void settle(50).then(() => {

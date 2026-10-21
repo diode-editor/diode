@@ -71,14 +71,14 @@ describe("default color registry coverage", () => {
                 const trail = [key];
                 let value = definition.defaults[kind];
                 while (isColorReference(value)) {
-                    expect(trail, `цикл ссылок ${[...trail, value].join(" → ")}`).not.toContain(value);
+                    expect(trail, `reference cycle ${[...trail, value].join(" → ")}`).not.toContain(value);
                     const target = contributions[value];
-                    expect(target, `"${key}" (${kind}) ссылается на незарегистрированный "${value}"`).toBeDefined();
-                    expect(target.defaults, `"${value}" без дефолтов, а на него ссылается "${key}"`).not.toBeNull();
+                    expect(target, `"${key}" (${kind}) references unregistered "${value}"`).toBeDefined();
+                    expect(target.defaults, `"${value}" has no defaults, but "${key}" references it`).not.toBeNull();
                     trail.push(value);
                     value = target.defaults![kind];
                 }
-                expect(value, `"${trail.at(-1) ?? key}" (${kind}): не hex`).toMatch(
+                expect(value, `"${trail.at(-1) ?? key}" (${kind}): not hex`).toMatch(
                     /^#[0-9A-Fa-f]{6}([0-9A-Fa-f]{2})?$/,
                 );
             }

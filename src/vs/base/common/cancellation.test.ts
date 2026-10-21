@@ -28,7 +28,7 @@ function spyParent(): { token: ICancellationToken; fire: () => void; readonly su
 }
 
 describe("CancellationTokenSource", () => {
-    it("cancel взводит флаг и зовёт подписчиков ровно один раз", () => {
+    it("cancel sets the flag and calls subscribers exactly once", () => {
         const source = new CancellationTokenSource();
         const first = vi.fn();
         const second = vi.fn();
@@ -48,7 +48,7 @@ describe("CancellationTokenSource", () => {
         expect(second).toHaveBeenCalledOnce();
     });
 
-    it("подписка на УЖЕ отменённый токен зовёт слушателя сразу", () => {
+    it("subscribing to an ALREADY cancelled token calls the listener immediately", () => {
         const source = new CancellationTokenSource();
         source.cancel();
 
@@ -61,7 +61,7 @@ describe("CancellationTokenSource", () => {
         expect(late).toHaveBeenCalledOnce();
     });
 
-    it("dispose подписки снимает слушателя, dispose источника — всех сразу", () => {
+    it("disposing a subscription removes its listener, disposing the source removes all", () => {
         const source = new CancellationTokenSource();
         const dropped = vi.fn();
         const kept = vi.fn();
@@ -85,7 +85,7 @@ describe("CancellationTokenSource", () => {
         expect(other.token.isCancellationRequested).toBe(true);
     });
 
-    it("слушатель вправе отписать соседа из колбэка — обход идёт по снапшоту", () => {
+    it("a listener may unsubscribe a sibling from its callback — iteration runs over a snapshot", () => {
         const source = new CancellationTokenSource();
         const neighbour = vi.fn();
         let neighbourSubscription = { dispose: (): void => undefined };
@@ -101,7 +101,7 @@ describe("CancellationTokenSource", () => {
 });
 
 describe("CancellationTokenSource(parent)", () => {
-    it("отмена родителя отменяет источник и зовёт его слушателей", () => {
+    it("cancelling the parent cancels the source and calls its listeners", () => {
         const parent = new CancellationTokenSource();
         const child = new CancellationTokenSource(parent.token);
         const listener = vi.fn();
@@ -113,14 +113,14 @@ describe("CancellationTokenSource(parent)", () => {
         expect(listener).toHaveBeenCalledOnce();
     });
 
-    it("уже отменённый родитель отменяет источник сразу", () => {
+    it("an already cancelled parent cancels the source immediately", () => {
         const parent = new CancellationTokenSource();
         parent.cancel();
 
         expect(new CancellationTokenSource(parent.token).token.isCancellationRequested).toBe(true);
     });
 
-    it("отмена источника родителя не трогает", () => {
+    it("cancelling the source leaves the parent alone", () => {
         const parent = new CancellationTokenSource();
         const child = new CancellationTokenSource(parent.token);
 
@@ -129,7 +129,7 @@ describe("CancellationTokenSource(parent)", () => {
         expect(parent.token.isCancellationRequested).toBe(false);
     });
 
-    it("dispose снимает подписку на родителя", () => {
+    it("dispose removes the subscription to the parent", () => {
         const parent = spyParent();
         const child = new CancellationTokenSource(parent.token);
         expect(parent.subscribers).toBe(1);
@@ -143,7 +143,7 @@ describe("CancellationTokenSource(parent)", () => {
 });
 
 describe("LatestRequest", () => {
-    it("start перебивает прежний билет: тот устаревает, новый — нет", () => {
+    it("start supersedes the previous ticket: the old one goes stale, the new one does not", () => {
         const latest = new LatestRequest();
         const first = latest.start();
         expect(first.isStale()).toBe(false);
@@ -156,7 +156,7 @@ describe("LatestRequest", () => {
         expect(second.isStale()).toBe(false);
     });
 
-    it("cancel устаревает текущий билет, следующий start снова свежий", () => {
+    it("cancel makes the current ticket stale, the next start is fresh again", () => {
         const latest = new LatestRequest();
         const ticket = latest.start();
 
@@ -167,7 +167,7 @@ describe("LatestRequest", () => {
         expect(latest.start().isStale()).toBe(false);
     });
 
-    it("pending: горит от start до done или отмены", () => {
+    it("pending: set from start until done or cancellation", () => {
         const latest = new LatestRequest();
         expect(latest.pending).toBe(false);
 
@@ -184,7 +184,7 @@ describe("LatestRequest", () => {
         expect(latest.pending).toBe(false);
     });
 
-    it("done перебитого билета не гасит pending нового", () => {
+    it("done of a superseded ticket does not clear pending of the new one", () => {
         const latest = new LatestRequest();
         const first = latest.start();
         const second = latest.start();
@@ -196,7 +196,7 @@ describe("LatestRequest", () => {
         expect(second.isStale()).toBe(true);
     });
 
-    it("отмена родителя устаревает билет", () => {
+    it("cancelling the parent makes the ticket stale", () => {
         const latest = new LatestRequest();
         const parent = new CancellationTokenSource();
         const ticket = latest.start(parent.token);
@@ -206,7 +206,7 @@ describe("LatestRequest", () => {
         expect(ticket.isStale()).toBe(true);
     });
 
-    it("подписку на родителя снимают и done, и перебивающий start", () => {
+    it("both done and a superseding start remove the subscription to the parent", () => {
         const latest = new LatestRequest();
         const parent = spyParent();
 
@@ -219,7 +219,7 @@ describe("LatestRequest", () => {
         expect(parent.subscribers).toBe(0);
     });
 
-    it("после dispose текущий билет устарел, а новые выдаются уже отменёнными", () => {
+    it("after dispose the current ticket is stale and new ones are issued already cancelled", () => {
         const latest = new LatestRequest();
         const ticket = latest.start();
 
@@ -233,7 +233,7 @@ describe("LatestRequest", () => {
 });
 
 describe("CancellationTokenNone", () => {
-    it("не отменяется и выдаёт подписку-пустышку", () => {
+    it("is never cancelled and returns a no-op subscription", () => {
         const listener = vi.fn();
         const subscription = CancellationTokenNone.onCancellationRequested(listener);
 

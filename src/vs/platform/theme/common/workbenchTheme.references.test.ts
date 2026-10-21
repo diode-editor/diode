@@ -6,8 +6,8 @@ import { darkPlusTheme } from "../../../workbench/services/themes/common/themes/
 import { WorkbenchTheme } from "./workbenchTheme.ts";
 
 /** Modeled on Catppuccin: `editorWidget.background` is set (#181825), `quickInput.background` isn't. */
-describe("WorkbenchTheme — производные дефолты по ссылке", () => {
-    it("производный ключ следует за базовым из темы", () => {
+describe("WorkbenchTheme: derived defaults by reference", () => {
+    it("a derived key follows its base key from the theme", () => {
         const theme = WorkbenchTheme.fromThemeFile({
             name: "mocha-like",
             type: "dark",
@@ -20,7 +20,7 @@ describe("WorkbenchTheme — производные дефолты по ссыл
         expect(theme.getRequiredColor("notifications.background")).toBe(packRgb(0x18, 0x18, 0x25));
     });
 
-    it("явное значение темы для производного ключа побеждает ссылку", () => {
+    it("an explicit theme value for a derived key wins over the reference", () => {
         const theme = WorkbenchTheme.fromThemeFile({
             name: "explicit",
             type: "dark",
@@ -31,7 +31,7 @@ describe("WorkbenchTheme — производные дефолты по ссыл
         expect(theme.getRequiredColor("editorHoverWidget.background")).toBe(packRgb(0x18, 0x18, 0x25));
     });
 
-    it("цепочка ссылок: menu.selectionBackground → list.activeSelectionBackground → тема", () => {
+    it("reference chain: menu.selectionBackground → list.activeSelectionBackground → theme", () => {
         const theme = WorkbenchTheme.fromThemeFile({
             name: "chain",
             type: "light",
@@ -44,7 +44,7 @@ describe("WorkbenchTheme — производные дефолты по ссыл
         expect(theme.getRequiredColor("menu.foreground")).toBe(packRgb(0x10, 0x10, 0x10));
     });
 
-    it("без значений темы производные равны запечённым дефолтам VS Code (Dark+ не меняется)", () => {
+    it("without theme values derived keys equal the baked VS Code defaults (Dark+ is unchanged)", () => {
         const bare = WorkbenchTheme.fromThemeFile({ name: "bare", type: "dark", colors: {} });
         expect(bare.getRequiredColor("quickInput.background")).toBe(packRgb(0x25, 0x25, 0x26));
         expect(bare.getRequiredColor("quickInput.foreground")).toBe(packRgb(0xcc, 0xcc, 0xcc));
@@ -55,7 +55,7 @@ describe("WorkbenchTheme — производные дефолты по ссыл
         expect(darkPlus.getRequiredColor("menu.background")).toBe(packRgb(0x25, 0x25, 0x26));
     });
 
-    it("значение темы, которое не hex и не ключ реестра, — ошибка с именем ссылающегося ключа", () => {
+    it("a theme value that is neither hex nor a registry key is an error naming the referencing key", () => {
         expect(() =>
             WorkbenchTheme.fromThemeFile({ name: "bad", type: "dark", colors: { "editor.background": "red" } }),
         ).toThrow('Color "editor.background" refers to unknown color "red"');
@@ -69,7 +69,7 @@ describe("WorkbenchTheme — производные дефолты по ссыл
         ).toThrow('Color "editor.foreground" refers to unknown color "nope"');
     });
 
-    it("цикл ссылок — ошибка с полной цепочкой, а не бесконечная рекурсия", () => {
+    it("a reference cycle is an error with the full chain, not infinite recursion", () => {
         expect(() =>
             WorkbenchTheme.fromThemeFile({
                 name: "cycle",

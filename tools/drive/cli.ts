@@ -27,50 +27,50 @@ import { DEFAULT_BINARY, gcSessions, repoRoot, startSession, stopSession } from 
 import { isAlive } from "./processes.ts";
 import { type SessionRecord, SessionRegistry, validateSessionName } from "./sessionRegistry.ts";
 
-const HELP = `npm run drive -- <команда> [аргументы] [-s <сессия>] [--json]
+const HELP = `npm run drive -- <command> [args] [-s <session>] [--json]
 
-Сессия живёт между вызовами (реестр — .drive/sessions/ этого checkout'а).
-Имя по умолчанию — default. Код выхода: 0 ок, 1 ошибка/таймаут, 2 usage, 3 нет сессии.
+A session lives across calls (registry: .drive/sessions/ of this checkout).
+Default name: default. Exit code: 0 ok, 1 error/timeout, 2 usage, 3 no session.
 
-Жизнь сессии
-  start [--binary [--binary-path P]] [--size 140x38] [--open P]... [--file rel=текст]...
+Session lifecycle
+  start [--binary [--binary-path P]] [--size 140x38] [--open P]... [--file rel=text]...
         [--seed DIR] [--settings JSON|@file] [--keybindings JSON|@file] [--install id|vsix]...
-        [--arg <флаг diode>]... [--keep] [--no-wait-ready] [--no-build] [--timeout MS]
-                         запуск (по умолчанию из исходников) в изолированном корне
-  stop [--all] [--keep]  вежливый выход, добивание группы и сирот, уборка корня
-  list                   сессии этого checkout'а
-  gc [--kept]            убрать мёртвые сессии, сирот и брошенные корни (--kept — и сохранённые)
-  dump                   пост-мортем: запись, кадр, фокус, хвост stderr и diode.log
+        [--arg <diode flag>]... [--keep] [--no-wait-ready] [--no-build] [--timeout MS]
+                         launch (from sources by default) in an isolated root
+  stop [--all] [--keep]  graceful quit, kill the group and orphans, remove the root
+  list                   sessions of this checkout
+  gc [--kept]            remove dead sessions, orphans and abandoned roots (--kept: kept ones too)
+  dump                   post-mortem: record, frame, focus, tail of stderr and diode.log
 
-Ввод (после каждого — ожидание покоя рендера)
-  key <K>...             клавиши DSL: Enter, Ctrl+P, ArrowDown, Alt+F, F1, a (НЕ "Down")
-  type <текст>           посимвольный набор, как пользователь (попапы видят каждый символ)
-  paste <текст>          bracketed paste одним блоком (попап автодополнения НЕ откроется)
+Input (each waits for the render to go idle)
+  key <K>...             DSL keys: Enter, Ctrl+P, ArrowDown, Alt+F, F1, a (NOT "Down")
+  type <text>            types char by char like a user (popups see every char)
+  paste <text>           bracketed paste as one block (the suggest popup does NOT open)
   click <x> <y> | --node SEL | --text "…"  [--right] [--double] [--ctrl|--shift|--alt]
   wheel up|down|left|right [<x> <y> | --node SEL] [--count N]
   resize <cols>x<rows>
 
-Чтение
-  screen [--numbered]    текст кадра (--numbered — с номерами строк и линейкой колонок)
-  screenshot <file.png>  PNG кадра
-  cell <x> <y>           символ, код-пойнт, fg/bg (#rrggbb|default), стиль
-  cursor                 позиция курсора терминала
-  tree [SEL] [--depth N] [--state]   дерево узлов (или поддеревья совпадений SEL)
-  node <SEL>             первый узел по селектору (Type, #id, @role, «A B» — потомок)
-  focus                  путь фокуса
-  output [<канал>] [--list] [--tail N]   панель OUTPUT (канал — id или подпись)
-  logs [--tail N]        stderr процесса и diode.log (только из исходников)
-  context <ключ>         значение контекст-ключа
-  when <выражение>       when-выражение над текущими ключами
-  commands [фильтр]      команды с заголовком
+Reading
+  screen [--numbered]    frame text (--numbered: with line numbers and a column ruler)
+  screenshot <file.png>  frame PNG
+  cell <x> <y>           char, code point, fg/bg (#rrggbb|default), style
+  cursor                 terminal cursor position
+  tree [SEL] [--depth N] [--state]   node tree (or subtrees of SEL matches)
+  node <SEL>             first node matching the selector (Type, #id, @role, "A B": descendant)
+  focus                  focus path
+  output [<channel>] [--list] [--tail N]   OUTPUT panel (channel: id or label)
+  logs [--tail N]        process stderr and diode.log (from sources only)
+  context <key>          context key value
+  when <expr>            when expression over the current keys
+  commands [filter]      commands with a title
 
-Действия
-  exec <id> [json-арг]... [--no-await] [--timeout MS]   выполнить команду по id
-  palette "<заголовок>"  открыть палитру, ввести заголовок, Enter
+Actions
+  exec <id> [json-arg]... [--no-await] [--timeout MS]   run a command by id
+  palette "<title>"      open the command palette, type the title, Enter
 
-Ожидания (--timeout MS, по умолчанию 10000; при таймауте — кадр и фокус)
+Waits (--timeout MS, default 10000; on timeout: frame and focus)
   wait text "…" | node SEL | gone SEL | focus TYPE | idle | ready | reload
-                         reload — новое окно после workbench.action.reloadWindow поднялось и готово
+                         reload: the new window after workbench.action.reloadWindow is up and ready
 `;
 
 const EXIT_ERROR = 1;
@@ -98,7 +98,7 @@ function requireRecord(args: ParsedArgs): SessionRecord {
     const record = registry.read(name);
     if (record === undefined)
         throw new NoSessionError(
-            `сессии ${name} нет: npm run drive -- start${name === "default" ? "" : ` -s ${name}`}`,
+            `no session ${name}: npm run drive -- start${name === "default" ? "" : ` -s ${name}`}`,
         );
     return record;
 }
@@ -109,7 +109,7 @@ async function connect(record: SessionRecord): Promise<DriveClient> {
     } catch (error) {
         if (!isAlive(record.pid)) {
             throw new NoSessionError(
-                `сессия ${record.name} мертва (pid ${String(record.pid)}): npm run drive -- dump -s ${record.name}; уборка — gc`,
+                `session ${record.name} is dead (pid ${String(record.pid)}): npm run drive -- dump -s ${record.name}; clean up: gc`,
             );
         }
         throw error;
@@ -138,7 +138,7 @@ function readJsonArg(raw: string): unknown {
     try {
         return JSON.parse(text) as unknown;
     } catch {
-        throw new UsageError(`ожидался JSON или @файл: ${raw.slice(0, 80)}`);
+        throw new UsageError(`expected JSON or @file: ${raw.slice(0, 80)}`);
     }
 }
 
@@ -154,22 +154,22 @@ async function settle(client: DriveClient): Promise<void> {
 async function postmortem(client: DriveClient): Promise<string> {
     const parts: string[] = [];
     try {
-        parts.push("── кадр ──", screenText(await client.captureFrame(), true));
+        parts.push("── frame ──", screenText(await client.captureFrame(), true));
     } catch (error) {
-        parts.push(`── кадр ── <не снят: ${errorMessage(error)}>`);
+        parts.push(`── frame ── <not captured: ${errorMessage(error)}>`);
     }
     try {
-        parts.push(`── фокус ── ${focusText(await client.document())}`);
+        parts.push(`── focus ── ${focusText(await client.document())}`);
     } catch (error) {
-        parts.push(`── фокус ── <не снят: ${errorMessage(error)}>`);
+        parts.push(`── focus ── <not captured: ${errorMessage(error)}>`);
     }
     return parts.join("\n");
 }
 
 function tailOf(file: string, lines: number): string {
-    if (!existsSync(file)) return "<нет файла>";
+    if (!existsSync(file)) return "<no file>";
     const text = readFileSync(file, "utf8").trimEnd();
-    if (text.length === 0) return "<пусто>";
+    if (text.length === 0) return "<empty>";
     return text.split("\n").slice(-lines).join("\n");
 }
 
@@ -185,7 +185,7 @@ async function cmdStart(args: ParsedArgs): Promise<void> {
             ? resolve(flag(args, "binary-path") ?? DEFAULT_BINARY)
             : undefined;
     if (binary !== undefined && args.booleans.has("from-source"))
-        throw new UsageError("--binary и --from-source вместе не бывают");
+        throw new UsageError("--binary and --from-source are mutually exclusive");
     const files = Object.fromEntries(flagAll(args, "file").map(parseFileSpec));
     const settingsRaw = flag(args, "settings");
     const keybindingsRaw = flag(args, "keybindings");
@@ -212,14 +212,14 @@ async function cmdStart(args: ParsedArgs): Promise<void> {
     });
     const { record } = result;
     const readyText =
-        result.ready === "skipped" ? "готовность не ждали" : result.ready ? "готов" : "НЕ готов за таймаут";
+        result.ready === "skipped" ? "readiness not awaited" : result.ready ? "ready" : "NOT ready within the timeout";
     emit(
         args,
         { ...record, ready: result.ready, startMs: result.startMs },
         [
-            `сессия ${record.name}: ${readyText} за ${String(result.startMs)} мс (${record.mode}, pid ${String(record.pid)}, порт ${String(record.port)}, ${String(record.cols)}x${String(record.rows)})`,
-            `воркспейс: ${record.workspaceDir}`,
-            `корень:    ${record.root}`,
+            `session ${record.name}: ${readyText} in ${String(result.startMs)} ms (${record.mode}, pid ${String(record.pid)}, port ${String(record.port)}, ${String(record.cols)}x${String(record.rows)})`,
+            `workspace: ${record.workspaceDir}`,
+            `root:      ${record.root}`,
         ].join("\n"),
     );
     if (result.ready === false) process.exitCode = EXIT_ERROR;
@@ -234,13 +234,13 @@ async function cmdStop(args: ParsedArgs): Promise<void> {
         args,
         results,
         results.length === 0
-            ? "сессий нет"
+            ? "no sessions"
             : results
                   .map(
                       (r) =>
-                          `${r.name}: остановлена ${r.graceful ? "вежливо" : "сигналом"}` +
-                          (r.killed > 0 ? `, добито процессов: ${String(r.killed)}` : "") +
-                          (r.rootKept !== undefined ? `; корень сохранён: ${r.rootKept}` : ""),
+                          `${r.name}: stopped ${r.graceful ? "gracefully" : "by signal"}` +
+                          (r.killed > 0 ? `, processes killed: ${String(r.killed)}` : "") +
+                          (r.rootKept !== undefined ? `; root kept: ${r.rootKept}` : ""),
                   )
                   .join("\n"),
     );
@@ -252,11 +252,11 @@ function cmdList(args: ParsedArgs): void {
         args,
         rows,
         rows.length === 0
-            ? "сессий нет"
+            ? "no sessions"
             : rows
                   .map(
                       (r) =>
-                          `${r.name}\t${r.alive ? "жива" : "МЕРТВА"}\tpid ${String(r.pid)}\tпорт ${String(r.port)}\t${r.mode}\t${r.startedAt}\t${r.root}`,
+                          `${r.name}\t${r.alive ? "alive" : "DEAD"}\tpid ${String(r.pid)}\tport ${String(r.port)}\t${r.mode}\t${r.startedAt}\t${r.root}`,
                   )
                   .join("\n"),
     );
@@ -268,9 +268,9 @@ async function cmdGc(args: ParsedArgs): Promise<void> {
         args,
         result,
         [
-            `мёртвых сессий убрано: ${String(result.deadSessions.length)}${result.deadSessions.length > 0 ? ` (${result.deadSessions.join(", ")})` : ""}`,
-            `сирот добито: ${String(result.orphansKilled)}`,
-            `брошенных корней удалено: ${String(result.rootsRemoved.length)}`,
+            `dead sessions removed: ${String(result.deadSessions.length)}${result.deadSessions.length > 0 ? ` (${result.deadSessions.join(", ")})` : ""}`,
+            `orphans killed: ${String(result.orphansKilled)}`,
+            `abandoned roots removed: ${String(result.rootsRemoved.length)}`,
         ].join("\n"),
     );
 }
@@ -278,7 +278,7 @@ async function cmdGc(args: ParsedArgs): Promise<void> {
 async function cmdDump(args: ParsedArgs): Promise<void> {
     const record = requireRecord(args);
     const alive = isAlive(record.pid);
-    const parts = [`── сессия ${record.name} ── ${alive ? "жива" : "МЕРТВА"}`, JSON.stringify(record, null, 2)];
+    const parts = [`── session ${record.name} ── ${alive ? "alive" : "DEAD"}`, JSON.stringify(record, null, 2)];
     if (alive) {
         try {
             const client = await DriveClient.connect(record.port, 3000);
@@ -288,16 +288,16 @@ async function cmdDump(args: ParsedArgs): Promise<void> {
                 client.close();
             }
         } catch (error) {
-            parts.push(`── инспектор не отвечает: ${errorMessage(error)}`);
+            parts.push(`── inspector does not respond: ${errorMessage(error)}`);
         }
     }
-    parts.push("── stderr (хвост) ──", tailOf(record.stderrFile, 40));
-    parts.push("── diode.log (хвост) ──", tailOf(join(record.workspaceDir, "diode.log"), 40));
+    parts.push("── stderr (tail) ──", tailOf(record.stderrFile, 40));
+    parts.push("── diode.log (tail) ──", tailOf(join(record.workspaceDir, "diode.log"), 40));
     out(parts.join("\n"));
 }
 
 async function cmdKey(args: ParsedArgs): Promise<void> {
-    const keys = need(args, 1, "key <клавиша>...").map(validateKey);
+    const keys = need(args, 1, "key <key>...").map(validateKey);
     await withClient(args, async (client) => {
         for (const key of keys) {
             await client.sendKey(key);
@@ -307,7 +307,7 @@ async function cmdKey(args: ParsedArgs): Promise<void> {
 }
 
 async function cmdType(args: ParsedArgs): Promise<void> {
-    const text = need(args, 1, "type <текст>").join(" ");
+    const text = need(args, 1, "type <text>").join(" ");
     await withClient(args, async (client) => {
         for (const ch of text) await client.sendKey(charToKey(ch));
         await settle(client);
@@ -315,7 +315,7 @@ async function cmdType(args: ParsedArgs): Promise<void> {
 }
 
 async function cmdPaste(args: ParsedArgs): Promise<void> {
-    const text = need(args, 1, "paste <текст>").join(" ").replace(/\\n/g, "\n");
+    const text = need(args, 1, "paste <text>").join(" ").replace(/\\n/g, "\n");
     await withClient(args, async (client) => {
         await client.sendText(text);
         await settle(client);
@@ -331,17 +331,18 @@ async function resolvePoint(
     const text = flag(args, "text");
     if (selector !== undefined) {
         const node = await client.node(selector);
-        if (node === null) throw new Error(`нет узла по селектору ${selector}`);
+        if (node === null) throw new Error(`no node matches selector ${selector}`);
         return { x: node.box.x + Math.floor(node.box.width / 2), y: node.box.y + Math.floor(node.box.height / 2) };
     }
     if (text !== undefined) {
         const cell = findTextCell(await client.captureFrame(), text);
-        if (cell === null) throw new Error(`на экране нет текста ${JSON.stringify(text)}`);
+        if (cell === null) throw new Error(`text ${JSON.stringify(text)} is not on screen`);
         return { x: cell.x + Math.floor(Array.from(text).length / 2), y: cell.y };
     }
     const rx = args.positionals.at(positionalOffset);
     const ry = args.positionals.at(positionalOffset + 1);
-    if (rx === undefined || ry === undefined) throw new UsageError("нужны координаты <x> <y>, --node SEL или --text");
+    if (rx === undefined || ry === undefined)
+        throw new UsageError("coordinates <x> <y>, --node SEL or --text required");
     return { x: parseNonNegativeInt(rx, "x"), y: parseNonNegativeInt(ry, "y") };
 }
 
@@ -360,14 +361,14 @@ async function cmdClick(args: ParsedArgs): Promise<void> {
             await client.sendMouse({ action: "release", button, x, y, ...mods });
         }
         await settle(client);
-        emit(args, { x, y }, `клик ${String(x)},${String(y)}`);
+        emit(args, { x, y }, `click ${String(x)},${String(y)}`);
     });
 }
 
 async function cmdWheel(args: ParsedArgs): Promise<void> {
     const [direction] = need(args, 1, "wheel up|down|left|right [<x> <y>|--node SEL]");
     if (!["up", "down", "left", "right"].includes(direction))
-        throw new UsageError(`направление: up|down|left|right, не ${direction}`);
+        throw new UsageError(`direction: up|down|left|right, not ${direction}`);
     const count = intFlag(args, "count") ?? 1;
     await withClient(args, async (client) => {
         const hasPoint =
@@ -423,7 +424,7 @@ async function cmdCell(args: ParsedArgs): Promise<void> {
 async function cmdCursor(args: ParsedArgs): Promise<void> {
     await withClient(args, async (client) => {
         const { cursor } = await client.captureFrame();
-        emit(args, cursor, cursor === null ? "курсор скрыт" : `${String(cursor.x)},${String(cursor.y)}`);
+        emit(args, cursor, cursor === null ? "cursor hidden" : `${String(cursor.x)},${String(cursor.y)}`);
     });
 }
 
@@ -447,11 +448,11 @@ async function cmdTree(args: ParsedArgs): Promise<void> {
 }
 
 async function cmdNode(args: ParsedArgs): Promise<void> {
-    const [selector] = need(args, 1, "node <селектор>");
+    const [selector] = need(args, 1, "node <selector>");
     await withClient(args, async (client) => {
         const node = await client.node(selector);
         if (node === null) {
-            emit(args, null, `<нет узла по селектору ${selector}>`);
+            emit(args, null, `<no node matches selector ${selector}>`);
             process.exitCode = EXIT_ERROR;
             return;
         }
@@ -477,7 +478,7 @@ async function cmdOutput(args: ParsedArgs): Promise<void> {
         const result = await client.getOutput(channel);
         const tail = intFlag(args, "tail");
         const text = tail === undefined ? result.text : result.text.trimEnd().split("\n").slice(-tail).join("\n");
-        emit(args, { ...result, text }, text.length === 0 ? `<канал ${result.label} пуст>` : text);
+        emit(args, { ...result, text }, text.length === 0 ? `<channel ${result.label} is empty>` : text);
     });
 }
 
@@ -489,14 +490,14 @@ function cmdLogs(args: ParsedArgs): void {
         [
             `── stderr ── ${record.stderrFile}`,
             tailOf(record.stderrFile, tail),
-            `── diode.log ── ${record.mode === "binary" ? "(у бинаря файлового лога нет — смотри output)" : diodeLog}`,
+            `── diode.log ── ${record.mode === "binary" ? "(the binary has no log file; see output)" : diodeLog}`,
             record.mode === "binary" ? "" : tailOf(diodeLog, tail),
         ].join("\n"),
     );
 }
 
 async function cmdContext(args: ParsedArgs): Promise<void> {
-    const [key] = need(args, 1, "context <ключ>");
+    const [key] = need(args, 1, "context <key>");
     await withClient(args, async (client) => {
         const { value } = await client.getContextKey(key);
         emit(args, { key, value }, JSON.stringify(value));
@@ -504,7 +505,7 @@ async function cmdContext(args: ParsedArgs): Promise<void> {
 }
 
 async function cmdWhen(args: ParsedArgs): Promise<void> {
-    const expr = need(args, 1, "when <выражение>").join(" ");
+    const expr = need(args, 1, "when <expr>").join(" ");
     await withClient(args, async (client) => {
         const { value } = await client.evaluateWhen(expr);
         emit(args, { expr, value }, String(value));
@@ -529,7 +530,7 @@ async function cmdCommands(args: ParsedArgs): Promise<void> {
 }
 
 async function cmdExec(args: ParsedArgs): Promise<void> {
-    const [id, ...rawArgs] = need(args, 1, "exec <id> [json-арг]...");
+    const [id, ...rawArgs] = need(args, 1, "exec <id> [json-arg]...");
     const commandArgs = rawArgs.map((raw) => {
         try {
             return JSON.parse(raw) as unknown;
@@ -546,7 +547,7 @@ async function cmdExec(args: ParsedArgs): Promise<void> {
         } catch (error) {
             // reloadWindow/quit: the window goes away without replying; that is the command's outcome, not a failure.
             if (!client.closed) throw error;
-            emit(args, { windowClosed: true }, "окно закрылось (выход или перезагрузка) — дальше: wait reload");
+            emit(args, { windowClosed: true }, "window closed (quit or reload); next: wait reload");
             return;
         }
         emit(
@@ -554,13 +555,13 @@ async function cmdExec(args: ParsedArgs): Promise<void> {
             result,
             result.settled
                 ? `ok${result.result !== null ? ` ${JSON.stringify(result.result)}` : ""}`
-                : "запущена (не завершилась за таймаут — ждёт ввода?)",
+                : "started (did not finish within the timeout; waiting for input?)",
         );
     });
 }
 
 async function cmdPalette(args: ParsedArgs): Promise<void> {
-    const title = need(args, 1, 'palette "<заголовок>"').join(" ");
+    const title = need(args, 1, 'palette "<title>"').join(" ");
     await withClient(args, async (client) => {
         await client.executeCommand("workbench.action.showCommands", [], 0);
         await waitUntil(
@@ -579,7 +580,7 @@ async function cmdPalette(args: ParsedArgs): Promise<void> {
             )
         ) {
             await client.sendKey("Escape");
-            throw new Error(`в палитре нет пункта ${JSON.stringify(title)}\n${await postmortem(client)}`);
+            throw new Error(`no command palette item ${JSON.stringify(title)}\n${await postmortem(client)}`);
         }
         await client.sendKey("Enter");
         await settle(client);
@@ -596,8 +597,8 @@ async function waitReload(record: SessionRecord, timeoutMs: number): Promise<voi
             registry.write({ ...record, windowPid: fresh.pid });
             return;
         }
-        if (!isAlive(record.pid)) throw new NoSessionError(`сессия ${record.name} умерла при перезагрузке: dump, gc`);
-        if (Date.now() > deadline) throw new Error(`новое окно не поднялось за ${String(timeoutMs)} мс`);
+        if (!isAlive(record.pid)) throw new NoSessionError(`session ${record.name} died during reload: dump, gc`);
+        if (Date.now() > deadline) throw new Error(`new window did not come up within ${String(timeoutMs)} ms`);
         await new Promise((r) => setTimeout(r, 200));
     }
 }
@@ -640,25 +641,25 @@ async function cmdWait(args: ParsedArgs): Promise<void> {
             switch (kind) {
                 case "ready": {
                     const { ready } = await client.whenReady(timeoutMs);
-                    if (!ready) throw new Error(`не готов за ${String(timeoutMs)} мс`);
+                    if (!ready) throw new Error(`not ready within ${String(timeoutMs)} ms`);
                     break;
                 }
                 case "idle": {
                     const result = await client.waitForIdle({ timeoutMs });
-                    if (!result.idle) throw new Error(`рендер не успокоился за ${String(timeoutMs)} мс`);
+                    if (!result.idle) throw new Error(`render did not go idle within ${String(timeoutMs)} ms`);
                     break;
                 }
                 case "text":
-                    if (value === "") throw new UsageError('wait text "<текст>"');
+                    if (value === "") throw new UsageError('wait text "<text>"');
                     await waitUntil(
                         () => client.captureFrame(),
                         (f) => screenText(f, false).includes(value),
-                        { timeoutMs, intervalMs: 150, describe: `текст ${JSON.stringify(value)}` },
+                        { timeoutMs, intervalMs: 150, describe: `text ${JSON.stringify(value)}` },
                     );
                     break;
                 case "node":
                 case "gone":
-                    if (value === "") throw new UsageError(`wait ${kind} <селектор>`);
+                    if (value === "") throw new UsageError(`wait ${kind} <selector>`);
                     await waitUntil(
                         () => client.node(value),
                         (n) => (kind === "node" ? n !== null : n === null),
@@ -666,15 +667,15 @@ async function cmdWait(args: ParsedArgs): Promise<void> {
                     );
                     break;
                 case "focus":
-                    if (value === "") throw new UsageError("wait focus <Тип>");
+                    if (value === "") throw new UsageError("wait focus <Type>");
                     await waitUntil(
                         () => client.focused(),
                         (n) => n?.type === value,
-                        { timeoutMs, describe: `фокус на ${value}` },
+                        { timeoutMs, describe: `focus on ${value}` },
                     );
                     break;
                 default:
-                    throw new UsageError(`wait: неизвестный вид ${kind} (text|node|gone|focus|idle|ready|reload)`);
+                    throw new UsageError(`wait: unknown kind ${kind} (text|node|gone|focus|idle|ready|reload)`);
             }
         } catch (error) {
             if (error instanceof UsageError) throw error;
@@ -720,7 +721,7 @@ export async function main(argv: readonly string[]): Promise<number> {
             return 0;
         }
         const command = COMMANDS[args.command] as ((a: ParsedArgs) => Promise<void> | void) | undefined;
-        if (command === undefined) throw new UsageError(`неизвестная команда ${args.command}; drive help`);
+        if (command === undefined) throw new UsageError(`unknown command ${args.command}; drive help`);
         await command(args);
         return typeof process.exitCode === "number" ? process.exitCode : 0;
     } catch (error) {

@@ -34,7 +34,7 @@ export class MenuId {
 
     public constructor(public readonly id: string) {
         if (MenuId.instances.has(id)) {
-            throw new Error(`MenuId "${id}" уже существует — id должны быть уникальны`);
+            throw new Error(`MenuId "${id}" already exists: ids must be unique`);
         }
         MenuId.instances.add(id);
     }

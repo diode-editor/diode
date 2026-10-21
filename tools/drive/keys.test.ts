@@ -3,12 +3,12 @@ import { describe, expect, it } from "vitest";
 import { charToKey, validateKey } from "./keys.ts";
 
 describe("validateKey", () => {
-    it("именованные клавиши и одиночные символы проходят; регистр нормализуется", () => {
+    it("named keys and single chars pass; case is normalized", () => {
         expect(validateKey("Enter")).toBe("Enter");
         expect(validateKey("arrowdown")).toBe("ArrowDown");
         expect(validateKey("f12")).toBe("F12");
         expect(validateKey("a")).toBe("a");
-        expect(validateKey("ж")).toBe("ж");
+        expect(validateKey("\u0436")).toBe("\u0436"); // "zh"
         expect(validateKey("ctrl+shift+p")).toBe("Ctrl+Shift+p");
         expect(validateKey("Alt+F")).toBe("Alt+F");
         expect(validateKey("Meta+s")).toBe("Meta+s");
@@ -16,26 +16,26 @@ describe("validateKey", () => {
         expect(validateKey("Shift+Tab")).toBe("Shift+Tab");
     });
 
-    it("«Down» не уезжает в редактор четырьмя буквами — ошибка с подсказкой", () => {
-        expect(() => validateKey("Down")).toThrow('неизвестная клавиша "Down" — может, ArrowDown?');
-        expect(() => validateKey("Shift+Up")).toThrow("может, Shift+ArrowUp?");
-        expect(() => validateKey("Esc")).toThrow("может, Escape?");
+    it('"Down" does not reach the editor as four letters: error with a hint', () => {
+        expect(() => validateKey("Down")).toThrow('unknown key "Down" — did you mean ArrowDown?');
+        expect(() => validateKey("Shift+Up")).toThrow("did you mean Shift+ArrowUp?");
+        expect(() => validateKey("Esc")).toThrow("did you mean Escape?");
     });
 
-    it("незнакомое без подсказки — ошибка со списком имён", () => {
-        expect(() => validateKey("Foo")).toThrow(/неизвестная клавиша "Foo" Имена: Enter, Tab/);
+    it("unknown without a hint: error with the list of names", () => {
+        expect(() => validateKey("Foo")).toThrow(/unknown key "Foo" Names: Enter, Tab/);
     });
 
-    it("модификаторы: синонимы и опечатки", () => {
+    it("modifiers: synonyms and typos", () => {
         expect(validateKey("Control+a")).toBe("Ctrl+a");
         expect(validateKey("cmd+s")).toBe("Meta+s");
-        expect(() => validateKey("Hyper+a")).toThrow('неизвестный модификатор "Hyper" в "Hyper+a"');
-        expect(() => validateKey("Esc+a")).toThrow('неизвестный модификатор "Esc"');
+        expect(() => validateKey("Hyper+a")).toThrow('unknown modifier "Hyper" in "Hyper+a"');
+        expect(() => validateKey("Esc+a")).toThrow('unknown modifier "Esc"');
     });
 });
 
 describe("charToKey", () => {
-    it("пробел, перевод строки, таб — именами; остальное как есть", () => {
+    it("space, newline, tab by name; the rest as is", () => {
         expect(charToKey(" ")).toBe("Space");
         expect(charToKey("\n")).toBe("Enter");
         expect(charToKey("\r")).toBe("Enter");

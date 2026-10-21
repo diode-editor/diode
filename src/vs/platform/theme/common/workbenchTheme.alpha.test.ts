@@ -22,8 +22,8 @@ function themeWith(colors: Record<string, string>): WorkbenchTheme {
 }
 
 /** Compositing is covered by tuidom tests (`grid.alpha.test.ts`) and editor frame tests; here, that the theme loses nothing on the way. */
-describe("WorkbenchTheme — цвета с альфой уходят в палитру как есть", () => {
-    it("полупрозрачное значение темы остаётся полупрозрачным числом", () => {
+describe("WorkbenchTheme: colors with alpha go to the palette as is", () => {
+    it("a translucent theme value stays a translucent number", () => {
         const theme = themeWith({ "statusBarItem.hoverBackground": "#F1F1F133" });
         const hover = theme.getRequiredColor("statusBarItem.hoverBackground");
 
@@ -32,7 +32,7 @@ describe("WorkbenchTheme — цвета с альфой уходят в пали
         expect(unpackA(hover)).toBe(0x33);
     });
 
-    it("подложка при этом не участвует в парсинге — наложение делает движок при отрисовке", () => {
+    it("the backdrop takes no part in parsing; the engine blends at paint time", () => {
         const overDark = themeWith({ "statusBar.background": "#000000", "statusBarItem.hoverBackground": "#FFFFFF80" });
         const overLight = themeWith({
             "statusBar.background": "#FFFFFF",
@@ -48,21 +48,21 @@ describe("WorkbenchTheme — цвета с альфой уходят в пали
         );
     });
 
-    it("непрозрачное значение и короткие формы проходят как раньше", () => {
+    it("opaque values and short forms pass as before", () => {
         const theme = themeWith({ "statusBarItem.hoverBackground": "#323233", "editor.background": "#123" });
 
         expect(theme.getRequiredColor("statusBarItem.hoverBackground")).toBe(packRgb(0x32, 0x32, 0x33));
         expect(theme.getRequiredColor("editor.background")).toBe(packRgb(0x11, 0x22, 0x33));
     });
 
-    it("палитра var-scope несёт те же числа, включая альфу", () => {
+    it("the var-scope palette carries the same numbers, alpha included", () => {
         const theme = themeWith({ "editor.selectionBackground": "#9399b240" });
         const vars = computeThemeVars(theme);
 
         expect(vars["editor.selectionBackground"]).toBe(packRgba(0x93, 0x99, 0xb2, 0x40));
     });
 
-    it("встроенные темы: Dark Modern везёт 12 цветов с альфой, Dark+ — два; ни один не отброшен", () => {
+    it("built-in themes: Dark Modern has 12 colors with alpha, Dark+ has two; none are dropped", () => {
         const countTranslucent = (file: IThemeFile): number => {
             const palette = WorkbenchTheme.fromThemeFile(file).colors as Readonly<Record<string, number>>;
             // Only the file's own keys: registry defaults may carry alpha too.

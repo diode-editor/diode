@@ -4,7 +4,7 @@ import { createTestActiveEditorService } from "./testActiveEditorService.ts";
 import { createEditorPane } from "./TextEditorPaneFactory.ts";
 
 describe("createTestActiveEditorService", () => {
-    it("роль «активный редактор» отдаёт один и тот же редактор", () => {
+    it('the "active editor" role returns the same editor', () => {
         const pane = createEditorPane();
         const service = createTestActiveEditorService(pane);
 
@@ -19,7 +19,7 @@ describe("createTestActiveEditorService", () => {
         expect(focus).toHaveBeenCalledOnce();
     });
 
-    it("без редактора — null, а focusEditor безвреден", () => {
+    it("no editor — null, and focusEditor is harmless", () => {
         const service = createTestActiveEditorService(null);
 
         expect(service.getActiveEditor()).toBeNull();
@@ -29,10 +29,10 @@ describe("createTestActiveEditorService", () => {
         }).not.toThrow();
     });
 
-    it("член вне роли бросает с его именем; служебные пробы рантайма — undefined", () => {
+    it("a member outside the role throws with its name; runtime probes get undefined", () => {
         const service = createTestActiveEditorService(null);
 
-        expect(() => service.getEditors()).toThrow(/«getEditors» вне роли/);
+        expect(() => service.getEditors()).toThrow(/"getEditors" is outside the "active editor" role/);
         // `await service` and symbol-based inspection must not throw.
         expect((service as unknown as { then?: unknown }).then).toBeUndefined();
         expect((service as unknown as Record<symbol, unknown>)[Symbol.iterator]).toBeUndefined();

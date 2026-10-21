@@ -6,7 +6,7 @@ import { createEnvironmentService } from "./environmentService.ts";
 import { resolveUserDataPaths } from "./userDataPaths.ts";
 
 describe("createEnvironmentService", () => {
-    it("берёт пути приложения и активного профиля из резолва user data", () => {
+    it("takes app and active profile paths from the resolved user data", () => {
         const paths = resolveUserDataPaths({ homedir: "/home/alice", profile: "work", extensionsDir: "/opt/ext" });
 
         const env = createEnvironmentService(paths, { registry: undefined }, "/home/alice");
@@ -25,12 +25,12 @@ describe("createEnvironmentService", () => {
         });
     });
 
-    it("домашний каталог по умолчанию — домашний каталог процесса", () => {
+    it("home directory defaults to the process home directory", () => {
         const paths = resolveUserDataPaths({ homedir: "/home/alice" });
         expect(createEnvironmentService(paths, { registry: undefined }).userHome).toBe(os.homedir());
     });
 
-    it("пробрасывает --registry", () => {
+    it("passes --registry through", () => {
         const paths = resolveUserDataPaths({ homedir: "/home/alice" });
 
         expect(createEnvironmentService(paths, { registry: "https://example.test/registry" }).registry).toBe(

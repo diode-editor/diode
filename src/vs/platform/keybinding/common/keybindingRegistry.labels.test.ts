@@ -7,7 +7,7 @@ import { formatKeybinding, type KeybindingLabelStyle, keybindingLabelStyle, pars
 // Chord labels follow upstream VS Code (`keybindingLabels.ts`): on mac, glyphs ⌃⇧⌥⌘
 // without a separator in the order Ctrl, Shift, Alt, Meta, and arrow keys as arrows.
 
-describe("formatKeybinding — стили подписи", () => {
+describe("formatKeybinding: label styles", () => {
     it.each<[string, KeybindingLabelStyle, string]>([
         ["meta+s", "pc", "Meta+S"],
         ["meta+s", "mac", "⌘S"],
@@ -32,13 +32,13 @@ describe("formatKeybinding — стили подписи", () => {
         expect(formatKeybinding(parseChord(spec), style)).toBe(expected);
     });
 
-    it("по умолчанию — pc", () => {
+    it("defaults to pc", () => {
         expect(formatKeybinding(parseChord("meta+s"))).toBe("Meta+S");
     });
 });
 
 describe("keybindingLabelStyle", () => {
-    it("мак по контекст-ключу isMac (ОС клавиатуры), иначе и без контекста — pc", () => {
+    it("mac by the isMac context key (keyboard OS); otherwise, and without a context, pc", () => {
         const contextKeys = new ContextKeyService();
         expect(keybindingLabelStyle(contextKeys)).toBe("pc");
         contextKeys.set("isMac", true);

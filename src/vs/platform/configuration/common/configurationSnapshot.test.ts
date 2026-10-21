@@ -27,8 +27,8 @@ function snapshot(settings: Record<string, unknown>): ConfigurationSnapshot {
     );
 }
 
-describe("ConfigurationSnapshot — значения для языка", () => {
-    it("секция языка поверх основного значения; другой язык — без неё", () => {
+describe("ConfigurationSnapshot — values for a language", () => {
+    it("language section on top of the main value; another language does not see it", () => {
         const s = snapshot({ "[makefile]": { "editor.insertSpaces": false } });
 
         expect(s.model().get("editor.insertSpaces")).toBe(true);
@@ -38,7 +38,7 @@ describe("ConfigurationSnapshot — значения для языка", () => {
         expect(s.model({ overrideIdentifier: "makefile" })).toBe(s.model({ overrideIdentifier: "makefile" }));
     });
 
-    it("ключ ядра не language-overridable в секции игнорируется; ключ расширения — действует", () => {
+    it("core key that is not language-overridable is ignored in a section; an extension key applies", () => {
         const s = snapshot({ "[python]": { "files.autoSave": "afterDelay", "ruff.lint.enable": false } });
         const python = s.model({ overrideIdentifier: "python" });
 
@@ -46,7 +46,7 @@ describe("ConfigurationSnapshot — значения для языка", () => {
         expect(python.get("ruff.lint.enable")).toBe(false);
     });
 
-    it("из секции уходит только сам неразрешённый ключ, соседние ключи того же префикса остаются", () => {
+    it("only the disallowed key itself is removed from the section; sibling keys with the same prefix stay", () => {
         const s = snapshot({ "[python]": { "files.autoSave": "afterDelay", "files.trimTrailingWhitespace": true } });
         const python = s.model({ overrideIdentifier: "python" });
 
@@ -54,25 +54,25 @@ describe("ConfigurationSnapshot — значения для языка", () => {
         expect(python.get("files.trimTrailingWhitespace")).toBe(true);
     });
 
-    it("префикс неразрешённого ключа в секции — не объект: не падаем", () => {
+    it("prefix of a disallowed key in the section is not an object: no crash", () => {
         const s = snapshot({ "[python]": { files: null, "editor.tabSize": 2 } });
 
         expect(s.model({ overrideIdentifier: "python" }).get("editor.tabSize")).toBe(2);
     });
 
-    it("значение секции тоже проходит схему: мусор — дефолт", () => {
+    it("section value is validated against the schema too: garbage becomes the default", () => {
         const s = snapshot({ "editor.tabSize": 2, "[go]": { "editor.tabSize": 0 } });
 
         expect(s.model({ overrideIdentifier: "go" }).get("editor.tabSize")).toBe(4);
     });
 });
 
-describe("ConfigurationSnapshot — событие изменения", () => {
-    it("ничего не поменялось — null", () => {
+describe("ConfigurationSnapshot — change event", () => {
+    it("nothing changed — null", () => {
         expect(snapshot({ "editor.tabSize": 2 }).changeFrom(snapshot({ "editor.tabSize": 2 }))).toBeNull();
     });
 
-    it("правка только секции языка — ключ в affectedKeys и язык в overrideIdentifiers", () => {
+    it("editing only a language section — key in affectedKeys and language in overrideIdentifiers", () => {
         const event = snapshot({ "[go]": { "editor.tabSize": 8 } }).changeFrom(
             snapshot({ "[go]": { "editor.tabSize": 4 } }),
         );
@@ -82,7 +82,7 @@ describe("ConfigurationSnapshot — событие изменения", () => {
         expect(event?.affectsConfiguration("editor")).toBe(true);
     });
 
-    it("сервис в памяти: запись секции языка эмитит событие с языком и меняет чтение для языка", async () => {
+    it("in-memory service: writing a language section fires an event with the language and changes reads for it", async () => {
         const service = new InMemoryConfigurationService(registry);
         const events: IConfigurationChangeEvent[] = [];
         service.onDidChangeConfiguration((e) => events.push(e));

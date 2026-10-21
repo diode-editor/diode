@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import { ContextKeyService } from "./contextKeyService.ts";
 
-describe("ContextKeyService — ключи расширений", () => {
-    it("точечный ключ читается целиком", () => {
+describe("ContextKeyService — extension keys", () => {
+    it("a dotted key is read as a whole", () => {
         const ctx = new ContextKeyService();
         expect(ctx.evaluate("supermaven.isProUser")).toBe(false);
 
@@ -11,7 +11,7 @@ describe("ContextKeyService — ключи расширений", () => {
         expect(ctx.evaluate("supermaven.isProUser")).toBe(true);
     });
 
-    it("несколько ключей одного корня живут рядом", () => {
+    it("several keys with one root live side by side", () => {
         const ctx = new ContextKeyService();
         ctx.setRaw("myext.armed", true);
         ctx.setRaw("myext.mode", "fast");
@@ -20,7 +20,7 @@ describe("ContextKeyService — ключи расширений", () => {
         expect(ctx.evaluate("myext.armed && myext.mode == fast")).toBe(true);
     });
 
-    it("имена, которые JS словом не написал бы, достижимы", () => {
+    it("names that are not JS identifiers are reachable", () => {
         const ctx = new ContextKeyService();
         ctx.setRaw("foo-bar", true);
         ctx.setRaw("2fa", true);
@@ -28,7 +28,7 @@ describe("ContextKeyService — ключи расширений", () => {
         expect(ctx.evaluate("foo-bar && 2fa && class")).toBe(true);
     });
 
-    it("плоский ключ и точечный с тем же корнем не мешают друг другу", () => {
+    it("a flat key and a dotted one with the same root do not interfere", () => {
         const ctx = new ContextKeyService();
         ctx.setRaw("dup", false);
         ctx.setRaw("dup.child", true);
@@ -37,14 +37,14 @@ describe("ContextKeyService — ключи расширений", () => {
         expect(ctx.evaluate("child")).toBe(false);
     });
 
-    it("ключ с именем __proto__ — обычный ключ", () => {
+    it("a key named __proto__ is a plain key", () => {
         const ctx = new ContextKeyService();
         expect(ctx.evaluate("__proto__")).toBe(false);
         ctx.setRaw("__proto__", true);
         expect(ctx.evaluate("__proto__")).toBe(true);
     });
 
-    it("массив из setContext работает с оператором in", () => {
+    it("an array from setContext works with the in operator", () => {
         const ctx = new ContextKeyService();
         ctx.setRaw("ext.supported", ["a.ts", "b.ts"]);
         ctx.setRaw("resourceFilename", "b.ts");

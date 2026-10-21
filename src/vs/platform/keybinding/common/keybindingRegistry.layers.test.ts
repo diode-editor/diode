@@ -16,8 +16,8 @@ function commands(registry: KeybindingRegistry): string[] {
     return registry.listBindings().map((entry) => `${entry.source}:${entry.commandId}`);
 }
 
-describe("KeybindingRegistry — слои default / extension / user", () => {
-    it("user сильнее extension, extension сильнее default — независимо от момента регистрации", () => {
+describe("KeybindingRegistry: default / extension / user layers", () => {
+    it("user beats extension, extension beats default, regardless of registration time", () => {
         const registry = new KeybindingRegistry();
         // The user layer arrives before extensions (that's how bootstrap starts).
         registry.setUserKeybindings([{ command: "user.cmd", chord: parseChord("ctrl+i") }]);
@@ -33,14 +33,14 @@ describe("KeybindingRegistry — слои default / extension / user", () => {
         expect(resolve(registry)).toBe("default.cmd");
     });
 
-    it("user `-command` снимает бинд расширения, пришедшего позже", () => {
+    it("user `-command` removes the binding of an extension that arrives later", () => {
         const registry = new KeybindingRegistry();
         registry.setUserKeybindings([{ command: "-ext.cmd" }]);
         registry.setExtensionKeybindings([{ command: "ext.cmd", chord: parseChord("ctrl+i") }]);
         expect(resolve(registry)).toBeUndefined();
     });
 
-    it("`-command` расширения снимает дефолт, но не user-бинд той же команды", () => {
+    it("an extension `-command` removes the default but not a user binding of the same command", () => {
         const registry = new KeybindingRegistry();
         registry.register(parseKeybinding("ctrl+i"), "cmd");
         registry.setUserKeybindings([{ command: "cmd", chord: parseChord("ctrl+alt+i") }]);
@@ -50,7 +50,7 @@ describe("KeybindingRegistry — слои default / extension / user", () => {
         expect(commands(registry)).toEqual(["user:cmd"]);
     });
 
-    it("user `-command` не снимает собственные user-бинды команды", () => {
+    it("user `-command` does not remove the command's own user bindings", () => {
         const registry = new KeybindingRegistry();
         registry.register(parseKeybinding("ctrl+s"), "cmd");
         registry.setUserKeybindings([{ command: "cmd", chord: parseChord("ctrl+i") }, { command: "-cmd" }]);
@@ -58,7 +58,7 @@ describe("KeybindingRegistry — слои default / extension / user", () => {
         expect(commands(registry)).toEqual(["user:cmd"]);
     });
 
-    it("when у снятия: снимаются только записи, чей when содержит все его условия", () => {
+    it("removal when: only entries whose when contains all its conditions are removed", () => {
         const registry = new KeybindingRegistry();
         registry.register(parseKeybinding("ctrl+i"), "cmd", "(textInputFocus) && (!editorReadonly)");
         registry.register(parseKeybinding("ctrl+alt+i"), "cmd", "listFocus");
@@ -72,7 +72,7 @@ describe("KeybindingRegistry — слои default / extension / user", () => {
         expect(registry.listBindings().map((entry) => entry.when)).toEqual(["(textInputFocus) && (!editorReadonly)"]);
     });
 
-    it("when снятия — подмножество условий записи: лишние условия записи не мешают, недостающие — мешают", () => {
+    it("removal when is a subset of the entry's conditions: extra entry conditions do not matter, missing ones do", () => {
         const registry = new KeybindingRegistry();
         registry.register(parseKeybinding("ctrl+i"), "cmd", "a && b && c");
         registry.register(parseKeybinding("ctrl+alt+i"), "cmd", "a && b");
@@ -84,7 +84,7 @@ describe("KeybindingRegistry — слои default / extension / user", () => {
         expect(registry.listBindings().map((entry) => entry.when)).toEqual(["a && b"]);
     });
 
-    it("снятие с комбинацией снимает только её; запись без when не снимается снятием с when", () => {
+    it("a removal with a keybinding removes only that one; an entry without when is not removed by a removal with when", () => {
         const registry = new KeybindingRegistry();
         registry.register(parseKeybinding("ctrl+i"), "cmd");
         registry.register(parseKeybinding("ctrl+alt+i"), "cmd");
@@ -96,7 +96,7 @@ describe("KeybindingRegistry — слои default / extension / user", () => {
         expect(registry.listBindings()).toHaveLength(1);
     });
 
-    it("смена слоя возвращает снятые дефолты на прежний приоритет (не в конец)", () => {
+    it("a layer change restores removed defaults at their former priority (not at the end)", () => {
         const registry = new KeybindingRegistry();
         registry.register(parseKeybinding("ctrl+i"), "first");
         registry.register(parseKeybinding("ctrl+i"), "second");
@@ -106,7 +106,7 @@ describe("KeybindingRegistry — слои default / extension / user", () => {
         expect(resolve(registry)).toBe("second");
     });
 
-    it("бинд слоя без комбинации пропускается; dispose очищает слои", () => {
+    it("a layer binding without a keybinding is skipped; dispose clears the layers", () => {
         const registry = new KeybindingRegistry();
         registry.setUserKeybindings([{ command: "user.cmd" }, { command: "user.ok", chord: parseChord("ctrl+i") }]);
         expect(commands(registry)).toEqual(["user:user.ok"]);

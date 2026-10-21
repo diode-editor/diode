@@ -98,11 +98,11 @@ function runRestart(snapshot: IProcessSnapshot, hooks: IRestartHooks, userArgs?:
         if (error instanceof ExitCalled) return error.code;
         throw error;
     }
-    throw new Error("restartProcess вернул управление — оно не должно возвращаться");
+    throw new Error("restartProcess returned, but it must never return");
 }
 
 describe("restartArgs", () => {
-    it("dev: node-флаги и главный скрипт впереди пользовательских аргументов", () => {
+    it("dev: node flags and the main script come before user arguments", () => {
         expect(restartArgs(devSnapshot())).toEqual([
             "--import",
             "tsx",
@@ -112,11 +112,11 @@ describe("restartArgs", () => {
         ]);
     });
 
-    it("SEA: только пользовательские аргументы — программа и есть execPath", () => {
+    it("SEA: user arguments only; the program is execPath itself", () => {
         expect(restartArgs(seaSnapshot())).toEqual(["/work", "--headless=80x24"]);
     });
 
-    it("явные пользовательские аргументы замещают argv[2..] целиком", () => {
+    it("explicit user arguments replace argv[2..] entirely", () => {
         expect(restartArgs(devSnapshot(), ["/other", "--profile", "work"])).toEqual([
             "--import",
             "tsx",
@@ -128,14 +128,14 @@ describe("restartArgs", () => {
         expect(restartArgs(seaSnapshot(), [])).toEqual([]);
     });
 
-    it("dev без главного скрипта — ошибка, а не запуск голого node", () => {
+    it("dev without a main script: an error, not a bare node launch", () => {
         expect(() => restartArgs(devSnapshot({ argv: ["/usr/bin/node"] }))).toThrow(/main script/);
         expect(() => restartArgs(devSnapshot({ argv: ["/usr/bin/node", ""] }))).toThrow(/main script/);
     });
 });
 
 describe("restartProcess", () => {
-    it("supervised-процесс просто выходит специальным кодом — новое окно поднимет супервизор", () => {
+    it("a supervised process just exits with a special code; the supervisor starts the new window", () => {
         const { hooks, spawns, written } = createHooks([]);
 
         const code = runRestart(devSnapshot({ env: { [SUPERVISED_ENV]: "1" } }), hooks);
@@ -147,7 +147,7 @@ describe("restartProcess", () => {
         expect(written).toEqual([]);
     });
 
-    it("supervised-процесс с другими аргументами оставляет их супервизору в файле", () => {
+    it("a supervised process with other arguments leaves them to the supervisor in a file", () => {
         const { hooks, written } = createHooks([]);
         const env = { [SUPERVISED_ENV]: "1", [RELAUNCH_FILE_ENV]: "/tmp/sup.json" };
 
@@ -157,7 +157,7 @@ describe("restartProcess", () => {
         expect(written).toEqual([{ filePath: "/tmp/sup.json", userArgs: ["/other", "--profile", "work"] }]);
     });
 
-    it("supervised-процесс без файла в окружении (старый супервизор) — аргументы некуда положить, просто reload", () => {
+    it("a supervised process without a file in the environment (old supervisor): nowhere to put arguments, plain reload", () => {
         const { hooks, written } = createHooks([]);
 
         runRestart(devSnapshot({ env: { [SUPERVISED_ENV]: "1" } }), hooks, ["/other"]);
@@ -166,7 +166,7 @@ describe("restartProcess", () => {
         expect(written).toEqual([]);
     });
 
-    it("первый reload делает процесс супервизором: держит терминал и ждёт ребёнка", () => {
+    it("the first reload turns the process into a supervisor: it holds the terminal and waits for the child", () => {
         const { hooks, spawns } = createHooks([0]);
 
         const code = runRestart(devSnapshot(), hooks);
@@ -183,7 +183,7 @@ describe("restartProcess", () => {
         });
     });
 
-    it("первый reload с другими аргументами поднимает ребёнка сразу с ними", () => {
+    it("the first reload with other arguments starts the child with them right away", () => {
         const { hooks, spawns, reads } = createHooks([0]);
 
         runRestart(devSnapshot(), hooks, ["/other", "--profile", "work"]);
@@ -193,7 +193,7 @@ describe("restartProcess", () => {
         expect(reads).toEqual([]);
     });
 
-    it("ребёнок, попросивший reload, поднимается снова — сколько бы раз ни просил", () => {
+    it("a child that asks for reload is started again, however many times it asks", () => {
         const { hooks, spawns } = createHooks([RELOAD_EXIT_CODE, RELOAD_EXIT_CODE, 3]);
 
         const code = runRestart(devSnapshot(), hooks);
@@ -202,7 +202,7 @@ describe("restartProcess", () => {
         expect(code).toBe(3);
     });
 
-    it("аргументы, оставленные ребёнком в файле, идут следующему окну и остаются дальше", () => {
+    it("arguments the child leaves in the file go to the next window and stay for later ones", () => {
         const { hooks, spawns, reads } = createHooks(
             [RELOAD_EXIT_CODE, RELOAD_EXIT_CODE, RELOAD_EXIT_CODE, 0],
             [null, ["/other", "--profile", "work"], null],
@@ -216,13 +216,13 @@ describe("restartProcess", () => {
         expect(spawns.map((s) => s.args)).toEqual([original, original, changed, changed]);
     });
 
-    it("ребёнок, убитый сигналом (кода нет), закрывает супервизор отказом", () => {
+    it("a child killed by a signal (no exit code) closes the supervisor with a failure", () => {
         const { hooks } = createHooks([null]);
 
         expect(runRestart(devSnapshot(), hooks)).toBe(1);
     });
 
-    it("исходное окружение не мутируется — флаг супервизора виден только ребёнку", () => {
+    it("the original environment is not mutated; the supervisor flag is visible only to the child", () => {
         const env: NodeJS.ProcessEnv = { HOME: "/home/user" };
         const { hooks } = createHooks([0]);
 
@@ -232,12 +232,12 @@ describe("restartProcess", () => {
     });
 });
 
-describe("боевые хуки и снимок процесса", () => {
+describe("production hooks and process snapshot", () => {
     afterEach(() => {
         vi.restoreAllMocks();
     });
 
-    it("снимок берёт настоящие поля процесса", () => {
+    it("the snapshot takes the real process fields", () => {
         const snapshot = currentProcessSnapshot();
 
         expect(snapshot.execPath).toBe(process.execPath);
@@ -248,7 +248,7 @@ describe("боевые хуки и снимок процесса", () => {
         expect(snapshot.isSea).toBe(false);
     });
 
-    it("spawnSync действительно запускает процесс и отдаёт его код выхода", () => {
+    it("spawnSync really runs the process and returns its exit code", () => {
         const result = realRestartHooks.spawnSync(process.execPath, ["-e", "process.exit(7)"], {
             stdio: "inherit",
             env: process.env,
@@ -257,7 +257,7 @@ describe("боевые хуки и снимок процесса", () => {
         expect(result.status).toBe(7);
     });
 
-    it("файл аргументов: пишется JSON-массивом, читается один раз и снимается", () => {
+    it("args file: written as a JSON array, read once and removed", () => {
         const dir = fs.mkdtempSync(path.join(os.tmpdir(), "diode-relaunch-test-"));
         try {
             const file = path.join(dir, "relaunch.json");
@@ -273,13 +273,13 @@ describe("боевые хуки и снимок процесса", () => {
         }
     });
 
-    it("путь файла аргументов — в tmpdir, с pid в имени", () => {
+    it("the args file path is in tmpdir, with the pid in its name", () => {
         const file = realRestartHooks.relaunchFilePath();
         expect(path.dirname(file)).toBe(os.tmpdir());
         expect(path.basename(file)).toBe(`diode-relaunch-${String(process.pid)}.json`);
     });
 
-    it("parseRelaunchArgs: только массив строк", () => {
+    it("parseRelaunchArgs: string arrays only", () => {
         expect(parseRelaunchArgs('["a","b"]')).toEqual(["a", "b"]);
         expect(parseRelaunchArgs("[]")).toEqual([]);
         expect(parseRelaunchArgs('{"a":1}')).toBeNull();
@@ -287,7 +287,7 @@ describe("боевые хуки и снимок процесса", () => {
         expect(parseRelaunchArgs("nope")).toBeNull();
     });
 
-    it("exit уходит в process.exit с тем же кодом", () => {
+    it("exit goes to process.exit with the same code", () => {
         const exitSpy = vi.spyOn(process, "exit").mockImplementation(() => undefined as never);
 
         realRestartHooks.exit(RELOAD_EXIT_CODE);

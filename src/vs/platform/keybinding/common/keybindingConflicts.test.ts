@@ -9,13 +9,13 @@ function entry(spec: string, commandId: string, when?: string): IKeybindingEntry
 }
 
 describe("whenMayOverlap", () => {
-    it("отсутствующий when пересекается с любым", () => {
+    it("a missing when overlaps any", () => {
         expect(whenMayOverlap(undefined, undefined)).toBe(true);
         expect(whenMayOverlap(undefined, "textViewFocus")).toBe(true);
         expect(whenMayOverlap("textViewFocus", undefined)).toBe(true);
     });
 
-    it("непустые when сравниваются нормализованной строкой — обе стороны тримятся", () => {
+    it("non-empty whens compare as normalized strings; both sides are trimmed", () => {
         expect(whenMayOverlap("textViewFocus", "textViewFocus ")).toBe(true);
         // A leading space is normalized too (otherwise a.trim() goes untested).
         expect(whenMayOverlap("  textViewFocus", "textViewFocus")).toBe(true);
@@ -29,37 +29,37 @@ describe("whenMayOverlap", () => {
 });
 
 describe("findConflictingBindings", () => {
-    it("две записи одной комбинации без when конфликтуют", () => {
+    it("two entries for the same keybinding without when conflict", () => {
         const entries = [entry("ctrl+s", "save"), entry("ctrl+s", "other"), entry("ctrl+p", "palette")];
 
         expect(findConflictingBindings(entries)).toEqual(new Set([0, 1]));
     });
 
-    it("одинаковый чорд с разными when — не конфликт", () => {
+    it("the same chord with different whens is not a conflict", () => {
         const entries = [entry("f6", "a", "textViewFocus"), entry("f6", "b", "listFocus")];
 
         expect(findConflictingBindings(entries)).toEqual(new Set());
     });
 
-    it("when без when — конфликт (глобальный бинд перекрывает контекстный)", () => {
+    it("when vs no when is a conflict (a global binding shadows a contextual one)", () => {
         const entries = [entry("f6", "a", "textViewFocus"), entry("f6", "b")];
 
         expect(findConflictingBindings(entries)).toEqual(new Set([0, 1]));
     });
 
-    it("chord-префикс — не конфликт: ctrl+k против ctrl+k ctrl+s", () => {
+    it("a chord prefix is not a conflict: ctrl+k vs ctrl+k ctrl+s", () => {
         const entries = [entry("ctrl+k", "a"), entry("ctrl+k ctrl+s", "b")];
 
         expect(findConflictingBindings(entries)).toEqual(new Set());
     });
 
-    it("эквивалентная запись комбинации ловится через канонизацию serializeChord", () => {
+    it("an equivalent keybinding spelling is caught via serializeChord canonicalization", () => {
         const entries = [entry("Ctrl+S", "a"), entry("ctrl+s", "b")];
 
         expect(findConflictingBindings(entries)).toEqual(new Set([0, 1]));
     });
 
-    it("в тройке конфликтуют только пересекающиеся пары", () => {
+    it("in a triple only overlapping pairs conflict", () => {
         const entries = [
             entry("f6", "a", "textViewFocus"),
             entry("f6", "b", "listFocus"),

@@ -23,32 +23,32 @@ const PRERELEASE_HOST: IHostVersions = { diode: "0.3.0", vscode: "1.128.0-inside
 
 describe("isVersionCompatible", () => {
     it.each([
-        ["engines.diode проходит", { diode: "^0.3.0" }, HOST, true],
-        ["engines.diode не проходит", { diode: "^0.4.0" }, HOST, false],
-        ["engines.vscode проходит", { vscode: "^1.90.0" }, HOST, true],
-        ["engines.vscode не проходит", { vscode: "^2.0.0" }, HOST, false],
-        ["оба заданы и проходят", { diode: "^0.3.0", vscode: "^1.90.0" }, HOST, true],
-        ["оба заданы, diode не проходит", { diode: "^0.4.0", vscode: "^1.90.0" }, HOST, false],
-        ["оба заданы, vscode не проходит", { diode: "^0.3.0", vscode: "^2.0.0" }, HOST, false],
+        ["engines.diode matches", { diode: "^0.3.0" }, HOST, true],
+        ["engines.diode does not match", { diode: "^0.4.0" }, HOST, false],
+        ["engines.vscode matches", { vscode: "^1.90.0" }, HOST, true],
+        ["engines.vscode does not match", { vscode: "^2.0.0" }, HOST, false],
+        ["both set and matching", { diode: "^0.3.0", vscode: "^1.90.0" }, HOST, true],
+        ["both set, diode does not match", { diode: "^0.4.0", vscode: "^1.90.0" }, HOST, false],
+        ["both set, vscode does not match", { diode: "^0.3.0", vscode: "^2.0.0" }, HOST, false],
         // A dev Diode version passes the diode channel...
-        ["dev-хост пропускает diode-канал", { diode: "^99.0.0" }, DEV_HOST, true],
+        ["dev host skips the diode channel", { diode: "^99.0.0" }, DEV_HOST, true],
         // ...but not the vscode channel: the shim version is always real.
-        ["dev-хост не пропускает vscode-канал", { diode: "^99.0.0", vscode: "^2.0.0" }, DEV_HOST, false],
+        ["dev host does not skip the vscode channel", { diode: "^99.0.0", vscode: "^2.0.0" }, DEV_HOST, false],
         // Nightly (`nightly-<sha>`) behaves like dev: there is no release version.
-        ["nightly-хост пропускает diode-канал", { diode: "^99.0.0" }, NIGHTLY_HOST, true],
-        ["nightly-хост не пропускает vscode-канал", { vscode: "^2.0.0" }, NIGHTLY_HOST, false],
+        ["nightly host skips the diode channel", { diode: "^99.0.0" }, NIGHTLY_HOST, true],
+        ["nightly host does not skip the vscode channel", { vscode: "^2.0.0" }, NIGHTLY_HOST, false],
         // Full node-semver range language: we don't write proxy extensions' engines.
-        ["диапазон с ||", { vscode: "^1.60.0 || ^2.0.0" }, HOST, true],
-        ["x-диапазон", { vscode: "1.x" }, HOST, true],
-        ["x-диапазон другого major", { vscode: "2.x" }, HOST, false],
-        ["дефисный диапазон", { vscode: "1.90.0 - 1.130.0" }, HOST, true],
-        ["дефисный диапазон мимо", { vscode: "1.0.0 - 1.90.0" }, HOST, false],
+        ["range with ||", { vscode: "^1.60.0 || ^2.0.0" }, HOST, true],
+        ["x-range", { vscode: "1.x" }, HOST, true],
+        ["x-range of another major", { vscode: "2.x" }, HOST, false],
+        ["hyphen range", { vscode: "1.90.0 - 1.130.0" }, HOST, true],
+        ["hyphen range miss", { vscode: "1.0.0 - 1.90.0" }, HOST, false],
         // A prerelease host version doesn't match a range that didn't ask for it...
-        ["prerelease-хост вне обычного диапазона", { vscode: "^1.128.0" }, PRERELEASE_HOST, false],
+        ["prerelease host outside a regular range", { vscode: "^1.128.0" }, PRERELEASE_HOST, false],
         // ...and matches when the range asks for it explicitly.
-        ["prerelease-хост в диапазоне с prerelease", { vscode: "^1.128.0-insider" }, PRERELEASE_HOST, true],
+        ["prerelease host in a range with prerelease", { vscode: "^1.128.0-insider" }, PRERELEASE_HOST, true],
         // A garbage range doesn't throw; it yields "incompatible".
-        ["неразбираемый диапазон", { vscode: "не-диапазон" }, HOST, false],
+        ["unparsable range", { vscode: "not-a-range" }, HOST, false],
     ] satisfies [string, IRegistryEngines, IHostVersions, boolean][])("%s", (_label, engines, host, expected) => {
         expect(isVersionCompatible(version("1.0.0", engines), host, semver)).toBe(expected);
     });
@@ -59,17 +59,17 @@ const LINUX_HOST: IHostVersions = { diode: "0.3.0", vscode: "1.127.0", targetPla
 
 describe("isVersionCompatible: targetPlatform", () => {
     it.each([
-        ["universal совместима с платформенным хостом", undefined, LINUX_HOST, true],
-        ["таргет совпал", "linux-x64", LINUX_HOST, true],
-        ["таргет не совпал", "darwin-arm64", LINUX_HOST, false],
+        ["universal is compatible with a platform host", undefined, LINUX_HOST, true],
+        ["target matches", "linux-x64", LINUX_HOST, true],
+        ["target does not match", "darwin-arm64", LINUX_HOST, false],
         // A host without a target (exotic platform) must not get a foreign native binary.
-        ["платформенная запись при хосте без таргета", "linux-x64", HOST, false],
-        ["universal при хосте без таргета", undefined, HOST, true],
+        ["platform entry with a host without a target", "linux-x64", HOST, false],
+        ["universal with a host without a target", undefined, HOST, true],
     ] satisfies [string, string | undefined, IHostVersions, boolean][])("%s", (_label, target, host, expected) => {
         expect(isVersionCompatible(version("1.0.0", { vscode: "*" }, target), host, semver)).toBe(expected);
     });
 
-    it("платформенное несовпадение режет запись даже с проходящими engines", () => {
+    it("a platform mismatch drops the entry even with matching engines", () => {
         expect(isVersionCompatible(version("1.0.0", { vscode: "^1.90.0" }, "win32-x64"), LINUX_HOST, semver)).toBe(
             false,
         );
@@ -77,7 +77,7 @@ describe("isVersionCompatible: targetPlatform", () => {
 });
 
 describe("resolveCompatibleVersion", () => {
-    it("выбирает наивысшую совместимую независимо от порядка в списке", () => {
+    it("picks the highest compatible regardless of list order", () => {
         const versions = [
             version("1.0.0", { vscode: "^1.90.0" }),
             version("1.2.0", { vscode: "^1.90.0" }),
@@ -86,39 +86,39 @@ describe("resolveCompatibleVersion", () => {
         expect(resolveCompatibleVersion(versions, HOST, semver)?.version).toBe("1.2.0");
     });
 
-    it("несовместимая наивысшая пропускается в пользу совместимой ниже", () => {
+    it("an incompatible highest is skipped for a lower compatible one", () => {
         const versions = [version("2.0.0", { vscode: "^99.0.0" }), version("1.2.0", { vscode: "^1.90.0" })];
         expect(resolveCompatibleVersion(versions, HOST, semver)?.version).toBe("1.2.0");
     });
 
-    it("нет совместимых — undefined", () => {
+    it("no compatible ones returns undefined", () => {
         expect(resolveCompatibleVersion([version("1.0.0", { vscode: "^99.0.0" })], HOST, semver)).toBeUndefined();
     });
 
-    it("пустой список — undefined", () => {
+    it("an empty list returns undefined", () => {
         expect(resolveCompatibleVersion([], HOST, semver)).toBeUndefined();
     });
 
     // Both orders: a non-semver record must neither win nor break the comparison
     // with an already chosen candidate.
     it.each([
-        ["перед валидной", ["latest", "1.0.0"]],
-        ["после валидной", ["1.0.0", "latest"]],
+        ["before a valid one", ["latest", "1.0.0"]],
+        ["after a valid one", ["1.0.0", "latest"]],
     ] satisfies [string, string[]][])(
-        "запись с не-semver версией (собрана программно, мимо парсера) пропускается — %s",
+        "an entry with a non-semver version (built programmatically, bypassing the parser) is skipped: %s",
         (_label, order) => {
             const versions = order.map((v) => version(v, { vscode: "*" }));
             expect(resolveCompatibleVersion(versions, HOST, semver)?.version).toBe("1.0.0");
         },
     );
 
-    it("при равных версиях побеждает первая запись", () => {
+    it("with equal versions the first entry wins", () => {
         const first = version("1.0.0", { vscode: "*" });
         const duplicate = version("1.0.0", { vscode: "*" });
         expect(resolveCompatibleVersion([first, duplicate], HOST, semver)).toBe(first);
     });
 
-    it("prerelease ниже релиза той же версии", () => {
+    it("prerelease is lower than the release of the same version", () => {
         const versions = [version("1.2.0-rc.1", { vscode: "*" }), version("1.2.0", { vscode: "*" })];
         expect(resolveCompatibleVersion(versions, HOST, semver)?.version).toBe("1.2.0");
     });
@@ -126,10 +126,10 @@ describe("resolveCompatibleVersion", () => {
     // Both permutations: the platform record must win by the "more specific wins"
     // rule, not by list order.
     it.each([
-        ["universal раньше", [undefined, "linux-x64"]],
-        ["платформенная раньше", ["linux-x64", undefined]],
+        ["universal first", [undefined, "linux-x64"]],
+        ["platform first", ["linux-x64", undefined]],
     ] satisfies [string, (string | undefined)[]][])(
-        "при равной версии платформенная запись побеждает universal — %s",
+        "with an equal version a platform entry beats universal: %s",
         (_label, order) => {
             const versions = order.map((target) => version("1.0.0", { vscode: "*" }, target));
             expect(resolveCompatibleVersion(versions, LINUX_HOST, semver)?.targetPlatform).toBe("linux-x64");
@@ -139,10 +139,10 @@ describe("resolveCompatibleVersion", () => {
     // Both permutations: specificity must not override semver, even when the platform
     // record is compared against an already chosen higher universal one.
     it.each([
-        ["платформенная раньше", ["linux-x64", undefined]],
-        ["universal раньше", [undefined, "linux-x64"]],
+        ["platform first", ["linux-x64", undefined]],
+        ["universal first", [undefined, "linux-x64"]],
     ] satisfies [string, (string | undefined)[]][])(
-        "более высокая universal-версия побеждает платформенную ниже — %s",
+        "a higher universal version beats a lower platform one: %s",
         (_label, order) => {
             const [firstTarget, secondTarget] = order;
             const versions = [
@@ -153,13 +153,13 @@ describe("resolveCompatibleVersion", () => {
         },
     );
 
-    it("при равных платформенных записях одного таргета побеждает первая", () => {
+    it("with equal platform entries for one target the first wins", () => {
         const first = version("1.0.0", { vscode: "*" }, "linux-x64");
         const duplicate = version("1.0.0", { vscode: "*" }, "linux-x64");
         expect(resolveCompatibleVersion([first, duplicate], LINUX_HOST, semver)).toBe(first);
     });
 
-    it("платформенный набор без universal: хост берёт свой таргет, чужие не участвуют", () => {
+    it("a platform set without universal: the host takes its target, others are ignored", () => {
         const versions = [
             version("1.0.0", { vscode: "*" }, "darwin-arm64"),
             version("1.0.0", { vscode: "*" }, "linux-x64"),
@@ -168,12 +168,12 @@ describe("resolveCompatibleVersion", () => {
         expect(resolveCompatibleVersion(versions, LINUX_HOST, semver)?.targetPlatform).toBe("linux-x64");
     });
 
-    it("хост без таргета среди платформенных записей берёт только universal", () => {
+    it("a host without a target takes only universal among platform entries", () => {
         const versions = [version("1.1.0", { vscode: "*" }, "linux-x64"), version("1.0.0", { vscode: "*" })];
         expect(resolveCompatibleVersion(versions, HOST, semver)?.version).toBe("1.0.0");
     });
 
-    it("нет записи под таргет хоста и нет universal — undefined", () => {
+    it("no entry for the host target and no universal returns undefined", () => {
         expect(
             resolveCompatibleVersion([version("1.0.0", { vscode: "*" }, "darwin-x64")], LINUX_HOST, semver),
         ).toBeUndefined();

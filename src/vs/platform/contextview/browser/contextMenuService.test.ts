@@ -138,7 +138,7 @@ describe("ContextMenuService", () => {
         expect(onHide).toHaveBeenCalledOnce();
     });
 
-    it("меню резолвит цвета из корневого var-scope (тема без пуша стилей)", () => {
+    it("the menu resolves colors from the root var scope (theme without pushing styles)", () => {
         const { app, owner, service } = setup();
         const bg = packRgb(0x0a, 0x1b, 0x2c);
         app.root.setStyleVars({ "menu.background": bg });
