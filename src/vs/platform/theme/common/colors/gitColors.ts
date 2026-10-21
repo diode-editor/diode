@@ -1,6 +1,5 @@
 import type { ColorContribution } from "../colorRegistry.ts";
 
-/** Git-декорации файлов (Explorer/табы). */
 export const gitColors = {
     "gitDecoration.addedResourceForeground": {
         defaults: { dark: "#81B88B", light: "#587C0C" },

@@ -9,7 +9,6 @@ import type { IWatcherProcess } from "./subprocessTreeWatcher.ts";
 import { SubprocessTreeWatcher } from "./subprocessTreeWatcher.ts";
 import type { ITreeWatcherRequest, ITreeWatcherResponse } from "./treeWatcherProtocol.ts";
 
-/** Watcher-процесс без процесса: сообщения копятся, смерть и ответы — руками. */
 class FakeProcess implements IWatcherProcess {
     public readonly sent: ITreeWatcherRequest[] = [];
     public kills = 0;
@@ -38,23 +37,19 @@ class FakeProcess implements IWatcherProcess {
         this.die();
     }
 
-    /** Прислать сообщение хосту, как это сделал бы настоящий процесс. */
     public emit(message: unknown): void {
         this.messageListener?.(message);
     }
 
-    /** Умереть — сам (падение) или от `kill()`. */
     public die(): void {
         this.exitListener?.();
     }
 
-    /** Не подняться или сломать канал: `error` вместо (или до) `exit`. */
     public fail(error: unknown): void {
         this.errorListener?.(error);
     }
 }
 
-/** Фабрика процессов с журналом: сколько раз и какие из них подняли. */
 function processFactory(): { spawnProcess: () => IWatcherProcess; spawned: FakeProcess[] } {
     const spawned: FakeProcess[] = [];
     return {
@@ -84,8 +79,6 @@ describe("SubprocessTreeWatcher", () => {
 
         new SubprocessTreeWatcher({ spawnProcess });
 
-        // Спавн на старте вернул бы задержку на критический путь запуска — ровно
-        // то, ради ухода от чего обход и переехал.
         expect(spawned).toHaveLength(0);
     });
 
@@ -149,7 +142,6 @@ describe("SubprocessTreeWatcher", () => {
         const subscription = watcher.watchTree("/repo", OPTIONS, (changes) => seen.push([...changes]));
 
         subscription.dispose();
-        // Пачка, обогнавшая unwatch в канале: доставлять её уже некому.
         spawned[0]?.emit({ t: "changes", id: 1, changes: CHANGES });
 
         expect(spawned[0]?.sent.at(-1)).toEqual({ t: "unwatch", id: 1 });
@@ -283,7 +275,6 @@ describe("SubprocessTreeWatcher", () => {
 
             spawned[0]?.die();
 
-            // Переподписывать нечего — и поднимать процесс ради этого незачем.
             expect(spawned).toHaveLength(1);
         });
 
@@ -354,8 +345,6 @@ describe("SubprocessTreeWatcher", () => {
             const watcher = new SubprocessTreeWatcher({ spawnProcess });
             watcher.watchTree("/repo", OPTIONS, () => undefined);
 
-            // У неудачного спавна `exit` может не прийти вовсе — если ждать
-            // только его, прокси навсегда остался бы с мёртвой ссылкой.
             spawned[0]?.fail(Object.assign(new Error("spawn EMFILE"), { code: "EMFILE" }));
 
             expect(spawned).toHaveLength(2);
@@ -400,9 +389,7 @@ describe("SubprocessTreeWatcher", () => {
             watcher.watchTree("/repo", OPTIONS, () => undefined);
             spawned[0]?.die();
 
-            // Типовой случай: ERR_IPC_CHANNEL_CLOSED от `send` в мёртвый канал
-            // прилетает уже после того, как на замену поднят новый процесс. Про
-            // отказ этого процесса уже всё сказано — второй раз не жалуемся.
+            // ERR_IPC_CHANNEL_CLOSED от `send` в мёртвый канал прилетает, когда замена уже поднята.
             spawned[0]?.fail(new Error("ERR_IPC_CHANNEL_CLOSED"));
 
             expect(spawned).toHaveLength(2);
@@ -496,8 +483,6 @@ describe("SubprocessTreeWatcher", () => {
             watcher.watchTree("/repo", OPTIONS, (changes) => seen.push([...changes]));
 
             watcher.dispose();
-            // Убитый ребёнок мог успеть положить пачку в канал — владелец окна
-            // уже попрощался, доставлять её некуда.
             spawned[0]?.emit({ t: "changes", id: 1, changes: CHANGES });
 
             expect(seen).toEqual([]);

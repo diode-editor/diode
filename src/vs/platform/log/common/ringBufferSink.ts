@@ -1,17 +1,12 @@
 import type { ILogSink, LogEntry } from "./iLogService.ts";
 
 export interface RingBufferSinkOptions {
-    /** Максимум записей на канал. По умолчанию 1000. */
+    /** На канал; по умолчанию 1000. */
     readonly capacityPerChannel?: number;
-    /** Опциональный колбэк, вызываемый ПОСЛЕ записи в буфер. */
+    /** Зовётся ПОСЛЕ записи в буфер. */
     readonly onAppend?: (entry: LogEntry) => void;
 }
 
-/**
- * Per-channel circular buffer. Источник данных для будущей Output-вкладки:
- * UI подписывается на `onAppend` и при необходимости подтягивает историю
- * через `getEntries(channel)`.
- */
 export class RingBufferSink implements ILogSink {
     private readonly capacity: number;
     private readonly buffers = new Map<string, LogEntry[]>();

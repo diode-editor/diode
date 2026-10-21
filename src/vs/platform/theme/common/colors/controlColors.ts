@@ -1,6 +1,5 @@
 import type { ColorContribution } from "../colorRegistry.ts";
 
-/** Контролы: кнопки, скроллбары, списки/деревья, меню. */
 export const controlColors = {
     "button.background": {
         defaults: { dark: "#0078D7", light: "#005FB8" },
@@ -64,7 +63,6 @@ export const controlColors = {
         defaults: { dark: "#808080", light: "#8E8E90" },
         description: "List/Tree foreground color for items that are deemphasized (e.g. cut in explorer).",
     },
-    // Имя вкладки удалённого файла (orphaned) — как декорация VS Code.
     "list.errorForeground": {
         defaults: { dark: "#F88070", light: "#B01011" },
         description: "Foreground color of list items containing errors.",
@@ -134,7 +132,6 @@ export const controlColors = {
         description: "Input box foreground color for placeholder text.",
     },
     "input.selectionBackground": {
-        // Ранее жил только tuidom-дефолтом (styleTokens) — темы не могли переопределить.
         defaults: { dark: "#264F78", light: "#ADD6FF" },
         description: "Input box background color for selected text.",
     },
@@ -157,11 +154,8 @@ export const controlColors = {
         defaults: { dark: "editorWidget.background", light: "editorWidget.background" },
         description: "Quick picker background color.",
     },
-    // Собственные цвета пикера: у VS Code эквивалента нет, значения — те, что
-    // жили дефолтами tuidom, пока виджет был движковым.
-    // Рамка пикера — та же, что у остальных виджетов редактора (find, hover):
-    // у VS Code у пикера рамки нет (тень), у нас она обязана быть, и цвет
-    // логично брать у виджетов, а не держать свой серый.
+    // Своих цветов пикера у VS Code нет; рамка — как у остальных виджетов (find, hover): у VS Code
+    // вместо неё тень.
     "quickPick.border": {
         defaults: { dark: "editorWidget.border", light: "editorWidget.border" },
         description: "Quick picker frame color.",

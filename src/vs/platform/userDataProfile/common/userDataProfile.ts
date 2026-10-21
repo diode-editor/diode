@@ -7,16 +7,10 @@ import type { IStateDescriptor } from "../../state/common/iStateService.ts";
 import type { IWorkspace } from "../../workspace/common/iWorkspaceContextService.ts";
 
 /**
- * Профиль пользователя — набор настроек/кейбиндов/состояния, который можно
- * переключать (аналог `IUserDataProfile` эталона,
- * `platform/userDataProfile/common/userDataProfile.ts`). Подмножество: без
- * snippets/tasks/prompts/mcp и `useDefaultFlags` (docs/TODO/Profiles.md,
- * итерация 3). Пути — абсолютные строки, как везде в `IEnvironmentService`.
- *
- * Отступление от эталона: `id` — не случайный hex, а slug имени
- * ({@link profileIdFromName}), и он же — имя каталога в `User/profiles/`.
- * Переименование каталог не двигает, поэтому после него id перестаёт совпадать
- * с именем (решение человека, отступления — docs/arch/Configuration.md, «Профили»).
+ * Подмножество `IUserDataProfile` эталона (без snippets/tasks/prompts/mcp — docs/TODO/Profiles.md).
+ * Отступление (решение человека): `id` — не случайный hex, а slug имени ({@link profileIdFromName})
+ * и имя каталога в `User/profiles/`; переименование каталог не двигает, и id перестаёт
+ * совпадать с именем.
  */
 export interface IUserDataProfile {
     readonly id: string;
@@ -28,48 +22,28 @@ export interface IUserDataProfile {
     readonly keybindingsResource: string;
     /** `<location>/globalStorage` — родитель приватных каталогов расширений профиля. */
     readonly globalStorageHome: string;
-    /**
-     * Какие из установленных расширений включены в профиле
-     * (`platform/extensionManagement/node/profileExtensions.ts`): у именованного —
-     * `<location>/extensions.json`, у Default — `extensions.json` в самом каталоге
-     * расширений (`getDefaultProfileExtensionsLocation` эталона).
-     */
+    /** У именованного — `<location>/extensions.json`, у Default — в каталоге расширений (`getDefaultProfileExtensionsLocation` эталона). */
     readonly extensionsResource: string;
 }
 
-/**
- * Допустимый id профиля (имя каталога в `User/profiles/`): символы
- * `[A-Za-z0-9._-]`, остальное slug заменяет на `-`. `.` и `..` — не каталог, а
- * ссылка на сам `profiles/` и на `User/`: профиль с таким id делил бы файлы с
- * Default, а его удаление сносило бы `User/` целиком.
- */
+/** `.` и `..` запрещены: профиль с таким id делил бы файлы с Default, а его удаление сносило бы `User/`. */
 export const PROFILE_ID_PATTERN = /^(?!\.{1,2}$)[A-Za-z0-9._-]+$/;
 
-/**
- * Id, который именованному профилю не достаётся: `default` в
- * `resolveUserDataPaths` значит Default-профиль (файлы прямо в `User/`), и
- * профиль с таким id молча читал и писал бы чужие файлы.
- */
+/** `default` в `resolveUserDataPaths` значит Default-профиль: именованный с таким id писал бы в чужие файлы. */
 export const RESERVED_PROFILE_ID = "default";
 
 /** Предел длины id из имени: имя каталога ограничено ФС (255 байт), запас — под суффикс коллизии. */
 export const MAX_PROFILE_ID_LENGTH = 64;
 
-/**
- * Имена устройств Windows (`CON`, `NUL`, `COM1`, …): каталог с таким именем —
- * и с любым расширением после точки — там не создаётся. Реестр общий для
- * всех ОС, поэтому такой slug получает префикс на любой из них.
- */
+/** Каталог с таким именем (и любым расширением) Windows не создаёт; префикс — на любой ОС. */
 const WINDOWS_DEVICE_NAMES = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(\.|$)/i;
 
-/** Годится ли строка в id именованного профиля (каталог в `User/profiles/`, см. {@link PROFILE_ID_PATTERN}). */
 export function isValidProfileId(id: string): boolean {
     return PROFILE_ID_PATTERN.test(id) && id !== RESERVED_PROFILE_ID;
 }
 
-/** Id Default-профиля — как у эталона. В реестре он не хранится. */
+/** Как у эталона; в реестре не хранится. */
 export const DEFAULT_PROFILE_ID = "__default__profile__";
-/** Имя Default-профиля в пикерах и в `--profile` (эталон: `localize('defaultProfile', "Default")`). */
 export const DEFAULT_PROFILE_NAME = "Default";
 
 export interface DidChangeProfilesEvent {
@@ -84,75 +58,60 @@ export interface IUserDataProfileUpdateOptions {
 }
 
 /**
- * Ключ привязки профиля к воркспейсу: абсолютный путь файла `.code-workspace`,
- * если окно открыто им, иначе — путь папки (`workspace.configuration ??
- * folders[0]`, как `getWorkspaceUri` в `userDataProfileManagement.ts` эталона).
- * Хранится в `profileAssociations.workspaces` как есть — путь, а не хэш, чтобы
- * файл читался глазами. У пустого окна ключа нет.
+ * Путь `.code-workspace`, иначе папки (как `getWorkspaceUri` эталона). Хранится путём, а не
+ * хэшем, чтобы файл читался глазами.
  */
 export type ProfileWorkspaceKey = string;
 
-/**
- * Реестр профилей и их привязок к воркспейсам (аналог `IUserDataProfilesService`
- * эталона). Реестр живёт в состоянии области `application`
- * (`User/globalStorage/storage.json`, ключи `userDataProfiles` и
- * `profileAssociations`), один на установку. Активный профиль процесса —
- * отдельно, в `IUserDataProfileService` workbench'а: он фиксирован на процесс.
- */
+/** Один на установку, в application-состоянии; активный профиль процесса — в `IUserDataProfileService` workbench'а. */
 export interface IUserDataProfilesService {
-    /** `User/profiles` — родитель каталогов именованных профилей. */
     readonly profilesHome: string;
     readonly defaultProfile: IUserDataProfile;
-    /** Все профили; первый — Default. */
+    /** Первый — Default. */
     readonly profiles: readonly IUserDataProfile[];
     readonly onDidChangeProfiles: Event<DidChangeProfilesEvent>;
 
-    /**
-     * Создаёт именованный профиль: каталог с пустым составом расширений
-     * (`extensions.json` = `[]`), без настроек и кейбиндов. Имя обязано быть
-     * непустым и уникальным. С `workspace` — сразу привязывает его к профилю.
-     */
+    /** Пустой состав расширений (`extensions.json` = `[]`); с `workspace` — сразу привязывает. */
     createNamedProfile(name: string, workspace?: ProfileWorkspaceKey): Promise<IUserDataProfile>;
-    /** Переименование; Default не правится. Каталог остаётся прежним. */
+    /** Default не правится; каталог не переезжает. */
     updateProfile(profile: IUserDataProfile, options: IUserDataProfileUpdateOptions): Promise<IUserDataProfile>;
-    /** Снимает профиль с реестра, его привязки и каталог. Default не удаляется. */
+    /** Вместе с привязками и каталогом; Default не удаляется. */
     removeProfile(profile: IUserDataProfile): Promise<void>;
 
     /** Привязывает воркспейс к профилю; привязка к Default — снятие записи. */
     setProfileForWorkspace(workspace: ProfileWorkspaceKey, profile: IUserDataProfile): Promise<void>;
-    /** Профиль, привязанный к воркспейсу; `undefined` — привязки нет (или она ведёт на удалённый профиль). */
+    /** Привязка на удалённый профиль — как её отсутствие. */
     getProfileForWorkspace(workspace: ProfileWorkspaceKey): IUserDataProfile | undefined;
 }
 
 // Stryker disable next-line StringLiteral: token() возвращает новый Token, и зависимости резолвятся по ссылке на него — строка внутри остаётся отладочной меткой
 export const IUserDataProfilesServiceDIToken = token<IUserDataProfilesService>("UserDataProfilesService");
 
-/** Запись реестра (ключ `userDataProfiles`): `location` — относительно `profilesHome`, как у эталона. */
+/** `location` — относительно `profilesHome`, как у эталона. */
 export interface StoredUserDataProfile {
     readonly name: string;
     readonly location: string;
 }
 
-/** Привязки (ключ `profileAssociations`): путь воркспейса → id профиля. */
+/** Путь воркспейса → id профиля. */
 export interface StoredProfileAssociations {
     readonly workspaces?: Readonly<Record<string, string>>;
 }
 
-/** Реестр профилей в application-состоянии; пустой список — ключ снимается. */
+/** Пустой список — ключ снимается. */
 export const USER_DATA_PROFILES_STATE: IStateDescriptor<readonly StoredUserDataProfile[]> = {
     key: "userDataProfiles",
     scope: "application",
     default: [],
 };
 
-/** Привязки профилей к воркспейсам в application-состоянии; без привязок — ключ снимается. */
+/** Без привязок — ключ снимается. */
 export const PROFILE_ASSOCIATIONS_STATE: IStateDescriptor<StoredProfileAssociations> = {
     key: "profileAssociations",
     scope: "application",
     default: {},
 };
 
-/** Ресурсы профиля по его каталогу (зеркало `toUserDataProfile` эталона без флагов). */
 export function toUserDataProfile(id: string, name: string, location: string): IUserDataProfile {
     return {
         id,
@@ -166,24 +125,16 @@ export function toUserDataProfile(id: string, name: string, location: string): I
     };
 }
 
-/**
- * Default-профиль: файлы прямо в `User/` (`defaultProfileHome`); состав
- * расширений — `extensionsResource`, если задан (у эталона — в каталоге
- * расширений, `getDefaultProfileExtensionsLocation`), иначе `User/extensions.json`.
- */
+/** `extensionsResource` не задан — `User/extensions.json`. */
 export function createDefaultProfile(defaultProfileHome: string, extensionsResource?: string): IUserDataProfile {
     const profile = toUserDataProfile(DEFAULT_PROFILE_ID, DEFAULT_PROFILE_NAME, defaultProfileHome);
     return { ...profile, isDefault: true, extensionsResource: extensionsResource ?? profile.extensionsResource };
 }
 
 /**
- * Id профиля из имени: slug в алфавите каталога (`PROFILE_ID_PATTERN`), прочие
- * символы и пробелы схлопываются в `-`, длина — не больше
- * {@link MAX_PROFILE_ID_LENGTH}; пустой остаток или одни точки — `profile`,
- * имя устройства Windows (`con`, `nul.txt`) — с префиксом `profile-`.
- * Коллизия с занятым id или с {@link RESERVED_PROFILE_ID} — числовой суффикс
- * `-2`, `-3`, … Регистр сохраняется, но занятость сравнивается без него: на
- * macOS и Windows `Work` и `work` — один каталог.
+ * Пустой остаток или одни точки — `profile`, имя устройства Windows — с префиксом `profile-`,
+ * коллизия — суффикс `-2`, `-3`, … Регистр сохраняется, но занятость сравнивается без него:
+ * на macOS и Windows `Work` и `work` — один каталог.
  */
 export function profileIdFromName(name: string, taken: readonly string[]): string {
     // Пробелы по краям схлопываются в `-` и срезаются вместе с ним — отдельный trim не нужен.

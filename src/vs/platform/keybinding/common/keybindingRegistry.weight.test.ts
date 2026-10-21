@@ -42,10 +42,8 @@ describe("KeybindingRegistry — вес правила", () => {
         registry.register(parseKeybinding("f8"), "cmd");
 
         expect(registry.resolveKey(CTRL_K, new ContextKeyService()).kind).toBe("chord");
-        // Незавершённый чорд подписывается по сильнейшему кандидату.
         expect(serializeChord(registry.getPendingChord())).toBe("ctrl+k");
         registry.resetPending();
-        // Подпись команды — от более тяжёлого её бинда (тот же приоритет, что у резолвера).
         expect(serializeChord(registry.getKeybindingForCommand("cmd")!)).toBe("f9");
     });
 });

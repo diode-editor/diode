@@ -10,17 +10,11 @@ import { Uri } from "../../../base/common/uri.ts";
 import { ChokidarFileWatcher } from "./chokidarFileWatcher.ts";
 import { DiskFileSystemProvider } from "./diskFileSystemProvider.ts";
 
-/** Подписка, считающая уведомления. */
 interface ICounter {
     readonly calls: () => number;
 }
 
-/**
- * Ждёт, пока все подписки начнут видеть запись: до события `ready` chokidar
- * считает найденное начальным состоянием и с `ignoreInitial` глотает. Пишет
- * файл на месте, пока каждая подписка не откликнется, и возвращает счётчики —
- * базу для дальнейших ассертов.
- */
+/** До `ready` chokidar с `ignoreInitial` глотает записи — пишем, пока откликнется каждая подписка. */
 async function untilWatching(file: string, counters: readonly ICounter[]): Promise<number[]> {
     await vi.waitFor(
         () => {
@@ -89,8 +83,6 @@ describe("ChokidarFileWatcher — атомарное сохранение, на�
     }, 30000);
 
     it("файл, созданный после подписки: и после создания видны сохранения обоим", async () => {
-        // Сценарий «Preferences: Open Workspace Settings»: каталога ещё нет,
-        // команда создаёт его с заготовкой, документ открывается и сохраняется.
         const file = path.join(ws.dir, ".diode", "settings.json");
         const settings = watch(file);
         // Каталог, созданный до готовности chokidar, событием не придёт — тогда

@@ -1,49 +1,23 @@
 import type { IAssetAccess } from "../../../base/common/assets/iAssetAccess.ts";
 import type { ILogger } from "../../log/common/iLogger.ts";
 
-/**
- * Локализация манифеста расширения (`package.json` → `package.nls[.<locale>].json`).
- *
- * Расширения не пишут в манифест готовые строки: вместо заголовка команды там
- * стоит ключ `"%java.server.mode.switch%"`, а человеческий текст лежит рядом в
- * `package.nls.json` (и в `package.nls.<locale>.json` для переводов). Пока
- * резолва не было, в палитре висел сам ключ — ровно это видел пользователь на
- * стоковом `redhat.java`.
- *
- * Как в эталоне (`localizeManifest` в upstream), подмена делается **одним
- * проходом по всему дереву манифеста**, а не точечно у команд: те же ключи
- * сидят в `displayName`/`description`, в заголовках view, в `label` тем и в
- * описаниях настроек. Манифест целиком уезжает в регистрацию расширения и
- * становится его `packageJSON` в `vscode.extensions` — то есть локализованным
- * его видит и само расширение, что эталону соответствует.
- *
- * Краевые случаи — эталонные:
- *   - ключа нет ни в одном бандле → строка остаётся как есть (`%key%`) и
- *     попадает в одну строку лога (молча подставить пустоту = отлаживать
- *     нечем);
- *   - нет/битый `package.nls.json` → расширение грузится с нерезолвленными
- *     строками, загрузка не падает;
- *   - значение, которое само не строка, не трогаем.
- */
+// Как `localizeManifest` эталона — одним проходом по всему дереву манифеста, а
+// не точечно у команд: ключи сидят и в `displayName`, и в заголовках view, и в
+// описаниях настроек, а локализованный манифест видит и само расширение как
+// `packageJSON`. Ненайденный ключ остаётся `%key%` и уходит в лог; битый бандл
+// загрузку не роняет.
 
-/**
- * Разобранный nls-бандл: ключ → строка. `Partial`, потому что ключи
- * произвольные — обращение по отсутствующему ключу обязано давать `undefined`.
- */
+/** `Partial`: обращение по отсутствующему ключу обязано давать `undefined`. */
 export type INlsBundle = Readonly<Partial<Record<string, string>>>;
 
 const NLS_PREFIX = "package.nls";
 const NLS_SUFFIX = ".json";
 
-/** `package.nls.json` — бандл исходного (английского) текста манифеста. */
 export const NLS_BASE_FILE = `${NLS_PREFIX}${NLS_SUFFIX}`;
 
 /**
- * Имена nls-файлов в порядке приоритета для локали: сперва сама локаль, затем
- * её базовый язык (`pt-br` → `pt`), в хвосте всегда `package.nls.json`.
- *
- * Для `en` (и пустой строки) кандидат один: `package.nls.json` и ЕСТЬ
- * английский бандл, `package.nls.en.json` расширения не кладут.
+ * Локаль, её базовый язык (`pt-br` → `pt`), в хвосте `package.nls.json`. Для
+ * `en` кандидат один: `package.nls.en.json` расширения не кладут.
  */
 export function nlsFileCandidates(locale: string): readonly string[] {
     const normalized = locale.trim().toLowerCase();
@@ -58,12 +32,8 @@ export function nlsFileCandidates(locale: string): readonly string[] {
 }
 
 /**
- * Разбирает содержимое nls-файла. Нестроковые значения отбрасывает: ключ с
- * таким значением считается ненайденным, то есть строка манифеста останется
- * ключом и попадёт в лог — в отличие от молчаливой подстановки `[object Object]`.
- *
- * Бросает на невалидном JSON и на верхнем уровне, который не объект (массив,
- * число, `null`): вызывающий решает, что с этим делать.
+ * Нестроковое значение — ключ не найден (попадёт в лог), а не молчаливый
+ * `[object Object]`. Бросает на невалидном JSON и не-объекте.
  */
 export function parseNlsBundle(raw: string): INlsBundle {
     const parsed: unknown = JSON.parse(raw);
@@ -77,29 +47,19 @@ export function parseNlsBundle(raw: string): INlsBundle {
     return bundle;
 }
 
-/**
- * Имя ключа локализации, если строка им является: `"%java.clean%"` → `java.clean`.
- * Иначе `undefined` — это обычный текст манифеста.
- *
- * Ключ обязан быть непустым, поэтому `"%"` и `"%%"` ключами не считаются и
- * остаются в манифесте как есть.
- */
+/** `"%java.clean%"` → `java.clean`; `"%"` и `"%%"` — не ключи. */
 export function nlsKeyOf(value: string): string | undefined {
     if (value.length <= 2 || !value.startsWith("%") || !value.endsWith("%")) return undefined;
     return value.slice(1, -1);
 }
 
-/** Результат локализации: значение + ключи, для которых перевода не нашлось. */
 export interface ILocalizeResult<T> {
     readonly value: T;
-    /** Ненайденные ключи без дублей, в порядке обхода. Строки оставлены как есть. */
+    /** Без дублей, в порядке обхода. */
     readonly unresolved: readonly string[];
 }
 
-/**
- * Резолвит `%ключи%` во всём дереве манифеста (объекты, массивы, строки) и
- * возвращает НОВОЕ дерево — исходный манифест не мутируется.
- */
+/** Возвращает новое дерево, исходный манифест не мутируется. */
 export function localizeManifest<T>(manifest: T, bundle: INlsBundle | undefined): ILocalizeResult<T> {
     const unresolved: string[] = [];
     return { value: localizeNode(manifest, bundle, unresolved) as T, unresolved };
@@ -126,11 +86,8 @@ function localizeNode(node: unknown, bundle: INlsBundle | undefined, unresolved:
 }
 
 /**
- * Читает nls-бандл расширения через {@link IAssetAccess} — а не через `fs`:
- * builtin-расширения живут внутри SEA-бандла, где файла на диске нет вовсе.
- * Кандидаты перебираются в порядке {@link nlsFileCandidates}; битый бандл
- * локали не отменяет локализацию целиком — берётся следующий кандидат (в
- * хвосте всегда база). Не нашлось ни одного — `undefined`.
+ * Через {@link IAssetAccess}, а не `fs`: builtin-расширения живут в SEA-бандле.
+ * Битый бандл локали — берётся следующий кандидат.
  */
 export async function loadNlsBundle(
     assets: IAssetAccess,
@@ -150,11 +107,7 @@ export async function loadNlsBundle(
     return undefined;
 }
 
-/**
- * Полный путь локализации одного расширения: читает бандл по локали и резолвит
- * манифест. Ненайденные ключи — ОДНОЙ строкой в лог на расширение (по строке на
- * ключ было бы 30 строк на одном `redhat.java`).
- */
+/** Ненайденные ключи — одной строкой в лог: по строке на ключ было бы 30 строк на `redhat.java`. */
 export async function localizeExtensionManifest<T>(
     manifest: T,
     assets: IAssetAccess,

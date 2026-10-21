@@ -1,26 +1,12 @@
 import { Emitter } from "../../../base/common/event.ts";
 
-/**
- * Реестр классификации семантических токенов — перенос
- * `vs/platform/theme/common/tokenClassificationRegistry.ts` эталона без
- * JSON-схемы (схемы стилей у нас нет): типы и модификаторы токенов, иерархия
- * `superType`, селекторы `(type|*)(.modifier)*(:language)?` со скорингом и
- * дефолтные правила «тип → TextMate-скоупы», по которым тема без
- * `semanticTokenColors` всё равно красит семантический токен цветом своего
- * `tokenColors`.
- *
- * Стандартные типы, модификаторы и фоллбэки ({@link createDefaultTokenClassificationRegistry})
- * — дословно из эталона; расширения добавляют свои через
- * `contributes.semanticTokenTypes`/`semanticTokenModifiers`/`semanticTokenScopes`
- * (`ExtensionSemanticTokensContributor`).
- */
+// Перенос tokenClassificationRegistry.ts эталона без JSON-схемы.
 
 const TOKEN_TYPE_WILDCARD = "*";
 const CHAR_LANGUAGE = ":".charCodeAt(0);
 const CHAR_MODIFIER = ".".charCodeAt(0);
 
 const ID_PATTERN = "\\w+[-_\\w+]*";
-/** Формат id типа и модификатора — `typeAndModifierIdPattern` эталона. */
 export const TYPE_AND_MODIFIER_ID_PATTERN = new RegExp(`^${ID_PATTERN}$`);
 
 /** Селектор правила: `match` — вес совпадения или `-1`. */
@@ -173,7 +159,7 @@ export class TokenClassificationRegistry {
         return [...this.tokenModifierById.values()];
     }
 
-    /** Дефолтные правила в порядке регистрации: встроенные, затем расширений. */
+    /** Встроенные, затем расширений. */
     public getTokenStylingDefaultRules(): readonly ISemanticTokenDefaultRule[] {
         return this.tokenStylingDefaultRules;
     }
@@ -198,10 +184,7 @@ export class TokenClassificationRegistry {
     }
 }
 
-/**
- * Реестр со стандартными типами, модификаторами и фоллбэками эталона
- * (`createDefaultTokenClassificationRegistry`), дословно.
- */
+/** Типы, модификаторы и фоллбэки — дословно из эталона. */
 export function createDefaultTokenClassificationRegistry(): TokenClassificationRegistry {
     const registry = new TokenClassificationRegistry();
 

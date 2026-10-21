@@ -13,17 +13,6 @@ import {
     type IStat,
 } from "../common/files.ts";
 
-/**
- * Провайдер схемы `file:` — локальный диск для {@link IFileService}. Всё через
- * `fs.promises`: UI-поток не блокируется на медленной ФС.
- *
- * Атомарная запись — через временного соседа и `rename`: падение посреди записи
- * не оставляет обрезанный файл. Исключения, как у эталона: симлинк (`rename`
- * заменил бы ссылку файлом) и файл с жёсткими ссылками (остальные имена
- * остались бы на старом содержимом) — их пишем на месте.
- *
- * Слежения нет: изменения снаружи ловят `IFileWatcher`/`ITreeFileWatcher`.
- */
 export class DiskFileSystemProvider implements IFileSystemProvider {
     public readonly capabilities = FileSystemProviderCapabilities.FileAtomicWrite;
     public readonly onDidChangeFile: Event<readonly Uri[]> = Event.None;
@@ -115,10 +104,10 @@ export class DiskFileSystemProvider implements IFileSystemProvider {
 }
 
 /**
- * Можно ли заменить файл атомарно (временный сосед + rename) и с какими правами.
- * `null` — писать на месте: симлинк (rename заменил бы ссылку файлом), лишние
- * жёсткие ссылки (они остались бы на старом содержимом) и чужой владелец
- * (новый файл стал бы нашим). Файла ещё нет — заменять нечего, права по umask.
+ * `null` — писать на месте, как у эталона: симлинк (`rename` заменил бы ссылку
+ * файлом), лишние жёсткие ссылки (остались бы на старом содержимом), чужой
+ * владелец (новый файл стал бы нашим). Атомарно — чтобы падение посреди записи
+ * не оставило обрезанный файл.
  */
 async function atomicReplacement(fsPath: string): Promise<{ readonly mode?: number } | null> {
     let stat: fs.Stats;

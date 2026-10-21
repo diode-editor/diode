@@ -6,7 +6,6 @@ import type { ITreeFileChange, ITreeFileWatcher, ITreeFileWatchOptions } from ".
 import type { ITreeWatcherResponse } from "./treeWatcherProtocol.ts";
 import { serveTreeWatcher } from "./treeWatcherServer.ts";
 
-/** Watcher, у которого поток событий каждого запроса дёргается тестом руками. */
 class FakeWatcher implements ITreeFileWatcher {
     public readonly calls: { rootPath: string; options: ITreeFileWatchOptions }[] = [];
     public readonly disposed: number[] = [];
@@ -31,7 +30,6 @@ class FakeWatcher implements ITreeFileWatcher {
         };
     }
 
-    /** Отдать пачку подписчику `index`-го обхода. */
     public emit(index: number, changes: readonly ITreeFileChange[]): void {
         this.sinks[index]?.(changes);
     }

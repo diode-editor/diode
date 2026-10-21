@@ -3,19 +3,11 @@ import type { TUIElement } from "@tuidom/core/dom/tuiElement";
 
 import type { WorkbenchTheme } from "../common/workbenchTheme.ts";
 
-/**
- * Единственная точка доставки темы в виджеты (Н3): вся палитра активной темы
- * кладётся в корневой var-scope tuidom одним вызовом. Виджеты ссылаются на
- * токены по именам color id VS Code; ключи, которых нет ни в теме, ни в
- * дефолтах реестра, остаются на дефолтах tuidom (STYLE_TOKEN_DEFAULTS).
- * Hot-swap темы = повторный вызов — каскад перерезолвит дерево сам.
- */
+/** Вся палитра — в корневой var-scope одним вызовом; hot-swap темы — повторный вызов, каскад перерезолвит дерево сам. */
 export function applyThemeVars(root: TUIElement, theme: WorkbenchTheme): void {
     root.setStyleVars(computeThemeVars(theme));
 }
 
-/** Палитра темы как словарь var-scope: то, что applyThemeVars кладёт в корень.
- * Отдельно, чтобы тест-харнессы могли получить те же числа без элемента. */
 export function computeThemeVars(theme: WorkbenchTheme): Record<string, number> {
     const vars: Record<string, number> = {};
     for (const [key, value] of Object.entries(theme.colors)) {
@@ -50,10 +42,7 @@ export function computeThemeVars(theme: WorkbenchTheme): Record<string, number> 
 /** Порог различимости рамки на поверхности — макс. разница канала (0–255). */
 const BORDER_VISIBILITY_THRESHOLD = 8;
 
-/**
- * Рамка цвета `border` неразличима на поверхности `surface`: после наложения
- * (альфа рамки — на непрозрачную поверхность) каналы отличаются меньше порога.
- */
+/** Альфа рамки накладывается на непрозрачную поверхность. */
 function isInvisibleOn(border: number, surface: number): boolean {
     const painted = compositeOver(border, surface);
     const delta = Math.max(

@@ -74,7 +74,6 @@ describe("InMemoryFileSystemProvider", () => {
     it("mkdir создаёт недостающих родителей, существующий каталог не трогает, поверх файла — отказ", async () => {
         const provider = new InMemoryFileSystemProvider();
         await provider.mkdir(mem("/a/b/c"));
-        // Каталоги тоже получают свежее время изменения, каждый — своё.
         expect(await provider.stat(mem("/a/b/c"))).toEqual({ type: FileType.Directory, mtime: 1, size: 0 });
         expect((await provider.stat(mem("/a"))).mtime).toBe(3);
         expect((await provider.stat(mem("/a"))).type).toBe(FileType.Directory);

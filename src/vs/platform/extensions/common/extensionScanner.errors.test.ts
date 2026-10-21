@@ -58,7 +58,6 @@ describe("scanExtensions — error handling", () => {
 
         const result = await scanExtensions(assets, ROOT_PREFIX, {}, logger);
 
-        // The broken extension is skipped; the valid one survives.
         expect(result).toHaveLength(1);
         expect(result[0].id).toBe("vscode.good");
         expect(logger.error).toHaveBeenCalledWith(

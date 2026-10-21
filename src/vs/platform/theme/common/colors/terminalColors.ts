@@ -1,13 +1,6 @@
 import type { ColorContribution } from "../colorRegistry.ts";
 
-/**
- * 16 ANSI-цветов встроенного терминала — `ansiColorMap` эталона
- * (`workbench/contrib/terminal/common/terminalColorRegistry.ts`): ключи, дефолты
- * dark/light и описание дословно. Порядок ключей = индекс цвета в палитре
- * терминала (0 — Black … 15 — BrightWhite), по нему его читает
- * `terminalAnsiColors`. Дефолты high-contrast (`hcDark`/`hcLight` эталона) не
- * перенесены: реестр знает только dark/light.
- */
+/** Дословно `ansiColorMap` эталона, без hc. Порядок ключей = индекс цвета в палитре терминала (0..15). */
 export const terminalColors = {
     "terminal.ansiBlack": {
         defaults: { dark: "#000000", light: "#000000" },
@@ -75,5 +68,4 @@ export const terminalColors = {
     },
 } as const satisfies ColorContribution;
 
-/** Ключи ANSI-цветов в порядке индексов палитры терминала (0..15). */
 export const TERMINAL_ANSI_COLOR_KEYS = Object.keys(terminalColors) as readonly (keyof typeof terminalColors)[];

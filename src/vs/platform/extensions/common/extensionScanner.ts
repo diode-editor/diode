@@ -7,36 +7,15 @@ import type { IExtension } from "./iExtension.ts";
 import type { IExtensionManifest } from "./iExtensionManifest.ts";
 
 export interface IScanExtensionsOptions {
-    /** Помечать ли найденные расширения как builtin. По умолчанию `true`. */
     readonly isBuiltin?: boolean;
-    /**
-     * Локаль, по которой выбирается nls-бандл манифеста
-     * (`package.nls.<locale>.json` → `package.nls.json`). По умолчанию —
-     * {@link UI_LOCALE}, локаль интерфейса.
-     */
     readonly locale?: string;
 }
 
 /**
- * Сканирует виртуальный каталог `<rootPrefix><extension>/package.json` через
- * {@link IAssetAccess}, парсит манифесты и возвращает список валидных
- * расширений. `rootPrefix` должен заканчиваться на `/` (например
- * `"Extensions/builtin/"` для builtin или `"UserExtensions/"` для
- * `~/.diode/extensions/`, замапленного через `FsAssetAccess`).
- *
- * Битые манифесты (отсутствие `name`/`publisher`/`version`, невалидный JSON,
- * отсутствующий `package.json`) пропускаются с записью в `logger.error` —
- * bootstrap не должен падать из-за одного криво скопированного расширения.
- *
- * Прочитанный манифест **локализуется** по `package.nls[.<locale>].json`
- * (`localizeExtensionManifest`): `"%java.clean%"` в любом поле становится
- * человеческой строкой. Это единственная точка резолва на оба источника
- * манифестов — и builtin (из SEA-бандла), и установленные расширения, — поэтому
- * nls-бандл читается тем же {@link IAssetAccess}, а не через `fs`.
- *
- * Сканирование строго неглубокое: только поддиректории первого уровня под
- * `rootPrefix`. `IExtension.location` устанавливается в виртуальный prefix
- * расширения (с trailing `/`), пригодный для join'а через `joinVirtualPath`.
+ * Только каталоги первого уровня под `rootPrefix`; `IExtension.location` — их
+ * виртуальный prefix с `/` на конце. Битые манифесты пропускаются с записью в
+ * лог: bootstrap не падает из-за одного криво скопированного расширения.
+ * Единственная точка локализации манифестов, и builtin, и установленных.
  */
 export async function scanExtensions(
     assets: IAssetAccess,
@@ -65,7 +44,6 @@ export async function scanExtensions(
         const manifestPath = `${extensionPrefix}package.json`;
 
         if (!(await assets.exists(manifestPath))) {
-            // Каталог без package.json — не расширение, тихо пропускаем.
             continue;
         }
 
@@ -98,9 +76,7 @@ export async function scanExtensions(
             continue;
         }
 
-        // Локализация ПОСЛЕ валидации: `name`/`publisher`/`version` — технические
-        // поля, их не переводят, и битый nls-бандл не должен влиять на то,
-        // считается ли каталог расширением вообще.
+        // После валидации: битый nls-бандл не должен решать, расширение ли это вообще.
         const localized = await localizeExtensionManifest(manifest, assets, extensionPrefix, locale, logger);
 
         result.push({
@@ -113,9 +89,6 @@ export async function scanExtensions(
     return result;
 }
 
-/**
- * Backward-совместимая обёртка: эквивалент `scanExtensions(assets, prefix, { isBuiltin: true })`.
- */
 export function scanBuiltinExtensions(assets: IAssetAccess, rootPrefix: string): Promise<IExtension[]> {
     return scanExtensions(assets, rootPrefix, { isBuiltin: true });
 }

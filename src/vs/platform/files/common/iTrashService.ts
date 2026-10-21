@@ -1,26 +1,19 @@
 import { token } from "../../instantiation/common/diContainer.ts";
 
-/** Запись корзины: откуда файл удалён и где он теперь лежит. */
 export interface ITrashEntry {
-    /** Абсолютный путь, откуда файл удалён (куда восстанавливать). */
+    /** Куда восстанавливать. */
     readonly originalPath: string;
-    /** Текущее положение в корзине. */
     readonly trashedPath: string;
-    /** Сопроводительная запись корзины (у freedesktop — `.trashinfo`). */
+    /** У freedesktop — `.trashinfo`. */
     readonly infoPath: string;
 }
 
-/**
- * Системная корзина. Шире эталона: у vscode удаление в корзину из редактора не
- * отменяется, у нас Undo возвращает файл из корзины — поэтому кроме «удалить»
- * есть и «восстановить» (#480; docs/ARCHITECTURE.md, «Файловый сервис»).
- */
+/** Шире эталона: Undo возвращает файл из корзины, поэтому есть и «восстановить» (#480). */
 export interface ITrashService {
-    /** Есть ли пригодная корзина (и можно ли в неё писать) — дёшево, без ожидания. */
+    /** Дёшево, без ожидания. */
     isAvailable(): boolean;
-    /** Переносит путь в корзину. */
     trash(filePath: string): Promise<ITrashEntry>;
-    /** Возвращает файл на место (или рядом, если место заняли). Отдаёт итоговый путь. */
+    /** Место заняли — кладёт рядом. Отдаёт итоговый путь. */
     restore(entry: ITrashEntry): Promise<string>;
 }
 

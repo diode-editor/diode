@@ -2,12 +2,6 @@ import { describe, expect, it } from "vitest";
 
 import { parseTreeWatcherRequest, parseTreeWatcherResponse } from "./treeWatcherProtocol.ts";
 
-/**
- * Разбор сообщений на границе процессов. Проверяем обе стороны: валидное
- * сообщение доезжает целиком (id, корень, опции), а мусор отсеивается, а не
- * роняет ту сторону — по IPC-каналу к нам может прилететь что угодно, а
- * watcher-процесс и редактор обязаны пережить это молча.
- */
 describe("parseTreeWatcherRequest", () => {
     it("разбирает watch со всеми полями", () => {
         expect(

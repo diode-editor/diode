@@ -24,20 +24,14 @@ import {
 } from "./files.ts";
 
 /**
- * {@link IFileService}: роутер по схеме ресурса поверх провайдеров. Сам на диск
- * не ходит — схему `file` обслуживает `DiskFileSystemProvider` (node-слой),
- * схемы расширений — адаптер extension host'а.
- *
- * Что добавляет сервис поверх провайдера: stat вместе с содержимым, гард
- * грязной записи по etag, очередь записи на ресурс (два save подряд не
- * переплетаются), отказ по возможностям провайдера и события — «это сделали
- * мы» ({@link onDidRunOperation}) и «изменилось снаружи» ({@link onDidFilesChange}).
+ * Сверх провайдера: гард грязной записи по etag, очередь записи на ресурс (два
+ * save подряд не переплетаются), события «это сделали мы» и «изменилось снаружи».
  */
 export class FileService extends Disposable implements IFileService {
     public static dependencies = [] as const;
 
     private readonly providers = new Map<string, IFileSystemProvider>();
-    /** Хвост очереди записи по ресурсу (ключ — `uri.toString()`). */
+    /** Ключ — `uri.toString()`. */
     private readonly writeQueues = new Map<string, Promise<unknown>>();
 
     private readonly onDidChangeFileSystemProviderRegistrationsEmitter = this.register(
@@ -80,8 +74,6 @@ export class FileService extends Disposable implements IFileService {
         const provider = this.providers.get(resource.scheme);
         return provider !== undefined && (provider.capabilities & capability) !== 0;
     }
-
-    // ─── Чтение ──────────────────────────────────────────────────────────────
 
     public async stat(resource: Uri): Promise<IFileStat> {
         const provider = this.provider(resource);
@@ -126,8 +118,6 @@ export class FileService extends Disposable implements IFileService {
         checkLimit(resource, stat.size, options.limit);
         return { ...toFileStat(resource, stat), value: await provider.readFile(resource) };
     }
-
-    // ─── Запись ──────────────────────────────────────────────────────────────
 
     public writeFile(resource: Uri, value: Uint8Array, options: IWriteFileOptions = {}): Promise<IFileStat> {
         return this.queue(resource, async () => {
@@ -192,8 +182,6 @@ export class FileService extends Disposable implements IFileService {
         this.onDidRunOperationEmitter.fire({ operation: FileOperation.Copy, resource: source, target });
     }
 
-    // ─── Внутреннее ──────────────────────────────────────────────────────────
-
     private provider(resource: Uri): IFileSystemProvider {
         const provider = this.providers.get(resource.scheme);
         if (provider === undefined) {
@@ -205,7 +193,6 @@ export class FileService extends Disposable implements IFileService {
         return provider;
     }
 
-    /** Провайдер ресурса, если он не только для чтения. */
     private writable(resource: Uri, operation: string): IFileSystemProvider {
         const provider = this.provider(resource);
         if ((provider.capabilities & FileSystemProviderCapabilities.Readonly) !== 0) {

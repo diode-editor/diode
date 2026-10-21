@@ -7,11 +7,8 @@ import type { ITrashEntry, ITrashService } from "../common/iTrashService.ts";
 import { moveToPath, resolveNonConflictingDest } from "./fileClipboardFs.ts";
 
 /**
- * Системная корзина по спецификации freedesktop.org (Linux): перенос в
- * `$XDG_DATA_HOME/Trash/files` + запись `Trash/info/<имя>.trashinfo`. Реализуем спеку
- * сами (а не shell к `gio`), чтобы полностью контролировать восстановление и не зависеть
- * от внешних утилит. На платформах без поддерживаемого бэкенда корзина считается
- * недоступной — вызывающий код тогда удаляет безвозвратно.
+ * freedesktop.org своими руками, без shell к `gio`: полный контроль над
+ * восстановлением. Нет бэкенда — корзина недоступна, вызывающий удаляет безвозвратно.
  */
 export class TrashService implements ITrashService {
     private trashHome(): string {
@@ -23,7 +20,6 @@ export class TrashService implements ITrashService {
         return path.join(dataHome, "Trash");
     }
 
-    /** Опрос системы: есть ли пригодная корзина (и можно ли в неё писать). */
     public isAvailable(): boolean {
         if (process.platform !== "linux") return false;
         return this.ensureDirs();

@@ -3,21 +3,12 @@ import { deserializeWhen, serializeWhen } from "../../contextkey/common/contextK
 import type { IKeybindingEntrySnapshot } from "./keybindingRegistry.ts";
 import { serializeChord } from "./keybindingRegistry.ts";
 
-/**
- * Конфликт-детекция биндингов для вкладки Keyboard Shortcuts: записи с одной
- * комбинацией и потенциально пересекающимся when. Резолвер конфликтов не
- * знает — побеждает последняя зарегистрированная; здесь только подсветка,
- * чтобы «почему не работает мой бинд» было видно глазами.
- */
+// Только подсветка: резолвер конфликтов не знает — побеждает последняя зарегистрированная.
 
 /**
- * Может ли пара when-выражений быть истинной одновременно. Честное пересечение
- * произвольных выражений — SAT-задача; принятое упрощение: отсутствующий when
- * пересекается с любым, непустые сравниваются канонической записью разобранного
- * выражения (`b && a` и `(a) && b` — одно и то же), а не разобравшиеся — строкой
- * после трима. Ложноотрицательные возможны (`tier == 'kitty'` против
- * `tier != 'legacy'` — пересекаются, а мы скажем «нет») — это фильтр-помощник,
- * не гарантия.
+ * Упрощение SAT: отсутствующий when пересекается с любым, прочие сравниваются канонической
+ * записью разбора, неразобранные — строкой. Ложноотрицательные возможны (`tier == 'kitty'`
+ * против `tier != 'legacy'`) — фильтр-помощник, не гарантия.
  */
 export function whenMayOverlap(a: string | undefined, b: string | undefined): boolean {
     if (a === undefined || b === undefined) return true;
@@ -29,12 +20,7 @@ function canonicalWhen(when: string): string {
     return expr === undefined ? when.trim() : serializeWhen(expr);
 }
 
-/**
- * Индексы записей `entries`, у которых есть конфликтующая пара: та же
- * комбинация (точное равенство чордов — chord-префиксы вроде `ctrl+k` против
- * `ctrl+k ctrl+s` конфликтом НЕ считаются, их резолвер решает детерминированно)
- * и пересекающийся when.
- */
+/** Chord-префиксы (`ctrl+k` против `ctrl+k ctrl+s`) конфликтом не считаются: их резолвер решает детерминированно. */
 export function findConflictingBindings(entries: readonly IKeybindingEntrySnapshot[]): ReadonlySet<number> {
     const groups = new Map<string, number[]>();
     entries.forEach((entry, index) => {

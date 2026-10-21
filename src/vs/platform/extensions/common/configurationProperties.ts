@@ -1,15 +1,6 @@
 import type { IConfigurationContribution, IConfigurationPropertySchema } from "./iExtensionManifest.ts";
 
-/**
- * Свойства `contributes.configuration` расширения одной map'ой по полному
- * dotted-ключу (`{ "editorconfig.generateAuto": { type, default, scope } }`).
- * Блок может быть объектом или массивом объектов; не-объектные схемы
- * пропускаются.
- *
- * Отсюда настройки расширения регистрирует в общем `ConfigurationRegistry`
- * `ExtensionConfigurationContributor` — один источник дефолтов для ядра и
- * extension host'а.
- */
+/** Не-объектные схемы пропускаются. */
 export function collectConfigurationProperties(
     configuration: IConfigurationContribution | readonly IConfigurationContribution[] | undefined,
 ): Record<string, IConfigurationPropertySchema> {

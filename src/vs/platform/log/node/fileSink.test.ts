@@ -162,14 +162,12 @@ describe("FileSink", () => {
         createWriteStreamControl.throwOnCreate = true;
         try {
             const sink = new FileSink(file);
-            // With stream === null, append is a no-op and must not throw.
             expect(() => {
                 sink.append(entry({ message: "ignored" }));
             }).not.toThrow();
             expect(() => {
                 sink.dispose();
             }).not.toThrow();
-            // File never created because createWriteStream threw.
             expect(fs.existsSync(file)).toBe(false);
         } finally {
             createWriteStreamControl.throwOnCreate = false;

@@ -8,18 +8,7 @@ import { LogLevel } from "./logLevel.ts";
 const WILDCARD = "*";
 const DEFAULT_LEVEL: LogLevel = LogLevel.Trace;
 
-/**
- * Реализация `ILogService`. Хранит:
- * - per-channel уровни (Map): резолвятся каскадом по точечным сегментам
- *   (`a.b.c` → `a.b` → `a` → `*`).
- * - sinks: `append(entry)` фан-аутится во все.
- * - listeners `onDidAppend`: вызываются после sinks.
- * - метки каналов, заявленные создателями логгеров (`createLogger(…, { label })`).
- *
- * Логгеры — тонкие обёртки: проверяют `isEnabled(level)` через `getLevel(channel)`
- * и эмитят `LogEntry`. Уровень канала кешируется на стороне логгера до первого
- * `setLevel` (после чего bumпается версия и логгер пере-резолвит).
- */
+/** Логгер кеширует уровень канала до `setLevel`: тот поднимает версию, и логгер пере-резолвит. */
 export class LogService implements ILogService {
     private readonly sinks: ILogSink[] = [];
     private readonly levels = new Map<string, LogLevel>();
@@ -52,7 +41,6 @@ export class LogService implements ILogService {
     }
 
     public getLevel(channel: string): LogLevel {
-        // Резолвим каскадом: точное совпадение → родительские сегменты → wildcard → default.
         const own = this.levels.get(channel);
         if (own !== undefined) return own;
         let dot = channel.lastIndexOf(".");
@@ -77,10 +65,7 @@ export class LogService implements ILogService {
         };
     }
 
-    /**
-     * Вызывается логгером после фильтрации по уровню. Фан-аут на sinks
-     * защищён try/catch — падение одного sink не должно ломать остальные.
-     */
+    /** Зовётся логгером после фильтрации по уровню; падение одного sink не ломает остальные. */
     public append(entry: LogEntry): void {
         for (const sink of this.sinks) {
             try {

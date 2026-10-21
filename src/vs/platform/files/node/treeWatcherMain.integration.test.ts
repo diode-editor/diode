@@ -15,22 +15,14 @@ import type { IWatcherProcess } from "./subprocessTreeWatcher.ts";
 import { SubprocessTreeWatcher } from "./subprocessTreeWatcher.ts";
 
 /**
- * Сквозной прогон через настоящую границу процессов: хост-прокси ↔ node IPC ↔
- * watcher-процесс с живым chokidar. Юниты по обе стороны говорят с фейками, и
- * ровно из-за этого не видят целого класса поломок (сообщение не переживает
- * JSON, ребёнок не доходит до точки входа, канал не подписан) — этот сьют и
- * закрывает середину: правка файла на диске обязана доехать до колбэка в
- * процессе редактора.
- *
- * Ребёнок поднимается через тот же `SubprocessTreeWatcher`, только `spawnProcess`
- * указывает на тестовый вход под tsx: боевой `selfSpawnArgs()` из-под vitest
- * запустил бы не нас.
+ * Юниты по обе стороны говорят с фейками и не видят поломок самой границы
+ * (сообщение не переживает JSON, ребёнок не доходит до входа). `spawnProcess` —
+ * тестовый вход под tsx: боевой `selfSpawnArgs()` из-под vitest запустил бы не нас.
  */
 
 const ENTRY = fileURLToPath(new URL("./treeWatcherMain.testEntry.ts", import.meta.url));
 const TIMEOUT_MS = 30_000;
 
-/** Ребёнок-вход под tsx, адаптированный под шов хоста. */
 function spawnTestEntry(): IWatcherProcess {
     const child = spawn(process.execPath, ["--import", "tsx", ENTRY], {
         stdio: ["ignore", "ignore", "inherit", "ipc"],

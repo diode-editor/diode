@@ -5,13 +5,7 @@ import { darkPlusTheme } from "../../../workbench/services/themes/common/themes/
 
 import { WorkbenchTheme } from "./workbenchTheme.ts";
 
-/**
- * Дефолт-ссылка (`quickInput.background` → `editorWidget.background`, как
- * `registerColor(id, editorWidgetBackground)` у VS Code) разрешается поверх
- * цветов темы: тема, задавшая базовый ключ, получает и производные. Носитель —
- * Catppuccin: `editorWidget.background` задан (#181825), `quickInput.background`
- * нет, и пикер обязан быть цвета виджетов, а не запечённого серого.
- */
+/** Носитель — Catppuccin: `editorWidget.background` задан (#181825), `quickInput.background` нет. */
 describe("WorkbenchTheme — производные дефолты по ссылке", () => {
     it("производный ключ следует за базовым из темы", () => {
         const theme = WorkbenchTheme.fromThemeFile({

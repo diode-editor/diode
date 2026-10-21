@@ -13,7 +13,6 @@ import type { ITreeFileChange, ITreeFileWatchOptions } from "../common/iTreeFile
 
 import { ChokidarTreeWatcher, isExcluded } from "./chokidarTreeWatcher.ts";
 
-/** Фейковый FSWatcher: обычный EventEmitter + счётчик close(). */
 class FakeWatcher extends EventEmitter {
     public closed = 0;
     /** Как настоящий chokidar: событие уходит и именованным слушателям, и в 'all'. */
@@ -29,7 +28,6 @@ class FakeWatcher extends EventEmitter {
     }
 }
 
-/** Подменяет реальный chokidar фейком через защищённый шов createWatcher. */
 class TestTreeWatcher extends ChokidarTreeWatcher {
     public readonly created: FakeWatcher[] = [];
     public readonly options: ITreeFileWatchOptions[] = [];
@@ -212,8 +210,7 @@ describe("ChokidarTreeWatcher — настоящий chokidar", () => {
             seen.push(...changes.map((c) => c.path)),
         );
         try {
-            // Ждём готовности: до события `ready` chokidar считает найденное
-            // начальным состоянием и с `ignoreInitial` глотает.
+            // До `ready` chokidar с `ignoreInitial` глотает найденное — ждём.
             await new Promise((resolve) => setTimeout(resolve, 400));
 
             fs.writeFileSync(path.join(root, "node_modules", "pkg", "index.js"), "x");
@@ -239,10 +236,7 @@ describe("ChokidarTreeWatcher — симлинки (как parcel-watcher эта
         }
     }
 
-    /**
-     * Корень воркспейса и каталог вне его. `junction` — чтобы ссылка на каталог
-     * создавалась на Windows без прав администратора; на POSIX тип игнорируется.
-     */
+    /** `junction` — ссылка без прав администратора на Windows; на POSIX тип игнорируется. */
     function makeTree(): { base: string; root: string; outside: string } {
         const base = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "diode-tree-link-")));
         const root = path.join(base, "ws");

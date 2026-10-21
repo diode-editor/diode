@@ -24,15 +24,9 @@ import {
 } from "../common/userDataProfile.ts";
 
 /**
- * Реестр профилей поверх application-состояния (аналог node-варианта
- * `UserDataProfilesService` эталона, где реестр тоже лежит в `storage.json`
- * главного процесса). Список профилей собирается из записей лениво и
- * сбрасывается на каждую запись — как `profilesObject` эталона.
- *
- * Каталог профиля создаётся при создании и сносится при удалении (эталон
- * сносит его на следующем старте в `cleanUp()`; у нас наоборот —
- * {@link migrateProfileDirectories} регистрирует каталоги без записи, так что
- * оставлять каталог нельзя, иначе он вернётся профилем).
+ * Каталог профиля сносится сразу при удалении, а не на следующем старте, как у эталона:
+ * {@link migrateProfileDirectories} регистрирует каталоги без записи, и оставленный каталог
+ * вернулся бы профилем.
  */
 export class UserDataProfilesService extends Disposable implements IUserDataProfilesService {
     public readonly profilesHome: string;
@@ -45,16 +39,10 @@ export class UserDataProfilesService extends Disposable implements IUserDataProf
     public readonly onDidChangeProfiles = this.onDidChangeProfilesEmitter.event;
 
     public constructor(input: {
-        /** `User/profiles` — родитель каталогов именованных профилей. */
         readonly profilesHome: string;
-        /** `User/` — каталог Default-профиля. */
         readonly defaultProfileHome: string;
-        /**
-         * `extensions.json` Default-профиля — в каталоге расширений
-         * (`getDefaultProfileExtensionsLocation` эталона); не задан — `User/extensions.json`.
-         */
+        /** Не задан — `User/extensions.json`. */
         readonly defaultProfileExtensionsResource?: string;
-        /** Application-стор (`storage.json`) — см. `StateFileStore`. */
         readonly state: IStateStore;
         readonly logger?: ILogger;
     }) {

@@ -19,8 +19,6 @@ function makeEvent(overrides: Partial<KeyboardEventLike> & { key: string }): Key
     };
 }
 
-// Thin adapter: maps the structured resolveKey result to the command id (or
-// undefined) so these single-combination tests stay focused on matching logic.
 function resolve(registry: KeybindingRegistry, event: KeyboardEventLike, ctx?: ContextKeyService): string | undefined {
     const res = registry.resolveKey(event, ctx);
     return res.kind === "command" ? res.commandId : undefined;
@@ -201,7 +199,6 @@ describe("KeybindingRegistry", () => {
             const registry = new KeybindingRegistry();
             registry.register(kb("ctrl+s"), "save");
 
-            // code matches but no ctrl pressed
             const result = resolve(registry, makeEvent({ key: "\u0441", code: "KeyS" }));
 
             expect(result).toBeUndefined();

@@ -31,13 +31,6 @@ interface InjectableClass {
     new (...args: unknown[]): unknown;
 }
 
-/**
- * Module — единица конфигурации контейнера: набор связанных биндингов с
- * опциональным типизированным контекстом (theme, backend и т.п.).
- *
- * Применяется через `Container.use(module, ctx)` — позволяет собирать
- * наборы сервисов в профили (production/test) без копипасты.
- */
 export type ContainerModule<Ctx = void> = (container: Container, ctx: Ctx) => void;
 
 export class Container implements ServiceAccessor {
@@ -57,14 +50,6 @@ export class Container implements ServiceAccessor {
         return this;
     }
 
-    /**
-     * Применяет модуль конфигурации. Возвращает `this` для чейнинга.
-     *
-     *     container
-     *         .use(coreModule, { app })
-     *         .use(commandsModule)
-     *         .use(controllersModule);
-     */
     public use<Ctx>(module: ContainerModule<Ctx>, ctx: Ctx): this;
     public use(module: ContainerModule): this;
     public use<Ctx>(module: ContainerModule<Ctx>, ctx?: Ctx): this {

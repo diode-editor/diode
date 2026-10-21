@@ -6,12 +6,7 @@ import { WorkbenchTheme } from "../workbenchTheme.ts";
 
 import type { IWorkbenchColors } from "./colorContributions.ts";
 
-/**
- * Цвета графа коммитов виджеты берут по имени токена, поэтому каждый обязан
- * резолвиться на теме, которая их не переопределяет. Ожидаемые значения —
- * дефолты vscode (`scmHistory.ts`): пять цветов линий одинаковы на dark и
- * light, семантические цвета ref'ов различаются.
- */
+/** Дефолты vscode (`scmHistory.ts`): цвета линий одинаковы на dark и light, цвета ref'ов различаются. */
 const EXPECTED: Record<"dark" | "light", Partial<Record<keyof IWorkbenchColors, string>>> = {
     dark: {
         "scmGraph.foreground1": "#FFB000",

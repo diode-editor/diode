@@ -3,8 +3,6 @@ import { describe, expect, it } from "vitest";
 import { requiresExtendedKeys } from "./keybindingPortability.ts";
 import { parseChord } from "./keybindingRegistry.ts";
 
-// Таблица эвристики: spec → требует ли extended keys. Калибрована по разбору
-// ввода движка (см. шапку keybindingPortability.ts); таблица фиксирует контракт.
 const CASES: readonly [string, boolean][] = [
     ["ctrl+s", false],
     ["alt+enter", false],
@@ -34,13 +32,10 @@ const CASES: readonly [string, boolean][] = [
     // Shift+Tab — это CSI Z (backtab), а Alt+Tab — `ESC 0x09`, то есть Ctrl+Alt+I.
     ["shift+tab", false],
     ["alt+tab", true],
-    // Ctrl+Space — NUL, отдельный байт.
     ["ctrl+space", false],
-    // ESC [ и ESC ] — вводители CSI и OSC.
     ["alt+[", true],
     ["alt+]", true],
     ["ctrl+[", false],
-    // Достаточно одной непереносимой части чорда.
     ["ctrl+k ctrl+enter", true],
     ["ctrl+k alt+s", false],
 ];

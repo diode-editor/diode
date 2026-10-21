@@ -1,6 +1,5 @@
 import type { ColorContribution } from "../colorRegistry.ts";
 
-/** Части workbench: сайдбар, табы, панель, статус-бар, тайтл-бар, терминал. */
 export const workbenchColors = {
     "activityBar.background": {
         defaults: null,
@@ -30,7 +29,6 @@ export const workbenchColors = {
         description: "Side Bar section header foreground color.",
     },
     "toolbar.hoverBackground": {
-        // Upstream-значения с альфой; parseHexColor альфу отбрасывает.
         defaults: { dark: "#5A5D5E50", light: "#B8B8B850" },
         description: "Toolbar background when hovering over actions using the mouse.",
     },

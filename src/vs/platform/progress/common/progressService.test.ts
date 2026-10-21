@@ -8,7 +8,6 @@ const disposables = ensureNoDisposablesAreLeakedInTestSuite();
 
 const VIEW = "workbench.scm.changes";
 
-/** Управляемая задача: прогресс живёт, пока не позвали resolve/reject. */
 function deferred(): { promise: Promise<void>; resolve: () => void; reject: (e: Error) => void } {
     let resolve!: () => void;
     let reject!: (e: Error) => void;
@@ -39,7 +38,6 @@ describe("ProgressService", () => {
             () => task.promise,
         );
 
-        // Занятость видна сразу — кнопки гаснут без задержки.
         expect(service.isBusy(VIEW)).toBe(true);
         // И адресно: соседняя секция свободна, её кнопки гасить не за что.
         expect(service.isBusy("workbench.scm.graph")).toBe(false);
@@ -210,7 +208,6 @@ describe("ProgressService", () => {
         first.resolve();
         await a;
         vi.advanceTimersByTime(500);
-        // Первая ушла — осталась вторая, подпись сменилась.
         expect(service.viewProgress().get(VIEW)?.title).toBe("Staging…");
         expect(service.isBusy(VIEW)).toBe(true);
 
@@ -302,7 +299,6 @@ describe("ProgressService", () => {
         service.dispose();
         expect(service.viewProgress().size).toBe(0);
         expect(service.isBusy()).toBe(false);
-        // Ни тикера, ни таймеров записи: приложение закрылось — крутить нечего.
         expect(vi.getTimerCount()).toBe(0);
 
         listener.mockClear();
@@ -335,7 +331,6 @@ describe("ProgressService", () => {
 
         first.resolve();
         await a;
-        // Кадр второй операции обязан продолжать меняться.
         const before = service.windowProgress()!.spinner;
         vi.advanceTimersByTime(100);
         expect(service.windowProgress()!.spinner).not.toBe(before);

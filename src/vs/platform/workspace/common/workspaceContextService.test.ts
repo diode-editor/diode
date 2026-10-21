@@ -13,8 +13,6 @@ describe("WorkspaceContextService", () => {
             expect(service.getWorkbenchState()).toBe("empty");
         });
 
-        // Без папки «внутри воркспейса» не лежит ничего — в том числе файл,
-        // который человек открыл аргументом командной строки.
         it("getWorkspaceFolder на любой файл — null", () => {
             expect(new WorkspaceContextService().getWorkspaceFolder(Uri.file("/any/file.ts"))).toBeNull();
         });

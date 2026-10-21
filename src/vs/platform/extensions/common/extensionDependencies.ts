@@ -1,17 +1,6 @@
 /**
- * Разбор `extensionDependencies` манифеста — для активации (`ExtensionHost`):
- * зависимости поднимаются раньше зависимого, как `_handleActivationRequest`
- * эталона (`extHostExtensionActivator.ts`).
- *
- * Id расширений сравниваются без учёта регистра (`ExtensionIdentifier.toKey`
- * эталона): `"Redhat.Java"` в манифесте — та же зависимость, что `redhat.java`.
- */
-
-/**
- * `extensionDependencies` манифеста — как объявлены (регистр сохраняется для
- * сообщений человеку), без дублей по ключу и без мусора: поле не массив или
- * элемент не непустая строка — такого элемента нет (манифест пишем не мы,
- * а `uniqueItems`/`pattern` схемы эталона проверяет только редактор манифеста).
+ * Регистр сохраняется для сообщений человеку; мусор отброшен молча — схему
+ * эталона (`uniqueItems`/`pattern`) проверяет только редактор манифеста.
  */
 export function readExtensionDependencies(manifest: Readonly<Record<string, unknown>>): readonly string[] {
     const raw = manifest.extensionDependencies;
@@ -28,37 +17,31 @@ export function readExtensionDependencies(manifest: Readonly<Record<string, unkn
     return result;
 }
 
-/** Имя расширения для сообщений человеку: `displayName` манифеста, иначе id (`friendlyName` эталона). */
 export function extensionFriendlyName(id: string, manifest: Readonly<Record<string, unknown>>): string {
     const displayName = manifest.displayName;
     return typeof displayName === "string" && displayName !== "" ? displayName : id;
 }
 
-/** Ключ id расширения для сравнения: регистр не важен. */
+/** Как `ExtensionIdentifier.toKey` эталона: `"Redhat.Java"` — та же зависимость, что `redhat.java`. */
 export function extensionKey(id: string): string {
     return id.toLowerCase();
 }
 
 /**
- * Встроенное расширение VS Code (`vscode.git`, `vscode.typescript-language-features`):
- * у эталона оно часть продукта и есть всегда, поэтому зависимость на него там
- * никогда не «неизвестна». В Diode многих из них нет (`git` у нас — `diode.git`),
- * а поставить их человеку неоткуда — в магазине их нет. Отступление от эталона:
- * такая отсутствующая зависимость не срывает ни активацию, ни установку
- * (стоковый Supermaven зависит от `vscode.git` и без него работает).
+ * Отступление от эталона: отсутствующая зависимость на `vscode.*` не срывает
+ * ни активацию, ни установку. У эталона они часть продукта, у нас многих нет
+ * (`git` — `diode.git`), а в магазине их не взять; стоковый Supermaven зависит
+ * от `vscode.git` и без него работает.
  */
 export function isBuiltinVSCodeExtension(id: string): boolean {
     return extensionKey(id).startsWith("vscode.");
 }
 
 /**
- * Цикл зависимостей, через который проходит `startId`: цепочка id от него
- * самого обратно к нему (`["a", "b", "a"]`), или `null`, если цикла нет.
- * `dependenciesOf` отдаёт зависимости известного расширения и `undefined` —
- * неизвестного (по нему цикл не продолжается: неизвестная зависимость — своя
- * ошибка). Циклы, в которые `startId` не входит, здесь не ищутся: у эталона
- * такие расширения выпадают из реестра целиком, у нас каждое участвующее
- * узнает о цикле на своей активации.
+ * Цепочка от `startId` обратно к нему (`["a", "b", "a"]`). `dependenciesOf`
+ * отдаёт `undefined` для неизвестного — по нему цикл не продолжается. Циклы без
+ * `startId` не ищутся: каждое участвующее расширение узнает о цикле на своей
+ * активации (у эталона они выпадают из реестра целиком).
  */
 export function findDependencyLoop(
     startId: string,

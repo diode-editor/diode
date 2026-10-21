@@ -14,29 +14,12 @@ import type {
 import type { IWorkspaceFileContents } from "./workspaceFile.ts";
 import { computeWorkspaceId } from "./workspaceId.ts";
 
-/**
- * Токен ВЛАДЕЛЬЦА набора папок: его берёт только тот, кто папку ставит
- * (`WorkbenchComponent.setWorkspaceFolder`). Все читатели ходят за
- * `IWorkspaceContextServiceDIToken` — он типизирован интерфейсом без писателя,
- * так что «ещё один сервис поставил себе корень» не компилируется.
- */
+/** Токен владельца набора папок; читатели берут `IWorkspaceContextServiceDIToken` — интерфейс без писателя. */
 export const WorkspaceContextServiceDIToken = token<WorkspaceContextService>("WorkspaceContextServiceOwner");
 
-/** Стартовое состояние окна: папок нет, идентичности тоже (см. {@link IWorkspace.id}). */
 const EMPTY_WORKSPACE: IWorkspace = { id: null, folders: [] };
 
-/**
- * Реализация {@link IWorkspaceContextService}. Держит текущий воркспейс и
- * оповещает о смене набора папок.
- *
- * Семантика 0-или-1 папки: окно поднимается пустым (`empty`), открытие папки
- * (бутстрап или Open Folder) переводит его в `folder`, открытие файла
- * `.code-workspace` (бутстрап или Open Workspace from File) — в `workspace`.
- * «Закрыть папку» у нас нет, поэтому обратного перехода в `empty` тоже нет.
- * Мульти-рут расширит {@link setWorkspaceFolder}, и это единственное место,
- * которое придётся менять: читатели уже смотрят на массив
- * (`docs/TODO/MultiRoot.md`, этап A).
- */
+/** «Закрыть папку» нет, поэтому обратного перехода в `empty` тоже нет. Мульти-рут расширит {@link setWorkspaceFolder}: читатели уже смотрят на массив. */
 export class WorkspaceContextService implements IWorkspaceContextService {
     private workspace: IWorkspace = EMPTY_WORKSPACE;
     private readonly onDidChangeWorkspaceFoldersEmitter = new Emitter<void>();

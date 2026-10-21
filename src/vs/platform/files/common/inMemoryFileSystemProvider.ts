@@ -19,12 +19,7 @@ interface IEntry {
 
 const ROOT = "/";
 
-/**
- * Провайдер в памяти: дерево по пути ресурса (схема не учитывается). Для тестов,
- * которым диск не нужен по смыслу, и будущих буферов без файла (`untitled:`).
- * Время изменения — монотонный счётчик, чтобы etag менялся на каждой записи
- * даже в пределах одной миллисекунды.
- */
+/** Схема не учитывается. Время изменения — монотонный счётчик: etag меняется на каждой записи даже в пределах миллисекунды. */
 export class InMemoryFileSystemProvider implements IFileSystemProvider {
     public readonly capabilities = FileSystemProviderCapabilities.None;
     public readonly onDidChangeFile: Event<readonly Uri[]> = Event.None;
@@ -110,7 +105,6 @@ export class InMemoryFileSystemProvider implements IFileSystemProvider {
         return Promise.resolve();
     }
 
-    /** Ресурс и всё, что под ним. */
     private subtree(path: string): string[] {
         return [...this.entries.keys()].filter((p) => p === path || p.startsWith(`${path}/`));
     }

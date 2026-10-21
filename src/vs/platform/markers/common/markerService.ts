@@ -3,44 +3,24 @@ import { token } from "../../instantiation/common/diContainer.ts";
 
 import type { IMarker, IMarkerData, MarkerSeverity } from "./iMarker.ts";
 
-/** Filter for {@link MarkerService.read}. All fields are optional (AND-combined). */
+/** Поля комбинируются по AND. */
 export interface IMarkerReadFilter {
     readonly owner?: string;
     readonly resource?: string;
-    /** Keep only markers whose severity is one of these. */
     readonly severities?: readonly MarkerSeverity[];
 }
 
 /**
- * Central, provider-agnostic registry of diagnostics — the Diode analogue of
- * VS Code's `IMarkerService` (`vs/platform/markers`).
- *
- * Diagnostics are deliberately decoupled from their producers: language
- * servers, problem matchers and extensions (`languages.createDiagnosticCollection`)
- * are just *providers* that call {@link changeOne}; the problems panel, editor
- * squiggles and status-bar counters are *consumers* that {@link read} and
- * subscribe to {@link onDidChangeMarkers}. So a useful subset can ship with a
- * single built-in provider and no LSP.
- *
- * Storage is keyed `owner → resource → markers`, mirroring the way VS Code lets
- * each provider replace its own slice of a resource's markers without touching
- * another provider's.
- *
- * `resource` — это `uri.toString()`, а не путь на диске: диагностики бывают и у
- * ресурсов вне диска (безымянный буфер, git-версия), а по пути их не адресовать.
- * Ключ строковый, потому что `Map` не сравнивает `Uri` по значению — вопрос лишь в
- * том, какая это строка; канонизацию даёт сам `Uri.toString()`.
+ * Хранение `owner → resource → markers`: каждый провайдер заменяет свой срез ресурса, не трогая
+ * чужой. `resource` — `uri.toString()`, а не путь: диагностики бывают у ресурсов вне диска
+ * (безымянный буфер, git-версия), а `Map` не сравнивает `Uri` по значению.
  */
 export class MarkerService {
     private byOwner = new Map<string, Map<string, IMarker[]>>();
     private readonly onDidChangeMarkersEmitter = new Emitter<readonly string[]>();
-    /** Fires with the resources whose markers changed. */
     public readonly onDidChangeMarkers = this.onDidChangeMarkersEmitter.event;
 
-    /**
-     * Replaces all markers owned by `owner` for `resource`. Passing an empty
-     * array clears them. Fires {@link onDidChangeMarkers} with `[resource]`.
-     */
+    /** Пустой массив очищает срез. */
     public changeOne(owner: string, resource: string, markers: readonly IMarkerData[]): void {
         let byResource = this.byOwner.get(owner);
 
@@ -63,7 +43,6 @@ export class MarkerService {
         this.onDidChangeMarkersEmitter.fire([resource]);
     }
 
-    /** Reads markers matching `filter` across all owners/resources. */
     public read(filter: IMarkerReadFilter = {}): IMarker[] {
         const result: IMarker[] = [];
         for (const [owner, byResource] of this.byOwner) {
