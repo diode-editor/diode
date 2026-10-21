@@ -7,7 +7,9 @@ describe("computeLineBreakOffsets — basic cases", () => {
     it("a line that fits the width does not wrap (null)", () => {
         expect(computeLineBreakOffsets("hello", 4, 10)).toBeNull();
         expect(computeLineBreakOffsets("", 4, 10)).toBeNull();
-        expect(computeLineBreakOffsets("\u0430\u0431\u0432\u0433\u0434\u0435\u0435\u0436\u0437\u0438", 4, 10)).toBeNull(); // "abvgdeezhzi": 10 narrow non-ASCII chars
+        expect(
+            computeLineBreakOffsets("\u0430\u0431\u0432\u0433\u0434\u0435\u0435\u0436\u0437\u0438", 4, 10),
+        ).toBeNull(); // "abvgdeezhzi": 10 narrow non-ASCII chars
     });
 
     it("wraps at a word boundary: the space stays at the tail of the previous fragment", () => {

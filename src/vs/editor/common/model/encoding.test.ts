@@ -76,10 +76,14 @@ describe("decodeBuffer", () => {
     });
 
     it("decodes utf16le and utf16be by BOM", async () => {
-        const le = await decodeBuffer(Buffer.concat([Buffer.from([0xff, 0xfe]), iconv.encode("\u0430\u0431\u0432", "utf16le")])); // "abv"
+        const le = await decodeBuffer(
+            Buffer.concat([Buffer.from([0xff, 0xfe]), iconv.encode("\u0430\u0431\u0432", "utf16le")]),
+        ); // "abv"
         expect(le).toEqual({ text: "\u0430\u0431\u0432", encoding: "utf16le" }); // "abv"
 
-        const be = await decodeBuffer(Buffer.concat([Buffer.from([0xfe, 0xff]), iconv.encode("\u0430\u0431\u0432", "utf16-be")])); // "abv"
+        const be = await decodeBuffer(
+            Buffer.concat([Buffer.from([0xfe, 0xff]), iconv.encode("\u0430\u0431\u0432", "utf16-be")]),
+        ); // "abv"
         expect(be).toEqual({ text: "\u0430\u0431\u0432", encoding: "utf16be" }); // "abv"
     });
 
@@ -124,7 +128,10 @@ describe("decodeBuffer", () => {
 
 describe("decodeBufferByBOM", () => {
     it("is the synchronous no-explicit-encoding decodeBuffer", () => {
-        expect(decodeBufferByBOM(Buffer.from("\u043f\u0440\u0438\u0432\u0435\u0442", "utf8"))).toEqual({ text: "\u043f\u0440\u0438\u0432\u0435\u0442", encoding: "utf8" }); // "privet"
+        expect(decodeBufferByBOM(Buffer.from("\u043f\u0440\u0438\u0432\u0435\u0442", "utf8"))).toEqual({
+            text: "\u043f\u0440\u0438\u0432\u0435\u0442",
+            encoding: "utf8",
+        }); // "privet"
         const bom = Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), Buffer.from("hi", "utf8")]);
         expect(decodeBufferByBOM(bom)).toEqual({ text: "hi", encoding: "utf8bom" });
         const be = Buffer.concat([Buffer.from([0xfe, 0xff]), iconv.encode("\u0430\u0431\u0432", "utf16-be")]); // "abv"
@@ -241,7 +248,10 @@ describe("iconv-lite — lazy chunk", () => {
     it("other encodings request the iconv-lite chunk", async () => {
         const bytes = await encodeText("\u043f\u0440\u0438\u0432\u0435\u0442", "windows1251"); // "privet"
         expect(requested).toEqual(["iconv-lite"]);
-        expect(await decodeBuffer(bytes, "windows1251")).toEqual({ text: "\u043f\u0440\u0438\u0432\u0435\u0442", encoding: "windows1251" }); // "privet"
+        expect(await decodeBuffer(bytes, "windows1251")).toEqual({
+            text: "\u043f\u0440\u0438\u0432\u0435\u0442",
+            encoding: "windows1251",
+        }); // "privet"
         expect(requested).toEqual(["iconv-lite", "iconv-lite"]);
     });
 

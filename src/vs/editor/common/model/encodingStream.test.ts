@@ -138,7 +138,11 @@ describe("encodeChunks", () => {
     });
 
     it("unknown encoding — utf-8 without BOM, like encodeText", async () => {
-        expect((await encodeChunks(["\u043f\u0440\u0438", "\u0432\u0435\u0442"], "martian")).equals(Buffer.from("\u043f\u0440\u0438\u0432\u0435\u0442", "utf8"))).toBe(true); // "pri", "vet", "privet"
+        expect(
+            (await encodeChunks(["\u043f\u0440\u0438", "\u0432\u0435\u0442"], "martian")).equals(
+                Buffer.from("\u043f\u0440\u0438\u0432\u0435\u0442", "utf8"),
+            ),
+        ).toBe(true); // "pri", "vet", "privet"
     });
 });
 

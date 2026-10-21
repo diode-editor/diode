@@ -80,7 +80,7 @@ describe("getCodeActions", () => {
         expect(organize.provideCodeActions).toHaveBeenCalledTimes(2);
     });
 
-    it("a failing provider = \"no actions\", the rest still arrive", async () => {
+    it('a failing provider = "no actions", the rest still arrive', async () => {
         const registry = new LanguageFeatureRegistry<CodeActionProvider>();
         registry.register("python", provider([{ id: "1.0", title: "ok" }]));
         registry.register("python", {
