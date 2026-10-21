@@ -1,14 +1,6 @@
 #!/usr/bin/env node
 /**
- * Manages vendored copies of editor code from upstream `microsoft/vscode`:
- *   - the line diff algorithm — `src/vs/editor/common/diff/` together with the
- *     core primitives (`src/vs/editor/common/core/`), the `CharCode` enum and
- *     the fixture corpus;
- *   - model tokenization — `src/vs/editor/common/model/textModelTokens.ts`
- *     (end-state store, invalid line queue, background tokenizer, viewport
- *     heuristic) and its small dependencies, the binary token format
- *     (`encodedTokenAttributes.ts`, `tokens/lineTokens.ts`,
- *     `tokens/contiguousMultilineTokens*.ts`) — docs/TODO/VscodeModel.md, B1/B2.
+ * Vendored copies of editor code from upstream `microsoft/vscode` (FILES) and the diff fixture corpus.
  *
  * One script for all imports rather than one per subsystem: the transform, the
  * `--check` guard and the pin are shared, and there is no reason for them to diverge.
@@ -16,22 +8,9 @@
  * Same philosophy as `import-vscode-dts.mjs`: the vendored code is a staged
  * copy of upstream, not our source. It is **never edited by hand**; the only
  * way to change it is to change the pin or the declared transform here and
- * regenerate. The guard is `--check` mode.
- *
- * TRANSFORM (deterministic, applied in this order):
- *   1. EXCISIONS — declared cuts of code that pulls in extra dependencies.
- *      Anchors are exact lines; a missing anchor is fatal.
- *   2. IMPORT EXTENSIONS `'./x.js'` → `'./x.ts'` (diode convention, AGENTS.md).
- *   3. `import` → `import type` for symbols in TYPE_ONLY: we use
- *      `verbatimModuleSyntax: true`, under which a value import of a type is
- *      error TS1484. The list is declared below, not inferred heuristically.
- *   4. Provenance BANNER right after the upstream MIT header, followed by the
- *      declared prelude (PRELUDES: mocha globals import in upstream tests).
- *
- * Steps 1–4 are reversible in the sense that `--check` re-derives the expected
- * content from upstream and compares byte for byte. If upstream drifts so that
- * an excision anchor is not found, the script fails loudly instead of
- * corrupting the vendored copy.
+ * regenerate. `--check` re-derives the expected content from upstream and
+ * compares byte for byte; an excision anchor upstream lost fails loudly instead
+ * of corrupting the vendored copy.
  *
  * Dependencies that upstream pulls from `base/common` (arrays, assert, errors,
  * map, strings, …) are NOT vendored: their full versions drag in
@@ -42,10 +21,6 @@
  * `model.ts`) are covered the same way: their upstream versions are thousands
  * of lines of language feature providers and upstream `TextModel`, of which
  * the vendored code needs dozens.
- *
- * Modes:
- *   (no flags)    — import files from upstream at the pinned tag.
- *   --check       — compare the tree with re-derived upstream. Exit 1 on drift.
  *
  * The pin matches `extensions/VSCODE_VERSION` — keep the tags in lockstep.
  *
@@ -61,8 +36,6 @@ const VSCODE_TAG = "1.127.0";
 const VSCODE_REPO = "https://github.com/microsoft/vscode.git";
 
 const repoRoot = resolve(import.meta.dirname, "..");
-
-// ---- what we vendor --------------------------------------------------------
 
 /** Files vendored verbatim. Upstream path == our path (mirrored layout). */
 const FILES = [
@@ -80,7 +53,6 @@ const FILES = [
     "src/vs/editor/common/diff/defaultLinesDiffComputer/algorithms/dynamicProgrammingDiffing.ts",
     "src/vs/editor/common/diff/defaultLinesDiffComputer/algorithms/myersDiffAlgorithm.ts",
 
-    // Core primitives the algorithm is built on.
     "src/vs/editor/common/core/position.ts",
     "src/vs/editor/common/core/range.ts",
     "src/vs/editor/common/core/editOperation.ts",
@@ -96,14 +68,10 @@ const FILES = [
     // A plain enum with no dependencies — cheaper to vendor whole than to shim.
     "src/vs/base/common/charCode.ts",
 
-    // Model tokenization: line state, queue, background, viewport heuristic.
     "src/vs/editor/common/model/textModelTokens.ts",
     "src/vs/editor/common/model/fixedArray.ts",
     "src/vs/editor/common/core/misc/eolCounter.ts",
     "src/vs/base/common/stopwatch.ts",
-    // Binary token format (B2): metadata layout, line tokens, tokens of
-    // contiguous lines (what the background emits) with editing and
-    // (de)serialization (the latter for the worker, B3), the "tokenizer failed" result.
     "src/vs/editor/common/encodedTokenAttributes.ts",
     "src/vs/editor/common/tokens/lineTokens.ts",
     "src/vs/editor/common/tokens/contiguousMultilineTokens.ts",
@@ -111,15 +79,11 @@ const FILES = [
     "src/vs/editor/common/tokens/contiguousTokensEditing.ts",
     "src/vs/editor/common/languages/nullTokenize.ts",
 
-    // Text storage: PieceTree (a red-black tree of pieces with a line start
-    // cache) and its dependencies. Unused so far — wiring it into TextDocument
-    // is step A3 (docs/TODO/VscodeModel.md).
     "src/vs/editor/common/model/pieceTreeTextBuffer/pieceTreeBase.ts",
     "src/vs/editor/common/model/pieceTreeTextBuffer/rbTreeBase.ts",
     "src/vs/editor/common/model/pieceTreeTextBuffer/pieceTreeTextBuffer.ts",
     "src/vs/editor/common/model/pieceTreeTextBuffer/pieceTreeTextBufferBuilder.ts",
     "src/vs/editor/common/core/textChange.ts",
-    // Buffer search (`findMatchesLineByLine`): `Searcher` and word boundary parsing.
     "src/vs/editor/common/model/textModelSearch.ts",
     "src/vs/editor/common/core/wordCharacterClassifier.ts",
     "src/vs/editor/common/core/characterClassifier.ts",
@@ -131,7 +95,7 @@ const FILES = [
     "src/vs/editor/test/common/model/pieceTreeTextBuffer/pieceTreeTextBuffer.test.ts",
 ];
 
-/** Fixture corpus: upstream path → our path. Files are copied as is. */
+/** Fixture corpus, copied as is, without the transform. */
 const FIXTURES_FROM = "src/vs/editor/test/node/diffing/fixtures";
 const FIXTURES_TO = "src/vs/editor/common/diff/__fixtures__";
 /** Legacy computer expectations are not needed — we do not vendor legacy. */
@@ -159,8 +123,6 @@ const SPARSE_PATHS = [
     "/src/vs/editor/test/common/model/pieceTreeTextBuffer/pieceTreeTextBuffer.test.ts",
     FIXTURES_FROM,
 ];
-
-// ---- declared transform ----------------------------------------------------
 
 /**
  * Excisions: cut lines from `from` through `to` inclusive (`to: "EOF"` — to the
@@ -242,8 +204,8 @@ const PRELUDES = {
  * `verbatimModuleSyntax` they must be imported with `import type`, otherwise TS1484.
  *
  * The list comes from `grep '^export (interface|type)'` over the vendored set
- * plus two names from our shims (`Comparator`, `IEquatable`). If upstream adds
- * a new type and we miss it, `npm run typecheck` fails loudly.
+ * plus names from our shims. If upstream adds a new type and we miss it,
+ * `npm run typecheck` fails loudly.
  */
 const TYPE_ONLY = new Set([
     // from the vendored set
@@ -298,8 +260,6 @@ function banner(upstreamPath) {
         "// DO NOT EDIT BY HAND — regenerated by scripts/import-vscode-editor.mjs (see AGENTS.md).",
     ];
 }
-
-// ---- transform steps -------------------------------------------------------
 
 function applyExcisions(lines, upstreamPath) {
     const specs = EXCISIONS[upstreamPath];
@@ -367,7 +327,6 @@ function insertBanner(lines, upstreamPath) {
     return [...lines.slice(0, idx + 1), ...banner(upstreamPath), ...(PRELUDES[upstreamPath] ?? []), ...lines.slice(idx + 1)];
 }
 
-/** The full declared transform of upstream text into our file. */
 function transform(text, upstreamPath) {
     let lines = text.replace(/\r\n/g, "\n").split("\n");
     while (lines.length > 0 && lines[lines.length - 1] === "") lines.pop();
@@ -378,8 +337,6 @@ function transform(text, upstreamPath) {
     while (lines.length > 0 && lines[lines.length - 1] === "") lines.pop();
     return lines.join("\n") + "\n";
 }
-
-// ---- upstream fetch --------------------------------------------------------
 
 function withUpstream(fn) {
     const scratch = mkdtempSync(join(tmpdir(), "vscode-editor-"));
@@ -414,8 +371,6 @@ function fixtureFiles(cloneDir) {
     walk(root);
     return out;
 }
-
-// ---- modes -----------------------------------------------------------------
 
 function regen() {
     withUpstream((cloneDir, sha) => {
@@ -482,8 +437,6 @@ function check() {
         process.exit(1);
     });
 }
-
-// ---- main ------------------------------------------------------------------
 
 if (process.argv.includes("--check")) check();
 else regen();
