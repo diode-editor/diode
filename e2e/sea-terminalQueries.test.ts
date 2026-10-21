@@ -5,26 +5,26 @@ import type { DiodeSession } from "./helpers/runDiode.ts";
 import { usePtyApp } from "./helpers/useApp.ts";
 
 /**
- * Ответ терминала приходит во ввод tty: пока tty в cooked-режиме с ECHO (до
- * `backend.setup()`), ядро печатает его на экран, и мусор `^[]10;rgb:…` оставался в
- * шелле (v0.9.0). Тест играет терминал: запросы уходят только после входа в alt-screen
- * (за ним сразу raw-режим), эха ответов в выводе нет.
+ * The terminal's reply arrives on the tty input: while the tty is in cooked mode with ECHO
+ * (before `backend.setup()`), the kernel prints it to the screen, and `^[]10;rgb:…` garbage
+ * stayed in the shell (v0.9.0). The test plays the terminal: queries go out only after entering
+ * the alt screen (raw mode follows immediately), and the output has no echoed replies.
  */
 
-// node-pty — только unix в нынешней упаковке (как сценарий `terminal`).
+// node-pty is unix-only in the current packaging (like the `terminal` scenario).
 const describeUnix = process.platform === "win32" ? describe.skip : describe;
 
 const ALT_SCREEN_ON = "\x1b[?1049h";
 const ST = "\x1b\\";
 const DA1_QUERY = "\x1b[c";
 const HOST_BG_QUERY = `\x1b]11;?${ST}`;
-/** OSC 10/11 (текст/фон), OSC 4;n (палитра) и DA1. */
+/** OSC 10/11 (foreground/background), OSC 4;n (palette) and DA1. */
 const QUERY = /\x1b\](10|11);\?\x1b\\|\x1b\]4;(\d+);\?\x1b\\|\x1b\[c/g;
 
-/** Отвечает на запросы цветов и DA1, как настоящий терминал, пока сессия жива. */
+/** Answers color and DA1 queries like a real terminal while the session is alive. */
 function answerTerminalQueries(session: DiodeSession): () => void {
-    // Всё до `scanned` разобрано; хвост короче самого длинного запроса держим —
-    // запрос мог оборваться на границе чанка и дочитается на следующем тике.
+    // Everything before `scanned` is parsed; a tail shorter than the longest query is kept,
+    // since a query may be cut at a chunk boundary and is completed on the next tick.
     let scanned = 0;
     const timer = setInterval(() => {
         const output = session.getRawOutput();
@@ -59,13 +59,13 @@ describeUnix("запросы к хост-терминалу — SEA", () => {
         try {
             await session.waitFor((s) => s.findText("hello") !== null);
             await expect.poll(() => session.getRawOutput().includes(HOST_BG_QUERY), { timeout: 10_000 }).toBe(true);
-            // Дать ответам дойти и (если бы tty был в cooked-режиме) отразиться эхом.
+            // Let the replies arrive and (if the tty were in cooked mode) get echoed.
             await new Promise((resolve) => setTimeout(resolve, 300));
         } finally {
             stop();
         }
         const output = session.getRawOutput();
-        // ECHOCTL печатает ESC как `^[`: так выглядел мусор в шелле после выхода.
+        // ECHOCTL prints ESC as `^[`: that's how the garbage in the shell looked after exit.
         expect(output).not.toContain("^[");
         const altScreen = output.indexOf(ALT_SCREEN_ON);
         expect(altScreen).toBeGreaterThanOrEqual(0);

@@ -26,7 +26,7 @@ exports.activate = function activate(context) {
         themeItem.show();
     }
 
-    // Тема верна уже здесь — хост присылает её ДО первой активации.
+    // The theme is already correct here — the host sends it BEFORE the first activation.
     renderTheme(vscode.window.activeColorTheme);
 
     selectionItem.text = "Sel —";

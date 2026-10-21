@@ -8,9 +8,9 @@ import { useHeadlessApp } from "./helpers/useApp.ts";
 import { waitUntil } from "./helpers/waitFor.ts";
 
 /**
- * #196. Undo после quick fix'а: удаление ОДНОГО имени из импорта сервер присылает двумя
- * смежными диапазонами на одной строке, и Ctrl+Z обязан вернуть строку дословно
- * (собиралось перемешанным — `import { alphazeta,  } from …`).
+ * #196. Undo after a quick fix: the server sends the removal of ONE name from an import as two
+ * adjacent ranges on the same line, and Ctrl+Z must restore the line verbatim
+ * (it used to come back scrambled — `import { alphazeta,  } from …`).
  */
 
 const require_ = createRequire(import.meta.url);
@@ -23,20 +23,20 @@ const LSP_SETTINGS = {
 };
 
 const ZETA_IMPORT = 'import { zeta } from "./zeta";';
-// Неиспользуемый импорт (quickfix) + ошибка типов (readiness по undercurl).
+// Unused import (quickfix) + a type error (readiness via undercurl).
 const MAIN_TS = `${ZETA_IMPORT}\n\nconst bad: number = "oops";\n\nexport const kept = 1;\n`;
 
-// Список из двух имён: quickfix на неиспользуемом `zeta` режет строку ДВУМЯ
-// смежными диапазонами (", " и "zeta") — форма, на которой ломался undo.
+// A two-name list: the quickfix on the unused `zeta` cuts the line with TWO
+// adjacent ranges (", " and "zeta") — the shape that broke undo.
 const BOTH_IMPORT = 'import { alpha, zeta } from "./both";';
 const BOTH_IMPORT_FIXED = 'import { alpha } from "./both";';
 const BOTH_TS = `${BOTH_IMPORT}\n\nalpha();\n`;
 
-/** Squiggle рисуется undercurl'ом (StyleFlags.Undercurl === 8) на диапазоне ошибки. */
+/** The squiggle is drawn as undercurl (StyleFlags.Undercurl === 8) over the error range. */
 const UNDERCURL = 8;
 
-// Extension-host subprocess + спавн language-сервера — Linux-only, как
-// organizeImports / formatDocument (см. docs/TODO/E2E.md).
+// Extension-host subprocess + language server spawn — Linux-only, like
+// organizeImports / formatDocument (see docs/TODO/E2E.md).
 describe.skipIf(process.platform === "win32" || process.platform === "darwin")(
     "SEA binary — Quick Fix от стокового typescript-language-server",
     () => {
@@ -62,11 +62,11 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin")(
                 { describe: "undercurl squiggle от tsserver", timeoutMs: 120_000, intervalMs: 500 },
             );
 
-            // Каретка на строке импорта (открытие ставит её в начало файла).
+            // The cursor is on the import line (opening puts it at the start of the file).
             await session.key("Ctrl+K");
             await session.key("Ctrl+Q");
             await session.waitForText((text) => text.includes("Select Code Action"), { timeoutMs: 60_000 });
-            // Пин на нужное действие фильтром — порядок пунктов за сервером.
+            // Pin the wanted action with a filter — the item order is up to the server.
             await session.text("Remove import");
             await session.waitForText((text) => text.includes("Remove import"), { timeoutMs: 30_000 });
             await session.key("Enter");
@@ -94,14 +94,14 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin")(
             });
             await session.waitForNode("EditorElement");
 
-            // Readiness: сервер проиндексировал проект и подчеркнул `zeta`.
+            // Readiness: the server has indexed the project and underlined `zeta`.
             await waitUntil(
                 () => session.captureFrame(),
                 (frame) => frame.cells.some((cell) => (cell.style & UNDERCURL) !== 0),
                 { describe: "undercurl squiggle от tsserver", timeoutMs: 120_000, intervalMs: 500 },
             );
 
-            // Каретка на идентификатор `zeta` в первой строке (колонка 16).
+            // Put the cursor on the `zeta` identifier in the first line (column 16).
             for (let i = 0; i < 16; i++) await session.key("ArrowRight");
             await session.key("Ctrl+K");
             await session.key("Ctrl+Q");
@@ -122,13 +122,12 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin")(
                 (f) => frameToText(f).includes(BOTH_IMPORT),
                 { describe: "Ctrl+Z вернул строку импорта", timeoutMs: 30_000, intervalMs: 250 },
             );
-            // Перемешанный буфер (`import { alphazeta,  } from …`) состоит из тех
-            // же символов, поэтому мало вхождения — проверяем и его отсутствие.
+            // The scrambled buffer (`import { alphazeta,  } from …`) consists of the same
+            // characters, so containment is not enough — also check it is absent.
             expect(frameToText(undone)).not.toContain("alphazeta");
-            // Redo здесь не дёргаем: `Ctrl+Shift+Z` не выражается в key-DSL
-            // движка (serializeKey не знает формы Ctrl+Shift+буква), а обходить
-            // ограничение tuidom нельзя — правило AGENTS. Redo закрыт на уровне
-            // команды в extensionHost.typescriptLsp.codeActions.test.ts.
+            // Redo is not exercised here: `Ctrl+Shift+Z` cannot be expressed in the engine's
+            // key DSL (serializeKey has no Ctrl+Shift+letter form). Redo is covered at the
+            // command level in extensionHost.typescriptLsp.codeActions.test.ts.
         });
     },
 );

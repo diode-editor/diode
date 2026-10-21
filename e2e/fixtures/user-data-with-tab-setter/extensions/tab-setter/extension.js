@@ -1,6 +1,6 @@
 "use strict";
 
-/** tabSize=7 уникален — по раскладке табов видно, что его поставило расширение. */
+/** tabSize=7 is unique — the tab layout shows that the extension set it. */
 exports.activate = function activate(_context) {
     const vscode = require("vscode");
     const editor = vscode.window.activeTextEditor;

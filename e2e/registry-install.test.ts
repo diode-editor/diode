@@ -11,8 +11,8 @@ import { currentTargetPlatform } from "../src/vs/platform/extensionManagement/no
 import { getBinaryPath } from "./helpers/buildOnce.ts";
 
 /**
- * Склейка cliArgs → main → FileExtensionRegistrySource → installFromRegistry и ленивый
- * `import("yauzl")` в SEA — юниты покрывают модули только по отдельности.
+ * The wiring cliArgs → main → FileExtensionRegistrySource → installFromRegistry and the lazy
+ * `import("yauzl")` in SEA — unit tests cover these modules only in isolation.
  */
 
 interface CliResult {
@@ -60,7 +60,7 @@ describe("SEA binary — install from file registry", () => {
         registryDir = path.join(tempRoot, "registry");
         userDataDir = path.join(tempRoot, "user-data-root");
 
-        // Каталог реестра в публикуемом формате registry-репозитория.
+        // Registry directory in the published format of the registry repository.
         const artifactRel = "artifacts/acme.demo-1.2.3.vsix";
         await fs.promises.mkdir(path.join(registryDir, "artifacts"), { recursive: true });
         await fs.promises.mkdir(path.join(registryDir, "meta"), { recursive: true });
@@ -98,9 +98,9 @@ describe("SEA binary — install from file registry", () => {
                 ],
             }),
         );
-        // Платформенные записи одной версии: ТЕКУЩИЙ таргет с настоящим артефактом и чужой
-        // с битым путём. Ставится, только если main.ts реально передал targetPlatform хоста
-        // в резолв — юниты передают его руками.
+        // Platform-specific records of one version: the CURRENT target with a real artifact and a foreign
+        // one with a broken path. Installs only if main.ts actually passes the host's targetPlatform
+        // to resolution — unit tests pass it by hand.
         const hostTarget = currentTargetPlatform();
         if (hostTarget !== undefined) {
             const platformedRel = `artifacts/acme.platformed-2.0.0@${hostTarget}.vsix`;
@@ -187,7 +187,7 @@ describe("SEA binary — install from file registry", () => {
         expect(install.code).toBe(0);
         expect(install.stdout).toContain("Installed acme.demo@1.2.3");
 
-        // Layout, который ждёт scanExtensions.
+        // The layout scanExtensions expects.
         expect(fs.existsSync(path.join(userDataDir, "extensions", "acme.demo-1.2.3", "package.json"))).toBe(true);
 
         const list = await runCli(binary, ["--user-data-dir", userDataDir, "--list-extensions"]);
@@ -196,8 +196,8 @@ describe("SEA binary — install from file registry", () => {
     });
 
     it("id is not shadowed by a same-named file in the working directory", async () => {
-        // Различение — строго по суффиксу .vsix: файл `acme.demo` рядом не должен
-        // перехватывать установку из реестра.
+        // Discrimination is strictly by the .vsix suffix: a nearby `acme.demo` file must not
+        // hijack the install from the registry.
         const cwd = path.join(tempRoot, "cwd-with-decoy");
         await fs.promises.mkdir(cwd, { recursive: true });
         await fs.promises.writeFile(path.join(cwd, "acme.demo"), "not a vsix at all");
@@ -213,7 +213,7 @@ describe("SEA binary — install from file registry", () => {
         expect(install.stdout).toContain("Installed acme.demo@1.2.3");
     });
 
-    /** Публикует в файловый реестр расширение одной версии `1.0.0` с полями манифеста `extra`. */
+    /** Publishes to the file registry a single-version `1.0.0` extension with manifest fields `extra`. */
     async function publish(
         id: string,
         extra: Record<string, unknown>,
@@ -295,7 +295,7 @@ describe("SEA binary — install from file registry", () => {
     });
 
     it(".vsix whose dependency cannot be installed is still installed, with a warning", async () => {
-        // Запись реестра требует будущий vscode — совместимой версии нет.
+        // The registry entry requires a future vscode — there is no compatible version.
         await publish("acme.future", {}, { vscode: "^99.0.0" });
         const vsix = path.join(tempRoot, "acme.needsfuture-1.0.0.vsix");
         await buildVsix(vsix, {
@@ -326,11 +326,11 @@ describe("SEA binary — install from file registry", () => {
         expect(list.stdout.trim()).toBe("acme.needsfuture@1.0.0");
     });
 
-    // semver — ленивый кусок бандла (`lazy/semver.cjs`): в main.cjs его нет, а
-    // запасной import("semver") в SEA упал бы. Выбор версии ниже — это разбор
-    // версий meta (semver.valid), матчинг engines (satisfies) и сравнение (gt)
-    // целиком внутри бинаря: верная версия и есть доказательство, что кусок
-    // загрузился и считает правильно.
+    // semver is a lazy chunk (`lazy/semver.cjs`): it is not in main.cjs, and a
+    // fallback import("semver") would fail in SEA. The version pick below is parsing
+    // meta versions (semver.valid), matching engines (satisfies) and comparing (gt)
+    // entirely inside the binary: the right version proves the chunk
+    // loaded and computes correctly.
     it("picks the highest version whose engines match this build, skipping a newer incompatible one", async () => {
         const id = "acme.versioned";
         const versions = [
@@ -378,7 +378,7 @@ describe("SEA binary — install from file registry", () => {
 
         expect(install.stderr).toBe("");
         expect(install.code).toBe(0);
-        // 1.10.0 > 1.9.0 только по semver (строкой было бы наоборот), 2.0.0 отсечён engines.
+        // 1.10.0 > 1.9.0 only by semver (as strings it would be the reverse); 2.0.0 is cut off by engines.
         expect(install.stdout).toContain(`Installed ${id}@1.10.0`);
         const list = await runCli(binary, ["--user-data-dir", userData, "--list-extensions"]);
         expect(list.stdout.trim()).toBe(`${id}@1.10.0`);

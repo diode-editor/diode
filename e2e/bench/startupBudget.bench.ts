@@ -12,22 +12,22 @@ import { COLS, measureOpenOnce, ROWS } from "./openMeasure.ts";
 import { measureFloorPty, NODE_FLOOR_ARGS } from "./ptyFloor.ts";
 import { median } from "./stats.ts";
 
-// Перф-гейт кухни старта: публичная цифра docs/public/BENCH-OPEN.md обязана быть защищена
-// тестом. `npm run test:perf` — под лизу; в CI — шаг `npm run test:perf:startup` job'а
-// `e2e (ubuntu-latest)`, по нему и калибровка.
+// Perf gate for our startup overhead: the public number in docs/public/BENCH-OPEN.md must be guarded
+// by a test. `npm run test:perf` runs under a lease; in CI it is the `npm run test:perf:startup` step of the
+// `e2e (ubuntu-latest)` job, which is also what the calibration is based on.
 //
-// Калибровка (2026-10-16): медиана CI — 99 мс наших (IQR 16). Бюджет вдвое, чтобы shared runner
-// не флапал: ловит откаты масштаба «потеряли снапшот» (+60…90 мс). Локально ~170 наших —
-// может упираться в бюджет, авторитет здесь CI.
+// Calibration (2026-10-16): CI median is 99 ms of ours (IQR 16). The budget is doubled so the shared runner
+// does not flake: it catches regressions on the scale of "lost the snapshot" (+60…90 ms). Locally it is ~170 ms
+// of ours — may hit the budget; CI is authoritative here.
 //
-// Vitest bench бюджетов не умеет: исключение из функции бенча роняет файл с ненулевым кодом.
+// Vitest bench has no budgets: an exception thrown from the bench function fails the file with a nonzero code.
 
-/** Медиана по сэмплам `small`. */
+/** Median over `small` samples. */
 export const STARTUP_BUDGET_OURS_MS = 200;
 const SAMPLES = 5;
 
-// NB: фикстуры и пол — на верхнем уровне модуля: в режиме `vitest bench` тяжёлый
-// beforeAll отрабатывает некорректно (бенч не набирает сэмплов).
+// NB: fixtures and the floor live at module top level: in `vitest bench` mode a heavy
+// beforeAll misbehaves (the bench collects no samples).
 const binary = await getBinaryPath();
 const fixtureDir = mkdtempSync(join(os.tmpdir(), "diode-perf-open-"));
 const small = SIZES.find((s) => s.key === "small");
@@ -54,7 +54,7 @@ describe("Старт: кухня над полом node (SEA в PTY, small)", ()
             if (result.outcome !== "ok" || result.contentMs === null) {
                 throw new Error(`файл не открылся: ${result.outcome} (exit ${String(result.exitCode)})`);
             }
-            // Первый вызов — прогревочная итерация tinybench (FS-кеш), в статистику не идёт.
+            // The first call is tinybench's warmup iteration (FS cache) and is excluded from the stats.
             if (calls === 1) return;
             samples.push(result.contentMs - nodeFloorMs);
             if (samples.length === SAMPLES) {

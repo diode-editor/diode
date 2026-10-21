@@ -1,17 +1,17 @@
 "use strict";
 
 /**
- * Разметка `$(name)` во ВСЕХ поверхностях, куда уходит текст расширения: везде, где эталон значок
- * разворачивает, должен быть глиф. Обратная половина: в СОДЕРЖИМОМ канала и в начальном `value`
- * поля ввода стоит `$(no-such-icon)` — их подменять нельзя (лог не разметка, value человек
- * возвращает расширению), а неизвестное имя подменщик выбрасывает, так что ошибка видна сразу.
+ * `$(name)` markup in ALL surfaces that extension text goes to: wherever upstream expands the icon,
+ * there must be a glyph. The flip side: the channel CONTENT and the input box's initial `value`
+ * contain `$(no-such-icon)` — these must not be substituted (a log isn't markup, the value is returned
+ * to the extension by the user), while the substituter throws on an unknown name, so a mistake shows at once.
  */
 
 exports.activate = function activate(context) {
     const vscode = require("vscode");
 
-    // Имя канала — ярлык: оно уезжает и в палитру («Output: Show …»), и в
-    // селектор каналов. Строки канала — наоборот, текст как есть.
+    // The channel name is a label: it ends up both in the command palette ("Output: Show …") and in
+    // the channel selector. Channel lines, conversely, are text as is.
     const out = vscode.window.createOutputChannel("$(output) Codicon Demo");
     out.appendLine("channel name was written as: $(output) Codicon Demo");
     out.appendLine("log lines stay verbatim: $(no-such-icon) still here");
@@ -26,7 +26,7 @@ exports.activate = function activate(context) {
         context.subscriptions.push(vscode.commands.registerCommand(id, handler));
     };
 
-    // `OutputChannel.show()` — настоящий путь расширения: открывает панель и переключает селектор.
+    // `OutputChannel.show()` is the real extension path: it opens the panel and switches the selector.
     register("codiconDemo.showLog", () => {
         out.show();
     });
@@ -41,8 +41,8 @@ exports.activate = function activate(context) {
         ),
     );
 
-    // Два поля ввода, а не одно: сообщение валидации ЗАМЕНЯЕТ строку подсказки,
-    // поэтому показать и prompt, и validation одним показом нельзя.
+    // Two input boxes, not one: a validation message REPLACES the prompt line,
+    // so prompt and validation can't be shown in one go.
     register("codiconDemo.ask", () =>
         vscode.window.showInputBox({
             title: "$(edit) Port",
@@ -59,8 +59,8 @@ exports.activate = function activate(context) {
         }),
     );
 
-    // Прогресс держим открытым до отдельной команды: иначе подпись мигнула бы
-    // быстрее, чем сценарий успеет снять кадр.
+    // Keep the progress open until a separate command: otherwise the label would flash
+    // faster than the scenario can capture a frame.
     let finishIndexing;
     register("codiconDemo.index", () =>
         vscode.window.withProgress(

@@ -1,9 +1,9 @@
 "use strict";
 
 /**
- * Читает `vscode.workspace` ОДИН раз, в `activate()`, как настоящие расширения (языковой клиент
- * отдаёт папки серверу в `initialize`): новое значение в полосе значит, что процесс расширений
- * поднят заново. Текст короткий — пункт длиннее ~24 символов усекается.
+ * Reads `vscode.workspace` ONCE, in `activate()`, like real extensions (a language client
+ * hands folders to the server in `initialize`): a new value in the bar means the extension host
+ * process was restarted. The text is short: an item longer than ~24 characters is truncated.
  */
 exports.activate = function activate(context) {
     const vscode = require("vscode");

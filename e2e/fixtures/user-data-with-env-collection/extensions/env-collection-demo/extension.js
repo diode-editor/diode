@@ -1,6 +1,6 @@
 "use strict";
 
-/** Пункт «Env demo ready» — сигнал сценарию, что коллекция уже записана. */
+/** The "Env demo ready" item signals the scenario that the collection is already written. */
 exports.activate = function activate(context) {
     const collection = context.environmentVariableCollection;
     collection.replace("DEMO_SERVER_PORT", "4242");

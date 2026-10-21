@@ -10,7 +10,7 @@ const here = fileURLToPath(new URL(".", import.meta.url));
 const userData = resolve(here, "fixtures", "user-data-with-inline-ghost");
 
 const FIB_BODY = "onacci(n) {\n    if (n <= 1) return n;\n    return fibonacci(n - 1) + fibonacci(n - 2);\n}";
-/** Продолжение фикстурного провайдера для триггера «const greeting». */
+/** Fixture provider's continuation for the `const greeting` trigger. */
 const GREETING_BODY = ' = "Hello from ghost text!";';
 
 interface IGhostState {
@@ -19,13 +19,13 @@ interface IGhostState {
     lines: string[];
 }
 
-// Extension-host субпроцесс на Windows в e2e флейкает (см. docs/TESTING.md).
+// The extension host subprocess flakes in e2e on Windows (see docs/TESTING.md).
 const describeLinuxOnly = process.platform === "linux" ? describe : describe.skip;
 
 /**
- * Перепечатывает последний символ триггера, пока нет призрака: запрос, ушедший до
- * регистрации провайдера (активация асинхронна), возвращает пусто. Escape перед
- * перепечаткой закрывает suggest-попап по словам буфера — под ним призрак не рисуется.
+ * Retypes the trigger's last character until ghost text appears: a request sent before
+ * the provider registers (activation is async) returns nothing. Escape before retyping
+ * closes the buffer-word suggest popup — ghost text is not drawn under it.
  */
 async function waitForGhostRetyping(
     session: {
@@ -68,12 +68,12 @@ describeLinuxOnly("inline completions — ghost text from a user extension", () 
         await session.key("Enter");
         await session.text("function fib");
 
-        // Документ не изменился: фантом живёт в view zones.
+        // The document is unchanged: the ghost text lives in view zones.
         const withGhost = await waitForGhostRetyping(session, "b");
         const ghost = withGhost.state?.ghostText as IGhostState;
         expect(ghost).toEqual({ line: 1, character: 12, lines: FIB_BODY.split("\n") });
         expect(withGhost.state?.viewZones).toEqual([{ afterLine: 1, size: 3 }]);
-        expect(withGhost.state?.lineCount).toBe(3); // «// Fibonacci demo», «function fib», хвостовая пустая
+        expect(withGhost.state?.lineCount).toBe(3); // "// Fibonacci demo", "function fib", trailing empty line
         await session.waitForText((t) => t.includes("return fibonacci(n - 1)"), { timeoutMs: 5000 });
 
         await session.key("Tab");
@@ -85,17 +85,17 @@ describeLinuxOnly("inline completions — ghost text from a user extension", () 
         expect(accepted.state?.viewZones).toEqual([]);
         await session.waitForText((t) => t.includes("Ln 5"), { timeoutMs: 5000 });
 
-        // Принятие — одна undo-операция: Ctrl+Z снимает ВСЮ вставку разом.
+        // Accepting is one undo operation: Ctrl+Z removes the WHOLE insertion at once.
         await session.key("Ctrl+Z");
         await session.waitForState("EditorElement", (s) => s?.lineCount === 3, { timeoutMs: 5000 });
     }, 120_000);
 
-    // Эталон: `editor.quickSuggestions` → `offWhenInlineCompletions` — quick suggest
-    // ждёт исхода запроса призрака.
+    // Upstream: `editor.quickSuggestions` → `offWhenInlineCompletions` — quick suggest
+    // waits for the ghost text request to settle.
     it("quick suggest уступает призраку: есть подсказка — попапа нет, нет — попап открывается", async () => {
         const { session } = await useHeadlessApp({
             seedUserData: userData,
-            // «fibber» в буфере: без уступки на «fi»/«fib» открывался бы попап.
+            // "fibber" in the buffer: without yielding, "fi"/"fib" would open the popup.
             files: { "sample.ts": "// fibber demo\n" },
             open: ["sample.ts"],
         });
@@ -105,12 +105,12 @@ describeLinuxOnly("inline completions — ghost text from a user extension", () 
         await session.text("function fib");
 
         await waitForGhostRetyping(session, "b");
-        // Дольше окна ожидания quick suggest (750 мс): попап так и не открылся.
+        // Longer than the quick suggest wait window (750 ms): the popup never opened.
         await new Promise((r) => setTimeout(r, 1500));
         expect(await session.node("CompletionListElement")).toBeFalsy();
         expect(((await session.node("EditorElement"))?.state?.ghostText as IGhostState).lines[0]).toBe("onacci(n) {");
 
-        // На «fibb» провайдеру нечего сказать — попап открывается после пустого ответа.
+        // The provider has nothing for "fibb" — the popup opens after the empty response.
         await session.key("b");
         await session.waitForNode("CompletionListElement", { timeoutMs: 5000 });
         const editor = await session.node("EditorElement");
@@ -120,27 +120,27 @@ describeLinuxOnly("inline completions — ghost text from a user extension", () 
     it("Esc закрывает suggest-попап — и призрак появляется без дополнительной правки", async () => {
         const { session } = await useHeadlessApp({
             seedUserData: userData,
-            // Слово «fibber» в буфере держит word-based попап живым на «fib»:
-            // на полном триггере призрака попап гарантированно открыт.
+            // The word "fibber" in the buffer keeps the word-based popup alive on "fib":
+            // at the full ghost trigger the popup is guaranteed to be open.
             files: { "sample.ts": "// fibber demo\n" },
             open: ["sample.ts"],
         });
         await session.waitForNode("EditorElement");
         await session.key("End");
         await session.key("Enter");
-        // Попап открываем ЯВНО (Ctrl+Space на «fi»): правка ниже гарантированно придётся
-        // на открытый попап, без гонки с таймингами авто-suggest.
+        // Open the popup EXPLICITLY (Ctrl+Space on "fi"): the edit below is guaranteed to land
+        // on an open popup, with no race against auto-suggest timings.
         await session.text("function fi");
         await session.key("Ctrl+Space");
         await session.waitForNode("CompletionListElement", { timeoutMs: 5000 });
 
-        // Ответ призрака под открытым попапом не рисуется — попап остаётся.
+        // The ghost response is not drawn under an open popup — the popup stays.
         await session.key("b");
         await session.waitForNode("CompletionListElement", { timeoutMs: 5000 });
         const held = await session.node("EditorElement");
         expect(held?.state?.ghostText ?? null).toBeNull();
 
-        // Призрак появляется БЕЗ новой правки: готовый ответ возвращается на экран сразу.
+        // Ghost text appears WITHOUT a new edit: the ready response returns to screen at once.
         await session.key("Escape");
         await session.waitForNoNode("CompletionListElement", { timeoutMs: 5000 });
         const withGhost = await session.waitForState("EditorElement", (s) => (s?.ghostText ?? null) !== null, {
@@ -164,11 +164,11 @@ describeLinuxOnly("inline completions — ghost text from a user extension", () 
         const ghost = withGhost.state?.ghostText as IGhostState;
         expect(ghost).toEqual({ line: 1, character: 14, lines: [GREETING_BODY] });
         await session.waitForText((t) => t.includes(`const greeting${GREETING_BODY})`), { timeoutMs: 5000 });
-        // Документ фантом не трогает: строк по-прежнему 3.
+        // Ghost text does not touch the document: still 3 lines.
         expect(withGhost.state?.lineCount).toBe(3);
 
-        // Tab вставляет подсказку в середину строки: каретка — за вставкой,
-        // перед хвостом; хвост «)» на месте.
+        // Tab inserts the suggestion mid-line: the cursor is after the insertion,
+        // before the tail; the ")" tail stays in place.
         await session.key("Tab");
         const accepted = await session.waitForState("EditorElement", (s) => s?.ghostText === null, {
             timeoutMs: 5000,
@@ -182,7 +182,7 @@ describeLinuxOnly("inline completions — ghost text from a user extension", () 
         ]);
         await session.waitForText((t) => t.includes(`const greeting${GREETING_BODY})`), { timeoutMs: 5000 });
 
-        // Undo — и строка снова «const greeting)», без хвоста подсказки.
+        // Undo — the line is `const greeting)` again, without the suggestion.
         await session.key("Ctrl+Z");
         await session.waitForText((t) => !t.includes("Hello from ghost text"), { timeoutMs: 5000 });
     }, 120_000);
@@ -209,9 +209,9 @@ describeLinuxOnly("inline completions — ghost text from a user extension", () 
         await session.waitForText((t) => t.includes("const greeting)"), { timeoutMs: 5000 });
     }, 120_000);
 
-    // Ручной режим: `enabled: false` гейтит ТОЛЬКО автозапрос (как в vscode),
-    // команда `editor.action.inlineSuggest.trigger` работает независимо.
-    // Клавиша — Alt+\ (терминал шлёт её как ESC + `\`).
+    // Manual mode: `enabled: false` gates ONLY the automatic request (as in vscode);
+    // the `editor.action.inlineSuggest.trigger` command works independently.
+    // The key is Alt+\ (the terminal sends it as ESC + `\`).
     it("enabled:false — набор призрака не зовёт, Alt+\\ зовёт", async () => {
         const { session } = await useHeadlessApp({
             seedUserData: userData,
@@ -224,9 +224,9 @@ describeLinuxOnly("inline completions — ghost text from a user extension", () 
         await session.key("Enter");
         await session.text("function fib");
 
-        // Расширение активируется асинхронно; ждём его готовности по контрольному
-        // Alt+\ — и он же первый ассерт: ручной триггер работает при выключенной
-        // настройке. Ретраи нужны только против гонки активации.
+        // The extension activates asynchronously; wait for it with a probe Alt+\ —
+        // which is also the first assertion: the manual trigger works with the setting
+        // off. Retries only guard against the activation race.
         let ghost: IGhostState | null = null;
         for (let attempt = 0; attempt < 15 && ghost === null; attempt++) {
             await session.key("Alt+\\");
@@ -236,15 +236,15 @@ describeLinuxOnly("inline completions — ghost text from a user extension", () 
                 });
                 ghost = shown.state?.ghostText as IGhostState;
             } catch {
-                // провайдер ещё не зарегистрирован — пробуем ещё раз
+                // provider not registered yet — try again
             }
         }
         if (ghost === null) throw new Error("Alt+\\ не показал призрака за 15 попыток");
         expect(ghost.lines[0]).toBe("onacci(n) {");
 
-        // А теперь — главное: при выключённой настройке НАБОР призрака не зовёт.
-        // Esc гасит показанного, печатаем новый триггер и ждём заведомо дольше
-        // дефолтного дебаунса (50 мс) и задержки ответа фикстуры (250 мс).
+        // Now the main point: with the setting off, TYPING does not request ghost text.
+        // Esc hides the shown one; type a new trigger and wait well past the default
+        // debounce (50 ms) and the fixture's response delay (250 ms).
         await session.key("Escape");
         await session.waitForState("EditorElement", (s) => s?.ghostText === null, { timeoutMs: 5000 });
         await session.key("Enter");
@@ -253,7 +253,7 @@ describeLinuxOnly("inline completions — ghost text from a user extension", () 
         const quiet = await session.node("EditorElement");
         expect(quiet?.state?.ghostText ?? null).toBeNull();
 
-        // …и та же позиция по Alt+\ призрака отдаёт: молчал гейт, а не провайдер.
+        // …and Alt+\ at the same position yields ghost text: the gate was silent, not the provider.
         await session.key("Alt+\\");
         const manual = await session.waitForState("EditorElement", (s) => (s?.ghostText ?? null) !== null, {
             timeoutMs: 5000,
@@ -261,18 +261,18 @@ describeLinuxOnly("inline completions — ghost text from a user extension", () 
         expect((manual.state?.ghostText as IGhostState).lines[0]).toBe(GREETING_BODY);
     }, 120_000);
 
-    // `requestTimeout` читается на КАЖДЫЙ запрос: провайдер, отвечающий дольше
-    // дефолтных 5000 мс, при поднятой настройке дожидается.
+    // `requestTimeout` is read on EVERY request: with the setting raised, a provider
+    // slower than the default 5000 ms is waited for.
     it("requestTimeout даёт дождаться провайдера, который не успевает за дефолт", async () => {
         const { session } = await useHeadlessApp({
             seedUserData: userData,
             settings: {
-                // Фикстура отвечает через 7 с — дефолтные 5000 мс это не переживают.
+                // The fixture responds after 7 s — the default 5000 ms would not survive that.
                 "inlineGhost.responseDelay": 7000,
                 "editor.inlineSuggest.requestTimeout": 20000,
-                // Quick suggest ждёт призрака не дольше 750 мс (как эталон), а
-                // потом открывает попап по словам буфера («Fibonacci») и
-                // бросает запрос призрака — здесь проверяется таймаут, не это.
+                // Quick suggest waits for ghost text at most 750 ms (as upstream), then
+                // opens the buffer-word popup ("Fibonacci") and drops the ghost
+                // request — this test checks the timeout, not that.
                 "editor.quickSuggestions": false,
             },
             files: { "sample.ts": "// Fibonacci demo\n" },
@@ -283,8 +283,8 @@ describeLinuxOnly("inline completions — ghost text from a user extension", () 
         await session.key("Enter");
         await session.text("function fib");
 
-        // Ждём дольше 7 с — при дефолтном таймауте призрака бы не было вовсе.
-        // Ретраи против гонки активации: каждый заход — новая правка (новый запрос).
+        // Wait longer than 7 s — with the default timeout there would be no ghost text at all.
+        // Retries guard against the activation race: each attempt is a new edit (a new request).
         let ghost: IGhostState | null = null;
         for (let attempt = 0; attempt < 3 && ghost === null; attempt++) {
             try {
@@ -318,7 +318,7 @@ describeLinuxOnly("inline completions — ghost text from a user extension", () 
         const hidden = await session.waitForState("EditorElement", (s) => s?.ghostText === null, {
             timeoutMs: 5000,
         });
-        // Документ не изменился: однострочный фантом зон не заводил, строк 3.
+        // The document is unchanged: single-line ghost text adds no zones, 3 lines.
         expect(hidden.state?.viewZones).toEqual([]);
         expect(hidden.state?.lineCount).toBe(3);
     }, 120_000);

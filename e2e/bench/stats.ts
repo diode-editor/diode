@@ -19,7 +19,7 @@ export interface Stats {
     readonly min: number;
     readonly max: number;
     readonly count: number;
-    /** IQR > {@link NOISY_IQR_RATIO} медианы — цифру нельзя читать как точную. */
+    /** IQR > {@link NOISY_IQR_RATIO} of the median — the number cannot be read as precise. */
     readonly noisy: boolean;
 }
 

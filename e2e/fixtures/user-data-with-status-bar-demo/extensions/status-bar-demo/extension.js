@@ -1,6 +1,6 @@
 "use strict";
 
-/** Заголовки команд — в package.json: без `contributes.commands` рантайм-регистрация в палитре не видна. */
+/** Command titles live in package.json: without `contributes.commands` a runtime registration is invisible in the command palette. */
 exports.activate = function activate(context) {
     const vscode = require("vscode");
 
@@ -11,7 +11,7 @@ exports.activate = function activate(context) {
     demo.show();
 
     let clicks = 0;
-    /** Пункт, созданный командой Create Hidden (создан, но не показан). */
+    /** The item made by the Create Hidden command (created but not shown). */
     let hidden = null;
 
     const register = (id, handler) => {
@@ -28,8 +28,8 @@ exports.activate = function activate(context) {
     register("statusBarDemo.setTooltip", () => {
         demo.tooltip = "Подсказка демо-расширения";
     });
-    // Прячет последний созданный пункт: `Hidden Demo`, если он есть, иначе сам
-    // `Demo`. Так команда всегда относится к тому пункту, о котором идёт речь.
+    // Hides the most recently created item: `Hidden Demo` if it exists, otherwise
+    // `Demo` itself. This way the command always applies to the item in question.
     register("statusBarDemo.hide", () => {
         if (hidden !== null) hidden.hide();
         else demo.hide();
@@ -39,7 +39,7 @@ exports.activate = function activate(context) {
         hidden = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 90);
         hidden.name = "Status Bar Demo Hidden";
         hidden.text = "Hidden Demo";
-        // show() намеренно НЕ зовём: пункт создан, но в полосе его нет.
+        // show() is deliberately NOT called: the item exists but is not in the bar.
     });
     register("statusBarDemo.showHidden", () => {
         if (hidden === null) return;
@@ -76,7 +76,7 @@ exports.activate = function activate(context) {
         demo.text = "Long ".repeat(40).trim();
     });
     register("statusBarDemo.killHost", () => {
-        // Отложенный выход: ответ на вызов команды должен успеть уйти редактору.
+        // Deferred exit: the command call's response must reach the editor first.
         setTimeout(() => process.exit(1), 10);
     });
 

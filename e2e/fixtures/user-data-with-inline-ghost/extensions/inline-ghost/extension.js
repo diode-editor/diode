@@ -1,11 +1,11 @@
 "use strict";
 
 /**
- * Фейковый «LLM»: канированные продолжения по хвосту строки с искусственной задержкой.
- * `inlineGhost.responseDelay` (мс, дефолт 250) держится на ЛЮБОМ ответе, даже пустом, — иначе
- * отмену устаревшего запроса не увидеть; читается на каждый запрос.
- * Лог в OUTPUT «Inline Ghost» нумерован: на быстром наборе запросы идут внахлёст, и без номера
- * не разобрать, какая отмена какому старту пара.
+ * Fake "LLM": canned continuations keyed by the line tail, with an artificial delay.
+ * `inlineGhost.responseDelay` (ms, default 250) applies to EVERY response, even an empty one — otherwise
+ * cancellation of a stale request is not observable; it is read on each request.
+ * The "Inline Ghost" OUTPUT log is numbered: fast typing makes requests overlap, and without a number
+ * you can't tell which cancellation pairs with which start.
  */
 const SUGGESTIONS = [
     {
@@ -14,8 +14,8 @@ const SUGGESTIONS = [
     },
     { trigger: "const greeting", insertText: ' = "Hello from ghost text!";' },
     { trigger: "console.l", insertText: "og(greeting);" },
-    // Однословный триггер: своё же слово под кареткой в кандидаты попапа слов буфера не идёт,
-    // иначе попап перебивал бы призрака на каждом символе.
+    // Single-word trigger: the word under the cursor itself is not a buffer-word popup candidate,
+    // otherwise the popup would override the ghost text on every keystroke.
     { trigger: "greeting", insertText: ' = "Hello from ghost text!";' },
 ];
 
@@ -27,9 +27,9 @@ function responseDelayMs(vscode) {
     return raw;
 }
 
-/** Хвост строки, на который провайдер не отвечает НИКОГДА (проверка таймаута). */
+/** Line tail the provider NEVER responds to (timeout check). */
 const SILENT_TRIGGER = "never";
-/** Хвост строки, на который провайдер отвечает поздно и ВОПРЕКИ отмене. */
+/** Line tail the provider responds to late and DESPITE cancellation. */
 const STUBBORN_TRIGGER = "stubborn";
 
 exports.activate = function activate(context) {
@@ -37,9 +37,9 @@ exports.activate = function activate(context) {
     const log = vscode.window.createOutputChannel("Inline Ghost");
     context.subscriptions.push(log);
 
-    // Сквозной номер запроса. Провайдеры обходятся по очереди в рамках одного
-    // запроса ядра, поэтому номер, который завёл A, — номер этого запроса, и
-    // второй провайдер пишет в лог под ним же.
+    // Running request number. Providers are visited in turn within one core
+    // request, so the number provider A assigned is this request's number, and
+    // the second provider logs under it too.
     let requestNumber = 0;
 
     const prefixAt = (document, position) => {
@@ -55,7 +55,7 @@ exports.activate = function activate(context) {
                     const n = ++requestNumber;
                     const prefix = prefixAt(document, position);
                     const delay = responseDelayMs(vscode);
-                    // triggerKind: 0 — Invoke (Alt+\), 1 — Automatic (набор).
+                    // triggerKind: 0 — Invoke (Alt+\), 1 — Automatic (typing).
                     const kind = inlineContext !== undefined && inlineContext.triggerKind === 0 ? "invoke" : "auto";
                     log.appendLine(
                         "#" +
@@ -71,8 +71,8 @@ exports.activate = function activate(context) {
                         log.appendLine("#" + n + " отменён");
                     });
 
-                    // Молчащий провайдер: промис не резолвится вовсе — ядро
-                    // снимает запрос по таймауту, и в логе остаётся «отменён».
+                    // Silent provider: the promise never resolves — the core
+                    // drops the request on timeout, and the log records the cancellation.
                     if (prefix.endsWith(SILENT_TRIGGER)) return new Promise(function () {});
 
                     const stubborn = prefix.endsWith(STUBBORN_TRIGGER);
@@ -81,9 +81,9 @@ exports.activate = function activate(context) {
                         : SUGGESTIONS.find((s) => prefix.endsWith(s.trigger));
                     return new Promise(function (resolve) {
                         setTimeout(function () {
-                            // Дисциплинированный провайдер на отменённом токене
-                            // не отвечает; упрямый (демо-триггер) отвечает —
-                            // и его ответ обязан быть отброшен ядром.
+                            // A well-behaved provider does not respond on a cancelled
+                            // token; the stubborn one (demo trigger) does —
+                            // and the core must discard its response.
                             if (token.isCancellationRequested && !stubborn) {
                                 resolve([]);
                                 return;
@@ -98,9 +98,9 @@ exports.activate = function activate(context) {
         ),
     );
 
-    // Второй провайдер: сам подсказок не даёт, только отмечается в логе. По
-    // нему видно, доехал ли обход цепочки до конца, — отменённый запрос обязан
-    // остановиться на первом же провайдере.
+    // Second provider: gives no suggestions, only logs. It shows whether the
+    // chain walk reached the end — a cancelled request must stop at the very
+    // first provider.
     context.subscriptions.push(
         vscode.languages.registerInlineCompletionItemProvider(
             [{ language: "typescript" }, { language: "javascript" }, { language: "plaintext" }],

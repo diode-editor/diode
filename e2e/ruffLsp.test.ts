@@ -8,8 +8,8 @@ import { useHeadlessApp } from "./helpers/useApp.ts";
 import { waitUntil } from "./helpers/waitFor.ts";
 
 /**
- * ЕДИНСТВЕННЫЙ сквозной прогон платформенного маршрута магазина: запись `targetPlatform`
- * машины → платформенный vsix → распаковка с exec-битом → spawn нативного `ruff server`.
+ * The ONLY end-to-end run of the marketplace's platform-specific route: the machine's `targetPlatform`
+ * entry → platform vsix → unpacking with the exec bit → spawning the native `ruff server`.
  */
 
 const UNDERCURL = 8;
@@ -26,7 +26,7 @@ async function waitForServerReady(session: {
     );
 }
 
-// Только Linux: extension host + спавн нативного сервера (docs/TODO/E2E.md).
+// Linux only: extension host + native server spawn (docs/TODO/E2E.md).
 describe.skipIf(process.platform === "win32" || process.platform === "darwin" || MARKETPLACE_OFFLINE)(
     "SEA binary — стоковый ruff.vsix (Python-линт и формат)",
     () => {
@@ -46,11 +46,11 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin" ||
             const before = frameToText(await session.captureFrame());
             expect(before).toContain('print( "x" )');
 
-            // Формат документа — досягаемый на любом терминале чорд.
+            // Format Document is a chord reachable in any terminal.
             await session.key("Ctrl+K");
             await session.key("Ctrl+E");
 
-            // Такой вариант мог появиться только правками настоящего ruff-форматтера.
+            // This result could only come from edits by the real ruff formatter.
             await session.waitForText((text) => text.includes('print("x")'), {
                 timeoutMs: 60_000,
                 intervalMs: 500,
@@ -69,8 +69,8 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin" ||
             const before = frameToText(await session.captureFrame());
             expect(before.indexOf("import sys")).toBeLessThan(before.indexOf("import os"));
 
-            // Команда — через палитру: Shift+Alt+O key-DSL не сериализует
-            // (то же ограничение, что у e2e/organizeImports.test.ts).
+            // Run the command via the command palette: the key DSL cannot serialize Shift+Alt+O
+            // (same limitation as in e2e/organizeImports.test.ts).
             await session.key("Ctrl+P");
             await session.text(">Organize Imports");
             await session.waitForText((text) => text.includes("Organize Imports"), { timeoutMs: 30_000 });

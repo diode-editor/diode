@@ -1,8 +1,8 @@
 "use strict";
 
 /**
- * Герметичный гейт проводки: `extensionHostModule` обязан привязать `group.saveParticipant` к
- * `host.willSaveTextDocument`, иначе Ctrl+S пишет байты как есть.
+ * A hermetic wiring gate: `extensionHostModule` must bind `group.saveParticipant` to
+ * `host.willSaveTextDocument`, otherwise Ctrl+S writes the bytes as is.
  */
 exports.activate = function activate(context) {
     const vscode = require("vscode");

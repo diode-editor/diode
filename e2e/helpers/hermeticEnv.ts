@@ -1,8 +1,8 @@
-// Каждый спаун пинуется к одному baseline (tier=legacy, mode=local, TERM=xterm-256color):
-// headless-бэкенд пробу протокола не резолвит, и унаследованные маркеры хоста (kitty в tmux →
-// tier csi-u, на CI — legacy) меняли бы активные аккорды и статус-бар на скриншотах.
+// Every spawn is pinned to one baseline (tier=legacy, mode=local, TERM=xterm-256color):
+// the headless backend doesn't resolve the protocol probe, and inherited host markers (kitty in tmux →
+// tier csi-u, legacy on CI) would change the active chords and the status bar in screenshots.
 
-/** По ним `terminalEnvironmentModel` детектит extended-keys, truecolor и ssh/tmux. */
+/** `terminalEnvironmentModel` uses these to detect extended-keys, truecolor and ssh/tmux. */
 const TERMINAL_IDENTITY_VARS = [
     "KITTY_WINDOW_ID",
     "GHOSTTY_RESOURCES_DIR",
@@ -16,14 +16,14 @@ const TERMINAL_IDENTITY_VARS = [
     "SSH_TTY",
     "SSH_CONNECTION",
     "SSH_CLIENT",
-    // ОС клавиатуры (мак-раскладка) — сценарий задаёт её явно через keyboard.platform.
+    // Keyboard OS (Mac layout) — the scenario sets it explicitly via keyboard.platform.
     "LC_DIODE_PLATFORM",
     "LC_TERMINAL",
 ] as const;
 
 /**
- * Идентичность пинуется ПОСЛЕДНЕЙ: часть вызывающих спредит в `extra` целый `process.env`, и
- * санитизация раньше мержа воскресила бы маркеры хоста.
+ * Identity is pinned LAST: some callers spread a whole `process.env` into `extra`, and
+ * sanitizing before the merge would resurrect host markers.
  */
 export function hermeticSpawnEnv(extra?: Readonly<Record<string, string>>): Record<string, string> {
     const env: Record<string, string> = {};

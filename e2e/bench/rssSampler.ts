@@ -1,12 +1,12 @@
 /**
- * Пик RSS — `VmHWM` из `/proc/<pid>/status`. Опрос раз в ~50 мс — чтобы значение пережило
- * OOM-kill, после которого `/proc/<pid>` уже пуст. На не-Linux — null.
+ * Peak RSS is `VmHWM` from `/proc/<pid>/status`. Polled every ~50 ms so the value survives
+ * an OOM kill, after which `/proc/<pid>` is already empty. null on non-Linux.
  */
 
 import { readFileSync } from "node:fs";
 
 export interface RssSampler {
-    /** Пик в байтах; null — измерить было нечем. */
+    /** Peak in bytes; null — there was nothing to measure with. */
     stop(): number | null;
 }
 

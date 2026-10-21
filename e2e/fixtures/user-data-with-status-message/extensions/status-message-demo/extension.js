@@ -1,6 +1,6 @@
 "use strict";
 
-/** Второе сообщение на 3 с поверх первого, уехав, возвращает первое — стек, как у эталона. */
+/** A second 3 s message on top of the first restores the first when it expires — a stack, as upstream. */
 exports.activate = function activate(context) {
     const vscode = require("vscode");
 

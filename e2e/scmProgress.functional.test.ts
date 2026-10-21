@@ -9,8 +9,8 @@ import type { HeadlessApp } from "./helpers/appSession.ts";
 import { getBinaryPath } from "./helpers/buildOnce.ts";
 import { useHeadlessApp } from "./helpers/useApp.ts";
 
-// Медленным делаем не наш код, а сам `git commit` — настоящим pre-commit-хуком со
-// `sleep`; extension host, диспетчер diode.git.op и очередь мутаций — настоящие.
+// What is made slow is not our code but `git commit` itself — via a real pre-commit hook with
+// `sleep`; the extension host, the diode.git.op dispatcher and the mutation queue are all real.
 
 const SWITCH_KEYS = [
     { key: "alt+c", command: "workbench.view.scm" },
@@ -63,23 +63,23 @@ describe("SCM: прогресс git-операции (functional e2e)", () => {
 
         await session.key("Alt+M");
         await session.waitForFocus("ScmCommitInputElement");
-        // Расширение активируется асинхронно: без опубликованной staged-группы
-        // Ctrl+Enter упал бы в no-op — transport-команды ещё нет.
+        // The extension activates asynchronously: without a published staged group
+        // Ctrl+Enter would be a no-op — the transport command does not exist yet.
         await session.waitForNode("#scmGroup-index");
 
         await session.text("feat: slow");
         await session.key("Alt+Enter");
 
-        // Во время анимации — только ожидания и снимки: settling-ввод не дождался бы «тихого»
-        // кадра, пока спиннер тикает.
+        // During the animation use only waits and snapshots: settling input would never get a "quiet"
+        // frame while the spinner ticks.
         await session.waitForState("#paneHeader-workbench-scm-changes", (s) => (s as { busy?: boolean })?.busy === true);
         await session.waitForState("#scmActionButton", (s) => {
             const state = (s ?? {}) as ButtonState;
             return state.disabled === true && (state.label ?? "").includes("Committing");
         });
 
-        // Пока занято, повторный Ctrl+Enter ничего не запускает: команда
-        // недоступна (enablement), а не встаёт второй в очередь мутаций.
+        // While busy, a repeated Ctrl+Enter starts nothing: the command is
+        // disabled (enablement) rather than queued second in the mutation queue.
         await session.key("Alt+Enter", { settle: false });
 
         await session.waitForState(
@@ -91,7 +91,7 @@ describe("SCM: прогресс git-операции (functional e2e)", () => {
             timeoutMs: 30_000,
         });
         expect(execFileSync("git", ["log", "-1", "--format=%s"], { cwd: repo }).toString().trim()).toBe("feat: slow");
-        // Ровно один коммит поверх init — второе нажатие ушло в никуда.
+        // Exactly one commit on top of init — the second press went nowhere.
         expect(execFileSync("git", ["rev-list", "--count", "HEAD"], { cwd: repo }).toString().trim()).toBe("2");
     }, 180_000);
 });

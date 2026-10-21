@@ -1,11 +1,11 @@
 "use strict";
 
 /**
- * Повторяет Bazel-плагин (`tihonove.bazel-java-tihonove`): на старте гасит
- * `bazel.projectview.open` через `update("open", false)` без цели — в настройки воркспейса.
- * Сразу после `await update` значение читается обратно: эталон к резолву уже видит запись.
- * Незарегистрированный ключ хост отклоняет (`ERROR_UNKNOWN_KEY`), текст отказа показывает само
- * расширение — Diode тостов за него не рисует.
+ * Mimics the Bazel plugin (`tihonove.bazel-java-tihonove`): on startup it turns off
+ * `bazel.projectview.open` via `update("open", false)` with no target — into workspace settings.
+ * Right after `await update` the value is read back: in upstream the write is already visible once it resolves.
+ * The host rejects an unregistered key (`ERROR_UNKNOWN_KEY`); the extension shows the rejection text
+ * itself — Diode does not draw toasts on its behalf.
  */
 exports.activate = function activate(context) {
     const vscode = require("vscode");

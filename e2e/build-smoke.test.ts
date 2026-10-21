@@ -4,15 +4,15 @@ import { join } from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-// @ts-expect-error — build-скрипты живут в .mjs без типов (они не должны зависеть от tsx/jiti).
+// @ts-expect-error — build scripts live in untyped .mjs (they must not depend on tsx/jiti).
 import { renderStub, verifyOffset } from "../scripts/selfextract-format.mjs";
-// @ts-expect-error — см. выше.
+// @ts-expect-error — see above.
 import { smokeTestBinary } from "../scripts/smoke-binary.mjs";
 
 /**
- * #143: самотест обязан падать на нестартующем бинаре — segfault выглядел как
- * «spawn OK, exited with code null», и битый diode-macos-x64 уехал в релиз.
- * В e2e, а не в юнитах: `scripts/` вне vitest-include и храповика покрытия.
+ * #143: the self-test must fail on a binary that doesn't start — a segfault looked like
+ * "spawn OK, exited with code null", and a broken diode-macos-x64 shipped in a release.
+ * In e2e rather than unit tests: `scripts/` is outside the vitest include and the coverage ratchet.
  */
 describe.skipIf(process.platform === "win32")("smokeTestBinary — самотест сборки", () => {
     let dir = "";
@@ -57,24 +57,24 @@ describe.skipIf(process.platform === "win32")("smokeTestBinary — самоте�
     });
 
     it("зовёт бинарь именно с --version, а не как-нибудь ещё", () => {
-        // Самотест обязан идти веткой, которая сама завершается кодом 0: без
-        // аргументов настоящий бинарь поднимает пустое окно и ждёт TTY.
+        // The self-test must take a path that exits with code 0 on its own: without
+        // arguments the real binary brings up an empty window and waits for a TTY.
         const binary = fakeBinary("cli", '[ "$1" = "--version" ] || { echo "no --version" >&2; exit 1; }\necho "1.2.3"');
         expect(smokeTestBinary(binary)).toBe("1.2.3");
     });
 
     /**
-     * Регресс на macOS-баг: offset с ведущими нулями BSD tail читает как восьмеричное
-     * и молча отматывает не туда, из-за чего tar получает текст стаба вместо gzip.
-     * На Linux (GNU tail) сам баг не воспроизводится, поэтому тестируем инвариант
-     * сборки, а не поведение tail: число в стабе обязано быть без ведущих нулей, а по
-     * OFFSET обязан лежать gzip.
+     * Regression for a macOS bug: BSD tail reads an offset with leading zeros as octal
+     * and silently seeks to the wrong place, so tar gets the stub text instead of gzip.
+     * The bug itself doesn't reproduce on Linux (GNU tail), so we test the build invariant
+     * rather than tail's behavior: the number in the stub must have no leading zeros, and
+     * gzip must start at OFFSET.
      */
     describe("склейка стаба и payload (#144)", () => {
         const STUB = '#!/bin/sh\nOFFSET=@@OFFSET@@\nexec echo hi\n';
         const GZIP = Buffer.from([0x1f, 0x8b, 0x08, 0x00]);
 
-        /** Собирает файл ровно так, как это делает build-selfextract. */
+        /** Assembles the file exactly the way build-selfextract does. */
         function writeSelfExtract(name: string, stub: string): string {
             const path = join(dir, name);
             writeFileSync(path, Buffer.concat([Buffer.from(stub, "utf8"), GZIP]));
@@ -88,13 +88,13 @@ describe.skipIf(process.platform === "win32")("smokeTestBinary — самоте�
             expect(offset).toBe(Buffer.byteLength(stub, "utf8") + 1);
             expect(stub).not.toMatch(/^OFFSET=0\d/m);
 
-            // Контракт tail -c +N: 1-based, поэтому байт offset — начало payload.
+            // tail -c +N contract: 1-based, so byte `offset` is the start of the payload.
             expect(() => verifyOffset(writeSelfExtract("ok", stub), stub)).not.toThrow();
         });
 
         it("ведущий ноль в OFFSET отвергается (BSD tail прочитал бы его как octal)", () => {
-            // Именно так выглядел баг: 0000003427 состоит только из восьмеричных цифр,
-            // поэтому BSD tail парсит его молча и целиком → 1815 вместо 3427.
+            // This is exactly what the bug looked like: 0000003427 consists only of octal digits,
+            // so BSD tail parses it silently and fully → 1815 instead of 3427.
             const stub = '#!/bin/sh\nOFFSET=0000003427\n';
             expect(() => verifyOffset(writeSelfExtract("octal", stub), stub)).toThrow(/leading zero/);
         });

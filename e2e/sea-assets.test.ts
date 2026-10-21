@@ -32,8 +32,8 @@ describe("SEA binary — bundled assets", () => {
     });
 
     itLinuxOnly("работает из произвольного cwd без файлов рядом с бинарём — подсветка из bundle", async () => {
-        // Копия бинаря в пустом каталоге и запуск из него: SEA несёт ассеты внутри себя,
-        // а не в sidecar-файлах.
+        // Copy the binary into an empty directory and run it from there: the SEA carries its assets inside,
+        // not in sidecar files.
         const tmp = mkdtempSync(join(tmpdir(), "diode-sea-isolated-"));
         try {
             const isolatedBinary = join(tmp, "diode");
@@ -45,13 +45,13 @@ describe("SEA binary — bundled assets", () => {
             expect(existsSync(join(tmp, "Extensions"))).toBe(false);
 
             const { session } = await usePtyApp({ binary: isolatedBinary, cwd: tmp, open: [isolatedFixture] });
-            // Кадр с текстом идёт без подсветки (токенизация — следующим кадром), ждём цветной.
+            // The frame with text arrives before highlighting (tokenization lands in the next frame); wait for color.
             const screen = await session.waitFor((s) => {
                 const pos = s.findText("const greeting");
                 return pos !== null && s.cellAt(pos.x, pos.y).fg === KEYWORD_FG;
             });
 
-            // Цвет keyword доказывает, что грамматика реально загрузилась из bundle.
+            // The keyword color proves the grammar was actually loaded from the bundle.
             const constPos = screen.findText("const greeting");
             expect(constPos).not.toBeNull();
             const sample = screen.cellAt(constPos!.x, constPos!.y);
@@ -62,8 +62,8 @@ describe("SEA binary — bundled assets", () => {
     });
 
     it("каталог сборки содержит все бандлы, вшитые в SEA (регресс на сборку)", () => {
-        // Каталог — тот, где лежит сам бинарь: e2e собирает в кэш по хешу исходников
-        // (scripts/e2e-artifacts.mjs), а не в рабочий dist/.
+        // The directory is the one holding the binary itself: e2e builds into a cache keyed by source hash
+        // (scripts/e2e-artifacts.mjs), not into the working dist/.
         for (const name of [
             "diode.bundle",
             "node-pty.bundle",

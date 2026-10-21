@@ -5,12 +5,12 @@ export function demo(): string {
     });
 }
 
-// Фикстура демо «диагностика поверх направляющих отступа»: ошибка настоящего
-// tsserver лежит на МНОГОСТРОЧНОМ диапазоне (аргумент-объект там, где ждут
-// строку) в САМОМ ВЕРХУ файла. Поэтому она, во-первых, накрывает отступы
-// внутренних строк — ровно те ячейки, где нарисованы `│` направляющих
-// фолдинга, — а во-вторых, попадает под оверлей quick pick, который открывается
-// у верхней кромки экрана.
+// Fixture for the "diagnostics over indent guides" demo: a real tsserver
+// error sits on a MULTI-LINE range (an object argument where a string is
+// expected) at the VERY TOP of the file. So, first, it covers the indentation
+// of the inner lines — exactly the cells where the `│` folding guides are
+// drawn — and second, it falls under the quick pick overlay, which opens
+// at the top edge of the screen.
 export function describe(label: string): string {
     return `[${label}]`;
 }

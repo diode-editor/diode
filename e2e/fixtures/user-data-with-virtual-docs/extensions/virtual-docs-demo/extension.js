@@ -1,10 +1,10 @@
 "use strict";
 
 /**
- * Срез `redhat.java`: F12 на классе из библиотеки уводит на `jdt:`-ресурс, содержимое которого
- * отдаёт провайдер расширения. Не настоящий `redhat.java`: его нет в нашем реестре магазина, а
- * jdt.ls нужен JDK и полминуты. `openMissingScheme` — схема, которую не обслуживает никто: раньше
- * роняла редактор (`TextFileModel.openFile` бросал), теперь человек видит сообщение.
+ * A slice of `redhat.java`: F12 on a library class leads to a `jdt:` resource whose content comes
+ * from the extension's provider. Not the real `redhat.java`: it isn't in our marketplace registry,
+ * and jdt.ls needs a JDK and half a minute. `openMissingScheme` opens a scheme nobody serves: the user
+ * must see a message instead of the editor crashing (`TextFileModel.openFile` threw).
  */
 
 const LIBRARY_URI = "jdt://contents/text-utils-1.4.0.jar/com.example.text/TextUtils.java";
@@ -26,15 +26,15 @@ const LIBRARY_SOURCE = [
 exports.activate = function activate(context) {
     const vscode = require("vscode");
 
-    // Маркер готовности: `activate()` случается через секунды после первого кадра — без него
-    // сценарий жал бы F12 в ещё пустой реестр провайдеров.
+    // Readiness marker: `activate()` happens seconds after the first frame; without it
+    // the scenario would press F12 against a still empty provider registry.
     const ready = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
     ready.name = "Virtual Docs Demo";
     ready.text = "jdt: provider ready";
     ready.show();
     context.subscriptions.push(ready);
 
-    // Содержимое `jdt:`-ресурсов даёт расширение — диска за ними нет.
+    // The extension supplies the content of `jdt:` resources: there's no disk behind them.
     context.subscriptions.push(
         vscode.workspace.registerTextDocumentContentProvider("jdt", {
             provideTextDocumentContent: function (uri) {
@@ -44,7 +44,7 @@ exports.activate = function activate(context) {
         }),
     );
 
-    // F12 в документе-образце уводит на объявление `capitalize` внутри jar.
+    // F12 in the sample document leads to the `capitalize` declaration inside the jar.
     context.subscriptions.push(
         vscode.languages.registerDefinitionProvider(
             { scheme: "file", language: "plaintext" },

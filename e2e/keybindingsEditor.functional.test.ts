@@ -9,8 +9,8 @@ import { frameToText } from "./helpers/frame.ts";
 import { useHeadlessApp } from "./helpers/useApp.ts";
 
 /**
- * `keybindings.json` засеян конфликтным правилом — для фильтра @conflicts. Вкладка
- * открывается F6-биндом: настоящий Ctrl+K Ctrl+S e2e-DSL надёжно не кодирует.
+ * `keybindings.json` is seeded with a conflicting rule for the @conflicts filter. The tab
+ * opens via an F6 binding: the e2e DSL cannot reliably encode the real Ctrl+K Ctrl+S.
  */
 
 const KEYS = [
@@ -68,7 +68,7 @@ describe("Keyboard Shortcuts editor (functional e2e)", () => {
         const row = await app.session.node("#kb-0");
         expect(row, "строка команды не найдена").not.toBeNull();
         await app.session.clickNode("#kb-0");
-        await app.session.clickNode("#kb-0"); // двойной клик → рекордер
+        await app.session.clickNode("#kb-0"); // double click → recorder
         await app.session.waitForText((t) => t.includes("Press desired key combination"));
 
         await app.session.key("F9");
@@ -85,7 +85,7 @@ describe("Keyboard Shortcuts editor (functional e2e)", () => {
         await app.session.text("@conflicts ctrl+s");
         const screen = frameToText(await app.session.waitForText((t) => t.includes("Select All")));
 
-        // Дефолтный save и пользовательский selectAll делят Ctrl+S — оба в выдаче.
+        // The default save and the user's selectAll share Ctrl+S — both are in the results.
         expect(screen).toContain("Select All");
         expect(screen).toContain("Save");
     });

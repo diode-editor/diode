@@ -9,16 +9,16 @@ import { frameToText } from "./helpers/frame.ts";
 import { useHeadlessApp } from "./helpers/useApp.ts";
 
 /**
- * Файловый реестр-фикстура подобран под состояния карточек: `acme.sample` не
- * установлен, `test.tab-setter` 0.0.1 при реестровой 0.0.2 (обновление),
- * `old.legacy` требует `vscode ^99` (несовместимо).
+ * The file registry fixture is tailored to card states: `acme.sample` is not
+ * installed, `test.tab-setter` is 0.0.1 while the registry has 0.0.2 (update),
+ * `old.legacy` requires `vscode ^99` (incompatible).
  */
 
 const here = fileURLToPath(new URL(".", import.meta.url));
 const REGISTRY = resolve(here, "fixtures", "registry");
 const USER_DATA = resolve(here, "fixtures", "user-data-with-tab-setter");
 
-/** F6 — вьюлет магазина: настоящий Ctrl+Shift+X e2e-DSL не кодирует. */
+/** F6 opens the extensions viewlet: the e2e DSL can't encode the real Ctrl+Shift+X. */
 const KEYS = [{ key: "f6", command: "workbench.view.extensions" }];
 
 async function openExtensions(options: { registry?: string } = {}): Promise<HeadlessApp> {
@@ -36,14 +36,14 @@ async function openExtensions(options: { registry?: string } = {}): Promise<Head
     return app;
 }
 
-/** Метки вкладок редактора — идентичность страницы проверяется по ним. */
+/** Editor tab labels: page identity is checked by them. */
 async function tabLabels(app: HeadlessApp): Promise<string[]> {
     const strip = await app.session.node("EditorTabStripElement");
     const state = strip?.state as { tabs?: { label: string }[] } | undefined;
     return (state?.tabs ?? []).map((t) => t.label);
 }
 
-/** Текст строки списка по её id — не зависит от ширины сайдбара, в отличие от кадра. */
+/** List row text by its id: unlike the frame, it doesn't depend on the sidebar width. */
 async function rowText(app: HeadlessApp, id: string): Promise<string> {
     const row = await app.session.node(`#${id}`);
     expect(row, `строка #${id} не найдена`).not.toBeNull();
@@ -68,8 +68,8 @@ describe("Extensions view (functional e2e)", () => {
 
     it("US-4/5/6: бейджи установленного, обновления и несовместимости", async () => {
         const app = await openExtensions();
-        // Сайдбар узкий — в кадре бейдж обрезан, поэтому читаем текст строки:
-        // от ширины панели он не зависит.
+        // The sidebar is narrow and the badge is clipped in the frame, so read the row text:
+        // it doesn't depend on the panel width.
         expect(await rowText(app, "extensionsGroup-marketplace-acme-sample")).toBe("Acme Sample  1.2.0");
         expect(await rowText(app, "extensionsGroup-marketplace-test-tab-setter")).toBe("Tab Setter  0.0.1  Update 0.0.2");
         expect(await rowText(app, "extensionsGroup-installed-test-tab-setter")).toBe("Tab Setter  0.0.1  Update 0.0.2");
@@ -117,15 +117,15 @@ describe("Extensions view (functional e2e)", () => {
         await app.session.waitForNode("#extensionPage-acme-sample");
         expect(await tabLabels(app)).toEqual(["Acme Sample"]);
 
-        // Вернуться в список и открыть ту же запись ещё раз.
+        // Go back to the list and open the same entry again.
         await app.session.key("F6");
         await app.session.key("Tab");
         await app.session.key("ArrowDown");
         await app.session.key("Enter");
         await app.session.waitForNode("#extensionPage-acme-sample");
 
-        // Вкладка одна: идентичность панели — её uri (`extension:acme.sample`),
-        // повторное открытие переключает на существующую.
+        // A single tab: the pane's identity is its uri (`extension:acme.sample`),
+        // reopening switches to the existing one.
         expect(await tabLabels(app)).toEqual(["Acme Sample"]);
     });
 
@@ -134,7 +134,7 @@ describe("Extensions view (functional e2e)", () => {
         await app.session.waitForText((t) => t.includes("Retry"));
 
         const screen = frameToText(await app.session.captureFrame());
-        // Причина сбоя — не «fetch failed», а текст с путём/кодом ошибки.
+        // The failure reason is not "fetch failed" but text with the path/error code.
         expect(screen).toContain("Retry");
         expect(screen).toContain("INSTALLED");
         expect(screen).toContain("Tab Setter");

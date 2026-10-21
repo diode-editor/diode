@@ -9,11 +9,11 @@ import type { AnsiScreen } from "./helpers/AnsiScreen.ts";
 import { getBinaryPath } from "./helpers/buildOnce.ts";
 import { usePtyApp } from "./helpers/useApp.ts";
 
-// U+2503 сплошной (added/deleted), U+250B штриховой (modified); indent-guide — `│`.
+// U+2503 solid (added/deleted), U+250B dashed (modified); the indent guide is `│`.
 const GUTTER_BARS = new Set(["┃", "┋"]);
 
-// ConPTY делает посимвольные ассерты ненадёжными вне Linux (docs/TODO/E2E.md);
-// все платформы покрывает git.integration.test.ts.
+// ConPTY makes per-character assertions unreliable outside Linux (docs/TODO/E2E.md);
+// git.integration.test.ts covers all platforms.
 const itLinuxOnly = process.platform === "linux" ? it : it.skip;
 
 function git(cwd: string, ...args: string[]): void {
@@ -30,11 +30,11 @@ function makeRepo(): { repoDir: string; trackedFile: string } {
     writeFileSync(trackedFile, "alpha\nbravo\ncharlie\n");
     git(repoDir, "add", "-A");
     git(repoDir, "commit", "-qm", "init");
-    writeFileSync(trackedFile, "alpha\nBRAVO\ncharlie\n"); // строка 2 изменена
+    writeFileSync(trackedFile, "alpha\nBRAVO\ncharlie\n"); // line 2 changed
     return { repoDir, trackedFile };
 }
 
-/** Сканируем все столбцы: гуттер смещён вправо панелью EXPLORER. */
+/** Scan all columns: the gutter is shifted right by the EXPLORER pane. */
 function hasGutterBar(screen: AnsiScreen): boolean {
     for (let y = 0; y < screen.height; y++) {
         for (let x = 0; x < screen.width; x++) {
@@ -58,7 +58,7 @@ describe("SEA binary — built-in git plugin", () => {
     });
 
     itLinuxOnly("активируется под SEA и рисует dirty-diff бар в гуттере изменённого файла", async () => {
-        // cwd — сам репо: git-плагин работает от workspace folder.
+        // cwd is the repo itself: the git plugin works from the workspace folder.
         const { session } = await usePtyApp({ open: [repoDir, trackedFile], cwd: repoDir });
         const screen = await session.waitFor((s) => s.findText("BRAVO") !== null && hasGutterBar(s), {
             timeoutMs: 20_000,

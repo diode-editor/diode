@@ -19,13 +19,13 @@ import { useHeadlessApp } from "./helpers/useApp.ts";
 import { waitUntil } from "./helpers/waitFor.ts";
 
 /**
- * Стоковый vscode-eslint из магазина; библиотека eslint — в воркспейсе (расширение её
- * не бандлит). Ассерты ждут текст, которого НЕТ в буфере (грабля «слабый ассерт»).
+ * The stock vscode-eslint extension from the marketplace; the eslint library lives in the workspace (the extension
+ * doesn't bundle it). Assertions wait for text that is NOT in the buffer (the "weak assertion" pitfall).
  */
 
 const UNDERCURL = 8;
 
-// Только Linux: extension host + спавн сервера (docs/TODO/E2E.md).
+// Linux only: extension host + a spawned server (docs/TODO/E2E.md).
 describe.skipIf(process.platform === "win32" || process.platform === "darwin" || MARKETPLACE_OFFLINE)(
     "SEA binary — стоковый vscode-eslint.vsix (JS-линт, fix on save)",
     () => {
@@ -34,8 +34,8 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin" ||
         }, 300_000);
 
         it("Ctrl+S с codeActionsOnSave чинит no-extra-semi в буфере и на диске", { timeout: 300_000 }, async () => {
-            // Воркспейс с библиотекой eslint — коммитнутой фикстурой быть не
-            // может (node_modules) и сохраняется, поэтому temp-каталог.
+            // A workspace with the eslint library can't be a committed fixture
+            // (node_modules) and gets saved, hence a temp directory.
             const sampleDir = mkdtempSync(join(tmpdir(), "diode-eslint-e2e-"));
             const lintFile = join(sampleDir, "lint.js");
             writeFileSync(join(sampleDir, "eslint.config.mjs"), ESLINT_FLAT_CONFIG);
@@ -49,8 +49,8 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin" ||
             });
             await session.waitForNode("EditorElement");
 
-            // Undercurl — ложный сигнал: builtin TS-клиент линтит .js тоже (helpers/eslintReady.ts).
-            // После диагностик eslint save не упрётся в холодный старт сервера.
+            // Undercurl is a false signal: the builtin TS client lints .js too (helpers/eslintReady.ts).
+            // After eslint diagnostics, save won't hit the server's cold start.
             await waitForEslintDiagnostics({
                 key: (name) => session.sendKey(name),
                 text: (value) => session.sendText(value),
@@ -63,7 +63,7 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin" ||
             );
             expect(frameToText(await session.captureFrame())).toContain("const unused = 1;;");
 
-            // Один Ctrl+S: source.fixAll.eslint убирает лишнюю `;` ДО записи.
+            // A single Ctrl+S: source.fixAll.eslint removes the extra `;` BEFORE writing.
             await session.key("Ctrl+S");
             await session.waitForText((text) => !text.includes(";;"), { timeoutMs: 60_000, intervalMs: 500 });
 

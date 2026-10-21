@@ -1,9 +1,9 @@
 "use strict";
 
 /**
- * Каталоги хранения и `setContext` — в живом расширении они ходят парой. Как AI-автодополнения,
- * `activate()` пишет файл в `globalStorageUri` (туда такие расширения кладут скачанный движок);
- * счётчик запусков в статус-баре прочитан из него. Кейбинд `alt+q` — под `when: "extStorageDemo.armed"`.
+ * Storage directories and `setContext` — in a real extension they go together. Like AI autocompletion extensions,
+ * `activate()` writes a file to `globalStorageUri` (where such extensions put a downloaded engine);
+ * the launch counter in the status bar is read from it. The `alt+q` keybinding is under `when: "extStorageDemo.armed"`.
  */
 const fs = require("node:fs");
 const path = require("node:path");
@@ -13,7 +13,7 @@ exports.activate = function activate(context) {
 
     const out = vscode.window.createOutputChannel("Ext Storage Demo");
 
-    // Каталог создаём САМИ: хост гарантирует только родителя. На этой строке расширения падали без поля.
+    // We create the directory OURSELVES: the host only guarantees the parent. Extensions crashed on this line without the field.
     const globalDir = context.globalStorageUri.fsPath;
     fs.mkdirSync(globalDir, { recursive: true });
     const runsFile = path.join(globalDir, "runs.json");
@@ -31,9 +31,9 @@ exports.activate = function activate(context) {
     out.appendLine("logUri: " + context.logUri.fsPath);
     out.appendLine("runs.json прочитан и перезаписан: runs=" + runs);
 
-    // Два пункта, а не один: текст пункта расширения обрезается на 24 глифах
-    // (MAX_ITEM_WIDTH в ExtensionStatusBarAdapter), а показать надо и счётчик
-    // запусков из globalStorage, и состояние when-ключа.
+    // Two items, not one: an extension item's text is truncated at 24 glyphs
+    // (MAX_ITEM_WIDTH in ExtensionStatusBarAdapter), and we need to show both the launch
+    // counter from globalStorage and the state of the when-key.
     let fired = 0;
     let armed = false;
     const storageItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 101);
@@ -41,9 +41,9 @@ exports.activate = function activate(context) {
     storageItem.text = "Storage run " + runs;
     storageItem.show();
 
-    // Состояние ключа печатаем в текст пункта НЕ для красоты: сценарию нужен
-    // наблюдаемый сигнал «setContext уже доехал», иначе нажатие клавиши
-    // обгоняет RPC и демо становится гонкой.
+    // The key state goes into the item text NOT for looks: the scenario needs
+    // an observable "setContext has arrived" signal, otherwise the keypress
+    // outruns the RPC and the demo becomes a race.
     const gateItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
     gateItem.name = "Ext Storage Demo: gate";
     const render = () => {

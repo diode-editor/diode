@@ -7,7 +7,7 @@ import { frameToText } from "./helpers/frame.ts";
 import { useHeadlessApp } from "./helpers/useApp.ts";
 import { waitUntil } from "./helpers/waitFor.ts";
 
-/** Ассерты ждут текст, которого НЕТ в буфере, — грабля «слабый ассерт» (docs/TODO/Suggest.md). */
+/** Assertions wait for text that is NOT in the buffer: the "weak assertion" pitfall (docs/TODO/Suggest.md). */
 
 const require_ = createRequire(import.meta.url);
 const SERVER_CLI = require_.resolve("typescript-language-server/lib/cli.mjs");
@@ -19,13 +19,13 @@ const LSP_SETTINGS = {
 };
 
 const DEFS_TS = "export function greet(name: string, age: number): string {\n    return name + String(age);\n}\n";
-// Ошибка типов в последней строке — для squiggle (readiness).
+// Type error on the last line, for the squiggle (readiness).
 const MAIN_TS = 'import { greet } from "./defs";\n\nconst reply: number = 1;\n';
 
 const UNDERCURL = 8;
 const SIGNATURE = "greet(name: string, age: number): string";
 
-// Только Linux: extension host + спавн language-сервера (docs/TODO/E2E.md).
+// Linux only: extension host + language server spawn (docs/TODO/E2E.md).
 describe.skipIf(process.platform === "win32" || process.platform === "darwin")(
     "SEA binary — подсказка параметров от стокового typescript-language-server",
     () => {
@@ -45,7 +45,7 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin")(
             });
             await session.waitForNode("EditorElement");
 
-            // Squiggle от tsserver — readiness-сигнал «сервер проиндексировал проект».
+            // A squiggle from tsserver is the readiness signal that the server indexed the project.
             await waitUntil(
                 () => session.captureFrame(),
                 (frame) => frame.cells.some((cell) => (cell.style & UNDERCURL) !== 0),
@@ -53,8 +53,8 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin")(
             );
 
             await session.key("Ctrl+End");
-            // Нажатиями: подсказку открывает НАБОР триггер-символа (onDidType), а вставка —
-            // даже одного символа — намеренно нет, как в VS Code. `session.text` — это вставка.
+            // Via key presses: the hint is opened by TYPING a trigger character (onDidType), while a paste,
+            // even of one character, deliberately doesn't open it, as in VS Code. `session.text` is a paste.
             for (const char of "greet(") await session.key(char);
 
             await session.waitForText((text) => text.includes(SIGNATURE), {
@@ -69,8 +69,8 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin")(
                 { describe: "подсказка пережила запятую", timeoutMs: 30_000, intervalMs: 250 },
             );
 
-            // Набор `world` клавишами мог открыть и автодополнение, а Escape принадлежит ему,
-            // пока оно показано (как в VS Code), — тогда подсказку закрывает следующий Escape.
+            // Typing `world` may also open completion, and Escape belongs to it while it's shown
+            // (as in VS Code); then the next Escape closes the hint.
             let frame = await session.captureFrame();
             for (let attempt = 0; attempt < 3 && frameToText(frame).includes(SIGNATURE); attempt++) {
                 await session.key("Escape");

@@ -17,14 +17,14 @@ const here = fileURLToPath(new URL(".", import.meta.url));
 export const repoRoot = resolve(here, "..");
 export const sampleFixture = resolve(here, "fixtures", "sample.ts");
 
-/** У этих команд нет дефолтного шортката. */
+/** These commands have no default keybinding. */
 export const OUTPUT_KEYBINDINGS: readonly { key: string; command: string }[] = [
     { key: "alt+u", command: "workbench.action.output.toggleOutput" },
     { key: "alt+j", command: "workbench.action.output.show.extensions" },
     { key: "alt+r", command: "workbench.action.files.toggleActiveEditorReadonlyInSession" },
 ];
 
-/** Workspace = repoRoot, чтобы workspace-scoped состояние панели переживало рестарт. */
+/** Workspace = repoRoot, so the workspace-scoped panel state survives a restart. */
 export function startOutputApp(over: Partial<AppEnvOptions> = {}): Promise<HeadlessApp> {
     return startHeadlessApp({
         cols: 120,
@@ -49,14 +49,14 @@ export async function pickChannel(session: HeadlessSession, label: string): Prom
     const items = (popup.state?.items ?? []) as (string | null)[];
     const index = items.findIndex((it) => it !== null && it.includes(label));
     if (index < 0) throw new Error(`channel "${label}" not in popup: ${JSON.stringify(items)}`);
-    // Первая строка попапа — под верхней рамкой (dy = 1 + index).
+    // The first popup row is below the top border (dy = 1 + index).
     await session.clickNode("PopupMenuElement", { dx: 4, dy: 1 + index });
     await session.waitForNoNode("PopupMenuElement");
 }
 
 /**
- * Целимся в первую видимую строку: лог автоскроллится к хвосту, нижние строки могут
- * быть пустыми — клик туда ставит курсор в конец без текста справа. Отступ по X — за гуттер.
+ * Aims at the first visible line: the log autoscrolls to the tail, so the bottom lines may
+ * be empty — a click there puts the cursor at the end with no text to the right. The X offset skips the gutter.
  */
 export async function focusLogBody(session: HeadlessSession): Promise<NodeSnapshot> {
     const editor = await outputEditor(session);
@@ -64,7 +64,7 @@ export async function focusLogBody(session: HeadlessSession): Promise<NodeSnapsh
     return session.waitForFocus("EditorElement");
 }
 
-/** Самый нижний EditorElement — главный редактор выше. */
+/** The bottom-most EditorElement — the main editor is above it. */
 export async function outputEditor(session: HeadlessSession): Promise<NodeSnapshot> {
     const editors = await session.nodes("EditorElement");
     if (editors.length === 0) throw new Error("no EditorElement in tree");
@@ -80,8 +80,8 @@ export async function focusedType(session: HeadlessSession): Promise<string | un
 }
 
 /**
- * `dx` — смещение клика от начала подстроки; `maxX` — граница по столбцу (только
- * сайдбар, чтобы не попасть в одноимённую вкладку сверху).
+ * `dx` is the click offset from the start of the substring; `maxX` is a column bound (sidebar
+ * only, so as not to hit a same-named tab at the top).
  */
 export async function clickText(
     session: HeadlessSession,
@@ -99,16 +99,16 @@ export async function clickText(
     await session.click(cell.x + (opts.dx ?? 0), cell.y);
 }
 
-/** Строка find-виджета (та, где стрелки навигации `[ ↑ ]`), или пустая строка. */
+/** The find widget line (the one with the `[ ↑ ]` navigation arrows), or an empty string. */
 export function findWidgetLine(frame: import("@tuidom/core/rendering/gridSnapshot").GridSnapshot): string {
     for (let y = 0; y < frame.rows; y++) if (frameLine(frame, y).includes("[ ↑ ]")) return frameLine(frame, y);
     return "";
 }
 
 /**
- * Debounce записи workspace-состояния (500 мс) waitForIdle не ловит; без ожидания
- * рестарт зависел бы от гонки flushSync-на-выходе против SIGKILL. Файл не нашёлся
- * (нормализация пути на другой платформе) — не бросаем, а выжидаем > debounce.
+ * waitForIdle does not catch the workspace-state write debounce (500 ms); without this wait
+ * a restart would depend on the race of flushSync-on-exit against SIGKILL. If the file is not found
+ * (path normalization on another platform), don't throw — wait longer than the debounce.
  */
 export async function waitForPanelPersisted(root: string): Promise<void> {
     const paths = resolveUserDataPaths({ userDataDir: join(root, "user-data-dir"), homedir: homedir() });
@@ -120,7 +120,7 @@ export async function waitForPanelPersisted(root: string): Promise<void> {
         try {
             body = readFileSync(stateFile, "utf-8");
         } catch {
-            // файла ещё нет
+            // the file does not exist yet
         }
         if (/workbench\.panel\.visible[^,}]*true/u.test(body)) return;
         await new Promise((r) => setTimeout(r, 100));

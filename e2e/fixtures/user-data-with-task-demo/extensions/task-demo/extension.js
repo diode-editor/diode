@@ -1,8 +1,8 @@
 "use strict";
 
 /**
- * Задачи формой bazel-java — `new Task(def, TaskScope.Workspace, name, source, new ShellExecution(cmd))`,
- * плюс `CustomExecution` на pty расширения.
+ * Tasks shaped like bazel-java's — `new Task(def, TaskScope.Workspace, name, source, new ShellExecution(cmd))`,
+ * plus a `CustomExecution` on the extension's pty.
  */
 exports.activate = function activate(context) {
     const vscode = require("vscode");
@@ -74,7 +74,7 @@ exports.activate = function activate(context) {
             report(`fetch:${tasks.map((t) => t.name).join(",")}`);
         }),
         vscode.commands.registerCommand("taskDemo.terminate", () => {
-            // Как bazel-java: своя бегущая задача ищется по имени и источнику.
+            // Like bazel-java: our own running task is found by name and source.
             const running = vscode.tasks.taskExecutions.find((e) => e.task.source === "demo" && e.task.name === "long");
             if (running) running.terminate();
         }),

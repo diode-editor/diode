@@ -11,7 +11,7 @@ import { getBinaryPath } from "./helpers/buildOnce.ts";
 import { frameToText } from "./helpers/frame.ts";
 import { useHeadlessApp } from "./helpers/useApp.ts";
 
-// Выбор состава статус-бара переживает рестарт — он глобальный, а не по-проектный.
+// The status bar item selection survives a restart — it is global, not per-project.
 
 const FILES = { "app.ts": 'export const a = "one";\n' };
 
@@ -31,7 +31,7 @@ async function openVisibilityMenu(session: HeadlessApp["session"], selector: str
     await session.sendMouse({ action: "release", button: "right", x, y });
 }
 
-/** Ждёт, пока debounce StateService уронит скрытые id в globalState.json. */
+/** Waits until the StateService debounce flushes the hidden ids to globalState.json. */
 async function waitForHiddenPersisted(root: string, entryId: string): Promise<void> {
     const paths = resolveUserDataPaths({ userDataDir: join(root, "user-data-dir"), homedir: homedir() });
     const deadline = Date.now() + 5_000;
@@ -39,7 +39,7 @@ async function waitForHiddenPersisted(root: string, entryId: string): Promise<vo
         try {
             if (readFileSync(paths.globalStateFile, "utf-8").includes(entryId)) return;
         } catch {
-            // файла ещё нет
+            // file not there yet
         }
         await new Promise((r) => setTimeout(r, 100));
     }
@@ -67,13 +67,13 @@ describe("Статус-бар: настраиваемый состав (function
         await clickMenuItem(first.session, "Hide 'Editor Encoding'");
         await first.session.waitForText((t) => !t.includes("UTF-8"));
         await waitForHiddenPersisted(root, "status.editor.encoding");
-        await first.session.dispose(); // корень НЕ удаляем (keepRoot)
+        await first.session.dispose(); // do NOT delete the root (keepRoot)
 
         app = await useHeadlessApp({ root, open: ["app.ts"] });
         const frame = await app.session.waitForText((t) => t.includes("Ln 1, Col 1"), { timeoutMs: 30_000 });
         expect(frameToText(frame)).not.toContain("UTF-8");
 
-        // И возвращается из того же меню — галочки у скрытой записи нет.
+        // And it comes back via the same menu — the hidden entry has no checkmark.
         await openVisibilityMenu(app.session, "#statusBarItem-status-editor-mode");
         await clickMenuItem(app.session, "Editor Encoding");
         await app.session.waitForText((t) => t.includes("UTF-8"));

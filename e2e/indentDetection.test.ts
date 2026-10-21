@@ -4,9 +4,9 @@ import { getBinaryPath } from "./helpers/buildOnce.ts";
 import { useHeadlessApp } from "./helpers/useApp.ts";
 
 /**
- * Юниты детектора и проводки конфига были зелёными при сломанной фиче: детекция
- * считала 2, а `applyConfigurationToEditor` тут же ставила дефолт реестра (4).
- * Ловится только там, где собраны обе половины, — в запущенном приложении.
+ * Unit tests of the detector and the config wiring were green while the feature was broken: detection
+ * computed 2, and `applyConfigurationToEditor` immediately set the registry default (4).
+ * This is caught only where both halves are assembled — in the running app.
  */
 
 const PACKAGE_JSON = `{

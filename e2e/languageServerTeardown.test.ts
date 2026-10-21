@@ -8,11 +8,11 @@ import { useHeadlessApp } from "./helpers/useApp.ts";
 import { waitUntil } from "./helpers/waitFor.ts";
 
 /**
- * Закрытие редактора не оставляет живых процессов, включая внука — сервер, поднятый
- * самим расширением. Это НЕ гейт группового kill'а: тест зелёный и без `detached`,
- * стоковый сервер закрывает tsserver сам по `deactivate`. Гейт — юнит
- * `extensionHost.orphans.test.ts` (фикстура сервер НЕ закрывает, как jdtls) —
- * не удаляй его как дубль этого.
+ * Closing the editor leaves no live processes, including the grandchild — the server started
+ * by the extension itself. This is NOT the gate for the group kill: the test is green even without
+ * `detached`, since the stock server shuts tsserver down itself on `deactivate`. The gate is the unit
+ * test `extensionHost.orphans.test.ts` (its fixture does NOT close the server, like jdtls) —
+ * don't delete it as a duplicate of this one.
  */
 
 const require_ = createRequire(import.meta.url);
@@ -26,7 +26,7 @@ const LSP_SETTINGS = {
 
 const MAIN_TS = 'export function greet(name: string): string {\n    return "hi " + name;\n}\n';
 
-/** Пустой список — детей нет: pgrep выходит кодом 1. */
+/** Empty list when there are no children: pgrep exits with code 1. */
 function childrenOf(pid: number): number[] {
     try {
         return execFileSync("pgrep", ["-P", String(pid)], { encoding: "utf-8" })
@@ -38,7 +38,7 @@ function childrenOf(pid: number): number[] {
     }
 }
 
-/** Всё поддерево процесса, сам процесс включительно. */
+/** The whole process subtree, including the process itself. */
 function processTree(pid: number): number[] {
     const tree = [pid];
     for (const child of childrenOf(pid)) tree.push(...processTree(child));
@@ -54,7 +54,7 @@ function isAlive(pid: number): boolean {
     }
 }
 
-// pgrep и сигнал 0 — posix; на Windows дерево процессов смотрится иначе.
+// pgrep and signal 0 are POSIX; on Windows the process tree is inspected differently.
 describe.skipIf(process.platform === "win32" || process.platform === "darwin")(
     "SEA binary — выход редактора уносит языковые серверы расширений",
     () => {
@@ -76,8 +76,8 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin")(
             const editorPid = session.pid;
             expect(editorPid).toBeDefined();
 
-            // Ждём именно ВНУКА: субпроцесс расширений — прямой ребёнок, и «любые потомки»
-            // нашлись бы без поднятого сервера.
+            // Wait specifically for the GRANDCHILD: the extension host subprocess is a direct child,
+            // so "any descendants" would be found without the server running.
             const tree = await waitUntil(
                 () => Promise.resolve(processTree(editorPid as number)),
                 (pids) => pids.length >= 3,
@@ -86,7 +86,7 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin")(
 
             await session.dispose();
 
-            // Дерево уходит не мгновенно: вежливое прощание идёт по цепочке.
+            // The tree does not exit instantly: the graceful shutdown propagates down the chain.
             await waitUntil(
                 () => Promise.resolve(tree.filter(isAlive)),
                 (alive) => alive.length === 0,

@@ -1,6 +1,6 @@
 /**
- * Трасса `DIODE_STARTUP_TRACE` → «мс от спауна» по вехам. Часы совмещаются через epoch:
- * `timeOrigin` процесса в трассе и epoch-момент спауна у бенча.
+ * `DIODE_STARTUP_TRACE` trace → "ms since spawn" per mark. Clocks are aligned via epoch:
+ * the process `timeOrigin` in the trace and the bench's epoch time of the spawn.
  */
 
 import type { IStartupTrace } from "../../src/vs/diode/startupTrace.ts";
@@ -12,7 +12,7 @@ export interface Milestone {
     readonly label: string;
 }
 
-/** Порядок — порядок строк лестницы в отчёте. */
+/** The order is the order of ladder rows in the report. */
 export const MILESTONES: readonly Milestone[] = [
     { key: "processStart", label: "старт процесса (timeOrigin)" },
     { key: "nodeBootstrap", label: "node готов (bootstrapComplete)" },
@@ -32,8 +32,8 @@ export const MILESTONES: readonly Milestone[] = [
     { key: "documentBuilt", label: "документ построен" },
     { key: "tokenizerReady", label: "токенайзер у редактора" },
     { key: "filesOpened", label: "вкладки открыты" },
-    // В SEA цикл регистрации встроенных расширений идёт на микротасках и
-    // успевает до кадра — поэтому он в лестнице раньше «кадра с текстом».
+    // In SEA the builtin extension registration loop runs on microtasks and
+    // finishes before the frame, so it precedes `frameWithText` in the ladder.
     { key: "extensionsRegistered", label: "встроенные расширения зарегистрированы" },
     { key: "frameWithText", label: "кадр с текстом файла" },
     { key: "frameWithHighlight", label: "кадр с подсветкой" },
@@ -41,7 +41,7 @@ export const MILESTONES: readonly Milestone[] = [
     { key: "startupComplete", label: "старт завершён" },
 ];
 
-/** Лестница одного прогона: веха → мс от спауна (null — вехи в трассе нет). */
+/** The ladder of one run: mark → ms since spawn (null if the trace lacks the mark). */
 export type Ladder = Readonly<Record<string, number | null>>;
 
 interface MarkView {
@@ -54,7 +54,7 @@ function firstMark(marks: readonly MarkView[], name: string): number | null {
     return null;
 }
 
-/** Первая веха `frame`, поставленная не раньше `after` (null → любая первая). */
+/** The first `frame` mark set no earlier than `after` (null `after` → null). */
 function firstFrameAfter(marks: readonly MarkView[], after: number | null): number | null {
     if (after === null) return null;
     for (const m of marks) if (m.name === "frame" && m.t >= after) return m.t;
@@ -62,8 +62,8 @@ function firstFrameAfter(marks: readonly MarkView[], after: number | null): numb
 }
 
 /**
- * `spawnEpoch` — `performance.timeOrigin + performance.now()` перед spawn. Кадр с подсветкой —
- * первый кадр после того, как открыты и вкладки, и токенайзер у редактора.
+ * `spawnEpoch` is `performance.timeOrigin + performance.now()` before spawn. The highlighted frame is
+ * the first frame after both the tabs are open and the editor has its tokenizer.
  */
 export function ladderFromTrace(trace: IStartupTrace, spawnEpoch: number): Ladder {
     const offset = trace.timeOrigin - spawnEpoch;

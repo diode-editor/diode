@@ -13,9 +13,9 @@ import { findNode } from "./helpers/inspectorClient.ts";
 import { DiodeSession } from "./helpers/runDiode.ts";
 
 /**
- * Предмет сьюта — работа ЧУЖОГО кода: стоковый EditorConfig из магазина, версия не
- * пинится. Наши контракты под ним закрыты герметичными сьютами, этот их не дублирует.
- * Save-трансформации проверяются по БАЙТАМ на диске.
+ * This suite tests THIRD-PARTY code: the stock EditorConfig extension from the marketplace, version
+ * not pinned. Our contracts underneath are covered by hermetic suites; this one doesn't duplicate them.
+ * Save transformations are checked by the BYTES on disk.
  */
 
 const EC_ID = "EditorConfig.EditorConfig";
@@ -48,7 +48,7 @@ function runCli(binary: string, args: readonly string[]): Promise<CliResult> {
     });
 }
 
-// Не Windows: ввод идёт через pty, а ConPTY инъектированный ввод доставляет ненадёжно.
+// Not Windows: input goes through a pty, and ConPTY delivers injected input unreliably.
 describe.skipIf(process.platform === "win32" || MARKETPLACE_OFFLINE)("SEA binary — stock editorconfig-vscode integration", () => {
     let binary: string;
     let tempRoot: string;
@@ -63,7 +63,7 @@ describe.skipIf(process.platform === "win32" || MARKETPLACE_OFFLINE)("SEA binary
         const install = await runCli(binary, ["--user-data-dir", userDataDir, "--install-extension", EC_ID]);
         expect(install.stderr).toBe("");
         expect(install.code).toBe(0);
-        // Версия — какую реестр публикует сейчас: не пинить (docs/TESTING.md).
+        // The version is whatever the registry publishes now: don't pin it (docs/TESTING.md).
         const installed = new RegExp(`Installed ${EC_ID}@(\\S+)`).exec(install.stdout);
         expect(installed).not.toBeNull();
         const version = installed![1];
@@ -94,8 +94,8 @@ describe.skipIf(process.platform === "win32" || MARKETPLACE_OFFLINE)("SEA binary
     }
 
     async function startEditor(files: string[], opts: { cwd?: string } = {}): Promise<DiodeSession> {
-        // user-data уже в tempRoot; добавляем изоляцию HOME/XDG (корзина, кеши),
-        // чтобы прогон не трогал реальный дом разработчика.
+        // user-data is already in tempRoot; add HOME/XDG isolation (trash, caches)
+        // so the run doesn't touch the developer's real home.
         const s = await DiodeSession.start({
             args: ["--user-data-dir", userDataDir, ...files],
             inspect: true,
@@ -200,9 +200,9 @@ describe.skipIf(process.platform === "win32" || MARKETPLACE_OFFLINE)("SEA binary
         await waitForEditor(session);
 
         // handleDocumentEncoding → openTextDocument(uri, {encoding:'iso88591'}): iso88591
-        // поддержан ядром (SUPPORTED_ENCODINGS), а неизвестный id молча откатился бы к utf-8 —
-        // оба поведения зафиксированы юнитами (workspaceNamespace.test.ts, encoding.test.ts).
-        // Здесь проверяется устойчивость приложения ЦЕЛИКОМ: give it a moment, then assert
+        // is supported by the core (SUPPORTED_ENCODINGS), and an unknown id would silently fall back
+        // to utf-8 — both behaviors are pinned by unit tests (workspaceNamespace.test.ts, encoding.test.ts).
+        // Here we check the robustness of the WHOLE app: give it a moment, then assert
         // the app is still alive and rendering the editor (no host/subprocess crash).
         await sleep(2_000);
         const root = await session.getDocument();

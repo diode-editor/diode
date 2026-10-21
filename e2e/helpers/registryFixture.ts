@@ -5,8 +5,8 @@ import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 /**
- * Реестр-фикстура с НАСТОЯЩИМИ `.vsix`: пакует продовый `scripts/pack-vsix.mjs` — своего zip-кода
- * здесь нет, иначе фикстура проверяла бы сама себя.
+ * A fixture registry with REAL `.vsix` files packed by the production `scripts/pack-vsix.mjs` — there is no zip
+ * code of its own here, otherwise the fixture would be testing itself.
  */
 
 const here = fileURLToPath(new URL(".", import.meta.url));
@@ -14,21 +14,21 @@ const REPO_ROOT = resolve(here, "..", "..");
 const PACK_VSIX = join(REPO_ROOT, "scripts", "pack-vsix.mjs");
 
 export interface IFixtureExtension {
-    /** `publisher.name` — id записи реестра и каталога установки. */
+    /** `publisher.name` — the id of the registry entry and of the install directory. */
     readonly id: string;
     readonly version: string;
-    /** Каталог расширения-исходника; его `package.json` перезаписывается под id/версию. */
+    /** Source extension directory; its `package.json` is rewritten for the id/version. */
     readonly sourceDir: string;
-    /** Требования к сборке; по умолчанию — совместимые. */
+    /** Build requirements; compatible by default. */
     readonly engines?: Readonly<Record<string, string>>;
     readonly displayName?: string;
     readonly description?: string;
     readonly readme?: string;
-    /** Объявить неверный sha256: установка обязана отказаться и не оставить мусора. */
+    /** Declare a wrong sha256: the install must refuse and leave no garbage behind. */
     readonly corruptSha?: boolean;
 }
 
-/** Возвращает путь для `--registry`. Несколько версий одного id — несколькими записями. */
+/** Returns the path for `--registry`. Several versions of one id are passed as several entries. */
 export async function createRegistryFixture(
     dir: string,
     extensions: readonly IFixtureExtension[],
@@ -45,8 +45,8 @@ export async function createRegistryFixture(
         const [publisher, name] = extension.id.split(".");
         const relArtifact = `artifacts/${extension.id}-${extension.version}.vsix`;
         const source = join(dir, "sources", `${extension.id}-${extension.version}`);
-        // Копия исходника с переписанным манифестом: id и версия артефакта
-        // обязаны совпадать с записью реестра, иначе установка откатится.
+        // A copy of the source with a rewritten manifest: the artifact's id and version
+        // must match the registry entry, otherwise the install rolls back.
         cpSync(extension.sourceDir, source, { recursive: true });
         const manifest = JSON.parse(readFileSync(join(source, "package.json"), "utf8")) as Record<string, unknown>;
         writeFileSync(
@@ -87,7 +87,7 @@ export async function createRegistryFixture(
                 latest: { version: extension.version, engines },
             });
         } else {
-            // Вторая версия того же id: индекс называет последнюю объявленную.
+            // Another version of the same id: the index names the last declared one.
             (meta["versions"] as unknown[]).push(version);
             const entry = index.find((e) => e["id"] === extension.id)!;
             entry["latest"] = { version: extension.version, engines };

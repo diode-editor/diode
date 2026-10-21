@@ -33,14 +33,14 @@ export function highlightVisible(screen: AnsiScreen): boolean {
 
 
 export interface Chunk {
-    /** мс от спауна. */
+    /** ms since spawn. */
     readonly t: number;
     readonly data: string;
 }
 
 function renderPrefix(chunks: readonly Chunk[], upTo: number, cols: number, rows: number): AnsiScreen {
-    // Реплей всегда с нуля: AnsiScreen не переживает escape-последовательность,
-    // разрезанную границей чанка (недоразобранный ESC молча выбрасывается).
+    // Always replay from scratch: AnsiScreen does not survive an escape sequence split
+    // by a chunk boundary (a partially parsed ESC is silently dropped).
     const screen = new AnsiScreen(cols, rows);
     let joined = "";
     for (let i = 0; i <= upTo; i++) joined += chunks[i].data;
@@ -49,8 +49,8 @@ function renderPrefix(chunks: readonly Chunk[], upTo: number, cols: number, rows
 }
 
 /**
- * Бинарный поиск по чанкам `[from, to]`: предикат монотонный — появившееся изменение последующие
- * кадры отрезка не стирают.
+ * Binary search over chunks `[from, to]`: the predicate is monotonic — once a change appears,
+ * later frames in the range do not erase it.
  */
 export function firstSatisfiedAt(
     chunks: readonly Chunk[],
@@ -90,28 +90,28 @@ export const WORKLOAD_STEPS: readonly { key: WorkloadStepKey; label: string }[] 
 
 export interface WorkloadStepResult {
     readonly key: WorkloadStepKey;
-    /** мс от записи клавиши в PTY до кадра, где изменение видно; null — не дождались. */
+    /** ms from writing the key to the PTY to the frame where the change is visible; null — timed out. */
     readonly latencyMs: number | null;
     readonly outcome: "ok" | "timeout" | "skipped";
 }
 
 export interface OpenRunResult {
     readonly outcome: "ok" | "timeout" | "crash";
-    /** мс от спауна до первого кадра с текстом файла. */
+    /** ms from spawn to the first frame with the file's text. */
     readonly contentMs: number | null;
-    /** мс от спауна до раскрашенного токена; null для plaintext. */
+    /** ms from spawn to a colored token; null for plaintext. */
     readonly highlightMs: number | null;
     readonly exitCode: number | null;
-    /** Сигнал, убивший процесс (9 = SIGKILL, обычно OOM killer), или null. */
+    /** Signal that killed the process (9 = SIGKILL, usually the OOM killer), or null. */
     readonly signal: number | null;
-    /** Пиковый RSS процесса редактора за прогон, байты (null — не Linux). */
+    /** Peak RSS of the editor process during the run, in bytes (null — not Linux). */
     readonly peakRssBytes: number | null;
-    /** Лестница вех из трассы приложения (null — трасса не доехала). */
+    /** Ladder of marks from the app trace (null — the trace never arrived). */
     readonly ladder: Ladder | null;
     readonly workload: readonly WorkloadStepResult[];
     /**
-     * Отдельно от открытия: файл мог открыться, а процесс умереть на первой правке (OOM в куче V8).
-     * `crash` — процесс завершился, `failed` — шаг не дождался экрана, `skipped` — не гоняли.
+     * Separate from opening: the file may open and the process still die on the first edit (V8 heap OOM).
+     * `crash` — the process exited, `failed` — a step timed out waiting for the screen, `skipped` — not run.
      */
     readonly workloadOutcome: "ok" | "crash" | "failed" | "skipped";
     readonly workloadError: string | null;
@@ -123,11 +123,11 @@ export interface OpenMeasureOptions {
     readonly fixture: OpenFixture;
     readonly timeoutMs: number;
     readonly warmup?: boolean;
-    /** Гонять ли нагрузку после открытия (правки, Ctrl+End, поиск). По умолчанию — да. */
+    /** Whether to run the workload after opening (edits, Ctrl+End, search). Defaults to true. */
     readonly workload?: boolean;
-    /** Сколько ждать трассу (extension host поднимается после кадра). */
+    /** How long to wait for the trace (the extension host starts after the frame). */
     readonly traceWaitMs?: number;
-    /** С ним трасса пишет и созданные сервисы (`DIODE_STARTUP_TRACE_INSTANTIATIONS=1`). */
+    /** When set, the trace also records instantiated services (`DIODE_STARTUP_TRACE_INSTANTIATIONS=1`). */
     readonly keepTraceAs?: string;
 }
 
@@ -135,7 +135,7 @@ function sleep(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-/** Ждёт файл трассы с `complete: true`; null — не дождались. */
+/** Waits for a trace file with `complete: true`; null — timed out. */
 async function waitForTrace(path: string, deadline: number): Promise<string | null> {
     while (performance.now() < deadline) {
         if (existsSync(path)) {
@@ -155,7 +155,7 @@ const KEY_CTRL_Z = "\x1a";
 const KEY_CTRL_S = "\x13";
 const KEY_ENTER = "\r";
 const KEY_CTRL_END = "\x1b[1;5F";
-/** Символ вставки: в фикстурах не встречается, на экране виден только после правки. */
+/** Inserted character: absent from the fixtures, so it is on screen only after the edit. */
 const INSERT_CHAR = "@";
 
 function bracketedPaste(text: string): string {
@@ -170,8 +170,8 @@ interface StepContext {
 }
 
 /**
- * Латентность — от записи клавиши до таймстемпа чанка, где предикат выполнился. Предикат обязан
- * быть ложным до записи — иначе шаг невалиден.
+ * Latency is measured from writing the key to the timestamp of the chunk where the predicate holds. The
+ * predicate must be false before the write — otherwise the step is invalid.
  */
 async function measureStep(
     ctx: StepContext,
@@ -196,14 +196,14 @@ async function measureStep(
     return { key, latencyMs: null, outcome: "timeout" };
 }
 
-/** Строка документа на экране: уникальный префикс, чтобы не зависеть от обрезки по ширине. */
+/** A document line on screen: a unique prefix, so truncation by width does not matter. */
 function linePrefix(fixture: OpenFixture, index: number): string {
     return fixture.lineAt(index).slice(0, 70);
 }
 
 /**
- * Не меряется. В отличие от `session.waitFor` замечает смерть процесса сразу, а не по таймауту
- * (на `log500m` это было 300 с ожидания после OOM).
+ * Not measured. Unlike `session.waitFor`, notices process death immediately rather than on timeout
+ * (on `log500m` that meant 300 s of waiting after an OOM).
  */
 async function settle(ctx: StepContext, predicate: (screen: AnsiScreen) => boolean, stableMs = 150): Promise<void> {
     const deadline = performance.now() + ctx.timeoutMs;
@@ -224,7 +224,7 @@ async function runWorkload(ctx: StepContext, fixture: OpenFixture): Promise<Work
     const results: WorkloadStepResult[] = [];
     const middle = Math.floor(fixture.lines / 2);
 
-    // Подготовка (не меряется): в середину файла через Go to Line.
+    // Setup (not measured): jump to the middle of the file via Go to Line.
     ctx.session.write(KEY_CTRL_G);
     await settle(ctx, () => true);
     ctx.session.write(`${String(middle + 1)}${KEY_ENTER}`);
@@ -232,9 +232,9 @@ async function runWorkload(ctx: StepContext, fixture: OpenFixture): Promise<Work
 
     const middleLine = linePrefix(fixture, middle);
     const insertVisible = (s: AnsiScreen) => s.findText(INSERT_CHAR) !== null;
-    // Enter после `@` в начале строки: сама строка уезжает на ряд ниже, `@`
-    // остаётся на своём. Смотрим на взаимное положение рядов, а не на «хвост
-    // ряда пуст»: справа от текста стоит ещё и скроллбар.
+    // Enter after `@` at the line start: the line itself moves one row down, `@`
+    // stays on its row. Compare row positions rather than "the rest of the row is
+    // empty": there is also a scrollbar to the right of the text.
     const lineSplitBelowChar = (s: AnsiScreen) => {
         const at = s.findText(INSERT_CHAR);
         const line = s.findText(middleLine);
@@ -250,9 +250,9 @@ async function runWorkload(ctx: StepContext, fixture: OpenFixture): Promise<Work
     results.push(await measureStep(ctx, "enter", KEY_ENTER, lineSplitBelowChar));
     results.push(await measureStep(ctx, "undoEnter", KEY_CTRL_Z, lineJoinedAfterChar));
     results.push(await measureStep(ctx, "undoInsert", KEY_CTRL_Z, (s) => !insertVisible(s)));
-    // После двух undo текст совпадает с диском, но документ «грязный» (версия
-    // ушла вперёд): сохранение пишет файл тем же содержимым — фикстура цела.
-    // Видимый итог — маркер вкладки `●` сменился на `×`.
+    // After two undos the text matches the disk, but the document is dirty (the
+    // version moved forward): saving writes the same content — the fixture stays intact.
+    // The visible result is the tab marker changing from `●` to `×`.
     const cleanTab = `${basename(fixture.path)} ×`;
     results.push(await measureStep(ctx, "save", KEY_CTRL_S, (s) => s.findText(cleanTab) !== null));
     results.push(
@@ -264,9 +264,9 @@ async function runWorkload(ctx: StepContext, fixture: OpenFixture): Promise<Work
         ),
     );
 
-    // Поиск: виджет открываем заранее (не меряется), меряем один поиск слова —
-    // слово приходит одним paste-событием, а не посимвольно (иначе метрика —
-    // N инкрементальных поисков, по одному на букву).
+    // Search: open the widget beforehand (not measured) and measure a single word search —
+    // the word arrives as one paste event, not char by char (otherwise the metric would be
+    // N incremental searches, one per letter).
     ctx.session.write(KEY_CTRL_F);
     await settle(ctx, () => true);
     results.push(
@@ -281,8 +281,8 @@ export async function measureOpenOnce(options: OpenMeasureOptions): Promise<Open
     const warmup = options.warmup ?? false;
     const root = mkdtempSync(join(os.tmpdir(), "diode-bench-run-"));
     const tracePath = join(root, "startup-trace.json");
-    // Трассу созданий DI пишем, только когда трассу сохраняют (`--keep-traces`):
-    // она не бесплатна и сдвигала бы цифры обычного прогона.
+    // Record DI instantiations only when the trace is kept (`--keep-traces`):
+    // it is not free and would skew the numbers of a regular run.
     const traceEnv: Record<string, string> = { DIODE_STARTUP_TRACE: tracePath };
     if (options.keepTraceAs !== undefined) traceEnv.DIODE_STARTUP_TRACE_INSTANTIATIONS = "1";
     const env = await prepareAppEnv({ root, open: [fixture.path], env: traceEnv });
@@ -306,9 +306,9 @@ export async function measureOpenOnce(options: OpenMeasureOptions): Promise<Open
     let outcome: OpenRunResult["outcome"] = "timeout";
     let exitCode: number | null = null;
     let signal: number | null = null;
-    // Срез на момент детекта: дальше приходят чанки нагрузки и гашения (сброс
-    // экрана, выход из alt-screen), и реплей «всего» буфера видел бы уже
-    // изменённый экран.
+    // Snapshot at detection time: workload and shutdown chunks arrive afterwards (screen
+    // reset, leaving the alt screen), and replaying the whole buffer would see an
+    // already changed screen.
     let measuredChunks = 0;
     let ladder: Ladder | null = null;
     let workload: WorkloadStepResult[] = [];
@@ -334,15 +334,15 @@ export async function measureOpenOnce(options: OpenMeasureOptions): Promise<Open
         signal = session.exitSignal;
 
         if (outcome === "ok") {
-            // Хвост старта (extension host) — дожидаемся трассы, чтобы нагрузка
-            // не мерилась поверх спауна субпроцесса.
+            // Tail of startup (extension host) — wait for the trace so the workload
+            // is not measured on top of the subprocess spawn.
             const traceText = await waitForTrace(tracePath, performance.now() + (options.traceWaitMs ?? 15_000));
             const trace = traceText === null ? null : parseTrace(traceText);
             if (traceText !== null && options.keepTraceAs !== undefined) writeFileSync(options.keepTraceAs, traceText);
             ladder = trace === null ? null : ladderFromTrace(trace, spawnEpoch);
             if (options.workload !== false) {
-                // Смерть процесса на правке — результат нагрузки, а не бенча:
-                // открытие уже измерено, остальные размеры должны прогнаться.
+                // Process death on an edit is a workload result, not a bench failure:
+                // opening is already measured, the remaining sizes must still run.
                 try {
                     workload = await runWorkload({ session, chunks, t0, timeoutMs }, fixture);
                     workloadOutcome = workload.every((w) => w.outcome === "ok") ? "ok" : "failed";

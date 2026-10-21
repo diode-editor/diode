@@ -1,6 +1,6 @@
 /**
- * Таблица созданий DI на старте (аналог «Developer: Startup Performance» эталона) по трассам
- * `DIODE_STARTUP_TRACE`; по нескольким трассам — медианы.
+ * Table of DI instantiations at startup (counterpart of upstream's "Developer: Startup Performance")
+ * from `DIODE_STARTUP_TRACE` traces; medians across multiple traces.
  *
  *   npm run bench:open -- --sizes=small --runs=15 --keep-traces=/tmp/traces
  *   npm run bench:services -- /tmp/traces/*.json [--sort=self|inclusive|start] [--top=40] [--min=0.3]
@@ -13,7 +13,7 @@ import type { IInstantiationTraceEntry } from "../../src/vs/platform/instantiati
 import { type IStartupTrace, ladderFromTrace, parseTrace } from "./startupLadder.ts";
 import { median } from "./stats.ts";
 
-/** Окна лестницы: создание относится к окну, в котором началось. */
+/** Ladder windows: an instantiation belongs to the window in which it started. */
 const WINDOWS: readonly { readonly key: string; readonly label: string }[] = [
     { key: "mainStart", label: "до DI" },
     { key: "containerCreated", label: "DI → смонтирован" },
@@ -45,7 +45,7 @@ interface Row {
     readonly runs: number;
 }
 
-/** Медианы по трассам; ключ — id токена (на прогон он создаётся не больше раза). */
+/** Medians across traces; the key is the token id (created at most once per run). */
 export function aggregate(traces: readonly IStartupTrace[]): Row[] {
     const byId = new Map<string, { entries: IInstantiationTraceEntry[]; windows: string[] }>();
     for (const trace of traces) {
@@ -96,7 +96,7 @@ export function renderTables(
     const out: string[] = [];
     out.push(`Трасс: ${String(traces)}; цифры — медианы, мс (мс от старта процесса в колонке «старт»).`, "");
 
-    // Итоги по окнам: inclusive созданий верхнего уровня — сколько окна ушло в DI.
+    // Per-window totals: inclusive time of top-level instantiations — how much of the window went to DI.
     out.push("| окно | созданий | верхний уровень, inclusive |", "|---|--:|--:|");
     for (const w of WINDOWS) {
         const inWindow = rows.filter((r) => r.window === w.label);

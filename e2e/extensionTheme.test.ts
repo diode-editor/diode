@@ -15,15 +15,15 @@ import { useHeadlessApp } from "./helpers/useApp.ts";
 import { waitUntil } from "./helpers/waitFor.ts";
 
 /**
- * Проверяется кадр — цвет ячейки равен цвету из файла темы, а не «в реестре есть запись».
- * Порядок старта (сканирование → регистрация тем → выбор активной) закрывается здесь,
- * а не юнитом: продюсер порядка — сам main.ts.
+ * The frame is what gets checked — a cell's color equals the color from the theme file, not "the registry has
+ * an entry". The startup order (scan → register themes → pick the active one) is covered here,
+ * not by a unit test: the producer of that order is main.ts itself.
  */
 
 const here = fileURLToPath(new URL(".", import.meta.url));
 const SAMPLE_SOURCE = resolve(here, "fixtures", "sample-theme");
 
-/** Цвета из e2e/fixtures/sample-theme/themes/*.json. */
+/** Colors from e2e/fixtures/sample-theme/themes/*.json. */
 const SAMPLE_DARK = { editorBg: 0x101820, statusBg: 0x0a0f14, keywordFg: 0xff7b72 };
 const SAMPLE_LIGHT = { editorBg: 0xfafaf5, statusBg: 0xdde3e9, keywordFg: 0xcf222e };
 const DARK_MODERN = { editorBg: 0x1f1f1f, statusBg: 0x181818, keywordFg: 0x569cd6 };
@@ -44,7 +44,7 @@ function keywordFg(frame: GridSnapshot): number | undefined {
     return keyword === null ? undefined : frame.cells[keyword.y * frame.cols + keyword.x].fg;
 }
 
-/** Вторая строка: первая — под кареткой и occurrence-подсветкой. */
+/** The second line: the first one is under the cursor and occurrence highlighting. */
 async function editorBg(app: HeadlessApp, frame: GridSnapshot): Promise<number> {
     const root = (await app.session.getDocument()).root;
     const editor = findNode(root, (n) => n.type === "EditorElement");
@@ -93,7 +93,7 @@ describe("Extension themes (e2e)", () => {
         expect(statusBarBg(settled)).toBe(SAMPLE_DARK.statusBg);
         expect(await editorBg(app, settled)).toBe(SAMPLE_DARK.editorBg);
 
-        // US-8: кадр с текстом идёт без подсветки (токенизация — следующим кадром).
+        // US-8: the frame with text comes without highlighting (tokenization lands in the next frame).
         await waitUntil(
             () => app.session.captureFrame(),
             (frame) => keywordFg(frame) === SAMPLE_DARK.keywordFg,
@@ -120,8 +120,8 @@ describe("Extension themes (e2e)", () => {
     });
 
     it("US-7: правка workbench.colorTheme в settings.json перекрашивает окно в тему расширения без рестарта", async () => {
-        // settings.json существует с самого старта (за ним следит watcher
-        // live-reload); тема в нём — дефолтная, правка ниже её меняет.
+        // settings.json exists from the very start (the live-reload watcher
+        // tracks it); its theme is the default one, and the edit below changes it.
         const app = await useHeadlessApp({
             installVsix: [sampleVsix],
             settings: { "workbench.colorTheme": "Dark Modern" },
@@ -147,8 +147,8 @@ describe("Extension themes (e2e)", () => {
         );
         expect(await editorBg(app, after)).toBe(SAMPLE_LIGHT.editorBg);
         expect(frameToText(after)).toContain("const answer");
-        // Синтаксис тоже перекрашен: токены несут индексы colorMap прежней темы,
-        // смена темы перетокенизирует документ (TokenizationRegistry.setColorMap).
+        // Syntax is recolored too: tokens carry colorMap indices of the previous theme,
+        // so a theme change retokenizes the document (TokenizationRegistry.setColorMap).
         await waitUntil(
             () => app.session.captureFrame(),
             (frame) => keywordFg(frame) === SAMPLE_LIGHT.keywordFg,

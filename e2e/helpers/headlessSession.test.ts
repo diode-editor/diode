@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import { startHeadlessApp } from "./appSession.ts";
 
-// Запрос в мёртвый сокет обязан отказать сразу: `ws` молча выбрасывает отправку в закрытый
-// сокет, и пост-мортем упавшего теста съедал весь `hookTimeout`.
+// A request to a dead socket must fail immediately: `ws` silently drops a send to a closed
+// socket, and the post-mortem of a failed test used to eat the whole `hookTimeout`.
 
 describe("HeadlessSession — запрос после dispose", () => {
     it("отклоняется сразу, а не висит без ответа", { timeout: 60_000 }, async () => {

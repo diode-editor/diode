@@ -10,16 +10,16 @@ import { MARKETPLACE_CHECKS } from "./checks.ts";
 import { createMarketplaceRoot, fetchPublishedIndex, PUBLISHED_REGISTRY_URL, runCli } from "./harness.ts";
 
 /**
- * Кейсы — из живого каталога реестра, а не из таблицы наших чеков: новая запись попадает под прогон
- * сама. Сьют зависит от сети и состояния публикации и может шуметь — сознательно: он краснеет ровно
- * тогда, когда пользователь получил бы нерабочий магазин. Ретраев нет — они прятали бы сигнал.
- * `DIODE_E2E_OFFLINE=1` пропускает сьют; в CI не выставляется.
+ * Cases come from the live registry catalog, not from our table of checks: a new entry is covered
+ * automatically. The suite depends on the network and publication state and may be noisy — on purpose: it
+ * goes red exactly when a user would get a broken marketplace. No retries — they would hide the signal.
+ * `DIODE_E2E_OFFLINE=1` skips the suite; CI does not set it.
  */
 
 const OFFLINE = process.env.DIODE_E2E_OFFLINE === "1";
 
-// Каталог нужен на этапе сбора тестов — по кейсу на расширение, чтобы в отчёте
-// было видно, какое именно отвалилось, а не «магазин сломался».
+// The catalog is needed at test collection time — one case per extension, so the report
+// shows which one broke rather than just "the marketplace is broken".
 const catalog = OFFLINE ? undefined : await fetchPublishedIndex();
 const published = catalog?.index.extensions ?? [];
 
@@ -31,8 +31,8 @@ describe.skipIf(OFFLINE)("магазин — опубликованные рас
     }, 180_000);
 
     it("опубликованный индекс читается парсером клиента без замечаний", () => {
-        // Сборщик реестра наших типов не видит: разбор нормативным парсером — единственная проверка,
-        // что его упрощённые правила не разошлись с форматом.
+        // The registry builder does not see our types: parsing with the normative parser is the only check
+        // that its simplified rules have not drifted from the format.
         expect(catalog?.problems).toEqual([]);
         expect(catalog?.index.schemaVersion).toBe(REGISTRY_SCHEMA_VERSION);
         expect(published.length).toBeGreaterThan(0);
@@ -40,8 +40,8 @@ describe.skipIf(OFFLINE)("магазин — опубликованные рас
 
     for (const entry of published) {
         const check = MARKETPLACE_CHECKS.find((c) => c.id === entry.id);
-        // Глубина проверки видна прямо в имени кейса: у записи без чека прогон
-        // доходит до распаковки и на этом честно останавливается.
+        // The check depth shows in the case name: for an entry without a check the run
+        // goes as far as unpacking and stops there.
         const what = check === undefined ? "ставится из магазина" : "ставится из магазина и работает в редакторе";
         it(
             `${entry.id}@${entry.latest.version} ${what}`,
@@ -58,21 +58,22 @@ describe.skipIf(OFFLINE)("магазин — опубликованные рас
                     ]);
                     expect(install.stderr).toBe("");
                     expect(install.code).toBe(0);
-                    // Ставится именно последняя опубликованная версия: реестр может
-                    // обогнать редактор, и несовместимость видна здесь, а не у пользователя.
+                    // It is the latest published version that gets installed: the registry may
+                    // get ahead of the editor, and an incompatibility shows up here, not for the user.
                     expect(install.stdout).toContain(`Installed ${entry.id}@${entry.latest.version}`);
 
                     const extDir = join(userDataDir, "extensions", `${entry.id}-${entry.latest.version}`);
                     expect(existsSync(join(extDir, "package.json")), `манифест не распакован в ${extDir}`).toBe(true);
 
-                    // Поведенческая половина — не на Windows: ext-host-сьюты там и так выключены, красный
-                    // чек значил бы известный пробел платформы. Транспорт, sha256 и распаковка — выше, везде.
+                    // The behavioral half is skipped on Windows: ext-host suites are off there anyway, so a red
+                    // check would mean a known platform gap. Transport, sha256 and unpacking are checked above,
+                    // on every platform.
                     if (check !== undefined && process.platform !== "win32") {
                         for (const rel of check.expectFiles) {
                             expect(existsSync(join(extDir, rel)), `${rel} не распакован в ${extDir}`).toBe(true);
                         }
-                        // Без внешнего инструмента (Go toolchain) — честный пропуск с
-                        // причиной, а не зелёный кейс: установка выше уже проверена.
+                        // Without the external tool (Go toolchain) — an explicit skip with a
+                        // reason, not a green case: the install above is already verified.
                         const missing = check.requires?.();
                         if (missing !== undefined) testContext.skip(missing);
                         await check.run({ root });
@@ -81,13 +82,13 @@ describe.skipIf(OFFLINE)("магазин — опубликованные рас
                     removeTempDir(root);
                 }
             },
-            // Чек с холодным стартом language-сервера просит таймаут больше общего.
+            // A check with a cold language server start asks for a longer timeout than the default.
             check?.timeoutMs ?? 240_000,
         );
     }
 
     it("--install-extension без --registry идёт в публичный реестр", async () => {
-        // Дефолт клиента и есть магазин: пользователю не нужно знать адрес.
+        // The client's default is the marketplace: the user does not need to know the URL.
         const entry = published.find((e) => e.kind === "native") ?? published[0];
         const { root, userDataDir } = createMarketplaceRoot();
         try {

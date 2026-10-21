@@ -1,12 +1,12 @@
 /**
- * Бенчмарк открытия файла (docs/TODO/OpenPerformance.md): SEA-бинарь через PTY (чёрный ящик —
- * реплей чанков stdout) рядом с трассой вех `DIODE_STARTUP_TRACE` (белый ящик); расхождение
- * между ними само по себе находка. Главная цифра — от пола node, снятого тем же PTY-путём.
- * LSP в замер не входит: он приезжает после TextMate-подсветки.
+ * File-open benchmark (docs/TODO/OpenPerformance.md): the SEA binary over PTY (black box —
+ * replay of stdout chunks) alongside the `DIODE_STARTUP_TRACE` mark trace (white box); a discrepancy
+ * between them is a finding in itself. The headline number is relative to the node floor measured
+ * via the same PTY path. LSP is not measured: it arrives after TextMate highlighting.
  *
- * Запуск: `npm run bench:open [-- --sizes=small,xlarge --runs=3 --json=out.json --md=out.md --label="от сети, фон пуст"]`
- * (`--keep-traces=<каталог>` — трассы для `npm run bench:services`). Бинарь — из кэша
- * e2e-сборок по хешу исходников либо `DIODE_E2E_BINARY`. Тяжёлый прогон — под лизу.
+ * Usage: `npm run bench:open [-- --sizes=small,xlarge --runs=3 --json=out.json --md=out.md --label="on AC, idle"]`
+ * (`--keep-traces=<dir>` keeps traces for `npm run bench:services`). The binary comes from the
+ * e2e build cache keyed by source hash, or `DIODE_E2E_BINARY`. Heavy run — take the lease.
  */
 
 import { spawnSync } from "node:child_process";
@@ -28,10 +28,10 @@ interface CliOptions {
     runsOverride: number | null;
     jsonPath: string | null;
     mdPath: string | null;
-    /** Подпись условий локального прогона (машина, питание, фон). */
+    /** Label for local run conditions (machine, power, background load). */
     label: string | null;
     workload: boolean;
-    /** Каталог трасс прогонов (`<размер>-<n>.json`). */
+    /** Directory for run traces (`<size>-<n>.json`). */
     traceDir: string | null;
 }
 
@@ -144,7 +144,7 @@ async function main(): Promise<void> {
                               keys
                             : ` exit=${String(result.exitCode)} signal=${String(result.signal)}`),
                 );
-                // Смысла жечь оставшиеся прогоны нет: исход детерминированно плохой.
+                // No point burning the remaining runs: the outcome is deterministically bad.
                 if (result.outcome === "crash") break;
             }
             sizes.push(summarizeSize(fixture, fixtureBytes, results, floors));

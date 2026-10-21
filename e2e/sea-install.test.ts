@@ -11,9 +11,9 @@ import { fetchStockVsix } from "../src/TestUtils/stockVsix.ts";
 import { getBinaryPath } from "./helpers/buildOnce.ts";
 
 /**
- * CLI-команды «выполнил и вышел» — без PTY. На Windows только здесь исполняется путь
- * установки в SEA: yauzl из ленивого куска `lazy/yauzl.cjs`; в `main.cjs` его нет,
- * так что успешная установка доказывает, что кусок загрузился.
+ * "Run and exit" CLI commands — no PTY. On Windows this is the only place the SEA install path
+ * runs: yauzl from the lazy chunk `lazy/yauzl.cjs`; it isn't in `main.cjs`,
+ * so a successful install proves the chunk loaded.
  */
 
 interface CliResult {
@@ -104,8 +104,8 @@ describe("SEA binary — extension install CLI", () => {
     it("--profile: ставит, перечисляет и удаляет в составе профиля; общий каталог чистится, когда расширение не нужно никому", async () => {
         const root = path.join(tempRoot, "user-data-profiles");
         const cli = (...args: string[]) => runCli(binary, ["--user-data-dir", root, ...args]);
-        // Профиль `work` из прошлой версии; пустой состав задаём явно — без файла миграция
-        // отдала бы ему все установленные.
+        // The `work` profile from a previous version; set an empty set explicitly — without the file, migration
+        // would give it all installed extensions.
         const workDir = path.join(root, "user-data", "User", "profiles", "work");
         await fs.promises.mkdir(workDir, { recursive: true });
         await fs.promises.writeFile(path.join(workDir, "extensions.json"), "[]");
@@ -119,14 +119,14 @@ describe("SEA binary — extension install CLI", () => {
         expect(installWork.code).toBe(0);
         expect((await cli("--profile", "work", "--list-extensions")).stdout.trim()).toBe("acme.demo@1.2.3");
 
-        // Убрали из work — в Default осталось, каталог на диске нужен ему.
+        // Removed from work — it remains in Default, which still needs the directory on disk.
         const extDir = path.join(root, "extensions", "acme.demo-1.2.3");
         expect((await cli("--profile", "work", "--uninstall-extension", "acme.demo")).code).toBe(0);
         expect((await cli("--profile", "work", "--list-extensions")).stdout.trim()).toBe("");
         expect((await cli("--list-extensions")).stdout.trim()).toBe("acme.demo@1.2.3");
         expect(fs.existsSync(extDir)).toBe(true);
 
-        // Убрали из последнего профиля — ушёл и с диска.
+        // Removed from the last profile — gone from disk too.
         expect((await cli("--uninstall-extension", "acme.demo")).code).toBe(0);
         expect(fs.existsSync(extDir)).toBe(false);
     });
@@ -142,7 +142,7 @@ describe("SEA binary — extension install CLI", () => {
     });
 });
 
-/** Настоящий zip от vsce, а не собранный yazl'ом в тесте; установка по id — ещё и через кусок semver. */
+/** A real zip from vsce rather than one built with yazl in the test; installing by id also goes through the semver chunk. */
 describe.skipIf(MARKETPLACE_OFFLINE)("SEA binary — stock extension through the lazy chunks (yauzl, semver)", () => {
     const STOCK_ID = "EditorConfig.EditorConfig";
     let binary: string;
@@ -159,8 +159,8 @@ describe.skipIf(MARKETPLACE_OFFLINE)("SEA binary — stock extension through the
         await fs.promises.rm(tempRoot, { recursive: true, force: true });
     });
 
-    // Ожидаемую версию тест считает тем же правилом (`fetchStockVsix` →
-    // resolveCompatibleVersion) в своём процессе, где semver берётся из node_modules.
+    // The test computes the expected version with the same rule (`fetchStockVsix` →
+    // resolveCompatibleVersion) in its own process, where semver comes from node_modules.
     it("installs the stock extension by id from the registry: the compatible version is picked inside the binary", async () => {
         const userDataDir = path.join(tempRoot, "user-data-by-id");
 
@@ -182,7 +182,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("SEA binary — stock extension through the
         expect(install.code).toBe(0);
         expect(install.stdout).toContain(`Installed ${STOCK_ID}@${stock.version}`);
 
-        // Распаковано целиком: манифест той же версии и точка входа, на которую он указывает.
+        // Fully unpacked: a manifest of the same version and the entry point it references.
         const extDir = path.join(userDataDir, "extensions", `${STOCK_ID}-${stock.version}`);
         const manifest = JSON.parse(await fs.promises.readFile(path.join(extDir, "package.json"), "utf8")) as {
             version: string;

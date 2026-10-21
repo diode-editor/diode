@@ -21,9 +21,9 @@ import { useHeadlessApp } from "./helpers/useApp.ts";
 import { waitUntil } from "./helpers/waitFor.ts";
 
 /**
- * Стоковый golang.go из магазина; клиент расширения поднимает gopls по stdio.
- * Настройки сохранения не задаются: formatOnSave и organize imports приезжают из
- * `configurationDefaults` `[go]` самого расширения — ровно как у человека.
+ * The stock golang.go extension from the marketplace; its client starts gopls over stdio.
+ * No save settings are set: formatOnSave and organize imports come from the extension's own
+ * `[go]` `configurationDefaults` — exactly as for a real user.
  */
 
 const UNDERCURL = 8;
@@ -31,7 +31,7 @@ const UNDERCURL = 8;
 const skipReason = goToolchainMissing();
 if (skipReason !== undefined) console.warn(skipReason);
 
-/** Кэши Go хоста: в изолированном HOME они пустые, и сборка gopls шла бы с нуля по сети. */
+/** The host's Go caches: in an isolated HOME they are empty, and gopls would build from scratch over the network. */
 function hostGoCaches(): Record<string, string> {
     const go = findGoBinary();
     if (go === undefined) return { ...GO_SESSION_ENV };
@@ -49,7 +49,7 @@ async function waitForGopls(session: { captureFrame: () => Promise<{ cells: { st
     );
 }
 
-// Только Linux: extension host + спавн сервера (docs/TODO/E2E.md).
+// Linux only: extension host + server spawn (docs/TODO/E2E.md).
 describe.skipIf(
     process.platform === "win32" || process.platform === "darwin" || MARKETPLACE_OFFLINE || skipReason !== undefined,
 )("SEA binary — стоковый golang.go (gopls)", () => {
@@ -71,7 +71,7 @@ describe.skipIf(
         await session.waitForNode("EditorElement");
         await waitForGopls(session, 180_000);
 
-        // Каретка на `Hello` в `greet.Hello("world")` (строка 10, символ 15; таб — один символ).
+        // Cursor on `Hello` in `greet.Hello("world")` (line 10, character 15; a tab is one character).
         for (let i = 0; i < 10; i++) await session.key("ArrowDown");
         for (let i = 0; i < 15; i++) await session.key("ArrowRight");
         await session.key("Ctrl+K");
@@ -111,8 +111,8 @@ describe.skipIf(
         expect(onDisk).not.toContain('"os"');
     });
 
-    // Без gopls расширение само зовёт `go install gopls@latest`. Один тест на весь путь —
-    // сборка gopls дорогая даже с кэшами хоста.
+    // Without gopls the extension runs `go install gopls@latest` itself. One test for the whole path —
+    // building gopls is expensive even with the host caches.
     it("без gopls расширение ставит его само и поднимает сервер", { timeout: 900_000 }, async () => {
         const gobin = mkdtempSync(join(tmpdir(), "diode-go-gobin-"));
         try {

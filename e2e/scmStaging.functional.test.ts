@@ -10,7 +10,7 @@ import { frameToText } from "./helpers/frame.ts";
 import { getBinaryPath } from "./helpers/buildOnce.ts";
 import { useHeadlessApp } from "./helpers/useApp.ts";
 
-// Git-ассерты — строго после того, как UI-предикат подтвердил завершение операции.
+// Git assertions run strictly after a UI predicate has confirmed the operation finished.
 
 const SWITCH_KEYS = [
     { key: "alt+c", command: "workbench.view.scm" },
@@ -63,7 +63,7 @@ async function open(repoDir: string): Promise<HeadlessApp> {
     return useHeadlessApp({ open: [repoDir], keybindings: SWITCH_KEYS, cols: 100, rows: 30 });
 }
 
-/** Текст только внутри прямоугольника узла — без соседних панелей. */
+/** Text only inside the node's rectangle — without neighboring panels. */
 function regionText(frame: string, box: { x: number; y: number; width: number; height: number }): string {
     const lines = frame.split("\n");
     const out: string[] = [];
@@ -77,8 +77,8 @@ const A = 'export const a = "one";\n';
 const A_MOD = 'export const a = "two";\n';
 
 /**
- * Исчезновение строки — ещё не конец: публикация идёт внутри операции, и мутирующие
- * git-команды пока недоступны. Кнопка действия гаснет ровно на время операции.
+ * A row disappearing is not the end yet: publishing happens inside the operation, and mutating
+ * git commands are still unavailable. The action button is disabled exactly for the operation's duration.
  */
 async function waitForScmIdle(session: HeadlessApp["session"]): Promise<void> {
     await session.waitForState("#scmActionButton", (s) => (s as { disabled?: boolean })?.disabled === false);
@@ -110,7 +110,7 @@ describe("SCM staging (functional e2e, спека SourceControl.md)", () => {
             staged: { "mm.ts": A_MOD },
             untracked: { "new.ts": "export {};\n" },
         });
-        // Поверх staged-версии — ещё одна правка: mm.ts становится MM.
+        // One more edit on top of the staged version: mm.ts becomes MM.
         writeFileSync(join(repo, "mm.ts"), 'export const a = "three";\n');
         writeFileSync(join(repo, "plain.ts"), A_MOD);
         app = await open(repo);
@@ -120,8 +120,8 @@ describe("SCM staging (functional e2e, спека SourceControl.md)", () => {
         await session.waitForText((t) => t.includes("SOURCE CONTROL") && t.includes("Staged Changes"));
         await session.waitForNode("#scmGroup-index");
         await session.waitForNode("#scmGroup-worktree");
-        // Untracked своего заголовка не получает — строка едет под «Changes»,
-        // но помнит свою группу в id (по ней discard выбирает clean vs checkout).
+        // Untracked gets no header of its own — the row goes under "Changes",
+        // but keeps its group in the id (discard uses it to choose clean vs checkout).
         expect(await session.node("#scmGroup-untracked")).toBeNull();
         const newRow = await session.waitForNode("#scmRow-untracked-new-ts");
         await session.waitForNode("#scmRow-index-mm-ts");
@@ -224,7 +224,7 @@ describe("SCM staging (functional e2e, спека SourceControl.md)", () => {
         await session.key("Shift+ArrowDown");
         await session.waitForState("#changesList", (s) => ((s as { selectedIds?: string[] })?.selectedIds?.length ?? 0) === 3);
 
-        // Ctrl+клик по b.ts снимает её: остаются a и c.
+        // Ctrl+click on b.ts deselects it: a and c remain.
         const rowB = await session.waitForNode("#scmRow-worktree-b-ts");
         await session.sendMouse({ action: "press", button: "left", x: rowB.box.x + 2, y: rowB.box.y, ctrlKey: true });
         await session.sendMouse({ action: "release", button: "left", x: rowB.box.x + 2, y: rowB.box.y, ctrlKey: true });
@@ -233,8 +233,8 @@ describe("SCM staging (functional e2e, спека SourceControl.md)", () => {
             return ids.length === 2 && !ids.includes("scmRow-worktree-b-ts");
         });
 
-        // Правый клик по a.ts: после Ctrl+клика курсор стоит на снятой b.ts, и keyboard-меню
-        // целилось бы в неё. Цели — всё выделение.
+        // Right-click a.ts: after the Ctrl+click the cursor is on the deselected b.ts, and a keyboard menu
+        // would target it. The targets are the whole selection.
         await session.sendMouse({ action: "press", button: "right", x: rowA.box.x + 2, y: rowA.box.y });
         await session.sendMouse({ action: "release", button: "right", x: rowA.box.x + 2, y: rowA.box.y });
         await clickMenuItem(session, "Stage Changes");
@@ -266,7 +266,7 @@ describe("SCM staging (functional e2e, спека SourceControl.md)", () => {
         await session.waitForText((t) => !t.includes("Are you sure"));
         expect(readFileSync(join(repo, "app.ts"), "utf8")).toBe(A_MOD);
 
-        // Теперь подтверждаем: дефолтный фокус на Cancel, стрелка — на Discard.
+        // Now confirm: default focus is on Cancel, the arrow moves to Discard.
         await session.sendMouse({ action: "press", button: "right", x: row.box.x + 2, y: row.box.y });
         await session.sendMouse({ action: "release", button: "right", x: row.box.x + 2, y: row.box.y });
         await clickMenuItem(session, "Discard Changes");
@@ -274,7 +274,7 @@ describe("SCM staging (functional e2e, спека SourceControl.md)", () => {
         await session.key("ArrowLeft");
         await session.key("Enter");
         await session.waitForNoNode("#scmRow-worktree-app-ts");
-        // Windows: git checkout восстанавливает файл с CRLF (autocrlf) — нормализуем.
+        // Windows: git checkout restores the file with CRLF (autocrlf) — normalize.
         expect(readFileSync(join(repo, "app.ts"), "utf8").replace(/\r\n/g, "\n")).toBe(A);
 
         await waitForScmIdle(session);
@@ -307,7 +307,7 @@ describe("SCM staging (functional e2e, спека SourceControl.md)", () => {
         await session.sendMouse({ action: "release", button: "right", x: stagedRow.box.x + 2, y: stagedRow.box.y });
         let frame = frameToText(await session.waitForText((t) => t.includes("Unstage Changes")));
         expect(frame).toContain("Open File");
-        // «Stage Changes» (с большой S) — не подстрока «Unstage Changes».
+        // "Stage Changes" (capital S) is not a substring of "Unstage Changes".
         expect(frame).not.toContain("Stage Changes");
         await session.key("Escape");
         await session.waitForText((t) => !t.includes("Unstage Changes"));

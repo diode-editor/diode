@@ -23,20 +23,20 @@ import { killGroup, SESSION_MARKER_ENV } from "./processGroup.ts";
 import { $, $$, focusedLeaf } from "./query.ts";
 import { waitUntil } from "./waitFor.ts";
 
-/** Сколько ждём ответа на `TUIDom.shutdown`, прежде чем перейти к SIGKILL. */
+/** How long to wait for the `TUIDom.shutdown` reply before falling back to SIGKILL. */
 const SHUTDOWN_REPLY_TIMEOUT_MS = 5000;
 const CONNECT_TIMEOUT_MS = 30_000;
-/** Сколько ждать самостоятельного выхода процесса после shutdown (до SIGKILL). */
+/** How long to let the process exit on its own after shutdown (before SIGKILL). */
 const EXIT_GRACE_MS = 3000;
 
 export type MouseModifiers = Pick<SendMouseParams, "shiftKey" | "altKey" | "ctrlKey">;
 
-/** `settle: false` — без авто-ожидания покоя (тесты на гонки); объект — параметры `waitForIdle`. */
+/** `settle: false` skips the automatic idle wait (race tests); an object passes `waitForIdle` params. */
 export type SettleOption = { settle?: boolean | WaitForIdleParams };
 
 export type WaitOpts = { timeoutMs?: number; intervalMs?: number };
 
-/** От левого-верхнего угла box'а узла, а не от центра. */
+/** Relative to the top-left corner of the node's box, not its center. */
 export type NodeClickOffset = { dx?: number; dy?: number };
 
 export interface HeadlessSessionOptions {
@@ -46,21 +46,21 @@ export interface HeadlessSessionOptions {
     rows?: number;
     cwd?: string;
     env?: Record<string, string>;
-    /** Например self-extract-сборка; по умолчанию — SEA из getBinaryPath(). */
+    /** E.g. a self-extract build; defaults to the SEA from getBinaryPath(). */
     binary?: string;
 }
 
-/** Настоящий SEA-бинарь в `--headless`, управление через инспектор — без pty и ANSI. */
+/** The real SEA binary in `--headless`, driven over the inspector — no pty, no ANSI. */
 export class HeadlessSession {
     public readonly cols: number;
     public readonly rows: number;
     /**
-     * `DIODE_E2E_SESSION`: её наследует всё, что поднял редактор, включая языковые серверы в чужой
-     * группе процессов, — по ней `appSession` добивает переживших `dispose`.
+     * `DIODE_E2E_SESSION`: inherited by everything the editor spawns, including language servers in
+     * another process group — `appSession` uses it to kill whatever survives `dispose`.
      */
     public readonly sessionTag: string;
     private readonly child: ChildProcess;
-    /** Не readonly: перезагрузка окна поднимает новый процесс на том же порту. */
+    /** Not readonly: a window reload starts a new process on the same port. */
     private ws: WebSocket;
     private readonly port: number;
     private nextId = 1;
@@ -82,12 +82,12 @@ export class HeadlessSession {
             stdio: ["ignore", "ignore", "pipe"],
             ...(options.cwd !== undefined ? { cwd: options.cwd } : {}),
             env: hermeticSpawnEnv({ ...options.env, [SESSION_MARKER_ENV]: sessionTag }),
-            // Своя группа процессов (posix): `dispose` сигналит всей группе, а не
-            // одному редактору, — его прямые помощники не остаются сиротами.
+            // Own process group (posix): `dispose` signals the whole group, not just the
+            // editor, so its direct helpers are not orphaned.
             detached: process.platform !== "win32",
         });
-        // stderr копим с самого спавна: если процесс умрёт до подключения, его
-        // последние слова — единственная диагностика.
+        // Collect stderr from spawn: if the process dies before connecting, its
+        // last words are the only diagnostics.
         let stderr = "";
         child.stderr?.on("data", (chunk: Buffer) => {
             stderr += chunk.toString();
@@ -112,8 +112,8 @@ export class HeadlessSession {
     }
 
     /**
-     * Процесс заменяет себя новым на том же порту. Прежний сокет закрывается не сразу (прощание
-     * сперва останавливает extension host) — его закрытие и есть признак перезапуска.
+     * The process replaces itself with a new one on the same port. The old socket does not close
+     * right away (shutdown stops the extension host first) — its closing is the restart signal.
      */
     public async reconnect(timeoutMs = 30_000): Promise<void> {
         await this.waitForSocketClose(timeoutMs);
@@ -143,8 +143,8 @@ export class HeadlessSession {
             if ("error" in res) waiter.reject(new Error(res.error.message));
             else waiter.resolve((res as InspectorSuccessResponse).result);
         });
-        // Мёртвый сокет ответа не принесёт: на `TUIDom.shutdown` процесс уходит в exit синхронно, и
-        // без этого `dispose()` не возвращался никогда.
+        // A dead socket never replies: on `TUIDom.shutdown` the process exits synchronously, and
+        // without this `dispose()` never returned.
         const failPending = (reason: string): void => {
             for (const [id, waiter] of this.pending) {
                 this.pending.delete(id);
@@ -163,8 +163,8 @@ export class HeadlessSession {
         const id = this.nextId++;
         return new Promise<T>((resolve, reject) => {
             this.pending.set(id, { resolve: resolve as (r: unknown) => void, reject });
-            // Колбэк обязателен: без него `ws` молча выбрасывает отправку в закрытый сокет, и запрос
-            // после `dispose` висел бы вечно — событие `close` уже прошло.
+            // The callback is required: without it `ws` silently drops a send to a closed socket, and a
+            // request after `dispose` would hang forever — the `close` event has already fired.
             this.ws.send(JSON.stringify({ id, method, params }), (error) => {
                 if (error === undefined || error === null) return;
                 this.pending.delete(id);
@@ -174,25 +174,25 @@ export class HeadlessSession {
     }
 
 
-    /** Без ожидания покоя — для тестов на гонки. */
+    /** No idle wait — for race tests. */
     public async sendKey(name: string): Promise<void> {
         await this.rpc("TUIDom.sendKey", { name });
     }
 
-    /** Без ожидания покоя — для тестов на гонки. */
+    /** No idle wait — for race tests. */
     public async sendText(text: string): Promise<void> {
         await this.rpc("TUIDom.sendText", { text });
     }
 
-    /** 0-based экранные координаты — те же, что `box` узла в `TUIDom.getDocument`. Без ожидания покоя. */
+    /** 0-based screen coordinates — the same as a node's `box` in `TUIDom.getDocument`. No idle wait. */
     public async sendMouse(params: SendMouseParams): Promise<void> {
         await this.rpc("TUIDom.sendMouse", params);
     }
 
 
     /**
-     * Ждёт покоя *рендера*, а не асинхронных хвостов (ext-host, debounce StateService) — для них
-     * предикат ({@link waitForDocument} и т.п.).
+     * Waits for *render* idle, not for async tails (ext-host, StateService debounce) — use a
+     * predicate for those ({@link waitForDocument} etc.).
      */
     public async waitForIdle(opts: WaitForIdleParams = {}): Promise<WaitForIdleResult> {
         return this.rpc<WaitForIdleResult>("TUIDom.waitForIdle", opts);
@@ -238,23 +238,23 @@ export class HeadlessSession {
 
 
     /**
-     * Готовности не ждёт: методы поднимаются с инспектором, до активации расширений, — для тестов
-     * «человек успел раньше старта».
+     * Does not wait for readiness: methods come up with the inspector, before extensions activate —
+     * for tests where the user acts before startup completes.
      */
     public async executeCommand(id: string, ...args: unknown[]): Promise<void> {
         await this.rpc("Diode.executeCommand", { id, args });
     }
 
     /**
-     * Extension host активирован (`*`, `workspaceContains:`, `onStartupFinished`) и фаза `eventually`.
-     * Текст на экране готовности не означает: расширения поднимаются позже, как у эталона.
+     * Extension host activated (`*`, `workspaceContains:`, `onStartupFinished`) and phase `eventually`.
+     * Text on screen does not mean ready: extensions come up later, as in upstream.
      */
     public async waitForReady(timeoutMs = 60_000): Promise<void> {
         const { ready } = await this.rpc<{ ready: boolean }>("Diode.whenReady", { timeoutMs });
         if (!ready) throw new Error(`Diode.whenReady: редактор не готов за ${String(timeoutMs)} мс`);
     }
 
-    /** Текст канала Output (id или подпись). */
+    /** Output channel text (by id or label). */
     public async getOutput(channel: string): Promise<string> {
         return (await this.rpc<{ text: string }>("Diode.getOutput", { channel })).text;
     }
@@ -360,8 +360,8 @@ export class HeadlessSession {
 
     public async dispose(): Promise<void> {
         try {
-            // Именно просьба: ответа может не быть ни от сокета, ни от зависшего процесса, а дальше
-            // всё равно SIGKILL — ждём ограниченно.
+            // Only a request: neither the socket nor a hung process may reply, and SIGKILL follows
+            // anyway — so the wait is bounded.
             await Promise.race([this.rpc("TUIDom.shutdown"), sleep(SHUTDOWN_REPLY_TIMEOUT_MS)]);
         } catch {
             // socket may drop as the process exits — ignore
@@ -371,14 +371,15 @@ export class HeadlessSession {
         } catch {
             // already closed
         }
-        // Дать процессу выйти самому: мгновенный SIGKILL режет flushSync стора в process.on("exit") на
-        // медленных раннерах (терялся черновик commit-сообщения между рестартами).
+        // Let the process exit on its own: an immediate SIGKILL cuts off the store's flushSync in
+        // process.on("exit") on slow runners (the commit message draft was lost between restarts).
         const exitDeadline = Date.now() + EXIT_GRACE_MS;
         while (this.child.exitCode === null && Date.now() < exitDeadline) {
             await sleep(50);
         }
-        // Группе — всегда, даже если лидер вышел: помощники в группе сами не уходят. Субпроцесс
-        // расширений живёт в СВОЕЙ группе и прощается сам (languageServerTeardown.test.ts).
+        // Always signal the group, even if the leader exited: its helpers do not leave on their own.
+        // The extension subprocess lives in its OWN group and shuts down by itself
+        // (languageServerTeardown.test.ts).
         killGroup(this.child, "SIGKILL");
     }
 
@@ -387,15 +388,15 @@ export class HeadlessSession {
         return this.stderr;
     }
 
-    /** Для тестов на ДЕРЕВО процессов (субпроцесс расширений, языковые серверы), а не на кадр. */
+    /** For tests on the process TREE (extension subprocess, language servers), not on the frame. */
     public get pid(): number | undefined {
         return this.child.pid;
     }
 }
 
 /**
- * Наперегонки со смертью процесса: ранний выход (ENOENT, падение на старте) виден за миллисекунды
- * вместе со stderr, а не через 30 с `connectWithRetry`; при любой неудаче процесс добивается.
+ * Races against process death: an early exit (ENOENT, crash on startup) shows up within milliseconds
+ * along with stderr, not after 30 s of `connectWithRetry`; on any failure the process is killed.
  */
 async function connectOrDie(child: ChildProcess, url: string, stderr: () => string): Promise<WebSocket> {
     const abort = new AbortController();
@@ -417,7 +418,7 @@ async function connectOrDie(child: ChildProcess, url: string, stderr: () => stri
     }
 }
 
-/** Голый таймаут, а не {@link waitFor}: гонимся с ответом на shutdown, которого может и не быть. */
+/** A bare timeout, not {@link waitFor}: it races a shutdown reply that may never come. */
 function sleep(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
 }

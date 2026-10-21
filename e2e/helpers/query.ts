@@ -1,12 +1,12 @@
 import type { NodeSnapshot } from "@tuidom/inspector/protocol";
 
-// Целимся селектором, а не `nodeId`: виджеты пересоздают поддеревья, и id протухают между кадрами.
-// Синтаксис — как у `tuidom/dom/tuiSelector.ts`, но по снимку `NodeSnapshot`:
+// Target by selector, not `nodeId`: widgets recreate subtrees, so ids go stale between frames.
+// Same syntax as `tuidom/dom/tuiSelector.ts`, but over a `NodeSnapshot`:
 //
-//     "EditorElement"          — по типу (имя класса)
-//     "#greeting"              — по id
-//     "@heading"               — по role
-//     "PanelContainerElement SelectBoxElement" — потомок (через пробел)
+//     "EditorElement"          — by type (class name)
+//     "#greeting"              — by id
+//     "@heading"               — by role
+//     "PanelContainerElement SelectBoxElement" — descendant (space-separated)
 
 interface Box {
     x: number;
@@ -58,12 +58,12 @@ function collect(node: NodeSnapshot, parts: ParsedPart[], depth: number, out: No
             if (depth === parts.length - 1) out.push(child);
             else collect(child, parts, depth + 1, out);
         }
-        // Тот же узел может начинать матч и глубже — потомок ищется на любом уровне.
+        // The same node can also start a match deeper down — a descendant is searched at any level.
         collect(child, parts, depth, out);
     }
 }
 
-/** Все узлы-потомки `root`, подходящие под селектор (pre-order). */
+/** All descendants of `root` matching the selector (pre-order). */
 export function $$(root: NodeSnapshot | null, selector: string): NodeSnapshot[] {
     if (root === null) return [];
     const parts = parseSelector(selector);
@@ -73,7 +73,7 @@ export function $$(root: NodeSnapshot | null, selector: string): NodeSnapshot[] 
         else collect(root, parts, 1, out);
     }
     collect(root, parts, 0, out);
-    // Дедуп: узел мог попасть и как корневой матч, и через collect.
+    // Dedup: a node may be added both as a root match and via collect.
     return [...new Set(out)];
 }
 
@@ -87,13 +87,13 @@ export function boxOf(root: NodeSnapshot | null, selector: string): Box {
     return node.box;
 }
 
-/** Центр box'а узла в 0-based ячейках — точка для клика. */
+/** Center of the node's box in 0-based cells — the click point. */
 export function centerOf(root: NodeSnapshot | null, selector: string): { x: number; y: number } {
     const { x, y, width, height } = boxOf(root, selector);
     return { x: x + Math.floor(width / 2), y: y + Math.floor(height / 2) };
 }
 
-/** Самый глубокий узел с `focused` (в снимке их несколько по пути к листу). */
+/** The deepest node with `focused` (the snapshot has several along the path to the leaf). */
 export function focusedLeaf(root: NodeSnapshot | null): NodeSnapshot | null {
     let leaf: NodeSnapshot | null = null;
     const visit = (n: NodeSnapshot): void => {

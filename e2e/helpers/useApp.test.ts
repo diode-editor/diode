@@ -83,7 +83,7 @@ describe("dumpSession", () => {
         expect(Date.now() - started).toBeLessThan(2000);
         expect(dump).toContain("── frame ── <capture failed: no reply in 20ms>");
         expect(dump).toContain("── tree ── <getDocument failed: no reply in 20ms>");
-        // То, что получить можно без редактора, в отчёт всё равно попадает.
+        // What can be obtained without the editor still goes into the report.
         expect(dump).toContain("boom on stderr");
     });
 
