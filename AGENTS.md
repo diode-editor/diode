@@ -21,8 +21,9 @@ Diode — терминальный текстовый редактор (клон
 Проектные хуки (`.claude/hooks/`) и встроенная изоляция worktree Claude Code отказывают в части команд. Отказ — подсказка, как сделать правильно, а не повод обходить его другой командой. В worktree-сессии: одна простая команда на вызов, без `$(…)`, переменных и функций; многострочное — `python3 -I <скрипт из scratchpad>`; git-помощники — `node scripts/git/*.mjs`, а не `npm run git:*`; соседний checkout — `git -C <абсолютный путь>`. Таблица отказов → [.claude/hooks/README.md](.claude/hooks/README.md).
 
 # Гейты и стиль
-- Job `static` в CI — пять проверок, любая красная блокирует PR; перед сдачей прогоняй все: `npm run typecheck`, `npm run lint` (тяжёлый — `claude-lease run -- npm run lint`, скилл `heavy-run`), `npm run valid-layers-check`, `npm run lazy-chunks-check`, `npm run snapshot-check` (node ≥ 26.11). Формат и порядок импортов чинит `npm run lint:fix`.
+- Job `static` в CI — шесть проверок, любая красная блокирует PR; перед сдачей прогоняй все: `npm run typecheck`, `npm run lint` (тяжёлый — `claude-lease run -- npm run lint`, скилл `heavy-run`), `npm run valid-layers-check`, `npm run lazy-chunks-check`, `npm run cyrillic-check`, `npm run snapshot-check` (node ≥ 26.11). Формат и порядок импортов чинит `npm run lint:fix`.
 - Между правками — `npm run check:diff` (только дифф ветки, десятки секунд); полных гейтов он не заменяет → [TESTING.md](docs/TESTING.md#быстрый-цикл-по-диффу-checkdiff). Спотыкается линт — [docs/STYLE.md](docs/STYLE.md).
+- **Код — по-английски, доки — по-русски.** Комментарии, названия тестов и строки пишем по-английски, термины — по [глоссарию](docs/STYLE.md#глоссарий); `*.md`, `.claude/`, коммиты и PR — по-русски. Храповик — `npm run cyrillic-check` → [язык кода](docs/STYLE.md#язык-кода).
 - Импорты — с расширением файла. Приватные члены — без подчёркивания, только модификатор.
 - Имена файлов — **camelCase**, как у vscode, по главному экспорту (`menuRegistry.ts`). Тесты — колокацией и не одним огромным файлом: `tuiElement.test.ts`, `tuiElement.events.test.ts`.
 
