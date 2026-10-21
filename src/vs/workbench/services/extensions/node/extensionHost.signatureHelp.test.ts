@@ -84,10 +84,7 @@ describe("ExtensionHost — signature help providers (subprocess)", () => {
                         label: "greet(name: string, age: number): void",
                         // Context echo: the provider received a real SignatureHelpContext.
                         documentation: "kind=2 char=, retrigger=true active=0",
-                        parameters: [
-                            { label: "name: string", documentation: "who to greet" },
-                            { label: [20, 31] },
-                        ],
+                        parameters: [{ label: "name: string", documentation: "who to greet" }, { label: [20, 31] }],
                     },
                 ],
                 activeSignature: 0,

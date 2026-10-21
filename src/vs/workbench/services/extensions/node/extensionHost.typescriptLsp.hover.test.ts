@@ -69,48 +69,52 @@ describe("ExtensionHost — hover from the stock typescript-language-server", ()
         await buildExtensions({ repoRoot: REPO_ROOT });
     }, 120_000);
 
-    it("the type of the symbol under the cursor reaches the core as a markdown block", { timeout: 180_000 }, async () => {
-        const outputLines: { level: string; value: string }[] = [];
-        const harness: IExtensionHarness = await createExtensionTestHarness({
-            languageService: TS_LANGUAGE_SERVICE,
-            activateEvents: [],
-            configuration: {
-                diode: { lsp: { typescript: { serverPath: SERVER_CLI, tsserverPath: TSSERVER_JS } } },
-            },
-            outputSink: {
-                append: (_channel, _label, level, value) => outputLines.push({ level, value }),
-                show: () => undefined,
-            },
-            extensions: [lspClientRegistration()],
-        });
-        try {
-            harness.writeFile("tsconfig.json", JSON.stringify({ compilerOptions: { strict: true } }));
-            const mainPath = harness.writeFile("main.ts", MAIN_TS);
-            const mainUri = Uri.file(mainPath).toString();
-
-            harness.group.openFile(mainPath);
-            await harness.host.activateByEvent("onLanguage:typescript");
-
-            const hovers = await until("hover over `answer`", async () => {
-                const found: readonly ICoreHover[] = await provideHovers(harness, {
-                    uri: mainUri,
-                    languageId: "typescript",
-                    versionId: documentVersion(harness, mainUri),
-                    line: 0,
-                    character: 6,
-                });
-                return found.length > 0 ? found : null;
+    it(
+        "the type of the symbol under the cursor reaches the core as a markdown block",
+        { timeout: 180_000 },
+        async () => {
+            const outputLines: { level: string; value: string }[] = [];
+            const harness: IExtensionHarness = await createExtensionTestHarness({
+                languageService: TS_LANGUAGE_SERVICE,
+                activateEvents: [],
+                configuration: {
+                    diode: { lsp: { typescript: { serverPath: SERVER_CLI, tsserverPath: TSSERVER_JS } } },
+                },
+                outputSink: {
+                    append: (_channel, _label, level, value) => outputLines.push({ level, value }),
+                    show: () => undefined,
+                },
+                extensions: [lspClientRegistration()],
             });
+            try {
+                harness.writeFile("tsconfig.json", JSON.stringify({ compilerOptions: { strict: true } }));
+                const mainPath = harness.writeFile("main.ts", MAIN_TS);
+                const mainUri = Uri.file(mainPath).toString();
 
-            const joined = hovers.flatMap((hover) => hover.contents).join("\n");
-            expect(joined).toContain("const answer: number");
+                harness.group.openFile(mainPath);
+                await harness.host.activateByEvent("onLanguage:typescript");
 
-            const conversionErrors = outputLines.filter((line) =>
-                /is not a constructor|Converting|Cannot read propert/i.test(line.value),
-            );
-            expect(conversionErrors).toEqual([]);
-        } finally {
-            await harness.dispose();
-        }
-    });
+                const hovers = await until("hover over `answer`", async () => {
+                    const found: readonly ICoreHover[] = await provideHovers(harness, {
+                        uri: mainUri,
+                        languageId: "typescript",
+                        versionId: documentVersion(harness, mainUri),
+                        line: 0,
+                        character: 6,
+                    });
+                    return found.length > 0 ? found : null;
+                });
+
+                const joined = hovers.flatMap((hover) => hover.contents).join("\n");
+                expect(joined).toContain("const answer: number");
+
+                const conversionErrors = outputLines.filter((line) =>
+                    /is not a constructor|Converting|Cannot read propert/i.test(line.value),
+                );
+                expect(conversionErrors).toEqual([]);
+            } finally {
+                await harness.dispose();
+            }
+        },
+    );
 });

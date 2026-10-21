@@ -282,34 +282,40 @@ describe("ExtensionHostProcess — subprocess descendants", () => {
         expect(child.signals).toEqual([]);
     });
 
-    it.skipIf(process.platform === "win32")("the group is already gone (ESRCH): no crash and no duplicate signal", () => {
-        // Not registered in `spawned` → the `process.kill` mock returns ESRCH, as the kernel does for a missing group.
-        const child = new FakeChild();
-        child.pid = undefined;
-        const { subprocess } = start(child);
-        child.pid = 9999;
+    it.skipIf(process.platform === "win32")(
+        "the group is already gone (ESRCH): no crash and no duplicate signal",
+        () => {
+            // Not registered in `spawned` → the `process.kill` mock returns ESRCH, as the kernel does for a missing group.
+            const child = new FakeChild();
+            child.pid = undefined;
+            const { subprocess } = start(child);
+            child.pid = 9999;
 
-        expect(() => {
+            expect(() => {
+                subprocess.kill();
+            }).not.toThrow();
+            expect(child.signals).toEqual([]);
+            expect(child.groupSignals).toEqual([]);
+        },
+    );
+
+    it.skipIf(process.platform === "win32")(
+        "the group kill fails with something other than ESRCH: the child is killed directly",
+        () => {
+            const denied = Object.assign(new Error("operation not permitted"), { code: "EPERM" });
+            vi.mocked(process.kill).mockImplementation(() => {
+                throw denied;
+            });
+            const log = logger();
+            const child = new FakeChild();
+            const { subprocess } = start(child, { logger: log });
+
             subprocess.kill();
-        }).not.toThrow();
-        expect(child.signals).toEqual([]);
-        expect(child.groupSignals).toEqual([]);
-    });
 
-    it.skipIf(process.platform === "win32")("the group kill fails with something other than ESRCH: the child is killed directly", () => {
-        const denied = Object.assign(new Error("operation not permitted"), { code: "EPERM" });
-        vi.mocked(process.kill).mockImplementation(() => {
-            throw denied;
-        });
-        const log = logger();
-        const child = new FakeChild();
-        const { subprocess } = start(child, { logger: log });
-
-        subprocess.kill();
-
-        expect(child.signals).toEqual(["SIGKILL"]);
-        expect(log.warn).toHaveBeenCalledWith(expect.stringContaining("group kill failed"), denied);
-    });
+            expect(child.signals).toEqual(["SIGKILL"]);
+            expect(log.warn).toHaveBeenCalledWith(expect.stringContaining("group kill failed"), denied);
+        },
+    );
 
     it.skipIf(process.platform === "win32")("a failed group kill without a logger does not crash shutdown", () => {
         vi.mocked(process.kill).mockImplementation(() => {

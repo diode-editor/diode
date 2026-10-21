@@ -52,7 +52,9 @@ describe("TextFileModel — encoding axis", () => {
 
     it("a file without BOM is read as utf8", () => {
         const controller = createEditorPane();
-        controller.openFile(Uri.file(writeBytes("plain.txt", Buffer.from("\u043f\u0440\u0438\u0432\u0435\u0442\n", "utf8")))); // "privet"
+        controller.openFile(
+            Uri.file(writeBytes("plain.txt", Buffer.from("\u043f\u0440\u0438\u0432\u0435\u0442\n", "utf8"))),
+        ); // "privet"
         expect(controller.encoding).toBe("utf8");
         expect(controller.getText()).toBe("\u043f\u0440\u0438\u0432\u0435\u0442\n"); // "privet"
         controller.dispose();
@@ -60,7 +62,10 @@ describe("TextFileModel — encoding axis", () => {
 
     it("reopenWithEncoding rereads the file in the given encoding", async () => {
         const controller = createEditorPane();
-        const fp = writeBytes("cyr.txt", iconv.encode("\u041f\u0440\u0438\u0432\u0435\u0442, \u043c\u0438\u0440!\n", "windows1251")); // "Privet, mir!"
+        const fp = writeBytes(
+            "cyr.txt",
+            iconv.encode("\u041f\u0440\u0438\u0432\u0435\u0442, \u043c\u0438\u0440!\n", "windows1251"),
+        ); // "Privet, mir!"
         controller.openFile(Uri.file(fp));
         // Decoded as utf8 it is mojibake.
         expect(controller.getText()).not.toContain("\u041f\u0440\u0438\u0432\u0435\u0442"); // "Privet"
@@ -88,7 +93,13 @@ describe("TextFileModel — encoding axis", () => {
         try {
             const files: [string, Buffer][] = [
                 ["plain.txt", Buffer.from("\u043f\u0440\u0438\u0432\u0435\u0442\n", "utf8")], // "privet"
-                ["le.txt", Buffer.concat([Buffer.from([0xff, 0xfe]), Buffer.from("\u043f\u0440\u0438\u0432\u0435\u0442\n", "utf16le")])], // "privet"
+                [
+                    "le.txt",
+                    Buffer.concat([
+                        Buffer.from([0xff, 0xfe]),
+                        Buffer.from("\u043f\u0440\u0438\u0432\u0435\u0442\n", "utf16le"),
+                    ]),
+                ], // "privet"
             ];
             for (const [name, bytes] of files) {
                 const controller = createEditorPane();
@@ -177,12 +188,16 @@ describe("TextFileModel — encoding axis", () => {
 
     it("DoD #106: roundtrip cp1251 read → edit → write byte for byte", async () => {
         const controller = createEditorPane();
-        const original = "\u043f\u0435\u0440\u0432\u0430\u044f \u0441\u0442\u0440\u043e\u043a\u0430\n\u0432\u0442\u043e\u0440\u0430\u044f \u0441\u0442\u0440\u043e\u043a\u0430\n"; // "pervaya stroka", "vtoraya stroka"
+        const original =
+            "\u043f\u0435\u0440\u0432\u0430\u044f \u0441\u0442\u0440\u043e\u043a\u0430\n\u0432\u0442\u043e\u0440\u0430\u044f \u0441\u0442\u0440\u043e\u043a\u0430\n"; // "pervaya stroka", "vtoraya stroka"
         const fp = writeBytes("roundtrip.txt", iconv.encode(original, "windows1251"));
         controller.openFile(Uri.file(fp));
         await controller.reopenWithEncoding("windows1251");
 
-        controller.applyExternalEdits([createTextEdit(createRange(0, 0, 0, 0), "\u043f\u0440\u0430\u0432\u043a\u0430: ")], "test edit"); // "pravka"
+        controller.applyExternalEdits(
+            [createTextEdit(createRange(0, 0, 0, 0), "\u043f\u0440\u0430\u0432\u043a\u0430: ")],
+            "test edit",
+        ); // "pravka"
         await controller.save();
 
         const expected = iconv.encode("\u043f\u0440\u0430\u0432\u043a\u0430: " + original, "windows1251"); // "pravka"

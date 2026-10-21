@@ -94,9 +94,12 @@ describe("TextSearchService: which files the search finds (real rg, root `diode 
         expect(await found({ useIgnoreFiles: { local: false, parent: false, global: false } })).toEqual(FILES);
     });
 
-    it.skipIf(process.platform === "win32")("does not descend into a symlink to a directory (like `bazel-*` in a monorepo)", async () => {
-        expect((await found({})).filter((f) => f.startsWith("linked/"))).toEqual([]);
-    });
+    it.skipIf(process.platform === "win32")(
+        "does not descend into a symlink to a directory (like `bazel-*` in a monorepo)",
+        async () => {
+            expect((await found({})).filter((f) => f.startsWith("linked/"))).toEqual([]);
+        },
+    );
 
     describe("settings patterns: from the root", () => {
         it.each<[string[], string[]]>([

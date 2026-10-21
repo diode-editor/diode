@@ -43,43 +43,47 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — saving with codeActionsO
         installed.dispose();
     });
 
-    it("codeActionsOnSave source.fixAll: save fixes the extra `;` in the buffer and on disk", { timeout: 240_000 }, async () => {
-        const harness = await createExtensionTestHarness({
-            languageService: JS_LANGUAGE_SERVICE,
-            activateEvents: [],
-            extensions: [installed.registration],
-            configurationService: stubConfigurationService({
-                "editor.codeActionsOnSave": { "source.fixAll": true },
-            }),
-        });
-        try {
-            linkEslintLibrary(harness.tmpDir, eslintNodeModules);
-            harness.writeFile("eslint.config.mjs", ESLINT_FLAT_CONFIG);
-            const lintPath = harness.writeFile("lint.js", LINT_JS);
-            const lintUri = Uri.file(lintPath).toString();
-            harness.group.openFile(lintPath);
-            await harness.host.activateByEvent("onStartupFinished");
-
-            // Warm-up: otherwise the first save hits the cold start and its 5s timeouts.
-            await until("source.fixAll action from eslint", async () => {
-                const actions = await provideCodeActions(harness, {
-                    uri: lintUri,
-                    languageId: "javascript",
-                    versionId: documentVersion(harness, lintUri),
-                    range: createRange(0, 0, 0, 18),
-                    only: "source.fixAll",
-                });
-                return actions.length > 0 ? actions : null;
+    it(
+        "codeActionsOnSave source.fixAll: save fixes the extra `;` in the buffer and on disk",
+        { timeout: 240_000 },
+        async () => {
+            const harness = await createExtensionTestHarness({
+                languageService: JS_LANGUAGE_SERVICE,
+                activateEvents: [],
+                extensions: [installed.registration],
+                configurationService: stubConfigurationService({
+                    "editor.codeActionsOnSave": { "source.fixAll": true },
+                }),
             });
+            try {
+                linkEslintLibrary(harness.tmpDir, eslintNodeModules);
+                harness.writeFile("eslint.config.mjs", ESLINT_FLAT_CONFIG);
+                const lintPath = harness.writeFile("lint.js", LINT_JS);
+                const lintUri = Uri.file(lintPath).toString();
+                harness.group.openFile(lintPath);
+                await harness.host.activateByEvent("onStartupFinished");
 
-            const outcome = await harness.group.getActiveEditor()!.save();
+                // Warm-up: otherwise the first save hits the cold start and its 5s timeouts.
+                await until("source.fixAll action from eslint", async () => {
+                    const actions = await provideCodeActions(harness, {
+                        uri: lintUri,
+                        languageId: "javascript",
+                        versionId: documentVersion(harness, lintUri),
+                        range: createRange(0, 0, 0, 18),
+                        only: "source.fixAll",
+                    });
+                    return actions.length > 0 ? actions : null;
+                });
 
-            expect(outcome).toBe("saved");
-            const buffer = harness.group.getActiveEditor()?.getText() ?? "";
-            expect(buffer).toBe("const unused = 1;\n");
-            expect(fs.readFileSync(lintPath, "utf-8")).toBe(buffer);
-        } finally {
-            await harness.dispose();
-        }
-    });
+                const outcome = await harness.group.getActiveEditor()!.save();
+
+                expect(outcome).toBe("saved");
+                const buffer = harness.group.getActiveEditor()?.getText() ?? "";
+                expect(buffer).toBe("const unused = 1;\n");
+                expect(fs.readFileSync(lintPath, "utf-8")).toBe(buffer);
+            } finally {
+                await harness.dispose();
+            }
+        },
+    );
 });
