@@ -34,8 +34,8 @@ function applyAndMirror(initial: string, edits: readonly ITextEdit[]): IModelCon
     return events[0];
 }
 
-describe("TextDocument.onDidChangeModelContent — батч точных правок", () => {
-    it("одна вставка: правка как есть, версия после батча, EOL документа", () => {
+describe("TextDocument.onDidChangeModelContent: batch of exact edits", () => {
+    it("single insert: edit as is, version after the batch, document EOL", () => {
         const doc = new TextDocument("hello\r\nworld");
         const events = record(doc);
         doc.applyEdits([createInsertEdit(0, 5, "!")]);
@@ -49,7 +49,7 @@ describe("TextDocument.onDidChangeModelContent — батч точных пра�
         ]);
     });
 
-    it("мультикурсор на одной строке: правки снизу вверх, в исходных координатах", () => {
+    it("multi-cursor on one line: edits bottom-up, in original coordinates", () => {
         const event = applyAndMirror("abc", [createInsertEdit(0, 0, "x"), createInsertEdit(0, 2, "y")]);
         expect(event.changes).toEqual([
             { range: createRange(0, 2, 0, 2), text: "y" },
@@ -57,23 +57,23 @@ describe("TextDocument.onDidChangeModelContent — батч точных пра�
         ]);
     });
 
-    it("совпадающие диапазоны: две вставки в одну точку склеиваются в порядке батча", () => {
+    it("equal ranges: two inserts at one point join in batch order", () => {
         const event = applyAndMirror("ab", [createInsertEdit(0, 1, "1"), createInsertEdit(0, 1, "2")]);
         expect(mirror("ab", event.changes)).toBe("a12b");
     });
 
-    it("вставка с переводами строк и удаление со склейкой строк", () => {
+    it("insert with line breaks and delete that joins lines", () => {
         applyAndMirror("a\nb\nc", [createInsertEdit(0, 1, "X\nY\n"), createDeleteEdit(1, 1, 2, 0)]);
         applyAndMirror("one\ntwo\nthree", [createDeleteEdit(0, 3, 2, 0)]);
     });
 
-    it("замена на конце документа и удаление последней строки", () => {
+    it("replace at end of document and delete of the last line", () => {
         applyAndMirror("a\nb", [createTextEdit(createRange(1, 0, 1, 1), "end")]);
         applyAndMirror("a\nb", [createDeleteEdit(0, 1, 1, 1)]);
         applyAndMirror("", [createInsertEdit(0, 0, "\n\n")]);
     });
 
-    it("батч — после построчных событий того же applyEdits", () => {
+    it("batch comes after the per-line events of the same applyEdits", () => {
         const doc = new TextDocument("a\nb");
         const order: string[] = [];
         doc.onDidChangeContent(() => order.push("line"));
@@ -82,21 +82,21 @@ describe("TextDocument.onDidChangeModelContent — батч точных пра�
         expect(order).toEqual(["line", "line", "batch"]);
     });
 
-    it("пустой батч ничего не шлёт", () => {
+    it("empty batch emits nothing", () => {
         const doc = new TextDocument("a");
         const events = record(doc);
         doc.applyEdits([]);
         expect(events).toEqual([]);
     });
 
-    it("setText — flush без правок, с новой версией и пере-детектом EOL", () => {
+    it("setText is a flush without edits, with a new version and EOL re-detection", () => {
         const doc = new TextDocument("a\nb");
         const events = record(doc);
         doc.setText("x\r\ny");
         expect(events).toEqual([{ changes: [], versionId: 1, eol: EndOfLine.CRLF, isFlush: true }]);
     });
 
-    it("свойство: зеркало сходится с документом на случайных батчах", () => {
+    it("property: mirror matches the document on random batches", () => {
         let seed = 0x2f6b;
         const random = (): number => {
             seed = (seed + 0x6d2b79f5) | 0;
@@ -120,7 +120,7 @@ describe("TextDocument.onDidChangeModelContent — батч точных пра�
             }
             doc.applyEdits(edits);
             if (edits.length === 0) continue;
-            expect(mirror(before, events[0].changes), `раунд ${String(round)}`).toBe(doc.getText());
+            expect(mirror(before, events[0].changes), `round ${String(round)}`).toBe(doc.getText());
         }
     });
 });

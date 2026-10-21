@@ -35,7 +35,7 @@ describe("UndoManager", () => {
         expect(undoManager.canRedo).toBe(false);
     });
 
-    it("clear забывает оба стека — и откат, и повтор", () => {
+    it("clear forgets both stacks, undo and redo", () => {
         const { viewState, undoManager } = setup("hello");
         undoManager.pushUndoElement(viewState.type("1")!);
         undoManager.pushUndoElement(viewState.type("2")!);

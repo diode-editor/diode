@@ -13,13 +13,13 @@ function resolverFor(colorMap: readonly string[] | null): ColorMapTokenStyleReso
 }
 
 describe("ColorMapTokenStyleResolver", () => {
-    it("цвет текста — из colorMap по индексу", () => {
+    it("foreground comes from colorMap by index", () => {
         const style = resolverFor(COLOR_MAP).resolve(tokenMetadata({ foreground: 3 }));
         expect(style.fg).toBe(packRgb(0xff, 0, 0));
         expect(style.bg).toBeUndefined();
     });
 
-    it("цвета по умолчанию (ColorId 0..1 для текста, 0..2 для фона) — undefined: ячейка берёт цвета редактора", () => {
+    it("default colors (ColorId 0..1 for foreground, 0..2 for background) — undefined: the cell takes the editor colors", () => {
         const resolver = resolverFor(COLOR_MAP);
         expect(resolver.resolve(tokenMetadata({ foreground: ColorId.DefaultForeground })).fg).toBeUndefined();
         expect(resolver.resolve(tokenMetadata({ foreground: ColorId.None })).fg).toBeUndefined();
@@ -31,11 +31,11 @@ describe("ColorMapTokenStyleResolver", () => {
         );
     });
 
-    it("фон — из colorMap по индексу больше 2", () => {
+    it("background comes from colorMap for an index above 2", () => {
         expect(resolverFor(COLOR_MAP).resolve(tokenMetadata({ background: 4 })).bg).toBe(packRgb(0, 0xff, 0));
     });
 
-    it("каждый бит FontStyle — свой флаг", () => {
+    it("each FontStyle bit is its own flag", () => {
         const resolver = resolverFor(COLOR_MAP);
         expect(resolver.resolve(tokenMetadata({ fontStyle: FontStyle.Bold }))).toMatchObject({
             bold: true,
@@ -63,7 +63,7 @@ describe("ColorMapTokenStyleResolver", () => {
         });
     });
 
-    it("индекс вне colorMap или пустой слот — undefined", () => {
+    it("an index outside colorMap or an empty slot — undefined", () => {
         const resolver = resolverFor(COLOR_MAP);
         expect(resolver.resolve(tokenMetadata({ foreground: 100 })).fg).toBeUndefined();
         expect(
@@ -71,13 +71,13 @@ describe("ColorMapTokenStyleResolver", () => {
         ).toBeUndefined();
     });
 
-    it("темы ещё нет (colorMap null) — цветов нет, начертание есть", () => {
+    it("no theme yet (colorMap null) — no colors, font style is present", () => {
         const style = resolverFor(null).resolve(tokenMetadata({ foreground: 3, fontStyle: FontStyle.Bold }));
         expect(style.fg).toBeUndefined();
         expect(style.bold).toBe(true);
     });
 
-    it("стиль кэшируется по битам стиля: вид токена и язык на него не влияют", () => {
+    it("style is cached by style bits: token type and language do not affect it", () => {
         const resolver = resolverFor(COLOR_MAP);
         const a = resolver.resolve(tokenMetadata({ foreground: 3, tokenType: StandardTokenType.Comment }));
         const b = resolver.resolve(tokenMetadata({ foreground: 3, tokenType: StandardTokenType.String }) | 7);
@@ -85,7 +85,7 @@ describe("ColorMapTokenStyleResolver", () => {
         expect(resolver.resolve(tokenMetadata({ foreground: 4 }))).not.toBe(a);
     });
 
-    it("новый colorMap у источника (смена темы) — цвета и кэш пересчитываются", () => {
+    it("a new colorMap on the source (theme change) — colors and cache are recomputed", () => {
         let colorMap: readonly string[] = COLOR_MAP;
         const resolver = new ColorMapTokenStyleResolver({ getColorMap: () => colorMap });
         const before = resolver.resolve(tokenMetadata({ foreground: 3 }));

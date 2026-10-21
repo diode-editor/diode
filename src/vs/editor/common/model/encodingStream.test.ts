@@ -21,9 +21,9 @@ const SAMPLES = [
     "",
     "a",
     "line\r\nnext\r\n",
-    "привет\r\nмир",
-    "😀 и 𝄞\n",
-    "\ufeffвнутренний BOM",
+    "\u043f\u0440\u0438\u0432\u0435\u0442\r\n\u043c\u0438\u0440", // "privet\r\nmir"
+    "😀 \u0438 𝄞\n", // "😀 i 𝄞\n"
+    "\ufeff\u0432\u043d\u0443\u0442\u0440\u0435\u043d\u043d\u0438\u0439 BOM", // "\ufeffvnutrenniy BOM"
     // Two-byte utf-8 character with the smallest valid lead byte C2.
     "© 2026",
     // Three-byte with the smallest lead byte E0 (U+0800–U+0FFF).
@@ -37,7 +37,7 @@ const IDS = ["utf8", "utf8bom", "utf16le", "utf16be", "windows1251", "gb18030", 
 
 describe("decodeStream / decodeStreamByBOM", () => {
     for (const id of IDS) {
-        it(`${id}: любой разрез байт == разовому декоду`, async () => {
+        it(`${id}: any byte split == one-shot decode`, async () => {
             for (const sample of SAMPLES) {
                 const bytes = await encodeText(sample, id);
                 const whole = await decodeBuffer(bytes, id);
@@ -51,19 +51,19 @@ describe("decodeStream / decodeStreamByBOM", () => {
         });
     }
 
-    it("сниф BOM по кускам: BOM, разрезанный границей, всё равно узнан и снят", () => {
+    it("chunked BOM sniffing: a BOM split by a boundary is still recognized and stripped", () => {
         const bytes = Buffer.from([0xef, 0xbb, 0xbf, 0x61, 0xd0, 0xbf]);
         for (const chunks of splits(bytes)) {
             const decoded = decodeStreamByBOM(chunks);
             expect(decoded.encoding).toBe("utf8bom");
-            expect([...decoded.text].join("")).toBe("aп");
+            expect([...decoded.text].join("")).toBe("a\u043f"); // "ap"
         }
         const utf16 = decodeStreamByBOM([Buffer.from([0xfe]), Buffer.from([0xff, 0x04]), Buffer.from([0x3f])]);
         expect(utf16.encoding).toBe("utf16be");
-        expect([...utf16.text].join("")).toBe("п");
+        expect([...utf16.text].join("")).toBe("\u043f"); // "p"
     });
 
-    it("недописанная последовательность utf-8 в конце файла — U+FFFD, как у разового декода", () => {
+    it("an incomplete utf-8 sequence at end of file — U+FFFD, like the one-shot decode", () => {
         for (const tail of [[0xd0], [0xe2, 0x82], [0xf0, 0x9f, 0x98]]) {
             const bytes = Buffer.from([0x61, ...tail]);
             const expected = bytes.toString("utf8");
@@ -73,12 +73,12 @@ describe("decodeStream / decodeStreamByBOM", () => {
         }
     });
 
-    it("нечётный хвостовой байт UTF-16 отбрасывается и при чтении по кускам", () => {
+    it("an odd trailing UTF-16 byte is dropped when reading in chunks too", () => {
         const decoded = decodeStreamByBOM([Buffer.from([0xff, 0xfe, 0x3f]), Buffer.from([0x04, 0x41])]);
-        expect([...decoded.text].join("")).toBe("п");
+        expect([...decoded.text].join("")).toBe("\u043f"); // "p"
     });
 
-    it("байты читаются по мере прохода, брошенный проход закрывает источник", () => {
+    it("bytes are pulled as iteration proceeds, an abandoned iteration closes the source", () => {
         const pulled: number[] = [];
         let closed = false;
         function* source(): Generator<Buffer> {
@@ -113,7 +113,7 @@ describe("decodeStream / decodeStreamByBOM", () => {
 
 describe("encodeChunks", () => {
     for (const id of IDS) {
-        it(`${id}: любой разрез текста (и посреди суррогатной пары) == разовому кодированию`, async () => {
+        it(`${id}: any text split (including mid surrogate pair) == one-shot encoding`, async () => {
             for (const sample of SAMPLES) {
                 const whole = await encodeText(sample, id);
                 for (const chunks of textSplits(sample)) {
@@ -124,31 +124,35 @@ describe("encodeChunks", () => {
         });
     }
 
-    it("пара, разрезанная границей, — один 4-байтовый символ utf-8, а не два U+FFFD", async () => {
+    it("a pair split by a boundary — one 4-byte utf-8 character, not two U+FFFD", async () => {
         expect((await encodeChunks(["a\ud83d", "\ude00"], "utf8")).toString("hex")).toBe("61f09f9880");
     });
 
-    it("крайние старшие суррогаты D800 и DBFF на границе тоже ждут пару", async () => {
+    it("the extreme high surrogates D800 and DBFF at a boundary also wait for the pair", async () => {
         expect((await encodeChunks(["\ud800", "\udc00"], "utf8")).toString("hex")).toBe("f0908080");
         expect((await encodeChunks(["\udbff", "\udfff"], "utf8")).toString("hex")).toBe("f48fbfbf");
     });
 
-    it("BOM пишется и для пустого снапшота", async () => {
+    it("BOM is written even for an empty snapshot", async () => {
         expect([...(await encodeChunks([], "utf16le"))]).toEqual([0xff, 0xfe]);
     });
 
-    it("неизвестная кодировка — utf-8 без BOM, как у encodeText", async () => {
-        expect((await encodeChunks(["при", "вет"], "martian")).equals(Buffer.from("привет", "utf8"))).toBe(true);
+    it("unknown encoding — utf-8 without BOM, like encodeText", async () => {
+        expect(
+            (await encodeChunks(["\u043f\u0440\u0438", "\u0432\u0435\u0442"], "martian")).equals(
+                Buffer.from("\u043f\u0440\u0438\u0432\u0435\u0442", "utf8"),
+            ),
+        ).toBe(true); // "pri", "vet", "privet"
     });
 });
 
-describe("отказ загрузки iconv-lite", () => {
+describe("iconv-lite load failure", () => {
     afterEach(() => {
         setLazyModuleLoader(undefined);
     });
 
-    it("decodeStream отказывает и закрывает уже начатый источник", async () => {
-        setLazyModuleLoader(() => Promise.reject(new Error("кусок не загрузился")));
+    it("decodeStream fails and closes an already started source", async () => {
+        setLazyModuleLoader(() => Promise.reject(new Error("lazy chunk failed to load")));
         let closed = false;
         function* source(): Generator<Buffer> {
             try {
@@ -158,17 +162,17 @@ describe("отказ загрузки iconv-lite", () => {
                 closed = true;
             }
         }
-        await expect(decodeStream(source(), "windows1251")).rejects.toThrow("кусок не загрузился");
+        await expect(decodeStream(source(), "windows1251")).rejects.toThrow("lazy chunk failed to load");
         expect(closed).toBe(true);
     });
 
-    it("decodeStream отказывает и у источника без return (итератор массива)", async () => {
-        setLazyModuleLoader(() => Promise.reject(new Error("кусок не загрузился")));
-        await expect(decodeStream([Buffer.from([0xcf])], "windows1251")).rejects.toThrow("кусок не загрузился");
+    it("decodeStream fails even for a source without return (array iterator)", async () => {
+        setLazyModuleLoader(() => Promise.reject(new Error("lazy chunk failed to load")));
+        await expect(decodeStream([Buffer.from([0xcf])], "windows1251")).rejects.toThrow("lazy chunk failed to load");
     });
 
-    it("encodeChunks отказывает, а не пишет молча utf-8", async () => {
-        setLazyModuleLoader(() => Promise.reject(new Error("кусок не загрузился")));
-        await expect(encodeChunks(["П"], "koi8r")).rejects.toThrow("кусок не загрузился");
+    it("encodeChunks fails instead of silently writing utf-8", async () => {
+        setLazyModuleLoader(() => Promise.reject(new Error("lazy chunk failed to load")));
+        await expect(encodeChunks(["\u041f"], "koi8r")).rejects.toThrow("lazy chunk failed to load"); // "P"
     });
 });

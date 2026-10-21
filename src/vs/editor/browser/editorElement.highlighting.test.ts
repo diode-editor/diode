@@ -81,8 +81,8 @@ describe("EditorElement syntax highlighting", () => {
     });
 });
 
-describe("EditorElement tokenization — вырожденный вьюпорт", () => {
-    it("нулевая высота: рендер не дёргает tokenizeViewport (нет видимых строк)", () => {
+describe("EditorElement tokenization — degenerate viewport", () => {
+    it("zero height: render does not call tokenizeViewport (no visible lines)", () => {
         const doc = new TextDocument("if x");
         const viewState = new EditorViewState(doc);
         const store = new DocumentTokenStore(doc, new WordTokenizer());

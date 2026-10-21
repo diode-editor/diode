@@ -15,14 +15,14 @@ function oneToken(line: number, start: number, length: number) {
 }
 
 describe("SemanticTokensStore", () => {
-    it("пустой: ни полного набора, ни токенов", () => {
+    it("empty: no full set, no tokens", () => {
         const store = new SemanticTokensStore(new TextDocument("abc"));
         expect(store.hasCompleteSemanticTokens()).toBe(false);
         expect(store.hasSomeSemanticTokens()).toBe(false);
         expect(store.getLineTokens(0)).toBeUndefined();
     });
 
-    it("set кладёт полный набор и фаерит onDidChange; null — очищает, флаг полноты — как передан", () => {
+    it("set stores a full set and fires onDidChange; null clears, the completeness flag is as passed", () => {
         const store = new SemanticTokensStore(new TextDocument("abc\ndef"));
         const listener = vi.fn();
         store.onDidChange(listener);
@@ -37,7 +37,7 @@ describe("SemanticTokensStore", () => {
         expect(listener).toHaveBeenCalledTimes(2);
     });
 
-    it("setPartial заменяет только свои строки, пока полного набора нет; при полном — игнор без события", () => {
+    it("setPartial replaces only its lines while there is no full set; with a full set it is ignored without an event", () => {
         const store = new SemanticTokensStore(new TextDocument("a\nb\nc"));
         store.setPartial(0, 2, decodeSemanticTokens(new Uint32Array([0, 0, 1, 0, 0, 2, 0, 1, 0, 0]), LEGEND));
         store.setPartial(1, 2, oneToken(1, 0, 1));
@@ -54,7 +54,7 @@ describe("SemanticTokensStore", () => {
         expect(listener).not.toHaveBeenCalled();
     });
 
-    it("правки документа сдвигают токены (батч — снизу вверх, в исходных координатах)", () => {
+    it("document edits shift tokens (batch bottom-up, in original coordinates)", () => {
         const document = new TextDocument("let foo = 1;\nfoo + bar;");
         const store = new SemanticTokensStore(document);
         store.set(decodeSemanticTokens(new Uint32Array([0, 4, 3, 0, 0, 1, 0, 3, 0, 0, 0, 6, 3, 0, 0]), LEGEND), true);
@@ -65,7 +65,7 @@ describe("SemanticTokensStore", () => {
         expect(store.getLineTokens(0)?.tokens).toEqual([10, 13, 0, 0, 13, 16, 0, 0, 21, 24, 0, 0]);
     });
 
-    it("замена содержимого целиком (flush) стирает токены", () => {
+    it("full content replace (flush) clears tokens", () => {
         const document = new TextDocument("abc");
         const store = new SemanticTokensStore(document);
         store.set(oneToken(0, 0, 2), true);
@@ -73,7 +73,7 @@ describe("SemanticTokensStore", () => {
         expect(store.getLineTokens(0)).toBeUndefined();
     });
 
-    it("после dispose правки документа хранилище не трогают", () => {
+    it("after dispose document edits leave the store alone", () => {
         const document = new TextDocument("abc");
         const store = new SemanticTokensStore(document);
         store.set(oneToken(0, 1, 2), true);

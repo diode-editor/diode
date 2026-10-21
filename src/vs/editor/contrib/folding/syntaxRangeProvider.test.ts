@@ -8,8 +8,8 @@ import { provideFoldingRanges } from "./syntaxRangeProvider.ts";
 const REQUEST: IFoldingRequest = { uri: "file:///w/a.cs", languageId: "csharp", versionId: 1 };
 const region = (startLine: number) => ({ startLine, endLine: startLine + 2, isCollapsed: false });
 
-describe("provideFoldingRanges — агрегация провайдеров", () => {
-    it("склеивает области в порядке провайдеров; сбойный — «областей нет»", async () => {
+describe("provideFoldingRanges provider aggregation", () => {
+    it("concatenates ranges in provider order; a failing one means no ranges", async () => {
         const regions = await provideFoldingRanges(
             [
                 { provideFoldingRanges: () => Promise.resolve([region(1)]) },
@@ -23,7 +23,7 @@ describe("provideFoldingRanges — агрегация провайдеров", (
         expect(regions).toStrictEqual([region(1), region(5)]);
     });
 
-    it("каждый провайдер получает токен запроса", async () => {
+    it("each provider receives the request token", async () => {
         const seen: ICancellationToken[] = [];
         const provider = {
             provideFoldingRanges: (_request: IFoldingRequest, token: ICancellationToken) => {

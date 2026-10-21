@@ -14,7 +14,7 @@ function readOnlyState(text = "hello world", selection = createCursorSelection(0
     return { doc, state };
 }
 
-describe("EditorViewState read-only: мутаторы", () => {
+describe("EditorViewState read-only: mutators", () => {
     // versionId is checked separately: if it grew, the buffer would become dirty.
     const mutators: readonly [name: string, run: (state: EditorViewState) => unknown][] = [
         ["type", (s) => s.type("X")],
@@ -29,7 +29,7 @@ describe("EditorViewState read-only: мутаторы", () => {
     ];
 
     for (const [name, run] of mutators) {
-        it(`${name} — no-op, документ и versionId не меняются`, () => {
+        it(`${name} — no-op, document and versionId stay unchanged`, () => {
             const { doc, state } = readOnlyState("    hello world");
             const versionBefore = doc.versionId;
 
@@ -40,7 +40,7 @@ describe("EditorViewState read-only: мутаторы", () => {
         });
     }
 
-    it("applyEdits — no-op даже при непустом списке правок", () => {
+    it("applyEdits — no-op even with a non-empty edit list", () => {
         const { doc, state } = readOnlyState();
         const versionBefore = doc.versionId;
         const edits = [createTextEdit(createRange(0, 0, 0, 5), "goodbye")];
@@ -51,7 +51,7 @@ describe("EditorViewState read-only: мутаторы", () => {
         expect(doc.versionId).toBe(versionBefore);
     });
 
-    it("indentLines — no-op и на однострочном пути (через type), и на многострочном (через shiftIndent)", () => {
+    it("indentLines — no-op on both the single-line path (via type) and the multi-line one (via shiftIndent)", () => {
         // The single-line branch of indentLines delegates to type(), the multi-line one to shiftIndent();
         // they are guarded separately, so both are checked.
         const single = readOnlyState("hello\nworld", createCursorSelection(0, 2));
@@ -63,7 +63,7 @@ describe("EditorViewState read-only: мутаторы", () => {
         expect(multi.doc.getText()).toBe("hello\nworld");
     });
 
-    it("type с выделением не съедает выделенный текст", () => {
+    it("type with a selection does not eat the selected text", () => {
         // Separate case: the replace-selection path bypasses "insert at position",
         // and unguarded it would erase text even without inserting.
         const { doc, state } = readOnlyState("hello world", createSelection(0, 0, 0, 5));
@@ -74,20 +74,20 @@ describe("EditorViewState read-only: мутаторы", () => {
     });
 });
 
-describe("EditorViewState read-only: view-состояние остаётся живым", () => {
-    it("курсор двигается", () => {
+describe("EditorViewState read-only: view state stays alive", () => {
+    it("cursor moves", () => {
         const { state } = readOnlyState();
         state.cursorRight();
         expect(state.selections[0].active).toEqual({ line: 0, character: 6 });
     });
 
-    it("выделение строится и читается", () => {
+    it("selection is built and read", () => {
         const { state } = readOnlyState();
         state.selections = [createSelection(0, 0, 0, 5)];
         expect(state.getSelectedText()).toBe("hello");
     });
 
-    it("фолдинг сворачивает регион", () => {
+    it("folding collapses a region", () => {
         const doc = new TextDocument("function f() {\n    body\n}\n");
         const state = new EditorViewState(doc, [createCursorSelection(0, 0)]);
         state.readOnly = true;
@@ -100,8 +100,8 @@ describe("EditorViewState read-only: view-состояние остаётся ж
     });
 });
 
-describe("EditorViewState: writable по умолчанию", () => {
-    it("свежий view-state правится (флаг не включён исподтишка)", () => {
+describe("EditorViewState: writable by default", () => {
+    it("a fresh view state is editable (flag is not switched on behind the scenes)", () => {
         const doc = new TextDocument("hello");
         const state = new EditorViewState(doc, [createCursorSelection(0, 5)]);
 
@@ -110,7 +110,7 @@ describe("EditorViewState: writable по умолчанию", () => {
         expect(doc.getText()).toBe("hello world");
     });
 
-    it("снятие флага возвращает правку", () => {
+    it("clearing the flag restores editing", () => {
         const { doc, state } = readOnlyState("hello", createCursorSelection(0, 5));
         expect(state.type("!")).toBeUndefined();
 

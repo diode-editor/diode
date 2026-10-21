@@ -66,11 +66,11 @@ describe("computeWordOccurrences", () => {
      * extension): a column past the line end crashed the WHOLE editor from `render`
      * (`TypeError` in `isWordChar`).
      */
-    it("колонка за концом строки не роняет highlight, а берёт слово у конца", () => {
+    it("column past line end does not crash highlight and takes the word at the end", () => {
         expect(occurrences("bar\nbar", 0, 9)).toEqual([createRange(0, 0, 0, 3), createRange(1, 0, 1, 3)]);
     });
 
-    it("отрицательная колонка не роняет highlight", () => {
+    it("negative column does not crash highlight", () => {
         expect(occurrences("bar\nbar", 0, -3)).toEqual([createRange(0, 0, 0, 3), createRange(1, 0, 1, 3)]);
     });
 });

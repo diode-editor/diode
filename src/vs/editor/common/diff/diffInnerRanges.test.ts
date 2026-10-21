@@ -16,7 +16,7 @@ function ranges(original: string[], modified: string[]): DiffInnerRanges {
 }
 
 describe("DiffInnerRanges", () => {
-    it("правка внутри строки даёт отрезок изменённого фрагмента с обеих сторон", () => {
+    it("an in-line edit yields a range for the changed fragment on both sides", () => {
         const inner = ranges(["const value = 1;"], ["const value = 42;"]);
 
         const original = inner.get("original", 0);
@@ -27,7 +27,7 @@ describe("DiffInnerRanges", () => {
         expect("const value = 42;".slice(modified[0].start, modified[0].end)).toContain("42");
     });
 
-    it("change без посчитанных innerChanges (таймаут движка) не роняет проекцию", () => {
+    it("a change without computed innerChanges (engine timeout) does not break the projection", () => {
         const change = new DetailedLineRangeMapping(new LineRange(1, 2), new LineRange(1, 2), undefined);
 
         const inner = new DiffInnerRanges([change]);
@@ -36,7 +36,7 @@ describe("DiffInnerRanges", () => {
         expect(inner.get("modified", 0)).toEqual([]);
     });
 
-    it("строки без изменений отдают пустой список", () => {
+    it("unchanged lines yield an empty list", () => {
         const inner = ranges(["same", "old"], ["same", "new"]);
 
         expect(inner.get("original", 0)).toEqual([]);
@@ -44,7 +44,7 @@ describe("DiffInnerRanges", () => {
         expect(inner.get("modified", 99)).toEqual([]);
     });
 
-    it("многострочный диапазон режется по строкам, хвосты — до конца строки", () => {
+    it("a multi-line range is split per line, tails run to the end of the line", () => {
         const inner = ranges(["start middle end", "tail"], ["start X", "Y tail"]);
 
         const first = inner.get("original", 0);
@@ -52,14 +52,14 @@ describe("DiffInnerRanges", () => {
         expect(first.at(-1)?.end).toBe(Number.MAX_SAFE_INTEGER);
     });
 
-    it("две правки в одной строке дают два отрезка", () => {
+    it("two edits on one line yield two ranges", () => {
         const inner = ranges(["aaa 111 bbb 222 ccc"], ["aaa XXX bbb YYY ccc"]);
 
         expect(inner.get("modified", 0).length).toBeGreaterThanOrEqual(2);
         expect(inner.get("original", 0).length).toBeGreaterThanOrEqual(2);
     });
 
-    it("чистая вставка строк не даёт пустых отрезков", () => {
+    it("a pure line insertion yields no empty ranges", () => {
         const inner = ranges(["a", "b"], ["a", "inserted", "b"]);
 
         for (let line = 0; line < 3; line++) {

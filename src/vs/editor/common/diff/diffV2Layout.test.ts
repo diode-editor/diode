@@ -46,8 +46,8 @@ function viewLineCounts(input: ReturnType<typeof layoutOf>): { original: number;
 const lines = (count: number, prefix = "l"): string[] =>
     Array.from({ length: count }, (_, i) => `${prefix}${String(i)}`);
 
-describe("computeDiffV2Layout — зоны-филлеры", () => {
-    it("чистая вставка даёт зону у original напротив добавленных строк", () => {
+describe("computeDiffV2Layout — filler zones", () => {
+    it("a pure insertion yields a zone on original opposite the added lines", () => {
         const input = layoutOf(["a", "c"], ["a", "b1", "b2", "c"]);
 
         expect(input.layout.original.zones).toEqual([{ afterLine: 0, size: 2 }]);
@@ -60,7 +60,7 @@ describe("computeDiffV2Layout — зоны-филлеры", () => {
         expect(counts.original).toBe(counts.modified);
     });
 
-    it("чистое удаление даёт зону у modified", () => {
+    it("a pure deletion yields a zone on modified", () => {
         const input = layoutOf(["a", "x", "y", "c"], ["a", "c"]);
 
         expect(input.layout.modified.zones).toEqual([{ afterLine: 0, size: 2 }]);
@@ -69,7 +69,7 @@ describe("computeDiffV2Layout — зоны-филлеры", () => {
         expect(counts.original).toBe(counts.modified);
     });
 
-    it("правка с перевесом: зона размером в разницу у короткой стороны", () => {
+    it("an unbalanced edit: a zone the size of the difference on the shorter side", () => {
         const input = layoutOf(["a", "x", "c"], ["a", "X1", "X2", "X3", "c"]);
 
         expect(input.layout.original.zones).toEqual([{ afterLine: 1, size: 2 }]);
@@ -77,7 +77,7 @@ describe("computeDiffV2Layout — зоны-филлеры", () => {
         expect(counts.original).toBe(counts.modified);
     });
 
-    it("равная замена зон не порождает", () => {
+    it("an equal replacement produces no zones", () => {
         const input = layoutOf(["a", "x", "c"], ["a", "X", "c"]);
 
         expect(input.layout.original.zones).toEqual([]);
@@ -85,8 +85,8 @@ describe("computeDiffV2Layout — зоны-филлеры", () => {
     });
 });
 
-describe("computeDiffV2Layout — декорации", () => {
-    it("фоны строк, маркеры и intra-line по своим сторонам", () => {
+describe("computeDiffV2Layout — decorations", () => {
+    it("line backgrounds, markers and intra-line ranges land on their own sides", () => {
         const input = layoutOf(["a", "old line", "c"], ["a", "new line", "c"]);
 
         expect(input.layout.original.decorations.lineBackgrounds).toEqual([
@@ -103,7 +103,7 @@ describe("computeDiffV2Layout — декорации", () => {
         );
     });
 
-    it("чистая вставка не даёт original ни фонов, ни маркеров", () => {
+    it("a pure insertion gives original neither backgrounds nor markers", () => {
         const input = layoutOf(["a", "c"], ["a", "b", "c"]);
 
         expect(input.layout.original.decorations.lineBackgrounds).toEqual([]);
@@ -111,8 +111,8 @@ describe("computeDiffV2Layout — декорации", () => {
     });
 });
 
-describe("computeDiffV2Layout — свёртка unchanged", () => {
-    it("скрытый кусок фолдится с заголовком-строкой над ним + парная плашка", () => {
+describe("computeDiffV2Layout — unchanged folding", () => {
+    it("a hidden chunk folds under a header line above it + a paired badge", () => {
         const original = [...lines(20), "x", ...lines(20, "t")];
         const modified = [...lines(20), "X", ...lines(20, "t")];
         const input = layoutOf(original, modified, true);
@@ -130,7 +130,7 @@ describe("computeDiffV2Layout — свёртка unchanged", () => {
         expect(counts.original).toBe(counts.modified);
     });
 
-    it("кусок с начала файла: первая строка остаётся видимой, скрыт хвост куска", () => {
+    it("a chunk at file start: the first line stays visible, the chunk tail is hidden", () => {
         const original = [...lines(30), "tail-x"];
         const modified = [...lines(30), "tail-X"];
         const input = layoutOf(original, modified, true);
@@ -143,7 +143,7 @@ describe("computeDiffV2Layout — свёртка unchanged", () => {
         expect(counts.original).toBe(counts.modified);
     });
 
-    it("без свёртки фолд-регионов нет", () => {
+    it("no fold regions without folding", () => {
         const input = layoutOf(lines(40), [...lines(39), "CHANGED"]);
 
         expect(input.layout.original.foldingRegions).toEqual([]);
@@ -151,8 +151,8 @@ describe("computeDiffV2Layout — свёртка unchanged", () => {
     });
 });
 
-describe("computeDiffV2Layout — вырожденные регионы", () => {
-    it("полностью раскрытый регион и регион-пустышка пропускаются", () => {
+describe("computeDiffV2Layout — degenerate regions", () => {
+    it("a fully revealed region and an empty region are skipped", () => {
         const layout = computeDiffV2Layout(
             [],
             [
@@ -183,8 +183,8 @@ describe("computeDiffV2Layout — вырожденные регионы", () => 
     });
 });
 
-describe("computeDiffV2Layout — инвариант на смешанных диффах", () => {
-    it("несколько блоков разной формы + свёртка: стороны равны по строкам вью", () => {
+describe("computeDiffV2Layout — invariant on mixed diffs", () => {
+    it("several blocks of different shapes + folding: sides match in view lines", () => {
         const original = [...lines(10), "del1", "del2", "del3", ...lines(10, "m"), "x", ...lines(10, "t")];
         const modified = [...lines(10), "add1", ...lines(10, "m"), "X1", "X2", ...lines(10, "t")];
         const input = layoutOf(original, modified, true);
@@ -194,7 +194,7 @@ describe("computeDiffV2Layout — инвариант на смешанных д�
     });
 });
 
-describe("computeInlineLayout — один редактор с зонами-призраками (PR-6)", () => {
+describe("computeInlineLayout — single editor with ghost zones (PR-6)", () => {
     function inlineOf(original: string[], modified: string[], collapsed = false) {
         const diff = COMPUTER.computeDiff(original, modified, {
             ignoreTrimWhitespace: false,
@@ -213,7 +213,7 @@ describe("computeInlineLayout — один редактор с зонами-пр
         );
     }
 
-    it("призрак с текстом удалённых строк встаёт перед своим ганком", () => {
+    it("a ghost with the deleted lines' text sits before its hunk", () => {
         const layout = inlineOf(["keep", "dead1", "dead2", "tail"], ["keep", "live", "tail"]);
 
         const ghost = layout.decorations.zones?.find((zone) => zone.lines !== undefined);
@@ -227,7 +227,7 @@ describe("computeInlineLayout — один редактор с зонами-пр
         ]);
     });
 
-    it("чистая вставка — без призрака; чистое удаление — призрак без маркеров", () => {
+    it("pure insertion — no ghost; pure deletion — a ghost without markers", () => {
         const inserted = inlineOf(["a", "b"], ["a", "NEW", "b"]);
         expect(inserted.decorations.zones?.some((zone) => zone.lines !== undefined)).toBe(false);
         expect(inserted.decorations.gutterMarkers).toEqual([{ line: 1, char: "+" }]);
@@ -238,13 +238,13 @@ describe("computeInlineLayout — один редактор с зонами-пр
         expect(removed.decorations.gutterMarkers).toEqual([]);
     });
 
-    it("ганк в начале файла — призрак перед первой строкой (якорь -1)", () => {
+    it("a hunk at file start — a ghost before the first line (anchor -1)", () => {
         const layout = inlineOf(["gone", "keep"], ["keep"]);
         const ghost = layout.decorations.zones?.find((zone) => zone.lines !== undefined);
         expect(ghost?.afterLine).toBe(-1);
     });
 
-    it("свёртка unchanged — по modified-координатам, плашка одиночная", () => {
+    it("unchanged folding — in modified coordinates, a single badge", () => {
         const base = Array.from({ length: 30 }, (_, i) => `line${String(i)}`);
         const layout = inlineOf(base, ["X", ...base.slice(1)], true);
 
@@ -253,21 +253,21 @@ describe("computeInlineLayout — один редактор с зонами-пр
         expect(plaque).toBeDefined();
     });
 
-    it("идентичные стороны — нотис-зона перед первой строкой", () => {
+    it("identical sides — a notice zone before the first line", () => {
         const layout = inlineOf(["same"], ["same"]);
         expect(layout.decorations.zones?.[0]?.text).toBe("The files are identical");
         expect(layout.zones).toEqual([{ afterLine: -1, size: 1 }]);
     });
 
-    it("intra-line диапазоны modified доезжают до inline-раскладки", () => {
+    it("intra-line ranges of modified reach the inline layout", () => {
         const layout = inlineOf(["const a = 1;"], ["const a = 2;"]);
         expect(layout.decorations.rangeBackgrounds?.length).toBeGreaterThan(0);
         expect(layout.decorations.rangeBackgrounds?.[0].colorToken).toBe("diffEditor.insertedTextBackground");
     });
 });
 
-describe("computeInlineLayout — вырожденные регионы", () => {
-    it("регион-пустышка и регион без скрываемого тела пропускаются", () => {
+describe("computeInlineLayout — degenerate regions", () => {
+    it("an empty region and a region with no hideable body are skipped", () => {
         const layout = computeInlineLayout(
             [],
             [
@@ -298,7 +298,7 @@ describe("computeInlineLayout — вырожденные регионы", () => 
 });
 
 describe("mergeZoneDecorationsByAnchor", () => {
-    it("одиночные декорации проходят как есть, общий якорь склеивается в lines", () => {
+    it("single decorations pass through as is, a shared anchor is merged into lines", () => {
         const merged = mergeZoneDecorationsByAnchor([
             { afterLine: 2, text: "⋯ 5 unchanged lines", colorToken: "diffEditor.unchangedRegionForeground" },
             { afterLine: 2, lines: [{ text: "ghost", bgToken: "diffEditor.removedLineBackground" }] },
@@ -313,7 +313,7 @@ describe("mergeZoneDecorationsByAnchor", () => {
         expect(merged.find((zone) => zone.afterLine === 7)?.fillChar).toBe("░");
     });
 
-    it("в склейке текст без цвета и филлер без текста не рождают строк-мусора", () => {
+    it("when merging, text without color and a filler without text yield no junk lines", () => {
         const merged = mergeZoneDecorationsByAnchor([
             { afterLine: 3, text: "plain" },
             { afterLine: 3, fillChar: "░" },

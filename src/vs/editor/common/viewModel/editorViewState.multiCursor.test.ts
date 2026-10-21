@@ -15,7 +15,7 @@ function makeLines(count: number): string {
 }
 
 describe("EditorViewState.insertCursorBelow / insertCursorAbove", () => {
-    it("добавляет каретку строкой ниже", () => {
+    it("adds a cursor on the line below", () => {
         const state = new EditorViewState(new TextDocument("aaa\nbbb\nccc"), [createCursorSelection(0, 1)]);
         state.insertCursorBelow();
         expect(actives(state)).toEqual([
@@ -24,7 +24,7 @@ describe("EditorViewState.insertCursorBelow / insertCursorAbove", () => {
         ]);
     });
 
-    it("добавляет каретку строкой выше", () => {
+    it("adds a cursor on the line above", () => {
         const state = new EditorViewState(new TextDocument("aaa\nbbb\nccc"), [createCursorSelection(2, 2)]);
         state.insertCursorAbove();
         expect(actives(state)).toEqual([
@@ -33,7 +33,7 @@ describe("EditorViewState.insertCursorBelow / insertCursorAbove", () => {
         ]);
     });
 
-    it("три нажатия Below наращивают пачку, а не удваивают её", () => {
+    it("three Below presses grow the stack instead of doubling it", () => {
         const state = new EditorViewState(new TextDocument(makeLines(6)), [createCursorSelection(0, 0)]);
         state.insertCursorBelow();
         state.insertCursorBelow();
@@ -47,7 +47,7 @@ describe("EditorViewState.insertCursorBelow / insertCursorAbove", () => {
         ]);
     });
 
-    it("Above на пачке 3-4-5 достраивает её сверху до 2-3-4-5", () => {
+    it("Above on stack 3-4-5 extends it upward to 2-3-4-5", () => {
         const state = new EditorViewState(new TextDocument(makeLines(8)), [
             createCursorSelection(3, 0),
             createCursorSelection(4, 0),
@@ -57,7 +57,7 @@ describe("EditorViewState.insertCursorBelow / insertCursorAbove", () => {
         expect(actives(state).map((pair) => pair[0])).toEqual([2, 3, 4, 5]);
     });
 
-    it("на последней строке Below ничего не делает и не файрит событие", () => {
+    it("on the last line Below does nothing and fires no event", () => {
         const state = new EditorViewState(new TextDocument("aaa\nbbb"), [createCursorSelection(1, 0)]);
         let fired = 0;
         state.onDidChangeCursorPosition(() => {
@@ -68,13 +68,13 @@ describe("EditorViewState.insertCursorBelow / insertCursorAbove", () => {
         expect(fired).toBe(0);
     });
 
-    it("на первой строке Above ничего не делает", () => {
+    it("on the first line Above does nothing", () => {
         const state = new EditorViewState(new TextDocument("aaa\nbbb"), [createCursorSelection(0, 0)]);
         state.insertCursorAbove();
         expect(state.selections).toHaveLength(1);
     });
 
-    it("idealColumn переживает короткую строку по пути вниз", () => {
+    it("idealColumn survives a short line on the way down", () => {
         const state = new EditorViewState(new TextDocument("abcdefgh\nxy\nabcdefgh"), [createCursorSelection(0, 6)]);
         state.insertCursorBelow();
         state.insertCursorBelow();
@@ -85,7 +85,7 @@ describe("EditorViewState.insertCursorBelow / insertCursorAbove", () => {
         ]);
     });
 
-    it("идеальная колонка считается по дисплею, а не по смещению (табы)", () => {
+    it("ideal column is computed by display, not by offset (tabs)", () => {
         const doc = new TextDocument("\t\tx\n________x");
         const state = new EditorViewState(doc, [createCursorSelection(0, 2)]);
         state.tabSize = 4;
@@ -98,7 +98,7 @@ describe("EditorViewState.insertCursorBelow / insertCursorAbove", () => {
         ]);
     });
 
-    it("свёрнутый регион проскакивается целиком", () => {
+    it("a collapsed region is skipped entirely", () => {
         const doc = new TextDocument("header\nbody 1\nbody 2\nafter");
         const state = new EditorViewState(doc, [createCursorSelection(0, 0)]);
         state.foldedRegions = [createFoldingRegion(0, 2, true)];
@@ -112,7 +112,7 @@ describe("EditorViewState.insertCursorBelow / insertCursorAbove", () => {
         }
     });
 
-    it("строка-зона не съедает шаг: каретка приезжает на документную строку", () => {
+    it("a zone line does not eat the step: the cursor lands on a document line", () => {
         const state = new EditorViewState(new TextDocument("aaa\nbbb\nccc"), [createCursorSelection(0, 0)]);
         state.setViewZones([{ afterLine: 0, size: 1 }]);
         state.insertCursorBelow();
@@ -122,7 +122,7 @@ describe("EditorViewState.insertCursorBelow / insertCursorAbove", () => {
         ]);
     });
 
-    it("непустое выделение переезжает целиком, а не вырождается в каретку", () => {
+    it("a non-empty selection moves whole instead of collapsing to a cursor", () => {
         const state = new EditorViewState(new TextDocument("abcdef\nabcdef"), [createSelection(0, 1, 0, 4)]);
         state.insertCursorBelow();
         expect(state.selections).toHaveLength(2);
@@ -130,7 +130,7 @@ describe("EditorViewState.insertCursorBelow / insertCursorAbove", () => {
         expect(state.selections[1].active).toEqual({ line: 1, character: 4 });
     });
 
-    it("выделение переезжает и вверх, оба конца на строку выше", () => {
+    it("a selection moves up too, both ends one line higher", () => {
         const state = new EditorViewState(new TextDocument("abcdef\nabcdef\nabcdef"), [createSelection(2, 1, 2, 4)]);
         state.insertCursorAbove();
         expect(state.selections).toHaveLength(2);
@@ -138,7 +138,7 @@ describe("EditorViewState.insertCursorBelow / insertCursorAbove", () => {
         expect(state.selections[0].active).toEqual({ line: 1, character: 4 });
     });
 
-    it("выделение со второй строки переезжает на нулевую", () => {
+    it("a selection from the second line moves to line zero", () => {
         // The anchor lands exactly on line zero — the "nowhere to move" edge case
         // is checked on the line below zero, not on line zero itself.
         const state = new EditorViewState(new TextDocument("abcdef\nabcdef\nabcdef"), [createSelection(1, 1, 1, 4)]);
@@ -150,7 +150,7 @@ describe("EditorViewState.insertCursorBelow / insertCursorAbove", () => {
         expect(state.selections[0].active).toEqual({ line: 0, character: 4 });
     });
 
-    it("обратное выделение у края документа копии не даёт и события не шлёт", () => {
+    it("a reversed selection at the document edge makes no copy and sends no event", () => {
         // An anchor on the last line can't move but active can: the copy would lie entirely
         // inside the original selection, and the merge would swallow it without a trace.
         const state = new EditorViewState(new TextDocument("aaa\nbbb\nccc"), [createSelection(2, 0, 1, 0)]);
@@ -163,7 +163,7 @@ describe("EditorViewState.insertCursorBelow / insertCursorAbove", () => {
         expect(fired).toBe(0);
     });
 
-    it("вьюпорт едет за новой кареткой вверх", () => {
+    it("viewport follows the new cursor up", () => {
         const state = new EditorViewState(new TextDocument(makeLines(40)), [createCursorSelection(30, 0)]);
         state.viewportHeight = 10;
         state.viewportWidth = 40;
@@ -176,7 +176,7 @@ describe("EditorViewState.insertCursorBelow / insertCursorAbove", () => {
         expect(state.scrollTop).toBe(29);
     });
 
-    it("вьюпорт едет за новой кареткой вниз", () => {
+    it("viewport follows the new cursor down", () => {
         const state = new EditorViewState(new TextDocument(makeLines(40)), [createCursorSelection(9, 0)]);
         state.viewportHeight = 10;
         state.viewportWidth = 40;
@@ -187,7 +187,7 @@ describe("EditorViewState.insertCursorBelow / insertCursorAbove", () => {
 });
 
 describe("EditorViewState.removeSecondaryCursors", () => {
-    it("оставляет первичную каретку", () => {
+    it("keeps the primary cursor", () => {
         const state = new EditorViewState(new TextDocument("aaa\nbbb\nccc"), [
             createCursorSelection(0, 1),
             createCursorSelection(2, 2),
@@ -196,7 +196,7 @@ describe("EditorViewState.removeSecondaryCursors", () => {
         expect(actives(state)).toEqual([[0, 1]]);
     });
 
-    it("при одной каретке — no-op без события", () => {
+    it("with a single cursor — no-op without an event", () => {
         const state = new EditorViewState(new TextDocument("aaa"), [createCursorSelection(0, 1)]);
         let fired = 0;
         state.onDidChangeCursorPosition(() => {
@@ -206,7 +206,7 @@ describe("EditorViewState.removeSecondaryCursors", () => {
         expect(fired).toBe(0);
     });
 
-    it("подтягивает вьюпорт к уцелевшей каретке", () => {
+    it("pulls the viewport to the surviving cursor", () => {
         const state = new EditorViewState(new TextDocument(makeLines(60)), [
             createCursorSelection(0, 0),
             createCursorSelection(50, 0),
@@ -220,7 +220,7 @@ describe("EditorViewState.removeSecondaryCursors", () => {
 });
 
 describe("EditorViewState.toggleCursorAt", () => {
-    it("добавляет каретку в свободной точке", () => {
+    it("adds a cursor at a free spot", () => {
         const state = new EditorViewState(new TextDocument("aaa\nbbb"), [createCursorSelection(0, 0)]);
         state.toggleCursorAt(1, 2);
         expect(actives(state)).toEqual([
@@ -229,7 +229,7 @@ describe("EditorViewState.toggleCursorAt", () => {
         ]);
     });
 
-    it("снимает каретку точным попаданием", () => {
+    it("removes a cursor on an exact hit", () => {
         const state = new EditorViewState(new TextDocument("aaa\nbbb"), [
             createCursorSelection(0, 0),
             createCursorSelection(1, 2),
@@ -238,7 +238,7 @@ describe("EditorViewState.toggleCursorAt", () => {
         expect(actives(state)).toEqual([[0, 0]]);
     });
 
-    it("клик внутрь выделения снимает его целиком", () => {
+    it("a click inside a selection removes it entirely", () => {
         const state = new EditorViewState(new TextDocument("abcdef\nbbb"), [
             createSelection(0, 1, 0, 5),
             createCursorSelection(1, 0),
@@ -247,7 +247,7 @@ describe("EditorViewState.toggleCursorAt", () => {
         expect(actives(state)).toEqual([[1, 0]]);
     });
 
-    it("последнюю каретку не снимает", () => {
+    it("does not remove the last cursor", () => {
         const state = new EditorViewState(new TextDocument("aaa"), [createCursorSelection(0, 1)]);
         let fired = 0;
         state.onDidChangeCursorPosition(() => {
@@ -258,7 +258,7 @@ describe("EditorViewState.toggleCursorAt", () => {
         expect(fired).toBe(0);
     });
 
-    it("вьюпорт едет к добавленной каретке", () => {
+    it("viewport follows the added cursor", () => {
         const state = new EditorViewState(new TextDocument(makeLines(60)), [createCursorSelection(0, 0)]);
         state.viewportHeight = 10;
         state.viewportWidth = 40;
@@ -268,7 +268,7 @@ describe("EditorViewState.toggleCursorAt", () => {
 });
 
 describe("EditorViewState.revealSelection", () => {
-    it("разворачивает свёртку, прячущую цель", () => {
+    it("unfolds a fold hiding the target", () => {
         const doc = new TextDocument("header\nbody 1\nbody 2\nafter");
         const state = new EditorViewState(doc, [createCursorSelection(0, 0)]);
         state.viewportHeight = 10;
@@ -278,7 +278,7 @@ describe("EditorViewState.revealSelection", () => {
         expect(state.foldedRegions[0].isCollapsed).toBe(false);
     });
 
-    it("разворачивает свёртки и над началом, и над концом выделения", () => {
+    it("unfolds folds above both the start and the end of the selection", () => {
         const state = new EditorViewState(new TextDocument(makeLines(8)), [createCursorSelection(0, 0)]);
         state.viewportHeight = 10;
         state.viewportWidth = 40;
@@ -291,7 +291,7 @@ describe("EditorViewState.revealSelection", () => {
         expect(state.foldedRegions.map((region) => region.isCollapsed)).toEqual([false, false]);
     });
 
-    it("скроллит именно к переданному выделению, а не к первичному", () => {
+    it("scrolls to the given selection, not to the primary one", () => {
         const state = new EditorViewState(new TextDocument(makeLines(60)), [createCursorSelection(0, 0)]);
         state.viewportHeight = 10;
         state.viewportWidth = 40;
@@ -301,13 +301,13 @@ describe("EditorViewState.revealSelection", () => {
 });
 
 describe("EditorViewState.getSelectedTexts", () => {
-    it("текст каждого выделения в документном порядке", () => {
+    it("text of each selection in document order", () => {
         const doc = new TextDocument("alpha\nbeta");
         const state = new EditorViewState(doc, [createSelection(1, 0, 1, 4), createSelection(0, 0, 0, 5)]);
         expect(state.getSelectedTexts()).toEqual(["alpha", "beta"]);
     });
 
-    it("схлопнутая каретка даёт пустую строку", () => {
+    it("a collapsed cursor yields an empty string", () => {
         const doc = new TextDocument("alpha\nbeta");
         const state = new EditorViewState(doc, [createSelection(0, 0, 0, 5), createCursorSelection(1, 2)]);
         expect(state.getSelectedTexts()).toEqual(["alpha", ""]);

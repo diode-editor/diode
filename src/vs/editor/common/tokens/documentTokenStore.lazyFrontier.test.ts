@@ -39,8 +39,8 @@ class StatefulTokenizer implements ITokenizationSupport {
 const tenLines = (): TextDocument => new TextDocument("a\nb\nc\nd\ne\nf\ng\nh\ni\nj");
 
 // An early exit on a converged end-state must not declare a never-tokenized tail valid.
-describe("DocumentTokenStore — виден только вьюпорт", () => {
-    it("после правки выше вьюпорта хвост всё ещё токенизируется", () => {
+describe("DocumentTokenStore: only the viewport is visible", () => {
+    it("after an edit above the viewport the tail still gets tokenized", () => {
         const doc = tenLines();
         const store = new DocumentTokenStore(doc, new StatefulTokenizer());
 
@@ -52,11 +52,11 @@ describe("DocumentTokenStore — виден только вьюпорт", () => 
 
         store.forceTokenization(doc.lineCount - 1);
         for (let line = 0; line < doc.lineCount; line++) {
-            expect(store.getLineTokens(line), `строка ${String(line)}`).toBeDefined();
+            expect(store.getLineTokens(line), `line ${String(line)}`).toBeDefined();
         }
     });
 
-    it("правка в нетокенизированном хвосте не оставляет дыру выше курсора", () => {
+    it("edit in the untokenized tail leaves no hole above the cursor", () => {
         const doc = new TextDocument("a\n>b\nc\nd\ne\nf\ng\nh\ni\nj");
         const store = new DocumentTokenStore(doc, new StatefulTokenizer());
 
@@ -68,12 +68,12 @@ describe("DocumentTokenStore — виден только вьюпорт", () => 
         store.forceTokenization(9);
 
         for (let line = 0; line < doc.lineCount; line++) {
-            expect(store.getLineTokens(line), `строка ${String(line)}`).toBeDefined();
+            expect(store.getLineTokens(line), `line ${String(line)}`).toBeDefined();
         }
         expect(store.getLineTokens(9)?.getForeground(0)).toBe(stateMark(1));
     });
 
-    it("правка, перешагнувшая фронтир, опускает его на своё начало", () => {
+    it("edit spanning the frontier lowers it to the edit start", () => {
         const doc = tenLines();
         const store = new DocumentTokenStore(doc, new StatefulTokenizer());
 

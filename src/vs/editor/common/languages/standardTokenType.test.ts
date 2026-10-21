@@ -13,7 +13,7 @@ function lineTokens(text: string, tokens: readonly (readonly [number, StandardTo
     return new LineTokens(storedTokens(pairs, text.length), text, codec);
 }
 
-describe("standardTokenTypeAt — вид токена из метаданных", () => {
+describe("standardTokenTypeAt — token type from metadata", () => {
     const text = 'let "str" // comment  /re/';
     const tokens = lineTokens(text, [
         [0, StandardTokenType.Other],
@@ -23,7 +23,7 @@ describe("standardTokenTypeAt — вид токена из метаданных"
         [22, StandardTokenType.RegEx],
     ]);
 
-    it("строка, комментарий, прочее — по накрывающему токену", () => {
+    it("string, comment, other — by the covering token", () => {
         expect(standardTokenTypeAt(tokens, 0)).toBe("other");
         expect(standardTokenTypeAt(tokens, 3)).toBe("other");
         expect(standardTokenTypeAt(tokens, 4)).toBe("string");
@@ -33,17 +33,17 @@ describe("standardTokenTypeAt — вид токена из метаданных"
         expect(standardTokenTypeAt(tokens, 20)).toBe("other");
     });
 
-    it("регекс — «прочее»", () => {
+    it("regex — other", () => {
         expect(standardTokenTypeAt(tokens, 23)).toBe("other");
     });
 
-    it("смещение за последним токеном — вид последнего токена", () => {
+    it("an offset past the last token — the last token's type", () => {
         const comment = lineTokens("// x", [[0, StandardTokenType.Comment]]);
         expect(standardTokenTypeAt(comment, 4)).toBe("comment");
         expect(standardTokenTypeAt(comment, 100)).toBe("comment");
     });
 
-    it("без токенов — прочее", () => {
+    it("no tokens — other", () => {
         expect(standardTokenTypeAt(undefined, 3)).toBe("other");
     });
 });

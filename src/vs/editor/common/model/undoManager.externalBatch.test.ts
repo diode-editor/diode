@@ -35,8 +35,8 @@ function applyExternal(
     undoManager.pushUndoElement(element!);
 }
 
-describe("UndoManager — внешний батч правок (quick fix)", () => {
-    it("undo возвращает строку импорта дословно", () => {
+describe("UndoManager: external edit batch (quick fix)", () => {
+    it("undo restores the import line verbatim", () => {
         const { doc, viewState, undoManager } = setup(IMPORT_LINE);
 
         applyExternal(viewState, undoManager, QUICK_FIX_EDITS);
@@ -46,7 +46,7 @@ describe("UndoManager — внешний батч правок (quick fix)", () 
         expect(doc.getText()).toBe(IMPORT_LINE);
     });
 
-    it("redo повторяет фикс, следующий undo снова возвращает исходную строку", () => {
+    it("redo reapplies the fix, next undo restores the original line again", () => {
         const { doc, viewState, undoManager } = setup(IMPORT_LINE);
 
         applyExternal(viewState, undoManager, QUICK_FIX_EDITS);
@@ -59,7 +59,7 @@ describe("UndoManager — внешний батч правок (quick fix)", () 
         expect(doc.getText()).toBe(IMPORT_LINE);
     });
 
-    it("цепочка: набор текста после фикса откатывается по шагам до исходного", () => {
+    it("chain: typing after the fix undoes step by step back to the original", () => {
         const { doc, viewState, undoManager } = setup(IMPORT_LINE);
 
         applyExternal(viewState, undoManager, QUICK_FIX_EDITS);
@@ -82,7 +82,7 @@ describe("UndoManager — внешний батч правок (quick fix)", () 
         expect(doc.getText()).toBe(`${FIXED_LINE}\ntest;`);
     });
 
-    it("undo батча, склеившего строки, возвращает переводы строк на место", () => {
+    it("undo of a batch that joined lines restores the line breaks", () => {
         // The second inverse edit must shift by line AND by column.
         const text = 'import {\n    test, assert,\n} from "./test.js";';
         const { doc, viewState, undoManager } = setup(text);

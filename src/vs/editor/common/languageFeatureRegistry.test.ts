@@ -8,7 +8,7 @@ const ts: ILanguageFeatureTarget = { uri: Uri.file("/w/a.ts"), languageId: "type
 const md: ILanguageFeatureTarget = { uri: Uri.file("/w/b.md"), languageId: "markdown" };
 
 describe("LanguageFeatureRegistry", () => {
-    it("отдаёт только подошедших документу провайдеров", () => {
+    it("returns only providers that match the document", () => {
         const registry = new LanguageFeatureRegistry<string>();
         registry.register("typescript", "ts");
         registry.register("markdown", "md");
@@ -19,7 +19,7 @@ describe("LanguageFeatureRegistry", () => {
         expect(registry.has({ uri: Uri.file("/w/c.py"), languageId: "python" })).toBe(false);
     });
 
-    it("порядок: выше score — первым, при равном — более поздняя регистрация", () => {
+    it("order: higher score first, on a tie the later registration", () => {
         const registry = new LanguageFeatureRegistry<string>();
         registry.register("*", "any-old");
         registry.register("typescript", "exact-old");
@@ -30,7 +30,7 @@ describe("LanguageFeatureRegistry", () => {
         expect(registry.ordered(md)).toEqual(["any-new", "any-old"]);
     });
 
-    it("порядок не зависит от позиции записей после прошлой сортировки", () => {
+    it("order does not depend on entry positions after the previous sort", () => {
         const registry = new LanguageFeatureRegistry<string>();
         registry.register("markdown", "md");
         registry.register("*", "any");
@@ -38,7 +38,7 @@ describe("LanguageFeatureRegistry", () => {
         expect(registry.ordered(md)).toEqual(["md", "any"]);
     });
 
-    it("эксклюзивный селектор глушит остальных, но только когда подошёл", () => {
+    it("an exclusive selector silences the others, but only when it matches", () => {
         const registry = new LanguageFeatureRegistry<string>();
         registry.register("typescript", "before");
         registry.register({ language: "typescript", exclusive: true }, "exclusive");
@@ -48,7 +48,7 @@ describe("LanguageFeatureRegistry", () => {
         expect(registry.ordered(md)).toEqual(["after"]);
     });
 
-    it("эксклюзивный глушит и записи, стоящие после него в списке", () => {
+    it("an exclusive one also silences entries after it in the list", () => {
         const registry = new LanguageFeatureRegistry<string>();
         registry.register({ language: "*", exclusive: true }, "exclusive");
         registry.register("typescript", "later");
@@ -57,7 +57,7 @@ describe("LanguageFeatureRegistry", () => {
         expect(registry.ordered(md)).toEqual(["exclusive"]);
     });
 
-    it("onDidChange — на каждую регистрацию и снятие, а не только на 0↔1", () => {
+    it("onDidChange fires on every registration and removal, not only on 0↔1", () => {
         const registry = new LanguageFeatureRegistry<string>();
         const listener = vi.fn();
         registry.onDidChange(listener);
@@ -70,7 +70,7 @@ describe("LanguageFeatureRegistry", () => {
         expect(listener.mock.calls).toEqual([[1], [2], [1], [0]]);
     });
 
-    it("повторный dispose регистрации — no-op и не трогает чужие", () => {
+    it("disposing a registration twice is a no-op and leaves others alone", () => {
         const registry = new LanguageFeatureRegistry<string>();
         const listener = vi.fn();
         const first = registry.register("typescript", "a");
@@ -84,7 +84,7 @@ describe("LanguageFeatureRegistry", () => {
         expect(registry.ordered(ts)).toEqual(["b"]);
     });
 
-    it("отписка от onDidChange снимает только своего слушателя", () => {
+    it("unsubscribing from onDidChange removes only its own listener", () => {
         const registry = new LanguageFeatureRegistry<string>();
         const kept = vi.fn();
         const removed = vi.fn();
@@ -99,7 +99,7 @@ describe("LanguageFeatureRegistry", () => {
         expect(removed).not.toHaveBeenCalled();
     });
 
-    it("слушатель, отписавшийся во время рассылки, не ломает обход остальных", () => {
+    it("a listener that unsubscribes during dispatch does not break iteration over the rest", () => {
         const registry = new LanguageFeatureRegistry<string>();
         const second = vi.fn();
         const sub = registry.onDidChange(() => {
@@ -112,7 +112,7 @@ describe("LanguageFeatureRegistry", () => {
         expect(second).toHaveBeenCalledTimes(1);
     });
 
-    it("кэш кандидата сбрасывается регистрацией и снятием", () => {
+    it("the candidate cache is reset by registration and removal", () => {
         const registry = new LanguageFeatureRegistry<string>();
         expect(registry.ordered(ts)).toEqual([]);
 
@@ -123,7 +123,7 @@ describe("LanguageFeatureRegistry", () => {
         expect(registry.ordered(ts)).toEqual([]);
     });
 
-    it("повторный запрос по тому же документу score не пересчитывает", () => {
+    it("a repeated query for the same document does not recompute score", () => {
         const registry = new LanguageFeatureRegistry<string>();
         let reads = 0;
         registry.register(
@@ -142,7 +142,7 @@ describe("LanguageFeatureRegistry", () => {
         expect(reads).toBe(afterFirst);
     });
 
-    it("кэш кандидата различает смену языка у того же uri", () => {
+    it("the candidate cache tells a language change on the same uri apart", () => {
         const registry = new LanguageFeatureRegistry<string>();
         registry.register("typescript", "ts");
         registry.register("plaintext", "txt");
@@ -151,7 +151,7 @@ describe("LanguageFeatureRegistry", () => {
         expect(registry.ordered({ uri: ts.uri, languageId: "plaintext" })).toEqual(["txt"]);
     });
 
-    it("кэш кандидата различает смену uri при том же языке", () => {
+    it("the candidate cache tells a uri change with the same language apart", () => {
         const registry = new LanguageFeatureRegistry<string>();
         registry.register({ pattern: "**/a.ts" }, "a");
 
@@ -160,7 +160,7 @@ describe("LanguageFeatureRegistry", () => {
     });
 
     describe("orderedGroups", () => {
-        it("группы равного score — по убыванию score, внутри группы новые первыми", () => {
+        it("groups of equal score — by descending score, newest first within a group", () => {
             const registry = new LanguageFeatureRegistry<string>();
             registry.register("*", "any-old");
             registry.register("typescript", "exact-old");
@@ -175,13 +175,13 @@ describe("LanguageFeatureRegistry", () => {
             expect(registry.orderedGroups(md)).toEqual([["md"], ["any-new", "any-old"]]);
         });
 
-        it("никто не подошёл — пусто", () => {
+        it("nothing matches — empty", () => {
             const registry = new LanguageFeatureRegistry<string>();
             registry.register("markdown", "md");
             expect(registry.orderedGroups(ts)).toEqual([]);
         });
 
-        it("эксклюзивный селектор — единственная группа", () => {
+        it("an exclusive selector — the only group", () => {
             const registry = new LanguageFeatureRegistry<string>();
             registry.register("typescript", "exact");
             registry.register({ language: "typescript", exclusive: true }, "exclusive");

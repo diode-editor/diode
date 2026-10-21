@@ -111,7 +111,7 @@ describe("resolveLanguageConfiguration", () => {
         expect(resolved.surroundingPairs).toEqual([["<", ">"]]);
     });
 
-    it("секция не-массив (или null) — считается пустой", () => {
+    it("a non-array section (or null) counts as empty", () => {
         const raw = {
             brackets: "junk",
             autoClosingPairs: 42,
@@ -124,7 +124,7 @@ describe("resolveLanguageConfiguration", () => {
         expect(resolved.surroundingPairs).toEqual([]);
     });
 
-    it("comments: null не роняет разбор", () => {
+    it("comments: null does not break parsing", () => {
         const raw = { comments: null } as unknown as ILanguageConfiguration;
         expect(resolveLanguageConfiguration(raw).comments).toBeUndefined();
     });

@@ -67,7 +67,7 @@ describe("detectIndentation", () => {
         expect(detectIndentation(makeDoc([]), SPACES_4)).toEqual({ insertSpaces: true, tabSize: 4 });
     });
 
-    it("detects 8-space indentation — предельный кандидат", () => {
+    it("detects 8-space indentation — the limit candidate", () => {
         const doc = makeDoc(["a() {", "        b;", "        c;", "}"]);
 
         expect(detectIndentation(doc, { tabSize: 2, insertSpaces: true })).toEqual({
@@ -76,7 +76,7 @@ describe("detectIndentation", () => {
         });
     });
 
-    it("отступ пробелами перебивает defaults.insertSpaces=false", () => {
+    it("space indentation overrides defaults.insertSpaces=false", () => {
         const doc = makeDoc(["function foo() {", "  const x = 1;", "}"]);
 
         expect(detectIndentation(doc, { tabSize: 4, insertSpaces: false })).toEqual({
@@ -85,7 +85,7 @@ describe("detectIndentation", () => {
         });
     });
 
-    it("при отступе табами ширина берётся из defaults, а не из пробельных строк файла", () => {
+    it("with tab indentation the width comes from defaults, not from the file's whitespace-only lines", () => {
         const doc = makeDoc(["\ta", "\tb", "\tc", "  x", "    y"]);
 
         expect(detectIndentation(doc, { tabSize: 8, insertSpaces: true })).toEqual({
@@ -119,27 +119,27 @@ describe("detectIndentation", () => {
         });
     });
 
-    it("ширина пробельной строки не попадает в гистограмму шагов", () => {
+    it("a whitespace-only line's width does not enter the step histogram", () => {
         // If whitespace-only lines counted as content, step 4 would drown out the real 2.
         const doc = makeDoc(["a", "  b", "      ", "  c", "      ", "  d"]);
 
         expect(detectIndentation(doc, SPACES_4)).toEqual({ insertSpaces: true, tabSize: 2 });
     });
 
-    it("пробельная строка не считается отступлённой на один символ", () => {
+    it("a whitespace-only line does not count as indented by one character", () => {
         // If a whitespace-only line had "indent 1", the steps would shift to 3.
         const doc = makeDoc(["a", "    b", "    ", "    c", "    ", "    d", "    ", "    e"]);
 
         expect(detectIndentation(doc, SPACES_4)).toEqual({ insertSpaces: true, tabSize: 4 });
     });
 
-    it("пробельная строка не голосует в споре табов с пробелами", () => {
+    it("a whitespace-only line does not vote in the tabs vs spaces contest", () => {
         const doc = makeDoc(["\ta", "  b", "      "]);
 
         expect(detectIndentation(doc, { tabSize: 4, insertSpaces: false }).insertSpaces).toBe(false);
     });
 
-    it("строки с одним ведущим пробелом не делают файл пробельным", () => {
+    it("lines with a single leading space do not make the file space-indented", () => {
         const doc = makeDoc(["/**", " * a", " */"]);
 
         expect(detectIndentation(doc, { tabSize: 4, insertSpaces: false }).insertSpaces).toBe(false);
@@ -157,14 +157,14 @@ describe("detectIndentation", () => {
         expect(detectIndentation(doc, SPACES_4)).toEqual({ insertSpaces: true, tabSize: 2 });
     });
 
-    it("ровно половина частоты четвёрки — двойка ещё выигрывает", () => {
+    it("exactly half the frequency of four — two still wins", () => {
         // Steps: 4 × 4, 2 × 2 — the boundary of the "at least half as often" rule.
         const doc = makeDoc(["a", "    b", "a", "    b", "a", "  c", "a"]);
 
         expect(detectIndentation(doc, SPACES_4)).toEqual({ insertSpaces: true, tabSize: 2 });
     });
 
-    it("правило «двойка вместо четвёрки» не трогает победившую шестёрку", () => {
+    it("the two-instead-of-four rule leaves a winning six alone", () => {
         // Steps: 6 × 5, 2 × 3, 4 × 1 — 6 wins, and switching to 2 would be wrong.
         const doc = makeDoc(["a", "      b", "a", "      b", "a", "      b", "    c", "a", "  d", "a"]);
 

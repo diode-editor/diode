@@ -20,7 +20,7 @@ function deferred<T>(): { promise: Promise<T>; resolve: (value: T) => void } {
 }
 
 describe("TokenizationRegistry — lazy registration", () => {
-    it("registerLazy() не зовёт фабрику и не фаерит onDidChange", () => {
+    it("registerLazy() neither calls the factory nor fires onDidChange", () => {
         const reg = new TokenizationRegistry();
         const factory = vi.fn(async () => makeStubSupport());
         const seen: string[] = [];
@@ -33,7 +33,7 @@ describe("TokenizationRegistry — lazy registration", () => {
         expect(seen).toEqual([]);
     });
 
-    it("load() создаёт support, кладёт в реестр и фаерит onDidChange один раз", async () => {
+    it("load() creates the support, puts it in the registry and fires onDidChange once", async () => {
         const reg = new TokenizationRegistry();
         const support = makeStubSupport();
         const seen: string[] = [];
@@ -46,7 +46,7 @@ describe("TokenizationRegistry — lazy registration", () => {
         expect(seen).toEqual(["css"]);
     });
 
-    it("слушатель onDidChange уже видит support через get()", async () => {
+    it("an onDidChange listener already sees the support via get()", async () => {
         const reg = new TokenizationRegistry();
         const support = makeStubSupport();
         reg.registerLazy("css", async () => support);
@@ -58,7 +58,7 @@ describe("TokenizationRegistry — lazy registration", () => {
         expect(seenInListener).toBe(support);
     });
 
-    it("повторный load() не перезапускает фабрику и не фаерит снова", async () => {
+    it("a repeated load() neither reruns the factory nor fires again", async () => {
         const reg = new TokenizationRegistry();
         const factory = vi.fn(async () => makeStubSupport());
         reg.registerLazy("css", factory);
@@ -72,7 +72,7 @@ describe("TokenizationRegistry — lazy registration", () => {
         expect(seen).toEqual(["css"]);
     });
 
-    it("параллельные load() дёргают фабрику один раз", async () => {
+    it("parallel load() calls invoke the factory once", async () => {
         const reg = new TokenizationRegistry();
         const factory = vi.fn(async () => makeStubSupport());
         reg.registerLazy("css", factory);
@@ -84,7 +84,7 @@ describe("TokenizationRegistry — lazy registration", () => {
         expect(b).toBe(c);
     });
 
-    it("ре-ентрантный load() из onDidChange-слушателя не зацикливается", async () => {
+    it("a reentrant load() from an onDidChange listener does not loop", async () => {
         const reg = new TokenizationRegistry();
         const factory = vi.fn(async () => makeStubSupport());
         reg.registerLazy("css", factory);
@@ -97,12 +97,12 @@ describe("TokenizationRegistry — lazy registration", () => {
         expect(factory).toHaveBeenCalledTimes(1);
     });
 
-    it("load() неизвестного языка отдаёт undefined", async () => {
+    it("load() of an unknown language returns undefined", async () => {
         const reg = new TokenizationRegistry();
         expect(await reg.load("nope")).toBeUndefined();
     });
 
-    it("load() не ленивого, но eager-зарегистрированного языка отдаёт его support", async () => {
+    it("load() of a non-lazy, eagerly registered language returns its support", async () => {
         const reg = new TokenizationRegistry();
         const support = makeStubSupport();
         reg.register("css", support);
@@ -110,7 +110,7 @@ describe("TokenizationRegistry — lazy registration", () => {
         expect(await reg.load("css")).toBe(support);
     });
 
-    it("eager-регистрация не перекрывает ленивую фабрику того же языка", async () => {
+    it("an eager registration does not override a lazy factory for the same language", async () => {
         const reg = new TokenizationRegistry();
         const lazySupport = makeStubSupport();
         reg.register("css", makeStubSupport());
@@ -120,7 +120,7 @@ describe("TokenizationRegistry — lazy registration", () => {
         expect(reg.get("css")).toBe(lazySupport);
     });
 
-    it("фабрика вернула null → ничего не регистрируется и не фаерится", async () => {
+    it("factory returned null → nothing is registered or fired", async () => {
         const reg = new TokenizationRegistry();
         const seen: string[] = [];
         reg.registerLazy("css", async () => null);
@@ -131,7 +131,7 @@ describe("TokenizationRegistry — lazy registration", () => {
         expect(seen).toEqual([]);
     });
 
-    it("фабрика бросила → load() резолвится в undefined, а не реджектится", async () => {
+    it("factory threw → load() resolves to undefined instead of rejecting", async () => {
         const reg = new TokenizationRegistry();
         reg.registerLazy("css", () => Promise.reject(new Error("boom")));
 
@@ -139,7 +139,7 @@ describe("TokenizationRegistry — lazy registration", () => {
         expect(reg.get("css")).toBeUndefined();
     });
 
-    it("неудача фабрики кешируется — ретрая нет", async () => {
+    it("a factory failure is cached — no retry", async () => {
         const reg = new TokenizationRegistry();
         const factory = vi.fn(() => Promise.reject(new Error("boom")));
         reg.registerLazy("css", factory);
@@ -150,7 +150,7 @@ describe("TokenizationRegistry — lazy registration", () => {
         expect(factory).toHaveBeenCalledTimes(1);
     });
 
-    it("dispose() до load() — фабрика не вызывается", async () => {
+    it("dispose() before load() — the factory is not called", async () => {
         const reg = new TokenizationRegistry();
         const factory = vi.fn(async () => makeStubSupport());
         const handle = reg.registerLazy("css", factory);
@@ -161,7 +161,7 @@ describe("TokenizationRegistry — lazy registration", () => {
         expect(factory).not.toHaveBeenCalled();
     });
 
-    it("dispose() после load() снимает support и фаерит onDidChange", async () => {
+    it("dispose() after load() removes the support and fires onDidChange", async () => {
         const reg = new TokenizationRegistry();
         const handle = reg.registerLazy("css", async () => makeStubSupport());
         await reg.load("css");
@@ -174,7 +174,7 @@ describe("TokenizationRegistry — lazy registration", () => {
         expect(seen).toEqual(["css"]);
     });
 
-    it("dispose() во время in-flight load() не регистрирует приехавший support", async () => {
+    it("dispose() during an in-flight load() does not register the arriving support", async () => {
         const reg = new TokenizationRegistry();
         const gate = deferred<ITokenizationSupport>();
         const handle = reg.registerLazy("css", () => gate.promise);
@@ -187,7 +187,7 @@ describe("TokenizationRegistry — lazy registration", () => {
         expect(reg.get("css")).toBeUndefined();
     });
 
-    it("две registerLazy на один язык — побеждает последняя", async () => {
+    it("two registerLazy calls for one language — the last one wins", async () => {
         const reg = new TokenizationRegistry();
         const first = vi.fn(async () => makeStubSupport());
         const second = makeStubSupport();
@@ -198,7 +198,7 @@ describe("TokenizationRegistry — lazy registration", () => {
         expect(first).not.toHaveBeenCalled();
     });
 
-    it("dispose() перекрытой lazy-записи — no-op", async () => {
+    it("dispose() of a superseded lazy entry is a no-op", async () => {
         const reg = new TokenizationRegistry();
         const stale = reg.registerLazy("css", async () => makeStubSupport());
         const winner = makeStubSupport();
@@ -209,7 +209,7 @@ describe("TokenizationRegistry — lazy registration", () => {
         expect(await reg.load("css")).toBe(winner);
     });
 
-    it("lazyLanguageIds() перечисляет только ленивые регистрации", () => {
+    it("lazyLanguageIds() lists only lazy registrations", () => {
         const reg = new TokenizationRegistry();
         reg.register("html", makeStubSupport());
         reg.registerLazy("css", async () => makeStubSupport());

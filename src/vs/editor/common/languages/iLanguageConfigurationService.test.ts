@@ -4,7 +4,7 @@ import { NULL_LANGUAGE_CONFIGURATION_SERVICE } from "./iLanguageConfigurationSer
 import { EMPTY_LANGUAGE_CONFIGURATION } from "./languageConfiguration.ts";
 
 describe("NULL_LANGUAGE_CONFIGURATION_SERVICE", () => {
-    it("отдаёт пустую конфигурацию всем языкам сразу и после загрузки", async () => {
+    it("returns an empty configuration for every language, both immediately and after loading", async () => {
         // EMPTY, not undefined: in test containers features are off rather than waiting forever for a load.
         expect(NULL_LANGUAGE_CONFIGURATION_SERVICE.get("typescript")).toBe(EMPTY_LANGUAGE_CONFIGURATION);
         await expect(NULL_LANGUAGE_CONFIGURATION_SERVICE.ensureLoaded("typescript")).resolves.toBe(

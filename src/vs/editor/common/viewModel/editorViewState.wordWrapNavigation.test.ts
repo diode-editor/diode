@@ -18,8 +18,8 @@ function active(state: EditorViewState): { line: number; character: number } {
     return { line: pos.line, character: pos.character };
 }
 
-describe("word wrap navigation — cursorUp/cursorDown по рядам", () => {
-    it("cursorDown внутри перенесённой строки идёт на следующий фрагмент, держа колонку", () => {
+describe("word wrap navigation — cursorUp/cursorDown by rows", () => {
+    it("cursorDown inside a wrapped line goes to the next fragment, keeping the column", () => {
         const state = makeState();
         state.selections = [createCursorSelection(0, 2)];
         state.cursorDown();
@@ -29,14 +29,14 @@ describe("word wrap navigation — cursorUp/cursorDown по рядам", () => {
         expect(active(state)).toEqual({ line: 1, character: 2 });
     });
 
-    it("cursorUp с продолжения возвращается на первый фрагмент", () => {
+    it("cursorUp from a continuation returns to the first fragment", () => {
         const state = makeState();
         state.selections = [createCursorSelection(0, 12)];
         state.cursorUp();
         expect(active(state)).toEqual({ line: 0, character: 2 });
     });
 
-    it("липкая колонка переживает короткий фрагмент", () => {
+    it("sticky column survives a short fragment", () => {
         const state = makeState();
         state.selections = [createCursorSelection(0, 9)];
         state.cursorDown(); // "cccc" is only 4 columns, cursor goes to the end
@@ -45,7 +45,7 @@ describe("word wrap navigation — cursorUp/cursorDown по рядам", () => {
         expect(active(state)).toEqual({ line: 0, character: 9 });
     });
 
-    it("каретка на не-последнем фрагменте не переезжает границу при посадке", () => {
+    it("a cursor on a non-last fragment does not cross the boundary when landing", () => {
         // The second line is long: going down from the end of the first row must not yield the boundary offset.
         const state = makeState("aaaa bbbb cccc\naaaa bbbb cccc");
         state.selections = [createCursorSelection(0, 14)]; // end of "cccc" (row 2)
@@ -56,7 +56,7 @@ describe("word wrap navigation — cursorUp/cursorDown по рядам", () => {
         expect(active(state)).toEqual({ line: 0, character: 14 });
     });
 
-    it("у краёв вью каретка стоит на месте", () => {
+    it("at view edges the cursor stays in place", () => {
         const state = makeState();
         state.selections = [createCursorSelection(0, 2)];
         state.cursorUp();
@@ -66,7 +66,7 @@ describe("word wrap navigation — cursorUp/cursorDown по рядам", () => {
         expect(active(state)).toEqual({ line: 1, character: 3 });
     });
 
-    it("cursorDown проскакивает ряд-зону между строками", () => {
+    it("cursorDown skips a zone row between lines", () => {
         const state = makeState();
         state.setViewZones([{ afterLine: 0, size: 1 }]);
         state.selections = [createCursorSelection(0, 12)]; // second fragment
@@ -74,7 +74,7 @@ describe("word wrap navigation — cursorUp/cursorDown по рядам", () => {
         expect(active(state)).toEqual({ line: 1, character: 2 });
     });
 
-    it("выделение Shift+Down тянется по фрагментам", () => {
+    it("Shift+Down selection extends across fragments", () => {
         const state = makeState();
         state.selections = [createCursorSelection(0, 2)];
         state.cursorDown(true);
@@ -84,8 +84,8 @@ describe("word wrap navigation — cursorUp/cursorDown по рядам", () => {
     });
 });
 
-describe("word wrap navigation — скрытые строки и зоны", () => {
-    it("cursorUp со скрытой строки садится на ПЕРВУЮ строку документа, если она ближайшая видимая", () => {
+describe("word wrap navigation — hidden lines and zones", () => {
+    it("cursorUp from a hidden line lands on the FIRST document line if it is the nearest visible one", () => {
         const state = makeState("head\nhidden\ntail");
         state.setFoldingRegions([{ startLine: 0, endLine: 1, isCollapsed: true }]);
         // Cursor on a hidden line — bypassing reconcileHiddenCursors.
@@ -94,7 +94,7 @@ describe("word wrap navigation — скрытые строки и зоны", () 
         expect(active(state)).toEqual({ line: 0, character: 2 });
     });
 
-    it("cursorRight в конце строки проскакивает зону и уходит на следующую строку", () => {
+    it("cursorRight at line end skips a zone and goes to the next line", () => {
         const state = makeState("ab\ncd");
         state.setViewZones([{ afterLine: 0, size: 1 }]);
         state.selections = [createCursorSelection(0, 2)];
@@ -102,7 +102,7 @@ describe("word wrap navigation — скрытые строки и зоны", () 
         expect(active(state)).toEqual({ line: 1, character: 0 });
     });
 
-    it("посадка с липкой колонкой за границей фрагмента клампится к последней графеме", () => {
+    it("landing with a sticky column past the fragment boundary clamps to the last grapheme", () => {
         const state = makeState("short\naaaa bbbb cccc");
         state.selections = [createCursorSelection(0, 5)];
         state.cursorEnd();
@@ -111,8 +111,8 @@ describe("word wrap navigation — скрытые строки и зоны", () 
     });
 });
 
-describe("word wrap navigation — Home/End по фрагменту", () => {
-    it("Home на продолжении идёт к началу фрагмента, повторное нажатие — no-op", () => {
+describe("word wrap navigation — Home/End within a fragment", () => {
+    it("Home on a continuation goes to the fragment start, a repeated press is a no-op", () => {
         const state = makeState();
         state.selections = [createCursorSelection(0, 12)];
         state.cursorHome();
@@ -121,7 +121,7 @@ describe("word wrap navigation — Home/End по фрагменту", () => {
         expect(active(state)).toEqual({ line: 0, character: 10 });
     });
 
-    it("Home на первом фрагменте — прежний smart home", () => {
+    it("Home on the first fragment is the usual smart home", () => {
         const state = makeState("  aaaa bbbb cccc\nz");
         state.selections = [createCursorSelection(0, 5)];
         state.cursorHome();
@@ -130,7 +130,7 @@ describe("word wrap navigation — Home/End по фрагменту", () => {
         expect(active(state)).toEqual({ line: 0, character: 0 });
     });
 
-    it("End на не-последнем фрагменте — последняя графема фрагмента", () => {
+    it("End on a non-last fragment is the fragment's last grapheme", () => {
         const state = makeState();
         state.selections = [createCursorSelection(0, 2)];
         state.cursorEnd();
@@ -138,7 +138,7 @@ describe("word wrap navigation — Home/End по фрагменту", () => {
         expect(active(state)).toEqual({ line: 0, character: 9 });
     });
 
-    it("End на последнем фрагменте — конец строки", () => {
+    it("End on the last fragment is the line end", () => {
         const state = makeState();
         state.selections = [createCursorSelection(0, 12)];
         state.cursorEnd();
@@ -146,15 +146,15 @@ describe("word wrap navigation — Home/End по фрагменту", () => {
     });
 });
 
-describe("word wrap navigation — по горизонтали через границы", () => {
-    it("cursorRight в конце перенесённой строки уходит на СЛЕДУЮЩУЮ строку, а не на свой фрагмент", () => {
+describe("word wrap navigation — horizontal across boundaries", () => {
+    it("cursorRight at the end of a wrapped line goes to the NEXT line, not to its own fragment", () => {
         const state = makeState();
         state.selections = [createCursorSelection(0, 14)];
         state.cursorRight();
         expect(active(state)).toEqual({ line: 1, character: 0 });
     });
 
-    it("cursorLeft в начале строки уходит в конец предыдущей перенесённой", () => {
+    it("cursorLeft at line start goes to the end of the previous wrapped line", () => {
         const state = makeState();
         state.selections = [createCursorSelection(1, 0)];
         state.cursorLeft();
@@ -162,8 +162,8 @@ describe("word wrap navigation — по горизонтали через гра
     });
 });
 
-describe("word wrap navigation — мультикурсор и страницы", () => {
-    it("insertCursorBelow добавляет каретку на следующий РЯД той же строки", () => {
+describe("word wrap navigation — multi-cursor and pages", () => {
+    it("insertCursorBelow adds a cursor on the next ROW of the same line", () => {
         const state = makeState();
         state.selections = [createCursorSelection(0, 2)];
         state.insertCursorBelow();
@@ -173,7 +173,7 @@ describe("word wrap navigation — мультикурсор и страницы"
         ]);
     });
 
-    it("insertCursorAbove с продолжения добавляет каретку на первый фрагмент", () => {
+    it("insertCursorAbove from a continuation adds a cursor on the first fragment", () => {
         const state = makeState();
         state.selections = [createCursorSelection(0, 12)];
         state.insertCursorAbove();
@@ -183,7 +183,7 @@ describe("word wrap navigation — мультикурсор и страницы"
         ]);
     });
 
-    it("непустое выделение переезжает на соседний ряд целиком", () => {
+    it("a non-empty selection moves to the adjacent row whole", () => {
         const state = makeState();
         state.selections = [createSelection(0, 0, 0, 2)];
         state.insertCursorBelow();
@@ -193,7 +193,7 @@ describe("word wrap navigation — мультикурсор и страницы"
         expect(added.active).toEqual({ line: 0, character: 12 });
     });
 
-    it("PageDown шагает в рядах вью", () => {
+    it("PageDown steps in view rows", () => {
         // 3 wrapped lines of 2 rows each; viewport of 4 rows → page = 3 rows.
         const state = makeState("aaaa bbbb cccc\naaaa bbbb cccc\naaaa bbbb cccc");
         state.viewportHeight = 4;
@@ -203,7 +203,7 @@ describe("word wrap navigation — мультикурсор и страницы"
         expect(active(state)).toEqual({ line: 1, character: 12 });
     });
 
-    it("PageUp с зоной перед началом вью откатывается к первому документному ряду ниже", () => {
+    it("PageUp with a zone before view start falls back to the first document row below", () => {
         const state = makeState("aaaa bbbb cccc\nshort");
         state.viewportHeight = 3; // page = 2 rows
         state.setViewZones([{ afterLine: -1, size: 2 }]);
@@ -212,7 +212,7 @@ describe("word wrap navigation — мультикурсор и страницы"
         expect(active(state)).toEqual({ line: 0, character: 2 });
     });
 
-    it("cursorWordLeft в начале документа с зоной перед вью — no-op", () => {
+    it("cursorWordLeft at document start with a zone before the view is a no-op", () => {
         const state = makeState("aaaa bbbb cccc");
         state.setViewZones([{ afterLine: -1, size: 1 }]);
         state.selections = [createCursorSelection(0, 0)];
@@ -220,7 +220,7 @@ describe("word wrap navigation — мультикурсор и страницы"
         expect(active(state)).toEqual({ line: 0, character: 0 });
     });
 
-    it("PageUp с ряда-продолжения держит колонку относительно фрагмента", () => {
+    it("PageUp from a continuation row keeps the column relative to the fragment", () => {
         const state = makeState();
         state.viewportHeight = 2; // page = 1 row
         state.selections = [createCursorSelection(0, 12)]; // row 1, column 2 of the fragment
@@ -228,7 +228,7 @@ describe("word wrap navigation — мультикурсор и страницы"
         expect(active(state)).toEqual({ line: 0, character: 2 });
     });
 
-    it("PageUp на зону, чей ближайший документный ряд — самый первый", () => {
+    it("PageUp onto a zone whose nearest document row is the very first", () => {
         const state = makeState("ab\ncd");
         state.viewportHeight = 2; // page = 1 row
         state.setViewZones([{ afterLine: 0, size: 1 }]);
@@ -237,7 +237,7 @@ describe("word wrap navigation — мультикурсор и страницы"
         expect(active(state)).toEqual({ line: 0, character: 0 });
     });
 
-    it("PageDown садится мимо зоны на ближайший документный ряд", () => {
+    it("PageDown lands past a zone on the nearest document row", () => {
         const state = makeState("aaaa bbbb cccc\nshort");
         state.viewportHeight = 3; // page = 2 rows
         state.setViewZones([{ afterLine: 0, size: 1 }]);
@@ -248,7 +248,7 @@ describe("word wrap navigation — мультикурсор и страницы"
 });
 
 describe("word wrap navigation — reveal", () => {
-    it("reveal показывает РЯД каретки: хвост длинной строки скроллит вьюпорт", () => {
+    it("reveal shows the cursor's ROW: the tail of a long line scrolls the viewport", () => {
         // 8 fragments of 10 columns; viewport of 3 rows.
         const state = makeState(`${"aaaa bbbb ".repeat(8)}end`, 10);
         state.viewportHeight = 3;

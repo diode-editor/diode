@@ -64,17 +64,17 @@ describe("findMatches", () => {
     });
 });
 
-describe("findTextMatches — границы слова", () => {
+describe("findTextMatches word boundaries", () => {
     const whole = (text: string, query: string): number[] =>
         findTextMatches(new TextDocument(text), query, { matchCase: true, wholeWord: true }).map(
             (match) => match.start.character,
         );
 
-    it("слово у самого начала и у самого конца строки — целое слово", () => {
+    it("word at the very start and the very end of a line is a whole word", () => {
         expect(whole("text context text", "text")).toEqual([0, 13]);
     });
 
-    it("часть слова не находится — ни по левому соседу, ни по правому", () => {
+    it("part of a word is not found, by neither the left nor the right neighbor", () => {
         // `textual` is rejected by the char on the RIGHT, `pretext` by the left one. Without
         // the right check, the start of `textual` would match too.
         expect(whole("textual text pretext", "text")).toEqual([8]);

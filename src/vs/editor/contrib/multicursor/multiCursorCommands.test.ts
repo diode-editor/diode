@@ -33,7 +33,7 @@ function makeState(text: string, line = 0, character = 0): EditorViewState {
 }
 
 describe("addSelectionToNextFindMatch (Ctrl+D)", () => {
-    it("первое нажатие выделяет слово под кареткой, второе добавляет следующее вхождение", () => {
+    it("first press selects the word under the cursor, second adds the next occurrence", () => {
         const state = makeState("foo bar\nfoo baz", 0, 1);
 
         addSelectionToNextFindMatch(state);
@@ -47,7 +47,7 @@ describe("addSelectionToNextFindMatch (Ctrl+D)", () => {
         expect(texts(state)).toEqual(["foo", "foo"]);
     });
 
-    it("после последнего вхождения заворачивается и дальше становится no-op", () => {
+    it("wraps around after the last occurrence and then becomes a no-op", () => {
         const state = makeState("foo\nfoo\nfoo", 0, 0);
         addSelectionToNextFindMatch(state); // selects the word
         addSelectionToNextFindMatch(state);
@@ -63,7 +63,7 @@ describe("addSelectionToNextFindMatch (Ctrl+D)", () => {
         expect(fired).toBe(0);
     });
 
-    it("от непустого выделения сразу добавляет второе вхождение", () => {
+    it("from a non-empty selection adds the second occurrence right away", () => {
         const state = makeState("foobar foobar");
         state.selections = [createSelection(0, 0, 0, 4)];
 
@@ -74,7 +74,7 @@ describe("addSelectionToNextFindMatch (Ctrl+D)", () => {
         ]);
     });
 
-    it("ищет по целым словам, когда стартовал от каретки", () => {
+    it("searches whole words when started from a cursor", () => {
         const state = makeState("text context text", 0, 1);
         addSelectionToNextFindMatch(state);
         addSelectionToNextFindMatch(state);
@@ -85,21 +85,21 @@ describe("addSelectionToNextFindMatch (Ctrl+D)", () => {
         ]);
     });
 
-    it("слово-одиночка: второе нажатие ничего не добавляет", () => {
+    it("single occurrence: second press adds nothing", () => {
         const state = makeState("alpha beta", 0, 0);
         addSelectionToNextFindMatch(state);
         addSelectionToNextFindMatch(state);
         expect(state.selections).toHaveLength(1);
     });
 
-    it("каретка не на слове — команда молчит", () => {
+    it("cursor not on a word: the command does nothing", () => {
         const state = makeState("a + b", 0, 2);
         addSelectionToNextFindMatch(state);
         expect(state.selections).toHaveLength(1);
         expect(state.selections[0].active).toEqual({ line: 0, character: 2 });
     });
 
-    it("вьюпорт едет к добавленному вхождению, а не остаётся у первичного", () => {
+    it("viewport moves to the added occurrence instead of staying at the primary", () => {
         const filler = Array.from({ length: 60 }, () => "filler").join("\n");
         const state = makeState(`foo\n${filler}\nfoo`, 0, 0);
         state.viewportHeight = 10;
@@ -111,7 +111,7 @@ describe("addSelectionToNextFindMatch (Ctrl+D)", () => {
         expect(state.scrollTop).toBeGreaterThan(0);
     });
 
-    it("первый шаг подтягивает вьюпорт к слову под кареткой", () => {
+    it("first step reveals the word under the cursor", () => {
         const filler = Array.from({ length: 60 }, () => "filler").join("\n");
         const state = makeState(`${filler}\nfoo`, 60, 0);
         state.viewportHeight = 10;
@@ -124,7 +124,7 @@ describe("addSelectionToNextFindMatch (Ctrl+D)", () => {
         expect(state.scrollTop).toBeGreaterThan(0);
     });
 
-    it("заворот вверх поднимает вьюпорт к найденному вхождению", () => {
+    it("wrap to the top scrolls the viewport up to the found occurrence", () => {
         const filler = Array.from({ length: 60 }, () => "filler").join("\n");
         const state = makeState(`foo\n${filler}\nfoo`, 61, 0);
         state.viewportHeight = 10;
@@ -137,8 +137,8 @@ describe("addSelectionToNextFindMatch (Ctrl+D)", () => {
     });
 });
 
-describe("addSelectionToNextFindMatch — инвалидация сессии", () => {
-    it("движение каретки между шагами перезапускает поиск от нового места", () => {
+describe("addSelectionToNextFindMatch session invalidation", () => {
+    it("cursor movement between steps restarts the search from the new position", () => {
         const state = makeState("foo bar\nfoo bar", 0, 0);
         addSelectionToNextFindMatch(state);
         addSelectionToNextFindMatch(state);
@@ -150,7 +150,7 @@ describe("addSelectionToNextFindMatch — инвалидация сессии", 
         expect(texts(state)).toEqual(["bar"]);
     });
 
-    it("правка документа перезапускает поиск", () => {
+    it("document edit restarts the search", () => {
         const state = makeState("foo bar\nfoo bar", 0, 0);
         addSelectionToNextFindMatch(state);
         addSelectionToNextFindMatch(state);
@@ -162,7 +162,7 @@ describe("addSelectionToNextFindMatch — инвалидация сессии", 
         expect(texts(state)).toEqual(["Xbar"]);
     });
 
-    it("несколько кареток с разным текстом: шаг уходит на расширение до слов", () => {
+    it("multiple cursors with different text: the step expands them to words", () => {
         const state = makeState("alpha beta", 0, 0);
         state.selections = [createCursorSelection(0, 1), createCursorSelection(0, 7)];
 
@@ -171,7 +171,7 @@ describe("addSelectionToNextFindMatch — инвалидация сессии", 
         expect(texts(state)).toEqual(["alpha", "beta"]);
     });
 
-    it("расширяет только схлопнутые, непустые выделения не трогает", () => {
+    it("expands only collapsed selections, leaves non-empty ones untouched", () => {
         const state = makeState("alpha beta");
         state.selections = [createSelection(0, 0, 0, 2), createCursorSelection(0, 7)];
 
@@ -180,7 +180,7 @@ describe("addSelectionToNextFindMatch — инвалидация сессии", 
         expect(texts(state)).toEqual(["al", "beta"]);
     });
 
-    it("каретка на пунктуации среди прочих остаётся кареткой", () => {
+    it("cursor on punctuation among others stays a cursor", () => {
         const state = makeState("alpha + beta");
         state.selections = [createCursorSelection(0, 1), createCursorSelection(0, 6)];
 
@@ -189,7 +189,7 @@ describe("addSelectionToNextFindMatch — инвалидация сессии", 
         expect(texts(state)).toEqual(["alpha", ""]);
     });
 
-    it("расширять нечего — набор не трогаем и события не шлём", () => {
+    it("nothing to expand: selections untouched and no event fired", () => {
         const state = makeState("a + b");
         state.selections = [createCursorSelection(0, 2), createSelection(0, 3, 0, 4)];
         let fired = 0;
@@ -202,7 +202,7 @@ describe("addSelectionToNextFindMatch — инвалидация сессии", 
         expect(fired).toBe(0);
     });
 
-    it("выделения, различающиеся регистром, общим текстом не считаются", () => {
+    it("selections differing in case do not count as common text", () => {
         // The search is case-sensitive, so the shared-text gate must be too.
         const state = makeState("Foo foo Foo");
         state.selections = [createSelection(0, 0, 0, 3), createSelection(0, 4, 0, 7)];
@@ -212,7 +212,7 @@ describe("addSelectionToNextFindMatch — инвалидация сессии", 
         expect(state.selections).toHaveLength(2);
     });
 
-    it("несколько выделений с ОДИНАКОВЫМ текстом продолжают поиск сразу", () => {
+    it("multiple selections with the SAME text continue the search right away", () => {
         const state = makeState("foo foo foo");
         state.selections = [createSelection(0, 0, 0, 3), createSelection(0, 4, 0, 7)];
 
@@ -227,7 +227,7 @@ describe("addSelectionToNextFindMatch — инвалидация сессии", 
 });
 
 describe("addSelectionToPreviousFindMatch", () => {
-    it("добавляет вхождение выше по документу", () => {
+    it("adds an occurrence above in the document", () => {
         const state = makeState("foo\nbar\nfoo", 2, 1);
         addSelectionToPreviousFindMatch(state); // selects the word
         addSelectionToPreviousFindMatch(state);
@@ -240,7 +240,7 @@ describe("addSelectionToPreviousFindMatch", () => {
     // Two occurrences cannot check direction: the search wraps, so "up" from the bottom one
     // lands where "down" does. Three occurrences and a start in the middle make up and down
     // diverge.
-    it("идёт именно ВВЕРХ: от середины берёт вхождение над кареткой, а не под ней", () => {
+    it("goes UP indeed: from the middle takes the occurrence above the cursor, not below", () => {
         const state = makeState("foo\nfoo\nfoo", 1, 1);
 
         addSelectionToPreviousFindMatch(state); // selects the word under the cursor
@@ -256,7 +256,7 @@ describe("addSelectionToPreviousFindMatch", () => {
 });
 
 describe("moveSelectionToNextFindMatch (Ctrl+K Ctrl+D)", () => {
-    it("переносит последнее добавленное выделение, не растя их число", () => {
+    it("moves the last added selection without growing their count", () => {
         const state = makeState("foo\nfoo\nfoo", 0, 0);
         addSelectionToNextFindMatch(state);
         addSelectionToNextFindMatch(state);
@@ -272,7 +272,7 @@ describe("moveSelectionToNextFindMatch (Ctrl+K Ctrl+D)", () => {
         ]);
     });
 
-    it("переносит и назад", () => {
+    it("moves backwards too", () => {
         const state = makeState("foo\nfoo\nfoo", 0, 0);
         addSelectionToNextFindMatch(state);
         addSelectionToNextFindMatch(state);
@@ -287,7 +287,7 @@ describe("moveSelectionToNextFindMatch (Ctrl+K Ctrl+D)", () => {
     // The check above with three occurrences cannot tell direction: exactly one spot stays free,
     // and both up-with-wrap and down lead to it. With four occurrences and a move from the
     // middle the paths diverge.
-    it("назад — это назад: перенос из середины уходит выше, а не ниже", () => {
+    it("backwards means backwards: moving from the middle goes up, not down", () => {
         const state = makeState("foo\nfoo\nfoo\nfoo", 1, 0);
         addSelectionToNextFindMatch(state); // selects line 1
         addSelectionToNextFindMatch(state); // adds line 2
@@ -302,7 +302,7 @@ describe("moveSelectionToNextFindMatch (Ctrl+K Ctrl+D)", () => {
         ]);
     });
 
-    it("на единственном вхождении не залипает: прежнее место снова свободно", () => {
+    it("does not get stuck on a single occurrence: the previous spot is free again", () => {
         const state = makeState("foo bar", 0, 0);
         addSelectionToNextFindMatch(state);
         moveSelectionToNextFindMatch(state);
@@ -311,7 +311,7 @@ describe("moveSelectionToNextFindMatch (Ctrl+K Ctrl+D)", () => {
 });
 
 describe("selectHighlights (Ctrl+Shift+L)", () => {
-    it("выделяет все вхождения слова под кареткой сразу", () => {
+    it("selects all occurrences of the word under the cursor at once", () => {
         const state = makeState("foo bar\nfoo baz\nfoo", 0, 1);
         selectHighlights(state);
         expect(spans(state)).toEqual([
@@ -321,21 +321,21 @@ describe("selectHighlights (Ctrl+Shift+L)", () => {
         ]);
     });
 
-    it("повторный вызов ничего не меняет", () => {
+    it("repeated call changes nothing", () => {
         const state = makeState("foo\nfoo", 0, 0);
         selectHighlights(state);
         selectHighlights(state);
         expect(state.selections).toHaveLength(2);
     });
 
-    it("после него Ctrl+D — стабильный no-op: всё уже выделено", () => {
+    it("Ctrl+D after it is a stable no-op: everything is selected already", () => {
         const state = makeState("foo\nfoo", 0, 0);
         selectHighlights(state);
         addSelectionToNextFindMatch(state);
         expect(state.selections).toHaveLength(2);
     });
 
-    it("подхватывает живую сессию Ctrl+D вместо перезапуска от каретки", () => {
+    it("picks up a live Ctrl+D session instead of restarting from the cursor", () => {
         const state = makeState("foobar foobar foobar");
         state.selections = [createSelection(0, 0, 0, 4)]; // substring "foob"
         addSelectionToNextFindMatch(state);
@@ -345,7 +345,7 @@ describe("selectHighlights (Ctrl+Shift+L)", () => {
         expect(texts(state)).toEqual(["foob", "foob", "foob"]);
     });
 
-    it("вьюпорт остаётся у прежней каретки, а не прыгает в начало файла", () => {
+    it("viewport stays at the previous cursor instead of jumping to file start", () => {
         const filler = Array.from({ length: 60 }, () => "filler").join("\n");
         const state = makeState(`foo\n${filler}\nfoo`, 61, 1);
         state.viewportHeight = 10;
@@ -357,7 +357,7 @@ describe("selectHighlights (Ctrl+Shift+L)", () => {
         expect(state.scrollTop).toBeGreaterThan(0);
     });
 
-    it("каретка не на слове — no-op", () => {
+    it("cursor not on a word is a no-op", () => {
         const state = makeState("a + b", 0, 2);
         selectHighlights(state);
         expect(state.selections).toHaveLength(1);
@@ -365,7 +365,7 @@ describe("selectHighlights (Ctrl+Shift+L)", () => {
 });
 
 describe("insertCursorAtEndOfEachLineSelected (Ctrl+Shift+Alt+I)", () => {
-    it("каретка в конец каждой затронутой строки", () => {
+    it("puts a cursor at the end of each touched line", () => {
         const state = makeState("alpha\nbe\ngamma");
         state.selections = [createSelection(0, 1, 2, 3)];
 
@@ -378,7 +378,7 @@ describe("insertCursorAtEndOfEachLineSelected (Ctrl+Shift+Alt+I)", () => {
         ]);
     });
 
-    it("выделение, кончающееся в колонке 0, последней строке каретки не даёт", () => {
+    it("selection ending at column 0 adds no cursor on its last line", () => {
         const state = makeState("alpha\nbeta\ngamma");
         state.selections = [createSelection(0, 0, 2, 0)];
 
@@ -387,7 +387,7 @@ describe("insertCursorAtEndOfEachLineSelected (Ctrl+Shift+Alt+I)", () => {
         expect(state.selections.map((sel) => sel.active.line)).toEqual([0, 1]);
     });
 
-    it("все выделения схлопнуты — no-op без события", () => {
+    it("all selections collapsed: no-op without an event", () => {
         const state = makeState("alpha\nbeta", 0, 2);
         let fired = 0;
         state.onDidChangeCursorPosition(() => {
@@ -398,7 +398,7 @@ describe("insertCursorAtEndOfEachLineSelected (Ctrl+Shift+Alt+I)", () => {
         expect(fired).toBe(0);
     });
 
-    it("подтягивает вьюпорт к первой из расставленных кареток", () => {
+    it("reveals the first of the placed cursors", () => {
         const filler = Array.from({ length: 60 }, () => "filler").join("\n");
         const state = makeState(filler, 0, 0);
         state.viewportHeight = 10;
@@ -411,7 +411,7 @@ describe("insertCursorAtEndOfEachLineSelected (Ctrl+Shift+Alt+I)", () => {
         expect(state.scrollTop).toBeGreaterThan(0);
     });
 
-    it("сбрасывает сессию Ctrl+D — набор кареток к ней больше не относится", () => {
+    it("resets the Ctrl+D session: the cursor set no longer belongs to it", () => {
         const state = makeState("foo\nfoo", 0, 0);
         addSelectionToNextFindMatch(state);
         expect(state.multiCursorSession).not.toBeNull();
@@ -422,8 +422,8 @@ describe("insertCursorAtEndOfEachLineSelected (Ctrl+Shift+Alt+I)", () => {
     });
 });
 
-describe("мультикурсорный поиск в read-only", () => {
-    it("работает: выделение ничего не меняет в документе", () => {
+describe("multi-cursor find in read-only", () => {
+    it("works: selecting changes nothing in the document", () => {
         const state = makeState("foo\nfoo", 0, 0);
         state.readOnly = true;
         addSelectionToNextFindMatch(state);

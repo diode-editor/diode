@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { NULL_LANGUAGE_SERVICE } from "./iLanguageService.ts";
 
 describe("NULL_LANGUAGE_SERVICE", () => {
-    it("языков не знает, запросы фич глотает, подписка снимается", () => {
+    it("knows no languages, swallows feature requests, the subscription disposes", () => {
         const heard: string[] = [];
         const subscription = NULL_LANGUAGE_SERVICE.onDidRequestLanguageFeatures((id) => heard.push(id));
 

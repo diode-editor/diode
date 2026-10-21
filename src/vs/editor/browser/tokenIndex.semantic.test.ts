@@ -16,7 +16,7 @@ describe("SemanticTokenIndex", () => {
         fg: legend === LEGEND ? type * 100 + mods : -1,
     });
 
-    it("вне токенов — null, внутри — стиль своего токена", () => {
+    it("outside tokens — null, inside — the style of its token", () => {
         const index = new SemanticTokenIndex(line, lookup);
         const at = (offset: number) => index.styleAt(offset)?.fg ?? null;
         expect([0, 1, 2, 3, 4, 5, 6, 8, 9, 10, 11].map(at)).toEqual([
@@ -34,7 +34,7 @@ describe("SemanticTokenIndex", () => {
         ]);
     });
 
-    it("откат назад после прохода вперёд находит токен с начала", () => {
+    it("going back after a forward pass finds the token from the start", () => {
         const index = new SemanticTokenIndex(line, lookup);
         expect(index.styleAt(9)?.fg).toBe(2);
         expect(index.styleAt(3)?.fg).toBe(0);
@@ -44,12 +44,12 @@ describe("SemanticTokenIndex", () => {
         expect(index.styleAt(3)?.fg).toBe(0);
     });
 
-    it("lookup вернул null — стиля нет", () => {
+    it("lookup returned null — no style", () => {
         const index = new SemanticTokenIndex(line, () => null);
         expect(index.styleAt(3)).toBeNull();
     });
 
-    it("пустая строка токенов", () => {
+    it("empty token line", () => {
         expect(new SemanticTokenIndex({ legend: LEGEND, tokens: [] }, lookup).styleAt(0)).toBeNull();
     });
 });
@@ -68,13 +68,13 @@ describe("resolveSemanticTokenStyle", () => {
         };
     }
 
-    it("индекс типа и биты модификаторов — в имена легенды, язык как есть", () => {
+    it("type index and modifier bits map to legend names, language as is", () => {
         const resolver = recorder();
         expect(resolveSemanticTokenStyle(resolver, "ts", LEGEND, 1, 0b101)).toEqual({ bold: true });
         expect(resolver.calls).toEqual([["b", ["m0", "m2"], "ts"]]);
     });
 
-    it("биты за легендой отбрасываются; без модификаторов — пустой список", () => {
+    it("bits beyond the legend are dropped; no modifiers yields an empty list", () => {
         const resolver = recorder();
         resolveSemanticTokenStyle(resolver, "ts", LEGEND, 0, 0b1010);
         resolveSemanticTokenStyle(resolver, "ts", LEGEND, 0, 0);
@@ -84,14 +84,14 @@ describe("resolveSemanticTokenStyle", () => {
         ]);
     });
 
-    it("старший бит (знак) не ломает разбор", () => {
+    it("the high (sign) bit does not break decoding", () => {
         const resolver = recorder();
         const legend = { tokenTypes: ["a"], tokenModifiers: Array.from({ length: 32 }, (_, i) => `m${String(i)}`) };
         resolveSemanticTokenStyle(resolver, "ts", legend, 0, 0x8000_0000);
         expect(resolver.calls).toEqual([["a", ["m31"], "ts"]]);
     });
 
-    it("тип вне легенды или пустой — null без вызова темы", () => {
+    it("a type outside the legend or empty — null without calling the theme", () => {
         const resolver = recorder();
         expect(resolveSemanticTokenStyle(resolver, "ts", LEGEND, 7, 0)).toBeNull();
         expect(resolveSemanticTokenStyle(resolver, "ts", LEGEND, 2, 0)).toBeNull();
@@ -102,11 +102,11 @@ describe("resolveSemanticTokenStyle", () => {
 describe("applySemanticStyle", () => {
     const ALL = StyleFlags.Bold | StyleFlags.Italic | StyleFlags.Underline | StyleFlags.Strikethrough;
 
-    it("пустой стиль ничего не меняет", () => {
+    it("an empty style changes nothing", () => {
         expect(applySemanticStyle({}, 7, ALL)).toEqual({ fg: 7, flags: ALL });
     });
 
-    it("цвет заменяется, флаги ставятся и снимаются по одному", () => {
+    it("color is replaced, flags are set and cleared one by one", () => {
         expect(applySemanticStyle({ fg: 9, bold: false, underline: true }, 7, StyleFlags.Bold)).toEqual({
             fg: 9,
             flags: StyleFlags.Underline,

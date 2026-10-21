@@ -22,7 +22,7 @@ describe("moveToWordHighlight", () => {
     // "foo bar foo\nfoo" — occurrences of foo: (0,0) (0,8) (1,0).
     const text = "foo bar foo\nfoo";
 
-    it("вперёд — на начало следующего вхождения", () => {
+    it("next goes to the start of the next occurrence", () => {
         const state = makeState(text, 0, 1);
         moveToWordHighlight(state, 1);
         expect(caret(state)).toEqual([0, 8]);
@@ -30,50 +30,50 @@ describe("moveToWordHighlight", () => {
         expect(caret(state)).toEqual([1, 0]);
     });
 
-    it("вперёд с последнего — циклически на первое", () => {
+    it("next from the last wraps to the first", () => {
         const state = makeState(text, 1, 2);
         moveToWordHighlight(state, 1);
         expect(caret(state)).toEqual([0, 0]);
     });
 
-    it("назад — на начало предыдущего вхождения", () => {
+    it("previous goes to the start of the previous occurrence", () => {
         const state = makeState(text, 1, 2);
         moveToWordHighlight(state, -1);
         expect(caret(state)).toEqual([0, 8]);
     });
 
-    it("назад с первого — циклически на последнее", () => {
+    it("previous from the first wraps to the last", () => {
         const state = makeState(text, 0, 2);
         moveToWordHighlight(state, -1);
         expect(caret(state)).toEqual([1, 0]);
     });
 
-    it("каретка сразу за словом — на этом слове", () => {
+    it("cursor right after a word counts as on that word", () => {
         const state = makeState(text, 0, 11);
         moveToWordHighlight(state, 1);
         expect(caret(state)).toEqual([1, 0]);
     });
 
-    it("единственное вхождение — каретка встаёт на его начало", () => {
+    it("single occurrence: the cursor moves to its start", () => {
         const state = makeState("hello world", 0, 3);
         moveToWordHighlight(state, 1);
         expect(caret(state)).toEqual([0, 0]);
     });
 
-    it("каретка не на слове — no-op", () => {
+    it("cursor not on a word is a no-op", () => {
         const state = makeState("foo  foo", 0, 4);
         moveToWordHighlight(state, 1);
         expect(caret(state)).toEqual([0, 4]);
     });
 
-    it("непустое выделение — no-op (подсветки вхождений нет)", () => {
+    it("non-empty selection is a no-op (no occurrence highlights)", () => {
         const state = makeState(text, 0, 0);
         state.selections = [createSelection(0, 0, 0, 3)];
         moveToWordHighlight(state, 1);
         expect(state.selections).toEqual([createSelection(0, 0, 0, 3)]);
     });
 
-    it("мультикурсор — no-op (подсветки вхождений нет)", () => {
+    it("multi-cursor is a no-op (no occurrence highlights)", () => {
         const state = makeState(text, 0, 0);
         const carets = [createCursorSelection(0, 1), createCursorSelection(1, 1)];
         state.selections = carets;
@@ -81,7 +81,7 @@ describe("moveToWordHighlight", () => {
         expect(state.selections).toEqual(carets);
     });
 
-    it("цель за вьюпортом — вьюпорт едет к ней", () => {
+    it("target outside the viewport: the viewport scrolls to it", () => {
         const lines = ["foo", ...Array.from({ length: 50 }, () => "x"), "  foo"];
         const state = makeState(lines.join("\n"), 0, 0);
         state.viewportHeight = 10;

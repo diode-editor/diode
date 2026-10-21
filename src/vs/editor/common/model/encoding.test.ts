@@ -63,8 +63,8 @@ describe("detectEncodingByBOM", () => {
 
 describe("decodeBuffer", () => {
     it("defaults to utf8 without a BOM", async () => {
-        const { text, encoding } = await decodeBuffer(Buffer.from("привет", "utf8"));
-        expect(text).toBe("привет");
+        const { text, encoding } = await decodeBuffer(Buffer.from("\u043f\u0440\u0438\u0432\u0435\u0442", "utf8")); // "privet"
+        expect(text).toBe("\u043f\u0440\u0438\u0432\u0435\u0442"); // "privet"
         expect(encoding).toBe("utf8");
     });
 
@@ -76,17 +76,21 @@ describe("decodeBuffer", () => {
     });
 
     it("decodes utf16le and utf16be by BOM", async () => {
-        const le = await decodeBuffer(Buffer.concat([Buffer.from([0xff, 0xfe]), iconv.encode("абв", "utf16le")]));
-        expect(le).toEqual({ text: "абв", encoding: "utf16le" });
+        const le = await decodeBuffer(
+            Buffer.concat([Buffer.from([0xff, 0xfe]), iconv.encode("\u0430\u0431\u0432", "utf16le")]),
+        ); // "abv"
+        expect(le).toEqual({ text: "\u0430\u0431\u0432", encoding: "utf16le" }); // "abv"
 
-        const be = await decodeBuffer(Buffer.concat([Buffer.from([0xfe, 0xff]), iconv.encode("абв", "utf16-be")]));
-        expect(be).toEqual({ text: "абв", encoding: "utf16be" });
+        const be = await decodeBuffer(
+            Buffer.concat([Buffer.from([0xfe, 0xff]), iconv.encode("\u0430\u0431\u0432", "utf16-be")]),
+        ); // "abv"
+        expect(be).toEqual({ text: "\u0430\u0431\u0432", encoding: "utf16be" }); // "abv"
     });
 
     it("an explicit encoding wins over the utf8 default", async () => {
-        const bytes = iconv.encode("привет", "windows1251");
+        const bytes = iconv.encode("\u043f\u0440\u0438\u0432\u0435\u0442", "windows1251"); // "privet"
         const { text, encoding } = await decodeBuffer(bytes, "windows1251");
-        expect(text).toBe("привет");
+        expect(text).toBe("\u043f\u0440\u0438\u0432\u0435\u0442"); // "privet"
         expect(encoding).toBe("windows1251");
     });
 
@@ -124,11 +128,14 @@ describe("decodeBuffer", () => {
 
 describe("decodeBufferByBOM", () => {
     it("is the synchronous no-explicit-encoding decodeBuffer", () => {
-        expect(decodeBufferByBOM(Buffer.from("привет", "utf8"))).toEqual({ text: "привет", encoding: "utf8" });
+        expect(decodeBufferByBOM(Buffer.from("\u043f\u0440\u0438\u0432\u0435\u0442", "utf8"))).toEqual({
+            text: "\u043f\u0440\u0438\u0432\u0435\u0442",
+            encoding: "utf8",
+        }); // "privet"
         const bom = Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), Buffer.from("hi", "utf8")]);
         expect(decodeBufferByBOM(bom)).toEqual({ text: "hi", encoding: "utf8bom" });
-        const be = Buffer.concat([Buffer.from([0xfe, 0xff]), iconv.encode("абв", "utf16-be")]);
-        expect(decodeBufferByBOM(be)).toEqual({ text: "абв", encoding: "utf16be" });
+        const be = Buffer.concat([Buffer.from([0xfe, 0xff]), iconv.encode("\u0430\u0431\u0432", "utf16-be")]); // "abv"
+        expect(decodeBufferByBOM(be)).toEqual({ text: "\u0430\u0431\u0432", encoding: "utf16be" }); // "abv"
     });
 
     it("leaves the caller's buffer intact (utf16be swaps a copy)", () => {
@@ -165,12 +172,12 @@ describe("encodeText", () => {
 
 describe("roundtrips (byte-exact)", () => {
     const samples: [string, string][] = [
-        ["utf8", "line one\nстрока два\n"],
-        ["utf8bom", "with bom\nкириллица\n"],
-        ["utf16le", "utf16 le\nтекст\n"],
-        ["utf16be", "utf16 be\nтекст\n"],
-        ["windows1251", "Привет, мир!\nЁжик — №5\n"],
-        ["koi8r", "Кириллица КОИ-8\n"],
+        ["utf8", "line one\n\u0441\u0442\u0440\u043e\u043a\u0430 \u0434\u0432\u0430\n"], // "line one\nstroka dva\n"
+        ["utf8bom", "with bom\n\u043a\u0438\u0440\u0438\u043b\u043b\u0438\u0446\u0430\n"], // "with bom\nkirillitsa\n"
+        ["utf16le", "utf16 le\n\u0442\u0435\u043a\u0441\u0442\n"], // "utf16 le\ntekst\n"
+        ["utf16be", "utf16 be\n\u0442\u0435\u043a\u0441\u0442\n"], // "utf16 be\ntekst\n"
+        ["windows1251", "\u041f\u0440\u0438\u0432\u0435\u0442, \u043c\u0438\u0440!\n\u0401\u0436\u0438\u043a — №5\n"], // "Privet, mir!\nYozhik — №5\n"
+        ["koi8r", "\u041a\u0438\u0440\u0438\u043b\u043b\u0438\u0446\u0430 \u041a\u041e\u0418-8\n"], // "Kirillitsa KOI-8\n"
     ];
 
     for (const [encoding, text] of samples) {
@@ -191,29 +198,29 @@ describe("roundtrips (byte-exact)", () => {
 });
 
 // The result is the same (tests below) — the only difference is whether iconv was called.
-describe("utf-8 и UTF-16 не идут через iconv-lite", () => {
+describe("utf-8 and UTF-16 do not go through iconv-lite", () => {
     afterEach(() => {
         vi.restoreAllMocks();
     });
 
-    it("decode/encode Unicode-кодировок и BOM-сниф iconv не зовут, windows-1251 — зовёт", async () => {
+    it("decode/encode of Unicode encodings and BOM sniffing do not call iconv, windows-1251 does", async () => {
         const decode = vi.spyOn(iconv, "decode");
         const encode = vi.spyOn(iconv, "encode");
         for (const id of ["utf8", "utf8bom", "utf16le", "utf16be"]) {
-            const bytes = await encodeText("привет", id);
+            const bytes = await encodeText("\u043f\u0440\u0438\u0432\u0435\u0442", id); // "privet"
             await decodeBuffer(bytes, id);
             decodeBufferByBOM(bytes);
         }
         expect(encode).not.toHaveBeenCalled();
         expect(decode).not.toHaveBeenCalled();
 
-        await decodeBuffer(await encodeText("привет", "windows1251"), "windows1251");
+        await decodeBuffer(await encodeText("\u043f\u0440\u0438\u0432\u0435\u0442", "windows1251"), "windows1251"); // "privet"
         expect(encode).toHaveBeenCalledTimes(1);
         expect(decode).toHaveBeenCalledTimes(1);
     });
 });
 
-describe("iconv-lite — ленивый кусок", () => {
+describe("iconv-lite — lazy chunk", () => {
     let requested: string[] = [];
 
     beforeEach(() => {
@@ -228,9 +235,9 @@ describe("iconv-lite — ленивый кусок", () => {
         setLazyModuleLoader(undefined);
     });
 
-    it("utf-8 и UTF-16 в обе стороны, BOM-сниф и запасной utf-8 — без iconv", async () => {
+    it("utf-8 and UTF-16 both ways, BOM sniffing and the utf-8 fallback — without iconv", async () => {
         for (const id of ["utf8", "utf8bom", "utf16le", "utf16be", "martian"]) {
-            const bytes = await encodeText("привет", id);
+            const bytes = await encodeText("\u043f\u0440\u0438\u0432\u0435\u0442", id); // "privet"
             await decodeBuffer(bytes, id);
             decodeBufferByBOM(bytes);
         }
@@ -238,17 +245,20 @@ describe("iconv-lite — ленивый кусок", () => {
         expect(requested).toEqual([]);
     });
 
-    it("остальные кодировки спрашивают кусок iconv-lite", async () => {
-        const bytes = await encodeText("привет", "windows1251");
+    it("other encodings request the iconv-lite chunk", async () => {
+        const bytes = await encodeText("\u043f\u0440\u0438\u0432\u0435\u0442", "windows1251"); // "privet"
         expect(requested).toEqual(["iconv-lite"]);
-        expect(await decodeBuffer(bytes, "windows1251")).toEqual({ text: "привет", encoding: "windows1251" });
+        expect(await decodeBuffer(bytes, "windows1251")).toEqual({
+            text: "\u043f\u0440\u0438\u0432\u0435\u0442",
+            encoding: "windows1251",
+        }); // "privet"
         expect(requested).toEqual(["iconv-lite", "iconv-lite"]);
     });
 
-    it("отказ загрузки куска — отказ декода и записи, не тихий utf-8", async () => {
-        setLazyModuleLoader(() => Promise.reject(new Error("кусок не загрузился")));
-        await expect(decodeBuffer(Buffer.from([0xcf]), "windows1251")).rejects.toThrow("кусок не загрузился");
-        await expect(encodeText("П", "koi8r")).rejects.toThrow("кусок не загрузился");
+    it("a chunk load failure fails decode and write, not a silent utf-8", async () => {
+        setLazyModuleLoader(() => Promise.reject(new Error("lazy chunk failed to load")));
+        await expect(decodeBuffer(Buffer.from([0xcf]), "windows1251")).rejects.toThrow("lazy chunk failed to load");
+        await expect(encodeText("\u041f", "koi8r")).rejects.toThrow("lazy chunk failed to load"); // "P"
     });
 });
 
@@ -287,7 +297,7 @@ describe("native codecs == iconv-lite", () => {
     const decodeCases: [string, Buffer][] = [
         ["empty", Buffer.alloc(0)],
         ["ascii", Buffer.from("plain text\r\n")],
-        ["cyrillic", Buffer.from("привет", "utf8")],
+        ["cyrillic", Buffer.from("\u043f\u0440\u0438\u0432\u0435\u0442", "utf8")], // "privet"
         ["astral (4-byte)", bytes(0xf0, 0x9f, 0x98, 0x80)],
         ["UTF-8 BOM only", bytes(0xef, 0xbb, 0xbf)],
         ["double UTF-8 BOM", bytes(0xef, 0xbb, 0xbf, 0xef, 0xbb, 0xbf, 0x61)],
@@ -319,7 +329,7 @@ describe("native codecs == iconv-lite", () => {
     const encodeCases: [string, string][] = [
         ["empty", ""],
         ["ascii", "plain text\r\n"],
-        ["cyrillic", "привет"],
+        ["cyrillic", "\u043f\u0440\u0438\u0432\u0435\u0442"], // "privet"
         ["astral", "😀"],
         ["leading U+FEFF", "﻿x"],
         ["lone high surrogate", "a\ud83d"],

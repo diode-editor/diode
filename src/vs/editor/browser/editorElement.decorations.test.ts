@@ -44,8 +44,8 @@ function createEditor(
     return { app, editor };
 }
 
-describe("EditorElement — внешние декорации", () => {
-    it("фон строки красит контент и гуттер, побеждая фон токена", () => {
+describe("EditorElement — external decorations", () => {
+    it("line background paints content and gutter, beating the token background", () => {
         const { app, editor } = createEditor("alpha\nremoved\ncharlie", {
             lineBackgrounds: [{ startLine: 1, endLine: 1, colorToken: "diffEditor.removedLineBackground" }],
         });
@@ -55,7 +55,7 @@ describe("EditorElement — внешние декорации", () => {
         expect(app.backend.getBgAt(new Point(0, 0))).not.toBe(REMOVED_BG);
     });
 
-    it("фон диапазона (intra-line) поверх фона строки", () => {
+    it("range background (intra-line) over the line background", () => {
         const { app, editor } = createEditor("alpha\nremoved line\ncharlie", {
             lineBackgrounds: [{ startLine: 1, endLine: 1, colorToken: "diffEditor.removedLineBackground" }],
             rangeBackgrounds: [
@@ -70,7 +70,7 @@ describe("EditorElement — внешние декорации", () => {
         expect(app.backend.getBgAt(new Point(editor.gutterWidth + 9, 1))).toBe(REMOVED_BG);
     });
 
-    it("гуттер-маркер добавляет колонку после цифр и рисует глиф", () => {
+    it("a gutter marker adds a column after the digits and draws a glyph", () => {
         const plain = createEditor("a\nb", {});
         const marked = createEditor("a\nb", { gutterMarkers: [{ line: 1, char: "-" }] });
 
@@ -80,7 +80,7 @@ describe("EditorElement — внешние декорации", () => {
         expect(marked.app.backend.getTextAt(new Point(markerX, 0), 1)).toBe(" ");
     });
 
-    it("зона-декорация: филлер заполняет строку зоны, плашка рисует текст", () => {
+    it("zone decoration: the filler fills the zone row, the badge draws text", () => {
         const { app, editor } = createEditor(
             "alpha\nbravo",
             {
@@ -104,7 +104,7 @@ describe("EditorElement — внешние декорации", () => {
         expect(app.backend.getBgAt(new Point(gutterW + 1, 3))).toBe(BG);
     });
 
-    it("полупрозрачный фон строки и зоны ложится на фон редактора одним слоем", () => {
+    it("translucent line and zone backgrounds blend onto the editor background as one layer", () => {
         const { app, editor } = createEditor(
             "alpha\nbravo",
             {
@@ -125,13 +125,13 @@ describe("EditorElement — внешние декорации", () => {
         expect(once).not.toBe(compositeOver(TRANSLUCENT_BG, once));
     });
 
-    it("зона без декорации остаётся пустой", () => {
+    it("a zone without decoration stays empty", () => {
         const { app, editor } = createEditor("alpha\nbravo", {}, [{ afterLine: 0, size: 1 }]);
 
         expect(app.backend.getTextAt(new Point(editor.gutterWidth, 1), 5)).toBe("     ");
     });
 
-    it("многострочная зона: lines[offset] с пер-строчным фоном, обрезка и хвост без строки", () => {
+    it("multi-line zone: lines[offset] with per-line background, clipping and a tail without a line", () => {
         const { app, editor } = createEditor(
             "alpha\nbravo",
             {
@@ -141,7 +141,7 @@ describe("EditorElement — внешние декорации", () => {
                         lines: [
                             { text: "ghost-one", bgToken: "diffEditor.removedLineBackground" },
                             {
-                                text: "ghost-two-очень-длинный-хвост-за-краем",
+                                text: "ghost-two-very-long-tail-past-the-edge",
                                 bgToken: "diffEditor.removedLineBackground",
                                 colorToken: "diffEditor.unchangedRegionForeground",
                             },

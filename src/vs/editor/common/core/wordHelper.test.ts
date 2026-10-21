@@ -7,30 +7,30 @@ function wordAt(text: string, character: number, regex: RegExp = DEFAULT_WORD_RE
     return word === null ? null : text.slice(word.start, word.end);
 }
 
-describe("getWordAtText — дефолтное определение слова", () => {
-    it("слово накрывает позицию в начале, середине и сразу за концом", () => {
+describe("getWordAtText — default word definition", () => {
+    it("a word covers a position at its start, middle and right after its end", () => {
         expect(getWordAtText(4, DEFAULT_WORD_REGEXP, "foo bar baz")).toEqual({ start: 4, end: 7 });
         expect(getWordAtText(5, DEFAULT_WORD_REGEXP, "foo bar baz")).toEqual({ start: 4, end: 7 });
         expect(getWordAtText(7, DEFAULT_WORD_REGEXP, "foo bar baz")).toEqual({ start: 4, end: 7 });
     });
 
-    it("в промежутке между словами слова нет", () => {
+    it("no word in the gap between words", () => {
         expect(getWordAtText(4, DEFAULT_WORD_REGEXP, "foo  bar")).toBeNull();
         expect(getWordAtText(0, DEFAULT_WORD_REGEXP, "")).toBeNull();
     });
 
-    it("на стыке двух слов побеждает левое", () => {
+    it("at the junction of two words the left one wins", () => {
         expect(getWordAtText(3, DEFAULT_WORD_REGEXP, "foo(bar")).toEqual({ start: 0, end: 3 });
     });
 
-    it("разделители и пробельные символы режут слова", () => {
+    it("separators and whitespace split words", () => {
         const cases: [string, number, string | null][] = [
             ["a.b", 0, "a"],
             ["a-b", 2, "b"],
             ["a\tbc", 3, "bc"],
             ["x yz", 3, "yz"],
             ["snake_case", 4, "snake_case"],
-            ["привет мир", 2, "привет"],
+            ["\u043f\u0440\u0438\u0432\u0435\u0442 \u043c\u0438\u0440", 2, "\u043f\u0440\u0438\u0432\u0435\u0442"], // "privet mir", "privet"
             ["(", 0, null],
         ];
         for (const [text, character, expected] of cases) {
@@ -38,7 +38,7 @@ describe("getWordAtText — дефолтное определение слова
         }
     });
 
-    it("числа, включая дробные со знаком, — одно слово", () => {
+    it("numbers, including signed decimals, are one word", () => {
         const cases: [string, number, string | null][] = [
             ["x = -1.5e3;", 6, "-1.5e3"],
             ["x = .5;", 5, ".5"],
@@ -51,36 +51,36 @@ describe("getWordAtText — дефолтное определение слова
         }
     });
 
-    it("сканирование идёт от начала строки, а не от позиции", () => {
+    it("scanning starts at the line start, not at the position", () => {
         expect(getWordAtText(3, DEFAULT_WORD_REGEXP, "x-1.5")).toEqual({ start: 1, end: 5 });
     });
 });
 
-describe("getWordAtText — регекс расширения", () => {
-    it("регекс без флага g дополняется им, флаги сохраняются", () => {
+describe("getWordAtText — extension regex", () => {
+    it("a regex without the g flag gets it added, other flags are kept", () => {
         expect(wordAt("ab CD", 4, /[a-z]+/)).toBeNull();
         expect(wordAt("ab CD", 4, /[a-z]+/i)).toBe("CD");
     });
 
-    it("глобальный регекс работает как есть и не теряет своего lastIndex", () => {
+    it("a global regex works as is and keeps its lastIndex", () => {
         const regex = /[a-z]+/g;
         regex.lastIndex = 2;
         expect(wordAt("ab cd", 1, regex)).toBe("ab");
         expect(regex.lastIndex).toBe(2);
     });
 
-    it("соседние совпадения без зазора не перескакиваются", () => {
+    it("adjacent matches without a gap are not skipped", () => {
         expect(getWordAtText(3, /\d+|[a-z]+/, "ab12")).toEqual({ start: 2, end: 4 });
     });
 
-    it("пустые совпадения внутри строки не зацикливают поиск", () => {
+    it("empty matches inside the line do not loop the search", () => {
         expect(getWordAtText(3, /\b/, "ab cd")).toEqual({ start: 3, end: 3 });
         expect(getWordAtText(1, /(?=z)/, "ab")).toBeNull();
     });
 });
 
 describe("regExpMatchesEmptyString", () => {
-    it("отличает регекс, матчащий пустую строку", () => {
+    it("detects a regex that matches the empty string", () => {
         const cases: [RegExp, boolean][] = [
             [/a*/, true],
             [/a*/g, true],
@@ -94,7 +94,7 @@ describe("regExpMatchesEmptyString", () => {
         }
     });
 
-    it("не трогает lastIndex проверяемого регекса", () => {
+    it("does not touch the lastIndex of the checked regex", () => {
         const regex = /a*/g;
         regex.lastIndex = 3;
         regExpMatchesEmptyString(regex);

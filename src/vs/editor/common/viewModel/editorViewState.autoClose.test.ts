@@ -23,7 +23,7 @@ function spans(state: EditorViewState): number[][] {
 }
 
 describe("EditorViewState.typeWithAutoClose", () => {
-    it("вставляет пару и оставляет каретку между токенами", () => {
+    it("inserts the pair and keeps the cursor between them", () => {
         const state = makeState("ab", [createCursorSelection(0, 1)]);
         const element = state.typeWithAutoClose("{", "}");
 
@@ -32,7 +32,7 @@ describe("EditorViewState.typeWithAutoClose", () => {
         expect(element?.label).toBe("type");
     });
 
-    it("мультикурсор: пара у каждой каретки, все каретки внутри своих пар", () => {
+    it("multi-cursor: a pair at each cursor, every cursor inside its pair", () => {
         const state = makeState("a\nb", [createCursorSelection(0, 1), createCursorSelection(1, 1)]);
         state.typeWithAutoClose("(", ")");
 
@@ -43,7 +43,7 @@ describe("EditorViewState.typeWithAutoClose", () => {
         ]);
     });
 
-    it("многосимвольный close (`/**` → ` */`)", () => {
+    it("multi-character close (`/**` -> ` */`)", () => {
         const state = makeState("", [createCursorSelection(0, 0)]);
         // The typed character is `*` after an existing `/*`; only it and the close are inserted.
         state.document.setText("/*");
@@ -53,7 +53,7 @@ describe("EditorViewState.typeWithAutoClose", () => {
         expect(spans(state)).toEqual([[0, 3, 0, 3]]);
     });
 
-    it("undo снимает пару целиком, redo возвращает", () => {
+    it("undo removes the whole pair, redo restores it", () => {
         const state = makeState("ab", [createCursorSelection(0, 1)]);
         const manager = new UndoManager(state.document);
         const element = state.typeWithAutoClose("{", "}");
@@ -68,7 +68,7 @@ describe("EditorViewState.typeWithAutoClose", () => {
         expect(spans(state)).toEqual([[0, 2, 0, 2]]);
     });
 
-    it("каретка за пределами вьюпорта прокручивается к себе после вставки пары", () => {
+    it("cursor outside the viewport is revealed after inserting the pair", () => {
         const state = makeState(Array.from({ length: 200 }, (_, i) => `line ${String(i)}`).join("\n"));
         state.viewportHeight = 10;
         state.selections = [createCursorSelection(150, 0)];
@@ -87,7 +87,7 @@ describe("EditorViewState.typeWithAutoClose", () => {
 });
 
 describe("EditorViewState.typeOverClosingChar", () => {
-    it("перешагивает символ под кареткой без правки документа", () => {
+    it("types over the character under the cursor without editing the document", () => {
         const state = makeState("()", [createCursorSelection(0, 1)]);
         const versionBefore = state.document.versionId;
         state.typeOverClosingChar();
@@ -97,7 +97,7 @@ describe("EditorViewState.typeOverClosingChar", () => {
         expect(spans(state)).toEqual([[0, 2, 0, 2]]);
     });
 
-    it("каретка за пределами вьюпорта прокручивается к себе после перешагивания", () => {
+    it("cursor outside the viewport is revealed after typing over", () => {
         const lines = Array.from({ length: 200 }, (_, i) => (i === 150 ? "()" : `line ${String(i)}`));
         const state = makeState(lines.join("\n"));
         state.viewportHeight = 10;
@@ -108,7 +108,7 @@ describe("EditorViewState.typeOverClosingChar", () => {
         expect(state.scrollTop).toBeGreaterThan(0);
     });
 
-    it("мультикурсор перешагивает у каждой каретки", () => {
+    it("multi-cursor types over at each cursor", () => {
         const state = makeState("()\n()", [createCursorSelection(0, 1), createCursorSelection(1, 1)]);
         state.typeOverClosingChar();
         expect(spans(state)).toEqual([
@@ -119,7 +119,7 @@ describe("EditorViewState.typeOverClosingChar", () => {
 });
 
 describe("EditorViewState.surroundSelections", () => {
-    it("оборачивает выделение и оставляет его на своём тексте", () => {
+    it("surrounds the selection and keeps it on its text", () => {
         const state = makeState("const a = 1;", [createSelection(0, 6, 0, 7)]);
         const element = state.surroundSelections("(", ")");
 
@@ -128,7 +128,7 @@ describe("EditorViewState.surroundSelections", () => {
         expect(element?.label).toBe("surround");
     });
 
-    it("направление выделения (anchor правее active) сохраняется", () => {
+    it("selection direction (anchor right of active) is kept", () => {
         const state = makeState("const a = 1;", [createSelection(0, 7, 0, 6)]);
         state.surroundSelections("'", "'");
 
@@ -136,7 +136,7 @@ describe("EditorViewState.surroundSelections", () => {
         expect(spans(state)).toEqual([[0, 8, 0, 7]]);
     });
 
-    it("несколько выделений на одной строке дрейфуют на вставки соседей", () => {
+    it("several selections on one line shift by their neighbors' inserts", () => {
         const state = makeState("aa bb", [createSelection(0, 0, 0, 2), createSelection(0, 3, 0, 5)]);
         state.surroundSelections("[", "]");
 
@@ -147,7 +147,7 @@ describe("EditorViewState.surroundSelections", () => {
         ]);
     });
 
-    it("многострочное выделение: открывающая в начале, закрывающая в конце", () => {
+    it("multiline selection: opening at the start, closing at the end", () => {
         const state = makeState("aaa\nbbb", [createSelection(0, 1, 1, 2)]);
         state.surroundSelections("{", "}");
 
@@ -155,7 +155,7 @@ describe("EditorViewState.surroundSelections", () => {
         expect(spans(state)).toEqual([[0, 2, 1, 2]]);
     });
 
-    it("undo восстанавливает текст и выделение", () => {
+    it("undo restores text and selection", () => {
         const state = makeState("aa bb", [createSelection(0, 0, 0, 2)]);
         const manager = new UndoManager(state.document);
         const element = state.surroundSelections("(", ")");
@@ -166,7 +166,7 @@ describe("EditorViewState.surroundSelections", () => {
         expect(spans(state)).toEqual([[0, 0, 0, 2]]);
     });
 
-    it("каретка за пределами вьюпорта прокручивается к себе после обрамления", () => {
+    it("cursor outside the viewport is revealed after surrounding", () => {
         const state = makeState(Array.from({ length: 200 }, (_, i) => `line ${String(i)}`).join("\n"));
         state.viewportHeight = 10;
         state.selections = [createSelection(150, 0, 150, 4)];

@@ -37,8 +37,8 @@ function fireMouseDown(editor: EditorElement, localX: number, localY: number): v
     );
 }
 
-describe("EditorElement view zones — рендер", () => {
-    it("зона рисуется пустой строкой с пустым гуттером, номера строк не сдвигаются", () => {
+describe("EditorElement view zones — render", () => {
+    it("a zone is drawn as an empty row with an empty gutter, line numbers do not shift", () => {
         const { app } = createEditor("alpha\nbravo\ncharlie", [{ afterLine: 0, size: 2 }]);
         app.render();
 
@@ -51,7 +51,7 @@ describe("EditorElement view zones — рендер", () => {
         ]);
     });
 
-    it("зона перед первой строкой файла", () => {
+    it("zone before the first line of the file", () => {
         const { app } = createEditor("alpha\nbravo", [{ afterLine: -1, size: 1 }]);
         app.render();
 
@@ -62,7 +62,7 @@ describe("EditorElement view zones — рендер", () => {
         ]);
     });
 
-    it("contentHeight учитывает зоны — скролл доезжает до конца", () => {
+    it("contentHeight accounts for zones — scrolling reaches the end", () => {
         const { app, editor } = createEditor("a\nb\nc\nd", [{ afterLine: 1, size: 5 }]);
         app.render();
 
@@ -77,7 +77,7 @@ describe("EditorElement view zones — рендер", () => {
         expect(lines[3]).toBe("  4   d");
     });
 
-    it("зона и свёрнутый регион сосуществуют: пустая строка после заголовка", () => {
+    it("a zone and a folded region coexist: an empty row after the header", () => {
         const doc = new TextDocument("head\nbody1\nbody2\ntail");
         const viewState = new EditorViewState(doc);
         viewState.setFoldingRegions([createFoldingRegion(0, 2, true)]);
@@ -92,7 +92,7 @@ describe("EditorElement view zones — рендер", () => {
         expect(lines[2]).toContain("tail");
     });
 
-    it("indent guides не ломаются на зоне внутри региона", () => {
+    it("indent guides do not break on a zone inside a region", () => {
         const doc = new TextDocument("function f() {\n    a;\n    b;\n}");
         const viewState = new EditorViewState(doc);
         viewState.setFoldingRegions([createFoldingRegion(0, 3, false)]);
@@ -107,7 +107,7 @@ describe("EditorElement view zones — рендер", () => {
         expect(lines[3]).toContain("b;");
     });
 
-    it("inspectState отдаёт зоны", () => {
+    it("inspectState exposes zones", () => {
         const { app, editor } = createEditor("a\nb", [{ afterLine: 0, size: 2 }]);
         app.render();
 
@@ -115,8 +115,8 @@ describe("EditorElement view zones — рендер", () => {
     });
 });
 
-describe("EditorElement view zones — мышь", () => {
-    it("клик по зоне ставит каретку на ближайшую документную строку", () => {
+describe("EditorElement view zones — mouse", () => {
+    it("a click on a zone places the cursor on the nearest document line", () => {
         const { app, editor } = createEditor("alpha\nbravo\ncharlie", [{ afterLine: 0, size: 2 }]);
         app.render();
 
@@ -127,7 +127,7 @@ describe("EditorElement view zones — мышь", () => {
         expect(editor.viewState.selections[0].active.line).toBe(1);
     });
 
-    it("протяжка через зону выделяет по документным строкам без разрывов", () => {
+    it("dragging across a zone selects document lines without gaps", () => {
         const { app, editor } = createEditor("alpha\nbravo\ncharlie", [{ afterLine: 0, size: 2 }]);
         app.render();
 
@@ -148,7 +148,7 @@ describe("EditorElement view zones — мышь", () => {
         expect(editor.viewState.getSelectedText()).toBe("alpha\nbra");
     });
 
-    it("каретка после клика под зоной рисуется на своей строке вью", () => {
+    it("the cursor after a click below a zone is drawn on its view row", () => {
         const { app, editor } = createEditor("alpha\nbravo", [{ afterLine: 0, size: 1 }], 20, 6);
         app.render();
         editor.focus();

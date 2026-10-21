@@ -12,7 +12,7 @@ import { getLineRangeMapping, RangeMapping } from "./rangeMapping.ts";
 /** Port of upstream `editor/test/node/diffing/defaultLinesDiffComputer.test.ts`. */
 
 describe("MyersDiffAlgorithm", () => {
-    it("считает посимвольный дифф двух похожих строк", () => {
+    it("computes a character diff of two similar lines", () => {
         const s1 = new LinesSliceCharSequence(["hello world"], new Range(1, 1, 1, Number.MAX_SAFE_INTEGER), true);
         const s2 = new LinesSliceCharSequence(["hallo welt"], new Range(1, 1, 1, Number.MAX_SAFE_INTEGER), true);
 
@@ -73,7 +73,7 @@ describe("LinesSliceCharSequence", () => {
         );
     });
 
-    it("translateOffset даёт позицию внутри среза", () => {
+    it("translateOffset yields a position inside the slice", () => {
         expect(sequence.translateOffset(0)).toEqual(new Position(2, 1));
     });
 });

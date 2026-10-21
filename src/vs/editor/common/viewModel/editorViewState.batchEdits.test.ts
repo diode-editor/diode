@@ -13,7 +13,7 @@ import { EditorViewState } from "./editorViewState.ts";
  * Like upstream `editor.executeEdits` without a cursor computer: cursors don't multiply per edit
  * and stay INSIDE the document — a column past the line end crashed rendering in occurrence highlight.
  */
-describe("EditorViewState: каретки после батча правок", () => {
+describe("EditorViewState: cursors after an edit batch", () => {
     function carets(state: EditorViewState): [number, number][] {
         return state.selections.map((sel) => [sel.active.line, sel.active.character]);
     }
@@ -29,7 +29,7 @@ describe("EditorViewState: каретки после батча правок", (
         }
     }
 
-    it("батч из нескольких правок не плодит каретки: одна каретка остаётся одной", () => {
+    it("batch of several edits does not multiply cursors: one cursor stays one", () => {
         const doc = new TextDocument("import a;\n\nfoo");
         const state = new EditorViewState(doc);
         state.selections = [createCursorSelection(2, 3)];
@@ -43,7 +43,7 @@ describe("EditorViewState: каретки после батча правок", (
         expect(carets(state)).toEqual([[3, 6]]);
     });
 
-    it("многострочная правка и правка правее неё на той же строке: каретки сдвигаются точно", () => {
+    it("multiline edit and an edit to its right on the same line: cursors shift exactly", () => {
         const doc = new TextDocument("hello\nhello baz\nx");
         const state = new EditorViewState(doc);
         // Inside the replaced "el", at its end, at the end of the deleted "o", and below.
@@ -69,7 +69,7 @@ describe("EditorViewState: каретки после батча правок", (
         assertInsideDocument(state, doc);
     });
 
-    it("правка ниже многострочной: каретка едет вместе со своей строкой", () => {
+    it("edit below a multiline one: the cursor moves with its line", () => {
         const doc = new TextDocument("one\ntwo\nthree");
         const state = new EditorViewState(doc);
         state.selections = [createCursorSelection(1, 2), createCursorSelection(2, 0), createCursorSelection(2, 5)];
@@ -88,7 +88,7 @@ describe("EditorViewState: каретки после батча правок", (
         assertInsideDocument(state, doc);
     });
 
-    it("computeCursorState назначает выделения по обратным правкам в порядке батча", () => {
+    it("computeCursorState assigns selections from inverse edits in batch order", () => {
         const doc = new TextDocument("x\nfoo");
         const state = new EditorViewState(doc);
         state.selections = [createCursorSelection(1, 3)];
@@ -109,7 +109,7 @@ describe("EditorViewState: каретки после батча правок", (
         expect(carets(state)).toEqual([[2, 6]]);
     });
 
-    it("computeCursorState вернул null — выделения сдвигаются как без него", () => {
+    it("computeCursorState returned null: selections shift as without it", () => {
         const doc = new TextDocument("foo");
         const state = new EditorViewState(doc);
         state.selections = [createCursorSelection(0, 1)];
@@ -119,7 +119,7 @@ describe("EditorViewState: каретки после батча правок", (
         expect(carets(state)).toEqual([[1, 2]]);
     });
 
-    it("undo батча возвращает и текст, и прежние каретки", () => {
+    it("undo of a batch restores both text and previous cursors", () => {
         const doc = new TextDocument("hello\nhello baz\nx");
         const state = new EditorViewState(doc);
         const undoManager = new UndoManager(doc);
@@ -139,8 +139,8 @@ describe("EditorViewState: каретки после батча правок", (
 });
 
 /** The document applied overlapping edits to already-consumed text: "hello world" lost "hello wo". */
-describe("EditorViewState: перекрывающиеся удаления мультикурсора", () => {
-    it("две каретки внутри слова удаляют его один раз и сливаются в одну", () => {
+describe("EditorViewState: overlapping multi-cursor deletes", () => {
+    it("two cursors inside a word delete it once and merge into one", () => {
         const doc = new TextDocument("hello world");
         const state = new EditorViewState(doc);
         state.selections = [createCursorSelection(0, 3), createCursorSelection(0, 5)];
@@ -151,7 +151,7 @@ describe("EditorViewState: перекрывающиеся удаления му�
         expect(state.selections.map((sel) => sel.active)).toEqual([{ line: 0, character: 0 }]);
     });
 
-    it("undo/redo перекрывшегося удаления ходит по объединённому диапазону", () => {
+    it("undo/redo of an overlapping delete works on the merged range", () => {
         const doc = new TextDocument("hello world");
         const state = new EditorViewState(doc);
         const undoManager = new UndoManager(doc);
@@ -168,7 +168,7 @@ describe("EditorViewState: перекрывающиеся удаления му�
         expect(doc.getText()).toBe(" world");
     });
 
-    it("каретки в разных словах удаляют каждая своё", () => {
+    it("cursors in different words each delete their own", () => {
         const doc = new TextDocument("hello world");
         const state = new EditorViewState(doc);
         state.selections = [createCursorSelection(0, 5), createCursorSelection(0, 11)];
@@ -182,7 +182,7 @@ describe("EditorViewState: перекрывающиеся удаления му�
         ]);
     });
 
-    it("правка, полностью накрытая предыдущей, выбрасывается", () => {
+    it("edit fully covered by the previous one is dropped", () => {
         // Both cursors inside the only word: both have the line end as the right boundary,
         // so the second edit lies entirely within the first.
         const doc = new TextDocument("hello");
@@ -199,7 +199,7 @@ describe("EditorViewState: перекрывающиеся удаления му�
         expect(changes).toHaveLength(1);
     });
 
-    it("вправо перекрытие схлопывается так же", () => {
+    it("overlap to the right collapses the same way", () => {
         const doc = new TextDocument("hello world");
         const state = new EditorViewState(doc);
         state.selections = [createCursorSelection(0, 1), createCursorSelection(0, 3)];
@@ -214,10 +214,10 @@ describe("EditorViewState: перекрывающиеся удаления му�
 });
 
 /** Deleting a word joins lines — without shifting folds a collapsed region would hide other lines. */
-describe("EditorViewState: фолды под удалением слова", () => {
+describe("EditorViewState: folds under word delete", () => {
     const sixLines = (): TextDocument => new TextDocument("aa\nbb\ncc\ndd\nee\nff");
 
-    it("deleteWordLeft в колонке 0 склеивает строки и поднимает регион", () => {
+    it("deleteWordLeft at column 0 joins lines and moves the region up", () => {
         const doc = sixLines();
         const state = new EditorViewState(doc);
         state.setFoldingRegions([createFoldingRegion(3, 5, false)]);
@@ -229,7 +229,7 @@ describe("EditorViewState: фолды под удалением слова", () 
         expect(state.foldedRegions.map((region) => [region.startLine, region.endLine])).toEqual([[2, 4]]);
     });
 
-    it("deleteWordRight в конце строки склеивает строки и поднимает регион", () => {
+    it("deleteWordRight at end of line joins lines and moves the region up", () => {
         const doc = sixLines();
         const state = new EditorViewState(doc);
         state.setFoldingRegions([createFoldingRegion(3, 5, false)]);

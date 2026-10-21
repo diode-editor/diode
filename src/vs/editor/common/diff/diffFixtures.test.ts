@@ -80,7 +80,7 @@ function computeResult(folder: string): IDiffingResult {
     const firstFileName = files.find((f) => f.startsWith("1."));
     const secondFileName = files.find((f) => f.startsWith("2."));
     if (firstFileName === undefined || secondFileName === undefined) {
-        throw new Error(`фикстура ${folder}: не найдена пара файлов 1.*/2.*`);
+        throw new Error(`fixture ${folder}: no 1.*/2.* file pair found`);
     }
 
     const firstContent = readNormalized(join(folderPath, firstFileName));
@@ -144,7 +144,7 @@ describe("diffing fixtures (upstream corpus)", () => {
 
     const folders = readdirSync(FIXTURES_DIR).sort();
 
-    it("корпус на месте", () => {
+    it("corpus is present", () => {
         // An empty readdir would give a green run that checked nothing.
         expect(folders.length).toBeGreaterThanOrEqual(58);
     });

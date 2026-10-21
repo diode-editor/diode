@@ -15,7 +15,7 @@ import {
 const SUBSTRING = { searchText: "foo", wholeWord: false, matchCase: true };
 
 describe("deriveSearchSpec", () => {
-    it("схлопнутая каретка на слове даёт слово и поиск по целым словам", () => {
+    it("collapsed cursor on a word yields the word and whole-word search", () => {
         const doc = new TextDocument("foo bar");
         const spec = deriveSearchSpec(doc, createCursorSelection(0, 1));
         expect(spec).toEqual({
@@ -26,23 +26,23 @@ describe("deriveSearchSpec", () => {
         });
     });
 
-    it("каретка вплотную за словом всё ещё на нём", () => {
+    it("cursor right after a word is still on it", () => {
         const doc = new TextDocument("foo bar");
         expect(deriveSearchSpec(doc, createCursorSelection(0, 3))?.searchText).toBe("foo");
     });
 
-    it("каретка в пробелах между словами не даёт ничего", () => {
+    it("cursor in whitespace between words yields nothing", () => {
         // Two spaces: position 4 touches no word.
         const doc = new TextDocument("foo  bar");
         expect(deriveSearchSpec(doc, createCursorSelection(0, 4))).toBeNull();
     });
 
-    it("каретка на пунктуации не даёт ничего", () => {
+    it("cursor on punctuation yields nothing", () => {
         const doc = new TextDocument("a + b");
         expect(deriveSearchSpec(doc, createCursorSelection(0, 2))).toBeNull();
     });
 
-    it("непустое однострочное выделение ищется как подстрока", () => {
+    it("non-empty single-line selection is searched as a substring", () => {
         const doc = new TextDocument("foobar");
         expect(deriveSearchSpec(doc, createSelection(0, 0, 0, 4))).toEqual({
             searchText: "foob",
@@ -52,7 +52,7 @@ describe("deriveSearchSpec", () => {
         });
     });
 
-    it("многострочное выделение не поддержано", () => {
+    it("multi-line selection is not supported", () => {
         const doc = new TextDocument("foo\nbar");
         expect(deriveSearchSpec(doc, createSelection(0, 0, 1, 3))).toBeNull();
     });
@@ -61,48 +61,48 @@ describe("deriveSearchSpec", () => {
 describe("findNextOccurrence", () => {
     const doc = new TextDocument("foo one foo\ntwo foo three");
 
-    it("идёт вперёд от точки отсчёта", () => {
+    it("goes forward from the reference point", () => {
         const next = findNextOccurrence(doc, SUBSTRING, createRange(0, 0, 0, 3), 1, []);
         expect(next).toEqual(createRange(0, 8, 0, 11));
     });
 
-    it("заворачивается через конец документа", () => {
+    it("wraps around the document end", () => {
         const next = findNextOccurrence(doc, SUBSTRING, createRange(1, 4, 1, 7), 1, []);
         expect(next).toEqual(createRange(0, 0, 0, 3));
     });
 
-    it("идёт назад", () => {
+    it("goes backwards", () => {
         const next = findNextOccurrence(doc, SUBSTRING, createRange(1, 4, 1, 7), -1, []);
         expect(next).toEqual(createRange(0, 8, 0, 11));
     });
 
-    it("заворачивается через начало документа", () => {
+    it("wraps around the document start", () => {
         const next = findNextOccurrence(doc, SUBSTRING, createRange(0, 0, 0, 3), -1, []);
         expect(next).toEqual(createRange(1, 4, 1, 7));
     });
 
-    it("пропускает уже занятые вхождения", () => {
+    it("skips already taken occurrences", () => {
         const taken = [createRange(0, 0, 0, 3), createRange(0, 8, 0, 11)];
         expect(findNextOccurrence(doc, SUBSTRING, createRange(0, 0, 0, 3), 1, taken)).toEqual(createRange(1, 4, 1, 7));
     });
 
-    it("все вхождения заняты — null", () => {
+    it("all occurrences taken yields null", () => {
         const taken = [createRange(0, 0, 0, 3), createRange(0, 8, 0, 11), createRange(1, 4, 1, 7)];
         expect(findNextOccurrence(doc, SUBSTRING, createRange(0, 0, 0, 3), 1, taken)).toBeNull();
     });
 
-    it("вхождений нет вовсе — null", () => {
+    it("no occurrences at all yields null", () => {
         const spec = { searchText: "zzz", wholeWord: false, matchCase: true };
         expect(findNextOccurrence(doc, spec, createRange(0, 0, 0, 3), 1, [])).toBeNull();
     });
 
-    it("whole-word: text внутри context не находится", () => {
+    it("whole-word: text inside context is not found", () => {
         const words = new TextDocument("text context text");
         const spec = { searchText: "text", wholeWord: true, matchCase: true };
         expect(findNextOccurrence(words, spec, createRange(0, 0, 0, 4), 1, [])).toEqual(createRange(0, 13, 0, 17));
     });
 
-    it("matchCase: FOO не находится по foo", () => {
+    it("matchCase: FOO is not found by foo", () => {
         const mixed = new TextDocument("foo FOO");
         // `foo` itself is taken, so if `FOO` counted as a match, it would be found.
         const taken = [createRange(0, 0, 0, 3)];
@@ -115,15 +115,15 @@ describe("isSessionCurrent", () => {
     const selections = [createSelection(0, 0, 0, 3)];
     const session = captureSession(SUBSTRING, createRange(0, 0, 0, 3), selections, doc.versionId);
 
-    it("совпало — сессия жива", () => {
+    it("match means the session is alive", () => {
         expect(isSessionCurrent(session, selections, doc.versionId)).toBe(true);
     });
 
-    it("каретка сдвинулась — сессия протухла", () => {
+    it("cursor moved: the session is stale", () => {
         expect(isSessionCurrent(session, [createSelection(0, 1, 0, 3)], doc.versionId)).toBe(false);
     });
 
-    it("сдвинулось ОДНО выделение из двух — сессия протухла", () => {
+    it("ONE of two selections moved: the session is stale", () => {
         // All must match: with a single selection "all match" and "at least one matches" are
         // indistinguishable, with a pair the difference shows.
         const pair = [createSelection(0, 0, 0, 3), createSelection(0, 4, 0, 7)];
@@ -132,15 +132,15 @@ describe("isSessionCurrent", () => {
         expect(isSessionCurrent(pairSession, [pair[0], createSelection(0, 5, 0, 7)], doc.versionId)).toBe(false);
     });
 
-    it("изменилось число выделений — сессия протухла", () => {
+    it("selection count changed: the session is stale", () => {
         expect(isSessionCurrent(session, [...selections, createCursorSelection(0, 5)], doc.versionId)).toBe(false);
     });
 
-    it("документ изменился — сессия протухла", () => {
+    it("document changed: the session is stale", () => {
         expect(isSessionCurrent(session, selections, doc.versionId + 1)).toBe(false);
     });
 
-    it("изменился только idealColumn — сессия ЖИВА", () => {
+    it("only idealColumn changed: the session is ALIVE", () => {
         expect(isSessionCurrent(session, [withIdealColumn(selections[0], 42)], doc.versionId)).toBe(true);
     });
 });
@@ -148,28 +148,28 @@ describe("isSessionCurrent", () => {
 describe("selectionsShareText", () => {
     const doc = new TextDocument("foo bar\nfoo baz");
 
-    it("одинаковый текст у всех выделений", () => {
+    it("same text in all selections", () => {
         expect(selectionsShareText(doc, [createSelection(0, 0, 0, 3), createSelection(1, 0, 1, 3)], true)).toBe(true);
     });
 
-    it("разный текст", () => {
+    it("different text", () => {
         expect(selectionsShareText(doc, [createSelection(0, 0, 0, 3), createSelection(0, 4, 0, 7)], true)).toBe(false);
     });
 
-    it("схлопнутая каретка ломает общность", () => {
+    it("collapsed cursor breaks commonality", () => {
         expect(selectionsShareText(doc, [createSelection(0, 0, 0, 3), createCursorSelection(1, 0)], true)).toBe(false);
     });
 
-    it("две схлопнутые каретки общего текста не образуют", () => {
+    it("two collapsed cursors form no common text", () => {
         // Empty texts are formally "equal", but emptiness alone rules out shared text.
         expect(selectionsShareText(doc, [createCursorSelection(0, 0), createCursorSelection(1, 0)], true)).toBe(false);
     });
 
-    it("многострочное выделение ломает общность", () => {
+    it("multi-line selection breaks commonality", () => {
         expect(selectionsShareText(doc, [createSelection(0, 0, 1, 3)], true)).toBe(false);
     });
 
-    it("регистр складывается вниз — как в самом поиске", () => {
+    it("case folds to lower, as in the search itself", () => {
         // `ß` and `ss` both uppercase to `SS`, but the match scanner compares lowercase: if the two
         // disagreed, Ctrl+D would continue a session on text the search cannot find.
         const sharp = new TextDocument("ß ss");
@@ -177,7 +177,7 @@ describe("selectionsShareText", () => {
         expect(selectionsShareText(sharp, selections, false)).toBe(false);
     });
 
-    it("без учёта регистра FOO и foo считаются одним текстом", () => {
+    it("case-insensitively FOO and foo count as one text", () => {
         const mixed = new TextDocument("foo FOO");
         const selections = [createSelection(0, 0, 0, 3), createSelection(0, 4, 0, 7)];
         expect(selectionsShareText(mixed, selections, false)).toBe(true);

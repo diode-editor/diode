@@ -36,19 +36,19 @@ function press(editor: EditorElement, key: string, modifiers: { ctrlKey?: boolea
 }
 
 describe("EditorElement.onDidType", () => {
-    it("печатный символ: событие после правки, текст уже на месте", () => {
+    it("printable character: the event fires after the edit, text already in place", () => {
         const { editor, typed } = makeEditor("fo");
         press(editor, "o");
         expect(typed).toEqual([{ text: "o", documentAtFire: "foo" }]);
     });
 
-    it("auto-close: набранная `(` приходит событием, хотя вставлено `()`", () => {
+    it("auto-close: the typed `(` is reported though `()` is inserted", () => {
         const { editor, typed } = makeEditor("f");
         press(editor, "(");
         expect(typed).toEqual([{ text: "(", documentAtFire: "f()" }]);
     });
 
-    it("typeover: `)` приходит событием, хотя текст не изменился", () => {
+    it("typeover: `)` is reported though the text is unchanged", () => {
         const { editor, typed } = makeEditor("f");
         press(editor, "(");
         press(editor, ")");
@@ -56,13 +56,13 @@ describe("EditorElement.onDidType", () => {
         expect(typed[1].documentAtFire).toBe("f()");
     });
 
-    it("auto-surround выделения — тоже набор", () => {
+    it("auto-surround of a selection is typing too", () => {
         const { editor, typed } = makeEditor("ab", [createSelection(0, 0, 0, 2)]);
         press(editor, "(");
         expect(typed).toEqual([{ text: "(", documentAtFire: "(ab)" }]);
     });
 
-    it("Enter, вставка, сочетания и правки мимо клавиатуры набором не считаются", () => {
+    it("Enter, paste, shortcuts and non-keyboard edits do not count as typing", () => {
         const { editor, viewState, typed } = makeEditor("x");
         press(editor, "Enter");
         editor.dispatchEvent(new TUIPasteEvent("y"));
@@ -75,14 +75,14 @@ describe("EditorElement.onDidType", () => {
         expect(typed).toEqual([]);
     });
 
-    it("read-only: правки нет — и события нет", () => {
+    it("read-only: no edit — no event", () => {
         const { editor, viewState, typed } = makeEditor("x");
         viewState.readOnly = true;
         press(editor, "a");
         expect(typed).toEqual([]);
     });
 
-    it("отписка снимает слушателя; слушатель вправе отписать соседа посреди рассылки", () => {
+    it("dispose removes the listener; a listener may dispose a neighbour mid-dispatch", () => {
         const { editor, typed, subscription } = makeEditor("");
         const seen: string[] = [];
         let neighbour = { dispose: (): void => undefined };

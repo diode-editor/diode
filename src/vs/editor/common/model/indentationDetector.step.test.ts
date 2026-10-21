@@ -14,99 +14,99 @@ function step(a: string, b: string): { step: number; looksLikeAlignment: boolean
     return { step: result.step, looksLikeAlignment: result.looksLikeAlignment };
 }
 
-describe("computeIndentationStep — пробелы", () => {
-    it("отступ первой строки считается от пустой затравки", () => {
+describe("computeIndentationStep — spaces", () => {
+    it("the first line's indentation is measured from an empty seed", () => {
         expect(step("", "  a")).toEqual({ step: 2, looksLikeAlignment: false });
     });
 
-    it("одинаковый отступ — нулевой шаг", () => {
+    it("same indentation — zero step", () => {
         expect(step("    a", "    b")).toEqual({ step: 0, looksLikeAlignment: false });
     });
 
-    it("углубление на один уровень", () => {
+    it("indenting by one level", () => {
         expect(step("  a", "    b")).toEqual({ step: 2, looksLikeAlignment: false });
     });
 
-    it("выход из уровня даёт тот же шаг, что и вход", () => {
+    it("leaving a level yields the same step as entering it", () => {
         expect(step("        a", "    b")).toEqual({ step: 4, looksLikeAlignment: false });
     });
 
-    it("шаг считается по хвосту после общего префикса, а не по полной ширине", () => {
+    it("the step is measured by the tail after the common prefix, not by the full width", () => {
         expect(step("    a", "       b")).toEqual({ step: 3, looksLikeAlignment: false });
     });
 
-    it("шаг больше восьмёрки возвращается как есть — отсекает его уже гистограмма", () => {
+    it("a step above eight is returned as is — the histogram drops it later", () => {
         expect(step("a", "            b")).toEqual({ step: 12, looksLikeAlignment: false });
     });
 });
 
-describe("computeIndentationStep — табы", () => {
-    it("углубление табами при равном числе пробелов", () => {
+describe("computeIndentationStep — tabs", () => {
+    it("indenting with tabs at an equal space count", () => {
         expect(step("\ta", "\t\tb")).toEqual({ step: 0, looksLikeAlignment: false });
     });
 
-    it("одинаковый отступ табами — нулевой шаг", () => {
+    it("same tab indentation — zero step", () => {
         expect(step("\t\ta", "\t\tb")).toEqual({ step: 0, looksLikeAlignment: false });
     });
 
-    it("табы против пробелов: ширина таба = пробелы, делённые на съеденные табы", () => {
+    it("tabs vs spaces: tab width = spaces divided by consumed tabs", () => {
         expect(step("\t\ta", "    b")).toEqual({ step: 2, looksLikeAlignment: false });
         expect(step("\ta", "        b")).toEqual({ step: 8, looksLikeAlignment: false });
     });
 
-    it("порядок не важен: пробелы в предыдущей строке, табы в текущей", () => {
+    it("order does not matter: spaces on the previous line, tabs on the current one", () => {
         expect(step("    a", "\tb")).toEqual({ step: 4, looksLikeAlignment: false });
     });
 
-    it("не делится нацело — сигнала нет", () => {
+    it("not evenly divisible — no signal", () => {
         expect(step("\t\ta", "   b")).toEqual({ step: 0, looksLikeAlignment: false });
     });
 
-    it("общий таб-префикс отбрасывается перед делением", () => {
+    it("a common tab prefix is dropped before dividing", () => {
         expect(step("\t\ta", "\t    b")).toEqual({ step: 4, looksLikeAlignment: false });
     });
 });
 
-describe("computeIndentationStep — смешанные отступы", () => {
-    it("предыдущая строка мешает табы с пробелами — сигнала нет", () => {
+describe("computeIndentationStep — mixed indentation", () => {
+    it("the previous line mixes tabs and spaces — no signal", () => {
         expect(step("\t  a", "b")).toEqual({ step: 0, looksLikeAlignment: false });
     });
 
-    it("текущая строка мешает табы с пробелами — сигнала нет", () => {
+    it("the current line mixes tabs and spaces — no signal", () => {
         expect(step("a", "\t  b")).toEqual({ step: 0, looksLikeAlignment: false });
     });
 
-    it("смесь в общем префиксе не считается смесью: она отброшена", () => {
+    it("a mix in the common prefix does not count as a mix: it is dropped", () => {
         expect(step("\t a", "\t     b")).toEqual({ step: 4, looksLikeAlignment: false });
     });
 });
 
-describe("computeIndentationStep — выровненное продолжение", () => {
+describe("computeIndentationStep — aligned continuation", () => {
     const CONTINUED = "foo(a, b,";
     const ALIGNED = "       c);";
 
-    it("узнаёт продолжение, выровненное под аргумент", () => {
+    it("recognizes a continuation aligned under an argument", () => {
         expect(step(CONTINUED, ALIGNED)).toEqual({ step: 7, looksLikeAlignment: true });
     });
 
-    it("предыдущая строка не кончается запятой — это обычный отступ", () => {
+    it("the previous line does not end with a comma — regular indentation", () => {
         expect(step("foo(a, b;", ALIGNED)).toEqual({ step: 7, looksLikeAlignment: false });
     });
 
-    it("под первым символом продолжения в предыдущей строке не пробел — обычный отступ", () => {
+    it("a non-space on the previous line under the continuation's first character — regular indentation", () => {
         expect(step(CONTINUED, "        c);")).toEqual({ step: 8, looksLikeAlignment: false });
     });
 
-    it("продолжение само отступлено пробелом на этой позиции — обычный отступ", () => {
+    it("the continuation itself has a space at that position — regular indentation", () => {
         // The character at position `bSpaces` is a space, so it's still indentation, not text.
         expect(step("    foo(a, b,", "     c);")).toEqual({ step: 1, looksLikeAlignment: false });
     });
 
-    it("нулевой шаг выравниванием не считается", () => {
+    it("a zero step does not count as alignment", () => {
         expect(step("foo(a, b,", "foo(c, d,")).toEqual({ step: 0, looksLikeAlignment: false });
     });
 
-    it("выравнивание проверяется только при равном числе табов", () => {
+    it("alignment is checked only at an equal tab count", () => {
         // Tab counts differ → the division branch, which has no alignment flag.
         expect(step("\tfoo(a, b,", ALIGNED)).toEqual({ step: 7, looksLikeAlignment: false });
     });

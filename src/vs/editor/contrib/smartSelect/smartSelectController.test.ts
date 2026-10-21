@@ -30,7 +30,7 @@ const HIERARCHY: ComputeSelectionRanges = (positions) =>
     );
 
 describe("SmartSelectController — Expand/Shrink Selection", () => {
-    it("expand идёт вширь по ступеням, shrink — обратно до каретки; за краями — стоим", async () => {
+    it("expand widens step by step, shrink goes back to the cursor; past the ends it stays", async () => {
         const state = makeState(7);
         const controller = new SmartSelectController(state);
         const compute = vi.fn(HIERARCHY);
@@ -54,13 +54,13 @@ describe("SmartSelectController — Expand/Shrink Selection", () => {
         expect(compute).toHaveBeenCalledWith([createPosition(0, 7)]);
     });
 
-    it("выделение — слева направо: anchor в начале ступени, active в конце", async () => {
+    it("selection is left to right: anchor at step start, active at its end", async () => {
         const state = makeState(7);
         await new SmartSelectController(state).run(true, HIERARCHY);
         expect(state.selections).toEqual([createSelection(0, 5, 0, 10)]);
     });
 
-    it("посторонняя смена выделения забывает стек — следующий шаг спрашивает заново", async () => {
+    it("external selection change forgets the stack: the next step asks again", async () => {
         const state = makeState(7);
         const controller = new SmartSelectController(state);
         const compute = vi.fn(HIERARCHY);
@@ -73,7 +73,7 @@ describe("SmartSelectController — Expand/Shrink Selection", () => {
         expect(compute).toHaveBeenCalledTimes(2);
     });
 
-    it("правка документа забывает стек, даже если выделение осталось на месте", async () => {
+    it("document edit forgets the stack even if the selection stays in place", async () => {
         const state = makeState(7);
         const controller = new SmartSelectController(state);
         const compute = vi.fn(HIERARCHY);
@@ -84,21 +84,21 @@ describe("SmartSelectController — Expand/Shrink Selection", () => {
         expect(compute).toHaveBeenCalledTimes(2);
     });
 
-    it("правка до первого шага — не помеха: стека ещё нет, забывать нечего", async () => {
+    it("edit before the first step is harmless: no stack yet, nothing to forget", async () => {
         const state = makeState(7);
         state.document.applyEdits([{ range: createRange(0, 17, 0, 17), text: ";" }]);
         await new SmartSelectController(state).run(true, HIERARCHY);
         expect(texts(state)).toEqual(["alpha"]);
     });
 
-    it("ступени внутри текущего выделения пропускаются: первый шаг — шире выделения", async () => {
+    it("steps inside the current selection are skipped: the first step is wider than the selection", async () => {
         const state = makeState(7);
         state.selections = [createSelection(0, 5, 0, 10)];
         await new SmartSelectController(state).run(true, HIERARCHY);
         expect(texts(state)).toEqual(["alpha, beta"]);
     });
 
-    it("ступени только вокруг выделения целиком: уже его и задевшие один край — мимо", async () => {
+    it("only steps enclosing the whole selection count: narrower ones and ones touching one edge are skipped", async () => {
         const state = makeState(7);
         // active = 16: the word `beta` is inside the selection and doesn't contain its start.
         state.selections = [createSelection(0, 5, 0, 16)];
@@ -106,14 +106,14 @@ describe("SmartSelectController — Expand/Shrink Selection", () => {
         expect(texts(state)).toEqual([TEXT]);
     });
 
-    it("мультикурсор: каждая каретка — по своей иерархии", async () => {
+    it("multi-cursor: each cursor follows its own hierarchy", async () => {
         const state = makeState(7, 13);
         const controller = new SmartSelectController(state);
         await controller.run(true, HIERARCHY);
         expect(texts(state)).toEqual(["alpha", "beta"]);
     });
 
-    it("ответ протух (каретка ушла, пока считали) или не выровнен по кареткам — шага нет", async () => {
+    it("stale result (cursor moved while computing) or not aligned with cursors: no step", async () => {
         const state = makeState(7);
         const controller = new SmartSelectController(state);
         await controller.run(true, (positions) => {
@@ -134,7 +134,7 @@ describe("SmartSelectController — Expand/Shrink Selection", () => {
         expect(state.selections).toEqual([createCursorSelection(0, 2)]);
     });
 
-    it("протух и при смене числа кареток, одной из них или только anchor", async () => {
+    it("stale also when the cursor count, one cursor or only the anchor changes", async () => {
         const changes = [
             [createCursorSelection(0, 7), createCursorSelection(0, 13)],
             [createCursorSelection(0, 7), createCursorSelection(0, 14)],
@@ -155,7 +155,7 @@ describe("SmartSelectController — Expand/Shrink Selection", () => {
         }
     });
 
-    it("ступень, равная текущей, проскакивается в обе стороны", async () => {
+    it("step equal to the current one is skipped in both directions", async () => {
         const state = makeState(7);
         const controller = new SmartSelectController(state);
         const word: IRange = createRange(0, 5, 0, 10);

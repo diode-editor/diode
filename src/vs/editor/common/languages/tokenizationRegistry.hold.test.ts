@@ -14,7 +14,7 @@ function makeStubSupport(): ITokenizationSupport {
 }
 
 describe("TokenizationRegistry — hold", () => {
-    it("под придержкой get() отдаёт undefined, после отпуска — support", () => {
+    it("while held get() returns undefined, after release — the support", () => {
         const reg = new TokenizationRegistry();
         const css = makeStubSupport();
         reg.register("css", css);
@@ -26,7 +26,7 @@ describe("TokenizationRegistry — hold", () => {
         expect(reg.get("css")).toBe(css);
     });
 
-    it("загрузка под придержкой идёт, но молчит; отпуск фаерит по каждому языку", async () => {
+    it("loading while held proceeds but stays silent; release fires per language", async () => {
         const reg = new TokenizationRegistry();
         const ts = makeStubSupport();
         reg.register("css", makeStubSupport());
@@ -43,7 +43,7 @@ describe("TokenizationRegistry — hold", () => {
         expect(reg.get("typescript")).toBe(ts);
     });
 
-    it("язык, снятый под придержкой, тоже получает событие на отпуске", () => {
+    it("a language removed while held also gets an event on release", () => {
         const reg = new TokenizationRegistry();
         const registration = reg.register("css", makeStubSupport());
         const held = reg.hold();
@@ -57,7 +57,7 @@ describe("TokenizationRegistry — hold", () => {
         expect(reg.get("css")).toBeUndefined();
     });
 
-    it("смена colorMap под придержкой молчит, отпуск фаерит по разу на язык", () => {
+    it("a colorMap change while held stays silent, release fires once per language", () => {
         const reg = new TokenizationRegistry();
         reg.register("css", makeStubSupport());
         reg.register("html", makeStubSupport());
@@ -74,7 +74,7 @@ describe("TokenizationRegistry — hold", () => {
         expect(seen).toEqual(["css", "html"]);
     });
 
-    it("повторный отпуск — no-op, вторая придержка при живой первой — ошибка", () => {
+    it("a second release is a no-op, a second hold while the first is live throws", () => {
         const reg = new TokenizationRegistry();
         reg.register("css", makeStubSupport());
         const held = reg.hold();

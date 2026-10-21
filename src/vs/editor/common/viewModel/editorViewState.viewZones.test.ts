@@ -19,8 +19,8 @@ function sketch(state: EditorViewState): string {
     return parts.join(" ");
 }
 
-describe("EditorViewState view zones — проекция", () => {
-    it("зона добавляет виртуальные строки после якоря, номера документа не тратя", () => {
+describe("EditorViewState view zones — projection", () => {
+    it("a zone adds virtual lines after the anchor without consuming document line numbers", () => {
         const state = makeState("a\nb\nc");
         state.setViewZones([{ afterLine: 0, size: 2 }]);
 
@@ -28,21 +28,21 @@ describe("EditorViewState view zones — проекция", () => {
         expect(sketch(state)).toBe("0 · · 1 2");
     });
 
-    it("якорь -1 даёт зону перед первой строкой", () => {
+    it("anchor -1 puts the zone before the first line", () => {
         const state = makeState("a\nb");
         state.setViewZones([{ afterLine: -1, size: 1 }]);
 
         expect(sketch(state)).toBe("· 0 1");
     });
 
-    it("зона в конце файла и кламп якоря за концом", () => {
+    it("a zone at end of file and clamping an anchor past the end", () => {
         const state = makeState("a\nb");
         state.setViewZones([{ afterLine: 99, size: 2 }]);
 
         expect(sketch(state)).toBe("0 1 · ·");
     });
 
-    it("несколько зон и слияние одинаковых якорей", () => {
+    it("several zones and merging of equal anchors", () => {
         const state = makeState("a\nb\nc");
         state.setViewZones([
             { afterLine: 1, size: 1 },
@@ -57,7 +57,7 @@ describe("EditorViewState view zones — проекция", () => {
         ]);
     });
 
-    it("пустые зоны выбрасываются, пустой набор возвращает 1:1", () => {
+    it("empty zones are dropped, an empty set restores 1:1", () => {
         const state = makeState("a\nb");
         state.setViewZones([{ afterLine: 0, size: 0 }]);
         expect(sketch(state)).toBe("0 1");
@@ -67,7 +67,7 @@ describe("EditorViewState view zones — проекция", () => {
         expect(sketch(state)).toBe("0 1");
     });
 
-    it("viewLineKind различает документные, виртуальные и за-концом строки", () => {
+    it("viewLineKind distinguishes document, virtual and past-the-end lines", () => {
         const state = makeState("a\nb");
         state.setViewZones([{ afterLine: 0, size: 1 }]);
 
@@ -78,7 +78,7 @@ describe("EditorViewState view zones — проекция", () => {
         expect(state.viewLineKind(-1)).toBe("none");
     });
 
-    it("visualToLogicalLine на зоне -1, getViewLine — пустая строка", () => {
+    it("visualToLogicalLine on a zone is -1, getViewLine is an empty string", () => {
         const state = makeState("alpha\nbravo");
         state.setViewZones([{ afterLine: 0, size: 1 }]);
 
@@ -88,7 +88,7 @@ describe("EditorViewState view zones — проекция", () => {
         expect(state.getViewLine(2)).toBe("bravo");
     });
 
-    it("logicalToVisualLine учитывает зоны и защищён от отрицательного аргумента", () => {
+    it("logicalToVisualLine accounts for zones and guards against a negative argument", () => {
         const state = makeState("a\nb\nc");
         state.setViewZones([{ afterLine: 0, size: 2 }]);
 
@@ -97,7 +97,7 @@ describe("EditorViewState view zones — проекция", () => {
         expect(state.logicalToVisualLine(-2)).toBe(-1);
     });
 
-    it("docLineForViewLine: сама строка, якорь у зоны, первая строка у зоны до начала", () => {
+    it("docLineForViewLine: the line itself, the anchor for a zone, the first line for a zone before start", () => {
         const state = makeState("a\nb\nc");
         state.setViewZones([
             { afterLine: -1, size: 1 },
@@ -113,7 +113,7 @@ describe("EditorViewState view zones — проекция", () => {
         expect(state.docLineForViewLine(-5)).toBe(0);
     });
 
-    it("zoneAnchorForViewLine: якорь у зоны, null у документной и за концом", () => {
+    it("zoneAnchorForViewLine: anchor for a zone, null for a document line and past the end", () => {
         const state = makeState("a\nb");
         state.setViewZones([{ afterLine: 0, size: 1 }]);
 
@@ -123,7 +123,7 @@ describe("EditorViewState view zones — проекция", () => {
         expect(state.zoneAnchorForViewLine(-1)).toBeNull();
     });
 
-    it("zoneRowForViewLine: якорь и offset строки внутри многострочной зоны", () => {
+    it("zoneRowForViewLine: anchor and row offset inside a multi-line zone", () => {
         const state = makeState("a\nb\nc");
         state.setViewZones([
             { afterLine: -1, size: 2 },
@@ -140,7 +140,7 @@ describe("EditorViewState view zones — проекция", () => {
         expect(state.zoneRowForViewLine(-1)).toBeNull();
     });
 
-    it("zoneRowForViewLine: offset считается от первой строки зоны и после свёртки якоря", () => {
+    it("zoneRowForViewLine: offset counts from the zone's first line, also after folding the anchor", () => {
         const lines = Array.from({ length: 10 }, (_, i) => `l${String(i)}`).join("\n");
         const state = makeState(lines);
         state.setFoldingRegions([{ startLine: 1, endLine: 5, isCollapsed: true }]);
@@ -152,7 +152,7 @@ describe("EditorViewState view zones — проекция", () => {
         expect(state.zoneRowForViewLine(3)).toEqual({ anchor: 3, offset: 1 });
     });
 
-    it("docLineForViewLine перешагивает многострочную зону до начала файла", () => {
+    it("docLineForViewLine steps over a multi-line zone before start of file", () => {
         const state = makeState("a\nb");
         state.setViewZones([{ afterLine: -1, size: 2 }]);
         // View: · · 0 1 — the nearest document line below, through the zone's second line.
@@ -161,8 +161,8 @@ describe("EditorViewState view zones — проекция", () => {
     });
 });
 
-describe("EditorViewState view zones — событие и кэш", () => {
-    it("setViewZones файрит onDidChangeView один раз; повтор того же набора молчит", () => {
+describe("EditorViewState view zones — event and cache", () => {
+    it("setViewZones fires onDidChangeView once; repeating the same set is silent", () => {
         const state = makeState("a\nb");
         let fired = 0;
         state.onDidChangeView(() => {
@@ -181,7 +181,7 @@ describe("EditorViewState view zones — событие и кэш", () => {
         expect(fired).toBe(3);
     });
 
-    it("смена зон инвалидирует кэш проекции при неизменном документе", () => {
+    it("changing zones invalidates the projection cache with an unchanged document", () => {
         const state = makeState("a\nb\nc");
         expect(state.getViewLineCount()).toBe(3);
 
@@ -194,7 +194,7 @@ describe("EditorViewState view zones — событие и кэш", () => {
 });
 
 describe("EditorViewState view zones × folding", () => {
-    it("зона на скрытом якоре выживает после заголовка свернувшего региона", () => {
+    it("a zone on a hidden anchor survives after the header of the collapsed region", () => {
         const state = makeState("h\nb1\nb2\ntail");
         state.setFoldingRegions([{ startLine: 0, endLine: 2, isCollapsed: true }]);
         state.setViewZones([{ afterLine: 1, size: 1 }]);
@@ -203,7 +203,7 @@ describe("EditorViewState view zones × folding", () => {
         expect(sketch(state)).toBe("0 · 3");
     });
 
-    it("развёртка возвращает зону на её якорь", () => {
+    it("unfolding returns the zone to its anchor", () => {
         const state = makeState("h\nb1\nb2\ntail");
         state.setFoldingRegions([{ startLine: 0, endLine: 2, isCollapsed: true }]);
         state.setViewZones([{ afterLine: 1, size: 1 }]);
@@ -213,8 +213,8 @@ describe("EditorViewState view zones × folding", () => {
     });
 });
 
-describe("EditorViewState view zones — каретка", () => {
-    it("зоны на краях файла: каретка с крайних строк никуда не уезжает", () => {
+describe("EditorViewState view zones — cursor", () => {
+    it("zones at file edges: the cursor on edge lines does not move", () => {
         const state = makeState("a\nb");
         state.setViewZones([
             { afterLine: -1, size: 1 },
@@ -231,7 +231,7 @@ describe("EditorViewState view zones — каретка", () => {
         expect(state.selections[0].active.line).toBe(1);
     });
 
-    it("cursorDown/Up проскакивают зону: каретка не встаёт на виртуальную строку", () => {
+    it("cursorDown/Up skip a zone: the cursor does not land on a virtual line", () => {
         const state = makeState("a\nb\nc");
         state.setViewZones([{ afterLine: 0, size: 3 }]);
         state.selections = [createCursorSelection(0, 0)];
@@ -243,7 +243,7 @@ describe("EditorViewState view zones — каретка", () => {
         expect(state.selections[0].active.line).toBe(0);
     });
 
-    it("PageDown шагает по строкам вью: зоны съедают страницу, как на экране", () => {
+    it("PageDown steps by view lines: zones eat the page, as on screen", () => {
         const state = makeState(Array.from({ length: 20 }, (_, i) => `l${String(i)}`).join("\n"));
         state.viewportHeight = 6; // pageSize 5
         state.setViewZones([{ afterLine: 1, size: 3 }]);
@@ -257,7 +257,7 @@ describe("EditorViewState view zones — каретка", () => {
         expect(state.selections[0].active.line).toBe(0);
     });
 
-    it("PageDown с целью на зоне встаёт на ближайшую документную строку", () => {
+    it("PageDown with a target on a zone lands on the nearest document line", () => {
         const state = makeState(Array.from({ length: 10 }, (_, i) => `l${String(i)}`).join("\n"));
         state.viewportHeight = 4; // pageSize 3
         state.setViewZones([{ afterLine: 2, size: 2 }]);
@@ -268,7 +268,7 @@ describe("EditorViewState view zones — каретка", () => {
         expect(state.selections[0].active.line).toBe(2);
     });
 
-    it("PageUp/Down без зон ведут себя как раньше", () => {
+    it("PageUp/Down without zones behave as before", () => {
         const state = makeState(Array.from({ length: 12 }, (_, i) => `l${String(i)}`).join("\n"));
         state.viewportHeight = 5; // pageSize 4
         state.selections = [createCursorSelection(0, 0)];
@@ -281,7 +281,7 @@ describe("EditorViewState view zones — каретка", () => {
         expect(state.selections[0].active.line).toBe(4);
     });
 
-    it("revealPosition считает в строках вью — зоны выше каретки учтены", () => {
+    it("revealPosition counts in view lines — zones above the cursor are accounted for", () => {
         const state = makeState(Array.from({ length: 30 }, (_, i) => `l${String(i)}`).join("\n"));
         state.viewportHeight = 5;
         state.setViewZones([{ afterLine: 0, size: 10 }]);
@@ -295,8 +295,8 @@ describe("EditorViewState view zones — каретка", () => {
     });
 });
 
-describe("EditorViewState — скрытая каретка на краю (регресс индирекции)", () => {
-    it("cursorDown со скрытой строки хвостового региона остаётся на месте", () => {
+describe("EditorViewState — hidden cursor at the edge (indirection regression)", () => {
+    it("cursorDown from a hidden line of a trailing region stays in place", () => {
         const state = makeState("a\nh\nb1\nb2");
         state.setFoldingRegions([{ startLine: 1, endLine: 3, isCollapsed: true }]);
         // The selections setter doesn't fix a hidden cursor (reconcile does that after
@@ -309,8 +309,8 @@ describe("EditorViewState — скрытая каретка на краю (ре�
     });
 });
 
-describe("EditorViewState view zones — правки документа", () => {
-    it("своя правка выше якоря сдвигает зону", () => {
+describe("EditorViewState view zones — document edits", () => {
+    it("an own edit above the anchor shifts the zone", () => {
         const state = makeState("a\nb\nc");
         state.setViewZones([{ afterLine: 1, size: 1 }]);
         state.selections = [createCursorSelection(0, 1)];
@@ -320,7 +320,7 @@ describe("EditorViewState view zones — правки документа", () =>
         expect(sketch(state)).toBe("0 1 2 · 3");
     });
 
-    it("правка ниже якоря зону не трогает", () => {
+    it("an edit below the anchor leaves the zone untouched", () => {
         const state = makeState("a\nb\nc");
         state.setViewZones([{ afterLine: 0, size: 1 }]);
         state.selections = [createCursorSelection(2, 1)];
@@ -329,7 +329,7 @@ describe("EditorViewState view zones — правки документа", () =>
         expect(state.viewZones).toEqual([{ afterLine: 0, size: 1 }]);
     });
 
-    it("удаление строк с якорем клампит якорь внутрь нового диапазона", () => {
+    it("deleting lines with the anchor clamps the anchor into the new range", () => {
         const state = makeState("a\nb\nc\nd\ne");
         state.setViewZones([{ afterLine: 2, size: 1 }]);
         state.selections = [{ anchor: { line: 1, character: 0 }, active: { line: 4, character: 0 } }];
@@ -341,7 +341,7 @@ describe("EditorViewState view zones — правки документа", () =>
         expect(state.getViewLineCount()).toBe(2 + zones[0].size);
     });
 
-    it("правка, кламп которой не двигает якорь, оставляет зону тем же объектом", () => {
+    it("an edit whose clamp does not move the anchor keeps the zone as the same object", () => {
         const state = makeState("a\nb\nc\nd");
         state.setViewZones([{ afterLine: 1, size: 1 }]);
         const before = state.viewZones[0];
@@ -353,7 +353,7 @@ describe("EditorViewState view zones — правки документа", () =>
         expect(state.viewZones[0].size).toBe(1);
     });
 
-    it("чужая правка (remap) выше вьюпорта не двигает scrollTop при зонах", () => {
+    it("a foreign edit (remap) above the viewport does not move scrollTop with zones", () => {
         const doc = new TextDocument(Array.from({ length: 30 }, (_, i) => `l${String(i)}`).join("\n"));
         const state = new EditorViewState(doc, [createCursorSelection(20, 0)]);
         state.viewportHeight = 5;

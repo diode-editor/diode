@@ -27,8 +27,8 @@ describe("DocumentTokenStore.getEndState", () => {
     });
 });
 
-describe("DocumentTokenStore.handleContentChange — точность после удаления", () => {
-    it("многострочное удаление: строки выше точны, сама правка и ниже — нет", () => {
+describe("DocumentTokenStore.handleContentChange: accuracy after a delete", () => {
+    it("multiline delete: lines above are exact, the edit itself and below are not", () => {
         const doc = new TextDocument("a\nb\nc\nd\ne");
         const store = new DocumentTokenStore(doc, new PlainTextTokenizer());
         store.forceTokenization(4);
@@ -43,7 +43,7 @@ describe("DocumentTokenStore.handleContentChange — точность после
         expect(store.getLineTokens(2)).toBeDefined();
     });
 
-    it("правка, схлопнувшая хвост на строку 0, оставляет её неточной до пересчёта", () => {
+    it("edit collapsing the tail onto line 0 leaves it inexact until recompute", () => {
         const doc = new TextDocument("a\nb\nc");
         const store = new DocumentTokenStore(doc, new PlainTextTokenizer());
         store.forceTokenization(2);
@@ -88,15 +88,15 @@ describe("DocumentTokenStore.forceTokenization — resume from a middle line", (
     });
 });
 
-describe("DocumentTokenStore — кодек языка", () => {
-    it("язык токена — язык документа (в метаданных языки не кодируются)", () => {
+describe("DocumentTokenStore: language codec", () => {
+    it("token language is the document language (languages are not encoded in metadata)", () => {
         const doc = new TextDocument("abc", "typescript");
         const store = new DocumentTokenStore(doc, new PlainTextTokenizer());
         store.forceTokenization(0);
         expect(store.getLineTokens(0)?.getLanguageId(0)).toBe("typescript");
     });
 
-    it("токенизатор упал — строка получает токен по умолчанию (upstream nullTokenizeEncoded), ошибка — в onUnexpectedError", () => {
+    it("tokenizer threw: the line gets the default token (upstream nullTokenizeEncoded), the error goes to onUnexpectedError", () => {
         const errors: unknown[] = [];
         setUnexpectedErrorHandler((e) => errors.push(e));
         const failing: ITokenizationSupport = {

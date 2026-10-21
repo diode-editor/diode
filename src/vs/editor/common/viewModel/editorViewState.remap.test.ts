@@ -9,13 +9,13 @@ import { UndoManager } from "../model/undoManager.ts";
 import { EditorViewState } from "./editorViewState.ts";
 
 /** The view's own edits aren't remapped — they recompute themselves exactly. */
-describe("EditorViewState: ремап чужих правок", () => {
+describe("EditorViewState: remapping foreign edits", () => {
     function twoViews(text: string): { doc: TextDocument; a: EditorViewState; b: EditorViewState } {
         const doc = new TextDocument(text);
         return { doc, a: new EditorViewState(doc), b: new EditorViewState(doc) };
     }
 
-    it("вставка строк выше сдвигает выделение вниз", () => {
+    it("inserting lines above shifts the selection down", () => {
         const { a, b } = twoViews("one\ntwo\nthree");
         b.selections = [createSelection(1, 1, 2, 2)];
 
@@ -26,7 +26,7 @@ describe("EditorViewState: ремап чужих правок", () => {
         expect(b.selections[0].active).toEqual({ line: 4, character: 2 });
     });
 
-    it("удаление строк выше сдвигает выделение вверх", () => {
+    it("deleting lines above shifts the selection up", () => {
         const { doc, b } = twoViews("one\ntwo\nthree\nfour");
         b.selections = [createCursorSelection(3, 2)];
 
@@ -36,7 +36,7 @@ describe("EditorViewState: ремап чужих правок", () => {
         expect(b.selections[0].active).toEqual({ line: 1, character: 2 });
     });
 
-    it("правка ниже выделения ничего не сдвигает (и не файрит cursor-change)", () => {
+    it("an edit below the selection shifts nothing (and does not fire cursor-change)", () => {
         const { a, b } = twoViews("one\ntwo\nthree");
         b.selections = [createCursorSelection(0, 2)];
         let fired = 0;
@@ -51,7 +51,7 @@ describe("EditorViewState: ремап чужих правок", () => {
         expect(fired).toBe(0);
     });
 
-    it("позиция внутри заменённого диапазона клампится к его концу", () => {
+    it("a position inside the replaced range clamps to its end", () => {
         const { doc, b } = twoViews("aaa\nbbb\nccc\nddd");
         b.selections = [createCursorSelection(2, 3)];
 
@@ -62,7 +62,7 @@ describe("EditorViewState: ремап чужих правок", () => {
         expect(active.character).toBeLessThanOrEqual(doc.getLineLength(1));
     });
 
-    it("собственная правка не ремапится вторым проходом", () => {
+    it("an own edit is not remapped by a second pass", () => {
         const { a } = twoViews("hello");
         a.selections = [createCursorSelection(0, 5)];
         a.type(" world");
@@ -71,7 +71,7 @@ describe("EditorViewState: ремап чужих правок", () => {
         expect(a.selections[0].active).toEqual({ line: 0, character: 11 });
     });
 
-    it("фолды чужой вью сдвигаются, свои пересчитаны мутатором", () => {
+    it("folds of a foreign view shift, own ones are recomputed by the mutator", () => {
         const { a, b } = twoViews("h\nif {\n  x\n}\ntail");
         a.setFoldingRegions([{ startLine: 1, endLine: 3, isCollapsed: false }]);
         b.setFoldingRegions([{ startLine: 1, endLine: 3, isCollapsed: true }]);
@@ -83,7 +83,7 @@ describe("EditorViewState: ремап чужих правок", () => {
         expect(b.foldedRegions[0]).toMatchObject({ startLine: 2, endLine: 4, isCollapsed: true });
     });
 
-    it("скролл чужой вью следует за правкой выше вьюпорта", () => {
+    it("scroll of a foreign view follows an edit above the viewport", () => {
         const lines = Array.from({ length: 100 }, (_, i) => `l${i}`).join("\n");
         const { a, b } = twoViews(lines);
         b.scrollTop = 50;
@@ -94,7 +94,7 @@ describe("EditorViewState: ремап чужих правок", () => {
         expect(b.scrollTop).toBe(53);
     });
 
-    it("скролл не трогается при свёрнутых регионах (логический сдвиг ≠ визуальному)", () => {
+    it("scroll is untouched with collapsed regions (logical shift ≠ visual)", () => {
         const lines = Array.from({ length: 100 }, (_, i) => `l${i}`).join("\n");
         const { a, b } = twoViews(lines);
         b.setFoldingRegions([{ startLine: 10, endLine: 20, isCollapsed: true }]);
@@ -110,7 +110,7 @@ describe("EditorViewState: ремап чужих правок", () => {
      * Batch events are computed bottom-up but fire in document order: without shifting boundaries
      * the lower edit addressed lines past the document, and the cursor stayed past the line end.
      */
-    it("батч из двух правок не оставляет каретку чужой вью за концом строки", () => {
+    it("a batch of two edits does not leave a foreign view's cursor past line end", () => {
         const { doc, b } = twoViews("aaa\nbbbbb");
         b.selections = [createCursorSelection(1, 5)];
 
@@ -121,7 +121,7 @@ describe("EditorViewState: ремап чужих правок", () => {
         expect(b.selections[0].active).toEqual({ line: 2, character: 1 });
     });
 
-    it("undo мультикурсорной многострочной вставки не роняет ремап", () => {
+    it("undo of a multi-cursor multi-line insert does not break remapping", () => {
         const { doc, a } = twoViews("aaa\nbbb");
         const undoManager = new UndoManager(doc);
         a.selections = [createCursorSelection(0, 3), createCursorSelection(1, 3)];
@@ -139,7 +139,7 @@ describe("EditorViewState: ремап чужих правок", () => {
         ]);
     });
 
-    it("dispose останавливает ремап", () => {
+    it("dispose stops remapping", () => {
         const { doc, b } = twoViews("one\ntwo\nthree");
         b.selections = [createCursorSelection(2, 1)];
 

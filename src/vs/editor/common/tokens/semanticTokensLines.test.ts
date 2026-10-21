@@ -42,7 +42,7 @@ function edit(
 }
 
 describe("countEOL", () => {
-    it("переводы строки — только \\n; \\r остаётся символом строки", () => {
+    it("only \\n is a line break; \\r stays a line character", () => {
         expect(countEOL("")).toEqual([0, 0, 0]);
         expect(countEOL("abc")).toEqual([0, 3, 3]);
         expect(countEOL("ab\ncd\nefg")).toEqual([2, 2, 3]);
@@ -53,7 +53,7 @@ describe("countEOL", () => {
 });
 
 describe("decodeSemanticTokens", () => {
-    it("дельты строк и символов → абсолютные токены по строкам с типом и модификаторами", () => {
+    it("line and char deltas -> absolute per-line tokens with type and modifiers", () => {
         const lines = decodeSemanticTokens(new Uint32Array([0, 1, 2, 3, 4, 0, 3, 1, 5, 6, 2, 4, 3, 7, 8]), LEGEND);
         expect(lines.lineNumbers).toEqual([0, 2]);
         expect(lines.getLine(0)).toEqual({ legend: LEGEND, tokens: [1, 3, 3, 4, 4, 5, 5, 6] });
@@ -62,7 +62,7 @@ describe("decodeSemanticTokens", () => {
         expect(lines.getLine(1)).toBeUndefined();
     });
 
-    it("нулевая длина и налезающий на предыдущий токен отбрасываются; встык — нет", () => {
+    it("zero length and overlapping the previous token are dropped; adjacent is not", () => {
         const lines = decodeSemanticTokens(
             new Uint32Array([0, 0, 4, 1, 0, 0, 2, 3, 1, 0, 0, 2, 0, 1, 0, 0, 2, 1, 1, 0]),
             LEGEND,
@@ -71,34 +71,34 @@ describe("decodeSemanticTokens", () => {
         expect(lines.getLine(0)?.tokens).toEqual([0, 4, 1, 0, 6, 7, 1, 0]);
     });
 
-    it("отброшенный токен, открывший строку, не уводит следующие токены в прошлую строку", () => {
+    it("dropped token that opened a line does not move the next tokens to the previous line", () => {
         const lines = decodeSemanticTokens(new Uint32Array([0, 0, 2, 1, 0, 1, 0, 0, 1, 0, 0, 3, 2, 1, 0]), LEGEND);
         expect(dump(lines)).toEqual({ 0: [[0, 2]], 1: [[3, 5]] });
     });
 
-    it("неполная последняя пятёрка игнорируется", () => {
+    it("incomplete last quintuple is ignored", () => {
         const lines = decodeSemanticTokens(new Uint32Array([0, 0, 2, 1, 0, 0, 3, 1, 1]), LEGEND);
         expect(lines.getLine(0)?.tokens).toEqual([0, 2, 1, 0]);
         expect(decodeSemanticTokens(new Uint32Array([]), LEGEND).lineNumbers).toEqual([]);
     });
 });
 
-describe("SemanticTokensLines — чтение и замена строк", () => {
-    it("строка без токенов — undefined", () => {
+describe("SemanticTokensLines: reading and replacing lines", () => {
+    it("line without tokens is undefined", () => {
         const lines = new SemanticTokensLines();
         lines.ensureLine(3, LEGEND);
         expect(lines.getLine(3)).toBeUndefined();
         expect(lines.lineNumbers).toEqual([]);
     });
 
-    it("ensureLine возвращает существующую строку, не заменяя легенду", () => {
+    it("ensureLine returns the existing line without replacing the legend", () => {
         const lines = new SemanticTokensLines();
         const first = lines.ensureLine(0, LEGEND);
         expect(lines.ensureLine(0, OTHER)).toBe(first);
         expect(first.legend).toBe(LEGEND);
     });
 
-    it("replaceLines: строки диапазона — копией из источника, без токенов в источнике — очищаются", () => {
+    it("replaceLines: range lines are copied from the source, those without tokens in the source are cleared", () => {
         const target = linesOf({ 0: [[0, 1]], 1: [[0, 1]], 2: [[0, 1]], 3: [[0, 1]] });
         const source = linesOf({ 1: [[5, 6]], 3: [[7, 8]] }, OTHER);
         target.replaceLines(1, 2, source);
@@ -108,57 +108,57 @@ describe("SemanticTokensLines — чтение и замена строк", () =
         expect(dump(target)[1]).toEqual([[5, 6]]);
     });
 
-    it("replaceLines за концом известных строк кладёт строки источника", () => {
+    it("replaceLines past the end of known lines puts the source lines", () => {
         const target = linesOf({ 0: [[0, 1]] });
         target.replaceLines(4, 6, linesOf({ 5: [[1, 2]] }));
         expect(dump(target)).toEqual({ 0: [[0, 1]], 5: [[1, 2]] });
     });
 });
 
-describe("SemanticTokensLines — удаление в одной строке (случаи эталона)", () => {
+describe("SemanticTokensLines: delete within one line (upstream cases)", () => {
     const token = (): SemanticTokensLines => linesOf({ 0: [[5, 10]] });
 
-    it("пустой диапазон ничего не удаляет", () => {
+    it("empty range deletes nothing", () => {
         expect(edit(token(), 0, 7, 0, 7, "")).toEqual({ 0: [[5, 10]] });
     });
-    it("1a. токен целиком до удаления", () => {
+    it("1a. token entirely before the deletion", () => {
         expect(edit(token(), 0, 10, 0, 12, "")).toEqual({ 0: [[5, 10]] });
     });
-    it("1b. начинается раньше, удаление кончается после токена — обрезка до начала удаления", () => {
+    it("1b. starts earlier, deletion ends after the token: trimmed to the deletion start", () => {
         expect(edit(token(), 0, 8, 0, 12, "")).toEqual({ 0: [[5, 8]] });
     });
-    it("1c. удаление кончается ровно на конце токена", () => {
+    it("1c. deletion ends exactly at the token end", () => {
         expect(edit(token(), 0, 8, 0, 10, "")).toEqual({ 0: [[5, 8]] });
     });
-    it("1d. удаление внутри токена — токен короче на удалённое", () => {
+    it("1d. deletion inside the token: token shrinks by the deleted part", () => {
         expect(edit(token(), 0, 6, 0, 8, "")).toEqual({ 0: [[5, 8]] });
     });
-    it("2a/2b. тот же старт, конец внутри или ровно на конце удаления — токен удалён", () => {
+    it("2a/2b. same start, end inside or exactly at the deletion end: token removed", () => {
         expect(edit(token(), 0, 5, 0, 12, "")).toEqual({});
         expect(edit(token(), 0, 5, 0, 10, "")).toEqual({});
     });
-    it("2c. тот же старт, токен длиннее удаления — укорачивается", () => {
+    it("2c. same start, token longer than the deletion: shrinks", () => {
         expect(edit(token(), 0, 5, 0, 7, "")).toEqual({ 0: [[5, 8]] });
     });
-    it("3a/3b. токен внутри удаления — удалён", () => {
+    it("3a/3b. token inside the deletion: removed", () => {
         expect(edit(token(), 0, 3, 0, 12, "")).toEqual({});
         expect(edit(token(), 0, 3, 0, 10, "")).toEqual({});
     });
-    it("3c. начинается внутри удаления, кончается после — продолжается от его начала", () => {
+    it("3c. starts inside the deletion, ends after: continues from its start", () => {
         expect(edit(token(), 0, 3, 0, 7, "")).toEqual({ 0: [[3, 6]] });
     });
-    it("4. токен после удаления — сдвиг влево", () => {
+    it("4. token after the deletion: shifts left", () => {
         expect(edit(token(), 0, 1, 0, 3, "")).toEqual({ 0: [[3, 8]] });
     });
-    it("строки других номеров не трогает", () => {
+    it("leaves other lines alone", () => {
         expect(edit(linesOf({ 0: [[5, 10]], 1: [[1, 2]] }), 0, 1, 0, 3, "")).toEqual({ 0: [[3, 8]], 1: [[1, 2]] });
     });
-    it("тип и модификаторы токена переживают правку", () => {
+    it("token type and modifiers survive the edit", () => {
         const lines = token();
         lines.applyEdit(createRange(0, 1, 0, 3), "");
         expect(lines.getLine(0)?.tokens).toEqual([3, 8, 1, 2]);
     });
-    it("тип и модификаторы — у каждого токена свои во всех ветках удаления", () => {
+    it("each token keeps its own type and modifiers in all deletion branches", () => {
         const single = new SemanticTokensLines();
         single.ensureLine(0, LEGEND).tokens.push(0, 2, 3, 4, 5, 10, 1, 6);
         single.applyEdit(createRange(0, 5, 0, 7), ""); // 2c
@@ -172,8 +172,8 @@ describe("SemanticTokensLines — удаление в одной строке (�
     });
 });
 
-describe("SemanticTokensLines — многострочное удаление", () => {
-    it("первая строка: до — остаются, на краю — обрезаются, после — удаляются; средние уходят; последняя — подтягивается", () => {
+describe("SemanticTokensLines: multiline delete", () => {
+    it("first line: before stays, at the edge is trimmed, after is removed; middle lines go; last line is pulled up", () => {
         const lines = linesOf({
             0: [
                 [0, 2],
@@ -200,28 +200,28 @@ describe("SemanticTokensLines — многострочное удаление", 
         });
     });
 
-    it("на первой строке токен ровно с начала удаления — удаляется (2a/2b)", () => {
+    it("on the first line a token exactly at the deletion start is removed (2a/2b)", () => {
         // Line 1 merges into line zero: its token moves past the join point.
         expect(edit(linesOf({ 0: [[5, 9]], 1: [[0, 1]] }), 0, 5, 1, 0, "")).toEqual({ 0: [[5, 6]] });
     });
 
-    it("на последней строке токен, кончающийся ровно на конце удаления, — удаляется (3b)", () => {
+    it("on the last line a token ending exactly at the deletion end is removed (3b)", () => {
         expect(edit(linesOf({ 0: [[0, 1]], 1: [[0, 4]] }), 0, 2, 1, 4, "")).toEqual({ 0: [[0, 1]] });
     });
 
-    it("первая строка без токенов берёт легенду последней", () => {
+    it("first line without tokens takes the legend of the last", () => {
         const lines = linesOf({ 1: [[6, 8]] }, OTHER);
         expect(edit(lines, 0, 2, 1, 4, "")).toEqual({ 0: [[4, 6]] });
         expect(lines.getLine(0)?.legend).toBe(OTHER);
     });
 
-    it("первая строка без токенов: 3c последней строки переезжает к началу удаления", () => {
+    it("first line without tokens: 3c of the last line moves to the deletion start", () => {
         const lines = linesOf({ 1: [[0, 4]] });
         expect(edit(lines, 0, 2, 1, 1, "")).toEqual({ 0: [[2, 5]] });
         expect(lines.getLine(0)?.legend).toBe(LEGEND);
     });
 
-    it("многострочное удаление с одинаковыми колонками — тоже удаление", () => {
+    it("multiline delete with equal columns is still a delete", () => {
         const lines = linesOf({
             0: [
                 [0, 1],
@@ -240,29 +240,29 @@ describe("SemanticTokensLines — многострочное удаление", 
         });
     });
 
-    it("удаление со строки ниже первой: уходят ровно строки диапазона", () => {
+    it("delete starting below the first line: exactly the range lines go", () => {
         const lines = linesOf({ 0: [[0, 1]], 3: [[0, 2]], 4: [[1, 2]], 5: [[2, 3]] });
         expect(edit(lines, 2, 0, 3, 1, "")).toEqual({ 0: [[0, 1]], 2: [[0, 1]], 3: [[1, 2]], 4: [[2, 3]] });
     });
 
-    it("удаление по строкам без токенов не оставляет строку без легенды", () => {
+    it("delete over lines without tokens leaves no line without a legend", () => {
         const lines = linesOf({ 3: [[0, 1]] });
         lines.applyEdit(createRange(0, 1, 1, 0), "");
         expect(lines.ensureLine(0, OTHER).legend).toBe(OTHER);
     });
 
-    it("токены последней строки с другой легендой отбрасываются", () => {
+    it("last line tokens with a different legend are dropped", () => {
         const lines = linesOf({ 0: [[0, 1]] });
         lines.ensureLine(1, OTHER).tokens.push(0, 6, 0, 0, 7, 9, 0, 0);
         expect(edit(lines, 0, 2, 1, 4, "")).toEqual({ 0: [[0, 1]] });
     });
 
-    it("удалено всё — строка пуста, строки ниже подтянуты", () => {
+    it("everything deleted: line is empty, lines below are pulled up", () => {
         const lines = linesOf({ 0: [[2, 3]], 1: [[0, 1]], 3: [[4, 5]] });
         expect(edit(lines, 0, 1, 1, 9, "")).toEqual({ 2: [[4, 5]] });
     });
 
-    it("удаление за концом известных строк ничего не создаёт", () => {
+    it("delete past the end of known lines creates nothing", () => {
         const lines = linesOf({ 0: [[2, 3]] });
         expect(edit(lines, 5, 0, 7, 1, "")).toEqual({ 0: [[2, 3]] });
         lines.applyEdit(createRange(9, 0, 9, 1), "");
@@ -270,14 +270,14 @@ describe("SemanticTokensLines — многострочное удаление", 
     });
 });
 
-describe("SemanticTokensLines — вставка (случаи эталона)", () => {
+describe("SemanticTokensLines: insert (upstream cases)", () => {
     const token = (): SemanticTokensLines => linesOf({ 0: [[5, 10]] });
 
-    it("1. токен целиком до точки вставки", () => {
+    it("1. token entirely before the insert point", () => {
         expect(edit(token(), 0, 12, 0, 12, "ab")).toEqual({ 0: [[5, 10]] });
     });
 
-    it("2. токен кончается в точке вставки: растёт только на один словесный символ", () => {
+    it("2. token ends at the insert point: grows only by a single word character", () => {
         for (const ch of ["a", "z", "A", "Z", "0", "9", "m"]) {
             expect(edit(token(), 0, 10, 0, 10, ch), ch).toEqual({ 0: [[5, 11]] });
         }
@@ -286,26 +286,26 @@ describe("SemanticTokensLines — вставка (случаи эталона)",
         }
     });
 
-    it("3. точка вставки внутри токена: растёт на вставку, перевод строки — обрезает", () => {
+    it("3. insert point inside the token: grows by the insert, a line break trims it", () => {
         expect(edit(token(), 0, 7, 0, 7, "abc")).toEqual({ 0: [[5, 13]] });
         expect(edit(token(), 0, 7, 0, 7, "x\nyz")).toEqual({ 0: [[5, 7]] });
     });
 
-    it("4. токен начинается в точке вставки: один словесный символ — токен стоит, иначе — сдвиг", () => {
+    it("4. token starts at the insert point: a single word character keeps it, otherwise it shifts", () => {
         expect(edit(token(), 0, 5, 0, 5, "a")).toEqual({ 0: [[5, 10]] });
         expect(edit(token(), 0, 5, 0, 5, "-")).toEqual({ 0: [[6, 11]] });
         expect(edit(token(), 0, 5, 0, 5, "ab")).toEqual({ 0: [[7, 12]] });
     });
 
-    it("один словесный символ с переводом строки — не «ровно один символ»: токен не растёт", () => {
+    it("word character with a line break is not 'exactly one character': token does not grow", () => {
         expect(edit(token(), 0, 10, 0, 10, "a\nb")).toEqual({ 0: [[5, 10]] });
     });
 
-    it("5. токен после точки вставки — сдвиг вправо", () => {
+    it("5. token after the insert point: shifts right", () => {
         expect(edit(token(), 0, 2, 0, 2, "ab")).toEqual({ 0: [[7, 12]] });
     });
 
-    it("многострочная вставка переносит токены правее на последнюю новую строку с её длиной", () => {
+    it("multiline insert moves tokens to the right onto the last new line by its length", () => {
         const lines = linesOf({
             0: [
                 [0, 1],
@@ -319,23 +319,23 @@ describe("SemanticTokensLines — вставка (случаи эталона)",
         expect(deep.getLine(2)?.legend).toBe(LEGEND);
     });
 
-    it("перевод строки над токенами сдвигает строки ниже; на строке без токенов — тоже", () => {
+    it("line break above tokens shifts lines below; on a line without tokens too", () => {
         expect(edit(linesOf({ 1: [[0, 2]], 3: [[1, 2]] }), 0, 0, 0, 0, "\n\n")).toEqual({
             3: [[0, 2]],
             5: [[1, 2]],
         });
     });
 
-    it("вставка за концом известных строк ничего не создаёт", () => {
+    it("insert past the end of known lines creates nothing", () => {
         expect(edit(linesOf({ 0: [[0, 2]] }), 4, 0, 4, 0, "a\nb")).toEqual({ 0: [[0, 2]] });
     });
 
-    it("замена: удаление и вставка одной правкой", () => {
+    it("replace: delete and insert in one edit", () => {
         // [5,10] with replacement (1..3) → "abcd": shift -2, then +4.
         expect(edit(token(), 0, 1, 0, 3, "abcd")).toEqual({ 0: [[7, 12]] });
     });
 
-    it("вставка в строку без токенов и без переводов строк ничего не меняет", () => {
+    it("insert into a line without tokens and without line breaks changes nothing", () => {
         expect(edit(linesOf({ 1: [[0, 2]] }), 0, 0, 0, 0, "abc")).toEqual({ 1: [[0, 2]] });
     });
 });

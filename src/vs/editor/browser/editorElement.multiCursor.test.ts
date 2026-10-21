@@ -27,8 +27,8 @@ function createEditor(
     return { app, editor, viewState, gw: editor.gutterWidth };
 }
 
-describe("EditorElement — вторичные каретки в кадре", () => {
-    it("каждая каретка мультикурсора красится инверсным блоком", () => {
+describe("EditorElement — secondary cursors in the frame", () => {
+    it("each multi-cursor cursor is painted as an inverse block", () => {
         const { app, editor, viewState, gw } = createEditor("abc\ndef");
         viewState.selections = [createCursorSelection(0, 1), createCursorSelection(1, 2)];
         editor.focus();
@@ -40,7 +40,7 @@ describe("EditorElement — вторичные каретки в кадре", ()
         expect(app.backend.getFgAt(new Point(gw + 2, 1))).toBe(CARET_FG);
     });
 
-    it("глиф под кареткой остаётся на месте — патч частичный", () => {
+    it("the glyph under the cursor stays in place — the patch is partial", () => {
         const { app, editor, viewState, gw } = createEditor("abc");
         viewState.selections = [createCursorSelection(0, 1), createCursorSelection(0, 2)];
         editor.focus();
@@ -49,7 +49,7 @@ describe("EditorElement — вторичные каретки в кадре", ()
         expect(app.backend.getTextAt(new Point(gw + 1, 0), 2)).toBe("bc");
     });
 
-    it("цвета берутся из токенов темы, а не зашиты в код", () => {
+    it("colors come from theme tokens, not hardcoded", () => {
         const customBg = packRgb(10, 200, 30);
         const customFg = packRgb(200, 10, 30);
         const { app, editor, viewState, gw } = createEditor("abc");
@@ -62,7 +62,7 @@ describe("EditorElement — вторичные каретки в кадре", ()
         expect(app.backend.getFgAt(new Point(gw + 0, 0))).toBe(customFg);
     });
 
-    it("при одном курсоре кадр остаётся прежним — каретку рисует терминал", () => {
+    it("with a single cursor the frame is unchanged — the terminal draws the cursor", () => {
         // Cursor on a space: no word under it, so no occurrence highlight —
         // the cell must keep the plain editor background.
         const { app, editor, viewState, gw } = createEditor("a b");
@@ -74,7 +74,7 @@ describe("EditorElement — вторичные каретки в кадре", ()
         expect(app.backend.cursorPosition.x).toBe(gw + 1);
     });
 
-    it("первичная каретка в мультикурсоре нарисована И держит аппаратный курсор", () => {
+    it("the primary cursor in multi-cursor is drawn AND holds the hardware cursor", () => {
         const { app, editor, viewState, gw } = createEditor("abc\ndef");
         viewState.selections = [createCursorSelection(0, 0), createCursorSelection(1, 0)];
         editor.focus();
@@ -85,7 +85,7 @@ describe("EditorElement — вторичные каретки в кадре", ()
         expect(app.backend.cursorPosition.y).toBe(0);
     });
 
-    it("без фокуса кареток нет", () => {
+    it("no cursors without focus", () => {
         const { app, viewState, editor, gw } = createEditor("abc\ndef");
         viewState.selections = [createCursorSelection(0, 1), createCursorSelection(1, 1)];
         app.render();
@@ -94,7 +94,7 @@ describe("EditorElement — вторичные каретки в кадре", ()
         expect(app.backend.getBgAt(new Point(gw + 1, 1))).toBe(editor.resolvedStyle.bg);
     });
 
-    it("в read-only каретки рисуются — выделять и копировать там можно", () => {
+    it("cursors are drawn in read-only — selecting and copying still work there", () => {
         const { app, editor, viewState, gw } = createEditor("abc\ndef");
         viewState.readOnly = true;
         viewState.selections = [createCursorSelection(0, 1), createCursorSelection(1, 1)];
@@ -105,8 +105,8 @@ describe("EditorElement — вторичные каретки в кадре", ()
     });
 });
 
-describe("EditorElement — каретка поверх остальных слоёв", () => {
-    it("бьёт фон выделения", () => {
+describe("EditorElement — cursor above other layers", () => {
+    it("beats the selection background", () => {
         const { app, editor, viewState, gw } = createEditor("abcdef");
         viewState.selections = [createSelection(0, 1, 0, 4), createCursorSelection(0, 5)];
         editor.focus();
@@ -117,7 +117,7 @@ describe("EditorElement — каретка поверх остальных сл�
         expect(app.backend.getBgAt(new Point(gw + 3, 0))).not.toBe(CARET_BG);
     });
 
-    it("бьёт подсветку совпадения поиска", () => {
+    it("beats the find match highlight", () => {
         const { app, editor, viewState, gw } = createEditor("foo foo");
         viewState.searchMatches = [
             { start: { line: 0, character: 0 }, end: { line: 0, character: 3 } },
@@ -132,7 +132,7 @@ describe("EditorElement — каретка поверх остальных сл�
         expect(app.backend.getBgAt(new Point(gw + 5, 0))).toBe(CARET_BG);
     });
 
-    it("гасит подчёркивание диагностики под собой", () => {
+    it("suppresses the diagnostic underline beneath it", () => {
         const { app, editor, viewState, gw } = createEditor("abcdef");
         editor.markerDecorations = [
             {
@@ -150,7 +150,7 @@ describe("EditorElement — каретка поверх остальных сл�
         expect(app.app.screen.getCell(new Point(gw + 2, 0)).style).not.toBe(StyleFlags.None);
     });
 
-    it("occurrence-подсветка в мультикурсоре выключается", () => {
+    it("occurrence highlight is off in multi-cursor", () => {
         const { app, editor, viewState, gw } = createEditor("foo bar foo");
         viewState.selections = [createCursorSelection(0, 1)];
         editor.focus();
@@ -163,7 +163,7 @@ describe("EditorElement — каретка поверх остальных сл�
         expect(app.backend.getBgAt(new Point(gw + 8, 0))).toBe(editor.resolvedStyle.bg);
     });
 
-    it("подсвечен ровно один номер строки — первичной каретки", () => {
+    it("exactly one line number is highlighted — the primary cursor's", () => {
         const { app, editor, viewState } = createEditor("aaa\nbbb\nccc");
         viewState.selections = [createCursorSelection(0, 0), createCursorSelection(2, 0)];
         editor.focus();

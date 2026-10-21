@@ -47,7 +47,7 @@ describe("TextDocument change events", () => {
         expect(changes.length).toBe(2);
     });
 
-    it("в батче нижнее событие приходит в координатах уже применённых верхних правок", () => {
+    it("in a batch, a lower event arrives in coordinates with the upper edits already applied", () => {
         const doc = new TextDocument("a\nb\nc");
         const changes = recordChanges(doc);
         doc.applyEdits([createInsertEdit(0, 0, "X\nY"), createInsertEdit(2, 0, "Z")]);
@@ -58,7 +58,7 @@ describe("TextDocument change events", () => {
         ]);
     });
 
-    it("удаление строк выше сдвигает границы последующих событий батча вверх", () => {
+    it("deleting lines above shifts the boundaries of later batch events up", () => {
         const doc = new TextDocument("a\nb\nc\nd\ne");
         const changes = recordChanges(doc);
         doc.applyEdits([createDeleteEdit(0, 1, 1, 0), createInsertEdit(3, 0, "Z")]);

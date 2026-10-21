@@ -34,7 +34,7 @@ function provider(
 }
 
 describe("codeActionKindsIntersect", () => {
-    it("равные и вложенные по точке — пересекаются, соседи и префиксы без точки — нет", () => {
+    it("equal and dot-nested kinds intersect, siblings and prefixes without a dot do not", () => {
         expect(codeActionKindsIntersect("source", "source")).toBe(true);
         expect(codeActionKindsIntersect("source", "source.fixAll.ruff")).toBe(true);
         expect(codeActionKindsIntersect("source.fixAll.ruff", "source")).toBe(true);
@@ -45,7 +45,7 @@ describe("codeActionKindsIntersect", () => {
 });
 
 describe("getCodeActions", () => {
-    it("склеивает действия в порядке реестра и помнит владельца", async () => {
+    it("merges actions in registry order and remembers the owner", async () => {
         const registry = new LanguageFeatureRegistry<CodeActionProvider>();
         const any = provider([{ id: "1.0", title: "any" }]);
         const exact = provider([{ id: "2.0", title: "exact" }]);
@@ -61,7 +61,7 @@ describe("getCodeActions", () => {
         expect(any.provideCodeActions).toHaveBeenCalledWith(REQUEST, TOKEN);
     });
 
-    it("провайдер, чьи виды не пересекаются с only, не спрашивается; без видов — спрашивается всегда", async () => {
+    it("a provider whose kinds do not intersect only is not asked; one without kinds is always asked", async () => {
         const registry = new LanguageFeatureRegistry<CodeActionProvider>();
         const organize = provider([{ id: "1.0", title: "Sort" }], ["source.organizeImports"]);
         const anyKind = provider([{ id: "2.0", title: "Any" }]);
@@ -80,7 +80,7 @@ describe("getCodeActions", () => {
         expect(organize.provideCodeActions).toHaveBeenCalledTimes(2);
     });
 
-    it("сбойный провайдер = «действий нет», остальные доезжают", async () => {
+    it('a failing provider = "no actions", the rest still arrive', async () => {
         const registry = new LanguageFeatureRegistry<CodeActionProvider>();
         registry.register("python", provider([{ id: "1.0", title: "ok" }]));
         registry.register("python", {
