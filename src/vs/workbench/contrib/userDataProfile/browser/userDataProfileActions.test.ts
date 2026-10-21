@@ -52,7 +52,6 @@ interface INotice {
 interface IHarness {
     readonly accessor: ServiceAccessor;
     readonly profiles: UserDataProfilesService;
-    /** Application-стор реестра (в памяти). */
     readonly state: StateFileStore;
     readonly files: FileService;
     readonly restarts: (IRelaunchRequest | undefined)[];
@@ -501,7 +500,6 @@ describe("экшены профилей", () => {
             await copyProfileContents(h.files, from, to, ["update.mode"]);
             expect(fs.existsSync(to.settingsResource)).toBe(false);
             expect(fs.existsSync(to.keybindingsResource)).toBe(false);
-            // Пустой состав нового профиля остаётся пустым.
             expect(fs.readFileSync(to.extensionsResource, "utf-8")).toBe("[]");
         });
 

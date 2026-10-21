@@ -4,12 +4,7 @@ import { parseKeybinding } from "../../../../platform/keybinding/common/keybindi
 import { KeybindingWeight } from "../../../../platform/keybinding/common/keybindingResolver.ts";
 import { EditorServiceDIToken } from "../../../services/editor/common/editorService.ts";
 
-/**
- * Переход по подсвеченным вхождениям слова под кареткой (upstream
- * `editor/contrib/wordHighlighter`). Вес и `when` — как у upstream. F7 в диффе
- * (`editor.action.accessibleDiffViewer.next`) у эталона висит на том же весе и
- * отличается предусловием `isInDiffEditor` — см. docs/TODO/Diff.md, «Интерактив».
- */
+// Вес и `when` — как у upstream; F7 в диффе отличается предусловием `isInDiffEditor` (docs/TODO/Diff.md, «Интерактив»).
 
 export const nextWordHighlightAction: CommandAction = {
     id: "editor.action.wordHighlight.next",
@@ -35,5 +30,4 @@ export const prevWordHighlightAction: CommandAction = {
     },
 };
 
-/** Экшены фичи одним массивом; регистрирует агрегатор (`WORKBENCH_ACTIONS`). */
 export const WORD_HIGHLIGHTER_ACTIONS: readonly CommandAction[] = [nextWordHighlightAction, prevWordHighlightAction];

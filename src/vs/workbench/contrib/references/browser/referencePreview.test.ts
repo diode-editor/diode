@@ -16,7 +16,6 @@ function ref(relPath: string, range: ReturnType<typeof createRange>): ICoreRefer
     return { uri: uriOf(relPath), range };
 }
 
-/** Источник текста: `open` — «открытые модели», `disk` — файлы на диске. */
 function source(
     disk: Partial<Record<string, string>>,
     open: Record<string, string> = {},
@@ -107,7 +106,6 @@ describe("buildReferenceGroups", () => {
         const groups = await buildReferenceGroups([ref("a.ts", createRange(0, 0, 0, 2))], src, ROOT);
 
         expect(groups[0].matches[0].preview).toEqual({ before: "", inside: "в ", after: "буфере новое" });
-        // К диску даже не ходили.
         expect(src.reads).toEqual([]);
     });
 
@@ -116,7 +114,6 @@ describe("buildReferenceGroups", () => {
 
         const groups = await buildReferenceGroups(
             [
-                // Файла нет на диске вовсе.
                 ref("gone.ts", createRange(0, 0, 0, 1)),
                 // Файл есть, но такой строки в нём нет (поменялся, пока сервер думал).
                 ref("a.ts", createRange(99, 0, 99, 1)),

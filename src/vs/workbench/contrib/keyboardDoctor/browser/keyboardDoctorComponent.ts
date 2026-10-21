@@ -30,17 +30,12 @@ import {
 
 export const KeyboardDoctorComponentDIToken = token<KeyboardDoctorComponent>("KeyboardDoctorComponent");
 
-/**
- * Узкий срез окружения для доктора. Сам TerminalEnvironmentService живёт в
- * node-окружении — биндинг делает DI-модуль (diode-слой), browser-компонент
- * node не импортирует.
- */
+/** TerminalEnvironmentService живёт в node — browser-компонент получает срез через DI. */
 export interface IKeyboardDoctorEnvProvider {
     snapshot(): KeyboardDoctorEnv;
     onDidChange(listener: () => void): IDisposable;
 }
 
-/** Какие бинды есть у комбинации и действуют ли они в этом окружении. */
 export type BindingLookup = (part: Keybinding, env: KeyboardDoctorEnv) => readonly MatchedBinding[];
 
 // Модификаторы приходят отдельными keydown (Kitty protocol) — это не шаг проверки.
@@ -62,18 +57,10 @@ function observed(event: TUIKeyboardEvent): ObservedKey {
 }
 
 /**
- * Keyboard Doctor: модальный оверлей, который ведёт по проверкам протокола
- * фидбека и по каждому нажатию записывает цепочку «байты → токены → событие →
- * сматченный бинд» с вердиктом. Резолвится текстом отчёта — телом фидбека.
- *
- * Захват — как у рекордера комбинаций: сфокусированный корень со
- * `stopPropagation` на target-фазе отсекает KeybindingDispatcher, так что
- * проверяемая комбинация ничего не исполняет. Capture-хендлер диспатчера на
- * корне всё равно видит нажатие первым — и Cmd, увиденный доктором, поднимает
- * рунг так же, как в работе.
- *
- * Шаг закрывается ПАРНЫМ keypress (keypress пиннится к цели keydown, см.
- * рекордер); шаг с keyup — отпусканием модификатора или голым Enter.
+ * Захват — как у рекордера комбинаций: `stopPropagation` на target-фазе отсекает KeybindingDispatcher,
+ * и комбинация ничего не исполняет; capture-хендлер диспатчера всё равно видит нажатие первым, так что
+ * Cmd поднимает рунг, как в работе. Шаг закрывается ПАРНЫМ keypress, шаг с keyup — отпусканием
+ * модификатора или голым Enter.
  */
 export class KeyboardDoctorComponent extends Disposable {
     private session: OverlaySessionHandle | null = null;
@@ -93,9 +80,7 @@ export class KeyboardDoctorComponent extends Disposable {
     private steps: DoctorStep[] = [];
     // Stryker disable next-line ArrayDeclaration: run() обнуляет результаты до любого keydown.
     private results: StepResult[] = [];
-    /** Нажатие шага с keyup записано; ждём отпускания модификатора (или голый Enter). */
     private awaitingKeyUp: { received: ObservedKey; bindings: readonly MatchedBinding[] } | null = null;
-    /** Шаг записан; переходим дальше на парном keypress. */
     // Stryker disable next-line BooleanLiteral: run() сбрасывает флаг до любого keypress.
     private advanceOnKeyPress = false;
     private resolveRun: ((report: string) => void) | null = null;
@@ -140,7 +125,6 @@ export class KeyboardDoctorComponent extends Disposable {
             this.handleKeyDown(event);
         });
         this.root.addEventListener("keypress", (event) => {
-            // Ни один keypress не должен протечь за оверлей (в редактор позади).
             // Stryker disable next-line CallExpression: анти-утечка keypress; ненаблюдаема без фонового потребителя за оверлеем.
             event.preventDefault();
             // Stryker disable next-line CallExpression: анти-утечка keypress; ненаблюдаема без фонового потребителя за оверлеем.
@@ -166,15 +150,11 @@ export class KeyboardDoctorComponent extends Disposable {
         });
     }
 
-    /** Открыт ли доктор (для тестов/оркестрации). */
     public isOpen(): boolean {
         return this.session?.isOpen() ?? false;
     }
 
-    /**
-     * Проводит человека по проверкам и резолвится текстом отчёта (тело
-     * фидбека). Повторный вызов при открытом докторе начинает заново.
-     */
+    /** Повторный вызов при открытом докторе начинает заново. */
     public run(): Promise<string> {
         // Хост — корневая view окна; до attachRoot сервис бросает сам.
         const host = this.layoutService.mainContainer;
@@ -244,7 +224,6 @@ export class KeyboardDoctorComponent extends Disposable {
         this.advanceOnKeyPress = true;
     }
 
-    /** Фиксирует результат текущего шага. */
     private record(received: ObservedKey | null, bindings: readonly MatchedBinding[], keyUpSeen: boolean): void {
         this.results.push({ step: this.steps[this.results.length], received, bindings, keyUpSeen });
     }
@@ -293,7 +272,6 @@ export class KeyboardDoctorComponent extends Disposable {
         return `Было: ${arrived} · бинд: ${describeBindings(last.bindings)} · ${describeVerdict(judge(last, env))}`;
     }
 
-    /** Центрирует окно по экрану хоста и открывает сессию (приём DialogService). */
     private openCentered(host: BodyElement, session: OverlaySessionHandle): void {
         // Stryker disable next-line MethodExpression: ограничение ширины экраном — косметика позиции, покадрово не проверяется.
         const width = Math.min(this.root.getMaxIntrinsicWidth(0), host.layoutSize.width);

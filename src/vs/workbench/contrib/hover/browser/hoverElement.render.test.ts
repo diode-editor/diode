@@ -56,14 +56,12 @@ describe("HoverElement — раскладка", () => {
         const backend = render(element);
         const vars = computeThemeVars(WorkbenchTheme.fromThemeFile(darkPlusTheme));
 
-        // Рамка и залитый фон (fill: true) — токены editorHoverWidget.*.
         expect(backend.getFgAt(new Point(0, 0))).toBe(vars["editorHoverWidget.border"]);
         expect(backend.getBgAt(new Point(2, 1))).toBe(vars["editorHoverWidget.background"]);
         // Заливка кроет всю внутренность, включая пустое место за текстом:
         // без неё под попапом просвечивал бы редактор.
         const inner = backend.getBgAt(new Point(element.getMinIntrinsicWidth(0) - 2, 1));
         expect(inner).toBe(vars["editorHoverWidget.background"]);
-        // Текст блока — foreground, линия-разделитель — border.
         expect(backend.getFgAt(new Point(2, 1))).toBe(vars["editorHoverWidget.foreground"]);
         expect(backend.getFgAt(new Point(2, 2))).toBe(vars["editorHoverWidget.border"]);
     });
@@ -113,8 +111,7 @@ describe("HoverElement — раскладка", () => {
         expect(element.getMaxIntrinsicWidth(0)).toBe(0);
         expect(element.getMinIntrinsicHeight(0)).toBe(0);
         expect(element.getMaxIntrinsicHeight(0)).toBe(0);
-        // Рендер пустого элемента — no-op: даже в кадре, где рамка поместилась
-        // бы, попап не рисует ничего (пустой кадр после трима — пустая строка).
+        // Даже в кадре, где рамка поместилась бы, пустой попап не рисует ничего.
         expectScreen(renderElement(element, 3, 3, { themeVars: true }), "");
 
         element.setBlocks(["   ", ""]);

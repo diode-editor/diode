@@ -19,10 +19,6 @@ import type { BulkEditOperation } from "../common/workspaceEdit.ts";
 
 import { WorkspaceEditService } from "./workspaceEditService.ts";
 
-// `workspace.applyEdit` — ядро узла M1: правки по ЗАКРЫТЫМ файлам, файловые
-// операции и ОДИН шаг отмены на весь edit. Контракт here-and-now: edit либо
-// применяется целиком, либо не применяется вовсе.
-
 let tmpDir: string;
 let ws: ITempWorkspace;
 let savedXdg: string | undefined;
@@ -47,7 +43,6 @@ const NO_TRASH: IConfigurationService = {
     },
 };
 
-/** Открытый буфер-двойник: текст в памяти + записанный шаг истории. */
 interface IFakeBuffer {
     text: string;
     readonly applied: ITextEdit[][];
@@ -78,7 +73,6 @@ function makeBuffers(open: Map<string, IFakeBuffer>, readOnly = new Set<string>(
     };
 }
 
-/** Применение правок к строке — только для проверки двойника буфера. */
 function applyToText(text: string, edits: readonly ITextEdit[]): string {
     const lines = text.split("\n");
     for (const edit of [...edits].reverse()) {
@@ -104,11 +98,7 @@ function makeService(buffers: IBulkEditBuffers = NULL_BULK_EDIT_BUFFERS): {
     };
 }
 
-/**
- * То же, но с РАБОЧЕЙ корзиной: удаление отменяемо, а удаление несуществующего
- * ресурса — ошибка (в отличие от безвозвратного `rm --force`). Корзина уведена
- * в tmp через `XDG_DATA_HOME` (см. `beforeEach`).
- */
+/** С рабочей корзиной (уведена в tmp через `XDG_DATA_HOME`): удаление несуществующего — ошибка. */
 function makeServiceWithTrash(): { service: WorkspaceEditService; undoRedo: UndoRedoService } {
     const undoRedo = new UndoRedoService();
     const config: IConfigurationService = {
@@ -144,7 +134,6 @@ function resourceOf(full: string): string {
     return Uri.file(full).toString();
 }
 
-/** Текстовая правка ресурса в модели ядра. */
 function textEdit(full: string, ...edits: ITextEdit[]): BulkEditOperation {
     return { resource: resourceOf(full), edits };
 }
@@ -380,7 +369,6 @@ describe("WorkspaceEditService.applyWorkspaceEdit — открытые буфе�
         expect(open.get(resourceOf(file))?.applied).toEqual([
             [{ range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } }, text: "head\n" }],
         ]);
-        // Шаг буфера попал в бакет, который назвал доступ к буферам.
         expect(undoRedo.canUndo(`buffer:${resourceOf(file)}`)).toBe(true);
         expect(undoRedo.canUndo(WORKSPACE_UNDO_CONTEXT)).toBe(false);
     });
@@ -442,7 +430,6 @@ describe("WorkspaceEditService.applyWorkspaceEdit — открытые буфе�
         const context = `buffer:${resourceOf(a)}`;
         expect(undoRedo.peekUndo(context)?.label).toBe("Refactor");
 
-        // Один Ctrl+Z откатывает и буфер, и файл на диске.
         expect(await undoRedo.undo(context)).toBe(true);
         expect(undo).toHaveBeenCalledOnce();
         expect(read(closed)).toBe("before\n");
@@ -637,7 +624,6 @@ describe("WorkspaceEditService.applyWorkspaceEdit — файловые опер�
         expect(applied).toBe(true);
         expect(read(created)).toBe("// moved\nexport const a = 1;\n");
 
-        // Один шаг отмены на весь edit: undo убирает и текст, и файл.
         expect(await undoRedo.undo(WORKSPACE_UNDO_CONTEXT)).toBe(true);
         expect(fs.existsSync(created)).toBe(false);
         expect(fs.existsSync(path.join(tmpDir, "new"))).toBe(false);
@@ -708,9 +694,7 @@ describe("WorkspaceEditService.applyWorkspaceEdit — файловые опер�
         const source = write("a.ts", "content\n");
         const target = path.join(tmpDir, "b.ts");
 
-        // Порядок «сначала правки, потом перенос» мы не умеем спроецировать:
-        // база правок снята со старого пути. Честный отказ вместо испорченного
-        // результата.
+        // Правки, потом перенос: база правок снята со старого пути — честный отказ вместо порчи.
         expect(
             await service.applyWorkspaceEdit(
                 [textEdit(source, replaceFirstLine("// head\n")), { kind: "rename", from: source, to: target }],
@@ -757,7 +741,6 @@ describe("WorkspaceEditService.applyWorkspaceEdit — файловые опер�
         );
 
         expect(applied).toBe(false);
-        // Валидация идёт ДО применения: файл на месте.
         expect(read(victim)).toBe("content\n");
     });
 

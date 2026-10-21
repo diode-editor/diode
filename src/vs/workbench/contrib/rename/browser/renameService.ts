@@ -16,16 +16,8 @@ import { prepareRename, renameSymbol } from "./renameSymbol.ts";
 export const RenameServiceDIToken = token<RenameService>("RenameService");
 
 /**
- * Rename Symbol (`editor.action.rename` / F2). Спрашивает у rename-провайдеров
- * реестра `ILanguageFeaturesService.renameProvider`, что переименовывается в
- * позиции каретки, просит новое имя через `QuickInputService.input` и отдаёт
- * переименование провайдеру — правки по всем затронутым файлам (в т.ч.
- * закрытым) накладывает bulk edit в субпроцессе через `workspace.applyEdit`,
- * одним шагом отмены.
- *
- * Поле ввода вместо inline-виджета эталона — вынужденное отступление: своего
- * rename-виджета у нас нет, а переиспользованный quick input даёт то же
- * (заполненное старым именем поле, Escape — отмена, Enter — применить).
+ * Новое имя — через `QuickInputService.input`, а не inline-виджет эталона: своего rename-виджета
+ * нет, а quick input даёт то же (поле со старым именем, Escape — отмена, Enter — применить).
  */
 export class RenameService {
     public static dependencies = [
@@ -42,12 +34,6 @@ export class RenameService {
         private readonly languageFeatures: ILanguageFeaturesService,
     ) {}
 
-    /**
-     * Переименовывает символ под кареткой активного редактора. Молчаливый
-     * no-op, если редактора нет, провайдеров под документ нет либо
-     * переименовывать здесь нечего: до вопроса «на что» дело не доходит, и
-     * объяснять человеку нечего.
-     */
     public async rename(): Promise<void> {
         const editor = this.group.getActiveEditor();
         if (editor === null) return;
@@ -64,10 +50,7 @@ export class RenameService {
             character: caret.character,
         };
 
-        // `prepareRename` — право провайдера сказать «здесь переименовать
-        // нельзя» и назвать точное имя символа. Провайдера без него добираем
-        // словом под кареткой — ровно то, что подставляет эталон, когда
-        // prepareRename не реализован.
+        // Провайдера без `prepareRename` добираем словом под кареткой — как эталон.
         const prepared = await prepareRename(registry, editor, request);
         if (prepared.rejectReason !== undefined) {
             this.notice(`Rename failed: ${prepared.rejectReason}`);
@@ -81,7 +64,6 @@ export class RenameService {
             prompt: "Enter the new name; Escape to cancel",
             value: oldName,
         });
-        // Отмена (Escape) и имя, не отличающееся от старого, — не событие.
         if (newName === undefined || newName === oldName) return;
         if (newName === "") {
             this.notice("Rename failed: the new name is empty");
@@ -98,10 +80,8 @@ export class RenameService {
             live?.uri.toString() === request.uri ? { ...request, versionId: live.model.document.versionId } : request,
             newName,
         );
-        // Сообщение показываем ровно по причине отказа: у применившегося
-        // переименования её нет, а отказ БЕЗ причины — «переименовывать было
-        // нечего», и эталон в этом случае тоже молчит. Отдельной проверки
-        // `applied` не нужно: причина и успех взаимоисключающи.
+        // Отказ без причины — «переименовывать было нечего», эталон тоже молчит; причина и
+        // успех взаимоисключающи, отдельной проверки `applied` не нужно.
         if (result.error !== undefined) this.notice(`Rename failed: ${result.error}`);
     }
 
@@ -110,10 +90,7 @@ export class RenameService {
     }
 }
 
-/**
- * Фолбэк `prepareRename`: слово под кареткой как переименовываемый символ.
- * `null` — каретка не на слове (переименовывать нечего).
- */
+/** `null` — каретка не на слове. */
 function wordUnderCaret(text: string, line: number, character: number): string | null {
     const lineText = text.split("\n").at(line);
     if (lineText === undefined) return null;

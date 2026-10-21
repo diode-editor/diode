@@ -4,11 +4,6 @@ import { parseChord, parseKeybinding } from "../../../../platform/keybinding/com
 
 import { DefinitionServiceDIToken } from "./definitionService.ts";
 
-/**
- * Прыжок к определению символа под кареткой (`editor.action.revealDefinition`).
- * Дефолтный кейбинд — F12 при фокусе редактора, как в VS Code. Цели отдают
- * definition-провайдеры реестра `ILanguageFeaturesService.definitionProvider`.
- */
 export const revealDefinitionAction: CommandAction = {
     id: "editor.action.revealDefinition",
     title: "Go to Definition",
@@ -29,7 +24,6 @@ export const revealDefinitionAction: CommandAction = {
     },
 };
 
-/** То же, но цель открывается в соседней группе (VS Code `Ctrl+K F12`). */
 export const revealDefinitionAsideAction: CommandAction = {
     id: "editor.action.revealDefinitionAside",
     title: "Go to Definition to the Side",
@@ -40,5 +34,4 @@ export const revealDefinitionAsideAction: CommandAction = {
     },
 };
 
-/** Экшены перехода к определению. Фича отдаёт их одним массивом; регистрирует агрегатор (`WORKBENCH_ACTIONS`). */
 export const GOTO_DEFINITION_ACTIONS: readonly CommandAction[] = [revealDefinitionAction, revealDefinitionAsideAction];

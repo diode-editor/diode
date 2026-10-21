@@ -2,15 +2,6 @@ import { createDeleteEdit, createInsertEdit, type ITextEdit } from "../../../../
 import type { CommandAction } from "../../../../platform/actions/common/commandAction.ts";
 import { EditorServiceDIToken } from "../../../services/editor/common/editorService.ts";
 
-// ─── Whitespace ─────────────────────────────────────────────
-//
-// Core editor commands that the editorconfig extension (and users) invoke via
-// the command palette / executeCommand. They carry no default keybindings.
-
-/**
- * Removes trailing spaces and tabs from every line of the active document.
- * Matches VS Code's `editor.action.trimTrailingWhitespace`.
- */
 export const trimTrailingWhitespaceAction: CommandAction = {
     id: "editor.action.trimTrailingWhitespace",
     title: "Trim Trailing Whitespace",
@@ -32,10 +23,6 @@ export const trimTrailingWhitespaceAction: CommandAction = {
     },
 };
 
-/**
- * Ensures the active document ends with exactly one final newline.
- * Matches VS Code's `editor.action.insertFinalNewLine`.
- */
 export const insertFinalNewLineAction: CommandAction = {
     id: "editor.action.insertFinalNewLine",
     title: "Insert Final Newline",

@@ -13,21 +13,13 @@ import { OutputServiceDIToken } from "../../../services/output/common/outputServ
 
 export const OutputChannelActionsDIToken = token<OutputChannelActions>("OutputChannelActions");
 
-/** Точка меню, в которой живут пункты-каналы (VS Code `workbench.output.menu.switchOutput`). */
 export const SwitchOutputMenu = new MenuId("workbench.output.menu.switchOutput");
 
-/** Префикс команд показа канала — VS Code `workbench.action.output.show.<id>`. */
 const SHOW_CHANNEL_PREFIX = "workbench.action.output.show.";
 
 /**
- * Регистрирует каналы Output как настоящие команды и пункты меню — так же, как
- * это делает `registerSwitchOutputAction` в VS Code.
- *
- * Зачем через меню, а не напрямую в селектор: канал становится полноценной
- * командой (`workbench.action.output.show.extensions`) — её видно в палитре и
- * можно повесить на клавишу. Само submenu помечено `isSelection`, и шапка
- * панели рендерит его выпадающим списком, а не вложенным попапом — в VS Code
- * этот же флаг превращает submenu в `SelectBox`.
+ * Каналы — настоящие команды и пункты меню, как `registerSwitchOutputAction` эталона: их видно в
+ * палитре и можно повесить на клавишу. Submenu с `isSelection` шапка рисует выпадающим списком.
  */
 export class OutputChannelActions extends Disposable implements IWorkbenchContribution {
     public static dependencies = [OutputServiceDIToken, MenuRegistryDIToken, CommandRegistryDIToken] as const;
@@ -40,7 +32,6 @@ export class OutputChannelActions extends Disposable implements IWorkbenchContri
         private readonly commands: CommandRegistry,
     ) {
         super();
-        // Само submenu: пункт шапки вкладки OUTPUT, помеченный как выбор.
         this.register(
             this.menuRegistry.appendMenuItem({
                 menuId: MenuId.ViewTitle,
@@ -48,10 +39,8 @@ export class OutputChannelActions extends Disposable implements IWorkbenchContri
                 title: "Switch Output",
                 group: "navigation",
                 order: 1,
-                // Фильтр по контексту открытия, а не по глобальному ключу `view`:
-                // `ViewTitle` — общая точка всех view, и when-ключ активной
-                // вкладки панели протащил бы этот пункт в меню каждой секции
-                // сайдбара.
+                // Фильтр по контексту открытия: `ViewTitle` общий у всех view, и when-ключ активной
+                // вкладки протащил бы пункт в меню каждой секции сайдбара.
                 visible: viewMenuVisible(OUTPUT_VIEW_ID),
                 isSelection: true,
             }),
@@ -72,11 +61,7 @@ export class OutputChannelActions extends Disposable implements IWorkbenchContri
         });
     }
 
-    /**
-     * Идемпотентность держит сам реестр каналов (`registerChannel` — no-op для
-     * известного id и события второй раз не шлёт), поэтому своей проверки здесь
-     * нет: два владельца одного инварианта разъезжаются.
-     */
+    /** Своей проверки на повтор нет: её держит реестр каналов — два владельца инварианта разъезжаются. */
     private registerChannel(id: string, label: string): void {
         const commandId = `${SHOW_CHANNEL_PREFIX}${id}`;
         const disposables = [

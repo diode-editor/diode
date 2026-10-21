@@ -19,12 +19,7 @@ import { HoverComponentDIToken } from "./hoverComponent.ts";
 // Stryker disable next-line StringLiteral: token() возвращает новый Token, и зависимости резолвятся по ссылке на него — строка внутри остаётся отладочной меткой
 export const HoverServiceDIToken = token<HoverService>("HoverService");
 
-/**
- * Стрип подмножества markdown в плоский текст для TUI-попапа: fenced-ограждения
- * снимаются (содержимое остаётся), инлайн-`код`, **жирный**, *курсив*, _курсив_ и ссылки
- * разворачиваются в текст. Рендерера markdown нет (docs/arch/Extensions.md, «LSP и стоковые клиенты») — это
- * осознанный v1; мини-рендерер со StyleFlags — отдельной задачей.
- */
+/** Рендерера markdown нет (docs/arch/Extensions.md, «LSP и стоковые клиенты») — попап получает плоский текст. */
 export function stripMarkdown(value: string): string {
     // Экранированные символы прячем ПЕРВЫМИ (приём stripSnippetPlaceholders):
     // иначе `\*текст\*` разобрался бы по пути как «курсив».
@@ -36,7 +31,6 @@ export function stripMarkdown(value: string): string {
     });
     return (
         hidden
-            // Fenced-блок: ограждения долой, содержимое как есть.
             .replace(/```[^\n]*\n([\s\S]*?)\n?```/g, "$1")
             .replace(/`([^`]+)`/g, "$1")
             .replace(/\*\*([^*]+)\*\*/g, "$1")
@@ -45,7 +39,6 @@ export function stripMarkdown(value: string): string {
             // `_курсив_` — только на границе слова, как в CommonMark: внутри
             // `aws_instance` или `snake_case` подчёркивания остаются.
             .replace(/(^|[^\p{L}\p{N}_])_([^_\s](?:[^_]*[^_\s])?)_(?![\p{L}\p{N}_])/gu, "$1$2")
-            // Ссылки: [текст](url) → текст.
             .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
             // eslint-disable-next-line no-control-regex -- \u0000 здесь и есть служебный маркер, которым выше спрятаны экранированные символы
             .replace(/\u0000(\d+)\u0000/g, (_all, index: string) => escaped[Number(index)])
@@ -53,23 +46,17 @@ export function stripMarkdown(value: string): string {
     );
 }
 
-/** Thematic break CommonMark: 3+ одинаковых `-`/`*`/`_` (пробелы между ними можно), отступ до 3 пробелов. */
 const THEMATIC_BREAK = /^ {0,3}([-*_])(?:[ \t]*\1){2,}[ \t]*$/;
 /** Ограждение fenced-блока: внутри него `---` — содержимое (YAML), а не разделитель. */
 const FENCE = /^ {0,3}(`{3,}|~{3,})/;
 
 /**
- * Режет markdown по thematic break (`---`, `***`, `___`) на секции и стрипает
- * каждую ({@link stripMarkdown}); пустые секции остаются — по ним видно, что
- * разделитель стоял с краю (склейка контентов hover'а). Попапы рисуют секции
- * той же линией, что и границу блоков, — gopls так делит сигнатуру, доку и ссылку.
- * `---` сразу под строкой абзаца по CommonMark — подчёркивание setext-заголовка,
- * а не разделитель: линия выпадает, текст заголовка остаётся.
+ * Пустые секции остаются: по ним видно, что разделитель стоял с краю. `---` сразу под строкой
+ * абзаца — подчёркивание setext-заголовка (CommonMark), а не разделитель.
  */
 export function splitMarkdownSections(value: string): string[] {
     const sections: string[][] = [[]];
     let fence: string | null = null;
-    /** Предыдущая строка — текст абзаца (не пустая, не ограждение): под ней `---` — setext. */
     let paragraph = false;
     for (const line of value.split("\n")) {
         const current = sections[sections.length - 1];
@@ -95,11 +82,7 @@ export function splitMarkdownSections(value: string): string[] {
     return sections.map((lines) => stripMarkdown(lines.join("\n")));
 }
 
-/**
- * Контенты одного hover'а → секции попапа: соседние контенты склеиваются пустой
- * строкой, а thematic break внутри контента начинает новую секцию. Пустые секции
- * отбрасывает вызывающий.
- */
+/** Пустые секции отбрасывает вызывающий. */
 function hoverBlocks(contents: readonly string[]): string[] {
     const blocks: string[] = [];
     for (const content of contents) {
@@ -110,13 +93,6 @@ function hoverBlocks(contents: readonly string[]): string[] {
     return blocks;
 }
 
-/**
- * Логика hover'а. По команде (`editor.action.showHover` / Ctrl+K Ctrl+I)
- * запрашивает hover'ы у подошедших документу провайдеров реестра
- * `ILanguageFeaturesService.hoverProvider` для позиции каретки и показывает попап {@link HoverComponent}:
- * по блоку на провайдера, блоки разделяются линией (VS Code мержит hover'ы
- * так же). Закрывается по Escape, правке, движению каретки и уходу фокуса.
- */
 export class HoverService extends Disposable implements IContextKeyContributor {
     public static dependencies = [
         HoverComponentDIToken,
@@ -125,7 +101,6 @@ export class HoverService extends Disposable implements IContextKeyContributor {
         LanguageFeaturesServiceDIToken,
     ] as const;
 
-    /** Guard от устаревших ответов: пока ходили за hover'ом, запрос мог смениться. */
     private readonly latest = new LatestRequest();
 
     public constructor(
@@ -135,26 +110,20 @@ export class HoverService extends Disposable implements IContextKeyContributor {
         private readonly languageFeatures: ILanguageFeaturesService,
     ) {
         super();
-        // Фокус ушёл с редактора (Ctrl+Tab, Quick Open) — попап без якоря не жилец.
         this.register(
             focusTracker.onDidChangeFocus((active) => {
                 if (!(active instanceof EditorElement) && this.isOpen()) this.close();
             }),
         );
-        // «Всегда-включённая» подписка на активный редактор: правка или движение
-        // каретки закрывают попап (VS Code-like; сам показ — только по команде).
         this.register(
             bindActiveEditor(this.group, (editor, store) => {
-                // Смена редактора при открытом попапе в приложении уже сопровождается
-                // сменой фокуса (её ловит подписка на FocusTracker), поэтому в юните пропуск этого
-                // закрытия не наблюдается — вызов держим для программной смены редактора
-                // без участия фокуса (восстановление сессии, split).
+                // В приложении смену редактора сопровождает смена фокуса; это закрытие —
+                // для программной смены без фокуса (восстановление сессии, split).
                 // Stryker disable next-line CallExpression: см. выше
                 this.close();
                 if (editor === null) return;
-                // Одной подписки на каретку достаточно и для правок: правка двигает
-                // (или пересчитывает) каретку, и событие приходит в том же тике —
-                // отдельная подписка на контент оказалась мёртвым кодом.
+                // Подписки на каретку хватает и для правок: правка двигает или пересчитывает
+                // каретку в том же тике.
                 store.add(
                     editor.onDidChangeCursorPosition(() => {
                         // Stryker disable next-line ConditionalExpression: close() на закрытом попапе — no-op, поэтому проверка экономит вызов, а не меняет поведение
@@ -165,11 +134,6 @@ export class HoverService extends Disposable implements IContextKeyContributor {
         );
     }
 
-    /**
-     * Запрашивает hover'ы для позиции каретки и показывает попап. No-op, если
-     * нет активного редактора, провайдеры ничего не вернули или каретка вне
-     * вьюпорта. Документ без подошедших провайдеров запросов не порождает.
-     */
     public async showHover(): Promise<void> {
         const editor = this.group.getActiveEditor();
         if (editor === null) return;
@@ -186,15 +150,10 @@ export class HoverService extends Disposable implements IContextKeyContributor {
                 line: caret.line,
                 character: caret.character,
             },
-            // Перезапрос и закрытие попапа отменяют запрос и у провайдера.
             ticket.token,
         );
-        // Пока ходили за ответом, попап могли закрыть или перезапросить — старый
-        // ответ не имеет права перекрыть новое состояние.
         if (ticket.isStale()) return;
 
-        // Блок на провайдера: контент одного hover'а склеивается пустой строкой,
-        // блоки разных провайдеров и секции по thematic break разделит линией сам элемент.
         const blocks = hovers.flatMap((hover) => hoverBlocks(hover.contents)).filter((block) => block !== "");
         if (blocks.length === 0) return;
 
@@ -206,18 +165,15 @@ export class HoverService extends Disposable implements IContextKeyContributor {
         this.component.openAt(anchor);
     }
 
-    /** Открыт ли попап (для `editorHoverVisible` и Escape-экшена). */
     public isOpen(): boolean {
         return this.component.isOpen();
     }
 
     public close(): void {
         this.component.close();
-        // Ответ «в полёте» больше не нужен: его билет устареет и ответ будет отброшен.
         this.latest.cancel();
     }
 
-    /** IContextKeyContributor: `editorHoverVisible` — гейт Escape и навигации по попапу. */
     public updateContextKeys(contextKeys: ContextKeyService): void {
         contextKeys.set("editorHoverVisible", this.isOpen());
     }

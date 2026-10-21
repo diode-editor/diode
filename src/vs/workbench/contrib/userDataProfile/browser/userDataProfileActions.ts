@@ -34,15 +34,10 @@ export function profileNameExistsMessage(name: string): string {
     return `Profile with name ${name} already exists.`;
 }
 
-/** Вариант «откуда взять содержимое» у New Profile (эталон: «Copy from» в редакторе профилей). */
 export const NEW_PROFILE_EMPTY_LABEL = "Empty";
 export const NEW_PROFILE_COPY_LABEL = "Copy from current";
 
-/**
- * Отказ команды профилей (ENAMETOOLONG или EACCES на `mkdir`, занятое имя из
- * гонки, …) — тостом, как `notificationService.error` эталона: иначе человек
- * видит «ничего не произошло». Подробности — в логе команд (`commands`).
- */
+/** Тостом, как `notificationService.error` эталона: иначе человек видит «ничего не произошло». */
 function notifyError(accessor: ServiceAccessor, err: unknown): void {
     accessor.get(NotificationServiceDIToken).show({
         severity: "error",
@@ -52,7 +47,6 @@ function notifyError(accessor: ServiceAccessor, err: unknown): void {
     });
 }
 
-/** Тост об отказе и тот же отказ дальше — в лог команд. */
 async function notifyingErrors(accessor: ServiceAccessor, run: () => Promise<void>): Promise<void> {
     try {
         await run();
@@ -63,11 +57,8 @@ async function notifyingErrors(accessor: ServiceAccessor, run: () => Promise<voi
 }
 
 /**
- * Входит в профиль: привязывает к нему открытый воркспейс (пустое окно
- * привязки не имеет) и перезагружает окно уже с ним. У эталона в локальном окне
- * перезапускается только extension host (`switchProfile` →
- * `changeCurrentProfile`); у нас профиль фиксирован на процесс, поэтому —
- * перезагрузка, как у remote-окна эталона (docs/TODO/Profiles.md).
+ * Профиль фиксирован на процесс, поэтому вход — перезагрузка окна, как у remote-окна эталона, а не
+ * перезапуск extension host (docs/TODO/Profiles.md). Пустое окно привязки не имеет.
  */
 async function enterProfile(accessor: ServiceAccessor, profile: IUserDataProfile): Promise<void> {
     const workspace = profileWorkspaceKey(accessor.get(IWorkspaceContextServiceDIToken).getWorkspace());
@@ -77,11 +68,6 @@ async function enterProfile(accessor: ServiceAccessor, profile: IUserDataProfile
     await reloadWindow(accessor, { profile: profile.name });
 }
 
-/**
- * `Profiles: Switch Profile...` — пикер всех профилей по алфавиту, текущий
- * помечен `$(check)` (как `SwitchProfileAction` эталона). Выбор текущего —
- * ничего не делает.
- */
 async function switchProfile(accessor: ServiceAccessor): Promise<void> {
     const profiles = accessor.get(IUserDataProfilesServiceDIToken);
     const current = accessor.get(IUserDataProfileServiceDIToken).currentProfile;
@@ -101,13 +87,7 @@ async function switchProfile(accessor: ServiceAccessor): Promise<void> {
     await enterProfile(accessor, picked.profile);
 }
 
-/**
- * `Profiles: New Profile...` — имя, затем «Empty» / «Copy from current»
- * (settings.json, keybindings.json и состав расширений текущего профиля),
- * создание, вход. У эталона
- * это форма редактора профилей (имя, иконка, «Copy from», ресурсы галочками) —
- * у нас два шага quick input (docs/TODO/Profiles.md, итерация 4).
- */
+/** Два шага quick input вместо формы редактора профилей эталона (docs/TODO/Profiles.md, итерация 4). */
 async function createProfile(accessor: ServiceAccessor): Promise<void> {
     const quickInput = accessor.get(QuickInputServiceDIToken);
     const profiles = accessor.get(IUserDataProfilesServiceDIToken);
@@ -143,12 +123,8 @@ async function createProfile(accessor: ServiceAccessor): Promise<void> {
 }
 
 /**
- * Копирует settings.json, keybindings.json и extensions.json (состав
- * расширений) из профиля в профиль. Из настроек вырезаются `application`-ключи:
- * в именованном профиле они не действуют (их место — `User/settings.json`
- * Default-профиля), и в новом файле они только давали бы warn на каждом
- * старте. Отсутствующий файл — нечего копировать. Сами расширения лежат в
- * общем каталоге, поэтому копия состава — это копия списка.
+ * Из настроек вырезаются `application`-ключи: в именованном профиле они не действуют и давали бы warn
+ * на каждом старте. Сами расширения лежат в общем каталоге — копия состава есть копия списка.
  */
 export async function copyProfileContents(
     files: IFileService,
@@ -192,11 +168,7 @@ export function withoutKeys(content: string, keys: readonly string[]): string {
     return next;
 }
 
-/**
- * Отступ файла — для `modify`: с чужим отступом он переформатирует соседа
- * снятого ключа (у файла с отступом 2 и комментарием перед ключом сосед
- * оставался без отступа вовсе). Без отступов (одна строка) — 4 пробела.
- */
+/** С чужим отступом `modify` переформатирует соседа снятого ключа. Без отступов (одна строка) — 4 пробела. */
 export function formattingOptionsOf(content: string): FormattingOptions {
     const indent = /^[ \t]+(?=\S)/m.exec(content)?.[0];
     if (indent === undefined) return { insertSpaces: true, tabSize: 4 };
@@ -204,12 +176,7 @@ export function formattingOptionsOf(content: string): FormattingOptions {
     return indent.includes("\t") ? { insertSpaces: false, tabSize: 4 } : { insertSpaces: true, tabSize: indent.length };
 }
 
-/**
- * `Profiles: Delete Profile...` — мультивыбор именованных профилей (текущий
- * помечен «Current»), как `DeleteProfileAction` эталона. Удалён текущий —
- * окно перезагружается в профиль воркспейса (после удаления привязки это
- * Default); эталон предлагает reload сообщением.
- */
+/** Удалён текущий — окно перезагружается в профиль воркспейса (эталон предлагает reload сообщением). */
 async function deleteProfile(accessor: ServiceAccessor): Promise<void> {
     const profiles = accessor.get(IUserDataProfilesServiceDIToken);
     const current = accessor.get(IUserDataProfileServiceDIToken).currentProfile;
@@ -265,12 +232,10 @@ export const deleteProfileAction: CommandAction = {
     },
 };
 
-/** Экшены профилей. Фича отдаёт их одним массивом; регистрирует агрегатор (`WORKBENCH_ACTIONS`). */
 export const USER_DATA_PROFILE_ACTIONS: readonly CommandAction[] = [
     switchProfileAction,
     createProfileAction,
     deleteProfileAction,
 ];
 
-/** Тип для тестов: скоупы реестра в форме `getConfigurationScopes`. */
 export type ConfigurationScopes = ReadonlyMap<string, ConfigurationScope>;

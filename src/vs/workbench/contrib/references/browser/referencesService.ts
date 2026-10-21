@@ -24,16 +24,7 @@ import { REFERENCES_VIEWLET_ID, ReferencesComponentDIToken } from "./referencesC
 
 export const ReferencesServiceDIToken = token<ReferencesService>("ReferencesService");
 
-/**
- * Find All References: спрашивает у подошедших документу провайдеров реестра
- * (`ILanguageFeaturesService.referenceProvider`) ссылки на символ под кареткой, добирает к
- * ним текст строк ({@link buildReferenceGroups}) и показывает вьюлет
- * REFERENCES.
- *
- * Сам поиск best-effort: отмены RPC у нас нет, поэтому от устаревших ответов
- * защищает счётчик запросов (как в `CompletionService`/`HoverService`) — пока
- * ходили за ссылками, пользователь мог запросить другой символ.
- */
+/** Отмены RPC нет: от устаревших ответов защищает счётчик запросов (как в `CompletionService`/`HoverService`). */
 export class ReferencesService {
     public static dependencies = [
         ReferencesComponentDIToken,
@@ -45,7 +36,6 @@ export class ReferencesService {
         LanguageFeaturesServiceDIToken,
     ] as const;
 
-    /** Guard от устаревших ответов: пока ходили за ссылками, запрос мог смениться. */
     private readonly latest = new LatestRequest();
 
     private readonly textSource: IReferenceTextSource;
@@ -67,11 +57,7 @@ export class ReferencesService {
         };
     }
 
-    /**
-     * Ищет ссылки на символ под кареткой и показывает их в сайдбаре. Каретка не
-     * на слове — не делаем ничего: искать нечего, а пустая панель ничего бы не
-     * объяснила.
-     */
+    /** Каретка не на слове — ничего не делаем: пустая панель ничего бы не объяснила. */
     public async findReferences(): Promise<void> {
         const editor = this.group.getActiveEditor();
         if (editor === null) return;
@@ -82,8 +68,6 @@ export class ReferencesService {
 
         const caret = editor.viewState.selections[0].active;
         const text = editor.getText();
-        // Каретка не на слове — искать нечего; сам текст слова панели не нужен,
-        // это только гейт запроса.
         if (!isOnWord(text, caret.line, caret.character)) return;
 
         const ticket = this.latest.start();
@@ -104,9 +88,8 @@ export class ReferencesService {
         );
         if (ticket.isStale()) return;
 
-        // Корень — из IWorkspaceContextService; `folders.at(0)` здесь и есть видимое
-        // сужение до однопапочной семантики (в мульти-руте путь ссылки будет
-        // относительным своей папке — этап C в docs/TODO/MultiRoot.md).
+        // `folders.at(0)` — видимое сужение до однопапочной семантики (мульти-рут — этап C в
+        // docs/TODO/MultiRoot.md).
         // Stryker disable next-line StringLiteral: корень без открытой папки — любая строка, не являющаяся префиксом пути ссылки, даёт тот же результат (путь показывается целиком)
         const root = this.workspaceContext.getWorkspace().folders.at(0)?.uri.fsPath ?? "";
         const groups = await buildReferenceGroups(references, this.textSource, root);
@@ -116,7 +99,6 @@ export class ReferencesService {
         this.sidebarService.showViewlet(REFERENCES_VIEWLET_ID);
     }
 
-    /** Очищает панель (команда Clear). */
     public clear(): void {
         // Ответ уже отправленного запроса не должен наполнить очищенную панель.
         this.latest.cancel();
@@ -124,7 +106,6 @@ export class ReferencesService {
     }
 }
 
-/** Стоит ли каретка на слове — гейт запроса (искать ссылки на пробел незачем). */
 function isOnWord(text: string, line: number, character: number): boolean {
     const lineText = text.split("\n").at(line);
     if (lineText === undefined) return false;

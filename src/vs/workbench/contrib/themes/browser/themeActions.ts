@@ -6,7 +6,6 @@ import { parseChord } from "../../../../platform/keybinding/common/keybindingReg
 import { QuickInputServiceDIToken } from "../../../browser/parts/quickinput/quickInputService.ts";
 import { ThemeRegistryDIToken, ThemeServiceDIToken } from "../../../services/themes/common/themeTokens.ts";
 
-/** Human-readable base-type label shown next to a theme in the picker. */
 export function themeTypeLabel(type: "dark" | "light" | "hc" | "hcLight"): string {
     switch (type) {
         case "light":
@@ -20,12 +19,6 @@ export function themeTypeLabel(type: "dark" | "light" | "hc" | "hcLight"): strin
     }
 }
 
-/**
- * Color-theme picker (VS Code `workbench.action.selectTheme`). Lists every
- * registered theme, applies it live as you arrow through the list, and on
- * Enter persists the choice to `workbench.colorTheme`. Escape / dismiss
- * restores the theme that was active before the picker opened.
- */
 async function selectColorTheme(accessor: ServiceAccessor): Promise<void> {
     const themeService = accessor.get(ThemeServiceDIToken);
     const themeRegistry = accessor.get(ThemeRegistryDIToken);
@@ -62,7 +55,6 @@ async function selectColorTheme(accessor: ServiceAccessor): Promise<void> {
     });
 
     if (picked === undefined) {
-        // Cancelled — undo any live preview by restoring the original theme.
         themeService.setTheme(originalTheme);
         return;
     }
@@ -71,9 +63,6 @@ async function selectColorTheme(accessor: ServiceAccessor): Promise<void> {
     void configurationService.updateValue("workbench.colorTheme", picked.label);
 }
 
-/**
- * Open the color-theme picker. Default chord matches VS Code (Ctrl+K Ctrl+T).
- */
 export const selectThemeAction: CommandAction = {
     id: "workbench.action.selectTheme",
     title: "Preferences: Color Theme",
@@ -85,5 +74,4 @@ export const selectThemeAction: CommandAction = {
     },
 };
 
-/** Экшены цветовых тем. Фича отдаёт их одним массивом; регистрирует агрегатор (`WORKBENCH_ACTIONS`). */
 export const THEME_ACTIONS: readonly CommandAction[] = [selectThemeAction];

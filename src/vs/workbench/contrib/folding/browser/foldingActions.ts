@@ -78,7 +78,6 @@ export const unfoldRecursivelyAction: CommandAction = {
     },
 };
 
-/** Builds an `editor.foldLevelN` action bound to Ctrl+K Ctrl+N (VS Code parity, N = 1..7). */
 function makeFoldLevelAction(level: number): CommandAction {
     return {
         id: `editor.foldLevel${String(level)}`,
@@ -115,7 +114,6 @@ export const gotoPreviousFoldAction: CommandAction = {
     },
 };
 
-/** Экшены сворачивания. Фича отдаёт их одним массивом; регистрирует агрегатор (`WORKBENCH_ACTIONS`). */
 export const FOLDING_ACTIONS: readonly CommandAction[] = [
     foldAction,
     unfoldAction,

@@ -20,13 +20,8 @@ import type { IExtensionRegistration } from "../../../services/extensions/node/i
 
 import { SmartSelectService } from "./smartSelectService.ts";
 
-// Expand Selection поверх СТОКОВОГО стека (правило AGENTS: фича поверх
-// стокового расширения закрывается стоковым расширением): настоящий builtin
-// `diode-lsp-typescript` (бандл с vscode-languageclient) + настоящий
-// `typescript-language-server` на настоящем ext-host subprocess'е. Клиент
-// регистрирует selection-range-провайдер под capability сервера, а его
-// конвертер строит `new code.SelectionRange(range, parent)` на каждый ответ —
-// без класса в рантайме ответ падал бы на «is not a constructor».
+// Стоковый стек (`diode-lsp-typescript` + `typescript-language-server`): конвертер клиента строит
+// `new code.SelectionRange(range, parent)` — без класса в рантайме ответ падал на «is not a constructor».
 
 const require_ = createRequire(import.meta.url);
 const REPO_ROOT = fileURLToPath(new URL("../../../../../..", import.meta.url));

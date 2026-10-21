@@ -12,21 +12,9 @@ import { StatusBarServiceDIToken } from "../../../services/statusbar/common/stat
 import { showTransientNotice } from "../../../services/statusbar/common/transientNotice.ts";
 import { selectionRange } from "../../format/browser/formatActions.ts";
 
-// ─── Code actions (#196) ────────────────────────────────────
-//
-// Source-команды поверх провайдеров расширений
-// (реестр `ILanguageFeaturesService.codeActionProvider` ← прокси host'а ←
-// `languages.provideCodeActions`).
-// Меню выбора действий (quick fix по Ctrl+.) — отдельным PR; здесь только
-// действия «на весь документ», которым меню не нужно: organize imports и
-// fix all берут предпочтительное/первое действие запрошенного вида.
-
 /**
- * Запрашивает source-действия вида `only` для ВСЕГО документа и применяет
- * предпочтительное (или первое). Правки применяет субпроцесс через
- * `workspace.applyEdit` — к моменту ответа буфер уже изменён, поэтому
- * stale-гардов, как у форматирования, здесь нет: применение атомарно
- * валидируется на хосте (all-or-nothing по открытым документам).
+ * Stale-гардов, как у форматирования, нет: правки применяет субпроцесс через `workspace.applyEdit`,
+ * атомарно (all-or-nothing по открытым документам).
  */
 async function runSourceAction(accessor: ServiceAccessor, only: string, noun: string): Promise<void> {
     const group = accessor.get(EditorServiceDIToken);
@@ -49,8 +37,7 @@ async function runSourceAction(accessor: ServiceAccessor, only: string, noun: st
             uri: editor.uri.toString(),
             languageId: editor.languageId,
             versionId: editor.model.document.versionId,
-            // Source-действия применяются к целому файлу — диапазон всегда полный,
-            // выделение роли не играет (как в VS Code).
+            // Source-действия — на весь файл, выделение роли не играет (как в VS Code).
             range: createRange(0, 0, lastLine, lines[lastLine].length),
             only,
         },
@@ -63,7 +50,6 @@ async function runSourceAction(accessor: ServiceAccessor, only: string, noun: st
     // (эталон: `getInvalidActionThatWouldHaveBeenApplied` у авто-применения).
     const valid = items.filter((item) => item.action.disabled === undefined);
     if (valid.length === 0) {
-        // Активных нет — значит, всё, что есть, неактивно: причина первого.
         notice(items.at(0)?.action.disabled ?? `No ${noun} action for '${editor.languageId}'`);
         return;
     }
@@ -74,10 +60,8 @@ async function runSourceAction(accessor: ServiceAccessor, only: string, noun: st
 }
 
 /**
- * Организует импорты активного документа source-действием провайдера.
- * Matches VS Code's `editor.action.organizeImports` (Shift+Alt+O). Шифтованные
- * alt-буквы терминал без extended keys не передаёт, поэтому канонический бинд
- * под tier-гейтом, а досягаемый везде путь — лидер-аккорд Ctrl+K Alt+O.
+ * Shift+Alt+O терминал без extended keys не передаёт: канонический бинд под tier-гейтом,
+ * досягаемый везде путь — лидер-аккорд Ctrl+K Alt+O.
  */
 export const organizeImportsAction: CommandAction = {
     id: "editor.action.organizeImports",
@@ -90,12 +74,6 @@ export const organizeImportsAction: CommandAction = {
     },
 };
 
-/**
- * Показывает меню code actions у каретки/выделения и применяет выбранное.
- * `only` сужает вид действий (`refactor` — только рефакторинги, `source` —
- * только source-действия, без него — всё): общий хвост трёх команд эталона,
- * которые различаются только видом, заголовком меню и текстом «ничего нет».
- */
 async function pickCodeAction(
     accessor: ServiceAccessor,
     options: { readonly only?: string; readonly title: string; readonly empty: string },
@@ -173,10 +151,9 @@ async function pickCodeAction(
         placeholder: "Select Code Action",
         items,
     });
-    if (picked === undefined) return; // отмена — не событие
+    if (picked === undefined) return;
 
     const pick = sorted[items.indexOf(picked)];
-    // Неактивное не применяется: выбор лишь повторяет причину.
     if (pick.action.disabled !== undefined) {
         notice(pick.action.disabled);
         return;
@@ -185,12 +162,7 @@ async function pickCodeAction(
     if (!applied) notice(`Code action failed: ${pick.action.title}`);
 }
 
-/**
- * Меню code actions у каретки/выделения: запрашивает ВСЕ доступные действия
- * (без `only`), показывает их в quick pick и применяет выбранное.
- * Matches VS Code's `editor.action.quickFix` (Ctrl+.; точка не кодируется
- * legacy-терминалом с Ctrl — досягаемый везде второй бинд Ctrl+K Ctrl+Q).
- */
+/** Ctrl+. legacy-терминал с Ctrl не кодирует — досягаемый везде второй бинд Ctrl+K Ctrl+Q. */
 export const quickFixAction: CommandAction = {
     id: "editor.action.quickFix",
     title: "Quick Fix",
@@ -205,10 +177,8 @@ export const quickFixAction: CommandAction = {
 };
 
 /**
- * Меню рефакторингов у каретки/выделения (`only: refactor`).
- * Matches VS Code's `editor.action.refactor` (Ctrl+Shift+R). Шифтованная буква с
- * Ctrl на legacy-терминале неотличима от Ctrl+R, поэтому канонический бинд под
- * tier-гейтом, а рядом — досягаемый везде лидер-аккорд (норма organizeImports).
+ * Ctrl+Shift+R на legacy-терминале неотличим от Ctrl+R: канонический бинд под tier-гейтом,
+ * рядом — досягаемый везде лидер-аккорд.
  */
 export const refactorAction: CommandAction = {
     id: "editor.action.refactor",
@@ -222,11 +192,6 @@ export const refactorAction: CommandAction = {
     },
 };
 
-/**
- * Меню source-действий у каретки/выделения (`only: source` — organize imports,
- * fix all и прочее «на весь файл»). Matches VS Code's
- * `editor.action.sourceAction` — дефолтного бинда у него нет и в эталоне.
- */
 export const sourceActionAction: CommandAction = {
     id: "editor.action.sourceAction",
     title: "Source Action...",
@@ -243,10 +208,6 @@ export const sourceActionAction: CommandAction = {
     },
 };
 
-/**
- * Применяет авто-фиксы провайдера ко всему документу.
- * Matches VS Code's `editor.action.fixAll` (без дефолтного бинда — палитра).
- */
 export const fixAllAction: CommandAction = {
     id: "editor.action.fixAll",
     title: "Fix All",
@@ -256,7 +217,6 @@ export const fixAllAction: CommandAction = {
     },
 };
 
-/** Экшены code actions (organize imports, fix all, quick fix). Фича отдаёт их одним массивом; регистрирует агрегатор (`WORKBENCH_ACTIONS`). */
 export const CODE_ACTION_ACTIONS: readonly CommandAction[] = [
     organizeImportsAction,
     fixAllAction,

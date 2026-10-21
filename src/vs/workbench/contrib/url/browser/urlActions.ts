@@ -11,11 +11,7 @@ export const OPEN_URL_LAST_INPUT_STATE: IStateDescriptor<string> = {
     default: "",
 };
 
-/**
- * `Developer: Open URL` — `OpenUrlAction` эталона (`url.contribution.ts`):
- * URL продукта руками, как если бы его открыла ОС (`diode://<id расширения>/…`
- * уходит обработчику URI расширения). Поле предзаполнено прошлым вводом.
- */
+/** `diode://<id расширения>/…` уходит обработчику URI расширения, как если бы URL открыла ОС. */
 export const openUrlAction: CommandAction = {
     id: "workbench.action.url.openUrl",
     title: "Developer: Open URL",
@@ -32,5 +28,4 @@ export const openUrlAction: CommandAction = {
     },
 };
 
-/** Экшены URL. Регистрирует агрегатор (`WORKBENCH_ACTIONS`). */
 export const URL_ACTIONS: readonly CommandAction[] = [openUrlAction];

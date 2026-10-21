@@ -15,9 +15,7 @@ import {
 import { IConfigurationServiceDIToken } from "../../../../platform/configuration/common/iConfigurationServiceDIToken.ts";
 import { InMemoryConfigurationService } from "../../../../platform/configuration/common/inMemoryConfigurationService.ts";
 
-// Живой редактор (AppTestHarness): клавиши → команда → сервис → выделение.
-// Подменены только language configuration (скобки языка — у харнесса нет
-// расширений-языков) и настройки.
+// Подменены только language configuration (у харнесса нет расширений-языков) и настройки.
 
 const CONFIGURATION: IResolvedLanguageConfiguration = {
     ...EMPTY_LANGUAGE_CONFIGURATION,

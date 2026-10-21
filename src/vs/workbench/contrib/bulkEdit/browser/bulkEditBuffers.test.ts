@@ -8,10 +8,6 @@ import type { TextFileModelService } from "../../../services/textfile/common/tex
 
 import { BulkEditBuffers } from "./bulkEditBuffers.ts";
 
-// Кто «открыт» с точки зрения bulk edit'а и в какой бакет истории ложится его
-// единственный шаг. «Открыт» — это не только вкладка: модель файла может жить в
-// реестре без вкладки (сторона диффа), и писать мимо неё на диск нельзя.
-
 interface IFakePane {
     uri: Uri;
     readOnly: boolean;

@@ -10,30 +10,16 @@ import type { IWorkspaceFileContents } from "../../../../platform/workspace/comm
 import { reloadWindow } from "../../../browser/actions/appActions.ts";
 import type { IUserDataProfileService } from "../../../services/userDataProfile/common/userDataProfile.ts";
 
-/**
- * Опенер воркспейса под обёрткой — структурно `IWorkspaceFolderOpener` фичи
- * files (`contrib/files/browser/fileActions.ts`); тип повторён, чтобы фича
- * профилей не тянула соседнюю фичу.
- */
+/** Структурно `IWorkspaceFolderOpener` фичи files; тип повторён, чтобы не тянуть соседнюю фичу. */
 export interface IWrappedWorkspaceOpener {
     setWorkspaceFolder(dirPath: string): void;
     openWorkspaceFile(filePath: string, contents: IWorkspaceFileContents): void;
 }
 
 /**
- * Смена воркспейса на живом окне (Open Folder, Open Workspace from File) с
- * оглядкой на профиль: у нового воркспейса своя привязка (или её нет —
- * Default), а профиль окна фиксирован на процесс. Профиль решается ДО смены
- * папки: он другой — папка не трогается, окно перезагружается уже с новым
- * воркспейсом в аргументах; Cancel в «Save changes?» оставляет окно в прежней
- * папке и прежнем профиле, и состояния «чужая папка в старом профиле» не
- * бывает. Профиль тот же — смена папки идёт как есть. У эталона смена
- * воркспейса и есть перезагрузка окна, профиль резолвится заново в
- * `windowsMainService`.
- *
- * Обёртка над опенером `WorkbenchComponent` (биндинг `WorkspaceFolderOpenerDIToken`
- * в `workbenchModule`); бутстрапная папка идёт мимо неё — её профиль уже
- * выбран в `main.ts` (`resolveActiveProfile`).
+ * Профиль решается ДО смены папки: другой — папка не трогается, окно перезагружается с новым
+ * воркспейсом в аргументах, и Cancel в «Save changes?» не оставит «чужую папку в старом профиле».
+ * Бутстрапная папка идёт мимо — её профиль выбран в `main.ts` (`resolveActiveProfile`).
  */
 export class UserDataProfileWorkspaceOpener implements IWrappedWorkspaceOpener {
     public constructor(
@@ -54,10 +40,6 @@ export class UserDataProfileWorkspaceOpener implements IWrappedWorkspaceOpener {
         this.inner.openWorkspaceFile(filePath, contents);
     }
 
-    /**
-     * Профиль воркспейса другой — перезагрузка в него запущена (с воркспейсом
-     * в аргументах следующего окна), и папку этого окна менять нельзя.
-     */
     private reloadsInto(workspace: ProfileWorkspaceKey): boolean {
         const target = profileForWorkspace(this.profiles, workspace);
         if (target.id === this.profileService.currentProfile.id) return false;

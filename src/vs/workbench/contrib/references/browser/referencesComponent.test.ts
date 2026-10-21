@@ -14,10 +14,8 @@ import { darkPlusTheme } from "../../../services/themes/common/themes/darkPlus.t
 import type { IReferenceGroup } from "./referencePreview.ts";
 import { type IReferencesRevealTarget, ReferencesComponent } from "./referencesComponent.ts";
 
-/** Реестр view не участвует в юнит-тестах компонента — контейнер собирает workbench. */
 const NULL_VIEWS_SERVICE = { registerContainer: () => {}, registerView: () => {} } as unknown as ViewsService;
 
-/** Reveal-цель, записывающая открытия и переходы (аналог фейка Search/Problems). */
 function fakeReveal(opts: { noEditor?: boolean } = {}): {
     target: IReferencesRevealTarget;
     opened: string[];
@@ -78,7 +76,6 @@ function render(component: ReferencesComponent, w = 40, h = 10): MockTerminalBac
 
 const theme = WorkbenchTheme.fromThemeFile(darkPlusTheme);
 
-/** Строка кадра по индексу — для ассертов на точное содержимое шапки. */
 function line(backend: MockTerminalBackend, y: number): string {
     return backend.screenToString().split("\n")[y];
 }
@@ -93,7 +90,6 @@ describe("ReferencesComponent — наполнение панели", () => {
         expect(screen).toContain("src/a.ts");
         expect(screen).toContain("export function greet() {}");
         expect(screen).toContain("src/b.ts");
-        // Номера строк — рядом с текстом ссылки.
         expect(screen).toContain("7");
         expect(component.resultCount).toBe(3);
         // 2 файла + 3 ссылки.
@@ -149,11 +145,9 @@ describe("ReferencesComponent — оформление", () => {
         component.setResults(twoFiles());
         const backend = render(component);
 
-        // Отступ слева на одну колонку — счётчик не прижат к краю панели.
         expect(line(backend, 0)).toBe(" 3 results in 2 files".padEnd(40, " "));
         expect(backend.getBgAt(new Point(0, 0))).toBe(theme.getRequiredColor("sideBar.background"));
         expect(backend.getFgAt(new Point(1, 0))).toBe(theme.getRequiredColor("descriptionForeground"));
-        // Тело списка — тот же фон сайдбара, текст ссылок — его foreground.
         expect(backend.getBgAt(new Point(0, 1))).toBe(theme.getRequiredColor("sideBar.background"));
     });
 
@@ -315,16 +309,13 @@ describe("ReferencesComponent — обход по F4", () => {
         const component = make({ reveal: reveal.target });
         component.setResults(twoFiles());
 
-        // Курсор стоит на первой ссылке — шаг вперёд ведёт на вторую.
         component.goToNextReference();
         expect(component.results.getCursorElement()?.id).toBe("ref:src/a.ts:1");
         component.goToNextReference();
         expect(component.results.getCursorElement()?.id).toBe("ref:src/b.ts:0");
-        // С последней — снова на первую.
         component.goToNextReference();
         expect(component.results.getCursorElement()?.id).toBe("ref:src/a.ts:0");
 
-        // Каждый шаг открывал файл на позиции.
         expect(reveal.opened).toEqual(["/work/project/src/a.ts", "/work/project/src/b.ts", "/work/project/src/a.ts"]);
     });
 
@@ -351,7 +342,6 @@ describe("ReferencesComponent — обход по F4", () => {
         expect(component.results.isCollapsed("file:src/a.ts")).toBe(false);
         expect(component.results.getCursorElement()?.id).toBe("ref:src/a.ts:0");
 
-        // Дальше обход идёт как обычно, раскрывая следующий свёрнутый файл.
         component.goToNextReference();
         component.goToNextReference();
         expect(component.results.getCursorElement()?.id).toBe("ref:src/b.ts:0");

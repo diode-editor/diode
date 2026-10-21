@@ -16,9 +16,6 @@ import { type StatusBarService, StatusBarServiceDIToken } from "../../../service
 
 import { formatDocumentAction, formatSelectionAction } from "./formatActions.ts";
 
-// Команды форматирования: провайдерные правки применяются undoable-батчем,
-// «нет форматтера» показывается в статус-баре, устаревший ответ отбрасывается.
-
 interface ISelectionLike {
     anchor: { line: number; character: number };
     active: { line: number; character: number };
@@ -31,13 +28,11 @@ interface ISetup {
     requests: IFormattingRequest[];
     selections(): readonly ISelectionLike[];
     setText(next: string): void;
-    /** Сколько подписок на правку документа висит сейчас. */
     contentListenerCount(): number;
     dropActiveEditor(): void;
     swapActiveEditor(): void;
 }
 
-/** Ответ форматтера на запрос (и документного, и range — у теста один). */
 type FakeFormatter = (request: IFormattingRequest, token: ICancellationToken) => Promise<readonly ITextEdit[]>;
 
 function makeSetup(
@@ -47,7 +42,6 @@ function makeSetup(
     let text = "const  a=1;\nsecond line\nthird";
     const applied: { edits: readonly ITextEdit[]; label: string }[] = [];
     const requests: IFormattingRequest[] = [];
-    // Правка документа — событие модели: по нему action узнаёт, что ответ устарел.
     const contentListeners = new Set<() => void>();
     // Версия модели: запрос несёт её вместо текста; правка документа её поднимает.
     const document = { versionId: 1 };
@@ -72,8 +66,6 @@ function makeSetup(
         },
     };
     let active: unknown = editor;
-    // Форматтер — документный и range-провайдер в реестре под селектором
-    // `options.selector` (по умолчанию — любой документ).
     const languageFeatures = new LanguageFeaturesService();
     if (source !== undefined) {
         const selector = options.selector ?? "*";
@@ -141,7 +133,6 @@ describe("editor.action.formatDocument", () => {
         await formatDocumentAction.run(setup.accessor);
         expect(setup.applied).toEqual([{ edits: [EDIT], label: "Format Document" }]);
         expect(setup.notices).toEqual([]);
-        // Слежка за правками на время запроса снята вместе с ответом.
         expect(setup.contentListenerCount()).toBe(0);
         // После применения — ОДНА каретка на прежнем месте, а не по каретке на
         // каждую правку (мультикурсорная семантика applyEdits форматтеру чужая).

@@ -19,12 +19,7 @@ import type { LayoutService } from "../../../services/layout/browser/layoutServi
 
 export const KeybindingRecorderComponentDIToken = token<KeybindingRecorderComponent>("KeybindingRecorderComponent");
 
-/**
- * Узкий срез TerminalEnvironmentService: рекордеру нужен текущий tier и ОС
- * клавиатуры (на маке чорд подписывается глифами: «⇧⌘K»).
- * Сам сервис живёт в node-окружении — биндинг делает DI-модуль (diode-слой),
- * browser-компонент node не импортирует.
- */
+/** Сам сервис живёт в node-окружении: browser-компонент его не импортирует, биндинг делает DI-модуль. */
 export interface IRecorderTerminalEnv {
     readonly tier: string;
     readonly os: string;
@@ -39,19 +34,10 @@ const LEGACY_NOTE = "Legacy terminal: some combinations are indistinguishable he
 const PORTABILITY_WARNING = "May not be available on legacy terminals";
 
 /**
- * Рекордер комбинации для вкладки Keyboard Shortcuts: модальный оверлей
- * «нажмите новую комбинацию». Копит части чорда по нажатиям; голый Enter
- * принимает (при непустом чорде), голый Escape отменяет, всё остальное — в
- * чорд (Ctrl+Enter и Shift+Escape записываются, не управляют).
- *
- * Захват: сфокусированный корень со `stopPropagation` на target-фазе полностью
- * отсекает KeybindingDispatcher (его capture-хендлер — no-op вне чорда, bubble
- * до корня не доходит); `capturesKeyboard` оверлея глушит фокус-скоупные
- * команды страховкой.
- *
- * Закрытие — по ПАРНОМУ keypress, не по keydown: keypress пиннится к цели
- * keydown (см. Workbench.md, «Вторая часть аккорда…»), и закрытие на keydown
- * отпустило бы его в редактор позади.
+ * Голый Enter принимает, голый Escape отменяет, остальное (и Ctrl+Enter, Shift+Escape) — в чорд.
+ * Сфокусированный корень со `stopPropagation` на target-фазе отсекает KeybindingDispatcher.
+ * Закрытие — по ПАРНОМУ keypress: он пиннится к цели keydown (Workbench.md, «Вторая часть аккорда…»),
+ * и закрытие на keydown отпустило бы его в редактор позади.
  */
 export class KeybindingRecorderComponent extends Disposable {
     private session: OverlaySessionHandle | null = null;
@@ -125,11 +111,7 @@ export class KeybindingRecorderComponent extends Disposable {
         });
     }
 
-    /**
-     * Показывает рекордер и резолвится записанным чордом (Enter) либо `null`
-     * (Escape). Повторный вызов при открытом рекордере отменяет предыдущую
-     * запись.
-     */
+    /** Повторный вызов при открытом рекордере отменяет предыдущую запись. */
     public record(commandTitle: string): Promise<KeybindingChord | null> {
         // Хост — корневая view окна; до attachRoot сервис бросает сам.
         const host = this.layoutService.mainContainer;
@@ -159,7 +141,6 @@ export class KeybindingRecorderComponent extends Disposable {
         });
     }
 
-    /** Открыт ли рекордер (для тестов/оркестрации). */
     public isOpen(): boolean {
         return this.session?.isOpen() ?? false;
     }
@@ -173,7 +154,6 @@ export class KeybindingRecorderComponent extends Disposable {
 
         const bare = !event.ctrlKey && !event.shiftKey && !event.altKey && !event.metaKey;
         if (bare && event.key === "Enter") {
-            // Пустой чорд принимать нечего — ждём комбинацию.
             if (this.parts.length > 0) this.pendingOutcome = this.parts;
             return;
         }
@@ -216,7 +196,6 @@ export class KeybindingRecorderComponent extends Disposable {
         this.warningLabel.setColors(warning.fg, DIALOG_STYLES.bg);
     }
 
-    /** Текст и цвет строки-предупреждения под накопленным чордом. */
     private warning(): { text: string; fg: StyleColor } {
         // Stryker disable next-line EqualityOperator,ConditionalExpression: `parts.length > 0` избыточно рядом с requiresExtendedKeys([])===false — при пустом чорде обе ветки дают false.
         if (this.parts.length > 0 && requiresExtendedKeys(this.parts)) {
@@ -228,7 +207,6 @@ export class KeybindingRecorderComponent extends Disposable {
         return { text: "", fg: DIALOG_STYLES.descriptionFg };
     }
 
-    /** Центрирует окно по экрану хоста и открывает сессию (приём DialogService). */
     private openCentered(host: BodyElement, session: OverlaySessionHandle): void {
         const width = this.root.getMaxIntrinsicWidth(0);
         const height = this.root.getMaxIntrinsicHeight(width);

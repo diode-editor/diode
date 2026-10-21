@@ -16,18 +16,14 @@ import {} from "../../../services/themes/common/themeTokens.ts";
 
 import { type ProblemNode, ProblemsTreeDataProvider } from "./problemsTreeDataProvider.ts";
 
-/** VS Code view id of the Problems (Markers) view living in the bottom Panel. */
 export const PROBLEMS_VIEW_ID = "workbench.panel.markers.view";
 
 /**
- * Окно, в которое сводятся изменения маркеров перед пересчётом вкладки, мс —
- * то же `Event.debounce(onMarkerChanged, …, 64)`, что у `MarkersView` эталона.
- * Языковой сервер публикует диагностики по файлу за сообщение; на монорепе
- * это тысячи событий подряд, и пересчёт дерева на каждое вешал UI-поток.
+ * Как `Event.debounce(onMarkerChanged, …, 64)` у `MarkersView` эталона: на монорепе языковой
+ * сервер шлёт тысячи событий подряд, и пересчёт дерева на каждое вешал UI-поток.
  */
 export const PROBLEMS_UPDATE_DELAY_MS = 64;
 
-/** Редактор, в котором раскрывается позиция маркера. */
 export interface IMarkerRevealEditor {
     /** Ресурс редактора — по нему сверяется, что открылся именно маркерный. */
     readonly uri: Uri;
@@ -35,12 +31,6 @@ export interface IMarkerRevealEditor {
     revealRange(range: IRange): void;
 }
 
-/**
- * Минимальный срез группы редакторов, нужный для reveal маркера: открыть ресурс
- * и довести до позиции. `EditorService` соответствует ему структурно —
- * связывание делает DI-модуль
- * ({@link MarkerRevealTargetDIToken}).
- */
 export interface IMarkerRevealTarget {
     /** Обещание не отклоняется: неудачу открытия сервис показывает сам. */
     openUri(uri: Uri): Promise<void>;
@@ -50,14 +40,7 @@ export interface IMarkerRevealTarget {
 export const MarkerRevealTargetDIToken = token<IMarkerRevealTarget>("MarkerRevealTarget");
 export const ProblemsComponentDIToken = token<ProblemsComponent>("ProblemsComponent");
 
-/**
- * Компонент Problems-вкладки нижней панели: дерево «файл → маркеры»
- * ({@link TreeViewElement} поверх `ProblemsTreeDataProvider`) — второй
- * потребитель общего {@link MarkerService} (первый — editor squiggles).
- * Регистрирует вкладку PROBLEMS в {@link ViewsService} (контейнер в панели); пока маркеров нет,
- * контент вкладки — null (панель рендерит placeholder). Активация маркера
- * раскрывает его позицию через шов {@link IMarkerRevealTarget}.
- */
+/** Пока маркеров нет, контент вкладки — null (панель рендерит placeholder). */
 export class ProblemsComponent extends Component {
     public static dependencies = [
         MarkerServiceDIToken,
@@ -66,19 +49,14 @@ export class ProblemsComponent extends Component {
         JumpRecorderDIToken,
     ] as const;
 
-    /** The Problems tree — доступен тестам и оркестрации (фокус, выделение). */
     public readonly tree: TreeViewElement<ProblemNode>;
-    /** Корневой контрол: дерево, обёрнутое скроллбаром; вкидывается в Panel через сервис. */
     public readonly view: ScrollBarDecorator;
 
     private provider: ProblemsTreeDataProvider;
     private treeShown = false;
     private readonly updateScheduler: RunOnceScheduler;
-    /** Идёт пересчёт: обновление дерева асинхронно, второй параллельно не запускаем. */
     private updating = false;
-    /** Счётчик смен маркеров: разошёлся с {@link renderedVersion} — нужен пересчёт. */
     private markersVersion = 0;
-    /** Версия маркеров, по которой построено дерево. */
     private renderedVersion = 0;
 
     public constructor(
@@ -101,8 +79,6 @@ export class ProblemsComponent extends Component {
         this.view = new ScrollBarDecorator(this.tree);
         this.view.id = "problemsView";
 
-        // Вкладка панели — такой же контейнер view, как вьюлет сайдбара:
-        // одна секция без своего заголовка (его роль играет таб).
         this.viewsService.registerContainer({ id: PROBLEMS_VIEW_ID, title: "PROBLEMS", location: "panel", order: 0 });
         this.viewsService.registerView({
             canMoveView: true,
@@ -135,7 +111,6 @@ export class ProblemsComponent extends Component {
         );
     }
 
-    /** Focuses the Problems tree (used by the "Toggle Problems" command). */
     public focus(): void {
         // The command shows the panel (which re-attaches its subtree to the live
         // root) before calling this, so the tree's `root` is wired here.
@@ -143,11 +118,8 @@ export class ProblemsComponent extends Component {
     }
 
     /**
-     * Пересчёт вкладки по снимку маркеров — не больше одного за раз. Смена
-     * маркеров посреди пересчёта не запускает второй параллельно (оба
-     * перестраивали бы одно дерево вперемешку), а откладывается до конца
-     * текущего: тогда снимок перечитывается ещё раз. Таймер, сработавший уже
-     * после того, как цикл догнал версию, пересчёта не повторяет.
+     * Не больше одного пересчёта за раз: смена маркеров посреди пересчёта откладывается до его конца
+     * (два перестраивали бы одно дерево вперемешку), и снимок перечитывается ещё раз.
      */
     private async update(): Promise<void> {
         if (this.updating) return;
@@ -162,10 +134,6 @@ export class ProblemsComponent extends Component {
         }
     }
 
-    /**
-     * Re-reads the marker snapshot into the tree. Swaps the Problems view between
-     * the tree (markers present) and the placeholder empty-state (none).
-     */
     private async rebuild(): Promise<void> {
         const markers = this.markerService.read();
         this.provider.setMarkers(markers);
@@ -179,7 +147,6 @@ export class ProblemsComponent extends Component {
         if (shouldShowTree) await this.refreshTree();
     }
 
-    /** Rebuilds the tree and auto-expands each file node (like VS Code's Problems view). */
     private async refreshTree(): Promise<void> {
         await this.tree.refresh();
         // Пачкой, а не `expand` на файл: каждый `expand` пересобирает весь
@@ -190,19 +157,14 @@ export class ProblemsComponent extends Component {
     private async revealMarker(node: ProblemNode): Promise<void> {
         if (node.kind !== "marker") return;
         const { resource, marker } = node;
-        // Переход целиком — одна запись истории (см. IJumpRecorder): точка, откуда
-        // ушли, и сам маркер, без промежуточного «открыли файл в начале».
-        // Ресурс маркера — уже uri (`uri.toString()`), а не путь: поднимаем его парсингом,
-        // а не Uri.file, иначе "file:///a.ts" стало бы путём с именем "file:".
+        // Переход целиком — одна запись истории (IJumpRecorder). Ресурс — уже uri: Uri.parse, а не
+        // Uri.file, иначе "file:///a.ts" стало бы путём с именем "file:".
         const uri = Uri.parse(resource);
         await this.jumps.jumpAsync(async () => {
             await this.revealTarget.openUri(uri);
             const editor = this.revealTarget.getActiveEditor();
-            // Ресурс мог не открыться — у недискового маркера (`jdt:`) провайдера
-            // схемы может не быть. Без сверки ресурса каретка уехала бы по
-            // координатам маркера в ЧУЖОМ, всё ещё активном редакторе, а без
-            // проверки на `null` — в никуда (маркер можно активировать и с
-            // пустой полосой вкладок).
+            // Недисковый ресурс (`jdt:`) мог не открыться: без сверки каретка уехала бы по координатам
+            // маркера в ЧУЖОМ редакторе, без `?.` — в никуда (маркер активируют и при пустой полосе вкладок).
             // Stryker disable next-line OptionalChaining: снятие `?.` заставляет переход кинуть ПОСЛЕ await, то есть мимо стека теста — раннер падает на сериализации unhandled error вместо честного «мутант выжил/убит». Локализация ошибок слушателя — #275, см. docs/MUTATION.md
             if (editor?.uri.toString() !== uri.toString()) return;
             const start = marker.range.start;

@@ -8,10 +8,6 @@ import { InMemoryConfigurationService } from "../../../../platform/configuration
 
 import { SmartSelectService } from "./smartSelectService.ts";
 
-// Expand/Shrink Selection end-to-end с настоящим субпроцессом: расширение
-// регистрирует провайдера, ядро спрашивает его через реестр по handle, ответ
-// сливается со встроенными ступенями и ложится выделением редактора.
-
 const FIXTURE = extensionFixture("test.providesSelectionRanges", "providesSelectionRanges.cjs");
 const CONTENT = "alpha beta\ngamma\nlast\n";
 

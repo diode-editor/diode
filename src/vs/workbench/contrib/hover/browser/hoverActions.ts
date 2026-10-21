@@ -4,22 +4,12 @@ import { KeybindingWeight } from "../../../../platform/keybinding/common/keybind
 
 import { HoverServiceDIToken } from "./hoverService.ts";
 
-/** Вес hover-попапа: при одновременно открытых hover и suggest Escape закрывает hover. Так было при порядке регистрации; у upstream наоборот (suggest + 90 сильнее hover) — расхождение записано в docs/arch/workbench/Commands.md#коллизии-дефолтов. */
+/** Escape при открытых hover и suggest закрывает hover; у upstream наоборот — docs/arch/workbench/Commands.md#коллизии-дефолтов. */
 const HOVER_WEIGHT = KeybindingWeight.EditorContrib + 92;
 
 /**
- * Показывает hover-попап для символа под кареткой (`editor.action.showHover`).
- * Дефолтный кейбинд — чорд Ctrl+K Ctrl+U при фокусе редактора.
- *
- * Не VS Code-овский Ctrl+K Ctrl+I: на legacy-tier'е Ctrl+I приезжает тем же
- * байтом, что Tab (0x09), поэтому тот чорд там физически недостижим и вдобавок
- * занят legacy-фолбэком `insertCursorAtEndOfEachLineSelected`. Одиночный
- * `alt+буква` в дефолты не берём: `alt` намеренно layout-sensitive
- * (`code`-фолбэк только у ctrl/meta, см. keybindingRegistry), то есть на
- * кириллице такой бинд молчит, а на macOS Option по умолчанию не Meta.
- * Кому нужно одно нажатие — добавляет своё в `keybindings.json` профиля.
- *
- * Контент отдают hover-провайдеры расширений из реестра ядра `ILanguageFeaturesService.hoverProvider`.
+ * Чорд Ctrl+K Ctrl+U, а не эталонный Ctrl+K Ctrl+I: на legacy-tier'е Ctrl+I — тот же байт, что Tab.
+ * Одиночный `alt+буква` не берём: alt layout-sensitive (молчит на кириллице), Option на macOS — не Meta.
  */
 export const showHoverAction: CommandAction = {
     id: "editor.action.showHover",
@@ -33,7 +23,7 @@ export const showHoverAction: CommandAction = {
     },
 };
 
-/** Закрывает hover-попап по Escape; вес HOVER_WEIGHT перебивает removeSecondaryCursors. */
+/** Вес HOVER_WEIGHT — чтобы Escape перебил removeSecondaryCursors. */
 export const hideHoverAction: CommandAction = {
     id: "editor.action.hideHover",
     weight: HOVER_WEIGHT,
@@ -46,5 +36,4 @@ export const hideHoverAction: CommandAction = {
     },
 };
 
-/** Экшены hover-попапа. Фича отдаёт их одним массивом; регистрирует агрегатор (`WORKBENCH_ACTIONS`). */
 export const HOVER_ACTIONS: readonly CommandAction[] = [showHoverAction, hideHoverAction];

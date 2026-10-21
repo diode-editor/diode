@@ -4,13 +4,7 @@ import { parseKeybinding } from "../../../../platform/keybinding/common/keybindi
 
 import { SmartSelectServiceDIToken } from "./smartSelectService.ts";
 
-/**
- * Expand / Shrink Selection (`editor.action.smartSelect.expand` / `.shrink`):
- * id, заголовки и pc-бинды — дословно upstream `smartSelect.ts`. Мак-бинды
- * эталона (⌃⇧⌘→ и ⌃⇧→; ⇧⌥←/→ там — выделение по словам) живут в таблице
- * мак-дельт (`macKeybindings.ts`). Выделение ничего не правит, поэтому гейт —
- * `textViewFocus`, как у мультикурсора: работает и в режиме «только чтение».
- */
+/** Мак-бинды эталона — в `macKeybindings.ts`. Гейт `textViewFocus`, как у мультикурсора: выделение ничего не правит. */
 export const smartSelectExpandAction: CommandAction = {
     id: "editor.action.smartSelect.expand",
     title: "Expand Selection",
@@ -33,5 +27,4 @@ export const smartSelectShrinkAction: CommandAction = {
     },
 };
 
-/** Экшены smart select. Фича отдаёт их одним массивом; регистрирует агрегатор (`WORKBENCH_ACTIONS`). */
 export const SMART_SELECT_ACTIONS: readonly CommandAction[] = [smartSelectExpandAction, smartSelectShrinkAction];

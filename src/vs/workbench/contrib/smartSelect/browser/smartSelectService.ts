@@ -22,11 +22,7 @@ import { EditorServiceDIToken } from "../../../services/editor/common/editorServ
 export const SmartSelectServiceDIToken = token<SmartSelectService>("SmartSelectService");
 
 /**
- * Expand / Shrink Selection активного редактора (upstream
- * `editor/contrib/smartSelect`). Иерархии выделений дают selection-range-
- * провайдеры реестра (`ILanguageFeaturesService.selectionRangeProvider` —
- * language server'ы расширений) плюс встроенные: слова всегда, скобки языка —
- * когда языковых провайдеров нет. Стек ступеней живёт по контроллеру на
+ * Скобки языка — только когда языковых провайдеров нет. Стек ступеней живёт по контроллеру на
  * редактор и забывается любой посторонней сменой выделения.
  */
 export class SmartSelectService {
@@ -46,7 +42,6 @@ export class SmartSelectService {
         private readonly configuration: IConfigurationService,
     ) {}
 
-    /** Шаг вширь (`forward`) или обратно вглубь; без активного редактора — no-op. */
     public run(forward: boolean): Promise<void> {
         const editor = this.editors.getActiveEditor();
         if (editor === null) return Promise.resolve();
@@ -80,7 +75,6 @@ export class SmartSelectService {
         );
     }
 
-    /** `editor.smartSelect.*` с языковой секцией; читается на каждый запрос. */
     private options(languageId: string): ISelectionRangesOptions {
         const read = (key: string): boolean =>
             this.configuration.get(`editor.smartSelect.${key}`, { overrideIdentifier: languageId }) !== false;

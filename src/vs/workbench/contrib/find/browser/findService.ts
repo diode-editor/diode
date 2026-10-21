@@ -25,24 +25,14 @@ interface IFindSession {
     matches: IRange[];
     currentIndex: number;
     /**
-     * Редактор, по которому идёт сессия. Пиним его на открытии и НЕ перерешаем:
-     * виджет забирает фокус себе, а `getActiveEditor()` следует за фокусом — со
-     * второго же вызова поиск уезжал бы на другой редактор. Именно так `Ctrl+F`
-     * из панели Output искал по файлу за ней.
+     * Пиним на открытии и не перерешаем: фокус уходит в виджет, а `getActiveEditor()` следует
+     * за фокусом — так `Ctrl+F` из панели Output искал по файлу за ней.
      */
     target: TextEditorPane | null;
-    /** Смена активной вкладки СВОЕЙ группы закрывает её сессию. */
     paneSubscription: IDisposable | null;
 }
 
-/**
- * Drives find-in-file: owns the per-group query → matches → current-index state
- * and pushes it to the group's editor for highlighting + reveal. Виджеты и их
- * overlay-сессии живут в {@link FindComponent} — по одному на группу (US-33):
- * find в группе A остаётся открытым со своим запросом, пока пользователь ищет
- * в группе B; Escape закрывает только виджет своей группы. Команды (Ctrl+F, F3,
- * Escape) оперируют активной группой.
- */
+/** Сессия на группу (US-33): find в группе A живёт со своим запросом, пока ищут в группе B. */
 export class FindService extends Disposable implements IContextKeyContributor {
     public static dependencies = [FindComponentDIToken, EditorServiceDIToken, EditorGroupsServiceDIToken] as const;
 
@@ -69,7 +59,6 @@ export class FindService extends Disposable implements IContextKeyContributor {
         component.onClose = (groupId) => {
             this.closeGroup(groupId);
         };
-        // Схлопнутая группа забирает сессию и виджет с собой.
         this.register(
             this.groups.onDidGroupsChange((event) => {
                 if (event.kind !== "removed") return;
@@ -84,24 +73,19 @@ export class FindService extends Disposable implements IContextKeyContributor {
         });
     }
 
-    /** Открыт ли find-виджет АКТИВНОЙ группы (контекст-ключ findWidgetVisible). */
     public isVisible(): boolean {
         return this.component.isOpen(this.groups.activeGroup.id);
     }
 
-    /** IContextKeyContributor: `findWidgetVisible` — гейт Escape/Enter/F3 виджета. */
     public updateContextKeys(contextKeys: ContextKeyService): void {
         contextKeys.set("findWidgetVisible", this.isVisible());
     }
 
-    /** Ctrl+F: открывает/фокусирует find активной группы. */
     public open(): void {
         const group = this.groups.activeGroup;
         const widget = this.component.widgetFor(group.id);
         if (widget === null) return;
         if (widget.isOpen()) {
-            // Повторный Ctrl+F на уже открытом виджете: вернуть фокус и выделить
-            // весь запрос, чтобы его можно было сразу перепечатать (VS Code).
             widget.focus();
             widget.selectQuery();
             return;
@@ -122,12 +106,9 @@ export class FindService extends Disposable implements IContextKeyContributor {
 
         this.recompute(group.id);
         widget.show();
-        // Выделить сохранённый/засеянный запрос целиком — готов к перезаписи
-        // первым же нажатием. Для пустого запроса selectAll — no-op.
         widget.selectQuery();
     }
 
-    /** Escape/крестик: закрывает find активной группы. */
     public close(): void {
         this.closeGroup(this.groups.activeGroup.id);
     }
@@ -140,15 +121,11 @@ export class FindService extends Disposable implements IContextKeyContributor {
         this.navigate(this.groups.activeGroup.id, -1);
     }
 
-    // ─── Private ─────────────────────────────────────────────────────────────
-
-    /** Сессия группы (создаётся лениво) с подпиской «смена вкладки → закрыть». */
     private sessionFor(group: EditorGroup): IFindSession {
         const existing = this.sessions.get(group.id);
         if (existing !== undefined) return existing;
         const session: IFindSession = { matches: [], currentIndex: -1, target: null, paneSubscription: null };
-        // Find оперирует зафиксированной целью — смена активной вкладки ЭТОЙ
-        // группы закрывает её сессию (чужие группы не влияют — US-33).
+        // Смена вкладки ЭТОЙ группы закрывает её сессию; чужие группы не влияют (US-33).
         session.paneSubscription = group.onDidChangeActivePane((pane) => {
             if (pane !== session.target) this.closeGroup(group.id);
         });
@@ -189,14 +166,8 @@ export class FindService extends Disposable implements IContextKeyContributor {
     }
 
     /**
-     * Шаг по совпадениям. В VS Code «Find Next» живёт от фокуса в редакторе, а не
-     * от видимости виджета: состояние поиска переживает закрытие, и F3 продолжает
-     * ходить по последнему запросу (`NextMatchFindAction`, `kbExpr: EditorContextKeys.focus`).
-     *
-     * При открытом виджете фокус в его инпуте, курсор редактора не трогаем — его
-     * поставит `close()`. При закрытом фокус в тексте, поэтому совпадение сразу
-     * становится выделением: иначе «нашлось» было бы видно только подсветкой,
-     * а курсор остался бы на месте.
+     * F3 живёт от фокуса в тексте, а не от видимости виджета (`NextMatchFindAction` эталона). При
+     * закрытом виджете совпадение сразу становится выделением; при открытом курсор поставит `close()`.
      */
     private navigate(groupId: GroupId, direction: 1 | -1): void {
         const widget = this.component.widgetFor(groupId);
@@ -230,13 +201,7 @@ export class FindService extends Disposable implements IContextKeyContributor {
         return (session.currentIndex + direction + session.matches.length) % session.matches.length;
     }
 
-    /**
-     * Поднимает поисковую сессию без показа виджета. Запрос помнит сам виджет,
-     * поэтому обычно достаточно перецелиться на активный редактор и пересчитать.
-     * Пустой запрос сеем из однострочного выделения (upstream
-     * `seedSearchStringFromSelection`); если и его нет — искать нечего, открываем
-     * виджет и спрашиваем. Возвращает false, когда навигацию продолжать не надо.
-     */
+    /** Пустой запрос сеем из однострочного выделения (`seedSearchStringFromSelection`); false — навигацию не продолжать. */
     private startDetachedSession(group: EditorGroup, widget: FindWidget): boolean {
         const editor = this.editorService.getActiveEditor();
         if (!editor) return false;
@@ -256,7 +221,6 @@ export class FindService extends Disposable implements IContextKeyContributor {
         return true;
     }
 
-    /** Ставит выделение на совпадение — курсор идёт за поиском, как в VS Code. */
     private selectMatch(session: IFindSession, index: number): void {
         const editor = session.target;
         /* v8 ignore start -- navigate() доходит сюда только с поднятой сессией, цель есть */
@@ -268,10 +232,6 @@ export class FindService extends Disposable implements IContextKeyContributor {
         ];
     }
 
-    /**
-     * Recomputes matches for the current query, seeds the current index from the
-     * cursor, and refreshes the editor highlights + counter.
-     */
     private recompute(groupId: GroupId): void {
         const widget = this.component.widgetIfExists(groupId);
         const session = this.sessions.get(groupId);
@@ -316,7 +276,6 @@ export class FindService extends Disposable implements IContextKeyContributor {
         widget.setCounter(index + 1, session.matches.length);
     }
 
-    /** First match starting at or after `cursor`, wrapping to the first match. */
     private pickCurrentIndex(matches: IRange[], cursor: IPosition): number {
         for (let i = 0; i < matches.length; i++) {
             if (comparePositions(matches[i].start, cursor) >= 0) return i;

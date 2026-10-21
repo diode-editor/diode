@@ -98,7 +98,6 @@ describe("splitMarkdownSections — секции по thematic break", () => {
         // Под разделителем и под строкой из пробелов абзаца нет — `---` снова разделитель.
         expect(splitMarkdownSections("абзац\n***\n---\nтекст")).toEqual(["абзац", "", "текст"]);
         expect(splitMarkdownSections("абзац\n   \n---\nтекст")).toEqual(["абзац", "текст"]);
-        // Отступ перед подчёркиванием setext не мешает.
         expect(splitMarkdownSections("Заголовок\n  ---\nтекст")).toEqual(["Заголовок\nтекст"]);
     });
 
@@ -136,15 +135,11 @@ describe("HoverService — показ и закрытие попапа", () => {
     const hoverOf = (contents: string[]): ICoreHover => ({ contents });
 
     let providers: IDisposable[] = [];
-    /** Ставит единственного hover-провайдера для любого документа (снимает прежних). */
     const useProvider = (provideHover: HoverProvider["provideHover"]): void => {
         for (const provider of providers) provider.dispose();
         providers = [h.container.get(LanguageFeaturesServiceDIToken).hoverProvider.register("*", { provideHover })];
     };
-    /**
-     * По провайдеру на hover; в ответе — в порядке аргументов. Регистрируем с
-     * конца: при равном score реестр ставит более позднюю регистрацию первой.
-     */
+    /** Регистрируем с конца: при равном score реестр ставит более позднюю регистрацию первой. */
     const useHovers = (...hovers: ICoreHover[]): void => {
         for (const provider of providers) provider.dispose();
         const registry = h.container.get(LanguageFeaturesServiceDIToken).hoverProvider;
@@ -165,11 +160,9 @@ describe("HoverService — показ и закрытие попапа", () => {
         expect(service().isOpen()).toBe(true);
         service().updateContextKeys(keys);
         expect(keys.get("editorHoverVisible")).toBe(true);
-        // Контент одного провайдера — один блок: сигнатура + пустая строка + доки.
         const lines = component().view.linesFor(60);
         expect(lines).toContain("const answer: number");
         expect(lines).toContain("Документация ответа");
-        // Фокус остался в редакторе.
         expect(group().getActiveEditor()).not.toBeNull();
     });
 
@@ -320,7 +313,6 @@ describe("HoverService — показ и закрытие попапа", () => {
 
         h.testApp.sendKey("Escape");
         expect(service().isOpen()).toBe(false);
-        // Escape не утёк в редактор и не сломал состояние: каретка на месте.
         expect(group().getActiveEditor()?.viewState.selections[0].active).toMatchObject({ line: 0, character: 0 });
     });
 
@@ -402,7 +394,6 @@ describe("HoverService — показ и закрытие попапа", () => {
         await service().showHover();
         expect(service().isOpen()).toBe(true);
 
-        // Клик по редактору вне попапа — сессия close-on-outside обязана закрыться.
         const click = (action: "press" | "release"): MouseToken => ({
             kind: "mouse",
             button: "left",
@@ -464,7 +455,6 @@ describe("HoverService — показ и закрытие попапа", () => {
         expect(service().isOpen()).toBe(true);
 
         group().openFile(ws.path("other.ts"));
-        // Смена редактора закрыла попап.
         expect(service().isOpen()).toBe(false);
 
         // Правка в ПРЕЖНЕМ редакторе больше не трогает попап нового.
@@ -473,7 +463,6 @@ describe("HoverService — показ и закрытие попапа", () => {
         first.viewState.insertText("x");
         expect(service().isOpen()).toBe(true);
 
-        // А правка в текущем — закрывает.
         group().getActiveEditor()?.viewState.insertText("y");
         expect(service().isOpen()).toBe(false);
     });
@@ -483,8 +472,7 @@ describe("HoverService — показ и закрытие попапа", () => {
         await service().showHover();
         expect(service().isOpen()).toBe(true);
 
-        // Правка в конце документа: каретка не двигается, но содержимое сменилось —
-        // закрытие обязано прийти от подписки на контент, не на каретку.
+        // Правка ниже каретки: каретка на месте, но содержимое сменилось.
         const editor = group().getActiveEditor()!;
         editor.applyExternalEdits([createTextEdit(createRange(1, 0, 1, 0), "// добавили\n")], "test");
         expect(service().isOpen()).toBe(false);

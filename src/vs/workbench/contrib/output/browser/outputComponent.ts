@@ -23,13 +23,8 @@ import { SwitchOutputMenu } from "./outputChannelActions.ts";
 export const OutputComponentDIToken = token<OutputComponent>("OutputComponent");
 
 /**
- * View-владелец вкладки OUTPUT: держит ОДИН detached-редактор (см.
- * `IEditorService.openDetached`) и переливает в него содержимое активного канала.
- * Как и в VS Code, контент Output — обычный read-only редактор над моделью с
- * языком `log`: выделение, копирование, Ctrl+F и подсветка достаются даром.
- *
- * Не `Component`: собственного корневого контрола нет — редактор попадает в
- * панель через `ViewsService.setViewBody`, ровно как виджет терминала.
+ * Не `Component`: своего корневого контрола нет — detached-редактор попадает в панель через
+ * `ViewsService.setViewBody`, как виджет терминала.
  */
 export class OutputComponent extends Disposable {
     public static dependencies = [
@@ -39,11 +34,8 @@ export class OutputComponent extends Disposable {
         MenuServiceDIToken,
     ] as const;
 
-    /** Редактор канала; создаётся лениво — до открытия вкладки он не нужен. */
     private pane: TextEditorPane<SyntheticTextModel> | null = null;
-    /** Канал, содержимое которого сейчас залито в редактор. */
     private loadedChannelId: string | null = null;
-    /** Селектор канала в шапке панели; наполняется из submenu `switchOutput`. */
     private readonly selector = new SelectBoxElement();
     private readonly switchMenu: IMenu;
 
@@ -54,9 +46,7 @@ export class OutputComponent extends Disposable {
         menuService: MenuService,
     ) {
         super();
-        // Пункты селектора живут в submenu `switchOutput` — как в VS Code, где
-        // `isSelection` превращает это же submenu в SelectBox. Живой IMenu, а не
-        // снимок: каналы регистрируются по мере появления.
+        // Живой IMenu, а не снимок: каналы регистрируются по мере появления.
         this.switchMenu = this.register(menuService.createMenu(SwitchOutputMenu));
         this.register(
             this.switchMenu.onDidChange(() => {
@@ -68,9 +58,6 @@ export class OutputComponent extends Disposable {
             // `workbench.action.output.show.<id>`, и путь должен быть один.
             this.channelEntries()[index]?.onSelect?.();
         };
-        // Вкладка панели — контейнер с единственной секцией: заголовка у неё
-        // нет (его роль играет таб), а переключатель каналов уезжает в
-        // таб-строку через `setViewTitleWidget`.
         this.viewsService.registerContainer({ id: OUTPUT_VIEW_ID, title: "OUTPUT", location: "panel", order: 1 });
         this.viewsService.registerView({
             canMoveView: true,
@@ -102,12 +89,8 @@ export class OutputComponent extends Disposable {
                 if (follow) this.revealLastLine(this.pane);
             }),
         );
-        // Ленивая инициализация: вид стал активным в своей части (в панели или во
-        // вторичной панели — где бы он ни стоял) — только тогда поднимаем
-        // редактор. Слушаем именно показ, а не пользовательскую
-        // активацию: при восстановлении сессии вкладку делает активной
-        // `LayoutService.restoreLayout()`, клика не будет вовсе — и панель
-        // показывалась бы с плейсхолдером до первого ручного переключения.
+        // Слушаем показ, а не пользовательскую активацию: при восстановлении сессии вкладку
+        // активирует `restoreLayout()` без клика, и панель висела бы с плейсхолдером.
         this.register(
             this.viewsService.onDidShowView((id) => {
                 if (id === OUTPUT_VIEW_ID) this.syncActiveChannel();
@@ -115,13 +98,11 @@ export class OutputComponent extends Disposable {
         );
     }
 
-    /** Фокус в редактор Output (для toggle-команды). */
     public focus(): void {
         this.syncActiveChannel();
         this.pane?.focusEditor();
     }
 
-    /** Приводит редактор к активному каналу: контент + метка вкладки. */
     private syncActiveChannel(): void {
         const channelId = this.outputService.getActiveChannelId();
         if (channelId === null) return;
@@ -134,12 +115,7 @@ export class OutputComponent extends Disposable {
         this.revealLastLine(pane);
     }
 
-    /** Приводит селектор к живому submenu: подписи каналов + отметка активного. */
-    /**
-     * Пункты-каналы submenu. Разделители отсеиваются здесь, в одном месте, — так
-     * индекс в селекторе и индекс пункта совпадают, и сопоставлять их обратно
-     * (а значит и ошибиться) уже негде.
-     */
+    /** Разделители отсеиваются здесь — индекс в селекторе совпадает с индексом пункта. */
     private channelEntries(): MenuItemEntry[] {
         return this.switchMenu.getEntries().filter((entry): entry is MenuItemEntry => entry.type !== "separator");
     }
@@ -147,8 +123,7 @@ export class OutputComponent extends Disposable {
     private syncSelector(): void {
         const items = this.channelEntries();
         const options = items.map((item) => ({ text: item.label }));
-        // Активный пункт помечен `toggled` — реестр отдаёт его с галочкой в иконке,
-        // так что искать активный канал повторно не нужно.
+        // Активный пункт (`toggled`) реестр отдаёт с галочкой в иконке.
         const activeIndex = items.findIndex((item) => item.icon === CHECKED_ICON);
         this.selector.setOptions(options, activeIndex);
         this.viewsService.setViewTitleWidget(OUTPUT_VIEW_ID, options.length > 0 ? this.selector : null);
@@ -156,16 +131,13 @@ export class OutputComponent extends Disposable {
 
     private ensurePane(): TextEditorPane<SyntheticTextModel> {
         if (this.pane !== null) return this.pane;
-        // Ресурс канала синтетический (`output:<id>`), как в VS Code: файла нет,
-        // содержимое даёт сервис.
         const pane = this.editorService.openDetached(
             Uri.from({ scheme: OUTPUT_URI_SCHEME, path: "channel" }),
             OUTPUT_LANGUAGE_ID,
         );
         pane.readOnly = true;
-        // Вкладка нижней панели, а не редакторская группа: фон берём панельный —
-        // как Problems (`problemsComponent.ts`) и терминал. С `editor.background`
-        // лог был прямоугольником чужого цвета внутри панели.
+        // Фон панельный, как у Problems и терминала: с `editor.background` лог был
+        // прямоугольником чужого цвета внутри панели.
         pane.backgroundToken = "panel.background";
         this.pane = pane;
         this.viewsService.setViewBody(OUTPUT_VIEW_ID, pane.view);
@@ -173,14 +145,9 @@ export class OutputComponent extends Disposable {
     }
 
     /**
-     * Тянуться ли за хвостом лога. Автоскролл переставляет курсор, а значит
-     * схлопывает выделение и утаскивает вьюпорт вниз — в активно пишущем канале
-     * (например `input.keybindings`, куда строка идёт на каждое нажатие) из-за
-     * этого нельзя было ни выделить текст, ни дочитать старые строки.
-     *
-     * Поэтому следуем за хвостом только пока пользователь у конца и ничего не
-     * выделяет — тот же смысл, что у `scrollLock` в `OutputEditor` VS Code,
-     * только выведенный из состояния, а не из отдельного тумблера.
+     * Автоскролл переставляет курсор: в активно пишущем канале (`input.keybindings`) нельзя было ни
+     * выделить текст, ни дочитать старое. Следуем, только пока человек у конца и ничего не выделяет
+     * (`scrollLock` эталона, выведенный из состояния).
      */
     private shouldFollowTail(pane: TextEditorPane): boolean {
         const viewState = pane.viewState;
@@ -190,11 +157,7 @@ export class OutputComponent extends Disposable {
         return viewState.selections.every((selection) => selection.active.line >= lastLine - 1);
     }
 
-    /**
-     * Автоскролл к последней строке (VS Code `revealLastLine`). Курсор в конец
-     * документа — скролл подтягивается за ним. Read-only движению курсора не
-     * мешает: он запрещает правки, а не навигацию.
-     */
+    /** Read-only движению курсора не мешает: он запрещает правки, а не навигацию. */
     private revealLastLine(pane: TextEditorPane): void {
         const lastLine = Math.max(0, pane.viewState.document.lineCount - 1);
         pane.goToPosition(lastLine, 0);

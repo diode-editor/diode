@@ -3,12 +3,7 @@ import { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import { parseChord, parseKeybinding } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import { EditorServiceDIToken } from "../../../services/editor/common/editorService.ts";
 
-// ─── Line operations ────────────────────────────────────────
-//
-// Строчные операции VS Code (`editor/contrib/linesOperations`): дублирование,
-// перемещение и удаление строк. Бинды — линуксовый канон VS Code: копирование
-// строк — `ctrl+shift+alt+↑/↓`, потому что `shift+alt+↑/↓` (дефолт Windows/mac)
-// на Linux — и у нас — занят мультикурсором (см. multiCursorActions.ts).
+// Копирование строк — `ctrl+shift+alt+↑/↓` (линуксовый канон VS Code): `shift+alt+↑/↓` занят мультикурсором.
 
 export const copyLinesUpAction: CommandAction = {
     id: "editor.action.copyLinesUpAction",

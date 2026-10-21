@@ -30,29 +30,23 @@ import type { IKeybindingRowStyles } from "./keybindingRows.ts";
 import { buildKeybindingHeaderRow, buildKeybindingRow, describeKeybindingRow } from "./keybindingRows.ts";
 
 /**
- * Схема ресурса вкладки Keyboard Shortcuts. Настоящего файла за ней нет — это
- * идентичность вкладки: `EditorService.openPane` по ней переключается на уже
- * открытую вкладку вместо второй такой же (приём `extension:`).
+ * Файла за схемой нет — это идентичность вкладки: `EditorService.openPane` по ней переключается на уже
+ * открытую вкладку вместо второй (приём `extension:`).
  */
 export const KEYBINDINGS_EDITOR_SCHEME = "keybindings";
 
-/** Ресурс вкладки; вкладка одна на окно, поэтому путь фиксированный. */
+/** Вкладка одна на окно — путь фиксированный. */
 export function keybindingsEditorUri(): Uri {
     return Uri.from({ scheme: KEYBINDINGS_EDITOR_SCHEME, path: "global" });
 }
 
-/**
- * Минимальный срез полосы редакторов: открыть вкладку шорткатов.
- * `EditorService` соответствует ему структурно — связывание делает DI-модуль
- * (как `ExtensionsEditorTargetDIToken` у магазина).
- */
 export interface IKeybindingsEditorTarget {
     openPane(pane: IEditorPane, options?: { focus?: boolean; group?: EditorGroup }): void;
 }
 
 export const KeybindingsEditorTargetDIToken = token<IKeybindingsEditorTarget>("KeybindingsEditorTarget");
 
-/** Узкий срез рекордера: показать оверлей и дождаться чорда (`null` — отмена). */
+/** `null` — отмена. */
 export interface IKeybindingRecorder {
     record(commandTitle: string): Promise<KeybindingChord | null>;
 }
@@ -68,9 +62,8 @@ const ROW_STYLES: IKeybindingRowStyles = {
 };
 
 /**
- * Колонки считаются под ширину, а ширина известна только в раскладке — приём
- * `ExtensionPageElement`: пересборка строк на СМЕНУ ширины прямо в
- * `performLayout`, до раскладки ребёнка, чтобы первый кадр был полон.
+ * Ширина известна только в раскладке — приём `ExtensionPageElement`: строки пересобираются на СМЕНУ ширины
+ * прямо в `performLayout`, до раскладки ребёнка, чтобы первый кадр был полон.
  */
 class KeybindingsEditorElement extends TUIElement {
     private lastWidth: number | null = null;
@@ -97,14 +90,7 @@ class KeybindingsEditorElement extends TUIElement {
     }
 }
 
-/**
- * Вкладка Keyboard Shortcuts: таблица всех команд с биндингами (`Command |
- * Keybinding | When | Source`), строкой поиска и редактированием — Enter или
- * двойной клик по строке открывают рекордер, контекст-меню несёт
- * Change/Add/Remove/Reset/Copy. Мутации применяются мгновенно
- * ({@link IKeybindingsEditorService}); ошибка записи показывается строкой.
- * Read-only как вкладка (без текстовой проекции — `viewState` нет).
- */
+/** Мутации применяются мгновенно, ошибка записи — строкой. Read-only как вкладка: текстовой проекции нет. */
 export class KeybindingsEditorPane extends Disposable implements IEditorPane {
     public readonly uri = keybindingsEditorUri();
     public readonly label = "Keyboard Shortcuts";
@@ -117,12 +103,11 @@ export class KeybindingsEditorPane extends Disposable implements IEditorPane {
         listId: "keybindingsList",
         placeholder: "Type to search keybindings",
     });
-    /** Строки как показаны: id строки → её запись. */
     private readonly rowItems = new Map<string, IKeybindingItem>();
     private items: IKeybindingItem[];
-    /** Ширина, под которую посчитаны колонки; `null` — до первой раскладки. */
+    /** `null` — до первой раскладки. */
     private width: number | null = null;
-    /** Ошибка последней мутации — строкой под шапкой до следующей успешной. */
+    /** Держится до следующей успешной мутации. */
     private operationError: string | null = null;
 
     public constructor(
@@ -132,7 +117,6 @@ export class KeybindingsEditorPane extends Disposable implements IEditorPane {
         private readonly recorder: IKeybindingRecorder,
         private readonly contextMenu: ContextMenuService,
         private readonly clipboard: IClipboard,
-        /** Стиль подписи комбинаций: на маке — глифы «⇧⌘K» (ОС клавиатуры, см. `keybindingLabelStyle`). */
         private readonly labelStyle: () => KeybindingLabelStyle,
     ) {
         super();
@@ -183,21 +167,17 @@ export class KeybindingsEditorPane extends Disposable implements IEditorPane {
         this.control.focusInput();
     }
 
-    /** Программный фильтр (пункт «Show Conflicts», тесты). */
     public setFilter(query: string): void {
         this.control.setQuery(query);
     }
 
-    // ─── Действия строки ─────────────────────────────────────────────────────
-
-    /** Enter/двойной клик: перезаписать биндинг строки (у строки без биндинга — добавить). */
+    /** У строки без биндинга — добавить. */
     private async changeKeybinding(item: IKeybindingItem): Promise<void> {
         const chord = await this.recorder.record(item.title);
         if (chord === null) return;
         await this.runMutation(this.service.defineKeybinding(item.commandId, chord, this.snapshotOf(item)));
     }
 
-    /** Дополнительный биндинг, не снимая существующий. */
     private async addKeybinding(item: IKeybindingItem): Promise<void> {
         const chord = await this.recorder.record(item.title);
         if (chord === null) return;
@@ -263,26 +243,19 @@ export class KeybindingsEditorPane extends Disposable implements IEditorPane {
         return entries;
     }
 
-    /** Снапшот записи реестра, которой соответствует строка; `undefined` — строка без биндинга. */
+    /** `undefined` — строка без биндинга. */
     private snapshotOf(item: IKeybindingItem): IKeybindingEntrySnapshot | undefined {
-        // У строк модели chord и source заданы вместе (bound ⇒ оба; unbound ⇒ оба null),
-        // так что вторая половина условия недостижима независимо от первой — она нужна лишь
-        // для сужения типа `source` до KeybindingSource. Поведение «unbound ⇒ undefined»
-        // проверяет тест на строку без биндинга (previous отсутствует).
+        // При инварианте chord⇔source вторая половина недостижима — она лишь сужает тип `source`.
         // Stryker disable next-line ConditionalExpression,LogicalOperator: избыточная двойная проверка при инварианте chord⇔source — внутренние мутации условия не дают наблюдаемой строки модели.
         if (item.chord === null || item.source === null) return undefined;
         return { chord: item.chord, commandId: item.commandId, when: item.when, source: item.source };
     }
-
-    // ─── Строки ──────────────────────────────────────────────────────────────
 
     private readItems(): IKeybindingItem[] {
         return buildKeybindingItems(this.keybindings.listBindings(), this.commands.listCommands());
     }
 
     private rebuildRows(): void {
-        // До первой раскладки ширины нет — и строк тоже: колонки без ширины
-        // посчитать не из чего.
         if (this.width === null) return;
         const filtered = filterKeybindingItems(this.items, this.control.getQuery(), this.labelStyle());
 
