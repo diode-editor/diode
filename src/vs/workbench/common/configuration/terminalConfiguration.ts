@@ -11,7 +11,6 @@ export const terminalConfiguration = {
             enum: ["auto", "legacy", "csi-u", "kitty"],
             description: 'Tier override: "auto" detects the terminal capabilities tier.',
         },
-        // ОС клавиатуры (не процесса): по ssh с мака раскладка должна быть маковской.
         "keyboard.platform": {
             scope: "machine",
             type: "string",
@@ -20,31 +19,25 @@ export const terminalConfiguration = {
             description:
                 'Keyboard platform: "auto" detects it (LC_DIODE_PLATFORM, the terminal, the local OS); set it when detection guesses wrong, e.g. over ssh from a Mac.',
         },
-        // Capability force-overrides, e.g. { "osc52": false }. Empty = use detection.
         "terminal.capabilities": {
             scope: "machine",
             type: "object",
             default: {},
             description: "Force individual terminal capabilities on or off; empty uses detection.",
         },
-        // Force modes on/off, e.g. { "ssh": true }. Wins over auto-detection.
         "terminal.modes": {
             scope: "machine",
             type: "object",
             default: {},
             description: "Force terminal modes on or off; wins over auto-detection.",
         },
-        // Declare custom manual-only modes, e.g. { "presentation": {} } — usable in `when`.
         "terminal.customModes": {
             scope: "window",
             type: "object",
             default: {},
             description: "Declare custom manual-only terminal modes usable in when-clauses.",
         },
-        // Встроенный терминал: вкладки терминалов — ключи, дефолты, enum и
-        // описания дословно из `terminalConfiguration.ts` эталона (узел
-        // `terminal.integrated`). Не поддержанные ключи названы в
-        // docs/arch/workbench/Terminal.md.
+        // `terminal.integrated.*` — дословно эталон; неподдержанные ключи — docs/arch/workbench/Terminal.md.
         "terminal.integrated.tabs.enabled": {
             scope: "window",
             type: "boolean",
@@ -116,8 +109,7 @@ export const terminalConfiguration = {
             description:
                 "Whether to hide the terminal view when the last terminal is closed. This will only happen when the terminal is the only visible view in the view container.",
         },
-        // Своя настройка diode, в эталоне её нет: у vscode нет хост-терминала,
-        // цвета встроенного всегда из темы — это и есть дефолт "theme".
+        // Своя: у vscode нет хост-терминала, цвета встроенного всегда из темы — это дефолт "theme".
         "terminal.integrated.colorSource": {
             scope: "application",
             type: "string",

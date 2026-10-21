@@ -10,28 +10,15 @@ import { QuickPickElement } from "./quickPickElement.ts";
 export const QuickInputComponentDIToken = token<QuickInputComponent>("QuickInputComponent");
 
 /**
- * Компонент квик-инпута: владеет ЕДИНСТВЕННЫМ переиспользуемым
- * {@link QuickPickElement} (внутри него — InputElement строки запроса) и его
- * overlay-сессией. Виджет общий для всех «quick»-флоу приложения: InputBox и
- * list-pick ведёт {@link import("./quickInputService.ts").QuickInputService},
- * Quick Open (Ctrl+P / команды / goto-line) —
- * {@link import("../../../contrib/quickaccess/browser/quickOpenService.ts").QuickOpenService};
- * одновременно открыт максимум один.
- *
- * Overlay-хост (корневая BodyElement-view приложения) приходит через late-init
- * шов {@link attachHost} — его зовёт владелец корневой view (сейчас
- * WorkbenchComponent) после её постройки, как у DialogService/ExplorerComponent.
+ * Владеет ЕДИНСТВЕННЫМ {@link QuickPickElement} и его overlay-сессией: виджет
+ * общий для QuickInputService и QuickOpenService, одновременно открыт максимум один.
  */
 export class QuickInputComponent extends Component {
     public static dependencies = [] as const;
 
     public readonly view: QuickPickElement;
 
-    /**
-     * Уведомление о ЛЮБОМ закрытии сессии (Escape / клик мимо / {@link hide}).
-     * Клиент-владелец текущего показа ставит его при открытии — так отмена
-     * доходит до него единым путём, каким бы способом пикер ни закрылся.
-     */
+    /** О ЛЮБОМ закрытии сессии — так отмена доходит до владельца показа единым путём. */
     public onDidClose: (() => void) | null = null;
 
     private host: BodyElement | null = null;
@@ -49,7 +36,7 @@ export class QuickInputComponent extends Component {
         });
     }
 
-    /** Вызывается владельцем корневой view до первого показа пикера. */
+    /** До первого показа пикера. */
     public attachHost(host: BodyElement): void {
         this.host = host;
         this.session = host.overlayLayer.createSession(this.view, new Point(0, 0), {
@@ -58,7 +45,6 @@ export class QuickInputComponent extends Component {
             closeOnEscape: true,
             pointerPolicy: "close-on-outside",
             onClose: () => {
-                // Клик мимо / Escape / программное закрытие — один путь.
                 this.onDidClose?.();
             },
         });
@@ -68,18 +54,14 @@ export class QuickInputComponent extends Component {
         return this.session?.isOpen() ?? false;
     }
 
-    /**
-     * Позиционирует пикер (горизонтальный центр, ~10% от верха экрана),
-     * открывает сессию и фокусирует строку запроса. Без прикреплённого хоста —
-     * no-op по позиции/сессии (как раньше у контроллеров без setHostView).
-     */
+    /** Без прикреплённого хоста — no-op по позиции и сессии. */
     public show(): void {
         this.updatePosition();
         this.session?.open();
         this.view.focus();
     }
 
-    /** Закрывает сессию (onDidClose уведомит клиента); no-op, если уже закрыта. */
+    /** No-op, если уже закрыта. */
     public hide(): void {
         if (this.session?.isOpen()) {
             this.session.close();
@@ -94,7 +76,7 @@ export class QuickInputComponent extends Component {
 
         const width = Math.min(80, Math.max(40, screenW - 4));
         const px = Math.max(0, Math.floor((screenW - width) / 2));
-        // Sit just below the menu bar (row 1)
+        // Ниже строки меню (row 0).
         const py = Math.max(1, Math.floor(screenH * 0.1));
 
         this.view.preferredWidth = width;

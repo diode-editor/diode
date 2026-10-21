@@ -2,9 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { editorConfiguration } from "./editorConfiguration.ts";
 
-// Схема настроек onSave (#196, хвост): дефолты ОБЯЗАНЫ быть выключены — с
-// ними поведение сохранения не меняется ни на байт. Тип и описание — контракт
-// валидатора settings.json и автодополнения ключей (diode-settings).
+// Дефолты onSave обязаны быть выключены (#196): с ними сохранение не меняется ни на байт.
 
 describe("editorConfiguration — emptySelectionClipboard", () => {
     it("boolean, включён по умолчанию — как в VS Code", () => {
@@ -80,8 +78,7 @@ describe("editorConfiguration — onSave-настройки", () => {
         const schema = editorConfiguration.properties["editor.codeActionsOnSave"];
         expect(schema.type).toEqual(["object", "array"]);
         expect(schema.default).toEqual({});
-        // Обе половины склейки: «run on save» есть только в первой,
-        // «hierarchically» — только во второй.
+        // По одной фразе из каждой половины склейки.
         expect(schema.description).toContain("run on save");
         expect(schema.description).toContain("hierarchically");
     });

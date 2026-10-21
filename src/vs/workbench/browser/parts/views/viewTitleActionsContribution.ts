@@ -11,17 +11,10 @@ import { ViewsServiceDIToken } from "./viewsService.ts";
 export const ViewTitleActionsContributionDIToken = token<ViewTitleActionsContribution>("ViewTitleActionsContribution");
 
 /**
- * Живой тулбар заголовков view: `when` и `enablement` их пунктов зависят от
- * контекст-ключей, а сам заголовок пересобирался только со сменой состава
- * секций. Отсюда и залипания: пара Collapse All / Expand All в Search
- * переключается по ключам, которые ставит сам список результатов, но заголовок
- * их не видел.
- *
- * Событие уже коалесцировано сервисом (одно на тик, только реально
- * изменившиеся ключи), поэтому пере-резолв здесь безусловный: разбирать, какие
- * именно ключи задеты, значило бы парсить when-выражения всех пунктов. Резолвят
- * только показанные контейнеры — скрытые досчитываются при показе (см.
- * `ViewsService.refreshContainerTitleActions`).
+ * `when` и `enablement` пунктов заголовка зависят от контекст-ключей, а заголовок сам
+ * пересобирается только со сменой состава секций (залипала пара Collapse All / Expand All
+ * в Search). Пере-резолв безусловный: событие уже коалесцировано, а разбирать задетые ключи
+ * значило бы парсить when-выражения всех пунктов.
  */
 export class ViewTitleActionsContribution extends Disposable implements IWorkbenchContribution {
     public static dependencies = [ContextKeyServiceDIToken, ViewsServiceDIToken] as const;

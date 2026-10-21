@@ -14,14 +14,9 @@ export const WorkbenchContributionsRegistryDIToken = token<WorkbenchContribution
 );
 
 /**
- * Реестр workbench-contributions: по фазе инстанцирует свою пачку через DI
- * (`accessor.get(token)` — авто-инжект `static dependencies` + кэш-синглтон) и
- * забирает владение жизнью (`register`), поэтому dispose реестра сматывает все
- * contribution'ы. `blockStartup` корень (`WorkbenchComponent`) прогоняет сам, в
- * конструкторе; остальное привязано к фазам `LifecycleService`: корень зовёт
- * {@link instantiateByPhase} на каждый переход — `ready` наступает в `mount()`,
- * `eventually` — после первого кадра. `afterRestored` отдельного перехода не
- * имеет: его пачка идёт первой в переходе в `eventually`.
+ * Владеет жизнью созданных contribution'ов. `blockStartup` корень прогоняет сам
+ * в конструкторе, прочие фазы — по переходам `LifecycleService`; у `afterRestored`
+ * своего перехода нет: его пачка идёт первой в переходе в `eventually`.
  */
 export class WorkbenchContributionsRegistry extends Disposable {
     public static dependencies = [ServiceAccessorDIToken, WorkbenchContributionsDIToken] as const;
@@ -43,7 +38,6 @@ export class WorkbenchContributionsRegistry extends Disposable {
         const tracer = getInstantiationTracer();
         for (const registration of this.registrations) {
             if (registration.phase !== phase) continue;
-            // Под трассой старта создание помечено фазой и флагом контрибуции.
             const get = () => this.accessor.get(registration.token);
             this.register(tracer === undefined ? get() : tracer.contribution(phase, get));
         }

@@ -27,7 +27,6 @@ describe("SidebarService.unregisterViewlet", () => {
         service.unregisterViewlet("a");
         expect(service.getActiveViewletId()).toBeNull();
         expect(content.at(-1)).toBeNull();
-        // Снятый больше не показывается.
         service.showViewlet("a", false);
         expect(service.getActiveViewletId()).toBeNull();
     });

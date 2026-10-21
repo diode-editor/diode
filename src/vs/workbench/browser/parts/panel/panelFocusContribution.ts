@@ -10,7 +10,6 @@ import { PanelServiceDIToken } from "./panelService.ts";
 
 export const PanelFocusContributionDIToken = token<PanelFocusContribution>("PanelFocusContribution");
 
-/** Возврат фокуса в редактор, когда содержимое нижней панели уходит со сцены (см. {@link PaneCompositeFocusContribution}). */
 export class PanelFocusContribution extends PaneCompositeFocusContribution {
     public static dependencies = [PanelServiceDIToken, PanelComponentDIToken, EditorServiceDIToken] as const;
 

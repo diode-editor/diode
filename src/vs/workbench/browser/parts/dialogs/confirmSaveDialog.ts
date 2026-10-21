@@ -11,18 +11,13 @@ const BUTTONS_TOTAL_WIDTH = 14 + 2 + 10 + 2 + 8;
 const MAX_INNER_WIDTH = 70;
 const MAX_FILENAME_DISPLAY = MAX_INNER_WIDTH - 4; // -3 for "   " prefix, -1 for "?" suffix
 
-/**
- * Диалог «сохранить изменения?». Компонент: сервисы в конструктор, view —
- * дерево контролов; цвета — только из активной темы. Живёт один экземпляр
- * на приложение — `DialogService` переиспользует его через {@link setFilename}.
- */
+/** Один экземпляр на приложение — `DialogService` переиспользует его через {@link setFilename}. */
 export class ConfirmSaveDialog extends DialogComponent {
     public onSave?: () => void;
     public onDontSave?: () => void;
     public onCancel?: () => void;
 
     private readonly filenameLabel: TextLabelElement;
-    /** Левый спейсер ряда кнопок — его ширина центрирует кнопки под имя файла. */
     private readonly buttonsSpacer: TextLabelElement;
 
     private readonly dontSaveButton: ButtonElement;
@@ -42,7 +37,6 @@ export class ConfirmSaveDialog extends DialogComponent {
 
         const stack = this.buildFrame("Visual Studio Code");
 
-        // "! " — the "!" is at index 0
         const questionLabel = new TextLabelElement("! Do you want to save the changes you made to");
         questionLabel.setCharStyle(0, { fg: DIALOG_STYLES.warningFg });
         stack.addChild(questionLabel, { width: "stretch", height: 1 });

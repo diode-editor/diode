@@ -27,11 +27,7 @@ function makeItems(count: number): QuickPickItem[] {
     return Array.from({ length: count }, (_, i) => ({ label: `file-${String(i + 1)}.ts` }));
 }
 
-/**
- * Мышь гоняем через настоящее дерево, а не dispatchEvent'ом: пикер ловит
- * события всплытием из строк списка, и подмена этого пути мимо приложения
- * проверяла бы не то, что происходит у пользователя.
- */
+/** Через настоящее дерево, а не dispatchEvent'ом: пикер ловит события всплытием из строк списка. */
 function mount(items: QuickPickItem[]): { picker: QuickPickElement; app: TestApp } {
     const picker = new QuickPickElement();
     picker.preferredWidth = 30;
@@ -42,7 +38,6 @@ function mount(items: QuickPickItem[]): { picker: QuickPickElement; app: TestApp
     return { picker, app };
 }
 
-/** Экранная строка первого элемента списка: рамка + запрос + сепаратор. */
 const FIRST_ROW_Y = 4; // 1-based: рамка(1) + запрос(2) + сепаратор(3) + первый(4)
 
 describe("QuickPickElement — мышь", () => {
@@ -102,7 +97,6 @@ describe("QuickPickElement — мышь", () => {
         app.backend.simulateMouse(token({ action: "move", x: 5, y: FIRST_ROW_Y + 1 }));
         expect(picker.selectedIndex).toBe(1);
 
-        // Строка запроса — выше списка.
         app.backend.simulateMouse(token({ action: "move", x: 5, y: 2 }));
         expect(picker.selectedIndex).toBe(1);
     });

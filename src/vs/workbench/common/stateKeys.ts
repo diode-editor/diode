@@ -1,48 +1,38 @@
 import type { IStateDescriptor } from "../../platform/state/common/iStateService.ts";
 
 /**
- * Реестр дескрипторов машинного состояния — «инструкция», какие свойства у
- * каждого сохраняемого значения (ключ, scope, дефолт, версия). Параллель
- * `ContextKeys.ts`. Потребители — {@link WorkbenchStateService} (открытые
- * редакторы) и {@link LayoutService} (layout); движок и правила —
- * docs/arch/State.md.
- *
- * Scope по решению: всё состояние UI/сессии — **`workspace`** (по-проектно);
- * без открытого проекта его обслуживает стор пустого окна (`empty-window`). Дефолты дублируют встроенные
- * значения `WorkbenchLayoutElement` (30 / 12), чтобы «нет сохранённого значения»
- * воспроизводило исходное поведение.
+ * Состояние UI/сессии — `workspace` (docs/arch/State.md); `global` — только вкус
+ * пользователя, а не свойство проекта. Дефолты дублируют встроенные значения
+ * `WorkbenchLayoutElement` (30 / 12): «нет сохранённого» = исходное поведение.
  */
 
-/** Снимок открытых редакторов группы. */
 export interface IOpenEditorsState {
-    /** Абсолютные пути открытых файлов в позиционном порядке вкладок. */
+    /** Абсолютные пути в порядке вкладок. */
     readonly files: readonly string[];
-    /** Индекс активной вкладки в `files` (или -1, если группа пуста). */
+    /** `-1` — группа пуста. */
     readonly activeIndex: number;
 }
 
-/** Ширина сайдбара (explorer) в колонках. */
+/** В колонках. */
 export const SIDEBAR_WIDTH_STATE: IStateDescriptor<number> = {
     key: "workbench.sideBar.width",
     scope: "workspace",
     default: 30,
 };
 
-/** Видимость сайдбара. */
 export const SIDEBAR_VISIBLE_STATE: IStateDescriptor<boolean> = {
     key: "workbench.sideBar.visible",
     scope: "workspace",
     default: true,
 };
 
-/** Видимость нижней панели (Problems/Output/…). */
 export const PANEL_VISIBLE_STATE: IStateDescriptor<boolean> = {
     key: "workbench.panel.visible",
     scope: "workspace",
     default: false,
 };
 
-/** Высота нижней панели в строках. */
+/** В строках. */
 export const PANEL_HEIGHT_STATE: IStateDescriptor<number> = {
     key: "workbench.panel.height",
     scope: "workspace",
@@ -50,8 +40,7 @@ export const PANEL_HEIGHT_STATE: IStateDescriptor<number> = {
 };
 
 /**
- * Скрыта ли вторичная боковая панель — ключ и смысл эталона
- * (`LayoutStateKeys.AUXILIARYBAR_HIDDEN`). `null` — в этом воркспейсе ещё не
+ * Ключ эталона (`LayoutStateKeys.AUXILIARYBAR_HIDDEN`). `null` — в воркспейсе ещё не
  * сохраняли: видимость выводит `workbench.secondarySideBar.defaultVisibility`.
  */
 export const AUXILIARYBAR_HIDDEN_STATE: IStateDescriptor<boolean | null> = {
@@ -60,56 +49,39 @@ export const AUXILIARYBAR_HIDDEN_STATE: IStateDescriptor<boolean | null> = {
     default: null,
 };
 
-/**
- * Ширина вторичной боковой панели в колонках (у эталона `auxiliaryBar.size`).
- * `null` — пользователь её не задавал: действует динамический дефолт
- * раскладки (как у сайдбара, но не шире четверти окна).
- */
+/** В колонках. `null` — не задавал пользователь: динамический дефолт раскладки (не шире четверти окна). */
 export const AUXILIARYBAR_SIZE_STATE: IStateDescriptor<number | null> = {
     key: "workbench.auxiliaryBar.size",
     scope: "workspace",
     default: null,
 };
 
-/**
- * Активный контейнер вторичной боковой панели — ключ эталона
- * (`AuxiliaryBarPart.activeViewSettingsKey`). Пустая строка — «не сохранено»,
- * тогда активен первый контейнер части.
- */
+/** Ключ эталона (`AuxiliaryBarPart.activeViewSettingsKey`). `""` — не сохранено: активен первый контейнер. */
 export const AUXILIARYBAR_ACTIVE_VIEW_STATE: IStateDescriptor<string> = {
     key: "workbench.auxiliarybar.activepanelid",
     scope: "workspace",
     default: "",
 };
 
-/**
- * Активная вкладка нижней панели (id view'а). Пустая строка — «не сохранено»,
- * тогда активной остаётся первая зарегистрированная вкладка.
- */
+/** `""` — не сохранено: активна первая зарегистрированная вкладка. */
 export const PANEL_ACTIVE_VIEW_STATE: IStateDescriptor<string> = {
     key: "workbench.panel.activeView",
     scope: "workspace",
     default: "",
 };
 
-/**
- * Режим отображения результатов поиска: `list` — файлы плоским списком (матчи
- * сворачиваются под файлом), `tree` — иерархия каталогов (как в VS Code).
- */
+/** `list` — файлы плоским списком с матчами под файлом, `tree` — иерархия каталогов. */
 export type SearchViewMode = "tree" | "list";
 
 export const SEARCH_VIEW_MODE_STATE: IStateDescriptor<SearchViewMode> = {
     key: "workbench.search.viewMode",
     scope: "workspace",
     default: "list",
-    // v2: семантика сменилась — прежний "tree" (файл → матчи) стал "list", а
-    // "tree" теперь иерархия каталогов; старый "flat" умер. Любое старое
-    // значение приводится к "list".
+    // v2: прежний "tree" (файл → матчи) стал "list", "flat" умер — любое старое значение → "list".
     version: 2,
     migrate: () => "list",
 };
 
-/** Раскрыт ли блок «files to include/exclude» панели поиска (Toggle Search Details). */
 export const SEARCH_QUERY_DETAILS_STATE: IStateDescriptor<boolean> = {
     key: "workbench.search.queryDetailsExpanded",
     scope: "workspace",
@@ -117,10 +89,8 @@ export const SEARCH_QUERY_DETAILS_STATE: IStateDescriptor<boolean> = {
 };
 
 /**
- * Режим дифф-вкладок (US-22): `auto` — side-by-side с авто-фолбэком в inline на
- * узкой панели; тумблер «Diff: Toggle Inline View» пишет явный режим (после
- * первого использования `auto` возвращается только сбросом стейта — осознанный
- * люфт, у VS Code тумблер тоже перекрывает breakpoint-настройку).
+ * `auto` — side-by-side с фолбэком в inline на узкой панели. После тумблера «Diff:
+ * Toggle Inline View» `auto` возвращается только сбросом стейта — как в VS Code.
  */
 export type DiffViewMode = "auto" | "inline" | "side-by-side";
 
@@ -130,7 +100,6 @@ export const DIFF_VIEW_MODE_STATE: IStateDescriptor<DiffViewMode> = {
     default: "auto",
 };
 
-/** Режим списка изменений Source Control: плоско (как VS Code list) или дерево папок. */
 export type ScmViewMode = "tree" | "flat";
 
 export const SCM_VIEW_MODE_STATE: IStateDescriptor<ScmViewMode> = {
@@ -139,53 +108,42 @@ export const SCM_VIEW_MODE_STATE: IStateDescriptor<ScmViewMode> = {
     default: "flat",
 };
 
-/**
- * Развёрнута ли панель описания в suggest-попапе (тумблер
- * `toggleSuggestionDetails`). Как в VS Code — по умолчанию свёрнута, и выбор
- * пользователя переживает рестарт. Область global: это привычка человека, а не
- * свойство проекта.
- */
 export const SUGGEST_DETAILS_VISIBLE_STATE: IStateDescriptor<boolean> = {
     key: "editor.suggest.showDetails",
     scope: "global",
     default: false,
 };
 
-/** Черновик сообщения коммита (commit input box) — переживает рестарт. */
 export const SCM_INPUT_MESSAGE_STATE: IStateDescriptor<string> = {
     key: "workbench.scm.inputMessage",
     scope: "workspace",
     default: "",
 };
 
-/** Открытые файлы + активная вкладка. */
 export const OPEN_EDITORS_STATE: IStateDescriptor<IOpenEditorsState> = {
     key: "workbench.editors.openEditors",
     scope: "workspace",
     default: { files: [], activeIndex: -1 },
 };
 
-/** Снимок одной группы редакторов: файлы вкладок + активная (индекс в `files`). */
 export interface IEditorGroupSnapshot {
     readonly files: readonly string[];
     readonly activeIndex: number;
     /**
-     * Вкладки любого вида в порядке полосы — по рецептам фабрик вкладок (E2).
-     * Есть — рестор идёт по нему, `files` остаётся для сборок, которые
-     * `editors` не знают (откат), и для прогрева грамматик.
+     * Есть — рестор идёт по нему; `files` остаётся для сборок, которые `editors`
+     * не знают (откат), и для прогрева грамматик.
      */
     readonly editors?: readonly ISerializedEditor[];
-    /** Активная вкладка — индекс в {@link editors}; `-1` — нет. */
+    /** Индекс в {@link editors}; `-1` — нет. */
     readonly activeEditor?: number;
 }
 
-/** Вкладка в сессии: вид (`typeId` фабрики) и её строка. */
 export interface ISerializedEditor {
+    /** `typeId` фабрики вкладок. */
     readonly typeId: string;
     readonly value: string;
 }
 
-/** Полоса групп редакторов: ось, группы, доли, активная группа (индекс). */
 export interface IEditorGroupsState {
     readonly orientation: "columns" | "rows";
     readonly groups: readonly IEditorGroupSnapshot[];
@@ -194,10 +152,8 @@ export interface IEditorGroupsState {
 }
 
 /**
- * Раскладка полосы групп редакторов (сплиты). `null` — снимка нет: рестор
- * падает назад на плоский {@link OPEN_EDITORS_STATE} (сессии до сплитов;
- * тот продолжает писаться плоским снимком активной группы — откат на старую
- * сборку ничего не теряет, unknown-key preservation хранит этот ключ).
+ * `null` — снимка нет: рестор падает на плоский {@link OPEN_EDITORS_STATE}. Тот
+ * продолжает писаться снимком активной группы, чтобы откат на старую сборку ничего не терял.
  */
 export const EDITOR_GROUPS_STATE: IStateDescriptor<IEditorGroupsState | null> = {
     key: "workbench.editors.groups",
@@ -205,29 +161,19 @@ export const EDITOR_GROUPS_STATE: IStateDescriptor<IEditorGroupsState | null> = 
     default: null,
 };
 
-/** Состояние view-секций одного контейнера сайдбара (см. `ViewsService`). */
 export interface IViewContainerViewsState {
     /**
-     * Свёрнутость секций по id. Явное значение — выбор пользователя и перебивает
-     * дефолт дескриптора (`IViewDescriptor.collapsed`); отсутствие id значит
-     * «стор про эту секцию ничего не знает», и действует дефолт. Различать это
-     * обязательно: иначе секция с дефолтом «свёрнута» сворачивалась бы на каждом
-     * старте, даже если пользователь её развернул.
-     *
-     * Стор прошлых версий держал здесь массив id свёрнутых секций — он читается
-     * как «перечисленные свёрнуты, про остальные ничего не известно».
+     * Явное значение перебивает дефолт дескриптора, отсутствие id — действует дефолт:
+     * иначе секция с дефолтом «свёрнута» сворачивалась бы на каждом старте.
+     * Массив — формат прошлых версий: перечисленные свёрнуты, про остальные неизвестно.
      */
     readonly collapsed: Readonly<Partial<Record<string, boolean>>> | readonly string[];
-    /** Веса (доли высоты) секций; после drag — фактические строки. */
+    /** Доли высоты; после drag — фактические строки. */
     readonly weights: Readonly<Record<string, number>>;
-    /**
-     * Id секций, скрытых пользователем через «⋯» контейнера. Поля может не
-     * быть — стор прошлых версий читается как «ничего не скрыто».
-     */
+    /** Поля нет в сторе прошлых версий — «ничего не скрыто». */
     readonly hidden?: readonly string[];
 }
 
-/** Свёрнутость и веса view-секций сайдбара, по контейнерам. */
 export const SIDEBAR_VIEWS_STATE: IStateDescriptor<Partial<Record<string, IViewContainerViewsState>>> = {
     key: "workbench.views.state",
     scope: "workspace",
@@ -235,35 +181,21 @@ export const SIDEBAR_VIEWS_STATE: IStateDescriptor<Partial<Record<string, IViewC
 };
 
 /**
- * Переносы видов и контейнеров (`IViewsCustomizations` эталона без бейджей):
- * только отличия от дефолта. Место — строка `ViewContainerLocationToString`
- * эталона (`"sidebar"` | `"panel"` | `"auxiliarybar"`).
+ * `IViewsCustomizations` эталона без бейджей: только отличия от дефолта. Место —
+ * строка `ViewContainerLocationToString` эталона.
  */
 export interface IViewsCustomizationsState {
-    /** Контейнер → место, где он стоит не по умолчанию (и места сгенерированных контейнеров). */
     readonly viewContainerLocations: Readonly<Partial<Record<string, string>>>;
-    /** Вид → контейнер, в котором он стоит не по умолчанию. */
     readonly viewLocations: Readonly<Partial<Record<string, string>>>;
 }
 
-/**
- * Переносы видов (у эталона — `views.customizations`, PROFILE). Здесь
- * `workspace`, как остальная раскладка: решение человека, отступление от
- * эталона (docs/TODO/SecondarySideBar.md).
- */
+/** У эталона scope PROFILE; `workspace` — решение человека (docs/TODO/SecondarySideBar.md). */
 export const VIEWS_CUSTOMIZATIONS_STATE: IStateDescriptor<IViewsCustomizationsState> = {
     key: "views.customizations",
     scope: "workspace",
     default: { viewContainerLocations: {}, viewLocations: {} },
 };
 
-/**
- * Id записей статус-бара, скрытых пользователем через контекстное меню полосы.
- *
- * Единственный `global` в этом файле — сознательное отступление от
- * «состояние UI по-проектно»: состав полосы это вкус пользователя, а не свойство
- * проекта, и VS Code хранит его так же (application-scope memento).
- */
 export const STATUS_BAR_HIDDEN_STATE: IStateDescriptor<readonly string[]> = {
     key: "workbench.statusbar.hidden",
     scope: "global",

@@ -30,7 +30,6 @@ describe("ViewsService — спиннер занятости", () => {
         expect(paneBusy(h.paneView("scm"), "scm.changes")).toBe(true);
         expect(paneBusy(h.paneView("scm"), "scm.graph")).toBe(false);
 
-        // Повтор того же кадра — no-op.
         h.service.setViewSpinner("scm.changes", "⠋");
         expect(paneBusy(h.paneView("scm"), "scm.changes")).toBe(true);
 
@@ -64,7 +63,6 @@ describe("ViewsService — спиннер занятости", () => {
         h.service.registerContainer({ id: PANEL, title: "OUTPUT", location: "panel" });
         h.service.registerView(testView("panel.output", PANEL, 10));
         h.service.attachContainer(PANEL);
-        // Показывать нечего — полосы в таб-строке нет вовсе.
         expect(h.header(PANEL)).toBeNull();
 
         h.service.setViewSpinner("panel.output", "⠋");
@@ -74,7 +72,6 @@ describe("ViewsService — спиннер занятости", () => {
         h.service.setViewSpinner("panel.output", "⠙");
         expect(h.header(PANEL)?.inspectState()).toEqual({ title: "", busy: true });
 
-        // Операция кончилась — полосе снова нечего показывать.
         h.service.setViewSpinner("panel.output", null);
         expect(h.header(PANEL)).toBeNull();
     });

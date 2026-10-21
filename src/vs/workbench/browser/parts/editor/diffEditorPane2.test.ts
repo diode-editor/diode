@@ -30,12 +30,6 @@ import type { DiffV2SideSource } from "./diffEditorPane2.ts";
 import { DiffEditorPane2 } from "./diffEditorPane2.ts";
 import type { TextEditorPane } from "./textEditorPane.ts";
 
-/**
- * Дифф v2 «до кадра»: команда → вкладка из двух настоящих редакторов —
- * выравнивание зонами, маркеры, парная свёртка, синхронный скролл, активная
- * сторона в getActiveEditor(), живой пересчёт по правкам сторон.
- */
-
 const AT_HEAD = [
     ...Array.from({ length: 14 }, (_, i) => `const value${String(i)} = ${String(i)};`),
     "old line",
@@ -99,7 +93,6 @@ describe("DiffEditorPane2 — юнит без workbench", () => {
 
         const folded = pane.activeTextPane.viewState.foldedRegions.filter((r) => r.isCollapsed);
         expect(folded.length).toBeGreaterThanOrEqual(2);
-        // Разворот первого куска оставляет второй свёрнутым с его плашкой.
         pane.activeTextPane.viewState.toggleFold(folded[0].startLine);
         const still = pane.activeTextPane.viewState.foldedRegions.filter((r) => r.isCollapsed);
         expect(still.length).toBe(folded.length - 1);
@@ -126,13 +119,11 @@ describe("DiffEditorPane2 — юнит без workbench", () => {
         expect(pane.readOnly).toBe(false);
         expect(modified.readOnly).toBe(false);
 
-        // Правка прямо в стороне (как набор с клавиатуры).
         modified.goToPosition(0, 5);
         modified.viewState.type("X");
         expect(pane.isModified).toBe(true);
         await settle(5);
 
-        // Первая строка стала изменённой парой; выравнивание сторон держится.
         expect(original.viewState.getViewLineCount()).toBe(modified.viewState.getViewLineCount());
         expect(modified.viewState.foldedRegions.some((r) => r.isCollapsed)).toBe(true);
         pane.dispose();
@@ -144,7 +135,6 @@ describe("DiffEditorPane2 — юнит без workbench", () => {
         const pane = makePane(base, { kind: "owned", model }, { debounceMs: 0 });
         const { modified } = sides(pane);
 
-        // Разворачиваем единственный кусок и правим в конце файла.
         const region = modified.viewState.foldedRegions.find((r) => r.isCollapsed);
         expect(region).toBeDefined();
         modified.viewState.toggleFold(region?.startLine ?? 0);
@@ -152,7 +142,6 @@ describe("DiffEditorPane2 — юнит без workbench", () => {
         modified.viewState.type("Z");
         await settle(5);
 
-        // Кусок остался развёрнутым (перенос по пересечению), каретка на месте.
         expect(modified.viewState.foldedRegions.some((r) => r.isCollapsed)).toBe(false);
         expect(modified.primaryCursorLine).toBe(40);
         pane.dispose();
@@ -166,12 +155,10 @@ describe("DiffEditorPane2 — юнит без workbench", () => {
         const region = modified.viewState.foldedRegions.find((r) => r.isCollapsed);
         expect(region).toBeDefined();
 
-        // Каретка программно в скрытой части куска; правка триггерит пересчёт.
         modified.viewState.selections = [{ anchor: { line: 10, character: 0 }, active: { line: 10, character: 0 } }];
         modified.viewState.type("Q");
         await settle(5);
 
-        // Кусок с кареткой развёрнут: строка каретки видима.
         expect(modified.viewState.logicalToVisualLine(modified.primaryCursorLine)).toBeGreaterThanOrEqual(0);
         pane.dispose();
     });
@@ -182,15 +169,12 @@ describe("DiffEditorPane2 — юнит без workbench", () => {
         const pane = makePane(base, { kind: "owned", model }, { debounceMs: 0 });
         const { modified, original } = sides(pane);
 
-        // Разворачиваем всё и ставим вьюпорт на середину.
         for (const region of modified.viewState.foldedRegions) {
             if (region.isCollapsed) modified.viewState.toggleFold(region.startLine);
         }
         await settle(5);
-        // Правка в конце: reveal каретки ставит вьюпорт куда-то вниз; сам
-        // ПЕРЕСЧЁТ (по debounce) не должен сдвигать его дальше, а у original
-        // при этом появляется зона-филлер — его проекция меняется, но окно
-        // остаётся зеркальным.
+        // Reveal каретки сдвигает вьюпорт, но сам ПЕРЕСЧЁТ не должен сдвигать его
+        // дальше; у original появляется зона-филлер, а окно остаётся зеркальным.
         modified.goToPosition(59, 0);
         modified.viewState.type("Z");
         const anchorDoc = modified.viewState.docLineForViewLine(modified.viewState.scrollTop);
@@ -202,8 +186,7 @@ describe("DiffEditorPane2 — юнит без workbench", () => {
     });
 
     it("кусок, накрывший каретку ДРУГОЙ стороны, разворачивается при пересчёте", async () => {
-        // Обе стороны — модели; правка в original не трогает каретку modified,
-        // припаркованную в скрытой части unchanged-куска.
+        // Правка в original не трогает каретку modified в скрытой части куска.
         const base = Array.from({ length: 40 }, (_, i) => `line${String(i)}`).join("\n");
         const original = ownedModel(base);
         const modified = ownedModel(base);
@@ -221,7 +204,6 @@ describe("DiffEditorPane2 — юнит без workbench", () => {
         sidePanes[0].viewState.type("X"); // правка original на строке 0
         await settle(5);
 
-        // Кусок вокруг каретки развёрнут — печатающий видит свою строку.
         expect(sidePanes[1].viewState.logicalToVisualLine(20)).toBeGreaterThanOrEqual(0);
         pane.dispose();
     });
@@ -243,22 +225,19 @@ describe("DiffEditorPane2 — юнит без workbench", () => {
         modified.viewState.toggleFold(collapsed[0].startLine);
         await settle(5);
 
-        // Возвращаем строке 10 исходное содержимое — первое изменение исчезает.
         modified.applyExternalEdits(
             [{ range: { start: { line: 10, character: 0 }, end: { line: 10, character: 9 } }, text: "line10" }],
             "revert",
         );
         await settle(5);
 
-        // Кусков стало меньше, и панель не разъехалась (выравнивание держится).
         expect(pane.sidePanes()[0].viewState.getViewLineCount()).toBe(modified.viewState.getViewLineCount());
         pane.dispose();
     });
 
     it("регион без прежних пар сворачивается, скрывая якорь скролла без прыжка", async () => {
-        // Стороны полностью разные: регионов нет. Замена original снимка на
-        // текст modified делает файлы идентичными — появляется первый регион
-        // (без прежних пар — свёрнут), и прежний якорь вьюпорта скрыт.
+        // Стороны полностью разные; замена снимка делает их идентичными — первый
+        // регион (без прежних пар — свёрнут), прежний якорь вьюпорта скрыт.
         const originalText = Array.from({ length: 40 }, (_, i) => `A${String(i)}`).join("\n");
         const modifiedText = Array.from({ length: 40 }, (_, i) => `B${String(i)}`).join("\n");
         const pane = makePane(originalText, modifiedText, { debounceMs: 0 });
@@ -269,7 +248,6 @@ describe("DiffEditorPane2 — юнит без workbench", () => {
         pane.replaceSnapshotContent("original", modifiedText);
         await settle(5);
 
-        // Единственный регион свёрнут (прежних пар не было), паника не случилась.
         expect(modified.viewState.foldedRegions.some((r) => r.isCollapsed)).toBe(true);
         pane.dispose();
     });
@@ -284,7 +262,6 @@ describe("DiffEditorPane2 — юнит без workbench", () => {
         expect(pane.revertHunkAtCaret()).toBe("reverted");
         expect(modified.getText()).toBe("alpha\nbravo\ncharlie");
 
-        // Правка undoable — Ctrl+Z стороны возвращает BRAVO.
         modified.undo();
         expect(modified.getText()).toBe("alpha\nBRAVO\ncharlie");
         await settle(5);
@@ -292,7 +269,6 @@ describe("DiffEditorPane2 — юнит без workbench", () => {
     });
 
     it("revert hunk: добавленные строки удаляются, удалённые — возвращаются", async () => {
-        // Добавленный в modified блок (в original его нет).
         const added = ownedModel("alpha\nNEW1\nNEW2\nbravo");
         const addedPane = makePane("alpha\nbravo", { kind: "owned", model: added }, { debounceMs: 0 });
         addedPane.sidePanes()[1].goToPosition(2, 0);
@@ -339,7 +315,7 @@ describe("DiffEditorPane2 — юнит без workbench", () => {
     it("revert hunk: вне ганка — no-hunk, снимочная modified-сторона — read-only", async () => {
         const model = ownedModel("alpha\nBRAVO\ncharlie");
         const pane = makePane("alpha\nbravo\ncharlie", { kind: "owned", model }, { debounceMs: 0 });
-        pane.sidePanes()[1].goToPosition(0, 0); // не-изменённая строка
+        pane.sidePanes()[1].goToPosition(0, 0);
         expect(pane.revertHunkAtCaret()).toBe("no-hunk");
         pane.dispose();
 
@@ -356,19 +332,16 @@ describe("DiffEditorPane2 — юнит без workbench", () => {
         const versionBefore = original.model.document.versionId;
 
         pane.replaceSnapshotContent("original", "a\nb\nc");
-        // Тот же текст — документ не тронут вовсе (ни версии, ни события).
         expect(original.model.document.versionId).toBe(versionBefore);
         expect(original.viewState).toBe(viewStateBefore);
 
         pane.replaceSnapshotContent("original", "a\nb2\nc");
         await settle(5);
-        // Перечитка меняет текст в том же документе: view-state и синк скролла живы.
         expect(original.viewState).toBe(viewStateBefore);
         expect(original.viewState.getViewLineCount()).toBe(modified.viewState.getViewLineCount());
         modified.viewState.scrollTop = 1;
         expect(original.viewState.scrollTop).toBe(1);
 
-        // Не-снимочную сторону заменить нельзя.
         const ownPane = makePane("x", { kind: "owned", model: ownedModel("x") });
         ownPane.replaceSnapshotContent("modified", "y");
         expect(ownPane.sidePanes()[1].getText()).toBe("x");
@@ -384,15 +357,12 @@ describe("DiffEditorPane2 — юнит без workbench", () => {
         const region = modified.viewState.foldedRegions.find((r) => r.isCollapsed);
         modified.viewState.toggleFold(region?.startLine ?? 0);
 
-        // Обычная правка: раскладка пересчитается после паузы набора, не сразу.
         modified.goToPosition(40, 0);
         modified.viewState.type("\n");
         expect(original.viewState.getViewLineCount()).not.toBe(modified.viewState.getViewLineCount());
 
-        // Свежий снимок — прежняя раскладка ничего о нём не говорит: сразу.
         pane.replaceSnapshotContent("original", `${base}\nother tail`);
         expect(original.viewState.getViewLineCount()).toBe(modified.viewState.getViewLineCount());
-        // Развёрнутый кусок так и остался развёрнутым (перенос, а не сброс).
         expect(modified.viewState.foldedRegions.some((r) => r.isCollapsed)).toBe(false);
         pane.dispose();
     });
@@ -409,13 +379,11 @@ describe("DiffEditorPane2 — юнит без workbench", () => {
 
         expect(pane.mode).toBe("inline");
         expect(pane.activeSide).toBe("modified");
-        // Modified несёт зону-призрак размером в удалённые строки; original пуст.
         expect(right.viewState.viewZones).toEqual([{ afterLine: 0, size: 2 }]);
         expect(left.viewState.viewZones).toEqual([]);
         expect(left.viewState.foldedRegions).toEqual([]);
         expect(left.component.view.hidden).toBe(true);
 
-        // Живой пересчёт остаётся живым и в inline: правка обновляет призраки.
         right.goToPosition(1, 0);
         right.viewState.type("X");
         await settle(5);
@@ -425,7 +393,6 @@ describe("DiffEditorPane2 — юнит без workbench", () => {
         await settle(5);
         expect(pane.mode).toBe("side-by-side");
         expect(left.component.view.hidden).toBe(false);
-        // Инвариант side-by-side восстановлен: число строк вью совпадает.
         expect(left.viewState.getViewLineCount()).toBe(right.viewState.getViewLineCount());
         pane.dispose();
     });
@@ -436,8 +403,7 @@ describe("DiffEditorPane2 — юнит без workbench", () => {
         pane.setModeOverride("inline");
         await settle(5);
 
-        // Каретка на строке перед местом изменения... ганок: original [1..2) ↔
-        // modified [1..2) — обычная пара, каретка прямо на изменённой строке.
+        // original [1..2) ↔ modified [1..2) — обычная пара.
         pane.sidePanes()[1].goToPosition(1, 0);
         expect(pane.revertHunkAtCaret()).toBe("reverted");
         expect(model.getText()).toBe(["keep", "dead", "tail"].join("\n"));
@@ -494,7 +460,6 @@ describe("Workbench — дифф v2", () => {
     let editors: IEditorService;
     let app: TestApp;
     let container: ReturnType<typeof createTestContainer>["container"];
-    /** Управляемый git-стаб: контент HEAD и ручной фаер onDidChangeFile (US-31). */
     let headContent: string;
     let fireGitChange: ((uris: readonly Uri[]) => void) | null;
 
@@ -502,7 +467,6 @@ describe("Workbench — дифф v2", () => {
         ws = createTempWorkspace({ prefix: "diode-diffv2-", files: { "a.txt": AT_HEAD } });
         const testContainer = createTestContainer();
         container = testContainer.container;
-        // Диск — модели пишут через файловый сервис; `git:` — сторона из ревизии.
         const registry = diskFileService();
         headContent = AT_HEAD;
         fireGitChange = null;
@@ -571,11 +535,9 @@ describe("Workbench — дифф v2", () => {
             .screenToString()
             .split("\n")
             .map((l) => l.replace(/\s+$/, ""));
-        // Изменённая пара на одной строке: слева -old, справа +XX.
         const pair = lines.find((l) => l.includes("old line") && l.includes("XXold line"));
         expect(pair).toBeDefined();
         expect(pair).toMatch(/15-.*│.*15\+/u);
-        // Парная плашка свёртки с обеих сторон разделителя.
         const plaque = lines.find((l) => l.includes("unchanged lines"));
         expect(plaque).toBeDefined();
         expect(plaque?.split("│").filter((part) => part.includes("unchanged lines"))).toHaveLength(2);
@@ -585,12 +547,10 @@ describe("Workbench — дифф v2", () => {
         const fileEditor = editors.getActiveEditor();
         const pane = await openV2();
 
-        // Модель общая: сторона и вкладка файла — один документ.
         expect(pane.activeTextPane.model === fileEditor?.model).toBe(true);
         expect(pane.readOnly).toBe(false);
-        expect(pane.isModified).toBe(true); // несохранённые XX
+        expect(pane.isModified).toBe(true);
 
-        // Правка прямо в стороне диффа доезжает до вкладки файла.
         pane.activeTextPane.goToPosition(15, 0);
         pane.activeTextPane.viewState.type("Y");
         expect(fileEditor?.getText()).toContain("Ytail");
@@ -601,14 +561,13 @@ describe("Workbench — дифф v2", () => {
         const pane = await openV2();
         const [original, modified] = pane.sidePanes();
 
-        // Правим ЧЕРЕЗ вкладку файла (модель общая, вкладка даже не активна).
+        // Правим через вкладку файла, даже не активную: модель общая.
         fileEditor?.applyExternalEdits(
             [{ range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } }, text: "W" }],
             "test",
         );
         await settle(250); // debounce 200
 
-        // Первая строка стала изменённой парой (фон и маркер по ней), стороны выровнены.
         expect(original.viewState.getViewLineCount()).toBe(modified.viewState.getViewLineCount());
         app.render();
         const lines = app.backend.screenToString().split("\n");
@@ -621,12 +580,9 @@ describe("Workbench — дифф v2", () => {
         const sideEditor = editors.getActiveEditor();
         expect(sideEditor).not.toBeNull();
         expect(sideEditor === pane.activeTextPane).toBe(true);
-        // Modified-сторона — живой буфер, редактируется; original — снимок HEAD.
         expect(sideEditor?.readOnly).toBe(false);
         expect(pane.sidePanes()[0].readOnly).toBe(true);
 
-        // Каретка проскакивает скрытый свёрткой кусок и зону-плашку: cursorDown
-        // с заголовка уводит на первую видимую документную строку за ними.
         const before = sideEditor?.viewState.selections[0].active.line ?? -1;
         container.get(CommandRegistryDIToken).execute("cursorDown");
         const after = sideEditor?.viewState.selections[0].active.line ?? -1;
@@ -654,11 +610,9 @@ describe("Workbench — дифф v2", () => {
         await settle(10);
         app.render();
 
-        // Обе стороны развернулись, плашек не осталось.
         const original = pane.sidePanes()[0];
         expect(original.viewState.foldedRegions.some((r) => r.isCollapsed)).toBe(false);
         expect(app.backend.screenToString()).not.toContain("unchanged lines");
-        // Выравнивание держится.
         expect(original.viewState.getViewLineCount()).toBe(modified.getViewLineCount());
     });
 
@@ -681,13 +635,11 @@ describe("Workbench — дифф v2", () => {
     });
 
     it("команды без активного файла и без git — тихий no-op и нотис", async () => {
-        // Без активного редактора (закрыть файл) — no-op.
         editors.editorGroups.activeGroup.closeTab(editors.editorGroups.activeGroup.activeIndex);
         container.get(CommandRegistryDIToken).execute("diode.scm.compareWithHead");
         await settle(20);
         expect(editors.editorGroups.activeGroup.editorCount).toBe(0);
 
-        // Файл есть, но провайдера оригинала нет — нотис.
         const bare = createTempWorkspace({ prefix: "diode-diffv2-bare-", files: { "b.txt": "x\n" } });
         try {
             container.get(CommandRegistryDIToken).execute("workbench.openFile", bare.path("b.txt"));
@@ -721,8 +673,7 @@ describe("Workbench — дифф v2", () => {
         const original = pane.sidePanes()[0];
         expect(original.getText()).toContain("old line");
 
-        // «Коммит из терминала»: HEAD теперь равен буферу, git-расширение
-        // фаерит по читанному ресурсу.
+        // «Коммит из терминала»: HEAD теперь равен буферу.
         headContent = AT_HEAD.replace("old line", "XXold line");
         expect(pane.originalUri).not.toBeNull();
         // Пачка событий (rebase шевелит .git несколько раз) схлопывается debounce'ом.
@@ -738,7 +689,6 @@ describe("Workbench — дифф v2", () => {
         app.render();
         expect(app.backend.screenToString()).toContain("The files are identical");
 
-        // Чужой ресурс не трогает вкладку (no-op пути).
         fireGitChange?.([Uri.from({ scheme: "git", path: "/elsewhere" })]);
         await settle(300);
         expect(original.getText()).toContain("XXold line");
@@ -748,24 +698,20 @@ describe("Workbench — дифф v2", () => {
         const fileEditor = editors.getActiveEditor();
         await openV2();
 
-        // Каретка на изменённой строке (XX на строке 14).
         const side = editors.getActiveEditor();
         side?.goToPosition(14, 0);
         container.get(CommandRegistryDIToken).execute("diode.diff.revertHunk");
         await settle(20);
 
-        // Правка откатилась в живом буфере файла — вкладка файла тоже чистая.
         expect(fileEditor?.getText()).not.toContain("XXold line");
         expect(fileEditor?.getText()).toContain("old line");
 
-        // Вне ганка — нотис, текст не тронут.
         side?.goToPosition(0, 0);
         container.get(CommandRegistryDIToken).execute("diode.diff.revertHunk");
         await settle(20);
         app.render();
         expect(app.backend.screenToString()).toContain("No change under the cursor");
 
-        // Вне дифф-вкладки — тихий no-op.
         editors.editorGroups.activeGroup.activateTab(0);
         container.get(CommandRegistryDIToken).execute("diode.diff.revertHunk");
         await settle(20);
@@ -813,7 +759,6 @@ describe("Workbench — дифф v2", () => {
         pane.activeTextPane.component.focus();
         app.render();
 
-        // Совпадение внутри свёрнутого unchanged-куска (value7 скрыт свёрткой).
         expect(pane.activeTextPane.viewState.logicalToVisualLine(7)).toBe(-1);
         app.sendKey("Ctrl+F");
         typeText(app, "value7");
@@ -822,7 +767,6 @@ describe("Workbench — дифф v2", () => {
 
         const modified = pane.activeTextPane;
         expect(modified.viewState.searchMatches.length).toBeGreaterThan(0);
-        // Reveal развернул кусок; парная сторона развернулась тоже — выравнивание держится.
         expect(modified.viewState.logicalToVisualLine(7)).toBeGreaterThanOrEqual(0);
         const original = pane.sidePanes()[0];
         expect(original.viewState.getViewLineCount()).toBe(modified.viewState.getViewLineCount());
@@ -832,8 +776,7 @@ describe("Workbench — дифф v2", () => {
         const pane = await openV2();
         expect(pane.mode).toBe("side-by-side");
 
-        // Сжимаем терминал: панель уже порога — inline (заголовок общий, ганок
-        // как призрак + добавленная строка с маркером на всю ширину).
+        // Панель уже порога — inline.
         app.backend.resize(new Size(90, 24));
         await settle(10);
         app.render();
@@ -841,14 +784,11 @@ describe("Workbench — дифф v2", () => {
         expect(pane.mode).toBe("inline");
         const lines = app.backend.screenToString().split("\n");
         expect(lines.find((l) => l.includes("HEAD ↔ a.txt"))).toBeDefined();
-        // Призрак original: текст удалённой версии БЕЗ номера строки.
         const ghost = lines.find((l) => l.includes("old line") && !l.includes("XXold line"));
         expect(ghost).toBeDefined();
         expect(ghost).not.toMatch(/15/u);
-        // Добавленная строка — с номером и маркером.
         expect(lines.find((l) => /15\+\s+XXold line/u.test(l))).toBeDefined();
 
-        // Обратно: side-by-side, выравнивание держится.
         app.backend.resize(new Size(140, 24));
         await settle(10);
         app.render();
@@ -902,13 +842,11 @@ describe("Workbench — дифф v2", () => {
         const untitled = editors.getActiveTabPane() as DiffEditorPane2;
         expect(untitled.mode).toBe("inline");
 
-        // Обратный тумблер возвращает колонки обеим вкладкам.
         container.get(CommandRegistryDIToken).execute("diode.diff.toggleInlineView");
         await settle(10);
         expect(untitled.mode).toBe("side-by-side");
         expect(pane.mode).toBe("side-by-side");
 
-        // Вне дифф-вкладки — no-op.
         editors.editorGroups.activeGroup.activateTab(0);
         container.get(CommandRegistryDIToken).execute("diode.diff.toggleInlineView");
         await settle(10);
@@ -926,7 +864,6 @@ describe("Workbench — дифф v2", () => {
         void editors.closeEditor(editors.editorGroups.activeGroup, editors.editorGroups.activeGroup.activeIndex);
         await settle(10);
         app.render();
-        // Диалог называет dirty-сторону.
         expect(app.backend.screenToString()).toContain("Untitled-2");
 
         // Save: у untitled нет пути («no-file») — текст не должен молча пропасть,
@@ -935,7 +872,6 @@ describe("Workbench — дифф v2", () => {
         await settle(10);
         expect(editors.getActiveTabPane()).toBe(pane);
 
-        // Don't Save — закрывает.
         void editors.closeEditor(editors.editorGroups.activeGroup, editors.editorGroups.activeGroup.activeIndex);
         await settle(10);
         dialogs.getOpenConfirmSaveDialog()?.onDontSave?.();

@@ -10,8 +10,7 @@ function makePicker(items: QuickPickItem[] = []): QuickPickElement {
     const picker = new QuickPickElement();
     picker.preferredWidth = 30;
     picker.items = items;
-    // Курсор и окно списка живут по фактической раскладке — без неё навигация
-    // не имеет геометрии, к которой прокручивать.
+    // Без раскладки у навигации нет геометрии, к которой прокручивать.
     picker.layout(BoxConstraints.tight(new Size(30, picker.getMinIntrinsicHeight(30))));
     return picker;
 }
@@ -164,7 +163,6 @@ describe("QuickPickElement — refreshItems", () => {
         press(picker, "ArrowDown");
         expect(picker.selectedIndex).toBe(2);
 
-        // Тот же список плюс новые элементы в хвосте.
         picker.refreshItems(makeItems(6));
         expect(picker.selectedIndex).toBe(2);
         expect(picker.items[picker.selectedIndex].label).toBe("file-3.ts");

@@ -24,8 +24,7 @@ function makeItems(count: number): QuickPickItem[] {
 }
 
 describe("QuickPickElement — раскладка", () => {
-    // Тот самый баг, ради которого виджет и переехал: строка запроса рисовалась
-    // вплотную к рамке, а строки списка и сообщение — на колонку правее.
+    // Баг, ради которого виджет переехал: запрос рисовался вплотную к рамке, а список — правее.
     it("запрос, сообщение и строки списка начинаются в одной колонке", () => {
         const picker = makePicker(24);
         picker.setQuery("cfg");
@@ -159,7 +158,6 @@ describe("QuickPickElement — раскладка", () => {
         expect(backend.getBgAt(new Point(0, 3))).toBe(frameBg);
         expect(backend.getBgAt(new Point(23, 3))).toBe(frameBg);
 
-        // Интерьер выделенной строки — включая паддинги — залит цветом выделения.
         const selectionBg = backend.getBgAt(new Point(2, 3));
         expect(selectionBg).not.toBe(frameBg);
         expect(backend.getBgAt(new Point(1, 3))).toBe(selectionBg);
@@ -171,7 +169,6 @@ describe("QuickPickElement — раскладка", () => {
         picker.title = "Configure Keyboard Shortcuts";
         const backend = render(picker, 14);
 
-        // Верхняя рамка целая: ни «крышек» ┤├, ни обрезка заголовка.
         expect(backend.getTextAt(new Point(0, 0), 14)).toBe("╭────────────╮");
     });
 
@@ -238,8 +235,7 @@ describe("QuickPickElement — раскладка", () => {
         expect(picker.getMinIntrinsicHeight(30)).toBe(6); // 1 + 1 + 1 + 2 + 1
     });
 
-    // Контракт низкого терминала: пикер обязан ужаться в выделенную высоту с
-    // целой нижней рамкой, а не рисовать natural под обрезку клипом.
+    // Пикер обязан ужаться в выделенную высоту с целой нижней рамкой, а не обрезаться клипом.
     it("на низком терминале окно списка ужимается, нижняя рамка цела", () => {
         const picker = makePicker(24);
         picker.items = makeItems(10);

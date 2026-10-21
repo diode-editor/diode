@@ -20,12 +20,6 @@ import { TextFileModel } from "../../../services/textfile/common/textFileModel.t
 
 import { EditorComponent } from "./editorComponent.ts";
 
-/**
- * Провод language configuration до редактирующей поверхности: компонент
- * подключает источник пар к `EditorElement`, греет ленивую загрузку при
- * открытии и при смене языка. Проверяем наблюдаемое: набранная скобка
- * закрывается парой, когда конфигурация языка это описывает.
- */
 describe("EditorComponent: авто-закрытие из language configuration", () => {
     let ws: ITempWorkspace;
 
@@ -78,7 +72,7 @@ describe("EditorComponent: авто-закрытие из language configuration
         const { service, warmed } = stubService({ typescript: TS_LIKE });
         const { model, component } = createComponent("a.ts", "", service);
 
-        expect(warmed).toContain("typescript"); // прогрев при открытии
+        expect(warmed).toContain("typescript");
         press(component, "{");
         expect(model.document.getText()).toBe("{}");
     });

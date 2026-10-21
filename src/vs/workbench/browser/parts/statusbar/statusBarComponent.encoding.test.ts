@@ -14,7 +14,6 @@ describe("StatusBarComponent — encoding & EOL segments", () => {
 
     beforeEach(() => {
         savedEnv = { ...process.env };
-        // Детерминированное окружение: сегмент терминала — "legacy" без модов.
         delete process.env.TMUX;
         delete process.env.TMUX_PANE;
         delete process.env.SSH_CONNECTION;
@@ -83,11 +82,9 @@ describe("StatusBarComponent — encoding & EOL segments", () => {
         const firstEditor = source.openEditor();
         source.openEditor();
 
-        // Смена кодировки НЕактивного редактора сегмент не трогает.
         firstEditor.setEncoding("koi8r");
         expect(itemTexts(component)).toContain("UTF-8");
 
-        // Смена у активного — обновляет.
         source.getActiveEditor()!.setEncoding("windows1251");
         expect(itemTexts(component)).toContain("Windows 1251");
     });

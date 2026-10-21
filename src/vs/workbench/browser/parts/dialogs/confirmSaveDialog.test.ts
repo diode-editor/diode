@@ -36,10 +36,7 @@ describe("ConfirmSaveDialog", () => {
         const backend = renderDialog("test.ts");
         const bg = theme.getRequiredColor("editorWidget.background");
 
-        // BoxContainer border at x=0, inner content starts at x=1.
-        // BoxContainer header: title row (y=1) + separator (y=2) → paddingTop=3.
-        // PaddingContainer has left=2, so padding occupies x=1 and x=2 of the dialog.
-        // First content row at y=3.
+        // Border at x=0; header (title y=1 + separator y=2) → first content row y=3; padding left=2 → x=1..2.
         const leftPad0 = new Point(1, 3);
         const leftPad1 = new Point(2, 3);
 

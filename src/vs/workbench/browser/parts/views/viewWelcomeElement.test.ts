@@ -16,7 +16,6 @@ const EXPLORER_WELCOME: readonly IViewWelcomeBlock[] = [
     { kind: "button", label: "Open Folder", command: "workbench.action.files.openFolder" },
 ];
 
-/** Собирает welcome и журнал запущенных им команд. */
 function make(blocks: readonly IViewWelcomeBlock[] = EXPLORER_WELCOME): {
     readonly welcome: ViewWelcomeElement;
     readonly ran: { command: string; args: readonly unknown[] }[];

@@ -29,7 +29,6 @@ class ContainerElement extends TUIElement {
     }
 }
 
-/** A content element that paints one char at its top-left so we can spot it. */
 class MarkerContent extends TUIElement {
     private readonly marker: string;
     public constructor(marker: string) {
@@ -99,10 +98,9 @@ describe("PanelContainerElement", () => {
 
         panel.setActiveView("nope");
         expect(panel.getActiveViewId()).toBe("a");
-        panel.setActiveView("a"); // already active — no-op
+        panel.setActiveView("a");
         expect(panel.getActiveViewId()).toBe("a");
-        // Ни один из двух отказов не дошёл до перерисовки: ранний выход — не
-        // только про activeId, он ещё и не будит кадр зря.
+        // Ранний выход не только про activeId — он ещё и не будит кадр зря.
         expect(markDirty).not.toHaveBeenCalled();
 
         panel.setActiveView("b");
@@ -111,12 +109,7 @@ describe("PanelContainerElement", () => {
         markDirty.mockRestore();
     });
 
-    /**
-     * Контрол рисует себя сам в ручном `render`, поэтому каждое изменение
-     * состава/контента обязано будить кадр: без `markDirty` вкладка меняется в
-     * модели и не меняется на экране (ровно тот класс бага, где тест зелёный, а
-     * пользователь не видит разницы).
-     */
+    /** Рисует себя в ручном `render`: без `markDirty` вкладка меняется в модели, но не на экране. */
     it("wakes a repaint on every change of the registry", () => {
         const panel = themed();
         const markDirty = vi.spyOn(panel, "markDirty");
@@ -130,7 +123,6 @@ describe("PanelContainerElement", () => {
         panel.setViewContent("a", new MarkerContent("Z"));
         expect(markDirty).toHaveBeenCalledTimes(3);
 
-        // Неизвестный id до перерисовки не доходит ни в одном из двух сеттеров.
         panel.setViewActions("nope", new TUIElement());
         panel.setViewContent("nope", new MarkerContent("Q"));
         expect(markDirty).toHaveBeenCalledTimes(3);
@@ -143,12 +135,10 @@ describe("PanelContainerElement", () => {
         layoutPanel(panel, new Size(40, 6));
         const backend = renderPanel(panel, new Size(40, 6));
 
-        // Row 0 is a plain horizontal line across the full width.
         expect(backend.getTextAt(new Point(0, 0), 1)).toBe("─");
         expect(backend.getTextAt(new Point(20, 0), 1)).toBe("─");
         expect(backend.getFgAt(new Point(0, 0))).toBe(BORDER);
         expect(backend.getBgAt(new Point(0, 0))).toBe(BG);
-        // No vertical left border on the body rows.
         expect(backend.getTextAt(new Point(0, 1), 1)).toBe(" ");
         expect(backend.getTextAt(new Point(0, 3), 1)).toBe(" ");
     });
@@ -160,7 +150,6 @@ describe("PanelContainerElement", () => {
         layoutPanel(panel, new Size(40, 6));
         const backend = renderPanel(panel, new Size(40, 6));
 
-        // Tabs sit on row 1, indented; both drawn dim.
         expect(backend.getTextAt(new Point(2, 1), 8)).toBe("PROBLEMS");
         expect(backend.getTextAt(new Point(12, 1), 6)).toBe("OUTPUT");
         expect(backend.getFgAt(new Point(2, 1))).toBe(TITLE_FG);
@@ -173,16 +162,15 @@ describe("PanelContainerElement", () => {
         panel.addView({ id: "a", title: "PROBLEMS", content: null, placeholder: "No problems." });
         layoutPanel(panel, new Size(40, 6));
         const backend = renderPanel(panel, new Size(40, 6));
-        // Placeholder starts on the first content row (2), aligned under the tab label (x 2).
+        // Aligned under the tab label (x 2).
         expect(backend.getTextAt(new Point(2, 2), 12)).toBe("No problems.");
     });
 
     it("does not paint a placeholder when there is no room for a content row", () => {
         const panel = themed();
         panel.addView({ id: "a", title: "P", content: null, placeholder: "hidden" });
-        layoutPanel(panel, new Size(40, 2)); // strip row + tab row only
+        layoutPanel(panel, new Size(40, 2));
         const backend = renderPanel(panel, new Size(40, 2));
-        // The tab header still shows; the placeholder (row 2) is never drawn.
         expect(backend.getTextAt(new Point(2, 1), 1)).toBe("P");
     });
 
@@ -214,9 +202,9 @@ describe("PanelContainerElement", () => {
         panel.setViewContent("a", second);
         expect(first.getParent()).toBeNull();
         expect(second.getParent()).toBe(panel);
-        panel.setViewContent("a", null); // clearing back to a placeholder-only view
+        panel.setViewContent("a", null);
         expect(second.getParent()).toBeNull();
-        panel.setViewContent("missing", first); // unknown id — no-op
+        panel.setViewContent("missing", first);
         expect(panel.getChildren()).toEqual([]);
     });
 
@@ -224,7 +212,7 @@ describe("PanelContainerElement", () => {
         const panel = themed();
         panel.addView({ id: "a", title: "P", content: null });
         const content = new MarkerContent("Y");
-        panel.setViewContent("a", content); // old content was already null
+        panel.setViewContent("a", content);
         expect(content.getParent()).toBe(panel);
         expect(panel.getChildren()).toEqual([content]);
     });
@@ -251,7 +239,7 @@ describe("PanelContainerElement", () => {
         it("activates the clicked tab and fires the callback", () => {
             const { root, panel, activated } = scene();
             const dispatcher = new MouseEventDispatcher();
-            // Click inside the OUTPUT tab: screen x 12 (token 13), header row 1 (token y 2).
+            // Screen x 12 (token 13), header row 1 (token y 2).
             dispatcher.handleMouseToken(makeToken({ action: "press", x: 13, y: 2 }), root);
             expect(panel.getActiveViewId()).toBe("b");
             expect(activated).toEqual(["b"]);
@@ -275,25 +263,20 @@ describe("PanelContainerElement", () => {
         });
 
         /**
-         * Границы сегмента вкладки — полуинтервал `[start, end)`: первая колонка
-         * её, последняя — уже следующей. У последней вкладки ошибка на единицу
-         * вправо не видна совсем (за ней пустая шапка), а влево — съедает её
-         * первую колонку, поэтому проверяем обе руками.
+         * У последней вкладки ошибка на единицу вправо не видна совсем (за ней
+         * пустая шапка), а влево — съедает её первую колонку, поэтому проверяем обе руками.
          */
         it("activates a tab by its FIRST column and ignores the one past its last", () => {
             const { root, panel, activated } = scene();
             const dispatcher = new MouseEventDispatcher();
 
-            // Отступ таб-строки — ещё не вкладка: x 0 левее её начала.
             dispatcher.handleMouseToken(makeToken({ action: "press", x: 1, y: 2 }), root);
             expect(activated).toEqual([]);
 
-            // Ровно s.start вкладки OUTPUT (screen x 11) — её колонка.
             dispatcher.handleMouseToken(makeToken({ action: "press", x: 12, y: 2 }), root);
             expect(activated).toEqual(["b"]);
             expect(panel.getActiveViewId()).toBe("b");
 
-            // Ровно s.end последней вкладки (screen x 19) — уже не она.
             dispatcher.handleMouseToken(makeToken({ action: "press", x: 20, y: 2 }), root);
             expect(activated).toEqual(["b"]);
         });
@@ -317,12 +300,7 @@ describe("PanelContainerElement", () => {
         });
     });
 
-    /**
-     * Своих дефолтов у наших токенов (`descriptionForeground`,
-     * `toolbar.hoverBackground`) в движке нет — палитру кладёт в корневой
-     * var-scope `WorkbenchComponent`. Проверяем ровно на ней, живой, а не на
-     * снапшоте.
-     */
+    /** Своих дефолтов у наших токенов в движке нет — проверяем на живой палитре, а не на снапшоте. */
     it("renders on the live Dark+ palette", () => {
         const panel = new PanelContainerElement();
         panel.addView({ id: "a", title: "P", content: null, placeholder: "x" });

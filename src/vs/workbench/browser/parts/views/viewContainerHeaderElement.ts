@@ -7,21 +7,11 @@ import type { IViewTitleAction } from "./viewTitleRowElement.ts";
 import { ViewTitleRowElement } from "./viewTitleRowElement.ts";
 
 /**
- * Заголовок контейнера view-секций («активити»): та же строка заголовка, что у
- * секции ({@link ViewTitleRowElement}), но без шеврона и без drag границы —
- * контейнер не сворачивается. Заменил `TitledPanelElement`, у которого была
- * только надпись: контейнеру нужны inline-действия и меню «⋯» с
- * переключателем видимости секций.
- *
- * Мышь по лейблам принадлежит заголовку, как у {@link PaneHeaderElement} —
- * попадание по кнопке считает {@link ViewTitleRowElement.hitZone}, и у обоих
- * заголовков одна геометрия кнопок. Исключение — виджет заголовка: он
- * настоящий контрол (селектор каналов Output), клики обязаны доходить до него.
+ * Без шеврона и drag границы — контейнер не сворачивается. Мышь по лейблам принадлежит
+ * заголовку, как у {@link PaneHeaderElement}; исключение — виджет заголовка.
  */
 export class ViewContainerHeaderElement extends TUIElement {
-    /** Запрос меню контейнера (кнопка «⋯», правый клик или Shift+F10). */
     public onMenu?: (anchor: IPaneMenuAnchor) => void;
-    /** Клик по inline-кнопке заголовка. */
     public onAction?: (actionId: string) => void;
 
     private readonly row: ViewTitleRowElement;
@@ -83,22 +73,19 @@ export class ViewContainerHeaderElement extends TUIElement {
         this.row.setActions(actions);
     }
 
-    /** Произвольный контрол слева от кнопок (переключатель каналов Output). */
     public setTitleWidget(widget: TUIElement | null): void {
         this.row.setTitleWidget(widget);
     }
 
-    /** Прятать ли «⋯» (см. {@link ViewTitleRowElement.setMenuVisible}). */
     public setMenuVisible(visible: boolean): void {
         this.row.setMenuVisible(visible);
     }
 
-    /** Кадр спиннера занятой секции (см. {@link ViewTitleRowElement.setSpinnerFrame}). */
     public setSpinnerFrame(frame: string | null): void {
         this.row.setSpinnerFrame(frame);
     }
 
-    /** Ширина содержимого: полосе контролов в таб-строке панели её назначает контейнер. */
+    /** Полосе контролов в таб-строке панели ширину назначает контейнер. */
     public override getMaxIntrinsicWidth(height: number): number {
         return this.row.getMaxIntrinsicWidth(height);
     }
@@ -118,8 +105,6 @@ export class ViewContainerHeaderElement extends TUIElement {
     }
 
     protected override hitTestChildren(point: Point): TUIElement | null {
-        // Лейблы презентационные (их клики считает hitZone), но виджет в
-        // заголовке — настоящий контрол, и мышь должна доходить до него.
         return this.row.hitTestWidget(point);
     }
 

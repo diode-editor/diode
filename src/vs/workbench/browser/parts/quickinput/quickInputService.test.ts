@@ -75,7 +75,7 @@ describe("QuickInputService.input", () => {
             validateInput: (v) => (v.trim() === "" ? "Please enter a file name" : null),
         });
 
-        // Seeded value is empty → invalid → Enter is a no-op, overlay stays open.
+        // Пустое начальное значение невалидно — Enter ничего не делает.
         testApp.sendKey("Enter");
         expect(body.overlayLayer.hasVisibleItems()).toBe(true);
 
@@ -145,11 +145,9 @@ describe("QuickInputService.input", () => {
         // No attachHost() → host is null and there is no overlay session.
         const component = new QuickInputComponent();
         const service = new QuickInputService(component);
-        // input() reaches updatePosition, which early-returns without throwing.
         expect(() => void service.input({ value: "x" })).not.toThrow();
-        // preferredWidth keeps its default since positioning was skipped.
+        // preferredWidth не тронут — позиционирование пропущено.
         expect(component.view.preferredWidth).toBe(60);
-        // Без сессии компонент считается закрытым.
         expect(component.isOpen()).toBe(false);
     });
 });

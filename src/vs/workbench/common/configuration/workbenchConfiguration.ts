@@ -5,19 +5,14 @@ export const workbenchConfiguration = {
     id: "workbench",
     title: "Workbench",
     properties: {
-        // Активная цветовая тема по имени (label из ThemeRegistry). Дефолт совпадает
-        // с out-of-the-box VS Code. Допустимые значения (enum встроенных тем) в
-        // каталог автодополнения дописывает генератор схемы — из ThemeRegistry,
-        // не отсюда.
+        // enum встроенных тем дописывает в каталог автодополнения генератор схемы из ThemeRegistry.
         "workbench.colorTheme": {
             scope: "window",
             type: "string",
             default: DEFAULT_COLOR_THEME,
             description: "Specifies the color theme used in the workbench.",
         },
-        // Режим предпросмотра вкладок: в группе не больше одной preview-вкладки,
-        // и следующее превью её ЗАМЕЩАЕТ. Открытие превью сейчас делает только
-        // дерево Explorer — как в эталоне, где `enablePreviewFromQuickOpen` и
+        // Превью открывает только Explorer: у эталона `enablePreviewFromQuickOpen` и
         // `enablePreviewFromCodeNavigation` по умолчанию выключены.
         "workbench.editor.enablePreview": {
             scope: "window",
@@ -29,8 +24,7 @@ export const workbenchConfiguration = {
                 "preview mode. Making a change in a preview mode editor will persist it, as will the " +
                 "'Keep Open' option in its tab context menu.",
         },
-        // Где панель действий группы (`editor/title`). Заголовка окна у нас нет,
-        // поэтому `titleBar` прячет её — как эталон без своего title bar.
+        // Заголовка окна у нас нет, поэтому `titleBar` прячет панель — как эталон без своего title bar.
         "workbench.editor.editorActionsLocation": {
             scope: "window",
             type: "string",
@@ -43,9 +37,6 @@ export const workbenchConfiguration = {
             ],
             description: "Controls where the editor actions are shown.",
         },
-        // Внешнее удаление файла: по умолчанию вкладка остаётся (зачёркнутой,
-        // модель orphaned); `true` — чистая вкладка закрывается. Удаление из
-        // самого редактора закрывает чистые вкладки всегда. Читает EditorService.
         "workbench.editor.closeOnFileDelete": {
             scope: "window",
             type: "boolean",
@@ -56,8 +47,6 @@ export const workbenchConfiguration = {
                 "the editor open  on such an event. Note that deleting from within the application will always " +
                 "close the editor and that editors with unsaved changes will never close to preserve your data.",
         },
-        // Раскрытие папки кликом по имени и Enter (`expandOnlyOnTwistieClick`
-        // дерева). Читает Explorer на каждом жесте.
         "workbench.tree.expandMode": {
             scope: "window",
             type: "string",
@@ -67,10 +56,7 @@ export const workbenchConfiguration = {
                 "Controls how tree folders are expanded when clicking the folder names. Note that some trees and " +
                 "lists might choose to ignore this setting if it is not applicable.",
         },
-        // Видимость вторичной боковой панели в воркспейсе, открытом впервые
-        // (сохранённой видимости ещё нет). Читает LayoutService на restore.
-        // `maximized*` развёртывания части у нас нет — до него такие значения
-        // значат «видима». Пустую часть, как и эталон, не показываем вовсе.
+        // Развёртывания части у нас нет — `maximized*` значат «видима». Пустую часть, как эталон, не показываем.
         "workbench.secondarySideBar.defaultVisibility": {
             scope: "window",
             type: "string",

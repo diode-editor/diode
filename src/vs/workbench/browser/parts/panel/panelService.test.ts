@@ -13,7 +13,6 @@ describe("PanelService — view registry", () => {
 
         expect(service.getViews().map((v) => v.id)).toEqual(["problems", "terminal"]);
         expect(service.getViews()[0].placeholder).toBe("no problems");
-        // Первая зарегистрированная активна; вторая её не перебивает.
         expect(service.getActiveViewId()).toBe("problems");
     });
 
@@ -24,7 +23,6 @@ describe("PanelService — view registry", () => {
 
         service.addView({ id: "problems", title: "PROBLEMS" });
         expect(onViews).toHaveBeenCalledTimes(1);
-        // Дескриптор без content нормализуется в null.
         expect(service.getViews()[0].content).toBeNull();
 
         const content = new TUIElement();
@@ -56,15 +54,14 @@ describe("PanelService — view registry", () => {
         expect(service.getActiveViewId()).toBe("terminal");
         expect(onActive).toHaveBeenCalledWith("terminal");
 
-        service.setActiveView("terminal"); // same id — no event
-        service.setActiveView("missing"); // unknown id — no event, active untouched
+        service.setActiveView("terminal");
+        service.setActiveView("missing");
         expect(onActive).toHaveBeenCalledTimes(1);
         expect(service.getActiveViewId()).toBe("terminal");
     });
 
     it("activateView switches the tab AND fires the user-activation event", () => {
-        // Программный setActiveView события активации не порождает — на нём висят
-        // ленивые фичи (спавн терминала), их должен будить только «клик».
+        // На событии активации висят ленивые фичи (спавн терминала) — будить их должен только «клик».
         const service = new PanelService();
         service.addView({ id: "problems", title: "PROBLEMS" });
         service.addView({ id: "terminal", title: "TERMINAL" });
@@ -78,7 +75,6 @@ describe("PanelService — view registry", () => {
         expect(service.getActiveViewId()).toBe("problems");
         expect(onActivate).toHaveBeenCalledWith("problems");
 
-        // Активация уже активной вкладки: смены нет, событие активации — есть.
         service.activateView("problems");
         expect(onActivate).toHaveBeenCalledTimes(2);
     });
@@ -93,7 +89,7 @@ describe("PanelService — view registry", () => {
         expect(service.visible).toBe(true);
         expect(onVisibility).toHaveBeenCalledWith(true);
 
-        service.setVisible(true); // без изменения — без события
+        service.setVisible(true);
         expect(onVisibility).toHaveBeenCalledTimes(1);
 
         service.setVisible(false);

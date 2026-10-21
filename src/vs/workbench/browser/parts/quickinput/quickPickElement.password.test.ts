@@ -6,10 +6,7 @@ import { renderElement } from "../../../../../TestUtils/renderElement.ts";
 
 import { MASK_CHAR, QuickPickElement } from "./quickPickElement.ts";
 
-// Поле пароля (`InputBoxOptions.password`): набранное закрыто маской. Маска —
-// это ТОЛЬКО представление: модель, валидация и результат показа работают с
-// настоящим текстом, поэтому тесты смотрят на обе стороны сразу — что видно на
-// кадре и что при этом лежит в запросе.
+// Маска — только представление, поэтому тесты смотрят на обе стороны: кадр и запрос.
 
 function makePicker(width = 24): QuickPickElement {
     const picker = new QuickPickElement();
@@ -22,7 +19,6 @@ function render(picker: QuickPickElement, width = 24) {
     return renderElement(picker, width, picker.getMinIntrinsicHeight(width), { themeVars: true });
 }
 
-/** Символ прямо в строку запроса — так же, как его туда кладёт терминал. */
 function type(picker: QuickPickElement, text: string): void {
     for (const char of text) {
         picker.inputElement.dispatchEvent(new TUIKeyboardEvent("keydown", { key: char }));

@@ -4,18 +4,12 @@ import type { TUIContextMenuEvent } from "@tuidom/core/dom/events/tuiMouseEvent"
 import { RenderContext, TUIElement } from "@tuidom/core/dom/tuiElement";
 import { wrapText } from "@tuidom/elements/completionlist/completionDetailsElement";
 
-/** Вкладка нижней панели (Problems, Output, Terminal, …). */
 export interface PanelView {
     readonly id: string;
     readonly title: string;
-    /** Контент вкладки; `null` рисует {@link placeholder}. */
     content: TUIElement | null;
-    /**
-     * Контролы вкладки, прижатые к правому краю таб-строки (область
-     * `MenuId.ViewTitle` у VS Code) — например, селектор каналов Output.
-     */
+    /** Область `MenuId.ViewTitle` у VS Code. */
     actions?: TUIElement | null;
-    /** Empty-state сообщение, пока `content` = null (à la VS Code view welcome). */
     readonly placeholder?: string;
 }
 
@@ -25,74 +19,41 @@ interface TabSegment {
     readonly end: number;
 }
 
-/** По пробелу отбивки с каждой стороны названия вкладки. */
 const TAB_PAD = 1;
-/** Отступ таб-строки от левого края. */
 const TAB_INDENT = 1;
 /**
- * Вид части с таб-строкой. Дефолты — нижняя панель; вторичная боковая панель
- * (у эталона — тот же `AbstractPaneCompositePart`) рисуется как сайдбар: фон
- * `sideBar.*`, без полосы верхней границы, а первая колонка отдана сашу.
+ * Дефолты — нижняя панель; вторичная боковая (у эталона — тот же
+ * `AbstractPaneCompositePart`) рисуется как сайдбар.
  */
 export interface IPanelContainerOptions {
-    /** Токен фона (по умолчанию `panel.background`). */
     readonly background?: string;
-    /** Токен переднего плана, наследуемый контентом (по умолчанию — от родителя). */
     readonly foreground?: string;
-    /** Полоса верхней границы `panel.border` над таб-строкой (по умолчанию есть). */
     readonly topBorder?: boolean;
-    /** Левый отступ контента/placeholder'а (по умолчанию 2 — под названием вкладки). */
     readonly contentLeft?: number;
-    /**
-     * Сообщение части без единой вкладки (у эталона — «Drag a view here to
-     * display.» в `paneCompositePart.ts`); без него пустая часть пуста.
-     */
+    /** У эталона — «Drag a view here to display.» в `paneCompositePart.ts`. */
     readonly emptyMessage?: string;
 }
 
 /**
- * Кнопка закрытия панели в правом конце таб-строки. Глиф — тот же `×`, что у
- * кнопки закрытия вкладки редактора (`EditorTabItemElement`), а не codicon:
- * иконки приватной области Unicode не видно в текстовом дампе кадра, и сценарий
- * не смог бы её проверить.
+ * Не codicon: иконки приватной области Unicode не видно в текстовом дампе
+ * кадра, и сценарий не смог бы её проверить.
  */
 const CLOSE_LABEL = " × ";
 const CLOSE_WIDTH = CLOSE_LABEL.length;
 
-/**
- * Нижняя **Panel** (VS Code `ViewContainerLocation.Panel`): полоса верхней
- * границы + строка вкладок (PROBLEMS, OUTPUT, …) с кнопкой закрытия в правом
- * конце, левая граница, отделяющая панель от сайдбара, и контент активной
- * вкладки под ними. Вкладки регистрирует {@link addView}; показывается активная.
- * Вкладка без контента рисует своё {@link PanelView.placeholder}.
- *
- * Названия вкладок приглушены (`panelTitle.inactiveForeground`), активная
- * подчёркнута. Цвета приходят каскадом от компонента (`panel.*` /
- * `panelTitle.*`), как и у `EditorElement`.
- *
- * Жил в `@tuidom/elements/panel`; переехал к нам по критерию
- * `docs/TODO/EngineWidgetRepatriation.md` — публичный API оперирует понятиями
- * VS Code (вкладка панели, её title-контролы, welcome-состояние), а кнопка
- * закрытия добавила к ним ещё и команду воркбенча.
- */
+/** VS Code `ViewContainerLocation.Panel`. */
 export class PanelContainerElement extends TUIElement {
-    /** Клик по вкладке (активная уже переключена). */
     public onActivateView?: (id: string) => void;
-    /** Клик по кнопке закрытия панели в таб-строке. */
     public onClose?: () => void;
-    /** Контекстное меню вкладки `id` (правый клик или Shift+F10); якорь — экранная точка попапа. */
+    /** Правый клик или Shift+F10; якорь — экранная точка попапа. */
     public onTabContextMenu?: (id: string, anchor: { readonly screenX: number; readonly screenY: number }) => void;
 
     private views: PanelView[] = [];
     private activeId: string | null = null;
-    /** Курсор над кнопкой закрытия — подсветка фона, как у кнопок заголовков view. */
     private closeHovered = false;
 
-    /** Строка, на которой живёт шапка с вкладками (под полосой верхней границы, если она есть). */
     private readonly tabRow: number;
-    /** Первая строка контента (под шапкой). */
     private readonly contentTop: number;
-    /** Левый отступ контента/placeholder'а. */
     private readonly contentLeft: number;
     private readonly topBorder: boolean;
     private readonly emptyMessage: string | undefined;
@@ -104,19 +65,16 @@ export class PanelContainerElement extends TUIElement {
         this.contentTop = this.tabRow + 1;
         this.contentLeft = options.contentLeft ?? 2;
         this.emptyMessage = options.emptyMessage;
-        // fg без значения наследуется от родителя.
         this.style = { fg: options.foreground, bg: options.background ?? "panel.background" };
         this.addEventListener("mousedown", (event) => {
             if (event.button !== "left") return;
-            // Событие, всплывшее из дочернего контрола (селектор в шапке), не наше:
-            // без этой проверки клик по нему ещё и переключал бы вкладку.
+            // Событие из дочернего контрола (селектор в шапке) не наше: иначе клик по нему переключал бы вкладку.
             if (event.target !== this) return;
             const localY = event.screenY - this.globalPosition.y;
-            if (localY !== this.tabRow) return; // переключают вкладки только на строке шапки
+            if (localY !== this.tabRow) return;
             const localX = event.screenX - this.globalPosition.x;
             // Кнопка закрытия раньше вкладок: на узкой панели она рисуется ПОВЕРХ
-            // хвоста таб-строки, и в этих колонках она и должна срабатывать —
-            // иначе из панели не выйти там, где она нужнее всего.
+            // хвоста таб-строки и там должна срабатывать.
             if (this.isCloseHit(localX)) {
                 this.onClose?.();
                 return;
@@ -126,9 +84,7 @@ export class PanelContainerElement extends TUIElement {
             this.setActiveView(segment.id);
             this.onActivateView?.(segment.id);
         });
-        // Проверки источника события, как у mousedown, здесь не нужно: колонки
-        // кнопки layout не отдаёт никому, а контент вкладки живёт ниже
-        // таб-строки — ни один ребёнок в эту зону попасть не может.
+        // Проверки источника, как у mousedown, не нужно: ни один ребёнок в колонки кнопки не попадает.
         this.addEventListener("mousemove", (event) => {
             const localY = event.screenY - this.globalPosition.y;
             const localX = event.screenX - this.globalPosition.x;
@@ -137,8 +93,7 @@ export class PanelContainerElement extends TUIElement {
         this.addEventListener("mouseleave", () => {
             this.setCloseHovered(false);
         });
-        // Контекстное меню вкладки (у эталона — меню композит-бара: «Move To»,
-        // «Reset Location»): правый клик по табу или Shift+F10 — для активной.
+        // У эталона — меню композит-бара («Move To», «Reset Location»).
         this.addEventListener("contextmenu", (event) => {
             if (event.target !== this) return;
             const menuEvent = event as TUIContextMenuEvent;
@@ -163,14 +118,13 @@ export class PanelContainerElement extends TUIElement {
         });
     }
 
-    /** Добавляет вкладку на позицию `index` (по умолчанию — в конец таб-строки). */
     public addView(view: PanelView, index = this.views.length): void {
         this.views.splice(index, 0, view);
         this.activeId ??= view.id;
         this.syncChildren();
     }
 
-    /** Убирает вкладку; снятая активная передаёт активность первой оставшейся. */
+    /** Снятая активная передаёт активность первой оставшейся. */
     public removeView(id: string): void {
         const index = this.views.findIndex((v) => v.id === id);
         if (index < 0) return;
@@ -179,7 +133,6 @@ export class PanelContainerElement extends TUIElement {
         this.syncChildren();
     }
 
-    /** Подменяет контролы вкладки в таб-строке (null — убрать). */
     public setViewActions(id: string, actions: TUIElement | null): void {
         const view = this.views.find((v) => v.id === id);
         if (view === undefined) return;
@@ -187,7 +140,6 @@ export class PanelContainerElement extends TUIElement {
         this.syncChildren();
     }
 
-    /** Подменяет контент вкладки (например, placeholder на настоящую view). */
     public setViewContent(id: string, content: TUIElement | null): void {
         const view = this.views.find((v) => v.id === id);
         if (view === undefined) return;
@@ -202,14 +154,9 @@ export class PanelContainerElement extends TUIElement {
     }
 
     /**
-     * Все вкладки живут в дереве постоянно; неактивные — hidden (root и стили
-     * доходят до них всегда). Раньше getChildren() отдавал только активную, и
-     * контент/actions, прицепленные до укоренения панели, оставались с
-     * протухшим root — модель бага #204 (селектор каналов Output молча не
-     * открывал выпадашку после restore сессии).
-     *
-     * Перерисовку будит он же: `setChildren` зовёт `markDirty` безусловно, и
-     * своего вызова после `syncChildren()` сеттерам не нужно.
+     * Все вкладки живут в дереве постоянно, неактивные — hidden: иначе контент,
+     * прицепленный до укоренения панели, оставался с протухшим root (#204).
+     * `setChildren` зовёт `markDirty` сам — сеттерам своего вызова не нужно.
      */
     private syncChildren(): void {
         const children: TUIElement[] = [];
@@ -235,12 +182,7 @@ export class PanelContainerElement extends TUIElement {
         return this.views.map((v) => v.id);
     }
 
-    /**
-     * Наблюдаемое состояние панели для инспектора: какие вкладки есть, какая
-     * активна, абсолютная геометрия хит-боксов вкладок и кнопки закрытия.
-     * Заменяет e2e-хелпер, который пересчитывал координаты из TAB_INDENT/TAB_PAD
-     * руками, — тест кликает `tabs[i].centerX` / `close.centerX` на `tabRow`.
-     */
+    /** Абсолютная геометрия хит-боксов — тест кликает `tabs[i].centerX` / `close.centerX`. */
     public override inspectState(): Record<string, unknown> {
         const originX = this.globalPosition.x;
         let x = TAB_INDENT;
@@ -269,15 +211,11 @@ export class PanelContainerElement extends TUIElement {
         return { activeId: this.activeId, tabRow: this.globalPosition.y + this.tabRow, tabs, close };
     }
 
-    /** Правая граница таб-строки — за неё контролы вкладки заезжать не должны. */
     private tabsEnd(): number {
         return this.views.reduce((x, view) => x + view.title.length + TAB_PAD * 2, TAB_INDENT);
     }
 
-    /**
-     * Локальная X первой колонки кнопки закрытия; `null` — панель уже самой
-     * кнопки, рисовать нечего (и кликать, соответственно, не по чему).
-     */
+    /** `null` — панель уже самой кнопки. */
     private closeStart(): number | null {
         const width = this.layoutSize.width;
         return width < CLOSE_WIDTH ? null : width - CLOSE_WIDTH;
@@ -298,7 +236,6 @@ export class PanelContainerElement extends TUIElement {
         return this.views.find((v) => v.id === this.activeId);
     }
 
-    /** Раскладка шапки: сегменты ` Название ` после отступа, с хит-диапазонами. */
     private tabSegments(): TabSegment[] {
         const segments: TabSegment[] = [];
         let x = TAB_INDENT;
@@ -312,9 +249,8 @@ export class PanelContainerElement extends TUIElement {
 
     protected override performLayout(constraints: BoxConstraints): Size {
         const containerSize = super.performLayout(constraints);
-        // Контролы вкладки прижаты вправо на строке табов — как в шапке Panel у
-        // VS Code. Ширину берём интринсиковую и не даём заехать ни на сами табы,
-        // ни на кнопку закрытия: её ведущий пробел и служит зазором между ними.
+        // Ширину берём интринсиковую и не даём заехать ни на табы, ни на кнопку
+        // закрытия: её ведущий пробел и служит зазором.
         const actions = this.activeView()?.actions;
         if (actions != null) {
             const available = Math.max(0, containerSize.width - CLOSE_WIDTH);
@@ -339,22 +275,19 @@ export class PanelContainerElement extends TUIElement {
     public override render(context: RenderContext): void {
         const { width, height } = this.layoutSize;
 
-        // Fill the panel with its background first.
         for (let y = 0; y < height; y++) {
             for (let x = 0; x < width; x++) {
                 context.setCell(x, y, { char: " ", bg: this.resolvedStyle.bg });
             }
         }
 
-        // Top border strip (row 0).
         if (this.topBorder) {
             for (let x = 0; x < width; x++) {
                 context.setCell(x, 0, { char: "─", fg: this.styleVar("panel.border"), bg: this.resolvedStyle.bg });
             }
         }
 
-        // Tab header (dim). The active tab is underlined — but only under the title
-        // glyphs, leaving the surrounding padding un-underlined.
+        // The active tab is underlined only under the title glyphs, not the padding.
         const segments = this.tabSegments();
         for (let i = 0; i < this.views.length; i++) {
             const view = this.views[i];
@@ -374,16 +307,12 @@ export class PanelContainerElement extends TUIElement {
             }
         }
 
-        // View-specific controls in the title row (drawn after the tabs so they win
-        // the shared row), then the active view's content below — renderChildren
-        // рисует только видимых детей, скрытые вкладки пропускаются базой.
+        // Controls are drawn after the tabs so they win the shared row.
         this.renderChildren(context);
 
-        // Кнопка закрытия панели — последней: она старше и табов, и контролов
-        // вкладки, потому что на узкой панели перекрывает их хвост.
+        // Кнопка закрытия — последней: на узкой панели перекрывает хвост табов и контролов.
         this.renderCloseButton(context);
 
-        // Placeholder empty-state message, если у активной вкладки нет контента.
         const active = this.activeView();
         if (active?.content == null && active?.placeholder !== undefined && height > this.contentTop) {
             const message = active.placeholder;
@@ -397,8 +326,7 @@ export class PanelContainerElement extends TUIElement {
             }
         }
 
-        // Части без единой вкладки — её подсказка, с переносом по словам: вторичная
-        // боковая панель узкая, а строка шапки над подсказкой пуста.
+        // С переносом по словам: вторичная боковая панель узкая.
         if (this.views.length === 0 && this.emptyMessage !== undefined) {
             const lines = wrapText(this.emptyMessage, Math.max(1, width - this.contentLeft));
             for (let row = 0; row < lines.length && this.contentTop + row < height; row++) {

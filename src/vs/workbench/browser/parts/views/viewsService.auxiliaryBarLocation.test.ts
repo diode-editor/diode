@@ -8,7 +8,6 @@ import { makeViewsHarness, testView } from "./viewsService.testUtils.ts";
 
 const AUX = "test.auxiliary.container";
 const PANEL = "test.panel.container";
-/** Inline-кнопка заголовка любой секции. */
 const REFRESH: MenuContribution = {
     menuId: MenuId.ViewTitle,
     command: "aux.refresh",
@@ -17,11 +16,7 @@ const REFRESH: MenuContribution = {
     group: "navigation",
 };
 
-/**
- * Контейнер во вторичной боковой панели — та же модель, что во вкладке нижней
- * панели (у эталона обе части — `AbstractPaneCompositePart`), только реестр
- * свой: вкладка заводится в `AuxiliaryBarService`, а не в `PanelService`.
- */
+/** Та же модель, что у нижней панели (у эталона обе — `AbstractPaneCompositePart`), реестр — `AuxiliaryBarService`. */
 function auxiliaryHarness(views: string[], contributions: MenuContribution[] = []): IViewsHarness {
     const h = makeViewsHarness(contributions);
     h.service.registerContainer({ id: AUX, title: "AUX", location: "auxiliarybar" });

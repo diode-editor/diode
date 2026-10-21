@@ -12,11 +12,7 @@ export const AuxiliaryBarFocusContributionDIToken = token<AuxiliaryBarFocusContr
     "AuxiliaryBarFocusContribution",
 );
 
-/**
- * Возврат фокуса в редактор, когда содержимое вторичной боковой панели уходит
- * со сцены (у эталона `setAuxiliaryBarHidden` на скрытии зовёт
- * `focusPanelOrEditor`) — см. {@link PaneCompositeFocusContribution}.
- */
+/** У эталона `setAuxiliaryBarHidden` на скрытии зовёт `focusPanelOrEditor`. */
 export class AuxiliaryBarFocusContribution extends PaneCompositeFocusContribution {
     public static dependencies = [
         AuxiliaryBarServiceDIToken,

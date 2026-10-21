@@ -19,7 +19,6 @@ class FakeContribution extends Disposable implements IWorkbenchContribution {
     }
 }
 
-/** Фейковый accessor: отдаёт заранее уложенные инстансы и считает резолвы. */
 function fakeAccessor(instances: Map<Token<unknown>, unknown>): {
     accessor: ServiceAccessor;
     resolved: Token<unknown>[];

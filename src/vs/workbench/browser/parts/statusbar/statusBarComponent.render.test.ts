@@ -7,11 +7,7 @@ import { darkPlusTheme } from "../../../services/themes/common/themes/darkPlus.t
 
 import { createStatusBarHarness } from "./statusBarComponent.testUtils.ts";
 
-/**
- * Левый сегмент и правая группа после открытия файла. Каждый сегмент несёт по
- * пробелу с краёв (блок подсветки), поэтому соседей внутри группы разделяют
- * ровно два пробела — как в VS Code.
- */
+/** Каждый сегмент несёт по пробелу с краёв, поэтому соседей разделяют ровно два — как в VS Code. */
 const LEFT_TEXT = " legacy ";
 const RIGHT_TEXT = " Ln 1, Col 1  Tab Size: 4  UTF-8  LF  plaintext ";
 
@@ -20,7 +16,6 @@ describe("StatusBarComponent — кадр", () => {
 
     beforeEach(() => {
         savedEnv = { ...process.env };
-        // Детерминированное окружение: сегмент терминала — "legacy" без модов.
         delete process.env.TMUX;
         delete process.env.TMUX_PANE;
         delete process.env.SSH_CONNECTION;
@@ -71,8 +66,7 @@ describe("StatusBarComponent — кадр", () => {
 
     it("при нехватке ширины правая группа теряет выравнивание и обрезается краем экрана", () => {
         const line = renderLine(30);
-        // centerFill схлопывается в 0: правая группа идёт сразу за левой,
-        // хвост (вместе с правым паддингом) уезжает за край и клипуется.
+        // centerFill схлопывается в 0, хвост уезжает за край и клипуется.
         expect(line).toBe(` ${LEFT_TEXT}${RIGHT_TEXT} `.slice(0, 30));
     });
 });

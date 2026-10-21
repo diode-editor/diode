@@ -25,11 +25,7 @@ import { EditorStatusContribution } from "../editor/editorStatusContribution.ts"
 
 import { StatusBarComponent } from "./statusBarComponent.ts";
 
-/**
- * Тестовый редактор для сегментов статус-бара: реализует {@link IActiveEditorStatus}
- * поверх настоящих `TextDocument` + `EditorViewState` (курсор/EOL/язык ведут себя
- * как в проде и файрят те же события); только кодировка — собственное поле.
- */
+/** Поверх настоящих `TextDocument` + `EditorViewState`: курсор/EOL/язык файрят те же события, что в проде. */
 export class FakeStatusEditor implements IActiveEditorStatus {
     public readonly viewState: EditorViewState;
     private readonly doc: TextDocument;
@@ -67,7 +63,6 @@ export class FakeStatusEditor implements IActiveEditorStatus {
         for (const listener of [...this.encodingListeners]) listener();
     }
 
-    /** Меняет действующий отступ view-state'а и файрит смену — как `EditorComponent.setIndentOptions`. */
     public setIndentOptions(patch: { tabSize?: number; insertSpaces?: boolean }): void {
         if (patch.tabSize !== undefined) this.viewState.tabSize = patch.tabSize;
         if (patch.insertSpaces !== undefined) this.viewState.insertSpaces = patch.insertSpaces;
@@ -96,13 +91,12 @@ export class FakeStatusEditor implements IActiveEditorStatus {
         return { dispose: () => this.indentListeners.delete(listener) };
     }
 
-    /** Живые indent-подписки — тест утечки: смена активного редактора обязана их снимать. */
+    /** Смена активного редактора обязана снимать indent-подписки. */
     public get indentListenerCount(): number {
         return this.indentListeners.size;
     }
 }
 
-/** Источник активного редактора: аналог EditorService в один экран кода. */
 export class FakeActiveEditorSource implements IActiveEditorStatusSource {
     private active: FakeStatusEditor | null = null;
     private readonly listeners = new Set<(editor: IActiveEditorStatus | null) => void>();
@@ -121,7 +115,6 @@ export class FakeActiveEditorSource implements IActiveEditorStatusSource {
         for (const listener of [...this.listeners]) listener(editor);
     }
 
-    /** «Открывает файл»: создаёт редактор и делает его активным. */
     public openEditor(text = "", languageId = "plaintext"): FakeStatusEditor {
         const editor = new FakeStatusEditor(text, languageId);
         this.setActiveEditor(editor);
@@ -134,20 +127,12 @@ export interface IStatusSegment {
     side: "left" | "right";
 }
 
-/**
- * Текст сегмента без краевых пробелов, которыми компонент обкладывает запись
- * (они — часть блока подсветки, а не содержимого). Тесты состава смотрят на
- * содержимое; за сами пробелы отвечает пофреймовый render-тест.
- */
+/** Без краевых пробелов: за них отвечает пофреймовый render-тест. */
 function segmentText(label: TextLabelElement): string {
     return label.getText().slice(1, -1);
 }
 
-/**
- * Сегменты полосы в порядке отрисовки: обход детей hflex — лейблы до
- * fill-ребёнка (centerFill) относятся к левой стороне, после — к правой.
- * Паддинги (Filler) пропускаются.
- */
+/** Лейблы до fill-ребёнка (centerFill) — левая сторона, после — правая. */
 export function statusSegments(view: HFlexElement): IStatusSegment[] {
     const segments: IStatusSegment[] = [];
     let side: "left" | "right" = "left";
@@ -163,12 +148,10 @@ export function statusSegments(view: HFlexElement): IStatusSegment[] {
     return segments;
 }
 
-/** Тексты сегментов в порядке отрисовки (без разделения по сторонам). */
 export function statusTexts(view: HFlexElement): string[] {
     return statusSegments(view).map((segment) => segment.text);
 }
 
-/** Кликает по сегменту с данным текстом — наблюдаемый клик, не шов. */
 export function clickSegment(view: HFlexElement, text: string): void {
     const label = view
         .getChildren()
@@ -188,17 +171,11 @@ export interface StatusBarHarness {
     terminalContribution: TerminalEnvStatusContribution;
 }
 
-/**
- * Собирает полную связку статус-бара без DI-контейнера:
- * StatusBarService + оба contribution'а + StatusBarComponent. Терминальное
- * окружение — настоящий `TerminalEnvironmentService` (тесты чистят env-переменные,
- * чтобы сегмент детерминированно резолвился в "legacy").
- */
+/** Тесты чистят env-переменные, чтобы терминальный сегмент детерминированно резолвился в "legacy". */
 export function createStatusBarHarness(languageService: ILanguageService = NULL_LANGUAGE_SERVICE): StatusBarHarness {
     const statusBarService = new StatusBarService(NULL_STATE_SERVICE);
     const commands = new CommandRegistry();
-    // Меню полосы реестровых пунктов не берёт (только свои от делегата),
-    // поэтому реестр — пустой.
+    // Меню полосы реестровых пунктов не берёт — реестр пустой.
     const contextMenuService = new ContextMenuService(
         new MenuService(new MenuRegistry(commands, new KeybindingRegistry(), new ContextKeyService(), [])),
     );

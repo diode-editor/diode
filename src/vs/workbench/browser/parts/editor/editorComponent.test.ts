@@ -22,7 +22,6 @@ import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme
 import { darkPlusTheme } from "../../../services/themes/common/themes/darkPlus.ts";
 import { ThemeService } from "../../../services/themes/common/themeService.ts";
 
-/** Цвет первого токена первой строки — чем токенизирован документ прямо сейчас. */
 function firstForeground(ctrl: TextEditorPane): number | undefined {
     const tokenStore = ctrl.viewState.tokenStore;
     tokenStore?.forceTokenization(0);
@@ -48,10 +47,8 @@ describe("EditorComponent + TextFileModel (пара)", () => {
     }
 
     /**
-     * Сажает пару в настоящее приложение, снимает первый кадр (после него всё
-     * чисто) и отвечает, попал ли редактор в следующий кадр после `act`. Так
-     * проверяется `markDirty`: без него правка доедет до экрана только с чужой
-     * перерисовкой, а до тех пор пользователь видит старую картинку.
+     * Проверяет `markDirty`: без него правка доедет до экрана только с чужой
+     * перерисовкой.
      */
     function repaintsEditor(act: (ctrl: TextEditorPane) => void): boolean {
         const ctrl = createEditorPane();
@@ -80,7 +77,6 @@ describe("EditorComponent + TextFileModel (пара)", () => {
             const ctrl = createEditorPane();
             expect(ctrl.getCaretAnchor()).toMatchObject({ preferBelow: true });
 
-            // Уводим каретку за пределы вьюпорта скроллом.
             ctrl.viewState.scrollTop = 1000;
             expect(ctrl.getCaretAnchor()).toBeNull();
         });
@@ -92,7 +88,6 @@ describe("EditorComponent + TextFileModel (пара)", () => {
                 saved = true;
             });
 
-            // Must not throw and must not invoke the save callback.
             await ctrl.save();
 
             expect(saved).toBe(false);
@@ -178,7 +173,6 @@ describe("EditorComponent + TextFileModel (пара)", () => {
             const ctrl = createEditorPane();
             ctrl.openFile(Uri.file(writeFile("a.ts", "abc")));
 
-            // Should be a no-op: undo afterwards has nothing to revert.
             ctrl.pushUndo(undefined);
             ctrl.undo();
 
@@ -343,7 +337,6 @@ describe("EditorComponent + TextFileModel (пара)", () => {
             const ctrl = createEditorPane();
             ctrl.openFile(Uri.file(writeFile("a.ts", "x")));
 
-            // Ни tabSize, ни insertSpaces: конфиг про них молчит.
             ctrl.applyIndentConfiguration({ detectIndentation: false });
 
             expect(ctrl.viewState.tabSize).toBe(4);
@@ -381,7 +374,6 @@ describe("EditorComponent + TextFileModel (пара)", () => {
             ctrl.openFile(Uri.file(writeFile("a.ts", "function f() {\n  a;\n}\n")));
             ctrl.setIndentOptions({ tabSize: 3, insertSpaces: true });
 
-            // Живой reload настроек не должен отменять решение расширения.
             ctrl.applyIndentConfiguration({ tabSize: 8, insertSpaces: false, detectIndentation: true });
 
             expect(ctrl.viewState.tabSize).toBe(3);
@@ -433,9 +425,7 @@ describe("EditorComponent + TextFileModel (пара)", () => {
             const ctrl = createEditorPane({ themeService });
             ctrl.openFile(Uri.file(writeFile("a.ts", "x")));
 
-            // A theme that overrides the background but defines no gutter color.
-            // editorGutter.background has no registry default (genuinely optional),
-            // so the gutter falls back to the editor background without throwing.
+            // У editorGutter.background нет дефолта в реестре — гуттер падает на фон редактора.
             const sparseTheme = WorkbenchTheme.fromThemeFile({
                 name: "sparse",
                 type: "dark",
@@ -463,7 +453,6 @@ describe("EditorComponent + TextFileModel (пара)", () => {
             const ctrl = createEditorPane();
             ctrl.openFile(Uri.file(writeFile("a.txt", "hi")));
 
-            // Так вкладку Output сажают на фон нижней панели.
             ctrl.backgroundToken = "panel.background";
 
             expect(renderBgAt(ctrl, 12)).toBe(panelBg);
@@ -526,7 +515,6 @@ describe("EditorComponent + TextFileModel (пара)", () => {
     describe("pickTokenizer fallback", () => {
         it("uses a plain-text tokenizer when the registry has no support for the language", () => {
             const registry = new TokenizationRegistry();
-            // Language service resolves an id, but the registry has nothing registered for it.
             const languageService: ILanguageService = {
                 ...NULL_LANGUAGE_SERVICE,
                 getLanguageIdForResource: () => "typescript",
@@ -536,7 +524,6 @@ describe("EditorComponent + TextFileModel (пара)", () => {
 
             ctrl.openFile(Uri.file(writeFile("a.ts", "const x = 1;")));
 
-            // The file opened through the fallback tokenizer path without error.
             expect(ctrl.getText()).toBe("const x = 1;");
         });
 
@@ -555,8 +542,6 @@ describe("EditorComponent + TextFileModel (пара)", () => {
             expect(ctrl.getText()).toBe("const x = 1;");
         });
 
-        // Открытие файла не ждёт грамматику: сначала fallback, затем пересадка
-        // на настоящий токенайзер, когда ленивая загрузка доедет.
         it("triggers the lazy load for the opened language and swaps the tokenizer in", async () => {
             const registry = new TokenizationRegistry();
             const lazySupport: ITokenizationSupport = {
@@ -577,7 +562,6 @@ describe("EditorComponent + TextFileModel (пара)", () => {
 
             ctrl.openFile(Uri.file(writeFile("a.ts", "const x = 1;")));
 
-            // Файл уже открыт и читается, грамматика ещё едет — работаем на fallback'е.
             expect(ctrl.getText()).toBe("const x = 1;");
             expect(factoryCalls).toBe(1);
             expect(firstForeground(ctrl)).toBe(ColorId.DefaultForeground);
@@ -602,9 +586,6 @@ describe("EditorComponent + TextFileModel (пара)", () => {
             ctrl.viewState.selections = [createCursorSelection(1, 0)];
             expect(fired).toBe(1);
 
-            // Перечитка укоротила файл до одной строки — каретку прижало к
-            // новому тексту, и подписчик (extension host, проецирующий
-            // выделение в субпроцесс) узнаёт об этом ровно один раз.
             fs.writeFileSync(fp, "changed", "utf-8");
             ctrl.revertToDisk();
             const afterReload = fired;

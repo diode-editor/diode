@@ -20,19 +20,9 @@ import { TabSwitcherElement, type TabSwitcherItem } from "./tabSwitcherElement.t
 export const TabSwitcherComponentDIToken = token<TabSwitcherComponent>("TabSwitcherComponent");
 
 /**
- * Видимый список серии Ctrl+Tab (VS Code показывает на этом месте editor
- * picker): пока Ctrl удержан, поверх редактора висит MRU-список вкладок текущей
- * группы с подсветкой позиции цикла; отпускание Ctrl (или любой другой конец
- * серии) гасит список. Компонент чисто реактивный: командам и клавиатуре он
- * неизвестен — жизнью оверлея управляют события модели
- * ({@link IEditorGroupsService.onDidChangeMruCycle}), которые файрит каждый шаг
- * {@link import("../../../services/editor/browser/editorGroupModel.ts").EditorGroup.cycleMru}
- * и любой конец серии.
- *
- * Overlay-сессия — passthrough и без фокуса: список только показывает состояние
- * серии, ввод продолжает идти в редактор (и глобальные бинды Ctrl+Tab работают
- * поверх видимого оверлея). Overlay-хост приходит через late-init шов
- * {@link attachHost}, как у QuickInput/Suggest/Hover.
+ * Чисто реактивный: жизнью оверлея управляют события модели
+ * ({@link IEditorGroupsService.onDidChangeMruCycle}), командам он неизвестен.
+ * Сессия passthrough и без фокуса: ввод идёт в редактор, бинды Ctrl+Tab работают.
  */
 export class TabSwitcherComponent extends Component implements IContextKeyContributor {
     public static dependencies = [EditorServiceDIToken, EditorGroupsServiceDIToken] as const;
@@ -55,9 +45,8 @@ export class TabSwitcherComponent extends Component implements IContextKeyContri
                 else this.hide();
             }),
         );
-        // Страховка для смен активной группы, не завершающих серию через модель
-        // (сплит и другие структурные пути): оверлей про прежнюю группу не должен
-        // пережить уход из неё.
+        // Смены активной группы, не завершающие серию через модель (сплит): оверлей
+        // про прежнюю группу не должен пережить уход из неё.
         this.register(
             this.groups.onDidActiveGroupChange(() => {
                 this.hide();
@@ -71,21 +60,17 @@ export class TabSwitcherComponent extends Component implements IContextKeyContri
         });
     }
 
-    /** Вызывается владельцем корневой view (WorkbenchComponent) до первого показа. */
+    /** До первого показа. */
     public attachHost(host: BodyElement): void {
         this.host = host;
         this.session = host.overlayLayer.createSession(this.view, new Point(0, 0), {
             visible: false,
-            // Пассивный индикатор: фокус остаётся в редакторе, клики проходят
-            // насквозь, глобальные бинды (сам Ctrl+Tab) не гасятся.
             // Stryker disable next-line BooleanLiteral: view не focusable — фокус не двигается ни при open, ни при close; флаг фиксирует намерение и наблюдаемого эффекта в тестах не имеет
             restoreFocus: false,
             // Stryker disable next-line BooleanLiteral: та же причина — focusOnOpen некому отдать фокус
             focusOnOpen: false,
-            // Escape гасит список тем же путём, что и любая другая клавиша —
-            // через конец hold-сессии в модели (ModifierReleaseArmory), а не
-            // сессией слоя: закрывать оверлей в обход модели значило бы оставить
-            // серию Ctrl+Tab живой при погасшем списке.
+            // Escape гасит список через конец серии в модели: закрыть оверлей сессией
+            // слоя значило бы оставить серию Ctrl+Tab живой при погасшем списке.
             // Stryker disable next-line BooleanLiteral: оба значения дают один наблюдаемый результат — к моменту, когда слой обработал бы Escape, список уже закрыт моделью
             closeOnEscape: false,
             // Stryker disable next-line StringLiteral: клавиатуру гасит явный capturesKeyboard ниже, а по мыши "" ведёт себя как passthrough (не modal и не close-on-outside) — наблюдаемой разницы нет
@@ -99,16 +84,13 @@ export class TabSwitcherComponent extends Component implements IContextKeyContri
     }
 
     /**
-     * IContextKeyContributor: `tabSwitcherVisible`. Спрашиваем ВИДИМОСТЬ
-     * оверлея, а не состояние серии в модели: список гаснет и помимо конца серии
-     * (уход из группы), а стрелки обязаны вернуться редактору ровно тогда, когда
-     * список исчез с экрана.
+     * Спрашиваем ВИДИМОСТЬ оверлея, а не состояние серии: список гаснет и помимо
+     * конца серии, а стрелки обязаны вернуться редактору ровно когда он исчез.
      */
     public updateContextKeys(contextKeys: ContextKeyService): void {
         contextKeys.set("tabSwitcherVisible", this.isOpen());
     }
 
-    /** Отражает шаг серии: строки из замороженного MRU-списка, окно — по позиции. */
     private show(state: MruCycleState): void {
         const labels = computeTabLabels(state.panes, (pane) => this.editorService.displayName(pane));
         const items: TabSwitcherItem[] = state.panes.map((pane, index) => {
@@ -129,7 +111,7 @@ export class TabSwitcherComponent extends Component implements IContextKeyContri
         if (this.session?.isOpen()) this.session.close();
     }
 
-    /** Горизонтальный центр, ~10% от верха экрана — как у quick pick'а. */
+    /** ~10% от верха экрана — как у quick pick'а. */
     private updatePosition(): void {
         if (this.host === null) return;
 

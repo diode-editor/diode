@@ -54,7 +54,6 @@ describe("TabSwitcherElement — раскладка", () => {
         // фиксируем, КАКАЯ из строк подсвечена, а не только «строки различаются».
         const frameBg = backend.getBgAt(new Point(5, 0));
         expect(plainBg).toBe(frameBg);
-        // Выделение тянется на всю внутреннюю ширину, включая колонку маркера.
         expect(backend.getBgAt(new Point(21, 2))).toBe(currentBg);
     });
 
@@ -91,7 +90,6 @@ describe("TabSwitcherElement — раскладка", () => {
         switcher.setItems(items, 1);
         expect(switcher.inspectState()).toMatchObject({ currentIndex: 1, windowStart: 0 });
 
-        // Позиция ушла за нижний край окна [0..2] — окно тянется вниз.
         switcher.setItems(items, 3);
         expect(switcher.inspectState()).toMatchObject({ currentIndex: 3, windowStart: 1 });
 
@@ -106,11 +104,9 @@ describe("TabSwitcherElement — раскладка", () => {
             `,
         );
 
-        // Шаг назад ВНУТРИ окна [1..3] окно не двигает.
         switcher.setItems(items, 2);
         expect(switcher.inspectState()).toMatchObject({ currentIndex: 2, windowStart: 1 });
 
-        // Заворот цикла на начало списка — окно возвращается к первой строке.
         switcher.setItems(items, 0);
         expect(switcher.inspectState()).toMatchObject({ currentIndex: 0, windowStart: 0 });
     });
@@ -148,7 +144,6 @@ describe("TabSwitcherElement — раскладка", () => {
         switcher.setItems([item("a.ts")], 0);
 
         const backend = render(switcher, 24);
-        // Колонка иконки — сразу за рамкой и отступом; метка рядом наследует fg пикера.
         expect(backend.getFgAt(new Point(2, 1))).toBe(ICON_COLOR);
         expect(backend.getFgAt(new Point(4, 1))).not.toBe(ICON_COLOR);
     });

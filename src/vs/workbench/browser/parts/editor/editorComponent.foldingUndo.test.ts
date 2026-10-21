@@ -75,12 +75,11 @@ describe("EditorComponent – undo/redo × folding", () => {
         ctrl.viewState.foldRegionContaining(1);
         expect(regionAt(ctrl, 1)?.isCollapsed).toBe(true);
 
-        ctrl.undo(); // removes the whole block
+        ctrl.undo();
         await flush();
 
         expect(ctrl.getText()).toBe("keep");
         expect(ctrl.viewState.foldedRegions.length).toBe(0);
-        // Projection stays consistent — no stale hidden ranges past the document.
         expect(ctrl.viewState.getViewLineCount()).toBe(ctrl.viewState.document.lineCount);
     });
 

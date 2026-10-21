@@ -13,7 +13,6 @@ import { ViewContainerHeaderElement } from "../views/viewContainerHeaderElement.
 
 const ACTIONS_LOCATION = "workbench.editor.editorActionsLocation";
 
-/** Что панели действий группы нужно от workbench'а: меню, его контекст, попап «⋯» и настройка места. */
 export interface IEditorTitleActionsServices {
     readonly menus: MenuService;
     readonly configuration: IConfigurationService;
@@ -22,19 +21,9 @@ export interface IEditorTitleActionsServices {
 }
 
 /**
- * Панель действий справа от вкладок группы — `editor/title` эталона
- * (`EditorTabsControl` + `editorActionsToolbar`): пункты `MenuId.EditorTitle`
- * группы `navigation` с иконкой — кнопками, остальное — в попапе «⋯». Строка
- * — та же, что у полосы контролов в таб-строке панели
- * ({@link ViewContainerHeaderElement} без названия), правило разбора меню —
- * общее с заголовками view (`titleMenuEntries.ts`).
- *
- * Пере-резолвится по смене контекст-ключей и состава меню: `when` пунктов
- * (`config.claudeCode.useTerminal`, `claude-vscode.viewingProposedDiff`)
- * меняется без событий группы. Пустое меню панели не даёт — ряд вкладок
- * выглядит как раньше ({@link isVisible}). `workbench.editor.editorActionsLocation`:
- * `default` — в ряду вкладок; `hidden` и `titleBar` — панели нет (заголовка
- * окна у нас нет, как у эталона без своего title bar).
+ * `editor/title` эталона (`EditorTabsControl` + `editorActionsToolbar`). Пере-резолвится
+ * по смене контекст-ключей: `when` пунктов меняется без событий группы. `hidden` и
+ * `titleBar` — панели нет (заголовка окна у нас нет).
  */
 export class EditorTitleActions extends Disposable {
     public readonly element: ViewContainerHeaderElement;
@@ -82,12 +71,10 @@ export class EditorTitleActions extends Disposable {
         this.refresh();
     }
 
-    /** Есть ли что показать: без пунктов панель не занимает места в ряду вкладок. */
     public get isVisible(): boolean {
         return this.visible;
     }
 
-    /** Панель появилась или пропала — владелец перекладывает ряд вкладок. */
     public readonly onDidChangeVisibility = this.onDidChangeVisibilityEmitter.event;
 
     private groups(): IMenuEntryGroup[] {

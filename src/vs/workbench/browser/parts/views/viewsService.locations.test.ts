@@ -110,7 +110,6 @@ describe("ViewsService — перенос в существующий конте
         h.service.moveViewsToContainer(["terminal"], OUTPUT);
         expect(h.service.getContainerViews(OUTPUT).map((v) => v.id)).toEqual(["output", "terminal"]);
         expect(tabs(h, "panel")).toEqual(["OUTPUT"]);
-        // Две секции — у каждой свой заголовок.
         expect(h.paneView(OUTPUT).querySelector("#paneHeader-terminal")!.hidden).toBe(false);
     });
 

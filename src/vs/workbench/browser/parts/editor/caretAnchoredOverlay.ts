@@ -5,25 +5,15 @@ import type { TUIElement } from "@tuidom/core/dom/tuiElement";
 import { Disposable } from "../../../../base/common/lifecycle.ts";
 
 /**
- * Где встаёт попап относительно каретки — аналог upstream
- * `ContentWidgetPositionPreference`, сведённый к двум нужным нам случаям:
- * - `"below"` — под строкой каретки (suggest, hover);
- * - `"aboveElseBelow"` — над строкой, а если сверху не хватает места, под ней
- *   (parameter hints: так она не ложится на попап автодополнения, как в VS Code).
+ * Upstream `ContentWidgetPositionPreference`, сведённый к двум случаям.
+ * `aboveElseBelow` — parameter hints: так они не ложатся на попап автодополнения.
  */
 export type CaretOverlayPlacement = "below" | "aboveElseBelow";
 
 /**
- * Попап у каретки редактора: overlay-сессия с опциями, общими для всех попапов
- * над редактором (suggest, hover, parameter hints), — аналог upstream
- * `IContentWidget`. Компоненты попапов СОДЕРЖАТ его, а не наследуют: у каждого
- * свой элемент и своя раскладка (сторона панели описания у suggest).
- *
- * Опции сессии: попап фокус не забирает — редактор остаётся активным и
- * обрабатывает набор и движение каретки; команды попапа (`when:
- * suggestWidgetVisible` и т.п.) не focus-scoped, поэтому `capturesKeyboard:
- * false` — иначе диспатчер заглушил бы их; клик мимо попапа его закрывает, клик
- * по нему — нет.
+ * Аналог upstream `IContentWidget`. Попап фокус не забирает — набор идёт в редактор;
+ * команды попапа не focus-scoped, поэтому `capturesKeyboard: false` — иначе
+ * диспатчер заглушил бы их.
  */
 export class CaretAnchoredOverlay extends Disposable {
     private readonly session: OverlaySessionHandle;
@@ -48,17 +38,13 @@ export class CaretAnchoredOverlay extends Disposable {
         });
     }
 
-    /** Открыт ли попап. */
     public isOpen(): boolean {
         return this.session.isOpen();
     }
 
     /**
-     * Позиционирует попап у каретки и открывает сессию.
-     *
-     * Анкорить обязательно на КАЖДОМ показе, даже если попап уже открыт: слой
-     * запоминает геометрию на момент анкоринга, и новый (более широкий) контент
-     * без пере-анкора остался бы «в дереве, но не на кадре».
+     * Анкорить на КАЖДОМ показе, даже открытом: слой запоминает геометрию при анкоре,
+     * и более широкий контент без пере-анкора остался бы «в дереве, но не на кадре».
      */
     public openAt(anchor: OverlayAnchorPosition, placement: CaretOverlayPlacement = "below"): void {
         this.setAnchor(anchor, placement);
@@ -66,14 +52,9 @@ export class CaretAnchoredOverlay extends Disposable {
     }
 
     /**
-     * Пере-анкорит попап, не открывая его: вслед за кареткой или под новую
-     * ширину содержимого.
-     *
-     * `"aboveElseBelow"`: одного `preferBelow: false` мало — он лишь снимает
-     * сдвиг на строку вниз, и попап накрыл бы саму каретку; поднимает его
-     * `offsetY` на собственную высоту. Если сверху места нет (каретка в первых
-     * строках), падаем на низ — иначе слой прижал бы попап к нулевой строке и он
-     * всё равно закрыл бы каретку.
+     * `aboveElseBelow`: `preferBelow: false` лишь снимает сдвиг вниз, и попап накрыл бы
+     * каретку — поднимает его `offsetY` на свою высоту. Сверху места нет — падаем на низ,
+     * иначе слой прижал бы попап к нулевой строке поверх каретки.
      */
     public setAnchor(anchor: OverlayAnchorPosition, placement: CaretOverlayPlacement = "below"): void {
         switch (placement) {
@@ -91,7 +72,7 @@ export class CaretAnchoredOverlay extends Disposable {
         }
     }
 
-    /** Закрывает сессию; no-op, если уже закрыта (это гарантирует сам слой). */
+    /** No-op, если уже закрыта (это гарантирует сам слой). */
     public close(): void {
         this.session.close();
     }

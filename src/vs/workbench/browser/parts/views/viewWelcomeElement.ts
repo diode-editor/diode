@@ -5,50 +5,33 @@ import { ButtonElement } from "@tuidom/elements/button/buttonElement";
 import { wrapText } from "@tuidom/elements/completionlist/completionDetailsElement";
 
 /**
- * Один блок пустого состояния view — аналог строки `viewsWelcome` эталона, где
- * абзац текста и ссылка-команда (`[label](command:id)`) тоже лежат одним
- * списком. Пустая строка выражается текстовым блоком с `text: ""`: зазоры
- * расставляет автор содержимого, а не раскладка — иначе «текст, под ним кнопка»
- * и «текст, зазор, кнопка» было бы не различить.
+ * Аналог строки `viewsWelcome` эталона. Пустая строка — текстовый блок с `text: ""`: зазоры
+ * расставляет автор, а не раскладка, иначе «текст, под ним кнопка» и «текст, зазор, кнопка»
+ * было бы не различить.
  */
 export type IViewWelcomeBlock =
     | { readonly kind: "text"; readonly text: string }
     | {
           readonly kind: "button";
           readonly label: string;
-          /** Команда, которую запускает кнопка (как `command:` у ссылки в эталоне). */
           readonly command: string;
           readonly args?: readonly unknown[];
       };
 
 /**
- * Отступ слева, которым welcome встаёт в одну колонку с заголовком секции и
- * строками дерева (`TreeViewElement({ leftPadding: 1 })`). Плоская подсказка
- * его не имеет намеренно — её контент узкий и в панели обрезался бы, — а
- * welcome заметный, и уехавший к самому краю текст с кнопкой читается криво.
+ * Колонка заголовка секции и строк дерева. У плоской подсказки отступа нет намеренно — в
+ * панели она обрезалась бы, а welcome у самого края читается криво.
  */
 const LEFT_PADDING = 1;
 
-/** Строка раскладки: либо готовая (уже перенесённая) строка текста, либо кнопка. */
 type WelcomeRow =
     | { readonly kind: "text"; readonly text: string }
     | { readonly kind: "button"; readonly index: number };
 
 /**
- * Интерактивное пустое состояние view (аналог `viewsWelcome` VS Code): абзацы
- * текста с переносом по словам и кнопки, запускающие команды.
- *
- * Текст элемент рисует сам, а не детьми-лейблами: перенос зависит от ширины,
- * которая известна только в `performLayout`, а менять там состав детей (или
- * текст уже прикреплённого лейбла) нельзя — это замораживает кадр. Поэтому
- * детей ровно столько, сколько кнопок, а строки текста считаются из ширины и
- * уходят прямо в `drawText`.
- *
- * Кнопки — обычные {@link ButtonElement}: фокусируемые, значит достижимые
- * Tab/Shift+Tab штатным обходом движка, Enter/Space их активируют. Фокус на
- * первую кнопку при показе секции ставит `ViewsService.focusContainer` через
- * {@link focusFirstButton} — чтобы из состояния «папка не открыта» выход был
- * одним нажатием.
+ * Текст рисуется сам, а не детьми-лейблами: перенос зависит от ширины из `performLayout`,
+ * а менять там состав детей или текст прикреплённого лейбла нельзя — это замораживает кадр.
+ * Поэтому дети — только кнопки.
  */
 export class ViewWelcomeElement extends TUIElement {
     private readonly buttons: ButtonElement[] = [];
@@ -71,11 +54,7 @@ export class ViewWelcomeElement extends TUIElement {
         }
     }
 
-    /**
-     * Ставит фокус на первую кнопку. Возвращает `false`, если кнопок нет
-     * (пустое состояние из одного текста) — тогда фокусировать нечего и
-     * вызывающий решает сам, куда его деть.
-     */
+    /** `false` — кнопок нет, и куда деть фокус, решает вызывающий. */
     public focusFirstButton(): boolean {
         const first = this.buttons.at(0);
         if (first === undefined) return false;
@@ -89,37 +68,28 @@ export class ViewWelcomeElement extends TUIElement {
         const rows = this.rowsFor(width);
         for (const [y, row] of rows.entries()) {
             if (row.kind !== "button") continue;
-            // Кнопка шириной по метке (её `performLayout` сам жмётся к
-            // натуральному размеру), поэтому constraints тут loose.
             this.layoutChild(this.buttons[row.index], LEFT_PADDING, y, BoxConstraints.loose(new Size(width, 1)));
         }
         return size;
     }
 
     public override render(context: RenderContext): void {
-        // Сначала фон и дети (кнопки), потом строки текста: строки кнопок и
-        // строки текста не пересекаются, так что порядок роли не играет.
         super.render(context);
         const { fg, bg } = this.resolvedStyle;
         const width = this.textWidth(this.layoutSize.width);
         const rows = this.rowsFor(width);
         for (const [y, row] of rows.entries()) {
             if (row.kind !== "text") continue;
-            // Без `maxWidth`: строки уже перенесены ровно под эту ширину, а всё,
-            // что вылезло бы за секцию, обрежет клип её прямоугольника.
+            // Без `maxWidth`: строки уже перенесены под эту ширину, остальное обрежет клип секции.
             context.drawText(LEFT_PADDING, y, row.text, { fg, bg });
         }
     }
 
-    /** Ширина под контент: всё, что осталось от секции за вычетом отступа. */
     private textWidth(available: number): number {
         return Math.max(0, available - LEFT_PADDING);
     }
 
-    /**
-     * Строки под ширину. Считается на каждый layout и render, без кэша: блоков
-     * единицы, а кэш по ширине дал бы ветку, наблюдаемую только по стоимости.
-     */
+    /** Без кэша: блоков единицы, а кэш по ширине дал бы ветку, наблюдаемую только по стоимости. */
     private rowsFor(width: number): readonly WelcomeRow[] {
         const rows: WelcomeRow[] = [];
         let buttonIndex = 0;
@@ -129,8 +99,7 @@ export class ViewWelcomeElement extends TUIElement {
                 buttonIndex++;
                 continue;
             }
-            // Зазор (`text: ""`) проходит тем же путём: wrapText отдаёт на нём
-            // одну пустую строку.
+            // Зазор (`text: ""`): wrapText отдаёт на нём одну пустую строку.
             for (const line of wrapText(block.text, width)) rows.push({ kind: "text", text: line });
         }
         return rows;

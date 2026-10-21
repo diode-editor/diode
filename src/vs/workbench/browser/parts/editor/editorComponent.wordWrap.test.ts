@@ -64,7 +64,6 @@ describe("EditorComponent.setWordWrap", () => {
         pane.setWordWrap("on", 80);
         expect(viewState.wordWrap).toBe("on");
         expect(viewState.scrollLeft).toBe(0);
-        // Каретка глубоко в проекции рядов — reveal прокрутил вьюпорт к её ряду.
         expect(viewState.scrollTop).toBeGreaterThan(0);
     });
 

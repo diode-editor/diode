@@ -9,9 +9,7 @@ import type { ILanguageService } from "../../../../editor/common/languages/iLang
 import { NULL_LANGUAGE_SERVICE } from "../../../../editor/common/languages/iLanguageService.ts";
 import { TokenizationRegistry } from "../../../../editor/common/languages/tokenizationRegistry.ts";
 
-// Вехи лестницы старта (docs/TODO/OpenPerformance.md): открытие файла ставит
-// метки чтения/декодирования/построения документа и готовности токенайзера,
-// которые бенч читает из трассы DIODE_STARTUP_TRACE.
+// Вехи лестницы старта бенч читает из трассы DIODE_STARTUP_TRACE.
 describe("EditorComponent + TextFileModel — вехи старта", () => {
     let ws: ITempWorkspace;
     const typescriptLanguageService: ILanguageService = {

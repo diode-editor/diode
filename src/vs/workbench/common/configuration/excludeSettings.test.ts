@@ -20,7 +20,6 @@ import {
     watcherExcludeGlobs,
 } from "./excludeSettings.ts";
 
-/** Читатель поверх карты значений — структурный аналог обоих настоящих. */
 function reader(values: Readonly<Record<string, unknown>>): IExcludeConfigReader {
     return { get: (key: string): unknown => values[key] };
 }
@@ -94,11 +93,9 @@ describe("isExcludedPath", () => {
     });
 });
 
-// Дефолты обеих настроек — на живых путях. Таблицы перечисляют пути ЯВНО (а не
-// выводятся из шаблонов): иначе тест переписывался бы вместе с опечаткой в
-// дефолте и ничего не проверял.
+// Пути перечислены явно, а не выведены из шаблонов: иначе тест переписывался бы
+// вместе с опечаткой в дефолте.
 describe("дефолты files.exclude / search.exclude", () => {
-    /** Собирает значение так же, как ConfigurationService: defaults + user. */
     function merged(userValue: Readonly<Record<string, unknown>> = {}): IExcludeConfigReader {
         const defaults = ConfigurationModel.fromRaw(
             new ConfigurationRegistry(CONFIGURATION_CONTRIBUTIONS).getDefaultConfiguration(),
@@ -109,7 +106,6 @@ describe("дефолты files.exclude / search.exclude", () => {
     }
 
     const hiddenEverywhere = [
-        // Набор эталона.
         ".git",
         "sub/.git",
         ".svn",
@@ -117,7 +113,6 @@ describe("дефолты files.exclude / search.exclude", () => {
         ".DS_Store",
         "src/.DS_Store",
         "Thumbs.db",
-        // Наша добавка — кеши, чьё содержимое не читают.
         "__pycache__",
         "pkg/sub/__pycache__",
         ".mypy_cache",
@@ -126,11 +121,9 @@ describe("дефолты files.exclude / search.exclude", () => {
     ];
 
     const hiddenInSearchOnly = [
-        // Набор эталона.
         "node_modules",
         "packages/app/node_modules",
         "bower_components",
-        // Зависимости Python, результат сборки, кеши сборщиков.
         ".venv",
         "dist",
         "out",
@@ -141,7 +134,6 @@ describe("дефолты files.exclude / search.exclude", () => {
         ".gradle",
         ".cache",
         ".turbo",
-        // Полные копии репозитория.
         ".stryker-tmp",
         ".claude/worktrees",
     ];
@@ -177,9 +169,6 @@ describe("дефолты files.exclude / search.exclude", () => {
     });
 
     it("node_modules в дереве ВИДЕН — осознанное выравнивание на эталон", () => {
-        // До этого узла дерево скрывало его захардкоженным списком. У эталона
-        // `files.exclude` его не содержит: исходник зависимости читают, а шумит
-        // он в результатах поиска — поэтому он в `search.exclude`.
         const config = merged();
         expect(filesExcludeGlobs(config)).not.toContain("**/node_modules");
         expect(parseExcludeSetting(config.get(SEARCH_EXCLUDE_SETTING))).toContain("**/node_modules");
@@ -217,9 +206,7 @@ describe("дефолты files.exclude / search.exclude", () => {
     });
 
     it("каждый дефолт — в форме `**/<имя>`: скрывается САМ вход", () => {
-        // Форма `**/<имя>/**` каталог не матчит: он остался бы в дереве пустым,
-        // а обход всё равно спускался бы внутрь. Ровно та же причина, по которой
-        // переякорены дефолты `files.watcherExclude`.
+        // `**/<имя>/**` каталог не матчит: он остался бы в дереве пустым, а обход спускался бы внутрь.
         const config = merged();
         for (const glob of [...filesExcludeGlobs(config), ...parseExcludeSetting(config.get(SEARCH_EXCLUDE_SETTING))]) {
             expect(glob.startsWith("**/"), glob).toBe(true);

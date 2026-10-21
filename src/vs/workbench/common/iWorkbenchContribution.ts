@@ -3,48 +3,27 @@ import type { Token } from "../../platform/instantiation/common/diContainer.ts";
 import type { LifecyclePhase } from "../services/lifecycle/common/lifecyclePhase.ts";
 
 /**
- * Workbench-contribution — самодостаточная единица фич-проводки поверх сервисов
- * и компонентов слоя Workbench (аналог `IWorkbenchContribution` в VS Code).
- *
- * Контракт — маркер: вся работа делается в конструкторе (подписки на события
- * сервисов, публикация UI, регистрация хэндлеров), а `dispose()` её сматывает.
- * Отдельного метода активации нет — инстанцирование класса И ЕСТЬ активация.
- * Прообраз в кодовой базе — `EditorStatusContribution`/`TerminalEnvStatusContribution`.
- *
- * Правило под наш DI (ленив по токену, без Delayed-прокси): тяжёлые сервисы НЕ
- * класть в `static dependencies` — иначе они сконструируются в момент прогона
- * фазы. Тяжёлое резолвить лениво через {@link ServiceAccessor} внутри колбэков.
+ * Как `IWorkbenchContribution` vscode: вся работа — в конструкторе, `dispose()` её
+ * сматывает. У нашего DI нет Delayed-прокси: тяжёлый сервис в `static dependencies`
+ * сконструируется в момент прогона фазы — резолвь его лениво через {@link ServiceAccessor}.
  */
 export type IWorkbenchContribution = IDisposable;
 
 /**
- * Фаза, на которой инстанцируется contribution (аналог `WorkbenchPhase` VS Code):
- * - `blockStartup` — в конструкторе `WorkbenchComponent`, сразу после
- *   прикрепления корневой view (≈ vscode `WorkbenchPhase.BlockStartup`): фич-
- *   компоненты и их сервисы, которые должны существовать до открытия папки и
- *   до старта extension host'а (команды, на которые публикуют расширения;
- *   контейнеры view, которые собирает `mount()`);
- *
- * дальше — синхронно, в момент перехода `LifecycleService` в фазу
- * ({@link LifecyclePhase}):
- * - `ready` — в `WorkbenchComponent.mount()` (view построена, лёгкие сервисы
- *   готовы; ≈ vscode `WorkbenchPhase.BlockRestore`) — до открытия файлов;
- * - `afterRestored` — после восстановления редакторов, когда окно простаивает
- *   (≈ vscode `WorkbenchPhase.AfterRestored`: фаза `Restored`, инстанцирование
- *   через `runWhenGlobalIdle`). У нас это момент после кадра с подсветкой —
- *   первым делом перехода в `eventually`, раньше его contribution'ов. Сама
- *   фаза `restored` наступает до кадра с текстом и для этого не годится: всё,
- *   что висит на ней, откладывало бы кадр. Сюда — проводка, без которой
- *   первые кадры обходятся (каналы Output, change-bars, статус-бары);
- * - `eventually` — idle после первого кадра — для отложенной/тяжёлой работы,
- *   не влияющей на старт.
+ * Аналог `WorkbenchPhase` vscode:
+ * - `blockStartup` (≈ `BlockStartup`) — в конструкторе `WorkbenchComponent`, до
+ *   открытия папки и старта extension host'а;
+ * - `ready` (≈ `BlockRestore`) — в `WorkbenchComponent.mount()`, до открытия файлов;
+ * - `afterRestored` (≈ `AfterRestored`) — после кадра с подсветкой, первым делом
+ *   перехода в `eventually`. Не на фазе `restored`: она наступает до кадра с
+ *   текстом, и всё, что висит на ней, откладывало бы кадр;
+ * - `eventually` — idle после первого кадра.
  */
 export type WorkbenchContributionPhase =
     | "blockStartup"
     | "afterRestored"
     | Extract<LifecyclePhase, "ready" | "eventually">;
 
-/** Запись в реестре: DI-токен contribution'а + его фаза. */
 export interface IWorkbenchContributionRegistration {
     readonly token: Token<IWorkbenchContribution>;
     readonly phase: WorkbenchContributionPhase;

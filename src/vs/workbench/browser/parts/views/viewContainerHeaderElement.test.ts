@@ -150,7 +150,6 @@ describe("ViewContainerHeaderElement", () => {
 
         const hit = app.root.elementFromPoint(new Point(widget.globalPosition.x, widget.globalPosition.y));
         expect(hit).toBe(widget);
-        // Лейблы по-прежнему презентационные — клик по названию берёт заголовок.
         expect(app.root.elementFromPoint(new Point(header.globalPosition.x, header.globalPosition.y))).toBe(header);
     });
 

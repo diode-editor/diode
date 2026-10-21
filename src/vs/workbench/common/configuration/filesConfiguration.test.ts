@@ -28,28 +28,22 @@ describe("filesConfiguration — files.watcherExclude, схема", () => {
     });
 });
 
-// Что именно режут дефолты. Таблица перечисляет пути ЯВНО (а не выводится из
-// самих шаблонов): иначе тест переписывался бы вместе с опечаткой в дефолте и
-// ничего не проверял. Пути — относительно корня watch'а, как их видит
-// `isExcluded`.
+// Пути перечислены явно, а не выведены из шаблонов: иначе тест переписывался бы
+// вместе с опечаткой в дефолте.
 describe("filesConfiguration — files.watcherExclude, дефолты на живых путях", () => {
     const excluded = [
-        // Служебные каталоги VCS — целиком, на любой глубине.
         ".git",
         "sub/.git",
         ".hg",
         ".svn",
-        // Зависимости и окружения.
         "node_modules",
         "packages/app/node_modules",
         ".venv",
-        // Сборка и отчёты.
         "dist",
         "out",
         "build",
         "target",
         "coverage",
-        // Кеши инструментов.
         ".cache",
         ".gradle",
         ".next",
@@ -60,12 +54,10 @@ describe("filesConfiguration — files.watcherExclude, дефолты на жи�
         ".pytest_cache",
         ".ruff_cache",
         ".stryker-tmp",
-        // Worktree агентов.
         ".claude/worktrees",
     ];
 
     const kept = [
-        // Похожие имена, которые режущими шаблонами задеваться не должны.
         ".gitignore",
         ".gitattributes",
         "src",
@@ -89,19 +81,12 @@ describe("filesConfiguration — files.watcherExclude, дефолты на жи�
     });
 
     it("исключается сам каталог, а не только его содержимое", () => {
-        // Ради этого дефолты и переписаны в форму `**/<имя>`: chokidar не
-        // заходит только в тот каталог, который исключён сам. Шаблон на
-        // содержимое (`**/node_modules/**`) каталог не матчит — обход в него
-        // всё равно спускается.
         expect(isExcluded("/repo", "/repo/node_modules", ["**/node_modules/**"])).toBe(false);
         expect(isExcluded("/repo", "/repo/node_modules", DEFAULT_EXCLUDES)).toBe(true);
     });
 
     it("`**/.git` не задевает собственный watcher расширения git", () => {
-        // Расширение git следит за служебным каталогом отдельным watcher'ом, у
-        // которого корень — сам `.git` (`startWatchers` в extensions/git/main.ts).
-        // Пути там считаются относительно этого корня, шаблона `.git` в них нет
-        // — checkout, commit и stage расширение видит по-прежнему.
+        // Корень его watcher'а — сам `.git` (`startWatchers` в extensions/git/main.ts).
         expect(isExcluded("/repo/.git", "/repo/.git/HEAD", DEFAULT_EXCLUDES)).toBe(false);
         expect(isExcluded("/repo/.git", "/repo/.git/index", DEFAULT_EXCLUDES)).toBe(false);
         expect(isExcluded("/repo/.git", "/repo/.git/refs/heads/main", DEFAULT_EXCLUDES)).toBe(false);
@@ -109,7 +94,6 @@ describe("filesConfiguration — files.watcherExclude, дефолты на жи�
 });
 
 describe("filesConfiguration — files.watcherExclude, правка пользователем", () => {
-    /** Собирает значение настройки так же, как ConfigurationService: defaults + user. */
     function merged(userValue: Record<string, boolean>): string[] {
         const defaults = ConfigurationModel.fromRaw({
             "files.watcherExclude": filesConfiguration.properties["files.watcherExclude"].default,
@@ -132,7 +116,6 @@ describe("filesConfiguration — files.watcherExclude, правка пользо
     });
 });
 
-/** Ловит настоящий FSWatcher, который создаёт базовый класс, — ради `getWatched()`. */
 class CapturingTreeWatcher extends ChokidarTreeWatcher {
     public captured: FSWatcher | undefined;
     protected override createWatcher(rootPath: string, options: ITreeFileWatchOptions): FSWatcher {
@@ -163,7 +146,6 @@ describe("filesConfiguration — files.watcherExclude на живом обход
         fs.rmSync(root, { recursive: true, force: true });
     });
 
-    /** Каталоги, на которые chokidar реально подписался, — относительно корня. */
     async function watchedDirs(excludes: readonly string[]): Promise<string[]> {
         const watcher = new CapturingTreeWatcher();
         const subscription = watcher.watchTree(root, { recursive: true, excludes }, () => {
@@ -181,13 +163,10 @@ describe("filesConfiguration — files.watcherExclude на живом обход
 
     it("в исключённые каталоги обход не заходит вовсе", async () => {
         const watched = await watchedDirs(DEFAULT_EXCLUDES);
-        // Своё дерево — под слежением.
         expect(watched).toContain("src");
         expect(watched).toContain("src/app");
         expect(watched).toContain(".claude");
         expect(watched).toContain(".claude/skills");
-        // Исключённое — не просто отфильтровано по событиям, а не посещено:
-        // ни самого каталога, ни его содержимого в подписке нет.
         expect(watched.filter((dir) => dir.startsWith("node_modules"))).toEqual([]);
         expect(watched.filter((dir) => dir.startsWith(".git"))).toEqual([]);
         expect(watched.filter((dir) => dir.startsWith(".claude/worktrees"))).toEqual([]);
@@ -196,9 +175,6 @@ describe("filesConfiguration — files.watcherExclude на живом обход
     }, 20000);
 
     it("шаблон на содержимое оставлял бы watch на самом каталоге", async () => {
-        // Цена прежней формы дефолта: chokidar подписывается на
-        // `node_modules`, читает его целиком и stat'ит каждый вход — и только
-        // потом выбрасывает детей. Отсюда и лишние inotify-watch'и.
         const watched = await watchedDirs(["**/node_modules/**"]);
         expect(watched).toContain("node_modules");
         expect(watched).not.toContain("node_modules/pkg");

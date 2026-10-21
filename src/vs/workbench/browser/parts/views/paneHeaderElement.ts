@@ -7,43 +7,30 @@ import { TUIElement } from "@tuidom/core/dom/tuiElement";
 import type { IViewTitleAction } from "./viewTitleRowElement.ts";
 import { ViewTitleRowElement } from "./viewTitleRowElement.ts";
 
-/** Экранная точка для якоря меню секции (куда откроется popup). */
 export interface IPaneMenuAnchor {
     readonly screenX: number;
     readonly screenY: number;
 }
 
 /**
- * Заголовок view-секции сайдбара ({@link PaneViewElement}): общая строка
- * заголовка ({@link ViewTitleRowElement}) плюс жесты секции. Дети —
- * презентационные: хит-тест всегда возвращает сам заголовок (как строки
- * ListViewElement), потому что pointer capture работает только когда захватчик
- * — цель хит-теста; попадание по кнопке считает {@link ViewTitleRowElement.hitZone}.
+ * Дети презентационные: хит-тест всегда возвращает сам заголовок, потому что pointer capture
+ * работает, только когда захватчик — цель хит-теста; попадание по кнопке считает
+ * {@link ViewTitleRowElement.hitZone}.
  *
- * Заголовок — одновременно и drag-handle границы над собой (аналог
- * {@link SashElement}, отдельный сэш-ряд съел бы строку): пока зажата левая
- * кнопка, capture шлёт move/up сюда, и сдвиг по Y репортится наверх через
- * {@link onDrag}. Клик без сдвига — {@link onToggle} (либо {@link onAction} /
- * {@link onMenu}, если попал в кнопку); работать надо на сырых mousedown/up,
- * потому что capture синтезирует `click` даже после drag. Клавиатура:
- * Enter/Space — toggle, Shift+F10/правый клик — единое событие `contextmenu`
- * движка → {@link onMenu}.
+ * Заголовок — и drag-handle границы над собой (отдельный сэш-ряд съел бы строку). Клик и
+ * drag различаются на сырых mousedown/up: capture синтезирует `click` даже после drag.
  */
 export class PaneHeaderElement extends TUIElement {
-    /** Клик по заголовку вне кнопок (без drag) — свернуть/развернуть секцию. */
     public onToggle?: () => void;
-    /** Перетаскивание границы: абсолютная экранная строка, куда тянут верх заголовка. */
+    /** Абсолютная экранная строка, куда тянут верх заголовка. */
     public onDrag?: (boundaryScreenY: number) => void;
-    /** Запрос меню секции (кнопка «⋯», правый клик или Shift+F10). */
     public onMenu?: (anchor: IPaneMenuAnchor) => void;
-    /** Клик по inline-кнопке заголовка. */
     public onAction?: (actionId: string) => void;
 
     private readonly row: ViewTitleRowElement;
     private readonly collapsible: boolean;
     private dragEnabled = false;
 
-    // Состояние нажатия для различения click/drag (см. док-коммент класса).
     private pressed = false;
     private dragMoved = false;
     private pressScreenX = 0;
@@ -55,17 +42,13 @@ export class PaneHeaderElement extends TUIElement {
         this.collapsible = options?.collapsible ?? true;
         this.focusable = true;
         this.capturesPointer = true;
-        // Фон покоя наследуется от вьюлета (sideBar.*) — как в VS Code, где
-        // sideBarSectionHeader.background прозрачен; свой токен не берём, потому
-        // что альфа при парсинге тем отбрасывается и «прозрачный» из dark+
-        // выродился бы в чёрный. У текста альфы нет — там берём каноничный токен,
-        // причём merged-секция несёт заголовок контейнера и красится как он.
+        // Фон покоя наследуется от вьюлета, как в VS Code с прозрачным sideBarSectionHeader.background:
+        // альфа при парсинге тем отбрасывается, и «прозрачный» из dark+ выродился бы в чёрный.
         this.style = {
             fg: this.collapsible ? "sideBarSectionHeader.foreground" : "sideBarTitle.foreground",
             when: [{ states: ["focus"], bg: "list.hoverBackground" }],
         };
 
-        // Несворачиваемый заголовок (merged одно-view контейнер) — без шеврона.
         this.row = new ViewTitleRowElement(title, { chevron: this.collapsible });
         this.appendChild(this.row);
 
@@ -81,8 +64,7 @@ export class PaneHeaderElement extends TUIElement {
             this.row.setHoveredZone(this.row.hitZone(event.localX));
             if (!this.pressed) return;
             if (!this.dragMoved && event.screenY === this.pressScreenY) return;
-            // Любой сдвиг по Y — это drag: отпускание больше не считается кликом,
-            // даже если ресайз в эту сторону запрещён.
+            // Любой сдвиг по Y — drag, даже если ресайз в эту сторону запрещён.
             this.dragMoved = true;
             if (this.dragEnabled) this.onDrag?.(event.screenY);
         });
@@ -125,27 +107,22 @@ export class PaneHeaderElement extends TUIElement {
         this.row.setTitle(title);
     }
 
-    /** Inline-кнопки заголовка (группа `navigation` меню секции). */
     public setActions(actions: readonly IViewTitleAction[]): void {
         this.row.setActions(actions);
     }
 
-    /** Произвольный контрол в заголовке (переключатель каналов Output). */
     public setTitleWidget(widget: TUIElement | null): void {
         this.row.setTitleWidget(widget);
     }
 
-    /** Кадр спиннера занятой секции (см. {@link ViewTitleRowElement.setSpinnerFrame}). */
     public setSpinnerFrame(frame: string | null): void {
         this.row.setSpinnerFrame(frame);
     }
 
-    /** Прятать ли «⋯» (см. {@link ViewTitleRowElement.setMenuVisible}). */
     public setMenuVisible(visible: boolean): void {
         this.row.setMenuVisible(visible);
     }
 
-    /** Контейнер отключает drag, когда выше/ниже нет развёрнутой секции. */
     public setDragEnabled(enabled: boolean): void {
         this.dragEnabled = enabled;
     }
@@ -176,9 +153,7 @@ export class PaneHeaderElement extends TUIElement {
     }
 
     protected override hitTestChildren(point: Point): TUIElement | null {
-        // Лейблы презентационные: их мышь принадлежит заголовку — иначе pointer
-        // capture (drag границы) не сработает, когда нажатие пришлось на лейбл.
-        // Виджет заголовка — исключение: это настоящий контрол, ему мышь нужна.
+        // Мышь лейблов принадлежит заголовку (pointer capture drag'а); виджет — настоящий контрол.
         return this.row.hitTestWidget(point);
     }
 

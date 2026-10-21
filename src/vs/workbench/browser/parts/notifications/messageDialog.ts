@@ -10,16 +10,14 @@ import type {
 } from "../../../services/notification/browser/notificationService.ts";
 import { DIALOG_STYLES, DialogComponent } from "../dialogs/dialogComponent.ts";
 
-/** DOM-идентичность окна для `querySelector("#messageDialog")`. */
 export const MESSAGE_DIALOG_ELEMENT_ID = "messageDialog";
 
-/** Ширина текста внутри окна — окно по центру, места больше, чем у тоста. */
+/** Окно по центру — места больше, чем у тоста. */
 export const MESSAGE_DIALOG_TEXT_WIDTH = 60;
 
-/** Кнопка модального сообщения без кнопок: закрыть его человек обязан сам. */
+/** Модальное сообщение без кнопок закрыть человек обязан сам. */
 export const MESSAGE_DIALOG_CLOSE_LABEL = "OK";
 
-/** Заголовок окна по строгости (иконка — та же разметка, что у тоста). */
 const SEVERITY_TITLES: Readonly<Record<NotificationSeverity, string>> = {
     info: "$(info) Information",
     warn: "$(warning) Warning",
@@ -27,19 +25,12 @@ const SEVERITY_TITLES: Readonly<Record<NotificationSeverity, string>> = {
 };
 
 /**
- * Модальное сообщение расширения (`showInformationMessage(msg, { modal: true },
- * …)`) — окно по центру экрана вместо тоста в углу: пока человек не ответил,
- * экран под окном не принимает ни клик, ни клавишу.
- *
- * Ответ — индекс кнопки в `notification.items`; Escape отдаёт кнопку, помеченную
- * `isCloseAffordance` (так задокументировано в vscode.d.ts), а если такой нет —
- * закрывает без выбора. У сообщения без кнопок кнопка одна, {@link
- * MESSAGE_DIALOG_CLOSE_LABEL}, и она тоже значит «без выбора».
+ * Escape отдаёт кнопку `isCloseAffordance` (так в vscode.d.ts), а если такой
+ * нет — закрывает без выбора; «OK» сообщения без кнопок тоже значит «без выбора».
  */
 export class MessageDialog extends DialogComponent {
-    /** Человек нажал кнопку с этим индексом в `notification.items`. */
+    /** Индекс в `notification.items`. */
     public onSelect?: (index: number) => void;
-    /** Человек закрыл окно, не выбрав. */
     public onClose?: () => void;
 
     public readonly notification: IActiveNotification;
@@ -66,8 +57,6 @@ export class MessageDialog extends DialogComponent {
             }
         }
 
-        // Кнопки расширения либо единственная «OK»: окно без кнопок не закрыть,
-        // а модальное окно держит весь экран.
         const buttons: ButtonElement[] =
             notification.items.length > 0
                 ? notification.items.map((title, index) => {
@@ -78,19 +67,15 @@ export class MessageDialog extends DialogComponent {
                 : [makeCloseButton(() => this.onClose?.())];
         this.buttons = buttons;
 
-        // Центруем по ФАКТИЧЕСКОЙ ширине окна (его задаёт самая длинная строка),
-        // а не по предельной: у короткого сообщения окно узкое, и отступ, посчитанный
-        // от предела, увёл бы кнопки к правому краю.
+        // По ФАКТИЧЕСКОЙ ширине окна, а не по предельной: у короткого сообщения
+        // отступ от предела увёл бы кнопки к правому краю.
         const innerWidth = Math.max(0, ...messageLines.map((line) => line.length), ...detailLines.map((l) => l.length));
         // Stryker disable next-line StringLiteral: та же спецификация ширины ряда
         stack.addChild(new TextLabelElement(""), { width: "stretch", height: 1 });
         stack.addChild(buildCenteredRow(buttons, innerWidth), { width: "stretch", height: 1 });
     }
 
-    /**
-     * Ставит фокус на первую кнопку — она же ответ по умолчанию. Кнопка есть
-     * всегда: сообщению без кнопок конструктор даёт единственную «OK».
-     */
+    /** Кнопка есть всегда: сообщению без кнопок конструктор даёт «OK». */
     public focusDefault(): void {
         this.buttons[0].focus();
     }
@@ -116,12 +101,8 @@ function makeCloseButton(onActivate: () => void): ButtonElement {
 }
 
 /**
- * Ряд кнопок по центру окна. Центрируем ФИКСИРОВАННЫМ левым отступом, а тянется
- * только правый спейсер: `HFlexElement` допускает максимум один `fill`-ребёнок
- * (два спейсера по краям кидают на постройке окна — поймано живым прогоном).
- *
- * Ширины кнопок спрашиваем у самих кнопок, а не считаем по длине подписи: как
- * именно {@link ButtonElement} обрамляет текст, знает он сам.
+ * ФИКСИРОВАННЫЙ левый отступ и один правый спейсер: `HFlexElement` допускает
+ * максимум один `fill`-ребёнок (два кидают на постройке окна).
  */
 export function buildCenteredRow(buttons: readonly ButtonElement[], innerWidth: number): HFlexElement {
     const gap = 2;

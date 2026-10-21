@@ -11,7 +11,6 @@ import { AuxiliaryBarComponent } from "./auxiliaryBarComponent.ts";
 import { AuxiliaryBarFocusContribution } from "./auxiliaryBarFocusContribution.ts";
 import { AuxiliaryBarService } from "./auxiliaryBarService.ts";
 
-/** Фокусируемая заглушка контента вкладки. */
 class FocusableContent extends TUIElement {
     public constructor() {
         super();
@@ -26,7 +25,6 @@ interface IScene {
     readonly content: FocusableContent;
 }
 
-/** Часть с одной вкладкой; `rooted` — под корнем с менеджером фокуса или без него. */
 function scene(rooted: "none" | "bare" | "focus"): IScene & { readonly focusManager: FocusManager | null } {
     const service = new AuxiliaryBarService();
     const content = new FocusableContent();
@@ -58,8 +56,7 @@ describe("AuxiliaryBarComponent — ключи контекста", () => {
 });
 
 describe("AuxiliaryBarFocusContribution — края", () => {
-    // Исключение подписчика Emitter уходит в onUnexpectedError, а его общий
-    // setupFiles превращает в падение теста: «no-op» здесь — ещё и «без ошибки».
+    // Исключение подписчика setupFiles превращает в падение теста: «no-op» здесь — ещё и «без ошибки».
     it("часть вне дерева или корень без менеджера фокуса: скрытие — no-op", () => {
         for (const rooted of ["none", "bare"] as const) {
             const { service, focusEditor } = scene(rooted);

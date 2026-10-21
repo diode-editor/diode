@@ -10,9 +10,7 @@ import { describe, expect, it } from "vitest";
 import type { IPanelContainerOptions } from "./panelContainerElement.ts";
 import { PanelContainerElement } from "./panelContainerElement.ts";
 
-// Опции вида части: дефолты — нижняя панель, вторичная боковая панель — фон
-// сайдбара, без полосы границы и с колонкой под саш. Экран больше панели, чтобы
-// запись за край была видна; панель — по смещению ORIGIN.
+// Экран больше панели, чтобы запись за край была видна.
 const SCREEN = new Size(24, 8);
 const ORIGIN = new Offset(1, 1);
 
@@ -39,7 +37,6 @@ const SIDE_BAR_OPTIONS: IPanelContainerOptions = {
     contentLeft: 1,
 };
 
-/** Контент: красит левую верхнюю ячейку и запоминает свой бокс и унаследованный fg. */
 class MarkerContent extends TUIElement {
     public constructor(private readonly marker: string) {
         super();
@@ -50,7 +47,6 @@ class MarkerContent extends TUIElement {
     }
 }
 
-/** Корень сцены для мыши: панель — его ребёнок. */
 class HostElement extends TUIElement {
     public host(child: TUIElement): void {
         this.appendChild(child);
@@ -185,7 +181,6 @@ describe("PanelContainerElement: опции вида части", () => {
             expect(row(screen, 3, 14)).toBe(" it.          ");
             expect(at(screen, 1, 1).fg).toBe(DESCRIPTION_FG);
             expect(at(screen, 1, 1).bg).toBe(SIDEBAR_BG);
-            // Ячейка сразу за строкой подсказки — уже не её.
             expect(at(screen, 12, 1).fg).not.toBe(DESCRIPTION_FG);
         });
 
@@ -194,7 +189,6 @@ describe("PanelContainerElement: опции вида части", () => {
             const screen = paint(panel, new Size(6, 3));
             expect(row(screen, 1, 6)).toBe(" one  ");
             expect(row(screen, 2, 6)).toBe(" two  ");
-            // Строка за панелью не тронута.
             expect(at(screen, 1, 3).char).toBe(" ");
             expect(at(screen, 1, 3).bg).not.toBe(SIDEBAR_BG);
         });

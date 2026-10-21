@@ -74,7 +74,7 @@ describe("FilteredListControl — проводка", () => {
         expect(() => {
             control.input.onChange?.("x");
             control.list.onActivate?.(control.view.querySelector("#row-1")!);
-            // setQuery без onQueryChange не должен падать (optional chaining).
+            // setQuery без onQueryChange не должен падать.
             control.setQuery("y");
         }).not.toThrow();
         expect(control.getQuery()).toBe("y");

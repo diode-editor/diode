@@ -309,7 +309,6 @@ describe("QuickPickElement — перестройка строк держит э
 
         key(picker, " ");
 
-        // Курсор там же, отмечена именно та строка, и список не прыгнул.
         expect(picker.selectedIndex).toBe(scrolledIndex);
         expect([...picker.checkedItems].map((i) => i.label)).toEqual(["item-21"]);
         expect(picker.inspectState().checked).toEqual(["item-21"]);

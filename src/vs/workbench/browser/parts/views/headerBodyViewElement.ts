@@ -2,13 +2,8 @@ import { BoxConstraints, Size } from "@tuidom/core/common/geometryPromitives";
 import { TUIElement } from "@tuidom/core/dom/tuiElement";
 
 /**
- * Раскладка «шапка натуральной высоты сверху, остаток — телу»: строка запроса
- * поверх списка результатов. `VStackElement` так не умеет (у него все ряды
- * фиксированной высоты), а шапка обязана дышать — в Search она то раскрывает,
- * то прячет блок include/exclude.
- *
- * Общая для вьюлетов вида «поиск + список» (Search, Extensions): своя тут
- * только эта арифметика, всё остальное приносят дети.
+ * Шапка натуральной высоты сверху, остаток — телу. `VStackElement` так не умеет (ряды
+ * фиксированной высоты), а шапка обязана дышать: Search раскрывает блок include/exclude.
  */
 export class HeaderBodyViewElement extends TUIElement {
     public constructor(

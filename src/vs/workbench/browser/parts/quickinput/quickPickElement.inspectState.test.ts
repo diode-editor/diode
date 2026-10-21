@@ -2,10 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { QuickPickElement } from "./quickPickElement.ts";
 
-/**
- * `inspectState` — публичный контракт: он едет по проводу инспектора и на него
- * смотрят e2e через `NodeSnapshot.state`. Меняется вместе с ними, не молча.
- */
+/** Публичный контракт: едет по проводу инспектора и в e2e (`NodeSnapshot.state`) — меняется вместе с ними. */
 describe("QuickPickElement — inspectState", () => {
     it("отдаёт запрос, активный индекс, заголовок и лейблы строк", () => {
         const picker = new QuickPickElement();
