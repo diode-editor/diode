@@ -31,7 +31,7 @@
 - [x] `workbench/contrib`: остальные фичи и прочее `workbench/` (1734) — #742
 - [x] `src/vs/diode`, TestUtils, demos, StoryRunner, tools (904) — #741
 - [x] `e2e/scenarios` (1052) — #744
-- [~] `e2e`: остальное (1827)
+- [x] `e2e`: остальное (1827) — #745
 - [x] scripts, extensions, packaging, `.github`, конфиги (2330) — уехал в общий PR волн 1+2+3, см. ниже
 
 ## Волны 2+3 — остальная кириллица, оптом по областям
