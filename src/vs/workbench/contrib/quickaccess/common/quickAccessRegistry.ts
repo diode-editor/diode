@@ -4,9 +4,9 @@ import { ServiceAccessorDIToken } from "../../../../platform/instantiation/commo
 
 import type { IQuickAccessProvider } from "./iQuickAccessProvider.ts";
 
-/** Токен резолвится лениво: тяжёлые зависимости провайдера не поднимаются раньше времени. */
+/** The token resolves lazily: a provider's heavy dependencies aren't instantiated early. */
 export interface IQuickAccessProviderDescriptor {
-    /** `""` — дефолтный провайдер. */
+    /** `""` is the default provider. */
     readonly prefix: string;
     readonly provider: Token<IQuickAccessProvider>;
 }
@@ -19,7 +19,7 @@ export interface ResolvedQuickAccessProvider {
 export const QuickAccessProvidersDIToken = token<readonly IQuickAccessProviderDescriptor[]>("QuickAccessProviders");
 export const QuickAccessRegistryDIToken = token<QuickAccessRegistry>("QuickAccessRegistry");
 
-/** Аналог `IQuickAccessRegistry` vscode: выбирает провайдера с самым длинным подходящим префиксом. */
+/** Counterpart of vscode's `IQuickAccessRegistry`: picks the provider with the longest matching prefix. */
 export class QuickAccessRegistry {
     public static dependencies = [ServiceAccessorDIToken, QuickAccessProvidersDIToken] as const;
 

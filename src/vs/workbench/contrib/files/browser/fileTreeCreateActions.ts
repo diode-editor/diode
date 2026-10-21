@@ -5,12 +5,12 @@ import { explorerPathArg, viewMenuVisible } from "../../../browser/actions/menuC
 import { EXPLORER_VIEW_ID } from "./explorerComponent.ts";
 import { FileOperationsServiceDIToken } from "./fileOperationsService.ts";
 
-/** nf-cod-new_file — inline-кнопка заголовка Explorer'а. */
+/** nf-cod-new_file — inline button in the Explorer header. */
 const NEW_FILE_ICON = "";
-/** nf-cod-new_folder — она же для каталога. */
+/** nf-cod-new_folder — the same for a folder. */
 const NEW_FOLDER_ICON = "";
 
-/** Без кейбиндингов, как `explorer.newFile`/`explorer.newFolder` в VS Code. */
+/** No keybindings, like `explorer.newFile`/`explorer.newFolder` in VS Code. */
 export const explorerNewFileAction: CommandAction = {
     id: "explorer.newFile",
     title: "File: New File",
@@ -18,8 +18,8 @@ export const explorerNewFileAction: CommandAction = {
     when: "listFocus",
     menus: [
         { menuId: MenuId.ExplorerContext, group: "1_new", order: 10, args: explorerPathArg },
-        // В меню-баре и в заголовке контекст открытия не несёт пути — без args
-        // (создание в корне воркспейса).
+        // In the menu bar and the header the opening context carries no path — no args
+        // (creates in the workspace root).
         { menuId: MenuId.MenubarFileMenu, group: "1_new", order: 20 },
         {
             menuId: MenuId.ViewTitle,

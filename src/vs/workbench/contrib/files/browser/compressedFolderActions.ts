@@ -5,8 +5,8 @@ import { KeybindingWeight } from "../../../../platform/keybinding/common/keybind
 import { ExplorerServiceDIToken } from "./explorerService.ts";
 
 /**
- * Эталонные `previousCompressedFolder` и соседи: те же id, клавиши, `when` и вес `WorkbenchContrib + 10`
- * (перебивает `list.focusFirst`/`list.focusLast`). На краю цепочки клавиша уходит дереву.
+ * Upstream's `previousCompressedFolder` and siblings: same ids, keys, `when` and weight `WorkbenchContrib + 10`
+ * (beats `list.focusFirst`/`list.focusLast`). At the end of the chain the key goes to the tree.
  */
 const COMPRESSED_FOCUS = "filesExplorerFocus && !inputWidgetFocus && explorerViewletCompressedFocus";
 const NOT_FIRST = `${COMPRESSED_FOCUS} && !explorerViewletCompressedFirstFocus`;

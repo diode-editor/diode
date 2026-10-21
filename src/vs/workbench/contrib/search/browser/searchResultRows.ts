@@ -3,9 +3,9 @@ import { TextLabelElement } from "@tuidom/elements/text/textLabelElement";
 
 import type { ITextMatch } from "../../../services/search/common/textSearch.ts";
 
-/** Выделение и hover красит сам ListViewElement. */
+/** ListViewElement paints selection and hover itself. */
 export interface ISearchRowStyles {
-    /** Номера строк и счётчики матчей у файлов. */
+    /** Line numbers and per-file match counts. */
     readonly dimFg: StyleColor;
     readonly matchFg: StyleColor;
     readonly matchBg: StyleColor;
@@ -15,7 +15,7 @@ const GAP = "  ";
 const MAX_BEFORE_LENGTH = 24;
 const ELLIPSIS = "…";
 
-// setCharStyle ключуется code-unit-оффсетами — теми же, в которых предразрезан preview матча.
+// setCharStyle is keyed by code-unit offsets — the same ones the match preview is pre-split in.
 
 export function buildFileRow(id: string, relPath: string, count: number, styles: ISearchRowStyles): TextLabelElement {
     const row = new TextLabelElement("");
@@ -63,7 +63,7 @@ export function formatMatchRow(row: TextLabelElement, match: ITextMatch, styles:
     row.markDirty();
 }
 
-/** Чтобы сам матч оставался на экране. */
+/** Keeps the match itself on screen. */
 export function trimBefore(before: string): string {
     if (before.length <= MAX_BEFORE_LENGTH) return before;
     return ELLIPSIS + before.slice(before.length - (MAX_BEFORE_LENGTH - ELLIPSIS.length));

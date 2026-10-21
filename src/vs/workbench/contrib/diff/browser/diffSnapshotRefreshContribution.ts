@@ -15,16 +15,16 @@ export const DiffSnapshotRefreshContributionDIToken = token<DiffSnapshotRefreshC
     "DiffSnapshotRefreshContribution",
 );
 
-/** Пауза на серию событий провайдера (git шевелит `.git` пачками при rebase/commit). */
+/** Pause for a burst of provider events (git touches `.git` in batches on rebase/commit). */
 const REFRESH_DEBOUNCE_MS = 200;
 
-/** US-31: снимочные стороны (`git:`-ревизия) сами не обновляются — освежаем их по `onDidChangeFile` провайдеров. */
+/** US-31: snapshot sides (a `git:` revision) don't update themselves; refresh them on providers' `onDidChangeFile`. */
 export class DiffSnapshotRefreshContribution extends Disposable implements IWorkbenchContribution {
     public static dependencies = [EditorGroupsServiceDIToken, IFileServiceDIToken] as const;
 
     private readonly pending = new Set<string>();
     private debounceTimer: ReturnType<typeof setTimeout> | undefined;
-    /** Монотонный номер прогона: устаревшие асинхронные чтения не перетирают свежие. */
+    /** Monotonic run number: stale async reads don't overwrite fresh ones. */
     private refreshSeq = 0;
 
     public constructor(
@@ -63,15 +63,15 @@ export class DiffSnapshotRefreshContribution extends Disposable implements IWork
                 if (!(pane instanceof DiffEditorPane2)) continue;
                 if (!pane.snapshotSides().some((side) => this.sideTouched(pane, side, changed))) continue;
                 await refreshDiffSnapshots(this.providers, pane);
-                /* v8 ignore start -- гонка «новая пачка пришла, пока читали» детерминированно
-                   не воспроизводится юнитом: её прогон уже запланирован, наш — устарел */
+                /* v8 ignore start -- the race "a new batch arrived while reading" can't be reproduced
+                   deterministically in a unit test: its run is already scheduled, ours is stale */
                 if (seq !== this.refreshSeq) return;
                 /* v8 ignore stop */
             }
         }
     }
 
-    /** Ресурс стороны (настоящий, из входа команды — не синтетический модели). */
+    /** The side's resource (the real one from the command input, not the model's synthetic one). */
     private sideTouched(pane: DiffEditorPane2, side: DiffSide, changed: ReadonlySet<string>): boolean {
         const uri = side === "original" ? pane.originalUri : pane.modifiedUri;
         return uri !== null && changed.has(uri.toString());

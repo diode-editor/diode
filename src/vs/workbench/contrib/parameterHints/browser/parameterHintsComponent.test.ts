@@ -19,7 +19,7 @@ describe("ParameterHintsComponent — overlay-сессия попапа", () => 
     it("создаёт скрытую сессию на слое корневой view уже в конструкторе", () => {
         const body = new BodyElement();
         const component = new ParameterHintsComponent(testLayoutService(body));
-        // id — контракт для инспектора и e2e-запросов по дереву.
+        // The id is a contract for the inspector and e2e tree queries.
         expect(component.view.id).toBe("parameterHintsWidget");
         expect(body.overlayLayer.querySelector("#parameterHintsWidget")).toBe(component.view);
         expect(component.isOpen()).toBe(false);
@@ -50,7 +50,7 @@ describe("ParameterHintsComponent — overlay-сессия попапа", () => 
         const component = new ParameterHintsComponent(testLayoutService(body));
         component.setHint(HINT);
 
-        // Якорь редактора всегда с preferBelow: true — подсказка обязана его перевернуть.
+        // The editor anchor always has preferBelow: true — the hint must flip it.
         component.openAt({ screenX: 10, screenY: 12, preferBelow: true });
         app.render();
 
@@ -67,7 +67,7 @@ describe("ParameterHintsComponent — overlay-сессия попапа", () => 
         component.setHint(HINT);
         const height = component.view.getMaxIntrinsicHeight(component.view.getMaxIntrinsicWidth(0));
 
-        // Граница включительная: попап ровно упирается в верх экрана.
+        // The bound is inclusive: the popup exactly touches the top of the screen.
         component.openAt({ screenX: 10, screenY: height, preferBelow: true });
         app.render();
 

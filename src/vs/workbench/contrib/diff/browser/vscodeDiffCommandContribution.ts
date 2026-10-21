@@ -11,7 +11,7 @@ export const VscodeDiffCommandContributionDIToken = token<VscodeDiffCommandContr
     "VscodeDiffCommandContribution",
 );
 
-/** Ext-host исполняет `vscode.diff` по id через мост — команда обязана существовать до старта расширений (`blockStartup`). */
+/** The extension host runs `vscode.diff` by id over the bridge, so the command must exist before extensions start (`blockStartup`). */
 export class VscodeDiffCommandContribution extends Disposable implements IWorkbenchContribution {
     public static dependencies = [CommandRegistryDIToken, ServiceAccessorDIToken] as const;
 

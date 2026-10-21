@@ -19,7 +19,7 @@ import type { WorkspaceEditService } from "../../bulkEdit/browser/workspaceEditS
 import type { ExplorerService } from "./explorerService.ts";
 import { FileOperationsService } from "./fileOperationsService.ts";
 
-/** Основные флоу покрыты интеграционно (Workbench.FileCreate/FileRename/FileDelete/…). */
+/** The main flows are covered by integration tests (Workbench.FileCreate/FileRename/FileDelete/…). */
 function makeService(explorer: Partial<ExplorerService>): { service: FileOperationsService; edits: unknown[] } {
     const edits: unknown[] = [];
     const workspaceEdits = {
@@ -28,7 +28,7 @@ function makeService(explorer: Partial<ExplorerService>): { service: FileOperati
             return null;
         },
     } as unknown as WorkspaceEditService;
-    // Escape / клик мимо — `input()` резолвится undefined.
+    // Escape / a click outside — `input()` resolves to undefined.
     const cancelledPrompt = { input: () => Promise.resolve(undefined) };
     const service = new FileOperationsService(
         explorer as ExplorerService,

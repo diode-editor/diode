@@ -64,7 +64,7 @@ describe("SuggestComponent — overlay-сессия", () => {
     });
 });
 
-/** Каждый путь показа и движения обязан пере-анкорить сессию, иначе слой оставит попап на месте. */
+/** Every show and move path must re-anchor the session, otherwise the layer leaves the popup in place. */
 describe("SuggestComponent — позиция попапа у каретки", () => {
     it("openAt ставит попап под якорь", () => {
         const { component, app } = setup();
@@ -92,7 +92,7 @@ describe("SuggestComponent — позиция попапа у каретки", (
         const { component, app } = setup();
         component.openAt({ screenX: 10, screenY: 5, preferBelow: true });
         app.render();
-        // Сдвигаем сессию мимо компонента — пере-анкор обязан вернуть попап.
+        // Move the session behind the component's back — the re-anchor must bring the popup back.
         (component as unknown as { overlay: { setAnchor(a: unknown): void } }).overlay.setAnchor({
             screenX: 30,
             screenY: 15,

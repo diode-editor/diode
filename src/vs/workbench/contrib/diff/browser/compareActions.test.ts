@@ -20,9 +20,9 @@ import { QUERY_COMMAND } from "../../scm/browser/syncActions.ts";
 
 import { resetSelectedForCompare } from "./compareActions.ts";
 
-// Здесь — выбор сторон и вход (пикеры, меню, буфер обмена); механика вкладки — в openDiffPair.test.ts.
+// Here: side selection and entry points (pickers, menus, clipboard); tab mechanics are in openDiffPair.test.ts.
 
-/** View-хук полосы оборачивается, а не заменяется. */
+/** The view's group focus hook is wrapped, not replaced. */
 function recordGroupFocus(groups: IEditorGroupsService): number[] {
     const focused: number[] = [];
     const viewHook = groups.focusGroupContentHook;
@@ -42,8 +42,8 @@ describe("Команды сравнения файлов", () => {
             prefix: "diode-compare-",
             files: { "a.txt": "alpha\nbravo\n", "b.txt": "alpha\nBRAVO\n" },
         });
-        // Шире порога inline-фолбэка: команды семейства проверяют side-by-side
-        // семантику; inline-режим тестируется в diffEditorPane2.test.ts.
+        // Wider than the inline fallback threshold: the command family checks side-by-side
+        // semantics; inline mode is tested in diffEditorPane2.test.ts.
         h = createAppTestHarness({ workspaceFolder: ws.dir, size: new Size(150, 24) });
         resetSelectedForCompare();
     });
@@ -60,7 +60,7 @@ describe("Команды сравнения файлов", () => {
             .filter((p) => p instanceof DiffEditorPane2);
     }
 
-    /** Открытие вкладки асинхронно (чтение сторон); под нагрузкой 10мс мало. */
+    /** Opening the tab is async (reading the sides); under load 10ms is not enough. */
     async function settleUntilDiff(): Promise<void> {
         for (let i = 0; i < 50 && diffPanes().length === 0; i++) await settle(10);
         h.testApp.render();
@@ -95,7 +95,7 @@ describe("Команды сравнения файлов", () => {
             h.commands.execute("workbench.files.action.compareWithSaved");
             await settleUntilDiff();
 
-            // Узкие колонки side-by-side могут усечь хвост фразы — якоримся на начало.
+            // Narrow side-by-side columns may truncate the end of the phrase, so anchor on the start.
             expect(h.testApp.backend.screenToString()).toMatch(/The files are iden/u);
         });
 
@@ -248,8 +248,8 @@ describe("Команды сравнения файлов", () => {
             h.testApp.sendKey("Enter");
             await settleUntilDiff();
 
-            // Провайдер оригинала получил именно выбранный ref — тест продюсера.
-            // (Первый вызов без ref — это live-гуттер при открытии файла.)
+            // The original provider got exactly the selected ref: a producer test.
+            // (The first call without a ref is the live gutter on file open.)
             expect(git.requestedRefs.at(-1)).toBe("dev");
             const screen = h.testApp.backend.screenToString();
             expect(screen).toContain("a.txt ↔ dev");
@@ -293,12 +293,12 @@ describe("Команды сравнения файлов", () => {
             expect(snapshot?.getText()).toBe("alpha\nDEV\n");
             expect(h.testApp.backend.screenToString()).toContain("DEV");
 
-            // Повторный вызов той же ревизии — та же вкладка, не дубль.
+            // A repeat call for the same revision gives the same tab, not a duplicate.
             const countBefore = editors.editorGroups.activeGroup.editorCount;
             h.commands.execute("diode.scm.openFileAtRevision");
             await settle(50);
             h.testApp.render();
-            // Снимок — тоже TextEditorPane: вернёмся в исходный файл.
+            // The snapshot is a TextEditorPane too: go back to the source file.
             h.testApp.sendKey("Escape");
             editors.editorGroups.activeGroup.activateTab(0);
             h.commands.execute("diode.scm.openFileAtRevision");
@@ -400,7 +400,7 @@ describe("Команды сравнения файлов", () => {
 
             const picker = quickPickByTitle(h.testApp, "Compare Active File With...");
             const bItems = picker.items.filter((i) => i.label === "b.txt");
-            // b.txt открыт и есть в индексе поиска — но в списке он один, с бейджем.
+            // b.txt is open and in the search index, but it appears once in the list, with a badge.
             expect(bItems).toHaveLength(1);
             expect(bItems[0].badge).toBe("open");
             h.testApp.sendKey("Escape");
@@ -413,7 +413,7 @@ describe("Команды сравнения файлов", () => {
             h.commands.execute("workbench.files.action.compareFileWith");
             await settleUntilDiff();
 
-            // Файл пропадает МЕЖДУ открытием пикера и выбором — список его ещё помнит.
+            // The file disappears BETWEEN opening the picker and picking: the list still remembers it.
             const { rmSync } = await import("node:fs");
             rmSync(ws.path("b.txt"));
             const picker = quickPickByTitle(h.testApp, "Compare Active File With...");
@@ -488,7 +488,7 @@ describe("Команды сравнения файлов", () => {
             const pane = diffPanes()[0];
             expect(pane.readOnly).toBe(false);
 
-            // Печать в обеих сторонах живёт; вкладка честно становится dirty.
+            // Typing works in both sides; the tab does become dirty.
             const [left, right] = pane.sidePanes();
             right.viewState.type("hello");
             left.viewState.type("world");
@@ -496,11 +496,11 @@ describe("Команды сравнения файлов", () => {
             expect(left.getText()).toContain("world");
             expect(pane.isModified).toBe(true);
 
-            // Живой пересчёт после debounce держит выравнивание сторон.
+            // The live recompute after debounce keeps the sides aligned.
             await settle(250);
             expect(left.viewState.getViewLineCount()).toBe(right.viewState.getViewLineCount());
 
-            // Стороны больше нигде не видны — закрытие обязано спрашивать.
+            // The sides are not visible anywhere else, so closing must ask.
             expect(h.container.get(EditorServiceDIToken).needsCloseConfirm(pane)).toBe(true);
         });
 
@@ -518,7 +518,7 @@ describe("Команды сравнения файлов", () => {
 
     describe("Diff: Revert Hunk", () => {
         it("на диффе со снимочной modified-стороной — нотис read-only", async () => {
-            // Оба ресурса не существуют (empty) — обе стороны снимки, правка запрещена.
+            // Neither resource exists (empty): both sides are snapshots, editing is forbidden.
             h.commands.execute(
                 "vscode.diff",
                 Uri.file(ws.path("no1.txt")).toString(),
@@ -573,7 +573,7 @@ describe("Команды сравнения файлов", () => {
 
             expect(editors.editorGroups.groups).toHaveLength(2);
             expect(editors.editorGroups.activeGroup.getPanes().some((p) => p.uri.scheme === "diode-diff")).toBe(true);
-            // Колонку готовит без фокуса содержимого: фокус получит сам дифф.
+            // Prepares the column without content focus: the diff itself gets focus.
             expect(focusedGroups).toEqual([]);
         });
 
@@ -627,8 +627,8 @@ describe("Команды сравнения файлов", () => {
         });
 
         it("аргументы одним массивом (мост субпроцесса) и uri JSON-компонентами", async () => {
-            // Из расширения команда едет через commands.executeCommand: args —
-            // один массив, uri сериализованы их `toJSON()` в компоненты.
+            // From an extension the command goes through commands.executeCommand: args are
+            // one array, uris are serialized by their `toJSON()` into components.
             h.commands.execute("vscode.diff", [
                 { scheme: "file", path: ws.path("a.txt") },
                 { scheme: "file", path: ws.path("b.txt") },
@@ -645,7 +645,7 @@ describe("Команды сравнения файлов", () => {
 
             const pane = diffPanes()[0];
             expect(pane.originalUri?.toString()).toBe("untitled:missing");
-            // Левая сторона пуста — правый текст видится добавленным.
+            // The left side is empty, so the right text shows as added.
             expect(pane.activeTextPane.getText()).toContain("BRAVO");
         });
 
@@ -671,8 +671,8 @@ describe("Команды сравнения файлов", () => {
             await settle(50);
             expect(diffPanes()).toHaveLength(1);
 
-            // Сторона — общая модель файла: правка из обычной вкладки того же
-            // ресурса видна в диффе без повторного вызова (живой дифф, US-30).
+            // The side is the file's shared model: an edit from a regular tab of the same
+            // resource is visible in the diff without a repeat call (live diff, US-30).
             h.commands.execute("workbench.openFile", ws.path("b.txt"));
             await settle(0);
             const editor = h.container.get(EditorServiceDIToken).getActiveEditor();

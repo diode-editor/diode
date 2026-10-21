@@ -24,8 +24,8 @@ interface MatchedCommand {
 }
 
 /**
- * Подпись — `category: title`, как в VS Code; фильтр по ней — `prepareQuery` файлового пикера.
- * Сортировка стабильная: у пустого запроса остаётся порядок реестра.
+ * The label is `category: title`, as in VS Code; it is filtered with the file picker's `prepareQuery`.
+ * The sort is stable: an empty query keeps registry order.
  */
 export class CommandsQuickAccessProvider implements IQuickAccessProvider {
     public static readonly PREFIX = ">";
@@ -44,8 +44,8 @@ export class CommandsQuickAccessProvider implements IQuickAccessProvider {
 
     public getItems(query: string): QuickAccessItem[] {
         const prepared = prepareQuery(query.slice(CommandsQuickAccessProvider.PREFIX.length));
-        // Недоступную команду не показываем, как VS Code (`precondition` уезжает в `when`
-        // пункта палитры): гасить пункт на месте мы не умеем.
+        // A disabled command is hidden, like VS Code (`precondition` moves into the palette item's
+        // `when`): we can't gray out an item in place.
         const all = this.commands
             .listCommands()
             .filter((cmd) => cmd.enablement === undefined || this.contextKeys.evaluate(cmd.enablement));

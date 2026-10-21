@@ -23,41 +23,41 @@ const DIFF_SCHEME = "diode-diff";
 export const COMPARE_NOTICE_MS = TRANSIENT_NOTICE_MS;
 
 /**
- * Вид стороны выводится из полей ({@link resolveSide}): `ownedModel` — редактируемая, ею владеет
- * панель; `text` — снимок; `file:` — живая общая модель реестра; иные схемы и `preferDisk` — снимок.
+ * The side kind is derived from the fields ({@link resolveSide}): `ownedModel` is editable and owned by
+ * the pane; `text` is a snapshot; `file:` is the live shared registry model; other schemes and `preferDisk` are snapshots.
  */
 export interface IDiffSideSpec {
     readonly uri?: Uri;
-    /** Готовый текст стороны (Clipboard); задан — `uri` для чтения не используется. */
+    /** Ready-made side text (Clipboard); when set, `uri` is not used for reading. */
     readonly text?: string;
-    /** Владение переходит панели диффа вместе с открытием вкладки. */
+    /** Ownership passes to the diff pane when the tab opens. */
     readonly ownedModel?: TextFileModel;
     readonly label: string;
-    /** Упорядоченная пара ключей — идентичность вкладки: та же пара → та же вкладка, снимки обновляются на месте. */
+    /** The ordered key pair is the tab identity: same pair → same tab, snapshots refresh in place. */
     readonly identity: string;
-    /** Читать с диска мимо открытого буфера («Compare with Saved»). */
+    /** Read from disk bypassing the open buffer ("Compare with Saved"). */
     readonly preferDisk?: boolean;
-    /** `"empty"` — файл удалён в рабочем дереве (дифф «HEAD ↔ пусто»), `"error"` — сравнение не удаётся. Дефолт — `"error"`. */
+    /** `"empty"`: the file is deleted in the working tree (diff "HEAD ↔ empty"); `"error"`: the compare fails. Default is `"error"`. */
     readonly onMissing?: "empty" | "error";
 }
 
 export interface IOpenDiffPairOptions {
     readonly original: IDiffSideSpec;
     readonly modified: IDiffSideSpec;
-    /** Метка вкладки; не задана — `<label original> ↔ <label modified>`. */
+    /** Tab label; when unset, `<label original> ↔ <label modified>`. */
     readonly title?: string;
 }
 
-/** `"unreadable"` — сторона не прочиталась; нотис показывает вызывающий. */
+/** `"unreadable"`: a side could not be read; the caller shows the notice. */
 export type OpenDiffPairResult = "opened" | "unreadable";
 
-/** Не задано — вкладка ищется по всем группам, новая открывается в активной. */
+/** When unset, the tab is looked up in all groups and a new one opens in the active group. */
 export interface IOpenDiffPairTarget {
     readonly group: EditorGroup;
     readonly focus: boolean;
 }
 
-/** Стороны-модели пересчитывают дифф сами; снимочные (git, clipboard, диск) освежает повторный вызов — вкладка та же. */
+/** Model sides recompute the diff themselves; snapshot sides (git, clipboard, disk) are refreshed by a repeat call, same tab. */
 export async function openDiffPair(
     accessor: ServiceAccessor,
     options: IOpenDiffPairOptions,
@@ -67,24 +67,24 @@ export async function openDiffPair(
     const groups = accessor.get(EditorGroupsServiceDIToken);
     const uri = pairUri(options);
 
-    // Дедуп по всем группам: повторный вызов — единственный способ освежить снимок. Повтор в заданную
-    // группу ищет только в ней: копия в соседней группе — ровно то, что просили.
+    // Dedup across all groups: a repeat call is the only way to refresh a snapshot. A repeat into a given
+    // group searches only in it: a copy in a neighbor group is exactly what was asked for.
     for (const group of target !== undefined ? [target.group] : groups.groups) {
         const index = group.findPaneIndex(uri);
         if (index < 0) continue;
         const pane = group.getPane(index);
-        /* v8 ignore start -- defensive: diode-diff-uri открывает только это ядро, вид панели известен */
+        /* v8 ignore start -- defensive: only this core opens diode-diff uris, so the pane kind is known */
         if (!(pane instanceof DiffEditorPane2)) break;
         /* v8 ignore stop */
-        // Свежие спеки сторон: у текстовой (Clipboard) стороны текст мог смениться.
+        // Fresh side specs: the text of a text (Clipboard) side may have changed.
         paneOptions.set(pane, options);
         if (!(await refreshSnapshotSides(accessor.get(IFileServiceDIToken), pane, options))) {
             return "unreadable";
         }
-        // Группу активной делает и сам фокус в её вкладке (activateTab ниже —
-        // capture-слушатель группы), так что мутанты строки ненаблюдаемы: явный
-        // вызов держит порядок событий «группа, потом вкладка».
-        // Stryker disable next-line ObjectLiteral,BooleanLiteral,ConditionalExpression,EqualityOperator,CallExpression: эквивалентны — см. выше
+        // Focus in its tab activates the group anyway (activateTab below triggers the group's
+        // capture listener), so mutants of this line are unobservable: the explicit
+        // call keeps the event order "group, then tab".
+        // Stryker disable next-line ObjectLiteral,BooleanLiteral,ConditionalExpression,EqualityOperator,CallExpression: equivalent, see above
         if (target === undefined) groups.focusGroup(group.id, { focus: false });
         group.activateTab(index, { focus: target === undefined || target.focus });
         return "opened";
@@ -102,13 +102,13 @@ export async function openDiffPair(
         { ...input, modeOverride: accessor.get(StateServiceDIToken).get(DIFF_VIEW_MODE_STATE) },
     );
     for (const side of pane.sidePanes()) editors.editorConfiguration.apply(side);
-    // Для автоосвежения снимков по onDidChangeFile (US-31).
+    // For auto-refreshing snapshots on onDidChangeFile (US-31).
     paneOptions.set(pane, options);
     editors.openPane(pane, target);
     return "opened";
 }
 
-/** `undefined` — вкладка открыта мимо этого ядра либо сторона-модель (`ownedModel`) во вторую панель не переезжает. */
+/** `undefined`: the tab was opened bypassing this core, or a model side (`ownedModel`) does not move into the second pane. */
 export function diffPaneRecipe(pane: DiffEditorPane2): IOpenDiffPairOptions | undefined {
     const options = paneOptions.get(pane);
     if (options === undefined) return undefined;
@@ -117,14 +117,14 @@ export function diffPaneRecipe(pane: DiffEditorPane2): IOpenDiffPairOptions | un
 
 const paneOptions = new WeakMap<DiffEditorPane2, IOpenDiffPairOptions>();
 
-/** Ошибка чтения стороны молча пропускается: вкладка показывает прежний снимок, нотиса без действий пользователя нет. */
+/** A side read error is silently skipped: the tab shows the previous snapshot, no notice without a user action. */
 export async function refreshDiffSnapshots(providers: IFileService, pane: DiffEditorPane2): Promise<void> {
     const options = paneOptions.get(pane);
     if (options === undefined) return;
     await refreshSnapshotSides(providers, pane, options);
 }
 
-/** `null` — сторона не читается по её политике; ссылки уже взятых сторон освобождаются. */
+/** `null`: a side is unreadable per its policy; refs of already acquired sides are released. */
 export async function buildDiffInput(
     accessor: ServiceAccessor,
     options: IOpenDiffPairOptions,
@@ -145,14 +145,14 @@ export async function buildDiffInput(
         original,
         modified,
         languageId: resolveLanguageId(accessor, options),
-        // Для TabInputTextDiff в API расширений.
+        // For TabInputTextDiff in the extension API.
         ...(options.original.uri !== undefined ? { originalUri: options.original.uri } : {}),
         ...(options.modified.uri !== undefined ? { modifiedUri: options.modified.uri } : {}),
     };
 }
 
-// Путь — правой стороны (вкладка группируется со своим файлом); в query — упорядоченная пара
-// ключей: `(лево, право)` ≠ `(право, лево)`.
+// The path is the right side's (the tab groups with its file); the query holds the ordered key
+// pair: `(left, right)` ≠ `(right, left)`.
 function pairUri(options: IOpenDiffPairOptions): Uri {
     const path = options.modified.uri?.path ?? options.original.uri?.path ?? "/compare";
     const query = `left=${encodeURIComponent(options.original.identity)}&right=${encodeURIComponent(options.modified.identity)}`;
@@ -164,11 +164,11 @@ async function resolveSide(accessor: ServiceAccessor, side: IDiffSideSpec): Prom
     if (side.text !== undefined) return { kind: "snapshot", text: side.text };
     if (side.uri === undefined) return { kind: "snapshot", text: "" };
     if (side.preferDisk !== true && isWritableProvided(accessor.get(IFileServiceDIToken), side.uri)) {
-        // Пишущая схема расширения (предложенная правка Claude Code) — правится и сохраняется в провайдера, как в эталоне.
+        // A writable extension scheme (a Claude Code proposed edit) is edited and saved into the provider, as upstream does.
         try {
             return { kind: "shared", ref: await accessor.get(TextFileModelServiceDIToken).acquireProvided(side.uri) };
         } catch {
-            // Не читается — дальше, снимком: там политика `onMissing`.
+            // Unreadable: fall through to a snapshot, where the `onMissing` policy applies.
         }
     }
     if (side.preferDisk === true || side.uri.scheme !== "file") {
@@ -178,8 +178,8 @@ async function resolveSide(accessor: ServiceAccessor, side: IDiffSideSpec): Prom
 
     const models = accessor.get(TextFileModelServiceDIToken);
     if (models.get(side.uri) === null) {
-        // Фабрика реестра открыла бы отсутствующий файл пустым буфером, а `onMissing` требует
-        // знать, существует ли он, — пробуем чтение провайдером.
+        // The registry factory would open a missing file as an empty buffer, but `onMissing` needs
+        // to know whether it exists, so try reading it via the provider.
         try {
             await accessor.get(IFileServiceDIToken).readFile(side.uri);
         } catch {
@@ -191,7 +191,7 @@ async function resolveSide(accessor: ServiceAccessor, side: IDiffSideSpec): Prom
 
 function isWritableProvided(files: IFileService, uri: Uri): boolean {
     return (
-        // Stryker disable next-line ConditionalExpression,StringLiteral: эквивалентный по результату — `file:` дошёл бы до `acquireProvided`, `openProvided` его отверг бы, и сторона ушла бы общим путём; гард экономит лишнее чтение файла
+        // Stryker disable next-line ConditionalExpression,StringLiteral: equivalent in result: `file:` would reach `acquireProvided`, `openProvided` would reject it, and the side would take the shared path; the guard saves a redundant file read
         uri.scheme !== "file" &&
         files.hasProvider(uri) &&
         !files.hasCapability(uri, FileSystemProviderCapabilities.Readonly)
@@ -202,7 +202,7 @@ async function readSideText(providers: IFileService, side: IDiffSideSpec): Promi
     if (side.text !== undefined) return side.text;
     if (side.uri === undefined) return "";
     try {
-        // Схема без провайдера — тоже отказ readFile (Unavailable), ловится ниже.
+        // A scheme without a provider is also a readFile rejection (Unavailable), caught below.
         return new TextDecoder().decode((await providers.readFile(side.uri)).value);
     } catch {
         return side.onMissing === "empty" ? "" : null;

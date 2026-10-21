@@ -13,15 +13,15 @@ const SEARCH_DEBOUNCE_MS = 16;
 export const QuickOpenServiceDIToken = token<QuickOpenService>("QuickOpenService");
 
 /**
- * Аналог `QuickAccessController` vscode. Общий виджет делит с `QuickInputService`, поэтому на каждый
- * показ полностью ре-инициализирует его состояние и колбэки.
+ * Counterpart of vscode's `QuickAccessController`. Shares its widget with `QuickInputService`, so every
+ * show fully re-initializes the widget's state and callbacks.
  */
 export class QuickOpenService extends Disposable {
     public static dependencies = [QuickAccessRegistryDIToken, QuickInputComponentDIToken] as const;
 
-    /** null — показ закрыт. */
+    /** null when the picker is closed. */
     private currentProvider: IQuickAccessProvider | null = null;
-    /** Сессию общего виджета мог занять QuickInputService. */
+    /** QuickInputService may have taken over the shared widget's session. */
     private active = false;
 
     private searchTimer: ReturnType<typeof setTimeout> | null = null;
@@ -43,8 +43,8 @@ export class QuickOpenService extends Disposable {
             this.view.focus();
             return;
         }
-        // Общий виджет мог держать чужой показ (InputBox/список QuickInputService) —
-        // закрываем его (его промис отменится через onDidClose) перед перехватом.
+        // The shared widget may hold someone else's session (QuickInputService InputBox/list) —
+        // close it (its promise is cancelled via onDidClose) before taking over.
         this.component.hide();
 
         this.active = true;
@@ -80,8 +80,8 @@ export class QuickOpenService extends Disposable {
 
     public close(): void {
         if (!this.active || !this.component.isOpen()) return;
-        // Зачистка (деактивация провайдера, отмена debounce) — в handleDidClose,
-        // куда onDidClose приводит и этот программный путь.
+        // Cleanup (deactivating the provider, cancelling the debounce) is in handleDidClose,
+        // which onDidClose reaches on this programmatic path too.
         this.component.hide();
     }
 
@@ -104,8 +104,8 @@ export class QuickOpenService extends Disposable {
         this.currentProvider?.onHide?.();
         this.currentProvider = provider;
         provider.onShow?.((preserveSelection) => {
-            // Живое обновление источника игнорируется, если провайдер уже не
-            // активен или показ закрыт/перехвачен (поздний колбэк после close).
+            // A live source update is ignored if the provider is no longer
+            // active or the picker is closed/taken over (a late callback after close).
             if (this.currentProvider !== provider) return;
             if (!this.active || !this.component.isOpen()) return;
             this.updateItems(this.view.getQuery(), preserveSelection);
@@ -123,8 +123,8 @@ export class QuickOpenService extends Disposable {
             return;
         }
 
-        // Leading + trailing: после паузы — сразу, внутри cooldown запоминаем последний запрос
-        // для хвостового прогона.
+        // Leading + trailing: after a pause, run at once; within the cooldown remember the last query
+        // for the trailing run.
         if (this.searchTimer === null) {
             this.updateItems(query);
             this.armSearchTimer();
@@ -163,7 +163,7 @@ export class QuickOpenService extends Disposable {
     }
 
     private updateItems(query: string, preserveSelection = false): void {
-        /* v8 ignore start -- defensive: показ всегда активирует провайдера до первого updateItems */
+        /* v8 ignore start -- defensive: show always activates a provider before the first updateItems */
         const provider = this.currentProvider ?? this.activateProviderFor(query);
         /* v8 ignore stop */
         const items = provider.getItems(query);

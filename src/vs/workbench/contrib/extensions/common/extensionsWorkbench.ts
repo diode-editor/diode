@@ -10,12 +10,12 @@ import {
 } from "../../../../platform/extensionManagement/common/registryFormat.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 
-// Контракт в `common/`, реализация в `node/`: иначе вьюлету из `browser/` понадобилось бы
-// исключение `browser → node` в scripts/check-layers.mjs.
+// Contract in `common/`, implementation in `node/`: otherwise the viewlet in `browser/` would need
+// a `browser → node` exception in scripts/check-layers.mjs.
 
 /**
- * `installed` — версия совпадает с последней в реестре либо запись мимо магазина (`latestVersion` пуст);
- * `incompatible` — последняя версия реестра не проходит `engines` этой сборки.
+ * `installed`: the version matches the latest in the registry, or the entry was installed outside the
+ * marketplace (`latestVersion` is empty); `incompatible`: the latest registry version fails this build's `engines`.
  */
 export type ExtensionAvailability = "available" | "installed" | "outdated" | "incompatible";
 
@@ -26,45 +26,45 @@ export interface IExtensionListEntry {
     readonly name: string;
     readonly displayName: string;
     readonly description: string;
-    /** `undefined` — карточки нет в реестре (расширение поставлено мимо магазина). */
+    /** `undefined`: the entry is not in the registry (installed outside the marketplace). */
     readonly kind: RegistryExtensionKind | undefined;
-    /** `undefined` — записи в реестре нет либо реестр пометку не проставил. */
+    /** `undefined`: no registry entry, or the registry did not set the flag. */
     readonly support: IRegistrySupport | undefined;
-    /** Последняя версия в реестре; `null` — записи в реестре нет. */
+    /** Latest version in the registry; `null` means no registry entry. */
     readonly latestVersion: string | null;
-    /** Установленная версия; `null` — не установлено. */
+    /** Installed version; `null` means not installed. */
     readonly installedVersion: string | null;
     readonly availability: ExtensionAvailability;
-    /** Ставили/удаляли в этой сессии: вклады сканируются один раз на старте, заработает после перезагрузки окна. */
+    /** Installed/uninstalled in this session: contributions are scanned once at startup, takes effect after a window reload. */
     readonly needsReload: boolean;
 }
 
-/** Ошибка — значение, а не исключение: причина едет в UI текстом, как и ошибка чтения каталога. */
+/** The error is a value, not an exception: the reason goes to the UI as text, like the catalog read error. */
 export type IExtensionOperationResult = { readonly ok: true } | { readonly ok: false; readonly error: string };
 
 export type IExtensionInstallResult =
     | { readonly ok: true; readonly version: string }
     | { readonly ok: false; readonly error: string };
 
-/** Сетевые сбои наружу не бросаются: каталог пуст, причина — в {@link getCatalogError}. */
+/** Network failures are not thrown: the catalog is empty and the reason is in {@link getCatalogError}. */
 export interface IExtensionsWorkbenchService {
-    /** Зовётся при первом показе вьюлета — на старте в сеть не ходим; повторные вызовы ничего не делают. */
+    /** Called on the first viewlet show, so no network access at startup; repeated calls do nothing. */
     ensureLoaded(): Promise<void>;
 
     refresh(): Promise<void>;
 
-    /** Карточки: сначала записи реестра, затем установленное вне реестра. */
+    /** Entries: registry entries first, then installed extensions outside the registry. */
     getEntries(): readonly IExtensionListEntry[];
 
     getCatalogError(): string | null;
 
-    /** Полная мета для страницы расширения; `undefined` — реестр не знает id. */
+    /** Full metadata for the extension page; `undefined` means the registry doesn't know the id. */
     getMeta(id: string): Promise<IRegistryExtensionMeta | undefined>;
 
-    /** Она же «обновить»: прежние версии того же id сносятся — версия одна на все профили. */
+    /** Also "update": previous versions of the same id are removed; one version for all profiles. */
     install(id: string): Promise<IExtensionInstallResult>;
 
-    /** С диска (все версии) — когда расширение не нужно ни одному профилю. */
+    /** From disk (all versions), when no profile needs the extension. */
     uninstall(id: string): Promise<IExtensionOperationResult>;
 
     onDidChange(listener: () => void): IDisposable;
@@ -72,7 +72,7 @@ export interface IExtensionsWorkbenchService {
 
 export const ExtensionsWorkbenchServiceDIToken = token<IExtensionsWorkbenchService>("ExtensionsWorkbenchService");
 
-/** Семантика `searchRegistryIndex` (общий предикат в `registryFormat.ts`). */
+/** `searchRegistryIndex` semantics (shared predicate in `registryFormat.ts`). */
 export function filterExtensionEntries(entries: readonly IExtensionListEntry[], query: string): IExtensionListEntry[] {
     const needle = normalizeExtensionQuery(query);
     return entries.filter((entry) => matchesExtensionQuery(entry, needle));

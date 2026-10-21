@@ -49,7 +49,7 @@ describe("FileTreeDataProvider", () => {
     let files: FileService;
     let watcher: ReturnType<typeof fakeTreeWatcher>;
     let excludes: string[];
-    /** `explorer.compactFolders`: здесь выключена — сжатие проверяет fileTreeDataProvider.compactFolders.test.ts. */
+    /** `explorer.compactFolders` is off here — compaction is tested in fileTreeDataProvider.compactFolders.test.ts. */
     let compact: boolean;
 
     beforeEach(() => {
@@ -122,9 +122,9 @@ describe("FileTreeDataProvider", () => {
         });
 
         it("шаблон матчится против пути ОТНОСИТЕЛЬНО корня дерева", async () => {
-            // `**/x` режет вход на любой глубине, `x` — только в корне: иначе
-            // шаблон либо не доставал бы вложенные каталоги, либо резал бы
-            // одноимённые где попало.
+            // `**/x` cuts an entry at any depth, `x` only at the root: otherwise
+            // the pattern would either miss nested directories or cut
+            // same-named ones anywhere.
             fs.mkdirSync(ws.path("pkg"), { recursive: true });
             fs.mkdirSync(ws.path("pkg/out"));
             fs.mkdirSync(ws.path("out"));
@@ -288,7 +288,7 @@ describe("FileTreeDataProvider", () => {
 
             const decorated = provider.getTreeItem({ name: "main.ts", path: "/main.ts", isDirectory: false });
             expect(decorated.labelColor).toBe(0x73c991);
-            // Пробел справа — отступ буквы от края панели (см. getTreeItem).
+            // The trailing space keeps the letter off the panel edge (see getTreeItem).
             expect(decorated.badge).toBe("M ");
 
             const plain = provider.getTreeItem({ name: "other.ts", path: "/other.ts", isDirectory: false });
@@ -334,7 +334,7 @@ describe("FileTreeDataProvider", () => {
     describe("file watching", () => {
         it("следит за раскрытым каталогом без рекурсии и без собственных excludes", () => {
             provider.watchDirectory(ws.dir);
-            provider.watchDirectory(ws.dir); // повторно — та же подписка
+            provider.watchDirectory(ws.dir); // again — the same subscription
             expect(watcher.watches).toHaveLength(1);
             expect(watcher.watches[0].path).toBe(ws.dir);
             expect(watcher.watches[0].options).toEqual({ recursive: false, excludes: [] });
@@ -371,7 +371,7 @@ describe("FileTreeDataProvider", () => {
             vi.advanceTimersByTime(1000);
             expect(callback).not.toHaveBeenCalled();
 
-            // Контроль: в пачке есть свой файл — дерево перечитывается.
+            // Control: the batch has a non-excluded file — the tree is reread.
             watcher.watches[0].fire([ws.path("app.cpython-312.pyc"), ws.path("app.py")]);
             vi.advanceTimersByTime(300);
             expect(callback).toHaveBeenCalledOnce();
@@ -391,7 +391,7 @@ describe("FileTreeDataProvider", () => {
             vi.advanceTimersByTime(1000);
             expect(callback).not.toHaveBeenCalled();
 
-            // Повторное раскрытие подписывается заново.
+            // Expanding again subscribes anew.
             provider.watchDirectory(ws.dir);
             expect(watcher.watches).toHaveLength(2);
         });

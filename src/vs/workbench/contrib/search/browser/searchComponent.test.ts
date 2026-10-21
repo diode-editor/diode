@@ -51,7 +51,7 @@ function fakeSearch(
     return { service };
 }
 
-/** Корень строкой как есть: тест Windows-путей опирается на строку, а `Uri.file` нормализовал бы её. */
+/** The root as a raw string: the Windows path test relies on the string, and `Uri.file` would normalize it. */
 function fakeWorkspace(root: string | null): IWorkspaceContextService {
     const folders = root === null ? [] : [{ uri: { fsPath: root }, name: "", index: 0 }];
     return { getWorkspace: () => ({ id: root, folders }) } as unknown as IWorkspaceContextService;
@@ -163,7 +163,7 @@ describe("SearchComponent", () => {
 
     it("toggleQueryDetails раскрывает include/exclude с пустой строкой между ними и скрывает обратно", () => {
         const component = make(fakeSearch([]).service, fakeWorkspace(ROOT));
-        // Кнопка «···» — тот же тумблер мышью (4-я кнопка после Aa/\b/.*).
+        // The "···" button is the same toggle by mouse (the 4th button after Aa/\b/.*).
         const detailsBtn = (component.view.querySelectorAll("ButtonElement") as ButtonElement[])[3];
         detailsBtn.onActivate?.();
         expect(component.isQueryDetailsShown()).toBe(true);
@@ -263,7 +263,7 @@ describe("SearchComponent", () => {
         const { service } = fakeSearch([]);
         const spy = vi.spyOn(service, "search");
         const component = make(service, fakeWorkspace(ROOT));
-        component.toggleQueryDetails(true, false); // include/exclude в дереве только раскрытыми
+        component.toggleQueryDetails(true, false); // include/exclude are in the tree only when expanded
         const [, include, exclude] = component.view.querySelectorAll("InputElement") as InputElement[];
         const [caseBtn, wordBtn] = component.view.querySelectorAll("ButtonElement") as ButtonElement[];
         include.inputState.value = "*.ts, *.js";
@@ -277,15 +277,15 @@ describe("SearchComponent", () => {
             pattern: "foo",
             isCaseSensitive: true,
             isWholeWord: true,
-            // набранное в поля — «на любой глубине», как у эталона
+            // typed field patterns match "at any depth", like upstream
             includes: ["**/*.ts/**", "**/*.ts", "**/*.js/**", "**/*.js"],
             excludes: ["**/dist/**", "**/dist"],
         });
     });
 
     it("шаблоны настроек уезжают в ripgrep вместе с набранным в «files to exclude»", () => {
-        // Без этого «исключил в настройках, а в результатах видно»: поиск по
-        // содержимому у эталона применяет ОБА набора настроек.
+        // Without this, "excluded in settings, yet visible in results": upstream content search
+        // applies BOTH settings sets.
         const { service } = fakeSearch([]);
         const spy = vi.spyOn(service, "search");
         const values: Record<string, unknown> = {
@@ -303,8 +303,8 @@ describe("SearchComponent", () => {
         exclude.onChange?.("*.min.js");
         typeQuery(component, "foo");
 
-        // Шаблон настройки уходит как есть (от корня — якорит `buildRgArgs`),
-        // набранное в поле разворачивается «на любой глубине».
+        // A setting pattern goes as is (root-anchored by `buildRgArgs`),
+        // a typed field pattern expands to "at any depth".
         expect(spy.mock.calls.at(-1)?.[0].excludes).toEqual([
             "**/.git",
             "common",
@@ -439,7 +439,7 @@ describe("SearchComponent", () => {
         it("typing letters in the results list does not typeahead-jump between groups", () => {
             const component = make(fakeSearch(twoFiles()).service, fakeWorkspace(ROOT));
             typeQuery(component, "foo");
-            // Курсор на первой строке (file:a.ts); буква «b» не должна прыгать на b.ts.
+            // The cursor is on the first row (file:a.ts); the letter "b" must not jump to b.ts.
             component.results.dispatchEvent(new TUIKeyboardEvent("keypress", { key: "b" }));
             expect(component.results.inspectState()).toMatchObject({ cursorId: "file:a.ts" });
         });
@@ -448,7 +448,7 @@ describe("SearchComponent", () => {
             const component = make(fakeSearch(twoFiles()).service, fakeWorkspace(ROOT));
             expect(component.getViewMode()).toBe("list");
             typeQuery(component, "foo");
-            expect(component.results.contentHeight).toBe(5); // 2 файла + 3 матча
+            expect(component.results.contentHeight).toBe(5); // 2 files + 3 matches
 
             component.results.toggleCollapsed("file:a.ts");
             expect(component.results.contentHeight).toBe(3);
@@ -457,7 +457,7 @@ describe("SearchComponent", () => {
         it("Enter on a file row toggles its group", () => {
             const component = make(fakeSearch(twoFiles()).service, fakeWorkspace(ROOT));
             typeQuery(component, "foo");
-            // Курсор по умолчанию — на первой строке (file:a.ts).
+            // The default cursor is on the first row (file:a.ts).
             component.results.dispatchEvent(new TUIKeyboardEvent("keypress", { key: "Enter" }));
             expect(component.results.isCollapsed("file:a.ts")).toBe(true);
         });
@@ -469,8 +469,8 @@ describe("SearchComponent", () => {
             typeQuery(component, "foo");
 
             component.setViewMode("tree");
-            expect(spy).toHaveBeenCalledTimes(1); // rg не перезапускался
-            // src(1) + x(1) + a.ts(1) + 2 матча + y(1) + b.ts(1) + 1 матч = 8 строк.
+            expect(spy).toHaveBeenCalledTimes(1); // rg was not restarted
+            // src(1) + x(1) + a.ts(1) + 2 matches + y(1) + b.ts(1) + 1 match = 8 rows.
             expect(component.results.contentHeight).toBe(8);
             const screen = render(component).screenToString();
             expect(screen).toContain("src");
@@ -488,7 +488,7 @@ describe("SearchComponent", () => {
             );
             typeQuery(component, "foo");
             component.setViewMode("tree");
-            // Одна папка-цепочка + файл + матч.
+            // One folder chain + file + match.
             expect(component.results.contentHeight).toBe(3);
             expect(render(component).screenToString()).toContain("deep/nested/dir");
         });
@@ -507,7 +507,7 @@ describe("SearchComponent", () => {
             const component = make(fakeSearch(nestedFiles()).service, fakeWorkspace(ROOT), { state });
             component.setViewMode("tree");
             typeQuery(component, "foo");
-            // Результаты уже в модели, но пересборка ждёт троттл.
+            // The results are already in the model, but the rebuild waits for the throttle.
             expect(component.results.contentHeight).toBe(0);
             vi.advanceTimersByTime(100);
             expect(component.results.contentHeight).toBe(8);
@@ -517,9 +517,9 @@ describe("SearchComponent", () => {
             const component = make(fakeSearch(nestedFiles()).service, fakeWorkspace(ROOT));
             component.setViewMode("tree");
             typeQuery(component, "foo");
-            expect(component.results.contentHeight).toBe(0); // троттл ещё ждёт
+            expect(component.results.contentHeight).toBe(0); // the throttle is still waiting
 
-            // Микротаски: complete-промис синхронного fakeSearch уже зарезолвлен.
+            // Microtasks: the complete promise of the synchronous fakeSearch is already resolved.
             await Promise.resolve();
             await Promise.resolve();
             expect(component.results.contentHeight).toBe(8);
@@ -529,14 +529,14 @@ describe("SearchComponent", () => {
             const component = make(fakeSearch(nestedFiles()).service, fakeWorkspace(ROOT));
             component.setViewMode("tree");
             typeQuery(component, "foo");
-            expect(component.results.contentHeight).toBe(0); // троттл первого поиска ждёт
+            expect(component.results.contentHeight).toBe(0); // the first search's throttle is waiting
 
-            // Тумблер перезапускает поиск синхронно (без дебаунса) — cancelSearch
-            // снимает ждущий троттл, второй поиск планирует свой.
+            // A toggle restarts the search synchronously (no debounce) — cancelSearch
+            // drops the pending throttle, and the second search schedules its own.
             const [caseBtn] = component.view.querySelectorAll("ButtonElement") as ButtonElement[];
             caseBtn.onActivate?.();
             vi.advanceTimersByTime(100);
-            expect(component.results.contentHeight).toBe(8); // строки второго поиска, без дублей
+            expect(component.results.contentHeight).toBe(8); // the second search's rows, no duplicates
         });
 
         it("свёрнутость и курсор переживают смену режима по стабильным id", () => {
@@ -567,7 +567,7 @@ describe("SearchComponent", () => {
             component.results.toggleCollapsed("dir:src");
             expect(component.results.contentHeight).toBe(1);
 
-            component.setViewMode("list"); // dir:-строк больше нет — их collapse отбрасывается
+            component.setViewMode("list"); // no more dir: rows — their collapse is discarded
             expect(component.results.contentHeight).toBe(5);
         });
 
@@ -586,7 +586,7 @@ describe("SearchComponent", () => {
             const { service: state, stored } = fakeState();
             stored.set("workbench.search.viewMode", "tree");
             const component = make(fakeSearch(twoFiles()).service, fakeWorkspace(ROOT), { state });
-            // Конструктор уже прочитал tree; вернём list и проверим restore.
+            // The constructor already read tree; switch back to list and check restore.
             component.setViewMode("list");
             stored.set("workbench.search.viewMode", "tree");
             const writes = vi.spyOn(state, "store");
@@ -595,7 +595,7 @@ describe("SearchComponent", () => {
             expect(component.getViewMode()).toBe("tree");
             expect(writes).not.toHaveBeenCalled();
 
-            component.restoreViewState(); // повтор — no-op
+            component.restoreViewState(); // a repeat is a no-op
             expect(component.getViewMode()).toBe("tree");
         });
 
@@ -621,7 +621,7 @@ describe("SearchComponent", () => {
             const includeFocus = vi.spyOn(inputs()[1], "focus");
             expect(includeFocus).not.toHaveBeenCalled();
 
-            component.toggleQueryDetails(true); // повтор show=true — только фокус
+            component.toggleQueryDetails(true); // a repeated show=true only focuses
             expect(includeFocus).toHaveBeenCalled();
 
             component.toggleQueryDetails();
@@ -635,10 +635,10 @@ describe("SearchComponent", () => {
             const component = make(fakeSearch([]).service, fakeWorkspace(ROOT), { state });
             expect(component.isQueryDetailsShown()).toBe(true);
 
-            // Скрыли; в сторе false. Непустой exclude заставляет restore раскрыть.
+            // Hidden; the store holds false. A non-empty exclude makes restore expand.
             component.toggleQueryDetails(false, false);
             const exclude = component.view.querySelectorAll("InputElement");
-            expect(exclude).toHaveLength(1); // остался только query
+            expect(exclude).toHaveLength(1); // only query is left
             const writes = vi.spyOn(state, "store");
             const excludeField = (component as unknown as { excludeInput: InputElement }).excludeInput;
             excludeField.inputState.value = "dist";
@@ -679,15 +679,15 @@ describe("SearchComponent", () => {
             expect(component.results.contentHeight).toBe(8);
 
             component.collapseDeepestLevel();
-            // Папки раскрыты, файлы свёрнуты: src, x, a.ts, y, b.ts.
+            // Folders expanded, files collapsed: src, x, a.ts, y, b.ts.
             expect(component.results.contentHeight).toBe(5);
             expect(component.results.isCollapsed("file:src/x/a.ts")).toBe(true);
             expect(component.results.isCollapsed("dir:src")).toBe(false);
 
             component.collapseDeepestLevel();
-            expect(component.results.contentHeight).toBe(1); // только dir:src
+            expect(component.results.contentHeight).toBe(1); // only dir:src
 
-            component.collapseDeepestLevel(); // уже всё свёрнуто — no-op
+            component.collapseDeepestLevel(); // everything already collapsed — no-op
             expect(component.results.contentHeight).toBe(1);
         });
 
@@ -710,11 +710,11 @@ describe("SearchComponent", () => {
             expect(keys.get("viewHasSomeCollapsibleResult")).toBe(false);
 
             typeQuery(component, "foo");
-            vi.advanceTimersByTime(100); // дебаунс пересчёта ключей
+            vi.advanceTimersByTime(100); // the key recomputation debounce
             expect(keys.get("hasSearchResult")).toBe(true);
             expect(keys.get("viewHasSomeCollapsibleResult")).toBe(true);
 
-            component.collapseDeepestLevel(); // list: все файлы свёрнуты — раскрытых не осталось
+            component.collapseDeepestLevel(); // list: all files collapsed — nothing expanded is left
             expect(keys.get("viewHasSomeCollapsibleResult")).toBe(false);
             expect(keys.get("hasSearchResult")).toBe(true);
 
@@ -775,7 +775,7 @@ describe("SearchComponent", () => {
             expect(app.focusedElement).toBe(include);
             component.focusPreviousInputBox();
             expect(app.focusedElement).toBe(query);
-            component.focusPreviousInputBox(); // верх кольца — no-op
+            component.focusPreviousInputBox(); // top of the ring — no-op
             expect(app.focusedElement).toBe(query);
         });
 
@@ -793,12 +793,12 @@ describe("SearchComponent", () => {
                 component.updateContextKeys(keys, active);
                 return keys.get("firstMatchFocus");
             };
-            // Результатов ещё нет — первой строки нет, ключ опущен.
+            // No results yet — no first row, the key is off.
             expect(firstMatchFocus(component.results)).toBe(false);
             (component as unknown as { queryInput: InputElement }).queryInput.inputState.value = "foo";
             typeQuery(component, "foo");
 
-            expect(firstMatchFocus(component.results)).toBe(true); // курсор на file:a.ts
+            expect(firstMatchFocus(component.results)).toBe(true); // the cursor is on file:a.ts
             component.results.setCursorTo("match:a.ts:0");
             expect(firstMatchFocus(component.results)).toBe(false);
             expect(firstMatchFocus(null)).toBe(false);
@@ -819,7 +819,7 @@ describe("SearchComponent", () => {
         expect(focusKeys(include)).toEqual([true, true]);
         expect(focusKeys(exclude)).toEqual([true, true]);
         expect(focusKeys(component.results)).toEqual([true, false]);
-        // Элемент вне view поиска: предки до корня не доходят.
+        // An element outside the search view: its ancestors never reach the root.
         expect(focusKeys(new InputElement())).toEqual([false, false]);
         expect(focusKeys(null)).toEqual([false, false]);
     });
@@ -844,7 +844,7 @@ describe("SearchComponent", () => {
         expect(registered[0].id).toBe("workbench.search.results");
         expect(registered[0].containerId).toBe("search");
 
-        // focus дескриптора ведёт в строку запроса (фокус вьюлета).
+        // The descriptor's focus goes to the query row (viewlet focus).
         const spy = vi.spyOn(queryInput(component), "focus");
         registered[0].focus();
         expect(spy).toHaveBeenCalled();
@@ -858,7 +858,7 @@ describe("SearchComponent", () => {
         typeQuery(component, "foo");
         const before = render(component).screenToString();
 
-        // Токены резолвит каскад — повторный рендер стабилен без рестайла.
+        // The cascade resolves tokens — a re-render is stable without restyling.
         expect(render(component).screenToString()).toBe(before);
     });
 
@@ -869,7 +869,7 @@ describe("SearchComponent", () => {
             const component = make(fakeSearch(results).service, fakeWorkspace(ROOT), { reveal: reveal.target });
             typeQuery(component, "foo");
 
-            // Дети списка — обёртки строк (носители состояний); id — у контента.
+            // The list's children are row wrappers (state carriers); the id is on the content.
             const matchRow = component.results.getChildren()[1].getChildren()[0];
             component.results.setCursorTo(matchRow.id!);
             component.results.dispatchEvent(new TUIKeyboardEvent("keypress", { key: "Enter" }));

@@ -6,8 +6,8 @@ import type {
 } from "../../../../editor/common/languages/iSignatureHelpSource.ts";
 
 /**
- * upstream `provideSignatureHelp`: по очереди до первого непустого ответа — активный параметр у
- * подсказки один. Сбойный провайдер = «подсказки нет», очередь идёт дальше.
+ * upstream `provideSignatureHelp`: one by one until the first non-empty answer — a hint has a single
+ * active parameter. A failing provider means "no hint" and the queue moves on.
  */
 export async function provideSignatureHelp(
     providers: readonly SignatureHelpProvider[],

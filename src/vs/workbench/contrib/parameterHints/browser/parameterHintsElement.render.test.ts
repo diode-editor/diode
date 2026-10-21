@@ -31,7 +31,7 @@ function render(element: ParameterHintsElement) {
     return renderElement(element, width, height, { themeVars: true });
 }
 
-/** Ручной рендер в `TerminalScreen`: `MockTerminalBackend` хранит только текст и цвета, без флагов стиля. */
+/** Manual render into `TerminalScreen`: `MockTerminalBackend` keeps only text and colors, no style flags. */
 function renderToScreen(element: ParameterHintsElement): TerminalScreen {
     const size = new Size(element.getMinIntrinsicWidth(0), element.getMinIntrinsicHeight(0));
     const termScreen = new TerminalScreen(size);
@@ -48,7 +48,7 @@ describe("ParameterHintsElement — раскладка", () => {
         const element = new ParameterHintsElement();
         element.setHint(hint());
 
-        // Max-интринсики совпадают с min: попап не тянется (их читает overlay-слой).
+        // Max intrinsics equal min: the popup does not stretch (the overlay layer reads them).
         expect(element.getMaxIntrinsicWidth(0)).toBe(element.getMinIntrinsicWidth(0));
         expect(element.getMaxIntrinsicHeight(0)).toBe(element.getMinIntrinsicHeight(0));
         expectScreen(
@@ -82,7 +82,7 @@ describe("ParameterHintsElement — раскладка", () => {
         const element = new ParameterHintsElement();
         element.setHint(hint({ label: "f()", activeSpan: [0, 0] }));
 
-        // MIN_WIDTH = 20: попап уже этого не бывает, иначе рамка липнет к тексту.
+        // MIN_WIDTH = 20: the popup is never narrower, otherwise the border sticks to the text.
         expect(element.getMinIntrinsicWidth(0)).toBe(20);
         expectScreen(
             render(element),
@@ -100,7 +100,7 @@ describe("ParameterHintsElement — раскладка", () => {
         const without = new ParameterHintsElement();
         without.setHint(hint());
 
-        // «1/2 » — четыре колонки сверх метки, иначе сигнатуру пришлось бы переносить.
+        // "1/2 " is four columns on top of the label, otherwise the signature would have to wrap.
         expect(withCounter.getMinIntrinsicWidth(0)).toBe(without.getMinIntrinsicWidth(0) + 4);
         expect(withCounter.linesFor(60)).toEqual(["1/2 greet(name: string): void"]);
     });
@@ -110,7 +110,7 @@ describe("ParameterHintsElement — раскладка", () => {
         element.setHint(hint({ documentation: ["кого приветствуем"] }));
 
         expect(element.isEmpty).toBe(false);
-        // Разделитель — пустая строка в модели: его ширину рисовалка берёт из кадра.
+        // The separator is an empty line in the model: the renderer takes its width from the frame.
         expect(element.linesFor(40)).toEqual(["greet(name: string): void", "", "кого приветствуем"]);
     });
 
@@ -145,7 +145,7 @@ describe("ParameterHintsElement — раскладка", () => {
         element.maxHeight = 5;
         element.setHint(hint({ documentation: ["раз два три четыре пять шесть семь восемь"] }));
 
-        // Контента на четыре строки, а внутрь рамки влезает три.
+        // Four lines of content, but only three fit inside the border.
         expect(element.linesFor(26)).toHaveLength(4);
         expect(element.getMinIntrinsicHeight(0)).toBe(5);
         expectScreen(
@@ -184,14 +184,14 @@ describe("ParameterHintsElement — цвета", () => {
 
         expect(backend.getFgAt(new Point(0, 0))).toBe(vars["editorHoverWidget.border"]);
         expect(backend.getBgAt(new Point(2, 1))).toBe(vars["editorHoverWidget.background"]);
-        // «g» из greet — обычный текст, не активный параметр.
+        // "g" of greet is plain text, not the active parameter.
         expect(backend.getFgAt(new Point(2, 1))).toBe(vars["editorHoverWidget.foreground"]);
     });
 
     it("активный параметр — highlightForeground и жирный, соседи не тронуты", () => {
         const element = new ParameterHintsElement();
         // greet(name: string): void
-        //       ^ 6              ^ 18 (конец эксклюзивный)
+        //       ^ 6              ^ 18 (end is exclusive)
         element.setHint(hint({ activeSpan: [6, 18] }));
         const backend = render(element);
         const width = element.getMinIntrinsicWidth(0);
@@ -199,9 +199,9 @@ describe("ParameterHintsElement — цвета", () => {
 
         expect(backend.getFgAt(new Point(nameX, 1))).toBe(vars["editorHoverWidget.highlightForeground"]);
         expect(renderToScreen(element).getCell(new Point(nameX, 1)).style & StyleFlags.Bold).toBe(StyleFlags.Bold);
-        // Скобка перед параметром — вне диапазона.
+        // The paren before the parameter is outside the range.
         expect(backend.getFgAt(new Point(nameX - 1, 1))).toBe(vars["editorHoverWidget.foreground"]);
-        // Символ сразу за диапазоном (`)` в `string)`) — тоже.
+        // So is the character right after the range (`)` in `string)`).
         expect(backend.getFgAt(new Point(nameX + 12, 1))).toBe(vars["editorHoverWidget.foreground"]);
     });
 
@@ -212,7 +212,7 @@ describe("ParameterHintsElement — цвета", () => {
         element.setHint(hint({ label, counter: "1/2", activeSpan: [20, 31] }));
         const backend = render(element);
 
-        // Вторая строка метки: «    string, age:» — подсвечен только «age:».
+        // Second label line: `    string, age:` — only `age:` is highlighted.
         const second = backend.getTextAt(new Point(0, 2), element.getMinIntrinsicWidth(0));
         const ageX = second.indexOf("age");
         expect(backend.getFgAt(new Point(ageX, 2))).toBe(vars["editorHoverWidget.highlightForeground"]);
@@ -226,7 +226,7 @@ describe("ParameterHintsElement — цвета", () => {
         const backend = render(element);
         const width = element.getMinIntrinsicWidth(0);
 
-        // Колонка правого паддинга: символа нет, но фон обязан быть попаповый.
+        // Right padding column: no character, but the background must be the popup's.
         expect(backend.getTextAt(new Point(width - 2, 1), 1)).toBe(" ");
         expect(backend.getBgAt(new Point(width - 2, 1))).toBe(vars["editorHoverWidget.background"]);
     });
@@ -242,7 +242,7 @@ describe("ParameterHintsElement — цвета", () => {
 
     it("описание не подсвечивается, даже когда диапазон накрывает нулевой офсет", () => {
         const element = new ParameterHintsElement();
-        // Диапазон [0, 5] — начало МЕТКИ; строки описания к метке отношения не имеют.
+        // Range [0, 5] is the start of the LABEL; documentation lines have nothing to do with the label.
         element.setHint(hint({ activeSpan: [0, 5], documentation: ["кого приветствуем"] }));
         const backend = render(element);
 
@@ -254,8 +254,8 @@ describe("ParameterHintsElement — цвета", () => {
         const element = new ParameterHintsElement();
         element.maxWidth = 26;
         const label = "greet(name: string, age: number): void";
-        // Параметр `name: string` (офсеты 6–18) переносом разрезан: его хвост
-        // `string` начинается со второй строки, с офсета 12.
+        // The parameter `name: string` (offsets 6–18) is split by wrapping: its tail
+        // `string` starts on the second line, at offset 12.
         element.setHint(hint({ label, counter: "1/2", activeSpan: [6, 18] }));
         const backend = render(element);
 

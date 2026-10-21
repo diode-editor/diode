@@ -6,8 +6,8 @@ import type {
 } from "../../../../editor/common/languages/iInlineCompletionSource.ts";
 
 /**
- * upstream `provideInlineCompletions`: один объект запроса и один токен на всех — хост склеит вызовы
- * в один RPC. Сбойный провайдер = подсказок нет.
+ * upstream `provideInlineCompletions`: one request object and one token for all — the host merges the
+ * calls into a single RPC. A failing provider means no completions.
  */
 export async function provideInlineCompletions(
     providers: readonly InlineCompletionsProvider[],

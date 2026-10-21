@@ -28,9 +28,9 @@ describe("showSearchAction", () => {
         expect(showSearchAction.menus?.[0]).toMatchObject({ group: "3_views" });
     });
 
-    // Ctrl+Shift+F теряется дважды: на legacy-терминале он неотличим от Ctrl+F, а на
-    // «полном» его перехватывает сам эмулятор. Поэтому аккорд обязан работать всегда,
-    // а подсказка — показывать то, что в этом терминале действительно нажимается.
+    // Ctrl+Shift+F gets lost twice: on a legacy terminal it is indistinguishable from Ctrl+F, and on
+    // a "full" one the emulator itself intercepts it. So the chord must always work,
+    // and the hint must show what can actually be pressed in this terminal.
     function registerSearch(): { keybindings: KeybindingRegistry; commands: CommandRegistry } {
         const commands = new CommandRegistry();
         const keybindings = new KeybindingRegistry();

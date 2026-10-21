@@ -5,8 +5,8 @@ import { buildRgArgs, parseRgMatchLine } from "../../../services/search/common/t
 
 import { buildMatchRow, type ISearchRowStyles } from "./searchResultRows.ts";
 
-// Регресс тормозов окна поиска: без капа хвоста в splitPreviewByBytes один матч в минифицированном/lock-файле
-// клал в TextLabelElement строку на сотни килобайт, которую рендер пересегментировал на каждом кадре.
+// Regression of search view slowness: without the tail cap in splitPreviewByBytes, one match in a minified/lock file
+// put a line of hundreds of kilobytes into TextLabelElement, which rendering re-segmented on every frame.
 
 const STYLES: ISearchRowStyles = {
     dimFg: packRgb(128, 128, 128),
@@ -14,7 +14,7 @@ const STYLES: ISearchRowStyles = {
     matchBg: packRgb(234, 92, 0),
 };
 
-/** Строит матч через настоящий парсер rg --json — кап живёт именно там. */
+/** Builds the match through the real rg --json parser — that's where the cap lives. */
 function parseMatch(lineText: string, start: number, end: number) {
     const line = JSON.stringify({
         type: "match",
@@ -40,8 +40,8 @@ describe("searchResultRows — длинные строки ограничены 
     });
 
     it("аргументы ripgrep не содержат --max-columns — осознанно", () => {
-        // Кап живёт в splitPreviewByBytes: --max-columns менял бы байтовые
-        // офсеты сабматчей и выкидывал длинные строки из результатов целиком.
+        // The cap lives in splitPreviewByBytes: --max-columns would change the byte
+        // offsets of submatches and drop long lines from the results entirely.
         const args = buildRgArgs(
             {
                 pattern: "needle",

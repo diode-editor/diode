@@ -8,7 +8,7 @@ import { NULL_TREE_FILE_WATCHER } from "../../../../platform/files/common/iTreeF
 import { ExplorerService, type IExplorerView } from "./explorerService.ts";
 import type { FileTreeNode } from "./fileTreeDataProvider.ts";
 
-// Компактная строка «src/main/java»: ключ — голова, `path` — последняя папка.
+// Compact row "src/main/java": the key is the head, `path` is the last folder.
 const CHAIN: FileTreeNode = {
     name: "java",
     path: "/w/src/main/java",

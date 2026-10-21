@@ -26,12 +26,12 @@ import { ParameterHintsComponentDIToken } from "./parameterHintsComponent.ts";
 import { provideSignatureHelp } from "./provideSignatureHelp.ts";
 import { activeParameterSpan } from "./signatureLayout.ts";
 
-// Stryker disable next-line StringLiteral: token() возвращает новый Token, и зависимости резолвятся по ссылке на него — строка внутри остаётся отладочной меткой
+// Stryker disable next-line StringLiteral: token() returns a new Token and dependencies resolve by its reference — the string inside is only a debug label
 export const ParameterHintsServiceDIToken = token<ParameterHintsService>("ParameterHintsService");
 
 /**
- * Пока показана — перезапрашивается на каждую правку и движение каретки (активный параметр следует
- * за набором), а ответ `null` её закрывает: так закрывающая скобка гасит попап.
+ * While shown, it is re-requested on every edit and cursor move (the active parameter follows the
+ * typing), and a `null` answer closes it: that is how the closing paren dismisses the popup.
  */
 export class ParameterHintsService extends Disposable implements IContextKeyContributor {
     public static dependencies = [
@@ -41,7 +41,7 @@ export class ParameterHintsService extends Disposable implements IContextKeyCont
         LanguageFeaturesServiceDIToken,
     ] as const;
 
-    /** Мс; у suggest её роль играет `editor.quickSuggestionsDelay`. */
+    /** Ms; for suggest, `editor.quickSuggestionsDelay` plays this role. */
     public triggerDelayMs = 120;
 
     private readonly latest = new LatestRequest();
@@ -50,9 +50,9 @@ export class ParameterHintsService extends Disposable implements IContextKeyCont
             void this.trigger(this.scheduledTrigger.kind, this.scheduledTrigger.character);
         }, this.triggerDelayMs),
     );
-    // Без затравки: `scheduleTrigger` пишет поле до каждого `schedule()`, раньше него раннер не зовётся.
+    // No initializer: `scheduleTrigger` writes the field before every `schedule()`, the runner is never called earlier.
     private scheduledTrigger!: { kind: TriggerKind; character: string | undefined };
-    /** Она же — эхо `activeSignatureHelp` серверу. */
+    /** Also echoed back to the server as `activeSignatureHelp`. */
     private currentHelp: ICoreSignatureHelp | null = null;
     private activeSignatureIndex = 0;
 
@@ -63,7 +63,7 @@ export class ParameterHintsService extends Disposable implements IContextKeyCont
         private readonly languageFeatures: ILanguageFeaturesService,
     ) {
         super();
-        // Фокус ушёл с редактора (Ctrl+Tab, Quick Open) — попап без якоря не жилец.
+        // Focus left the editor (Ctrl+Tab, Quick Open) — a popup without an anchor cannot stay.
         this.register(
             focusTracker.onDidChangeFocus((active) => {
                 if (!(active instanceof EditorElement) && this.isOpen()) this.close();
@@ -71,9 +71,9 @@ export class ParameterHintsService extends Disposable implements IContextKeyCont
         );
         this.register(
             bindActiveEditor(this.group, (editor, store) => {
-                // В приложении смена редактора приходит вместе со сменой фокуса; вызов — для программной смены
-                // (восстановление сессии, split).
-                // Stryker disable next-line CallExpression: см. выше
+                // In the app an editor change comes together with a focus change; this call is for a
+                // programmatic change (session restore, split).
+                // Stryker disable next-line CallExpression: see above
                 this.close();
                 if (editor === null) return;
                 store.add(
@@ -114,9 +114,9 @@ export class ParameterHintsService extends Disposable implements IContextKeyCont
                 triggerKind,
                 ...(character === undefined ? {} : { triggerCharacter: character }),
                 isRetrigger,
-                // Эхо показанной подсказки: по нему сервер удерживает перегрузку,
-                // которую пользователь выбрал стрелками (tsserver ищет её по метке).
-                // Stryker disable next-line ConditionalExpression: открытый попап без сохранённого результата недостижим — `close()` гасит и сессию, и результат вместе
+                // Echo of the shown hint: the server uses it to keep the overload the user
+                // picked with the arrows (tsserver finds it by label).
+                // Stryker disable next-line ConditionalExpression: an open popup without a stored result is unreachable — `close()` clears both the session and the result together
                 ...(isRetrigger && this.currentHelp !== null
                     ? { activeSignatureHelp: { ...this.currentHelp, activeSignature: this.activeSignatureIndex } }
                     : {}),
@@ -128,7 +128,7 @@ export class ParameterHintsService extends Disposable implements IContextKeyCont
             this.close();
             return;
         }
-        // Каретка могла уйти за время await — без якоря показывать негде.
+        // The cursor may have moved during await — without an anchor there is nowhere to show.
         const anchor = editor.getCaretAnchor();
         if (anchor === null) {
             this.close();
@@ -150,7 +150,7 @@ export class ParameterHintsService extends Disposable implements IContextKeyCont
         contextKeys.set("parameterHintsMultipleSignatures", (this.currentHelp?.signatures.length ?? 0) > 1);
     }
 
-    /** Локально, без запроса к серверу. */
+    /** Local, without a server request. */
     public nextSignature(): void {
         this.stepSignature(1);
     }
@@ -170,7 +170,7 @@ export class ParameterHintsService extends Disposable implements IContextKeyCont
 
     private stepSignature(delta: 1 | -1): void {
         const count = this.currentHelp?.signatures.length ?? 0;
-        // Stryker disable next-line ConditionalExpression: без выхода одна сигнатура просто пересобирает попап тем же содержимым, а ноль даёт NaN-индекс, который перетрёт следующий ответ, — поведение не меняется
+        // Stryker disable next-line ConditionalExpression: without the exit a single signature just rebuilds the popup with the same content, and zero gives a NaN index that the next answer overwrites — behavior does not change
         if (count <= 1) return;
         this.activeSignatureIndex = (((this.activeSignatureIndex + delta) % count) + count) % count;
         this.renderHint();
@@ -178,8 +178,8 @@ export class ParameterHintsService extends Disposable implements IContextKeyCont
 
     private renderHint(): void {
         const help = this.currentHelp;
-        /* v8 ignore start -- defensive: рендер зовут только при живой подсказке */
-        // Stryker disable next-line ConditionalExpression,EqualityOperator: ветка недостижима — см. v8 ignore выше
+        /* v8 ignore start -- defensive: render is called only with a live hint */
+        // Stryker disable next-line ConditionalExpression,EqualityOperator: the branch is unreachable — see v8 ignore above
         if (help === null) return;
         /* v8 ignore stop */
         const signature = help.signatures[this.activeSignatureIndex];
@@ -196,28 +196,29 @@ export class ParameterHintsService extends Disposable implements IContextKeyCont
     }
 
     /**
-     * Ретриггер-символ (`)`) уходит серверу в контексте, ответ обычно пустой — подсказка закрывается
-     * сама. Приходит ПОСЛЕ события каретки и перезаводит запланированный им `ContentChange` своим видом.
+     * A retrigger character (`)`) goes to the server in the context; the answer is usually empty, so the
+     * hint closes by itself. Arrives AFTER the cursor event and re-arms the `ContentChange` it scheduled
+     * with its own kind.
      */
     private onDidType(editor: TextEditorPane, text: string): void {
-        // Триггеры — метаданные провайдеров, подошедших именно этому документу:
-        // «(» сервера TypeScript не будит подсказку в markdown.
+        // Triggers are metadata of the providers matching this very document:
+        // the TypeScript server's "(" does not wake the hint in markdown.
         const providers = this.languageFeatures.signatureHelpProvider.ordered(editor);
         const triggers = providers.some((provider) => provider.triggerCharacters.includes(text));
         const retriggers = this.isOpen() && providers.some((provider) => provider.retriggerCharacters.includes(text));
         if (triggers || retriggers) this.scheduleTrigger(SignatureHelpTriggerKind.TriggerCharacter, text);
     }
 
-    /** Без перезапроса активный параметр застыл бы на первом. */
+    /** Without a re-request the active parameter would stay stuck on the first one. */
     private onCaretChanged(): void {
         const editor = this.group.getActiveEditor();
-        /* v8 ignore start -- defensive: события приходят от привязанного редактора */
-        // Stryker disable next-line ConditionalExpression,EqualityOperator: ветка недостижима — см. v8 ignore выше
+        /* v8 ignore start -- defensive: events come from the bound editor */
+        // Stryker disable next-line ConditionalExpression,EqualityOperator: the branch is unreachable — see v8 ignore above
         if (editor === null) return;
         /* v8 ignore stop */
         const selections = editor.viewState.selections;
         if (selections.length !== 1 || !isSelectionCollapsed(selections[0])) {
-            // `close()` снимает и отложенный запрос — иначе «(» перед выделением открыла бы попап поверх него.
+            // `close()` also cancels the pending request — otherwise "(" before a selection would open the popup over it.
             this.close();
             return;
         }
@@ -234,9 +235,9 @@ export class ParameterHintsService extends Disposable implements IContextKeyCont
     }
 }
 
-/** Сервер вправе прислать любой индекс. */
+/** The server may send any index. */
 function clampIndex(index: number, length: number): number {
-    // Stryker disable next-line EqualityOperator: на index === 0 обе границы дают ноль — тот же индекс, что и без клампа
+    // Stryker disable next-line EqualityOperator: at index === 0 both bounds give zero — the same index as without the clamp
     if (index < 0 || index >= length) return 0;
     return index;
 }

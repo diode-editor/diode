@@ -65,13 +65,13 @@ describe("inlineCompletionsActions — объявления", () => {
         keys.set("inlineSuggestionVisible", true);
         expect(passes()).toBe(true);
 
-        // Запрос в полёте: призрака ещё нет, но Escape обязан доехать до отмены.
+        // Request in flight: no ghost text yet, but Escape must still reach the cancellation.
         keys.set("inlineSuggestionVisible", false);
         keys.set("inlineSuggestionRequestPending", true);
         keys.set("textInputFocus", true);
         expect(passes()).toBe(true);
 
-        // Фокус ушёл из текста (find-виджет, квик-пик) — Escape там не наш.
+        // Focus left the text (find widget, quick pick) — Escape there is not ours.
         keys.set("textInputFocus", false);
         expect(passes()).toBe(false);
     });
@@ -79,7 +79,7 @@ describe("inlineCompletionsActions — объявления", () => {
     it("биндинги: Tab у commit, Escape у hide, Alt+\\ у trigger", () => {
         expect(keybindingOf(commitInlineSuggestAction)).toBe("Tab");
         expect(keybindingOf(hideInlineSuggestAction)).toBe("Escape");
-        // В редакторе горячих клавиш она обязана показаться ровно так.
+        // The keybindings editor must show it exactly like this.
         expect(keybindingOf(triggerInlineSuggestAction)).toBe("Alt+\\");
     });
 
@@ -100,7 +100,7 @@ describe("inlineCompletionsActions — run-обработчики", () => {
         triggerInlineSuggestAction.run(accessor);
         commitInlineSuggestAction.run(accessor);
         hideInlineSuggestAction.run(accessor);
-        // trigger шлёт явный Invoke (0).
+        // trigger sends an explicit Invoke (0).
         expect(calls).toEqual(["trigger:0", "accept", "hide"]);
     });
 });

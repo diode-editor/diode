@@ -53,7 +53,7 @@ describe("Фабрика дифф-вкладки", () => {
         expect(copy).not.toBe(source);
         expect(copy.uri.toString()).toBe(source.uri.toString());
         expect(copy.label).toBe("a ↔ b");
-        // modified-сторона — живая общая модель файла; original — снимок с диска.
+        // The modified side is the file's live shared model; original is a snapshot from disk.
         expect(copy.sidePanes()[1].model).toBe(source.sidePanes()[1].model);
     });
 
@@ -88,7 +88,7 @@ describe("Фабрика дифф-вкладки", () => {
 
         expect(service().editorGroups.activeGroup.editorCount).toBe(2);
         expect(service().editorGroups.activeGroup.activePane).toBe(source);
-        // Фокус был во вкладке a.txt, она ушла из дерева; в дифф его не ставили.
+        // Focus was in the a.txt tab, which left the tree; it was not put into the diff.
         expect(h.testApp.focusedElement).toBeNull();
     });
 
@@ -103,7 +103,7 @@ describe("Фабрика дифф-вкладки", () => {
 
         await openDiffPair(h.container, clip("new"), { group: service().editorGroups.groups[0], focus: false });
 
-        // Та же вкладка, свежий текст; активная группа не сменилась.
+        // Same tab, fresh text; the active group did not change.
         expect(service().editorGroups.groups[0].editorCount).toBe(1);
         expect(pane.sidePanes()[0].getText()).toBe("new");
         expect(service().editorGroups.activeGroup).toBe(right);
@@ -120,7 +120,7 @@ describe("Фабрика дифф-вкладки", () => {
         expect(service().editorGroups.groups.length).toBe(2);
         expect(service().editorGroups.activeGroup).toBe(service().editorGroups.groups[0]);
         expect(service().getActiveTabPane()).toBe(source);
-        // Фокус уехал в дифф — команда сравнения его показывает, а не только активирует.
+        // Focus moved into the diff: the compare command shows it, not just activates it.
         expect(h.testApp.focusedElement).not.toBeNull();
         expect(h.testApp.focusedElement).not.toBe(focusedBefore);
     });
@@ -180,7 +180,7 @@ describe("Фабрика дифф-вкладки", () => {
 
         expect(factory().serialize(clipboard)).toBeUndefined();
         expect(factory().serialize(git)).toBeUndefined();
-        // Ресурс file:, но содержимое стороны — не он: текст или своя модель.
+        // The resource is file:, but the side's content is not it: text or its own model.
         const fileUri = Uri.file(ws.path("a.txt"));
         expect(
             factory().serialize({ ...files(), original: { uri: fileUri, text: "x", label: "a", identity: "t" } }),

@@ -5,12 +5,12 @@ import { KeybindingWeight } from "../../../../platform/keybinding/common/keybind
 
 import { InlineCompletionsServiceDIToken } from "./inlineCompletionsService.ts";
 
-/** Сильнее find и Tab-отступа, слабее открытого suggest-попапа (Escape сначала закрывает попап). */
+/** Stronger than find and Tab indent, weaker than an open suggest popup (Escape closes the popup first). */
 const INLINE_WEIGHT = KeybindingWeight.EditorContrib + 80;
 
 /**
- * Работает и при выключенном `editor.inlineSuggest.enabled` — это и есть ручной режим. Alt+\ — от
- * GitHub Copilot (в ядре vscode клавиши нет); терминал шлёт ESC + `\` → `{key: "\\", altKey: true}`.
+ * Works even with `editor.inlineSuggest.enabled` off — that is the manual mode. Alt+\ comes from
+ * GitHub Copilot (core vscode has no key); the terminal sends ESC + `\` → `{key: "\\", altKey: true}`.
  */
 export const triggerInlineSuggestAction: CommandAction = {
     id: "editor.action.inlineSuggest.trigger",
@@ -23,8 +23,8 @@ export const triggerInlineSuggestAction: CommandAction = {
 };
 
 /**
- * Tab не принимает, когда подсказка начинается с ≥ таба отступа при каретке в отступе — тогда Tab
- * индентит (как в VS Code).
+ * Tab does not accept when the suggestion starts with ≥ a tab of indentation and the cursor is in the
+ * indentation — then Tab indents (as in VS Code).
  */
 export const commitInlineSuggestAction: CommandAction = {
     id: "editor.action.inlineSuggest.commit",
@@ -38,8 +38,9 @@ export const commitInlineSuggestAction: CommandAction = {
 };
 
 /**
- * Отменяет и запрос в полёте: `inlineSuggestionRequestPending` продлевает биндинг на ожидание ответа.
- * Гейт `textInputFocus` обязателен — иначе сюда уходил бы Escape find-виджета и квик-пика.
+ * Also cancels a request in flight: `inlineSuggestionRequestPending` extends the binding while awaiting
+ * the answer. The `textInputFocus` gate is required — otherwise Escape of the find widget and quick pick
+ * would land here.
  */
 export const hideInlineSuggestAction: CommandAction = {
     id: "editor.action.inlineSuggest.hide",

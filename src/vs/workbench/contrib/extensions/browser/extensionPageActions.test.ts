@@ -69,7 +69,7 @@ describe("ExtensionPageActions", () => {
         const { actions, progress } = createActions(service);
 
         const running = actions.install("acme.tools");
-        // Кнопки гаснут сразу, не дожидаясь появления спиннера: сервис уже занят.
+        // Buttons disable immediately, before the spinner shows: the service is already busy.
         expect(progress.isBusy()).toBe(true);
         await running;
 
@@ -78,7 +78,7 @@ describe("ExtensionPageActions", () => {
     });
 
     it("подпись прогресса называет операцию и расширение — иначе спиннер безымянный", async () => {
-        // Сервис, который «думает»: прогресс успевает стать видимым.
+        // A service that "thinks", so progress has time to become visible.
         let finishInstall = (): void => {};
         let finishUninstall = (): void => {};
         const service: IExtensionsWorkbenchService = {

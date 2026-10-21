@@ -80,7 +80,7 @@ describe("wrapText", () => {
     });
 
     it("хвостовые пробелы не считаются в ширину — строка не рвётся из-за них", () => {
-        // Ровно по лимиту плюс два пробела: срез хвоста обязан снять оба.
+        // Exactly at the limit plus two spaces: trimming the tail must remove both.
         expect(wrapText("alpha beta  ", 10)).toEqual(["alpha beta"]);
     });
 
@@ -97,7 +97,7 @@ describe("wrapText", () => {
     });
 
     it("пробел между словами считается в ширину — на колонку длиннее уже перенос", () => {
-        // 6 + 1 + 4 = 11 > 10: без учёта пробела строка вылезла бы за край.
+        // 6 + 1 + 4 = 11 > 10: without counting the space the line would overflow.
         expect(wrapText("alphas beta", 10)).toEqual(["alphas", "beta"]);
     });
 });
@@ -128,7 +128,7 @@ describe("buildExtensionHeaderLines", () => {
             { entry: entry(), meta: meta(), metaError: null, operationError: null },
             60,
         );
-        // Целиком, вместе с тоном: цвет — часть смысла, и ассерт на текст пропустил бы перекрашивание.
+        // Whole, with tone: color is part of the meaning, and a text-only assert would miss a recolor.
         expect(lines.slice(0, 9)).toEqual([
             { text: "Acme Tools", tone: "normal" },
             { text: "acme.tools", tone: "dim" },
@@ -242,7 +242,7 @@ describe("buildExtensionHeaderLines", () => {
             60,
         );
         expect(lines.at(-2)).toEqual({ text: "sha256 mismatch", tone: "warning" });
-        // Шапка кончается пустой строкой-зазором перед рядом кнопок.
+        // The header ends with a blank spacer line before the button row.
         expect(lines.at(-1)).toEqual({ text: "", tone: "normal" });
     });
 
@@ -259,8 +259,8 @@ describe("buildExtensionHeaderLines", () => {
             { entry: entry({ description: "" }), meta: meta(), metaError: null, operationError: null },
             60,
         );
-        // Ровно одна пустая строка между идентичностью и статусом: лишняя
-        // означала бы, что описание всё-таки вывели — пустым.
+        // Exactly one blank line between identity and status: an extra one
+        // would mean the description was printed after all, empty.
         expect(texts(lines).slice(0, 4)).toEqual(["Acme Tools", "acme.tools", "", "Not installed"]);
     });
 
@@ -357,8 +357,8 @@ describe("страница расширения с частичной подде
 
     it("шапка предупреждает одной строкой", () => {
         const lines = buildExtensionHeaderLines(content({ entry: entry({ support }) }), 80);
-        // Текст литералом, а не через константу: иначе ассерт переезжает вместе
-        // с ней, и подмена строки остаётся незамеченной.
+        // Text as a literal, not via the constant: otherwise the assert moves together
+        // with it, and a changed string goes unnoticed.
         const warning = lines.find((l) => l.text === "Partial support: some features do not work in Diode");
         expect(warning?.tone).toBe("warning");
         expect(PARTIAL_SUPPORT_HEADLINE).toBe("Partial support: some features do not work in Diode");
@@ -400,8 +400,8 @@ describe("страница расширения с частичной подде
             }),
             80,
         );
-        // Целиком с тоном: заголовок — справочная строка, «не работает» — предупреждение, последняя
-        // строка пустая, иначе readme прилипнет к списку.
+        // Whole, with tone: the title is a reference line, "does not work" is a warning, the last
+        // line is blank, otherwise the readme sticks to the list.
         expect(lines.slice(0, 5)).toEqual([
             { text: "Works in Diode:", tone: "dim" },
             { text: "- Ghost text", tone: "dim" },
@@ -422,8 +422,8 @@ describe("страница расширения с частичной подде
     });
 
     it("пустой список не даёт заголовка без пунктов", () => {
-        // Реестр такого не опубликует, но тип это допускает: заголовок
-        // «Works in Diode:», под которым пусто, читался бы как «ничего».
+        // The registry won't publish this, but the type allows it: a
+        // "Works in Diode:" title with nothing under it would read as "nothing".
         const lines = buildExtensionBodyLines(
             content({ entry: entry({ support: { level: "partial", works: [], limits: ["Chat panel"] } }) }),
             80,
@@ -438,8 +438,8 @@ describe("страница расширения с частичной подде
             content({ entry: entry({ support: { level: "full" } }), meta: undefined, metaError: null }),
             80,
         );
-        // Блока нет ЦЕЛИКОМ — ни заголовков, ни пустой строки-зазора: иначе
-        // страница полностью поддержанного расширения начиналась бы с провала.
+        // The block is absent ENTIRELY, no titles and no blank spacer line: otherwise
+        // the page of a fully supported extension would start with a gap.
         expect(full.map((l) => l.text)).not.toContain("Does not work:");
         expect(full.map((l) => l.text)).not.toContain("Works in Diode:");
         expect(full.every((l) => l.text !== "")).toBe(true);

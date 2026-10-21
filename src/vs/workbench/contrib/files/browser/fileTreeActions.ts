@@ -7,7 +7,7 @@ import { EXPLORER_VIEW_ID, ExplorerComponentDIToken } from "./explorerComponent.
 import { ExplorerServiceDIToken } from "./explorerService.ts";
 import { FileOperationsServiceDIToken } from "./fileOperationsService.ts";
 
-/** nf-cod-refresh — inline-кнопка заголовка Explorer'а. */
+/** nf-cod-refresh — inline button in the Explorer header. */
 const REFRESH_ICON = "\ueb37";
 
 export const fileDeleteAction: CommandAction = {
@@ -16,7 +16,7 @@ export const fileDeleteAction: CommandAction = {
     shortTitle: "Delete",
     keybinding: parseKeybinding("delete"),
     when: "listFocus",
-    // Delete забинжен `delete`, но меню шортката не показывает — подавляем.
+    // Delete is bound to `delete`, but the menu doesn't show the shortcut — suppress it.
     menus: [{ menuId: MenuId.ExplorerContext, group: "4_modify", order: 20, args: explorerPathArg, shortcut: false }],
     run(accessor, filePath: unknown) {
         const target = (filePath as string | undefined) ?? accessor.get(ExplorerServiceDIToken).getSelectedPaths()[0];
@@ -37,7 +37,7 @@ export const fileRenameAction: CommandAction = {
     },
 };
 
-/** Для внешних изменений, которые live-watcher мог пропустить (сетевые шары, игнорируемые пути). */
+/** For external changes the live watcher may have missed (network shares, ignored paths). */
 export const refreshExplorerAction: CommandAction = {
     id: "workbench.files.action.refreshFilesExplorer",
     title: "File: Refresh Explorer",

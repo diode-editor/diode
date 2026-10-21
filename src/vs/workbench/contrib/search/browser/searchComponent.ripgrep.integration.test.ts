@@ -15,8 +15,8 @@ import { TextSearchService } from "../../../services/search/node/textSearchServi
 
 import { SearchComponent } from "./searchComponent.ts";
 
-// Швы «что компонент кладёт в запрос» и «что rg находит» проверены отдельно; здесь — что они сходятся в
-// кадре. Сценарий — баг из монорепы: `"common": true` в `files.exclude` прятал `nci/common/**`.
+// The seams "what the component puts into the query" and "what rg finds" are tested separately; here — that they meet in
+// the frame. The scenario is a monorepo bug: `"common": true` in `files.exclude` hid `nci/common/**`.
 describe("SearchComponent + настоящий ripgrep", () => {
     let ws: ITempWorkspace;
     let service: TextSearchService;
@@ -67,7 +67,7 @@ describe("SearchComponent + настоящий ripgrep", () => {
         return renderElement(component.view, 60, 20, { themeVars: true }).screenToString();
     }
 
-    /** Одной сводки мало: «No results» виден и до старта rg, а «1 … in 1 file» — пока rg стримит второй файл. */
+    /** One summary is not enough: "No results" shows before rg starts, and "1 … in 1 file" while rg streams the second file. */
     async function search(component: SearchComponent, query: string, summary: string): Promise<string> {
         const spy = vi.spyOn(service, "search");
         setInput(component, 0, query);

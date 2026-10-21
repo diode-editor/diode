@@ -8,7 +8,7 @@ import {
     OpenEditorsQuickAccessProviderDIToken,
 } from "./openEditorsQuickAccessProvider.ts";
 
-/** Порядок записей не важен: реестр выбирает по самому длинному подошедшему префиксу. */
+/** Entry order doesn't matter: the registry picks by the longest matching prefix. */
 export const QUICK_ACCESS_PROVIDERS: readonly IQuickAccessProviderDescriptor[] = [
     { prefix: FilesQuickAccessProvider.PREFIX, provider: FilesQuickAccessProviderDIToken },
     { prefix: CommandsQuickAccessProvider.PREFIX, provider: CommandsQuickAccessProviderDIToken },

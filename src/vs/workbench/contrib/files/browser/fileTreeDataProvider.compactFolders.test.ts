@@ -71,9 +71,9 @@ describe("FileTreeDataProvider — explorer.compactFolders", () => {
         ws.dispose();
     });
 
-    /** Узел `pkg` из листинга корня — тот объект, что держала бы строка дерева. */
+    /** The `pkg` node from the root listing — the object a tree row would hold. */
     async function pkgNode(): Promise<FileTreeNode> {
-        // По ключу, а не по имени: у компактного узла `name` — последняя папка.
+        // By key, not by name: a compact node's `name` is the last folder.
         const node = (await provider.getChildren()).find((child) => provider.getKey(child) === ws.path("pkg"));
         if (!node) throw new Error("pkg не найден в корне");
         return node;
@@ -155,8 +155,8 @@ describe("FileTreeDataProvider — explorer.compactFolders", () => {
         const holder = (await provider.getChildren()).find((child) => child.name === "link-holder");
         if (!holder) throw new Error("link-holder не найден");
 
-        // Единственный ребёнок — симлинк на каталог: не спускаемся (ссылка на
-        // предка зациклила бы спуск).
+        // The only child is a symlink to a directory: don't descend (a link to
+        // an ancestor would loop the descent).
         expect((await provider.getChildren(holder)).map((child) => child.name)).toEqual(["to-pkg"]);
         expect(provider.getTreeItem(holder).label).toBe("link-holder");
     });
@@ -198,20 +198,20 @@ describe("FileTreeDataProvider — explorer.compactFolders", () => {
             await provider.getChildren(pkg);
             provider.watchNode(pkg);
 
-            // Вторая запись в `a` — цепочка короче: `b` больше не её папка.
+            // A second entry in `a` shortens the chain: `b` is no longer part of it.
             ws.writeFile("pkg/a/x.ts", "");
             await provider.getChildren(pkg);
             expect(watcher.live()).toEqual([ws.path("pkg"), ws.path("pkg/a")]);
 
-            // Запись ушла — цепочка снова до `b`.
+            // The entry is gone — the chain reaches `b` again.
             fs.rmSync(ws.path("pkg/a/x.ts"));
             await provider.getChildren(pkg);
             expect(watcher.live()).toEqual([ws.path("pkg"), ws.path("pkg/a"), ws.path("pkg/a/b")]);
 
             provider.unwatchNode(pkg);
             expect(watcher.live()).toEqual([]);
-            // Папки, что остались в цепочке, не переподписывались: по одной
-            // подписке на `pkg` и `pkg/a` за весь тест.
+            // Folders that stayed in the chain weren't resubscribed: one
+            // subscription each for `pkg` and `pkg/a` over the whole test.
             expect(watcher.watches.filter((watch) => watch.path === ws.path("pkg"))).toHaveLength(1);
             expect(watcher.watches.filter((watch) => watch.path === ws.path("pkg/a"))).toHaveLength(1);
         });
@@ -302,7 +302,7 @@ describe("FileTreeDataProvider — explorer.compactFolders", () => {
             vi.advanceTimersByTime(300);
 
             expect(onChange).toHaveBeenCalledExactlyOnceWith(outer);
-            // Цепочка забыта: следующий листинг соберёт узел заново.
+            // The chain is forgotten: the next listing builds the node anew.
             expect(provider.keyForPath(ws.path("outer/pkg/a/b"))).toBe(ws.path("outer/pkg/a/b"));
         });
 

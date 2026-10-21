@@ -12,8 +12,8 @@ export interface ICompletionsFromProviders {
 }
 
 /**
- * upstream `provideSuggestionItems` без групп по score. Один объект запроса на всех — по нему хост
- * склеит вызовы в один RPC; сбойный провайдер — пустой список.
+ * upstream `provideSuggestionItems` without score groups. One request object for all — the host uses it
+ * to merge the calls into one RPC; a failing provider yields an empty list.
  */
 export async function provideCompletions(
     providers: readonly CompletionItemProvider[],

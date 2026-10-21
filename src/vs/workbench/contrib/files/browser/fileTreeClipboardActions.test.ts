@@ -19,7 +19,7 @@ describe("buildPasteEdits", () => {
     });
 
     it("drops paths whose ancestor is in the clipboard too (distinctParents)", () => {
-        // Компактная строка в мультивыборе кладёт в буфер все папки цепочки.
+        // A compact row in a multi-selection puts every folder of the chain into the clipboard.
         const entry: FileClipboardEntry = {
             paths: ["/w/src", "/w/src/main", "/w/src/main/java", "/w/srcx"],
             mode: "copy",

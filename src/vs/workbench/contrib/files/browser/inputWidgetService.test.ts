@@ -41,7 +41,7 @@ describe("InputWidgetService — активное поле из опроса к�
 
         controller.updateContextKeys(keys, new FillerElement());
         controller.deleteLeft();
-        expect(input.inputState.value).toBe("ab"); // поля нет — команда no-op
+        expect(input.inputState.value).toBe("ab"); // no input — the command is a no-op
 
         controller.updateContextKeys(keys, input);
         controller.deleteLeft();
@@ -253,7 +253,7 @@ describe("InputWidgetService — clipboard", () => {
     });
 });
 
-/** Промисы висят до ручного resolve: смена активного поля посреди await воспроизводит гонку, ронявшую редактор. */
+/** Promises hang until resolved by hand: switching the active input mid-await reproduces the race that crashed the editor. */
 function deferredClipboard(text = ""): { clipboard: IClipboard; resolveRead(): void; resolveWrite(): void } {
     const holder: { read?: () => void; write?: () => void } = {};
     const clipboard: IClipboard = {

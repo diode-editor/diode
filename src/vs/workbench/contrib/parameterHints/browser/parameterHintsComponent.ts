@@ -8,7 +8,7 @@ import { LayoutServiceDIToken } from "../../../services/layout/browser/layoutSer
 
 import { type IParameterHint, ParameterHintsElement } from "./parameterHintsElement.ts";
 
-// Stryker disable next-line StringLiteral: token() возвращает новый Token, и зависимости резолвятся по ссылке на него — строка внутри остаётся отладочной меткой
+// Stryker disable next-line StringLiteral: token() returns a new Token and dependencies resolve by its reference — the string inside is only a debug label
 export const ParameterHintsComponentDIToken = token<ParameterHintsComponent>("ParameterHintsComponent");
 
 export class ParameterHintsComponent extends Component {
@@ -34,9 +34,9 @@ export class ParameterHintsComponent extends Component {
     }
 
     /**
-     * НАД строкой каретки: автодополнение предпочитает низ, без разведения они легли бы друг на друга.
-     * `preferBelow: false` лишь снимает сдвиг вниз, поднимает попап `offsetY`; сверху места нет — низ.
-     * Анкорить на КАЖДОМ показе: без пере-анкора новый контент остался бы «в дереве, но не на кадре».
+     * ABOVE the cursor line: suggest prefers below, and without separating them they would overlap.
+     * `preferBelow: false` only removes the downward shift; `offsetY` lifts the popup; no room above — below.
+     * Anchor on EVERY show: without re-anchoring, new content would stay "in the tree but not in the frame".
      */
     public openAt(anchor: OverlayAnchorPosition): void {
         this.overlay.openAt(anchor, "aboveElseBelow");

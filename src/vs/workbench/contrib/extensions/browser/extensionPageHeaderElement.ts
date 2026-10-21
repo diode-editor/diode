@@ -11,12 +11,12 @@ import type { ExtensionButtonKind, IExtensionButton } from "./extensionPageButto
 import type { IExtensionPageContent } from "./extensionPageContent.ts";
 import { buildExtensionHeaderLines, TONE_COLORS } from "./extensionPageContent.ts";
 
-// Высота шапки зависит от ширины: getMaxIntrinsicHeight пересобирает строки под запрошенную ширину,
-// чтобы раскладка «шапка сверху, тело снизу» получила честную высоту в том же проходе.
+// Header height depends on width: getMaxIntrinsicHeight rebuilds lines for the requested width,
+// so the "header on top, body below" layout gets an honest height in the same pass.
 
 const BUTTON_GAP = 2;
 
-/** Строк, которые шапка занимает сверх текста: ряд кнопок и зазор под ним. */
+/** Rows the header takes beyond the text: the button row and the spacer under it. */
 const CHROME_HEIGHT = 2;
 
 export class ExtensionPageHeaderElement extends TUIElement {
@@ -28,7 +28,7 @@ export class ExtensionPageHeaderElement extends TUIElement {
     private buttons: readonly IExtensionButton[];
     private buttonElements: readonly ButtonElement[];
     private textRows: TextLabelElement[] = [];
-    /** Ширина, под которую посчитан текущий перенос; `null` — строк ещё нет. */
+    /** Width the current wrap was computed for; `null` means there are no lines yet. */
     private wrappedWidth: number | null = null;
 
     public constructor(
@@ -41,8 +41,8 @@ export class ExtensionPageHeaderElement extends TUIElement {
         this.buttons = buttons;
         this.padded = new PaddingContainerElement(this.stack, { left: 1 });
         this.appendChild(this.padded);
-        // Кнопки собираются сразу, не дожидаясь раскладки: страницу фокусируют
-        // ещё до первого кадра (открытие вкладки), и фокусировать было бы нечего.
+        // Buttons are built right away, without waiting for layout: the page is focused
+        // before the first frame (tab open), and there would be nothing to focus.
         this.buttonElements = this.buildButtonRow();
         this.syncStack();
     }
@@ -55,12 +55,12 @@ export class ExtensionPageHeaderElement extends TUIElement {
         this.syncStack();
     }
 
-    /** Кнопки ряда слева направо; выключенные тоже здесь — они видны. */
+    /** Row buttons left to right; disabled ones are here too, they are visible. */
     public getButtons(): readonly ButtonElement[] {
         return this.buttonElements;
     }
 
-    /** Фокус на первую доступную кнопку; `false` — доступных нет. */
+    /** Focuses the first enabled button; `false` means there are none. */
     public focusFirstEnabledButton(): boolean {
         const button = this.buttonElements.find((element) => element.focusable);
         if (button === undefined) return false;
@@ -75,7 +75,10 @@ export class ExtensionPageHeaderElement extends TUIElement {
         };
     }
 
-    /** Пересборка здесь — не оптимизация: без неё высота была бы по прошлой ширине, и кадр после ресайза разъехался бы. */
+    /**
+     * Rebuilding here is not an optimization: without it the height would follow the previous width, and the
+     * frame after a resize would fall apart.
+     */
     public override getMaxIntrinsicHeight(width: number): number {
         this.ensureRows(width);
         return this.textRows.length + CHROME_HEIGHT;
@@ -97,7 +100,7 @@ export class ExtensionPageHeaderElement extends TUIElement {
 
     private rebuildTextRows(): void {
         if (this.wrappedWidth === null) return;
-        // Минус колонка отступа слева и справа — та же мерка, что у тела: столбцы шапки и readme совпадают.
+        // Minus the indent column on the left and on the right, same measure as the body: header and readme columns line up.
         const textWidth = this.wrappedWidth - 2;
         this.textRows = buildExtensionHeaderLines(this.content, textWidth).map((line, i) => {
             const row = new TextLabelElement(line.text);
@@ -107,7 +110,7 @@ export class ExtensionPageHeaderElement extends TUIElement {
         });
     }
 
-    /** `replaceChildren` сам помечает дерево грязным. */
+    /** `replaceChildren` marks the tree dirty itself. */
     private syncStack(): void {
         const rows: TUIElement[] = [...this.textRows, this.buttonRow, this.spacer];
         for (const row of rows) row.layoutStyle = { width: "fill", height: 1 };
@@ -135,7 +138,7 @@ export class ExtensionPageHeaderElement extends TUIElement {
             };
             return element;
         }
-        // Выключенная: не в обходе фокуса и без обработчика; фон кнопки сохраняем, гасим только текст.
+        // Disabled: out of the focus order and without a handler; keep the button background, dim only the text.
         element.focusable = false;
         element.style = { ...element.style, fg: "descriptionForeground" };
         return element;

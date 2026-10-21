@@ -46,7 +46,7 @@ export class FilesQuickAccessProvider implements IQuickAccessProvider {
     public onShow(refresh: (preserveSelection: boolean) => void): void {
         this.fileSearch.refreshIfStale();
         this.indexSubscription.value = this.fileSearch.onIndexChanged(() => {
-            // Список вырос в фоне для того же запроса — курсор не сбрасываем.
+            // The list grew in the background for the same query — keep the cursor.
             refresh(true);
         });
     }
@@ -77,8 +77,8 @@ export class FilesQuickAccessProvider implements IQuickAccessProvider {
                 labelMatchRanges: labelRanges,
                 descriptionMatchRanges: descriptionRanges,
                 accept: () => {
-                    // Открытие и прыжок — один переход для истории навигации
-                    // (иначе Back привёл бы в начало только что открытого файла).
+                    // Opening and jumping are one navigation-history entry
+                    // (otherwise Back would land at the top of the just-opened file).
                     this.jumps.jump(() => {
                         this.commands.execute("workbench.openFile", absolutePath);
                         // Read the active editor *after* the file opened above so a

@@ -51,8 +51,8 @@ describe("activeParameterSpan — куда ложится подсветка", (
     });
 
     it("параметр в самом конце метки — справа граница тоже есть", () => {
-        // Метку сервер вправе прислать оборванной (`greet(name` без скобки):
-        // за последним символом просто нет соседа.
+        // The server may send a truncated label (`greet(name` without the paren):
+        // the last character simply has no neighbor.
         const sig = signature("greet(name", [{ label: "name" }]);
 
         expect(activeParameterSpan(sig, 0)).toEqual([6, 10]);
@@ -96,7 +96,7 @@ describe("wrapSignature — перенос с сохранением офсет�
     });
 
     it("широкие символы считаются по экранной ширине, а не по длине строки", () => {
-        // Каждый иероглиф — две колонки: в ширину 4 влезает ровно два.
+        // Each CJK character is two columns: exactly two fit into width 4.
         expect(wrapSignature("абв(名前名前)", 4)).toEqual([
             { text: "абв(", start: 0 },
             { text: "名前", start: 4 },

@@ -8,7 +8,7 @@ import { diffPaneRecipe, type IDiffSideSpec, type IOpenDiffPairOptions, openDiff
 /** upstream `DiffEditorInput.ID`. */
 export const DIFF_EDITOR_PANE_TYPE_ID = "workbench.editors.diffEditorInput";
 
-/** Сторона диффа в сессии — только та, что читается с диска по uri. */
+/** Only a side read from disk by uri goes into the session. */
 interface ISerializedDiffSide {
     readonly uri: string;
     readonly label: string;
@@ -24,8 +24,8 @@ interface ISerializedDiff {
 }
 
 /**
- * Рестарт переживают только диффы файлов с диска, как у upstream `DiffEditorInputSerializer`: снимок
- * буфера обмена не сохраняется, а провайдер `git:` на старте ещё не активирован.
+ * Only diffs of files on disk survive a restart, like upstream `DiffEditorInputSerializer`: a clipboard
+ * snapshot is not saved, and the `git:` provider is not activated yet at startup.
  */
 export function createDiffEditorPaneFactory(accessor: ServiceAccessor): IEditorPaneFactory<IOpenDiffPairOptions> {
     return {
@@ -35,7 +35,7 @@ export function createDiffEditorPaneFactory(accessor: ServiceAccessor): IEditorP
             const original = serializeSide(options.original);
             const modified = serializeSide(options.modified);
             if (original === undefined || modified === undefined) return undefined;
-            // Необязательное поле без значения JSON не пишет сам.
+            // JSON.stringify drops an unset optional field on its own.
             const value: ISerializedDiff = { original, modified, title: options.title };
             return JSON.stringify(value);
         },
@@ -75,13 +75,13 @@ function deserializeSide(side: ISerializedDiffSide): IDiffSideSpec {
     };
 }
 
-/** Строка сессии → рецепт; чужая или битая строка — `undefined`, а не исключение. */
+/** Session string → recipe; a foreign or broken string yields `undefined`, not an exception. */
 function parseDiff(value: string): ISerializedDiff | undefined {
-    // Гарды битой строки и не-объекта эквивалентны своим мутантам: дальше
-    // parseSide всё равно отвергнет то, что не объект стороны (у `42` и строки
-    // нет `original`). Держим их ради ясности, а не результата.
+    // The broken-string and non-object guards are equivalent to their mutants: further on
+    // parseSide rejects anything that is not a side object anyway (`42` and a string
+    // have no `original`). Kept for clarity, not for the result.
     let raw: unknown;
-    // Stryker disable BlockStatement,ConditionalExpression: эквивалентны — см. выше
+    // Stryker disable BlockStatement,ConditionalExpression: equivalent, see above
     try {
         raw = JSON.parse(value);
     } catch {

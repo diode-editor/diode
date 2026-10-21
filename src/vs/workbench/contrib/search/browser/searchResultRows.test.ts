@@ -49,7 +49,7 @@ describe("searchResultRows", () => {
         expect(backend.getTextAt(new Point(0, 0), 22)).toBe("12  const needle = 42;");
         expect(backend.getFgAt(new Point(0, 0))).toBe(DIM);
         expect(backend.getFgAt(new Point(1, 0))).toBe(DIM);
-        // "needle" начинается после "12  const " = колонка 10.
+        // "needle" starts after "12  const " = column 10.
         for (let x = 10; x < 16; x++) {
             expect(backend.getFgAt(new Point(x, 0))).toBe(MATCH_FG);
             expect(backend.getBgAt(new Point(x, 0))).toBe(MATCH_BG);
@@ -67,7 +67,7 @@ describe("searchResultRows", () => {
         const backend = renderElement(row, 40, 1);
 
         expect(backend.getTextAt(new Point(4, 0), 1)).toBe("…");
-        // Матч виден и подсвечен, несмотря на длинный контекст.
+        // The match is visible and highlighted despite the long context.
         const text = backend.getTextAt(new Point(0, 0), 40);
         const hitStart = text.indexOf("hit");
         expect(hitStart).toBeGreaterThan(0);

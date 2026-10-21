@@ -29,7 +29,7 @@ describe("collectWordCompletions", () => {
     });
 
     it("пропускает документы крупнее лимита (защита больших файлов)", () => {
-        const big = "word ".repeat(500); // > лимита ниже
+        const big = "word ".repeat(500); // > the limit below
         expect(collectWordCompletions([big, "small tiny"], "", { maxBytesPerText: 100 })).toEqual(["small", "tiny"]);
     });
 

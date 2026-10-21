@@ -97,7 +97,7 @@ class FakeService implements IExtensionsWorkbenchService {
         return Promise.resolve(this.metas[id]);
     }
 
-    // Установку и удаление вьюлет не делает — они живут на странице расширения.
+    // The viewlet doesn't install or uninstall: that lives on the extension page.
     public install(): Promise<{ ok: true; version: string }> {
         return Promise.resolve({ ok: true, version: "1.0.0" });
     }
@@ -169,7 +169,7 @@ describe("ExtensionsComponent", () => {
         expect(component.view.id).toBe("extensionsView");
         expect(component.list.id).toBe("extensionsList");
 
-        // Фон вьюлета — токен сайдбара, а не унаследованный фон редактора.
+        // The viewlet background is the sidebar token, not the inherited editor background.
         const screen = render(component);
         const sideBar = WorkbenchTheme.fromThemeFile(darkPlusTheme).getRequiredColor("sideBar.background");
         expect(screen.getBgAt(new Point(0, 0))).toBe(sideBar);
@@ -238,14 +238,14 @@ describe("ExtensionsComponent", () => {
         const component = make(service, target);
         const staleRowId = "extensionsGroup-marketplace-acme-tools";
 
-        // Карточка в сервисе осталась, но фильтр её строку убрал — значит и
-        // действие по ней обязано исчезнуть вместе со строкой.
+        // The entry is still in the service, but the filter removed its row, so
+        // the row's action must disappear together with it.
         typeQuery(component, "other");
         component.list.onActivate?.({ id: staleRowId } as TUIElement);
         await Promise.resolve();
         await Promise.resolve();
         expect(opened).toHaveLength(0);
-        // И каталог перечитывать незачем: у строки, которой нет, нет и действия.
+        // And there is no reason to reload the catalog: a row that doesn't exist has no action.
         expect(service.refreshCalls).toBe(0);
     });
 
@@ -324,7 +324,7 @@ describe("ExtensionsComponent", () => {
         const service = new FakeService([], "getaddrinfo ENOTFOUND example.invalid");
         const screen = render(make(service), 70).screenToString();
 
-        // Заголовок секции остаётся: ошибка — состояние каталога, а не замена ему.
+        // The section title stays: the error is a catalog state, not its replacement.
         expect(screen).toContain("MARKETPLACE");
         expect(screen).toContain("Retry");
         expect(screen).toContain("ENOTFOUND");
@@ -353,7 +353,7 @@ describe("ExtensionsComponent", () => {
         const component = make(new FakeService([], "offline"));
         expect(render(component, 70).screenToString()).toContain("Retry");
 
-        // Свёрнутый каталог прячет и причину сбоя: строка принадлежит секции.
+        // A collapsed catalog hides the failure reason too: the row belongs to the section.
         component.list.setCollapsed("extensionsGroup-marketplace", true);
         expect(render(component, 70).screenToString()).not.toContain("Retry");
     });
@@ -413,7 +413,7 @@ describe("ExtensionsComponent", () => {
         const views = recordingViewsService();
         const component = new ExtensionsComponent(service, views.service, fakeTarget().target, PAGE_ACTIONS);
 
-        // Тот же путь, которым секцию показывает ViewsService (команда, reveal).
+        // The same path ViewsService uses to show the section (command, reveal).
         views.descriptor().focus();
         expect(service.ensureLoadedCalls).toBe(1);
         expect(views.descriptor().title).toBe("EXTENSIONS");
@@ -526,7 +526,7 @@ describe("ExtensionsComponent", () => {
 
         it("не-Error отказ реестра тоже доезжает текстом", async () => {
             const service = new FakeService([entry({ id: "acme.tools", displayName: "Acme Tools" })]);
-            // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors -- сьют проверяет ИМЕННО не-Error отказ
+            // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors -- the suite checks a non-Error rejection SPECIFICALLY
             service.getMeta = () => Promise.reject("registry said no");
             const { target, opened } = fakeTarget();
             const component = make(service, target);
@@ -542,7 +542,7 @@ describe("ExtensionsComponent", () => {
             const { target, opened } = fakeTarget();
             const component = make(service, target);
 
-            // Промах по id обязан быть промахом, а не «первой попавшейся записью».
+            // An id miss must be a miss, not "the first entry that comes along".
             await component.openExtensionPage("acme.gone");
             expect(opened).toHaveLength(0);
         });

@@ -22,21 +22,21 @@ import type {
 } from "../common/extensionsWorkbench.ts";
 
 /**
- * Каталог кэшируется в памяти на сессию, перечитывание — явный Refresh. Дискового кэша с TTL нет
- * сознательно: это отдельный слой со своей инвалидацией (docs/arch/workbench/ExtensionsView.md).
+ * The catalog is cached in memory for the session; re-reading is an explicit Refresh. There is deliberately no
+ * on-disk cache with TTL: it is a separate layer with its own invalidation (docs/arch/workbench/ExtensionsView.md).
  */
 export class ExtensionsWorkbenchService extends Disposable implements IExtensionsWorkbenchService {
     private readonly onDidChangeEmitter = this.register(new Emitter<void>());
     private readonly metaCache = new Map<string, IRegistryExtensionMeta | undefined>();
-    /** Что ставили/удаляли в этой сессии: до перезагрузки окна вклады не поедут. */
+    /** Installed/uninstalled in this session: contributions won't apply until a window reload. */
     private readonly pendingReload = new Set<string>();
 
-    /** semver — ленивый кусок бандла: грузится вместе с индексом, а не на старте. */
+    /** semver is a lazy chunk: loaded together with the index, not at startup. */
     private catalog: { readonly index: IRegistryIndex; readonly semver: Semver } | null = null;
     private installed: readonly IInstalledExtension[];
     private catalogError: string | null = null;
     private entries: readonly IExtensionListEntry[];
-    /** Промис, а не флаг: параллельные показы ждут один фетч. */
+    /** A promise, not a flag: concurrent shows wait for one fetch. */
     private loading: Promise<void> | null = null;
 
     public constructor(
@@ -67,7 +67,7 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
         return this.catalogError;
     }
 
-    /** Промах (`undefined`) кэшируется — «нет в реестре» тоже ответ; сетевой сбой — нет, он бросается вызывающему. */
+    /** A miss (`undefined`) is cached, "not in the registry" is an answer too; a network failure is not, it is thrown to the caller. */
     public async getMeta(id: string): Promise<IRegistryExtensionMeta | undefined> {
         if (this.metaCache.has(id)) return this.metaCache.get(id);
         const meta = await this.source.getMeta(id);
@@ -75,15 +75,15 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
         return meta;
     }
 
-    /** Она же «обновить»: `installVsix` внутри сносит прочие версии того же id. */
+    /** Also "update": `installVsix` removes other versions of the same id. */
     public async install(id: string): Promise<IExtensionInstallResult> {
         try {
-            // Зависимости ставятся без вопросов, как в VS Code, и тоже ждут перезагрузки окна.
+            // Dependencies are installed without asking, as in VS Code, and also wait for a window reload.
             const { version, dependencies } = await installFromRegistry(this.source, id, {
                 extensionsDir: this.profile.extensionsDir,
                 host: this.host,
             });
-            // В профиль — и зависимости, уже лежавшие на диске для другого профиля.
+            // Into the profile, including dependencies already on disk for another profile.
             this.profile.add([id]);
             for (const dep of dependencies) this.pendingReload.add(dep.id);
             this.markChanged(id);
@@ -97,8 +97,8 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
         try {
             const { removed } = this.profile.remove(id);
             if (!removed) {
-                // Нечего удалять — это не успех: карточка осталась бы с кнопкой
-                // Uninstall, которая ничего не делает.
+                // Nothing to remove is not a success: the entry would keep an
+                // Uninstall button that does nothing.
                 return Promise.resolve({ ok: false, error: `Extension ${id} is not installed` });
             }
             this.markChanged(id);
@@ -108,7 +108,7 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
         }
     }
 
-    /** Вклады сканируются один раз на старте — изменённое ждёт перезагрузки окна. */
+    /** Contributions are scanned once at startup, so changes wait for a window reload. */
     private markChanged(id: string): void {
         this.pendingReload.add(id);
         this.reloadInstalled();
@@ -127,8 +127,8 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
             this.catalog = { index, semver };
             this.catalogError = null;
         } catch (error) {
-            // Прошлый успешный индекс не выбрасываем: показать устаревший список
-            // лучше, чем пустой, а причина видна отдельной строкой.
+            // Keep the last successful index: a stale list is better
+            // than an empty one, and the reason is shown on a separate row.
             this.catalogError = messageOf(error);
         }
         this.installed = this.profile.list();
@@ -140,7 +140,7 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
         this.fireChange();
     }
 
-    /** Запись реестра и установленное — одна карточка: иначе установленное из магазина показалось бы ещё раз как «мимо магазина». */
+    /** A registry entry and its installed copy are one entry: otherwise a marketplace install would show again as sideloaded. */
     private computeEntries(): readonly IExtensionListEntry[] {
         const installedById = new Map(this.installed.map((e) => [e.id, e]));
         const entries: IExtensionListEntry[] = [];
@@ -183,8 +183,8 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
 }
 
 /**
- * Несовместимость — по `latest.engines` (других версий в индексе нет) и сильнее «установлено»:
- * важнее знать, что обновляться некуда.
+ * Incompatibility is by `latest.engines` (the index has no other versions) and beats "installed":
+ * knowing there is nothing to update to matters more.
  */
 function availabilityOf(
     entry: IRegistryIndexEntry,
@@ -197,7 +197,7 @@ function availabilityOf(
     return installed.version === entry.latest.version ? "installed" : "outdated";
 }
 
-/** Поставлено мимо магазина: известен только манифест, запись всегда `installed`. */
+/** Installed outside the marketplace: only the manifest is known, the entry is always `installed`. */
 function toSideloadedEntry(installed: IInstalledExtension, needsReload: boolean): IExtensionListEntry {
     const dot = installed.id.indexOf(".");
     return {
