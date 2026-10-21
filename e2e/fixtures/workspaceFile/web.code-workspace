@@ -1,5 +1,5 @@
 {
-    // Режим фронтенда: бэкенд из дерева и поиска убран.
+    // Frontend mode: the backend is hidden from the tree and search.
     "folders": [{ "path": "." }],
     "settings": {
         "files.exclude": { "backend": true }

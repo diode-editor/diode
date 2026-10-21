@@ -2,12 +2,11 @@ import { resolve } from "node:path";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-
 const sampleFile = resolve(repoRoot, "e2e", "fixtures", "sample.ts");
 
 export default defineScenario({
     name: "auxiliary-bar",
-    title: "Вторичная боковая панель",
+    title: "Secondary Side Bar",
     open: [repoRoot, sampleFile],
     cols: 120,
     rows: 32,
@@ -16,7 +15,7 @@ export default defineScenario({
 
         await editor.sendKey("Ctrl+Alt+B");
         let part = await editor.waitForNode("#auxiliarybar");
-        if (part.box.width !== 30) throw new Error(`ширина вторичной панели ${part.box.width}, ждали 30`);
+        if (part.box.width !== 30) throw new Error(`secondary side bar width ${part.box.width}, expected 30`);
         await editor.capture("shown");
 
         // The sash is on the part's first column: drag the border 10 columns left.
@@ -26,7 +25,7 @@ export default defineScenario({
         await editor.sendMouse({ action: "move", button: "left", x: sashX - 10, y: midY });
         await editor.sendMouse({ action: "release", button: "left", x: sashX - 10, y: midY });
         part = await editor.waitForNode("#auxiliarybar");
-        if (part.box.width !== 40) throw new Error(`после drag ширина ${part.box.width}, ждали 40`);
+        if (part.box.width !== 40) throw new Error(`width after drag ${part.box.width}, expected 40`);
         await editor.capture("resized");
 
         // Narrow terminal: the part shrinks first, the editor stays at least 20 columns wide.
@@ -37,7 +36,7 @@ export default defineScenario({
         // The × button in the tab strip closes the part.
         const close = part.state?.close as { centerX: number } | null | undefined;
         const tabRow = part.state?.tabRow as number;
-        if (close == null) throw new Error(`часть без кнопки закрытия: ${JSON.stringify(part.state)}`);
+        if (close == null) throw new Error(`part has no close button: ${JSON.stringify(part.state)}`);
         await editor.click(close.centerX, tabRow);
         await editor.waitForText((t) => !t.split("\n")[1].endsWith(" × "));
         await editor.capture("closed");

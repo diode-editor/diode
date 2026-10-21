@@ -1,5 +1,5 @@
 {
-    // JSONC, как публикуют многие темы: комментарии и висячие запятые.
+    // JSONC, as many themes are published: comments and trailing commas.
     "name": "Sample Dark (inner name is ignored — the label comes from package.json)",
     "type": "dark",
     "colors": {

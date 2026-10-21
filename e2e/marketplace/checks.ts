@@ -127,7 +127,7 @@ export const MARKETPLACE_CHECKS: readonly IMarketplaceCheck[] = [
                 await waitUntil(
                     () => app.session.captureFrame(),
                     (frame) => frame.cells.some((cell) => (cell.style & 8) !== 0),
-                    { describe: "undercurl squiggle от basedpyright", timeoutMs: 180_000, intervalMs: 500 },
+                    { describe: "undercurl squiggle from basedpyright", timeoutMs: 180_000, intervalMs: 500 },
                 );
             } finally {
                 await app.dispose();
@@ -150,7 +150,7 @@ export const MARKETPLACE_CHECKS: readonly IMarketplaceCheck[] = [
                 await waitUntil(
                     () => app.session.captureFrame(),
                     (frame) => frame.cells.some((cell) => (cell.style & 8) !== 0),
-                    { describe: "undercurl squiggle от ruff", timeoutMs: 180_000, intervalMs: 500 },
+                    { describe: "undercurl squiggle from ruff", timeoutMs: 180_000, intervalMs: 500 },
                 );
             } finally {
                 await app.dispose();
@@ -175,7 +175,7 @@ export const MARKETPLACE_CHECKS: readonly IMarketplaceCheck[] = [
                 await waitUntil(
                     () => app.session.captureFrame(),
                     (frame) => frame.cells.some((cell) => (cell.style & 8) !== 0),
-                    { describe: "undercurl squiggle от terraform-ls", timeoutMs: 180_000, intervalMs: 500 },
+                    { describe: "undercurl squiggle from terraform-ls", timeoutMs: 180_000, intervalMs: 500 },
                 );
             } finally {
                 await app.dispose();
@@ -203,12 +203,12 @@ export const MARKETPLACE_CHECKS: readonly IMarketplaceCheck[] = [
             try {
                 const frame = await app.session.waitForText((t) => t.includes("const answer"), { timeoutMs: 40_000 });
                 const editor = findNode((await app.session.getDocument()).root, (n) => n.type === "EditorElement");
-                if (editor === null) throw new Error("EditorElement не найден в дереве");
+                if (editor === null) throw new Error("EditorElement not found in the tree");
                 // Second line, near the right edge: the first is under the cursor and occurrence highlight.
                 const cell = frame.cells[(editor.box.y + 1) * frame.cols + editor.box.x + editor.box.width - 2];
                 if (cell.bg !== 0x1e1e2e) {
                     throw new Error(
-                        `фон редактора #${cell.bg.toString(16)} — не editor.background Catppuccin Mocha (#1e1e2e)`,
+                        `editor background #${cell.bg.toString(16)} is not Catppuccin Mocha editor.background (#1e1e2e)`,
                     );
                 }
                 await app.session.sendKey("F8");
@@ -276,7 +276,7 @@ export const MARKETPLACE_CHECKS: readonly IMarketplaceCheck[] = [
                 await waitUntil(
                     () => app.session.captureFrame(),
                     (frame) => frame.cells.some((cell) => (cell.style & 8) !== 0),
-                    { describe: "undercurl squiggle от jdt.ls", timeoutMs: 420_000, intervalMs: 1000 },
+                    { describe: "undercurl squiggle from jdt.ls", timeoutMs: 420_000, intervalMs: 1000 },
                 );
             } finally {
                 await app.dispose();
@@ -309,7 +309,7 @@ export const MARKETPLACE_CHECKS: readonly IMarketplaceCheck[] = [
                 await waitUntil(
                     () => app.session.captureFrame(),
                     (frame) => frame.cells.some((cell) => (cell.style & 8) !== 0),
-                    { describe: "undercurl squiggle от gopls", timeoutMs: 300_000, intervalMs: 500 },
+                    { describe: "undercurl squiggle from gopls", timeoutMs: 300_000, intervalMs: 500 },
                 );
             } finally {
                 await app.dispose();
@@ -366,7 +366,7 @@ export const MARKETPLACE_CHECKS: readonly IMarketplaceCheck[] = [
                 const { probe, serverInfo } = await IdeProbe.connect(lock);
                 probe.close();
                 if (lock.ideName !== "Diode" || serverInfo.name !== "Claude Code Diode MCP") {
-                    throw new Error(`ide-сервер не от Diode: лок ${lock.ideName}, сервер ${serverInfo.name}`);
+                    throw new Error(`IDE server is not Diode's: lock ${lock.ideName}, server ${serverInfo.name}`);
                 }
             } finally {
                 await app.dispose();

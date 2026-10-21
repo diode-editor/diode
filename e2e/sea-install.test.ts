@@ -101,7 +101,7 @@ describe("SEA binary — extension install CLI", () => {
         expect(listAfter.stdout.trim()).toBe("");
     });
 
-    it("--profile: ставит, перечисляет и удаляет в составе профиля; общий каталог чистится, когда расширение не нужно никому", async () => {
+    it("--profile: installs, lists and uninstalls within a profile; the shared directory is cleaned up once no profile needs the extension", async () => {
         const root = path.join(tempRoot, "user-data-profiles");
         const cli = (...args: string[]) => runCli(binary, ["--user-data-dir", root, ...args]);
         // The `work` profile from a previous version; set an empty set explicitly — without the file, migration

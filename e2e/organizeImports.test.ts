@@ -34,13 +34,13 @@ const UNDERCURL = 8;
 // Extension-host subprocess + a spawned language server — Linux-only, like
 // gotoDefinition / formatDocument (see docs/TODO/E2E.md).
 describe.skipIf(process.platform === "win32" || process.platform === "darwin")(
-    "SEA binary — Organize Imports от стокового typescript-language-server",
+    "SEA binary — Organize Imports from stock typescript-language-server",
     () => {
         beforeAll(async () => {
             await getBinaryPath();
         }, 300_000);
 
-        it("палитра → Organize Imports пересортировывает импорты", { timeout: 240_000 }, async () => {
+        it("palette → Organize Imports re-sorts imports", { timeout: 240_000 }, async () => {
             const { session } = await useHeadlessApp({
                 files: {
                     "tsconfig.json": JSON.stringify({ compilerOptions: { strict: true } }),
@@ -56,7 +56,7 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin")(
             await waitUntil(
                 () => session.captureFrame(),
                 (frame) => frame.cells.some((cell) => (cell.style & UNDERCURL) !== 0),
-                { describe: "undercurl squiggle от tsserver", timeoutMs: 120_000, intervalMs: 500 },
+                { describe: "undercurl squiggle from tsserver", timeoutMs: 120_000, intervalMs: 500 },
             );
 
             // The command goes through the command palette: the key DSL doesn't serialize Shift+Alt+O
@@ -74,12 +74,12 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin")(
                     const zeta = text.indexOf(ZETA_IMPORT);
                     return alpha >= 0 && zeta > alpha;
                 },
-                { describe: "импорты пересортированы правками tsserver'а", timeoutMs: 60_000, intervalMs: 500 },
+                { describe: "imports re-sorted by tsserver edits", timeoutMs: 60_000, intervalMs: 500 },
             );
             expect(frameToText(frame)).toContain("alpha();");
         });
 
-        it("в .js палитра → Organize Imports пересортировывает ES-импорты", { timeout: 240_000 }, async () => {
+        it("in .js, palette → Organize Imports re-sorts ES imports", { timeout: 240_000 }, async () => {
             const { session } = await useHeadlessApp({
                 files: {
                     "jsconfig.json": JSON.stringify({ compilerOptions: { checkJs: true } }),
@@ -95,7 +95,7 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin")(
             await waitUntil(
                 () => session.captureFrame(),
                 (frame) => frame.cells.some((cell) => (cell.style & UNDERCURL) !== 0),
-                { describe: "undercurl squiggle от tsserver", timeoutMs: 120_000, intervalMs: 500 },
+                { describe: "undercurl squiggle from tsserver", timeoutMs: 120_000, intervalMs: 500 },
             );
 
             await session.key("Ctrl+P");
@@ -111,7 +111,7 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin")(
                     const zeta = text.indexOf(ZETA_JS_IMPORT);
                     return alpha >= 0 && zeta > alpha;
                 },
-                { describe: "импорты .js пересортированы правками tsserver'а", timeoutMs: 60_000, intervalMs: 500 },
+                { describe: "imports in .js re-sorted by tsserver edits", timeoutMs: 60_000, intervalMs: 500 },
             );
         });
     },

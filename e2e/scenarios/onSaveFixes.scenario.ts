@@ -18,7 +18,7 @@ const UNDERCURL = 8;
 
 export default defineScenario({
     name: "on-save-fixes",
-    title: "Сохранение прогоняет fix all и формат: codeActionsOnSave + formatOnSave",
+    title: "Save runs fix all and format: codeActionsOnSave + formatOnSave",
     open: [sampleDir, lintFile],
     installVsix: ["charliermarsh.ruff"],
     settings: {
@@ -37,7 +37,7 @@ export default defineScenario({
         await waitUntil(
             () => editor.captureFrame(),
             (frame) => frame.cells.some((cell) => (cell.style & UNDERCURL) !== 0),
-            { describe: "undercurl squiggle от ruff", timeoutMs: 180_000, intervalMs: 500 },
+            { describe: "ruff undercurl squiggle", timeoutMs: 180_000, intervalMs: 500 },
         );
         await editor.capture("before-save");
 

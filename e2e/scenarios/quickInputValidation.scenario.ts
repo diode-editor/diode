@@ -9,7 +9,7 @@ const sampleFile = resolve(repoRoot, "e2e", "fixtures", "sample.ts");
 
 export default defineScenario({
     name: "quick-input-validation",
-    title: "Сообщение проверки под строкой запроса (диалог Open File)",
+    title: "Validation message under the query line (Open File dialog)",
     open: [repoRoot, sampleFile],
     cols: 120,
     rows: 32,

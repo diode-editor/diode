@@ -36,7 +36,7 @@ function rowsWith(text: string, name: string): string[] {
 
 export default defineScenario({
     name: "rename-open-file",
-    title: "Переименованный в проводнике открытый файл: вкладка едет за ним",
+    title: "An open file renamed in the explorer: the tab follows it",
     open: [repoDir, join(repoDir, OLD_NAME)],
     cols: 100,
     rows: 20,

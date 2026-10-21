@@ -2,7 +2,6 @@ import { resolve } from "node:path";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-
 const sampleFile = resolve(repoRoot, "e2e", "fixtures", "sample.ts");
 
 async function typeText(editor: { sendKey(name: string): Promise<void> }, text: string): Promise<void> {
@@ -13,7 +12,7 @@ async function typeText(editor: { sendKey(name: string): Promise<void> }, text: 
 
 export default defineScenario({
     name: "auto-close",
-    title: "Auto-closing pairs, typeover и auto-surround при наборе",
+    title: "Auto-closing pairs, typeover and auto-surround while typing",
     open: [repoRoot, sampleFile],
     cols: 100,
     rows: 24,

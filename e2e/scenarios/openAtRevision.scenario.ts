@@ -37,7 +37,7 @@ const { repoDir, trackedFile } = makeRepo();
 
 export default defineScenario({
     name: "open-at-revision",
-    title: "Open File at Revision: read-only вкладка файла на ревизии",
+    title: "Open File at Revision: read-only tab of the file at a revision",
     open: [repoDir, trackedFile],
     cols: 100,
     rows: 22,

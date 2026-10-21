@@ -42,7 +42,7 @@ export default defineScenario({
                 // the provider is not registered yet; retry
             }
         }
-        if (!ready) throw new Error("inline-suggest-settings: Alt+\\ не показал призрака за 15 попыток");
+        if (!ready) throw new Error("inline-suggest-settings: Alt+\\ did not show ghost text in 15 attempts");
 
         await editor.sendKey("Escape");
         await editor.sendKey("Enter");
@@ -50,7 +50,7 @@ export default defineScenario({
         await new Promise((r) => setTimeout(r, 3000));
         const quietText = frameToText(await editor.captureFrame());
         if (quietText.includes("Hello from ghost text!")) {
-            throw new Error("inline-suggest-settings: призрак пришёл сам при enabled:false");
+            throw new Error("inline-suggest-settings: ghost text appeared on its own with enabled:false");
         }
         await editor.capture("manual-quiet");
 

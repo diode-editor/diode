@@ -25,12 +25,12 @@ const PACKAGE_JSON = `{
 
 const TAB_INDENTED = "function foo() {\n\tconst x = 1;\n\tif (x) {\n\t\treturn x;\n\t}\n}\n";
 
-describe("indent detection — на запущенном приложении", () => {
+describe("indent detection — on the running app", () => {
     beforeAll(async () => {
         await getBinaryPath();
     }, 300_000);
 
-    it("package.json открывается с отступом в 2 пробела", async () => {
+    it("package.json opens with 2-space indentation", async () => {
         const { session } = await useHeadlessApp({
             files: { "package.json": PACKAGE_JSON },
             open: ["package.json"],
@@ -42,7 +42,7 @@ describe("indent detection — на запущенном приложении", 
         expect(editor.state?.insertSpaces).toBe(true);
     }, 120_000);
 
-    it("файл с табами открывается на табах, хотя дефолт editor.insertSpaces — true", async () => {
+    it("a tab-indented file opens with tabs although editor.insertSpaces defaults to true", async () => {
         const { session } = await useHeadlessApp({ files: { "t.ts": TAB_INDENTED }, open: ["t.ts"] });
 
         const editor = await session.waitForNode("EditorElement");
@@ -50,7 +50,7 @@ describe("indent detection — на запущенном приложении", 
         expect(editor.state?.insertSpaces).toBe(false);
     }, 120_000);
 
-    it("editor.detectIndentation:false возвращает власть настройкам", async () => {
+    it("editor.detectIndentation:false hands control back to the settings", async () => {
         const { session } = await useHeadlessApp({
             files: { "package.json": PACKAGE_JSON },
             open: ["package.json"],

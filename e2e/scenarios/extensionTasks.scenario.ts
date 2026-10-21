@@ -30,7 +30,7 @@ async function runDemoTask(editor: ScenarioDriver, name: string): Promise<void> 
 
 export default defineScenario({
     name: "extension-tasks",
-    title: "Задачи расширения: провайдер, события исполнений, executeTask, CustomExecution, terminate",
+    title: "Extension tasks: provider, execution events, executeTask, CustomExecution, terminate",
     seedUserData: userData,
     open: [folder],
     cols: 120,

@@ -23,14 +23,14 @@ const OFFLINE = process.env.DIODE_E2E_OFFLINE === "1";
 const catalog = OFFLINE ? undefined : await fetchPublishedIndex();
 const published = catalog?.index.extensions ?? [];
 
-describe.skipIf(OFFLINE)("магазин — опубликованные расширения на текущем коде", () => {
+describe.skipIf(OFFLINE)("marketplace: published extensions on the current code", () => {
     let binary: string;
 
     beforeAll(async () => {
         binary = await getBinaryPath();
     }, 180_000);
 
-    it("опубликованный индекс читается парсером клиента без замечаний", () => {
+    it("the published index parses with the client parser without problems", () => {
         // The registry builder does not see our types: parsing with the normative parser is the only check
         // that its simplified rules have not drifted from the format.
         expect(catalog?.problems).toEqual([]);
@@ -42,7 +42,7 @@ describe.skipIf(OFFLINE)("магазин — опубликованные рас
         const check = MARKETPLACE_CHECKS.find((c) => c.id === entry.id);
         // The check depth shows in the case name: for an entry without a check the run
         // goes as far as unpacking and stops there.
-        const what = check === undefined ? "ставится из магазина" : "ставится из магазина и работает в редакторе";
+        const what = check === undefined ? "installs from the marketplace" : "installs from the marketplace and works in the editor";
         it(
             `${entry.id}@${entry.latest.version} ${what}`,
             async (testContext) => {
@@ -63,14 +63,14 @@ describe.skipIf(OFFLINE)("магазин — опубликованные рас
                     expect(install.stdout).toContain(`Installed ${entry.id}@${entry.latest.version}`);
 
                     const extDir = join(userDataDir, "extensions", `${entry.id}-${entry.latest.version}`);
-                    expect(existsSync(join(extDir, "package.json")), `манифест не распакован в ${extDir}`).toBe(true);
+                    expect(existsSync(join(extDir, "package.json")), `manifest not unpacked into ${extDir}`).toBe(true);
 
                     // The behavioral half is skipped on Windows: ext-host suites are off there anyway, so a red
                     // check would mean a known platform gap. Transport, sha256 and unpacking are checked above,
                     // on every platform.
                     if (check !== undefined && process.platform !== "win32") {
                         for (const rel of check.expectFiles) {
-                            expect(existsSync(join(extDir, rel)), `${rel} не распакован в ${extDir}`).toBe(true);
+                            expect(existsSync(join(extDir, rel)), `${rel} not unpacked into ${extDir}`).toBe(true);
                         }
                         // Without the external tool (Go toolchain) — an explicit skip with a
                         // reason, not a green case: the install above is already verified.
@@ -87,7 +87,7 @@ describe.skipIf(OFFLINE)("магазин — опубликованные рас
         );
     }
 
-    it("--install-extension без --registry идёт в публичный реестр", async () => {
+    it("--install-extension without --registry goes to the public registry", async () => {
         // The client's default is the marketplace: the user does not need to know the URL.
         const entry = published.find((e) => e.kind === "native") ?? published[0];
         const { root, userDataDir } = createMarketplaceRoot();

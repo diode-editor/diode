@@ -45,14 +45,14 @@ async function waitForGopls(session: { captureFrame: () => Promise<{ cells: { st
     await waitUntil(
         () => session.captureFrame(),
         (frame) => frame.cells.some((cell) => (cell.style & UNDERCURL) !== 0),
-        { describe: "undercurl squiggle от gopls", timeoutMs, intervalMs: 500 },
+        { describe: "undercurl squiggle from gopls", timeoutMs, intervalMs: 500 },
     );
 }
 
 // Linux only: extension host + server spawn (docs/TODO/E2E.md).
 describe.skipIf(
     process.platform === "win32" || process.platform === "darwin" || MARKETPLACE_OFFLINE || skipReason !== undefined,
-)("SEA binary — стоковый golang.go (gopls)", () => {
+)("SEA binary — stock golang.go (gopls)", () => {
     let caches: Record<string, string>;
 
     beforeAll(async () => {
@@ -61,7 +61,7 @@ describe.skipIf(
         caches = hostGoCaches();
     }, 900_000);
 
-    it("hover с doc-комментарием из другого пакета и F12 в него", { timeout: 300_000 }, async () => {
+    it("hover with a doc comment from another package and F12 into it", { timeout: 300_000 }, async () => {
         const { session } = await useHeadlessApp({
             files: goSampleFiles(),
             installVsix: [GO_ID],
@@ -89,7 +89,7 @@ describe.skipIf(
         });
     });
 
-    it("Ctrl+S: organize imports и gofmt из configurationDefaults [go] — в буфере и на диске", { timeout: 300_000 }, async () => {
+    it("Ctrl+S: organize imports and gofmt from configurationDefaults [go] — in the buffer and on disk", { timeout: 300_000 }, async () => {
         const app = await useHeadlessApp({
             files: goSampleFiles(),
             installVsix: [GO_ID],
@@ -113,7 +113,7 @@ describe.skipIf(
 
     // Without gopls the extension runs `go install gopls@latest` itself. One test for the whole path —
     // building gopls is expensive even with the host caches.
-    it("без gopls расширение ставит его само и поднимает сервер", { timeout: 900_000 }, async () => {
+    it("without gopls the extension installs it and starts the server", { timeout: 900_000 }, async () => {
         const gobin = mkdtempSync(join(tmpdir(), "diode-go-gobin-"));
         try {
             const { session } = await useHeadlessApp({

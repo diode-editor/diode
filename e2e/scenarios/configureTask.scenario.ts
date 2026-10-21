@@ -29,7 +29,7 @@ async function pick(editor: ScenarioDriver, label: string): Promise<void> {
 
 export default defineScenario({
     name: "configure-task",
-    title: "Configure Task: шаблон tasks.json, кастомизация задачи провайдера, запуск из Run Task",
+    title: "Configure Task: tasks.json template, customizing a provider task, running it from Run Task",
     seedUserData: userData,
     open: [sampleDir],
     cols: 120,
@@ -45,7 +45,8 @@ export default defineScenario({
 
         await runCommand(editor, "Tasks: Configure Task");
         await editor.waitForText(
-            (t) => t.includes("Select a task to configure") && t.includes("demo: ok") && t.includes("Create tasks.json"),
+            (t) =>
+                t.includes("Select a task to configure") && t.includes("demo: ok") && t.includes("Create tasks.json"),
         );
         await editor.capture("configure-picker-empty");
         await pick(editor, "Create tasks.json file from template");
@@ -56,7 +57,7 @@ export default defineScenario({
         await editor.capture("template-opened");
 
         // A user's comment: appending the provider task must preserve it.
-        writeFileSync(tasksFile, readFileSync(tasksFile, "utf-8").replace('"tasks": [', '"tasks": [\n        // моё'));
+        writeFileSync(tasksFile, readFileSync(tasksFile, "utf-8").replace('"tasks": [', '"tasks": [\n        // mine'));
 
         await runCommand(editor, "Tasks: Configure Task");
         await editor.waitForText((t) => t.includes("Select a task to configure") && t.includes("demo: ok"));
@@ -65,10 +66,10 @@ export default defineScenario({
         const written = await waitUntil(
             () => readFileSync(tasksFile, "utf-8"),
             (text) => text.includes('"target": "ok"'),
-            { describe: "запись demo: ok в .diode/tasks.json" },
+            { describe: "demo: ok entry in .diode/tasks.json" },
         );
-        if (!written.includes("// моё") || !written.includes('"command": "echo Hello"')) {
-            throw new Error(`Configure Task испортил tasks.json:\n${written}`);
+        if (!written.includes("// mine") || !written.includes('"command": "echo Hello"')) {
+            throw new Error(`Configure Task corrupted tasks.json:\n${written}`);
         }
         await editor.waitForText((t) => t.includes('"target": "ok"') && t.includes('"label": "demo: ok"'));
         await editor.capture("customized-entry");

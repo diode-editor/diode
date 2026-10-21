@@ -8,7 +8,7 @@ const sampleFile = resolve(repoRoot, "e2e", "fixtures", "sample.ts");
 
 export default defineScenario({
     name: "mac-keybindings",
-    title: "Мак-раскладка: Cmd-/Option-/Ctrl-бинды на рунге mac-cmd и Keyboard Doctor",
+    title: "Mac layout: Cmd/Option/Ctrl keybindings on the mac-cmd rung and Keyboard Doctor",
     open: [repoRoot, sampleFile],
     settings: {
         "keyboard.platform": "mac",

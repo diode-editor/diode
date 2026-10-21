@@ -30,7 +30,7 @@ async function openFoo(editor: ScenarioDriver): Promise<void> {
             .join("")
             .includes("Foo.ts"),
     );
-    if (row === undefined) throw new Error("Foo.ts нет в дереве проводника");
+    if (row === undefined) throw new Error("Foo.ts is not in the explorer tree");
     await editor.click(tree.box.x + 5, row);
     await editor.sendKey("Enter");
     await editor.waitForText((t) => t.includes("Foo.ts") && t.includes("x = 1"));
@@ -41,7 +41,7 @@ async function openFoo(editor: ScenarioDriver): Promise<void> {
 
 export default defineScenario({
     name: "move-to-new-file-undo",
-    title: "Move to a new file: Ctrl+Z из любой затронутой вкладки убирает новый файл",
+    title: "Move to a new file: Ctrl+Z from any affected tab removes the new file",
     open: [sampleDir, sourceFile],
     settings: {
         "diode.lsp.typescript.serverPath": require_.resolve("typescript-language-server/lib/cli.mjs"),
@@ -81,12 +81,12 @@ export default defineScenario({
         await waitUntil(
             () => Promise.resolve(existsSync(newFile) ? readFileSync(newFile, "utf8") : ""),
             (text) => text.includes("export class Foo"),
-            { describe: "класс Foo в новом файле на диске", timeoutMs: 60_000, intervalMs: 250 },
+            { describe: "class Foo in the new file on disk", timeoutMs: 60_000, intervalMs: 250 },
         );
         await waitUntil(
             () => Promise.resolve(readFileSync(sourceFile, "utf8")),
             (text) => text.startsWith('import { Foo } from "./Foo";') && !text.includes("x = 1"),
-            { describe: "исходник сохранён без класса Foo", timeoutMs: 30_000, intervalMs: 250 },
+            { describe: "source saved without class Foo", timeoutMs: 30_000, intervalMs: 250 },
         );
         await editor.waitForText((t) => t.includes("a.ts ×"));
         await editor.capture("moved");
@@ -99,7 +99,7 @@ export default defineScenario({
         await waitUntil(
             () => Promise.resolve(existsSync(newFile)),
             (exists) => !exists,
-            { describe: "новый файл убран отменой", timeoutMs: 30_000, intervalMs: 250 },
+            { describe: "new file removed by undo", timeoutMs: 30_000, intervalMs: 250 },
         );
         await editor.waitForText(
             (t) => !t.includes("Foo.ts ×") && t.includes("export class Foo {") && t.includes("export class Bar {"),
@@ -110,7 +110,7 @@ export default defineScenario({
         await waitUntil(
             () => Promise.resolve(existsSync(newFile)),
             (exists) => exists,
-            { describe: "новый файл возвращён повтором", timeoutMs: 30_000, intervalMs: 250 },
+            { describe: "new file restored by redo", timeoutMs: 30_000, intervalMs: 250 },
         );
         await openFoo(editor);
         await editor.sendText("// note\n");
@@ -120,6 +120,6 @@ export default defineScenario({
         await editor.sendKey("Ctrl+Z");
         await editor.waitForText((t) => t.includes("Could not undo"), { timeoutMs: 10_000 });
         await editor.capture("refused");
-        if (!existsSync(newFile)) throw new Error("отказ отмены не должен трогать новый файл");
+        if (!existsSync(newFile)) throw new Error("a refused undo must not touch the new file");
     },
 });

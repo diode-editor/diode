@@ -22,8 +22,8 @@ function countBackground(frame: GridSnapshot, bg: number): number {
 async function expectTheme(editor: ScenarioDriver, light: boolean): Promise<void> {
     const frame = await editor.captureFrame();
     const white = countBackground(frame, WHITE);
-    if (light && white < 100) throw new Error(`ожидалась светлая тема, белых ячеек: ${String(white)}`);
-    if (!light && white > 0) throw new Error(`ожидалась тёмная тема, белых ячеек: ${String(white)}`);
+    if (light && white < 100) throw new Error(`expected a light theme, white cells: ${String(white)}`);
+    if (!light && white > 0) throw new Error(`expected a dark theme, white cells: ${String(white)}`);
 }
 
 /**
@@ -44,7 +44,7 @@ function pickerCell(text: string, label: string): string | undefined {
 function expectCurrentMark(frame: GridSnapshot, name: string): void {
     const cell = pickerCell(frameToText(frame), name);
     if (cell === undefined || cell === name) {
-        throw new Error(`в пикере у строки \`${name}\` нет пометки текущего профиля: ${cell ?? "строки нет"}`);
+        throw new Error(`picker row \`${name}\` has no current-profile mark: ${cell ?? "no such row"}`);
     }
 }
 
@@ -70,7 +70,7 @@ async function reloaded(editor: ScenarioDriver): Promise<void> {
 
 export default defineScenario({
     name: "profiles",
-    title: "Профили: пикер, переключение с перезагрузкой, привязка к .code-workspace, New/Delete Profile",
+    title: "Profiles: picker, switching with reload, binding to .code-workspace, New/Delete Profile",
     seedUserData: userData,
     open: [resolve(fixture, "web.code-workspace")],
     cols: 120,

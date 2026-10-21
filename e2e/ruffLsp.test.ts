@@ -22,19 +22,19 @@ async function waitForServerReady(session: {
     await waitUntil(
         () => session.captureFrame(),
         (frame) => frame.cells.some((cell) => (cell.style & UNDERCURL) !== 0),
-        { describe: "undercurl squiggle от ruff", timeoutMs: 180_000, intervalMs: 500 },
+        { describe: "undercurl squiggle from ruff", timeoutMs: 180_000, intervalMs: 500 },
     );
 }
 
 // Linux only: extension host + native server spawn (docs/TODO/E2E.md).
 describe.skipIf(process.platform === "win32" || process.platform === "darwin" || MARKETPLACE_OFFLINE)(
-    "SEA binary — стоковый ruff.vsix (Python-линт и формат)",
+    "SEA binary — stock ruff.vsix (Python lint and format)",
     () => {
         beforeAll(async () => {
             await getBinaryPath();
         }, 300_000);
 
-        it("format document: Ctrl+K Ctrl+E чинит пробелы правками ruff", { timeout: 300_000 }, async () => {
+        it("format document: Ctrl+K Ctrl+E fixes spacing with ruff edits", { timeout: 300_000 }, async () => {
             const { session } = await useHeadlessApp({
                 files: FILES,
                 installVsix: [RUFF_ID],
@@ -57,7 +57,7 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin" ||
             });
         });
 
-        it("organize imports сортирует импорты действием source.organizeImports.ruff", { timeout: 300_000 }, async () => {
+        it("organize imports sorts imports via the source.organizeImports.ruff action", { timeout: 300_000 }, async () => {
             const { session } = await useHeadlessApp({
                 files: FILES,
                 installVsix: [RUFF_ID],
@@ -84,7 +84,7 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin" ||
                     const sys = text.indexOf("import sys");
                     return os >= 0 && sys > os;
                 },
-                { describe: "импорты пересортированы ruff'ом", timeoutMs: 60_000, intervalMs: 500 },
+                { describe: "imports re-sorted by ruff", timeoutMs: 60_000, intervalMs: 500 },
             );
         });
     },

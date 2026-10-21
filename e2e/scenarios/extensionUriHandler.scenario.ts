@@ -2,13 +2,12 @@ import { resolve } from "node:path";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-
 const userData = resolve(repoRoot, "e2e", "fixtures", "user-data-with-uri-handler");
 const URL = "diode://test.uri-handler-demo/install-plugin?name=demo";
 
 export default defineScenario({
     name: "extension-uri-handler",
-    title: "window.registerUriHandler: URL расширению через Developer: Open URL",
+    title: "window.registerUriHandler: a URL to the extension via Developer: Open URL",
     seedUserData: userData,
     cols: 120,
     rows: 24,

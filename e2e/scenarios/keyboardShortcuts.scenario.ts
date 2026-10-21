@@ -5,7 +5,7 @@ import { defineScenario, repoRoot } from "./framework.ts";
 
 export default defineScenario({
     name: "keyboard-shortcuts",
-    title: "Keyboard Shortcuts: таблица биндингов, рекордер и конфликты",
+    title: "Keyboard Shortcuts: keybindings table, recorder and conflicts",
     open: [repoRoot],
     userKeybindings: [
         { key: "f6", command: "workbench.action.openGlobalKeybindings" },

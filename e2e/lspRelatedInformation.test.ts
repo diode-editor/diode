@@ -28,13 +28,13 @@ const UNDERCURL = 8;
 
 // Linux only: extension host + language server spawn (docs/TODO/E2E.md).
 describe.skipIf(process.platform === "win32" || process.platform === "darwin")(
-    "SEA binary — диагностика с related information (stock typescript-language-server)",
+    "SEA binary — diagnostics with related information (stock typescript-language-server)",
     () => {
         beforeAll(async () => {
             await getBinaryPath();
         }, 300_000);
 
-        it("squiggle и текст ошибки доезжают, а не теряются вместе с пачкой", { timeout: 240_000 }, async () => {
+        it("squiggle and error text arrive instead of being lost with the batch", { timeout: 240_000 }, async () => {
             const { session } = await useHeadlessApp({
                 files: {
                     "tsconfig.json": JSON.stringify({ compilerOptions: { strict: true } }),
@@ -50,7 +50,7 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin")(
             await waitUntil(
                 () => session.captureFrame(),
                 (frame) => frame.cells.some((cell) => (cell.style & UNDERCURL) !== 0),
-                { describe: "undercurl squiggle от tsserver", timeoutMs: 120_000, intervalMs: 500 },
+                { describe: "undercurl squiggle from tsserver", timeoutMs: 120_000, intervalMs: 500 },
             );
 
             // The marker reached MarkerService, not just "something got underlined".

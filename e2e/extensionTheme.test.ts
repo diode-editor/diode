@@ -48,7 +48,7 @@ function keywordFg(frame: GridSnapshot): number | undefined {
 async function editorBg(app: HeadlessApp, frame: GridSnapshot): Promise<number> {
     const root = (await app.session.getDocument()).root;
     const editor = findNode(root, (n) => n.type === "EditorElement");
-    if (editor === null) throw new Error("EditorElement не найден в дереве");
+    if (editor === null) throw new Error("EditorElement not found in the tree");
     const x = editor.box.x + editor.box.width - 2;
     const y = editor.box.y + 1;
     return frame.cells[y * frame.cols + x].bg;
@@ -68,7 +68,7 @@ describe("Extension themes (e2e)", () => {
         removeTempDir(registryRoot);
     });
 
-    it("US-3/US-8: тема расширения из settings.json — первый кадр уже в ней, подсветка синтаксиса из её tokenColors", async () => {
+    it("US-3/US-8: extension theme from settings.json — the first frame already uses it, syntax highlighting from its tokenColors", async () => {
         const app = await useHeadlessApp({
             installVsix: [sampleVsix],
             settings: { "workbench.colorTheme": "Sample Dark" },
@@ -84,7 +84,7 @@ describe("Extension themes (e2e)", () => {
                 if (bg >= 0) observed.push(bg);
                 return bg >= 0;
             },
-            { describe: "первый нарисованный кадр", intervalMs: 5 },
+            { describe: "first painted frame", intervalMs: 5 },
         );
         expect(statusBarBg(first)).toBe(SAMPLE_DARK.statusBg);
         expect(observed).not.toContain(DARK_MODERN.statusBg);
@@ -98,14 +98,14 @@ describe("Extension themes (e2e)", () => {
             () => app.session.captureFrame(),
             (frame) => keywordFg(frame) === SAMPLE_DARK.keywordFg,
             {
-                describe: "`const` в цвете keyword темы расширения",
+                describe: "`const` in the extension theme keyword color",
                 diagnose: (last) =>
                     `fg=${String(keywordFg(last as GridSnapshot))}\n${frameToText(last as GridSnapshot)}`,
             },
         );
     });
 
-    it("US-5: тема из настроек не установлена — окно в Dark Modern, настройка не переписана", async () => {
+    it("US-5: the theme from settings is not installed — the window is Dark Modern, the setting is not rewritten", async () => {
         const app = await useHeadlessApp({
             settings: { "workbench.colorTheme": "Sample Dark" },
             files: { [SAMPLE_FILE]: SAMPLE_CONTENT },
@@ -119,7 +119,7 @@ describe("Extension themes (e2e)", () => {
         expect(JSON.parse(settings)).toEqual({ "workbench.colorTheme": "Sample Dark" });
     });
 
-    it("US-7: правка workbench.colorTheme в settings.json перекрашивает окно в тему расширения без рестарта", async () => {
+    it("US-7: editing workbench.colorTheme in settings.json recolors the window to the extension theme without a restart", async () => {
         // settings.json exists from the very start (the live-reload watcher
         // tracks it); its theme is the default one, and the edit below changes it.
         const app = await useHeadlessApp({
@@ -131,7 +131,7 @@ describe("Extension themes (e2e)", () => {
         const before = await waitUntil(
             () => app.session.captureFrame(),
             (frame) => keywordFg(frame) === DARK_MODERN.keywordFg,
-            { describe: "`const` в цвете keyword Dark Modern" },
+            { describe: "`const` in the Dark Modern keyword color" },
         );
         expect(statusBarBg(before)).toBe(DARK_MODERN.statusBg);
 
@@ -143,7 +143,7 @@ describe("Extension themes (e2e)", () => {
         const after = await waitUntil(
             () => app.session.captureFrame(),
             (frame) => statusBarBg(frame) === SAMPLE_LIGHT.statusBg,
-            { describe: "перекрас в Sample Light по правке settings.json", timeoutMs: 20_000 },
+            { describe: "recolor to Sample Light after editing settings.json", timeoutMs: 20_000 },
         );
         expect(await editorBg(app, after)).toBe(SAMPLE_LIGHT.editorBg);
         expect(frameToText(after)).toContain("const answer");
@@ -153,7 +153,7 @@ describe("Extension themes (e2e)", () => {
             () => app.session.captureFrame(),
             (frame) => keywordFg(frame) === SAMPLE_LIGHT.keywordFg,
             {
-                describe: "`const` в цвете keyword Sample Light после смены темы",
+                describe: "`const` in the Sample Light keyword color after the theme change",
                 diagnose: (last) =>
                     `fg=${String(keywordFg(last as GridSnapshot))}\n${frameToText(last as GridSnapshot)}`,
             },

@@ -39,7 +39,7 @@ function fakeApp(over: Partial<FinishableApp["session"]> = {}): { app: Finishabl
 }
 
 describe("finishHeadlessApp", () => {
-    it("упавший тест: пост-мортем снимается с ещё живой сессии, уборка — после него", async () => {
+    it("failed test: post-mortem is taken from the still-live session, cleanup comes after it", async () => {
         const { app, calls } = fakeApp();
         const printed: string[] = [];
         await finishHeadlessApp(app, true, (text) => printed.push(text));
@@ -52,7 +52,7 @@ describe("finishHeadlessApp", () => {
         expect(printed[0]).toContain("── session root ── /tmp/diode-e2e-root");
     });
 
-    it("зелёный тест: только уборка, без снимка", async () => {
+    it("passing test: cleanup only, no snapshot", async () => {
         const { app, calls } = fakeApp();
         const printed: string[] = [];
         await finishHeadlessApp(app, false, (text) => printed.push(text));
@@ -61,7 +61,7 @@ describe("finishHeadlessApp", () => {
         expect(printed).toEqual([]);
     });
 
-    it("сбой печати пост-мортема уборку не отменяет", async () => {
+    it("a post-mortem print failure does not cancel cleanup", async () => {
         const { app, calls } = fakeApp();
         await expect(
             finishHeadlessApp(app, true, () => {
@@ -73,7 +73,7 @@ describe("finishHeadlessApp", () => {
 });
 
 describe("dumpSession", () => {
-    it("молчащий редактор не вешает пост-мортем: каждый запрос ждёт не дольше срока", async () => {
+    it("a silent editor does not hang the post-mortem: each request waits at most its timeout", async () => {
         const never = new Promise<never>(() => undefined);
         const { app } = fakeApp({ captureFrame: () => never, getDocument: () => never });
 
@@ -87,7 +87,7 @@ describe("dumpSession", () => {
         expect(dump).toContain("boom on stderr");
     });
 
-    it("отказ запроса попадает в отчёт причиной, а не роняет его", async () => {
+    it("a request refusal lands in the report as the reason instead of crashing it", async () => {
         const { app } = fakeApp({
             captureFrame: () => Promise.reject(new Error("inspector socket closed with requests in flight")),
         });

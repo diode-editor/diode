@@ -21,7 +21,7 @@ import {
 // The fixes for six defects in PR #197 (255d596) touch shared machinery: Tab traversal of the tree,
 // editor rebuild on reload, find target pinning, the read-only gate; these tests watch the neighbors.
 
-describe("Output panel fix — регрессии соседних механизмов", () => {
+describe("Output panel fix — regressions in neighboring mechanisms", () => {
     let app: HeadlessApp | null = null;
 
     beforeAll(async () => {
@@ -36,7 +36,7 @@ describe("Output panel fix — регрессии соседних механи�
     const findRow = async (session: HeadlessSession): Promise<string> =>
         findWidgetLine(await session.captureFrame()).trim();
 
-    it("find после пиннинга следует за вкладкой: закрыть → сменить вкладку → Ctrl+F ищет по новой", async () => {
+    it("find after pinning follows the tab: close → switch tab → Ctrl+F searches the new one", async () => {
         app = await startOutputApp();
         const { session } = app;
         await session.waitForText((t) => t.includes("greeting"));
@@ -65,10 +65,10 @@ describe("Output panel fix — регрессии соседних механи�
      * folder, not repoRoot: the defect is a focus race, and on a large repository background noise
      * (LSP, git, builds into `dist/`) caused a flake both ways.
      */
-    it.fails("find, оставленный открытым, переживает смену вкладки", async () => {
+    it.fails("find left open survives a tab switch", async () => {
         const workspace = mkdtempSync(join(tmpdir(), "diode-find-focus-"));
         const first = join(workspace, "alpha.ts");
-        writeFileSync(first, "export const greeting = 'привет';\n");
+        writeFileSync(first, "export const greeting = 'hello';\n");
         writeFileSync(join(workspace, "beta.ts"), "export const decoration = 42;\n");
         app = await startHeadlessApp({ cols: 120, rows: 32, open: [workspace, first], cwd: workspace });
         const { session } = app;
@@ -87,7 +87,7 @@ describe("Output panel fix — регрессии соседних механи�
         expect(frameToText(await session.captureFrame())).toContain("REG");
     }, 180_000);
 
-    it("Tab внутри открытого find-виджета остаётся внутри виджета", async () => {
+    it("Tab inside an open find widget stays inside the widget", async () => {
         app = await startOutputApp();
         const { session } = app;
         await session.waitForText((t) => t.includes("greeting"));
@@ -99,7 +99,7 @@ describe("Output panel fix — регрессии соседних механи�
         expect(await focusedType(session)).toBe("EditorElement");
     }, 180_000);
 
-    it("Tab в writable-редакторе по-прежнему вставляет отступ", async () => {
+    it("Tab in a writable editor still inserts indentation", async () => {
         app = await startOutputApp();
         const { session } = app;
         await session.waitForText((t) => t.includes("greeting"));
@@ -113,7 +113,7 @@ describe("Output panel fix — регрессии соседних механи�
         expect(await focusedType(session)).toBe("EditorElement");
     }, 180_000);
 
-    it("read-only на обычной вкладке всё ещё переключается", async () => {
+    it("read-only on a regular tab still toggles", async () => {
         app = await startOutputApp();
         const { session } = app;
         await session.waitForText((t) => t.includes("greeting"));
@@ -130,7 +130,7 @@ describe("Output panel fix — регрессии соседних механи�
         expect(frameToText(await session.captureFrame())).toContain("YES");
     }, 180_000);
 
-    it("живой хвост Output следует за логом, когда курсор в конце", async () => {
+    it("live Output tail follows the log when the cursor is at the end", async () => {
         app = await startOutputApp();
         const { session } = app;
         await openOutput(session);
@@ -144,11 +144,11 @@ describe("Output panel fix — регрессии соседних механи�
             const m = /^\s*(\d+)\s+\d\d:\d\d:\d\d/u.exec(frameLine(f, y).slice(32));
             if (m !== null) lineNos.push(Number(m[1]));
         }
-        expect(lineNos.length, "в панели должны быть видны строки лога").toBeGreaterThan(0);
+        expect(lineNos.length, "log lines should be visible in the panel").toBeGreaterThan(0);
         expect(Math.max(...lineNos)).toBeGreaterThan(15);
     }, 180_000);
 
-    it("перечитка файла с диска не крадёт фокус, если пользователь не в редакторе", async () => {
+    it("reloading a file from disk does not steal focus when the user is not in the editor", async () => {
         const dir = mkdtempSync(join(tmpdir(), "diode-reload-"));
         const file = join(dir, "watched.txt");
         writeFileSync(file, "original line\n");
@@ -166,7 +166,7 @@ describe("Output panel fix — регрессии соседних механи�
         // Focus the file tree; `maxX` avoids hitting the same-named tab at the top.
         await clickText(session, "watched.txt", { maxX: 20 });
         const before = await focusedType(session);
-        expect(before, "фокус должен уйти из редактора").not.toBe("EditorElement");
+        expect(before, "focus should leave the editor").not.toBe("EditorElement");
 
         writeFileSync(file, "changed on disk\n");
         await session.waitForText((t) => t.includes("changed on disk"), { timeoutMs: 15_000 });

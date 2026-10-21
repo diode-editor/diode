@@ -10,7 +10,7 @@ const userData = resolve(repoRoot, "e2e", "fixtures", "user-data-with-workspace-
 
 export default defineScenario({
     name: "workspace-switch-extensions",
-    title: "Open Workspace from File перезапускает расширения в новом воркспейсе",
+    title: "Open Workspace from File restarts extensions in the new workspace",
     seedUserData: userData,
     open: [resolve(fixture, "web.code-workspace")],
     cols: 140,

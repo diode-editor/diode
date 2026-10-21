@@ -2,12 +2,11 @@ import { resolve } from "node:path";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-
 const sampleFile = resolve(repoRoot, "e2e", "fixtures", "sample.ts");
 
 export default defineScenario({
     name: "line-operations",
-    title: "Строчные операции: move/copy/delete line, копия строки без выделения",
+    title: "Line operations: move/copy/delete line, copying a line without a selection",
     open: [repoRoot, sampleFile],
     cols: 100,
     rows: 24,

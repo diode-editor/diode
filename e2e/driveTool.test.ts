@@ -52,7 +52,7 @@ function markedPids(root: string): number[] {
     return pids;
 }
 
-describe.skipIf(process.platform === "win32")("npm run drive — живой прогон бинаря", () => {
+describe.skipIf(process.platform === "win32")("npm run drive — live run of the binary", () => {
     let binary: string;
 
     beforeAll(async () => {
@@ -63,7 +63,7 @@ describe.skipIf(process.platform === "win32")("npm run drive — живой пр
         drive("stop");
     });
 
-    it("start → palette → exec → output/context/when → screen → stop: и ничего не осталось", () => {
+    it("start → palette → exec → output/context/when → screen → stop: nothing is left behind", () => {
         const started = JSON.parse(
             ok(
                 "start",
@@ -133,7 +133,7 @@ describe.skipIf(process.platform === "win32")("npm run drive — живой пр
         expect(drive("screen").code).toBe(3);
     }, 240_000);
 
-    it.skipIf(process.platform !== "linux")("gc после убитой сессии: потомки добиты, корень и запись убраны", () => {
+    it.skipIf(process.platform !== "linux")("gc after a killed session: descendants are killed, root and record are removed", () => {
         const started = JSON.parse(ok("start", "--binary-path", binary, "--json")) as { root: string; pid: number };
         const before = markedPids(started.root);
         // At least the editor itself + the extension subprocess.

@@ -43,7 +43,7 @@ function rowFor(text: string, name: string): string | undefined {
 
 export default defineScenario({
     name: "explorer-git-folder-decoration",
-    title: "Папка с изменёнными файлами — цвет и «●», чистая — без декораций",
+    title: "A folder with modified files gets a color and '●'; a clean one has no decorations",
     open: [repoDir],
     cols: 100,
     rows: 20,

@@ -4,12 +4,11 @@ import { join } from "node:path";
 
 import { defineScenario } from "./framework.ts";
 
-
 const workDir = mkdtempSync(join(tmpdir(), "diode-untitled-demo-"));
 
 export default defineScenario({
     name: "compare-untitled",
-    title: "Compare New Untitled: дифф двух пустых редактируемых буферов",
+    title: "Compare New Untitled: diff of two empty editable buffers",
     open: [workDir],
     cols: 132,
     rows: 22,

@@ -29,7 +29,7 @@ const repoDir = makeRepo();
 
 export default defineScenario({
     name: "view-containers",
-    title: "Контейнеры view: заголовок активити, «⋯» и переключатель секций",
+    title: "View containers: activity title, '⋯' and the section switcher",
     open: [repoDir],
     cols: 100,
     rows: 30,

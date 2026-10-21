@@ -25,13 +25,13 @@ const UNDERCURL = 8;
 
 // Linux only: extension host + a spawned language server (docs/TODO/E2E.md).
 describe.skipIf(process.platform === "win32" || process.platform === "darwin")(
-    "SEA binary — Format Document от стокового typescript-language-server",
+    "SEA binary — Format Document from stock typescript-language-server",
     () => {
         beforeAll(async () => {
             await getBinaryPath();
         }, 300_000);
 
-        it("Shift+Alt+F приводит кашу из пробелов к формату tsserver'а", { timeout: 240_000 }, async () => {
+        it("Shift+Alt+F turns messy whitespace into tsserver formatting", { timeout: 240_000 }, async () => {
             const { session } = await useHeadlessApp({
                 files: {
                     "tsconfig.json": JSON.stringify({ compilerOptions: { strict: true } }),
@@ -46,7 +46,7 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin")(
             await waitUntil(
                 () => session.captureFrame(),
                 (frame) => frame.cells.some((cell) => (cell.style & UNDERCURL) !== 0),
-                { describe: "undercurl squiggle от tsserver", timeoutMs: 120_000, intervalMs: 500 },
+                { describe: "undercurl squiggle from tsserver", timeoutMs: 120_000, intervalMs: 500 },
             );
 
             // A legacy terminal doesn't deliver Shift+Alt+F (ESC F without the shift flag) —
@@ -56,7 +56,7 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin")(
             const frame = await waitUntil(
                 () => session.captureFrame(),
                 (f) => frameToText(f).includes("function greet(name: string) {"),
-                { describe: "правки формата tsserver'а в буфере", timeoutMs: 60_000, intervalMs: 500 },
+                { describe: "tsserver formatting edits in the buffer", timeoutMs: 60_000, intervalMs: 500 },
             );
 
             const text = frameToText(frame);

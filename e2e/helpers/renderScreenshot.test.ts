@@ -22,7 +22,7 @@ function fontCodePoints(path: string): Set<number> {
         const record = 12 + i * 16;
         if (buf.toString("ascii", record, record + 4) === "cmap") cmap = buf.readUInt32BE(record + 8);
     }
-    if (cmap < 0) throw new Error(`${basename(path)}: нет таблицы cmap`);
+    if (cmap < 0) throw new Error(`${basename(path)}: no cmap table`);
 
     const covered = new Set<number>();
     const subtables = buf.readUInt16BE(cmap + 2);
@@ -62,14 +62,14 @@ function snapshotOf(text: string): GridSnapshot {
     };
 }
 
-describe("растеризатор скриншотов", () => {
-    it("завендоренные шрифты покрывают все кадры спиннера", () => {
+describe("screenshot rasterizer", () => {
+    it("vendored fonts cover every spinner frame", () => {
         const covered = BUNDLED_FONT_FILES.map(fontCodePoints);
         const missing = SPINNER_FRAMES.filter((frame) => !covered.some((set) => set.has(frame.codePointAt(0)!)));
         expect(missing).toEqual([]);
     });
 
-    it("разные кадры спиннера рисуются разными глифами", () => {
+    it("different spinner frames render as different glyphs", () => {
         // Without a covering font in the set, resvg draws the same `.notdef` for all
         // uncovered code points, so the PNG bytes match. Comparing against a space
         // catches the opposite case: the font is there but the glyph is empty.

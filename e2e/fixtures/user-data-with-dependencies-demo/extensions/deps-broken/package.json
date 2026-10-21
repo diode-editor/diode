@@ -1,7 +1,7 @@
 {
     "name": "deps-broken",
     "displayName": "Deps Broken",
-    "description": "Демо extensionDependencies: зависит от расширения, которого нет, — не активируется, а человек видит тост с причиной.",
+    "description": "extensionDependencies demo: depends on a missing extension, so it does not activate and the user sees a toast with the reason.",
     "version": "0.0.1",
     "publisher": "test",
     "main": "./extension.js",

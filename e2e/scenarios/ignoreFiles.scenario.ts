@@ -10,7 +10,7 @@ const sampleDir = resolve(repoRoot, "e2e", "fixtures", "ignoreFiles");
 
 export default defineScenario({
     name: "ignore-files",
-    title: "search.useIgnoreFiles: .gitignore в Quick Open и поиске",
+    title: "search.useIgnoreFiles: .gitignore in Quick Open and search",
     open: [sampleDir],
     cols: 110,
     rows: 26,

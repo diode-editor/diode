@@ -12,7 +12,7 @@ const LIBRARY_URI = "jdt://contents/text-utils-1.4.0.jar/com.example.text/TextUt
 const LIBRARY_SOURCE = [
     "package com.example.text;",
     "",
-    "/** Из jar-архива: этого файла нет на диске. */",
+    "/** From a jar archive: this file is not on disk. */",
     "public final class TextUtils {",
     "",
     "    public static String capitalize(String value) {",

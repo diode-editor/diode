@@ -20,8 +20,8 @@ const registry = await createRegistryFixture(join(mkdtempSync(join(tmpdir(), "di
         version: "0.0.2",
         sourceDir: resolve(repoRoot, "e2e", "marketplace", "sample-extension"),
         displayName: "Sample Lang",
-        description: "Синтетическое расширение магазина: свой язык и грамматика",
-        readme: "# Sample Lang\n\nЯзык .diodesample.",
+        description: "Synthetic marketplace extension: its own language and grammar",
+        readme: "# Sample Lang\n\nThe .diodesample language.",
     },
 ]);
 
@@ -62,7 +62,7 @@ async function showExtensions(editor: ScenarioDriver): Promise<void> {
 
 export default defineScenario({
     name: "profile-extensions",
-    title: "Профили: свой набор расширений — миграция, Copy from current, Empty, установка в профиль",
+    title: "Profiles: per-profile extension sets — migration, Copy from current, Empty, install into a profile",
     seedUserData: userData,
     open: [fixture, resolve(fixture, "greeting.hello")],
     extraArgs: [`--registry=${registry}`],

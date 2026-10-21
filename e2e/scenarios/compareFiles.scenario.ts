@@ -19,10 +19,7 @@ function makeWorkspace(): { dir: string; leftFile: string } {
     writeFileSync(join(dir, "greeting.ts"), base.join("\n"));
     writeFileSync(
         join(dir, "greeting.v2.ts"),
-        base
-            .join("\n")
-            .replace('"hi " + name', '"hello, " + name + "!"')
-            .replace("VERSION = 1", "VERSION = 2"),
+        base.join("\n").replace('"hi " + name', '"hello, " + name + "!"').replace("VERSION = 1", "VERSION = 2"),
     );
     return { dir, leftFile: join(dir, "greeting.ts") };
 }
@@ -31,7 +28,7 @@ const { dir, leftFile } = makeWorkspace();
 
 export default defineScenario({
     name: "compare-files",
-    title: "Сравнение двух файлов: пикер и вкладка a ↔ b",
+    title: "Comparing two files: picker and a ↔ b tab",
     open: [dir, leftFile],
     cols: 132,
     rows: 22,

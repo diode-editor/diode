@@ -8,20 +8,23 @@ import { defineScenario, repoRoot } from "./framework.ts";
 
 // The registry fixture is built at module import: `extraArgs` needs its path before the editor starts.
 
-const registry = await createRegistryFixture(join(mkdtempSync(join(tmpdir(), "diode-scenario-registry-")), "registry"), [
-    {
-        id: "test.sample-lang",
-        version: "0.0.2",
-        sourceDir: resolve(repoRoot, "e2e", "marketplace", "sample-extension"),
-        displayName: "Sample Lang",
-        description: "Синтетическое расширение магазина: свой язык и грамматика",
-        readme: "# Sample Lang\n\nЯзык .diodesample для демо магазина: расширение ставится из этой страницы.",
-    },
-]);
+const registry = await createRegistryFixture(
+    join(mkdtempSync(join(tmpdir(), "diode-scenario-registry-")), "registry"),
+    [
+        {
+            id: "test.sample-lang",
+            version: "0.0.2",
+            sourceDir: resolve(repoRoot, "e2e", "marketplace", "sample-extension"),
+            displayName: "Sample Lang",
+            description: "Synthetic marketplace extension: its own language and grammar",
+            readme: "# Sample Lang\n\nThe .diodesample language for the marketplace demo: install the extension from this page.",
+        },
+    ],
+);
 
 export default defineScenario({
     name: "extensions-install",
-    title: "Extensions: установка расширения со страницы магазина",
+    title: "Extensions: installing an extension from its marketplace page",
     open: [repoRoot],
     extraArgs: [`--registry=${registry}`],
     // The headless DSL cannot encode a real Ctrl+Shift+X, so the command is bound to F6.

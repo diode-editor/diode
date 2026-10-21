@@ -32,7 +32,7 @@ const DISCARD = "\u{eae2}";
 
 // Linux only: extension host + a fake `claude` in sh (docs/TODO/E2E.md).
 describe.skipIf(process.platform === "win32" || process.platform === "darwin" || MARKETPLACE_OFFLINE)(
-    "SEA binary — стоковый Anthropic.claude-code (терминальный режим)",
+    "SEA binary — stock Anthropic.claude-code (terminal mode)",
     () => {
         let app: HeadlessApp;
         let lock: IIdeLock;
@@ -57,7 +57,7 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin" ||
         });
 
         it(
-            "активация: пункт «✻ Claude Code», лок ide-сервера с ideName Diode, MCP initialize",
+            "activation: '✻ Claude Code' item, IDE server lock with ideName Diode, MCP initialize",
             { timeout: 120_000 },
             async () => {
                 await app.session.waitForText((t) => t.includes("✻ Claude Code"), { timeoutMs: 60_000 });
@@ -75,7 +75,7 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin" ||
         );
 
         it(
-            "контекст: выделение уходит selection_changed, Ctrl+Alt+K — at_mentioned со строками",
+            "context: selection is sent as selection_changed, Ctrl+Alt+K as at_mentioned with lines",
             { timeout: 60_000 },
             async () => {
                 const { probe } = await IdeProbe.connect(lock);
@@ -95,14 +95,14 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin" ||
             },
         );
 
-        it("getDiagnostics отдаёт ошибку TypeScript, которую видит редактор", { timeout: 120_000 }, async () => {
+        it("getDiagnostics returns the TypeScript error the editor shows", { timeout: 120_000 }, async () => {
             const { probe } = await IdeProbe.connect(lock);
             try {
                 const result = await waitUntil(
                     () => probe.callTool("getDiagnostics", { uri: pathToFileURL(mainFile).href }),
                     (r) => r.text.includes("Type 'string' is not assignable to type 'number'."),
                     {
-                        describe: "ошибка TS в getDiagnostics",
+                        describe: "TS error in getDiagnostics",
                         timeoutMs: 90_000,
                         intervalMs: 1000,
                         diagnose: (r) => JSON.stringify(r),
@@ -123,7 +123,7 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin" ||
         });
 
         it(
-            "openDiff: дифф-вкладка с ✓/↺; правка + Ctrl+S — FILE_SAVED с правленым текстом, Ctrl+W — DIFF_REJECTED",
+            "openDiff: diff tab with ✓/↺; edit + Ctrl+S — FILE_SAVED with the edited text, Ctrl+W — DIFF_REJECTED",
             { timeout: 120_000 },
             async () => {
                 const { probe } = await IdeProbe.connect(lock);
@@ -175,7 +175,7 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin" ||
         );
 
         it(
-            "клик по «✻ Claude Code» открывает claude вкладкой справа, CLI видит порт и лок",
+            "clicking '✻ Claude Code' opens claude as a tab on the right, the CLI sees the port and lock",
             { timeout: 60_000 },
             async () => {
                 const frame = await app.session.captureFrame();
@@ -197,7 +197,7 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin" ||
         );
 
         it(
-            "CLAUDE_CODE_SSE_PORT — в окружении и терминала панели (claude, набранный руками)",
+            "CLAUDE_CODE_SSE_PORT is also in the panel terminal environment (claude typed by hand)",
             { timeout: 60_000 },
             async () => {
                 await app.session.executeCommand("workbench.action.terminal.new");

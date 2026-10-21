@@ -10,7 +10,7 @@ const sampleDir = resolve(repoRoot, "e2e", "fixtures", "excludeSettings");
 
 export default defineScenario({
     name: "exclude-settings-override",
-    title: "files.exclude / search.exclude: погашенный дефолт и свой шаблон",
+    title: "files.exclude / search.exclude: a disabled default and a custom pattern",
     open: [sampleDir],
     cols: 110,
     rows: 26,
@@ -20,9 +20,7 @@ export default defineScenario({
     },
     userKeybindings: [{ key: "f6", command: "workbench.view.search" }],
     async run(editor) {
-        await editor.waitForText(
-            (t) => t.includes("EXPLORER") && t.includes("__pycache__") && t.includes("README.md"),
-        );
+        await editor.waitForText((t) => t.includes("EXPLORER") && t.includes("__pycache__") && t.includes("README.md"));
         await editor.capture("tree");
 
         // Same "2 results in 2 files" total, but different files.

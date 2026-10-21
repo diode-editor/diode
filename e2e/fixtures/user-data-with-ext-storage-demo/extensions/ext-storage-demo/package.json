@@ -1,7 +1,7 @@
 {
     "name": "ext-storage-demo",
     "displayName": "Ext Storage Demo",
-    "description": "Демо каталогов хранения расширения (globalStorageUri/storageUri/logUri) и команды setContext: ключ гейтит собственный кейбинд расширения.",
+    "description": "Demo of extension storage directories (globalStorageUri/storageUri/logUri) and the setContext command: the key gates the extension's own keybinding.",
     "version": "0.0.1",
     "publisher": "test",
     "main": "./extension.js",

@@ -51,13 +51,13 @@ export function parseCli(argv: readonly string[]): CliOptions {
             const picked = SIZES.filter((s) => keys.includes(s.key));
             if (picked.length !== keys.length) {
                 const known = SIZES.map((s) => s.key).join(", ");
-                throw new Error(`--sizes: неизвестный ключ среди "${keys.join(",")}" (известные: ${known})`);
+                throw new Error(`--sizes: unknown key in "${keys.join(",")}" (known: ${known})`);
             }
             options.sizes = picked;
         } else if (arg.startsWith("--runs=")) {
             options.runsOverride = Number(arg.slice("--runs=".length));
             if (!Number.isInteger(options.runsOverride) || options.runsOverride < 1) {
-                throw new Error(`--runs: ожидается целое ≥ 1, получено "${arg}"`);
+                throw new Error(`--runs: expected an integer ≥ 1, got "${arg}"`);
             }
         } else if (arg.startsWith("--json=")) {
             options.jsonPath = arg.slice("--json=".length);
@@ -70,7 +70,7 @@ export function parseCli(argv: readonly string[]): CliOptions {
         } else if (arg === "--no-workload") {
             options.workload = false;
         } else {
-            throw new Error(`неизвестный аргумент: ${arg}`);
+            throw new Error(`unknown argument: ${arg}`);
         }
     }
     return options;
@@ -79,7 +79,7 @@ export function parseCli(argv: readonly string[]): CliOptions {
 export function describeConditions(env: Readonly<Record<string, string | undefined>>, label: string | null): string {
     const ci = env.GITHUB_ACTIONS === "true" || env.CI === "true" || env.CI === "1";
     if (ci) return `CI, shared runner (GitHub Actions)${label === null ? "" : `; ${label}`}`;
-    return `локальный прогон на машине разработчика${label === null ? "" : `: ${label}`}`;
+    return `local run on a developer machine${label === null ? "" : `: ${label}`}`;
 }
 
 async function main(): Promise<void> {
@@ -91,7 +91,7 @@ async function main(): Promise<void> {
     const commitRun = spawnSync("git", ["rev-parse", "--short", "HEAD"], { stdio: "pipe", encoding: "utf8" });
     const commit = process.env.GITHUB_SHA?.slice(0, 12) ?? (commitRun.stdout ?? "unknown").trim();
 
-    console.error("[bench] пол процесса (PTY)…");
+    console.error("[bench] process floor (PTY)…");
     const floorOptions = { cols: COLS, rows: ROWS, runs: 7 };
     const floors = {
         binary: await measureFloorPty(binary, BINARY_FLOOR_ARGS, floorOptions),
@@ -99,8 +99,8 @@ async function main(): Promise<void> {
         nodeVersion: await measureFloorPty(process.execPath, NODE_VERSION_ARGS, floorOptions),
     };
     console.error(
-        `[bench] пол node=${formatMs(floors.node.medianMs)} (node --version=${formatMs(floors.nodeVersion.medianMs)}) ` +
-            `бинарь=${formatMs(floors.binary.medianMs)}`,
+        `[bench] floor node=${formatMs(floors.node.medianMs)} (node --version=${formatMs(floors.nodeVersion.medianMs)}) ` +
+            `binary=${formatMs(floors.binary.medianMs)}`,
     );
 
     if (cli.traceDir !== null) mkdirSync(cli.traceDir, { recursive: true });
@@ -108,7 +108,7 @@ async function main(): Promise<void> {
     const sizes: SizeReport[] = [];
     try {
         for (const spec of cli.sizes) {
-            console.error(`[bench] фикстура ${spec.key}…`);
+            console.error(`[bench] fixture ${spec.key}…`);
             const fixture = await generateFixture(fixtureDir, spec);
             const fixtureBytes = statSync(fixture.path).size;
             const runs = cli.runsOverride ?? spec.runs;
@@ -140,7 +140,7 @@ async function main(): Promise<void> {
                         (result.outcome === "ok"
                             ? ` content=${formatMs(result.contentMs)} highlight=${formatMs(result.highlightMs)}` +
                               ` frameWithText=${formatMs(result.ladder?.frameWithText)}` +
-                              ` rss=${result.peakRssBytes === null ? "—" : `${String(Math.round(result.peakRssBytes / MiB))} МБ`}` +
+                              ` rss=${result.peakRssBytes === null ? "—" : `${String(Math.round(result.peakRssBytes / MiB))} MB`}` +
                               keys
                             : ` exit=${String(result.exitCode)} signal=${String(result.signal)}`),
                 );

@@ -15,11 +15,11 @@ import { median } from "./stats.ts";
 
 /** Ladder windows: an instantiation belongs to the window in which it started. */
 const WINDOWS: readonly { readonly key: string; readonly label: string }[] = [
-    { key: "mainStart", label: "до DI" },
-    { key: "containerCreated", label: "DI → смонтирован" },
-    { key: "workbenchMounted", label: "смонтирован → текст" },
-    { key: "frameWithText", label: "текст → подсветка" },
-    { key: "frameWithHighlight", label: "после подсветки" },
+    { key: "mainStart", label: "before DI" },
+    { key: "containerCreated", label: "DI → mounted" },
+    { key: "workbenchMounted", label: "mounted → text" },
+    { key: "frameWithText", label: "text → highlight" },
+    { key: "frameWithHighlight", label: "after highlight" },
 ];
 
 function windowOf(trace: IStartupTrace, start: number): string {
@@ -94,10 +94,10 @@ export function renderTables(
     opts: { sort: string; top: number; min: number },
 ): string {
     const out: string[] = [];
-    out.push(`Трасс: ${String(traces)}; цифры — медианы, мс (мс от старта процесса в колонке «старт»).`, "");
+    out.push(`Traces: ${String(traces)}; numbers are medians, ms (ms from process start in the "start" column).`, "");
 
     // Per-window totals: inclusive time of top-level instantiations — how much of the window went to DI.
-    out.push("| окно | созданий | верхний уровень, inclusive |", "|---|--:|--:|");
+    out.push("| window | instantiations | top level, inclusive |", "|---|--:|--:|");
     for (const w of WINDOWS) {
         const inWindow = rows.filter((r) => r.window === w.label);
         const top = inWindow.filter((r) => r.depth === 0).reduce((sum, r) => sum + r.inclusive, 0);
@@ -106,8 +106,8 @@ export function renderTables(
     out.push("");
 
     const contributions = rows.filter((r) => r.contribution).sort((a, b) => a.start - b.start);
-    out.push("Контрибуции (в порядке создания):", "");
-    out.push("| контрибуция | фаза | окно | inclusive | self | старт |", "|---|---|---|--:|--:|--:|");
+    out.push("Contributions (in creation order):", "");
+    out.push("| contribution | phase | window | inclusive | self | start |", "|---|---|---|--:|--:|--:|");
     for (const r of contributions) {
         out.push(`| ${r.id} | ${r.phase ?? "—"} | ${r.window} | ${ms(r.inclusive)} | ${ms(r.self)} | ${ms(r.start)} |`);
     }
@@ -118,9 +118,9 @@ export function renderTables(
         .filter((r) => r.self >= opts.min || r.inclusive >= opts.min)
         .sort((a, b) => (key === "start" ? a.start - b.start : b[key] - a[key]))
         .slice(0, opts.top);
-    out.push(`Создания (сортировка: ${key}, порог ${String(opts.min)} мс, первые ${String(opts.top)}):`, "");
+    out.push(`Instantiations (sort: ${key}, threshold ${String(opts.min)} ms, top ${String(opts.top)}):`, "");
     out.push(
-        "| что | self | inclusive | старт | окно | кто запросил | фаза | трасс |",
+        "| what | self | inclusive | start | window | requested by | phase | traces |",
         "|---|--:|--:|--:|---|---|---|--:|",
     );
     for (const r of sorted) {
@@ -141,12 +141,12 @@ function main(): void {
         else if (arg.startsWith("--min=")) opts.min = Number(arg.slice("--min=".length));
         else files.push(arg);
     }
-    if (files.length === 0) throw new Error("ожидаются файлы трасс DIODE_STARTUP_TRACE");
+    if (files.length === 0) throw new Error("expected DIODE_STARTUP_TRACE trace files");
     const traces: IStartupTrace[] = [];
     for (const file of files) {
         const trace = parseTrace(readFileSync(file, "utf8"));
         if (trace === null || !Array.isArray(trace.instantiations)) {
-            console.error(`[services] пропущен ${file}: не трасса или без instantiations`);
+            console.error(`[services] skipped ${file}: not a trace or has no instantiations`);
             continue;
         }
         traces.push(trace);

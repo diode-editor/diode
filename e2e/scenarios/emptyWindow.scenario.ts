@@ -4,7 +4,6 @@ import { basename, join, sep } from "node:path";
 
 import { defineScenario } from "./framework.ts";
 
-
 const MARKER = "demo-assets";
 
 /** Small, so the whole file list fits in the frame. */
@@ -21,7 +20,7 @@ const folder = makeFolder();
 
 export default defineScenario({
     name: "empty-window",
-    title: "Запуск без аргументов: пустое окно и выход из него через Open Folder",
+    title: "Launch without arguments: empty window and leaving it via Open Folder",
     open: [],
     cols: 120,
     rows: 24,

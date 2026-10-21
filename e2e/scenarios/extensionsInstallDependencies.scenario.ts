@@ -8,27 +8,30 @@ import { defineScenario, repoRoot } from "./framework.ts";
 
 // Lang Pack has no contributions of its own, only a dependency on Sample Lang.
 
-const registry = await createRegistryFixture(join(mkdtempSync(join(tmpdir(), "diode-scenario-registry-")), "registry"), [
-    {
-        id: "test.lang-pack",
-        version: "0.0.1",
-        sourceDir: resolve(repoRoot, "e2e", "marketplace", "dependent-extension"),
-        displayName: "Lang Pack",
-        description: "Depends on Sample Lang",
-        readme: "# Lang Pack\n\nNo contributions of its own: installing it brings Sample Lang along.",
-    },
-    {
-        id: "test.sample-lang",
-        version: "0.0.2",
-        sourceDir: resolve(repoRoot, "e2e", "marketplace", "sample-extension"),
-        displayName: "Sample Lang",
-        description: "Language .diodesample with a grammar",
-    },
-]);
+const registry = await createRegistryFixture(
+    join(mkdtempSync(join(tmpdir(), "diode-scenario-registry-")), "registry"),
+    [
+        {
+            id: "test.lang-pack",
+            version: "0.0.1",
+            sourceDir: resolve(repoRoot, "e2e", "marketplace", "dependent-extension"),
+            displayName: "Lang Pack",
+            description: "Depends on Sample Lang",
+            readme: "# Lang Pack\n\nNo contributions of its own: installing it brings Sample Lang along.",
+        },
+        {
+            id: "test.sample-lang",
+            version: "0.0.2",
+            sourceDir: resolve(repoRoot, "e2e", "marketplace", "sample-extension"),
+            displayName: "Sample Lang",
+            description: "Language .diodesample with a grammar",
+        },
+    ],
+);
 
 export default defineScenario({
     name: "extensions-install-dependencies",
-    title: "Extensions: установка тянет extensionDependencies",
+    title: "Extensions: installing pulls in extensionDependencies",
     open: [repoRoot],
     extraArgs: [`--registry=${registry}`],
     // The headless DSL cannot encode a real Ctrl+Shift+X, so the command is bound to F6.

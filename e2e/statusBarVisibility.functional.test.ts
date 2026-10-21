@@ -43,10 +43,10 @@ async function waitForHiddenPersisted(root: string, entryId: string): Promise<vo
         }
         await new Promise((r) => setTimeout(r, 100));
     }
-    throw new Error(`"${entryId}" не доехал до ${paths.globalStateFile}`);
+    throw new Error(`"${entryId}" did not reach ${paths.globalStateFile}`);
 }
 
-describe("Статус-бар: настраиваемый состав (functional e2e)", () => {
+describe("Status bar: configurable entries (functional e2e)", () => {
     let app: HeadlessApp | null = null;
 
     beforeAll(async () => {
@@ -58,7 +58,7 @@ describe("Статус-бар: настраиваемый состав (function
         app = null;
     });
 
-    it("переключатель снимает сегмент, и выбор переживает рестарт", async () => {
+    it("the toggle hides the entry, and the choice survives a restart", async () => {
         const first = await useHeadlessApp({ files: FILES, open: ["app.ts"], keepRoot: true });
         const root = first.env.root;
 

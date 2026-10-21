@@ -1,7 +1,7 @@
 {
     "name": "theme-selection-demo",
     "displayName": "Theme & Selection Demo",
-    "description": "Демо-расширение: window.activeColorTheme / onDidChangeActiveColorTheme и window.onDidChangeTextEditorSelection — оба видны в статус-баре.",
+    "description": "Demo: window.activeColorTheme / onDidChangeActiveColorTheme and window.onDidChangeTextEditorSelection, both shown in the status bar.",
     "version": "0.0.1",
     "publisher": "test",
     "main": "./extension.js",

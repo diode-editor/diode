@@ -1,4 +1,4 @@
-Папка, в которой стоковый ruff активироваться НЕ должен: ни .py, ни .md,
-ни pyproject.toml / ruff.toml — то есть ни одного его `workspaceContains:`,
-а открытый plaintext-буфер не даёт и `onLanguage:`.
-Единственная дверь внутрь — его собственная команда из палитры.
+A folder where stock ruff must NOT activate: no .py, no .md,
+no pyproject.toml / ruff.toml — none of its `workspaceContains:` patterns,
+and the open plaintext buffer does not trigger `onLanguage:` either.
+The only way in is its own command from the command palette.

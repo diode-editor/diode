@@ -12,7 +12,7 @@ const foldingFile = resolve(fixtures, "folding.ts");
 
 export default defineScenario({
     name: "open-editors-picker",
-    title: "Пикер открытых редакторов (Ctrl+K Ctrl+P)",
+    title: "Open editors picker (Ctrl+K Ctrl+P)",
     open: [repoRoot, sampleFile, lspMain, formatMain, foldingFile],
     cols: 120,
     rows: 32,

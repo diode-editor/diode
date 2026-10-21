@@ -1,2 +1,2 @@
-Воркспейс демо «запрос с пробелом»: три файла с общими буквами в путях, чтобы
-отбор по термам был виден на кадре, и этот файл — чтобы редактор открыл вкладку.
+Demo workspace for "query with a space": three files share letters in their paths
+so term filtering shows in the frame; this file gives the editor a tab to open.

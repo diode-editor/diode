@@ -1,7 +1,7 @@
 {
     "name": "workspace-probe",
     "displayName": "Workspace Probe",
-    "description": "Показывает в статус-баре воркспейс, который расширение увидело при активации.",
+    "description": "Shows in the status bar the workspace the extension saw on activation.",
     "version": "0.0.1",
     "publisher": "test",
     "main": "./extension.js",

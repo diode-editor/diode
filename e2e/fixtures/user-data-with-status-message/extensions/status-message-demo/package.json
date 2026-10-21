@@ -1,7 +1,7 @@
 {
     "name": "status-message-demo",
     "displayName": "Status Message Demo",
-    "description": "Демо window.setStatusBarMessage и констант env хоста: стек сообщений в статус-баре, как у Claude Code при ревизии диффа.",
+    "description": "Demo of window.setStatusBarMessage and host env constants: a message stack in the status bar, as Claude Code shows while reviewing a diff.",
     "version": "0.0.1",
     "publisher": "test",
     "main": "./extension.js",

@@ -31,7 +31,7 @@ async function waitForTabs(
         if (tabs.length === count) return { strip, tabs };
         await new Promise((resolve) => setTimeout(resolve, 100));
     }
-    throw new Error(`в полосе так и не оказалось ${String(count)} вкладок`);
+    throw new Error(`the strip never got ${String(count)} tabs`);
 }
 
 export default defineScenario({
@@ -45,7 +45,7 @@ export default defineScenario({
 
         // The third tab is active (opened last) — open the menu on the FIRST one.
         const { strip, tabs } = await waitForTabs(editor, 3);
-        if (!tabs[2].active) throw new Error("активной ожидалась последняя вкладка");
+        if (!tabs[2].active) throw new Error("expected the last tab to be active");
         const x = strip.box.x + 2;
         const y = strip.box.y;
         await editor.sendMouse({ action: "press", button: "right", x, y });
@@ -55,7 +55,7 @@ export default defineScenario({
 
         // The right click did not change the active tab — the third one is still active.
         const opened = tabsOf(await editor.waitForNode("EditorTabStripElement"));
-        if (!opened[2].active) throw new Error("правый клик увёл активную вкладку");
+        if (!opened[2].active) throw new Error("right click moved the active tab");
 
         // "Close Others" is the second menu item (selection starts on the first).
         await editor.sendKey("ArrowDown");
@@ -64,7 +64,7 @@ export default defineScenario({
         // Exactly the tab the menu was opened on remains — not the active one.
         const { tabs: remaining } = await waitForTabs(editor, 1);
         if (!remaining[0].label.includes("sample.ts")) {
-            throw new Error(`осталась не та вкладка: ${remaining[0].label}`);
+            throw new Error(`wrong tab left: ${remaining[0].label}`);
         }
         await editor.capture("after-close-others");
     },

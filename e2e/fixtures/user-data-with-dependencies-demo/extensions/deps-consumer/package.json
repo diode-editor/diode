@@ -1,7 +1,7 @@
 {
     "name": "deps-consumer",
     "displayName": "Deps Consumer",
-    "description": "Демо extensionDependencies: в activate() читает exports зависимости test.deps-provider и показывает их в статус-баре.",
+    "description": "extensionDependencies demo: activate() reads the exports of the test.deps-provider dependency and shows them in the status bar.",
     "version": "0.0.1",
     "publisher": "test",
     "main": "./extension.js",

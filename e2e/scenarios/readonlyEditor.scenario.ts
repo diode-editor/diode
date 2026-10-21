@@ -12,7 +12,7 @@ const LOCK = "\uea75";
 
 export default defineScenario({
     name: "readonly-editor",
-    title: "Read-only editor: замок на вкладке и заблокированный ввод",
+    title: "Read-only editor: lock on the tab and blocked input",
     open: [repoRoot, sampleFile],
     cols: 120,
     rows: 32,

@@ -21,7 +21,7 @@ const UNDERCURL = 8;
 
 export default defineScenario({
     name: "go-lsp",
-    title: "Go (golang.go + gopls): squiggle, версия Go, hover, F12",
+    title: "Go (golang.go + gopls): squiggle, Go version, hover, F12",
     open: [GO_SAMPLE_DIR, mainFile],
     installVsix: [GO_ID],
     network: true,
@@ -40,7 +40,7 @@ export default defineScenario({
         await waitUntil(
             () => editor.captureFrame(),
             (frame) => frame.cells.some((cell) => (cell.style & UNDERCURL) !== 0),
-            { describe: "undercurl squiggle от gopls", timeoutMs: 180_000, intervalMs: 500 },
+            { describe: "undercurl squiggle from gopls", timeoutMs: 180_000, intervalMs: 500 },
         );
         await editor.capture("diagnostics");
 

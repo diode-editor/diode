@@ -9,7 +9,7 @@ const sampleFile = resolve(repoRoot, "e2e", "fixtures", "sample.ts");
 
 export default defineScenario({
     name: "panel-close",
-    title: "Кнопка закрытия нижней панели",
+    title: "Bottom panel close button",
     open: [repoRoot, sampleFile],
     cols: 120,
     rows: 32,
@@ -22,7 +22,7 @@ export default defineScenario({
 
         const close = panel.state?.close as { centerX: number } | null | undefined;
         const tabRow = panel.state?.tabRow as number;
-        if (close == null) throw new Error(`панель без кнопки закрытия: ${JSON.stringify(panel.state)}`);
+        if (close == null) throw new Error(`panel has no close button: ${JSON.stringify(panel.state)}`);
 
         // Clicking `×` closes the panel and the editor takes its place.
         await editor.click(close.centerX, tabRow);

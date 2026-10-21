@@ -1,7 +1,7 @@
 {
     "name": "save-all-demo",
     "displayName": "Save All Demo",
-    "description": "Демо workspace.saveAll: команда сохраняет все несохранённые файлы, как golang.go перед `go mod tidy`, и показывает ответ.",
+    "description": "workspace.saveAll demo: the command saves all unsaved files, the way golang.go does before `go mod tidy`, and shows the result.",
     "version": "0.0.1",
     "publisher": "test",
     "main": "./extension.js",

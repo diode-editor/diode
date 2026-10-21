@@ -1,1 +1,1 @@
-export const gamma = "третий файл: встаёт рядом с приколотой вкладкой";
+export const gamma = "third file: opens next to the pinned tab";

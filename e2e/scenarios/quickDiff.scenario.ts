@@ -29,7 +29,7 @@ const { repoDir, trackedFile } = makeRepo();
 
 export default defineScenario({
     name: "quick-diff-live-gutter",
-    title: "Change-bars двигаются при наборе, до сохранения",
+    title: "Change bars move while typing, before save",
     open: [repoDir, trackedFile],
     cols: 90,
     rows: 16,

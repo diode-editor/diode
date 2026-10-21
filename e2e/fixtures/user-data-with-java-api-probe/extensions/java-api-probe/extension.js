@@ -15,13 +15,13 @@ exports.activate = async function activate(context) {
     // Marker for the scenario; the status bar is narrow — details go to Output.
     const status = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
     status.name = "Java API Probe";
-    status.text = "java api: работает";
+    status.text = "java api: running";
     status.show();
     context.subscriptions.push(status, out);
 
     const steps = [];
     const fail = (step, err) => {
-        steps.push(step + ": ПРОВАЛ " + String(err && err.message ? err.message : err));
+        steps.push(step + ": FAILED " + String(err && err.message ? err.message : err));
     };
 
     // 1. env. The first activation failure: `switch (env.uiKind)` → `Cannot read properties of undefined (reading 'Desktop')`.
@@ -35,7 +35,7 @@ exports.activate = async function activate(context) {
                 " remote=" +
                 (vscode.env.remoteName === undefined ? "none" : vscode.env.remoteName) +
                 " sessionId=" +
-                (vscode.env.sessionId.length > 0 ? "есть" : "пусто"),
+                (vscode.env.sessionId.length > 0 ? "set" : "empty"),
         );
     } catch (err) {
         fail("env", err);
@@ -76,9 +76,9 @@ exports.activate = async function activate(context) {
         const first = await vscode.workspace.findFiles("**/pom.xml", null, 1);
         const rel = (uri) => vscode.workspace.asRelativePath(uri);
         steps.push(
-            "findFiles: по умолчанию=[" +
+            "findFiles: default=[" +
                 withDefaults.map(rel).sort().join(", ") +
-                "] без исключений=" +
+                "] noExcludes=" +
                 String(withoutExcludes.length) +
                 " maxResults1=" +
                 String(first.length),
@@ -90,7 +90,7 @@ exports.activate = async function activate(context) {
     // Clean up the trap — this also checks `delete` with recursive.
     try {
         await vscode.workspace.fs.delete(vscode.Uri.file(decoyParent), { recursive: true });
-        steps.push("fs: delete(recursive) убрал ловушку");
+        steps.push("fs: delete(recursive) removed the decoy");
     } catch (err) {
         fail("fs.delete", err);
     }
@@ -101,15 +101,15 @@ exports.activate = async function activate(context) {
             resolveCustomTextEditor: () => Promise.resolve(),
         });
         context.subscriptions.push(registration);
-        steps.push("customEditor: регистрация принята (заглушка, вкладки не будет)");
+        steps.push("customEditor: registration accepted (stub, no tab)");
     } catch (err) {
         fail("customEditor", err);
     }
 
     for (const line of steps) out.appendLine(line);
-    out.appendLine("итог: " + (steps.some((s) => s.includes("ПРОВАЛ")) ? "ПРОВАЛ" : "все шаги прошли"));
+    out.appendLine("result: " + (steps.some((s) => s.includes("FAILED")) ? "FAILED" : "all steps passed"));
 
-    status.text = steps.some((s) => s.includes("ПРОВАЛ")) ? "java api: ПРОВАЛ" : "java api: готово";
+    status.text = steps.some((s) => s.includes("FAILED")) ? "java api: FAILED" : "java api: done";
 
     context.subscriptions.push(
         vscode.commands.registerCommand("javaApiProbe.showReport", () => {

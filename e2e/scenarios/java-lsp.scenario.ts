@@ -21,7 +21,10 @@ const PARAMETER_FG = 0x9cdcfe;
 function findCell(frame: GridSnapshot, needle: string): CellSnapshot | undefined {
     for (let row = 0; row < frame.rows; row++) {
         const cells = frame.cells.slice(row * frame.cols, (row + 1) * frame.cols);
-        const index = cells.map((cell) => cell.char || " ").join("").lastIndexOf(needle);
+        const index = cells
+            .map((cell) => cell.char || " ")
+            .join("")
+            .lastIndexOf(needle);
         if (index !== -1) return cells[index];
     }
     return undefined;
@@ -29,7 +32,7 @@ function findCell(frame: GridSnapshot, needle: string): CellSnapshot | undefined
 
 export default defineScenario({
     name: "java-lsp",
-    title: "Java из коробки: jdt.ls — squiggle, семантическая подсветка, code actions, переход в JDK",
+    title: "Java out of the box: jdt.ls — squiggle, semantic highlighting, code actions, go to JDK",
     // Folder first: redhat.java has only `workspaceContains:` activation events.
     open: [sampleDir, appFile],
     installVsix: ["redhat.java"],
@@ -47,14 +50,14 @@ export default defineScenario({
         await waitUntil(
             () => editor.captureFrame(),
             (frame) => frame.cells.some((cell) => (cell.style & UNDERCURL) !== 0),
-            { describe: "undercurl squiggle от jdt.ls", timeoutMs: 300_000, intervalMs: 1000 },
+            { describe: "undercurl squiggle from jdt.ls", timeoutMs: 300_000, intervalMs: 1000 },
         );
         await editor.capture("diagnostics");
 
         await waitUntil(
             () => editor.captureFrame(),
             (frame) => findCell(frame, "who;")?.fg === PARAMETER_FG,
-            { describe: "семантический цвет параметра `who`", timeoutMs: 120_000, intervalMs: 1000 },
+            { describe: "semantic color of the `who` parameter", timeoutMs: 120_000, intervalMs: 1000 },
         );
         await editor.capture("semantic-tokens");
 

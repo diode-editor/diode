@@ -24,14 +24,14 @@ describe("SEA binary — bundled assets", () => {
         binary = await getBinaryPath();
     }, 180_000);
 
-    it("dist/ не содержит каталога Extensions/ после сборки (всё внутри diode.bundle)", () => {
+    it("dist/ has no Extensions/ directory after the build (everything is inside diode.bundle)", () => {
         const distDir = dirname(binary);
         const entries = readdirSync(distDir);
         expect(entries).toContain("diode.bundle");
         expect(entries).not.toContain("Extensions");
     });
 
-    itLinuxOnly("работает из произвольного cwd без файлов рядом с бинарём — подсветка из bundle", async () => {
+    itLinuxOnly("works from an arbitrary cwd without files next to the binary — highlighting from the bundle", async () => {
         // Copy the binary into an empty directory and run it from there: the SEA carries its assets inside,
         // not in sidecar files.
         const tmp = mkdtempSync(join(tmpdir(), "diode-sea-isolated-"));
@@ -61,7 +61,7 @@ describe("SEA binary — bundled assets", () => {
         }
     });
 
-    it("каталог сборки содержит все бандлы, вшитые в SEA (регресс на сборку)", () => {
+    it("the build directory contains every bundle embedded in the SEA (build regression)", () => {
         // The directory is the one holding the binary itself: e2e builds into a cache keyed by source hash
         // (scripts/e2e-artifacts.mjs), not into the working dist/.
         for (const name of [

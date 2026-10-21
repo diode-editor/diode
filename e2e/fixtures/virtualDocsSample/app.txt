@@ -1,5 +1,5 @@
-Документ-образец для демо виртуальных документов.
+Sample document for the virtual documents demo.
 
-Каретка где угодно + F12 — и definition-провайдер фикстуры уводит на
+Cursor anywhere + F12, and the fixture's definition provider navigates to
 jdt://contents/text-utils-1.4.0.jar/com.example.text/TextUtils.java,
-которого нет на диске: его содержимое отдаёт сам провайдер расширения.
+which is not on disk: the extension's provider serves its content itself.

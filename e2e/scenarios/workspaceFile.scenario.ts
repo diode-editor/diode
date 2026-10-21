@@ -14,7 +14,7 @@ function hasTopDir(screen: string, name: string): boolean {
 
 export default defineScenario({
     name: "workspace-file",
-    title: "Workspace file: два .code-workspace над одним каталогом — два набора настроек",
+    title: "Workspace file: two .code-workspace files over one folder — two sets of settings",
     open: [resolve(fixture, "web.code-workspace")],
     cols: 110,
     rows: 26,

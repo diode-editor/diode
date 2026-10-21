@@ -33,6 +33,6 @@ export function killGroup(child: { readonly pid?: number | undefined; kill(signa
 export async function reapSession(sessionTag: string): Promise<void> {
     const killed = await reapByEnv(SESSION_MARKER_ENV, sessionTag);
     if (killed.length > 0) {
-        console.error(`[e2e] добиты процессы, пережившие сессию (${String(killed.length)}):\n${describeKilled(killed)}`);
+        console.error(`[e2e] killed processes that outlived the session (${String(killed.length)}):\n${describeKilled(killed)}`);
     }
 }

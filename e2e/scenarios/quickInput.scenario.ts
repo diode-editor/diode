@@ -17,7 +17,7 @@ async function runProbeCommand(editor: ScenarioDriver, title: string): Promise<v
 
 export default defineScenario({
     name: "quick-input",
-    title: "Расширение просит строку и выбор (showInputBox / showQuickPick)",
+    title: "An extension asks for a string and a choice (showInputBox / showQuickPick)",
     seedUserData: userData,
     open: [repoRoot, sampleFile],
     cols: 100,
@@ -28,19 +28,19 @@ export default defineScenario({
         await editor.waitForText((t) => t.includes("Diode Probe"), { timeoutMs: 30000 });
 
         await runProbeCommand(editor, "Ask Port");
-        await editor.waitForText((t) => t.includes("Порт сервера"), { timeoutMs: 20000 });
+        await editor.waitForText((t) => t.includes("Server port"), { timeoutMs: 20000 });
         await editor.capture("input-box");
 
         await editor.sendText("ab");
-        await editor.waitForText((t) => t.includes("Только цифры"));
+        await editor.waitForText((t) => t.includes("Digits only"));
         await editor.capture("error-message");
         await editor.sendKey("Enter");
-        await editor.waitForText((t) => t.includes("Только цифры"));
+        await editor.waitForText((t) => t.includes("Digits only"));
 
         await editor.sendKey("Backspace");
         await editor.sendKey("Backspace");
         await editor.sendText("80");
-        await editor.waitForText((t) => t.includes("Порт < 1024"));
+        await editor.waitForText((t) => t.includes("Port < 1024"));
         await editor.capture("warning-message");
         await editor.sendKey("Enter");
         await editor.waitForText((t) => t.includes("Port: 80"), { timeoutMs: 20000 });
@@ -48,7 +48,7 @@ export default defineScenario({
 
         // The extension receives the real text — checked by its length.
         await runProbeCommand(editor, "Ask Secret");
-        await editor.waitForText((t) => t.includes("Набранное закрыто маской"), { timeoutMs: 20000 });
+        await editor.waitForText((t) => t.includes("Typed text is masked"), { timeoutMs: 20000 });
         await editor.sendText("hunter2");
         await editor.waitForText((t) => t.includes("*******") && !t.includes("hunter2"));
         await editor.capture("password-masked");
@@ -56,7 +56,7 @@ export default defineScenario({
         await editor.waitForText((t) => t.includes("Secret length: 7"), { timeoutMs: 20000 });
 
         await runProbeCommand(editor, "Pick Fruit");
-        await editor.waitForText((t) => t.includes("Выберите фрукт") && t.includes("cherry"), { timeoutMs: 20000 });
+        await editor.waitForText((t) => t.includes("Pick a fruit") && t.includes("cherry"), { timeoutMs: 20000 });
         await editor.capture("quick-pick");
 
         await editor.sendText("ch");
@@ -84,7 +84,7 @@ export default defineScenario({
         await editor.capture("create-quick-pick");
 
         await editor.sendText("beta");
-        await editor.waitForText((t) => t.includes("Найдено по «beta»") && !t.includes("Alpha module"));
+        await editor.waitForText((t) => t.includes('Matches for "beta"') && !t.includes("Alpha module"));
         await editor.capture("create-quick-pick-filtered");
         await editor.sendKey("Enter");
         await editor.waitForText((t) => t.includes("Lazy: example.com/beta"), { timeoutMs: 20000 });

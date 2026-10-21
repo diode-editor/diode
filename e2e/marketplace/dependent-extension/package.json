@@ -1,7 +1,7 @@
 {
     "name": "lang-pack",
     "displayName": "Lang Pack",
-    "description": "Синтетическое расширение магазина без собственных вкладов: только extensionDependencies на test.sample-lang — проверяет, что установка тянет зависимость.",
+    "description": "Synthetic marketplace extension without contributions of its own: only extensionDependencies on test.sample-lang, to check that install pulls in the dependency.",
     "version": "0.0.1",
     "publisher": "test",
     "engines": {

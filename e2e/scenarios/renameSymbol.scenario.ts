@@ -21,7 +21,7 @@ const MAIN_TS = 'import { greet } from "./defs";\n\nconst reply = greet("world")
 
 export default defineScenario({
     name: "rename-symbol",
-    title: "Rename Symbol (F2): стоковый tsserver правит открытый И закрытый файл",
+    title: "Rename Symbol (F2): stock tsserver edits both the open AND the closed file",
     open: [sampleDir, defsFile],
     // The server comes from the repo's devDeps (the built-in one: docs/arch/Extensions.md, "Builtin LSP client"
     // section), its path is passed via settings; tsserver.js is for sandboxes without their own TypeScript.
@@ -63,7 +63,7 @@ export default defineScenario({
                     .join("");
                 return text.includes("REFERENCES") && text.includes("const reply = greet");
             },
-            { describe: "ссылка из закрытого main.ts в панели REFERENCES", timeoutMs: 120_000, intervalMs: 2000 },
+            { describe: "closed main.ts reference in the REFERENCES panel", timeoutMs: 120_000, intervalMs: 2000 },
         );
         await editor.capture("references");
 
@@ -79,7 +79,7 @@ export default defineScenario({
                     .map((cell) => cell.char)
                     .join("")
                     .includes("Rename Symbol"),
-            { describe: "оверлей Rename Symbol", timeoutMs: 60_000, intervalMs: 2000 },
+            { describe: "Rename Symbol overlay", timeoutMs: 60_000, intervalMs: 2000 },
         );
         await editor.waitForText((t) => t.includes("greet"));
         await editor.capture("prompt");
@@ -93,10 +93,10 @@ export default defineScenario({
             () => Promise.resolve(readFileSync(closedFile, "utf8")),
             (text) => text.includes("import { welcome }") && text.includes('welcome("world")'),
             {
-                describe: "импорт и вызов переименованы в закрытом main.ts",
+                describe: "import and call renamed in the closed main.ts",
                 timeoutMs: 60_000,
                 intervalMs: 250,
-                diagnose: (last) => `main.ts сейчас:\n${String(last)}`,
+                diagnose: (last) => `main.ts now:\n${String(last)}`,
             },
         );
         // …and the open tab too.

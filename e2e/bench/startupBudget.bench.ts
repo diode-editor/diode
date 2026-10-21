@@ -31,7 +31,7 @@ const SAMPLES = 5;
 const binary = await getBinaryPath();
 const fixtureDir = mkdtempSync(join(os.tmpdir(), "diode-perf-open-"));
 const small = SIZES.find((s) => s.key === "small");
-if (small === undefined) throw new Error("матрица размеров без small");
+if (small === undefined) throw new Error("size matrix has no small");
 const fixture = await generateFixture(fixtureDir, small);
 const floorOptions = { cols: COLS, rows: ROWS, runs: 5 };
 const nodeFloorMs = (await measureFloorPty(process.execPath, NODE_FLOOR_ARGS, floorOptions)).medianMs;
@@ -39,9 +39,9 @@ const nodeFloorMs = (await measureFloorPty(process.execPath, NODE_FLOOR_ARGS, fl
 const samples: number[] = [];
 let calls = 0;
 
-describe("Старт: кухня над полом node (SEA в PTY, small)", () => {
+describe("Startup: our cost over the node floor (SEA in PTY, small)", () => {
     bench(
-        `small: до текста − пол node ≤ ${String(STARTUP_BUDGET_OURS_MS)} мс (median)`,
+        `small: to text − node floor ≤ ${String(STARTUP_BUDGET_OURS_MS)} ms (median)`,
         async () => {
             calls++;
             const result = await measureOpenOnce({
@@ -52,20 +52,20 @@ describe("Старт: кухня над полом node (SEA в PTY, small)", ()
                 traceWaitMs: 0,
             });
             if (result.outcome !== "ok" || result.contentMs === null) {
-                throw new Error(`файл не открылся: ${result.outcome} (exit ${String(result.exitCode)})`);
+                throw new Error(`file did not open: ${result.outcome} (exit ${String(result.exitCode)})`);
             }
             // The first call is tinybench's warmup iteration (FS cache) and is excluded from the stats.
             if (calls === 1) return;
             samples.push(result.contentMs - nodeFloorMs);
             if (samples.length === SAMPLES) {
                 const ours = median(samples);
-                const detail = `пол node ${String(Math.round(nodeFloorMs))} мс, сэмплы [${samples.map((v) => String(Math.round(v))).join(", ")}]`;
+                const detail = `node floor ${String(Math.round(nodeFloorMs))} ms, samples [${samples.map((v) => String(Math.round(v))).join(", ")}]`;
                 if (ours > STARTUP_BUDGET_OURS_MS) {
                     throw new Error(
-                        `наших мс над полом node: ${String(Math.round(ours))} > бюджет ${String(STARTUP_BUDGET_OURS_MS)} (${detail})`,
+                        `our ms over the node floor: ${String(Math.round(ours))} > budget ${String(STARTUP_BUDGET_OURS_MS)} (${detail})`,
                     );
                 }
-                console.error(`[perf] small: наших ${String(Math.round(ours))} мс над полом node (${detail})`);
+                console.error(`[perf] small: our ${String(Math.round(ours))} ms over the node floor (${detail})`);
             }
         },
         { iterations: SAMPLES, time: 0, warmupIterations: 1, warmupTime: 0 },

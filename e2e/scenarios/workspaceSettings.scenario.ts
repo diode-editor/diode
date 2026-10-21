@@ -9,7 +9,7 @@ const folder = resolve(repoRoot, "e2e", "fixtures", "workspaceSettings");
 
 export default defineScenario({
     name: "workspace-settings",
-    title: "Workspace settings: .diode/settings.json проекта поверх пользовательских",
+    title: "Workspace settings: the project's .diode/settings.json over user settings",
     open: [folder],
     cols: 110,
     rows: 26,

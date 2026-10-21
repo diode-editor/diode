@@ -40,7 +40,8 @@ export default defineScenario({
         { key: "alt+j", command: "workbench.action.output.show.extensions.test.inline-ghost.inline-ghost" },
     ],
     async run(editor) {
-        await editor.waitForText((t) => t.includes("Демо отмены"));
+        // "Demo otmeny": the fixture is Cyrillic on purpose.
+        await editor.waitForText((t) => t.includes("\u0414\u0435\u043c\u043e \u043e\u0442\u043c\u0435\u043d\u044b"));
 
         await editor.sendKey("Ctrl+End");
         await editor.sendKey("End");
@@ -60,7 +61,7 @@ export default defineScenario({
                 await editor.sendKey("Backspace");
             }
         }
-        if (!live) throw new Error("inline-completion-cancel: призрак не появился за 10 попыток прогрева");
+        if (!live) throw new Error("inline-completion-cancel: ghost text did not appear in 10 warm-up attempts");
 
         // Let the warm-up request finish so the frame shows the chain from the typing itself, not the warm-up tail.
         await editor.sendKey("Escape");
@@ -83,7 +84,7 @@ export default defineScenario({
         await editor.sendKey("Alt+J");
         await editor.waitForText((t) => t.includes("Inline Ghost"));
         await editor.sendKey("Ctrl+End"); // the log tail holds the latest requests
-        await editor.waitForText((t) => t.includes("отменён"), { timeoutMs: 10_000 });
+        await editor.waitForText((t) => t.includes(" cancelled"), { timeoutMs: 10_000 });
         await editor.capture("cancelled");
     },
 });

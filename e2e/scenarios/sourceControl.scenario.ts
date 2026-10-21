@@ -39,7 +39,7 @@ const { repoDir } = makeRepo();
 
 export default defineScenario({
     name: "source-control",
-    title: "Source Control в сайдбаре: список изменений и дифф по клику",
+    title: "Source Control in the sidebar: change list and diff on click",
     open: [repoDir],
     cols: 100,
     // The top 4 rows of the section are the commit controls; the height must fit both groups as well.

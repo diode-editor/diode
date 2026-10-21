@@ -14,8 +14,8 @@ const registry = await createRegistryFixture(join(mkdtempSync(join(tmpdir(), "di
         version: "0.0.1",
         sourceDir: resolve(repoRoot, "e2e", "fixtures", "sample-theme"),
         displayName: "Sample Theme",
-        description: "Синтетическое расширение магазина: три цветовые темы",
-        readme: "# Sample Theme\n\nТемы Sample Dark / Sample Light / Sample Dimmed для демо магазина.",
+        description: "Synthetic marketplace extension: three color themes",
+        readme: "# Sample Theme\n\nSample Dark / Sample Light / Sample Dimmed themes for the marketplace demo.",
     },
 ]);
 
@@ -23,7 +23,7 @@ const sampleFile = resolve(repoRoot, "e2e", "fixtures", "sample.ts");
 
 export default defineScenario({
     name: "extension-theme",
-    title: "Extensions: тема из магазина — Install → Reload Window → Color Theme",
+    title: "Extensions: a marketplace theme — Install → Reload Window → Color Theme",
     open: [repoRoot, sampleFile],
     extraArgs: [`--registry=${registry}`],
     // The headless DSL cannot encode real chords (Ctrl+Shift+X, Ctrl+K Ctrl+T), so commands are bound to F-keys.

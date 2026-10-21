@@ -88,7 +88,7 @@ runOnLinux("Diff viewer (functional e2e)", () => {
     }
 
     // ── C. Live gutter (map 10) ─────────────────────────────────────────────
-    it("живой гуттер: правка tracked-файла даёт бар ┋ до сохранения", async () => {
+    it("live gutter: editing a tracked file shows the ┋ bar before saving", async () => {
         const r = repo({ "greeting.txt": "alpha\nbravo\ncharlie\ndelta\n" });
         const s = await open([r.dir, r.file("greeting.txt")], r.dir);
         try {
@@ -105,7 +105,7 @@ runOnLinux("Diff viewer (functional e2e)", () => {
     }, 120_000);
 
     // ── A+B. Command + tab against the live buffer (map 1,2,3,4) ─────────────
-    it("Compare with HEAD: открывает живую вкладку ↔ HEAD с +/- по несохранённой правке", async () => {
+    it("Compare with HEAD: opens a live ↔ HEAD tab with +/- for an unsaved edit", async () => {
         const r = repo({ "greeting.js": TRACKED });
         // Wider than the default: the long edited line must fit in two columns.
         const s = await open([r.dir, r.file("greeting.js")], r.dir, 140);
@@ -147,7 +147,7 @@ runOnLinux("Diff viewer (functional e2e)", () => {
     }, 120_000);
 
     // ── B. Live editable diff: an edit in a side reaches the buffer (PR-4) ──
-    it("печать в стороне диффа правит буфер файла, дифф пересчитывается сам", async () => {
+    it("typing in a diff side edits the file buffer, the diff recomputes itself", async () => {
         const r = repo({ "greeting.js": TRACKED });
         // Wider than the inline threshold: the test asserts a side-by-side N-/N+ pair.
         const s = await open([r.dir, r.file("greeting.js")], r.dir, 140);
@@ -181,7 +181,7 @@ runOnLinux("Diff viewer (functional e2e)", () => {
     }, 120_000);
 
     // ── B. The cursor drives the viewport (map 5) ────────────────────────────
-    it("дифф листается курсором (дифф выше вьюпорта)", async () => {
+    it("the diff scrolls with the cursor (diff taller than the viewport)", async () => {
         // Commit one line and add 80 unique ones to the buffer — added lines
         // aren't folded, so the diff is guaranteed taller than the 24-row screen.
         const r = repo({ "long.txt": "HEADLINE\n" });
@@ -219,7 +219,7 @@ runOnLinux("Diff viewer (functional e2e)", () => {
     }, 120_000);
 
     // ── A. Re-invoking after a new edit refreshes the snapshot (map 9) ────────
-    it("повторный Compare после новой правки показывает свежий снимок", async () => {
+    it("Compare again after a new edit shows a fresh snapshot", async () => {
         const r = repo({ "greeting.js": TRACKED });
         const s = await open([r.dir, r.file("greeting.js")], r.dir, 140);
         try {
@@ -259,7 +259,7 @@ runOnLinux("Diff viewer (functional e2e)", () => {
     }, 120_000);
 
     // ── A. Untracked file → notice (map 6) ──────────────────────────────────
-    it("untracked-файл: команда сообщает, что сравнивать не с чем", async () => {
+    it("untracked file: the command reports there is nothing to compare with", async () => {
         const r = repo({ "tracked.txt": "committed\n" });
         writeFileSync(r.file("fresh.txt"), "brand new file\n");
         const s = await open([r.dir, r.file("fresh.txt")], r.dir);
@@ -278,7 +278,7 @@ runOnLinux("Diff viewer (functional e2e)", () => {
     }, 120_000);
 
     // ── A. Clean file with git ACTIVE (map 8) ───────────────────────────────
-    it("чистый файл при активном git: открывается вкладка ↔ HEAD, а не нотис", async () => {
+    it("clean file with active git: opens a ↔ HEAD tab, not a notice", async () => {
         const r = repo({ "same.txt": "one\ntwo\nthree\n" });
         const s = await open([r.dir, r.file("same.txt")], r.dir);
         try {
@@ -325,7 +325,7 @@ runOnLinux("Diff viewer (functional e2e)", () => {
     /** State of the modified side (the last EditorElement in the pair's tree). */
     const selectionOf = async (s: HeadlessSession) => (await s.nodes("EditorElement")).at(-1)?.state;
 
-    it("каретка в диффе ходит стрелками", async () => {
+    it("arrow keys move the cursor in the diff", async () => {
         const r = repo({ "greeting.js": TRACKED });
         const s = await open([r.dir, r.file("greeting.js")], r.dir);
         try {
@@ -352,7 +352,7 @@ runOnLinux("Diff viewer (functional e2e)", () => {
         }
     }, 120_000);
 
-    it("Shift+End выделяет строку, Ctrl+C кладёт в буфер текст без гуттера", async () => {
+    it("Shift+End selects the line, Ctrl+C copies the text without the gutter", async () => {
         const r = repo({ "greeting.js": TRACKED });
         const s = await open([r.dir, r.file("greeting.js")], r.dir, 140);
         try {
@@ -390,7 +390,7 @@ runOnLinux("Diff viewer (functional e2e)", () => {
         }
     }, 120_000);
 
-    it("протяжка мышью выделяет строки диффа", async () => {
+    it("mouse drag selects diff lines", async () => {
         const r = repo({ "greeting.js": TRACKED });
         const s = await open([r.dir, r.file("greeting.js")], r.dir);
         try {
@@ -413,7 +413,7 @@ runOnLinux("Diff viewer (functional e2e)", () => {
     }, 120_000);
 
     // ── F. Comparison command family (US-3, US-6) ───────────────────────────
-    it("Compare with Saved: вкладка «(on disk) ↔ файл» по несохранённой правке", async () => {
+    it("Compare with Saved: '(on disk) ↔ file' tab for an unsaved edit", async () => {
         const r = repo({ "notes.txt": "alpha\nbravo\ncharlie\n" });
         const s = await open([r.dir, r.file("notes.txt")], r.dir, 140);
         try {
@@ -436,7 +436,7 @@ runOnLinux("Diff viewer (functional e2e)", () => {
         }
     }, 120_000);
 
-    it("Compare Active File With...: пикер открывает дифф двух файлов", async () => {
+    it("Compare Active File With...: the picker opens a diff of two files", async () => {
         const r = repo({ "left.txt": "alpha\nLEFT\n", "right.txt": "alpha\nRIGHT\n" });
         const s = await open([r.dir, r.file("left.txt")], r.dir, 140);
         try {
@@ -462,7 +462,7 @@ runOnLinux("Diff viewer (functional e2e)", () => {
     }, 120_000);
 
     // ── G. Open File at Revision (DiffEditable PR-1) ─────────────────────────
-    it("Open File at Revision: read-only вкладка с контентом ветки", async () => {
+    it("Open File at Revision: read-only tab with the branch content", async () => {
         const r = repo({ "story.txt": "alpha\nbravo\n" });
         git(r.dir, "branch", "old-branch");
         writeFileSync(r.file("story.txt"), "alpha\nbravo\ncharlie\n");
@@ -503,7 +503,7 @@ runOnLinux("Diff viewer (functional e2e)", () => {
     }, 120_000);
 
     // ── H. Diff v2: two real editors (DiffEditable PR-3/PR-4) ───────────────
-    it("v2: вкладка из двух редакторов — выравнивание, плашки, каретка в стороне", async () => {
+    it("v2: tab of two editors — alignment, fold placeholders, cursor in a side", async () => {
         const r = repo({ "greeting.js": TRACKED });
         const s = await open([r.dir, r.file("greeting.js")], r.dir, 140);
         try {
@@ -538,7 +538,7 @@ runOnLinux("Diff viewer (functional e2e)", () => {
     }, 120_000);
 
     // ── E. Side-by-side: resize keeps the cursor (US-23; inline fallback — PR-5) ──
-    it("US-21: узкий терминал — авто-inline с призраком, resize обратно возвращает колонки", async () => {
+    it("US-21: narrow terminal — auto inline with ghost text, resizing back restores the columns", async () => {
         const r = repo({ "greeting.js": TRACKED });
         const s = await open([r.dir, r.file("greeting.js")], r.dir, 140);
         try {
@@ -574,7 +574,7 @@ runOnLinux("Diff viewer (functional e2e)", () => {
         }
     }, 120_000);
 
-    it("US-22: «Diff: Toggle Inline View» переключает режим и запоминается", async () => {
+    it("US-22: 'Diff: Toggle Inline View' switches the mode and is remembered", async () => {
         const r = repo({ "greeting.js": TRACKED });
         const s = await open([r.dir, r.file("greeting.js")], r.dir, 140);
         try {
@@ -603,7 +603,7 @@ runOnLinux("Diff viewer (functional e2e)", () => {
 
     // ── I. Compare New Untitled Text Files (US-37, PR-4) ─────────────────────
     // ── J. PR-5: hunk revert and live HEAD shift (US-31) ────────────────────
-    it("Diff: Revert Hunk откатывает правку под кареткой прямо из диффа", async () => {
+    it("Diff: Revert Hunk reverts the edit under the cursor right from the diff", async () => {
         const r = repo({ "greeting.js": TRACKED });
         const s = await open([r.dir, r.file("greeting.js")], r.dir, 140);
         try {
@@ -637,7 +637,7 @@ runOnLinux("Diff viewer (functional e2e)", () => {
         }
     }, 120_000);
 
-    it("US-31: git commit в обход приложения освежает HEAD-сторону открытого диффа", async () => {
+    it("US-31: a git commit outside the app refreshes the HEAD side of an open diff", async () => {
         const r = repo({ "greeting.js": TRACKED });
         const s = await open([r.dir, r.file("greeting.js")], r.dir, 140);
         try {
@@ -666,7 +666,7 @@ runOnLinux("Diff viewer (functional e2e)", () => {
         }
     }, 120_000);
 
-    it("Compare New Untitled: обе стороны редактируются, дифф живой, закрытие спрашивает", async () => {
+    it("Compare New Untitled: both sides are editable, the diff is live, closing asks", async () => {
         const r = repo({ "seed.txt": "seed\n" });
         const s = await open([r.dir], r.dir, 140);
         try {

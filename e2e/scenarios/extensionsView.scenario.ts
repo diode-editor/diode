@@ -2,7 +2,6 @@ import { resolve } from "node:path";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-
 const registry = resolve(repoRoot, "e2e", "fixtures", "registry");
 // user-data already has test.tab-setter@0.0.1 while the registry knows 0.0.2, so the
 // frame shows every card state at once: available, update, incompatible.
@@ -10,7 +9,7 @@ const userData = resolve(repoRoot, "e2e", "fixtures", "user-data-with-tab-setter
 
 export default defineScenario({
     name: "extensions-view",
-    title: "Extensions view: каталог магазина и страница расширения",
+    title: "Extensions view: marketplace catalog and extension page",
     open: [repoRoot],
     extraArgs: [`--registry=${registry}`],
     seedUserData: userData,

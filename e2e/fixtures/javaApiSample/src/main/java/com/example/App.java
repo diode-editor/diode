@@ -1,6 +1,6 @@
 package com.example;
 
-/** Образец проекта для демо API расширений: сборочный файл лежит в корне. */
+/** Sample project for the extension API demo: the build file is at the root. */
 public final class App {
 
     public static void main(String[] args) {

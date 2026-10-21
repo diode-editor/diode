@@ -56,13 +56,13 @@ function isAlive(pid: number): boolean {
 
 // pgrep and signal 0 are POSIX; on Windows the process tree is inspected differently.
 describe.skipIf(process.platform === "win32" || process.platform === "darwin")(
-    "SEA binary — выход редактора уносит языковые серверы расширений",
+    "SEA binary — editor exit takes extension language servers down",
     () => {
         beforeAll(async () => {
             await getBinaryPath();
         }, 300_000);
 
-        it("tsserver, поднятый расширением, не остаётся сиротой", { timeout: 240_000 }, async () => {
+        it("tsserver started by an extension is not left orphaned", { timeout: 240_000 }, async () => {
             const { session } = await useHeadlessApp({
                 files: {
                     "tsconfig.json": JSON.stringify({ compilerOptions: { strict: true } }),
@@ -81,7 +81,7 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin")(
             const tree = await waitUntil(
                 () => Promise.resolve(processTree(editorPid as number)),
                 (pids) => pids.length >= 3,
-                { describe: "редактор + субпроцесс расширений + языковой сервер", timeoutMs: 120_000, intervalMs: 500 },
+                { describe: "editor + extension subprocess + language server", timeoutMs: 120_000, intervalMs: 500 },
             );
 
             await session.dispose();
@@ -90,7 +90,7 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin")(
             await waitUntil(
                 () => Promise.resolve(tree.filter(isAlive)),
                 (alive) => alive.length === 0,
-                { describe: "всё дерево процессов вышло", timeoutMs: 30_000, intervalMs: 250 },
+                { describe: "the whole process tree exited", timeoutMs: 30_000, intervalMs: 250 },
             );
         });
     },

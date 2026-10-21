@@ -72,7 +72,7 @@ describe("SEA binary — user extensions", () => {
         expect(helloCell.fg).not.toBe(KEYWORD_FG);
     });
 
-    itLinuxOnly("user extension с main self-spawn'ит subprocess и проставляет tabSize", async () => {
+    itLinuxOnly("user extension with main self-spawns a subprocess and sets tabSize", async () => {
         // tab-setter sets tabSize=7 / insertSpaces=false via `activeTextEditor.options`;
         // with tabSize=7, "indented" after the tab is at column 7.
         const { session } = await usePtyApp({
@@ -100,7 +100,7 @@ describe("SEA binary — user extensions", () => {
     });
 
     itLinuxOnly(
-        "will-save участник user extension трансформирует байты при Ctrl+S (проводка saveParticipant)",
+        "will-save participant of a user extension transforms bytes on Ctrl+S (saveParticipant wiring)",
         async () => {
             // Hermetic wiring gate: `group.saveParticipant` must be bound to
             // `host.willSaveTextDocument`; before it, the only gate was the networked editorconfig suite.

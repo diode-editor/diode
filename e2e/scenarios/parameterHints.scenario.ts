@@ -38,7 +38,7 @@ export default defineScenario({
         await waitUntil(
             () => editor.captureFrame(),
             (frame) => frame.cells.some((cell) => (cell.style & UNDERCURL) !== 0),
-            { describe: "undercurl squiggle от tsserver (сервер готов)", timeoutMs: 120_000, intervalMs: 500 },
+            { describe: "tsserver undercurl squiggle (server ready)", timeoutMs: 120_000, intervalMs: 500 },
         );
 
         // The completion popup doesn't open after "(": quick suggest fires only at a word end, as in VS Code.

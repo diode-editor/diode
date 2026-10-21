@@ -119,7 +119,7 @@ describe("Extensions install (functional e2e)", () => {
         removeTempDir(registryRoot);
     });
 
-    it("US-11/12: кнопка Install ставит расширение на диск и зовёт перезагрузить окно", async () => {
+    it("US-11/12: the Install button installs the extension to disk and asks to reload the window", async () => {
         const app = await openExtensions();
         await openPage(app, "sample", "test-sample-lang");
         expect(await pageButtons(app)).toEqual([{ label: "Install", enabled: true }]);
@@ -141,7 +141,7 @@ describe("Extensions install (functional e2e)", () => {
         expect(frameToText(await app.session.captureFrame())).toContain("reload window to activate");
     });
 
-    it("US-13: после перезагрузки окна вклад расширения работает", async () => {
+    it("US-13: after a window reload the extension contribution works", async () => {
         const app = await openExtensions();
         // Before install the language is unknown: `.diodesample` is plain text.
         expect(frameToText(await app.session.captureFrame())).not.toContain("Diode Sample");
@@ -159,7 +159,7 @@ describe("Extensions install (functional e2e)", () => {
         await app.session.waitForText((t) => t.includes("Diode Sample"), { timeoutMs: 60_000 });
     });
 
-    it("Install ставит и extensionDependencies — без вопросов, как VS Code; после перезагрузки работает вклад зависимости", async () => {
+    it("Install also installs extensionDependencies without asking, like VS Code; after reload the dependency contribution works", async () => {
         const app = await openExtensions();
         await openPage(app, "pack", "test-lang-pack");
 
@@ -177,7 +177,7 @@ describe("Extensions install (functional e2e)", () => {
         await app.session.waitForText((t) => t.includes("Diode Sample"), { timeoutMs: 60_000 });
     });
 
-    it("US-14: у установленного старой версии кнопка обновляет до реестровой", async () => {
+    it("US-14: for an installed older version the button updates to the registry version", async () => {
         const app = await openExtensions({
             installVsix: [join(registry, "artifacts", "test.sample-lang-0.0.1.vsix")],
         });
@@ -194,7 +194,7 @@ describe("Extensions install (functional e2e)", () => {
         expect(installedDirs(app)).toEqual(["test.sample-lang-0.0.2"]);
     });
 
-    it("US-15: Uninstall убирает расширение с диска", async () => {
+    it("US-15: Uninstall removes the extension from disk", async () => {
         const app = await openExtensions({
             installVsix: [join(registry, "artifacts", "test.sample-lang-0.0.1.vsix")],
         });
@@ -209,7 +209,7 @@ describe("Extensions install (functional e2e)", () => {
         expect(frameToText(await app.session.captureFrame())).toContain("reload window to apply");
     });
 
-    it("US-16: несовместимое не ставится — кнопка есть, но выключена", async () => {
+    it("US-16: an incompatible extension is not installed — the button is there but disabled", async () => {
         const app = await openExtensions();
         await openPage(app, "legacy", "old-legacy");
 
@@ -220,7 +220,7 @@ describe("Extensions install (functional e2e)", () => {
         expect(screen).toContain("Requires: vscode ^99.0.0");
     });
 
-    it("US-17: битый артефакт не ставится, причина видна, на диске пусто", async () => {
+    it("US-17: a broken artifact is not installed, the reason is shown, nothing on disk", async () => {
         const app = await openExtensions();
         await openPage(app, "broken", "broken-artifact");
 

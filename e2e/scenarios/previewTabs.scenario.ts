@@ -32,12 +32,12 @@ async function waitForTabs(editor: ScenarioDriver, expected: readonly string[]):
         }
         await new Promise((done) => setTimeout(done, 100));
     }
-    throw new Error(`в полосе ожидались вкладки [${expected.join(", ")}], а оказались [${seen.join(", ")}]`);
+    throw new Error(`expected tabs [${expected.join(", ")}] in the strip, got [${seen.join(", ")}]`);
 }
 
 export default defineScenario({
     name: "preview-tabs",
-    title: "Режим предпросмотра: обход дерева переиспользует одну вкладку",
+    title: "Preview mode: walking the tree reuses a single tab",
     open: [sampleDir],
     cols: 110,
     rows: 24,
@@ -46,7 +46,7 @@ export default defineScenario({
         const tree = await editor.waitForNode("TreeViewElement");
         await editor.waitForText((t) => t.includes("alpha.ts") && t.includes("beta.ts") && t.includes("gamma.ts"));
         if (tabsOf(await editor.waitForNode("EditorTabStripElement")).length !== 0) {
-            throw new Error("полоса вкладок ожидалась пустой");
+            throw new Error("expected an empty tab strip");
         }
         await editor.capture("tree-only");
 
@@ -68,13 +68,13 @@ export default defineScenario({
         // Activation 2: beta.ts TAKES alpha.ts's SLOT, still a single tab.
         await activate(1);
         const afterSecond = await waitForTabs(editor, ["beta.ts"]);
-        if (!afterSecond[0].active) throw new Error("новое превью не стало активной вкладкой");
+        if (!afterSecond[0].active) throw new Error("the new preview did not become the active tab");
         await editor.capture("preview-replaced");
 
         // An edit pins the tab: after activation focus is already in the editor.
-        await editor.sendText("// приколото правкой\n");
+        await editor.sendText("// pinned by an edit\n");
         const pinnedByEdit = await waitForTabs(editor, ["beta.ts"]);
-        if (!pinnedByEdit[0].modified) throw new Error("правка не дошла до вкладки");
+        if (!pinnedByEdit[0].modified) throw new Error("the edit did not reach the tab");
 
         // Activation 3: gamma.ts opens ALONGSIDE; replacement doesn't touch
         // the tab pinned by the edit.

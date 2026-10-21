@@ -9,7 +9,7 @@ const sampleFile = resolve(repoRoot, "e2e", "fixtures", "sample.ts");
 
 export default defineScenario({
     name: "keybinding-reachability",
-    title: "Бинды доезжают на любом терминале: аккорд у Explorer, честные подписи, F1 после подъёма tier'а",
+    title: "Keybindings work on any terminal: Explorer chord, honest labels, F1 after a tier upgrade",
     open: [repoRoot, sampleFile],
     settings: {
         // On the Windows runner the builtin TS server fails to start, and its error toast covered the palette.

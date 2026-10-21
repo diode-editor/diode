@@ -25,7 +25,7 @@ async function runCommand(editor: ScenarioDriver, title: string): Promise<void> 
 
 export default defineScenario({
     name: "terminal-editor",
-    title: "Терминал вкладкой справа: window.createTerminal({ location: { viewColumn: Beside } })",
+    title: "Terminal as a tab to the side: window.createTerminal({ location: { viewColumn: Beside } })",
     seedUserData: userData,
     open: [sampleFile],
     cols: 120,

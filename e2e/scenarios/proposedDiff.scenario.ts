@@ -33,7 +33,7 @@ const tabRow = (text: string): string => text.split("\n")[TAB_ROW] ?? "";
 /** Throws with a frame dump when there is no match. */
 function locate(frame: GridSnapshot, needle: string): { x: number; y: number } {
     const cell = findTextCell(frame, needle);
-    if (cell === null) throw new Error(`нет «${needle}» в кадре:\n${dumpFrame(frame)}`);
+    if (cell === null) throw new Error(`no "${needle}" in the frame:\n${dumpFrame(frame)}`);
     return cell;
 }
 
@@ -49,7 +49,7 @@ const diffClosed = (t: string): boolean => !tabRow(t).includes(TAB_TITLE) && !ta
 
 export default defineScenario({
     name: "proposed-diff",
-    title: "Предложенный дифф: правая сторона из провайдера расширения, accept/reject/сохранение",
+    title: "Proposed diff: right side from an extension provider, accept/reject/save",
     seedUserData: userData,
     open: [sampleFile],
     cols: 120,

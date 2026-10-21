@@ -10,7 +10,7 @@ const userData = resolve(repoRoot, "e2e", "fixtures", "user-data-with-theme-sele
 
 export default defineScenario({
     name: "theme-selection-api",
-    title: "window.activeColorTheme и onDidChangeTextEditorSelection",
+    title: "window.activeColorTheme and onDidChangeTextEditorSelection",
     seedUserData: userData,
     open: [sampleFile],
     cols: 120,

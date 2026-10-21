@@ -11,7 +11,7 @@ const fileC = resolve(repoRoot, "e2e", "fixtures", "wordWrap.ts");
 
 export default defineScenario({
     name: "tab-switcher",
-    title: "Ctrl+Tab: видимый MRU-список вкладок и шаг по нему стрелками; Ctrl+PgDn/PgUp: цикл по порядку табов",
+    title: "Ctrl+Tab: visible MRU tab list stepped with arrows; Ctrl+PgDn/PgUp: cycle tabs in order",
     open: [repoRoot, fileA, fileB, fileC],
     cols: 120,
     rows: 32,

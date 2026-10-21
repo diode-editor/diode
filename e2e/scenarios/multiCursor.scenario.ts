@@ -9,7 +9,7 @@ const sampleFile = resolve(repoRoot, "e2e", "fixtures", "sample.ts");
 
 export default defineScenario({
     name: "multi-cursor",
-    title: "Мульти-курсор: Ctrl+D, Ctrl+Shift+L, Ctrl+Alt+↓, Alt+клик",
+    title: "Multi-cursor: Ctrl+D, Ctrl+Shift+L, Ctrl+Alt+↓, Alt+click",
     open: [repoRoot, sampleFile],
     cols: 100,
     rows: 24,

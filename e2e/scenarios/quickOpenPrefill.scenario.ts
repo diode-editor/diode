@@ -4,7 +4,7 @@ import { defineScenario, repoRoot } from "./framework.ts";
 
 export default defineScenario({
     name: "quick-open-prefill",
-    title: "Quick Open с префиллом из args пользовательского бинда",
+    title: "Quick Open prefilled from a user keybinding's args",
     open: [repoRoot],
     userKeybindings: [
         { key: "f6", command: "workbench.action.quickOpen", args: "sample" },

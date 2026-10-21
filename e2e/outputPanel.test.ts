@@ -30,7 +30,7 @@ describe("Output panel (functional e2e)", () => {
     });
 
 
-    it("открывает вкладку OUTPUT между PROBLEMS и TERMINAL с непустым логом", async () => {
+    it("opens the OUTPUT tab between PROBLEMS and TERMINAL with a non-empty log", async () => {
         app = await startOutputApp();
         await openOutput(app.session);
         const panel = await app.session.node("PanelContainerElement");
@@ -40,7 +40,7 @@ describe("Output panel (functional e2e)", () => {
         expect(text).toMatch(/\d\d:\d\d:\d\d\.\d\d\d \[info\] diode starting/u);
     }, 120_000);
 
-    it("переключает канал мышью через селектор — меняется и контент, и подпись", async () => {
+    it("switches the channel with the mouse via the selector — both content and label change", async () => {
         app = await startOutputApp();
         await openOutput(app.session);
         await pickChannel(app.session, "Extensions");
@@ -49,7 +49,7 @@ describe("Output panel (functional e2e)", () => {
         expect(frameToText(await app.session.captureFrame())).not.toContain("diode starting");
     }, 120_000);
 
-    it("клик по селектору не переключает вкладку панели, клики по табам работают", async () => {
+    it("clicking the selector does not switch the panel tab, clicking tabs still works", async () => {
         app = await startOutputApp();
         const { session } = app;
         await openOutput(session);
@@ -71,7 +71,7 @@ describe("Output panel (functional e2e)", () => {
 
     // Output channels are an `afterRestored` phase contribution, as upstream; here that phase comes
     // after the highlighted frame (OpenPerformance, lever 8).
-    it("OUTPUT, открытый сразу после старта, получает селектор и команды каналов", async () => {
+    it("OUTPUT opened right after startup gets the selector and channel commands", async () => {
         app = await startOutputApp();
         const { session } = app;
         await session.key("Alt+U");
@@ -83,7 +83,7 @@ describe("Output panel (functional e2e)", () => {
     }, 120_000);
 
 
-    it("[BUG-1] после смены канала мышью фокус не теряется", async () => {
+    it("[BUG-1] focus is kept after switching the channel with the mouse", async () => {
         app = await startOutputApp();
         const { session } = app;
         await openOutput(session);
@@ -93,7 +93,7 @@ describe("Output panel (functional e2e)", () => {
         expect(await focusedType(session)).toBe("EditorElement");
     }, 120_000);
 
-    it("[BUG-1b] смена канала командой (кейбинд) тоже не роняет фокус", async () => {
+    it("[BUG-1b] switching the channel by command (keybinding) keeps focus too", async () => {
         app = await startOutputApp();
         const { session } = app;
         await openOutput(session);
@@ -102,7 +102,7 @@ describe("Output panel (functional e2e)", () => {
         expect(await focusedType(session)).toBe("EditorElement");
     }, 120_000);
 
-    it("[BUG-2] Toggle Read-only при фокусе в Output не делает лог редактируемым", async () => {
+    it("[BUG-2] Toggle Read-only with focus in Output does not make the log editable", async () => {
         app = await startOutputApp();
         const { session } = app;
         await openOutput(session);
@@ -117,7 +117,7 @@ describe("Output panel (functional e2e)", () => {
         expect(frameToText(await session.captureFrame())).not.toContain("HACKED");
     }, 120_000);
 
-    it("[BUG-3] живой канал не рвёт выделение в Output", async () => {
+    it("[BUG-3] a live channel does not break the selection in Output", async () => {
         app = await startOutputApp();
         const { session } = app;
         await openOutput(session);
@@ -138,7 +138,7 @@ describe("Output panel (functional e2e)", () => {
         expect((await focusedEditorState(session))?.hasSelection).toBe(true);
     }, 180_000);
 
-    it("[BUG-4] Ctrl+F при фокусе в Output ищет по логу, а не по файлу за панелью", async () => {
+    it("[BUG-4] Ctrl+F with focus in Output searches the log, not the file behind the panel", async () => {
         app = await startOutputApp();
         const { session } = app;
         await openOutput(session);
@@ -154,7 +154,7 @@ describe("Output panel (functional e2e)", () => {
         expect(findLine).not.toContain("No results");
     }, 120_000);
 
-    it("[BUG-5] Tab в read-only редакторе не уводит фокус в невидимый виджет", async () => {
+    it("[BUG-5] Tab in a read-only editor does not move focus to an invisible widget", async () => {
         app = await startOutputApp();
         const { session } = app;
         await openOutput(session);
@@ -163,7 +163,7 @@ describe("Output panel (functional e2e)", () => {
         expect(await focusedType(session)).not.toBe("QuickPickElement");
     }, 120_000);
 
-    it("[BUG-6] после рестарта с открытой вкладкой OUTPUT лог виден сразу", async () => {
+    it("[BUG-6] after a restart with the OUTPUT tab open, the log is visible immediately", async () => {
         const first = await startOutputApp({ keepRoot: true });
         const root = first.env.root;
         try {

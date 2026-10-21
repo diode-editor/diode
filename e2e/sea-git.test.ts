@@ -57,7 +57,7 @@ describe("SEA binary — built-in git plugin", () => {
         if (repoDir) rmSync(repoDir, { recursive: true, force: true });
     });
 
-    itLinuxOnly("активируется под SEA и рисует dirty-diff бар в гуттере изменённого файла", async () => {
+    itLinuxOnly("activates under SEA and draws the dirty-diff bar in the gutter of a modified file", async () => {
         // cwd is the repo itself: the git plugin works from the workspace folder.
         const { session } = await usePtyApp({ open: [repoDir, trackedFile], cwd: repoDir });
         const screen = await session.waitFor((s) => s.findText("BRAVO") !== null && hasGutterBar(s), {

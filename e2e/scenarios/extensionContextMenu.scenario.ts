@@ -6,14 +6,13 @@ import { waitUntil } from "../helpers/waitFor.ts";
 
 import { defineScenario } from "./framework.ts";
 
-
 const sampleDir = mkdtempSync(join(tmpdir(), "diode-ext-menu-demo-"));
 const pythonFile = join(sampleDir, "main.py");
 const textFile = join(sampleDir, "notes.txt");
 
 export default defineScenario({
     name: "extension-context-menu",
-    title: "contributes.menus: пункт стокового расширения в контекст-меню редактора",
+    title: "contributes.menus: a stock extension item in the editor context menu",
     open: [sampleDir, pythonFile],
     installVsix: ["detachhead.basedpyright"],
     network: true,
@@ -22,7 +21,7 @@ export default defineScenario({
     skipOn: ["win32", "darwin"],
     async prepare() {
         writeFileSync(pythonFile, "import os\nimport sys\n\n\ndef main() -> None:\n    print(os.name, sys.platform)\n");
-        writeFileSync(textFile, "просто текст\n");
+        writeFileSync(textFile, "just some text\n");
     },
     async run(editor) {
         await editor.waitForText((t) => t.includes("def main"));
@@ -36,7 +35,7 @@ export default defineScenario({
                 return text;
             },
             (text) => text.includes("Pyright: Organize Imports"),
-            { describe: "пункт расширения в контекст-меню .py", timeoutMs: 120_000, intervalMs: 1000 },
+            { describe: "extension item in the .py context menu", timeoutMs: 120_000, intervalMs: 1000 },
         );
         await editor.capture("python");
         await editor.sendKey("Escape");
@@ -44,12 +43,13 @@ export default defineScenario({
         await editor.sendKey("Ctrl+P");
         await editor.sendText("notes.txt");
         await editor.sendKey("Enter");
-        await editor.waitForText((t) => t.includes("просто текст"));
+        await editor.waitForText((t) => t.includes("just some text"));
         await editor.sendKey("Shift+F10");
         await editor.waitForText((t) => t.includes("Command Palette"));
         const frame = await editor.captureFrame();
         const text = frame.cells.map((cell) => cell.char).join("");
-        if (text.includes("Pyright")) throw new Error("пункт расширения виден в .txt — when манифеста не применён");
+        if (text.includes("Pyright"))
+            throw new Error("extension item is visible in .txt — the manifest's when clause is not applied");
         await editor.capture("text");
     },
 });

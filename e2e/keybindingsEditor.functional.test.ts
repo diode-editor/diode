@@ -40,7 +40,7 @@ describe("Keyboard Shortcuts editor (functional e2e)", () => {
         await getBinaryPath();
     }, 300_000);
 
-    it("US-1: команда открывает вкладку со списком команд и колонками", async () => {
+    it("US-1: the command opens a tab with the command list and columns", async () => {
         const app = await openEditor();
         const screen = frameToText(await app.session.captureFrame());
 
@@ -51,7 +51,7 @@ describe("Keyboard Shortcuts editor (functional e2e)", () => {
         expect(screen).toContain("Type to search keybindings");
     });
 
-    it("US-2: поиск фильтрует список", async () => {
+    it("US-2: search filters the list", async () => {
         const app = await openEditor();
         await app.session.text("Save File");
         const screen = frameToText(await app.session.waitForText((t) => t.includes("Save File")));
@@ -60,13 +60,13 @@ describe("Keyboard Shortcuts editor (functional e2e)", () => {
         expect(screen).not.toContain("Toggle Line Comment");
     });
 
-    it("US-3: рекордер пишет биндинг — файл на диске и команда работает в этом сеансе", async () => {
+    it("US-3: the recorder writes a keybinding — file on disk and the command works in this session", async () => {
         const app = await openEditor();
 
         await app.session.text("Show Hover");
         await app.session.waitForText((t) => t.includes("Show Hover"));
         const row = await app.session.node("#kb-0");
-        expect(row, "строка команды не найдена").not.toBeNull();
+        expect(row, "command row not found").not.toBeNull();
         await app.session.clickNode("#kb-0");
         await app.session.clickNode("#kb-0"); // double click → recorder
         await app.session.waitForText((t) => t.includes("Press desired key combination"));
@@ -80,7 +80,7 @@ describe("Keyboard Shortcuts editor (functional e2e)", () => {
         expect(written).toContain('"command": "editor.action.showHover"');
     });
 
-    it("US-4: @conflicts показывает заранее конфликтную пару на Ctrl+S", async () => {
+    it("US-4: @conflicts shows a pre-seeded conflicting pair on Ctrl+S", async () => {
         const app = await openEditor();
         await app.session.text("@conflicts ctrl+s");
         const screen = frameToText(await app.session.waitForText((t) => t.includes("Select All")));

@@ -9,7 +9,7 @@ const registry = resolve(repoRoot, "e2e", "fixtures", "registry-partial");
 
 export default defineScenario({
     name: "extensions-partial-support",
-    title: "Extensions view: расширение, которое работает не целиком",
+    title: "Extensions view: a partially supported extension",
     open: [repoRoot],
     extraArgs: [`--registry=${registry}`],
     // The headless DSL cannot encode a real Ctrl+Shift+X, so the command is bound to F6.

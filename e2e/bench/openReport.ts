@@ -104,17 +104,17 @@ export function summarizeSize(
 
 
 export function formatMs(value: number | null | undefined): string {
-    return value === null || value === undefined ? "—" : `${String(Math.round(value))} мс`;
+    return value === null || value === undefined ? "—" : `${String(Math.round(value))} ms`;
 }
 
 export function formatBytes(bytes: number): string {
-    if (bytes >= MiB) return `${(bytes / MiB).toFixed(bytes >= 100 * MiB ? 0 : 1)} МБ`;
-    return `${(bytes / 1024).toFixed(1)} КБ`;
+    if (bytes >= MiB) return `${(bytes / MiB).toFixed(bytes >= 100 * MiB ? 0 : 1)} MB`;
+    return `${(bytes / 1024).toFixed(1)} KB`;
 }
 
 function formatIqr(s: Stats | null): string {
     if (s === null) return "—";
-    return `${String(Math.round(s.iqr))} мс${s.noisy ? " ⚠ шумно" : ""}`;
+    return `${String(Math.round(s.iqr))} ms${s.noisy ? " ⚠ noisy" : ""}`;
 }
 
 function medianCell(s: Stats | null | undefined): string {
@@ -134,31 +134,31 @@ function outcomeNote(size: SizeReport): string {
 export function renderMarkdown(report: FullReport): string {
     const lines: string[] = [];
     const noisyPercent = String(Math.round(NOISY_IQR_RATIO * 100));
-    lines.push("# Бенчмарк открытия файла");
+    lines.push("# File open benchmark");
     lines.push("");
-    lines.push(`- Снято: ${report.generatedAt}, коммит \`${report.commit}\`, diode ${report.binaryVersion}`);
+    lines.push(`- Recorded: ${report.generatedAt}, commit \`${report.commit}\`, diode ${report.binaryVersion}`);
     lines.push(
-        `- Машина: ${report.env.cpu} (${String(report.env.cores)} cores, ${String(report.env.memGb)} GB), ${report.env.platform}`,
+        `- Machine: ${report.env.cpu} (${String(report.env.cores)} cores, ${String(report.env.memGb)} GB), ${report.env.platform}`,
     );
-    lines.push(`- Условия: ${report.env.conditions}`);
+    lines.push(`- Conditions: ${report.env.conditions}`);
     lines.push(
-        `- Пол node (\`node -e ""\` через PTY, median): ${formatMs(report.floors.node.medianMs)}; ` +
-            `пол бинаря (\`diode --version\` через PTY, median): ${formatMs(report.floors.binary.medianMs)}; ` +
-            `для справки \`node --version\`: ${formatMs(report.floors.nodeVersion.medianMs)} (отвечает до подъёма V8)`,
+        `- node floor (\`node -e ""\` over PTY, median): ${formatMs(report.floors.node.medianMs)}; ` +
+            `binary floor (\`diode --version\` over PTY, median): ${formatMs(report.floors.binary.medianMs)}; ` +
+            `for reference \`node --version\`: ${formatMs(report.floors.nodeVersion.medianMs)} (answers before V8 starts)`,
     );
     lines.push("");
 
-    lines.push("## От пола");
+    lines.push("## Over the floor");
     lines.push("");
     lines.push(
-        "Главная цифра — **наших мс**: до текста минус пол node (столько стоит всё наше поверх " +
-            "рантайма). «Над полом бинаря» вычитает ещё и парс SEA-бандла (`diode --version`), " +
-            "оставляя кухню воркбенча. Медианы по прогонам; IQR — межквартильный размах, " +
-            `при IQR > ${noisyPercent} % медианы строка помечена «шумно».`,
+        "The headline number is **our ms**: time to text minus the node floor (what everything of ours " +
+            'costs on top of the runtime). "Over binary floor" also subtracts SEA bundle parsing ' +
+            "(`diode --version`), leaving the workbench startup itself. Medians across runs; IQR is the " +
+            `interquartile range, a row with IQR > ${noisyPercent} % of the median is marked "noisy".`,
     );
     lines.push("");
     lines.push(
-        "| файл | размер | строк | наших мс | над полом бинаря | до текста | до подсветки | IQR (до текста) | peak RSS | прогонов |",
+        "| file | size | lines | our ms | over binary floor | to text | to highlight | IQR (to text) | peak RSS | runs |",
     );
     lines.push("| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |");
     for (const size of report.sizes) {
@@ -179,32 +179,32 @@ export function renderMarkdown(report: FullReport): string {
     }
     lines.push("");
 
-    lines.push("## Лестница вех (белый ящик)");
+    lines.push("## Mark ladder (white box)");
     lines.push("");
     lines.push(
-        "Вехи `performance.mark` внутри процесса (`DIODE_STARTUP_TRACE`), median мс от спауна. " +
-            "Две последние строки — чёрный ящик (тот же прогон, по байтам на PTY) и расхождение " +
-            "«до текста − кадр с текстом»: цена доставки кадра через PTY и парсер бенча.",
+        "`performance.mark` marks inside the process (`DIODE_STARTUP_TRACE`), median ms from spawn. " +
+            "The last rows are the black box (same run, from PTY bytes) and the gap " +
+            '"to text − frame with text": the cost of delivering the frame over PTY and through the bench parser.',
     );
     lines.push("");
-    lines.push(`| веха | ${report.sizes.map((s) => `\`${s.key}\``).join(" | ")} |`);
+    lines.push(`| mark | ${report.sizes.map((s) => `\`${s.key}\``).join(" | ")} |`);
     lines.push(`| --- | ${report.sizes.map(() => "---:").join(" | ")} |`);
     for (const m of MILESTONES) {
         lines.push(`| ${m.label} | ${report.sizes.map((s) => medianCell(s.ladder[m.key])).join(" | ")} |`);
     }
-    lines.push(`| до текста (чёрный ящик) | ${report.sizes.map((s) => medianCell(s.content)).join(" | ")} |`);
-    lines.push(`| до подсветки (чёрный ящик) | ${report.sizes.map((s) => medianCell(s.highlight)).join(" | ")} |`);
-    lines.push(`| расхождение чёрный − белый (текст) | ${report.sizes.map((s) => medianCell(s.boxGap)).join(" | ")} |`);
+    lines.push(`| to text (black box) | ${report.sizes.map((s) => medianCell(s.content)).join(" | ")} |`);
+    lines.push(`| to highlight (black box) | ${report.sizes.map((s) => medianCell(s.highlight)).join(" | ")} |`);
+    lines.push(`| gap black − white (text) | ${report.sizes.map((s) => medianCell(s.boxGap)).join(" | ")} |`);
     lines.push("");
 
-    lines.push("## Нагрузка после открытия");
+    lines.push("## Workload after open");
     lines.push("");
     lines.push(
-        "Латентность клавиши: от записи в PTY до кадра, в котором изменение видно на экране " +
-            "(median мс). Каретка в середине файла; поиск — одно слово одним paste-событием.",
+        "Keystroke latency: from the write to the PTY to the frame where the change is visible " +
+            "(median ms). The cursor is mid-file; search types one word as a single paste event.",
     );
     lines.push("");
-    lines.push(`| файл | ${WORKLOAD_STEPS.map((s) => s.label).join(" | ")} |`);
+    lines.push(`| file | ${WORKLOAD_STEPS.map((s) => s.label).join(" | ")} |`);
     lines.push(`| --- | ${WORKLOAD_STEPS.map(() => "---:").join(" | ")} |`);
     for (const size of report.sizes) {
         const note = size.workloadFailures.length === 0 ? "" : ` ${[...new Set(size.workloadFailures)].join(", ")}`;
@@ -215,16 +215,16 @@ export function renderMarkdown(report: FullReport): string {
     lines.push("");
 
     lines.push(
-        "Методика: SEA-бинарь запускается в PTY (120×32) в герметичном окружении " +
-            "(свой user-data-dir и HOME); отсчёт — от спауна процесса; момент появления " +
-            "текста/подсветки восстанавливается по таймстемпам чанков stdout. " +
-            "Полы node и бинаря сняты в том же прогоне тем же способом (спаун через PTY, " +
-            'до первого чанка вывода): пол node — `node -e ""`, минимальный процесс с полным ' +
-            "бутстрапом V8 (`node --version` отвечает до подъёма V8 и полом рантайма быть не может); " +
-            "пол бинаря — `diode --version`, то есть плюс парс SEA-бандла. " +
-            "«До подсветки» — первый кадр, где ключевое слово " +
-            "раскрашено темой. Peak RSS — `VmHWM` процесса редактора за весь прогон (старт + нагрузка). " +
-            "LSP в замер не входит. Первый прогон каждого размера — прогревочный, в статистике не участвует.",
+        "Methodology: the SEA binary runs in a PTY (120×32) in a hermetic environment " +
+            "(its own user-data-dir and HOME); time is counted from process spawn; the moment " +
+            "text/highlighting appears is recovered from stdout chunk timestamps. " +
+            "The node and binary floors are taken in the same run the same way (spawn over PTY, " +
+            'until the first output chunk): the node floor is `node -e ""`, the minimal process with a full ' +
+            "V8 bootstrap (`node --version` answers before V8 starts and cannot be the runtime floor); " +
+            "the binary floor is `diode --version`, i.e. plus SEA bundle parsing. " +
+            '"To highlight" is the first frame where a keyword is colored by the theme. ' +
+            "Peak RSS is the editor process `VmHWM` over the whole run (startup + workload). " +
+            "LSP is not measured. The first run of each size is a warm-up and is excluded from the stats.",
     );
     lines.push("");
     return lines.join("\n");

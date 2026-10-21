@@ -1,6 +1,6 @@
 {
-    // Настройки ЭТОГО проекта: действуют поверх пользовательских.
+    // Settings of THIS project: they apply on top of the user settings.
     "files.exclude": { "**/generated": true },
-    // Ключ машины: проект его не задаёт — в Problems подсказка, значение не применяется.
+    // A machine key: the project cannot set it, so Problems shows a hint and the value is not applied.
     "terminal.tier": "kitty"
 }

@@ -5,8 +5,8 @@ import { startHeadlessApp } from "./appSession.ts";
 // A request to a dead socket must fail immediately: `ws` silently drops a send to a closed
 // socket, and the post-mortem of a failed test used to eat the whole `hookTimeout`.
 
-describe("HeadlessSession — запрос после dispose", () => {
-    it("отклоняется сразу, а не висит без ответа", { timeout: 60_000 }, async () => {
+describe("HeadlessSession — request after dispose", () => {
+    it("rejects immediately instead of hanging", { timeout: 60_000 }, async () => {
         const app = await startHeadlessApp({ open: [] });
         await app.session.waitForNode("BodyElement");
         await app.dispose();

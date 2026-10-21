@@ -1,7 +1,7 @@
 {
     "name": "untitled-report-demo",
     "displayName": "Untitled Report Demo",
-    "description": "Демо workspace.openTextDocument({ content, language }): отчёт в безымянный документ и showTextDocument — как «Go: Locate Configured Go Tools» у golang.go.",
+    "description": "workspace.openTextDocument({ content, language }) demo: a report in an untitled document and showTextDocument, like \"Go: Locate Configured Go Tools\" in golang.go.",
     "version": "0.0.1",
     "publisher": "test",
     "main": "./extension.js",

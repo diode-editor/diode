@@ -2,12 +2,11 @@ import { resolve } from "node:path";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-
 const sampleDir = resolve(repoRoot, "e2e", "fixtures", "compactFolders");
 
 export default defineScenario({
     name: "explorer-expand-mode",
-    title: "workbench.tree.expandMode: клик по имени папки и Enter раскрывают её",
+    title: "workbench.tree.expandMode: clicking a folder name and Enter expand it",
     open: [sampleDir],
     cols: 100,
     rows: 20,

@@ -60,7 +60,7 @@ exports.activate = function activate(context) {
                     log.appendLine(
                         "#" +
                             n +
-                            " старт " +
+                            " start " +
                             kind +
                             " delay=" +
                             String(delay) +
@@ -68,7 +68,7 @@ exports.activate = function activate(context) {
                             JSON.stringify(prefix),
                     );
                     token.onCancellationRequested(function () {
-                        log.appendLine("#" + n + " отменён");
+                        log.appendLine("#" + n + " cancelled");
                     });
 
                     // Silent provider: the promise never resolves — the core
@@ -89,7 +89,7 @@ exports.activate = function activate(context) {
                                 return;
                             }
                             const items = match === undefined ? [] : [new vscode.InlineCompletionItem(match.insertText)];
-                            log.appendLine("#" + n + " ответ " + items.length + " пунктов");
+                            log.appendLine("#" + n + " answered " + items.length + " items");
                             resolve(items);
                         }, delay);
                     });
@@ -106,7 +106,7 @@ exports.activate = function activate(context) {
             [{ language: "typescript" }, { language: "javascript" }, { language: "plaintext" }],
             {
                 provideInlineCompletionItems: function () {
-                    log.appendLine("#" + requestNumber + " B опрошен");
+                    log.appendLine("#" + requestNumber + " B polled");
                     return [];
                 },
             },

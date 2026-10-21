@@ -26,13 +26,13 @@ const UNDERCURL = 8;
 
 // Linux only: extension host + language server spawn (docs/TODO/E2E.md).
 describe.skipIf(process.platform === "win32" || process.platform === "darwin")(
-    "SEA binary — hover от стокового typescript-language-server",
+    "SEA binary — hover from stock typescript-language-server",
     () => {
         beforeAll(async () => {
             await getBinaryPath();
         }, 300_000);
 
-        it("Ctrl+K Ctrl+U показывает тип символа, Escape закрывает попап", { timeout: 240_000 }, async () => {
+        it("Ctrl+K Ctrl+U shows the symbol type, Escape closes the popup", { timeout: 240_000 }, async () => {
             const { session } = await useHeadlessApp({
                 files: {
                     "tsconfig.json": JSON.stringify({ compilerOptions: { strict: true } }),
@@ -48,7 +48,7 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin")(
             await waitUntil(
                 () => session.captureFrame(),
                 (frame) => frame.cells.some((cell) => (cell.style & UNDERCURL) !== 0),
-                { describe: "undercurl squiggle от tsserver", timeoutMs: 120_000, intervalMs: 500 },
+                { describe: "undercurl squiggle from tsserver", timeoutMs: 120_000, intervalMs: 500 },
             );
 
             // Cursor on `greet` in the call (line 2, column 23), then Ctrl+K Ctrl+U.
@@ -69,7 +69,7 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin")(
             const frame = await waitUntil(
                 () => session.captureFrame(),
                 (f) => !frameToText(f).includes("(alias) greet"),
-                { describe: "hover-попап закрыт по Escape", timeoutMs: 30_000, intervalMs: 250 },
+                { describe: "hover popup closed by Escape", timeoutMs: 30_000, intervalMs: 250 },
             );
             expect(frameToText(frame)).toContain('const reply: number = greet("world");');
         });

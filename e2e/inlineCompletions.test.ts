@@ -57,7 +57,7 @@ describeLinuxOnly("inline completions — ghost text from a user extension", () 
         await getBinaryPath();
     }, 180_000);
 
-    it("набор триггера показывает ghost text, Tab принимает одной правкой, undo снимает целиком", async () => {
+    it("typing the trigger shows ghost text, Tab accepts in one edit, undo removes it entirely", async () => {
         const { session } = await useHeadlessApp({
             seedUserData: userData,
             files: { "sample.ts": "// Fibonacci demo\n" },
@@ -92,7 +92,7 @@ describeLinuxOnly("inline completions — ghost text from a user extension", () 
 
     // Upstream: `editor.quickSuggestions` → `offWhenInlineCompletions` — quick suggest
     // waits for the ghost text request to settle.
-    it("quick suggest уступает призраку: есть подсказка — попапа нет, нет — попап открывается", async () => {
+    it("quick suggest yields to ghost text: with a suggestion no popup, without one the popup opens", async () => {
         const { session } = await useHeadlessApp({
             seedUserData: userData,
             // "fibber" in the buffer: without yielding, "fi"/"fib" would open the popup.
@@ -117,7 +117,7 @@ describeLinuxOnly("inline completions — ghost text from a user extension", () 
         expect(editor?.state?.ghostText ?? null).toBeNull();
     }, 120_000);
 
-    it("Esc закрывает suggest-попап — и призрак появляется без дополнительной правки", async () => {
+    it("Esc closes the suggest popup and ghost text appears without another edit", async () => {
         const { session } = await useHeadlessApp({
             seedUserData: userData,
             // The word "fibber" in the buffer keeps the word-based popup alive on "fib":
@@ -149,7 +149,7 @@ describeLinuxOnly("inline completions — ghost text from a user extension", () 
         expect((withGhost.state?.ghostText as IGhostState).lines[0]).toBe("onacci(n) {");
     }, 120_000);
 
-    it("каретка в середине строки: призрак рисуется перед хвостом, Tab вставляет, Esc возвращает строку", async () => {
+    it("cursor mid-line: ghost text renders before the tail, Tab inserts, Esc restores the line", async () => {
         const { session } = await useHeadlessApp({
             seedUserData: userData,
             files: { "sample.ts": "// demo\n)\n" },
@@ -187,7 +187,7 @@ describeLinuxOnly("inline completions — ghost text from a user extension", () 
         await session.waitForText((t) => !t.includes("Hello from ghost text"), { timeoutMs: 5000 });
     }, 120_000);
 
-    it("каретка в середине строки: Esc гасит призрака и возвращает строку в исходный вид", async () => {
+    it("cursor mid-line: Esc hides ghost text and restores the original line", async () => {
         const { session } = await useHeadlessApp({
             seedUserData: userData,
             files: { "sample.ts": "// demo\n)\n" },
@@ -212,7 +212,7 @@ describeLinuxOnly("inline completions — ghost text from a user extension", () 
     // Manual mode: `enabled: false` gates ONLY the automatic request (as in vscode);
     // the `editor.action.inlineSuggest.trigger` command works independently.
     // The key is Alt+\ (the terminal sends it as ESC + `\`).
-    it("enabled:false — набор призрака не зовёт, Alt+\\ зовёт", async () => {
+    it("enabled:false — typing does not trigger ghost text, Alt+\\ does", async () => {
         const { session } = await useHeadlessApp({
             seedUserData: userData,
             settings: { "editor.inlineSuggest.enabled": false },
@@ -239,7 +239,7 @@ describeLinuxOnly("inline completions — ghost text from a user extension", () 
                 // provider not registered yet — try again
             }
         }
-        if (ghost === null) throw new Error("Alt+\\ не показал призрака за 15 попыток");
+        if (ghost === null) throw new Error("Alt+\\ did not show ghost text in 15 attempts");
         expect(ghost.lines[0]).toBe("onacci(n) {");
 
         // Now the main point: with the setting off, TYPING does not request ghost text.
@@ -263,7 +263,7 @@ describeLinuxOnly("inline completions — ghost text from a user extension", () 
 
     // `requestTimeout` is read on EVERY request: with the setting raised, a provider
     // slower than the default 5000 ms is waited for.
-    it("requestTimeout даёт дождаться провайдера, который не успевает за дефолт", async () => {
+    it("requestTimeout lets a provider slower than the default finish", async () => {
         const { session } = await useHeadlessApp({
             seedUserData: userData,
             settings: {
@@ -297,11 +297,11 @@ describeLinuxOnly("inline completions — ghost text from a user extension", () 
                 await session.key("b");
             }
         }
-        if (ghost === null) throw new Error("медленный провайдер так и не дождался показа");
+        if (ghost === null) throw new Error("the slow provider was never shown");
         expect(ghost.lines[0]).toBe("onacci(n) {");
     }, 180_000);
 
-    it("Escape гасит подсказку, не трогая документ", async () => {
+    it("Escape hides the suggestion without touching the document", async () => {
         const { session } = await useHeadlessApp({
             seedUserData: userData,
             files: { "sample.ts": "const x = 1\n" },

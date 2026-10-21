@@ -40,13 +40,13 @@ async function holdsSoon(
 }
 
 describe.skipIf(process.platform === "win32" || process.platform === "darwin")(
-    "SEA binary — Find All References от стокового typescript-language-server",
+    "SEA binary — Find All References from the stock typescript-language-server",
     () => {
         beforeAll(async () => {
             await getBinaryPath();
         }, 300_000);
 
-        it("панель собирает ссылки из двух файлов, Enter и F4 водят по ним", { timeout: 240_000 }, async () => {
+        it("the panel collects references from two files, Enter and F4 navigate them", { timeout: 240_000 }, async () => {
             const { session } = await useHeadlessApp({
                 files: {
                     "tsconfig.json": JSON.stringify({ compilerOptions: { strict: true } }),
@@ -63,7 +63,7 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin")(
             await waitUntil(
                 () => session.captureFrame(),
                 (frame) => frame.cells.some((cell) => (cell.style & UNDERCURL) !== 0),
-                { describe: "undercurl squiggle от tsserver", timeoutMs: 120_000, intervalMs: 500 },
+                { describe: "undercurl squiggle from tsserver", timeoutMs: 120_000, intervalMs: 500 },
             );
 
             // Put the cursor on the `greet` call (line 3, column 23) and run Find All References.
@@ -86,7 +86,7 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin")(
                 await session.key(step === 0 ? "Enter" : "F4");
                 reachedDefs = await holdsSoon(session, (text) => text.includes('return "hi " + name'));
             }
-            expect(reachedDefs, "обход ссылок не привёл в defs.ts").toBe(true);
+            expect(reachedDefs, "walking the references did not reach defs.ts").toBe(true);
 
             // The panel stays after navigation: the result lives until the next search.
             const frame = frameToText(await session.captureFrame());

@@ -1,7 +1,7 @@
 {
     "name": "deps-provider",
     "displayName": "Deps Provider",
-    "description": "Демо extensionDependencies: зависимость, чьё собственное событие никогда не наступает, — поднять её может только зависимое расширение.",
+    "description": "extensionDependencies demo: a dependency whose own activation event never fires, so only the dependent extension can activate it.",
     "version": "0.0.1",
     "publisher": "test",
     "main": "./extension.js",

@@ -10,7 +10,7 @@ const data = resolve(sampleDir, "data.json");
 
 export default defineScenario({
     name: "prettier-format",
-    title: "Формат из коробки: prettier на markdown и json",
+    title: "Out-of-the-box format: prettier on markdown and json",
     open: [sampleDir, notes, data],
     installVsix: ["esbenp.prettier-vscode"],
     network: true,

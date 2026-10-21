@@ -27,13 +27,13 @@ function tabRow(text: string): string {
 
 function isStruck(frame: GridSnapshot, needle: string): boolean {
     const cell = findTextCell(frame, needle);
-    if (cell === null) throw new Error(`«${needle}» нет в кадре`);
+    if (cell === null) throw new Error(`"${needle}" not in the frame`);
     return (frame.cells[cell.y * frame.cols + cell.x].style & STRIKETHROUGH) !== 0;
 }
 
 export default defineScenario({
     name: "deleted-file-tab",
-    title: "Вкладка удалённого файла: зачёркнута и «(deleted)», чистая из удалённого каталога закрывается",
+    title: "Deleted file tab: struck through and '(deleted)'; a clean one from a deleted folder closes",
     open: [sampleDir, notes, clean, dirty],
     cols: 120,
     rows: 20,
@@ -60,7 +60,7 @@ export default defineScenario({
         const deleted = await editor.waitForText((t) => tabRow(t).includes("notes.txt (deleted)"), {
             timeoutMs: 10_000,
         });
-        if (!isStruck(deleted, "notes.txt (deleted)")) throw new Error("имя удалённого файла не зачёркнуто");
+        if (!isStruck(deleted, "notes.txt (deleted)")) throw new Error("deleted file name is not struck through");
         await editor.capture("external-delete");
 
         // ── File restored: the flag is cleared ──
@@ -68,7 +68,7 @@ export default defineScenario({
         const restored = await editor.waitForText((t) => tabRow(t) !== "" && !tabRow(t).includes("(deleted)"), {
             timeoutMs: 10_000,
         });
-        if (isStruck(restored, "notes.txt")) throw new Error("вернувшийся файл остался зачёркнутым");
+        if (isStruck(restored, "notes.txt")) throw new Error("restored file is still struck through");
         await editor.capture("restored");
 
         // ── Deleting the src folder from the explorer ──
@@ -88,10 +88,10 @@ export default defineScenario({
             (t) => t.includes("dirty.txt (deleted)") && !t.includes("clean.txt"),
             { timeoutMs: 10_000 },
         );
-        if (!isStruck(afterFolder, "dirty.txt (deleted)")) throw new Error("грязная вкладка не зачёркнута");
+        if (!isStruck(afterFolder, "dirty.txt (deleted)")) throw new Error("dirty tab is not struck through");
         const row = findTextCell(afterFolder, "dirty.txt (deleted)");
         if (row !== null && !frameLine(afterFolder, row.y).includes("notes.txt")) {
-            throw new Error("вкладка notes.txt пропала вместе с каталогом src");
+            throw new Error("notes.txt tab disappeared along with the src folder");
         }
         await editor.capture("folder-delete");
     },

@@ -1,6 +1,6 @@
 {
-    // Тема поверх базы: `include` резолвится относительно этого файла, цвета
-    // ниже перекрывают одноимённые ключи базы, остальное (и tokenColors) — из неё.
+    // A theme on top of a base: `include` resolves relative to this file, the colors
+    // below override the base's keys of the same name, the rest (tokenColors too) comes from it.
     "include": "./sample-dark.json",
     "colors": {
         "editor.background": "#0B1015",

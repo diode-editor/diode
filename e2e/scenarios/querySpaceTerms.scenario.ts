@@ -15,12 +15,12 @@ function countOf(text: string, needle: string): number {
 
 export default defineScenario({
     name: "query-space-terms",
-    title: "Запрос с пробелом в Ctrl+P и в палитре команд",
+    title: "Query with a space in Ctrl+P and the command palette",
     open: [workspace, notes],
     cols: 110,
     rows: 26,
     async run(editor) {
-        await editor.waitForText((t) => t.includes("Воркспейс демо"));
+        await editor.waitForText((t) => t.includes("Demo workspace"));
 
         await editor.sendKey("Ctrl+P");
         // Otherwise the text is lost: the picker has not taken focus yet.

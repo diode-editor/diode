@@ -19,7 +19,7 @@ const ZETA_IMPORT = 'import { zeta } from "./zeta";';
 
 export default defineScenario({
     name: "quick-fix",
-    title: "Quick Fix (Ctrl+K Ctrl+Q): действия стокового typescript-language-server у каретки",
+    title: "Quick Fix (Ctrl+K Ctrl+Q): stock typescript-language-server actions at the cursor",
     open: [sampleDir, mainFile],
     settings: {
         "diode.lsp.typescript.serverPath": require_.resolve("typescript-language-server/lib/cli.mjs"),
@@ -36,7 +36,7 @@ export default defineScenario({
         await waitUntil(
             () => editor.captureFrame(),
             (frame) => frame.cells.some((cell) => (cell.style & UNDERCURL) !== 0),
-            { describe: "undercurl squiggle от tsserver", timeoutMs: 120_000, intervalMs: 500 },
+            { describe: "tsserver undercurl squiggle", timeoutMs: 120_000, intervalMs: 500 },
         );
         await editor.capture("before");
 

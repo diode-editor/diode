@@ -33,7 +33,7 @@ const registry = resolve(repoRoot, "e2e", "fixtures", "registry");
 
 export default defineScenario({
     name: "no-folder-welcome",
-    title: "Папка не открыта: welcome в сайдбаре и выход из состояния",
+    title: "No folder open: welcome in the sidebar and leaving that state",
     open: [lonelyFile],
     extraArgs: [`--registry=${registry}`],
     cols: 120,

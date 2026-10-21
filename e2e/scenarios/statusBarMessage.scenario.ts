@@ -17,7 +17,7 @@ async function runCommand(editor: ScenarioDriver, title: string): Promise<void> 
 
 export default defineScenario({
     name: "status-bar-message",
-    title: "window.setStatusBarMessage: стек сообщений расширений в статус-баре",
+    title: "window.setStatusBarMessage: stack of extension messages in the status bar",
     seedUserData: userData,
     cols: 120,
     rows: 20,

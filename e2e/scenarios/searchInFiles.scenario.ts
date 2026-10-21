@@ -15,7 +15,7 @@ async function typeText(driver: { sendKey(name: string): Promise<void> }, text: 
 
 export default defineScenario({
     name: "searchInFiles",
-    title: "Поиск по файлам: кнопки и «⋯»-меню заголовка, детали за «···», режимы list/tree, Collapse All",
+    title: "Search in files: header buttons and '⋯' menu, details behind '···', list/tree modes, Collapse All",
     open: [repoRoot],
     cols: 100,
     rows: 30,

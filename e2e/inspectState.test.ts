@@ -8,7 +8,7 @@ describe("inspector — inspectState & locators end-to-end", () => {
         await getBinaryPath();
     }, 180_000);
 
-    it("EditorElement.state отдаёт readonly и выделение", async () => {
+    it("EditorElement.state exposes readonly and the selection", async () => {
         const { session } = await useHeadlessApp({
             files: { "sample.ts": "const greeting = 42\nconst other = 7\n" },
             open: ["sample.ts"],
@@ -26,7 +26,7 @@ describe("inspector — inspectState & locators end-to-end", () => {
         expect(selections[0].collapsed).toBe(false);
     }, 60_000);
 
-    it("clickNode по локатору открывает меню; state меню видно", async () => {
+    it("clickNode by locator opens a menu; the menu state is visible", async () => {
         const { session } = await useHeadlessApp({ files: { "a.txt": "hi\n" }, open: ["a.txt"] });
         await session.waitForNode("MenuBarElement");
 

@@ -1,7 +1,7 @@
 {
     "name": "proposed-diff-demo",
     "displayName": "Proposed Diff Demo",
-    "description": "Демо-расширение предложенного диффа в форме стокового Claude Code (openDiff терминального режима): правая сторона — в своём FileSystemProvider, vscode.diff, гонка accept/reject, закрытия вкладки и сохранения.",
+    "description": "Proposed diff demo shaped like stock Claude Code (terminal mode openDiff): the right side lives in its own FileSystemProvider, vscode.diff, a race between accept/reject, tab close and save.",
     "version": "0.0.1",
     "publisher": "test",
     "main": "./extension.js",

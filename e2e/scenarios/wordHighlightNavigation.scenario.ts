@@ -8,7 +8,7 @@ const sampleFile = resolve(repoRoot, "e2e", "fixtures", "sample.ts");
 
 export default defineScenario({
     name: "word-highlight-navigation",
-    title: "F7 / Shift+F7: переход по вхождениям слова под кареткой",
+    title: "F7 / Shift+F7: jump between occurrences of the word under the cursor",
     open: [repoRoot, sampleFile],
     cols: 100,
     rows: 24,

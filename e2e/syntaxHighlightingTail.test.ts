@@ -25,14 +25,14 @@ async function waitForColouredFrame(session: HeadlessSession): Promise<GridSnaps
     return waitUntil(
         () => session.captureFrame(),
         (frame) => frame.cells.some((cell) => cell.fg === KEYWORD_FG),
-        { timeoutMs: 30_000, describe: "первый кадр с подсветкой", diagnose: (last) => frameToText(last as GridSnapshot) },
+        { timeoutMs: 30_000, describe: "first highlighted frame", diagnose: (last) => frameToText(last as GridSnapshot) },
     );
 }
 
 /** Color of the first cell of the `needle` occurrence. */
 function fgOfText(frame: GridSnapshot, needle: string): number | undefined {
     const pos = findTextCell(frame, needle);
-    expect(pos, `«${needle}» не найдено в кадре:\n${frameToText(frame)}`).not.toBeNull();
+    expect(pos, `"${needle}" not found in frame:\n${frameToText(frame)}`).not.toBeNull();
     return cellFg(frame, pos!.x, pos!.y);
 }
 
@@ -45,12 +45,12 @@ function codeRows(frame: GridSnapshot): number[] {
     return rows;
 }
 
-describe("Подсветка синтаксиса за пределами первого вьюпорта", () => {
+describe("Syntax highlighting beyond the first viewport", () => {
     beforeAll(async () => {
         await getBinaryPath();
     }, 300_000);
 
-    it("хвост файла цветной после правки верхней строки", async () => {
+    it("the file tail is coloured after editing the top line", async () => {
         const { session } = await useHeadlessApp({
             files: { "long.ts": longFile },
             open: ["long.ts"],
@@ -72,7 +72,7 @@ describe("Подсветка синтаксиса за пределами пер
         expect(fgOfText(tail, `const value${String(LINE_COUNT - 1)}`)).toBe(KEYWORD_FG);
     }, 120_000);
 
-    it("правка в хвосте не оставляет белых строк выше курсора", async () => {
+    it("an edit in the tail leaves no uncoloured lines above the cursor", async () => {
         const { session } = await useHeadlessApp({
             files: { "long.ts": longFile },
             open: ["long.ts"],
@@ -90,11 +90,11 @@ describe("Подсветка синтаксиса за пределами пер
         const frame = await session.captureFrame();
         const dump = frameToText(frame);
         const rows = codeRows(frame);
-        expect(rows.length, `в кадре нет строк с кодом:\n${dump}`).toBeGreaterThan(5);
+        expect(rows.length, `no code lines in frame:\n${dump}`).toBeGreaterThan(5);
 
         for (const y of rows) {
             const coloured = Array.from({ length: frame.cols }, (_, x) => cellFg(frame, x, y)).includes(KEYWORD_FG);
-            expect(coloured, `строка ${String(y)} осталась без подсветки:\n${dump}`).toBe(true);
+            expect(coloured, `line ${String(y)} is not highlighted:\n${dump}`).toBe(true);
         }
     }, 120_000);
 });

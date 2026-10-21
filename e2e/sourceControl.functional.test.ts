@@ -83,7 +83,7 @@ function regionText(frame: string, box: { x: number; y: number; width: number; h
 const APP_TS = ["export function greet(name: string) {", '    return "hi " + name;', "}", ""].join("\n");
 const APP_TS_MOD = ["export function greet(name: string) {", '    return "hello " + name;', "}", ""].join("\n");
 
-describe("Source Control в сайдбаре (functional e2e, PR #207)", () => {
+describe("Source Control in the sidebar (functional e2e, PR #207)", () => {
     let app: HeadlessApp | null = null;
 
     beforeAll(async () => {
@@ -95,7 +95,7 @@ describe("Source Control в сайдбаре (functional e2e, PR #207)", () => {
         app = null;
     });
 
-    it("переключает Explorer → Source Control и показывает изменённые файлы со статусами", async () => {
+    it("switches Explorer → Source Control and shows changed files with statuses", async () => {
         const repo = makeRepo({ committed: { "app.ts": APP_TS }, modify: { "app.ts": APP_TS_MOD }, untracked: { "extra.ts": "export const answer = 42;\n" } });
         app = await open(repo);
         const { session } = app;
@@ -113,7 +113,7 @@ describe("Source Control в сайдбаре (functional e2e, PR #207)", () => {
         expect(await session.focusedType()).toBe("ListViewElement");
     }, 120_000);
 
-    it("двойной клик по modified-файлу открывает дифф «файл ↔ HEAD»", async () => {
+    it("double-clicking a modified file opens the 'file ↔ HEAD' diff", async () => {
         const repo = makeRepo({ committed: { "app.ts": APP_TS }, modify: { "app.ts": APP_TS_MOD } });
         app = await open(repo);
         const { session } = app;
@@ -141,7 +141,7 @@ describe("Source Control в сайдбаре (functional e2e, PR #207)", () => {
         expect(tabsLine.split("app.ts").length - 1).toBe(1);
     }, 120_000);
 
-    it("двойной клик по untracked-файлу открывает сам файл (сравнивать не с чем)", async () => {
+    it("double-clicking an untracked file opens the file itself (nothing to compare with)", async () => {
         const repo = makeRepo({ committed: { "app.ts": APP_TS }, untracked: { "extra.ts": "export const answer = 42;\n" } });
         app = await open(repo);
         const { session } = app;
@@ -166,7 +166,7 @@ describe("Source Control в сайдбаре (functional e2e, PR #207)", () => {
         expect(frame).not.toContain("No changes to compare");
     }, 120_000);
 
-    it("клик по инлайн-кнопке строки открывает сам файл, а не дифф", async () => {
+    it("clicking a row's inline button opens the file itself, not the diff", async () => {
         const repo = makeRepo({ committed: { "app.ts": APP_TS }, modify: { "app.ts": APP_TS_MOD } });
         app = await open(repo);
         const { session } = app;
@@ -189,7 +189,7 @@ describe("Source Control в сайдбаре (functional e2e, PR #207)", () => {
         expect(frame).not.toContain("↔ HEAD");
     }, 120_000);
 
-    it("scm.action.viewAsTree сворачивает пути в компакт-папки, viewAsList возвращает", async () => {
+    it("scm.action.viewAsTree folds paths into compact folders, viewAsList restores the list", async () => {
         const repo = makeRepo({
             committed: { "src/deep/mod.ts": "export const x = 1;\n" },
             modify: { "src/deep/mod.ts": "export const x = 2;\n" },
@@ -215,7 +215,7 @@ describe("Source Control в сайдбаре (functional e2e, PR #207)", () => {
         await session.waitForText((t) => regionText(t, box).includes("src/deep/mod.ts"));
     }, 120_000);
 
-    it("правый клик по строке открывает контекстное меню Open File / Open Changes", async () => {
+    it("right-clicking a row opens the Open File / Open Changes context menu", async () => {
         const repo = makeRepo({ committed: { "app.ts": APP_TS }, modify: { "app.ts": APP_TS_MOD } });
         app = await open(repo);
         const { session } = app;
@@ -238,7 +238,7 @@ describe("Source Control в сайдбаре (functional e2e, PR #207)", () => {
         expect((await session.getDocument()).root).not.toBeNull();
     }, 120_000);
 
-    it("чистое репо без изменений — пустой список Source Control без краша", async () => {
+    it("a clean repo — empty Source Control list, no crash", async () => {
         const repo = makeRepo({ committed: { "app.ts": APP_TS }, clean: true });
         app = await open(repo);
         const { session } = app;
@@ -254,7 +254,7 @@ describe("Source Control в сайдбаре (functional e2e, PR #207)", () => {
         expect(scmSlice).not.toContain("app.ts");
     }, 120_000);
 
-    it("не-git папка — Source Control пустой, без краша", async () => {
+    it("a non-git folder — Source Control is empty, no crash", async () => {
         const dir = makeRepo({ noGit: true, committed: { "note.txt": "plain\n" } });
         app = await open(dir);
         const { session } = app;
@@ -269,7 +269,7 @@ describe("Source Control в сайдбаре (functional e2e, PR #207)", () => {
         expect(scmSlice).not.toContain("note.txt");
     }, 120_000);
 
-    it("возврат на Explorer восстанавливает дерево файлов", async () => {
+    it("returning to Explorer restores the file tree", async () => {
         const repo = makeRepo({ committed: { "app.ts": APP_TS }, modify: { "app.ts": APP_TS_MOD } });
         app = await open(repo);
         const { session } = app;
@@ -283,7 +283,7 @@ describe("Source Control в сайдбаре (functional e2e, PR #207)", () => {
         expect(await session.node("#changesView")).toBeNull();
     }, 120_000);
 
-    it("вложенные файлы показываются путём относительно корня воркспейса", async () => {
+    it("nested files are shown by their path relative to the workspace root", async () => {
         const repo = makeRepo({
             committed: { "src/deep/mod.ts": "export const x = 1;\n" },
             modify: { "src/deep/mod.ts": "export const x = 2;\n" },
@@ -299,7 +299,7 @@ describe("Source Control в сайдбаре (functional e2e, PR #207)", () => {
         expect(frame).toContain("src/deep/mod.ts");
     }, 120_000);
 
-    it("двойной клик по удалённому файлу (status D) открывает дифф «HEAD ↔ пусто»", async () => {
+    it("double-clicking a deleted file (status D) opens the 'HEAD ↔ empty' diff", async () => {
         const repo = makeRepo({ committed: { "app.ts": APP_TS }, clean: true });
         // Delete the committed file on disk → unstaged deletion (D).
         execFileSync("rm", [join(repo, "app.ts")]);
@@ -328,7 +328,7 @@ describe("Source Control в сайдбаре (functional e2e, PR #207)", () => {
         expect(session.getStderr()).not.toMatch(/Error|Exception|unhandled/i);
     }, 120_000);
 
-    it("список Source Control обновляется вживую после правки и сохранения файла", async () => {
+    it("the Source Control list updates live after a file is edited and saved", async () => {
         const repo = makeRepo({ committed: { "app.ts": APP_TS }, clean: true });
         const filePath = join(repo, "app.ts");
         app = await useHeadlessApp({ open: [repo, filePath], keybindings: SWITCH_KEYS, cols: 100, rows: 24 });

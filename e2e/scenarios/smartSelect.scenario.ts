@@ -35,7 +35,7 @@ function highlightedOnRowWith(frame: GridSnapshot, bg: number, marker: string): 
 
 export default defineScenario({
     name: "smart-select",
-    title: "Expand / Shrink Selection: слово → скобки → строка → блок",
+    title: "Expand / Shrink Selection: word → brackets → line → block",
     open: [repoRoot, sampleFile],
     cols: 80,
     rows: 16,
@@ -55,7 +55,7 @@ export default defineScenario({
         const first = await waitUntil(
             () => editor.captureFrame(),
             (frame) => frame.cells[beforeCaret(frame)].bg !== before.cells[beforeCaret(frame)].bg,
-            { describe: "выделение подслова на кадре" },
+            { describe: "subword selection in the frame" },
         );
         const selectionBg = first.cells[beforeCaret(first)].bg;
         const expectOnRow = async (text: string): Promise<void> => {
@@ -63,8 +63,8 @@ export default defineScenario({
                 () => editor.captureFrame(),
                 (frame) => highlightedOnCaretRow(frame, selectionBg) === text,
                 {
-                    describe: `выделено «${text}»`,
-                    diagnose: (frame) => `выделено: «${highlightedOnCaretRow(frame as GridSnapshot, selectionBg)}»`,
+                    describe: `selected "${text}"`,
+                    diagnose: (frame) => `selected: "${highlightedOnCaretRow(frame as GridSnapshot, selectionBg)}"`,
                 },
             );
         };
@@ -88,7 +88,7 @@ export default defineScenario({
         await waitUntil(
             () => editor.captureFrame(),
             (frame) => highlightedOnRowWith(frame, selectionBg, "func main()").startsWith("func main() {"),
-            { describe: "выделен блок вместе с заголовком func" },
+            { describe: "block selected together with the func header" },
         );
         await editor.capture("block");
 

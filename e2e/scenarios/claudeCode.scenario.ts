@@ -13,7 +13,7 @@ const sampleFile = resolve(repoRoot, "e2e", "fixtures", "sample.ts");
 
 export default defineScenario({
     name: "claude-code",
-    title: "Claude Code (Anthropic.claude-code): «✻ Claude Code» → claude вкладкой справа",
+    title: "Claude Code (Anthropic.claude-code): '✻ Claude Code' → claude as a tab on the right",
     open: [sampleFile],
     installVsix: [CLAUDE_CODE_ID],
     network: true,
@@ -27,7 +27,7 @@ export default defineScenario({
         await editor.capture("status-bar");
 
         const item = findTextCell(await editor.captureFrame(), "✻ Claude Code");
-        if (item === null) throw new Error("пункт «✻ Claude Code» пропал из статус-бара");
+        if (item === null) throw new Error("'✻ Claude Code' item disappeared from the status bar");
         await editor.click(item.x + 2, item.y);
         const claudeReady = (t: string): boolean =>
             t.includes("Claude Code ×") && t.includes('fake-claude lock "ideName":"Diode"');

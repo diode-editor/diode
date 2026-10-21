@@ -50,7 +50,7 @@ export default defineScenario({
 
         // No context key yet: the extension's keybinding does not resolve and the counter stays put.
         if (!(await pressGateKey(editor, 2)).includes("idle · fired 0")) {
-            throw new Error("alt+q сработал до setContext — when-условие расширения не гейтит кейбинд");
+            throw new Error("alt+q fired before setContext — the extension's when clause does not gate the keybinding");
         }
         await editor.capture("not-armed");
 
@@ -67,7 +67,7 @@ export default defineScenario({
         await runCommand(editor, "Ext Storage Demo: Disarm");
         await editor.waitForText((t) => t.includes("idle · fired 1"), { timeoutMs: 5000 });
         if (!(await pressGateKey(editor, 3)).includes("idle · fired 1")) {
-            throw new Error("alt+q сработал после setContext(false) — ключ не сбросился");
+            throw new Error("alt+q fired after setContext(false) — the context key was not reset");
         }
         await editor.capture("disarmed");
 
@@ -78,4 +78,3 @@ export default defineScenario({
         await editor.capture("paths");
     },
 });
-
