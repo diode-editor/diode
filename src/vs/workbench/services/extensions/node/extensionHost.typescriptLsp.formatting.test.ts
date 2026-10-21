@@ -26,20 +26,12 @@ import { EditorServiceDIToken } from "../../editor/common/editorService.ts";
 
 import type { IExtensionRegistration } from "./iExtensionEntry.ts";
 
-// Форматирование поверх СТОКОВОГО стека (правило AGENTS: фича поверх стокового
-// расширения закрывается стоковым расширением): настоящий builtin
-// `diode-lsp-typescript` (бандл с vscode-languageclient) + настоящий
-// `typescript-language-server` из devDeps. Стоковый клиент регистрирует
-// formatting-провайдеры под capability сервера — это единственный тест, где
-// его код реально исполняется на нашем шве.
-
 const require_ = createRequire(import.meta.url);
 const REPO_ROOT = fileURLToPath(new URL("../../../../../..", import.meta.url));
 const CLIENT_BUNDLE = path.join(REPO_ROOT, "extensions/diode-lsp-typescript/out/extension.cjs");
 const SERVER_CLI = require_.resolve("typescript-language-server/lib/cli.mjs");
 const TSSERVER_JS = require_.resolve("typescript/lib/tsserver.js");
 
-/** Мини-сервис языков: `.ts` → typescript. */
 const TS_LANGUAGE_SERVICE: ILanguageService = {
     ...NULL_LANGUAGE_SERVICE,
     getLanguageIdForResource: (filePath) => (filePath.endsWith(".ts") ? "typescript" : undefined),
@@ -64,7 +56,6 @@ function lspClientRegistration(): IExtensionRegistration {
     };
 }
 
-/** Опрос с дедлайном: сервер индексирует проект секундами, sleep'ы не годятся. */
 async function until<T>(what: string, probe: () => Promise<T | null>, timeoutMs = 60_000): Promise<T> {
     const deadline = Date.now() + timeoutMs;
     for (;;) {
@@ -77,7 +68,6 @@ async function until<T>(what: string, probe: () => Promise<T | null>, timeoutMs 
 
 describe("ExtensionHost — форматирование от стокового typescript-language-server", () => {
     beforeAll(async () => {
-        // Свежий бандл клиента: тест закрывает именно то, что уедет в приложение.
         const { buildExtensions } = (await import(
             new URL("../../../../../../scripts/build-extensions.mjs", import.meta.url).href
         )) as { buildExtensions: (options: { repoRoot: string }) => Promise<unknown> };
@@ -101,8 +91,6 @@ describe("ExtensionHost — форматирование от стокового
             harness.group.openFile(mainPath);
             await harness.host.activateByEvent("onLanguage:typescript");
 
-            // Шов: дождаться, пока стоковый клиент зарегистрирует провайдер и
-            // настоящий tsserver ответит правками.
             const edits = await until("formatting edits от tsserver", async () => {
                 const found: readonly ITextEdit[] | null = await formatDocumentFor(harness, {
                     uri: mainUri,
@@ -115,7 +103,6 @@ describe("ExtensionHost — форматирование от стокового
             });
             expect(edits.length).toBeGreaterThan(0);
 
-            // Настоящая команда (как WORKBENCH_ACTIONS в проде) — и текст в буфере.
             const statusBar = {
                 addEntry: () => ({ dispose: () => undefined }),
             } as unknown as StatusBarService;

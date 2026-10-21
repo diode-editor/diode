@@ -12,7 +12,6 @@ import {
 
 import { createFileExtensionSecretStore, type IExtensionSecretStore } from "./extensionSecretsStore.ts";
 
-/** Фикстура, которая в activate() читает секрет и подписывается на onDidChange. */
 function secretsFixture(id = "test.secrets"): ReturnType<typeof extensionFixture> {
     return extensionFixture(id, "usesSecrets.cjs");
 }

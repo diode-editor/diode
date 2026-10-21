@@ -20,17 +20,8 @@ import { NULL_LANGUAGE_SERVICE } from "../../../../editor/common/languages/iLang
 
 import type { IExtensionRegistration } from "./iExtensionEntry.ts";
 
-// Автодополнение поверх СТОКОВОГО стека (правило AGENTS: фича поверх стокового
-// расширения закрывается стоковым расширением): настоящий builtin
-// `diode-lsp-typescript` (бандл с vscode-languageclient) + настоящий
-// `typescript-language-server` из devDeps на настоящем ext-host subprocess'е.
-//
-// Регресс, ради которого тест написан: стоковый конвертер клиента на КАЖДЫЙ
-// ответ сервера делает `new code.CompletionList(items, isIncomplete)`, а наш
-// `vscode`-стаб этот класс не экспортировал. Конвертация падала целиком, ошибка
-// уходила ТОЛЬКО в `client.outputChannel` (грабля из docs/arch/Extensions.md, «LSP и стоковые клиенты») — попап
-// молча оставался без единого LSP-пункта. Юнит-тест на стабе такое не ловит:
-// падает не наш код, а чужой, и молча.
+// Регресс: стоковый конвертер на каждый ответ делает `new code.CompletionList(...)`, а стаб `vscode` класс не
+// экспортировал — ошибка уходила только в `client.outputChannel`, попап молча пустел. Юнит на стабе такое не ловит.
 
 const require_ = createRequire(import.meta.url);
 const REPO_ROOT = fileURLToPath(new URL("../../../../../..", import.meta.url));
@@ -38,7 +29,6 @@ const CLIENT_BUNDLE = path.join(REPO_ROOT, "extensions/diode-lsp-typescript/out/
 const SERVER_CLI = require_.resolve("typescript-language-server/lib/cli.mjs");
 const TSSERVER_JS = require_.resolve("typescript/lib/tsserver.js");
 
-/** Мини-сервис языков: `.ts` → typescript. */
 const TS_LANGUAGE_SERVICE: ILanguageService = {
     ...NULL_LANGUAGE_SERVICE,
     getLanguageIdForResource: (filePath) => (filePath.endsWith(".ts") ? "typescript" : undefined),
@@ -46,8 +36,6 @@ const TS_LANGUAGE_SERVICE: ILanguageService = {
 };
 
 const DEFS_TS = 'export function greet(name: string): string {\n    return "hi " + name;\n}\n';
-// Незавершённое выражение `d.` — ровно то состояние буфера, в котором
-// пользователь ждёт подсказку (сервер такой текст переживает).
 const MAIN_TS = "const d = new Date();\nd.\n";
 
 function lspClientRegistration(): IExtensionRegistration {
@@ -66,7 +54,6 @@ function lspClientRegistration(): IExtensionRegistration {
     };
 }
 
-/** Опрос с дедлайном: сервер индексирует проект секундами, sleep'ы не годятся. */
 async function until<T>(what: string, probe: () => Promise<T | null>, timeoutMs = 60_000): Promise<T> {
     const deadline = Date.now() + timeoutMs;
     for (;;) {
@@ -79,7 +66,6 @@ async function until<T>(what: string, probe: () => Promise<T | null>, timeoutMs 
 
 describe("ExtensionHost — completion от стокового typescript-language-server", () => {
     beforeAll(async () => {
-        // Свежий бандл клиента: тест закрывает именно то, что уедет в приложение.
         const { buildExtensions } = (await import(
             new URL("../../../../../../scripts/build-extensions.mjs", import.meta.url).href
         )) as { buildExtensions: (options: { repoRoot: string }) => Promise<unknown> };
@@ -122,7 +108,6 @@ describe("ExtensionHost — completion от стокового typescript-langua
                 return result.items;
             };
 
-            // Каретка сразу после `d.` — ждём членов Date от настоящего tsserver.
             const items = await until("completion после `d.`", async () => {
                 const found = await completionAt(1, 2);
                 return found.length > 0 ? found : null;
@@ -132,19 +117,13 @@ describe("ExtensionHost — completion от стокового typescript-langua
             expect(labels).toContain("getTime");
             expect(labels).toContain("toISOString");
 
-            // Тот самый молчаливый провал конвертации: TypeError чужого кода
-            // виден ТОЛЬКО в канале клиента.
             const conversionErrors = outputLines.filter((line) =>
                 /is not a constructor|Converting|Cannot read propert/i.test(line.value),
             );
             expect(conversionErrors).toEqual([]);
 
-            // Границу замены задаёт сервер, и она НЕ совпадает с интуицией:
-            // tsserver отдаёт dot-accessor-пункты — range накрывает саму точку
-            // (`[1,1)…[1,2)`), а insertText/filterText начинаются с неё
-            // (`.getTime`). Отсюда два требования к ядру: префикс считать от
-            // провайдерского range (иначе он будет `d.` и не совпадёт ни с чем),
-            // а фильтровать по `filterText`, а не по label.
+            // tsserver отдаёт dot-accessor-пункты: range накрывает саму точку, insertText/filterText начинаются с неё
+            // (`.getTime`) — префикс считать от провайдерского range, фильтровать по `filterText`, а не по label.
             const getTime = items.find((item) => item.label === "getTime");
             expect(getTime?.range).toMatchObject({
                 start: { line: 1, character: 1 },
@@ -153,8 +132,7 @@ describe("ExtensionHost — completion от стокового typescript-langua
             expect(getTime?.insertText).toBe(".getTime");
             expect(getTime?.filterText).toBe(".getTime");
 
-            // Описание в первом ответе не приходит — только по resolve. Это и
-            // есть контракт `resolveSupport` стокового клиента.
+            // Описание приходит только по resolve — контракт `resolveSupport` стокового клиента.
             expect(getTime?.detail).toBeUndefined();
             expect(getTime?.id).toBeDefined();
             const resolved = await harness.host.resolveCompletionItem(getTime!.id!);
@@ -176,8 +154,6 @@ describe("ExtensionHost — completion от стокового typescript-langua
         try {
             harness.writeFile("tsconfig.json", JSON.stringify({ compilerOptions: { strict: true } }));
             harness.writeFile("defs.ts", DEFS_TS);
-            // `greet` объявлен в соседнем модуле и здесь НЕ импортирован — сервер
-            // обязан предложить его вместе с правкой-импортом.
             const mainPath = harness.writeFile("main.ts", "gree\n");
             const mainUri = Uri.file(mainPath).toString();
             harness.group.openFile(mainPath);

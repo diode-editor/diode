@@ -13,15 +13,10 @@ import { settle } from "../../../../../TestUtils/timing.ts";
 import type { IExtensionRegistration } from "./iExtensionEntry.ts";
 
 /**
- * Своё `vscode` у каждого расширения (G7) — настоящий субпроцесс.
- *
- * Расширения лежат в РАЗНЫХ каталогах (`extensionPath`), как установленные из
- * магазина: по корню субпроцесс узнаёт, чей модуль импортирует `"vscode"`.
- * Сравнения идут внутри субпроцесса (объекты по проводу не сравнить) — их
- * делает команда фикстуры «beta» и отдаёт отчёт.
- *
- * Оба loader'а: `"node"` — родные хуки Node без tsx (виден настоящий резолв
- * ESM), `"tsx"` — дефолт остальных тестов (tsx в цепочке хуков раньше нашего).
+ * Расширения лежат в РАЗНЫХ каталогах: по корню субпроцесс узнаёт, чей модуль
+ * импортирует `"vscode"`. Сравнения — внутри субпроцесса (объекты по проводу не
+ * сравнить), их делает команда фикстуры «beta». Loader `"node"` — без tsx, виден
+ * настоящий резолв ESM.
  */
 
 const DIR = path.join(EXTENSION_FIXTURES_DIR, "extensionIdentity");
@@ -37,7 +32,6 @@ function registration(name: string, main: string, type?: string): IExtensionRegi
     };
 }
 
-/** Builtin: исходник в памяти под синтетическим путём, которого нет на диске. */
 function builtinRegistration(): IExtensionRegistration {
     return {
         id: "test.identity.builtin",

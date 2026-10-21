@@ -12,7 +12,6 @@ import type { ILanguageService } from "../../../../editor/common/languages/iLang
 import { NULL_LANGUAGE_SERVICE } from "../../../../editor/common/languages/iLanguageService.ts";
 import type { IReferenceRequest } from "../../../../editor/common/languages/iReferenceSource.ts";
 
-/** Мини-сервис языков: `.ts` → typescript, иначе — undefined. */
 const TS_LANGUAGE_SERVICE: ILanguageService = {
     ...NULL_LANGUAGE_SERVICE,
     getLanguageIdForResource: (filePath) => (filePath.endsWith(".ts") ? "typescript" : undefined),
@@ -39,8 +38,7 @@ describe("ExtensionHost — reference providers (subprocess)", () => {
             const mainUri = Uri.file(`${harness.tmpDir}/main.ts`).toString();
             const otherUri = mainUri.replace("main.ts", "other.ts");
 
-            // Строка 0 → отвечают оба: объявление + ссылка от первого, чужой
-            // файл от второго. Score одинаковый — второй (зарегистрирован позже)
+            // Строка 0 → отвечают оба. Score одинаковый — позже зарегистрированный
             // идёт первым, как в vscode.
             expect(await provideReferences(harness, requestFor(mainUri, 0, documentVersion(harness, mainUri)))).toEqual(
                 [
@@ -50,8 +48,6 @@ describe("ExtensionHost — reference providers (subprocess)", () => {
                 ],
             );
 
-            // includeDeclaration: false доезжает до провайдера настоящим
-            // `ReferenceContext` — объявления в ответе больше нет.
             expect(
                 await provideReferences(harness, requestFor(mainUri, 0, documentVersion(harness, mainUri), false)),
             ).toEqual([

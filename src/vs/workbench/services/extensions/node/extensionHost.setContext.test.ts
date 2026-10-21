@@ -9,14 +9,8 @@ import {
 import { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { SetContextCommandContribution } from "../../../browser/setContextCommandContribution.ts";
 
-/**
- * Сквозной путь команды `setContext`: расширение в субпроцессе →
- * `commands.executeCommand` по RPC → `CommandServiceAdapter` → host-реестр →
- * {@link SetContextCommandContribution} → when-контекст. Половины этого пути
- * (реестр↔контекст и расширение↔RPC) закрыты по отдельности; здесь важно, что
- * они состыкованы — раньше вызов отклонялся как «команда не найдена», и все
- * `when` расширений были мертвы.
- */
+// Стык половин пути, закрытых по отдельности: без него `setContext` отклонялся
+// «команда не найдена», и все `when` расширений были мертвы.
 async function harnessWithSetContext(): Promise<{
     harness: IExtensionHarness;
     contextKeys: ContextKeyService;
@@ -25,7 +19,6 @@ async function harnessWithSetContext(): Promise<{
     // расширение дёргает её прямо из activate().
     const harness = await createExtensionTestHarness({ activateEvents: [] });
     const contextKeys = new ContextKeyService();
-    // Команда живёт в host-реестре — том самом, за которым стоит ExtensionHost.
     new SetContextCommandContribution(harness.commandRegistry, contextKeys);
     await registerAndActivate(harness.host, extensionFixture("test.setctx", "setsContext.cjs"));
     return { harness, contextKeys };

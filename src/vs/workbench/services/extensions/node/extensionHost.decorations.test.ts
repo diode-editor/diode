@@ -8,13 +8,12 @@ import type { IFileDecorationsService } from "../../../api/common/iFileDecoratio
 import type { IThemeColorResolver } from "../../../api/common/iThemeColorResolver.ts";
 import { ColorThemeKind } from "../../../api/common/vscodeTypes.ts";
 
-// Резолвнутые цвета (packed-RGB), которые спай-адаптеры должны получить.
+// packed-RGB
 const MODIFIED_GUTTER = 0x1b81a8;
 const MODIFIED_GUTTER_LIGHT = 0x2090d3;
 const MODIFIED_FILE = 0xe2c08d;
 const MODIFIED_FILE_LIGHT = 0x895503;
 
-/** Контролируемый резолвер темы: карта id→цвет + ручной триггер смены. */
 function makeControllableResolver(initial: Record<string, number>): {
     resolver: IThemeColorResolver;
     recolor: (next: Record<string, number>) => void;
@@ -52,7 +51,6 @@ function makeEditorSpy(): {
     return {
         service: { setGutterChangeDecorations: (uri, decorations) => calls.push({ uri, decorations }) },
         calls,
-        // Ресурс — uri ("file:///…/main.ts"), поэтому суффикс имени файла по нему матчится.
         latestFor: (suffix) => calls.filter((c) => c.uri.endsWith(suffix)).at(-1),
     };
 }
@@ -87,13 +85,11 @@ describe("ExtensionHost — decorations bridge (subprocess)", () => {
             await settle();
             const call = editorSpy.latestFor("main.ts");
             expect(call).toBeDefined();
-            // gutter-тип дал два диапазона (строки 1 и 3); «плоский» тип без
-            // overviewRulerColor не проецируется вовсе.
+            // «Плоский» тип без overviewRulerColor не проецируется вовсе.
             expect(call!.decorations.map((d) => ({ line: d.range.start.line, color: d.color }))).toEqual([
                 { line: 1, color: MODIFIED_GUTTER },
                 { line: 3, color: MODIFIED_GUTTER },
             ]);
-            // Modified-гуттер цвет → бар рисуется пунктиром (VS Code dirty-diff).
             expect(call!.decorations.every((d) => d.dashed === true)).toBe(true);
         } finally {
             await harness.dispose();
@@ -161,11 +157,9 @@ describe("ExtensionHost — decorations bridge (subprocess)", () => {
             const decorated = fileSpy.latest();
             expect(decorated).toEqual([{ path: notes, color: MODIFIED_FILE, badge: "M" }]);
 
-            // Смена темы пере-резолвит цвет имени файла.
             themeCtl.recolor({ "gitDecoration.modifiedResourceForeground": MODIFIED_FILE_LIGHT });
             expect(fileSpy.latest()).toEqual([{ path: notes, color: MODIFIED_FILE_LIGHT, badge: "M" }]);
 
-            // Провайдер перешёл в «снято» → следующий fire снимает декорацию файла.
             await harness.commandRegistry.execute("test.setCleared");
             await harness.commandRegistry.execute("test.fireFileDecoration", notes);
             await settle();

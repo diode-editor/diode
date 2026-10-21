@@ -6,15 +6,6 @@ import { Uri } from "../../../../base/common/uri.ts";
 import type { ILanguageService } from "../../../../editor/common/languages/iLanguageService.ts";
 import { NULL_LANGUAGE_SERVICE } from "../../../../editor/common/languages/iLanguageService.ts";
 
-/**
- * `workspace.registerTextDocumentContentProvider` от расширения до вкладки —
- * дверь, которой в редактор попадают исходники, которых нет на диске (`jdt:` у
- * стокового `redhat.java`: класс из jar, исходник JDK, декомпиляция).
- *
- * Проверяем весь провод целиком: регистрация в субпроцессе → объявление схем
- * хосту → обратный запрос содержимого → read-only вкладка ядра.
- */
-
 const JAVA_LANGUAGE_SERVICE: ILanguageService = {
     ...NULL_LANGUAGE_SERVICE,
     getLanguageIdForResource: (filePath) => (filePath.endsWith(".java") ? "java" : undefined),
@@ -71,8 +62,6 @@ describe("ExtensionHost — провайдеры содержимого неди
             await harness.group.openUri(Uri.parse(TARGET));
             expect(harness.group.getActiveEditor()?.getText()).toContain("// rev 1");
 
-            // Фикстура растит ревизию и стреляет `onDidChange` — ровно так это
-            // делает провайдер, когда ресурс за его спиной изменился.
             await harness.commandRegistry.execute("fixture.bumpContent", TARGET);
             // Уведомление провайдера и повторный запрос содержимого — два
             // отдельных оборота настоящего IPC, микротасками их не прокачать.

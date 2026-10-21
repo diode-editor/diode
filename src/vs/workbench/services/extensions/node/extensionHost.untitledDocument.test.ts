@@ -6,14 +6,6 @@ import {
     type IExtensionHarness,
 } from "../../../../../TestUtils/ExtensionTestHarness.ts";
 
-/**
- * `workspace.openTextDocument({ content, language })` от расширения до вкладки
- * (`Go: Locate Configured Go Tools` у стокового golang.go): безымянный буфер
- * ядра `untitled:Untitled-N` — грязный, с языком, сразу документ расширений, а
- * `showTextDocument` показывает его вкладкой. Весь провод: запрос субпроцесса →
- * модель ядра без вкладки → document sync → показ.
- */
-
 const FIXTURE = extensionFixture("test.untitled", "opensUntitledDocument.cjs");
 
 interface IOpenResult {

@@ -19,7 +19,6 @@ const ID = "test.memento";
 describe("ExtensionHost — ExtensionContext.globalState / workspaceState", () => {
     let userData: ITempWorkspace;
 
-    /** Созданные кейсом `StateService` — гасим их в `afterEach`. */
     let writers: StateService[];
 
     beforeEach(() => {

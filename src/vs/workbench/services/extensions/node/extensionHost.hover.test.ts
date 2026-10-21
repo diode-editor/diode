@@ -12,7 +12,6 @@ import type { IHoverRequest } from "../../../../editor/common/languages/iHoverSo
 import type { ILanguageService } from "../../../../editor/common/languages/iLanguageService.ts";
 import { NULL_LANGUAGE_SERVICE } from "../../../../editor/common/languages/iLanguageService.ts";
 
-/** Мини-сервис языков: `.ts` → typescript, иначе — undefined. */
 const TS_LANGUAGE_SERVICE: ILanguageService = {
     ...NULL_LANGUAGE_SERVICE,
     getLanguageIdForResource: (filePath) => (filePath.endsWith(".ts") ? "typescript" : undefined),
@@ -35,14 +34,12 @@ describe("ExtensionHost — hover providers (subprocess)", () => {
         });
         try {
             const mainUri = Uri.file(`${harness.tmpDir}/main.ts`).toString();
-            // Оба провайдера объявлены реестру ядра под селектором typescript.
             const target = { uri: Uri.parse(mainUri), languageId: "typescript" };
             expect(harness.languageFeatures.hoverProvider.ordered(target)).toHaveLength(2);
             expect(harness.languageFeatures.hoverProvider.has({ ...target, languageId: "markdown" })).toBe(false);
 
-            // Строка 0 → оба провайдера отвечают; у второго MarkedString-codeblock
-            // сериализован в fenced-блок, range'а у него нет. Score у обоих
-            // одинаковый, поэтому первым идёт зарегистрированный позже (как в vscode).
+            // Строка 0 → отвечают оба. Score одинаковый — позже зарегистрированный
+            // идёт первым, как в vscode.
             const hovers = await provideHovers(harness, requestFor(mainUri, 0, documentVersion(harness, mainUri)));
             expect(hovers).toEqual([
                 { contents: ["```ts\ncompute(): number\n```"] },

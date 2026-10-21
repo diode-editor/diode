@@ -5,11 +5,6 @@ import { Uri } from "../../../../base/common/uri.ts";
 import { NULL_LOGGER } from "../../../../platform/log/common/nullLogService.ts";
 import { ExtensionUrlHandler } from "../common/extensionUrlHandler.ts";
 
-/**
- * `window.registerUriHandler` сквозняком через НАСТОЯЩИЙ субпроцесс: URL
- * ленивому расширению копится в буфере, `onUri:<id>` его поднимает, заведённый
- * на активации обработчик получает буфер; дальше URL идут ему напрямую.
- */
 describe("ExtensionHost — обработчики URI расширений (subprocess)", () => {
     it("URL ленивому расширению: активация по onUri, буфер и прямая доставка", async () => {
         const harness = await createExtensionTestHarness({

@@ -15,11 +15,8 @@ describe("ExtensionHost — commands bridge (subprocess)", () => {
             extensions: [extensionFixture("test.registersCommand", "registersCommand.cjs")],
         });
         try {
-            // Команда зарегистрирована сабпроцессом → в host CommandRegistry есть прокси.
             expect(harness.commandRegistry.has("test.applyTab")).toBe(true);
 
-            // Полная цепочка: CommandRegistry.execute → прокси → RPC на сабпроцесс →
-            // локальный callback → editor.options → RPC editor.setOptions обратно.
             const result = await harness.commandRegistry.execute("test.applyTab", 5);
             expect(result).toBe("applied:5");
 
@@ -42,7 +39,6 @@ describe("ExtensionHost — commands bridge (subprocess)", () => {
         });
         try {
             expect(harness.commandRegistry.has("test.applyTab")).toBe(true);
-            // Без title команда исполнима, но невидима; с title — попадает в listCommands.
             const listed = harness.commandRegistry.listCommands();
             expect(listed).toContainEqual({ id: "test.applyTab", title: "Apply Tab" });
         } finally {
@@ -71,8 +67,7 @@ describe("ExtensionHost — commands bridge (subprocess)", () => {
     });
 
     it("subprocess → host: fall-through executeCommand исполняет команду ядра", async () => {
-        // Порядок: сначала регистрируем хостовую команду, потом активируем расширение —
-        // поэтому harness создаётся БЕЗ extensions, регистрация вручную.
+        // Хостовая команда — до активации расширения, поэтому harness БЕЗ extensions.
         const harness = await createExtensionTestHarness({
             initialFile: { name: "main.ts", content: "x\n" },
         });
@@ -94,9 +89,7 @@ describe("ExtensionHost — commands bridge (subprocess)", () => {
         }
     });
 
-    // Продюсер источника `command` для смены каретки: команда, запущенная
-    // расширением, обязана приехать обратно как
-    // `TextEditorSelectionChangeKind.Command`, а не «источник неизвестен».
+    // Продюсер `TextEditorSelectionChangeKind.Command` для каретки, сдвинутой командой расширения.
     it("subprocess → host: команда расширения исполняется внутри области command", { timeout: 60_000 }, async () => {
         const harness = await createExtensionTestHarness({
             initialFile: { name: "main.ts", content: "x\n" },
@@ -112,7 +105,6 @@ describe("ExtensionHost — commands bridge (subprocess)", () => {
             await settle();
 
             expect(seen).toEqual(["command"]);
-            // Область закрылась вместе с обработчиком.
             expect(currentCursorChangeSource()).toBeUndefined();
         } finally {
             await harness.dispose();

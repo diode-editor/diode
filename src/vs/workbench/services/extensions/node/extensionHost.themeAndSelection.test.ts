@@ -42,7 +42,6 @@ async function makeHarness() {
     });
 }
 
-/** Резолвер темы с заданным видом — чтобы отличить присланное от дефолта субпроцесса. */
 function resolverWithKind(kind: ColorThemeKind): IThemeColorResolver {
     return {
         resolve: () => undefined,

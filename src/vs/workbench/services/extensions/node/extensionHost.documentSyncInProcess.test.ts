@@ -10,9 +10,7 @@ import type { ISaveSnapshot } from "../../textfile/common/iSaveParticipant.ts";
 
 import { ExtensionHost } from "./extensionHost.ts";
 
-// Хост на in-process RPC-паре (как extensionHost.decorationsInProcess.test.ts):
-// правила document sync — у DocumentsCustomer (см. его тесты), здесь — только
-// проводка фасада хоста к нему.
+// Правила document sync — в тестах DocumentsCustomer, здесь — только проводка фасада хоста к нему.
 
 const NOOP_EDITOR_OPTIONS = {
     getActiveEditorOptions: () => null,
@@ -41,7 +39,6 @@ describe("ExtensionHost — document sync (in-process)", () => {
         for (const method of ["editor.didOpen", "editor.didChange", "editor.didClose"]) {
             peer.handleNotification(method, () => received.push(method));
         }
-        // До спавна слать некому.
         host.didOpenTextDocument(SNAPSHOT);
         (host as unknown as { installHostHandlers(rpc: RpcEndpoint): void }).installHostHandlers(new RpcEndpoint(a));
 

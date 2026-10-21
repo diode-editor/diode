@@ -21,15 +21,8 @@ import { createRange } from "../../../../editor/common/core/iRange.ts";
 import { createTextEdit } from "../../../../editor/common/core/iTextEdit.ts";
 import type { WireMarker } from "../../../api/common/wireTypes.ts";
 
-// Python-LSP «как у пользователя»: НАСТОЯЩИЙ сторонний vsix basedpyright с
-// open-vsx, установленный штатным installVsix, на настоящем ext-host
-// subprocess'е — ни строчки нашего кода расширения (детали и курируемый дефолт
-// importStrategy — src/TestUtils/basedpyrightFixture.ts). Базовый сьют:
-// активация, цикл диагностик над живым буфером, go to definition.
-
 let installed: IInstalledBasedpyright;
 
-// Vsix приезжает из магазина (см. basedpyrightFixture.ts) — в оффлайне пропускаем.
 describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый basedpyright.vsix (Python LSP, сквозняк)", () => {
     beforeAll(async () => {
         installed = await installBasedpyright();
@@ -66,7 +59,6 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый basedpy
                 harness.group.openFile(mainPath);
                 // Ленивая активация ровно тем событием, которое объявляет манифест vsix.
                 await harness.host.activateByEvent("onLanguage:python");
-                // activate() выжил на нашем стабе — расширение числится активным.
                 expect(harness.host.hasExtension("detachhead.basedpyright")).toBe(true);
 
                 // Диагностика от НАСТОЯЩЕГО bundled-сервера — она же readiness-сигнал.
@@ -76,8 +68,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый basedpy
                 });
                 expect(marker.range.start.line).toBe(2);
 
-                // ИЗМЕНЯЕМЫЙ КОД: чиним аннотацию без сохранения на диск — сервер
-                // обязан видеть живой буфер (didOpen/didChange + цикл диагностик).
+                // Без сохранения: сервер обязан видеть живой буфер.
                 harness.group
                     .getActiveEditor()
                     ?.applyExternalEdits([createTextEdit(createRange(2, 7, 2, 10), "str")], "fix type");
@@ -87,7 +78,6 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый basedpy
                     ),
                 );
 
-                // Конвертеры стокового клиента не падали молча (конвенция TS-сьютов).
                 const crashes = outputLines.filter((l) => CLIENT_CRASH_PATTERNS.test(l.value));
                 expect(crashes).toEqual([]);
             } finally {

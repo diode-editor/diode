@@ -29,14 +29,8 @@ import { createRange } from "../../../../editor/common/core/iRange.ts";
 import type { ILanguageConfiguration } from "../../../../platform/extensions/common/iLanguageConfiguration.ts";
 import type { WireMarker } from "../../../api/common/wireTypes.ts";
 
-// Go «как у пользователя»: НАСТОЯЩИЙ golang.go (vsix из магазина),
-// установленный штатным installVsix, на настоящем ext-host subprocess'е;
-// gopls — `go install` фикстуры. Расширение обрывало `activate()` на
-// отсутствующем `vscode.debug` (а дальше — `vscode.tests`,
-// `TestRunProfileKind`, `setLanguageConfiguration`): gopls при этом жил, но ~60
-// команд `go.*` не регистрировались. Сьют держит, что активация доходит до
-// конца, а функции gopls доезжают до ядра: диагностики, hover, F12 и
-// сохранение с organize imports + gofmt.
+// golang.go обрывал `activate()` на отсутствующем `vscode.debug` (дальше —
+// `vscode.tests`, …): gopls жил, но ~60 команд `go.*` не регистрировались.
 
 const skipReason = goToolchainMissing();
 if (skipReason !== undefined) console.warn(skipReason);
@@ -99,16 +93,14 @@ describe.skipIf(MARKETPLACE_OFFLINE || skipReason !== undefined)(
                     harness.group.openFile(mainPath);
                     await harness.host.activateByEvent("onLanguage:go");
 
-                    // activate() дошёл до конца: строка хоста об успехе, отказа нет.
                     expect(vi.mocked(logger.error).mock.calls.map(([line]) => String(line))).not.toContainEqual(
                         expect.stringContaining("failed to activate"),
                     );
                     expect(vi.mocked(logger.info)).toHaveBeenCalledWith(
                         `activated extension "${GO_ID}" (onLanguage:go)`,
                     );
-                    // Последний шаг activate() — setLanguageConfiguration("go", { wordPattern }) — дошёл до ядра.
+                    // setLanguageConfiguration — последний шаг activate().
                     expect(layers.map((layer) => layer.languageId)).toContain("go");
-                    // Null-объекты сказали человеку по строке, а не молчали.
                     const warnings = outputLines.filter((line) => line.level === "warn").map((line) => line.value);
                     expect(warnings).toContainEqual(expect.stringContaining('отладка "go"'));
                     expect(warnings).toContainEqual(expect.stringContaining('тесты "go"'));
@@ -163,7 +155,6 @@ describe.skipIf(MARKETPLACE_OFFLINE || skipReason !== undefined)(
                     expect(buffer).toContain("fmt.Println(msg, broken)");
                     expect(fs.readFileSync(mainPath, "utf-8")).toBe(buffer);
 
-                    // Конвертеры стокового клиента не падали молча (конвенция LSP-сьютов).
                     const crashes = outputLines.filter((l) => CLIENT_CRASH_PATTERNS.test(l.value));
                     expect(crashes).toEqual([]);
                 } finally {

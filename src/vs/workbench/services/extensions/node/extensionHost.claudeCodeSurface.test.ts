@@ -7,12 +7,7 @@ import { ExtensionStatusBarAdapter } from "../../../api/browser/extensionStatusB
 import type { IOutputSink } from "../../../api/common/iExtensionWindowSinks.ts";
 import { StatusBarService } from "../../../services/statusbar/common/statusBarService.ts";
 
-/**
- * Поверхность, без которой стоковое `Anthropic.claude-code` не активировалось
- * или падало в первой же фиче, — через НАСТОЯЩИЙ субпроцесс на синтетической
- * фикстуре (`claudeCodeSurface.cjs` трогает API так же, как бандл расширения).
- * Сам стоковый `.vsix` — в e2e-сценарии.
- */
+/** Фикстура трогает API так же, как бандл `Anthropic.claude-code`; сам `.vsix` — в e2e-сценарии. */
 async function makeHarness() {
     const bar = new StatusBarService(NULL_STATE_SERVICE);
     const output: { channel: string; level: string; value: string }[] = [];

@@ -23,22 +23,12 @@ import { SignatureHelpTriggerKind } from "../../../../editor/common/languages/iS
 
 import type { IExtensionRegistration } from "./iExtensionEntry.ts";
 
-// Подсказка параметров поверх СТОКОВОГО стека (правило AGENTS: фича поверх
-// стокового расширения закрывается стоковым расширением): настоящий builtin
-// `diode-lsp-typescript` + настоящий `typescript-language-server` из devDeps на
-// настоящем ext-host subprocess'е. Стоковый клиент сам регистрирует провайдер
-// под capability сервера, а его конвертеры дёргают
-// `new code.SignatureHelp()`/`SignatureInformation`/`ParameterInformation` и
-// читают `code.SignatureHelpTriggerKind.*` — падение любой из этих точек видно
-// только здесь, юнит-тест на стабе чужой код не исполняет.
-
 const require_ = createRequire(import.meta.url);
 const REPO_ROOT = fileURLToPath(new URL("../../../../../..", import.meta.url));
 const CLIENT_BUNDLE = path.join(REPO_ROOT, "extensions/diode-lsp-typescript/out/extension.cjs");
 const SERVER_CLI = require_.resolve("typescript-language-server/lib/cli.mjs");
 const TSSERVER_JS = require_.resolve("typescript/lib/tsserver.js");
 
-/** Мини-сервис языков: `.ts` → typescript. */
 const TS_LANGUAGE_SERVICE: ILanguageService = {
     ...NULL_LANGUAGE_SERVICE,
     getLanguageIdForResource: (filePath) => (filePath.endsWith(".ts") ? "typescript" : undefined),
@@ -46,9 +36,7 @@ const TS_LANGUAGE_SERVICE: ILanguageService = {
 };
 
 const DEFS_TS = "export function greet(name: string, age: number): string {\n    return name + String(age);\n}\n";
-/** Сохранённый на диск main.ts вызова ещё не содержит — его допишет тест. */
 const MAIN_SAVED = 'import { greet } from "./defs";\n';
-/** Правка «без сохранения»: вызов набран, каретка внутри скобок. */
 const MAIN_TYPING = 'import { greet } from "./defs";\nconst reply = greet(';
 
 function lspClientRegistration(): IExtensionRegistration {
@@ -67,7 +55,6 @@ function lspClientRegistration(): IExtensionRegistration {
     };
 }
 
-/** Опрос с дедлайном: сервер индексирует проект секундами, sleep'ы не годятся. */
 async function until<T>(what: string, probe: () => Promise<T | null>, timeoutMs = 60_000): Promise<T> {
     const deadline = Date.now() + timeoutMs;
     for (;;) {
@@ -80,7 +67,6 @@ async function until<T>(what: string, probe: () => Promise<T | null>, timeoutMs 
 
 describe("ExtensionHost — подсказка параметров от стокового typescript-language-server", () => {
     beforeAll(async () => {
-        // Свежий бандл клиента: тест закрывает именно то, что уедет в приложение.
         const { buildExtensions } = (await import(
             new URL("../../../../../../scripts/build-extensions.mjs", import.meta.url).href
         )) as { buildExtensions: (options: { repoRoot: string }) => Promise<unknown> };
@@ -121,9 +107,7 @@ describe("ExtensionHost — подсказка параметров от сто�
                 retriggerCharacters: [")"],
             });
 
-            // Каретка сразу за `greet(` — текста с вызовом НА ДИСКЕ нет: его
-            // набирают в редакторе, и сервер видит его только через didChange
-            // (правило из docs/arch/Extensions.md, «LSP и стоковые клиенты»).
+            // Текста с вызовом на диске нет — сервер видит его только через didChange.
             const editor = harness.group.getActiveEditor();
             editor?.applyExternalEdits(
                 [createTextEdit(createRange(1, 0, 1, 0), MAIN_TYPING.slice(MAIN_SAVED.length))],
@@ -146,10 +130,8 @@ describe("ExtensionHost — подсказка параметров от сто�
 
             expect(help.signatures[0].label).toBe("greet(name: string, age: number): string");
             expect(help.activeParameter).toBe(0);
-            // Метки параметров — подстроки метки сигнатуры (форма tsserver'а).
             expect(help.signatures[0].parameters.map((p) => p.label)).toEqual(["name: string", "age: number"]);
 
-            // После запятой активным становится второй параметр.
             const afterComma = `${MAIN_TYPING}"world",`;
             editor?.applyExternalEdits(
                 [createTextEdit(createRange(1, MAIN_TYPING.length - 32, 1, MAIN_TYPING.length - 32), '"world",')],
@@ -172,7 +154,6 @@ describe("ExtensionHost — подсказка параметров от сто�
             });
             expect(second.signatures[0].label).toBe("greet(name: string, age: number): string");
 
-            // Молчаливый провал конвертации чужого кода виден только в канале клиента.
             const conversionErrors = outputLines.filter((line) =>
                 /is not a constructor|Converting|Cannot read propert/i.test(line.value),
             );

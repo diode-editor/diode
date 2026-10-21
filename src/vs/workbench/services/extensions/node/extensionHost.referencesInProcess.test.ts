@@ -11,12 +11,8 @@ import { RpcEndpoint } from "../../../api/common/rpcEndpoint.ts";
 
 import { ExtensionHost } from "./extensionHost.ts";
 
-/**
- * References-запрос по handle: субпроцесса нет, канал сшит in-process — так
- * проверяются ветки, недостижимые через настоящий fork (документ без
- * синхронизации, дефолтный таймаут).
- * Образец — `extensionHost.hoverInProcess.test.ts`.
- */
+// Канал сшит in-process: ветки, недостижимые через настоящий fork (документ без
+// синхронизации, дефолтный таймаут).
 
 const NOOP_EDITOR_OPTIONS = {
     getActiveEditorOptions: () => null,
@@ -32,7 +28,7 @@ const NOOP_COMMANDS = {
     registerProxy: () => ({ dispose: () => undefined }),
 } as unknown as ICommandService;
 
-/** Документ, который тесты открывают субпроцессу: запросы ходят только по синхронизированным. */
+/** Запросы ходят только по документам, синхронизированным с субпроцессом. */
 const DOCUMENT = { uri: "file:///a.ts", languageId: "typescript", version: 3, text: "const a = 1;\n" };
 
 const REF = { uri: "file:///a.ts", range: { start: { line: 1, character: 0 }, end: { line: 1, character: 3 } } };
@@ -53,10 +49,9 @@ function makeHost(
     options: {
         warn?: ILogger["warn"];
         debug?: ILogger["debug"];
-        /** Срок ответа `languages.provideReferences`, мс (`requestTimeouts`). */
+        /** Мс. */
         timeoutMs?: number;
         maxSyncedDocumentChars?: number;
-        /** Открыть {@link DOCUMENT} субпроцессу (по умолчанию — да). */
         open?: boolean;
     } = {},
 ): {
@@ -199,7 +194,6 @@ describe("ExtensionHost — references-запрос по handle (in-process)", (
         expect(await host.provideReferences(0, requestOf())).toEqual([]);
         // Истёкший срок — штатный исход медленного провайдера: debug, не warn.
         expect(debug).toHaveBeenCalledWith('request "languages.provideReferences" timed out after 5ms');
-        // Провайдер узнаёт, что ответа больше не ждут (`$/cancelRequest`).
         await vi.waitFor(() => {
             expect(seen?.isCancellationRequested).toBe(true);
         });
@@ -220,7 +214,6 @@ describe("ExtensionHost — references-запрос по handle (in-process)", (
 
         source.cancel();
         await flushMicrotasks();
-        // Провайдер расширения узнаёт, что его ответ больше не нужен, и бросает работу.
         expect(seen!.isCancellationRequested).toBe(true);
         void pending;
     });
@@ -240,7 +233,6 @@ describe("ExtensionHost — references-запрос по handle (in-process)", (
 
         source.cancel();
         await flushMicrotasks();
-        // Провайдер расширения узнаёт, что его ответ больше не нужен, и бросает работу.
         expect(seen!.isCancellationRequested).toBe(true);
         void pending;
     });

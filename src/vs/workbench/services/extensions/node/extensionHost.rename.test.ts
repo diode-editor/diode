@@ -13,11 +13,6 @@ import { settle } from "../../../../../TestUtils/timing.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import type { IRenameRequest } from "../../../../editor/common/languages/iRenameSource.ts";
 
-// Rename end-to-end с настоящим субпроцессом: расширение регистрирует
-// провайдера, ядро спрашивает его через реестр по handle, а правки ложатся
-// существующим `workspace.applyEdit` — в открытый документ И в закрытый
-// соседний файл.
-
 const FIXTURE = extensionFixture("test.providesRename", "providesRename.cjs");
 const CONTENT = "const value = 1;\nconst other = value;\nkeyword\n";
 
@@ -58,11 +53,10 @@ describe("ExtensionHost — rename providers (subprocess)", () => {
             );
             await settle();
             expect(result).toEqual({ applied: true });
-            // Открытый документ правится через свой буфер…
             expect(harness.group.getActiveEditor()?.getText()).toBe(
                 "const renamed = 1;\nconst other = value;\nkeyword\n",
             );
-            // …а ЗАКРЫТЫЙ соседний файл — записью на диск (bulk edit).
+            // ЗАКРЫТЫЙ соседний файл — записью на диск (bulk edit).
             expect(fs.readFileSync(neighbour, "utf8")).toBe("renamed here\n");
         } finally {
             await harness.dispose();

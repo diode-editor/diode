@@ -10,12 +10,6 @@ import { RpcEndpoint } from "../../../api/common/rpcEndpoint.ts";
 
 import { ExtensionHost } from "./extensionHost.ts";
 
-/**
- * Completion по handle: субпроцесса нет, канал сшит in-process — так видно,
- * какие сообщения уходят (пачка handle на один запрос), что документ без
- * синхронизации не спрашивается и что остановка субпроцесса отрезает запросы (образец — `extensionHost.hoverInProcess.test.ts`).
- */
-
 const NOOP_EDITOR_OPTIONS = {
     getActiveEditorOptions: () => null,
     setActiveEditorOptions: () => undefined,
@@ -30,7 +24,6 @@ const NOOP_COMMANDS = {
     registerProxy: () => ({ dispose: () => undefined }),
 } as unknown as ICommandService;
 
-/** Документ, который тесты открывают субпроцессу: запросы ходят только по синхронизированным. */
 const DOCUMENT = { uri: "file:///a.ts", languageId: "typescript", version: 3, text: "const a = 1;\n" };
 
 function makeHost(open = true): { host: ExtensionHost; peer: RpcEndpoint } {
@@ -145,7 +138,6 @@ describe("ExtensionHost — completion по handle (in-process)", () => {
 
         source.cancel();
         await flushMicrotasks();
-        // Провайдер расширения узнаёт, что его ответ больше не нужен, и бросает работу.
         expect(seen!.isCancellationRequested).toBe(true);
         void pending;
     });
@@ -166,8 +158,7 @@ describe("ExtensionHost — completion по handle (in-process)", () => {
             const pending = host.provideCompletionItems(0, REQUEST);
             void pending.then(settled);
 
-            // Language server на холодном старте или под нагрузкой: минута тишины —
-            // не повод отдать ядру «пусто» (по нему попап открылся бы словами из буфера).
+            // Минута тишины language server'а — не повод отдать «пусто»: попап открылся бы словами из буфера.
             await vi.advanceTimersByTimeAsync(60_000);
             expect(settled).not.toHaveBeenCalled();
 

@@ -8,16 +8,7 @@ import { settle } from "../../../../../TestUtils/timing.ts";
 
 import type { IWorkspaceScanner } from "./workspaceContainsActivation.ts";
 
-/**
- * Активация по `workspaceContains:<паттерн>`: повод считается ПО ФС, а не
- * сравнением строк, и считается для каждого манифеста отдельно (паттерн —
- * аргумент события, и подошёл он конкретному расширению).
- *
- * Папка воркспейса у харнесса — его `tmpDir`, поэтому фикстуры кладём туда
- * настоящими файлами (`writeFile`): проверяем ровно тот путь, по которому
- * ходит прод. Для проверки семантики обхода есть юниты
- * `workspaceContainsActivation.test.ts` — здесь интересен только хост.
- */
+/** Фикстуры — настоящими файлами в `tmpDir` харнесса (его папка воркспейса); семантика обхода — в юнитах сканера. */
 describe("ExtensionHost — активация по workspaceContains:", () => {
     it("паттерн-путь сошёлся с файлом в папке воркспейса → расширение активно", async () => {
         const harness = await createExtensionTestHarness({
@@ -130,7 +121,6 @@ describe("ExtensionHost — активация по workspaceContains:", () => {
             await harness.host.activateByWorkspaceContains();
             await settle();
             expect(harness.host.extensionCount).toBe(1);
-            // Расширение ушло из pending — кандидатов нет, ФС не трогали.
             expect(scanner.exists.mock.calls.length).toBe(callsAfterFirst);
         } finally {
             await harness.dispose();
@@ -259,7 +249,6 @@ describe("ExtensionHost — активация по workspaceContains:", () => {
     });
 });
 
-/** Сканер, отвечающий «есть только pom.xml», со счётчиками обращений. */
 function spyScanner(): {
     scanner: IWorkspaceScanner;
     exists: ReturnType<typeof vi.fn>;

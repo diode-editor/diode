@@ -20,11 +20,8 @@ import { fixAllAction, organizeImportsAction } from "../../../contrib/codeAction
 import { type StatusBarService, StatusBarServiceDIToken } from "../../../services/statusbar/common/statusBarService.ts";
 import { EditorServiceDIToken } from "../../editor/common/editorService.ts";
 
-// Code actions поверх СТОКОВОГО стека (правило AGENTS): настоящий ruff.vsix +
-// настоящий bundled `ruff server`. Сервер отдаёт source-действия с точными
-// видами `source.organizeImports.ruff` / `source.fixAll.ruff` — команды берут
-// их иерархическим матчем `only`; quickfix «Remove unused import: sys» (F401)
-// резолвится лениво и применяется через workspace.applyEdit до буфера.
+// Сервер отдаёт точные виды `source.organizeImports.ruff` / `source.fixAll.ruff` —
+// команды берут их иерархическим матчем `only`.
 
 let installed: IInstalledRuff;
 
@@ -37,7 +34,6 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — code actions от сто
         installed.dispose();
     });
 
-    /** Харнесс + открытый lint.py + активация; общая шапка кейсов. */
     async function openLintFile(): Promise<{ harness: IExtensionHarness; lintUri: string }> {
         const harness = await createExtensionTestHarness({
             languageService: PY_LANGUAGE_SERVICE,
@@ -50,7 +46,6 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — code actions от сто
         return { harness, lintUri: Uri.file(lintPath).toString() };
     }
 
-    /** Command-акция из продовой таблицы, привязанная к харнессу (образец TS-сьюта). */
     function bindAction(harness: IExtensionHarness, action: typeof organizeImportsAction): void {
         const statusBar = {
             addEntry: () => ({ dispose: () => undefined }),
@@ -62,7 +57,6 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — code actions от сто
         registerAction(harness.commandRegistry, new KeybindingRegistry(), accessor, action);
     }
 
-    /** Дождаться непустого ответа сервера на source-вид (шов + готовность сервера). */
     async function untilSourceAction(harness: IExtensionHarness, uri: string, only: string): Promise<void> {
         await until(`${only} action от ruff`, async () => {
             const actions = await provideCodeActions(harness, {
@@ -119,9 +113,8 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — code actions от сто
         async () => {
             const { harness, lintUri } = await openLintFile();
             try {
-                // Без `only`, диапазон — строка `import sys`: контекст-диагностики
-                // субпроцесс собирает сам из своих DiagnosticCollection, по ним ruff
-                // матчит фиксы. Ждём именно quickfix-набор (сервер мог ещё линтить).
+                // Контекст-диагностики субпроцесс собирает сам из DiagnosticCollection.
+                // Ждём именно quickfix-набор: сервер мог ещё линтить.
                 const quickfixes = await until("quickfix-набор для F401", async () => {
                     const actions = await provideCodeActions(harness, {
                         uri: lintUri,
@@ -135,7 +128,6 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — code actions от сто
 
                 const removeImport = quickfixes.find((a) => a.title.includes("Remove unused import"));
                 expect(removeImport).toBeDefined();
-                // Safe-фикс линтера помечен предпочтительным — его возьмёт Ctrl+. по умолчанию.
                 expect(removeImport?.isPreferred).toBe(true);
 
                 const applied = await harness.host.applyCodeAction(removeImport!.id);

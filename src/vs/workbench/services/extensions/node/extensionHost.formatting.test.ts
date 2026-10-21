@@ -14,12 +14,6 @@ import { formatDocumentAction, formatSelectionAction } from "../../../contrib/fo
 import { type StatusBarService, StatusBarServiceDIToken } from "../../../services/statusbar/common/statusBarService.ts";
 import { EditorServiceDIToken } from "../../editor/common/editorService.ts";
 
-// Команды форматирования end-to-end с настоящим субпроцессом: настоящая
-// команда через commandRegistry → EditorService.formattingSource → host →
-// RPC → провайдер фикстуры → правки в буфере (#196, DoD-гейт «тест гоняет
-// настоящую команду и сверяет текст документа»).
-
-/** Регистрирует НАСТОЯЩИЕ формат-команды в реестре харнесса (как WORKBENCH_ACTIONS в проде). */
 function registerFormatActions(harness: {
     commandRegistry: Parameters<typeof registerAction>[0];
     group: unknown;
@@ -74,7 +68,6 @@ describe("ExtensionHost — editor.action.formatDocument (subprocess)", () => {
             registerFormatActions(harness);
             await settle();
 
-            // Выделена только вторая строка — первая должна остаться как есть.
             harness.group.getActiveEditor()!.viewState.selections = [createSelection(1, 0, 1, 12)];
             await harness.commandRegistry.execute("editor.action.formatSelection");
             await settle();
@@ -94,8 +87,6 @@ describe("ExtensionHost — editor.action.formatDocument (subprocess)", () => {
             registerFormatActions(harness);
             await settle();
 
-            // До #196 этот вызов отклонялся с `command "editor.action.formatDocument"
-            // not found` — здесь он обязан резолвиться и дойти до буфера.
             await harness.commandRegistry.execute("test.invokeFormatDocument");
             await settle();
 

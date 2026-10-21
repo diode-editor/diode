@@ -18,13 +18,8 @@ import {
 import { MARKETPLACE_OFFLINE } from "../../../../../TestUtils/marketplaceEnv.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 
-// Find All References поверх настоящего стороннего basedpyright.vsix (см.
-// basedpyrightFixture): ссылки на символ собираются из ДВУХ файлов — объявление
-// в defs.py и вызов в main.py.
-
 let installed: IInstalledBasedpyright;
 
-// Vsix приезжает из магазина (см. basedpyrightFixture.ts) — в оффлайне пропускаем.
 describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — references от стокового basedpyright", () => {
     beforeAll(async () => {
         installed = await installBasedpyright();
@@ -72,7 +67,6 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — references от сток
             // Объявление в defs.py — имя `greet` в колонке 4 первой строки.
             const declaration = references.find((ref) => ref.uri === defsUri);
             expect(declaration?.range.start).toMatchObject({ line: 0, character: 4 });
-            // Вызов и импорт в main.py.
             const inMain = references.filter((ref) => ref.uri === mainUri);
             expect(inMain.length).toBeGreaterThanOrEqual(2);
 

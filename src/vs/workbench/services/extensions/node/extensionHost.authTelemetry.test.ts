@@ -5,12 +5,8 @@ import { settle } from "../../../../../TestUtils/timing.ts";
 import type { IOutputSink } from "../../../../workbench/api/common/iExtensionWindowSinks.ts";
 
 /**
- * Расширение с телеметрией и своим провайдером входа обязано активироваться
- * ЦЕЛИКОМ — форма `hashicorp.terraform`: репортер `@vscode/extension-telemetry`
- * зовёт `env.createTelemetryLogger` в конструкторе, а панели HCP Terraform
- * регистрируют провайдер и спрашивают сессию ещё до старта языкового сервера.
- * Без этих членов пользователь терял всё расширение: hover, автодополнение,
- * диагностики. Проверка — на настоящем субпроцессе расширений.
+ * Форма `hashicorp.terraform`: `env.createTelemetryLogger` и сессия входа
+ * запрашиваются ещё до старта языкового сервера — без них терялось всё расширение.
  */
 describe("ExtensionHost — расширение с телеметрией и провайдером входа активируется целиком", () => {
     it("activate() доходит до команды; сессий нет, вход отклоняется с причиной, телеметрия не уходит", async () => {
@@ -34,7 +30,6 @@ describe("ExtensionHost — расширение с телеметрией и п
                 sent: [],
                 login: 'вход через "test.cloud" в TUI пока не поддержан',
             });
-            // Человеку — одна строка, что входа не будет.
             expect(output).toEqual([
                 {
                     channel: "extensions",

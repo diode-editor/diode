@@ -7,10 +7,8 @@ import { RingBufferSink } from "../../../../platform/log/common/ringBufferSink.t
 import { formatOutputLine } from "../../../services/output/common/outputService.ts";
 
 /**
- * Отказ активации — так, как его видит человек в OUTPUT `extensions.host`:
- * настоящий субпроцесс, настоящий LogService и форматтер канала. Урок
- * golang.go: без `go` в PATH он отклоняет `activate()` голым `undefined`, и в
- * логе оставалось `{"name":"Error","message":"undefined"}`.
+ * Урок golang.go: без `go` в PATH он отклоняет `activate()` голым `undefined`,
+ * и в логе оставалось `{"name":"Error","message":"undefined"}`.
  */
 async function activationFailureLine(activateBody: string): Promise<string> {
     const logService = new LogService();

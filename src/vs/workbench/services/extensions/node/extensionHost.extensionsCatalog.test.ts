@@ -11,7 +11,6 @@ import {
 
 import type { IExtensionRegistration } from "./iExtensionEntry.ts";
 
-/** Что фикстура `inspectsExtensions.cjs` рассказывает про одно расширение. */
 interface IExtensionReport {
     id: string;
     extensionPath: string;
@@ -24,7 +23,6 @@ interface IExtensionReport {
     exports: unknown;
 }
 
-/** Расширение-обозреватель: зовёт `getExtension` уже в activate(). */
 function inspector(): IExtensionRegistration {
     return {
         ...extensionFixture("test.inspector", "inspectsExtensions.cjs"),
@@ -38,7 +36,6 @@ function inspector(): IExtensionRegistration {
     };
 }
 
-/** Сосед без кода событий активации — просто ещё одна запись в каталоге. */
 function neighbour(id: string): IExtensionRegistration {
     return extensionFixture(id, "noopExtension.cjs");
 }
@@ -67,7 +64,6 @@ describe("ExtensionHost — каталог vscode.extensions", () => {
             expect(self.extensionPath).toBe(EXTENSION_FIXTURES_DIR);
             expect(self.extensionUriFsPath).toBe(EXTENSION_FIXTURES_DIR);
             expect(self.packageJSONName).toBe("inspector");
-            // Манифест едет целиком, а не тройкой имя/издатель/версия.
             expect(self.packageJSONDisplayName).toBe("Каталог-обозреватель");
             // Без удалённого extension host'а kind по контракту всегда UI.
             expect(self.extensionKind).toBe(1);
@@ -76,8 +72,6 @@ describe("ExtensionHost — каталог vscode.extensions", () => {
     });
 
     it("all перечисляет все зарегистрированные расширения, а не только активные", async () => {
-        // `onCommand:...` не наступает — сосед останется зарегистрированным, но
-        // неактивным; каталог обязан показать и его.
         const sleeping: IExtensionRegistration = {
             ...neighbour("test.sleeping"),
             activationEvents: ["onCommand:never.happens"],
@@ -160,7 +154,6 @@ describe("ExtensionHost — каталог vscode.extensions", () => {
             activationEvents: ["onLanguage:python"],
         };
         await withHarness([inspector(), late], async (harness) => {
-            // Семя каталога на handshake слушателей ещё не застаёт.
             expect(await harness.commandRegistry.execute("test.extensions.changeCount")).toBe(0);
             await harness.host.activateByEvent("onLanguage:python");
             await harness.flushRpc(4);

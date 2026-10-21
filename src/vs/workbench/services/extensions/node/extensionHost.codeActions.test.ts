@@ -26,11 +26,6 @@ import {
 import { type StatusBarService, StatusBarServiceDIToken } from "../../../services/statusbar/common/statusBarService.ts";
 import { EditorServiceDIToken } from "../../editor/common/editorService.ts";
 
-// Code actions end-to-end с настоящим субпроцессом (#196): настоящая команда
-// через commandRegistry → codeActionSource → RPC → провайдер фикстуры →
-// resolve/правки через workspace.applyEdit → буфер. Командный путь действия —
-// обратный executeCommand в субпроцессе.
-
 function registerCodeActionCommands(
     harness: {
         commandRegistry: Parameters<typeof registerAction>[0];
@@ -109,7 +104,6 @@ describe("ExtensionHost — code actions (subprocess)", () => {
             extensions: [extensionFixture("test.providesCodeActions", "providesCodeActions.cjs")],
         });
         try {
-            // Пользователь выбирает командное quickfix-действие фикстуры.
             registerCodeActionCommands(harness, "Append marker");
             await settle();
 
@@ -141,8 +135,6 @@ describe("ExtensionHost — code actions (subprocess)", () => {
 
             expect(await harness.host.applyCodeAction(actions[0].id)).toBe(true);
             await settle();
-            // Команда действия (test.appendMarker) исполнилась в субпроцессе и
-            // дописала маркер через editor.edit — второй RPC-круг.
             expect(harness.group.getActiveEditor()?.getText()).toBe("note!fixed");
         } finally {
             await harness.dispose();

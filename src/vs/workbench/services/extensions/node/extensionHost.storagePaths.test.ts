@@ -44,13 +44,11 @@ interface IStorageReport {
     logDirExists: boolean;
 }
 
-/** Фикстура, которая в activate() читает globalStorageUri и пишет в него файл. */
 function storageFixture(id = "test.storage"): ReturnType<typeof extensionFixture> {
     return extensionFixture(id, "reportsStorage.cjs");
 }
 
 describe("ExtensionHost — каталоги хранения расширения", () => {
-    /** Свой корень user-data для тестов, которым нужны собственные `storageHomes`. */
     const roots: string[] = [];
     const makeRoot = (): string => {
         const root = fs.mkdtempSync(path.join(os.tmpdir(), "diode-extstorage-host-"));
@@ -69,9 +67,7 @@ describe("ExtensionHost — каталоги хранения расширени
             expect(report.globalStorageFsPath).toBe(path.join(harness.tmpDir, "globalStorage", "test.storage"));
             expect(report.storageFsPath).toBe(path.join(harness.tmpDir, "workspaceStorage", "test.storage"));
             expect(report.logFsPath).toBe(path.join(harness.tmpDir, "logs", "test.storage"));
-            // Это именно Uri файловой схемы, а не «что-то со свойством fsPath».
             expect(report.globalStorageScheme).toBe("file");
-            // Депрекейтнутые строковые близнецы — ровно fsPath своего Uri.
             expect(report.globalStoragePath).toBe(report.globalStorageFsPath);
             expect(report.storagePath).toBe(report.storageFsPath);
             expect(report.logPath).toBe(report.logFsPath);
@@ -80,9 +76,7 @@ describe("ExtensionHost — каталоги хранения расширени
         }
     });
 
-    // Главный смысл задачи: расширение класса «свой движок + ghost text» кладёт
-    // в globalStorage скачанный бинарь. Проверяем не наличие поля, а что по нему
-    // реально можно писать — то есть что родителя создал хост.
+    // Не наличие поля, а что по нему можно писать: родителя создал хост.
     it("расширение создаёт свой каталог и пишет в него: родитель существует до activate()", async () => {
         const harness = await createExtensionTestHarness({ extensions: [storageFixture()] });
         try {
@@ -93,9 +87,8 @@ describe("ExtensionHost — каталоги хранения расширени
         }
     });
 
-    // Контракт vscode.d.ts: «the directory might not exist … the parent directory
-    // is guaranteed to be existent». Каталоги, которые расширение само не создало,
-    // не создаёт и хост — он отвечает ровно за родителя.
+    // vscode.d.ts: «the directory might not exist … the parent directory is
+    // guaranteed to be existent».
     it("хост создаёт только РОДИТЕЛЯ, каталог расширения оставляет расширению", async () => {
         const harness = await createExtensionTestHarness({ extensions: [storageFixture()] });
         try {
@@ -121,7 +114,6 @@ describe("ExtensionHost — каталоги хранения расширени
             const report = (await harness.commandRegistry.execute("test.storage.report")) as IStorageReport;
             expect(report.storageFsPath).toBeNull();
             expect(report.storagePath).toBeNull();
-            // globalStorage при этом на месте — оно от папки не зависит.
             expect(report.globalStorageFsPath).toBe(path.join(root, "globalStorage", "test.storage"));
         } finally {
             await harness.dispose();
@@ -141,9 +133,6 @@ describe("ExtensionHost — каталоги хранения расширени
         }
     });
 
-    // Недоступный на запись user-data не должен рубить активацию: расширение
-    // получит путь и разберётся само (или упадёт), а хост обязан сказать, что
-    // родителя создать не смог, — иначе искать причину будет негде.
     it("не сумев создать корень, хост пишет предупреждение и активирует расширение", async () => {
         const root = makeRoot();
         // Файл на месте каталога: mkdir по пути внутрь него обречён.
@@ -180,9 +169,6 @@ describe("ExtensionHost — каталоги хранения расширени
         }
     });
 
-    // Логгер у хоста опционален (так его поднимают юниты и встроенные прогоны).
-    // Неудача mkdir не должна превращаться в падение самой активации — а именно
-    // это выйдет, если сообщать о ней без проверки на наличие логгера.
     it("хост без логгера переживает недоступный корень", async () => {
         const root = makeRoot();
         const blocker = path.join(root, "not-a-dir");

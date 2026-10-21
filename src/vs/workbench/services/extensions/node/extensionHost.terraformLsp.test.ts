@@ -20,16 +20,11 @@ import {
 import { Uri } from "../../../../base/common/uri.ts";
 import type { WireMarker } from "../../../api/common/wireTypes.ts";
 
-// Terraform «как у пользователя»: НАСТОЯЩИЙ сторонний vsix hashicorp.terraform
-// из магазина (платформенный, с нативным terraform-ls), установленный штатным
-// installVsix, на настоящем ext-host subprocess'е. Расширение падало на
-// активации (TreeItem, context.extension, createTelemetryLogger,
-// authentication) — сьют держит, что оно доходит до языкового сервера и его
-// функции доезжают до ядра: диагностики, hover, F12, автодополнение по схеме.
+// hashicorp.terraform падал на активации (TreeItem, context.extension,
+// createTelemetryLogger, authentication).
 
 let installed: IInstalledTerraform;
 
-// Vsix приезжает из магазина (см. terraformFixture.ts) — в оффлайне пропускаем.
 describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый hashicorp.terraform (terraform-ls, сквозняк)", () => {
     beforeAll(async () => {
         installed = await installTerraform();
@@ -62,7 +57,6 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый hashico
                 harness.group.openFile(mainPath);
                 // Ленивая активация ровно тем событием, которое объявляет манифест vsix.
                 await harness.host.activateByEvent("onLanguage:terraform");
-                // activate() выжил — расширение числится активным.
                 expect(harness.host.hasExtension(TERRAFORM_ID)).toBe(true);
 
                 // Диагностика от НАСТОЯЩЕГО terraform-ls — сигнал готовности сервера.
@@ -93,7 +87,6 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый hashico
                 const completions = await provideCompletions(harness, at(19, 2));
                 expect(completions.items.map((item) => item.label)).toContain("ami");
 
-                // Конвертеры стокового клиента не падали молча (конвенция TS-сьютов).
                 const crashes = outputLines.filter((l) => CLIENT_CRASH_PATTERNS.test(l.value));
                 expect(crashes).toEqual([]);
             } finally {

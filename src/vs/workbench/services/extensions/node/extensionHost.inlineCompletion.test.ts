@@ -15,7 +15,6 @@ import {
     InlineCompletionTriggerKind,
 } from "../../../../editor/common/languages/iInlineCompletionSource.ts";
 
-/** Запрос в конец строки 0 открытого в харнессе `main.ts` — с его текущей версией. */
 function requestIn(harness: IExtensionHarness): IInlineCompletionRequest {
     const uri = Uri.file(`${harness.tmpDir}/main.ts`).toString();
     return {
@@ -37,7 +36,6 @@ describe("ExtensionHost — inline completion bridge (subprocess)", () => {
         try {
             await settle();
 
-            // Через реестр харнесса — как это делает InlineCompletionsService.
             const items = await provideInlineCompletions(harness, requestIn(harness), CancellationTokenNone);
             expect(items).toEqual([
                 { insertText: "(n) {\n    return n;\n}" },
@@ -78,10 +76,8 @@ describe("ExtensionHost — inline completion bridge (subprocess)", () => {
         }
     });
 
-    // `editor.inlineSuggest.requestTimeout` едет в ЗАПРОСЕ, а не фиксируется при
-    // создании хоста: правка настройки обязана применяться без перезапуска
-    // редактора. Провайдер фикстуры отвечает ~300 мс — этого хватает, чтобы
-    // тесный срок его не дождался, а дефолтный хостовой (5000 мс) дождался.
+    // Срок едет в ЗАПРОСЕ: правка настройки применяется без перезапуска. Фикстура
+    // отвечает ~300 мс — тесный срок её не дождётся, хостовой дефолт (5000 мс) дождётся.
     it("req.timeoutMs перебивает хостовой таймаут: тесный срок сдаётся, отсутствие срока — ждёт", async () => {
         const harness = await createExtensionTestHarness({
             initialFile: { name: "main.ts", content: "function fib" },
@@ -90,7 +86,6 @@ describe("ExtensionHost — inline completion bridge (subprocess)", () => {
         try {
             await settle();
 
-            // 50 мс — провайдер не успевает, подсказки просто нет (редактор жив).
             expect(await provideInlineCompletions(harness, { ...requestIn(harness), timeoutMs: 50 })).toEqual([]);
 
             // Срока в запросе нет → работает хостовой дефолт, ответ дожидается.
@@ -98,7 +93,6 @@ describe("ExtensionHost — inline completion bridge (subprocess)", () => {
                 { insertText: "onacci(n) {}" },
             ]);
 
-            // Щедрый срок из настройки — тот же дождавшийся ответ.
             expect(await provideInlineCompletions(harness, { ...requestIn(harness), timeoutMs: 20000 })).toEqual([
                 { insertText: "onacci(n) {}" },
             ]);

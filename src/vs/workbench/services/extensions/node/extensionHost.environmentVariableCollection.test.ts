@@ -5,12 +5,6 @@ import { MergedEnvironmentVariableCollection } from "../../../../platform/termin
 
 import { createInMemoryEnvironmentVariableCollectionStore } from "./customers/environmentVariableCollectionsCustomer.ts";
 
-/**
- * `ExtensionContext.environmentVariableCollection` сквозняком через НАСТОЯЩИЙ
- * субпроцесс: коллекция расширения доезжает до хранилища хоста (его слияние
- * терминал кладёт на окружение процесса), а новый спавн получает сохранённое
- * семенем — расширение видит своё значение уже в `activate()`.
- */
 describe("ExtensionHost — коллекции окружения расширений (subprocess)", () => {
     it("replace на активации → хранилище; новый спавн видит сохранённое; правки и clear доезжают", async () => {
         const store = createInMemoryEnvironmentVariableCollectionStore();

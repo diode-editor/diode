@@ -22,17 +22,7 @@ import { EditorServiceDIToken } from "../../editor/common/editorService.ts";
 
 import type { IExtensionRegistration } from "./iExtensionEntry.ts";
 
-/**
- * Сквозная проверка СТОКОВОГО (немодифицированного) расширения
- * `maptz.regionfolder` на реальном extension host'е Diode (#194).
- *
- * Vsix приезжает ИЗ МАГАЗИНА последней совместимой версией (см. stockVsix.ts,
- * конвенция — docs/TESTING.md; в оффлайне сьют пропускается), ставится штатным
- * `installVsix` (тот же путь, что `--install-extension`), грузится реальным
- * кодом (`out/extension.js` + `require("./engine/...")`), активируется по
- * `onStartupFinished` и регистрирует folding-провайдер. Проверяем, что
- * `#region`-свёртки csharp-файла реально доезжают в редактор.
- */
+// Стоковый `maptz.regionfolder` из магазина на настоящем хосте (#194).
 
 const EXT_ID = "maptz.regionfolder";
 
@@ -45,7 +35,6 @@ const CSHARP_LANGUAGE_SERVICE: ILanguageService = {
     onDidRequestLanguageFeatures: () => ({ dispose: () => undefined }),
 };
 
-// C#-файл со стоковым C#-маркером региона (`/* #region */ … /* #endregion */`).
 const CSHARP_TEXT = ["/* #region Helpers */", "int a = 1;", "int b = 2;", "/* #endregion */", "int c = 3;"].join("\n");
 
 describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый maptz.regionfolder (#194)", () => {
@@ -88,16 +77,13 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый maptz.r
             activateEvents: ["onStartupFinished"],
         });
         try {
-            // Даём subprocess'у прогнать activate() (Engine регистрирует провайдер)
-            // и фолдам пере-подъехать в уже открытый редактор.
+            // activate() регистрирует провайдер, фолды переподъезжают в открытый редактор.
             await harness.flushRpc(8);
             await settle();
             await harness.flushRpc(8);
 
-            // Расширение активно и его команды видны (регистрация не упала).
             expect(harness.host.hasExtension(EXT_ID)).toBe(true);
 
-            // Провайдерская область #region…#endregion (строки 0..3) доехала.
             const regions = harness.group.getActiveEditor()?.viewState.foldedRegions ?? [];
             expect(regions.some((r) => r.startLine === 0 && r.endLine === 3)).toBe(true);
         } finally {
@@ -105,16 +91,8 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый maptz.r
         }
     });
 
-    /**
-     * Команда стокового расширения, а не только его folding-провайдер (#194).
-     *
-     * `RegionWrapperService.wrapCurrentWithRegion` читает `activeTextEditor.selection`
-     * и выходит на `sel.isEmpty` — то есть проверяет ВЕСЬ путь editor-write API:
-     * host доносит выделение в субпроцесс → расширение строит правки → они едут
-     * назад через `editor.applyEdit` и ложатся в документ одним undoable-батчем.
-     * Ровно этого теста не хватило в прошлый раз: без него «команды maptz
-     * раскрыты» было утверждением, которое ничто не проверяло.
-     */
+    // #194: команда проходит весь путь editor-write API — выделение в субпроцесс,
+    // правки назад через `editor.applyEdit` одним undoable-батчем.
     it("regionfolder.wrapWithRegion оборачивает выделение в #region-теги", async () => {
         const harness = await createExtensionTestHarness({
             initialFile: { name: "Program.cs", content: CSHARP_TEXT },
@@ -123,10 +101,8 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый maptz.r
             activateEvents: ["onStartupFinished"],
         });
         try {
-            // Гейт #196: после wrapWithRegion расширение делает fire-and-forget
-            // executeCommand("editor.action.formatDocument"). Регистрируем
-            // НАСТОЯЩУЮ команду (как WORKBENCH_ACTIONS в проде) — вызов обязан
-            // исполниться, а не отклониться «command not found».
+            // #196: после wrap расширение fire-and-forget зовёт formatDocument — нужна
+            // НАСТОЯЩАЯ команда, иначе вызов отклонится «command not found».
             const notices: string[] = [];
             const statusBar = {
                 addEntry: (entry: { text: string }) => {
@@ -144,7 +120,6 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый maptz.r
             await settle();
 
             const editor = harness.group.getActiveEditor()!;
-            // Пользователь выделил строку "int c = 3;" (последнюю, вне региона).
             editor.viewState.selections = [createSelection(4, 0, 4, 10)];
             await harness.flushRpc(8);
             await settle();
@@ -154,19 +129,15 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый maptz.r
             await settle();
 
             const text = editor.getText();
-            expect(text).not.toBe(CSHARP_TEXT); // документ реально изменился
-            // Стоковые csharp-маркеры расширения легли вокруг выделенной строки.
+            expect(text).not.toBe(CSHARP_TEXT);
             const lines = text.split("\n");
             const wrapped = lines.findIndex((l) => l.includes("int c = 3;"));
             expect(lines[wrapped - 1]).toContain("#region");
             expect(lines[wrapped + 1]).toContain("#endregion");
 
-            // Fire-and-forget formatDocument дошёл до настоящей команды: для
-            // csharp форматтера нет — команда честно показала notice, а не
-            // упала «command not found» на RPC.
+            // Для csharp форматтера нет — notice значит, что команда исполнилась.
             expect(notices).toEqual(["No formatter for 'csharp' installed"]);
 
-            // Правка undoable — откатывается штатным undo редактора одним шагом.
             editor.undo();
             expect(editor.getText()).toBe(CSHARP_TEXT);
         } finally {

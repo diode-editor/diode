@@ -12,12 +12,8 @@ import { settle } from "../../../../../TestUtils/timing.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import type { ICompletionRequest } from "../../../../editor/common/languages/iCompletionSource.ts";
 
-// Вторая половина completion-контракта: описание и правки авто-импорта приходят
-// не в списке, а по запросу выбранного пункта (`languages.resolveCompletionItem`),
-// а триггер-символы провайдера ядро узнаёт из подписки. Тест гоняет НАСТОЯЩИЙ
-// subprocess — id пункта обязан пережить сериализацию и найтись в кэше ответа.
+// НАСТОЯЩИЙ subprocess: id пункта обязан пережить сериализацию и найтись в кэше ответа.
 
-/** Запрос по открытому в харнессе `.editorconfig` (`ind|`) — с его текущей версией. */
 function requestIn(harness: IExtensionHarness): ICompletionRequest {
     const uri = Uri.file(`${harness.tmpDir}/.editorconfig`).toString();
     return { uri, languageId: "editorconfig", versionId: documentVersion(harness, uri), line: 0, character: 3 };
@@ -32,13 +28,10 @@ describe("ExtensionHost — resolveCompletionItem (subprocess)", () => {
         try {
             await settle();
 
-            // Триггер-символы регистрации доехали до ядра (их объявляет провайдер,
-            // а у LSP-клиента — сервер) метаданными регистрации и видны для документа.
             expect(completionTriggerCharacters(harness, requestIn(harness)).sort()).toEqual([".", "="]);
 
             const { items } = await provideCompletions(harness, requestIn(harness));
             expect(items).toHaveLength(1);
-            // В списке описания ещё нет — ровно как у стокового сервера.
             expect(items[0].detail).toBeUndefined();
 
             const resolved = await harness.host.resolveCompletionItem(items[0].id!);
@@ -62,11 +55,9 @@ describe("ExtensionHost — resolveCompletionItem (subprocess)", () => {
 
             const { items } = await provideCompletions(harness, requestIn(harness));
             expect(items).toHaveLength(1);
-            // Битая правка отсеяна, целая — в пункте списка.
             expect(items[0].additionalEdits).toEqual([
                 { range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } }, text: "# header\n" },
             ]);
-            // Резолвить у провайдера нечего — правки обязаны жить в самом пункте.
             expect(await harness.host.resolveCompletionItem(items[0].id!)).toBeNull();
         } finally {
             await harness.dispose();

@@ -28,16 +28,12 @@ import { fixAllAction } from "../../../contrib/codeAction/browser/codeActionActi
 import { type StatusBarService, StatusBarServiceDIToken } from "../../../services/statusbar/common/statusBarService.ts";
 import { EditorServiceDIToken } from "../../editor/common/editorService.ts";
 
-// Code actions поверх СТОКОВОГО стека (правило AGENTS): настоящий
-// vscode-eslint.vsix + его bundled eslintServer. Сервер отдаёт
-// `source.fixAll.eslint` (команда берёт его иерархическим матчем `only`), а
-// quickfix «Fix this no-extra-semi problem» матчится по контекст-диагностикам,
+// quickfix «Fix this no-extra-semi problem» сервер матчит по контекст-диагностикам,
 // которые субпроцесс собирает из своих DiagnosticCollection.
 
 let installed: IInstalledEslint;
 let eslintNodeModules: string;
 
-/** После safe-фикса no-extra-semi: `;;` схлопнулась, no-unused-vars остаётся. */
 const FIXED_JS = "const unused = 1;\n";
 
 describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — code actions от стокового vscode-eslint", () => {
@@ -50,7 +46,6 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — code actions от сто
         installed.dispose();
     });
 
-    /** Харнесс + воркспейс с eslint + открытый lint.js + активация; общая шапка кейсов. */
     async function openLintFile(): Promise<{ harness: IExtensionHarness; lintUri: string }> {
         const harness = await createExtensionTestHarness({
             languageService: JS_LANGUAGE_SERVICE,
@@ -71,7 +66,6 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — code actions от сто
         async () => {
             const { harness, lintUri } = await openLintFile();
             try {
-                // Прогрев: дождаться, пока сервер начнёт отдавать fixAll-действия.
                 await until("source.fixAll action от eslint", async () => {
                     const actions = await provideCodeActions(harness, {
                         uri: lintUri,
@@ -106,8 +100,6 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — code actions от сто
         async () => {
             const { harness, lintUri } = await openLintFile();
             try {
-                // Без `only`, диапазон — лишняя `;`: сервер матчит фиксы по
-                // контекст-диагностикам. Ждём именно quickfix-набор с фиксом.
                 const quickfixes = await until("quickfix-набор для no-extra-semi", async () => {
                     const actions = await provideCodeActions(harness, {
                         uri: lintUri,
@@ -121,8 +113,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — code actions от сто
 
                 const fix = quickfixes.find((a) => a.title.startsWith("Fix this no-extra-semi"));
                 expect(fix).toBeDefined();
-                // Единственный автофикс правила помечен предпочтительным — его
-                // возьмёт Ctrl+. по умолчанию (мимо disable-rule/show-docs соседей).
+                // Его возьмёт Ctrl+. по умолчанию (мимо disable-rule/show-docs соседей).
                 expect(fix?.isPreferred).toBe(true);
 
                 const applied = await harness.host.applyCodeAction(fix!.id);

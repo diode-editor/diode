@@ -32,8 +32,6 @@ describe("ExtensionHost — in-memory source loading (builtin code-extensions)",
         const harness = await createExtensionTestHarness({ extensions: [inMemoryReg()] });
         try {
             expect(harness.commandRegistry.has("test.inmem.echo")).toBe(true);
-            // Полная цепочка: команда исполнилась в субпроцессе → значит модуль
-            // скомпилирован в памяти и его require("vscode") резолвнулся в стаб.
             const result = await harness.commandRegistry.execute("test.inmem.echo", 7);
             expect(result).toBe("inmem:7");
         } finally {
@@ -44,7 +42,6 @@ describe("ExtensionHost — in-memory source loading (builtin code-extensions)",
     it("отвергает регистрацию, где заданы и source, и mainPath (ровно один способ)", async () => {
         const harness = await createExtensionTestHarness();
         try {
-            // Инвариант source XOR mainPath проверяется синхронно на регистрации.
             expect(() =>
                 harness.host.registerExtension({
                     id: "test.both",

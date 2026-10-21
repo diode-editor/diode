@@ -6,10 +6,6 @@ import { createExtensionTestHarness, extensionFixture } from "../../../../../Tes
 import { WorkspaceFoldersExtensionAdapter } from "../../../api/browser/workspaceFoldersExtensionAdapter.ts";
 import type { INotificationMessage } from "../../notification/browser/notificationService.ts";
 
-// `workspace.updateWorkspaceFolders` — полный круг: команда расширения в
-// НАСТОЯЩЕМ субпроцессе → проверки эталона → провод → наш адаптер решает,
-// открыть папку или сказать человеку, что multi-root нет.
-
 async function setup() {
     const opened: string[] = [];
     const shown: INotificationMessage[] = [];

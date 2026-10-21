@@ -10,13 +10,7 @@ import { RpcEndpoint } from "../../../api/common/rpcEndpoint.ts";
 
 import { ExtensionHost } from "./extensionHost.ts";
 
-/**
- * Folding по handle: субпроцесса нет, канал сшит in-process — так видно, что
- * вызовы прокси с одним запросом уходят одной пачкой (пересчёт фолдов идёт на
- * каждую правку, и запросы не должны множиться на число провайдеров), что
- * документ без синхронизации не спрашивается и что остановка субпроцесса
- * отрезает запросы.
- */
+// Пересчёт фолдов идёт на каждую правку — запросы не должны множиться на число провайдеров.
 
 const NOOP_EDITOR_OPTIONS = {
     getActiveEditorOptions: () => null,
@@ -32,7 +26,6 @@ const NOOP_COMMANDS = {
     registerProxy: () => ({ dispose: () => undefined }),
 } as unknown as ICommandService;
 
-/** Документ, который тесты открывают субпроцессу: запросы ходят только по синхронизированным. */
 const DOCUMENT = { uri: "file:///a.cs", languageId: "csharp", version: 3, text: "a\nb\nc\nd\n" };
 
 function makeHost(open = true): { host: ExtensionHost; peer: RpcEndpoint } {
@@ -105,7 +98,6 @@ describe("ExtensionHost — folding по handle (in-process)", () => {
 
         source.cancel();
         await flushMicrotasks();
-        // Провайдер расширения узнаёт, что его ответ больше не нужен, и бросает работу.
         expect(seen!.isCancellationRequested).toBe(true);
         void pending;
     });

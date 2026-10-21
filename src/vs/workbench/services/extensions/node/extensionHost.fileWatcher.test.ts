@@ -13,13 +13,6 @@ import { RpcEndpoint } from "../../../api/common/rpcEndpoint.ts";
 import { isRecursiveWatchPattern, toWatcherEvents } from "./customers/fileSystemCustomer.ts";
 import { ExtensionHost } from "./extensionHost.ts";
 
-/**
- * In-process тест хендлеров `workspace.watcher.*`: вместо форка субпроцесса
- * гоняем `installHostHandlers` на in-process RPC-паре, а вместо реального
- * chokidar подставляем фейковый {@link IExtensionFileWatcher}, у которого
- * события фаерит сам тест (образец — `extensionHost.fileSystemInProcess.test.ts`).
- */
-
 const NOOP_EDITOR_OPTIONS = {
     getActiveEditorOptions: () => null,
     setActiveEditorOptions: () => undefined,
@@ -34,7 +27,6 @@ const NOOP_COMMANDS = {
     registerProxy: () => ({ dispose: () => undefined }),
 } as unknown as ICommandService;
 
-/** Фейк наблюдателя: запоминает подписки и даёт тесту выстрелить пачкой. */
 function makeFakeWatcher(): IExtensionFileWatcher & {
     readonly calls: { base: string; recursive: boolean }[];
     readonly disposed: number[];

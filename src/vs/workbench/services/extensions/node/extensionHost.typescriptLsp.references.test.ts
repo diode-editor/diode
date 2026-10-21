@@ -19,22 +19,12 @@ import type { ICoreReference } from "../../../../editor/common/languages/iRefere
 
 import type { IExtensionRegistration } from "./iExtensionEntry.ts";
 
-// Find All References поверх СТОКОВОГО стека (правило AGENTS: фича поверх
-// стокового расширения закрывается стоковым расширением): настоящий builtin
-// `diode-lsp-typescript` (бандл с vscode-languageclient) + настоящий
-// `typescript-language-server` из devDeps на настоящем ext-host subprocess'е.
-// Стоковый клиент сам регистрирует reference-провайдер под capability сервера
-// (`ReferencesFeature`), а его конвертер строит `new code.Location(...)` —
-// падение любой из этих точек видно только здесь, юнит-тест на стабе чужой код
-// не исполняет.
-
 const require_ = createRequire(import.meta.url);
 const REPO_ROOT = fileURLToPath(new URL("../../../../../..", import.meta.url));
 const CLIENT_BUNDLE = path.join(REPO_ROOT, "extensions/diode-lsp-typescript/out/extension.cjs");
 const SERVER_CLI = require_.resolve("typescript-language-server/lib/cli.mjs");
 const TSSERVER_JS = require_.resolve("typescript/lib/tsserver.js");
 
-/** Мини-сервис языков: `.ts` → typescript. */
 const TS_LANGUAGE_SERVICE: ILanguageService = {
     ...NULL_LANGUAGE_SERVICE,
     getLanguageIdForResource: (filePath) => (filePath.endsWith(".ts") ? "typescript" : undefined),
@@ -60,7 +50,6 @@ function lspClientRegistration(): IExtensionRegistration {
     };
 }
 
-/** Опрос с дедлайном: сервер индексирует проект секундами, sleep'ы не годятся. */
 async function until<T>(what: string, probe: () => Promise<T | null>, timeoutMs = 60_000): Promise<T> {
     const deadline = Date.now() + timeoutMs;
     for (;;) {
@@ -73,7 +62,6 @@ async function until<T>(what: string, probe: () => Promise<T | null>, timeoutMs 
 
 describe("ExtensionHost — references от стокового typescript-language-server", () => {
     beforeAll(async () => {
-        // Свежий бандл клиента: тест закрывает именно то, что уедет в приложение.
         const { buildExtensions } = (await import(
             new URL("../../../../../../scripts/build-extensions.mjs", import.meta.url).href
         )) as { buildExtensions: (options: { repoRoot: string }) => Promise<unknown> };
@@ -104,8 +92,7 @@ describe("ExtensionHost — references от стокового typescript-langua
             harness.group.openFile(mainPath);
             await harness.host.activateByEvent("onLanguage:typescript");
 
-            // Каретка на вызове `greet` в main.ts — ждём, пока сервер отдаст
-            // ссылки не только из открытого файла, но и из defs.ts.
+            // Ссылки не только из открытого файла, но и из defs.ts.
             const references = await until("references для `greet`", async () => {
                 const found: readonly ICoreReference[] = await provideReferences(harness, {
                     uri: mainUri,
@@ -119,8 +106,6 @@ describe("ExtensionHost — references от стокового typescript-langua
                 return uris.has(defsUri) && uris.has(mainUri) ? found : null;
             });
 
-            // Объявление в defs.ts стоит на строке 0; импорт и вызов — в main.ts
-            // на строках 0 и 2. Сервер отдаёт все три (includeDeclaration: true).
             const byUri = new Map<string, number[]>();
             for (const ref of references) {
                 byUri.set(ref.uri, [...(byUri.get(ref.uri) ?? []), ref.range.start.line]);
@@ -128,7 +113,6 @@ describe("ExtensionHost — references от стокового typescript-langua
             expect(byUri.get(defsUri)).toEqual([0]);
             expect(byUri.get(mainUri)?.sort((a, b) => a - b)).toEqual([0, 2]);
 
-            // Молчаливый провал конвертации чужого кода виден только в канале клиента.
             const conversionErrors = outputLines.filter((line) =>
                 /is not a constructor|Converting|Cannot read propert/i.test(line.value),
             );

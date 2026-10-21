@@ -26,24 +26,10 @@ import { formatDocumentAction, formatSelectionAction } from "../../../contrib/fo
 import { type StatusBarService, StatusBarServiceDIToken } from "../../../services/statusbar/common/statusBarService.ts";
 import { EditorServiceDIToken } from "../../editor/common/editorService.ts";
 
-/**
- * Стоковый `esbenp.prettier-vscode` ИЗ МАГАЗИНА в настоящем extension host'е:
- * форматирование markdown и json — языков, которых не покрывает ни один наш LSP
- * (именно эту дыру запись в магазине и закрывает).
- *
- * Субпроцесс поднимается БЕЗ tsx (`subprocessLoader: "node"`): расширение —
- * ESM-модуль, а tsx своим хуком уводит `import … from "vscode"` в CJS-резолвер и
- * прячет настоящий путь загрузки. Здесь нужен ровно тот loader, что в приложении.
- *
- * Сетевой сьют не может быть единственным гейтом нашего контракта: ESM-загрузка
- * и `TextDocument.positionAt` закрыты герметично
- * (`extensionHost.esmExtension.test.ts`, `extHostDocuments.offsets.test.ts`).
- */
-
-// Установка расширения ходит в сеть (магазин) — в оффлайне сьют пропускается.
+// Субпроцесс БЕЗ tsx (`subprocessLoader: "node"`): расширение — ESM, а хук tsx
+// уводит `import … from "vscode"` в CJS-резолвер и прячет настоящий путь загрузки.
 let installed: IInstalledPrettier;
 
-/** Регистрирует НАСТОЯЩИЕ формат-команды в реестре харнесса (как WORKBENCH_ACTIONS в проде). */
 function registerFormatActions(harness: {
     commandRegistry: Parameters<typeof registerAction>[0];
     group: unknown;
@@ -150,8 +136,6 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый prettie
             await harness.commandRegistry.execute("editor.action.formatSelection");
             await settle();
 
-            // Вторая строка приведена prettier (пробелы + `;`), первая — нет:
-            // значит до провайдера доехали смещения именно выделения.
             expect(harness.group.getActiveEditor()?.getText()).toBe("const  a   =  1\nconst b = 2;\n");
         } finally {
             await harness.dispose();

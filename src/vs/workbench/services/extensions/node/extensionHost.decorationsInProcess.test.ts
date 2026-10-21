@@ -15,11 +15,6 @@ import { ColorThemeKind } from "../../../api/common/vscodeTypes.ts";
 
 import { ExtensionHost } from "./extensionHost.ts";
 
-// Детерминированный in-process тест decoration-хендлеров host'а: вместо форка
-// subprocess'а гоняем `installHostHandlers` на in-process RPC-паре и шлём
-// нотификации сами. Так покрытие хендлеров стабильно (один воркер, без гонок
-// subprocess-RPC), и легко пробить guard-ветки/пути очистки.
-
 const editorWriteCalls: { method: string; uri: string; payload: unknown }[] = [];
 const NOOP_EDITOR_OPTIONS = {
     getActiveEditorOptions: () => null,
@@ -128,8 +123,6 @@ const range = (line: number) => ({ start: { line, character: 0 }, end: { line, c
 describe("ExtensionHost — обработчики хоста (in-process, deterministic)", () => {
     it("window.showMessage маршрутизирует severity в логгер; конфиг-изменение шлёт в subprocess", async () => {
         const h = makeHost({});
-        // Показ — запрос (ответа ждут), но в логгер сообщение попадает всегда:
-        // тост гаснет, а прочитать, что расширение сказало, надо и потом.
         await h.peer.request("window.showMessage", { severity: "error", message: "boom" });
         await h.peer.request("window.showMessage", { severity: "warn", message: "careful" });
         await h.peer.request("window.showMessage", { severity: "info", message: "fyi" });
@@ -148,13 +141,11 @@ describe("ExtensionHost — обработчики хоста (in-process, deter
         editorWriteCalls.length = 0;
         const h = makeHost({ "editorGutter.modifiedBackground": 0xff, "editor.background": 0 });
 
-        // Нет uri (не строка) — ранний выход, порт не дёргается.
         h.peer.notify("editor.setSelection", { selections: [] });
         const guarded = await h.peer.request("editor.applyEdit", { edits: [] });
         expect(guarded).toBe(false);
         expect(editorWriteCalls).toHaveLength(0);
 
-        // С uri — проброс в порт.
         const uri = Uri.file("/a.ts").toString();
         h.peer.notify("editor.setSelection", {
             uri,

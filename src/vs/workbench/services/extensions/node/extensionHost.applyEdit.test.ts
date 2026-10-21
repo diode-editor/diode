@@ -8,10 +8,6 @@ import { createExtensionTestHarness, extensionFixture } from "../../../../../Tes
 import { settle } from "../../../../../TestUtils/timing.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 
-// `vscode.workspace.applyEdit` end-to-end с настоящим субпроцессом: расширение
-// строит WorkspaceEdit, правки доезжают до буферов ядра и до файлов на диске.
-// Это фундамент для code actions / rename (#196).
-
 const FIXTURE = extensionFixture("test.appliesWorkspaceEdit", "appliesWorkspaceEdit.cjs");
 
 // Удаление файла уходит в системную корзину (`files.enableTrash` по умолчанию
@@ -75,11 +71,6 @@ describe("ExtensionHost — workspace.applyEdit (subprocess)", () => {
         }
     });
 
-    /**
-     * Узел M1 целиком: правка файла, которого нет ни в одной вкладке. Раньше
-     * такой edit честно отвечал `false`, и пользователь видел «Code action
-     * failed» на любом действии, трогающем второй файл.
-     */
     it("ЗАКРЫТЫЙ файл правится на диске, а открытый — в буфере; один undo откатывает оба", async () => {
         const harness = await createExtensionTestHarness({
             initialFile: { name: "a.txt", content: "alpha" },
@@ -97,13 +88,9 @@ describe("ExtensionHost — workspace.applyEdit (subprocess)", () => {
             expect(applied).toBe(true);
             expect(active?.getText()).toBe("Xalpha");
             expect(fs.readFileSync(closed, "utf8")).toBe("Xbeta");
-            // Открытый буфер «грязный» (на диске ещё старое), закрытый файл уже
-            // записан: буфера у него нет, и грязным он быть не может.
             expect(active?.isModified).toBe(true);
 
-            // ОДИН Ctrl+Z на весь edit: откатывается и буфер, и файл на диске.
-            // Шаг с закрытым файлом сначала сверяется с диском (асинхронно,
-            // через файловый сервис), поэтому откат ждём.
+            // Шаг с закрытым файлом сначала асинхронно сверяется с диском — откат ждём.
             active?.undo();
             await vi.waitFor(() => {
                 expect(active?.getText()).toBe("alpha");

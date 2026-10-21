@@ -12,12 +12,8 @@ import { RpcEndpoint } from "../../../api/common/rpcEndpoint.ts";
 
 import { ExtensionHost } from "./extensionHost.ts";
 
-/**
- * Запрос форматирования по handle: субпроцесса нет, канал сшит in-process —
- * так проверяются ветки, недостижимые через настоящий fork (документ без
- * синхронизации, форма параметров RPC). Образец —
- * `extensionHost.signatureHelpInProcess.test.ts`.
- */
+// Канал сшит in-process: ветки, недостижимые через настоящий fork (документ без
+// синхронизации, форма параметров RPC).
 
 const NOOP_EDITOR_OPTIONS = {
     getActiveEditorOptions: () => null,
@@ -33,7 +29,7 @@ const NOOP_COMMANDS = {
     registerProxy: () => ({ dispose: () => undefined }),
 } as unknown as ICommandService;
 
-/** Документ, который тесты открывают субпроцессу: запросы ходят только по синхронизированным. */
+/** Запросы ходят только по документам, синхронизированным с субпроцессом. */
 const DOCUMENT = { uri: "file:///a.ts", languageId: "typescript", version: 3, text: "const a = 1;\n" };
 
 const WIRE_EDIT = { range: { start: { line: 0, character: 5 }, end: { line: 0, character: 7 } }, text: " " };
@@ -53,7 +49,6 @@ function makeHost(
     options: {
         warn?: ILogger["warn"];
         maxSyncedDocumentChars?: number;
-        /** Открыть {@link DOCUMENT} субпроцессу (по умолчанию — да). */
         open?: boolean;
     } = {},
 ): { host: ExtensionHost; peer: RpcEndpoint } {
@@ -167,7 +162,6 @@ describe("ExtensionHost — форматирование по handle (in-process
 
         source.cancel();
         await flushMicrotasks();
-        // Провайдер расширения узнаёт, что его ответ больше не нужен, и бросает работу.
         expect(seen!.isCancellationRequested).toBe(true);
         void pending;
     });
