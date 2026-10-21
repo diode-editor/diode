@@ -2,8 +2,8 @@ import { resolve } from "node:path";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// История помнит место, а не вкладку. Команды — на alt+b / alt+n: палитра и меню увели бы фокус
-// из редактора, Alt+F занят мнемоникой File.
+// History remembers the location, not the tab. Commands are on alt+b / alt+n: the palette and menu would take focus
+// from the editor, and Alt+F is the File mnemonic.
 
 const longFile = resolve(repoRoot, "e2e", "fixtures", "gutterWidthFolding.ts");
 const otherFile = resolve(repoRoot, "e2e", "fixtures", "sample.ts");
@@ -25,7 +25,7 @@ export default defineScenario({
         await editor.waitForText((t) => /Ln 12[0-9], Col/u.test(t));
         await editor.capture("origin");
 
-        // Ctrl+6 — «Alternate Editor».
+        // Ctrl+6 is "Alternate Editor".
         await editor.sendKey("Ctrl+6");
         await editor.waitForText((t) => t.includes("const greeting"));
         await editor.capture("jumped");
@@ -34,7 +34,7 @@ export default defineScenario({
         await editor.waitForText((t) => /Ln 12[0-9], Col/u.test(t));
         await editor.capture("back");
 
-        // Back и Forward в меню видны, только когда есть куда идти.
+        // Back and Forward show in the menu only when there is somewhere to go.
         await editor.sendKey("Alt+G");
         await editor.waitForText((t) => t.includes("Back") && t.includes("Forward"));
         await editor.capture("go-menu");

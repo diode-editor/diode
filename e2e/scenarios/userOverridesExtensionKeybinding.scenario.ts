@@ -5,8 +5,8 @@ import { frameToText } from "../helpers/frame.ts";
 import type { ScenarioDriver } from "./framework.ts";
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// Пользовательский бинд сильнее бинда расширения на той же комбинации, как в VS Code, хотя слой расширений
-// регистрируется ПОЗЖЕ keybindings.json.
+// A user binding beats an extension binding on the same chord, as in VS Code, even though the extension layer registers
+// AFTER keybindings.json.
 
 const sampleFile = resolve(repoRoot, "AGENTS.md");
 const userData = resolve(repoRoot, "e2e", "fixtures", "user-data-with-ext-storage-demo");
@@ -26,7 +26,7 @@ export default defineScenario({
     open: [sampleFile],
     cols: 120,
     rows: 24,
-    // Extension-host сценарий: CI-safety-net гоняем только на Linux (как extension-storage).
+    // Extension host scenario: the CI safety net runs on Linux only (like extension-storage).
     skipOn: ["win32"],
     async run(editor) {
         await editor.waitForText((t) => t.includes("idle · fired 0"), { timeoutMs: 20_000 });

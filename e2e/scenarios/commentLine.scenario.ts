@@ -9,7 +9,7 @@ export default defineScenario({
     name: "comment-line",
     title: "Toggle Line Comment (Ctrl+/) и Block Comment по language-configuration",
     open: [repoRoot, sampleFile],
-    // Shift+Alt+A legacy-терминал не передаёт — та же команда на досягаемом F6.
+    // A legacy terminal does not pass Shift+Alt+A, so the same command is bound to the reachable F6.
     userKeybindings: [{ key: "f6", command: "editor.action.blockComment" }],
     cols: 100,
     rows: 24,

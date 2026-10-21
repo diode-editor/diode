@@ -2,7 +2,7 @@ import { resolve } from "node:path";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// Фикстура `inline-ghost` — фейковый «LLM» с канированными продолжениями и задержкой ответа ~250 мс.
+// The `inline-ghost` fixture is a fake "LLM" with canned completions and a ~250 ms response delay.
 
 const sampleFile = resolve(repoRoot, "e2e", "fixtures", "ghost-sample.ts");
 const userData = resolve(repoRoot, "e2e", "fixtures", "user-data-with-inline-ghost");
@@ -14,7 +14,7 @@ export default defineScenario({
     open: [repoRoot, sampleFile],
     cols: 100,
     rows: 24,
-    // Субпроцесс расширений на Windows флейкает.
+    // The extension host subprocess is flaky on Windows.
     skipOn: ["win32"],
     async run(editor) {
         await editor.waitForText((t) => t.includes("Fibonacci demo"));
@@ -23,9 +23,9 @@ export default defineScenario({
         await editor.sendKey("Enter");
         await editor.sendText("function fib");
 
-        // Расширение активируется асинхронно — при неудаче перепечатываем последний символ (новая правка → новый запрос).
-        // Esc перед перепечаткой — против гонки активации: пока провайдера нет, попап по словам открывается, а под ним
-        // призрак не рисуется.
+        // The extension activates asynchronously; on failure retype the last character (new edit → new request).
+        // Esc before retyping guards against the activation race: until the provider exists, the word-based suggest
+        // popup opens, and ghost text is not drawn under it.
         let ghostShown = false;
         for (let attempt = 0; attempt < 10 && !ghostShown; attempt++) {
             try {
@@ -40,12 +40,12 @@ export default defineScenario({
         if (!ghostShown) throw new Error("inline-completion: ghost text не появился за 10 попыток");
         await editor.capture("ghost");
 
-        // Пока текст был фантомом, каретка стояла на Ln 2 — «Ln 5» доказывает вставку.
+        // While the text was ghost text the cursor stayed on Ln 2, so "Ln 5" proves the insertion.
         await editor.sendKey("Tab");
         await editor.waitForText((t) => t.includes("Ln 5"), { timeoutMs: 4000 });
         await editor.capture("accepted");
 
-        // Заявка n-4: каретка в середине строки — призрак встаёт между кареткой и хвостом, а не поверх.
+        // Request n-4: with the cursor mid-line, ghost text goes between the cursor and the line's tail, not over it.
         await editor.sendKey("End");
         await editor.sendKey("Enter");
         await editor.sendText("// greeting for the demo");
@@ -67,7 +67,7 @@ export default defineScenario({
         if (!midLineShown) throw new Error("inline-completion: призрак в середине строки не появился за 10 попыток");
         await editor.capture("ghost-mid-line");
 
-        // Col 43 = 14 набранных + 28 вставленных + 1.
+        // Col 43 = 14 typed + 28 inserted + 1.
         await editor.sendKey("Tab");
         await editor.waitForText((t) => t.includes("Col 43"), { timeoutMs: 4000 });
         await editor.capture("mid-line-accepted");

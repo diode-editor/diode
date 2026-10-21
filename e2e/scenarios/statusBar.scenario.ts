@@ -19,15 +19,16 @@ export default defineScenario({
         await editor.sendMouse({ action: "move", button: "none", x: branch.box.x + 2, y: branch.box.y });
         await editor.capture("segment-hover");
 
-        // Меню флипается вверх: полоса — нижний ряд.
+        // The menu flips upward: the bar is the bottom row.
         await editor.sendMouse({ action: "press", button: "right", x: branch.box.x + 2, y: branch.box.y });
         await editor.sendMouse({ action: "release", button: "right", x: branch.box.x + 2, y: branch.box.y });
         await editor.waitForText((t) => t.includes("Hide 'Source Control'"));
         await editor.capture("visibility-menu");
         await editor.sendKey("Escape");
 
-        // 30, а не 40 колонок: на CI ветка `main` короткая, и при 40 обе группы влезали встык — UTF-8 не вытеснялся,
-        // wait висел до таймаута. Проверяем факт вытеснения, а не обрезок: ширина левой группы плавает по имени ветки.
+        // 30 columns, not 40: on CI the branch `main` is short, and at 40 both groups fit edge to edge — UTF-8 was not
+        // pushed out and the wait hung until the timeout. Assert the push-out itself, not truncation: the left group's
+        // width varies with the branch name.
         await editor.resize(30, 16);
         await editor.waitForText((t) => !t.includes("UTF-8"));
         await editor.capture("narrow-overflow");

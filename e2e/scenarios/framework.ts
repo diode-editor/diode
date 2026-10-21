@@ -34,7 +34,7 @@ export interface ScenarioDriver {
     wheel(x: number, y: number, direction: "up" | "down" | "left" | "right"): Promise<void>;
     /** Capture and save `screenshots/<scenario>-<shot>.png`; returns the path. */
     capture(shot: string): Promise<string>;
-    /** После `workbench.action.reloadWindow` процесс заменяет себя, инспектор поднимается на том же порту. */
+    /** After `workbench.action.reloadWindow` the process replaces itself; the inspector returns on the same port. */
     reconnect(): Promise<void>;
 }
 
@@ -42,30 +42,30 @@ export interface ScenarioSpec {
     /** Kebab-case id; prefixes every screenshot file. */
     name: string;
     title?: string;
-    /** Опущено — каталог воркспейса сценария; пустой массив — запуск без позиционных аргументов (пустое окно). */
+    /** Omitted: the scenario's workspace directory; empty array: no positional arguments (an empty window). */
     open?: string[];
     cols?: number;
     rows?: number;
     env?: Record<string, string>;
-    /** Пропуск только в CI-safety-net (`scenarios-<N>.test.ts`); скриншоты генерируются как обычно. */
+    /** Skips only in the CI safety net (`scenarios-<N>.test.ts`); screenshots are generated as usual. */
     skipOn?: readonly NodeJS.Platform[];
-    /** Путь к `.vsix` либо id из магазина (различение по суффиксу, как у CLI); id требует `network: true`. */
+    /** A `.vsix` path or a marketplace id (told apart by suffix, as in the CLI); an id requires `network: true`. */
     installVsix?: readonly string[];
-    /** Пустое — 300с. */
+    /** Defaults to 300 s. */
     timeoutMs?: number;
-    /** CI-safety-net пропускает сценарий при `DIODE_E2E_OFFLINE=1`. */
+    /** The CI safety net skips the scenario under `DIODE_E2E_OFFLINE=1`. */
     network?: boolean;
-    /** Причина пропуска (и в CI-safety-net, и в `npm run screenshots`) либо `undefined`, если инструмент есть. */
+    /** The skip reason (in both the CI safety net and `npm run screenshots`), or `undefined` if the tool is present. */
     requires?(): string | undefined;
     settings?: Readonly<Record<string, unknown>>;
     /**
-     * Чтобы исполнить команду, не уводя фокус: палитра возвращает фокус тому, у кого он был, а маршрут через
-     * меню-бар оставляет его в меню.
+     * For running a command without moving focus: the command palette hands focus back to its previous owner,
+     * while the menu bar route leaves it in the menu.
      */
     userKeybindings?: readonly { key: string; command: string; when?: string; args?: unknown }[];
     extraArgs?: readonly string[];
     seedUserData?: string;
-    /** Зовётся, только когда сценарий реально запускается: сетевая подготовка не бьёт по офлайн-прогонам. */
+    /** Called only when the scenario actually runs, so network setup does not hurt offline runs. */
     prepare?(): Promise<void>;
     run(driver: ScenarioDriver): Promise<void>;
 }
@@ -81,7 +81,7 @@ export function defineScenario(spec: ScenarioSpec): ScenarioSpec {
     return spec;
 }
 
-/** `cwd` — repoRoot: сценарии открывают его абсолютными путями, bundle и расширения лежат рядом. */
+/** `cwd` is repoRoot: scenarios open it by absolute paths, and the bundle and extensions sit next to it. */
 export async function runScenario(spec: ScenarioSpec): Promise<CapturedShot[]> {
     await spec.prepare?.();
     const app = await startHeadlessApp({
@@ -133,7 +133,7 @@ export function scenarioFiles(): string[] {
         .sort();
 }
 
-/** `filter` отбирает файлы до импорта: часть сценариев готовит фикстуры прямо при импорте (`mkdtempSync`). */
+/** `filter` selects files before import: some scenarios prepare fixtures right at import (`mkdtempSync`). */
 export async function loadScenarios(filter: (file: string, index: number) => boolean = () => true): Promise<ScenarioSpec[]> {
     const files = scenarioFiles().filter(filter);
     const specs: ScenarioSpec[] = [];

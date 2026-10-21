@@ -6,8 +6,9 @@ import { waitUntil } from "../helpers/waitFor.ts";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// У Go нет language server'а в поставке — ступени встроенные, как у VS Code без провайдера (ступени LSP —
-// в `smartSelectService.typescriptLsp.test.ts`). Выделение читается с экрана по фону, а не из модели.
+// Go ships without a language server — the steps are built in, as in VS Code without a provider (LSP steps are
+// in `smartSelectService.typescriptLsp.test.ts`). The selection is read off the screen by background, not from the
+// model.
 
 const sampleFile = resolve(repoRoot, "e2e", "fixtures", "smartSelect.go");
 
@@ -40,14 +41,14 @@ export default defineScenario({
     rows: 16,
     async run(editor) {
         await editor.waitForText((t) => t.includes("userName"));
-        // Каретка внутри `Name` в `userName`: строка 4, символ 12.
+        // Cursor inside `Name` in `userName`: line 4, character 12.
         await editor.sendKey("Ctrl+Home");
         for (let i = 0; i < 3; i++) await editor.sendKey("ArrowDown");
         await editor.sendKey("End");
         for (let i = 0; i < 13; i++) await editor.sendKey("ArrowLeft");
         const before = await editor.waitForText((t) => t.includes("Ln 4, Col 16"));
 
-        // Каретка встаёт в конец выделения — фон ячейки перед ней и есть фон выделения.
+        // The cursor lands at the end of the selection — the cell right before it has the selection background.
         const beforeCaret = (frame: GridSnapshot): number =>
             (frame.cursor?.y ?? 0) * frame.cols + (frame.cursor?.x ?? 1) - 1;
         await editor.sendKey("Shift+Alt+ArrowRight");
@@ -82,7 +83,7 @@ export default defineScenario({
         await expectOnRow('greet(userName, "world")');
         await editor.capture("line");
 
-        // Дальше — блок: внутренность фигурных, они сами, затем с заголовком `func`.
+        // Then the block: the inside of the braces, the braces themselves, then with the `func` header.
         for (let i = 0; i < 4; i++) await editor.sendKey("Shift+Alt+ArrowRight");
         await waitUntil(
             () => editor.captureFrame(),
@@ -91,7 +92,7 @@ export default defineScenario({
         );
         await editor.capture("block");
 
-        // Shrink идёт обратно по тем же ступеням.
+        // Shrink walks back through the same steps.
         for (let i = 0; i < 5; i++) await editor.sendKey("Shift+Alt+ArrowLeft");
         await expectOnRow('(userName, "world")');
         await editor.capture("shrink");

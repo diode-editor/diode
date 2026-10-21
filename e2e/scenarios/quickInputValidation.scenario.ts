@@ -2,8 +2,8 @@ import { resolve } from "node:path";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// Источник сообщения — диалог Open File: Enter на несуществующем пути. Кадр держит выравнивание: запрос
-// и сообщение — в одной колонке, длинное сообщение обрезается по правому отступу строк списка.
+// The message comes from the Open File dialog: Enter on a nonexistent path. The frame pins the alignment: the
+// query and the message share a column, and a long message is cut at the right padding of the list rows.
 
 const sampleFile = resolve(repoRoot, "e2e", "fixtures", "sample.ts");
 

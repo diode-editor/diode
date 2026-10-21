@@ -10,7 +10,7 @@ function git(cwd: string, ...args: string[]): void {
     execFileSync("git", args, { cwd, stdio: "ignore" });
 }
 
-/** Свой временный репозиторий — чтобы кадр не зависел от состояния diode. */
+/** A dedicated temp repository, so the frame doesn't depend on the state of the diode repo. */
 function makeRepo(): string {
     const repoDir = mkdtempSync(join(tmpdir(), "diode-explorer-badge-demo-"));
     git(repoDir, "init", "-q");

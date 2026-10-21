@@ -4,7 +4,7 @@ import { join, resolve } from "node:path";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// Каталог наполняется в prepare: сохранение пишет на диск, а коммитнутую фикстуру пачкать нельзя.
+// The directory is populated in prepare: saving writes to disk, and the committed fixture must stay clean.
 
 const userData = resolve(repoRoot, "e2e", "fixtures", "user-data-with-save-all");
 const sampleDir = mkdtempSync(join(tmpdir(), "diode-saveall-demo-"));
@@ -17,7 +17,7 @@ export default defineScenario({
     open: [sampleDir, noteFile],
     cols: 100,
     rows: 24,
-    // Extension-host сценарии гоняют subprocess — Linux only.
+    // Extension host scenarios run a subprocess — Linux only.
     skipOn: ["win32", "darwin"],
     async prepare() {
         writeFileSync(noteFile, "draft\n");

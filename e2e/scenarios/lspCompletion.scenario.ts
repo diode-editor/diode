@@ -5,7 +5,8 @@ import { waitUntil } from "../helpers/waitFor.ts";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// Точка — триггер-символ сервера: попап открывается сам; Ctrl+Space при открытом попапе — тумблер панели описания.
+// The dot is a server trigger character, so the popup opens by itself; Ctrl+Space with the popup open
+// toggles the details panel.
 
 const require_ = createRequire(import.meta.url);
 /** StyleFlags.Undercurl. */
@@ -18,19 +19,20 @@ export default defineScenario({
     name: "lsp-completion",
     title: "Stock typescript-language-server: completions + details panel",
     open: [sampleDir, mainFile],
-    // Сервер живёт в devDeps репозитория (вшитый — docs/arch/Extensions.md, «Builtin LSP-клиент»).
+    // The server comes from the repo's devDeps (builtin client: docs/arch/Extensions.md, "Builtin LSP client" section).
     settings: {
         "diode.lsp.typescript.serverPath": require_.resolve("typescript-language-server/lib/cli.mjs"),
         "diode.lsp.typescript.tsserverPath": require_.resolve("typescript/lib/tsserver.js"),
     },
     cols: 100,
     rows: 24,
-    // Extension host + спавн сервера — только Linux.
+    // Extension host + server spawn: Linux only.
     skipOn: ["win32", "darwin"],
     async run(editor) {
         await editor.waitForText((t) => t.includes("const reply"));
 
-        // Squiggle от tsserver — сигнал готовности: без него провайдер не зарегистрирован, и попап откроется словами из буфера.
+        // A tsserver squiggle signals readiness: before it the provider isn't registered
+        // and the popup shows buffer words.
         await waitUntil(
             () => editor.captureFrame(),
             (frame) => frame.cells.some((cell) => (cell.style & UNDERCURL) !== 0),
@@ -42,11 +44,12 @@ export default defineScenario({
         await editor.sendKey("Enter");
         for (const key of ["r", "e", "p", "l", "y", "."]) await editor.sendKey(key);
 
-        // Холодный tsserver индексирует проект секундами.
+        // A cold tsserver takes seconds to index the project.
         await editor.waitForText((t) => t.includes("toFixed"), { timeoutMs: 120_000 });
         await editor.capture("completion");
 
-        // Сигнатура приезжает отдельным resolve после показа списка — без ожидания кадр снимет пустую панель.
+        // The signature arrives via a separate resolve after the list shows;
+        // without waiting the frame captures an empty panel.
         await editor.sendKey("Ctrl+Space");
         await editor.waitForText((t) => t.includes("(method)"), { timeoutMs: 30_000 });
         await editor.capture("completion-details");

@@ -2,8 +2,8 @@ import { resolve } from "node:path";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// Headless-инспектор не шлёт keyup одиночного модификатора (kitty event type 3) — конец серии показывает
-// Ctrl+PgDn: он завершает её так же, как отпускание Ctrl.
+// The headless inspector does not send keyup for a lone modifier (kitty event type 3) — the end of a series is
+// signalled with Ctrl+PgDn: it ends the series the same way releasing Ctrl does.
 
 const fileA = resolve(repoRoot, "e2e", "fixtures", "sample.ts");
 const fileB = resolve(repoRoot, "e2e", "fixtures", "folding.ts");
@@ -16,8 +16,8 @@ export default defineScenario({
     cols: 120,
     rows: 32,
     async run(editor) {
-        // Шаг серии ждём по содержимому под оверлеем (имена в кадре есть всегда); маркеры — с первой строки файлов,
-        // она выше оверлея (~10% высоты экрана).
+        // Wait for each series step by the content under the overlay (the names are always in the frame); markers come
+        // from the files' first line, which is above the overlay (~10% of the screen height).
         const underOverlay = { "folding.ts": "folding-chevron hover", "sample.ts": "used by SEA e2e" } as const;
         const stepTo = async (file: keyof typeof underOverlay): Promise<void> => {
             await editor.waitForText((t) => t.includes("╭") && t.includes(underOverlay[file]));
@@ -27,7 +27,7 @@ export default defineScenario({
             (t) => t.includes("sample.ts") && t.includes("folding.ts") && t.includes("wordWrap.ts"),
         );
 
-        // Правка в активной вкладке (wordWrap.ts): в оверлее у неё будет маркер ●.
+        // An edit in the active tab (wordWrap.ts): the overlay shows a ● marker for it.
         await editor.sendText("// touched\n");
         await editor.waitForText((t) => t.includes("●"));
 
@@ -47,7 +47,7 @@ export default defineScenario({
         await stepTo("sample.ts");
         await editor.capture("arrow-down");
 
-        // Ctrl+PgDn — по порядку табов, не по MRU.
+        // Ctrl+PgDn follows tab order, not MRU.
         await editor.sendKey("Ctrl+PageDown");
         await editor.waitForText((t) => !t.includes("╭"));
         await editor.capture("visual-cycle");

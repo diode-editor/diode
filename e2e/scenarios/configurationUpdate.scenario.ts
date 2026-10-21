@@ -7,9 +7,9 @@ import { waitUntil } from "../helpers/waitFor.ts";
 import type { ScenarioDriver } from "./framework.ts";
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// Фикстура `config-update-demo` повторяет Bazel-плагин: `update("open", false)` без цели пишет в настройки
-// воркспейса, тост читает значение сразу после `await`. Папка — во временном каталоге: запись ложится на диск,
-// коммитнутую фикстуру пачкать нельзя.
+// The `config-update-demo` fixture mimics the Bazel plugin: `update("open", false)` without a target writes to
+// workspace settings, and the toast reads the value right after `await`. The folder lives in a temp directory: the
+// write lands on disk, and the committed fixture must stay clean.
 
 const sampleDir = mkdtempSync(join(tmpdir(), "diode-config-update-demo-"));
 const settingsFile = join(sampleDir, ".diode", "settings.json");

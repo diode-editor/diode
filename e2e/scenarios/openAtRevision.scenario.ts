@@ -5,13 +5,14 @@ import { join } from "node:path";
 
 import { defineScenario } from "./framework.ts";
 
-// Ревизия открывается read-only вкладкой `имя (ref)`: контент даёт git:-провайдер, диска у вкладки нет.
+// A revision opens as a read-only `name (ref)` tab: the git: provider supplies the content,
+// the tab has no file on disk.
 
 function git(cwd: string, ...args: string[]): void {
     execFileSync("git", args, { cwd, stdio: "ignore" });
 }
 
-/** Репозиторий с веткой, отстающей от main на одну правку. */
+/** A repo with a branch one change behind main. */
 function makeRepo(): { repoDir: string; trackedFile: string } {
     const repoDir = mkdtempSync(join(tmpdir(), "diode-rev-demo-"));
     git(repoDir, "init", "-q");
@@ -40,11 +41,11 @@ export default defineScenario({
     open: [repoDir, trackedFile],
     cols: 100,
     rows: 22,
-    // Нужен extension host — контент ревизии отдаёт git-расширение.
+    // Needs the extension host: the git extension serves the revision content.
     skipOn: ["win32", "darwin"],
     async run(editor) {
         await editor.waitForText((t) => t.includes("VERSION"));
-        // Дождаться активации git-расширения: правка → бар в гуттере → откат.
+        // Wait for the git extension to activate: edit → gutter bar → undo.
         await editor.sendKey("End");
         await editor.sendText("Z");
         await editor.waitForText((t) => t.includes("┋") || t.includes("┃"));

@@ -5,7 +5,8 @@ import type { NodeSnapshot } from "@tuidom/inspector/protocol";
 import type { ScenarioDriver } from "./framework.ts";
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// Цель — вкладка ПОД КУРСОРОМ: правый клик активную не меняет, поэтому меню открывается на неактивном табе.
+// The target is the tab UNDER THE MOUSE POINTER: a right click does not change the active tab, so the menu opens on an
+// inactive tab.
 
 const fileA = resolve(repoRoot, "e2e", "fixtures", "sample.ts");
 const fileB = resolve(repoRoot, "e2e", "fixtures", "folding.ts");
@@ -42,7 +43,7 @@ export default defineScenario({
     async run(editor) {
         await editor.waitForText((t) => t.includes("sample.ts") && t.includes("longLine.ts"));
 
-        // Активна третья вкладка (открыта последней) — меню открываем на ПЕРВОЙ.
+        // The third tab is active (opened last) — open the menu on the FIRST one.
         const { strip, tabs } = await waitForTabs(editor, 3);
         if (!tabs[2].active) throw new Error("активной ожидалась последняя вкладка");
         const x = strip.box.x + 2;
@@ -52,15 +53,15 @@ export default defineScenario({
         await editor.waitForText((t) => t.includes("Close Others") && t.includes("Copy Path"));
         await editor.capture("menu");
 
-        // Правый клик активную вкладку не менял — третья всё ещё активна.
+        // The right click did not change the active tab — the third one is still active.
         const opened = tabsOf(await editor.waitForNode("EditorTabStripElement"));
         if (!opened[2].active) throw new Error("правый клик увёл активную вкладку");
 
-        // «Close Others» — второй пункт меню (выделение стартует на первом).
+        // "Close Others" is the second menu item (selection starts on the first).
         await editor.sendKey("ArrowDown");
         await editor.sendKey("Enter");
 
-        // Осталась ровно та вкладка, по которой открывали меню, — не активная.
+        // Exactly the tab the menu was opened on remains — not the active one.
         const { tabs: remaining } = await waitForTabs(editor, 1);
         if (!remaining[0].label.includes("sample.ts")) {
             throw new Error(`осталась не та вкладка: ${remaining[0].label}`);

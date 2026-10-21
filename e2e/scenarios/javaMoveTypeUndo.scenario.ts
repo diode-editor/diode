@@ -6,7 +6,7 @@ import { waitUntil } from "../helpers/waitFor.ts";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// Каталог наполняется в prepare: сценарий пишет на диск. pom.xml — тот же, что у java-lsp.
+// The directory is populated in prepare since the scenario writes to disk. pom.xml is the same as java-lsp's.
 
 const sampleDir = mkdtempSync(join(tmpdir(), "diode-java-move-demo-"));
 const packageDir = join(sampleDir, "src", "main", "java", "demo");
@@ -38,7 +38,7 @@ export default defineScenario({
     network: true,
     settings: { "redhat.telemetry.enabled": false },
     userKeybindings: [{ key: "f6", command: "editor.action.refactor" }],
-    // Установка 139-МБ vsix, импорт maven-проекта и две JVM — как у java-lsp.
+    // Installing a 139 MB vsix, importing the maven project and two JVMs, as in java-lsp.
     timeoutMs: 900_000,
     cols: 100,
     rows: 24,
@@ -51,10 +51,10 @@ export default defineScenario({
     async run(editor) {
         await editor.waitForText((t) => t.includes("class Helper {"));
 
-        // `Helper` в объявлении: строка 9, колонка 6.
+        // `Helper` in the declaration: line 9, column 6.
         for (let i = 0; i < 8; i++) await editor.sendKey("ArrowDown");
         for (let i = 0; i < 6; i++) await editor.sendKey("ArrowRight");
-        // Рефакторинги jdt.ls отдаёт только после импорта проекта — переоткрываем меню, пока пункт не появится.
+        // jdt.ls serves refactorings only after the project import, so reopen the menu until the item appears.
         const deadline = Date.now() + 400_000;
         for (;;) {
             await editor.sendKey("F6");

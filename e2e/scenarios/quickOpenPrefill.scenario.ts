@@ -1,6 +1,6 @@
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// args пользовательского бинда (keybindings.json) доезжают до команды: правило сеется в настоящий keybindings.json.
+// The args of a user keybinding (keybindings.json) reach the command: the rule is seeded into a real keybindings.json.
 
 export default defineScenario({
     name: "quick-open-prefill",
@@ -19,7 +19,7 @@ export default defineScenario({
         await editor.waitForText((t) => t.includes("sample.ts"));
         await editor.capture("files-prefill");
 
-        // Escape: пока оверлей владеет клавиатурой, workbench-бинды подавлены.
+        // Escape: while the overlay owns the keyboard, workbench keybindings are suppressed.
         await editor.sendKey("Escape");
         await editor.sendKey("F7");
         await editor.waitForText((t) => t.includes("Keyboard Shortcuts"));

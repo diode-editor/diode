@@ -15,8 +15,8 @@ export default defineScenario({
         await editor.waitForText((t) => t.includes("UTF-8"));
         await editor.capture("mojibake-utf8");
 
-        // Ctrl+Shift+P не проходит через legacy-терминал — F1. Ждём саму палитру: иначе при неактивном бинде запрос
-        // уйдёт в буфер редактора и совпадёт со следующим waitForText.
+        // Ctrl+Shift+P doesn't get through a legacy terminal, hence F1. Wait for the palette itself: otherwise, if the
+        // binding is inactive, the query goes into the editor buffer and matches the next waitForText.
         await editor.sendKey("F1");
         await editor.waitForNode("#quickInput");
         await editor.sendText("Change File Encoding");

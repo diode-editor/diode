@@ -1,7 +1,8 @@
 import { frameToText } from "../helpers/frame.ts";
 import { defineScenario } from "./framework.ts";
 
-// В settings.json сценария два ключа встроенного git и один ничей: «Unknown Configuration Setting» — только у ничьего.
+// The scenario's settings.json has two keys of the built-in git extension and one unowned key: only the unowned one
+// gets "Unknown Configuration Setting".
 
 export default defineScenario({
     name: "extension-settings-known",

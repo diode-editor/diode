@@ -2,8 +2,8 @@ import { resolve } from "node:path";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// Регрессия: строка ~15 000 символов вешала редактор (`Intl.Segmenter` по всей строке);
-// рендер режется на STOP_RENDERING_LINE_AFTER маркером «…», как `stopRenderingLineAfter` VS Code.
+// Regression: a ~15,000-character line hung the editor (`Intl.Segmenter` over the whole line);
+// rendering stops at STOP_RENDERING_LINE_AFTER with a "…" marker, like VS Code's `stopRenderingLineAfter`.
 
 const sampleFile = resolve(repoRoot, "e2e", "fixtures", "longLine.ts");
 

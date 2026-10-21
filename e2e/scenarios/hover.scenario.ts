@@ -27,21 +27,21 @@ export default defineScenario({
     async run(editor) {
         await editor.waitForText((t) => t.includes("const reply"));
 
-        // До squiggle (проект проиндексирован) hover-провайдер ещё не зарегистрирован.
+        // Until the squiggle appears (the project is indexed), the hover provider is not registered yet.
         await waitUntil(
             () => editor.captureFrame(),
             (frame) => frame.cells.some((cell) => (cell.style & UNDERCURL) !== 0),
             { describe: "undercurl squiggle от tsserver (сервер готов)", timeoutMs: 120_000, intervalMs: 500 },
         );
 
-        // Вызов `greet`: строка 2, колонка 23.
+        // The `greet` call: line 2, column 23.
         await editor.sendKey("ArrowDown");
         await editor.sendKey("ArrowDown");
         for (let i = 0; i < 23; i++) await editor.sendKey("ArrowRight");
         await editor.sendKey("Ctrl+K");
         await editor.sendKey("Ctrl+U");
 
-        // Этого текста нет в буфере main.ts — без работающего hover'а кадр его не покажет.
+        // This text is not in the main.ts buffer: without a working hover the frame cannot show it.
         await editor.waitForText((t) => t.includes("(alias) greet(name: string): string"), { timeoutMs: 60_000 });
         await editor.capture("hover");
     },

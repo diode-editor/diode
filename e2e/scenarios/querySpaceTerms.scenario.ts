@@ -2,12 +2,13 @@ import { resolve } from "node:path";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// #374: пробел в запросе пикеров — разделитель термов, палитра ищет fuzzy. Запросы — те, на которых снимался диагноз.
+// #374: a space in a picker query separates terms; the command palette matches fuzzily. The queries are the ones the
+// bug was diagnosed on.
 
 const workspace = resolve(repoRoot, "e2e", "fixtures", "querySpaceTerms");
 const notes = resolve(workspace, "notes.txt");
 
-/** Отбор виден числом строк списка: дерево слева показывает каталоги `lib`/`src` всегда. */
+/** Filtering shows in the count of list rows: the tree on the left always shows the `lib`/`src` directories. */
 function countOf(text: string, needle: string): number {
     return text.split(needle).length - 1;
 }
@@ -22,7 +23,7 @@ export default defineScenario({
         await editor.waitForText((t) => t.includes("Воркспейс демо"));
 
         await editor.sendKey("Ctrl+P");
-        // Иначе текст уедет в пустоту: палитра ещё не взяла фокус.
+        // Otherwise the text is lost: the picker has not taken focus yet.
         await editor.waitForNode("#quickInput");
 
         await editor.sendText("other");
@@ -35,7 +36,7 @@ export default defineScenario({
 
         await editor.sendKey("Escape");
 
-        // F1, а не Ctrl+Shift+P: последний в key-DSL e2e не проходит.
+        // F1, not Ctrl+Shift+P: the latter does not get through the e2e key DSL.
         await editor.sendKey("F1");
         await editor.waitForNode("#quickInput");
 

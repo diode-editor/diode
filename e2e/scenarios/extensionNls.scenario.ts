@@ -4,9 +4,9 @@ import { frameToText } from "../helpers/frame.ts";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// `%key%` заголовков резолвится из `package.nls.json`, `category` становится префиксом; команды без категории
-// префикса не получают — поэтому запрос `Java: `, а не `java`. Расширение не активируется (java-файла нет):
-// заголовки — из заглушек `onCommand:`, сценарий стоит минуты, а не четверть часа jdt.ls.
+// Title `%key%`s resolve from `package.nls.json` and `category` becomes a prefix; commands without a category get
+// no prefix, hence the query `Java: ` rather than `java`. The extension never activates (there is no java file):
+// titles come from the `onCommand:` stubs, so the scenario takes minutes rather than a quarter hour of jdt.ls.
 
 const sampleFile = resolve(repoRoot, "e2e", "fixtures", "extensionNls.txt");
 
@@ -16,9 +16,10 @@ export default defineScenario({
     open: [sampleFile],
     installVsix: ["redhat.java"],
     network: true,
-    // Иначе тост согласия на телеметрию поверх кадра; активации нет, но настройка дешевле флака.
+    // Otherwise the telemetry consent toast covers the frame; there is no activation, but the setting is cheaper
+    // than a flake.
     settings: { "redhat.telemetry.enabled": false },
-    // Внутрь кейса попадает закачка 139-МБ платформенного vsix.
+    // The case includes downloading the 139 MB platform vsix.
     timeoutMs: 600_000,
     cols: 110,
     rows: 24,
@@ -28,7 +29,7 @@ export default defineScenario({
 
         await editor.sendKey("F1");
         await editor.waitForNode("#quickInput", { timeoutMs: 30_000 });
-        // `Java: ` есть только в подписи, собранной из category и title.
+        // `Java: ` appears only in the label built from category and title.
         await editor.sendText("Java: ");
 
         const frame = await editor.waitForText((t) => t.includes("Java: Switch to Standard Mode"), {

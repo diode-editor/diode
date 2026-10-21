@@ -2,8 +2,8 @@ import { resolve } from "node:path";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// `terminal.tier` — ключ машины (`scope: machine`): файл проекта просит `kitty`, но значение не применяется,
-// а `files.exclude` проекта ложится поверх user-слоя уже к первому кадру.
+// `terminal.tier` is a machine key (`scope: machine`): the project file asks for `kitty`, but the value is not applied,
+// while the project's `files.exclude` lands on top of the user layer by the first frame.
 
 const folder = resolve(repoRoot, "e2e", "fixtures", "workspaceSettings");
 

@@ -19,7 +19,7 @@ export default defineScenario({
         if (part.box.width !== 30) throw new Error(`ширина вторичной панели ${part.box.width}, ждали 30`);
         await editor.capture("shown");
 
-        // Саш — на первой колонке части: тянем границу на 10 колонок влево.
+        // The sash is on the part's first column: drag the border 10 columns left.
         const sashX = part.box.x;
         const midY = part.box.y + Math.floor(part.box.height / 2);
         await editor.sendMouse({ action: "press", button: "left", x: sashX, y: midY });
@@ -29,12 +29,12 @@ export default defineScenario({
         if (part.box.width !== 40) throw new Error(`после drag ширина ${part.box.width}, ждали 40`);
         await editor.capture("resized");
 
-        // Узкий терминал: часть ужимается первой, редактор не уже 20 колонок.
+        // Narrow terminal: the part shrinks first, the editor stays at least 20 columns wide.
         await editor.resize(80, 32);
         part = await editor.waitForNode("#auxiliarybar");
         await editor.capture("narrow");
 
-        // Кнопка × в таб-строке закрывает часть.
+        // The × button in the tab strip closes the part.
         const close = part.state?.close as { centerX: number } | null | undefined;
         const tabRow = part.state?.tabRow as number;
         if (close == null) throw new Error(`часть без кнопки закрытия: ${JSON.stringify(part.state)}`);

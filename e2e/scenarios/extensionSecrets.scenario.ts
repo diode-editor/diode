@@ -3,9 +3,9 @@ import { resolve } from "node:path";
 import type { ScenarioDriver } from "./framework.ts";
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// Секрет из прошлого запуска лежит в `user-data/User/secrets.json` фикстуры — memento бы его не пережил.
+// The secret from a previous run lives in the fixture's `user-data/User/secrets.json`; a memento would not survive the restart.
 
-// Markdown без папки: иначе полосу делят сегменты SCM и спиннер tsserver, и раскладка плывёт.
+// Markdown without a folder: otherwise SCM segments and the tsserver spinner share the status bar and layout shifts.
 const sampleFile = resolve(repoRoot, "AGENTS.md");
 const userData = resolve(repoRoot, "e2e", "fixtures", "user-data-with-secrets-demo");
 
@@ -25,11 +25,11 @@ export default defineScenario({
     rows: 24,
     skipOn: ["win32"],
     async run(editor) {
-        // `token seeded` доказывает персист: значение прочитано в activate(), до всякого взаимодействия.
+        // `token seeded` proves persistence: the value is read in activate(), before any interaction.
         await editor.waitForText((t) => t.includes("token seeded") && t.includes("changes 0"), { timeoutMs: 20_000 });
         await editor.capture("seeded");
 
-        // Счётчик двигается по событию onDidChange от хоста, а не по возврату store.
+        // The counter advances on the host's onDidChange event, not when store returns.
         await runCommand(editor, "Secrets Demo: Store Token");
         await editor.waitForText((t) => t.includes("token rotated") && t.includes("changes 1"), { timeoutMs: 10_000 });
         await editor.capture("stored");

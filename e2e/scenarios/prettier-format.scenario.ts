@@ -2,7 +2,7 @@ import { resolve } from "node:path";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// Язык намеренно НЕ typescript: на `.ts` формат дал бы встроенный tsserver, и сценарий проверял бы не prettier.
+// Deliberately NOT typescript: on `.ts` the builtin tsserver would format, and the scenario wouldn't test prettier.
 
 const sampleDir = resolve(repoRoot, "e2e", "fixtures", "prettierSample");
 const notes = resolve(sampleDir, "notes.md");
@@ -16,15 +16,15 @@ export default defineScenario({
     network: true,
     cols: 100,
     rows: 24,
-    // Extension-host сценарии гоняют subprocess — Linux only.
+    // Extension host scenarios run a subprocess: Linux only.
     skipOn: ["win32", "darwin"],
     async run(editor) {
         await editor.waitForText((t) => t.includes('{"name":"demo"'));
-        // Пункт статус-бара появляется в конце activate(), когда провайдеры формата уже зарегистрированы.
+        // The status bar item appears at the end of activate(), once the format providers are registered.
         await editor.waitForText((t) => t.includes("Prettier"), { timeoutMs: 120_000 });
         await editor.capture("before");
 
-        // Формат документа — досягаемый на любом терминале чорд.
+        // Format Document via a chord that is reachable on any terminal.
         await editor.sendKey("Ctrl+K");
         await editor.sendKey("Ctrl+E");
         await editor.waitForText((t) => t.includes('{ "name": "demo", "deps": [1, 2, 3] }'), { timeoutMs: 60_000 });

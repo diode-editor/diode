@@ -5,7 +5,7 @@ import { join } from "node:path";
 
 import { defineScenario } from "./framework.ts";
 
-// Медленным `git commit` делает настоящий pre-commit-хук со `sleep` — наш код не подменяется ничем.
+// A real pre-commit hook with `sleep` makes `git commit` slow — none of our code is stubbed.
 
 function git(cwd: string, ...args: string[]): void {
     execFileSync("git", args, { cwd, stdio: "ignore" });
@@ -37,7 +37,7 @@ export default defineScenario({
     open: [repoDir],
     cols: 100,
     rows: 26,
-    // Нужен extension host — коммит исполняет git-расширение.
+    // Needs the extension host — the git extension performs the commit.
     skipOn: ["win32", "darwin"],
     userKeybindings: [
         { key: "alt+c", command: "workbench.view.scm" },
@@ -52,7 +52,7 @@ export default defineScenario({
         await editor.capture("ready");
 
         await editor.sendKey("Alt+Enter");
-        // Settling-ввод не шлём: пока тикает спиннер, кадр не «затихает».
+        // No settling input: while the spinner ticks, the frame never goes quiet.
         await editor.waitForText((t) => t.includes("Committing"));
         await editor.capture("committing");
 

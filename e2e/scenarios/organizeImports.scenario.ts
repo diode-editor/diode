@@ -5,7 +5,8 @@ import { waitUntil } from "../helpers/waitFor.ts";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// #196. Через палитру: Shift+Alt+O живёт только на kitty/csi-u, key-DSL headless-сессии его не сериализует.
+// #196. Via the command palette: Shift+Alt+O exists only on kitty/csi-u, and the headless session key DSL
+// can't serialize it.
 
 const require_ = createRequire(import.meta.url);
 const sampleDir = resolve(repoRoot, "e2e", "fixtures", "organizeSample");
@@ -27,12 +28,12 @@ export default defineScenario({
     },
     cols: 100,
     rows: 24,
-    // Extension-host сценарии гоняют subprocess + спавн сервера — Linux only.
+    // Extension host scenarios run a subprocess + server spawn: Linux only.
     skipOn: ["win32", "darwin"],
     async run(editor) {
         await editor.waitForText((t) => t.includes(ZETA_IMPORT));
 
-        // Readiness: undercurl от настоящего tsserver'а.
+        // Readiness: an undercurl from the real tsserver.
         await waitUntil(
             () => editor.captureFrame(),
             (frame) => frame.cells.some((cell) => (cell.style & UNDERCURL) !== 0),

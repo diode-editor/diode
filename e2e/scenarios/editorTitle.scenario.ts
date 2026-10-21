@@ -33,7 +33,7 @@ export default defineScenario({
     async run(editor) {
         await editor.waitForText((t) => t.includes("title:-"), { timeoutMs: 20_000 });
 
-        // SVG-иконку не нарисовать — пункт в «⋯» справа от вкладок.
+        // An SVG icon can't be drawn, so the item goes into the "⋯" menu to the right of the tabs.
         const overflow = await editor.waitForText((t) => tabRow(t).trimEnd().endsWith("⋯"));
         await editor.capture("overflow");
         await editor.click(frameLine(overflow, TAB_ROW).lastIndexOf("⋯"), TAB_ROW);

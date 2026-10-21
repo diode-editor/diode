@@ -5,7 +5,7 @@ import { join } from "node:path";
 
 import { defineScenario } from "./framework.ts";
 
-// Подсказка в плейсхолдере строится из действующего бинда: на маке — «⌘Enter», pc-вариант держит scm-staging.
+// The placeholder hint is built from the effective keybinding: "⌘Enter" on macOS; scm-staging covers the pc variant.
 
 function makeRepo(): string {
     const repoDir = mkdtempSync(join(tmpdir(), "diode-mac-hints-"));
@@ -34,7 +34,7 @@ export default defineScenario({
     userKeybindings: [{ key: "f6", command: "workbench.view.scm" }],
     cols: 100,
     rows: 24,
-    // Нужен extension host: изменения публикует git-расширение.
+    // Needs the extension host: the git extension publishes the changes.
     skipOn: ["win32", "darwin"],
     async run(editor) {
         await editor.waitForText((t) => t.includes("mac-cmd"));

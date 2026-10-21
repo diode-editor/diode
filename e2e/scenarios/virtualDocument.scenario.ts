@@ -2,10 +2,11 @@ import { resolve } from "node:path";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// Контракт стокового `redhat.java`: F12 уводит на `jdt:`-ресурс провайдера. Неизвестная схема — не украшение:
-// раньше `TextFileModel.openFile` бросал на не-`file:` схеме, промис никто не ждал, и Node закрывал редактор.
+// Contract of stock `redhat.java`: F12 navigates to the provider's `jdt:` resource. An unknown scheme is not cosmetic:
+// `TextFileModel.openFile` used to throw on a non-`file:` scheme, nobody awaited the promise, and Node closed the
+// editor.
 
-/** Замок read-only на вкладке (nf-cod-lock; рисует `EditorTabItemElement` движка). */
+/** Read-only lock on the tab (nf-cod-lock; drawn by the engine's `EditorTabItemElement`). */
 const READONLY_LOCK = "\uea75";
 
 const sampleDir = resolve(repoRoot, "e2e", "fixtures", "virtualDocsSample");
@@ -19,11 +20,12 @@ export default defineScenario({
     open: [sampleDir, sampleFile],
     cols: 110,
     rows: 26,
-    // Extension-host сценарий: CI-safety-net гоняем только на Linux.
+    // Extension host scenario: the CI safety net runs on Linux only.
     skipOn: ["win32", "darwin"],
     async run(editor) {
         await editor.waitForText((t) => t.includes("Документ-образец"), { timeoutMs: 20_000 });
-        // Провайдеры регистрируются в `activate()` через секунды; маркер в статус-баре — «реестр уже не пуст».
+        // Providers register in `activate()` after a few seconds; the status bar marker means "the registry is no
+        // longer empty".
         await editor.waitForText((t) => t.includes("jdt: provider ready"), { timeoutMs: 30_000 });
         await editor.sendKey("F12");
 
@@ -31,8 +33,8 @@ export default defineScenario({
         await editor.waitForText((t) => t.includes(`${READONLY_LOCK} TextUtils.java`));
         await editor.capture("definition");
 
-        // Схема без провайдера: причина названа, редактор жив и продолжает
-        // отвечать (вкладка с исходником из jar никуда не делась).
+        // Scheme without a provider: the reason is named, the editor is alive and keeps responding (the tab with the
+        // jar source is still there).
         await editor.sendKey("F1");
         await editor.waitForNode("#quickInput");
         await editor.sendText("Open Unknown Scheme");

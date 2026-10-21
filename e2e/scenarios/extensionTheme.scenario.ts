@@ -6,7 +6,7 @@ import { createRegistryFixture } from "../helpers/registryFixture.ts";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// Фикстуру реестра собираем на импорте модуля: путь к нему нужен уже в `extraArgs`, до запуска редактора.
+// The registry fixture is built at module import: `extraArgs` needs its path before the editor starts.
 
 const registry = await createRegistryFixture(join(mkdtempSync(join(tmpdir(), "diode-scenario-theme-")), "registry"), [
     {
@@ -26,7 +26,7 @@ export default defineScenario({
     title: "Extensions: тема из магазина — Install → Reload Window → Color Theme",
     open: [repoRoot, sampleFile],
     extraArgs: [`--registry=${registry}`],
-    // Настоящие аккорды (Ctrl+Shift+X, Ctrl+K Ctrl+T) headless-DSL не кодирует — вешаем на F-клавиши.
+    // The headless DSL cannot encode real chords (Ctrl+Shift+X, Ctrl+K Ctrl+T), so commands are bound to F-keys.
     userKeybindings: [
         { key: "f6", command: "workbench.view.extensions" },
         { key: "f7", command: "workbench.action.increaseSidebarWidth" },
@@ -34,10 +34,10 @@ export default defineScenario({
     ],
     cols: 110,
     rows: 28,
-    // Reload Window из сценария, стартующего из repoRoot, на Windows поднимает
-    // окно с `diode.exe` во вкладке и без сайдбара (в CI-safety-net кадр после
-    // reconnect не дожидается EXPLORER); функциональный e2e с перезагрузкой из
-    // изолированного воркспейса на Windows проходит. Открыто в docs/TODO/E2E.md.
+    // On Windows, Reload Window from a scenario started in repoRoot brings up a
+    // window with `diode.exe` in a tab and no sidebar (in the CI safety net the
+    // frame after reconnect never shows EXPLORER); the functional e2e reloading
+    // from an isolated workspace passes on Windows. Tracked in docs/TODO/E2E.md.
     skipOn: ["win32"],
     async run(editor) {
         await editor.waitForText((t) => t.includes("EXPLORER"));
@@ -45,28 +45,28 @@ export default defineScenario({
         await editor.waitForText((t) => t.includes("MARKETPLACE"));
         for (let i = 0; i < 3; i++) await editor.sendKey("F7");
 
-        // Страница расширения: фокус в список, первая запись каталога, Enter.
+        // Extension page: focus the list, first catalog entry, Enter.
         await editor.sendKey("Tab");
         await editor.sendKey("ArrowDown");
         await editor.sendKey("Enter");
         await editor.waitForNode("#extensionPage-test-sample-theme");
         await editor.waitForText((t) => t.includes("Not installed"));
 
-        // Фокус страницы стоит на первой кнопке — это Install; после установки
-        // на её месте Reload Window.
+        // The page focuses its first button, which is Install; after installation
+        // Reload Window takes its place.
         await editor.sendKey("Enter");
         await editor.waitForText((t) => t.includes("Reload Window"));
         await editor.capture("installed");
 
-        // Ответ на этот ввод может и не прийти: окно уходит на перезапуск вместе с
-        // сокетом. Новое окно поднимается с теми же аргументами — и с темами
-        // расширения в реестре.
+        // The reply to this input may never arrive: the window restarts along with
+        // the socket. The new window comes up with the same arguments, and with the
+        // extension's themes in the registry.
         await editor.sendKey("Enter").catch(() => undefined);
         await editor.reconnect();
         await editor.waitForText((t) => t.includes("EXPLORER"), { timeoutMs: 60_000 });
 
-        // Пикер Color Theme: темы расширения — вслед за встроенными; фильтр по
-        // имени, live preview перекрашивает окно ещё до Enter.
+        // Color Theme picker: the extension's themes follow the built-in ones; filter
+        // by name, and live preview repaints the window before Enter.
         await editor.sendKey("F8");
         await editor.waitForText((t) => t.includes("Select Color Theme"));
         await editor.sendText("Sample Dark");

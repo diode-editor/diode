@@ -2,8 +2,8 @@ import { resolve } from "node:path";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// Деревья расширений не рисуются, но расширение обязано активироваться целиком. `tree-outline` устроен как
-// форк bazel-java: `extends vscode.TreeItem` на уровне модуля, `activate()` сначала регистрирует дерево.
+// Extension trees are not rendered, but the extension must still activate fully. `tree-outline` is built like the
+// bazel-java fork: `extends vscode.TreeItem` at module top level, and `activate()` registers the tree first.
 
 const sampleFile = resolve(repoRoot, "e2e", "fixtures", "sample.ts");
 const userData = resolve(repoRoot, "e2e", "fixtures", "user-data-with-tree-outline");
@@ -15,7 +15,7 @@ export default defineScenario({
     open: [repoRoot, sampleFile],
     cols: 120,
     rows: 32,
-    // Extension-host сценарий: CI-safety-net гоняем только на Linux (как webviewNoop).
+    // Extension host scenario: the CI safety net runs on Linux only (like webviewNoop).
     skipOn: ["win32"],
     userKeybindings: [
         { key: "alt+u", command: "workbench.action.output.toggleOutput" },

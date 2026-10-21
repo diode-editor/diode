@@ -6,8 +6,8 @@ import { waitUntil } from "../helpers/waitFor.ts";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// Проект фикстуры без внешних зависимостей: classpath JDK для перехода хватает, а лишний артефакт добавил бы
-// минуты; `~/.m2` не нужен — работает и с изолированным HOME.
+// The fixture project has no external dependencies: the JDK classpath is enough for go-to-definition, and an extra
+// artifact would add minutes; no `~/.m2` needed, so it works with an isolated HOME too.
 
 const sampleDir = resolve(repoRoot, "e2e", "fixtures", "javaSample");
 const appFile = resolve(sampleDir, "src", "main", "java", "demo", "App.java");
@@ -15,7 +15,7 @@ const appFile = resolve(sampleDir, "src", "main", "java", "demo", "App.java");
 /** StyleFlags.Undercurl. */
 const UNDERCURL = 8;
 
-/** `variable.parameter` в Dark Modern: параметром `who` делает только семантический токен jdt.ls, TextMate — нет. */
+/** `variable.parameter` in Dark Modern: only the jdt.ls semantic token makes `who` a parameter, TextMate does not. */
 const PARAMETER_FG = 0x9cdcfe;
 
 function findCell(frame: GridSnapshot, needle: string): CellSnapshot | undefined {
@@ -30,13 +30,13 @@ function findCell(frame: GridSnapshot, needle: string): CellSnapshot | undefined
 export default defineScenario({
     name: "java-lsp",
     title: "Java из коробки: jdt.ls — squiggle, семантическая подсветка, code actions, переход в JDK",
-    // Папка первой: у redhat.java только `workspaceContains:`-события.
+    // Folder first: redhat.java has only `workspaceContains:` activation events.
     open: [sampleDir, appFile],
     installVsix: ["redhat.java"],
     network: true,
-    // Иначе тост согласия на телеметрию перекрывает правую часть редактора — ровно строки с волной.
+    // Otherwise the telemetry consent toast covers the right side of the editor, exactly the squiggled lines.
     settings: { "redhat.telemetry.enabled": false },
-    // Установка 139-МБ vsix, импорт maven-проекта и две JVM (syntax + standard server).
+    // Installing a 139 MB vsix, importing the maven project and two JVMs (syntax + standard server).
     timeoutMs: 900_000,
     cols: 100,
     rows: 24,
@@ -58,8 +58,8 @@ export default defineScenario({
         );
         await editor.capture("semantic-tokens");
 
-        // `int broken = message;` — строка 10. Меню — снимок code actions на момент открытия: волна приходит раньше,
-        // чем jdt.ls готов отдать фиксы, и меню остаётся с одним «Source Actions…» — переоткрываем, пока фикс не появится.
+        // `int broken = message;` is line 10. The menu snapshots code actions when it opens: the squiggle
+        // arrives before jdt.ls can serve fixes, leaving only "Source Actions…", so reopen until the fix shows up.
         for (let i = 0; i < 9; i++) await editor.sendKey("ArrowDown");
         const fixTitle = "Change type of 'broken' to 'String'";
         const deadline = Date.now() + 180_000;
@@ -76,12 +76,13 @@ export default defineScenario({
         }
         await editor.capture("code-actions");
 
-        // Цель F12 — `jdt://contents/java.base/java.lang/String.java`: до #363 такой uri ронял редактор.
+        // The F12 target is `jdt://contents/java.base/java.lang/String.java`:
+        // before #363 such a uri crashed the editor.
         await editor.sendKey("Escape");
         await editor.sendKey("ArrowUp");
         for (let i = 0; i < 10; i++) await editor.sendKey("ArrowRight");
-        // Пока jdt.ls не доиндексировал JRE, определение приходит пустым, и единственное F12 терялось (флак в половине
-        // прогонов на 4 ядрах) — жмём, пока вкладка не откроется.
+        // Until jdt.ls finishes indexing the JRE the definition comes back empty, and a single F12 got lost
+        // (a flake in half the runs on 4 cores), so press until the tab opens.
         const jumpDeadline = Date.now() + 180_000;
         for (;;) {
             await editor.sendKey("F12");

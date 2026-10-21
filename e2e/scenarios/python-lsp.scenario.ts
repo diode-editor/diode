@@ -4,7 +4,7 @@ import { waitUntil } from "../helpers/waitFor.ts";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// Сигнатура и строки объявления добираются из defs.py, которого нет в открытом буфере.
+// The signature and declaration lines come from defs.py, which is not in the open buffer.
 
 const sampleDir = resolve(repoRoot, "e2e", "fixtures", "pySample");
 const mainFile = resolve(sampleDir, "main.py");
@@ -20,7 +20,7 @@ export default defineScenario({
     network: true,
     cols: 100,
     rows: 24,
-    // Extension-host сценарии гоняют subprocess + форк сервера — Linux only.
+    // Extension host scenarios run a subprocess + a forked server — Linux only.
     skipOn: ["win32", "darwin"],
     async run(editor) {
         await editor.waitForText((t) => t.includes("reply: int"));
@@ -32,7 +32,7 @@ export default defineScenario({
         );
         await editor.capture("diagnostics");
 
-        // На вызов `greet` (строка 2, колонка 15) → hover.
+        // Onto the `greet` call (line 2, column 15) → hover.
         await editor.sendKey("ArrowDown");
         await editor.sendKey("ArrowDown");
         for (let i = 0; i < 15; i++) await editor.sendKey("ArrowRight");

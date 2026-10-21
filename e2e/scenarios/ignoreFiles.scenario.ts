@@ -2,8 +2,9 @@ import { resolve } from "node:path";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// `.gitignore` фикстуры: `generated/` и `*.log`. Проигнорированное в дереве видно (`explorer.excludeGitIgnore`
-// у эталона `false`), но не ищется. Файлы фикстуры добавлены через `git add -f` — её же `.gitignore` их игнорирует.
+// The fixture's `.gitignore`: `generated/` and `*.log`. Ignored files show in the tree (`explorer.excludeGitIgnore`
+// is `false` upstream) but are not searched. The fixture files are added with `git add -f` since its own
+// `.gitignore` ignores them.
 
 const sampleDir = resolve(repoRoot, "e2e", "fixtures", "ignoreFiles");
 
@@ -13,7 +14,7 @@ export default defineScenario({
     open: [sampleDir],
     cols: 110,
     rows: 26,
-    // Ctrl+Shift+F в key-DSL не выражается — команда на F6.
+    // The key DSL cannot express Ctrl+Shift+F, so the command is bound to F6.
     userKeybindings: [{ key: "f6", command: "workbench.view.search" }],
     async run(editor) {
         await editor.waitForText(
@@ -44,7 +45,7 @@ export default defineScenario({
     },
 });
 
-/** Правее левой рамки попапа и ниже заголовка: дерево слева на тех же строках показывает `server.log`. */
+/** Right of the popup's left border and below its title: the tree on the left shows `server.log` on the same rows. */
 function quickOpenText(frame: string): string {
     const lines = frame.split("\n");
     const top = lines.findIndex((line) => line.includes("Go to File"));

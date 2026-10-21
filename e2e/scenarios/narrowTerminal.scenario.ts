@@ -2,7 +2,7 @@ import { resolve } from "node:path";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// Инвариант вложенности (Н2): в тесном терминале ничего не вылезает за контейнеры, хит-зоны совпадают с нарисованным.
+// Nesting invariant (N2): in a cramped terminal nothing overflows its container, and hit zones match what is drawn.
 
 const sampleFile = resolve(repoRoot, "e2e", "fixtures", "sample.ts");
 

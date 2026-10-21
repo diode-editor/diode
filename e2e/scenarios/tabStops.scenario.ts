@@ -2,8 +2,8 @@ import { resolve } from "node:path";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// Tab добирает каретку ДО следующего табстопа, а не вставляет `tabSize` пробелов; у мультикурсора каждая
-// каретка получает свою добавку.
+// Tab advances the cursor TO the next tab stop instead of inserting `tabSize` spaces; with multiple cursors each cursor
+// gets its own padding.
 
 const demoFile = resolve(repoRoot, "e2e", "fixtures", "tabStopsDemo.txt");
 
@@ -13,7 +13,7 @@ export default defineScenario({
     open: [repoRoot, demoFile],
     cols: 100,
     rows: 24,
-    // Детекции отступа в фикстуре не за что зацепиться — пинним отступ явно.
+    // The fixture gives indentation detection nothing to latch onto — pin the indentation explicitly.
     settings: { "editor.insertSpaces": true, "editor.tabSize": 4, "editor.detectIndentation": false },
     async run(editor) {
         await editor.waitForText((t) => t.includes("abcd=2"));
@@ -30,7 +30,7 @@ export default defineScenario({
         await editor.waitForText((t) => t.includes("Ln 1, Col 9"));
         await editor.capture("full-level-from-tab-stop");
 
-        // По каретке после каждого имени — колонки 3, 5 и 2.
+        // A cursor after each name — columns 3, 5 and 2.
         await editor.sendKey("Ctrl+Z");
         await editor.sendKey("Ctrl+Z");
         await editor.waitForText((t) => !t.includes("Ln 1, Col 5"));

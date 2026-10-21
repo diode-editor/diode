@@ -2,7 +2,8 @@ import { resolve } from "node:path";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// Н3: палитра темы — в корневом var-scope, смена темы перекрашивает дерево одним пушем (без updateStyles по компонентам).
+// N3: the theme palette lives in the root var-scope; switching themes repaints the tree with a single push (no
+// per-component updateStyles).
 
 const sampleFile = resolve(repoRoot, "e2e", "fixtures", "sample.ts");
 

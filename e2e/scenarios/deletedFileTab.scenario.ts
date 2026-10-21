@@ -8,17 +8,17 @@ import { findTextCell, frameLine } from "../helpers/frame.ts";
 
 import { defineScenario } from "./framework.ts";
 
-// Удаление каталога из проводника идёт в корзину мимо файлового сервиса: чистая вкладка файла внутри
-// закрывается (как в VS Code), а вкладка с несохранёнными правками остаётся зачёркнутой.
+// Deleting a folder from the explorer moves it to the trash, bypassing the file service: a clean tab for a file
+// inside closes (as in VS Code), while a tab with unsaved edits stays struck through.
 
 const sampleDir = mkdtempSync(join(tmpdir(), "diode-deleted-tab-demo-"));
-// Корзина freedesktop — во временном каталоге, а не в домашнем у того, кто гоняет e2e.
+// The freedesktop trash lives in a temp directory, not in the home of whoever runs e2e.
 const dataHome = mkdtempSync(join(tmpdir(), "diode-deleted-tab-xdg-"));
 const notes = join(sampleDir, "notes.txt");
 const clean = join(sampleDir, "src", "clean.txt");
 const dirty = join(sampleDir, "src", "dirty.txt");
 
-/** `StyleFlags.Strikethrough` движка. */
+/** The engine's `StyleFlags.Strikethrough`. */
 const STRIKETHROUGH = 32;
 
 function tabRow(text: string): string {
@@ -38,10 +38,10 @@ export default defineScenario({
     cols: 120,
     rows: 20,
     env: { XDG_DATA_HOME: dataHome },
-    // Без диалога подтверждения: удаление в корзину отменяемо.
+    // No confirmation dialog: moving to the trash can be undone.
     settings: { "explorer.confirmDelete": false },
-    // Корзина freedesktop есть только на Linux; на остальных проводник удалил бы
-    // безвозвратно — это тот же путь через файловый сервис, что и unit-тесты.
+    // The freedesktop trash exists only on Linux; elsewhere the explorer would delete
+    // permanently, which is the same file-service path the unit tests cover.
     skipOn: ["win32", "darwin"],
     async prepare() {
         mkdirSync(join(sampleDir, "src"), { recursive: true });
@@ -51,11 +51,11 @@ export default defineScenario({
     },
     async run(editor) {
         await editor.waitForText((t) => t.includes("dirty file") && tabRow(t).includes("clean.txt"));
-        // Активна последняя открытая вкладка — dirty.txt: несохранённая правка.
+        // The last opened tab, dirty.txt, is active and holds an unsaved edit.
         await editor.sendText("edited ");
         await editor.waitForText((t) => t.includes("edited dirty file"));
 
-        // ── Внешнее удаление: вкладка остаётся зачёркнутой ──
+        // ── External deletion: the tab stays struck through ──
         rmSync(notes);
         const deleted = await editor.waitForText((t) => tabRow(t).includes("notes.txt (deleted)"), {
             timeoutMs: 10_000,
@@ -63,7 +63,7 @@ export default defineScenario({
         if (!isStruck(deleted, "notes.txt (deleted)")) throw new Error("имя удалённого файла не зачёркнуто");
         await editor.capture("external-delete");
 
-        // ── Файл вернулся: флаг снят ──
+        // ── File restored: the flag is cleared ──
         writeFileSync(notes, "Project notes, restored.\n");
         const restored = await editor.waitForText((t) => tabRow(t) !== "" && !tabRow(t).includes("(deleted)"), {
             timeoutMs: 10_000,
@@ -71,9 +71,9 @@ export default defineScenario({
         if (isStruck(restored, "notes.txt")) throw new Error("вернувшийся файл остался зачёркнутым");
         await editor.capture("restored");
 
-        // ── Удаление каталога src из проводника ──
-        // Фокус в дерево через меню View (как в сценарии rename-open-file),
-        // Home — первая строка, каталог src (каталоги идут первыми).
+        // ── Deleting the src folder from the explorer ──
+        // Focus the tree via the View menu (as in the rename-open-file scenario);
+        // Home goes to the first row, the src folder (folders sort first).
         await editor.sendKey("Alt+V");
         await editor.waitForText((t) => t.includes("Explorer"));
         await editor.sendKey("ArrowDown");
@@ -83,7 +83,7 @@ export default defineScenario({
         await editor.sendKey("Home");
         await editor.sendKey("Delete");
 
-        // Чистая clean.txt закрылась, «грязная» dirty.txt осталась зачёркнутой.
+        // clean.txt (no edits) closed; dirty.txt (unsaved edits) stays struck through.
         const afterFolder = await editor.waitForText(
             (t) => t.includes("dirty.txt (deleted)") && !t.includes("clean.txt"),
             { timeoutMs: 10_000 },

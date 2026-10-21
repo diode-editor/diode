@@ -2,12 +2,12 @@ import { resolve } from "node:path";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// Команда на Alt+R, а не из палитры: палитра вернула бы фокус меню-бару, набор не дошёл бы до редактора,
-// и кадр «ввод заблокирован» выглядел бы правильным, ничего не доказывая.
+// The command is on Alt+R, not run from the command palette: the palette would return focus to the menu bar, typing
+// would never reach the editor, and the "input blocked" frame would look right while proving nothing.
 
 const sampleFile = resolve(repoRoot, "e2e", "fixtures", "sample.ts");
 
-/** nf-cod-lock — метка read-only вкладки, см. tuidom/ui/editorgroup/editorTabItemElement.ts. */
+/** nf-cod-lock — the read-only tab marker, see tuidom/ui/editorgroup/editorTabItemElement.ts. */
 const LOCK = "\uea75";
 
 export default defineScenario({
@@ -30,8 +30,8 @@ export default defineScenario({
         await editor.sendKey("Backspace");
         await editor.capture("typing-blocked");
 
-        // Контроль предыдущего шага: тот же набор теперь обязан дойти до документа — иначе «заблокировано»
-        // неотличимо от потерянного фокуса.
+        // Control for the previous step: the same typing must now reach the document — otherwise "blocked"
+        // is indistinguishable from lost focus.
         await editor.sendKey("Alt+R");
         await editor.waitForText((t) => !t.includes(LOCK));
         await editor.sendText("ZZZ");

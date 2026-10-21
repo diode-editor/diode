@@ -15,7 +15,7 @@ export default defineScenario({
         await editor.waitForText((t) => t.includes("src") && t.includes("README.md"));
         await editor.capture("collapsed");
 
-        // Отступ 1, шеврон, пробел — имя с колонки 3.
+        // Indent 1, chevron, space: the name starts at column 3.
         await editor.clickNode("TreeViewElement", { dx: 4, dy: 0 });
         await editor.waitForText((t) => t.includes("src/main/java/com/example") && t.includes("App.java"));
         await editor.capture("click-expands");

@@ -2,7 +2,7 @@ import { resolve } from "node:path";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// Фокус групп — чордом Ctrl+K 1/2: он есть у всех пользователей на любом tier.
+// Groups are focused with the Ctrl+K 1/2 chord: it works for every user on any tier.
 
 const fileA = resolve(repoRoot, "e2e", "fixtures", "sample.ts");
 const fileB = resolve(repoRoot, "e2e", "fixtures", "folding.ts");
@@ -22,7 +22,7 @@ export default defineScenario({
 
         await editor.sendKey("Ctrl+K");
         await editor.sendKey("1");
-        await editor.sendKey("Ctrl+6"); // alternate editor внутри группы 1
+        await editor.sendKey("Ctrl+6"); // alternate editor within group 1
         await editor.waitForText((t) => t.includes("folding.ts") && t.includes("sample.ts"));
         await editor.capture("independent-tabs");
 
@@ -34,7 +34,7 @@ export default defineScenario({
         await editor.sendMouse({ action: "release", button: "left", x: sashX + 20, y: midY });
         await editor.capture("sash-resized");
 
-        // US-33: у каждой группы свой виджет Find со своим запросом.
+        // US-33: each group has its own Find widget with its own query.
         await editor.sendKey("Ctrl+K");
         await editor.sendKey("2");
         await editor.sendKey("Ctrl+F");
@@ -46,7 +46,7 @@ export default defineScenario({
         await editor.capture("two-find-widgets");
         await editor.sendKey("Escape");
 
-        // Тумблер оси — палитрой: Shift+Alt+0 живёт только на kitty/csi-u (US-19).
+        // Toggle the layout axis via the palette: Shift+Alt+0 works only on kitty/csi-u (US-19).
         await editor.sendKey("Ctrl+P");
         await editor.waitForNode("#quickInput");
         await editor.sendText(">Toggle Vertical/Horizontal");

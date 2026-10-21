@@ -2,8 +2,8 @@ import { resolve } from "node:path";
 
 import { defineScenario, repoRoot, type ScenarioDriver } from "./framework.ts";
 
-// Сообщение с кнопками — единственная дверь к регистрации у AI-автодополнений (Supermaven): проверяется
-// путь ответа до расширения (строка в канале Output «Diode Notify»).
+// A message with buttons is the only way into sign-up for AI completions (Supermaven): this checks that the answer
+// reaches the extension (a line in the "Diode Notify" Output channel).
 
 const sampleFile = resolve(repoRoot, "e2e", "fixtures", "sample.ts");
 const userData = resolve(repoRoot, "e2e", "fixtures", "user-data-with-notifications-probe");
@@ -22,7 +22,7 @@ export default defineScenario({
     open: [repoRoot, sampleFile],
     cols: 100,
     rows: 30,
-    // Только Linux: субпроцесс расширений на Windows флейкает.
+    // Linux only: the extension host subprocess is flaky on Windows.
     skipOn: ["win32"],
     async run(editor) {
         await editor.waitForText((t) => t.includes("Diode Notify"), { timeoutMs: 30000 });
@@ -33,7 +33,7 @@ export default defineScenario({
         });
         await editor.capture("error-toast");
 
-        // Фокус тост не забирает — в рамке написано, как добраться до кнопок.
+        // The toast doesn't take focus; its border says how to reach the buttons.
         await runProbeCommand(editor, "Ask Activate");
         await editor.waitForText((t) => t.includes("Use free version") && t.includes("F6"), { timeoutMs: 20000 });
         await editor.capture("question");
@@ -54,23 +54,23 @@ export default defineScenario({
         await runProbeCommand(editor, "Clear All");
         await editor.waitForText((t) => !t.includes("Message one"), { timeoutMs: 20000 });
 
-        // Escape отдаёт кнопку с isCloseAffordance.
+        // Escape returns the isCloseAffordance button.
         await runProbeCommand(editor, "Ask Modal");
         await editor.waitForText((t) => t.includes("Delete 12 files permanently?"), { timeoutMs: 20000 });
         await editor.capture("modal");
         await editor.sendKey("Escape");
         await editor.waitForText((t) => t.includes("Modal returned: item:Cancel"), { timeoutMs: 20000 });
 
-        // Браузера в контейнере/по ssh нет — URL уезжает в буфер обмена и показывается сообщением.
+        // No browser in a container or over ssh: the URL goes to the clipboard and is shown in a message.
         await runProbeCommand(editor, "Open External");
         await editor.waitForText((t) => t.includes("Ссылка скопирована в буфер обмена"), { timeoutMs: 20000 });
         await editor.capture("open-external-fallback");
-        // Тост накрывает нижние ряды Output — без него свежей строки расширения на кадре не видно.
+        // The toast covers the bottom rows of Output; without clearing it the extension's new line isn't in the frame.
         await runProbeCommand(editor, "Clear All");
         await editor.waitForText((t) => t.includes("openExternal returned: true"), { timeoutMs: 20000 });
 
         await runProbeCommand(editor, "Clipboard Round Trip");
-        // Ждём по началу строки: полный текст в панели Output обрезан её шириной.
+        // Wait on the line prefix: the full text is clipped by the Output panel width.
         await editor.waitForText((t) => t.includes("clipboard readText: clipboard-from"), { timeoutMs: 20000 });
         await editor.capture("clipboard");
     },

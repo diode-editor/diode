@@ -4,8 +4,8 @@ import { frameToText } from "../helpers/frame.ts";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// `[makefile]` из configurationDefaults встроенного make: в отступах Makefile'а ещё ничего нет, автоопределению
-// не на что опереться — отступ решает настройка языка.
+// `[makefile]` from the builtin make extension's configurationDefaults: the Makefile has no indentation yet, so
+// detection has nothing to go on and the language setting decides.
 
 const makefile = resolve(repoRoot, "e2e", "fixtures", "makefileDefaults", "Makefile");
 

@@ -2,7 +2,7 @@ import { resolve } from "node:path";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// `greeting` в фикстуре — объявление (Ln 2, Col 7) и использование (Ln 5, Col 12).
+// `greeting` in the fixture: declaration (Ln 2, Col 7) and usage (Ln 5, Col 12).
 
 const sampleFile = resolve(repoRoot, "e2e", "fixtures", "sample.ts");
 

@@ -34,7 +34,7 @@ export default defineScenario({
         );
         await editor.capture("before");
 
-        // Shift+Alt+F legacy-терминал не передаёт (ESC F без shift-флага) — второй бинд той же команды.
+        // A legacy terminal cannot send Shift+Alt+F (ESC F lacks the shift flag), so use the command's second binding.
         await editor.sendKey("Ctrl+K");
         await editor.sendKey("Ctrl+E");
         await editor.waitForText((t) => t.includes("function greet(name: string) {"), { timeoutMs: 60_000 });

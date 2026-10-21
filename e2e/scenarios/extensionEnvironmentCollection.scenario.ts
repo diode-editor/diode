@@ -11,10 +11,10 @@ export default defineScenario({
     seedUserData: userData,
     cols: 120,
     rows: 24,
-    // Настоящий шелл.
+    // Real shell.
     skipOn: ["win32"],
     async run(editor) {
-        // Коллекция записана — первый шелл после этого уже с ней.
+        // Once the collection is written, the next shell already gets it.
         await editor.waitForText((t) => t.includes("Env demo ready"), { timeoutMs: 20_000 });
         await editor.sendKey("F1");
         await editor.waitForNode("#quickInput");

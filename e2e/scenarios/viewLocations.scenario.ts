@@ -11,8 +11,8 @@ export default defineScenario({
     open: [repoRoot, sampleFile],
     cols: 120,
     rows: 32,
-    // У Move View нет дефолтного бинда (как у эталона), а палитра ранжирует
-    // точное «View: Move View» ниже «View: Move Editor…» — бинд убирает шум.
+    // Move View has no default binding (same as upstream), and the command palette ranks the exact "View: Move View"
+    // below "View: Move Editor…" — the binding removes the noise.
     userKeybindings: [{ key: "ctrl+alt+m", command: "workbench.action.moveView" }],
     async run(editor) {
         await editor.waitForText((t) => t.includes("greeting"));

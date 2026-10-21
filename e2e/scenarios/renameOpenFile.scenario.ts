@@ -5,8 +5,8 @@ import { join } from "node:path";
 
 import { defineScenario } from "./framework.ts";
 
-// Вкладка едет за файлом (как `EditorService.handleMovedFile`). Баг из догфудинга: вкладка оставалась
-// на старом пути, и первое же сохранение воскрешало старый файл.
+// The tab follows the file (like `EditorService.handleMovedFile`). Dogfooding bug: the tab stayed on the
+// old path, and the very first save resurrected the old file.
 
 const OLD_NAME = "notes.txt";
 const NEW_NAME = "guide.txt";
@@ -29,7 +29,7 @@ function makeRepo(): string {
 
 const repoDir = makeRepo();
 
-/** Дерево и полоса вкладок делят строку кадра. */
+/** The tree and the tab bar share frame lines. */
 function rowsWith(text: string, name: string): string[] {
     return text.split("\n").filter((line) => line.includes(name));
 }
@@ -40,7 +40,7 @@ export default defineScenario({
     open: [repoDir, join(repoDir, OLD_NAME)],
     cols: 100,
     rows: 20,
-    // Буквы статуса ставит git-расширение (extension host) — только Linux.
+    // Status letters come from the git extension (extension host) — Linux only.
     skipOn: ["win32", "darwin"],
     async run(editor) {
         await editor.waitForText((t) => rowsWith(t, OLD_NAME).length > 0 && t.includes("Project notes."));

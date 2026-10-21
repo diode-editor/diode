@@ -7,14 +7,15 @@ import { dumpFrame, findTextCell } from "../helpers/frame.ts";
 import type { ScenarioDriver } from "./framework.ts";
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// Форма стокового Claude Code (`openDiff` терминального режима); кнопки ✓/↺ — по видимости стороны в `visibleTextEditors`.
+// Mirrors the stock Claude Code extension (`openDiff` in terminal mode); the ✓/↺ buttons follow the side's visibility
+// in `visibleTextEditors`.
 
 const sampleFile = resolve(repoRoot, "e2e", "fixtures", "proposed-diff", "sample.txt");
 const userData = resolve(repoRoot, "e2e", "fixtures", "user-data-with-proposed-diff");
 
-/** codicon `check` — кнопка «принять». */
+/** codicon `check` — the "accept" button. */
 const CHECK = "\u{eab2}";
-/** codicon `discard` — кнопка «отклонить». */
+/** codicon `discard` — the "reject" button. */
 const DISCARD = "\u{eae2}";
 const TAB_ROW = 1;
 const TAB_TITLE = "[Proposed] sample.txt";
@@ -29,14 +30,14 @@ async function runCommand(editor: ScenarioDriver, title: string): Promise<void> 
 
 const tabRow = (text: string): string => text.split("\n")[TAB_ROW] ?? "";
 
-/** Нет вхождения — падение с дампом кадра. */
+/** Throws with a frame dump when there is no match. */
 function locate(frame: GridSnapshot, needle: string): { x: number; y: number } {
     const cell = findTextCell(frame, needle);
     if (cell === null) throw new Error(`нет «${needle}» в кадре:\n${dumpFrame(frame)}`);
     return cell;
 }
 
-/** Предлагает правку и ждёт дифф-вкладку с кнопками ✓/↺. */
+/** Proposes an edit and waits for the diff tab with the ✓/↺ buttons. */
 async function propose(editor: ScenarioDriver): Promise<string> {
     await runCommand(editor, "Proposed Diff Demo: Propose Changes");
     return editor.waitForText(
@@ -57,11 +58,11 @@ export default defineScenario({
         await editor.waitForText((t) => t.includes("diff:-"), { timeoutMs: 20_000 });
         await editor.waitForReady();
 
-        // Дифф-вкладка: справа предложение расширения, в панели группы — ✓ и ↺.
+        // Diff tab: the extension's proposal on the right, ✓ and ↺ in the group toolbar.
         const proposed = await propose(editor);
         await editor.capture("proposed");
 
-        // Правка правой стороны прямо в диффе и Ctrl+S — принятие с правленым текстом.
+        // Editing the right side in the diff and pressing Ctrl+S accepts the edited text.
         const right = locate(proposed, "HELLO");
         await editor.click(right.x, right.y);
         await editor.sendKey("End");
@@ -70,11 +71,11 @@ export default defineScenario({
         await editor.waitForText((t) => t.includes("diff:FILE_SAVED:(edited)"));
         await editor.capture("saved");
 
-        // CLI закрывает вкладку сам: сохранение стороны + tabGroups.close.
+        // The CLI closes the tab itself: save the side + tabGroups.close.
         await runCommand(editor, "Proposed Diff Demo: Close Diff Tab");
         await editor.waitForText(diffClosed);
 
-        // ↺ — отклонение.
+        // ↺ rejects.
         const again = await propose(editor);
         const discard = locate(again, DISCARD);
         await editor.click(discard.x, discard.y);
@@ -83,7 +84,7 @@ export default defineScenario({
         await runCommand(editor, "Proposed Diff Demo: Close Diff Tab");
         await editor.waitForText(diffClosed);
 
-        // Закрытие вкладки — тоже отклонение; ключ гаснет, кнопки уходят.
+        // Closing the tab rejects too; the context key resets and the buttons go away.
         await propose(editor);
         await editor.sendKey("Ctrl+W");
         await editor.waitForText((t) => t.includes("diff:TAB_CLOSED") && diffClosed(t));

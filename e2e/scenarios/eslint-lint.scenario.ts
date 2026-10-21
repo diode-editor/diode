@@ -8,14 +8,14 @@ import { waitUntil } from "../helpers/waitFor.ts";
 
 import { defineScenario } from "./framework.ts";
 
-// Стоковый vscode-eslint не бандлит eslint: библиотека приезжает в воркспейс через prepare (npm-кэш фикстуры
-// + симлинк node_modules).
+// Stock vscode-eslint doesn't bundle eslint: the library reaches the workspace via prepare (the fixture's npm
+// cache + a node_modules symlink).
 
-// Сценарий сохраняет файл — коммитнутую фикстуру пачкать нельзя.
+// The scenario saves the file, and the committed fixture must stay clean.
 const sampleDir = mkdtempSync(join(tmpdir(), "diode-eslint-demo-"));
 const lintFile = join(sampleDir, "app.js");
 
-/** Пара «уходит после фикса» / «остаётся»: no-extra-semi чинится, no-unused-vars — нет. */
+/** A "gone after the fix" / "remains" pair: no-extra-semi is fixable, no-unused-vars is not. */
 const APP_JS = 'const unused = 1;;\n\nfunction greet(name) {\n    return "hi " + name;;\n}\n\nconsole.log(greet("world"));\n';
 
 /** StyleFlags.Undercurl. */
@@ -41,7 +41,7 @@ export default defineScenario({
     async run(editor) {
         await editor.waitForText((t) => t.includes("const unused"));
 
-        // Не по undercurl'у: builtin TS-клиент линтит .js тоже, и его подчёркивания приходят раньше.
+        // Not by undercurl: the built-in TS client lints .js too, and its underlines arrive earlier.
         await waitForEslintDiagnostics({
             key: (name) => editor.sendKey(name),
             text: (value) => editor.sendText(value),
@@ -54,8 +54,8 @@ export default defineScenario({
         );
         await editor.capture("diagnostics");
 
-        // Меню наполняется одним запросом с 5с-таймаутом: попав в занятый сервер, оно остаётся пустым навсегда
-        // (пойманный флак) — поэтому меню переоткрываем, а не ждём.
+        // The menu is filled by a single request with a 5 s timeout: if it hits a busy server, it stays empty forever
+        // (an observed flake), so the menu is reopened rather than awaited.
         for (let attempt = 0; ; attempt++) {
             await editor.sendKey("Ctrl+K");
             await editor.sendKey("Ctrl+Q");

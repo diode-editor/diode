@@ -7,8 +7,9 @@ import { createRegistryFixture } from "../helpers/registryFixture.ts";
 import type { ScenarioDriver } from "./framework.ts";
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// Сид кладёт `hello-lang` в `extensions/` без `extensions.json` — миграция делает его составом Default;
-// признак расширения — язык `.hello` в статус-баре. Команды — через палитру: у Empty-профиля нет кейбиндов сценария.
+// The seed puts `hello-lang` into `extensions/` without `extensions.json`, and migration makes it part of Default;
+// the extension shows as the `.hello` language in the status bar. Commands go via the palette: the Empty profile
+// lacks the scenario keybindings.
 
 const fixture = resolve(repoRoot, "e2e", "fixtures", "profileExtensions");
 const userData = resolve(repoRoot, "e2e", "fixtures", "user-data-with-hello");
@@ -32,13 +33,13 @@ async function runCommand(editor: ScenarioDriver, title: string): Promise<void> 
     await editor.sendKey("Enter");
 }
 
-/** Старый сокет закрывается, новый поднимается на том же порту. */
+/** The old socket closes and a new one comes up on the same port. */
 async function reloaded(editor: ScenarioDriver): Promise<void> {
     await editor.reconnect();
     await editor.waitForText((t) => t.includes("EXPLORER"), { timeoutMs: 60_000 });
 }
 
-/** `down` — сколько раз вниз от «Empty» в выборе содержимого. */
+/** `down`: how many steps down from "Empty" in the contents picker. */
 async function newProfile(editor: ScenarioDriver, name: string, down: number): Promise<void> {
     await runCommand(editor, "Profiles: New Profile...");
     await editor.waitForText((t) => t.includes("Profile name"));
@@ -67,30 +68,30 @@ export default defineScenario({
     extraArgs: [`--registry=${registry}`],
     cols: 110,
     rows: 28,
-    // Reload Window из сценария на Windows поднимает окно без сайдбара (docs/TODO/E2E.md).
+    // On Windows, Reload Window from a scenario brings the window up without a sidebar (docs/TODO/E2E.md).
     skipOn: ["win32"],
     async run(editor) {
         await editor.waitForText((t) => t.includes("EXPLORER"));
         await expectLanguage(editor, "Hello Language");
         await editor.capture("default");
 
-        // Copy from current: состав Default (hello-lang) едет в новый профиль.
+        // Copy from current: Default's set (hello-lang) carries over to the new profile.
         await newProfile(editor, "copied", 1);
         await expectLanguage(editor, "Hello Language");
         await editor.capture("copied");
 
-        // Empty: расширений нет — `.hello` открывается простым текстом.
+        // Empty: no extensions, so `.hello` opens as plain text.
         await newProfile(editor, "clean", 0);
         await expectLanguage(editor, "Plain Text");
         await editor.capture("empty");
 
-        // Магазин пустого профиля: hello-lang лежит на диске, но в этом профиле
-        // его нет — секции INSTALLED нет вовсе.
+        // The empty profile's marketplace view: hello-lang is on disk but not in this
+        // profile, so there is no INSTALLED section at all.
         await showExtensions(editor);
         await editor.waitForText((t) => !t.includes("INSTALLED"));
         await editor.capture("empty-view");
 
-        // Установка из магазина — в состав активного профиля.
+        // Installing from the marketplace adds to the active profile.
         await editor.sendKey("Tab");
         await editor.sendKey("ArrowDown");
         await editor.sendKey("Enter");
@@ -107,7 +108,7 @@ export default defineScenario({
         await expectLanguage(editor, "Diode Sample");
         await editor.capture("installed");
 
-        // Default: hello-lang на месте, а Sample Lang в нём не установлен.
+        // Default: hello-lang is there, and Sample Lang isn't installed in it.
         await runCommand(editor, "Profiles: Switch Profile...");
         await editor.waitForText((t) => t.includes("Select Profile"));
         await editor.sendText("Default");
@@ -116,8 +117,8 @@ export default defineScenario({
         await reloaded(editor);
         await expectLanguage(editor, "Hello Language");
         await showExtensions(editor);
-        // Sample Lang — одна карточка каталога; в пустом профиле после установки
-        // их было две (каталог и INSTALLED).
+        // Sample Lang has a single catalog card; in the empty profile after install
+        // there were two (catalog and INSTALLED).
         await editor.waitForText((t) => t.includes("INSTALLED") && t.split("Sample Lang").length === 2);
         await editor.capture("default-again");
     },

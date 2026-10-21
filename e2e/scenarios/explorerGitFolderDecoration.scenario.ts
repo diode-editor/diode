@@ -5,7 +5,7 @@ import { join } from "node:path";
 
 import { defineScenario } from "./framework.ts";
 
-// Удалённый файл, как в эталоне, в папку не всплывает.
+// As in upstream, a deleted file does not propagate to its parent folder.
 
 function git(cwd: string, ...args: string[]): void {
     execFileSync("git", args, { cwd, stdio: "ignore" });
@@ -13,7 +13,7 @@ function git(cwd: string, ...args: string[]): void {
 
 const ORIGINAL = "export const a = 1;\n";
 
-/** Свой временный репозиторий — чтобы кадр не зависел от состояния diode. */
+/** A private temp repo, so the frame does not depend on the state of the diode repo. */
 function makeRepo(): string {
     const repoDir = mkdtempSync(join(tmpdir(), "diode-explorer-folder-deco-demo-"));
     git(repoDir, "init", "-q");
@@ -29,7 +29,7 @@ function makeRepo(): string {
     writeFileSync(join(repoDir, "docs", "guide.md"), "# guide\n");
     git(repoDir, "add", "-A");
     git(repoDir, "commit", "-qm", "init");
-    // src/lib/util.ts изменён (M) — «●» у src; old/gone.ts удалён (D) — у old пусто.
+    // src/lib/util.ts is modified (M): "●" on src; old/gone.ts is deleted (D): nothing on old.
     writeFileSync(join(repoDir, "src", "lib", "util.ts"), "export const a = 2;\n");
     rmSync(join(repoDir, "old", "gone.ts"));
     return repoDir;
@@ -47,18 +47,18 @@ export default defineScenario({
     open: [repoDir],
     cols: 100,
     rows: 20,
-    // Нужен extension host (декорации поставляет git-расширение) — как у прочих
-    // extension-сценариев, гоняем только на Linux.
+    // Needs the extension host (decorations come from the git extension); like
+    // other extension scenarios, runs on Linux only.
     skipOn: ["win32", "darwin"],
     async run(editor) {
-        // «●» у src, а у old — нет: удалённый файл к папке не всплывает.
+        // "●" on src but not on old: a deleted file does not propagate to its folder.
         await editor.waitForText(
             (t) => rowFor(t, "src")?.includes("●") === true && rowFor(t, "old")?.includes("●") === false,
         );
         await editor.capture("modified-inside");
 
-        // Файл снова чистый (правка «из терминала»): «●» у src гаснет. Правку
-        // повторяем, пока событие watcher'а не доедет — как в git-badge-live-update.
+        // The file is clean again (an edit "from the terminal"): "●" on src goes away.
+        // Repeat the write until the watcher event arrives, as in git-badge-live-update.
         for (let attempt = 1; ; attempt++) {
             writeFileSync(join(repoDir, "src", "lib", "util.ts"), ORIGINAL);
             try {

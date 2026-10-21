@@ -2,8 +2,8 @@ import { resolve } from "node:path";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// Отступ читается не по тексту (он уже отступлён), а по вставке: один и тот же Tab даёт 2 колонки в package.json
-// и 4 — в 4-пробельном TypeScript.
+// Indentation is checked by insertion, not by the text (it is already indented): the same Tab gives 2 columns in
+// package.json and 4 in 4-space TypeScript.
 
 const twoSpaceJson = resolve(repoRoot, "package.json");
 const fourSpaceTs = resolve(repoRoot, "e2e", "fixtures", "folding.ts");
@@ -21,8 +21,8 @@ export default defineScenario({
         await editor.waitForText((t) => t.includes("Col 3"));
         await editor.capture("two-space-json");
 
-        // Ctrl+Tab держит hold-сессию со списком поверх редактора; Ctrl+End её завершает — поэтому текст вкладки ждём
-        // после перевода каретки.
+        // Ctrl+Tab holds a session with a list over the editor; Ctrl+End ends it, so wait for the tab's text only
+        // after moving the cursor.
         await editor.sendKey("Ctrl+Tab");
         await editor.sendKey("Ctrl+End");
         await editor.waitForText((t) => t.includes("const doubled"));

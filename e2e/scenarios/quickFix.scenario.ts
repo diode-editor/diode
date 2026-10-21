@@ -5,7 +5,8 @@ import { waitUntil } from "../helpers/waitFor.ts";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// #196. Чорд Ctrl+K Ctrl+Q — второй бинд, досягаемый на legacy: Ctrl+. терминал без kitty-протокола не кодирует.
+// #196. The Ctrl+K Ctrl+Q chord is the second binding, reachable on legacy terminals: without the kitty protocol a
+// terminal cannot encode Ctrl+.
 
 const require_ = createRequire(import.meta.url);
 const sampleDir = resolve(repoRoot, "e2e", "fixtures", "quickfixSample");
@@ -26,12 +27,12 @@ export default defineScenario({
     },
     cols: 100,
     rows: 24,
-    // Extension-host сценарии гоняют subprocess + спавн сервера — Linux only.
+    // Extension host scenarios run a subprocess + a spawned server — Linux only.
     skipOn: ["win32", "darwin"],
     async run(editor) {
         await editor.waitForText((t) => t.includes(ZETA_IMPORT));
 
-        // Readiness: undercurl от настоящего tsserver'а.
+        // Readiness: an undercurl from the real tsserver.
         await waitUntil(
             () => editor.captureFrame(),
             (frame) => frame.cells.some((cell) => (cell.style & UNDERCURL) !== 0),
@@ -39,17 +40,17 @@ export default defineScenario({
         );
         await editor.capture("before");
 
-        // Открытие ставит каретку в (0,0) — на строку импорта.
+        // Opening puts the cursor at (0,0) — on the import line.
         await editor.sendKey("Ctrl+K");
         await editor.sendKey("Ctrl+Q");
         await editor.waitForText((t) => t.includes("Select Code Action"), { timeoutMs: 60_000 });
-        // Пин на нужное действие набором в фильтр — порядок пунктов за сервером.
+        // Pin the wanted action by typing into the filter — item order is up to the server.
         await editor.sendText("Remove import");
         await editor.waitForText((t) => t.includes("Remove import"));
         await editor.capture("menu");
 
         await editor.sendKey("Enter");
-        // Импорт обязан исчезнуть из буфера, а не спрятаться за оверлеем меню.
+        // The import must be gone from the buffer, not just hidden behind the menu overlay.
         await editor.waitForText(
             (t) => !t.includes("Code Actions") && !t.includes(ZETA_IMPORT) && t.includes("export const kept"),
             { timeoutMs: 60_000 },

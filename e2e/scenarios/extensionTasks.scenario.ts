@@ -3,8 +3,8 @@ import { resolve } from "node:path";
 import type { ScenarioDriver } from "./framework.ts";
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// Что расширение видит в ответ (события исполнений, `taskExecutions`, свой ли объект пришёл), оно пишет в
-// пункты статус-бара `ev:`/`ls:`.
+// The extension reports what it observes (execution events, `taskExecutions`, whether its own object came back)
+// in the `ev:`/`ls:` status bar items.
 
 const folder = resolve(repoRoot, "e2e", "fixtures", "tasks");
 const userData = resolve(repoRoot, "e2e", "fixtures", "user-data-with-task-demo");
@@ -35,7 +35,7 @@ export default defineScenario({
     open: [folder],
     cols: 120,
     rows: 32,
-    // Extension-host сценарий с настоящим шеллом: как extension-terminal.
+    // Extension host scenario with a real shell, like extension-terminal.
     skipOn: ["win32"],
     async run(editor) {
         await editor.waitForText((t) => t.includes("ev:-"), { timeoutMs: 20_000 });

@@ -4,14 +4,14 @@ import { join, resolve } from "node:path";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// Сегменты компактной строки — как `CompressedNavigationController` эталона. Фикстура копируется во временный
-// каталог: сценарий пишет на диск.
+// Compact row segments mirror upstream `CompressedNavigationController`. The fixture is copied to a temp directory:
+// the scenario writes to disk.
 
 const workspace = mkdtempSync(join(tmpdir(), "diode-compact-segments-demo-"));
 cpSync(resolve(repoRoot, "e2e", "fixtures", "compactFolders"), workspace, { recursive: true });
 
-// Строка дерева « ⌄ src/main/java/com/example»: отступ 1, шеврон, пробел —
-// метка с колонки 3: src 3–5, main 7–10, java 12–15, com 17–19.
+// Tree row " ⌄ src/main/java/com/example": indent 1, chevron, space, then the
+// label from column 3: src 3–5, main 7–10, java 12–15, com 17–19.
 const JAVA_COLUMN = 13;
 const MAIN_COLUMN = 8;
 
@@ -30,7 +30,7 @@ export default defineScenario({
         await editor.sendKey("ArrowLeft");
         await editor.capture("left-to-com");
 
-        // Клик по сегменту, как у эталона, ещё и переключает строку целиком — второй клик раскрывает обратно.
+        // As upstream, clicking a segment also toggles the whole row; a second click expands it back.
         await editor.clickNode("TreeViewElement", { dx: MAIN_COLUMN, dy: 0 });
         await editor.waitForText((t) => t.includes("src/main/java/com/example") && !t.includes("App.java"));
         await editor.capture("click-main");
@@ -47,7 +47,7 @@ export default defineScenario({
         await editor.sendText("Probe.java");
         await editor.waitForText((t) => t.includes("Probe.java"));
         await editor.sendKey("Enter");
-        // Хвост «com» стоит свёрнутым, как у эталона: новая сжатая строка состояния головы не наследует.
+        // The "com" tail stays collapsed, as upstream: a new compressed row doesn't inherit the head's state.
         await editor.waitForText(
             (t) => t.includes("src/main/java") && !t.includes("src/main/java/com") && t.includes("Probe.java"),
         );

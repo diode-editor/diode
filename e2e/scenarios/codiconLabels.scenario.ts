@@ -8,15 +8,15 @@ import { dumpFrame, frameLine } from "../helpers/frame.ts";
 import type { ScenarioDriver } from "./framework.ts";
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// `$(name)` от расширения подменяется глифом во всех местах, куда фикстура `codicon-demo` пишет разметку.
-// Ассерты по ячейкам, а не по словам: глифы приватной области в текстовом дампе неотличимы, и «слово на кадре»
-// прошло бы и на литерале. Начальное value поля ввода и строки лога обязаны донести `$(no-such-icon)` целиком:
-// их не подменяют (value уходит обратно расширению, лог — не разметка).
+// An extension's `$(name)` is replaced by a glyph everywhere the `codicon-demo` fixture writes markup.
+// Assertions check cells, not words: private-use glyphs are indistinguishable in a text dump, and a "word on the
+// frame" check would pass on the literal too. The input box's initial value and the log lines must carry
+// `$(no-such-icon)` verbatim: they are not substituted (the value goes back to the extension, a log is not markup).
 
 const sampleFile = resolve(repoRoot, "AGENTS.md");
 const userData = resolve(repoRoot, "e2e", "fixtures", "user-data-with-codicon-demo");
 
-/** Символ шрифта по имени codicon'а — тот же источник правды, что у подменщика. */
+/** Font character for a codicon name, from the same source of truth the substitution uses. */
 function glyph(name: string): string {
     const found = CODICON_GLYPHS[name];
     if (found === undefined) throw new Error(`codicon-labels: в таблице нет значка "${name}"`);
@@ -43,7 +43,7 @@ function expectGlyphs(frame: GridSnapshot, step: string, names: readonly string[
     }
 }
 
-/** Разметки `$(` на кадре быть не должно: раз глиф есть, литерал — вторая копия. */
+/** No `$(` markup may remain on the frame: once the glyph is there, a literal would be a second copy. */
 function expectNoMarkup(frame: GridSnapshot, step: string): void {
     for (let y = 0; y < frame.rows; y++) {
         if (frameLine(frame, y).includes("$(")) {
@@ -52,7 +52,7 @@ function expectNoMarkup(frame: GridSnapshot, step: string): void {
     }
 }
 
-/** Требует дословный текст в ячейках: подмена выбросила бы неизвестное имя. */
+/** Requires verbatim text in the cells: substitution would drop an unknown name. */
 function expectVerbatim(frame: GridSnapshot, step: string, needle: string): void {
     const lines: string[] = [];
     for (let y = 0; y < frame.rows; y++) lines.push(frameLine(frame, y));
@@ -61,7 +61,6 @@ function expectVerbatim(frame: GridSnapshot, step: string, needle: string): void
     }
 }
 
-/** Открывает палитру и набирает запрос. */
 async function openPalette(editor: ScenarioDriver, query: string): Promise<void> {
     await editor.sendKey("F1");
     await editor.waitForNode("#quickInput");
@@ -75,25 +74,25 @@ export default defineScenario({
     open: [sampleFile],
     cols: 120,
     rows: 24,
-    // Extension-host сценарий: CI-safety-net гоняем только на Linux.
+    // Extension host scenario: the CI safety net runs on Linux only.
     skipOn: ["win32", "darwin"],
     async run(editor) {
-        // 1. Статус-бар. Пункт `$(check) Ready` — единственная раковина, которая
-        //    работала и до этой работы; тут она держит регрессию.
+        // 1. Status bar. The `$(check) Ready` item is the one sink that already
+        //    worked before; here it guards against regression.
         const ready = await editor.waitForText((t) => t.includes("Ready"), { timeoutMs: 30_000 });
         expectGlyphs(ready, "status-bar", ["check"]);
         expectNoMarkup(ready, "status-bar");
         await editor.capture("status-bar");
 
-        // 2. Палитра: заголовок И категория команды приехали из манифеста.
-        //    Подпись пункта — `категория: заголовок`, значки в обеих половинах.
+        // 2. Palette: both the command's title AND category come from the manifest.
+        //    The item label is `category: title`, with icons in both halves.
         await openPalette(editor, "Pick a Target");
         const palette = await editor.waitForText((t) => t.includes("Codicon Demo: ") && t.includes("Pick a Target"));
         expectGlyphs(palette, "palette", ["beaker", "list-selection"]);
         expectNoMarkup(palette, "palette");
         await editor.capture("palette");
 
-        // 3. Quick pick расширения: заголовок, placeholder, метки и описания.
+        // 3. Extension quick pick: title, placeholder, labels and descriptions.
         await editor.sendKey("Enter");
         const pick = await editor.waitForText((t) => t.includes("first target") && t.includes("release"), {
             timeoutMs: 30_000,
@@ -103,8 +102,8 @@ export default defineScenario({
         await editor.capture("quick-pick");
         await editor.sendKey("Escape");
 
-        // 4. Поле ввода: заголовок и подсказка — глифы, а НАЧАЛЬНОЕ ЗНАЧЕНИЕ
-        //    дословно, вместе с неизвестным именем значка.
+        // 4. Input box: title and prompt render glyphs, while the INITIAL VALUE
+        //    stays verbatim, unknown icon name included.
         await openPalette(editor, "Ask for a Port");
         await editor.sendKey("Enter");
         const input = await editor.waitForText((t) => t.includes("which port should the server use"), {
@@ -115,9 +114,9 @@ export default defineScenario({
         await editor.capture("input-box");
         await editor.sendKey("Escape");
 
-        // Второй показ — placeholder и сообщение валидации. Отдельной командой,
-        // потому что сообщение валидации ЗАМЕНЯЕТ строку подсказки: показать
-        // prompt и validation на одном кадре нельзя.
+        // Second showing: placeholder and validation message. It is a separate
+        // command because the validation message REPLACES the prompt line, so
+        // prompt and validation cannot appear on the same frame.
         await openPalette(editor, "Ask with Validation");
         await editor.sendKey("Enter");
         const empty = await editor.waitForText((t) => t.includes("for example 8080"), { timeoutMs: 30_000 });
@@ -131,8 +130,8 @@ export default defineScenario({
         await editor.capture("validation");
         await editor.sendKey("Escape");
 
-        // 5. Прогресс: `withProgress` у нас всегда едет в полосу — это
-        //    `ProgressLocation.Window`, чья подпись значки разворачивает.
+        // 5. Progress: our `withProgress` always goes to the status bar, i.e.
+        //    `ProgressLocation.Window`, whose label expands icons.
         await openPalette(editor, "Codicon Demo: Reindex");
         await editor.sendKey("Enter");
         const progress = await editor.waitForText((t) => t.includes("Indexing") && t.includes("phase one"), {
@@ -144,9 +143,9 @@ export default defineScenario({
         await openPalette(editor, "Codicon Demo: Stop");
         await editor.sendKey("Enter");
 
-        // 6. Имя канала Output приезжает двумя путями сразу: заголовком команды
-        //    `Output: Show <имя>` в палитре и подписью пункта в селекторе
-        //    каналов. СТРОКИ канала при этом дословны — лог не разметка.
+        // 6. The Output channel name arrives two ways at once: as the command title
+        //    `Output: Show <name>` in the palette and as the item label in the channel
+        //    picker. The channel's LINES stay verbatim: a log is not markup.
         await openPalette(editor, "Output: Show Codicon Demo");
         const channelCommand = await editor.waitForText((t) => t.includes("Output: Show"), { timeoutMs: 30_000 });
         expectGlyphs(channelCommand, "output-command", ["output"]);

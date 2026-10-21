@@ -5,8 +5,8 @@ import { waitUntil } from "../helpers/waitFor.ts";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// Удаление одного имени импорта сервер присылает двумя смежными диапазонами на строке — обратные правки
-// схлопываются в одну точку; Ctrl+Z обязан вернуть строку дословно, а не `import { alphazeta,  }`.
+// The server sends the removal of one import name as two adjacent ranges on the line — the inverse edits
+// collapse into one point; Ctrl+Z must restore the line verbatim, not `import { alphazeta,  }`.
 
 const require_ = createRequire(import.meta.url);
 const sampleDir = resolve(repoRoot, "e2e", "fixtures", "quickfixUndoSample");
@@ -28,12 +28,12 @@ export default defineScenario({
     },
     cols: 100,
     rows: 24,
-    // Extension-host сценарии гоняют subprocess + спавн сервера — Linux only.
+    // Extension host scenarios run a subprocess + a spawned server — Linux only.
     skipOn: ["win32", "darwin"],
     async run(editor) {
         await editor.waitForText((t) => t.includes(BOTH_IMPORT));
 
-        // Readiness: undercurl от НАСТОЯЩЕГО tsserver'а.
+        // Readiness: an undercurl from the REAL tsserver.
         await waitUntil(
             () => editor.captureFrame(),
             (frame) => frame.cells.some((cell) => (cell.style & UNDERCURL) !== 0),
@@ -41,7 +41,7 @@ export default defineScenario({
         );
         await editor.capture("before");
 
-        // На `zeta` (колонка 16).
+        // Onto `zeta` (column 16).
         for (let i = 0; i < 16; i++) await editor.sendKey("ArrowRight");
         await editor.sendKey("Ctrl+K");
         await editor.sendKey("Ctrl+Q");
@@ -54,7 +54,8 @@ export default defineScenario({
         await editor.capture("fixed");
 
         await editor.sendKey("Ctrl+Z");
-        // Перемешанный буфер — из тех же символов: мало вхождения строки, ждём и отсутствия склейки.
+        // A scrambled buffer has the same characters: containing the line is not enough, also wait for the glued text
+        // to be gone.
         await editor.waitForText((t) => t.includes(BOTH_IMPORT) && !t.includes("alphazeta"), { timeoutMs: 30_000 });
         await editor.capture("undone");
     },

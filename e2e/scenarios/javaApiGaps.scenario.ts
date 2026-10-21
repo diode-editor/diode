@@ -2,7 +2,8 @@ import { resolve } from "node:path";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// Своя фикстура, а не стоковый redhat.java: его записи в реестре магазина ещё нет, а сам он требует JDK 21.
+// A custom fixture rather than the stock redhat.java extension: the marketplace registry has no entry for it yet,
+// and it requires JDK 21.
 
 const sampleDir = resolve(repoRoot, "e2e", "fixtures", "javaApiSample");
 const sampleFile = resolve(sampleDir, "src", "main", "java", "com", "example", "App.java");
@@ -20,11 +21,12 @@ export default defineScenario({
     async run(editor) {
         await editor.waitForText((t) => t.includes("Java API sample"), { timeoutMs: 20_000 });
 
-        // «ПРОВАЛ» в маркере означает, что какой-то шаг отказал.
+        // A failure word in the marker means some step failed.
         await editor.waitForText((t) => t.includes("java api: готово"), { timeoutMs: 30_000 });
         await editor.capture("activated");
 
-        // Сайдбар прячем: перенос в панели выключен, и с проводником хвост длинной строки не попадает в кадр.
+        // Hide the sidebar: the panel does not wrap, so with the explorer open the tail of a long line falls
+        // outside the frame.
         await editor.sendKey("Alt+B");
         await editor.sendKey("F1");
         await editor.waitForNode("#quickInput");
@@ -35,12 +37,12 @@ export default defineScenario({
             timeoutMs: 15_000,
         });
         await editor.waitForText((t) => t.includes("readDirectory=[pom.bak, pom.xml]"), { timeoutMs: 15_000 });
-        // Чужая схема — `undefined`, а не «нельзя писать».
+        // A foreign scheme yields `undefined`, not "not writable".
         await editor.waitForText((t) => t.includes("isWritableFileSystem file=true jdt=undefined"), {
             timeoutMs: 15_000,
         });
-        // `exclude: undefined` применил `files.exclude` и срезал чужой pom, а `exclude: null` его находит — значит, файл
-        // был, и отсеяли его мы.
+        // `exclude: undefined` applies `files.exclude` and drops the other pom, while `exclude: null` finds it: so the
+        // file exists and it is our filtering that drops it.
         await editor.waitForText(
             (t) => t.includes("по умолчанию=[pom.xml]") && t.includes("без исключений=2") && t.includes("maxResults1=1"),
             { timeoutMs: 15_000 },

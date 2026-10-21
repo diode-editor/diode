@@ -17,7 +17,7 @@ export default defineScenario({
     name: "goto-definition",
     title: "Stock typescript-language-server: diagnostics + Go to Definition (F12)",
     open: [sampleDir, mainFile],
-    // Путь к серверу из devDeps — настройками; tsserver.js — для песочниц без своего TypeScript.
+    // The server path from devDeps goes via settings; tsserver.js is for sandboxes without their own TypeScript.
     settings: {
         "diode.lsp.typescript.serverPath": require_.resolve("typescript-language-server/lib/cli.mjs"),
         "diode.lsp.typescript.tsserverPath": require_.resolve("typescript/lib/tsserver.js"),
@@ -25,7 +25,7 @@ export default defineScenario({
     cols: 100,
     rows: 24,
     skipOn: ["win32", "darwin"],
-    // Показ output-канала LS без ухода фокуса через палитру/меню.
+    // Shows the LS output channel without losing focus to the command palette or menu.
     userKeybindings: [
         {
             key: "alt+t",
@@ -44,8 +44,8 @@ export default defineScenario({
         await editor.waitForText((t) => /not assignable/i.test(t));
         await editor.capture("diagnostics");
 
-        // Вызов `greet`: строка 2, колонка 23.
-        await editor.sendKey("Ctrl+J"); // спрятать панель, вернуть фокус редактору
+        // The `greet` call: line 2, column 23.
+        await editor.sendKey("Ctrl+J"); // hide the panel, return focus to the editor
         await editor.sendKey("ArrowDown");
         await editor.sendKey("ArrowDown");
         for (let i = 0; i < 23; i++) await editor.sendKey("ArrowRight");
@@ -53,7 +53,8 @@ export default defineScenario({
         await editor.waitForText((t) => t.includes('return "hi " + name'), { timeoutMs: 60_000 });
         await editor.capture("definition");
 
-        // Ctrl+K Ctrl+H — панель OUTPUT, Alt+T — селектор на канал клиента (show.<id> переключает только канал).
+        // Ctrl+K Ctrl+H opens the OUTPUT panel, Alt+T switches the selector to the client's channel (show.<id> only
+        // switches the channel).
         await editor.sendKey("Ctrl+K");
         await editor.sendKey("Ctrl+H");
         await editor.waitForText((t) => t.includes("OUTPUT"));
