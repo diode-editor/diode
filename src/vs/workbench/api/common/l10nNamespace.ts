@@ -3,20 +3,20 @@ import type * as vscode from "vscode";
 import { implementsApi } from "./apiSurface.ts";
 
 /**
- * Бандлов переводов нет, но подстановка обязана работать: VS Code подставляет и
- * без бандла, а расширения (ruff) зовут `l10n.t` на каждое сообщение.
+ * There are no translation bundles, but substitution must work: VS Code substitutes
+ * even without a bundle, and extensions (ruff) call `l10n.t` for every message.
  */
 
-// Элементы и значения — с `undefined`: чтение по индексу за краем или по
-// незнакомому ключу штатно даёт его, и подстановка на это опирается.
+// Elements and values include `undefined`: reading an index past the end or an
+// unknown key yields it by design, and substitution relies on that.
 type L10nArgs = readonly (string | number | boolean | undefined)[] | Partial<Record<string, string | number | boolean>>;
 
-/** `Array.isArray` сузил бы к `any[]` и потерял тип значений — берём предикат. */
+/** `Array.isArray` would narrow to `any[]` and lose the value type, hence the predicate. */
 function isPositionalArgs(args: L10nArgs): args is readonly (string | number | boolean | undefined)[] {
     return Array.isArray(args);
 }
 
-/** Незнакомый плейсхолдер остаётся как есть. */
+/** An unknown placeholder is left as is. */
 function substitute(message: string, args: L10nArgs | undefined): string {
     if (args === undefined) return message;
     return message.replace(/\{([^}]+)\}/g, (whole, key: string) => {

@@ -15,8 +15,8 @@ import { parseWireEnvironmentVariableCollections } from "./wireTypes.ts";
 type ScopedCollection = vscode.GlobalEnvironmentVariableCollection;
 
 /**
- * Коллекция расширения живёт дольше его активации; каждое изменение сразу
- * уходит хосту целиком — следующий же терминал создаётся уже с ним.
+ * An extension's collection outlives its activation; every change is sent
+ * to the host in full right away, so the very next terminal is created with it.
  */
 export class ExtHostEnvironmentVariableCollections {
     private readonly collections = new Map<string, UnifiedEnvironmentVariableCollection>();
@@ -61,16 +61,16 @@ function mutatorKey(variable: string, scope: vscode.EnvironmentVariableScope | u
     return key === "" ? variable : `${variable}:::${key}`;
 }
 
-/** Папка без `Uri`: по ней применяется только `index`. */
+/** A folder without a `Uri`: only `index` is applied for it. */
 function toWireScope(scope: vscode.EnvironmentVariableScope | undefined): IEnvironmentVariableScope | undefined {
-    // Без папки коллекция области — сама глобальная (`getScoped({})` отдаёт её же).
+    // Without a folder the scoped collection is the global one itself (`getScoped({})` returns it).
     const folder = scope?.workspaceFolder;
     return folder === undefined
         ? undefined
         : { workspaceFolder: { uri: folder.uri.toString(), name: folder.name, index: folder.index } };
 }
 
-/** Как `convertMutator` эталона. */
+/** Like upstream's `convertMutator`. */
 function toApiMutator(mutator: IEnvironmentVariableMutator): vscode.EnvironmentVariableMutator {
     return {
         type: mutator.type as unknown as vscode.EnvironmentVariableMutatorType,
@@ -134,10 +134,10 @@ class UnifiedEnvironmentVariableCollection {
         if (
             current?.value === value &&
             (current.type as number) === (type as number) &&
-            // Stryker disable next-line OptionalChaining: эквивалентный — опции есть у каждого мутатора (свои — `newOptions`, семя — разбор провода всегда кладёт объект)
+            // Stryker disable next-line OptionalChaining: equivalent — every mutator has options (own ones via `newOptions`; for the seed the wire parser always puts an object)
             current.options?.applyAtProcessCreation === newOptions.applyAtProcessCreation &&
             current.options.applyAtShellIntegration === newOptions.applyAtShellIntegration &&
-            // Stryker disable next-line OptionalChaining,ConditionalExpression: эквивалентный — по ключу `<переменная>:::<uri>` у текущего и нового папка либо есть у обоих, либо нет у обоих, а коллекция области кешируется по uri вместе с папкой первого вызова, так что index у них один
+            // Stryker disable next-line OptionalChaining,ConditionalExpression: equivalent — for the key `<variable>:::<uri>` the current and new mutators either both have a folder or both don't, and the scoped collection is cached by uri together with the folder of the first call, so their index is the same
             current.scope?.workspaceFolder?.index === scope?.workspaceFolder?.index
         ) {
             return;
@@ -197,7 +197,7 @@ class UnifiedEnvironmentVariableCollection {
         scope: vscode.EnvironmentVariableScope | undefined,
     ): void {
         const key = scopeKey(scope);
-        // До первого абзаца у MarkdownString — эталон бережёт так UI.
+        // Up to the first paragraph of a MarkdownString: upstream does this to protect the UI.
         const text = typeof description === "string" ? description : description?.value.split("\n\n")[0];
         const current = this.descriptionMap.get(key);
         if (current !== undefined && current.description === text) return;
@@ -210,7 +210,7 @@ class UnifiedEnvironmentVariableCollection {
     }
 
     private createScoped(scope: vscode.EnvironmentVariableScope | undefined): ScopedCollection {
-        // eslint-disable-next-line @typescript-eslint/no-this-alias -- методы коллекции-области замыкаются на общую
+        // eslint-disable-next-line @typescript-eslint/no-this-alias -- scoped collection methods close over the unified one
         const unified = this;
         return {
             get persistent(): boolean {

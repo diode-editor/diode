@@ -46,7 +46,7 @@ function params(overrides: Record<string, unknown> = {}): Record<string, unknown
 
 const asVscode = (range: Range): vscode.Range => range as unknown as vscode.Range;
 
-/** «alpha» → «alpha, beta» → весь вызов. */
+/** "alpha" → "alpha, beta" → the whole call. */
 function chain(): vscode.SelectionRange {
     const call = new SelectionRange(new Range(0, 0, 0, 17));
     const args = new SelectionRange(new Range(0, 5, 0, 16), call);
@@ -152,13 +152,13 @@ describe("LanguagesNamespace — languages.provideSelectionRanges", () => {
         expect(await call()).toEqual([]);
         answer = null;
         expect(await call()).toEqual([]);
-        // null вместо узла — иерархии у этой позиции нет, ответ цел.
+        // null instead of a node: this position has no hierarchy, the answer is intact.
         answer = [null];
         expect(await call()).toEqual([[]]);
-        // Первая ступень обязана содержать каретку (0,7).
+        // The first step must contain the cursor (0,7).
         answer = [{ range: asVscode(new Range(0, 12, 0, 16)) }];
         expect(await call()).toEqual([]);
-        // Родитель уже ребёнка (утиный объект — конструктор SelectionRange такое не пустил бы).
+        // The parent is narrower than the child (a duck-typed object — the SelectionRange constructor wouldn't allow it).
         answer = [{ range: asVscode(new Range(0, 5, 0, 16)), parent: { range: asVscode(new Range(0, 5, 0, 10)) } }];
         expect(await call()).toEqual([]);
         answer = [{ range: { start: 1 } }];

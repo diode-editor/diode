@@ -2,11 +2,11 @@ import type { IDisposable } from "../../../base/common/lifecycle.ts";
 import type { ITreeFileChange } from "../../../platform/files/common/iTreeFileWatcher.ts";
 
 /**
- * Excludes — забота реализации, а не параметр, как у `ITreeFileWatcher`: их
- * источник `files.watcherExclude` живёт в конфигурации, о которой host не знает.
+ * Excludes are the implementation's concern, not a parameter as in `ITreeFileWatcher`: their
+ * source `files.watcherExclude` lives in configuration the host knows nothing about.
  */
 export interface IExtensionFileWatcher {
-    /** `base` — абсолютный путь каталога; glob-фильтрацией занимается host. */
+    /** `base` is an absolute directory path; the host does the glob filtering. */
     watch(base: string, recursive: boolean, onChanges: (changes: readonly ITreeFileChange[]) => void): IDisposable;
 }
 

@@ -261,7 +261,7 @@ describe("EditorOptionsServiceAdapter", () => {
         const adapter = createAdapter(group, NO_BULK_EDITS);
         const uri = Uri.file("/a/b.ts").toString();
 
-        // anchor вне границ снизу/слева, active вне границ сверху/справа.
+        // anchor out of bounds below/left, active out of bounds above/right.
         adapter.setActiveEditorSelections(uri, [
             { anchorLine: -5, anchorCharacter: -3, activeLine: 99, activeCharacter: 999 },
         ]);
@@ -278,10 +278,10 @@ describe("EditorOptionsServiceAdapter", () => {
         ]);
     });
 
-    // #194: без продюсера `editor.selectionChanged` `activeTextEditor.selection` в расширении
-    // навсегда залипает на моменте открытия файла.
+    // #194: without a producer of `editor.selectionChanged`, the extension's `activeTextEditor.selection`
+    // stays stuck forever at the moment the file was opened.
 
-    /** Присваивание `viewState.selections` фаерит событие, как живой IEditorService, — для эхо-гарда. */
+    /** Assigning `viewState.selections` fires the event, like the live IEditorService, for the echo guard. */
     function groupWithLiveSelections(): { group: IEditorService; selections: () => unknown[] } {
         const listeners: (() => void)[] = [];
         let current: unknown[] = [{ anchor: { line: 0, character: 0 }, active: { line: 0, character: 0 } }];
@@ -364,7 +364,7 @@ describe("EditorOptionsServiceAdapter", () => {
         ]);
         await Promise.resolve();
 
-        // Без эха: иначе расширение получало бы событие на каждое собственное `TextEditor.selection =`.
+        // No echo: otherwise the extension would get an event for each of its own `TextEditor.selection =`.
         expect(selections()).toHaveLength(1);
         expect(seen).toHaveLength(0);
     });
@@ -379,7 +379,7 @@ describe("EditorOptionsServiceAdapter", () => {
         editor.viewState.selections = [
             { anchor: { line: 2, character: 0 }, active: { line: 2, character: 1 } },
         ] as never;
-        // Вкладку закрыли внутри того же тика, пока нотификация ждала flush.
+        // The tab was closed within the same tick while the notification waited for the flush.
         (group as unknown as { getActiveTabEditor: () => null }).getActiveTabEditor = () => null;
         await Promise.resolve();
 
@@ -402,8 +402,8 @@ describe("EditorOptionsServiceAdapter", () => {
     });
 
     it("вкладка вне полосы (groupOf → null) — groupId падает на активную группу", async () => {
-        // Вкладку успели закрыть, пока нотификация ждала microtask-флаш: её
-        // группы больше нет, и мета/нотификация несут координату активной.
+        // The tab got closed while the notification waited for the microtask flush: its
+        // group is gone, and the meta/notification carry the active group's coordinate.
         const listeners: (() => void)[] = [];
         const editor = {
             uri: Uri.file("/a/b.ts"),

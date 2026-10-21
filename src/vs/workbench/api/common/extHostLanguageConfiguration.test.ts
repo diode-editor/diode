@@ -80,7 +80,7 @@ describe("languages.setLanguageConfiguration", () => {
         const { setLanguageConfiguration, sent } = setup();
         setLanguageConfiguration("go", { comments: { lineComment: { comment: "#", noIndent: true } } });
         setLanguageConfiguration("go", {});
-        // toStrictEqual: незаданная секция не едет даже `undefined`-полем — иначе затёрла бы секцию файла.
+        // toStrictEqual: an unset section is not sent even as an `undefined` field, or it would wipe the file's section.
         expect(sent().map((n) => (n.params as { configuration: unknown }).configuration)).toStrictEqual([
             { comments: { lineComment: "#", blockComment: undefined } },
             {},

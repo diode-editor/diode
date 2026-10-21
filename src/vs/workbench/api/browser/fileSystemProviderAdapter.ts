@@ -11,8 +11,8 @@ import {
 import type { IExtensionFileSystemBridge } from "../common/iExtensionFileSystem.ts";
 
 /**
- * Событие изменений одно на все схемы: каждый поставщик фильтрует его по своей, иначе правка
- * в `git:` будила бы потребителей `output:`.
+ * One change event for all schemes: each provider filters it by its own, otherwise an edit
+ * in `git:` would wake up `output:` consumers.
  */
 export class FileSystemProviderAdapter extends Disposable {
     private readonly bridge: IExtensionFileSystemBridge;
@@ -36,11 +36,11 @@ export class FileSystemProviderAdapter extends Disposable {
                 this.clear();
             },
         });
-        // Расширение могло объявить схемы до создания адаптера.
+        // The extension may have declared schemes before the adapter was created.
         this.sync();
     }
 
-    /** Схема, сменившая записываемость, перерегистрируется: capabilities у провайдера ядра неизменяемы. */
+    /** A scheme whose writability changed is re-registered: a core provider's capabilities are immutable. */
     private sync(): void {
         const wanted = new Map(
             this.bridge.getFileSystemSchemes().map((scheme) => [scheme, this.bridge.isReadonlyFileSystem(scheme)]),
@@ -58,7 +58,7 @@ export class FileSystemProviderAdapter extends Disposable {
         }
     }
 
-    /** `stat` нужен сервису только для записи: у read-only схемы он был бы лишним кругом RPC на каждое чтение. */
+    /** The service needs `stat` only for writes: for a read-only scheme it would be an extra RPC round trip per read. */
     private registerScheme(scheme: string, readonly: boolean): IDisposable {
         const provider: IFileSystemProvider = {
             capabilities: readonly ? FileSystemProviderCapabilities.Readonly : FileSystemProviderCapabilities.None,

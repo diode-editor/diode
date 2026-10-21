@@ -6,22 +6,22 @@ import { EventEmitter, ExtensionKind, Uri } from "./vscodeTypes.ts";
 import { type IWireExtensionDescription, parseWireExtensionActivated, parseWireExtensionCatalog } from "./wireTypes.ts";
 
 /**
- * Каталог знает только хост: он приезжает уведомлением `extensions.catalog`
- * (семя на handshake — `getExtension` зовут уже в `activate()`), `isActive`
- * доводит точечный `extensions.activated`. `exports` по проводу не ездит: все
- * расширения живут в этом субпроцессе.
+ * Only the host knows the catalog: it arrives via the `extensions.catalog` notification
+ * (seeded at handshake, since `getExtension` is called already in `activate()`), and `isActive`
+ * is completed by the targeted `extensions.activated`. `exports` never goes over the wire: all
+ * extensions live in this subprocess.
  */
 export interface IExtensionsNamespace {
     readonly extensions: typeof vscode.extensions;
-    /** Наполняет точка входа субпроцесса; namespace только читает. */
+    /** Filled by the subprocess entry point; the namespace only reads it. */
     readonly exportsById: Map<string, unknown>;
-    /** Каждый каталог, а не только смена состава: по нему корни расширений индексируются до активации. */
+    /** Every catalog, not only composition changes: extension roots are indexed from it before activation. */
     readonly onDidReceiveCatalog: vscode.Event<readonly IWireExtensionDescription[]>;
 }
 
 /**
- * Осознанно: активацией распоряжается хост. Уже активное расширение отвечает
- * своим `exports`, как в эталоне, — активировать нечего.
+ * Intentional: activation is up to the host. An already active extension answers
+ * with its `exports`, as upstream — there is nothing to activate.
  */
 const ACTIVATE_NOT_IMPLEMENTED =
     "extension.activate() is not implemented in Diode: activation is driven by the host. " +
@@ -30,8 +30,8 @@ const ACTIVATE_NOT_IMPLEMENTED =
 export function createExtensionsNamespace(rpc: SubprocessRpc): IExtensionsNamespace {
     const exportsById = new Map<string, unknown>();
     /**
-     * Объекты пересобираются только на новом каталоге: `getExtension(id) ===
-     * getExtension(id)`, как в эталоне (обжигались на `activeTextEditor`).
+     * Objects are rebuilt only on a new catalog: `getExtension(id) ===
+     * getExtension(id)`, as upstream (we got burned on `activeTextEditor`).
      */
     let known: readonly vscode.Extension<unknown>[] = [];
     let byLowerId = new Map<string, vscode.Extension<unknown>>();
@@ -39,7 +39,7 @@ export function createExtensionsNamespace(rpc: SubprocessRpc): IExtensionsNamesp
     const changeEmitter = new EventEmitter<void>();
     const catalogEmitter = new EventEmitter<readonly IWireExtensionDescription[]>();
 
-    /** Живой вид, а не снимок: расширение вправе держать ссылку и спросить позже. */
+    /** A live view, not a snapshot: an extension may hold the reference and ask later. */
     const toExtension = (description: IWireExtensionDescription): vscode.Extension<unknown> => ({
         id: description.id,
         extensionUri: Uri.file(description.extensionPath),
@@ -64,15 +64,15 @@ export function createExtensionsNamespace(rpc: SubprocessRpc): IExtensionsNamesp
         const before = known.map((e) => e.id);
         known = parsed.extensions.map(toExtension);
         byLowerId = new Map(known.map((e) => [e.id.toLowerCase(), e]));
-        // Плюс уже виденные ожившими: каталог мог уехать раньше `extensions.activated`.
+        // Plus those already seen activated: the catalog may have arrived before `extensions.activated`.
         for (const description of parsed.extensions) {
             if (description.isActive) activeIds.add(description.id);
         }
         for (const id of [...activeIds]) {
             if (!parsed.extensions.some((d) => d.id === id)) activeIds.delete(id);
         }
-        // `onDidChange` — про СОСТАВ (install/uninstall/enable/disable), как в
-        // эталоне; на активацию он не стреляет, поэтому сравниваем именно id.
+        // `onDidChange` is about COMPOSITION (install/uninstall/enable/disable), as
+        // upstream; it doesn't fire on activation, so we compare exactly the ids.
         const after = known.map((e) => e.id);
         if (before.length !== after.length || before.some((id, i) => id !== after[i])) changeEmitter.fire();
         catalogEmitter.fire(parsed.extensions);
@@ -80,7 +80,7 @@ export function createExtensionsNamespace(rpc: SubprocessRpc): IExtensionsNamesp
 
     rpc.handleNotification("extensions.activated", (params) => {
         const id = parseWireExtensionActivated(params);
-        // Stryker disable next-line ConditionalExpression: снятый guard кладёт в `activeIds` сам `null`, а с ним `activeIds.has(<любой id>)` не меняется — мутант эквивалентен, наблюдать нечего
+        // Stryker disable next-line ConditionalExpression: without the guard `null` itself lands in `activeIds`, and `activeIds.has(<any id>)` doesn't change — the mutant is equivalent, nothing to observe
         if (id === null) return;
         activeIds.add(id);
     });
@@ -89,7 +89,7 @@ export function createExtensionsNamespace(rpc: SubprocessRpc): IExtensionsNamesp
         get all(): readonly vscode.Extension<unknown>[] {
             return known;
         },
-        // Регистр id не важен, как в `ExtensionIdentifier.equals` эталона.
+        // Id case doesn't matter, as in upstream's `ExtensionIdentifier.equals`.
         getExtension: <T = unknown>(extensionId: string): vscode.Extension<T> | undefined =>
             byLowerId.get(extensionId.toLowerCase()) as vscode.Extension<T> | undefined,
         onDidChange: changeEmitter.event,

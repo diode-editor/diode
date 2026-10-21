@@ -81,7 +81,7 @@ describe("LanguagesNamespace — провайдеры форматировани
                 return [new TextEdit(new Range(0, 5, 0, 7), " ")];
             },
         } as unknown as vscode.DocumentFormattingEditProvider);
-        // Второй (handle 1) не запрошен — и не спрошен.
+        // The second one (handle 1) isn't requested, so it isn't asked.
         const second = vi.fn(() => [new TextEdit(new Range(1, 0, 1, 0), "zzz")]);
         languages.registerDocumentFormattingEditProvider({ language: "typescript" }, {
             provideDocumentFormattingEdits: second,
@@ -113,13 +113,13 @@ describe("LanguagesNamespace — провайдеры форматировани
         } as unknown as vscode.DocumentRangeFormattingEditProvider); // 2
         const selection = { start: { line: 0, character: 0 }, end: { line: 0, character: 5 } };
 
-        // Снятый handle и handle чужого вида не будят и синхронизацию документа.
+        // A removed handle and a handle of another kind don't trigger document sync either.
         const stale = "file:///proj/stale.ts";
         for (const extra of [
             { handle: 7 },
             { handle: 7, range: selection },
-            { handle: 2 }, // документный запрос к range-провайдеру
-            { handle: 0, range: selection }, // range-запрос к документному
+            { handle: 2 }, // a document request to a range provider
+            { handle: 0, range: selection }, // a range request to a document provider
         ]) {
             expect(
                 await stub.callRequest("languages.provideFormattingEdits", requestParams({ uri: stale, ...extra })),
@@ -235,7 +235,7 @@ describe("LanguagesNamespace — провайдеры форматировани
                     throw new Error("range boom");
                 },
             } as unknown as vscode.DocumentRangeFormattingEditProvider);
-            // Полный диапазон за документный запрос ядро шлёт тем же range-запросом.
+            // For a document request the core sends the full range as the same range request.
             await stub.callRequest(
                 "languages.provideFormattingEdits",
                 requestParams({ range: { start: { line: 0, character: 0 }, end: { line: 0, character: 5 } } }),

@@ -42,8 +42,8 @@ describe("LanguagesNamespace — completion: сериализация полей
         const { languages } = createLanguagesNamespace(ctx);
 
         const item = new CompletionItem("getTime");
-        // labelDetailsSupport объявляет за нас стоковый languageclient — лейбл
-        // приезжает объектом с сигнатурой и источником.
+        // The stock languageclient declares labelDetailsSupport for us — the label
+        // arrives as an object with a signature and a source.
         (item as { label: unknown }).label = { label: "getTime", detail: "(): number", description: "lib.es5.d.ts" };
         item.insertText = new SnippetString("getTime(${1:arg})$0") as unknown as string;
         item.filterText = ".getTime";
@@ -61,7 +61,7 @@ describe("LanguagesNamespace — completion: сериализация полей
             labelDescription: "lib.es5.d.ts",
             filterText: ".getTime",
             sortText: "11",
-            // Сниппет-синтаксис в буфер не пускаем (табстопов у нас нет).
+            // Snippet syntax is kept out of the buffer (we have no tab stops).
             insertText: "getTime(arg)",
         });
         expect(result.items[0].id).toBeDefined();
@@ -70,9 +70,9 @@ describe("LanguagesNamespace — completion: сериализация полей
     it("additionalTextEdits из самого списка доезжают в пункте; пустые и битые — без поля", async () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
-        // gopls шлёт импорт сразу в списке — resolve у сервера нет.
+        // gopls sends the import right in the list — the server has no resolve.
         const eager = new CompletionItem("ToLower");
-        // Битая правка — от расширения с чужой формой TextEdit.
+        // A broken edit — from an extension with a foreign TextEdit shape.
         (eager as { additionalTextEdits?: unknown }).additionalTextEdits = [
             new TextEdit(new Range(0, 0, 0, 0), 'import "strings"\n'),
             { bogus: true },
@@ -91,7 +91,7 @@ describe("LanguagesNamespace — completion: сериализация полей
         expect(result.items[0].additionalEdits).toEqual([
             { range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } }, text: 'import "strings"\n' },
         ]);
-        // Нет правок — нет и поля: accept такого пункта по-прежнему ждёт resolve.
+        // No edits, no field: accepting such an item still waits for resolve.
         for (const item of result.items.slice(1)) expect(item).not.toHaveProperty("additionalEdits");
     });
 
@@ -127,7 +127,7 @@ describe("LanguagesNamespace — completion: сериализация полей
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
         const provider = { provideCompletionItems: () => [] } as never;
-        // Мусор вместо символа (JS-расширение без типов) отбрасывается.
+        // Garbage instead of a character (an untyped JS extension) is dropped.
         languages.registerCompletionItemProvider({ language: "typescript" }, provider, ".", 7 as never, '"');
         languages.registerCompletionItemProvider({ language: "json" }, provider, '"', "/");
 
@@ -206,13 +206,13 @@ describe("LanguagesNamespace — completion: сериализация полей
             changes: [{ range: { start: { line: 0, character: 2 }, end: { line: 0, character: 2 } }, text: "g" }],
         });
 
-        // Не открыт: хост ещё не прислал didOpen (или уже прислал didClose).
+        // Not open: the host hasn't sent didOpen yet (or has already sent didClose).
         expect(
             await stub.callRequest("languages.provideCompletionItems", { ...REQ, uri: "file:///proj/other.ts" }),
         ).toEqual([]);
-        // Устарел: ядро уже ушло на v2.
+        // Stale: the core has already moved on to v2.
         expect(await stub.callRequest("languages.provideCompletionItems", REQ)).toEqual([]);
-        // Впереди зеркала: правки v3 ещё не доехали — нарушение порядка, в stderr.
+        // Ahead of the mirror: the v3 edits haven't arrived — an ordering violation, logged to stderr.
         const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
         try {
             expect(await stub.callRequest("languages.provideCompletionItems", { ...REQ, version: 3 })).toEqual([]);
@@ -243,8 +243,8 @@ describe("LanguagesNamespace — resolveCompletionItem", () => {
         const { id, stub } = await completeOnce({
             provideCompletionItems: () => [original],
             resolveCompletionItem: (item: CompletionItem) => {
-                // Резолвить обязаны ТОТ ЖЕ объект: у languageclient в нём лежит
-                // приватный `data` для completionItem/resolve.
+                // Resolve must get THE SAME object: in languageclient it carries
+                // the private `data` for completionItem/resolve.
                 expect(item).toBe(original);
                 item.detail = "(alias) greet(name: string): string";
                 item.documentation = new MarkdownString("Greets someone.") as unknown as string;
@@ -331,7 +331,7 @@ describe("LanguagesNamespace — resolveCompletionItem", () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
         const item = new CompletionItem("greet");
-        (item as { label: unknown }).label = { label: "greet" }; // без detail/description
+        (item as { label: unknown }).label = { label: "greet" }; // no detail/description
         languages.registerCompletionItemProvider({ language: "typescript" }, {
             provideCompletionItems: () => [item],
         } as never);
@@ -373,8 +373,8 @@ describe("LanguagesNamespace — resolveCompletionItem", () => {
         await stub.callRequest("languages.provideCompletionItems", REQ);
         await stub.callRequest("languages.provideCompletionItems", REQ);
 
-        // Третий запрос вытеснил первое ведро — резолвить нечего, но и падать
-        // нельзя: пользователь мог задержать выбор на устаревшем списке.
+        // The third request evicted the first bucket — nothing to resolve, but it must not
+        // throw either: the user may have lingered on a stale list.
         expect(await stub.callRequest("languages.resolveCompletionItem", { id: first.items[0].id! })).toBeNull();
     });
 });

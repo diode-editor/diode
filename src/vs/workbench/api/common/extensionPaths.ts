@@ -1,19 +1,19 @@
 import * as path from "node:path";
 
 /**
- * Корень матчится по сегментам: `/a/foo` — предок `/a/foo/x.js`, но не
- * `/a/foobar/x.js`; вложенное расширение выигрывает у внешнего.
+ * Roots match by segment: `/a/foo` is an ancestor of `/a/foo/x.js` but not of
+ * `/a/foobar/x.js`; a nested extension wins over the enclosing one.
  */
 export class ExtensionPaths {
     private readonly roots = new Map<string, string>();
     private readonly realpath: (p: string) => string;
 
     /**
-     * Node грузит модули по РЕАЛЬНОМУ пути, а каталог расширения может лежать за
-     * симлинком, поэтому корень индексируется под обоими именами.
+     * Node loads modules by their REAL path, while an extension directory may sit behind
+     * a symlink, so the root is indexed under both names.
      */
     public constructor(options: { readonly realpath?: (p: string) => string } = {}) {
-        // Stryker disable next-line ArrowFunction: эквивалентен — `path.resolve(undefined)` бросает, сбой realpath ловится в add(), и корень индексируется как есть, ровно как с тождественной функцией
+        // Stryker disable next-line ArrowFunction: equivalent — `path.resolve(undefined)` throws, a realpath failure is caught in add(), and the root is indexed as is, exactly as with the identity function
         this.realpath = options.realpath ?? ((p) => p);
     }
 
@@ -23,7 +23,7 @@ export class ExtensionPaths {
         try {
             this.roots.set(path.resolve(this.realpath(normalized)), id);
         } catch {
-            // Корня нет на диске (синтетический путь builtin'а) — хватит имени как есть.
+            // The root isn't on disk (a builtin's synthetic path); the name as is suffices.
         }
     }
 

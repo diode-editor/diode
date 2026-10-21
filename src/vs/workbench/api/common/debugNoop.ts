@@ -6,22 +6,22 @@ import type { SubprocessRpc } from "./extHostProtocol.ts";
 import { DisposableImpl, EventEmitter } from "./vscodeTypes.ts";
 
 /**
- * Дебаггера нет (docs/arch/StockExtensions.md), но без namespace'а `golang.go`
- * падал посреди `activate()` на `registerDebugConfigurationProvider`, и ~60
- * команд `go.*` не регистрировались. Форма — эталонная, поведение — «сессий нет
- * и не будет»; человеку — одна warn-строка в Output на тип отладчика.
+ * There is no debugger (docs/arch/StockExtensions.md), but without the namespace `golang.go`
+ * crashed midway through `activate()` on `registerDebugConfigurationProvider`, and ~60
+ * `go.*` commands never got registered. Shape follows upstream, behavior is "no sessions now
+ * or ever"; the user gets one warn line in Output per debugger type.
  */
 
 const OUTPUT_CHANNEL = "extensions";
 const OUTPUT_LABEL = "Extensions";
 
-/** Не пересекается с типами отладчиков. */
+/** Never collides with a debugger type. */
 const START_KEY = "\0start";
 
 export function createDebugNoop(rpc: SubprocessRpc): typeof vscode.debug {
     const reported = new Set<string>();
 
-    // Главное — первым: строка Output обрезается шириной панели.
+    // The essential part first: an Output line is clipped to the panel width.
     function report(key: string, value: string): void {
         if (reported.has(key)) return;
         reported.add(key);
@@ -56,7 +56,7 @@ export function createDebugNoop(rpc: SubprocessRpc): typeof vscode.debug {
             reportDebugType(debugType);
             return noopDisposable();
         },
-        // Трекеры вешают и на чужие типы (`*`) — о дебаггере расширения не говорят.
+        // Trackers are also registered for other types (`*`); they say nothing about the extension's debugger.
         registerDebugAdapterTrackerFactory: noopDisposable,
         startDebugging: (): Promise<boolean> => {
             report(START_KEY, "запуск отладки в TUI пока не поддержан — сессия не начата");
@@ -69,7 +69,7 @@ export function createDebugNoop(rpc: SubprocessRpc): typeof vscode.debug {
     };
 }
 
-/** Как `ExtHostDebugServiceBase.asDebugSourceUri` эталона. */
+/** Like upstream's `ExtHostDebugServiceBase.asDebugSourceUri`. */
 function asDebugSourceUri(source: vscode.DebugProtocolSource, session?: vscode.DebugSession): vscode.Uri {
     const { path, sourceReference } = source as { path?: unknown; sourceReference?: unknown };
     const pathText = typeof path === "string" ? path : "";

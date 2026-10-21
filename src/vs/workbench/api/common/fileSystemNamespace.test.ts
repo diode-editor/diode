@@ -72,7 +72,7 @@ describe("FileSystemNamespace — readFile errors", () => {
 
 describe("FileSystemNamespace — writeFile errors", () => {
     it("writeFile под существующим файлом (родитель — не папка) → бросает", async () => {
-        // Делаем файл, затем пишем «внутрь» него: mkdir(dirname) упадёт.
+        // Create a file, then write "inside" it: mkdir(dirname) fails.
         const asFile = path.join(tmpDir, "afile");
         fs.writeFileSync(asFile, "x");
         await expect(wfs.writeFile(uri(path.join(asFile, "child.txt")), Buffer.from("y"))).rejects.toThrow();
@@ -95,8 +95,8 @@ describe("FileSystemNamespace — роутинг по схеме", () => {
     });
 
     it("writeFile с не-file URI отказывает и НЕ трогает диск", async () => {
-        // Ключевой кейс #107: fsPath у untitled: — относительный "Untitled-1", поэтому
-        // без гейта запись ушла бы в $CWD/Untitled-1 вместо ошибки.
+        // Key case of #107: an untitled: fsPath is the relative "Untitled-1", so
+        // without the gate the write would go to $CWD/Untitled-1 instead of failing.
         const cwdBefore = process.cwd();
         const stray = path.join(cwdBefore, "Untitled-1");
         expect(fs.existsSync(stray)).toBe(false);
@@ -180,7 +180,7 @@ describe("SubprocessFileSystemProviders", () => {
 
         const registration = providers.register("git", provider("a") as never);
         registration.dispose();
-        registration.dispose(); // повторный dispose не должен фаерить снова
+        registration.dispose(); // a repeated dispose must not fire again
 
         expect(seen).toEqual([["git"], []]);
     });

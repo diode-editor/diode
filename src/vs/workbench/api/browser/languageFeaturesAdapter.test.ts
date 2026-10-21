@@ -121,7 +121,7 @@ describe("LanguageFeaturesAdapter", () => {
         const [provider] = features.hoverProvider.ordered(TS);
         const token = new CancellationTokenSource().token;
         expect(await provider.provideHover(REQUEST, token)).toEqual({ contents: ["handle 1"] });
-        // Токен запроса доезжает до хоста — с ним и уходит отмена провайдеру расширения.
+        // The request token reaches the host; cancellation goes to the extension's provider with it.
         expect(bridge.provideHover).toHaveBeenCalledWith(1, REQUEST, token);
     });
 
@@ -162,7 +162,7 @@ describe("LanguageFeaturesAdapter", () => {
 
         expect(await provider.provideRenameEdits(REQUEST, "ok9")).toEqual({ applied: true });
         expect(bridge.provideRenameEdits).toHaveBeenCalledWith(9, REQUEST, "ok9");
-        // Новое имя доезжает дословно: чужое имя провайдер не применяет.
+        // The new name arrives verbatim: the provider does not apply someone else's name.
         expect(await provider.provideRenameEdits(REQUEST, "other")).toEqual({ applied: false });
     });
 
@@ -339,7 +339,7 @@ describe("LanguageFeaturesAdapter", () => {
         expect(features.documentSemanticTokensProvider.has(TS)).toBe(false);
         const [provider] = features.documentRangeSemanticTokensProvider.ordered(TS);
         expect(provider.getLegend()).toEqual({ tokenTypes: [], tokenModifiers: [] });
-        // Без hasOnDidChange события нет — ядро не подписывается зря.
+        // Without hasOnDidChange there is no event: the core does not subscribe needlessly.
         expect(provider.onDidChange).toBeUndefined();
         const request = { uri: REQUEST.uri, languageId: "typescript", versionId: 1, range: createRange(0, 0, 1, 0) };
         expect(await provider.provideDocumentRangeSemanticTokens(request, CancellationTokenNone)).toEqual({
@@ -396,7 +396,7 @@ describe("LanguageFeaturesAdapter", () => {
         bridge.fire();
 
         expect(features.hoverProvider.ordered(TS)).toHaveLength(1);
-        // Живую регистрацию не перерегистрировали: событие одно — от снятия.
+        // The live registration was not re-registered: there is one event, from the removal.
         expect(changed).toHaveBeenCalledTimes(1);
     });
 

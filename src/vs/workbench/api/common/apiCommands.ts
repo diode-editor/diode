@@ -9,15 +9,15 @@ export interface IApiCommandsDeps {
     openExternal(target: vscode.Uri): Thenable<boolean>;
 }
 
-/** Регистрируются локально, в реестр хоста не уходят (`registerCommand(false, …)` эталона). */
+/** Registered locally, never sent to the host registry (upstream's `registerCommand(false, …)`). */
 export function createApiCommands(deps: IApiCommandsDeps): ReadonlyMap<string, ApiCommandHandler> {
     return new Map<string, ApiCommandHandler>([["vscode.open", (...args) => open(deps, args)]]);
 }
 
 /**
- * `command:` — молча ничего (эталон не даёт исполнять команды отсюда).
- * Отступление: эталон с опциями открыл бы http(s) редактором — у нас веб-редактора
- * нет, ссылка всегда уходит наружу; `label` не применяется.
+ * `command:` silently does nothing (upstream doesn't let commands run from here).
+ * Deviation: with options upstream would open http(s) in an editor; we have no web editor,
+ * so the link always goes outside and `label` is ignored.
  */
 async function open(deps: IApiCommandsDeps, args: readonly unknown[]): Promise<void> {
     const [uriOrString, columnOrOptions, label] = args;
@@ -35,7 +35,7 @@ async function open(deps: IApiCommandsDeps, args: readonly unknown[]): Promise<v
         await deps.openExternal(resource);
         return;
     }
-    // `null`/`0` эталон сводит к «без колонки» (`!v ? v`), колонку числом — к опциям.
+    // Upstream turns `null`/`0` into "no column" (`!v ? v`) and a numeric column into options.
     const showOptions = !columnOrOptions
         ? undefined
         : typeof columnOrOptions === "number"
@@ -48,7 +48,7 @@ function isHttpString(value: unknown): boolean {
     return typeof value === "string" && /^https?:/i.test(value);
 }
 
-/** Отказ — дословно как у эталона (`ExtHostCommands.registerApiCommand`). */
+/** Refusal worded exactly as upstream (`ExtHostCommands.registerApiCommand`). */
 function validate(name: string, value: unknown, valid: boolean): void {
     if (valid) return;
     const received =

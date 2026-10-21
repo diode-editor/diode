@@ -146,7 +146,7 @@ describe("LanguagesNamespace — languages.provideInlineCompletions", () => {
             { provideInlineCompletionItems: () => [new InlineCompletionItem("a") as never] },
         );
         languages.registerInlineCompletionItemProvider(
-            { language: "markdown" }, // ядро его не прислало
+            { language: "markdown" }, // the core didn't send it
             { provideInlineCompletionItems: () => [new InlineCompletionItem("skip") as never] },
         );
         languages.registerInlineCompletionItemProvider(
@@ -207,12 +207,12 @@ describe("LanguagesNamespace — languages.provideInlineCompletions", () => {
         );
         languages.registerInlineCompletionItemProvider(
             { language: "typescript" },
-            // items не массив (InlineCompletionList с мусором внутри).
+            // items is not an array (an InlineCompletionList with garbage inside).
             { provideInlineCompletionItems: () => ({ items: 42 }) as never },
         );
         languages.registerInlineCompletionItemProvider(
             { language: "typescript" },
-            // null/undefined среди пунктов — drop+skip, не падение сериализатора.
+            // null/undefined among the items: drop+skip, not a serializer crash.
             { provideInlineCompletionItems: () => [null, undefined] as never },
         );
         languages.registerInlineCompletionItemProvider(
@@ -222,7 +222,7 @@ describe("LanguagesNamespace — languages.provideInlineCompletions", () => {
                     [
                         new InlineCompletionItem(""),
                         "junk",
-                        // insertText не строка и не SnippetString — drop+skip.
+                        // insertText is neither a string nor a SnippetString: drop+skip.
                         { insertText: 42 },
                     ] as never,
             },
@@ -304,8 +304,8 @@ describe("LanguagesNamespace — отмена provideInlineCompletions", () => {
         expect(seen?.isCancellationRequested).toBe(true);
         expect(fired).toEqual(["cancelled"]);
 
-        // Упрямый провайдер всё-таки отвечает — extension-слой его не глушит
-        // (отсекает ядро: старый seq-гард против устаревших ответов).
+        // A stubborn provider answers anyway — the extension layer doesn't silence it
+        // (the core cuts it off: the old seq guard against stale answers).
         release();
         expect(await pending).toStrictEqual([[{ insertText: "late" }]]);
     });

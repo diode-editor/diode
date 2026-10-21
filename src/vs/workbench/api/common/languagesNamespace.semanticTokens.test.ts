@@ -194,8 +194,8 @@ describe("LanguagesNamespace — запросы семантических то�
         expect(await doc({ ...DOC, previousResultId: 0 })).toBeNull();
         expect(await rng({ ...DOC, handle: 0, range: RANGE })).toBeNull();
         expect(await rng({ ...DOC, range: RANGE })).toBeNull();
-        // `null` ядро понимает как «токенов нет» и стирает подсветку; устаревший
-        // запрос должен её оставить — поэтому отмена.
+        // The core reads `null` as "no tokens" and wipes the highlighting; a stale
+        // request must keep it — hence the cancellation.
         const other = Uri.file("/proj/Other.cs").toString();
         await expect(doc({ ...DOC, uri: other, handle: 0 })).rejects.toSatisfy(isCancellationError);
         await expect(doc({ ...DOC, version: 5, handle: 0 })).rejects.toSatisfy(isCancellationError);
@@ -213,7 +213,7 @@ describe("LanguagesNamespace — запросы семантических то�
         const doc = (p: object) => stub.callRequest("languages.provideDocumentSemanticTokens", { ...DOC, ...p });
         expect(await doc({ previousResultId: 0 })).toBeNull();
         expect(await doc({ handle: 1, previousResultId: 0 })).toEqual({ id: 1, type: "full", data: [1, 1, 1, 1, 1] });
-        // release без handle второго провайдера не трогает.
+        // A release without a handle doesn't touch the second provider.
         stub.fire("languages.releaseDocumentSemanticTokens", { resultId: 1 });
         expect(await doc({ handle: 1, previousResultId: 1 })).toEqual({ id: 2, type: "delta", deltas: [] });
         stub.fire("languages.releaseDocumentSemanticTokens", { handle: 1, resultId: 2 });

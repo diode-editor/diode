@@ -59,8 +59,8 @@ describe("extensionsNamespace", () => {
         const stub = makeStubRpc();
         const { extensions } = createExtensionsNamespace(stub.rpc);
         stub.fire("extensions.catalog", { extensions: [description("pub.one")] });
-        // Расширение вправе подержать ссылку и спросить позже — это живой вид,
-        // а не снимок на момент getExtension.
+        // An extension may hold on to the reference and ask later: it's a live view,
+        // not a snapshot taken at getExtension time.
         const held = extensions.getExtension("pub.one");
         expect(held?.isActive).toBe(false);
         stub.fire("extensions.activated", { id: "pub.one" });
@@ -76,8 +76,8 @@ describe("extensionsNamespace", () => {
     });
 
     it("каталог, приехавший ПОСЛЕ activated, не гасит поднятый флаг", () => {
-        // Порядок сообщений от хоста не гарантирован; терять активность из-за
-        // более старого снимка каталога нельзя.
+        // Message order from the host isn't guaranteed; an older catalog snapshot
+        // must not lose the active state.
         const stub = makeStubRpc();
         const { extensions } = createExtensionsNamespace(stub.rpc);
         stub.fire("extensions.catalog", { extensions: [description("pub.one")] });
@@ -92,7 +92,7 @@ describe("extensionsNamespace", () => {
         stub.fire("extensions.catalog", { extensions: [description("pub.one", { isActive: true })] });
         stub.fire("extensions.catalog", { extensions: [description("pub.two")] });
         expect(extensions.getExtension("pub.one")).toBeUndefined();
-        // Вернулся под тем же id — но уже как неактивный, флаг не всплыл.
+        // Came back under the same id, but inactive: the flag didn't resurface.
         stub.fire("extensions.catalog", { extensions: [description("pub.one")] });
         expect(extensions.getExtension("pub.one")?.isActive).toBe(false);
     });
@@ -130,7 +130,7 @@ describe("extensionsNamespace", () => {
     });
 
     it("замена ОДНОГО расширения из двух — тоже смена состава", () => {
-        // Отличается только второй id: сравнение «хоть один разошёлся», а не «все».
+        // Only the second id differs: the comparison is "any one differs", not "all".
         const stub = makeStubRpc();
         const { extensions } = createExtensionsNamespace(stub.rpc);
         let fired = 0;
@@ -162,7 +162,7 @@ describe("extensionsNamespace", () => {
         const active = extensions.getExtension("pub.one")!;
         await expect(active.activate()).resolves.toEqual({ api: 1 });
 
-        // Сообщение целиком: без «активацией распоряжается хост» автор расширения пойдёт чинить свой код.
+        // The whole message: without "activation is up to the host" an extension author would go fix their own code.
         const sleeping = extensions.getExtension("pub.two")!;
         await expect(sleeping.activate()).rejects.toThrow(
             "extension.activate() is not implemented in Diode: activation is driven by the host. " +
@@ -171,7 +171,7 @@ describe("extensionsNamespace", () => {
     });
 
     it("идентичность записи стабильна в пределах состава и обновляется с новым каталогом", () => {
-        // Сравнение по ссылке в расширениях встречается (обжигались на `activeTextEditor`).
+        // Comparison by reference does occur in extensions (we got burned on `activeTextEditor`).
         const stub = makeStubRpc();
         const { extensions } = createExtensionsNamespace(stub.rpc);
         stub.fire("extensions.catalog", { extensions: [description("pub.one")] });

@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { IIpcEndpoint } from "./ipcMessageChannel.ts";
 import { IpcMessageChannel } from "./ipcMessageChannel.ts";
 
-/** Доставка асинхронная, как у настоящего Node IPC. */
+/** Delivery is asynchronous, like real Node IPC. */
 class FakeIpcEndpoint extends EventEmitter implements IIpcEndpoint {
     public peer: FakeIpcEndpoint | null = null;
     public sent: unknown[] = [];
@@ -16,7 +16,7 @@ class FakeIpcEndpoint extends EventEmitter implements IIpcEndpoint {
         this.sent.push(message);
         const peer = this.peer;
         if (peer === null) return false;
-        // JSON round-trip имитирует structured clone Node IPC.
+        // The JSON round-trip mimics Node IPC structured clone.
         const serialized = JSON.stringify(message);
         queueMicrotask(() => {
             if (peer.dead) return;
@@ -148,7 +148,7 @@ describe("IpcMessageChannel", () => {
         a.send = (): boolean => {
             throw new Error("EPIPE");
         };
-        // Первый postMessage ловит исключение и помечает alive=false.
+        // The first postMessage catches the exception and sets alive=false.
         ch.postMessage("first");
 
         const sendSpy = vi.fn((): boolean => true);
@@ -177,8 +177,8 @@ describe("IpcMessageChannel", () => {
     });
 
     it("входящее сообщение после dispose игнорируется (line 41)", () => {
-        // Endpoint, который НЕ снимает листенер на off() — позволяет смоделировать
-        // сообщение, прилетевшее уже после dispose() канала.
+        // An endpoint that does NOT remove the listener on off(), to simulate
+        // a message arriving after the channel's dispose().
         const messageListeners: ((msg: unknown) => void)[] = [];
         const endpoint: IIpcEndpoint = {
             send: () => true,
@@ -186,7 +186,7 @@ describe("IpcMessageChannel", () => {
                 if (event === "message") messageListeners.push(listener as (msg: unknown) => void);
                 return undefined;
             },
-            off: () => undefined, // no-op: листенер «переживает» dispose
+            off: () => undefined, // no-op: the listener "survives" dispose
         };
         const ch = new IpcMessageChannel(endpoint);
         const received: unknown[] = [];

@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { watcherIncludesUnder } from "./watcherIncludes.ts";
 
-/** `junction` — ссылка без прав админа на Windows. */
+/** `junction` is a link that needs no admin rights on Windows. */
 let base: string;
 let ws: string;
 
@@ -70,7 +70,7 @@ describe("watcherIncludesUnder", () => {
     });
 
     it("внутри базы-ссылки путь меряется от неё самой", () => {
-        // База — сама ссылка, её корень watcher разрешит; `lib` за ней — обычный каталог.
+        // The base is the link itself, the watcher resolves its root; `lib` behind it is a plain directory.
         expect(watcherIncludesUnder(path.join(ws, "bazel-out"), ["bazel-out/lib"], [ws])).toEqual([]);
     });
 

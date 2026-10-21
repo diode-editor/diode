@@ -36,8 +36,8 @@ export class ThemeColorResolverAdapter implements IThemeColorResolver {
     public onDidChange(cb: () => void): IDisposable {
         let seededInitial = false;
         return this.themeService.onThemeChange(() => {
-            // ThemeService.onThemeChange вызывает слушателя сразу с текущей темой —
-            // это не «смена», проглатываем первый вызов.
+            // ThemeService.onThemeChange calls the listener immediately with the current theme;
+            // that is not a "change", so swallow the first call.
             if (!seededInitial) {
                 seededInitial = true;
                 return;

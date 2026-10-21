@@ -6,9 +6,9 @@ import type { IDiskFileSystem } from "./extHostDisk.ts";
 import { FileSystemError } from "./vscodeTypes.ts";
 
 /**
- * `file` — прямо на диск субпроцесса, без RPC: файл живёт на той же машине и не
- * является буфером ядра. Ошибки — {@link FileSystemError} с `code` VS Code:
- * расширения ловят их по `err.code === "FileNotFound"`.
+ * `file` goes straight to the subprocess disk, no RPC: the file lives on the same machine and
+ * isn't a core buffer. Errors are {@link FileSystemError} with a VS Code `code`:
+ * extensions catch them by `err.code === "FileNotFound"`.
  */
 export type IFileSystemNamespace = Pick<
     vscode.FileSystem,
@@ -24,14 +24,14 @@ export type IFileSystemNamespace = Pick<
 >;
 
 /**
- * `fsPath` не-file схемы не бросает (`untitled:Untitled-1` → `"Untitled-1"`):
- * без гейта `writeFile` создал бы `$CWD/Untitled-1` вместо ошибки (#107).
+ * `fsPath` of a non-file scheme doesn't throw (`untitled:Untitled-1` → `"Untitled-1"`):
+ * without the gate `writeFile` would create `$CWD/Untitled-1` instead of failing (#107).
  */
 function assertFileScheme(uri: vscode.Uri): void {
     if (uri.scheme !== "file") throw FileSystemError.Unavailable(uri);
 }
 
-/** Здесь, а не в `workspaceNamespace`: роутинг по схеме тестируется без RPC. */
+/** Here rather than in `workspaceNamespace`: scheme routing is tested without RPC. */
 export class SubprocessFileSystemProviders {
     private readonly providers = new Map<string, vscode.FileSystemProvider>();
     private readonly readonlySchemes = new Set<string>();
@@ -40,8 +40,8 @@ export class SubprocessFileSystemProviders {
     private readonly changeSubscriptions = new Map<string, vscode.Disposable>();
 
     /**
-     * Сверх эталона только для чтения и провайдер без `writeFile`: расширение на JS
-     * такого собрать может, а писать в него нечем.
+     * Beyond upstream, a provider without `writeFile` is also read-only: a JS extension
+     * can build one, and there is no way to write to it.
      */
     public register(
         scheme: string,
@@ -52,13 +52,13 @@ export class SubprocessFileSystemProviders {
             throw new Error(`A filesystem provider for the scheme '${scheme}' is already registered.`);
         }
         this.providers.set(scheme, provider);
-        // Тип обещает `writeFile`, но провайдер приходит из JS расширения.
+        // The type promises `writeFile`, but the provider comes from the extension's JS.
         const writable = typeof (provider as Partial<vscode.FileSystemProvider>).writeFile === "function";
-        // `!!isReadonly` — как в эталоне: и `true`, и MarkdownString с причиной.
+        // `!!isReadonly` as upstream: both `true` and a MarkdownString with a reason.
         if (Boolean(options?.isReadonly) || !writable) {
             this.readonlySchemes.add(scheme);
         }
-        // Для git: сдвинулся HEAD/индекс — ядро сбрасывает кэш оригиналов.
+        // For git: HEAD/index moved, so the core resets its originals cache.
         this.changeSubscriptions.set(
             scheme,
             provider.onDidChangeFile((events) => {
@@ -92,7 +92,7 @@ export class SubprocessFileSystemProviders {
         return [...this.readonlySchemes];
     }
 
-    /** `undefined` — провайдера схемы нет. */
+    /** `undefined`: no provider for the scheme. */
     public isWritable(scheme: string): boolean | undefined {
         if (!this.providers.has(scheme)) return undefined;
         return !this.readonlySchemes.has(scheme);
@@ -131,8 +131,8 @@ export function createFileSystemNamespace(
         writeFile: async (uri, content) => {
             if (uri.scheme !== "file") {
                 const provider = providerOf(uri);
-                // Эталон (`ExtHostConsumerFileSystem`): запись в read-only ФС — NoPermissions.
-                // Stryker disable next-line OptionalChaining: эквивалентный — без реестра `providerOf` строкой выше уже отказал `Unavailable`
+                // Upstream (`ExtHostConsumerFileSystem`): writing to a read-only FS is NoPermissions.
+                // Stryker disable next-line OptionalChaining: equivalent — without a registry `providerOf` on the line above has already refused with `Unavailable`
                 if (providers?.isWritable(uri.scheme) !== true) throw FileSystemError.NoPermissions(uri);
                 await provider.writeFile(uri, content, { create: true, overwrite: true });
                 return;
@@ -161,7 +161,7 @@ export function createFileSystemNamespace(
             assertFileScheme(target);
             await disk.copy(source, target, options);
         },
-        // Незнакомая схема — `undefined` («редактор не знает такой ФС»), как в эталоне.
+        // Unknown scheme: `undefined` ("the editor doesn't know such an FS"), as upstream.
         isWritableFileSystem: (scheme: string): boolean | undefined =>
             scheme === "file" ? true : providers?.isWritable(scheme),
     };

@@ -2,8 +2,8 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import { createL10nNamespace } from "./l10nNamespace.ts";
 
-// В beforeEach, а не на уровне модуля: вызов при импорте идёт до активации мутанта
-// Stryker в воркере, и мутант тела createL10nNamespace выживал бы ложно.
+// In beforeEach, not at module top level: a call at import time runs before Stryker
+// activates the mutant in the worker, so a createL10nNamespace body mutant would falsely survive.
 let l10n: ReturnType<typeof createL10nNamespace>;
 
 describe("vscode.l10n (без бандла переводов)", () => {
@@ -33,14 +33,14 @@ describe("vscode.l10n (без бандла переводов)", () => {
 
     it("плейсхолдер без аргументов вовсе — строка как есть, без обращения к args", () => {
         expect(l10n.t("hello {0}")).toBe("hello {0}");
-        // options-форма — единственный путь, где args именно undefined (рест
-        // всегда даёт массив): подстановка не должна трогать args вовсе.
+        // The options form is the only path where args is exactly undefined (rest
+        // always yields an array): substitution must not touch args at all.
         expect(l10n.t({ message: "keep {0}", comment: "c" })).toBe("keep {0}");
     });
 
     it("объект среди НЕСКОЛЬКИХ rest-аргументов — не record-форма", () => {
-        // Форма t(message, record) — ровно один объект вторым аргументом;
-        // с хвостом аргументов это rest-путь, объект стрингифицируется.
+        // The t(message, record) form is exactly one object as the second argument;
+        // with trailing arguments it is the rest path and the object is stringified.
         expect(l10n.t("{0} {1}", { a: 1 } as unknown as string, "z")).toBe("[object Object] z");
     });
 

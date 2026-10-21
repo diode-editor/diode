@@ -3,7 +3,7 @@ import type { IDisposable } from "../../../base/common/lifecycle.ts";
 
 import type { IMessageChannel } from "./iMessageChannel.ts";
 
-/** Пересечение `NodeJS.Process` и `ChildProcess`: годится по обе стороны IPC. */
+/** Intersection of `NodeJS.Process` and `ChildProcess`: works on both sides of IPC. */
 export interface IIpcEndpoint {
     send(message: unknown): boolean;
     on(event: "message", listener: (msg: unknown) => void): unknown;
@@ -12,7 +12,7 @@ export interface IIpcEndpoint {
     off(event: "disconnect", listener: () => void): unknown;
 }
 
-/** После `disconnect` новые `postMessage` молча игнорируются; endpoint канал не убивает — это забота владельца. */
+/** After `disconnect` new `postMessage` calls are silently ignored; the channel does not kill the endpoint, the owner does. */
 export class IpcMessageChannel implements IMessageChannel {
     private readonly endpoint: IIpcEndpoint;
     private readonly onMessageEmitter = new Emitter<unknown>();
@@ -39,7 +39,7 @@ export class IpcMessageChannel implements IMessageChannel {
         try {
             this.endpoint.send(message);
         } catch {
-            // Канал мог закрыться между проверкой и отправкой — молча.
+            // The channel may have closed between the check and the send; ignore silently.
             this.alive = false;
         }
     }
@@ -52,9 +52,9 @@ export class IpcMessageChannel implements IMessageChannel {
         this.alive = false;
         this.endpoint.off("message", this.onIncoming);
         this.endpoint.off("disconnect", this.onDisconnect);
-        // Доставку после dispose и так отсекает гард `disposed`; снятие слушателей
-        // ненаблюдаемо снаружи и держится ради освобождения их замыканий.
-        // Stryker disable next-line CallExpression: эквивалентен — см. выше
+        // The `disposed` guard already blocks delivery after dispose; removing the listeners
+        // is unobservable from outside and only frees their closures.
+        // Stryker disable next-line CallExpression: equivalent, see above
         this.onMessageEmitter.dispose();
     }
 }

@@ -157,7 +157,7 @@ export interface IRangeFormattingRegistration {
     readonly provider: vscode.DocumentRangeFormattingEditProvider;
 }
 
-/** `undefined` — регистрация вне оверлея расширения. */
+/** `undefined` means the registration happened outside an extension overlay. */
 interface IRegistrationOwner {
     readonly owner: string | undefined;
 }
@@ -196,7 +196,7 @@ function parseWireMarkersChanged(raw: unknown): IWireForeignMarkers[] {
     return result;
 }
 
-/** `delay` DebounceEmitter'а ExtHostDiagnostics эталона. */
+/** Upstream ExtHostDiagnostics DebounceEmitter `delay`. */
 const DIAGNOSTICS_CHANGE_DELAY_MS = 50;
 
 interface ICachedCodeAction {
@@ -204,14 +204,14 @@ interface ICachedCodeAction {
     readonly registration: Owned<ICodeActionRegistration>;
 }
 
-/** Границы включительно (как `vscode.Range.intersection`). */
+/** Bounds are inclusive (like `vscode.Range.intersection`). */
 function rangesIntersect(a: Range, b: Range): boolean {
     const startsBeforeOrAt = (x: Position, y: Position): boolean =>
         x.line < y.line || (x.line === y.line && x.character <= y.character);
     return startsBeforeOrAt(a.start, b.end) && startsBeforeOrAt(b.start, a.end);
 }
 
-/** Провайдер вправе отклонить промис чем угодно, не только `Error`. */
+/** A provider may reject the promise with anything, not only an `Error`. */
 function renameRejectReason(error: unknown): string {
     if (typeof error === "string" && error !== "") return error;
     const message = (error as { message?: unknown } | null | undefined)?.message;
@@ -220,15 +220,15 @@ function renameRejectReason(error: unknown): string {
 }
 
 /**
- * Объект-метаданные (стоковый клиент выбирает его, когда сервер прислал
- * `retriggerCharacters`) или rest-строки триггер-символов.
+ * A metadata object (the stock client passes it when the server sent
+ * `retriggerCharacters`) or rest strings of trigger characters.
  */
 function readSignatureHelpMetadata(rest: readonly unknown[]): {
     triggerCharacters: readonly string[];
     retriggerCharacters: readonly string[];
 } {
     const first = rest.at(0);
-    // Stryker disable next-line ConditionalExpression: `null` третьим аргументом клиент не передаёт, а если бы передал — обе ветки дали бы пустые списки символов
+    // Stryker disable next-line ConditionalExpression: the client never passes `null` as the third argument, and if it did both branches would yield empty character lists
     if (typeof first === "object" && first !== null) {
         const metadata = first as Partial<vscode.SignatureHelpProviderMetadata>;
         return {
@@ -245,8 +245,8 @@ function readStringList(raw: unknown): readonly string[] {
 }
 
 /**
- * `isIncomplete` — не косметика: по нему ядро перезапрашивает провайдеров при
- * доборе символа вместо локальной фильтрации (у tsserver список почти всегда неполный).
+ * `isIncomplete` is not cosmetic: it makes the core re-query providers when a character is
+ * typed instead of filtering locally (tsserver's list is almost always incomplete).
  */
 function normalizeResult(result: unknown): { items: readonly vscode.CompletionItem[]; isIncomplete: boolean } {
     if (result === undefined || result === null) return { items: [], isIncomplete: false };
@@ -257,8 +257,8 @@ function normalizeResult(result: unknown): { items: readonly vscode.CompletionIt
 }
 
 /**
- * Сбой провайдера не роняет команду, но и не молчит: молчаливый сбой стокового
- * prettier выглядел как «менять нечего», и следа не было ни в одном логе (#381).
+ * A provider failure doesn't break the command, but isn't silent either: a silent failure of the
+ * stock prettier looked like "nothing to change" and left no trace in any log (#381).
  */
 function reportProviderFailure(method: string, err: unknown, owner: string | undefined): void {
     if (isCancellationError(err)) return;
@@ -272,7 +272,7 @@ export interface ICodeActionDeps {
 }
 
 const NULL_CODE_ACTION_DEPS: ICodeActionDeps = {
-    // Stryker disable next-line ArrowFunction: `undefined` и `Promise<false>` для applyCodeAction неотличимы — оба читаются как «не применилось»
+    // Stryker disable next-line ArrowFunction: `undefined` and `Promise<false>` are indistinguishable for applyCodeAction — both read as "not applied"
     applyEdit: () => Promise.resolve(false),
     executeCommand: () => Promise.reject(new Error("commands bridge is not wired")),
 };
@@ -284,7 +284,7 @@ export function createLanguagesNamespace(
     languages: typeof vscode.languages;
 } {
     const { rpc, documentSync } = ctx;
-    // По handle из запроса ядра (как ExtHostLanguageFeatures._adapter эталона).
+    // By the handle from the core request (like upstream ExtHostLanguageFeatures._adapter).
     const hoverProviders = new Map<number, Owned<IHoverRegistration>>();
     const definitionProviders = new Map<number, Owned<IDefinitionRegistration>>();
     const referenceProviders = new Map<number, Owned<IReferenceRegistration>>();
@@ -301,7 +301,7 @@ export function createLanguagesNamespace(
     const rangeSemanticTokensProviders = new Map<number, Owned<IRangeSemanticTokensRegistration>>();
     let nextProviderHandle = 0;
 
-    /** Скоринг по селектору делает ядро: субпроцесс зовут уже с выбранным handle. */
+    /** The core scores selectors: the subprocess is called with the already chosen handle. */
     function registerByHandle<T>(
         providers: Map<number, Owned<T>>,
         kind: WireLanguageFeatureKind,
@@ -312,8 +312,8 @@ export function createLanguagesNamespace(
         subscribe?: (handle: number) => vscode.Disposable | undefined,
     ): vscode.Disposable {
         const handle = nextProviderHandle++;
-        // Владелец запоминается сейчас: оверлей выставляет его только на время
-        // синхронного `register*`, а сбой провайдера случится много позже.
+        // Capture the owner now: the overlay sets it only for the duration of the
+        // synchronous `register*`, while a provider failure happens much later.
         providers.set(handle, { ...registration, owner: ctx.owner.current });
         rpc.notify("languages.register", { handle, kind, selector: toWireLanguageFilters(selector), ...metadata });
         const subscription = subscribe?.(handle);
@@ -325,8 +325,8 @@ export function createLanguagesNamespace(
         });
     }
 
-    // Глубина COMPLETION_CACHE_DEPTH: гонка «ответ пришёл, попап уже перезапросил»
-    // стоит одного лишнего ведра.
+    // Depth COMPLETION_CACHE_DEPTH: a "response arrived, popup already re-queried" race
+    // costs one extra bucket.
     const completionCache = new Map<number, readonly ICachedCompletion[]>();
     let nextCacheId = 1;
 
@@ -342,10 +342,10 @@ export function createLanguagesNamespace(
         return bucket?.[Number(rawIndex)] ?? null;
     }
 
-    // Применять нужно ТОТ ЖЕ объект действия, что вернул провайдер (у клиента —
-    // ProtocolCodeAction с приватным `data`). Глубина — на провайдера, как у эталона
-    // (`CodeActionAdapter._cache`): общая глубина 2 при трёх провайдерах вытесняла
-    // ведро самого быстрого до выбора пункта — «Code action failed».
+    // The action applied must be THE SAME object the provider returned (in the client it is a
+    // ProtocolCodeAction with private `data`). Depth is per provider, like upstream
+    // (`CodeActionAdapter._cache`): a shared depth of 2 with three providers evicted
+    // the fastest one's bucket before an item was picked — "Code action failed".
     const codeActionCache = new Map<
         number,
         { readonly handle: number; readonly items: readonly ICachedCodeAction[] }
@@ -370,15 +370,15 @@ export function createLanguagesNamespace(
         return bucket?.[Number(rawIndex)] ?? null;
     }
 
-    // Контекст code actions — ТЕ ЖЕ объекты Diagnostic, что публиковал клиент.
+    // The code actions context holds THE SAME Diagnostic objects the client published.
     const diagnosticStores = new Set<Map<string, readonly vscode.Diagnostic[]>>();
-    // Ключи MarkerService не переиспользуются: счётчик на базу ключа.
+    // MarkerService keys are never reused: a counter per key base.
     const diagnosticOwnerCounts = new Map<string, number>();
-    // Зеркало чужих маркеров — `_mirrorCollection` эталона.
+    // Mirror of foreign markers — upstream `_mirrorCollection`.
     const mirrorStore = new Map<string, readonly vscode.Diagnostic[]>();
 
-    // Как DebounceEmitter эталона: первое изменение открывает окно, накопленное уходит
-    // одним событием с уникальными ресурсами в порядке первого появления.
+    // Like upstream DebounceEmitter: the first change opens the window, the accumulated changes go
+    // out as one event with unique resources in order of first appearance.
     const diagnosticsChanged = new EventEmitter<vscode.DiagnosticChangeEvent>();
     let changedResources: string[] = [];
     let changedTimer: ReturnType<typeof setTimeout> | undefined;
@@ -395,8 +395,8 @@ export function createLanguagesNamespace(
 
     rpc.handleNotification("diagnostics.markersChanged", (params) => {
         const entries = parseWireMarkersChanged(params);
-        // Как эталон, зеркало встаёт в набор на первом сообщении — после уже
-        // заведённых коллекций.
+        // Like upstream, the mirror joins the set on the first message — after the collections
+        // already created.
         diagnosticStores.add(mirrorStore);
         for (const { resource, markers } of entries) mirrorStore.set(resource, markers.map(toVscodeDiagnostic));
         diagnosticsChangedFor(entries.map((entry) => entry.resource));
@@ -404,7 +404,7 @@ export function createLanguagesNamespace(
 
     function getDiagnostics(resource: vscode.Uri): vscode.Diagnostic[];
     function getDiagnostics(): [vscode.Uri, vscode.Diagnostic[]][];
-    // `null` от JS-расширения — как «без ресурса» (у эталона проверка на truthy).
+    // `null` from a JS extension means "no resource" (upstream checks for truthy).
     function getDiagnostics(resource?: vscode.Uri | null): vscode.Diagnostic[] | [vscode.Uri, vscode.Diagnostic[]][] {
         if (resource != null) {
             const key = resource.toString();
@@ -420,7 +420,7 @@ export function createLanguagesNamespace(
     function diagnosticsIntersecting(resource: string, range: Range): vscode.Diagnostic[] {
         const found: vscode.Diagnostic[] = [];
         for (const store of diagnosticStores) {
-            // Stryker disable next-line ArrayDeclaration: фолбэк-массив немедленно фильтруется по range — содержимое ненаблюдаемо
+            // Stryker disable next-line ArrayDeclaration: the fallback array is immediately filtered by range — its contents are unobservable
             for (const diag of store.get(resource) ?? []) {
                 const diagRange = (diag as { range?: Range }).range;
                 if (diagRange === undefined) continue;
@@ -500,7 +500,7 @@ export function createLanguagesNamespace(
     rpc.handleRequest(
         "languages.provideSignatureHelp",
         async (params, cancellation): Promise<ICoreSignatureHelp | null> => {
-            // Всё, кроме `uri`, необязательно: дефолты ниже — обработка недоехавшего по RPC поля.
+            // Everything but `uri` is optional: the defaults below handle a field lost over RPC.
             const p: Received<IWireSignatureHelpParams> = params;
             const reg = signatureHelpProviders.get(p.handle ?? -1);
             if (reg === undefined) return null;
@@ -564,8 +564,8 @@ export function createLanguagesNamespace(
         const reg = renameProviders.get(p.handle ?? -1);
         if (reg === undefined) return null;
         const prepare = reg.provider.prepareRename?.bind(reg.provider);
-        // Без `prepareRename` — не отказ: эталон переименовывает слово под кареткой,
-        // а что считать словом, решает ядро.
+        // No `prepareRename` is not a refusal: upstream renames the word under the cursor,
+        // and the core decides what counts as a word.
         if (prepare === undefined) return null;
         const target = syncRenameTarget(p);
         if (target === null) return null;
@@ -574,7 +574,7 @@ export function createLanguagesNamespace(
         try {
             result = await callWithVscodeToken(cancellation, (token) => prepare(doc, position, token));
         } catch (error) {
-            // «Здесь нельзя» эталон выражает отказом промиса — это ответ, а не сбой.
+            // Upstream expresses "can't rename here" by rejecting the promise — an answer, not a failure.
             return { rejectReason: renameRejectReason(error) };
         }
         if (result == null) return null;
@@ -598,17 +598,17 @@ export function createLanguagesNamespace(
                 reg.provider.provideRenameEdits(doc, position, newName, token),
             );
         } catch (error) {
-            // Отклонённый промис — штатный канал эталона «имя невалидно»: сообщение едет человеку.
+            // A rejected promise is upstream's regular "invalid name" channel: the message goes to the user.
             return { applied: false, error: renameRejectReason(error) };
         }
         if (!(edit instanceof WorkspaceEdit)) return { applied: false };
-        // Rename — рефакторинг: эталон `respectAutoSaveConfig: true`.
+        // Rename is a refactoring: upstream uses `respectAutoSaveConfig: true`.
         const ok = await codeActionDeps.applyEdit(edit, { isRefactoring: true });
         return ok ? { applied: true } : { applied: false, error: "Rename failed to apply edits" };
     });
 
-    // Один RPC на оба вида (#196): с `range` — range-провайдер (в т. ч. формат документа
-    // range-провайдером на полный диапазон), без — документный.
+    // One RPC for both kinds (#196): with `range` it's the range provider (including formatting a
+    // document with a range provider over the full range), without it the document one.
     rpc.handleRequest("languages.provideFormattingEdits", async (params, cancellation): Promise<IWireEditorEdit[]> => {
         const p: Received<IWireFormattingParams> = params;
         const handle = p.handle ?? -1;
@@ -648,8 +648,8 @@ export function createLanguagesNamespace(
         try {
             result = await callWithVscodeToken(cancellation, (token) => format(doc, options, token));
         } catch (err) {
-            // Сбой — пустой ответ (no-op), а не «нет форматтера»; в stderr — иначе он
-            // неотличим от «менять нечего».
+            // A failure is an empty answer (no-op), not "no formatter"; log to stderr, otherwise it is
+            // indistinguishable from "nothing to change".
             reportProviderFailure(
                 range === undefined ? "provideDocumentFormattingEdits" : "provideDocumentRangeFormattingEdits",
                 err,
@@ -665,8 +665,8 @@ export function createLanguagesNamespace(
         return edits;
     });
 
-    // Контекст-диагностики собираются здесь из локальных DiagnosticCollection (с приватным
-    // `data`, по которому сервер матчит фиксы), а не едут с хоста lossy-копией.
+    // Context diagnostics are collected here from local DiagnosticCollections (with private
+    // `data` the server matches fixes by) rather than shipped from the host as a lossy copy.
     rpc.handleRequest("languages.provideCodeActions", async (params, cancellation): Promise<WireCodeAction[]> => {
         const p: Received<IWireCodeActionParams, "range"> = params;
         const handle = p.handle ?? -1;
@@ -682,7 +682,7 @@ export function createLanguagesNamespace(
             only,
         };
 
-        // Stryker disable next-line UpdateOperator: направление счётчика ненаблюдаемо — вёдра различает уникальность id, а не порядок
+        // Stryker disable next-line UpdateOperator: the counter direction is unobservable — buckets are told apart by id uniqueness, not order
         const cacheId = nextCacheId++;
         const cached: ICachedCodeAction[] = [];
         const wire: WireCodeAction[] = [];
@@ -697,10 +697,10 @@ export function createLanguagesNamespace(
         if (!Array.isArray(result)) return [];
         for (const item of result as unknown[]) {
             if (typeof (item as { title?: unknown } | null | undefined)?.title !== "string") continue;
-            // Голые команды вида не имеют и при запрошенном `only` отбрасываются (как в VS Code).
+            // Bare commands have no kind and are dropped when `only` is requested (as in VS Code).
             const action: CodeAction | undefined = item instanceof CodeAction ? item : undefined;
             const kind = action?.kind;
-            // `kind` — публичное поле: расширение вправе положить туда что угодно.
+            // `kind` is a public field: an extension may put anything there.
             const kindValue: unknown = (kind as { value?: unknown } | null | undefined)?.value;
             const disabledReason: unknown = (action?.disabled as { reason?: unknown } | null | undefined)?.reason;
             if (only !== undefined && (kind === undefined || !only.contains(kind))) continue;
@@ -711,7 +711,7 @@ export function createLanguagesNamespace(
                 title: (item as { title: string }).title,
                 ...(typeof kindValue === "string" ? { kind: kindValue } : {}),
                 ...(action?.isPreferred === true ? { isPreferred: true } : {}),
-                // Эталон: `typeConvert.CodeAction`, `disabled: action.disabled?.reason`.
+                // Upstream: `typeConvert.CodeAction`, `disabled: action.disabled?.reason`.
                 ...(typeof disabledReason === "string" ? { disabled: disabledReason } : {}),
             });
         }
@@ -719,7 +719,7 @@ export function createLanguagesNamespace(
         return wire;
     });
 
-    // Ленивый resolve: правки многих серверов приезжают только по codeAction/resolve.
+    // Lazy resolve: many servers deliver edits only via codeAction/resolve.
     rpc.handleRequest("languages.applyCodeAction", async (params, cancellation): Promise<boolean> => {
         const id: unknown = params.id;
         if (typeof id !== "string") return false;
@@ -743,7 +743,7 @@ export function createLanguagesNamespace(
 
         let action: CodeAction = found.item;
         const resolve = found.registration.provider.resolveCodeAction?.bind(found.registration.provider);
-        // Stryker disable next-line ConditionalExpression: подмена на true вызвала бы отсутствующий resolve, но TypeError упал бы внутри try и был бы проглочен — ненаблюдаемо
+        // Stryker disable next-line ConditionalExpression: replacing with true would call a missing resolve, but the TypeError would be thrown inside the try and swallowed — unobservable
         const canResolve = resolve !== undefined;
         if (action.edit === undefined && canResolve) {
             try {
@@ -751,17 +751,17 @@ export function createLanguagesNamespace(
                 if (resolved != null) action = resolved as CodeAction;
             } catch (err) {
                 reportProviderFailure("resolveCodeAction", err, owner);
-                // Сбойный resolve — применяем то, что есть (обычно command).
+                // Failed resolve: apply what we have (usually the command).
             }
         }
 
         let applied = false;
         if (action.edit instanceof WorkspaceEdit) {
-            // Правки действия — рефакторинг (`files.refactoring.autoSave`),
-            // кроме применённых конвейером сохранения: эталон снимает
-            // `respectAutoSaveConfig` для `ApplyCodeActionReason.OnSave`.
+            // Action edits are a refactoring (`files.refactoring.autoSave`),
+            // except those applied by the save pipeline: upstream drops
+            // `respectAutoSaveConfig` for `ApplyCodeActionReason.OnSave`.
             const ok = await codeActionDeps.applyEdit(action.edit, { isRefactoring: params.onSave !== true });
-            // VS Code применяет edit ПЕРЕД командой: после отказа действие исполнилось бы наполовину.
+            // VS Code applies the edit BEFORE the command: after a refusal the action would run only halfway.
             if (!ok) return false;
             applied = true;
         }
@@ -785,14 +785,14 @@ export function createLanguagesNamespace(
                 triggerCharacter: p.triggerCharacter,
             };
 
-            // Одно ведро кэша на пачку: id пунктов уникальны сквозь всех провайдеров.
+            // One cache bucket per batch: item ids are unique across all providers.
             const cacheId = nextCacheId++;
             const cached: ICachedCompletion[] = [];
             const results: ICoreCompletionResult[] = [];
             for (const handle of Array.isArray(p.handles) ? p.handles : []) {
                 if (cancellation.isCancellationRequested) break;
                 const reg = completionProviders.get(handle as number);
-                // Stryker disable next-line ConditionalExpression,BlockStatement: без проверки обращение к снятому провайдеру падает внутри try ниже, и провайдер получает тот же пустой результат
+                // Stryker disable next-line ConditionalExpression,BlockStatement: without the check, accessing the removed provider throws inside the try below, and the provider gets the same empty result
                 if (reg === undefined) {
                     results.push({ items: [], isIncomplete: false });
                     continue;
@@ -808,8 +808,8 @@ export function createLanguagesNamespace(
                 }
                 const normalized = normalizeResult(result);
                 for (const item of normalized.items) {
-                    // id выдаём ДО сериализации: resolve обязан получить тот же объект (у languageclient —
-                    // ProtocolCompletionItem с приватным `data`).
+                    // Assign the id BEFORE serialization: resolve must get the same object (in languageclient a
+                    // ProtocolCompletionItem with private `data`).
                     const id = `${String(cacheId)}.${String(cached.length)}`;
                     const wire = serializeCompletionItem(item, id);
                     if (wire === null) continue;
@@ -823,8 +823,8 @@ export function createLanguagesNamespace(
         },
     );
 
-    // Стоковый languageclient объявляет серверу `resolveSupport` на detail/documentation/
-    // additionalTextEdits — у tsserver в первом ответе их нет.
+    // The stock languageclient declares `resolveSupport` for detail/documentation/
+    // additionalTextEdits to the server — tsserver's first response lacks them.
     rpc.handleRequest(
         "languages.resolveCompletionItem",
         async (params, cancellation): Promise<ICoreResolvedCompletion | null> => {
@@ -861,11 +861,11 @@ export function createLanguagesNamespace(
             const doc = documentSync.resolve(p.uri, p.version, p.languageId);
             if (doc === null) return [];
             const position = new Position(p.line ?? 0, p.character ?? 0);
-            // Один токен на пачку: провайдер (в первую очередь платный LLM) узнаёт об отмене,
-            // languageclient превратит её в `$/cancelRequest` серверу.
+            // One token per batch: the provider (above all a paid LLM) learns about cancellation,
+            // and languageclient turns it into a `$/cancelRequest` to the server.
             const cancel = toVscodeCancellationToken(cancellation);
-            // selectedCompletionInfo не поддержан: при открытом suggest-попапе ядро ghost text
-            // не запрашивает (docs/TODO/InlineCompletions.md).
+            // selectedCompletionInfo is not supported: with the suggest popup open the core doesn't
+            // request ghost text (docs/TODO/InlineCompletions.md).
             const context: vscode.InlineCompletionContext = {
                 triggerKind: p.triggerKind ?? InlineCompletionTriggerKind.Automatic,
                 selectedCompletionInfo: undefined,
@@ -878,7 +878,7 @@ export function createLanguagesNamespace(
                     results.push(items);
                     if (cancel.token.isCancellationRequested) continue;
                     const reg = inlineCompletionProviders.get(handle as number);
-                    // Stryker disable next-line ConditionalExpression: без проверки обращение к снятому провайдеру падает внутри try ниже, и провайдер получает тот же пустой список
+                    // Stryker disable next-line ConditionalExpression: without the check, accessing the removed provider throws inside the try below, and the provider gets the same empty list
                     if (reg === undefined) continue;
                     let result: unknown;
                     try {
@@ -887,7 +887,7 @@ export function createLanguagesNamespace(
                         );
                     } catch (err) {
                         reportProviderFailure("provideInlineCompletionItems", err, reg.owner);
-                        // Своего `continue` нет намеренно: иначе ветка неотличима от проверки ниже.
+                        // No own `continue` on purpose: otherwise the branch is indistinguishable from the check below.
                     }
                     if (result == null) continue;
                     const rawItems = Array.isArray(result) ? result : (result as { items?: unknown }).items;
@@ -898,7 +898,7 @@ export function createLanguagesNamespace(
                     }
                 }
             } finally {
-                // Stryker disable next-line CallExpression: уборка подписки, см. toVscodeCancellationToken
+                // Stryker disable next-line CallExpression: subscription cleanup, see toVscodeCancellationToken
                 cancel.dispose();
             }
             return results;
@@ -917,7 +917,7 @@ export function createLanguagesNamespace(
             const reg = foldingProviders.get(handle as number);
             const ranges: WireFoldingRange[] = [];
             results.push(ranges);
-            // Stryker disable next-line ConditionalExpression: без проверки обращение к снятому провайдеру падает внутри try ниже, и провайдер получает тот же пустой список
+            // Stryker disable next-line ConditionalExpression: without the check, accessing the removed provider throws inside the try below, and the provider gets the same empty list
             if (reg === undefined) continue;
             let result: unknown;
             try {
@@ -950,8 +950,8 @@ export function createLanguagesNamespace(
                 );
             } catch (err) {
                 reportProviderFailure("provideDocumentSemanticTokens", err, reg.owner);
-                // Как в эталоне, отказ — исключением: на нём ядро держит прежние токены, а `null`
-                // стёр бы подсветку. jdt.ls так отвечает на каждую правку (ContentModified).
+                // Like upstream, a refusal is thrown: the core then keeps the previous tokens, while `null`
+                // would wipe the highlighting. jdt.ls answers this way on every edit (ContentModified).
                 throw err;
             }
         },
@@ -971,8 +971,8 @@ export function createLanguagesNamespace(
                 );
             } catch (err) {
                 reportProviderFailure("provideDocumentRangeSemanticTokens", err, reg.owner);
-                // Как в эталоне, отказ — исключением: на нём ядро держит прежние токены, а `null`
-                // стёр бы подсветку. jdt.ls так отвечает на каждую правку (ContentModified).
+                // Like upstream, a refusal is thrown: the core then keeps the previous tokens, while `null`
+                // would wipe the highlighting. jdt.ls answers this way on every edit (ContentModified).
                 throw err;
             }
         },
@@ -1008,13 +1008,13 @@ export function createLanguagesNamespace(
         );
     }
 
-    // Стоковый клиент заводит провайдеры под capabilities сервера: no-op — валидный
-    // Disposable, чтобы он не падал. Готовность — docs/public/API-COVERAGE.md.
+    // The stock client registers providers per server capabilities: a no-op is a valid
+    // Disposable so it doesn't crash. Readiness: docs/public/API-COVERAGE.md.
     const registerNoopProvider = (): vscode.Disposable => new DisposableImpl(() => undefined);
 
     const createDiagnosticCollection = (name?: string): vscode.DiagnosticCollection => {
-        // Ключ MarkerService уникален на коллекцию, иначе одноимённые коллекции затирали бы
-        // маркеры друг друга; повтор базы получает счётчик (`_idPool` ExtHostDiagnostics).
+        // The MarkerService key is unique per collection, otherwise same-named collections would overwrite
+        // each other's markers; a repeated base gets a counter (`_idPool` of ExtHostDiagnostics).
         const extensionId = ctx.owner.current;
         const base = `ext:${extensionId === undefined ? "" : `${extensionId}:`}${name ?? "diagnostics"}`;
         const taken = diagnosticOwnerCounts.get(base) ?? 0;
@@ -1038,7 +1038,7 @@ export function createLanguagesNamespace(
             diagnosticsChangedFor([resource]);
         };
 
-        // `unknown`, а не `Uri`: JS-расширение вправе прислать строку.
+        // `unknown`, not `Uri`: a JS extension may send a string.
         const collection: vscode.DiagnosticCollection = {
             name: name ?? "diagnostics",
             set: (arg: unknown, diags?: readonly vscode.Diagnostic[]): void => {
@@ -1088,7 +1088,7 @@ export function createLanguagesNamespace(
         onDidChangeDiagnostics: diagnosticsChanged.event,
         getDiagnostics,
         createDiagnosticCollection,
-        // В UI не проецируется (в статус-баре нет места); Ruff держит в нём состояние сервера.
+        // Not projected into the UI (no room in the status bar); Ruff keeps server state in it.
         createLanguageStatusItem: (id: string, selector: vscode.DocumentSelector): vscode.LanguageStatusItem => ({
             id,
             selector,
@@ -1100,8 +1100,8 @@ export function createLanguagesNamespace(
             busy: false,
             dispose: () => undefined,
         }),
-        // Настоящий match: languageclient фильтрует им документы для синхронизации — наивный
-        // «всегда 10» скармливал ts-серверу markdown, и тот ронял хендлеры.
+        // A real match: languageclient uses it to filter documents for sync — a naive
+        // "always 10" fed markdown to the ts server, which crashed its handlers.
         match: (selector: vscode.DocumentSelector, document: vscode.TextDocument): number =>
             scoreDocumentSelector(selector, document),
 
@@ -1110,7 +1110,7 @@ export function createLanguagesNamespace(
             provider: vscode.CompletionItemProvider,
             ...triggerCharacters: string[]
         ): vscode.Disposable => {
-            // Триггер-символы едут метаданными: ядро берёт их только у провайдеров, подошедших документу.
+            // Trigger characters ride as metadata: the core takes them only from providers matching the document.
             const registration: ICompletionRegistration = { selector, provider, triggerCharacters };
             return registerByHandle(completionProviders, "completion", selector, registration, {
                 triggerCharacters: triggerCharacters.filter((char) => typeof char === "string" && char !== ""),
@@ -1163,7 +1163,7 @@ export function createLanguagesNamespace(
             provider: vscode.CodeActionProvider,
             metadata?: vscode.CodeActionProviderMetadata,
         ): vscode.Disposable => {
-            // Stryker disable next-line ArrayDeclaration: фолбэк-массив тут же вычищается map+filter — содержимое ненаблюдаемо
+            // Stryker disable next-line ArrayDeclaration: the fallback array is immediately cleaned by map+filter — its contents are unobservable
             const providedKinds = (metadata?.providedCodeActionKinds ?? [])
                 .map((kind) => (kind as { value?: unknown }).value)
                 .filter((value): value is string => typeof value === "string");

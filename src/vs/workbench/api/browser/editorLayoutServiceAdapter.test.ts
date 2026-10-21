@@ -95,7 +95,7 @@ describe("EditorLayoutServiceAdapter", () => {
         const pushes: IWireEditorLayout[] = [];
         const subscription = adapter.onDidChangeLayout((layout) => pushes.push(layout));
         subscription.dispose();
-        subscription.dispose(); // слушатель уже снят — второй dispose ничего не ломает
+        subscription.dispose(); // the listener is already removed: a second dispose breaks nothing
 
         service.openFile(ws.path("a.ts"));
         adapter.flushPendingLayout();
@@ -131,7 +131,7 @@ describe("EditorLayoutServiceAdapter", () => {
         expect(beside.viewColumn).toBe(2);
         expect(service.editorGroups.groups.length).toBe(2);
 
-        // ViewColumn.Three при двух группах — создаётся третья.
+        // ViewColumn.Three with two groups: a third one is created.
         const third = await adapter.showTextDocument({ uri: uriB, viewColumn: 3 });
         expect(third.viewColumn).toBe(3);
         expect(service.editorGroups.groups.length).toBe(3);
@@ -141,8 +141,8 @@ describe("EditorLayoutServiceAdapter", () => {
         ws.writeFile("long.ts", Array.from({ length: 20 }, (_, i) => `l${i}`).join("\n"));
         service.openFile(ws.path("a.ts"));
         const before = service.editorGroups.activeGroup;
-        // Фокус живёт в дереве контролов, которого у голого сервиса нет: тут — что флаг доезжает
-        // до openUri, сам фокус закрыт `editorService.virtualDocument.test.ts`.
+        // Focus lives in the control tree, which the bare service lacks: here we check the flag reaches
+        // openUri; focus itself is covered by `editorService.virtualDocument.test.ts`.
         const openUri = vi.spyOn(service, "openUri");
 
         await adapter.showTextDocument({
@@ -156,7 +156,7 @@ describe("EditorLayoutServiceAdapter", () => {
         expect(service.getActiveEditor()!.viewState.selections[0].active).toEqual({ line: 5, character: 1 });
     });
 
-    /** Каретка за концом строки роняет первый же кадр на highlight вхождений. */
+    /** A cursor past the end of line crashes the very first frame in occurrence highlighting. */
     it("showTextDocument: выделение за границами документа клампится", async () => {
         ws.writeFile("short.ts", "ab\ncd");
         service.openFile(ws.path("a.ts"));
@@ -370,7 +370,7 @@ describe("EditorLayoutServiceAdapter", () => {
                 input,
             );
         service.openPane(makePane(diffInput));
-        // Стороны опциональны (HEAD-версии может не существовать как ресурса).
+        // The sides are optional (the HEAD version may not exist as a resource).
         service.openPane(
             makePane({
                 ...diffInput,

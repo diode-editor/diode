@@ -1,6 +1,6 @@
 import type { IFileDecorationsService } from "../common/iFileDecorationsService.ts";
 
-/** `ExplorerService` соответствует структурно: слой Extensions не тянет Workbench-сервис. */
+/** `ExplorerService` matches structurally: the Extensions layer does not pull in a Workbench service. */
 export interface IFileDecorationsTarget {
     setFileDecorations(entries: readonly { path: string; color?: number; badge?: string; propagate?: boolean }[]): void;
 }

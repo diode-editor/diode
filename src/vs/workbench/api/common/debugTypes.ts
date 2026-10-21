@@ -1,8 +1,8 @@
 import type * as vscode from "vscode";
 
 /**
- * Дебаггера нет, но расширения конструируют эти классы сами (`golang.go` —
- * `new DebugAdapterServer(port)`) — без значения падал бы уже `new`.
+ * There is no debugger, but extensions construct these classes themselves (`golang.go`:
+ * `new DebugAdapterServer(port)`); without a value even `new` would fail.
  */
 
 export enum DebugConsoleMode {
@@ -38,7 +38,7 @@ export class Breakpoint implements vscode.Breakpoint {
         if (typeof mode === "string") this.mode = mode;
     }
 
-    /** Ленивый, как у эталона: id точки стабилен на всё время жизни. */
+    /** Lazy, as upstream: a breakpoint's id is stable for its whole lifetime. */
     public get id(): string {
         this.ownId ??= globalThis.crypto.randomUUID();
         return this.ownId;
@@ -57,7 +57,7 @@ export class SourceBreakpoint extends Breakpoint implements vscode.SourceBreakpo
         mode?: string,
     ) {
         super(enabled, condition, hitCondition, logMessage, mode);
-        // JS-расширение может передать что угодно; эталон проверяет ровно null.
+        // A JS extension may pass anything; upstream checks for exactly null.
         if ((location as vscode.Location | null) === null) throw new Error("Illegal argument: location");
         this.location = location;
     }

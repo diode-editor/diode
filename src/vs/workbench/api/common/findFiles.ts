@@ -3,8 +3,8 @@ import * as path from "node:path";
 import { matchAnyGlob, matchGlob } from "../../../base/common/glob.ts";
 
 /**
- * Прямо на диске субпроцесса, а не через RPC: главный цикл редактора уже голодал
- * от рекурсивного обхода, а `redhat.java` зовёт `findFiles` около десяти раз за активацию.
+ * Directly on the subprocess disk rather than via RPC: the editor's main loop already starved
+ * from the recursive walk, and `redhat.java` calls `findFiles` about ten times per activation.
  */
 
 export interface IFindFilesEntry {
@@ -12,24 +12,24 @@ export interface IFindFilesEntry {
     readonly isDirectory: boolean;
 }
 
-/** Обязан отвечать, а не бросать: каталог без прав не срывает поиск (ripgrep эталона его пропускает). */
+/** Must answer rather than throw: a directory without permissions doesn't abort the search (upstream's ripgrep skips it). */
 export interface IFindFilesScanner {
     readDirectory(absolutePath: string): Promise<readonly IFindFilesEntry[]>;
 }
 
-/** Страховка: `findFiles("**\/*.java")` на домашнем каталоге не должен держать активацию вечно. */
+/** Safety net: `findFiles("**\/*.java")` on a home directory must not hold activation forever. */
 export const DEFAULT_MAX_DIRECTORIES = 5000;
 
 export interface IFindFilesRequest {
-    /** Абсолютный путь корня поиска (база `GlobPattern`). */
+    /** Absolute path of the search root (the `GlobPattern` base). */
     readonly base: string;
     readonly include: string;
     /**
-     * Пустая строка (её шлёт `redhat.java`) компилируется в `^$` и ни с чем не
-     * совпадает — особого случая не нужно.
+     * An empty string (sent by `redhat.java`) compiles to `^$` and matches
+     * nothing, so no special case is needed.
      */
     readonly excludes: readonly string[];
-    /** Верхняя граница результата; `undefined` или `Infinity` — без границы. */
+    /** Upper bound on results; `undefined` or `Infinity` means unbounded. */
     readonly maxResults?: number;
 }
 
@@ -39,9 +39,9 @@ export interface IFindFilesOptions {
 }
 
 /**
- * Только файлы, posix-пути от базы: `**\/build` не возвращает каталог сборки.
- * Обход в ширину: при `maxResults: 1` (частый у `redhat.java`) находится
- * ближайшее совпадение, а не первое в глубине.
+ * Files only, posix paths relative to the base: `**\/build` doesn't return the build directory.
+ * Breadth-first walk: with `maxResults: 1` (common for `redhat.java`) the
+ * nearest match is found rather than the first one in depth.
  */
 export async function findFiles(
     scanner: IFindFilesScanner,
@@ -65,10 +65,10 @@ export async function findFiles(
             if (isCancelled() || read >= maxDirectories) return found;
             read++;
             for (const entry of await scanner.readDirectory(dir.absolutePath)) {
-                // Относительный posix от базы: так якорится `matchGlob` (`*` не переходит `/`).
+                // Relative posix path from the base: that's how `matchGlob` anchors (`*` doesn't cross `/`).
                 const relativePath = dir.relativePath === "" ? entry.name : `${dir.relativePath}/${entry.name}`;
-                // `**\/node_modules` отсекает сам каталог, и обход в него не заходит;
-                // `**\/node_modules/**` режет каждый файл внутри — результат тот же, дороже.
+                // `**\/node_modules` cuts off the directory itself, and the walk doesn't enter it;
+                // `**\/node_modules/**` drops every file inside: same result, more expensive.
                 if (matchAnyGlob(excludes, relativePath)) continue;
                 if (entry.isDirectory) {
                     next.push({ absolutePath: path.join(dir.absolutePath, entry.name), relativePath });
@@ -85,9 +85,9 @@ export async function findFiles(
 }
 
 /**
- * Шаблон без `**` фиксирует число сегментов — глубже искать незачем. Оценка
- * сверху: `/` внутри `{a/b,c}` завышает глубину, но лишний уровень безопаснее
- * пропущенного совпадения.
+ * A pattern without `**` fixes the segment count, so searching deeper is pointless. The estimate
+ * is an upper bound: a `/` inside `{a/b,c}` overstates the depth, but an extra level is safer
+ * than a missed match.
  */
 function maxGlobDepth(glob: string): number {
     if (glob.includes("**")) return Number.POSITIVE_INFINITY;

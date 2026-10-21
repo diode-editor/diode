@@ -69,7 +69,7 @@ describe("LanguagesNamespace — registerHoverProvider", () => {
             { method: "languages.unregister", params: { handle: 1 } },
         ]);
 
-        // Повторный dispose — идемпотентен, без лишних нотификаций.
+        // A repeated dispose is idempotent, with no extra notifications.
         second.dispose();
         expect(sent()).toHaveLength(4);
     });
@@ -137,13 +137,13 @@ describe("LanguagesNamespace — languages.provideHover", () => {
                             new MarkdownString("**markdown**"),
                             { language: "ts", value: "const b = 1" }, // legacy MarkedString
                             { language: "", value: "без языка" },
-                            "", // пустой блок отбрасывается
-                            "   \n  ", // из одних пробелов — тоже пустой
-                            42, // мусор отбрасывается
-                            {}, // объект без value — тоже мусор
-                            null, // typeof null === "object", но полей у него нет
+                            "", // an empty block is dropped
+                            "   \n  ", // whitespace only — also empty
+                            42, // garbage is dropped
+                            {}, // an object without value — garbage too
+                            null, // typeof null === "object", but it has no fields
                         ],
-                        // range нет — hover без диапазона валиден
+                        // no range — a hover without a range is valid
                     }) as unknown as vscode.Hover,
             },
         );
@@ -175,8 +175,8 @@ describe("LanguagesNamespace — languages.provideHover", () => {
 
         expect(seen.pos?.line).toBe(0);
         expect(seen.pos?.character).toBe(0);
-        // languageId в запросе не пришёл — документ остаётся на языке зеркала,
-        // а не получает undefined (иначе селекторы перестали бы матчиться).
+        // The request carried no languageId: the document keeps the mirror's language
+        // rather than getting undefined (otherwise selectors would stop matching).
         expect(ctx.registry.get(Uri.parse(URI))?.languageId).toBe("markdown");
         expect(result).toEqual({ contents: ["одна строка не в массиве"] });
     });
@@ -257,7 +257,7 @@ describe("LanguagesNamespace — languages.provideHover", () => {
             },
         );
 
-        // Не открыт: хост ещё не прислал didOpen (или уже прислал didClose).
+        // Not open: the host hasn't sent didOpen yet (or has already sent didClose).
         expect(await stub.callRequest("languages.provideHover", requestParams())).toBeNull();
 
         openDoc(ctx);
@@ -266,9 +266,9 @@ describe("LanguagesNamespace — languages.provideHover", () => {
             version: 2,
             changes: [{ range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } }, text: "x" }],
         });
-        // Устарел: ядро уже ушло на v2.
+        // Stale: the core has already moved on to v2.
         expect(await stub.callRequest("languages.provideHover", requestParams({ version: 1 }))).toBeNull();
-        // Впереди зеркала: правки v3 ещё не доехали — нарушение порядка, в stderr.
+        // Ahead of the mirror: the v3 edits haven't arrived — an ordering violation, logged to stderr.
         const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
         try {
             expect(await stub.callRequest("languages.provideHover", requestParams({ version: 3 }))).toBeNull();

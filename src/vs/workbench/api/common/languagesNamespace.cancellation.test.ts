@@ -36,7 +36,7 @@ function makeCtx(rpc: SubprocessRpc): IVscodeHostContext {
 type Languages = typeof vscode.languages;
 type ProviderCall = (token: vscode.CancellationToken) => unknown;
 
-/** `prepare` — запросы, без которых целевой не к чему применить: resolve ищет пункт в кэше предыдущего ответа. */
+/** `prepare`: requests without which the target has nothing to act on — resolve looks the item up in the previous response's cache. */
 interface ICase {
     readonly name: string;
     readonly method: string;
@@ -44,7 +44,7 @@ interface ICase {
     readonly params: (prepared: unknown) => unknown;
     readonly prepare?: (request: (method: string, params: unknown) => Promise<unknown>) => Promise<unknown>;
     readonly failure: string;
-    /** Отказ провайдера уходит хосту исключением, а не пустым ответом (семантические токены). */
+    /** The provider's refusal reaches the host as an exception, not an empty answer (semantic tokens). */
     readonly rethrows?: boolean;
 }
 
@@ -185,7 +185,7 @@ const CASES: readonly ICase[] = [
                 prepareRename: (_d, _p, t) => call(t) as never,
             }),
         params: () => POS,
-        // Отказ prepareRename — ответ «здесь нельзя», а не сбой: в stderr не пишется.
+        // A prepareRename refusal is a "can't rename here" answer, not a failure: nothing goes to stderr.
         failure: "",
     },
     {
@@ -308,8 +308,8 @@ describe("LanguagesNamespace — сбой провайдера в stderr", () =>
             errors = [];
             const { stub, languages, owner } = makeStubCtx();
             const failure = new Error(`boom in ${c.name}`);
-            // Владелец выставлен только на время регистрации (как делает оверлей);
-            // сбой случается позже, вне runAs, — id берётся из записи регистрации.
+            // The owner is set only during registration (as the overlay does);
+            // the failure happens later, outside runAs — the id comes from the registration record.
             owner.runAs("pub.owned", () => {
                 c.register(languages, () => {
                     throw failure;
@@ -353,7 +353,7 @@ describe("LanguagesNamespace — сбой провайдера в stderr", () =>
 });
 
 describe("LanguagesNamespace — отмена останавливает обход цепочки провайдеров", () => {
-    /** Inline — в своём тесте. */
+    /** Inline completions have their own test. */
     const CHAINS = CASES.filter((c) => c.method === "languages.provideCompletionItems" || c.name === "folding");
 
     it("после отмены следующий провайдер не опрашивается", async () => {

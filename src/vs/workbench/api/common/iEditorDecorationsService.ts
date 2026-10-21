@@ -1,8 +1,8 @@
 import type { IGutterChangeDecoration } from "../../../editor/common/model/iGutterChangeDecoration.ts";
 
-/** Цвета приходят уже резолвнутыми (packed-RGB): тему резолвит хост через {@link IThemeColorResolver}. */
+/** Colors arrive already resolved (packed RGB): the host resolves the theme via {@link IThemeColorResolver}. */
 export interface IEditorDecorationsService {
-    /** Полный набор для ресурса по всем его редакторам; пустой массив снимает. `uri` — `uri.toString()`, не путь. */
+    /** Full set for the resource across all its editors; an empty array clears. `uri` is `uri.toString()`, not a path. */
     setGutterChangeDecorations(uri: string, decorations: readonly IGutterChangeDecoration[]): void;
 }
 

@@ -1,13 +1,13 @@
 import type { IDisposable } from "../../../base/common/lifecycle.ts";
 
-/** Порт: мост команд без зависимости runtime'а расширений на слой Workbench. */
+/** Port: command bridge that keeps the extension runtime independent of the Workbench layer. */
 export interface ICommandService {
-    /** Бросает, если команды нет: так reject доходит до субпроцесса. */
+    /** Throws if the command is missing, so the rejection reaches the subprocess. */
     execute(id: string, args: readonly unknown[]): unknown;
 
     /**
-     * Без `title` команда исполнима по id, но в палитре не видна. `category` —
-     * префикс подписи в палитре («Java: Clean Workspace»), в заголовок не входит.
+     * Without `title` the command runs by id but is hidden from the palette. `category` is
+     * the label prefix in the palette ("Java: Clean Workspace"), not part of the title.
      */
     registerProxy(
         id: string,

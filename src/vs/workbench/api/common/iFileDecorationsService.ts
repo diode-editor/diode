@@ -1,6 +1,6 @@
-/** Цвета уже резолвнуты хостом (packed-RGB) через {@link IThemeColorResolver}. */
+/** Colors are already resolved by the host (packed RGB) via {@link IThemeColorResolver}. */
 export interface IFileDecorationsService {
-    /** По абсолютному пути; полный набор — пустой массив снимает все. */
+    /** By absolute path; full set: an empty array clears all. */
     setFileDecorations(entries: readonly { path: string; color?: number; badge?: string; propagate?: boolean }[]): void;
 }
 

@@ -50,7 +50,7 @@ describe("LanguagesNamespace", () => {
             provider,
             "=",
             ".",
-            "", // пустой символ триггером не бывает — отбрасывается
+            "", // an empty character is never a trigger — dropped
         );
         expect(stub.notifies.filter((n) => n.method.startsWith("languages."))).toEqual([
             {
@@ -92,7 +92,7 @@ describe("LanguagesNamespace", () => {
             COMPLETION_PARAMS,
         )) as ICoreCompletionResult[];
 
-        // Провайдер ini (handle 1) не прислан — его не спрашивают.
+        // The ini provider (handle 1) wasn't sent, so it isn't asked.
         expect(result.items).toHaveLength(1);
         expect(result.items[0].label).toBe("indent_style");
         expect(result.items[0].insertText).toBe("indent_style");
@@ -127,7 +127,7 @@ describe("LanguagesNamespace", () => {
         expect(results[0].items).toHaveLength(1);
         expect(results[0].items[0].insertText).toBe("root = true");
         expect(results[0].items[0].range).toEqual({ start: { line: 0, character: 0 }, end: { line: 0, character: 3 } });
-        // Сбойный (0), неизвестный (7) и чужой формы handle — пустые результаты.
+        // Failing (0), unknown (7) and wrong-shaped handles give empty results.
         expect(results.slice(1)).toEqual([
             { items: [], isIncomplete: false },
             { items: [], isIncomplete: false },
@@ -160,15 +160,15 @@ describe("LanguagesNamespace", () => {
                 range: { replacing: new Range(0, 0, 0, 1), inserting: new Range(0, 0, 0, 0) },
                 command: { command: "c", arguments: [1] },
             },
-            {}, // без label → отбрасывается
-            { label: "" }, // пустой label → отбрасывается
+            {}, // no label → dropped
+            { label: "" }, // empty label → dropped
             {
-                // insertText/documentation-объекты без value → fallback; не-Range range → undefined
+                // insertText/documentation objects without value → fallback; a non-Range range → undefined
                 label: "d",
                 insertText: {},
                 documentation: {},
                 range: { foo: 1 },
-                command: { command: "" }, // пустая команда отбрасывается
+                command: { command: "" }, // an empty command is dropped
             },
             { label: "e", range: null },
         ];
@@ -202,10 +202,10 @@ describe("LanguagesNamespace", () => {
         const item = new CompletionItem("root");
         item.documentation = "root docs";
         languages.registerCompletionItemProvider(
-            { pattern: "**/.editorconfig" }, // матч по пути, без language
+            { pattern: "**/.editorconfig" }, // matches by path, no language
             { provideCompletionItems: () => [item] } as never,
         );
-        // Параметры только с ресурсом и версией — остальные поля резолвятся дефолтами.
+        // Params with only the resource and version: the other fields resolve to defaults.
         const [result] = (await stub.callRequest("languages.provideCompletionItems", {
             handles: [0],
             uri: Uri.file("/proj/.editorconfig").toString(),
@@ -213,7 +213,7 @@ describe("LanguagesNamespace", () => {
         })) as ICoreCompletionResult[];
         expect(result.items).toHaveLength(1);
         expect(result.items[0].documentation).toBe("root docs");
-        // languageId не пришёл — язык зеркала не затирается.
+        // No languageId: the mirror's language is not overwritten.
         expect(ctx.registry.get(Uri.parse(COMPLETION_PARAMS.uri))?.languageId).toBe("editorconfig");
     });
 
@@ -249,7 +249,7 @@ describe("LanguagesNamespace", () => {
         ]);
 
         d1.dispose();
-        d1.dispose(); // повторный dispose безопасен
+        d1.dispose(); // a repeated dispose is safe
         expect(stub.notifies.filter((n) => n.method === "languages.unregister").map((n) => n.params)).toEqual([
             { handle: 0 },
         ]);
@@ -264,14 +264,14 @@ describe("LanguagesNamespace", () => {
             provideFoldingRanges: () => null,
         } as never);
         languages.registerFoldingRangeProvider(["csharp"], {
-            // Валидный + битый start + битый end — оба битых отсеются сериализатором.
+            // Valid + broken start + broken end: the serializer weeds out both broken ones.
             provideFoldingRanges: () => [
                 { start: 1, end: 2 },
                 { start: "x", end: 2 },
                 { start: 3, end: "x" },
             ],
         } as never);
-        // Запрос без languageId — ветка дефолта: язык остаётся от didOpen.
+        // A request without languageId takes the default branch: the language stays from didOpen.
         openDoc(ctx, PROGRAM_CS, "csharp", "");
         const result = await stub.callRequest("languages.provideFoldingRanges", {
             handles: [0, 1],
@@ -303,9 +303,9 @@ describe("LanguagesNamespace", () => {
     });
 
     it("provide*-запрос не пишет в зеркало: провайдер — только после didOpen и по версии запроса, без событий", async () => {
-        // Регрессия LSP-клиента: провайдер звался до didOpen («Unexpected resource»), а запрос
-        // с обогнавшим текстом писал в реестр мимо событий, и следующий didChange ронял tsserver
-        // («reading 'charCount'»). Документ — только из зеркала.
+        // LSP client regression: the provider was called before didOpen ("Unexpected resource"), and a request
+        // with text running ahead wrote to the registry bypassing events, so the next didChange crashed tsserver
+        // ("reading 'charCount'"). The document comes only from the mirror.
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
         const log: string[] = [];
@@ -336,7 +336,7 @@ describe("LanguagesNamespace", () => {
         await request(1);
         expect(log).toEqual(["open:a", "provider:a"]);
 
-        // Правка хоста — диапазон по старому тексту; отставший от неё запрос провайдера не будит.
+        // A host edit has a range over the old text; a request lagging behind it doesn't wake the provider.
         log.length = 0;
         ctx.documentSync.change({
             uri: PROGRAM_CS,
@@ -357,7 +357,7 @@ describe("LanguagesNamespace", () => {
                 { start: 5, end: 9 },
             ],
         } as never);
-        // Провайдер, которого ядро не прислало, не должен сработать.
+        // A provider the core didn't send must not fire.
         languages.registerFoldingRangeProvider(["typescript"], {
             provideFoldingRanges: () => [{ start: 100, end: 200 }],
         } as never);
@@ -422,7 +422,7 @@ describe("LanguagesNamespace", () => {
             expect(await request(Uri.file("/proj/Other.cs").toString(), 1)).toEqual([]);
             expect(await request(PROGRAM_CS, 1)).toEqual([]);
             expect(await request(PROGRAM_CS, 3)).toEqual([]);
-            // Обогнавший зеркало — нарушение порядка, в stderr.
+            // Running ahead of the mirror is an ordering violation, logged to stderr.
             expect(warn).toHaveBeenCalledTimes(1);
         } finally {
             warn.mockRestore();

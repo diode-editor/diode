@@ -10,7 +10,7 @@ import { ExtensionOwner, type IVscodeHostContext } from "./vscodeHostContext.ts"
 import { CodeAction, CodeActionKind, CompletionItem, Range, TextEdit } from "./vscodeTypes.ts";
 import { WorkspaceConfigStore } from "./workspaceConfigStore.ts";
 
-// Ответ провайдера хост не перепроверяет: форму провода гарантирует сериализатор субпроцесса.
+// The host doesn't re-validate the provider's answer: the subprocess serializer guarantees the wire shape.
 
 const URI = "file:///proj/main.ts";
 const TARGET = "file:///proj/target.ts";
@@ -34,7 +34,7 @@ function setup(): { languages: typeof vscode.languages; stub: IStubRpc } {
 const DOC = { uri: URI, languageId: "typescript", version: 1 };
 const POSITION = { ...DOC, line: 0, character: 6 };
 
-/** Диапазон расширения с испорченной координатой (`Position` клампит к нулю, но `NaN` пропускает). */
+/** An extension range with a corrupted coordinate (`Position` clamps to zero but lets `NaN` through). */
 function rangeWith(line: number): Range {
     return new Range(line, 1, 0, 2);
 }

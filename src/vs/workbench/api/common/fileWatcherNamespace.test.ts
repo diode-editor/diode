@@ -116,7 +116,7 @@ describe("SubprocessFileSystemWatchers", () => {
         watcher.onDidChange((uri) => seen.push(uri.fsPath));
 
         watcher.dispose();
-        watcher.dispose(); // повторный — не должен слать хосту второй раз
+        watcher.dispose(); // a repeated one must not send to the host a second time
         watchers.dispatch({ id: 1, events: [{ type: "changed", uri: Uri.file("/repo/a.ts").toString() }] });
 
         expect(transport.disposed).toEqual([1]);

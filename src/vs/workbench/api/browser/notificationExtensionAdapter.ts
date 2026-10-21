@@ -2,7 +2,7 @@ import type { NotificationService } from "../../services/notification/browser/no
 import type { INotificationRequest, INotificationSink } from "../common/iExtensionWindowSinks.ts";
 import type { IWireMessageItem } from "../common/wireTypes.ts";
 
-/** Гасить по смерти субпроцесса можно только свои показы — сообщения ядра к расширению отношения не имеют. */
+/** On subprocess death only our own shows may be dismissed; core messages are unrelated to the extension. */
 export class NotificationExtensionAdapter implements INotificationSink {
     private readonly openMessages = new Map<number, number>();
 
@@ -18,25 +18,25 @@ export class NotificationExtensionAdapter implements INotificationSink {
             closeAffordance: findCloseAffordance(request.items),
         });
         this.openMessages.set(request.handle, handle.id);
-        // Без try/finally: `answered` только резолвится — сервис его не отклоняет,
-        // так что «забыть показ» достаточно сделать здесь, после ответа.
+        // No try/finally: `answered` only resolves (the service never rejects it),
+        // so "forget the show" can simply happen here, after the answer.
         const answer = await handle.answered;
-        // Stryker disable next-line CallExpression: гигиена карты. Ненаблюдаемо: адреса показов монотонны, так что «погаси» по забытому handle не нашло бы в сервисе ни своего показа, ни чужого
+        // Stryker disable next-line CallExpression: map hygiene. Unobservable: show handles are monotonic, so a "dismiss" by a forgotten handle would find neither our own show nor anyone else's in the service
         this.openMessages.delete(request.handle);
         return answer;
     }
 
     public cancel(handle: number): void {
         const id = this.openMessages.get(handle);
-        // Stryker disable next-line ConditionalExpression: без гарда `dismiss(undefined)` не найдёт показа и тоже ничего не сделает — ветки неотличимы; гард стоит ради типа
+        // Stryker disable next-line ConditionalExpression: without the guard `dismiss(undefined)` finds no show and does nothing either; the branches are indistinguishable, the guard is there for the type
         if (id === undefined) return;
-        // Stryker disable next-line CallExpression: та же гигиена карты, что в showMessage
+        // Stryker disable next-line CallExpression: the same map hygiene as in showMessage
         this.openMessages.delete(handle);
         this.notifications.dismiss(id);
     }
 }
 
-/** Первая помеченная `isCloseAffordance` — как в эталоне. */
+/** The first one marked `isCloseAffordance`, as upstream. */
 export function findCloseAffordance(items: readonly IWireMessageItem[]): number | undefined {
     const index = items.findIndex((item) => item.isCloseAffordance);
     return index < 0 ? undefined : index;

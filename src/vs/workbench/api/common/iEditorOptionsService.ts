@@ -9,31 +9,31 @@ export interface IEditorOptionsPatch {
 }
 
 /**
- * Отдельно от {@link IActiveEditorMeta}: смена выделения — не смена активного
- * редактора, слушатели `onDidChangeActiveTextEditor` дёргаться не должны.
+ * Separate from {@link IActiveEditorMeta}: a selection change is not an active editor
+ * change, so `onDidChangeActiveTextEditor` listeners must not fire.
  */
 export interface IActiveEditorSelections {
     readonly uri: string;
-    /** Первое — первичное. */
+    /** The first one is primary. */
     readonly selections: readonly IWireSelection[];
-    /** Стабильный id группы: субпроцесс адресует per-editor кэш. */
+    /** Stable group id: the subprocess keys its per-editor cache by it. */
     readonly groupId?: number;
-    /** Нет, если жест не размечен: undo/redo, переход по find (`cursorChangeSource.ts`). */
+    /** Absent if the gesture is untagged: undo/redo, find navigation (`cursorChangeSource.ts`). */
     readonly kind?: WireSelectionChangeKind;
 }
 
 export interface IActiveEditorMeta {
-    /** `null` — активного редактора нет. */
+    /** `null`: no active editor. */
     readonly uri: string | null;
     readonly languageId: string | null;
     readonly isDirty: boolean;
-    /** id из SUPPORTED_ENCODINGS. */
+    /** id from SUPPORTED_ENCODINGS. */
     readonly encoding: string | null;
     /** `vscode.EndOfLine`: 1=LF, 2=CRLF. */
     readonly eol: 1 | 2 | null;
     readonly selection: IWireSelection | null;
     readonly groupId?: number;
-    /** 1..N, производный. */
+    /** 1..N, derived. */
     readonly viewColumn?: number;
 }
 
@@ -47,22 +47,22 @@ export interface IEditorOptionsService {
     getActiveEditorFilePath(): string | null;
     getActiveEditorMeta(): IActiveEditorMeta;
     onActiveEditorChanged(cb: (meta: IActiveEditorMeta) => void): IDisposable;
-    /** События коалесятся в пределах тика: многошаговая операция даёт одну нотификацию. */
+    /** Events coalesce within a tick: a multi-step operation yields one notification. */
     onActiveEditorSelectionChanged(cb: (selections: IActiveEditorSelections) => void): IDisposable;
-    /** No-op, если uri активного не совпадает с `uri`: редактор сменился, пока RPC ехал. */
+    /** No-op if the active uri differs from `uri`: the editor changed while the RPC was in flight. */
     setActiveEditorSelections(uri: string, selections: readonly IWireSelection[], groupId?: number): void;
-    /** Одним undoable-батчем; `false` — нет активного, uri не совпал или применять нечего. */
+    /** As one undoable batch; `false` if there is no active editor, the uri differs or nothing to apply. */
     applyActiveEditorEdits(uri: string, edits: readonly IWireEditorEdit[]): boolean;
     /**
-     * Одним шагом отмены. All-or-nothing: не прошёл валидацию хоть один ресурс —
-     * не применяется ничего, `false`. Пустой список — тоже `false`: успех пустого
-     * edit'а субпроцесс отвечает сам. `isRefactoring` — затронутые грязные буферы
-     * сохраняются по `files.refactoring.autoSave`.
+     * As one undo step. All-or-nothing: if any resource fails validation, nothing is
+     * applied and the result is `false`. An empty list is also `false`: the subprocess
+     * answers success for an empty edit itself. `isRefactoring`: affected dirty buffers
+     * are saved per `files.refactoring.autoSave`.
      */
     applyWorkspaceEdit(ops: readonly IWireWorkspaceEditOp[], options?: { isRefactoring?: boolean }): Promise<boolean>;
 
     saveAll(includeUntitled: boolean): Promise<boolean>;
 
-    /** `null` — не открыт или не сохранился. */
+    /** `null`: not open or not saved. */
     save(uri: string): Promise<string | null>;
 }

@@ -52,7 +52,7 @@ describe("ProgressStatusBarAdapter", () => {
         adapter.end(1);
         expect(texts()).toEqual([]);
 
-        // Таймер убит: тик не воскрешает запись и не падает.
+        // The timer is killed: a tick neither revives the entry nor throws.
         vi.advanceTimersByTime(500);
         expect(texts()).toEqual([]);
 

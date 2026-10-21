@@ -37,11 +37,11 @@ import {
 } from "./vscodeTypes.ts";
 
 const RANGE = { start: { line: 0, character: 1 }, end: { line: 0, character: 2 } };
-/** Та же форма чужим утиным объектом (другой бандл `vscode`-типов). */
+/** The same shape as a foreign duck-typed object (another bundle of `vscode` types). */
 const FOREIGN = { start: { line: 0, character: 1 }, end: { line: 0, character: 2 } };
 const REVERSED = { start: { line: 0, character: 2 }, end: { line: 0, character: 1 } };
 const SHAPELESS = { line: 0 };
-/** `Position` клампит к нулю, но `NaN` пропускает. */
+/** `Position` clamps to zero but lets `NaN` through. */
 const NAN_RANGE = new Range(NaN, 1, 0, 2);
 const URI_A = Uri.file("/proj/a.ts");
 
@@ -407,7 +407,7 @@ describe("правки текста", () => {
     it("serializeTextEdit: чужая форма — null", () => {
         expect(serializeTextEdit(null)).toBeNull();
         expect(serializeTextEdit("edit")).toBeNull();
-        // Функция с полями правки — не объект правки, хоть поля у неё и читаются.
+        // A function with edit fields is not an edit object, even though its fields are readable.
         expect(serializeTextEdit(Object.assign(() => undefined, { range: FOREIGN, newText: "x" }))).toBeNull();
         expect(serializeTextEdit({ range: SHAPELESS, newText: "x" })).toBeNull();
         expect(serializeTextEdit({ range: FOREIGN, newText: 1 })).toBeNull();
@@ -425,7 +425,7 @@ describe("правки текста", () => {
 });
 
 describe("serializeWorkspaceEdit — битые диапазоны", () => {
-    /** Поле `range` у TextEdit публично и записываемо. */
+    /** TextEdit's `range` field is public and writable. */
     function brokenEdit(range: unknown): TextEdit {
         const edit = new TextEdit(new Range(0, 0, 0, 0), "bad");
         (edit as { range: unknown }).range = range;
@@ -491,7 +491,7 @@ describe("toVscodeSignatureHelp", () => {
         expect(first.activeParameter).toBe(1);
         expect(first.parameters[0]).toBeInstanceOf(ParameterInformation);
         expect(first.parameters[0]).toMatchObject({ label: "name", documentation: "кого" });
-        // Своя изменяемая копия: readonly-кортеж ядра провайдеру не отдаём.
+        // An own mutable copy: the core's readonly tuple is not handed to the provider.
         expect(first.parameters[1].label).toEqual([6, 10]);
         expect(first.parameters[1].label).not.toBe(offsets);
         expect(first.parameters[1].documentation).toBeUndefined();

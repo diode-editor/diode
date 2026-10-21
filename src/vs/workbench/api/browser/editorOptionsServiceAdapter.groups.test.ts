@@ -77,9 +77,9 @@ describe("EditorOptionsServiceAdapter — адресация по группам
         const before = editor.viewState.selections[0];
         const selections = [{ anchorLine: 1, anchorCharacter: 1, activeLine: 1, activeCharacter: 1 }];
 
-        // Группа умерла между запросом расширения и обработкой.
+        // The group died between the extension's request and its handling.
         adapter.setActiveEditorSelections(editor.uri.toString(), selections, 999);
-        // В живой группе нет вкладки с этим uri.
+        // The live group has no tab with this uri.
         adapter.setActiveEditorSelections(
             Uri.file(ws.path("b.ts")).toString(),
             selections,
@@ -93,7 +93,7 @@ describe("EditorOptionsServiceAdapter — адресация по группам
         service.openFile(ws.path("a.ts"));
         const background = service.getActiveEditor()!;
         service.splitActiveGroup();
-        service.openFile(ws.path("b.ts")); // активная вкладка второй группы — b.ts
+        service.openFile(ws.path("b.ts")); // the second group's active tab is b.ts
         const edit = { range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } }, text: "x" };
 
         expect(adapter.applyActiveEditorEdits(background.uri.toString(), [edit])).toBe(true);

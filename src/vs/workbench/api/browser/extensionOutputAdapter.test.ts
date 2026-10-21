@@ -10,7 +10,7 @@ import { OutputService } from "../../services/output/common/outputService.ts";
 
 import { ExtensionOutputAdapter } from "./extensionOutputAdapter.ts";
 
-// Настоящие реестр, лог и OutputService: предмет теста — связка.
+// Real registry, log and OutputService: the wiring is what is under test.
 
 function makeAdapter() {
     const logService = new LogService();
@@ -25,7 +25,7 @@ function makeAdapter() {
     return { adapter, registry, history, outputService, reveals };
 }
 
-/** Форма id канала расширения: `extensions.<id расширения>.<slug имени>`. */
+/** Shape of an extension channel id: `extensions.<extension id>.<name slug>`. */
 const CH = "extensions.diode.diode-lsp-typescript.typescript-diode";
 const LABEL = "TypeScript (Diode)";
 
@@ -70,7 +70,7 @@ describe("ExtensionOutputAdapter", () => {
     it("show открывает панель и переключает активный канал; работает и до первой строки", () => {
         const { adapter, registry, outputService, reveals } = makeAdapter();
 
-        // show до первой строки: канал регистрируется лениво прямо здесь.
+        // show before the first line: the channel is registered lazily right here.
         adapter.show(CH, LABEL);
         expect(reveals).toHaveLength(1);
         expect(registry.getChannel(CH)?.label).toBe(LABEL);

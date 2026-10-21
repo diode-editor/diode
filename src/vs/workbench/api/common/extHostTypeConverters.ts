@@ -1,7 +1,7 @@
 /**
- * Калька upstream `extHostTypeConverters.ts`. Хост ответы субпроцесса не
- * перепроверяет — форму гарантирует этот модуль; объекты расширения проверяются
- * утино: поля записываемы, а сам объект мог прийти из чужого бандла.
+ * Mirrors upstream `extHostTypeConverters.ts`. The host does not re-validate subprocess
+ * responses: this module guarantees the shape; extension objects are checked by duck
+ * typing: fields are writable, and the object itself may come from a foreign bundle.
  */
 import type * as vscode from "vscode";
 
@@ -48,8 +48,8 @@ function isFiniteNumber(raw: unknown): raw is number {
 }
 
 /**
- * Перевёрнутый диапазон разворачивается: `start <= end` держит конструктор
- * `Range`, а утиный объект — нет. `Position` клампит к нулю, но `NaN` пропускает.
+ * An inverted range is flipped: the `Range` constructor keeps `start <= end`,
+ * a duck-typed object does not. `Position` clamps to zero but lets `NaN` through.
  */
 export function rangeFrom(raw: unknown): IRange | null {
     if (typeof raw !== "object" || raw === null) return null;
@@ -67,7 +67,7 @@ export function rangeFrom(raw: unknown): IRange | null {
     }
     const from = createPosition(start.line, start.character);
     const to = createPosition(end.line, end.character);
-    // Stryker disable next-line EqualityOperator: на равных границах обе ветки дают один и тот же диапазон
+    // Stryker disable next-line EqualityOperator: on equal bounds both branches produce the same range
     return comparePositions(from, to) <= 0 ? { start: from, end: to } : { start: to, end: from };
 }
 
@@ -75,7 +75,7 @@ export function toVscodeRange(range: IRange): Range {
     return new Range(range.start.line, range.start.character, range.end.line, range.end.character);
 }
 
-/** Битый диапазон выпадает — как его отбросил бы и разбор декораций на хосте. */
+/** A broken range is dropped, just as the host's decoration parsing would drop it. */
 export function normalizeDecorationRanges(
     rangesOrOptions: readonly vscode.Range[] | readonly vscode.DecorationOptions[],
 ): IRange[] {
@@ -141,9 +141,9 @@ export function serializeDecorationRenderOptions(options: unknown): SerializedDe
     return result;
 }
 
-/** Слепой `String()` дал бы здесь «[object Object]» в маркере. */
+/** A blind `String()` would put "[object Object]" into the marker here. */
 function messageText(message: unknown): string {
-    // Stryker disable next-line ConditionalExpression,StringLiteral: эквивалентный — без этой ветки строка уходит в последний `toString()`, а он у строки возвращает её саму; ветка — для типов и читателя
+    // Stryker disable next-line ConditionalExpression,StringLiteral: equivalent — without this branch the string goes to the final `toString()`, which returns the string itself; the branch is for the types and the reader
     if (typeof message === "string") return message;
     if (message === undefined || message === null) return "";
     if (typeof message === "object") {
@@ -153,14 +153,14 @@ function messageText(message: unknown): string {
     return (message as { toString(): string }).toString();
 }
 
-/** Ветки на строку не нужно: у неё `toString()` — она сама. */
+/** No branch for strings is needed: their `toString()` is the string itself. */
 function uriText(uri: unknown): string {
     return (uri as { toString(): string }).toString();
 }
 
 /**
- * Без `range` — начало файла; битый диапазон → `null`: маркер выпадает, как
- * в разборе хоста, а не роняет `collection.set` расширения.
+ * No `range` means the start of the file; a broken range → `null`: the marker is dropped, as
+ * in the host's parsing, instead of crashing the extension's `collection.set`.
  */
 export function toWireMarker(diag: unknown): WireMarker | null {
     const d = diag as {
@@ -172,7 +172,7 @@ export function toWireMarker(diag: unknown): WireMarker | null {
     };
     const range = d.range == null ? createRange(0, 0, 0, 0) : rangeFrom(d.range);
     if (range === null) return null;
-    // rich-форма `{ value, target }` (так шлёт eslint): target TUI некуда открывать.
+    // The rich `{ value, target }` form (eslint sends it): the TUI has nowhere to open target.
     const rawCode = typeof d.code === "object" && d.code !== null ? (d.code as { value?: unknown }).value : d.code;
     const code = typeof rawCode === "string" || typeof rawCode === "number" ? String(rawCode) : undefined;
     return {
@@ -184,7 +184,7 @@ export function toWireMarker(diag: unknown): WireMarker | null {
     };
 }
 
-/** Как `Diagnostic.to` эталона. */
+/** Like upstream `Diagnostic.to`. */
 export function toVscodeDiagnostic(marker: WireMarker): vscode.Diagnostic {
     const diag = new Diagnostic(toVscodeRange(marker.range), marker.message, marker.severity);
     diag.code = marker.code;
@@ -210,11 +210,11 @@ function serializeLocation(rawUri: unknown, rawRange: unknown): ICoreDefinitionL
 }
 
 /**
- * Пропущенный placeholder добирается текстом диапазона (как обещает эталон):
- * документ есть только у субпроцесса.
+ * A missing placeholder is filled from the range text (as upstream promises):
+ * only the subprocess has the document.
  */
 export function serializeRenamePrepare(raw: unknown, doc: ExtHostTextDocument): WireRenamePrepare | null {
-    // Формы не проверяем: `null`/`undefined` отсекает вызывающий, примитив — разбор диапазона.
+    // The shape is not checked: the caller rejects `null`/`undefined`, range parsing rejects primitives.
     const holder = raw as { range?: unknown; placeholder?: unknown };
     const rangeSource = holder.range === undefined ? raw : holder.range;
     const range = rangeFrom(rangeSource);
@@ -223,11 +223,11 @@ export function serializeRenamePrepare(raw: unknown, doc: ExtHostTextDocument): 
         return { placeholder: holder.placeholder };
     }
     const text = doc.getText(toVscodeRange(range));
-    // Пустой диапазон: слово под кареткой доберёт ядро.
+    // Empty range: the core fills in the word under the cursor.
     return text === "" ? null : { placeholder: text };
 }
 
-/** Разметку не трогаем — её стрипает UI-потребитель. */
+/** Markup is left as is: the UI consumer strips it. */
 export function serializeHoverContents(raw: unknown): string[] {
     const blocks: string[] = [];
     for (const block of Array.isArray(raw) ? raw : [raw]) {
@@ -242,14 +242,14 @@ function readHoverBlock(block: unknown): string | null {
     if (block === null) return null;
     const b = block as { value?: unknown; language?: unknown };
     if (typeof b.value !== "string") return null;
-    // Legacy `MarkedString` — в fenced, чтобы UI отличал код от прозы.
+    // Legacy `MarkedString` goes into a fence so the UI can tell code from prose.
     if (typeof b.language !== "string" || b.language === "") return b.value;
     return `\`\`\`${b.language}\n${b.value}\n\`\`\``;
 }
 
 /**
- * Разбор строгий: битая сигнатура или параметр бракуют весь ответ — выброс
- * одного элемента молча сдвинул бы индексы `activeSignature`/`activeParameter`.
+ * Parsing is strict: a broken signature or parameter rejects the whole response, since
+ * dropping one element would silently shift the `activeSignature`/`activeParameter` indices.
  */
 export function serializeSignatureHelp(raw: unknown): ICoreSignatureHelp | null {
     if (typeof raw !== "object" || raw === null) return null;
@@ -266,7 +266,7 @@ export function serializeSignatureHelp(raw: unknown): ICoreSignatureHelp | null 
     return {
         signatures,
         activeSignature: clampSignatureIndex(help.activeSignature, signatures.length),
-        // `-1` — легальное «активного параметра нет», нижней границы нет.
+        // `-1` is a legal "no active parameter"; there is no lower bound.
         activeParameter: isFiniteNumber(help.activeParameter) ? help.activeParameter : 0,
     };
 }
@@ -274,7 +274,7 @@ export function serializeSignatureHelp(raw: unknown): ICoreSignatureHelp | null 
 function clampSignatureIndex(raw: unknown, length: number): number {
     if (!Number.isInteger(raw)) return 0;
     const index = raw as number;
-    // Stryker disable next-line EqualityOperator: на index === 0 обе границы дают ноль — тот же индекс, что и без клампа
+    // Stryker disable next-line EqualityOperator: at index === 0 both bounds give zero — the same index as without the clamp
     if (index < 0 || index >= length) return 0;
     return index;
 }
@@ -312,14 +312,14 @@ function serializeParameter(raw: unknown): ICoreParameterInfo | null {
     return { label, ...(documentation === undefined || documentation === "" ? {} : { documentation }) };
 }
 
-/** Отдельная функция, чтобы избыточный в рантайме `typeof`-конъюнкт гасился в одном месте. */
+/** A separate function so the runtime-redundant `typeof` conjunct is suppressed in one place. */
 function isDuckObject(raw: unknown): boolean {
     if (raw === null) return false;
-    // Stryker disable next-line ConditionalExpression: см. выше — примитив отсеют проверки полей у вызывающих
+    // Stryker disable next-line ConditionalExpression: see above — the callers' field checks filter out primitives
     return typeof raw === "object";
 }
 
-/** Офсеты — полуинтервал `[start, end)`. */
+/** Offsets are a half-open interval `[start, end)`. */
 function serializeParameterLabel(raw: unknown): string | readonly [number, number] | null {
     if (typeof raw === "string") return raw;
     if (!Array.isArray(raw) || raw.length !== 2) return null;
@@ -328,7 +328,7 @@ function serializeParameterLabel(raw: unknown): string | readonly [number, numbe
     return [start, end];
 }
 
-/** Форму не проверяем: это эхо подсказки самого ядра. */
+/** The shape is not checked: this is an echo of the core's own hint. */
 export function toVscodeSignatureHelp(help: ICoreSignatureHelp): SignatureHelp {
     const result = new SignatureHelp();
     result.signatures = help.signatures.map(toVscodeSignature);
@@ -370,20 +370,20 @@ function readLabelDetails(item: vscode.CompletionItem): { detail?: string; descr
 }
 
 /**
- * Сниппет-сессий нет: это страховка, чтобы `${1:name}` не попал в буфер,
- * а не поддержка сниппетов.
+ * There are no snippet sessions: this is a safeguard so that `${1:name}` does not end up
+ * in the buffer, not snippet support.
  */
 export function stripSnippetPlaceholders(value: string): string {
-    // Экранированный `\$` прячем ПЕРВЫМ: иначе `\$5` разбирается как плейсхолдер
-    // `$5`, и от него остаётся осиротевший обратный слэш.
+    // The escaped `\$` is hidden FIRST: otherwise `\$5` parses as the placeholder
+    // `$5`, leaving an orphaned backslash behind.
     const ESCAPED_DOLLAR = "\u0000";
     return (
         value
             .replace(/\\\$/g, ESCAPED_DOLLAR)
-            // `split(",", 1).join("")` вместо `[0]`: даёт первый вариант без ветки
-            // «а вдруг массив пуст» (её не бывает, а покрытие требовало бы теста).
+            // `split(",", 1).join("")` instead of `[0]`: yields the first choice without an
+            // "array might be empty" branch (it never is, and covering it would need a test).
             .replace(/\$\{(\d+)\|([^|]*)\|\}/g, (_all, _index: string, choices: string) =>
-                // Stryker disable next-line StringLiteral: эквивалентный разделитель `join` — `split(…, 1)` всегда даёт ровно один элемент, склеивать нечего; подмена разделителя `split` закрыта тестом «${1|foo,bar|}»
+                // Stryker disable next-line StringLiteral: equivalent `join` separator — `split(…, 1)` always yields exactly one element, nothing to join; mutating the `split` separator is covered by the "${1|foo,bar|}" test
                 choices.split(",", 1).join(""),
             )
             .replace(/\$\{\d+:([^}]*)\}/g, "$1")
@@ -415,7 +415,7 @@ function readDocumentationText(doc: unknown): string | undefined {
     return undefined;
 }
 
-/** По форме, а не `instanceof`: `Range` чужого бандла — тоже диапазон. */
+/** By shape, not `instanceof`: a `Range` from a foreign bundle is a range too. */
 function readRange(item: vscode.CompletionItem): IRange | undefined {
     const raw = (item as { range?: unknown }).range;
     if (raw === undefined || raw === null) return undefined;
@@ -423,7 +423,7 @@ function readRange(item: vscode.CompletionItem): IRange | undefined {
     return rangeFrom(replacing === undefined ? raw : replacing) ?? undefined;
 }
 
-/** `id` — ключ элемента в кэше ответа, по нему host потом просит resolve. */
+/** `id` is the item key in the response cache; the host resolves the item by it later. */
 export function serializeCompletionItem(item: vscode.CompletionItem, id: string): ICoreCompletionItem | null {
     const label = readLabel(item);
     if (label === undefined || label === "") return null;
@@ -472,10 +472,10 @@ export function readAdditionalTextEdits(item: vscode.CompletionItem): IWireEdito
 }
 
 export function serializeInlineCompletionItem(item: unknown): ICoreInlineCompletionItem | null {
-    // Клауза typeof — защитная: не-объект без .insertText отсеет следующий
-    // гард (примитив со строковым insertText невозможен) — её мутанты
-    // эквивалентны. null отсекается по-настоящему (доступ к полю бросил бы).
-    // Stryker disable next-line ConditionalExpression: см. выше
+    // The typeof clause is defensive: a non-object without .insertText is filtered out by the next
+    // guard (a primitive with a string insertText is impossible), so its mutants
+    // are equivalent. null is rejected for real (the field access would throw).
+    // Stryker disable next-line ConditionalExpression: see above
     if (typeof item !== "object" || item === null) return null;
     const obj = item as { insertText?: unknown; filterText?: unknown; range?: unknown };
     let insertText: string;
@@ -506,11 +506,11 @@ export function serializeTextEdit(edit: unknown): IWireEditorEdit | null {
 export function serializeFoldingRange(range: vscode.FoldingRange): WireFoldingRange | null {
     const start = (range as { start?: unknown }).start;
     const end = (range as { end?: unknown }).end;
-    // Клауза typeof — для сужения типа: не-число и так не проходит
-    // `Number.isFinite`, так что её подмена на `false` эквивалентна.
-    // Stryker disable next-line ConditionalExpression: см. выше
+    // The typeof clause is for type narrowing: a non-number fails
+    // `Number.isFinite` anyway, so replacing it with `false` is equivalent.
+    // Stryker disable next-line ConditionalExpression: see above
     if (typeof start !== "number" || !Number.isFinite(start)) return null;
-    // Stryker disable next-line ConditionalExpression: см. выше
+    // Stryker disable next-line ConditionalExpression: see above
     if (typeof end !== "number" || !Number.isFinite(end)) return null;
     const kind = (range as { kind?: unknown }).kind;
     return {
@@ -521,8 +521,8 @@ export function serializeFoldingRange(range: vscode.FoldingRange): WireFoldingRa
 }
 
 /**
- * Как `SelectionRangeAdapter` эталона: ответ не по каждой позиции или ступень,
- * не содержащая предыдущую, бракуют весь ответ. Зацикленный `parent` обрывается на повторе.
+ * Like upstream `SelectionRangeAdapter`: a response that does not cover every position, or a step
+ * that does not contain the previous one, rejects the whole response. A cyclic `parent` is cut at the repeat.
  */
 export function serializeSelectionRanges(raw: unknown, positions: readonly IPosition[]): IRange[][] {
     if (!Array.isArray(raw) || raw.length !== positions.length) return [];
@@ -549,7 +549,7 @@ function containsRange(outer: IRange, inner: IRange): boolean {
     return comparePositions(outer.start, inner.start) <= 0 && comparePositions(inner.end, outer.end) <= 0;
 }
 
-/** Поля правки публичны и записываемы, а хост ответ will-save не перепроверяет. */
+/** Edit fields are public and writable, and the host does not re-validate the will-save response. */
 export function serializeWillSaveTextEdit(edit: TextEdit): WireTextEdit | null {
     if (edit.newEol !== undefined) {
         return { setEndOfLine: edit.newEol === EndOfLine.CRLF ? 2 : 1 };
@@ -557,7 +557,7 @@ export function serializeWillSaveTextEdit(edit: TextEdit): WireTextEdit | null {
     return serializeTextEdit(edit);
 }
 
-/** Сниппет-правка становится текстом (табстопов нет); чистая EOL-правка — `null`. */
+/** A snippet edit becomes text (no tab stops); a pure EOL edit becomes `null`. */
 function serializeWorkspaceTextEdit(edit: TextEdit | SnippetTextEdit, range: IRange): IWireEditorEdit | null {
     if (edit instanceof SnippetTextEdit) {
         return { range, text: stripSnippetPlaceholders(edit.snippet.value) };
@@ -567,9 +567,9 @@ function serializeWorkspaceTextEdit(edit: TextEdit | SnippetTextEdit, range: IRa
 }
 
 /**
- * Порядок операций дословный: «Move to a new file» создаёт файл и тут же пишет
- * в него. Операция, где битыми оказались ВСЕ правки, — отказ всего edit'а
- * (`null`), как отбил бы разбор хоста.
+ * The order of operations is kept verbatim: "Move to a new file" creates the file and writes
+ * to it right away. An operation where ALL edits turn out broken is a refusal of the whole edit
+ * (`null`), as the host's parsing would reject it.
  */
 export function serializeWorkspaceEdit(edit: WorkspaceEdit): IWireWorkspaceEditOp[] | null {
     const ops: IWireWorkspaceEditOp[] = [];

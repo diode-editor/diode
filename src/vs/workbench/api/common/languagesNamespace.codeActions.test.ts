@@ -52,7 +52,7 @@ function makeCtx(deps?: Partial<ICodeActionDeps>): {
         },
         ...deps,
     });
-    // Документ запросов открыт зеркалом (`editor.didOpen`): запросы текста не везут.
+    // The request document is opened by the mirror (`editor.didOpen`): requests carry no text.
     ctx.documentSync.open({ uri: URI, languageId: "python", version: 1, text: TEXT });
     return { ctx, stub, languages, appliedEdits, appliedMetadata, executed };
 }
@@ -92,7 +92,7 @@ describe("LanguagesNamespace — registerCodeActionsProvider", () => {
             { provideCodeActions: () => [] } as unknown as vscode.CodeActionProvider,
             {
                 providedCodeActionKinds: [
-                    // Мусорная запись без value — не считается и не роняет.
+                    // A garbage entry without a value is neither counted nor crashes.
                     {} as never,
                     new CodeActionKind("source.organizeImports"),
                     new CodeActionKind("quickfix"),
@@ -110,7 +110,7 @@ describe("LanguagesNamespace — registerCodeActionsProvider", () => {
         ]);
 
         first.dispose();
-        first.dispose(); // повторный dispose — no-op
+        first.dispose(); // a repeated dispose is a no-op
         expect(stub.notifies.filter((n) => n.method === "languages.unregister").map((n) => n.params)).toEqual([
             { handle: 0 },
         ]);
@@ -127,7 +127,7 @@ describe("LanguagesNamespace — registerCodeActionsProvider", () => {
             Uri.parse(URI) as unknown as vscode.Uri,
             [inRange, outOfRange, rangeless] as unknown as vscode.Diagnostic[],
         );
-        // Вторая коллекция без записей по нашему ресурсу — просто пропускается.
+        // A second collection with no entries for our resource is simply skipped.
         const other = languages.createDiagnosticCollection("other");
         other.set(
             Uri.parse("file:///proj/other.py") as unknown as vscode.Uri,
@@ -155,8 +155,8 @@ describe("LanguagesNamespace — registerCodeActionsProvider", () => {
             },
             { id: expect.stringMatching(/^\d+\.1$/) as unknown, title: "Sort imports", kind: "source.organizeImports" },
         ]);
-        // Контекст: ровно та диагностика, что пересекается с диапазоном, — и
-        // тот же ОБЪЕКТ (данные конвертера клиента выживают), без only.
+        // Context: exactly the diagnostic that intersects the range — and
+        // the same OBJECT (the client converter's data survives); `only` is unset.
         expect(contexts).toHaveLength(1);
         expect(contexts[0].diagnostics).toHaveLength(1);
         expect(contexts[0].diagnostics[0]).toBe(inRange as unknown as vscode.Diagnostic);
@@ -189,8 +189,8 @@ describe("LanguagesNamespace — registerCodeActionsProvider", () => {
     it("границы пересечения: касание конца диапазона включается, старт за концом — нет", async () => {
         const { stub, languages } = makeCtx();
         const collection = languages.createDiagnosticCollection("bounds");
-        // Диапазон запроса кончается в (2,8): касание ровно в (2,8) — внутри,
-        // старт в (2,9) на той же строке — уже снаружи.
+        // The request range ends at (2,8): touching exactly at (2,8) is inside,
+        // a start at (2,9) on the same line is already outside.
         const touching = new Diagnostic(new Range(2, 8, 2, 12), "touches the end");
         const pastEnd = new Diagnostic(new Range(2, 9, 2, 12), "starts past the end");
         collection.set(Uri.parse(URI) as unknown as vscode.Uri, [touching, pastEnd] as unknown as vscode.Diagnostic[]);
@@ -214,8 +214,8 @@ describe("LanguagesNamespace — registerCodeActionsProvider", () => {
         const keptDiag = new Diagnostic(new Range(2, 0, 2, 6), "kept");
         kept.set(Uri.parse(URI) as unknown as vscode.Uri, [keptDiag] as unknown as vscode.Diagnostic[]);
         disposed.dispose();
-        // Запоздалый set от снятой коллекции (расширение держит ссылку) в
-        // контекст уже не попадает: её хранилище снято с учёта.
+        // A late set from a disposed collection (the extension keeps a reference) no longer
+        // reaches the context: its storage has been deregistered.
         disposed.set(Uri.parse(URI) as unknown as vscode.Uri, [
             new Diagnostic(new Range(2, 0, 2, 6), "stale") as unknown as vscode.Diagnostic,
         ]);
@@ -276,7 +276,7 @@ describe("LanguagesNamespace — registerCodeActionsProvider", () => {
         expect(sorted.map((a) => a.title)).toEqual(["Sort"]);
         expect(organize).toHaveBeenCalledTimes(1);
 
-        // Неизвестный и отсутствующий handle — провайдера не спрашиваем, документ не синхронизируем.
+        // Unknown and missing handle: the provider isn't asked, the document isn't synced.
         const stale = "file:///proj/stale.py";
         expect(
             await stub.callRequest("languages.provideCodeActions", requestParams({ handle: 9, uri: stale })),
@@ -302,7 +302,7 @@ describe("LanguagesNamespace — registerCodeActionsProvider", () => {
             provideCodeActions: () => [
                 editAction("Survivor", "quickfix"),
                 null as unknown as vscode.CodeAction,
-                // Объект без строкового title — тоже мусор, отбрасывается.
+                // An object without a string title is garbage too and is dropped.
                 {} as unknown as vscode.CodeAction,
                 { title: 42 } as unknown as vscode.CodeAction,
             ],
@@ -359,7 +359,7 @@ describe("LanguagesNamespace — languages.applyCodeAction", () => {
         expect(
             await stub.callRequest("languages.applyCodeAction", { id: await provideAndPick(stub), onSave: true }),
         ).toBe(true);
-        // Эталон: `respectAutoSaveConfig: codeActionReason !== ApplyCodeActionReason.OnSave`.
+        // Upstream: `respectAutoSaveConfig: codeActionReason !== ApplyCodeActionReason.OnSave`.
         expect(appliedMetadata).toEqual([{ isRefactoring: true }, { isRefactoring: false }]);
     });
 
@@ -402,7 +402,7 @@ describe("LanguagesNamespace — languages.applyCodeAction", () => {
 
         const id = await provideAndPick(stub);
         expect(await stub.callRequest("languages.applyCodeAction", { id })).toBe(false);
-        expect(appliedEdits).toHaveLength(1); // правки успели лечь до сбоя команды
+        expect(appliedEdits).toHaveLength(1); // the edits landed before the command failed
         expect(errors).toHaveLength(1);
     });
 
@@ -412,8 +412,8 @@ describe("LanguagesNamespace — languages.applyCodeAction", () => {
         languages.registerCodeActionsProvider("python", {
             provideCodeActions: () => [lazy],
             resolveCodeAction: () => {
-                // Сервер вправе вернуть НОВЫЙ объект вместо мутации исходного —
-                // применяться обязан именно он.
+                // The server may return a NEW object instead of mutating the original —
+                // that one is what must be applied.
                 const fresh = new CodeAction("Fresh resolve", new CodeActionKind("source.fixAll"));
                 const edit = new WorkspaceEdit();
                 edit.replace(Uri.parse(URI), new Range(0, 0, 0, 3), "new");
@@ -425,7 +425,7 @@ describe("LanguagesNamespace — languages.applyCodeAction", () => {
         const id = await provideAndPick(stub);
         expect(await stub.callRequest("languages.applyCodeAction", { id })).toBe(true);
         expect(appliedEdits).toHaveLength(1);
-        expect(lazy.edit).toBeUndefined(); // исходный объект остался нетронутым
+        expect(lazy.edit).toBeUndefined(); // the original object stays untouched
     });
 
     it("ленивый resolve: edit дорезолвливается ТЕМ ЖЕ объектом действия", async () => {
@@ -469,7 +469,7 @@ describe("LanguagesNamespace — languages.applyCodeAction", () => {
             { command: "test.bare", args: ["z"] },
         ]);
 
-        // Голая команда БЕЗ arguments — исполняется с пустым списком, не с мусором.
+        // A bare command WITHOUT arguments runs with an empty list, not garbage.
         const noArgs = makeCtx();
         noArgs.languages.registerCodeActionsProvider("python", {
             provideCodeActions: () => [
@@ -493,8 +493,8 @@ describe("LanguagesNamespace — languages.applyCodeAction", () => {
                 ],
             } as unknown as vscode.CodeActionProvider),
         );
-        // Сбой команды — false и у CodeAction-команды, и у голой vscode.Command;
-        // не молча: строка в stderr с id расширения-владельца провайдера.
+        // A command failure is false for both a CodeAction command and a bare vscode.Command;
+        // not silent: a line in stderr with the id of the provider's owner extension.
         const brokenAction = await provideAndPick(failing.stub, 0);
         expect(await failing.stub.callRequest("languages.applyCodeAction", { id: brokenAction })).toBe(false);
         const brokenBare = await provideAndPick(failing.stub, 1);
@@ -505,7 +505,7 @@ describe("LanguagesNamespace — languages.applyCodeAction", () => {
         ]);
         errors.length = 0;
 
-        // Отменённая команда — штатный исход, не сбой: false, но stderr молчит.
+        // A cancelled command is a regular outcome, not a failure: false, but stderr stays silent.
         const cancelled = makeCtx({ executeCommand: () => Promise.reject(new CancellationError()) });
         cancelled.languages.registerCodeActionsProvider("python", {
             provideCodeActions: () => [{ title: "Bare", command: "test.cancel" } as unknown as vscode.CodeAction],
@@ -514,7 +514,7 @@ describe("LanguagesNamespace — languages.applyCodeAction", () => {
         expect(await cancelled.stub.callRequest("languages.applyCodeAction", { id: cancelledId })).toBe(false);
         expect(errors).toEqual([]);
 
-        // Command-объект без строкового command — применять нечего: false.
+        // A Command object without a string command has nothing to apply: false.
         const malformed = makeCtx();
         const noName = new CodeAction("No command name", new CodeActionKind("quickfix"));
         noName.command = { title: "?" } as never;
@@ -542,7 +542,7 @@ describe("LanguagesNamespace — languages.applyCodeAction", () => {
         expect(await stub.callRequest("languages.applyCodeAction", { id: first })).toBe(true);
         expect(executed).toEqual([{ command: "test.fallback", args: [] }]);
 
-        // Ни edit, ни command (и resolve сломан) — применять нечего.
+        // Neither edit nor command (and resolve is broken): nothing to apply.
         const second = await provideAndPick(stub, 1);
         expect(await stub.callRequest("languages.applyCodeAction", { id: second })).toBe(false);
     });
@@ -570,7 +570,7 @@ describe("LanguagesNamespace — languages.applyCodeAction", () => {
         const result = (await stub.callRequest("languages.provideCodeActions", requestParams())) as { id: string }[];
         expect(await stub.callRequest("languages.applyCodeAction", { id: result[0].id })).toBe(false);
         expect(await stub.callRequest("languages.applyCodeAction", { id: result[1].id })).toBe(false);
-        // Регистрация вне оверлея — строка без id; причина отказа видна в stderr.
+        // A registration outside an overlay gives a line without an id; the refusal reason shows in stderr.
         expect(errors).toHaveLength(1);
         expect(errors[0]).toEqual([
             expect.stringMatching(
@@ -621,7 +621,7 @@ describe("LanguagesNamespace — languages.applyCodeAction", () => {
         }
         expect(ctx.registry.get(Uri.parse(unknown))).toBeUndefined();
         expect(provide).not.toHaveBeenCalled();
-        // Актуальная версия — провайдер зовётся по тексту зеркала после правки.
+        // Current version: the provider is called on the mirror text after the edit.
         expect(await stub.callRequest("languages.provideCodeActions", requestParams({ version: 2 }))).toHaveLength(1);
         expect(provide).toHaveBeenCalledTimes(1);
     });
@@ -649,7 +649,7 @@ describe("LanguagesNamespace — languages.applyCodeAction", () => {
         expect(await stub.callRequest("languages.applyCodeAction", {})).toBe(false);
         expect(await stub.callRequest("languages.applyCodeAction", { id: 5 })).toBe(false);
 
-        // Вытеснение кэша: два новых запроса выталкивают ведро первого.
+        // Cache eviction: two new requests push out the first one's bucket.
         const stale = await provideAndPick(stub);
         await provideAndPick(stub);
         await provideAndPick(stub);
@@ -657,9 +657,9 @@ describe("LanguagesNamespace — languages.applyCodeAction", () => {
     });
 
     it("кэш — на провайдера: меню из трёх провайдеров применяет действие самого быстрого", async () => {
-        // Регрессия «Fix with Supermaven → Code action failed»: ядро спрашивает
-        // каждого провайдера отдельным запросом, и общая глубина кэша 2
-        // вытесняла ведро первого ответившего, пока отвечали остальные.
+        // Regression "Fix with Supermaven → Code action failed": the core asks
+        // each provider in a separate request, and a shared cache depth of 2
+        // evicted the first responder's bucket while the others were answering.
         const { stub, languages, executed } = makeCtx();
         for (const title of ["Fast", "Second", "Third"]) {
             languages.registerCodeActionsProvider("python", {
@@ -671,8 +671,8 @@ describe("LanguagesNamespace — languages.applyCodeAction", () => {
         expect(await stub.callRequest("languages.applyCodeAction", { id: menu[0] })).toBe(true);
         expect(executed).toEqual([{ command: "test.Fast", args: [] }]);
 
-        // Глубина своя у каждого: два новых ответа ОДНОГО провайдера вытесняют его
-        // старое ведро, но не трогают вёдра соседей.
+        // Each provider has its own depth: two new answers from ONE provider evict its
+        // old bucket but leave the neighbors' buckets alone.
         await provideAndPick(stub, 0, requestParams({ handle: 0 }));
         await provideAndPick(stub, 0, requestParams({ handle: 0 }));
         expect(await stub.callRequest("languages.applyCodeAction", { id: menu[0] })).toBe(false);

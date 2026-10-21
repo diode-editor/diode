@@ -5,7 +5,7 @@ import { ColorThemeKind } from "./vscodeTypes.ts";
 
 describe("NULL_THEME_COLOR_RESOLVER", () => {
     it("вид темы — Dark, а не undefined: расширение читает activeColorTheme.kind без проверок", () => {
-        // Профиль без моста темы всё равно отдаёт расширению настоящий вид — дефолт VS Code.
+        // A profile without a theme bridge still gives the extension a real kind: the VS Code default.
         expect(NULL_THEME_COLOR_RESOLVER.kind()).toBe(ColorThemeKind.Dark);
     });
 

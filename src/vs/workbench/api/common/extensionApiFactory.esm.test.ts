@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import { buildVscodeEsmShim } from "./extensionApiFactory.ts";
 
-// Что ESM-расширение реально получает своё API, закрывает
-// `extensionHost.extensionIdentity.test.ts` в настоящем субпроцессе.
+// That an ESM extension really gets its own API is covered by
+// `extensionHost.extensionIdentity.test.ts` in a real subprocess.
 
 const KEY = Symbol.for("diode.vscodeApi");
 
@@ -13,7 +13,7 @@ describe("buildVscodeEsmShim", () => {
         expect(source).toContain('const ns = globalThis[Symbol.for("diode.vscodeApi")]();');
         expect(source).toContain('export const window = ns["window"];');
         expect(source).toContain('export const workspace = ns["workspace"];');
-        // По объявлению на строку: шим читается в отладчике и стектрейсах.
+        // One declaration per line: the shim is readable in the debugger and stack traces.
         expect(source.split("\n")).toEqual([
             'const ns = globalThis[Symbol.for("diode.vscodeApi")]();',
             'export const window = ns["window"];',

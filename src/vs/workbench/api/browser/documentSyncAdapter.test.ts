@@ -191,7 +191,7 @@ describe("documentSyncAdapter", () => {
         const { host, opened, changed, closed } = recordingHost();
         service.openFile(ws.path("a.ts"));
         const editor = service.getActiveEditor()!;
-        // Чужая ссылка (как у workspace edit) держит модель живой после вкладки.
+        // Another reference (as a workspace edit holds) keeps the model alive after the tab.
         const reference = service.textFileModels.acquire(editor.uri);
         bindDocumentSync(service, service.editorGroups, host);
         service.editorGroups.activeGroup.closeTab(0);

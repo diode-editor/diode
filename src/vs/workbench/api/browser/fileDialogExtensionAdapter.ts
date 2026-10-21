@@ -4,8 +4,8 @@ import type { IFileDialogSink } from "../common/iExtensionWindowSinks.ts";
 import type { IWireOpenDialogRequest, IWireSaveDialogRequest } from "../common/wireTypes.ts";
 
 /**
- * Диалог только локальный: `defaultUri` не со схемой `file` отбрасывается.
- * `openLabel`/`saveLabel` едут дальше, хотя кнопок у терминального диалога нет.
+ * The dialog is local only: a `defaultUri` with a scheme other than `file` is dropped.
+ * `openLabel`/`saveLabel` are passed on, although the terminal dialog has no buttons.
  */
 export class FileDialogExtensionAdapter implements IFileDialogSink {
     public constructor(private readonly dialogs: IFileDialogService) {}
@@ -35,7 +35,7 @@ export class FileDialogExtensionAdapter implements IFileDialogSink {
 }
 
 function localUri(raw: string | undefined): Uri | undefined {
-    // Stryker disable next-line ConditionalExpression: `Uri.parse(undefined)` даёт ресурс без схемы `file` — ответ тот же, проверка лишь не гоняет разбор
+    // Stryker disable next-line ConditionalExpression: `Uri.parse(undefined)` yields a resource without the `file` scheme; the result is the same, the check only skips parsing
     if (raw === undefined) return undefined;
     const uri = Uri.parse(raw);
     return uri.scheme === "file" ? uri : undefined;

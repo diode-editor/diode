@@ -11,7 +11,7 @@ export class EditorDecorationsServiceAdapter implements IEditorDecorationsServic
     }
 
     public setGutterChangeDecorations(uri: string, decorations: readonly IGutterChangeDecoration[]): void {
-        // Все группы: тот же файл в соседнем сплите — тоже его вкладка.
+        // All groups: the same file in a neighboring split is also its tab.
         for (const editor of this.group.getEditors()) {
             if (editor.uri.toString() === uri) {
                 editor.setGutterChangeDecorations(decorations);

@@ -1,11 +1,11 @@
 import type { IWireDocumentChangedEvent, IWireDocumentSyncSnapshot } from "./wireTypes.ts";
 
-/** Порт: браузерному адаптеру незачем знать `ExtensionHost` (слой node). */
+/** Port: the browser adapter has no business knowing `ExtensionHost` (node layer). */
 export interface IDocumentSyncTarget {
     didOpenTextDocument(snapshot: IWireDocumentSyncSnapshot): void;
-    /** Flush: полный снапшот. */
+    /** Flush: full snapshot. */
     didChangeTextDocument(snapshot: IWireDocumentSyncSnapshot): void;
-    /** Дельтой, синхронно, на каждый батч. */
+    /** As a delta, synchronously, on every batch. */
     didChangeTextDocumentContent(event: IWireDocumentChangedEvent): void;
     didCloseTextDocument(uri: string): void;
 }

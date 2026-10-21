@@ -8,7 +8,7 @@ import { createExtensionApi, OWNED_MEMBERS } from "./extensionApiFactory.ts";
 import { makeStubRpc } from "./testStubRpc.ts";
 import { buildVscodeNamespace } from "./vscodeNamespace.ts";
 
-/** No-op заглушки вне поверхности `vscode.d.ts`: новый `register*Provider` обязан попасть либо в OWNED_MEMBERS, либо сюда. */
+/** No-op stubs outside the `vscode.d.ts` surface: a new `register*Provider` must go either into OWNED_MEMBERS or here. */
 const NOOP_PROVIDERS = [
     "registerCallHierarchyProvider",
     "registerCodeLensProvider",

@@ -16,7 +16,7 @@ export function documentSyncSnapshotOfModel(model: BaseTextEditorModel): IWireDo
     };
 }
 
-/** Правки — в порядке применения, версия — модели после батча. */
+/** Edits are in application order; the version is the model's after the batch. */
 export function documentChangedEventOfModel(
     model: BaseTextEditorModel,
     event: IModelContentChangedEvent,
@@ -30,14 +30,14 @@ export function documentChangedEventOfModel(
 }
 
 /**
- * Хост пушит их `editor.didOpen` на `host.ready`: `workspace.textDocuments` должен быть полон
- * до активации расширений (стоковый vscode-languageclient читает его на `start()`).
+ * The host pushes them as `editor.didOpen` on `host.ready`: `workspace.textDocuments` must be complete
+ * before extensions activate (the stock vscode-languageclient reads it on `start()`).
  */
 export function openDocumentSnapshots(group: IEditorService): IWireDocumentSyncSnapshot[] {
     return [...openDocumentModels(group)].map(documentSyncSnapshotOfModel);
 }
 
-/** Плюс безымянные буферы без вкладки: `openTextDocument({ content })` открывает документ до показа, как в эталоне. */
+/** Plus untitled buffers without a tab: `openTextDocument({ content })` opens the document before showing it, as upstream. */
 function openDocumentModels(group: IEditorService): Set<BaseTextEditorModel> {
     const models = new Set<BaseTextEditorModel>();
     for (const editor of group.getTextSurfaces()) models.add(editor.model);
@@ -53,9 +53,9 @@ interface ITrackedDocument {
 }
 
 /**
- * Подписка на МОДЕЛЬ, а не на вкладку: документ в двух группах даёт один didChange (AS-11).
- * Панели Output не синхронизируются: их строка, уехав субпроцессу правкой, порождала бы
- * новую строку канала «Extension Host (RPC)».
+ * Subscribes to the MODEL, not the tab: a document in two groups yields one didChange (AS-11).
+ * Output panels are not synced: their line, sent to the subprocess as an edit, would produce
+ * a new line in the "Extension Host (RPC)" channel.
  */
 export function bindDocumentSync(group: IEditorService, groups: IEditorGroupsService, host: IDocumentSyncTarget): void {
     const tracked = new Map<BaseTextEditorModel, ITrackedDocument>();
@@ -66,7 +66,7 @@ export function bindDocumentSync(group: IEditorService, groups: IEditorGroupsSer
         return { uri: snapshot.uri, languageId: snapshot.languageId };
     };
 
-    /** Новый uri (Save As) или язык — для расширений другой документ, как в эталоне: didClose и didOpen. */
+    /** A new uri (Save As) or language is a different document for extensions, as upstream: didClose and didOpen. */
     const resyncIdentity = (model: BaseTextEditorModel, record: ITrackedDocument): void => {
         const { uri, languageId } = record.openedAs;
         if (uri === model.uri.toString() && languageId === model.languageId) return;
@@ -83,15 +83,15 @@ export function bindDocumentSync(group: IEditorService, groups: IEditorGroupsSer
         const subscriptions = new DisposableStore();
         const record: ITrackedDocument = { openedAs: openModel(model), subscriptions };
         tracked.set(model, record);
-        // Без коалесинга: запрос провайдера, ушедший следом, едет по тому же каналу ПОСЛЕ
-        // правки — порядок сообщений заменяет версию в запросе, как у `$acceptModelChanged`.
+        // No coalescing: a provider request sent right after travels on the same channel AFTER
+        // the edit; message order stands in for a version in the request, like `$acceptModelChanged`.
         subscriptions.add(
             model.document.onDidChangeModelContent((event) => {
                 if (event.isFlush) host.didChangeTextDocument(documentSyncSnapshotOfModel(model));
                 else host.didChangeTextDocumentContent(documentChangedEventOfModel(model, event));
             }),
         );
-        // Язык меняется и без смены набора вкладок: Save As шлёт его раньше, чем вкладки узнают о сохранении.
+        // The language changes without a change in the tab set too: Save As sends it before the tabs learn of the save.
         subscriptions.add(
             model.onDidChangeLanguage(() => {
                 resyncIdentity(model, record);
@@ -111,7 +111,7 @@ export function bindDocumentSync(group: IEditorService, groups: IEditorGroupsSer
     };
 
     group.onDidChangeEditors(reconcile);
-    // Stryker disable next-line CallExpression: эквивалентен — перенос и слияние вкладок и так приходят через onDidChangeEditors, подписка страхует
+    // Stryker disable next-line CallExpression: equivalent: moving and merging tabs already arrive via onDidChangeEditors, the subscription is a safeguard
     groups.onDidGroupsChange(reconcile);
     reconcile();
 }

@@ -2,18 +2,18 @@ import type { IDisposable } from "../../../base/common/lifecycle.ts";
 
 import { ColorThemeKind } from "./vscodeTypes.ts";
 
-/** Через него же едет вид темы для `window.activeColorTheme`: событие смены у обоих потребителей одно. */
+/** Also carries the theme kind for `window.activeColorTheme`: both consumers share one change event. */
 export interface IThemeColorResolver {
-    /** packed-RGB; `undefined` — такого цвета нет. */
+    /** Packed RGB; `undefined` if there is no such color. */
     resolve(id: string): number | undefined;
     kind(): ColorThemeKind;
-    /** Без немедленного вызова. */
+    /** Does not fire immediately. */
     onDidChange(cb: () => void): IDisposable;
 }
 
 export const NULL_THEME_COLOR_RESOLVER: IThemeColorResolver = {
     resolve: () => undefined,
-    // Дефолт — тёмная, как у VS Code без настройки темы.
+    // Defaults to dark, like VS Code with no theme configured.
     kind: () => ColorThemeKind.Dark,
     onDidChange: () => ({ dispose: () => undefined }),
 };

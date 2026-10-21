@@ -5,9 +5,9 @@ import { EventEmitter } from "./vscodeTypes.ts";
 import { parseWireSecretKeys, parseWireSecretRef, parseWireSecretValue } from "./wireTypes.ts";
 
 /**
- * Через хост, а не локально, как `extensionMemento`: секреты обязаны переживать
- * перезапуск, а раскладку user-data знает только хост. `onDidChange` приходит и
- * на свои записи — как в эталоне.
+ * Through the host, not locally like `extensionMemento`: secrets must survive
+ * a restart, and only the host knows the user-data layout. `onDidChange` fires
+ * for our own writes too, as upstream.
  */
 export interface IExtensionSecretsFactory {
     create(extensionId: string): vscode.SecretStorage;

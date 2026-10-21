@@ -16,12 +16,12 @@ export interface IResolvedGlobPattern {
 }
 
 /**
- * Строковый шаблон — «во всех папках воркспейса», а папка у нас одна. Нет
- * воркспейса — `null`: watcher валиден, но нем, как в пустом окне VS Code.
+ * A string pattern means "in all workspace folders", and we have a single folder. No
+ * workspace: `null` — the watcher is valid but silent, as in an empty VS Code window.
  */
 export function resolveGlobPattern(
-    // `unknown`, а не `vscode.GlobPattern`: сюда штатно приезжает чужой объект из
-    // другого рантайма расширения — проверки ниже не декоративные.
+    // `unknown`, not `vscode.GlobPattern`: a foreign object from another extension runtime
+    // routinely arrives here, so the checks below are not decorative.
     globPattern: unknown,
     workspaceRoot: string | undefined,
 ): IResolvedGlobPattern | null {
@@ -35,7 +35,7 @@ export function resolveGlobPattern(
     return base === null ? null : { base, pattern: raw.pattern };
 }
 
-/** Строковое `base` — устаревшая форма `RelativePattern`. */
+/** A string `base` is the legacy form of `RelativePattern`. */
 function baseFsPath(baseUri: unknown, base: unknown): string | null {
     if (baseUri instanceof Uri) return baseUri.fsPath;
     if (typeof baseUri === "object" && baseUri !== null) {
@@ -45,7 +45,7 @@ function baseFsPath(baseUri: unknown, base: unknown): string | null {
     return typeof base === "string" && base !== "" ? base : null;
 }
 
-/** Слежение ведёт ядро: субпроцессу нельзя раздавать бюджет inotify и знание про `files.watcherExclude`. */
+/** The core does the watching: the subprocess must not hand out the inotify budget or know `files.watcherExclude`. */
 export class SubprocessFileSystemWatchers {
     private readonly emitters = new Map<
         number,
@@ -59,7 +59,7 @@ export class SubprocessFileSystemWatchers {
 
     public constructor(private readonly transport: IWatcherTransport) {}
 
-    /** Флаги `ignore*Events` едут на хост: ненужное событие не должно пересекать границу процесса. */
+    /** `ignore*Events` flags go to the host: an unneeded event must not cross the process boundary. */
     public create(
         resolved: IResolvedGlobPattern,
         ignoreCreateEvents: boolean,
@@ -90,7 +90,7 @@ export class SubprocessFileSystemWatchers {
             onDidChange: emitters.onDidChange.event,
             onDidDelete: emitters.onDidDelete.event,
             dispose: () => {
-                if (!this.emitters.delete(id)) return; // повторный dispose — no-op
+                if (!this.emitters.delete(id)) return; // a repeated dispose is a no-op
                 emitters.onDidCreate.dispose();
                 emitters.onDidChange.dispose();
                 emitters.onDidDelete.dispose();
@@ -121,7 +121,7 @@ export class SubprocessFileSystemWatchers {
 
     public dispatch(events: IWireWatcherEvents): void {
         const emitters = this.emitters.get(events.id);
-        // Гонка на закрытии: хост успел отправить пачку до `workspace.watcher.dispose`.
+        // Race on close: the host managed to send a batch before `workspace.watcher.dispose`.
         if (emitters === undefined) return;
         for (const event of events.events) {
             const uri = Uri.parse(event.uri);

@@ -13,21 +13,21 @@ import type {
 export interface IEditorLayoutService {
     getLayoutSnapshot(): IWireEditorLayout;
 
-    /** Реализация коалесирует per-microtask. */
+    /** The implementation coalesces per microtask. */
     onDidChangeLayout(cb: (layout: IWireEditorLayout) => void): IDisposable;
 
     /**
-     * `editor.layoutChanged` обязан уйти раньше `editor.activeEditorChanged` и ответа
-     * show/close — иначе расширение после `await` увидит устаревший `tabGroups`.
+     * `editor.layoutChanged` must be sent before `editor.activeEditorChanged` and the show/close
+     * response, otherwise the extension sees a stale `tabGroups` after `await`.
      */
     flushPendingLayout(): void;
 
     showTextDocument(params: IWireShowTextDocumentParams): Promise<IWireShowTextDocumentResult>;
 
-    /** Безымянный документ без вкладки; показывает его потом {@link showTextDocument}. */
+    /** Untitled document without a tab; {@link showTextDocument} shows it later. */
     createUntitledDocument(params: IWireCreateUntitledParams): IWireUriParams;
 
-    /** `false` — пользователь отменил confirm-диалог. */
+    /** `false`: the user cancelled the confirm dialog. */
     closeTabs(params: IWireCloseTabsParams): Promise<boolean>;
 
     closeGroups(params: IWireCloseGroupsParams): Promise<boolean>;

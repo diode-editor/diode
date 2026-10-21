@@ -68,8 +68,8 @@ describe("EditorOptionsServiceAdapter.applyWorkspaceEdit", () => {
             {
                 kind: "text",
                 resource: B.toString(),
-                // Координаты за концом документа едут как есть: клампит их
-                // исполнитель, у которого есть содержимое ресурса.
+                // Coordinates past the end of the document are passed as is: the executor,
+                // which has the resource content, clamps them.
                 edits: [{ range: { start: { line: 99, character: 99 }, end: { line: 99, character: 99 } }, text: "z" }],
             },
         ]);
@@ -136,8 +136,8 @@ describe("EditorOptionsServiceAdapter.applyWorkspaceEdit", () => {
             { kind: "rename", from: A.toString(), to: B.toString() },
         ]);
 
-        // Строгое сравнение: опция без значения обязана ОТСУТСТВОВАТЬ, а не
-        // приехать как `undefined` — исполнитель различает их по `=== true`.
+        // Strict comparison: an option without a value must be ABSENT, not
+        // arrive as `undefined`; the executor tells them apart by `=== true`.
         expect(calls[0].edits).toStrictEqual([
             { kind: "create", to: "/proj/b.ts" },
             { kind: "delete", from: "/proj/a.ts" },

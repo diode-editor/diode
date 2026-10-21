@@ -7,8 +7,8 @@ import type { IOutputSink } from "../common/iExtensionWindowSinks.ts";
 import type { WireOutputLevel } from "../common/wireTypes.ts";
 
 /**
- * Имя канала — ярлык (`Output: Show <имя>`, пункт селектора), и `$(name)` в нём подменяется.
- * Содержимое — лог, где `$(…)` бывает шелл-подстановкой: его не трогаем.
+ * The channel name is a label (`Output: Show <name>`, a selector item), so `$(name)` in it is substituted.
+ * The content is a log where `$(…)` may be shell substitution: leave it alone.
  */
 export class ExtensionOutputAdapter implements IOutputSink {
     private readonly loggers = new Map<string, ILogger>();
@@ -25,7 +25,7 @@ export class ExtensionOutputAdapter implements IOutputSink {
     }
 
     public show(channel: string, label: string): void {
-        // show мог прийти до первой строки — канал регистрируется и здесь.
+        // show may arrive before the first line, so the channel is registered here too.
         this.loggerFor(channel, label);
         this.revealPanel();
         this.outputService.showChannel(channel);
