@@ -45,7 +45,8 @@ watcher и Go в магазине — после поста.
 
 - [ ] **Честные цифры**: сравнительная таблица vim · nvim голый · nvim+LazyVim/NvChad · helix ·
       diode одним прогоном на одной машине, методика — в [BENCHMARKS.md](../public/BENCHMARKS.md);
-      исправить «103 мс / 26 мс воркбенча» там и «~100 ms» на лендинге — сейчас это неправда.
+      «26 мс воркбенча» из BENCHMARKS.md и VISION.md уже убраны (2026-10-21), на лендинге
+      «~100 ms» — ещё нет (репозиторий сайта).
       Не одно число, а лестница старта (пол Node → первый кадр → редактор готов; extension host
       лениво, LSP асинхронно); против голого vim проигрываем — называем честно; методика — железо,
       питание, как воспроизвести; публичная цифра защищена перф-гейтом CI. Ссылка на страницу — с
@@ -59,8 +60,8 @@ watcher и Go в магазине — после поста.
 
 ## После поста
 
-- **Большие файлы** — этапы 3–4 [OpenPerformance.md](OpenPerformance.md): PieceTree, стриминговое
-  чтение, large-file режим (`largeFileOptimizations`).
+- **Большие файлы** — этапы 3–4 [OpenPerformance.md](OpenPerformance.md): стриминговое
+  чтение, large-file режим (`largeFileOptimizations`). PieceTree уже стоит (VscodeModel A1–A4).
 - **Длинные строки** — хвосты [LongLinePerformance.md](LongLinePerformance.md#осталось):
   пер-строчный кеш `DisplayLine`, ленивое окно вьюпорта, reveal-по-клику, `editor.stopRenderingLineAfter`.
 - **Дерево файлов** — хвосты [FileTreePerformance.md](FileTreePerformance.md#будущие-фиксы-вне-scope-текущей-задачи):
@@ -68,18 +69,15 @@ watcher и Go в магазине — после поста.
   бюджет на кадр в `search`, инкрементальная сверка индекса от watcher'ов.
 - **Нативный watcher `@parcel/watcher`** вместо chokidar — не раньше уведомления про ENOSPC
   ([EnvironmentTuning.md](EnvironmentTuning.md)); платформенная матрица сборки под SEA.
-- **Go в магазине** (стоковый `golang.go` + gopls, пул задач — [LanguageServers.md](LanguageServers.md#go)). Тезис «не только TS/Python» к посту уже держат
-  Java, Terraform и Python.
 - **Damage-tracking кадра** (LongLinePerformance.md «Осталось»): hover-damage, пер-item damage в
   `OverlayLayer`, сужение страховки consumed-key, клип-ограничение цикла строк редактора.
-- **Фоновая токенизация** ([VscodeModel.md](VscodeModel.md))
-  — не главная: токенизация уже ленивая до вьюпорта, фоновая лечит в основном прыжок в конец
-  большого файла, а это ближе к этапу 2.
-- **Semantic tokens из LSP** — новый источник токенов, а не оптимизация; к демо-кадру не относится.
+
+Сделано раньше, чем планировалось: Go в магазине (#667), фоновая токенизация и бинарные токены
+(VscodeModel B1, B2), semantic tokens из LSP (#591, #592).
 
 ## Открытые вопросы
 
-- Записи магазина ко дню релиза сверх Java, Terraform и Python: Go, Rust, C#.
+- Записи магазина ко дню релиза сверх Java, Go, Terraform и Python: Rust, C#.
 - Где живёт MCP-сервер (появление №2) — не блокирует, см. VISION «Открытые вопросы».
 
 ## Цена прогона
