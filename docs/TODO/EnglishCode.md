@@ -14,9 +14,9 @@
 
 Только комментарии; гейт PR — `node scripts/check-comments-only.mjs origin/main --no-cyrillic`. Названия тестов и строки — не здесь (волны 2–3), даже если рядом.
 
-- [~] `src/vs/base` (751)
+- [x] `src/vs/base` (751) — #726
 - [~] `src/vs/platform` a–e: actions…extensionManagement (1365)
-- [ ] `src/vs/platform` f–z: extensions…workspace (1620)
+- [~] `src/vs/platform` f–z: extensions…workspace (1620)
 - [~] `src/vs/editor`: core, diff, languages, services, contrib, test (1160)
 - [ ] `src/vs/editor`: browser, viewModel, model, tokens (1923)
 - [~] `workbench/browser/parts` и `workbench/common` (2657)
