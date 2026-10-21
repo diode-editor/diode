@@ -2,18 +2,6 @@ import type * as vscode from "vscode";
 
 import { Uri } from "../../../base/common/uri.ts";
 
-/**
- * Чистые value-типы `vscode`, раздаваемые расширениям внутри subprocess.
- *
- * Здесь нет никакого RPC и ссылок на host-сервисы — это конструируемые
- * расширением объекты (`new vscode.Position(...)`, `vscode.Uri.file(...)`,
- * `vscode.TextEdit.replace(...)`). Ассемблер {@link ../VscodeNamespace.ts}
- * отдаёт эти классы/enum'ы как runtime-поля объекта `vscode`.
- *
- * Сигнатуры повторяют закомментированный `src/Extensions/Api/vscode.d.ts`.
- */
-
-/** Совместимая с `vscode.Disposable`. Возвращается из подписочных API. */
 export class DisposableImpl implements vscode.Disposable {
     private readonly callOnDispose: () => unknown;
 
@@ -32,7 +20,6 @@ export class DisposableImpl implements vscode.Disposable {
     }
 }
 
-/** Иммутабельная позиция (0-based line/character). */
 export class Position implements vscode.Position {
     public readonly line: number;
     public readonly character: number;
@@ -106,7 +93,6 @@ export class Position implements vscode.Position {
     }
 }
 
-/** Иммутабельный диапазон; `start.isBeforeOrEqual(end)` гарантирован. */
 export class Range implements vscode.Range {
     public readonly start: Position;
     public readonly end: Position;
@@ -187,12 +173,6 @@ export class Range implements vscode.Range {
     }
 }
 
-/**
- * Выделение в редакторе (`vscode.Selection`). Наследует {@link Range}
- * (`start`/`end` упорядочены), но дополнительно помнит направление: `anchor` —
- * неподвижный конец, `active` — конец с курсором. `isReversed` истинно, когда
- * курсор стоит перед якорем.
- */
 export class Selection extends Range implements vscode.Selection {
     public readonly anchor: Position;
     public readonly active: Position;
@@ -226,10 +206,6 @@ export class Selection extends Range implements vscode.Selection {
     }
 }
 
-/**
- * `vscode.Location` — позиция внутри ресурса (цель definition/references).
- * Position в конструкторе сворачивается в пустой Range (контракт vscode.d.ts).
- */
 export class Location implements vscode.Location {
     public uri: Uri;
     public range: Range;
@@ -240,36 +216,28 @@ export class Location implements vscode.Location {
     }
 }
 
-/** Направление перевода строки. */
 export enum EndOfLine {
     LF = 1,
     CRLF = 2,
 }
 
-/** Причина сохранения (используется will-save участниками, WP6). */
 export enum TextDocumentSaveReason {
     Manual = 1,
     AfterDelay = 2,
     FocusOut = 3,
 }
 
-/**
- * Цель `WorkspaceConfiguration.update` — расширения передают её явно
- * (`config.update(key, value, vscode.ConfigurationTarget.Global)`).
- */
 export enum ConfigurationTarget {
     Global = 1,
     Workspace = 2,
     WorkspaceFolder = 3,
 }
 
-/** Причина транзакционной правки документа (`TextDocumentChangeEvent.reason`). */
 export enum TextDocumentChangeReason {
     Undo = 1,
     Redo = 2,
 }
 
-/** Тип записи файловой системы. */
 export enum FileType {
     Unknown = 0,
     File = 1,
@@ -277,14 +245,12 @@ export enum FileType {
     SymbolicLink = 64,
 }
 
-/** Вид изменения ресурса, о котором сообщает `FileSystemProvider.onDidChangeFile`. */
 export enum FileChangeType {
     Changed = 1,
     Created = 2,
     Deleted = 3,
 }
 
-/** Одиночная текстовая правка либо смена EOL всего документа. */
 export class TextEdit implements vscode.TextEdit {
     public range: Range;
     public newText: string;
@@ -314,12 +280,7 @@ export class TextEdit implements vscode.TextEdit {
     }
 }
 
-/**
- * Сниппет-правка (`vscode.SnippetTextEdit`). Класс-ловушка конвертера клиента:
- * на LSP `SnippetTextEdit` он делает `new code.SnippetTextEdit(...)` — без
- * класса упала бы конвертация всего `WorkspaceEdit`. Интерактивных табстопов
- * у нас нет: применение вырезает плейсхолдеры (как у completion-сниппетов).
- */
+/** Конвертер languageclient делает `new code.SnippetTextEdit` — без класса падает весь `WorkspaceEdit`. Табстопов нет: применение вырезает плейсхолдеры. */
 export class SnippetTextEdit {
     public range: Range;
     public snippet: SnippetString;
@@ -339,21 +300,12 @@ export class SnippetTextEdit {
     }
 }
 
-/**
- * Разновидность области сворачивания (`vscode.FoldingRangeKind`). Значения
- * совпадают с VS Code; `Region` — маркеры `#region`/`#endregion`.
- */
 export enum FoldingRangeKind {
     Comment = 1,
     Imports = 2,
     Region = 3,
 }
 
-/**
- * Область сворачивания (`vscode.FoldingRange`): строки `start..end` (0-based).
- * Провайдеры расширений возвращают её из `provideFoldingRanges`; хост
- * сериализует в `WireFoldingRange` (kind — числом).
- */
 export class FoldingRange implements vscode.FoldingRange {
     public start: number;
     public end: number;
@@ -366,11 +318,6 @@ export class FoldingRange implements vscode.FoldingRange {
     }
 }
 
-/**
- * Ступень иерархии выделений (`vscode.SelectionRange`, перенос эталона):
- * родитель обязан содержать диапазон. vscode-languageclient строит её на
- * каждый ответ `textDocument/selectionRange`.
- */
 export class SelectionRange implements vscode.SelectionRange {
     public range: Range;
     public parent?: SelectionRange;
@@ -384,11 +331,6 @@ export class SelectionRange implements vscode.SelectionRange {
     }
 }
 
-// ─── Semantic coloring (перенос `extHostTypes.ts` эталона) ───────────────────
-// vscode-languageclient конструирует эти классы в конвертере ответа сервера:
-// без них ответ semanticTokens падал бы на «is not a constructor».
-
-/** Легенда: индекс типа и бит модификатора в `SemanticTokens.data`. */
 export class SemanticTokensLegend implements vscode.SemanticTokensLegend {
     public readonly tokenTypes: string[];
     public readonly tokenModifiers: string[];
@@ -415,10 +357,8 @@ function isStrArrayOrUndefined(arg: unknown): arg is string[] | undefined {
 }
 
 /**
- * Сборщик `data`: `push` копит абсолютные позиции, `build()` стабильно
- * сортирует их (равные — в порядке `push`) и дельта-кодирует. Эталон кодирует
- * на лету, пока `push` упорядочены, — это лишь экономия на сортировке, ответ тот
- * же; сортировка уже упорядоченного массива и так линейна.
+ * Отступление: эталон кодирует на лету, пока `push` упорядочены; здесь `build()`
+ * стабильно сортирует (равные — в порядке `push`) — ответ тот же.
  */
 export class SemanticTokensBuilder implements vscode.SemanticTokensBuilder {
     /** `[line, char, length, tokenType, tokenModifiers]` в порядке `push`. */
@@ -534,24 +474,11 @@ export class SemanticTokensEdits implements vscode.SemanticTokensEdits {
     }
 }
 
-/**
- * URI ресурса — ре-экспорт ядрового {@link Uri} (`Common/Uri.ts`, upstream
- * `vscode-uri`). Раньше здесь жил самописный file-only шим: он не разбирал схемы
- * без `//` (`untitled:Untitled-1` парсился как file-путь), отдавал `path` из
- * `fsPath` для любой схемы и терял authority/query/fragment. Ядро и субпроцесс
- * теперь адресуют ресурс одним и тем же типом.
- */
 export { Uri };
 
 /**
- * Ошибка файловой системы (`vscode.FileSystemError`). Реализация `workspace.fs`
- * бросает её через фабрики; `code` совпадает с именем фабрики, как в VS Code
- * (расширения ловят по `err.code === "FileNotFound"`).
- *
- * `name` повторяет формат VS Code `"${providerCode} (FileSystemError)"`, где
- * `providerCode` — имя из `FileSystemProviderErrorCode` (FileNotFound →
- * `EntryNotFound`). Некоторые расширения (стоковый editorconfig-vscode) ловят
- * именно по `err.name === "EntryNotFound (FileSystemError)"`, а не по `code`.
+ * `name` — формат VS Code `"${providerCode} (FileSystemError)"`: editorconfig-vscode
+ * ловит по `err.name === "EntryNotFound (FileSystemError)"`, а не по `code`.
  */
 const PROVIDER_CODE_NAME: Record<string, string> = {
     FileNotFound: "EntryNotFound",
@@ -597,7 +524,6 @@ export class FileSystemError extends Error implements vscode.FileSystemError {
     }
 }
 
-/** Разновидность элемента автодополнения. */
 export enum CompletionItemKind {
     Text = 0,
     Method = 1,
@@ -628,14 +554,12 @@ export enum CompletionItemKind {
     Issue = 26,
 }
 
-/** Чем спровоцирован запрос автодополнения (`CompletionContext.triggerKind`). */
 export enum CompletionTriggerKind {
     Invoke = 0,
     TriggerCharacter = 1,
     TriggerForIncompleteCompletions = 2,
 }
 
-/** Элемент автодополнения. Сериализуется хостом в `ICoreCompletionItem` (WP8). */
 export class CompletionItem implements vscode.CompletionItem {
     public label: string;
     public kind?: CompletionItemKind;
@@ -655,15 +579,6 @@ export class CompletionItem implements vscode.CompletionItem {
     }
 }
 
-/**
- * Список автодополнений с флагом «неполный» (`vscode.CompletionList`).
- *
- * Не украшение API: стоковый `vscode-languageclient` конструирует его на КАЖДЫЙ
- * ответ сервера (`protocolConverter.asCompletionResult`), а
- * `typescript-language-server` всегда отвечает списком. Без этого класса
- * конвертация ответа падала целиком, и ошибка уходила только в
- * `client.outputChannel` — LSP-пунктов в попапе не было вовсе.
- */
 export class CompletionList<T extends vscode.CompletionItem = CompletionItem> implements vscode.CompletionList<T> {
     public items: T[];
     public isIncomplete: boolean;
@@ -674,18 +589,11 @@ export class CompletionList<T extends vscode.CompletionItem = CompletionItem> im
     }
 }
 
-/** Чем спровоцирован запрос инлайн-подсказки (`InlineCompletionContext.triggerKind`). */
 export enum InlineCompletionTriggerKind {
     Invoke = 0,
     Automatic = 1,
 }
 
-/**
- * Пункт инлайн-подсказки (`vscode.InlineCompletionItem`). Конструктор — как в
- * d.ts: `(insertText, range?, command?)`. Понадобится и конвертеру стокового
- * `vscode-languageclient` (он делает `new code.InlineCompletionItem(...)` на
- * каждый ответ сервера — отсутствие класса молча убивает фичу целиком).
- */
 export class InlineCompletionItem {
     public insertText: string | SnippetString;
     public filterText?: string;
@@ -703,7 +611,6 @@ export class InlineCompletionItem {
     }
 }
 
-/** Список инлайн-подсказок (`vscode.InlineCompletionList`). */
 export class InlineCompletionList {
     public items: InlineCompletionItem[];
 
@@ -712,13 +619,6 @@ export class InlineCompletionList {
     }
 }
 
-/**
- * Текст вставки со сниппет-синтаксисом (`vscode.SnippetString`). Сниппет-сессий
- * (табстопы, Tab-переходы) у нас нет — класс нужен как носитель значения:
- * languageclient оборачивает в него `insertText` пунктов с
- * `insertTextFormat = Snippet`, а хост-сериализатор читает `.value` и вырезает
- * плейсхолдеры, чтобы синтаксис сниппета не попал в буфер.
- */
 export class SnippetString {
     public value: string;
 
@@ -732,12 +632,6 @@ export class SnippetString {
     }
 }
 
-/**
- * Ссылка на цвет из реестра цветов темы (`vscode.ThemeColor`). Расширение
- * создаёт `new vscode.ThemeColor("gitDecoration.modifiedResourceForeground")`;
- * хост-сериализатор превращает её в `{ $themeColor: id }`, а resolve в конкретный
- * packed-RGB делает уже сторона host'а через тему (см. IThemeColorResolver).
- */
 export class ThemeColor implements vscode.ThemeColor {
     public readonly id: string;
 
@@ -746,14 +640,7 @@ export class ThemeColor implements vscode.ThemeColor {
     }
 }
 
-/**
- * `vscode.RelativePattern` — glob, привязанный к базовому каталогу.
- *
- * Базой может быть папка воркспейса, `Uri` или голая строка-путь. `base` и
- * `baseUri` держатся синхронно: upstream объявляет оба поля, причём `base`
- * задокументирован как «обновление этого значения обновит baseUri» — поэтому
- * это не два независимых поля, а аксессор поверх одного `Uri`.
- */
+/** `base` — аксессор поверх `baseUri`: upstream документирует, что запись `base` обновляет `baseUri`. */
 export class RelativePattern {
     private baseUriValue: Uri;
     public pattern: string;
@@ -781,7 +668,6 @@ export class RelativePattern {
     }
 }
 
-/** База `RelativePattern` → `Uri`: WorkspaceFolder (у него есть `.uri`), Uri или путь строкой. */
 function toBaseUri(base: vscode.WorkspaceFolder | Uri | string): Uri {
     if (typeof base === "string") return Uri.file(base);
     if (base instanceof Uri) return base;
@@ -793,11 +679,6 @@ function toBaseUri(base: vscode.WorkspaceFolder | Uri | string): Uri {
     throw new TypeError("RelativePattern: base must be a WorkspaceFolder, Uri or string");
 }
 
-/**
- * Позиция change-бара в overview ruler. Значение важно как *признак*
- * «это gutter/overview-декорация» — host заводит gutter-тип только у декораций
- * с `overviewRulerColor` (см. ExtensionHost RPC-реестр).
- */
 export enum OverviewRulerLane {
     Left = 1,
     Center = 2,
@@ -805,7 +686,6 @@ export enum OverviewRulerLane {
     Full = 7,
 }
 
-/** Поведение диапазона декорации при правках на его границах. */
 export enum DecorationRangeBehavior {
     OpenOpen = 0,
     ClosedClosed = 1,
@@ -813,11 +693,6 @@ export enum DecorationRangeBehavior {
     ClosedOpen = 3,
 }
 
-/**
- * Декорация файла в дереве (`vscode.FileDecoration`): короткий бейдж, тултип и
- * цвет из реестра темы. `provideFileDecoration` провайдера возвращает её;
- * host-мост сериализует `color.id` в `colorId` и резолвит в цвет имени файла.
- */
 export class FileDecoration implements vscode.FileDecoration {
     public badge?: string;
     public tooltip?: string;
@@ -831,10 +706,7 @@ export class FileDecoration implements vscode.FileDecoration {
     }
 }
 
-/**
- * Совместимый с `vscode.EventEmitter<T>`. `fire` итерирует снапшот списка
- * слушателей — расширения нередко отписываются во время dispatch.
- */
+/** `fire` итерирует снапшот слушателей: расширения отписываются во время dispatch. */
 export class EventEmitter<T> implements vscode.EventEmitter<T> {
     private readonly listeners: ((e: T) => unknown)[] = [];
 
@@ -868,47 +740,29 @@ export class EventEmitter<T> implements vscode.EventEmitter<T> {
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Value-типы, которых требует стоковый `vscode-languageclient`: многие из них
-// он `extends`-ит уже на этапе require (protocol*-конвертеры), поэтому они
-// обязаны быть конструируемыми классами, а enum'ы — настоящими значениями.
-// Семантика наивная (хранение без поведения) — глубина добавляется по мере
-// закрытия стабов (docs/public/API-COVERAGE.md).
-// ─────────────────────────────────────────────────────────────────────────────
-
 export enum StatusBarAlignment {
     Left = 1,
     Right = 2,
 }
 
-/** Где показан терминал (`vscode.TerminalLocation`): нижняя панель или вкладка в области редакторов. */
 export enum TerminalLocation {
     Panel = 1,
     Editor = 2,
 }
 
-/**
- * Вид мутатора коллекции окружения (`vscode.EnvironmentVariableMutatorType`);
- * значения — эталонные и совпадают с проводом (`platform/terminal/common/environmentVariable.ts`).
- */
+/** Значения совпадают с проводом (`platform/terminal/common/environmentVariable.ts`). */
 export enum EnvironmentVariableMutatorType {
     Replace = 1,
     Append = 2,
     Prepend = 3,
 }
 
-/**
- * Насколько точна командная строка исполнения (`vscode.TerminalShellExecutionCommandLineConfidence`).
- * Исполнений у нас нет (shell integration не поднята), но enum — значение:
- * расширения сравнивают с ним `execution.commandLine.confidence`.
- */
 export enum TerminalShellExecutionCommandLineConfidence {
     Low = 0,
     Medium = 1,
     High = 2,
 }
 
-/** Почему терминал закрылся (`vscode.TerminalExitReason`). */
 export enum TerminalExitReason {
     Unknown = 0,
     Shutdown = 1,
@@ -917,12 +771,6 @@ export enum TerminalExitReason {
     Extension = 4,
 }
 
-/**
- * Вид активной темы (`vscode.ColorThemeKind`) — то, что расширение читает у
- * `window.activeColorTheme.kind`. Значения дословно из upstream; наш
- * {@link WorkbenchTheme}`.type` маппится в них на стороне host'а
- * (`themeColorResolverAdapter.ts`).
- */
 export enum ColorThemeKind {
     Light = 1,
     Dark = 2,
@@ -930,12 +778,6 @@ export enum ColorThemeKind {
     HighContrastLight = 4,
 }
 
-/**
- * Источник смены выделения (`vscode.TextEditorSelectionChangeKind`) в событии
- * `window.onDidChangeTextEditorSelection`. Хост распознаёт не любую смену —
- * см. `cursorChangeSource.ts`; нераспознанная приезжает с `kind === undefined`
- * (upstream это допускает явно).
- */
 export enum TextEditorSelectionChangeKind {
     Keyboard = 1,
     Mouse = 2,
@@ -979,7 +821,6 @@ export enum CompletionItemTag {
     Deprecated = 1,
 }
 
-/** `LanguageConfiguration.onEnterRules[].action.indentAction` (`languages.setLanguageConfiguration`). */
 export enum IndentAction {
     None = 0,
     Indent = 1,
@@ -987,7 +828,6 @@ export enum IndentAction {
     Outdent = 3,
 }
 
-/** `AutoClosingPair.notIn` (`languages.setLanguageConfiguration`). */
 export enum SyntaxTokenType {
     Other = 0,
     Comment = 1,
@@ -995,13 +835,11 @@ export enum SyntaxTokenType {
     RegEx = 3,
 }
 
-/** Разделитель в `showQuickPick` (`kind: QuickPickItemKind.Separator`). */
 export enum QuickPickItemKind {
     Separator = -1,
     Default = 0,
 }
 
-/** Notebook-редакторов нет, но enum — значение: расширения сравнивают с ним `cell.kind`. */
 export enum NotebookCellKind {
     Markup = 1,
     Code = 2,
@@ -1046,7 +884,6 @@ export enum SymbolKind {
     TypeParameter = 25,
 }
 
-/** Иерархический тег вида code-action (`vscode.CodeActionKind` — класс, не enum). */
 export class CodeActionKind implements vscode.CodeActionKind {
     public static readonly Empty = new CodeActionKind("");
     public static readonly QuickFix = new CodeActionKind("quickfix");
@@ -1079,25 +916,11 @@ export class CodeActionKind implements vscode.CodeActionKind {
     }
 }
 
-/** Чем спровоцирован запрос code actions (`vscode.CodeActionTriggerKind`). */
 export enum CodeActionTriggerKind {
-    /** Явный запрос пользователя или расширения (команда). */
     Invoke = 1,
-    /** Автоматический запрос (смена выделения/правка) — у нас пока не используется. */
     Automatic = 2,
 }
 
-/**
- * `vscode.DiagnosticRelatedInformation` — сопутствующее сообщение с местом в
- * коде («а здесь это объявлено»).
- *
- * Класс-ловушка: конвертер vscode-languageclient конструирует его на КАЖДУЮ
- * диагностику с related information, а такие шлёт любой сервер (у tsserver это
- * TS2741 «Property … is missing», дубликаты идентификаторов и далее по списку).
- * Без класса падал `new code.DiagnosticRelatedInformation(...)`, и вместе с ним
- * — вся пачка диагностик: файл оставался вообще без squiggle, а ошибка была
- * видна только в output-канале клиента.
- */
 export class DiagnosticRelatedInformation implements vscode.DiagnosticRelatedInformation {
     public location: Location;
     public message: string;
@@ -1114,7 +937,7 @@ export class Diagnostic implements vscode.Diagnostic {
     public severity: DiagnosticSeverity;
     public source?: string;
     public code?: string | number | { value: string | number; target: Uri };
-    /** Наивность: до маркеров не доезжает (wire его не несёт) — см. docs/public/API-COVERAGE.md. */
+    /** До маркеров не доезжает: wire его не несёт. */
     public relatedInformation?: DiagnosticRelatedInformation[];
     public tags?: DiagnosticTag[];
 
@@ -1191,11 +1014,6 @@ export class SymbolInformation {
     }
 }
 
-/**
- * Иерархический символ (эталон `extHostTypes.DocumentSymbol`). Outline в ядре
- * пока нет, но расширение строит символы само: `golang.go` — для поиска
- * тестов в файле и package outline; без класса падал бы `new`.
- */
 export class DocumentSymbol {
     public static validate(candidate: DocumentSymbol): void {
         if (!candidate.name) throw new Error("name must not be falsy");
@@ -1244,7 +1062,6 @@ export class TypeHierarchyItem {
     ) {}
 }
 
-/** Ошибка отмены (`vscode.CancellationError extends Error`). */
 export class CancellationError extends Error {
     public constructor() {
         super("Canceled");
@@ -1252,7 +1069,6 @@ export class CancellationError extends Error {
     }
 }
 
-/** Источник токенов отмены (клиент создаёт по одному на запрос). */
 export class CancellationTokenSource {
     private readonly emitter = new EventEmitter<unknown>();
     private cancelled = false;
@@ -1260,8 +1076,6 @@ export class CancellationTokenSource {
     public readonly token: vscode.CancellationToken;
 
     public constructor() {
-        // Геттер объекта-литерала стрелкой быть не может, поэтому до состояния
-        // источника он добирается через замыкание, а не через алиас `this`.
         const isCancelled = (): boolean => this.cancelled;
         this.token = {
             get isCancellationRequested(): boolean {
@@ -1319,61 +1133,28 @@ export class Hover implements vscode.Hover {
     }
 }
 
-/**
- * Режим запуска расширения (`context.extensionMode`). У нас расширения всегда
- * работают как установленные (`Production`): режимов `--extensionDevelopmentPath`
- * / `--extensionTestsPath` в Diode нет. Расширения сравнивают значение с enum'ом
- * (`context.extensionMode === ExtensionMode.Development` у basedpyright), поэтому
- * enum обязан существовать в namespace.
- */
 export enum ExtensionMode {
     Production = 1,
     Development = 2,
     Test = 3,
 }
 
-/**
- * Где работает расширение (`Extension.extensionKind`). У нас всегда `UI`, и это
- * не упрощение, а буква контракта `vscode.d.ts`: «When no remote extension host
- * exists, the value is `ExtensionKind.UI`» — удалённого extension host'а в Diode
- * нет. Значение обязано быть рантайм-enum'ом: расширение сравнивает с ним
- * (`ext.extensionKind === vscode.ExtensionKind.Workspace`), и без настоящего
- * поля сравнение всегда давало бы `false` вместо честного ответа.
- */
 export enum ExtensionKind {
     UI = 1,
     Workspace = 2,
 }
 
-/**
- * Из какого UI расширение видят (`env.uiKind`). В Diode всегда `Desktop`:
- * редактор — настольное приложение, пусть и в терминале, а `Web` в контракте
- * значит «доступ из браузера» (vscode.dev). Enum обязан быть рантайм-значением:
- * `redhat.java` разбирает `switch (env.uiKind) { case UIKind.Desktop: ... }`
- * прямо в `activate()`, и без него активация падала на первом же обращении.
- */
 export enum UIKind {
     Desktop = 1,
     Web = 2,
 }
 
-/**
- * Как был вызван signature-help-провайдер. Значения — из vscode API; их читает
- * конвертер стокового клиента (`codeConverter.asSignatureHelpTriggerKind`
- * сравнивает `code.SignatureHelpTriggerKind.*` на КАЖДОМ запросе), поэтому
- * enum обязан существовать, даже если бы мы его сами не использовали.
- */
 export enum SignatureHelpTriggerKind {
     Invoke = 1,
     TriggerCharacter = 2,
     ContentChange = 3,
 }
 
-/**
- * Параметр сигнатуры. `label` — либо подстрока метки сигнатуры, либо пара
- * офсетов `[start, end)` внутри неё: клиент объявляет серверу
- * `labelOffsetSupport: true`, так что вторая форма — легальный ответ.
- */
 export class ParameterInformation implements vscode.ParameterInformation {
     public label: string | [number, number];
     public documentation?: string | MarkdownString;
@@ -1384,7 +1165,6 @@ export class ParameterInformation implements vscode.ParameterInformation {
     }
 }
 
-/** Одна сигнатура (перегрузка) вызываемого символа. */
 export class SignatureInformation implements vscode.SignatureInformation {
     public label: string;
     public documentation?: string | MarkdownString;
@@ -1397,39 +1177,27 @@ export class SignatureInformation implements vscode.SignatureInformation {
     }
 }
 
-/**
- * Подсказка параметров целиком. Конструктор БЕЗ аргументов — `protocolConverter`
- * клиента делает `new code.SignatureHelp()` и заполняет поля присваиванием (та
- * же грабля, что с `CompletionList`: без класса конвертация ответа падала бы
- * целиком, а след ушёл бы только в `client.outputChannel`).
- */
+/** Без аргументов: `protocolConverter` клиента делает `new code.SignatureHelp()` и заполняет поля присваиванием. */
 export class SignatureHelp implements vscode.SignatureHelp {
     public signatures: SignatureInformation[] = [];
     public activeSignature = 0;
     public activeParameter = 0;
 }
 
-/** Полный набор правок одного ресурса — внутренняя проекция для сериализации applyEdit. */
 export interface IResourceEditEntry {
     readonly uri: Uri;
     readonly edits: readonly (TextEdit | SnippetTextEdit)[];
 }
 
-/** Опции файловых операций `WorkspaceEdit` (`overwrite` бьёт `ignoreIfExists`). */
+/** `overwrite` бьёт `ignoreIfExists`. */
 export interface IFileOperationOptions {
     readonly overwrite?: boolean;
     readonly ignoreIfExists?: boolean;
     readonly ignoreIfNotExists?: boolean;
-    /** Начальное содержимое создаваемого файла, уже приведённое к строке. */
     readonly contents?: string;
 }
 
-/**
- * Одна операция внутри {@link WorkspaceEdit} — ровно в том порядке, в котором
- * её добавило расширение. Текстовая операция адресует ОДИН ресурс и копит все
- * его правки: координаты правок одного ресурса исходные (друг друга они не
- * сдвигают), поэтому хранить их россыпью незачем.
- */
+/** Текстовая операция копит все правки одного ресурса: их координаты исходные и друг друга не сдвигают. */
 export type WorkspaceEditOperation =
     | { readonly kind: "text"; readonly uri: Uri; readonly edits: (TextEdit | SnippetTextEdit)[] }
     | { readonly kind: "create"; readonly uri: Uri; readonly options: IFileOperationOptions }
@@ -1437,19 +1205,9 @@ export type WorkspaceEditOperation =
     | { readonly kind: "rename"; readonly from: Uri; readonly to: Uri; readonly options: IFileOperationOptions };
 
 /**
- * Правки уровня workspace (`vscode.WorkspaceEdit`).
- *
- * Внутри — УПОРЯДОЧЕННЫЙ список операций ({@link operations}), как у upstream:
- * порядок значим, потому что файловые операции и текстовые правки зависят друг
- * от друга («Move to a new file» создаёт файл и тут же пишет в него).
- * Текстовые правки группируются по ресурсу в первой его операции — `set`
- * заменяет накопленное, `replace`/`insert`/`delete` дописывают.
- *
- * `set` принимает обе формы конвертера стокового LSP-клиента — `TextEdit[]` и
- * пары `[TextEdit, metadata]` (metadata отбрасывается). По dts `get`/`entries`
- * отдают только `TextEdit`; сниппет-правки хранятся и видны через
- * {@link resourceEdits} — их приземляет сериализация `workspace.applyEdit`
- * (плейсхолдеры вырезаются, как у completion).
+ * Порядок операций значим: «Move to a new file» создаёт файл и тут же пишет в него.
+ * `set` принимает и пары `[TextEdit, metadata]` конвертера LSP-клиента (metadata
+ * отбрасывается); сниппет-правки видны только через {@link resourceEdits}.
  */
 export class WorkspaceEdit implements vscode.WorkspaceEdit {
     private readonly ops: WorkspaceEditOperation[] = [];
@@ -1508,12 +1266,12 @@ export class WorkspaceEdit implements vscode.WorkspaceEdit {
         return this.resourceEdits().map((entry) => [entry.uri, this.get(entry.uri)]);
     }
 
-    /** Все правки по ресурсам, включая сниппетные (вне vscode API — для сериализации). */
+    /** Вне vscode API — для сериализации applyEdit. */
     public resourceEdits(): readonly IResourceEditEntry[] {
         return this.ops.flatMap((op) => (op.kind === "text" ? [{ uri: op.uri, edits: op.edits }] : []));
     }
 
-    /** Операции в порядке добавления (вне vscode API — для сериализации applyEdit). */
+    /** Вне vscode API — для сериализации applyEdit. */
     public operations(): readonly WorkspaceEditOperation[] {
         return this.ops;
     }
@@ -1538,12 +1296,10 @@ export class WorkspaceEdit implements vscode.WorkspaceEdit {
         this.ops.push({ kind: "rename", from: oldUri, to: newUri, options: overwriteOptionsOf(options) });
     }
 
-    /** Есть ли файловые операции (create/rename/delete). */
     public get hasFileOperations(): boolean {
         return this.ops.some((op) => op.kind !== "text");
     }
 
-    /** Число затронутых ресурсов — текстовых и файловых (дословно `size` из dts). */
     public get size(): number {
         return this.ops.length;
     }
@@ -1566,19 +1322,13 @@ export class WorkspaceEdit implements vscode.WorkspaceEdit {
     }
 }
 
-/** Опции `createFile` из dts: `contents` приезжает байтами или файлом DataTransfer. */
 interface ICreateFileOptions {
     readonly overwrite?: boolean;
     readonly ignoreIfExists?: boolean;
     readonly contents?: Uint8Array | { data(): Thenable<Uint8Array> };
 }
 
-/**
- * Опции создания в нашей форме. `contents` приводится к строке здесь:
- * создаём мы текстовый файл, а `DataTransferFile` (асинхронные байты из
- * drag-and-drop) у нас взяться негде — такой `contents` игнорируется, файл
- * создаётся пустым.
- */
+/** `DataTransferFile` (асинхронные байты drag-and-drop) у нас взяться негде — такой `contents` игнорируется. */
 function createFileOptionsOf(options: ICreateFileOptions | undefined): IFileOperationOptions {
     const contents = options?.contents;
     return {
@@ -1596,10 +1346,6 @@ function overwriteOptionsOf(
     };
 }
 
-/**
- * Колонка редактора (`vscode.ViewColumn`): символические `Active`/`Beside` для
- * открытия и разрешённые 1..9 у существующих редакторов (полоса групп Diode).
- */
 export enum ViewColumn {
     Active = -1,
     Beside = -2,
@@ -1614,19 +1360,13 @@ export enum ViewColumn {
     Nine = 9,
 }
 
-// ─── TabInput* (vscode.window.tabGroups) ─────────────────────────────────────
-// Все семь видов — runtime-классами, хотя Diode производит только текст и дифф:
-// расширения перебирают вкладки instanceof-каскадом по ВСЕМ видам, и
-// `tab.input instanceof vscode.TabInputNotebook` при отсутствующем классе — это
-// TypeError, а не false. Классы тривиальны (Uri + string), несуществующие виды
-// вкладок просто никогда не встречаются в снимке.
+// Все виды TabInput* — классы, хотя Diode производит только текст и дифф:
+// `instanceof` по отсутствующему классу — TypeError, а не false.
 
-/** Вкладка с текстовым ресурсом. */
 export class TabInputText implements vscode.TabInputText {
     public constructor(public readonly uri: Uri) {}
 }
 
-/** Вкладка-дифф двух текстовых ресурсов. */
 export class TabInputTextDiff implements vscode.TabInputTextDiff {
     public constructor(
         public readonly original: Uri,
@@ -1634,7 +1374,6 @@ export class TabInputTextDiff implements vscode.TabInputTextDiff {
     ) {}
 }
 
-/** Вкладка custom-редактора (Diode не производит). */
 export class TabInputCustom implements vscode.TabInputCustom {
     public constructor(
         public readonly uri: Uri,
@@ -1642,12 +1381,10 @@ export class TabInputCustom implements vscode.TabInputCustom {
     ) {}
 }
 
-/** Вкладка webview (Diode не производит). */
 export class TabInputWebview implements vscode.TabInputWebview {
     public constructor(public readonly viewType: string) {}
 }
 
-/** Вкладка notebook (Diode не производит). */
 export class TabInputNotebook implements vscode.TabInputNotebook {
     public constructor(
         public readonly uri: Uri,
@@ -1655,7 +1392,6 @@ export class TabInputNotebook implements vscode.TabInputNotebook {
     ) {}
 }
 
-/** Вкладка-дифф notebook'ов (Diode не производит). */
 export class TabInputNotebookDiff implements vscode.TabInputNotebookDiff {
     public constructor(
         public readonly original: Uri,
@@ -1664,48 +1400,34 @@ export class TabInputNotebookDiff implements vscode.TabInputNotebookDiff {
     ) {}
 }
 
-/**
- * Вкладка терминала (Diode не производит). Пустой класс — это и есть поверхность
- * upstream (`vscode.TabInputTerminal`): расширения узнают её через `instanceof`,
- * так что заменить объектом или функцией, как предлагает правило, нельзя.
- */
+/** Пустой класс — поверхность upstream: расширения узнают вкладку через `instanceof`. */
 // eslint-disable-next-line @typescript-eslint/no-extraneous-class -- см. комментарий выше
 export class TabInputTerminal implements vscode.TabInputTerminal {}
 
-/**
- * Строгость сообщения валидации InputBox (`vscode.InputBoxValidationSeverity`).
- * `Error` блокирует Enter; `Warning` и `Info` только показываются.
- */
 export enum InputBoxValidationSeverity {
     Info = 1,
     Warning = 2,
     Error = 3,
 }
 
-// ── Задачи (`extHostTypes.ts` эталона) ────────────────────────────────────────
-
-/** Когда показывать терминал задачи (`vscode.TaskRevealKind`). */
 export enum TaskRevealKind {
     Always = 1,
     Silent = 2,
     Never = 3,
 }
 
-/** Чей терминал занимает задача (`vscode.TaskPanelKind`). */
 export enum TaskPanelKind {
     Shared = 1,
     Dedicated = 2,
     New = 3,
 }
 
-/** Правило экранирования аргумента шелла (`vscode.ShellQuoting`). */
 export enum ShellQuoting {
     Escape = 1,
     Strong = 2,
     Weak = 3,
 }
 
-/** Область задачи (`vscode.TaskScope`); `Global` (пользовательские задачи) не поддержан. */
 export enum TaskScope {
     Global = 1,
     Workspace = 2,
@@ -1715,10 +1437,6 @@ function illegalTaskArgument(name: string): Error {
     return new Error(`Illegal argument: ${name}`);
 }
 
-/**
- * Группа задачи (`vscode.TaskGroup`). Хранится и уезжает в ядро, но групп
- * build/test у нас пока нет — на запуск она не влияет (docs/TODO/Tasks.md).
- */
 export class TaskGroup implements vscode.TaskGroup {
     public isDefault: boolean | undefined;
     private readonly groupId: string;
@@ -1758,7 +1476,6 @@ function computeTaskExecutionId(values: readonly string[]): string {
     return values.map((value) => `${value.replace(/,/g, ",,")},`).join("");
 }
 
-/** Задача — процесс без шелла (`vscode.ProcessExecution`). */
 export class ProcessExecution implements vscode.ProcessExecution {
     private processValue: string;
     private argsValue: string[] = [];
@@ -1811,7 +1528,6 @@ export class ProcessExecution implements vscode.ProcessExecution {
     }
 }
 
-/** Задача — командная строка шелла или команда с аргументами (`vscode.ShellExecution`). */
 export class ShellExecution implements vscode.ShellExecution {
     private commandLineValue: string | undefined;
     private commandValue: string | vscode.ShellQuotedString | undefined;
@@ -1897,7 +1613,6 @@ export class ShellExecution implements vscode.ShellExecution {
     }
 }
 
-/** Задача, процессом которой владеет расширение — pty из колбэка (`vscode.CustomExecution`). */
 export class CustomExecution implements vscode.CustomExecution {
     public constructor(
         public callback: (resolvedDefinition: vscode.TaskDefinition) => Thenable<vscode.Pseudoterminal>,
@@ -1908,17 +1623,13 @@ export class CustomExecution implements vscode.CustomExecution {
     }
 }
 
-/** Исполнение задачи: свои классы и любые объекты той же формы (`instanceof` проверяет класс). */
 type TaskExecutionKind = vscode.ProcessExecution | vscode.ShellExecution | vscode.CustomExecution;
 type TaskScopeValue = vscode.TaskScope.Global | vscode.TaskScope.Workspace | vscode.WorkspaceFolder;
 
 /**
- * Задача (`vscode.Task`, `Task` в `extHostTypes.ts` эталона). `handleId` —
- * id задачи у ядра (`_id` эталона): он есть у задачи, пришедшей из ядра
- * (`fetchTasks`, событие старта), и по нему её исполняют без пересылки
- * описания. Любой сеттер его сбрасывает (`clear` эталона): изменённая задача
- * — уже другая, и уезжает описанием целиком; определение «встроенного» типа
- * (`shell`/`process`/`$empty`) тогда пересчитывается по исполнению.
+ * `handleId` — id задачи у ядра (`_id` эталона): по нему исполняют без пересылки
+ * описания. Любой сеттер его сбрасывает (`clear` эталона) — изменённая задача
+ * уезжает описанием целиком.
  */
 export class Task implements vscode.Task {
     private static readonly ExtensionCallbackType = "customExecution";
@@ -1988,7 +1699,6 @@ export class Task implements vscode.Task {
         this.hasDefinedMatchersValue = problemMatchers !== undefined;
     }
 
-    /** Id задачи у ядра (`_id` эталона); `undefined` — задача своя или изменена. */
     public get handleId(): string | undefined {
         return this.idValue;
     }
@@ -2153,14 +1863,7 @@ export class Task implements vscode.Task {
     }
 }
 
-// ── Деревья (`extHostTypes.ts` эталона) ───────────────────────────────────────
-
-/**
- * Ссылка на codicon по id (`vscode.ThemeIcon`). Значки в TUI не рисуются, но
- * класс обязан быть значением: расширения конструируют его при сборке
- * `TreeItem` (`new ThemeIcon("sync~spin")`) и читают статики `File`/`Folder`.
- * Без `isThemeIcon` эталона — им проверяет вход только рендер дерева.
- */
+/** Отступление: без `isThemeIcon` эталона — им проверяет вход только рендер дерева. */
 export class ThemeIcon implements vscode.ThemeIcon {
     public static readonly File = new ThemeIcon("file");
     public static readonly Folder = new ThemeIcon("folder");
@@ -2174,31 +1877,21 @@ export class ThemeIcon implements vscode.ThemeIcon {
     }
 }
 
-/** Состояние раскрытия узла дерева (`vscode.TreeItemCollapsibleState`). */
 export enum TreeItemCollapsibleState {
     None = 0,
     Collapsed = 1,
     Expanded = 2,
 }
 
-/** Состояние чекбокса узла дерева (`vscode.TreeItemCheckboxState`). */
 export enum TreeItemCheckboxState {
     Unchecked = 0,
     Checked = 1,
 }
 
 /**
- * Узел дерева (`vscode.TreeItem`). Деревья расширений пока не рисуются
- * (`treeViewNoop.ts`), но класс обязан быть настоящим: провайдер объявляет
- * `class Node extends vscode.TreeItem` на уровне модуля, и без значения точка
- * входа расширения не загружается вовсе («Class extends value undefined»).
- *
- * Перегрузки и дефолт — эталонные: подпись (строка или `TreeItemLabel`) либо
- * `Uri` ресурса, `collapsibleState` по умолчанию `None`. Необязательные поля —
- * `declare`: у эталона (`useDefineForClassFields: false`) они не становятся
- * собственными свойствами экземпляра, и геттер подкласса (`get tooltip()`) не
- * затеняется `undefined`. Отступление: нет статического `isTreeItem` — им
- * проверяет ответ провайдера только рендер дерева, которого у нас нет.
+ * Необязательные поля — `declare`, как у эталона (`useDefineForClassFields: false`):
+ * иначе `undefined` экземпляра затенит геттер подкласса (`get tooltip()`).
+ * Отступление: нет статического `isTreeItem` — рендера деревьев у нас нет.
  */
 export class TreeItem implements vscode.TreeItem {
     declare public label?: string | vscode.TreeItemLabel;
@@ -2228,13 +1921,6 @@ export class TreeItem implements vscode.TreeItem {
     }
 }
 
-// ── Телеметрия (`telemetryUtils.ts` эталона) ─────────────────────────────────
-
-/**
- * Обёртка «значение не чистить» (`vscode.TelemetryTrustedValue`). Телеметрии в
- * Diode нет, и логгер данных не читает, но класс обязан быть значением:
- * расширения конструируют его прямо при вызове `logUsage`.
- */
 export class TelemetryTrustedValue<T = unknown> implements vscode.TelemetryTrustedValue<T> {
     // Метка эталона: экземпляр теряется на сериализации, флаг — нет.
     public readonly isTrustedTelemetryValue = true;
@@ -2244,10 +1930,6 @@ export class TelemetryTrustedValue<T = unknown> implements vscode.TelemetryTrust
         this.value = value;
     }
 }
-
-// ── Комментарии (`extHostTypes.ts` эталона) ──────────────────────────────────
-// Панели комментариев нет (commentsNoop.ts), но enum'ы — значения: расширение
-// выставляет ими состояние треда (`thread.state = CommentThreadState.Resolved`).
 
 export enum CommentThreadCollapsibleState {
     Collapsed = 0,
@@ -2264,8 +1946,6 @@ export enum CommentThreadState {
     Resolved = 1,
 }
 
-// ── Notebook-вывод (`extHostTypes/notebooks.ts` эталона) ──────────────────────
-
 /** `type/subtype[;параметры]` — `_simplePattern` эталона (`base/common/mime.ts`). */
 const MIME_PATTERN = /^(.+)\/(.+?)(;.+)?$/;
 
@@ -2276,18 +1956,10 @@ const MIME_PATTERN = /^(.+)\/(.+?)(;.+)?$/;
 function normalizeMimeType(mime: string): string | undefined {
     const match = MIME_PATTERN.exec(mime);
     if (match === null) return undefined;
-    // Группа параметров необязательна — без них её значение `undefined`.
     const [, type, subtype, parameters = ""] = match;
     return `${type.toLowerCase()}/${subtype.toLowerCase()}${parameters}`;
 }
 
-/**
- * Элемент вывода ячейки (`vscode.NotebookCellOutputItem`). Notebook-редакторов
- * в Diode нет, но класс обязан быть значением: расширения строят элементы на
- * уровне модуля (Claude Code — десять `NotebookCellOutputItem.error(...).mime`
- * при загрузке, без класса точка входа не грузится вовсе). Поведение —
- * эталонное, включая отказ на кривом mime.
- */
 export class NotebookCellOutputItem implements vscode.NotebookCellOutputItem {
     public data: Uint8Array;
     public mime: string;

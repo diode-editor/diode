@@ -129,9 +129,6 @@ describe("WindowNamespace", () => {
         expect(stub.requests).toHaveLength(0);
     });
 
-    // Разбор перегрузок и возврат выбранной кнопки закрыт в
-    // messageNamespace.test.ts; здесь — что window действительно отдаёт api
-    // наружу и что показ это ЗАПРОС (ответа ждут), а не уведомление.
     it("show*Message уходит хосту запросом с правильным severity", async () => {
         const { stub, window } = makeCtx();
         stub.responder = () => ({ index: null });
@@ -161,8 +158,6 @@ describe("WindowNamespace", () => {
         await expect(window.showWarningMessage("careful", "Activate")).resolves.toBe("Activate");
     });
 
-    // Сам провод quick input'а закрыт в quickInputNamespace.test.ts; здесь
-    // проверяется только то, что window его действительно отдаёт наружу.
     it("showOpenDialog: опции — запросом хосту (фильтры парами), ответ — Uri расширения", async () => {
         const { stub, window } = makeCtx();
         stub.responder = () => ({ uris: ["file:///ws/a.go", 5] });
@@ -270,7 +265,6 @@ describe("WindowNamespace", () => {
         expect(bag).toContain(d);
         expect(typeof d.dispose).toBe("function");
         d.dispose();
-        // без disposables-массива тоже работает
         const d2 = window.onDidChangeWindowState(() => undefined);
         expect(typeof d2.dispose).toBe("function");
         expect(fired).toBe(false);
@@ -291,7 +285,6 @@ describe("WindowNamespace", () => {
         expect(bag).toContain(d);
         stub.fire("editor.activeEditorChanged", { uri: Uri.file("/a.ts").toString() });
         expect(received[0][0]).toBe("self");
-        // после dispose слушатель отписан
         d.dispose();
         stub.fire("editor.activeEditorChanged", { uri: Uri.file("/b.ts").toString() });
         expect(received).toHaveLength(1);
@@ -383,10 +376,8 @@ describe("WindowNamespace", () => {
                 },
             },
         });
-        // key монотонен
         const type2 = window.createTextEditorDecorationType({});
         expect(type2.key).toBe("2");
-        // dispose шлёт снятие типа по числовому key
         type.dispose();
         expect(stub.notifies.at(-1)).toEqual({
             method: "window.disposeTextEditorDecorationType",
@@ -545,8 +536,7 @@ describe("WindowNamespace — editor write (#194)", () => {
         const { editor } = activeEditor({ selection: null });
         expect(editor.selection.anchor).toEqual({ line: 0, character: 0 });
         expect(editor.selection.active).toEqual({ line: 0, character: 0 });
-        // `selections` при пустом кэше — одно вырожденное, а не пустой массив
-        // (контракт vscode: активный редактор всегда имеет хотя бы одну каретку).
+        // Контракт vscode: у активного редактора всегда хотя бы одна каретка.
         expect(editor.selections).toHaveLength(1);
         expect(editor.selections[0].active).toEqual({ line: 0, character: 0 });
     });
@@ -560,7 +550,6 @@ describe("WindowNamespace — editor write (#194)", () => {
             selections: [{ anchorLine: 1, anchorCharacter: 0, activeLine: 1, activeCharacter: 4 }],
             groupId: 1,
         });
-        // Кэш обновлён — последующее чтение отражает установленное.
         expect(editor.selection.active).toEqual({ line: 1, character: 4 });
     });
 
@@ -576,11 +565,8 @@ describe("WindowNamespace — editor write (#194)", () => {
             selections: [{ anchorLine: 5, anchorCharacter: 0, activeLine: 5, activeCharacter: 7 }],
         });
 
-        // Расширение видит свежую каретку — именно от этого зависит любая команда,
-        // читающая `activeTextEditor.selection` (maptz wrapWithRegion и т.п.).
         expect(editor.selection.anchor).toEqual({ line: 5, character: 0 });
         expect(editor.selection.active).toEqual({ line: 5, character: 7 });
-        // И при этом активный редактор не «сменился»: слушателей не дёргаем.
         expect(activeEditorEvents).toBe(0);
     });
 

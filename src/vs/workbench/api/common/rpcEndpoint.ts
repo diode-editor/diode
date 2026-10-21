@@ -10,10 +10,6 @@ import type { ILogger } from "../../../platform/log/common/iLogger.ts";
 
 import type { IMessageChannel } from "./iMessageChannel.ts";
 
-/**
- * Конверты сообщений host↔extension. Кастомный формат (без полного JSON-RPC):
- * минимум, нужный для request/response + notifications.
- */
 export interface IRequestMessage {
     readonly kind: "req";
     readonly id: number;
@@ -25,11 +21,7 @@ export interface IResponseMessage {
     readonly kind: "res";
     readonly id: number;
     readonly result?: unknown;
-    /**
-     * Ошибка обработчика: `name`/`message`/`stack`/`code`/`cause` доезжают
-     * целиком (`FileSystemError`, `CancellationError` и стек расширения не
-     * теряются по дороге) — как `ReplyErrError` эталона.
-     */
+    /** Доезжает целиком, с `name`/`stack`/`code`/`cause` — как `ReplyErrError` эталона. */
     readonly error?: SerializedError;
 }
 
@@ -42,79 +34,53 @@ export interface INotificationMessage {
 export type IProtocolMessage = IRequestMessage | IResponseMessage | INotificationMessage;
 
 /**
- * Обработчик запроса. Второй аргумент — токен отмены этого конкретного запроса:
- * он стреляет, когда вызывающая сторона прислала {@link CANCEL_REQUEST_METHOD}
- * («ответ уже не нужен»). Долгая работа обязана на него смотреть, короткая
- * вправе игнорировать — ответ отменённого запроса вызывающий отбросит сам.
+ * Долгая работа обязана смотреть на токен, короткая вправе игнорировать — ответ
+ * отменённого запроса вызывающий отбросит сам.
  */
 export type IRequestHandler = (params: unknown, token: ICancellationToken) => unknown;
 export type INotificationHandler = (params: unknown) => void;
 
-/**
- * Карта протокола одного направления: запросы `метод → [параметры, результат]`
- * и нотификации `метод → параметры`. Только типы — на проводе ничего не
- * меняется; карта даёт компилятору проверить, что сторона шлёт и что
- * обработчик принимает и возвращает (см. `extHostProtocol.ts`).
- */
+/** Только типы: на проводе карта ничего не меняет. */
 export interface IRpcProtocol {
     readonly requests: object;
     readonly notifications: object;
 }
 
-/** Протокол без карты: любой метод, параметры и результат — `unknown`. */
 export interface IUntypedProtocol {
     readonly requests: Readonly<Record<string, readonly [params: unknown, result: unknown]>>;
     readonly notifications: Readonly<Record<string, unknown>>;
 }
 
-/** Методы запросов протокола. */
 export type RequestMethod<P extends IRpcProtocol> = keyof P["requests"] & string;
-/** Параметры запроса `K`. */
 export type RequestParams<P extends IRpcProtocol, K extends RequestMethod<P>> = P["requests"][K] extends readonly [
     infer A,
     unknown,
 ]
     ? A
     : unknown;
-/** Результат запроса `K`. */
 export type RequestResult<P extends IRpcProtocol, K extends RequestMethod<P>> = P["requests"][K] extends readonly [
     unknown,
     infer R,
 ]
     ? R
     : unknown;
-/** Методы нотификаций протокола. */
 export type NotificationMethod<P extends IRpcProtocol> = keyof P["notifications"] & string;
-/** Параметры нотификации `K`. */
 export type NotificationParams<P extends IRpcProtocol, K extends NotificationMethod<P>> = P["notifications"][K];
 
-/**
- * Зарезервированный метод отмены (аналог LSP `$/cancelRequest`): нотификация
- * `{ id }` — «запрос #id больше не нужен». Отменой владеет сторона, которая
- * запрос послала; принимающая гасит токен обработчика. Транспорт общий для
- * всех методов — подключение конкретного провайдера к отмене сводится к
- * проводке токена, а не к новому протоколу.
- */
+/** Аналог LSP `$/cancelRequest`: отменой владеет сторона, пославшая запрос. */
 // Stryker disable next-line StringLiteral: имя метода — контракт с самим собой, обе стороны читают эту же константу; наблюдаемо только против чужой реализации протокола
 export const CANCEL_REQUEST_METHOD = "$/cancelRequest";
 
-/** Параметры {@link CANCEL_REQUEST_METHOD}. */
 export interface ICancelRequestParams {
     readonly id: number;
 }
 
 /**
- * Сколько отмен-сирот (отмена обогнала собственный запрос — переупорядочивание
- * транспорта) endpoint помнит, чтобы выдать обработчику уже отменённый токен.
- * Граница нужна, чтобы множество не росло без предела на чужом мусоре.
+ * Отмены-сироты, обогнавшие свой запрос на переупорядоченном транспорте; граница —
+ * чтобы множество не росло на чужом мусоре.
  */
 const EARLY_CANCEL_MEMORY = 64;
 
-/**
- * Тонкая обёртка поверх {@link IMessageChannel}, реализующая request/response
- * и notification поверх канального транспорта. Симметрична — оба конца
- * (host и runtime) используют один и тот же класс.
- */
 export class RpcEndpoint<
     TOut extends IRpcProtocol = IUntypedProtocol,
     TIn extends IRpcProtocol = IUntypedProtocol,
@@ -127,19 +93,14 @@ export class RpcEndpoint<
         {
             resolve: (value: unknown) => void;
             reject: (reason: Error) => void;
-            /** Подписка на токен вызывающего; снимается вместе с ответом. */
             cancelSubscription: IDisposable | null;
-            /** Таймер {@link IRequestOptions.timeoutMs}; гасится ответом. */
             timer: ReturnType<typeof setTimeout> | undefined;
         }
     >();
-    /** Токены входящих запросов, которые сейчас исполняет эта сторона. */
     private readonly incomingCancellations = new Map<number, CancellationTokenSource>();
-    /** Id отмен, пришедших раньше собственного запроса (см. {@link EARLY_CANCEL_MEMORY}). */
     private readonly earlyCancellations = new Set<number>();
     private readonly requestHandlers = new Map<string, IRequestHandler>();
     private readonly notificationHandlers = new Map<string, INotificationHandler>();
-    /** Нотификации без обработчика, о которых уже предупредили (раз на метод). */
     private readonly unknownNotifications = new Set<string>();
     private nextRequestId = 1;
     private disposed = false;
@@ -154,14 +115,8 @@ export class RpcEndpoint<
     }
 
     /**
-     * Шлёт запрос и ждёт ответа. `token` — необязательный токен отмены
-     * вызывающего: когда он стреляет, второй стороне уходит нотификация
-     * {@link CANCEL_REQUEST_METHOD}, и обработчик там видит отменённый токен.
-     * Ответ при этом всё равно ожидается: отмена — просьба, а не разрыв.
-     *
-     * `timeoutMs` — срок ответа: истёк — запрос отменяется так же (обработчик
-     * второй стороны узнаёт об этом токеном, language server — `$/cancelRequest`),
-     * а промис отклоняется {@link TimeoutError}, не дожидаясь опоздавшего ответа.
+     * Ответ ожидается и после отмены: отмена — просьба, а не разрыв. Истёкший
+     * `timeoutMs` отменяет запрос так же и отклоняет промис, не дожидаясь опоздавшего ответа.
      */
     public request<K extends RequestMethod<TOut>>(
         method: K,
@@ -175,7 +130,6 @@ export class RpcEndpoint<
         const id = this.nextRequestId++;
         return new Promise<RequestResult<TOut, K>>((resolve, reject) => {
             const pending = {
-                // Результат приходит с провода как есть: тип ему даёт карта протокола.
                 resolve: resolve as (value: unknown) => void,
                 reject,
                 cancelSubscription: null as IDisposable | null,
@@ -261,10 +215,8 @@ export class RpcEndpoint<
             pending.reject(new Error("RpcEndpoint disposed"));
         }
         this.pendingRequests.clear();
-        // Канала больше нет — ответ некуда слать; обработчикам, которые ещё
-        // считают, сообщаем отменой (их работа уже никому не нужна). Сама
-        // уборка за отменой (dispose источников и очистка обеих коллекций)
-        // поведения не меняет — endpoint уже мёртв, читать их больше некому.
+        // Ответ некуда слать; ещё считающим обработчикам — отмена. Уборка ниже поведения
+        // не меняет: endpoint мёртв, читать коллекции некому.
         for (const source of this.incomingCancellations.values()) {
             source.cancel();
             // Stryker disable next-line CallExpression: уборка, см. выше
@@ -279,10 +231,8 @@ export class RpcEndpoint<
     }
 
     /**
-     * Токен вызывающего стрельнул — просим вторую сторону бросить запрос.
-     * Отмена уже отвеченного запроса сюда не доходит: подписка на токен
-     * снимается вместе с ответом (и в {@link handleResponseMessage}, и в
-     * {@link dispose}) — на этом инварианте и держится «после ответа молчим».
+     * Отмена уже отвеченного запроса сюда не доходит: подписка на токен снимается
+     * вместе с ответом — на этом держится «после ответа молчим».
      */
     private cancelOutgoing(id: number, method: string): void {
         // Stryker disable next-line StringLiteral: текст trace-строки ненаблюдаем (логгера в тестах endpoint'а нет)
@@ -290,13 +240,10 @@ export class RpcEndpoint<
         this.sendNotification(CANCEL_REQUEST_METHOD, { id } satisfies ICancelRequestParams);
     }
 
-    /** Отмена входящего запроса: гасит токен его обработчика. */
     private handleCancelMessage(params: unknown): void {
         // Stryker disable next-line OptionalChaining: без `?.` мусорные параметры заставляют handleCancelMessage кинуть прямо из доставки канала, то есть мимо стека теста. Тест на этот случай есть («отмена с чужой формой параметров и отмена без пары — тихие»), но он ПРОХОДИТ: unhandled-ошибка роняет раннер (RuntimeError) вместо падения теста. Это дыра в локализации ошибок слушателей (docs/MUTATION.md → #275), а не пробел в тестах этой строки.
         const id = (params as ICancelRequestParams | null | undefined)?.id;
-        // Гард против мусора в параметрах: без него нечисловой id просто осел
-        // бы в earlyCancellations и не совпал бы ни с одним запросом (ключи
-        // там — числа), то есть наблюдаемо ничего бы не изменилось.
+        // Без гарда нечисловой id осел бы в earlyCancellations и ни с чем не совпал — ненаблюдаемо.
         // Stryker disable next-line ConditionalExpression: см. выше
         if (typeof id !== "number") return;
         const source = this.incomingCancellations.get(id);
@@ -304,9 +251,8 @@ export class RpcEndpoint<
             source.cancel();
             return;
         }
-        // Пары нет: либо запрос уже отвечен (отмена опоздала — просто молчим),
-        // либо отмена обогнала свой запрос на переупорядоченном транспорте —
-        // запоминаем, чтобы выдать обработчику уже отменённый токен.
+        // Пары нет: запрос уже отвечен (молчим) или отмена обогнала его — тогда обработчик
+        // получит уже отменённый токен.
         this.earlyCancellations.add(id);
         for (const stale of this.earlyCancellations) {
             if (this.earlyCancellations.size <= EARLY_CANCEL_MEMORY) break;
@@ -348,9 +294,6 @@ export class RpcEndpoint<
             this.channel.postMessage(response);
             return;
         }
-        // Токен этого запроса: стреляет по `$/cancelRequest` с его id. Отмена,
-        // обогнавшая сам запрос, лежит в earlyCancellations — тогда обработчик
-        // получает токен, отменённый с самого начала.
         const source = new CancellationTokenSource();
         this.incomingCancellations.set(message.id, source);
         if (this.earlyCancellations.delete(message.id)) source.cancel();
@@ -377,12 +320,7 @@ export class RpcEndpoint<
             );
     }
 
-    /**
-     * Входящий запрос отработал: токен больше не нужен. Чистая уборка —
-     * опоздавшая отмена по этому id и так никому не адресована (обработчик
-     * уже вернул ответ), поэтому наблюдаемого поведения тут нет, только
-     * отсутствие роста коллекций.
-     */
+    // Опоздавшая отмена по этому id никому не адресована: уборка лишь против роста коллекций.
     // Stryker disable BlockStatement,CallExpression: уборка без наблюдаемого эффекта, см. выше
     private finishIncoming(id: number, source: CancellationTokenSource): void {
         this.incomingCancellations.delete(id);
@@ -406,8 +344,7 @@ export class RpcEndpoint<
     private handleNotificationMessage(message: INotificationMessage): void {
         const handler = this.notificationHandlers.get(message.method);
         if (handler === undefined) {
-            // Нотификация без обработчика — расхождение сторон протокола; поток
-            // таких сообщений не должен топить лог, поэтому — раз на метод.
+            // Расхождение сторон протокола; поток таких сообщений не должен топить лог.
             if (!this.unknownNotifications.has(message.method)) {
                 this.unknownNotifications.add(message.method);
                 this.logger?.warn(`no handler for notification "${message.method}"`);
@@ -417,8 +354,6 @@ export class RpcEndpoint<
         try {
             handler(message.params);
         } catch (err) {
-            // Notifications не имеют ответа — глотаем исключения молча
-            // (в Phase 1 изоляция упрощённая).
             this.logger?.warn(`notification handler for "${message.method}" threw`, err);
         }
     }
@@ -455,15 +390,11 @@ export class RpcEndpoint<
     }
 }
 
-/** Параметры исходящего запроса ({@link RpcEndpoint.request}). */
 export interface IRequestOptions {
-    /** Токен отмены вызывающего. */
     readonly token?: ICancellationToken;
-    /** Срок ответа, мс: истёк — запрос отменяется, промис — {@link TimeoutError}. */
     readonly timeoutMs?: number;
 }
 
-/** Ответ не пришёл за `timeoutMs`: запрос отменён на второй стороне. */
 export class TimeoutError extends Error {
     public constructor(
         public readonly method: string,
@@ -474,10 +405,7 @@ export class TimeoutError extends Error {
     }
 }
 
-/**
- * Отказ обработчика в форме провода. `Error` сериализуется целиком; бросили
- * не `Error` (строку, число) — значение едет текстом сообщения обычной ошибки.
- */
+/** Бросили не `Error` — значение едет текстом сообщения обычной ошибки. */
 function serializeRejection(reason: unknown): SerializedError {
     if (reason instanceof Error) return transformErrorForSerialization(reason);
     return { $isError: true, name: "Error", message: String(reason), stack: "" };

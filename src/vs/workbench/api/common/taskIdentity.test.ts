@@ -7,10 +7,6 @@ import {
     parseTaskDefinitions,
 } from "./taskIdentity.ts";
 
-// Ключ определения задачи (`KeyedTaskIdentifier` / `createTaskIdentifier`
-// эталона) и разбор `contributes.taskDefinitions` — общий код хоста и
-// субпроцесса: id задачи провайдера обе стороны обязаны считать одинаково.
-
 const schema = (overrides: Partial<ITaskDefinitionSchema> = {}): ITaskDefinitionSchema => ({
     extensionId: "pub.ext",
     taskType: "bazel",

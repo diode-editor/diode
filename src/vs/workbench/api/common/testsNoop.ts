@@ -4,31 +4,13 @@ import type { SubprocessRpc } from "./extHostProtocol.ts";
 import { CancellationTokenSource, EventEmitter } from "./vscodeTypes.ts";
 
 /**
- * `vscode.tests` как заглушка до view Testing (docs/arch/StockExtensions.md, golang.go).
- * Тот же принцип, что у комментариев (commentsNoop.ts): контроллер, профили,
- * элементы и прогоны — настоящие объекты эталонной формы, присваивания полей
- * проходят, но ничего не рисуется и обработчики (`runHandler`,
- * `resolveHandler`, `refreshHandler`) никто не зовёт.
- *
- * `golang.go` заводит контроллер в `activate()` (`go.testExplorer.enable` по
- * умолчанию включён), создаёт три профиля и на открытии тест-файла ищет и
- * добавляет элементы — коллекции поэтому рабочие (`items.get` после
- * `items.add` находит элемент, `parent` выставляется), иначе расширение
- * спотыкалось бы на собственном дереве. Прогон тестов у Go идёт мимо Test API
- * (`Go: Test File`, задачи `go: test`) — он и остаётся рабочим путём.
- *
- * Человеку — одна warn-строка в Output на id контроллера за жизнь субпроцесса.
+ * Заглушка до view Testing: обработчики никто не зовёт, но коллекции рабочие — `golang.go`
+ * на открытии тест-файла добавляет элементы и спотыкался бы на собственном дереве.
  */
 
-/** Канал панели Output для отказа: `extensions` уже в реестре ядра (label «Extensions»). */
 const OUTPUT_CHANNEL = "extensions";
 const OUTPUT_LABEL = "Extensions";
 
-/**
- * Коллекция элементов: у корня контроллера `parent` детей — `undefined`, у
- * детей элемента — сам элемент. Тот же id в одной коллекции заменяет прежний
- * элемент (контракт `TestItemCollection.add`).
- */
 class InertTestItemCollection implements vscode.TestItemCollection {
     private readonly items = new Map<string, InertTestItem>();
 
@@ -69,7 +51,6 @@ class InertTestItemCollection implements vscode.TestItemCollection {
     }
 }
 
-/** Элемент с эталонными дефолтами (`TestItemImpl`): без тегов, не busy, детей не резолвит. */
 class InertTestItem implements vscode.TestItem {
     public readonly children: vscode.TestItemCollection = new InertTestItemCollection(this);
     public parent: vscode.TestItem | undefined = undefined;
@@ -109,7 +90,6 @@ function createInertRunProfile(
     };
 }
 
-/** Прогон, который некому показать: отчёты о тестах принимаются и забываются. */
 function createInertTestRun(name: string | undefined, persist: boolean): vscode.TestRun {
     const onDidDispose = new EventEmitter<void>();
     return {
@@ -124,8 +104,6 @@ function createInertTestRun(name: string | undefined, persist: boolean): vscode.
         passed: (): void => undefined,
         appendOutput: (): void => undefined,
         addCoverage: (): void => undefined,
-        // Как у эталона: `end` завершает прогон один раз, подписчики узнают о его
-        // конце; снятый эмиттер повторный `end` уже никому не доставит.
         end: (): void => {
             onDidDispose.fire();
             onDidDispose.dispose();

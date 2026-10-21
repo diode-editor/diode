@@ -11,8 +11,6 @@ import { createWindowNamespace } from "./windowNamespace.ts";
 import type { IWireSelection } from "./wireTypes.ts";
 import { WorkspaceConfigStore } from "./workspaceConfigStore.ts";
 
-// Эталон шлёт onDidChangeTextEditorSelection, когда вкладка становится видимой
-// с выделением не в 1:1 (новый MainThreadTextEditor + restoreState курсора).
 // Порядок как у хоста: снимок полосы, затем мета активного редактора.
 
 const A = Uri.file("/p/a.ts").toString();
@@ -51,7 +49,6 @@ function setup() {
         const sameAsActive = e.textEditor === window.activeTextEditor ? "active" : "other";
         log.push(`selection ${e.textEditor.document.uri.toString()} ${sameAsActive}`);
     });
-    /** Одна группа: вкладки A и B, активна `active` со своими выделениями. */
     const showInGroup = (groupId: number, active: string, selections: IWireSelection[], isActiveGroup = true) => {
         stub.fire("editor.layoutChanged", {
             groups: [

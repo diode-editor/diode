@@ -41,17 +41,12 @@ import {
     WorkspaceEdit,
 } from "./vscodeTypes.ts";
 
-// Value-типы, которые vscode-languageclient extends-ит на require и конструирует
-// на результатах. Семантика наивная — тесты фиксируют контракт хранения.
-
 const RANGE = new Range(1, 2, 3, 4);
 const URI = Uri.file("/proj/a.ts");
 
 describe("vscodeTypes — LSP value-классы", () => {
     it("SignatureHelp: конструктор без аргументов даёт пустые поля", () => {
-        // Конвертер клиента делает `new code.SignatureHelp()` и заполняет поля
-        // присваиванием — пустой конструктор обязан пережить это без падений,
-        // а `signatures` обязан быть массивом (по нему сразу идёт обход).
+        // Конвертер клиента делает `new code.SignatureHelp()`, присваивает поля и сразу обходит `signatures`.
         const help = new SignatureHelp();
         expect(help.signatures).toEqual([]);
         expect(help.activeSignature).toBe(0);
@@ -68,16 +63,12 @@ describe("vscodeTypes — LSP value-классы", () => {
         const withDocs = new SignatureInformation("f()", new MarkdownString("**док**"));
         expect((withDocs.documentation as MarkdownString).value).toBe("**док**");
 
-        // Метка параметра — строка ИЛИ пара офсетов (клиент объявляет серверу
-        // labelOffsetSupport, так что вторая форма приезжает как есть).
         expect(new ParameterInformation("name: string").label).toBe("name: string");
         expect(new ParameterInformation([6, 18]).label).toEqual([6, 18]);
         expect(new ParameterInformation("name", "кого").documentation).toBe("кого");
     });
 
     it("SignatureHelpTriggerKind: значения протокола", () => {
-        // Их сравнивает codeConverter клиента на КАЖДОМ запросе — разъедься
-        // они с протоколом, сервер получил бы чужой triggerKind.
         expect(SignatureHelpTriggerKind.Invoke).toBe(1);
         expect(SignatureHelpTriggerKind.TriggerCharacter).toBe(2);
         expect(SignatureHelpTriggerKind.ContentChange).toBe(3);
@@ -106,7 +97,6 @@ describe("vscodeTypes — LSP value-классы", () => {
         expect(related.location).toBe(location);
         expect(related.message).toBe("'retries' is declared here");
 
-        // Конвертер клиента складывает их в диагностику массивом.
         const diag = new Diagnostic(RANGE, "Property 'retries' is missing");
         diag.relatedInformation = [related];
         expect(diag.relatedInformation).toEqual([related]);
@@ -173,8 +163,6 @@ describe("vscodeTypes — LSP value-классы", () => {
     it("MarkdownString: append* конкатенируют и возвращают this", () => {
         const md = new MarkdownString("a");
         expect(md.appendText("b").appendMarkdown("c").appendCodeblock("d", "ts")).toBe(md);
-        // appendCodeblock оборачивает в fenced-блок с языком (его читает
-        // hover-путь: конвертер клиента собирает так legacy MarkedString).
         expect(md.value).toBe("abc\n```ts\nd\n```\n");
         expect(new MarkdownString().appendCodeblock("x").value).toBe("\n```\nx\n```\n");
         expect(new MarkdownString().value).toBe("");
@@ -208,19 +196,16 @@ describe("vscodeTypes — LSP value-классы", () => {
 
     it("WorkspaceEdit.set: обе формы конвертера (плоская и пары с metadata), null/[] очищает", () => {
         const edit = new WorkspaceEdit();
-        // Плоская форма (`item.changes` у конвертера клиента).
         edit.set(URI, [new TextEdit(RANGE, "a")]);
         expect(edit.get(URI).map((e) => e.newText)).toEqual(["a"]);
 
-        // Пары [edit, metadata] (`item.documentChanges`); set ЗАМЕНЯЕТ прежний список.
+        // set ЗАМЕНЯЕТ прежний список.
         edit.set(URI, [
             [new TextEdit(RANGE, "b"), { needsConfirmation: false, label: "l" }],
             [new TextEdit(RANGE, "c"), undefined],
         ]);
         expect(edit.get(URI).map((e) => e.newText)).toEqual(["b", "c"]);
 
-        // Мусор в списке отбрасывается, а не превращается в правку — и не
-        // оседает даже во внутреннем полном представлении.
         edit.set(URI, [new TextEdit(RANGE, "d"), {} as never]);
         expect(edit.get(URI).map((e) => e.newText)).toEqual(["d"]);
         expect(edit.resourceEdits()[0].edits).toHaveLength(1);
@@ -256,7 +241,6 @@ describe("vscodeTypes — LSP value-классы", () => {
         const other = Uri.file("/proj/other.ts");
         const edit = new WorkspaceEdit();
         expect(edit.hasFileOperations).toBe(false);
-        // Текстовые правки файловыми операциями не считаются.
         edit.replace(URI, RANGE, "x");
         expect(edit.hasFileOperations).toBe(false);
         edit.set(URI, null);
@@ -264,10 +248,8 @@ describe("vscodeTypes — LSP value-классы", () => {
         edit.deleteFile(other);
         edit.renameFile(other, URI);
         expect(edit.hasFileOperations).toBe(true);
-        // `size` — «затронутые ресурсы»: текстовые + файловые операции.
         edit.replace(URI, RANGE, "x");
         expect(edit.size).toBe(4);
-        // `entries`/`get` видят только текст: файловая операция ресурс «не правит».
         expect(edit.entries()).toHaveLength(1);
         expect(edit.has(other)).toBe(false);
     });
@@ -277,11 +259,9 @@ describe("vscodeTypes — LSP value-классы", () => {
         edit.set(URI, []);
         expect(edit.size).toBe(0);
         expect(edit.has(URI)).toBe(false);
-        // И не уносит с собой чужую операцию: снимать нечего — значит ничего.
         edit.createFile(Uri.file("/proj/other.ts"));
         edit.set(URI, []);
         expect(edit.operations().map((op) => op.kind)).toEqual(["create"]);
-        // ...а по ресурсу С правками — снимает его операцию, и только её.
         edit.replace(URI, RANGE, "x");
         edit.set(URI, null);
         expect(edit.operations().map((op) => op.kind)).toEqual(["create"]);

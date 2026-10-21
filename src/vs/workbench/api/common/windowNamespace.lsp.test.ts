@@ -9,11 +9,7 @@ import { Uri } from "./vscodeTypes.ts";
 import { createWindowNamespace, slugifyChannelName } from "./windowNamespace.ts";
 import { WorkspaceConfigStore } from "./workspaceConfigStore.ts";
 
-// Наивная поверхность window, которую трогает vscode-languageclient.
-// LogOutputChannel-методы обязаны писать в канал (console → stdout-логгер
-// хоста): ошибки p2c.asDiagnostics клиент пишет ТОЛЬКО туда.
-
-/** Наивная поверхность window, отсутствующая в активной части vscode.d.ts (runtime опережает декларацию). */
+/** Runtime опережает активную часть vscode.d.ts. */
 interface INaiveWindowSurface {
     showTextDocument(doc: unknown): Thenable<unknown>;
     tabGroups: {
@@ -117,7 +113,6 @@ describe("WindowNamespace — наивная поверхность LSP", () => 
         expect(stub.notifies.filter((n) => n.method === "output.show").map((n) => n.params)).toEqual([
             { channel: "extensions.buffered", label: "Buffered" },
         ]);
-        // clear/replace/hide — no-op (журнал ретенционный), не бросают.
         expect(() => {
             channel.clear();
         }).not.toThrow();

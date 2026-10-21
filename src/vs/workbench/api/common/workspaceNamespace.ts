@@ -41,16 +41,12 @@ import {
 import type { WorkspaceConfigStore } from "./workspaceConfigStore.ts";
 import { simulateWorkspaceFoldersUpdate } from "./workspaceFoldersUpdate.ts";
 
-/** Тайм-аут на один waitUntil-thenable участника will-save, мс. */
+/** На один waitUntil-thenable. */
 const WILL_SAVE_LISTENER_TIMEOUT_MS = 1500;
 
 /**
- * Базы, по которым идёт `findFiles`, и шаблон относительно каждой.
- *
- * Строковый шаблон в контракте означает «во ВСЕХ папках воркспейса» (в отличие
- * от `createFileSystemWatcher`, где у нас берётся первая): у поиска результат
- * складывается, и терять папки нельзя. `RelativePattern` сам несёт свою базу —
- * именно им расширение сужает поиск до одной папки.
+ * Строковый шаблон — во ВСЕХ папках воркспейса (у `createFileSystemWatcher` —
+ * в первой): результат поиска складывается, терять папки нельзя.
  */
 function findFilesBases(
     include: unknown,
@@ -64,25 +60,9 @@ function findFilesBases(
 }
 
 /**
- * Шаблоны исключения по трём значениям аргумента, как в контракте: `undefined` —
- * дефолты `files.exclude`, `null` — не исключать ничего, шаблон — только он
- * (настройка при этом НЕ добавляется).
- *
- * Дефолт — буквально настройка `files.exclude` и только она: «default
- * file-excludes (e.g. the `files.exclude`-setting but not `search.exclude`)»
- * в контракте. `search.exclude` сюда не входит сознательно — расширение ищет
- * файл, чтобы с ним работать, а не чтобы показать человеку результат поиска.
- * Настройка приезжает в субпроцесс снапшотом (см. {@link WorkspaceConfigStore}),
- * поэтому читается синхронно и на каждый вызов — правка применяется к
- * следующему же `findFiles`.
- *
- * Явной ветки под `null` нет: `resolveGlobPattern` отвечает на него тем же
- * `null`, что и на любое неразбираемое значение, — а «разобрать нечем» и
- * «исключений нет» для обхода одно и то же.
- *
- * `RelativePattern` в исключении разбирается ради его `pattern`: матчим мы
- * относительно базы ПОИСКА, а не базы исключения — своя база у исключения
- * значила бы второй корень, которого у обхода нет.
+ * `undefined` — только `files.exclude`, без `search.exclude` (так в контракте);
+ * `null` — ничего, явная ветка не нужна: `resolveGlobPattern` отвечает на него `null`.
+ * Шаблон `RelativePattern` матчим относительно базы ПОИСКА — второго корня у обхода нет.
  */
 function findFilesExcludes(exclude: unknown, base: string, configStore: WorkspaceConfigStore): readonly string[] {
     if (exclude === undefined) return filesExcludeGlobs(configStore);
@@ -91,34 +71,25 @@ function findFilesExcludes(exclude: unknown, base: string, configStore: Workspac
     return pattern === undefined ? [] : [pattern];
 }
 
-/** Промис, резолвящийся пустым набором правок по истечении per-listener тайм-аута. */
 function listenerTimeout(): Promise<readonly TextEdit[]> {
     return new Promise((resolve) => {
         const timer = setTimeout(() => {
             resolve([]);
         }, WILL_SAVE_LISTENER_TIMEOUT_MS);
-        // Не держим event loop живым из-за таймера, который проиграл гонку.
         timer.unref();
     });
 }
 
-/** Валидный Event, который никогда не стреляет (хост его не фаерит). */
 function naiveEvent<T = never>(): vscode.Event<T> {
     return new EventEmitter<T>().event;
 }
 
-/**
- * То же, но с пустой полезной нагрузкой (`Event<void>` у upstream). Отдельная
- * обёртка, а не `naiveEvent<void>()`: `void` допустим в аннотации возврата, но
- * не явным type-аргументом вызова.
- */
+/** Не `naiveEvent<void>()`: `void` нельзя явным type-аргументом вызова (линт). */
 function naiveVoidEvent(): vscode.Event<void> {
     return naiveEvent();
 }
 
-/** Wire-параметры запроса will-save (host → subprocess). */
 interface IWireWillSaveParams {
-    /** Ресурс как `uri.toString()`. */
     readonly uri: string;
     readonly languageId?: string;
     readonly isDirty?: boolean;
@@ -126,12 +97,9 @@ interface IWireWillSaveParams {
     readonly reason?: number;
     /** `vscode.EndOfLine`: 1=LF, 2=CRLF. */
     readonly eol?: number;
-    /** Кодировка дискового представления (id вида "utf8"/"windows1251"). */
     readonly encoding?: string;
 }
 
-/** Папка воркспейса, полученная из `workspace.initialize`. */
-/** Опции `openTextDocument(options?)` — безымянного документа. */
 interface IUntitledDocumentOptions {
     readonly content?: string;
     readonly language?: string;
@@ -144,40 +112,20 @@ interface IWorkspaceFolder {
     readonly index: number;
 }
 
-/**
- * `vscode.workspace` на стороне subprocess.
- *
- * Конфигурация приходит push-моделью в {@link IVscodeHostContext.configStore}
- * через notif'ы `workspace.initialize` / `workspace.configurationChanged`
- * (см. host). `getConfiguration().get()` синхронный — читает из уже полученного
- * снапшота. Регистрация save-слушателей шлёт `workspace.updateSubscriptions`
- * на переходах 0↔1 (исполнение will-save — WP6).
- */
-/**
- * `languageId` из scope `getConfiguration`: у `TextDocument` и у `{ uri, languageId }`
- * он полем. Значение не проверяем: секции под непонятный идентификатор нет, и
- * чтение просто вернёт значения без неё.
- */
+/** Значение не проверяем: секции под непонятный язык нет, чтение вернёт значения без неё. */
 function languageIdOfScope(scope: unknown): string | undefined {
     if (typeof scope !== "object" || scope === null || !("languageId" in scope)) return undefined;
     return String(scope.languageId);
 }
 
-/**
- * Ресурс из scope `getConfiguration` (`scopeToOverrides` эталона): сам `Uri`
- * либо `uri` у `TextDocument`, `WorkspaceFolder`, `{ uri, languageId }`.
- */
+/** Как `scopeToOverrides` эталона. */
 function resourceOfScope(scope: unknown): string | undefined {
     if (scope instanceof Uri) return scope.toString();
     if (typeof scope !== "object" || scope === null || !("uri" in scope)) return undefined;
     return scope.uri instanceof Uri ? scope.uri.toString() : undefined;
 }
 
-/**
- * Цель записи (`parseConfigurationTarget` эталона): `true`/Global — user,
- * `false`/Workspace — воркспейс, WorkspaceFolder — папка; прочее — цель не
- * задана, её выводит хост.
- */
+/** `undefined` — цель не задана, её выводит хост. */
 function parseConfigurationTarget(arg: unknown): WireConfigurationTarget | undefined {
     if (typeof arg === "boolean") return arg ? "user" : "workspace";
     switch (arg) {
@@ -192,10 +140,8 @@ function parseConfigurationTarget(arg: unknown): WireConfigurationTarget | undef
 }
 
 /**
- * `registerTaskProvider` — устаревший двойник `tasks.registerTaskProvider`
- * (у эталона тот же вызов): `tasks` собирается позже `workspace` и ждёт его
- * папки, поэтому член приходит снаружи. Без него (тесты `workspace`) —
- * регистрация в никуда.
+ * `registerTaskProvider` приходит снаружи: `tasks` собирается позже `workspace`
+ * и ждёт его папки.
  */
 export function createWorkspaceNamespace(
     ctx: IVscodeHostContext,
@@ -203,17 +149,11 @@ export function createWorkspaceNamespace(
         new DisposableImpl(() => undefined),
 ): typeof vscode.workspace {
     const { rpc, registry, documentSync, configStore } = ctx;
-    // `TextDocument.save()` — тем же путём, что `workspace.save`.
     registry.saver = async (uri) => (await rpc.request("workspace.save", { uri: uri.toString() })) !== null;
 
     let workspaceFolders: IWorkspaceFolder[] = [];
-    /** Файл `.code-workspace` окна (`workspace.workspaceFile`); нет — папка открыта напрямую или окно пустое. */
     let workspaceFile: vscode.Uri | undefined;
 
-    // ── Провайдеры ФС по схеме ──────────────────────────────────────────────
-    // Расширение регистрирует провайдера (`git:` у встроенного git), субпроцесс
-    // объявляет хосту список схем, а хост читает ресурс обратным запросом. Логика
-    // реестра — в fileSystemNamespace (тестируется без RPC), здесь только проводка.
     const fsProviders = new SubprocessFileSystemProviders();
 
     fsProviders.onDidChangeSchemes(() => {
@@ -226,7 +166,6 @@ export function createWorkspaceNamespace(
         rpc.notify("workspace.fs.didChangeFile", { uris: uris.map((u) => u.toString()) });
     });
 
-    /** Провайдер схемы ресурса из запроса хоста; кривой uri или чужая схема — отказ. */
     function providedResource(method: string, raw: unknown): { uri: Uri; provider: vscode.FileSystemProvider } {
         if (typeof raw !== "string") throw new Error(`${method}: uri must be a string`);
         const uri = Uri.parse(raw);
@@ -256,9 +195,6 @@ export function createWorkspaceNamespace(
         }
     });
 
-    // Запись ядра в ресурс провайдера: сохранение документа на его схеме
-    // (`$writeFile` эталона). Флаги — как у записи редактором: создать или
-    // перезаписать целиком.
     rpc.handleRequest("workspace.fs.writeFile", async (params): Promise<null> => {
         const p: { uri?: unknown; content?: unknown } = params;
         const { uri, provider } = providedResource("workspace.fs.writeFile", p.uri);
@@ -271,11 +207,6 @@ export function createWorkspaceNamespace(
         return null;
     });
 
-    // ── Провайдеры содержимого по схеме ─────────────────────────────────────
-    // Дверь для документов, которых нет на диске (`jdt:` у redhat.java: класс
-    // из jar, исходник JDK, декомпиляция). Проводка та же, что у провайдеров
-    // ФС: субпроцесс объявляет схемы, хост спрашивает содержимое обратным
-    // запросом. Логика реестра — в subprocessTextDocumentContentProviders.
     const contentProviders = new SubprocessTextDocumentContentProviders();
 
     contentProviders.onDidChangeSchemes(() => {
@@ -300,9 +231,7 @@ export function createWorkspaceNamespace(
         },
     );
 
-    // ── Файловые watcher'ы (`createFileSystemWatcher`) ──────────────────────
-    // Слежение ведёт ядро: оно владеет excludes (`files.watcherExclude`) и
-    // бюджетом inotify. Субпроцесс держит только эмиттеры и id.
+    // Слежение ведёт ядро: оно владеет `files.watcherExclude` и бюджетом inotify.
     const fsWatchers = new SubprocessFileSystemWatchers({
         create: (request) => {
             rpc.notify("workspace.watcher.create", request);
@@ -317,17 +246,13 @@ export function createWorkspaceNamespace(
     });
 
     const onDidChangeConfigurationEmitter = new EventEmitter<vscode.ConfigurationChangeEvent>();
-    // didOpen/didChange живут в DocumentSyncTracker (единая точка входа текста в
-    // реестр — ей пользуются и document sync, и languages.provide*-обработчики).
     const onDidOpenTextDocumentEmitter = documentSync.onDidOpenEmitter;
     const onDidCloseTextDocumentEmitter = new EventEmitter<vscode.TextDocument>();
     const onDidChangeTextDocumentEmitter = documentSync.onDidChangeEmitter;
     const onWillSaveTextDocumentEmitter = new EventEmitter<vscode.TextDocumentWillSaveEvent>();
     const onDidSaveTextDocumentEmitter = new EventEmitter<vscode.TextDocument>();
 
-    // Счётчики слушателей save-событий и document sync: subprocess сообщает хосту
-    // (updateSubscriptions), нужно ли вообще запускать pipeline will/did-save и
-    // гонять полнотекстовый didOpen/didChange на правки буфера.
+    // Без слушателей хост не гоняет will/did-save и полнотекстовый document sync.
     let willSaveCount = 0;
     let didSaveCount = 0;
     let documentSyncCount = 0;
@@ -339,17 +264,12 @@ export function createWorkspaceNamespace(
         });
     }
 
-    /**
-     * Оборачивает событие в подписку со счётчиком: на переходах 0↔1 subprocess
-     * шлёт `workspace.updateSubscriptions` (паттерн onWillSaveTextDocument).
-     */
     function countedEvent<T>(
         emitter: EventEmitter<T>,
         onCountChanged: (delta: 1 | -1) => void,
     ): (listener: (e: T) => unknown, thisArgs?: unknown, disposables?: vscode.Disposable[]) => vscode.Disposable {
         return (listener, thisArgs, disposables) => {
-            // Внутреннюю подписку регистрируем без `disposables` — в массив кладём
-            // wrapper, чтобы dispose через него корректно уменьшал счётчик.
+            // `disposables` — не внутренней подписке, а wrapper'у: иначе dispose не уменьшит счётчик.
             const inner = emitter.event(listener as never, thisArgs);
             onCountChanged(1);
             const wrapper = new DisposableImpl(() => {
@@ -368,11 +288,7 @@ export function createWorkspaceNamespace(
         }
     }
 
-    // ── Document sync (host → subprocess) ───────────────────────────────────
-    // Зеркало документа: снапшот на открытии (новый ресурс → didOpen, один раз,
-    // как в VS Code), дальше — правки модели с её versionId. Замена содержимого
-    // целиком (flush) приезжает снапшотом в didChange и расходится одной
-    // full-range правкой. Никакой записи текста мимо трекера.
+    // Flush (замена содержимого целиком) приезжает в didChange снапшотом.
     rpc.handleNotification("editor.didOpen", (params) => {
         const snap = parseWireDocumentSyncSnapshot(params);
         if (snap !== null) documentSync.open(snap);
@@ -388,9 +304,6 @@ export function createWorkspaceNamespace(
         if (snap !== null) documentSync.open(snap);
     });
 
-    // Последняя вкладка ресурса закрыта: сброс didOpen-дедупа + isClosed +
-    // onDidCloseTextDocument (сервер получает LSP didClose и снова didOpen при
-    // повторном открытии — прежний люфт закрыт).
     rpc.handleNotification("editor.didClose", (params) => {
         const p: { uri?: unknown } = params;
         if (typeof p.uri !== "string" || p.uri === "") return;
@@ -423,10 +336,7 @@ export function createWorkspaceNamespace(
         });
     });
 
-    // Хост запрашивает pre-save правки: документ — из зеркала (текста запрос не
-    // везёт; устаревший или не открытый — правок нет), мета сохранения — из
-    // запроса; фаерим onWillSaveTextDocument, собираем waitUntil-thenable'ы (по
-    // одному per-listener таймауту), сериализуем полученные TextEdit[].
+    // Текста запрос не везёт: документ — из зеркала, устаревший или не открытый — правок нет.
     rpc.handleRequest("workspace.willSaveTextDocument", async (params): Promise<WireTextEdit[]> => {
         const p: IWireWillSaveParams = params;
         const doc = documentSync.resolve(p.uri, p.version, p.languageId);
@@ -469,7 +379,6 @@ export function createWorkspaceNamespace(
         return edits;
     });
 
-    // Хост сообщил о состоявшемся сохранении — фаерим onDidSaveTextDocument.
     rpc.handleNotification("workspace.didSaveTextDocument", (params) => {
         const p: { uri?: unknown; languageId?: unknown } = params;
         if (typeof p.uri !== "string") return;
@@ -482,11 +391,8 @@ export function createWorkspaceNamespace(
 
     function getConfiguration(section?: string, scope?: unknown): vscode.WorkspaceConfiguration {
         const prefix = section !== undefined && section !== "" ? section + "." : "";
-        // Язык из scope — `TextDocument` или `{ languageId }` (`scopeToOverrides` vscode):
-        // поверх значений ложится секция `"[<язык>]"`.
         const languageId = languageIdOfScope(scope);
-        // Значения настроек нетипизированы: `T` у get/inspect — утверждение
-        // вызывающего о форме значения (как в эталоне), проверить его нечем.
+        // `T` у get/inspect — утверждение вызывающего (как в эталоне), проверить его нечем.
         const config: vscode.WorkspaceConfiguration & Record<string, unknown> = {
             get: <T>(key: string, defaultValue?: T): T | undefined =>
                 configStore.get(prefix + key, defaultValue, languageId) as T | undefined,
@@ -513,11 +419,8 @@ export function createWorkspaceNamespace(
     }
 
     /**
-     * `WorkspaceConfiguration.update` (эталон: `extHostConfiguration` →
-     * `mainThreadConfiguration.$updateConfigurationOption`). Пишет хост — тем же
-     * сервисом настроек, что ядро; отказ приходит rejected promise без тоста.
      * К резолву новое значение уже приехало `configurationChanged`: хост шлёт его
-     * по тому же каналу раньше ответа.
+     * по тому же каналу раньше ответа. Отказ — rejected promise без тоста.
      */
     async function updateConfiguration(
         key: string,
@@ -528,11 +431,8 @@ export function createWorkspaceNamespace(
         languageId: string | undefined,
     ): Promise<void> {
         const target = parseConfigurationTarget(targetArg);
-        // Секцию `"[lang]"` эталон выбирает, когда scope несёт язык и
-        // `overrideInLanguage` — либо явно `true`, либо не задан, а в целевом
-        // слое у языка уже есть своё значение. Такую запись мы пока не умеем —
-        // честный отказ, а не запись мимо секции, которую `get()` для языка
-        // всё равно перекроет.
+        // Запись в секцию `"[lang]"` (условие — как у эталона) не умеем: отказ, а не
+        // запись мимо секции, которую `get()` для языка всё равно перекроет.
         if (languageId !== undefined) {
             const layer = target ?? "workspace";
             const toSection = overrideInLanguage ?? configStore.hasLanguageOverride(key, languageId, layer);
@@ -568,31 +468,22 @@ export function createWorkspaceNamespace(
         uriOrPathOrOptions?: vscode.Uri | string | IUntitledDocumentOptions,
         options?: { encoding?: string },
     ): Promise<vscode.TextDocument> {
-        // Не путь и не uri — перегрузка `openTextDocument(options?)`: безымянный
-        // документ (как `createDocumentData` эталона, любой не-URI объект — опции).
         // Каст: `vscode.Uri` у расширения — всегда наш `Uri`, его отсекла проверка.
         if (typeof uriOrPathOrOptions !== "string" && !(uriOrPathOrOptions instanceof Uri)) {
             return createUntitledDocument((uriOrPathOrOptions ?? {}) as IUntitledDocumentOptions);
         }
         const uriOrPath = uriOrPathOrOptions;
-        // Строка здесь — путь на диске (перегрузка `openTextDocument(path)`), а не uri.
+        // Строка — путь на диске (перегрузка `openTextDocument(path)`), а не uri.
         const uri = typeof uriOrPath === "string" ? Uri.file(uriOrPath) : uriOrPath;
-        // Открытый документ — отдаём стабильный объект из реестра.
         const open = registry.get(uri);
         if (open !== undefined) return open;
 
-        // Схема с зарегистрированным провайдером содержимого — спрашиваем его,
-        // как это делает эталон («For all other schemes contributed text document
-        // content providers … are consulted»). RPC здесь не нужен: провайдер
-        // живёт в этом же субпроцессе.
         if (contentProviders.has(uri.scheme)) {
             const content = await contentProviders.provide(uri);
             if (content === null) throw FileSystemError.FileNotFound(uri);
             return makeEphemeralDocument(uri, content, "utf8");
         }
 
-        // Схема провайдера ФС этого же субпроцесса (`_claude_fs_right:` у
-        // Claude Code) — читаем провайдером в эфемерный документ, как файл ниже.
         const fsProvider = fsProviders.get(uri.scheme);
         if (fsProvider !== undefined) {
             const { text, encoding } = await decodeBuffer(
@@ -602,35 +493,24 @@ export function createWorkspaceNamespace(
             return makeEphemeralDocument(uri, text, encoding);
         }
 
-        // Промах реестра: читаем файл с диска в ЭФЕМЕРНЫЙ документ (в реестр не
-        // кладём — это не открытый буфер). Прочих схем с диска не читаем —
-        // честно отказываем, а не скармливаем `fsPath` в node:fs (у не-file
-        // схем это не путь).
+        // У не-file схем `fsPath` — не путь, в node:fs его не отдаём.
         if (uri.scheme !== "file") throw FileSystemError.Unavailable(uri);
 
-        // Читаем сырые байты и декодируем осью encoding ядра: explicit-кодировка
-        // из options побеждает BOM-сниф; неизвестный id по контракту vscode.d.ts
-        // молча откатывается к дефолтному пути (BOM-сниф → utf-8). EOL для
-        // эфемерного документа детектим из текста — как делает ядро.
         const buffer = await ctx.disk.readFile(uri.fsPath);
         const { text, encoding } = await decodeBuffer(buffer, options?.encoding);
         return makeEphemeralDocument(uri, text, encoding);
     }
 
     /**
-     * `openTextDocument({ content, language })` — `untitled:Untitled-N` в ядре
-     * (`$tryCreateDocument` эталона): буфер без вкладки, с непустым текстом —
-     * грязный, Save As работает штатно; показывает его `showTextDocument`.
-     * `editor.didOpen` приезжает раньше ответа, так что документ уже в реестре
-     * (и `onDidOpenTextDocument` уже выстрелил). Нет его там только у
-     * документа сверх порога синхронизации — такой отдаём эфемерным.
+     * `editor.didOpen` приезжает раньше ответа, так что документ уже в реестре.
+     * Нет его там только сверх порога синхронизации — такой отдаём эфемерным.
      */
     async function createUntitledDocument({
         content,
         language,
         encoding,
     }: IUntitledDocumentOptions): Promise<vscode.TextDocument> {
-        // Опции приходят из JS расширения: поле не той формы не уезжает вовсе.
+        // Опции — из JS расширения, тип им не гарантия.
         const text = typeof content === "string" ? content : undefined;
         const { uri: created } = await rpc.request("workspace.createUntitledDocument", {
             ...(text !== undefined ? { content: text } : {}),
@@ -641,7 +521,7 @@ export function createWorkspaceNamespace(
         return registry.get(uri) ?? makeEphemeralDocument(uri, text ?? "", "utf8");
     }
 
-    /** Документ вне реестра открытых буферов: EOL детектим из текста, как ядро. */
+    /** Вне реестра: это не открытый буфер. */
     function makeEphemeralDocument(uri: Uri, text: string, encoding: string): ExtHostTextDocument {
         const doc = new ExtHostTextDocument(uri, registry.wordDefinitionFor, registry.saveDocument);
         doc.applyFull({
@@ -660,8 +540,7 @@ export function createWorkspaceNamespace(
         },
 
         get name(): string | undefined {
-            // Воркспейс из файла зовётся по файлу (`getWorkspaceLabel` эталона):
-            // `web.code-workspace` → `web (Workspace)`.
+            // `getWorkspaceLabel` эталона: `web.code-workspace` → `web (Workspace)`.
             if (workspaceFile !== undefined) return `${workspaceFileLabel(workspaceFile.fsPath)} (Workspace)`;
             return workspaceFolders[0]?.name;
         },
@@ -674,7 +553,6 @@ export function createWorkspaceNamespace(
             return registry.all();
         },
 
-        // workspace.fs — локальный доступ к диску субпроцесса (без RPC).
         fs: createFileSystemNamespace(ctx.disk.fs, fsProviders),
 
         registerFileSystemProvider: (
@@ -690,25 +568,18 @@ export function createWorkspaceNamespace(
 
         getConfiguration,
         asRelativePath,
-        // Каст — к трём перегрузкам d.ts (uri / путь / опции безымянного):
-        // форму реализация различает в рантайме.
+        // Каст к трём перегрузкам d.ts: форму реализация различает в рантайме.
         openTextDocument: openTextDocument as unknown as typeof vscode.workspace.openTextDocument,
 
         onDidChangeConfiguration: onDidChangeConfigurationEmitter.event,
-        // Подписки document sync — со счётчиком: пока их нет, host не гоняет
-        // полнотекстовые didOpen/didChange RPC на каждую правку буфера.
         onDidOpenTextDocument: countedEvent(onDidOpenTextDocumentEmitter, onDocumentSyncCountChanged),
         onDidChangeTextDocument: countedEvent(onDidChangeTextDocumentEmitter, onDocumentSyncCountChanged),
         onDidCloseTextDocument: onDidCloseTextDocumentEmitter.event,
 
-        // ── Наивная поверхность, которую трогает vscode-languageclient. События,
-        // которых хост пока не фаерит, — валидные (никогда не стреляющие)
-        // Event'ы; шаги закрытия — матрица docs/public/API-COVERAGE.md. ──────────
+        // Немые события — поверхность, которую трогает vscode-languageclient.
         onDidChangeWorkspaceFolders: naiveEvent(),
-        // Multi-root у нас нет (docs/TODO/MultiRoot.md): из всех смен набора
-        // выполнима только та, что оставляет ровно одну папку, — её хост
-        // открывает, как Open Folder (расширения перезапускаются, как reload
-        // окна у эталона). Остальное — `false` и тост от хоста (решение человека).
+        // Multi-root нет (docs/TODO/MultiRoot.md): выполнима только смена, оставляющая
+        // одну папку, — хост открывает её как Open Folder; прочее — `false` и тост (решение человека).
         updateWorkspaceFolders: (
             start: number,
             deleteCount: number | undefined | null,
@@ -738,40 +609,27 @@ export function createWorkspaceNamespace(
         onDidChangeNotebookDocument: naiveEvent(),
         onDidSaveNotebookDocument: naiveEvent(),
         notebookDocuments: [] as readonly unknown[],
-        // `workspace.applyEdit`: текстовые правки уезжают хосту одним запросом
-        // и применяются per-документ undoable-батчами (см. `IEditorOptionsService`).
-        // Файловые операции WorkspaceEdit не поддержаны — честный `false` без
-        // запроса: VS Code применяет такой edit атомарно, «наполовину» нельзя.
         applyEdit: (edit: vscode.WorkspaceEdit, metadata?: vscode.WorkspaceEditMetadata): Thenable<boolean> => {
             if (!(edit instanceof WorkspaceEdit)) return Promise.resolve(false);
             const ops = serializeWorkspaceEdit(edit);
-            // Операция из одних битых правок — отказ всего edit'а (all-or-nothing).
+            // All-or-nothing, как у VS Code: «наполовину» применять нельзя.
             if (ops === null) return Promise.resolve(false);
-            // Пустой edit (или один шум вроде чистых EOL-правок) — вакуумный
-            // успех, как у VS Code: применять нечего, но и отказа нет.
+            // Пустой edit — вакуумный успех, как у VS Code.
             if (ops.length === 0) return Promise.resolve(true);
-            // `isRefactoring` — затронутые файлы подпадают под
-            // `files.refactoring.autoSave` (`respectAutoSaveConfig` эталона).
             const params: IWireApplyWorkspaceEditParams = {
                 ops,
                 ...(metadata?.isRefactoring === true ? { isRefactoring: true } : {}),
             };
             return rpc.request("workspace.applyEdit", params);
         },
-        // Сохранение — на хосте (`$save`/`$saveAll` эталона): буферы и диалоги
-        // живут там. golang.go зовёт `saveAll(false)` перед `gopls.tidy` и
-        // vulncheck. `saveAs` не поднят: ему нужен диалог Save As на чужой буфер.
+        // `saveAs` не поднят: ему нужен диалог Save As на чужой буфер.
         save: async (uri: vscode.Uri): Promise<vscode.Uri | undefined> => {
             const saved = await rpc.request("workspace.save", { uri: uri.toString() });
             return saved === null ? undefined : Uri.parse(saved.uri);
         },
         saveAll: (includeUntitled?: boolean): Thenable<boolean> =>
             rpc.request("workspace.saveAll", includeUntitled === true ? { includeUntitled: true } : {}),
-        // Файл ВНЕ папок воркспейса — `undefined`, как в эталоне («Returns
-        // `undefined` when the given uri doesn't match any workspace folder»).
-        // Раньше здесь стоял fallback на `workspaceFolders[0]`: в однопапочном
-        // мире почти безобидный, а в мульти-руте — источник неверной адресации,
-        // на котором расширения успели бы устаканиться.
+        // Без fallback на `workspaceFolders[0]`: файл вне папок — `undefined`, как в эталоне.
         getWorkspaceFolder: (uri: vscode.Uri): vscode.WorkspaceFolder | undefined => {
             const p = uri.fsPath;
             const found = workspaceFolders.find((f) => p === f.uri.fsPath || p.startsWith(f.uri.fsPath + "/"));
@@ -784,22 +642,13 @@ export function createWorkspaceNamespace(
             ignoreDeleteEvents = false,
         ): vscode.FileSystemWatcher => {
             const resolved = resolveGlobPattern(globPattern, workspaceFolders[0]?.uri.fsPath);
-            // Нечего резолвить (пустое окно или мусорный шаблон) — валидный,
-            // но немой watcher: расширение не обязано это проверять.
+            // Пустое окно или мусорный шаблон — немой watcher: расширение не обязано это проверять.
             if (resolved === null) {
                 return fsWatchers.createInert(ignoreCreateEvents, ignoreChangeEvents, ignoreDeleteEvents);
             }
             return fsWatchers.create(resolved, ignoreCreateEvents, ignoreChangeEvents, ignoreDeleteEvents);
         },
-        /**
-         * Поиск файлов по glob — свой обход дерева в субпроцессе (за эталонным
-         * `findFiles` стоит ripgrep в ядре; см. `findFiles.ts` о том, почему
-         * обход живёт здесь, а не на хосте).
-         *
-         * Строковый шаблон означает «во всех папках воркспейса», как в эталоне;
-         * `RelativePattern` ограничивает поиск своей базой. Результат — пути
-         * абсолютными `file:`-Uri, `maxResults` считается по всем папкам вместе.
-         */
+        /** Свой обход в субпроцессе, а не ripgrep ядра, как у эталона, — почему, см. `findFiles.ts`. */
         findFiles: async (
             include: vscode.GlobPattern,
             exclude?: vscode.GlobPattern | null,
@@ -808,9 +657,7 @@ export function createWorkspaceNamespace(
         ): Promise<vscode.Uri[]> => {
             const results: Uri[] = [];
             const isCancelled = (): boolean => token?.isCancellationRequested === true;
-            // Ни отмену, ни исчерпанный `maxResults` здесь отдельно не ловим:
-            // обход сам возвращает пустой список и на отменённом токене, и на
-            // нулевом остатке, а вторая проверка того же условия — лишний шов.
+            // Отмену и нулевой остаток отдельно не ловим: обход сам вернёт на них пустой список.
             for (const resolved of findFilesBases(include, workspaceFolders)) {
                 const relativePaths = await walkForFiles(
                     ctx.disk.findFilesScanner,
@@ -818,8 +665,7 @@ export function createWorkspaceNamespace(
                         base: resolved.base,
                         include: resolved.pattern,
                         excludes: findFilesExcludes(exclude, resolved.base, configStore),
-                        // Остаток на все папки вместе: `maxResults` в контракте
-                        // ограничивает результат целиком, а не каждую папку.
+                        // `maxResults` — на результат целиком, а не на папку.
                         maxResults: (maxResults ?? Number.POSITIVE_INFINITY) - results.length,
                     },
                     { isCancelled },
@@ -840,10 +686,8 @@ export function createWorkspaceNamespace(
             });
         },
 
-        // Модели доверия воркспейса у Diode нет — открытое всегда доверено
-        // (как VS Code с выключенным workspace trust). Ruff по этому флагу
-        // выбирает между native server и legacy ruff-lsp; `false` уводил бы
-        // его в принудительный bundled-путь с предупреждением в логе.
+        // Модели доверия нет — как VS Code с выключенным workspace trust. `false`
+        // уводил бы Ruff в принудительный bundled-путь с предупреждением в логе.
         isTrusted: true,
         onDidGrantWorkspaceTrust: naiveVoidEvent(),
 
@@ -852,8 +696,7 @@ export function createWorkspaceNamespace(
             thisArgs?: unknown,
             disposables?: vscode.Disposable[],
         ): vscode.Disposable => {
-            // Внутреннюю подписку регистрируем без `disposables` — в массив кладём
-            // wrapper, чтобы dispose через него корректно уменьшал счётчик.
+            // `disposables` — не внутренней подписке, а wrapper'у: иначе dispose не уменьшит счётчик.
             const inner = onWillSaveTextDocumentEmitter.event(listener as never, thisArgs);
             willSaveCount++;
             if (willSaveCount === 1) pushSubscriptions();

@@ -10,10 +10,7 @@ function makeApi() {
     return { stub, api: createQuickInputApi(stub.rpc) };
 }
 
-/**
- * Ответ хоста, который тест резолвит руками, — им держим показ открытым, пока
- * идут запросы валидации.
- */
+/** Ответ хоста резолвится руками — им держим показ открытым, пока идут запросы валидации. */
 function pendingAnswer(): { promise: Promise<unknown>; answer: (value: unknown) => void } {
     let answer!: (value: unknown) => void;
     const promise = new Promise<unknown>((resolve) => {
@@ -22,7 +19,6 @@ function pendingAnswer(): { promise: Promise<unknown>; answer: (value: unknown) 
     return { promise, answer };
 }
 
-/** Последний исходящий запрос указанного метода. */
 function lastRequest(stub: ReturnType<typeof makeStubRpc>, method: string): Record<string, unknown> {
     const found = [...stub.requests].reverse().find((r) => r.method === method);
     if (found === undefined) throw new Error(`нет запроса "${method}"`);
@@ -204,7 +200,6 @@ describe("window.showInputBox (шим)", () => {
         const { stub, api } = makeApi();
         stub.responder = () => ({ value: "x" });
         await api.showInputBox({ validateInput: () => "нельзя" });
-        // Показ закрыт — валидатора по этому handle больше нет.
         await expect(stub.callRequest("window.inputBox.validate", { handle: 1, value: "y" })).resolves.toBeNull();
         await expect(stub.callRequest("window.inputBox.validate", { handle: 999, value: "y" })).resolves.toBeNull();
     });

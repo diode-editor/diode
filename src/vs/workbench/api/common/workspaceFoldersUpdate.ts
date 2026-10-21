@@ -1,21 +1,13 @@
 import type * as vscode from "vscode";
 
-/** Папка, которую расширение просит добавить (`workspace.updateWorkspaceFolders`). */
 export interface IWorkspaceFolderToAdd {
     readonly uri: vscode.Uri;
     readonly name?: string;
 }
 
 /**
- * Симуляция `workspace.updateWorkspaceFolders` над текущим набором папок —
- * проверки `ExtHostWorkspace.updateWorkspaceFolders` эталона дословно по смыслу:
- * чужие `uri` и повторы среди добавляемых отбрасываются; отрицательные или не
- * числа, удаление сверх имеющегося, папка дважды в итоге и итог без изменений
- * (в том числе «нечего удалять и добавлять») — отказ (`null`). Иначе — новый набор папок
- * (только `uri`: имя папки у нас — её basename, как у открытой напрямую).
- *
- * Папки сравниваются по `fsPath` (в эталоне — с учётом регистра ФС; у нас ФС
- * одна — локальная).
+ * Проверки `ExtHostWorkspace.updateWorkspaceFolders` эталона; `null` — отказ, в том
+ * числе «итог без изменений». Сравнение по `fsPath`: ФС у нас одна, локальная.
  */
 export function simulateWorkspaceFoldersUpdate(
     current: readonly { readonly uri: vscode.Uri }[],

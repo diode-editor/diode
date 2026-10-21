@@ -7,10 +7,6 @@ import { createTelemetryLogger } from "./telemetryLogger.ts";
 import { makeStubRpc } from "./testStubRpc.ts";
 import { buildVscodeNamespace } from "./vscodeNamespace.ts";
 
-// Логгер эталона (`ExtHostTelemetryLogger`) при навсегда выключенной
-// телеметрии: отправитель не получает ни одного события, только `flush` на
-// первом dispose.
-
 function makeSender(overrides: Partial<vscode.TelemetrySender> = {}) {
     return {
         sendEventData: vi.fn<vscode.TelemetrySender["sendEventData"]>(),

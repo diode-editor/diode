@@ -88,14 +88,12 @@ describe("WindowNamespace — layout-диффер (editor.layoutChanged)", () =>
         });
         expect(events.at(-1)!.opened.map((t) => t.label)).toEqual(["a.ts"]);
 
-        // Открытие b + смена активной вкладки.
         stub.fire("editor.layoutChanged", {
             groups: [{ groupId: 1, viewColumn: 1, isActive: true, tabs: [tab(A), tab(B, { isActive: true })] }],
         });
         expect(events.at(-1)!.opened.map((t) => t.label)).toEqual(["b.ts"]);
         expect(events.at(-1)!.changed.map((t) => t.label)).toEqual(["a.ts"]);
 
-        // Закрытие b.
         stub.fire("editor.layoutChanged", {
             groups: [{ groupId: 1, viewColumn: 1, isActive: true, tabs: [tab(A, { isActive: true })] }],
         });
@@ -139,7 +137,6 @@ describe("WindowNamespace — layout-диффер (editor.layoutChanged)", () =>
 
         const visible = window.visibleTextEditors;
         expect(visible.length).toBe(2);
-        // Один файл в двух группах — РАЗНЫЕ TextEditor с ОДНИМ document.
         expect(visible[0] === visible[1]).toBe(false);
         expect(visible[0].document === visible[1].document).toBe(true);
         expect(fired.length).toBe(1);
@@ -176,7 +173,6 @@ describe("WindowNamespace — layout-диффер (editor.layoutChanged)", () =>
         expect(events.length).toBe(1);
         expect(events[0].textEditor === editorOfGroup2).toBe(true);
         expect(events[0].viewColumn).toBe(1);
-        // Тот же объект, колонка — геттер от снимка.
         expect(editorOfGroup2.viewColumn).toBe(1);
     });
 
@@ -391,7 +387,6 @@ describe("WindowNamespace — layout-диффер (editor.layoutChanged)", () =>
         });
         expect(window.visibleTextEditors[0].selection.active).toEqual({ line: 2, character: 5 });
 
-        // Вкладка закрылась — её выделение обязано умереть вместе с ней.
         stub.fire("editor.layoutChanged", {
             groups: [{ groupId: 1, viewColumn: 1, isActive: true, tabs: [tab(B, { isActive: true })] }],
         });
@@ -517,7 +512,6 @@ describe("WindowNamespace — группа активного редактора
 
         const [ofGroup1, ofGroup2] = window.visibleTextEditors;
         expect(ofGroup2.selection.active).toEqual({ line: 3, character: 4 });
-        // Тот же файл в первой группе не тронут — редакторы разные.
         expect(ofGroup1.selection.active).toEqual({ line: 0, character: 0 });
     });
 });

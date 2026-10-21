@@ -10,11 +10,7 @@ import { Range, Uri } from "./vscodeTypes.ts";
 import { createWindowNamespace } from "./windowNamespace.ts";
 import { WorkspaceConfigStore } from "./workspaceConfigStore.ts";
 
-/**
- * Стаб-RPC отвечает на request'ы undefined; здесь же нужен настоящий ответ
- * `editor.showTextDocument` ({uri, groupId}) — подменяем request, сохраняя
- * журнал вызовов.
- */
+/** Стаб-RPC отвечает undefined, а здесь нужен настоящий ответ `editor.showTextDocument`. */
 function makeCtx(requestResult?: unknown) {
     const stub = makeStubRpc();
     if (requestResult !== undefined) {
@@ -103,7 +99,6 @@ describe("WindowNamespace — showTextDocument (нормализация пер�
 
         expect(editor.document.uri.toString()).toBe(B.toString());
         expect(editor.viewColumn).toBe(2);
-        // Тот же редактор, что и в visibleTextEditors — идентичность по (группа, документ).
         expect(editor === window.visibleTextEditors[0]).toBe(true);
     });
 });

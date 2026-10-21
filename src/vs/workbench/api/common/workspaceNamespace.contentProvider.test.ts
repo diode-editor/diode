@@ -11,13 +11,6 @@ import { EventEmitter, Uri } from "./vscodeTypes.ts";
 import { WorkspaceConfigStore } from "./workspaceConfigStore.ts";
 import { createWorkspaceNamespace } from "./workspaceNamespace.ts";
 
-/**
- * Проводка `workspace.registerTextDocumentContentProvider` на стороне
- * субпроцесса: объявление схем хосту, обратный запрос содержимого и
- * `openTextDocument` по такой схеме. Сам реестр — в
- * `subprocessTextDocumentContentProviders.test.ts`; здесь только провод.
- */
-
 function makeCtx() {
     const stub = makeStubRpc();
     const registry = new DocumentRegistry();
@@ -32,7 +25,6 @@ function makeCtx() {
     return { stub, workspace: createWorkspaceNamespace(ctx) };
 }
 
-/** Провайдер-фикстура: текст по замыканию плюс необязательный `onDidChange`. */
 function provider(content: string | undefined, changed?: EventEmitter<Uri>): vscode.TextDocumentContentProvider {
     return {
         ...(changed !== undefined ? { onDidChange: changed.event as unknown as vscode.Event<vscode.Uri> } : {}),

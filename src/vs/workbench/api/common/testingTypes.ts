@@ -1,14 +1,5 @@
 import type * as vscode from "vscode";
 
-/**
- * Значения-типы Test API по эталону (`extHostTypes.ts`, регион Testing и Test
- * Coverage). View Testing в Diode нет (контроллер инертный, `testsNoop.ts`), но
- * расширение трогает их как значения: `golang.go` создаёт профили
- * `TestRunProfileKind.Run/Debug/Coverage` прямо в `activate()` (без enum'а —
- * `reading 'Run'` и обрыв активации), а `TestMessage`/`TestRunRequest`
- * конструирует при прогоне.
- */
-
 export enum TestRunProfileKind {
     Run = 1,
     Debug = 2,
@@ -20,8 +11,7 @@ export class TestTag implements vscode.TestTag {
 }
 
 export class TestRunRequest implements vscode.TestRunRequest {
-    // Поля объявлены отдельно: у `vscode.TestRunRequest` они обязательные
-    // (со значением `undefined`), а параметр-свойство `include?` сделал бы их optional.
+    // Не параметр-свойство `include?`: у `vscode.TestRunRequest` поля обязательные (со значением `undefined`).
     public readonly include: readonly vscode.TestItem[] | undefined;
     public readonly exclude: readonly vscode.TestItem[] | undefined;
     public readonly profile: vscode.TestRunProfile | undefined;
@@ -105,7 +95,6 @@ export class DeclarationCoverage implements vscode.DeclarationCoverage {
 }
 
 export class FileCoverage implements vscode.FileCoverage {
-    /** Счётчики из деталей, как у эталона: у оператора есть `branches`, у объявления — нет. */
     public static fromDetails(uri: vscode.Uri, details: readonly vscode.FileCoverageDetail[]): FileCoverage {
         let statements = 0;
         let statementsCovered = 0;

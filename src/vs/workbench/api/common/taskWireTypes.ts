@@ -1,16 +1,13 @@
-// Провод задач (`api/common/shared/tasks.ts` эталона): описание задачи между
-// субпроцессом и ядром, исполнение и события. Ядро превращает описание в свою
-// задачу (`contrib/tasks/common/taskDto.ts`), субпроцесс — в `vscode.Task`
-// (`tasksNamespace.ts`). Здесь же разбор того, что читает субпроцесс; разбор
-// хостом — `services/extensions/node/hostWireParsers.ts`.
+// Провод задач (`api/common/shared/tasks.ts` эталона); разбор хостом —
+// `services/extensions/node/hostWireParsers.ts`.
 
-/** Определение задачи (`TaskDefinition`): `type` и свойства. На проводе без `_key`. */
+/** На проводе без `_key`. */
 export interface IWireTaskDefinition {
     readonly type: string;
     readonly [name: string]: unknown;
 }
 
-/** `TaskPresentationOptions`: `reveal`/`panel` — числа enum'ов API. */
+/** `reveal`/`panel` — числа enum'ов API. */
 export interface IWireTaskPresentation {
     readonly reveal?: number;
     readonly echo?: boolean;
@@ -32,7 +29,7 @@ export interface IWireProcessExecution {
     readonly options?: { readonly cwd?: string; readonly env?: Readonly<Record<string, string>> };
 }
 
-/** `ShellQuotedString`: `quoting` — число `ShellQuoting`. */
+/** `quoting` — число `ShellQuoting`. */
 export interface IWireShellQuotedString {
     readonly value: string;
     readonly quoting: number;
@@ -57,24 +54,22 @@ export interface IWireShellExecution {
     };
 }
 
-/** Исполнение — колбэк расширения: на проводе только метка. */
 export interface IWireCustomExecution {
     readonly customExecution: "customExecution";
 }
 
 export type WireTaskExecutionKind = IWireProcessExecution | IWireShellExecution | IWireCustomExecution;
 
-/** Область задачи: `TaskScope` числом или папка воркспейса — её путь. */
+/** `TaskScope` числом или путь папки воркспейса. */
 export type WireTaskScope = number | { readonly folder: string };
 
-/** Откуда задача: подпись провайдера (`Task.source`), расширение, область. */
 export interface IWireTaskSource {
     readonly label: string;
     readonly extensionId: string;
     readonly scope: WireTaskScope;
 }
 
-/** Задача на проводе (`ITaskDTO`). `id` — id ядра (`_id`), если задача пришла из ядра. */
+/** `id` — `_id` ядра, если задача пришла из ядра. */
 export interface IWireTask {
     readonly id?: string;
     readonly name: string;
@@ -90,15 +85,12 @@ export interface IWireTask {
     readonly runOptions?: IWireTaskRunOptions;
 }
 
-/** Исполнение (`ITaskExecutionDTO`): id исполнения (= id задачи у ядра) и задача. */
+/** id исполнения = id задачи у ядра. */
 export interface IWireTaskExecution {
     readonly id: string;
     readonly task: IWireTask;
 }
 
-// ── Сообщения ────────────────────────────────────────────────────────────────
-
-/** `tasks.registerProvider`: провайдер `type` расширения `extensionId` под handle. */
 export interface IWireTaskProviderRegistration {
     readonly handle: number;
     readonly type: string;
@@ -109,22 +101,17 @@ export interface IWireTaskProviderHandle {
     readonly handle: number;
 }
 
-/** `tasks.fetch`: фильтр `TaskFilter` (только тип). */
 export interface IWireTaskFilter {
     readonly type?: string;
 }
 
-/**
- * `tasks.execute`: задача ядра по её id (задача из `fetchTasks`, не
- * менявшаяся) либо описание целиком (своя `new Task` или изменённая).
- */
+/** Задача ядра по id (из `fetchTasks`, не менявшаяся) либо описание целиком. */
 export type WireTaskExecuteRequest = { readonly id: string } | { readonly task: IWireTask };
 
 export interface IWireTaskExecutionId {
     readonly id: string;
 }
 
-/** `tasks.didStart`: исполнение, терминал задачи, определение с подставленными переменными. */
 export interface IWireTaskStarted {
     readonly execution: IWireTaskExecution;
     readonly terminalId: number;
@@ -136,7 +123,7 @@ export interface IWireTaskProcessStarted {
     readonly processId: number;
 }
 
-/** `tasks.didEndProcess`: код выхода; нет поля — процесс закрыли, кода нет. */
+/** Нет `exitCode` — процесс закрыли, кода нет. */
 export interface IWireTaskProcessEnded {
     readonly id: string;
     readonly exitCode?: number;
@@ -146,16 +133,11 @@ export interface IWireTaskEnded {
     readonly execution: IWireTaskExecution;
 }
 
-// ── Разбор в субпроцессе (ответы и нотификации ядра) ──────────────────────────
-
 function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
     return typeof value === "object" && value !== null;
 }
 
-/**
- * Задача от ядра: форму гарантирует сериализатор ядра (`taskToWire`), поэтому
- * проверка — только «объект с именем, определением и источником»; битая — `null`.
- */
+/** Форму гарантирует сериализатор ядра (`taskToWire`) — проверка поверхностная. */
 export function parseWireTask(value: unknown): IWireTask | null {
     if (!isRecord(value) || typeof value.name !== "string") return null;
     if (!isRecord(value.definition) || typeof value.definition.type !== "string") return null;

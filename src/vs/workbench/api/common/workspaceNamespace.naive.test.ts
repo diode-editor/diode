@@ -10,11 +10,7 @@ import { Uri } from "./vscodeTypes.ts";
 import { WorkspaceConfigStore } from "./workspaceConfigStore.ts";
 import { createWorkspaceNamespace } from "./workspaceNamespace.ts";
 
-// Наивная поверхность workspace, которую трогает vscode-languageclient:
-// валидные никогда-не-стреляющие события + простейшие методы. Статусы и шаги
-// закрытия — матрица docs/public/API-COVERAGE.md.
-
-/** Наивная поверхность workspace, отсутствующая в активной части vscode.d.ts (runtime опережает декларацию). */
+/** Члены, которых нет в активной части vscode.d.ts: runtime опережает декларацию. */
 interface INaiveWorkspaceSurface {
     notebookDocuments: readonly unknown[];
     registerTextDocumentContentProvider(scheme: string, provider: unknown): { dispose(): void };
@@ -101,16 +97,12 @@ describe("WorkspaceNamespace — наивная поверхность LSP", () 
             expect(folderLookup()("/proj/a")).toBe("a");
         });
 
-        // Главный инвариант: файл ВНЕ папок воркспейса — `undefined`, как в
-        // эталоне («Returns `undefined` when the given uri doesn't match any
-        // workspace folder»). Раньше здесь стоял fallback на первую папку: в
-        // однопапочном мире почти безобидный, в мульти-руте — неверная адресация
-        // (расширение писало бы настройки и искало файлы в чужом проекте).
+        // Эталон: «Returns `undefined` when the given uri doesn't match any workspace
+        // folder». Fallback на первую папку в мульти-руте адресовал бы чужой проект.
         it("файл вне всех папок — undefined, а НЕ первая папка", () => {
             expect(folderLookup()("/elsewhere/x.ts")).toBeUndefined();
         });
 
-        // Префикс-матч идёт по границе сегмента: `/proj/abc` не внутри `/proj/a`.
         it("сосед с общим префиксом имени папкой не считается", () => {
             expect(folderLookup()("/proj/abc/x.ts")).toBeUndefined();
         });
@@ -122,8 +114,6 @@ describe("WorkspaceNamespace — наивная поверхность LSP", () 
     });
 
     it("createFileSystemWatcher без воркспейса — валидный немой watcher", () => {
-        // Настоящее поведение watcher'ов — в workspaceNamespace.fileWatcher.test.ts;
-        // здесь только то, что важно клиенту LSP: в пустом окне ничего не падает.
         const { naive } = makeWorkspace();
         const watcher = naive.createFileSystemWatcher("**/*.ts");
         const sub = watcher.onDidChange(() => undefined);

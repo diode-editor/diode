@@ -9,9 +9,6 @@ import { ProgressLocation } from "./vscodeTypes.ts";
 import { createWindowNamespace } from "./windowNamespace.ts";
 import { WorkspaceConfigStore } from "./workspaceConfigStore.ts";
 
-// Настоящий window.withProgress: жизненный цикл уезжает хосту нотификациями
-// window.progress.{start,report,end}; хост рисует спиннер в статус-баре.
-
 function makeWindow() {
     const stub = makeStubRpc();
     const registry = new DocumentRegistry();

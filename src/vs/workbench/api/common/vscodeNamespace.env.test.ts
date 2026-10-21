@@ -7,12 +7,7 @@ import { makeStubRpc } from "./testStubRpc.ts";
 import { buildVscodeNamespace } from "./vscodeNamespace.ts";
 import { UIKind } from "./vscodeTypes.ts";
 
-/**
- * Константы окружения `vscode.env`, которые расширение читает прямо в
- * `activate()`. Первое падение стокового `redhat.java` было именно здесь:
- * `Cannot read properties of undefined (reading 'Desktop')` — расширение
- * разбирает `switch (env.uiKind) { case UIKind.Desktop: … }`.
- */
+/** Первое падение стокового `redhat.java`: `reading 'Desktop'` в `switch (env.uiKind)` прямо в `activate()`. */
 
 function makeEnv(): typeof vscode.env {
     return buildVscodeNamespace(makeStubRpc().rpc, createNodeExtHostDisk()).namespace.env;
@@ -27,7 +22,6 @@ describe("vscode.env — окружение и телеметрия", () => {
         const { namespace } = buildVscodeNamespace(makeStubRpc().rpc, createNodeExtHostDisk());
         expect(namespace.UIKind.Desktop).toBe(1);
         expect(namespace.UIKind.Web).toBe(2);
-        // Ровно это сравнение и делает расширение.
         expect(namespace.env.uiKind === namespace.UIKind.Desktop).toBe(true);
         expect(namespace.env.uiKind === namespace.UIKind.Web).toBe(false);
     });

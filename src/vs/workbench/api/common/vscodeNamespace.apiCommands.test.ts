@@ -6,11 +6,6 @@ import { makeStubRpc } from "./testStubRpc.ts";
 import { buildVscodeNamespace } from "./vscodeNamespace.ts";
 import { Uri } from "./vscodeTypes.ts";
 
-/**
- * Проводка API-команд в собранном `vscode`: `executeCommand("vscode.open")`
- * обязан дойти до тех же запросов хосту, что `window.showTextDocument` и
- * `env.openExternal`, и не уйти хосту как чужая команда.
- */
 describe("vscode.commands — встроенная vscode.open", () => {
     it("Uri файла с колонкой — запрос editor.showTextDocument, а не commands.executeCommand", async () => {
         const stub = makeStubRpc();

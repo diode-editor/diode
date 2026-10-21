@@ -24,8 +24,7 @@ describe("FileSystemError", () => {
     it("это Error с VS Code-совместимым name (провайдерный код + суффикс)", () => {
         const err = FileSystemError.FileNotFound("nope");
         expect(err).toBeInstanceOf(Error);
-        // VS Code выставляет name = "EntryNotFound (FileSystemError)" для FileNotFound;
-        // стоковый editorconfig-vscode ловит именно по этому имени в EditorConfig.generate.
+        // Стоковый editorconfig-vscode ловит FileNotFound именно по этому имени.
         expect(err.name).toBe("EntryNotFound (FileSystemError)");
         expect(err.code).toBe("FileNotFound");
         expect(err.message).toBe("nope");
@@ -35,7 +34,6 @@ describe("FileSystemError", () => {
         expect(FileSystemError.FileExists("m").name).toBe("EntryExists (FileSystemError)");
         expect(FileSystemError.NoPermissions("m").name).toBe("NoPermissions (FileSystemError)");
         expect(new FileSystemError().name).toBe("Unknown (FileSystemError)");
-        // Код вне таблицы провайдерных имён — используется как есть.
         expect(new FileSystemError("m", "Custom").name).toBe("Custom (FileSystemError)");
     });
 

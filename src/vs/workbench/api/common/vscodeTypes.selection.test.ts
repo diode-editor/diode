@@ -14,7 +14,7 @@ describe("VscodeTypes — Selection", () => {
         const sel = new Selection(new Position(2, 4), new Position(1, 0));
         expect(sel.anchor.isEqual(new Position(2, 4))).toBe(true);
         expect(sel.active.isEqual(new Position(1, 0))).toBe(true);
-        expect(sel.isReversed).toBe(true); // active перед anchor
+        expect(sel.isReversed).toBe(true);
     });
 
     it("числовой конструктор (anchorLine, anchorChar, activeLine, activeChar)", () => {

@@ -11,7 +11,6 @@ function makeVscode() {
     return { stub, vscode: namespace };
 }
 
-/** warn-строки Output, которые ушли человеку. */
 function warnings(stub: ReturnType<typeof makeStubRpc>): string[] {
     return stub.notifies
         .filter((n) => n.method === "output.append")
@@ -111,7 +110,6 @@ describe("vscode.tests — инертный контроллер с рабочи
             ["B", "TestB"],
         ]);
 
-        // Тот же id заменяет прежний элемент.
         const testA2 = controller.createTestItem("A", "TestA v2");
         file.children.add(testA2);
         expect(file.children.size).toBe(2);

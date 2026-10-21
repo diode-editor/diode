@@ -197,7 +197,6 @@ describe("WorkspaceNamespace — document sync (editor.didClose)", () => {
         stub.fire("editor.didClose", {});
         stub.fire("editor.didClose", { uri: 42 });
         stub.fire("editor.didClose", { uri: "" });
-        // Ресурс, который никогда не открывался, — close возвращает null.
         stub.fire("editor.didClose", { uri: "file:///never-opened.ts" });
 
         expect(closed).toHaveLength(0);
@@ -228,7 +227,6 @@ describe("WorkspaceNamespace — document sync (updateSubscriptions)", () => {
         const first = workspace.onDidOpenTextDocument(() => undefined);
         expect(syncNotifies(stub)).toEqual([{ willSave: false, didSave: false, documentSync: true }]);
 
-        // Второй подписчик (другое событие той же группы) — без новой нотификации.
         const second = workspace.onDidChangeTextDocument(() => undefined);
         expect(syncNotifies(stub)).toHaveLength(1);
 

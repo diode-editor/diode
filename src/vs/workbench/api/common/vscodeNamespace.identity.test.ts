@@ -7,14 +7,9 @@ import type { SubprocessRpc } from "./extHostProtocol.ts";
 import { makeStubRpc as makeSharedStubRpc } from "./testStubRpc.ts";
 import { buildVscodeNamespace } from "./vscodeNamespace.ts";
 
-/**
- * Регресс на баг идентичности: раньше `makeEditorProxy` создавал НОВЫЙ объект
- * editor/document на каждый геттер `activeTextEditor`, и `activeTextEditor.
- * document === doc` (сравнение по ссылке, как в editorconfig) ломалось.
- */
+/** Регресс: editorconfig сравнивает `activeTextEditor.document === doc` по ссылке. */
 interface StubRpc {
     rpc: SubprocessRpc;
-    /** Принимает путь на диске и поднимает его в ресурс — как это делает хост. */
     fireActiveEditorChanged: (filePath: string | null) => void;
     request: ReturnType<typeof vi.fn>;
 }
@@ -120,13 +115,8 @@ describe("VscodeNamespace — стабильная идентичность acti
             "EndOfLine",
             "FoldingRange",
             "FoldingRangeKind",
-            // Поверхность vscode-languageclient (LSP): он extends-ит эти типы на require.
             "Location",
             "Diagnostic",
-            // Конвертер диагностик конструирует его на КАЖДУЮ диагностику с
-            // related information (у tsserver это TS2741 «Property … is missing»
-            // и дубликаты идентификаторов): без класса падала вся пачка —
-            // файл оставался вообще без squiggle.
             "DiagnosticRelatedInformation",
             "DiagnosticSeverity",
             "DiagnosticTag",
@@ -140,10 +130,6 @@ describe("VscodeNamespace — стабильная идентичность acti
             "SymbolKind",
             "SymbolTag",
             "CompletionItemTag",
-            // Конвертер completion'ов конструирует их на КАЖДЫЙ ответ сервера
-            // (`new code.CompletionList(...)`, `new code.SnippetString(...)`);
-            // пропуск ронял конвертацию целиком, а ошибка видна только в
-            // outputChannel клиента — попап молча оставался без LSP-пунктов.
             "CompletionList",
             "CompletionTriggerKind",
             "SnippetString",
@@ -156,8 +142,6 @@ describe("VscodeNamespace — стабильная идентичность acti
             "MarkdownString",
             "Hover",
             "WorkspaceEdit",
-            // Полоса групп (EditorGroups): instanceof-каскад по TabInput* — типовой
-            // код расширений, отсутствующий класс дал бы TypeError, не false.
             "ViewColumn",
             "TabInputText",
             "TabInputTextDiff",
@@ -178,7 +162,7 @@ describe("VscodeNamespace — стабильная идентичность acti
         ).trim();
         const { rpc } = makeStubRpc();
         const vscode = buildVscodeNamespace(rpc, createNodeExtHostDisk()).namespace;
-        // vscode-languageclient проверяет semver `^1.91.0` — «diode-phase-1» его ронял.
+        // vscode-languageclient проверяет semver `^1.91.0`.
         expect(vscode.version).toBe(pinned);
         expect(vscode.version).toMatch(/^\d+\.\d+\.\d+$/);
     });
@@ -197,11 +181,9 @@ describe("VscodeNamespace — стабильная идентичность acti
     });
 
     it("extensions — каталог от хоста, до его приезда состав честно пуст", () => {
-        // Общий стаб — здешний ловит только editor.activeEditorChanged.
         const stub = makeSharedStubRpc();
         const vscode = buildVscodeNamespace(stub.rpc, createNodeExtHostDisk()).namespace;
-        // Хост ещё не прислал каталог (в жизни он приезжает семенем ДО первой
-        // активации) — пустой состав тут верный ответ, а не заглушка.
+        // Каталог хост ещё не прислал (в жизни — семенем до первой активации): пустой состав — верный ответ.
         expect(vscode.extensions.getExtension("ms-python.vscode-pylance")).toBeUndefined();
         expect(vscode.extensions.all).toEqual([]);
         const sub = vscode.extensions.onDidChange(() => undefined);
@@ -216,8 +198,7 @@ describe("VscodeNamespace — стабильная идентичность acti
 
     it("tasks — наивный namespace: registerTaskProvider отдаёт disposable, события подписываем", () => {
         const { rpc } = makeStubRpc();
-        // Утиный каст как у env-теста: no-op namespace дормантной части dts
-        // (`vscode.tasks`) активную поверхность не расширяет.
+        // Утиный каст: no-op namespace дормантной части d.ts активную поверхность не расширяет.
         const vscode = buildVscodeNamespace(rpc, createNodeExtHostDisk()).namespace as unknown as {
             tasks: {
                 registerTaskProvider(type: string, provider: unknown): { dispose(): void };
@@ -226,8 +207,7 @@ describe("VscodeNamespace — стабильная идентичность acti
                 onDidEndTask(listener: () => void): { dispose(): void };
             };
         };
-        // vscode-eslint зовёт это при `eslint.lintTask.enable: true` — включённая
-        // пользователем настройка не должна ронять клиент целиком.
+        // vscode-eslint зовёт это при `eslint.lintTask.enable: true`.
         const registration = vscode.tasks.registerTaskProvider("eslint", {
             provideTasks: () => [],
             resolveTask: () => undefined,
@@ -280,8 +260,6 @@ describe("VscodeNamespace — стабильная идентичность acti
             env: { openExternal(target: unknown): Thenable<boolean> };
         };
 
-        // `toString()` дал бы `?token%3D42`, и системному обработчику досталась
-        // бы не та ссылка.
         await expect(vscode.env.openExternal(Uri.parse("https://example.com/a?token=42"))).resolves.toBe(true);
 
         expect(stub.requests).toEqual([

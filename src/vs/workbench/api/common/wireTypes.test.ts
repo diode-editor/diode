@@ -21,14 +21,10 @@ describe("WireTypes — parseWireSelections", () => {
     });
 });
 
-// ─── Editor layout (полоса групп, window.tabGroups) ──────────────────────────
-
-/** Минимальная валидная текстовая вкладка снимка. */
 function layoutTab(overrides: Record<string, unknown> = {}): Record<string, unknown> {
     return { uri: "file:///p/a.ts", label: "a.ts", isActive: true, isDirty: false, kind: "text", ...overrides };
 }
 
-/** Снимок с одной группой и переданными вкладками. */
 function layoutOf(...tabs: Record<string, unknown>[]): Record<string, unknown> {
     return { groups: [{ groupId: 1, viewColumn: 1, isActive: true, tabs }] };
 }

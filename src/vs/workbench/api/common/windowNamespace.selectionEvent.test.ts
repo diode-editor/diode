@@ -123,7 +123,6 @@ describe("WindowNamespace — window.onDidChangeTextEditorSelection", () => {
         window.onDidChangeTextEditorSelection((e) => uris.push(e.textEditor.document.uri.toString()));
         stub.fire("editor.selectionChanged", { uri: OTHER, groupId: 2, selections: [wire(0, 0, 0, 1)] });
         expect(uris).toEqual([OTHER]);
-        // Активный редактор при этом не сменился.
         expect(window.activeTextEditor?.document.uri.toString()).toBe(FILE);
     });
 

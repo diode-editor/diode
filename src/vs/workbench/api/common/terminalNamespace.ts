@@ -16,20 +16,8 @@ import {
 } from "./wireTypes.ts";
 
 /**
- * Терминальная часть `vscode.window` в субпроцессе (`ExtHostTerminalService`
- * эталона): `createTerminal`, `terminals`, `activeTerminal` и три события.
- *
- * Состояние `vscode.Terminal` живёт здесь, инстансом владеет хост
- * (`TerminalCustomer` → встроенный терминал). Хост пересказывает жизнь ВСЕХ
- * инстансов, включая шеллы человека: `terminal.opened` (у своего терминала —
- * с `extHostId`), `terminal.closed`, `terminal.activeChanged`.
- *
- * Pty расширения (`ExtensionTerminalOptions`, `ExtHostPseudoterminal` эталона):
- * процесс — объект расширения, хост держит только эмулятор. Хост зовёт
- * `terminal.pty.start` при создании инстанса — тогда подключаются слушатели
- * `onDidWrite`/`onDidClose` и вызывается `pty.open`; набор человека и
- * `sendText` приходят `terminal.pty.input` (`sendText` идёт через хост, как в
- * эталоне, — поэтому он не обгоняет `open`).
+ * `ExtHostTerminalService` эталона. Хост пересказывает жизнь ВСЕХ инстансов, включая
+ * шеллы человека. `sendText` pty-терминала идёт через хост, как в эталоне, — поэтому не обгоняет `open`.
  */
 export interface ITerminalNamespace {
     readonly terminals: readonly vscode.Terminal[];
@@ -39,25 +27,13 @@ export interface ITerminalNamespace {
     readonly onDidChangeActiveTerminal: vscode.Event<vscode.Terminal | undefined>;
     createTerminal(name?: string, shellPath?: string, shellArgs?: readonly string[] | string): vscode.Terminal;
     createTerminal(options: vscode.TerminalOptions | vscode.ExtensionTerminalOptions): vscode.Terminal;
-    /**
-     * Подключить pty к терминалу, который завело ядро (`attachPtyToTerminal`
-     * эталона) — терминалу задачи с `CustomExecution`. Прежний pty того же
-     * терминала (повторный запуск задачи) отцепляется без `close()`: он уже
-     * закрылся сам. Размер — последний, что прислал хост; неизвестный id —
-     * исключение, как у эталона.
-     */
+    /** Прежний pty того же терминала (повторный запуск задачи) отцепляется без `close()`: он уже закрылся сам. */
     attachPty(terminalId: number, pty: vscode.Pseudoterminal): void;
 }
 
-/** Окно склейки вывода pty перед отправкой хосту (`TerminalDataBufferer` эталона). */
+/** `TerminalDataBufferer` эталона. */
 export const PTY_DATA_BUFFER_MS = 5;
 
-/**
- * Pty расширения на стороне субпроцесса (`ExtHostPseudoterminal` эталона):
- * слушатели подключаются на `start`, вывод склеивается окном
- * {@link PTY_DATA_BUFFER_MS} и уходит `terminal.pty.data`, собственный выход
- * pty — `terminal.pty.exit` (склейка перед ним сбрасывается).
- */
 class ExtensionPty {
     private readonly subscriptions: vscode.Disposable[] = [];
     private pending = "";
@@ -101,7 +77,6 @@ class ExtensionPty {
         this.pty.setDimensions?.({ columns: cols, rows });
     }
 
-    /** Инстанс снят: досылать нечего и некуда; pty закрывается (`shutdown` эталона). */
     public shutdown(): void {
         this.detach();
         try {
@@ -111,15 +86,13 @@ class ExtensionPty {
         }
     }
 
-    /** Отцепить слушатели pty, не закрывая его (его место занимает новый pty). */
     public detach(): void {
         clearTimeout(this.timer);
         for (const sub of this.subscriptions) sub.dispose();
     }
 
     private flush(): void {
-        // Из onDidClose таймер ещё взведён: не снять — он позже досылал бы
-        // уже следующую склейку мимо закрытия инстанса.
+        // Из onDidClose таймер ещё взведён: не снять — он позже дослал бы склейку мимо закрытия инстанса.
         clearTimeout(this.timer);
         this.timer = undefined;
         if (this.pending === "") return;
@@ -137,27 +110,19 @@ const EXIT_REASONS: Readonly<Record<WireTerminalExitReason, TerminalExitReason>>
     extension: TerminalExitReason.Extension,
 };
 
-/** Один терминал: объект расширения и то, что о нём известно от хоста. */
 class TerminalRecord {
     public name: string;
     public exitStatus: vscode.TerminalExitStatus | undefined;
     public disposed = false;
     public readonly value: vscode.Terminal;
-    /** `processId`: резолвится pid из `terminal.opened` (у pty и чужого без процесса — `undefined`). */
+    /** У pty и чужого терминала без процесса резолвится `undefined`. */
     private readonly pid = Promise.withResolvers<number | undefined>();
-    /** Pty расширения — только у его pty-терминала. */
     public pty: ExtensionPty | undefined;
-    /**
-     * Размер pty-терминала, который хост прислал (`pty.start`/`pty.resize`), —
-     * у терминала задачи pty подключается позже и стартует с ним.
-     */
+    /** Терминал задачи подключает pty позже и стартует с последним размером от хоста. */
     public dimensions: { cols: number; rows: number } | undefined;
 
     public constructor(
-        /**
-         * Адрес в нотификациях: свой терминал — меткой субпроцесса (хост помнит
-         * её до закрытия), чужой — хостовым id.
-         */
+        /** Свой терминал — меткой субпроцесса (хост помнит её до закрытия), чужой — хостовым id. */
         public readonly ref: IWireTerminalRef,
         name: string,
         creationOptions: vscode.TerminalOptions | vscode.ExtensionTerminalOptions,
@@ -165,7 +130,6 @@ class TerminalRecord {
     ) {
         this.name = name;
         const frozen = Object.freeze(creationOptions);
-        // Геттеры объекта расширения читают запись через стрелки: `this` литерала — сам литерал.
         const name_ = (): string => this.name;
         const pid = (): Promise<number | undefined> => this.pid.promise;
         const exitStatus = (): vscode.TerminalExitStatus | undefined => this.exitStatus;
@@ -185,12 +149,9 @@ class TerminalRecord {
             get exitStatus(): vscode.TerminalExitStatus | undefined {
                 return exitStatus();
             },
-            // Ввод человека хост пока не пересказывает: состояние — как у
-            // терминала, с которым ещё не работали (отступление, см. API-COVERAGE).
+            // Отступление (см. API-COVERAGE): ввод человека хост не пересказывает.
             state: { isInteractedWith: false, shell: undefined },
-            // Shell integration нет (скриптов внедрения и разбора OSC 633 тоже):
-            // по контракту это «так и не активировалась» — значение остаётся
-            // `undefined`, и расширения уходят в свой фоллбэк на `sendText`.
+            // Shell integration нет: по контракту `undefined` — «не активировалась», расширения уходят в фоллбэк на `sendText`.
             shellIntegration: undefined,
             sendText: (text: string, shouldExecute = true): void => {
                 rpc.notify("terminal.sendText", { terminal: live(), text, shouldExecute });
@@ -209,7 +170,6 @@ class TerminalRecord {
         };
     }
 
-    /** Метка субпроцесса — только у терминала, который он сам завёл. */
     public get extHostId(): number | undefined {
         return (this.ref as Partial<{ readonly extHostId: number }>).extHostId;
     }
@@ -219,7 +179,6 @@ class TerminalRecord {
     }
 }
 
-/** Аргументы `createTerminal` → `TerminalOptions` (позиционная форма эталона). */
 function normalizeOptions(
     nameOrOptions: string | vscode.TerminalOptions | undefined,
     shellPath: string | undefined,
@@ -229,18 +188,11 @@ function normalizeOptions(
     return {
         ...(nameOrOptions !== undefined ? { name: nameOrOptions } : {}),
         ...(shellPath !== undefined ? { shellPath } : {}),
-        // Как эталон: аргументы уходят как есть (`readonly` в сигнатуре — обещание не мутировать).
         ...(shellArgs !== undefined ? { shellArgs: shellArgs as string[] | string } : {}),
     };
 }
 
-/**
- * `TerminalOptions` → `terminal.create`. Строковые `shellArgs` (Windows-форма
- * одной командной строкой) режутся по пробелам; `env` без `undefined`-значений;
- * `location` — см. {@link toWireLocation}; `iconPath`/`color` не уезжают
- * (иконок и цвета вкладок терминала нет), `isTransient` — тоже: терминалы и так
- * не восстанавливаются после перезапуска.
- */
+/** `iconPath`/`color`/`isTransient` не уезжают: иконок и цвета вкладок нет, терминалы и так не восстанавливаются. */
 function toWireCreate(
     extHostId: number,
     options: vscode.TerminalOptions,
@@ -266,12 +218,7 @@ function toWireCreate(
     };
 }
 
-/**
- * `TerminalOptions.location` → провод (`_serializeParentTerminal` эталона):
- * `TerminalLocation` — числом, `{ viewColumn, preserveFocus }` — как есть,
- * `{ parentTerminal }` — адресом родителя. Родитель, о котором субпроцесс не
- * знает (уже закрыт, чужой объект), — как у эталона: опция пропадает.
- */
+/** `_serializeParentTerminal` эталона: незнакомый родитель (закрыт, чужой объект) — опция пропадает. */
 function toWireLocation(
     location: vscode.TerminalOptions["location"],
     refOf: (terminal: vscode.Terminal) => IWireTerminalRef | undefined,
@@ -292,7 +239,6 @@ function toWireLocation(
     return parentTerminal === undefined ? undefined : { parentTerminal };
 }
 
-/** `creationOptions` чужого терминала — из того, чем его запустил хост. */
 function fromWireLaunch(launch: IWireTerminalLaunch): vscode.TerminalOptions {
     return {
         ...(launch.name !== undefined ? { name: launch.name } : {}),
@@ -305,11 +251,9 @@ function fromWireLaunch(launch: IWireTerminalLaunch): vscode.TerminalOptions {
 }
 
 export function createTerminalNamespace(rpc: SubprocessRpc): ITerminalNamespace {
-    /** Порядок появления — им отдаётся `terminals`. */
     const order: TerminalRecord[] = [];
-    /** По хостовому id; ключ `null` («активного нет») не заводится никогда. */
     const byId = new Map<number | null, TerminalRecord>();
-    /** Свои терминалы по метке; `get`/`delete` по `undefined` (чужой терминал) — пустые операции. */
+    /** `get`/`delete` по `undefined` (чужой терминал) — пустые операции. */
     const byExtHostId = new Map<number | undefined, TerminalRecord>();
     let nextExtHostId = 1;
     let active: TerminalRecord | undefined;
@@ -385,7 +329,6 @@ export function createTerminalNamespace(rpc: SubprocessRpc): ITerminalNamespace 
         shellArgs?: readonly string[] | string,
     ): vscode.Terminal {
         const extHostId = nextExtHostId++;
-        // Как `window.createTerminal` эталона: объект с `pty` — терминал расширения.
         if (typeof nameOrOptions === "object" && "pty" in nameOrOptions) {
             const record = new TerminalRecord({ extHostId }, nameOrOptions.name, nameOrOptions, rpc);
             record.pty = new ExtensionPty(nameOrOptions.pty, { extHostId }, rpc);
@@ -410,7 +353,6 @@ export function createTerminalNamespace(rpc: SubprocessRpc): ITerminalNamespace 
         return record.value;
     }
 
-    /** Адрес живого терминала по объекту расширения; отпущенный и незнакомый — `undefined`. */
     function refOf(terminal: vscode.Terminal): IWireTerminalRef | undefined {
         const record = order.find((r) => r.value === terminal);
         return record === undefined || record.disposed ? undefined : record.ref;
@@ -422,7 +364,6 @@ export function createTerminalNamespace(rpc: SubprocessRpc): ITerminalNamespace 
             throw new Error(`Cannot resolve terminal with id ${String(terminalId)} for virtual process`);
         record.pty?.detach();
         record.pty = new ExtensionPty(pty, { id: terminalId }, rpc);
-        // Хост шлёт `pty.start` при создании инстанса — к подключению размер уже известен.
         const { cols, rows } = record.dimensions ?? { cols: 80, rows: 24 };
         record.pty.start(cols, rows);
     }

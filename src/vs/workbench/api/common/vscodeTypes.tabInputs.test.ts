@@ -11,9 +11,6 @@ import {
     Uri,
 } from "./vscodeTypes.ts";
 
-// Все семь видов TabInput* обязаны существовать как runtime-классы: расширения
-// перебирают вкладки instanceof-каскадом, и отсутствующий класс — это TypeError,
-// а не false (см. комментарий в vscodeTypes.ts).
 describe("VscodeTypes — TabInput* (window.tabGroups)", () => {
     const a = Uri.file("/p/a.ts");
     const b = Uri.file("/p/b.ts");
