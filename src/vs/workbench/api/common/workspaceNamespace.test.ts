@@ -490,7 +490,7 @@ describe("WorkspaceNamespace — save subscriptions", () => {
         const d1 = workspace.onWillSaveTextDocument(() => undefined);
         expect(stub.notifies).toContainEqual({
             method: "workspace.updateSubscriptions",
-            params: { willSave: true, didSave: false, documentSync: false },
+            params: { willSave: true, didSave: false },
         });
         const before = stub.notifies.length;
         const d2 = workspace.onWillSaveTextDocument(() => undefined);
@@ -499,7 +499,7 @@ describe("WorkspaceNamespace — save subscriptions", () => {
         d2.dispose();
         expect(stub.notifies.at(-1)).toEqual({
             method: "workspace.updateSubscriptions",
-            params: { willSave: false, didSave: false, documentSync: false },
+            params: { willSave: false, didSave: false },
         });
     });
 
@@ -517,7 +517,7 @@ describe("WorkspaceNamespace — save subscriptions", () => {
         expect(bag).toContain(d1);
         expect(stub.notifies).toContainEqual({
             method: "workspace.updateSubscriptions",
-            params: { willSave: false, didSave: true, documentSync: false },
+            params: { willSave: false, didSave: true },
         });
         const before = stub.notifies.length;
         const d2 = workspace.onDidSaveTextDocument(() => undefined);
@@ -526,7 +526,7 @@ describe("WorkspaceNamespace — save subscriptions", () => {
         d2.dispose();
         expect(stub.notifies.at(-1)).toEqual({
             method: "workspace.updateSubscriptions",
-            params: { willSave: false, didSave: false, documentSync: false },
+            params: { willSave: false, didSave: false },
         });
     });
 });

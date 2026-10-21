@@ -57,7 +57,7 @@ function snap(text = "hello", version = 1): IWireDocumentSyncSnapshot {
 
 async function subscribe(
     h: ReturnType<typeof makeCustomer>,
-    subscriptions: { willSave?: boolean; didSave?: boolean; documentSync?: boolean } = { documentSync: true },
+    subscriptions: { willSave?: boolean; didSave?: boolean },
 ): Promise<void> {
     h.peer.notify("workspace.updateSubscriptions", subscriptions);
     await flushMicrotasks();
@@ -298,7 +298,7 @@ describe("DocumentsCustomer — seed and save", () => {
         });
         await expect(h.customer.willSaveTextDocument(SAVE_SNAPSHOT)).resolves.toEqual([]);
         // Other subscriptions don't enable will-save.
-        await subscribe(h, { didSave: true, documentSync: true });
+        await subscribe(h, { didSave: true });
         await expect(h.customer.willSaveTextDocument(SAVE_SNAPSHOT)).resolves.toEqual([]);
         expect(requests).toEqual([]);
 
@@ -346,7 +346,7 @@ describe("DocumentsCustomer — seed and save", () => {
         detached.customer.didSaveTextDocument(meta);
         const h = makeCustomer();
         h.customer.didSaveTextDocument(meta);
-        await subscribe(h, { willSave: true, documentSync: true });
+        await subscribe(h, { willSave: true });
         h.customer.didSaveTextDocument(meta);
         await flushMicrotasks();
         expect(detached.received).toHaveLength(0);

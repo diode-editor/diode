@@ -40,11 +40,10 @@ export interface IWireDidSaveParams {
     readonly languageId: string;
 }
 
-/** Without listeners the host skips will/did-save and document sync over RPC. */
+/** Without listeners the host skips will/did-save over RPC. */
 export interface IWireSubscriptions {
     readonly willSave: boolean;
     readonly didSave: boolean;
-    readonly documentSync: boolean;
 }
 
 export interface IWireWorkspaceFolder {

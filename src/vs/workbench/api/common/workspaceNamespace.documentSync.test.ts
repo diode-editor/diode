@@ -216,28 +216,15 @@ describe("WorkspaceNamespace — document sync (editor.didClose)", () => {
     });
 });
 
-describe("WorkspaceNamespace — document sync (updateSubscriptions)", () => {
-    function syncNotifies(stub: ReturnType<typeof makeCtx>["stub"]): unknown[] {
-        return stub.notifies.filter((n) => n.method === "workspace.updateSubscriptions").map((n) => n.params);
-    }
-
-    it("subscribe/unsubscribe sends updateSubscriptions only on 0<->1 transitions", () => {
+describe("WorkspaceNamespace — document sync listeners", () => {
+    // The host syncs every document regardless of listeners: skipping one would corrupt the mirror.
+    it("subscribing and unsubscribing sends no updateSubscriptions", () => {
         const { stub, workspace } = makeCtx();
 
-        const first = workspace.onDidOpenTextDocument(() => undefined);
-        expect(syncNotifies(stub)).toEqual([{ willSave: false, didSave: false, documentSync: true }]);
+        workspace.onDidOpenTextDocument(() => undefined).dispose();
+        workspace.onDidChangeTextDocument(() => undefined).dispose();
 
-        const second = workspace.onDidChangeTextDocument(() => undefined);
-        expect(syncNotifies(stub)).toHaveLength(1);
-
-        first.dispose();
-        expect(syncNotifies(stub)).toHaveLength(1);
-
-        second.dispose();
-        expect(syncNotifies(stub)).toEqual([
-            { willSave: false, didSave: false, documentSync: true },
-            { willSave: false, didSave: false, documentSync: false },
-        ]);
+        expect(stub.notifies.filter((n) => n.method === "workspace.updateSubscriptions")).toEqual([]);
     });
 
     it("an unsubscribed listener receives no events", () => {
@@ -251,16 +238,16 @@ describe("WorkspaceNamespace — document sync (updateSubscriptions)", () => {
         expect(opened).toHaveLength(0);
     });
 
-    it("wrapper is pushed into the given disposables array and disposing it removes the subscription", () => {
+    it("the subscription is pushed into the given disposables array and disposing it unsubscribes", () => {
         const { stub, workspace } = makeCtx();
+        const opened: vscode.TextDocument[] = [];
         const disposables: vscode.Disposable[] = [];
-        workspace.onDidChangeTextDocument(() => undefined, undefined, disposables);
+        workspace.onDidOpenTextDocument((doc) => opened.push(doc), undefined, disposables);
         expect(disposables).toHaveLength(1);
 
         disposables[0].dispose();
-        expect(syncNotifies(stub)).toEqual([
-            { willSave: false, didSave: false, documentSync: true },
-            { willSave: false, didSave: false, documentSync: false },
-        ]);
+        stub.fire("editor.didOpen", openParams());
+
+        expect(opened).toHaveLength(0);
     });
 });

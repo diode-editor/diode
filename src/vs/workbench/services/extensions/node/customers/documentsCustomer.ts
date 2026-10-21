@@ -130,8 +130,6 @@ export class DocumentsCustomer implements IExtensionHostCustomer, IDocumentSyncT
         // Without subscribers the host doesn't run RPC on save (save stays synchronous).
         store.add(
             rpc.handleNotification("workspace.updateSubscriptions", (params) => {
-                // No `documentSync` flag needed: edits go to all synced documents —
-                // skipping any would corrupt the mirror.
                 const p: { willSave?: unknown; didSave?: unknown } = params;
                 live.willSaveSubscribed = p.willSave === true;
                 live.didSaveSubscribed = p.didSave === true;
