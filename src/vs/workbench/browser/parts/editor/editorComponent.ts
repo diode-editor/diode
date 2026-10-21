@@ -32,8 +32,8 @@ import type { WorkbenchColorKey } from "../../../../platform/theme/common/colors
 import type { BaseTextEditorModel, ITextEditTarget } from "../../../common/editor/textEditorModel.ts";
 import { Component } from "../../component.ts";
 
-// На общей стартовой строке побеждает регион провайдера (он точнее); сортировка
-// по startLine — её ждут модель фолдов и гуттер.
+// On a shared start line the provider region wins (it is more precise); sorted by
+// startLine because the folding model and the gutter expect that.
 function mergeFoldingRegions(indentation: IFoldingRegion[], provider: readonly IFoldingRegion[]): IFoldingRegion[] {
     const byStart = new Map<number, IFoldingRegion>();
     for (const region of indentation) byStart.set(region.startLine, region);
@@ -63,20 +63,20 @@ export class EditorComponent extends Component {
     private editorViewState: EditorViewState;
     private editor: EditorElement;
     private tokenStore: DocumentTokenStore;
-    /** На компоненте, а не на view-state: тот пересоздаётся при перечитке документа. */
+    /** Lives on the component, not the view state: the latter is recreated when the document is reloaded. */
     private indentConfiguration: IIndentConfiguration = {};
     private foldingRecomputeScheduled = false;
     private readonly foldingProviders: LanguageFeatureRegistry<FoldingRangeProvider>;
     private backgroundTokenValue: WorkbenchColorKey = DEFAULT_BACKGROUND_TOKEN;
-    /** Регионы задаёт владелец вью (панель диффа); ставить до первого пересчёта. */
+    /** Regions are set by the view's owner (the diff pane); set this before the first recompute. */
     public foldingOwnedExternally = false;
-    /** Отсекает гонку sync-indentation ↔ async-provider: поздний ответ перебитого запроса не применяется. */
+    /** Guards the sync-indentation ↔ async-provider race: a late reply to a superseded request is dropped. */
     private readonly foldingRequest = new LatestRequest();
     private componentDisposed = false;
     private readonly editTargetValue: ITextEditTarget;
-    /** Не на view-state: тот пересоздаётся при перечитке с диска, а подписчик (extension host) обязан это пережить. */
+    /** Not on the view state: it is recreated on reload from disk, and the extension host subscriber must survive that. */
     private readonly onDidChangeSelectionEmitter = new Emitter<void>();
-    /** На компоненте — по той же причине. */
+    /** On the component for the same reason. */
     private readonly onDidChangeIndentOptionsEmitter = new Emitter<void>();
     private readonly onDidTypeEmitter = new Emitter<string>();
 
@@ -87,7 +87,7 @@ export class EditorComponent extends Component {
 
     public readonly onDidChangeSelection = this.onDidChangeSelectionEmitter.event;
 
-    /** Только при фактическом сдвиге `tabSize`/`insertSpaces`. */
+    /** Fires only when `tabSize`/`insertSpaces` actually change. */
     public readonly onDidChangeIndentOptions = this.onDidChangeIndentOptionsEmitter.event;
 
     private notifyIndentIfChanged(before: { tabSize: number; insertSpaces: boolean }): void {
@@ -100,7 +100,7 @@ export class EditorComponent extends Component {
         this.onDidChangeIndentOptionsEmitter.fire();
     }
 
-    /** Переживает пересоздание `EditorElement` при перечитке файла. */
+    /** Survives `EditorElement` recreation when the file is reloaded. */
     public readonly onDidType = this.onDidTypeEmitter.event;
 
     private attachTypeForwarding(): void {
@@ -133,8 +133,8 @@ export class EditorComponent extends Component {
         this.languageConfiguration = languageConfiguration;
 
         this.editorViewState = new EditorViewState(model.document);
-        // Кеш TM-токенов подписан на документ, который переживает вью: без
-        // dispose подписка висела бы на модели после закрытия вкладки.
+        // The TM token cache subscribes to the document, which outlives the view: without
+        // dispose the subscription would stay on the model after the tab is closed.
         this.tokenStore = this.register(
             new DocumentTokenStore(model.document, this.ensureTokenizerForLanguage(model.languageId)),
         );
@@ -149,15 +149,15 @@ export class EditorComponent extends Component {
         this.attachLanguageConfiguration();
         this.editor.focusable = true;
         this.applyEditorStyle();
-        // История одна на документ; та же замена повторяется в rebuildForReloadedDocument.
+        // One undo history per document; rebuildForReloadedDocument repeats the same assignment.
         this.editor.undoManager = model.undoManager;
         this.attachSelectionForwarding();
         this.attachTypeForwarding();
         this.view = new ScrollBarDecorator(this.editor);
         if (semanticTokens !== undefined) this.attachSemanticTokens(semanticTokens);
 
-        // Замыкание читает поля компонента, поэтому переживает пересоздание
-        // EditorElement при перечитке.
+        // The closures read component fields, so they survive EditorElement
+        // recreation on reload.
         this.editTargetValue = {
             cloneSelections: () => this.editorViewState.cloneSelections(),
             applyEdits: (edits, label, computeCursorState) =>
@@ -184,13 +184,13 @@ export class EditorComponent extends Component {
                 this.scheduleFoldingRecompute();
             }),
         );
-        // Грамматика может зарегистрироваться уже после открытия файла.
+        // A grammar may be registered after the file is already open.
         this.register(
             tokenizationRegistry.onDidChange((languageId) => {
                 if (languageId === this.model.languageId) this.applyTokenizer();
             }),
         );
-        // Пересчёт на каждую регистрацию, а не только на переходе «нет ↔ есть».
+        // Recompute on every registration, not only on the "none ↔ some" transition.
         this.register(
             foldingProviders.onDidChange(() => {
                 this.recomputeFoldingRegions();
@@ -225,7 +225,7 @@ export class EditorComponent extends Component {
             reference.attachViewport({
                 getVisibleLineRange: () => {
                     const viewState = this.editorViewState;
-                    // Строки за концом вью docLineForViewLine сама прижимает к последней.
+                    // docLineForViewLine itself clamps lines past the end of the view to the last one.
                     const top = viewState.scrollTop;
                     return {
                         startLine: viewState.docLineForViewLine(top),
@@ -237,22 +237,22 @@ export class EditorComponent extends Component {
         );
     }
 
-    /** Фолды — сразу, без паузы: разметка от прежнего текста ничего не значит. */
+    /** Folds are recomputed immediately, without the debounce: regions from the old text mean nothing. */
     private handleDocumentFlush(): void {
         const indentBefore = { tabSize: this.editorViewState.tabSize, insertSpaces: this.editorViewState.insertSpaces };
         const { scrollTop, scrollLeft } = this.editorViewState;
         this.editorViewState.runDetectIndentation();
         this.notifyIndentIfChanged(indentBefore);
         this.recomputeFoldingRegions();
-        // Вьюпорт — ПОСЛЕ фолдов: их пересчёт кончается reveal'ом каретки, а внешняя
-        // правка уводить вьюпорт не должна.
+        // Restore the viewport AFTER folds: their recompute ends by revealing the cursor, and an
+        // external edit must not move the viewport.
         this.editorViewState.scrollTop = Math.min(scrollTop, Math.max(0, this.editorViewState.getViewLineCount() - 1));
         this.editorViewState.scrollLeft = scrollLeft;
     }
 
     /**
-     * Сеттер, а не поле: `applyEditorStyle` зовётся и при пересоздании
-     * `EditorElement` (перечитка с диска), выбранный фон это переживает.
+     * A setter, not a field: `applyEditorStyle` also runs when `EditorElement` is
+     * recreated (reload from disk), so the chosen background survives that.
      */
     public set backgroundToken(token: WorkbenchColorKey) {
         this.backgroundTokenValue = token;
@@ -261,9 +261,9 @@ export class EditorComponent extends Component {
 
     private applyEditorStyle(): void {
         this.editor.style = { fg: "editor.foreground", bg: this.backgroundTokenValue };
-        // Свой фон отменяет тематический фон гуттера: темы вправе прибить
-        // editorGutter.background к editor.background (dark2026), и гуттер остался
-        // бы слева полосой чужого цвета. Дефолтный фон — дефолтное поведение.
+        // A custom background overrides the theme's gutter background: themes may pin
+        // editorGutter.background to editor.background (dark2026), leaving the gutter
+        // as a stripe of a different color on the left. The default background keeps default behavior.
         this.editor.gutterBackgroundToken =
             this.backgroundTokenValue === DEFAULT_BACKGROUND_TOKEN ? "editorGutter.background" : null;
     }
@@ -301,11 +301,11 @@ export class EditorComponent extends Component {
         }
     }
 
-    /** Решение расширения (`editor.options`, EditorConfig) главнее и детекции, и конфига. */
+    /** An extension's decision (`editor.options`, EditorConfig) beats both detection and the setting. */
     public setIndentOptions(patch: { tabSize?: number; insertSpaces?: boolean }): void {
         let applied = false;
         let changed = false;
-        // Неположительный размер таба — мусор, как отсутствие ключа.
+        // A non-positive tab size is garbage, treated as a missing key.
         const tabSize = patch.tabSize ?? 0;
         if (tabSize > 0) {
             applied = true;
@@ -321,9 +321,9 @@ export class EditorComponent extends Component {
                 changed = true;
             }
         }
-        // Флаг взводим по факту решения расширения, а не по факту сдвига числа:
-        // совпавшее с текущим значение — тоже решение, и перечитка конфига не
-        // должна его отменять.
+        // Set the flag whenever the extension decides, not only when the value changes:
+        // a value equal to the current one is still a decision, and re-reading the
+        // settings must not undo it.
         if (applied) this.editorViewState.indentExplicitlySet = true;
         if (changed) {
             this.editor.markDirty();
@@ -332,8 +332,8 @@ export class EditorComponent extends Component {
     }
 
     /**
-     * Не приказ, а база для детекции: при `detectIndentation` содержимое файла
-     * главнее конфига (как в VS Code).
+     * Not an order but a baseline for detection: with `detectIndentation` the file content
+     * beats the setting (as upstream).
      */
     public applyIndentConfiguration(config: IIndentConfiguration): void {
         const before = { tabSize: this.editorViewState.tabSize, insertSpaces: this.editorViewState.insertSpaces };
@@ -345,7 +345,7 @@ export class EditorComponent extends Component {
 
     private applyIndentConfigurationToViewState(): void {
         const { insertSpaces, detectIndentation } = this.indentConfiguration;
-        // Неположительный `tabSize` — как отсутствие ключа.
+        // A non-positive `tabSize` is treated as a missing key.
         const tabSize = this.indentConfiguration.tabSize ?? 0;
         if (tabSize > 0) this.editorViewState.configuredTabSize = tabSize;
         if (insertSpaces !== undefined) this.editorViewState.configuredInsertSpaces = insertSpaces;
@@ -367,8 +367,8 @@ export class EditorComponent extends Component {
     }
 
     /**
-     * Включение сбрасывает scrollLeft (инвариант «wrap ⇒ scrollLeft ≡ 0») и
-     * пере-показывает каретку: проекция меняет нумерацию рядов (VS Code тоже).
+     * Enabling resets scrollLeft (invariant "wrap ⇒ scrollLeft ≡ 0") and re-reveals
+     * the cursor: the projection renumbers rows (upstream does the same).
      */
     public setWordWrap(mode: WordWrapMode, column: number): void {
         const viewState = this.editorViewState;
@@ -380,7 +380,7 @@ export class EditorComponent extends Component {
         this.editor.markDirty();
     }
 
-    /** `currentIndex` — активное совпадение или -1. */
+    /** `currentIndex` is the active match, or -1. */
     public setSearchDecorations(matches: IRange[], currentIndex: number): void {
         this.editorViewState.searchMatches = matches;
         this.editorViewState.currentSearchMatchIndex = currentIndex;
@@ -392,7 +392,7 @@ export class EditorComponent extends Component {
         this.editor.markDirty();
     }
 
-    /** Цвета приходят уже разрешёнными — тему не трогает. */
+    /** Colors arrive already resolved — the theme is not consulted. */
     public setGutterChangeDecorations(decorations: readonly IGutterChangeDecoration[]): void {
         this.editor.gutterChangeDecorations = decorations;
         this.editor.markDirty();
@@ -403,7 +403,7 @@ export class EditorComponent extends Component {
         this.editor.markDirty();
     }
 
-    /** Перечитка с диска пересоздаёт `EditorElement` — подсказка гаснет сама. */
+    /** Reloading from disk recreates `EditorElement`, so the ghost text goes away by itself. */
     public setGhostText(ghost: IGhostText | null): void {
         this.editor.setGhostText(ghost);
     }
@@ -413,7 +413,7 @@ export class EditorComponent extends Component {
         this.editor.markDirty();
     }
 
-    /** Логических строк документа. */
+    /** Number of logical document lines. */
     public get lineCount(): number {
         return this.editorViewState.lineCount;
     }
@@ -428,23 +428,23 @@ export class EditorComponent extends Component {
         return this.editorViewState.primaryCursorColumn;
     }
 
-    /** `line`, `column` — 0-based; клампится к границам документа. */
+    /** `line`, `column` are 0-based; clamped to the document bounds. */
     public goToPosition(line: number, column = 0): void {
         this.editorViewState.goToPosition(line, column);
         this.editor.markDirty();
     }
 
-    /** Источник — замыкание на АКТУАЛЬНЫЙ язык модели: смена языка не требует перевешивания. */
+    /** The source is a closure over the model's CURRENT language: a language change needs no re-wiring. */
     private attachLanguageConfiguration(): void {
         this.editor.languageConfigurationSource = () => this.languageConfiguration.get(this.model.languageId);
         void this.languageConfiguration.ensureLoaded(this.model.languageId);
     }
 
     private ensureTokenizerForLanguage(languageId: string): ITokenizationSupport {
-        void this.tokenizationRegistry.load(languageId); // fire-and-forget: load() не реджектится
+        void this.tokenizationRegistry.load(languageId); // fire-and-forget: load() never rejects
         const support = this.tokenizationRegistry.get(languageId);
         if (support === undefined) return new PlainTextTokenizer();
-        // Первый кадр после этой вехи — «кадр с подсветкой».
+        // The first frame after this mark is the "highlighted frame".
         mark("editor:tokenizer-ready", { languageId });
         return support;
     }
@@ -455,8 +455,8 @@ export class EditorComponent extends Component {
     }
 
     /**
-     * На микротаске: документ шлёт `onDidChangeContent` посреди правки, ДО сдвига
-     * регионов view-state'ом, а пересчёт должен видеть их сдвинутыми.
+     * On a microtask: the document fires `onDidChangeContent` mid-edit, BEFORE the view state
+     * shifts the regions, and the recompute must see them already shifted.
      */
     private scheduleFoldingRecompute(): void {
         if (this.foldingRecomputeScheduled) return;
@@ -469,22 +469,22 @@ export class EditorComponent extends Component {
     }
 
     /**
-     * Регионы провайдера мержатся поверх indentation-фолдов, а не заменяют их.
-     * С провайдером текущие регионы стоят до его ответа, как в VS Code:
-     * промежуточный indentation-apply свернул бы Java-метод с многострочной
-     * сигнатурой только по параметрам — тело мигало бы на каждом нажатии.
+     * Provider regions are merged on top of indentation folds rather than replacing them.
+     * With a provider, the current regions stay until it replies, as upstream does:
+     * an intermediate indentation apply would fold a Java method with a multi-line
+     * signature by its parameters only — the body would flicker on every keystroke.
      */
     private recomputeFoldingRegions(): void {
-        // Регионы задаёт владелец вью: авто-пересчёт перетёр бы их, а его reveal
-        // разъезжал бы синхронный скролл сторон диффа.
+        // The view's owner sets the regions: an automatic recompute would overwrite them, and its
+        // reveal would break the synced scrolling of the diff sides.
         if (this.foldingOwnedExternally) return;
         // Snapshot which start lines are collapsed BEFORE the request: the user
         // may fold while it is in flight, the apply unions both.
         const collapsedStarts = this.collapsedStartLines();
         const indentation = computeIndentationFolds(this.model.document, this.editorViewState.tabSize);
 
-        // Каждый пересчёт перебивает запрос в полёте — и тот, что провайдеров не
-        // нашёл: поздний ответ снятого провайдера не должен вернуться.
+        // Every recompute supersedes the in-flight request — even one that found no
+        // providers: a late reply from a removed provider must not come back.
         const ticket = this.foldingRequest.start();
         const providers = this.foldingProviders.ordered(this.model);
         if (providers.length === 0) {
@@ -515,8 +515,8 @@ export class EditorComponent extends Component {
     }
 
     /**
-     * `priorCollapsed` объединяется с текущими свёрнутыми — свёртка, сделанная до
-     * пересчёта, переживает промежуточный пустой apply.
+     * `priorCollapsed` is unioned with the currently collapsed regions — a fold made before
+     * the recompute survives an intermediate empty apply.
      */
     private applyFoldingRegions(regions: IFoldingRegion[], priorCollapsed: ReadonlySet<number>): void {
         const collapsedStarts = this.collapsedStartLines();
@@ -525,8 +525,8 @@ export class EditorComponent extends Component {
             if (collapsedStarts.has(region.startLine)) region.isCollapsed = true;
         }
         this.editorViewState.setFoldingRegions(regions);
-        // Пересчёт мог свернуть регион вокруг правленой строки (Tab увёл её в
-        // свёрнутый блок) — каретка остаётся видимой, как в VS Code.
+        // The recompute may have folded a region around the edited line (Tab moved it into a
+        // collapsed block) — keep the cursor visible, as upstream does.
         this.editorViewState.ensurePrimaryCursorVisible();
         this.editor.markDirty();
     }

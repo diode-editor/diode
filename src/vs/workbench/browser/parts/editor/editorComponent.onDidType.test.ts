@@ -34,7 +34,7 @@ describe("TextEditorPane.onDidType", () => {
 
         press(pane, "a");
         subscription.dispose();
-        // Повторная отписка безвредна и не снимает чужого (последнего в списке).
+        // A repeated unsubscribe is harmless and does not remove someone else's listener (the last in the list).
         subscription.dispose();
         press(pane, "b");
 
@@ -75,7 +75,7 @@ describe("TextEditorPane.onDidType", () => {
         press(pane, "a");
         press(pane, "b");
 
-        // Гарантия Emitter (docs/arch/Common.md#события-eventts, G2): снятый — не зовётся.
+        // Emitter guarantee (docs/arch/Common.md#события-eventts, G2): a removed listener is not called.
         expect(seen).toEqual([]);
     });
 });

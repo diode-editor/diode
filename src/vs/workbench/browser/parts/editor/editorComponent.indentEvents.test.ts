@@ -60,7 +60,7 @@ describe("EditorComponent — onDidChangeIndentOptions", () => {
         const ctrl = openPane("a.ts", "x");
         const events = countEvents(ctrl);
 
-        // insertSpaces остаётся false — сдвигается только ось tabSize.
+        // insertSpaces stays false — only tabSize changes.
         ctrl.applyIndentConfiguration({ tabSize: 8, detectIndentation: false });
 
         expect(events.count()).toBe(1);
@@ -71,7 +71,7 @@ describe("EditorComponent — onDidChangeIndentOptions", () => {
         const ctrl = openPane("a.ts", "x");
         const events = countEvents(ctrl);
 
-        // tabSize остаётся 4 — сдвигается только ось insertSpaces.
+        // tabSize stays 4 — only insertSpaces changes.
         ctrl.applyIndentConfiguration({ insertSpaces: true, detectIndentation: false });
 
         expect(events.count()).toBe(1);
@@ -91,7 +91,7 @@ describe("EditorComponent — onDidChangeIndentOptions", () => {
         const ctrl = createEditorPane();
         const events = countEvents(ctrl);
 
-        // Двухпробельные отступы: детекция сдвигает дефолтные табы на Spaces: 2.
+        // Two-space indentation: detection switches the default tabs to Spaces: 2.
         ctrl.openFile(Uri.file(ws.writeFile("a.ts", "if (a) {\n  b();\n  c();\n}\n")));
 
         expect(events.count()).toBe(1);
@@ -103,7 +103,7 @@ describe("EditorComponent — onDidChangeIndentOptions", () => {
         const ctrl = openPane("a.ts", "if (a) {\n  b();\n  c();\n}\n");
         const events = countEvents(ctrl);
 
-        // Перечитка пересоздаёт view-state; подписка живёт на компоненте.
+        // A reload recreates the view state; the subscription lives on the component.
         ctrl.openFile(Uri.file(ws.writeFile("b.ts", "if (a) {\n\tb();\n\tc();\n}\n")));
 
         expect(events.count()).toBe(1);
@@ -114,8 +114,8 @@ describe("EditorComponent — onDidChangeIndentOptions", () => {
         const ctrl = openPane("a.ts", "if (a) {\n  b();\n  c();\n}\n");
         const events = countEvents(ctrl);
 
-        // Другой файл с теми же двухпробельными отступами: view-state пересоздан,
-        // но действующие значения не сдвинулись — событие не нужно.
+        // Another file with the same two-space indentation: the view state is recreated,
+        // but the effective values did not change — no event needed.
         ctrl.openFile(Uri.file(ws.writeFile("b.ts", "if (x) {\n  y();\n}\n")));
 
         expect(events.count()).toBe(0);
@@ -133,7 +133,7 @@ describe("EditorComponent — onDidChangeIndentOptions", () => {
         });
 
         first.dispose();
-        // Повторный dispose — no-op: соседняя подписка не должна пострадать.
+        // A repeated dispose is a no-op: the other subscription must not be affected.
         first.dispose();
         ctrl.setIndentOptions({ tabSize: 2 });
 

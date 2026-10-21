@@ -63,7 +63,7 @@ describe("EditorComponent: авто-закрытие из language configuration
         return { service, warmed };
     }
 
-    /** Печать тем же путём, что клавиатура: событие на РЕАЛЬНОМ EditorElement вью. */
+    /** Types the same way the keyboard does: an event on the view's REAL EditorElement. */
     function press(component: EditorComponent, key: string): void {
         component.view.getChild().dispatchEvent(new TUIKeyboardEvent("keypress", { key }));
     }
@@ -86,8 +86,8 @@ describe("EditorComponent: авто-закрытие из language configuration
     });
 
     it("после перечитки файла с диска авто-закрытие продолжает работать", () => {
-        // Перечитка пересоздаёт документ, view-state и сам EditorElement —
-        // источник конфигурации обязан переехать на новый виджет вместе с ними.
+        // A reload recreates the document, the view state and the EditorElement itself —
+        // the configuration source must move to the new widget along with them.
         const { service } = stubService({ typescript: TS_LIKE });
         const { model, component } = createComponent("a.ts", "", service);
 
@@ -102,11 +102,11 @@ describe("EditorComponent: авто-закрытие из language configuration
         const { model, component } = createComponent("a.txt", "", service);
 
         press(component, "{");
-        expect(model.document.getText()).toBe("{"); // plaintext: пар нет
+        expect(model.document.getText()).toBe("{"); // plaintext: no pairs
 
         model.setLanguage("typescript");
         expect(warmed).toContain("typescript");
         press(component, "{");
-        expect(model.document.getText()).toBe("{{}"); // источник читает АКТУАЛЬНЫЙ язык
+        expect(model.document.getText()).toBe("{{}"); // the source reads the CURRENT language
     });
 });

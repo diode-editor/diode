@@ -15,7 +15,7 @@ import { TextFileModelRegistry } from "../../../services/textfile/common/textFil
 import { EditorComponent } from "./editorComponent.ts";
 import { TextEditorPane } from "./textEditorPane.ts";
 
-/** Вторая пара поверх той же модели — тем же путём, каким это делает split (реестр + ссылка). */
+/** A second pair over the same model, built the same way a split does it (registry + reference). */
 describe("EditorComponent: один документ в двух вью", () => {
     let ws: ITempWorkspace;
     let undoRedo: UndoRedoService;
@@ -47,7 +47,7 @@ describe("EditorComponent: один документ в двух вью", () => 
         return { a, b };
     }
 
-    /** Печать в конкретной вью тем же путём, что и клавиатура: мутатор + push в общий движок. */
+    /** Types into a specific view the same way the keyboard does: mutator + push into the shared undo engine. */
     function typeIn(pane: TextEditorPane, text: string): void {
         pane.pushUndo(pane.viewState.type(text));
     }
@@ -61,7 +61,7 @@ describe("EditorComponent: один документ в двух вью", () => 
 
         expect(a.getText()).toBe("alpha\ninserted\nbeta\ngamma");
         expect(b.getText()).toBe("alpha\ninserted\nbeta\ngamma");
-        // Каретка B сдвинулась вместе со своей строкой (была gamma:3 → строка съехала на 1).
+        // B's cursor moved with its line (it was at gamma:3 → the line shifted down by 1).
         expect(b.viewState.selections[0].active).toEqual({ line: 3, character: 3 });
         expect(a.viewState.selections[0].active).toEqual({ line: 1, character: 8 });
     });
@@ -76,7 +76,7 @@ describe("EditorComponent: один документ в двух вью", () => 
 
         expect(a.getText()).toBe("hello");
         expect(b.getText()).toBe("hello");
-        // Снимок выделений шага восстановлен в действующую вью — B.
+        // The step's selection snapshot is restored into the acting view — B.
         expect(b.viewState.selections[0].active).toEqual({ line: 0, character: 5 });
     });
 
@@ -161,7 +161,7 @@ describe("EditorComponent: один документ в двух вью", () => 
         store?.forceTokenization(2);
         expect(store?.hasAccurateTokensForLine(0)).toBe(true);
         a.dispose();
-        // Правка из живой вью: закрытый кеш её больше не видит.
+        // An edit from the live view: the disposed cache no longer sees it.
         typeIn(b, "x");
         expect(store?.hasAccurateTokensForLine(0)).toBe(true);
         expect(b.viewState.tokenStore?.hasAccurateTokensForLine(0)).toBe(false);
