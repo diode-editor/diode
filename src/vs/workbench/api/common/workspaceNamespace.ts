@@ -252,40 +252,14 @@ export function createWorkspaceNamespace(
     const onWillSaveTextDocumentEmitter = new EventEmitter<vscode.TextDocumentWillSaveEvent>();
     const onDidSaveTextDocumentEmitter = new EventEmitter<vscode.TextDocument>();
 
-    // Without listeners the host skips will/did-save and full-text document sync.
+    // Without listeners the host skips will/did-save.
     let willSaveCount = 0;
     let didSaveCount = 0;
-    let documentSyncCount = 0;
     function pushSubscriptions(): void {
         rpc.notify("workspace.updateSubscriptions", {
             willSave: willSaveCount > 0,
             didSave: didSaveCount > 0,
-            documentSync: documentSyncCount > 0,
         });
-    }
-
-    function countedEvent<T>(
-        emitter: EventEmitter<T>,
-        onCountChanged: (delta: 1 | -1) => void,
-    ): (listener: (e: T) => unknown, thisArgs?: unknown, disposables?: vscode.Disposable[]) => vscode.Disposable {
-        return (listener, thisArgs, disposables) => {
-            // `disposables` go to the wrapper, not the inner subscription: otherwise dispose would not decrement the counter.
-            const inner = emitter.event(listener as never, thisArgs);
-            onCountChanged(1);
-            const wrapper = new DisposableImpl(() => {
-                inner.dispose();
-                onCountChanged(-1);
-            });
-            if (disposables !== undefined) disposables.push(wrapper);
-            return wrapper;
-        };
-    }
-
-    function onDocumentSyncCountChanged(delta: 1 | -1): void {
-        documentSyncCount += delta;
-        if ((delta === 1 && documentSyncCount === 1) || (delta === -1 && documentSyncCount === 0)) {
-            pushSubscriptions();
-        }
     }
 
     // A flush (whole-content replacement) arrives in didChange as a snapshot.
@@ -572,8 +546,8 @@ export function createWorkspaceNamespace(
         openTextDocument: openTextDocument as unknown as typeof vscode.workspace.openTextDocument,
 
         onDidChangeConfiguration: onDidChangeConfigurationEmitter.event,
-        onDidOpenTextDocument: countedEvent(onDidOpenTextDocumentEmitter, onDocumentSyncCountChanged),
-        onDidChangeTextDocument: countedEvent(onDidChangeTextDocumentEmitter, onDocumentSyncCountChanged),
+        onDidOpenTextDocument: onDidOpenTextDocumentEmitter.event,
+        onDidChangeTextDocument: onDidChangeTextDocumentEmitter.event,
         onDidCloseTextDocument: onDidCloseTextDocumentEmitter.event,
 
         // Silent events: vscode-languageclient touches this surface.
