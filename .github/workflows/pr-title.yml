@@ -1,0 +1,21 @@
+name: PR title
+
+# The squash merge makes the PR title the commit subject, and git-cliff builds the release
+# changelog from those subjects — so the title must be English (docs/COMMITS.md).
+# A separate workflow, not a step in ci.yml: `edited` reruns only this cheap check, not the whole CI.
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, edited, synchronize, reopened]
+
+jobs:
+  title:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: node scripts/check-pr-title.mjs
