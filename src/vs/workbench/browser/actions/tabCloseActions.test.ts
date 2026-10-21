@@ -7,11 +7,6 @@ import { DialogServiceDIToken } from "../../services/dialogs/browser/dialogServi
 import type { EditorGroup } from "../../services/editor/browser/editorGroupModel.ts";
 import { EditorServiceDIToken } from "../../services/editor/common/editorService.ts";
 
-/**
- * Команды закрытия из контекст-меню вкладки. Цель приходит адресом
- * `(groupId, index)` — правый клик активную вкладку не меняет, поэтому тесты
- * проверяют именно адресную работу, а не «по активной».
- */
 describe("Tab close actions", () => {
     let ws: ITempWorkspace;
     let h: IAppHarness;
@@ -37,7 +32,6 @@ describe("Tab close actions", () => {
         for (const name of names) h.workbench.openFile(ws.path(name));
     }
 
-    /** Ждёт, пока асинхронная серия закрытия (confirm-флоу) отработает. */
     const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
 
     it("Close Others закрывает всё, кроме адресованной вкладки", async () => {
@@ -87,7 +81,6 @@ describe("Tab close actions", () => {
         await settle();
 
         expect(labels()).toEqual(["b.txt"]);
-        // Изменённую вкладку команда не трогает вовсе — и не спрашивает про неё.
         expect(h.container.get(DialogServiceDIToken).getOpenConfirmSaveDialog()).toBeNull();
     });
 
@@ -135,7 +128,6 @@ describe("Tab close actions", () => {
         expect(service().editorGroups.activeGroup === second).toBe(true);
         expect(labels(second)).toEqual(["a.txt", "b.txt", "c.txt"]);
 
-        // Меню открыли на единственной вкладке ПЕРВОЙ группы.
         h.commands.execute("workbench.action.closeEditorsToTheRight", second.id, 0);
         await settle();
 
@@ -155,9 +147,7 @@ describe("Tab close actions", () => {
     it("одно число адресом не считается — команда идёт по активной вкладке", async () => {
         openAll("a.txt", "b.txt", "c.txt"); // активна c.txt
 
-        // Адрес вкладки — ПАРА чисел (groupId, index). Одно число адресом быть не
-        // может: иначе команда приняла бы его за адрес, не нашла бы вкладку и
-        // молча ничего не сделала вместо работы по активной.
+        // Одно число адресом быть не может: иначе команда не нашла бы вкладку и молча ничего не сделала.
         h.commands.execute("workbench.action.closeOtherEditors", 1);
         await settle();
 

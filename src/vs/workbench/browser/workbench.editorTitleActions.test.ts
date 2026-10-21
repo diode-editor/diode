@@ -15,11 +15,8 @@ import { ThemeServiceDIToken } from "../services/themes/common/themeTokens.ts";
 
 import type { EditorTitleBarMenuContext } from "./actions/menuContexts.ts";
 
-// Панель действий справа от вкладок группы (`editor/title`): форма вклада
-// стокового Claude Code — кнопки accept/reject предложенного диффа с
-// `$(check)`/`$(discard)` под `when: claude-vscode.viewingProposedDiff` и пункт
-// без рисуемой иконки (SVG) под `when: config.claudeCode.useTerminal`, который
-// уходит в «⋯».
+// Форма вклада стокового Claude Code: accept/reject с `$(check)`/`$(discard)`
+// и пункт без рисуемой иконки (SVG), который уходит в «⋯».
 
 const CHECK = "";
 const DISCARD = "";

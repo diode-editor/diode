@@ -6,7 +6,6 @@ import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/Tem
 import { flushMicrotasks } from "../../../TestUtils/timing.ts";
 import { IWorkspaceContextServiceDIToken } from "../../platform/workspace/common/iWorkspaceContextServiceDIToken.ts";
 
-/** Команда File → Open Workspace from File... (`workbench.action.openWorkspace` эталона). */
 describe("Workbench — Open Workspace from File", () => {
     let ws: ITempWorkspace;
     let h: IAppHarness;

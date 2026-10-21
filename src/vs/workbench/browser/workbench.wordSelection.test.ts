@@ -25,8 +25,6 @@ describe("Workbench word selection (Ctrl+Shift+Arrow/Home/End)", () => {
         ws.dispose();
     });
 
-    // ─── Ctrl+Shift+ArrowRight ──────────────────────────────
-
     it("Ctrl+Shift+ArrowRight selects first word from start", () => {
         const { h, editor } = createTestContext("hello world");
 
@@ -45,8 +43,6 @@ describe("Workbench word selection (Ctrl+Shift+Arrow/Home/End)", () => {
         expect(editor.viewState.selections[0].anchor).toEqual({ line: 0, character: 0 });
         expect(editor.viewState.selections[0].active).toEqual({ line: 0, character: 11 });
     });
-
-    // ─── Ctrl+Shift+ArrowLeft ───────────────────────────────
 
     it("Ctrl+Shift+ArrowLeft selects last word from end", () => {
         const { h, editor } = createTestContext("hello world");
@@ -69,8 +65,6 @@ describe("Workbench word selection (Ctrl+Shift+Arrow/Home/End)", () => {
         expect(editor.viewState.selections[0].active).toEqual({ line: 0, character: 0 });
     });
 
-    // ─── Ctrl+Shift+Home ────────────────────────────────────
-
     it("Ctrl+Shift+Home selects from cursor to document start", () => {
         const { h, editor } = createTestContext("hello\nworld");
 
@@ -81,8 +75,6 @@ describe("Workbench word selection (Ctrl+Shift+Arrow/Home/End)", () => {
         expect(editor.viewState.selections[0].anchor).toEqual({ line: 1, character: 5 });
         expect(editor.viewState.selections[0].active).toEqual({ line: 0, character: 0 });
     });
-
-    // ─── Ctrl+Shift+End ─────────────────────────────────────
 
     it("Ctrl+Shift+End selects from cursor to document end", () => {
         const { h, editor } = createTestContext("hello\nworld");

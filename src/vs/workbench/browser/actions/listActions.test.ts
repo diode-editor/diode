@@ -141,7 +141,6 @@ describe("ListActions — drive the focused ListViewElement", () => {
 
 describe("ListActions — when the focused element is not a tree", () => {
     it("list.focusPageDown is a safe no-op", async () => {
-        // Tree exists but is not focused → focusManager.activeElement is not a TreeViewElement.
         const tree = new TreeViewElement(provider(ITEMS));
         const app = TestApp.createWithContent(tree, new Size(40, 10));
         await tree.refresh();

@@ -24,7 +24,6 @@ const DECREASE = "workbench.action.decreaseViewSize";
 
 const SIZE = new Size(100, 20);
 
-/** Тело секции, которое умеет взять фокус — как поле ввода настоящего вида. */
 class FocusableBody extends TUIElement {
     public constructor(id: string) {
         super();
@@ -70,7 +69,6 @@ describe("Workbench — вторичная боковая панель", () => {
         return h.container.get(ContextKeyServiceDIToken).get(key);
     }
 
-    /** Контейнер во вторичной панели с одной фокусируемой секцией (поздний attach). */
     function addContainer(id: string, title: string, order: number): FocusableBody {
         const views = h.container.get(ViewsServiceDIToken);
         const body = new FocusableBody(`${id}-body`);
@@ -133,13 +131,11 @@ describe("Workbench — вторичная боковая панель", () => {
         expect(focused() === body).toBe(true);
         expect(contextKey("auxiliaryBarFocus")).toBe(true);
         expect(contextKey("activeAuxiliary")).toBe("test.aux.one");
-        // Название вкладки — в таб-строке части, справа от редактора.
         const row = frame()[1];
         expect(row.slice(part().globalPosition.x)).toContain("ONE");
 
         h.commands.execute(TOGGLE);
-        // Фокус ушёл из скрытой части в редактор (булево, а не toBe по
-        // элементам: дифф двух узлов дерева vitest сериализует целиком).
+        // Булево, а не toBe по элементам: дифф двух узлов дерева vitest сериализует целиком.
         expect(focused()?.getAncestorPath().includes(h.activeEditor().view) ?? false).toBe(true);
         expect(contextKey("auxiliaryBarFocus")).toBe(false);
         expect(contextKey("activeAuxiliary")).toBe("");

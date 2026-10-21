@@ -18,23 +18,11 @@ import { macKeysLevel, type MacKeysRung } from "../../../platform/keybinding/com
 import { WORKBENCH_ACTIONS } from "../../workbench.common.main.ts";
 
 /**
- * Гейт достижимости дефолтных биндов.
- *
- * Инвариант: у КАЖДОЙ встроенной команды, у которой в данном окружении есть
- * хоть один дефолтный бинд, есть бинд, который терминал этого окружения
- * способен доставить. Иначе команда остаётся без клавиатурного пути, а её
- * подсказка в палитре и меню обещает нерабочее — именно так редактор под
- * ssh + tmux оказывался и без Ctrl+Shift+E, и без палитры (#376).
- *
- * Гейт нужен не для разового разбора, а чтобы дыра не приехала снова со
- * следующей командой: новый бинд из «неделимого» набора (Ctrl+Shift+буква,
- * Shift+Alt+буква, Ctrl+Enter, Ctrl+Backspace, meta) краснит сборку, пока
- * рядом нет досягаемого пути.
- *
- * Критерий доставки — {@link requiresExtendedKeys}, калиброванный по разбору
- * ввода движка. Мак-специфика (Option+буква на интернациональной раскладке,
- * Ctrl+←/→ у Mission Control) живёт в `macKeybindings.test.ts`; здесь — только
- * то, что общее для всех платформ.
+ * Инвариант: у КАЖДОЙ встроенной команды с дефолтным биндом в окружении есть
+ * бинд, который терминал этого окружения способен доставить — иначе подсказка
+ * обещает нерабочее, как было под ssh + tmux без Ctrl+Shift+E и палитры (#376).
+ * Критерий доставки — {@link requiresExtendedKeys}; мак-специфика — в
+ * `macKeybindings.test.ts`.
  */
 
 const noopRun = (): void => undefined;
@@ -45,14 +33,12 @@ interface Environment {
     readonly rung?: MacKeysRung;
 }
 
-// Враждебные окружения: ровно те, где tier не даёт расширенных клавиш. На
-// csi-u/kitty недостижимых комбинаций нет по определению.
+// Ровно те окружения, где tier не даёт расширенных клавиш.
 const ENVIRONMENTS: readonly Environment[] = [
     { name: "pc legacy (ssh + tmux)", tier: "legacy" },
     { name: "mac-legacy (Terminal.app)", tier: "legacy", rung: "legacy" },
 ];
 
-/** Значения ключей окружения: их гейт фиксирует, остальные — свободны. */
 function environmentValues(env: Environment): Readonly<Record<string, boolean | string | number>> {
     const mac = env.rung !== undefined;
     return {
@@ -67,14 +53,9 @@ function environmentValues(env: Environment): Readonly<Record<string, boolean | 
 }
 
 /**
- * Самый разрешительный фокус при фиксированном окружении: все не-средовые ключи
- * истинны, кроме тех, которые это же выражение отрицает (`!editorReadonly`).
- *
- * Перечислять фокус-контексты здесь незачем и вредно: вопрос гейта — «объявлен
- * ли вообще досягаемый бинд», а он от фокуса не зависит; забытый контекст дал бы
- * ложную красноту. Отрицания разбираются по тексту выражения, потому что ключ,
- * который нужен истинным одной команде и ложным другой, иначе пришлось бы
- * фиксировать глобально.
+ * Все не-средовые ключи истинны, кроме отрицаемых этим выражением. Фокус-контексты
+ * не перечисляем: вопрос гейта от фокуса не зависит, а забытый контекст дал бы
+ * ложную красноту.
  */
 function overlayFor(env: Environment, when: string | undefined): Readonly<Record<string, boolean | string | number>> {
     const negated = new Set<string>();
@@ -85,7 +66,6 @@ function overlayFor(env: Environment, when: string | undefined): Readonly<Record
     return { ...overlay, ...environmentValues(env) };
 }
 
-/** Бинды, чей `when` в этом окружении может пройти (фокус — любой). */
 function activeBindings(
     registry: KeybindingRegistry,
     env: Environment,
@@ -129,8 +109,7 @@ describe("достижимость дефолтных биндов", () => {
             const commandIds = [...new Set(active.map((entry) => entry.commandId))];
             const lying = commandIds
                 .map((id) => {
-                    // Overlay — объединение разрешительных фокусов всех биндов команды:
-                    // подпись считается в том же «фокус свободен» режиме, что и гейт выше.
+                    // Объединение разрешительных фокусов всех биндов команды — тот же режим, что в гейте выше.
                     const whens = active.filter((entry) => entry.commandId === id).map((entry) => entry.when);
                     const overlay = overlayFor(env, whens.filter((when) => when !== undefined).join(" && "));
                     return { id, chord: registry.getKeybindingForCommand(id, contextKeys, overlay) };
@@ -143,14 +122,8 @@ describe("достижимость дефолтных биндов", () => {
 });
 
 describe("асимметрия tier-гейта — пользовательский контракт", () => {
-    // Команды, у которых канонический бинд VS Code объявлен под tier-гейтом
-    // (терминал без extended keys его не передаёт), с подписью, которую видит
-    // пользователь по обе стороны гейта: `команда | на legacy | на kitty`.
-    //
-    // Таблица собирается из самих биндов, а не задана руками, поэтому новый гейт
-    // обязан попасть сюда осознанно — как в таблице мак-дельт. Левая колонка
-    // отвечает за «есть рабочий путь», правая — за «на хорошем терминале
-    // подсказка остаётся эталонной».
+    // Канонический бинд под tier-гейтом и подпись по обе стороны: `команда | на legacy | на kitty`.
+    // Таблица собирается из самих биндов — новый гейт обязан попасть сюда осознанно.
     const CONTRACT = [
         "deleteWordLeft | Alt+Backspace | Ctrl+Backspace",
         "editor.action.blockComment | Ctrl+K Alt+A | Shift+Alt+A",
@@ -193,7 +166,6 @@ describe("асимметрия tier-гейта — пользовательск�
         const contextKeys = new ContextKeyService();
         const bindings = registry.listBindings();
 
-        /** Бинд объявлен ПОД tier-гейтом: на legacy не действует, на kitty действует. */
         const gated = (entry: IKeybindingEntrySnapshot): boolean =>
             entry.when !== undefined &&
             !contextKeys.evaluate(entry.when, overlayFor(PC_LEGACY, entry.when)) &&
@@ -201,8 +173,6 @@ describe("асимметрия tier-гейта — пользовательск�
 
         const commandIds = [...new Set(bindings.filter(gated).map((entry) => entry.commandId))].sort();
         const rows = commandIds.map((id) => {
-            // Разрешительный фокус считаем по всем when команды сразу — так же,
-            // как в гейте выше: вопрос про окружение, а не про фокус.
             const whens = bindings
                 .filter((entry) => entry.commandId === id)
                 .map((entry) => entry.when)
@@ -222,10 +192,8 @@ describe("асимметрия tier-гейта — пользовательск�
 });
 
 describe("коллизии дефолтных биндов", () => {
-    // Представительные фокус-контексты: взаимоисключающие сами по себе, поэтому
-    // одна комбинация в двух из них — не коллизия. Нужны ИМЕННО здесь (в отличие
-    // от гейта достижимости выше), потому что вопрос — «сработают ли два бинда
-    // на одно нажатие», а он от фокуса зависит напрямую.
+    // Нужны ИМЕННО здесь, в отличие от гейта выше: «сработают ли два бинда на одно
+    // нажатие» от фокуса зависит напрямую.
     const FOCUS_CONTEXTS: readonly Readonly<Record<string, boolean>>[] = [
         {},
         {
@@ -244,11 +212,8 @@ describe("коллизии дефолтных биндов", () => {
     ];
 
     /**
-     * Пары «одна комбинация — две команды», разрешаемые порядком регистрации
-     * (`KeybindingRegistry.resolveKey` берёт последний подходящий бинд). Список —
-     * контракт: лидер-аккорд `Ctrl+K <клавиша>` разбирает общий префикс, и занятую
-     * букву легко не заметить, поэтому новая пара обязана попасть в этот список
-     * осознанно, а не появиться молча.
+     * Список — контракт: занятую букву лидер-аккорда легко не заметить, поэтому
+     * новая пара обязана попасть сюда осознанно (`resolveKey` берёт последний бинд).
      */
     const KNOWN_COLLISIONS = [
         // При открытом попапе автодополнения навигация достаётся ему, а не
@@ -288,9 +253,8 @@ describe("коллизии дефолтных биндов", () => {
     });
 
     it("подсветка конфликтов в редакторе шорткатов не ловит дубль одной команды", () => {
-        // `findConflictingBindings` сравнивает when строками, поэтому безусловный
-        // фолбэк рядом с условным биндом ТОЙ ЖЕ команды подсветился бы как
-        // конфликт. Такого быть не должно: это не конфликт, а два пути к одному.
+        // `findConflictingBindings` сравнивает when строками: безусловный фолбэк рядом с
+        // условным биндом ТОЙ ЖЕ команды — не конфликт, а два пути к одному.
         const entries = registerBuiltins().listBindings();
         const sameCommand = [...findConflictingBindings(entries)]
             .map((index) => entries[index])

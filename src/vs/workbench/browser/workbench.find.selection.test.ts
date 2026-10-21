@@ -6,7 +6,6 @@ import { EditorServiceDIToken } from "../services/editor/common/editorService.ts
 import type { FindContext } from "./workbench.find.testUtils.ts";
 import { createFindApp, disposeFindApp, type } from "./workbench.find.testUtils.ts";
 
-/** Current text of the active group's find widget query input. */
 function query(ctx: FindContext): string {
     const groupId = ctx.harness.container.get(EditorServiceDIToken).editorGroups.activeGroup.id;
     return ctx.harness.container.get(FindComponentDIToken).widgetFor(groupId)!.getQuery();
@@ -25,7 +24,6 @@ describe("Workbench — find query is selected on open", () => {
         type(ctx.testApp, "foo");
         expect(ctx.activeEditor().viewState.searchMatches).toHaveLength(2);
 
-        // Escape hides the widget but keeps the query around.
         ctx.testApp.sendKey("Escape");
         ctx.testApp.sendKey("Ctrl+F");
         expect(query(ctx)).toBe("foo");
@@ -33,7 +31,6 @@ describe("Workbench — find query is selected on open", () => {
         // The whole query is selected → typing replaces it instead of appending.
         type(ctx.testApp, "bar");
         expect(query(ctx)).toBe("bar");
-        // …and matches were recomputed for the new query.
         expect(ctx.activeEditor().viewState.searchMatches).toHaveLength(2);
     });
 
@@ -42,7 +39,6 @@ describe("Workbench — find query is selected on open", () => {
         ctx.testApp.sendKey("Ctrl+F");
         type(ctx.testApp, "foo");
 
-        // Widget stays open; a second Ctrl+F selects the whole query.
         ctx.testApp.sendKey("Ctrl+F");
         type(ctx.testApp, "bar");
 

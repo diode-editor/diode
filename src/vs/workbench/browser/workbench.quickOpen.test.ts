@@ -51,7 +51,6 @@ describe("Workbench — Quick Open accept callbacks", () => {
         const alphaPath = ws.path("alpha.txt");
         expect(executeSpy).toHaveBeenCalledWith("workbench.openFile", alphaPath);
 
-        // The wired workbench.openFile callback opens an editor tab.
         const tabStrip = h.testApp.querySelector("EditorTabStripElement") as EditorTabStripElement;
         expect(tabStrip.getItemElements().length).toBeGreaterThan(0);
     });
@@ -72,7 +71,6 @@ describe("Workbench — Quick Open accept callbacks", () => {
         h.commands.register("test.quickOpenTarget", ran, "Quick Open Target Command");
         h.workbench.focusEditor();
 
-        // Enter command mode via the registered Show Commands command.
         h.commands.execute("workbench.action.showCommands");
         h.testApp.render();
 
@@ -116,14 +114,12 @@ describe("Workbench — Go to Line", () => {
         ws = createTempWorkspace({
             prefix: "diode-gotoline-",
             files: {
-                // A 60-line file to navigate around.
                 "big.txt": Array.from({ length: 60 }, (_, i) => `line ${i + 1}`).join("\n"),
             },
         });
         h = createAppTestHarness({ workspaceFolder: ws.dir });
         await h.workbench.activate();
         await h.workbench.fileIndexReady;
-        // Open the file so there is an active editor to navigate.
         h.commands.execute("workbench.openFile", ws.path("big.txt"));
         h.testApp.render();
     });
@@ -180,7 +176,6 @@ describe("Workbench — Go to Line", () => {
     });
 
     it("a file:line query opens the file and jumps to the line", async () => {
-        // Close the current editor state by opening via quick open with a suffix.
         h.workbench.focusEditor();
         h.testApp.sendKey("Ctrl+P");
         h.testApp.render();
@@ -200,9 +195,7 @@ describe("Workbench — Go to Line", () => {
 });
 
 /**
- * Пикер открытых редакторов целиком через живой Workbench: аккорд Ctrl+K Ctrl+P
- * → провайдер `edt ` → переключение вкладки. Проводку (DI-швы к IEditorService и
- * ExplorerService, запись в QUICK_ACCESS_PROVIDERS, экшен с биндом) видит
+ * Проводку (DI-швы, запись в QUICK_ACCESS_PROVIDERS, экшен с биндом) видит
  * только такой тест: юнит-тесты провайдера работают со своими фейками.
  */
 describe("Workbench — пикер открытых редакторов (Ctrl+K Ctrl+P)", () => {
@@ -246,7 +239,6 @@ describe("Workbench — пикер открытых редакторов (Ctrl+K
         h.testApp.render();
 
         expect(picker().getQuery()).toBe("edt ");
-        // Активная вкладка сверху; путь — относительно корня воркспейса.
         expect(picker().items.map((item) => item.label)).toEqual(["beta.txt", "alpha.txt"]);
         expect(picker().items.map((item) => item.description)).toEqual(["nested", ""]);
     });
@@ -282,7 +274,6 @@ describe("Workbench — пикер открытых редакторов (Ctrl+K
         expect(picker().items[0].hint).toBeUndefined();
         h.testApp.sendKey("Escape");
 
-        // Правка активной вкладки — маркер появляется в той же строке.
         h.workbench.focusEditor();
         h.testApp.sendKey("x");
         h.commands.execute("workbench.action.showAllEditors");

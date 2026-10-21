@@ -79,10 +79,8 @@ export const closeUnmodifiedEditorsAction: CommandAction = {
         const service = accessor.get(EditorServiceDIToken);
         const target = resolveTabTarget(accessor.get(EditorGroupsServiceDIToken), args);
         if (target === null) return;
-        // Ни одного диалога по построению: закрываем ровно то, что не изменено.
-        // Отсюда же ненаблюдаемость порядка, и мутанта в развороте не убить: серия
-        // не прерывается на полпути, а позиция ищется заново перед каждым
-        // закрытием, — так что набор закрытых вкладок от порядка не зависит.
+        // Диалогов нет: закрываем ровно неизменённое, позиция ищется заново перед каждым
+        // закрытием — набор закрытых вкладок от порядка не зависит.
         const unmodified = target.group.getPanes().filter((pane) => !pane.isModified);
         // Stryker disable next-line MethodExpression: см. выше
         const panes = unmodified.toReversed();

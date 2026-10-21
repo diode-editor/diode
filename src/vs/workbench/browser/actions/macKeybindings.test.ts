@@ -32,7 +32,6 @@ interface IVscodeReference {
     readonly commands: Readonly<Record<string, { readonly linux: readonly string[]; readonly mac: readonly string[] }>>;
 }
 
-/** Срез дефолтных биндов VS Code 1.138 для команд diode (см. поле source в файле). */
 const VSCODE_REFERENCE = JSON.parse(
     readFileSync(new URL("./macKeybindings.vscodeReference.json", import.meta.url), "utf8"),
 ) as IVscodeReference;
@@ -69,7 +68,6 @@ function deliverableOnMacLegacy(chord: readonly Keybinding[]): boolean {
     return !requiresExtendedKeys([...chord]) && !chord.some(isMacTrap) && !altEscape;
 }
 
-/** Ctrl-формы `mod`-биндов: на рунгах ниже cmd эти аккорды заняты фоллбэком. */
 function modFallbackChords(): ReadonlySet<string> {
     const chords = new Set<string>();
     for (const entry of registerBuiltins().listBindings()) {
@@ -116,8 +114,7 @@ describe("withMacKeybindings", () => {
     });
 
     it("условный бинд-АККОРД переносится целиком: чорд не разворачивается в одну часть", () => {
-        // Среди дефолтов такой формы сейчас нет (условные бинды — одиночные
-        // комбинации), но форма разрешена `ConditionalKeybinding`, и ошибка здесь
+        // Таких дефолтов сейчас нет, но форма разрешена `ConditionalKeybinding`, и ошибка
         // молча превратила бы Ctrl+K Ctrl+E в Ctrl+K.
         const result = withMacKeybindings(
             action({
@@ -287,16 +284,14 @@ describe("таблица мак-дельт", () => {
     });
 });
 
-// Конфликты pc-раскладки, существовавшие до мак-паритета (оба бинда — pc-шные, мак
-// их лишь унаследовал ниже cmd). Трекер: docs/TODO/MacKeybindings.md.
+// Трекер: docs/TODO/MacKeybindings.md.
 const PRE_EXISTING_PC_CONFLICTS = new Set([
     "ctrl+k ctrl+u: editor.action.removeCommentLine / editor.action.showHover",
     "ctrl+k ctrl+f: editor.action.formatSelection / workbench.action.navigateForward",
 ]);
 
 describe("инвариант: внутри семейства условия взаимоисключающие", () => {
-    // Резолвер идёт с конца: если pc-бинд и мак-бинд сматчились разом, молча
-    // победит зарегистрированный позже. Ищем такие пары во всей матрице.
+    // Резолвер идёт с конца: сматчившиеся разом pc- и мак-бинд молча решит порядок регистрации.
     const registry = registerBuiltins();
 
     it.each(ENVIRONMENTS.map((env) => [env.name, env] as const))("%s", (_name, env) => {
@@ -342,12 +337,8 @@ describe("mod разворачивается по рунгу", () => {
 });
 
 describe("паритет с мак-раскладкой VS Code (эталон 1.138)", () => {
-    // Независимая сверка со срезом дефолтных биндов VS Code — пропуск в таблице
-    // дельт или в mod-переводе ловится здесь, а не глазами. Сравнение
-    // симметричное, в одном и том же фокусе: мак-бинд эталона обязан действовать
-    // на mac-cmd, если его pc-пара из эталона действует в diode на pc. Чего нет и на
-    // pc, — дыра pc-паритета, не мака. Мак-бинды без pc-пары (Option-слова,
-    // WinCtrl-подслой, ⌘↑/↓) обязаны действовать всегда.
+    // Мак-бинд эталона обязан действовать на mac-cmd, если его pc-пара действует в diode
+    // на pc (чего нет и на pc — дыра pc-паритета). Мак-бинды без pc-пары — всегда.
     const registry = registerBuiltins();
     const pc: Environment = { name: "pc", tier: "kitty" };
     const macCmd: Environment = { name: "mac-cmd", tier: "kitty", rung: "cmd" };
@@ -385,7 +376,6 @@ describe("паритет с мак-раскладкой VS Code (эталон 1.
             (entry) => entry.commandId === commandId && serializeChord(entry.chord) === spec,
         );
     };
-    /** pc-пара мак-бинда в эталоне: Cmd → Ctrl (механика) либо тот же аккорд. */
     const pcCounterpart = (mac: string, linux: readonly string[]): string | undefined => {
         const chord = parseChord(mac);
         const mechanical = serializeChord(
@@ -415,10 +405,8 @@ describe("паритет с мак-раскладкой VS Code (эталон 1.
 });
 
 describe("каждый мак-бинд таблицы действует на своём рунге и выше", () => {
-    // Условие мак-бинда — только рунг, а фокус задаёт when самой команды. Ищем
-    // фокус-контекст, где бинд действует; на всех рунгах от from до cmd он обязан
-    // найтись — иначе бинд потерян (как Option+← на mac-cmd, если его перекрыть
-    // tier-условием legacy-фоллбэка).
+    // На всех рунгах от from до cmd обязан найтись фокус, где бинд действует, — иначе
+    // бинд потерян (как Option+← на mac-cmd под tier-условием legacy-фоллбэка).
     const registry = registerBuiltins();
     const RUNG_ENV: Record<MacKeysRung, Environment> = {
         legacy: { name: "mac-legacy", tier: "legacy", rung: "legacy" },
@@ -458,8 +446,7 @@ describe("каждый мак-бинд таблицы действует на с
 });
 
 describe("mac-legacy: каждая топ-команда достижима доставляемой комбинацией", () => {
-    // Топ первой итерации (docs/TODO/MacKeybindings.md). Save All и Replace в
-    // diode пока нет — они в трекере, а не здесь.
+    // Save All и Replace в diode пока нет — они в трекере docs/TODO/MacKeybindings.md.
     const TOP_COMMANDS = [
         "workbench.action.files.save",
         "workbench.action.showCommands",

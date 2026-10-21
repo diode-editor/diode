@@ -23,17 +23,10 @@ import { serializeChord } from "../../../platform/keybinding/common/keybindingRe
 import { WORKBENCH_ACTIONS } from "../../workbench.common.main.ts";
 
 /**
- * Срез приоритета дефолтных биндов (F1, предохранитель переноса «порядок
- * регистрации → вес»). Эталон — `builtinKeybindings.slice.json` рядом;
- * пересобрать от текущего кода: `UPDATE_SLICE=1 npx vitest run <этот файл>`.
- *
- * Два среза:
- * - **попарное старшинство** — для каждой комбинации и каждой пары записей
- *   разных команд, которые могут быть активны одновременно, кто из них
- *   победит. Форма попарная, поэтому перестановка взаимоисключающих записей
- *   эталон не трогает, а в диффе видно «пара X/Y перевернулась»;
- * - **подписи** — `getKeybindingForCommand` каждой команды на сетке окружений
- *   и фокусов.
+ * Срез приоритета дефолтных биндов (F1). Пересобрать эталон:
+ * `UPDATE_SLICE=1 npx vitest run <этот файл>`. Старшинство — попарное:
+ * перестановка взаимоисключающих записей эталон не трогает, а в диффе видно
+ * «пара X/Y перевернулась».
  */
 
 const SLICE_URL = new URL("./builtinKeybindings.slice.json", import.meta.url);
@@ -49,7 +42,6 @@ interface ISlice {
     readonly signatures: Readonly<Record<string, Signature>>;
 }
 
-/** Значения, которые стоит перебрать для ключа: литералы из выражений плюс «прочее». */
 function domainsOf(exprs: readonly ContextKeyExpression[]): Map<string, ContextKeyValue[]> {
     const domains = new Map<string, Set<ContextKeyValue>>();
     const add = (key: string, ...values: ContextKeyValue[]): void => {
@@ -85,12 +77,9 @@ function domainsOf(exprs: readonly ContextKeyExpression[]): Map<string, ContextK
 }
 
 /**
- * Цели фокуса и ключи, которые при фокусе в цели могут быть истинны. Фокус у
- * дерева один, поэтому валиден только контекст, чьи истинные фокус-ключи
- * целиком помещаются в одну цель: `textInputFocus` и `listFocus` разом не
- * бывают, поле коммита SCM и поле поиска — разные цели. Попапы над редактором
- * (suggest, hover, подсказка параметров, призрак inline) гаснут, когда фокус
- * уходит с редактора, — их ключи живут только в цели «редактор».
+ * Фокус у дерева один: валиден только контекст, чьи истинные фокус-ключи
+ * помещаются в одну цель. Попапы над редактором гаснут с уходом фокуса — их
+ * ключи живут только в цели «редактор».
  */
 const FOCUS_TARGETS: readonly (readonly string[])[] = [
     [
@@ -119,7 +108,7 @@ function focusConsistent(values: ReadonlyMap<string, ContextKeyValue>): boolean 
     return focused.length === 0 || FOCUS_TARGETS.some((target) => focused.every((key) => target.includes(key)));
 }
 
-/** Есть ли контекст, где все выражения истинны. Перебор полный, если мал, иначе — детерминированная выборка. */
+/** Перебор полный, если мал, иначе — детерминированная выборка. */
 function canBeActiveTogether(whens: readonly (string | undefined)[]): boolean {
     const exprs = whens.flatMap((when) => (when === undefined ? [] : [parseWhen(when)!]));
     const domains = [...domainsOf(exprs)];
@@ -144,11 +133,7 @@ function describeEntry(entry: IKeybindingEntrySnapshot): string {
     return entry.when === undefined ? entry.commandId : `${entry.commandId} [${entry.when}]`;
 }
 
-/**
- * Попарное старшинство: «chord: сильнее > слабее». Сильнее — запись, стоящая
- * позже в `listBindings()`: резолвер отдаёт комбинацию последней записи с
- * проходящим when (что это верно, проверяет отдельный тест ниже).
- */
+/** Сильнее — запись позже в `listBindings()`: резолвер отдаёт последнюю с проходящим when. */
 function pairwiseSlice(registry: KeybindingRegistry): string[] {
     const groups = new Map<string, IKeybindingEntrySnapshot[]>();
     for (const entry of registry.listBindings()) {
@@ -200,7 +185,6 @@ describe("срез приоритета дефолтных биндов", () => 
     const reference = JSON.parse(readFileSync(SLICE_URL, "utf8")) as ISlice;
 
     it("попарное старшинство совпадает с эталоном", () => {
-        // Срез обязан быть содержательным: конфликтующих пар — десятки.
         expect(current.pairs.length).toBeGreaterThan(20);
         expect(current.pairs).toEqual(reference.pairs);
     });
@@ -210,9 +194,7 @@ describe("срез приоритета дефолтных биндов", () => 
     });
 
     it("старшинство в срезе — то, что реально выбирает резолвер", () => {
-        // Для каждой пары находим контекст сетки, где активны ровно обе и никого
-        // сильнее, и сверяем с resolveKey. Пары, которые сетка не накрывает,
-        // пропускаются — их проверяет попарная форма выше.
+        // Пары, которые сетка не накрывает, пропускаются — их проверяет попарная форма выше.
         let checked = 0;
         const entries = registry.listBindings();
         for (const env of ENVIRONMENTS) {

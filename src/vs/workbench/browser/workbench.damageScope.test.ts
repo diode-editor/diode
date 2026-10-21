@@ -3,11 +3,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTestHarness.ts";
 
-// Damage-tracking кадра на уровне воркбенча (docs/TODO/LongLinePerformance.md,
-// «Глубже»): клавиша в редакторе не должна перерисовывать чужие панели.
-// Ключевая механика — fallback-вариант страховки consumed-key
-// (workbenchComponent.mount): команда, честно пометившая виджет, даёт
-// частичный damage вместо markDirty корня (= полноэкранного кадра).
+// Механика — fallback страховки consumed-key (workbenchComponent.mount): команда,
+// честно пометившая виджет, даёт частичный damage вместо markDirty корня.
 
 describe("Workbench — damage клавиши в редакторе не задевает чужие панели", () => {
     let h: IAppHarness;

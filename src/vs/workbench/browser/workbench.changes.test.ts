@@ -22,14 +22,7 @@ import type { SidebarService } from "./parts/sidebar/sidebarService.ts";
 import { SidebarServiceDIToken } from "./parts/sidebar/sidebarService.ts";
 import { WorkbenchComponent, WorkbenchComponentDIToken } from "./workbenchComponent.ts";
 
-/**
- * Сквозной гейт этапа 6 «до кадра»: SCM-расширение (заглушка) публикует набор
- * изменённых файлов командой `diode.scm.publishChanges`, а вьюлет **Source
- * Control** в сайдбаре (вместо Explorer, переключение командой `workbench.view.scm`)
- * показывает их списком; активация файла открывает дифф этапа 5 напрямую, без
- * промежуточной файловой вкладки. Роль git играют заглушки (`git:`-провайдер +
- * `originalResource`), путь ядра — настоящий.
- */
+/** Роль git играют заглушки (`git:`-провайдер + `originalResource`), путь ядра — настоящий. */
 
 const AT_HEAD = "alpha\nbravo\ncharlie\ndelta\n";
 const SHOW_SCM = "workbench.view.scm";
@@ -47,7 +40,6 @@ describe("Workbench — Source Control в сайдбаре end-to-end", () => {
     let sideBg: number;
     let testApp: TestApp;
 
-    /** Публикует набор изменений так же, как это делает git-расширение. */
     function publish(entries: { path: string; rel: string; status: string; colorId: string; group?: string }[]): void {
         commands.execute(
             PUBLISH_CHANGES_COMMAND,
@@ -61,16 +53,14 @@ describe("Workbench — Source Control в сайдбаре end-to-end", () => {
         );
     }
 
-    /** Активирует строку списка клавиатурным путём: курсор на строку → Enter. */
     function activate(rel: string, group = "worktree"): void {
         changes.list.setCursorTo(`scmRow-${group}-${rel.replace(/[^A-Za-z0-9_-]+/g, "-")}`);
         changes.list.dispatchEvent(new TUIKeyboardEvent("keypress", { key: "Enter" }));
     }
 
     /**
-     * Поллит кадр до предиката: открытие диффа читает диск асинхронно, и
-     * фиксированная пауза флачит на медленных CI-раннерах под coverage.
-     * По таймауту возвращает последний кадр — ассерт упадёт с внятным диффом.
+     * Открытие диффа читает диск асинхронно — фиксированная пауза флачит на CI под
+     * coverage. По таймауту отдаёт последний кадр, чтобы ассерт упал с диффом.
      */
     async function waitForScreen(predicate: (screen: string) => boolean, timeoutMs = 5000): Promise<string> {
         const deadline = Date.now() + timeoutMs;
@@ -89,9 +79,8 @@ describe("Workbench — Source Control в сайдбаре end-to-end", () => {
         });
 
         const { container, bindApp } = createTestContainer();
-        // Дополняем штатный реестр (в нём уже есть file: из markersModule)
-        // git:-провайдером — как это делает адаптер расширения. Untracked-файлу
-        // originalResource отвечает null — как настоящее git-расширение.
+        // Штатный реестр уже знает file: (markersModule); git: добавляем, как адаптер
+        // расширения. Untracked-файлу originalResource отвечает null, как git-расширение.
         container.get(IFileServiceDIToken).registerProvider("git", {
             capabilities: FileSystemProviderCapabilities.Readonly,
             readFile: () => Promise.resolve(new TextEncoder().encode(AT_HEAD)),
@@ -112,9 +101,8 @@ describe("Workbench — Source Control в сайдбаре end-to-end", () => {
 
         workbench.setWorkspaceFolder(ws.dir);
         workbench.mount();
-        // Высота с запасом: секция Source Control отдаёт 5 верхних строк
-        // контролам коммита (поле, зазор, кнопка и паддинги), и на 20 строках
-        // список не вмещал бы весь набор.
+        // 26 строк: секция Source Control отдаёт 5 верхних строк контролам коммита, и на
+        // 20 строках список не вмещал бы весь набор.
         testApp = TestApp.create(workbench.view, new Size(150, 26));
         bindApp(testApp.app);
 
@@ -146,7 +134,6 @@ describe("Workbench — Source Control в сайдбаре end-to-end", () => {
         expect(sidebar.getActiveViewletId()).toBe("scm");
         expect(screen).toContain("SOURCE CONTROL");
         expect(screen).toContain("nested/b.txt");
-        // Список покрашен темой сайдбара (bg = sideBar bg), а не дефолтом — отрисован.
         expect(changes.list.resolvedStyle.bg).toBe(sideBg);
     });
 
@@ -166,7 +153,6 @@ describe("Workbench — Source Control в сайдбаре end-to-end", () => {
     });
 
     it("активация открытого файла показывает дифф с несохранёнными правками — одной вкладкой", async () => {
-        // Правим буфер, не сохраняя: дифф должен показать несохранённое.
         const editor = editors.getActiveEditor();
         editor?.goToPosition(1, 0);
         editor?.viewState.type("XX");
@@ -182,7 +168,6 @@ describe("Workbench — Source Control в сайдбаре end-to-end", () => {
         expect(screen).toContain("a.txt ↔ HEAD");
         expect(screen).toMatch(/2-\s+bravo/u);
         expect(screen).toMatch(/2\+\s+XXbravo/u);
-        // Ровно одна новая вкладка — дифф; файловая не открывалась (файл уже был открыт).
         expect(editors.editorGroups.activeGroup.editorCount).toBe(panesBefore + 1);
     });
 
@@ -194,9 +179,8 @@ describe("Workbench — Source Control в сайдбаре end-to-end", () => {
         activate("nested/b.txt");
 
         expect(await waitForScreen((s) => s.includes("b.txt ↔ HEAD"))).toContain("b.txt ↔ HEAD");
-        // Файловая вкладка b.txt не появилась — только a.txt из beforeEach и дифф.
-        // fsPath не бросает на не-file схемах (дифф-вкладка несёт тот же путь) —
-        // файловую вкладку отличаем схемой.
+        // fsPath не бросает на не-file схемах (дифф несёт тот же путь) — файловую
+        // вкладку отличаем схемой.
         const panes = editors.editorGroups.activeGroup.getPanes();
         expect(panes.filter((p) => p.uri.scheme === "diode-diff")).toHaveLength(1);
         expect(panes.some((p) => p.uri.scheme === "file" && p.uri.fsPath === ws.path("nested/b.txt"))).toBe(false);

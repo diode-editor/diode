@@ -20,20 +20,12 @@ import { ThemeServiceDIToken } from "../services/themes/common/themeTokens.ts";
 import { WorkbenchComponent, WorkbenchComponentDIToken } from "./workbenchComponent.ts";
 
 /**
- * Гейт «тест доходит до кадра» (AGENTS.md): проверяем не структуру, в которую
- * пишет QuickDiffService, а **нарисованный символ бара** в гуттере — и главное,
- * что он появляется от правки буфера **без сохранения**. Именно это и было
- * сломано: расширение считало ханки по файлу на диске, поэтому бары стояли до
- * Ctrl+S.
- *
- * Роль git-расширения играет заглушка: команда `diode.scm.originalResource` и
- * провайдер схемы `git:` регистрируются напрямую, без субпроцесса — путь ядра
- * от них и до кадра при этом настоящий.
+ * Ассерт — по нарисованному бару от правки буфера без сохранения: расширение
+ * считало ханки по диску, и бары стояли до Ctrl+S. Роль git играет заглушка.
  */
 
 const BAR_DASHED = "┋"; // правка (VS Code dirty-diff рисует её пунктиром)
 const ORIGINAL_TEXT = "line one\nline two\nline three\n";
-/** Сколько строк документа сканируем в поисках баров. */
 const DOCUMENT_LINES = 4;
 
 describe("Workbench — живой гуттер quick diff", () => {
@@ -51,7 +43,6 @@ describe("Workbench — живой гуттер quick diff", () => {
 
         const { container, bindApp } = createTestContainer();
 
-        // Заглушка SCM: реестр провайдеров отдаёт «версию из HEAD».
         const registry = new FileService();
         registry.registerProvider("git", {
             capabilities: FileSystemProviderCapabilities.Readonly,
@@ -86,11 +77,7 @@ describe("Workbench — живой гуттер quick diff", () => {
         ws.dispose();
     });
 
-    /**
-     * Экранная колонка бара: редактор смещён сайдбаром и tab strip'ом, поэтому
-     * берём его абсолютную позицию, а не только локальную колонку гуттера
-     * (в editorElement.gutterChange.test.ts редактор — корень, там смещения нет).
-     */
+    /** Редактор смещён сайдбаром и tab strip'ом — берём абсолютную позицию. */
     function barColumn(): number {
         const editor = testApp.querySelector("EditorElement") as EditorElement;
         return editor.globalPosition.x + editor.foldControlColumn - 1;
@@ -121,7 +108,6 @@ describe("Workbench — живой гуттер quick diff", () => {
         testApp.render();
         expect(barsOnScreen()).toEqual([]);
 
-        // Правим вторую строку прямо в буфере: курсор в конец строки 2 и печатаем.
         const editor = editors.getActiveEditor();
         expect(editor).not.toBeNull();
         editor!.goToPosition(1, 0);
@@ -147,7 +133,6 @@ describe("Workbench — живой гуттер quick diff", () => {
         testApp.render();
         expect(barsOnScreen()).toHaveLength(1);
 
-        // Стираем ровно вставленный символ (курсор стоит сразу за ним).
         editor!.viewState.deleteLeft();
         await settle(300);
         testApp.render();

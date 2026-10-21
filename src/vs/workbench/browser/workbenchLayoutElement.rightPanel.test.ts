@@ -7,7 +7,6 @@ import { describe, expect, it, vi } from "vitest";
 
 import { WorkbenchLayoutElement } from "./workbenchLayoutElement.ts";
 
-/** Панель, которая заливает свой бокс буквой — по кадру видно, где она и какой ширины. */
 class FillPanel extends TUIElement {
     public constructor(private readonly marker: string) {
         super();
@@ -50,7 +49,6 @@ function build(options: Options = {}): WorkbenchLayoutElement {
     return layout;
 }
 
-/** Первая строка кадра (и строка `row`) — раскладка колонок одним взглядом. */
 function frameRow(layout: WorkbenchLayoutElement, row = 0): string {
     const size = layout.layoutSize;
     const backend = new MockTerminalBackend(size);
@@ -138,7 +136,7 @@ describe("WorkbenchLayoutElement: правая панель (вторичная 
         it("совсем вырожденное окно — правая уступает целиком", () => {
             const layout = build({ width: 14, leftWidth: 30, rightWidth: 40 });
             expect(frameRow(layout)).toBe("L".repeat(12) + "R".repeat(2));
-            // Кадр обрезан окном — ширину, которую панель получила, видно только по боксу.
+            // Кадр обрезан окном — ширину видно только по боксу.
             expect(layout.getRightPanel()!.layoutSize.width).toBe(2);
         });
 

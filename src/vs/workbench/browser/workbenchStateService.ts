@@ -19,13 +19,11 @@ import type { TextEditorPane } from "./parts/editor/textEditorPane.ts";
 
 export const WorkbenchStateServiceDIToken = token<WorkbenchStateService>("WorkbenchStateService");
 
-/** Группа к рестору: вкладки, которые ещё можно открыть, и активная из них. */
 interface IRestoreGroup {
     readonly editors: readonly ISerializedEditor[];
     readonly active: ISerializedEditor | undefined;
 }
 
-/** Полоса к рестору (см. {@link WorkbenchStateService.restoreOpenEditors}). */
 interface IRestoreState {
     readonly orientation: "columns" | "rows";
     readonly groups: readonly IRestoreGroup[];
@@ -33,12 +31,7 @@ interface IRestoreState {
     readonly activeGroup: number;
 }
 
-/**
- * Срез view-раскладки полосы групп для персиста — ставит владелец view
- * (`WorkbenchComponent`) через {@link WorkbenchStateService.attachEditorLayout};
- * `EditorPartComponent` соответствует структурно. Без него (headless-тесты)
- * ось/доли пишутся дефолтными, а рестор не проверяет вместимость.
- */
+/** Без него (headless-тесты) ось/доли пишутся дефолтными, а рестор не проверяет вместимость. */
 export interface IEditorGroupsLayoutView {
     readonly orientation: "columns" | "rows";
     readonly weights: readonly number[];
@@ -47,18 +40,9 @@ export interface IEditorGroupsLayoutView {
 }
 
 /**
- * Персистентность открытых редакторов (headless, без `view`): снимает полосу
- * групп (файлы и активную вкладку каждой, ось, доли, активную группу) в
- * {@link IStateService} и реплеит при старте (см. docs/arch/State.md).
- * Write-through — подписки на `IEditorService.onActiveEditorChanged` /
- * `onDidGroupsChange` + хук layout-изменений от view-части (ставит
- * `WorkbenchComponent`).
- *
  * Плоский {@link OPEN_EDITORS_STATE} продолжает писаться (снимок активной
- * группы): сессия, открытая сборкой без сплитов, ничего не теряет.
- *
- * Layout-состояние (сайдбар/панель) персистит `LayoutService` — он владеет
- * швом к `WorkbenchLayoutElement`.
+ * группы): сессия, открытая сборкой без сплитов, ничего не теряет. Layout
+ * сайдбара/панели персистит `LayoutService`.
  */
 export class WorkbenchStateService extends Disposable {
     public static dependencies = [StateServiceDIToken, EditorServiceDIToken, EditorGroupsServiceDIToken] as const;
@@ -78,7 +62,6 @@ export class WorkbenchStateService extends Disposable {
                 this.captureOpenEditors();
             }),
         );
-        // Сплит/схлопывание/перестановка групп — тоже часть снимка.
         this.register(
             this.groups.onDidGroupsChange(() => {
                 this.captureOpenEditors();
@@ -86,22 +69,18 @@ export class WorkbenchStateService extends Disposable {
         );
     }
 
-    /** Прикрепляет срез view-раскладки (ось/доли/вместимость) — до рестора. */
+    /** До рестора. */
     public attachEditorLayout(view: IEditorGroupsLayoutView): void {
         this.layoutView = view;
     }
 
-    /** Открывает/переключает per-project стор состояния на проект `workspaceId`. */
     public openWorkspace(workspaceId: WorkspaceId): void {
         this.state.openWorkspace(workspaceId);
     }
 
     /**
-     * Пути, которые реально откроет {@link restoreOpenEditors} — сохранённые в
-     * сессии файлы ВСЕХ групп, пережившие удаление с диска. Отдельно от
-     * `restoreOpenEditors`, потому что бутстрапу нужно узнать их **до**
-     * открытия: он прогревает их грамматики, чтобы первый кадр вкладки был уже
-     * подсвеченным.
+     * Отдельно от `restoreOpenEditors`: бутстрапу пути нужны **до** открытия,
+     * чтобы прогреть грамматики и первый кадр вкладки был уже подсвеченным.
      */
     public getOpenEditorsToRestore(): string[] {
         const snapshot = this.groupsSnapshotToRestore();
@@ -116,15 +95,6 @@ export class WorkbenchStateService extends Disposable {
         return flat;
     }
 
-    /**
-     * Восстанавливает полосу групп: реплеит вкладки каждой группы по их
-     * записям через фабрики вкладок (`IEditorService.openSerializedEditor`),
-     * активирует сохранённые вкладки и группу, применяет ось и доли. Вкладки,
-     * которые повторить уже нельзя (файл удалён, вида нет в этой сборке),
-     * пропущены, опустевшие группы схлопнуты, а группы сверх вместимости
-     * терминала слиты в последнюю влезающую — всё в {@link groupsSnapshotToRestore}
-     * (US-42/43).
-     */
     public restoreOpenEditors(): void {
         const snapshot = this.groupsSnapshotToRestore();
         if (snapshot.groups.length === 0) return;
@@ -138,8 +108,6 @@ export class WorkbenchStateService extends Disposable {
                 if (index > 0) this.groups.newGroup("after", { focus: false });
                 const target = { group: this.groups.activeGroup, focus: false };
                 for (const editor of group.editors) this.editorGroup.openSerializedEditor(editor, target);
-                // Повторное открытие уже открытой вкладки её активирует. Без
-                // сохранённой активной — первая, как у свежей группы.
                 this.editorGroup.openSerializedEditor(group.active ?? group.editors[0], target);
             }
             const groups = this.groups.groups;
@@ -149,11 +117,10 @@ export class WorkbenchStateService extends Disposable {
         } finally {
             this.restoring = false;
         }
-        // Снимок после рестора: фактическая полоса (с учётом слияний) и есть истина.
+        // Фактическая полоса (с учётом слияний) и есть истина.
         this.captureOpenEditors();
     }
 
-    /** Снимает полосу групп + плоский legacy-снимок активной группы в стор. */
     public captureOpenEditors(): void {
         if (this.restoring) return;
         const groups = this.groups.groups;
@@ -166,7 +133,7 @@ export class WorkbenchStateService extends Disposable {
         };
         this.state.store(EDITOR_GROUPS_STATE, state);
 
-        // Плоский legacy-снимок активной группы — совместимость со сборками до сплитов.
+        // Совместимость со сборками до сплитов.
         const activeSnapshot = this.snapshotGroup(this.groups.activeGroup);
         this.state.store(OPEN_EDITORS_STATE, {
             files: activeSnapshot.files,
@@ -174,10 +141,7 @@ export class WorkbenchStateService extends Disposable {
         });
     }
 
-    /**
-     * Вкладки группы по рецептам фабрик (`editors`) + файлы для сборок, которые
-     * `editors` не знают; активная вкладка — индексом в каждом списке.
-     */
+    /** `files` — для сборок, которые `editors` не знают. */
     private snapshotGroup(group: EditorGroup): IEditorGroupSnapshot {
         const files: string[] = [];
         let activeIndex = -1;
@@ -197,9 +161,7 @@ export class WorkbenchStateService extends Disposable {
     }
 
     /**
-     * Снимок к рестору: новый ключ либо конверсия плоского legacy; группа без
-     * `editors` (сборка до фабрик вкладок) читается по `files`. Записи, которые
-     * повторить уже нельзя, выпадают, пустые группы — тоже (US-42), группы сверх
+     * Неповторимые записи и пустые группы выпадают (US-42), группы сверх
      * вместимости терминала сливаются в последнюю влезшую (US-43).
      */
     private groupsSnapshotToRestore(): IRestoreState {
@@ -213,9 +175,7 @@ export class WorkbenchStateService extends Disposable {
             if (editors.length === 0) continue;
             const canFitMore = this.layoutView?.canFitGroups(groups.length + 1) ?? true;
             if (groups.length > 0 && !canFitMore) {
-                // Терминал уже полосы: доливаем вкладки в последнюю влезшую группу.
-                // Дубли не отсеиваем: повторное открытие той же вкладки в группе
-                // её лишь активирует, а активную всё равно выбирают последней.
+                // Дубли не отсеиваем: повторное открытие вкладки её лишь активирует.
                 const last = groups[groups.length - 1];
                 groups[groups.length - 1] = { editors: [...last.editors, ...editors], active: last.active };
                 continue;
@@ -231,7 +191,6 @@ export class WorkbenchStateService extends Disposable {
         };
     }
 
-    /** Записи группы и активная из них: по `editors`, а у старого снимка — по `files`. */
     private storedEditors(group: IEditorGroupSnapshot): IRestoreGroup {
         const editors =
             group.editors ??
@@ -241,13 +200,10 @@ export class WorkbenchStateService extends Disposable {
             }));
         const activeAt = group.editors !== undefined ? (group.activeEditor ?? -1) : group.activeIndex;
         // `>= 0`, а не `.at` без проверки: у `.at(-1)` семантика «последняя».
-        // Мутант `> 0` эквивалентен — без активной открывается первая, а это и
-        // есть индекс 0.
-        // Stryker disable next-line EqualityOperator: эквивалентен — см. выше
+        // Stryker disable next-line EqualityOperator: `> 0` эквивалентен — без активной открывается первая, индекс 0
         return { editors, active: activeAt >= 0 ? editors.at(activeAt) : undefined };
     }
 
-    /** Конверсия плоского legacy-ключа в одногрупповой снимок. */
     private legacySnapshot(): IEditorGroupsState {
         const flat = this.state.get(OPEN_EDITORS_STATE);
         return {

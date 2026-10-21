@@ -10,14 +10,7 @@ import { Component } from "./component.ts";
 
 export const MenuBarComponentDIToken = token<MenuBarComponent>("MenuBarComponent");
 
-/**
- * Компонент главного меню: владеет {@link MenuBarElement} и строит его items из
- * `MenuRegistry` через живые меню {@link MenuService.createMenu}: top-уровень —
- * submenu-записи `MenuId.MenubarMainMenu`, пункты каждого меню резолвятся
- * ЛЕНИВО при открытии (геттер `entries`), поэтому шорткаты и динамические
- * пункты всегда актуальны — порядок резолва компонента относительно user
- * keybindings не важен.
- */
+/** Пункты резолвятся ЛЕНИВО при открытии (геттер `entries`) — шорткаты и динамические пункты всегда актуальны. */
 export class MenuBarComponent extends Component {
     public static dependencies = [MenuServiceDIToken] as const;
 
@@ -38,7 +31,6 @@ export class MenuBarComponent extends Component {
         return {
             label: sub.title,
             mnemonic: sub.mnemonic,
-            // Ленивый резолв: MenuBarElement читает entries при открытии попапа.
             get entries() {
                 return menu.getEntries();
             },

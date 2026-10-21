@@ -11,12 +11,8 @@ import { CommandRegistryDIToken } from "../../platform/commands/common/commandRe
 import { SidebarServiceDIToken } from "./parts/sidebar/sidebarService.ts";
 
 /**
- * Регрессия двойного срабатывания клавиши над списком: команда list.* съедает
- * keydown, но каждый keydown порождает парный keypress, и до фикса диспатчер
- * гасил его только над текстовым инпутом — PageDown двигал курсор списка на ДВЕ
- * страницы (команда + собственный дефолт ListViewElement). Тест идёт полным
- * путём (raw key → парсер → dispatch → команда) и сверяет результат с чистым
- * вызовом команды.
+ * Регрессия: парный keypress гасился только над текстовым инпутом, и PageDown
+ * двигал курсор списка на две страницы (команда + дефолт ListViewElement).
  */
 describe("Workbench — клавиша над списком срабатывает ровно один раз", () => {
     let ws: ITempWorkspace;

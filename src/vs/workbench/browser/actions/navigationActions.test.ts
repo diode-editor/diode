@@ -65,7 +65,6 @@ describe("NavigationActions", () => {
             kind: "command",
         });
 
-        // Первая часть аккорда переводит диспатчер в chord-режим, вторая — команда.
         expect(keybindings.resolveKey(key({ key: "k", ctrlKey: true }), contextKeys)).toMatchObject({ kind: "chord" });
         expect(keybindings.resolveKey(key({ key: "b", ctrlKey: true }), contextKeys)).toMatchObject({
             kind: "command",

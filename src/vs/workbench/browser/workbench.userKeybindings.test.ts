@@ -18,7 +18,6 @@ const KEY = (key: string, mods: Partial<KeyboardEventLike> = {}): KeyboardEventL
     ...mods,
 });
 
-/** Build an app whose user keybindings.json is the given rules, return its registry. */
 function appWithRules(rules: IUserKeybindingRule[]) {
     const { container } = createTestContainer();
     // Rebind before the Workbench is constructed (rules are read in its constructor).

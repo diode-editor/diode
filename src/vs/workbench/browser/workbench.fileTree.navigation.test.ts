@@ -4,9 +4,6 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTestHarness.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
 
-// End-to-end keyboard navigation in the file tree (issue #33): keys travel the real
-// path — raw escape sequence → parser → keybinding dispatch → list.* command.
-
 const FILE_COUNT = 40;
 
 function createWorkspace(): ITempWorkspace {
@@ -75,7 +72,7 @@ describe("FileTree keyboard navigation — PgUp/PgDown, Home/End", () => {
     });
 
     it("navigation keys still work in the tree while an editor is open", () => {
-        h.testApp.sendKey("Enter"); // open selected file — focus moves to the editor
+        h.testApp.sendKey("Enter");
         h.testApp.render();
         tree.focus();
         h.testApp.render();

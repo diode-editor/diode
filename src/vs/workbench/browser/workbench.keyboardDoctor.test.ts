@@ -5,10 +5,6 @@ import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTe
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
 import { TerminalEnvironmentServiceDIToken } from "../services/terminalEnvironment/node/terminalEnvironmentService.ts";
 
-// Keyboard Doctor сквозняком по настоящему контейнеру: проводка DI (снимок
-// окружения, подписка на его смену, поиск биндов в живом реестре), host
-// оверлея от WorkbenchComponent и доставка отчёта в безымянный документ.
-
 describe("Workbench — Keyboard Doctor", () => {
     let harness: IAppHarness;
     let workspace: ITempWorkspace;

@@ -30,7 +30,6 @@ describe("Workbench — find in file", () => {
         type(ctx.testApp, "foo");
 
         expect(ctx.activeEditor().getText()).toBe(before);
-        // …but the query did reach the find widget (matches highlighted).
         expect(ctx.activeEditor().viewState.searchMatches).toHaveLength(2);
     });
 
@@ -42,7 +41,7 @@ describe("Workbench — find in file", () => {
 
         ctx.testApp.sendKey("Enter");
         expect(ctx.activeEditor().viewState.currentSearchMatchIndex).toBe(1);
-        ctx.testApp.sendKey("Enter"); // wraps back to the first match
+        ctx.testApp.sendKey("Enter");
         expect(ctx.activeEditor().viewState.currentSearchMatchIndex).toBe(0);
     });
 

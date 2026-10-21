@@ -14,14 +14,12 @@ import { editorTabTargetArg } from "./menuContexts.ts";
 /** Kitty/CSI-u — единственные tier'ы, где Ctrl+цифра доходит до приложения. */
 const EXTENDED_TIERS = "tier == 'kitty' || tier == 'csi-u'";
 
-/** Шаг команд Increase/Decrease Editor Width/Height, в ячейках (как у сайдбара). */
+/** В ячейках, как у сайдбара. */
 const GROUP_RESIZE_STEP = 3;
 
 /**
- * Приводит ось полосы к нужной для направленного сплита (`Split Editor Up` в
- * колоночной полосе): единственная группа — ось просто меняется (VS Code так же
- * превращает первую вертикаль в горизонталь); полоса уже разложена — отказ с
- * записью в лог (одна ось — решение постановки №2).
+ * Единственная группа — ось просто меняется (как в VS Code); полоса уже разложена —
+ * отказ с записью в лог (одна ось — решение постановки №2).
  */
 function ensureAxis(accessor: ServiceAccessor, wanted: "columns" | "rows"): boolean {
     const part = accessor.get(EditorPartComponentDIToken);
@@ -38,13 +36,7 @@ function ensureAxis(accessor: ServiceAccessor, wanted: "columns" | "rows"): bool
     return false;
 }
 
-/**
- * Сплит вдоль оси. `args` — необязательный адрес вкладки из контекст-меню таба:
- * сплитим ту вкладку, по которой открыли меню, поэтому перед сплитом делаем её
- * активной (сплит и так оставляет свой редактор активным — активация здесь
- * часть действия, а не побочка правого клика). Без аргументов целью остаётся
- * активная вкладка активной группы.
- */
+/** Вкладку из контекст-меню таба перед сплитом делаем активной: сплит оставляет активным свой редактор. */
 function directionalSplit(
     accessor: ServiceAccessor,
     axis: "columns" | "rows",
@@ -67,14 +59,12 @@ function directionalNewGroup(accessor: ServiceAccessor, axis: "columns" | "rows"
     accessor.get(EditorGroupsServiceDIToken).newGroup(position);
 }
 
-/** Фокус соседней группы вдоль оси полосы; поперёк оси — no-op (US-10). */
+/** Поперёк оси — no-op (US-10). */
 function directionalFocus(accessor: ServiceAccessor, axis: "columns" | "rows", direction: "next" | "previous"): void {
     const part = accessor.get(EditorPartComponentDIToken);
     if (part.orientation !== axis) return;
     accessor.get(EditorGroupsServiceDIToken).focusGroup({ direction });
 }
-
-// ─── Разбиение ────────────────────────────────────────────────────────────────
 
 export const splitEditorAction: CommandAction = {
     id: "workbench.action.splitEditor",
@@ -162,12 +152,9 @@ export const newGroupAboveAction: CommandAction = {
     },
 };
 
-// ─── Фокус групп ─────────────────────────────────────────────────────────────
-
 /**
- * Фабрика «фокус N-й группы»: Ctrl+цифра на kitty/csi-u (на legacy неотличим
- * от прочего ввода) + чорд Ctrl+K цифра — работает везде. Дефолтные бинды —
- * только до пятой группы; Ctrl+6 занят alternate editor (решение постановки №1).
+ * Ctrl+цифра — только kitty/csi-u, чорд Ctrl+K цифра — везде. Дефолтные бинды —
+ * до пятой группы: Ctrl+6 занят alternate editor (решение постановки №1).
  */
 function focusGroupByIndexAction(ordinal: string, index: number, withKeys: boolean): CommandAction {
     const digit = String(index + 1);
@@ -248,8 +235,6 @@ export const focusActiveEditorGroupAction: CommandAction = {
         groups.focusGroup(groups.activeGroup.id);
     },
 };
-
-// ─── Перенос вкладок и групп ─────────────────────────────────────────────────
 
 export const moveEditorToNextGroupAction: CommandAction = {
     id: "workbench.action.moveEditorToNextGroup",
@@ -339,13 +324,11 @@ export const editorLayoutSingleAction: CommandAction = {
     },
 };
 
-// ─── Раскладка и размер ──────────────────────────────────────────────────────
-
 export const toggleEditorGroupLayoutAction: CommandAction = {
     id: "workbench.action.toggleEditorGroupLayout",
     title: "View: Toggle Vertical/Horizontal Editor Layout",
     // Канонический Shift+Alt+0 — только на расширенных tier'ах (в legacy `ESC )`
-    // неотличим от ввода символа), досягаемый везде путь — лидер-аккорд.
+    // неотличим от ввода символа).
     keybinding: parseChord("ctrl+k alt+0"),
     keybindings: [{ keys: parseKeybinding("shift+alt+0"), when: EXTENDED_TIERS }],
     run(accessor) {
@@ -362,7 +345,6 @@ export const evenEditorWidthsAction: CommandAction = {
     },
 };
 
-/** Фабрика resize-команд: ширина валидна в колоночной полосе, высота — в рядной. */
 function resizeGroupAction(id: string, title: string, axis: "columns" | "rows", delta: number): CommandAction {
     return {
         id,
@@ -410,8 +392,6 @@ export const toggleMaximizeEditorGroupAction: CommandAction = {
     },
 };
 
-// ─── Закрытие ────────────────────────────────────────────────────────────────
-
 export const closeEditorsInGroupAction: CommandAction = {
     id: "workbench.action.closeEditorsInGroup",
     title: "View: Close All Editors in Group",
@@ -427,7 +407,7 @@ export const closeEditorsAndGroupAction: CommandAction = {
     id: "workbench.action.closeEditorsAndGroup",
     title: "View: Close Editor Group",
     run(accessor) {
-        // Схлопывание группы — следствие опустения; отдельного сноса не нужно.
+        // Группа схлопывается сама по опустении.
         const service = accessor.get(EditorServiceDIToken);
         void service.closeAllEditors(accessor.get(EditorGroupsServiceDIToken).activeGroup);
     },
@@ -444,9 +424,7 @@ export const closeAllEditorsAction: CommandAction = {
         const service = accessor.get(EditorServiceDIToken);
         const groups = accessor.get(EditorGroupsServiceDIToken);
         void (async () => {
-            // Идём по группам с вкладками (не по активной: она может быть пустой,
-            // а пустая группа не схлопывается сама — уже-пустое не «опустело»).
-            // Cancel в любом диалоге прерывает серию.
+            // Не по активной группе: она может быть пустой, а уже-пустое не схлопывается.
             for (;;) {
                 const group = groups.groups.find((candidate) => candidate.editorCount > 0);
                 if (group === undefined) return;
@@ -456,8 +434,6 @@ export const closeAllEditorsAction: CommandAction = {
         })();
     },
 };
-
-// ─── Open to the Side ────────────────────────────────────────────────────────
 
 export const explorerOpenToSideAction: CommandAction = {
     id: "explorer.openToSide",

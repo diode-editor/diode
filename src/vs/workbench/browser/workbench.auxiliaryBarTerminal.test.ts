@@ -20,11 +20,6 @@ import { WorkbenchContextKeysDIToken } from "./workbenchContextKeys.ts";
 const SIZE = new Size(120, 24);
 const TOGGLE_TERMINAL = "workbench.action.terminal.toggleTerminal";
 
-/**
- * Приёмка задачи (docs/TODO/SecondarySideBar.md): вид TERMINAL перенесён во
- * вторичную боковую панель и живёт там — спавн, фокус, ввод, ресайз по ширине
- * части, переключатель, закрытие последнего терминала, перезапуск.
- */
 describe("Workbench — терминал во вторичной боковой панели", () => {
     let ws: ITempWorkspace;
     let userData: ITempWorkspace;
@@ -92,7 +87,6 @@ describe("Workbench — терминал во вторичной боковой 
         expect(h.workbench.workbenchLayout.getBottomPanelVisible()).toBe(false);
         expect(keys(h).get("terminalFocus")).toBe(true);
         expect(keys(h).get("auxiliaryBarFocus")).toBe(true);
-        // Вывод шелла — на кадре, правее редактора.
         const x = part(h).globalPosition.x;
         expect(frame(h).some((row) => row.slice(x).includes("$ ready"))).toBe(true);
         h.dispose();
@@ -111,7 +105,6 @@ describe("Workbench — терминал во вторичной боковой 
         expect(cols).toBeGreaterThan(20);
         expect(cols).toBeLessThan(part(h).layoutSize.width);
 
-        // Ресайз части с клавиатуры — эмулятор следует за ней.
         h.commands.execute("workbench.action.increaseViewSize");
         frame(h);
         expect(sessions[0].resizes.at(-1)?.cols).toBe(cols + 3);

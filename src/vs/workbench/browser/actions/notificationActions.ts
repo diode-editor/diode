@@ -6,10 +6,7 @@ import {
     NotificationsComponentDIToken,
 } from "../parts/notifications/notificationsComponent.ts";
 
-/**
- * Убирает с экрана все сообщения. Живые вопросы при этом получают «закрыто без
- * выбора» — расширение, которое их задало, не остаётся висеть.
- */
+/** Живые вопросы получают «закрыто без выбора» — расширение не остаётся висеть. */
 export const clearNotificationsAction: CommandAction = {
     id: "notifications.clearAll",
     title: "Notifications: Clear All",
@@ -19,10 +16,8 @@ export const clearNotificationsAction: CommandAction = {
 };
 
 /**
- * Ведёт фокус на кнопки сообщения. Это ЕДИНСТВЕННЫЙ клавиатурный путь к ответу:
- * тост фокуса не забирает (как в эталоне), поэтому без этой команды вопрос от
- * расширения остался бы без ответа у всех, кто работает без мыши. Бинд назван в
- * подсказке внутри самого тоста — иначе о нём никто не узнает.
+ * ЕДИНСТВЕННЫЙ клавиатурный путь к ответу: тост фокуса не забирает (как в
+ * эталоне). Бинд назван в подсказке внутри тоста — иначе о нём никто не узнает.
  */
 export const focusNotificationAction: CommandAction = {
     id: FOCUS_MESSAGE_COMMAND_ID,

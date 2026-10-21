@@ -19,7 +19,6 @@ describe("Workbench when-context integration", () => {
 
     beforeEach(() => {
         ws = createTempWorkspace({ prefix: "diode-when-" });
-        // Create enough files so the tree has items to page through
         for (let i = 0; i < 30; i++) {
             ws.writeFile(`file-${String(i).padStart(2, "0")}.txt`, `content ${String(i)}`);
         }
@@ -96,7 +95,6 @@ describe("Workbench when-context integration", () => {
     it("PageDown moves cursor in editor when editor is focused", () => {
         const h = createIntegrationApp();
 
-        // Create a file with many lines
         const lines = Array.from({ length: 100 }, (_, i) => `line ${String(i)}`);
         const longFile = ws.writeFile("long.txt", lines.join("\n"));
 
@@ -125,7 +123,6 @@ describe("Workbench when-context integration", () => {
 
         h.testApp.sendKey("PageDown");
 
-        // After PageDown, the tree should have scrolled
         expect(tree.scrollTop).toBeGreaterThanOrEqual(0);
     });
 
@@ -144,7 +141,6 @@ describe("Workbench when-context integration", () => {
 
         h.testApp.sendKey("PageDown");
 
-        // Tree should not have changed
         expect(tree.scrollTop).toBe(initialTreeScrollTop);
     });
 
@@ -154,14 +150,12 @@ describe("Workbench when-context integration", () => {
         h.workbench.openFile(ws.path("file-00.txt"));
         h.workbench.openFile(ws.path("file-01.txt"));
 
-        // Focus editor
         h.workbench.focusEditor();
         expect(contextKeys.get("textInputFocus")).toBe(true);
         expect(contextKeys.get("listFocus")).toBe(false);
         expect(contextKeys.get("editorGroupHasEditors")).toBe(true);
         expect(contextKeys.get("editorTabsMultiple")).toBe(true);
 
-        // Focus tree
         const tree = h.testApp.querySelector("TreeViewElement");
         tree!.focus();
         expect(contextKeys.get("textInputFocus")).toBe(false);
@@ -169,7 +163,6 @@ describe("Workbench when-context integration", () => {
         expect(contextKeys.get("editorGroupHasEditors")).toBe(true);
         expect(contextKeys.get("editorTabsMultiple")).toBe(true);
 
-        // Focus editor again
         h.workbench.focusEditor();
         expect(contextKeys.get("textInputFocus")).toBe(true);
         expect(contextKeys.get("listFocus")).toBe(false);

@@ -11,7 +11,6 @@ function createPanel(): TUIElement {
     return new TUIElement();
 }
 
-/** A panel that paints a single marker char at its top-left, so we can assert it was rendered. */
 class MarkerPanel extends TUIElement {
     private readonly marker: string;
 
@@ -152,9 +151,7 @@ describe("WorkbenchLayoutElement", () => {
     });
 
     describe("getChildren", () => {
-        // Структура ≠ видимость: скрытые панели остаются детьми с hidden=true
-        // (root/стили доходят), сашы присутствуют всегда и скрыты вместе со
-        // своей панелью. Видимость проверяем флагом, состав — списком.
+        // Структура ≠ видимость: скрытые панели и сашы остаются детьми с hidden=true.
         it("панели и сашы в списке, sash идёт после панелей (hit-test поверх)", () => {
             const layout = new WorkbenchLayoutElement();
             const leftPanel = createPanel();
@@ -293,11 +290,9 @@ describe("WorkbenchLayoutElement", () => {
             layout.setLeftPanelWidth(50);
 
             layout.localPosition = new Offset(0, 0);
-            // Narrow terminal clamps the displayed width down...
             layout.layout(BoxConstraints.tight(new Size(40, 24)));
             expect(layout.getLeftPanelWidth()).toBe(50);
 
-            // ...but widening restores the full absolute width.
             layout.layout(BoxConstraints.tight(new Size(120, 24)));
             expect(layout.getLeftPanel()?.layoutSize.width).toBe(50);
         });
@@ -348,8 +343,8 @@ describe("WorkbenchLayoutElement", () => {
 
             const backend = renderLayout(layout, new Size(40, 5));
 
-            expect(backend.getTextAt(new Point(0, 0), 1)).toBe("L"); // left panel at x=0
-            expect(backend.getTextAt(new Point(12, 0), 1)).toBe("C"); // center after left panel
+            expect(backend.getTextAt(new Point(0, 0), 1)).toBe("L");
+            expect(backend.getTextAt(new Point(12, 0), 1)).toBe("C");
         });
 
         it("renders only the left panel when there is no center content", () => {
@@ -370,7 +365,6 @@ describe("WorkbenchLayoutElement", () => {
 
             const backend = renderLayout(layout, new Size(30, 5));
 
-            // Left panel suppressed; center occupies x=0.
             expect(backend.getTextAt(new Point(0, 0), 1)).toBe("C");
         });
     });
@@ -485,7 +479,6 @@ describe("WorkbenchLayoutElement", () => {
             expect(layout.getBottomPanelVisible()).toBe(false);
             layout.localPosition = new Offset(0, 0);
             layout.layout(BoxConstraints.tight(new Size(80, 24)));
-            // Скрытая панель остаётся в дереве с hidden=true; центр во всю высоту.
             expect(layout.getBottomPanel()?.hidden).toBe(true);
             expect(center.layoutSize).toEqual(new Size(80, 24));
         });
@@ -493,10 +486,9 @@ describe("WorkbenchLayoutElement", () => {
         it("скрытая панель укоренена всегда — root производный от цепочки родителей", () => {
             const layout = new WorkbenchLayoutElement();
             const panel = createPanel();
-            layout.setBottomPanel(panel); // прикрепление до укоренения layout
+            layout.setBottomPanel(panel); // до укоренения layout
             layout.setAsRoot();
-            // Раньше root был кэшем и у скрытой панели протухал (null) до
-            // повторного показа; теперь выводится из живой цепочки родителей.
+            // root выводится из живой цепочки родителей, а не протухает у скрытой панели.
             expect(panel.getRoot()).toBe(layout);
 
             layout.setBottomPanelVisible(true);
@@ -559,7 +551,6 @@ describe("WorkbenchLayoutElement", () => {
         it("панель и горизонтальный саш в детях, саш последним (hit-test поверх)", () => {
             const { layout } = laidOut({ height: 8 });
             const children = layout.getChildren();
-            // center, bottom panel, вертикальные саши (скрыты), горизонтальный саш.
             const sashes = children.filter((c) => c instanceof SashElement);
             expect(sashes).toHaveLength(3);
             expect(children.at(-1)).toBe(sashes.at(-1));

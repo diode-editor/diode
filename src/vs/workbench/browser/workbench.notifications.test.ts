@@ -12,12 +12,6 @@ import {
 
 import { NotificationsComponentDIToken, TOAST_WIDTH } from "./parts/notifications/notificationsComponent.ts";
 
-/**
- * Поверхность сообщений целиком: сервис → overlay-слой → КАДР. Юнит-тесты
- * виджетов рядом с ними; здесь проверяется то, что видит человек — тост стоит в
- * правом нижнем углу над статус-баром, вопрос отвечается с клавиатуры, а
- * набранный текст в редакторе тостом не перехватывается.
- */
 describe("Workbench — сообщения на кадре", () => {
     let ws: ITempWorkspace;
     let h: IAppHarness;
@@ -59,9 +53,7 @@ describe("Workbench — сообщения на кадре", () => {
 
         const boxRows = rows.map((row, y) => ({ y, x: row.indexOf("╭") })).filter((r) => r.x >= 0);
         expect(boxRows).toHaveLength(1);
-        // Правый край рамки — у правого края экрана (отступ в одну колонку).
         expect(boxRows[0].x).toBe(width - 1 - TOAST_WIDTH);
-        // Нижняя граница — на ряду прямо над статус-баром (он занимает один ряд).
         const bottomRow = rows.findIndex((row) => row.includes("╰"));
         expect(bottomRow).toBe(height - 2);
     });
@@ -75,8 +67,6 @@ describe("Workbench — сообщения на кадре", () => {
         expect(text).toContain("one");
         expect(text).toContain("two");
         expect(text).toContain("three");
-        // Ждущие места не нарисованы, но и не потеряны — они встанут в стек,
-        // когда впереди стоящий тост уйдёт.
         expect(text).not.toContain("five");
         expect(text).toContain(`+${String(5 - MAX_VISIBLE_NOTIFICATIONS)} more`);
     });
@@ -128,7 +118,6 @@ describe("Workbench — сообщения на кадре", () => {
 
         await h.commands.execute("notifications.focusMessage");
         h.testApp.render();
-        // Подсказка сменилась — фокус внутри тоста.
         expect(screen()).toContain("Enter — выбрать");
 
         h.testApp.sendKey("ArrowRight");
@@ -192,7 +181,6 @@ describe("Workbench — сообщения на кадре", () => {
 
         expect(rows.join("\n")).toContain("Delete 12 files?");
         expect(rows.join("\n")).toContain("Нельзя отменить.");
-        // Окно по центру, а не в углу: левая граница далеко от правого края.
         const left = rows.find((row) => row.includes("╭"))?.indexOf("╭") ?? -1;
         expect(left).toBeGreaterThan(0);
         expect(left).toBeLessThan(h.testApp.root.layoutSize.width - 1 - TOAST_WIDTH);
@@ -241,9 +229,8 @@ describe("Workbench — сообщения на кадре", () => {
     });
 
     it("клик мимо МОДАЛЬНОГО окна до редактора не доходит, а мимо тоста — доходит", () => {
-        // Разница объявлена в pointerPolicy: modal проглатывает клик, тост его
-        // пропускает насквозь. Наблюдаем по фокусу: клик в дерево файлов уводит
-        // его из редактора, если доходит.
+        // modal проглатывает клик, тост пропускает насквозь (pointerPolicy); видно по
+        // фокусу: дошедший клик в дерево уводит его из редактора.
         const click = (x: number, y: number): void => {
             for (const action of ["press", "release"] as const) {
                 h.testApp.backend.simulateMouse({
@@ -283,7 +270,6 @@ describe("Workbench — сообщения на кадре", () => {
         const sidebarBefore = screen().includes("EXPLORER");
         h.testApp.sendKey("Ctrl+B");
         expect(screen().includes("EXPLORER")).toBe(!sidebarBefore);
-        // И сам вопрос при этом никуда не делся.
         expect(screen()).toContain("Activate?");
         await Promise.resolve();
     });
@@ -353,7 +339,6 @@ describe("Workbench — сообщения на кадре", () => {
 
         expect(top).toBeGreaterThan(1);
         expect(height - 1 - bottom).toBeGreaterThan(1);
-        // Отступы сверху и снизу отличаются не больше, чем на ряд.
         expect(Math.abs(top - (height - 1 - bottom))).toBeLessThanOrEqual(1);
     });
 

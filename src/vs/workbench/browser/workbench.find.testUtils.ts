@@ -18,7 +18,6 @@ export interface FindContext {
     workspace: ITempWorkspace;
 }
 
-/** Boots a full Workbench over a real temp file with the editor focused. */
 export function createFindApp(text: string): FindContext {
     const workspace = createTempWorkspace({ prefix: "diode-find-app-", files: { "file.txt": text } });
     const harness = createAppTestHarness({
@@ -37,12 +36,10 @@ export function createFindApp(text: string): FindContext {
     };
 }
 
-/** Types each character into the focused find input. */
 export function type(testApp: TestApp, text: string): void {
     typeText(testApp, text);
 }
 
-/** Tears down the workbench and removes the temp directory. Use in afterEach. */
 export function disposeFindApp(ctx: FindContext): void {
     ctx.harness.dispose();
     ctx.workspace.dispose();

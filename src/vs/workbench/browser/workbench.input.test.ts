@@ -6,12 +6,6 @@ import { typeText } from "../../../TestUtils/domQueries.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
 import { flushMicrotasks } from "../../../TestUtils/timing.ts";
 
-/**
- * End-to-end coverage for the text-input editing commands (selection, clipboard, undo/redo)
- * flowing through the real keybinding system into the QuickOpen input. This is the gap the
- * docs/TODO item describes: the actions exist but were only registered in stories, so until
- * now real inputs had no Shift-selection / Ctrl+C-X-V.
- */
 describe("Workbench — input widget editing via keybindings (QuickOpen)", () => {
     let ws: ITempWorkspace;
     let h: IAppHarness;
@@ -21,7 +15,6 @@ describe("Workbench — input widget editing via keybindings (QuickOpen)", () =>
         h = createAppTestHarness({ workspaceFolder: ws.dir });
         await h.workbench.activate();
         await h.workbench.fileIndexReady;
-        // Open Quick Open — its query field is a focused InputElement.
         h.workbench.focusEditor();
         h.testApp.sendKey("Ctrl+P");
         h.testApp.render();
@@ -66,11 +59,11 @@ describe("Workbench — input widget editing via keybindings (QuickOpen)", () =>
 
     it("Ctrl+C then Ctrl+V copies and pastes through the clipboard", async () => {
         typeText(h.testApp, "abc");
-        h.testApp.sendKey("Ctrl+A"); // select all
-        h.testApp.sendKey("Ctrl+C"); // copy "abc"
+        h.testApp.sendKey("Ctrl+A");
+        h.testApp.sendKey("Ctrl+C");
         await flush();
-        h.testApp.sendKey("ArrowRight"); // collapse selection to end
-        h.testApp.sendKey("Ctrl+V"); // paste "abc" at the end
+        h.testApp.sendKey("ArrowRight");
+        h.testApp.sendKey("Ctrl+V");
         await flush();
         expect(input().inputState.value).toBe("abcabc");
     });
@@ -89,14 +82,14 @@ describe("Workbench — input widget editing via keybindings (QuickOpen)", () =>
         h.testApp.sendKey("Ctrl+C");
         await flush();
         h.testApp.sendKey("ArrowRight");
-        h.testApp.sendKey("Ctrl+V"); // "abcabc"
+        h.testApp.sendKey("Ctrl+V");
         await flush();
         expect(input().inputState.value).toBe("abcabc");
 
-        h.testApp.sendKey("Ctrl+Z"); // undo paste
+        h.testApp.sendKey("Ctrl+Z");
         expect(input().inputState.value).toBe("abc");
 
-        h.testApp.sendKey("Ctrl+Y"); // redo paste
+        h.testApp.sendKey("Ctrl+Y");
         expect(input().inputState.value).toBe("abcabc");
     });
 });

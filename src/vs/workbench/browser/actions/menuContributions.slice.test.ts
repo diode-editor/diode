@@ -6,15 +6,9 @@ import { isSubmenuContribution, type MenuContribution } from "../../../platform/
 import { MENU_CONTRIBUTIONS } from "../../workbench.common.main.ts";
 
 /**
- * Срез раскладки меню (F2, предохранитель разноса `WORKBENCH_ACTIONS` по фичам).
- * Пункты одной группы с равным `order` сортируются по индексу вставки, то есть
- * по порядку экшенов в `WORKBENCH_ACTIONS` — перестановка массива молча
- * переставила бы пункты меню. Эталон — `menuContributions.slice.json` рядом;
- * пересобрать от текущего кода: `UPDATE_SLICE=1 npx vitest run <этот файл>`.
- *
- * Формат: меню → группа → пункты в итоговом порядке (команда либо
- * `submenu:<id>`). Порядок самих групп задаёт их ключ, а не вставка, поэтому
- * группы перечислены по имени.
+ * Пункты группы с равным `order` сортируются по индексу вставки — перестановка
+ * `WORKBENCH_ACTIONS` молча переставила бы меню. Группы — по имени: их порядок
+ * задаёт ключ. Пересобрать эталон: `UPDATE_SLICE=1 npx vitest run <этот файл>`.
  */
 
 const SLICE_URL = new URL("./menuContributions.slice.json", import.meta.url);
@@ -52,7 +46,6 @@ describe("срез раскладки меню", () => {
         const current = menuSlice(MENU_CONTRIBUTIONS);
         if (process.env.UPDATE_SLICE === "1") writeFileSync(SLICE_URL, `${JSON.stringify(current, null, 4)}\n`);
         const reference = JSON.parse(readFileSync(SLICE_URL, "utf8")) as typeof current;
-        // Срез обязан быть содержательным: меню — десятки.
         expect(Object.keys(current).length).toBeGreaterThan(10);
         expect(current).toEqual(reference);
     });

@@ -11,7 +11,6 @@ import type { EditorElement } from "../../editor/browser/editorElement.ts";
 import { UserKeybindingsDIToken } from "../../platform/keybinding/common/userKeybindings.ts";
 import { HostProcessDIToken } from "../services/lifecycle/common/hostProcess.ts";
 
-/** Open a top-level menu by mnemonic (Alt+<letter>) and return the live popup element. */
 function openMenu(testApp: TestApp, mnemonic: string): PopupMenuElement {
     testApp.sendKey(`Alt+${mnemonic}`);
     const popup = testApp.querySelector("PopupMenuElement") as PopupMenuElement | null;
@@ -19,7 +18,6 @@ function openMenu(testApp: TestApp, mnemonic: string): PopupMenuElement {
     return popup!;
 }
 
-/** Find an entry by its label inside a popup menu. */
 function entryByLabel(popup: PopupMenuElement, label: string): MenuItemEntry {
     const found = popup.entries.find((e): e is MenuItemEntry => e.type !== "separator" && e.label === label);
     expect(found, `entry "${label}" should exist`).toBeDefined();
@@ -135,7 +133,7 @@ describe("Workbench — menu bar wiring", () => {
         entryByLabel(popup, "Exit").onSelect?.();
 
         expect(executeSpy).toHaveBeenCalledWith("workbench.action.quit");
-        // No unsaved editors → quit proceeds (the farewell runs on microtasks).
+        // The farewell runs on microtasks.
         await vi.waitFor(() => {
             expect(exit).toHaveBeenCalledOnce();
         });
@@ -421,7 +419,6 @@ describe("Workbench — menu bar wiring", () => {
         const { testApp } = createAppTestHarness();
         const popup = openMenu(testApp, "f");
 
-        // Save is bound to Ctrl+S, so the menu shows that automatically.
         expect(entryByLabel(popup, "Save").shortcut).toBe("Ctrl+S");
     });
 
@@ -429,7 +426,6 @@ describe("Workbench — menu bar wiring", () => {
         const { testApp } = createAppTestHarness();
         const popup = openMenu(testApp, "h");
 
-        // About has no default binding → no right-aligned accelerator text.
         expect(entryByLabel(popup, "About").shortcut).toBeUndefined();
     });
 
@@ -472,7 +468,6 @@ describe("Workbench — menu bar wiring", () => {
         testApp.render();
         expect(testApp.querySelector("#aboutDialog")).toBe(dialog);
 
-        // Closing through the dialog's onClose callback hides it without error.
         expect(() => (dialog as unknown as { onClose?: () => void }).onClose?.()).not.toThrow();
     });
 
@@ -495,7 +490,6 @@ describe("Workbench — menu bar wiring", () => {
 });
 
 describe("Workbench — editor context menu", () => {
-    /** Открывает настоящее меню (клавиатурный триггер) и читает пункты попапа. */
     function getEditorEntries(testApp: TestApp): MenuEntry[] {
         const editor = testApp.querySelector("EditorElement") as EditorElement;
         editor.dispatchEvent(
@@ -521,9 +515,8 @@ describe("Workbench — editor context menu", () => {
         const labels = getEditorEntries(testApp)
             .filter((e): e is MenuItemEntry => e.type !== "separator")
             .map((e) => e.label);
-        // Состав эталона; пункты языковых фич гейтятся `editorHas*Provider`,
-        // а в этом приложении провайдеров нет (их видимость — в
-        // `workbench.contextMenu.test.ts`).
+        // Пункты языковых фич гейтятся `editorHas*Provider`, а провайдеров здесь нет
+        // (их видимость — в `workbench.contextMenu.test.ts`).
         expect(labels).toEqual(["Change All Occurrences", "Cut", "Copy", "Paste", "Command Palette..."]);
     });
 
@@ -599,7 +592,6 @@ describe("Workbench — keybinding vs menu mnemonic", () => {
 
         expect(executeSpy).toHaveBeenCalledWith("workbench.action.togglePanel");
         expect(testApp.querySelector("PopupMenuElement")).toBeNull();
-        // Без кейбинда мнемоника жива.
         testApp.sendKey("Alt+G");
         expect(testApp.querySelector("PopupMenuElement")).not.toBeNull();
     });

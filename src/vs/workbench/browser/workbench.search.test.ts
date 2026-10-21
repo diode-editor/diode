@@ -11,12 +11,6 @@ import type { SidebarService } from "./parts/sidebar/sidebarService.ts";
 import { SidebarServiceDIToken } from "./parts/sidebar/sidebarService.ts";
 import { WorkbenchComponent, WorkbenchComponentDIToken } from "./workbenchComponent.ts";
 
-/**
- * Search — один из вьюлетов сайдбара (наряду с Explorer и Source Control):
- * команда `workbench.view.search` подменяет содержимое сайдбара на вид Search и
- * фокусирует строку запроса. Гейт «до кадра» на настоящем WorkbenchComponent.
- */
-
 const SHOW_SEARCH = "workbench.view.search";
 const SHOW_EXPLORER = "workbench.view.explorer";
 

@@ -21,7 +21,6 @@ function buttonColumn(ctx: FindContext, glyph: string): number {
     return col === -1 ? -1 : col + 1; // MouseToken coords are 1-based
 }
 
-/** Left-clicks a widget button by glyph, going through the real mouse pipeline. */
 function clickButton(ctx: FindContext, glyph: string): void {
     const rows = ctx.testApp.backend.screenToString().split("\n");
     const y = rows.findIndex((line) => line.includes(CLOSE_GLYPH)) + 1;
@@ -53,10 +52,9 @@ describe("Workbench — find lifecycle & interaction", () => {
         ctx = createFindApp("foo bar foo");
         ctx.testApp.sendKey("Ctrl+F");
         type(ctx.testApp, "foo");
-        ctx.testApp.sendKey("Enter"); // move to the second match
+        ctx.testApp.sendKey("Enter");
         expect(ctx.activeEditor().viewState.currentSearchMatchIndex).toBe(1);
 
-        // Pressing Ctrl+F again must refocus the input, not reset state.
         ctx.testApp.sendKey("Ctrl+F");
         expect(ctx.testApp.focusedElement?.constructor.name).toBe("InputElement");
         expect(ctx.activeEditor().viewState.currentSearchMatchIndex).toBe(1);
@@ -65,7 +63,6 @@ describe("Workbench — find lifecycle & interaction", () => {
 
     it("seeds the query from a single-line selection on open", () => {
         ctx = createFindApp("foo bar foo");
-        // Select "foo" with the keyboard (cursor starts at 0,0).
         ctx.testApp.sendKey("Shift+ArrowRight");
         ctx.testApp.sendKey("Shift+ArrowRight");
         ctx.testApp.sendKey("Shift+ArrowRight");
@@ -73,8 +70,7 @@ describe("Workbench — find lifecycle & interaction", () => {
         ctx.testApp.sendKey("Ctrl+F");
 
         expect(ctx.activeEditor().viewState.searchMatches).toHaveLength(2);
-        // The seeded query is reflected in the rendered counter. The selection's caret
-        // sits just past the first match, so the second match becomes current.
+        // The selection's caret sits just past the first match, so the second one becomes current.
         ctx.testApp.render();
         expect(ctx.testApp.backend.screenToString()).toContain("2 of 2");
     });
@@ -85,7 +81,6 @@ describe("Workbench — find lifecycle & interaction", () => {
         type(ctx.testApp, "foo");
         expect(ctx.contextKeys.get("findWidgetVisible")).toBe(true);
 
-        // Open a second file → active editor changes → find widget closes.
         const second = path.join(ctx.tmpDir, "second.txt");
         fs.writeFileSync(second, "nothing here");
         ctx.workbench.openFile(second);

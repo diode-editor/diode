@@ -47,7 +47,6 @@ function memoryClipboard(initial = ""): IClipboard {
     };
 }
 
-/** Build a real InputElement + InputWidgetService wired through a DI accessor. */
 function makeCtx(text: string, opts: { cursor?: "start" | "end"; select?: "all"; clipboard?: string } = {}) {
     const input = new InputElement();
     input.inputState.value = text; // cursor lands at the end
@@ -194,11 +193,9 @@ describe("InputActions — no active input", () => {
 
         for (const action of [inputCursorLeftAction, inputDeleteLeftAction, inputSelectAllAction, inputPasteAction]) {
             registerAction(commands, new KeybindingRegistry(), accessor, action);
-            // run() may be sync (returns undefined) or async — await both shapes uniformly
             await Promise.resolve(commands.execute(action.id));
         }
 
-        // The service still works once a real input is attached (it survived the null-active calls).
         const input = new InputElement();
         input.inputState.value = "ab";
         controller.setActive(input);

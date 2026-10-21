@@ -5,10 +5,6 @@ import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTe
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
 import { createCursorSelection } from "../../editor/common/core/iSelection.ts";
 
-/**
- * Перечитка файла с диска меняет текст в том же документе: редактор на экране
- * тот же — с фокусом, read-only и кареткой, — а не собран заново.
- */
 describe("Workbench — перечитка с диска на месте", () => {
     let ws: ITempWorkspace;
     let h: IAppHarness;

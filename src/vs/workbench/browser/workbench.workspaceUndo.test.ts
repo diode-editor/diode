@@ -33,9 +33,9 @@ describe("Explorer undo/redo of file operations", () => {
     });
 
     it("undo of a cut+paste moves the file back (no confirmation)", async () => {
-        h.testApp.sendKey("ArrowDown"); // a.txt
+        h.testApp.sendKey("ArrowDown");
         h.commands.execute("fileOperations.cut");
-        h.testApp.sendKey("ArrowUp"); // target/
+        h.testApp.sendKey("ArrowUp");
         await h.commands.execute("fileOperations.paste");
         await vi.waitFor(() => {
             expect(fs.existsSync(ws.path("target/a.txt"))).toBe(true);
@@ -45,7 +45,6 @@ describe("Explorer undo/redo of file operations", () => {
         h.commands.execute("fileOperations.undo");
         await flush();
 
-        // Move undo is not destructive → no dialog, file is back at its original place.
         expect(h.testApp.querySelector("#confirmDialog")).toBeNull();
         await vi.waitFor(() => {
             expect(fs.existsSync(ws.path("a.txt"))).toBe(true);
@@ -54,9 +53,9 @@ describe("Explorer undo/redo of file operations", () => {
     });
 
     it("undo of a copy+paste asks for confirmation, then deletes the created copy", async () => {
-        h.testApp.sendKey("ArrowDown"); // a.txt
+        h.testApp.sendKey("ArrowDown");
         h.commands.execute("fileOperations.copy");
-        h.testApp.sendKey("ArrowUp"); // target/
+        h.testApp.sendKey("ArrowUp");
         await h.commands.execute("fileOperations.paste");
         const copy = ws.path("target/a.txt");
         await vi.waitFor(() => {
@@ -66,7 +65,6 @@ describe("Explorer undo/redo of file operations", () => {
         h.commands.execute("fileOperations.undo");
         h.testApp.render();
 
-        // Destructive undo → confirmation dialog; copy still there until confirmed.
         expect(h.testApp.querySelector("#confirmDialog")).not.toBeNull();
         expect(fs.existsSync(copy)).toBe(true);
 
@@ -75,13 +73,13 @@ describe("Explorer undo/redo of file operations", () => {
         await vi.waitFor(() => {
             expect(fs.existsSync(copy)).toBe(false);
         });
-        expect(fs.existsSync(ws.path("a.txt"))).toBe(true); // original untouched
+        expect(fs.existsSync(ws.path("a.txt"))).toBe(true);
     });
 
     it("redo re-applies a move after undo", async () => {
-        h.testApp.sendKey("ArrowDown"); // a.txt
+        h.testApp.sendKey("ArrowDown");
         h.commands.execute("fileOperations.cut");
-        h.testApp.sendKey("ArrowUp"); // target/
+        h.testApp.sendKey("ArrowUp");
         await h.commands.execute("fileOperations.paste");
 
         h.commands.execute("fileOperations.undo");

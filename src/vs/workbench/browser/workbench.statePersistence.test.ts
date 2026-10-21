@@ -18,16 +18,9 @@ import { SidebarServiceDIToken } from "./parts/sidebar/sidebarService.ts";
 import type { PaneViewElement } from "./parts/views/paneViewElement.ts";
 import { ViewsServiceDIToken } from "./parts/views/viewsService.ts";
 
-/**
- * End-to-end персистентность сессии: открыть файлы + поменять layout в одном
- * «запуске», сбросить на диск, поднять новый Workbench на том же воркспейсе и
- * убедиться, что всё восстановилось. Общий на два запуска — реальный
- * `StateService` поверх одного каталога user-data.
- */
 describe("Workbench — session state persistence", () => {
     let ws: ITempWorkspace;
     let userData: ITempWorkspace;
-    /** Все `StateService`, созданные тестом: гасим их в `afterEach` до сноса каталогов. */
     let writers: StateService[];
 
     beforeEach(() => {
@@ -37,19 +30,14 @@ describe("Workbench — session state persistence", () => {
     });
 
     afterEach(() => {
-        // Порядок обязателен: сначала глушим писателей, потом сносим каталоги.
-        // Иначе debounced-запись срабатывает уже после `rmSync` и пересоздаёт
-        // каталог («воскресший» user-data оставался в /tmp тысячами).
+        // Сначала глушим писателей, потом сносим каталоги: debounced-запись после
+        // `rmSync` пересоздаёт каталог (user-data копился в /tmp тысячами).
         for (const writer of writers) writer.dispose();
         ws.dispose();
         userData.dispose();
     });
 
-    /**
-     * Контейнер секций Source Control живого сайдбара — через него идёт
-     * пользовательский путь сворачивания (шеврон заголовка). В дереве сайдбара
-     * лежит только активный вьюлет, поэтому сначала показываем нужный.
-     */
+    /** В дереве сайдбара лежит только активный вьюлет — сначала показываем нужный. */
     function paneViewOf(h: IAppHarness): PaneViewElement {
         h.container.get(SidebarServiceDIToken).showViewlet(SCM_VIEWLET_ID, false);
         const element = h.workbench.view.querySelector(`#viewContainer-${SCM_VIEWLET_ID}`);
@@ -64,13 +52,11 @@ describe("Workbench — session state persistence", () => {
     }
 
     it("restores open files, active tab, sidebar width and panel state across a restart", () => {
-        // ── Запуск 1: пользователь настроил рабочее место ───────────────────
         const state1 = newState();
         const h1: IAppHarness = createAppTestHarness({ workspaceFolder: ws.dir, stateService: state1 });
         h1.workbench.openFile(ws.path("a.ts"));
         h1.workbench.openFile(ws.path("b.ts"));
         h1.workbench.openFile(ws.path("c.ts"));
-        // Активной делаем среднюю вкладку.
         h1.container.get(EditorServiceDIToken).editorGroups.activeGroup.activateTab(1);
         h1.workbench.workbenchLayout.setLeftPanelWidth(45);
         h1.workbench.workbenchLayout.setBottomPanelVisible(true);
@@ -78,7 +64,6 @@ describe("Workbench — session state persistence", () => {
         state1.flushSync();
         h1.dispose();
 
-        // ── Запуск 2: свежий Workbench на том же воркспейсе ──────────────
         const state2 = newState();
         const h2: IAppHarness = createAppTestHarness({ workspaceFolder: ws.dir, stateService: state2 });
         h2.workbench.restoreOpenEditors(); // main.ts вызывает это, когда в CLI нет файлов
@@ -105,18 +90,15 @@ describe("Workbench — session state persistence", () => {
         const state2 = newState();
         const h2: IAppHarness = createAppTestHarness({ workspaceFolder: ws.dir, stateService: state2 });
 
-        // Ещё ничего не открыто, но список уже известен.
         expect(h2.container.get(EditorServiceDIToken).getOpenFilePaths()).toEqual([]);
         expect(h2.workbench.getOpenEditorsToRestore()).toEqual([ws.path("a.ts"), ws.path("b.ts")]);
 
-        // И он совпадает с тем, что реально откроется.
         h2.workbench.restoreOpenEditors();
         expect(h2.container.get(EditorServiceDIToken).getOpenFilePaths()).toEqual([ws.path("a.ts"), ws.path("b.ts")]);
         h2.dispose();
     });
 
     it("US-41: восстанавливает полосу групп — состав, активные вкладки, активную группу, ось и доли", () => {
-        // ── Запуск 1: две группы с разным содержимым и подвинутым сашем ─────
         const state1 = newState();
         const h1: IAppHarness = createAppTestHarness({
             workspaceFolder: ws.dir,
@@ -125,11 +107,11 @@ describe("Workbench — session state persistence", () => {
         });
         h1.workbench.openFile(ws.path("a.ts"));
         h1.workbench.openFile(ws.path("b.ts"));
-        h1.commands.execute("workbench.action.splitEditor"); // группа 2: копия b
-        h1.workbench.openFile(ws.path("c.ts")); // группа 2: b + c
+        h1.commands.execute("workbench.action.splitEditor");
+        h1.workbench.openFile(ws.path("c.ts"));
         h1.commands.execute("workbench.action.increaseEditorWidth");
         h1.commands.execute("workbench.action.focusFirstEditorGroup");
-        h1.container.get(EditorServiceDIToken).editorGroups.activeGroup.activateTab(0); // группа 1: активна a
+        h1.container.get(EditorServiceDIToken).editorGroups.activeGroup.activateTab(0);
         state1.flushSync();
         const weightsBefore = [
             ...(h1.workbench as unknown as { editorPartComponent: { weights: readonly number[] } }).editorPartComponent
@@ -137,7 +119,6 @@ describe("Workbench — session state persistence", () => {
         ];
         h1.dispose();
 
-        // ── Запуск 2: полоса поднимается целиком ────────────────────────────
         const state2 = newState();
         const h2: IAppHarness = createAppTestHarness({
             workspaceFolder: ws.dir,
@@ -158,9 +139,7 @@ describe("Workbench — session state persistence", () => {
         ]);
         expect(service.editorGroups.groups[0].activePane!.uri.fsPath).toBe(ws.path("a.ts"));
         expect(service.editorGroups.groups[1].activePane!.uri.fsPath).toBe(ws.path("c.ts"));
-        // Активная группа — первая (как перед выходом).
         expect(service.editorGroups.activeGroup === service.editorGroups.groups[0]).toBe(true);
-        // Доли пережили рестарт (саш был сдвинут resize-командой).
         const part = (h2.workbench as unknown as { editorPartComponent: { weights: readonly number[] } })
             .editorPartComponent;
         expect(part.weights.map((w) => w.toFixed(3))).toEqual(weightsBefore.map((w) => w.toFixed(3)));
@@ -176,7 +155,7 @@ describe("Workbench — session state persistence", () => {
         });
         h1.workbench.openFile(ws.path("a.ts"));
         h1.commands.execute("workbench.action.newGroupRight");
-        h1.workbench.openFile(ws.path("b.ts")); // единственный файл группы 2
+        h1.workbench.openFile(ws.path("b.ts"));
         state1.flushSync();
         h1.dispose();
 
@@ -235,7 +214,7 @@ describe("Workbench — session state persistence", () => {
             size: new Size(140, 40),
         });
         h1.workbench.openFile(ws.path("a.ts"));
-        h1.commands.execute("workbench.action.splitEditor"); // группа 2: копия a
+        h1.commands.execute("workbench.action.splitEditor");
         h1.workbench.openFile(ws.path("b.ts"));
         state1.flushSync();
         h1.dispose();
@@ -252,7 +231,6 @@ describe("Workbench — session state persistence", () => {
     });
 
     it("сессия до сплитов (плоский ключ) поднимается одной группой", () => {
-        // Пишем ТОЛЬКО плоский ключ — как это делала сборка до сплитов.
         const state1 = newState();
         // Тот же ключ per-project стора, что откроет харнесс через setWorkspaceFolder.
         state1.openWorkspace(computeWorkspaceId(ws.dir));
@@ -271,8 +249,7 @@ describe("Workbench — session state persistence", () => {
     });
 
     it("битый снимок групп: недостающая доля становится 1, вместо удалённой активной вкладки — первая", () => {
-        // Снимок пишем руками: доли короче списка групп (такое оставляет старая
-        // сборка или рука в JSON), активный файл группы 2 удалён с диска.
+        // Снимок руками: доли короче списка групп (старая сборка или правка JSON), активный файл группы 2 удалён.
         const state1 = newState();
         // Тот же ключ per-project стора, что откроет харнесс через setWorkspaceFolder.
         state1.openWorkspace(computeWorkspaceId(ws.dir));
@@ -282,11 +259,11 @@ describe("Workbench — session state persistence", () => {
                 { files: [ws.path("a.ts")], activeIndex: 0 },
                 { files: [ws.path("b.ts"), ws.path("a.ts"), ws.path("c.ts")], activeIndex: 0 },
             ],
-            weights: [0.5], // доля второй группы потеряна
+            weights: [0.5],
             activeGroup: 1,
         });
         state1.flushSync();
-        fs.rmSync(ws.path("b.ts")); // активный файл группы 2 исчез
+        fs.rmSync(ws.path("b.ts"));
 
         const state2 = newState();
         const h2: IAppHarness = createAppTestHarness({
@@ -298,8 +275,6 @@ describe("Workbench — session state persistence", () => {
 
         const service = h2.container.get(EditorServiceDIToken);
         expect(service.editorGroups.groups.length).toBe(2);
-        // b.ts выпал; активной группы 2 стала ПЕРВАЯ уцелевшая вкладка, а не
-        // последняя открытая.
         expect(service.editorGroups.groups[1].getPanes().map((p) => p.uri.fsPath)).toEqual([
             ws.path("a.ts"),
             ws.path("c.ts"),
@@ -319,7 +294,7 @@ describe("Workbench — session state persistence", () => {
         h1.commands.execute("workbench.action.openGlobalKeybindings");
         h1.workbench.openFile(ws.path("b.ts"));
         h1.container.get(EditorServiceDIToken).editorGroups.activeGroup.activateTab(1);
-        // Для сборок без `editors` — только файлы; активная вкладка не файл.
+        // Поле `files` — для сборок без `editors`, поэтому только файлы и activeIndex -1.
         expect(state1.get(EDITOR_GROUPS_STATE)?.groups[0]).toMatchObject({
             files: [ws.path("a.ts"), ws.path("b.ts")],
             activeIndex: -1,
@@ -341,7 +316,6 @@ describe("Workbench — session state persistence", () => {
             Uri.file(ws.path("b.ts")).toString(),
         ]);
         expect(service.editorGroups.activeGroup.activePane?.uri.toString()).toBe("keybindings:global");
-        // Прогрев грамматик берёт только файлы.
         expect(h2.workbench.getOpenEditorsToRestore()).toEqual([ws.path("a.ts"), ws.path("b.ts")]);
         h2.dispose();
     });
@@ -400,8 +374,6 @@ describe("Workbench — session state persistence", () => {
         h2.workbench.restoreOpenEditors();
 
         const service = h2.container.get(EditorServiceDIToken);
-        // Вторая группа из одних неизвестных вкладок не поднялась вовсе; активной
-        // вместо выпавшей стала первая уцелевшая.
         expect(service.editorGroups.groups.length).toBe(1);
         expect(service.editorGroups.activeGroup.getPanes().map((pane) => pane.uri.fsPath)).toEqual([ws.path("a.ts")]);
         expect(service.editorGroups.activeGroup.activeIndex).toBe(0);
@@ -409,22 +381,18 @@ describe("Workbench — session state persistence", () => {
     });
 
     it("свёрнутость секций переживает рестарт и перебивает дефолт дескриптора", () => {
-        // ── Запуск 1: GRAPH встаёт свёрнутым (дефолт своего дескриптора) ───
         const state1 = newState();
         const h1: IAppHarness = createAppTestHarness({ workspaceFolder: ws.dir, stateService: state1 });
         const views1 = h1.container.get(ViewsServiceDIToken);
         expect(views1.isViewExpanded(SCM_GRAPH_VIEW_ID)).toBe(false);
         expect(views1.isViewExpanded(SCM_CHANGES_VIEW_ID)).toBe(true);
 
-        // Пользователь раскрыл GRAPH и свернул CHANGES — пользовательский путь
-        // (шеврон заголовка), с write-through'ом персиста.
         const panes1 = paneViewOf(h1);
         panes1.toggleCollapsed(SCM_GRAPH_VIEW_ID);
         panes1.toggleCollapsed(SCM_CHANGES_VIEW_ID);
         state1.flushSync();
         h1.dispose();
 
-        // ── Запуск 2: обе секции — как их оставил пользователь ────────────
         const state2 = newState();
         const h2: IAppHarness = createAppTestHarness({ workspaceFolder: ws.dir, stateService: state2 });
         const views2 = h2.container.get(ViewsServiceDIToken);
@@ -443,12 +411,11 @@ describe("Workbench — session state persistence", () => {
             state1.flushSync();
             a.dispose();
 
-            // Другой воркспейс не наследует ни файлы, ни ширину первого.
             const state2 = newState();
             const b = createAppTestHarness({ workspaceFolder: ws2.dir, stateService: state2 });
             b.workbench.restoreOpenEditors();
             expect(b.container.get(EditorServiceDIToken).getOpenFilePaths()).toEqual([]);
-            expect(b.workbench.workbenchLayout.getLeftPanelWidth()).toBe(30); // default
+            expect(b.workbench.workbenchLayout.getLeftPanelWidth()).toBe(30);
             b.dispose();
         } finally {
             ws2.dispose();

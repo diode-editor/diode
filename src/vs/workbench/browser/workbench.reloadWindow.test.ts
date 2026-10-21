@@ -4,11 +4,7 @@ import { createAppTestHarness } from "../../../TestUtils/AppTestHarness.ts";
 import { DialogServiceDIToken } from "../services/dialogs/browser/dialogService.ts";
 import { HostProcessDIToken } from "../services/lifecycle/common/hostProcess.ts";
 
-/**
- * Перезагрузка окна сквозь настоящий workbench: команда → протокол прощания
- * (несохранённые вкладки) → прощание → шов владельца процесса. Сам перезапуск процесса
- * проверяется юнитами `base/node/restartProcess.test.ts` — здесь шов подменён.
- */
+/** Сам перезапуск процесса — юниты `base/node/restartProcess.test.ts`, здесь шов подменён. */
 
 /** Харнесс с подменённым швом перезагрузки: настоящий унёс бы раннер. */
 function createHarness(): { harness: ReturnType<typeof createAppTestHarness>; reloadWindow: () => void } {

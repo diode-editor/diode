@@ -3,8 +3,6 @@ import { MenuId } from "../../../platform/actions/common/menuId.ts";
 import { parseKeybinding } from "../../../platform/keybinding/common/keybindingRegistry.ts";
 import { EditorServiceDIToken } from "../../services/editor/common/editorService.ts";
 
-// ─── Delete ─────────────────────────────────────────────────
-
 export const deleteLeftAction: CommandAction = {
     id: "deleteLeft",
     title: "Delete Left",
@@ -31,10 +29,8 @@ export const deleteRightAction: CommandAction = {
     },
 };
 
-// Ctrl+Backspace в legacy-потоке приходит байтом 0x08, то есть Ctrl+H, — бинд
-// недостижим, поэтому он под tier-гейтом, а досягаемый везде путь — Alt+Backspace
-// (`ESC 0x7f`, отдельный токен). На маке это и есть канонический бинд VS Code,
-// поэтому он объявлен здесь, а не в таблице мак-дельт.
+// Ctrl+Backspace в legacy-потоке — байт 0x08 (Ctrl+H): бинд под tier-гейтом, а
+// досягаемый путь — Alt+Backspace. Он же канонический на маке — потому здесь, а не в мак-дельтах.
 export const deleteWordLeftAction: CommandAction = {
     id: "deleteWordLeft",
     title: "Delete Word Left",
@@ -49,7 +45,7 @@ export const deleteWordLeftAction: CommandAction = {
     },
 };
 
-/** VS Code `deleteAllLeft`: на маке Cmd+Backspace (бинд — в таблице мак-дельт). */
+/** На маке Cmd+Backspace — бинд в таблице мак-дельт. */
 export const deleteAllLeftAction: CommandAction = {
     id: "deleteAllLeft",
     title: "Delete All Left",
@@ -75,16 +71,12 @@ export const deleteWordRightAction: CommandAction = {
     },
 };
 
-// ─── Undo / Redo ────────────────────────────────────────────
-
 export const undoAction: CommandAction = {
     id: "undo",
     title: "Undo",
     keybinding: parseKeybinding("mod+z"),
     when: "textInputFocus && !editorReadonly",
-    // Контекст-меню редактора Undo не содержит — в эталоне его там нет
-    // (отмена живёт на Ctrl+Z и в меню Edit), а состав EditorContext мы берём
-    // дословно upstream'ский.
+    // Undo в контекст-меню нет: состав EditorContext — дословно upstream'ский.
     menus: [{ menuId: MenuId.MenubarEditMenu, group: "1_undo", order: 10 }],
     run(accessor) {
         accessor.get(EditorServiceDIToken).getActiveEditor()?.undo();
@@ -95,8 +87,7 @@ export const redoAction: CommandAction = {
     id: "redo",
     title: "Redo",
     keybinding: parseKeybinding("mod+shift+z"),
-    // Ctrl+Y — основной redo эталона на pc; на маке ниже cmd это единственная
-    // доставляемая комбинация (Ctrl+Shift+буква legacy-терминал не различает).
+    // На маке ниже cmd это единственная доставляемая комбинация redo.
     keybindings: [parseKeybinding("ctrl+y")],
     when: "textInputFocus && !editorReadonly",
     menus: [{ menuId: MenuId.MenubarEditMenu, group: "1_undo", order: 20 }],
@@ -104,8 +95,6 @@ export const redoAction: CommandAction = {
         accessor.get(EditorServiceDIToken).getActiveEditor()?.redo();
     },
 };
-
-// ─── Indentation ────────────────────────────────────────────
 
 export const indentLinesAction: CommandAction = {
     id: "editor.action.indentLines",
@@ -133,15 +122,11 @@ export const outdentLinesAction: CommandAction = {
     },
 };
 
-// ─── Selection ──────────────────────────────────────────────
-
 export const selectAllAction: CommandAction = {
     id: "editor.action.selectAll",
     title: "Select All",
     keybinding: parseKeybinding("mod+a"),
-    // Единственная команда в этом файле без гейта `!editorReadonly`: выделение
-    // ничего не меняет. Отсюда и `textViewFocus` — Ctrl+A + Ctrl+C на диффе
-    // копирует его целиком.
+    // Без гейта `!editorReadonly` и шире фокус: Ctrl+A + Ctrl+C на диффе копирует его целиком.
     when: "textViewFocus",
     menus: [{ menuId: MenuId.MenubarSelectionMenu, group: "1_select", order: 10 }],
     run(accessor) {

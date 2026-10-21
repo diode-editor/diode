@@ -25,7 +25,6 @@ describe("UndoRefusalNotificationContribution", () => {
         expect(shown[0].message).toBe(
             "Could not undo 'Move to a new file' across all files because changes were made to b.ts",
         );
-        // Без кнопок и не модальное: выбирать человеку нечего, тост уедет сам.
         expect(shown[0].items).toEqual([]);
         expect(shown[0].modal).toBe(false);
 

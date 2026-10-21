@@ -5,12 +5,9 @@ import { describe, expect, it } from "vitest";
 import { WORKBENCH_ACTIONS } from "../../workbench.common.main.ts";
 
 /**
- * Срез порядка палитры команд (F2). Без запроса палитра показывает команды в
- * порядке регистрации, а при равной оценке совпадения порядок решает ничью —
- * то есть порядок `WORKBENCH_ACTIONS` виден пользователю. Срез делает эту
- * зависимость явной: перестановка развёрток фич краснит тест, и новый порядок
- * принимается осознанно. Эталон — `builtinActions.palette.slice.json` рядом;
- * пересобрать: `UPDATE_SLICE=1 npx vitest run <этот файл>`.
+ * Без запроса палитра показывает команды в порядке регистрации, и при равной
+ * оценке он же решает ничью — порядок `WORKBENCH_ACTIONS` виден пользователю.
+ * Пересобрать эталон: `UPDATE_SLICE=1 npx vitest run <этот файл>`.
  */
 
 const SLICE_URL = new URL("./builtinActions.palette.slice.json", import.meta.url);

@@ -3,8 +3,6 @@ import { ClipboardDIToken } from "../../../platform/clipboard/common/iClipboard.
 import { parseKeybinding } from "../../../platform/keybinding/common/keybindingRegistry.ts";
 import { InputWidgetServiceDIToken } from "../../contrib/files/browser/inputWidgetService.ts";
 
-// ─── Cursor Movement ─────────────────────────────────────────
-
 export const inputCursorLeftAction: CommandAction = {
     id: "input.cursorLeft",
     title: "Input: Cursor Left",
@@ -65,8 +63,6 @@ export const inputCursorWordRightAction: CommandAction = {
     },
 };
 
-// ─── Editing ─────────────────────────────────────────────────
-
 export const inputDeleteLeftAction: CommandAction = {
     id: "input.deleteLeft",
     title: "Input: Delete Left",
@@ -87,7 +83,7 @@ export const inputDeleteRightAction: CommandAction = {
     },
 };
 
-/** Пара к `deleteWordLeft` (см. комментарий там): Alt+Backspace — досягаемый везде путь. */
+/** Alt+Backspace — досягаемый везде путь (см. `deleteWordLeft`). */
 export const inputDeleteWordLeftAction: CommandAction = {
     id: "input.deleteWordLeft",
     title: "Input: Delete Word Left",
@@ -108,8 +104,6 @@ export const inputDeleteWordRightAction: CommandAction = {
         accessor.get(InputWidgetServiceDIToken).deleteWordRight();
     },
 };
-
-// ─── Selection ───────────────────────────────────────────────
 
 export const inputSelectLeftAction: CommandAction = {
     id: "input.selectLeft",
@@ -181,8 +175,6 @@ export const inputSelectAllAction: CommandAction = {
     },
 };
 
-// ─── Clipboard ───────────────────────────────────────────────
-
 export const inputCopyAction: CommandAction = {
     id: "input.copy",
     title: "Input: Copy",
@@ -212,8 +204,6 @@ export const inputPasteAction: CommandAction = {
         await accessor.get(InputWidgetServiceDIToken).paste(accessor.get(ClipboardDIToken));
     },
 };
-
-// ─── Undo / Redo ─────────────────────────────────────────────
 
 export const inputUndoAction: CommandAction = {
     id: "input.undo",

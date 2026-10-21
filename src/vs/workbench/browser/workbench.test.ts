@@ -199,14 +199,11 @@ describe("Workbench — chords", () => {
         const executeSpy = vi.spyOn(h.commands, "execute");
 
         h.testApp.sendKey("Ctrl+K");
-        // First part does not execute the command yet…
         expect(executeSpy).not.toHaveBeenCalledWith("workbench.action.files.save");
-        // …and a waiting hint is shown in the status bar.
         expect(chordHints(h.testApp).some((t) => t.includes("Waiting"))).toBe(true);
 
         h.testApp.sendKey("s");
         expect(executeSpy).toHaveBeenCalledWith("workbench.action.files.save");
-        // The continuation key must NOT be typed into the editor.
         expect(editorText(h.testApp)).toBe("");
     });
 
@@ -217,11 +214,11 @@ describe("Workbench — chords", () => {
         const executeSpy = vi.spyOn(h.commands, "execute");
 
         h.testApp.sendKey("Ctrl+K");
-        h.testApp.sendKey("q"); // not part of any chord
+        h.testApp.sendKey("q");
 
         expect(executeSpy).not.toHaveBeenCalledWith("workbench.action.files.save");
         expect(chordHints(h.testApp).some((t) => t.includes("Waiting"))).toBe(false);
-        expect(editorText(h.testApp)).toBe(""); // 'q' did not leak
+        expect(editorText(h.testApp)).toBe("");
     });
 
     it("reports the unmatched combination in the status bar when a chord is not completed", () => {
@@ -264,7 +261,6 @@ describe("Workbench — chords", () => {
 
         expect(executeSpy).toHaveBeenCalledWith("workbench.action.openGlobalKeybindings");
         expect(executeSpy).not.toHaveBeenCalledWith("workbench.action.files.save");
-        // Активной стала вкладка шорткатов; текст редактора цел — 's' не протёк.
         expect(h.container.get(EditorServiceDIToken).getActivePane()?.uri.scheme).toBe("keybindings");
         h.commands.execute("workbench.action.previousEditorInGroup");
         expect(editorText(h.testApp)).toBe("");
@@ -276,14 +272,13 @@ describe("Workbench — chords", () => {
         h.workbench.focusEditor();
         const executeSpy = vi.spyOn(h.commands, "execute");
 
-        // Real terminal (Kitty protocol) sends CSI-u with explicit key releases.
         h.testApp.backend.sendRaw("\x1b[107;5u"); // Ctrl+K down
         h.testApp.backend.sendRaw("\x1b[107;5:3u"); // Ctrl+K up
         h.testApp.backend.sendRaw("\x1b[115u"); // s down
         h.testApp.backend.sendRaw("\x1b[115;1:3u"); // s up
 
         expect(executeSpy).toHaveBeenCalledWith("workbench.action.files.save");
-        expect(editorText(h.testApp)).toBe(""); // 's' did not leak
+        expect(editorText(h.testApp)).toBe("");
     });
 
     it("cancels the pending chord after the timeout", () => {
@@ -298,7 +293,6 @@ describe("Workbench — chords", () => {
             vi.advanceTimersByTime(5000);
             expect(chordHints(h.testApp).some((t) => t.includes("Waiting"))).toBe(false);
 
-            // Pending state was reset: 's' alone no longer completes the chord.
             const executeSpy = vi.spyOn(h.commands, "execute");
             h.testApp.sendKey("s");
             expect(executeSpy).not.toHaveBeenCalledWith("workbench.action.files.save");
@@ -314,13 +308,10 @@ describe("Workbench — chords", () => {
 
         vi.useFakeTimers();
         try {
-            // Broken chord arms the auto-clear timer for the "not a command" hint.
             h.testApp.sendKey("Ctrl+K");
             h.testApp.sendKey("q");
             expect(chordHints(h.testApp).some((t) => t.includes("is not a command"))).toBe(true);
 
-            // The very next key dispatch clears that pending timer (and the hint) eagerly,
-            // so when the original 4s timeout elapses there is no lingering message to reset.
             h.testApp.sendKey("a");
             expect(chordHints(h.testApp).some((t) => t.includes("is not a command"))).toBe(false);
 
@@ -339,13 +330,11 @@ describe("Workbench — chords", () => {
         h.testApp.sendKey("Ctrl+K");
         expect(chordHints(h.testApp).some((t) => t.includes("Waiting"))).toBe(true);
 
-        // Moving focus away while a chord is pending must abort it.
         const editor = h.testApp.querySelector("EditorElement") as EditorElement;
         editor.blur();
 
         expect(chordHints(h.testApp).some((t) => t.includes("Waiting"))).toBe(false);
 
-        // The pending state was reset: 's' alone no longer completes the chord.
         const executeSpy = vi.spyOn(h.commands, "execute");
         h.testApp.sendKey("s");
         expect(executeSpy).not.toHaveBeenCalledWith("workbench.action.files.save");
@@ -376,10 +365,8 @@ describe("Workbench — Quick Open", () => {
     });
 
     it("reassembles a key sequence delivered split across two stdin reads", () => {
-        // Over SSH/tmux/slow links a multi-byte key sequence can arrive in two reads.
-        // The parser must buffer the partial first chunk and reassemble it, instead of
-        // mis-tokenizing it as a lone Escape + literal characters (which would lose the
-        // keypress and leak stray chars). Uses the showCommands sequence as a concrete example.
+        // Over SSH/tmux a multi-byte key sequence can arrive in two reads; the parser must
+        // reassemble it instead of mis-tokenizing it as a lone Escape + literal chars.
         const h = createAppTestHarness();
         h.workbench.focusEditor();
 
@@ -417,8 +404,6 @@ describe("Workbench — Quick Open", () => {
         const h = createAppTestHarness();
         h.workbench.focusEditor();
 
-        // The app hosts persistent singleton pickers (quick-open + quick-input);
-        // pressing Ctrl+P must reuse the quick-open one, never spawn a new element.
         const before = h.testApp.querySelectorAll("QuickPickElement").length;
         h.testApp.sendKey("Ctrl+P");
         h.testApp.sendKey("Ctrl+P");

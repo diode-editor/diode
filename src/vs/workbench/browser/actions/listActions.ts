@@ -5,9 +5,7 @@ import type { CommandAction } from "../../../platform/actions/common/commandActi
 import { parseKeybinding } from "../../../platform/keybinding/common/keybindingRegistry.ts";
 import { TuiApplicationDIToken } from "../../../platform/layout/browser/tuiApplicationDIToken.ts";
 
-// Оба списочных контрола имеют одинаковую четвёрку focus-методов; двух классов
-// мало, чтобы заводить общий интерфейс tuidom, — хватает union-instanceof
-// (парного к вычислению ключа `listFocus` в workbenchContextKeys.ts).
+// Двух классов мало, чтобы заводить общий интерфейс в tuidom.
 type ListLike = TreeViewElement<unknown> | ListViewElement;
 
 function activeList(accessor: Parameters<CommandAction["run"]>[0]): ListLike | null {

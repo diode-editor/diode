@@ -50,14 +50,13 @@ describe("Workbench — integrated terminal", () => {
         const screen = h.testApp.backend.screenToString();
         expect(screen).toContain("TERMINAL");
 
-        // Focus landed on the terminal widget → the context keys reflect it.
         expect(contextKeys.get("terminalFocus")).toBe(true);
         expect(contextKeys.get("terminalIsOpen")).toBe(true);
     });
 
     it("Toggle Terminal again hides the panel", () => {
-        h.commands.execute(TOGGLE_TERMINAL); // show
-        h.commands.execute(TOGGLE_TERMINAL); // hide (Terminal already visible+active)
+        h.commands.execute(TOGGLE_TERMINAL);
+        h.commands.execute(TOGGLE_TERMINAL);
 
         expect(h.workbench.workbenchLayout.getBottomPanelVisible()).toBe(false);
         h.testApp.render();
@@ -73,8 +72,7 @@ describe("Workbench — integrated terminal", () => {
     });
 
     it("Create New Terminal opens a second instance", () => {
-        h.commands.execute(TOGGLE_TERMINAL); // first terminal
-        // Виджет активного терминала — тело единственной секции вкладки TERMINAL.
+        h.commands.execute(TOGGLE_TERMINAL);
         const activeWidget = (): TUIElement => {
             const widgets = panel().querySelectorAll("TerminalViewElement");
             expect(widgets).toHaveLength(1);
@@ -82,7 +80,7 @@ describe("Workbench — integrated terminal", () => {
         };
         const firstWidget = activeWidget();
 
-        h.commands.execute(NEW_TERMINAL); // second terminal becomes active
+        h.commands.execute(NEW_TERMINAL);
         expect(panel().getActiveViewId()).toBe(TERMINAL_VIEW_ID);
         expect(terminal.hasOpenTerminals).toBe(true);
         // Сравниваем булевым выражением, а не `toBe`: провалившийся `toBe` на узле
@@ -98,7 +96,6 @@ describe("Workbench — integrated terminal", () => {
 
         expect(terminal.hasOpenTerminals).toBe(false);
         expect(h.workbench.workbenchLayout.getBottomPanelVisible()).toBe(false);
-        // Toggle снова поднимает панель с новым шеллом.
         h.commands.execute(TOGGLE_TERMINAL);
         expect(h.workbench.workbenchLayout.getBottomPanelVisible()).toBe(true);
         expect(terminal.hasOpenTerminals).toBe(true);
@@ -128,15 +125,12 @@ describe("Workbench — integrated terminal", () => {
     it("activating the TERMINAL tab lazily spawns a shell", () => {
         expect(terminal.hasOpenTerminals).toBe(false);
 
-        // Simulate a click on the TERMINAL tab: the panel switches the active view,
-        // then fires onActivateView (wired by PanelComponent → PanelService.activateView,
-        // на котором висит ленивый спавн TerminalService).
+        // Клик по табу: setActiveView, затем onActivateView — на нём висит ленивый спавн TerminalService.
         panel().setActiveView(TERMINAL_VIEW_ID);
         panel().onActivateView?.(TERMINAL_VIEW_ID);
 
         expect(terminal.hasOpenTerminals).toBe(true);
-        // Видимый контент вкладки — ровно один терминал (рядом в таб-строке
-        // живут только её кнопки: «+» и Kill).
+        // В таб-строке рядом живут только кнопки «+» и Kill.
         expect(panel().querySelectorAll("TerminalViewElement")).toHaveLength(1);
     });
 });

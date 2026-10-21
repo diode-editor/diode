@@ -14,16 +14,8 @@ import { EditorServiceDIToken } from "../services/editor/common/editorService.ts
 import type { IEditorPane } from "./parts/editor/iEditorPane.ts";
 import { WorkbenchComponent, WorkbenchComponentDIToken } from "./workbenchComponent.ts";
 
-/**
- * Гейт «шов настоящий, а не декоративный»: панель не-текстового вида,
- * открытая в группе, обязана **дорисоваться до кадра** — её контент виден на
- * экране, а таб-стрип показывает обе вкладки. Настоящим вторым видом станет
- * дифф (этап 5); здесь его роль играет панель с одной строкой текста.
- */
-
 const PANE_TEXT = "СОДЕРЖИМОЕ-ПАНЕЛИ";
 
-/** Панель не-текстового вида: рисует одну строку и больше ничего не умеет. */
 class TextOnlyPane implements IEditorPane {
     public readonly view = new TextLabelElement(PANE_TEXT);
     public readonly isModified = false;
@@ -42,13 +34,12 @@ class TextOnlyPane implements IEditorPane {
     }
 
     public getSelectedTexts(): string[] {
-        return []; // понятия выделения у панели нет
+        return [];
     }
 
     public dispose(): void {
-        // view не отцепляем: пока группа держит его как content, setParent(null)
-        // оставил бы полуприкреплённое состояние (ловит validateTree). Отцепляет
-        // владелец монтирования — контент-слот EditorGroupComponent при смене.
+        // view не отцепляем: группа держит его как content, и setParent(null) оставил
+        // бы полуприкреплённое состояние (ловит validateTree). Отцепляет контент-слот группы.
     }
 }
 
@@ -90,7 +81,6 @@ describe("Workbench — панель не-текстового вида во в�
 
         const screen = testApp.backend.screenToString();
         expect(screen).toContain(PANE_TEXT);
-        // Контент прежней вкладки ушёл — группа подменила view, а не наложила.
         expect(screen).not.toContain("первая строка");
     });
 

@@ -22,8 +22,7 @@ import type { QuickPickElement } from "./parts/quickinput/quickPickElement.ts";
  */
 const FLUSH_TURNS = 20;
 
-/** Simulate typing into an InputBox: set the value AND revalidate (setQuery alone doesn't). */
-/** Вводит имя и ждёт, пока его проверка по диску (асинхронная) признает его годным. */
+/** setQuery сам имя не перепроверяет, а проверка по диску асинхронная — ждём, пока признает годным. */
 async function typeInto(input: QuickPickElement, text: string): Promise<void> {
     input.setQuery(text);
     input.onQueryChange?.(text);
@@ -32,7 +31,6 @@ async function typeInto(input: QuickPickElement, text: string): Promise<void> {
     });
 }
 
-/** Промпт принят: Enter ждёт асинхронную проверку имени по диску. */
 async function promptClosed(app: TestApp): Promise<void> {
     await vi.waitFor(() => {
         expect(app.root.overlayLayer.hasVisibleItems()).toBe(false);
@@ -40,10 +38,7 @@ async function promptClosed(app: TestApp): Promise<void> {
     await flushMicrotasks(FLUSH_TURNS);
 }
 
-/**
- * Промпт New File/Folder: перед показом команда смотрит, файл или каталог
- * кликнули (stat файловым сервисом, асинхронно) — ждём, пока он появится.
- */
+/** Перед показом команда асинхронно stat'ит кликнутый путь — ждём промпт. */
 async function promptByTitle(app: TestApp, title: string): Promise<ReturnType<typeof quickPickByTitle>> {
     return vi.waitFor(() => {
         app.render();
@@ -96,7 +91,7 @@ describe("Workbench — New File / New Folder", () => {
     });
 
     it("falls back to the tree's paste-target dir when invoked without a path", async () => {
-        h.commands.execute("explorer.newFile"); // no explorer path → getPasteTargetDir() (root)
+        h.commands.execute("explorer.newFile");
         h.testApp.render();
 
         await typeInto(await promptByTitle(h.testApp, "New File"), "from-palette.ts");
@@ -205,11 +200,9 @@ describe("Workbench — New Untitled File", () => {
         await flushMicrotasks(FLUSH_TURNS);
         h.testApp.render();
 
-        // No path yet → runSave falls through to Save As, which pops its dialog.
         const dialog = fileDialogDriver(h);
         await dialog.settle({ title: "Save As" });
 
-        // Complete the Save As so runSave's no-file branch returns.
         const target = ws.path("saved-untitled.txt");
         dialog.replaceQuery(target);
         await dialog.settle({ query: target });
@@ -271,10 +264,9 @@ describe("Workbench — create via context menu", () => {
     });
 
     it("no-ops when there is no target directory (no workspace, no path)", () => {
-        // Deliberately no workspaceFolder → getPasteTargetDir() is null.
         const bare = createAppTestHarness();
 
-        bare.commands.execute("explorer.newFile"); // no path + no workspace → targetDir null → early return
+        bare.commands.execute("explorer.newFile");
         bare.testApp.render();
 
         const hasPrompt = (bare.testApp.querySelectorAll("QuickPickElement") as QuickPickElement[]).some(
