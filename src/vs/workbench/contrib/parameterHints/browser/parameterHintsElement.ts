@@ -1,17 +1,22 @@
-import { DisplayLine } from "@tuidom/core/common/displayLine";
 import { BoxConstraints, Size } from "@tuidom/core/common/geometryPromitives";
 import { StyleFlags } from "@tuidom/core/common/styleFlags";
 import { BORDER_THICKNESS } from "@tuidom/core/dom/borderStyle";
 import { RenderContext, TUIElement } from "@tuidom/core/dom/tuiElement";
 import { wrapText } from "@tuidom/elements/completionlist/completionDetailsElement";
 
+import {
+    HOVER_BOX_DEFAULT_MAX_WIDTH,
+    HOVER_BOX_TEXT_X,
+    hoverBoxSize,
+    hoverTextWidth,
+    hoverTextWidthIn,
+    hoverVisibleLineCount,
+    naturalWidth,
+    WidthKeyedCache,
+} from "../../hover/browser/hoverBox.ts";
+
 import { type ISignatureChunk, wrapSignature } from "./signatureLayout.ts";
 
-// [│(0)][pad(1)][text…][pad(w-2)][│(w-1)] — the HoverElement layout.
-const TEXT_X = 2;
-const RIGHT_PAD = 1;
-const MIN_WIDTH = 20;
-const DEFAULT_MAX_WIDTH = 70;
 /** v1 height clamp: long documentation is cut off; scrolling is a separate task. */
 const DEFAULT_MAX_HEIGHT = 10;
 
@@ -39,12 +44,11 @@ interface IHintLine {
  */
 export class ParameterHintsElement extends TUIElement {
     /** The actual width follows the longest line. */
-    public maxWidth = DEFAULT_MAX_WIDTH;
+    public maxWidth = HOVER_BOX_DEFAULT_MAX_WIDTH;
     public maxHeight = DEFAULT_MAX_HEIGHT;
 
     private hintValue: IParameterHint | null = null;
-    /** Layout is called on every frame. */
-    private linesCache: { width: number; lines: readonly IHintLine[] } | null = null;
+    private readonly lines = new WidthKeyedCache((textWidth) => this.buildLines(textWidth));
 
     public constructor() {
         super();
@@ -61,28 +65,17 @@ export class ParameterHintsElement extends TUIElement {
 
     public setHint(hint: IParameterHint | null): void {
         this.hintValue = hint;
-        this.linesCache = null;
+        this.lines.clear();
         // Stryker disable next-line CallExpression: the repaint mark is not observable in a unit test (the snapshot re-renders the tree); the app frame covers its path
         this.markDirty();
     }
 
     public linesFor(textWidth: number): readonly string[] {
-        return this.layoutFor(textWidth).map((line) => line.text);
+        return this.lines.get(textWidth).map((line) => line.text);
     }
 
     private labelIndentFor(hint: IParameterHint): number {
         return hint.counter === null ? 0 : hint.counter.length + 1;
-    }
-
-    private layoutFor(textWidth: number): readonly IHintLine[] {
-        // A cache miss costs a recomputation but gives the same result — observable only
-        // by cost (hence the Stryker disable below).
-        // Stryker disable next-line ConditionalExpression,EqualityOperator,LogicalOperator,ObjectLiteral: a cache miss is an extra recomputation with the same result, not observable
-        if (this.linesCache !== null && this.linesCache.width === textWidth) return this.linesCache.lines;
-        const lines = this.buildLines(textWidth);
-        // Stryker disable next-line ObjectLiteral: an empty cache is a permanent miss, see above
-        this.linesCache = { width: textWidth, lines };
-        return lines;
     }
 
     private buildLines(textWidth: number): readonly IHintLine[] {
@@ -112,45 +105,36 @@ export class ParameterHintsElement extends TUIElement {
     }
 
     private textWidthFor(hint: IParameterHint): number {
-        const natural = Math.max(
-            naturalWidth(hint.label) + this.labelIndentFor(hint),
-            ...hint.documentation.map(naturalWidth),
-            MIN_WIDTH - TEXT_X - RIGHT_PAD - BORDER_THICKNESS,
+        return hoverTextWidth(
+            [naturalWidth(hint.label) + this.labelIndentFor(hint), ...hint.documentation.map(naturalWidth)],
+            this.maxWidth,
         );
-        return Math.min(natural, this.maxWidth - TEXT_X - RIGHT_PAD - BORDER_THICKNESS);
     }
 
-    private get boxWidth(): number {
+    private get boxSize(): Size {
         const hint = this.hintValue;
-        if (hint === null) return 0;
-        return TEXT_X + this.textWidthFor(hint) + RIGHT_PAD + BORDER_THICKNESS;
-    }
-
-    private get boxHeight(): number {
-        const hint = this.hintValue;
-        if (hint === null) return 0;
-        const lines = this.layoutFor(this.textWidthFor(hint)).length;
-        return Math.min(this.maxHeight, lines + BORDER_THICKNESS * 2);
+        const textWidth = hint === null ? null : this.textWidthFor(hint);
+        return hoverBoxSize(textWidth, (width) => this.lines.get(width).length, this.maxHeight);
     }
 
     public override getMinIntrinsicWidth(_height: number): number {
-        return this.boxWidth;
+        return this.boxSize.width;
     }
 
     public override getMaxIntrinsicWidth(_height: number): number {
-        return this.boxWidth;
+        return this.boxSize.width;
     }
 
     public override getMinIntrinsicHeight(_width: number): number {
-        return this.boxHeight;
+        return this.boxSize.height;
     }
 
     public override getMaxIntrinsicHeight(_width: number): number {
-        return this.boxHeight;
+        return this.boxSize.height;
     }
 
     protected override performLayout(constraints: BoxConstraints): Size {
-        const size = constraints.constrain(new Size(this.boxWidth, this.boxHeight));
+        const size = constraints.constrain(this.boxSize);
         super.performLayout(BoxConstraints.tight(size));
         return size;
     }
@@ -172,21 +156,21 @@ export class ParameterHintsElement extends TUIElement {
         const highlight = this.styleVar("editorHoverWidget.highlightForeground");
         context.drawBox(0, 0, w, h, { fg: border, bg: background, fill: true });
 
-        const textWidth = Math.max(0, w - TEXT_X - RIGHT_PAD - BORDER_THICKNESS);
-        const lines = this.layoutFor(textWidth);
-        const visible = Math.min(lines.length, Math.max(0, h - BORDER_THICKNESS * 2));
+        const textWidth = hoverTextWidthIn(w);
+        const lines = this.lines.get(textWidth);
+        const visible = hoverVisibleLineCount(lines.length, h);
         const [spanStart, spanEnd] = hint.activeSpan;
         for (let i = 0; i < visible; i++) {
             const line = lines[i];
             const y = BORDER_THICKNESS + i;
             if (line.separator) {
                 // Stryker disable next-line ObjectLiteral: drawBox already filled the interior with the box colors, so the explicit style matches the inherited one — it is there to not depend on the fill
-                context.drawText(TEXT_X, y, "─".repeat(textWidth), { fg: border, bg: background });
+                context.drawText(HOVER_BOX_TEXT_X, y, "─".repeat(textWidth), { fg: border, bg: background });
                 continue;
             }
             const labelStart = line.labelStart;
             context.drawText(
-                TEXT_X,
+                HOVER_BOX_TEXT_X,
                 y,
                 line.text,
                 { fg: foreground, bg: background },
@@ -209,10 +193,4 @@ export class ParameterHintsElement extends TUIElement {
             );
         }
     }
-}
-
-function naturalWidth(text: string): number {
-    let max = 0;
-    for (const line of text.split("\n")) max = Math.max(max, new DisplayLine(line).displayWidth);
-    return max;
 }

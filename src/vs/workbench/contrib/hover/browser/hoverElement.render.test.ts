@@ -33,6 +33,16 @@ describe("HoverElement — layout", () => {
         );
     });
 
+    it("new content at the same width replaces the cached lines", () => {
+        const element = new HoverElement();
+        element.setBlocks(["first"]);
+        expect(element.linesFor(20)).toEqual(["first"]);
+
+        element.setBlocks(["second"]);
+
+        expect(element.linesFor(20)).toEqual(["second"]);
+    });
+
     it("long text word-wraps within maxWidth", () => {
         const element = new HoverElement();
         element.maxWidth = 24;
