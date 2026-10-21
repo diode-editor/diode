@@ -1440,5 +1440,19 @@
       "large",
       "xlarge"
     ]
+  },
+  {
+    "file": "2026-10-21-db7dd22c6896.json",
+    "generatedAt": "2026-10-21T15:19:04.378Z",
+    "commit": "db7dd22c6896",
+    "binaryVersion": "nightly-db7dd22",
+    "ci": true,
+    "conditions": "CI, shared runner (GitHub Actions)",
+    "sizes": [
+      "small",
+      "medium",
+      "large",
+      "xlarge"
+    ]
   }
 ]
