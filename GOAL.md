@@ -1,54 +1,39 @@
-Project Goal: High-Performance TUI Engine (VS Code Clone)
-🎯 Objective
-Build a terminal-based text editor from scratch using Node.js & TypeScript. The ultimate goal is to create a console-based VS Code clone capable of running original VS Code extensions via an RPC-based Extension Host.
+# Цель проекта
 
-🏗 Architectural Constraints (NON-NEGOTIABLE)
-1. Zero Heavy Frameworks
-NO Ink, Blessed, React, or Vue — ничто не должно владеть рендер-циклом, layout'ом или моделью элементов: это ядро проекта (пп. 2-3).
+**Diode — терминальный клон VS Code на Node.js и TypeScript**, который запускает настоящие расширения VS Code
+через совместимый extension host. Пользователь VS Code открывает терминал и попадает в знакомый
+редактор: та же раскладка, те же команды и клавиши, те же настройки, те же расширения из магазина.
 
-Direct manipulation of process.stdout and process.stdin.
+Позиционирование, аудитория и текущая ставка — в [docs/VISION.md](docs/VISION.md), публичный план —
+в [docs/public/ROADMAP.md](docs/public/ROADMAP.md).
 
-Зависимости — не «поменьше любой ценой», а «простое и фундаментальное»: сфокусированную leaf-библиотеку без транзитивного хвоста брать можно и нужно, если задача фундаментальная, а не наша предметная (`vscode-textmate`, `vscode-oniguruma`, `jsonc-parser`, `chokidar`, `yauzl`). Нельзя — фреймворки и всё, что претендует на архитектуру.
+# Неизменяемые ограничения
 
-2. Rendering Engine
-Grid-based Model: The screen is a 2D matrix of Cell objects (char, fg, bg, styles).
+1. **Без фреймворков.** Ни Ink, ни Blessed, ни React/Vue. Никакая сторонняя библиотека не владеет
+   рендер-циклом, раскладкой или моделью элементов. Это делает свой движок
+   [TUIDom](https://github.com/tuidom/tuidom) (`@tuidom/*`): дерево элементов `TUIElement`, flex-раскладка,
+   сетка ячеек с двойной буферизацией и ANSI-диффом, TrueColor, alternate screen, Kitty keyboard protocol,
+   ноль runtime-зависимостей. Устройство движка и его ограничения описаны в его репозитории. Чего не хватает
+   — дорабатываем там, а не обходим в diode (AGENTS.md).
+2. **Зависимости — простое и фундаментальное.** Сфокусированную leaf-библиотеку без транзитивного хвоста
+   брать можно и нужно, если задача фундаментальная, а не наша предметная. Примеры: `vscode-textmate`,
+   `vscode-oniguruma`, `jsonc-parser`, `chokidar`, `yauzl`, `iconv-lite`, `@xterm/headless`, `node-pty`.
+   Нельзя брать фреймворки и всё, что претендует на архитектуру. Тяжёлое, что не нужно для первого кадра,
+   грузится лениво ([ленивые куски](docs/arch/Common.md#ленивые-куски-бандла)).
+3. **Реактивный цикл, без polling.** Никаких `setInterval`: процесс спит до события (ввод, файловая система,
+   RPC). Изменение состояния помечает элемент грязным, перерисовка собирается в один кадр.
+4. **Совместимость с VS Code — эталон, а не вдохновение.** API расширений (`vscode.d.ts`) запиннен к upstream.
+   Расширения работают в отдельном процессе extension host по RPC, их падение не роняет редактор. Устройство,
+   команды, настройки и поведение сверяются с исходниками VS Code. Где можно, код берётся из VS Code дословно:
+   дифф, PieceTree, токенизация. Отступление от эталона — осознанное решение, и оно записано.
+5. **Ядро текста масштабируется.** Документ хранится в PieceTree (дословный перенос из VS Code). Подсветка
+   идёт фоном и по вьюпорту, ввод её не ждёт. Большой файл не должен останавливать редактор.
 
-Double Buffering: Always maintain a currentFrame and nextFrame. Perform a diff to send minimal ANSI escape sequences.
+# Стек
 
-TrueColor Support: 24-bit RGB colors by default.
-
-Alternate Screen Buffer: Must use \x1b[?1049h and clean up on SIGINT/exit.
-
-3. Unified UI Model (UIElement)
-Every visual component (including the Editor itself) inherits from UIElement.
-
-Integrated Layout & Clipping: * Every element has a box (layout coordinates).
-
-render() method automatically calculates clipRect (intersection of parent and self).
-
-Scroll Support: Every element has scrollOffset. Children are rendered relative to parent.absX - parent.scrollOffset.
-
-Monolithic Awareness: Every element is "visibility-aware". If its box is outside the clipRect, it must skip drawing.
-
-4. Text Handling
-Editor Core: The text editor is a specialized UIElement that manages its own internal rendering (not using child UIElements for lines) for performance.
-
-Storage: Data must be stored using a Piece Table (or similar) to support massive files and O(1) undo/redo. (Текущее состояние — Piece Tree эталона за `src/vs/editor/common/model/textDocument.ts`; план ветки A — `docs/TODO/VscodeModel.md`.)
-
-UITextElement: A dedicated element for UI labels with Word Wrap support, where height is calculated based on maxWidth constraints.
-
-5. Reactive Event Loop
-No setInterval polling.
-
-The engine "sleeps" until an event (Input, Network, RPC) arrives.
-
-Any state change calls markDirty(), which batches a single tick() via setImmediate().
-
-🛠 Tech Stack
-Language: TypeScript (Strict mode).
-
-Runtime: Node.js.
-
-Protocols: LSP (Language Server Protocol), DAP (Debug Adapter Protocol), and a custom RPC for Extension Host.
-
-Input: stdin in Raw Mode with Kitty Keyboard Protocol support for advanced modifiers.
+- TypeScript (strict), Node.js. Релиз — один бинарь (Node SEA с V8-снапшотом).
+- Расширения — RPC к extension host. Языковые серверы поднимают сами расширения через стоковый
+  `vscode-languageclient`. Подсветка — TextMate-грамматики.
+- Ввод — stdin в raw mode, Kitty keyboard protocol там, где терминал его умеет.
+- Отладка через DAP — направление на потом. Сейчас `vscode.debug` — null-объект (см.
+  [матрицу API](docs/public/API-COVERAGE.md)).
