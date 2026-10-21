@@ -2,6 +2,7 @@ import { Size } from "@tuidom/core/common/geometryPromitives";
 import { BodyElement } from "@tuidom/elements/body/bodyElement";
 import { describe, expect, it } from "vitest";
 
+import { typeText } from "../../../../../TestUtils/domQueries.ts";
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
 
 import { QuickInputComponent } from "./quickInputComponent.ts";
@@ -25,6 +26,11 @@ function deferred<T>(): { promise: Promise<T>; resolve: (value: T) => void } {
     return { promise, resolve };
 }
 
+/** Enter settles through a validation promise: give it a turn before asserting the box is still open. */
+function settled(): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, 0));
+}
+
 describe("QuickInputService.input — validation message shape", () => {
     it("a bare string is an error: shown and blocks Enter", async () => {
         const { service, component, testApp } = createService();
@@ -36,6 +42,7 @@ describe("QuickInputService.input — validation message shape", () => {
         expect(component.view.validationSeverity).toBe("error");
 
         testApp.sendKey("Enter");
+        await settled();
         expect(component.isOpen()).toBe(true);
 
         testApp.sendKey("Backspace");
@@ -164,6 +171,69 @@ describe("QuickInputService.input — async validation", () => {
         await gate.promise;
 
         testApp.sendKey("Enter");
+        await settled();
         expect(component.isOpen()).toBe(true);
+    });
+
+    // The race behind the explorer-compact-segments e2e flake on windows: New File's `exists` check
+    // was still running for the typed name while the screen kept the empty name's error.
+    it("Enter during a pending check of the current text waits for it and accepts", async () => {
+        const { service, component, testApp } = createService();
+        const gate = deferred<InputValidation | null>();
+        const result = service.input({
+            validateInput: (value) => (value === "" ? "Please enter a name" : gate.promise),
+        });
+        typeText(testApp, "ok");
+        expect(component.view.validationMessage).toBe("Please enter a name");
+
+        testApp.sendKey("Enter");
+        gate.resolve(null);
+
+        await expect(result).resolves.toBe("ok");
+    });
+
+    it("Enter during a pending check that ends in an error keeps the box open with the message", async () => {
+        const { service, component, testApp } = createService();
+        const gate = deferred<InputValidation | null>();
+        void service.input({ validateInput: (value) => (value === "" ? "Please enter a name" : gate.promise) });
+        typeText(testApp, "taken");
+
+        testApp.sendKey("Enter");
+        gate.resolve("Already exists");
+        await settled();
+
+        expect(component.isOpen()).toBe(true);
+        expect(component.view.validationMessage).toBe("Already exists");
+    });
+
+    it("Enter reuses the check already running for the text", async () => {
+        const { service, testApp } = createService();
+        const checked: string[] = [];
+        const result = service.input({
+            validateInput: (value) => {
+                checked.push(value);
+                return Promise.resolve(null);
+            },
+        });
+        testApp.sendKey("a");
+        testApp.sendKey("Enter");
+
+        await expect(result).resolves.toBe("a");
+        expect(checked).toEqual(["", "a"]);
+    });
+
+    it("Enter after the box was taken over by another show does not resolve the old one", async () => {
+        const { service, testApp } = createService();
+        const gate = deferred<InputValidation | null>();
+        const first = service.input({ validateInput: (value) => (value === "" ? null : gate.promise) });
+        testApp.sendKey("a");
+        testApp.sendKey("Enter");
+        const second = service.input({ prompt: "second show" });
+        gate.resolve(null);
+
+        await expect(first).resolves.toBeUndefined();
+        testApp.sendKey("b");
+        testApp.sendKey("Enter");
+        await expect(second).resolves.toBe("b");
     });
 });

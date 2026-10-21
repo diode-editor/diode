@@ -439,11 +439,12 @@ export class QuickPickElement extends TUIElement {
     }
 
     private accept(): void {
-        if (this.validationMessage !== null && this.validationSeverity === "error") return;
         if (this.acceptMode === "value") {
+            // The owner validates the accepted text itself: the message on screen may be the previous text's.
             this.onAcceptValue?.(this.getQuery());
             return;
         }
+        if (this.validationMessage !== null && this.validationSeverity === "error") return;
         if (this.canPickMany) {
             // An empty checked set is an empty answer, not a cancel and not the row under the cursor.
             // Stryker disable next-line OptionalChaining: the show's owner sets the callback before opening; multi-select without onAcceptMany never happens in the app, the check is a safeguard

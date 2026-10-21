@@ -53,6 +53,10 @@ function isThenable(value: unknown): value is Promise<InputValidation | null> {
     return typeof (value as { then?: unknown } | null)?.then === "function";
 }
 
+function blocksAccept(validation: InputValidation | null): boolean {
+    return validation !== null && (typeof validation === "string" || validation.severity === "error");
+}
+
 /**
  * The widget and overlay session are owned by {@link QuickInputComponent}, shared with QuickOpenService:
  * every show re-initializes the widget's state and callbacks, and a new show cancels the previous one.
@@ -104,23 +108,31 @@ export class QuickInputService {
                 }
                 view.markDirty();
             };
+            // Every text change starts its check at once (upstream debounces, we don't), so the latest
+            // outcome is always for the text on screen.
+            let latest: Promise<InputValidation | null>;
             const runValidation = (query: string): void => {
-                if (validate === undefined) {
-                    showValidation(null);
-                    return;
-                }
                 const ticket = validation.start();
-                const outcome = validate(query);
-                if (!isThenable(outcome)) {
-                    showValidation(outcome);
+                const raw = validate === undefined ? null : validate(query);
+                latest = Promise.resolve(raw);
+                if (!isThenable(raw)) {
+                    showValidation(raw);
                     return;
                 }
-                void outcome.then((result) => {
+                void raw.then((result) => {
                     if (ticket.isStale() || this.pendingResolve !== owner) return;
                     showValidation(result);
                 });
             };
             view.onQueryChange = runValidation;
+            // As upstream: Enter waits for the outcome on the accepted text. The message on screen may
+            // still be the previous text's while a slow check (a disk lookup) is in flight.
+            view.onAcceptValue = (value) => {
+                void latest.then((result) => {
+                    if (this.pendingResolve !== owner || blocksAccept(result)) return;
+                    this.settle(value);
+                });
+            };
 
             view.setQuery(opts.value ?? "");
             runValidation(view.getQuery());
