@@ -110,7 +110,7 @@ describe("ViewportSemanticTokens", () => {
         expect(unexpected).toEqual([]);
     });
 
-    it("после паузы спрашивает видимые строки ± max(20, высота) целиком и кладёт ответ в хранилище", async () => {
+    it("after a delay requests visible lines ± max(20, height) in full and stores the result", async () => {
         const { provider, ref, document } = setup();
         await tick(149);
         expect(provider.calls).toHaveLength(0);
@@ -128,7 +128,7 @@ describe("ViewportSemanticTokens", () => {
         expect(ref.store.hasCompleteSemanticTokens()).toBe(false);
     });
 
-    it("высокий вьюпорт — запас в его высоту; края документа зажимают диапазон", async () => {
+    it("tall viewport pads by its height; document edges clamp the range", async () => {
         const tall = setup(100, { startLine: 0, endLine: 29 });
         await tick(150);
         expect(tall.provider.last().request.range).toEqual(createRange(0, 0, 59, "line 59".length));
@@ -138,7 +138,7 @@ describe("ViewportSemanticTokens", () => {
         expect(short.provider.last().request.range).toEqual(createRange(0, 0, 9, "line 9".length));
     });
 
-    it("ответ кладётся только в свой диапазон строк", async () => {
+    it("result is stored only into its own line range", async () => {
         const { provider, ref } = setup();
         ref.store.setPartial(0, 99, decodeSemanticTokens(new Uint32Array([10, 0, 1, 0, 0, 30, 0, 1, 0, 0]), LEGEND));
         await tick(150);
@@ -150,7 +150,7 @@ describe("ViewportSemanticTokens", () => {
         expect(ref.store.getLineTokens(45)?.tokens).toEqual([0, 2, 0, 0]);
     });
 
-    it("пустой ответ ничего не трогает", async () => {
+    it("empty result touches nothing", async () => {
         const { provider, ref } = setup();
         const listener = vi.fn();
         ref.store.onDidChange(listener);
@@ -160,7 +160,7 @@ describe("ViewportSemanticTokens", () => {
         expect(listener).not.toHaveBeenCalled();
     });
 
-    it("полный набор есть — range-провайдер не зовётся", async () => {
+    it("full set present: the range provider is not called", async () => {
         const { provider, ref, scroll } = setup();
         ref.store.set(null, true);
         await tick(150);
@@ -169,13 +169,13 @@ describe("ViewportSemanticTokens", () => {
         expect(provider.calls).toHaveLength(0);
     });
 
-    it("видимой области нет — запроса нет", async () => {
+    it("no visible area means no request", async () => {
         const { provider } = setup(100, null);
         await tick(1000);
         expect(provider.calls).toHaveLength(0);
     });
 
-    it("скролл отменяет запрос в полёте: его ответ отброшен, новый — после паузы", async () => {
+    it("scroll cancels the request in flight: its result is dropped, a new one follows after a delay", async () => {
         const { provider, ref, scroll, viewport } = setup();
         await tick(150);
         const first = provider.last();
@@ -190,7 +190,7 @@ describe("ViewportSemanticTokens", () => {
         expect(provider.last().request.range).toEqual(createRange(40, 0, 89, "line 89".length));
     });
 
-    it("правка документа отменяет запрос и перепланирует", async () => {
+    it("document edit cancels the request and reschedules", async () => {
         const { provider, ref, document } = setup();
         await tick(150);
         const first = provider.last();
@@ -203,7 +203,7 @@ describe("ViewportSemanticTokens", () => {
         expect(provider.last().request.versionId).toBe(document.versionId);
     });
 
-    it("onDidChange провайдера и смена языка перепланируют запрос", async () => {
+    it("provider onDidChange and language change reschedule the request", async () => {
         const { provider, document } = setup();
         await tick(150);
         provider.last().resolve(null);
@@ -221,7 +221,7 @@ describe("ViewportSemanticTokens", () => {
         expect(provider.calls).toHaveLength(2);
     });
 
-    it("опоздавший ответ отменённого запроса не мешает отменить следующий", async () => {
+    it("late result of a cancelled request does not prevent cancelling the next one", async () => {
         const { provider, scroll } = setup();
         await tick(150);
         const first = provider.last();
@@ -234,7 +234,7 @@ describe("ViewportSemanticTokens", () => {
         expect(second.token.isCancellationRequested).toBe(true);
     });
 
-    it("завершённый запрос из списка отмены уходит: следующий скролл его не отменяет", async () => {
+    it("completed request leaves the cancel list: the next scroll does not cancel it", async () => {
         const { provider, scroll } = setup();
         await tick(150);
         const first = provider.last();
@@ -244,7 +244,7 @@ describe("ViewportSemanticTokens", () => {
         expect(first.token.isCancellationRequested).toBe(false);
     });
 
-    it("после смены языка — подписка на провайдеров нового языка, старые не будят", async () => {
+    it("after a language change subscribes to new language providers, old ones do not wake it", async () => {
         const { features, provider, document } = setup();
         const kotlin = new FakeRangeProvider();
         features.documentRangeSemanticTokensProvider.register("kotlin", kotlin);
@@ -263,7 +263,7 @@ describe("ViewportSemanticTokens", () => {
         expect(kotlin.calls).toHaveLength(2);
     });
 
-    it("новый провайдер в реестре — подписка и на его onDidChange", async () => {
+    it("new provider in the registry gets its onDidChange subscribed too", async () => {
         const { features, provider } = setup();
         await tick(150);
         provider.last().resolve(null);
@@ -280,7 +280,7 @@ describe("ViewportSemanticTokens", () => {
         expect(late.calls).toHaveLength(2);
     });
 
-    it("подсветка выключена — частичные токены стираются, запроса нет", async () => {
+    it("highlighting off clears partial tokens, no request", async () => {
         const { provider, ref, configuration } = setup();
         await tick(150);
         provider.last().resolve(tokenAt(45));
@@ -292,7 +292,7 @@ describe("ViewportSemanticTokens", () => {
         expect(provider.calls).toHaveLength(1);
     });
 
-    it("выключено и токенов нет — хранилище не трогается", async () => {
+    it("off and no tokens: the store is untouched", async () => {
         const { provider, ref, configuration } = setup();
         await configuration.updateValue(SEMANTIC_HIGHLIGHTING_SETTING_ID, false);
         const listener = vi.fn();
@@ -312,7 +312,7 @@ describe("ViewportSemanticTokens", () => {
         expect(provider.calls).toHaveLength(1);
     });
 
-    it("провайдер снят — частичные токены стираются", async () => {
+    it("provider removed: partial tokens are cleared", async () => {
         const { features, provider, ref, registration } = setup();
         await tick(150);
         provider.last().resolve(tokenAt(45));
@@ -326,7 +326,7 @@ describe("ViewportSemanticTokens", () => {
         expect(provider.calls).toHaveLength(2);
     });
 
-    it("пауза адаптируется под время ответа (100–500 мс)", async () => {
+    it("delay adapts to the response time (100-500 ms)", async () => {
         const { provider, scroll } = setup();
         await tick(150);
         await tick(400);
@@ -339,7 +339,7 @@ describe("ViewportSemanticTokens", () => {
         expect(provider.calls).toHaveLength(2);
     });
 
-    it("dispose отменяет запросы и снимает подписки", async () => {
+    it("dispose cancels requests and removes listeners", async () => {
         const { provider, scroll, view } = setup();
         await tick(150);
         const inFlight = provider.last();

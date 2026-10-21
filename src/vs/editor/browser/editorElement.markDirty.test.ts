@@ -11,8 +11,8 @@ import { EditorElement } from "./editorElement.ts";
 // An input frame renders only on the dirty flag: a standalone editor has no side
 // "selections → status bar" chain, so it must mark itself.
 
-describe("EditorElement — markDirty на смену курсора", () => {
-    it("reassign selections (печать, мышь, undo, команды) помечает layout грязным", () => {
+describe("EditorElement — markDirty on cursor change", () => {
+    it("reassigning selections (typing, mouse, undo, commands) marks layout dirty", () => {
         const viewState = new EditorViewState(new TextDocument("hello\nworld\n"));
         const editor = new EditorElement(viewState);
         TestApp.createWithContent(editor, new Size(30, 5));
@@ -23,7 +23,7 @@ describe("EditorElement — markDirty на смену курсора", () => {
         expect(editor.isLayoutDirty).toBe(true);
     });
 
-    it("печать символа помечает layout грязным без участия статус-бара", () => {
+    it("typing a character marks layout dirty without the status bar", () => {
         const viewState = new EditorViewState(new TextDocument("hello\n"));
         const editor = new EditorElement(viewState);
         const app = TestApp.createWithContent(editor, new Size(30, 5));

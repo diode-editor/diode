@@ -50,7 +50,7 @@ const lines = (count: number, line = "x"): TextDocument =>
 async function until(condition: () => boolean): Promise<void> {
     const deadline = Date.now() + 2000;
     while (!condition()) {
-        if (Date.now() > deadline) throw new Error("фон не дошёл за 2 с");
+        if (Date.now() > deadline) throw new Error("background did not finish in 2 s");
         await new Promise<void>((resolve) => setImmediate(resolve));
     }
 }
@@ -62,8 +62,8 @@ afterEach(() => {
     vi.useRealTimers();
 });
 
-describe("DocumentTokenStore — фоновая токенизация", () => {
-    it("докрашивает весь документ без единого запроса рендера и докладывает строки", async () => {
+describe("DocumentTokenStore: background tokenization", () => {
+    it("tokenizes the whole document without a single render request and reports lines", async () => {
         const doc = lines(300);
         const store = new DocumentTokenStore(doc, new StatefulTokenizer());
         const reported = new Set<number>();
@@ -75,14 +75,14 @@ describe("DocumentTokenStore — фоновая токенизация", () => {
         await untilBackgroundCompleted(store);
 
         for (let line = 0; line < doc.lineCount; line++) {
-            expect(store.getLineTokens(line), `строка ${String(line)}`).toBeDefined();
+            expect(store.getLineTokens(line), `line ${String(line)}`).toBeDefined();
             expect(store.hasAccurateTokensForLine(line)).toBe(true);
         }
         expect(reported.size).toBe(doc.lineCount);
         store.dispose();
     });
 
-    it("уступает между кусками: за один заход очереди — строки за ~1 мс, не весь файл", () => {
+    it("yields between chunks: one queue turn covers ~1 ms of lines, not the whole file", () => {
         vi.useFakeTimers();
         // A line "costs" 1 ms of fake time: the chunk stops after the second line.
         const doc = lines(100);
@@ -103,7 +103,7 @@ describe("DocumentTokenStore — фоновая токенизация", () => {
         store.dispose();
     });
 
-    it("правка, сменившая состояние, перекрашивает хвост фоном", async () => {
+    it("edit that changed state retokenizes the tail in the background", async () => {
         const doc = lines(50);
         const store = new DocumentTokenStore(doc, new StatefulTokenizer());
         await untilBackgroundCompleted(store);
@@ -116,7 +116,7 @@ describe("DocumentTokenStore — фоновая токенизация", () => {
         store.dispose();
     });
 
-    it("правки в середине файла: после доводки до конца фону нечего делать, и он не падает", () => {
+    it("edits mid-file: after catching up to the end the background has nothing to do and does not throw", () => {
         vi.useFakeTimers();
         const errors: unknown[] = [];
         setUnexpectedErrorHandler((e) => errors.push(e));
@@ -144,7 +144,7 @@ describe("DocumentTokenStore — фоновая токенизация", () => {
         }
     });
 
-    it("dispose останавливает фон: токенизатор больше не зовут", () => {
+    it("dispose stops the background: the tokenizer is no longer called", () => {
         vi.useFakeTimers();
         const onLine = vi.fn();
         const store = new DocumentTokenStore(lines(100), new StatefulTokenizer(onLine));
@@ -153,7 +153,7 @@ describe("DocumentTokenStore — фоновая токенизация", () => {
         expect(onLine).not.toHaveBeenCalled();
     });
 
-    it("смена токенизатора начинает фон заново", async () => {
+    it("tokenizer change restarts the background", async () => {
         const doc = lines(20);
         const store = new DocumentTokenStore(doc, new StatefulTokenizer());
         await untilBackgroundCompleted(store);

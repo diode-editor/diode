@@ -40,7 +40,7 @@ function createEditor(
 }
 
 describe("EditorElement — ghost text", () => {
-    it("хвост первой строки рисуется серым после конца текста, документ не тронут", () => {
+    it("the first-line tail is drawn grey after the end of text, the document is untouched", () => {
         const { app, editor } = createEditor("const x = 1", {
             line: 0,
             character: 11,
@@ -54,7 +54,7 @@ describe("EditorElement — ghost text", () => {
         expect(editor.viewState.document.getText()).toBe("const x = 1");
     });
 
-    it("многострочная подсказка: строки-зоны под кареткой, документные строки съезжают вниз", () => {
+    it("multi-line suggestion: zone rows under the cursor, document lines shift down", () => {
         const { app, editor } = createEditor("alpha\nbravo", {
             line: 0,
             character: 5,
@@ -76,7 +76,7 @@ describe("EditorElement — ghost text", () => {
         expect(app.backend.getTextAt(new Point(gutterW, 3), 9)).toBe("bravo    ");
     });
 
-    it("соседние строки документа фантом не красит", () => {
+    it("the ghost does not paint neighbouring document lines", () => {
         // Ghost text targets the cursor line: other lines must keep their own
         // text in the same columns as editor text.
         const { app, editor } = createEditor("alpha\nbravo-charlie", {
@@ -92,7 +92,7 @@ describe("EditorElement — ghost text", () => {
         expect(app.backend.getFgAt(new Point(gutterW + 8, 1))).toBe(EDITOR_FG);
     });
 
-    it("строки-зоны: таб, широкие символы и обрезка по правому краю", () => {
+    it("zone rows: tab, wide characters and clipping at the right edge", () => {
         const contentCols = 24 - 6; // gutterWidth with single-digit line numbers = 6
         const { app, editor } = createEditor("alpha", {
             line: 0,
@@ -114,7 +114,7 @@ describe("EditorElement — ghost text", () => {
         expect(app.backend.getTextAt(new Point(gutterW, 3), contentCols)).toBe("b".repeat(contentCols));
     });
 
-    it("чужие зоны переживают однострочную подсказку (свои зоны не трогаются)", () => {
+    it("foreign zones survive a single-line suggestion (own zones are untouched)", () => {
         const viewState = new EditorViewState(new TextDocument("alpha\nbravo"));
         viewState.setViewZones([{ afterLine: 1, size: 1 }]); // the view owner's zone
         const editor = new EditorElement(viewState);
@@ -127,7 +127,7 @@ describe("EditorElement — ghost text", () => {
         expect(viewState.viewZones).toEqual([{ afterLine: 1, size: 1 }]);
     });
 
-    it("колонка подсказки за концом строки — защитный кламп в конец (устаревший ghost)", () => {
+    it("suggestion column past the line end — defensive clamp to the end (stale ghost)", () => {
         // The line got shorter under the shown ghost text: column 5 no longer
         // exists. Ghost text goes to the end of the line, not into thin air.
         const { app, editor } = createEditor("ab", { line: 0, character: 5, lines: ["ZZ"] });
@@ -138,7 +138,7 @@ describe("EditorElement — ghost text", () => {
         expect(app.backend.getFgAt(new Point(gutterW + 2, 0))).toBe(GHOST_FG);
     });
 
-    it("строки подсказки в документе нет — кадр рисуется без неё и без падения", () => {
+    it("the suggestion line is missing from the document — the frame renders without it and without crashing", () => {
         // The line vanished under the shown ghost text (or it was placed off target):
         // there is nothing to attach ghost text to, so the frame just draws the document. A line
         // right after the last one (number == lineCount) is off target too: numbering is 0-based.
@@ -148,14 +148,14 @@ describe("EditorElement — ghost text", () => {
         }
     });
 
-    it("каретка в середине строки — хвост строки уезжает вправо (см. ghostTextMidLine)", () => {
+    it("cursor mid-line — the line tail shifts right (see ghostTextMidLine)", () => {
         const { app, editor } = createEditor("ab", { line: 0, character: 1, lines: ["ZZ"] });
 
         const gutterW = editor.gutterWidth;
         expect(app.backend.getTextAt(new Point(gutterW, 0), 4)).toBe("aZZb");
     });
 
-    it("word wrap: хвост подсказки рисуется на последнем фрагменте с учётом его начала", () => {
+    it("word wrap: the suggestion tail is drawn on the last fragment relative to its start", () => {
         const text = "a".repeat(15); // wider than the content area → wraps
         const viewState = new EditorViewState(new TextDocument(text));
         viewState.wordWrap = "on";
@@ -173,7 +173,7 @@ describe("EditorElement — ghost text", () => {
         expect(app.backend.getFgAt(new Point(gutterW + 5, 1))).toBe(GHOST_FG);
     });
 
-    it("снятие подсказки убирает и хвост, и зоны", () => {
+    it("clearing the suggestion removes both the tail and the zones", () => {
         const { app, editor } = createEditor("alpha\nbravo", {
             line: 0,
             character: 5,
@@ -188,7 +188,7 @@ describe("EditorElement — ghost text", () => {
         expect(editor.viewState.viewZones).toEqual([]);
     });
 
-    it("однострочная подсказка зон не заводит и не сбрасывает чужие настройки зон", () => {
+    it("a single-line suggestion creates no zones and does not reset foreign zone settings", () => {
         const viewState = new EditorViewState(new TextDocument("alpha"));
         let viewChanges = 0;
         viewState.onDidChangeView(() => {
@@ -205,7 +205,7 @@ describe("EditorElement — ghost text", () => {
         expect(viewChanges).toBe(0);
     });
 
-    it("повторная установка равной подсказки — no-op", () => {
+    it("setting an equal suggestion again is a no-op", () => {
         const { editor } = createEditor("alpha", null);
         const ghost: IGhostText = { line: 0, character: 5, lines: ["-x", "y"] };
         editor.setGhostText(ghost);
@@ -219,11 +219,11 @@ describe("EditorElement — ghost text", () => {
         expect(editor.ghostText).toBe(ghost);
     });
 
-    it("хвост клипается по правому краю контентной области", () => {
+    it("the tail is clipped at the right edge of the content area", () => {
         const { app, editor } = createEditor("ab", {
             line: 0,
             character: 2,
-            lines: ["-очень-длинный-призрачный-хвост"],
+            lines: ["-very-long-ghost-text-tail-here"],
         });
 
         const gutterW = editor.gutterWidth;
@@ -231,11 +231,11 @@ describe("EditorElement — ghost text", () => {
         const row = app.backend.getTextAt(new Point(gutterW, 0), contentCols);
         // Exact equality up to the last column: clipping does not turn
         // ordinary characters into spaces (only wide ones at the edge get that).
-        expect(row).toBe("ab-очень-длинный-призрачный-хвост".slice(0, contentCols));
+        expect(row).toBe("ab-very-long-ghost-text-tail-here".slice(0, contentCols));
         expect(row.length).toBe(contentCols);
     });
 
-    it("широкие символы и табы в подсказке занимают свои колонки", () => {
+    it("wide characters and tabs in the suggestion take their own columns", () => {
         const { app, editor } = createEditor("x", {
             line: 0,
             character: 1,
@@ -253,7 +253,7 @@ describe("EditorElement — ghost text", () => {
         expect(app.backend.getFgAt(new Point(gutterW + 1 + 2 + tabWidth, 0))).toBe(GHOST_FG);
     });
 
-    it("горизонтальный скролл: колонки подсказки левее вьюпорта пропускаются", () => {
+    it("horizontal scroll: suggestion columns left of the viewport are skipped", () => {
         // The cursor line is wider than the viewport; scrolling right moves the start
         // of the ghost text past the left edge, so only its tail is visible.
         const viewState = new EditorViewState(new TextDocument("0123456789abcdefghij"));
@@ -270,7 +270,7 @@ describe("EditorElement — ghost text", () => {
         expect(app.backend.getFgAt(new Point(gutterW, 0))).toBe(GHOST_FG);
     });
 
-    it("широкий символ подсказки, не влезающий у правого края, рисуется пробелом", () => {
+    it("a wide suggestion character that does not fit at the right edge is drawn as a space", () => {
         const { app, editor } = createEditor("x", {
             line: 0,
             character: 1,
@@ -285,7 +285,7 @@ describe("EditorElement — ghost text", () => {
         expect(row.startsWith("x" + "a".repeat(16))).toBe(true);
     });
 
-    it("inspectState отдаёт подсказку для e2e-ассертов", () => {
+    it("inspectState exposes the suggestion for e2e asserts", () => {
         const { editor } = createEditor("alpha", { line: 0, character: 5, lines: ["-x", "y"] });
         expect(editor.inspectState().ghostText).toEqual({ line: 0, character: 5, lines: ["-x", "y"] });
 
@@ -295,7 +295,7 @@ describe("EditorElement — ghost text", () => {
 });
 
 describe("ghostTextEquals", () => {
-    it("сравнивает по значению, null — только с null", () => {
+    it("compares by value, null equals only null", () => {
         const a: IGhostText = { line: 1, character: 2, lines: ["x", "y"] };
         expect(ghostTextEquals(a, { line: 1, character: 2, lines: ["x", "y"] })).toBe(true);
         expect(ghostTextEquals(a, { line: 1, character: 2, lines: ["x"] })).toBe(false);

@@ -5,14 +5,14 @@ import { TextDocument } from "../model/textDocument.ts";
 
 import { EditorViewState } from "./editorViewState.ts";
 
-describe("EditorViewState.selections — нормализация в сеттере", () => {
-    it("геттер отдаёт выделения в документном порядке, как бы их ни присвоили", () => {
+describe("EditorViewState.selections — normalization in the setter", () => {
+    it("getter returns selections in document order however they were assigned", () => {
         const state = new EditorViewState(new TextDocument("aaa\nbbb\nccc"));
         state.selections = [createCursorSelection(2, 0), createCursorSelection(0, 0), createCursorSelection(1, 0)];
         expect(state.selections.map((sel) => sel.active.line)).toEqual([0, 1, 2]);
     });
 
-    it("конструктор нормализует стартовые выделения", () => {
+    it("constructor normalizes initial selections", () => {
         const state = new EditorViewState(new TextDocument("aaa\nbbb"), [
             createCursorSelection(1, 0),
             createCursorSelection(0, 0),
@@ -20,7 +20,7 @@ describe("EditorViewState.selections — нормализация в сетте�
         expect(state.selections.map((sel) => sel.active.line)).toEqual([0, 1]);
     });
 
-    it("присваивание файрит cursor-change РОВНО один раз, уже с финальным набором", () => {
+    it("assignment fires cursor-change EXACTLY once, already with the final set", () => {
         const state = new EditorViewState(new TextDocument("abcdef"));
         const seen: number[] = [];
         state.onDidChangeCursorPosition(() => {
@@ -33,13 +33,13 @@ describe("EditorViewState.selections — нормализация в сетте�
         expect(seen).toEqual([2]);
     });
 
-    it("дубликаты схлопываются при присваивании", () => {
+    it("duplicates collapse on assignment", () => {
         const state = new EditorViewState(new TextDocument("abcdef"));
         state.selections = [createCursorSelection(0, 2), createCursorSelection(0, 2)];
         expect(state.selections).toHaveLength(1);
     });
 
-    it("каретка внутри выделения растворяется в нём", () => {
+    it("a cursor inside a selection dissolves into it", () => {
         const state = new EditorViewState(new TextDocument("abcdef"));
         state.selections = [createSelection(0, 1, 0, 5), createCursorSelection(0, 3)];
         expect(state.selections).toHaveLength(1);
@@ -48,8 +48,8 @@ describe("EditorViewState.selections — нормализация в сетте�
     });
 });
 
-describe("EditorViewState — слияние по ходу навигации и правок", () => {
-    it("cursorTop сводит все каретки в одну", () => {
+describe("EditorViewState — merging during navigation and edits", () => {
+    it("cursorTop merges all cursors into one", () => {
         const doc = new TextDocument("aaa\nbbb\nccc");
         const state = new EditorViewState(doc, [
             createCursorSelection(0, 1),
@@ -61,7 +61,7 @@ describe("EditorViewState — слияние по ходу навигации и
         expect(state.selections[0].active).toEqual({ line: 0, character: 0 });
     });
 
-    it("cursorBottom сводит все каретки в одну", () => {
+    it("cursorBottom merges all cursors into one", () => {
         const doc = new TextDocument("aaa\nbbb");
         const state = new EditorViewState(doc, [createCursorSelection(0, 0), createCursorSelection(1, 0)]);
         state.cursorBottom();
@@ -69,7 +69,7 @@ describe("EditorViewState — слияние по ходу навигации и
         expect(state.selections[0].active).toEqual({ line: 1, character: 3 });
     });
 
-    it("cursorHome сводит две каретки одной строки в одну", () => {
+    it("cursorHome merges two cursors on one line into one", () => {
         const doc = new TextDocument("hello");
         const state = new EditorViewState(doc, [createCursorSelection(0, 2), createCursorSelection(0, 4)]);
         state.cursorHome();
@@ -77,7 +77,7 @@ describe("EditorViewState — слияние по ходу навигации и
         expect(state.selections[0].active).toEqual({ line: 0, character: 0 });
     });
 
-    it("cursorLeft у соседних кареток схлопывает их, когда они встречаются", () => {
+    it("cursorLeft collapses adjacent cursors when they meet", () => {
         const doc = new TextDocument("abc");
         const state = new EditorViewState(doc, [createCursorSelection(0, 0), createCursorSelection(0, 1)]);
         state.cursorLeft();
@@ -86,7 +86,7 @@ describe("EditorViewState — слияние по ходу навигации и
         expect(state.selections[0].active).toEqual({ line: 0, character: 0 });
     });
 
-    it("правка, сводящая каретки в одну точку, оставляет один курсор", () => {
+    it("an edit bringing cursors to one point leaves a single cursor", () => {
         const doc = new TextDocument("abc");
         const state = new EditorViewState(doc, [createCursorSelection(0, 1), createCursorSelection(0, 2)]);
         state.deleteLeft();
@@ -95,7 +95,7 @@ describe("EditorViewState — слияние по ходу навигации и
         expect(state.selections[0].active).toEqual({ line: 0, character: 0 });
     });
 
-    it("undo-элемент несёт уже слитый afterSelections — redo не воскрешает дубли", () => {
+    it("undo element carries the already merged afterSelections — redo does not revive duplicates", () => {
         const doc = new TextDocument("abc");
         const state = new EditorViewState(doc, [createCursorSelection(0, 1), createCursorSelection(0, 2)]);
         const element = state.deleteLeft();
@@ -103,7 +103,7 @@ describe("EditorViewState — слияние по ходу навигации и
         expect(element?.afterSelections).toHaveLength(1);
     });
 
-    it("restoreSelections нормализует снимок", () => {
+    it("restoreSelections normalizes the snapshot", () => {
         const doc = new TextDocument("abcdef");
         const state = new EditorViewState(doc);
         state.restoreSelections([createCursorSelection(0, 4), createCursorSelection(0, 4)]);

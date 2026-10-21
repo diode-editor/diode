@@ -97,7 +97,7 @@ describe("TextDocument EOL model", () => {
         expect(fired).toBe(0);
     });
 
-    it("dispose подписки onDidChangeEol останавливает доставку, повторный dispose — no-op", () => {
+    it("disposing the onDidChangeEol subscription stops delivery, second dispose is a no-op", () => {
         const doc = new TextDocument("a\nb");
         let fired = 0;
         const subscription = doc.onDidChangeEol(() => fired++);
@@ -111,7 +111,7 @@ describe("TextDocument EOL model", () => {
         other.dispose();
     });
 
-    it("setText объявляет смену EOL ровно тогда, когда он сменился", () => {
+    it("setText reports an EOL change exactly when it changed", () => {
         const doc = new TextDocument("a\nb");
         let fired = 0;
         doc.onDidChangeEol(() => fired++);

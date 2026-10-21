@@ -8,7 +8,7 @@ import { TextDocument } from "../model/textDocument.ts";
 import { EditorViewState } from "./editorViewState.ts";
 
 describe("EditorViewState — marker decorations", () => {
-    it("отдаёт маркеры с серьёзностью и сдвинутым правкой диапазоном", () => {
+    it("returns markers with severity and a range shifted by an edit", () => {
         const doc = new TextDocument("let bad = 1;");
         const viewState = new EditorViewState(doc);
         viewState.setMarkerDecorations([
@@ -22,7 +22,7 @@ describe("EditorViewState — marker decorations", () => {
         ]);
     });
 
-    it("новый набор заменяет прежний, а не добавляется к нему", () => {
+    it("a new set replaces the previous one instead of adding to it", () => {
         const doc = new TextDocument("let bad = 1;");
         const viewState = new EditorViewState(doc);
         viewState.setMarkerDecorations([{ range: createRange(0, 4, 0, 7), severity: MarkerSeverity.Error }]);
@@ -32,7 +32,7 @@ describe("EditorViewState — marker decorations", () => {
         ]);
     });
 
-    it("новый набор снимает из документа прежние декорации, а не копит их", () => {
+    it("a new set removes previous decorations from the document instead of accumulating them", () => {
         const doc = new TextDocument("let bad = 1;");
         const viewState = new EditorViewState(doc);
         const delta = vi.spyOn(doc, "deltaDecorations");
@@ -43,7 +43,7 @@ describe("EditorViewState — marker decorations", () => {
         expect(firstIds.map((id) => doc.getDecorationRange(id))).toEqual([null]);
     });
 
-    it("две вью одного документа держат свои маркеры; dispose снимает только свои", () => {
+    it("two views of one document keep their own markers; dispose removes only its own", () => {
         const doc = new TextDocument("let bad = 1;");
         const left = new EditorViewState(doc);
         const right = new EditorViewState(doc);

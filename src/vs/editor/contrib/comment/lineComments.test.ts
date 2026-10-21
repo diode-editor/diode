@@ -20,19 +20,19 @@ function apply(lines: string[], which: number[], mode: "toggle" | "add" | "remov
 }
 
 describe("planLineComments — toggle", () => {
-    it("комментирует раскомментированную строку с пробелом после маркера", () => {
+    it("comments an uncommented line with a space after the marker", () => {
         expect(apply(["const a = 1;"], [0])).toEqual(["// const a = 1;"]);
     });
 
-    it("снимает маркер вместе с одним пробелом после него", () => {
+    it("removes the marker together with one space after it", () => {
         expect(apply(["// const a = 1;"], [0])).toEqual(["const a = 1;"]);
     });
 
-    it("снимает маркер и без пробела после него", () => {
+    it("removes the marker without a space after it too", () => {
         expect(apply(["//const a = 1;"], [0])).toEqual(["const a = 1;"]);
     });
 
-    it("маркер уходит единой колонкой — минимальным отступом значимых строк", () => {
+    it("marker goes in a single column: the minimal indent of non-empty lines", () => {
         expect(apply(["    a();", "        b();", "    c();"], [0, 1, 2])).toEqual([
             "    // a();",
             "    //     b();",
@@ -40,45 +40,45 @@ describe("planLineComments — toggle", () => {
         ]);
     });
 
-    it("пустые строки не комментируются и не мешают анализу", () => {
+    it("empty lines are not commented and do not affect analysis", () => {
         expect(apply(["a();", "", "b();"], [0, 1, 2])).toEqual(["// a();", "", "// b();"]);
     });
 
-    it("частично закомментированный блок докомментируется (toggle по состоянию всех строк)", () => {
+    it("partially commented block gets fully commented (toggle by state of all lines)", () => {
         expect(apply(["// a();", "b();"], [0, 1])).toEqual(["// // a();", "// b();"]);
     });
 
-    it("полностью закомментированный блок раскомментируется, пустые строки не трогаются", () => {
+    it("fully commented block gets uncommented, empty lines are untouched", () => {
         expect(apply(["// a();", "", "// b();"], [0, 1, 2])).toEqual(["a();", "", "b();"]);
     });
 
-    it("блок из одних пустых строк комментируется целиком", () => {
+    it("block of only empty lines is commented entirely", () => {
         expect(apply(["", ""], [0, 1])).toEqual(["// ", "// "]);
     });
 
-    it("отступ учитывается и в табах", () => {
+    it("indent is measured in tabs too", () => {
         expect(apply(["\tfoo", "\t\tbar"], [0, 1], "toggle", "#")).toEqual(["\t# foo", "\t# \tbar"]);
     });
 
-    it("строка, где маркер стоит не в начале содержимого, считается незакомментированной", () => {
-        expect(apply(["a(); // хвост"], [0])).toEqual(["// a(); // хвост"]);
+    it("line with the marker not at content start counts as uncommented", () => {
+        expect(apply(["a(); // tail"], [0])).toEqual(["// a(); // tail"]);
     });
 });
 
 describe("planLineComments — add / remove", () => {
-    it("add добавляет маркер даже на уже закомментированную строку", () => {
+    it("add adds the marker even to an already commented line", () => {
         expect(apply(["// a();"], [0], "add")).toEqual(["// // a();"]);
     });
 
-    it("remove снимает маркеры только с закомментированных строк", () => {
+    it("remove strips markers only from commented lines", () => {
         expect(apply(["// a();", "b();"], [0, 1], "remove")).toEqual(["a();", "b();"]);
     });
 
-    it("remove без единого маркера — правок нет", () => {
+    it("remove without any marker yields no edits", () => {
         expect(plan(["a();", "b();"], [0, 1], "remove")).toBeNull();
     });
 
-    it("add на одних пустых строках — правок нет (пустые комментирует только toggle)", () => {
+    it("add on only empty lines yields no edits (only toggle comments empty lines)", () => {
         expect(plan(["", "  "], [0, 1], "add")).toBeNull();
         expect(plan(["", "  "], [0, 1], "remove")).toBeNull();
     });
@@ -88,26 +88,26 @@ describe("remapPositionForShifts", () => {
     const insert = [{ line: 0, column: 4, delta: 3 }];
     const remove = [{ line: 0, column: 4, delta: -3 }];
 
-    it("вставка: точка левее колонки и на нуле не трогаются, на колонке и правее — едут", () => {
+    it("insert: points left of the column and at zero stay, at the column and right of it shift", () => {
         expect(remapPositionForShifts({ line: 0, character: 2 }, insert)).toEqual({ line: 0, character: 2 });
         expect(remapPositionForShifts({ line: 0, character: 0 }, insert)).toEqual({ line: 0, character: 0 });
         expect(remapPositionForShifts({ line: 0, character: 4 }, insert)).toEqual({ line: 0, character: 7 });
         expect(remapPositionForShifts({ line: 0, character: 9 }, insert)).toEqual({ line: 0, character: 12 });
     });
 
-    it("вставка в колонку 0 не утаскивает каретку с начала строки", () => {
+    it("insert at column 0 does not drag the cursor off line start", () => {
         const atZero = [{ line: 0, column: 0, delta: 3 }];
         expect(remapPositionForShifts({ line: 0, character: 0 }, atZero)).toEqual({ line: 0, character: 0 });
         expect(remapPositionForShifts({ line: 0, character: 1 }, atZero)).toEqual({ line: 0, character: 4 });
     });
 
-    it("удаление: внутри куска — прижимается к началу, правее — едет влево", () => {
+    it("delete: inside the chunk clamps to its start, right of it shifts left", () => {
         expect(remapPositionForShifts({ line: 0, character: 4 }, remove)).toEqual({ line: 0, character: 4 });
         expect(remapPositionForShifts({ line: 0, character: 6 }, remove)).toEqual({ line: 0, character: 4 });
         expect(remapPositionForShifts({ line: 0, character: 10 }, remove)).toEqual({ line: 0, character: 7 });
     });
 
-    it("чужая строка не трогается", () => {
+    it("other lines are untouched", () => {
         expect(remapPositionForShifts({ line: 1, character: 6 }, insert)).toEqual({ line: 1, character: 6 });
     });
 });

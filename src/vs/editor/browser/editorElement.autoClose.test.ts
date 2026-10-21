@@ -36,15 +36,15 @@ function press(editor: EditorElement, key: string): void {
     editor.dispatchEvent(new TUIKeyboardEvent("keypress", { key }));
 }
 
-describe("EditorElement — авто-закрытие при наборе", () => {
-    it("открывающая скобка вставляет пару с кареткой внутри", () => {
+describe("EditorElement — auto-close on type", () => {
+    it("an opening bracket inserts the pair with the cursor inside", () => {
         const { editor, viewState } = makeEditor("");
         press(editor, "{");
         expect(viewState.document.getText()).toBe("{}");
         expect(viewState.selections[0].active).toEqual({ line: 0, character: 1 });
     });
 
-    it("закрывающая под кареткой перешагивается: {} набирается как {} а не {}}", () => {
+    it("a closing bracket under the cursor is typed over: {} types as {} not {}}", () => {
         const { editor, viewState } = makeEditor("");
         press(editor, "{");
         press(editor, "}");
@@ -52,7 +52,7 @@ describe("EditorElement — авто-закрытие при наборе", () =
         expect(viewState.selections[0].active).toEqual({ line: 0, character: 2 });
     });
 
-    it("typeover не пишет шаг в undo (нечего отменять)", () => {
+    it("typeover writes no undo step (nothing to undo)", () => {
         const { editor, viewState } = makeEditor("");
         press(editor, "{");
         press(editor, "}");
@@ -60,40 +60,40 @@ describe("EditorElement — авто-закрытие при наборе", () =
         expect(viewState.document.getText()).toBe("");
     });
 
-    it("скобка посреди слова набирается как обычный символ", () => {
+    it("a bracket mid-word types as a plain character", () => {
         const { editor, viewState } = makeEditor("word", [createCursorSelection(0, 2)]);
         press(editor, "{");
         expect(viewState.document.getText()).toBe("wo{rd");
     });
 
-    it("без источника конфигурации — обычный набор", () => {
+    it("no configuration source — plain typing", () => {
         const { editor, viewState } = makeEditor("");
         editor.languageConfigurationSource = null;
         press(editor, "{");
         expect(viewState.document.getText()).toBe("{");
     });
 
-    it("источник ещё не загрузил язык (undefined) — обычный набор", () => {
+    it("source has not loaded the language yet (undefined) — plain typing", () => {
         const { editor, viewState } = makeEditor("");
         editor.languageConfigurationSource = () => undefined;
         press(editor, "{");
         expect(viewState.document.getText()).toBe("{");
     });
 
-    it("мультикурсор с одинаковым контекстом закрывает у всех кареток", () => {
+    it("multi-cursor with identical context auto-closes at every cursor", () => {
         const { editor, viewState } = makeEditor("a\nb", [createCursorSelection(0, 1), createCursorSelection(1, 1)]);
         press(editor, "{");
         expect(viewState.document.getText()).toBe("a{}\nb{}");
     });
 
-    it("typeover только у части кареток — набирается обычный символ у всех", () => {
+    it("typeover at only some cursors — a plain character is typed at all", () => {
         // The first cursor is before `}` (would type over), the second is inside text.
         const { editor, viewState } = makeEditor("{}\nab", [createCursorSelection(0, 1), createCursorSelection(1, 1)]);
         press(editor, "}");
         expect(viewState.document.getText()).toBe("{}}\na}b");
     });
 
-    it("каретки, которым подошли РАЗНЫЕ пары, откатываются к обычному набору", () => {
+    it("cursors matching DIFFERENT pairs fall back to plain typing", () => {
         // `*` after `/*` opens `/**` → ` */`, while `*` in empty space gets its own
         // pair: the closing parts differ, so there is no single decision.
         const { editor, viewState } = makeEditor("/*\nab", [
@@ -112,7 +112,7 @@ describe("EditorElement — авто-закрытие при наборе", () =
         expect(viewState.document.getText()).toBe("/**\nab*");
     });
 
-    it("каретки с разъехавшимся контекстом откатываются к обычному набору", () => {
+    it("cursors with diverging context fall back to plain typing", () => {
         // The first cursor is at the end of a line (would insert a pair), the second is mid-word
         // (plain typing): the decisions disagree, so the character is typed as is.
         const { editor, viewState } = makeEditor("a\nword", [createCursorSelection(0, 1), createCursorSelection(1, 2)]);
@@ -121,33 +121,33 @@ describe("EditorElement — авто-закрытие при наборе", () =
     });
 });
 
-describe("EditorElement — auto-surround выделения", () => {
-    it("скобка при непустом выделении обрамляет его, а не затирает", () => {
+describe("EditorElement — auto-surround of selections", () => {
+    it("a bracket with a non-empty selection surrounds it instead of replacing it", () => {
         const { editor, viewState } = makeEditor("const a = 1;", [createSelection(0, 6, 0, 7)]);
         press(editor, "{");
         expect(viewState.document.getText()).toBe("const {a} = 1;");
         expect(viewState.getSelectedText()).toBe("a");
     });
 
-    it("кавычка обрамляет каждое из нескольких выделений", () => {
+    it("a quote surrounds each of several selections", () => {
         const { editor, viewState } = makeEditor("aa bb", [createSelection(0, 0, 0, 2), createSelection(0, 3, 0, 5)]);
         press(editor, "'");
         expect(viewState.document.getText()).toBe("'aa' 'bb'");
     });
 
-    it("символ вне surroundingPairs затирает выделение обычным набором", () => {
+    it("a character outside surroundingPairs replaces the selection with plain typing", () => {
         const { editor, viewState } = makeEditor("aa", [createSelection(0, 0, 0, 2)]);
         press(editor, "x");
         expect(viewState.document.getText()).toBe("x");
     });
 
-    it("смешанные выделения (пустое + непустое) — обычный набор с заменой", () => {
+    it("mixed selections (empty + non-empty) — plain typing with replacement", () => {
         const { editor, viewState } = makeEditor("aa b", [createSelection(0, 0, 0, 2), createCursorSelection(0, 3)]);
         press(editor, "{");
         expect(viewState.document.getText()).toBe("{ {b");
     });
 
-    it("смешанные выделения не закрываются парой, даже когда контекст это позволяет", () => {
+    it("mixed selections are not auto-closed even when the context allows it", () => {
         // Both participants have "nothing after the cursor" (a space and end of line),
         // so the auto-close decision would be unanimous — but surrounding is not unanimous
         // (only one has a selection), and replacing a selection with a pair is not allowed.
@@ -156,7 +156,7 @@ describe("EditorElement — auto-surround выделения", () => {
         expect(viewState.document.getText()).toBe("{ b{");
     });
 
-    it("surround попадает в undo одним шагом", () => {
+    it("surround lands in undo as one step", () => {
         const { editor, viewState } = makeEditor("aa", [createSelection(0, 0, 0, 2)]);
         press(editor, "'");
         expect(viewState.document.getText()).toBe("'aa'");

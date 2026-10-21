@@ -24,14 +24,14 @@ const QUOTE_TO_END: ITokenizationSupport = {
 
 const TEXT = 'x"(\ny"(\nz"(';
 
-describe("tokenCodeAt — скобки не-кода по токенам", () => {
-    it("строки до нижней каретки размечены: литерал — не код; за ней токенов нет — код", () => {
+describe("tokenCodeAt: non-code brackets by tokens", () => {
+    it("lines up to the lowest cursor are tokenized: a literal is not code; past it there are no tokens, so code", () => {
         const store = new DocumentTokenStore(new TextDocument(TEXT), QUOTE_TO_END);
         const codeAt = tokenCodeAt(store, [createPosition(1, 0), createPosition(0, 0)]);
         expect([codeAt(0, 0), codeAt(0, 2), codeAt(1, 2), codeAt(2, 2)]).toEqual([true, false, false, true]);
     });
 
-    it("устаревшие токены за грязной строкой не в счёт — код", () => {
+    it("stale tokens past a dirty line do not count: code", () => {
         const document = new TextDocument(TEXT);
         const store = new DocumentTokenStore(document, QUOTE_TO_END);
         store.forceTokenization(2);
@@ -42,7 +42,7 @@ describe("tokenCodeAt — скобки не-кода по токенам", () =>
         expect([codeAt(0, 2), codeAt(2, 2)]).toEqual([false, true]);
     });
 
-    it("без грамматики код — всё", () => {
+    it("without a grammar everything is code", () => {
         expect(tokenCodeAt(undefined, [createPosition(0, 0)])(0, 0)).toBe(true);
     });
 });

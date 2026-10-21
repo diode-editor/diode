@@ -77,7 +77,7 @@ describe("EditorElement — marker squiggle decorations", () => {
 
 // Dogfooding: until the provider's new diagnostics arrived, the squiggle stayed at old coordinates and
 // underlined unrelated text. In upstream markers are model decorations and move with the edit at once.
-describe("EditorElement — squiggle едет вместе с текстом при правке", () => {
+describe("EditorElement — squiggle moves with text on edit", () => {
     const ERROR_FG = packRgb(0xf1, 0x4c, 0x4c); // default editorError.foreground
 
     function makeTracked(content: string): { app: TestApp; editor: EditorElement } {
@@ -102,7 +102,7 @@ describe("EditorElement — squiggle едет вместе с текстом п�
         for (const key of keys) editor.dispatchEvent(new TUIKeyboardEvent("keypress", { key }));
     }
 
-    it("набор левее на той же строке сдвигает волну вправо", () => {
+    it("typing to the left on the same line shifts the squiggle right", () => {
         const { app, editor } = makeTracked("ok\nlet bad = 1;");
         type(editor, 1, 0, "xx");
         app.render();
@@ -110,7 +110,7 @@ describe("EditorElement — squiggle едет вместе с текстом п�
         expect(app.backend.getFgAt(new Point(editor.gutterWidth + 6, 1))).toBe(ERROR_FG);
     });
 
-    it("вставка строки выше уводит волну на строку ниже", () => {
+    it("inserting a line above moves the squiggle one line down", () => {
         const { app, editor } = makeTracked("ok\nlet bad = 1;");
         editor.viewState.selections = [createCursorSelection(0, 2)];
         editor.dispatchEvent(new TUIKeyboardEvent("keypress", { key: "Enter" }));
@@ -119,7 +119,7 @@ describe("EditorElement — squiggle едет вместе с текстом п�
         expect(squiggledText(app, editor, 2)).toBe("bad");
     });
 
-    it("набор на краю не растягивает волну (NeverGrowsWhenTypingAtEdges)", () => {
+    it("typing at an edge does not grow the squiggle (NeverGrowsWhenTypingAtEdges)", () => {
         const { app, editor } = makeTracked("ok\nlet bad = 1;");
         type(editor, 1, 7, "X");
         type(editor, 1, 4, "Y");
@@ -128,21 +128,21 @@ describe("EditorElement — squiggle едет вместе с текстом п�
         expect(squiggledText(app, editor, 1)).toBe("bad");
     });
 
-    it("набор внутри диапазона расширяет волну на вставленное", () => {
+    it("typing inside the range extends the squiggle over the inserted text", () => {
         const { app, editor } = makeTracked("ok\nlet bad = 1;");
         type(editor, 1, 5, "zz");
         app.render();
         expect(squiggledText(app, editor, 1)).toBe("bzzad");
     });
 
-    it("удаление всего диапазона гасит волну", () => {
+    it("deleting the whole range removes the squiggle", () => {
         const { app, editor } = makeTracked("ok\nlet bad = 1;");
         editor.viewState.document.applyEdits([createTextEdit(createRange(1, 4, 1, 7), "")]);
         app.render();
         expect(squiggledText(app, editor, 1)).toBe("");
     });
 
-    it("новые маркеры провайдера заменяют сдвинутые", () => {
+    it("new provider markers replace the shifted ones", () => {
         const { app, editor } = makeTracked("ok\nlet bad = 1;");
         type(editor, 1, 0, "xx");
         editor.markerDecorations = [{ range: createRange(1, 0, 1, 2), severity: MarkerSeverity.Error }];

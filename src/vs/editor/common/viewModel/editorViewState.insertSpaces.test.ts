@@ -46,7 +46,7 @@ describe("indentLines – insertSpaces=true", () => {
         expect(state.document.getText()).toBe("    hello");
     });
 
-    it("добирает пробелами до табстопа, а не вставляет tabSize штук", () => {
+    it("pads with spaces to the tab stop instead of inserting tabSize of them", () => {
         const state = createState("ab", { insertSpaces: true, tabSize: 2 });
         state.selections = [createCursorSelection(0, 1)];
         state.indentLines();
@@ -99,11 +99,11 @@ describe("detectIndentation drives the indent unit", () => {
     });
 });
 
-describe("runDetectIndentation — приоритет источников", () => {
+describe("runDetectIndentation: source priority", () => {
     /** Two-space indented file: detection, if allowed to run, reports 2/spaces. */
     const TWO_SPACE_DOC = "function foo() {\n  const x = 1;\n}";
 
-    it("детекция главнее конфига", () => {
+    it("detection wins over config", () => {
         const state = new EditorViewState(new TextDocument(TWO_SPACE_DOC));
         state.configuredTabSize = 8;
         state.configuredInsertSpaces = false;
@@ -114,7 +114,7 @@ describe("runDetectIndentation — приоритет источников", () 
         expect(state.insertSpaces).toBe(true);
     });
 
-    it("конфиг закрывает то, о чём файл промолчал", () => {
+    it("config covers what the file does not say", () => {
         const state = new EditorViewState(new TextDocument("no indentation here"));
         state.configuredTabSize = 6;
         state.configuredInsertSpaces = true;
@@ -125,7 +125,7 @@ describe("runDetectIndentation — приоритет источников", () 
         expect(state.insertSpaces).toBe(true);
     });
 
-    it("явно выставленный отступ переживает и детекцию, и конфиг", () => {
+    it("explicitly set indentation survives both detection and config", () => {
         const state = new EditorViewState(new TextDocument(TWO_SPACE_DOC));
         state.tabSize = 8;
         state.insertSpaces = false;

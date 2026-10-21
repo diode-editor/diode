@@ -37,40 +37,40 @@ function fireMouse(editor: EditorElement, type: "mousedown" | "dblclick" | "mous
     );
 }
 
-describe("EditorElement — источник смены каретки", () => {
-    it("набор символа объявляет источник keyboard", () => {
+describe("EditorElement — cursor change source", () => {
+    it("typing a character declares the keyboard source", () => {
         const { editor, sources } = createEditor();
         editor.dispatchEvent(new TUIKeyboardEvent("keypress", { key: "x" }));
         expect(sources.length).toBeGreaterThan(0);
         expect(new Set(sources)).toEqual(new Set(["keyboard"]));
     });
 
-    it("Enter объявляет источник keyboard", () => {
+    it("Enter declares the keyboard source", () => {
         const { editor, sources } = createEditor();
         editor.dispatchEvent(new TUIKeyboardEvent("keypress", { key: "Enter" }));
         expect(new Set(sources)).toEqual(new Set(["keyboard"]));
     });
 
-    it("вставка объявляет источник keyboard", () => {
+    it("paste declares the keyboard source", () => {
         const { editor, sources } = createEditor();
         editor.dispatchEvent(new TUIPasteEvent("pasted text"));
         expect(new Set(sources)).toEqual(new Set(["keyboard"]));
     });
 
-    it("клик мышью объявляет источник mouse", () => {
+    it("mouse click declares the mouse source", () => {
         const { editor, sources } = createEditor();
         fireMouse(editor, "mousedown", editor.gutterWidth + 3);
         expect(sources.length).toBeGreaterThan(0);
         expect(new Set(sources)).toEqual(new Set(["mouse"]));
     });
 
-    it("двойной клик (выделение слова) объявляет источник mouse", () => {
+    it("double click (word selection) declares the mouse source", () => {
         const { editor, sources } = createEditor();
         fireMouse(editor, "dblclick", editor.gutterWidth + 2);
         expect(new Set(sources)).toEqual(new Set(["mouse"]));
     });
 
-    it("протяжка мышью объявляет источник mouse", () => {
+    it("mouse drag declares the mouse source", () => {
         const { editor, sources } = createEditor();
         fireMouse(editor, "mousedown", editor.gutterWidth + 1);
         sources.length = 0;
@@ -79,13 +79,13 @@ describe("EditorElement — источник смены каретки", () => {
         expect(new Set(sources)).toEqual(new Set(["mouse"]));
     });
 
-    it("после обработчика источник не остаётся взведённым", () => {
+    it("the source does not stay armed after the handler", () => {
         const { editor } = createEditor();
         fireMouse(editor, "mousedown", editor.gutterWidth + 1);
         expect(currentCursorChangeSource()).toBeUndefined();
     });
 
-    it("программная правка выделения мимо жестов источника не объявляет", () => {
+    it("a programmatic selection change outside gestures declares no source", () => {
         const { viewState, sources } = createEditor();
         viewState.selections = [createSelection(1, 0, 1, 4)];
         expect(sources).toEqual([undefined]);

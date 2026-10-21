@@ -12,18 +12,18 @@ const THEME_ON: ISemanticTokenStyleResolver = { ...NULL_SEMANTIC_TOKEN_STYLE_RES
 const THEME_OFF = NULL_SEMANTIC_TOKEN_STYLE_RESOLVER;
 
 describe("isSemanticColoringEnabled", () => {
-    it("ключ — editor.semanticHighlighting.enabled", () => {
+    it("key is editor.semanticHighlighting.enabled", () => {
         expect(SEMANTIC_HIGHLIGHTING_SETTING_ID).toBe("editor.semanticHighlighting.enabled");
     });
 
-    it("дефолт configuredByTheme — решает флаг темы", () => {
+    it("default configuredByTheme defers to the theme flag", () => {
         const configuration = createTestConfigurationService();
         expect(configuration.get(SEMANTIC_HIGHLIGHTING_SETTING_ID)).toBe("configuredByTheme");
         expect(isSemanticColoringEnabled("java", configuration, THEME_ON)).toBe(true);
         expect(isSemanticColoringEnabled("java", configuration, THEME_OFF)).toBe(false);
     });
 
-    it("булево значение настройки решает само, независимо от темы", () => {
+    it("boolean setting value decides on its own, regardless of theme", () => {
         expect(
             isSemanticColoringEnabled(
                 "java",
@@ -40,7 +40,7 @@ describe("isSemanticColoringEnabled", () => {
         ).toBe(true);
     });
 
-    it("языковая секция переопределяет значение для своего языка", () => {
+    it("language section overrides the value for its language", () => {
         const configuration = createTestConfigurationService({
             "[java]": { [SEMANTIC_HIGHLIGHTING_SETTING_ID]: false },
         });

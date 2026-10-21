@@ -51,8 +51,8 @@ function createEditor(
     return { app, editor };
 }
 
-describe("EditorElement — ghost text в середине строки", () => {
-    it("фантом вставляется между кареткой и хвостом строки, хвост сдвигается вправо", () => {
+describe("EditorElement — ghost text mid-line", () => {
+    it("the ghost is inserted between the cursor and the line tail, the tail shifts right", () => {
         const { app, editor } = createEditor("call();", { line: 0, character: 5, lines: ["arg"] });
 
         const gutterW = editor.gutterWidth;
@@ -63,7 +63,7 @@ describe("EditorElement — ghost text в середине строки", () => 
         expect(editor.viewState.document.getText()).toBe("call();");
     });
 
-    it("снятие подсказки возвращает строку в исходный вид", () => {
+    it("clearing the suggestion restores the line", () => {
         const { app, editor } = createEditor("call();", { line: 0, character: 5, lines: ["arg"] });
 
         editor.setGhostText(null);
@@ -73,7 +73,7 @@ describe("EditorElement — ghost text в середине строки", () => 
         expect(app.backend.getTextAt(new Point(gutterW, 0), 10)).toBe("call();   ");
     });
 
-    it("многострочная подсказка: хвост остаётся на строке каретки, продолжение — в зонах", () => {
+    it("multi-line suggestion: the tail stays on the cursor line, the rest goes into zones", () => {
         // Deviation from upstream (which moves the tail below the last ghost text line):
         // the view zone holds only ghost text; a document line cannot move into it.
         const { app, editor } = createEditor("call();", {
@@ -88,7 +88,7 @@ describe("EditorElement — ghost text в середине строки", () => 
         expect(app.backend.getFgAt(new Point(gutterW, 1))).toBe(GHOST_FG);
     });
 
-    it("каретка остаётся ПЕРЕД фантомом, вторичная за ним — уезжает с хвостом", () => {
+    it("the cursor stays BEFORE the ghost, a secondary one after it moves with the tail", () => {
         const { app, editor } = createEditor("call();", { line: 0, character: 5, lines: ["arg"] });
         editor.setStyleVars({ ...STYLE_VARS, "editorCursor.foreground": CARET_BG });
         editor.viewState.selections = [createCursorSelection(0, 5), createCursorSelection(0, 7)];
@@ -103,7 +103,7 @@ describe("EditorElement — ghost text в середине строки", () => 
         expect(app.backend.getBgAt(new Point(gutterW + 10, 0))).toBe(CARET_BG);
     });
 
-    it("волна диагностики на хвосте уезжает вместе с хвостом", () => {
+    it("a diagnostic squiggle on the tail moves with the tail", () => {
         const { app, editor } = createEditor("call();", { line: 0, character: 5, lines: ["arg"] });
         editor.occurrenceHighlightEnabled = false;
         editor.setStyleVars({ ...STYLE_VARS, "editorWarning.foreground": WARNING_FG });
@@ -117,7 +117,7 @@ describe("EditorElement — ghost text в середине строки", () => 
         expect(app.backend.getFgAt(new Point(gutterW + 4, 0))).toBe(EDITOR_FG);
     });
 
-    it("клик по хвосту даёт его документную позицию, клик по фантому — точку вставки", () => {
+    it("a click on the tail gives its document position, a click on the ghost gives the insertion point", () => {
         const { editor } = createEditor("call();", { line: 0, character: 5, lines: ["arg"] });
 
         const gutterW = editor.gutterWidth;
@@ -130,7 +130,7 @@ describe("EditorElement — ghost text в середине строки", () => 
     });
 });
 
-describe("EditorElement — подсветка токенов вокруг фантома", () => {
+describe("EditorElement — token highlighting around the ghost", () => {
     function createTokenizedEditor(text: string, ghost: IGhostText): { app: TestApp; editor: EditorElement } {
         const doc = new TextDocument(text);
         const viewState = new EditorViewState(doc);
@@ -145,7 +145,7 @@ describe("EditorElement — подсветка токенов вокруг фа�
         return { app, editor };
     }
 
-    it("токены хвоста красятся своими цветами, фантом — призрачным", () => {
+    it("tail tokens use their own colors, the ghost uses the ghost color", () => {
         // Ghost text "zz " before a number: the composed line is "if zz 1".
         const { app, editor } = createTokenizedEditor("if 1", { line: 0, character: 3, lines: ["zz "] });
 
@@ -157,7 +157,7 @@ describe("EditorElement — подсветка токенов вокруг фа�
         expect(app.backend.getFgAt(new Point(gutterW + 6, 0))).toBe(NUMBER_FG);
     });
 
-    it("токены ЛЕВЕЕ фантома ищутся по своим offset'ам, а не по сдвинутым", () => {
+    it("tokens LEFT of the ghost are looked up by their own offsets, not shifted ones", () => {
         // Ghost text at the end of the line: all real text is left of it. If the
         // shift were applied to it too, the number at column 3 would get the "if" token.
         const { app, editor } = createTokenizedEditor("if 1", { line: 0, character: 4, lines: ["zz"] });

@@ -38,8 +38,8 @@ function actives(editor: EditorElement): number[][] {
     return editor.viewState.selections.map((sel) => [sel.active.line, sel.active.character]);
 }
 
-describe("EditorElement — Alt+клик ставит и снимает каретку", () => {
-    it("добавляет вторую каретку", () => {
+describe("EditorElement — Alt+click adds and removes a cursor", () => {
+    it("adds a second cursor", () => {
         const editor = createEditor("hello\nworld");
         const gw = editor.gutterWidth;
 
@@ -52,7 +52,7 @@ describe("EditorElement — Alt+клик ставит и снимает каре
         ]);
     });
 
-    it("повторный Alt+клик по той же точке каретку снимает", () => {
+    it("a repeated Alt+click on the same point removes the cursor", () => {
         const editor = createEditor("hello\nworld");
         const gw = editor.gutterWidth;
 
@@ -63,7 +63,7 @@ describe("EditorElement — Alt+клик ставит и снимает каре
         expect(actives(editor)).toEqual([[0, 1]]);
     });
 
-    it("обычный клик схлопывает мультикурсор в одну каретку", () => {
+    it("a plain click collapses multi-cursor into one cursor", () => {
         const editor = createEditor("hello\nworld");
         const gw = editor.gutterWidth;
 
@@ -74,7 +74,7 @@ describe("EditorElement — Alt+клик ставит и снимает каре
         expect(actives(editor)).toEqual([[0, 2]]);
     });
 
-    it("Alt+drag не тянет выделение", () => {
+    it("Alt+drag does not drag a selection", () => {
         const editor = createEditor("hello world");
         const gw = editor.gutterWidth;
 
@@ -86,7 +86,7 @@ describe("EditorElement — Alt+клик ставит и снимает каре
         expect(editor.viewState.selections.every((sel) => isSelectionCollapsed(sel))).toBe(true);
     });
 
-    it("Shift+Alt+клик остаётся расширением выделения, а не мультикурсором", () => {
+    it("Shift+Alt+click stays a selection extension, not multi-cursor", () => {
         const editor = createEditor("hello world");
         const gw = editor.gutterWidth;
 

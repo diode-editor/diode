@@ -28,8 +28,8 @@ function createEditor(
     return { app, editor, vs };
 }
 
-describe("EditorElement word wrap — отрисовка фрагментов", () => {
-    it("длинная строка разворачивается в несколько экранных рядов", () => {
+describe("EditorElement word wrap — fragment rendering", () => {
+    it("a long line unfolds into several screen rows", () => {
         const { app, editor } = createEditor("aaaa bbbb cccc\nshort");
         app.render();
         const gw = editor.gutterWidth; // contentCols = 16 - 6 = 10
@@ -38,14 +38,14 @@ describe("EditorElement word wrap — отрисовка фрагментов", 
         expect(app.backend.getTextAt(new Point(gw, 2), 10)).toBe("short     ");
     });
 
-    it("performLayout прописывает во view-state ширину текстовой области до render", () => {
+    it("performLayout writes the text area width into view state before render", () => {
         const { app, editor, vs } = createEditor("aaaa bbbb cccc");
         app.render();
         expect(vs.viewportWidth).toBe(16 - editor.gutterWidth);
         expect(vs.viewportHeight).toBe(4);
     });
 
-    it("ряд-продолжение не повторяет номер строки, следующая строка нумеруется дальше", () => {
+    it("a continuation row does not repeat the line number, the next line continues numbering", () => {
         const { app, editor } = createEditor("aaaa bbbb cccc\nshort");
         app.render();
         const gw = editor.gutterWidth;
@@ -54,7 +54,7 @@ describe("EditorElement word wrap — отрисовка фрагментов", 
         expect(app.backend.getTextAt(new Point(0, 2), gw)).toContain("2");
     });
 
-    it("хвост фрагмента после точки переноса — фон, а не текст следующего фрагмента", () => {
+    it("the fragment tail after the wrap point is background, not the next fragment's text", () => {
         // Wrap at a word boundary at column 8: the row is shorter than contentCols.
         const { app, editor } = createEditor("aaaaaaa bbbbbb");
         // A background of its own, distinct from the body's base: a skipped tail fill
@@ -69,7 +69,7 @@ describe("EditorElement word wrap — отрисовка фрагментов", 
         expect(app.backend.getBgAt(new Point(gw + 9, 0))).toBe(editorBg);
     });
 
-    it("выделение, пересекающее перенос, подсвечивает оба фрагмента в своих колонках", () => {
+    it("a selection crossing the wrap highlights both fragments in their own columns", () => {
         const { app, editor, vs } = createEditor("aaaa bbbb cccc");
         vs.selections = [createSelection(0, 2, 0, 12)];
         app.render();
@@ -84,7 +84,7 @@ describe("EditorElement word wrap — отрисовка фрагментов", 
         expect(app.backend.getBgAt(new Point(gw + 2, 1))).not.toBe(SELECTION_BG);
     });
 
-    it("выделение до конца строки не заливает ни хвост фрагмента, ни виртуальную ячейку перевода", () => {
+    it("a selection to the line end fills neither the fragment tail nor the virtual newline cell", () => {
         const { app, editor, vs } = createEditor("aaaaaaa bbbbbb\nzz"); // fragments of 8 and 6 columns
         vs.selections = [createSelection(0, 0, 0, 14)];
         app.render();
@@ -98,7 +98,7 @@ describe("EditorElement word wrap — отрисовка фрагментов", 
         expect(app.backend.getBgAt(new Point(gw + 6, 1))).not.toBe(SELECTION_BG);
     });
 
-    it("межстрочное выделение заливает виртуальную ячейку перевода на ПОСЛЕДНЕМ фрагменте", () => {
+    it("a multi-line selection fills the virtual newline cell on the LAST fragment", () => {
         const { app, editor, vs } = createEditor("aaaaaaa bbbbbb\nzz");
         vs.selections = [createSelection(0, 2, 1, 1)];
         app.render();
@@ -107,7 +107,7 @@ describe("EditorElement word wrap — отрисовка фрагментов", 
         expect(app.backend.getBgAt(new Point(gw, 2))).toBe(SELECTION_BG); // "z"
     });
 
-    it("contentWidth при wrap равен ширине вьюпорта — горизонтальному скроллу нечего катать", () => {
+    it("contentWidth under wrap equals the viewport width — nothing to scroll horizontally", () => {
         const { app, editor, vs } = createEditor("aaaa bbbb cccc");
         app.render();
         expect(editor.contentWidth).toBe(vs.viewportWidth);
@@ -115,7 +115,7 @@ describe("EditorElement word wrap — отрисовка фрагментов", 
         expect(editor.contentWidth).toBe(14);
     });
 
-    it("плашка Long line trimmed стоит ровно в точке обрыва короткого последнего фрагмента", () => {
+    it("the Long line trimmed badge sits exactly at the cut of a short last fragment", () => {
         // contentCols 34: 10000 % 34 = 4, so the last fragment is 4 columns.
         const { app, editor } = createEditor("x".repeat(STOP_RENDERING_LINE_AFTER + 500), 40, 4);
         const vs = editor.viewState;
@@ -130,7 +130,7 @@ describe("EditorElement word wrap — отрисовка фрагментов", 
         expect(app.backend.getTextAt(new Point(gw, 2), 34)).not.toContain(BADGE_LABEL);
     });
 
-    it("плашка на полноширинном последнем фрагменте прижимается в видимую область", () => {
+    it("the badge on a full-width last fragment is pushed into the visible area", () => {
         // contentCols 25: 10000 % 25 = 0, so the last fragment takes the full width;
         // without the clamp the badge would sit just past the edge.
         const { app, editor } = createEditor("x".repeat(STOP_RENDERING_LINE_AFTER + 500), 31, 4);
@@ -146,7 +146,7 @@ describe("EditorElement word wrap — отрисовка фрагментов", 
         expect(app.backend.getTextAt(new Point(gw, 3), badgeCol)).toBe("x".repeat(badgeCol));
     });
 
-    it("выключение и включение переноса перерисовывает и хвосты фрагментов, и гуттер продолжений", () => {
+    it("toggling wrap off and on repaints both fragment tails and the continuation gutter", () => {
         const doc = new TextDocument("aaaaaaa bbbbbb\nsecond");
         const vs = new EditorViewState(doc);
         const editor = new EditorElement(vs);
@@ -166,7 +166,7 @@ describe("EditorElement word wrap — отрисовка фрагментов", 
         expect(app.backend.getTextAt(new Point(0, 1), gw)).toBe(" ".repeat(gw));
     });
 
-    it("внешний гуттер-маркер живёт на первом фрагменте и не повторяется на продолжении", () => {
+    it("an external gutter marker lives on the first fragment and is not repeated on continuations", () => {
         const { app, editor, vs } = createEditor("aaaa bbbb cccc\nzz");
         editor.decorations = { gutterMarkers: [{ line: 0, char: "+" }] };
         editor.markDirty();
@@ -177,7 +177,7 @@ describe("EditorElement word wrap — отрисовка фрагментов", 
         expect(vs.getViewLineCount()).toBe(3);
     });
 
-    it("indent guide рисуется на первом фрагменте тела и не наезжает на продолжение", () => {
+    it("the indent guide is drawn on the first body fragment and does not overlap the continuation", () => {
         const { app, editor, vs } = createEditor("aaaa:\n    aaaa bbbb cc");
         vs.setFoldingRegions([{ startLine: 0, endLine: 1, isCollapsed: false }]);
         app.render();
@@ -189,13 +189,13 @@ describe("EditorElement word wrap — отрисовка фрагментов", 
     });
 });
 
-describe("EditorElement word wrap — performLayout и ширина вьюпорта", () => {
+describe("EditorElement word wrap — performLayout and viewport width", () => {
     async function flushMicrotasks(): Promise<void> {
         await Promise.resolve();
         await Promise.resolve();
     }
 
-    it("смена ширины дозаказывает кадр: проекция зависит от ширины", async () => {
+    it("a width change requests another frame: the projection depends on width", async () => {
         const { app, editor, vs } = createEditor("aaaa bbbb cccc");
         app.render();
         await flushMicrotasks();
@@ -210,7 +210,7 @@ describe("EditorElement word wrap — performLayout и ширина вьюпор
         expect(editor.isLayoutDirty).toBe(true);
     });
 
-    it("смена высоты тоже дозаказывает кадр", async () => {
+    it("a height change requests another frame too", async () => {
         const { app, editor } = createEditor("aaaa bbbb cccc");
         app.render();
         await flushMicrotasks();
@@ -225,7 +225,7 @@ describe("EditorElement word wrap — performLayout и ширина вьюпор
         expect(editor.isLayoutDirty).toBe(true);
     });
 
-    it("layout той же геометрии кадр не дозаказывает", async () => {
+    it("layout with the same geometry requests no frame", async () => {
         const { app, editor } = createEditor("aaaa bbbb cccc");
         app.render();
         await flushMicrotasks();
@@ -237,8 +237,8 @@ describe("EditorElement word wrap — performLayout и ширина вьюпор
     });
 });
 
-describe("EditorElement word wrap — фолдинг", () => {
-    it("chevron и маркер «⋯» свёрнутого региона живут на первом и последнем фрагментах заголовка", () => {
+describe("EditorElement word wrap — folding", () => {
+    it("the chevron and the ⋯ marker of a folded region live on the first and last header fragments", () => {
         const { app, editor, vs } = createEditor("aaaa bbbb cc\nhidden\ntail");
         vs.setFoldingRegions([{ startLine: 0, endLine: 1, isCollapsed: true }]);
         app.render();
@@ -263,15 +263,15 @@ function fireMouseDown(editor: EditorElement, localX: number, localY: number): v
     );
 }
 
-describe("EditorElement word wrap — мышь и каретки", () => {
-    it("клик по ряду-продолжению ставит каретку внутрь фрагмента", () => {
+describe("EditorElement word wrap — mouse and cursors", () => {
+    it("a click on a continuation row places the cursor inside the fragment", () => {
         const { editor } = createEditor("aaaa bbbb cccc");
         const gw = editor.gutterWidth;
         fireMouseDown(editor, gw + 2, 1);
         expect(editor.viewState.selections[0].active).toEqual({ line: 0, character: 12 });
     });
 
-    it("клик правее конца не-последнего фрагмента не утаскивает каретку на следующий ряд", () => {
+    it("a click past the end of a non-last fragment does not pull the cursor to the next row", () => {
         const { editor } = createEditor("aaaaaaa bbbbbb"); // fragment 1 is 8 columns
         const gw = editor.gutterWidth;
         fireMouseDown(editor, gw + 9, 0);
@@ -279,41 +279,41 @@ describe("EditorElement word wrap — мышь и каретки", () => {
         expect(editor.viewState.selections[0].active).toEqual({ line: 0, character: 7 });
     });
 
-    it("клик ВНУТРИ не-последнего фрагмента ставит каретку в кликнутую колонку, без клампа", () => {
+    it("a click INSIDE a non-last fragment places the cursor at the clicked column, no clamp", () => {
         const { editor } = createEditor("aaaaaaa bbbbbb");
         const gw = editor.gutterWidth;
         fireMouseDown(editor, gw + 2, 0);
         expect(editor.viewState.selections[0].active).toEqual({ line: 0, character: 2 });
     });
 
-    it("клик РОВНО в колонку границы фрагмента остаётся на своём ряду", () => {
+    it("a click EXACTLY at the fragment boundary column stays on its row", () => {
         const { editor } = createEditor("aaaaaaa bbbbbb"); // fragment boundary is offset 8, column 8
         const gw = editor.gutterWidth;
         fireMouseDown(editor, gw + 8, 0);
         expect(editor.viewState.selections[0].active).toEqual({ line: 0, character: 7 });
     });
 
-    it("клик по ряду-зоны при wrap маппится в якорную строку по колонке клика", () => {
+    it("a click on a zone row under wrap maps to the anchor line by click column", () => {
         const { editor, vs } = createEditor("aaaa bbbb cccc\nzz");
         vs.setViewZones([{ afterLine: 0, size: 1 }]);
         // Rows: 0-1 are line 0 fragments, 2 is the view zone, 3 is "zz".
         expect(editor.docPositionAt(editor.gutterWidth + 3, 2)).toEqual({ line: 0, character: 3 });
     });
 
-    it("клик по гуттеру продолжения — колонка 0 РЯДА, то есть начало фрагмента", () => {
+    it("a click on the continuation gutter is column 0 of the ROW, i.e. the fragment start", () => {
         const { editor } = createEditor("aaaa bbbb cccc");
         fireMouseDown(editor, 0, 1);
         expect(editor.viewState.selections[0].active).toEqual({ line: 0, character: 10 });
     });
 
-    it("клик далеко за концом ПОСЛЕДНЕГО фрагмента даёт конец строки, без клампа", () => {
+    it("a click far past the end of the LAST fragment gives the line end, no clamp", () => {
         const { editor } = createEditor("aaaaaaa bbbbbb"); // row 1 = "bbbbbb", end of line 14
         const gw = editor.gutterWidth;
         fireMouseDown(editor, gw + 9, 1);
         expect(editor.viewState.selections[0].active).toEqual({ line: 0, character: 14 });
     });
 
-    it("аппаратная каретка при горизонтальном скролле (wrap off) учитывает scrollLeft", () => {
+    it("the hardware cursor under horizontal scroll (wrap off) accounts for scrollLeft", () => {
         const { app, editor, vs } = createEditor("aaaa bbbb cccc");
         vs.wordWrap = "off";
         vs.selections = [createCursorSelection(0, 10)];
@@ -324,7 +324,7 @@ describe("EditorElement word wrap — мышь и каретки", () => {
         expect(editor.getCaretScreenCell()).toEqual(new Point(gw + 10 - 4, 0));
     });
 
-    it("аппаратная каретка на продолжении встаёт в свой ряд и колонку фрагмента", () => {
+    it("the hardware cursor on a continuation lands on its row and fragment column", () => {
         const { app, editor, vs } = createEditor("aaaa bbbb cccc");
         vs.selections = [createCursorSelection(0, 12)];
         editor.focus();
@@ -334,7 +334,7 @@ describe("EditorElement word wrap — мышь и каретки", () => {
         expect(cell).toEqual(new Point(gw + 2, 1));
     });
 
-    it("мультикаретки на фрагментах одной строки рисуются каждая в своём ряду", () => {
+    it("multiple cursors on fragments of one line are each drawn on their own row", () => {
         const { app, editor, vs } = createEditor("aaaa bbbb cccc");
         vs.selections = [createCursorSelection(0, 2), createCursorSelection(0, 12)];
         editor.focus();
@@ -345,7 +345,7 @@ describe("EditorElement word wrap — мышь и каретки", () => {
         expect(app.backend.getBgAt(new Point(gw + 2, 1))).toBe(caretBg);
     });
 
-    it("каретка на строке, скрытой свёрткой, не рисуется", () => {
+    it("a cursor on a line hidden by folding is not drawn", () => {
         const { app, editor, vs } = createEditor("head\nhidden line here\ntail");
         vs.setFoldingRegions([{ startLine: 0, endLine: 1, isCollapsed: true }]);
         // Put a cursor on the hidden line, bypassing reconcileHiddenCursors.
@@ -359,7 +359,7 @@ describe("EditorElement word wrap — мышь и каретки", () => {
         expect(app.backend.getBgAt(new Point(gw + 2, 1))).not.toBe(caretBg);
     });
 
-    it("клик по chevron-колонке на продолжении не фолдит регион", () => {
+    it("a click on the chevron column of a continuation does not fold the region", () => {
         const { editor, vs } = createEditor("aaaa bbbb cc\nbody\ntail");
         const region = { startLine: 0, endLine: 1, isCollapsed: false };
         vs.setFoldingRegions([region]);

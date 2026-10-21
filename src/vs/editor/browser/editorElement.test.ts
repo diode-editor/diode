@@ -121,7 +121,7 @@ describe("EditorElement — drag anchor reset on mouseup", () => {
 });
 
 describe("EditorElement — getCaretScreenCell", () => {
-    it("возвращает абсолютную ячейку каретки, когда она видима", () => {
+    it("returns the absolute cursor cell when it is visible", () => {
         const { editor } = createEditor("hello\nworld", 30, 5);
         const cell = editor.getCaretScreenCell();
         expect(cell).not.toBeNull();
@@ -129,14 +129,14 @@ describe("EditorElement — getCaretScreenCell", () => {
         expect(cell!.x).toBe(editor.globalPosition.x + editor.gutterWidth);
     });
 
-    it("следует за строкой курсора", () => {
+    it("follows the cursor line", () => {
         const { editor } = createEditor("hello\nworld", 30, 5);
         editor.viewState.selections = [createCursorSelection(1, 3)];
         const cell = editor.getCaretScreenCell();
         expect(cell!.y).toBe(editor.globalPosition.y + 1);
     });
 
-    it("возвращает null, когда каретка проскроллена за пределы вьюпорта", () => {
+    it("returns null when the cursor is scrolled out of the viewport", () => {
         const { editor } = createEditor("hello\nworld", 30, 5);
         editor.viewState.scrollTop = 50;
         expect(editor.getCaretScreenCell()).toBeNull();

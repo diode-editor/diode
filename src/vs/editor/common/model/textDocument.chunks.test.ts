@@ -17,11 +17,11 @@ function documentFacts(doc: TextDocument): unknown {
     return { lines, eol: doc.eol, text: doc.getText(), serialized: doc.serialize() };
 }
 
-describe("TextDocument из кусков", () => {
+describe("TextDocument from chunks", () => {
     const SAMPLES = ["", "a\r\nb\r\nc", "a\r\nb\nc\r\n", "x\ry\r", "😀\r\n𝄞\n", "\ufeffbom\r\nline", "\r\n\r\n"];
 
     for (const sample of SAMPLES) {
-        it(`${JSON.stringify(sample)}: любой разрез (посреди \\r\\n, суррогатной пары) == документу из строки`, () => {
+        it(`${JSON.stringify(sample)}: any split (inside \\r\\n, a surrogate pair) == document from string`, () => {
             const expected = documentFacts(new TextDocument(sample));
             for (const chunks of splits(sample)) {
                 const doc = new TextDocument(createTextBufferFactoryFromChunks(chunks));
@@ -30,7 +30,7 @@ describe("TextDocument из кусков", () => {
         });
     }
 
-    it("setText фабрикой — тот же flush, что строкой", () => {
+    it("setText with a factory is the same flush as with a string", () => {
         const doc = new TextDocument("old");
         const flushes: boolean[] = [];
         doc.onDidChangeModelContent((event) => flushes.push(event.isFlush));
@@ -45,7 +45,7 @@ describe("TextDocument из кусков", () => {
 describe("TextDocument.createSnapshot", () => {
     const join = (doc: TextDocument): string => [...doc.createSnapshot()].join("");
 
-    it("== serialize: CRLF-документ после правок с \\n, ведущий U+FEFF, setEol", () => {
+    it("== serialize: CRLF document after edits with \\n, leading U+FEFF, setEol", () => {
         const doc = new TextDocument("\ufeffa\r\nb\r\nc");
         doc.applyEdits([createInsertEdit(1, 1, "X\nY")]);
         doc.applyEdits([createTextEdit(createRange(0, 1, 0, 2), "😀")]);
@@ -55,11 +55,11 @@ describe("TextDocument.createSnapshot", () => {
         expect(join(doc)).toBe(doc.serialize());
     });
 
-    it("пустой документ — пустой снимок", () => {
+    it("empty document gives an empty snapshot", () => {
         expect(join(new TextDocument(""))).toBe("");
     });
 
-    it("мелкие куски правок склеиваются до ~64 КБ, крупный текст режется не мельче", () => {
+    it("small edit chunks join up to ~64 KB, large text is not split finer", () => {
         const doc = new TextDocument(
             createTextBufferFactoryFromChunks(Array.from({ length: 3 }, () => "x".repeat(50_000))),
         );
@@ -71,13 +71,13 @@ describe("TextDocument.createSnapshot", () => {
         expect(chunks.length).toBeLessThanOrEqual(3);
     });
 
-    it("кусок, дошедший до порога, уходит сразу; пустого хвоста в конце нет", () => {
+    it("chunk reaching the threshold is emitted at once; no empty tail at the end", () => {
         const piece = 64 * 1024;
         const doc = new TextDocument(createTextBufferFactoryFromChunks(["x".repeat(piece), "y".repeat(piece)]));
         expect([...doc.createSnapshot()].map((chunk) => chunk.length)).toEqual([piece, piece]);
     });
 
-    it("снимок фиксирует текст на момент вызова", () => {
+    it("snapshot captures the text at call time", () => {
         const doc = new TextDocument("before");
         const snapshot = doc.createSnapshot();
         doc.applyEdits([createInsertEdit(0, 0, "edited ")]);
@@ -86,7 +86,7 @@ describe("TextDocument.createSnapshot", () => {
 });
 
 describe("TextDocument.getLinesContent", () => {
-    it("строки без переводов строк, CRLF и одиночный \\r — разделители", () => {
+    it("lines without line breaks, CRLF and lone \\r are separators", () => {
         const doc = new TextDocument("a\r\nb\r\n\r\nc\rd");
         expect(doc.getLinesContent()).toEqual(["a", "b", "", "c", "d"]);
         expect(new TextDocument("").getLinesContent()).toEqual([""]);

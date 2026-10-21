@@ -99,11 +99,11 @@ describe("TokenizationRegistry — change notifications", () => {
 });
 
 describe("TokenizationRegistry — colorMap", () => {
-    it("getColorMap() — null, пока тему не ставили", () => {
+    it("getColorMap() — null until a theme is set", () => {
         expect(new TokenizationRegistry().getColorMap()).toBeNull();
     });
 
-    it("setColorMap() хранит colorMap и фаерит onDidChange по разу на язык с support'ом", async () => {
+    it("setColorMap() stores the colorMap and fires onDidChange once per language with a support", async () => {
         const reg = new TokenizationRegistry();
         reg.register("css", makeStubSupport());
         reg.registerLazy("typescript", () => Promise.resolve(makeStubSupport()));
@@ -119,7 +119,7 @@ describe("TokenizationRegistry — colorMap", () => {
         expect([...seen].sort()).toEqual(["css", "typescript"]);
     });
 
-    it("setColorMap() без языков — молча меняет colorMap", () => {
+    it("setColorMap() with no languages silently changes the colorMap", () => {
         const reg = new TokenizationRegistry();
         const seen: string[] = [];
         reg.onDidChange((id) => seen.push(id));

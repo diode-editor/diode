@@ -91,8 +91,8 @@ function setup(text: string, data: number[], width = 30, height = 2) {
     return { doc, editor, semantic, resolver, render, cell };
 }
 
-describe("EditorElement — семантические токены поверх TextMate", () => {
-    it("цвет семантического токена перекрывает TM только в границах токена", () => {
+describe("EditorElement — semantic tokens over TextMate", () => {
+    it("semantic token color overrides TM only within the token bounds", () => {
         // "Foo bar": Foo — class (0..3).
         const { cell, editor } = setup("Foo bar", [0, 0, 3, 0, 0]);
         expect(cell(0).fg).toBe(CLASS_FG);
@@ -100,7 +100,7 @@ describe("EditorElement — семантические токены поверх
         expect(cell(4).fg).toBe(editor.resolvedStyle.fg);
     });
 
-    it("стиль без цвета оставляет цвет TM и меняет только заданные флаги", () => {
+    it("a style without color keeps the TM color and changes only the given flags", () => {
         // "if": TM is red italic; semantic keyword is italic:false, underline:true.
         const { cell } = setup("if x", [0, 0, 2, 2, 0]);
         expect(cell(0).fg).toBe(KEYWORD_FG);
@@ -109,7 +109,7 @@ describe("EditorElement — семантические токены поверх
         expect(cell(3).style).toBe(StyleFlags.None);
     });
 
-    it("модификаторы — по битам легенды: variable.readonly жирный, просто variable — свой цвет", () => {
+    it("modifiers follow legend bits: variable.readonly is bold, plain variable has its own color", () => {
         const { cell, resolver } = setup("ab cd", [0, 0, 2, 1, 0b01, 0, 3, 2, 1, 0]);
         expect(cell(0).style & StyleFlags.Bold).toBe(StyleFlags.Bold);
         expect(cell(3).fg).toBe(VAR_FG);
@@ -117,31 +117,31 @@ describe("EditorElement — семантические токены поверх
         expect(resolver.calls).toEqual(["variable[readonly]:java", "variable[]:java"]);
     });
 
-    it("биты за пределами легенды игнорируются, тип вне легенды не стилизуется", () => {
+    it("bits beyond the legend are ignored, a type outside the legend is not styled", () => {
         const { cell, resolver, editor } = setup("ab cd", [0, 0, 2, 1, 0b100, 0, 3, 2, 9, 0]);
         expect(cell(0).fg).toBe(VAR_FG);
         expect(cell(3).fg).toBe(editor.resolvedStyle.fg);
         expect(resolver.calls).toEqual(["variable[]:java"]);
     });
 
-    it("токен без стиля в теме TM не трогает", () => {
+    it("a token without a theme style leaves TM untouched", () => {
         const { cell } = setup("if", [0, 0, 2, 3, 0]);
         expect(cell(0).fg).toBe(KEYWORD_FG);
         expect(cell(0).style & StyleFlags.Italic).toBe(StyleFlags.Italic);
     });
 
-    it("стиль считается раз на (легенда, тип, модификаторы) за кадр", () => {
+    it("the style is computed once per (legend, type, modifiers) per frame", () => {
         const { resolver } = setup("ab ab ab", [0, 0, 2, 1, 0, 0, 3, 2, 1, 0, 0, 3, 2, 1, 0]);
         expect(resolver.calls).toEqual(["variable[]:java"]);
     });
 
-    it("вторая строка документа берёт свои токены", () => {
+    it("the second document line uses its own tokens", () => {
         const { cell } = setup("x\nFoo", [1, 0, 3, 0, 0]);
         expect(cell(0, 0).fg).not.toBe(CLASS_FG);
         expect(cell(0, 1).fg).toBe(CLASS_FG);
     });
 
-    it("правка документа сдвигает токены до свежего ответа", () => {
+    it("a document edit shifts tokens until a fresh response", () => {
         const { doc, cell, render } = setup("Foo bar", [0, 0, 3, 0, 0]);
         doc.applyEdits([{ range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } }, text: "  " }]);
         render();
@@ -150,7 +150,7 @@ describe("EditorElement — семантические токены поверх
         expect(cell(4).fg).toBe(CLASS_FG);
     });
 
-    it("правее ghost text семантика не уезжает", () => {
+    it("semantics to the right of ghost text do not drift", () => {
         const { editor, cell, render } = setup("a Foo", [0, 2, 3, 0, 0]);
         editor.setGhostText({ line: 0, character: 1, lines: ["XYZ"] });
         render();
@@ -160,14 +160,14 @@ describe("EditorElement — семантические токены поверх
         expect(cell(7).fg).toBe(CLASS_FG);
     });
 
-    it("без хранилища семантики рисуется только TM", () => {
+    it("without a semantic store only TM is drawn", () => {
         const { editor, cell, render } = setup("Foo", [0, 0, 3, 0, 0]);
         editor.viewState.semanticTokens = undefined;
         render();
         expect(cell(0).fg).not.toBe(CLASS_FG);
     });
 
-    it("резолвер не зовётся, когда семантических токенов нет", () => {
+    it("the resolver is not called when there are no semantic tokens", () => {
         const { resolver } = setup("Foo", []);
         expect(resolver.calls).toEqual([]);
     });

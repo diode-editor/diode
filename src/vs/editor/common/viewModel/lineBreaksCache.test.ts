@@ -12,14 +12,14 @@ const ONE_BREAK = "x".repeat(15); // → [10]
 const TWO_BREAKS = "aaaa bbbb cccc dddd eeee"; // → [10, 20]
 
 describe("LineBreaksCache", () => {
-    it("отдаёт breaks переносимой строки и null — влезающей", () => {
+    it("returns breaks for a wrapping line and null for one that fits", () => {
         const doc = new TextDocument(`short\n${TWO_BREAKS}`);
         const cache = new LineBreaksCache(doc, 4, WIDTH);
         expect(cache.getBreaks(0)).toBeNull();
         expect(cache.getBreaks(1)).toEqual([10, 20]);
     });
 
-    it("правка строки инвалидирует её breaks", () => {
+    it("editing a line invalidates its breaks", () => {
         const doc = new TextDocument("aaaa bbbb cccc");
         const cache = new LineBreaksCache(doc, 4, WIDTH);
         expect(cache.getBreaks(0)).toEqual([10]);
@@ -28,7 +28,7 @@ describe("LineBreaksCache", () => {
         expect(cache.getBreaks(0)).toBeNull();
     });
 
-    it("вставка строк сдвигает кеш splice'ом в точной позиции, не трогая непричастных", () => {
+    it("inserting lines shifts the cache via splice at the exact position, leaving others untouched", () => {
         const doc = new TextDocument(`${ONE_BREAK}\nzz\n${TWO_BREAKS}\ntail`);
         const cache = new LineBreaksCache(doc, 4, WIDTH);
         const untouched = cache.getBreaks(0);
@@ -47,7 +47,7 @@ describe("LineBreaksCache", () => {
         expect(cache.getBreaks(2)).toBeNull();
     });
 
-    it("удаление строки усаживает кеш splice'ом: записи ниже сдвигаются тем же экземпляром", () => {
+    it("deleting a line shrinks the cache via splice: entries below shift as the same instances", () => {
         const doc = new TextDocument(`aa\n${ONE_BREAK}\nzz\n${TWO_BREAKS}\ntail`);
         const cache = new LineBreaksCache(doc, 4, WIDTH);
         expect(cache.getBreaks(1)).toEqual([10]);
@@ -60,7 +60,7 @@ describe("LineBreaksCache", () => {
         expect(cache.getBreaks(1)).toBeNull();
     });
 
-    it("смена ширины сбрасывает кеш, повтор тех же параметров — no-op", () => {
+    it("changing width resets the cache, repeating the same params is a no-op", () => {
         const doc = new TextDocument(TWO_BREAKS);
         const cache = new LineBreaksCache(doc, 4, WIDTH);
         expect(cache.getBreaks(0)).toEqual([10, 20]);
@@ -77,7 +77,7 @@ describe("LineBreaksCache", () => {
         expect(cache.getBreaks(0)).toEqual([15]);
     });
 
-    it("гард рассинхрона: документ сжался мимо кеша — значение от документа, не из кеша", () => {
+    it("desync guard: document shrank behind the cache's back — value comes from the document, not the cache", () => {
         const doc = new TextDocument(`aa\nbb\n${ONE_BREAK}`);
         const cache = new LineBreaksCache(doc, 4, WIDTH);
         expect(cache.getBreaks(0)).toBeNull();
@@ -89,7 +89,7 @@ describe("LineBreaksCache", () => {
         expect(cache.getBreaks(0)).toEqual([10]);
     });
 
-    it("гард рассинхрона держит и повторное сжатие: reset пересобирает кеш по размеру документа", () => {
+    it("desync guard survives a repeated shrink: reset rebuilds the cache to the document size", () => {
         const doc = new TextDocument(`aa\nbb\n${ONE_BREAK}`);
         const cache = new LineBreaksCache(doc, 4, WIDTH);
         expect(cache.getBreaks(0)).toBeNull();
@@ -104,7 +104,7 @@ describe("LineBreaksCache", () => {
         expect(cache.getBreaks(0)).toEqual([10]);
     });
 
-    it("рассинхрон после setParams-сброса: массив пересобран по размеру документа", () => {
+    it("desync after a setParams reset: array is rebuilt to the document size", () => {
         const doc = new TextDocument(`aa\nbb\n${ONE_BREAK}`);
         const cache = new LineBreaksCache(doc, 4, WIDTH);
         cache.setParams(4, 14);

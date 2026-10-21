@@ -15,8 +15,8 @@ function collect(doc: TextDocument): { changes: IDocumentContentChange[]; batche
     return { changes, batches };
 }
 
-describe("TextDocument поверх PieceTree — EOL при загрузке", () => {
-    it("одиночный \\r — перевод строки, как в эталоне", () => {
+describe("TextDocument over PieceTree: EOL on load", () => {
+    it("lone \\r is a line break, as upstream", () => {
         const doc = new TextDocument("a\rb\nc");
         expect(doc.lineCount).toBe(3);
         expect(doc.getLineContent(0)).toBe("a");
@@ -24,21 +24,21 @@ describe("TextDocument поверх PieceTree — EOL при загрузке", 
         expect(doc.getText()).toBe("a\nb\nc");
     });
 
-    it("смешанные EOL приводятся к преобладающему — и в serialize", () => {
+    it("mixed EOLs normalize to the dominant one, in serialize too", () => {
         const doc = new TextDocument("a\r\nb\r\nc\nd");
         expect(doc.eol).toBe(EndOfLine.CRLF);
         expect(doc.serialize()).toBe("a\r\nb\r\nc\r\nd");
         expect(doc.getText()).toBe("a\nb\nc\nd");
     });
 
-    it("ведущий U+FEFF остаётся символом текста", () => {
+    it("leading U+FEFF stays a text character", () => {
         const doc = new TextDocument("﻿ab\ncd");
         expect(doc.getLineContent(0)).toBe("﻿ab");
         expect(doc.getText()).toBe("﻿ab\ncd");
         expect(doc.serialize()).toBe("﻿ab\ncd");
     });
 
-    it("пустой документ — одна пустая строка", () => {
+    it("empty document is one empty line", () => {
         const doc = new TextDocument("");
         expect(doc.lineCount).toBe(1);
         expect(doc.getLineLength(0)).toBe(0);
@@ -46,7 +46,7 @@ describe("TextDocument поверх PieceTree — EOL при загрузке", 
         expect(doc.serialize()).toBe("");
     });
 
-    it("setEol переписывает переводы строк буфера, а строки и getText не трогает", () => {
+    it("setEol rewrites buffer line breaks but leaves lines and getText alone", () => {
         const doc = new TextDocument("a\nb\nc");
         doc.setEol(EndOfLine.CRLF);
         expect(doc.serialize()).toBe("a\r\nb\r\nc");
@@ -56,8 +56,8 @@ describe("TextDocument поверх PieceTree — EOL при загрузке", 
     });
 });
 
-describe("TextDocument поверх PieceTree — правки", () => {
-    it("\\r\\n и \\r во вставке — переводы строк: события, батч и текст согласованы", () => {
+describe("TextDocument over PieceTree: edits", () => {
+    it("\\r\\n and \\r in an insert are line breaks: events, batch and text agree", () => {
         const doc = new TextDocument("ab");
         const { changes, batches } = collect(doc);
 
@@ -69,7 +69,7 @@ describe("TextDocument поверх PieceTree — правки", () => {
         expect(batches[0].changes).toEqual([{ range: createRange(0, 1, 0, 1), text: "x\ny\nz" }]);
     });
 
-    it("в CRLF-документе вставка с \\n сохраняется с EOL документа, обратная правка — с \\n", () => {
+    it("in a CRLF document an insert with \\n is stored with the document EOL, the inverse edit with \\n", () => {
         const doc = new TextDocument("a\r\nb");
         const { inverseEdits } = doc.applyEdits([createTextEdit(createRange(0, 1, 1, 0), "\nX\n")]);
 
@@ -77,7 +77,7 @@ describe("TextDocument поверх PieceTree — правки", () => {
         expect(inverseEdits).toEqual([createTextEdit(createRange(0, 1, 2, 0), "\n")]);
     });
 
-    it("края правки за концом строки и документа приводятся к документу", () => {
+    it("edit edges past end of line and document are clamped to the document", () => {
         const doc = new TextDocument("abc\nde");
         const { changes, batches } = collect(doc);
 
@@ -89,13 +89,13 @@ describe("TextDocument поверх PieceTree — правки", () => {
         expect(inverseEdits).toEqual([createTextEdit(createRange(0, 3, 0, 4), "\nde")]);
     });
 
-    it("getTextInRange приводит края к документу", () => {
+    it("getTextInRange clamps edges to the document", () => {
         const doc = new TextDocument("abc\nde");
         expect(doc.getTextInRange(createRange(0, 2, 9, 9))).toBe("c\nde");
         expect(doc.getTextInRange(createRange(0, 10, 0, 12))).toBe("");
     });
 
-    it("пересекающиеся правки — отказ до любых изменений", () => {
+    it("overlapping edits are rejected before any change", () => {
         const doc = new TextDocument("abcdef");
         const id = doc.deltaDecorations([], [{ range: createRange(0, 4, 0, 5), options: { description: "t" } }])[0];
         const { changes } = collect(doc);
@@ -113,13 +113,13 @@ describe("TextDocument поверх PieceTree — правки", () => {
         expect(doc.getDecorationRange(id)).toEqual(createRange(0, 4, 0, 5));
     });
 
-    it("стык правок — не пересечение", () => {
+    it("touching edits do not overlap", () => {
         const doc = new TextDocument("abcdef");
         doc.applyEdits([createTextEdit(createRange(0, 0, 0, 2), "X"), createTextEdit(createRange(0, 2, 0, 4), "Y")]);
         expect(doc.getText()).toBe("XYef");
     });
 
-    it("батч от 1000 правок не схлопывается: событие и обратная правка на каждую", () => {
+    it("batch of 1000 edits does not collapse: an event and an inverse edit for each", () => {
         const count = 1200;
         const lines = Array.from({ length: count }, (_, i) => `l${i.toString()}`);
         const doc = new TextDocument(lines.join("\n"));
@@ -134,7 +134,7 @@ describe("TextDocument поверх PieceTree — правки", () => {
         expect(doc.getLineContent(count - 1)).toBe(`>l${(count - 1).toString()}`);
     });
 
-    it("декорация в многострочной правке меряется по тексту до батча, даже когда ниже есть правки", () => {
+    it("decoration in a multiline edit is measured against pre-batch text, even with edits below", () => {
         const doc = new TextDocument("aaaa\nbbbb\ncccc");
         const id = doc.deltaDecorations([], [{ range: createRange(1, 2, 1, 2), options: { description: "t" } }])[0];
 
@@ -145,7 +145,7 @@ describe("TextDocument поверх PieceTree — правки", () => {
         expect(doc.getDecorationRange(id)).toEqual(createRange(0, 7, 0, 7));
     });
 
-    it("setText заменяет буфер: строки, EOL и версия — нового текста", () => {
+    it("setText replaces the buffer: lines, EOL and version are of the new text", () => {
         const doc = new TextDocument("a\nb");
         doc.setText("x\r\ny\r\nz");
         expect(doc.lineCount).toBe(3);
@@ -154,7 +154,7 @@ describe("TextDocument поверх PieceTree — правки", () => {
         expect(doc.versionId).toBe(1);
     });
 
-    it("строка за пределами документа — RangeError с границами", () => {
+    it("line outside the document throws RangeError with bounds", () => {
         const doc = new TextDocument("a\nb");
         expect(() => doc.getLineContent(2)).toThrow("Line index 2 out of bounds [0, 1]");
         expect(() => doc.getLineLength(-1)).toThrow(RangeError);

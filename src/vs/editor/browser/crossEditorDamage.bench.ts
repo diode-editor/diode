@@ -64,18 +64,18 @@ const solo = makeSoloApp();
 const splitShort = makeSplitApp(20);
 const splitLong = makeSplitApp(10_000);
 
-describe("Editor — печать при соседнем устоявшемся Output (2 кадра за итерацию)", () => {
-    bench("один редактор — контроль: абсолютная стоимость клавиши", () => {
+describe("Editor — typing next to a settled Output (2 frames per iteration)", () => {
+    bench("single editor — control: absolute cost of a keystroke", () => {
         solo.app.sendKey("x");
         solo.app.sendKey("Backspace");
     });
 
-    bench("сплит: Output с короткими строками", () => {
+    bench("split: Output with short lines", () => {
         splitShort.app.sendKey("x");
         splitShort.app.sendKey("Backspace");
     });
 
-    bench("сплит: Output с устоявшейся 10k-строкой — не должен стоить дороже короткого", () => {
+    bench("split: Output with a settled 10k line — costs no more than the short one", () => {
         splitLong.app.sendKey("x");
         splitLong.app.sendKey("Backspace");
     });

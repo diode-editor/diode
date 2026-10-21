@@ -16,8 +16,8 @@ function roundTrip(text: string, edits: readonly ITextEdit[]): { after: string; 
     return { after, undone: doc.getText() };
 }
 
-describe("TextDocument.applyEdits — обратные правки батча", () => {
-    it("возвращает импорт на место после quick fix «удалить неиспользуемый assert»", () => {
+describe("TextDocument.applyEdits: inverse edits of a batch", () => {
+    it("restores the import after the 'remove unused assert' quick fix", () => {
         // Captured from a live typescript-language-server: the inverse edits are two
         // zero-width insertions AT THE SAME POINT (0,13), so order is everything.
         const line = 'import { test, assert } from "./test.js";';
@@ -30,7 +30,7 @@ describe("TextDocument.applyEdits — обратные правки батча",
         expect(undone).toBe(line);
     });
 
-    it("не переставляет местами вставки, попавшие в одну точку", () => {
+    it("does not reorder inserts at the same point", () => {
         // A swapped order would give "cdab" of the same length — the assertion checks the content.
         const { after, undone } = roundTrip("abcdXY", [
             createTextEdit(createRange(0, 0, 0, 2), ""),
@@ -41,7 +41,7 @@ describe("TextDocument.applyEdits — обратные правки батча",
         expect(undone).toBe("abcdXY");
     });
 
-    it("учитывает склейку строк: правка на строке, приклеенной предыдущей правкой", () => {
+    it("accounts for joined lines: edit on a line joined by a previous edit", () => {
         // The second edit shifts by line AND by column — shifting by line only would miss.
         const text = "ab\ncdef\n";
         const { after, undone } = roundTrip(text, [
@@ -53,7 +53,7 @@ describe("TextDocument.applyEdits — обратные правки батча",
         expect(undone).toBe(text);
     });
 
-    it("учитывает склейку строк, когда правка вставляет непустой текст", () => {
+    it("accounts for joined lines when the edit inserts non-empty text", () => {
         const text = "ab\ncdef\n";
         const { after, undone } = roundTrip(text, [
             createTextEdit(createRange(0, 1, 1, 1), "X\nYZ"),
@@ -64,7 +64,7 @@ describe("TextDocument.applyEdits — обратные правки батча",
         expect(undone).toBe(text);
     });
 
-    it("сдвигает правку на следующих строках на накопленную разницу строк", () => {
+    it("shifts an edit on later lines by the accumulated line delta", () => {
         const text = "aaa\nbbb\nccc\nddd\n";
         const { after, undone } = roundTrip(text, [
             createTextEdit(createRange(0, 0, 1, 0), ""),
@@ -75,7 +75,7 @@ describe("TextDocument.applyEdits — обратные правки батча",
         expect(undone).toBe(text);
     });
 
-    it("сдвигает правку на следующих строках вниз, когда батч добавил строки", () => {
+    it("shifts an edit on later lines down when the batch added lines", () => {
         const text = "aaa\nbbb\nccc\n";
         const { after, undone } = roundTrip(text, [
             createTextEdit(createRange(0, 1, 0, 2), "1\n2\n3"),
@@ -86,7 +86,7 @@ describe("TextDocument.applyEdits — обратные правки батча",
         expect(undone).toBe(text);
     });
 
-    it("round-trip не зависит от порядка правок в батче", () => {
+    it("round-trip does not depend on edit order in the batch", () => {
         const text = "one\ntwo\nthree\n";
         const edits = [
             createTextEdit(createRange(0, 1, 0, 3), "1"),

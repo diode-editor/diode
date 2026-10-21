@@ -21,15 +21,15 @@ const WHOLE = documentRange("a\nbc\n\ndef");
 const TOKEN = new CancellationTokenSource().token;
 const edit = (text: string): ITextEdit => ({ range: createRange(0, 0, 0, 0), text });
 
-describe("format — выбор форматтера по реестрам", () => {
-    it("без провайдеров — форматтера нет: null у обоих видов, has — false", async () => {
+describe("format: formatter selection from registries", () => {
+    it("no providers means no formatter: null for both kinds, has is false", async () => {
         const features = new LanguageFeaturesService();
         expect(hasDocumentFormatter(features, TS)).toBe(false);
         expect(await formatDocument(features, TS, REQUEST, WHOLE, TOKEN)).toBeNull();
         expect(await formatRange(features, TS, { ...REQUEST, range: createRange(0, 0, 0, 1) }, TOKEN)).toBeNull();
     });
 
-    it("документный форматтер — по score: точный язык выше `*`", async () => {
+    it("document formatter by score: exact language beats `*`", async () => {
         const features = new LanguageFeaturesService();
         const exact = vi.fn(() => Promise.resolve([edit("exact")]));
         features.documentFormattingEditProvider.register("typescript", { provideDocumentFormattingEdits: exact });
@@ -41,7 +41,7 @@ describe("format — выбор форматтера по реестрам", () 
         expect(exact).toHaveBeenCalledWith(REQUEST, TOKEN);
     });
 
-    it("документного нет — range-провайдер форматирует документ на полный диапазон", async () => {
+    it("no document formatter: range provider formats the document over the full range", async () => {
         const features = new LanguageFeaturesService();
         const provide = vi.fn((_request: IFormattingRequest, _token: ICancellationToken) =>
             Promise.resolve([edit("synthetic")]),
@@ -56,7 +56,7 @@ describe("format — выбор форматтера по реестрам", () 
         expect(provide.mock.calls[0]?.[1]).toBe(TOKEN);
     });
 
-    it("документный форматтер предпочтительнее синтетического", async () => {
+    it("document formatter is preferred over the synthetic one", async () => {
         const features = new LanguageFeaturesService();
         const synthetic = vi.fn(() => Promise.resolve([edit("synthetic")]));
         features.documentRangeFormattingEditProvider.register("typescript", {
@@ -70,7 +70,7 @@ describe("format — выбор форматтера по реестрам", () 
         expect(synthetic).not.toHaveBeenCalled();
     });
 
-    it("Format Selection — только range-провайдер, с запрошенным диапазоном", async () => {
+    it("Format Selection uses only the range provider, with the requested range", async () => {
         const features = new LanguageFeaturesService();
         features.documentFormattingEditProvider.register("*", {
             provideDocumentFormattingEdits: () => Promise.resolve([edit("document")]),
@@ -87,7 +87,7 @@ describe("format — выбор форматтера по реестрам", () 
         expect(provide.mock.calls[0]?.[1]).toBe(TOKEN);
     });
 
-    it("сбойный форматтер — пустой ответ (no-op), не «нет форматтера»", async () => {
+    it("failing formatter yields an empty result (no-op), not no formatter", async () => {
         const features = new LanguageFeaturesService();
         const fail = (): Promise<readonly ITextEdit[]> => Promise.reject(new Error("boom"));
         features.documentRangeFormattingEditProvider.register("*", { provideDocumentRangeFormattingEdits: fail });
@@ -98,7 +98,7 @@ describe("format — выбор форматтера по реестрам", () 
         expect(await formatDocument(features, TS, REQUEST, WHOLE, TOKEN)).toEqual([]);
     });
 
-    it("documentRange — от (0,0) до конца последней строки, пустой текст — нулевой диапазон", () => {
+    it("documentRange spans (0,0) to the end of the last line, empty text gives an empty range", () => {
         expect(documentRange("a\nbc\n\ndef")).toEqual(createRange(0, 0, 3, 3));
         expect(documentRange("x\n")).toEqual(createRange(0, 0, 1, 0));
         expect(documentRange("")).toEqual(createRange(0, 0, 0, 0));

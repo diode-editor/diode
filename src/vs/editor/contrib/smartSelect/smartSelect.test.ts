@@ -34,25 +34,25 @@ async function steps(
     return ranges.map((one) => one.map((range) => document.getTextInRange(range)));
 }
 
-describe("provideSelectionRanges — слияние эталона", () => {
-    it("без провайдеров: слово → внутри скобок → скобки → строка без отступа → строка → документ", async () => {
+describe("provideSelectionRanges: upstream merge", () => {
+    it("no providers: word → inside brackets → brackets → line without indent → line → document", async () => {
         const text = "a\n  foo(bar)  \nb";
         expect(await steps(text, [createPosition(1, 7)])).toEqual([["bar", "(bar)", "foo(bar)", "  foo(bar)  ", text]]);
     });
 
-    it("многострочные скобки: строки целиком появляются, только если строго между соседями", async () => {
+    it("multi-line brackets: whole lines appear only when strictly between neighbors", async () => {
         const text = "f {\n  x\n}\n";
         expect(await steps(text, [createPosition(1, 2)])).toEqual([
             ["x", "  x", "\n  x\n", "{\n  x\n}", "f {\n  x\n}", text],
         ]);
     });
 
-    it("табуляция — тоже отступ и хвостовой пробел", async () => {
+    it("tab counts as indent and trailing whitespace too", async () => {
         const text = "\tfoo(bar)\t\nb";
         expect(await steps(text, [createPosition(0, 6)])).toEqual([["bar", "(bar)", "foo(bar)", "\tfoo(bar)\t", text]]);
     });
 
-    it("ступени строк — и когда следующий диапазон выходит на строки только вверх или только вниз", async () => {
+    it("line steps also when the next range extends lines only up or only down", async () => {
         const text = "f {\n x y\n}\n";
         const caret = [createPosition(1, 1)];
         const up = provider(() => [[createRange(0, 0, 1, 4)]]);
@@ -61,7 +61,7 @@ describe("provideSelectionRanges — слияние эталона", () => {
         expect(await steps(text, caret, { providers: [down] })).toEqual([["x", "x y", "x y\n}", " x y\n}", text]]);
     });
 
-    it("следующий диапазон на тех же строках — ступеней строк между ними нет", async () => {
+    it("next range on the same lines: no line steps between them", async () => {
         const text = "  foo bar  \nz";
         const lsp = provider(() => [[createRange(0, 0, 0, 9)]]);
         expect(await steps(text, [createPosition(0, 3)], { providers: [lsp] })).toEqual([
@@ -69,12 +69,12 @@ describe("provideSelectionRanges — слияние эталона", () => {
         ]);
     });
 
-    it("строка без отступа и хвоста: «строка целиком» совпадает с «без пробелов» — одна ступень", async () => {
+    it("line without indent and trailing whitespace: whole line equals trimmed line, one step", async () => {
         const text = "a b\nc";
         expect(await steps(text, [createPosition(0, 0)])).toEqual([["a", "a b", text]]);
     });
 
-    it("диапазон со строки из пробелов: «без отступа» нет, «строки целиком» — есть", async () => {
+    it("range from a whitespace-only line: no trimmed step, whole lines present", async () => {
         const text = "a\n  \nfoo\nb";
         const lsp = provider(() => [[createRange(1, 1, 2, 3), createRange(0, 0, 2, 3)]]);
         expect(await steps(text, [createPosition(2, 1)], { providers: [lsp] })).toEqual([
@@ -82,7 +82,7 @@ describe("provideSelectionRanges — слияние эталона", () => {
         ]);
     });
 
-    it("диапазон с пустой строки: «без отступа» нет, «строки целиком» совпадают с ним — не повторяются", async () => {
+    it("range from an empty line: no trimmed step, whole lines equal it and are not repeated", async () => {
         const text = "a\n\nfoo\nb";
         const lsp = provider(() => [[createRange(1, 0, 2, 3), createRange(0, 0, 2, 3)]]);
         expect(await steps(text, [createPosition(2, 1)], { providers: [lsp] })).toEqual([
@@ -90,13 +90,13 @@ describe("provideSelectionRanges — слияние эталона", () => {
         ]);
     });
 
-    it("selectLeadingAndTrailingWhitespace: false — без ступеней строк", async () => {
+    it("selectLeadingAndTrailingWhitespace: false means no line steps", async () => {
         const text = "a\n  foo(bar)  \nb";
         const options = { selectLeadingAndTrailingWhitespace: false, selectSubwords: true };
         expect(await steps(text, [createPosition(1, 7)], { options })).toEqual([["bar", "(bar)", text]]);
     });
 
-    it("с языковым провайдером скобочный фоллбек молчит, слова — всегда", async () => {
+    it("with a language provider the bracket fallback is silent, words always apply", async () => {
         const text = "x(fooBar)";
         const lsp = provider((positions) => positions.map(() => [createRange(0, 0, 0, 9)]));
         expect(await steps(text, [createPosition(0, 5)], { providers: [lsp] })).toEqual([["Bar", "fooBar", text]]);
@@ -106,7 +106,7 @@ describe("provideSelectionRanges — слияние эталона", () => {
         );
     });
 
-    it("ступени провайдеров сливаются; мимо каретки и пересекающая предыдущую сбоку — выпадают", async () => {
+    it("provider steps merge; ones missing the cursor or overlapping the previous one sideways drop out", async () => {
         const text = "aa bb cc dd";
         const lsp = provider(() => [
             [
@@ -118,7 +118,7 @@ describe("provideSelectionRanges — слияние эталона", () => {
         expect(await steps(text, [createPosition(0, 4)], { providers: [lsp] })).toEqual([["bb", "bb cc", text]]);
     });
 
-    it("сбой и невыровненный ответ провайдера — «ответа нет», остальные не страдают", async () => {
+    it("provider failure and misaligned result mean no result, others are unaffected", async () => {
         const failing: SelectionRangeProvider = { provideSelectionRanges: () => Promise.reject(new Error("boom")) };
         const misaligned = provider(() => [[createRange(0, 0, 0, 3)], [createRange(0, 0, 0, 3)]]);
         expect(await steps("abc def", [createPosition(0, 5)], { providers: [failing, misaligned] })).toEqual([
@@ -126,7 +126,7 @@ describe("provideSelectionRanges — слияние эталона", () => {
         ]);
     });
 
-    it("мультикурсор: по иерархии на каретку", async () => {
+    it("multi-cursor: one hierarchy per cursor", async () => {
         const text = "(ab) {cd}";
         expect(await steps(text, [createPosition(0, 1), createPosition(0, 7)])).toEqual([
             ["ab", "(ab)", text],
@@ -134,7 +134,7 @@ describe("provideSelectionRanges — слияние эталона", () => {
         ]);
     });
 
-    it("строки скобок проверяет isCodeAt", async () => {
+    it("isCodeAt checks bracket lines", async () => {
         const text = 'f(")")';
         const isCodeAt = (_line: number, character: number): boolean => character < 2 || character > 4;
         expect(await steps(text, [createPosition(0, 4)], { isCodeAt })).toEqual([['")"', '(")")', text]]);

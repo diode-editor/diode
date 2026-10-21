@@ -8,14 +8,14 @@ import { isExclusive, type LanguageSelector, score } from "./languageSelector.ts
 describe("languageSelector.score", () => {
     const model = { language: "farboo", uri: Uri.parse("file:///testbed/file.fb") };
 
-    it("невалидный селектор — 0", () => {
+    it("an invalid selector — 0", () => {
         expect(score({}, model.uri, model.language)).toBe(0);
         expect(score(undefined, model.uri, model.language)).toBe(0);
         expect(score("", model.uri, model.language)).toBe(0);
         expect(score([], model.uri, model.language)).toBe(0);
     });
 
-    it("любой язык — 5, точный — 10, независимо от схемы", () => {
+    it("any language — 5, exact — 10, regardless of scheme", () => {
         expect(score({ language: "*" }, model.uri, model.language)).toBe(5);
         expect(score("*", model.uri, model.language)).toBe(5);
         expect(score("*", Uri.parse("foo:bar"), model.language)).toBe(5);
@@ -23,7 +23,7 @@ describe("languageSelector.score", () => {
         expect(score("other", model.uri, model.language)).toBe(0);
     });
 
-    it("схемы: пустая — нет ограничения, `*` — 5, точная — 10", () => {
+    it("schemes: empty — no restriction, `*` — 5, exact — 10", () => {
         const uri = Uri.parse("git:foo/file.txt");
         const language = "farboo";
 
@@ -38,11 +38,11 @@ describe("languageSelector.score", () => {
         expect(score({ scheme: "file" }, uri, language)).toBe(0);
     });
 
-    it("язык `*` не понижает точное совпадение схемы", () => {
+    it("language `*` does not lower an exact scheme match", () => {
         expect(score({ language: "*", scheme: "file" }, model.uri, model.language)).toBe(10);
     });
 
-    it("фильтр: несовпадение любого поля обнуляет", () => {
+    it("filter: a mismatch in any field zeroes the score", () => {
         expect(score({ language: "farboo" }, model.uri, model.language)).toBe(10);
         expect(score({ language: "farboo", scheme: "file" }, model.uri, model.language)).toBe(10);
         expect(score({ language: "farboo", scheme: "http" }, model.uri, model.language)).toBe(0);
@@ -63,7 +63,7 @@ describe("languageSelector.score", () => {
         expect(score(["fooLang", "*"], doc.uri, doc.langId)).toBe(5);
     });
 
-    it("массив — максимум по элементам", () => {
+    it("array — max over elements", () => {
         const match = { language: "farboo", scheme: "file" };
         const fail = { language: "farboo", scheme: "http" };
 
@@ -75,23 +75,23 @@ describe("languageSelector.score", () => {
         expect(score(["*", "other"], model.uri, model.language)).toBe(5);
     });
 
-    it("pattern + language + scheme вместе (#60232)", () => {
+    it("pattern + language + scheme together (#60232)", () => {
         const selector = { language: "json", scheme: "file", pattern: "**/*.interface.json" };
         expect(score(selector, Uri.parse("file:///C:/Users/zlhe/Desktop/test.interface.json"), "json")).toBe(10);
     });
 
-    it("pattern, равный пути буквально, матчит и с glob-символами в имени", () => {
+    it("a pattern literally equal to the path matches even with glob characters in the name", () => {
         // As a glob, `{x}` is an alternation: only the literal comparison saves it.
         expect(score({ pattern: "/a/{x}.ts" }, Uri.file("/a/{x}.ts"), "typescript")).toBe(10);
     });
 
-    it("RelativePattern: шаблон относительно base (#99938)", () => {
+    it("RelativePattern: pattern relative to base (#99938)", () => {
         const selector = { pattern: { base: "/home/user/Desktop", pattern: "*.json" } };
         expect(score(selector, Uri.file("/home/user/Desktop/test.json"), "json")).toBe(10);
         expect(score(selector, Uri.file("/home/user/Other/test.json"), "json")).toBe(0);
     });
 
-    it("notebookType без ноутбука не матчит", () => {
+    it("notebookType does not match without a notebook", () => {
         const uri = Uri.parse("file:///my/file.bat");
         expect(score({ language: "bat", notebookType: "xxx" }, uri, "bat")).toBe(0);
         expect(score({ language: "bat", notebookType: "*" }, uri, "bat")).toBe(0);
@@ -100,7 +100,7 @@ describe("languageSelector.score", () => {
 });
 
 describe("languageSelector.isExclusive", () => {
-    it("строка — никогда, фильтр — по флагу, массив — когда эксклюзивны все", () => {
+    it("string — never, filter — by flag, array — when all are exclusive", () => {
         const exclusive: LanguageSelector = { language: "a", exclusive: true };
         expect(isExclusive("a")).toBe(false);
         expect(isExclusive({ language: "a" })).toBe(false);

@@ -3,28 +3,28 @@ import { describe, expect, it } from "vitest";
 import { currentCursorChangeSource, withCursorChangeSource } from "./cursorChangeSource.ts";
 
 describe("cursorChangeSource", () => {
-    it("вне области источник не объявлен", () => {
+    it("no source is declared outside a scope", () => {
         expect(currentCursorChangeSource()).toBeUndefined();
     });
 
-    it("внутри области виден объявленный источник, после — снова ничего", () => {
+    it("the declared source is visible inside the scope, nothing after it", () => {
         const inside = withCursorChangeSource("mouse", () => currentCursorChangeSource());
         expect(inside).toBe("mouse");
         expect(currentCursorChangeSource()).toBeUndefined();
     });
 
-    it("возвращает значение переданной функции", () => {
+    it("returns the value of the given function", () => {
         expect(withCursorChangeSource("keyboard", () => 42)).toBe(42);
     });
 
-    it("вложенная область не перебивает внешнюю: кейбинд, запустивший команду, остаётся keyboard", () => {
+    it("a nested scope does not override the outer one: a keybinding running a command stays keyboard", () => {
         const seen = withCursorChangeSource("keyboard", () =>
             withCursorChangeSource("command", () => currentCursorChangeSource()),
         );
         expect(seen).toBe("keyboard");
     });
 
-    it("после выхода из вложенной области внешняя восстановлена", () => {
+    it("the outer scope is restored after leaving the nested one", () => {
         const trail: (string | undefined)[] = [];
         withCursorChangeSource("mouse", () => {
             withCursorChangeSource("command", () => trail.push(currentCursorChangeSource()));
@@ -34,7 +34,7 @@ describe("cursorChangeSource", () => {
         expect(trail).toEqual(["mouse", "mouse", undefined]);
     });
 
-    it("исключение из функции не оставляет источник взведённым", () => {
+    it("an exception from the function does not leave the source armed", () => {
         expect(() =>
             withCursorChangeSource("command", () => {
                 throw new Error("boom");
@@ -43,7 +43,7 @@ describe("cursorChangeSource", () => {
         expect(currentCursorChangeSource()).toBeUndefined();
     });
 
-    it("асинхронный хвост уже вне области — источник не протекает за await", async () => {
+    it("the async tail is outside the scope — the source does not leak past await", async () => {
         let afterAwait: string | undefined = "unset";
         await withCursorChangeSource("command", async () => {
             await Promise.resolve();

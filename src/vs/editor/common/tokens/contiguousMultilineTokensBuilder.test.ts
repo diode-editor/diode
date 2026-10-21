@@ -7,7 +7,7 @@ import { ContiguousMultilineTokensBuilder } from "./contiguousMultilineTokensBui
 const tokens = (n: number): Uint32Array => storedTokens([[0, markedMetadata(n)]], 1);
 
 describe("ContiguousMultilineTokensBuilder", () => {
-    it("подряд идущие строки сливает в один блок, разрыв начинает новый", () => {
+    it("merges consecutive lines into one block, a gap starts a new one", () => {
         const builder = new ContiguousMultilineTokensBuilder();
         builder.add(3, tokens(11));
         builder.add(4, tokens(12));
@@ -23,14 +23,14 @@ describe("ContiguousMultilineTokensBuilder", () => {
         expect(blocks[1].getLineTokens(7)).toEqual(tokens(13));
     });
 
-    it("та же строка ещё раз — новый блок, а не дописывание", () => {
+    it("same line again starts a new block instead of appending", () => {
         const builder = new ContiguousMultilineTokensBuilder();
         builder.add(5, tokens(11));
         builder.add(5, tokens(12));
         expect(builder.finalize()).toHaveLength(2);
     });
 
-    it("serialize/deserialize сохраняет блоки и токены строк", () => {
+    it("serialize/deserialize keeps blocks and line tokens", () => {
         const builder = new ContiguousMultilineTokensBuilder();
         builder.add(3, tokens(11));
         builder.add(

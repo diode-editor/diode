@@ -20,20 +20,20 @@ function push(manager: UndoManager, doc: TextDocument, label: string, text: stri
     });
 }
 
-describe("UndoManager — токены шагов", () => {
-    it("пустые стеки токенов не отдают", () => {
+describe("UndoManager: step tokens", () => {
+    it("empty stacks give no tokens", () => {
         const manager = new UndoManager(new TextDocument(""));
         expect(manager.peekUndoStep()).toBeUndefined();
         expect(manager.peekRedoStep()).toBeUndefined();
     });
 
-    it("на пустых стеках отсутствующий токен — просто `false`, а не падение", () => {
+    it("on empty stacks a missing token is just `false`, not a throw", () => {
         const manager = new UndoManager(new TextDocument(""));
         expect(manager.canUndoStep(undefined)).toBe(false);
         expect(manager.canRedoStep(undefined)).toBe(false);
     });
 
-    it("свежий шаг — верхний и отменяемый", () => {
+    it("fresh step is top and undoable", () => {
         const doc = new TextDocument("");
         const manager = new UndoManager(doc);
         push(manager, doc, "first", "a");
@@ -43,7 +43,7 @@ describe("UndoManager — токены шагов", () => {
         expect(manager.canUndoStep(step)).toBe(true);
     });
 
-    it("шаг, накрытый следующим, перестаёт быть отменяемым — и снова становится после undo", () => {
+    it("step covered by the next one stops being undoable and becomes undoable again after undo", () => {
         const doc = new TextDocument("");
         const manager = new UndoManager(doc);
         push(manager, doc, "first", "a");
@@ -58,7 +58,7 @@ describe("UndoManager — токены шагов", () => {
         expect(manager.canUndoStep(first)).toBe(true);
     });
 
-    it("правка документа МИМО менеджера снимает отменяемость верхнего шага", () => {
+    it("document edit BYPASSING the manager makes the top step non-undoable", () => {
         const doc = new TextDocument("");
         const manager = new UndoManager(doc);
         push(manager, doc, "first", "a");
@@ -71,7 +71,7 @@ describe("UndoManager — токены шагов", () => {
         expect(manager.undo()).toBe(false);
     });
 
-    it("после отмены шаг переезжает в стек повтора НОВЫМ токеном", () => {
+    it("after undo the step moves to the redo stack with a NEW token", () => {
         const doc = new TextDocument("");
         const manager = new UndoManager(doc);
         push(manager, doc, "first", "a");
@@ -85,7 +85,7 @@ describe("UndoManager — токены шагов", () => {
         expect(manager.canRedoStep(undoToken)).toBe(false);
     });
 
-    it("правка документа МИМО менеджера снимает повторяемость верхнего шага", () => {
+    it("document edit BYPASSING the manager makes the top step non-redoable", () => {
         const doc = new TextDocument("");
         const manager = new UndoManager(doc);
         push(manager, doc, "first", "a");
@@ -100,7 +100,7 @@ describe("UndoManager — токены шагов", () => {
         expect(manager.redo()).toBe(false);
     });
 
-    it("шаг повтора, накрытый следующим, повторяемым не считается", () => {
+    it("redo step covered by the next one is not redoable", () => {
         const doc = new TextDocument("");
         const manager = new UndoManager(doc);
         push(manager, doc, "first", "a");

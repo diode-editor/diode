@@ -28,8 +28,8 @@ function makeLines(count: number): string {
     return Array.from({ length: count }, (_, i) => `line ${i.toString()}`).join("\n");
 }
 
-describe("EditorElement — геометрия вторичных кареток", () => {
-    it("широкий символ: глиф и ширина целы, продолжение прокрашено", () => {
+describe("EditorElement — secondary cursor geometry", () => {
+    it("wide character: glyph and width intact, continuation painted", () => {
         const { app, editor, viewState, gw } = createEditor("漢x漢");
         viewState.selections = [createCursorSelection(0, 0), createCursorSelection(0, 1)];
         editor.focus();
@@ -43,7 +43,7 @@ describe("EditorElement — геометрия вторичных кареток
         expect(app.backend.getBgAt(new Point(gw + 1, 0))).toBe(CARET_BG);
     });
 
-    it("каретка после широкого символа встаёт в его дисплейную колонку", () => {
+    it("a cursor after a wide character lands in its display column", () => {
         const { app, editor, viewState, gw } = createEditor("漢x");
         viewState.selections = [createCursorSelection(0, 1), createCursorSelection(0, 2)];
         editor.focus();
@@ -53,7 +53,7 @@ describe("EditorElement — геометрия вторичных кареток
         expect(app.backend.getBgAt(new Point(gw + 2, 0))).toBe(CARET_BG);
     });
 
-    it("таб: инвертирована ровно одна колонка из четырёх", () => {
+    it("tab: exactly one column of four is inverted", () => {
         const { app, editor, viewState, gw } = createEditor("\tx\n\ty");
         editor.tabSize = 4;
         viewState.selections = [createCursorSelection(0, 0), createCursorSelection(1, 0)];
@@ -65,7 +65,7 @@ describe("EditorElement — геометрия вторичных кареток
         expect(app.backend.getBgAt(new Point(gw + 3, 0))).toBe(editor.resolvedStyle.bg);
     });
 
-    it("каретка за концом строки рисуется на пустой ячейке", () => {
+    it("a cursor past the line end is drawn on an empty cell", () => {
         const { app, editor, viewState, gw } = createEditor("abc\nabcdef");
         viewState.selections = [createCursorSelection(0, 3), createCursorSelection(1, 6)];
         editor.focus();
@@ -75,7 +75,7 @@ describe("EditorElement — геометрия вторичных кареток
         expect(app.backend.getTextAt(new Point(gw + 3, 0), 1)).toBe(" ");
     });
 
-    it("каретка на пустой строке рисуется в колонке 0", () => {
+    it("a cursor on an empty line is drawn at column 0", () => {
         const { app, editor, viewState, gw } = createEditor("abc\n\ndef");
         viewState.selections = [createCursorSelection(0, 0), createCursorSelection(1, 0)];
         editor.focus();
@@ -84,7 +84,7 @@ describe("EditorElement — геометрия вторичных кареток
         expect(app.backend.getBgAt(new Point(gw + 0, 1))).toBe(CARET_BG);
     });
 
-    it("две каретки на одной строке рисуются обе", () => {
+    it("two cursors on one line are both drawn", () => {
         const { app, editor, viewState, gw } = createEditor("abcdef");
         viewState.selections = [createCursorSelection(0, 1), createCursorSelection(0, 4)];
         editor.focus();
@@ -94,7 +94,7 @@ describe("EditorElement — геометрия вторичных кареток
         expect(app.backend.getBgAt(new Point(gw + 4, 0))).toBe(CARET_BG);
     });
 
-    it("каретка внутри свёрнутого региона не рисуется, а заголовок не пачкается", () => {
+    it("a cursor inside a folded region is not drawn and the header is not dirtied", () => {
         const { app, editor, viewState, gw } = createEditor("header\n  body\nafter");
         viewState.selections = [createCursorSelection(2, 0), createCursorSelection(1, 2)];
         viewState.foldedRegions = [createFoldingRegion(0, 1, true)];
@@ -107,7 +107,7 @@ describe("EditorElement — геометрия вторичных кареток
         }
     });
 
-    it("каретка выше и ниже вьюпорта не рисуется", () => {
+    it("a cursor above or below the viewport is not drawn", () => {
         const { app, editor, viewState, gw } = createEditor(makeLines(40), 30, 4);
         viewState.scrollTop = 10;
         viewState.selections = [
@@ -124,7 +124,7 @@ describe("EditorElement — геометрия вторичных кареток
         expect(app.backend.getBgAt(new Point(gw + 0, 3))).not.toBe(CARET_BG);
     });
 
-    it("горизонтальный скролл: каретка левее вьюпорта пропадает, на его краю — рисуется", () => {
+    it("horizontal scroll: a cursor left of the viewport disappears, one at its edge is drawn", () => {
         const { app, editor, viewState, gw } = createEditor("abcdefghijklmnop\nabcdefghijklmnop", 20, 4);
         viewState.scrollLeft = 5;
         viewState.selections = [createCursorSelection(0, 2), createCursorSelection(1, 5)];
@@ -139,7 +139,7 @@ describe("EditorElement — геометрия вторичных кареток
         }
     });
 
-    it("горизонтальный скролл: каретка правее вьюпорта не рисуется", () => {
+    it("horizontal scroll: a cursor right of the viewport is not drawn", () => {
         const { app, editor, viewState, gw } = createEditor("abcdefghijklmnopqrstuvwxyz\nabc", 14, 4);
         viewState.selections = [createCursorSelection(0, 25), createCursorSelection(1, 0)];
         editor.focus();
@@ -151,7 +151,7 @@ describe("EditorElement — геометрия вторичных кареток
         }
     });
 
-    it("строка-зона остаётся чистой, а каретка под ней съезжает вместе с проекцией", () => {
+    it("the zone row stays clean and the cursor below it shifts with the projection", () => {
         const { app, editor, viewState, gw } = createEditor("aaa\nbbb\nccc", 20, 5);
         viewState.setViewZones([{ afterLine: 0, size: 1 }]);
         viewState.selections = [createCursorSelection(0, 0), createCursorSelection(1, 0)];

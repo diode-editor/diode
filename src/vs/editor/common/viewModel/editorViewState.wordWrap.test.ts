@@ -11,8 +11,8 @@ function makeState(lines: string, viewportWidth = 10): EditorViewState {
     return state;
 }
 
-describe("EditorViewState word wrap — проекция", () => {
-    it("wordWrap=on разворачивает длинную строку в ряд на фрагмент", () => {
+describe("EditorViewState word wrap — projection", () => {
+    it("wordWrap=on expands a long line into one row per fragment", () => {
         const state = makeState("aaaa bbbb cccc\nshort");
         expect(state.getViewLineCount()).toBe(2);
         state.wordWrap = "on";
@@ -20,7 +20,7 @@ describe("EditorViewState word wrap — проекция", () => {
         expect(state.getViewLineCount()).toBe(3);
     });
 
-    it("оба фрагмента отдают одну и ту же логическую строку", () => {
+    it("both fragments return the same logical line", () => {
         const state = makeState("aaaa bbbb cccc\nshort");
         state.wordWrap = "on";
         expect(state.visualToLogicalLine(0)).toBe(0);
@@ -30,14 +30,14 @@ describe("EditorViewState word wrap — проекция", () => {
         expect(state.logicalToVisualLine(1)).toBe(2);
     });
 
-    it("getViewLine у фрагмента — целая логическая строка (окно режет рендер)", () => {
+    it("getViewLine of a fragment is the whole logical line (the window crops rendering)", () => {
         const state = makeState("aaaa bbbb cccc");
         state.wordWrap = "on";
         expect(state.getViewLine(0)).toBe("aaaa bbbb cccc");
         expect(state.getViewLine(1)).toBe("aaaa bbbb cccc");
     });
 
-    it("viewLineRange отдаёт offsets фрагмента, у последнего конец — длина строки", () => {
+    it("viewLineRange returns fragment offsets, the last one ends at line length", () => {
         const state = makeState("aaaa bbbb cccc");
         state.wordWrap = "on";
         expect(state.viewLineRange(0)).toEqual({ start: 0, end: 10 });
@@ -46,7 +46,7 @@ describe("EditorViewState word wrap — проекция", () => {
         expect(state.viewLineRange(-1)).toEqual({ start: 0, end: 0 });
     });
 
-    it("viewLineStartColumn — дисплейная колонка начала фрагмента (табы считаются)", () => {
+    it("viewLineStartColumn is the display column of the fragment start (tabs counted)", () => {
         const state = makeState("\taaaa bbb cc");
         state.wordWrap = "on";
         // "\taaaa bbb cc": tab=4 + aaaa=8, ws=9 → "bbb" doesn't fit → break offset 6.
@@ -55,7 +55,7 @@ describe("EditorViewState word wrap — проекция", () => {
         expect(state.viewLineStartColumn(1)).toBe(9);
     });
 
-    it("viewLineForPosition сажает позицию на её фрагмент; граница уходит на следующий ряд", () => {
+    it("viewLineForPosition puts a position on its fragment; a boundary goes to the next row", () => {
         const state = makeState("aaaa bbbb cccc\nshort");
         state.wordWrap = "on";
         expect(state.viewLineForPosition(0, 0)).toBe(0);
@@ -65,14 +65,14 @@ describe("EditorViewState word wrap — проекция", () => {
         expect(state.viewLineForPosition(1, 0)).toBe(2);
     });
 
-    it("viewLineForPosition на скрытой свёрткой строке — -1", () => {
+    it("viewLineForPosition on a line hidden by a fold is -1", () => {
         const state = makeState("header\naaaa bbbb cccc");
         state.wordWrap = "on";
         state.setFoldingRegions([{ startLine: 0, endLine: 1, isCollapsed: true }]);
         expect(state.viewLineForPosition(1, 3)).toBe(-1);
     });
 
-    it("wordWrap=off ведёт себя как раньше: один ряд на строку, диапазон — вся строка", () => {
+    it("wordWrap=off behaves as before: one row per line, range is the whole line", () => {
         const state = makeState("aaaa bbbb cccc");
         expect(state.getViewLineCount()).toBe(1);
         expect(state.viewLineRange(0)).toEqual({ start: 0, end: 14 });
@@ -81,8 +81,8 @@ describe("EditorViewState word wrap — проекция", () => {
     });
 });
 
-describe("EditorViewState word wrap — режимы и инвалидация", () => {
-    it("режим on переносит по вьюпорту и ИГНОРИРУЕТ wordWrapColumn", () => {
+describe("EditorViewState word wrap — modes and invalidation", () => {
+    it("mode on wraps at the viewport and IGNORES wordWrapColumn", () => {
         const state = makeState("aaaa bbbb cccc", 40);
         state.wordWrap = "on";
         state.wordWrapColumn = 10;
@@ -90,7 +90,7 @@ describe("EditorViewState word wrap — режимы и инвалидация",
         expect(state.getViewLineCount()).toBe(1);
     });
 
-    it("режимы wordWrapColumn/bounded ограничены и колонкой, и вьюпортом (v1)", () => {
+    it("modes wordWrapColumn/bounded are limited by both the column and the viewport (v1)", () => {
         const state = makeState("aaaa bbbb cccc", 40);
         state.wordWrap = "wordWrapColumn";
         state.wordWrapColumn = 10;
@@ -104,14 +104,14 @@ describe("EditorViewState word wrap — режимы и инвалидация",
         expect(state.getViewLineCount()).toBe(2);
     });
 
-    it("вырожденная (нулевая) ширина вьюпорта клампится к MIN_WRAP_WIDTH, а не выключает перенос", () => {
+    it("degenerate (zero) viewport width clamps to MIN_WRAP_WIDTH instead of disabling wrapping", () => {
         const state = makeState("aaaa bbbb cccc", 0);
         state.wordWrap = "on";
         // Clamped to 8 columns: "aaaa " + "bbbb " + "cccc" = 3 rows.
         expect(state.getViewLineCount()).toBe(3);
     });
 
-    it("смена ширины вьюпорта перестраивает проекцию (снапшот-инвалидация)", () => {
+    it("changing viewport width rebuilds the projection (snapshot invalidation)", () => {
         const state = makeState("aaaa bbbb cccc");
         state.wordWrap = "on";
         expect(state.getViewLineCount()).toBe(2);
@@ -121,7 +121,7 @@ describe("EditorViewState word wrap — режимы и инвалидация",
         expect(state.getViewLineCount()).toBe(2);
     });
 
-    it("смена tabSize перестраивает проекцию: точки переноса зависят от табов", () => {
+    it("changing tabSize rebuilds the projection: wrap points depend on tabs", () => {
         const state = makeState("\t\taaaa bbbb");
         state.wordWrap = "on";
         // tabSize 4: 2 tabs = 8 columns → aaaa doesn't fit.
@@ -135,7 +135,7 @@ describe("EditorViewState word wrap — режимы и инвалидация",
         expect(state.viewLineRange(0)).not.toEqual(after);
     });
 
-    it("правка документа перестраивает фрагменты", () => {
+    it("a document edit rebuilds fragments", () => {
         const state = makeState("aaaa bbbb cccc");
         state.wordWrap = "on";
         expect(state.getViewLineCount()).toBe(2);
@@ -145,8 +145,8 @@ describe("EditorViewState word wrap — режимы и инвалидация",
     });
 });
 
-describe("EditorViewState word wrap — фолдинг и зоны", () => {
-    it("свёрнутый регион прячет фрагменты скрытых строк целиком", () => {
+describe("EditorViewState word wrap — folding and zones", () => {
+    it("a collapsed region hides fragments of hidden lines entirely", () => {
         const state = makeState("header\naaaa bbbb cccc\ntail");
         state.wordWrap = "on";
         expect(state.getViewLineCount()).toBe(4); // header + 2 fragments + tail
@@ -155,7 +155,7 @@ describe("EditorViewState word wrap — фолдинг и зоны", () => {
         expect(state.logicalToVisualLine(1)).toBe(-1);
     });
 
-    it("зона встаёт после ПОСЛЕДНЕГО фрагмента своей строки", () => {
+    it("a zone goes after the LAST fragment of its line", () => {
         const state = makeState("aaaa bbbb cccc\ntail");
         state.wordWrap = "on";
         state.setViewZones([{ afterLine: 0, size: 1 }]);
@@ -172,7 +172,7 @@ describe("EditorViewState word wrap — фолдинг и зоны", () => {
 });
 
 describe("EditorViewState word wrap — scrollLeft", () => {
-    it("при активном wrap scrollLeft клампится к нулю, при off — снова свободен", () => {
+    it("with wrap active scrollLeft clamps to zero, with off it is free again", () => {
         const state = makeState("aaaa bbbb cccc");
         state.scrollLeft = 5;
         expect(state.scrollLeft).toBe(5);

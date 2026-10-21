@@ -24,7 +24,7 @@ function tabsState(text: string, selections: Sel[], tabSize = 4): EditorViewStat
     return state;
 }
 
-describe("Tab выравнивает каретку по табстопам (insertSpaces, tabSize=4)", () => {
+describe("Tab aligns the cursor to tab stops (insertSpaces, tabSize=4)", () => {
     const cases: { from: number; text: string; to: number }[] = [
         { from: 0, text: "    abcdefgh", to: 4 },
         { from: 1, text: "a   bcdefgh", to: 4 },
@@ -34,7 +34,7 @@ describe("Tab выравнивает каретку по табстопам (ins
     ];
 
     for (const { from, text, to } of cases) {
-        it(`с колонки ${from} уводит на ${to}`, () => {
+        it(`moves from column ${from} to ${to}`, () => {
             const state = spacesState("abcdefgh", [createCursorSelection(0, from)]);
             state.indentLines();
             expect(state.document.getText()).toBe(text);
@@ -42,21 +42,21 @@ describe("Tab выравнивает каретку по табстопам (ins
         });
     }
 
-    it("на табстопе вставляет полный уровень", () => {
+    it("on a tab stop inserts a full level", () => {
         const state = spacesState("abcdefgh", [createCursorSelection(0, 8)]);
         state.indentLines();
         expect(state.document.getText()).toBe("abcdefgh    ");
         expect(state.selections[0].active).toEqual({ line: 0, character: 12 });
     });
 
-    it("tabSize=2: каретка с колонки 1 уезжает на 2", () => {
+    it("tabSize=2: cursor moves from column 1 to 2", () => {
         const state = spacesState("abcd", [createCursorSelection(0, 1)], 2);
         state.indentLines();
         expect(state.document.getText()).toBe("a bcd");
         expect(state.selections[0].active).toEqual({ line: 0, character: 2 });
     });
 
-    it("tabSize=3: каретка с колонки 4 уезжает на 6", () => {
+    it("tabSize=3: cursor moves from column 4 to 6", () => {
         const state = spacesState("abcdef", [createCursorSelection(0, 4)], 3);
         state.indentLines();
         expect(state.document.getText()).toBe("abcd  ef");
@@ -64,8 +64,8 @@ describe("Tab выравнивает каретку по табстопам (ins
     });
 });
 
-describe("Tab считает табстоп по ВИДИМОЙ колонке", () => {
-    it("таб слева от каретки занимает своё расстояние до табстопа", () => {
+describe("Tab computes the tab stop by VISIBLE column", () => {
+    it("a tab left of the cursor takes its own distance to the tab stop", () => {
         // "\ta|b": the tab is columns 0..3, "a" is column 4, cursor at 5.
         // By character offset (2) it would be 2 spaces instead of 3.
         const state = spacesState("\tab", [createCursorSelection(0, 2)]);
@@ -74,7 +74,7 @@ describe("Tab считает табстоп по ВИДИМОЙ колонке",
         expect(state.selections[0].active).toEqual({ line: 0, character: 5 });
     });
 
-    it("широкая графема занимает две колонки", () => {
+    it("a wide grapheme takes two columns", () => {
         // "你a|b": 你 is columns 0..1, "a" is column 2, cursor at 3.
         const state = spacesState("你ab", [createCursorSelection(0, 2)]);
         state.indentLines();
@@ -83,8 +83,8 @@ describe("Tab считает табстоп по ВИДИМОЙ колонке",
     });
 });
 
-describe("Tab у мультикурсора — своя добавка на каждую каретку", () => {
-    it("каретки на разных колонках одной строки получают разное число пробелов", () => {
+describe("Tab with multiple cursors — own padding per cursor", () => {
+    it("cursors at different columns of one line get different numbers of spaces", () => {
         const state = spacesState("abcdefgh", [createCursorSelection(0, 1), createCursorSelection(0, 6)]);
         state.indentLines();
         // Column 1 → 3 spaces (to 4), column 6 → 2 spaces (to 8).
@@ -95,7 +95,7 @@ describe("Tab у мультикурсора — своя добавка на к�
         ]);
     });
 
-    it("каретки на разных строках считают табстоп по своей строке", () => {
+    it("cursors on different lines compute the tab stop by their own line", () => {
         const state = spacesState("ab\nabcdef", [createCursorSelection(0, 1), createCursorSelection(1, 2)]);
         state.indentLines();
         expect(state.document.getText()).toBe("a   b\nab  cdef");
@@ -105,7 +105,7 @@ describe("Tab у мультикурсора — своя добавка на к�
         ]);
     });
 
-    it("одна строка с табом, другая без — каждая по своей видимой колонке", () => {
+    it("one line with a tab, another without — each by its own visible column", () => {
         const state = spacesState("\tab\nab", [createCursorSelection(0, 2), createCursorSelection(1, 2)]);
         state.indentLines();
         // Line 0: visible column 5 → 3 spaces. Line 1: column 2 → 2 spaces.
@@ -117,8 +117,8 @@ describe("Tab у мультикурсора — своя добавка на к�
     });
 });
 
-describe("Tab с выделением внутри строки", () => {
-    it("заменяет выделение добавкой до табстопа от его НАЧАЛА", () => {
+describe("Tab with a selection within a line", () => {
+    it("replaces the selection with padding to the tab stop from its START", () => {
         const state = spacesState("abcdefgh", [createSelection(0, 1, 0, 3)]);
         state.indentLines();
         // Selection "bc" is erased, 3 spaces inserted: cursor on tab stop 4.
@@ -127,23 +127,23 @@ describe("Tab с выделением внутри строки", () => {
     });
 });
 
-describe("Tab табами табстопы не считает", () => {
-    it("вставляет один \\t с любой колонки", () => {
+describe("Tab with tabs does not compute tab stops", () => {
+    it("inserts a single \\t from any column", () => {
         const state = tabsState("abcdefgh", [createCursorSelection(0, 5)]);
         state.indentLines();
         expect(state.document.getText()).toBe("abcde\tfgh");
         expect(state.selections[0].active).toEqual({ line: 0, character: 6 });
     });
 
-    it("мультикурсор получает по одному \\t на каретку", () => {
+    it("multi-cursor gets one \\t per cursor", () => {
         const state = tabsState("abcdefgh", [createCursorSelection(0, 1), createCursorSelection(0, 6)]);
         state.indentLines();
         expect(state.document.getText()).toBe("a\tbcdef\tgh");
     });
 });
 
-describe("Tab/Shift+Tab остаются обратимы на отступе строки", () => {
-    it("Tab с колонки 0 и Shift+Tab возвращают строку как была", () => {
+describe("Tab/Shift+Tab stay reversible on line indentation", () => {
+    it("Tab from column 0 and Shift+Tab restore the line as it was", () => {
         const state = spacesState("ab", [createCursorSelection(0, 0)]);
         state.indentLines();
         expect(state.document.getText()).toBe("    ab");
@@ -151,7 +151,7 @@ describe("Tab/Shift+Tab остаются обратимы на отступе с
         expect(state.document.getText()).toBe("ab");
     });
 
-    it("undo-шаг Tab'а обратим своими обратными правками", () => {
+    it("Tab's undo step is reversible by its own inverse edits", () => {
         const state = spacesState("abcdefgh", [createCursorSelection(0, 5)]);
         const undo = state.indentLines();
         expect(undo).toBeDefined();

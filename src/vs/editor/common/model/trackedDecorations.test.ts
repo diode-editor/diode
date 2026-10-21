@@ -123,32 +123,32 @@ describe("TrackedDecorations — upstream «Decorations and editing»", () => {
 
 const SECOND: RangeTuple = [1, 3, 1, 9];
 
-describe("TrackedDecorations — правки через строки", () => {
-    it("вставка строк выше уводит декорацию вниз на их число", () => {
+describe("TrackedDecorations: edits across lines", () => {
+    it("inserting lines above moves the decoration down by their count", () => {
         expect(
             decorationAfterEdit(SECOND, TrackedRangeStickiness.NeverGrowsWhenTypingAtEdges, [0, 0, 0, 0], "a\nb\n"),
         ).toEqual(createRange(3, 3, 3, 9));
     });
 
-    it("перевод строки левее декорации переносит её на новую строку с новой колонкой", () => {
+    it("line break left of the decoration moves it to the new line with a new column", () => {
         expect(
             decorationAfterEdit(SECOND, TrackedRangeStickiness.NeverGrowsWhenTypingAtEdges, [1, 2, 1, 2], "\n  "),
         ).toEqual(createRange(2, 3, 2, 9));
     });
 
-    it("склейка с предыдущей строкой переносит декорацию на неё со сдвигом колонки", () => {
+    it("joining with the previous line moves the decoration onto it with a column shift", () => {
         expect(
             decorationAfterEdit(SECOND, TrackedRangeStickiness.NeverGrowsWhenTypingAtEdges, [0, 13, 1, 0], ""),
         ).toEqual(createRange(0, 16, 0, 22));
     });
 
-    it("удаление через строки, накрывшее декорацию, схлопывает её в начало правки", () => {
+    it("delete across lines covering the decoration collapses it to the edit start", () => {
         expect(
             decorationAfterEdit(SECOND, TrackedRangeStickiness.NeverGrowsWhenTypingAtEdges, [0, 5, 2, 2], ""),
         ).toEqual(createRange(0, 5, 0, 5));
     });
 
-    it("в общей части многострочной замены край держит смещение от её начала", () => {
+    it("in the common part of a multiline replace an edge keeps its offset from the start", () => {
         // "Line\nMy Se" (10) → "ab\ncdefghij" (11): the start of "Second" stays the replacement's 7th char.
         expect(
             decorationAfterEdit(
@@ -160,7 +160,7 @@ describe("TrackedDecorations — правки через строки", () => {
         ).toEqual(createRange(1, 4, 1, 12));
     });
 
-    it("край на старой строке после многострочной замены сдвигается к концу вставки", () => {
+    it("edge on an old line after a multiline replace moves to the insert end", () => {
         // Edge (2,5) was on the edit's last line — it lands after "YZ" with its tail "ird".
         expect(
             decorationAfterEdit(
@@ -172,7 +172,7 @@ describe("TrackedDecorations — правки через строки", () => {
         ).toEqual(createRange(2, 2, 2, 5));
     });
 
-    it("в общей части край, попавший на конец не последней вставленной строки, остаётся на ней", () => {
+    it("in the common part an edge at the end of a non-last inserted line stays on it", () => {
         // Same-length replace: the end of "First" stays at the end of the first inserted line, not the second's start.
         expect(
             decorationAfterEdit(
@@ -184,7 +184,7 @@ describe("TrackedDecorations — правки через строки", () => {
         ).toEqual(createRange(0, 3, 0, 8));
     });
 
-    it("смещение внутри замены считает и целые строки между её краями", () => {
+    it("offset inside a replace also counts whole lines between its edges", () => {
         // 23 characters → 30 in one line: the start of "rd" stays the 21st char (3 + 1 + 14 + 1 + 2).
         expect(
             decorationAfterEdit(
@@ -196,7 +196,7 @@ describe("TrackedDecorations — правки через строки", () => {
         ).toEqual(createRange(0, 31, 0, 46));
     });
 
-    it("начало многострочной декорации строкой выше правки остаётся на месте", () => {
+    it("start of a multiline decoration one line above the edit stays in place", () => {
         expect(
             decorationAfterEdit(
                 [0, 3, 2, 5],
@@ -207,14 +207,14 @@ describe("TrackedDecorations — правки через строки", () => {
         ).toEqual(createRange(0, 3, 2, 5));
     });
 
-    it("батч правок двигает декорацию по каждой", () => {
+    it("edit batch moves the decoration by each edit", () => {
         const { doc, id } = documentWithDecoration([2, 6, 2, 10]);
         doc.applyEdits([createTextEdit(createRange(0, 0, 0, 0), "X\n"), createTextEdit(createRange(2, 0, 2, 0), "yy")]);
         expect(doc.getDecorationRange(id)).toEqual(createRange(3, 8, 3, 12));
         expect(doc.getTextInRange(createRange(3, 8, 3, 12))).toBe("Line");
     });
 
-    it("undo — обычная правка: декорация едет обратно вместе с текстом", () => {
+    it("undo is a plain edit: the decoration moves back with the text", () => {
         const { doc, id } = documentWithDecoration(SECOND);
         const { inverseEdits } = doc.applyEdits([createTextEdit(createRange(0, 0, 0, 0), "a\n")]);
         doc.applyEdits(inverseEdits);
@@ -222,15 +222,15 @@ describe("TrackedDecorations — правки через строки", () => {
     });
 });
 
-describe("TrackedDecorations — жизненный цикл", () => {
-    it("по умолчанию края растут при наборе на них (AlwaysGrowsWhenTypingAtEdges)", () => {
+describe("TrackedDecorations: lifecycle", () => {
+    it("edges grow when typing at them by default (AlwaysGrowsWhenTypingAtEdges)", () => {
         const doc = new TextDocument(SAMPLE);
         const [id] = doc.deltaDecorations([], [{ range: createRange(0, 3, 0, 8), options: { description: "test" } }]);
         doc.applyEdits([createTextEdit(createRange(0, 3, 0, 3), "xx")]);
         expect(doc.getDecorationRange(id)).toEqual(createRange(0, 3, 0, 10));
     });
 
-    it("delta снимает старые id и возвращает новые в порядке декораций", () => {
+    it("delta removes old ids and returns new ones in decoration order", () => {
         const { doc, id } = documentWithDecoration(SECOND);
         const ids = doc.deltaDecorations(
             [id],
@@ -247,19 +247,19 @@ describe("TrackedDecorations — жизненный цикл", () => {
         expect(new Set([id, ...ids]).size).toBe(3);
     });
 
-    it("диапазон за пределами документа приводится к нему при добавлении", () => {
+    it("range outside the document is clamped to it on add", () => {
         const doc = new TextDocument(SAMPLE);
         const [id] = doc.deltaDecorations([], [{ range: createRange(1, 10, 7, 40), options: { description: "test" } }]);
         expect(doc.getDecorationRange(id)).toEqual(createRange(1, 10, 2, 10));
     });
 
-    it("setText оставляет декорации на прежних координатах, приведённых к новому тексту", () => {
+    it("setText keeps decorations at their old coordinates, clamped to the new text", () => {
         const { doc, id } = documentWithDecoration(SECOND);
         doc.setText("short");
         expect(doc.getDecorationRange(id)).toEqual(createRange(0, 3, 0, 5));
     });
 
-    it("правка ниже декорации её не трогает", () => {
+    it("edit below the decoration leaves it alone", () => {
         expect(
             decorationAfterEdit(SECOND, TrackedRangeStickiness.NeverGrowsWhenTypingAtEdges, [2, 0, 2, 5], ""),
         ).toEqual(toRange(SECOND));

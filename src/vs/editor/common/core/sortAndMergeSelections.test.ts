@@ -9,12 +9,12 @@ function shape(selection: ISelection): number[] {
     return [selection.anchor.line, selection.anchor.character, selection.active.line, selection.active.character];
 }
 
-describe("sortAndMergeSelections — вырожденные входы", () => {
-    it("пустой массив остаётся пустым", () => {
+describe("sortAndMergeSelections — degenerate inputs", () => {
+    it("an empty array stays empty", () => {
         expect(sortAndMergeSelections([])).toEqual([]);
     });
 
-    it("одно выделение возвращается копией массива, а не тем же массивом", () => {
+    it("a single selection returns a copy of the array, not the same array", () => {
         const input = [createCursorSelection(0, 3)];
         const result = sortAndMergeSelections(input);
         expect(result).toHaveLength(1);
@@ -23,8 +23,8 @@ describe("sortAndMergeSelections — вырожденные входы", () => {
     });
 });
 
-describe("sortAndMergeSelections — сортировка", () => {
-    it("расставляет каретки в документном порядке", () => {
+describe("sortAndMergeSelections — sorting", () => {
+    it("orders cursors in document order", () => {
         const result = sortAndMergeSelections([
             createCursorSelection(2, 0),
             createCursorSelection(0, 5),
@@ -33,13 +33,13 @@ describe("sortAndMergeSelections — сортировка", () => {
         expect(result.map((sel) => sel.active.line)).toEqual([0, 1, 2]);
     });
 
-    it("сортирует по началу диапазона, а не по active (обратное выделение)", () => {
+    it("sorts by range start, not by active (reversed selection)", () => {
         const backwards = createSelection(2, 0, 0, 0);
         const later = createCursorSelection(3, 0);
         expect(sortAndMergeSelections([later, backwards])[0]).toBe(backwards);
     });
 
-    it("при общем начале порядок задаёт конец диапазона, а не стабильность sort", () => {
+    it("with a shared start the range end sets the order, not sort stability", () => {
         const longer = createSelection(0, 0, 0, 6);
         const shorter = createSelection(0, 0, 0, 2);
         expect(sortAndMergeSelections([longer, shorter])).toHaveLength(1);
@@ -48,39 +48,39 @@ describe("sortAndMergeSelections — сортировка", () => {
     });
 });
 
-describe("sortAndMergeSelections — слияние с участием каретки", () => {
-    it("две каретки в одной точке сливаются в одну", () => {
+describe("sortAndMergeSelections — merging with a cursor", () => {
+    it("two cursors at one point merge into one", () => {
         const result = sortAndMergeSelections([createCursorSelection(1, 4), createCursorSelection(1, 4)]);
         expect(result).toHaveLength(1);
         expect(shape(result[0])).toEqual([1, 4, 1, 4]);
     });
 
-    it("каретка внутри выделения растворяется в нём", () => {
+    it("a cursor inside a selection is absorbed by it", () => {
         const result = sortAndMergeSelections([createSelection(0, 0, 0, 5), createCursorSelection(0, 3)]);
         expect(result).toHaveLength(1);
         expect(shape(result[0])).toEqual([0, 0, 0, 5]);
     });
 
-    it("каретка ровно на конце выделения считается касанием и сливается", () => {
+    it("a cursor exactly at the selection end counts as touching and merges", () => {
         const result = sortAndMergeSelections([createSelection(0, 0, 0, 5), createCursorSelection(0, 5)]);
         expect(result).toHaveLength(1);
         expect(shape(result[0])).toEqual([0, 0, 0, 5]);
     });
 
-    it("каретка ровно на начале выделения тоже сливается", () => {
+    it("a cursor exactly at the selection start merges too", () => {
         const result = sortAndMergeSelections([createSelection(0, 2, 0, 5), createCursorSelection(0, 2)]);
         expect(result).toHaveLength(1);
         expect(shape(result[0])).toEqual([0, 2, 0, 5]);
     });
 
-    it("каретка за концом выделения остаётся отдельным курсором", () => {
+    it("a cursor past the selection end stays a separate cursor", () => {
         const result = sortAndMergeSelections([createSelection(0, 0, 0, 5), createCursorSelection(0, 6)]);
         expect(result).toHaveLength(2);
     });
 });
 
-describe("sortAndMergeSelections — слияние непустых выделений", () => {
-    it("выделения встык НЕ сливаются (паритет с VS Code)", () => {
+describe("sortAndMergeSelections — merging non-empty selections", () => {
+    it("adjacent selections do NOT merge (parity with VS Code)", () => {
         const result = sortAndMergeSelections([createSelection(0, 0, 0, 2), createSelection(0, 2, 0, 4)]);
         expect(result).toHaveLength(2);
         expect(result.map(shape)).toEqual([
@@ -89,25 +89,25 @@ describe("sortAndMergeSelections — слияние непустых выдел�
         ]);
     });
 
-    it("настоящее пересечение даёт диапазон-объединение", () => {
+    it("a real overlap yields the union range", () => {
         const result = sortAndMergeSelections([createSelection(0, 0, 0, 4), createSelection(0, 2, 0, 7)]);
         expect(result).toHaveLength(1);
         expect(shape(result[0])).toEqual([0, 0, 0, 7]);
     });
 
-    it("вложенное выделение поглощается объемлющим", () => {
+    it("a nested selection is absorbed by the enclosing one", () => {
         const result = sortAndMergeSelections([createSelection(0, 0, 0, 9), createSelection(0, 3, 0, 5)]);
         expect(result).toHaveLength(1);
         expect(shape(result[0])).toEqual([0, 0, 0, 9]);
     });
 
-    it("пересечение через границу строк", () => {
+    it("overlap across a line boundary", () => {
         const result = sortAndMergeSelections([createSelection(0, 2, 1, 3), createSelection(1, 1, 2, 4)]);
         expect(result).toHaveLength(1);
         expect(shape(result[0])).toEqual([0, 2, 2, 4]);
     });
 
-    it("каскад: слияние первых двух открывает слияние с третьим", () => {
+    it("cascade: merging the first two enables merging with the third", () => {
         const result = sortAndMergeSelections([
             createSelection(0, 0, 0, 3),
             createSelection(0, 2, 0, 6),
@@ -117,7 +117,7 @@ describe("sortAndMergeSelections — слияние непустых выдел�
         expect(shape(result[0])).toEqual([0, 0, 0, 9]);
     });
 
-    it("несливаемые соседи остаются в документном порядке", () => {
+    it("non-mergeable neighbours stay in document order", () => {
         const result = sortAndMergeSelections([
             createSelection(2, 0, 2, 1),
             createSelection(0, 0, 0, 4),
@@ -130,36 +130,36 @@ describe("sortAndMergeSelections — слияние непустых выдел�
     });
 });
 
-describe("sortAndMergeSelections — направление и idealColumn", () => {
-    it("направление наследуется от позже добавленного (он идёт вторым, LTR)", () => {
+describe("sortAndMergeSelections — direction and idealColumn", () => {
+    it("direction is inherited from the later-added one (it comes second, LTR)", () => {
         const result = sortAndMergeSelections([createSelection(0, 4, 0, 0), createSelection(0, 2, 0, 7)]);
         expect(shape(result[0])).toEqual([0, 0, 0, 7]);
     });
 
-    it("направление наследуется от позже добавленного и когда он обратный", () => {
+    it("direction is inherited from the later-added one when it is reversed too", () => {
         const result = sortAndMergeSelections([createSelection(0, 0, 0, 4), createSelection(0, 7, 0, 2)]);
         expect(shape(result[0])).toEqual([0, 7, 0, 0]);
     });
 
-    it("позже добавленный побеждает независимо от места в документе", () => {
+    it("the later-added one wins regardless of document position", () => {
         const result = sortAndMergeSelections([createSelection(0, 3, 0, 7), createSelection(0, 5, 0, 1)]);
         expect(shape(result[0])).toEqual([0, 7, 0, 1]);
     });
 
-    it("idealColumn переносится, когда active победителя не сдвинулся", () => {
+    it("idealColumn carries over when the winner's active did not move", () => {
         const winner = createSelection(0, 2, 0, 7, 42);
         const result = sortAndMergeSelections([createSelection(0, 0, 0, 4), winner]);
         expect(result[0].idealColumn).toBe(42);
     });
 
-    it("idealColumn сбрасывается, когда active победителя переехал", () => {
+    it("idealColumn resets when the winner's active moved", () => {
         const winner = createSelection(0, 5, 0, 2, 42);
         const result = sortAndMergeSelections([createSelection(0, 0, 0, 4), winner]);
         expect(shape(result[0])).toEqual([0, 5, 0, 0]);
         expect(result[0].idealColumn).toBeUndefined();
     });
 
-    it("каскад держит возраст победителя: третье выделение сравнивается с ним", () => {
+    it("the cascade keeps the winner's age: the third selection is compared with it", () => {
         const result = sortAndMergeSelections([
             createSelection(0, 0, 0, 3),
             createSelection(0, 6, 0, 2, 11),

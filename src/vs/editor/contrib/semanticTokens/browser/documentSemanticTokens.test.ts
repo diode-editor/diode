@@ -154,7 +154,7 @@ describe("DocumentSemanticTokensFeature / ModelSemanticColoring", () => {
         });
     });
 
-    it("первый запрос — сразу; ответ ложится полным набором в хранилище", async () => {
+    it("first request is immediate; the result goes to the store as a full set", async () => {
         const { feature, provider, model } = setup();
         const ref = feature.attach(model);
         expect(provider.calls).toHaveLength(0);
@@ -170,7 +170,7 @@ describe("DocumentSemanticTokensFeature / ModelSemanticColoring", () => {
         expect(feature.styleResolver).toBeInstanceOf(FakeTheme);
     });
 
-    it("запрос несёт документ, язык и версию", async () => {
+    it("request carries the document, language and version", async () => {
         const { feature, provider, model } = setup();
         const spy = vi.spyOn(provider, "provideDocumentSemanticTokens");
         feature.attach(model);
@@ -182,7 +182,7 @@ describe("DocumentSemanticTokensFeature / ModelSemanticColoring", () => {
         );
     });
 
-    it("правка — запрос после паузы с resultId прошлого ответа; прошлый ответ отпускается по приходу нового", async () => {
+    it("edit triggers a request after a delay with the previous resultId; the previous result is released when the new one arrives", async () => {
         const { feature, provider, model, document } = setup();
         feature.attach(model);
         await tick();
@@ -203,7 +203,7 @@ describe("DocumentSemanticTokensFeature / ModelSemanticColoring", () => {
         expect(provider.releases).toEqual(["1"]);
     });
 
-    it("пустой resultId ответа — следующий запрос без resultId", async () => {
+    it("empty result resultId means the next request has no resultId", async () => {
         const { feature, provider, model, document } = setup();
         feature.attach(model);
         await tick();
@@ -215,7 +215,7 @@ describe("DocumentSemanticTokensFeature / ModelSemanticColoring", () => {
         expect(provider.last().lastResultId).toBeNull();
     });
 
-    it("пауза перед перезапросом подстраивается под время ответа провайдера", async () => {
+    it("delay before a re-request adapts to the provider response time", async () => {
         const { feature, provider, model, document } = setup();
         feature.attach(model);
         await tick();
@@ -229,7 +229,7 @@ describe("DocumentSemanticTokensFeature / ModelSemanticColoring", () => {
         expect(provider.calls).toHaveLength(2);
     });
 
-    it("подписка на правки на время запроса снимается по его концу — и после ответа, и после ошибки", async () => {
+    it("edit listener for the request lifetime is removed when it ends, after both a result and an error", async () => {
         const { feature, provider, model, document } = setup();
         const live = countContentListeners(document);
         feature.attach(model);
@@ -247,7 +247,7 @@ describe("DocumentSemanticTokensFeature / ModelSemanticColoring", () => {
         expect(live()).toBe(idle);
     });
 
-    it("дельта накладывается на данные прошлого ответа", async () => {
+    it("delta applies on top of the previous result data", async () => {
         const { feature, provider, model, document } = setup();
         const ref = feature.attach(model);
         await tick();
@@ -270,7 +270,7 @@ describe("DocumentSemanticTokensFeature / ModelSemanticColoring", () => {
         expect(provider.releases).toEqual(["1", "2"]);
     });
 
-    it("дельта без прошлого ответа или с правкой за концом данных — токены стёрты", async () => {
+    it("delta without a previous result or with an edit past the data end clears tokens", async () => {
         const { feature, provider, model, document } = setup();
         const ref = feature.attach(model);
         await tick();
@@ -292,7 +292,7 @@ describe("DocumentSemanticTokensFeature / ModelSemanticColoring", () => {
         expect(ref.store.hasCompleteSemanticTokens()).toBe(true);
     });
 
-    it("правка во время запроса сдвигает пришедшие токены и вызывает перезапрос", async () => {
+    it("edit during a request shifts the arrived tokens and triggers a re-request", async () => {
         const { feature, provider, model, document } = setup();
         const ref = feature.attach(model);
         await tick();
@@ -307,7 +307,7 @@ describe("DocumentSemanticTokensFeature / ModelSemanticColoring", () => {
         expect(provider.calls).toHaveLength(2);
     });
 
-    it("пустой ответ — токенов нет, но набор полный; при правках в полёте — перезапрос", async () => {
+    it("empty result: no tokens but the set is full; edits in flight trigger a re-request", async () => {
         const { feature, provider, model, document } = setup();
         const ref = feature.attach(model);
         await tick();
@@ -326,7 +326,7 @@ describe("DocumentSemanticTokensFeature / ModelSemanticColoring", () => {
         expect(provider.calls).toHaveLength(2);
     });
 
-    it("ошибка оставляет прежние токены; с правками в полёте — перезапрос, без них — нет", async () => {
+    it("error keeps previous tokens; edits in flight trigger a re-request, otherwise none", async () => {
         const { feature, provider, model, document } = setup();
         const ref = feature.attach(model);
         await tick();
@@ -358,7 +358,7 @@ describe("DocumentSemanticTokensFeature / ModelSemanticColoring", () => {
         expect(provider.calls).toHaveLength(4);
     });
 
-    it("отказ не-ошибкой тоже не роняет и считается непредвиденным", async () => {
+    it("non-Error rejection does not crash either and counts as unexpected", async () => {
         const { feature, provider, model } = setup();
         feature.attach(model);
         await tick();
@@ -368,7 +368,7 @@ describe("DocumentSemanticTokensFeature / ModelSemanticColoring", () => {
         expect(unexpected).toEqual([new Error("[object Object]")]);
     });
 
-    it("смена языка: отмена запроса, release, стирание и немедленный перезапрос", async () => {
+    it("language change: request cancel, release, clear and immediate re-request", async () => {
         const { feature, provider, model, document } = setup();
         const ref = feature.attach(model);
         await tick();
@@ -387,7 +387,7 @@ describe("DocumentSemanticTokensFeature / ModelSemanticColoring", () => {
         expect(provider.last().lastResultId).toBeNull();
     });
 
-    it("onDidChange провайдера — сразу перезапрос, а во время запроса — после него", async () => {
+    it("provider onDidChange re-requests at once, or after the request when one is running", async () => {
         const { feature, provider, model } = setup();
         feature.attach(model);
         await tick();
@@ -406,7 +406,7 @@ describe("DocumentSemanticTokensFeature / ModelSemanticColoring", () => {
         expect(provider.calls).toHaveLength(3);
     });
 
-    it("смена языка переподписывает onDidChange на провайдеров нового языка", async () => {
+    it("language change resubscribes onDidChange to the new language providers", async () => {
         const fixture = setup("java");
         const kotlin = new FakeProvider();
         fixture.features.documentSemanticTokensProvider.register("kotlin", kotlin);
@@ -427,7 +427,7 @@ describe("DocumentSemanticTokensFeature / ModelSemanticColoring", () => {
         expect(kotlin.calls).toHaveLength(2);
     });
 
-    it("onDidChange неподходящего провайдера не слушается", async () => {
+    it("onDidChange of a non-matching provider is not listened to", async () => {
         const fixture = setup("java");
         const kotlin = new FakeProvider();
         fixture.features.documentSemanticTokensProvider.register("kotlin", kotlin);
@@ -441,7 +441,7 @@ describe("DocumentSemanticTokensFeature / ModelSemanticColoring", () => {
         expect(kotlin.calls).toHaveLength(0);
     });
 
-    it("снятие провайдера стирает токены; без ответа снятие ничего не трогает", async () => {
+    it("provider removal clears tokens; without a result removal touches nothing", async () => {
         const features = new LanguageFeaturesService();
         const provider = new FakeProvider();
         const registration = features.documentSemanticTokensProvider.register("*", provider);
@@ -463,7 +463,7 @@ describe("DocumentSemanticTokensFeature / ModelSemanticColoring", () => {
         expect(listener).not.toHaveBeenCalled();
     });
 
-    it("регистрация нового провайдера — перезапрос после паузы", async () => {
+    it("new provider registration re-requests after a delay", async () => {
         const { feature, provider, model, features } = setup();
         feature.attach(model);
         await tick();
@@ -482,7 +482,7 @@ describe("DocumentSemanticTokensFeature / ModelSemanticColoring", () => {
         expect(second.calls).toHaveLength(2);
     });
 
-    it("onDidChange снятого провайдера больше не слушается", async () => {
+    it("onDidChange of a removed provider is no longer listened to", async () => {
         const features = new LanguageFeaturesService();
         const first = new FakeProvider();
         const registration = features.documentSemanticTokensProvider.register("*", first);
@@ -503,7 +503,7 @@ describe("DocumentSemanticTokensFeature / ModelSemanticColoring", () => {
         expect(second.calls).toHaveLength(1);
     });
 
-    it("настройка выключена — запросов нет; выключение стирает и отпускает, включение — заново с нуля", async () => {
+    it("setting off means no requests; disabling clears and releases, enabling starts from scratch", async () => {
         const { feature, provider, model, configuration } = setup();
         await configuration.updateValue(SEMANTIC_HIGHLIGHTING_SETTING_ID, false);
         const ref = feature.attach(model);
@@ -531,7 +531,7 @@ describe("DocumentSemanticTokensFeature / ModelSemanticColoring", () => {
         expect(provider.calls).toHaveLength(2);
     });
 
-    it("флаг темы при configuredByTheme включает и выключает", async () => {
+    it("theme flag enables and disables under configuredByTheme", async () => {
         const { feature, provider, model, theme } = setup();
         theme.semanticHighlighting = false;
         const ref = feature.attach(model);
@@ -552,7 +552,7 @@ describe("DocumentSemanticTokensFeature / ModelSemanticColoring", () => {
         expect(ref.store.hasSomeSemanticTokens()).toBe(false);
     });
 
-    it("ответ, пришедший после выключения, отпускается и не кладётся", async () => {
+    it("result arriving after disabling is released and not stored", async () => {
         const { feature, provider, model, configuration } = setup();
         const ref = feature.attach(model);
         await tick();
@@ -565,7 +565,7 @@ describe("DocumentSemanticTokensFeature / ModelSemanticColoring", () => {
         expect(ref.store.hasSomeSemanticTokens()).toBe(false);
     });
 
-    it("пустой ответ, пришедший после выключения, отпускать нечего", async () => {
+    it("empty result arriving after disabling has nothing to release", async () => {
         const { feature, provider, model, configuration } = setup();
         feature.attach(model);
         await tick();
@@ -577,7 +577,7 @@ describe("DocumentSemanticTokensFeature / ModelSemanticColoring", () => {
         expect(unexpected).toEqual([]);
     });
 
-    it("вью одного документа делят хранилище; последняя закрытая забывает документ", async () => {
+    it("views of one document share the store; closing the last one forgets the document", async () => {
         const { feature, provider, model, document } = setup();
         const first = feature.attach(model);
         const second = feature.attach(model);
@@ -603,7 +603,7 @@ describe("DocumentSemanticTokensFeature / ModelSemanticColoring", () => {
         expect(provider.calls).toHaveLength(2);
     });
 
-    it("последняя закрытая вью отписывает хранилище: оно больше не сообщает об изменениях", () => {
+    it("closing the last view unsubscribes the store: it no longer reports changes", () => {
         const { feature, model } = setup();
         const ref = feature.attach(model);
         const listener = vi.fn();
@@ -614,7 +614,7 @@ describe("DocumentSemanticTokensFeature / ModelSemanticColoring", () => {
         expect(listener).not.toHaveBeenCalled();
     });
 
-    it("dispose фичи при выключенной подсветке не падает, отписывает хранилища и забывает документы", async () => {
+    it("feature dispose with highlighting off does not throw, unsubscribes stores and forgets documents", async () => {
         const { feature, model, configuration } = setup();
         await configuration.updateValue(SEMANTIC_HIGHLIGHTING_SETTING_ID, false);
         const ref = feature.attach(model);
@@ -626,7 +626,7 @@ describe("DocumentSemanticTokensFeature / ModelSemanticColoring", () => {
         expect(feature.attach(model).store).not.toBe(ref.store);
     });
 
-    it("dispose фичи отпускает ответы и останавливает запросы", async () => {
+    it("feature dispose releases results and stops requests", async () => {
         const { feature, provider, model, document } = setup();
         const ref = feature.attach(model);
         await tick();
@@ -652,11 +652,11 @@ describe("applySemanticTokensEdits", () => {
         })),
     });
 
-    it("пустые правки — те же данные", () => {
+    it("empty edits yield the same data", () => {
         expect(applySemanticTokensEdits(src, edits())).toBe(src);
     });
 
-    it("замена, вставка, удаление и несколько правок в индексах старого массива", () => {
+    it("replace, insert, delete and multiple edits in old array indices", () => {
         expect(Array.from(applySemanticTokensEdits(src, edits({ start: 1, deleteCount: 2, data: [9] })) ?? [])).toEqual(
             [1, 9, 4, 5, 6],
         );
@@ -684,11 +684,11 @@ describe("applySemanticTokensEdits", () => {
         ).toEqual([1, 7, 3, 8, 9, 5, 6]);
     });
 
-    it("правка за концом данных — null", () => {
+    it("edit past the data end yields null", () => {
         expect(applySemanticTokensEdits(src, edits({ start: 7, deleteCount: 0, data: [1] }))).toBeNull();
     });
 
-    it("удаление за конец данных не роняет копирование (как в эталоне — результат усечён)", () => {
+    it("delete past the data end does not break copying (as upstream, the result is truncated)", () => {
         // Result length is 6 + 1 - 5 = 2: copies are clamped to the array bounds.
         expect(Array.from(applySemanticTokensEdits(src, edits({ start: 4, deleteCount: 5, data: [9] })) ?? [])).toEqual(
             [1, 2],

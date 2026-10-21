@@ -9,7 +9,7 @@ function createState(): EditorViewState {
 }
 
 describe("EditorViewState.onDidChangeView", () => {
-    it("стреляет на смену scrollTop/scrollLeft, но не на присвоение того же значения", () => {
+    it("fires on scrollTop/scrollLeft change, but not on assigning the same value", () => {
         const state = createState();
         let fired = 0;
         state.onDidChangeView(() => fired++);
@@ -27,7 +27,7 @@ describe("EditorViewState.onDidChangeView", () => {
         expect(state.scrollLeft).toBe(3);
     });
 
-    it("стреляет на подсветку поиска и индекс активного матча", () => {
+    it("fires on search highlights and the active match index", () => {
         const state = createState();
         let fired = 0;
         state.onDidChangeView(() => fired++);
@@ -43,7 +43,7 @@ describe("EditorViewState.onDidChangeView", () => {
         expect(state.currentSearchMatchIndex).toBe(0);
     });
 
-    it("dispose снимает подписку", () => {
+    it("dispose removes the subscription", () => {
         const state = createState();
         let fired = 0;
         const subscription = state.onDidChangeView(() => fired++);

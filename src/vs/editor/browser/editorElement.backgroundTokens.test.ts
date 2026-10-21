@@ -41,8 +41,8 @@ function createEditor(lineCount: number): {
     return { app, editor, store, tokenizer };
 }
 
-describe("EditorElement — токены вне кадра", () => {
-    it("вьюпорт в конце большого файла красится сразу, токенизируя только его строки", () => {
+describe("EditorElement — tokens outside the frame", () => {
+    it("a viewport at the end of a large file paints immediately, tokenizing only its lines", () => {
         const { app, editor, tokenizer } = createEditor(50_000);
         const spy = vi.spyOn(tokenizer, "tokenizeEncoded");
         editor.viewState.scrollTop = 50_000 - 5;
@@ -54,7 +54,7 @@ describe("EditorElement — токены вне кадра", () => {
         expect(app.backend.getFgAt(new Point(editor.gutterWidth, 4))).toBe(KEYWORD_FG);
     });
 
-    it("токены строк на экране сменились — кадр; за экраном — нет", () => {
+    it("tokens of on-screen lines changed — frame; off-screen — none", () => {
         const { app, editor } = createEditor(100);
         editor.viewState.scrollTop = 10;
         app.render();
@@ -72,7 +72,7 @@ describe("EditorElement — токены вне кадра", () => {
         expect(editor.needsRepaint).toBe(true);
     });
 
-    it("до первого кадра экрана нет — и просить перерисовку не о чем", () => {
+    it("before the first frame there is no screen — nothing to request a repaint for", () => {
         // No app: TestApp takes a frame right on creation.
         const editor = new EditorElement(new EditorViewState(new TextDocument("if x")));
         const markDirty = vi.spyOn(editor, "markDirty");
