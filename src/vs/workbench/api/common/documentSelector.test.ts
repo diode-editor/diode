@@ -15,8 +15,8 @@ function matchDocumentSelector(selector: vscode.DocumentSelector, document: Retu
     return scoreDocumentSelector(selector, document) > 0;
 }
 
-describe("scoreDocumentSelector — настоящий score, как у реестра ядра", () => {
-    it("точное совпадение — 10, `*` — 5, мимо — 0", () => {
+describe("scoreDocumentSelector — the real score, as in the core registry", () => {
+    it("exact match is 10, `*` is 5, a miss is 0", () => {
         const md = doc("/home/u/proj/README.md", "markdown");
         expect(scoreDocumentSelector("markdown", md)).toBe(10);
         expect(scoreDocumentSelector("*", md)).toBe(5);
@@ -25,7 +25,7 @@ describe("scoreDocumentSelector — настоящий score, как у реес
         expect(scoreDocumentSelector("typescript", md)).toBe(0);
     });
 
-    it("RelativePattern матчит путь относительно базы", () => {
+    it("RelativePattern matches the path relative to the base", () => {
         const md = doc("/home/u/proj/docs/a.md", "markdown");
         const inDocs = new RelativePattern(Uri.file("/home/u/proj/docs"), "*.md") as unknown as vscode.RelativePattern;
         const inSrc = new RelativePattern(Uri.file("/home/u/proj/src"), "*.md") as unknown as vscode.RelativePattern;
@@ -37,68 +37,68 @@ describe("scoreDocumentSelector — настоящий score, как у реес
 describe("matchDocumentSelector", () => {
     const editorconfig = doc("/home/u/proj/.editorconfig", "editorconfig");
 
-    it("строковый селектор — сахар для language", () => {
+    it("a string selector is sugar for language", () => {
         expect(matchDocumentSelector("editorconfig", editorconfig)).toBe(true);
         expect(matchDocumentSelector("ini", editorconfig)).toBe(false);
     });
 
-    it("'*' матчит любой язык", () => {
+    it("'*' matches any language", () => {
         expect(matchDocumentSelector("*", editorconfig)).toBe(true);
         expect(matchDocumentSelector({ language: "*" } as vscode.DocumentFilter, editorconfig)).toBe(true);
     });
 
-    it("language-фильтр", () => {
+    it("language filter", () => {
         expect(matchDocumentSelector({ language: "editorconfig" } as vscode.DocumentFilter, editorconfig)).toBe(true);
         expect(matchDocumentSelector({ language: "ini" } as vscode.DocumentFilter, editorconfig)).toBe(false);
     });
 
-    it("scheme по умолчанию file", () => {
+    it("scheme defaults to file", () => {
         expect(matchDocumentSelector({ scheme: "file" } as vscode.DocumentFilter, editorconfig)).toBe(true);
         expect(matchDocumentSelector({ scheme: "untitled" } as vscode.DocumentFilter, editorconfig)).toBe(false);
     });
 
-    it("pattern glob со globstar", () => {
+    it("pattern glob with globstar", () => {
         const sel = { language: "editorconfig", pattern: "**/.editorconfig" } as vscode.DocumentFilter;
         expect(matchDocumentSelector(sel, editorconfig)).toBe(true);
         expect(matchDocumentSelector(sel, doc("/home/u/proj/foo.txt", "editorconfig"))).toBe(false);
     });
 
-    it("pattern '*' внутри одного сегмента не пересекает /", () => {
+    it("pattern '*' stays within one segment and does not cross /", () => {
         const sel = { pattern: "/home/u/proj/*.ts" } as vscode.DocumentFilter;
         expect(matchDocumentSelector(sel, doc("/home/u/proj/a.ts", "typescript"))).toBe(true);
         expect(matchDocumentSelector(sel, doc("/home/u/proj/sub/a.ts", "typescript"))).toBe(false);
     });
 
-    it("globstar не перед '/' раскрывается в '.*'", () => {
+    it("globstar not followed by '/' expands to '.*'", () => {
         const sel = { pattern: "**.ts" } as vscode.DocumentFilter;
         expect(matchDocumentSelector(sel, doc("/a/b/c.ts", "typescript"))).toBe(true);
         expect(matchDocumentSelector(sel, doc("/a/b/c.js", "typescript"))).toBe(false);
     });
 
-    it("pattern '?' матчит ровно один символ (не '/')", () => {
+    it("pattern '?' matches exactly one character (not '/')", () => {
         const sel = { pattern: "/p/foo?.ts" } as vscode.DocumentFilter;
         expect(matchDocumentSelector(sel, doc("/p/foo1.ts", "typescript"))).toBe(true);
         expect(matchDocumentSelector(sel, doc("/p/foo.ts", "typescript"))).toBe(false);
     });
 
-    it("массив — any-match", () => {
+    it("an array is any-match", () => {
         const sel = ["ini", { language: "editorconfig" }] as vscode.DocumentSelector;
         expect(matchDocumentSelector(sel, editorconfig)).toBe(true);
         expect(matchDocumentSelector(["ini", "xml"] as vscode.DocumentSelector, editorconfig)).toBe(false);
     });
 
-    it("пустой фильтр не матчит", () => {
+    it("an empty filter does not match", () => {
         expect(matchDocumentSelector({} as vscode.DocumentFilter, editorconfig)).toBe(false);
     });
 });
 
 describe("toWireLanguageFilters", () => {
-    it("строка → { language }, одиночный фильтр → массив из одного", () => {
+    it("a string becomes { language }, a single filter becomes a one-element array", () => {
         expect(toWireLanguageFilters("typescript")).toEqual([{ language: "typescript" }]);
         expect(toWireLanguageFilters({ language: "ts", scheme: "file" })).toEqual([{ language: "ts", scheme: "file" }]);
     });
 
-    it("массив разворачивается поэлементно, пустые поля не появляются", () => {
+    it("an array is expanded per element, empty fields do not appear", () => {
         expect(toWireLanguageFilters(["ini", { scheme: "untitled" }, { pattern: "**/*.json" }])).toEqual([
             { language: "ini" },
             { scheme: "untitled" },
@@ -111,7 +111,7 @@ describe("toWireLanguageFilters", () => {
         expect(toWireLanguageFilters({ pattern })).toEqual([{ pattern: { base: "/home/u/proj", pattern: "*.json" } }]);
     });
 
-    it("notebookType и exclusive вне активной поверхности читаются структурно", () => {
+    it("notebookType and exclusive outside the active surface are read structurally", () => {
         const filter = { language: "python", notebookType: "jupyter", exclusive: true } as vscode.DocumentFilter;
         expect(toWireLanguageFilters(filter)).toEqual([
             { language: "python", notebookType: "jupyter", exclusive: true },

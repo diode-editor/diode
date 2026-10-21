@@ -80,7 +80,7 @@ describe("documentSyncAdapter", () => {
         return { host, opened, changed, deltas, flushes, closed };
     }
 
-    it("openDocumentSnapshots: документ в двух группах даёт один снапшот", () => {
+    it("openDocumentSnapshots: a document in two groups yields one snapshot", () => {
         service.openFile(ws.path("a.ts"));
         service.splitActiveGroup();
         service.openFile(ws.path("b.ts"));
@@ -89,7 +89,7 @@ describe("documentSyncAdapter", () => {
         expect(snapshots.map((s) => s.text)).toEqual(["alpha", "beta"]);
     });
 
-    it("bindDocumentSync: didOpen по документу, didChange на правку, didClose — по последней вкладке", () => {
+    it("bindDocumentSync: didOpen per document, didChange per edit, didClose on the last tab", () => {
         const { host, opened, changed, closed } = recordingHost();
         service.openFile(ws.path("a.ts"));
         service.splitActiveGroup();
@@ -109,7 +109,7 @@ describe("documentSyncAdapter", () => {
         expect(opened).toEqual([uri]);
     });
 
-    it("bindDocumentSync: правка — дельта батча модели с версией и dirty, синхронно", () => {
+    it("bindDocumentSync: an edit is the model batch delta with version and dirty, synchronously", () => {
         const { host, deltas, flushes } = recordingHost();
         service.openFile(ws.path("a.ts"));
         const editor = service.getActiveEditor()!;
@@ -128,7 +128,7 @@ describe("documentSyncAdapter", () => {
         ]);
     });
 
-    it("bindDocumentSync: перечитка с диска — полный снапшот с новым текстом и растущей версией", () => {
+    it("bindDocumentSync: reload from disk is a full snapshot with new text and a bumped version", () => {
         const { host, deltas, flushes } = recordingHost();
         service.openFile(ws.path("a.ts"));
         const editor = service.getActiveEditor()!;
@@ -144,7 +144,7 @@ describe("documentSyncAdapter", () => {
         expect(flushes.at(-1)!.version).toBeGreaterThan(versionBefore);
     });
 
-    it("bindDocumentSync: Save As в новый uri того же языка — didClose старого и didOpen нового", async () => {
+    it("bindDocumentSync: Save As to a new uri of the same language closes the old and opens the new", async () => {
         const { host, opened, closed } = recordingHost();
         service.openFile(ws.path("a.ts"));
         const editor = service.getActiveEditor()!;
@@ -161,7 +161,7 @@ describe("documentSyncAdapter", () => {
         expect(closed).toEqual([oldUri, newUri]);
     });
 
-    it("bindDocumentSync: смена языка без смены uri — переоткрытие документа с новым языком", () => {
+    it("bindDocumentSync: a language change without a uri change reopens the document with the new language", () => {
         const opened: IWireDocumentSyncSnapshot[] = [];
         const closed: string[] = [];
         const host: IDocumentSyncTarget = {
@@ -187,7 +187,7 @@ describe("documentSyncAdapter", () => {
         expect(closed).toEqual([uri]);
     });
 
-    it("bindDocumentSync: закрытый документ снимает подписки на модель, пережившую вкладку", () => {
+    it("bindDocumentSync: a closed document drops its listeners on a model that outlived the tab", () => {
         const { host, opened, changed, closed } = recordingHost();
         service.openFile(ws.path("a.ts"));
         const editor = service.getActiveEditor()!;
@@ -206,7 +206,7 @@ describe("documentSyncAdapter", () => {
         reference.dispose();
     });
 
-    it("bindDocumentSync: открытие нового файла после привязки даёт didOpen", () => {
+    it("bindDocumentSync: opening a new file after binding fires didOpen", () => {
         const { host, opened } = recordingHost();
         service.openFile(ws.path("a.ts"));
         bindDocumentSync(service, service.editorGroups, host);

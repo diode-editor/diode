@@ -18,8 +18,8 @@ const PARAMS = {
     range: { start: { line: 0, character: 0 }, end: { line: 0, character: 8 } },
 };
 
-describe("VscodeNamespace — сборка code-action-deps", () => {
-    it("edit-действие уходит настоящим RPC workspace.applyEdit", async () => {
+describe("VscodeNamespace — code-action-deps wiring", () => {
+    it("an edit action goes through the real workspace.applyEdit RPC", async () => {
         const stub = makeStubRpc();
         const ns = buildVscodeNamespace(stub.rpc, createNodeExtHostDisk()).namespace;
         stub.fire("editor.didOpen", SNAPSHOT);
@@ -52,7 +52,7 @@ describe("VscodeNamespace — сборка code-action-deps", () => {
         });
     });
 
-    it("командное действие исполняется настоящим commands-мостом (локальная команда)", async () => {
+    it("a command action runs through the real commands bridge (local command)", async () => {
         const stub = makeStubRpc();
         const ns = buildVscodeNamespace(stub.rpc, createNodeExtHostDisk()).namespace;
         stub.fire("editor.didOpen", SNAPSHOT);

@@ -27,8 +27,8 @@ function progressNotifies(stub: ReturnType<typeof makeWindow>["stub"]): { method
     return stub.notifies.filter((n) => n.method.startsWith("window.progress."));
 }
 
-describe("WindowNamespace — window.withProgress (настоящий)", () => {
-    it("start → report'ы → end; результат задачи возвращается", async () => {
+describe("WindowNamespace — window.withProgress (real)", () => {
+    it("start → reports → end; the task result is returned", async () => {
         const { stub, window } = makeWindow();
 
         const result = await window.withProgress(
@@ -52,7 +52,7 @@ describe("WindowNamespace — window.withProgress (настоящий)", () => {
         ]);
     });
 
-    it("reject задачи: end всё равно уходит, ошибка пробрасывается", async () => {
+    it("task reject: end is still sent, the error is rethrown", async () => {
         const { stub, window } = makeWindow();
 
         await expect(
@@ -64,7 +64,7 @@ describe("WindowNamespace — window.withProgress (настоящий)", () => {
         expect(progressNotifies(stub).map((n) => n.method)).toEqual(["window.progress.start", "window.progress.end"]);
     });
 
-    it("handle уникален per-вызов; без title уезжает пустая строка", async () => {
+    it("handle is unique per call; without title an empty string is sent", async () => {
         const { stub, window } = makeWindow();
         await window.withProgress({ location: ProgressLocation.Window as never, title: "a" }, () => Promise.resolve(1));
         await window.withProgress({ location: ProgressLocation.Window as never }, () => Promise.resolve(2));
@@ -76,7 +76,7 @@ describe("WindowNamespace — window.withProgress (настоящий)", () => {
         ]);
     });
 
-    it("мусорные report-значения отбрасываются пополя", async () => {
+    it("garbage report values are dropped field by field", async () => {
         const { stub, window } = makeWindow();
         await window.withProgress({ location: ProgressLocation.Window as never, title: "t" }, (progress) => {
             progress.report(null as never);

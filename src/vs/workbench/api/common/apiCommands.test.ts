@@ -10,12 +10,12 @@ function setup(): { open: (...args: unknown[]) => Promise<unknown>; deps: IApiCo
         openExternal: vi.fn(() => Promise.resolve(true)),
     };
     const handler = createApiCommands(deps).get("vscode.open");
-    if (handler === undefined) throw new Error("vscode.open не зарегистрирована");
+    if (handler === undefined) throw new Error("vscode.open is not registered");
     return { open: async (...args) => handler(...args), deps };
 }
 
 describe("apiCommands — vscode.open", () => {
-    it("Uri файла уходит в showTextDocument без опций и резолвится без значения", async () => {
+    it("file Uri goes to showTextDocument without options and resolves with no value", async () => {
         const { open, deps } = setup();
         const uri = Uri.file("/ws/greet_test.go");
 
@@ -25,7 +25,7 @@ describe("apiCommands — vscode.open", () => {
         expect(deps.openExternal).not.toHaveBeenCalled();
     });
 
-    it("колонка числом становится опцией viewColumn, объект опций уходит как есть", async () => {
+    it("a numeric column becomes the viewColumn option, an options object is passed as is", async () => {
         const { open, deps } = setup();
         const uri = Uri.file("/ws/a.go");
         const options: vscode.TextDocumentShowOptions = { preserveFocus: true };
@@ -37,7 +37,7 @@ describe("apiCommands — vscode.open", () => {
         expect(deps.showTextDocument).toHaveBeenNthCalledWith(2, uri, options);
     });
 
-    it("null вместо колонки — как эталон, «без колонки»", async () => {
+    it("null instead of a column means 'no column', as upstream", async () => {
         const { open, deps } = setup();
         const uri = Uri.file("/ws/a.go");
 
@@ -46,7 +46,7 @@ describe("apiCommands — vscode.open", () => {
         expect(deps.showTextDocument).toHaveBeenCalledWith(uri, undefined);
     });
 
-    it("http(s) — строкой и Uri — уходит системному обработчику, не в редактор", async () => {
+    it("http(s), as a string and as a Uri, goes to the system handler, not the editor", async () => {
         const { open, deps } = setup();
 
         await open("https://github.com/golang/tools/releases");
@@ -60,7 +60,7 @@ describe("apiCommands — vscode.open", () => {
         expect(deps.showTextDocument).not.toHaveBeenCalled();
     });
 
-    it("command: — молча ничего, команды отсюда не исполняются", async () => {
+    it("command: silently does nothing, commands are not executed from here", async () => {
         const { open, deps } = setup();
 
         await expect(open(Uri.parse("command:workbench.action.quit"))).resolves.toBeUndefined();
@@ -69,7 +69,7 @@ describe("apiCommands — vscode.open", () => {
         expect(deps.openExternal).not.toHaveBeenCalled();
     });
 
-    it("невалидные аргументы — отказ с текстом эталона, ничего не открыто", async () => {
+    it("invalid arguments reject with the upstream text, nothing is opened", async () => {
         const { open, deps } = setup();
         const uri = Uri.file("/ws/a.go");
 
@@ -88,7 +88,7 @@ describe("apiCommands — vscode.open", () => {
         expect(deps.showTextDocument).not.toHaveBeenCalled();
     });
 
-    it("строкой — только http(s) с начала: http:// принят, https: в середине и не-строка с http-toString — нет", async () => {
+    it("as a string only a leading http(s): http:// is accepted, https: in the middle and a non-string with an http toString are not", async () => {
         const { open, deps } = setup();
 
         await open("http://example.com/x");

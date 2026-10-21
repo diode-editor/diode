@@ -111,7 +111,7 @@ const hover = (handle: number, language = "typescript"): IWireLanguageProviderRe
 });
 
 describe("LanguageFeaturesAdapter", () => {
-    it("подхватывает регистрации, объявленные до создания адаптера", async () => {
+    it("picks up registrations declared before the adapter is created", async () => {
         const bridge = makeBridge();
         bridge.providers = [hover(1)];
         const features = new LanguageFeaturesService();
@@ -125,7 +125,7 @@ describe("LanguageFeaturesAdapter", () => {
         expect(bridge.provideHover).toHaveBeenCalledWith(1, REQUEST, token);
     });
 
-    it("definition и references — прокси в своих реестрах, зовут хост со своим handle", async () => {
+    it("definition and references: proxies in their registries call the host with their handle", async () => {
         const bridge = makeBridge();
         bridge.providers = [
             { handle: 4, kind: "definition", selector: [{ language: "typescript" }] },
@@ -150,7 +150,7 @@ describe("LanguageFeaturesAdapter", () => {
         expect(bridge.provideReferences).toHaveBeenCalledWith(5, referenceRequest, token);
     });
 
-    it("rename — прокси в своём реестре: обе ручки зовут хост со своим handle", async () => {
+    it("rename: proxy in its registry, both methods call the host with its handle", async () => {
         const bridge = makeBridge();
         bridge.providers = [{ handle: 9, kind: "rename", selector: [{ language: "typescript" }] }];
         const features = new LanguageFeaturesService();
@@ -166,7 +166,7 @@ describe("LanguageFeaturesAdapter", () => {
         expect(await provider.provideRenameEdits(REQUEST, "other")).toEqual({ applied: false });
     });
 
-    it("selectionRange — прокси в своём реестре, зовёт хост со своим handle и токеном", async () => {
+    it("selectionRange: proxy in its registry calls the host with its handle and token", async () => {
         const bridge = makeBridge();
         bridge.providers = [{ handle: 7, kind: "selectionRange", selector: [{ language: "typescript" }] }];
         const features = new LanguageFeaturesService();
@@ -184,7 +184,7 @@ describe("LanguageFeaturesAdapter", () => {
         expect(bridge.provideSelectionRanges).toHaveBeenCalledWith(7, request, token);
     });
 
-    it("signatureHelp: триггеры из метаданных регистрации, без метаданных — пустые", async () => {
+    it("signatureHelp: triggers come from registration metadata, empty without metadata", async () => {
         const bridge = makeBridge();
         bridge.providers = [
             {
@@ -212,7 +212,7 @@ describe("LanguageFeaturesAdapter", () => {
         expect(md.retriggerCharacters).toEqual([]);
     });
 
-    it("completion: триггеры из метаданных, provide с handle, resolve — по id пункта", async () => {
+    it("completion: triggers from metadata, provide with handle, resolve by item id", async () => {
         const bridge = makeBridge();
         bridge.providers = [
             { handle: 8, kind: "completion", selector: [{ language: "typescript" }], triggerCharacters: ["."] },
@@ -235,7 +235,7 @@ describe("LanguageFeaturesAdapter", () => {
         expect(md.triggerCharacters).toEqual([]);
     });
 
-    it("formatting/rangeFormatting/codeActions — прокси в своих реестрах, виды — из метаданных", async () => {
+    it("formatting/rangeFormatting/codeActions: proxies in their registries, kinds from metadata", async () => {
         const bridge = makeBridge();
         bridge.providers = [
             { handle: 1, kind: "formatting", selector: [{ language: "typescript" }] },
@@ -275,7 +275,7 @@ describe("LanguageFeaturesAdapter", () => {
         expect(features.codeActionProvider.ordered(MD)[0].providedCodeActionKinds).toEqual([]);
     });
 
-    it("folding — прокси в реестре folding-провайдеров, зовёт хост со своим handle", async () => {
+    it("folding: proxy in the folding provider registry calls the host with its handle", async () => {
         const bridge = makeBridge();
         bridge.providers = [{ handle: 5, kind: "folding", selector: [{ language: "typescript" }] }];
         const features = new LanguageFeaturesService();
@@ -290,7 +290,7 @@ describe("LanguageFeaturesAdapter", () => {
         expect(bridge.provideFoldingRanges).toHaveBeenCalledWith(5, request, token);
     });
 
-    it("inlineCompletions — прокси в своём реестре, токен отмены доезжает до хоста", async () => {
+    it("inlineCompletions: proxy in its registry, cancellation token reaches the host", async () => {
         const bridge = makeBridge();
         bridge.providers = [{ handle: 9, kind: "inlineCompletions", selector: [{ language: "typescript" }] }];
         const features = new LanguageFeaturesService();
@@ -304,7 +304,7 @@ describe("LanguageFeaturesAdapter", () => {
         expect(bridge.provideInlineCompletions).toHaveBeenCalledWith(9, request, CancellationTokenNone);
     });
 
-    it("semanticTokens: прокси с легендой; resultId строкой ↔ числом на проводе, null — 0", async () => {
+    it("semanticTokens: proxy with legend; string resultId ↔ number on the wire, null is 0", async () => {
         const bridge = makeBridge();
         const legend = { tokenTypes: ["class"], tokenModifiers: ["declaration"] };
         bridge.providers = [{ handle: 7, kind: "semanticTokens", selector: [{ language: "typescript" }], legend }];
@@ -331,7 +331,7 @@ describe("LanguageFeaturesAdapter", () => {
         expect(bridge.releaseDocumentSemanticTokens).toHaveBeenCalledWith(7, 5);
     });
 
-    it("rangeSemanticTokens: прокси в своём реестре; без легенды — пустая", async () => {
+    it("rangeSemanticTokens: proxy in its registry; empty legend without one", async () => {
         const bridge = makeBridge();
         bridge.providers = [{ handle: 3, kind: "rangeSemanticTokens", selector: [{ language: "typescript" }] }];
         const features = new LanguageFeaturesService();
@@ -349,7 +349,7 @@ describe("LanguageFeaturesAdapter", () => {
         expect(bridge.provideDocumentRangeSemanticTokens).toHaveBeenCalledWith(3, request, CancellationTokenNone);
     });
 
-    it("onDidChange прокси — только при hasOnDidChange и только для своего handle", () => {
+    it("proxy onDidChange fires only with hasOnDidChange and only for its own handle", () => {
         const bridge = makeBridge();
         bridge.providers = [
             { handle: 1, kind: "semanticTokens", selector: [{ language: "typescript" }], hasOnDidChange: true },
@@ -371,7 +371,7 @@ describe("LanguageFeaturesAdapter", () => {
         expect(seen).toEqual(["range", "doc"]);
     });
 
-    it("прокси регистрируется под селектором регистрации — чужой язык его не видит", () => {
+    it("proxy registers under the registration selector, another language does not see it", () => {
         const bridge = makeBridge();
         const features = new LanguageFeaturesService();
         new LanguageFeaturesAdapter(bridge, features);
@@ -383,7 +383,7 @@ describe("LanguageFeaturesAdapter", () => {
         expect(features.hoverProvider.has(TS)).toBe(false);
     });
 
-    it("снятая регистрация снимает прокси, оставшиеся живут", () => {
+    it("removed registration removes its proxy, the rest stay", () => {
         const bridge = makeBridge();
         const features = new LanguageFeaturesService();
         new LanguageFeaturesAdapter(bridge, features);
@@ -400,7 +400,7 @@ describe("LanguageFeaturesAdapter", () => {
         expect(changed).toHaveBeenCalledTimes(1);
     });
 
-    it("тот же handle с новой регистрацией (рестарт субпроцесса) — прокси пересоздаётся", () => {
+    it("same handle with a new registration (subprocess restart) recreates the proxy", () => {
         const bridge = makeBridge();
         const features = new LanguageFeaturesService();
         new LanguageFeaturesAdapter(bridge, features);
@@ -414,7 +414,7 @@ describe("LanguageFeaturesAdapter", () => {
         expect(features.hoverProvider.has(TS)).toBe(true);
     });
 
-    it("dispose адаптера снимает все прокси и отписывается от моста", () => {
+    it("adapter dispose removes all proxies and unsubscribes from the bridge", () => {
         const bridge = makeBridge();
         bridge.providers = [hover(1), hover(2)];
         const features = new LanguageFeaturesService();

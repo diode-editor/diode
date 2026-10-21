@@ -17,15 +17,15 @@ import { Location, Position, Uri } from "./vscodeTypes.ts";
 const location = new Location(Uri.file("/w/main.go"), new Position(3, 0));
 const session = { id: "s" } as never;
 
-describe("значения-типы vscode.debug — по эталону", () => {
-    it("enum'ы", () => {
+describe("vscode.debug value types — per upstream", () => {
+    it("enums", () => {
         expect([DebugConsoleMode.Separate, DebugConsoleMode.MergeWithParent]).toEqual([0, 1]);
         expect([DebugConfigurationProviderTriggerKind.Initial, DebugConfigurationProviderTriggerKind.Dynamic]).toEqual([
             1, 2,
         ]);
     });
 
-    it("точка останова: включена по умолчанию, необязательные поля — только строками", () => {
+    it("breakpoint: enabled by default, optional fields only as strings", () => {
         const plain = new SourceBreakpoint(location);
         expect(plain.location).toBe(location);
         expect(plain.enabled).toBe(true);
@@ -51,7 +51,7 @@ describe("значения-типы vscode.debug — по эталону", () =>
         expect(loose.mode).toBeUndefined();
     });
 
-    it("id точки — ленивый uuid, стабильный и разный у разных точек", () => {
+    it("breakpoint id is a lazy uuid, stable and distinct per breakpoint", () => {
         const a = new SourceBreakpoint(location);
         const b = new SourceBreakpoint(location);
         expect(a.id).toMatch(/^[0-9a-f-]{36}$/);
@@ -59,11 +59,11 @@ describe("значения-типы vscode.debug — по эталону", () =>
         expect(a.id).not.toBe(b.id);
     });
 
-    it("SourceBreakpoint без location (null из JS) — эталонная ошибка", () => {
+    it("SourceBreakpoint without location (null from JS) throws the upstream error", () => {
         expect(() => new SourceBreakpoint(null as never)).toThrow("Illegal argument: location");
     });
 
-    it("дескрипторы адаптера несут переданное", () => {
+    it("adapter descriptors carry what was passed", () => {
         expect(new DebugAdapterExecutable("dlv", ["dap"], { cwd: "/w" })).toEqual({
             command: "dlv",
             args: ["dap"],
@@ -77,7 +77,7 @@ describe("значения-типы vscode.debug — по эталону", () =>
         expect(new DebugAdapterInlineImplementation(adapter).implementation).toBe(adapter);
     });
 
-    it("поток и фрейм несут сессию и номера", () => {
+    it("thread and stack frame carry session and ids", () => {
         expect(new DebugThread(session, 2)).toEqual({ session, threadId: 2 });
         expect(new DebugStackFrame(session, 2, 9)).toEqual({ session, threadId: 2, frameId: 9 });
     });

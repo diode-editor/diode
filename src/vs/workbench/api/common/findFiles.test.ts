@@ -35,8 +35,8 @@ const MAVEN_TREE: Record<string, readonly string[]> = {
     [at("node_modules")]: ["pom.xml"],
 };
 
-describe("findFiles — матчинг шаблона", () => {
-    it("рекурсивный шаблон собирает все совпадения по дереву", async () => {
+describe("findFiles — pattern matching", () => {
+    it("recursive pattern collects all matches across the tree", async () => {
         const found = await findFiles(scannerFromTree(MAVEN_TREE), {
             base: ROOT,
             include: "**/pom.xml",
@@ -45,7 +45,7 @@ describe("findFiles — матчинг шаблона", () => {
         expect(found.toSorted()).toEqual(["core/pom.xml", "node_modules/pom.xml", "pom.xml", "web/pom.xml"]);
     });
 
-    it("шаблон без `**` якорится по числу сегментов", async () => {
+    it("pattern without `**` is anchored by segment count", async () => {
         const found = await findFiles(scannerFromTree(MAVEN_TREE), {
             base: ROOT,
             include: "*/pom.xml",
@@ -55,7 +55,7 @@ describe("findFiles — матчинг шаблона", () => {
         expect(found.toSorted()).toEqual(["core/pom.xml", "node_modules/pom.xml", "web/pom.xml"]);
     });
 
-    it("альтернативы `{a,b}` — как у сборочных файлов redhat.java", async () => {
+    it("alternatives `{a,b}` — as in redhat.java build files", async () => {
         const found = await findFiles(
             scannerFromTree({
                 [ROOT]: ["build.gradle", "settings.gradle.kts", "pom.xml", "notes.txt"],
@@ -65,7 +65,7 @@ describe("findFiles — матчинг шаблона", () => {
         expect(found.toSorted()).toEqual(["build.gradle", "pom.xml", "settings.gradle.kts"]);
     });
 
-    it("каталог под шаблон не попадает — ищем файлы", async () => {
+    it("a directory does not match the pattern — only files are found", async () => {
         const found = await findFiles(scannerFromTree({ [ROOT]: ["target/", "targetFile"], [at("target")]: [] }), {
             base: ROOT,
             include: "**/target*",
@@ -74,21 +74,21 @@ describe("findFiles — матчинг шаблона", () => {
         expect(found).toEqual(["targetFile"]);
     });
 
-    it("пустое дерево — пустой результат", async () => {
+    it("empty tree gives an empty result", async () => {
         const found = await findFiles(scannerFromTree({}), { base: ROOT, include: "**/pom.xml", excludes: [] });
         expect(found).toEqual([]);
     });
 });
 
-describe("findFiles — глубина обхода", () => {
-    it("шаблон без `**` не читает каталоги глубже своего числа сегментов", async () => {
+describe("findFiles — traversal depth", () => {
+    it("pattern without `**` does not read directories deeper than its segment count", async () => {
         const scanner = scannerFromTree(MAVEN_TREE);
         await findFiles(scanner, { base: ROOT, include: "*.java", excludes: [] });
         // `*.java` lives only at the root, so there's no need to descend.
         expect(scanner.reads).toEqual([ROOT]);
     });
 
-    it("шаблон с `**` спускается до дна", async () => {
+    it("pattern with `**` descends to the bottom", async () => {
         const scanner = scannerFromTree(MAVEN_TREE);
         const found = await findFiles(scanner, { base: ROOT, include: "**/*.class", excludes: [] });
         expect(found).toEqual(["web/target/classes/App.class"]);
@@ -96,8 +96,8 @@ describe("findFiles — глубина обхода", () => {
     });
 });
 
-describe("findFiles — исключения", () => {
-    it("набор шаблонов срезает каждый свой каталог целиком", async () => {
+describe("findFiles — excludes", () => {
+    it("a pattern set prunes each of its directories entirely", async () => {
         const scanner = scannerFromTree(MAVEN_TREE);
         const found = await findFiles(scanner, {
             base: ROOT,
@@ -110,7 +110,7 @@ describe("findFiles — исключения", () => {
         expect(scanner.reads).not.toContain(at(".git"));
     });
 
-    it("шаблоны набора независимы: совпал любой — вход отброшен", async () => {
+    it("set patterns are independent: any match drops the entry", async () => {
         const scanner = scannerFromTree(MAVEN_TREE);
         const found = await findFiles(scanner, {
             base: ROOT,
@@ -120,7 +120,7 @@ describe("findFiles — исключения", () => {
         expect(found.toSorted()).toEqual(["core/pom.xml", "pom.xml"]);
     });
 
-    it("явный шаблон `**/<каталог>/**` даёт тот же результат через отсев файлов", async () => {
+    it("explicit pattern `**/<dir>/**` gives the same result by filtering files", async () => {
         const scanner = scannerFromTree(MAVEN_TREE);
         const found = await findFiles(scanner, {
             base: ROOT,
@@ -132,7 +132,7 @@ describe("findFiles — исключения", () => {
         expect(scanner.reads).toContain(at("node_modules"));
     });
 
-    it("пустой набор не исключает ничего", async () => {
+    it("empty set excludes nothing", async () => {
         const found = await findFiles(scannerFromTree(MAVEN_TREE), {
             base: ROOT,
             include: "**/pom.xml",
@@ -141,7 +141,7 @@ describe("findFiles — исключения", () => {
         expect(found).toContain("node_modules/pom.xml");
     });
 
-    it("пустая строка исключения не совпадает ни с чем (её шлёт redhat.java)", async () => {
+    it("empty exclude string matches nothing (redhat.java sends it)", async () => {
         const found = await findFiles(scannerFromTree(MAVEN_TREE), {
             base: ROOT,
             include: "**/pom.xml",
@@ -151,8 +151,8 @@ describe("findFiles — исключения", () => {
     });
 });
 
-describe("findFiles — границы результата", () => {
-    it("maxResults обрывает поиск ровно на границе", async () => {
+describe("findFiles — result limits", () => {
+    it("maxResults stops the search exactly at the limit", async () => {
         const found = await findFiles(scannerFromTree(MAVEN_TREE), {
             base: ROOT,
             include: "**/pom.xml",
@@ -163,7 +163,7 @@ describe("findFiles — границы результата", () => {
         expect(found).toEqual(["pom.xml"]);
     });
 
-    it("maxResults: 0 — пустой ответ без единого чтения каталога", async () => {
+    it("maxResults: 0 gives an empty answer without reading any directory", async () => {
         const scanner = scannerFromTree(MAVEN_TREE);
         const found = await findFiles(scanner, {
             base: ROOT,
@@ -175,7 +175,7 @@ describe("findFiles — границы результата", () => {
         expect(scanner.reads).toEqual([]);
     });
 
-    it("бюджет каталогов обрывает обход гигантского дерева", async () => {
+    it("directory budget stops traversal of a huge tree", async () => {
         // A chain of directories 50 deep; the match is at the very bottom.
         const deep: Record<string, string[]> = {};
         let dir = ROOT;
@@ -196,7 +196,7 @@ describe("findFiles — границы результата", () => {
         expect(scanner.reads.length).toBe(10);
     });
 
-    it("отмена обрывает обход и отдаёт уже найденное", async () => {
+    it("cancellation stops traversal and returns what was found", async () => {
         const scanner = scannerFromTree(MAVEN_TREE);
         let cancelled = false;
         const found = await findFiles(

@@ -18,15 +18,15 @@ function makeTransport(): IWatcherTransport & { created: IWireWatcherCreate[]; d
 }
 
 describe("resolveGlobPattern", () => {
-    it("строковый шаблон привязывается к папке воркспейса", () => {
+    it("string pattern binds to the workspace folder", () => {
         expect(resolveGlobPattern("**/*.ts", "/repo")).toEqual({ base: "/repo", pattern: "**/*.ts" });
     });
 
-    it("без воркспейса строковый шаблон резолвить не к чему", () => {
+    it("without a workspace a string pattern has nothing to resolve against", () => {
         expect(resolveGlobPattern("**/*.ts", undefined)).toBeNull();
     });
 
-    it("RelativePattern отдаёт свою базу, а не папку воркспейса", () => {
+    it("RelativePattern yields its own base, not the workspace folder", () => {
         const resolved = resolveGlobPattern(
             new RelativePattern(Uri.file("/repo/.git"), "*") as unknown as never,
             "/repo",
@@ -34,23 +34,23 @@ describe("resolveGlobPattern", () => {
         expect(resolved).toEqual({ base: "/repo/.git", pattern: "*" });
     });
 
-    it("RelativePattern от папки воркспейса берёт её uri", () => {
+    it("RelativePattern based on a workspace folder takes its uri", () => {
         const folder = { uri: Uri.file("/repo"), name: "repo", index: 0 };
         const resolved = resolveGlobPattern(new RelativePattern(folder as never, "**") as unknown as never, undefined);
         expect(resolved).toEqual({ base: "/repo", pattern: "**" });
     });
 
-    it("чужой RelativePattern (утиный объект) тоже принимается", () => {
+    it("foreign RelativePattern (duck-typed object) is accepted too", () => {
         const duck = { baseUri: { fsPath: "/other" }, pattern: "*.js" };
         expect(resolveGlobPattern(duck as unknown as never, "/repo")).toEqual({ base: "/other", pattern: "*.js" });
     });
 
-    it("устаревшее строковое base — запасной путь", () => {
+    it("legacy string base is the fallback", () => {
         const duck = { base: "/legacy", pattern: "*.js" };
         expect(resolveGlobPattern(duck as unknown as never, "/repo")).toEqual({ base: "/legacy", pattern: "*.js" });
     });
 
-    it("мусор не резолвится", () => {
+    it("garbage does not resolve", () => {
         expect(resolveGlobPattern({ pattern: 1 } as unknown as never, "/repo")).toBeNull();
         expect(resolveGlobPattern({ pattern: "*" } as unknown as never, "/repo")).toBeNull();
         expect(resolveGlobPattern(null as unknown as never, "/repo")).toBeNull();
@@ -63,7 +63,7 @@ describe("resolveGlobPattern", () => {
 });
 
 describe("SubprocessFileSystemWatchers", () => {
-    it("создание уезжает на хост вместе с ignore-флагами", () => {
+    it("creation is sent to the host with the ignore flags", () => {
         const transport = makeTransport();
         const watchers = new SubprocessFileSystemWatchers(transport);
 
@@ -82,7 +82,7 @@ describe("SubprocessFileSystemWatchers", () => {
         expect(watcher.ignoreChangeEvents).toBe(true);
     });
 
-    it("события хоста разводятся по эмиттерам своего watcher'а", () => {
+    it("host events are routed to the emitters of their watcher", () => {
         const transport = makeTransport();
         const watchers = new SubprocessFileSystemWatchers(transport);
         const first = watchers.create({ base: "/repo", pattern: "**" }, false, false, false);
@@ -108,7 +108,7 @@ describe("SubprocessFileSystemWatchers", () => {
         expect(secondSeen).toEqual([]);
     });
 
-    it("dispose снимает watcher на хосте и глушит события", () => {
+    it("dispose removes the watcher on the host and silences events", () => {
         const transport = makeTransport();
         const watchers = new SubprocessFileSystemWatchers(transport);
         const watcher = watchers.create({ base: "/repo", pattern: "**" }, false, false, false);
@@ -123,14 +123,14 @@ describe("SubprocessFileSystemWatchers", () => {
         expect(seen).toEqual([]);
     });
 
-    it("пачка на неизвестный id (гонка с dispose) не роняет реестр", () => {
+    it("a batch for an unknown id (race with dispose) does not break the registry", () => {
         const watchers = new SubprocessFileSystemWatchers(makeTransport());
         expect(() => {
             watchers.dispatch({ id: 42, events: [{ type: "changed", uri: Uri.file("/repo/a.ts").toString() }] });
         }).not.toThrow();
     });
 
-    it("немой watcher валиден: подписки и dispose работают, событий нет", () => {
+    it("silent watcher is valid: subscriptions and dispose work, no events", () => {
         const transport = makeTransport();
         const watchers = new SubprocessFileSystemWatchers(transport);
         const watcher = watchers.createInert(false, false, false);

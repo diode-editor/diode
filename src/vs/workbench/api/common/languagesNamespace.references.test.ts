@@ -53,7 +53,7 @@ function wireLocation(uri: string, line: number): unknown {
 }
 
 describe("LanguagesNamespace — registerReferenceProvider", () => {
-    it("регистрация объявляется ядру с handle и селектором, dispose — снимает (один раз)", () => {
+    it("registration is announced to the core with handle and selector, dispose removes it (once)", () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
         const sent = () => stub.notifies.filter((n) => n.method.startsWith("languages."));
@@ -76,7 +76,7 @@ describe("LanguagesNamespace — registerReferenceProvider", () => {
 });
 
 describe("LanguagesNamespace — languages.provideReferences", () => {
-    it("документ — из зеркала по версии запроса, провайдер зовётся с позицией каретки и контекстом", async () => {
+    it("document comes from the mirror by request version, provider is called with the cursor position and context", async () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
         const seen: { doc?: vscode.TextDocument; pos?: vscode.Position; ctx?: vscode.ReferenceContext } = {};
@@ -105,7 +105,7 @@ describe("LanguagesNamespace — languages.provideReferences", () => {
         expect(result).toEqual([wireLocation("file:///proj/use.ts", 3)]);
     });
 
-    it("includeDeclaration: false доезжает до провайдера; без поля — false", async () => {
+    it("includeDeclaration: false reaches the provider; false without the field", async () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
         const seen: vscode.ReferenceContext[] = [];
@@ -126,7 +126,7 @@ describe("LanguagesNamespace — languages.provideReferences", () => {
         expect(seen).toEqual([{ includeDeclaration: false }, { includeDeclaration: false }]);
     });
 
-    it("зовётся ровно провайдер запрошенного handle; сбойный, пустой и неизвестный — []", async () => {
+    it("exactly the requested handle's provider is called; failing, empty and unknown yield []", async () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
         const ask = (handle: unknown) => stub.callRequest("languages.provideReferences", requestParams({ handle }));
@@ -171,7 +171,7 @@ describe("LanguagesNamespace — languages.provideReferences", () => {
         expect(await ask(undefined)).toEqual([]);
     });
 
-    it("не-массив от провайдера и мусор внутри массива отбрасываются", async () => {
+    it("non-array from the provider and junk inside the array are dropped", async () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
         // A single Location is the definition shape; for references (`ProviderResult<Location[]>`) it's not accepted.
@@ -207,7 +207,7 @@ describe("LanguagesNamespace — languages.provideReferences", () => {
         expect(ctx.registry.get(Uri.parse(stale))).toBeUndefined();
     });
 
-    it("запрос без позиции и языка: позиция (0,0), язык зеркала не затирается", async () => {
+    it("request without position and language: position (0,0), mirror language is not overwritten", async () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
         const seen: { pos?: vscode.Position } = {};
@@ -230,14 +230,14 @@ describe("LanguagesNamespace — languages.provideReferences", () => {
         expect(result).toEqual([]);
     });
 
-    it("без провайдеров — пустой ответ, а не ошибка", async () => {
+    it("no providers yields an empty response, not an error", async () => {
         const { ctx, stub } = makeCtx();
         createLanguagesNamespace(ctx);
         openDoc(ctx);
         expect(await stub.callRequest("languages.provideReferences", requestParams())).toEqual([]);
     });
 
-    it("документ не открыт, запрос устарел или впереди зеркала — [], провайдер не зовётся", async () => {
+    it("unopened document, stale request or request ahead of the mirror yields [], provider is not called", async () => {
         const { stub, ctx } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
         let calls = 0;
@@ -279,8 +279,8 @@ describe("LanguagesNamespace — languages.provideReferences", () => {
     });
 });
 
-describe("LanguagesNamespace — Position/Location стаба", () => {
-    it("Position из vscodeTypes конструируется так же, как ждёт провайдер", () => {
+describe("LanguagesNamespace — stub Position/Location", () => {
+    it("Position from vscodeTypes constructs the way the provider expects", () => {
         // The stock languageclient converter calls `new code.Location(uri, range)`: without
         // constructible stub classes the whole response conversion fails.
         const loc = new Location(Uri.parse(URI), new Position(1, 2));

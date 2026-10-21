@@ -20,7 +20,7 @@ import { ThemeService } from "../../services/themes/common/themeService.ts";
 import { EditorOptionsServiceAdapter } from "./editorOptionsServiceAdapter.ts";
 const NO_BULK_EDITS: IBulkEditService = { applyWorkspaceEdit: () => Promise.resolve(false) };
 
-describe("EditorOptionsServiceAdapter — адресация по группам", () => {
+describe("EditorOptionsServiceAdapter: addressing by group", () => {
     let ws: ITempWorkspace;
     let service: EditorService;
     let adapter: EditorOptionsServiceAdapter;
@@ -55,7 +55,7 @@ describe("EditorOptionsServiceAdapter — адресация по группам
         return pane as TextEditorPane;
     }
 
-    it("setActiveEditorSelections с groupId ставит выделение вью ТОЙ группы (AS-10)", () => {
+    it("setActiveEditorSelections with groupId sets the selection on THAT group's view (AS-10)", () => {
         service.openFile(ws.path("a.ts"));
         service.splitActiveGroup();
         service.editorGroups.focusGroup({ index: 0 });
@@ -71,7 +71,7 @@ describe("EditorOptionsServiceAdapter — адресация по группам
         expect(editorAt(0, 0).viewState.selections[0].active).toEqual({ line: 0, character: 0 });
     });
 
-    it("setActiveEditorSelections: неизвестный groupId или чужой uri — no-op", () => {
+    it("setActiveEditorSelections: unknown groupId or foreign uri is a no-op", () => {
         service.openFile(ws.path("a.ts"));
         const editor = service.getActiveEditor()!;
         const before = editor.viewState.selections[0];
@@ -89,7 +89,7 @@ describe("EditorOptionsServiceAdapter — адресация по группам
         expect(editor.viewState.selections[0]).toEqual(before);
     });
 
-    it("applyActiveEditorEdits находит документ в неактивной группе; неоткрытый ресурс — false", () => {
+    it("applyActiveEditorEdits finds the document in an inactive group; an unopened resource returns false", () => {
         service.openFile(ws.path("a.ts"));
         const background = service.getActiveEditor()!;
         service.splitActiveGroup();

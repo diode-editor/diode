@@ -40,7 +40,7 @@ function pair(): [FakeIpcEndpoint, FakeIpcEndpoint] {
 }
 
 describe("IpcMessageChannel", () => {
-    it("доставляет сообщения a -> b асинхронно", async () => {
+    it("delivers messages a -> b asynchronously", async () => {
         const [a, b] = pair();
         const chA = new IpcMessageChannel(a);
         const chB = new IpcMessageChannel(b);
@@ -54,7 +54,7 @@ describe("IpcMessageChannel", () => {
         chB.dispose();
     });
 
-    it("работает в обе стороны и сохраняет порядок", async () => {
+    it("works both ways and preserves order", async () => {
         const [a, b] = pair();
         const chA = new IpcMessageChannel(a);
         const chB = new IpcMessageChannel(b);
@@ -76,7 +76,7 @@ describe("IpcMessageChannel", () => {
         chB.dispose();
     });
 
-    it("после dispose postMessage не доходит и listener'ы не дёргаются", async () => {
+    it("after dispose postMessage is not delivered and listeners are not called", async () => {
         const [a, b] = pair();
         const chA = new IpcMessageChannel(a);
         const chB = new IpcMessageChannel(b);
@@ -89,7 +89,7 @@ describe("IpcMessageChannel", () => {
         chA.dispose();
     });
 
-    it("отписанный listener больше не получает", async () => {
+    it("an unsubscribed listener no longer receives", async () => {
         const [a, b] = pair();
         const chA = new IpcMessageChannel(a);
         const chB = new IpcMessageChannel(b);
@@ -105,7 +105,7 @@ describe("IpcMessageChannel", () => {
         chB.dispose();
     });
 
-    it("после события disconnect postMessage no-op", () => {
+    it("after a disconnect event postMessage is a no-op", () => {
         const [a, b] = pair();
         const chA = new IpcMessageChannel(a);
         const chB = new IpcMessageChannel(b);
@@ -118,7 +118,7 @@ describe("IpcMessageChannel", () => {
         chB.dispose();
     });
 
-    it("dispose снимает подписки c endpoint'а", () => {
+    it("dispose removes the endpoint subscriptions", () => {
         const [a] = pair();
         const ch = new IpcMessageChannel(a);
         expect(a.listenerCount("message")).toBe(1);
@@ -128,7 +128,7 @@ describe("IpcMessageChannel", () => {
         expect(a.listenerCount("disconnect")).toBe(0);
     });
 
-    it("исключение в endpoint.send не падает наружу", () => {
+    it("an exception in endpoint.send does not escape", () => {
         const [a, b] = pair();
         const chA = new IpcMessageChannel(a);
         const chB = new IpcMessageChannel(b);
@@ -142,7 +142,7 @@ describe("IpcMessageChannel", () => {
         chB.dispose();
     });
 
-    it("после исключения в send канал помечается мёртвым: следующий postMessage не вызывает send", () => {
+    it("after an exception in send the channel is marked dead: the next postMessage does not call send", () => {
         const [a] = pair();
         const ch = new IpcMessageChannel(a);
         a.send = (): boolean => {
@@ -158,7 +158,7 @@ describe("IpcMessageChannel", () => {
         ch.dispose();
     });
 
-    it("onMessage после dispose возвращает no-op disposable и не подписывает (line 65)", async () => {
+    it("onMessage after dispose returns a no-op disposable and does not subscribe (line 65)", async () => {
         const [a, b] = pair();
         const chA = new IpcMessageChannel(a);
         const chB = new IpcMessageChannel(b);
@@ -176,7 +176,7 @@ describe("IpcMessageChannel", () => {
         chA.dispose();
     });
 
-    it("входящее сообщение после dispose игнорируется (line 41)", () => {
+    it("an incoming message after dispose is ignored (line 41)", () => {
         // An endpoint that does NOT remove the listener on off(), to simulate
         // a message arriving after the channel's dispose().
         const messageListeners: ((msg: unknown) => void)[] = [];
@@ -196,7 +196,7 @@ describe("IpcMessageChannel", () => {
         expect(received).toEqual([]);
     });
 
-    it("dispose идемпотентен (line 77)", () => {
+    it("dispose is idempotent (line 77)", () => {
         const [a] = pair();
         const ch = new IpcMessageChannel(a);
         ch.dispose();
@@ -205,7 +205,7 @@ describe("IpcMessageChannel", () => {
         }).not.toThrow();
     });
 
-    it("повторный dispose подписки безопасен (line 71 ветка index < 0)", () => {
+    it("disposing a subscription twice is safe (line 71, index < 0 branch)", () => {
         const [a] = pair();
         const ch = new IpcMessageChannel(a);
         const sub = ch.onMessage(() => undefined);

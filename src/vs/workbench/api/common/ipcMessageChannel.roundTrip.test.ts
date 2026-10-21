@@ -62,7 +62,7 @@ describe("IpcMessageChannel — real subprocess round-trip", () => {
         });
     }
 
-    it("postMessage доходит через реальный node IPC", async () => {
+    it("postMessage arrives over real node IPC", async () => {
         const { channel } = await startEchoChild();
         const received: unknown[] = [];
         channel.onMessage((m) => received.push(m));
@@ -71,7 +71,7 @@ describe("IpcMessageChannel — real subprocess round-trip", () => {
         expect(received).toEqual([{ id: 1, echo: "ping" }]);
     });
 
-    it("несколько сообщений сохраняют порядок", async () => {
+    it("multiple messages keep their order", async () => {
         const { channel } = await startEchoChild();
         const received: unknown[] = [];
         channel.onMessage((m) => received.push(m));
@@ -86,7 +86,7 @@ describe("IpcMessageChannel — real subprocess round-trip", () => {
         ]);
     });
 
-    it("RpcEndpoint поверх IpcMessageChannel работает с настоящим subprocess", async () => {
+    it("RpcEndpoint over IpcMessageChannel works with a real subprocess", async () => {
         // Echo fixture without an RPC envelope: only the channel round-trip is tested here.
         const { channel, rpc } = await startEchoChild();
         expect(rpc).toBeDefined();

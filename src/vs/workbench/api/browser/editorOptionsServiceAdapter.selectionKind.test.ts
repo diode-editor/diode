@@ -76,26 +76,26 @@ function createAdapter(fake: IEditorService, workspaceEdits: IBulkEditService): 
     return new EditorOptionsServiceAdapter(fake, fake as unknown as IEditorGroupsService, workspaceEdits);
 }
 
-describe("EditorOptionsServiceAdapter — kind в editor.selectionChanged", () => {
-    it("жест клавиатуры уезжает как kind 1", async () => {
+describe("EditorOptionsServiceAdapter — kind in editor.selectionChanged", () => {
+    it("keyboard gesture is sent as kind 1", async () => {
         expect((await notifiedFor("keyboard")).kind).toBe(1);
     });
 
-    it("жест мыши уезжает как kind 2", async () => {
+    it("mouse gesture is sent as kind 2", async () => {
         expect((await notifiedFor("mouse")).kind).toBe(2);
     });
 
-    it("команда уезжает как kind 3", async () => {
+    it("command is sent as kind 3", async () => {
         expect((await notifiedFor("command")).kind).toBe(3);
     });
 
-    it("неразмеченный жест (undo, find) едет вовсе без поля kind", async () => {
+    it("untagged gesture (undo, find) is sent without a kind field", async () => {
         const payload = await notifiedFor(undefined);
         expect(payload.kind).toBeUndefined();
         expect("kind" in payload).toBe(false);
     });
 
-    it("источник снимается синхронно: к моменту отложенного флаша область уже закрыта", async () => {
+    it("source is cleared synchronously: the scope is closed by the deferred flush", async () => {
         const { group, move } = liveGroup();
         const adapter = createAdapter(group, NO_BULK_EDITS);
         const seen: IActiveEditorSelections[] = [];
@@ -110,7 +110,7 @@ describe("EditorOptionsServiceAdapter — kind в editor.selectionChanged", () =
         expect(seen[0]?.kind).toBe(2);
     });
 
-    it("в коалесенном тике побеждает ПОСЛЕДНИЙ источник — он же автор итоговых выделений", async () => {
+    it("in a coalesced tick the LAST source wins, as it authored the final selections", async () => {
         const { group, move } = liveGroup();
         const adapter = createAdapter(group, NO_BULK_EDITS);
         const seen: IActiveEditorSelections[] = [];
@@ -129,7 +129,7 @@ describe("EditorOptionsServiceAdapter — kind в editor.selectionChanged", () =
         expect(seen[0].selections[0].activeCharacter).toBe(5);
     });
 
-    it("источник не протекает в следующий тик", async () => {
+    it("source does not leak into the next tick", async () => {
         const { group, move } = liveGroup();
         const adapter = createAdapter(group, NO_BULK_EDITS);
         const seen: IActiveEditorSelections[] = [];

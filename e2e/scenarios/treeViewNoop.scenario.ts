@@ -27,7 +27,7 @@ export default defineScenario({
 
         await editor.sendKey("Alt+U");
         await editor.sendKey("Alt+J");
-        await editor.waitForText((t) => t.includes('дерево "treeOutline.targets" в TUI пока не рисуется'), {
+        await editor.waitForText((t) => t.includes('tree view "treeOutline.targets" is not rendered in TUI yet'), {
             timeoutMs: 15000,
         });
         await editor.capture("output-line");

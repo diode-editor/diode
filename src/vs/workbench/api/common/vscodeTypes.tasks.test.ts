@@ -8,7 +8,7 @@ import { CustomExecution, ProcessExecution, ShellExecution, Task, TaskGroup, Tas
 const folder = { uri: Uri.file("/ws"), name: "ws", index: 0 } as unknown as vscode.WorkspaceFolder;
 
 describe("TaskGroup", () => {
-    it("встроенные группы по id; неизвестная — undefined; id/label/isDefault", () => {
+    it("built-in groups by id; an unknown one is undefined; id/label/isDefault", () => {
         expect(TaskGroup.from("build")).toBe(TaskGroup.Build);
         expect(TaskGroup.from("clean")).toBe(TaskGroup.Clean);
         expect(TaskGroup.from("rebuild")).toBe(TaskGroup.Rebuild);
@@ -18,14 +18,14 @@ describe("TaskGroup", () => {
         expect([group.id, group.label, group.isDefault]).toStrictEqual(["lint", "Lint", undefined]);
     });
 
-    it("не строки — отказ", () => {
+    it("non-strings are rejected", () => {
         expect(() => new TaskGroup(1 as unknown as string, "x")).toThrow("Illegal argument: name");
         expect(() => new TaskGroup("x", 1 as unknown as string)).toThrow("Illegal argument: name");
     });
 });
 
 describe("ProcessExecution", () => {
-    it("перегрузки: (process, options) и (process, args, options); сеттеры", () => {
+    it("overloads: (process, options) and (process, args, options); setters", () => {
         const withOptions = new ProcessExecution("node", { cwd: "/c" });
         expect([withOptions.process, withOptions.args, withOptions.options]).toStrictEqual(["node", [], { cwd: "/c" }]);
         const withArgs = new ProcessExecution("node", ["a"], { env: { A: "1" } });
@@ -40,7 +40,7 @@ describe("ProcessExecution", () => {
         expect(bare.args).toStrictEqual(["q"]);
     });
 
-    it("не строка — отказ; computeId — значения с удвоенными запятыми", () => {
+    it("a non-string is rejected; computeId gives values with doubled commas", () => {
         expect(() => new ProcessExecution(1 as unknown as string)).toThrow("Illegal argument: process");
         expect(() => {
             new ProcessExecution("x").process = 1 as unknown as string;
@@ -50,7 +50,7 @@ describe("ProcessExecution", () => {
 });
 
 describe("ShellExecution", () => {
-    it("командная строка или команда с аргументами; сеттеры", () => {
+    it("a command line or a command with args; setters", () => {
         const line = new ShellExecution("make all", { cwd: "/c" });
         expect([line.commandLine, line.command, line.args, line.options]).toStrictEqual([
             "make all",
@@ -78,7 +78,7 @@ describe("ShellExecution", () => {
         ]);
     });
 
-    it("отказы на неверных командах", () => {
+    it("rejects invalid commands", () => {
         expect(() => new ShellExecution("", [])).toThrow("Illegal argument: command can't be undefined or null");
         expect(() => new ShellExecution({} as vscode.ShellQuotedString, [])).toThrow("Illegal argument: command");
         expect(() => new ShellExecution(null as unknown as string, [])).toThrow("Illegal argument: command");
@@ -97,7 +97,7 @@ describe("ShellExecution", () => {
         expect(execution.command).toStrictEqual({ value: "ok", quoting: 1 });
     });
 
-    it("computeId: shell, строка, команда, аргументы (значения строк в кавычках)", () => {
+    it("computeId: shell, line, command, args (string values quoted)", () => {
         expect(new ShellExecution("a,b").computeId()).toBe("shell,a,,b,");
         expect(new ShellExecution("c", ["x", { value: "y", quoting: 1 } as vscode.ShellQuotedString]).computeId()).toBe(
             "shell,c,x,y,",
@@ -109,7 +109,7 @@ describe("ShellExecution", () => {
 });
 
 describe("CustomExecution", () => {
-    it("колбэк — поле; id — уникальный с префиксом", () => {
+    it("the callback is a field; the id is unique with a prefix", () => {
         const callback = (): Thenable<vscode.Pseudoterminal> => Promise.resolve({} as vscode.Pseudoterminal);
         const execution = new CustomExecution(callback);
         expect(execution.callback).toBe(callback);
@@ -119,7 +119,7 @@ describe("CustomExecution", () => {
 });
 
 describe("Task", () => {
-    it("конструктор с областью: поля и дефолты", () => {
+    it("constructor with scope: fields and defaults", () => {
         const execution = new ShellExecution("make");
         const task = new Task({ type: "demo", target: "a" }, TaskScope.Workspace, "build", "demo", execution, "$tsc");
         expect(task.definition).toStrictEqual({ type: "demo", target: "a" });
@@ -151,7 +151,7 @@ describe("Task", () => {
         expect(new Task({ type: "t" }, folder, "n", "s").scope).toBe(folder);
     });
 
-    it("устаревший конструктор без области", () => {
+    it("deprecated constructor without scope", () => {
         const task = new Task({ type: "t" }, "n", "s", new ShellExecution("x"), "$m");
         expect([task.scope, task.name, task.source, task.deprecated, task.problemMatchers]).toStrictEqual([
             undefined,
@@ -162,7 +162,7 @@ describe("Task", () => {
         ]);
     });
 
-    it("определение встроенного типа считается по исполнению", () => {
+    it("a built-in type definition is derived from the execution", () => {
         expect(new Task({ type: "shell" }, folder, "n", "s", new ShellExecution("a b")).definition).toStrictEqual({
             type: "shell",
             id: "shell,a b,",
@@ -187,7 +187,7 @@ describe("Task", () => {
         });
     });
 
-    it("сеттер сбрасывает id ядра и область; определение «пустого» типа — по исполнению", () => {
+    it("the setter resets the core id and scope; an 'empty' type definition is derived from the execution", () => {
         const fresh = (): Task => {
             const task = new Task({ type: "shell" }, folder, "n", "s", new ShellExecution("x"));
             task.handleId = "core-id";
@@ -227,7 +227,7 @@ describe("Task", () => {
         expect([redefined.handleId, redefined.definition]).toStrictEqual([undefined, { type: "demo", target: "x" }]);
     });
 
-    it("сеттеры: нормализация значений", () => {
+    it("setters: value normalization", () => {
         const task = new Task({ type: "demo" }, folder, "n", "s");
         task.isBackground = "yes" as unknown as boolean;
         expect(task.isBackground).toBe(false);
@@ -249,7 +249,7 @@ describe("Task", () => {
         expect(task.execution).toBeUndefined();
     });
 
-    it("отказы: определение, имя и источник", () => {
+    it("rejections: definition, name and source", () => {
         const task = new Task({ type: "demo" }, folder, "n", "s");
         expect(() => {
             task.definition = undefined as unknown as vscode.TaskDefinition;

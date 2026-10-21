@@ -7,7 +7,7 @@ import { EditorServiceDIToken } from "../../services/editor/common/editorService
 
 import { EditorLayoutServiceAdapter } from "./editorLayoutServiceAdapter.ts";
 
-describe("EditorLayoutServiceAdapter — вкладка чужого вида", () => {
+describe("EditorLayoutServiceAdapter — tab of a foreign kind", () => {
     let ws: ITempWorkspace;
     let h: IAppHarness;
     let adapter: EditorLayoutServiceAdapter;
@@ -27,7 +27,7 @@ describe("EditorLayoutServiceAdapter — вкладка чужого вида", 
         ws.dispose();
     });
 
-    it("Keyboard Shortcuts уходит как kind=unknown, а не как текст по своему uri", () => {
+    it("Keyboard Shortcuts is sent as kind=unknown, not as text by its uri", () => {
         h.workbench.openFile(ws.path("a.ts"));
         h.commands.execute("workbench.action.openGlobalKeybindings");
 

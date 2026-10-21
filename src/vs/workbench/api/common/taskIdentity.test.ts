@@ -17,7 +17,7 @@ const schema = (overrides: Partial<ITaskDefinitionSchema> = {}): ITaskDefinition
 });
 
 describe("parseTaskDefinitions", () => {
-    it("берёт тип, строковые required, копию properties и непустой when", () => {
+    it("takes the type, string required entries, a copy of properties and a non-empty when", () => {
         const properties = { target: { type: "string" } };
         const [parsed] = parseTaskDefinitions(
             "pub.ext",
@@ -34,7 +34,7 @@ describe("parseTaskDefinitions", () => {
         expect(parsed.properties).not.toBe(properties);
     });
 
-    it("без required/properties/when — пустые; пустой или не строковый when — нет условия", () => {
+    it("without required/properties/when — empty; an empty or non-string when means no condition", () => {
         expect(parseTaskDefinitions("e", [{ type: "t", when: "" }], () => undefined)).toStrictEqual([
             { extensionId: "e", taskType: "t", required: [], properties: {}, when: undefined },
         ]);
@@ -43,7 +43,7 @@ describe("parseTaskDefinitions", () => {
         ).toStrictEqual([{ extensionId: "e", taskType: "t", required: [], properties: {}, when: undefined }]);
     });
 
-    it("запись без типа (или с пустым) пропускается с сообщением эталона; не массив — пусто", () => {
+    it("an entry without a type (or with an empty one) is skipped with the upstream message; not an array — empty", () => {
         const report = vi.fn();
         expect(parseTaskDefinitions("e", [{}, { type: "" }, null, { type: 1 }, { type: "ok" }], report)).toHaveLength(
             1,
@@ -55,12 +55,12 @@ describe("parseTaskDefinitions", () => {
 });
 
 describe("createTaskIdentifier", () => {
-    it("без схемы — определение как есть, ключ — отсортированные пары, прежний _key выброшен", () => {
+    it("without a schema — the definition as is, the key is sorted pairs, the old _key is dropped", () => {
         const id = createTaskIdentifier({ type: "npm", script: "build", _key: "old" }, undefined, () => undefined);
         expect(id).toStrictEqual({ type: "npm", script: "build", _key: "script,build,type,npm," });
     });
 
-    it("запятые в строках удваиваются, вложенные объекты — рекурсивно, числа — текстом", () => {
+    it("commas in strings are doubled, nested objects recursively, numbers as text", () => {
         const id = createTaskIdentifier(
             { type: "t", a: "x,y", nested: { b: 1, a: true }, list: ["p"] },
             undefined,
@@ -69,7 +69,7 @@ describe("createTaskIdentifier", () => {
         expect(id?._key).toBe("a,x,,y,list,0,p,,nested,a,true,b,1,,type,t,");
     });
 
-    it("со схемой — только объявленные свойства и тип схемы", () => {
+    it("with a schema — only declared properties and the schema type", () => {
         const id = createTaskIdentifier(
             { type: "bazel", target: "//a", extra: "drop" },
             schema({ properties: { target: { type: "string" }, flags: { type: "string" } } }),
@@ -78,7 +78,7 @@ describe("createTaskIdentifier", () => {
         expect(id).toStrictEqual({ type: "bazel", target: "//a", _key: "target,//a,type,bazel," });
     });
 
-    it("пропущенное обязательное: дефолт схемы, иначе ноль своего типа", () => {
+    it("a missing required property: the schema default, otherwise the zero value of its type", () => {
         const id = createTaskIdentifier(
             { type: "bazel", target: null },
             schema({
@@ -104,7 +104,7 @@ describe("createTaskIdentifier", () => {
         });
     });
 
-    it("дефолт-объект копируется, а не разделяется", () => {
+    it("a default object is copied, not shared", () => {
         const defaultValue = { a: 1 };
         const id = createTaskIdentifier(
             { type: "bazel" },
@@ -115,7 +115,7 @@ describe("createTaskIdentifier", () => {
         expect(id?.opts).not.toBe(defaultValue);
     });
 
-    it("обязательное без дефолта и без простого типа — undefined и ошибка эталона", () => {
+    it("required without a default and without a simple type — undefined and the upstream error", () => {
         const report = vi.fn();
         const id = createTaskIdentifier(
             { type: "bazel" },
@@ -140,7 +140,7 @@ describe("createTaskIdentifier", () => {
         expect(report2).toHaveBeenCalledTimes(1);
     });
 
-    it("необязательное отсутствующее свойство в ключ не попадает", () => {
+    it("an optional missing property is left out of the key", () => {
         const id = createTaskIdentifier(
             { type: "bazel" },
             schema({ properties: { x: { type: "string" } } }),
@@ -151,7 +151,7 @@ describe("createTaskIdentifier", () => {
 });
 
 describe("contributedTaskId", () => {
-    it("расширение и ключ определения через точку", () => {
+    it("extension and definition key joined by a dot", () => {
         expect(contributedTaskId("pub.ext", { type: "t", _key: "type,t," })).toBe("pub.ext.type,t,");
     });
 });

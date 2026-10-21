@@ -16,7 +16,7 @@ function provider(content: string | null | undefined, changed?: EventEmitter<Uri
 const JDT = Uri.parse("jdt://contents/lib.jar/pkg/Foo.java") as unknown as vscode.Uri;
 
 describe("SubprocessTextDocumentContentProviders", () => {
-    it("отдаёт содержимое провайдера своей схемы", async () => {
+    it("returns the content of the provider for its scheme", async () => {
         const registry = new SubprocessTextDocumentContentProviders();
         registry.register("jdt", provider("class Foo {}"));
 
@@ -25,7 +25,7 @@ describe("SubprocessTextDocumentContentProviders", () => {
         expect(registry.schemes()).toEqual(["jdt"]);
     });
 
-    it("провайдеру выдаётся пригодный токен отмены, а не undefined", async () => {
+    it("the provider gets a usable cancellation token, not undefined", async () => {
         const registry = new SubprocessTextDocumentContentProviders();
         let seen: vscode.CancellationToken | undefined;
         registry.register("jdt", {
@@ -43,7 +43,7 @@ describe("SubprocessTextDocumentContentProviders", () => {
         expect(() => seen?.onCancellationRequested(() => undefined)).not.toThrow();
     });
 
-    it("отмена запроса доходит до токена провайдера", async () => {
+    it("request cancellation reaches the provider token", async () => {
         const registry = new SubprocessTextDocumentContentProviders();
         const fired: string[] = [];
         let seen: vscode.CancellationToken | undefined;
@@ -72,7 +72,7 @@ describe("SubprocessTextDocumentContentProviders", () => {
         expect(await pending).toBe("late");
     });
 
-    it("чужая схема — null, а не исключение", async () => {
+    it("a foreign scheme gives null, not an exception", async () => {
         const registry = new SubprocessTextDocumentContentProviders();
         registry.register("jdt", provider("x"));
 
@@ -80,14 +80,14 @@ describe("SubprocessTextDocumentContentProviders", () => {
         expect(registry.has("class")).toBe(false);
     });
 
-    it("провайдер вернул undefined (ProviderResult разрешает) — это null", async () => {
+    it("provider returned undefined (ProviderResult allows it) — that is null", async () => {
         const registry = new SubprocessTextDocumentContentProviders();
         registry.register("jdt", provider(undefined));
 
         expect(await registry.provide(JDT)).toBeNull();
     });
 
-    it("отказ провайдера пробрасывается — ядру нужна причина для сообщения", async () => {
+    it("a provider rejection is propagated — the core needs the reason for the message", async () => {
         const registry = new SubprocessTextDocumentContentProviders();
         registry.register("jdt", {
             provideTextDocumentContent: () => {
@@ -98,14 +98,14 @@ describe("SubprocessTextDocumentContentProviders", () => {
         await expect(registry.provide(JDT)).rejects.toThrow("classFileContents failed");
     });
 
-    it("занятая схема — ошибка, как в VS Code", () => {
+    it("a taken scheme is an error, as in VS Code", () => {
         const registry = new SubprocessTextDocumentContentProviders();
         registry.register("jdt", provider("a"));
 
         expect(() => registry.register("jdt", provider("b"))).toThrow(/already registered/u);
     });
 
-    it("dispose снимает регистрацию и объявляет новый список схем", () => {
+    it("dispose removes the registration and announces the new scheme list", () => {
         const registry = new SubprocessTextDocumentContentProviders();
         const schemes: string[][] = [];
         registry.onDidChangeSchemes(() => schemes.push(registry.schemes()));
@@ -118,7 +118,7 @@ describe("SubprocessTextDocumentContentProviders", () => {
         expect(registry.has("jdt")).toBe(false);
     });
 
-    it("dispose старой регистрации не убивает провайдера, успевшего занять схему заново", () => {
+    it("disposing an old registration does not kill a provider that has re-taken the scheme", () => {
         const registry = new SubprocessTextDocumentContentProviders();
         const first = registry.register("jdt", provider("a"));
         first.dispose();
@@ -129,7 +129,7 @@ describe("SubprocessTextDocumentContentProviders", () => {
         expect(registry.has("jdt")).toBe(true);
     });
 
-    it("onDidChange провайдера пересылается наружу — по нему ядро перечитывает вкладку", () => {
+    it("the provider onDidChange is forwarded out — the core re-reads the tab on it", () => {
         const registry = new SubprocessTextDocumentContentProviders();
         const changed = new EventEmitter<Uri>();
         registry.register("jdt", provider("a", changed));
@@ -141,7 +141,7 @@ describe("SubprocessTextDocumentContentProviders", () => {
         expect(seen).toEqual(["jdt:/Foo.java"]);
     });
 
-    it("после снятия регистрации события провайдера больше не идут наружу", () => {
+    it("after unregistering, provider events are no longer forwarded", () => {
         const registry = new SubprocessTextDocumentContentProviders();
         const changed = new EventEmitter<Uri>();
         const registration = registry.register("jdt", provider("a", changed));
@@ -154,7 +154,7 @@ describe("SubprocessTextDocumentContentProviders", () => {
         expect(seen).toEqual([]);
     });
 
-    it("провайдер без onDidChange регистрируется и снимается штатно", () => {
+    it("a provider without onDidChange registers and unregisters normally", () => {
         const registry = new SubprocessTextDocumentContentProviders();
 
         const registration = registry.register("jdt", provider("a"));
@@ -165,7 +165,7 @@ describe("SubprocessTextDocumentContentProviders", () => {
         expect(registry.schemes()).toEqual([]);
     });
 
-    it("отписка слушателей снимает уведомления", () => {
+    it("unsubscribing listeners stops notifications", () => {
         const registry = new SubprocessTextDocumentContentProviders();
         const changed = new EventEmitter<Uri>();
         registry.register("jdt", provider("a", changed));

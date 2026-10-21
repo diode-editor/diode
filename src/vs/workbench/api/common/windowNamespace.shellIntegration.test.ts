@@ -6,8 +6,8 @@ import { makeStubRpc } from "./testStubRpc.ts";
 import { buildVscodeNamespace } from "./vscodeNamespace.ts";
 
 /** Claude Code subscribes to `onDidChangeTerminalShellIntegration`: without it, launching the CLI in a terminal failed. */
-describe("window — события shell integration", () => {
-    it("подписка на все три события проходит и снимается; новый терминал без shellIntegration", () => {
+describe("window — shell integration events", () => {
+    it("subscribing to all three events works and is disposed; a new terminal has no shellIntegration", () => {
         const stub = makeStubRpc();
         const { window } = buildVscodeNamespace(stub.rpc, createNodeExtHostDisk()).namespace;
         const subs = [
@@ -24,7 +24,7 @@ describe("window — события shell integration", () => {
         }
     });
 
-    it("TerminalShellExecutionCommandLineConfidence — значения эталона", () => {
+    it("TerminalShellExecutionCommandLineConfidence has upstream values", () => {
         const { TerminalShellExecutionCommandLineConfidence } = buildVscodeNamespace(
             makeStubRpc().rpc,
             createNodeExtHostDisk(),

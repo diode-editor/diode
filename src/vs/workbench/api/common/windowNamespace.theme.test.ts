@@ -25,12 +25,12 @@ function makeCtx() {
 }
 
 describe("WindowNamespace — window.activeColorTheme", () => {
-    it("до первого window.themeChanged тема — тёмная (дефолт VS Code), а не undefined", () => {
+    it("before the first window.themeChanged the theme is dark (VS Code default), not undefined", () => {
         const { window } = makeCtx();
         expect(window.activeColorTheme.kind).toBe(ColorThemeKind.Dark);
     });
 
-    it("window.themeChanged обновляет activeColorTheme и стреляет событием", () => {
+    it("window.themeChanged updates activeColorTheme and fires the event", () => {
         const { stub, window } = makeCtx();
         const seen: vscode.ColorThemeKind[] = [];
         window.onDidChangeActiveColorTheme((theme) => seen.push(theme.kind));
@@ -44,7 +44,7 @@ describe("WindowNamespace — window.activeColorTheme", () => {
         expect(seen).toEqual([ColorThemeKind.Light, ColorThemeKind.HighContrastLight]);
     });
 
-    it("событие стреляет и когда вид темы не поменялся (Dark+ → Abyss — обе тёмные)", () => {
+    it("event fires even when the theme kind is unchanged (Dark+ → Abyss, both dark)", () => {
         const { stub, window } = makeCtx();
         let fired = 0;
         window.onDidChangeActiveColorTheme(() => fired++);
@@ -54,7 +54,7 @@ describe("WindowNamespace — window.activeColorTheme", () => {
         expect(window.activeColorTheme.kind).toBe(ColorThemeKind.Dark);
     });
 
-    it("мусорная форма сообщения не меняет тему и не стреляет событием", () => {
+    it("garbage message shape does not change the theme or fire the event", () => {
         const { stub, window } = makeCtx();
         let fired = 0;
         window.onDidChangeActiveColorTheme(() => fired++);
@@ -68,7 +68,7 @@ describe("WindowNamespace — window.activeColorTheme", () => {
         expect(fired).toBe(1);
     });
 
-    it("подписка снимается dispose'ом, thisArgs и массив disposables поддержаны", () => {
+    it("subscription is removed by dispose, thisArgs and disposables array are supported", () => {
         const { stub, window } = makeCtx();
         const host = { seen: [] as number[] };
         const bucket: vscode.Disposable[] = [];

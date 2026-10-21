@@ -75,7 +75,7 @@ afterEach(() => {
 });
 
 describe("tasks.registerTaskProvider", () => {
-    it("регистрация уходит с handle, типом и владельцем; dispose — снятие", () => {
+    it("registration is sent with handle, type and owner; dispose removes it", () => {
         const s = setup();
         const provider = { provideTasks: () => [], resolveTask: () => undefined };
         const a = s.owner.runAs("pub.a", () => s.ns.registerTaskProvider("npm", provider));
@@ -88,7 +88,7 @@ describe("tasks.registerTaskProvider", () => {
         expect(s.sent("tasks.unregisterProvider")).toStrictEqual([{ handle: 0 }]);
     });
 
-    it("tasks.provideTasks: задачи провайдера описаниями с его расширением; токен — vscode-токен", async () => {
+    it("tasks.provideTasks: provider tasks as descriptions with its extension; token is a vscode token", async () => {
         const s = setup();
         const seen: vscode.CancellationToken[] = [];
         s.owner.runAs("pub.ext", () =>
@@ -119,14 +119,14 @@ describe("tasks.registerTaskProvider", () => {
         expect(seen[1].isCancellationRequested).toBe(true);
     });
 
-    it("tasks.provideTasks: пустой ответ провайдера — пусто; неизвестный handle — отказ", async () => {
+    it("tasks.provideTasks: empty provider answer yields empty; unknown handle is rejected", async () => {
         const s = setup();
         s.ns.registerTaskProvider("demo", { provideTasks: () => undefined, resolveTask: () => undefined });
         await expect(s.stub.callRequest("tasks.provideTasks", { handle: 0 })).resolves.toStrictEqual([]);
         await expect(s.stub.callRequest("tasks.provideTasks", { handle: 9 })).rejects.toThrow("no handler found");
     });
 
-    it("снятый провайдер больше не спрашивается", async () => {
+    it("removed provider is no longer asked", async () => {
         const s = setup();
         const registration = s.ns.registerTaskProvider("demo", {
             provideTasks: () => [],
@@ -136,7 +136,7 @@ describe("tasks.registerTaskProvider", () => {
         await expect(s.stub.callRequest("tasks.provideTasks", { handle: 0 })).rejects.toThrow("no handler found");
     });
 
-    it("шелл-задача провайдера на старте pty не ищет — ошибок нет", async () => {
+    it("provider shell task does not look for a pty on start, no errors", async () => {
         const s = setup();
         const errors = vi.spyOn(console, "error").mockImplementation(() => undefined);
         s.ns.registerTaskProvider("demo", {
@@ -155,7 +155,7 @@ describe("tasks.registerTaskProvider", () => {
 });
 
 describe("tasks.fetchTasks", () => {
-    it("запрос с типом или без; описания → Task с id ядра, областью и полями", async () => {
+    it("request with or without type; descriptions → Task with core id, scope and fields", async () => {
         const s = setup();
         s.stub.responder = () => [
             wireTask({
@@ -204,7 +204,7 @@ describe("tasks.fetchTasks", () => {
         expect(second.scope).toBe(FOLDER);
     });
 
-    it("исполнения из описаний: процесс, шелл командой, без команды; группа не из встроенных", async () => {
+    it("executions from descriptions: process, shell with command, without command; non-built-in group", async () => {
         const s = setup();
         s.stub.responder = () => [
             wireTask({
@@ -232,7 +232,7 @@ describe("tasks.fetchTasks", () => {
 });
 
 describe("tasks.executeTask", () => {
-    it("своя новая задача: описание целиком, id — формула ядра по схеме каталога; исполнение — тот же объект", async () => {
+    it("own new task: whole description, id from the core formula per catalog schema; execution is the same object", async () => {
         const s = setup();
         s.catalog.fire([
             {
@@ -265,7 +265,7 @@ describe("tasks.executeTask", () => {
         expect(s.sent("tasks.terminate")).toStrictEqual([{ id: "pub.ext.target,a,type,demo," }]);
     });
 
-    it("задача из ядра — по её id; уже известное исполнение переиспользуется", async () => {
+    it("core task goes by its id; an already known execution is reused", async () => {
         const s = setup();
         s.stub.responder = (method) => (method === "tasks.fetch" ? [wireTask({ id: "core-1" })] : undefined);
         const [task] = await s.ns.fetchTasks();
@@ -275,7 +275,7 @@ describe("tasks.executeTask", () => {
         expect(second).toBe(first);
     });
 
-    it("задача с id ядра без исполнения — запуск по id", async () => {
+    it("task with core id but no execution runs by id", async () => {
         const s = setup();
         const task = new Task({ type: "demo" }, FOLDER, "n", "s");
         task.handleId = "core-2";
@@ -283,7 +283,7 @@ describe("tasks.executeTask", () => {
         expect(s.requested("tasks.execute")).toStrictEqual([{ id: "core-2" }]);
     });
 
-    it("своя шелл-задача: на старте pty не ищется — ошибок нет", async () => {
+    it("own shell task: no pty lookup on start, no errors", async () => {
         const s = setup();
         const errors = vi.spyOn(console, "error").mockImplementation(() => undefined);
         const task = new Task({ type: "demo", target: "sh" }, FOLDER, "sh", "demo", new ShellExecution("make"));
@@ -295,7 +295,7 @@ describe("tasks.executeTask", () => {
         expect(s.events).toStrictEqual(["start:sh"]);
     });
 
-    it("отказ хоста: новое исполнение забывается, уже известное — нет", async () => {
+    it("host refusal: a new execution is forgotten, a known one is not", async () => {
         const s = setup();
         s.stub.responder = (method) => {
             if (method === "tasks.fetch") return [wireTask({ id: "core-1" })];
@@ -310,7 +310,7 @@ describe("tasks.executeTask", () => {
         expect(s.ns.taskExecutions).toHaveLength(1);
     });
 
-    it("без исполнения и без id — отказ без запроса; неверное определение — ключ «только исполнить»", async () => {
+    it("no execution and no id is rejected without a request; invalid definition yields the 'execute only' key", async () => {
         const s = setup();
         await expect(s.ns.executeTask(new Task({ type: "demo" }, FOLDER, "x", "demo"))).rejects.toThrow(
             "Tasks to execute must include an execution",
@@ -341,8 +341,8 @@ describe("tasks.executeTask", () => {
     });
 });
 
-describe("события исполнений", () => {
-    it("старт задачи из палитры: новый Task из описания; процесс, конец; taskExecutions", async () => {
+describe("execution events", () => {
+    it("task start from the command palette: new Task from description; process, end; taskExecutions", async () => {
         const s = setup();
         s.stub.fire("tasks.didStart", {
             execution: execution("x"),
@@ -368,7 +368,7 @@ describe("события исполнений", () => {
         expect(s.ns.taskExecutions).toStrictEqual([]);
     });
 
-    it("неизвестные и битые сообщения пропускаются; задача вне папок — без событий, с сообщением", async () => {
+    it("unknown and malformed messages are skipped; task outside folders has no events, logs a message", async () => {
         const s = setup();
         const errors = vi.spyOn(console, "error").mockImplementation(() => undefined);
         s.stub.fire("tasks.didStart", { execution: { id: 1 } });
@@ -393,7 +393,7 @@ describe("события исполнений", () => {
         ]);
     });
 
-    it("воркспейс без папок: задача в папке — вне папок, без событий", async () => {
+    it("workspace without folders: a folder task is outside folders, no events", async () => {
         const s = setup(() => undefined);
         const errors = vi.spyOn(console, "error").mockImplementation(() => undefined);
         s.stub.fire("tasks.didStart", {
@@ -407,7 +407,7 @@ describe("события исполнений", () => {
         ]);
     });
 
-    it("сбой обработки сообщения (описание не собирается в Task) — строка в stderr, очередь идёт дальше", async () => {
+    it("message handling failure (description does not build a Task) writes to stderr, the queue continues", async () => {
         const s = setup();
         const errors = vi.spyOn(console, "error").mockImplementation(() => undefined);
         s.stub.fire("tasks.didStart", {
@@ -430,7 +430,7 @@ describe("CustomExecution", () => {
         close: () => undefined,
     });
 
-    it("задача провайдера: на старте колбэк получает подставленное определение, pty — терминалу задачи; старт — после", async () => {
+    it("provider task: on start the callback gets the resolved definition, pty goes to the task terminal; start comes after", async () => {
         const s = setup();
         const order: string[] = [];
         const callback = vi.fn(async (definition: vscode.TaskDefinition) => {
@@ -473,7 +473,7 @@ describe("CustomExecution", () => {
         expect((fetched.execution as CustomExecution).callback).toBe(callback);
     });
 
-    it("своя задача executeTask: колбэк по id; без определения в старте — определение задачи", async () => {
+    it("own executeTask task: callback by id; without a definition in start, the task definition", async () => {
         const s = setup();
         const callback = vi.fn(() => Promise.resolve(pty()));
         const task = new Task({ type: "demo", target: "own" }, FOLDER, "own", "demo", new CustomExecution(callback));
@@ -484,7 +484,7 @@ describe("CustomExecution", () => {
         expect(s.attachPty).toHaveBeenCalledWith(2, expect.anything());
     });
 
-    it("сбой колбэка — сообщение, старт всё равно приходит", async () => {
+    it("callback failure logs a message, start still arrives", async () => {
         const s = setup();
         const errors = vi.spyOn(console, "error").mockImplementation(() => undefined);
         const task = new Task(
@@ -506,7 +506,7 @@ describe("CustomExecution", () => {
 });
 
 describe("taskToWire", () => {
-    it("поля задачи: область, группа, опции исполнения, матчеры", () => {
+    it("task fields: scope, group, execution options, matchers", () => {
         const task = new Task(
             { type: "demo" },
             TaskScope.Global,
@@ -548,7 +548,7 @@ describe("taskToWire", () => {
         expect(taskToWire(new Task({ type: "demo" }, FOLDER, "n", "s"), "e")).not.toHaveProperty("group");
     });
 
-    it("id ядра — только у нашей задачи с handleId; пустые группа/isDefault/detail — без ключей", () => {
+    it("core id only for our task with handleId; empty group/isDefault/detail have no keys", () => {
         const task = new Task({ type: "demo" }, FOLDER, "n", "s", new ShellExecution("c"));
         const plain = taskToWire(task, "e");
         expect(Object.keys(plain)).not.toContain("id");
@@ -560,7 +560,7 @@ describe("taskToWire", () => {
         expect(keyed.group).toStrictEqual({ id: "test" });
     });
 
-    it("чужая форма задачи (не наш класс): матчеры по длине, без id", () => {
+    it("foreign task shape (not our class): matchers by length, no id", () => {
         const shape = {
             name: "n",
             source: "s",

@@ -13,12 +13,12 @@ function makeEnv(): typeof vscode.env {
     return buildVscodeNamespace(makeStubRpc().rpc, createNodeExtHostDisk()).namespace.env;
 }
 
-describe("vscode.env — окружение и телеметрия", () => {
-    it("uiKind — Desktop (терминальный редактор остаётся настольным)", () => {
+describe("vscode.env — environment and telemetry", () => {
+    it("uiKind is Desktop (a terminal editor is still a desktop one)", () => {
         expect(makeEnv().uiKind).toBe(UIKind.Desktop);
     });
 
-    it("UIKind — настоящий runtime-enum в namespace, а не только тип", () => {
+    it("UIKind is a real runtime enum in the namespace, not just a type", () => {
         const { namespace } = buildVscodeNamespace(makeStubRpc().rpc, createNodeExtHostDisk());
         expect(namespace.UIKind.Desktop).toBe(1);
         expect(namespace.UIKind.Web).toBe(2);
@@ -26,7 +26,7 @@ describe("vscode.env — окружение и телеметрия", () => {
         expect(namespace.env.uiKind === namespace.UIKind.Web).toBe(false);
     });
 
-    it("телеметрии нет: флаг false, событие валидное и не стреляет", () => {
+    it("no telemetry: flag is false, event is valid and never fires", () => {
         const env = makeEnv();
         expect(env.isTelemetryEnabled).toBe(false);
 
@@ -40,22 +40,22 @@ describe("vscode.env — окружение и телеметрия", () => {
         }).not.toThrow();
     });
 
-    it("remoteName — undefined: удалённого extension host'а нет", () => {
+    it("remoteName is undefined: there is no remote extension host", () => {
         expect(makeEnv().remoteName).toBeUndefined();
     });
 
-    it("sessionId — непустая строка, стабильная внутри одного шима", () => {
+    it("sessionId is a non-empty string, stable within one shim", () => {
         const env = makeEnv();
         expect(env.sessionId).toMatch(/\S/u);
         // The extension compares a saved id with the current one — the getter must be stable.
         expect(env.sessionId).toBe(env.sessionId);
     });
 
-    it("sessionId различается у двух сеансов extension host'а", () => {
+    it("sessionId differs between two extension host sessions", () => {
         expect(makeEnv().sessionId).not.toBe(makeEnv().sessionId);
     });
 
-    it("прежние константы окружения на месте", () => {
+    it("existing environment constants are in place", () => {
         const env = makeEnv();
         expect(env.appName).toBe("Diode");
         expect(env.appHost).toBe("desktop");

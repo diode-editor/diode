@@ -54,7 +54,7 @@ function chain(): vscode.SelectionRange {
 }
 
 describe("LanguagesNamespace — registerSelectionRangeProvider", () => {
-    it("регистрация объявляется ядру видом selectionRange, dispose — снимает", () => {
+    it("registration is announced to the core as kind selectionRange, dispose removes it", () => {
         const { stub, languages } = makeCtx();
         const registration = languages.registerSelectionRangeProvider("typescript", {
             provideSelectionRanges: () => [],
@@ -71,7 +71,7 @@ describe("LanguagesNamespace — registerSelectionRangeProvider", () => {
 });
 
 describe("LanguagesNamespace — languages.provideSelectionRanges", () => {
-    it("цепочка parent разворачивается от внутреннего к внешнему; провайдер видит документ и позиции", async () => {
+    it("parent chain unrolls from inner to outer; provider sees the document and positions", async () => {
         const { stub, languages } = makeCtx();
         const provide = vi.fn((_doc: vscode.TextDocument, _positions: readonly vscode.Position[]) => [chain()]);
         languages.registerSelectionRangeProvider("typescript", { provideSelectionRanges: provide });
@@ -84,7 +84,7 @@ describe("LanguagesNamespace — languages.provideSelectionRanges", () => {
         expect(positions).toEqual([new Position(0, 7)]);
     });
 
-    it("сбой провайдера, снятый handle и чужая версия документа — «иерархий нет»", async () => {
+    it("provider failure, removed handle and foreign document version give 'no hierarchies'", async () => {
         const { stub, languages } = makeCtx();
         const errors = vi.spyOn(console, "error").mockImplementation(() => undefined);
         languages.registerSelectionRangeProvider("typescript", {
@@ -99,7 +99,7 @@ describe("LanguagesNamespace — languages.provideSelectionRanges", () => {
         errors.mockRestore();
     });
 
-    it("запрос идёт провайдеру своего handle; на чужую версию документа провайдер не зовётся", async () => {
+    it("request goes to the provider of its handle; provider is not called for a foreign document version", async () => {
         const { stub, languages } = makeCtx();
         const first = vi.fn(() => []);
         const second = vi.fn(() => [chain()]);
@@ -117,7 +117,7 @@ describe("LanguagesNamespace — languages.provideSelectionRanges", () => {
         expect(second).toHaveBeenCalledOnce();
     });
 
-    it("родитель с тем же концом, что у ребёнка, — законная ступень", async () => {
+    it("parent with the same end as its child is a valid step", async () => {
         const { stub, languages } = makeCtx();
         const args = new SelectionRange(new Range(0, 5, 0, 16));
         const beta = new SelectionRange(new Range(0, 12, 0, 16), args) as unknown as vscode.SelectionRange;
@@ -130,7 +130,7 @@ describe("LanguagesNamespace — languages.provideSelectionRanges", () => {
         ).toEqual([[createRange(0, 12, 0, 16), createRange(0, 5, 0, 16)]]);
     });
 
-    it("без позиций в запросе провайдер получает пустой список", async () => {
+    it("without positions in the request the provider gets an empty list", async () => {
         const { stub, languages } = makeCtx();
         const provide = vi.fn(() => []);
         languages.registerSelectionRangeProvider("typescript", { provideSelectionRanges: provide });
@@ -140,7 +140,7 @@ describe("LanguagesNamespace — languages.provideSelectionRanges", () => {
         expect(provide).toHaveBeenCalledWith(expect.anything(), [], expect.anything());
     });
 
-    it("ответ не по каждой позиции или ступень, не содержащая предыдущую, — брак целиком", async () => {
+    it("an answer missing a position, or a step not containing the previous one, is rejected entirely", async () => {
         const { stub, languages } = makeCtx();
         let answer: unknown = [];
         languages.registerSelectionRangeProvider("typescript", {
@@ -165,7 +165,7 @@ describe("LanguagesNamespace — languages.provideSelectionRanges", () => {
         expect(await call()).toEqual([]);
     });
 
-    it("зацикленный parent обрывается на повторе", async () => {
+    it("cyclic parent chain stops at the repeat", async () => {
         const { stub, languages } = makeCtx();
         const node: { range: vscode.Range; parent?: unknown } = { range: asVscode(new Range(0, 0, 0, 17)) };
         node.parent = node;
@@ -179,7 +179,7 @@ describe("LanguagesNamespace — languages.provideSelectionRanges", () => {
 });
 
 describe("vscode.SelectionRange", () => {
-    it("родитель обязан содержать диапазон — как в эталоне", () => {
+    it("parent must contain the range, as upstream", () => {
         const parent = new SelectionRange(new Range(0, 0, 0, 5));
         expect(new SelectionRange(new Range(0, 1, 0, 2), parent).parent).toBe(parent);
         expect(() => new SelectionRange(new Range(0, 0, 0, 9), parent)).toThrow(

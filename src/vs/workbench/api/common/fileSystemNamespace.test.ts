@@ -25,16 +25,16 @@ afterEach(() => {
 });
 
 describe("FileSystemNamespace — writeFile", () => {
-    it("создаёт файл и родительские папки", async () => {
+    it("creates the file and parent folders", async () => {
         const target = path.join(tmpDir, "nested", "deep", ".editorconfig");
         await wfs.writeFile(uri(target), Buffer.from("root = true\n", "utf8"));
         expect(fs.existsSync(target)).toBe(true);
         expect(fs.readFileSync(target, "utf8")).toBe("root = true\n");
     });
 
-    it("readFile возвращает записанные байты (roundtrip)", async () => {
+    it("readFile returns the written bytes (roundtrip)", async () => {
         const target = path.join(tmpDir, "a.txt");
-        const bytes = Buffer.from("привет\n", "utf8");
+        const bytes = Buffer.from("\u043f\u0440\u0438\u0432\u0435\u0442\n", "utf8"); // "privet": multi-byte UTF-8 must roundtrip
         await wfs.writeFile(uri(target), bytes);
         const read = await wfs.readFile(uri(target));
         expect(Buffer.from(read).equals(bytes)).toBe(true);
@@ -42,7 +42,7 @@ describe("FileSystemNamespace — writeFile", () => {
 });
 
 describe("FileSystemNamespace — stat", () => {
-    it("файл → FileType.File с размером", async () => {
+    it("file → FileType.File with size", async () => {
         const target = path.join(tmpDir, "f.txt");
         fs.writeFileSync(target, "hello");
         const s = await wfs.stat(uri(target));
@@ -51,12 +51,12 @@ describe("FileSystemNamespace — stat", () => {
         expect(typeof s.mtime).toBe("number");
     });
 
-    it("папка → FileType.Directory", async () => {
+    it("folder → FileType.Directory", async () => {
         const s = await wfs.stat(uri(tmpDir));
         expect(s.type).toBe(FileType.Directory);
     });
 
-    it("несуществующий путь → FileSystemError с code FileNotFound", async () => {
+    it("missing path → FileSystemError with code FileNotFound", async () => {
         const missing = path.join(tmpDir, "nope.txt");
         await expect(wfs.stat(uri(missing))).rejects.toBeInstanceOf(FileSystemError);
         await expect(wfs.stat(uri(missing))).rejects.toMatchObject({ code: "FileNotFound" });
@@ -64,14 +64,14 @@ describe("FileSystemNamespace — stat", () => {
 });
 
 describe("FileSystemNamespace — readFile errors", () => {
-    it("readFile несуществующего → FileSystemError FileNotFound", async () => {
+    it("readFile of a missing file → FileSystemError FileNotFound", async () => {
         const missing = path.join(tmpDir, "nope.txt");
         await expect(wfs.readFile(uri(missing))).rejects.toMatchObject({ code: "FileNotFound" });
     });
 });
 
 describe("FileSystemNamespace — writeFile errors", () => {
-    it("writeFile под существующим файлом (родитель — не папка) → бросает", async () => {
+    it("writeFile under an existing file (parent is not a folder) → throws", async () => {
         // Create a file, then write "inside" it: mkdir(dirname) fails.
         const asFile = path.join(tmpDir, "afile");
         fs.writeFileSync(asFile, "x");
@@ -79,7 +79,7 @@ describe("FileSystemNamespace — writeFile errors", () => {
     });
 });
 
-describe("FileSystemNamespace — роутинг по схеме", () => {
+describe("FileSystemNamespace — scheme routing", () => {
     const nonFile = (raw: string) => Uri.parse(raw) as never;
 
     it.each(["untitled:Untitled-1", "git:/foo.ts?%7B%22ref%22%3A%22HEAD%22%7D", "vscode-vfs://github/o/r/f.ts"])(
@@ -89,12 +89,12 @@ describe("FileSystemNamespace — роутинг по схеме", () => {
         },
     );
 
-    it("readFile с не-file URI → FileSystemError.Unavailable", async () => {
+    it("readFile with a non-file URI → FileSystemError.Unavailable", async () => {
         await expect(wfs.readFile(nonFile("untitled:Untitled-1"))).rejects.toBeInstanceOf(FileSystemError);
         await expect(wfs.readFile(nonFile("untitled:Untitled-1"))).rejects.toMatchObject({ code: "Unavailable" });
     });
 
-    it("writeFile с не-file URI отказывает и НЕ трогает диск", async () => {
+    it("writeFile with a non-file URI rejects and does NOT touch the disk", async () => {
         // Key case of #107: an untitled: fsPath is the relative "Untitled-1", so
         // without the gate the write would go to $CWD/Untitled-1 instead of failing.
         const cwdBefore = process.cwd();
@@ -108,7 +108,7 @@ describe("FileSystemNamespace — роутинг по схеме", () => {
         expect(fs.existsSync(stray)).toBe(false);
     });
 
-    it("file-схема продолжает работать", async () => {
+    it("file scheme keeps working", async () => {
         const target = path.join(tmpDir, "ok.txt");
         await wfs.writeFile(uri(target), Buffer.from("hi"));
         expect(fs.readFileSync(target, "utf-8")).toBe("hi");
@@ -134,37 +134,37 @@ describe("SubprocessFileSystemProviders", () => {
         };
     }
 
-    it("readFile уходит провайдеру зарегистрированной схемы", async () => {
+    it("readFile goes to the provider of a registered scheme", async () => {
         const providers = new SubprocessFileSystemProviders();
-        providers.register("git", provider("оригинал") as never);
+        providers.register("git", provider("original") as never);
         const ns = createFileSystemNamespace(disk(), providers);
 
-        expect(new TextDecoder().decode(await ns.readFile(gitUri))).toBe("оригинал");
+        expect(new TextDecoder().decode(await ns.readFile(gitUri))).toBe("original");
     });
 
-    it("незарегистрированная схема по-прежнему получает Unavailable", async () => {
+    it("unregistered scheme still gets Unavailable", async () => {
         const ns = createFileSystemNamespace(disk(), new SubprocessFileSystemProviders());
         await expect(ns.readFile(gitUri)).rejects.toMatchObject({ code: "Unavailable" });
     });
 
-    it("схема file идёт на диск даже при наличии провайдеров", async () => {
+    it("file scheme goes to disk even when providers exist", async () => {
         const providers = new SubprocessFileSystemProviders();
-        providers.register("git", provider("не отсюда") as never);
+        providers.register("git", provider("not from here") as never);
         const ns = createFileSystemNamespace(disk(), providers);
 
         const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "diode-fsns-")), "real.txt");
-        fs.writeFileSync(file, "с диска");
+        fs.writeFileSync(file, "from disk");
 
-        expect(new TextDecoder().decode(await ns.readFile(Uri.file(file) as never))).toBe("с диска");
+        expect(new TextDecoder().decode(await ns.readFile(Uri.file(file) as never))).toBe("from disk");
     });
 
-    it("занятая схема — ошибка регистрации", () => {
+    it("taken scheme fails registration", () => {
         const providers = new SubprocessFileSystemProviders();
         providers.register("git", provider("a") as never);
         expect(() => providers.register("git", provider("b") as never)).toThrow(/already registered/);
     });
 
-    it("снятие регистрации освобождает схему", async () => {
+    it("unregistering frees the scheme", async () => {
         const providers = new SubprocessFileSystemProviders();
         providers.register("git", provider("a") as never).dispose();
         const ns = createFileSystemNamespace(disk(), providers);
@@ -173,7 +173,7 @@ describe("SubprocessFileSystemProviders", () => {
         await expect(ns.readFile(gitUri)).rejects.toMatchObject({ code: "Unavailable" });
     });
 
-    it("список схем и его изменения видны наружу", () => {
+    it("scheme list and its changes are observable", () => {
         const providers = new SubprocessFileSystemProviders();
         const seen: string[][] = [];
         providers.onDidChangeSchemes(() => seen.push(providers.schemes()));
@@ -185,7 +185,7 @@ describe("SubprocessFileSystemProviders", () => {
         expect(seen).toEqual([["git"], []]);
     });
 
-    it("изменения провайдера пересылаются подписчикам, пустые — нет", () => {
+    it("provider changes are forwarded to listeners, empty ones are not", () => {
         const providers = new SubprocessFileSystemProviders();
         const p = provider("a");
         providers.register("git", p as never);
@@ -198,7 +198,7 @@ describe("SubprocessFileSystemProviders", () => {
         expect(seen).toEqual([[gitUri]]);
     });
 
-    it("после снятия регистрации события провайдера больше не пересылаются", () => {
+    it("after unregistering, provider events are no longer forwarded", () => {
         const providers = new SubprocessFileSystemProviders();
         const p = provider("a");
         const registration = providers.register("git", p as never);
@@ -211,7 +211,7 @@ describe("SubprocessFileSystemProviders", () => {
         expect(seen).toEqual([]);
     });
 
-    it("отписка от событий и от смены схем работает", () => {
+    it("unsubscribing from events and scheme changes works", () => {
         const providers = new SubprocessFileSystemProviders();
         const p = provider("a");
         providers.register("git", p as never);

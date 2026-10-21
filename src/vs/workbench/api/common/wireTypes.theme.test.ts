@@ -3,14 +3,14 @@ import { describe, expect, it } from "vitest";
 import { parseWireColorTheme, parseWireSelectionChangeKind, selectionChangeKindOf } from "./wireTypes.ts";
 
 describe("parseWireColorTheme", () => {
-    it("принимает все четыре вида темы", () => {
+    it("accepts all four theme kinds", () => {
         expect(parseWireColorTheme({ kind: 1 })).toEqual({ kind: 1 });
         expect(parseWireColorTheme({ kind: 2 })).toEqual({ kind: 2 });
         expect(parseWireColorTheme({ kind: 3 })).toEqual({ kind: 3 });
         expect(parseWireColorTheme({ kind: 4 })).toEqual({ kind: 4 });
     });
 
-    it("отбивает вид вне диапазона, чужой тип и не-объект", () => {
+    it("rejects an out-of-range kind, a foreign type and a non-object", () => {
         expect(parseWireColorTheme({ kind: 0 })).toBeNull();
         expect(parseWireColorTheme({ kind: 5 })).toBeNull();
         expect(parseWireColorTheme({ kind: "2" })).toBeNull();
@@ -19,35 +19,35 @@ describe("parseWireColorTheme", () => {
         expect(parseWireColorTheme(2)).toBeNull();
     });
 
-    it("нотификация вообще без параметров — null, а не TypeError", () => {
+    it("a notification with no params at all gives null, not TypeError", () => {
         // `rpc.notify("window.themeChanged")` without params hands the handler
         // `undefined`, and parsing must survive that without dereferencing it.
         expect(parseWireColorTheme(undefined)).toBeNull();
     });
 
-    it("лишние поля не проносятся дальше — в проводе только kind", () => {
+    it("extra fields are not carried further, only kind is on the wire", () => {
         expect(parseWireColorTheme({ kind: 1, name: "Light+" })).toEqual({ kind: 1 });
     });
 });
 
 describe("selectionChangeKindOf / parseWireSelectionChangeKind", () => {
-    it("источник ядра → число vscode.TextEditorSelectionChangeKind", () => {
+    it("a core source maps to a vscode.TextEditorSelectionChangeKind number", () => {
         expect(selectionChangeKindOf("keyboard")).toBe(1);
         expect(selectionChangeKindOf("mouse")).toBe(2);
         expect(selectionChangeKindOf("command")).toBe(3);
     });
 
-    it("нераспознанный источник → undefined (поле в провод не едет)", () => {
+    it("an unrecognized source maps to undefined (the field is not sent)", () => {
         expect(selectionChangeKindOf(undefined)).toBeUndefined();
     });
 
-    it("round-trip: что уехало источником, то и приехало видом", () => {
+    it("round-trip: what was sent as a source comes back as a kind", () => {
         for (const source of ["keyboard", "mouse", "command"] as const) {
             expect(parseWireSelectionChangeKind(selectionChangeKindOf(source))).toBe(selectionChangeKindOf(source));
         }
     });
 
-    it("мусор в проводе читается как «источник не распознан»", () => {
+    it("garbage on the wire reads as an unrecognized source", () => {
         expect(parseWireSelectionChangeKind(0)).toBeUndefined();
         expect(parseWireSelectionChangeKind(4)).toBeUndefined();
         expect(parseWireSelectionChangeKind("2")).toBeUndefined();

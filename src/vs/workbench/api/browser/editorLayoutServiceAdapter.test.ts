@@ -60,7 +60,7 @@ describe("EditorLayoutServiceAdapter", () => {
         ws.dispose();
     });
 
-    it("снимок: группы с viewColumn, активная вкладка несёт selections", () => {
+    it("snapshot: groups carry viewColumn, the active tab carries selections", () => {
         service.openFile(ws.path("a.ts"));
         service.openFile(ws.path("b.ts"));
         service.splitActiveGroup();
@@ -78,7 +78,7 @@ describe("EditorLayoutServiceAdapter", () => {
         expect(tabs[1].kind).toBe("text");
     });
 
-    it("продюсер: сплит/смена вкладки коалесируются в один снимок за тик", async () => {
+    it("producer: split/tab change coalesce into one snapshot per tick", async () => {
         service.openFile(ws.path("a.ts"));
         const pushes: IWireEditorLayout[] = [];
         adapter.onDidChangeLayout((layout) => pushes.push(layout));
@@ -91,7 +91,7 @@ describe("EditorLayoutServiceAdapter", () => {
         expect(pushes[0].groups.length).toBe(2);
     });
 
-    it("onDidChangeLayout: повторный dispose подписки — идемпотентный no-op", () => {
+    it("onDidChangeLayout: disposing a subscription twice is an idempotent no-op", () => {
         const pushes: IWireEditorLayout[] = [];
         const subscription = adapter.onDidChangeLayout((layout) => pushes.push(layout));
         subscription.dispose();
@@ -102,7 +102,7 @@ describe("EditorLayoutServiceAdapter", () => {
         expect(pushes).toHaveLength(0);
     });
 
-    it("flushPendingLayout доставляет отложенный снимок синхронно (инвариант перед метой)", () => {
+    it("flushPendingLayout delivers the pending snapshot synchronously (invariant before meta)", () => {
         service.openFile(ws.path("a.ts"));
         const pushes: IWireEditorLayout[] = [];
         adapter.onDidChangeLayout((layout) => pushes.push(layout));
@@ -115,7 +115,7 @@ describe("EditorLayoutServiceAdapter", () => {
         expect(pushes.length).toBe(1);
     });
 
-    it("showTextDocument: Active — активная группа; повторное открытие — дедуп", async () => {
+    it("showTextDocument: Active is the active group; reopening is deduplicated", async () => {
         service.openFile(ws.path("a.ts"));
 
         const result = await adapter.showTextDocument({ uri: service.getActiveEditor()!.uri.toString() });
@@ -123,7 +123,7 @@ describe("EditorLayoutServiceAdapter", () => {
         expect(service.editorGroups.activeGroup.editorCount).toBe(1);
     });
 
-    it("showTextDocument: Beside создаёт соседнюю группу; за сеткой — догоняющее создание (AS-5)", async () => {
+    it("showTextDocument: Beside creates a neighbor group; past the grid, groups are created to catch up (AS-5)", async () => {
         service.openFile(ws.path("a.ts"));
         const uriB = service.getActiveEditor()!.uri.toString().replace("a.ts", "b.ts");
 
@@ -137,7 +137,7 @@ describe("EditorLayoutServiceAdapter", () => {
         expect(service.editorGroups.groups.length).toBe(3);
     });
 
-    it("showTextDocument: preserveFocus не передаёт фокус, selection ставит каретку", async () => {
+    it("showTextDocument: preserveFocus keeps focus, selection sets the cursor", async () => {
         ws.writeFile("long.ts", Array.from({ length: 20 }, (_, i) => `l${i}`).join("\n"));
         service.openFile(ws.path("a.ts"));
         const before = service.editorGroups.activeGroup;
@@ -157,7 +157,7 @@ describe("EditorLayoutServiceAdapter", () => {
     });
 
     /** A cursor past the end of line crashes the very first frame in occurrence highlighting. */
-    it("showTextDocument: выделение за границами документа клампится", async () => {
+    it("showTextDocument: a selection past the document bounds is clamped", async () => {
         ws.writeFile("short.ts", "ab\ncd");
         service.openFile(ws.path("a.ts"));
 
@@ -171,7 +171,7 @@ describe("EditorLayoutServiceAdapter", () => {
         expect(selection.active).toEqual({ line: 1, character: 2 });
     });
 
-    it("closeTabs закрывает чистую вкладку; умершая группа — идемпотентный успех", async () => {
+    it("closeTabs closes a clean tab; a dead group is an idempotent success", async () => {
         service.openFile(ws.path("a.ts"));
         service.splitActiveGroup();
         const group = service.editorGroups.activeGroup;
@@ -182,7 +182,7 @@ describe("EditorLayoutServiceAdapter", () => {
         await expect(adapter.closeTabs({ tabs: [{ groupId: group.id, uri }] })).resolves.toBe(true);
     });
 
-    it("closeGroups закрывает вкладки группы целиком", async () => {
+    it("closeGroups closes all tabs of the group", async () => {
         service.openFile(ws.path("a.ts"));
         service.splitActiveGroup();
         service.openFile(ws.path("b.ts"));
@@ -193,7 +193,7 @@ describe("EditorLayoutServiceAdapter", () => {
         expect(service.editorGroups.groups.length).toBe(1);
     });
 
-    it("closeTabs с несохранённой последней вкладкой ждёт ответа: Cancel — false, вкладка на месте", async () => {
+    it("closeTabs with an unsaved last tab waits for the answer: Cancel gives false, the tab stays", async () => {
         service.openFile(ws.path("a.ts"));
         const editor = service.getActiveEditor()!;
         editor.viewState.type("dirty");
@@ -207,7 +207,7 @@ describe("EditorLayoutServiceAdapter", () => {
         expect(group.editorCount).toBe(1);
     });
 
-    it("closeTabs: Don't Save по грязной — true, закрыты все цели списка", async () => {
+    it("closeTabs: Don't Save on a dirty tab gives true, all listed targets are closed", async () => {
         service.openFile(ws.path("a.ts"));
         const dirty = service.getActiveEditor()!;
         dirty.viewState.type("dirty");
@@ -227,7 +227,7 @@ describe("EditorLayoutServiceAdapter", () => {
         expect(group.editorCount).toBe(0);
     });
 
-    it("closeTabs: uri, которого нет в группе, пропускается — идемпотентный успех", async () => {
+    it("closeTabs: a uri not in the group is skipped as an idempotent success", async () => {
         service.openFile(ws.path("a.ts"));
         const group = service.editorGroups.activeGroup;
 
@@ -237,7 +237,7 @@ describe("EditorLayoutServiceAdapter", () => {
         expect(group.editorCount).toBe(1);
     });
 
-    describe("ViewColumn и фокус по полосе", () => {
+    describe("ViewColumn and focus along the strip", () => {
         function twoGroups() {
             service.openFile(ws.path("a.ts"));
             service.editorGroups.newGroup("after", { focus: false });
@@ -251,7 +251,7 @@ describe("EditorLayoutServiceAdapter", () => {
 
         const uriOf = (name: string) => Uri.file(ws.path(name)).toString();
 
-        it("Active — активная группа, даже если она не первая", async () => {
+        it("Active is the active group even when it is not the first", async () => {
             const { second } = twoGroups();
 
             const result = await adapter.showTextDocument({ uri: uriOf("a.ts"), viewColumn: -1 });
@@ -260,7 +260,7 @@ describe("EditorLayoutServiceAdapter", () => {
             expect(second.editorCount).toBe(2);
         });
 
-        it("существующая неактивная колонка — открытие в ней, без фокуса содержимого групп", async () => {
+        it("an existing inactive column opens there without focusing group content", async () => {
             const { first, focused } = twoGroups();
 
             const result = await adapter.showTextDocument({ uri: uriOf("b.ts"), viewColumn: 1 });
@@ -271,7 +271,7 @@ describe("EditorLayoutServiceAdapter", () => {
             expect(focused).toEqual([]);
         });
 
-        it("preserveFocus — активной остаётся прежняя группа, содержимое групп фокус не получает", async () => {
+        it("preserveFocus keeps the previous group active, group content gets no focus", async () => {
             const { first, second, focused } = twoGroups();
 
             await adapter.showTextDocument({ uri: uriOf("b.ts"), viewColumn: 1, preserveFocus: true });
@@ -281,7 +281,7 @@ describe("EditorLayoutServiceAdapter", () => {
             expect(focused).toEqual([]);
         });
 
-        it("Beside с preserveFocus — новая группа справа, фокус содержимого не трогаем", async () => {
+        it("Beside with preserveFocus adds a group to the right without touching content focus", async () => {
             const { second, focused } = twoGroups();
 
             const result = await adapter.showTextDocument({ uri: uriOf("a.ts"), viewColumn: -2, preserveFocus: true });
@@ -291,7 +291,7 @@ describe("EditorLayoutServiceAdapter", () => {
             expect(focused).toEqual([]);
         });
 
-        it("колонка за краем — хвостовые группы дозаводятся в конце полосы, не рядом с активной", async () => {
+        it("a column past the edge appends trailing groups at the end of the strip, not next to the active one", async () => {
             const { first, second, focused } = twoGroups();
             service.editorGroups.focusGroup({ index: 0 }, { focus: false });
 
@@ -303,7 +303,7 @@ describe("EditorLayoutServiceAdapter", () => {
             expect(focused).toEqual([]);
         });
 
-        it("снимок: активна ровно одна группа", () => {
+        it("snapshot: exactly one group is active", () => {
             twoGroups();
 
             const layout = adapter.getLayoutSnapshot();
@@ -311,7 +311,7 @@ describe("EditorLayoutServiceAdapter", () => {
             expect(layout.groups.map((group) => group.isActive)).toEqual([false, true]);
         });
 
-        it("closeTabs адресует вкладку по группе: тот же файл в другой группе остаётся", async () => {
+        it("closeTabs addresses a tab by group: the same file in another group stays", async () => {
             service.openFile(ws.path("a.ts"));
             service.splitActiveGroup();
             const [first, second] = service.editorGroups.groups;
@@ -323,14 +323,14 @@ describe("EditorLayoutServiceAdapter", () => {
         });
     });
 
-    it("closeGroups: неизвестная группа пропускается — идемпотентный успех", async () => {
+    it("closeGroups: an unknown group is skipped as an idempotent success", async () => {
         service.openFile(ws.path("a.ts"));
 
         await expect(adapter.closeGroups({ groupIds: [999] })).resolves.toBe(true);
         expect(service.editorGroups.groups.length).toBe(1);
     });
 
-    it("closeGroups: вето в одной группе не мешает закрыть другую, ответ — false", async () => {
+    it("closeGroups: a veto in one group does not block closing another, the answer is false", async () => {
         service.openFile(ws.path("a.ts"));
         service.getActiveEditor()!.viewState.type("dirty");
         const first = service.editorGroups.activeGroup;
@@ -347,7 +347,7 @@ describe("EditorLayoutServiceAdapter", () => {
         expect(service.editorGroups.groups).toEqual([first]);
     });
 
-    it("снимок: дифф-вкладка несёт kind=diff и uri сторон (если они есть)", () => {
+    it("snapshot: a diff tab carries kind=diff and side uris (when present)", () => {
         service.openFile(ws.path("a.ts"));
         const diffInput: IDiffEditorPane2Input = {
             uri: Uri.parse("diode-diff:/a.ts?vs=HEAD"),
@@ -389,7 +389,7 @@ describe("EditorLayoutServiceAdapter", () => {
         expect(tabs[1].sideEditors).toEqual([]);
     });
 
-    it("снимок: sideEditors — uri документов сторон-моделей, снимочная сторона не входит", () => {
+    it("snapshot: sideEditors lists document uris of model sides, the snapshot side is excluded", () => {
         const shared = service.textFileModels.acquire(Uri.file(ws.path("a.ts")));
         const owned = service.textFileModels.createUntitledModel();
         service.openPane(
@@ -401,7 +401,7 @@ describe("EditorLayoutServiceAdapter", () => {
                 NULL_TOKEN_STYLE_RESOLVER,
                 {
                     uri: Uri.parse("diode-diff:/a.ts?pair"),
-                    label: "пара",
+                    label: "pair",
                     originalLabel: "a.ts",
                     modifiedLabel: "Untitled",
                     original: { kind: "shared", ref: shared },
@@ -419,7 +419,7 @@ describe("EditorLayoutServiceAdapter", () => {
                 NULL_TOKEN_STYLE_RESOLVER,
                 {
                     uri: Uri.parse("diode-diff:/a.ts?half"),
-                    label: "половина",
+                    label: "half",
                     originalLabel: "HEAD",
                     modifiedLabel: "a.ts",
                     original: { kind: "snapshot", text: "alpha" },
@@ -434,7 +434,7 @@ describe("EditorLayoutServiceAdapter", () => {
         expect(half.sideEditors).toEqual([Uri.file(ws.path("a.ts")).toString()]);
     });
 
-    it("showTextDocument: Beside при нехватке места — фолбэк в активную группу", async () => {
+    it("showTextDocument: Beside without enough room falls back to the active group", async () => {
         service.openFile(ws.path("a.ts"));
         service.editorGroups.canAddGroupHook = () => false;
 
@@ -447,7 +447,7 @@ describe("EditorLayoutServiceAdapter", () => {
         expect(service.editorGroups.activeGroup.editorCount).toBe(2);
     });
 
-    it("showTextDocument: ViewColumn за краем при нехватке места — открытие в последней группе", async () => {
+    it("showTextDocument: a ViewColumn past the edge without enough room opens in the last group", async () => {
         service.openFile(ws.path("a.ts"));
         service.splitActiveGroup();
         service.editorGroups.canAddGroupHook = () => false;

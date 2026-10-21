@@ -45,7 +45,7 @@ function createAdapter(fake: IEditorService, workspaceEdits: IBulkEditService): 
 }
 
 describe("EditorOptionsServiceAdapter.applyWorkspaceEdit", () => {
-    it("isRefactoring становится respectAutoSaveConfig исполнителя (files.refactoring.autoSave)", async () => {
+    it("isRefactoring becomes the executor's respectAutoSaveConfig (files.refactoring.autoSave)", async () => {
         const { service, calls } = spyService();
         const adapter = createAdapter(emptyGroup(), service);
         const ops: IWireWorkspaceEditOp[] = [{ kind: "text", resource: A.toString(), edits: [EDIT_A] }];
@@ -59,7 +59,7 @@ describe("EditorOptionsServiceAdapter.applyWorkspaceEdit", () => {
         ]);
     });
 
-    it("переводит текстовые операции в модель правок БЕЗ клампа и отдаёт ответ исполнителя", async () => {
+    it("converts text operations to the edit model WITHOUT clamping and returns the executor's answer", async () => {
         const { service, calls } = spyService();
         const adapter = createAdapter(emptyGroup(), service);
 
@@ -89,7 +89,7 @@ describe("EditorOptionsServiceAdapter.applyWorkspaceEdit", () => {
         ]);
     });
 
-    it("файловые операции переводятся в пути на диске с сохранением порядка и опций", async () => {
+    it("file operations convert to disk paths preserving order and options", async () => {
         const { service, calls } = spyService();
         const adapter = createAdapter(emptyGroup(), service);
 
@@ -111,7 +111,7 @@ describe("EditorOptionsServiceAdapter.applyWorkspaceEdit", () => {
         ]);
     });
 
-    it("каждая опция переводится по отдельности", async () => {
+    it("each option converts separately", async () => {
         const { service, calls } = spyService();
         const adapter = createAdapter(emptyGroup(), service);
 
@@ -126,7 +126,7 @@ describe("EditorOptionsServiceAdapter.applyWorkspaceEdit", () => {
         ]);
     });
 
-    it("опции без значения не попадают в модель (отсутствие ≠ false)", async () => {
+    it("options without a value stay out of the model (absent ≠ false)", async () => {
         const { service, calls } = spyService();
         const adapter = createAdapter(emptyGroup(), service);
 
@@ -145,7 +145,7 @@ describe("EditorOptionsServiceAdapter.applyWorkspaceEdit", () => {
         ]);
     });
 
-    it("ответ исполнителя не подменяется: отказ едет расширению как есть", async () => {
+    it("executor's answer is not replaced: a refusal reaches the extension as is", async () => {
         const { service } = spyService(false);
         const adapter = createAdapter(emptyGroup(), service);
         expect(await adapter.applyWorkspaceEdit([{ kind: "text", resource: A.toString(), edits: [EDIT_A] }])).toBe(
@@ -153,7 +153,7 @@ describe("EditorOptionsServiceAdapter.applyWorkspaceEdit", () => {
         );
     });
 
-    it("пустой список — false: вакуумный успех отвечает субпроцесс, здесь это мусорный запрос", async () => {
+    it("empty list yields false: the subprocess answers vacuous success, here it is a junk request", async () => {
         const applyWorkspaceEdit = vi.fn(() => Promise.resolve(true));
         const adapter = createAdapter(emptyGroup(), { applyWorkspaceEdit });
         expect(await adapter.applyWorkspaceEdit([])).toBe(false);
@@ -165,7 +165,7 @@ describe("EditorOptionsServiceAdapter.applyWorkspaceEdit", () => {
         { kind: "delete", resource: "output:extensions" },
         { kind: "rename", from: "output:extensions", to: A.toString() },
         { kind: "rename", from: A.toString(), to: "output:extensions" },
-    ])("файловая операция по недисковому ресурсу отбивает весь edit (%o)", async (op) => {
+    ])("file operation on a non-disk resource rejects the whole edit (%o)", async (op) => {
         const applyWorkspaceEdit = vi.fn(() => Promise.resolve(true));
         const adapter = createAdapter(emptyGroup(), { applyWorkspaceEdit });
 
@@ -178,7 +178,7 @@ describe("EditorOptionsServiceAdapter.applyWorkspaceEdit", () => {
         expect(applyWorkspaceEdit).not.toHaveBeenCalled();
     });
 
-    it("текстовая правка недискового ресурса переводится (его может держать открытый буфер)", async () => {
+    it("text edit of a non-disk resource converts (an open buffer may hold it)", async () => {
         const { service, calls } = spyService();
         const adapter = createAdapter(emptyGroup(), service);
 

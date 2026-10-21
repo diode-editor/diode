@@ -31,7 +31,7 @@ const C: IValueItem = { label: "Gamma", alwaysShow: true };
 
 const WIRE_A = { handle: 0, label: "Alpha", description: "first", detail: undefined, alwaysShow: false };
 
-describe("ExtHostQuickPick — состояние и провод", () => {
+describe("ExtHostQuickPick: state and wire", () => {
     beforeEach(() => {
         vi.useFakeTimers();
     });
@@ -39,7 +39,7 @@ describe("ExtHostQuickPick — состояние и провод", () => {
         vi.useRealTimers();
     });
 
-    it("до show() ничего не шлёт; show() отправляет накопленное одним диффом", () => {
+    it("sends nothing before show(); show() sends the accumulated state as one diff", () => {
         const { pick, updates } = setup();
         pick.title = "Pick";
         pick.placeholder = "type";
@@ -65,7 +65,7 @@ describe("ExtHostQuickPick — состояние и провод", () => {
         ]);
     });
 
-    it("видимый пикер шлёт пачку присваиваний одним диффом на следующем тике", () => {
+    it("a visible picker sends a batch of assignments as one diff on the next tick", () => {
         const { pick, updates } = setup();
         pick.show();
         pick.prompt = "loading";
@@ -90,7 +90,7 @@ describe("ExtHostQuickPick — состояние и провод", () => {
         ["matchOnDescription", false],
         ["matchOnDetail", false],
         ["keepScrollPosition", true],
-    ] as const)("сеттер %s уходит хосту и читается обратно", (key, value) => {
+    ] as const)("setter %s goes to the host and reads back", (key, value) => {
         const { pick, updates } = setup();
         pick.show();
         (pick as unknown as Record<string, unknown>)[key] = value;
@@ -99,7 +99,7 @@ describe("ExtHostQuickPick — состояние и провод", () => {
         expect((pick as unknown as Record<string, unknown>)[key]).toBe(value);
     });
 
-    it("busy, enabled и ignoreFocusOut хранятся, но хосту не едут: рисовать их нечем", () => {
+    it("busy, enabled and ignoreFocusOut are stored but not sent to the host: nothing renders them", () => {
         const { pick, updates } = setup();
         pick.show();
         pick.busy = true;
@@ -110,7 +110,7 @@ describe("ExtHostQuickPick — состояние и провод", () => {
         expect(pick).toMatchObject({ busy: true, enabled: false, ignoreFocusOut: false });
     });
 
-    it("сброс в undefined едет null-ом, а hide() — немедленно", () => {
+    it("reset to undefined is sent as null, and hide() is sent immediately", () => {
         const { pick, updates } = setup();
         pick.title = "x";
         pick.show();
@@ -121,7 +121,7 @@ describe("ExtHostQuickPick — состояние и провод", () => {
         expect(updates()).toHaveLength(2);
     });
 
-    it("после показа, снявшего отложенный дифф, новые присваивания снова доходят", () => {
+    it("after a show that flushed the pending diff, new assignments get through again", () => {
         const { pick, updates } = setup();
         pick.show();
         pick.title = "a";
@@ -131,7 +131,7 @@ describe("ExtHostQuickPick — состояние и провод", () => {
         expect(updates().at(-1)).toEqual({ handle: expect.any(Number) as number, title: "b" });
     });
 
-    it("разделитель не едет строкой, а handle'ы остальных — индексы в массиве расширения", () => {
+    it("a separator is not sent as a row, and the others' handles are indices in the extension's array", () => {
         const { pick, updates } = setup();
         pick.items = [A, SEP, C];
         pick.show();
@@ -141,7 +141,7 @@ describe("ExtHostQuickPick — состояние и провод", () => {
         ]);
     });
 
-    it("items — копия: правка своего массива после присваивания пикер не трогает", () => {
+    it("items is a copy: editing your own array after assignment leaves the picker alone", () => {
         const { pick } = setup();
         const mine = [A, B];
         pick.items = mine;
@@ -149,18 +149,18 @@ describe("ExtHostQuickPick — состояние и провод", () => {
         expect(pick.items).toEqual([A, B]);
     });
 
-    it("activeItems/selectedItems — handle'ами; чужие предметы отсеиваются", () => {
+    it("activeItems/selectedItems are sent as handles; foreign items are filtered out", () => {
         const { pick, updates } = setup();
         pick.items = [A, B];
-        pick.activeItems = [B, { label: "чужой" }];
-        pick.selectedItems = [{ label: "чужой" }, A];
+        pick.activeItems = [B, { label: "foreign" }];
+        pick.selectedItems = [{ label: "foreign" }, A];
         pick.show();
         expect(updates()[0]).toMatchObject({ activeItems: [1], selectedItems: [0] });
         expect(pick.activeItems).toEqual([B]);
         expect(pick.selectedItems).toEqual([A]);
     });
 
-    it("после замены items прежние предметы — уже чужие", () => {
+    it("after items are replaced, the previous items are foreign", () => {
         const { pick, hostEvent } = setup();
         pick.items = [A, B];
         pick.items = [C];
@@ -171,7 +171,7 @@ describe("ExtHostQuickPick — состояние и провод", () => {
         expect(pick.selectedItems).toEqual([C]);
     });
 
-    it("геттеры по умолчанию — дефолты эталона", () => {
+    it("getters default to upstream defaults", () => {
         const { pick } = setup();
         expect(pick).toMatchObject({
             value: "",
@@ -193,7 +193,7 @@ describe("ExtHostQuickPick — состояние и провод", () => {
         });
     });
 
-    it("dispose шлёт снятие со своим handle, гасит отложенный дифф и дальше молчит", () => {
+    it("dispose sends a removal with its handle, drops the pending diff and stays silent afterwards", () => {
         const { stub, pick, updates } = setup();
         pick.show();
         pick.title = "late";
@@ -208,7 +208,7 @@ describe("ExtHostQuickPick — состояние и провод", () => {
         expect(disposes.map((n) => n.params)).toEqual([{ handle: updates()[0]?.handle }]);
     });
 
-    it("снятый пикер забыт: события хоста про него больше ничего не меняют", () => {
+    it("a disposed picker is forgotten: host events about it no longer change anything", () => {
         const { pick, hostEvent } = setup();
         pick.show();
         pick.dispose();
@@ -216,7 +216,7 @@ describe("ExtHostQuickPick — состояние и провод", () => {
         expect(pick.value).toBe("");
     });
 
-    it("handle'ы пикеров и show*-показов — из одного счётчика", () => {
+    it("picker handles and show* input handles come from one counter", () => {
         const { api, pick, updates, stub } = setup();
         pick.show();
         void api.showInputBox();
@@ -228,8 +228,8 @@ describe("ExtHostQuickPick — состояние и провод", () => {
     });
 });
 
-describe("ExtHostQuickPick — события хоста", () => {
-    it("changeValue обновляет value и файрит onDidChangeValue", () => {
+describe("ExtHostQuickPick: host events", () => {
+    it("changeValue updates value and fires onDidChangeValue", () => {
         const { pick, hostEvent } = setup();
         pick.show();
         const seen: string[] = [];
@@ -239,7 +239,7 @@ describe("ExtHostQuickPick — события хоста", () => {
         expect(pick.value).toBe("be");
     });
 
-    it("changeActive/changeSelection отдают СВОИ объекты расширения, чужой handle выпадает", () => {
+    it("changeActive/changeSelection yield the extension's OWN objects, a foreign handle is dropped", () => {
         const { pick, hostEvent } = setup();
         pick.items = [A, SEP, B];
         pick.show();
@@ -267,7 +267,7 @@ describe("ExtHostQuickPick — события хоста", () => {
         expect(accepted).toBe(1);
     });
 
-    it("hide() расширения: onDidHide один раз — на ответ хоста, dispose после него молчит", () => {
+    it("extension hide(): onDidHide fires once on the host's reply, dispose after it is silent", () => {
         const { pick, hostEvent } = setup();
         let hides = 0;
         pick.onDidHide(() => hides++);
@@ -278,7 +278,7 @@ describe("ExtHostQuickPick — события хоста", () => {
         expect(hides).toBe(1);
     });
 
-    it("Escape (hide хоста без hide() расширения) и затем dispose — два onDidHide, как в эталоне", () => {
+    it("Escape (host hide without extension hide()) then dispose: two onDidHide, as upstream", () => {
         const { pick, hostEvent } = setup();
         let hides = 0;
         pick.onDidHide(() => hides++);
@@ -288,7 +288,7 @@ describe("ExtHostQuickPick — события хоста", () => {
         expect(hides).toBe(2);
     });
 
-    it("show → hide → show → hide: два onDidHide (эталон, #135747)", () => {
+    it("show -> hide -> show -> hide: two onDidHide (upstream, #135747)", () => {
         const { pick, hostEvent } = setup();
         let hides = 0;
         pick.onDidHide(() => hides++);
@@ -301,7 +301,7 @@ describe("ExtHostQuickPick — события хоста", () => {
         expect(hides).toBe(2);
     });
 
-    it("show → hide → hide: один onDidHide", () => {
+    it("show -> hide -> hide: one onDidHide", () => {
         const { pick, hostEvent } = setup();
         let hides = 0;
         pick.onDidHide(() => hides++);
@@ -313,7 +313,7 @@ describe("ExtHostQuickPick — события хоста", () => {
         expect(hides).toBe(1);
     });
 
-    it("dispose видимого пикера сам сообщает о скрытии; нескрытого — нет", () => {
+    it("dispose of a visible picker reports hiding itself; of a hidden one it does not", () => {
         const visible = setup();
         let hides = 0;
         visible.pick.onDidHide(() => hides++);
@@ -328,7 +328,7 @@ describe("ExtHostQuickPick — события хоста", () => {
         expect(neverHides).toBe(0);
     });
 
-    it("после dispose подписчики отписаны: ни одно событие до них не доходит", () => {
+    it("after dispose subscribers are unsubscribed: no event reaches them", () => {
         const stub = makeStubRpc();
         const pick = new ExtHostQuickPick<IValueItem>(stub.rpc, 1, () => undefined);
         pick.items = [A];
@@ -349,7 +349,7 @@ describe("ExtHostQuickPick — события хоста", () => {
         expect(heard).toEqual([]);
     });
 
-    it("событие снятого пикера и мусорное событие никого не роняют", () => {
+    it("an event for a disposed picker and a garbage event crash nothing", () => {
         const { pick, hostEvent, stub } = setup();
         pick.show();
         pick.dispose();

@@ -35,7 +35,7 @@ function makeCtx() {
 }
 
 describe("WindowNamespace — window.onDidChangeTextEditorSelection", () => {
-    it("editor.selectionChanged даёт событие с редактором, выделениями и видом", () => {
+    it("editor.selectionChanged fires an event with the editor, selections and kind", () => {
         const { stub, window } = makeCtx();
         const events: vscode.TextEditorSelectionChangeEvent[] = [];
         window.onDidChangeTextEditorSelection((e) => events.push(e));
@@ -56,7 +56,7 @@ describe("WindowNamespace — window.onDidChangeTextEditorSelection", () => {
         expect(event.kind).toBe(TextEditorSelectionChangeKind.Mouse);
     });
 
-    it("textEditor события — тот же объект, что window.activeTextEditor", () => {
+    it("the event textEditor is the same object as window.activeTextEditor", () => {
         const { stub, window } = makeCtx();
         let seen: vscode.TextEditor | undefined;
         window.onDidChangeTextEditorSelection((e) => {
@@ -66,7 +66,7 @@ describe("WindowNamespace — window.onDidChangeTextEditorSelection", () => {
         expect(seen).toBe(window.activeTextEditor);
     });
 
-    it("слушатель видит УЖЕ обновлённое выделение через editor.selections", () => {
+    it("the listener sees the ALREADY updated selection via editor.selections", () => {
         const { stub, window } = makeCtx();
         const fromEditor: number[] = [];
         window.onDidChangeTextEditorSelection((e) => {
@@ -76,7 +76,7 @@ describe("WindowNamespace — window.onDidChangeTextEditorSelection", () => {
         expect(fromEditor).toEqual([7]);
     });
 
-    it("все выделения едут в событии, первое — первичное", () => {
+    it("all selections are in the event, the first is primary", () => {
         const { stub, window } = makeCtx();
         let selections: readonly vscode.Selection[] = [];
         window.onDidChangeTextEditorSelection((e) => {
@@ -93,7 +93,7 @@ describe("WindowNamespace — window.onDidChangeTextEditorSelection", () => {
         expect(selections[0]).toBeInstanceOf(Selection);
     });
 
-    it("kind отсутствует или не распознан → undefined (upstream это допускает)", () => {
+    it("missing or unrecognized kind → undefined (upstream allows this)", () => {
         const { stub, window } = makeCtx();
         const kinds: (vscode.TextEditorSelectionChangeKind | undefined)[] = [];
         window.onDidChangeTextEditorSelection((e) => kinds.push(e.kind));
@@ -117,7 +117,7 @@ describe("WindowNamespace — window.onDidChangeTextEditorSelection", () => {
         expect(kinds).toEqual([TextEditorSelectionChangeKind.Keyboard, TextEditorSelectionChangeKind.Command]);
     });
 
-    it("событие приходит и для НЕактивного редактора — со своим textEditor", () => {
+    it("the event also fires for an INACTIVE editor, with its own textEditor", () => {
         const { stub, window } = makeCtx();
         const uris: string[] = [];
         window.onDidChangeTextEditorSelection((e) => uris.push(e.textEditor.document.uri.toString()));
@@ -126,7 +126,7 @@ describe("WindowNamespace — window.onDidChangeTextEditorSelection", () => {
         expect(window.activeTextEditor?.document.uri.toString()).toBe(FILE);
     });
 
-    it("сообщение без uri игнорируется целиком", () => {
+    it("a message without uri is ignored entirely", () => {
         const { stub, window } = makeCtx();
         let fired = 0;
         window.onDidChangeTextEditorSelection(() => fired++);
@@ -134,7 +134,7 @@ describe("WindowNamespace — window.onDidChangeTextEditorSelection", () => {
         expect(fired).toBe(0);
     });
 
-    it("подписка снимается dispose'ом", () => {
+    it("the subscription is removed by dispose", () => {
         const { stub, window } = makeCtx();
         let fired = 0;
         const sub = window.onDidChangeTextEditorSelection(() => fired++);
@@ -144,7 +144,7 @@ describe("WindowNamespace — window.onDidChangeTextEditorSelection", () => {
         expect(fired).toBe(1);
     });
 
-    it("выделение, поставленное самим расширением, события не даёт (эхо-гард на хосте)", () => {
+    it("a selection set by the extension itself fires no event (echo guard on the host)", () => {
         const { stub, window } = makeCtx();
         let fired = 0;
         window.onDidChangeTextEditorSelection(() => fired++);

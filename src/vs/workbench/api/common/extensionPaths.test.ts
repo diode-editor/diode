@@ -8,27 +8,27 @@ import { ExtensionPaths } from "./extensionPaths.ts";
 const p = (...segments: string[]): string => path.resolve("/", ...segments);
 
 describe("ExtensionPaths", () => {
-    it("файл внутри корня принадлежит расширению, сам корень — тоже", () => {
+    it("a file inside the root belongs to the extension, and so does the root itself", () => {
         const paths = new ExtensionPaths();
         paths.add(p("ext", "foo"), "pub.foo");
         expect(paths.findByPath(p("ext", "foo", "dist", "main.js"))).toBe("pub.foo");
         expect(paths.findByPath(p("ext", "foo"))).toBe("pub.foo");
     });
 
-    it("префикс считается по сегментам: /ext/foo не матчит /ext/foobar", () => {
+    it("prefix is matched by segments: /ext/foo does not match /ext/foobar", () => {
         const paths = new ExtensionPaths();
         paths.add(p("ext", "foo"), "pub.foo");
         expect(paths.findByPath(p("ext", "foobar", "main.js"))).toBeUndefined();
     });
 
-    it("вне всех корней — undefined", () => {
+    it("outside all roots — undefined", () => {
         const paths = new ExtensionPaths();
         paths.add(p("ext", "foo"), "pub.foo");
         expect(paths.findByPath(p("other", "main.js"))).toBeUndefined();
         expect(paths.findByPath(p("ext"))).toBeUndefined();
     });
 
-    it("вложенный корень выигрывает у внешнего (самый длинный префикс)", () => {
+    it("a nested root wins over the outer one (longest prefix)", () => {
         const paths = new ExtensionPaths();
         paths.add(p("ext", "outer"), "pub.outer");
         paths.add(p("ext", "outer", "node_modules", "inner"), "pub.inner");
@@ -36,20 +36,20 @@ describe("ExtensionPaths", () => {
         expect(paths.findByPath(p("ext", "outer", "node_modules", "other", "x.js"))).toBe("pub.outer");
     });
 
-    it("корень и путь нормализуются: хвостовой разделитель и `..` не мешают", () => {
+    it("root and path are normalized: a trailing separator and `..` do not interfere", () => {
         const paths = new ExtensionPaths();
         paths.add(p("ext", "foo") + path.sep, "pub.foo");
         expect(paths.findByPath(p("ext", "foo", "lib", "..", "main.js"))).toBe("pub.foo");
     });
 
-    it("повторный add того же корня перезаписывает id", () => {
+    it("a repeated add of the same root overwrites the id", () => {
         const paths = new ExtensionPaths();
         paths.add(p("ext", "foo"), "pub.old");
         paths.add(p("ext", "foo"), "pub.new");
         expect(paths.findByPath(p("ext", "foo", "main.js"))).toBe("pub.new");
     });
 
-    it("корень за симлинком опознаётся и по реальному пути, и по ссылке", () => {
+    it("a root behind a symlink is recognized by both the real path and the link", () => {
         const paths = new ExtensionPaths({
             realpath: (link) => (link === p("link", "foo") ? p("real", "foo") : link),
         });
@@ -58,7 +58,7 @@ describe("ExtensionPaths", () => {
         expect(paths.findByPath(p("link", "foo", "main.js"))).toBe("pub.foo");
     });
 
-    it("realpath бросил (корня нет на диске) — корень индексируется как есть", () => {
+    it("realpath threw (root is not on disk) — the root is indexed as is", () => {
         const paths = new ExtensionPaths({
             realpath: () => {
                 throw new Error("ENOENT");

@@ -24,7 +24,7 @@ export function createAuthenticationNoop(rpc: SubprocessRpc): typeof vscode.auth
             channel: OUTPUT_CHANNEL,
             label: OUTPUT_LABEL,
             level: "warn",
-            value: `вход через "${label}" (${id}) в TUI пока не поддержан — сессий не будет, остальное расширение работает`,
+            value: `sign-in with "${label}" (${id}) is not supported in TUI yet — no sessions, the rest of the extension works`,
         });
     }
 
@@ -47,7 +47,7 @@ export function createAuthenticationNoop(rpc: SubprocessRpc): typeof vscode.auth
             );
         }
         if (options?.createIfNone || options?.forceNewSession) {
-            return Promise.reject(new Error(`вход через "${providerId}" в TUI пока не поддержан`));
+            return Promise.reject(new Error(`sign-in with "${providerId}" is not supported in TUI yet`));
         }
         return Promise.resolve(undefined);
     }

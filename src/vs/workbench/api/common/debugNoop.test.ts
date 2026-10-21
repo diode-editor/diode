@@ -20,8 +20,8 @@ function warnings(stub: ReturnType<typeof makeStubRpc>): string[] {
 
 const session = { id: "s 1/2" } as never;
 
-describe("vscode.debug — null-объект: сессий нет и не будет", () => {
-    it("состояние пустое: ни сессии, ни точек, ни фрейма; консоль принимает вывод", () => {
+describe("vscode.debug — null object: there are no sessions and never will be", () => {
+    it("the state is empty: no session, breakpoints or stack frame; the console accepts output", () => {
         const { vscode } = makeVscode();
         expect(vscode.debug.activeDebugSession).toBeUndefined();
         expect(vscode.debug.activeStackItem).toBeUndefined();
@@ -32,7 +32,7 @@ describe("vscode.debug — null-объект: сессий нет и не буд
         }).not.toThrow();
     });
 
-    it("события — валидные подписки, которые не стреляют", () => {
+    it("events are valid subscriptions that never fire", () => {
         const { vscode } = makeVscode();
         const listener = vi.fn();
         const events = [
@@ -47,7 +47,7 @@ describe("vscode.debug — null-объект: сессий нет и не буд
         expect(listener).not.toHaveBeenCalled();
     });
 
-    it("register* отдают Disposable; провайдеры никто не зовёт", () => {
+    it("register* return a Disposable; nobody calls the providers", () => {
         const { vscode } = makeVscode();
         const provider = { provideDebugConfigurations: vi.fn(), resolveDebugConfiguration: vi.fn() };
         const factory = { createDebugAdapterDescriptor: vi.fn() };
@@ -67,7 +67,7 @@ describe("vscode.debug — null-объект: сессий нет и не буд
         expect(tracker.createDebugAdapterTracker).not.toHaveBeenCalled();
     });
 
-    it("startDebugging — false, stopDebugging выполняется, точки останова — no-op", async () => {
+    it("startDebugging is false, stopDebugging resolves, breakpoints are a no-op", async () => {
         const { vscode } = makeVscode();
         await expect(vscode.debug.startDebugging(undefined, "Launch")).resolves.toBe(false);
         await expect(vscode.debug.stopDebugging()).resolves.toBeUndefined();
@@ -77,7 +77,7 @@ describe("vscode.debug — null-объект: сессий нет и не буд
         expect(vscode.debug.breakpoints).toEqual([]);
     });
 
-    it("человеку — одна строка на тип отладчика и одна на попытку запуска; трекеры молчат", async () => {
+    it("the user gets one line per debugger type and one per start attempt; trackers stay silent", async () => {
         const { stub, vscode } = makeVscode();
         vscode.debug.registerDebugConfigurationProvider("go", {});
         vscode.debug.registerDebugAdapterDescriptorFactory("go", { createDebugAdapterDescriptor: () => undefined });
@@ -87,15 +87,15 @@ describe("vscode.debug — null-объект: сессий нет и не буд
         await vscode.debug.startDebugging(undefined, "a");
         await vscode.debug.startDebugging(undefined, "b");
         expect(warnings(stub)).toEqual([
-            'extensions/Extensions/warn: отладка "go" в TUI пока не поддержана — сессий не будет, остальное расширение работает',
-            'extensions/Extensions/warn: отладка "delve" в TUI пока не поддержана — сессий не будет, остальное расширение работает',
-            'extensions/Extensions/warn: отладка "lldb" в TUI пока не поддержана — сессий не будет, остальное расширение работает',
-            "extensions/Extensions/warn: запуск отладки в TUI пока не поддержан — сессия не начата",
+            'extensions/Extensions/warn: debugging "go" is not supported in TUI yet — no sessions, the rest of the extension works',
+            'extensions/Extensions/warn: debugging "delve" is not supported in TUI yet — no sessions, the rest of the extension works',
+            'extensions/Extensions/warn: debugging "lldb" is not supported in TUI yet — no sessions, the rest of the extension works',
+            "extensions/Extensions/warn: starting a debug session is not supported in TUI yet — no session started",
         ]);
     });
 
-    describe("asDebugSourceUri — по эталону", () => {
-        it("ссылка на источник — debug:-uri с путём, сессией и ref", () => {
+    describe("asDebugSourceUri — as upstream", () => {
+        it("a source reference becomes a debug: uri with path, session and ref", () => {
             const { vscode } = makeVscode();
             const uri = vscode.debug.asDebugSourceUri({ path: "/a b.go", sourceReference: 7 } as never, session);
             expect(uri.toString(true)).toBe("debug:/a b.go?session=s 1/2&ref=7");
@@ -103,7 +103,7 @@ describe("vscode.debug — null-объект: сессий нет и не буд
             expect(uri.query).toBe("session=s 1/2&ref=7");
         });
 
-        it("без сессии — только ref; без пути — пустой путь", () => {
+        it("without a session only ref; without a path an empty path", () => {
             const { vscode } = makeVscode();
             expect(vscode.debug.asDebugSourceUri({ path: "x", sourceReference: 3 } as never).query).toBe("ref=3");
             const noPath = vscode.debug.asDebugSourceUri({ sourceReference: 3 } as never);
@@ -111,7 +111,7 @@ describe("vscode.debug — null-объект: сессий нет и не буд
             expect(noPath.path).toBe("");
         });
 
-        it("путь без ссылки (ref 0 или не число) — file:-uri", () => {
+        it("a path without a reference (ref 0 or not a number) becomes a file: uri", () => {
             const { vscode } = makeVscode();
             expect(vscode.debug.asDebugSourceUri({ path: "/w/main.go", sourceReference: 0 } as never).toString()).toBe(
                 "file:///w/main.go",
@@ -121,7 +121,7 @@ describe("vscode.debug — null-объект: сессий нет и не буд
             );
         });
 
-        it("ни пути, ни ссылки — эталонная ошибка", () => {
+        it("neither path nor reference throws the upstream error", () => {
             const { vscode } = makeVscode();
             expect(() => vscode.debug.asDebugSourceUri({ path: 5 } as never)).toThrow(
                 "cannot create uri from DAP 'source' object; properties 'path' and 'sourceReference' are both missing.",

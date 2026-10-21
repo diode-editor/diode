@@ -22,7 +22,7 @@ function outputLines(
 
 function silentProvider(): vscode.AuthenticationProvider {
     const fail = (): never => {
-        throw new Error("провайдер не должен вызываться");
+        throw new Error("the provider must not be called");
     };
     return {
         onDidChangeSessions: vi.fn(fail),
@@ -32,32 +32,32 @@ function silentProvider(): vscode.AuthenticationProvider {
     };
 }
 
-describe("authenticationNoop — vscode.authentication без входа", () => {
-    it("namespace есть в `vscode` — без него `activate()` падал на чтении у undefined", () => {
+describe("authenticationNoop — vscode.authentication without sign-in", () => {
+    it("the namespace exists on `vscode` — without it `activate()` crashed reading from undefined", () => {
         const { namespace } = buildVscodeNamespace(makeStubRpc().rpc, createNodeExtHostDisk());
         expect(typeof namespace.authentication.getSession).toBe("function");
     });
 
-    it("getSession без createIfNone — undefined: человек не входил", async () => {
+    it("getSession without createIfNone is undefined: the user has not signed in", async () => {
         const { auth } = makeAuth();
         await expect(auth.getSession("github", ["repo"])).resolves.toBeUndefined();
         await expect(auth.getSession("github", [], { createIfNone: false })).resolves.toBeUndefined();
         await expect(auth.getSession("github", [], { silent: true })).resolves.toBeUndefined();
     });
 
-    it("createIfNone/forceNewSession — отказ с причиной, а не undefined вместо обещанной сессии", async () => {
+    it("createIfNone/forceNewSession reject with a reason instead of undefined for the promised session", async () => {
         const { auth } = makeAuth();
-        const reason = new Error('вход через "HashiCorpTerraformCloud" в TUI пока не поддержан');
+        const reason = new Error('sign-in with "HashiCorpTerraformCloud" is not supported in TUI yet');
         await expect(auth.getSession("HashiCorpTerraformCloud", [], { createIfNone: true })).rejects.toThrow(reason);
         await expect(
-            auth.getSession("HashiCorpTerraformCloud", [], { createIfNone: { detail: "войдите" } }),
+            auth.getSession("HashiCorpTerraformCloud", [], { createIfNone: { detail: "sign in" } }),
         ).rejects.toThrow(reason);
         await expect(
             auth.getSession("HashiCorpTerraformCloud", [], { createIfNone: false, forceNewSession: { detail: "x" } }),
         ).rejects.toThrow(reason);
     });
 
-    it("несовместимые с silent опции — эталонные ошибки", async () => {
+    it("options incompatible with silent throw the upstream errors", async () => {
         const { auth } = makeAuth();
         await expect(auth.getSession("p", [], { silent: true, forceNewSession: true })).rejects.toThrow(
             "Invalid combination of options. Please remove one of the following: forceNewSession, silent",
@@ -67,12 +67,12 @@ describe("authenticationNoop — vscode.authentication без входа", () =>
         );
     });
 
-    it("getAccounts — пустой список", async () => {
+    it("getAccounts returns an empty list", async () => {
         const { auth } = makeAuth();
         await expect(auth.getAccounts("github")).resolves.toEqual([]);
     });
 
-    it("onDidChangeSessions — валидное событие, подписка и отписка не падают", () => {
+    it("onDidChangeSessions is a valid event; subscribing and unsubscribing do not throw", () => {
         const { auth } = makeAuth();
         const listener = vi.fn();
         const sub = auth.onDidChangeSessions(listener);
@@ -80,7 +80,7 @@ describe("authenticationNoop — vscode.authentication без входа", () =>
         expect(listener).not.toHaveBeenCalled();
     });
 
-    it("registerAuthenticationProvider — Disposable, провайдера никто не зовёт", () => {
+    it("registerAuthenticationProvider returns a Disposable; nobody calls the provider", () => {
         const { auth } = makeAuth();
         const provider = silentProvider();
         const registration = auth.registerAuthenticationProvider("p", "P", provider, {
@@ -93,7 +93,7 @@ describe("authenticationNoop — vscode.authentication без входа", () =>
         expect(provider.onDidChangeSessions).not.toHaveBeenCalled();
     });
 
-    it("регистрация провайдера пишет в Output одну warn-строку: главное — в начале", () => {
+    it("registering a provider writes one warn line to Output, the key point first", () => {
         const { auth, stub } = makeAuth();
 
         auth.registerAuthenticationProvider("HashiCorpTerraformCloud", "HCP Terraform", silentProvider());
@@ -103,12 +103,12 @@ describe("authenticationNoop — vscode.authentication без входа", () =>
                 channel: "extensions",
                 label: "Extensions",
                 level: "warn",
-                value: 'вход через "HCP Terraform" (HashiCorpTerraformCloud) в TUI пока не поддержан — сессий не будет, остальное расширение работает',
+                value: 'sign-in with "HCP Terraform" (HashiCorpTerraformCloud) is not supported in TUI yet — no sessions, the rest of the extension works',
             },
         ]);
     });
 
-    it("повтор того же id — без второй строки; другой провайдер — своя строка", () => {
+    it("the same id again adds no second line; another provider gets its own line", () => {
         const { auth, stub } = makeAuth();
 
         auth.registerAuthenticationProvider("a", "A", silentProvider());

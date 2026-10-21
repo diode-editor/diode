@@ -44,7 +44,7 @@ function requestParams(overrides: Record<string, unknown> = {}): Record<string, 
 }
 
 describe("LanguagesNamespace — registerHoverProvider", () => {
-    it("каждая регистрация объявляется ядру с handle и селектором, dispose — снимает", () => {
+    it("each registration is announced to the core with a handle and selector, dispose removes it", () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
         const sent = () => stub.notifies.filter((n) => n.method.startsWith("languages."));
@@ -74,15 +74,15 @@ describe("LanguagesNamespace — registerHoverProvider", () => {
         expect(sent()).toHaveLength(4);
     });
 
-    it("снятый провайдер на запрос по своему handle не отвечает", async () => {
+    it("a removed provider does not answer a request for its handle", async () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
         const registration = languages.registerHoverProvider(
             { language: "typescript" },
-            { provideHover: () => new Hover("жив") as unknown as vscode.Hover },
+            { provideHover: () => new Hover("alive") as unknown as vscode.Hover },
         );
         openDoc(ctx);
-        expect(await stub.callRequest("languages.provideHover", requestParams())).toEqual({ contents: ["жив"] });
+        expect(await stub.callRequest("languages.provideHover", requestParams())).toEqual({ contents: ["alive"] });
 
         registration.dispose();
 
@@ -91,7 +91,7 @@ describe("LanguagesNamespace — registerHoverProvider", () => {
 });
 
 describe("LanguagesNamespace — languages.provideHover", () => {
-    it("документ — из зеркала по версии запроса, провайдер зовётся с позицией каретки", async () => {
+    it("the document comes from the mirror by request version, the provider is called with the cursor position", async () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
         openDoc(ctx);
@@ -124,7 +124,7 @@ describe("LanguagesNamespace — languages.provideHover", () => {
         });
     });
 
-    it("contents нормализуется: строка, MarkdownString и MarkedString-codeblock → блоки markdown", async () => {
+    it("contents are normalized: string, MarkdownString and MarkedString codeblock → markdown blocks", async () => {
         const { stub, ctx } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
         languages.registerHoverProvider(
@@ -133,10 +133,10 @@ describe("LanguagesNamespace — languages.provideHover", () => {
                 provideHover: () =>
                     ({
                         contents: [
-                            "просто строка",
+                            "just a string",
                             new MarkdownString("**markdown**"),
                             { language: "ts", value: "const b = 1" }, // legacy MarkedString
-                            { language: "", value: "без языка" },
+                            { language: "", value: "no language" },
                             "", // an empty block is dropped
                             "   \n  ", // whitespace only — also empty
                             42, // garbage is dropped
@@ -152,11 +152,11 @@ describe("LanguagesNamespace — languages.provideHover", () => {
         const result = await stub.callRequest("languages.provideHover", requestParams());
 
         expect(result).toEqual({
-            contents: ["просто строка", "**markdown**", "```ts\nconst b = 1\n```", "без языка"],
+            contents: ["just a string", "**markdown**", "```ts\nconst b = 1\n```", "no language"],
         });
     });
 
-    it("contents не-массивом и запрос без позиции и языка: позиция — (0,0), язык зеркала не затирается", async () => {
+    it("non-array contents and a request without position and language: position is (0,0), the mirror language is not overwritten", async () => {
         const { stub, ctx } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
         const seen: { pos?: vscode.Position } = {};
@@ -165,7 +165,7 @@ describe("LanguagesNamespace — languages.provideHover", () => {
             {
                 provideHover: (_doc, position) => {
                     seen.pos = position;
-                    return { contents: "одна строка не в массиве" } as unknown as vscode.Hover;
+                    return { contents: "a single string, not in an array" } as unknown as vscode.Hover;
                 },
             },
         );
@@ -178,10 +178,10 @@ describe("LanguagesNamespace — languages.provideHover", () => {
         // The request carried no languageId: the document keeps the mirror's language
         // rather than getting undefined (otherwise selectors would stop matching).
         expect(ctx.registry.get(Uri.parse(URI))?.languageId).toBe("markdown");
-        expect(result).toEqual({ contents: ["одна строка не в массиве"] });
+        expect(result).toEqual({ contents: ["a single string, not in an array"] });
     });
 
-    it("зовётся ровно провайдер запрошенного handle; сбойный, пустой и неизвестный — null", async () => {
+    it("exactly the provider of the requested handle is called; failing, empty and unknown — null", async () => {
         const { stub, ctx } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
         const calls: string[] = [];
@@ -203,12 +203,12 @@ describe("LanguagesNamespace — languages.provideHover", () => {
         );
         languages.registerHoverProvider(
             { language: "typescript" },
-            provider("second", () => new Hover(["от второго", "и ещё"]) as unknown as vscode.Hover),
+            provider("second", () => new Hover(["from the second", "and more"]) as unknown as vscode.Hover),
         );
         openDoc(ctx);
 
         expect(await stub.callRequest("languages.provideHover", requestParams({ handle: 2 }))).toEqual({
-            contents: ["от второго", "и ещё"],
+            contents: ["from the second", "and more"],
         });
         expect(calls).toEqual(["second"]);
 
@@ -223,14 +223,14 @@ describe("LanguagesNamespace — languages.provideHover", () => {
         expect(calls).toHaveLength(3);
     });
 
-    it("hover с кривым range сериализуется без range; без contents — отбрасывается целиком", async () => {
+    it("a hover with a malformed range is serialized without range; without contents it is dropped entirely", async () => {
         const { stub, ctx } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
         languages.registerHoverProvider(
             { language: "typescript" },
             {
                 provideHover: () =>
-                    ({ contents: ["текст"], range: { start: null, end: null } }) as unknown as vscode.Hover,
+                    ({ contents: ["text"], range: { start: null, end: null } }) as unknown as vscode.Hover,
             },
         );
         languages.registerHoverProvider(
@@ -239,11 +239,11 @@ describe("LanguagesNamespace — languages.provideHover", () => {
         );
         openDoc(ctx);
 
-        expect(await stub.callRequest("languages.provideHover", requestParams())).toEqual({ contents: ["текст"] });
+        expect(await stub.callRequest("languages.provideHover", requestParams())).toEqual({ contents: ["text"] });
         expect(await stub.callRequest("languages.provideHover", requestParams({ handle: 1 }))).toBeNull();
     });
 
-    it("документ не открыт, запрос устарел или впереди зеркала — null, провайдер не зовётся", async () => {
+    it("document not open, request stale or ahead of the mirror — null, the provider is not called", async () => {
         const { stub, ctx } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
         let calls = 0;
@@ -252,7 +252,7 @@ describe("LanguagesNamespace — languages.provideHover", () => {
             {
                 provideHover: () => {
                     calls++;
-                    return new Hover("есть") as unknown as vscode.Hover;
+                    return new Hover("present") as unknown as vscode.Hover;
                 },
             },
         );
@@ -279,7 +279,7 @@ describe("LanguagesNamespace — languages.provideHover", () => {
         expect(calls).toBe(0);
 
         expect(await stub.callRequest("languages.provideHover", requestParams({ version: 2 }))).toEqual({
-            contents: ["есть"],
+            contents: ["present"],
         });
         expect(calls).toBe(1);
     });

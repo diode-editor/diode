@@ -4,7 +4,7 @@ import { createExtensionSecretsFactory } from "./extensionSecrets.ts";
 import { makeStubRpc } from "./testStubRpc.ts";
 
 describe("extensionSecrets", () => {
-    it("каждый вызов уходит запросом к хосту со СВОИМ id расширения", async () => {
+    it("each call goes to the host as a request with ITS OWN extension id", async () => {
         const stub = makeStubRpc();
         const secrets = createExtensionSecretsFactory(stub.rpc).create("pub.one");
         await secrets.get("token");
@@ -19,7 +19,7 @@ describe("extensionSecrets", () => {
         ]);
     });
 
-    it("get разбирает ответ хоста: строка — значение, всё прочее — «нет секрета»", async () => {
+    it("get parses the host answer: a string is the value, anything else means no secret", async () => {
         const stub = makeStubRpc();
         const secrets = createExtensionSecretsFactory(stub.rpc).create("pub.one");
         stub.responder = () => ({ value: "s3cr3t" });
@@ -28,7 +28,7 @@ describe("extensionSecrets", () => {
         await expect(secrets.get("token")).resolves.toBeUndefined();
     });
 
-    it("keys отдаёт список хоста, а на мусор — пустой", async () => {
+    it("keys returns the host list, and an empty one for garbage", async () => {
         const stub = makeStubRpc();
         const secrets = createExtensionSecretsFactory(stub.rpc).create("pub.one");
         stub.responder = () => ({ keys: ["token", 42, "refresh"] });
@@ -37,7 +37,7 @@ describe("extensionSecrets", () => {
         await expect(secrets.keys()).resolves.toEqual([]);
     });
 
-    it("onDidChange приходит только своему расширению", () => {
+    it("onDidChange reaches only its own extension", () => {
         const stub = makeStubRpc();
         const factory = createExtensionSecretsFactory(stub.rpc);
         const one: string[] = [];
@@ -51,7 +51,7 @@ describe("extensionSecrets", () => {
         expect(two).toEqual(["other"]);
     });
 
-    it("событие про расширение, которое секретов не трогало, никого не роняет", () => {
+    it("an event for an extension that never touched secrets breaks nothing", () => {
         const stub = makeStubRpc();
         const factory = createExtensionSecretsFactory(stub.rpc);
         const seen: string[] = [];
@@ -62,7 +62,7 @@ describe("extensionSecrets", () => {
         expect(seen).toEqual([]);
     });
 
-    it("чужая форма `secrets.changed` игнорируется", () => {
+    it("a foreign `secrets.changed` shape is ignored", () => {
         const stub = makeStubRpc();
         const factory = createExtensionSecretsFactory(stub.rpc);
         const seen: string[] = [];
@@ -71,7 +71,7 @@ describe("extensionSecrets", () => {
         expect(seen).toEqual([]);
     });
 
-    it("повторный create для того же расширения делит один эмиттер", () => {
+    it("a repeated create for the same extension shares one emitter", () => {
         // Otherwise `context.secrets` of a recreated context would listen to nothing.
         const stub = makeStubRpc();
         const factory = createExtensionSecretsFactory(stub.rpc);

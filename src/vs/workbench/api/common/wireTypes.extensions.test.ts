@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { parseWireExtensionActivated, parseWireExtensionCatalog } from "./wireTypes.ts";
 
 describe("parseWireExtensionCatalog", () => {
-    it("разбирает полный каталог", () => {
+    it("parses a full catalog", () => {
         expect(
             parseWireExtensionCatalog({
                 extensions: [
@@ -19,7 +19,7 @@ describe("parseWireExtensionCatalog", () => {
         });
     });
 
-    it("порядок записей сохраняется — по нему субпроцесс решает, менялся ли состав", () => {
+    it("entry order is preserved — the subprocess uses it to decide whether the set changed", () => {
         const parsed = parseWireExtensionCatalog({
             extensions: [
                 { id: "pub.two", extensionPath: "/b", packageJSON: {}, isActive: false },
@@ -29,7 +29,7 @@ describe("parseWireExtensionCatalog", () => {
         expect(parsed?.extensions.map((e) => e.id)).toEqual(["pub.two", "pub.one"]);
     });
 
-    it("isActive — строго `true`, всё остальное значит «неактивно»", () => {
+    it("isActive is strictly `true`, anything else means 'inactive'", () => {
         const parsed = parseWireExtensionCatalog({
             extensions: [
                 { id: "pub.one", extensionPath: "/a", packageJSON: {}, isActive: 1 },
@@ -40,26 +40,26 @@ describe("parseWireExtensionCatalog", () => {
     });
 
     it.each([
-        ["строкой", "не объект"],
+        ["as a string", "not an object"],
         // `typeof null === "object"` — without an explicit null check it would slip
         // into `packageJSON`, and extensions read it unguarded (`ext.packageJSON.name`).
         ["null", null],
-        ["отсутствующим", undefined],
-    ])("манифест %s становится пустым объектом, но запись остаётся", (_name, packageJSON) => {
+        ["missing", undefined],
+    ])("manifest %s becomes an empty object, but the entry stays", (_name, packageJSON) => {
         const parsed = parseWireExtensionCatalog({
             extensions: [{ id: "pub.one", extensionPath: "/a", packageJSON, isActive: true }],
         });
         expect(parsed?.extensions).toEqual([{ id: "pub.one", extensionPath: "/a", packageJSON: {}, isActive: true }]);
     });
 
-    it("негодные записи выбрасываются поштучно, годные доезжают", () => {
+    it("invalid entries are dropped one by one, valid ones get through", () => {
         const parsed = parseWireExtensionCatalog({
             extensions: [
                 null,
                 // A hole in the array: dereferencing `entry.id` on it would throw
                 // a TypeError and lose the whole catalog, not just one entry.
                 undefined,
-                "строка",
+                "string",
                 { extensionPath: "/a", packageJSON: {} },
                 { id: "", extensionPath: "/a", packageJSON: {} },
                 { id: "pub.nopath", packageJSON: {} },
@@ -71,30 +71,30 @@ describe("parseWireExtensionCatalog", () => {
     });
 
     it.each([
-        ["не объект", "каталог"],
+        ["not an object", "catalog"],
         ["null", null],
-        ["без поля extensions", {}],
-        ["extensions не массив", { extensions: { "pub.one": {} } }],
-    ])("отвергает целиком: %s", (_name, raw) => {
+        ["no extensions field", {}],
+        ["extensions is not an array", { extensions: { "pub.one": {} } }],
+    ])("rejects entirely: %s", (_name, raw) => {
         expect(parseWireExtensionCatalog(raw)).toBeNull();
     });
 
-    it("пустой каталог — это валидный каталог, а не отказ", () => {
+    it("an empty catalog is a valid catalog, not a rejection", () => {
         expect(parseWireExtensionCatalog({ extensions: [] })).toEqual({ extensions: [] });
     });
 });
 
 describe("parseWireExtensionActivated", () => {
-    it("отдаёт id", () => {
+    it("returns the id", () => {
         expect(parseWireExtensionActivated({ id: "pub.one" })).toBe("pub.one");
     });
 
     it.each([
-        ["не объект", "pub.one"],
+        ["not an object", "pub.one"],
         ["null", null],
-        ["пустой id", { id: "" }],
-        ["нестроковый id", { id: 42 }],
-    ])("отвергает: %s", (_name, raw) => {
+        ["empty id", { id: "" }],
+        ["non-string id", { id: 42 }],
+    ])("rejects: %s", (_name, raw) => {
         expect(parseWireExtensionActivated(raw)).toBeNull();
     });
 });

@@ -31,7 +31,7 @@ function openParams(overrides: Record<string, unknown> = {}): Record<string, unk
 }
 
 describe("WorkspaceNamespace — document sync (editor.didOpen)", () => {
-    it("кладёт полный текст в реестр с явной версией и фаерит onDidOpenTextDocument", () => {
+    it("puts the full text in the registry with an explicit version and fires onDidOpenTextDocument", () => {
         const { stub, ctx, workspace } = makeCtx();
         const opened: vscode.TextDocument[] = [];
         workspace.onDidOpenTextDocument((doc) => opened.push(doc));
@@ -48,7 +48,7 @@ describe("WorkspaceNamespace — document sync (editor.didOpen)", () => {
         expect(workspace.textDocuments).toHaveLength(1);
     });
 
-    it("повторный didOpen того же ресурса не дублирует событие, но обновляет текст", () => {
+    it("repeated didOpen of the same resource does not duplicate the event but updates the text", () => {
         const { stub, ctx, workspace } = makeCtx();
         const opened: vscode.TextDocument[] = [];
         workspace.onDidOpenTextDocument((doc) => opened.push(doc));
@@ -62,7 +62,7 @@ describe("WorkspaceNamespace — document sync (editor.didOpen)", () => {
         expect(doc?.version).toBe(5);
     });
 
-    it("невалидные параметры отбрасываются без события", () => {
+    it("invalid params are dropped without an event", () => {
         const { stub, workspace } = makeCtx();
         const opened: vscode.TextDocument[] = [];
         workspace.onDidOpenTextDocument((doc) => opened.push(doc));
@@ -77,7 +77,7 @@ describe("WorkspaceNamespace — document sync (editor.didOpen)", () => {
         expect(workspace.textDocuments).toHaveLength(0);
     });
 
-    it("isDirty из снапшота доезжает до документа", () => {
+    it("isDirty from the snapshot reaches the document", () => {
         const { stub, ctx } = makeCtx();
         stub.fire("editor.didOpen", openParams({ isDirty: true }));
         expect(ctx.registry.get(Uri.parse(URI))?.isDirty).toBe(true);
@@ -85,7 +85,7 @@ describe("WorkspaceNamespace — document sync (editor.didOpen)", () => {
 });
 
 describe("WorkspaceNamespace — document sync (editor.didChange)", () => {
-    it("фаерит onDidChangeTextDocument с одной full-range правкой старого текста", () => {
+    it("fires onDidChangeTextDocument with one full-range edit of the old text", () => {
         const { stub, workspace } = makeCtx();
         const changes: vscode.TextDocumentChangeEvent[] = [];
         workspace.onDidChangeTextDocument((e) => changes.push(e));
@@ -110,7 +110,7 @@ describe("WorkspaceNamespace — document sync (editor.didChange)", () => {
         expect(change.text).toBe("xyz");
     });
 
-    it("правки батча модели применяются к зеркалу и уходят расширениям настоящими contentChanges", () => {
+    it("model batch edits apply to the mirror and reach extensions as real contentChanges", () => {
         const { stub, workspace } = makeCtx();
         stub.fire("editor.didOpen", openParams());
         const events: vscode.TextDocumentChangeEvent[] = [];
@@ -130,7 +130,7 @@ describe("WorkspaceNamespace — document sync (editor.didChange)", () => {
         expect(events[0].contentChanges).toMatchObject([{ rangeOffset: 6, rangeLength: 1, text: "b" }]);
     });
 
-    it("didChange неизвестного ресурса — это открытие: didOpen с полным текстом, а не правка", () => {
+    it("didChange of an unknown resource is an open: didOpen with the full text, not an edit", () => {
         // An LSP client must send didOpen to the server before any didChange —
         // the server silently drops a change event for an unannounced document.
         const { stub, workspace } = makeCtx();
@@ -147,7 +147,7 @@ describe("WorkspaceNamespace — document sync (editor.didChange)", () => {
         expect(opens[0].version).toBe(3);
     });
 
-    it("повторный didOpen с изменившимся текстом — didChange, а не второй didOpen", () => {
+    it("repeated didOpen with changed text is a didChange, not a second didOpen", () => {
         const { stub, workspace } = makeCtx();
         const opens: vscode.TextDocument[] = [];
         const changes: vscode.TextDocumentChangeEvent[] = [];
@@ -163,7 +163,7 @@ describe("WorkspaceNamespace — document sync (editor.didChange)", () => {
         expect(changes[0].document.getText()).toBe("new!");
     });
 
-    it("невалидные параметры отбрасываются без события", () => {
+    it("invalid params are dropped without an event", () => {
         const { stub, workspace } = makeCtx();
         const changes: vscode.TextDocumentChangeEvent[] = [];
         workspace.onDidChangeTextDocument((e) => changes.push(e));
@@ -175,7 +175,7 @@ describe("WorkspaceNamespace — document sync (editor.didChange)", () => {
 });
 
 describe("WorkspaceNamespace — document sync (editor.didClose)", () => {
-    it("закрытие открытого документа фаерит onDidCloseTextDocument и ставит isClosed", () => {
+    it("closing an open document fires onDidCloseTextDocument and sets isClosed", () => {
         const { stub, ctx, workspace } = makeCtx();
         const closed: vscode.TextDocument[] = [];
         workspace.onDidCloseTextDocument((doc) => closed.push(doc));
@@ -189,7 +189,7 @@ describe("WorkspaceNamespace — document sync (editor.didClose)", () => {
         expect(ctx.registry.get(Uri.parse(URI)) === (closed[0] as unknown)).toBe(true);
     });
 
-    it("невалидный uri и не открытый ресурс игнорируются без события", () => {
+    it("invalid uri and unopened resource are ignored without an event", () => {
         const { stub, workspace } = makeCtx();
         const closed: vscode.TextDocument[] = [];
         workspace.onDidCloseTextDocument((doc) => closed.push(doc));
@@ -202,7 +202,7 @@ describe("WorkspaceNamespace — document sync (editor.didClose)", () => {
         expect(closed).toHaveLength(0);
     });
 
-    it("после didClose повторное открытие фаерит didOpen заново (LSP-контракт)", () => {
+    it("after didClose, reopening fires didOpen again (LSP contract)", () => {
         const { stub, workspace } = makeCtx();
         const opened: vscode.TextDocument[] = [];
         workspace.onDidOpenTextDocument((doc) => opened.push(doc));
@@ -221,7 +221,7 @@ describe("WorkspaceNamespace — document sync (updateSubscriptions)", () => {
         return stub.notifies.filter((n) => n.method === "workspace.updateSubscriptions").map((n) => n.params);
     }
 
-    it("подписка/отписка шлёт updateSubscriptions только на переходах 0↔1", () => {
+    it("subscribe/unsubscribe sends updateSubscriptions only on 0<->1 transitions", () => {
         const { stub, workspace } = makeCtx();
 
         const first = workspace.onDidOpenTextDocument(() => undefined);
@@ -240,7 +240,7 @@ describe("WorkspaceNamespace — document sync (updateSubscriptions)", () => {
         ]);
     });
 
-    it("отписанный слушатель события не получает", () => {
+    it("an unsubscribed listener receives no events", () => {
         const { stub, workspace } = makeCtx();
         const opened: vscode.TextDocument[] = [];
         const sub = workspace.onDidOpenTextDocument((doc) => opened.push(doc));
@@ -251,7 +251,7 @@ describe("WorkspaceNamespace — document sync (updateSubscriptions)", () => {
         expect(opened).toHaveLength(0);
     });
 
-    it("wrapper кладётся в переданный массив disposables и dispose через него снимает подписку", () => {
+    it("wrapper is pushed into the given disposables array and disposing it removes the subscription", () => {
         const { stub, workspace } = makeCtx();
         const disposables: vscode.Disposable[] = [];
         workspace.onDidChangeTextDocument(() => undefined, undefined, disposables);

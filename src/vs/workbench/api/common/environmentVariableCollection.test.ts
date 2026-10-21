@@ -22,15 +22,15 @@ const folder = (index: number): vscode.WorkspaceFolder => ({
     index,
 });
 
-describe("ExtensionContext.environmentVariableCollection (субпроцесс)", () => {
-    it("одна коллекция на расширение; без изменений хосту ничего не уходит", () => {
+describe("ExtensionContext.environmentVariableCollection (subprocess)", () => {
+    it("one collection per extension; nothing is sent to the host without changes", () => {
         const { collections, sent } = setup();
         expect(collections.get("a.b")).toBe(collections.get("a.b"));
         expect(collections.get("a.b")).not.toBe(collections.get("c.d"));
         expect(sent()).toEqual([]);
     });
 
-    it("replace/append/prepend — хосту коллекция целиком, мутатор — с типом и опциями по умолчанию", () => {
+    it("replace/append/prepend send the whole collection to the host, mutator has type and default options", () => {
         const { collections, sent } = setup();
         const c = collections.get("a.b");
         c.replace("A", "1");
@@ -49,7 +49,7 @@ describe("ExtensionContext.environmentVariableCollection (субпроцесс)"
         });
     });
 
-    it("get отдаёт мутатор расширению без переменной и области; неизвестная — undefined", () => {
+    it("get returns the mutator without variable and scope; unknown yields undefined", () => {
         const { collections } = setup();
         const c = collections.get("a.b");
         c.append("PATH", ":/x", { applyAtShellIntegration: true });
@@ -61,7 +61,7 @@ describe("ExtensionContext.environmentVariableCollection (субпроцесс)"
         expect(c.get("NOPE")).toBeUndefined();
     });
 
-    it("тот же мутатор повторно — без нотификации (Claude Code переставляет порт на каждой активации)", () => {
+    it("same mutator again sends no notification (Claude Code resets the port on every activation)", () => {
         const { collections, sent } = setup();
         const c = collections.get("a.b");
         c.replace("P", "1");
@@ -74,14 +74,14 @@ describe("ExtensionContext.environmentVariableCollection (субпроцесс)"
         expect(sent()).toHaveLength(5);
     });
 
-    it("только в shell integration — допустимо (без ошибки), опции как переданы", () => {
+    it("shell integration only is allowed (no error), options as passed", () => {
         const { collections } = setup();
         const c = collections.get("a.b");
         c.replace("A", "1", { applyAtProcessCreation: false, applyAtShellIntegration: true });
         expect(c.get("A")?.options).toEqual({ applyAtProcessCreation: false, applyAtShellIntegration: true });
     });
 
-    it("смена одного applyAtProcessCreation — новая нотификация", () => {
+    it("changing only applyAtProcessCreation sends a new notification", () => {
         const { collections, sent } = setup();
         const c = collections.get("a.b");
         c.replace("A", "1", { applyAtProcessCreation: true, applyAtShellIntegration: true });
@@ -90,7 +90,7 @@ describe("ExtensionContext.environmentVariableCollection (субпроцесс)"
         expect(c.get("A")?.options.applyAtProcessCreation).toBe(false);
     });
 
-    it("опции «ни при создании процесса, ни в shell integration» — эталонная ошибка", () => {
+    it("options 'neither at process creation nor in shell integration' throw the upstream error", () => {
         const { collections, sent } = setup();
         expect(() => {
             collections.get("a.b").replace("A", "1", { applyAtProcessCreation: false });
@@ -98,7 +98,7 @@ describe("ExtensionContext.environmentVariableCollection (субпроцесс)"
         expect(sent()).toEqual([]);
     });
 
-    it("forEach и итератор — мутаторы своей области; forEach передаёт саму коллекцию и thisArg", () => {
+    it("forEach and iterator yield mutators of their scope; forEach passes the collection itself and thisArg", () => {
         const { collections } = setup();
         const c = collections.get("a.b");
         c.replace("A", "1");
@@ -113,7 +113,7 @@ describe("ExtensionContext.environmentVariableCollection (субпроцесс)"
         expect([...c.getScoped({ workspaceFolder: folder(0) })].map(([variable]) => variable)).toEqual(["S"]);
     });
 
-    it("getScoped: своя коллекция на папку (по uri), ключ провода — `<переменная>:::<uri>`, область — на проводе", () => {
+    it("getScoped: own collection per folder (by uri), wire key is `<variable>:::<uri>`, scope is on the wire", () => {
         const { collections, sent } = setup();
         const c = collections.get("a.b");
         const scoped = c.getScoped({ workspaceFolder: folder(1) });
@@ -135,13 +135,13 @@ describe("ExtensionContext.environmentVariableCollection (субпроцесс)"
         expect(c.get("V")).toBeUndefined();
     });
 
-    it("getScoped без папки — та же глобальная коллекция (ключ области пуст, как у эталона)", () => {
+    it("getScoped without a folder is the same global collection (empty scope key, as upstream)", () => {
         const { collections } = setup();
         const c = collections.get("a.b");
         expect(c.getScoped({})).toBe(c);
     });
 
-    it("delete убирает мутатор; опустевшая коллекция уходит без `collection`", () => {
+    it("delete removes the mutator; an emptied collection is sent without `collection`", () => {
         const { collections, sent } = setup();
         const c = collections.get("a.b");
         c.replace("A", "1");
@@ -150,7 +150,7 @@ describe("ExtensionContext.environmentVariableCollection (субпроцесс)"
         expect(sent().at(-1)).toEqual({ extensionId: "a.b", persistent: true, description: [] });
     });
 
-    it("clear без области — всё, с областью — только мутаторы и описание этой папки", () => {
+    it("clear without scope drops everything, with scope only that folder's mutators and description", () => {
         const { collections, sent } = setup();
         const c = collections.get("a.b");
         const s0 = c.getScoped({ workspaceFolder: folder(0) });
@@ -176,7 +176,7 @@ describe("ExtensionContext.environmentVariableCollection (субпроцесс)"
         expect(c.description).toBeUndefined();
     });
 
-    it("description: строка как есть, MarkdownString — до первого абзаца; повтор — без нотификации", () => {
+    it("description: string as is, MarkdownString up to the first paragraph; repeat sends no notification", () => {
         const { collections, sent } = setup();
         const c = collections.get("a.b");
         c.description = "Adds tools to PATH";
@@ -191,7 +191,7 @@ describe("ExtensionContext.environmentVariableCollection (субпроцесс)"
         expect(sent()).toHaveLength(3);
     });
 
-    it("description области — с областью на проводе", () => {
+    it("scoped description carries the scope on the wire", () => {
         const { collections, sent } = setup();
         collections.get("a.b").getScoped({ workspaceFolder: folder(2) }).description = "d";
         expect(sent().at(-1)?.description).toEqual([
@@ -202,7 +202,7 @@ describe("ExtensionContext.environmentVariableCollection (субпроцесс)"
         ]);
     });
 
-    it("persistent: по умолчанию true, общий для областей, смена уходит хосту", () => {
+    it("persistent: true by default, shared across scopes, change is sent to the host", () => {
         const { collections, sent } = setup();
         const c = collections.get("a.b");
         const scoped = c.getScoped({ workspaceFolder: folder(0) });
@@ -212,7 +212,7 @@ describe("ExtensionContext.environmentVariableCollection (субпроцесс)"
         expect(sent().at(-1)?.persistent).toBe(false);
     });
 
-    it("семя с областью без папки (сохранено старой сборкой): обход и clear области его не роняют", () => {
+    it("seed with a folderless scope (saved by an old build): iteration and scoped clear do not crash on it", () => {
         const { stub, collections } = setup();
         stub.fire("terminal.initEnvironmentVariableCollections", {
             collections: [["a.b", [["E", { variable: "E", value: "e", type: 1, options: {}, scope: {} }]]]],
@@ -223,7 +223,7 @@ describe("ExtensionContext.environmentVariableCollection (субпроцесс)"
         expect(c.get("E")?.value).toBe("e");
     });
 
-    it("семя хоста: сохранённая коллекция видна расширению, её правка уходит хосту", () => {
+    it("host seed: saved collection is visible to the extension, its edit is sent to the host", () => {
         const { stub, collections, sent } = setup();
         stub.fire("terminal.initEnvironmentVariableCollections", {
             collections: [

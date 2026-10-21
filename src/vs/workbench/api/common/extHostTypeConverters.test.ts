@@ -46,12 +46,12 @@ const NAN_RANGE = new Range(NaN, 1, 0, 2);
 const URI_A = Uri.file("/proj/a.ts");
 
 describe("rangeFrom", () => {
-    it("Range расширения — в core IRange из чистых объектов, без прототипа Position", () => {
+    it("an extension Range becomes a core IRange of plain objects, without the Position prototype", () => {
         const range = rangeFrom(new Range(1, 2, 3, 4));
         expect(range).toStrictEqual({ start: { line: 1, character: 2 }, end: { line: 3, character: 4 } });
     });
 
-    it("чужой утиный Range (другой бандл, лишние поля) принимается по форме", () => {
+    it("a foreign duck-typed Range (another bundle, extra fields) is accepted by shape", () => {
         const foreign = {
             start: { line: 0, character: 1, extra: true },
             end: { line: 0, character: 2 },
@@ -60,7 +60,7 @@ describe("rangeFrom", () => {
         expect(rangeFrom(foreign)).toStrictEqual(RANGE);
     });
 
-    it("перевёрнутый диапазон разворачивается: по строке и по символу в одной строке", () => {
+    it("a reversed range is flipped: by line and by character within one line", () => {
         expect(rangeFrom({ start: { line: 3, character: 0 }, end: { line: 1, character: 5 } })).toStrictEqual({
             start: { line: 1, character: 5 },
             end: { line: 3, character: 0 },
@@ -68,12 +68,12 @@ describe("rangeFrom", () => {
         expect(rangeFrom({ start: { line: 0, character: 2 }, end: { line: 0, character: 1 } })).toStrictEqual(RANGE);
     });
 
-    it("схлопнутый диапазон остаётся как есть", () => {
+    it("a collapsed range stays as is", () => {
         const point = { line: 2, character: 3 };
         expect(rangeFrom({ start: point, end: point })).toStrictEqual({ start: point, end: point });
     });
 
-    it("NaN и ±Infinity в любой из четырёх координат — null", () => {
+    it("NaN and ±Infinity in any of the four coordinates — null", () => {
         for (const bad of [NaN, Infinity, -Infinity]) {
             expect(rangeFrom({ start: { line: bad, character: 0 }, end: { line: 0, character: 0 } })).toBeNull();
             expect(rangeFrom({ start: { line: 0, character: bad }, end: { line: 0, character: 0 } })).toBeNull();
@@ -82,7 +82,7 @@ describe("rangeFrom", () => {
         }
     });
 
-    it("чужая форма — null: не объект, нет start/end, плоский провод, координата строкой", () => {
+    it("a foreign shape is null: not an object, no start/end, flat wire, a coordinate as a string", () => {
         expect(rangeFrom(null)).toBeNull();
         expect(rangeFrom(undefined)).toBeNull();
         expect(rangeFrom(5)).toBeNull();
@@ -94,44 +94,44 @@ describe("rangeFrom", () => {
 });
 
 describe("stripSnippetPlaceholders", () => {
-    it("вырезает плейсхолдеры, оставляя их текст", () => {
+    it("strips placeholders, keeping their text", () => {
         expect(stripSnippetPlaceholders("greet(${1:name})$0")).toBe("greet(name)");
         expect(stripSnippetPlaceholders("if ${1|a,b|} then")).toBe("if a then");
         expect(stripSnippetPlaceholders("call(${1})")).toBe("call()");
         expect(stripSnippetPlaceholders("sum($1, $2)")).toBe("sum(, )");
     });
 
-    it("экранированный доллар остаётся долларом", () => {
+    it("an escaped dollar stays a dollar", () => {
         expect(stripSnippetPlaceholders("cost: \\$5")).toBe("cost: $5");
     });
 
-    it("многозначные индексы табстопов разбираются целиком", () => {
+    it("multi-digit tabstop indices are parsed whole", () => {
         expect(stripSnippetPlaceholders("f(${10:x})")).toBe("f(x)");
         expect(stripSnippetPlaceholders("f(${12})")).toBe("f()");
         expect(stripSnippetPlaceholders("f($12)")).toBe("f()");
         expect(stripSnippetPlaceholders("if ${10|a,b|} then")).toBe("if a then");
     });
 
-    it("выбор из нескольких вариантов — первый вариант целиком", () => {
+    it("a choice of several options gives the whole first option", () => {
         expect(stripSnippetPlaceholders("${1|foo,bar|}")).toBe("foo");
     });
 
-    it("пустой список вариантов не ломает разбор", () => {
+    it("an empty choice list does not break parsing", () => {
         expect(stripSnippetPlaceholders("x${1||}y")).toBe("xy");
     });
 });
 
-describe("декорации", () => {
+describe("decorations", () => {
     describe("serializeColor", () => {
-        it("CSS-строка проходит как есть", () => {
+        it("a CSS string passes as is", () => {
             expect(serializeColor("#ff0000")).toBe("#ff0000");
         });
-        it("ThemeColor (утиный тип с id) → { $themeColor }", () => {
+        it("ThemeColor (duck type with id) → { $themeColor }", () => {
             expect(serializeColor({ id: "editorGutter.modifiedBackground" })).toEqual({
                 $themeColor: "editorGutter.modifiedBackground",
             });
         });
-        it("undefined / прочее → undefined", () => {
+        it("undefined / anything else → undefined", () => {
             expect(serializeColor(undefined)).toBeUndefined();
             expect(serializeColor(42)).toBeUndefined();
             expect(serializeColor({ nope: 1 })).toBeUndefined();
@@ -140,7 +140,7 @@ describe("декорации", () => {
     });
 
     describe("serializeDecorationRenderOptions", () => {
-        it("несёт только релевантные поля, ThemeColor сериализуется", () => {
+        it("carries only relevant fields, ThemeColor is serialized", () => {
             expect(
                 serializeDecorationRenderOptions({
                     isWholeLine: true,
@@ -159,12 +159,12 @@ describe("декорации", () => {
                 color: { $themeColor: "foreground" },
             });
         });
-        it("пустые/невалидные опции → пустой объект", () => {
+        it("empty/invalid options → an empty object", () => {
             expect(serializeDecorationRenderOptions(undefined)).toEqual({});
             expect(serializeDecorationRenderOptions(null)).toEqual({});
             expect(serializeDecorationRenderOptions({ isWholeLine: "yes" })).toEqual({});
         });
-        it("отсутствующие и кривые поля — без ключа, а не ключом с undefined", () => {
+        it("missing and malformed fields have no key, not a key with undefined", () => {
             expect(serializeDecorationRenderOptions({})).toStrictEqual({});
             expect(
                 serializeDecorationRenderOptions({
@@ -179,15 +179,15 @@ describe("декорации", () => {
 });
 
 describe("toVscodeRange", () => {
-    it("диапазон провода → экземпляр Range расширения", () => {
+    it("a wire range → an extension Range instance", () => {
         const range = toVscodeRange({ start: { line: 1, character: 2 }, end: { line: 3, character: 4 } });
         expect(range).toBeInstanceOf(Range);
         expect([range.start.line, range.start.character, range.end.line, range.end.character]).toEqual([1, 2, 3, 4]);
     });
 });
 
-describe("выделения", () => {
-    it("toWireSelection несёт anchor/active как есть — и у перевёрнутого выделения", () => {
+describe("selections", () => {
+    it("toWireSelection carries anchor/active as is — also for a reversed selection", () => {
         expect(toWireSelection(new Selection(3, 4, 1, 2))).toStrictEqual({
             anchorLine: 3,
             anchorCharacter: 4,
@@ -196,7 +196,7 @@ describe("выделения", () => {
         });
     });
 
-    it("toVscodeSelection — обратный перевод в Selection с тем же anchor/active", () => {
+    it("toVscodeSelection converts back to a Selection with the same anchor/active", () => {
         const selection = toVscodeSelection({ anchorLine: 3, anchorCharacter: 4, activeLine: 1, activeCharacter: 2 });
         expect(selection).toBeInstanceOf(Selection);
         expect([selection.anchor.line, selection.anchor.character]).toEqual([3, 4]);
@@ -205,20 +205,20 @@ describe("выделения", () => {
 });
 
 describe("toWireEditRange", () => {
-    it("Range и Selection — их диапазон; перевёрнутый утиный разворачивается", () => {
+    it("Range and Selection give their range; a reversed duck-typed one is flipped", () => {
         expect(toWireEditRange(new Range(0, 1, 0, 2))).toStrictEqual(RANGE);
         expect(toWireEditRange(new Selection(0, 2, 0, 1))).toStrictEqual(RANGE);
         expect(toWireEditRange(REVERSED as unknown as vscode.Range)).toStrictEqual(RANGE);
     });
 
-    it("Position — пустой диапазон в точке; объект без end — тоже позиция", () => {
+    it("Position gives an empty range at the point; an object without end is a position too", () => {
         const point = { start: { line: 2, character: 3 }, end: { line: 2, character: 3 } };
         expect(toWireEditRange(new Position(2, 3))).toStrictEqual(point);
         const halfRange = { line: 2, character: 3, start: { line: 9, character: 9 } };
         expect(toWireEditRange(halfRange as unknown as vscode.Position)).toStrictEqual(point);
     });
 
-    it("объект с end, но без start — тоже позиция, а не битый диапазон", () => {
+    it("an object with end but without start is a position too, not a broken range", () => {
         const halfRange = { line: 2, character: 3, end: { line: 9, character: 9 } };
         expect(toWireEditRange(halfRange as unknown as vscode.Position)).toStrictEqual({
             start: { line: 2, character: 3 },
@@ -226,14 +226,14 @@ describe("toWireEditRange", () => {
         });
     });
 
-    it("битый диапазон — null", () => {
+    it("a broken range is null", () => {
         expect(toWireEditRange(NAN_RANGE)).toBeNull();
         expect(toWireEditRange({ start: 1, end: 2 } as unknown as vscode.Range)).toBeNull();
     });
 });
 
 describe("normalizeDecorationRanges", () => {
-    it("голые Range и DecorationOptions с .range; перевёрнутый утиный разворачивается", () => {
+    it("bare Range and DecorationOptions with .range; a reversed duck-typed one is flipped", () => {
         expect(normalizeDecorationRanges([new Range(0, 1, 0, 2), REVERSED as unknown as vscode.Range])).toStrictEqual([
             RANGE,
             RANGE,
@@ -243,7 +243,7 @@ describe("normalizeDecorationRanges", () => {
         ]);
     });
 
-    it("битый диапазон выпадает, остальные остаются", () => {
+    it("a broken range drops out, the rest stay", () => {
         const items = [
             NAN_RANGE,
             SHAPELESS,
@@ -255,29 +255,29 @@ describe("normalizeDecorationRanges", () => {
 });
 
 describe("toWireMarker", () => {
-    it("Diagnostic-подобный объект → маркер провода", () => {
+    it("a Diagnostic-like object → a wire marker", () => {
         expect(
             toWireMarker({ range: FOREIGN, message: "m", severity: 1, code: { value: 7 }, source: "ts" }),
         ).toStrictEqual({ severity: 1, range: RANGE, message: "m", code: "7", source: "ts" });
     });
 
-    it("без range (undefined или null) — маркер в начале файла", () => {
+    it("without range (undefined or null) — a marker at the start of the file", () => {
         const zero = { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } };
         expect(toWireMarker({ message: "m" })?.range).toStrictEqual(zero);
         expect(toWireMarker({ range: null, message: "m" })?.range).toStrictEqual(zero);
     });
 
-    it("перевёрнутый утиный диапазон разворачивается", () => {
+    it("a reversed duck-typed range is flipped", () => {
         expect(toWireMarker({ range: REVERSED })?.range).toStrictEqual(RANGE);
     });
 
-    it("битый диапазон (нет start/end, NaN) — null, а не TypeError", () => {
+    it("a broken range (no start/end, NaN) is null, not a TypeError", () => {
         expect(toWireMarker({ range: SHAPELESS, message: "m" })).toBeNull();
         expect(toWireMarker({ range: NAN_RANGE, message: "m" })).toBeNull();
         expect(toWireMarker({ range: "0:1", message: "m" })).toBeNull();
     });
 
-    it("code: строка и число — строкой, rich-форма — своим value, прочее — без code", () => {
+    it("code: string and number as a string, rich form by its value, anything else without code", () => {
         expect(toWireMarker({ code: "E1" })?.code).toBe("E1");
         expect(toWireMarker({ code: 0 })?.code).toBe("0");
         expect(toWireMarker({ code: { value: "rule", target: "https://x" } })?.code).toBe("rule");
@@ -286,7 +286,7 @@ describe("toWireMarker", () => {
         expect(toWireMarker({ code: true })).not.toHaveProperty("code");
     });
 
-    it("severity и source — только своего типа", () => {
+    it("severity and source only of their own type", () => {
         expect(toWireMarker({ severity: "1", source: 5 })).toStrictEqual({
             severity: 0,
             range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } },
@@ -294,7 +294,7 @@ describe("toWireMarker", () => {
         });
     });
 
-    it("message: строка, rich-форма, null/undefined, прочие значения", () => {
+    it("message: string, rich form, null/undefined, other values", () => {
         expect(toWireMarker({ message: "" })?.message).toBe("");
         expect(toWireMarker({ message: { value: "**md**" } })?.message).toBe("**md**");
         expect(toWireMarker({ message: { value: 1 } })?.message).toBe("");
@@ -303,28 +303,28 @@ describe("toWireMarker", () => {
     });
 });
 
-describe("serializeCompletionItem — диапазон замены", () => {
+describe("serializeCompletionItem — replace range", () => {
     function rangeOf(range: unknown): unknown {
         const item = new CompletionItem("x");
         (item as { range?: unknown }).range = range;
         return serializeCompletionItem(item as unknown as vscode.CompletionItem, "1.0")?.range;
     }
 
-    it("Range расширения и чужой утиный Range (другой бандл) — оба доезжают", () => {
+    it("an extension Range and a foreign duck-typed Range (another bundle) both arrive", () => {
         expect(rangeOf(new Range(0, 1, 0, 2))).toStrictEqual(RANGE);
         expect(rangeOf(FOREIGN)).toStrictEqual(RANGE);
     });
 
-    it("{ inserting, replacing } — берётся replacing, утиный тоже", () => {
+    it("{ inserting, replacing } — replacing is taken, duck-typed too", () => {
         expect(rangeOf({ inserting: new Range(0, 1, 0, 1), replacing: new Range(0, 1, 0, 2) })).toStrictEqual(RANGE);
         expect(rangeOf({ inserting: FOREIGN, replacing: FOREIGN })).toStrictEqual(RANGE);
     });
 
-    it("перевёрнутый разворачивается", () => {
+    it("a reversed one is flipped", () => {
         expect(rangeOf(REVERSED)).toStrictEqual(RANGE);
     });
 
-    it("нет диапазона или он битый — поля range нет", () => {
+    it("no range or a broken one — no range field", () => {
         expect(rangeOf(undefined)).toBeUndefined();
         expect(rangeOf(null)).toBeUndefined();
         expect(rangeOf(5)).toBeUndefined();
@@ -334,19 +334,19 @@ describe("serializeCompletionItem — диапазон замены", () => {
     });
 });
 
-describe("serializeCompletionItem — границы полей", () => {
+describe("serializeCompletionItem — field boundaries", () => {
     function serialize(fields: Record<string, unknown>): unknown {
         const item = new CompletionItem("x");
         Object.assign(item, fields);
         return serializeCompletionItem(item as unknown as vscode.CompletionItem, "1.0");
     }
 
-    it("отсутствующие поля — без ключей, а не ключами с undefined", () => {
+    it("missing fields have no keys, not keys with undefined", () => {
         expect(serialize({})).toStrictEqual({ label: "x", insertText: "x", id: "1.0" });
         expect(serialize({ label: { label: "x" } })).toStrictEqual({ label: "x", insertText: "x", id: "1.0" });
     });
 
-    it("поля чужого типа — без ключей", () => {
+    it("fields of a foreign type have no keys", () => {
         expect(
             serialize({
                 label: { label: "x", detail: 1, description: 2 },
@@ -358,12 +358,12 @@ describe("serializeCompletionItem — границы полей", () => {
         ).toStrictEqual({ label: "x", insertText: "x", id: "1.0" });
     });
 
-    it("label: null и CompletionItemLabel с нестроковым label — пункт отбрасывается", () => {
+    it("label: null and a CompletionItemLabel with a non-string label — the item is dropped", () => {
         expect(serialize({ label: null })).toBeNull();
         expect(serialize({ label: { label: 5 } })).toBeNull();
     });
 
-    it("label, сменивший форму между чтениями (геттер), — без labelDetail, а не TypeError", () => {
+    it("a label that changes shape between reads (getter) gives no labelDetail, not a TypeError", () => {
         for (const second of [null, undefined]) {
             const item = new CompletionItem("x");
             const reads: unknown[] = [{ label: "x" }, second];
@@ -376,11 +376,11 @@ describe("serializeCompletionItem — границы полей", () => {
         }
     });
 
-    it("insertText: null — вставляется label", () => {
+    it("insertText: null — label is inserted", () => {
         expect(serialize({ insertText: null })).toStrictEqual({ label: "x", insertText: "x", id: "1.0" });
     });
 
-    it("readDocumentation: null и MarkdownString с нестроковым value — undefined", () => {
+    it("readDocumentation: null and a MarkdownString with a non-string value — undefined", () => {
         const item = new CompletionItem("x");
         (item as { documentation?: unknown }).documentation = null;
         expect(readDocumentation(item as unknown as vscode.CompletionItem)).toBeUndefined();
@@ -390,7 +390,7 @@ describe("serializeCompletionItem — границы полей", () => {
 });
 
 describe("serializeFoldingRange", () => {
-    it("не конечная граница (NaN, Infinity) — null", () => {
+    it("a non-finite bound (NaN, Infinity) is null", () => {
         for (const bad of [NaN, Infinity]) {
             expect(serializeFoldingRange({ start: bad, end: 1 } as vscode.FoldingRange)).toBeNull();
             expect(serializeFoldingRange({ start: 0, end: bad } as vscode.FoldingRange)).toBeNull();
@@ -398,13 +398,13 @@ describe("serializeFoldingRange", () => {
     });
 });
 
-describe("правки текста", () => {
-    it("serializeTextEdit: утиная правка → правка провода; диапазон разворачивается", () => {
+describe("text edits", () => {
+    it("serializeTextEdit: a duck-typed edit → a wire edit; the range is flipped", () => {
         expect(serializeTextEdit({ range: REVERSED, newText: "x" })).toStrictEqual({ range: RANGE, text: "x" });
         expect(serializeTextEdit(new TextEdit(new Range(0, 1, 0, 2), ""))).toStrictEqual({ range: RANGE, text: "" });
     });
 
-    it("serializeTextEdit: чужая форма — null", () => {
+    it("serializeTextEdit: a foreign shape is null", () => {
         expect(serializeTextEdit(null)).toBeNull();
         expect(serializeTextEdit("edit")).toBeNull();
         // A function with edit fields is not an edit object, even though its fields are readable.
@@ -413,7 +413,7 @@ describe("правки текста", () => {
         expect(serializeTextEdit({ range: FOREIGN, newText: 1 })).toBeNull();
     });
 
-    it("serializeWillSaveTextEdit: смена EOL — код провода, иначе — правка текста", () => {
+    it("serializeWillSaveTextEdit: an EOL change gives a wire code, otherwise a text edit", () => {
         expect(serializeWillSaveTextEdit(TextEdit.setEndOfLine(EndOfLine.CRLF))).toStrictEqual({ setEndOfLine: 2 });
         expect(serializeWillSaveTextEdit(TextEdit.setEndOfLine(EndOfLine.LF))).toStrictEqual({ setEndOfLine: 1 });
         expect(serializeWillSaveTextEdit(new TextEdit(new Range(0, 1, 0, 2), "y"))).toStrictEqual({
@@ -424,7 +424,7 @@ describe("правки текста", () => {
     });
 });
 
-describe("serializeWorkspaceEdit — битые диапазоны", () => {
+describe("serializeWorkspaceEdit — broken ranges", () => {
     /** TextEdit's `range` field is public and writable. */
     function brokenEdit(range: unknown): TextEdit {
         const edit = new TextEdit(new Range(0, 0, 0, 0), "bad");
@@ -432,7 +432,7 @@ describe("serializeWorkspaceEdit — битые диапазоны", () => {
         return edit;
     }
 
-    it("битая правка выпадает, целые соседи едут; перевёрнутый диапазон разворачивается", () => {
+    it("a broken edit drops out, intact neighbors go through; a reversed range is flipped", () => {
         const edit = new WorkspaceEdit();
         edit.set(URI_A, [brokenEdit(SHAPELESS), brokenEdit(REVERSED), brokenEdit(NAN_RANGE)]);
         expect(serializeWorkspaceEdit(edit)).toStrictEqual([
@@ -440,20 +440,20 @@ describe("serializeWorkspaceEdit — битые диапазоны", () => {
         ]);
     });
 
-    it("операция из одних битых правок — отказ всего edit'а (null)", () => {
+    it("an operation of only broken edits rejects the whole edit (null)", () => {
         const edit = new WorkspaceEdit();
         edit.createFile(URI_A);
         edit.set(URI_A, [brokenEdit(SHAPELESS), brokenEdit(NAN_RANGE)]);
         expect(serializeWorkspaceEdit(edit)).toBeNull();
     });
 
-    it("операция из одного EOL-шума — просто выпадает, это не отказ", () => {
+    it("an operation of only EOL noise simply drops out, it is not a rejection", () => {
         const edit = new WorkspaceEdit();
         edit.set(URI_A, [TextEdit.setEndOfLine(EndOfLine.LF)]);
         expect(serializeWorkspaceEdit(edit)).toStrictEqual([]);
     });
 
-    it("сниппет-правка с утиным перевёрнутым диапазоном — текстом с развёрнутым диапазоном", () => {
+    it("a snippet edit with a reversed duck-typed range becomes text with the flipped range", () => {
         const snippet = new SnippetTextEdit(new Range(0, 0, 0, 0), new SnippetString("f(${1:a})"));
         (snippet as { range: unknown }).range = REVERSED;
         const edit = new WorkspaceEdit();
@@ -465,14 +465,14 @@ describe("serializeWorkspaceEdit — битые диапазоны", () => {
 });
 
 describe("toVscodeSignatureHelp", () => {
-    it("plain-подсказка ядра → экземпляры SignatureHelp/SignatureInformation/ParameterInformation", () => {
+    it("a plain core signature help → SignatureHelp/SignatureInformation/ParameterInformation instances", () => {
         const offsets: readonly [number, number] = [6, 10];
         const help = toVscodeSignatureHelp({
             signatures: [
                 {
                     label: "greet(name)",
                     documentation: "doc",
-                    parameters: [{ label: "name", documentation: "кого" }, { label: offsets }],
+                    parameters: [{ label: "name", documentation: "whom" }, { label: offsets }],
                     activeParameter: 1,
                 },
                 { label: "greet()", parameters: [] },
@@ -490,7 +490,7 @@ describe("toVscodeSignatureHelp", () => {
         expect(first.documentation).toBe("doc");
         expect(first.activeParameter).toBe(1);
         expect(first.parameters[0]).toBeInstanceOf(ParameterInformation);
-        expect(first.parameters[0]).toMatchObject({ label: "name", documentation: "кого" });
+        expect(first.parameters[0]).toMatchObject({ label: "name", documentation: "whom" });
         // An own mutable copy: the core's readonly tuple is not handed to the provider.
         expect(first.parameters[1].label).toEqual([6, 10]);
         expect(first.parameters[1].label).not.toBe(offsets);

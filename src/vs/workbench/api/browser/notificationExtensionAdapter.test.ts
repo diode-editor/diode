@@ -10,7 +10,7 @@ function request(patch: Partial<INotificationRequest> = {}): INotificationReques
 }
 
 describe("findCloseAffordance", () => {
-    it("первая помеченная кнопка", () => {
+    it("first flagged button", () => {
         expect(
             findCloseAffordance([
                 { title: "Delete", isCloseAffordance: false },
@@ -20,7 +20,7 @@ describe("findCloseAffordance", () => {
         ).toBe(1);
     });
 
-    it("помеченная ПЕРВОЙ — это индекс 0, а не «не найдено»", () => {
+    it("flagged FIRST is index 0, not 'not found'", () => {
         expect(
             findCloseAffordance([
                 { title: "Cancel", isCloseAffordance: true },
@@ -29,14 +29,14 @@ describe("findCloseAffordance", () => {
         ).toBe(0);
     });
 
-    it("ни одной помеченной — undefined", () => {
+    it("none flagged yields undefined", () => {
         expect(findCloseAffordance([{ title: "Ok", isCloseAffordance: false }])).toBeUndefined();
         expect(findCloseAffordance([])).toBeUndefined();
     });
 });
 
 describe("NotificationExtensionAdapter", () => {
-    it("сообщение без кнопок доходит до сервиса и резолвится сразу", async () => {
+    it("message without buttons reaches the service and resolves immediately", async () => {
         const notifications = new NotificationService();
         const adapter = new NotificationExtensionAdapter(notifications);
 
@@ -46,7 +46,7 @@ describe("NotificationExtensionAdapter", () => {
         expect(notifications.passive().map((n) => n.message)).toEqual(["boom"]);
     });
 
-    it("кнопки едут заголовками, ответ — индексом", async () => {
+    it("buttons are sent as titles, the answer as an index", async () => {
         const notifications = new NotificationService();
         const adapter = new NotificationExtensionAdapter(notifications);
 
@@ -65,16 +65,16 @@ describe("NotificationExtensionAdapter", () => {
         await expect(pending).resolves.toBe(1);
     });
 
-    it("detail и modal доезжают до сервиса", () => {
+    it("detail and modal reach the service", () => {
         const notifications = new NotificationService();
         const adapter = new NotificationExtensionAdapter(notifications);
 
-        void adapter.showMessage(request({ modal: true, detail: "нельзя отменить" }));
+        void adapter.showMessage(request({ modal: true, detail: "cannot be undone" }));
 
-        expect(notifications.current()).toMatchObject({ modal: true, detail: "нельзя отменить" });
+        expect(notifications.current()).toMatchObject({ modal: true, detail: "cannot be undone" });
     });
 
-    it("isCloseAffordance превращается в индекс закрывающей кнопки", () => {
+    it("isCloseAffordance becomes the close button index", () => {
         const notifications = new NotificationService();
         const adapter = new NotificationExtensionAdapter(notifications);
 
@@ -91,7 +91,7 @@ describe("NotificationExtensionAdapter", () => {
         expect(notifications.current()?.closeAffordance).toBe(1);
     });
 
-    it("без помеченной кнопки closeAffordance не выставляется", () => {
+    it("without a flagged button closeAffordance is not set", () => {
         const notifications = new NotificationService();
         const adapter = new NotificationExtensionAdapter(notifications);
 
@@ -100,7 +100,7 @@ describe("NotificationExtensionAdapter", () => {
         expect(notifications.current()?.closeAffordance).toBeUndefined();
     });
 
-    it("cancel(handle) снимает показ ЭТОГО расширения и доводит обещание до undefined", async () => {
+    it("cancel(handle) dismisses THIS extension's message and resolves the promise to undefined", async () => {
         const notifications = new NotificationService();
         const adapter = new NotificationExtensionAdapter(notifications);
 
@@ -113,7 +113,7 @@ describe("NotificationExtensionAdapter", () => {
         expect(notifications.current()).toBeNull();
     });
 
-    it("cancel по чужому handle ничего не гасит", () => {
+    it("cancel with a foreign handle dismisses nothing", () => {
         const notifications = new NotificationService();
         const adapter = new NotificationExtensionAdapter(notifications);
 
@@ -123,7 +123,7 @@ describe("NotificationExtensionAdapter", () => {
         expect(notifications.current()?.items).toEqual(["One"]);
     });
 
-    it("cancel после ответа — no-op: handle уже забыт", async () => {
+    it("cancel after the answer is a no-op: the handle is already forgotten", async () => {
         const notifications = new NotificationService();
         const adapter = new NotificationExtensionAdapter(notifications);
 
@@ -134,7 +134,7 @@ describe("NotificationExtensionAdapter", () => {
         notifications.answer(id, 0);
         await expect(pending).resolves.toBe(0);
 
-        const other = notifications.show({ severity: "info", message: "чужое", modal: false, items: ["X"] });
+        const other = notifications.show({ severity: "info", message: "foreign", modal: false, items: ["X"] });
         adapter.cancel(42);
         expect(notifications.current()?.id).toBe(other.id);
     });

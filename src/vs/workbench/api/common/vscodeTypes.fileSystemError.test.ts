@@ -3,14 +3,14 @@ import { describe, expect, it } from "vitest";
 import { FileSystemError, Uri } from "./vscodeTypes.ts";
 
 describe("FileSystemError", () => {
-    it("фабрики выставляют соответствующий code", () => {
+    it("factories set the matching code", () => {
         expect(FileSystemError.FileNotFound("m").code).toBe("FileNotFound");
         expect(FileSystemError.FileExists("m").code).toBe("FileExists");
         expect(FileSystemError.NoPermissions("m").code).toBe("NoPermissions");
         expect(FileSystemError.Unavailable("m").code).toBe("Unavailable");
     });
 
-    it("фабрики FileNotADirectory/FileIsADirectory (объявлены в d.ts) — code и провайдерный name", () => {
+    it("FileNotADirectory/FileIsADirectory factories (declared in d.ts) set code and provider name", () => {
         const notDir = FileSystemError.FileNotADirectory("m");
         expect(notDir.code).toBe("FileNotADirectory");
         expect(notDir.name).toBe("EntryNotADirectory (FileSystemError)");
@@ -21,7 +21,7 @@ describe("FileSystemError", () => {
         expect(isDir.message).toContain("/a/dir");
     });
 
-    it("это Error с VS Code-совместимым name (провайдерный код + суффикс)", () => {
+    it("is an Error with a VS Code-compatible name (provider code + suffix)", () => {
         const err = FileSystemError.FileNotFound("nope");
         expect(err).toBeInstanceOf(Error);
         // The stock editorconfig-vscode extension matches FileNotFound by exactly this name.
@@ -30,14 +30,14 @@ describe("FileSystemError", () => {
         expect(err.message).toBe("nope");
     });
 
-    it("name других кодов тоже в формате VS Code", () => {
+    it("names of other codes are also in VS Code format", () => {
         expect(FileSystemError.FileExists("m").name).toBe("EntryExists (FileSystemError)");
         expect(FileSystemError.NoPermissions("m").name).toBe("NoPermissions (FileSystemError)");
         expect(new FileSystemError().name).toBe("Unknown (FileSystemError)");
         expect(new FileSystemError("m", "Custom").name).toBe("Custom (FileSystemError)");
     });
 
-    it("принимает Uri (message из toString) и пустой конструктор (code=Unknown)", () => {
+    it("accepts a Uri (message from toString) and an empty constructor (code=Unknown)", () => {
         const fromUri = FileSystemError.FileExists(Uri.file("/a/b.txt"));
         expect(fromUri.message).toContain("/a/b.txt");
         const bare = new FileSystemError();

@@ -29,25 +29,25 @@ function pickRequest(overrides: Partial<IWireQuickPickRequest> = {}): IWireQuick
 }
 
 describe("QuickInputExtensionAdapter.showInputBox", () => {
-    it("поднимает оверлей с опциями расширения и отдаёт введённое", async () => {
+    it("raises the overlay with the extension's options and returns the input", async () => {
         const { adapter, component, testApp } = createAdapter();
         const pending = adapter.showInputBox({
             handle: 1,
             title: "Your name",
-            prompt: "Как к вам обращаться",
-            placeHolder: "имя",
-            value: "Ада",
+            prompt: "How should we address you",
+            placeHolder: "name",
+            value: "Ada",
             password: false,
             validates: false,
         });
         expect(component.view.title).toBe("Your name");
-        expect(component.view.prompt).toBe("Как к вам обращаться");
-        expect(component.view.placeholder).toBe("имя");
+        expect(component.view.prompt).toBe("How should we address you");
+        expect(component.view.placeholder).toBe("name");
         testApp.sendKey("Enter");
-        await expect(pending).resolves.toBe("Ада");
+        await expect(pending).resolves.toBe("Ada");
     });
 
-    it("password из просьбы расширения включает маску, а отдаётся настоящий текст", async () => {
+    it("password from the extension's request enables the mask, but the real text is returned", async () => {
         const { adapter, component, testApp } = createAdapter();
         const pending = adapter.showInputBox({ handle: 1, password: true, validates: false });
         testApp.sendKey("h");
@@ -60,7 +60,7 @@ describe("QuickInputExtensionAdapter.showInputBox", () => {
         await expect(pending).resolves.toBe("hi");
     });
 
-    it("без password маски нет", () => {
+    it("no mask without password", () => {
         const { adapter, component } = createAdapter();
         void adapter.showInputBox({ handle: 1, password: false, validates: false });
         expect(component.view.password).toBe(false);
@@ -73,20 +73,20 @@ describe("QuickInputExtensionAdapter.showInputBox", () => {
         await expect(pending).resolves.toBeUndefined();
     });
 
-    it("валидация расширения показывается и блокирует Enter", async () => {
+    it("extension validation is shown and blocks Enter", async () => {
         const { adapter, component, testApp } = createAdapter();
         const pending = adapter.showInputBox({
             handle: 1,
             password: false,
             validates: true,
             validate: (value) =>
-                Promise.resolve(value === "ab" ? { message: "Только цифры", severity: "error" as const } : null),
+                Promise.resolve(value === "ab" ? { message: "Digits only", severity: "error" as const } : null),
         });
         testApp.sendKey("a");
         testApp.sendKey("b");
         await Promise.resolve();
         await Promise.resolve();
-        expect(component.view.validationMessage).toBe("Только цифры");
+        expect(component.view.validationMessage).toBe("Digits only");
         expect(component.view.validationSeverity).toBe("error");
         testApp.sendKey("Enter");
         expect(component.isOpen()).toBe(true);
@@ -98,13 +98,13 @@ describe("QuickInputExtensionAdapter.showInputBox", () => {
         await expect(pending).resolves.toBe("a");
     });
 
-    it("предупреждение расширения не блокирует Enter", async () => {
+    it("extension warning does not block Enter", async () => {
         const { adapter, component, testApp } = createAdapter();
         const pending = adapter.showInputBox({
             handle: 1,
             password: false,
             validates: true,
-            validate: () => Promise.resolve({ message: "Осторожно", severity: "warning" as const }),
+            validate: () => Promise.resolve({ message: "Careful", severity: "warning" as const }),
         });
         testApp.sendKey("8");
         await Promise.resolve();
@@ -116,7 +116,7 @@ describe("QuickInputExtensionAdapter.showInputBox", () => {
 });
 
 describe("QuickInputExtensionAdapter.showQuickPick", () => {
-    it("одиночный выбор отвечает индексом выбранной строки", async () => {
+    it("single pick answers with the index of the chosen row", async () => {
         const { adapter, testApp } = createAdapter();
         const pending = adapter.showQuickPick(pickRequest());
         testApp.sendKey("ArrowDown");
@@ -124,7 +124,7 @@ describe("QuickInputExtensionAdapter.showQuickPick", () => {
         await expect(pending).resolves.toEqual([1]);
     });
 
-    it("без заголовка и плейсхолдера показ поднимается на дефолтах виджета", async () => {
+    it("without title and placeholder the pick opens with widget defaults", async () => {
         const { adapter, component, testApp } = createAdapter();
         const pending = adapter.showQuickPick(pickRequest());
         expect(component.view.title).toBeUndefined();
@@ -133,16 +133,16 @@ describe("QuickInputExtensionAdapter.showQuickPick", () => {
         await expect(pending).resolves.toEqual([0]);
     });
 
-    it("заголовок и плейсхолдер списка доезжают до виджета", async () => {
+    it("list title and placeholder reach the widget", async () => {
         const { adapter, component, testApp } = createAdapter();
-        const pending = adapter.showQuickPick(pickRequest({ title: "Кто", placeHolder: "Выберите" }));
-        expect(component.view.title).toBe("Кто");
-        expect(component.view.placeholder).toBe("Выберите");
+        const pending = adapter.showQuickPick(pickRequest({ title: "Who", placeHolder: "Pick one" }));
+        expect(component.view.title).toBe("Who");
+        expect(component.view.placeholder).toBe("Pick one");
         testApp.sendKey("Escape");
         await pending;
     });
 
-    it("множественный выбор без заголовка и плейсхолдера тоже поднимается", async () => {
+    it("multi-pick without title and placeholder also opens", async () => {
         const { adapter, component, testApp } = createAdapter();
         const pending = adapter.showQuickPick(pickRequest({ canPickMany: true }));
         expect(component.view.title).toBeUndefined();
@@ -151,31 +151,31 @@ describe("QuickInputExtensionAdapter.showQuickPick", () => {
         await expect(pending).resolves.toEqual([]);
     });
 
-    it("множественный выбор с заголовком и плейсхолдером доносит их до виджета", async () => {
+    it("multi-pick with title and placeholder passes them to the widget", async () => {
         const { adapter, component, testApp } = createAdapter();
         const pending = adapter.showQuickPick(
-            pickRequest({ canPickMany: true, title: "Что", placeHolder: "Отметьте" }),
+            pickRequest({ canPickMany: true, title: "What", placeHolder: "Check some" }),
         );
-        expect(component.view.title).toBe("Что");
-        expect(component.view.placeholder).toBe("Отметьте");
+        expect(component.view.title).toBe("What");
+        expect(component.view.placeholder).toBe("Check some");
         testApp.sendKey("Escape");
         await pending;
     });
 
-    it("описание пункта доезжает до виджета", () => {
+    it("item description reaches the widget", () => {
         const { adapter, component } = createAdapter();
         void adapter.showQuickPick(pickRequest({ items: [{ label: "TypeScript", description: ".ts" }] }));
         expect(component.view.items[0]).toEqual({ label: "TypeScript", description: ".ts" });
     });
 
-    it("Escape — undefined, а не пустой набор", async () => {
+    it("Escape yields undefined, not an empty set", async () => {
         const { adapter, testApp } = createAdapter();
         const pending = adapter.showQuickPick(pickRequest());
         testApp.sendKey("Escape");
         await expect(pending).resolves.toBeUndefined();
     });
 
-    it("множественный выбор отвечает индексами в порядке списка", async () => {
+    it("multi-pick answers with indices in list order", async () => {
         const { adapter, testApp } = createAdapter();
         const pending = adapter.showQuickPick(pickRequest({ canPickMany: true }));
         testApp.sendKey("ArrowDown");
@@ -188,21 +188,21 @@ describe("QuickInputExtensionAdapter.showQuickPick", () => {
         await expect(pending).resolves.toEqual([0, 2]);
     });
 
-    it("предотмеченные индексы открываются уже отмеченными", async () => {
+    it("pre-picked indices open already checked", async () => {
         const { adapter, testApp } = createAdapter();
         const pending = adapter.showQuickPick(pickRequest({ canPickMany: true, picked: [1] }));
         testApp.sendKey("Enter");
         await expect(pending).resolves.toEqual([1]);
     });
 
-    it("множественный выбор без отметок — пустой массив индексов", async () => {
+    it("multi-pick with nothing checked yields an empty index array", async () => {
         const { adapter, testApp } = createAdapter();
         const pending = adapter.showQuickPick(pickRequest({ canPickMany: true }));
         testApp.sendKey("Enter");
         await expect(pending).resolves.toEqual([]);
     });
 
-    it("пустой список: Enter ничего не принимает, Escape отменяет", async () => {
+    it("empty list: Enter accepts nothing, Escape cancels", async () => {
         const { adapter, component, testApp } = createAdapter();
         const pending = adapter.showQuickPick(pickRequest({ items: [] }));
         testApp.sendKey("Enter");
@@ -213,7 +213,7 @@ describe("QuickInputExtensionAdapter.showQuickPick", () => {
 });
 
 describe("QuickInputExtensionAdapter.cancel", () => {
-    it("снимает свой живой показ и доводит обещание до undefined", async () => {
+    it("cancels its live input and resolves the promise to undefined", async () => {
         const { adapter, component } = createAdapter();
         const pending = adapter.showInputBox({ handle: 7, password: false, validates: false });
         adapter.cancel(7);
@@ -221,14 +221,14 @@ describe("QuickInputExtensionAdapter.cancel", () => {
         expect(component.isOpen()).toBe(false);
     });
 
-    it("снимает живой показ списка", async () => {
+    it("cancels the live list pick", async () => {
         const { adapter } = createAdapter();
         const pending = adapter.showQuickPick(pickRequest({ handle: 9 }));
         adapter.cancel(9);
         await expect(pending).resolves.toBeUndefined();
     });
 
-    it("чужой handle не трогает текущий показ", async () => {
+    it("foreign handle leaves the current input alone", async () => {
         const { adapter, component, testApp } = createAdapter();
         const pending = adapter.showInputBox({ handle: 7, password: false, validates: false });
         adapter.cancel(8);
@@ -237,7 +237,7 @@ describe("QuickInputExtensionAdapter.cancel", () => {
         await expect(pending).resolves.toBe("");
     });
 
-    it("cancel по уже закрытому показу — no-op и чужую сессию не гасит", async () => {
+    it("cancel of an already closed input is a no-op and does not kill another session", async () => {
         const { adapter, service, component, testApp } = createAdapter();
         const pending = adapter.showInputBox({ handle: 7, password: false, validates: false });
         testApp.sendKey("Escape");
@@ -251,7 +251,7 @@ describe("QuickInputExtensionAdapter.cancel", () => {
         await expect(ours).resolves.toBe("");
     });
 
-    it("cancel по закрытому СПИСКУ чужую сессию не гасит", async () => {
+    it("cancel of a closed LIST does not kill another session", async () => {
         const { adapter, service, component, testApp } = createAdapter();
         const pending = adapter.showQuickPick(pickRequest({ handle: 5 }));
         testApp.sendKey("Escape");
@@ -264,7 +264,7 @@ describe("QuickInputExtensionAdapter.cancel", () => {
         await expect(ours).resolves.toBe("");
     });
 
-    it("хвост перехваченного показа не сбрасывает слот перехватчика", async () => {
+    it("tail of a preempted input does not reset the preempting slot", async () => {
         const { adapter, component, testApp } = createAdapter();
         const first = adapter.showInputBox({ handle: 1, password: false, validates: false });
         const second = adapter.showQuickPick(pickRequest({ handle: 2 }));
@@ -276,7 +276,7 @@ describe("QuickInputExtensionAdapter.cancel", () => {
         await expect(second).resolves.toBeUndefined();
     });
 
-    it("перехват следующим показом расширения не оставляет прошлое обещание висеть", async () => {
+    it("preemption by the extension's next input does not leave the previous promise hanging", async () => {
         const { adapter, testApp } = createAdapter();
         const first = adapter.showInputBox({ handle: 1, password: false, validates: false });
         const second = adapter.showQuickPick(pickRequest({ handle: 2 }));
@@ -286,7 +286,7 @@ describe("QuickInputExtensionAdapter.cancel", () => {
     });
 });
 
-describe("QuickInputExtensionAdapter — объектный пикер", () => {
+describe("QuickInputExtensionAdapter: object picker", () => {
     function objectPick() {
         const env = createAdapter();
         const events: IWireQuickPickEvent[] = [];
@@ -296,7 +296,7 @@ describe("QuickInputExtensionAdapter — объектный пикер", () => {
         return { ...env, events, emit };
     }
 
-    it("первый апдейт заводит и показывает пикер; detail встаёт на место описания", () => {
+    it("first update creates and shows the picker; detail takes the description's place", () => {
         const { adapter, component, emit } = objectPick();
         adapter.updateQuickPick(
             {
@@ -318,7 +318,7 @@ describe("QuickInputExtensionAdapter — объектный пикер", () => {
         ]);
     });
 
-    it("действия человека уходят событиями с handle'ами пунктов расширения", () => {
+    it("user actions are sent as events with the extension's item handles", () => {
         const { adapter, testApp, events, emit } = objectPick();
         adapter.updateQuickPick(
             {
@@ -343,14 +343,14 @@ describe("QuickInputExtensionAdapter — объектный пикер", () => {
         ]);
     });
 
-    it("набор — changeValue с текстом как есть", () => {
+    it("typing sends changeValue with the text as is", () => {
         const { adapter, testApp, events, emit } = objectPick();
         adapter.updateQuickPick({ handle: 5, visible: true }, emit);
         testApp.sendKey("$");
         expect(events).toContainEqual({ handle: 5, kind: "changeValue", value: "$" });
     });
 
-    it("activeItems/selectedItems того же диффа разрешаются по НОВЫМ предметам", () => {
+    it("activeItems/selectedItems of the same diff resolve against the NEW items", () => {
         const { adapter, component, emit } = objectPick();
         adapter.updateQuickPick({ handle: 5, visible: true, items: [{ handle: 0, label: "old" }] }, emit);
         adapter.updateQuickPick(
@@ -373,23 +373,23 @@ describe("QuickInputExtensionAdapter — объектный пикер", () => {
         });
     });
 
-    it("null сбрасывает поле, visible:false прячет, следующий visible:true показывает снова", () => {
+    it("null resets a field, visible:false hides, the next visible:true shows again", () => {
         const { adapter, component, events, emit } = objectPick();
         adapter.updateQuickPick({ handle: 5, visible: true, title: "T", step: 1, totalSteps: 2 }, emit);
         expect(component.view.title).toBe("T (1/2)");
         adapter.updateQuickPick({ handle: 5, title: null, step: null, totalSteps: null, placeholder: null }, emit);
         expect(component.view.title).toBeUndefined();
 
-        adapter.updateQuickPick({ handle: 5, visible: false, prompt: "скрыто" }, emit);
+        adapter.updateQuickPick({ handle: 5, visible: false, prompt: "hidden" }, emit);
         expect(component.isOpen()).toBe(false);
         expect(events.at(-1)).toEqual({ handle: 5, kind: "hide" });
 
         adapter.updateQuickPick({ handle: 5, visible: true }, emit);
         expect(component.isOpen()).toBe(true);
-        expect(component.view.prompt).toBe("скрыто");
+        expect(component.view.prompt).toBe("hidden");
     });
 
-    it("прочие флаги доезжают до сессии", () => {
+    it("other flags reach the session", () => {
         const { adapter, component, testApp, emit } = objectPick();
         adapter.updateQuickPick(
             {
@@ -414,7 +414,7 @@ describe("QuickInputExtensionAdapter — объектный пикер", () => {
         expect(component.view.inspectState()).toMatchObject({ items: ["a"] });
     });
 
-    it("dispose прячет и забывает; повторный и чужой dispose молчат", () => {
+    it("dispose hides and forgets; repeated and foreign dispose are silent", () => {
         const { adapter, component, events, emit } = objectPick();
         adapter.updateQuickPick({ handle: 5, visible: true }, emit);
         adapter.disposeQuickPick(5);
@@ -430,7 +430,7 @@ describe("QuickInputExtensionAdapter — объектный пикер", () => {
         expect(component.view.title).toBeUndefined();
     });
 
-    it("после dispose тот же handle заводит живой пикер заново", () => {
+    it("after dispose the same handle creates a live picker again", () => {
         const { adapter, component, emit } = objectPick();
         adapter.updateQuickPick({ handle: 5, visible: true, title: "old" }, emit);
         adapter.disposeQuickPick(5);
@@ -439,7 +439,7 @@ describe("QuickInputExtensionAdapter — объектный пикер", () => {
         expect(component.view.title).toBeUndefined();
     });
 
-    it("незнакомый handle в activeItems выпадает, подсветка — по первому знакомому", () => {
+    it("unknown handle in activeItems is dropped, highlight goes to the first known one", () => {
         const { adapter, component, emit } = objectPick();
         adapter.updateQuickPick(
             {
@@ -456,7 +456,7 @@ describe("QuickInputExtensionAdapter — объектный пикер", () => {
         expect(component.view.inspectState()).toMatchObject({ activeIndex: 1 });
     });
 
-    it("дифф без поля его не трогает: ярлыки, шаги, флаги и запрос остаются", () => {
+    it("a diff without a field leaves it alone: labels, steps, flags and query stay", () => {
         const { adapter, component, emit } = objectPick();
         adapter.updateQuickPick(
             {
@@ -486,7 +486,7 @@ describe("QuickInputExtensionAdapter — объектный пикер", () => {
         expect(component.view.placeholder).toBe("ph");
     });
 
-    it("keepScrollPosition из диффа держит подсветку на месте при новых предметах", () => {
+    it("keepScrollPosition from the diff keeps the highlight in place on new items", () => {
         const { adapter, component, testApp, emit } = objectPick();
         const items = [
             { handle: 0, label: "one" },
@@ -498,7 +498,7 @@ describe("QuickInputExtensionAdapter — объектный пикер", () => {
         expect(component.view.inspectState()).toMatchObject({ activeIndex: 1 });
     });
 
-    it("matchOnDetail из диффа ищет по detail, даже когда на экране его заслонило описание", () => {
+    it("matchOnDetail from the diff matches on detail even when the description hides it on screen", () => {
         const { adapter, component, emit } = objectPick();
         adapter.updateQuickPick(
             {
@@ -516,7 +516,7 @@ describe("QuickInputExtensionAdapter — объектный пикер", () => {
         expect(component.view.inspectState()).toMatchObject({ items: ["a"] });
     });
 
-    it("пустое описание уступает место detail", () => {
+    it("empty description yields to detail", () => {
         const { adapter, component, emit } = objectPick();
         adapter.updateQuickPick(
             { handle: 5, visible: true, items: [{ handle: 0, label: "a", description: "", detail: "det" }] },

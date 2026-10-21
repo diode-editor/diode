@@ -10,7 +10,7 @@ import type { IDocumentSyncTarget } from "../common/iDocumentSyncTarget.ts";
 import { bindDocumentSync } from "./documentSyncAdapter.ts";
 
 /** A diff side is an extension document: providers are called on it, and it may be a model without its own tab. */
-describe("documentSyncAdapter — стороны дифф-вкладок", () => {
+describe("documentSyncAdapter: diff tab sides", () => {
     let ws: ITempWorkspace;
     let h: IAppHarness;
 
@@ -24,7 +24,7 @@ describe("documentSyncAdapter — стороны дифф-вкладок", () =>
         ws.dispose();
     });
 
-    it("стороны открываются, правятся дельтой и закрываются вместе с дифф-вкладкой", async () => {
+    it("sides open, are edited by delta and close together with the diff tab", async () => {
         const service = h.container.get(EditorServiceDIToken);
         const group = service.editorGroups.activeGroup;
         const log: string[] = [];

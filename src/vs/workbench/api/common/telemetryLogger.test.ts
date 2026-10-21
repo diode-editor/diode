@@ -16,20 +16,20 @@ function makeSender(overrides: Partial<vscode.TelemetrySender> = {}) {
     };
 }
 
-describe("env.createTelemetryLogger — телеметрия выключена навсегда", () => {
-    it("доступен в `vscode.env` — репортер @vscode/extension-telemetry строит его в конструкторе", () => {
+describe("env.createTelemetryLogger — telemetry is permanently off", () => {
+    it("is available on `vscode.env`, the @vscode/extension-telemetry reporter builds it in its constructor", () => {
         const { namespace } = buildVscodeNamespace(makeStubRpc().rpc, createNodeExtHostDisk());
         const logger = namespace.env.createTelemetryLogger(makeSender());
         expect(logger.isUsageEnabled).toBe(false);
     });
 
-    it("флаги usage/errors — false, как `env.isTelemetryEnabled`", () => {
+    it("usage/errors flags are false, like `env.isTelemetryEnabled`", () => {
         const logger = createTelemetryLogger(makeSender());
         expect(logger.isUsageEnabled).toBe(false);
         expect(logger.isErrorsEnabled).toBe(false);
     });
 
-    it("logUsage/logError не доходят до отправителя", () => {
+    it("logUsage/logError do not reach the sender", () => {
         const sender = makeSender();
         const logger = createTelemetryLogger(sender);
 
@@ -41,7 +41,7 @@ describe("env.createTelemetryLogger — телеметрия выключена 
         expect(sender.sendErrorData).not.toHaveBeenCalled();
     });
 
-    it("onDidChangeEnableStates — валидное событие, подписка и отписка не падают", () => {
+    it("onDidChangeEnableStates is a valid event, subscribing and unsubscribing do not throw", () => {
         const logger = createTelemetryLogger(makeSender());
         const listener = vi.fn();
         const sub = logger.onDidChangeEnableStates(listener);
@@ -49,7 +49,7 @@ describe("env.createTelemetryLogger — телеметрия выключена 
         expect(listener).not.toHaveBeenCalled();
     });
 
-    it("dispose сбрасывает буфер отправителя ровно один раз", () => {
+    it("dispose flushes the sender buffer exactly once", () => {
         const sender = makeSender();
         const logger = createTelemetryLogger(sender);
 
@@ -59,7 +59,7 @@ describe("env.createTelemetryLogger — телеметрия выключена 
         expect(sender.flush).toHaveBeenCalledTimes(1);
     });
 
-    it("dispose без `flush` у отправителя не падает", () => {
+    it("dispose does not throw when the sender has no `flush`", () => {
         const { flush: _flush, ...withoutFlush } = makeSender();
         const logger = createTelemetryLogger(withoutFlush);
         expect(() => {
@@ -67,7 +67,7 @@ describe("env.createTelemetryLogger — телеметрия выключена 
         }).not.toThrow();
     });
 
-    it("отказ `flush` не уходит в unhandled rejection", async () => {
+    it("a `flush` rejection does not become an unhandled rejection", async () => {
         const unhandled = vi.fn();
         process.on("unhandledRejection", unhandled);
         try {
@@ -80,27 +80,27 @@ describe("env.createTelemetryLogger — телеметрия выключена 
         }
     });
 
-    it("API-объект заморожен, как в эталоне", () => {
+    it("the API object is frozen, as upstream", () => {
         expect(Object.isFrozen(createTelemetryLogger(makeSender()))).toBe(true);
     });
 
-    describe("проверка отправителя — тексты эталона", () => {
+    describe("sender validation — upstream messages", () => {
         it.each([
-            ["не объект", "sender" as unknown, "TelemetrySender argument is invalid"],
+            ["not an object", "sender" as unknown, "TelemetrySender argument is invalid"],
             // `typeof null === "object"` — null passes the first check.
             ["null", null as unknown, "TelemetrySender.sendEventData must be a function"],
             [
-                "без sendEventData",
+                "without sendEventData",
                 { sendErrorData: () => undefined } as unknown,
                 "TelemetrySender.sendEventData must be a function",
             ],
             [
-                "без sendErrorData",
+                "without sendErrorData",
                 { sendEventData: () => undefined } as unknown,
                 "TelemetrySender.sendErrorData must be a function",
             ],
             [
-                "flush — не функция",
+                "flush is not a function",
                 { sendEventData: () => undefined, sendErrorData: () => undefined, flush: 1 } as unknown,
                 "TelemetrySender.flush must be a function or undefined",
             ],

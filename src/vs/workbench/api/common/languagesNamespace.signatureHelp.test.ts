@@ -44,8 +44,8 @@ function requestParams(overrides: Record<string, unknown> = {}): Record<string, 
 }
 
 function help(label: string, parameterLabel: string | [number, number] = "name: string"): vscode.SignatureHelp {
-    const signature = new SignatureInformation(label, new MarkdownString("Здоровается."));
-    signature.parameters = [new ParameterInformation(parameterLabel, new MarkdownString("кого"))];
+    const signature = new SignatureInformation(label, new MarkdownString("Says hello."));
+    signature.parameters = [new ParameterInformation(parameterLabel, new MarkdownString("whom"))];
     const result = new SignatureHelp();
     result.signatures = [signature];
     result.activeSignature = 0;
@@ -58,7 +58,7 @@ describe("LanguagesNamespace — registerSignatureHelpProvider", () => {
     const registrations = (stub: { notifies: { method: string; params: unknown }[] }): unknown[] =>
         stub.notifies.filter((n) => n.method === "languages.register").map((n) => n.params);
 
-    it("регистрация объявляется ядру с handle, селектором и символами; dispose — снимает один раз", () => {
+    it("registration is declared to the core with handle, selector and characters; dispose removes it once", () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
 
@@ -80,7 +80,7 @@ describe("LanguagesNamespace — registerSignatureHelpProvider", () => {
         ]);
     });
 
-    it("метаданные сервера (обе перегрузки) едут с регистрацией своего провайдера", () => {
+    it("server metadata (both overloads) travels with its provider's registration", () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
 
@@ -99,7 +99,7 @@ describe("LanguagesNamespace — registerSignatureHelpProvider", () => {
         ]);
     });
 
-    it("мусор вместо метаданных не роняет регистрацию", () => {
+    it("garbage instead of metadata does not break registration", () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
 
@@ -111,7 +111,7 @@ describe("LanguagesNamespace — registerSignatureHelpProvider", () => {
         expect(registrations(stub)).toMatchObject([{ triggerCharacters: [], retriggerCharacters: [")"] }]);
     });
 
-    it("updateSubscriptions подсказку параметров больше не несёт", () => {
+    it("updateSubscriptions no longer carries signature help", () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
 
@@ -122,7 +122,7 @@ describe("LanguagesNamespace — registerSignatureHelpProvider", () => {
 });
 
 describe("LanguagesNamespace — languages.provideSignatureHelp", () => {
-    it("зовёт провайдер с документом из зеркала, позицией и LSP-контекстом", async () => {
+    it("calls the provider with the mirrored document, position and LSP context", async () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
         const seen: { doc?: vscode.TextDocument; pos?: vscode.Position; ctx?: vscode.SignatureHelpContext } = {};
@@ -156,8 +156,8 @@ describe("LanguagesNamespace — languages.provideSignatureHelp", () => {
             signatures: [
                 {
                     label: "greet(name: string): void",
-                    documentation: "Здоровается.",
-                    parameters: [{ label: "name: string", documentation: "кого" }],
+                    documentation: "Says hello.",
+                    parameters: [{ label: "name: string", documentation: "whom" }],
                 },
             ],
             activeSignature: 0,
@@ -165,7 +165,7 @@ describe("LanguagesNamespace — languages.provideSignatureHelp", () => {
         });
     });
 
-    it("эхо показанной подсказки и ретриггер доезжают до провайдера", async () => {
+    it("the echo of the shown help and the retrigger reach the provider", async () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
         const seen: vscode.SignatureHelpContext[] = [];
@@ -195,7 +195,7 @@ describe("LanguagesNamespace — languages.provideSignatureHelp", () => {
         expect(seen[0].activeSignatureHelp).toBeInstanceOf(SignatureHelp);
     });
 
-    it("контекст без полей: Invoke по умолчанию, isRetrigger — false", async () => {
+    it("context without fields: Invoke by default, isRetrigger is false", async () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
         const seen: vscode.SignatureHelpContext[] = [];
@@ -211,14 +211,14 @@ describe("LanguagesNamespace — languages.provideSignatureHelp", () => {
 
         await stub.callRequest(
             "languages.provideSignatureHelp",
-            requestParams({ triggerKind: undefined, triggerCharacter: undefined, isRetrigger: "да" }),
+            requestParams({ triggerKind: undefined, triggerCharacter: undefined, isRetrigger: "yes" }),
         );
 
         expect(seen[0]).toMatchObject({ triggerKind: CoreTriggerKind.Invoke, isRetrigger: false });
         expect(seen[0].triggerCharacter).toBeUndefined();
     });
 
-    it("зовётся ровно провайдер запрошенного handle; сбойный и пустые — null", async () => {
+    it("exactly the requested handle's provider is called; failing and empty ones give null", async () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
         const asked: string[] = [];
@@ -272,7 +272,7 @@ describe("LanguagesNamespace — languages.provideSignatureHelp", () => {
         expect(asked).toEqual(["winner", "throws", "null", "empty"]);
     });
 
-    it("асинхронный провайдер и отказ промиса", async () => {
+    it("async provider and promise rejection", async () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
         languages.registerSignatureHelpProvider(
@@ -290,7 +290,7 @@ describe("LanguagesNamespace — languages.provideSignatureHelp", () => {
         expect((result as { signatures: { label: string }[] }).signatures[0].label).toBe("greet(name: string): void");
     });
 
-    it("битая форма от провайдера отбраковывается целиком", async () => {
+    it("a broken shape from the provider is rejected entirely", async () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
         languages.registerSignatureHelpProvider(
@@ -307,7 +307,7 @@ describe("LanguagesNamespace — languages.provideSignatureHelp", () => {
         languages.registerSignatureHelpProvider(
             { language: "typescript" },
             {
-                provideSignatureHelp: () => ({ signatures: "нет" }) as unknown as vscode.SignatureHelp,
+                provideSignatureHelp: () => ({ signatures: "no" }) as unknown as vscode.SignatureHelp,
             },
         );
         languages.registerSignatureHelpProvider(
@@ -360,7 +360,7 @@ describe("LanguagesNamespace — languages.provideSignatureHelp", () => {
             { language: "typescript" },
             {
                 provideSignatureHelp: () =>
-                    ({ signatures: [{ label: "f(a)", parameters: "нет" }] }) as unknown as vscode.SignatureHelp,
+                    ({ signatures: [{ label: "f(a)", parameters: "no" }] }) as unknown as vscode.SignatureHelp,
             },
         );
         languages.registerSignatureHelpProvider(
@@ -392,7 +392,7 @@ describe("LanguagesNamespace — languages.provideSignatureHelp", () => {
         expect((result as { signatures: { label: string }[] }).signatures[0].label).toBe("greet(name: string): void");
     });
 
-    it("минимальная форма провайдера: без параметров, без документации, без индексов", async () => {
+    it("minimal provider shape: no parameters, no documentation, no indices", async () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
         languages.registerSignatureHelpProvider(
@@ -417,7 +417,7 @@ describe("LanguagesNamespace — languages.provideSignatureHelp", () => {
         expect(Object.keys(result.signatures[0]).sort()).toEqual(["label", "parameters"]);
     });
 
-    it("параметр без документации доезжает голой меткой", async () => {
+    it("a parameter without documentation arrives as a bare label", async () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
         languages.registerSignatureHelpProvider(
@@ -426,7 +426,7 @@ describe("LanguagesNamespace — languages.provideSignatureHelp", () => {
                 provideSignatureHelp: () =>
                     ({
                         signatures: [{ label: "greet(name)", parameters: [{ label: "name" }] }],
-                        activeSignature: "нет",
+                        activeSignature: "no",
                         activeParameter: null,
                     }) as unknown as vscode.SignatureHelp,
             },
@@ -445,7 +445,7 @@ describe("LanguagesNamespace — languages.provideSignatureHelp", () => {
         expect(Object.keys(parameter)).toEqual(["label"]);
     });
 
-    it("выбранная сервером перегрузка доезжает как есть", async () => {
+    it("the overload chosen by the server arrives as is", async () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
         languages.registerSignatureHelpProvider(
@@ -469,7 +469,7 @@ describe("LanguagesNamespace — languages.provideSignatureHelp", () => {
         expect(result.activeParameter).toBe(1);
     });
 
-    it("метка параметра парой офсетов и активные индексы сериализуются как есть", async () => {
+    it("a parameter label as an offset pair and active indices are serialized as is", async () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
         languages.registerSignatureHelpProvider(
@@ -495,7 +495,7 @@ describe("LanguagesNamespace — languages.provideSignatureHelp", () => {
         expect(result.activeParameter).toBe(-1);
     });
 
-    it("параметры без полей (кроме версии): документ из зеркала, язык не затирается, позиция — начало файла", async () => {
+    it("params without fields (except version): mirrored document, language not overwritten, position at file start", async () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
         const seen: { doc?: vscode.TextDocument; pos?: vscode.Position } = {};
@@ -521,7 +521,7 @@ describe("LanguagesNamespace — languages.provideSignatureHelp", () => {
         expect(seen.pos?.character).toBe(0);
     });
 
-    it("неизвестный и отсутствующий handle — подсказки нет, никого не зовём, документ не синхронизируем", async () => {
+    it("an unknown or missing handle gives no help, calls no one, does not sync the document", async () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
         let asked = false;
@@ -545,7 +545,7 @@ describe("LanguagesNamespace — languages.provideSignatureHelp", () => {
         expect(asked).toBe(false);
     });
 
-    it("не открытый документ, устаревшая и забежавшая вперёд версия — null, провайдер не зовётся", async () => {
+    it("a document that is not open, a stale or ahead version give null, the provider is not called", async () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
         let asked = 0;

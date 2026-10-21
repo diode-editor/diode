@@ -63,7 +63,7 @@ function renameEdit(newName: string): WorkspaceEdit {
 }
 
 describe("LanguagesNamespace — registerRenameProvider", () => {
-    it("регистрация объявляется ядру с handle и селектором, dispose — снимает (один раз)", () => {
+    it("registration is announced to the core with handle and selector, dispose removes it (once)", () => {
         const { stub, languages } = makeCtx();
         const sent = (): typeof stub.notifies => stub.notifies.filter((n) => n.method.startsWith("languages."));
 
@@ -85,7 +85,7 @@ describe("LanguagesNamespace — registerRenameProvider", () => {
 });
 
 describe("LanguagesNamespace — languages.prepareRename", () => {
-    it("`{range, placeholder}` провайдера доезжает именем символа", async () => {
+    it("provider's `{range, placeholder}` arrives as the symbol name", async () => {
         const { stub, languages } = makeCtx();
         languages.registerRenameProvider(
             { language: "typescript" },
@@ -103,7 +103,7 @@ describe("LanguagesNamespace — languages.prepareRename", () => {
         expect(await stub.callRequest("languages.prepareRename", prepareParams())).toEqual({ placeholder: "symbol" });
     });
 
-    it("голый Range — placeholder добирается текстом документа в этом диапазоне", async () => {
+    it("bare Range: placeholder is taken from the document text in that range", async () => {
         const { stub, languages } = makeCtx();
         languages.registerRenameProvider(
             { language: "typescript" },
@@ -116,7 +116,7 @@ describe("LanguagesNamespace — languages.prepareRename", () => {
         expect(await stub.callRequest("languages.prepareRename", prepareParams())).toEqual({ placeholder: "value" });
     });
 
-    it("пустой placeholder провайдера — тоже добирается из текста", async () => {
+    it("empty provider placeholder is also taken from the text", async () => {
         const { stub, languages } = makeCtx();
         languages.registerRenameProvider(
             { language: "typescript" },
@@ -129,7 +129,7 @@ describe("LanguagesNamespace — languages.prepareRename", () => {
         expect(await stub.callRequest("languages.prepareRename", prepareParams())).toEqual({ placeholder: "value" });
     });
 
-    it("пустой диапазон без placeholder'а — «сказать нечего» (имя доберёт ядро)", async () => {
+    it("empty range without a placeholder means 'nothing to say' (the core fills in the name)", async () => {
         const { stub, languages } = makeCtx();
         languages.registerRenameProvider(
             { language: "typescript" },
@@ -142,7 +142,7 @@ describe("LanguagesNamespace — languages.prepareRename", () => {
         expect(await stub.callRequest("languages.prepareRename", prepareParams())).toBeNull();
     });
 
-    it("документ — из зеркала, позиция — из параметров запроса", async () => {
+    it("document comes from the mirror, position from the request params", async () => {
         const { stub, languages } = makeCtx();
         const seen: { doc?: vscode.TextDocument; pos?: vscode.Position } = {};
         languages.registerRenameProvider(
@@ -165,7 +165,7 @@ describe("LanguagesNamespace — languages.prepareRename", () => {
         expect(seen.pos?.character).toBe(7);
     });
 
-    it("позиция без line/character в параметрах — начало документа", async () => {
+    it("position without line/character in the params is the document start", async () => {
         const { stub, languages } = makeCtx();
         const seen: { pos?: vscode.Position } = {};
         languages.registerRenameProvider(
@@ -185,7 +185,7 @@ describe("LanguagesNamespace — languages.prepareRename", () => {
         expect(seen.pos?.character).toBe(0);
     });
 
-    it("отказ провайдера — причина человеку («здесь переименовать нельзя»)", async () => {
+    it("provider rejection gives the user a reason ('cannot rename here')", async () => {
         const { stub, languages } = makeCtx();
         languages.registerRenameProvider(
             { language: "typescript" },
@@ -200,7 +200,7 @@ describe("LanguagesNamespace — languages.prepareRename", () => {
         });
     });
 
-    it("отказ строкой и отказ без причины — тоже с текстом", async () => {
+    it("string rejection and rejection without a reason also carry text", async () => {
         const { stub, languages } = makeCtx();
         languages.registerRenameProvider(
             { language: "typescript" },
@@ -227,7 +227,7 @@ describe("LanguagesNamespace — languages.prepareRename", () => {
         });
     });
 
-    it("пустая причина отказа — родовое сообщение, а не пустая строка", async () => {
+    it("empty rejection reason yields a generic message, not an empty string", async () => {
         const { stub, languages } = makeCtx();
         languages.registerRenameProvider(
             { language: "typescript" },
@@ -250,14 +250,14 @@ describe("LanguagesNamespace — languages.prepareRename", () => {
         });
     });
 
-    it("провайдер без prepareRename — null: слово под кареткой доберёт ядро", async () => {
+    it("provider without prepareRename returns null: the core picks the word under the cursor", async () => {
         const { stub, languages } = makeCtx();
         languages.registerRenameProvider({ language: "typescript" }, { provideRenameEdits: () => null });
 
         expect(await stub.callRequest("languages.prepareRename", prepareParams())).toBeNull();
     });
 
-    it("`null`/`undefined` и мусорная форма от провайдера — null", async () => {
+    it("`null`/`undefined` and a garbage shape from the provider yield null", async () => {
         const { stub, languages } = makeCtx();
         languages.registerRenameProvider(
             { language: "typescript" },
@@ -272,7 +272,7 @@ describe("LanguagesNamespace — languages.prepareRename", () => {
         expect(await stub.callRequest("languages.prepareRename", prepareParams({ handle: 1 }))).toBeNull();
     });
 
-    it("запрос без handle провайдера не будит; документ — зеркало, а не запрос", async () => {
+    it("a request without a handle does not wake the provider; the document is the mirror, not the request", async () => {
         const { stub, languages } = makeCtx();
         const seen: string[] = [];
         const register = (): void => {
@@ -298,7 +298,7 @@ describe("LanguagesNamespace — languages.prepareRename", () => {
         expect(seen).toEqual([TEXT]);
     });
 
-    it("не открытый документ, устаревшая и забежавшая вперёд версия — null, провайдер не зовётся", async () => {
+    it("unopened document, stale and ahead-of-mirror version yield null, the provider is not called", async () => {
         const { stub, languages, documentSync } = makeCtx();
         const prepareRename = vi.fn(() => new Range(0, 6, 0, 11) as unknown as vscode.Range);
         languages.registerRenameProvider({ language: "typescript" }, { provideRenameEdits: () => null, prepareRename });
@@ -314,7 +314,7 @@ describe("LanguagesNamespace — languages.prepareRename", () => {
         });
     });
 
-    it("снятый провайдер — null, чужой handle провайдера не будит", async () => {
+    it("disposed provider yields null, a foreign handle does not wake the provider", async () => {
         const { stub, languages } = makeCtx();
         const prepareRename = vi.fn(() => new Range(0, 6, 0, 11) as unknown as vscode.Range);
         const registration = languages.registerRenameProvider(
@@ -330,7 +330,7 @@ describe("LanguagesNamespace — languages.prepareRename", () => {
 });
 
 describe("LanguagesNamespace — languages.provideRenameEdits", () => {
-    it("WorkspaceEdit провайдера уезжает в applyEdit, ответ — applied", async () => {
+    it("provider's WorkspaceEdit goes to applyEdit, the reply is applied", async () => {
         const { stub, languages, appliedEdits, appliedMetadata } = makeCtx();
         const provideRenameEdits = vi.fn(() => renameEdit("renamed") as unknown as vscode.WorkspaceEdit);
         languages.registerRenameProvider({ language: "typescript" }, { provideRenameEdits });
@@ -350,7 +350,7 @@ describe("LanguagesNamespace — languages.provideRenameEdits", () => {
         expect(newName).toBe("renamed");
     });
 
-    it("отказ applyEdit — applied: false с сообщением", async () => {
+    it("applyEdit refusal yields applied: false with a message", async () => {
         const { stub, languages } = makeCtx({ applyEdit: () => Promise.resolve(false) });
         languages.registerRenameProvider(
             { language: "typescript" },
@@ -363,7 +363,7 @@ describe("LanguagesNamespace — languages.provideRenameEdits", () => {
         });
     });
 
-    it("отклонённый промис провайдера — его сообщение человеку", async () => {
+    it("provider's rejected promise gives its message to the user", async () => {
         const { stub, languages, appliedEdits } = makeCtx();
         languages.registerRenameProvider(
             { language: "typescript" },
@@ -377,7 +377,7 @@ describe("LanguagesNamespace — languages.provideRenameEdits", () => {
         expect(appliedEdits).toHaveLength(0);
     });
 
-    it("отказ строкой и отказ без причины — тоже с текстом", async () => {
+    it("string rejection and rejection without a reason also carry text", async () => {
         const { stub, languages } = makeCtx();
         languages.registerRenameProvider(
             { language: "typescript" },
@@ -402,7 +402,7 @@ describe("LanguagesNamespace — languages.provideRenameEdits", () => {
         });
     });
 
-    it("не-WorkspaceEdit от провайдера правками не считается: applied: false БЕЗ сообщения", async () => {
+    it("a non-WorkspaceEdit from the provider is not treated as edits: applied: false WITHOUT a message", async () => {
         const { stub, languages, appliedEdits } = makeCtx();
         languages.registerRenameProvider({ language: "typescript" }, { provideRenameEdits: () => null });
         languages.registerRenameProvider(
@@ -417,7 +417,7 @@ describe("LanguagesNamespace — languages.provideRenameEdits", () => {
         expect(appliedEdits).toHaveLength(0);
     });
 
-    it("документ ушёл дальше запроса или не открыт — отказ с причиной, провайдер не зовётся", async () => {
+    it("document moved past the request or is not open: rejection with a reason, the provider is not called", async () => {
         const { stub, languages, appliedEdits, documentSync } = makeCtx();
         const provideRenameEdits = vi.fn(() => renameEdit("renamed") as unknown as vscode.WorkspaceEdit);
         languages.registerRenameProvider({ language: "typescript" }, { provideRenameEdits });
@@ -438,7 +438,7 @@ describe("LanguagesNamespace — languages.provideRenameEdits", () => {
         expect(appliedEdits).toHaveLength(0);
     });
 
-    it("без нового имени провайдера не зовём вовсе", async () => {
+    it("without a new name the provider is not called at all", async () => {
         const { stub, languages } = makeCtx();
         const provideRenameEdits = vi.fn(() => renameEdit("renamed") as unknown as vscode.WorkspaceEdit);
         languages.registerRenameProvider({ language: "typescript" }, { provideRenameEdits });
@@ -452,7 +452,7 @@ describe("LanguagesNamespace — languages.provideRenameEdits", () => {
         expect(provideRenameEdits).not.toHaveBeenCalled();
     });
 
-    it("запрос без handle провайдера не будит", async () => {
+    it("a request without a handle does not wake the provider", async () => {
         const { stub, languages } = makeCtx();
         const provideRenameEdits = vi.fn(() => renameEdit("renamed") as unknown as vscode.WorkspaceEdit);
         // Two providers — see prepareRename: a miss must not hit the neighbor.
@@ -465,7 +465,7 @@ describe("LanguagesNamespace — languages.provideRenameEdits", () => {
         expect(provideRenameEdits).not.toHaveBeenCalled();
     });
 
-    it("снятый провайдер — applied: false, чужой handle провайдера не будит", async () => {
+    it("disposed provider yields applied: false, a foreign handle does not wake the provider", async () => {
         const { stub, languages } = makeCtx();
         const provideRenameEdits = vi.fn(() => renameEdit("renamed") as unknown as vscode.WorkspaceEdit);
         const registration = languages.registerRenameProvider({ language: "typescript" }, { provideRenameEdits });

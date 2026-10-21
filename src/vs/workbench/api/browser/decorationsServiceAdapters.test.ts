@@ -31,7 +31,7 @@ function fakeGroup(editors: ReturnType<typeof fakeEditor>[]): IEditorService {
 }
 
 describe("EditorDecorationsServiceAdapter", () => {
-    it("проталкивает декорации в редакторы совпадающего ресурса (и только в них)", () => {
+    it("pushes decorations to editors of the matching resource (and only to them)", () => {
         const match = fakeEditor(Uri.file("/proj/a.ts"));
         const other = fakeEditor(Uri.file("/proj/b.ts"));
         const adapter = new EditorDecorationsServiceAdapter(fakeGroup([match, other]));
@@ -43,7 +43,7 @@ describe("EditorDecorationsServiceAdapter", () => {
         expect(other.received).toEqual([]);
     });
 
-    it("сверяет ресурсы, а не сырые строки: канонизацию даёт Uri", () => {
+    it("compares resources, not raw strings: Uri provides canonicalization", () => {
         // Only `IEditorService.openFile` normalizes the path: the resource arrives here already canonical.
         const match = fakeEditor(Uri.file(path.resolve("/proj/./sub/../a.ts")));
         const adapter = new EditorDecorationsServiceAdapter(fakeGroup([match]));
@@ -51,7 +51,7 @@ describe("EditorDecorationsServiceAdapter", () => {
         expect(match.received).toEqual([[]]);
     });
 
-    it("безымянные буферы (untitled:) пропускаются", () => {
+    it("skips untitled buffers (untitled:)", () => {
         const untitled = fakeEditor(Uri.parse("untitled:Untitled-1"));
         const adapter = new EditorDecorationsServiceAdapter(fakeGroup([untitled]));
         adapter.setGutterChangeDecorations(Uri.file("/proj/a.ts").toString(), [
@@ -62,7 +62,7 @@ describe("EditorDecorationsServiceAdapter", () => {
 });
 
 describe("FileDecorationsServiceAdapter", () => {
-    it("делегирует setFileDecorations в цель (ExplorerService)", () => {
+    it("delegates setFileDecorations to the target (ExplorerService)", () => {
         const calls: unknown[] = [];
         const explorer = { setFileDecorations: (e: unknown) => calls.push(e) };
         const adapter = new FileDecorationsServiceAdapter(explorer);
@@ -73,7 +73,7 @@ describe("FileDecorationsServiceAdapter", () => {
 });
 
 describe("ThemeColorResolverAdapter", () => {
-    it("резолвит id цвета активной темы в packed-RGB; неизвестный id → undefined", () => {
+    it("resolves an active theme color id to packed RGB; unknown id → undefined", () => {
         const theme = new ThemeService(WorkbenchTheme.fromThemeFile(darkPlusTheme));
         const adapter = new ThemeColorResolverAdapter(theme);
         expect(adapter.resolve("editorGutter.modifiedBackground")).toBe(
@@ -82,7 +82,7 @@ describe("ThemeColorResolverAdapter", () => {
         expect(adapter.resolve("no.such.color")).toBeUndefined();
     });
 
-    it("onDidChange глотает немедленный вызов, стреляет только на смене темы", () => {
+    it("onDidChange swallows the immediate call and fires only on theme change", () => {
         const theme = new ThemeService(WorkbenchTheme.fromThemeFile(darkPlusTheme));
         const adapter = new ThemeColorResolverAdapter(theme);
         let fired = 0;

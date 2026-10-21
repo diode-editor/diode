@@ -45,7 +45,7 @@ function requestParams(overrides: Record<string, unknown> = {}): Record<string, 
 }
 
 describe("LanguagesNamespace — registerDefinitionProvider", () => {
-    it("регистрация объявляется ядру с handle и селектором, dispose — снимает (один раз)", () => {
+    it("registration is announced to the core with handle and selector, dispose removes it (once)", () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
         const sent = () => stub.notifies.filter((n) => n.method.startsWith("languages."));
@@ -68,7 +68,7 @@ describe("LanguagesNamespace — registerDefinitionProvider", () => {
 });
 
 describe("LanguagesNamespace — languages.provideDefinition", () => {
-    it("документ — из зеркала по версии запроса, провайдер зовётся с позицией каретки", async () => {
+    it("document comes from the mirror by request version, provider is called with the cursor position", async () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
         const seen: { doc?: vscode.TextDocument; pos?: vscode.Position } = {};
@@ -100,7 +100,7 @@ describe("LanguagesNamespace — languages.provideDefinition", () => {
         ]);
     });
 
-    it("Location[] сериализуется целиком; позиция без line/character — (0,0), язык зеркала не затирается", async () => {
+    it("Location[] serializes whole; position without line/character is (0,0), mirror language is not overwritten", async () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
         const seen: { pos?: vscode.Position } = {};
@@ -131,7 +131,7 @@ describe("LanguagesNamespace — languages.provideDefinition", () => {
         ]);
     });
 
-    it("LocationLink: targetSelectionRange побеждает targetRange; без него — targetRange", async () => {
+    it("LocationLink: targetSelectionRange wins over targetRange; targetRange without it", async () => {
         const fresh = makeCtx();
         const ns = createLanguagesNamespace(fresh.ctx);
         ns.languages.registerDefinitionProvider(
@@ -161,7 +161,7 @@ describe("LanguagesNamespace — languages.provideDefinition", () => {
         ]);
     });
 
-    it("невалидные элементы результата отбрасываются, не роняя ответ", async () => {
+    it("invalid result items are dropped without failing the response", async () => {
         const { stub, ctx } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
         languages.registerDefinitionProvider(
@@ -189,7 +189,7 @@ describe("LanguagesNamespace — languages.provideDefinition", () => {
         ]);
     });
 
-    it("зовётся ровно провайдер запрошенного handle; сбойный, пустой и неизвестный — []", async () => {
+    it("exactly the requested handle's provider is called; failing, empty and unknown yield []", async () => {
         const { stub, ctx } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
         const calls: string[] = [];
@@ -245,7 +245,7 @@ describe("LanguagesNamespace — languages.provideDefinition", () => {
         expect(calls).toHaveLength(3);
     });
 
-    it("документ не открыт, запрос устарел или впереди зеркала — [], провайдер не зовётся", async () => {
+    it("unopened document, stale request or request ahead of the mirror yields [], provider is not called", async () => {
         const { stub, ctx } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
         let calls = 0;

@@ -12,7 +12,7 @@ import type { IWireDocumentSyncSnapshot } from "../common/wireTypes.ts";
 import { bindDocumentSync, openDocumentSnapshots } from "./documentSyncAdapter.ts";
 import { EditorLayoutServiceAdapter } from "./editorLayoutServiceAdapter.ts";
 
-describe("EditorLayoutServiceAdapter — безымянный документ без вкладки", () => {
+describe("EditorLayoutServiceAdapter — untitled document without a tab", () => {
     let ws: ITempWorkspace;
     let h: IAppHarness;
     let service: IEditorService;
@@ -45,7 +45,7 @@ describe("EditorLayoutServiceAdapter — безымянный документ �
         ws.dispose();
     });
 
-    it("документ открыт расширениям сразу: грязный, с текстом и языком, но без вкладки", () => {
+    it("document is open to extensions immediately: dirty, with text and language, but without a tab", () => {
         const { uri } = adapter.createUntitledDocument({ content: "# Tools\n", language: "markdown" });
 
         expect(uri).toBe("untitled:Untitled-1");
@@ -56,7 +56,7 @@ describe("EditorLayoutServiceAdapter — безымянный документ �
         expect(openDocumentSnapshots(service).map((snapshot) => snapshot.uri)).toEqual([uri]);
     });
 
-    it("без опций — чистый пустой буфер; номер — из общего счётчика с New Untitled File", () => {
+    it("without options — a clean empty buffer; the number comes from the counter shared with New Untitled File", () => {
         service.newUntitled();
         const { uri } = adapter.createUntitledDocument({});
 
@@ -64,13 +64,13 @@ describe("EditorLayoutServiceAdapter — безымянный документ �
         expect(opened.at(-1)).toMatchObject({ uri, languageId: "plaintext", text: "", isDirty: false });
     });
 
-    it("пустой content — тоже чистый буфер (как `!!initialValue` эталона)", () => {
+    it("empty content is also a clean buffer (like upstream `!!initialValue`)", () => {
         const { uri } = adapter.createUntitledDocument({ content: "" });
 
         expect(opened.at(-1)).toMatchObject({ uri, text: "", isDirty: false });
     });
 
-    it("showTextDocument показывает ту же модель вкладкой Untitled-N — без повторного open/close", async () => {
+    it("showTextDocument shows the same model as an Untitled-N tab — without a repeated open/close", async () => {
         const { uri } = adapter.createUntitledDocument({ content: "go: /usr/bin/go\n", language: "markdown" });
         log.length = 0;
 
@@ -94,7 +94,7 @@ describe("EditorLayoutServiceAdapter — безымянный документ �
         expect(log).toEqual([`change ${uri}`]);
     });
 
-    it("повторный показ активирует уже открытую вкладку, а не заводит вторую", async () => {
+    it("showing again activates the already open tab instead of creating a second one", async () => {
         const { uri } = adapter.createUntitledDocument({ content: "x" });
         await adapter.showTextDocument({ uri });
         service.openFile(ws.path("a.txt"));
@@ -106,7 +106,7 @@ describe("EditorLayoutServiceAdapter — безымянный документ �
         expect(group.activePane?.uri.toString()).toBe(uri);
     });
 
-    it("показ в соседней колонке (ViewColumn.Beside)", async () => {
+    it("shows in the side column (ViewColumn.Beside)", async () => {
         service.openFile(ws.path("a.txt"));
         const { uri } = adapter.createUntitledDocument({ content: "x" });
 
@@ -116,7 +116,7 @@ describe("EditorLayoutServiceAdapter — безымянный документ �
         expect(service.editorGroups.groups[1].activePane?.uri.toString()).toBe(uri);
     });
 
-    it("openUri без опций забирает буфер во вкладку активной группы и фокусирует её", async () => {
+    it("openUri without options takes the buffer into a tab of the active group and focuses it", async () => {
         const uri = service.createUntitled({ content: "x" });
 
         await service.openUri(uri);
@@ -127,7 +127,7 @@ describe("EditorLayoutServiceAdapter — безымянный документ �
         expect(pane !== null && focused?.getAncestorPath().includes(pane.view)).toBe(true);
     });
 
-    it("openUri с focus: false — вкладка открыта, фокус остаётся на месте", async () => {
+    it("openUri with focus: false — the tab opens, focus stays put", async () => {
         const uri = service.createUntitled({ content: "x" });
         const focusedBefore = h.testApp.focusedElement;
 
@@ -137,7 +137,7 @@ describe("EditorLayoutServiceAdapter — безымянный документ �
         expect(h.testApp.focusedElement).toBe(focusedBefore);
     });
 
-    it('openUri с group: "beside" — во вкладку соседней группы', async () => {
+    it('openUri with group: "beside" — into a tab of the side group', async () => {
         service.openFile(ws.path("a.txt"));
         const uri = service.createUntitled({ content: "x" });
 
@@ -148,7 +148,7 @@ describe("EditorLayoutServiceAdapter — безымянный документ �
         expect(service.editorGroups.groups[0].editorCount).toBe(1);
     });
 
-    it("кодировка из опций — кодировка будущего Save As", async () => {
+    it("encoding from options is the encoding of the future Save As", async () => {
         const { uri } = adapter.createUntitledDocument({ content: "x", encoding: "utf16le" });
         await adapter.showTextDocument({ uri });
 
@@ -156,7 +156,7 @@ describe("EditorLayoutServiceAdapter — безымянный документ �
         expect(isTextEditorPane(pane) && pane.encoding).toBe("utf16le");
     });
 
-    it("ядро закрылось с непоказанным буфером — модель освобождается вместе с сервисом", () => {
+    it("core closed with an unshown buffer — the model is released together with the service", () => {
         adapter.createUntitledDocument({ content: "x" });
         const [model] = service.getUntitledModelsWithoutEditor();
         const disposeModel = vi.spyOn(model, "dispose");
@@ -167,7 +167,7 @@ describe("EditorLayoutServiceAdapter — безымянный документ �
         expect(disposeModel).toHaveBeenCalledOnce();
     });
 
-    it("ресурс untitled без такой модели — по-прежнему отказ открытия, а не пустая вкладка", async () => {
+    it("untitled resource without such a model still fails to open instead of an empty tab", async () => {
         const failures: string[] = [];
         service.onDidFailOpen(({ uri }) => failures.push(uri.toString()));
 

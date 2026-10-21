@@ -11,7 +11,7 @@ function theme(type: WorkbenchTheme["type"], colors: Record<string, number> = {}
 }
 
 describe("colorThemeKindOf", () => {
-    it("переводит все четыре вида темы в vscode.ColorThemeKind", () => {
+    it("maps all four theme kinds to vscode.ColorThemeKind", () => {
         expect(colorThemeKindOf("light")).toBe(ColorThemeKind.Light);
         expect(colorThemeKindOf("dark")).toBe(ColorThemeKind.Dark);
         expect(colorThemeKindOf("hc")).toBe(ColorThemeKind.HighContrast);
@@ -20,7 +20,7 @@ describe("colorThemeKindOf", () => {
 });
 
 describe("ThemeColorResolverAdapter", () => {
-    it("kind() читает вид АКТИВНОЙ темы и едет за её сменой", () => {
+    it("kind() reads the ACTIVE theme kind and follows its changes", () => {
         const service = new ThemeService(theme("dark"));
         const adapter = new ThemeColorResolverAdapter(service);
         expect(adapter.kind()).toBe(ColorThemeKind.Dark);
@@ -29,14 +29,14 @@ describe("ThemeColorResolverAdapter", () => {
         expect(adapter.kind()).toBe(ColorThemeKind.HighContrastLight);
     });
 
-    it("resolve() отдаёт цвет активной темы, неизвестный id — undefined", () => {
+    it("resolve() returns the active theme color, unknown id gives undefined", () => {
         const service = new ThemeService(theme("dark", { "editor.background": 0x1e1e1e }));
         const adapter = new ThemeColorResolverAdapter(service);
         expect(adapter.resolve("editor.background")).toBe(0x1e1e1e);
         expect(adapter.resolve("no.such.color")).toBeUndefined();
     });
 
-    it("onDidChange проглатывает стартовый вызов и зовёт только на ПЕРЕХОДАХ", () => {
+    it("onDidChange swallows the initial call and fires only on TRANSITIONS", () => {
         const service = new ThemeService(theme("dark"));
         const adapter = new ThemeColorResolverAdapter(service);
         let calls = 0;
@@ -53,7 +53,7 @@ describe("ThemeColorResolverAdapter", () => {
         expect(calls).toBe(2);
     });
 
-    it("в момент вызова onDidChange kind() уже отдаёт НОВУЮ тему", () => {
+    it("when onDidChange fires, kind() already returns the NEW theme", () => {
         const service = new ThemeService(theme("dark"));
         const adapter = new ThemeColorResolverAdapter(service);
         const seen: number[] = [];

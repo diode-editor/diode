@@ -37,7 +37,7 @@ function createBridge(
 }
 
 describe("CommandsNamespace (subprocess)", () => {
-    it("executeCommand локальной команды исполняет её без RPC на хост", async () => {
+    it("executeCommand of a local command runs it without RPC to the host", async () => {
         const { commands, host, dispose } = createBridge();
         let hostSawExecute = false;
         host.handleRequest("commands.executeCommand", () => {
@@ -53,7 +53,7 @@ describe("CommandsNamespace (subprocess)", () => {
         dispose();
     });
 
-    it("executeCommand неизвестной локально команды уходит request'ом на хост и резолвится результатом", async () => {
+    it("executeCommand of a command unknown locally goes to the host as a request and resolves with the result", async () => {
         const { commands, host, dispose } = createBridge();
         const received: { id: string; args: unknown[] }[] = [];
         host.handleRequest("commands.executeCommand", (params) => {
@@ -69,7 +69,7 @@ describe("CommandsNamespace (subprocess)", () => {
         dispose();
     });
 
-    it("API-команда исполняется в subprocess без RPC на хост; синхронный отказ — отказ промиса", async () => {
+    it("API command runs in the subprocess without RPC to the host; a synchronous throw rejects the promise", async () => {
         const api = new Map<string, (...args: unknown[]) => unknown>([
             ["vscode.echo", (value) => value],
             [
@@ -93,7 +93,7 @@ describe("CommandsNamespace (subprocess)", () => {
         dispose();
     });
 
-    it("registerCommand шлёт notif commands.registerCommand, dispose — commands.unregisterCommand", async () => {
+    it("registerCommand sends notif commands.registerCommand, dispose sends commands.unregisterCommand", async () => {
         const { commands, host, dispose } = createBridge();
         const registered: string[] = [];
         const unregistered: string[] = [];
@@ -111,7 +111,7 @@ describe("CommandsNamespace (subprocess)", () => {
         dispose();
     });
 
-    it("dispose первой регистрации не трогает id, перезанятый повторным register", async () => {
+    it("disposing the first registration leaves an id re-taken by a later register alone", async () => {
         const { commands, host, dispose } = createBridge();
         const unregistered: string[] = [];
         host.handleNotification("commands.unregisterCommand", (p) => unregistered.push((p as { id: string }).id));
@@ -126,7 +126,7 @@ describe("CommandsNamespace (subprocess)", () => {
         dispose();
     });
 
-    it("host → subprocess: входящий commands.executeCommand гоняет локальный колбэк с прокинутыми args", async () => {
+    it("host → subprocess: incoming commands.executeCommand runs the local callback with the passed args", async () => {
         const { commands, host, dispose } = createBridge();
         const seen: unknown[][] = [];
         commands.registerCommand("ext.bar", (...args) => {
@@ -141,13 +141,13 @@ describe("CommandsNamespace (subprocess)", () => {
         dispose();
     });
 
-    it("host → subprocess: неизвестная локально команда → reject", async () => {
+    it("host → subprocess: command unknown locally → reject", async () => {
         const { host, dispose } = createBridge();
         await expect(host.request("commands.executeCommand", { id: "nope", args: [] })).rejects.toThrow(/not found/);
         dispose();
     });
 
-    it("host → subprocess: без массива args колбэк зовётся без аргументов", async () => {
+    it("host → subprocess: without an args array the callback is called with no arguments", async () => {
         const { commands, host, dispose } = createBridge();
         const seen: unknown[][] = [];
         commands.registerCommand("ext.noargs", (...args) => {
@@ -163,25 +163,25 @@ describe("CommandsNamespace (subprocess)", () => {
         dispose();
     });
 
-    it("host → subprocess: некорректные params (не объект) → reject", async () => {
+    it("host → subprocess: malformed params (not an object) → reject", async () => {
         const { host, dispose } = createBridge();
         await expect(host.request("commands.executeCommand", 42 as never)).rejects.toThrow(/must be an object/);
         dispose();
     });
 
-    it("host → subprocess: пустой id → reject", async () => {
+    it("host → subprocess: empty id → reject", async () => {
         const { host, dispose } = createBridge();
         await expect(host.request("commands.executeCommand", { id: "" } as never)).rejects.toThrow(/non-empty string/);
         dispose();
     });
 
-    it("executeCommand несуществующей нигде команды reject'ится (хост без хендлера)", async () => {
+    it("executeCommand of a command that exists nowhere rejects (host has no handler)", async () => {
         const { commands, dispose } = createBridge();
         await expect(commands.executeCommand("ghost")).rejects.toThrow();
         dispose();
     });
 
-    it("thisArg привязывается к колбэку", async () => {
+    it("thisArg is bound to the callback", async () => {
         const { commands, dispose } = createBridge();
         const ctx = { value: 7 };
         commands.registerCommand(
@@ -196,7 +196,7 @@ describe("CommandsNamespace (subprocess)", () => {
         dispose();
     });
 
-    it("registerTextEditorCommand: колбэк получает активный редактор, edit-builder и args", async () => {
+    it("registerTextEditorCommand: callback receives the active editor, edit builder and args", async () => {
         const editor = { document: { fileName: "/f.py" } } as unknown as vscode.TextEditor;
         const { commands, dispose } = createBridge(() => editor);
         const seen: unknown[][] = [];
@@ -220,7 +220,7 @@ describe("CommandsNamespace (subprocess)", () => {
         dispose();
     });
 
-    it("registerTextEditorCommand: без активного редактора колбэк НЕ исполняется (семантика VS Code)", async () => {
+    it("registerTextEditorCommand: without an active editor the callback does NOT run (VS Code semantics)", async () => {
         const { commands, dispose } = createBridge(() => undefined);
         const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
         try {
@@ -242,7 +242,7 @@ describe("CommandsNamespace (subprocess)", () => {
         dispose();
     });
 
-    it("registerTextEditorCommand: предупреждение несёт id расширения, владевшего регистрацией", async () => {
+    it("registerTextEditorCommand: the warning carries the id of the extension that owned the registration", async () => {
         const owner = new ExtensionOwner();
         const { commands, dispose } = createBridge(() => undefined, owner);
         const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
@@ -264,7 +264,7 @@ describe("CommandsNamespace (subprocess)", () => {
         dispose();
     });
 
-    it("registerTextEditorCommand: сборка без геттера редактора (нет window) — no-op, не TypeError", async () => {
+    it("registerTextEditorCommand: build without an editor getter (no window) is a no-op, not a TypeError", async () => {
         const { commands, dispose } = createBridge();
         const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
         try {
@@ -280,7 +280,7 @@ describe("CommandsNamespace (subprocess)", () => {
         dispose();
     });
 
-    it("registerTextEditorCommand: thisArg привязывается, dispose снимает команду", async () => {
+    it("registerTextEditorCommand: thisArg is bound, dispose removes the command", async () => {
         const editor = {} as vscode.TextEditor;
         const { commands, host, dispose } = createBridge(() => editor);
         const unregistered: string[] = [];

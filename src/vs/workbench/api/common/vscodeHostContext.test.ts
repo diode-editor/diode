@@ -2,12 +2,12 @@ import { describe, expect, it } from "vitest";
 
 import { ExtensionOwner } from "./vscodeHostContext.ts";
 
-describe("ExtensionOwner — окружающий владелец", () => {
-    it("вне runAs владельца нет", () => {
+describe("ExtensionOwner — ambient owner", () => {
+    it("there is no owner outside runAs", () => {
         expect(new ExtensionOwner().current).toBeUndefined();
     });
 
-    it("runAs выставляет владельца на время вызова и возвращает результат", () => {
+    it("runAs sets the owner for the call and returns the result", () => {
         const owner = new ExtensionOwner();
         const seen: (string | undefined)[] = [];
         const result = owner.runAs("pub.a", () => {
@@ -19,7 +19,7 @@ describe("ExtensionOwner — окружающий владелец", () => {
         expect(owner.current).toBeUndefined();
     });
 
-    it("вложенный runAs восстанавливает внешнего владельца", () => {
+    it("nested runAs restores the outer owner", () => {
         const owner = new ExtensionOwner();
         const seen: (string | undefined)[] = [];
         owner.runAs("pub.outer", () => {
@@ -30,7 +30,7 @@ describe("ExtensionOwner — окружающий владелец", () => {
         expect(owner.current).toBeUndefined();
     });
 
-    it("исключение пролетает насквозь, владелец всё равно восстановлен", () => {
+    it("an exception propagates, the owner is still restored", () => {
         const owner = new ExtensionOwner();
         owner.runAs("pub.outer", () => {
             expect(() =>

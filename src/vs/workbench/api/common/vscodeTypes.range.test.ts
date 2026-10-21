@@ -3,13 +3,13 @@ import { describe, expect, it } from "vitest";
 import { Position, Range } from "./vscodeTypes.ts";
 
 describe("VscodeTypes — Range", () => {
-    it("конструктор из позиций и из 4 чисел эквивалентны", () => {
+    it("constructors from positions and from 4 numbers are equivalent", () => {
         const a = new Range(new Position(1, 2), new Position(3, 4));
         const b = new Range(1, 2, 3, 4);
         expect(a.isEqual(b)).toBe(true);
     });
 
-    it("свапает start/end если start после end", () => {
+    it("swaps start/end if start is after end", () => {
         const r = new Range(new Position(3, 0), new Position(1, 0));
         expect(r.start.isEqual(new Position(1, 0))).toBe(true);
         expect(r.end.isEqual(new Position(3, 0))).toBe(true);
@@ -21,7 +21,7 @@ describe("VscodeTypes — Range", () => {
         expect(new Range(1, 0, 2, 0).isSingleLine).toBe(false);
     });
 
-    it("contains(Position) — внутри, на границе, снаружи", () => {
+    it("contains(Position) — inside, on the edge, outside", () => {
         const r = new Range(1, 2, 3, 4);
         expect(r.contains(new Position(2, 0))).toBe(true);
         expect(r.contains(new Position(1, 2))).toBe(true);
@@ -36,7 +36,7 @@ describe("VscodeTypes — Range", () => {
         expect(r.contains(new Range(0, 0, 4, 0))).toBe(false);
     });
 
-    it("intersection/union — обе стороны выбора start/end", () => {
+    it("intersection/union — both sides of the start/end choice", () => {
         const a = new Range(1, 0, 3, 0);
         const b = new Range(2, 0, 5, 0);
         expect(a.intersection(b)?.isEqual(new Range(2, 0, 3, 0))).toBe(true);
@@ -47,7 +47,7 @@ describe("VscodeTypes — Range", () => {
         expect(new Range(1, 0, 2, 0).intersection(new Range(3, 0, 4, 0))).toBeUndefined();
     });
 
-    it("with возвращает ту же ссылку без изменений", () => {
+    it("with returns the same reference when nothing changes", () => {
         const r = new Range(1, 0, 2, 0);
         expect(r.with()).toBe(r);
         expect(r.with(new Position(0, 0)).start.isEqual(new Position(0, 0))).toBe(true);

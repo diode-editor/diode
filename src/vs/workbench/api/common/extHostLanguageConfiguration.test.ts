@@ -21,7 +21,7 @@ function setup() {
 }
 
 describe("languages.setLanguageConfiguration", () => {
-    it("есть в namespace и отдаёт Disposable", () => {
+    it("exists in the namespace and returns a Disposable", () => {
         const stub = makeStubRpc();
         const { namespace } = buildVscodeNamespace(stub.rpc, createNodeExtHostDisk());
         const disposable = namespace.languages.setLanguageConfiguration("go", { wordPattern: /\w+/g });
@@ -30,7 +30,7 @@ describe("languages.setLanguageConfiguration", () => {
         }).not.toThrow();
     });
 
-    it("секции, которые умеет ядро, уезжают хосту слоем в формате файла конфигурации", () => {
+    it("sections the core supports go to the host as a layer in configuration file format", () => {
         const { setLanguageConfiguration, sent } = setup();
         setLanguageConfiguration("go", {
             comments: { lineComment: "//", blockComment: ["/*", "*/"] },
@@ -76,7 +76,7 @@ describe("languages.setLanguageConfiguration", () => {
         ]);
     });
 
-    it("строчный комментарий-правило — только маркер; пустая конфигурация — пустой слой", () => {
+    it("a line comment rule is just the marker; an empty configuration is an empty layer", () => {
         const { setLanguageConfiguration, sent } = setup();
         setLanguageConfiguration("go", { comments: { lineComment: { comment: "#", noIndent: true } } });
         setLanguageConfiguration("go", {});
@@ -87,7 +87,7 @@ describe("languages.setLanguageConfiguration", () => {
         ]);
     });
 
-    it("dispose снимает слой по его handle; handle у каждого вызова свой", () => {
+    it("dispose removes the layer by its handle; each call gets its own handle", () => {
         const { setLanguageConfiguration, sent } = setup();
         const first = setLanguageConfiguration("go", {});
         setLanguageConfiguration("go.mod", {});
@@ -99,7 +99,7 @@ describe("languages.setLanguageConfiguration", () => {
         ]);
     });
 
-    it("wordPattern становится определением слова языка у документов; dispose его не снимает (как у эталона)", () => {
+    it("wordPattern becomes the language word definition for documents; dispose does not remove it (as upstream)", () => {
         const { registry, setLanguageConfiguration } = setup();
         const doc = registry.upsertFull({ uri: Uri.file("/a.go").toString(), languageId: "go", text: "foo.bar-baz" });
         const other = registry.upsertFull({
@@ -121,7 +121,7 @@ describe("languages.setLanguageConfiguration", () => {
         expect(doc.getWordRangeAtPosition(new Position(0, 5))).toEqual(new Range(0, 4, 0, 7));
     });
 
-    it("wordPattern, матчащий пустую строку, — эталонное исключение, хосту ничего не уходит", () => {
+    it("a wordPattern matching the empty string throws as upstream; nothing goes to the host", () => {
         const { setLanguageConfiguration, sent } = setup();
         expect(() => setLanguageConfiguration("go", { wordPattern: /\w*/g })).toThrow(
             "Invalid language configuration: wordPattern '/\\w*/g' is not allowed to match the empty string.",

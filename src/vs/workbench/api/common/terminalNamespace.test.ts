@@ -12,8 +12,8 @@ function setup() {
     return { stub, ns, sent };
 }
 
-describe("window.createTerminal — формы вызова уходят одним terminal.create", () => {
-    it("позиционная форма: имя, шелл и аргументы; метки монотонны", () => {
+describe("window.createTerminal — call forms are sent as a single terminal.create", () => {
+    it("positional form: name, shell and arguments; tags are monotonic", () => {
         const { ns, sent } = setup();
         ns.createTerminal("cleanup", "/bin/zsh", ["-l"]);
         ns.createTerminal();
@@ -30,7 +30,7 @@ describe("window.createTerminal — формы вызова уходят одн�
         });
     });
 
-    it("TerminalOptions: cwd-Uri → путь, env без undefined, строковые shellArgs режутся по пробелам", () => {
+    it("TerminalOptions: cwd Uri → path, env without undefined, string shellArgs split on spaces", () => {
         const { ns, sent } = setup();
         ns.createTerminal({
             name: "build",
@@ -57,13 +57,13 @@ describe("window.createTerminal — формы вызова уходят одн�
         ]);
     });
 
-    it("strictEnv/hideFromUser: false не уезжают; пустой env уезжает пустым", () => {
+    it("strictEnv/hideFromUser: false are not sent; empty env is sent empty", () => {
         const { ns, sent } = setup();
         ns.createTerminal({ strictEnv: false, hideFromUser: false, env: {} });
         expect(sent("terminal.create")).toStrictEqual([{ extHostId: 1, env: {} }]);
     });
 
-    it("location: TerminalLocation числом, колонка как есть, родитель — адресом; прочее не уезжает", () => {
+    it("location: TerminalLocation as a number, column as is, parent as an address; the rest is not sent", () => {
         const { ns, sent, stub } = setup();
         const own = ns.createTerminal({ name: "own" });
         stub.fire("terminal.opened", { id: 7, name: "bash", launch: { shellPath: "/bin/bash", cwd: "/" } });
@@ -86,7 +86,7 @@ describe("window.createTerminal — формы вызова уходят одн�
         for (const params of sent("terminal.create").slice(-2)) expect(params).not.toHaveProperty("location");
     });
 
-    it("терминал виден в terminals сразу, имя — заданное, creationOptions заморожены", () => {
+    it("terminal appears in terminals immediately, with the given name, creationOptions frozen", () => {
         const { ns } = setup();
         const options: vscode.TerminalOptions = { name: "log" };
         const terminal = ns.createTerminal(options);
@@ -102,8 +102,8 @@ describe("window.createTerminal — формы вызова уходят одн�
     });
 });
 
-describe("Terminal — методы", () => {
-    it("свой терминал адресуется меткой: sendText с Enter по умолчанию, show/hide/dispose", () => {
+describe("Terminal — methods", () => {
+    it("own terminal is addressed by tag: sendText with Enter by default, show/hide/dispose", () => {
         const { ns, stub } = setup();
         const terminal = ns.createTerminal("t");
         stub.notifies.length = 0;
@@ -125,7 +125,7 @@ describe("Terminal — методы", () => {
         ]);
     });
 
-    it("после dispose методы бросают, как `_checkDisposed` эталона", () => {
+    it("after dispose methods throw, like upstream `_checkDisposed`", () => {
         const { ns } = setup();
         const terminal = ns.createTerminal("t");
         terminal.dispose();
@@ -140,7 +140,7 @@ describe("Terminal — методы", () => {
         }).toThrow("Terminal has already been disposed");
     });
 
-    it("чужой терминал (шелл человека) адресуется хостовым id", () => {
+    it("foreign terminal (the user's shell) is addressed by host id", () => {
         const { ns, stub } = setup();
         stub.fire("terminal.opened", { id: 7, name: "bash", launch: {} });
         stub.notifies.length = 0;
@@ -151,8 +151,8 @@ describe("Terminal — методы", () => {
     });
 });
 
-describe("события от хоста", () => {
-    it("opened своего терминала: тот же объект, имя от хоста, pid; событие одно", async () => {
+describe("host events", () => {
+    it("opened for own terminal: same object, name from host, pid; one event", async () => {
         const { ns, stub } = setup();
         const onOpen = vi.fn();
         ns.onDidOpenTerminal(onOpen);
@@ -166,7 +166,7 @@ describe("события от хоста", () => {
         await expect(terminal.processId).resolves.toBe(4242);
     });
 
-    it("opened чужого терминала: новый объект в конце списка, creationOptions из launch", async () => {
+    it("opened for a foreign terminal: new object at the end of the list, creationOptions from launch", async () => {
         const { ns, stub } = setup();
         const own = ns.createTerminal("mine");
         const onOpen = vi.fn();
@@ -200,7 +200,7 @@ describe("события от хоста", () => {
         await expect(foreign.processId).resolves.toBeUndefined();
     });
 
-    it("opened с меткой, которой нет, — чужой терминал; битый конверт игнорируется", () => {
+    it("opened with an unknown tag is a foreign terminal; a malformed envelope is ignored", () => {
         const { ns, stub } = setup();
         stub.fire("terminal.opened", { id: 1, extHostId: 99, name: "x", launch: {} });
         stub.fire("terminal.opened", { name: "no id" });
@@ -209,7 +209,7 @@ describe("события от хоста", () => {
         expect(ns.terminals[0].creationOptions).toStrictEqual({});
     });
 
-    it("closed: exitStatus с кодом и причиной, выбывание из списка, событие; pid без открытия — undefined", async () => {
+    it("closed: exitStatus with code and reason, removal from the list, event; pid without opened is undefined", async () => {
         const { ns, stub } = setup();
         const onClose = vi.fn();
         ns.onDidCloseTerminal(onClose);
@@ -228,7 +228,7 @@ describe("события от хоста", () => {
         expect(ns.terminals[0].name).toBe("other");
     });
 
-    it("closed без кода и с незнакомой причиной — code undefined, reason Unknown; чужой id — мимо", () => {
+    it("closed without code and with an unknown reason: code undefined, reason Unknown; foreign id is ignored", () => {
         const { ns, stub } = setup();
         const onClose = vi.fn();
         ns.onDidCloseTerminal(onClose);
@@ -248,7 +248,7 @@ describe("события от хоста", () => {
         ["extension", TerminalExitReason.Extension],
         ["shutdown", TerminalExitReason.Shutdown],
         ["unknown", TerminalExitReason.Unknown],
-    ])("причина %s → TerminalExitReason", (reason, expected) => {
+    ])("reason %s → TerminalExitReason", (reason, expected) => {
         const { ns, stub } = setup();
         stub.fire("terminal.opened", { id: 1, name: "a", launch: {} });
         const [a] = ns.terminals;
@@ -256,7 +256,7 @@ describe("события от хоста", () => {
         expect(a.exitStatus?.reason).toBe(expected);
     });
 
-    it("activeChanged: активный и событие только на смене; незнакомый id не меняет; null — нет активного", () => {
+    it("activeChanged: active terminal and event only on change; unknown id changes nothing; null means none active", () => {
         const { ns, stub } = setup();
         const onActive = vi.fn();
         ns.onDidChangeActiveTerminal(onActive);
@@ -288,7 +288,7 @@ describe("события от хоста", () => {
     });
 });
 
-describe("pty расширения — сторона субпроцесса", () => {
+describe("extension pty — subprocess side", () => {
     function makePty() {
         const log: string[] = [];
         const pty: vscode.Pseudoterminal = {
@@ -301,7 +301,7 @@ describe("pty расширения — сторона субпроцесса", (
         return { pty, log };
     }
 
-    it("create уезжает меткой с pty: true и именем; шелловых опций нет", () => {
+    it("create is sent as a tag with pty: true and name; no shell options", () => {
         const { ns, sent } = setup();
         const { pty } = makePty();
         const terminal = ns.createTerminal({ name: "log", pty });
@@ -310,7 +310,7 @@ describe("pty расширения — сторона субпроцесса", (
         expect((terminal.creationOptions as vscode.ExtensionTerminalOptions).pty).toBe(pty);
     });
 
-    it("pty без handleInput/setDimensions: ввод и ресайз молча; close() бросает — терминал закрыт", () => {
+    it("pty without handleInput/setDimensions: input and resize are silent; close() throws, terminal closed", () => {
         const { ns, stub } = setup();
         const pty: vscode.Pseudoterminal = {
             onDidWrite: () => ({ dispose: () => undefined }),
@@ -334,7 +334,7 @@ describe("pty расширения — сторона субпроцесса", (
         expect(ns.terminals).toStrictEqual([]);
     });
 
-    it("start/resize/input: битый конверт, незнакомый id и терминал без pty — мимо", () => {
+    it("start/resize/input: malformed envelope, unknown id and terminal without pty are ignored", () => {
         const { ns, stub } = setup();
         const { pty, log } = makePty();
         ns.createTerminal({ name: "log", pty });
@@ -356,7 +356,7 @@ describe("pty расширения — сторона субпроцесса", (
         expect(log).toStrictEqual(["open", "dims 10x5", "dims 12x6", "input x"]);
     });
 
-    it("вывод склеивается окном и уходит одним pty.data; выход — с кодом, без кода — без поля; после закрытия — тишина", async () => {
+    it("output is batched per window and sent as one pty.data; exit with code, without code no field; silence after close", async () => {
         const { ns, stub, sent } = setup();
         const write = new EventEmitter<string>();
         const close = new EventEmitter<number | undefined>();
@@ -394,7 +394,7 @@ describe("pty расширения — сторона субпроцесса", (
     });
 });
 
-describe("attachPty — pty задачи с CustomExecution к терминалу ядра", () => {
+describe("attachPty — CustomExecution task pty to a core terminal", () => {
     function makePty(name: string, log: string[]) {
         const write = new EventEmitter<string>();
         const pty: vscode.Pseudoterminal = {
@@ -406,7 +406,7 @@ describe("attachPty — pty задачи с CustomExecution к терминал�
         return { pty, write };
     }
 
-    it("стартует с размером, присланным хостом до подключения; ввод и вывод — по id инстанса", async () => {
+    it("starts with the size the host sent before attach; input and output by instance id", async () => {
         const { ns, stub, sent } = setup();
         const log: string[] = [];
         stub.fire("terminal.opened", { id: 5, name: "task", launch: {} });
@@ -421,7 +421,7 @@ describe("attachPty — pty задачи с CustomExecution к терминал�
         expect(sent("terminal.pty.data")).toStrictEqual([{ terminal: { id: 5 }, data: "out" }]);
     });
 
-    it("без присланного размера — 80×24; повторное подключение отцепляет прежний pty без close()", async () => {
+    it("without a sent size uses 80×24; re-attach detaches the previous pty without close()", async () => {
         const { ns, stub, sent } = setup();
         const log: string[] = [];
         stub.fire("terminal.opened", { id: 5, name: "task", launch: {} });
@@ -437,7 +437,7 @@ describe("attachPty — pty задачи с CustomExecution к терминал�
         expect(sent("terminal.pty.data")).toStrictEqual([{ terminal: { id: 5 }, data: "fresh" }]);
     });
 
-    it("неизвестный терминал — исключение эталона", () => {
+    it("unknown terminal throws the upstream exception", () => {
         const { ns } = setup();
         expect(() => {
             ns.attachPty(9, makePty("x", []).pty);

@@ -49,7 +49,7 @@ export function createTreeViewNoopMembers(rpc: SubprocessRpc): ITreeViewNoopMemb
             channel: OUTPUT_CHANNEL,
             label: OUTPUT_LABEL,
             level: "warn",
-            value: `дерево "${viewId}" в TUI пока не рисуется — панели не будет, остальное расширение работает`,
+            value: `tree view "${viewId}" is not rendered in TUI yet — no panel, the rest of the extension works`,
         });
     }
 

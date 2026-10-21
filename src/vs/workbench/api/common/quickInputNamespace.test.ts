@@ -21,113 +21,113 @@ function pendingAnswer(): { promise: Promise<unknown>; answer: (value: unknown) 
 
 function lastRequest(stub: ReturnType<typeof makeStubRpc>, method: string): Record<string, unknown> {
     const found = [...stub.requests].reverse().find((r) => r.method === method);
-    if (found === undefined) throw new Error(`нет запроса "${method}"`);
+    if (found === undefined) throw new Error(`no request "${method}"`);
     return found.params as Record<string, unknown>;
 }
 
 describe("toWireValidation", () => {
-    it("голая строка — ошибка", () => {
-        expect(toWireValidation("нельзя")).toEqual({ message: "нельзя", severity: "error" });
+    it("a bare string is an error", () => {
+        expect(toWireValidation("not allowed")).toEqual({ message: "not allowed", severity: "error" });
     });
 
-    it("пустая строка, null и undefined — значение в порядке", () => {
+    it("an empty string, null and undefined mean the value is fine", () => {
         expect(toWireValidation("")).toBeNull();
         expect(toWireValidation(null)).toBeNull();
         expect(toWireValidation(undefined)).toBeNull();
     });
 
-    it("объектная форма несёт свою строгость", () => {
-        expect(toWireValidation({ message: "ой", severity: InputBoxValidationSeverity.Warning } as never)).toEqual({
-            message: "ой",
+    it("the object form carries its own severity", () => {
+        expect(toWireValidation({ message: "oops", severity: InputBoxValidationSeverity.Warning } as never)).toEqual({
+            message: "oops",
             severity: "warning",
         });
-        expect(toWireValidation({ message: "к сведению", severity: InputBoxValidationSeverity.Info } as never)).toEqual(
-            { message: "к сведению", severity: "info" },
+        expect(toWireValidation({ message: "for your information", severity: InputBoxValidationSeverity.Info } as never)).toEqual(
+            { message: "for your information", severity: "info" },
         );
-        expect(toWireValidation({ message: "беда", severity: InputBoxValidationSeverity.Error } as never)).toEqual({
-            message: "беда",
+        expect(toWireValidation({ message: "trouble", severity: InputBoxValidationSeverity.Error } as never)).toEqual({
+            message: "trouble",
             severity: "error",
         });
     });
 
-    it("объект без внятного сообщения — значение в порядке", () => {
+    it("an object without a meaningful message means the value is fine", () => {
         expect(toWireValidation({ message: "", severity: InputBoxValidationSeverity.Error } as never)).toBeNull();
         expect(toWireValidation({ severity: InputBoxValidationSeverity.Error } as never)).toBeNull();
     });
 
-    it("незнакомая строгость трактуется как ошибка", () => {
+    it("an unknown severity is treated as an error", () => {
         expect(toWireValidation({ message: "x", severity: 99 } as never)).toEqual({ message: "x", severity: "error" });
     });
 });
 
 describe("toWireQuickPickItem", () => {
-    it("строковый пункт сам себе лейбл", () => {
+    it("a string item is its own label", () => {
         expect(toWireQuickPickItem("apple")).toEqual({ label: "apple" });
     });
 
-    it("описание уезжает как есть", () => {
+    it("the description is sent as is", () => {
         expect(toWireQuickPickItem({ label: "TS", description: ".ts" })).toEqual({ label: "TS", description: ".ts" });
     });
 
-    it("detail показывается на месте описания, когда описания нет", () => {
-        expect(toWireQuickPickItem({ label: "TS", detail: "подробности" })).toEqual({
+    it("detail is shown in place of the description when there is none", () => {
+        expect(toWireQuickPickItem({ label: "TS", detail: "details" })).toEqual({
             label: "TS",
-            description: "подробности",
+            description: "details",
         });
     });
 
-    it("при обоих заполненных полях побеждает описание", () => {
-        expect(toWireQuickPickItem({ label: "TS", description: ".ts", detail: "подробности" })).toEqual({
+    it("when both fields are set, the description wins", () => {
+        expect(toWireQuickPickItem({ label: "TS", description: ".ts", detail: "details" })).toEqual({
             label: "TS",
             description: ".ts",
         });
     });
 
-    it("пустое описание уступает место detail", () => {
-        expect(toWireQuickPickItem({ label: "TS", description: "", detail: "подробности" })).toEqual({
+    it("an empty description gives way to detail", () => {
+        expect(toWireQuickPickItem({ label: "TS", description: "", detail: "details" })).toEqual({
             label: "TS",
-            description: "подробности",
+            description: "details",
         });
     });
 
-    it("без обоих полей описания в проводе нет", () => {
+    it("without both fields there is no description on the wire", () => {
         expect(toWireQuickPickItem({ label: "TS" })).toEqual({ label: "TS" });
     });
 });
 
-describe("window.showInputBox (шим)", () => {
-    it("шлёт опции хосту и резолвится введённым", async () => {
+describe("window.showInputBox (shim)", () => {
+    it("sends options to the host and resolves with the input", async () => {
         const { stub, api } = makeApi();
-        stub.responder = () => ({ value: "Ада" });
+        stub.responder = () => ({ value: "Ada" });
         const result = await api.showInputBox({
             title: "Your name",
-            prompt: "Как к вам обращаться",
-            placeHolder: "имя",
+            prompt: "What should we call you",
+            placeHolder: "name",
             value: "seed",
         });
-        expect(result).toBe("Ада");
+        expect(result).toBe("Ada");
         expect(lastRequest(stub, "window.showInputBox")).toMatchObject({
             title: "Your name",
-            prompt: "Как к вам обращаться",
-            placeHolder: "имя",
+            prompt: "What should we call you",
+            placeHolder: "name",
             value: "seed",
             validates: false,
         });
     });
 
-    it("отмена хоста — undefined", async () => {
+    it("host cancellation gives undefined", async () => {
         const { stub, api } = makeApi();
         stub.responder = () => ({ value: null });
         await expect(api.showInputBox({})).resolves.toBeUndefined();
     });
 
-    it("пустая строка — не отмена", async () => {
+    it("an empty string is not a cancellation", async () => {
         const { stub, api } = makeApi();
         stub.responder = () => ({ value: "" });
         await expect(api.showInputBox({})).resolves.toBe("");
     });
 
-    it("password уезжает хосту булевым — маску рисует он", async () => {
+    it("password is sent to the host as a boolean, the host draws the mask", async () => {
         const { stub, api } = makeApi();
         stub.responder = () => ({ value: "hunter2" });
 
@@ -138,14 +138,14 @@ describe("window.showInputBox (шим)", () => {
         expect(lastRequest(stub, "window.showInputBox").password).toBe(false);
     });
 
-    it("наличие validateInput объявляется хосту флагом", async () => {
+    it("the presence of validateInput is declared to the host as a flag", async () => {
         const { stub, api } = makeApi();
         stub.responder = () => ({ value: "x" });
         await api.showInputBox({ validateInput: () => null });
         expect(lastRequest(stub, "window.showInputBox").validates).toBe(true);
     });
 
-    it("хост спрашивает валидацию по handle и получает разобранный ответ", async () => {
+    it("the host asks for validation by handle and gets a parsed answer", async () => {
         const { stub, api } = makeApi();
         let handle = 0;
         stub.responder = (_method, params) => {
@@ -153,7 +153,7 @@ describe("window.showInputBox (шим)", () => {
             return { value: "x" };
         };
         const pending = api.showInputBox({
-            validateInput: (value) => (value === "плохо" ? "Только цифры" : null),
+            validateInput: (value) => (value === "bad" ? "Digits only" : null),
         });
         await pending;
         // The validator lives until the prompt closes: ask under the same handle.
@@ -164,11 +164,11 @@ describe("window.showInputBox (шим)", () => {
             liveHandle = (params as { handle: number }).handle;
             return show.promise;
         };
-        const live = api2.showInputBox({ validateInput: (value) => (value === "плохо" ? "Только цифры" : null) });
+        const live = api2.showInputBox({ validateInput: (value) => (value === "bad" ? "Digits only" : null) });
         await Promise.resolve();
         await expect(
-            stub2.callRequest("window.inputBox.validate", { handle: liveHandle, value: "плохо" }),
-        ).resolves.toEqual({ message: "Только цифры", severity: "error" });
+            stub2.callRequest("window.inputBox.validate", { handle: liveHandle, value: "bad" }),
+        ).resolves.toEqual({ message: "Digits only", severity: "error" });
         await expect(
             stub2.callRequest("window.inputBox.validate", { handle: liveHandle, value: "8080" }),
         ).resolves.toBeNull();
@@ -177,7 +177,7 @@ describe("window.showInputBox (шим)", () => {
         expect(handle).toBeGreaterThan(0);
     });
 
-    it("валидация асинхронного валидатора дожидается его ответа", async () => {
+    it("validation with an async validator waits for its answer", async () => {
         const { stub, api } = makeApi();
         let liveHandle = 0;
         const show = pendingAnswer();
@@ -186,31 +186,31 @@ describe("window.showInputBox (шим)", () => {
             return show.promise;
         };
         const live = api.showInputBox({
-            validateInput: async (value) => (value === "" ? null : `Проверено: ${value}`),
+            validateInput: async (value) => (value === "" ? null : `Checked: ${value}`),
         });
         await Promise.resolve();
         await expect(
             stub.callRequest("window.inputBox.validate", { handle: liveHandle, value: "ab" }),
-        ).resolves.toEqual({ message: "Проверено: ab", severity: "error" });
+        ).resolves.toEqual({ message: "Checked: ab", severity: "error" });
         show.answer({ value: "ab" });
         await live;
     });
 
-    it("запрос валидации с чужим или закрытым handle — «в порядке»", async () => {
+    it("a validation request with a foreign or closed handle is fine", async () => {
         const { stub, api } = makeApi();
         stub.responder = () => ({ value: "x" });
-        await api.showInputBox({ validateInput: () => "нельзя" });
+        await api.showInputBox({ validateInput: () => "not allowed" });
         await expect(stub.callRequest("window.inputBox.validate", { handle: 1, value: "y" })).resolves.toBeNull();
         await expect(stub.callRequest("window.inputBox.validate", { handle: 999, value: "y" })).resolves.toBeNull();
     });
 
-    it("мусорные параметры валидации не роняют шим", async () => {
+    it("garbage validation params do not break the shim", async () => {
         const { stub } = makeApi();
         await expect(stub.callRequest("window.inputBox.validate", {})).resolves.toBeNull();
         await expect(stub.callRequest("window.inputBox.validate", { handle: 1 })).resolves.toBeNull();
     });
 
-    it("токен отмены шлёт хосту снятие показа с его handle", async () => {
+    it("the cancellation token sends the host a dismissal with its handle", async () => {
         const { stub, api } = makeApi();
         const show = pendingAnswer();
         let liveHandle = 0;
@@ -230,14 +230,14 @@ describe("window.showInputBox (шим)", () => {
         await expect(pending).resolves.toBeUndefined();
     });
 
-    it("без опций вовсе показ поднимается на дефолтах", async () => {
+    it("with no options at all the input box opens with defaults", async () => {
         const { stub, api } = makeApi();
         stub.responder = () => ({ value: "x" });
         await expect(api.showInputBox()).resolves.toBe("x");
         expect(lastRequest(stub, "window.showInputBox")).toMatchObject({ validates: false });
     });
 
-    it("handle показа монотонно растёт — два показа не путаются", async () => {
+    it("the input box handle grows monotonically, two boxes are not confused", async () => {
         const { stub, api } = makeApi();
         stub.responder = () => ({ value: "x" });
         await api.showInputBox({});
@@ -247,7 +247,7 @@ describe("window.showInputBox (шим)", () => {
         expect(second).toBeGreaterThan(first);
     });
 
-    it("нестроковое значение в запросе валидации до валидатора не доходит", async () => {
+    it("a non-string value in a validation request does not reach the validator", async () => {
         const { stub, api } = makeApi();
         const show = pendingAnswer();
         let liveHandle = 0;
@@ -259,7 +259,7 @@ describe("window.showInputBox (шим)", () => {
         const live = api.showInputBox({
             validateInput: () => {
                 asked++;
-                return "нельзя";
+                return "not allowed";
             },
         });
         await Promise.resolve();
@@ -271,7 +271,7 @@ describe("window.showInputBox (шим)", () => {
         await live;
     });
 
-    it("токен, отменённый ПОСЛЕ закрытия показа, хосту уже не пишет", async () => {
+    it("a token cancelled AFTER the input box closes no longer writes to the host", async () => {
         const { stub, api } = makeApi();
         stub.responder = () => ({ value: "x" });
         const source = new CancellationTokenSource();
@@ -280,7 +280,7 @@ describe("window.showInputBox (шим)", () => {
         expect(stub.notifies.filter((n) => n.method === "window.quickInput.cancel")).toHaveLength(0);
     });
 
-    it("уже отменённый токен не поднимает показ вовсе", async () => {
+    it("an already cancelled token does not open the input box at all", async () => {
         const { stub, api } = makeApi();
         const source = new CancellationTokenSource();
         source.cancel();
@@ -291,21 +291,21 @@ describe("window.showInputBox (шим)", () => {
     });
 });
 
-describe("window.showQuickPick (шим)", () => {
-    it("строки: резолвится выбранной строкой", async () => {
+describe("window.showQuickPick (shim)", () => {
+    it("strings: resolves with the picked string", async () => {
         const { stub, api } = makeApi();
         stub.responder = () => ({ indices: [1] });
         await expect(api.showQuickPick(["apple", "banana", "cherry"])).resolves.toBe("banana");
     });
 
-    it("предметы: возвращается ТОТ ЖЕ объект, что прислало расширение", async () => {
+    it("items: returns THE SAME object the extension sent", async () => {
         const { stub, api } = makeApi();
         stub.responder = () => ({ indices: [2] });
         const items = [{ label: "a" }, { label: "b" }, { label: "c" }];
         await expect(api.showQuickPick(items)).resolves.toBe(items[2]);
     });
 
-    it("разделители не показываются и не выбираются; индексы ответа — по оставшимся пунктам", async () => {
+    it("separators are neither shown nor picked; answer indices refer to the remaining items", async () => {
         const { stub, api } = makeApi();
         stub.responder = () => ({ indices: [1] });
         // Shape of `Go: Choose Go Environment`: group headers between the options.
@@ -322,13 +322,13 @@ describe("window.showQuickPick (шим)", () => {
         ]);
     });
 
-    it("отмена — undefined", async () => {
+    it("cancellation gives undefined", async () => {
         const { stub, api } = makeApi();
         stub.responder = () => ({ indices: null });
         await expect(api.showQuickPick(["a"])).resolves.toBeUndefined();
     });
 
-    it("canPickMany резолвится массивом, пустой набор — пустым массивом", async () => {
+    it("canPickMany resolves with an array, an empty selection with an empty array", async () => {
         const { stub, api } = makeApi();
         stub.responder = () => ({ indices: [0, 2] });
         await expect(api.showQuickPick(["a", "b", "c"], { canPickMany: true })).resolves.toEqual(["a", "c"]);
@@ -336,21 +336,21 @@ describe("window.showQuickPick (шим)", () => {
         await expect(api.showQuickPick(["a", "b", "c"], { canPickMany: true })).resolves.toEqual([]);
     });
 
-    it("canPickMany отменённый — undefined, а не пустой массив", async () => {
+    it("a cancelled canPickMany gives undefined, not an empty array", async () => {
         const { stub, api } = makeApi();
         stub.responder = () => ({ indices: null });
         await expect(api.showQuickPick(["a"], { canPickMany: true })).resolves.toBeUndefined();
     });
 
-    it("список-промис дожидается и уезжает хосту уже заполненным", async () => {
+    it("a promised list is awaited and sent to the host already filled", async () => {
         const { stub, api } = makeApi();
         stub.responder = () => ({ indices: [0] });
-        const items = Promise.resolve(["готово-1", "готово-2"]);
-        await expect(api.showQuickPick(items)).resolves.toBe("готово-1");
-        expect(lastRequest(stub, "window.showQuickPick").items).toEqual([{ label: "готово-1" }, { label: "готово-2" }]);
+        const items = Promise.resolve(["ready-1", "ready-2"]);
+        await expect(api.showQuickPick(items)).resolves.toBe("ready-1");
+        expect(lastRequest(stub, "window.showQuickPick").items).toEqual([{ label: "ready-1" }, { label: "ready-2" }]);
     });
 
-    it("предотмеченные пункты уезжают индексами — и только при canPickMany", async () => {
+    it("pre-picked items are sent as indices, and only with canPickMany", async () => {
         const { stub, api } = makeApi();
         stub.responder = () => ({ indices: [] });
         const items = [{ label: "a" }, { label: "b", picked: true }, { label: "c", picked: true }];
@@ -361,33 +361,33 @@ describe("window.showQuickPick (шим)", () => {
         expect(lastRequest(stub, "window.showQuickPick").picked).toEqual([]);
     });
 
-    it("индекс за пределами списка выбрасывается, а не превращается в undefined", async () => {
+    it("an out-of-range index is dropped, not turned into undefined", async () => {
         const { stub, api } = makeApi();
         stub.responder = () => ({ indices: [0, 99] });
         await expect(api.showQuickPick(["a", "b"], { canPickMany: true })).resolves.toEqual(["a"]);
     });
 
-    it("индекс, равный длине списка, — тоже за пределами", async () => {
+    it("an index equal to the list length is out of range too", async () => {
         const { stub, api } = makeApi();
         stub.responder = () => ({ indices: [2] });
         await expect(api.showQuickPick(["a", "b"], { canPickMany: true })).resolves.toEqual([]);
     });
 
-    it("у строкового списка предотмеченных пунктов не бывает", async () => {
+    it("a string list has no pre-picked items", async () => {
         const { stub, api } = makeApi();
         stub.responder = () => ({ indices: [] });
         await api.showQuickPick(["a", "b"], { canPickMany: true });
         expect(lastRequest(stub, "window.showQuickPick").picked).toEqual([]);
     });
 
-    it("без опций вовсе список поднимается на дефолтах", async () => {
+    it("with no options at all the list opens with defaults", async () => {
         const { stub, api } = makeApi();
         stub.responder = () => ({ indices: [0] });
         await expect(api.showQuickPick(["a"])).resolves.toBe("a");
         expect(lastRequest(stub, "window.showQuickPick")).toMatchObject({ canPickMany: false, picked: [] });
     });
 
-    it("handle списка монотонно растёт", async () => {
+    it("the list handle grows monotonically", async () => {
         const { stub, api } = makeApi();
         stub.responder = () => ({ indices: null });
         await api.showQuickPick(["a"]);
@@ -397,7 +397,7 @@ describe("window.showQuickPick (шим)", () => {
         expect(second).toBeGreaterThan(first);
     });
 
-    it("токен, отменённый ПОСЛЕ закрытия списка, хосту уже не пишет", async () => {
+    it("a token cancelled AFTER the list closes no longer writes to the host", async () => {
         const { stub, api } = makeApi();
         stub.responder = () => ({ indices: null });
         const source = new CancellationTokenSource();
@@ -406,18 +406,18 @@ describe("window.showQuickPick (шим)", () => {
         expect(stub.notifies.filter((n) => n.method === "window.quickInput.cancel")).toHaveLength(0);
     });
 
-    it("заголовок и плейсхолдер уезжают хосту", async () => {
+    it("title and placeholder are sent to the host", async () => {
         const { stub, api } = makeApi();
         stub.responder = () => ({ indices: null });
-        await api.showQuickPick(["a"], { title: "Кто", placeHolder: "Выберите" });
+        await api.showQuickPick(["a"], { title: "Who", placeHolder: "Pick one" });
         expect(lastRequest(stub, "window.showQuickPick")).toMatchObject({
-            title: "Кто",
-            placeHolder: "Выберите",
+            title: "Who",
+            placeHolder: "Pick one",
             canPickMany: false,
         });
     });
 
-    it("токен, отменённый пока считался список, не поднимает показ", async () => {
+    it("a token cancelled while the list was being computed does not open the picker", async () => {
         const { stub, api } = makeApi();
         const source = new CancellationTokenSource();
         const items = Promise.resolve(["a"]).then((value) => {
@@ -430,7 +430,7 @@ describe("window.showQuickPick (шим)", () => {
         expect(stub.requests).toHaveLength(0);
     });
 
-    it("токен отмены шлёт хосту снятие показа", async () => {
+    it("the cancellation token sends the host a dismissal", async () => {
         const { stub, api } = makeApi();
         const show = pendingAnswer();
         stub.responder = () => show.promise;

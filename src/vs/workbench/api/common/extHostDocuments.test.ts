@@ -3,8 +3,8 @@ import { describe, expect, it } from "vitest";
 import { DocumentRegistry, DocumentSyncTracker, type IDocumentChangeEvent } from "./extHostDocuments.ts";
 import { EndOfLine, Position, Range, Uri } from "./vscodeTypes.ts";
 
-describe("ExtHostDocuments — DocumentRegistry идентичность", () => {
-    it("getOrCreate возвращает ТУ ЖЕ ссылку для того же ресурса", () => {
+describe("ExtHostDocuments — DocumentRegistry identity", () => {
+    it("getOrCreate returns THE SAME reference for the same resource", () => {
         const reg = new DocumentRegistry();
         const a = reg.getOrCreate(Uri.file("/a.ts"));
         const b = reg.getOrCreate(Uri.file("/a.ts"));
@@ -12,7 +12,7 @@ describe("ExtHostDocuments — DocumentRegistry идентичность", () =>
         expect(reg.getOrCreate(Uri.file("/other.ts"))).not.toBe(a);
     });
 
-    it("upsertMeta/upsertFull мутируют тот же объект (идентичность сохраняется)", () => {
+    it("upsertMeta/upsertFull mutate the same object (identity is preserved)", () => {
         const reg = new DocumentRegistry();
         const first = reg.upsertMeta({ uri: Uri.file("/a.ts").toString() });
         const second = reg.upsertMeta({ uri: Uri.file("/a.ts").toString(), languageId: "typescript", isDirty: true });
@@ -23,14 +23,14 @@ describe("ExtHostDocuments — DocumentRegistry идентичность", () =>
         expect(third).toBe(first);
     });
 
-    it("all() отдаёт все известные документы", () => {
+    it("all() returns all known documents", () => {
         const reg = new DocumentRegistry();
         reg.getOrCreate(Uri.file("/a.ts"));
         reg.getOrCreate(Uri.file("/b.ts"));
         expect(reg.all()).toHaveLength(2);
     });
 
-    it("get() возвращает документ или undefined", () => {
+    it("get() returns the document or undefined", () => {
         const reg = new DocumentRegistry();
         const doc = reg.getOrCreate(Uri.file("/a.ts"));
         expect(reg.get(Uri.file("/a.ts"))).toBe(doc);
@@ -39,7 +39,7 @@ describe("ExtHostDocuments — DocumentRegistry идентичность", () =>
 });
 
 describe("ExtHostDocuments — ExtHostTextDocument", () => {
-    it("дефолты пустого документа", () => {
+    it("empty document defaults", () => {
         const doc = new DocumentRegistry().getOrCreate(Uri.file("/a.ts"));
         expect(doc.languageId).toBe("plaintext");
         expect(doc.isDirty).toBe(false);
@@ -52,7 +52,7 @@ describe("ExtHostDocuments — ExtHostTextDocument", () => {
         expect(doc.lineAt(0).text).toBe("");
     });
 
-    it("fileName выводится из uri (shorthand для uri.fsPath, как требует vscode.d.ts)", () => {
+    it("fileName is derived from uri (shorthand for uri.fsPath, as vscode.d.ts requires)", () => {
         const doc = new DocumentRegistry().getOrCreate(Uri.file("/dir/file.ts"));
         expect(doc.uri.scheme).toBe("file");
         expect(doc.uri.fsPath).toBe("/dir/file.ts");
@@ -60,20 +60,20 @@ describe("ExtHostDocuments — ExtHostTextDocument", () => {
         expect(doc.isUntitled).toBe(false);
     });
 
-    it("isUntitled выводится из схемы untitled:", () => {
+    it("isUntitled is derived from the untitled: scheme", () => {
         const doc = new DocumentRegistry().getOrCreate(Uri.parse("untitled:Untitled-1"));
         expect(doc.isUntitled).toBe(true);
         expect(doc.fileName).toBe("Untitled-1");
     });
 
-    it("документы с одинаковым path, но разной схемой — разные объекты", () => {
+    it("documents with the same path but different schemes are different objects", () => {
         const reg = new DocumentRegistry();
         const file = reg.getOrCreate(Uri.file("/a.ts"));
         const untitled = reg.getOrCreate(Uri.parse("untitled:/a.ts"));
         expect(untitled).not.toBe(file);
     });
 
-    it("version растёт только на upsertFull, не на applyMeta", () => {
+    it("version grows only on upsertFull, not on applyMeta", () => {
         const reg = new DocumentRegistry();
         const doc = reg.upsertMeta({ uri: Uri.file("/a.ts").toString(), isDirty: true });
         expect(doc.version).toBe(0);
@@ -85,7 +85,7 @@ describe("ExtHostDocuments — ExtHostTextDocument", () => {
         expect(doc.version).toBe(2);
     });
 
-    it("явная версия снапшота (document sync) побеждает локальный инкремент", () => {
+    it("an explicit snapshot version (document sync) wins over the local increment", () => {
         const reg = new DocumentRegistry();
         const doc = reg.upsertFull({ uri: Uri.file("/a.ts").toString(), text: "a\n", version: 7 });
         expect(doc.version).toBe(7);
@@ -93,7 +93,7 @@ describe("ExtHostDocuments — ExtHostTextDocument", () => {
         expect(doc.version).toBe(8);
     });
 
-    it("getText/lineCount отражают снапшот", () => {
+    it("getText/lineCount reflect the snapshot", () => {
         const reg = new DocumentRegistry();
         const doc = reg.upsertFull({ uri: Uri.file("/a.ts").toString(), text: "line0\nline1\nline2" });
         expect(doc.getText()).toBe("line0\nline1\nline2");
@@ -101,7 +101,7 @@ describe("ExtHostDocuments — ExtHostTextDocument", () => {
         expect(doc.lineAt(1).text).toBe("line1");
     });
 
-    it("upsertFull с eol обновляет doc.eol, без eol — оставляет прежний", () => {
+    it("upsertFull with eol updates doc.eol, without eol keeps the previous one", () => {
         const reg = new DocumentRegistry();
         const doc = reg.upsertFull({ uri: Uri.file("/a.ts").toString(), text: "a\n", eol: EndOfLine.CRLF });
         expect(doc.eol).toBe(EndOfLine.CRLF);
@@ -109,18 +109,18 @@ describe("ExtHostDocuments — ExtHostTextDocument", () => {
         expect(doc.eol).toBe(EndOfLine.CRLF);
     });
 
-    it("трейлинг \\n даёт пустую последнюю строку", () => {
+    it("a trailing \\n yields an empty last line", () => {
         const doc = new DocumentRegistry().upsertFull({ uri: Uri.file("/a.ts").toString(), text: "a\nb\n" });
         expect(doc.lineCount).toBe(3);
         expect(doc.lineAt(2).text).toBe("");
     });
 
-    it("lineAt(number) и lineAt(Position) эквивалентны", () => {
+    it("lineAt(number) and lineAt(Position) are equivalent", () => {
         const doc = new DocumentRegistry().upsertFull({ uri: Uri.file("/a.ts").toString(), text: "a\nbb\nccc" });
         expect(doc.lineAt(1)).toEqual(doc.lineAt(new Position(1, 99)));
     });
 
-    it("TextLine: range/rangeIncludingLineBreak (последняя строка без переноса)", () => {
+    it("TextLine: range/rangeIncludingLineBreak (last line has no line break)", () => {
         const doc = new DocumentRegistry().upsertFull({ uri: Uri.file("/a.ts").toString(), text: "ab\ncd" });
         const l0 = doc.lineAt(0);
         expect(l0.range.end.character).toBe(2);
@@ -140,18 +140,18 @@ describe("ExtHostDocuments — ExtHostTextDocument", () => {
         expect(doc.lineAt(2).firstNonWhitespaceCharacterIndex).toBe(0);
     });
 
-    it("lineAt вне диапазона бросает", () => {
+    it("lineAt out of range throws", () => {
         const doc = new DocumentRegistry().upsertFull({ uri: Uri.file("/a.ts").toString(), text: "a\nb" });
         expect(() => doc.lineAt(5)).toThrow(RangeError);
     });
 
-    it("getText(range) режет по диапазону", () => {
+    it("getText(range) slices by range", () => {
         const doc = new DocumentRegistry().upsertFull({ uri: Uri.file("/a.ts").toString(), text: "hello\nworld" });
         expect(doc.getText(new Range(0, 1, 0, 4))).toBe("ell");
         expect(doc.getText(new Range(0, 3, 1, 2))).toBe("lo\nwo");
     });
 
-    it("getText(range) через несколько строк включает промежуточные целиком", () => {
+    it("getText(range) across several lines includes the middle lines whole", () => {
         const doc = new DocumentRegistry().upsertFull({
             uri: Uri.file("/a.ts").toString(),
             text: "one\ntwo\nthree\nfour",
@@ -175,21 +175,21 @@ describe("ExtHostDocuments — DocumentSyncTracker", () => {
     }
     const URI = Uri.file("/a.ts").toString();
 
-    it("неизвестный ресурс — didOpen с полным текстом", () => {
+    it("an unknown resource fires didOpen with the full text", () => {
         const { tracker, log } = makeTracker();
         const doc = tracker.open({ uri: URI, languageId: "typescript", text: "a" });
         expect(log).toEqual(["open:a"]);
         expect(doc.languageId).toBe("typescript");
     });
 
-    it("ресурс в реестре (getOrCreate/meta), но didOpen ещё не фаерился — didOpen, не didChange", () => {
+    it("a resource in the registry (getOrCreate/meta) without a prior didOpen fires didOpen, not didChange", () => {
         const { registry, tracker, log } = makeTracker();
         registry.getOrCreate(Uri.parse(URI)); // meta path of active-editor-change
         tracker.open({ uri: URI, text: "a" });
         expect(log).toEqual(["open:a"]);
     });
 
-    it("тот же текст — тихо: мета обновляется, версия и события не трогаются", () => {
+    it("the same text is silent: meta updates, version and events are untouched", () => {
         const { tracker, log } = makeTracker();
         const doc = tracker.open({ uri: URI, text: "a", version: 7 });
         tracker.open({ uri: URI, text: "a", isDirty: true });
@@ -198,7 +198,7 @@ describe("ExtHostDocuments — DocumentSyncTracker", () => {
         expect(doc.version).toBe(7);
     });
 
-    it("изменившийся текст — didChange одной full-range правкой от СТАРОГО текста", () => {
+    it("changed text fires didChange with one full-range edit over the OLD text", () => {
         const { tracker, log, changes } = makeTracker();
         const doc = tracker.open({ uri: URI, text: "ab\ncd" });
         const same = tracker.open({ uri: URI, text: "x" });
@@ -213,7 +213,7 @@ describe("ExtHostDocuments — DocumentSyncTracker", () => {
         expect(changes[0].document.getText()).toBe("x");
     });
 
-    it("close открытого документа: isClosed, событие, документ остаётся в реестре", () => {
+    it("close of an open document: isClosed, an event, the document stays in the registry", () => {
         const { registry, tracker } = makeTracker();
         const closed: string[] = [];
         tracker.onDidCloseEmitter.event((doc) => closed.push(doc.getText()));
@@ -227,7 +227,7 @@ describe("ExtHostDocuments — DocumentSyncTracker", () => {
         expect(registry.get(Uri.parse(URI)) === doc).toBe(true);
     });
 
-    it("close незнакомого ресурса — null без события", () => {
+    it("close of an unknown resource returns null without an event", () => {
         const { tracker } = makeTracker();
         const closed: string[] = [];
         tracker.onDidCloseEmitter.event((doc) => closed.push(doc.getText()));
@@ -236,14 +236,14 @@ describe("ExtHostDocuments — DocumentSyncTracker", () => {
         expect(closed).toEqual([]);
     });
 
-    it("close ресурса из реестра без didOpen (мета-путь) — null", () => {
+    it("close of a registry resource without didOpen (meta path) returns null", () => {
         const { registry, tracker } = makeTracker();
         registry.getOrCreate(Uri.parse(URI)); // meta path of active-editor-change, didOpen never fired
 
         expect(tracker.close(Uri.parse(URI))).toBeNull();
     });
 
-    it("воскрешение после close: снова didOpen тем же объектом, isClosed снят", () => {
+    it("revival after close: didOpen again with the same object, isClosed cleared", () => {
         const { tracker, log } = makeTracker();
         const doc = tracker.open({ uri: URI, text: "a" });
         tracker.close(Uri.parse(URI));

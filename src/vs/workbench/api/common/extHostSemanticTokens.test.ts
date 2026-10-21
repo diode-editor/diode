@@ -24,7 +24,7 @@ function sequence(results: unknown[], withEdits?: unknown[]) {
 }
 
 describe("DocumentSemanticTokensAdapter", () => {
-    it("полный ответ: id растёт с каждым ответом, данные — массивом чисел", async () => {
+    it("full response: id grows with each response, data is a number array", async () => {
         const { provider } = sequence([tokens([0, 1, 2, 3, 4]), tokens([5, 6, 7, 8, 9])]);
         const adapter = new DocumentSemanticTokensAdapter(provider);
         expect(await adapter.provideDocumentSemanticTokens(DOC, 0, TOKEN)).toEqual({
@@ -39,7 +39,7 @@ describe("DocumentSemanticTokensAdapter", () => {
         });
     });
 
-    it("прошлый ответ со строковым resultId и метод Edits → provideDocumentSemanticTokensEdits", async () => {
+    it("previous response with a string resultId and an Edits method → provideDocumentSemanticTokensEdits", async () => {
         const { provider, full, edits } = sequence(
             [tokens([1, 1, 1, 1, 1], "a")],
             [new SemanticTokensEdits([new SemanticTokensEdit(0, 5, new Uint32Array([2]))], "b")],
@@ -55,7 +55,7 @@ describe("DocumentSemanticTokensAdapter", () => {
         expect(edits.mock.calls[0][1]).toBe("a");
     });
 
-    it("прошлый ответ без resultId — снова полный запрос, хоть метод Edits и есть", async () => {
+    it("previous response without resultId makes a full request again, even with an Edits method", async () => {
         const { provider, full, edits } = sequence([tokens([1, 1, 1, 1, 1]), tokens([1, 1, 1, 1, 1])], []);
         const adapter = new DocumentSemanticTokensAdapter(provider);
         await adapter.provideDocumentSemanticTokens(DOC, 0, TOKEN);
@@ -64,7 +64,7 @@ describe("DocumentSemanticTokensAdapter", () => {
         expect(edits).not.toHaveBeenCalled();
     });
 
-    it("без метода Edits полный ответ превращается в дельту prefix/suffix", async () => {
+    it("without an Edits method a full response becomes a prefix/suffix delta", async () => {
         const { provider } = sequence([
             tokens([1, 2, 3, 4, 5, 6, 7], "a"),
             tokens([1, 2, 9, 9, 9, 6, 7], "b"),
@@ -103,7 +103,7 @@ describe("DocumentSemanticTokensAdapter", () => {
         });
     });
 
-    it("правки от провайдера: хранится только resultId — следующий полный ответ уже не дифается", async () => {
+    it("provider edits: only resultId is kept, the next full response is not diffed", async () => {
         const { provider } = sequence(
             [tokens([1, 1, 1, 1, 1], "a"), tokens([1, 1, 1, 1, 1], "c")],
             [new SemanticTokensEdits([new SemanticTokensEdit(0, 0)], "b"), undefined],
@@ -119,7 +119,7 @@ describe("DocumentSemanticTokensAdapter", () => {
         expect(await adapter.provideDocumentSemanticTokens(DOC, 2, TOKEN)).toBeNull();
     });
 
-    it("после правок от провайдера полный ответ уходит полным (данных для дифа нет)", async () => {
+    it("after provider edits a full response is sent in full (no data to diff against)", async () => {
         const edits = vi
             .fn()
             .mockReturnValueOnce(new SemanticTokensEdits([], "b"))
@@ -138,7 +138,7 @@ describe("DocumentSemanticTokensAdapter", () => {
         });
     });
 
-    it("дельта от полного ответа хранит его данные — следующий диф считается от них", async () => {
+    it("delta from a full response keeps its data, the next diff is computed from it", async () => {
         const { provider } = sequence([tokens([1, 2, 3], "a"), tokens([1, 5, 3], "b"), tokens([1, 5, 6], "c")]);
         const adapter = new DocumentSemanticTokensAdapter(provider);
         await adapter.provideDocumentSemanticTokens(DOC, 0, TOKEN);
@@ -150,7 +150,7 @@ describe("DocumentSemanticTokensAdapter", () => {
         });
     });
 
-    it("данные обычными массивами принимаются — и в полном ответе, и в правках", async () => {
+    it("plain array data is accepted, both in full responses and in edits", async () => {
         const { provider } = sequence(
             [{ resultId: "a", data: [3, 4, 5, 6, 7] }],
             [
@@ -179,7 +179,7 @@ describe("DocumentSemanticTokensAdapter", () => {
         });
     });
 
-    it("пустой ответ и чужая форма — null", async () => {
+    it("empty response and foreign shape yield null", async () => {
         const { provider } = sequence([null, undefined, { foo: 1 }, "x", { data: null }]);
         const adapter = new DocumentSemanticTokensAdapter(provider);
         for (let i = 0; i < 5; i++) {
@@ -187,7 +187,7 @@ describe("DocumentSemanticTokensAdapter", () => {
         }
     });
 
-    it("использованный id забывается: повторный запрос с ним — полный", async () => {
+    it("used id is forgotten: a repeated request with it is full", async () => {
         const { provider, edits } = sequence([tokens([1], "a"), tokens([2], "c")], [new SemanticTokensEdits([], "b")]);
         const adapter = new DocumentSemanticTokensAdapter(provider);
         await adapter.provideDocumentSemanticTokens(DOC, 0, TOKEN);
@@ -196,7 +196,7 @@ describe("DocumentSemanticTokensAdapter", () => {
         expect(edits).toHaveBeenCalledTimes(1);
     });
 
-    it("release забывает ответ: дельта к нему больше не считается", async () => {
+    it("release forgets the response: no more deltas against it", async () => {
         const { provider } = sequence([tokens([1, 2], "a"), tokens([1, 3], "b")]);
         const adapter = new DocumentSemanticTokensAdapter(provider);
         await adapter.provideDocumentSemanticTokens(DOC, 0, TOKEN);
@@ -210,7 +210,7 @@ describe("DocumentSemanticTokensAdapter", () => {
 });
 
 describe("DocumentRangeSemanticTokensAdapter", () => {
-    it("ответ всегда полный с id 0; диапазон доезжает до провайдера", async () => {
+    it("response is always full with id 0; range reaches the provider", async () => {
         const provide = vi.fn((_doc: unknown, _range: unknown) => tokens([0, 1, 2, 3, 4], "x"));
         const adapter = new DocumentRangeSemanticTokensAdapter({
             provideDocumentRangeSemanticTokens: provide,
@@ -224,7 +224,7 @@ describe("DocumentRangeSemanticTokensAdapter", () => {
         expect(provide.mock.calls[0][1]).toBe(range);
     });
 
-    it("массив чисел принимается; пусто и чужая форма — null", async () => {
+    it("number array is accepted; empty and foreign shape yield null", async () => {
         const results: unknown[] = [{ data: [9, 9] }, null, { edits: [] }];
         const adapter = new DocumentRangeSemanticTokensAdapter({
             provideDocumentRangeSemanticTokens: () => results.shift(),

@@ -41,7 +41,7 @@ function makeCtx(stub: IStubRpc = makeStubRpc()): { ctx: IVscodeHostContext; stu
 }
 
 describe("LanguagesNamespace", () => {
-    it("registerCompletionItemProvider объявляет провайдера ядру с триггерами, dispose — снимает один раз", () => {
+    it("registerCompletionItemProvider announces the provider to the core with triggers, dispose removes it once", () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
         const provider = { provideCompletionItems: () => [] } as never;
@@ -71,7 +71,7 @@ describe("LanguagesNamespace", () => {
         expect(stub.notifies.filter((n) => n.method === "languages.updateSubscriptions")).toEqual([]);
     });
 
-    it("provideCompletionItems зовёт провайдеров присланных handle и сериализует items", async () => {
+    it("provideCompletionItems calls providers of the sent handles and serializes items", async () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
 
@@ -101,7 +101,7 @@ describe("LanguagesNamespace", () => {
         expect(result.items[0].command?.command).toBe("editorconfig._triggerSuggestAfterDelay");
     });
 
-    it("provideCompletionItems: CompletionList и Range; ответ выровнен по handles, сбойный — пустой", async () => {
+    it("provideCompletionItems: CompletionList and Range; response aligned with handles, failing one is empty", async () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
 
@@ -135,7 +135,7 @@ describe("LanguagesNamespace", () => {
         ]);
     });
 
-    it("provideCompletionItems без handles → пустой массив", async () => {
+    it("provideCompletionItems without handles → empty array", async () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
         languages.registerCompletionItemProvider({ language: "editorconfig" }, {
@@ -145,7 +145,7 @@ describe("LanguagesNamespace", () => {
         expect(await stub.callRequest("languages.provideCompletionItems", noHandles)).toEqual([]);
     });
 
-    it("сериализует разнообразные формы полей и отбрасывает элементы без label", async () => {
+    it("serializes various field shapes and drops items without label", async () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
         const items = [
@@ -196,7 +196,7 @@ describe("LanguagesNamespace", () => {
         expect(d.command).toBeUndefined();
     });
 
-    it("provideCompletionItems: пропущенные languageId/line/character + строковая documentation", async () => {
+    it("provideCompletionItems: missing languageId/line/character + string documentation", async () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
         const item = new CompletionItem("root");
@@ -217,7 +217,7 @@ describe("LanguagesNamespace", () => {
         expect(ctx.registry.get(Uri.parse(COMPLETION_PARAMS.uri))?.languageId).toBe("editorconfig");
     });
 
-    it("normalizeResult: undefined и {items: не-массив} → пусто", async () => {
+    it("normalizeResult: undefined and {items: non-array} → empty", async () => {
         const undef = makeCtx();
         const nsU = createLanguagesNamespace(undef.ctx);
         nsU.languages.registerCompletionItemProvider({ language: "editorconfig" }, {
@@ -237,7 +237,7 @@ describe("LanguagesNamespace", () => {
         ]);
     });
 
-    it("registerFoldingRangeProvider объявляет провайдера ядру, dispose снимает один раз", () => {
+    it("registerFoldingRangeProvider announces the provider to the core, dispose removes it once", () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
         const provider = { provideFoldingRanges: () => [] } as never;
@@ -257,7 +257,7 @@ describe("LanguagesNamespace", () => {
         expect(subs.map((n) => n.params)).not.toContainEqual(expect.objectContaining({ hasFoldingProviders: true }));
     });
 
-    it("provideFoldingRanges: ответ выровнен по handles; не массив → пустой список", async () => {
+    it("provideFoldingRanges: response aligned with handles; non-array → empty list", async () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
         languages.registerFoldingRangeProvider(["csharp"], {
@@ -282,7 +282,7 @@ describe("LanguagesNamespace", () => {
         expect(result).toEqual([[], [{ start: 1, end: 2 }]]);
     });
 
-    it("provideFoldingRanges: неизвестный и чужой формы handle — пустые, без handles — []", async () => {
+    it("provideFoldingRanges: unknown and malformed handles yield empty, no handles yield []", async () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
         let asked = 0;
@@ -302,7 +302,7 @@ describe("LanguagesNamespace", () => {
         expect(asked).toBe(0);
     });
 
-    it("provide*-запрос не пишет в зеркало: провайдер — только после didOpen и по версии запроса, без событий", async () => {
+    it("provide* request does not write to the mirror: provider only after didOpen and by request version, no events", async () => {
         // LSP client regression: the provider was called before didOpen ("Unexpected resource"), and a request
         // with text running ahead wrote to the registry bypassing events, so the next didChange crashed tsserver
         // ("reading 'charCount'"). The document comes only from the mirror.
@@ -348,7 +348,7 @@ describe("LanguagesNamespace", () => {
         expect(log).toEqual(["change:1:0.1", "provider:ab\ncdd"]);
     });
 
-    it("provideFoldingRanges зовёт провайдеров присланных handle и сериализует области", async () => {
+    it("provideFoldingRanges calls providers of the sent handles and serializes ranges", async () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
         languages.registerFoldingRangeProvider(["csharp"], {
@@ -377,7 +377,7 @@ describe("LanguagesNamespace", () => {
         ]);
     });
 
-    it("provideFoldingRanges: сбойный провайдер не роняет остальные", async () => {
+    it("provideFoldingRanges: a failing provider does not break the others", async () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
         languages.registerFoldingRangeProvider(["csharp"], {
@@ -398,7 +398,7 @@ describe("LanguagesNamespace", () => {
         expect(result).toEqual([[], [{ start: 1, end: 2 }]]);
     });
 
-    it("provideFoldingRanges: не открытый, устаревший и обогнавший зеркало документ — [] без провайдера", async () => {
+    it("provideFoldingRanges: unopened, stale and ahead-of-mirror document yields [] without the provider", async () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
         let asked = 0;
@@ -433,7 +433,7 @@ describe("LanguagesNamespace", () => {
         expect(asked).toBe(1);
     });
 
-    it("provideCompletionItems: не открытый и устаревший документ — [] без провайдера", async () => {
+    it("provideCompletionItems: unopened and stale document yields [] without the provider", async () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
         let asked = 0;

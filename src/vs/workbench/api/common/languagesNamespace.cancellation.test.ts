@@ -228,7 +228,7 @@ const CASES: readonly ICase[] = [
     },
 ];
 
-describe("LanguagesNamespace — срок ответа хоста отменяет токен провайдера", () => {
+describe("LanguagesNamespace — host response deadline cancels the provider token", () => {
     beforeEach(() => {
         vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     });
@@ -236,7 +236,7 @@ describe("LanguagesNamespace — срок ответа хоста отменяе
         vi.useRealTimers();
     });
 
-    it("у каждого провайдера: до срока токен жив, по сроку — отменён и слушатель сработал", async () => {
+    it("for every provider: the token is live before the deadline, cancelled at it, and the listener fires", async () => {
         for (const c of CASES) {
             const [hostSide, subSide] = createInProcessChannelPair();
             const host = new RpcEndpoint(hostSide);
@@ -275,7 +275,7 @@ function makeStubCtx(): { stub: IStubRpc; languages: Languages; owner: Extension
     return { stub, languages, owner: ctx.owner };
 }
 
-describe("LanguagesNamespace — сбой провайдера в stderr", () => {
+describe("LanguagesNamespace — provider failure goes to stderr", () => {
     let errors: unknown[][];
     beforeEach(() => {
         errors = [];
@@ -287,7 +287,7 @@ describe("LanguagesNamespace — сбой провайдера в stderr", () =>
         vi.restoreAllMocks();
     });
 
-    it("исключение провайдера — строка с методом и стеком; ответ — как у пустого провайдера (или отказ)", async () => {
+    it("a provider exception logs a line with method and stack; the response is as for an empty provider (or a rejection)", async () => {
         for (const c of CASES) {
             errors = [];
             const { stub, languages } = makeStubCtx();
@@ -303,7 +303,7 @@ describe("LanguagesNamespace — сбой провайдера в stderr", () =>
         }
     });
 
-    it("регистрация от имени расширения — строка сбоя несёт его id", async () => {
+    it("registration on behalf of an extension: the failure line carries its id", async () => {
         for (const c of CASES) {
             errors = [];
             const { stub, languages, owner } = makeStubCtx();
@@ -323,7 +323,7 @@ describe("LanguagesNamespace — сбой провайдера в stderr", () =>
         }
     });
 
-    it("чужой handle и провайдер без resolve — пустой ответ, а не сбой: stderr молчит", async () => {
+    it("an unknown handle and a provider without resolve give an empty response, not a failure: stderr stays silent", async () => {
         for (const c of CASES) {
             const { stub, languages } = makeStubCtx();
             c.register(languages, () => undefined);
@@ -341,7 +341,7 @@ describe("LanguagesNamespace — сбой провайдера в stderr", () =>
         expect(errors).toEqual([]);
     });
 
-    it("CancellationError — штатная отмена, не сбой: stderr молчит", async () => {
+    it("CancellationError is a normal cancellation, not a failure: stderr stays silent", async () => {
         for (const c of CASES) {
             const { stub, languages } = makeStubCtx();
             c.register(languages, () => Promise.reject(new CancellationError()));
@@ -352,11 +352,11 @@ describe("LanguagesNamespace — сбой провайдера в stderr", () =>
     });
 });
 
-describe("LanguagesNamespace — отмена останавливает обход цепочки провайдеров", () => {
+describe("LanguagesNamespace — cancellation stops walking the provider chain", () => {
     /** Inline completions have their own test. */
     const CHAINS = CASES.filter((c) => c.method === "languages.provideCompletionItems" || c.name === "folding");
 
-    it("после отмены следующий провайдер не опрашивается", async () => {
+    it("the next provider is not queried after cancellation", async () => {
         expect(CHAINS.map((c) => c.name)).toEqual(["completion", "folding"]);
         for (const c of CHAINS) {
             const { stub, languages } = makeStubCtx();
@@ -389,7 +389,7 @@ describe("LanguagesNamespace — отмена останавливает обх�
         }
     });
 
-    it("без отмены опрашиваются все", async () => {
+    it("without cancellation all are queried", async () => {
         for (const c of CHAINS) {
             const { stub, languages } = makeStubCtx();
             const polled: string[] = [];

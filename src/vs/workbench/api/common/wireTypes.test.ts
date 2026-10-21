@@ -5,7 +5,7 @@ import { Uri } from "../../../base/common/uri.ts";
 import { parseWireEditorLayout, parseWireSelections, reviveWireUri } from "./wireTypes.ts";
 
 describe("WireTypes — parseWireSelections", () => {
-    it("оставляет валидные, отбрасывает битые", () => {
+    it("keeps valid entries, drops broken ones", () => {
         const raw = [
             { anchorLine: 0, anchorCharacter: 1, activeLine: 2, activeCharacter: 3 },
             { anchorLine: 0, anchorCharacter: 1, activeLine: 2 }, // incomplete
@@ -16,7 +16,7 @@ describe("WireTypes — parseWireSelections", () => {
         ]);
     });
 
-    it("не-массив → []", () => {
+    it("non-array → []", () => {
         expect(parseWireSelections(undefined)).toEqual([]);
     });
 });
@@ -30,17 +30,17 @@ function layoutOf(...tabs: Record<string, unknown>[]): Record<string, unknown> {
 }
 
 describe("WireTypes — parseWireEditorLayout", () => {
-    it("парсит группы с текстовыми вкладками (обязательные поля)", () => {
+    it("parses groups with text tabs (required fields)", () => {
         const raw = layoutOf(layoutTab(), layoutTab({ uri: "file:///p/b.ts", label: "b.ts", isActive: false }));
         expect(parseWireEditorLayout(raw)).toEqual(raw);
     });
 
-    it("принимает вкладку чужого вида (kind=unknown)", () => {
+    it("accepts a tab of a foreign kind (kind=unknown)", () => {
         const raw = layoutOf(layoutTab({ uri: "keybindings:global", kind: "unknown" }));
         expect(parseWireEditorLayout(raw)).toEqual(raw);
     });
 
-    it("подхватывает опциональные original/modified/languageId/selections diff-вкладки", () => {
+    it("picks up optional original/modified/languageId/selections of a diff tab", () => {
         const raw = layoutOf(
             layoutTab({
                 kind: "diff",
@@ -53,7 +53,7 @@ describe("WireTypes — parseWireEditorLayout", () => {
         expect(parseWireEditorLayout(raw)).toEqual(raw);
     });
 
-    it("sideEditors diff-вкладки: строки остаются, мусор внутри отбрасывается, не-массив опускается", () => {
+    it("diff tab sideEditors: strings stay, garbage inside is dropped, a non-array is omitted", () => {
         const raw = layoutOf(
             layoutTab({ kind: "diff", sideEditors: ["file:///p/a.ts", 5, "_claude_fs_right:/p/a.ts"] }),
         );
@@ -66,14 +66,14 @@ describe("WireTypes — parseWireEditorLayout", () => {
         ).not.toHaveProperty("sideEditors");
     });
 
-    it("нестроковые original/modified/languageId и не-массив selections опускаются", () => {
+    it("non-string original/modified/languageId and non-array selections are omitted", () => {
         const parsed = parseWireEditorLayout(
             layoutOf(layoutTab({ original: 5, modified: null, languageId: 42, selections: "junk" })),
         );
         expect(parsed?.groups[0].tabs[0]).toEqual(layoutTab());
     });
 
-    it("битые выделения внутри selections отбрасываются поштучно (drop+skip)", () => {
+    it("broken selections inside selections are dropped one by one (drop+skip)", () => {
         const parsed = parseWireEditorLayout(
             layoutOf(
                 layoutTab({
@@ -86,14 +86,14 @@ describe("WireTypes — parseWireEditorLayout", () => {
         ]);
     });
 
-    it("не-объект и groups-не-массив → null", () => {
+    it("non-object and non-array groups → null", () => {
         expect(parseWireEditorLayout(null)).toBeNull();
         expect(parseWireEditorLayout("junk")).toBeNull();
         expect(parseWireEditorLayout({})).toBeNull();
         expect(parseWireEditorLayout({ groups: "x" })).toBeNull();
     });
 
-    it("битая группа роняет весь снимок → null (снимок должен быть атомарным)", () => {
+    it("a broken group fails the whole snapshot → null (snapshot must be atomic)", () => {
         const good = { groupId: 1, viewColumn: 1, isActive: true, tabs: [] };
         expect(parseWireEditorLayout({ groups: [null] })).toBeNull();
         expect(parseWireEditorLayout({ groups: [good, { ...good, groupId: "x" }] })).toBeNull();
@@ -102,7 +102,7 @@ describe("WireTypes — parseWireEditorLayout", () => {
         expect(parseWireEditorLayout({ groups: [{ ...good, tabs: "x" }] })).toBeNull();
     });
 
-    it("битая вкладка роняет весь снимок → null", () => {
+    it("a broken tab fails the whole snapshot → null", () => {
         expect(parseWireEditorLayout(layoutOf({}))).toBeNull();
         expect(
             parseWireEditorLayout({ groups: [{ groupId: 1, viewColumn: 1, isActive: true, tabs: [42] }] }),
@@ -116,11 +116,11 @@ describe("WireTypes — parseWireEditorLayout", () => {
 });
 
 describe("WireTypes — reviveWireUri", () => {
-    it("строка → Uri.parse", () => {
+    it("string → Uri.parse", () => {
         expect(reviveWireUri("file:///p/a.ts")?.toString()).toBe(Uri.file("/p/a.ts").toString());
     });
 
-    it("компонентный JSON (toJSON-форма vscode.Uri) поднимается со всеми полями", () => {
+    it("component JSON (toJSON form of vscode.Uri) is revived with all fields", () => {
         const revived = reviveWireUri({
             scheme: "git",
             authority: "host",
@@ -135,7 +135,7 @@ describe("WireTypes — reviveWireUri", () => {
         expect(revived?.fragment).toBe("L1");
     });
 
-    it("нестроковые компоненты опускаются, scheme обязателен", () => {
+    it("non-string components are omitted, scheme is required", () => {
         const revived = reviveWireUri({ scheme: "diode", authority: 5, path: null, query: [], fragment: {} });
         expect(revived?.scheme).toBe("diode");
         expect(revived?.authority).toBe("");
@@ -144,7 +144,7 @@ describe("WireTypes — reviveWireUri", () => {
         expect(revived?.fragment).toBe("");
     });
 
-    it("мусор → null: пустая строка, не-объект, объект без scheme", () => {
+    it("garbage → null: empty string, non-object, object without scheme", () => {
         expect(reviveWireUri("")).toBeNull();
         expect(reviveWireUri(null)).toBeNull();
         expect(reviveWireUri(42)).toBeNull();

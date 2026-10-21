@@ -37,8 +37,8 @@ function makeWorkspace() {
 const URI_A = Uri.file("/proj/a.ts");
 const URI_B = Uri.file("/proj/b.ts");
 
-describe("workspace.applyEdit — продюсер RPC", () => {
-    it("текстовые правки уезжают одним запросом, сгруппированные по ресурсам", async () => {
+describe("workspace.applyEdit — RPC producer", () => {
+    it("text edits go in one request, grouped by resource", async () => {
         const { stub, workspace } = makeWorkspace();
         const edit = new WorkspaceEdit();
         edit.replace(URI_A, new Range(0, 0, 0, 2), "hi");
@@ -80,7 +80,7 @@ describe("workspace.applyEdit — продюсер RPC", () => {
         expect(result).toBeUndefined();
     });
 
-    it("set() в форме пар [TextEdit, metadata] сериализуется так же, как плоская", () => {
+    it("set() in [TextEdit, metadata] pair form serializes the same as the flat one", () => {
         const { stub, workspace } = makeWorkspace();
         const edit = new WorkspaceEdit();
         edit.set(URI_A, [[new TextEdit(new Range(0, 1, 0, 4), "y"), { needsConfirmation: false, label: "l" }]]);
@@ -99,7 +99,7 @@ describe("workspace.applyEdit — продюсер RPC", () => {
         });
     });
 
-    it("сниппет-правка приземляется текстом с вырезанными плейсхолдерами", () => {
+    it("a snippet edit lands as text with placeholders stripped", () => {
         const { stub, workspace } = makeWorkspace();
         const edit = new WorkspaceEdit();
         edit.set(URI_A, [new SnippetTextEdit(new Range(0, 0, 0, 0), new SnippetString("foo(${1:bar})$0"))]);
@@ -123,13 +123,13 @@ describe("workspace.applyEdit — продюсер RPC", () => {
         });
     });
 
-    it("пустой edit — вакуумный успех без RPC", async () => {
+    it("an empty edit is a vacuous success without RPC", async () => {
         const { stub, workspace } = makeWorkspace();
         await expect(workspace.applyEdit(new WorkspaceEdit() as unknown as vscode.WorkspaceEdit)).resolves.toBe(true);
         expect(stub.requests).toHaveLength(0);
     });
 
-    it("edit из одних чистых EOL-правок — вакуумный успех без RPC", async () => {
+    it("an edit of pure EOL edits only is a vacuous success without RPC", async () => {
         const { stub, workspace } = makeWorkspace();
         const edit = new WorkspaceEdit();
         edit.set(URI_A, [TextEdit.setEndOfLine(EndOfLine.CRLF)]);
@@ -137,7 +137,7 @@ describe("workspace.applyEdit — продюсер RPC", () => {
         expect(stub.requests).toHaveLength(0);
     });
 
-    it("пропускается ТОЛЬКО чистая EOL-правка: пустая замена и EOL с текстом едут как текст", () => {
+    it("ONLY a pure EOL edit is skipped: an empty replace and EOL with text are sent as text", () => {
         const { stub, workspace } = makeWorkspace();
         const edit = new WorkspaceEdit();
         // An empty replace WITHOUT newEol is a regular edit: the document version grows, as in VS Code.
@@ -166,7 +166,7 @@ describe("workspace.applyEdit — продюсер RPC", () => {
         });
     });
 
-    it("файловые операции едут В ПОРЯДКЕ добавления вперемешку с текстовыми", () => {
+    it("file operations are sent IN insertion ORDER interleaved with text edits", () => {
         const { stub, workspace } = makeWorkspace();
         const edit = new WorkspaceEdit();
         edit.createFile(URI_B, { contents: new TextEncoder().encode("seed\n") });
@@ -191,7 +191,7 @@ describe("workspace.applyEdit — продюсер RPC", () => {
         });
     });
 
-    it("renameFile с overwrite сериализуется парой from/to и опцией", () => {
+    it("renameFile with overwrite serializes as a from/to pair plus the option", () => {
         const { stub, workspace } = makeWorkspace();
         const edit = new WorkspaceEdit();
         edit.renameFile(URI_A, URI_B, { overwrite: true });
@@ -204,7 +204,7 @@ describe("workspace.applyEdit — продюсер RPC", () => {
         });
     });
 
-    it("каждая опция файловой операции доезжает по отдельности", () => {
+    it("each file operation option arrives separately", () => {
         const { stub, workspace } = makeWorkspace();
         const edit = new WorkspaceEdit();
         edit.createFile(URI_B, { overwrite: true, ignoreIfExists: true });
@@ -221,7 +221,7 @@ describe("workspace.applyEdit — продюсер RPC", () => {
         });
     });
 
-    it("createFile без опций едет без contents, а edit с одной файловой операцией — с RPC", () => {
+    it("createFile without options is sent without contents, and an edit with one file operation goes over RPC", () => {
         const { stub, workspace } = makeWorkspace();
         const edit = new WorkspaceEdit();
         edit.createFile(URI_B);
@@ -234,7 +234,7 @@ describe("workspace.applyEdit — продюсер RPC", () => {
         expect(req?.params).toStrictEqual({ ops: [{ kind: "create", resource: URI_B.toString() }] });
     });
 
-    it("deleteFile без опций едет без ignoreIfNotExists", () => {
+    it("deleteFile without options is sent without ignoreIfNotExists", () => {
         const { stub, workspace } = makeWorkspace();
         const edit = new WorkspaceEdit();
         edit.deleteFile(URI_A);
@@ -245,7 +245,7 @@ describe("workspace.applyEdit — продюсер RPC", () => {
         expect(req?.params).toEqual({ ops: [{ kind: "delete", resource: URI_A.toString() }] });
     });
 
-    it("операция из одних битых правок — false без RPC; битая правка среди целых выпадает", async () => {
+    it("an operation of broken edits only gives false without RPC; a broken edit among valid ones is dropped", async () => {
         const { stub, workspace } = makeWorkspace();
         const broken = new TextEdit(new Range(0, 0, 0, 0), "bad");
         (broken as { range: unknown }).range = { line: 0 };
@@ -270,7 +270,7 @@ describe("workspace.applyEdit — продюсер RPC", () => {
         });
     });
 
-    it("isRefactoring едет флагом (files.refactoring.autoSave); без него поля нет", () => {
+    it("isRefactoring is sent as a flag (files.refactoring.autoSave); without it the field is absent", () => {
         const { stub, workspace } = makeWorkspace();
         const edit = new WorkspaceEdit();
         edit.insert(URI_A, new Position(0, 0), "x");
@@ -288,7 +288,7 @@ describe("workspace.applyEdit — продюсер RPC", () => {
         expect(Object.keys(sent[1] as object)).toEqual(["ops"]);
     });
 
-    it("объект не-WorkspaceEdit (мимо типов) — честный false без RPC", async () => {
+    it("a non-WorkspaceEdit object (bypassing types) gives false without RPC", async () => {
         const { stub, workspace } = makeWorkspace();
         await expect(workspace.applyEdit({} as unknown as vscode.WorkspaceEdit)).resolves.toBe(false);
         expect(stub.requests).toHaveLength(0);

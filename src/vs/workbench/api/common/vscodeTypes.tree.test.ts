@@ -14,8 +14,8 @@ import {
     Uri,
 } from "./vscodeTypes.ts";
 
-describe("TreeItem — значение для узлов дерева", () => {
-    it("подпись строкой: label задан, resourceUri нет, collapsibleState по умолчанию None", () => {
+describe("TreeItem: value for tree nodes", () => {
+    it("string label: label set, no resourceUri, collapsibleState defaults to None", () => {
         const item = new TreeItem("//app:main");
 
         expect(item.label).toBe("//app:main");
@@ -23,7 +23,7 @@ describe("TreeItem — значение для узлов дерева", () => {
         expect(item.collapsibleState).toBe(TreeItemCollapsibleState.None);
     });
 
-    it("подпись TreeItemLabel и явное состояние раскрытия", () => {
+    it("TreeItemLabel label and explicit collapsible state", () => {
         const label = { label: "app", highlights: [[0, 1]] as [number, number][] };
         const item = new TreeItem(label, TreeItemCollapsibleState.Expanded);
 
@@ -31,7 +31,7 @@ describe("TreeItem — значение для узлов дерева", () => {
         expect(item.collapsibleState).toBe(TreeItemCollapsibleState.Expanded);
     });
 
-    it("Uri первым аргументом идёт в resourceUri, label не задан", () => {
+    it("Uri as the first argument goes to resourceUri, label is unset", () => {
         const uri = Uri.file("/ws/BUILD.bazel");
         const item = new TreeItem(uri, TreeItemCollapsibleState.Collapsed);
 
@@ -40,7 +40,7 @@ describe("TreeItem — значение для узлов дерева", () => {
         expect(item.collapsibleState).toBe(TreeItemCollapsibleState.Collapsed);
     });
 
-    it("подкласс с записываемыми полями — как типовой узел провайдера", () => {
+    it("subclass with writable fields, like a typical provider node", () => {
         class Target extends TreeItem {
             public constructor(public readonly target: string) {
                 super(target, TreeItemCollapsibleState.None);
@@ -64,22 +64,22 @@ describe("TreeItem — значение для узлов дерева", () => {
         expect((node.iconPath as ThemeIcon).id).toBe("play");
     });
 
-    it("необязательные поля не затеняют геттеры подкласса (поля — не собственные свойства)", () => {
+    it("optional fields do not shadow subclass getters (fields are not own properties)", () => {
         // TS forbids such an override (TS2611), but an extension's JS bundle does not.
         class Lazy extends TreeItem {}
-        Object.defineProperty(Lazy.prototype, "tooltip", { get: () => "из геттера" });
-        Object.defineProperty(Lazy.prototype, "description", { get: () => "из геттера, тоже" });
+        Object.defineProperty(Lazy.prototype, "tooltip", { get: () => "from getter" });
+        Object.defineProperty(Lazy.prototype, "description", { get: () => "from getter, too" });
 
         const node = new Lazy("x");
 
-        expect(node.tooltip).toBe("из геттера");
-        expect(node.description).toBe("из геттера, тоже");
+        expect(node.tooltip).toBe("from getter");
+        expect(node.description).toBe("from getter, too");
         expect(Object.keys(new TreeItem("y"))).toEqual(["collapsibleState", "label"]);
     });
 });
 
-describe("ThemeIcon / enum'ы деревьев", () => {
-    it("ThemeIcon держит id и цвет; File/Folder — статики эталона", () => {
+describe("ThemeIcon / tree enums", () => {
+    it("ThemeIcon holds id and color; File/Folder are upstream statics", () => {
         const color = new ThemeColor("charts.red");
         const icon = new ThemeIcon("sync~spin", color);
 
@@ -91,7 +91,7 @@ describe("ThemeIcon / enum'ы деревьев", () => {
         expect(ThemeIcon.Folder.id).toBe("folder");
     });
 
-    it("значения enum'ов — эталонные", () => {
+    it("enum values match upstream", () => {
         expect(TreeItemCollapsibleState.None).toBe(0);
         expect(TreeItemCollapsibleState.Collapsed).toBe(1);
         expect(TreeItemCollapsibleState.Expanded).toBe(2);
@@ -99,7 +99,7 @@ describe("ThemeIcon / enum'ы деревьев", () => {
         expect(TreeItemCheckboxState.Checked).toBe(1);
     });
 
-    it("четыре значения доступны из модуля vscode", () => {
+    it("the four values are available from the vscode module", () => {
         const { namespace } = buildVscodeNamespace(makeStubRpc().rpc, createNodeExtHostDisk());
 
         expect(namespace.TreeItem).toBe(TreeItem);

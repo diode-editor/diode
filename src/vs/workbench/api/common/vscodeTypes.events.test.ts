@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { DisposableImpl, EventEmitter } from "./vscodeTypes.ts";
 
 describe("VscodeTypes — EventEmitter", () => {
-    it("fire доставляет данные всем слушателям", () => {
+    it("fire delivers data to all listeners", () => {
         const em = new EventEmitter<number>();
         const seen: number[] = [];
         em.event((n) => seen.push(n));
@@ -12,7 +12,7 @@ describe("VscodeTypes — EventEmitter", () => {
         expect(seen).toEqual([3, 30]);
     });
 
-    it("dispose подписки прекращает доставку", () => {
+    it("disposing the subscription stops delivery", () => {
         const em = new EventEmitter<number>();
         const seen: number[] = [];
         const sub = em.event((n) => seen.push(n));
@@ -22,7 +22,7 @@ describe("VscodeTypes — EventEmitter", () => {
         expect(seen).toEqual([1]);
     });
 
-    it("thisArgs привязывается", () => {
+    it("thisArgs is bound", () => {
         const em = new EventEmitter<void>();
         const ctx = { hit: false };
         em.event(function (this: typeof ctx) {
@@ -32,14 +32,14 @@ describe("VscodeTypes — EventEmitter", () => {
         expect(ctx.hit).toBe(true);
     });
 
-    it("disposables-массив получает подписку", () => {
+    it("disposables array receives the subscription", () => {
         const em = new EventEmitter<void>();
         const bag: DisposableImpl[] = [];
         em.event(() => undefined, undefined, bag);
         expect(bag).toHaveLength(1);
     });
 
-    it("отписка слушателя во время fire не ломает текущий проход", () => {
+    it("unsubscribing a listener during fire does not break the current pass", () => {
         const em = new EventEmitter<void>();
         const seen: string[] = [];
         const sub = em.event(() => {
@@ -51,7 +51,7 @@ describe("VscodeTypes — EventEmitter", () => {
         expect(seen).toEqual(["a", "b"]);
     });
 
-    it("падение одного слушателя не валит fire", () => {
+    it("one listener throwing does not break fire", () => {
         const em = new EventEmitter<void>();
         const seen: string[] = [];
         em.event(() => {
@@ -64,7 +64,7 @@ describe("VscodeTypes — EventEmitter", () => {
         expect(seen).toEqual(["ok"]);
     });
 
-    it("повторный dispose подписки безопасен (idx<0)", () => {
+    it("repeated subscription dispose is safe (idx<0)", () => {
         const em = new EventEmitter<number>();
         const sub = em.event(() => undefined);
         sub.dispose();
@@ -73,7 +73,7 @@ describe("VscodeTypes — EventEmitter", () => {
         }).not.toThrow();
     });
 
-    it("emitter.dispose() очищает всех слушателей", () => {
+    it("emitter.dispose() clears all listeners", () => {
         const em = new EventEmitter<number>();
         const seen: number[] = [];
         em.event((n) => seen.push(n));
@@ -84,13 +84,13 @@ describe("VscodeTypes — EventEmitter", () => {
 });
 
 describe("VscodeTypes — DisposableImpl", () => {
-    it("dispose вызывает колбэк", () => {
+    it("dispose invokes the callback", () => {
         const cb = vi.fn();
         new DisposableImpl(cb).dispose();
         expect(cb).toHaveBeenCalledTimes(1);
     });
 
-    it("from агрегирует и диспозит все", () => {
+    it("from aggregates and disposes all", () => {
         const a = vi.fn();
         const b = vi.fn();
         DisposableImpl.from({ dispose: a }, { dispose: b }).dispose();

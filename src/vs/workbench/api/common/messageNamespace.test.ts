@@ -4,77 +4,77 @@ import type * as vscode from "vscode";
 import { createMessageApi, parseMessageArgs, toWireMessageItem } from "./messageNamespace.ts";
 import { makeStubRpc } from "./testStubRpc.ts";
 
-describe("parseMessageArgs — четыре перегрузки show*Message", () => {
-    it("без аргументов после текста кнопок нет", () => {
+describe("parseMessageArgs — the four show*Message overloads", () => {
+    it("no arguments after the text means no buttons", () => {
         expect(parseMessageArgs(undefined, [])).toEqual({ modal: false, items: [] });
     });
 
-    it("строки после текста — это кнопки", () => {
+    it("strings after the text are buttons", () => {
         expect(parseMessageArgs("Activate", ["Free"])).toEqual({
             modal: false,
             items: ["Activate", "Free"],
         });
     });
 
-    it("объект с `title` — это кнопка, а не опции", () => {
+    it("an object with `title` is a button, not options", () => {
         const item = { title: "Retry" };
         expect(parseMessageArgs(item, [])).toEqual({ modal: false, items: [item] });
     });
 
-    it("объект без `title` — это MessageOptions, кнопки начинаются с третьего аргумента", () => {
-        expect(parseMessageArgs({ modal: true, detail: "нельзя отменить" }, ["Delete"])).toEqual({
+    it("an object without `title` is MessageOptions, buttons start at the third argument", () => {
+        expect(parseMessageArgs({ modal: true, detail: "cannot be undone" }, ["Delete"])).toEqual({
             modal: true,
-            detail: "нельзя отменить",
+            detail: "cannot be undone",
             items: ["Delete"],
         });
     });
 
-    it("пустой detail — то же, что его отсутствие", () => {
+    it("an empty detail is the same as no detail", () => {
         expect(parseMessageArgs({ modal: true, detail: "" }, [])).toEqual({ modal: true, items: [] });
     });
 
-    it("не-строковый detail отбрасывается, а не едет как есть", () => {
+    it("a non-string detail is dropped rather than passed as is", () => {
         expect(parseMessageArgs({ modal: true, detail: 7 }, [])).toEqual({ modal: true, items: [] });
     });
 
-    it("мусор вместо опций читается как «опций нет», а не роняет показ", () => {
+    it("garbage instead of options reads as 'no options' instead of breaking the show", () => {
         // A JS extension may pass anything; showing the message must not crash.
         expect(parseMessageArgs(null, ["One"])).toEqual({ modal: false, items: ["One"] });
         expect(parseMessageArgs(7, ["One"])).toEqual({ modal: false, items: ["One"] });
     });
 
-    it("modal только по строгому true", () => {
+    it("modal only on a strict true", () => {
         expect(parseMessageArgs({ modal: "yes" }, []).modal).toBe(false);
     });
 
-    it("опции без modal дают немодальное сообщение", () => {
-        expect(parseMessageArgs({ detail: "текст" }, ["One"])).toEqual({
+    it("options without modal give a non-modal message", () => {
+        expect(parseMessageArgs({ detail: "text" }, ["One"])).toEqual({
             modal: false,
-            detail: "текст",
+            detail: "text",
             items: ["One"],
         });
     });
 });
 
 describe("toWireMessageItem", () => {
-    it("строковая кнопка сама себе заголовок", () => {
+    it("a string button is its own title", () => {
         expect(toWireMessageItem("Activate")).toEqual({ title: "Activate", isCloseAffordance: false });
     });
 
-    it("MessageItem переносит isCloseAffordance", () => {
+    it("MessageItem carries isCloseAffordance", () => {
         expect(toWireMessageItem({ title: "Cancel", isCloseAffordance: true })).toEqual({
             title: "Cancel",
             isCloseAffordance: true,
         });
     });
 
-    it("MessageItem без флага — не close affordance", () => {
+    it("MessageItem without the flag is not a close affordance", () => {
         expect(toWireMessageItem({ title: "Retry" })).toEqual({ title: "Retry", isCloseAffordance: false });
     });
 });
 
 describe("createMessageApi", () => {
-    it("шлёт запрос с severity, текстом и кнопками", async () => {
+    it("sends a request with severity, text and buttons", async () => {
         const stub = makeStubRpc();
         stub.responder = () => ({ index: null });
         const api = createMessageApi(stub.rpc);
@@ -97,7 +97,7 @@ describe("createMessageApi", () => {
         ]);
     });
 
-    it("severity у трёх перегрузок разная", async () => {
+    it("the three overloads have different severities", async () => {
         const stub = makeStubRpc();
         stub.responder = () => ({ index: null });
         const api = createMessageApi(stub.rpc);
@@ -113,17 +113,17 @@ describe("createMessageApi", () => {
         ]);
     });
 
-    it("modal и detail уезжают из MessageOptions", async () => {
+    it("modal and detail are taken from MessageOptions", async () => {
         const stub = makeStubRpc();
         stub.responder = () => ({ index: null });
         const api = createMessageApi(stub.rpc);
 
-        await api.showWarningMessage("Delete?", { modal: true, detail: "нельзя отменить" }, "Delete");
+        await api.showWarningMessage("Delete?", { modal: true, detail: "cannot be undone" }, "Delete");
 
-        expect(stub.requests[0]?.params).toMatchObject({ modal: true, detail: "нельзя отменить" });
+        expect(stub.requests[0]?.params).toMatchObject({ modal: true, detail: "cannot be undone" });
     });
 
-    it("возвращает ТОТ ЖЕ объект кнопки, что прислало расширение", async () => {
+    it("returns the SAME button object the extension sent", async () => {
         const stub = makeStubRpc();
         stub.responder = () => ({ index: 1 });
         const api = createMessageApi(stub.rpc);
@@ -135,7 +135,7 @@ describe("createMessageApi", () => {
         expect(answer).toBe(cancel);
     });
 
-    it("null в ответе — закрыто без выбора", async () => {
+    it("null in the response — closed without a choice", async () => {
         const stub = makeStubRpc();
         stub.responder = () => ({ index: null });
         const api = createMessageApi(stub.rpc);
@@ -143,7 +143,7 @@ describe("createMessageApi", () => {
         await expect(api.showInformationMessage("hi", "One")).resolves.toBeUndefined();
     });
 
-    it("индекс за пределами кнопок — ответ не про этот показ, отдаём undefined", async () => {
+    it("an index outside the buttons — the response is not about this show, returns undefined", async () => {
         const stub = makeStubRpc();
         stub.responder = () => ({ index: 7 });
         const api = createMessageApi(stub.rpc);
@@ -151,7 +151,7 @@ describe("createMessageApi", () => {
         await expect(api.showInformationMessage("hi", "One")).resolves.toBeUndefined();
     });
 
-    it("не-строку в тексте показываем строковым представлением, а не роняем показ", async () => {
+    it("a non-string text is shown as its string representation instead of breaking the show", async () => {
         const stub = makeStubRpc();
         stub.responder = () => ({ index: null });
         const api = createMessageApi(stub.rpc);

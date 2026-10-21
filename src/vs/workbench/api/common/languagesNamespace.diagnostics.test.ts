@@ -32,7 +32,7 @@ function published(stub: IStubRpc): { owner: string; resource: string; markers: 
 const FILE = Uri.file("/proj/main.ts");
 
 describe("LanguagesNamespace — createDiagnosticCollection", () => {
-    it("set(uri, diags) публикует wire-маркеры с owner коллекции", () => {
+    it("set(uri, diags) publishes wire markers with the collection owner", () => {
         const { stub, languages } = makeLanguages();
         const collection = languages.createDiagnosticCollection("ts");
         const diag = new Diagnostic(new Range(1, 2, 1, 9), "Type error", DiagnosticSeverity.Warning);
@@ -58,7 +58,7 @@ describe("LanguagesNamespace — createDiagnosticCollection", () => {
         ]);
     });
 
-    it("rich-code { value, target } уезжает своим value; мусорный объект — без code", () => {
+    it("rich code { value, target } is sent as its value; a garbage object gets no code", () => {
         const { stub, languages } = makeLanguages();
         const collection = languages.createDiagnosticCollection("eslint");
         const rich = new Diagnostic(new Range(0, 17, 0, 18), "Unnecessary semicolon.");
@@ -81,7 +81,7 @@ describe("LanguagesNamespace — createDiagnosticCollection", () => {
         expect(markers[2]).not.toHaveProperty("code");
     });
 
-    it("диагностика с related information публикуется; само поле в wire не едет", () => {
+    it("diagnostic with related information is published; the field itself is not sent on the wire", () => {
         const { stub, languages } = makeLanguages();
         const collection = languages.createDiagnosticCollection("ts");
         // This is how TS2741 arrives: the message plus the declaration location.
@@ -108,7 +108,7 @@ describe("LanguagesNamespace — createDiagnosticCollection", () => {
         expect(collection.get(FILE as unknown as vscode.Uri)?.[0].relatedInformation).toHaveLength(1);
     });
 
-    it("кривые поля диагностики уходят к дефолтам (severity 0, пустой range, строковый message)", () => {
+    it("malformed diagnostic fields fall back to defaults (severity 0, empty range, string message)", () => {
         const { stub, languages } = makeLanguages();
         const collection = languages.createDiagnosticCollection();
         collection.set(FILE as unknown as vscode.Uri, [{} as unknown as vscode.Diagnostic]);
@@ -125,11 +125,11 @@ describe("LanguagesNamespace — createDiagnosticCollection", () => {
         });
     });
 
-    it("битый диапазон: set не бросает, маркер выпадает, соседи публикуются; перевёрнутый разворачивается", () => {
+    it("broken range: set does not throw, the marker is dropped, neighbors are published; a reversed one is flipped", () => {
         const { stub, languages } = makeLanguages();
         const collection = languages.createDiagnosticCollection("lint");
         const diags = [
-            { range: { line: 0 }, message: "без start/end" },
+            { range: { line: 0 }, message: "no start/end" },
             { range: new Range(NaN, 0, 0, 1), message: "NaN" },
             { range: { start: { line: 2, character: 5 }, end: { line: 1, character: 0 } }, message: "ok" },
         ] as unknown as vscode.Diagnostic[];
@@ -148,7 +148,7 @@ describe("LanguagesNamespace — createDiagnosticCollection", () => {
         expect(collection.get(FILE as unknown as vscode.Uri)).toHaveLength(3);
     });
 
-    it("не-строковый message: rich-форма отдаёт свой value, всё прочее — не «[object Object]»", () => {
+    it("non-string message: rich form yields its value, anything else is not '[object Object]'", () => {
         const { stub, languages } = makeLanguages();
         const collection = languages.createDiagnosticCollection("rich");
         collection.set(FILE as unknown as vscode.Uri, [
@@ -162,7 +162,7 @@ describe("LanguagesNamespace — createDiagnosticCollection", () => {
         expect(messages).toEqual(["**bold** rule", "", "42"]);
     });
 
-    it("set(entries[]) — перегрузка массива пар; string-uri нормализуется", () => {
+    it("set(entries[]) — array-of-pairs overload; string uri is normalized", () => {
         const { stub, languages } = makeLanguages();
         const collection = languages.createDiagnosticCollection("multi");
         const other = Uri.file("/proj/other.ts");
@@ -181,7 +181,7 @@ describe("LanguagesNamespace — createDiagnosticCollection", () => {
         expect(events[2].markers).toEqual([]);
     });
 
-    it("get/has/forEach/итератор отдают ОРИГИНАЛЬНЫЕ диагностики, delete/clear публикуют пусто", () => {
+    it("get/has/forEach/iterator return the ORIGINAL diagnostics, delete/clear publish empty", () => {
         const { stub, languages } = makeLanguages();
         const collection = languages.createDiagnosticCollection("ts");
         const diag = new Diagnostic(new Range(0, 0, 0, 1), "x") as unknown as vscode.Diagnostic;
@@ -205,7 +205,7 @@ describe("LanguagesNamespace — createDiagnosticCollection", () => {
         expect(collection.get(FILE as unknown as vscode.Uri)).toBeUndefined();
     });
 
-    it("owner уникален на коллекцию: id расширения + имя, повтор базы — со счётчиком", () => {
+    it("owner is unique per collection: extension id + name, a repeated base gets a counter", () => {
         const { stub, owner, languages } = makeLanguages();
         const create = (extensionId: string | undefined, name?: string): vscode.DiagnosticCollection =>
             extensionId === undefined
@@ -249,7 +249,7 @@ describe("LanguagesNamespace — createDiagnosticCollection", () => {
         ]);
     });
 
-    it("set(uri, undefined) эквивалентен пустому набору", () => {
+    it("set(uri, undefined) equals an empty set", () => {
         const { stub, languages } = makeLanguages();
         const collection = languages.createDiagnosticCollection("ts");
         collection.set(FILE as unknown as vscode.Uri, undefined);
@@ -258,8 +258,8 @@ describe("LanguagesNamespace — createDiagnosticCollection", () => {
     });
 });
 
-describe("LanguagesNamespace — no-op поверхность для vscode-languageclient", () => {
-    it("register*Provider возвращают валидные Disposable, match даёт положительный score", () => {
+describe("LanguagesNamespace — no-op surface for vscode-languageclient", () => {
+    it("register*Provider return valid Disposables, match gives a positive score", () => {
         const { languages } = makeLanguages();
         const ns = languages as unknown as Record<string, (...args: unknown[]) => { dispose(): void }>;
         for (const name of [

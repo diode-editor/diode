@@ -36,8 +36,8 @@ function makeCtx(stub: IStubRpc = makeStubRpc()): { ctx: IVscodeHostContext; stu
     return { ctx, stub };
 }
 
-describe("LanguagesNamespace — completion: сериализация полей источника", () => {
-    it("labelDetails, sortText/filterText и сниппет-insertText доезжают в wire-форме", async () => {
+describe("LanguagesNamespace — completion: source field serialization", () => {
+    it("labelDetails, sortText/filterText and snippet insertText arrive in wire form", async () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
 
@@ -67,7 +67,7 @@ describe("LanguagesNamespace — completion: сериализация полей
         expect(result.items[0].id).toBeDefined();
     });
 
-    it("additionalTextEdits из самого списка доезжают в пункте; пустые и битые — без поля", async () => {
+    it("additionalTextEdits from the list itself arrive in the item; empty and broken ones omit the field", async () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
         // gopls sends the import right in the list — the server has no resolve.
@@ -95,7 +95,7 @@ describe("LanguagesNamespace — completion: сериализация полей
         for (const item of result.items.slice(1)) expect(item).not.toHaveProperty("additionalEdits");
     });
 
-    it("Range чужого бандла (утиный, не instanceof Range) доезжает диапазоном замены", async () => {
+    it("a Range from another bundle (duck-typed, not instanceof Range) arrives as the replace range", async () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
         const foreign = { start: { line: 0, character: 0 }, end: { line: 0, character: 2 }, isEmpty: false };
@@ -112,7 +112,7 @@ describe("LanguagesNamespace — completion: сериализация полей
         expect(result.items.map((item) => item.range)).toEqual([range, range]);
     });
 
-    it("isIncomplete из CompletionList доезжает до ядра", async () => {
+    it("isIncomplete from CompletionList reaches the core", async () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
         languages.registerCompletionItemProvider({ language: "typescript" }, {
@@ -123,7 +123,7 @@ describe("LanguagesNamespace — completion: сериализация полей
         expect(result.isIncomplete).toBe(true);
     });
 
-    it("триггер-символы едут с регистрацией своего провайдера, не объединяясь", () => {
+    it("trigger characters travel with their own provider registration, not merged", () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
         const provider = { provideCompletionItems: () => [] } as never;
@@ -138,7 +138,7 @@ describe("LanguagesNamespace — completion: сериализация полей
         ]);
     });
 
-    it("triggerKind/triggerCharacter доезжают до провайдера", async () => {
+    it("triggerKind/triggerCharacter reach the provider", async () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
         const provideCompletionItems = vi.fn((..._args: unknown[]) => []);
@@ -149,7 +149,7 @@ describe("LanguagesNamespace — completion: сериализация полей
         expect(provideCompletionItems.mock.calls[0][3]).toMatchObject({ triggerKind: 1, triggerCharacter: "." });
     });
 
-    it("позиция запроса доезжает до провайдера; id пунктов — ведро ответа и номер по порядку", async () => {
+    it("the request position reaches the provider; item ids are the response bucket and an ordinal", async () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
         const provideCompletionItems = vi.fn((..._args: unknown[]) => [
@@ -173,7 +173,7 @@ describe("LanguagesNamespace — completion: сериализация полей
         expect(provideCompletionItems.mock.calls[0][1]).toMatchObject({ line: 3, character: 2 });
     });
 
-    it("документ — из зеркала: провайдер видит текст didOpen и правок didChange", async () => {
+    it("the document comes from the mirror: the provider sees didOpen text and didChange edits", async () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
         const texts: string[] = [];
@@ -195,7 +195,7 @@ describe("LanguagesNamespace — completion: сериализация полей
         expect(texts).toEqual(["d.", "d.g"]);
     });
 
-    it("документ не открыт, запрос устарел или впереди зеркала — [], провайдер не зовётся", async () => {
+    it("document not open, request stale or ahead of the mirror gives [] and the provider is not called", async () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
         const provideCompletionItems = vi.fn(() => [new CompletionItem("x")]);
@@ -238,7 +238,7 @@ describe("LanguagesNamespace — resolveCompletionItem", () => {
         return { id: result.items[0].id!, stub };
     }
 
-    it("отдаёт detail/documentation/additionalEdits, догруженные провайдером", async () => {
+    it("returns detail/documentation/additionalEdits resolved by the provider", async () => {
         const original = new CompletionItem("greet");
         const { id, stub } = await completeOnce({
             provideCompletionItems: () => [original],
@@ -268,7 +268,7 @@ describe("LanguagesNamespace — resolveCompletionItem", () => {
         ]);
     });
 
-    it("провайдер вернул новый объект — читаем его", async () => {
+    it("reads the new object when the provider returns one", async () => {
         const { id, stub } = await completeOnce({
             provideCompletionItems: () => [new CompletionItem("greet")],
             resolveCompletionItem: () => {
@@ -283,7 +283,7 @@ describe("LanguagesNamespace — resolveCompletionItem", () => {
         expect(resolved.detail).toBe("fresh detail");
     });
 
-    it("битые правки-спутники отбрасываются поштучно", async () => {
+    it("broken additional edits are dropped one by one", async () => {
         const { id, stub } = await completeOnce({
             provideCompletionItems: () => [new CompletionItem("greet")],
             resolveCompletionItem: (item: CompletionItem) => {
@@ -304,7 +304,7 @@ describe("LanguagesNamespace — resolveCompletionItem", () => {
         expect(edit).toMatchObject({ text: "ok" });
     });
 
-    it("resolve вернул undefined — читаем исходный пункт", async () => {
+    it("reads the original item when resolve returns undefined", async () => {
         const { id, stub } = await completeOnce({
             provideCompletionItems: () => {
                 const item = new CompletionItem("greet");
@@ -319,7 +319,7 @@ describe("LanguagesNamespace — resolveCompletionItem", () => {
         expect(resolved.detail).toBe("original detail");
     });
 
-    it("resolve без detail/documentation/правок — пустой объект, без ключей-пустышек", async () => {
+    it("resolve without detail/documentation/edits gives an empty object with no empty keys", async () => {
         const { id, stub } = await completeOnce({
             provideCompletionItems: () => [new CompletionItem("greet")],
             resolveCompletionItem: () => new CompletionItem("greet"),
@@ -327,7 +327,7 @@ describe("LanguagesNamespace — resolveCompletionItem", () => {
         expect(await stub.callRequest("languages.resolveCompletionItem", { id })).toStrictEqual({});
     });
 
-    it("лейбл-объект без сигнатуры не даёт пустых полей", async () => {
+    it("a label object without a signature yields no empty fields", async () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
         const item = new CompletionItem("greet");
@@ -341,7 +341,7 @@ describe("LanguagesNamespace — resolveCompletionItem", () => {
         expect(result.items[0].labelDescription).toBeUndefined();
     });
 
-    it("сбойный resolve не роняет попап", async () => {
+    it("a failing resolve does not break the popup", async () => {
         const { id, stub } = await completeOnce({
             provideCompletionItems: () => [new CompletionItem("greet")],
             resolveCompletionItem: () => {
@@ -351,14 +351,14 @@ describe("LanguagesNamespace — resolveCompletionItem", () => {
         expect(await stub.callRequest("languages.resolveCompletionItem", { id })).toBeNull();
     });
 
-    it("провайдер без resolve, чужой и нечисловой id → null", async () => {
+    it("a provider without resolve, an unknown and a non-numeric id → null", async () => {
         const { id, stub } = await completeOnce({ provideCompletionItems: () => [new CompletionItem("greet")] });
         expect(await stub.callRequest("languages.resolveCompletionItem", { id })).toBeNull();
         expect(await stub.callRequest("languages.resolveCompletionItem", { id: "999.0" })).toBeNull();
         expect(await stub.callRequest("languages.resolveCompletionItem", {})).toBeNull();
     });
 
-    it("кэш держит только последние два ответа", async () => {
+    it("the cache keeps only the last two responses", async () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
         languages.registerCompletionItemProvider({ language: "typescript" }, {

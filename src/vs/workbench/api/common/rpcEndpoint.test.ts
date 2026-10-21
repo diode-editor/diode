@@ -52,9 +52,9 @@ describe("RpcEndpoint", () => {
         dispose();
     });
 
-    it("ошибка обработчика доезжает с именем, кодом, стеком и причиной", async () => {
+    it("a handler error arrives with name, code, stack and cause", async () => {
         const { a, b, dispose } = createEndpointPair();
-        const thrown = Object.assign(new TypeError("нет файла", { cause: new Error("ENOENT") }), {
+        const thrown = Object.assign(new TypeError("no such file", { cause: new Error("ENOENT") }), {
             code: "FileNotFound",
         });
         b.handleRequest("fs", () => {
@@ -64,7 +64,7 @@ describe("RpcEndpoint", () => {
         expect(error).toBeInstanceOf(Error);
         expect(error).toMatchObject({
             name: "TypeError",
-            message: "нет файла",
+            message: "no such file",
             code: "FileNotFound",
             stack: thrown.stack,
         });
@@ -159,7 +159,7 @@ describe("RpcEndpoint", () => {
         chB.dispose();
     });
 
-    it("второй обработчик того же запроса — ошибка, первый остаётся", async () => {
+    it("a second handler for the same request is an error, the first one stays", async () => {
         const { a, b, dispose } = createEndpointPair();
         b.handleRequest("m", () => "first");
         expect(() => b.handleRequest("m", () => "second")).toThrow(BugIndicatingError);
@@ -168,7 +168,7 @@ describe("RpcEndpoint", () => {
         dispose();
     });
 
-    it("повторный dispose снятой подписки не снимает нового обработчика", async () => {
+    it("a repeated dispose of a removed subscription does not remove the new handler", async () => {
         const { a, b, dispose } = createEndpointPair();
         const firstSub = b.handleRequest("m", () => "first");
         firstSub.dispose();
@@ -178,7 +178,7 @@ describe("RpcEndpoint", () => {
         dispose();
     });
 
-    it("нотификация без обработчика — warn один раз на метод", async () => {
+    it("a notification without a handler warns once per method", async () => {
         const warn = vi.fn();
         const [ca, cb] = createInProcessChannelPair();
         const a = new RpcEndpoint(ca);
@@ -276,7 +276,7 @@ describe("RpcEndpoint", () => {
         b.dispose();
     });
 
-    it("отказ обработчика пишется в warn отвечающей стороны с методом и сообщением", async () => {
+    it("a handler rejection is logged as a warning on the responding side with method and message", async () => {
         const [chA, chB] = createInProcessChannelPair();
         const logger = makeSpyLogger();
         const a = new RpcEndpoint(chA);

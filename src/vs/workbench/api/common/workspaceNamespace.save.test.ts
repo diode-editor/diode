@@ -24,8 +24,8 @@ function makeWorkspace() {
     return { stub, workspace, registry };
 }
 
-describe("workspace.saveAll — продюсер RPC", () => {
-    it("includeUntitled уезжает только как true; ответ хоста — результат", async () => {
+describe("workspace.saveAll — RPC producer", () => {
+    it("includeUntitled is sent only as true; the host response is the result", async () => {
         const { stub, workspace } = makeWorkspace();
         stub.responder = (method) => method === "workspace.saveAll";
 
@@ -40,7 +40,7 @@ describe("workspace.saveAll — продюсер RPC", () => {
         ]);
     });
 
-    it("отказ хоста (false) доезжает до расширения", async () => {
+    it("a host refusal (false) reaches the extension", async () => {
         const { stub, workspace } = makeWorkspace();
         stub.responder = () => false;
 
@@ -48,8 +48,8 @@ describe("workspace.saveAll — продюсер RPC", () => {
     });
 });
 
-describe("workspace.save — продюсер RPC", () => {
-    it("ресурс уезжает строкой, сохранённый возвращается Uri", async () => {
+describe("workspace.save — RPC producer", () => {
+    it("the resource is sent as a string, the saved one comes back as a Uri", async () => {
         const { stub, workspace } = makeWorkspace();
         const uri = Uri.file("/proj/main.go");
         stub.responder = (_method, params) => params;
@@ -61,7 +61,7 @@ describe("workspace.save — продюсер RPC", () => {
         expect(saved?.toString()).toBe(uri.toString());
     });
 
-    it("null хоста (не открыт, не сохранился) — undefined", async () => {
+    it("host null (not open, not saved) gives undefined", async () => {
         const { stub, workspace } = makeWorkspace();
         stub.responder = () => null;
 
@@ -69,8 +69,8 @@ describe("workspace.save — продюсер RPC", () => {
     });
 });
 
-describe("TextDocument.save — продюсер RPC", () => {
-    it("уезжает тем же workspace.save; ответ с uri — true, null — false", async () => {
+describe("TextDocument.save — RPC producer", () => {
+    it("goes through the same workspace.save; a response with uri gives true, null gives false", async () => {
         const { stub, registry } = makeWorkspace();
         const doc = registry.getOrCreate(Uri.parse("_claude_fs_right:/repo/a.ts"));
 

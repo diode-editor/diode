@@ -8,7 +8,7 @@ import { buildVscodeEsmShim } from "./extensionApiFactory.ts";
 const KEY = Symbol.for("diode.vscodeApi");
 
 describe("buildVscodeEsmShim", () => {
-    it("по именованному export'у на член namespace'а; без id — общий API", () => {
+    it("one named export per namespace member; without id — the shared API", () => {
         const source = buildVscodeEsmShim(["window", "workspace"]);
         expect(source).toContain('const ns = globalThis[Symbol.for("diode.vscodeApi")]();');
         expect(source).toContain('export const window = ns["window"];');
@@ -21,12 +21,12 @@ describe("buildVscodeEsmShim", () => {
         ]);
     });
 
-    it("с id — API этого расширения (id экранирован как JS-строка)", () => {
+    it("with id — the API of that extension (id escaped as a JS string)", () => {
         const source = buildVscodeEsmShim(["window"], 'pub."ext"');
         expect(source).toContain('const ns = globalThis[Symbol.for("diode.vscodeApi")]("pub.\\"ext\\"");');
     });
 
-    it("имена, которые не являются идентификаторами, в модуль не попадают", () => {
+    it("names that are not identifiers are left out of the module", () => {
         const source = buildVscodeEsmShim(["ok", "not-an-ident", "2bad", "", "default", "$ok_1"]);
         expect(source).toContain('export const ok = ns["ok"];');
         expect(source).toContain('export const $ok_1 = ns["$ok_1"];');
@@ -36,7 +36,7 @@ describe("buildVscodeEsmShim", () => {
         expect(source).not.toContain("export const default");
     });
 
-    it("сгенерированный модуль — валидный ESM и берёт API нужного расширения", async () => {
+    it("the generated module is valid ESM and takes the API of the right extension", async () => {
         const marker = { value: 42 };
         const asked: (string | undefined)[] = [];
         (globalThis as unknown as Record<symbol, unknown>)[KEY] = (id?: string) => {

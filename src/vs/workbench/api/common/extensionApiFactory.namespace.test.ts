@@ -33,22 +33,22 @@ function build(): ReturnType<typeof buildVscodeNamespace> & { stub: ReturnType<t
     return { ...buildVscodeNamespace(stub.rpc, createNodeExtHostDisk()), stub };
 }
 
-describe("оверлей поверх настоящего namespace", () => {
-    it("каждый обёрнутый член существует и является функцией", () => {
+describe("overlay on top of the real namespace", () => {
+    it("every wrapped member exists and is a function", () => {
         const { namespace } = build();
         for (const name of OWNED_MEMBERS.window) expect(typeof namespace.window[name]).toBe("function");
         for (const name of OWNED_MEMBERS.languages) expect(typeof namespace.languages[name]).toBe("function");
         for (const name of OWNED_MEMBERS.commands) expect(typeof namespace.commands[name]).toBe("function");
     });
 
-    it("все `register*Provider` languages либо обёрнуты, либо известные no-op", () => {
+    it("every languages `register*Provider` is either wrapped or a known no-op", () => {
         const { namespace } = build();
         const providers = Object.keys(namespace.languages).filter((k) => /^register\w*Provider$/.test(k));
         const owned: readonly string[] = OWNED_MEMBERS.languages;
         expect(providers.filter((k) => !owned.includes(k)).sort()).toEqual([...NOOP_PROVIDERS].sort());
     });
 
-    it("window.activeTextEditor через оверлей живой", () => {
+    it("window.activeTextEditor is live through the overlay", () => {
         const { namespace, owner, stub } = build();
         const api = createExtensionApi(namespace, owner, "pub.a");
         expect(api.window.activeTextEditor).toBeUndefined();
@@ -57,7 +57,7 @@ describe("оверлей поверх настоящего namespace", () => {
         expect(api.window.activeTextEditor).toBe(namespace.window.activeTextEditor);
     });
 
-    it("регистрация через оверлей доходит до хоста так же, как напрямую", () => {
+    it("registration through the overlay reaches the host the same as directly", () => {
         const { namespace, owner, stub } = build();
         const api = createExtensionApi(namespace, owner, "pub.a");
         const disposable = api.commands.registerCommand("pub.a.cmd", () => "ok");
@@ -67,7 +67,7 @@ describe("оверлей поверх настоящего namespace", () => {
         expect(owner.current).toBeUndefined();
     });
 
-    it("value-типы одни на все расширения", () => {
+    it("value types are shared across all extensions", () => {
         const { namespace, owner } = build();
         const a = createExtensionApi(namespace, owner, "pub.a");
         const b = createExtensionApi(namespace, owner, "pub.b");
@@ -78,12 +78,12 @@ describe("оверлей поверх настоящего namespace", () => {
     });
 });
 
-describe("владелец оверлея в логах сбоев", () => {
+describe("overlay owner in failure logs", () => {
     afterEach(() => {
         vi.restoreAllMocks();
     });
 
-    it("сбой провайдера, зарегистрированного через оверлей, — строка stderr с id; напрямую — без", async () => {
+    it("failure of a provider registered through the overlay logs a stderr line with the id; directly, without it", async () => {
         const errors = vi.spyOn(console, "error").mockImplementation(() => undefined).mock.calls;
         const { namespace, owner, stub } = build();
         const api = createExtensionApi(namespace, owner, "pub.a");
@@ -107,7 +107,7 @@ describe("владелец оверлея в логах сбоев", () => {
         ]);
     });
 
-    it("предупреждение текстовой команды без редактора несёт id владельца оверлея", async () => {
+    it("text editor command warning without an editor carries the overlay owner's id", async () => {
         const warns = vi.spyOn(console, "warn").mockImplementation(() => undefined).mock.calls;
         const { namespace, owner } = build();
         const api = createExtensionApi(namespace, owner, "pub.a");

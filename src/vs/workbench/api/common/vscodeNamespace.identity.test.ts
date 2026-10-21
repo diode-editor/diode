@@ -37,15 +37,15 @@ function makeStubRpc(): StubRpc {
     };
 }
 
-describe("VscodeNamespace — стабильная идентичность activeTextEditor", () => {
-    it("повторный activeTextEditor возвращает ту же ссылку", () => {
+describe("VscodeNamespace: stable activeTextEditor identity", () => {
+    it("repeated activeTextEditor returns the same reference", () => {
         const { rpc, fireActiveEditorChanged } = makeStubRpc();
         const vscode = buildVscodeNamespace(rpc, createNodeExtHostDisk()).namespace;
         fireActiveEditorChanged("/f.ts");
         expect(vscode.window.activeTextEditor).toBe(vscode.window.activeTextEditor);
     });
 
-    it("editor.document стабилен по ссылке (=== doc для editorconfig)", () => {
+    it("editor.document is reference-stable (=== doc for editorconfig)", () => {
         const { rpc, fireActiveEditorChanged } = makeStubRpc();
         const vscode = buildVscodeNamespace(rpc, createNodeExtHostDisk()).namespace;
         fireActiveEditorChanged("/f.ts");
@@ -55,7 +55,7 @@ describe("VscodeNamespace — стабильная идентичность acti
         expect(doc1?.fileName).toBe("/f.ts");
     });
 
-    it("editor из onDidChangeActiveTextEditor === window.activeTextEditor", () => {
+    it("editor from onDidChangeActiveTextEditor === window.activeTextEditor", () => {
         const { rpc, fireActiveEditorChanged } = makeStubRpc();
         const vscode = buildVscodeNamespace(rpc, createNodeExtHostDisk()).namespace;
         let delivered: unknown;
@@ -64,7 +64,7 @@ describe("VscodeNamespace — стабильная идентичность acti
         expect(delivered).toBe(vscode.window.activeTextEditor);
     });
 
-    it("document — полноценный ExtHostTextDocument (uri/lineAt)", () => {
+    it("document is a full ExtHostTextDocument (uri/lineAt)", () => {
         const { rpc, fireActiveEditorChanged } = makeStubRpc();
         const vscode = buildVscodeNamespace(rpc, createNodeExtHostDisk()).namespace;
         fireActiveEditorChanged("/dir/f.ts");
@@ -76,7 +76,7 @@ describe("VscodeNamespace — стабильная идентичность acti
         expect(doc.lineAt(0).text).toBe("");
     });
 
-    it("установка options проксируется в rpc.request(editor.setOptions)", () => {
+    it("setting options is proxied to rpc.request(editor.setOptions)", () => {
         const { rpc, fireActiveEditorChanged, request } = makeStubRpc();
         const vscode = buildVscodeNamespace(rpc, createNodeExtHostDisk()).namespace;
         fireActiveEditorChanged("/f.ts");
@@ -90,7 +90,7 @@ describe("VscodeNamespace — стабильная идентичность acti
         });
     });
 
-    it("отсутствие активного ресурса → activeTextEditor undefined", () => {
+    it("no active resource -> activeTextEditor undefined", () => {
         const { rpc, fireActiveEditorChanged } = makeStubRpc();
         const vscode = buildVscodeNamespace(rpc, createNodeExtHostDisk()).namespace;
         fireActiveEditorChanged("/f.ts");
@@ -99,7 +99,7 @@ describe("VscodeNamespace — стабильная идентичность acti
         expect(vscode.window.activeTextEditor).toBeUndefined();
     });
 
-    it("value-типы экспортированы как runtime-поля", () => {
+    it("value types are exported as runtime fields", () => {
         const { rpc } = makeStubRpc();
         const vscode = buildVscodeNamespace(rpc, createNodeExtHostDisk()).namespace as unknown as Record<
             string,
@@ -155,7 +155,7 @@ describe("VscodeNamespace — стабильная идентичность acti
         }
     });
 
-    it("version — валидный VS Code semver в лок-степе с extensions/VSCODE_VERSION", async () => {
+    it("version is a valid VS Code semver in lockstep with extensions/VSCODE_VERSION", async () => {
         const { readFile } = await import("node:fs/promises");
         const pinned = (
             await readFile(new URL("../../../../../extensions/VSCODE_VERSION", import.meta.url), "utf8")
@@ -167,7 +167,7 @@ describe("VscodeNamespace — стабильная идентичность acti
         expect(vscode.version).toMatch(/^\d+\.\d+\.\d+$/);
     });
 
-    it("registerTextEditorCommand получает ИМЕННО window.activeTextEditor (проводка геттера)", async () => {
+    it("registerTextEditorCommand receives EXACTLY window.activeTextEditor (getter wiring)", async () => {
         const { rpc, fireActiveEditorChanged } = makeStubRpc();
         const vscode = buildVscodeNamespace(rpc, createNodeExtHostDisk()).namespace;
         fireActiveEditorChanged("/f.py");
@@ -180,7 +180,7 @@ describe("VscodeNamespace — стабильная идентичность acti
         expect(delivered).toBe(vscode.window.activeTextEditor);
     });
 
-    it("extensions — каталог от хоста, до его приезда состав честно пуст", () => {
+    it("extensions is the host's catalog, honestly empty until it arrives", () => {
         const stub = makeSharedStubRpc();
         const vscode = buildVscodeNamespace(stub.rpc, createNodeExtHostDisk()).namespace;
         // The host has not sent the catalog yet (in real life it is seeded before the first activation): an empty set is the correct answer.
@@ -196,7 +196,7 @@ describe("VscodeNamespace — стабильная идентичность acti
         expect(vscode.extensions.all.map((e) => e.id)).toEqual(["pub.one"]);
     });
 
-    it("tasks — наивный namespace: registerTaskProvider отдаёт disposable, события подписываем", () => {
+    it("tasks is a naive namespace: registerTaskProvider returns a disposable, events are subscribable", () => {
         const { rpc } = makeStubRpc();
         // Duck cast: the no-op namespace of the dormant part of d.ts does not widen the active surface.
         const vscode = buildVscodeNamespace(rpc, createNodeExtHostDisk()).namespace as unknown as {
@@ -218,7 +218,7 @@ describe("VscodeNamespace — стабильная идентичность acti
         vscode.tasks.onDidEndTask(() => undefined).dispose();
     });
 
-    it("ExtensionMode — runtime-enum (context.extensionMode сравнивают с ним)", () => {
+    it("ExtensionMode is a runtime enum (context.extensionMode is compared against it)", () => {
         const { rpc } = makeStubRpc();
         const vscode = buildVscodeNamespace(rpc, createNodeExtHostDisk()).namespace;
         expect(vscode.ExtensionMode.Production).toBe(1);
@@ -226,7 +226,7 @@ describe("VscodeNamespace — стабильная идентичность acti
         expect(vscode.ExtensionMode.Test).toBe(3);
     });
 
-    it("env — константы шима, которые читает vscode-languageclient", () => {
+    it("env holds the shim constants read by vscode-languageclient", () => {
         const { rpc } = makeStubRpc();
         const vscode = buildVscodeNamespace(rpc, createNodeExtHostDisk()).namespace as unknown as {
             env: { appName: string; appHost: string; language: string; uriScheme: string };
@@ -237,7 +237,7 @@ describe("VscodeNamespace — стабильная идентичность acti
         expect(vscode.env.uriScheme).toBe("diode");
     });
 
-    it("env.clipboard ходит к хосту, а не отвечает пустотой", async () => {
+    it("env.clipboard goes to the host instead of answering empty", async () => {
         const stub = makeSharedStubRpc();
         stub.responder = (method) => (method === "env.clipboard.readText" ? { text: "from host" } : null);
         const vscode = buildVscodeNamespace(stub.rpc, createNodeExtHostDisk()).namespace as unknown as {
@@ -253,7 +253,7 @@ describe("VscodeNamespace — стабильная идентичность acti
         ]);
     });
 
-    it("env.openExternal уезжает хосту в НЕкодированной форме (как в эталоне)", async () => {
+    it("env.openExternal is sent to the host in UNencoded form (as upstream)", async () => {
         const stub = makeSharedStubRpc();
         stub.responder = () => ({ opened: true });
         const vscode = buildVscodeNamespace(stub.rpc, createNodeExtHostDisk()).namespace as unknown as {
@@ -267,7 +267,7 @@ describe("VscodeNamespace — стабильная идентичность acti
         ]);
     });
 
-    it("env.openExternal отдаёт false, когда хост ссылку не открыл", async () => {
+    it("env.openExternal returns false when the host did not open the link", async () => {
         const stub = makeSharedStubRpc();
         stub.responder = () => ({ opened: false });
         const vscode = buildVscodeNamespace(stub.rpc, createNodeExtHostDisk()).namespace as unknown as {

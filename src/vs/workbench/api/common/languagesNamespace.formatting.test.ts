@@ -47,8 +47,8 @@ function oneEditProvider(): vscode.DocumentFormattingEditProvider {
     } as unknown as vscode.DocumentFormattingEditProvider;
 }
 
-describe("LanguagesNamespace — провайдеры форматирования", () => {
-    it("оба вида объявляются ядру своим kind; dispose снимает один раз", () => {
+describe("LanguagesNamespace — formatting providers", () => {
+    it("both kinds are declared to the core with their kind; dispose removes once", () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
 
@@ -71,7 +71,7 @@ describe("LanguagesNamespace — провайдеры форматировани
         expect(stub.notifies.filter((n) => n.method === "languages.updateSubscriptions")).toEqual([]);
     });
 
-    it("документный запрос: правки провайдера запрошенного handle сериализуются, options доезжают", async () => {
+    it("document request: edits of the requested handle's provider are serialized, options arrive", async () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
         const seen: { languageId: string; text: string; options: vscode.FormattingOptions }[] = [];
@@ -99,7 +99,7 @@ describe("LanguagesNamespace — провайдеры форматировани
         ]);
     });
 
-    it("неизвестный handle и handle другого вида — пустой ответ, провайдер не зовётся", async () => {
+    it("an unknown handle and a handle of another kind give an empty answer, the provider is not called", async () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
         const provide = vi.fn(() => [new TextEdit(new Range(0, 5, 0, 7), " ")]);
@@ -138,7 +138,7 @@ describe("LanguagesNamespace — провайдеры форматировани
         expect(provide).not.toHaveBeenCalled();
     });
 
-    it("range-запрос уходит range-провайдеру с диапазоном как есть", async () => {
+    it("a range request goes to the range provider with the range as is", async () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
         const ranges: vscode.Range[] = [];
@@ -159,7 +159,7 @@ describe("LanguagesNamespace — провайдеры форматировани
         expect(ranges).toEqual([new Range(1, 2, 2, 4)]);
     });
 
-    it("документный запрос к range-провайдеру — пустой ответ (синтетический формат строит ядро)", async () => {
+    it("a document request to a range provider gives an empty answer (the core builds the synthetic format)", async () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
         const provide = vi.fn(() => []);
@@ -171,7 +171,7 @@ describe("LanguagesNamespace — провайдеры форматировани
         expect(provide).not.toHaveBeenCalled();
     });
 
-    it("сбойный или мусорный провайдер — пустой ответ (no-op), не «нет форматтера»", async () => {
+    it("a failing or garbage provider gives an empty answer (no-op), not 'no formatter'", async () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
         languages.registerDocumentFormattingEditProvider({ language: "typescript" }, {
@@ -199,7 +199,7 @@ describe("LanguagesNamespace — провайдеры форматировани
         expect(await stub3.callRequest("languages.provideFormattingEdits", requestParams())).toEqual([WIRE_EDIT]);
     });
 
-    it("сбой провайдера пишется в stderr — иначе он неотличим от «менять нечего»", async () => {
+    it("a provider failure is written to stderr, otherwise it is indistinguishable from 'nothing to change'", async () => {
         const errors: string[] = [];
         const spy = vi.spyOn(console, "error").mockImplementation((...args: unknown[]) => {
             errors.push(args.map(String).join(" "));
@@ -222,7 +222,7 @@ describe("LanguagesNamespace — провайдеры форматировани
         }
     });
 
-    it("сбой range-провайдера пишется в stderr", async () => {
+    it("a range provider failure is written to stderr", async () => {
         const errors: string[] = [];
         const spy = vi.spyOn(console, "error").mockImplementation((...args: unknown[]) => {
             errors.push(args.map(String).join(" "));
@@ -249,7 +249,7 @@ describe("LanguagesNamespace — провайдеры форматировани
         }
     });
 
-    it("сбойный range-провайдер — пустой ответ", async () => {
+    it("a failing range provider gives an empty answer", async () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
         languages.registerDocumentRangeFormattingEditProvider({ language: "typescript" }, {
@@ -265,7 +265,7 @@ describe("LanguagesNamespace — провайдеры форматировани
         ).toEqual([]);
     });
 
-    it("голые параметры (без languageId) — документ из зеркала, язык не затирается", async () => {
+    it("bare params (no languageId) take the document from the mirror, the language is not overwritten", async () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
         const seen: { text: string; languageId: string }[] = [];
@@ -282,7 +282,7 @@ describe("LanguagesNamespace — провайдеры форматировани
         expect(seen).toEqual([{ text: TEXT, languageId: "typescript" }]);
     });
 
-    it("не открытый, устаревший, обогнавший зеркало и без версии документ — [] без вызова провайдера", async () => {
+    it("a document that is not open, stale, ahead of the mirror or without a version gives [] without calling the provider", async () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
         const provide = vi.fn(() => [new TextEdit(new Range(0, 5, 0, 7), " ")]);
@@ -322,7 +322,7 @@ describe("LanguagesNamespace — провайдеры форматировани
         expect(provide).toHaveBeenCalledTimes(1);
     });
 
-    it("дефолты options: без tabSize/insertSpaces провайдер видит 4 и true", async () => {
+    it("options defaults: without tabSize/insertSpaces the provider sees 4 and true", async () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
         const seen: vscode.FormattingOptions[] = [];

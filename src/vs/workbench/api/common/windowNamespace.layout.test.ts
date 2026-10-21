@@ -45,8 +45,8 @@ function tab(uri: string, opts: Partial<{ isActive: boolean; isDirty: boolean; l
 const A = Uri.file("/p/a.ts").toString();
 const B = Uri.file("/p/b.ts").toString();
 
-describe("WindowNamespace — layout-диффер (editor.layoutChanged)", () => {
-    it("AS-12: tabGroups.all строится из снимка; ровно одна активная группа", () => {
+describe("WindowNamespace — layout differ (editor.layoutChanged)", () => {
+    it("AS-12: tabGroups.all is built from the snapshot; exactly one active group", () => {
         const { stub, tabs } = makeCtx();
         stub.fire("editor.layoutChanged", {
             groups: [
@@ -64,7 +64,7 @@ describe("WindowNamespace — layout-диффер (editor.layoutChanged)", () =>
         expect(all[1].activeTab?.label).toBe("a.ts");
     });
 
-    it("AS-13/18: input — TabInputText с uri; isPinned/isPreview честные false, isDirty настоящий", () => {
+    it("AS-13/18: input is TabInputText with uri; isPinned/isPreview are plain false, isDirty is real", () => {
         const { stub, tabs } = makeCtx();
         stub.fire("editor.layoutChanged", {
             groups: [{ groupId: 1, viewColumn: 1, isActive: true, tabs: [tab(A, { isActive: true, isDirty: true })] }],
@@ -78,7 +78,7 @@ describe("WindowNamespace — layout-диффер (editor.layoutChanged)", () =>
         expect(first.isDirty).toBe(true);
     });
 
-    it("AS-14: onDidChangeTabs — opened/closed/changed по диффу снимков", () => {
+    it("AS-14: onDidChangeTabs gives opened/closed/changed from the snapshot diff", () => {
         const { stub, tabs } = makeCtx();
         const events: vscode.TabChangeEvent[] = [];
         tabs.tabGroups.onDidChangeTabs((e) => events.push(e));
@@ -100,7 +100,7 @@ describe("WindowNamespace — layout-диффер (editor.layoutChanged)", () =>
         expect(events.at(-1)!.closed.map((t) => t.label)).toEqual(["b.ts"]);
     });
 
-    it("AS-15: onDidChangeTabGroups — сплит opened, схлопывание closed, смена активной changed", () => {
+    it("AS-15: onDidChangeTabGroups: a split is opened, a collapse is closed, an active change is changed", () => {
         const { stub, tabs } = makeCtx();
         const events: vscode.TabGroupChangeEvent[] = [];
         tabs.tabGroups.onDidChangeTabGroups((e) => events.push(e));
@@ -123,7 +123,7 @@ describe("WindowNamespace — layout-диффер (editor.layoutChanged)", () =>
         expect(events.at(-1)!.closed.length).toBe(1);
     });
 
-    it("AS-7/8: visibleTextEditors — по редактору на группу; событие на смену набора", () => {
+    it("AS-7/8: visibleTextEditors has one editor per group; an event on set change", () => {
         const { stub, window, tabs } = makeCtx();
         const fired: (readonly vscode.TextEditor[])[] = [];
         tabs.onDidChangeVisibleTextEditors((editors) => fired.push(editors));
@@ -151,7 +151,7 @@ describe("WindowNamespace — layout-диффер (editor.layoutChanged)", () =>
         expect(fired.length).toBe(1);
     });
 
-    it("AS-9: перенумерация колонок — тот же объект редактора, событие viewColumn", () => {
+    it("AS-9: column renumbering keeps the same editor object and fires viewColumn", () => {
         const { stub, window, tabs } = makeCtx();
         stub.fire("editor.layoutChanged", {
             groups: [
@@ -176,7 +176,7 @@ describe("WindowNamespace — layout-диффер (editor.layoutChanged)", () =>
         expect(editorOfGroup2.viewColumn).toBe(1);
     });
 
-    it("схлопнутая группа: viewColumn редактора — undefined, кэш прюнится", () => {
+    it("collapsed group: the editor viewColumn is undefined, the cache is pruned", () => {
         const { stub, window } = makeCtx();
         stub.fire("editor.layoutChanged", {
             groups: [
@@ -194,7 +194,7 @@ describe("WindowNamespace — layout-диффер (editor.layoutChanged)", () =>
         expect(window.visibleTextEditors.length).toBe(1);
     });
 
-    it("layoutChanged с мусором игнорируется — полоса не сбрасывается", () => {
+    it("layoutChanged with garbage is ignored; the strip is not reset", () => {
         const { stub, tabs } = makeCtx();
         stub.fire("editor.layoutChanged", {
             groups: [{ groupId: 1, viewColumn: 1, isActive: true, tabs: [tab(A, { isActive: true })] }],
@@ -206,7 +206,7 @@ describe("WindowNamespace — layout-диффер (editor.layoutChanged)", () =>
         expect(tabs.tabGroups.all.length).toBe(1);
     });
 
-    it("diff-вкладка: с обеими сторонами → TabInputTextDiff, без сторон → input undefined", () => {
+    it("diff tab: with both sides → TabInputTextDiff, without sides → input undefined", () => {
         const { stub, tabs } = makeCtx();
         stub.fire("editor.layoutChanged", {
             groups: [
@@ -216,12 +216,12 @@ describe("WindowNamespace — layout-диффер (editor.layoutChanged)", () =>
                     isActive: true,
                     tabs: [
                         {
-                            ...tab("diff://1", { isActive: true, label: "дифф" }),
+                            ...tab("diff://1", { isActive: true, label: "diff" }),
                             kind: "diff",
                             original: A,
                             modified: B,
                         },
-                        { ...tab("diff://2", { label: "без сторон" }), kind: "diff" },
+                        { ...tab("diff://2", { label: "no sides" }), kind: "diff" },
                     ],
                 },
             ],
@@ -235,7 +235,7 @@ describe("WindowNamespace — layout-диффер (editor.layoutChanged)", () =>
         expect(groupTabs[1].input).toBeUndefined();
     });
 
-    it("TabInputTextDiff — только у диффа с обеими сторонами", () => {
+    it("TabInputTextDiff only for a diff with both sides", () => {
         const { stub, tabs } = makeCtx();
         stub.fire("editor.layoutChanged", {
             groups: [
@@ -256,7 +256,7 @@ describe("WindowNamespace — layout-диффер (editor.layoutChanged)", () =>
         expect(tabs.tabGroups.activeTabGroup.tabs.map((t) => t.input)).toEqual([undefined, undefined, undefined]);
     });
 
-    it("вкладка чужого вида (kind=unknown): input undefined, видимым текстовым редактором не считается", () => {
+    it("a tab of a foreign kind (kind=unknown): input undefined, not counted as a visible text editor", () => {
         const { stub, window, tabs } = makeCtx();
         stub.fire("editor.layoutChanged", {
             groups: [
@@ -276,7 +276,7 @@ describe("WindowNamespace — layout-диффер (editor.layoutChanged)", () =>
         expect(window.visibleTextEditors).toEqual([]);
     });
 
-    it("onDidChangeTabs несёт diff-вкладки с тем же правилом input", () => {
+    it("onDidChangeTabs carries diff tabs with the same input rule", () => {
         const { stub, tabs } = makeCtx();
         const events: vscode.TabChangeEvent[] = [];
         tabs.tabGroups.onDidChangeTabs((e) => events.push(e));
@@ -289,12 +289,12 @@ describe("WindowNamespace — layout-диффер (editor.layoutChanged)", () =>
                     isActive: true,
                     tabs: [
                         {
-                            ...tab("diff://1", { isActive: true, label: "дифф" }),
+                            ...tab("diff://1", { isActive: true, label: "diff" }),
                             kind: "diff",
                             original: A,
                             modified: B,
                         },
-                        { ...tab("diff://2", { label: "без сторон" }), kind: "diff" },
+                        { ...tab("diff://2", { label: "no sides" }), kind: "diff" },
                     ],
                 },
             ],
@@ -305,7 +305,7 @@ describe("WindowNamespace — layout-диффер (editor.layoutChanged)", () =>
         expect(opened[1].input).toBeUndefined();
     });
 
-    it("группа без активной вкладки: activeTab undefined, видимого редактора нет", () => {
+    it("group without an active tab: activeTab undefined, no visible editor", () => {
         const { stub, window, tabs } = makeCtx();
         stub.fire("editor.layoutChanged", {
             groups: [{ groupId: 1, viewColumn: 1, isActive: true, tabs: [tab(A)] }],
@@ -315,7 +315,7 @@ describe("WindowNamespace — layout-диффер (editor.layoutChanged)", () =>
         expect(window.visibleTextEditors.length).toBe(0);
     });
 
-    it("активная diff-вкладка: стороны-модели (sideEditors) — видимые редакторы, событие на появление и уход", () => {
+    it("active diff tab: side models (sideEditors) are visible editors, with events on appear and leave", () => {
         // Claude Code sets `viewingProposedDiff` from onDidChangeVisibleTextEditors:
         // whether a side with its scheme is visible.
         const { stub, window, tabs } = makeCtx();
@@ -350,7 +350,7 @@ describe("WindowNamespace — layout-диффер (editor.layoutChanged)", () =>
         expect(seen).toEqual([[A, right], [B]]);
     });
 
-    it("активная diff-вкладка без сторон-моделей (снимки) не даёт видимого текстового редактора", () => {
+    it("an active diff tab without side models (snapshots) yields no visible text editor", () => {
         const { stub, window } = makeCtx();
         stub.fire("editor.layoutChanged", {
             groups: [
@@ -360,7 +360,7 @@ describe("WindowNamespace — layout-диффер (editor.layoutChanged)", () =>
                     isActive: true,
                     tabs: [
                         {
-                            ...tab("diff://1", { isActive: true, label: "дифф" }),
+                            ...tab("diff://1", { isActive: true, label: "diff" }),
                             kind: "diff",
                             original: A,
                             modified: B,
@@ -376,7 +376,7 @@ describe("WindowNamespace — layout-диффер (editor.layoutChanged)", () =>
         expect(visible[0].viewColumn).toBe(2);
     });
 
-    it("выделение закрытой вкладки прюнится: повторное открытие начинается с (0,0)", () => {
+    it("a closed tab's selection is pruned: reopening starts at (0,0)", () => {
         const { stub, window } = makeCtx();
         const withSelection = {
             ...tab(A, { isActive: true }),
@@ -397,14 +397,14 @@ describe("WindowNamespace — layout-диффер (editor.layoutChanged)", () =>
         expect(window.visibleTextEditors[0].selection.active).toEqual({ line: 0, character: 0 });
     });
 
-    it("смена колонки группы без закэшированных редакторов не стреляет viewColumn-событием", () => {
+    it("a group column change without cached editors does not fire a viewColumn event", () => {
         const { stub, tabs } = makeCtx();
         const events: vscode.TextEditorViewColumnChangeEvent[] = [];
         tabs.onDidChangeTextEditorViewColumn((e) => events.push(e));
 
         // Group 2's active tab is a diff: it has no text editor (and no cache).
         const diffTab = {
-            ...tab("diff://1", { isActive: true, label: "дифф" }),
+            ...tab("diff://1", { isActive: true, label: "diff" }),
             kind: "diff",
             original: A,
             modified: B,
@@ -422,7 +422,7 @@ describe("WindowNamespace — layout-диффер (editor.layoutChanged)", () =>
         expect(events.length).toBe(0);
     });
 
-    it("выделения видимого редактора сеются из снимка", () => {
+    it("visible editor selections are seeded from the snapshot", () => {
         const { stub, window } = makeCtx();
         stub.fire("editor.layoutChanged", {
             groups: [
@@ -445,8 +445,8 @@ describe("WindowNamespace — layout-диффер (editor.layoutChanged)", () =>
     });
 });
 
-describe("WindowNamespace — группа активного редактора (meta.groupId)", () => {
-    it("groupId из меты побеждает активную группу снимка", () => {
+describe("WindowNamespace — active editor group (meta.groupId)", () => {
+    it("groupId from meta wins over the snapshot active group", () => {
         const { stub, window } = makeCtx();
         stub.fire("editor.layoutChanged", {
             groups: [
@@ -459,7 +459,7 @@ describe("WindowNamespace — группа активного редактора
         expect(window.activeTextEditor?.viewColumn).toBe(2);
     });
 
-    it("мета без groupId: активный редактор ложится в активную группу снимка", () => {
+    it("meta without groupId: the active editor goes into the snapshot active group", () => {
         const { stub, window } = makeCtx();
         stub.fire("editor.layoutChanged", {
             groups: [
@@ -472,7 +472,7 @@ describe("WindowNamespace — группа активного редактора
         expect(window.activeTextEditor?.viewColumn).toBe(2);
     });
 
-    it("сеттер selection в неактивной группе не трогает activeSelections активного редактора", () => {
+    it("the selection setter in an inactive group does not touch the active editor activeSelections", () => {
         const { stub, window } = makeCtx();
         stub.fire("editor.layoutChanged", {
             groups: [
@@ -495,7 +495,7 @@ describe("WindowNamespace — группа активного редактора
         expect(stub.notifies.at(-1)).toMatchObject({ method: "editor.setSelection", params: { groupId: 2 } });
     });
 
-    it("selectionChanged с groupId адресует редактор конкретной группы", () => {
+    it("selectionChanged with groupId addresses the editor of that group", () => {
         const { stub, window } = makeCtx();
         stub.fire("editor.layoutChanged", {
             groups: [
@@ -516,8 +516,8 @@ describe("WindowNamespace — группа активного редактора
     });
 });
 
-describe("WindowNamespace — подписки layout-событий (thisArgs/disposables)", () => {
-    it("thisArgs привязывается, dispose через массив снимает подписку, повторный dispose — no-op", () => {
+describe("WindowNamespace — layout event subscriptions (thisArgs/disposables)", () => {
+    it("thisArgs is bound, dispose via the array removes the subscription, a repeated dispose is a no-op", () => {
         const { stub, tabs } = makeCtx();
         const disposables: vscode.Disposable[] = [];
         const thisArg = { count: 0 };
@@ -547,8 +547,8 @@ describe("WindowNamespace — подписки layout-событий (thisArgs/d
     });
 });
 
-describe("WindowNamespace — Tab.group и служебная адресация вкладок", () => {
-    it("вкладка из tabGroups.all знает свою группу: tabs[j].group и activeTab.group — тот же объект", () => {
+describe("WindowNamespace — Tab.group and internal tab addressing", () => {
+    it("a tab from tabGroups.all knows its group: tabs[j].group and activeTab.group are the same object", () => {
         const { stub, tabs } = makeCtx();
         stub.fire("editor.layoutChanged", {
             groups: [
@@ -567,7 +567,7 @@ describe("WindowNamespace — Tab.group и служебная адресация
         expect(active.activeTab?.group).toBe(active);
     });
 
-    it("вкладка из onDidChangeTabs лежит в tabs своей группы", () => {
+    it("a tab from onDidChangeTabs is in its group's tabs", () => {
         const { stub, tabs } = makeCtx();
         const events: vscode.TabChangeEvent[] = [];
         tabs.tabGroups.onDidChangeTabs((e) => events.push(e));
@@ -583,7 +583,7 @@ describe("WindowNamespace — Tab.group и служебная адресация
         expect(opened[1].group.viewColumn).toBe(1);
     });
 
-    it("служебные поля не видны на объекте Tab", () => {
+    it("internal fields are not visible on the Tab object", () => {
         const { stub, tabs } = makeCtx();
         stub.fire("editor.layoutChanged", {
             groups: [{ groupId: 1, viewColumn: 1, isActive: true, tabs: [tab(A, { isActive: true })] }],
@@ -598,7 +598,7 @@ describe("WindowNamespace — Tab.group и служебная адресация
 });
 
 describe("WindowNamespace — tabGroups.close", () => {
-    it("одиночная вкладка → editor.closeTabs с парой (groupId, uri)", async () => {
+    it("a single tab → editor.closeTabs with a (groupId, uri) pair", async () => {
         const { stub, tabs } = makeCtx();
         stub.fire("editor.layoutChanged", {
             groups: [{ groupId: 1, viewColumn: 1, isActive: true, tabs: [tab(A, { isActive: true })] }],
@@ -612,7 +612,7 @@ describe("WindowNamespace — tabGroups.close", () => {
         });
     });
 
-    it("массив вкладок из разных групп закрывается одним запросом", async () => {
+    it("an array of tabs from different groups is closed in one request", async () => {
         const { stub, tabs } = makeCtx();
         stub.fire("editor.layoutChanged", {
             groups: [
@@ -635,7 +635,7 @@ describe("WindowNamespace — tabGroups.close", () => {
         });
     });
 
-    it("вкладка из события onDidChangeTabs закрывается по своей паре (groupId, uri)", async () => {
+    it("a tab from an onDidChangeTabs event is closed by its (groupId, uri) pair", async () => {
         const { stub, tabs } = makeCtx();
         const events: vscode.TabChangeEvent[] = [];
         tabs.tabGroups.onDidChangeTabs((e) => events.push(e));
@@ -651,7 +651,7 @@ describe("WindowNamespace — tabGroups.close", () => {
         });
     });
 
-    it("объекты без внутренней адресации в массиве вкладок пропускаются", async () => {
+    it("objects without internal addressing in the tabs array are skipped", async () => {
         const { stub, tabs } = makeCtx();
         stub.fire("editor.layoutChanged", {
             groups: [{ groupId: 1, viewColumn: 1, isActive: true, tabs: [tab(A, { isActive: true })] }],
@@ -666,13 +666,13 @@ describe("WindowNamespace — tabGroups.close", () => {
         });
     });
 
-    it("пустой массив → true без RPC", async () => {
+    it("an empty array → true without RPC", async () => {
         const { stub, tabs } = makeCtx();
         await expect(tabs.tabGroups.close([])).resolves.toBe(true);
         expect(stub.requests.length).toBe(0);
     });
 
-    it("группа → editor.closeGroups по groupId из снимка", async () => {
+    it("a group → editor.closeGroups by groupId from the snapshot", async () => {
         const { stub, tabs } = makeCtx();
         stub.fire("editor.layoutChanged", {
             groups: [
@@ -686,7 +686,7 @@ describe("WindowNamespace — tabGroups.close", () => {
         expect(stub.requests.at(-1)).toEqual({ method: "editor.closeGroups", params: { groupIds: [7] } });
     });
 
-    it("группа с чужой колонкой (нет в снимке) адресуется как -1", async () => {
+    it("a group with a foreign column (not in the snapshot) is addressed as -1", async () => {
         const { stub, tabs } = makeCtx();
         stub.fire("editor.layoutChanged", {
             groups: [{ groupId: 1, viewColumn: 1, isActive: true, tabs: [tab(A, { isActive: true })] }],
