@@ -1762,5 +1762,19 @@
       "large",
       "xlarge"
     ]
+  },
+  {
+    "file": "2026-10-21-30aba4c9250b.json",
+    "generatedAt": "2026-10-21T20:46:42.247Z",
+    "commit": "30aba4c9250b",
+    "binaryVersion": "nightly-30aba4c",
+    "ci": true,
+    "conditions": "CI, shared runner (GitHub Actions)",
+    "sizes": [
+      "small",
+      "medium",
+      "large",
+      "xlarge"
+    ]
   }
 ]
