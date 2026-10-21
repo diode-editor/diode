@@ -98,7 +98,7 @@ describe("resolveUserDataPaths", () => {
         const named = resolveUserDataPaths({ homedir: home, profile: "work" });
         expect(paths.profilesHome).toBe("/home/alice/.diode/user-data/User/profiles");
         expect(paths.applicationStateFile).toBe("/home/alice/.diode/user-data/User/globalStorage/storage.json");
-        // Именованный профиль не двигает ни реестр, ни родителя каталогов.
+        // A named profile moves neither the registry nor the directories' parent.
         expect(named.profilesHome).toBe(paths.profilesHome);
         expect(named.applicationStateFile).toBe(paths.applicationStateFile);
         expect(named.profileDir).toBe("/home/alice/.diode/user-data/User/profiles/work");
@@ -114,13 +114,13 @@ describe("resolveUserDataPaths", () => {
     it("isolates machine-state paths per named profile", () => {
         const paths = resolveUserDataPaths({ homedir: home, profile: "compact" });
         expect(paths.globalStateFile).toBe("/home/alice/.diode/user-data/User/profiles/compact/globalState.json");
-        // Секреты — тоже per-profile: токены рабочего профиля не видны из личного.
+        // Secrets are per-profile too: work profile tokens are not visible from a personal one.
         expect(paths.secretsFile).toBe("/home/alice/.diode/user-data/User/profiles/compact/secrets.json");
         expect(paths.workspaceStorageDir).toBe("/home/alice/.diode/user-data/User/profiles/compact/workspaceStorage");
     });
 
-    // globalStorage переезжает вместе с профилем (как globalState), а logs — нет:
-    // в vscode они лежат рядом с `User/`, а не внутри профиля.
+    // globalStorage moves with the profile (like globalState), logs do not:
+    // in vscode they sit next to `User/`, not inside the profile.
     it("places extension storage under the profile dir and logs outside it", () => {
         const paths = resolveUserDataPaths({ homedir: home });
         expect(paths.globalStorageDir).toBe("/home/alice/.diode/user-data/User/globalStorage");
@@ -136,22 +136,22 @@ describe("resolveUserDataPaths", () => {
 
 describe("resolveWorkspaceStorageDir", () => {
     const storage = "/home/alice/.diode/user-data/User/workspaceStorage";
-    // Идентичность воркспейса приходит СНАРУЖИ — функция её не выводит и о том,
-    // из чего она посчитана, не знает (см. computeWorkspaceId и его тесты).
+    // Workspace identity comes from OUTSIDE: the function does not derive it and does not know
+    // what it was computed from (see computeWorkspaceId and its tests).
     const id = computeWorkspaceId("/projects/app");
 
     it("keys the dir by the workspace id verbatim", () => {
         expect(resolveWorkspaceStorageDir(storage, id)).toBe(`${storage}/${id}`);
     });
 
-    // Каталог расширения (`<id>/<extId>` = storageUri) лежит рядом с нашим
-    // state.json — ровно как в vscode рядом с его state.vscdb.
+    // The extension directory (`<id>/<extId>` = storageUri) sits next to our
+    // state.json, exactly like vscode's next to its state.vscdb.
     it("is the parent of state.json — extension dirs are its siblings", () => {
         expect(resolveWorkspaceStatePath(storage, id)).toBe(`${resolveWorkspaceStorageDir(storage, id)}/state.json`);
     });
 
-    // Формат на диске остаётся тем же, что у пользователей уже лежит:
-    // workspaceStorage/<sha256(абсолютный путь папки)>.
+    // The on-disk format stays what users already have:
+    // workspaceStorage/<sha256(absolute folder path)>.
     it("lands on the same on-disk layout as before the id was introduced", () => {
         const hash = crypto.createHash("sha256").update("/projects/app").digest("hex");
         expect(resolveWorkspaceStorageDir(storage, id)).toBe(`${storage}/${hash}`);

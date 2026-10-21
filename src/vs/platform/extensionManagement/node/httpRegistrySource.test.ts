@@ -9,7 +9,7 @@ import { type IRegistryVersion, REGISTRY_SCHEMA_VERSION } from "../common/regist
 
 import { DEFAULT_MAX_ARTIFACT_BYTES, HttpExtensionRegistrySource } from "./httpRegistrySource.ts";
 
-/** Настоящий `node:http` на 127.0.0.1, а не мок fetch'а: тот проверял бы наши же представления о транспорте. */
+/** Real `node:http` on 127.0.0.1, not a fetch mock: a mock would only test our own assumptions about the transport. */
 
 const ID = "acme.markdown-tools";
 const BASE_PATH = "/registry/v1/";
@@ -266,7 +266,7 @@ describe("HttpExtensionRegistrySource", () => {
     });
 
     it("https-артефакт проходит проверку схемы и падает уже на сети", async () => {
-        // Порт 1 закрыт: мутант, выкинувший https из проверки, дал бы «must be http(s)» вместо отказа сети.
+        // Port 1 is closed: a mutant dropping https from the check would give "must be http(s)" instead of a network failure.
         ws = createTempWorkspace();
         await expect(
             new HttpExtensionRegistrySource(base).fetchArtifact(urlVersion("https://127.0.0.1:1/x.vsix"), ws.dir),
@@ -317,7 +317,7 @@ describe("HttpExtensionRegistrySource", () => {
     });
 
     it("медленная, но ЖИВАЯ загрузка не обрывается: сторожим молчание, а не длительность", async () => {
-        // ~280мс суммарно — дольше таймаута 100мс, но ни одной паузы длиннее него.
+        // ~280ms total: longer than the 100ms timeout, but no single pause exceeds it.
         const total = 7;
         routes.set("/slow.vsix", (_req, res) => {
             res.writeHead(200, { "content-type": "application/octet-stream" });
@@ -343,7 +343,7 @@ describe("HttpExtensionRegistrySource", () => {
         routes.set("/stalled.vsix", (_req, res) => {
             res.writeHead(200, { "content-type": "application/octet-stream" });
             res.write(Buffer.alloc(8, 1));
-            // Тело не закрываем: соединение подчистит closeAllConnections в afterAll.
+            // The body is left open: closeAllConnections in afterAll cleans up the connection.
         });
         ws = createTempWorkspace();
         const source = new HttpExtensionRegistrySource(base, undefined, { timeoutMs: 100 });
@@ -354,7 +354,7 @@ describe("HttpExtensionRegistrySource", () => {
     });
 
     it("после успешной загрузки сторож снят — висящих таймеров не остаётся", async () => {
-        // Несброшенный `setTimeout` держит event loop: `--install-extension` висел бы ещё `timeoutMs`.
+        // An uncleared `setTimeout` holds the event loop: `--install-extension` would hang for another `timeoutMs`.
         const bytes = Buffer.alloc(32, 3);
         routes.set("/tidy.vsix", (_req, res) => {
             res.writeHead(200);
@@ -395,7 +395,7 @@ describe("HttpExtensionRegistrySource", () => {
     });
 
     it("многокусковое тело доезжает в файл целиком и в исходном порядке", async () => {
-        // Тело в один `res.end` не поймало бы запись, которая каждый кусок кладёт с нуля.
+        // A single-`res.end` body wouldn't catch a write that puts every chunk at offset zero.
         const parts = [Buffer.alloc(64 * 1024, 1), Buffer.alloc(96 * 1024, 2), Buffer.alloc(48 * 1024, 3)];
         routes.set("/chunked.vsix", (_req, res) => {
             res.writeHead(200);
@@ -413,7 +413,7 @@ describe("HttpExtensionRegistrySource", () => {
     });
 
     it("превышение лимита обрывает скачивание, а не проверяется по уже скачанному", async () => {
-        // Проверка постфактум по готовому файлу прошла бы предыдущие кейсы, но этот — нет.
+        // An after-the-fact check on the finished file would pass the previous cases, but not this one.
         const TOTAL = 64 * 1024 * 1024;
         const chunk = Buffer.alloc(64 * 1024, 7);
         let sent = 0;
@@ -448,7 +448,7 @@ describe("HttpExtensionRegistrySource", () => {
     });
 
     it("дефолтный лимит пропускает платформенный .vsix со вшитым рантаймом", () => {
-        // redhat.java@1.57.2026092608 (linux-x64, с JRE 21) — самая тяжёлая сборка.
+        // redhat.java@1.57.2026092608 (linux-x64, with JRE 21) is the heaviest build.
         expect(DEFAULT_MAX_ARTIFACT_BYTES).toBeGreaterThanOrEqual(139_029_576);
     });
 });

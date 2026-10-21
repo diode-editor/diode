@@ -82,8 +82,8 @@ describe("ConfigurationRegistry — настройки расширений", ()
             scope: "resource",
             extensionId: "acme.ruff",
         });
-        // Ключ без дефолта известен, но в дерево дефолтов не попадает (даже
-        // `undefined`-значением: toEqual такого не различил бы).
+        // A key without a default is known but stays out of the defaults tree (not even
+        // as an `undefined` value: toEqual would not tell them apart).
         expect(registry.getExtensionConfigurationProperties().has("ruff.path")).toBe(true);
         expect(Object.keys(registry.getDefaultConfiguration().ruff as object)).toEqual(["importStrategy"]);
         expect(registry.getConfigurationProperties().has("ruff.importStrategy")).toBe(false);
@@ -93,9 +93,9 @@ describe("ConfigurationRegistry — настройки расширений", ()
         [undefined, "window"],
         ["application", "application"],
         ["machine", "machine"],
-        // Проекту разрешено переопределить — слой воркспейса его не отбрасывает.
+        // The project may override it, so the workspace layer keeps it.
         ["machine-overridable", "machine-overridable"],
-        // Для слоя воркспейса `application-machine` ≡ `application`: только user-настройки.
+        // For the workspace layer `application-machine` ≡ `application`: user settings only.
         ["application-machine", "application"],
         ["language-overridable", "language-overridable"],
         ["somethingNew", "window"],

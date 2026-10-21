@@ -1,17 +1,17 @@
-// Имена ключей — как у VS Code (https://code.visualstudio.com/api/references/when-clause-contexts):
-// на них смотрят `when` стоковых расширений.
+// Key names match VS Code (https://code.visualstudio.com/api/references/when-clause-contexts):
+// stock extensions' `when` clauses rely on them.
 
 export interface ContextKeyTypes {
-    /** Только **редактируемый** текст: дифф сюда не попадает — см. {@link textViewFocus}. */
+    /** **Editable** text only: diffs are excluded, see {@link textViewFocus}. */
     textInputFocus: boolean;
-    /** Редактор ИЛИ инлайн-дифф: команды, которым нужен только `EditorViewState` (каретка, выделение, копирование). */
+    /** Editor OR inline diff: for commands that need only `EditorViewState` (cursor, selection, copy). */
     textViewFocus: boolean;
     inputWidgetFocus: boolean;
     editorGroupHasEditors: boolean;
     editorTabsMultiple: boolean;
     editorHasMultipleSelections: boolean;
     editorReadonly: boolean;
-    /** На `editorHas*Provider` висит видимость пунктов контекст-меню: без провайдера меню не обещает нерабочее. */
+    /** Context menu item visibility hangs on `editorHas*Provider`: without a provider the menu does not offer what cannot work. */
     editorHasDefinitionProvider: boolean;
     editorHasReferenceProvider: boolean;
     editorHasRenameProvider: boolean;
@@ -20,7 +20,7 @@ export interface ContextKeyTypes {
     editorHasDocumentSelectionFormattingProvider: boolean;
     editorHasSelection: boolean;
     editorLangId: string;
-    /** Upstream'ское имя нашего {@link textInputFocus} — ради `when` расширений. */
+    /** Upstream name of our {@link textInputFocus}, kept for extension `when` clauses. */
     editorTextFocus: boolean;
 
     listFocus: boolean;
@@ -29,9 +29,9 @@ export interface ContextKeyTypes {
     auxiliaryBarVisible: boolean;
     auxiliaryBarFocus: boolean;
     /**
-     * Пока виден список Ctrl+Tab, стрелки шагают по нему — на этом ключе висят их бинды.
-     * Не `inEditorsPicker` эталона: это имя у нас занято пикером Ctrl+K Ctrl+P, а
-     * переключатель — passthrough-оверлей без фокуса, не quick pick.
+     * While the Ctrl+Tab list is visible, arrows step through it; their bindings hang on this key.
+     * Not upstream `inEditorsPicker`: that name is taken here by the Ctrl+K Ctrl+P picker, and
+     * the switcher is a passthrough overlay without focus, not a quick pick.
      */
     tabSwitcherVisible: boolean;
 
@@ -45,9 +45,9 @@ export interface ContextKeyTypes {
     cap_kittyGraphics: boolean;
     cap_mouseSgr: boolean;
     cap_super: boolean;
-    /** 0 — не мак, 1 legacy, 2 extended, 3 cmd. Руками не сравнивать — `macKeysAtLeast` / `macKeysIs` из `macKeys.ts`. */
+    /** 0 not mac, 1 legacy, 2 extended, 3 cmd. Do not compare by hand; use `macKeysAtLeast` / `macKeysIs` from `macKeys.ts`. */
     macKeys: number;
-    /** Свои режимы регистрируются динамически как `mode_<name>`. */
+    /** Custom modes are registered dynamically as `mode_<name>`. */
     mode_local: boolean;
     mode_ssh: boolean;
     mode_tmux: boolean;
@@ -63,11 +63,11 @@ export interface ContextKeyTypes {
     parameterHintsVisible: boolean;
     parameterHintsMultipleSignatures: boolean;
     inlineSuggestionVisible: boolean;
-    /** Ложь, когда каретка в отступе, а подсказка начинается с отступа не меньше таба: Tab тогда отступает, а не принимает. */
+    /** False when the cursor is in indentation and the suggestion starts with at least a tab of indentation: Tab then indents instead of accepting. */
     inlineSuggestionHasIndentationLessThanTabSize: boolean;
     /**
-     * Не ключ VS Code: upstream отменяет запрос из своего observable-графа, нам состояние
-     * нужно в `when`, чтобы Escape отменял запрос, чей ghost text ещё не появился.
+     * Not a VS Code key: upstream cancels the request from its observable graph, but we need
+     * the state in `when` so Escape cancels a request whose ghost text has not appeared yet.
      */
     inlineSuggestionRequestPending: boolean;
 
@@ -102,9 +102,9 @@ export interface ContextKeyTypes {
     gitMerging: boolean;
     gitRebasing: boolean;
     gitDetached: boolean;
-    /** Как `operationInProgress` git-расширения VS Code: мутирующие команды гасятся через `enablement`. */
+    /** Like `operationInProgress` of the VS Code git extension: mutating commands are disabled via `enablement`. */
     gitOperationInProgress: boolean;
-    /** Пусто — фокус не в виде. */
+    /** Empty when focus is not in a view. */
     focusedView: string;
     canNavigateBack: boolean;
     canNavigateForward: boolean;
@@ -119,13 +119,13 @@ export interface ContextKeyTypes {
     isMac: boolean;
     isWindows: boolean;
 
-    /** `"empty"` | `"folder"` (у эталона ещё `"workspace"`). */
+    /** `"empty"` | `"folder"` (upstream also has `"workspace"`). */
     workbenchState: string;
 
-    /** Id вкладки, чьи контролы сейчас показывает шапка. */
+    /** Id of the tab whose controls the header currently shows. */
     view: string;
     activeOutputChannel: string;
-    /** Пусто, пока вторичная боковая панель скрыта. */
+    /** Empty while the secondary sidebar is hidden. */
     activeAuxiliary: string;
 }
 

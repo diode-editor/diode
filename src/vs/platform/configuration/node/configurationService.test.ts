@@ -151,7 +151,7 @@ describe("loadConfiguration", () => {
 
         const cfg = await loadCfg(compactPaths);
         expect(cfg.get<number>("editor.tabSize")).toBe(8);
-        // Не-application ключ Default'а в именованный профиль НЕ приходит — дефолт реестра.
+        // A non-application key from Default does NOT reach a named profile: the registry default applies.
         expect(cfg.get<boolean>("editor.insertSpaces")).toBe(true);
     });
 
@@ -186,10 +186,10 @@ describe("loadConfiguration", () => {
             const logger = fakeLogger();
             const cfg = await loadCfg(p, logger);
             expect(logger.warn).toHaveBeenCalledTimes(1);
-            // Запись в файл профиля перечитывает его слой — тот же набор, без повтора.
+            // Writing the profile file rereads its layer: same set, no repeat.
             await cfg.updateValue("editor.tabSize", 2);
             expect(logger.warn).toHaveBeenCalledTimes(1);
-            // Ключ ушёл — тишина; вернулся — названо снова.
+            // Key gone: silence; key back: reported again.
             writeSettings(p.settingsFile, `{ "editor.tabSize": 2 }`);
             await cfg.reload();
             expect(logger.warn).toHaveBeenCalledTimes(1);
@@ -306,7 +306,7 @@ describe("loadConfiguration", () => {
         const cfg = await loadCfg(compactPaths);
         const ins = cfg.inspect<number>("editor.tabSize");
         expect(ins.default).toBe(4);
-        // Слой user у именованного профиля — только application-ключи Default'а.
+        // A named profile's user layer holds only Default's application keys.
         expect(ins.user).toBeUndefined();
         expect(ins.profile).toBe(8);
         expect(ins.value).toBe(8);
@@ -346,7 +346,7 @@ describe("loadConfiguration", () => {
 
     it("logs and falls back to defaults when a settings file can't be read", async () => {
         const p = paths();
-        // EISDIR, а не ENOENT: ветка ошибки чтения, а не отсутствующего файла.
+        // EISDIR, not ENOENT: the read-error branch, not the missing-file one.
         fs.mkdirSync(p.settingsFile, { recursive: true });
         const logger = {
             trace: vi.fn(),

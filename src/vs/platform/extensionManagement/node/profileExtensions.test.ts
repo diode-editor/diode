@@ -327,7 +327,7 @@ describe("profileExtensions", () => {
         it("файлы всех профилей — из реестра и с диска: расширение профиля, неизвестного реестру, не сносится", () => {
             onDisk("acme.tools");
             writeProfileExtensions(defaultFile, [{ identifier: { id: "acme.tools" }, version: "1.0.0" }]);
-            // Создан другим окном: в реестре этого процесса его нет.
+            // Created by another window: this process's registry doesn't know it.
             const foreign = ws.path("profiles/foreign/extensions.json");
             writeProfileExtensions(foreign, [{ identifier: { id: "acme.tools" }, version: "1.0.0" }]);
 

@@ -3,23 +3,23 @@ import type { Semver } from "../../../base/common/semver.ts";
 import type { IRegistryEngines, IRegistryVersion } from "./registryFormat.ts";
 
 export interface IHostVersions {
-    /** В dev-запуске — `"0.0.0-dev"`. */
+    /** `"0.0.0-dev"` in a dev run. */
     readonly diode: string;
     readonly vscode: string;
-    /** Не задан — совместимы только universal: экзотическая платформа не должна получить чужой нативный бинарь. */
+    /** Unset means only universal versions match: an exotic platform must not get a foreign native binary. */
     readonly targetPlatform?: string;
 }
 
 const DEV_VERSION = "0.0.0-dev";
 
-/** «Версии нет» в двух формах: `0.0.0-dev` (валидный, но фиктивный semver) и ночная `nightly-<sha>`. */
+/** "No version" comes in two forms: `0.0.0-dev` (valid but fake semver) and nightly `nightly-<sha>`. */
 function hasReleaseVersion(version: string, semver: Semver): boolean {
     return version !== DEV_VERSION && semver.valid(version) !== null;
 }
 
 /**
- * node-semver, как у VS Code: `engines` пишем не мы, нужен весь язык диапазонов и
- * отказ prerelease, который диапазон не запрашивал. Дефолт без опций — строгий разбор.
+ * node-semver, as in VS Code: we don't write `engines`, so we need the full range
+ * language and rejection of prereleases the range didn't ask for. No options means strict parsing.
  */
 function satisfies(version: string, range: string, semver: Semver): boolean {
     return semver.satisfies(version, range);
@@ -29,14 +29,14 @@ export function isVersionCompatible(version: IRegistryVersion, host: IHostVersio
     return matchesHostPlatform(version, host) && areEnginesCompatible(version.engines, host, semver);
 }
 
-/** Отдельно: точная версия (`--install-extension id` с `version`) обходит engines, но не платформу. */
+/** Separate because an exact version (`--install-extension id` with `version`) bypasses engines, but not the platform. */
 export function matchesHostPlatform(version: IRegistryVersion, host: IHostVersions): boolean {
     return version.targetPlatform === undefined || version.targetPlatform === host.targetPlatform;
 }
 
 /**
- * Сборка без релизной версии (dev, nightly) проходит diode-канал: иначе на ней не
- * поставить ни одного нативного расширения. Версия шима всегда реальна — у vscode исключения нет.
+ * A build without a release version (dev, nightly) passes the diode channel; otherwise
+ * no native extension could be installed on it. The shim version is always real, so vscode has no exception.
  */
 export function areEnginesCompatible(engines: IRegistryEngines, host: IHostVersions, semver: Semver): boolean {
     const { diode, vscode } = engines;
@@ -49,7 +49,7 @@ export function areEnginesCompatible(engines: IRegistryEngines, host: IHostVersi
     return true;
 }
 
-/** Порядок `versions` — не контракт формата. При равном semver платформенная запись побеждает universal. */
+/** `versions` order is not part of the format contract. On equal semver, a platform record beats universal. */
 export function resolveCompatibleVersion(
     versions: readonly IRegistryVersion[],
     host: IHostVersions,
@@ -58,7 +58,7 @@ export function resolveCompatibleVersion(
     let best: IRegistryVersion | undefined;
     for (const candidate of versions) {
         if (!isVersionCompatible(candidate, host, semver)) continue;
-        // Парсер пропускает только semver, но IRegistryVersion может быть собран программно.
+        // The parser admits only semver, but an IRegistryVersion may be built programmatically.
         if (semver.valid(candidate.version) === null) continue;
         if (
             best === undefined ||

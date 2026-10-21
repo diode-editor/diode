@@ -1,6 +1,6 @@
 /**
- * Единственный источник правды на обе стороны RPC: `vscode.env.language` отдаётся
- * тем же значением, чтобы расширение и редактор не разошлись в языке. Константа —
- * переводов интерфейса нет; выбор локали, когда появится, начинается отсюда.
+ * Single source of truth for both sides of RPC: `vscode.env.language` returns
+ * the same value so the extension and the editor agree on the language. A constant because
+ * there are no UI translations; locale selection, once it exists, starts here.
  */
 export const UI_LOCALE = "en";

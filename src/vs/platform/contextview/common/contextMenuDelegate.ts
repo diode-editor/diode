@@ -5,7 +5,7 @@ import type { MenuEntry } from "@tuidom/elements/menu/popupMenuElement";
 import type { MenuId } from "../../actions/common/menuId.ts";
 
 export interface IContextMenuDelegate {
-    /** По нему ищется overlay-слой показа. */
+    /** Used to find the overlay layer to show in. */
     getOwner(): TUIElement;
     getAnchor(): OverlayAnchorPosition;
     getEntries?(): MenuEntry[];
@@ -14,6 +14,6 @@ export interface IContextMenuDelegate {
 
 export interface IContextMenuMenuDelegate extends IContextMenuDelegate {
     readonly menuId: MenuId;
-    /** Попадает в args команд и `when` пунктов. */
+    /** Passed to command args and item `when` checks. */
     readonly menuContext?: unknown;
 }

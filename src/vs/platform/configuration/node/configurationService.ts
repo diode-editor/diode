@@ -40,21 +40,21 @@ import {
 
 interface ISettingsSource {
     readonly file: string;
-    /** Ключ блока настроек внутри файла (`settings` у `.code-workspace`); нет — весь файл. */
+    /** Key of the settings block inside the file (`settings` in `.code-workspace`); absent means the whole file. */
     readonly section: string | undefined;
     readonly scopes: readonly ConfigurationScope[];
     readonly ignoredReason: string;
 }
 
 /**
- * Слои по возрастанию приоритета (как `ApplicationConfiguration`/`UserConfiguration` эталона):
- *   1. defaults реестра;
- *   2. user — `User/settings.json`; у именованного профиля урезан до `APPLICATION_SCOPES`;
- *   3. profile — файл именованного профиля, ключи `PROFILE_SCOPES`;
- *   4. workspace — `.diode/settings.json` папки или блок `settings` файла `.code-workspace`;
- *   5. workspaceFolder — только у окна из `.code-workspace`: файл папки, ключи `FOLDER_SCOPES`.
+ * Layers in ascending priority (like upstream's `ApplicationConfiguration`/`UserConfiguration`):
+ *   1. registry defaults;
+ *   2. user: `User/settings.json`; for a named profile, trimmed to `APPLICATION_SCOPES`;
+ *   3. profile: the named profile's file, `PROFILE_SCOPES` keys;
+ *   4. workspace: the folder's `.diode/settings.json` or the `settings` block of the `.code-workspace` file;
+ *   5. workspaceFolder: only for a `.code-workspace` window: the folder's file, `FOLDER_SCOPES` keys.
  *
- * Битый JSONC — пустой слой с ошибкой в лог: bootstrap не должен падать из-за settings.json.
+ * Broken JSONC yields an empty layer and a logged error: bootstrap must not fail because of settings.json.
  */
 export class ConfigurationService extends Disposable implements IConfigurationService {
     private readonly defaultsLayer: ConfigurationModel;
@@ -68,16 +68,16 @@ export class ConfigurationService extends Disposable implements IConfigurationSe
     private readonly workspaceWatch = this.register(new MutableDisposable());
     private readonly folderWatch = this.register(new MutableDisposable());
     private readonly fileWatcher: IFileWatcher | undefined;
-    /** Загрузка слоя, закончившаяся после следующей смены папки, результат не применяет. */
+    /** A layer load that finishes after the next folder change does not apply its result. */
     private workspaceGeneration = 0;
-    /** Read-modify-write одного файла не должны перекрываться. */
+    /** Read-modify-write cycles on one file must not overlap. */
     private writeQueue: Promise<void> = Promise.resolve();
     private readonly writeTargetPath: string | undefined;
     private readonly writesToProfileLayer: boolean;
     private readonly userSettingsPath: string | undefined;
     private readonly profileSettingsPath: string | undefined;
     private readonly logger: ILogger | undefined;
-    /** Уже названный warn'ом набор: файл профиля перечитывается на каждую запись, повтор — шум. */
+    /** The set already reported by a warning: the profile file is reread on every write, so a repeat is noise. */
     private warnedProfileKeys: string | undefined;
     private readonly schemas: ReadonlyMap<string, IConfigurationPropertySchema>;
     private readonly scopes: ReadonlyMap<string, ConfigurationScope>;
@@ -88,7 +88,7 @@ export class ConfigurationService extends Disposable implements IConfigurationSe
         readonly defaultsLayer: ConfigurationModel;
         readonly userLayer: ConfigurationModel;
         readonly profileLayer: ConfigurationModel;
-        /** Без него запись недоступна. */
+        /** Without it, writes are unavailable. */
         readonly writeTargetPath?: string;
         readonly writesToProfileLayer?: boolean;
         readonly userSettingsPath?: string;
@@ -108,7 +108,7 @@ export class ConfigurationService extends Disposable implements IConfigurationSe
         this.schemas = input.schemas ?? new Map();
         this.scopes = input.scopes ?? new Map();
         this.fileWatcher = input.fileWatcher;
-        // Фильтры скоупов профиля — здесь, чтобы bootstrap, reload и запись делили одну семантику.
+        // Profile scope filters live here so bootstrap, reload and write share the same semantics.
         this.userLayer = this.toUserLayer(input.userLayer);
         this.profileLayer = this.toProfileLayer(input.profileLayer);
         this.snapshot = this.computeSnapshot();
@@ -132,7 +132,7 @@ export class ConfigurationService extends Disposable implements IConfigurationSe
     }
 
     public get<K extends keyof IConfigurationKeys>(key: K, overrides?: IConfigurationOverrides): IConfigurationKeys[K];
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-parameters -- T — приведение для чужих ключей, как у ConfigurationModel.get
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-parameters -- T is a cast for foreign keys, like ConfigurationModel.get
     public get<T>(key: string, overrides?: IConfigurationOverrides): T | undefined;
     public get<T>(key: string, overrides?: IConfigurationOverrides): T | undefined {
         return this.snapshot.model(overrides).get<T>(key);
@@ -187,7 +187,7 @@ export class ConfigurationService extends Disposable implements IConfigurationSe
         this.recompute(prev);
     }
 
-    /** Отброшенное не логируется: это не ошибка файла, а норма наследования. */
+    /** Dropped keys are not logged: this is normal inheritance, not a file error. */
     private toUserLayer(model: ConfigurationModel): ConfigurationModel {
         if (this.profileSettingsPath === undefined) return model;
         return pickRegisteredSettings(model, this.scopes, APPLICATION_SCOPES);
@@ -196,7 +196,7 @@ export class ConfigurationService extends Disposable implements IConfigurationSe
     private toProfileLayer(model: ConfigurationModel): ConfigurationModel {
         const { model: filtered, excludedKeys } = filterWorkspaceSettings(model, this.scopes, PROFILE_SCOPES);
         const ignored =
-            // Stryker disable next-line StringLiteral: разделитель списка ключей в тексте лога
+            // Stryker disable next-line StringLiteral: key list separator in the log text
             excludedKeys.length > 0 && this.profileSettingsPath !== undefined ? excludedKeys.join(", ") : undefined;
         if (ignored !== undefined && ignored !== this.warnedProfileKeys) {
             this.logger?.warn(
@@ -207,19 +207,19 @@ export class ConfigurationService extends Disposable implements IConfigurationSe
         return filtered;
     }
 
-    /** Список, как `IWorkspace.folders`, под мульти-рут (`docs/TODO/MultiRoot.md`, этап D); сейчас папка не больше одной. */
+    /** A list like `IWorkspace.folders`, ready for multi-root (`docs/TODO/MultiRoot.md`, stage D); for now at most one folder. */
     public async setWorkspace(folders: readonly string[], configuration?: string): Promise<void> {
         const sources = workspaceSources(folders, configuration);
         if (sameSource(sources.workspace, this.workspaceSource) && sameSource(sources.folder, this.folderSource))
             return;
         this.workspaceSource = sources.workspace;
         this.folderSource = sources.folder;
-        // Stryker disable next-line UpdateOperator: поколению важна только смена значения, а не направление
+        // Stryker disable next-line UpdateOperator: the generation only needs the value to change, not the direction
         const generation = ++this.workspaceGeneration;
-        // Watch папки снимается ДО новых: её файл переходит из слоя папки в слой
-        // воркспейса (окно из файла → та же папка напрямую), и снятие прежнего
-        // watch'а того же пути после нового сняло бы и новый. Обратный переход
-        // безопасен и так: watch воркспейса переставляется первым.
+        // The folder watch is removed BEFORE adding new ones: its file moves from the folder layer to the
+        // workspace layer (window from a file → the same folder directly), and removing the old
+        // watch on the same path after the new one would remove the new one too. The reverse transition
+        // is safe anyway: the workspace watch is moved first.
         this.folderWatch.clear();
         this.workspaceWatch.value = this.watchSource(sources.workspace);
         this.folderWatch.value = this.watchSource(sources.folder);
@@ -273,17 +273,17 @@ export class ConfigurationService extends Disposable implements IConfigurationSe
         return model;
     }
 
-    /** Пустой дифф события не порождает: reload после собственной записи молчит. */
+    /** An empty diff fires no event: reload after our own write stays silent. */
     private recompute(prev: ConfigurationSnapshot): void {
         this.snapshot = this.computeSnapshot();
         const event = this.snapshot.changeFrom(prev);
         if (event !== null) this.onDidChangeConfigurationEmitter.fire(event);
     }
 
-    // Stryker disable next-line StringLiteral: любая цель, кроме "workspace", пишет в user — дефолт виден только типу
+    // Stryker disable next-line StringLiteral: any target other than "workspace" writes to user; the default matters only to the type checker
     public updateValue(key: string, value: unknown, target: ConfigurationTarget = "user"): Promise<void> {
-        // Две параллельные правки одного файла (расширения на старте) иначе прочитали
-        // бы одно содержимое, и вторая затёрла бы первую. Отказ одной очередь не рвёт.
+        // Otherwise two concurrent edits of one file (extensions at startup) would read
+        // the same content and the second would clobber the first. One failure does not break the queue.
         const write = this.writeQueue.then(() => this.doUpdateValue(key, value, target));
         this.writeQueue = write.catch(() => undefined);
         return write;
@@ -291,7 +291,7 @@ export class ConfigurationService extends Disposable implements IConfigurationSe
 
     private async doUpdateValue(key: string, value: unknown, target: ConfigurationTarget): Promise<void> {
         if (target === "workspace" || target === "workspaceFolder") {
-            // Цель-папка у окна из папки — тот же файл, что у воркспейса (`getConfigurationFileResource` эталона).
+            // In a folder window the folder target is the same file as the workspace one (upstream's `getConfigurationFileResource`).
             const source = target === "workspace" ? this.workspaceSource : (this.folderSource ?? this.workspaceSource);
             if (source === undefined) throw new Error(NO_WORKSPACE_OPENED_ERROR);
             const scope = this.scopes.get(key);
@@ -308,9 +308,9 @@ export class ConfigurationService extends Disposable implements IConfigurationSe
         }
 
         if (this.writeTargetPath === undefined) return;
-        // `application`-ключ пишется в Default-профиль и действует во всех (`isSettingAppliedForAllProfiles` эталона).
+        // An `application` key is written to the Default profile and applies to all (upstream's `isSettingAppliedForAllProfiles`).
         const scope = this.scopes.get(key);
-        // Stryker disable next-line ConditionalExpression: `scope !== undefined` — защита типа (includes(undefined) и так false); у Default `User/settings.json` и есть цель записи, обе ветки ниже совпадают
+        // Stryker disable next-line ConditionalExpression: `scope !== undefined` is a type guard (includes(undefined) is false anyway); for Default `User/settings.json` is the write target, so both branches below match
         const toDefaultProfile = this.writesToProfileLayer && scope !== undefined && APPLICATION_SCOPES.includes(scope);
         const userSettingsPath = toDefaultProfile ? this.userSettingsPath : undefined;
         if (userSettingsPath !== undefined) {
@@ -363,7 +363,7 @@ function workspaceSources(
     };
 }
 
-/** Тот же источник — тот же файл: блок настроек в нём определяется видом файла. */
+/** Same source, same file: the settings block inside it depends on the file kind. */
 function sameSource(a: ISettingsSource | undefined, b: ISettingsSource | undefined): boolean {
     return a?.file === b?.file;
 }
@@ -381,16 +381,16 @@ async function writeSettingsKey(
         if (!isFileNotFound(err)) throw err;
     }
 
-    // Плоский dotted-ключ, как пишет VS Code: ОДИН сегмент JSONPath, а не `key.split(".")`.
+    // A flat dotted key, as VS Code writes it: ONE JSONPath segment, not `key.split(".")`.
     const edits = modify(content, section === undefined ? [key] : [section, key], value, {
         formattingOptions: { insertSpaces: true, tabSize: 4 },
     });
     const next = applyEdits(content, edits);
 
     await fs.promises.mkdir(path.dirname(filePath), { recursive: true });
-    // Stryker disable next-line StringLiteral: пустая кодировка у writeFile — та же utf-8 по умолчанию
+    // Stryker disable next-line StringLiteral: an empty encoding for writeFile is the same default utf-8
     await fs.promises.writeFile(filePath, next, "utf-8");
-    // Stryker disable next-line ArrayDeclaration,ObjectLiteral,BooleanLiteral: ошибки разбора здесь не читаются, а парсер терпим к висячей запятой и без опции — модель та же
+    // Stryker disable next-line ArrayDeclaration,ObjectLiteral,BooleanLiteral: parse errors are not read here, and the parser tolerates a trailing comma without the option too, so the model is the same
     return ConfigurationModel.fromRaw(sectionOf(parseJsonc(next, [], { allowTrailingComma: true }), section));
 }
 
@@ -399,13 +399,13 @@ function sectionOf(parsed: unknown, section: string | undefined): unknown {
     return (parsed as Record<string, unknown> | null | undefined)?.[section];
 }
 
-/** Слои читаются как есть, фильтры скоупов профиля применяет сам сервис. */
+/** Layers are read as is; the service itself applies profile scope filters. */
 export async function loadConfiguration(
     paths: IUserDataPaths,
     logger?: ILogger,
     fileWatcher?: IFileWatcher,
     registry?: ConfigurationRegistry,
-    /** Слои воркспейса читаются ДО первого кадра: тема и `editor.*` проекта видны сразу. */
+    /** Workspace layers are read BEFORE the first frame: the project's theme and `editor.*` apply immediately. */
     workspace?: { readonly folder: string; readonly configuration?: string | undefined },
 ): Promise<ConfigurationService> {
     const defaultsLayer = ConfigurationModel.fromRaw(registry?.getDefaultConfiguration() ?? {});
@@ -458,7 +458,7 @@ async function loadSettingsLayer(
                 `JSONC parse error in ${filePath} at offset ${String(err.offset)}: ${printParseErrorCode(err.error)}`,
             );
         }
-        // Частичный объект парсера используется, как у VS Code (best-effort).
+        // The parser's partial object is used, as in VS Code (best effort).
     }
     return ConfigurationModel.fromRaw(sectionOf(parsed, section));
 }

@@ -4,35 +4,35 @@ import { LogLevel, parseLogLevel } from "../../log/common/logLevel.ts";
 export interface ICliArgs {
     readonly positional: readonly string[];
     readonly userDataDir: string | undefined;
-    /** Воркспейс к нему привязывается; неизвестное имя создаёт пустой профиль (`resolveActiveProfile`). */
+    /** The workspace gets bound to it; an unknown name creates an empty profile (`resolveActiveProfile`). */
     readonly profile: string | undefined;
     readonly inspectTui: { host: string; port: number } | undefined;
-    /** Требует `--inspect-tui`: иначе сессией не порулить и кадр не снять. */
+    /** Requires `--inspect-tui`: otherwise the session cannot be driven and no frame can be captured. */
     readonly headless: { cols: number; rows: number } | undefined;
     readonly help: boolean;
     readonly version: boolean;
-    /** Путь к `.vsix` (по суффиксу) либо id `publisher.name` из реестра. */
+    /** A `.vsix` path (by suffix) or a `publisher.name` id from the registry. */
     readonly installExtension: string | undefined;
-    /** Каталог или http(s)-адрес; влияет и на `--install-extension <id>`, и на вьюлет Extensions. */
+    /** A directory or an http(s) URL; affects both `--install-extension <id>` and the Extensions viewlet. */
     readonly registry: string | undefined;
     readonly uninstallExtension: string | undefined;
     readonly listExtensions: boolean;
     readonly extensionsDir: string | undefined;
-    /** **Режим**, а не значение (как в VS Code): позиционные читаются как `file[:line[:column]]`. */
+    /** A **mode**, not a value (as in VS Code): positionals are read as `file[:line[:column]]`. */
     readonly goto: boolean;
-    /** Тоже режим: два позиционных — original и modified. */
+    /** Also a mode: two positionals, original and modified. */
     readonly diff: boolean;
     /**
-     * Гасит **только** пользовательские расширения, как эталон (`_isDisabledInEnv`):
-     * иначе вместе со встроенными уехали бы грамматики и language-configuration.
+     * Disables **only** user extensions, like upstream (`_isDisabledInEnv`):
+     * otherwise grammars and language-configuration would go away along with built-ins.
      */
     readonly disableExtensions: boolean;
-    /** `--log` и `--verbose` в порядке появления. */
+    /** `--log` and `--verbose` in order of appearance. */
     readonly logLevels: readonly ILogLevelRule[];
 }
 
 export interface ILogLevelRule {
-    /** `"*"` — все каналы. */
+    /** `"*"` means all channels. */
     readonly channel: string;
     readonly level: LogLevel;
 }
@@ -99,7 +99,7 @@ const FLAG_SPECS: Readonly<Record<string, IFlagSpec | undefined>> = {
     "--registry": { key: "registry" },
 };
 
-/** Порт 0 — эфемерный. */
+/** Port 0 is ephemeral. */
 function parseInspectTui(raw: string): { host: string; port: number } {
     const idx = raw.lastIndexOf(":");
     if (idx === -1) {
@@ -131,13 +131,13 @@ function parseHeadlessSize(raw: string): { cols: number; rows: number } {
 }
 
 /**
- * Канал режем по ПОСЛЕДНЕМУ двоеточию: в имени канала оно не запрещено. Неизвестный
- * уровень — ошибка: молча проглоченный `--log dbug` оставил бы человека без логов.
+ * The channel is split at the LAST colon: a channel name may contain one. An unknown
+ * level is an error: a silently swallowed `--log dbug` would leave the user without logs.
  */
 function parseLogRule(raw: string): ILogLevelRule {
     const idx = raw.lastIndexOf(":");
     const channel = idx === -1 ? "*" : raw.slice(0, idx);
-    // Без двоеточия `slice(0)` сам отдаёт всю строку — отдельная ветка была бы эквивалентным мутантом.
+    // Without a colon `slice(0)` returns the whole string by itself; a separate branch would be an equivalent mutant.
     const level = parseLogLevel(raw.slice(idx + 1));
     if (level === undefined) {
         throw new CliArgsError(
@@ -208,14 +208,14 @@ export function parseCliArgs(argv: readonly string[]): ICliArgs {
             continue;
         }
 
-        // В тот же список, что `--log`: порядок между ними значим.
+        // Same list as `--log`: their relative order matters.
         if (arg === "--verbose") {
             logLevels.push({ channel: "*", level: LogLevel.Trace });
             i += 1;
             continue;
         }
 
-        // Повторяемый — в FLAG_SPECS (одно значение на ключ) не помещается.
+        // Repeatable, so it does not fit FLAG_SPECS (one value per key).
         if (arg === "--log" || arg.startsWith("--log=")) {
             const eqIndex = arg.indexOf("=");
             let raw: string;
@@ -319,14 +319,14 @@ export function parseCliArgs(argv: readonly string[]): ICliArgs {
 
 export interface IRelaunchOverrides {
     readonly profile: string;
-    /** Замещает позиционные этого окна вместе с `--goto`/`--diff` — они описывали прежний воркспейс. */
+    /** Replaces this window's positionals along with `--goto`/`--diff`: they described the previous workspace. */
     readonly workspace?: string | undefined;
 }
 
 /**
- * Текущий воркспейс, если окно сменило его после старта: Open Folder в тот же
- * профиль обходится без перезагрузки, и без этого Reload Window подняла бы
- * стартовую папку из argv, а явный `--profile` привязал бы к профилю её.
+ * The current workspace, if the window changed it after startup: Open Folder into the same
+ * profile needs no reload, and without this Reload Window would bring up
+ * the startup folder from argv, and an explicit `--profile` would bind that folder to the profile.
  */
 export function relaunchWorkspace(
     requested: string | undefined,
@@ -340,8 +340,8 @@ export function relaunchWorkspace(
 const VALUE_FLAGS: ReadonlySet<string> = new Set([...Object.keys(FLAG_SPECS), "--log"]);
 
 /**
- * Прежний `--profile` снимается — иначе он перебил бы только что записанную
- * привязку воркспейса. Позиционные идут после `--`: путь на `-` не станет флагом.
+ * The previous `--profile` is dropped: otherwise it would override the just-written
+ * workspace binding. Positionals go after `--` so a path starting with `-` does not become a flag.
  */
 export function relaunchArgs(args: readonly string[], overrides: IRelaunchOverrides): string[] {
     const flags: string[] = [];

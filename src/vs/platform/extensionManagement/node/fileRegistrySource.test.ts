@@ -127,9 +127,9 @@ describe("FileExtensionRegistrySource", () => {
         "..",
         ".hidden",
         "noDotSeparator",
-        // Валидный id как хвост строки — id обязан совпадать целиком, а не найтись внутри.
+        // A valid id as the string's tail: the id must match whole, not be found inside.
         "evil/../acme.hello",
-        // Валидный id как начало строки — то же требование с другого конца.
+        // A valid id as the string's head: same requirement from the other end.
         "acme.hello/../../etc/passwd",
     ])("getMeta отвергает небезопасный id %j", async (id) => {
         ws = createTempWorkspace();

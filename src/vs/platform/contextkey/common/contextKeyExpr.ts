@@ -1,6 +1,6 @@
 import { scanWhen, type WhenToken } from "./scanner.ts";
 
-/** Массив и объект — для оператора `in`. */
+/** Arrays and objects are for the `in` operator. */
 export type ContextKeyValue =
     | boolean
     | string
@@ -9,12 +9,12 @@ export type ContextKeyValue =
     | Readonly<Record<string, unknown>>
     | undefined;
 
-/** Реестра имён нет: незнакомый ключ — просто `undefined`. */
+/** There is no name registry: an unknown key is just `undefined`. */
 export interface IContext {
     getValue(key: string): ContextKeyValue;
 }
 
-/** Узлы — как у upstream `contextkey.ts`, но без нормализации: дерево повторяет строку. */
+/** Nodes as in upstream `contextkey.ts`, but without normalization: the tree mirrors the string. */
 export type ContextKeyExpression =
     | { readonly type: "true" }
     | { readonly type: "false" }
@@ -24,7 +24,7 @@ export type ContextKeyExpression =
     | {
           readonly type: "greater" | "greaterEquals" | "smaller" | "smallerEquals";
           readonly key: string;
-          /** Число, если правая часть разбирается `parseFloat`; иначе строка — и сравнение ложно. */
+          /** A number if `parseFloat` parses the right-hand side; otherwise a string, and the comparison is false. */
           readonly value: number | string;
       }
     | { readonly type: "regex"; readonly key: string; readonly regexp: RegExp }
@@ -43,11 +43,11 @@ const COMPARISONS: Partial<Record<WhenToken["type"], ComparisonType>> = {
 const PARSE_ERROR = new Error("when: parse error");
 
 /**
- * Грамматика upstream `Parser`:
+ * Grammar of upstream `Parser`:
  * `or := and ('||' and)*`, `and := term ('&&' term)*`,
  * `term := '!' (KEY | true | false | '(' or ')') | primary`,
  * `primary := true | false | '(' or ')' | KEY [op value | '=~' REGEX | 'not' 'in' value]`.
- * Лексему `eof` парсер никогда не потребляет, поэтому курсор не выходит за массив.
+ * The parser never consumes the `eof` token, so the position never runs past the array.
  */
 class Parser {
     private current = 0;
@@ -135,7 +135,7 @@ class Parser {
             case "==":
             case "!=": {
                 this.advance();
-                // Как у upstream: `a == true` — это `a`, а `a == 'true'` — сравнение со строкой.
+                // Like upstream: `a == true` is `a`, while `a == 'true'` compares with a string.
                 const literal = this.peek().type;
                 if (literal === "true" || literal === "false") {
                     this.advance();
@@ -152,7 +152,7 @@ class Parser {
         }
     }
 
-    /** Правая часть оператора. Пустая (`foo == `) допустима — так пишут существующие расширения. */
+    /** Right-hand side of an operator. Empty (`foo == `) is allowed: existing extensions write it this way. */
     private value(): string {
         const token = this.peek();
         switch (token.type) {
@@ -175,7 +175,7 @@ class Parser {
         if (token.type !== "regexStr") throw PARSE_ERROR;
         this.advance();
         const closing = token.lexeme.lastIndexOf("/");
-        // Флаги g и y делают `test` состоятельным — upstream их снимает.
+        // The g and y flags make `test` stateful; upstream strips them.
         const flags = token.lexeme.substring(closing + 1).replace(/[gy]/g, "");
         try {
             return new RegExp(token.lexeme.substring(1, closing), flags);
@@ -204,8 +204,8 @@ function comparisonExpression(type: ComparisonType, key: string, text: string): 
     return { type, key, value: Number.isNaN(number) ? text : number };
 }
 
-/** Отдельной проверки лексем `error` нет: ни одно правило грамматики их не принимает. */
-// Stryker disable BlockStatement: эквивалентный — пустой catch тоже даёт undefined
+/** No separate check for `error` tokens: no grammar rule accepts them. */
+// Stryker disable BlockStatement: equivalent, an empty catch also yields undefined
 export function parseWhen(input: string): ContextKeyExpression | undefined {
     try {
         return new Parser(scanWhen(input)).parse();
@@ -215,7 +215,7 @@ export function parseWhen(input: string): ContextKeyExpression | undefined {
 }
 // Stryker restore BlockStatement
 
-/** Без вытеснения: дерево неизменяемо, а набор строк ограничен регистрациями. */
+/** No eviction: trees are immutable and the set of strings is bounded by registrations. */
 const parseCache = new Map<string, ContextKeyExpression | undefined>();
 
 export function deserializeWhen(input: string): ContextKeyExpression | undefined {
@@ -225,7 +225,7 @@ export function deserializeWhen(input: string): ContextKeyExpression | undefined
     return expr;
 }
 
-/** Семантика upstream: loose `==`, `parseFloat` в сравнениях. */
+/** Upstream semantics: loose `==`, `parseFloat` in comparisons. */
 export function evaluateWhen(expr: ContextKeyExpression, context: IContext): boolean {
     switch (expr.type) {
         case "true":
@@ -259,7 +259,7 @@ export function evaluateWhen(expr: ContextKeyExpression, context: IContext): boo
 }
 
 function compare(type: ComparisonType, actual: ContextKeyValue, expected: number | string): boolean {
-    // Stryker disable next-line ConditionalExpression,StringLiteral: эквивалентный — нечисловая правая часть и так даёт сравнение с NaN-ом в ложь; ветка — для типов и читателя
+    // Stryker disable next-line ConditionalExpression,StringLiteral: equivalent, a non-numeric right-hand side already makes the NaN comparison false; the branch is for the types and the reader
     if (typeof expected === "string") return false;
     const left = parseFloat(scalarText(actual));
     switch (type) {
@@ -274,7 +274,7 @@ function compare(type: ComparisonType, actual: ContextKeyValue, expected: number
     }
 }
 
-/** У массива и объекта (значения для `in`) текста нет. */
+/** Arrays and objects (values for `in`) have no text. */
 function scalarText(value: ContextKeyValue): string {
     return typeof value === "object" ? "" : String(value);
 }
@@ -312,7 +312,7 @@ export function whenKeys(expr: ContextKeyExpression): string[] {
     return [...keys];
 }
 
-/** Ключи не под отрицанием (`!a`, `!(a && b)`, `a not in b`): «бинд живёт при X», а не «упоминает X». */
+/** Keys not under negation (`!a`, `!(a && b)`, `a not in b`): "the binding is live when X", not "mentions X". */
 export function whenPositiveKeys(expr: ContextKeyExpression): string[] {
     const keys = new Set<string>();
     const visit = (node: ContextKeyExpression, negated: boolean): void => {
@@ -336,7 +336,7 @@ export function whenPositiveKeys(expr: ContextKeyExpression): string[] {
     return [...keys];
 }
 
-/** Каноническая: операнды `&&`/`||` упорядочены, так что `b && a`, `(a) && b` и `a&&b` пишутся одинаково. */
+/** Canonical: `&&`/`||` operands are ordered, so `b && a`, `(a) && b` and `a&&b` serialize the same. */
 export function serializeWhen(expr: ContextKeyExpression): string {
     switch (expr.type) {
         case "true":

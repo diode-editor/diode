@@ -6,7 +6,7 @@ import { hasWorkspaceFileExtension, type IWorkspaceFileContents } from "../../wo
 import type { ICliArgs } from "./cliArgs.ts";
 import { CliArgsError } from "./cliArgs.ts";
 
-/** Файл для открытия; `line`/`column` — 1-based, как их набирает человек. */
+/** File to open; `line`/`column` are 1-based, as the user types them. */
 export interface IStartupFile {
     readonly path: string;
     readonly line?: number;
@@ -26,12 +26,12 @@ export interface IStartupDiff {
 export interface IStartupTargets {
     readonly folder: string | undefined;
     readonly workspaceFile: string | undefined;
-    /** Перебивают сохранённую сессию (как `code file.ts`). */
+    /** Override the saved session (like `code file.ts`). */
     readonly files: readonly IStartupFile[];
     readonly diff: IStartupDiff | undefined;
 }
 
-/** @param logicalCwd только для файла воркспейса ({@link logicalWorkingDirectory}); остальные позиционные — от `process.cwd()` */
+/** @param logicalCwd only for a workspace file ({@link logicalWorkingDirectory}); other positionals resolve against `process.cwd()` */
 export function resolveStartupTargets(
     cli: ICliArgs,
     isDirectory: (absolutePath: string) => boolean,
@@ -43,18 +43,18 @@ export function resolveStartupTargets(
     }
 
     const parsed = cli.positional.map((raw) => parsePositional(raw, cli.goto, process.cwd()));
-    // Папкой становится ТОЛЬКО первый позиционный, как в VS Code.
+    // ONLY the first positional becomes the folder, as in VS Code.
     const first = parsed.at(0);
     const folder = first !== undefined && isDirectory(first.path) ? first.path : undefined;
-    // Путь — от логического cwd: относительные `folders` файла считаются от
-    // каталога, который назвал человек, а не от цели симлинка.
+    // Resolve against the logical cwd: the file's relative `folders` are relative to
+    // the directory the user named, not to the symlink target.
     const isWorkspaceFile = first !== undefined && folder === undefined && hasWorkspaceFileExtension(first.path);
     const workspaceFile = isWorkspaceFile ? parsePositional(cli.positional[0], cli.goto, logicalCwd).path : undefined;
     const files = parsed.filter((entry) => !isDirectory(entry.path) && entry !== (isWorkspaceFile ? first : undefined));
     return { folder, workspaceFile, files, diff: undefined };
 }
 
-/** Без `--goto` двоеточие — обычный символ имени файла. */
+/** Without `--goto` a colon is an ordinary file name character. */
 function parsePositional(raw: string, gotoMode: boolean, cwd: string): IStartupFile {
     if (!gotoMode) return { path: path.resolve(cwd, raw) };
 
@@ -68,9 +68,9 @@ function parsePositional(raw: string, gotoMode: boolean, cwd: string): IStartupF
 }
 
 /**
- * `pwd -L`: Node отдаёт cwd с развёрнутыми симлинками, и `diode web.code-workspace`
- * из `~/link` считал бы папки файла от цели ссылки. `$PWD` проверяется на
- * устаревание — родитель мог сменить каталог без него.
+ * `pwd -L`: Node returns cwd with symlinks resolved, so `diode web.code-workspace`
+ * run from `~/link` would resolve the file's folders against the link target. `$PWD` is checked for
+ * staleness: the parent may have changed directory without updating it.
  */
 export function logicalWorkingDirectory(
     pwd: string | undefined,

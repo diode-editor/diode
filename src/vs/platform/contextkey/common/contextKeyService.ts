@@ -14,19 +14,19 @@ type ContextValue = ContextKeySettableValue;
 const CONFIG_KEY_PREFIX = "config.";
 
 /**
- * Ключи `config.<настройка>` читаются из настроек сами, как `ConfigAwareContextValuesContainer`
- * эталона: лениво, с кэшем, который смена настройки чистит и о котором сообщает {@link onDidChange}.
+ * `config.<setting>` keys read from settings on their own, like upstream `ConfigAwareContextValuesContainer`:
+ * lazily, with a cache that a setting change clears and reports via {@link onDidChange}.
  */
 export class ContextKeyService implements IDisposable {
     private values = new Map<string, ContextValue>();
-    /** `undefined` — настройки нет. */
+    /** `undefined` means the setting is absent. */
     private readonly configValues = new Map<string, ContextValue | undefined>();
     private readonly configListener: IDisposable | undefined;
     private readonly onDidChangeEmitter = new Emitter<ReadonlySet<string>>();
-    /** Non-null — flush уже запланирован. */
+    /** Non-null means a flush is already scheduled. */
     private pending: Set<string> | null = null;
 
-    /** Без настроек `config.*` — обычные ключи. */
+    /** Without configuration, `config.*` are ordinary keys. */
     public constructor(private readonly configuration?: IConfigurationService) {
         this.configListener = configuration?.onDidChangeConfiguration((event) => {
             for (const key of [...this.configValues.keys()]) {
@@ -41,7 +41,7 @@ export class ContextKeyService implements IDisposable {
         this.write(key, value as ContextValue);
     }
 
-    /** Ключ вне {@link ContextKeyTypes}: `mode_<name>`, `setContext` расширений. Регистрировать заранее не нужно. */
+    /** A key outside {@link ContextKeyTypes}: `mode_<name>`, extension `setContext`. No upfront registration needed. */
     public setRaw(key: string, value: ContextValue): void {
         this.write(key, value);
     }
@@ -61,15 +61,15 @@ export class ContextKeyService implements IDisposable {
     }
 
     /**
-     * Иначе событие станет генератором нагрузки: запись того же значения — не смена
-     * (`WorkbenchContextKeys.update()` переписывает ~20 ключей перед каждым резолвом
-     * бинда), а несколько записей за тик сливаются в одно событие.
+     * Otherwise the event becomes a load generator: writing the same value is not a change
+     * (`WorkbenchContextKeys.update()` rewrites ~20 keys before every binding
+     * resolve), and several writes within a tick coalesce into one event.
      */
     public readonly onDidChange = this.onDidChangeEmitter.event;
 
     /**
-     * Битая строка ложна. `overlay` — «что если» поверх текущих значений, не меняя их
-     * (`createOverlay` VS Code): какой бинд действовал бы при фокусе в другом поле.
+     * A malformed string is false. `overlay` is a "what if" on top of current values without changing them
+     * (VS Code `createOverlay`): which binding would apply with focus in another field.
      */
     public evaluate(when: string, overlay?: Readonly<Record<string, ContextValue>>): boolean {
         const expr = deserializeWhen(when);
@@ -86,7 +86,7 @@ export class ContextKeyService implements IDisposable {
         this.pending = null;
     }
 
-    /** `config.*` — из настроек, даже если в ключ писали (как у эталона). */
+    /** `config.*` comes from settings even if the key was written (like upstream). */
     private lookup(key: string): ContextValue | undefined {
         if (this.configuration === undefined || !key.startsWith(CONFIG_KEY_PREFIX)) return this.values.get(key);
         if (this.configValues.has(key)) return this.configValues.get(key);
@@ -112,15 +112,15 @@ export class ContextKeyService implements IDisposable {
     }
 
     private flush(): void {
-        // Забираем ДО обхода: запись из слушателя планирует следующий микротаск.
-        // Пустым набор не бывает — flush планирует только `markChanged`.
+        // Taken BEFORE iterating: a write from a listener schedules the next microtask.
+        // The set is never empty: only `markChanged` schedules a flush.
         const changed = this.pending ?? new Set<string>();
         this.pending = null;
         this.onDidChangeEmitter.fire(changed);
     }
 }
 
-/** Как `getValue` контейнера эталона: массив — JSON-строкой (так его видит `=~`/`==`), объект — как есть (под `in`). */
+/** Like upstream container `getValue`: arrays as a JSON string (as `=~`/`==` see them), objects as is (for `in`). */
 function toContextValue(value: unknown): ContextValue | undefined {
     if (value === null) return undefined;
     return Array.isArray(value) ? JSON.stringify(value) : (value as ContextValue | undefined);

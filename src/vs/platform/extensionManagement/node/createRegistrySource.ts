@@ -5,7 +5,7 @@ import { HttpExtensionRegistrySource } from "./httpRegistrySource.ts";
 
 export const DEFAULT_REGISTRY_URL = "https://diode-editor.github.io/registry/v1/";
 
-/** По префиксу, а не `new URL`: виндовый `C:\registry` разбирается как URL с протоколом `c:`. */
+/** By prefix, not `new URL`: a Windows `C:\registry` parses as a URL with protocol `c:`. */
 function isHttpUrl(spec: string): boolean {
     const lower = spec.toLowerCase();
     return lower.startsWith("http://") || lower.startsWith("https://");

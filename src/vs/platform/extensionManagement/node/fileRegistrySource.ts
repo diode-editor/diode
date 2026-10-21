@@ -13,8 +13,8 @@ import {
 } from "../common/registryFormat.ts";
 
 /**
- * `node:fs`, а не `IAssetAccess`: каталог реестра — внешние данные, а `fetchArtifact`
- * обязан вернуть физический путь для `installVsix`.
+ * `node:fs`, not `IAssetAccess`: the registry directory is external data, and
+ * `fetchArtifact` must return a physical path for `installVsix`.
  */
 
 export class FileExtensionRegistrySource implements IExtensionRegistrySource {
@@ -36,7 +36,7 @@ export class FileExtensionRegistrySource implements IExtensionRegistrySource {
         filePath: string,
         parse: (text: string) => { value: T; problems: string[] },
     ): Promise<T> {
-        // Stryker disable next-line StringLiteral: содержимое уходит в JSON.parse, а тот приводит Buffer к строке тем же utf8 — подмена кодировки на путях реестра (JSON всегда utf8) не даёт наблюдаемой разницы
+        // Stryker disable next-line StringLiteral: the content goes to JSON.parse, which stringifies a Buffer as utf8 anyway; changing the encoding on registry paths (JSON is always utf8) makes no observable difference
         const text = await fs.promises.readFile(filePath, "utf8");
         try {
             const { value, problems } = parse(text);
@@ -81,7 +81,7 @@ export class FileExtensionRegistrySource implements IExtensionRegistrySource {
             throw new Error(`Artifact type "${artifact.type}" is not supported by the file registry source`);
         }
         const resolved = path.resolve(this.rootDir, artifact.path);
-        // Парсер отвергает `..`, но IRegistryVersion может быть собран программно.
+        // The parser rejects `..`, but an IRegistryVersion may be built programmatically.
         if (resolved !== this.rootDir && !resolved.startsWith(this.rootDir + path.sep)) {
             throw new Error(`Refusing artifact path outside the registry root: ${artifact.path}`);
         }

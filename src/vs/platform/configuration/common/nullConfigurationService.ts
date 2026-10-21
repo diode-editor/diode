@@ -8,9 +8,9 @@ import type {
     IConfigurationService,
 } from "./iConfigurationService.ts";
 
-/** Дефолтов реестра нет: все ключи — `undefined`. Где важны дефолты или запись — `InMemoryConfigurationService`. */
+/** No registry defaults: every key is `undefined`. Use `InMemoryConfigurationService` where defaults or writes matter. */
 export const NULL_CONFIGURATION_SERVICE: IConfigurationService = {
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-parameters -- T — приведение, как у IConfigurationService.get
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-parameters -- T is a cast, like IConfigurationService.get
     get<T>(_key: string, _overrides?: IConfigurationOverrides): T | undefined {
         return undefined;
     },

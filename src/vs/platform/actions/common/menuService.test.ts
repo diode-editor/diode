@@ -56,7 +56,7 @@ describe("MenuService — живые меню (IMenu)", () => {
 
         const handle = registry.appendMenuItem({ menuId: MenuId.EditorContext, command: "mine" });
         expect(fired).toBe(1);
-        handle.dispose(); // снятие пункта — тоже изменение
+        handle.dispose(); // removing an item is a change too
         expect(fired).toBe(2);
     });
 

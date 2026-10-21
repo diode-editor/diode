@@ -15,7 +15,7 @@ function makeLogger(sink: string[]): ILogger {
     };
 }
 
-/** Даёт отработать цепочке `then` на уже отклонённом промисе. */
+/** Lets the `then` chain on an already rejected promise run. */
 function settleMicrotasks(): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, 0));
 }
@@ -169,12 +169,12 @@ describe("CommandRegistry", () => {
         const registry = new CommandRegistry(makeLogger(errors));
         registry.register("cmd.async", () => Promise.reject(new Error("boom")));
 
-        // Результат НЕ ждём — ровно как диспетчер клавиш и пункт меню. Без
-        // обработчика отказа Node убил бы процесс, унеся все буферы.
+        // The result is NOT awaited, exactly like the key dispatcher and a menu item. Without
+        // a rejection handler Node would kill the process, losing all buffers.
         registry.execute("cmd.async");
         await settleMicrotasks();
 
-        // Стек в строке — намеренно: по «Error: boom» не найти виноватый сервис.
+        // The stack in the line is intentional: "Error: boom" alone does not reveal the culprit service.
         expect(errors).toHaveLength(1);
         expect(errors[0]).toContain('command "cmd.async" failed: Error: boom');
     });

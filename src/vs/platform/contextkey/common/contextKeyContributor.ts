@@ -6,14 +6,14 @@ import { token } from "../../instantiation/common/diContainer.ts";
 import type { ContextKeyService } from "./contextKeyService.ts";
 
 /**
- * Центр (`WorkbenchContextKeys`) опрашивает контрибьюторов перед резолвом каждого
- * бинда и на смене фокуса (pull): ключ самоисцеляется на следующем нажатии и не
- * залипает. Ключ с единственным переходом состояния фича вправе пушить сама —
- * контрибьютор для того, что выводится из фокуса или меняется без события.
+ * The hub (`WorkbenchContextKeys`) polls contributors before resolving each
+ * binding and on focus change (pull): a key self-heals on the next keypress and does not
+ * get stuck. A key with a single state transition may be pushed by its feature directly;
+ * contributors are for what is derived from focus or changes without an event.
  */
 export interface IContextKeyContributor {
     updateContextKeys(contextKeys: ContextKeyService, active: TUIElement | null): void;
 }
 
-/** Центр резолвит их при своём создании: сюда — только фичи, которые и так поднимаются с workbench. */
+/** The hub resolves these when it is created: only features that start with the workbench anyway belong here. */
 export const ContextKeyContributorsDIToken = token<readonly Token<IContextKeyContributor>[]>("ContextKeyContributors");
