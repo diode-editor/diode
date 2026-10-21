@@ -16,7 +16,7 @@ const REFRESH: MenuContribution = {
     group: "navigation",
 };
 
-/** Та же модель, что у нижней панели (у эталона обе — `AbstractPaneCompositePart`), реестр — `AuxiliaryBarService`. */
+/** Same model as the bottom panel (upstream both are `AbstractPaneCompositePart`); registry: `AuxiliaryBarService`. */
 function auxiliaryHarness(views: string[], contributions: MenuContribution[] = []): IViewsHarness {
     const h = makeViewsHarness(contributions);
     h.service.registerContainer({ id: AUX, title: "AUX", location: "auxiliarybar" });
@@ -73,7 +73,7 @@ describe("ViewsService — контейнер во вторичной боков
         h.service.registerView(testView("aux.b.view", "aux.b", 10));
         h.service.attachContainer("aux.a");
         h.service.attachContainer("aux.b");
-        // Скрытая вкладка B досчитывается при показе (как вкладка нижней панели).
+        // Hidden tab B catches up when shown (like a bottom panel tab).
         h.auxiliaryBarService.setActiveView("aux.b");
         expect(h.tabActions("aux.b")).not.toBeNull();
     });

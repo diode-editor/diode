@@ -14,9 +14,9 @@ function tabs(h: IViewsHarness): string[] {
 }
 
 /**
- * Порядок контейнеров задаёт `order` дескриптора, а не порядок, в котором фичи
- * создались и зарегистрировали их: перестановка резолва в корне workbench'а не
- * должна молча переставлять вкладки панели и вьюлеты сайдбара.
+ * Container order comes from the descriptor's `order`, not from the order in which features
+ * were created and registered them: reordering resolution at the workbench root must not
+ * silently reorder panel tabs and sidebar viewlets.
  */
 describe("ViewsService — порядок контейнеров и дефолтный вьюлет", () => {
     it("attachRegisteredContainers строит вкладки панели по order, первая становится активной", () => {

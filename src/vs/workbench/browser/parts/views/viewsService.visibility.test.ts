@@ -9,7 +9,7 @@ function view(id: string, order: number, extra?: Parameters<typeof testView>[3])
     return testView(id, "scm", order, extra);
 }
 
-/** Контейнер из трёх секций — на двух не видно разницы «скрыли» и «стало merged». */
+/** A three-section container — with two you can't tell "hidden" from "became merged". */
 function threeSectionContainer(): IViewsHarness {
     const harness = makeViewsHarness();
     harness.service.registerContainer({ id: "scm", title: "SOURCE CONTROL", location: "sidebar" });

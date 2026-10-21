@@ -60,8 +60,8 @@ describe("FilteredListControl — проводка", () => {
         const control = make();
         const activated: string[] = [];
         control.onActivateRow = (rowId) => activated.push(rowId);
-        // В сам список такую строку не положить (appendRow требует id), поэтому
-        // проверяем контракт обработчика напрямую.
+        // Such a row can't be put into the list itself (appendRow requires an id), so
+        // test the handler contract directly.
         control.list.onActivate?.(new TextLabelElement("Без id"));
 
         expect(activated).toEqual([]);
@@ -74,7 +74,7 @@ describe("FilteredListControl — проводка", () => {
         expect(() => {
             control.input.onChange?.("x");
             control.list.onActivate?.(control.view.querySelector("#row-1")!);
-            // setQuery без onQueryChange не должен падать.
+            // setQuery without onQueryChange must not throw.
             control.setQuery("y");
         }).not.toThrow();
         expect(control.getQuery()).toBe("y");

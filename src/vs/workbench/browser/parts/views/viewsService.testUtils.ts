@@ -32,28 +32,28 @@ export interface IViewsHarness {
     readonly commands: CommandRegistry;
     readonly contextKeys: ContextKeyService;
     readonly workspace: WorkspaceContextService;
-    /** Последний — самый свежий. */
+    /** The last one is the most recent. */
     readonly shown: IContextMenuDelegate[];
     readonly stored: Map<string, unknown>;
     openWorkspace(): void;
     readonly viewlets: string[];
     readonly shownViewlets: { id: string; reveal: boolean | undefined }[];
     readonly hiddenViewlets: string[];
-    /** Кнопки заголовков ViewsService резолвит только у показанного контейнера. */
+    /** ViewsService resolves header buttons only for the shown container. */
     showViewlet(containerId: string): void;
     root(containerId: string): TUIElement;
-    /** `null` — контейнеру нечего показывать. */
+    /** `null` — the container has nothing to show. */
     tabActions(containerId: string): TUIElement | null;
     focus(containerId: string): void;
     paneView(containerId: string): PaneViewElement;
-    /** В сайдбаре — над секциями (`null` у merged), в панели — полоса контролов таб-строки. */
+    /** In the sidebar — above the sections (`null` when merged); in the panel — the tab bar control strip. */
     header(containerId: string): ViewContainerHeaderElement | null;
 }
 
 export function makeViewsHarness(contributions: readonly MenuContribution[] = []): IViewsHarness {
     const registered = new Map<string, { view: TUIElement; focus: () => void }>();
     const shownViewlets: { id: string; reveal: boolean | undefined }[] = [];
-    // От активного вьюлета зависит, считает ли ViewsService кнопки заголовков сейчас или при показе.
+    // The active viewlet decides whether ViewsService computes header buttons now or when shown.
     let activeViewlet: string | null = null;
     const activeViewletEmitter = new Emitter<string>();
     const hiddenViewlets: string[] = [];
@@ -122,7 +122,7 @@ export function makeViewsHarness(contributions: readonly MenuContribution[] = []
     const paneViewOf = (containerId: string): PaneViewElement => {
         const element = root(containerId);
         const selector = `#viewContainer-${containerId.replaceAll(".", "-")}`;
-        // В панели корень — сам PaneViewElement, в сайдбаре — стопка с заголовком над ним.
+        // In the panel the root is the PaneViewElement itself; in the sidebar it's the stack with the header above it.
         return (element.id === selector.slice(1) ? element : element.querySelector(selector)) as PaneViewElement;
     };
     const workspace = new WorkspaceContextService();

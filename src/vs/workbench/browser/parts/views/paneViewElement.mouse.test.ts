@@ -47,7 +47,7 @@ function token(overrides: Partial<MouseToken> & { action: MouseToken["action"] }
     };
 }
 
-/** Press + release в одной ячейке; координаты 0-based экрана. */
+/** Press + release in the same cell; 0-based screen coordinates. */
 function click(app: TestApp, x: number, y: number, button: "left" | "right" = "left"): void {
     app.backend.simulateMouse(token({ action: "press", button, x: x + 1, y: y + 1 }));
     app.backend.simulateMouse(token({ action: "release", button, x: x + 1, y: y + 1 }));
@@ -79,7 +79,7 @@ describe("PaneViewElement mouse", () => {
     it("клик по кнопке ⋯ открывает меню и не сворачивает секцию", () => {
         const { app, view, menuRequests, headerPos } = makeHarness();
         const pos = headerPos("a");
-        const menuX = pos.x + 28; // «⋯» — правые 3 колонки заголовка шириной 30
+        const menuX = pos.x + 28; // "⋯" is the rightmost 3 columns of the 30-wide header
         click(app, menuX, pos.y);
         expect(menuRequests).toEqual([["a", { screenX: menuX, screenY: pos.y }]]);
         expect(view.isCollapsed("a")).toBe(false);
@@ -94,7 +94,7 @@ describe("PaneViewElement mouse", () => {
 
     it("drag заголовка перекидывает строки между секциями и не сворачивает", () => {
         const { app, view, stateChanges, headerPos } = makeHarness();
-        const before = bodyHeights(view); // 10/10 при высоте 22
+        const before = bodyHeights(view); // 10/10 at height 22
         const pos = headerPos("b");
         drag(app, pos.x + 2, pos.y, pos.y - 3);
         app.render();
@@ -106,7 +106,7 @@ describe("PaneViewElement mouse", () => {
     it("drag клампится минимальной высотой соседней секции", () => {
         const { app, view, headerPos } = makeHarness();
         const pos = headerPos("b");
-        drag(app, pos.x + 2, pos.y, pos.y - 15); // выше минимума секции a
+        drag(app, pos.x + 2, pos.y, pos.y - 15); // past section a's minimum
         app.render();
         expect(bodyHeights(view)).toEqual({ a: 3, b: 17 });
     });
@@ -158,7 +158,7 @@ describe("PaneViewElement mouse", () => {
 
     it("drag, зажатый до сворачивания соседа, дальше игнорируется (защита от гонки capture)", () => {
         const { app, view, stateChanges } = makeHarness();
-        // Симуляция: capture ещё держит заголовок b, но развёрнутых ниже уже нет.
+        // Simulate: capture still holds header b, but nothing below it is expanded anymore.
         view.setCollapsed("b", true);
         app.render();
         const headerB = app.querySelector("#paneHeader-b")!;
@@ -181,7 +181,7 @@ describe("PaneViewElement mouse", () => {
     it("drag за пределы минимума после клампа — no-op без события", () => {
         const { app, view, stateChanges, headerPos } = makeHarness();
         const pos = headerPos("b");
-        drag(app, pos.x + 2, pos.y, pos.y - 15); // кламп: a=3
+        drag(app, pos.x + 2, pos.y, pos.y - 15); // clamped: a=3
         app.render();
         expect(stateChanges()).toBe(1);
         const headerB = app.querySelector("#paneHeader-b")!;
@@ -200,7 +200,7 @@ describe("PaneViewElement mouse", () => {
         }
         let changes = 0;
         view.onDidChangeState = () => changes++;
-        const app = TestApp.createWithContent(view, new Size(30, 7)); // тела 3 и 2 < 3+3
+        const app = TestApp.createWithContent(view, new Size(30, 7)); // bodies 3 and 2 < 3+3
         const headerB = app.querySelector("#paneHeader-b")!;
         (headerB as { onDrag?: (y: number) => void }).onDrag?.(headerB.globalPosition.y - 1);
         app.render();
@@ -221,8 +221,8 @@ describe("PaneViewElement mouse", () => {
         (headerB as { onDrag?: (y: number) => void }).onDrag?.(headerB.globalPosition.y - 2);
         app.render();
         const weights = view.getWeights();
-        expect(weights.c).toBe(1); // вес свёрнутой не тронут
-        expect(weights.a + weights.b).toBe(19); // фактические высоты развёрнутых (22 − 3 заголовка)
+        expect(weights.c).toBe(1); // the collapsed section's weight is untouched
+        expect(weights.a + weights.b).toBe(19); // actual heights of the expanded sections (22 − 3 headers)
     });
 
     it("клик по inline-кнопке заголовка репортится наверх с id секции", () => {
@@ -232,7 +232,7 @@ describe("PaneViewElement mouse", () => {
         view.setPaneActions("a", [{ id: "cmd.refresh", icon: "R" }]);
         app.render();
 
-        // Кнопка — 3 колонки левее «⋯» у правого края (ширина 30).
+        // The button is the 3 columns left of "⋯" at the right edge (width 30).
         const pos = headerPos("a");
         const x = pos.x + 30 - 3 - 2;
         app.backend.simulateMouse(token({ action: "press", x: x + 1, y: pos.y + 1 }));
@@ -245,8 +245,8 @@ describe("PaneViewElement mouse", () => {
         view.setPaneActions("a", [{ id: "cmd.refresh", icon: "R" }]);
         app.render();
         const pos = headerPos("a");
-        // Кнопка — 3 колонки у правого края (ширина 30), «⋯» левее неё нет:
-        // у секции стенда меню пустое.
+        // The button is the 3 columns at the right edge (width 30), with no "⋯" to its left:
+        // the fixture section's menu is empty.
         const buttonX = pos.x + 30 - 2;
         const restBg = app.backend.getBgAt(new Point(buttonX, pos.y));
 
@@ -259,7 +259,7 @@ describe("PaneViewElement mouse", () => {
         app.render();
         expect(app.backend.getBgAt(new Point(buttonX, pos.y))).toBe(restBg);
 
-        // ...и то же самое, когда курсор уходит с заголовка совсем (mouseleave).
+        // ...and the same when the cursor leaves the header entirely (mouseleave).
         app.backend.simulateMouse(token({ action: "move", x: buttonX + 1, y: pos.y + 1 }));
         app.render();
         expect(app.backend.getBgAt(new Point(buttonX, pos.y))).not.toBe(restBg);

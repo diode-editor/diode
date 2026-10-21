@@ -7,13 +7,13 @@ import type { IWorkbenchContribution } from "../../../common/iWorkbenchContribut
 import type { ViewsService } from "./viewsService.ts";
 import { ViewsServiceDIToken } from "./viewsService.ts";
 
-// Stryker disable next-line StringLiteral: token() возвращает новый Token, и зависимости резолвятся по ссылке на него — строка внутри остаётся отладочной меткой
+// Stryker disable next-line StringLiteral: token() returns a new Token and dependencies resolve by reference to it; the string is only a debug label
 export const ViewProgressContributionDIToken = token<ViewProgressContribution>("ViewProgressContribution");
 
 /**
- * Свой набор показанных секций нужен для снятия спиннера: сервис про закончившуюся операцию
- * уже забыл, а заголовок крутился бы вечно. Отдельной контрибуцией, чтобы `ViewsService`
- * не знал про прогресс.
+ * Tracks its own set of sections showing a spinner so it can remove it: the service has already
+ * forgotten the finished operation, and the header would spin forever. A separate contribution so
+ * `ViewsService` doesn't know about progress.
  */
 export class ViewProgressContribution extends Disposable implements IWorkbenchContribution {
     public static dependencies = [ProgressServiceDIToken, ViewsServiceDIToken] as const;

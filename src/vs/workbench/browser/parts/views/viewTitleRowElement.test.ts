@@ -33,7 +33,7 @@ describe("ViewTitleRowElement — название", () => {
     it("без шеврона — только отступ и название", () => {
         const row = layout(new ViewTitleRowElement("SOURCE CONTROL", { chevron: false }));
         expect(titleText(row)).toBe(" SOURCE CONTROL");
-        // Шеврона нет — свёрнутость не рисуется, но и не ломает строку.
+        // No chevron: collapsed state isn't drawn, but it doesn't break the row either.
         row.setExpanded(false);
         expect(titleText(row)).toBe(" SOURCE CONTROL");
     });
@@ -63,12 +63,12 @@ describe("ViewTitleRowElement — зоны кнопок", () => {
         ]);
         layout(row);
 
-        // Ширина 30: ⋯ занимает 27..29, перед ней разделитель на 26, кнопка
-        // 23..25, ещё разделитель на 22 и кнопка 19..21.
+        // Width 30: ⋯ takes 27..29, a separator at 26 before it, a button at
+        // 23..25, another separator at 22 and a button at 19..21.
         expect(row.hitZone(28)).toEqual({ kind: "menu" });
         expect(row.hitZone(24)).toEqual({ kind: "action", actionId: "cmd.collapse" });
         expect(row.hitZone(20)).toEqual({ kind: "action", actionId: "cmd.refresh" });
-        // Разделитель — не кнопка: клик по нему достаётся заголовку.
+        // A separator is not a button: a click on it goes to the title.
         expect(row.hitZone(26)).toEqual({ kind: "title" });
         expect(row.hitZone(2)).toEqual({ kind: "title" });
         expect(row.menuAnchorX).toBe(27);
@@ -82,8 +82,8 @@ describe("ViewTitleRowElement — зоны кнопок", () => {
     });
 
     it("единственная кнопка пересобирается по смене любого своего поля", () => {
-        // Именно на одной кнопке: в паре ослабленное сравнение прячется за
-        // соседом, который всё равно даёт «составы разные».
+        // Specifically with a single button: with two, a weakened comparison hides behind
+        // the neighbor, which yields "sets differ" anyway.
         const row = new ViewTitleRowElement("CHANGES");
         row.setActions([{ id: "cmd.refresh", icon: "R" }]);
         layout(row);
@@ -99,8 +99,8 @@ describe("ViewTitleRowElement — зоны кнопок", () => {
     });
 
     it("пересобирает кнопки, когда меняется любое поле любой из них", () => {
-        // Ранний выход setActions сравнивает состав поэлементно: пропущенная
-        // разница означает кнопку, застрявшую в прошлом состоянии.
+        // The early return in setActions compares the set element by element: a missed
+        // difference means a button stuck in its previous state.
         const row = new ViewTitleRowElement("CHANGES");
         row.setActions([
             { id: "cmd.refresh", icon: "R" },
@@ -108,7 +108,7 @@ describe("ViewTitleRowElement — зоны кнопок", () => {
         ]);
         layout(row);
 
-        // Сменился id второй кнопки — клик по ней обязан исполнять уже другую команду.
+        // The second button's id changed, so clicking it must run the new command.
         row.setActions([
             { id: "cmd.refresh", icon: "R" },
             { id: "cmd.expand", icon: "C" },
@@ -116,7 +116,7 @@ describe("ViewTitleRowElement — зоны кнопок", () => {
         layout(row);
         expect(row.hitZone(24)).toEqual({ kind: "action", actionId: "cmd.expand" });
 
-        // Сменилась иконка второй кнопки — на экране обязан быть новый глиф.
+        // The second button's icon changed, so the new glyph must be on screen.
         row.setActions([
             { id: "cmd.refresh", icon: "R" },
             { id: "cmd.expand", icon: "E" },
@@ -151,13 +151,13 @@ describe("ViewTitleRowElement — скрытая кнопка «⋯»", () => {
 
         row.setMenuVisible(false);
         layout(row);
-        // Кнопка осталась одна — уехала к правому краю, разделителя больше нет.
+        // Only one button is left: it moved to the right edge and there is no separator anymore.
         expect(row.hitZone(28)).toEqual({ kind: "action", actionId: "cmd.clear" });
         row.setMenuVisible(false);
         layout(row);
         expect(row.hitZone(28)).toEqual({ kind: "action", actionId: "cmd.clear" });
 
-        // Колонки, где «⋯» была до скрытия, больше не кликаются как меню.
+        // The columns where "⋯" was before hiding no longer open the menu on click.
         row.setActions([]);
         layout(row);
         expect(row.hitZone(28)).toEqual({ kind: "title" });
@@ -170,11 +170,11 @@ describe("ViewTitleRowElement — скрытая кнопка «⋯»", () => {
 
 describe("ViewTitleRowElement — подсветка под курсором", () => {
     const theme = WorkbenchTheme.fromThemeFile(darkPlusTheme);
-    // Токен Dark+ полупрозрачный (`#5A5D5E50`): в ячейке лежит его наложение на
-    // фон строки, которое движок делает при отрисовке.
+    // The Dark+ token is semi-transparent (`#5A5D5E50`): the cell holds its blend over
+    // the row background, which the engine computes when painting.
     const HOVER_TOKEN = theme.getColor("toolbar.hoverBackground")!;
 
-    /** Фон колонки после рендера строки (движок сам hover лейблам не ставит). */
+    /** Column background after rendering the row (the engine doesn't set hover on labels itself). */
     function bgAt(row: ViewTitleRowElement, x: number): number {
         return renderElement(row, 30, 1, { themeVars: true }).getBgAt(new Point(x, 0));
     }
@@ -229,8 +229,8 @@ describe("ViewTitleRowElement — недоступная кнопка", () => {
     });
 
     it("смена только доступности пересобирает кнопки", () => {
-        // Регресс на sameActions: ранний выход setActions не должен съедать
-        // смену enabled — иначе кнопка навсегда остаётся в исходном виде.
+        // Regression for sameActions: the early return in setActions must not swallow
+        // an enabled change, otherwise the button stays in its initial state forever.
         const row = new ViewTitleRowElement("GRAPH");
         row.setActions([{ id: "cmd.refresh", icon: "R" }]);
         layout(row);
@@ -246,8 +246,8 @@ describe("ViewTitleRowElement — недоступная кнопка", () => {
     });
 
     it("гаснет ровно та кнопка, что стала недоступной", () => {
-        // Вторая кнопка в ряду: поэлементное сравнение обязано заметить разницу
-        // не только в первой.
+        // The second button in the row: the element-wise comparison must notice a difference
+        // beyond the first one.
         const row = new ViewTitleRowElement("CHANGES");
         row.setActions([
             { id: "cmd.refresh", icon: "R" },
@@ -271,8 +271,8 @@ describe("ViewTitleRowElement — недоступная кнопка", () => {
         layout(row);
 
         const zone = row.hitZone(24);
-        // Зона остаётся за кнопкой: без неё клик провалился бы в заголовок и
-        // свернул секцию.
+        // The zone still belongs to the button: without it the click would fall through to the title and
+        // collapse the section.
         expect(zone).toEqual({ kind: "action", actionId: "cmd.refresh" });
 
         const restBg = render(row).getBgAt(new Point(24, 0));
@@ -308,7 +308,7 @@ describe("ViewTitleRowElement — спиннер занятости", () => {
         expect(titleText(row)).toBe(` ${CHEVRON_COLLAPSED} CHANGES ⠹`);
         row.setTitle("GRAPH");
         expect(titleText(row)).toBe(` ${CHEVRON_COLLAPSED} GRAPH ⠹`);
-        // Название в состоянии — сырое: спиннер не должен просачиваться в e2e-ассерты.
+        // The title in the state is raw: the spinner must not leak into e2e assertions.
         expect(row.getTitle()).toBe("GRAPH");
     });
 

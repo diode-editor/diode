@@ -10,7 +10,7 @@ import { TestApp } from "../../../../../TestUtils/TestApp.ts";
 
 import { ViewContainerHeaderElement } from "./viewContainerHeaderElement.ts";
 
-/** Мышиный токен движка (координаты 1-based, как в терминале). */
+/** Engine mouse token (1-based coordinates, as in the terminal). */
 function token(overrides: Partial<MouseToken>): MouseToken {
     return {
         kind: "mouse",
@@ -104,7 +104,7 @@ describe("ViewContainerHeaderElement", () => {
         header.layout(BoxConstraints.tight(new Size(30, 1)));
 
         expect(header.querySelector("#channel-picker")).toBe(widget);
-        // Название пустое (1 колонка отступа) + кнопка; «⋯» убрана.
+        // Empty title (1 column of padding) + the button; "⋯" is removed.
         expect(header.getMaxIntrinsicWidth(1)).toBe(1 + 3);
     });
 
@@ -124,8 +124,8 @@ describe("ViewContainerHeaderElement", () => {
     });
 
     it("клик через приложение доходит до заголовка, а не до его лейблов", () => {
-        // Хит-тест детей отключён — иначе pointer capture у секции не работал бы;
-        // проверяем настоящим кликом через дерево, а не dispatchEvent'ом.
+        // Hit testing of children is off, otherwise the section's pointer capture wouldn't work;
+        // test with a real click through the tree, not dispatchEvent.
         const header = new ViewContainerHeaderElement("SOURCE CONTROL");
         const onMenu = vi.fn();
         header.onMenu = onMenu;
@@ -138,10 +138,10 @@ describe("ViewContainerHeaderElement", () => {
     });
 
     it("виджет в заголовке кликается: мышь доходит до него, а не до заголовка", () => {
-        // Регрессия: заголовок забирал мышь у ВСЕХ детей, и селектор каналов
-        // Output рисовался, но не нажимался.
+        // Regression: the header took the mouse from ALL children, so the Output
+        // channel picker rendered but couldn't be clicked.
         const header = new ViewContainerHeaderElement("");
-        // Виджет с ненулевой интринсик-шириной — филлер схлопнулся бы в ноль.
+        // A widget with non-zero intrinsic width; a filler would collapse to zero.
         const widget = new TextLabelElement("bootstrap");
         widget.id = "channel-picker";
         header.setTitleWidget(widget);

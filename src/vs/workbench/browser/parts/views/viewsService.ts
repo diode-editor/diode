@@ -53,18 +53,18 @@ export const ViewsServiceDIToken = token<ViewsService>("ViewsService");
 
 const VIEWS_SUBMENU_LABEL = "Views";
 
-/** Строки — те же, что отдаёт `ViewContainerLocationToString` эталона. */
+/** Same strings as upstream `ViewContainerLocationToString` returns. */
 export type ViewContainerLocation = "sidebar" | "panel" | "auxiliarybar";
 
 export interface IViewContainerDescriptor {
     readonly id: string;
-    /** Без ведущих пробелов (`"SOURCE CONTROL"`): отступ рисует заголовок. */
+    /** No leading spaces (`"SOURCE CONTROL"`): the header draws the indent. */
     readonly title: string;
     readonly location: ViewContainerLocation;
-    /** Меньше — раньше; без него — после всех упорядоченных. */
+    /** Lower comes first; containers without it go after all ordered ones. */
     readonly order?: number;
     readonly isDefault?: boolean;
-    /** Только для `location: "sidebar"`; выставляет {@link SidebarService}. */
+    /** Only for `location: "sidebar"`; set by {@link SidebarService}. */
     readonly visibleContextKey?: BooleanContextKey;
     readonly rejectAddedViews?: boolean;
 }
@@ -72,28 +72,28 @@ export interface IViewContainerDescriptor {
 export interface IViewDescriptor {
     readonly id: string;
     readonly containerId: string;
-    /** КАПСОМ, как в VS Code (`"CHANGES"`). */
+    /** UPPERCASE, as in VS Code (`"CHANGES"`). */
     readonly title: string;
-    /** Меньше — выше. */
+    /** Lower is higher up. */
     readonly order: number;
-    /** `null` — рисуется {@link placeholder}. */
+    /** `null` draws {@link placeholder}. */
     readonly body: TUIElement | null;
     /**
-     * Строка-подсказка либо блоки текста и кнопок (аналог `viewsWelcome`). Рисуется,
-     * пока `body === null` или секция погашена {@link requiresWorkspaceFolder}.
+     * A hint string or blocks of text and buttons (like `viewsWelcome`). Drawn while
+     * `body === null` or while the section is gated out by {@link requiresWorkspaceFolder}.
      */
     readonly placeholder?: string | readonly IViewWelcomeBlock[];
     /**
-     * Без открытой папки рисуется {@link placeholder}, даже если тело построено (как
-     * `when: workbenchState == empty` у `viewsWelcome` эталона): Search и SCM строят тело
-     * заранее и без папки показывали бы рабочий с виду интерфейс, который молча ничего не делает.
+     * Without an open folder {@link placeholder} is drawn even if the body is built (like upstream
+     * `viewsWelcome` with `when: workbenchState == empty`): Search and SCM build their body up front and,
+     * without a folder, would show a working-looking UI that silently does nothing.
      */
     readonly requiresWorkspaceFolder?: boolean;
     readonly focus: () => void;
     readonly minBodyHeight?: number;
-    /** `false` — секцию нельзя скрыть через «⋯» контейнера (по умолчанию `true`). */
+    /** `false` — the section cannot be hidden via the container's "⋯" (default `true`). */
     readonly canToggleVisibility?: boolean;
-    /** Только начальное состояние: сохранённую свёрнутость пользователя не перебивает. */
+    /** Initial state only: does not override the user's saved collapsed state. */
     readonly collapsed?: boolean;
     readonly canMoveView?: boolean;
 }
@@ -102,18 +102,18 @@ export interface IViewContainerSnapshot {
     readonly id: string;
     readonly title: string;
     readonly location: ViewContainerLocation;
-    /** Видимые секции в порядке показа. */
+    /** Visible sections in display order. */
     readonly views: readonly IViewSnapshot[];
     readonly rejectAddedViews: boolean;
 }
 
-/** Как у эталона (`viewDescriptorService.ts`). */
+/** Same as upstream (`viewDescriptorService.ts`). */
 const GENERATED_CONTAINER_PREFIX = "workbench.views.service.";
 
-/** Подписи эталона (`paneCompositeBar.ts`). */
+/** Upstream labels (`paneCompositeBar.ts`). */
 const MOVE_TO_LABEL = "Move To";
 const RESET_LOCATION_LABEL = "Reset Location";
-/** Порядок пунктов «Move To» у эталона: Sidebar, AuxiliaryBar, Panel. */
+/** Upstream order of the "Move To" items: Sidebar, AuxiliaryBar, Panel. */
 const MOVE_TARGET_ORDER: readonly ViewContainerLocation[] = ["sidebar", "auxiliarybar", "panel"];
 const LOCATION_MOVE_LABELS: Readonly<Record<ViewContainerLocation, string>> = {
     sidebar: "Primary Side Bar",
@@ -128,13 +128,13 @@ function isViewContainerLocation(value: unknown): value is ViewContainerLocation
 }
 
 function isInOverlay(element: TUIElement): boolean {
-    // Корень ищем по пути, а не через getRoot(): у overlay-слоя свой корень.
+    // Find the root via the ancestor path, not getRoot(): the overlay layer has its own root.
     const path = element.getAncestorPath();
     const body = path.find((node) => node instanceof BodyElement);
     return body !== undefined && path.includes(body.getOverlayLayer());
 }
 
-/** Место зашито в id сгенерированного контейнера; у прочих — `null`. */
+/** The location is encoded in a generated container's id; `null` for other containers. */
 function generatedContainerLocation(containerId: string): ViewContainerLocation | null {
     if (!containerId.startsWith(GENERATED_CONTAINER_PREFIX)) return null;
     const location = containerId.slice(GENERATED_CONTAINER_PREFIX.length).split(".")[0];
@@ -148,10 +148,10 @@ export interface IViewSnapshot {
     readonly canToggleVisibility: boolean;
 }
 
-/** Изменяемая запись реестра: тело и виджет заголовка живут дольше дескриптора. */
+/** Mutable registry record: the body and title widget outlive the descriptor. */
 interface ViewRecord {
     readonly id: string;
-    /** Контейнер, где вид стоит сейчас (меняют переносы). */
+    /** Container the view is in now (moves change it). */
     containerId: string;
     readonly defaultContainerId: string;
     readonly canMoveView: boolean;
@@ -165,40 +165,40 @@ interface ViewRecord {
     readonly collapsed: boolean;
     body: TUIElement | null;
     titleWidget: TUIElement | null;
-    /** Живёт в записи, чтобы пережить пересборку секций. */
+    /** Kept in the record so it survives section rebuilds. */
     spinner: string | null;
     placeholderView: TUIElement | null;
 }
 
 interface ContainerEntry {
-    /** null — контейнер ещё не зарегистрирован (в него только записались view). */
+    /** null — the container is not registered yet (views were only added to it). */
     descriptor: IViewContainerDescriptor | null;
     location: ViewContainerLocation;
     /**
-     * Контейнер просили показать: он стоит в своей части, пока в нём есть хоть один
-     * вид, и возвращается туда, когда вид в него вернётся.
+     * The container was asked to be shown: it stays in its part while it has at least one
+     * view, and returns there when a view comes back to it.
      */
     wanted: boolean;
-    /** Контейнер создан переносом вида (`workbench.views.service.<место>.<uuid>`). */
+    /** Container created by moving a view (`workbench.views.service.<location>.<uuid>`). */
     generated: boolean;
     readonly views: ViewRecord[];
     readonly hidden: Set<string>;
     paneView: PaneViewElement | null;
     header: ViewContainerHeaderElement | null;
     /**
-     * «Заголовок + секции» сайдбара. Стабильна: merged-режим меняет НАБОР детей, иначе
-     * место держало бы устаревший корень. В панели стопки нет — заголовок живёт в таб-строке.
+     * Sidebar "header + sections". Stable: merged mode changes the SET of children, otherwise the
+     * location would hold a stale root. The panel has no stack — the header lives in the tab bar.
      */
     stack: VFlexElement | null;
-    /** Что отдано месту (стопка в сайдбаре, сам PaneView в панели); null — не приаттачен. */
+    /** What the location holds (the stack in the sidebar, the PaneView itself in the panel); null — not attached. */
     view: TUIElement | null;
-    /** Кнопки заголовков не пересчитаны, пока контейнер был скрыт; досчитает показ. */
+    /** Title buttons were not recomputed while the container was hidden; showing it catches up. */
     titleActionsStale: boolean;
 }
 
 /**
- * После {@link ViewsService.attachContainer} дескриптор, PaneView и заголовок появляются
- * РАЗОМ и дальше не исчезают.
+ * After {@link ViewsService.attachContainer} the descriptor, PaneView and header appear
+ * TOGETHER and never go away.
  */
 type AttachedEntry = ContainerEntry & {
     descriptor: IViewContainerDescriptor;
@@ -206,7 +206,7 @@ type AttachedEntry = ContainerEntry & {
     header: ViewContainerHeaderElement;
 };
 
-/** Зарегистрированный, но, может быть, ещё не построенный. */
+/** Registered, but possibly not built yet. */
 type AttachedEntryDescriptor = ContainerEntry & { descriptor: IViewContainerDescriptor };
 
 function attached(entry: ContainerEntry): AttachedEntry {
@@ -217,7 +217,7 @@ function orderOf(descriptor: IViewContainerDescriptor): number {
     return descriptor.order ?? Number.POSITIVE_INFINITY;
 }
 
-/** Контейнер не на своём месте встаёт в конец (как у эталона), на своём — по `order`. */
+/** A container away from its default location goes last (as upstream); at home it goes by `order`. */
 function placementOrder(entry: AttachedEntryDescriptor): number {
     return entry.location === entry.descriptor.location ? orderOf(entry.descriptor) : Number.POSITIVE_INFINITY;
 }
@@ -228,9 +228,9 @@ export interface IViewExpandedChangeEvent {
 }
 
 /**
- * Реестр view-секций и сборщик контейнеров (лайт-аналог `IViewsService`/`ViewContainerRegistry`).
- * Merged-режим выводится, а не объявляется: контейнер с ровно одной ВИДИМОЙ view рисуется
- * без рамки, а её заголовок несёт название контейнера и не сворачивается.
+ * Registry of view sections and container builder (lite `IViewsService`/`ViewContainerRegistry`).
+ * Merged mode is derived, not declared: a container with exactly one VISIBLE view is drawn
+ * without a frame, and that view's header carries the container title and does not collapse.
  */
 export class ViewsService implements IContextKeyContributor {
     public static dependencies = [
@@ -245,15 +245,15 @@ export class ViewsService implements IContextKeyContributor {
     ] as const;
 
     private readonly containers = new Map<string, ContainerEntry>();
-    /** База для диффа {@link syncExpanded}; нет ключа — `false`. */
+    /** Baseline for the {@link syncExpanded} diff; a missing key means `false`. */
     private readonly expandedState = new Map<string, boolean>();
     private readonly onDidChangeViewExpandedEmitter = new Emitter<IViewExpandedChangeEvent>();
     private readonly onDidChangeLocationsEmitter = new Emitter<void>();
     private readonly onDidActivateViewEmitter = new Emitter<string>();
     private readonly onDidShowViewEmitter = new Emitter<string>();
-    /** Переносы из стора уже применены (после этого поздние виды встают по ним сами). */
+    /** Stored moves are applied (from then on, late views place themselves by them). */
     private customizationsApplied = false;
-    /** Идёт рестор или сброс переносов: стор не пишется, это не действие пользователя. */
+    /** Restoring or resetting moves: the store is not written, this is not a user action. */
     private applyingCustomizations = false;
 
     public constructor(
@@ -266,14 +266,14 @@ export class ViewsService implements IContextKeyContributor {
         private readonly commands: CommandRegistry,
         private readonly auxiliaryBarService: AuxiliaryBarService,
     ) {
-        // Сервис — синглтон окна: снимать подписку некому.
+        // The service is a per-window singleton: there is nobody to dispose the subscription.
         workspaceContext.onDidChangeWorkspaceFolders(() => {
             this.refreshWorkspaceGatedViews();
         });
-        // На бутстрапе состояние применяет mount(), строя контейнеры; здесь — Open Folder
-        // на уже собранном сайдбаре.
+        // At bootstrap mount() applies the state while building containers; this handles Open Folder
+        // on an already built sidebar.
         stateService.onDidOpenWorkspace(() => {
-            // Сначала места, потом состояние секций.
+            // Locations first, then section state.
             this.reapplyStoredCustomizations();
             this.restoreViewsState();
         });
@@ -305,12 +305,12 @@ export class ViewsService implements IContextKeyContributor {
     }
 
     /**
-     * Порядок свободный: DI создаёт компоненты раньше, чем workbench регистрирует контейнеры.
-     * Повторная регистрация id заменяет запись, поздняя — пересобирает секции.
+     * Any order: DI creates components before the workbench registers containers.
+     * Re-registering an id replaces the record; a late registration rebuilds the sections.
      */
     public registerView(descriptor: IViewDescriptor): void {
-        // Повторная регистрация заменяет запись там, где вид стоит сейчас: перенос
-        // пользователя её переживает.
+        // Re-registration replaces the record where the view is now, so the user's move
+        // survives it.
         const previous = this.findRecord(descriptor.id);
         const entry = previous?.entry ?? this.ensureEntry(descriptor.containerId);
         const existing = entry.views.findIndex((v) => v.id === descriptor.id);
@@ -336,17 +336,17 @@ export class ViewsService implements IContextKeyContributor {
             placeholderView: null,
         });
         entry.views.sort((a, b) => a.order - b.order || a.id.localeCompare(b.id));
-        // Вид после рестора переносов встаёт туда, куда его перенесли в прошлый раз.
-        // Stryker disable next-line ConditionalExpression,LogicalOperator: повторная регистрация и вид до рестора встали бы туда же — стор переносов и так совпадает с текущим местом, а рестор расставит ранние виды сам
+        // A view registered after moves are restored goes where it was moved last time.
+        // Stryker disable next-line ConditionalExpression,LogicalOperator: a re-registered view or one registered before the restore would land in the same place — the moves store already matches the current location, and the restore places early views itself
         if (previous === undefined && this.customizationsApplied) {
             const target: unknown = this.stateService.get(VIEWS_CUSTOMIZATIONS_STATE).viewLocations[descriptor.id];
             if (typeof target === "string") this.placeStoredView(descriptor.id, target);
         }
-        // Вид мог уехать — тогда сборка контейнера по умолчанию его отпускает.
+        // The view may have moved away; then syncing its default container releases it.
         this.syncPresence(entry);
     }
 
-    /** `null` — вернуться к пустому состоянию; свёрнутость и вес сохраняются. */
+    /** `null` returns to the empty state; collapsed state and weight are kept. */
     public setViewBody(viewId: string, body: TUIElement | null): void {
         const { entry, record } = this.recordOrThrow(viewId);
         if (record.body === body) return;
@@ -355,7 +355,7 @@ export class ViewsService implements IContextKeyContributor {
         entry.paneView.setPaneBody(viewId, this.bodyOf(record));
     }
 
-    /** Escape-hatch для контролов, не выражаемых пунктом меню (каналы Output). */
+    /** Escape hatch for controls that cannot be a menu item (Output channels). */
     public setViewTitleWidget(viewId: string, widget: TUIElement | null): void {
         const { entry, record } = this.recordOrThrow(viewId);
         if (record.titleWidget === widget) return;
@@ -365,20 +365,20 @@ export class ViewsService implements IContextKeyContributor {
     }
 
     /**
-     * Тик кадра (10 Гц) идёт этим коротким путём, а не через `refreshContainerTitleActions`
-     * (резолв меню каждой секции). Незарегистрированная view — молчаливый no-op.
+     * The frame tick (10 Hz) takes this short path instead of `refreshContainerTitleActions`
+     * (which resolves every section's menu). An unregistered view is a silent no-op.
      */
     public setViewSpinner(viewId: string, frame: string | null): void {
         const found = this.findRecord(viewId);
         if (found === undefined) return;
         const { entry, record } = found;
-        // Состав полосы контролов таб-строки меняют только появление и уход спиннера.
-        // Stryker disable next-line ConditionalExpression: пересчёт идемпотентен, поэтому лишний вызов виден только по стоимости; пропуск нужного закрыт тестом появления и ухода полосы
+        // Only the spinner appearing or disappearing changes what the tab bar control strip contains.
+        // Stryker disable next-line ConditionalExpression: the recompute is idempotent, so an extra call shows only in cost; skipping a needed one is covered by the test for the strip appearing and disappearing
         const appeared = (record.spinner === null) !== (frame === null);
         record.spinner = frame;
         if (entry.paneView === null || entry.hidden.has(viewId)) return;
         this.applySpinner(entry, record);
-        // Stryker disable next-line ConditionalExpression,LogicalOperator: та же причина, что строкой выше — лишний пересчёт ненаблюдаем
+        // Stryker disable next-line ConditionalExpression,LogicalOperator: same reason as the line above — an extra recompute is unobservable
         if (appeared && this.isTabbed(entry)) this.refreshContainerTitleActions(entry);
     }
 
@@ -401,7 +401,7 @@ export class ViewsService implements IContextKeyContributor {
         return !entry.hidden.has(viewId);
     }
 
-    /** Контейнер собран, секция не скрыта и не свёрнута; merged-секция раскрыта всегда. */
+    /** The container is built and the section is neither hidden nor collapsed; a merged section is always expanded. */
     public isViewExpanded(viewId: string): boolean {
         const { entry } = this.recordOrThrow(viewId);
         if (entry.paneView === null || entry.hidden.has(viewId)) return false;
@@ -409,8 +409,8 @@ export class ViewsService implements IContextKeyContributor {
     }
 
     /**
-     * Диффит сам сервис, а не {@link PaneViewElement}: тот пересоздаёт панели и молча
-     * игнорирует свёртку merged-секции, так что пер-панельное событие теряло бы переходы.
+     * The service diffs this itself rather than {@link PaneViewElement}: that one recreates panes and
+     * silently ignores collapsing a merged section, so a per-pane event would lose transitions.
      */
     public readonly onDidChangeViewExpanded = this.onDidChangeViewExpandedEmitter.event;
 
@@ -423,7 +423,7 @@ export class ViewsService implements IContextKeyContributor {
         }
     }
 
-    /** Последнюю видимую секцию скрыть нельзя, как в VS Code. */
+    /** The last visible section cannot be hidden, as in VS Code. */
     public setViewVisible(viewId: string, visible: boolean): void {
         const { entry, record } = this.recordOrThrow(viewId);
         if (!record.canToggleVisibility) return;
@@ -441,11 +441,11 @@ export class ViewsService implements IContextKeyContributor {
     }
 
     /**
-     * Единственная точка сборки контейнеров. Видимость сайдбара не трогает — её
-     * восстанавливает персист layout'а.
+     * The single place where containers are built. Leaves sidebar visibility alone — layout
+     * persistence restores it.
      */
     public attachRegisteredContainers(): void {
-        // Переносы — до сборки: контейнер сразу строится на своём месте.
+        // Moves go before building, so the container is built at its location right away.
         this.applyStoredCustomizations();
         const registered = [...this.containers.values()]
             .filter((entry) => entry.descriptor !== null)
@@ -458,8 +458,8 @@ export class ViewsService implements IContextKeyContributor {
     }
 
     /**
-     * `orFirst` — если дефолтного в сайдбаре нет (перенесён или пуст), показать первый.
-     * Видимость сайдбара не трогает.
+     * `orFirst` — if the sidebar has no default container (moved away or empty), show the first one.
+     * Leaves sidebar visibility alone.
      */
     private showDefaultViewlet(orFirst = false): void {
         const sidebar = [...this.containers.values()]
@@ -474,8 +474,8 @@ export class ViewsService implements IContextKeyContributor {
     }
 
     /**
-     * Контейнер без единого вида места не занимает (как у эталона) и встаёт туда сам,
-     * когда в него придёт вид.
+     * A container without a single view takes no place (as upstream) and puts itself there
+     * once a view arrives.
      */
     public attachContainer(containerId: string): void {
         const entry = this.containerOrThrow(containerId);
@@ -489,8 +489,8 @@ export class ViewsService implements IContextKeyContributor {
     private buildContainer(entry: AttachedEntryDescriptor): void {
         const containerId = entry.descriptor.id;
         const paneView = new PaneViewElement();
-        // Точки в id контейнера меняем на дефисы: селекторы инспектора/e2e их не
-        // поддерживают (`workbench.panel.output` → `#viewContainer-workbench-panel-output`).
+        // Dots in the container id become dashes: inspector/e2e selectors don't
+        // support them (`workbench.panel.output` → `#viewContainer-workbench-panel-output`).
         const domId = containerId.replaceAll(".", "-");
         paneView.id = `viewContainer-${domId}`;
         paneView.onDidChangeState = () => {
@@ -508,8 +508,8 @@ export class ViewsService implements IContextKeyContributor {
             runAction(this.viewTitleGroups(paneId), actionId);
         };
         entry.paneView = paneView;
-        // В панели (и во вторичной панели) заголовка-строки нет — та же строка
-        // заголовка работает полосой контролов в таб-строке, поэтому названия не несёт.
+        // The panel (and the auxiliary bar) has no header row — the same header serves
+        // as the control strip in the tab bar, so it carries no title.
         const tabbed = this.isTabbed(entry);
         const header = new ViewContainerHeaderElement(tabbed ? "" : containerTitle(entry));
         header.id = `viewContainerHeader-${domId}`;
@@ -525,22 +525,22 @@ export class ViewsService implements IContextKeyContributor {
         };
         entry.header = header;
         if (tabbed) {
-            // Позиция считается ДО того, как контейнер станет приаттаченным:
-            // сам себя он не считает.
+            // Compute the position BEFORE the container becomes attached:
+            // it does not count itself.
             const index = this.tabIndexOf(entry);
             entry.view = paneView;
-            // Вкладку заводим ДО сборки секций: полоса контролов таб-строки
-            // ставится через реестр части, а он игнорирует незнакомый id.
+            // Add the tab BEFORE building sections: the tab bar control strip
+            // is set through the part's registry, which ignores unknown ids.
             this.partOf(entry).addView({ id: containerId, title: containerTitle(entry), content: paneView, index });
             this.rebuildPanes(entry);
-            // Первая вкладка части становится активной молча (без события смены) —
-            // о показе её видов сообщаем сами.
+            // The part's first tab becomes active silently (no change event),
+            // so we announce that its views are shown ourselves.
             if (this.partOf(entry).getActiveViewId() === containerId)
                 this.fireContainerEvent(containerId, this.onDidShowViewEmitter);
             return;
         }
         const stack = new VFlexElement();
-        // Стабильный селектор места для e2e/инспектора (`#explorer`, `#scm`).
+        // Stable location selector for e2e/inspector (`#explorer`, `#scm`).
         stack.id = domId;
         stack.style = { fg: "sideBar.foreground", bg: "sideBar.background" };
         entry.stack = stack;
@@ -566,7 +566,7 @@ export class ViewsService implements IContextKeyContributor {
     }
 
     /**
-     * Строго после `openWorkspace`, иначе прочитается стор пустого окна. Без write-through.
+     * Strictly after `openWorkspace`, otherwise the empty window's store is read. No write-through.
      */
     public restoreViewsState(): void {
         for (const entry of this.containers.values()) {
@@ -579,17 +579,17 @@ export class ViewsService implements IContextKeyContributor {
         const state =
             entry.descriptor === null ? undefined : this.stateService.get(SIDEBAR_VIEWS_STATE)[entry.descriptor.id];
         if (paneView === null || state === undefined) return;
-        // Скрытость применяем до весов: она пересобирает секции, а
-        // единственная оставшаяся видимой секция становится merged.
-        // Stryker disable next-line ArrayDeclaration: незнакомый id в списке скрытых пропускается ниже — мусорный элемент ненаблюдаем
+        // Apply hidden state before weights: it rebuilds the sections, and
+        // the only section left visible becomes merged.
+        // Stryker disable next-line ArrayDeclaration: an unknown id in the hidden list is skipped below — a junk element is unobservable
         const hidden = state.hidden ?? [];
         entry.hidden.clear();
         for (const viewId of hidden) {
             const record = entry.views.find((v) => v.id === viewId);
             if (record?.canToggleVisibility === true) entry.hidden.add(viewId);
         }
-        // Протухший стор, где скрыто всё, чиним молча; без видов собранного контейнера
-        // не бывает (syncPresence его снимает).
+        // Silently fix a stale store where everything is hidden; a built container
+        // never has zero views (syncPresence detaches it).
         if (entry.hidden.size === entry.views.length) {
             entry.hidden.delete(entry.views[0].id);
         }
@@ -597,11 +597,11 @@ export class ViewsService implements IContextKeyContributor {
         paneView.setWeights(state.weights);
         for (const paneId of paneView.getPaneIds()) {
             const collapsed = storedCollapsed(state.collapsed, paneId);
-            // Стор про секцию не знает — остаётся дефолт дескриптора.
+            // The store doesn't know this section — the descriptor default stays.
             if (collapsed !== undefined) paneView.setCollapsed(paneId, collapsed);
         }
-        // Программный путь `setCollapsed` не зовёт `onDidChangeState` —
-        // о восстановленной свёрнутости подписчиков извещаем сами.
+        // The programmatic `setCollapsed` path doesn't call `onDidChangeState`,
+        // so we notify subscribers about the restored collapsed state ourselves.
         this.syncExpanded(entry);
     }
 
@@ -626,7 +626,7 @@ export class ViewsService implements IContextKeyContributor {
         return this.findRecord(viewId)?.record.canMoveView ?? false;
     }
 
-    /** Стоящие на своих местах (зарегистрированы и не пусты) — по местам и `order`. */
+    /** Containers in place (registered and non-empty), by location and `order`. */
     public getViewContainers(): readonly IViewContainerSnapshot[] {
         return [...this.containers.values()]
             .filter((entry): entry is AttachedEntry => entry.view !== null)
@@ -644,16 +644,16 @@ export class ViewsService implements IContextKeyContributor {
             }));
     }
 
-    /** В НОВЫЙ контейнер на месте `location`; непереносимый вид — no-op. */
+    /** Into a NEW container at `location`; an immovable view is a no-op. */
     public moveViewToLocation(viewId: string, location: ViewContainerLocation): void {
-        // Непереносимый вид перенос пропустит, а пустой новый контейнер удалит.
+        // The move skips an immovable view, and the empty new container is then removed.
         const target = this.createGeneratedContainer(location);
         this.moveViewsToContainer([viewId], target.descriptor.id);
     }
 
     /**
-     * Опустевший контейнер уходит со своего места, а сгенерированный — исчезает вовсе.
-     * Непереносимые виды и контейнер, отвергающий чужие виды, пропускаются.
+     * An emptied container leaves its location, and a generated one disappears entirely.
+     * Immovable views and a container that rejects foreign views are skipped.
      */
     public moveViewsToContainer(viewIds: readonly string[], containerId: string): void {
         const target = this.containers.get(containerId);
@@ -671,7 +671,7 @@ export class ViewsService implements IContextKeyContributor {
             if (target.generated && target.views.length === 0) this.containers.delete(containerId);
             return;
         }
-        // Сначала цель (вкладка появляется), потом источники (опустевшие уходят).
+        // Target first (its tab appears), then the sources (emptied ones leave).
         this.syncPresence(target);
         for (const source of sources) this.syncPresence(source);
         this.didChangeLocations();
@@ -685,14 +685,14 @@ export class ViewsService implements IContextKeyContributor {
     }
 
     public resetViewLocation(viewId: string): void {
-        // Вид, уже стоящий дома, перенос в свой же контейнер пропустит сам.
+        // A view already at home is skipped by the move into its own container.
         const found = this.findRecord(viewId);
         if (found !== undefined) this.moveViewsToContainer([viewId], found.record.defaultContainerId);
     }
 
     public resetViewContainerLocation(containerId: string): void {
         const location = this.getDefaultViewContainerLocation(containerId);
-        // Stryker disable next-line ConditionalExpression: у незнакомого контейнера места нет, и перенос его пропустит сам — охрана только ради типа
+        // Stryker disable next-line ConditionalExpression: an unknown container has no location and the move would skip it anyway — the guard is only for the type
         if (location !== null) this.moveViewContainerToLocation(containerId, location);
     }
 
@@ -701,12 +701,12 @@ export class ViewsService implements IContextKeyContributor {
         this.didChangeLocations();
     }
 
-    /** Вид или контейнер сменил место (перенос, reset, рестор переносов проекта). */
+    /** A view or container changed location (move, reset, restoring the project's moves). */
     public readonly onDidChangeLocations = this.onDidChangeLocationsEmitter.event;
 
     /**
-     * Вкладку части активирует как пользователь (ленивые фичи просыпаются) и показывает
-     * часть; вьюлет — показывает в сайдбаре.
+     * Activates the part's tab as a user would (lazy features wake up) and shows the
+     * part; a viewlet is shown in the sidebar.
      */
     public openViewContainer(containerId: string, focus = false): void {
         const entry = this.containers.get(containerId);
@@ -718,18 +718,18 @@ export class ViewsService implements IContextKeyContributor {
             if (focus) this.focusContainer(containerId);
             return;
         }
-        // У сайдбара показ и фокус — один шаг (`showViewlet` с reveal).
+        // In the sidebar showing and focusing is a single step (`showViewlet` with reveal).
         this.sidebarService.showViewlet(containerId, true);
     }
 
     /**
-     * Скрытую секцию раскрывает. `activate: false` — показ программный: ленивые фичи (спавн
-     * шелла) не будятся; так показывают вид команды, которые сами решают, что в нём создать.
+     * Reveals a hidden section. `activate: false` is a programmatic show: lazy features (shell
+     * spawn) don't wake up; used by commands that decide themselves what to create in the view.
      */
     public openView(viewId: string, focus = false, activate = true): void {
         const found = this.findRecord(viewId);
         if (found?.entry.view == null) return;
-        // Видимую секцию setViewVisible не трогает.
+        // setViewVisible leaves an already visible section alone.
         this.setViewVisible(viewId, true);
         if (activate || !this.isTabbed(found.entry)) {
             this.openViewContainer(found.record.containerId, false);
@@ -745,8 +745,8 @@ export class ViewsService implements IContextKeyContributor {
     }
 
     /**
-     * `isViewVisible` эталона: контейнер активен в части, часть видна, секция не скрыта.
-     * Наш `isViewVisible` — про скрытость секции, отсюда своё имя.
+     * Upstream `isViewVisible`: the container is active in its part, the part is visible, the section is not hidden.
+     * Our `isViewVisible` is about section hiding, hence the different name.
      */
     public isViewShown(viewId: string): boolean {
         const found = this.findRecord(viewId);
@@ -757,7 +757,7 @@ export class ViewsService implements IContextKeyContributor {
         return part.visible && part.getActiveViewId() === containerId;
     }
 
-    /** Прячет часть, если контейнер вида в ней активен; вид в фоне части её не трогает. */
+    /** Hides the part if the view's container is active in it; a view in the part's background leaves it alone. */
     public closeView(viewId: string): void {
         const found = this.findRecord(viewId);
         if (found?.entry.view == null) return;
@@ -770,10 +770,10 @@ export class ViewsService implements IContextKeyContributor {
         if (part.getActiveViewId() === containerId) part.setVisible(false);
     }
 
-    /** Пользователь активировал вид — здесь просыпаются ленивые фичи (шелл терминала). */
+    /** The user activated a view — lazy features (terminal shell) wake up here. */
     public readonly onDidActivateView = this.onDidActivateViewEmitter.event;
 
-    /** Вид стал активным в части — и пользователем, и программно (рестор, перенос). */
+    /** A view became active in its part — by the user or programmatically (restore, move). */
     public readonly onDidShowView = this.onDidShowViewEmitter.event;
 
     private fireContainerEvent(containerId: string, emitter: Emitter<string>): void {
@@ -788,7 +788,7 @@ export class ViewsService implements IContextKeyContributor {
         if (active === null) return null;
         const path = active.getAncestorPath();
         for (const entry of this.containers.values()) {
-            // Stryker disable next-line ConditionalExpression,LogicalOperator: отсев контейнера целиком — только ускорение: тело вида вне его PaneView на пути фокуса не стоит
+            // Stryker disable next-line ConditionalExpression,LogicalOperator: skipping the whole container is only a speedup — a view body outside its PaneView is never on the focus path
             if (entry.paneView === null || !path.includes(entry.paneView)) continue;
             for (const record of entry.views) {
                 const body = record.body ?? record.placeholderView;
@@ -799,19 +799,19 @@ export class ViewsService implements IContextKeyContributor {
     }
 
     /**
-     * `focusedView`. Фокус в оверлее вид не отменяет: «Move Focused View» из палитры должен
-     * видеть вид, из которого палитру открыли (у эталона команда исполняется с фокусом на виде).
+     * `focusedView`. Focus in an overlay doesn't clear it: "Move Focused View" from the command palette must
+     * see the view the palette was opened from (upstream runs the command with focus on the view).
      */
     public updateContextKeys(contextKeys: ContextKeyService, active: TUIElement | null): void {
-        // `null` — тоже не уход из вида: так выглядит промежуток между blur
-        // вида и focus поля палитры.
+        // `null` doesn't mean leaving the view either: that's what the gap between the view's
+        // blur and the palette input's focus looks like.
         if (active === null || isInOverlay(active)) return;
         contextKeys.set("focusedView", this.getFocusedViewId(active) ?? "");
     }
 
     /**
-     * Как `getContextMenuActionsForComposite` эталона: места в порядке Primary Side Bar,
-     * Secondary Side Bar, Panel без текущего.
+     * Like upstream `getContextMenuActionsForComposite`: locations in the order Primary Side Bar,
+     * Secondary Side Bar, Panel, minus the current one.
      */
     private locationMenuEntries(entry: ContainerEntry): MenuEntry[] {
         const descriptor = attached(entry).descriptor;
@@ -831,7 +831,7 @@ export class ViewsService implements IContextKeyContributor {
         return entries;
     }
 
-    /** «Reset Location»: контейнер не на своём месте — вернуть его; сгенерированный с одним видом — вернуть вид. */
+    /** "Reset Location": moves a misplaced container back, or the single view of a generated one. */
     private resetLocationEntry(entry: ContainerEntry): MenuEntry | null {
         const descriptor = attached(entry).descriptor;
         if (!entry.generated && entry.location !== descriptor.location) {
@@ -888,12 +888,12 @@ export class ViewsService implements IContextKeyContributor {
         this.onDidChangeLocationsEmitter.fire();
     }
 
-    /** Переставить запись вида в другой контейнер (сборку мест делает {@link syncPresence}). */
+    /** Moves a view record to another container ({@link syncPresence} rebuilds the locations). */
     private moveRecord(found: { entry: ContainerEntry; record: ViewRecord }, target: ContainerEntry): void {
         const { entry: source, record } = found;
         source.views.splice(source.views.indexOf(record), 1);
         source.hidden.delete(record.id);
-        // Скрытыми все оставшиеся секции быть не могут (см. setViewVisible).
+        // The remaining sections can't all be hidden (see setViewVisible).
         if (source.views.length > 0 && source.hidden.size === source.views.length) {
             source.hidden.delete(source.views[0].id);
         }
@@ -903,7 +903,7 @@ export class ViewsService implements IContextKeyContributor {
     }
 
     private setContainerLocation(entry: ContainerEntry, location: ViewContainerLocation): void {
-        // Снять с прежнего места — пока `location` ещё прежнее.
+        // Detach from the old location while `location` is still the old one.
         if (entry.view !== null) this.detachContainer(entry);
         entry.location = location;
         this.syncPresence(entry);
@@ -913,7 +913,7 @@ export class ViewsService implements IContextKeyContributor {
         location: ViewContainerLocation,
         id = `${GENERATED_CONTAINER_PREFIX}${location}.${generateUuid()}`,
     ): AttachedEntryDescriptor {
-        // Stryker disable next-line StringLiteral: название сгенерированного не читается — его носит первый вид (containerTitle)
+        // Stryker disable next-line StringLiteral: a generated container's own title is never read — its first view supplies it (containerTitle)
         this.registerContainer({ id, title: "", location });
         const entry = this.containerOrThrow(id) as AttachedEntryDescriptor;
         entry.generated = true;
@@ -921,13 +921,13 @@ export class ViewsService implements IContextKeyContributor {
         return entry;
     }
 
-    /** С видами — построен, без видов — снят, сгенерированный без видов — удалён. */
+    /** With views — built; without views — detached; generated without views — removed. */
     private syncPresence(entry: ContainerEntry): void {
         if (entry.paneView !== null && entry.views.length > 0) {
             this.rebuildPanes(entry);
             return;
         }
-        // Stryker disable next-line ConditionalExpression: `wanted` ставят только attachContainer и createGeneratedContainer, оба — с дескриптором; проверка на null — ради типа
+        // Stryker disable next-line ConditionalExpression: `wanted` is set only by attachContainer and createGeneratedContainer, both with a descriptor; the null check is for the type
         if (entry.descriptor === null || !entry.wanted) return;
         if (entry.views.length === 0) {
             if (entry.view !== null) this.detachContainer(entry);
@@ -938,7 +938,7 @@ export class ViewsService implements IContextKeyContributor {
         this.restoreContainerState(entry);
     }
 
-    /** Тела видов отцепляются и ждут новой сборки. */
+    /** View bodies are detached and wait for the next build. */
     private detachContainer(entry: ContainerEntry): void {
         const id = attached(entry).descriptor.id;
         const wasActiveViewlet = !this.isTabbed(entry) && this.sidebarService.getActiveViewletId() === id;
@@ -964,9 +964,9 @@ export class ViewsService implements IContextKeyContributor {
         );
     }
 
-    /** Только отличия от дефолта — как `saveViewCustomizations` эталона. */
+    /** Only the differences from defaults — like upstream `saveViewCustomizations`. */
     private saveCustomizations(): void {
-        // Stryker disable next-line ConditionalExpression: рестор и сброс переносов сюда не ходят (они без didChangeLocations) — охрана на случай подписчика, который двинет вид из onDidChangeLocations
+        // Stryker disable next-line ConditionalExpression: restoring and resetting moves don't come here (they skip didChangeLocations) — a guard against a subscriber that moves a view from onDidChangeLocations
         if (this.applyingCustomizations) return;
         const viewContainerLocations: Record<string, string> = {};
         const viewLocations: Record<string, string> = {};
@@ -983,7 +983,7 @@ export class ViewsService implements IContextKeyContributor {
 
     private applyStoredCustomizations(): void {
         const stored = this.stateService.get(VIEWS_CUSTOMIZATIONS_STATE);
-        // Stryker disable next-line BooleanLiteral: рестор только расставляет виды по сгенерированным, а не опустошает их — стор под флагом здесь не пишется; флаг ради сброса в reapplyStoredCustomizations
+        // Stryker disable next-line BooleanLiteral: the restore only places views into generated containers and never empties them, so the store isn't written under the flag here; the flag is for the reset in reapplyStoredCustomizations
         this.applyingCustomizations = true;
         try {
             for (const [id, location] of Object.entries(stored.viewContainerLocations)) {
@@ -1000,7 +1000,7 @@ export class ViewsService implements IContextKeyContributor {
         this.customizationsApplied = true;
     }
 
-    /** Сгенерированный контейнер создаёт; поставить некуда — вид остаётся дома. */
+    /** Creates the generated container if needed; with nowhere to place it, the view stays home. */
     private placeStoredView(viewId: string, containerId: string): void {
         const found = this.findRecord(viewId);
         if (!found?.record.canMoveView) return;
@@ -1011,7 +1011,7 @@ export class ViewsService implements IContextKeyContributor {
             if (location === null) return;
             target = this.createGeneratedContainer(location, containerId);
         }
-        // Stryker disable next-line ConditionalExpression: в стор попадают только виды не в своём контейнере, а новый вид стоит в своём — «→ true» переставил бы запись на то же место
+        // Stryker disable next-line ConditionalExpression: the store holds only views outside their own container, while a new view is in its own — "→ true" would move the record to the same place
         if (found.entry !== target) {
             this.moveRecord(found, target);
             this.syncPresence(found.entry);
@@ -1021,14 +1021,14 @@ export class ViewsService implements IContextKeyContributor {
 
     private reapplyStoredCustomizations(): void {
         if (!this.customizationsApplied) return;
-        // Флаг снимает applyStoredCustomizations — сброс идёт под ним же.
+        // applyStoredCustomizations clears the flag — the reset runs under it too.
         this.applyingCustomizations = true;
         this.resetLocations();
         this.applyStoredCustomizations();
         this.onDidChangeLocationsEmitter.fire();
     }
 
-    /** Фокус первой развёрнутой видимой view контейнера (reveal, команды показа). */
+    /** Focuses the container's first expanded visible view (reveal, show commands). */
     public focusContainer(containerId: string): void {
         const entry = this.containerOrThrow(containerId);
         const paneView = entry.paneView;
@@ -1036,8 +1036,8 @@ export class ViewsService implements IContextKeyContributor {
         const visible = this.visibleViews(entry);
         const target = visible.find((v) => !paneView.isCollapsed(v.id)) ?? visible.at(0);
         if (target === undefined) return;
-        // Пустое состояние на экране — фокус в него: из «папка не открыта» выход —
-        // одним Enter по кнопке welcome, а не Tab'ами из невидимого инпута.
+        // If the empty state is on screen, focus goes there: the way out of "no folder opened"
+        // is a single Enter on the welcome button, not Tabbing out of an invisible input.
         const body = this.bodyOf(target);
         if (body instanceof ViewWelcomeElement && body.focusFirstButton()) return;
         target.focus();
@@ -1053,7 +1053,7 @@ export class ViewsService implements IContextKeyContributor {
         return this.menuService.getEntryGroups(MenuId.ViewContainerTitle, context);
     }
 
-    /** Попап «⋯» секции. Merged — сюда же уезжает меню контейнера, подменю. */
+    /** The section's "⋯" popup. When merged, the container menu moves here too, as a submenu. */
     private paneMenuEntries(entry: ContainerEntry, viewId: string): MenuEntry[] {
         const entries = overflowEntries(this.viewTitleGroups(viewId));
         if (!this.isMerged(entry)) return entries;
@@ -1062,7 +1062,7 @@ export class ViewsService implements IContextKeyContributor {
         return entries.length > 0 ? [...entries, { type: "separator" }, container] : [container];
     }
 
-    /** Свой заголовок есть только у не-merged (2+ секций), значит переключатель здесь всегда. */
+    /** Only a non-merged container (2+ sections) has its own header, so the toggle is always present here. */
     private containerMenuEntries(entry: ContainerEntry): MenuEntry[] {
         const entries = overflowEntries(this.containerTitleGroups(attached(entry).descriptor.id));
         const views = this.buildViewsSubmenu(entry);
@@ -1071,8 +1071,8 @@ export class ViewsService implements IContextKeyContributor {
     }
 
     /**
-     * Отступление: у эталона «Move To» — контекстное меню иконки activity bar, которого у
-     * нас нет. Вкладки частей несут его в своём меню ({@link showTabContextMenu}).
+     * Deviation: upstream puts "Move To" in the activity bar icon's context menu, which we
+     * don't have. Part tabs carry it in their own menu ({@link showTabContextMenu}).
      */
     private sidebarLocationEntries(entry: ContainerEntry): MenuEntry[] {
         if (this.isTabbed(entry)) return [];
@@ -1080,8 +1080,8 @@ export class ViewsService implements IContextKeyContributor {
     }
 
     /**
-     * У merged своего заголовка нет: его команды (включая inline-группу — рисовать её негде)
-     * и переключатель секций живут в «⋯» единственной секции.
+     * A merged container has no header of its own: its commands (including the inline group — there is
+     * nowhere to draw it) and the section toggle live in the single section's "⋯".
      */
     private containerSubmenu(entry: ContainerEntry): MenuSubmenuEntry | null {
         const own = joinMenuGroups(this.containerTitleGroups(attached(entry).descriptor.id));
@@ -1094,13 +1094,13 @@ export class ViewsService implements IContextKeyContributor {
         return { type: "submenu", label: containerTitle(entry), entries };
     }
 
-    /** Пункты динамические, в реестре меню их нет — поэтому здесь, а не контрибуцией. */
+    /** The items are dynamic and absent from the menu registry — hence built here, not as a contribution. */
     private viewsSubmenu(entry: ContainerEntry): MenuSubmenuEntry | null {
         if (entry.views.length < 2) return null;
         return this.buildViewsSubmenu(entry);
     }
 
-    /** Само подменю, без условия «секций 2+» — для мест, где оно заведомо есть. */
+    /** The submenu itself, without the "2+ sections" check — for places where it is known to exist. */
     private buildViewsSubmenu(entry: ContainerEntry): MenuSubmenuEntry {
         return {
             type: "submenu",
@@ -1120,12 +1120,12 @@ export class ViewsService implements IContextKeyContributor {
     }
 
     /**
-     * В панели у merged роль заголовка играет таб, поэтому полоса контролов таб-строки
-     * несёт действия ЕДИНСТВЕННОЙ секции (как в VS Code).
+     * In the panel a merged container's tab acts as its header, so the tab bar control strip
+     * carries the actions of its ONLY section (as in VS Code).
      */
     private headerTargetView(entry: ContainerEntry): string | null {
         if (!this.isTabbed(entry) || !this.isMerged(entry)) return null;
-        // merged — это ровно одна видимая секция, так что индекс 0 существует.
+        // Merged means exactly one visible section, so index 0 exists.
         return this.visibleViews(entry)[0].id;
     }
 
@@ -1137,13 +1137,13 @@ export class ViewsService implements IContextKeyContributor {
     }
 
     /**
-     * Вопрос СТАТИЧЕСКИЙ, без `when`: ключи меняются без событий (`gitHasRepo`), а заголовок
-     * пересобирается только со сменой состава секций — спроси «пусто ли сейчас», и кнопка
-     * исчезла бы навсегда.
+     * A STATIC question, without `when`: keys change without events (`gitHasRepo`), and the header
+     * is rebuilt only when the set of sections changes — asking "is it empty right now" would make
+     * the button vanish forever.
      */
     private hasOverflow(menuId: MenuId, context: unknown): boolean {
-        // Пункт группы `navigation` с иконкой уезжает в кнопку, а submenu-выбор
-        // той же группы — в виджет заголовка; ни тот, ни другой не в попапе.
+        // A `navigation` group item with an icon becomes a button, and a selection submenu
+        // of the same group becomes the title widget; neither ends up in the popup.
         return this.menuService.hasItems(menuId, context, (item) => {
             if (item.group !== NAVIGATION_GROUP) return true;
             if (isSubmenuContribution(item)) return item.isSelection !== true;
@@ -1155,7 +1155,7 @@ export class ViewsService implements IContextKeyContributor {
         const viewContext: ViewMenuContext = { view: viewId };
         if (this.hasOverflow(MenuId.ViewTitle, viewContext)) return true;
         if (!this.isMerged(entry)) return false;
-        // Merged: в «⋯» уезжает подменю контейнера; у вьюлета сайдбара в нём всегда «Move To».
+        // Merged: the container submenu moves into "⋯"; for a sidebar viewlet it always has "Move To".
         if (!this.isTabbed(entry)) return true;
         const containerContext: ViewContainerMenuContext = { container: attached(entry).descriptor.id };
         return this.menuService.hasItems(MenuId.ViewContainerTitle, containerContext) || entry.views.length >= 2;
@@ -1164,8 +1164,8 @@ export class ViewsService implements IContextKeyContributor {
     private titleMenuPossible(entry: ContainerEntry): boolean {
         const viewId = this.headerTargetView(entry);
         if (viewId !== null) return this.paneMenuPossible(entry, viewId);
-        // Сюда доходят вьюлет сайдбара (в «⋯» всегда есть «Move To») и вкладка
-        // не merged — у неё видимых секций не меньше двух, значит есть «Views».
+        // Only a sidebar viewlet ("⋯" always has "Move To") and a non-merged tab get here;
+        // the latter has at least two visible sections, so it has "Views".
         return true;
     }
 
@@ -1175,8 +1175,8 @@ export class ViewsService implements IContextKeyContributor {
     }
 
     /**
-     * `when` и `enablement` пунктов зависят от контекст-ключей, а заголовок сам пересобирается
-     * только со сменой состава секций.
+     * Items' `when` and `enablement` depend on context keys, while the header rebuilds itself
+     * only when the set of sections changes.
      */
     public refreshTitleActions(): void {
         for (const entry of this.containers.values()) {
@@ -1186,8 +1186,8 @@ export class ViewsService implements IContextKeyContributor {
     }
 
     /**
-     * Только у показанного контейнера, остальным — пометка: резолв меню — самая дорогая часть
-     * сборки заголовка. Как у эталона: тулбар заголовка есть только у открытого композита.
+     * Only for the shown container; the rest are marked stale: menu resolution is the most expensive
+     * part of building the header. Like upstream: only the open composite has a title toolbar.
      */
     private refreshContainerTitleActions(entry: ContainerEntry): void {
         const shown = this.isShown(entry);
@@ -1197,31 +1197,31 @@ export class ViewsService implements IContextKeyContributor {
         for (const record of this.visibleViews(entry)) {
             if (shown) {
                 paneView.setPaneActions(record.id, inlineActions(this.viewTitleGroups(record.id)));
-                // «⋯», которая ничего не открывает, выглядит сломанной (так было у Explorer'а).
+                // A "⋯" that opens nothing looks broken (Explorer had this).
                 paneView.setPaneMenuVisible(record.id, this.paneMenuPossible(entry, record.id));
             }
-            // Виджет и спиннер ставятся и скрытому: в момент показа кадр уже должен стоять.
-            // Виджет уехавшей в таб-строку секции забирает заголовок контейнера: родитель один.
+            // The widget and spinner are set even while hidden: the frame must be in place the moment it shows.
+            // The widget of a section moved into the tab bar goes to the container header: it can have only one parent.
             paneView.setPaneTitleWidget(record.id, record.id === headerViewId ? null : record.titleWidget);
-            // Заголовки только что пересоздались — вернуть им кадр спиннера,
-            // иначе операция, начатая до пересборки, теряет индикацию.
+            // Headers were just recreated — give them back the spinner frame,
+            // otherwise an operation started before the rebuild loses its indicator.
             this.applySpinner(entry, record);
         }
         if (!shown) return;
-        // Заголовок создан в attachContainer до первой пересборки секций.
+        // The header is created in attachContainer before the first section rebuild.
         const header = attached(entry).header;
         const actions = inlineActions(this.titleGroups(entry));
         header.setActions(actions);
-        // Stryker disable next-line ConditionalExpression: у вьюлета сайдбара таб-строки нет — виджет у него null (headerTargetView), меню шапки 2+ секций видно и так, а partOf отдаёт panelService, который незнакомый id пропускает
+        // Stryker disable next-line ConditionalExpression: a sidebar viewlet has no tab bar — its widget is null (headerTargetView), the header menu with 2+ sections is visible anyway, and partOf returns panelService, which skips an unknown id
         if (!this.isTabbed(entry)) return;
         const headerRecord = headerViewId === null ? null : this.recordOrThrow(headerViewId).record;
         const widget = headerRecord?.titleWidget ?? null;
         header.setTitleWidget(widget);
         const hasMenu = this.titleMenuPossible(entry);
         header.setMenuVisible(hasMenu);
-        // Пустой полосе места в таб-строке не даём. Спиннер — тоже содержимое: иначе
-        // прогресс секции панели было бы не видно.
-        // Stryker disable next-line OptionalChaining: до этого операнда цепочка доходит только при `!hasMenu`, а он ложен ровно тогда, когда секций 2+ и headerRecord пуст — то есть здесь запись всегда есть
+        // An empty strip gets no room in the tab bar. The spinner counts as content too, otherwise
+        // a panel section's progress would be invisible.
+        // Stryker disable next-line OptionalChaining: the chain reaches this operand only when `!hasMenu`, and hasMenu is always true when headerRecord is null (2+ sections) — so the record always exists here
         const empty = actions.length === 0 && widget === null && !hasMenu && headerRecord?.spinner == null;
         this.partOf(entry).setViewActions(attached(entry).descriptor.id, empty ? null : header);
     }
@@ -1233,8 +1233,8 @@ export class ViewsService implements IContextKeyContributor {
     }
 
     /**
-     * Активный вьюлет сайдбара или активная вкладка панели. Видимость самой части не
-     * учитывается: её смена (Ctrl+B, рестор layout'а) идёт мимо этих сервисов.
+     * The active sidebar viewlet or the active panel tab. Visibility of the part itself is not
+     * considered: toggling it (Ctrl+B, layout restore) bypasses these services.
      */
     private isShown(entry: ContainerEntry): boolean {
         const id = attached(entry).descriptor.id;
@@ -1243,7 +1243,7 @@ export class ViewsService implements IContextKeyContributor {
             : this.sidebarService.getActiveViewletId() === id;
     }
 
-    /** У merged-секции панели роль заголовка играет полоса контролов таб-строки. */
+    /** For a merged panel section, the tab bar control strip acts as its header. */
     private applySpinner(entry: ContainerEntry, record: ViewRecord): void {
         if (this.headerTargetView(entry) === record.id) attached(entry).header.setSpinnerFrame(record.spinner);
         else attached(entry).paneView.setPaneSpinner(record.id, record.spinner);
@@ -1284,7 +1284,7 @@ export class ViewsService implements IContextKeyContributor {
         if (entry === undefined) {
             entry = {
                 descriptor: null,
-                // Stryker disable next-line StringLiteral: место незарегистрированного контейнера не читается — registerContainer переписывает его дескриптором
+                // Stryker disable next-line StringLiteral: an unregistered container's location is never read — registerContainer overwrites it from the descriptor
                 location: "sidebar",
                 wanted: false,
                 generated: false,
@@ -1294,7 +1294,7 @@ export class ViewsService implements IContextKeyContributor {
                 header: null,
                 stack: null,
                 view: null,
-                // Stryker disable next-line BooleanLiteral: эквивалентный — до attachContainer показ упирается в `paneView === null`, а сам attach всегда пересобирает секции и переписывает флаг
+                // Stryker disable next-line BooleanLiteral: equivalent — before attachContainer showing stops at `paneView === null`, and attach always rebuilds the sections and rewrites the flag
                 titleActionsStale: false,
             };
             this.containers.set(containerId, entry);
@@ -1306,12 +1306,12 @@ export class ViewsService implements IContextKeyContributor {
         return entry.views.filter((v) => !entry.hidden.has(v.id));
     }
 
-    /** Ровно одна видимая секция — заголовки контейнера и секции сливаются. */
+    /** Exactly one visible section — the container and section headers merge. */
     private isMerged(entry: ContainerEntry): boolean {
         return this.visibleViews(entry).length === 1;
     }
 
-    /** Вкладка в таб-строке части (нижней или вторичной панели), а не вьюлет сайдбара. */
+    /** A tab in a part's tab bar (panel or auxiliary bar), not a sidebar viewlet. */
     private isTabbed(entry: ContainerEntry): boolean {
         return entry.location === "panel" || entry.location === "auxiliarybar";
     }
@@ -1329,7 +1329,7 @@ export class ViewsService implements IContextKeyContributor {
         return record.placeholderView;
     }
 
-    /** Секция требует папку, а папки нет — на экране пустое состояние, не тело. */
+    /** The section requires a folder and there is none — the empty state is shown instead of the body. */
     private isGatedOut(record: ViewRecord): boolean {
         return record.requiresWorkspaceFolder && this.workspaceContext.getWorkbenchState() === "empty";
     }
@@ -1345,8 +1345,8 @@ export class ViewsService implements IContextKeyContributor {
     }
 
     /**
-     * Пересборка секций не нужна: меняется только тело, а свёрнутость и веса обязаны
-     * пережить открытие папки.
+     * No section rebuild needed: only the body changes, and collapsed state and weights must
+     * survive opening a folder.
      */
     private refreshWorkspaceGatedViews(): void {
         for (const entry of this.containers.values()) {
@@ -1359,10 +1359,10 @@ export class ViewsService implements IContextKeyContributor {
         }
     }
 
-    /** Свёрнутость и веса переживают пересборку — иначе показ скрытой секции сбросил бы раскладку. */
+    /** Collapsed state and weights survive the rebuild, otherwise showing a hidden section would reset the layout. */
     private rebuildPanes(entry: ContainerEntry): void {
         const paneView = attached(entry).paneView;
-        // Секция, которой в контейнере ещё нет, встаёт по дефолту дескриптора.
+        // A section not yet in the container gets the descriptor default.
         const previous = new Map(paneView.getPaneIds().map((id) => [id, paneView.isCollapsed(id)]));
         const weights = paneView.getWeights();
         for (const paneId of [...paneView.getPaneIds()]) {
@@ -1370,12 +1370,12 @@ export class ViewsService implements IContextKeyContributor {
         }
         const visible = this.visibleViews(entry);
         const merged = visible.length === 1;
-        // В панели заголовок merged-секции — сам таб, поэтому строки под него нет.
+        // In the panel a merged section's header is the tab itself, so it gets no row.
         const headerVisible = !(merged && this.isTabbed(entry));
         for (const view of visible) {
             paneView.addPane({
                 id: view.id,
-                // Merged в сайдбаре: заголовок единственной секции и есть заголовок контейнера.
+                // Merged in the sidebar: the single section's header is the container header.
                 title: merged && !this.isTabbed(entry) ? containerPaneTitle(entry) : view.title,
                 body: this.bodyOf(view),
                 minBodyHeight: view.minBodyHeight,
@@ -1395,8 +1395,8 @@ export class ViewsService implements IContextKeyContributor {
     private persistContainerState(containerId: string, entry: ContainerEntry): void {
         const paneView = attached(entry).paneView;
         const state: IViewContainerViewsState = {
-            // Пишем ОБА состояния, а не только свёрнутые: развёрнутость — тоже
-            // выбор пользователя, и она обязана перебивать дефолт дескриптора.
+            // Write BOTH states, not just the collapsed ones: being expanded is also
+            // the user's choice and must override the descriptor default.
             collapsed: Object.fromEntries(paneView.getPaneIds().map((id) => [id, paneView.isCollapsed(id)])),
             weights: paneView.getWeights(),
             hidden: [...entry.hidden],
@@ -1409,8 +1409,8 @@ export class ViewsService implements IContextKeyContributor {
 }
 
 /**
- * `undefined` — стор про секцию не знает, действует дефолт дескриптора. Стор прошлых версий
- * держал массив id свёрнутых: про неперечисленные ничего не известно.
+ * `undefined` — the store doesn't know the section, the descriptor default applies. Stores from older
+ * versions held an array of collapsed ids, which says nothing about the unlisted ones.
  */
 function storedCollapsed(stored: StoredCollapsed, viewId: string): boolean | undefined {
     if (isLegacyCollapsedList(stored)) return stored.includes(viewId) ? true : undefined;
@@ -1423,24 +1423,24 @@ function isLegacyCollapsedList(stored: StoredCollapsed): stored is readonly stri
     return Array.isArray(stored);
 }
 
-/** Ведущие пробелы старого формата срезаем — отступ рисует сам заголовок. */
+/** Strip the legacy format's leading spaces — the header draws the indent itself. */
 function containerPaneTitle(entry: ContainerEntry): string {
     return containerTitle(entry).trimStart();
 }
 
 /**
- * У сгенерированного своего названия нет (у эталона — невидимая заглушка «User View
- * Container»), поэтому он носит название первого вида.
+ * A generated container has no title of its own (upstream uses an invisible "User View
+ * Container" stub), so it carries its first view's title.
  */
 function containerTitle(entry: ContainerEntry): string {
-    // Stryker disable next-line OptionalChaining,StringLiteral: опустевший сгенерированный удаляется сразу (syncPresence) — без видов его название не спрашивают
+    // Stryker disable next-line OptionalChaining,StringLiteral: an emptied generated container is removed right away (syncPresence) — its title is never asked for without views
     if (entry.generated) return entry.views.at(0)?.title ?? "";
     return attached(entry).descriptor.title;
 }
 
 /**
- * Без собственных отступов: их даёт место, а лишняя колонка обрезала бы подсказку на узкой
- * панели.
+ * No padding of its own: the location provides it, and an extra column would clip the hint in a
+ * narrow panel.
  */
 function createViewPlaceholder(text: string): TUIElement {
     const label = new TextLabelElement(text);

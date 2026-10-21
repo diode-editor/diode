@@ -12,8 +12,8 @@ import type { IViewTitleAction } from "./viewTitleRowElement.ts";
 export const NAVIGATION_GROUP = "navigation";
 
 /**
- * Пункт `navigation` без иконки остаётся в «⋯»: подпись в 30 колонок сайдбара не влезет.
- * Submenu-записи — тоже, кроме submenu-выбора (см. {@link overflowEntries}).
+ * A `navigation` item without an icon stays in "⋯": its label won't fit in a 30-column sidebar.
+ * Same for submenu entries, except selection submenus (see {@link overflowEntries}).
  */
 export function inlineActions(groups: readonly IMenuEntryGroup[]): IViewTitleAction[] {
     const navigation = groups.find((group) => group.group === NAVIGATION_GROUP);
@@ -24,8 +24,8 @@ export function inlineActions(groups: readonly IMenuEntryGroup[]): IViewTitleAct
 }
 
 /**
- * Submenu-выбор группы `navigation` (`isSelection`) владелец view рисует сам выпадающим
- * списком, как VS Code — `SelectBox`'ом тулбара; пункт «⋯» дублировал бы этот список.
+ * The view owner renders a selection submenu of the `navigation` group (`isSelection`) itself as
+ * a dropdown, like VS Code does with the toolbar `SelectBox`; a "⋯" item would duplicate that list.
  */
 export function overflowEntries(groups: readonly IMenuEntryGroup[]): MenuEntry[] {
     const rest = groups.map((group) =>
@@ -43,9 +43,9 @@ export function runAction(groups: readonly IMenuEntryGroup[], actionId: string):
     for (const group of groups) {
         for (const entry of group.entries) {
             if (isInlineItem(entry) && entry.id === actionId) {
-                // Погашенная кнопка кликается (иначе клик свернул бы секцию), но ничего не делает:
-                // отказ живёт в самом резолвнутом пункте (`MenuRegistry.toEntry`).
-                // Stryker disable next-line OptionalChaining: onSelect есть у любого пункта, резолвнутого MenuRegistry — защита от чужих реализаций MenuEntry
+                // A disabled button still takes the click (otherwise the click would collapse the section) but
+                // does nothing: the refusal lives in the resolved entry itself (`MenuRegistry.toEntry`).
+                // Stryker disable next-line OptionalChaining: every entry resolved by MenuRegistry has onSelect; guards against foreign MenuEntry implementations
                 entry.onSelect?.();
                 return;
             }
@@ -54,12 +54,12 @@ export function runAction(groups: readonly IMenuEntryGroup[], actionId: string):
 }
 
 export function isSelectionSubmenu(entry: ResolvedMenuEntry): boolean {
-    // Stryker disable next-line ConditionalExpression: проверка типа — сужение для TS; пометку `isSelection` реестр ставит только submenu-записям, у пункта-команды её не бывает
+    // Stryker disable next-line ConditionalExpression: the type check is TS narrowing; the registry sets `isSelection` only on submenu entries, never on command items
     return entry.type === "submenu" && entry.isSelection === true;
 }
 
 export function isInlineItem(entry: ResolvedMenuEntry): entry is IResolvedMenuItemEntry & { id: string; icon: string } {
-    // Stryker disable next-line ConditionalExpression,LogicalOperator: проверка типа — сужение для TS; у подменю и разделителя нет `id`, их отсекает следующая проверка
+    // Stryker disable next-line ConditionalExpression,LogicalOperator: the type check is TS narrowing; submenus and separators have no `id` and the next check filters them out
     if (entry.type !== undefined) return false;
     return typeof entry.id === "string" && typeof entry.icon === "string";
 }

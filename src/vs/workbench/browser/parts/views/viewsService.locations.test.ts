@@ -14,9 +14,9 @@ const SEARCH = "workbench.view.search";
 const STORE = "workbench.view.extensions";
 
 /**
- * Раскладка, как у приложения: сайдбар (Explorer по умолчанию, Search, магазин,
- * отвергающий чужие виды) и панель (Output, Terminal). Все виды, кроме
- * магазина, переносимые.
+ * An app-like layout: the sidebar (Explorer by default, Search, and a marketplace that
+ * rejects foreign views) and the panel (Output, Terminal). All views except the
+ * marketplace are movable.
  */
 function workbench(stored?: ReadonlyMap<string, unknown>): IViewsHarness {
     const h = makeViewsHarness();
@@ -66,7 +66,7 @@ describe("ViewsService — перенос вида в новый контейн�
         const container = h.service.getViewContainerByViewId("terminal")!;
         expect(container).toMatch(/^workbench\.views\.service\.auxiliarybar\.[0-9a-f-]{36}$/);
         expect(h.service.getViewContainerLocation(container)).toBe("auxiliarybar");
-        // Тело переехало то же самое — живой виджет не пересоздаётся.
+        // The very same body moved over — the live widget is not recreated.
         expect(body("terminal")(h)).toBe(terminalBody);
         expect(terminalBody?.getAncestorPath()).toContain(h.auxiliaryBarService.getViews()[0].content);
     });
@@ -279,7 +279,7 @@ describe("ViewsService — персист переносов (views.customizatio
         expect(h.service.getViewContainerLocation(SEARCH)).toBe("sidebar");
         expect(h.service.getViewContainerByViewId("terminal")).toBe(OUTPUT);
         expect(changes).toBe(1);
-        // Смена проекта — не действие пользователя: стор проекта не переписан.
+        // Switching projects is not a user action: the project's store is not rewritten.
         expect(customizations(h)).toEqual({ viewContainerLocations: {}, viewLocations: { terminal: OUTPUT } });
     });
 
@@ -507,7 +507,7 @@ function storedLocations(viewLocations: Record<string, unknown>, viewContainerLo
 describe("ViewsService — справки о местах", () => {
     it("незнакомый вид или контейнер — null и false", () => {
         const h = workbench();
-        // Вид, записанный в счёт незарегистрированного контейнера.
+        // A view registered against an unregistered container.
         h.service.registerView(testView("orphan", "unregistered", 10));
         expect(h.service.getDefaultViewContainerLocation("ghost")).toBeNull();
         expect(h.service.getDefaultViewContainerLocation("unregistered")).toBeNull();
@@ -570,7 +570,7 @@ describe("ViewsService — переносы: края", () => {
         const h = workbench();
         h.service.moveViewToLocation("terminal", "auxiliarybar");
         const generated = h.service.getViewContainerByViewId("terminal")!;
-        // TERMINAL опустел, но он не сгенерированный; generated — не пуст.
+        // TERMINAL is now empty but not generated; the generated one is not empty.
         h.service.moveViewsToContainer(["extensions"], TERMINAL);
         h.service.moveViewsToContainer(["extensions"], generated);
         h.service.moveViewsToContainer(["terminal"], generated);
@@ -591,7 +591,7 @@ describe("ViewsService — переносы: края", () => {
         const h = workbench();
         h.service.registerView(testView("log", OUTPUT, 20));
         h.service.moveViewsToContainer(["terminal"], OUTPUT);
-        // OUTPUT: output, terminal, log — первую и вторую скрыли.
+        // OUTPUT: output, terminal, log — the first and second are hidden.
         h.service.setViewVisible("output", false);
         h.service.setViewVisible("terminal", false);
         h.service.moveViewToLocation("terminal", "auxiliarybar");
@@ -716,7 +716,7 @@ describe("ViewsService — переносы: края", () => {
 
 describe("ViewsService — рестор переносов: края", () => {
     it("id, лишь похожий на сгенерированный, и не-строка в сторе места не задают", () => {
-        // Та же длина, что у префикса «workbench.views.service.», — но не он.
+        // Same length as the "workbench.views.service." prefix, but not it.
         const fake = "workbench.views.servicX.panel.0000";
         const h = workbench(storedLocations({ terminal: fake, output: null }));
         expect(h.service.getViewContainerByViewId("terminal")).toBe(TERMINAL);

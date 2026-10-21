@@ -53,7 +53,7 @@ describe("ViewProgressContribution", () => {
                 }),
         );
 
-        // До задержки показа кадра нет — заголовок не трогаем вовсе.
+        // Before the show delay there is no spinner frame, so the header isn't touched at all.
         expect(target.frames.size).toBe(0);
 
         vi.advanceTimersByTime(300);
@@ -64,11 +64,11 @@ describe("ViewProgressContribution", () => {
         done();
         await running;
         vi.advanceTimersByTime(500);
-        // Сервис про операцию забыл — снять спиннер обязана контрибуция.
+        // The service has forgotten the operation; removing the spinner is the contribution's job.
         expect(target.frames.get(CHANGES)).toBeNull();
 
-        // И снять ровно один раз: следующая операция (уже в другой секции) не
-        // должна снова гасить спиннер у той, что давно закончилась.
+        // And remove it exactly once: the next operation (in another section) must not
+        // clear the spinner again on the one that finished long ago.
         const callsAfterRemoval = target.calls;
         let doneGraph!: () => void;
         const graph = progress.withProgress(
@@ -80,7 +80,7 @@ describe("ViewProgressContribution", () => {
         );
         vi.advanceTimersByTime(300);
         expect(target.frames.get(GRAPH)).toBe("⠋");
-        // Ровно один вызов — на кадр GRAPH; CHANGES больше не трогали.
+        // Exactly one call, for the GRAPH frame; CHANGES is not touched again.
         expect(target.calls).toBe(callsAfterRemoval + 1);
 
         doneGraph();

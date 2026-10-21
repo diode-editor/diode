@@ -5,9 +5,9 @@ import { ButtonElement } from "@tuidom/elements/button/buttonElement";
 import { wrapText } from "@tuidom/elements/completionlist/completionDetailsElement";
 
 /**
- * Аналог строки `viewsWelcome` эталона. Пустая строка — текстовый блок с `text: ""`: зазоры
- * расставляет автор, а не раскладка, иначе «текст, под ним кнопка» и «текст, зазор, кнопка»
- * было бы не различить.
+ * Counterpart of an upstream `viewsWelcome` line. An empty line is a text block with `text: ""`: the
+ * author places gaps, not the layout, otherwise "text, button below" and "text, gap, button" would be
+ * indistinguishable.
  */
 export type IViewWelcomeBlock =
     | { readonly kind: "text"; readonly text: string }
@@ -19,8 +19,8 @@ export type IViewWelcomeBlock =
       };
 
 /**
- * Колонка заголовка секции и строк дерева. У плоской подсказки отступа нет намеренно — в
- * панели она обрезалась бы, а welcome у самого края читается криво.
+ * Column of the section header and tree rows. The flat hint has no indent on purpose (in the
+ * panel it would get cut off), but welcome text right at the edge reads poorly.
  */
 const LEFT_PADDING = 1;
 
@@ -29,9 +29,9 @@ type WelcomeRow =
     | { readonly kind: "button"; readonly index: number };
 
 /**
- * Текст рисуется сам, а не детьми-лейблами: перенос зависит от ширины из `performLayout`,
- * а менять там состав детей или текст прикреплённого лейбла нельзя — это замораживает кадр.
- * Поэтому дети — только кнопки.
+ * Text is painted directly, not via child labels: wrapping depends on the width from `performLayout`,
+ * and changing the children or an attached label's text there is not allowed, as it freezes the frame.
+ * So the only children are buttons.
  */
 export class ViewWelcomeElement extends TUIElement {
     private readonly buttons: ButtonElement[] = [];
@@ -54,7 +54,7 @@ export class ViewWelcomeElement extends TUIElement {
         }
     }
 
-    /** `false` — кнопок нет, и куда деть фокус, решает вызывающий. */
+    /** `false` when there are no buttons; the caller decides where focus goes. */
     public focusFirstButton(): boolean {
         const first = this.buttons.at(0);
         if (first === undefined) return false;
@@ -80,7 +80,7 @@ export class ViewWelcomeElement extends TUIElement {
         const rows = this.rowsFor(width);
         for (const [y, row] of rows.entries()) {
             if (row.kind !== "text") continue;
-            // Без `maxWidth`: строки уже перенесены под эту ширину, остальное обрежет клип секции.
+            // No `maxWidth`: lines are already wrapped to this width, the section clip cuts the rest.
             context.drawText(LEFT_PADDING, y, row.text, { fg, bg });
         }
     }
@@ -89,7 +89,7 @@ export class ViewWelcomeElement extends TUIElement {
         return Math.max(0, available - LEFT_PADDING);
     }
 
-    /** Без кэша: блоков единицы, а кэш по ширине дал бы ветку, наблюдаемую только по стоимости. */
+    /** No cache: there are only a few blocks, and a per-width cache would add a branch observable only by cost. */
     private rowsFor(width: number): readonly WelcomeRow[] {
         const rows: WelcomeRow[] = [];
         let buttonIndex = 0;
@@ -99,7 +99,7 @@ export class ViewWelcomeElement extends TUIElement {
                 buttonIndex++;
                 continue;
             }
-            // Зазор (`text: ""`): wrapText отдаёт на нём одну пустую строку.
+            // A gap (`text: ""`): wrapText returns a single empty line for it.
             for (const line of wrapText(block.text, width)) rows.push({ kind: "text", text: line });
         }
         return rows;

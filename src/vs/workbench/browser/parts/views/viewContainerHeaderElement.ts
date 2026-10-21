@@ -7,8 +7,8 @@ import type { IViewTitleAction } from "./viewTitleRowElement.ts";
 import { ViewTitleRowElement } from "./viewTitleRowElement.ts";
 
 /**
- * Без шеврона и drag границы — контейнер не сворачивается. Мышь по лейблам принадлежит
- * заголовку, как у {@link PaneHeaderElement}; исключение — виджет заголовка.
+ * No chevron and no boundary drag: the container doesn't collapse. Mouse input on the labels belongs
+ * to the header, as in {@link PaneHeaderElement}; the header widget is the exception.
  */
 export class ViewContainerHeaderElement extends TUIElement {
     public onMenu?: (anchor: IPaneMenuAnchor) => void;
@@ -85,7 +85,7 @@ export class ViewContainerHeaderElement extends TUIElement {
         this.row.setSpinnerFrame(frame);
     }
 
-    /** Полосе контролов в таб-строке панели ширину назначает контейнер. */
+    /** In the panel tab row, the container assigns the width of the controls strip. */
     public override getMaxIntrinsicWidth(height: number): number {
         return this.row.getMaxIntrinsicWidth(height);
     }

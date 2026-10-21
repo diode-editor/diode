@@ -19,15 +19,15 @@ import {
 
 export const WindowTitleContributionDIToken = token<WindowTitleContribution>("WindowTitleContribution");
 
-/** `${appName}` эталона. */
+/** Upstream `${appName}`. */
 export const APP_NAME = "Diode";
-/** Дефолт `window.titleSeparator` эталона. */
+/** Upstream default of `window.titleSeparator`. */
 const TITLE_SEPARATOR = " - ";
 
 /**
- * Подмножество дефолта `window.title` эталона (`windowTitle.ts`): без активного
- * файла и грязности, без самого ключа `window.title` (docs/TODO/Profiles.md).
- * Пустые части схлопываются вместе с разделителем.
+ * Subset of the upstream default `window.title` (`windowTitle.ts`): no active file or dirty
+ * state, and no `window.title` setting itself (docs/TODO/Profiles.md).
+ * Empty parts collapse together with their separator.
  */
 export function windowTitle(workspace: IWorkspace, profile: IUserDataProfile): string {
     const rootName =
@@ -38,7 +38,7 @@ export function windowTitle(workspace: IWorkspace, profile: IUserDataProfile): s
     return [rootName, profileName, APP_NAME].filter((part) => part !== "").join(TITLE_SEPARATOR);
 }
 
-/** Профиль фиксирован на процесс: его смена — новое окно со своим заголовком. */
+/** The profile is fixed per process: switching it opens a new window with its own title. */
 export class WindowTitleContribution extends Disposable implements IWorkbenchContribution {
     public static dependencies = [
         IWorkspaceContextServiceDIToken,
