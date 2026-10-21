@@ -38,6 +38,9 @@
   зелёный. Общий случай — ход «таймауты `vi.waitFor`» ниже.
 - [ ] e2e-сценарий `settings-completion` (ubuntu): `waitUntil(screen text predicate) timed out after
   4000ms` на ожидании попапа `editor.` — упал дважды (с автоповтором) на #678.
+- [ ] e2e-сценарий `explorer-compact-segments` (windows): `waitUntil(screen text predicate) timed out
+  after 10000ms` — дважды (с автоповтором) на #714 (ран 39587566978), дифф — только комментарии в
+  editor, на первом прогоне того же PR зелёный.
 
 ## Цена полного прогона
 
