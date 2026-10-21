@@ -1,6 +1,9 @@
 import { LanguageConfigurationServiceDIToken } from "../../editor/common/languages/iLanguageConfigurationService.ts";
 import { LanguageServiceDIToken } from "../../editor/common/languages/iLanguageService.ts";
-import { LanguageFeaturesServiceDIToken } from "../../editor/common/services/languageFeatures.ts";
+import {
+    type ILanguageFeaturesService,
+    LanguageFeaturesServiceDIToken,
+} from "../../editor/common/services/languageFeatures.ts";
 import { ClipboardDIToken } from "../../platform/clipboard/common/iClipboard.ts";
 import { CommandRegistryDIToken } from "../../platform/commands/common/commandRegistry.ts";
 import type { ConfigurationRegistry } from "../../platform/configuration/common/configurationRegistry.ts";
@@ -59,8 +62,11 @@ import { EnvironmentVariableServiceDIToken } from "../../workbench/contrib/termi
 import { ExtensionPtySessionFactoryDIToken } from "../../workbench/contrib/terminal/common/terminalSessionFactory.ts";
 import { DialogServiceDIToken } from "../../workbench/services/dialogs/browser/dialogService.ts";
 import { FileDialogServiceDIToken } from "../../workbench/services/dialogs/browser/fileDialogService.ts";
-import { EditorGroupsServiceDIToken } from "../../workbench/services/editor/common/editorGroupsService.ts";
-import { EditorServiceDIToken } from "../../workbench/services/editor/common/editorService.ts";
+import {
+    EditorGroupsServiceDIToken,
+    type IEditorGroupsService,
+} from "../../workbench/services/editor/common/editorGroupsService.ts";
+import { EditorServiceDIToken, type IEditorService } from "../../workbench/services/editor/common/editorService.ts";
 import { ExtensionServiceDIToken } from "../../workbench/services/extensions/common/extensions.ts";
 import {
     CONFIRMED_URI_HANDLER_EXTENSION_IDS_SETTING,
@@ -122,10 +128,22 @@ export function extensionHostConfigProvider(
     configurationRegistry: ConfigurationRegistry,
     workspaceContext: IWorkspaceContextService,
 ): IExtensionHostConfigProvider {
+    return configProviderOver(configService, configurationRegistry, workspaceFoldersProvider(workspaceContext), () =>
+        workspaceContext.getWorkspace().configuration?.toString(),
+    );
+}
+
+/** Shared with `ExtensionTestHarness`, which has folders without a workspace context. */
+export function configProviderOver(
+    configService: IConfigurationService,
+    configurationRegistry: ConfigurationRegistry,
+    getWorkspaceFolders: () => readonly IWorkspaceFolderInfo[],
+    getWorkspaceFile: () => string | undefined,
+): IExtensionHostConfigProvider {
     return {
         getSnapshot: () => configService.getConfigurationData(),
-        getWorkspaceFolders: workspaceFoldersProvider(workspaceContext),
-        getWorkspaceFile: () => workspaceContext.getWorkspace().configuration?.toString(),
+        getWorkspaceFolders,
+        getWorkspaceFile,
         onDidChange: (cb) =>
             configService.onDidChangeConfiguration((event) => {
                 cb(event.affectedKeys);
@@ -133,6 +151,28 @@ export function extensionHostConfigProvider(
         updateValue: (key, value, target) => configService.updateValue(key, value, target),
         getConfigurationScopes: () => configurationRegistry.getConfigurationScopes(),
     };
+}
+
+/** Shared with `ExtensionTestHarness`: its host tests exercise this very wiring. */
+export function bindExtensionHostToEditors(
+    host: ExtensionHost,
+    group: IEditorService,
+    editorGroups: IEditorGroupsService,
+    languageFeatures: ILanguageFeaturesService,
+): void {
+    new LanguageFeaturesAdapter(host, languageFeatures);
+    group.saveParticipant = (snapshot) => host.willSaveTextDocument(snapshot);
+    group.onEditorSaved((meta) => {
+        host.didSaveTextDocument(meta);
+    });
+    bindDocumentSync(group, editorGroups, host);
+    group.virtualDocumentSource = {
+        canProvide: (scheme) => host.hasTextContentProvider(scheme),
+        provide: (uri) => host.provideTextDocumentContent(uri),
+    };
+    host.onDidChangeTextContent((uri) => {
+        group.refreshVirtualDocument(uri);
+    });
 }
 
 export interface IExtensionHostModuleContext {
@@ -292,28 +332,12 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
 
         new FileSystemProviderAdapter(host, container.get(IFileServiceDIToken));
 
-        new LanguageFeaturesAdapter(host, container.get(LanguageFeaturesServiceDIToken));
-
-        group.saveParticipant = (snapshot) => host.willSaveTextDocument(snapshot);
-        group.onEditorSaved((meta) => {
-            host.didSaveTextDocument(meta);
-        });
-
-        // Stryker disable next-line CallExpression: production module wiring; sync behavior is covered by documentSyncAdapter tests and e2e
-        bindDocumentSync(group, container.get(EditorGroupsServiceDIToken), host);
-
-        // Stryker disable next-line ObjectLiteral,ArrowFunction: production module wiring; the source's behavior is covered by host tests
-        group.virtualDocumentSource = {
-            // Stryker disable next-line ArrowFunction: see above
-            canProvide: (scheme) => host.hasTextContentProvider(scheme),
-            // Stryker disable next-line ArrowFunction: see above
-            provide: (uri) => host.provideTextDocumentContent(uri),
-        };
-        // Stryker disable ArrowFunction,BlockStatement,CallExpression: production module wiring; ExtensionTestHarness mirrors it, and both sides are covered by unit tests (`ExtensionHost.onDidChangeTextContent`, `EditorService.refreshVirtualDocument`) and end-to-end by the host test where a provider's onDidChange re-reads the open tab
-        host.onDidChangeTextContent((uri) => {
-            group.refreshVirtualDocument(uri);
-        });
-        // Stryker restore ArrowFunction,BlockStatement,CallExpression
+        bindExtensionHostToEditors(
+            host,
+            group,
+            container.get(EditorGroupsServiceDIToken),
+            container.get(LanguageFeaturesServiceDIToken),
+        );
 
         // Whatever outlives the shared timeout gets a signal in the sync phase: a reload then
         // blocks the event loop, and the subprocess would be orphaned.

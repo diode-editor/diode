@@ -7,6 +7,7 @@ import { CancellationTokenNone, type ICancellationToken } from "../vs/base/commo
 import type { IDisposable } from "../vs/base/common/lifecycle.ts";
 import { Uri } from "../vs/base/common/uri.ts";
 import { curatedConfigInjection } from "../vs/diode/curatedConfigInjection.ts";
+import { bindExtensionHostToEditors, configProviderOver } from "../vs/diode/modules/extensionHostModule.ts";
 import type { ITextEdit } from "../vs/editor/common/core/iTextEdit.ts";
 import type { ILanguageFeatureTarget } from "../vs/editor/common/languageFeatureRegistry.ts";
 import type { ICodeActionRequest, ICoreCodeAction } from "../vs/editor/common/languages/iCodeActionSource.ts";
@@ -45,10 +46,9 @@ import { NULL_LOG_SERVICE } from "../vs/platform/log/common/nullLogService.ts";
 import type { IEnvironmentVariableCollectionStore } from "../vs/platform/terminal/common/environmentVariable.ts";
 import { UndoRedoService } from "../vs/platform/undoRedo/common/undoRedoService.ts";
 import { CommandServiceAdapter } from "../vs/workbench/api/browser/commandServiceAdapter.ts";
-import { bindDocumentSync, openDocumentSnapshots } from "../vs/workbench/api/browser/documentSyncAdapter.ts";
+import { openDocumentSnapshots } from "../vs/workbench/api/browser/documentSyncAdapter.ts";
 import { EditorLayoutServiceAdapter } from "../vs/workbench/api/browser/editorLayoutServiceAdapter.ts";
 import { EditorOptionsServiceAdapter } from "../vs/workbench/api/browser/editorOptionsServiceAdapter.ts";
-import { LanguageFeaturesAdapter } from "../vs/workbench/api/browser/languageFeaturesAdapter.ts";
 import { ThemeColorResolverAdapter } from "../vs/workbench/api/browser/themeColorResolverAdapter.ts";
 import type { IEditorDecorationsService } from "../vs/workbench/api/common/iEditorDecorationsService.ts";
 import type { IExtensionFileWatcher } from "../vs/workbench/api/common/iExtensionFileWatcher.ts";
@@ -78,11 +78,7 @@ import { EditorService } from "../vs/workbench/services/editor/browser/editorSer
 import { ExtensionConfigurationContributor } from "../vs/workbench/services/extensions/common/extensionConfigurationContributor.ts";
 import type { IMarkerReader } from "../vs/workbench/services/extensions/node/customers/diagnosticsCustomer.ts";
 import type { IExtensionHostEnvironment } from "../vs/workbench/services/extensions/node/customers/envCustomer.ts";
-import {
-    ExtensionHost,
-    type IExtensionHostConfigProvider,
-    type IWorkspaceFolderInfo,
-} from "../vs/workbench/services/extensions/node/extensionHost.ts";
+import { ExtensionHost, type IWorkspaceFolderInfo } from "../vs/workbench/services/extensions/node/extensionHost.ts";
 import type { IExtensionSecretStore } from "../vs/workbench/services/extensions/node/extensionSecretsStore.ts";
 import type { IExtensionStateStore } from "../vs/workbench/services/extensions/node/extensionStateStore.ts";
 import type { IExtensionStorageHomes } from "../vs/workbench/services/extensions/node/extensionStoragePaths.ts";
@@ -221,7 +217,7 @@ export interface IExtensionHarness {
     dispose(): Promise<void>;
 }
 
-/** Wiring mirrors extensionHostModule and main.ts: change it there — change it here. */
+/** The editor and configuration wiring is extensionHostModule's own (`bindExtensionHostToEditors`, `configProviderOver`). */
 export async function createExtensionTestHarness(options: IExtensionHarnessOptions = {}): Promise<IExtensionHarness> {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "diode-ext-"));
 
@@ -279,17 +275,12 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
             // No folder means no workspace layer: writes to it are rejected, as in an empty window.
             folders.length === 0 ? undefined : (options.workspaceConfiguration ?? {}),
         );
-    const configuration: IExtensionHostConfigProvider = {
-        getSnapshot: () => extensionConfigurationService.getConfigurationData(),
-        getWorkspaceFolders: () => folders,
-        getWorkspaceFile: () => options.workspaceFile,
-        onDidChange: (cb) =>
-            extensionConfigurationService.onDidChangeConfiguration((event) => {
-                cb(event.affectedKeys);
-            }),
-        updateValue: (key, value, target) => extensionConfigurationService.updateValue(key, value, target),
-        getConfigurationScopes: () => configurationRegistry.getConfigurationScopes(),
-    };
+    const configuration = configProviderOver(
+        extensionConfigurationService,
+        configurationRegistry,
+        () => folders,
+        () => options.workspaceFile,
+    );
     const editorLayout = new EditorLayoutServiceAdapter(group, group.editorGroups);
     // Inside tmpDir: a test must not write to the machine's user data.
     const storageHomes =
@@ -330,19 +321,7 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
             : {}),
     });
 
-    new LanguageFeaturesAdapter(host, languageFeatures);
-    group.saveParticipant = (snapshot) => host.willSaveTextDocument(snapshot);
-    group.onEditorSaved((meta) => {
-        host.didSaveTextDocument(meta);
-    });
-    bindDocumentSync(group, group.editorGroups, host);
-    group.virtualDocumentSource = {
-        canProvide: (scheme) => host.hasTextContentProvider(scheme),
-        provide: (uri) => host.provideTextDocumentContent(uri),
-    };
-    host.onDidChangeTextContent((uri) => {
-        group.refreshVirtualDocument(uri);
-    });
+    bindExtensionHostToEditors(host, group, group.editorGroups, languageFeatures);
 
     const writeFile = (name: string, content: string): string => {
         const fp = path.join(tmpDir, name);
