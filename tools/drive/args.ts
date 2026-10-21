@@ -1,13 +1,9 @@
 /**
- * Разбор командной строки `npm run drive -- <команда> [аргументы] [флаги]`.
- * Флаги в любом месте: `--name value`, `--name=value`, булевы `--name`;
- * `-s NAME` — короткая форма `--session`. Всё после `--` — позиционное как
- * есть (текст, начинающийся с `-`). Какие флаги булевы, а какие берут
- * значение, знает таблица ниже: неизвестный флаг — ошибка, а не тихий
- * позиционный аргумент.
+ * Неизвестный флаг — ошибка, а не тихий позиционный аргумент; текст, начинающийся
+ * с `-`, передаётся после `--`.
  */
 
-/** Флаги со значением; повторяемые копятся массивом. */
+/** Повторяемые копятся массивом. */
 const VALUE_FLAGS = new Set([
     "session",
     "timeout",
@@ -105,7 +101,7 @@ export function parseArgs(argv: readonly string[]): ParsedArgs {
     return { command, positionals: others, flags, booleans };
 }
 
-/** Последнее значение флага (повтор переопределяет). */
+/** Повтор переопределяет. */
 export function flag(args: ParsedArgs, name: string): string | undefined {
     return args.flags.get(name)?.at(-1);
 }
@@ -126,7 +122,6 @@ export function parseNonNegativeInt(raw: string, what: string): number {
     return Number(raw);
 }
 
-/** `140x38` → размер. */
 export function parseSize(raw: string): { cols: number; rows: number } {
     const match = /^(\d+)x(\d+)$/.exec(raw);
     if (match === null) throw new UsageError(`размер ожидается как <cols>x<rows>, получено ${JSON.stringify(raw)}`);
@@ -136,7 +131,7 @@ export function parseSize(raw: string): { cols: number; rows: number } {
     return { cols, rows };
 }
 
-/** `--file rel/path=содержимое` → пара; `\n` в содержимом — перевод строки. */
+/** `\n` в содержимом — перевод строки. */
 export function parseFileSpec(raw: string): [string, string] {
     const eq = raw.indexOf("=");
     if (eq <= 0) throw new UsageError(`--file ожидается как <путь>=<содержимое>, получено ${JSON.stringify(raw)}`);

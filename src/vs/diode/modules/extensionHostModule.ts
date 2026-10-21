@@ -105,21 +105,8 @@ function toMarkerSeverity(severity: number): MarkerSeverity {
 }
 
 /**
- * Поставщик папок воркспейса для extension host'а. Фабрика, а не готовое
- * значение, по двум причинам, и обе — контракт наружу, а не деталь проводки:
- *
- * 1. Папки читаются **лениво**, на каждый вызов: `getWorkspaceFolders` зовут
- *    при инициализации subprocess'а, а до неё успевает пройти
- *    `WorkbenchComponent.setWorkspaceFolder` (и Open Folder в рантайме тоже).
- *    Снимок, взятый в момент биндинга, залипал бы на состоянии «папки нет».
- * 2. Папка не открыта (пустое окно) — **пустой** список, а не `process.cwd()`.
- *    Подсунутый cwd отправил бы git и прочих шерстить случайный каталог, из
- *    которого человек запустил редактор; пустой массив `workspaceNamespace`
- *    отдаёт расширениям как `undefined` — ровно контракт VS Code для empty window.
- *
- * Сужения до одной папки здесь больше нет: провод хоста везёт массив
- * (`IWorkspaceFolderInfo` с `index`), и `IWorkspace.folders` — тоже массив, так
- * что перекладываем один в другой как есть.
+ * Лениво, на каждый вызов: папку выставляют уже после биндинга. Пустое окно — пустой список,
+ * а не `process.cwd()`: иначе git и прочие шерстили бы случайный каталог запуска.
  */
 export function workspaceFoldersProvider(
     workspaceContext: IWorkspaceContextService,
@@ -130,12 +117,6 @@ export function workspaceFoldersProvider(
             .folders.map((folder) => ({ uri: folder.uri.toString(), name: folder.name, index: folder.index }));
 }
 
-/**
- * Провайдер конфигурации extension host'а: слои настроек, папки воркспейса (см.
- * {@link workspaceFoldersProvider}), события смены и запись
- * `WorkspaceConfiguration.update`. Слой Configuration не тянется в рантайм
- * host'а — доступ идёт через этот тонкий адаптер над сервисом ядра.
- */
 export function extensionHostConfigProvider(
     configService: IConfigurationService,
     configurationRegistry: ConfigurationRegistry,
@@ -149,35 +130,18 @@ export function extensionHostConfigProvider(
             configService.onDidChangeConfiguration((event) => {
                 cb(event.affectedKeys);
             }),
-        // Запись расширения — тот же сервис, что у ядра: очередь записей,
-        // отказы пустого окна и чужого scope.
         updateValue: (key, value, target) => configService.updateValue(key, value, target),
-        // Тот же реестр, из которого собран defaults-слой (ядро + расширения на старте).
         getConfigurationScopes: () => configurationRegistry.getConfigurationScopes(),
     };
 }
 
-/** Контекст модуля: набор расширений и сборка их регистраций (см. `main.ts`); корни хранения — из окружения. */
 export interface IExtensionHostModuleContext {
-    /** Просканированный набор: пользовательские, затем встроенные. */
+    /** Пользовательские, затем встроенные. */
     readonly extensions: readonly IExtension[];
-    /** Откуда и с какими дефолтами собирать регистрации (`toExtensionRegistration`). */
     readonly registration: IExtensionRegistrationEnv;
 }
 
-/**
- * DI-модуль extension host'а. Связывает `EditorService` →
- * `IEditorOptionsService` → `ExtensionHost`. В production хост создаётся
- * пустым (без зарегистрированных расширений) — `main` builtin-расширений
- * пока не исполняется; всё подключение идёт в тестах через харнесс.
- *
- * Логгеры (`extensions.host`, `extensions.host.rpc`, `.stdout`, `.stderr`)
- * берутся из `ILogService` — в тестах профиль использует `NULL_LOG_SERVICE`,
- * `isEnabled` всегда `false`, поэтому stdio остаётся в режиме `"inherit"`.
- */
 export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> = (container, ctx) => {
-    // Мост терминалов расширений — ещё и pty для задач с `CustomExecution`
-    // (их связывает сервис расширений ниже, когда есть кого активировать).
     let terminalAdapter: ExtensionTerminalAdapter | undefined;
     // Stryker disable ArrowFunction,AssignmentOperator: production-проводка модуля (один мост на хост и задачи); сквозняк — e2e-сценарии extension-terminal и extension-tasks
     const terminals = (): ExtensionTerminalAdapter =>
@@ -190,7 +154,6 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
         ));
     // Stryker restore ArrowFunction,AssignmentOperator
     container.bind(ExtensionHostDIToken, () => {
-        // Корни хранения расширений (`globalStorageUri`/`storageUri`/`logUri`, секреты) — из окружения.
         const environment = container.get(IEnvironmentServiceDIToken);
         const group = container.get(EditorServiceDIToken);
         const adapter = new EditorOptionsServiceAdapter(
@@ -206,8 +169,7 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
         const stdoutLogger = logService.createLogger("extensions.host.stdout", { label: "Extension Host (stdout)" });
         const stderrLogger = logService.createLogger("extensions.host.stderr", { label: "Extension Host (stderr)" });
         // Stryker restore StringLiteral,ObjectLiteral
-        // Канал выключен (NULL_LOG_SERVICE, уровень выше Info) — логгер не передаём,
-        // и поток ребёнка закрыт, а не читается впустую (и не наследуется в кадр TUI).
+        // Выключенный канал — поток ребёнка закрыт, а не читается впустую (и не наследуется в кадр TUI).
         const wantStdio = (lg: typeof stdoutLogger): typeof stdoutLogger | undefined =>
             lg.isEnabled(LogLevel.Info) ? lg : undefined;
 
@@ -220,8 +182,6 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
             workspaceContext,
         );
 
-        // Сток диагностик расширений → MarkerService: потребители (squiggle в
-        // редакторе, панель Problems) слушают onDidChangeMarkers и правок не требуют.
         const markerService = container.get(MarkerServiceDIToken);
         const diagnosticsSink = (owner: string, resource: string, markers: readonly WireMarker[]): void => {
             const data: IMarkerData[] = markers.map((m) => ({
@@ -234,20 +194,12 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
             markerService.changeOne(owner, resource, data);
         };
 
-        // Мосты декораций (Chunk 4): gutter change-bar'ы → редакторы группы,
-        // файловые декорации → дерево, ThemeColor id → цвет активной темы.
         const editorDecorations = new EditorDecorationsServiceAdapter(group);
         const fileDecorations = new FileDecorationsServiceAdapter(explorer);
         const themeColorResolver = new ThemeColorResolverAdapter(container.get(ThemeServiceDIToken));
 
-        // Полоса групп: снимки layoutChanged + showTextDocument/close для
-        // window.tabGroups (владение — у хоста через register не оформляем:
-        // адаптер живёт, пока жив модуль, как остальные адаптеры здесь).
         const editorLayout = new EditorLayoutServiceAdapter(group, container.get(EditorGroupsServiceDIToken));
 
-        // Слежение за деревом для `workspace.createFileSystemWatcher`: сам обход
-        // ведёт ядро, excludes берутся из живой настройки `files.watcherExclude`,
-        // каталоги-симлинки под базой — из `files.watcherInclude`.
         // Stryker disable ArrowFunction: production-проводка модуля; решения живут в `watcherExcludeGlobs`/`watcherIncludesUnder` и `FileWatcherAdapter` и закрыты юнитами, сквозняк — живой прогон на Bazel-воркспейсе
         const fileWatcher = new FileWatcherAdapter(
             container.get(ITreeFileWatcherDIToken),
@@ -261,27 +213,17 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
         );
         // Stryker restore ArrowFunction
 
-        // Приватные каталоги расширений (`globalStorageUri`/`storageUri`/`logUri`).
-        // Провайдер ЛЕНИВЫЙ по той же причине, что `getWorkspaceFolders` выше:
-        // папку воркспейса выставляет `WorkbenchComponent.setWorkspaceFolder`
-        // позже создания хоста, а `storageUri` зависит именно от неё. Адресуется
-        // `storageUri` ИДЕНТИЧНОСТЬЮ воркспейса (`IWorkspace.id`), а не путём
-        // папки. Сам резолв — в `extensionStorageHomes` (чистый, с тестами),
-        // здесь только чтение id.
+        // Лениво, как `getWorkspaceFolders`: `storageUri` зависит от папки, которую выставят позже создания хоста.
         // Stryker disable next-line ArrowFunction: production-проводка модуля; решение о корнях живёт в `extensionStorageHomes` и закрыто юнитами, сквозняк — e2e-сценарий extension-storage
         const storageHomes = (): IExtensionStorageHomes =>
             extensionStorageHomes(environment, workspaceContext.getWorkspace().id);
 
-        // Секреты расширений — отдельный файл в user-data (0600, синхронная
-        // запись). Беды хранилища уходят в лог хоста; сами значения не логируются
-        // нигде и никогда.
+        // Сами значения секретов не логируются нигде и никогда.
         // Stryker disable BlockStatement,CallExpression: production-проводка модуля (как у `storageHomes` выше) — решение о хранилище живёт в `extensionSecretsStore` и закрыто юнитами, сквозняк — e2e-сценарий extension-secrets
         const secrets = createFileExtensionSecretStore(environment.secretsFile, (message, err) => {
             logger.error(message, err);
         });
         // Stryker restore BlockStatement,CallExpression
-        // Memento расширений (`globalState`/`workspaceState`) — поверх общего
-        // StateService: переживает перезапуск, как состояние самого workbench'а.
         const extensionState = createExtensionStateStore(container.get(StateServiceDIToken));
 
         const host = new ExtensionHost(adapter, commandAdapter, {
@@ -300,31 +242,18 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
             secrets,
             extensionState,
             diagnosticsSink,
-            // Обратный путь: чужие маркеры → languages.getDiagnostics/onDidChangeDiagnostics.
             markers: markerService,
-            // languages.setLanguageConfiguration → слой поверх language-configuration.json.
             languageConfigurations: container.get(LanguageConfigurationServiceDIToken),
-            // withProgress расширений → запись статус-бара со спиннером.
             progressSink: new ProgressStatusBarAdapter(container.get(StatusBarServiceDIToken)),
-            // createStatusBarItem расширений → собственные записи в полосе;
-            // клик исполняет команду расширения тем же адаптером команд, что и
-            // остальные вызовы субпроцесса.
             statusBarItemSink: new ExtensionStatusBarAdapter(
                 container.get(StatusBarServiceDIToken),
                 commandAdapter,
                 logger,
             ),
-            // showInputBox/showQuickPick расширений → общий QuickInput-оверлей
-            // приложения (тот же, что у палитры и Quick Open).
             quickInputSink: new QuickInputExtensionAdapter(container.get(QuickInputServiceDIToken)),
-            // show*Message расширений → стек тостов над статус-баром (у модального
-            // сообщения — окно по центру); нажатая кнопка уезжает обратно расширению.
             notificationSink: new NotificationExtensionAdapter(container.get(NotificationServiceDIToken)),
-            // showOpenDialog/showSaveDialog расширений → SimpleFileDialog на общем оверлее.
             fileDialogSink: new FileDialogExtensionAdapter(container.get(FileDialogServiceDIToken)),
-            // workspace.updateWorkspaceFolders → Open Folder, если итог — ровно одна
-            // папка; иначе тост (multi-root нет). Опенер берётся в момент просьбы:
-            // его регистрирует модуль workbench.
+            // Опенер берётся в момент просьбы: его регистрирует модуль workbench.
             // Stryker disable ArrowFunction,BlockStatement,CallExpression: production-проводка модуля — решение живёт в WorkspaceFoldersExtensionAdapter и закрыто юнитами, сквозняк — extensionHost.updateWorkspaceFolders.test.ts и живой прогон golang.go («Go: Add Package to Workspace»)
             workspaceFoldersSink: new WorkspaceFoldersExtensionAdapter(
                 (folder) => {
@@ -334,21 +263,14 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
                 (id) => installedExtensionDisplayName(ctx.extensions, id),
             ),
             // Stryker restore ArrowFunction,BlockStatement,CallExpression
-            // env.clipboard — тот же буфер, которым пользуются copy/paste ядра.
             clipboard: container.get(ClipboardDIToken),
-            // env.openExternal — системный обработчик, а без графического сеанса
-            // (ssh, контейнер) ссылка отдаётся человеку: буфер плюс сообщение.
             externalOpener: container.get(ExternalOpenerDIToken),
-            // env.machineId — кэш в application-состоянии, как у эталона;
-            // env.shell — тот же шелл, которым запускается встроенный терминал.
             // Stryker disable ObjectLiteral,ArrowFunction: production-проводка модуля (как у `storageHomes`/`secrets` выше) — решение живёт в `resolveMachineId`/`EnvCustomer` и закрыто юнитами, сквозняк — e2e-сценарий status-bar-message
             environment: {
                 machineId: () => resolveMachineId(container.get(StateServiceDIToken)),
                 defaultShell: container.get(DefaultShellResolverDIToken),
             },
             // Stryker restore ObjectLiteral,ArrowFunction
-            // createOutputChannel расширений → канал в панели Output;
-            // show() показывает вид Output там, где он стоит (как toggleOutputAction), и переключает канал.
             outputSink: new ExtensionOutputAdapter(
                 container.get(OutputChannelRegistryDIToken),
                 logService,
@@ -358,14 +280,8 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
                     container.get(ViewsServiceDIToken).openView(OUTPUT_VIEW_ID);
                 },
             ),
-            // createTerminal расширений → инстансы встроенного терминала; жизнь
-            // всех инстансов (и шеллов человека) — обратно в `window.terminals`.
             terminalSink: terminals(),
-            // `environmentVariableCollection` расширений → сервис ядра; его
-            // слияние ложится на окружение каждого процесса терминала.
             environmentVariableCollections: container.get(EnvironmentVariableServiceDIToken),
-            // vscode.tasks: провайдеры и исполнение — сервис задач ядра; жизнь
-            // задач (и запущенных из палитры) — обратно расширениям.
             taskSink: new ExtensionTaskAdapter(
                 container.get(TaskServiceDIToken),
                 workspaceContext,
@@ -374,33 +290,18 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
             ),
         });
 
-        // Провайдеры ФС расширений: схемы, объявленные субпроцессом (`git:` у
-        // встроенного git), становятся читаемыми через реестр ядра. Адаптер сам
-        // следит за появлением/исчезновением схем — расширение может
-        // активироваться позже создания хоста.
         new FileSystemProviderAdapter(host, container.get(IFileServiceDIToken));
 
-        // Языковые провайдеры расширений (languages.register): прокси по handle
-        // в реестрах ядра — их читают потребители фич (HoverService, …).
         new LanguageFeaturesAdapter(host, container.get(LanguageFeaturesServiceDIToken));
 
-        // Save-pipeline: редакторы группы прогоняют will-save через host
-        // (onWillSaveTextDocument), а состоявшееся сохранение уходит обратно
-        // в subprocess (onDidSaveTextDocument).
         group.saveParticipant = (snapshot) => host.willSaveTextDocument(snapshot);
         group.onEditorSaved((meta) => {
             host.didSaveTextDocument(meta);
         });
 
-        // Document sync (LSP): didOpen на смену активного редактора, didChange на
-        // правку его содержимого — стоковый vscode-languageclient видит живой буфер.
         // Stryker disable next-line CallExpression: production-проводка модуля; поведение синхронизации закрыто тестами documentSyncAdapter и e2e
         bindDocumentSync(group, container.get(EditorGroupsServiceDIToken), host);
 
-        // Содержимое недисковых ресурсов: провайдеры расширений
-        // (workspace.registerTextDocumentContentProvider) — источник текста для
-        // read-only вкладок `jdt:`/`class:`. Читает сам EditorService в openUri,
-        // именно по этому пути Go to Definition доезжает в библиотеку.
         // Stryker disable next-line ObjectLiteral,ArrowFunction: production-проводка модуля; поведение источника закрыто тестами хоста
         group.virtualDocumentSource = {
             // Stryker disable next-line ArrowFunction: см. выше
@@ -408,19 +309,14 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
             // Stryker disable next-line ArrowFunction: см. выше
             provide: (uri) => host.provideTextDocumentContent(uri),
         };
-        // Провайдер объявил `onDidChange` — перечитываем открытую вкладку этого
-        // ресурса. Без этого содержимое в редакторе навсегда осталось бы тем,
-        // каким оно было в момент открытия.
         // Stryker disable ArrowFunction,BlockStatement,CallExpression: production-проводка модуля; ExtensionTestHarness повторяет её симметрично, а поведение обеих сторон закрыто юнитами (`ExtensionHost.onDidChangeTextContent`, `EditorService.refreshVirtualDocument`) и сквозняком в тесте хоста «onDidChange провайдера перечитывает открытую вкладку»
         host.onDidChangeTextContent((uri) => {
             group.refreshVirtualDocument(uri);
         });
         // Stryker restore ArrowFunction,BlockStatement,CallExpression
 
-        // Прощание (выход, перезагрузка окна, выход по инспектору) — один путь:
-        // сперва вежливо, с `deactivate()` расширений, а что не успело выйти за
-        // общий тайм-аут — сигналом в синхронной фазе (перезагрузка дальше
-        // блокирует event loop, и субпроцесс остался бы сиротой).
+        // Что не вышло за общий тайм-аут — сигналом в синхронной фазе: перезагрузка дальше
+        // блокирует event loop, и субпроцесс остался бы сиротой.
         const lifecycle = container.get(LifecycleServiceDIToken);
         lifecycle.onWillShutdown((event) => {
             event.join(host.shutdown());
@@ -432,8 +328,6 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
         return host;
     });
 
-    // Сервис расширений — политика «что и когда активировать» поверх механики
-    // host'а: регистрация набора, барьер с памятью событий, стартовая активация.
     container.bind(ExtensionServiceDIToken, () => {
         const logService = container.get(ILogServiceDIToken);
         const logger = logService.createLogger("extensions");
@@ -444,20 +338,13 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
             logger,
         );
 
-        // Активация по `onLanguage:<id>` (напр. diode-settings на JSON) — когда
-        // языку впервые понадобились фичи: у любой модели, а не только у
-        // активного редактора (новый документ, смена языка, вкладка, на которую
-        // ещё не переключались), — как `requestRichLanguageFeatures` у vscode,
-        // вместе с голым `onLanguage`. Языки файлов, открытых на старте ДО
-        // регистрации расширений, не теряются: сервис запоминает события и
-        // проигрывает их сразу за `*`. Ядро про activation-events не знает.
+        // У любой модели, а не только у активного редактора, — как `requestRichLanguageFeatures` у vscode.
+        // События до регистрации расширений сервис запоминает и проигрывает сразу за `*`.
         container.get(LanguageServiceDIToken).onDidRequestLanguageFeatures((languageId) => {
             void service.activateByEvent(`onLanguage:${languageId}`);
             void service.activateByEvent("onLanguage");
         });
 
-        // Задачи расширений: типы из `contributes.taskDefinitions`, активация
-        // провайдеров по `onTaskType:` перед Run Task, pty для `CustomExecution`.
         // Stryker disable next-line CallExpression: production-проводка модуля; поведение закрыто юнитами bindExtensionTasks и e2e-сценарием extension-tasks
         bindExtensionTasks(
             container.get(TaskServiceDIToken),
@@ -467,12 +354,7 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
             logService.createLogger("tasks", { label: "Tasks" }),
         );
 
-        // Смена воркспейса на живом окне: работающие расширения видели старые
-        // папки и стор — субпроцесс перезапускается (как reload окна у эталона),
-        // а не поднятый ещё — дожидается своего события. И в обоих случаях
-        // `workspaceContains:<паттерн>` по новым папкам: папка может открыться
-        // ПОЗЖЕ старта, и событие «в проекте есть pom.xml» иначе прогорело бы в
-        // пустоту. Стартовый проход делает сам сервис.
+        // Работающие расширения видели старые папки и стор — субпроцесс перезапускается (как reload окна у эталона).
         // Stryker disable CallExpression,BlockStatement,StringLiteral: production-проводка модуля (как у `storageHomes`/`secrets` выше) — решение живёт в `ExtensionHost.restartForWorkspaceChange` и закрыто его юнитами, сквозняк — e2e-сценарии activation-workspace-contains и workspaceFile
         container.get(IWorkspaceContextServiceDIToken).onDidChangeWorkspaceFolders(() => {
             void service.restartForWorkspaceChange().catch((err: unknown) => {
@@ -481,16 +363,13 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
         });
         // Stryker restore CallExpression,BlockStatement,StringLiteral
 
-        // Коллекции окружения удалённых расширений забываются, как только
-        // известен состав установленных (`_invalidateExtensionCollections` эталона).
+        // Как `_invalidateExtensionCollections` эталона.
         // Stryker disable ArrowFunction,MethodExpression,ConditionalExpression,EqualityOperator,CallExpression: production-проводка модуля — решение живёт в `EnvironmentVariableService.setInstalledExtensions` и закрыто юнитами
         container
             .get(EnvironmentVariableServiceDIToken)
             .setInstalledExtensions((id) => ctx.extensions.some((ext) => extensionKey(ext.id) === extensionKey(id)));
         // Stryker restore ArrowFunction,MethodExpression,ConditionalExpression,EqualityOperator,CallExpression
 
-        // URL расширениям (`diode://<id>/…`, `window.registerUriHandler`):
-        // доверие, буфер до активации и `onUri:<id>` — в ExtensionUrlHandler.
         // Stryker disable ObjectLiteral,ArrowFunction,BlockStatement,StringLiteral,CallExpression,BooleanLiteral,ArrayDeclaration: production-проводка модуля — решения живут в `ExtensionUrlHandler`/`installedExtensionDisplayName` и закрыты юнитами, сквозняк — e2e-сценарий extension-uri-handler
         const host = container.get(ExtensionHostDIToken);
         const notifications = container.get(NotificationServiceDIToken);

@@ -11,32 +11,17 @@ import type { IExtensionRegistration } from "../vs/workbench/services/extensions
 import { fetchStockVsix } from "./stockVsix.ts";
 
 /**
- * Общая обвязка сьютов на стоковый `esbenp.prettier-vscode`: НАСТОЯЩИЙ сторонний
- * vsix из магазина, установленный штатным `installVsix`, — ни строчки нашего кода
- * расширения. Внутри vsix лежит сам prettier, так что сервера поднимать не надо:
- * расширение регистрирует провайдеры формата синхронно в `activate()`.
- *
- * Чем этот сток отличается от соседей (ruff/eslint/basedpyright): точка входа —
- * **ESM** (`"type": "module"` + `import … from "vscode"`), то есть обвязка
- * обязана донести `type` до регистрации, иначе хост выберет CJS-loader и
- * проверяться будет не тот путь, что в приложении.
+ * Точка входа стока — ESM (`"type": "module"`): обвязка обязана донести `type` до
+ * регистрации, иначе хост выберет CJS-loader и проверится не тот путь, что в приложении.
  */
 
-/** id записи в реестре; e2e-сьюты ставят его напрямую через `--install-extension`. */
 export const PRETTIER_ID = "esbenp.prettier-vscode";
 
-/**
- * Языковой сервис под сьюты prettier: расширение матчит документы по
- * `{ language: "markdown" }` / `{ language: "json" }`, а дефолтный
- * {@link NULL_LANGUAGE_SERVICE} зовёт всё `plaintext` — с ним ни один селектор
- * не сойдётся.
- */
 const LANGUAGE_BY_EXTENSION: Partial<Record<string, string>> = {
     ".md": "markdown",
     ".json": "json",
-    // `.js` — единственный язык в этих сьютах, где range-формат prettier
-    // по-настоящему частичный (markdown он игнорирует, json расширяет до всего
-    // документа), поэтому Format Selection проверяется на нём.
+    // Единственный, где range-формат по-настоящему частичный (markdown его игнорирует,
+    // json расширяет до документа) — Format Selection проверяется на нём.
     ".js": "javascript",
 };
 
@@ -45,18 +30,13 @@ export const PRETTIER_LANGUAGE_SERVICE: ILanguageService = {
     getLanguageIdForResource: (filePath) => LANGUAGE_BY_EXTENSION[path.extname(filePath)],
 };
 
-/**
- * Канонические файлы-фикстуры: языки, которых не покрывает ни один наш LSP —
- * именно их дыру prettier и закрывает. Формат prettier 3.x по дефолтным
- * настройкам: markdown нормализует маркер списка в `-` и схлопывает пробелы
- * после `#`, json ставит пробелы внутри скобок.
- */
+/** Формат prettier 3.x по дефолтным настройкам. */
 export const MESSY_MD = "#   Hello\n\n*  item one\n*  item two\n";
 export const FORMATTED_MD = "# Hello\n\n- item one\n- item two\n";
 export const MESSY_JSON = '{"a":1,   "b": [1,2,   3]}\n';
 export const FORMATTED_JSON = '{ "a": 1, "b": [1, 2, 3] }\n';
 
-/** Две кривые строки для Format Selection: формат одной не должен тронуть другую. */
+/** Две строки: формат одной не должен тронуть другую. */
 export const MESSY_JS = "const  a   =  1\nconst  b   =  2\n";
 
 export interface IInstalledPrettier {
@@ -64,13 +44,7 @@ export interface IInstalledPrettier {
     dispose(): void;
 }
 
-/**
- * Устанавливает vsix в изолированный каталог и собирает регистрацию из
- * УСТАНОВЛЕННОГО манифеста той же логикой, что приложение (`main.ts`): манифест
- * едет целиком (из него хост берёт и `type`, и `packageJSON` каталога, а
- * харнесс — дефолты `contributes.configuration`). Курируемых дефолтов prettier
- * не требует: вшитый prettier — дефолт самого расширения.
- */
+/** Манифест едет целиком: из него хост берёт `type`, а харнесс — дефолты настроек. */
 export async function installPrettier(): Promise<IInstalledPrettier> {
     const extensionsDir = fs.mkdtempSync(path.join(os.tmpdir(), "diode-vsix-"));
     const { id, version } = await installVsix((await fetchStockVsix(PRETTIER_ID)).vsixPath, extensionsDir);

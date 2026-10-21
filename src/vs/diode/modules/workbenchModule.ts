@@ -373,49 +373,23 @@ import {
     WORKBENCH_CONTRIBUTIONS,
 } from "../../workbench/workbench.common.main.ts";
 
-/** Фабрики вкладок из contrib — по одной на вид вкладки (см. `IEditorPaneFactory`). */
 const EDITOR_PANE_FACTORIES: readonly EditorPaneFactoryCtor[] = [
     createKeybindingsEditorPaneFactory,
     createDiffEditorPaneFactory,
     createTerminalEditorPaneFactory,
 ];
 
-/**
- * Пары Service ↔ Component слоя Workbench (пилот — статус-бар, этап 4
- * рефакторинга; Panel-кластер — этап 6; Editor-кластер — этап 9) плюс корневой
- * `WorkbenchComponent` (этап 12). Здесь же — интерфейсные швы Workbench:
- * `EditorService` выполняет их структурно (`ActiveEditorStatusSourceDIToken` /
- * `DiagnosticsEditorSourceDIToken` / `MarkerRevealTargetDIToken` /
- * `GotoLineEditorSourceDIToken` / `TerminalFocusFallbackDIToken`), смену папки воркспейса (Open Folder)
- * структурно выполняет `WorkbenchComponent` (`WorkspaceFolderOpenerDIToken`) под обёрткой
- * профилей (`UserDataProfileWorkspaceOpener`).
- */
 export const workbenchModule: ContainerModule = (container) => {
     container.bind(StatusBarServiceDIToken, StatusBarService);
-    // Прогресс длительных операций: модель + общий такт спиннеров (кадры
-    // разбирают потребители — заголовки view и статус-бар).
     container.bind(ProgressServiceDIToken, ProgressService);
     container.bind(ProgressStatusBarContributionDIToken, ProgressStatusBarContribution);
-    // Клавиатурный диспатчер: чорды/armory/swallow + chord-хинт в статус-баре.
-    // View-хуки (updateContextKeys, hasKeyboardCapturingOverlay) подключает владелец
-    // корневого дерева — WorkbenchComponent.
     container.bind(KeybindingDispatcherDIToken, KeybindingDispatcher);
-    // Модальные диалоги: хост (BodyElement с overlay-слоем) прикрепляет владелец
-    // корневого дерева — WorkbenchComponent — через attachHost() после построения view.
     container.bind(DialogServiceDIToken, DialogService);
     container.bind(FileDialogServiceDIToken, FileDialogService);
-    // Сообщения человеку: сервис (очередь показов и самогашение) + компонент
-    // (стек тостов над статус-баром и окно модального сообщения; overlay-хост
-    // прикрепляет WorkbenchComponent через attachHost).
     container.bind(NotificationServiceDIToken, NotificationService);
     container.bind(NotificationsComponentDIToken, NotificationsComponent);
-    // Неудача открытия ресурса — человеку тостом (см. EditorService.onDidFailOpen).
     container.bind(OpenFailureNotificationContributionDIToken, OpenFailureNotificationContribution);
-    // Отказ отмены шага нескольких документов — человеку тостом (UndoRedoService.onDidRefuse).
     container.bind(UndoRefusalNotificationContributionDIToken, UndoRefusalNotificationContribution);
-    // Открытие внешних ссылок (env.openExternal расширений): системный
-    // обработчик, а без графического сеанса — URL в буфер и сообщением на экран.
-    // Швы отдаём колбэками: сервис в `node`, а поверхность сообщений в `browser`.
     container.bind(ExternalOpenerDIToken, () => {
         const notifications = container.get(NotificationServiceDIToken);
         return new ExternalOpenerService({
@@ -428,36 +402,19 @@ export const workbenchModule: ContainerModule = (container) => {
             },
         });
     });
-    // URL продукта (`diode://…`): цепочка обработчиков — URI расширений
-    // подключает сервис расширений, источник — `Developer: Open URL`.
     container.bind(URLServiceDIToken, URLService);
-    // Shutdown-протокол: confirm-save участников (WorkbenchComponent записывает
-    // EditorService) и единое прощание — участники подписываются там, где создаются.
     container.bind(LifecycleServiceDIToken, LifecycleService);
-    // Explorer-кластер (этап 7): сервис (корень/провайдер/reveal/декорации),
-    // компонент (дерево + контекст-меню), файловые операции и целевой сервис
-    // input-команд (активный InputElement; читают экшены Actions/InputActions).
     container.bind(ExplorerServiceDIToken, ExplorerService);
     container.bind(ExplorerComponentDIToken, ExplorerComponent);
     container.bind(TextSearchServiceDIToken, TextSearchService);
     container.bind(SearchComponentDIToken, SearchComponent);
     container.bind(FileOperationsServiceDIToken, FileOperationsService);
-    // Ключи «у документа есть провайдер фичи» — видимость пунктов контекст-меню
-    // (опрашивается вместе с остальными контрибьюторами контекст-ключей).
     container.bind(LanguageFeatureContextKeysDIToken, LanguageFeatureContextKeys);
     container.bind(InputWidgetServiceDIToken, InputWidgetService);
-    // QuickInput-кластер (этап 8): общий виджет-компонент (host прикрепляет
-    // WorkbenchComponent через attachHost), InputBox/list-pick сервис и Quick Open
-    // (файлы/команды/goto-line) поверх файлового индекса. Швы: активный редактор
-    // для goto-line — EditorService, смена папки воркспейса (Open Folder) —
-    // WorkbenchComponent структурно.
     container.bind(QuickInputComponentDIToken, QuickInputComponent);
     container.bind(QuickInputServiceDIToken, QuickInputService);
     container.bind(FileSearchServiceDIToken, FileSearchService);
     container.bind(GotoLineEditorSourceDIToken, () => container.get(EditorServiceDIToken));
-    // Швы пикера открытых редакторов: список вкладок и переход — EditorService.
-    // Папки воркспейса для путей-описаний пикер берёт из IWorkspaceContextService
-    // сам — отдельного шва под «корень» больше нет.
     container.bind(OpenEditorsSourceDIToken, () => {
         const editors = container.get(EditorServiceDIToken);
         const groups = container.get(EditorGroupsServiceDIToken);
@@ -469,9 +426,6 @@ export const workbenchModule: ContainerModule = (container) => {
             },
         };
     });
-    // Quick-access-провайдеры: явный список (QUICK_ACCESS_PROVIDERS) + реестр,
-    // выбирающий провайдера по префиксу запроса; QuickOpenService — контроллер
-    // показа, о конкретных префиксах не знает.
     container.bind(FilesQuickAccessProviderDIToken, FilesQuickAccessProvider);
     container.bind(CommandsQuickAccessProviderDIToken, CommandsQuickAccessProvider);
     container.bind(GotoLineQuickAccessProviderDIToken, GotoLineQuickAccessProvider);
@@ -479,9 +433,7 @@ export const workbenchModule: ContainerModule = (container) => {
     container.bind(QuickAccessProvidersDIToken, () => QUICK_ACCESS_PROVIDERS);
     container.bind(QuickAccessRegistryDIToken, QuickAccessRegistry);
     container.bind(QuickOpenServiceDIToken, QuickOpenService);
-    // Смена воркспейса (Open Folder, Open Workspace from File) — WorkbenchComponent
-    // под обёрткой профилей: чужой профиль у новой папки перезагружает окно в
-    // него вместо смены папки (профиль фиксирован на процесс).
+    // Чужой профиль у новой папки перезагружает окно в него, а не меняет папку: профиль фиксирован на процесс.
     container.bind(
         WorkspaceFolderOpenerDIToken,
         () =>
@@ -494,70 +446,31 @@ export const workbenchModule: ContainerModule = (container) => {
                 container.get(ILogServiceDIToken).createLogger("profiles"),
             ),
     );
-    // Editor-кластер (этап 9b): логика полосы групп редакторов (открытые
-    // TextEditorPane-пары, активная вкладка, MRU) + часть «область редактора»
-    // (по групповому контролу tab strip + контент на группу).
-    // Модели файлов и сборка вью вкладок — отдельно от EditorService (E1):
-    // группам и диффу они нужны без полосы вкладок.
     container.bind(TextFileModelServiceDIToken, TextFileModelService);
     container.bind(TextEditorPaneBuilderDIToken, TextEditorPaneBuilder);
-    // Семантическая подсветка: хранилище токенов на документ и запросы к
-    // провайдерам расширений — общие для всех вью документа.
     container.bind(DocumentSemanticTokensFeatureDIToken, DocumentSemanticTokensFeature);
-    // Полоса групп — отдельно от «редакторов» (E1): структура групп нужна
-    // view-части и командам групп, а не всем потребителям активного редактора.
     container.bind(EditorGroupsServiceDIToken, EditorGroupsService);
     container.bind(EditorServiceDIToken, EditorService);
-    // Фабрики вкладок из contrib (рецепт вкладки для сплита и рестора сессии) —
-    // явный список; фабрика ходит в контейнер лениво, в момент открытия.
     container.bind(EditorPaneFactoriesDIToken, () => EDITOR_PANE_FACTORIES.map((create) => create(container)));
-    // `workspace.applyEdit` правит ОТКРЫТЫЙ ресурс через его буфер, а не через
-    // диск (иначе буфер и файл разъехались бы), и кладёт свой единственный шаг
-    // отмены в бакет тронутой вкладки. И то и другое знает только полоса групп
-    // редакторов, а исполнитель правок живёт в node-слое — доступ он получает
-    // отсюда.
+    // Правки открытого ресурса идут через буфер, а не диск (иначе буфер и файл разъедутся), и одним шагом отмены в бакет вкладки.
     container.bind(
         IBulkEditBuffersDIToken,
         () => new BulkEditBuffers(container.get(EditorServiceDIToken), container.get(TextFileModelServiceDIToken)),
     );
     container.bind(EditorPartComponentDIToken, EditorPartComponent);
-    // Оверлей серии Ctrl+Tab: видимый MRU-список вкладок текущей группы.
     container.bind(TabSwitcherComponentDIToken, TabSwitcherComponent);
-    // Find/Suggest-кластер (этап 10): компоненты владеют виджетами и
-    // overlay-сессиями (suggest — глобальный body-слой у каретки, find —
-    // локальный слой группы; host'ы прикрепляет WorkbenchComponent через attachHost),
-    // сервисы — логикой (FindService: query→matches→index; CompletionService:
-    // источники/триггеры/accept, item.command → CommandRegistry напрямую).
     container.bind(SuggestComponentDIToken, SuggestComponent);
     container.bind(CompletionServiceDIToken, CompletionService);
-    // Призрачные подсказки (inline suggest): сервис без компонента — ghost text
-    // рисует сам редактор (TextEditorPane.setGhostText), источник — провайдеры
-    // расширений из реестра inlineCompletionsProvider.
     container.bind(InlineCompletionsServiceDIToken, InlineCompletionsService);
-    // Go to Definition: сервис без компонента — цели отдают definition-провайдеры
-    // реестра ILanguageFeaturesService, навигация — паттерн Problems reveal.
     container.bind(DefinitionServiceDIToken, DefinitionService);
-    // Hover: пара по образцу suggest — компонент владеет попапом и его
-    // overlay-сессией (host прикрепляет WorkbenchComponent), сервис — логикой
-    // (hover-провайдеры реестра, стрип markdown, закрытие по фокусу/каретке).
     container.bind(HoverComponentDIToken, HoverComponent);
     container.bind(HoverServiceDIToken, HoverService);
-    // Подсказка параметров: та же пара — компонент владеет попапом у каретки,
-    // сервис спрашивает signature-help-провайдеров реестра и ловит набор триггер-символов.
     container.bind(ParameterHintsComponentDIToken, ParameterHintsComponent);
     container.bind(ParameterHintsServiceDIToken, ParameterHintsService);
-    // References: вьюлет сайдбара со ссылками + сервис, который его наполняет
-    // (references-провайдеры реестра → текст строк → панель).
     container.bind(ReferencesComponentDIToken, ReferencesComponent);
     container.bind(ReferencesServiceDIToken, ReferencesService);
-    // Rename Symbol: сервис поверх реестра rename-провайдеров (поле нового
-    // имени — quick input, правки накладывает провайдер через workspace.applyEdit).
     container.bind(RenameServiceDIToken, RenameService);
-    // Expand/Shrink Selection: иерархии от selection-range-провайдеров реестра
-    // плюс встроенные (слова, скобки языка), стек ступеней — по редактору.
     container.bind(SmartSelectServiceDIToken, SmartSelectService);
-    // История навигации (Go Back / Go Forward): сервис поверх той же полосы групп.
-    // Он же IJumpRecorder — шов, которым сайты прыжков сообщают о переходе.
     container.bind(HistoryEditorSourceDIToken, () => container.get(EditorServiceDIToken));
     container.bind(HistoryGroupsSourceDIToken, () => container.get(EditorGroupsServiceDIToken));
     container.bind(HistoryServiceDIToken, HistoryService);
@@ -569,22 +482,13 @@ export const workbenchModule: ContainerModule = (container) => {
     container.bind(TerminalEnvStatusContributionDIToken, TerminalEnvStatusContribution);
     container.bind(TerminalEnvContextKeysContributionDIToken, TerminalEnvContextKeysContribution);
     container.bind(StatusBarComponentDIToken, StatusBarComponent);
-    // Реестр workbench-contributions: явный список (WORKBENCH_CONTRIBUTIONS) +
-    // сам реестр, инстанцирующий их по фазам LifecycleService (подписку держит
-    // WorkbenchComponent): ready — в mount(), eventually — после первого кадра.
     container.bind(WorkbenchContributionsDIToken, () => WORKBENCH_CONTRIBUTIONS);
     container.bind(WorkbenchContributionsRegistryDIToken, WorkbenchContributionsRegistry);
-    // Реестр declarative menu-contributions: явный список MENU_CONTRIBUTIONS +
-    // реестр (данные) + MenuService (живые IMenu), из которых собираются
-    // контекст-меню (редактор, Explorer) и меню-бар.
     container.bind(MenuContributionsDIToken, () => MENU_CONTRIBUTIONS);
-    // Встроенные экшены (WORKBENCH_ACTIONS агрегатора) — их регистрирует WorkbenchComponent.
     container.bind(CommandActionsDIToken, () => WORKBENCH_ACTIONS);
     container.bind(MenuRegistryDIToken, MenuRegistry);
     container.bind(MenuServiceDIToken, MenuService);
     container.bind(ContextMenuServiceDIToken, ContextMenuService);
-    // Пилот editor-скоупа DI: политика контекстного меню редактора живёт в
-    // editor/contrib (как у vscode), биндится здесь как обычный сервис.
     container.bind(EditorContextMenuControllerDIToken, EditorContextMenuController);
     container.bind(AutoRevealContributionDIToken, AutoRevealContribution);
     container.bind(ThemeConfigContributionDIToken, ThemeConfigContribution);
@@ -592,30 +496,18 @@ export const workbenchModule: ContainerModule = (container) => {
     container.bind(OpenFileCommandContributionDIToken, OpenFileCommandContribution);
     // Stryker disable next-line ArrowFunction: биндинг DI без юнита; сквозняк — e2e-сценарий extension-storage
     container.bind(SetContextCommandContributionDIToken, SetContextCommandContribution);
-    // Panel-кластер (этап 6): реестр вкладок нижней панели + компонент-контрол,
-    // Problems-дерево и встроенный терминал (сервис инстансов + view-владелец).
     container.bind(PanelServiceDIToken, PanelService);
     container.bind(PanelComponentDIToken, PanelComponent);
     container.bind(PanelFocusContributionDIToken, PanelFocusContribution);
-    // Вторичная боковая панель: та же пара «реестр вкладок + компонент», что у панели.
     container.bind(AuxiliaryBarServiceDIToken, AuxiliaryBarService);
     container.bind(AuxiliaryBarComponentDIToken, AuxiliaryBarComponent);
     container.bind(AuxiliaryBarFocusContributionDIToken, AuxiliaryBarFocusContribution);
     container.bind(ProblemsComponentDIToken, ProblemsComponent);
-    // Output-кластер: реестр каналов (аналог IOutputChannelRegistry), модель
-    // панели и её view-владелец. Человекочитаемое имя канала объявляет его
-    // создатель (`createLogger(id, { label })`) — OutputService переносит его из
-    // лога; незаявленные доберёт сам с `label = id`.
     container.bind(OutputChannelRegistryDIToken, () => new OutputChannelRegistry());
     container.bind(OutputServiceDIToken, OutputService);
     container.bind(OutputComponentDIToken, OutputComponent);
     container.bind(OutputChannelActionsDIToken, OutputChannelActions);
-    // Коллекции переменных окружения расширений (`environmentVariableCollection`):
-    // их присылает extension host, применяет каждый запуск процесса терминала.
     container.bind(EnvironmentVariableServiceDIToken, EnvironmentVariableService);
-    // Прод-фабрика сессий терминала: реальная связка node-pty + @xterm/headless,
-    // окружение процесса — с коллекциями расширений. Тестовый профиль перебивает
-    // биндинг на FakeTerminalSurface (см. TestProfile).
     // Stryker disable ArrowFunction,BlockStatement,EqualityOperator,StringLiteral,ConditionalExpression,CallExpression: production-проводка модуля — решения живут в `createExtensionEnvironmentContributor`/`buildEnv` и закрыты юнитами, сквозняк — e2e-сценарий extension-environment-collection
     container.bind(TerminalSessionFactoryDIToken, () => {
         const environment = createExtensionEnvironmentContributor(
@@ -626,38 +518,23 @@ export const workbenchModule: ContainerModule = (container) => {
         return (options) => new EmbeddedTerminalSession(options, environment);
     });
     // Stryker restore ArrowFunction,BlockStatement,EqualityOperator,StringLiteral,ConditionalExpression,CallExpression
-    // Pty-терминалы расширений (`window.createTerminal({ pty })`): только эмулятор,
-    // процессом владеет субпроцесс расширений.
     // Stryker disable next-line ArrowFunction,CallExpression: биндинг DI без юнита; сквозняк — e2e-сценарий extension-terminal
     container.bind(ExtensionPtySessionFactoryDIToken, () => (options) => new ExtensionPtySession(options));
     container.bind(TerminalServiceDIToken, TerminalService);
-    // Шелл задач (`bash -c "<команда>"`) — тот же, что у терминала без shellPath.
     // Stryker disable next-line ArrowFunction,CallExpression: биндинг DI без юнита (профиль тестов ставит свой шелл); сквозняк — e2e-сценарий tasks
     container.bind(DefaultShellResolverDIToken, () => () => getSystemShell());
-    // Задачи: сервис (Run Task и соседи) и сегмент бегущих задач в статус-баре.
     container.bind(TaskServiceDIToken, TaskService);
     container.bind(TaskStatusBarContributionDIToken, TaskStatusBarContribution);
-    // Куда уходит фокус, когда последний шелл вышел и виджет ушёл со сцены.
     container.bind(TerminalFocusFallbackDIToken, () => container.get(EditorServiceDIToken));
-    // Палитра и фон/текст терминала: тема или хост-терминал (`terminal.integrated.colorSource`).
     container.bind(TerminalColorsServiceDIToken, TerminalColorsService);
     container.bind(TerminalPanelComponentDIToken, TerminalPanelComponent);
-    // Терминалы вкладками в области редакторов (`TerminalLocation.Editor`).
     container.bind(TerminalEditorServiceDIToken, TerminalEditorService);
-    // Диагностики: поставщики → MarkerService → потребители (squiggles, Problems).
     container.bind(DiagnosticsEditorSourceDIToken, () => container.get(EditorServiceDIToken));
     container.bind(MarkerRevealTargetDIToken, () => container.get(EditorServiceDIToken));
-    // Открытие результата поиска на позиции — тот же структурный срез EditorService.
     container.bind(SearchRevealTargetDIToken, () => container.get(EditorServiceDIToken));
-    // Открытие ссылки на позиции — тот же структурный срез EditorService.
     container.bind(ReferencesRevealTargetDIToken, () => container.get(EditorServiceDIToken));
     container.bind(DiagnosticsServiceDIToken, DiagnosticsService);
-    // Quick diff: живые change-bars в гуттере. Оригинал спрашиваем у SCM-расширения
-    // командой, читаем через реестр провайдеров ФС, диффаем против живого буфера.
-    // Гейт detached: с дифф-вкладки v2 getActiveEditor() отдаёт её сторону —
-    // класть quick-diff-бары в гуттер стороны (или Output) нельзя, у диффа
-    // своя разметка. Событие смены активного редактора и так отдаёт null для
-    // не-текстовых вкладок — фильтр нужен только опрашивающему пути.
+    // Гейт detached: с дифф-вкладки getActiveEditor() отдаёт её сторону, а у диффа своя разметка гуттера.
     container.bind(QuickDiffEditorSourceDIToken, () => {
         const editors = container.get(EditorServiceDIToken);
         return {
@@ -675,44 +552,23 @@ export const workbenchModule: ContainerModule = (container) => {
     container.bind(QuickDiffServiceDIToken, QuickDiffService);
     container.bind(DiffSnapshotRefreshContributionDIToken, DiffSnapshotRefreshContribution);
     container.bind(VscodeDiffCommandContributionDIToken, VscodeDiffCommandContribution);
-    // Вкладка Changes: расширение пушит набор изменений в ScmChangesService
-    // (команда `diode.scm.publishChanges`), ChangesComponent показывает его
-    // списком в нижней Panel и по клику открывает дифф этапа 5.
     container.bind(ScmChangesServiceDIToken, ScmChangesService);
     container.bind(ChangesComponentDIToken, ChangesComponent);
-    // View Graph: расширение пушит последние коммиты в ScmGraphService
-    // (команда `diode.scm.publishLog`), GraphViewComponent — секция GRAPH.
     container.bind(ScmGraphServiceDIToken, ScmGraphService);
     container.bind(GraphViewComponentDIToken, GraphViewComponent);
-    // Commit input box — header контейнера Source Control.
     container.bind(ScmInputComponentDIToken, ScmInputComponent);
-    // Снимок состояния репозитория (ветка/remotes/merge-rebase) → when-ключи git*.
     container.bind(ScmRepoStateServiceDIToken, ScmRepoStateService);
-    // Ветка + sync-счётчики в статус-баре.
     container.bind(ScmStatusBarContributionDIToken, ScmStatusBarContribution);
     container.bind(ScmBusyContextContributionDIToken, ScmBusyContextContribution);
-    // Этап 11: layout-логика (сайдбар/панель + персист layout'а; сам
-    // WorkbenchLayoutElement приходит от владельца view через attachLayout),
-    // персист открытых редакторов, контекст-ключи workbench'а (замыкают
-    // KeybindingDispatcher.updateContextKeys; корневая view — через attachView)
-    // и главное меню (пункты — из MenuRegistry, контрол — MenuBarComponent).
     container.bind(LayoutServiceDIToken, LayoutService);
-    // Сайдбар: реестр вьюлетов + переключатель Explorer ↔ Source Control
-    // (activity bar'а нет, переключают команды workbench.view.*).
     container.bind(SidebarServiceDIToken, SidebarService);
-    // View-секции внутри вьюлета (PaneView): реестр, сборка контейнера,
-    // персист свёрнутости/весов, меню «⋯».
     container.bind(ViewsServiceDIToken, ViewsService);
     container.bind(ViewProgressContributionDIToken, ViewProgressContribution);
     container.bind(ViewTitleActionsContributionDIToken, ViewTitleActionsContribution);
     container.bind(WorkbenchStateServiceDIToken, WorkbenchStateService);
-    // Смена фокуса как событие: на неё подписываются попапы редактора.
     container.bind(FocusTrackerDIToken, FocusTracker);
-    // Фичи, которые сами выставляют свои контекст-ключи (опрашивает WorkbenchContextKeys).
     container.bind(ContextKeyContributorsDIToken, () => WORKBENCH_CONTEXT_KEY_CONTRIBUTORS);
     container.bind(WorkbenchContextKeysDIToken, WorkbenchContextKeys);
     container.bind(MenuBarComponentDIToken, MenuBarComponent);
-    // Этап 12: корневой компонент приложения — владелец корневой view и
-    // bootstrap-жизненного цикла (mount/activate ведёт main.ts).
     container.bind(WorkbenchComponentDIToken, WorkbenchComponent);
 };

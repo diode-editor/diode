@@ -5,19 +5,12 @@ import type { ITerminalRelaunchOptions } from "../vs/workbench/contrib/terminal/
 
 export type { FakeCellOptions } from "@tuidom/testing/FakeTerminalSurface";
 
-/**
- * Фейк сессии встроенного терминала: поверхность из `@tuidom/testing` плюс
- * запущенный шелл и его pid (`ITerminalSession.shell`/`pid` — понятия редактора, не движка).
- * Перезапуск процесса на месте копит опции в `relaunches`, напечатанное в
- * эмулятор — в `printed`, последние 16 ANSI-цветов — в `ansiColors`; ввод
- * после выхода не пишется, а будит `onDidInputAfterExit`, как у настоящей сессии.
- */
+/** Ввод после выхода не пишется, а будит `onDidInputAfterExit` — как у настоящей сессии. */
 export class FakeTerminalSurface extends EngineFakeTerminalSurface {
-    /** Pid «процесса шелла» (у настоящей сессии он есть всегда). */
     public pid: number | undefined;
     public readonly relaunches: ITerminalRelaunchOptions[] = [];
     public readonly printed: string[] = [];
-    /** Последние заданные 16 ANSI-цветов; `undefined` — не задавались. */
+    /** `undefined` — не задавались. */
     public ansiColors: readonly number[] | undefined;
     private readonly inputAfterExit = new Emitter<void>();
     public readonly onDidInputAfterExit = this.inputAfterExit.event;

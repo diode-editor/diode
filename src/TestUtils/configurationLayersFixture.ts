@@ -5,11 +5,6 @@ import { ConfigurationRegistry } from "../vs/platform/configuration/common/confi
 import type { IFileWatcher } from "../vs/platform/files/common/iFileWatcher.ts";
 import type { ILogger } from "../vs/platform/log/common/iLogger.ts";
 
-/*
- * Общие помощники тестов слоёв воркспейса (`configurationService.workspace*.test.ts`).
- */
-
-/** Fake watcher: колбэк по пути, тест дёргает его руками. */
 export class FakeFileWatcher implements IFileWatcher {
     private readonly handlers = new Map<string, () => void>();
 
@@ -27,13 +22,7 @@ export class FakeFileWatcher implements IFileWatcher {
     }
 }
 
-/**
- * Реестр со всеми видами скоупов: ядро (`editor.*` — language-overridable,
- * `files.exclude` — resource, `workbench.colorTheme` — window,
- * `terminal.tier` — machine, `update.mode` — application) и ключи расширения
- * (`java.home` — `machine-overridable`, в воркспейс можно; `java.secret` —
- * `machine`, нельзя).
- */
+/** По ключу на каждый скоуп; `java.home` в воркспейс можно, `java.secret` — нельзя. */
 export function testRegistry(): ConfigurationRegistry {
     const registry = new ConfigurationRegistry([
         {

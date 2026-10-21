@@ -28,25 +28,18 @@ import { createLoggerSpy } from "./themeExtensionFixture.ts";
 
 export interface ITaskServiceHarnessOptions {
     readonly settings?: Readonly<Record<string, unknown>>;
-    /** Текст `.diode/tasks.json`; `undefined` — файла нет. */
+    /** `undefined` — файла нет. */
     readonly tasksJson?: string;
-    /** Папка воркспейса; `null` — окно без папки. */
+    /** `null` — окно без папки. */
     readonly folder?: IWorkspaceFolder | null;
 }
 
-/** Открытый в редакторе файл: каретка и показанный диапазон (что сделала команда). */
 export interface IFakeOpenedEditor {
     readonly uri: Uri;
     readonly goToPosition: ReturnType<typeof vi.fn<(line: number, column?: number) => void>>;
     readonly revealRange: ReturnType<typeof vi.fn<(range: unknown) => void>>;
 }
 
-/**
- * Сервис задач поверх настоящего TerminalService с фейковыми сессиями и
- * фейковыми краями: ФС (tasks.json — чтение и запись), редакторы, диалог,
- * пикер. Пикер отвечает по сценарию `answerPicks` — строкой с такой подписью
- * (`undefined` — отмена).
- */
 export function buildTaskServiceHarness(options: ITaskServiceHarnessOptions = {}) {
     const views = makeViewsHarness();
     const sessions: FakeTerminalSurface[] = [];
@@ -140,15 +133,11 @@ export function buildTaskServiceHarness(options: ITaskServiceHarnessOptions = {}
         files,
         editors,
         openUri,
-        /** Редактор, открытый последним `openUri`. */
         opened: (): IFakeOpenedEditor | null => opened,
-        /** Следующие `openUri` ресурс не открывают. */
         setOpenFails: (fails: boolean): void => {
             openFails = fails;
         },
-        /** Текущий текст tasks.json (`undefined` — файла нет). */
         tasksJson: (): string | undefined => tasksJson,
-        /** tasks.json открыт в редакторе: с несохранёнными правками или нет. */
         openTasksJsonModel: (isModified: boolean) => {
             openModel = { isModified, revertToDisk: vi.fn() };
             return openModel;
@@ -162,7 +151,7 @@ export function buildTaskServiceHarness(options: ITaskServiceHarnessOptions = {}
         contextKeys,
         logger,
         service,
-        /** Ответы пикера по порядку показов: подпись строки или `undefined` (Escape). */
+        /** По порядку показов: подпись строки или `undefined` (Escape). */
         answerPicks: (...labels: (string | undefined)[]): void => {
             answers.push(...labels);
         },
@@ -178,7 +167,6 @@ export function buildTaskServiceHarness(options: ITaskServiceHarnessOptions = {}
                     ? null
                     : { uri: path.includes(":") ? Uri.parse(path) : Uri.file(path), primaryCursorLine: line };
         },
-        /** Подписи строк последнего показанного пикера. */
         lastPickLabels: (): string[] => (picks.at(-1)?.items ?? []).map((item) => item.label),
         dispose: (): void => {
             service.dispose();
@@ -187,7 +175,6 @@ export function buildTaskServiceHarness(options: ITaskServiceHarnessOptions = {}
     };
 }
 
-/** tasks.json из списка задач. */
 export function tasksJsonOf(tasks: readonly Record<string, unknown>[]): string {
     return JSON.stringify({ version: "2.0.0", tasks });
 }

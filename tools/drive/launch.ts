@@ -27,29 +27,26 @@ export const repoRoot = resolve(fileURLToPath(new URL(".", import.meta.url)), ".
 const MAIN_TS = join(repoRoot, "src", "vs", "diode", "main.ts");
 export const DEFAULT_BINARY = join(repoRoot, "dist", process.platform === "win32" ? "diode.exe" : "diode");
 
-/** Сколько ждать, пока поднимется сокет инспектора (холодный tsx — секунды). */
+/** Холодный tsx — секунды. */
 const CONNECT_TIMEOUT_MS = 60_000;
 
 export interface StartOptions {
     readonly name: string;
-    /** Путь к бинарю; не задан — запуск из исходников. */
+    /** Не задан — запуск из исходников. */
     readonly binary?: string;
     readonly cols: number;
     readonly rows: number;
     readonly open?: readonly string[];
     readonly files?: Readonly<Record<string, string>>;
-    /** Каталог, чьё содержимое копируется в изолированный воркспейс. */
     readonly seed?: string;
     readonly settings?: AppEnvOptions["settings"];
     readonly keybindings?: AppEnvOptions["keybindings"];
-    /** id из магазина или путь к `.vsix` — тем же `--install-extension`, что у пользователя. */
+    /** id из магазина или путь к `.vsix`. */
     readonly install: readonly string[];
     readonly extraArgs: readonly string[];
     readonly keep: boolean;
-    /** Ждать `Diode.whenReady` (extension host активирован). */
     readonly waitReady: boolean;
     readonly readyTimeoutMs: number;
-    /** Не пересобирать встроенные расширения перед запуском из исходников. */
     readonly noBuild: boolean;
 }
 
@@ -59,13 +56,10 @@ export interface StartResult {
     readonly startMs: number;
 }
 
-/** Командная строка запуска: `[command, ...prefixArgs]` перед аргументами редактора. */
 function launcher(binary: string | undefined): { command: string; prefix: string[]; entry: string } {
     if (binary !== undefined) return { command: binary, prefix: [], entry: binary };
-    // `--import <url tsx>` вместо CLI `tsx`: один процесс вместо обёртки с
-    // ребёнком (pid в реестре — сам редактор), а абсолютный URL резолвится из
-    // любого cwd — редактор стартует в изолированном воркспейсе, где
-    // `node_modules` нет. `reloadWindow` перезапускает с тем же `execArgv`.
+    // `--import <url tsx>`, а не CLI `tsx`: один процесс (pid в реестре — сам редактор), и
+    // абсолютный URL резолвится из изолированного воркспейса, где `node_modules` нет.
     return { command: process.execPath, prefix: ["--import", import.meta.resolve("tsx"), MAIN_TS], entry: MAIN_TS };
 }
 
@@ -101,12 +95,6 @@ function installExtension(
     }
 }
 
-/**
- * Поднимает сессию: изолированный корень (`prepareAppEnv` e2e — та же
- * изоляция user-data/HOME/XDG), detached-процесс в своей группе с
- * stdout/stderr в файлы корня, запись в реестр, подключение и готовность.
- * Любой сбой после спавна — процесс добивается, корень и запись убираются.
- */
 export async function startSession(registry: SessionRegistry, options: StartOptions): Promise<StartResult> {
     const existing = registry.read(options.name);
     if (existing !== undefined) {
@@ -126,14 +114,12 @@ export async function startSession(registry: SessionRegistry, options: StartOpti
 
     const root = mkdtempSync(join(tmpdir(), `${ROOT_PREFIX}${options.name}-`));
     const marker = `${options.name}:${root}`;
-    // Пока процесса нет, «лидер» корня — мы сами: `gc` соседнего worktree,
-    // попавший в это окно, увидит живой pid и корень не снесёт.
+    // Пока процесса нет, «лидер» корня — мы сами: `gc` соседнего worktree корень не снесёт.
     mkdirSync(join(root, "drive"), { recursive: true });
     writeFileSync(rootRecordFile(root), JSON.stringify({ pid: process.pid, keep: options.keep }));
     let child: ChildProcess | undefined;
     try {
-        // Воркспейс наполняем ДО prepareAppEnv: решение «папка ли открываемое»
-        // (withWorkspaceFolder) должно видеть засеянные каталоги.
+        // До prepareAppEnv: withWorkspaceFolder должен видеть засеянные каталоги.
         const workspaceDir = join(root, "workspace");
         mkdirSync(workspaceDir, { recursive: true });
         if (options.seed !== undefined) cpSync(options.seed, workspaceDir, { recursive: true });
@@ -147,8 +133,7 @@ export async function startSession(registry: SessionRegistry, options: StartOpti
             keepRoot: true,
             ...(options.settings !== undefined ? { settings: options.settings } : {}),
             ...(options.keybindings !== undefined ? { keybindings: options.keybindings } : {}),
-            // Открываемые файлы — поверх папки воркспейса, как `diode <папка> <файл>`:
-            // без папки нет ни дерева файлов, ни SCM, ни workspaceFolders у расширений.
+            // Без папки нет ни дерева файлов, ни SCM, ни workspaceFolders у расширений.
             ...(options.open !== undefined ? { open: withWorkspaceFolder(root, options.open) } : {}),
             extraArgs: options.extraArgs,
         });
@@ -214,11 +199,6 @@ export async function startSession(registry: SessionRegistry, options: StartOpti
     }
 }
 
-/**
- * Папка воркспейса первой, если среди открываемого нет ни одного каталога и ни
- * одного файла `.code-workspace` (он сам задаёт папку окна, как `diode x.code-workspace`).
- * Абсолютные пути — как есть, относительные — от воркспейса (`prepareAppEnv`).
- */
 function withWorkspaceFolder(root: string, open: readonly string[]): string[] {
     const workspaceDir = join(root, "workspace");
     const isDir = (p: string): boolean => {
@@ -232,7 +212,6 @@ function withWorkspaceFolder(root: string, open: readonly string[]): string[] {
     return open.some(opensWorkspace) ? [...open] : [workspaceDir, ...open];
 }
 
-/** Подключение наперегонки со смертью процесса: ранний выход виден сразу, со stderr. */
 async function connectRacingExit(child: ChildProcess, port: number, stderrFile: string): Promise<DriveClient> {
     const abort = new AbortController();
     const died = new Promise<never>((_, reject) => {
@@ -258,11 +237,6 @@ export interface StopResult {
     readonly rootKept: string | undefined;
 }
 
-/**
- * Останавливает сессию: вежливо (`TUIDom.shutdown` — фазы выхода, сброс
- * состояния), потом добивает группу и всех с маркером, убирает корень (если
- * не `keep`) и запись.
- */
 export async function stopSession(
     registry: SessionRegistry,
     record: SessionRecord,
@@ -297,7 +271,6 @@ async function disposeSession(
     const killed = await killSessionProcesses(record.pid, record.marker);
     const keep = opts.keep || record.keep;
     if (keep) {
-        // Сохранённый для пост-мортема корень `gc` без `--kept` не трогает.
         writeFileSync(rootRecordFile(record.root), `${JSON.stringify({ ...record, keep: true }, null, 2)}\n`);
     } else {
         removeTempDir(record.root);
@@ -307,25 +280,14 @@ async function disposeSession(
 }
 
 export interface GcResult {
-    /** Записи мёртвых сессий, убранные вместе с корнем. */
     readonly deadSessions: string[];
-    /** Процессы с маркером, чей лидер мёртв (сессия брошена). */
     readonly orphansKilled: number;
-    /** Брошенные корни `diode-drive-*`. */
     readonly rootsRemoved: string[];
 }
 
 /**
- * Уборка после убитых/брошенных сессий — в том числе чужих worktree, но
- * только мёртвых. Источник правды о сессии — копия записи в её корне
- * (`<root>/drive/session.json`): лидер оттуда жив — сессия жива, чья бы она
- * ни была (реестр соседнего worktree нам не виден, а корень — виден).
- *
- * - запись своего реестра с мёртвым лидером → добить маркерных потомков,
- *   удалить корень (если не `keep`) и запись;
- * - процессы с маркером, чей лидер мёртв, — сироты: добить;
- * - корни `diode-drive-*` с мёртвым лидером и без живых процессов — удалить;
- *   корни, сохранённые `--keep`, — только с `kept: true`.
+ * Источник правды — копия записи в корне сессии, а не реестр: реестр соседнего
+ * worktree не виден, а корень виден, и живую чужую сессию трогать нельзя.
  */
 export async function gcSessions(registry: SessionRegistry, opts: { kept: boolean }): Promise<GcResult> {
     const deadSessions: string[] = [];
@@ -359,7 +321,6 @@ export async function gcSessions(registry: SessionRegistry, opts: { kept: boolea
     return { deadSessions, orphansKilled, rootsRemoved };
 }
 
-/** Копия записи сессии в её корне. */
 export function rootRecordFile(root: string): string {
     return join(root, "drive", "session.json");
 }

@@ -6,10 +6,8 @@ import type {
     IHistoryEditorSource,
 } from "../vs/workbench/services/history/browser/historyService.ts";
 
-/** Документ без известного числа строк: `goToPosition` не клампит. */
 const UNBOUNDED = Number.MAX_SAFE_INTEGER;
 
-/** Открытая «вкладка» фейка: ресурс + каретка. */
 class FakeHistoryPane implements IHistoryEditor {
     public line = 0;
     public character = 0;
@@ -28,7 +26,6 @@ class FakeHistoryPane implements IHistoryEditor {
         return this.character;
     }
 
-    /** Как у настоящей панели — клампит строку к границам документа. */
     public goToPosition(line: number, column = 0): void {
         this.line = Math.min(line, this.lineCount - 1);
         this.character = column;
@@ -48,20 +45,14 @@ class FakeHistoryGroup implements IHistoryEditorGroup {
 }
 
 /**
- * Фейковая полоса групп для юнитов `HistoryService`: воспроизводит ровно те
- * повадки `EditorService`, от которых зависит история, — синхронные события
- * смены активного редактора и перемещения каретки, идентичность вкладки по
- * ресурсу и отказ открыть закрытый не-`file:` ресурс (настоящий `openUri`
- * уходит в `TextFileModel.openFile`, который на такой схеме бросает).
+ * Повадки `EditorService`, от которых зависит история: синхронные события, вкладка
+ * по ресурсу и отказ открыть закрытый не-`file:` ресурс (настоящий `openUri` бросает).
  */
 export class FakeHistoryEditorSource implements IHistoryEditorSource {
-    /** Известное число строк по ресурсу — для проверки клампа `goToPosition`. */
+    /** Нет записи — `goToPosition` не клампит. */
     public readonly lineCounts = new Map<string, number>();
-    /** Ресурсы, прошедшие через {@link openUri}, в порядке вызовов. */
     public readonly openUriCalls: string[] = [];
-    /** Схемы с «провайдером содержимого» — их ресурсы считаются восстановимыми. */
     public readonly providedSchemes = new Set<string>();
-    /** Группы, запрошенные через {@link focusGroup}, в порядке вызовов. */
     public readonly focusGroupCalls: number[] = [];
 
     private readonly groupList: FakeHistoryGroup[] = [new FakeHistoryGroup(1)];
@@ -84,20 +75,13 @@ export class FakeHistoryEditorSource implements IHistoryEditorSource {
     public openUri(uri: Uri): void {
         this.openUriCalls.push(uri.toString());
         const existing = this.findPane(this.activeGroupValue, uri.toString());
-        // Закрытый недисковый ресурс заново не открыть — ни безымянный буфер,
-        // ни `output:`. История до этого и не доходит (`isReachable`), а фейк
-        // держит проверку, чтобы промах был виден тестом, а не тишиной.
+        // История сюда не доходит (`isReachable`); бросаем, чтобы промах был виден тестом, а не тишиной.
         if (existing === null && uri.scheme !== "file") {
             throw new Error(`openUri: ресурс ${uri.toString()} закрыт и не восстановим`);
         }
         this.activate(existing ?? this.insertPane(uri));
     }
 
-    /**
-     * Как у настоящего сервиса: диск и безымянный буфер — всегда, прочие
-     * схемы — пока их обслуживает провайдер содержимого. Набор таких схем
-     * задаёт тест ({@link providedSchemes}), настоящего провайдера здесь нет.
-     */
     public canRestore(uri: Uri): boolean {
         return uri.scheme === "file" || uri.scheme === "untitled" || this.providedSchemes.has(uri.scheme);
     }
@@ -129,19 +113,15 @@ export class FakeHistoryEditorSource implements IHistoryEditorSource {
         };
     }
 
-    // ─── Управление из теста ──────────────────────────────────
-
-    /** Открывает ресурс в активной группе — в обход гейта схемы у {@link openUri}. */
+    /** В обход гейта схемы у {@link openUri}. */
     public open(uri: string): void {
         this.activate(this.findPane(this.activeGroupValue, uri) ?? this.insertPane(Uri.parse(uri)));
     }
 
-    /** Двигает каретку активного редактора — как это делает пользователь. */
     public moveCaret(line: number, character = 0): void {
         this.activeGroupValue.active?.goToPosition(line, character);
     }
 
-    /** Закрывает вкладку ресурса в активной группе. */
     public close(uri: string): void {
         const group = this.activeGroupValue;
         const index = group.panes.findIndex((pane) => pane.uri.toString() === uri);
@@ -152,7 +132,6 @@ export class FakeHistoryEditorSource implements IHistoryEditorSource {
         this.fireActive(group.active);
     }
 
-    /** Заводит вторую группу и делает её активной. */
     public addGroup(id: number): void {
         const group = new FakeHistoryGroup(id);
         this.groupList.push(group);
@@ -160,21 +139,17 @@ export class FakeHistoryEditorSource implements IHistoryEditorSource {
         this.fireActive(null);
     }
 
-    /** Убирает группу из полосы (её вкладки исчезают вместе с ней). */
     public removeGroup(id: number): void {
         const index = this.groupList.findIndex((group) => group.id === id);
         this.groupList.splice(index, 1);
         this.activeGroupValue = this.groupList[0];
     }
 
-    /** Позиция каретки активного редактора — `null`, если редактора нет. */
     public caret(): { uri: string; line: number; character: number } | null {
         const active = this.activeGroupValue.active;
         if (active === null) return null;
         return { uri: active.uri.toString(), line: active.line, character: active.character };
     }
-
-    // ─── Внутреннее ───────────────────────────────────────────
 
     private findPane(group: FakeHistoryGroup, uri: string): FakeHistoryPane | null {
         return group.panes.find((pane) => pane.uri.toString() === uri) ?? null;

@@ -5,13 +5,6 @@ import type { IExtension } from "../vs/platform/extensions/common/iExtension.ts"
 import type { IThemeContribution } from "../vs/platform/extensions/common/iThemeContribution.ts";
 import type { ILogger } from "../vs/platform/log/common/iLogger.ts";
 
-/**
- * Обвязка тестов `ExtensionThemeContributor`: синтетическое расширение-тема с
- * файлами тем в памяти — без диска и без упаковки vsix. Реестр-фикстура для
- * e2e (`e2e/fixtures/sample-theme`) — тот же формат, но настоящими файлами.
- */
-
-/** Ассеты в памяти: виртуальный путь → текст файла. Ведёт журнал чтений. */
 export class MemoryAssets implements IAssetAccess {
     public readonly reads: string[] = [];
 
@@ -37,11 +30,7 @@ export class MemoryAssets implements IAssetAccess {
     }
 }
 
-/**
- * Расширение с `contributes.themes`. `themes` типизирован широко, чтобы тесты
- * могли подсунуть битую запись (без `label`/`path`) — как это сделал бы
- * сторонний манифест.
- */
+/** `themes` типизирован широко: тесты подсовывают битую запись, как сторонний манифест. */
 export function extensionWithThemes(id: string, themes: readonly unknown[], isBuiltin = false): IExtension {
     const dot = id.indexOf(".");
     const publisher = dot === -1 ? id : id.slice(0, dot);

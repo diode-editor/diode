@@ -11,20 +11,11 @@ import { registrationFromInstalled } from "./installedExtensionRegistration.ts";
 import { fetchStockVsix } from "./stockVsix.ts";
 
 /**
- * Общая обвязка сьютов extensionHost.javaLsp*: НАСТОЯЩИЙ сторонний vsix
- * redhat.java, установленный штатным `installVsix`, — ни строчки нашего кода
- * расширения. Расширение поднимает Eclipse JDT LS (`java -jar
- * org.eclipse.equinox.launcher`) и говорит с ним через стоковый
- * vscode-languageclient по unix-сокету (`TransportKind.pipe`).
- *
- * Vsix приезжает ИЗ МАГАЗИНА (политика — docs/TESTING.md). В vitest
- * `DIODE_VERSION` — `0.0.0-dev`, dev-канал гейт `engines.diode` не блокирует,
- * поэтому резолв отдаёт ПЛАТФОРМЕННУЮ запись со вшитым JRE: своего JDK машине
- * не нужно. Близнецы обвязки — ruffFixture.ts и basedpyrightFixture.ts (оттуда
- * же `until` и `CLIENT_CRASH_PATTERNS`).
+ * Стоковый vsix redhat.java из магазина. В vitest `DIODE_VERSION` — `0.0.0-dev`,
+ * гейт `engines.diode` не блокирует, и резолв отдаёт платформенную запись со
+ * вшитым JRE: своего JDK машине не нужно.
  */
 
-/** id записи в реестре; e2e-сьюты ставят его напрямую через `--install-extension`. */
 export const JAVA_ID = "redhat.java";
 
 export const JAVA_LANGUAGE_SERVICE: ILanguageService = {
@@ -34,18 +25,12 @@ export const JAVA_LANGUAGE_SERVICE: ILanguageService = {
 };
 
 /**
- * Событие активации, которым расширение поднимается: `activationEvents` у
- * redhat.java — только двенадцать `workspaceContains:` и два `onCommand:`, ни
- * `*`, ни `onLanguage:java` там НЕТ. Это не наша особенность: одиночный
- * `.java`-файл без build-файла не заводит расширение и в VS Code.
+ * `onLanguage:java` у redhat.java нет — только `workspaceContains:`; одиночный
+ * `.java` без build-файла не заводит расширение и в VS Code.
  */
 export const JAVA_ACTIVATION_EVENT = "workspaceContains:pom.xml";
 
-/**
- * Проект БЕЗ зависимостей — осознанно. Classpath с внешним jar-ом тянет артефакт
- * в `~/.m2` по сети и добавляет к прогону минуты; базовому сьюту достаточно
- * импорта m2e, а classpath проверяет отдельный (и отдельно помеченный) сьют.
- */
+/** Без зависимостей: внешний jar тянется в `~/.m2` по сети и добавляет минуты; classpath проверяет отдельный сьют. */
 export const POM_XML = `<?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0">
   <modelVersion>4.0.0</modelVersion>
@@ -60,11 +45,7 @@ export const POM_XML = `<?xml version="1.0" encoding="UTF-8"?>
 </project>
 `;
 
-/**
- * Каноническая фикстура: `greet` — цель для definition/references, `broken` —
- * ошибка типов, она же readiness-сигнал (диагностика от jdt.ls приходит только
- * после того, как проект импортирован и собран).
- */
+/** `broken` — ошибка типов и заодно сигнал готовности: диагностика jdt.ls приходит только после импорта и сборки. */
 export const APP_JAVA = `package demo;
 
 public class App {
@@ -80,32 +61,18 @@ public class App {
 }
 `;
 
-/** Путь исходника внутри проекта — раскладка maven, её ждёт m2e. */
 export const APP_JAVA_PATH = path.join("src", "main", "java", "demo", "App.java");
 
 export interface IMavenProject {
-    /** Корень проекта — он же папка воркспейса, её отдают харнессу. */
     readonly root: string;
     readonly appPath: string;
     dispose(): void;
 }
 
 /**
- * Раскладывает maven-проект в СВОЁМ каталоге, а не в `tmpDir` харнесса, и
- * создаётся ДО харнесса — его `workspaceFolders` принимает путь.
- *
- * Своя папка тут обязательна, и это не вкусовщина. По умолчанию харнесс держит
- * в `tmpDir` и папку воркспейса, и приватные каталоги расширения
- * (`globalStorage/…`), а jdt.ls разворачивает в `globalStorage` своё
- * eclipse-хозяйство (`-configuration`) и отказывается импортировать проект,
- * внутри которого оно лежит: «Failed to create linked resource … to the
- * invisible project», затем «Invalid project description for project», и файл
- * получает `App.java is a non-project file, only syntax errors are reported` —
- * то есть НИ ОДНОЙ семантической диагностики, молча и до самого таймаута.
- *
- * Отдельная функция, а не `harness.writeFile`, ещё и потому, что тот пишет плоско
- * и родительских каталогов не создаёт, а без `src/main/java/<пакет>/` maven
- * проект не импортирует.
+ * Свой каталог, а не `tmpDir` харнесса: там же лежит `globalStorage`, куда jdt.ls
+ * кладёт eclipse-конфигурацию, и проект, содержащий её, он не импортирует —
+ * «App.java is a non-project file», ни одной семантической диагностики до таймаута.
  */
 export function createMavenProject(): IMavenProject {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "diode-java-proj-"));
@@ -127,14 +94,6 @@ export interface IInstalledJava {
     dispose(): void;
 }
 
-/**
- * Устанавливает vsix в изолированный каталог и собирает регистрацию из
- * УСТАНОВЛЕННОГО манифеста той же функцией, что приложение (`toExtensionRegistration`);
- * дефолты настроек харнесс берёт из манифеста + курируемый `lombokSupport.enabled: false`
- * (манифестный `true` на связке jdt.ls 1.57 + современный JDK ломает
- * компиляцию насмерть и подменяет диагностики внутренней ошибкой компилятора,
- * см. curatedConfigInjection).
- */
 export async function installJava(): Promise<IInstalledJava> {
     const extensionsDir = fs.mkdtempSync(path.join(os.tmpdir(), "diode-vsix-"));
     const { id, version } = await installVsix((await fetchStockVsix(JAVA_ID)).vsixPath, extensionsDir);

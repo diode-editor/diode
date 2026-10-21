@@ -1,8 +1,6 @@
 /**
- * Проверка имён клавиш DSL `TUIDom.sendKey` (`serializeKey` движка) ДО
- * отправки. Движок незнакомое имя не отвергает: `"Down"` уезжает в редактор
- * как набор четырёх букв `D o w n`, и ловится это только по испорченному
- * буферу. Здесь незнакомое имя — ошибка с подсказкой.
+ * Движок незнакомое имя клавиши не отвергает: `"Down"` уезжает в редактор четырьмя
+ * буквами и ловится только по испорченному буферу — поэтому проверка до отправки.
  */
 
 const MODIFIERS = ["Ctrl", "Shift", "Alt", "Meta"] as const;
@@ -27,7 +25,6 @@ const NAMED_KEYS = new Set([
     ...Array.from({ length: 12 }, (_, i) => `F${String(i + 1)}`),
 ]);
 
-/** Частые промахи → правильное имя. */
 const ALIASES: Readonly<Partial<Record<string, string>>> = {
     up: "ArrowUp",
     down: "ArrowDown",
@@ -46,7 +43,6 @@ const ALIASES: Readonly<Partial<Record<string, string>>> = {
     bs: "Backspace",
 };
 
-/** Нормализует регистр модификаторов и проверяет базовую клавишу. Бросает с подсказкой. */
 export function validateKey(name: string): string {
     const parts = name.split("+");
     // `Ctrl++` — плюс как клавиша: последний сегмент пустой.
@@ -71,7 +67,6 @@ export function validateKey(name: string): string {
     );
 }
 
-/** Символ набора → имя клавиши DSL (`type` идёт посимвольно, как пользователь). */
 export function charToKey(ch: string): string {
     if (ch === " ") return "Space";
     if (ch === "\n" || ch === "\r") return "Enter";

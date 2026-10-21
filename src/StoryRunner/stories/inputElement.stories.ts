@@ -38,7 +38,6 @@ import {
 } from "../../vs/workbench/contrib/files/browser/inputWidgetService.ts";
 import type { StoryContext, StoryMeta } from "../StoryTypes.ts";
 
-/** Wires up a minimal keybinding stack for a single InputElement. */
 function mountInputKeybindings(ctx: StoryContext, input: InputElement): void {
     const commands = new CommandRegistry();
     const keybindings = new KeybindingRegistry();
@@ -107,7 +106,6 @@ export const meta: StoryMeta = {
     title: "InputElement",
 };
 
-/** Plain input without border. Type text, use arrow keys, Backspace. */
 export function basicInput(ctx: StoryContext): void {
     ctx.body.title = "InputElement — basic (no border)";
     const input = new InputElement();
@@ -118,7 +116,6 @@ export function basicInput(ctx: StoryContext): void {
     });
 }
 
-/** Input with Unicode box-drawing border. Border colour changes on focus. */
 export function withBorder(ctx: StoryContext): void {
     ctx.body.title = "InputElement — showBorder = true";
     const input = new InputElement();
@@ -133,7 +130,6 @@ export function withBorder(ctx: StoryContext): void {
     });
 }
 
-/** Input with placeholder text shown when empty. */
 export function withPlaceholder(ctx: StoryContext): void {
     ctx.body.title = "InputElement — placeholder";
     const input = new InputElement();
@@ -146,7 +142,6 @@ export function withPlaceholder(ctx: StoryContext): void {
     });
 }
 
-/** Input with border and placeholder — both focused and unfocused variants in a stack. */
 export function focusCycling(ctx: StoryContext): void {
     ctx.body.title = "InputElement — Tab to cycle focus (see border colour change)";
     const stack = new VStackElement();
@@ -168,7 +163,6 @@ export function focusCycling(ctx: StoryContext): void {
     });
 }
 
-/** Input pre-filled with long text to test horizontal scrolling. */
 export function longText(ctx: StoryContext): void {
     ctx.body.title = "InputElement — long text / horizontal scroll";
     const input = new InputElement();
@@ -183,25 +177,6 @@ export function longText(ctx: StoryContext): void {
     });
 }
 
-/**
- * Input with full keybinding support via InputWidgetService.
- *
- * Keys:
- *   ← / →                — move by character
- *   Ctrl+← / Ctrl+→      — move by word
- *   Home / End            — line start / end
- *   Shift+← / Shift+→    — select by character
- *   Ctrl+Shift+← / →     — select by word
- *   Shift+Home / Shift+End — select to line start / end
- *   Ctrl+A                — select all
- *   Backspace             — delete left
- *   Delete                — delete right
- *   Ctrl+Backspace        — delete word left
- *   Ctrl+Delete           — delete word right
- *   Ctrl+C                — copy selection
- *   Ctrl+X                — cut selection
- *   Ctrl+V                — paste
- */
 export function withKeybindings(ctx: StoryContext): void {
     ctx.body.title = "InputElement — full keybindings (Shift+←/→, Ctrl+A, Ctrl+C/X/V)";
 
@@ -221,9 +196,6 @@ export function withKeybindings(ctx: StoryContext): void {
     });
 }
 
-/**
- * Two inputs — Tab to switch, keybindings active only for the focused one.
- */
 export function twoInputsWithKeybindings(ctx: StoryContext): void {
     ctx.body.title = "InputElement — two inputs, Tab to switch, keybindings follow focus";
 

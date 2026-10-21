@@ -9,17 +9,7 @@ import type { IExtensionRegistration } from "../vs/workbench/services/extensions
 import { registrationFromInstalled } from "./installedExtensionRegistration.ts";
 import { fetchStockVsix } from "./stockVsix.ts";
 
-/**
- * Общая обвязка сьютов extensionHost.terraformLsp*: НАСТОЯЩИЙ сторонний vsix
- * hashicorp.terraform (платформенный, с нативным `terraform-ls` внутри),
- * установленный штатным `installVsix`, — ни строчки нашего кода расширения.
- * Сервер работает без terraform CLI: схемы провайдеров (AWS и др.) вшиты.
- *
- * Vsix приезжает ИЗ МАГАЗИНА: реестр отдаёт запись `targetPlatform` текущей
- * платформы (политика — docs/TESTING.md «Тесты на стоковые расширения»).
- */
-
-/** id записи в реестре; e2e и сценарии ставят его напрямую через `--install-extension`. */
+/** terraform CLI не нужен: схемы провайдеров (AWS и др.) вшиты в `terraform-ls`. */
 export const TERRAFORM_ID = "hashicorp.terraform";
 
 export const TF_LANGUAGE_SERVICE: ILanguageService = {
@@ -29,11 +19,8 @@ export const TF_LANGUAGE_SERVICE: ILanguageService = {
 };
 
 /**
- * Канонический файл: переменная и её использование (hover и F12 по
- * `var.region`), ресурс AWS со схемой из вшитых (автодополнение `ami`) и
- * лишний атрибут `bogus_attr` (диагностика «Unexpected attribute» — сигнал
- * готовности сервера). Строки 0-based: `variable` — 8, `var.region` — 14,
- * тело `aws_instance` — 18–19.
+ * `bogus_attr` — диагностика «Unexpected attribute», сигнал готовности сервера.
+ * Строки 0-based: `variable` — 8, `var.region` — 14, тело `aws_instance` — 18–19.
  */
 export const MAIN_TF = [
     "terraform {",
@@ -65,10 +52,6 @@ export interface IInstalledTerraform {
     dispose(): void;
 }
 
-/**
- * Устанавливает vsix в изолированный каталог и собирает регистрацию из
- * УСТАНОВЛЕННОГО манифеста той же функцией, что приложение.
- */
 export async function installTerraform(): Promise<IInstalledTerraform> {
     const extensionsDir = fs.mkdtempSync(path.join(os.tmpdir(), "diode-vsix-"));
     const { id, version } = await installVsix((await fetchStockVsix(TERRAFORM_ID)).vsixPath, extensionsDir);

@@ -8,12 +8,7 @@ import type { IExtensionRegistration } from "../vs/workbench/services/extensions
 /** Тот же префикс, что у пользовательских расширений в ассетах приложения. */
 const USER_PREFIX = "UserExtensions/";
 
-/**
- * Регистрация установленного стокового расширения — той же функцией, что у
- * приложения (`toExtensionRegistration`), из УСТАНОВЛЕННОГО манифеста. Так в
- * стоковых сьютах регистрация ровно та, что в проде, а не её копия; дефолты его
- * настроек (с курируемыми) харнесс собирает из манифеста сам.
- */
+/** Той же функцией, что у приложения, — регистрация ровно та, что в проде, а не её копия. */
 export async function registrationFromInstalled(
     extensionsDir: string,
     id: string,
@@ -33,8 +28,6 @@ export async function registrationFromInstalled(
             /* v8 ignore stop */
         },
     );
-    // Расширение без `main` активировать нечем — падаем с внятным текстом,
-    // а не разыменованием undefined в глубине резолва.
     /* v8 ignore start -- у стокового vsix main есть всегда; ветка достижима только на битом манифесте */
     if (registration === null) throw new Error(`${dirName}: в манифесте нет main`);
     /* v8 ignore stop */

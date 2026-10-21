@@ -13,18 +13,9 @@ import {
 } from "../../workbench/contrib/bulkEdit/browser/workspaceEditService.ts";
 
 /**
- * Сервисы уровня workspace: источник правды о папках воркспейса
- * (`WorkspaceContextService`) плюс единая система отмены — история
- * (`UndoRedoService`), системная корзина (`TrashService`) и исполнитель файловых
- * правок (`WorkspaceEditService`). `WorkspaceEditService` зависит от
- * `IConfigurationService` (см. `configurationModule`) и от доступа к открытым
- * буферам `IBulkEditBuffers` — его даёт полоса групп редакторов, поэтому
- * биндинг живёт в `workbenchModule` (сервис о редакторе не знает).
- *
- * У контекста воркспейса ДВА токена на один экземпляр, и это не церемония:
- * `WorkspaceContextServiceDIToken` отдаёт класс с писателем и берётся только
- * владельцем папки (`WorkbenchComponent`), `IWorkspaceContextServiceDIToken` —
- * интерфейс без писателя, и его берут все читатели.
+ * `WorkspaceEditService` биндится в `workbenchModule`: ему нужен `IBulkEditBuffers` полосы групп.
+ * Два токена на один экземпляр: класс с писателем — только владельцу папки (`WorkbenchComponent`),
+ * интерфейс без писателя — всем читателям.
  */
 export const workspaceModule: ContainerModule = (container) => {
     container.bind(WorkspaceContextServiceDIToken, () => new WorkspaceContextService());

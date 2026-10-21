@@ -1,42 +1,16 @@
 /**
- * Курируемые config-дефолты host'а для КОНКРЕТНЫХ сторонних расширений — слой
- * поверх дефолтов их манифеста, ниже пользовательских настроек (переопределяемы).
+ * Слой поверх дефолтов манифеста, ниже пользовательских настроек (переопределяем).
  *
- * basedpyright: манифестный дефолт `importStrategy: "fromEnvironment"` ищет
- * pip-установку сервера через API расширения ms-python.python и падает всей
- * активацией, когда того нет (наш `extensions.getExtension` честно отвечает
- * undefined, а вызов в activate() не обёрнут в try/catch — проверено на 1.40.0).
- * В Diode питон-расширения Microsoft не существует, поэтому единственный рабочий
- * путь — вшитый в vsix сервер; включаем его дефолтом.
+ * - basedpyright: `fromEnvironment` ищет сервер через API ms-python.python и роняет всю активацию,
+ *   когда того нет (вызов в activate() не обёрнут, проверено на 1.40.0), — остаётся вшитый сервер.
+ * - ruff: `fromEnvironment` зависит от PATH; вшитый нативный бинарь детерминирован (bundled ≥ 0.5.3).
+ * - redhat.java: lombok на jdt.ls 1.57 + JDK 21 ломает компиляцию всего проекта («Internal compiler
+ *   error», `NoSuchFieldError … constructorCall`). `updateBuildConfiguration` не трогаем: вопрос
+ *   «Synchronize now» с #352 отвечаем, `"automatic"` молча забрал бы решение у человека.
+ * - Anthropic.claude-code: webview-панели в TUI нет (docs/public/API-COVERAGE.md) — рабочий только
+ *   терминальный режим.
  *
- * ruff: манифестный дефолт `importStrategy: "fromEnvironment"` активацию не
- * роняет (без ms-python расширение честно падает на bundled), но сканирует
- * окружение и зависит от PATH; вшитый в платформенный vsix нативный бинарь —
- * детерминированный native server без Python вовсе (`nativeServer: "auto"`
- * выбирает его сам: bundled ruff заведомо ≥ 0.5.3). Пользовательский
- * `settings.json` может вернуть `fromEnvironment` — слой переопределяем.
- *
- * redhat.java: манифестный дефолт `jdt.ls.lombokSupport.enabled: true` на
- * связке jdt.ls 1.57 + JDK 21 ЛОМАЕТ компиляцию — javaagent lombok'а падает
- * внутри JDT (`Lombok can't parse this source: NoSuchFieldError …
- * ConstructorDeclaration.constructorCall`), и вместо диагностик проект целиком
- * получает «Internal compiler error». Это дефект lombok/JDT, а не наш, но
- * пользователю от этого не легче: дефолтная установка Java не работает вовсе.
- * Проверено живьём на maven- и gradle-фикстурах.
- *
- * `updateBuildConfiguration` НЕ трогаем: эталонный `"interactive"` спрашивает
- * после правки pom/gradle «Synchronize now / Never», и с #352 этот вопрос у нас
- * отвечаем — подменять его на `"automatic"` значило бы молча забрать у человека
- * решение, которое ему оставляет VS Code.
- *
- * Anthropic.claude-code: манифестный дефолт `claudeCode.useTerminal: false`
- * поднимает чат в webview-панели, которой в TUI нет и не будет (потолок —
- * docs/public/API-COVERAGE.md). Терминальный режим — `claude` CLI в нашем
- * терминале, подключённый к `ide`-серверу расширения, — единственный рабочий;
- * без дефолта человеку пришлось бы искать и включать его руками.
- *
- * Id сравнивается без учёта регистра: id расширений VS Code регистронезависимы,
- * а в манифестах издатели пишутся по-разному (`Anthropic`, `DetachHead`).
+ * Id без учёта регистра: id расширений VS Code регистронезависимы (`Anthropic`, `DetachHead`).
  */
 export function curatedConfigInjection(extensionId: string): Record<string, unknown> {
     const id = extensionId.toLowerCase();

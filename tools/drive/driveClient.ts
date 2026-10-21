@@ -15,12 +15,7 @@ import { connectWithRetry } from "../../e2e/helpers/inspectorClient.ts";
 import { $, focusedLeaf } from "../../e2e/helpers/query.ts";
 import { DiodeInspectorMethod } from "../../src/vs/diode/diodeInspectorMethods.ts";
 
-/**
- * Клиент инспектора для одного вызова `npm run drive`: подключился к порту
- * живой сессии, сделал своё, отключился. Процесс редактора им не владеет (в
- * отличие от `HeadlessSession` из e2e) — сессия живёт между вызовами, сервер
- * инспектора держит любое число сокетов.
- */
+/** Процессом редактора не владеет (в отличие от `HeadlessSession` e2e): сессия живёт между вызовами. */
 export class DriveClient {
     private nextId = 1;
     private isClosed = false;
@@ -59,7 +54,6 @@ export class DriveClient {
         return new DriveClient(await connectWithRetry(`ws://127.0.0.1:${String(port)}`, timeoutMs, signal));
     }
 
-    /** Сокет закрыт сервером: процесс вышел или окно перезагружается. */
     public get closed(): boolean {
         return this.isClosed;
     }
@@ -75,8 +69,6 @@ export class DriveClient {
             this.ws.send(JSON.stringify({ id, method, params }));
         });
     }
-
-    // ── TUIDom.* ──
 
     public async sendKey(name: string): Promise<void> {
         await this.rpc("TUIDom.sendKey", { name });
@@ -117,8 +109,6 @@ export class DriveClient {
     public async shutdown(): Promise<void> {
         await this.rpc("TUIDom.shutdown");
     }
-
-    // ── Diode.* ──
 
     public whenReady(timeoutMs: number): Promise<{ ready: boolean; pid: number }> {
         return this.rpc(DiodeInspectorMethod.whenReady, { timeoutMs });

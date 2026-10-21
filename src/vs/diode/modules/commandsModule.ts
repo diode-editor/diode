@@ -9,10 +9,6 @@ import {
 } from "../../platform/keybinding/common/modifierReleaseArmory.ts";
 import { ILogServiceDIToken } from "../../platform/log/common/iLogServiceDIToken.ts";
 
-/**
- * Команды, кейбиндинги и when-context. Реестры конструируются с дефолтным
- * состоянием; when-context читает `config.*` из настроек.
- */
 export const commandsModule: ContainerModule = (container) => {
     container.bind(
         CommandRegistryDIToken,

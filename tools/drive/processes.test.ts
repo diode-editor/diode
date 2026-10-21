@@ -10,7 +10,6 @@ afterEach(() => {
     for (const c of children.splice(0)) c.kill("SIGKILL");
 });
 
-/** Долгоживущий node с маркером; `detached` — лидер своей группы, как редактор сессии. */
 async function spawnMarked(
     marker: string,
     opts: { detached?: boolean; ignoreTerm?: boolean } = {},
@@ -75,7 +74,7 @@ describe.skipIf(process.platform !== "linux")("findMarkedProcesses / killSession
         const stranger = await spawnMarked(`other:/tmp/x-${String(process.pid)}`);
         await until(() => findMarkedProcesses().filter((p) => p.marker === marker).length === 2);
         const killed = await killSessionProcesses(leader.pid, marker, 300);
-        expect(killed).toBe(1); // глухой к SIGTERM — добит SIGKILL
+        expect(killed).toBe(1);
         expect(findMarkedProcesses().filter((p) => p.marker === marker)).toEqual([]);
         expect(isAlive(stranger.pid ?? -1)).toBe(true);
     });

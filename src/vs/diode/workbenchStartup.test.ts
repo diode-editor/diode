@@ -37,7 +37,6 @@ import { startWorkbench } from "./workbenchStartup.ts";
 
 const NO_TARGETS: IStartupTargets = { folder: undefined, workspaceFile: undefined, files: [], diff: undefined };
 
-/** Расширение с пунктом контекст-меню редактора (`contributes.menus`). */
 const MENU_EXTENSION: IExtension = {
     id: "test.menus",
     location: "user:test.menus/",
@@ -54,7 +53,6 @@ const MENU_EXTENSION: IExtension = {
     },
 };
 
-/** Расширение, перебивающее builtin-аккорд Ctrl+P своей командой. */
 const KEYBINDING_EXTENSION: IExtension = {
     id: "test.keys",
     location: "user:test.keys/",
@@ -72,14 +70,12 @@ interface IStartup {
     readonly container: ReturnType<typeof createTestContainer>["container"];
     readonly log: string[];
     readonly preloaded: (readonly string[])[];
-    /** «Кадр»: зовёт колбэки, отложенные `afterNextFrame` до него, — тест зовёт сам. */
+    /** Зовёт колбэки, отложенные `afterNextFrame` до него. */
     nextFrame(): void;
-    /** Приложение, поднятое в `host.run()`. */
     testApp(): TestApp | undefined;
     run(targets: IStartupTargets, extensions?: readonly IExtension[], workspace?: IStartupWorkspace): Promise<void>;
 }
 
-/** Тестовый контейнер + хост, который записывает, в каком порядке его дёргают. */
 function setup(stateService?: IStateService): IStartup {
     const { container, bindApp } = createTestContainer();
     if (stateService !== undefined) container.bind(StateServiceDIToken, () => stateService);
@@ -264,8 +260,6 @@ describe("startWorkbench", () => {
         expect(foldersAtReady).toEqual([ws.dir]);
     });
 
-    // `diode web.code-workspace`: папка — та, что в файле, а окно — воркспейс из
-    // файла (идентичность и настройки — его), и тоже до mount.
     it("файл воркспейса открывается до mount: папка из файла, состояние workspace", async () => {
         const startup = setup();
         const lifecycle = startup.container.get(LifecycleServiceDIToken);
@@ -376,7 +370,6 @@ describe("startWorkbench", () => {
 
     describe("сохранённая сессия", () => {
         let userData: ITempWorkspace;
-        /** Созданные кейсом `StateService` — гасим их в `afterEach`. */
         let writers: IStateService[];
 
         beforeEach(() => {
@@ -397,7 +390,6 @@ describe("startWorkbench", () => {
             return state;
         }
 
-        /** Прошлый запуск: в окне (с папкой или без) были открыты эти файлы. */
         function seedSession(folder: string | undefined, files: readonly string[]): void {
             const state = newState();
             const h = createAppTestHarness({ workspaceFolder: folder, stateService: state });
@@ -423,7 +415,6 @@ describe("startWorkbench", () => {
 
             expect(startup.preloaded).toEqual([[a, b]]);
             expect(openPaths(startup)).toEqual([a, b]);
-            // Окно поднимается с фокусом в редакторе — печатать можно сразу.
             expect(startup.testApp()?.focusedElement?.constructor.name).toBe("EditorElement");
         });
 

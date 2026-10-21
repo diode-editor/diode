@@ -8,7 +8,7 @@ import { macKeysLevel, type MacKeysRung } from "../vs/platform/keybinding/common
 import { withMacKeybindings } from "../vs/workbench/browser/actions/macKeybindings.ts";
 import { WORKBENCH_ACTIONS } from "../vs/workbench/workbench.common.main.ts";
 
-/** Дефолтные бинды — так, как их регистрирует WorkbenchComponent (в порядке `actions`). */
+/** Так, как регистрирует WorkbenchComponent: порядок `actions` важен. */
 export function registerBuiltins(actions: readonly CommandAction[] = WORKBENCH_ACTIONS): KeybindingRegistry {
     const keybindings = new KeybindingRegistry();
     const commands = new CommandRegistry();

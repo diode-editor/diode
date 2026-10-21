@@ -34,18 +34,10 @@ export function keyboardDoctorSnapshot(env: TerminalEnvironmentService): Keyboar
     };
 }
 
-/**
- * Preferences в приложении: шов открытия вкладки Keyboard Shortcuts, сервис
- * редактирования user-биндингов (применение keybindings.json + запись) и
- * рекордер комбинаций и Keyboard Doctor (хост — `LayoutService.mainContainer`).
- * Вкладка — обычная панель полосы редакторов; `EditorService` соответствует
- * шву структурно (как `ExtensionsEditorTargetDIToken` у магазина).
- */
 export const preferencesModule: ContainerModule = (container) => {
     container.bind(KeybindingsEditorTargetDIToken, () => container.get(EditorServiceDIToken));
     container.bind(KeybindingsEditorServiceDIToken, KeybindingsEditorService);
-    // Рекордеру нужен только текущий tier — узкий срез node-сервиса замыкается
-    // здесь, чтобы browser-компонент не импортировал node-окружение.
+    // Узкий срез node-сервиса замыкается здесь, чтобы browser-компонент не импортировал node-окружение.
     container.bind(
         KeybindingRecorderComponentDIToken,
         () =>
@@ -54,7 +46,6 @@ export const preferencesModule: ContainerModule = (container) => {
                 container.get(LayoutServiceDIToken),
             ),
     );
-    // Keyboard Doctor: снимок окружения — тот же узкий срез node-сервиса.
     container.bind(KeyboardDoctorComponentDIToken, () => {
         const env = container.get(TerminalEnvironmentServiceDIToken);
         const keybindings = container.get(KeybindingRegistryDIToken);

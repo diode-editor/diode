@@ -14,7 +14,6 @@ import {
 
 type Handler = (params: unknown) => unknown;
 
-/** Регистрирует методы в обычную мапу — как `InspectorCore.register`, без сервера. */
 function setup(overrides: Partial<IDiodeInspectorPorts> = {}): {
     call: (method: string, params?: unknown) => Promise<unknown>;
     commands: CommandRegistry;

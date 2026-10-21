@@ -24,15 +24,7 @@ export interface TokenizationModuleContext {
     languageConfigurationService: ILanguageConfigurationService;
 }
 
-/**
- * Языки: реестр грамматик, резолвер стилей, language service и конфигурации
- * языков (`language-configuration.json`). Эти реализации передаются снаружи —
- * в production это нагруженный `TokenizationRegistry` + `TokenThemeResolver` +
- * `LanguageConfigurationService`, в тестах — пустые/NULL-стабы.
- *
- * Реестры языковых провайдеров (`ILanguageFeaturesService`) модуль создаёт сам:
- * они стартуют пустыми в любом профиле, наполняют их host и встроенные фичи.
- */
+/** Реестры языковых провайдеров модуль создаёт сам: они стартуют пустыми в любом профиле. */
 export const tokenizationModule: ContainerModule<TokenizationModuleContext> = (
     container,
     {

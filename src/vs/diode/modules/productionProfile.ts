@@ -58,24 +58,14 @@ export interface ProductionProfileContext {
     stateService: IStateService;
     userKeybindings: readonly IUserKeybindingRule[];
     logService: ILogService;
-    /** Кольцевой буфер логов — источник содержимого Output-панели. */
     logHistory: ILogHistory;
-    /** Окружение процесса: пути user data активного профиля и флаги CLI. */
     environment: IEnvironmentService;
-    /** Магазин расширений: версии сборки и сток диагностик реестра. */
     extensions: ExtensionsModuleContext;
-    /** Extension host и сервис расширений: просканированный набор и окружение сборки регистраций. */
     extensionHost: IExtensionHostModuleContext;
-    /** Чем заканчивается прощание: выход или замена процесса новым (`workbench.action.reloadWindow`). */
     hostProcess: IHostProcess;
-    /** Реестр профилей, активный профиль окна и сток заголовка терминала. */
     userDataProfile: UserDataProfileModuleContext;
 }
 
-/**
- * Production-профиль: полный набор сервисов с реальными реализациями
- * tokenization/language. Используется в `main.ts`.
- */
 export function createProductionContainer(ctx: ProductionProfileContext): Container {
     return new Container()
         .use(coreModule, { app: ctx.app })

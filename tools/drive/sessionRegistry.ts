@@ -2,29 +2,20 @@ import { mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "nod
 import { join } from "node:path";
 
 /**
- * Реестр сессий `npm run drive`: по файлу `<name>.json` на живую сессию.
- * Каталог — `.drive/sessions/` в корне checkout'а (gitignored), то есть у
- * каждого worktree свой реестр: параллельные агенты в соседних worktree не
- * видят и не гасят сессии друг друга, хотя у всех сессия по умолчанию
- * называется `default`.
+ * Реестр — в корне checkout'а, то есть свой у каждого worktree: параллельные агенты
+ * не гасят сессии друг друга, хотя у всех сессия по умолчанию `default`.
  */
 export interface SessionRecord {
     readonly name: string;
-    /** Pid запущенного процесса — лидер своей группы (`detached`). */
+    /** Лидер своей группы (`detached`). */
     readonly pid: number;
-    /**
-     * Pid текущего окна. После `reloadWindow` лидер остаётся супервизором, а окно —
-     * новый процесс на том же порту; `wait reload` ждёт окно с другим pid.
-     */
+    /** После `reloadWindow` окно — новый процесс на том же порту, лидер остаётся супервизором. */
     readonly windowPid: number;
     readonly port: number;
-    /** Временный корень сессии: user-data-dir, home, workspace, логи. */
     readonly root: string;
     readonly workspaceDir: string;
     readonly userDataDir: string;
-    /** `source` — `node --import tsx src/vs/diode/main.ts`, `binary` — собранный бинарь. */
     readonly mode: "source" | "binary";
-    /** Что именно запущено: путь бинаря или `main.ts`. */
     readonly entry: string;
     readonly cols: number;
     readonly rows: number;
@@ -33,14 +24,12 @@ export interface SessionRecord {
     readonly stderrFile: string;
     /** Не удалять корень при `stop` (пост-мортем). */
     readonly keep: boolean;
-    /** Значение маркера в env процессов сессии — по нему `stop`/`gc` находят сирот. */
     readonly marker: string;
 }
 
-/** Имя переменной-маркера: наследуется всеми потомками, переживает `setsid`. */
+/** Наследуется всеми потомками и переживает `setsid` — по нему `stop`/`gc` находят сирот. */
 export const SESSION_MARKER_ENV = "DIODE_DRIVE_SESSION";
 
-/** Префикс временного корня — `gc` узнаёт по нему брошенные корни. */
 export const ROOT_PREFIX = "diode-drive-";
 
 const NAME_RE = /^[A-Za-z0-9._-]{1,64}$/;

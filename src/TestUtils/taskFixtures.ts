@@ -11,7 +11,6 @@ import {
 } from "../vs/workbench/contrib/tasks/common/tasks.ts";
 import type { ITaskVariableContext } from "../vs/workbench/contrib/tasks/common/taskVariables.ts";
 
-/** Папка воркспейса задач в тестах. */
 export const TASK_FOLDER: IWorkspaceFolder = { uri: Uri.file("/ws"), name: "ws", index: 0 };
 
 export interface ITaskFixtureOptions {
@@ -20,7 +19,6 @@ export interface ITaskFixtureOptions {
     readonly presentation?: Partial<IPresentationOptions>;
     readonly runOptions?: Partial<IRunOptions>;
     readonly isBackground?: boolean;
-    /** Задача провайдера расширения: тип и id расширения. */
     readonly extension?: { readonly type: string; readonly extensionId: string; readonly source: string };
     readonly folder?: IWorkspaceFolder | null;
     readonly detail?: string;
@@ -28,7 +26,6 @@ export interface ITaskFixtureOptions {
     readonly definition?: Readonly<Record<string, unknown>>;
 }
 
-/** Задача ядра для тестов: по умолчанию — задача tasks.json `shell` с командой `echo <label>`. */
 export function makeTask(options: ITaskFixtureOptions = {}): ITask {
     const label = options.label ?? "build";
     const folder = options.folder === null ? undefined : (options.folder ?? TASK_FOLDER);
@@ -40,8 +37,7 @@ export function makeTask(options: ITaskFixtureOptions = {}): ITask {
         presentation: { ...DEFAULT_PRESENTATION, ...options.presentation },
     };
     const extension = options.extension;
-    // Задача провайдера — ключ по формуле эталона (без схемы типа): по нему её
-    // находят команды с аргументом-определением.
+    // Ключ по формуле эталона: по нему задачу находят команды с аргументом-определением.
     const keyed =
         extension === undefined
             ? undefined
@@ -76,7 +72,6 @@ export function makeTask(options: ITaskFixtureOptions = {}): ITask {
     };
 }
 
-/** Значения переменных задачи для тестов: папка `/ws`, без открытого файла. */
 export function taskVariables(overrides: Partial<ITaskVariableContext> = {}): ITaskVariableContext {
     return {
         folderPath: TASK_FOLDER.uri.fsPath,

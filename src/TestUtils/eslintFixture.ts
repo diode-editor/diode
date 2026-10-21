@@ -12,46 +12,25 @@ import { registrationFromInstalled } from "./installedExtensionRegistration.ts";
 import { fetchStockVsix } from "./stockVsix.ts";
 
 /**
- * Общая обвязка сьютов extensionHost.eslintLsp*: НАСТОЯЩИЙ сторонний vsix
- * dbaeumer.vscode-eslint, установленный штатным `installVsix`, — ни строчки
- * нашего кода расширения. Клиент расширения спавнит бандленный eslintServer
- * (TransportKind.ipc) через стоковый vscode-languageclient; саму библиотеку
- * eslint сервер резолвит из `node_modules` ПРОЕКТА — расширение её не бандлит,
- * поэтому фикстура доносит её в воркспейс теста ({@link ensureEslintLibrary} +
- * {@link linkEslintLibrary}).
- *
- * Vsix приезжает ИЗ МАГАЗИНА — последняя опубликованная версия записи, без
- * закоммиченной фикстуры (политика — docs/TESTING.md).
- *
- * Близнецы обвязки — ruffFixture.ts / basedpyrightFixture.ts (оттуда же
- * `until` и CLIENT_CRASH_PATTERNS).
+ * Библиотеку eslint сервер расширения резолвит из `node_modules` проекта — vsix её
+ * не бандлит, поэтому фикстура доносит её в воркспейс ({@link linkEslintLibrary}).
  */
 
-/** id записи в реестре; e2e-сьюты ставят его напрямую через `--install-extension`. */
 export const ESLINT_ID = "dbaeumer.vscode-eslint";
 
 const REPO_ROOT = fileURLToPath(new URL("../..", import.meta.url));
-/** Кэш `npm install eslint` — вне рабочего дерева, переживает прогоны. */
 const ESLINT_LIB_CACHE_DIR = path.join(REPO_ROOT, "node_modules", ".cache", "diode-eslint-fixture");
 
-/** Мини-сервис языков: `.js` → javascript (язык из `eslint.probe`), иначе — undefined. */
 export const JS_LANGUAGE_SERVICE: ILanguageService = {
     ...NULL_LANGUAGE_SERVICE,
     getLanguageIdForResource: (filePath) => (filePath.endsWith(".js") ? "javascript" : undefined),
     getLanguageDisplayName: () => undefined,
 };
 
-/**
- * Канонический линт-файл: неиспользуемая переменная (no-unused-vars, БЕЗ
- * автофикса) и лишняя точка с запятой (no-extra-semi, safe-автофикс) — пара
- * «остаётся после Fix All» / «уходит после Fix All» в одном файле.
- */
+/** no-unused-vars без автофикса и no-extra-semi с ним: «остаётся» и «уходит» после Fix All. */
 export const LINT_JS = "const unused = 1;;\n";
 
-/**
- * Flat-конфиг только на core-правилах — ничего, кроме пакета `eslint`, в
- * фикстурный воркспейс не ставится.
- */
+/** Только core-правила — кроме пакета `eslint`, в воркспейс ничего не ставится. */
 export const ESLINT_FLAT_CONFIG =
     'export default [\n    { rules: { "no-unused-vars": "error", "no-extra-semi": "error" } },\n];\n';
 
@@ -60,12 +39,6 @@ export interface IInstalledEslint {
     dispose(): void;
 }
 
-/**
- * Устанавливает vsix в изолированный каталог и собирает регистрацию из
- * УСТАНОВЛЕННОГО манифеста той же функцией, что приложение (`toExtensionRegistration`).
- * Курируемых дефолтов у eslint нет — манифестные (`eslint.enable: true`,
- * `javascript` в `eslint.probe`, `lintTask.enable: false`) работают как есть.
- */
 export async function installEslint(): Promise<IInstalledEslint> {
     const extensionsDir = fs.mkdtempSync(path.join(os.tmpdir(), "diode-vsix-"));
     const { id, version } = await installVsix((await fetchStockVsix(ESLINT_ID)).vsixPath, extensionsDir);
@@ -77,11 +50,7 @@ export async function installEslint(): Promise<IInstalledEslint> {
     };
 }
 
-/**
- * Гарантирует кэшированную установку npm-пакета `eslint` (последняя версия на
- * момент первого прогона; кэш живёт до чистки node_modules — как у стоковых
- * vsix, версию не пиним) и возвращает путь к её `node_modules`.
- */
+/** Версию не пиним — как у стоковых vsix; кэш живёт до чистки node_modules. */
 export function ensureEslintLibrary(): string {
     const nodeModules = path.join(ESLINT_LIB_CACHE_DIR, "node_modules");
     if (fs.existsSync(path.join(nodeModules, "eslint", "package.json"))) return nodeModules;
@@ -102,11 +71,6 @@ export function ensureEslintLibrary(): string {
     return nodeModules;
 }
 
-/**
- * Доносит библиотеку eslint до фикстурного воркспейса симлинком `node_modules`
- * — серверу расширения достаточно, чтобы `require("eslint")` резолвился вверх
- * от линтуемого файла.
- */
 export function linkEslintLibrary(workspaceDir: string, nodeModules: string): void {
     fs.symlinkSync(nodeModules, path.join(workspaceDir, "node_modules"), "dir");
 }

@@ -5,18 +5,12 @@ import { QuickInputComponentDIToken } from "../vs/workbench/browser/parts/quicki
 
 import type { IAppHarness } from "./AppTestHarness.ts";
 
-/**
- * Водитель диалога файлов (`SimpleFileDialog` на общем QuickInput-оверлее) в
- * приложении из харнесса: ждать состояния и печатать так, как это делает
- * человек, — клавишами, через настоящий ввод.
- */
+/** Печатает клавишами, через настоящий ввод, — как человек. */
 export interface IFileDialogDriver {
     readonly component: QuickInputComponent;
-    /** Снимок виджета: запрос, заголовок, строки, подсветка. */
     state(): Record<string, unknown>;
-    /** Дождаться, пока снимок совпадёт с ожиданием (подгрузка каталога асинхронна). */
+    /** Подгрузка каталога асинхронна. */
     settle(expected: Record<string, unknown>): Promise<void>;
-    /** Заменить строку запроса набранным текстом (выделить всё и напечатать). */
     replaceQuery(text: string): void;
     key(name: string): void;
     validationMessage(): string | null;

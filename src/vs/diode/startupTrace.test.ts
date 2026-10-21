@@ -174,7 +174,6 @@ describe("buildStartupTrace / writeStartupTrace", () => {
         const path = join(dir, "trace.json");
         writeStartupTrace(path, true);
         const text = readFileSync(path, "utf8");
-        // Одна JSON-строка с переводом строки в конце — как пишут все наши файлы.
         expect(text.endsWith("}\n")).toBe(true);
         const parsed = JSON.parse(text) as IStartupTrace;
         expect(parsed.complete).toBe(true);
