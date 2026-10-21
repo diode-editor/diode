@@ -41,7 +41,7 @@
 - [~] `src/vs/base`, `src/vs/platform`, `src/vs/diode`, TestUtils, demos, StoryRunner, tools (2158)
 - [x] `src/vs/editor` (1412) — #746
 - [x] `workbench/services` (2752) — #751
-- [~] `workbench/browser`, `workbench/common` (1861)
+- [x] `workbench/browser`, `workbench/common` (1861) — #750
 - [~] `workbench/api` (1982)
 - [~] `workbench/contrib` и прочее `workbench/` (3897)
 - [~] `e2e` (2879)
