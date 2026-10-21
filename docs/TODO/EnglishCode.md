@@ -29,7 +29,7 @@
 - [x] `workbench/contrib`: scm, terminal, tasks (1917) — #739
 - [~] `workbench/contrib`: files, extensions, diff, search, suggest, parameterHints, inlineCompletions, quickaccess (2236)
 - [~] `workbench/contrib`: остальные фичи и прочее `workbench/` (1734)
-- [ ] `src/vs/diode`, TestUtils, demos, StoryRunner, tools (904)
+- [~] `src/vs/diode`, TestUtils, demos, StoryRunner, tools (904)
 - [ ] `e2e/scenarios` (1052)
 - [ ] `e2e`: остальное (1827)
 - [ ] scripts, extensions, packaging, `.github`, конфиги (2330)
