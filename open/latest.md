@@ -1,63 +1,63 @@
-# Бенчмарк открытия файла
+# File open benchmark
 
-- Снято: 2026-10-21T18:05:31.840Z, коммит `d6df6900b851`, diode nightly-d6df690
-- Машина: AMD EPYC 7763 64-Core Processor (4 cores, 16 GB), linux 7.0.0-1017-azure
-- Условия: CI, shared runner (GitHub Actions)
-- Пол node (`node -e ""` через PTY, median): 24 мс; пол бинаря (`diode --version` через PTY, median): 57 мс; для справки `node --version`: 4 мс (отвечает до подъёма V8)
+- Recorded: 2026-10-21T18:28:38.489Z, commit `e8aa617a1b05`, diode nightly-e8aa617
+- Machine: Intel(R) Xeon(R) 6973P-C (4 cores, 16 GB), linux 7.0.0-1017-azure
+- Conditions: CI, shared runner (GitHub Actions)
+- node floor (`node -e ""` over PTY, median): 17 ms; binary floor (`diode --version` over PTY, median): 40 ms; for reference `node --version`: 3 ms (answers before V8 starts)
 
-## От пола
+## Over the floor
 
-Главная цифра — **наших мс**: до текста минус пол node (столько стоит всё наше поверх рантайма). «Над полом бинаря» вычитает ещё и парс SEA-бандла (`diode --version`), оставляя кухню воркбенча. Медианы по прогонам; IQR — межквартильный размах, при IQR > 20 % медианы строка помечена «шумно».
+The headline number is **our ms**: time to text minus the node floor (what everything of ours costs on top of the runtime). "Over binary floor" also subtracts SEA bundle parsing (`diode --version`), leaving the workbench startup itself. Medians across runs; IQR is the interquartile range, a row with IQR > 20 % of the median is marked "noisy".
 
-| файл | размер | строк | наших мс | над полом бинаря | до текста | до подсветки | IQR (до текста) | peak RSS | прогонов |
+| file | size | lines | our ms | over binary floor | to text | to highlight | IQR (to text) | peak RSS | runs |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| `small` | 6.0 КБ | 100 | **135 мс** | 102 мс | 159 мс | 281 мс | 13 мс | 244 МБ | 11 |
-| `medium` | 126.7 КБ | 2000 | **167 мс** | 134 мс | 191 мс | 309 мс | 3 мс | 247 МБ | 11 |
-| `large` | 1.3 МБ | 20000 | **316 мс** | 284 мс | 341 мс | 448 мс | 21 мс | 299 МБ | 7 |
-| `xlarge` | 13.1 МБ | 200000 | **1600 мс** | 1567 мс | 1624 мс | 1784 мс | 119 мс | 503 МБ | 5 |
+| `small` | 6.0 KB | 100 | **96 ms** | 73 ms | 113 ms | 189 ms | 6 ms | 244 MB | 11 |
+| `medium` | 126.7 KB | 2000 | **121 ms** | 97 ms | 137 ms | 219 ms | 6 ms | 248 MB | 11 |
+| `large` | 1.3 MB | 20000 | **219 ms** | 195 ms | 235 ms | 310 ms | 11 ms | 302 MB | 7 |
+| `xlarge` | 13.1 MB | 200000 | **1043 ms** | 1020 ms | 1060 ms | 1175 ms | 5 ms | 500 MB | 5 |
 
-## Лестница вех (белый ящик)
+## Mark ladder (white box)
 
-Вехи `performance.mark` внутри процесса (`DIODE_STARTUP_TRACE`), median мс от спауна. Две последние строки — чёрный ящик (тот же прогон, по байтам на PTY) и расхождение «до текста − кадр с текстом»: цена доставки кадра через PTY и парсер бенча.
+`performance.mark` marks inside the process (`DIODE_STARTUP_TRACE`), median ms from spawn. The last rows are the black box (same run, from PTY bytes) and the gap "to text − frame with text": the cost of delivering the frame over PTY and through the bench parser.
 
-| веха | `small` | `medium` | `large` | `xlarge` |
+| mark | `small` | `medium` | `large` | `xlarge` |
 | --- | ---: | ---: | ---: | ---: |
-| старт процесса (timeOrigin) | 7 мс | 6 мс | 7 мс | 9 мс |
-| node готов (bootstrapComplete) | 63 мс | 62 мс | 61 мс | 85 мс |
-| бандл выполнен (main:start) | 64 мс | 62 мс | 61 мс | 85 мс |
-| конфиг загружен | 83 мс | 78 мс | 79 мс | 108 мс |
-| кейбинды загружены | 83 мс | 78 мс | 81 мс | 108 мс |
-| состояние сессии загружено | 84 мс | 78 мс | 82 мс | 108 мс |
-| расширения просканированы | 78 мс | 75 мс | 76 мс | 104 мс |
-| темы готовы | 87 мс | 83 мс | 84 мс | 111 мс |
-| DI-контейнер собран | 91 мс | 87 мс | 89 мс | 116 мс |
-| workbench смонтирован | 118 мс | 119 мс | 115 мс | 145 мс |
-| первый кадр | 118 мс | 119 мс | 115 мс | 145 мс |
-| workbench активирован | 123 мс | 125 мс | 121 мс | 150 мс |
-| грамматики прогреты | 134 мс | 134 мс | 128 мс | 154 мс |
-| файл прочитан с диска | 135 мс | 137 мс | 141 мс | 251 мс |
-| файл декодирован | 135 мс | 137 мс | 141 мс | 251 мс |
-| документ построен | 135 мс | 137 мс | 141 мс | 251 мс |
-| токенайзер у редактора | 159 мс | 192 мс | 342 мс | 1626 мс |
-| вкладки открыты | 140 мс | 146 мс | 160 мс | 290 мс |
-| встроенные расширения зарегистрированы | 302 мс | 329 мс | 468 мс | 1803 мс |
-| кадр с текстом файла | 159 мс | 190 мс | 340 мс | 1624 мс |
-| кадр с подсветкой | 279 мс | 309 мс | 448 мс | 1784 мс |
-| extension host поднят | 523 мс | 564 мс | 720 мс | 2347 мс |
-| старт завершён | 297 мс | 324 мс | 463 мс | 1799 мс |
-| до текста (чёрный ящик) | 159 мс | 191 мс | 341 мс | 1624 мс |
-| до подсветки (чёрный ящик) | 281 мс | 309 мс | 448 мс | 1784 мс |
-| расхождение чёрный − белый (текст) | 1 мс | 1 мс | 0 мс | 0 мс |
+| process start (timeOrigin) | 5 ms | 5 ms | 5 ms | 5 ms |
+| node ready (bootstrapComplete) | 47 ms | 49 ms | 48 ms | 57 ms |
+| bundle executed (main:start) | 47 ms | 49 ms | 48 ms | 57 ms |
+| config loaded | 59 ms | 60 ms | 60 ms | 70 ms |
+| keybindings loaded | 60 ms | 61 ms | 60 ms | 72 ms |
+| session state loaded | 60 ms | 61 ms | 60 ms | 72 ms |
+| extensions scanned | 57 ms | 58 ms | 58 ms | 68 ms |
+| themes ready | 62 ms | 64 ms | 63 ms | 74 ms |
+| DI container created | 65 ms | 67 ms | 66 ms | 77 ms |
+| workbench mounted | 85 ms | 88 ms | 85 ms | 94 ms |
+| first frame | 85 ms | 88 ms | 85 ms | 94 ms |
+| workbench activated | 88 ms | 91 ms | 88 ms | 98 ms |
+| grammars preloaded | 95 ms | 98 ms | 95 ms | 106 ms |
+| file read from disk | 96 ms | 99 ms | 103 ms | 164 ms |
+| file decoded | 96 ms | 99 ms | 103 ms | 164 ms |
+| document built | 96 ms | 100 ms | 103 ms | 165 ms |
+| tokenizer attached to editor | 112 ms | 136 ms | 237 ms | 1062 ms |
+| tabs opened | 100 ms | 105 ms | 115 ms | 194 ms |
+| built-in extensions registered | 201 ms | 231 ms | 322 ms | 1187 ms |
+| frame with file text | 112 ms | 134 ms | 235 ms | 1060 ms |
+| frame with highlighting | 189 ms | 219 ms | 310 ms | 1175 ms |
+| extension host up | 347 ms | 386 ms | 500 ms | 1614 ms |
+| startup complete | 198 ms | 227 ms | 319 ms | 1184 ms |
+| to text (black box) | 113 ms | 137 ms | 235 ms | 1060 ms |
+| to highlight (black box) | 189 ms | 219 ms | 310 ms | 1175 ms |
+| gap black − white (text) | 1 ms | 3 ms | 0 ms | 0 ms |
 
-## Нагрузка после открытия
+## Workload after open
 
-Латентность клавиши: от записи в PTY до кадра, в котором изменение видно на экране (median мс). Каретка в середине файла; поиск — одно слово одним paste-событием.
+Keystroke latency: from the write to the PTY to the frame where the change is visible (median ms). The cursor is mid-file; search types one word as a single paste event.
 
-| файл | вставка символа | Enter | undo (Enter) | undo (символ) | сохранение | Ctrl+End | поиск по слову |
+| file | insert char | Enter | undo (Enter) | undo (char) | save | Ctrl+End | word search |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| `small` | 41 мс | 15 мс | 12 мс | 11 мс | 17 мс | 9 мс | 7 мс |
-| `medium` | 38 мс | 16 мс | 12 мс | 11 мс | 14 мс | 6 мс | 5 мс |
-| `large` | 69 мс | 51 мс | 49 мс | 64 мс | 54 мс | 12 мс | 15 мс |
-| `xlarge` | 242 мс | 480 мс | 388 мс | 379 мс | 195 мс | 14 мс | 68 мс |
+| `small` | 30 ms | 10 ms | 7 ms | 5 ms | 9 ms | 4 ms | 2 ms |
+| `medium` | 27 ms | 12 ms | 11 ms | 9 ms | 12 ms | 4 ms | 3 ms |
+| `large` | 48 ms | 39 ms | 29 ms | 44 ms | 53 ms | 8 ms | 13 ms |
+| `xlarge` | 166 ms | 186 ms | 243 ms | 208 ms | 242 ms | 12 ms | 47 ms |
 
-Методика: SEA-бинарь запускается в PTY (120×32) в герметичном окружении (свой user-data-dir и HOME); отсчёт — от спауна процесса; момент появления текста/подсветки восстанавливается по таймстемпам чанков stdout. Полы node и бинаря сняты в том же прогоне тем же способом (спаун через PTY, до первого чанка вывода): пол node — `node -e ""`, минимальный процесс с полным бутстрапом V8 (`node --version` отвечает до подъёма V8 и полом рантайма быть не может); пол бинаря — `diode --version`, то есть плюс парс SEA-бандла. «До подсветки» — первый кадр, где ключевое слово раскрашено темой. Peak RSS — `VmHWM` процесса редактора за весь прогон (старт + нагрузка). LSP в замер не входит. Первый прогон каждого размера — прогревочный, в статистике не участвует.
+Methodology: the SEA binary runs in a PTY (120×32) in a hermetic environment (its own user-data-dir and HOME); time is counted from process spawn; the moment text/highlighting appears is recovered from stdout chunk timestamps. The node and binary floors are taken in the same run the same way (spawn over PTY, until the first output chunk): the node floor is `node -e ""`, the minimal process with a full V8 bootstrap (`node --version` answers before V8 starts and cannot be the runtime floor); the binary floor is `diode --version`, i.e. plus SEA bundle parsing. "To highlight" is the first frame where a keyword is colored by the theme. Peak RSS is the editor process `VmHWM` over the whole run (startup + workload). LSP is not measured. The first run of each size is a warm-up and is excluded from the stats.
