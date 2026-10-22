@@ -16,6 +16,12 @@ function tabLabels(h: IAppHarness): string[] {
     return strip.getItemElements().map((item) => item.getLabel());
 }
 
+/** Which tabs the strip draws as previews (italic label). */
+function previewMarks(h: IAppHarness): boolean[] {
+    const strip = h.testApp.querySelector("EditorTabStripElement") as EditorTabStripElement;
+    return strip.getItemElements().map((item) => item.getPreview());
+}
+
 function mouse(action: MouseToken["action"], x: number, y: number, button: MouseToken["button"]): MouseToken {
     // Terminal tokens are 1-based.
     return {
@@ -195,6 +201,22 @@ describe("Workbench: preview tabs from the tree", () => {
         expect(tabLabels(h)).toEqual(["alpha.txt", "gamma.txt"]);
     });
 
+    it("the strip marks only the preview tab, and pinning clears the mark", async () => {
+        boot();
+        await clickInTree(0);
+        keepEditor();
+        await clickInTree(1);
+
+        expect(tabLabels(h)).toEqual(["alpha.txt", "beta.txt"]);
+        expect(previewMarks(h)).toEqual([false, true]);
+
+        h.activeEditor().focusEditor();
+        h.testApp.sendKey("x");
+        h.testApp.render();
+
+        expect(previewMarks(h)).toEqual([false, false]);
+    });
+
     it("`workbench.openFile` without options (CLI, Quick Open) does not open a preview", async () => {
         boot();
         await clickInTree(0);
@@ -241,5 +263,6 @@ describe("Workbench: preview tabs from the tree", () => {
         await clickInTree(1);
 
         expect(tabLabels(h)).toEqual(["alpha.txt", "beta.txt"]);
+        expect(previewMarks(h)).toEqual([false, false]);
     });
 });

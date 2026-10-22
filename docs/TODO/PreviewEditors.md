@@ -57,19 +57,22 @@ vscode — когда превью при движении». Уточнение
 постоянную вкладку, как в эталоне с его выключенными `enablePreviewFrom*`.
 Демо — `e2e/scenarios/previewTabs.scenario.ts`.
 
-## [ ] Фаза 2 — курсив в таб-строке (движок → tuidom)
+## [x] Фаза 2 — курсив в таб-строке (движок → tuidom)
 
-`TabInfo` (`@tuidom/elements/editorgroup/editorTabStripElement`) несёт только
-`label`/`icon`/`iconColor`/`isModified`/`isReadOnly` — признака preview и
-курсивного начертания в API виджета нет.
+**Сделано.** Движок — [tuidom#49](https://github.com/tuidom/tuidom/pull/49), вышел в 0.14.0: `TabInfo.isPreview?`
+пишет курсивом (`StyleFlags.Italic`) только колонки метки, иконка и крестик остаются прямыми, с
+`isDeleted` флаги складываются. На вкладку ставится стилевое состояние `preview` (`PREVIEW_STATE`),
+`inspectState` отдаёт `preview`. Сторона diode — одна строка в `syncTabs`
+(`editorGroupComponent.ts`: `isPreview: !this.group.isPinned(editor)`), тест в
+`workbench.previewTabs.test.ts` и проверка курсива по кадру в сценарии `previewTabs`.
 
-По правилу AGENTS.md ограничения движка не обходим: нужен PR в
-[tuidom](https://github.com/tuidom/tuidom) (`isPreview` у `TabInfo` + курсив),
-**публикацию версии спросить у пользователя**. Альтернатива — репатриация
-виджета, она и так в плане [EngineWidgetRepatriation](EngineWidgetRepatriation.md)
-(`editorgroup/`).
-
-До выхода версии фаза 1 работает без визуальной отметки — замещение видно и так.
+**Если терминал не рисует курсив.** Поддержку SGR 3 у терминала не спросить, движок пишет
+`\x1b[3m` без terminfo. Терминал без курсива его молча игнорирует: превью выглядит как обычная
+вкладка, то есть как до фазы. Отдельный случай — tmux, у *внешнего* терминала которого в terminfo
+нет `sitm`: tmux заменяет курсив на standout (обычно инверсию). Своего цвета у превью в VS Code нет,
+поэтому по умолчанию остаётся только курсив, как в эталоне. Если понадобится запасной признак, хост
+покрасит вкладку через `when: [{ states: ["preview"], fg: … }]`, без правки движка. Это будет
+отступление от эталона с собственным токеном темы.
 
 ## [x] Фаза 3 — одиночный клик открывает, двойной прикалывает (движок → tuidom)
 

@@ -2,6 +2,8 @@ import { resolve } from "node:path";
 
 import type { NodeSnapshot } from "@tuidom/inspector/protocol";
 
+import { frameLine } from "../helpers/frame.ts";
+
 import type { ScenarioDriver } from "./framework.ts";
 import { defineScenario, repoRoot } from "./framework.ts";
 
@@ -20,6 +22,19 @@ interface TabState {
 
 function tabsOf(strip: NodeSnapshot): TabState[] {
     return (strip.state?.tabs ?? []) as TabState[];
+}
+
+/** The engine's `StyleFlags.Italic`. */
+const ITALIC = 2;
+
+/** Looks at the frame, not at the strip state: the preview tab's label must be drawn in italics. */
+async function expectItalic(editor: ScenarioDriver, label: string, italic: boolean): Promise<void> {
+    const strip = await editor.waitForNode("EditorTabStripElement");
+    const frame = await editor.captureFrame();
+    const x = frameLine(frame, strip.box.y).indexOf(label);
+    if (x < 0) throw new Error(`"${label}" not in the tab strip row`);
+    const isItalic = (frame.cells[strip.box.y * frame.cols + x].style & ITALIC) !== 0;
+    if (isItalic !== italic) throw new Error(`tab "${label}" is ${isItalic ? "" : "not "}italic`);
 }
 
 async function waitForTabs(editor: ScenarioDriver, expected: readonly string[]): Promise<TabState[]> {
@@ -72,6 +87,8 @@ export default defineScenario({
         await click(1);
         const afterSecond = await waitForTabs(editor, ["beta.ts"]);
         if (!afterSecond[0].active) throw new Error("the new preview did not become the active tab");
+        // The preview tab's label is italic, as in VS Code.
+        await expectItalic(editor, "beta.ts", true);
         await editor.capture("preview-replaced");
 
         // Focus stayed in the tree: the arrow moves the cursor to gamma.ts and opens nothing.
@@ -84,6 +101,8 @@ export default defineScenario({
         await waitForTabs(editor, ["gamma.ts"]);
         await click(0);
         await waitForTabs(editor, ["gamma.ts", "alpha.ts"]);
+        await expectItalic(editor, "gamma.ts", false);
+        await expectItalic(editor, "alpha.ts", true);
         await editor.capture("double-click-pins");
 
         // Ctrl+K Enter (`workbench.action.keepEditor`) pins the preview, so the
@@ -92,6 +111,8 @@ export default defineScenario({
         await editor.sendKey("Enter");
         await click(1);
         await waitForTabs(editor, ["gamma.ts", "alpha.ts", "beta.ts"]);
+        await expectItalic(editor, "alpha.ts", false);
+        await expectItalic(editor, "beta.ts", true);
         await editor.capture("keep-editor-pins-tab");
     },
 });

@@ -165,6 +165,7 @@ export class EditorGroupComponent extends Component {
                 isModified: editor.isModified,
                 isReadOnly: editor.readOnly,
                 isDeleted: editor.isOrphaned === true,
+                isPreview: !this.group.isPinned(editor),
             };
         });
 
