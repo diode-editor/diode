@@ -1,6 +1,7 @@
 import type { CommandAction } from "../../../../platform/actions/common/commandAction.ts";
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import { parseChord, parseKeybinding } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
+import { KeybindingWeight } from "../../../../platform/keybinding/common/keybindingResolver.ts";
 import { viewMenuVisible } from "../../../browser/actions/menuContexts.ts";
 import { SidebarServiceDIToken } from "../../../browser/parts/sidebar/sidebarService.ts";
 
@@ -45,13 +46,17 @@ export const showReferencesAction: CommandAction = {
     },
 };
 
-/** VS Code: references-view.next / .prev. Work with the panel hidden too. */
+/**
+ * VS Code: references-view.next / .prev. Work with the panel hidden too. The weight is that of a built-in
+ * extension: while there is a result, F4 goes here and not to the search's next result (WorkbenchContrib).
+ */
 export const nextReferenceAction: CommandAction = {
     id: "references-view.next",
     title: "References: Go to Next Reference",
     shortTitle: "Next Reference",
     when: "hasReferenceResult",
     keybinding: parseKeybinding("f4"),
+    weight: KeybindingWeight.BuiltinExtension,
     run(accessor) {
         accessor.get(ReferencesComponentDIToken).goToNextReference();
     },
@@ -63,6 +68,7 @@ export const previousReferenceAction: CommandAction = {
     shortTitle: "Previous Reference",
     when: "hasReferenceResult",
     keybinding: parseKeybinding("shift+f4"),
+    weight: KeybindingWeight.BuiltinExtension,
     run(accessor) {
         accessor.get(ReferencesComponentDIToken).goToPreviousReference();
     },

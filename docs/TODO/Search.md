@@ -38,6 +38,14 @@
   список и обратно (`search.focus.nextInputBox`/`previousInputBox`,
   `search.action.focusSearchFromResults`, ключи `searchInputBoxFocus`/
   `firstMatchFocus`).
+- **F4/Shift+F4 — следующий/предыдущий результат** откуда угодно
+  (`search.action.focusNextSearchResult`/`focusPreviousSearchResult`, `when:
+  hasSearchResult`): раскрывают вьюху без фокуса, курсор встаёт на матч (по кругу,
+  свёрнутая группа раскрывается), матч открывается в редакторе. Клавиша общая с
+  references-view и разводится весом, как в эталоне: `references-view.next/prev`
+  там — встроенное расширение (`BuiltinExtension`, 300) и при результате ссылок
+  выигрывает у поиска (`WorkbenchContrib`, 200); peek-навигация эталона (90) — ниже
+  обоих. Демо — сценарий `searchNextResult`.
 - **Сайдбар-своп** — `browser/parts/sidebar/sidebarService.ts`, команды
   `contrib/search/browser/searchActions.ts` + `showExplorerAction`.
 - e2e: сценарий `e2e/scenarios/searchInFiles.scenario.ts` (демо + скриншоты:

@@ -862,6 +862,99 @@ describe("SearchComponent", () => {
         expect(render(component).screenToString()).toBe(before);
     });
 
+    describe("F4/Shift+F4: next/previous result", () => {
+        const twoFiles = () => [
+            fileMatch("/work/project/a.ts", [
+                [12, "const ", "foo", " = 1"],
+                [20, "", "foo", ""],
+            ]),
+            fileMatch("/work/project/b.ts", [[3, "let ", "foo", ""]]),
+        ];
+
+        function cursorId(component: SearchComponent): unknown {
+            return component.results.getCursorElement()?.id;
+        }
+
+        it("next walks matches in display order, skips file rows and wraps", () => {
+            const reveal = fakeReveal();
+            const component = make(fakeSearch(twoFiles()).service, fakeWorkspace(ROOT), { reveal: reveal.target });
+            typeQuery(component, "foo");
+
+            // The cursor starts on file:a.ts — the first match is the one under it.
+            component.focusNextResult();
+            expect(cursorId(component)).toBe("match:a.ts:0");
+            component.focusNextResult();
+            expect(cursorId(component)).toBe("match:a.ts:1");
+            component.focusNextResult();
+            expect(cursorId(component)).toBe("match:b.ts:0");
+            component.focusNextResult();
+            expect(cursorId(component)).toBe("match:a.ts:0");
+
+            expect(reveal.opened).toEqual([
+                "/work/project/a.ts",
+                "/work/project/a.ts",
+                "/work/project/b.ts",
+                "/work/project/a.ts",
+            ]);
+            expect(reveal.positions).toEqual([
+                [11, 6],
+                [19, 0],
+                [2, 4],
+                [11, 6],
+            ]);
+        });
+
+        it("previous from the first row wraps to the last match; from a file row it is the match above", () => {
+            const component = make(fakeSearch(twoFiles()).service, fakeWorkspace(ROOT));
+            typeQuery(component, "foo");
+
+            component.focusPreviousResult();
+            expect(cursorId(component)).toBe("match:b.ts:0");
+            component.focusPreviousResult();
+            expect(cursorId(component)).toBe("match:a.ts:1");
+
+            component.results.setCursorTo("file:b.ts");
+            component.focusPreviousResult();
+            expect(cursorId(component)).toBe("match:a.ts:1");
+        });
+
+        it("a match inside a collapsed group expands it", () => {
+            const component = make(fakeSearch(twoFiles()).service, fakeWorkspace(ROOT));
+            typeQuery(component, "foo");
+            component.results.toggleCollapsed("file:b.ts");
+
+            component.results.setCursorTo("match:a.ts:1");
+            component.focusNextResult();
+
+            expect(cursorId(component)).toBe("match:b.ts:0");
+            expect(component.results.isCollapsed("file:b.ts")).toBe(false);
+        });
+
+        it("tree mode: folder rows are skipped like file rows", () => {
+            const component = make(
+                fakeSearch([fileMatch("/work/project/src/a.ts", [[1, "", "foo", ""]])]).service,
+                fakeWorkspace(ROOT),
+            );
+            component.setViewMode("tree");
+            typeQuery(component, "foo");
+            vi.runOnlyPendingTimers();
+
+            component.focusNextResult();
+            expect(cursorId(component)).toBe("match:src/a.ts:0");
+        });
+
+        it("without results it is a no-op", () => {
+            const reveal = fakeReveal();
+            const component = make(fakeSearch([]).service, fakeWorkspace(ROOT), { reveal: reveal.target });
+            typeQuery(component, "foo");
+
+            component.focusNextResult();
+            component.focusPreviousResult();
+
+            expect(reveal.opened).toEqual([]);
+        });
+    });
+
     describe("opening a result", () => {
         it("Enter on a match opens the file at the match position (1-based line → 0-based)", () => {
             const reveal = fakeReveal();

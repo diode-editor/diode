@@ -58,6 +58,11 @@ describe("sortByPriority", () => {
 
 describe("KeybindingWeight", () => {
     it("steps as upstream", () => {
-        expect(KeybindingWeight).toEqual({ EditorCore: 0, EditorContrib: 100, WorkbenchContrib: 200 });
+        expect(KeybindingWeight).toEqual({
+            EditorCore: 0,
+            EditorContrib: 100,
+            WorkbenchContrib: 200,
+            BuiltinExtension: 300,
+        });
     });
 });
