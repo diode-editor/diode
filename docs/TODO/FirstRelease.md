@@ -66,8 +66,6 @@ watcher и Go в магазине — после поста.
 
 - **Модель и токенизация** — этап 3 [OpenPerformance.md](OpenPerformance.md) (воркер B3, QuickDiff
   без `split`). PieceTree уже стоит (VscodeModel A1–A4).
-- **Overview ruler** — [OverviewRuler.md](OverviewRuler.md): метки вхождений, поиска, ошибок на
-  полосе прокрутки.
 - **Длинные строки** — хвосты [LongLinePerformance.md](LongLinePerformance.md#осталось):
   пер-строчный кеш `DisplayLine`, ленивое окно вьюпорта, reveal-по-клику, `editor.stopRenderingLineAfter`.
 - **Дерево файлов** — хвосты [FileTreePerformance.md](FileTreePerformance.md#будущие-фиксы-вне-scope-текущей-задачи):
