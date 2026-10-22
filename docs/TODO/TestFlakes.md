@@ -29,6 +29,15 @@
 Известные флаки юнит-набора и e2e; PR-диффом не задеты, `gh run rerun --failed` зеленит. Юнит-тесты
 отсюда стоят в `test-flakes.json`, кроме помеченных.
 
+- [ ] `workbench.encoding.test.ts` › «Save with Encoding on an untitled buffer goes to Save As with the
+  encoding set»: `ENOENT: no such file or directory, open '…/untitled-out.txt'` — файл читается раньше,
+  чем Save As его дописал. Свалил dry run мутаций (`There were failed tests in the initial test run`)
+  на ветке PR 1 этапа 2 OpenPerformance (ран 39853223940, дифф — рендер редактора).
+- [ ] e2e `inline-completion` (не флак — детерминированно от **имени ветки**): на 100 колонках имя
+  ветки в статус-баре плюс «Initializing JS/TS language features…» выталкивают «Ln…, Col 43» за край,
+  и последний шаг ждёт его 4 с впустую. На `main` имя короткое; ветка
+  `worktree-open-perf-stage2-occurrences` (37 символов) валила оба прохода, тот же бинарь с `main` —
+  тоже. Обход — короткое имя ветки; починка — ждать результат не по статус-бару.
 - [ ] `extensionHost.goLsp.test.ts` › «ExtensionHost — stock golang.go (gopls, end to end)»: сеть —
   `https://open-vsx.org/…/golang.Go-0.56.1.vsix: no data for 30000ms` в `beforeAll`, следом
   `Cannot read properties of undefined (reading 'dispose')` в `afterAll`. Job `test` на #753
