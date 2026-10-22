@@ -1,55 +1,55 @@
-# Бенчмарки: скорость старта
+# Benchmarks: startup speed
 
-> **Заготовка.** Структура страницы готова, но сравнительная таблица ещё не снята по методике ниже.
-> Перед публикацией снимем её одним прогоном и уберём эту плашку.
+> **Draft.** The page structure is ready, but the comparison table has not yet been taken with the
+> methodology below. Before publishing we will take it in a single run and remove this notice.
 
-diode написан на TypeScript и работает на Node.js — для терминального редактора это принято считать
-приговором по скорости. Эта страница существует, чтобы спор шёл о цифрах, а не об ощущениях. Каждое
-число здесь воспроизводимо по методике внизу и защищено перф-тестом в CI.
+Diode is written in TypeScript and runs on Node.js, which for a terminal editor is usually taken as
+a death sentence for speed. This page exists so that the argument is about numbers, not feelings.
+Every number here is reproducible with the methodology at the bottom and guarded by a perf test in CI.
 
-## Лестница старта
+## Startup ladder
 
-Старт — это не одно число, а лестница. На пути к первому кадру с текстом не стоит ничего медленного
-(так устроен и сам VS Code): extension host поднимается после кадра, подсветка приезжает следующим
-кадром, language server — асинхронно ещё позже.
+Startup is not one number but a ladder. Nothing slow stands on the path to the first frame with
+text (VS Code itself is built the same way): the extension host starts after that frame,
+highlighting arrives in the next frame, and the language server comes asynchronously, later still.
 
-Главная цифра — **«наших мс»**: время до кадра с текстом минус пол Node (`node -e ""`, тем же
-способом запуска). Это стоимость самого diode поверх рантайма. Медиана на CI (shared runner GitHub
-Actions, файл 100 строк) — **≈100 мс наших** (калибровка 2026-10-16), на 4-ядерном ноутбуке автора —
-≈175. Живые цифры и полную лестницу вех на каждый пуш в `main` снимает CI:
-[методика и данные](BENCH-OPEN.md), [график](https://diode-editor.github.io/benchmarks/).
+The headline number is **"our ms"**: time to the frame with text minus the Node floor (`node -e ""`,
+launched the same way). It is the cost of Diode itself on top of the runtime. The median on CI (a
+GitHub Actions shared runner, a 100-line file) is **≈100 ms of ours** (calibrated 2026-10-16); on the
+author's 4-core laptop it is ≈175. CI takes the live numbers and the full ladder of marks on every
+push to `main`: [methodology and data](BENCH-OPEN.md), [chart](https://diode-editor.github.io/benchmarks/).
 
-Прежняя версия этой страницы обещала «26 мс воркбенча». Это неверно: тогда полом считали
-`node --version`, а современный node отвечает на него до подъёма V8.
+The previous version of this page promised "26 ms of workbench". That is wrong: back then the floor
+was `node --version`, and a modern node answers it before V8 starts up.
 
-## Сравнение с другими редакторами
+## Comparison with other editors
 
-Все замеры — одна машина, один день, одна методика (см. ниже). Конфигурации — реальные, а не
-витринные: голый nvim никто не запускает, поэтому в таблице есть строка с дистрибутивом.
+All measurements: one machine, one day, one methodology (see below). The configurations are real,
+not showcase ones: nobody runs bare nvim, so the table has a row with a distribution.
 
-| редактор | конфигурация | старт до готовности | примечание |
+| editor | configuration | startup to ready | note |
 | --- | --- | ---: | --- |
-| vim | голый | _TBD_ | |
-| neovim | голый | _TBD_ | |
-| neovim | LazyVim / NvChad | _TBD_ | реальная установка с LSP |
-| helix | из коробки | _TBD_ | |
-| diode | из коробки | _TBD_ | |
+| vim | bare | _TBD_ | |
+| neovim | bare | _TBD_ | |
+| neovim | LazyVim / NvChad | _TBD_ | real setup with LSP |
+| helix | out of the box | _TBD_ | |
+| diode | out of the box | _TBD_ | |
 
-Против голого vim мы проиграем — нативный бинарь против рантайма, и это честно. Интересная строка —
-сконфигурированный neovim с LSP: это то, чем люди пользуются на самом деле.
+We will lose to bare vim: a native binary against a runtime, and that is fair. The interesting row is
+a configured neovim with LSP: that is what people actually use.
 
-## Методика
+## Methodology
 
-_Заполнить при снятии цифр одним прогоном:_
+_To be filled in when the numbers are taken in a single run:_
 
-- **Железо и условия:** модель CPU, режим питания (Balanced), от батареи или от сети, ОС.
-- **Что считаем стартом:** для diode — вехи лестницы (инструментированы в коде); для остальных —
-  до готовности принять ввод (описать способ фиксации для каждого редактора).
-- **Как мерили:** N прогонов, медиана; тёплый/холодный кэш; точные команды запуска каждого
-  редактора — списком, чтобы любой мог повторить.
+- **Hardware and conditions:** CPU model, power mode (Balanced), on battery or on AC, OS.
+- **What counts as startup:** for Diode, the marks of the ladder (instrumented in the code); for the
+  others, until ready to accept input (describe how this is captured for each editor).
+- **How it was measured:** N runs, median; warm/cold cache; the exact launch command for each
+  editor, as a list, so anyone can repeat it.
 
-## Защита цифр
+## Guarding the numbers
 
-Число, которым хвастаемся, обязано быть защищено тестом. Перф-гейт `e2e/bench/startupBudget.bench.ts`
-(`npm run test:perf`) держит медиану «наших мс» на маленьком файле не выше бюджета — сейчас 200 мс.
-Бюджет — храповик: снижается по мере оптимизаций, ослабляется только с замером.
+A number we boast about must be guarded by a test. The perf gate `e2e/bench/startupBudget.bench.ts`
+(`npm run test:perf`) keeps the median of "our ms" on a small file within budget, currently 200 ms.
+The budget is a ratchet: it goes down as optimizations land and is relaxed only with a measurement.

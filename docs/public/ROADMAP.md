@@ -1,56 +1,56 @@
-# Роадмап
+# Roadmap
 
-diode — **альфа**. Им уже можно пользоваться, но поверхность API и набор инструментов ещё растут.
-На этой странице — куда идём и в каком порядке.
+Diode is in **alpha**. You can already use it, but the API surface and the tool set are still growing.
+This page covers where we are going and in what order.
 
-## Цель
+## Goal
 
-Полная поддержка API расширений VS Code везде, где она имеет смысл в терминале. Языковые и
-тулинговые расширения — да. Webview-поверхности поддержаны не будут: им нужен браузер.
-Измеримый прогресс — в [матрице готовности](API-COVERAGE.md).
+Full support for the VS Code extension API wherever it makes sense in a terminal. Language and
+tooling extensions: yes. Webview surfaces will not be supported: they need a browser.
+Measurable progress is in the [readiness matrix](API-COVERAGE.md).
 
-## Уже есть
+## Already there
 
-- **Установка одной командой**: `curl | sh`, apt, npm, Homebrew — single-binary сборки
-  под Linux, macOS и Windows ([установка](INSTALL.md)); winget — на модерации.
-- **Быстрый старт, защищённый тестом**: перф-порог старта в CI ([бенчмарки](BENCHMARKS.md)).
-- **Документ на PieceTree из VS Code**, фоновая токенизация по вьюпорту, бинарные токены: ввод не
-  ждёт подсветку, прыжок в конец большого файла не замораживает редактор.
-- **Языки**: TypeScript/JavaScript встроены. В магазине — Python (basedpyright, ruff), ESLint,
-  Prettier, Java, Go, Terraform, EditorConfig, темы (Catppuccin) и Claude Code с дифф-вкладкой
-  предложенных правок.
-- **Расширения**: темы, semantic tokens, language configuration, настройки, задачи, терминалы,
-  source control, профили со своим набором расширений.
+- **One-command install**: `curl | sh`, apt, npm, Homebrew, with single-binary builds
+  for Linux, macOS and Windows ([install](INSTALL.md)); winget is in review.
+- **Fast startup, guarded by a test**: a startup perf threshold in CI ([benchmarks](BENCHMARKS.md)).
+- **A PieceTree document from VS Code**, background tokenization by viewport, binary tokens: typing
+  doesn't wait for highlighting, and jumping to the end of a large file doesn't freeze the editor.
+- **Languages**: TypeScript/JavaScript are built in. In the marketplace: Python (basedpyright, ruff),
+  ESLint, Prettier, Java, Go, Terraform, EditorConfig, themes (Catppuccin) and Claude Code with a
+  diff tab for proposed edits.
+- **Extensions**: themes, semantic tokens, language configuration, settings, tasks, terminals,
+  source control, profiles with their own set of extensions.
 
-## Ближайшее
+## Next up
 
-Первый выпуск привязан к одному кадру: терминал, который выглядит и ведёт себя как VS Code —
-тема, подсветка, живой language server, автодополнение. Всё ниже нужно, чтобы этот кадр был
-правдой на любом файле и на любой машине.
+The first release is tied to a single frame: a terminal that looks and behaves like VS Code:
+theme, highlighting, a live language server, completion. Everything below is needed to make that
+frame true on any file and on any machine.
 
-- **Честные цифры.** Таблица vim · neovim · neovim+дистрибутив · helix · diode, снятая одним
-  прогоном по опубликованной методике ([бенчмарки](BENCHMARKS.md)).
-- **Старт ещё быстрее.** Оставшиеся рычаги кухни старта.
-- **Большие файлы без пауз.** Файл в десятки мегабайт открывается как маленький, стоимость
-  клавиши не зависит от размера файла.
+- **Honest numbers.** A vim · neovim · neovim+distribution · helix · diode table, taken in a single
+  run following the published methodology ([benchmarks](BENCHMARKS.md)).
+- **Even faster startup.** The remaining levers in the startup path.
+- **Large files without pauses.** A file of tens of megabytes opens like a small one, and the cost
+  of a keystroke doesn't depend on the file size.
 
-## Дальше
+## Later
 
-Без обещания сроков, в порядке, который сейчас кажется правильным.
+No dates promised, in the order that seems right today.
 
-- **Рост поверхности API расширений** по [матрице готовности](API-COVERAGE.md): иконки файлов,
-  snippets, views (TreeView от расширений), остаток language configuration.
-- **Очень большие файлы**: стриминговое чтение и режим «большой файл» для сотен мегабайт.
-- **Длинные строки и большие деревья файлов**: ленивое окно по видимым колонкам,
-  `editor.stopRenderingLineAfter`, `.gitignore` в дереве, нативный watcher.
-- **Больше языков в магазине**: Rust, C#, дальше по спросу.
-- **Точечная перерисовка кадра** (damage-tracking) для оверлеев и hover: экономия на каждом кадре,
-  которую пользователь не видит, но чувствует на слабом канале.
-- **Редактор для агента**: MCP-сервер поверх extension host — language server как инструмент
-  агента, а не regex.
-- **Отладка** через Debug Adapter Protocol.
+- **Growing the extension API surface** along the [readiness matrix](API-COVERAGE.md): file icons,
+  snippets, views (TreeView from extensions), the rest of language configuration.
+- **Very large files**: streaming reads and a "large file" mode for hundreds of megabytes.
+- **Long lines and large file trees**: a lazy window over the visible columns,
+  `editor.stopRenderingLineAfter`, `.gitignore` in the tree, a native watcher.
+- **More languages in the marketplace**: Rust, C#, then on demand.
+- **Partial frame redraw** (damage tracking) for overlays and hover: a saving on every frame
+  that the user doesn't see but feels on a slow connection.
+- **An editor for agents**: an MCP server on top of the extension host, so the agent gets a
+  language server as a tool rather than regex.
+- **Debugging** through the Debug Adapter Protocol.
 
-## Не будет
+## Won't happen
 
-- Webview и UI-heavy расширения — это потолок терминала, by design.
-- GUI-версия — diode живёт в терминале.
+- Webview and UI-heavy extensions: that is the ceiling of a terminal, by design.
+- A GUI version: Diode lives in the terminal.

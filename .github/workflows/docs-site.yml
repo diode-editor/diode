@@ -1,0 +1,34 @@
+name: Docs site
+
+# Rebuilds the documentation site (diode-editor.github.io/docs, repository diode-editor/docs)
+# when its content changes here: the public pages in docs/public and the settings catalog behind
+# the site's Settings page. The site pulls both from main at build time; this job only starts
+# its deploy workflow. The site also rebuilds daily on its own, so a missed run heals by itself.
+#
+# The DOCS_PAT secret is a fine-grained PAT for the single diode-editor/docs repository,
+# Actions: Read and write. Like site-version.yml, the job fails without it rather than skipping:
+# otherwise nobody would notice a stale site.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "docs/public/**"
+      - "extensions/diode-settings/settings-schema.generated.ts"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Start the site deploy
+        env:
+          GH_TOKEN: ${{ secrets.DOCS_PAT }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::error::secret DOCS_PAT is not set — docs site not rebuilt (docs/public/README.md)"
+            exit 1
+          fi
+          gh workflow run deploy.yml --repo diode-editor/docs --ref main

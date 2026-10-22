@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { compare, cyrillicLines, hasCyrillic, lowered } from "./check-cyrillic.mjs";
+import { compare, cyrillicLines, hasCyrillic, inScope, lowered } from "./check-cyrillic.mjs";
 
 // Escapes, not literals: this file is itself under the ratchet.
 const RU = "\u043f\u0440\u0438\u0432\u0435\u0442"; // "privet"
@@ -20,6 +20,14 @@ test("hasCyrillic: a Russian anchor of a doc link is not Russian text", () => {
     assert.equal(hasCyrillic(`// see docs/STYLE.md#${ANCHOR}-x2.`), false);
     assert.equal(hasCyrillic(`// see docs/STYLE.md#${ANCHOR} ${RU}`), true);
     assert.equal(hasCyrillic(`// #${ANCHOR}`), true);
+});
+
+test("inScope: markdown is out of scope except the public pages of the docs site", () => {
+    assert.equal(inScope("src/vs/base/common/uri.ts"), true);
+    assert.equal(inScope("docs/STYLE.md"), false);
+    assert.equal(inScope("docs/public/API-COVERAGE.md"), true);
+    assert.equal(inScope("docs/public/README.md"), false);
+    assert.equal(inScope(".claude/skills/drive/run.ts"), false);
 });
 
 test("compare: a file absent from the baseline is held to zero", () => {

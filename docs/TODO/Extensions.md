@@ -58,7 +58,7 @@
 
 Модель `ViewsService` (container↔view, места `sidebar`/`panel`) готова и общая со встроенными панелями
 ([arch/workbench/Views.md](../arch/workbench/Views.md)) — контрибьютор ложится на готовый контракт.
-Виды `type: "webview"` — ⛔ by design, как весь webview ([API-COVERAGE](../public/API-COVERAGE.md#не-будет-by-design)).
+Виды `type: "webview"` — ⛔ by design, как весь webview ([API-COVERAGE](../public/API-COVERAGE.md#not-supported-by-design)).
 
 - [~] Типы `IViewContribution` / `IViewContainerContribution` в `iExtensionManifest.ts`: `views` есть,
   `viewsContainers` — нет.
