@@ -2000,5 +2000,19 @@
       "large",
       "xlarge"
     ]
+  },
+  {
+    "file": "2026-10-22-d29375fc3b6c.json",
+    "generatedAt": "2026-10-22T09:51:20.337Z",
+    "commit": "d29375fc3b6c",
+    "binaryVersion": "nightly-d29375f",
+    "ci": true,
+    "conditions": "CI, shared runner (GitHub Actions)",
+    "sizes": [
+      "small",
+      "medium",
+      "large",
+      "xlarge"
+    ]
   }
 ]
