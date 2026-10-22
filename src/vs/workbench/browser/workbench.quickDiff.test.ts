@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
 import { TestApp } from "../../../TestUtils/TestApp.ts";
-import { settle } from "../../../TestUtils/timing.ts";
+import { flushMicrotasks, settle } from "../../../TestUtils/timing.ts";
 import { Event } from "../../base/common/event.ts";
 import { Uri } from "../../base/common/uri.ts";
 import { createTestContainer } from "../../diode/modules/testProfile.ts";
@@ -11,10 +11,16 @@ import type { EditorElement } from "../../editor/browser/editorElement.ts";
 import { CommandRegistry, CommandRegistryDIToken } from "../../platform/commands/common/commandRegistry.ts";
 import { FileSystemProviderCapabilities, IFileServiceDIToken } from "../../platform/files/common/files.ts";
 import { FileService } from "../../platform/files/common/fileService.ts";
+import { EditorDecorationsServiceAdapter } from "../api/browser/editorDecorationsServiceAdapter.ts";
+import { ThemeColorResolverAdapter } from "../api/browser/themeColorResolverAdapter.ts";
+import { createInProcessChannelPair } from "../api/common/inProcessChannelPair.ts";
+import { RpcEndpoint } from "../api/common/rpcEndpoint.ts";
 import { ORIGINAL_RESOURCE_COMMAND } from "../contrib/scm/browser/commandOriginalResourceProvider.ts";
 import type { IEditorService } from "../services/editor/common/editorService.ts";
 import { EditorServiceDIToken } from "../services/editor/common/editorService.ts";
+import { DecorationsCustomer } from "../services/extensions/node/customers/decorationsCustomer.ts";
 import { LifecycleServiceDIToken } from "../services/lifecycle/browser/lifecycleService.ts";
+import type { ThemeService } from "../services/themes/common/themeService.ts";
 import { ThemeServiceDIToken } from "../services/themes/common/themeTokens.ts";
 
 import { WorkbenchComponent, WorkbenchComponentDIToken } from "./workbenchComponent.ts";
@@ -25,6 +31,7 @@ import { WorkbenchComponent, WorkbenchComponentDIToken } from "./workbenchCompon
  */
 
 const BAR_DASHED = "┋"; // modification (VS Code dirty-diff draws it dashed)
+const BAR_SOLID = "┃"; // an extension type that is not editorGutter.modifiedBackground
 const ORIGINAL_TEXT = "line one\nline two\nline three\n";
 const DOCUMENT_LINES = 4;
 
@@ -36,6 +43,7 @@ describe("Workbench: live quick diff gutter", () => {
     let filePath: string;
     let modifiedColor: number;
     let editors: IEditorService;
+    let themeService: ThemeService;
 
     beforeEach(async () => {
         ws = createTempWorkspace({ prefix: "diode-quickdiff-", files: { "a.txt": ORIGINAL_TEXT } });
@@ -61,7 +69,8 @@ describe("Workbench: live quick diff gutter", () => {
         workbench.mount();
         testApp = TestApp.create(workbench.view, new Size(80, 12));
         bindApp(testApp.app);
-        modifiedColor = container.get(ThemeServiceDIToken).theme.getRequiredColor("editorGutter.modifiedBackground");
+        themeService = container.get(ThemeServiceDIToken);
+        modifiedColor = themeService.theme.getRequiredColor("editorGutter.modifiedBackground");
         editors = container.get(EditorServiceDIToken);
 
         commands.execute("workbench.openFile", filePath);
@@ -123,6 +132,54 @@ describe("Workbench: live quick diff gutter", () => {
         expect(bars).toEqual([{ line: 1, char: BAR_DASHED }]);
         const top = (testApp.querySelector("EditorElement") as EditorElement).globalPosition.y;
         expect(testApp.backend.getFgAt(new Point(barColumn(), top + 1))).toBe(modifiedColor);
+    });
+
+    /**
+     * Regression: both producers once wrote one gutter slot, so an extension clearing its own type on every
+     * keystroke (Claude Code's hunk bars) erased the git bars until the next quick diff recompute — the bars
+     * flickered while typing. The real extension path (customer → adapter) runs next to the real quick diff.
+     */
+    it("extension decoration bars and git bars coexist: clearing the extension type keeps the git bar", async () => {
+        const decorations = new DecorationsCustomer(
+            new EditorDecorationsServiceAdapter(editors),
+            { setFileDecorations: () => undefined },
+            new ThemeColorResolverAdapter(themeService),
+        );
+        const [hostSide, extensionSide] = createInProcessChannelPair();
+        const extension = new RpcEndpoint(extensionSide);
+        const attached = decorations.attach({ rpc: new RpcEndpoint(hostSide), logger: undefined });
+        const uri = Uri.file(filePath).toString();
+        const extensionBars = (line: number | null): void => {
+            const ranges = line === null ? [] : [{ start: { line, character: 0 }, end: { line, character: 0 } }];
+            extension.notify("editor.setDecorations", { key: 1, uri, ranges });
+        };
+        extension.notify("window.createTextEditorDecorationType", {
+            key: 1,
+            options: { overviewRulerColor: { $themeColor: "editorGutter.addedBackground" } },
+        });
+
+        const editor = editors.getActiveEditor();
+        editor!.goToPosition(1, 0);
+        editor!.viewState.type("X");
+        await settle(300);
+        extensionBars(3);
+        await flushMicrotasks();
+        testApp.render();
+        expect(barsOnScreen()).toEqual([
+            { line: 1, char: BAR_DASHED },
+            { line: 3, char: BAR_SOLID },
+        ]);
+
+        // As the extension does on every document change; no quick diff recompute in between.
+        extensionBars(null);
+        await flushMicrotasks();
+        testApp.render();
+        expect(barsOnScreen()).toEqual([{ line: 1, char: BAR_DASHED }]);
+        const top = (testApp.querySelector("EditorElement") as EditorElement).globalPosition.y;
+        expect(testApp.backend.getFgAt(new Point(barColumn(), top + 1))).toBe(modifiedColor);
+
+        attached.dispose();
+        decorations.dispose();
     });
 
     it("reverting the text to the original removes the bar", async () => {
