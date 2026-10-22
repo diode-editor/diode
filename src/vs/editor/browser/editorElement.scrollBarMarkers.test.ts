@@ -210,6 +210,16 @@ describe("EditorElement — scrollbar markers", () => {
             expect(editor.getScrollBarMarkers()).toBe(markers);
         });
 
+        it("does not map the occurrences again when only diagnostics change", () => {
+            const editor = occurrenceEditor();
+            const [occurrence] = markersOf(editor);
+            editor.markerDecorations = [{ range: createRange(0, 0, 0, 1), severity: MarkerSeverity.Error }];
+            const markers = editor.getScrollBarMarkers();
+
+            expect(markers).toHaveLength(4);
+            expect(markers[0]).toBe(occurrence);
+        });
+
         it("rebuilds when a fold moves the rows", () => {
             const editor = occurrenceEditor();
             markersOf(editor);

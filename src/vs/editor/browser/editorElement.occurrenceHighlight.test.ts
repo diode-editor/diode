@@ -4,6 +4,7 @@ import { TUIKeyboardEvent } from "@tuidom/core/dom/events/tuiKeyboardEvent";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { TestApp } from "../../../TestUtils/TestApp.ts";
+import { createRange } from "../common/core/iRange.ts";
 import { createCursorSelection, createSelection } from "../common/core/iSelection.ts";
 import { TextDocument } from "../common/model/textDocument.ts";
 import { EditorViewState } from "../common/viewModel/editorViewState.ts";
@@ -198,6 +199,21 @@ describe("EditorElement — occurrence highlight (word under cursor)", () => {
         expect(viewState.document.getLineContent(0)).toBe("foox bar foo");
         expect(app.backend.getBgAt(new Point(gw + 0, 0))).toBe(editor.resolvedStyle.bg);
         expect(app.backend.getBgAt(new Point(gw + 9, 0))).toBe(editor.resolvedStyle.bg);
+    });
+
+    it("a cursor remapped inside the edit's own event does not query either (undo, extension edits)", () => {
+        const { app, editor, viewState, gw } = createEditor("foo bar foo");
+        viewState.selections = [createCursorSelection(0, 9)];
+        settle(app);
+        // The view state shifts the caret while the content event is still being delivered,
+        // before the element hears about the edit.
+        viewState.document.applyEdits([{ range: createRange(0, 0, 0, 0), text: "foo\n" }]);
+        // Clamped to the end of the new first line: the caret now rests on its `foo`.
+        expect(viewState.selections[0].active).toEqual({ line: 0, character: 3 });
+        settle(app);
+
+        expect(app.backend.getBgAt(new Point(gw + 0, 0))).toBe(editor.resolvedStyle.bg);
+        expect(app.backend.getBgAt(new Point(gw + 0, 1))).toBe(editor.resolvedStyle.bg);
     });
 
     it("an explicit cursor move after an edit brings the highlight back", async () => {

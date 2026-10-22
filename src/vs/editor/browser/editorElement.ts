@@ -19,7 +19,6 @@ import { withCursorChangeSource } from "../common/core/cursorChangeSource.ts";
 import type { IPosition } from "../common/core/iPosition.ts";
 import { comparePositions } from "../common/core/iPosition.ts";
 import type { IRange } from "../common/core/iRange.ts";
-import { rangesEqual } from "../common/core/iRange.ts";
 import {
     createCursorSelection,
     createSelection,
@@ -45,7 +44,6 @@ import type { IGutterChangeDecoration } from "../common/model/iGutterChangeDecor
 import type { IUndoElement } from "../common/model/iUndoElement.ts";
 import { UndoManager } from "../common/model/undoManager.ts";
 import { EditorViewState } from "../common/viewModel/editorViewState.ts";
-import type { IViewZone } from "../common/viewModel/iViewZone.ts";
 import { LineWidthCache } from "../common/viewModel/lineWidthCache.ts";
 import { LONG_LINE_TRUNCATION_BADGE } from "../common/viewModel/longLineRendering.ts";
 import { computeWordOccurrences } from "../contrib/find/computeWordOccurrences.ts";
@@ -71,6 +69,7 @@ import { resolveSemanticTokenStyle, SemanticTokenIndex, TokenIndex } from "./tok
 const FIND_MATCH_BG = packRgb(98, 91, 23);
 const FIND_MATCH_CURRENT_BG = packRgb(168, 109, 0);
 const NO_RANGES: readonly IRange[] = [];
+const NO_CACHED_SCROLL_BAR_MARKERS: ICachedScrollBarMarkers = { sources: [], markers: [] };
 
 /** Upstream `WordHighlighter.runDelayer`: the occurrence query runs once the cursor settles. */
 const OCCURRENCE_RUN_DELAY_MS = 50;
@@ -111,53 +110,30 @@ type IndentGuideCells = ReadonlyMap<number, ReadonlySet<number>>;
 
 const NO_GUIDE_CELLS: IndentGuideCells = new Map<number, ReadonlySet<number>>();
 
-/** What the scrollbar marks are built from; equal keys give the same marks. */
-interface IScrollBarMarkersKey {
-    readonly versionId: number;
-    readonly occurrences: readonly IRange[];
-    readonly occurrenceColor: number;
-    readonly gutterChanges: readonly IGutterChangeDecoration[];
-    readonly searchMatches: readonly IRange[];
-    readonly findColor: number;
-    /** A fresh array on every read: compared by content, the ranges move only with the version. */
-    readonly markerDecorations: readonly IMarkerDecoration[];
-    readonly markerColors: readonly number[];
-    /** The projection: rows move with folds, view zones, wrap and tab width. */
-    readonly foldStateVersion: number;
-    readonly viewZones: readonly IViewZone[];
-    readonly wrapWidth: number;
-    readonly tabSize: number;
+/** Marks built from `sources`; equal sources (by identity) give the same marks. */
+interface ICachedScrollBarMarkers {
+    readonly sources: readonly unknown[];
+    readonly markers: readonly IScrollBarMarker[];
 }
 
-function sameScrollBarMarkersKey(a: IScrollBarMarkersKey, b: IScrollBarMarkersKey): boolean {
+function sameSources(a: readonly unknown[], b: readonly unknown[]): boolean {
+    return a.length === b.length && a.every((source, i) => source === b[i]);
+}
+
+function sameMarkers(a: readonly IScrollBarMarker[], b: readonly IScrollBarMarker[]): boolean {
     return (
-        a.versionId === b.versionId &&
-        a.occurrences === b.occurrences &&
-        a.occurrenceColor === b.occurrenceColor &&
-        a.gutterChanges === b.gutterChanges &&
-        a.searchMatches === b.searchMatches &&
-        a.findColor === b.findColor &&
-        a.foldStateVersion === b.foldStateVersion &&
-        a.viewZones === b.viewZones &&
-        a.wrapWidth === b.wrapWidth &&
-        a.tabSize === b.tabSize &&
-        sameArray(a.markerColors, b.markerColors, (x, y) => x === y) &&
-        sameArray(a.markerDecorations, b.markerDecorations, sameMarkerDecoration)
+        a.length === b.length &&
+        a.every(
+            (m, i) =>
+                m.start === b[i].start && m.end === b[i].end && m.color === b[i].color && m.priority === b[i].priority,
+        )
     );
-}
-
-function sameArray<T>(a: readonly T[], b: readonly T[], same: (x: T, y: T) => boolean): boolean {
-    return a.length === b.length && a.every((item, i) => same(item, b[i]));
 }
 
 /** `ranges` sorted and not overlapping; both ends count, as upstream `Range.containsPosition`. */
 function sortedRangesContain(ranges: readonly IRange[], pos: IPosition): boolean {
     const i = findFirstIdxMonotonousOrArrLen(ranges, (range) => comparePositions(range.end, pos) >= 0);
     return i < ranges.length && comparePositions(ranges[i].start, pos) <= 0;
-}
-
-function sameMarkerDecoration(a: IMarkerDecoration, b: IMarkerDecoration): boolean {
-    return a.severity === b.severity && rangesEqual(a.range, b.range);
 }
 
 export class EditorElement extends TUIElement implements IScrollable {
@@ -230,10 +206,22 @@ export class EditorElement extends TUIElement implements IScrollable {
     // The first query waits for the first frame: a big file shows its text before the search.
     private occurrenceRunRequested = true;
     private occurrenceTimer: ReturnType<typeof setTimeout> | undefined;
-    // The cursor move of an edit (typing, Enter, undo) is not an explicit move: upstream keeps
-    // the highlight off until the next one.
-    private contentChangedInThisTask = false;
-    private scrollBarMarkersCache: { key: IScrollBarMarkersKey; markers: readonly IScrollBarMarker[] } | null = null;
+    /**
+     * The cursor move of an edit (typing, Enter, undo) is not an explicit move: upstream keeps
+     * the highlight off until the next one (`CursorChangeReason`). The edit and its cursor move
+     * share one synchronous task, in either order: the view state remaps selections inside the
+     * content event, before this element hears it. So a request made in the task of an edit is
+     * withdrawn, and a cursor move after the edit in the same task makes none.
+     */
+    private occurrenceTask: { edited: boolean; requested: boolean } | null = null;
+    private occurrenceMarkers = NO_CACHED_SCROLL_BAR_MARKERS;
+    private findMarkers = NO_CACHED_SCROLL_BAR_MARKERS;
+    private scrollBarMarkers: {
+        readonly occurrences: readonly IScrollBarMarker[];
+        readonly find: readonly IScrollBarMarker[];
+        readonly small: readonly IScrollBarMarker[];
+        readonly markers: readonly IScrollBarMarker[];
+    } | null = null;
     private ghostTextValue: IGhostText | null = null;
     private renderedDocLines: { first: number; last: number } | undefined;
 
@@ -267,62 +255,93 @@ export class EditorElement extends TUIElement implements IScrollable {
      * Overview ruler marks for the scrollbar, in view rows: what the file has highlighted
      * (diagnostics, find matches, SCM changes, occurrences of the word under the cursor).
      * The scrollbar reads them every frame, and occurrences or find matches of a common word in
-     * a big file number in the hundreds of thousands: the list is rebuilt once per change of its
-     * sources or of the projection, and between changes it is the same array.
+     * a big file number in the hundreds of thousands: those two sets are mapped to rows once per
+     * change of the set or of the projection, and while nothing changes the result is the same
+     * array.
      */
     public getScrollBarMarkers(): readonly IScrollBarMarker[] {
         const vs = this.viewState;
+        // The projection: rows move with the text, folds, view zones, wrap and tab width.
+        const projection = [
+            vs.document.versionId,
+            vs.foldStateVersion,
+            vs.viewZones,
+            vs.isWordWrapActive ? vs.viewportWidth : -1,
+            vs.tabSize,
+        ];
         const occurrences = this.getOccurrenceHighlights();
         const searchMatches = vs.searchMatches;
-        const markerDecorations = this.markerDecorations;
-        // Tokens resolve only when there is something to mark: a bare element has no theme.
-        const occurrenceColor =
-            occurrences.length > 0 ? this.styleVar("editorOverviewRuler.wordHighlightForeground") : -1;
-        const findColor = searchMatches.length > 0 ? this.styleVar("editorOverviewRuler.findMatchForeground") : -1;
-        const lanes = markerDecorations.map(({ severity }) =>
-            severity === MarkerSeverity.Hint ? null : this.severityRulerLane(severity),
-        );
-        const key: IScrollBarMarkersKey = {
-            versionId: vs.document.versionId,
+        this.occurrenceMarkers = this.rangeMarkers(
+            this.occurrenceMarkers,
             occurrences,
-            occurrenceColor,
-            gutterChanges: this.gutterChangeDecorations,
+            "editorOverviewRuler.wordHighlightForeground",
+            ScrollBarMarkerPriority.WordHighlight,
+            projection,
+        );
+        this.findMarkers = this.rangeMarkers(
+            this.findMarkers,
             searchMatches,
-            findColor,
-            markerDecorations,
-            markerColors: lanes.map((lane) => lane?.color ?? -1),
-            foldStateVersion: vs.foldStateVersion,
-            viewZones: vs.viewZones,
-            wrapWidth: vs.isWordWrapActive ? vs.viewportWidth : -1,
-            tabSize: vs.tabSize,
-        };
-        const cached = this.scrollBarMarkersCache;
-        if (cached !== null && sameScrollBarMarkersKey(cached.key, key)) return cached.markers;
-
-        const markers: IScrollBarMarker[] = [];
-        const add = (range: IRange, color: number, priority: number): void => {
-            const start = this.viewRowForPosition(range.start.line, range.start.character);
-            const end = this.viewRowForPosition(range.end.line, range.end.character);
-            markers.push({ start, end: end + 1, color, priority });
-        };
-
-        for (const range of occurrences) add(range, occurrenceColor, ScrollBarMarkerPriority.WordHighlight);
+            "editorOverviewRuler.findMatchForeground",
+            ScrollBarMarkerPriority.FindMatch,
+            projection,
+        );
 
         // The SCM bar colors arrive resolved, so the ruler reuses them instead of the
         // `editorOverviewRuler.{added,modified,deleted}Foreground` tokens.
-        for (const change of this.gutterChangeDecorations) {
-            add(change.range, change.color, ScrollBarMarkerPriority.GutterChange);
-        }
-
-        for (const range of searchMatches) add(range, findColor, ScrollBarMarkerPriority.FindMatch);
-
-        markerDecorations.forEach(({ range }, i) => {
-            const lane = lanes[i];
+        const changeMarkers = this.gutterChangeDecorations.map((change) =>
+            this.scrollBarMarker(change.range, change.color, ScrollBarMarkerPriority.GutterChange),
+        );
+        const diagnosticMarkers: IScrollBarMarker[] = [];
+        for (const { range, severity } of this.markerDecorations) {
             // Hints have no ruler mark in VS Code either.
-            if (lane !== null) add(range, lane.color, lane.priority);
-        });
-        this.scrollBarMarkersCache = { key, markers };
+            if (severity === MarkerSeverity.Hint) continue;
+            const lane = this.severityRulerLane(severity);
+            diagnosticMarkers.push(this.scrollBarMarker(range, lane.color, lane.priority));
+        }
+        const small = [...changeMarkers, ...diagnosticMarkers];
+
+        const cached = this.scrollBarMarkers;
+        if (
+            cached?.occurrences === this.occurrenceMarkers.markers &&
+            cached.find === this.findMarkers.markers &&
+            sameMarkers(cached.small, small)
+        ) {
+            return cached.markers;
+        }
+        const markers = this.occurrenceMarkers.markers.concat(
+            changeMarkers,
+            this.findMarkers.markers,
+            diagnosticMarkers,
+        );
+        this.scrollBarMarkers = {
+            occurrences: this.occurrenceMarkers.markers,
+            find: this.findMarkers.markers,
+            small,
+            markers,
+        };
         return markers;
+    }
+
+    /** Rebuilds `cache` only when the ranges, their color or the projection change. */
+    private rangeMarkers(
+        cache: ICachedScrollBarMarkers,
+        ranges: readonly IRange[],
+        colorToken: string,
+        priority: number,
+        projection: readonly unknown[],
+    ): ICachedScrollBarMarkers {
+        if (ranges.length === 0) return NO_CACHED_SCROLL_BAR_MARKERS;
+        // Tokens resolve only when there is something to mark: a bare element has no theme.
+        const color = this.styleVar(colorToken);
+        const sources = [ranges, color, ...projection];
+        if (sameSources(cache.sources, sources)) return cache;
+        return { sources, markers: ranges.map((range) => this.scrollBarMarker(range, color, priority)) };
+    }
+
+    private scrollBarMarker(range: IRange, color: number, priority: number): IScrollBarMarker {
+        const start = this.viewRowForPosition(range.start.line, range.start.character);
+        const end = this.viewRowForPosition(range.end.line, range.end.character);
+        return { start, end: end + 1, color, priority };
     }
 
     private severityRulerLane(severity: Exclude<MarkerSeverity, MarkerSeverity.Hint>): {
@@ -489,7 +508,11 @@ export class EditorElement extends TUIElement implements IScrollable {
         this.undoManager = new UndoManager(viewState.document);
 
         this.viewState.onDidChangeCursorPosition(() => {
-            if (!this.contentChangedInThisTask) this.requestOccurrences();
+            const task = this.currentOccurrenceTask();
+            if (!task.edited) {
+                task.requested = true;
+                this.requestOccurrences();
+            }
             this.markDirty();
         });
         // Scroll, folding and edits away from the cursor (extension applyEdits) too: under
@@ -500,10 +523,9 @@ export class EditorElement extends TUIElement implements IScrollable {
         this.viewState.document.onDidChangeContent(() => {
             // Upstream `onDidChangeModelContent` → `_stopAll`: no full-file search per keystroke.
             this.dropOccurrences();
-            this.contentChangedInThisTask = true;
-            queueMicrotask(() => {
-                this.contentChangedInThisTask = false;
-            });
+            const task = this.currentOccurrenceTask();
+            task.edited = true;
+            if (task.requested) this.occurrenceRunRequested = false;
             this.markDirty();
         });
 
@@ -1042,6 +1064,16 @@ export class EditorElement extends TUIElement implements IScrollable {
             case MarkerSeverity.Hint:
                 return this.styleVar("editorHint.foreground");
         }
+    }
+
+    private currentOccurrenceTask(): { edited: boolean; requested: boolean } {
+        if (this.occurrenceTask === null) {
+            this.occurrenceTask = { edited: false, requested: false };
+            queueMicrotask(() => {
+                this.occurrenceTask = null;
+            });
+        }
+        return this.occurrenceTask;
     }
 
     /** Upstream `runDelayer.trigger`: the query is armed by the next frame, see {@link render}. */
