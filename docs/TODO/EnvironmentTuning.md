@@ -98,7 +98,7 @@
 tmux просит расширенные клавиши); лечится только tmux ≥ 3.5 с `extended-keys always` +
 `extended-keys-format csi-u`. Устройство, бисекция по слоям и почему не чиним кодом —
 [arch/workbench/Keyboard.md](../arch/workbench/Keyboard.md#где-теряется-клавиша-tmux-kitty-iterm2);
-рецепт для пользователя и фолбэк `Ctrl+PageDown`/`Ctrl+PageUp` — [public/TMUX.md](../public/TMUX.md).
+рецепт для пользователя и фолбэк `Ctrl+PageDown`/`Ctrl+PageUp` — [public/TERMINAL.md](../public/TERMINAL.md#tmux).
 
 - [ ] **Детектить и подсказывать.** Ситуация «внутри tmux, но расширенные клавиши фактически не
   приходят» (`mode_tmux` активен, а `noteExtendedKeysObserved` так и не сработал спустя N вводов) →

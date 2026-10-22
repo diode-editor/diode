@@ -24,7 +24,8 @@ diode              # empty window — pick a folder from inside
 `diode -g file.ts:42:7` opens a file with the caret already there, and
 `diode -d old.ts new.ts` opens a diff. `diode --help` lists the rest.
 
-Inside tmux, see [diode in tmux](https://diode-editor.github.io/docs/getting-started/tmux/) to make the window title show up.
+New here? [First run](https://diode-editor.github.io/docs/getting-started/first-run/) is the ten-minute tour;
+[Terminal setup](https://diode-editor.github.io/docs/getting-started/terminal/) covers keys, clipboard and tmux.
 
 ## Other ways to install
 

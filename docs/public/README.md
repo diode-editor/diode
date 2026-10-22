@@ -17,12 +17,19 @@
 пересказываем — ссылаемся на code.visualstudio.com. Пишем то, чем diode отличается или чего у
 VS Code нет.
 
-- [BENCHMARKS.md](BENCHMARKS.md) — скорость старта: лестница, сравнение с другими редакторами, методика
-- [BENCH-OPEN.md](BENCH-OPEN.md) — открытие файла от 100 строк до 13 МБ: методика и колонки (наших мс над полом node и над полом бинаря, лестница вех, латентность клавиш, peak RSS); сами цифры джоба `bench.yml` на каждый пуш в `main` кладёт в ветку `bench-data`, страница сайта `/benchmarks/` рисует их оттуда; бюджет кухни старта защищён `npm run test:perf`
-- [API-COVERAGE.md](API-COVERAGE.md) — матрица готовности API расширений VS Code
-- [ROADMAP.md](ROADMAP.md) — статус «альфа», цель и порядок движения
-- [INSTALL.md](INSTALL.md) — все каналы установки: quick install, npm, Homebrew, apt, winget, nightly
-- [TMUX.md](TMUX.md) — Diode в tmux: рецепт `.tmux.conf` для расширенных клавиш (Ctrl+Tab, Ctrl+Shift+буква) и заголовка окна во внешнем терминале и в имени окна tmux
+- [INSTALL.md](INSTALL.md) — все каналы установки: quick install, npm, Homebrew, apt, winget, mise, nightly
+- [FIRST-RUN.md](FIRST-RUN.md) — первые десять минут: CLI, навигация, выход, где лежат настройки и профили
+- [KEYBOARD.md](KEYBOARD.md) — что терминал не доставляет (Ctrl+Shift, Ctrl+Tab, Cmd) и таблица замен `Ctrl+K`, уровни legacy/extended/cmd, Keyboard Doctor
+- [TERMINAL.md](TERMINAL.md) — настройка терминала: цвета, расширенные клавиши по эмуляторам, буфер обмена (OSC 52), ssh, tmux (клавиши, буфер, заголовок окна), screen
+- [EXTENSIONS.md](EXTENSIONS.md) — магазин и курируемый реестр, установка из редактора и из CLI, `.vsix`, где лежат, что не может работать, публикация в реестр
+- [API-COVERAGE.md](API-COVERAGE.md) — матрица готовности API расширений VS Code (для авторов расширений)
+- [ROADMAP.md](ROADMAP.md) — статус «альфа»: что работает, чего пока нет, что дальше, чего не будет
+- [PERFORMANCE.md](PERFORMANCE.md) — скорость: «наши мс» над полом node, что меряет `bench.yml` (цифры джоб кладёт в ветку `bench-data`, страница `/benchmarks/` рисует их оттуда), лестница старта, сравнение с другими редакторами (запланировано), перф-гейт `npm run test:perf`
+
+Карта сайта (сайдбар — в `astro.config.mjs` репозитория сайта): Getting started — Install, First run,
+Keyboard, Terminal setup; Extensions — Installing extensions, API coverage; Reference — Settings;
+Project — Roadmap, Performance. Старые адреса (`tmux`, `reference/api-coverage`, `benchmarks`,
+`bench-open`) редиректят туда же.
 
 Правила каталога:
 

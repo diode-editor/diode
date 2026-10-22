@@ -6,7 +6,7 @@
 окружение, мак-раскладка и что теряется на пути клавиши от терминала до редактора. Открытое —
 [TODO/MacKeybindings.md](../../TODO/MacKeybindings.md) и
 [TODO/EnvironmentTuning.md](../../TODO/EnvironmentTuning.md); пользовательский рецепт tmux —
-[public/TMUX.md](../../public/TMUX.md).
+[public/TERMINAL.md](../../public/TERMINAL.md#tmux).
 
 ## ОС клавиатуры
 
@@ -86,7 +86,7 @@
   терминала через xterm-`modifyOtherKeys`, а kitty его принципиально не поддерживает. tmux физически
   не получает Ctrl у Tab и добавить его не может. Лечение — в самом tmux: переработка
   [tmux#4038](https://github.com/tmux/tmux/pull/4038) и опция `extended-keys-format csi-u` вошли в
-  **tmux 3.5**; на 3.4 не дожать. Рецепт — [public/TMUX.md](../../public/TMUX.md).
+  **tmux 3.5**; на 3.4 не дожать. Рецепт — [public/TERMINAL.md](../../public/TERMINAL.md#tmux).
 - **Индикатор tier ≠ доставка клавиш.** `extended-keys` поднимается и по env-хинту внешнего
   терминала (`KITTY_WINDOW_ID`), который под tmux доказательством не считается, — отсюда
   односторонний гейт по tier ([Commands.md](Commands.md#конвенции-системы-команд)). Runtime-детект —

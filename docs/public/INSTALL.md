@@ -11,7 +11,7 @@ curl -fsSL https://raw.githubusercontent.com/diode-editor/diode/main/install.sh 
 ```
 
 Puts `diode` into `/usr/local/bin` when writable, otherwise into `~/.local/bin`. Knobs:
-`DIODE_VERSION=v0.3.0` (or `nightly`) picks a release, `DIODE_INSTALL_DIR` picks the directory.
+`DIODE_VERSION=v0.9.10` (or `nightly`) picks a release, `DIODE_INSTALL_DIR` picks the directory.
 Checksums are verified against the `.sha256` sidecar published with each release. To update,
 run the script again.
 

@@ -47,7 +47,7 @@ Doctor. С `@tuidom/*` 0.3.0 добавились XTVERSION-проба имен�
 | ghostty | да | `macos-option-as-alt = left`, `alt+arrow_left/right=unbind` (иначе шлёт legacy `ESC b`), снять Cmd-шорткаты |
 | WezTerm | да | `enable_kitty_keyboard`, `send_composed_key_when_left_alt_is_pressed = false` |
 | macOS | — | Cmd+Tab/Space/H до эмулятора не доходят; Ctrl+←/→ забирает Mission Control |
-| любой + tmux | нет | Cmd и Option в одном бите tmux; Ctrl+Shift/Ctrl+Tab — tmux ≥ 3.5 ([TMUX.md](../public/TMUX.md)) |
+| любой + tmux | нет | Cmd и Option в одном бите tmux; Ctrl+Shift/Ctrl+Tab — tmux ≥ 3.5 ([TERMINAL.md](../public/TERMINAL.md#tmux)) |
 
 ## Осталось
 
