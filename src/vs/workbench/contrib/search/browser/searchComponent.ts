@@ -296,12 +296,11 @@ export class SearchComponent extends Component implements IContextKeyContributor
     }
 
     private stepMatch(delta: 1 | -1): void {
-        // Only an empty list has no cursor.
-        const cursor = this.results.getCursorElement();
-        if (cursor === null) return;
+        // Only an empty list has no cursor, and then the loop below does not run.
+        const cursorId = this.results.getCursorElement()?.id;
         // rowMeta keeps insertion order, which is the display order of the rows.
         const rows = [...this.rowMeta];
-        const start = rows.findIndex(([id]) => id === cursor.id);
+        const start = rows.findIndex(([id]) => id === cursorId);
         // The last step comes back to the cursor itself: a lone match is reopened, as upstream.
         for (let step = 1; step <= rows.length; step++) {
             const [id, meta] = rows[(((start + delta * step) % rows.length) + rows.length) % rows.length];
