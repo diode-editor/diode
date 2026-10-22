@@ -79,16 +79,15 @@ function dirName(installed: IInstalledExtension): string {
  */
 export function compareLooseVersions(a: string, b: string): number {
     const parse = (version: string): { parts: number[]; prerelease: string | undefined } => {
-        const withoutBuild = version.split("+")[0];
-        const dash = withoutBuild.indexOf("-");
-        const core = dash < 0 ? withoutBuild : withoutBuild.slice(0, dash);
+        const [core, ...prerelease] = version.split("+")[0].split("-");
         return {
             parts: core.split(".").map((part) => Number(part) || 0),
-            prerelease: dash < 0 ? undefined : withoutBuild.slice(dash + 1),
+            prerelease: prerelease.length > 0 ? prerelease.join("-") : undefined,
         };
     };
     const left = parse(a);
     const right = parse(b);
+    // Stryker disable next-line EqualityOperator: one index past both lengths compares 0 with 0
     for (let i = 0; i < Math.max(left.parts.length, right.parts.length); i++) {
         const diff = (left.parts[i] ?? 0) - (right.parts[i] ?? 0);
         if (diff !== 0) return diff;
@@ -115,20 +114,22 @@ function readDisk(extensionsDir: string): IDiskState {
     return { installed: listInstalledExtensions(extensionsDir), obsolete };
 }
 
-/** The highest version of the id on disk; marked ones only when there is nothing else and `orMarked` allows. */
-function highestVersion(disk: IDiskState, key: string, orMarked: boolean): IInstalledExtension | undefined {
+/** Versions of the id on disk; marked ones only when there is nothing else and `orMarked` allows. */
+function versionsOf(disk: IDiskState, key: string, orMarked: boolean): IInstalledExtension[] {
     const all = disk.installed.filter((e) => extensionKey(e.id) === key);
     const unmarked = all.filter((e) => !disk.obsolete.has(dirName(e)));
-    const candidates = unmarked.length > 0 || !orMarked ? unmarked : all;
-    return candidates.reduce<IInstalledExtension | undefined>(
-        (best, e) => (best === undefined || compareLooseVersions(e.version, best.version) > 0 ? e : best),
-        undefined,
-    );
+    return unmarked.length > 0 || !orMarked ? unmarked : all;
+}
+
+/** Not empty. */
+function highest(candidates: readonly IInstalledExtension[]): IInstalledExtension {
+    // Stryker disable next-line EqualityOperator: on equal versions either directory holds that version
+    return candidates.reduce((best, e) => (compareLooseVersions(e.version, best.version) > 0 ? e : best));
 }
 
 /**
  * Like upstream, by `relativeLocation`; entries from older versions (US-0.9) by `<id>-<version>`,
- * then by any version of the id on disk. A directory of another id is never taken.
+ * then by any unmarked version of the id on disk. A directory of another id is never taken.
  */
 function resolveEntry(
     entry: IStoredProfileExtension,
@@ -140,10 +141,10 @@ function resolveEntry(
     const exact =
         own.find((e) => dirName(e) === entry.relativeLocation) ?? own.find((e) => e.version === entry.version);
     if (exact !== undefined) return exact;
-    const guess = highestVersion(disk, key, false);
-    const candidates = own.filter((e) => !disk.obsolete.has(dirName(e)));
+    const candidates = versionsOf(disk, key, false);
+    if (candidates.length === 0) return undefined;
     if (candidates.length > 1) onGuess(candidates);
-    return guess;
+    return highest(candidates);
 }
 
 /** Directory names the profiles point to. An unreadable profile file is an error: it may hold anything. */
@@ -170,7 +171,7 @@ export function migrateProfileExtensions(extensionsDir: string, profileFiles: re
     if (missing.length === 0) return [];
     const disk = readDisk(extensionsDir);
     const keys = new Set(disk.installed.map((e) => extensionKey(e.id)));
-    const all = [...keys].flatMap((key) => highestVersion(disk, key, true) ?? []).map(toStoredExtension);
+    const all = [...keys].map((key) => toStoredExtension(highest(versionsOf(disk, key, true))));
     for (const file of missing) writeProfileExtensions(file, all);
     return missing;
 }
@@ -213,8 +214,8 @@ export function markUnusedExtensions(
     const only = candidates === undefined ? undefined : new Set(candidates.map(extensionKey));
     const considered = disk.installed.filter((e) => only === undefined || only.has(extensionKey(e.id)));
     const unused = considered.filter((e) => !referenced.has(dirName(e)));
-    unmarkObsolete(extensionsDir, considered.filter((e) => referenced.has(dirName(e))).map(dirName));
     markObsolete(extensionsDir, unused.map(dirName));
+    unmarkObsolete(extensionsDir, considered.filter((e) => referenced.has(dirName(e))).map(dirName));
     return unused.filter((e) => !disk.obsolete.has(dirName(e)));
 }
 
@@ -311,8 +312,9 @@ export class ProfileExtensions {
                     queue.push(kept);
                     continue;
                 }
-                const picked = highestVersion(disk, key, true);
-                if (picked === undefined) continue;
+                const versions = versionsOf(disk, key, true);
+                if (versions.length === 0) continue;
+                const picked = highest(versions);
                 adding.set(key, picked);
                 queue.push(picked);
             }

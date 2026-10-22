@@ -165,6 +165,16 @@ describe("profileExtensions", () => {
             expect(readProfileExtensions(defaultFile)).toEqual([entry("acme.tools", "1.2.0")]);
         });
 
+        it("only marked versions on disk: the highest of them still goes in (nothing is hidden)", () => {
+            onDisk("acme.tools", "1.0.0");
+            onDisk("acme.tools", "1.2.0");
+            markObsolete(extensionsDir, ["acme.tools-1.0.0", "acme.tools-1.2.0"]);
+
+            migrateProfileExtensions(extensionsDir, [defaultFile]);
+
+            expect(readProfileExtensions(defaultFile)).toEqual([entry("acme.tools", "1.2.0")]);
+        });
+
         it("without installed extensions the contents are empty but the file is written", () => {
             expect(migrateProfileExtensions(extensionsDir, [defaultFile])).toEqual([defaultFile]);
             expect(ids(defaultFile)).toEqual([]);
@@ -209,6 +219,14 @@ describe("profileExtensions", () => {
             writeProfileExtensions(defaultFile, [entry("acme.tools", "1.0.0")]);
 
             expect(referencedExtensionDirs(extensionsDir, [defaultFile])).toEqual(new Set(["acme.tools-1.0.0"]));
+        });
+
+        it("an old entry without a directory of its own does not fall back to a marked version", () => {
+            onDisk("acme.tools", "1.1.0");
+            markObsolete(extensionsDir, ["acme.tools-1.1.0"]);
+            writeProfileExtensions(defaultFile, [{ identifier: { id: "acme.tools" }, version: "1.0.0" }]);
+
+            expect(referencedExtensionDirs(extensionsDir, [defaultFile])).toEqual(new Set());
         });
 
         it("an unreadable profile is an error: nobody can tell what it holds", () => {
@@ -420,6 +438,10 @@ describe("profileExtensions", () => {
             ["2.0.0-rc.2", "2.0.0-rc.1", 1],
             ["1.0", "1.0.1", -1],
             ["1.0.0+build.5", "1.0.0", 0],
+            ["1.0.1+build", "1.0.0", 1],
+            ["2.0.0-zz", "2.0.0", -1],
+            ["2.0.0-rc.10", "2.0.0-rc.2", 1],
+            ["1.0.0-a-b", "1.0.0-ab", -1],
             ["x.y", "0.0.1", -1],
         ])("%s vs %s → %d", (a, b, expected) => {
             expect(Math.sign(compareLooseVersions(a, b))).toBe(expected);
@@ -452,6 +474,16 @@ describe("profileExtensions", () => {
                 entry("acme.base", "2.0.0"),
                 entry("acme.core", "1.0.0"),
             ]);
+        });
+
+        it("a dependency cycle among dependencies does not loop", () => {
+            const tools = onDisk("acme.tools", "1.0.0", ["acme.a"]);
+            onDisk("acme.a", "1.0.0", ["acme.b"]);
+            onDisk("acme.b", "1.0.0", ["acme.a"]);
+
+            profile(workFile).add([{ id: "acme.tools", dir: tools }]);
+
+            expect(ids(workFile)).toEqual(["acme.tools", "acme.a", "acme.b"]);
         });
 
         it("a dependency already in the profile keeps its entry (its version and extra fields), and its own dependencies come too", () => {

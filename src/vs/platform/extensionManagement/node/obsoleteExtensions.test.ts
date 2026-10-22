@@ -77,10 +77,13 @@ describe("obsoleteExtensions", () => {
             expect(fs.readdirSync(extensionsDir)).toEqual([OBSOLETE_FILE]);
         });
 
-        it("marking nothing does not create the file", () => {
+        it("marking nothing does not create the file and does not touch an existing one, even a broken one", () => {
             markObsolete(extensionsDir, []);
-
             expect(fs.existsSync(extensionsDir)).toBe(false);
+
+            ws.writeFile(`extensions/${OBSOLETE_FILE}`, "[");
+            markObsolete(extensionsDir, []);
+            expect(fs.readFileSync(obsoleteFile, "utf8")).toBe("[");
         });
 
         it("unmark returns what was actually marked; the last one removes the file", () => {
@@ -158,6 +161,11 @@ describe("obsoleteExtensions", () => {
             expect(isProcessAlive(2 ** 30)).toBe(false);
         });
 
+        // pid 1 is init: signalling it as a regular user fails with EPERM, which still means "alive".
+        it.skipIf(process.platform === "win32")("isProcessAlive: another user's process is alive", () => {
+            expect(isProcessAlive(1)).toBe(true);
+        });
+
         it("installTempPrefix carries the pid", () => {
             expect(installTempPrefix(42)).toBe(".vsix-install-42-");
             expect(installTempPrefix()).toBe(`.vsix-install-${String(process.pid)}-`);
@@ -219,10 +227,17 @@ describe("obsoleteExtensions", () => {
             onDisk("acme.demo-1.0.0");
             markObsolete(extensionsDir, ["acme.demo-1.0.0"]);
 
-            expect(cleanUp({ referenced: ["acme.demo-1.0.0"] })).toEqual([]);
+            const logger = fakeLogger();
+
+            expect(cleanUp({ referenced: ["acme.demo-1.0.0"], logger })).toEqual([]);
 
             expect(exists("acme.demo-1.0.0")).toBe(true);
             expect(fs.existsSync(obsoleteFile)).toBe(false);
+            expect(logger.info).toHaveBeenCalledWith(
+                "Extension acme.demo-1.0.0 is used by a profile again; not deleting it",
+            );
+            // Nothing was deleted, so there is no "Deleted" line.
+            expect(logger.info).toHaveBeenCalledTimes(1);
         });
 
         it("broken .obsolete: error in the log, nothing deleted, the file is left for a person to look at", () => {
@@ -331,6 +346,39 @@ describe("obsoleteExtensions", () => {
                 ["100.json", "100.json.4242.tmp", "notes.txt"].sort(),
             );
         });
+
+        it("files in .inuse that are not leases are ignored", () => {
+            onDisk("acme.demo-1.0.0");
+            ws.writeFile(`extensions/${EXTENSION_LEASES_DIR}/notes.txt`, "x");
+            ws.writeFile(`extensions/${EXTENSION_LEASES_DIR}/100.json.4242.tmp`, "x");
+            markObsolete(extensionsDir, ["acme.demo-1.0.0"]);
+
+            expect(cleanUp()).toEqual(["acme.demo-1.0.0"]);
+            expect(fs.readdirSync(path.join(extensionsDir, EXTENSION_LEASES_DIR)).sort()).toEqual([
+                "100.json.4242.tmp",
+                "notes.txt",
+            ]);
+        });
+
+        it.skipIf(process.platform === "win32" || process.getuid?.() === 0)(
+            "a leftover that fails to delete is a warning, the start goes on",
+            () => {
+                const locked = ws.writeFile("extensions/acme.demo-1.0.0.ab12.vsctmp/locked/file.txt", "x");
+                fs.chmodSync(path.dirname(locked), 0o555);
+                markObsolete(extensionsDir, ["acme.other-1.0.0"]);
+                const logger = fakeLogger();
+
+                try {
+                    expect(cleanUp({ logger })).toEqual(["acme.other-1.0.0"]);
+                } finally {
+                    fs.chmodSync(path.dirname(locked), 0o755);
+                }
+                expect(logger.warn).toHaveBeenCalledWith(
+                    "Failed to delete acme.demo-1.0.0.ab12.vsctmp",
+                    expect.objectContaining({ code: "EACCES" }),
+                );
+            },
+        );
 
         it("sweeps leftovers: *.vsctmp always, install temps only of dead processes", () => {
             onDisk("acme.demo-1.0.0");

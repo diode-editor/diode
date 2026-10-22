@@ -229,6 +229,7 @@ async function installPrepared(
     extensionsDir: string,
 ): Promise<IInstalledFromRegistry[]> {
     const done: IInstalledFromRegistry[] = [];
+    // Stryker disable next-line ArrayDeclaration: rolling back a path that does not exist is a no-op `rmSync(force)`
     const created: string[] = [];
     try {
         for (const one of prepared) {

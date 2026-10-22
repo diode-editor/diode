@@ -92,6 +92,7 @@ function updateObsolete(extensionsDir: string, update: (marked: Set<string>) => 
     if (marked.size > 0) {
         writeJsonAtomic(obsoleteFile(extensionsDir), Object.fromEntries([...marked].map((name) => [name, true])));
     } else {
+        // Stryker disable next-line ObjectLiteral,BooleanLiteral: an update that empties the set had a mark to remove, so the file exists; `force` is a guard against a concurrent delete
         fs.rmSync(obsoleteFile(extensionsDir), { force: true });
     }
 }
@@ -145,7 +146,7 @@ function leasedDirs(
     extensionsDir: string,
     isAlive: (pid: number) => boolean,
     logger: ILogger,
-): Set<string> | undefined {
+): ReadonlySet<unknown> | undefined {
     const dir = path.join(extensionsDir, EXTENSION_LEASES_DIR);
     let names: string[];
     try {
@@ -153,17 +154,20 @@ function leasedDirs(
     } catch {
         return new Set();
     }
-    const leased = new Set<string>();
+    // Not narrowed to strings: a foreign value in a lease can only protect a directory name equal to it.
+    const leased = new Set<unknown>();
     for (const name of names) {
         const match = LEASE_FILE.exec(name);
         if (match === null) continue;
         const file = path.join(dir, name);
         if (!isAlive(Number(match[1]))) {
+            // Stryker disable next-line ObjectLiteral,BooleanLiteral: the file was just listed; `force` is a guard against a concurrent delete
             fs.rmSync(file, { force: true });
             continue;
         }
         let parsed: unknown;
         try {
+            // Stryker disable next-line StringLiteral: without an encoding JSON.parse reads the Buffer as the same utf-8
             parsed = JSON.parse(fs.readFileSync(file, "utf8"));
         } catch {
             // same as "not an array" below
@@ -172,7 +176,7 @@ function leasedDirs(
             logger.warn(`Unreadable extension lease ${file}; nothing is deleted`);
             return undefined;
         }
-        for (const entry of parsed) if (typeof entry === "string") leased.add(entry);
+        for (const entry of parsed) leased.add(entry);
     }
     return leased;
 }
@@ -187,6 +191,7 @@ function sweepLeftovers(extensionsDir: string, isAlive: (pid: number) => boolean
         const leftover = entry.name.endsWith(DELETED_FOLDER_POSTFIX) || (temp !== null && !isAlive(Number(temp[1])));
         if (!leftover) continue;
         try {
+            // Stryker disable next-line BooleanLiteral: the directory was just listed; `force` is a guard against a concurrent delete
             fs.rmSync(path.join(extensionsDir, entry.name), { recursive: true, force: true });
         } catch (err) {
             logger.warn(`Failed to delete ${entry.name}`, err);
@@ -226,6 +231,7 @@ export function cleanUpExtensions(extensionsDir: string, options: ICleanUpExtens
     }
     const leased = leasedDirs(extensionsDir, isAlive, logger);
 
+    // Stryker disable next-line ArrayDeclaration: unmarking a key that is not in the file changes nothing
     const handled: string[] = [];
     const deleted: string[] = [];
     for (const name of marksOf(record)) {
