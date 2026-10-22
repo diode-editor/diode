@@ -73,6 +73,13 @@ export class EditorComponent extends Component {
     /** Guards the sync-indentation ↔ async-provider race: a late reply to a superseded request is dropped. */
     private readonly foldingRequest = new LatestRequest();
     private componentDisposed = false;
+    /**
+     * Two independent producers: quick diff (git) and extension decoration types. Each one replaces only
+     * its own set — otherwise an extension clearing its bars on every keystroke wipes the git bars until the
+     * next quick diff recompute (flicker while typing).
+     */
+    private quickDiffGutterChanges: readonly IGutterChangeDecoration[] = [];
+    private extensionGutterChanges: readonly IGutterChangeDecoration[] = [];
     private readonly editTargetValue: ITextEditTarget;
     /** Not on the view state: it is recreated on reload from disk, and the extension host subscriber must survive that. */
     private readonly onDidChangeSelectionEmitter = new Emitter<void>();
@@ -394,7 +401,18 @@ export class EditorComponent extends Component {
 
     /** Colors arrive already resolved — the theme is not consulted. */
     public setGutterChangeDecorations(decorations: readonly IGutterChangeDecoration[]): void {
-        this.editor.gutterChangeDecorations = decorations;
+        this.quickDiffGutterChanges = decorations;
+        this.applyGutterChanges();
+    }
+
+    /** Bars of extension decoration types (`overviewRulerColor`); they don't touch the quick diff set. */
+    public setExtensionGutterChangeDecorations(decorations: readonly IGutterChangeDecoration[]): void {
+        this.extensionGutterChanges = decorations;
+        this.applyGutterChanges();
+    }
+
+    private applyGutterChanges(): void {
+        this.editor.gutterChangeDecorations = [...this.quickDiffGutterChanges, ...this.extensionGutterChanges];
         this.editor.markDirty();
     }
 

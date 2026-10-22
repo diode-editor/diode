@@ -14,7 +14,7 @@ export class EditorDecorationsServiceAdapter implements IEditorDecorationsServic
         // All groups: the same file in a neighboring split is also its tab.
         for (const editor of this.group.getEditors()) {
             if (editor.uri.toString() === uri) {
-                editor.setGutterChangeDecorations(decorations);
+                editor.setExtensionGutterChangeDecorations(decorations);
             }
         }
     }

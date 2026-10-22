@@ -19,7 +19,7 @@ function fakeEditor(uri: Uri) {
     const received: (readonly IGutterChangeDecoration[])[] = [];
     return {
         uri,
-        setGutterChangeDecorations: (d: readonly IGutterChangeDecoration[]) => received.push(d),
+        setExtensionGutterChangeDecorations: (d: readonly IGutterChangeDecoration[]) => received.push(d),
         received,
     };
 }

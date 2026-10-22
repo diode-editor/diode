@@ -340,6 +340,10 @@ export class TextEditorPane<TModel extends BaseTextEditorModel = BaseTextEditorM
         this.component.setGutterChangeDecorations(decorations);
     }
 
+    public setExtensionGutterChangeDecorations(decorations: readonly IGutterChangeDecoration[]): void {
+        this.component.setExtensionGutterChangeDecorations(decorations);
+    }
+
     public setGhostText(ghost: IGhostText | null): void {
         this.component.setGhostText(ghost);
     }
