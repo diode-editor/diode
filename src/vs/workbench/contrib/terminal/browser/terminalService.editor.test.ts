@@ -166,6 +166,26 @@ describe("TerminalService — instances in the editor area", () => {
             h.service.dispose();
         });
 
+        it("with several terminal tabs, the one named is activated, and the panel hands over to that one", () => {
+            const h = withAcross();
+            // An earlier tab: a lookup that ignores the id would pick it.
+            h.service.createInstance({ target: "editor" });
+            const second = h.service.createInstance({ target: "editor" });
+            const panel = h.service.createInstance();
+            // No tab was ever active: the panel's last one leaves nothing behind.
+            h.service.closeInstance(panel.id);
+            expect(h.service.getActiveInstanceAcrossHosts()).toBeNull();
+
+            h.service.setActiveEditorInstance(second.id);
+            h.service.setActiveEditorInstance(999);
+            expect(h.service.getActiveInstanceAcrossHosts()).toBe(second);
+
+            const shell = h.service.createInstance();
+            h.service.closeInstance(shell.id);
+            expect(h.service.getActiveInstanceAcrossHosts()).toBe(second);
+            h.service.dispose();
+        });
+
         it("the active editor terminal exits: the panel's active one takes over, or none", () => {
             const h = withAcross();
             const panel = h.service.createInstance();
