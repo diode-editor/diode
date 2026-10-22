@@ -88,6 +88,28 @@ export const editorColors = {
         defaults: { dark: "#F14C4C", light: "#E51400" },
         description: "Editor gutter background color for lines that are deleted.",
     },
+    "editorOverviewRuler.errorForeground": {
+        defaults: { dark: "#FF1212B3", light: "#FF1212B3" },
+        description: "Overview ruler marker color for errors.",
+    },
+    "editorOverviewRuler.warningForeground": {
+        defaults: { dark: "editorWarning.foreground", light: "editorWarning.foreground" },
+        description: "Overview ruler marker color for warnings.",
+    },
+    "editorOverviewRuler.infoForeground": {
+        defaults: { dark: "editorInfo.foreground", light: "editorInfo.foreground" },
+        description: "Overview ruler marker color for infos.",
+    },
+    "editorOverviewRuler.findMatchForeground": {
+        defaults: { dark: "#D186167E", light: "#D186167E" },
+        description:
+            "Overview ruler marker color for find matches. The color must not be opaque so as not to hide underlying decorations.",
+    },
+    "editorOverviewRuler.wordHighlightForeground": {
+        defaults: { dark: "#A0A0A0CC", light: "#A0A0A0CC" },
+        description:
+            "Overview ruler marker color for symbol highlights. The color must not be opaque so as not to hide underlying decorations.",
+    },
     "editorGutter.foldingControlForeground": {
         defaults: null,
         description: "Color of the folding control in the editor gutter.",

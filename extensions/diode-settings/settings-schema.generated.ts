@@ -121,6 +121,14 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
         description: "Controls the delay in milliseconds after which quick suggestions will show up.",
     },
     {
+        key: "editor.scrollbarMarkers",
+        type: "string",
+        default: "auto",
+        description:
+            "Controls where the editor marks what the file has highlighted (problems, find matches, source control changes, occurrences of the word under the cursor) along the scrollbar.",
+        enum: ["off", "auto", "inside", "outside"],
+    },
+    {
         key: "editor.semanticHighlighting.enabled",
         type: "boolean | string",
         default: "configuredByTheme",

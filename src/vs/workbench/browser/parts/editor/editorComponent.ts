@@ -49,6 +49,9 @@ export interface IIndentConfiguration {
     readonly detectIndentation?: boolean;
 }
 
+/** Values of `editor.scrollbarMarkers`. */
+export type ScrollbarMarkersSetting = "off" | "auto" | "inside" | "outside";
+
 export class EditorComponent extends Component {
     public readonly view: ScrollBarDecorator;
 
@@ -161,6 +164,8 @@ export class EditorComponent extends Component {
         this.attachSelectionForwarding();
         this.attachTypeForwarding();
         this.view = new ScrollBarDecorator(this.editor);
+        // The `editor.scrollbarMarkers` default, for surfaces the configuration never reaches.
+        this.view.markerPlacement = "auto";
         if (semanticTokens !== undefined) this.attachSemanticTokens(semanticTokens);
 
         // The closures read component fields, so they survive EditorElement
@@ -364,6 +369,14 @@ export class EditorComponent extends Component {
         if (this.editor.occurrenceHighlightEnabled === enabled) return;
         this.editor.occurrenceHighlightEnabled = enabled;
         this.editor.markDirty();
+    }
+
+    /** `editor.scrollbarMarkers`; the decorator knows the same placements, only "off" is its "none". */
+    public setScrollbarMarkers(setting: ScrollbarMarkersSetting): void {
+        const placement = setting === "off" ? "none" : setting;
+        if (this.view.markerPlacement === placement) return;
+        this.view.markerPlacement = placement;
+        this.view.markDirty();
     }
 
     public setCursorSurroundingLines(lines: number): void {

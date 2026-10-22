@@ -56,6 +56,17 @@
   клампит скролл), по
   `onDidChangeLanguage` и `TokenizationRegistry.onDidChange` пересаживает
   токенизатор, по контенту пересчитывает folding-регионы (микротаск-коалесинг).
+- **Метки на скроллбаре** (overview ruler). `EditorElement.getScrollBarMarkers()` отдаёт декоратору
+  tuidom отрезки view-строк: диагностики (error/warning/info, hint — нет, как в эталоне), совпадения
+  поиска, полоски SCM (цвет — уже резолвленный цвет полоски gutter) и вхождения слова под курсором;
+  строка в свёрнутом блоке метит заголовок фолда. У клетки один цвет, поэтому полосы эталона
+  схлопнуты в приоритет: error > warning > info > поиск > SCM > вхождения. Токены
+  `editorOverviewRuler.*` резолвятся, только когда есть что метить (голый элемент без темы не падает).
+  Где рисовать — наша настройка `editor.scrollbarMarkers` (`off`/`auto`/`inside`/`outside`, дефолт
+  `auto`: своя колонка слева от скроллбара от 80 колонок редактора, иначе поверх бара с бегунком
+  целыми клетками) → `EditorComponent.setScrollbarMarkers` → `ScrollBarDecorator.markerPlacement`.
+  В эталоне такого ключа нет: overview ruler там всегда внутри скроллбара. Демо —
+  `e2e/scenarios/scrollbarMarkers.scenario.ts`.
   Чужие правки документа (другая вью, undo, владелец буфера) строчно ремапят
   выделения/фолды/скролл каждой вью — `EditorViewState.remapForDocumentChange`
   по `onDidChangeContent` (свои мутаторы гейтятся и пересчитывают себя точно).
