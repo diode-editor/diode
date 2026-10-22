@@ -427,7 +427,8 @@ describe("SEA binary — install from file registry", () => {
                 .filter((e) => e.isDirectory() && !e.name.startsWith("."))
                 .map((e) => e.name)
                 .sort();
-        const cli = (...args: string[]) => runCli(binary, ["--user-data-dir", userData, "--registry", registryDir, ...args]);
+        const cli = (...args: string[]) =>
+            runCli(binary, ["--user-data-dir", userData, "--registry", registryDir, ...args]);
         await publishUpdated(["1.0.0"]);
         expect((await cli("--install-extension", "acme.updated")).stdout).toContain("Installed acme.updated@1.0.0");
 

@@ -247,9 +247,7 @@ describe("profileExtensions", () => {
             markObsolete(extensionsDir, ["acme.two-1.0.0"]);
             writeProfileExtensions(defaultFile, []);
 
-            expect(names(markUnusedExtensions(extensionsDir, [defaultFile], ["ACME.TWO"]))).toEqual([
-                "acme.two@2.0.0",
-            ]);
+            expect(names(markUnusedExtensions(extensionsDir, [defaultFile], ["ACME.TWO"]))).toEqual(["acme.two@2.0.0"]);
             expect(readObsolete(extensionsDir)).toEqual(new Set(["acme.two-1.0.0", "acme.two-2.0.0"]));
         });
 
@@ -377,7 +375,11 @@ describe("profileExtensions", () => {
                 );
                 writeProfileExtensions(workFile, [{ identifier: { id: "test.tab-setter" }, version: "0.0.1" }]);
 
-                expect(profile(workFile).list().map((e) => path.basename(e.dir))).toEqual(["tab-setter"]);
+                expect(
+                    profile(workFile)
+                        .list()
+                        .map((e) => path.basename(e.dir)),
+                ).toEqual(["tab-setter"]);
             });
 
             it("no such version: the only directory of the id, silently", () => {

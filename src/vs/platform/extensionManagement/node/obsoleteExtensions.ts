@@ -141,7 +141,11 @@ export function isProcessAlive(pid: number): boolean {
 const LEASE_FILE = /^(\d+)\.json$/u;
 
 /** `undefined` protects everything: a live process whose lease can't be read may hold any directory. */
-function leasedDirs(extensionsDir: string, isAlive: (pid: number) => boolean, logger: ILogger): Set<string> | undefined {
+function leasedDirs(
+    extensionsDir: string,
+    isAlive: (pid: number) => boolean,
+    logger: ILogger,
+): Set<string> | undefined {
     const dir = path.join(extensionsDir, EXTENSION_LEASES_DIR);
     let names: string[];
     try {

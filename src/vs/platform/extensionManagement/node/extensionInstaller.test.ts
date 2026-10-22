@@ -171,7 +171,11 @@ describe("ExtensionInstaller", () => {
             extensionsDir,
         );
 
-        expect(result).toEqual({ id: "acme.hello", version: "2.0.0", dir: path.join(extensionsDir, "acme.hello-2.0.0") });
+        expect(result).toEqual({
+            id: "acme.hello",
+            version: "2.0.0",
+            dir: path.join(extensionsDir, "acme.hello-2.0.0"),
+        });
         expect(listInstalledExtensions(extensionsDir).map((e) => `${e.id}@${e.version}`)).toEqual([
             "acme.hello@1.0.0",
             "acme.hello@2.0.0",

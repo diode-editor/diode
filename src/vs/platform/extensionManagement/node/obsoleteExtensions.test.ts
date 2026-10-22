@@ -166,7 +166,12 @@ describe("obsoleteExtensions", () => {
 
     describe("cleanUpExtensions (US-0.10)", () => {
         function cleanUp(
-            options: { referenced?: string[]; alive?: number[]; logger?: ILogger; referencedDirs?: () => Set<string> } = {},
+            options: {
+                referenced?: string[];
+                alive?: number[];
+                logger?: ILogger;
+                referencedDirs?: () => Set<string>;
+            } = {},
         ): string[] {
             return cleanUpExtensions(extensionsDir, {
                 referencedDirs: options.referencedDirs ?? (() => new Set(options.referenced ?? [])),
@@ -252,10 +257,7 @@ describe("obsoleteExtensions", () => {
 
             expect(exists("acme.demo-1.0.0")).toBe(true);
             expect(readObsolete(extensionsDir)).toEqual(new Set(["acme.demo-1.0.0"]));
-            expect(logger.error).toHaveBeenCalledWith(
-                "Failed to read profile extensions; nothing is deleted",
-                failure,
-            );
+            expect(logger.error).toHaveBeenCalledWith("Failed to read profile extensions; nothing is deleted", failure);
         });
 
         it.skipIf(process.platform === "win32" || process.getuid?.() === 0)(

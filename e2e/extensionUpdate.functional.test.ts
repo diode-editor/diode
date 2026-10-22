@@ -60,7 +60,11 @@ async function lazyVersionAfterCommand(app: HeadlessApp, calls: number): Promise
     await app.session.executeCommand("lazyVersion.show");
     const output = await waitUntil(
         () => app.session.getOutput("Lazy Version"),
-        (text) => text.trim().split("\n").filter((line) => line.startsWith("lazy ")).length >= calls,
+        (text) =>
+            text
+                .trim()
+                .split("\n")
+                .filter((line) => line.startsWith("lazy ")).length >= calls,
         { describe: "Lazy Version output", timeoutMs: 30_000, diagnose: (text) => String(text) },
     );
     return output.trim().split("\n").at(-1) ?? "";

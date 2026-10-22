@@ -177,23 +177,35 @@ describe("installFromRegistry", () => {
         });
 
         it.each([
-            ["without a manifest", (dir: string) => fs.rmSync(path.join(dir, "package.json"))],
-            ["with a broken manifest", (dir: string) => fs.writeFileSync(path.join(dir, "package.json"), "{")],
+            [
+                "without a manifest",
+                (dir: string) => {
+                    fs.rmSync(path.join(dir, "package.json"));
+                },
+            ],
+            [
+                "with a broken manifest",
+                (dir: string) => {
+                    fs.writeFileSync(path.join(dir, "package.json"), "{");
+                },
+            ],
             [
                 "with another version in the manifest",
-                (dir: string) =>
+                (dir: string) => {
                     fs.writeFileSync(
                         path.join(dir, "package.json"),
                         JSON.stringify({ publisher: "acme", name: "hello", version: "9.9.9" }),
-                    ),
+                    );
+                },
             ],
             [
                 "with another id in the manifest",
-                (dir: string) =>
+                (dir: string) => {
                     fs.writeFileSync(
                         path.join(dir, "package.json"),
                         JSON.stringify({ publisher: "acme", name: "other", version: "1.0.0" }),
-                    ),
+                    );
+                },
             ],
         ])("%s is replaced from the registry", async (_what, damage) => {
             const dir = await installOld();

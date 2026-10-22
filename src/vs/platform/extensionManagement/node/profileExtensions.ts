@@ -78,9 +78,14 @@ function dirName(installed: IInstalledExtension): string {
  * `semver` chunk: only the fallback for entries without a directory needs it, and that is synchronous.
  */
 export function compareLooseVersions(a: string, b: string): number {
-    const parse = (version: string) => {
-        const [core = "", prerelease] = version.split("+")[0].split(/-(.*)/su);
-        return { parts: core.split(".").map((part) => Number(part) || 0), prerelease };
+    const parse = (version: string): { parts: number[]; prerelease: string | undefined } => {
+        const withoutBuild = version.split("+")[0];
+        const dash = withoutBuild.indexOf("-");
+        const core = dash < 0 ? withoutBuild : withoutBuild.slice(0, dash);
+        return {
+            parts: core.split(".").map((part) => Number(part) || 0),
+            prerelease: dash < 0 ? undefined : withoutBuild.slice(dash + 1),
+        };
     };
     const left = parse(a);
     const right = parse(b);
@@ -208,10 +213,7 @@ export function markUnusedExtensions(
     const only = candidates === undefined ? undefined : new Set(candidates.map(extensionKey));
     const considered = disk.installed.filter((e) => only === undefined || only.has(extensionKey(e.id)));
     const unused = considered.filter((e) => !referenced.has(dirName(e)));
-    unmarkObsolete(
-        extensionsDir,
-        considered.filter((e) => referenced.has(dirName(e))).map(dirName),
-    );
+    unmarkObsolete(extensionsDir, considered.filter((e) => referenced.has(dirName(e))).map(dirName));
     markObsolete(extensionsDir, unused.map(dirName));
     return unused.filter((e) => !disk.obsolete.has(dirName(e)));
 }
