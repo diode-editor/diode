@@ -49,7 +49,7 @@ describe("EditorDecorationsServiceAdapter — all groups", () => {
         service.editorGroups.focusGroup({ index: 0 });
         const inactive = service.editorGroups.groups[1].getPane(0);
         expect(inactive instanceof TextEditorPane).toBe(true);
-        const pushed = vi.spyOn(inactive as TextEditorPane, "setGutterChangeDecorations");
+        const pushed = vi.spyOn(inactive as TextEditorPane, "setExtensionGutterChangeDecorations");
         const decorations = [{ range: createRange(1, 0, 1, 0), color: 0x123456 }];
 
         new EditorDecorationsServiceAdapter(service).setGutterChangeDecorations(

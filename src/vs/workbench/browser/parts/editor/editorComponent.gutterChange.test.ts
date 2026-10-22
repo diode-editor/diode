@@ -10,6 +10,7 @@ import { createRange } from "../../../../editor/common/core/iRange.ts";
 
 const BAR = "┃"; // solid change bar (no dashed flag on this decoration)
 const CHANGE_COLOR = packRgb(0x1b, 0x81, 0xa8);
+const OTHER_COLOR = packRgb(0x48, 0x75, 0x23);
 
 describe("EditorComponent — setGutterChangeDecorations", () => {
     let ws: ITempWorkspace;
@@ -41,5 +42,44 @@ describe("EditorComponent — setGutterChangeDecorations", () => {
         const x = 3;
         expect(app.backend.getTextAt(new Point(x, 1), 1)).toBe(BAR);
         expect(app.backend.getFgAt(new Point(x, 1))).toBe(CHANGE_COLOR);
+    });
+
+    it("paints extension bars before quick diff has produced anything", () => {
+        const ctrl = createEditorPane();
+        ctrl.openFile(Uri.file(ws.writeFile("a.txt", "l0\nl1\nl2")));
+        const app = TestApp.createWithContent(ctrl.view, new Size(20, 3));
+
+        ctrl.setExtensionGutterChangeDecorations([{ range: createRange(1, 0, 1, 0), color: OTHER_COLOR }]);
+        app.render();
+
+        expect(app.backend.getTextAt(new Point(3, 1), 1)).toBe(BAR);
+        expect(app.backend.getFgAt(new Point(3, 1))).toBe(OTHER_COLOR);
+        expect(app.backend.getTextAt(new Point(3, 0), 1)).not.toBe(BAR);
+    });
+
+    it("keeps quick diff and extension bars apart: clearing one set leaves the other painted", () => {
+        const ctrl = createEditorPane();
+        ctrl.openFile(Uri.file(ws.writeFile("a.txt", "l0\nl1\nl2")));
+        const app = TestApp.createWithContent(ctrl.view, new Size(20, 3));
+        const x = 3;
+
+        ctrl.setGutterChangeDecorations([{ range: createRange(0, 0, 0, 0), color: CHANGE_COLOR }]);
+        ctrl.setExtensionGutterChangeDecorations([{ range: createRange(2, 0, 2, 0), color: OTHER_COLOR }]);
+        app.render();
+        expect(app.backend.getFgAt(new Point(x, 0))).toBe(CHANGE_COLOR);
+        expect(app.backend.getFgAt(new Point(x, 2))).toBe(OTHER_COLOR);
+
+        // An extension clears its bars on every keystroke — the git bar must survive.
+        ctrl.setExtensionGutterChangeDecorations([]);
+        app.render();
+        expect(app.backend.getTextAt(new Point(x, 0), 1)).toBe(BAR);
+        expect(app.backend.getFgAt(new Point(x, 0))).toBe(CHANGE_COLOR);
+        expect(app.backend.getTextAt(new Point(x, 2), 1)).not.toBe(BAR);
+
+        ctrl.setExtensionGutterChangeDecorations([{ range: createRange(2, 0, 2, 0), color: OTHER_COLOR }]);
+        ctrl.setGutterChangeDecorations([]);
+        app.render();
+        expect(app.backend.getTextAt(new Point(x, 0), 1)).not.toBe(BAR);
+        expect(app.backend.getFgAt(new Point(x, 2))).toBe(OTHER_COLOR);
     });
 });
