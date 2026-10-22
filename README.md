@@ -3,6 +3,8 @@
 Terminal text editor with the VS Code keyboard layout, VS Code language extensions and LSP.
 Non-modal. Runs where VS Code does not: over ssh, in containers, on a Raspberry Pi.
 
+Documentation: [diode-editor.github.io/docs](https://diode-editor.github.io/docs/).
+
 ## Quick install
 
 ```sh
@@ -22,13 +24,13 @@ diode              # empty window — pick a folder from inside
 `diode -g file.ts:42:7` opens a file with the caret already there, and
 `diode -d old.ts new.ts` opens a diff. `diode --help` lists the rest.
 
-Inside tmux, see [docs/public/TMUX.md](docs/public/TMUX.md) to make the window title show up.
+Inside tmux, see [diode in tmux](https://diode-editor.github.io/docs/getting-started/tmux/) to make the window title show up.
 
 ## Other ways to install
 
 Every channel delivers the same single-file binary from
 [GitHub Releases](https://github.com/diode-editor/diode/releases). Details, knobs and the manual
-route: [docs/public/INSTALL.md](docs/public/INSTALL.md).
+route: [Install](https://diode-editor.github.io/docs/getting-started/install/).
 
 **npm / npx** (Linux, macOS, Windows)
 
@@ -64,8 +66,8 @@ curl -fsSL https://raw.githubusercontent.com/diode-editor/diode/main/install.sh 
 
 ## Status
 
-Alpha. Roadmap and what "alpha" means: [docs/public/ROADMAP.md](docs/public/ROADMAP.md).
-VS Code extension API coverage: [docs/public/API-COVERAGE.md](docs/public/API-COVERAGE.md).
+Alpha. Roadmap and what "alpha" means: [Roadmap](https://diode-editor.github.io/docs/project/roadmap/).
+VS Code extension API coverage: [the coverage matrix](https://diode-editor.github.io/docs/reference/api-coverage/).
 
 ## License
 

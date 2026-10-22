@@ -8,7 +8,7 @@ Diode — терминальный текстовый редактор (клон
 - TUIDom (движок TUI) — отдельный репозиторий [github.com/tuidom/tuidom](https://github.com/tuidom/tuidom), пакеты `@tuidom/*`; его доки живут там
 - docs/TESTING.md — как тестировать каждый слой, e2e, приёмы отладки; docs/MUTATION.md — мутационный гейт (Stryker)
 - docs/STYLE.md — идиомы под линт; docs/COMMITS.md — коммиты; docs/PR.md — что обязано быть в PR и влитие; docs/GIT.md — git-помощники, стек PR, уборка worktree; docs/RELEASE.md — выпуск версии
-- docs/TODO/ — трекер задач (индекс — README.md); docs/public/ — публичные страницы для сайта (правила — в его README.md); packaging/README.md — каналы дистрибуции
+- docs/TODO/ — трекер задач (индекс — README.md); docs/public/ — страницы сайта документации diode-editor.github.io/docs, по-английски (правила — в его README.md); packaging/README.md — каналы дистрибуции
 - Скиллы `.claude/skills/`: `drive` (живой запуск), `heavy-run` (лиза на тяжёлые прогоны), `orchestrate` (волна дочерних сессий)
 
 # Трекер задач
@@ -23,7 +23,7 @@ Diode — терминальный текстовый редактор (клон
 # Гейты и стиль
 - Job `static` в CI — шесть проверок, любая красная блокирует PR; перед сдачей прогоняй все: `npm run typecheck`, `npm run lint` (тяжёлый — `claude-lease run -- npm run lint`, скилл `heavy-run`), `npm run valid-layers-check`, `npm run lazy-chunks-check`, `npm run cyrillic-check`, `npm run snapshot-check` (node ≥ 26.11). Формат и порядок импортов чинит `npm run lint:fix`.
 - Между правками — `npm run check:diff` (только дифф ветки, десятки секунд); полных гейтов он не заменяет → [TESTING.md](docs/TESTING.md#быстрый-цикл-по-диффу-checkdiff). Спотыкается линт — [docs/STYLE.md](docs/STYLE.md).
-- **Код, коммиты и PR — по-английски, доки — по-русски.** Комментарии, названия тестов, строки, сообщения коммитов (заголовок и тело), заголовок и описание PR — по-английски, термины — по [глоссарию](docs/STYLE.md#глоссарий); `*.md` и `.claude/` — по-русски. Храповики — `npm run cyrillic-check` и проверка заголовка PR → [язык кода](docs/STYLE.md#язык-кода).
+- **Код, коммиты и PR — по-английски, доки — по-русски** (кроме `docs/public/` — это публичный сайт, он по-английски). Комментарии, названия тестов, строки, сообщения коммитов (заголовок и тело), заголовок и описание PR — по-английски, термины — по [глоссарию](docs/STYLE.md#глоссарий); `*.md` и `.claude/` — по-русски. Храповики — `npm run cyrillic-check` и проверка заголовка PR → [язык кода](docs/STYLE.md#язык-кода).
 - Импорты — с расширением файла. Приватные члены — без подчёркивания, только модификатор.
 - Имена файлов — **camelCase**, как у vscode, по главному экспорту (`menuRegistry.ts`). Тесты — колокацией и не одним огромным файлом: `tuiElement.test.ts`, `tuiElement.events.test.ts`.
 
