@@ -61,10 +61,13 @@ export interface IExtensionsWorkbenchService {
     /** Full metadata for the extension page; `undefined` means the registry doesn't know the id. */
     getMeta(id: string): Promise<IRegistryExtensionMeta | undefined>;
 
-    /** Also "update": previous versions of the same id are removed; one version for all profiles. */
+    /**
+     * Also "update": the profile switches to the new version; a previous one no profile uses is removed on the
+     * next start, so the running extension host keeps its files.
+     */
     install(id: string): Promise<IExtensionInstallResult>;
 
-    /** From disk (all versions), when no profile needs the extension. */
+    /** From this profile; the files go on the next start, when no profile needs the extension. */
     uninstall(id: string): Promise<IExtensionOperationResult>;
 
     onDidChange(listener: () => void): IDisposable;

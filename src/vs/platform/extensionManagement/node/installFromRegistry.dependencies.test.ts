@@ -20,10 +20,11 @@ import {
 
 const HOST: IHostVersions = { diode: "0.3.0", vscode: "1.127.0" };
 
-function buildVsixBuffer(manifest: object): Promise<Buffer> {
+function buildVsixBuffer(manifest: object, files: Readonly<Record<string, string>> = {}): Promise<Buffer> {
     return new Promise((resolve, reject) => {
         const zip = new yazl.ZipFile();
         zip.addBuffer(Buffer.from(JSON.stringify(manifest)), "extension/package.json");
+        for (const [name, content] of Object.entries(files)) zip.addBuffer(Buffer.from(content), name);
         const chunks: Buffer[] = [];
         zip.outputStream.on("data", (chunk: Buffer) => chunks.push(chunk));
         zip.outputStream.on("end", () => {
@@ -39,6 +40,8 @@ interface ISeed {
     readonly engines?: IRegistryEngines;
     readonly manifest?: Record<string, unknown>;
     readonly sha256?: string;
+    /** Extra archive entries. */
+    readonly files?: Readonly<Record<string, string>>;
 }
 
 let tempRoot: string;
@@ -63,7 +66,7 @@ async function seed(id: string, ...seeds: ISeed[]): Promise<void> {
     for (const one of seeds.length === 0 ? [{}] : seeds) {
         const version = one.version ?? "1.0.0";
         const relPath = `artifacts/${id}-${version}.vsix`;
-        const vsix = await buildVsixBuffer({ publisher, name, version, ...one.manifest });
+        const vsix = await buildVsixBuffer({ publisher, name, version, ...one.manifest }, one.files);
         await fs.promises.writeFile(path.join(registryDir, relPath), vsix);
         versions.push({
             version,
@@ -248,6 +251,22 @@ describe("installFromRegistry — extensionDependencies", () => {
 
         await expect(install("acme.plugin")).rejects.toThrow(/version/u);
         expect(installed()).toEqual([]);
+    });
+
+    it("US-0.7: the extension itself failing to unpack after its dependency is installed rejects and rolls the dependency back", async () => {
+        await seed("acme.probe");
+        await install("acme.probe");
+        await seed("acme.plugin", {
+            manifest: { extensionDependencies: ["acme.lib"] },
+            // A file and a directory on one path: the unpacking fails on the file system, not on the manifest.
+            files: { "extension/clash": "file", "extension/clash/inside.txt": "x" },
+        });
+        await seed("acme.lib");
+
+        await expect(install("acme.plugin")).rejects.toThrow(/EEXIST|ENOTDIR/u);
+
+        expect(installed()).toEqual(["acme.probe@1.0.0"]);
+        expect(fs.readdirSync(extensionsDir).filter((name) => name.startsWith("."))).toEqual([]);
     });
 
     it("US-0.7: the rollback removes exactly the directories this call created, other versions stay", async () => {

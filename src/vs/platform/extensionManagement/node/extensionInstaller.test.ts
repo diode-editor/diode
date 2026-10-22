@@ -422,6 +422,26 @@ describe("ExtensionInstaller", () => {
         expect(leftovers).toEqual([]);
     });
 
+    it.each([
+        ["a file, then a file under it", { "extension/clash": "file", "extension/clash/inside.txt": "x" }],
+        [
+            "a file under a path, then a file at that path",
+            { "extension/clash/inside.txt": "x", "extension/clash": "file" },
+        ],
+    ])(
+        "an entry that cannot be written (%s) rejects instead of crashing the process; temp is cleaned up",
+        async (_order, entries) => {
+            const vsix = await makeVsix(
+                "clash.vsix",
+                vsixEntries({ name: "hello", publisher: "acme", version: "1.0.0" }, entries),
+            );
+
+            await expect(installVsix(vsix, extensionsDir)).rejects.toThrow(/EEXIST|ENOTDIR|EISDIR/u);
+
+            expect(fs.readdirSync(extensionsDir)).toEqual([]);
+        },
+    );
+
     it("a manifest without publisher fails, nothing is installed, temp is cleaned up", async () => {
         const vsix = await makeVsix("nopub.vsix", vsixEntries({ name: "hello", version: "1.0.0" }));
 

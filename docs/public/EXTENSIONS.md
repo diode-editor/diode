@@ -32,7 +32,9 @@ After an install or uninstall, run **Reload Window** (File menu or the command p
 are loaded at startup, there is no hot reload. The catalog is fetched the first time you open the
 view; **Extensions: Refresh** reloads it.
 
-Extensions do not update themselves. An update is the same button on the same page.
+Extensions do not update themselves. An update is the same button on the same page. An open window
+keeps working with the version it started with: the old files stay on disk and are removed the next
+time diode starts. The same goes for an uninstall.
 
 ## From the command line
 

@@ -183,10 +183,18 @@ function leasedDirs(
 
 const INSTALL_TEMP = /^\.vsix-install-(\d+)-/u;
 
-/** Leftovers of interrupted installs and deletions (upstream `removeTemporarilyDeletedFolders`). */
-function sweepLeftovers(extensionsDir: string, isAlive: (pid: number) => boolean, logger: ILogger): void {
+/**
+ * Leftovers of interrupted installs and deletions (upstream `removeTemporarilyDeletedFolders`); returns the
+ * names of extension directories (with a manifest), for the orphan check.
+ */
+function sweepLeftovers(extensionsDir: string, isAlive: (pid: number) => boolean, logger: ILogger): string[] {
+    const extensionDirs: string[] = [];
     for (const entry of fs.readdirSync(extensionsDir, { withFileTypes: true })) {
         if (!entry.isDirectory()) continue;
+        if (isExtensionDirName(entry.name)) {
+            if (fs.existsSync(path.join(extensionsDir, entry.name, "package.json"))) extensionDirs.push(entry.name);
+            continue;
+        }
         const temp = INSTALL_TEMP.exec(entry.name);
         const leftover = entry.name.endsWith(DELETED_FOLDER_POSTFIX) || (temp !== null && !isAlive(Number(temp[1])));
         if (!leftover) continue;
@@ -197,19 +205,22 @@ function sweepLeftovers(extensionsDir: string, isAlive: (pid: number) => boolean
             logger.warn(`Failed to delete ${entry.name}`, err);
         }
     }
+    return extensionDirs;
 }
 
 export interface ICleanUpExtensionsOptions {
-    /** Directory names the profiles point to. Called only when something is marked. */
+    /** Directory names the profiles point to. */
     readonly referencedDirs: () => ReadonlySet<string>;
     readonly logger: ILogger;
     readonly isAlive?: (pid: number) => boolean;
 }
 
 /**
- * Upstream `deleteExtensionsMarkedForRemoval`, run by the editor (not the CLI) before scanning
- * extensions. Never throws past a failure: the window starts with whatever is left.
- * Returns the deleted directory names.
+ * Upstream `deleteExtensionsMarkedForRemoval` plus `deleteExtensionsNotInProfiles`, run by the editor (not the
+ * CLI) before scanning extensions: deletes the marked directories no profile points to and no live window has
+ * leased, then marks the directories no profile points to (left by a crashed install, copied by hand). Those are
+ * deleted on the next start, not now: an install in another process writes its profile entry right after
+ * unpacking. Never throws past a failure: the window starts with whatever is left. Returns the deleted names.
  */
 export function cleanUpExtensions(extensionsDir: string, options: ICleanUpExtensionsOptions): string[] {
     const { logger } = options;
@@ -221,7 +232,8 @@ export function cleanUpExtensions(extensionsDir: string, options: ICleanUpExtens
         logger.error("Failed to read extensions marked for removal; nothing is deleted", err);
         return [];
     }
-    if (record === undefined) return [];
+    // Stryker disable next-line ConditionalExpression: without the directory the profiles point to nothing and the listing below fails the same way; this only saves reading them
+    if (!fs.existsSync(extensionsDir)) return [];
     let referenced: ReadonlySet<string>;
     try {
         referenced = options.referencedDirs();
@@ -234,7 +246,8 @@ export function cleanUpExtensions(extensionsDir: string, options: ICleanUpExtens
     // Stryker disable next-line ArrayDeclaration: unmarking a key that is not in the file changes nothing
     const handled: string[] = [];
     const deleted: string[] = [];
-    for (const name of marksOf(record)) {
+    const marked = marksOf(record ?? {});
+    for (const name of marked) {
         if (name !== path.basename(name) || name === "." || name === ".." || name.length === 0) {
             logger.warn(`Ignoring invalid entry in ${OBSOLETE_FILE}: ${name}`);
             handled.push(name);
@@ -257,7 +270,13 @@ export function cleanUpExtensions(extensionsDir: string, options: ICleanUpExtens
     }
     // Only the handled keys: another process may have marked something meanwhile.
     unmarkObsolete(extensionsDir, handled);
-    sweepLeftovers(extensionsDir, isAlive, logger);
     if (deleted.length > 0) logger.info("Deleted extensions marked for removal", { deleted });
+    const orphans = sweepLeftovers(extensionsDir, isAlive, logger).filter(
+        (name) => !referenced.has(name) && !marked.has(name),
+    );
+    if (orphans.length > 0) {
+        markObsolete(extensionsDir, orphans);
+        logger.info("Extensions no profile uses are marked for removal on next start", { orphans });
+    }
     return deleted;
 }

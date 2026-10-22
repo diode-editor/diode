@@ -356,17 +356,15 @@ describe("profileExtensions", () => {
             expect(names(profile(workFile).list())).toEqual(["acme.tools@1.1.0"]);
         });
 
-        it("US-0.3: a directory marked for removal is never listed, even if the profile points to it", () => {
+        it("US-0.3: the profile wins over a mark — the directory it points to is listed (the window loads it too), the file is not rewritten", () => {
             onDisk("acme.tools", "1.0.0");
             onDisk("acme.tools", "1.1.0");
             markObsolete(extensionsDir, ["acme.tools-1.0.0"]);
             writeProfileExtensions(workFile, [entry("acme.tools", "1.0.0")]);
-            const logger = fakeLogger();
 
-            expect(profile(workFile, [], logger).list()).toEqual([]);
-            expect(logger.warn).toHaveBeenCalledWith(
-                `Extension acme.tools in ${workFile} points to acme.tools-1.0.0, which is marked for removal; skipping it`,
-            );
+            expect(names(profile(workFile).list())).toEqual(["acme.tools@1.0.0"]);
+            // `list` only reads: the key is dropped by the next cleanup, `add` or `remove`.
+            expect(readObsolete(extensionsDir)).toEqual(new Set(["acme.tools-1.0.0"]));
         });
 
         it("a broken .obsolete does not hide anything", () => {
@@ -421,9 +419,22 @@ describe("profileExtensions", () => {
 
                 expect(names(profile(workFile, [], logger).list())).toEqual(["acme.tools@1.10.0"]);
                 expect(logger.warn).toHaveBeenCalledWith(
-                    `Extension acme.tools@0.1.0 in ${workFile} has no directory; using the highest of 1.9.0, 1.10.0-beta.1, 1.10.0`,
+                    `Extension acme.tools@0.1.0 in ${workFile} has no directory; using 1.10.0 (on disk: 1.9.0, 1.10.0-beta.1, 1.10.0, 2.0.0)`,
                 );
                 expect(fs.readFileSync(workFile, "utf8")).toBe(text);
+            });
+
+            it("one unmarked version left after the startup cleanup marked the rest: still a warning, the entry is stale", () => {
+                onDisk("acme.tools", "1.9.0");
+                onDisk("acme.tools", "1.10.0");
+                markObsolete(extensionsDir, ["acme.tools-1.9.0"]);
+                writeProfileExtensions(workFile, [{ identifier: { id: "acme.tools" }, version: "1.0.0" }]);
+                const logger = fakeLogger();
+
+                expect(names(profile(workFile, [], logger).list())).toEqual(["acme.tools@1.10.0"]);
+                expect(logger.warn).toHaveBeenCalledWith(
+                    `Extension acme.tools@1.0.0 in ${workFile} has no directory; using 1.10.0 (on disk: 1.9.0, 1.10.0)`,
+                );
             });
         });
     });
