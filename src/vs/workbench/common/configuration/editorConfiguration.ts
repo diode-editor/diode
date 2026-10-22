@@ -39,6 +39,21 @@ export const editorConfiguration = {
             default: "singleFile",
             description: "Controls whether the editor highlights semantic symbol occurrences.",
         },
+        // Our own key: VS Code draws the overview ruler inside its scrollbar and has nowhere else to put it.
+        "editor.scrollbarMarkers": {
+            scope: "language-overridable",
+            type: "string",
+            enum: ["off", "auto", "inside", "outside"],
+            enumDescriptions: [
+                "Do not mark highlights on the scrollbar.",
+                "Draw the marks in a column of their own when the editor is at least 80 columns wide, inside the scrollbar otherwise.",
+                "Draw the marks inside the scrollbar; the scrollbar thumb then moves in whole cells.",
+                "Always draw the marks in a column of their own, left of the scrollbar.",
+            ],
+            default: "auto",
+            description:
+                "Controls where the editor marks what the file has highlighted (problems, find matches, source control changes, occurrences of the word under the cursor) along the scrollbar.",
+        },
         // Upstream has no `type` (only `enum`); our schema requires it.
         "editor.semanticHighlighting.enabled": {
             scope: "language-overridable",

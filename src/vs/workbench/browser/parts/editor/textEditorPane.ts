@@ -22,7 +22,7 @@ import type { IUndoRedoElement } from "../../../../platform/undoRedo/common/iUnd
 import type { BaseTextEditorModel } from "../../../common/editor/textEditorModel.ts";
 import { type SaveOutcome, TextFileModel } from "../../../services/textfile/common/textFileModel.ts";
 
-import type { EditorComponent, IIndentConfiguration } from "./editorComponent.ts";
+import type { EditorComponent, IIndentConfiguration, ScrollbarMarkersSetting } from "./editorComponent.ts";
 import { DEFAULT_EDITOR_ID, type IEditorPane } from "./iEditorPane.ts";
 
 /**
@@ -316,6 +316,10 @@ export class TextEditorPane<TModel extends BaseTextEditorModel = BaseTextEditorM
 
     public setCursorSurroundingLines(lines: number): void {
         this.component.setCursorSurroundingLines(lines);
+    }
+
+    public setScrollbarMarkers(placement: ScrollbarMarkersSetting): void {
+        this.component.setScrollbarMarkers(placement);
     }
 
     /**

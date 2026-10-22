@@ -8,7 +8,7 @@ import type { TUIKeyboardEvent } from "@tuidom/core/dom/events/tuiKeyboardEvent"
 import type { TUIMouseEvent } from "@tuidom/core/dom/events/tuiMouseEvent";
 import type { TUIPasteEvent } from "@tuidom/core/dom/events/tuiPasteEvent";
 import { RenderContext, TUIElement } from "@tuidom/core/dom/tuiElement";
-import type { IScrollable } from "@tuidom/elements/scrollbar/iScrollable";
+import type { IScrollable, IScrollBarMarker } from "@tuidom/elements/scrollbar/iScrollable";
 
 import { Emitter } from "../../base/common/event.ts";
 import type { IDisposable } from "../../base/common/lifecycle.ts";
@@ -64,6 +64,19 @@ import { resolveSemanticTokenStyle, SemanticTokenIndex, TokenIndex } from "./tok
 const FIND_MATCH_BG = packRgb(98, 91, 23);
 const FIND_MATCH_CURRENT_BG = packRgb(168, 109, 0);
 const NO_RANGES: readonly IRange[] = [];
+
+/**
+ * Who wins a scrollbar cell shared by several marks. VS Code splits the ruler into lanes; a
+ * terminal cell has one foreground, so the lanes collapse into an order of importance.
+ */
+const enum ScrollBarMarkerPriority {
+    WordHighlight = 1,
+    GutterChange = 2,
+    FindMatch = 3,
+    Info = 4,
+    Warning = 5,
+    Error = 6,
+}
 const NO_GUTTER_CHANGE_DECORATIONS: readonly IGutterChangeDecoration[] = [];
 // In a cell grid VS Code's thin dirty-diff border becomes a bold vertical bar centered in the
 // cell; modified is dashed (VS Code uses hatching).
@@ -168,6 +181,79 @@ export class EditorElement extends TUIElement implements IScrollable {
 
     public get contentHeight(): number {
         return this.viewState.getViewLineCount();
+    }
+
+    /**
+     * Overview ruler marks for the scrollbar, in view rows: what the file has highlighted
+     * (diagnostics, find matches, SCM changes, occurrences of the word under the cursor).
+     */
+    public getScrollBarMarkers(): readonly IScrollBarMarker[] {
+        const markers: IScrollBarMarker[] = [];
+        const add = (range: IRange, color: number, priority: number): void => {
+            const start = this.viewRowForPosition(range.start.line, range.start.character);
+            const end = this.viewRowForPosition(range.end.line, range.end.character);
+            markers.push({ start, end: end + 1, color, priority });
+        };
+
+        // Tokens resolve only when there is something to mark: a bare element has no theme.
+        const occurrences = this.getOccurrenceHighlights();
+        if (occurrences.length > 0) {
+            const color = this.styleVar("editorOverviewRuler.wordHighlightForeground");
+            for (const range of occurrences) add(range, color, ScrollBarMarkerPriority.WordHighlight);
+        }
+
+        // The SCM bar colors arrive resolved, so the ruler reuses them instead of the
+        // `editorOverviewRuler.{added,modified,deleted}Foreground` tokens.
+        for (const change of this.gutterChangeDecorations) {
+            add(change.range, change.color, ScrollBarMarkerPriority.GutterChange);
+        }
+
+        const searchMatches = this.viewState.searchMatches;
+        if (searchMatches.length > 0) {
+            const color = this.styleVar("editorOverviewRuler.findMatchForeground");
+            for (const range of searchMatches) add(range, color, ScrollBarMarkerPriority.FindMatch);
+        }
+
+        for (const { range, severity } of this.markerDecorations) {
+            // Hints have no ruler mark in VS Code either.
+            if (severity === MarkerSeverity.Hint) continue;
+            const lane = this.severityRulerLane(severity);
+            add(range, lane.color, lane.priority);
+        }
+        return markers;
+    }
+
+    private severityRulerLane(severity: Exclude<MarkerSeverity, MarkerSeverity.Hint>): {
+        color: number;
+        priority: number;
+    } {
+        switch (severity) {
+            case MarkerSeverity.Error:
+                return {
+                    color: this.styleVar("editorOverviewRuler.errorForeground"),
+                    priority: ScrollBarMarkerPriority.Error,
+                };
+            case MarkerSeverity.Warning:
+                return {
+                    color: this.styleVar("editorOverviewRuler.warningForeground"),
+                    priority: ScrollBarMarkerPriority.Warning,
+                };
+            case MarkerSeverity.Info:
+                return {
+                    color: this.styleVar("editorOverviewRuler.infoForeground"),
+                    priority: ScrollBarMarkerPriority.Info,
+                };
+        }
+    }
+
+    /** A line hidden by a fold marks the fold's header row, the one the user can see. */
+    private viewRowForPosition(line: number, character: number): number {
+        // Past the end, `logicalToVisualLine` is -1 too, so the loop walks back to the last line.
+        let visibleLine = Math.min(line, this.viewState.document.lineCount);
+        // Stryker disable next-line ConditionalExpression,EqualityOperator: line 0 is never hidden, the guard only stops a runaway loop
+        while (visibleLine > 0 && this.viewState.logicalToVisualLine(visibleLine) < 0) visibleLine--;
+        if (visibleLine !== line) return Math.max(0, this.viewState.logicalToVisualLine(visibleLine));
+        return Math.max(0, this.viewState.viewLineForPosition(line, character));
     }
 
     public get contentWidth(): number {

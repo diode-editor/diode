@@ -131,6 +131,21 @@ describe("TextEditorConfiguration", () => {
             expect(editor.viewState.insertSpaces).toBe(true);
         });
 
+        it("editor.scrollbarMarkers reaches the editor, auto by default", () => {
+            const spy = vi.spyOn(TextEditorPane.prototype, "setScrollbarMarkers");
+            try {
+                createEditorService({
+                    configurationService: stubConfigurationService({ "editor.scrollbarMarkers": "outside" }),
+                }).openFile(writeFile("a.ts", "const x = 1;"));
+                expect(spy).toHaveBeenLastCalledWith("outside");
+
+                createEditorService().openFile(writeFile("b.ts", "const y = 1;"));
+                expect(spy).toHaveBeenLastCalledWith("auto");
+            } finally {
+                spy.mockRestore();
+            }
+        });
+
         it("editor.occurrencesHighlight: off disables occurrence highlighting, the default enables it", () => {
             const spy = vi.spyOn(TextEditorPane.prototype, "setOccurrenceHighlightEnabled");
             try {

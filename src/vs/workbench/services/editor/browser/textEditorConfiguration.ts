@@ -35,6 +35,7 @@ export class TextEditorConfiguration extends Disposable {
         editor.setOccurrenceHighlightEnabled(occurrencesHighlight !== "off");
 
         editor.setCursorSurroundingLines(this.configurationService.get("editor.cursorSurroundingLines", overrides));
+        editor.setScrollbarMarkers(this.configurationService.get("editor.scrollbarMarkers", overrides));
 
         // Indent config is a baseline, not an order: with `editor.detectIndentation` the file wins. Not
         // `setIndentOptions`: it disables detection, and `get()` returns defaults too — detection would always be off.

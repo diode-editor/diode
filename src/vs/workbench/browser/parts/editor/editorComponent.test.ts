@@ -480,6 +480,68 @@ describe("EditorComponent + TextFileModel (pair)", () => {
         });
     });
 
+    describe("setScrollbarMarkers", () => {
+        function renderView(ctrl: TextEditorPane, width: number): TestApp {
+            const app = TestApp.createWithContent(ctrl.view, new Size(width, 10));
+            app.render();
+            return app;
+        }
+
+        function openLongFile(): TextEditorPane {
+            const ctrl = createEditorPane();
+            const text = Array.from({ length: 100 }, (_, i) => `line ${i}`).join("\n");
+            ctrl.openFile(Uri.file(writeFile("a.txt", text)));
+            return ctrl;
+        }
+
+        it("defaults to auto: inside the scrollbar on a narrow editor, a column of its own on a wide one", () => {
+            const narrow = openLongFile();
+            renderView(narrow, 40);
+            expect(narrow.view.getChild().layoutSize.width).toBe(39);
+
+            const wide = openLongFile();
+            renderView(wide, 100);
+            expect(wide.view.getChild().layoutSize.width).toBe(98);
+        });
+
+        it("outside always takes a marker column, off keeps the classic scrollbar", () => {
+            const outside = openLongFile();
+            outside.setScrollbarMarkers("outside");
+            renderView(outside, 40);
+            expect(outside.view.getChild().layoutSize.width).toBe(38);
+
+            const off = openLongFile();
+            off.setScrollbarMarkers("off");
+            const app = renderView(off, 100);
+            expect(off.view.getChild().layoutSize.width).toBe(99);
+            expect(app.backend.getTextAt(new Point(99, 9), 1)).toBe("░");
+            expect(off.view.markerPlacement).toBe("none");
+        });
+
+        it("relayouts a rendered editor when the placement changes", () => {
+            const ctrl = openLongFile();
+            ctrl.setScrollbarMarkers("inside");
+            const app = renderView(ctrl, 40);
+            expect(ctrl.view.getChild().layoutSize.width).toBe(39);
+
+            const markDirty = vi.spyOn(ctrl.view, "markDirty");
+            ctrl.setScrollbarMarkers("outside");
+            expect(markDirty).toHaveBeenCalled();
+            app.render();
+            expect(ctrl.view.markerPlacement).toBe("outside");
+            expect(ctrl.view.getChild().layoutSize.width).toBe(38);
+        });
+
+        it("inside keeps the marks in the scrollbar column on a wide editor too", () => {
+            const ctrl = openLongFile();
+            ctrl.setScrollbarMarkers("inside");
+            // Same value again is a no-op (covers the early return).
+            ctrl.setScrollbarMarkers("inside");
+            renderView(ctrl, 100);
+            expect(ctrl.view.getChild().layoutSize.width).toBe(99);
+        });
+    });
+
     describe("occurrence highlight", () => {
         // Occurrence-highlight background from darkPlus (#474747).
         const OCCURRENCE_BG = packRgb(71, 71, 71);
