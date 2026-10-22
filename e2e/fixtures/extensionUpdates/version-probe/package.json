@@ -1,0 +1,15 @@
+{
+    "name": "version-probe",
+    "displayName": "Version Probe",
+    "description": "E2E fixture for safe version replacement: reports which install directory it runs from and lazily requires a module on a command.",
+    "version": "0.0.0",
+    "publisher": "acme",
+    "main": "./extension.js",
+    "engines": {
+        "vscode": "^1.0.0"
+    },
+    "activationEvents": ["*"],
+    "contributes": {
+        "commands": [{ "command": "acme.probe.version", "title": "Version Probe: Report Version" }]
+    }
+}
