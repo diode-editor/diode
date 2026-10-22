@@ -151,7 +151,8 @@ undefined`), **текущий каталог не трогается вообщ�
   контролом у владельца корневой view (`WorkbenchComponent`) и приходит через
   late-init шов `attachLayout`.
 - `browser/parts/sidebar/sidebarService.ts` — реестр вьюлетов сайдбара и
-  переключатель (activity bar'а нет, роль играют команды `workbench.view.*`;
+  переключатель (activity bar'а нет, роль играют команды `workbench.view.*` и
+  переключатель контейнеров на заголовке сайдбара — [Views.md](Views.md#переключатель-контейнеров-вместо-activity-bar);
   показ вьюлета — подмена контента сайдбара через `LayoutService`). Своих
   вьюлетов ему больше никто не приносит: единственный регистратор —
   `ViewsService` ([Views.md](Views.md)).

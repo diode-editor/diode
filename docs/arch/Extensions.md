@@ -910,6 +910,12 @@
   встроенного на той же комбинации, пользовательский из `keybindings.json` — сильнее бинда
   расширения, независимо от порядка шагов старта; `key`/`mac`/`linux`/`win`, `-command` — снятие из
   слоёв default и extension (user-бинды не трогает).
+- **`contributes.viewsContainers` / `contributes.views`:** декларативный contributor
+  `api/browser/viewsExtensionPoint.ts` (аналог `ViewsExtensionHandler` эталона) — контейнеры
+  расширений в сайдбаре (их показывает переключатель контейнеров, наша замена activity bar), панели
+  и вторичном сайдбаре, древовидные виды секциями-заглушками, `when` вживую, `<view>.focus`, неявный
+  `onView:<id>`. Устройство и отступления — в
+  [workbench/Views.md](workbench/Views.md#виды-расширений-contributesviewscontainers--views).
 - **`IExtensionRegistration`** несёт `commandTitles`, `commandCategories` и `activationEvents`.
   `commandTitles` нужны, чтобы рантайм-`registerCommand` расширения **показался в палитре** (host
   заводит прокси в `CommandRegistry` с этим title; иначе команда исполнима, но невидима).

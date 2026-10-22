@@ -1,4 +1,6 @@
 import { BoxConstraints, type Point, Size } from "@tuidom/core/common/geometryPromitives";
+import type { TUIEventBase } from "@tuidom/core/dom/events/tuiEventBase";
+import type { TUIKeyboardEvent } from "@tuidom/core/dom/events/tuiKeyboardEvent";
 import type { TUIContextMenuEvent } from "@tuidom/core/dom/events/tuiMouseEvent";
 import { TUIElement } from "@tuidom/core/dom/tuiElement";
 
@@ -13,6 +15,7 @@ import { ViewTitleRowElement } from "./viewTitleRowElement.ts";
 export class ViewContainerHeaderElement extends TUIElement {
     public onMenu?: (anchor: IPaneMenuAnchor) => void;
     public onAction?: (actionId: string) => void;
+    public onSwitch?: (anchor: IPaneMenuAnchor) => void;
 
     private readonly row: ViewTitleRowElement;
     private pressed = false;
@@ -46,6 +49,8 @@ export class ViewContainerHeaderElement extends TUIElement {
                 this.onMenu?.({ screenX: this.pressScreenX, screenY: this.pressScreenY });
             } else if (zone.kind === "action") {
                 this.onAction?.(zone.actionId);
+            } else if (zone.kind === "switcher") {
+                this.onSwitch?.(this.switcherAnchor());
             }
         });
         this.addEventListener("mousemove", (event) => {
@@ -67,6 +72,10 @@ export class ViewContainerHeaderElement extends TUIElement {
 
     public setTitle(title: string): void {
         this.row.setTitle(title);
+    }
+
+    public setSwitcher(enabled: boolean): void {
+        this.row.setSwitcher(enabled);
     }
 
     public setActions(actions: readonly IViewTitleAction[]): void {
@@ -106,6 +115,20 @@ export class ViewContainerHeaderElement extends TUIElement {
 
     protected override hitTestChildren(point: Point): TUIElement | null {
         return this.row.hitTestWidget(point);
+    }
+
+    /** Enter/Space on the focused header opens the switcher, as a click on the title does. */
+    protected override performDefaultAction(event: TUIEventBase): void {
+        if (event.type !== "keydown" || !this.row.hasSwitcher) return;
+        const keyEvent = event as TUIKeyboardEvent;
+        if (keyEvent.key !== "Enter" && keyEvent.key !== " ") return;
+        event.preventDefault();
+        this.onSwitch?.(this.switcherAnchor());
+    }
+
+    /** The header's left edge: the dropdown opens under the title it belongs to. */
+    private switcherAnchor(): IPaneMenuAnchor {
+        return { screenX: this.globalPosition.x, screenY: this.globalPosition.y };
     }
 
     public override inspectState(): Record<string, unknown> {

@@ -27,7 +27,14 @@ export interface IViewTitleAction {
     readonly enabled?: boolean;
 }
 
-export type ViewTitleZone = { kind: "title" } | { kind: "action"; actionId: string } | { kind: "menu" };
+export type ViewTitleZone =
+    | { kind: "title" }
+    | { kind: "action"; actionId: string }
+    | { kind: "menu" }
+    | { kind: "switcher" };
+
+/** The section chevron's glyph: the title then reads as "opens something below". */
+const SWITCHER_ICON = ICON_EXPANDED;
 
 export interface IViewTitleRowOptions {
     readonly chevron?: boolean;
@@ -53,6 +60,7 @@ export class ViewTitleRowElement extends HFlexElement {
     private actionLabels: TextLabelElement[] = [];
     private titleWidget: TUIElement | null = null;
     private menuVisible = true;
+    private switcher = false;
 
     public constructor(title: string, options?: IViewTitleRowOptions) {
         super();
@@ -118,6 +126,21 @@ export class ViewTitleRowElement extends HFlexElement {
         this.syncChildren();
     }
 
+    /**
+     * The title becomes the container switcher: a chevron after it, and the title label is a
+     * button of its own (zone `switcher`, hover background).
+     */
+    public setSwitcher(enabled: boolean): void {
+        if (this.switcher === enabled) return;
+        this.switcher = enabled;
+        this.titleLabel.setText(this.composeTitle());
+        this.titleLabel.style = enabled ? { when: [{ states: ["hover"], bg: "toolbar.hoverBackground" }] } : {};
+    }
+
+    public get hasSwitcher(): boolean {
+        return this.switcher;
+    }
+
     /** A button that layout collapsed to zero columns on a narrow header has no zone. */
     public hitZone(localX: number): ViewTitleZone {
         for (let i = 0; i < this.actionLabels.length; i++) {
@@ -126,6 +149,7 @@ export class ViewTitleRowElement extends HFlexElement {
         // A hidden "⋯" has no zone: it is left outside the tree with its stale layout,
         // and without this check its old columns would still be clickable.
         if (this.menuVisible && inZone(this.menuLabel, localX)) return { kind: "menu" };
+        if (this.switcher && inZone(this.titleLabel, localX)) return { kind: "switcher" };
         return { kind: "title" };
     }
 
@@ -144,6 +168,7 @@ export class ViewTitleRowElement extends HFlexElement {
             label.setStyleState("hover", this.actions[i].id === hoveredAction);
         });
         this.menuLabel.setStyleState("hover", zone?.kind === "menu");
+        this.titleLabel.setStyleState("hover", zone?.kind === "switcher");
     }
 
     /** Only the widget: labels are presentational, but the widget must receive clicks or it can't be pressed. */
@@ -152,7 +177,8 @@ export class ViewTitleRowElement extends HFlexElement {
     }
 
     private composeTitle(): string {
-        const tail = this.spinner === null ? "" : ` ${this.spinner}`;
+        const switcher = this.switcher ? ` ${SWITCHER_ICON} ` : "";
+        const tail = (this.spinner === null ? "" : ` ${this.spinner}`) + switcher;
         if (!this.chevron) return ` ${this.title}${tail}`;
         return ` ${this.expanded ? ICON_EXPANDED : ICON_COLLAPSED} ${this.title}${tail}`;
     }

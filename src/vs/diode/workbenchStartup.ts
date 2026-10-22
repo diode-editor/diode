@@ -5,16 +5,18 @@ import { Uri } from "../base/common/uri.ts";
 import { TokenizationRegistryDIToken } from "../editor/common/languages/tokenizationRegistry.ts";
 import { MenuRegistryDIToken } from "../platform/actions/common/menuRegistry.ts";
 import { CommandRegistryDIToken } from "../platform/commands/common/commandRegistry.ts";
+import { ContextKeyServiceDIToken } from "../platform/contextkey/common/contextKeyService.ts";
 import type { IStartupTargets, IStartupWorkspace } from "../platform/environment/node/startupTargets.ts";
 import type { IExtension } from "../platform/extensions/common/iExtension.ts";
 import type { ServiceAccessor } from "../platform/instantiation/common/diContainer.ts";
 import { KeybindingRegistryDIToken } from "../platform/keybinding/common/keybindingRegistry.ts";
 import type { ILogger } from "../platform/log/common/iLogger.ts";
+import { registerExtensionViews } from "../workbench/api/browser/viewsExtensionPoint.ts";
+import { ViewsServiceDIToken } from "../workbench/browser/parts/views/viewsService.ts";
 import { WorkbenchComponentDIToken } from "../workbench/browser/workbenchComponent.ts";
 import { EditorServiceDIToken } from "../workbench/services/editor/common/editorService.ts";
 import { registerExtensionKeybindings } from "../workbench/services/extensions/common/extensionKeybindingContributor.ts";
 import { registerExtensionMenus } from "../workbench/services/extensions/common/extensionMenuContributor.ts";
-import { registerExtensionViewFocusCommands } from "../workbench/services/extensions/common/extensionViewFocusCommands.ts";
 import { LifecycleServiceDIToken } from "../workbench/services/lifecycle/browser/lifecycleService.ts";
 import { NotificationServiceDIToken } from "../workbench/services/notification/browser/notificationService.ts";
 import { TerminalEnvironmentServiceDIToken } from "../workbench/services/terminalEnvironment/node/terminalEnvironmentService.ts";
@@ -67,12 +69,14 @@ export async function startWorkbench(
     registerExtensionKeybindings(options.extensions, accessor.get(KeybindingRegistryDIToken), options.extensionsLogger);
     registerExtensionMenus(options.extensions, accessor.get(MenuRegistryDIToken), options.extensionsLogger);
     const notifications = accessor.get(NotificationServiceDIToken);
-    registerExtensionViewFocusCommands(
-        options.extensions,
-        accessor.get(CommandRegistryDIToken),
-        (message) => notifications.show({ severity: "warn", message, modal: false, items: [] }),
-        options.extensionsLogger,
-    );
+    // Before mount(): extension containers are built with the built-in ones, and layout restore finds them.
+    registerExtensionViews(options.extensions, {
+        views: accessor.get(ViewsServiceDIToken),
+        commands: accessor.get(CommandRegistryDIToken),
+        contextKeys: accessor.get(ContextKeyServiceDIToken),
+        notify: (message) => notifications.show({ severity: "warn", message, modal: false, items: [] }),
+        logger: options.extensionsLogger,
+    });
 
     // Without an explicit folder the window is empty — no scan of the current directory.
     if (options.workspace !== undefined) {

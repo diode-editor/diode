@@ -50,6 +50,18 @@ export const IMPLICIT_ACTIVATION_EVENT_GENERATORS: readonly IImplicitActivationE
         },
     },
     {
+        point: "views",
+        *generate(contributes) {
+            // The manifest is foreign data: neither the container value nor its items are guaranteed shapes.
+            for (const views of Object.values(contributes.views ?? {})) {
+                if (!Array.isArray(views)) continue;
+                for (const view of views as readonly { readonly id?: unknown }[]) {
+                    if (typeof view.id === "string" && view.id !== "") yield `onView:${view.id}`;
+                }
+            }
+        },
+    },
+    {
         point: "taskDefinitions",
         *generate(contributes) {
             for (const definition of contributes.taskDefinitions ?? NO_CONTRIBUTIONS) {

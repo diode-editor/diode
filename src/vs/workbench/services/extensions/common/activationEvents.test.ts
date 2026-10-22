@@ -58,6 +58,24 @@ describe("computeActivationEvents", () => {
         ).toEqual(["onStartupFinished", "onTaskType:bazel", "onTaskType:npm"]);
     });
 
+    it("each contributes.views entry adds an IMPLICIT onView:<id>; junk lists and ids yield nothing", () => {
+        expect(
+            computeActivationEvents(
+                {
+                    activationEvents: ["onView:terraform-modules"],
+                    contributes: {
+                        views: {
+                            terraform: [{ id: "terraform.providers" }, { id: "" }, {} as never],
+                            explorer: [{ id: "terraform.modules", type: "webview" }],
+                            broken: "not-a-list" as never,
+                        },
+                    },
+                },
+                "hashicorp.terraform",
+            ),
+        ).toEqual(["onView:terraform-modules", "onView:terraform.providers", "onView:terraform.modules"]);
+    });
+
     it("an implicit event does not duplicate one declared by hand", () => {
         expect(
             computeActivationEvents(
@@ -100,6 +118,7 @@ describe("computeActivationEvents", () => {
         expect(IMPLICIT_ACTIVATION_EVENT_GENERATORS.map((g) => g.point)).toEqual([
             "commands",
             "languages",
+            "views",
             "taskDefinitions",
         ]);
     });

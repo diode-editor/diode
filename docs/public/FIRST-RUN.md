@@ -26,7 +26,9 @@ current directory: pick a folder from inside with the **Open Folder** button in 
 
 Everything is a command, and the command palette is always one key away: **F1** works in every
 terminal, `Ctrl+Shift+P` where the terminal can deliver it ([keyboard](KEYBOARD.md)). There is no
-activity bar; the views are commands, each with a `Ctrl+K` chord that works everywhere:
+activity bar: click the sidebar title (`EXPLORER ⌄`, or Enter on it) to switch between Explorer, Search,
+Source Control, Extensions and the containers your extensions add. Each view is also a command with a
+`Ctrl+K` chord that works everywhere:
 
 | | VS Code key | works in any terminal |
 | --- | --- | --- |

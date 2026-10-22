@@ -26,6 +26,7 @@ export class PaneHeaderElement extends TUIElement {
     public onDrag?: (boundaryScreenY: number) => void;
     public onMenu?: (anchor: IPaneMenuAnchor) => void;
     public onAction?: (actionId: string) => void;
+    public onSwitch?: (anchor: IPaneMenuAnchor) => void;
 
     private readonly row: ViewTitleRowElement;
     private readonly collapsible: boolean;
@@ -77,6 +78,8 @@ export class PaneHeaderElement extends TUIElement {
                 this.onMenu?.({ screenX: this.pressScreenX, screenY: this.pressScreenY });
             } else if (zone.kind === "action") {
                 this.onAction?.(zone.actionId);
+            } else if (zone.kind === "switcher") {
+                this.onSwitch?.(this.switcherAnchor());
             } else if (this.collapsible) {
                 this.onToggle?.();
             }
@@ -107,6 +110,10 @@ export class PaneHeaderElement extends TUIElement {
         this.row.setTitle(title);
     }
 
+    public setSwitcher(enabled: boolean): void {
+        this.row.setSwitcher(enabled);
+    }
+
     public setActions(actions: readonly IViewTitleAction[]): void {
         this.row.setActions(actions);
     }
@@ -129,6 +136,11 @@ export class PaneHeaderElement extends TUIElement {
 
     public get isDragEnabled(): boolean {
         return this.dragEnabled;
+    }
+
+    /** The header's left edge: the dropdown opens under the title it belongs to. */
+    private switcherAnchor(): IPaneMenuAnchor {
+        return { screenX: this.globalPosition.x, screenY: this.globalPosition.y };
     }
 
     private menuZoneAnchor(): IPaneMenuAnchor {
@@ -163,6 +175,7 @@ export class PaneHeaderElement extends TUIElement {
         if (keyEvent.key === "Enter" || keyEvent.key === " ") {
             event.preventDefault();
             if (this.collapsible) this.onToggle?.();
+            else if (this.row.hasSwitcher) this.onSwitch?.(this.switcherAnchor());
         }
     }
 
