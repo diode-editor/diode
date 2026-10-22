@@ -102,11 +102,11 @@ describe("installFromRegistry — extensionDependencies", () => {
         expect(result).toEqual({
             id: "acme.plugin",
             version: "1.0.0",
-            previous: [],
+            dir: path.join(extensionsDir, "acme.plugin-1.0.0"),
             dependencies: [
-                { id: "acme.base", version: "1.0.0", previous: [] },
-                { id: "acme.tools", version: "1.0.0", previous: [] },
-                { id: "acme.core", version: "1.0.0", previous: [] },
+                { id: "acme.base", version: "1.0.0", dir: path.join(extensionsDir, "acme.base-1.0.0") },
+                { id: "acme.tools", version: "1.0.0", dir: path.join(extensionsDir, "acme.tools-1.0.0") },
+                { id: "acme.core", version: "1.0.0", dir: path.join(extensionsDir, "acme.core-1.0.0") },
             ],
             missingDependencies: [],
         });
@@ -250,6 +250,24 @@ describe("installFromRegistry — extensionDependencies", () => {
         expect(installed()).toEqual([]);
     });
 
+    it("US-0.7: the rollback removes exactly the directories this call created, other versions stay", async () => {
+        await seed("acme.plugin", { version: "0.9.0" });
+        await install("acme.plugin");
+        // A version of the dependency some other profile holds — not the one this install brings.
+        await seed("acme.other", { version: "1.0.0" });
+        await install("acme.other");
+        await seed(
+            "acme.plugin",
+            { version: "0.9.0" },
+            { version: "1.0.0", manifest: { version: undefined, extensionDependencies: ["acme.base"] } },
+        );
+        await seed("acme.base");
+
+        await expect(install("acme.plugin", "1.0.0")).rejects.toThrow(/version/u);
+
+        expect(installed()).toEqual(["acme.other@1.0.0", "acme.plugin@0.9.0"]);
+    });
+
     it("a dependency whose registry meta claims a different id fails with the same reason as the root", async () => {
         await seed("acme.plugin", { manifest: { extensionDependencies: ["acme.base"] } });
         await seed("acme.base", { manifest: { publisher: "evil", name: "impostor" } });
@@ -294,7 +312,7 @@ describe("describeDependencyInstall", () => {
     it("installed ones go to stdout as lines, missing ones as a warning", () => {
         expect(
             describeDependencyInstall("acme.plugin", {
-                dependencies: [{ id: "acme.base", version: "1.2.3", previous: [] }],
+                dependencies: [{ id: "acme.base", version: "1.2.3", dir: path.join(extensionsDir, "acme.base-1.2.3") }],
                 missingDependencies: ["x.y"],
             }),
         ).toEqual({
@@ -322,7 +340,7 @@ describe("installDependenciesFromRegistry (extension installed from a .vsix)", (
         });
 
         expect(result).toEqual({
-            dependencies: [{ id: "acme.base", version: "1.0.0", previous: [] }],
+            dependencies: [{ id: "acme.base", version: "1.0.0", dir: path.join(extensionsDir, "acme.base-1.0.0") }],
             missingDependencies: ["x.y"],
         });
         expect(installed()).toEqual(["acme.base@1.0.0"]);

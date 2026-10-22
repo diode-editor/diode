@@ -1,3 +1,4 @@
+import * as crypto from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
 
@@ -13,6 +14,8 @@ import {
     nlsFileCandidates,
     parseNlsBundle,
 } from "../../extensions/common/extensionNls.ts";
+
+import { DELETED_FOLDER_POSTFIX, installTempPrefix, isExtensionDirName, markObsolete } from "./obsoleteExtensions.ts";
 
 export interface IInstalledExtension {
     readonly id: string;
@@ -60,7 +63,7 @@ function readInstalled(extensionsDir: string): IInstalledExtension[] {
 
     const result: IInstalledExtension[] = [];
     for (const entry of entries) {
-        if (!entry.isDirectory()) continue;
+        if (!entry.isDirectory() || !isExtensionDirName(entry.name)) continue;
         const dir = path.join(extensionsDir, entry.name);
         const manifestPath = path.join(dir, "package.json");
 
@@ -236,14 +239,22 @@ export async function readVsixManifest(vsixPath: string): Promise<Record<string,
     return parsed as Record<string, unknown>;
 }
 
-/** Old versions are removed only after the new one installs successfully: a broken `.vsix` doesn't destroy the current one. */
-export async function installVsix(
-    vsixPath: string,
-    extensionsDir: string,
-): Promise<{ id: string; version: string; previous: string[] }> {
+export interface IInstalledVsix {
+    readonly id: string;
+    readonly version: string;
+    readonly dir: string;
+}
+
+/**
+ * Other versions of the id stay: a running extension host may still load files from them,
+ * and which version a profile uses is up to `ProfileExtensions`. The same version is
+ * replaced, like upstream ("Installing a VSIX extension shall replace the existing extension
+ * always"); a broken `.vsix` leaves the disk as it was.
+ */
+export async function installVsix(vsixPath: string, extensionsDir: string): Promise<IInstalledVsix> {
     fs.mkdirSync(extensionsDir, { recursive: true });
     // Temp lives in the target's directory so rename is atomic, with no EXDEV.
-    const tempDir = fs.mkdtempSync(path.join(extensionsDir, ".vsix-install-"));
+    const tempDir = fs.mkdtempSync(path.join(extensionsDir, installTempPrefix()));
 
     try {
         await extractExtensionPayload(vsixPath, tempDir);
@@ -263,37 +274,47 @@ export async function installVsix(
         const id = `${publisher}.${name}`;
 
         const targetDir = path.join(extensionsDir, `${id}-${version}`);
-        // Temp already holds a package.json, which readInstalled would take for an installed version.
-        const sameId = readInstalled(extensionsDir).filter((e) => e.id === id && e.dir !== tempDir);
-        const previous = sameId.map((e) => e.version);
-
-        if (fs.existsSync(targetDir)) {
-            fs.rmSync(targetDir, { recursive: true, force: true });
-        }
-        fs.renameSync(tempDir, targetDir);
-
-        for (const e of sameId) {
-            if (e.dir !== targetDir) {
-                fs.rmSync(e.dir, { recursive: true, force: true });
-            }
-        }
-
-        return { id, version, previous };
+        replaceDir(tempDir, targetDir);
+        return { id, version, dir: targetDir };
     } catch (error) {
         fs.rmSync(tempDir, { recursive: true, force: true });
         throw error;
     }
 }
 
-export function uninstallExtension(id: string, extensionsDir: string): { removed: string[] } {
-    const removed: string[] = [];
-    for (const e of readInstalled(extensionsDir)) {
-        if (e.id === id) {
-            fs.rmSync(e.dir, { recursive: true, force: true });
-            removed.push(e.dir);
-        }
+/**
+ * Upstream `deleteExtensionFromLocation`: the old directory is renamed away first, so a failed
+ * rename leaves no gap; what fails to delete is left to the startup cleanup.
+ */
+function replaceDir(sourceDir: string, targetDir: string): void {
+    if (!fs.existsSync(targetDir)) {
+        fs.renameSync(sourceDir, targetDir);
+        return;
     }
-    return { removed };
+    const deletedName = `${path.basename(targetDir)}.${crypto.randomBytes(4).toString("hex")}${DELETED_FOLDER_POSTFIX}`;
+    const deletedDir = path.join(path.dirname(targetDir), deletedName);
+    fs.renameSync(targetDir, deletedDir);
+    try {
+        fs.renameSync(sourceDir, targetDir);
+        // Stryker disable next-line BlockStatement: renaming a fresh temp into a name just freed doesn't fail in tests
+    } catch (err) {
+        /* v8 ignore start -- defensive: see above */
+        // Stryker disable all: same, unreachable from a test
+        fs.renameSync(deletedDir, targetDir);
+        throw err;
+        // Stryker restore all
+        /* v8 ignore stop */
+    }
+    try {
+        fs.rmSync(deletedDir, { recursive: true, force: true });
+    } catch {
+        markObsolete(path.dirname(targetDir), [deletedName]);
+    }
+}
+
+/** Right away: for rolling back a directory an install has just created, never for a version that may be in use. */
+export function deleteExtensionDir(dir: string): void {
+    fs.rmSync(dir, { recursive: true, force: true });
 }
 
 export function listInstalledExtensions(extensionsDir: string): IInstalledExtension[] {

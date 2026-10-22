@@ -16,6 +16,7 @@ import {
 } from "../../../../platform/extensionManagement/common/registryFormat.ts";
 import type { IHostVersions } from "../../../../platform/extensionManagement/common/resolveCompatibleVersion.ts";
 import { sha256File } from "../../../../platform/extensionManagement/node/installFromRegistry.ts";
+import { readObsolete } from "../../../../platform/extensionManagement/node/obsoleteExtensions.ts";
 import {
     ProfileExtensions,
     readProfileExtensions,
@@ -555,7 +556,7 @@ describe("ExtensionsWorkbenchService", () => {
             expect(changes).toBe(1);
         });
 
-        it("update removes the previous version — one remains on disk", async () => {
+        it("update switches the profile to the new version; the old one stays for the running host, marked for removal (US-0.1)", async () => {
             ws = createTempWorkspace({ prefix: "diode-extensions-view-" });
             installOnDisk(ws, "acme.tools", "0.9.0");
             const { service } = await withInstallable("1.0.0");
@@ -564,7 +565,9 @@ describe("ExtensionsWorkbenchService", () => {
 
             await service.install("acme.tools");
 
-            expect(fs.existsSync(ws.path("extensions/acme.tools-0.9.0"))).toBe(false);
+            expect(fs.existsSync(ws.path("extensions/acme.tools-0.9.0/package.json"))).toBe(true);
+            expect(readObsolete(ws.path("extensions"))).toEqual(new Set(["acme.tools-0.9.0"]));
+            expect(readProfileExtensions(ws.path(PROFILE_FILE))?.map((e) => e.version)).toEqual(["1.0.0"]);
             expect(service.getEntries()[0]?.installedVersion).toBe("1.0.0");
         });
 
@@ -590,7 +593,7 @@ describe("ExtensionsWorkbenchService", () => {
             });
         });
 
-        it("removes the extension from disk and asks for a reload", async () => {
+        it("removes the extension from the profile, marks it for removal on next start and asks for a reload (US-0.4)", async () => {
             ws = createTempWorkspace({ prefix: "diode-extensions-view-" });
             installOnDisk(ws, "acme.tools", "1.0.0");
             const service = createService(new FakeSource(index(entry({ id: "acme.tools" }))));
@@ -599,7 +602,8 @@ describe("ExtensionsWorkbenchService", () => {
             const result = await service.uninstall("acme.tools");
 
             expect(result).toEqual({ ok: true });
-            expect(fs.existsSync(ws.path("extensions/acme.tools-1.0.0"))).toBe(false);
+            expect(fs.existsSync(ws.path("extensions/acme.tools-1.0.0/package.json"))).toBe(true);
+            expect(readObsolete(ws.path("extensions"))).toEqual(new Set(["acme.tools-1.0.0"]));
             expect(profileIds(ws, PROFILE_FILE)).toEqual([]);
             const card = service.getEntries()[0];
             expect(card.installedVersion).toBeNull();

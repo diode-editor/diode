@@ -61,8 +61,7 @@
 | `Delete Profile...` | precondition `HAS_PROFILES_CONTEXT` | всегда в палитре; без именованных профилей пикер не открывается | контекст-ключ — с Profiles editor |
 | `New Profile...` | Profiles editor (имя, иконка, Copy from, ресурсы) | два шага quick input: имя → «Empty» / «Copy from current» | editor — итерация 4 |
 | `application`-ключ в settings.json профиля | редактор гасит ключ с подсказкой | не действует, warn в канале `configuration` | подсказки — вместе с валидацией settings.json |
-| версия расширения | своя на профиль, каталоги `<id>-<version>` рядом | одна на все профили: установка сносит прочие версии, сопоставление по id | без учёта версий по профилям |
-| уборка общего каталога расширений | `deleteExtensionsNotInProfiles` на каждом старте | при удалении из последнего профиля и при удалении профиля | положенное руками не удаляется (и в профиль не попадает) |
+| уборка общего каталога расширений | `.obsolete` + `deleteExtensionsNotInProfiles` на старте shared process | пометка в `.obsolete` при уходе версии из последнего профиля, удаление на старте окна; каталоги, загруженные живыми окнами (`extensions/.inuse/<pid>.json`), не трогаются | окно — свой процесс, общего shared process нет ([Extensions.md](Extensions.md)); положенное руками не удаляется (и в профиль не попадает) |
 | профиль без `extensions.json` | пустой состав | при старте получает все установленные, файл пишется | обновление с 0.8.x (расширения были общими) ничего не прячет; новый профиль получает `[]` явно |
 | запись `extensions.json` | `location` + `relativeLocation` + `metadata` | `identifier`, `version`, `relativeLocation`; чужие поля сохраняются | `metadata` (pre-release, источник, pinned) нет |
 

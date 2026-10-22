@@ -8,7 +8,8 @@ import yazl from "yazl";
 import { FsAssetAccess } from "../../../base/node/assets/fsAssetAccess.ts";
 import { scanExtensions } from "../../extensions/common/extensionScanner.ts";
 
-import { installVsix, listInstalledExtensions, readVsixManifest, uninstallExtension } from "./extensionInstaller.ts";
+import { deleteExtensionDir, installVsix, listInstalledExtensions, readVsixManifest } from "./extensionInstaller.ts";
+import { readObsolete } from "./obsoleteExtensions.ts";
 
 function vsixEntries(manifest: object, extra: Record<string, string> = {}): Record<string, string> {
     return {
@@ -69,8 +70,8 @@ describe("ExtensionInstaller", () => {
 
         const result = await installVsix(vsix, extensionsDir);
 
-        expect(result).toEqual({ id: "acme.hello", version: "1.0.0", previous: [] });
         const dir = path.join(extensionsDir, "acme.hello-1.0.0");
+        expect(result).toEqual({ id: "acme.hello", version: "1.0.0", dir });
         expect(fs.existsSync(path.join(dir, "package.json"))).toBe(true);
         expect(fs.readFileSync(path.join(dir, "node_modules/dep/index.js"), "utf8")).toBe("module.exports = 42;");
         expect(fs.existsSync(path.join(dir, "extension.vsixmanifest"))).toBe(false);
@@ -160,7 +161,7 @@ describe("ExtensionInstaller", () => {
         expect(scanned[0].manifest.version).toBe("2.3.4");
     });
 
-    it("reinstalling a new version removes the old directory", async () => {
+    it("installing a second version keeps the first: a running host may still load files from it (US-0.1)", async () => {
         await installVsix(
             await makeVsix("v1.vsix", vsixEntries({ name: "hello", publisher: "acme", version: "1.0.0" })),
             extensionsDir,
@@ -170,13 +171,63 @@ describe("ExtensionInstaller", () => {
             extensionsDir,
         );
 
-        expect(result.previous).toEqual(["1.0.0"]);
-        expect(fs.existsSync(path.join(extensionsDir, "acme.hello-1.0.0"))).toBe(false);
-        expect(fs.existsSync(path.join(extensionsDir, "acme.hello-2.0.0"))).toBe(true);
-        expect(listInstalledExtensions(extensionsDir)).toHaveLength(1);
+        expect(result).toEqual({
+            id: "acme.hello",
+            version: "2.0.0",
+            dir: path.join(extensionsDir, "acme.hello-2.0.0"),
+        });
+        expect(listInstalledExtensions(extensionsDir).map((e) => `${e.id}@${e.version}`)).toEqual([
+            "acme.hello@1.0.0",
+            "acme.hello@2.0.0",
+        ]);
+        expect(fs.readdirSync(extensionsDir).sort()).toEqual(["acme.hello-1.0.0", "acme.hello-2.0.0"]);
     });
 
-    it("reinstalling the same version overwrites the directory without duplicates", async () => {
+    it.skipIf(process.platform === "win32" || process.getuid?.() === 0)(
+        "the replaced same-version directory that fails to delete is marked for removal on next start",
+        async () => {
+            const manifest = { name: "hello", publisher: "acme", version: "1.0.0" };
+            await installVsix(await makeVsix("a.vsix", vsixEntries(manifest)), extensionsDir);
+            // A read-only subdirectory with a file in it: rename works, rm cannot empty it.
+            const locked = path.join(extensionsDir, "acme.hello-1.0.0", "locked");
+            fs.mkdirSync(locked);
+            fs.writeFileSync(path.join(locked, "file.txt"), "x");
+            fs.chmodSync(locked, 0o555);
+
+            try {
+                await installVsix(await makeVsix("b.vsix", vsixEntries(manifest)), extensionsDir);
+
+                const leftovers = fs.readdirSync(extensionsDir).filter((n) => n.endsWith(".vsctmp"));
+                expect(leftovers).toHaveLength(1);
+                expect(leftovers[0]).toMatch(/^acme\.hello-1\.0\.0\.[0-9a-f]{8}\.vsctmp$/u);
+                expect(readObsolete(extensionsDir)).toEqual(new Set(leftovers));
+                expect(fs.existsSync(path.join(extensionsDir, "acme.hello-1.0.0", "locked"))).toBe(false);
+                expect(listInstalledExtensions(extensionsDir)).toHaveLength(1);
+            } finally {
+                for (const name of fs.readdirSync(extensionsDir)) {
+                    const dir = path.join(extensionsDir, name, "locked");
+                    if (fs.existsSync(dir)) fs.chmodSync(dir, 0o755);
+                }
+            }
+        },
+    );
+
+    it("service entries are not extensions: .obsolete, .inuse, install temps and *.vsctmp", async () => {
+        await installVsix(
+            await makeVsix("v1.vsix", vsixEntries({ name: "hello", publisher: "acme", version: "1.0.0" })),
+            extensionsDir,
+        );
+        const manifest = JSON.stringify({ name: "ghost", publisher: "acme", version: "1.0.0" });
+        for (const name of [".vsix-install-42-abc", "acme.ghost-1.0.0.1f2e3d4c.vsctmp", ".inuse"]) {
+            fs.mkdirSync(path.join(extensionsDir, name));
+            fs.writeFileSync(path.join(extensionsDir, name, "package.json"), manifest);
+        }
+        fs.writeFileSync(path.join(extensionsDir, ".obsolete"), "{}");
+
+        expect(listInstalledExtensions(extensionsDir).map((e) => e.id)).toEqual(["acme.hello"]);
+    });
+
+    it("reinstalling the same version replaces the directory without duplicates or leftovers (decision V3)", async () => {
         const manifest = { name: "hello", publisher: "acme", version: "1.0.0" };
         await installVsix(
             await makeVsix("a.vsix", vsixEntries(manifest, { "extension/a.txt": "first" })),
@@ -191,29 +242,23 @@ describe("ExtensionInstaller", () => {
         expect(fs.existsSync(path.join(dir, "a.txt"))).toBe(false);
         expect(fs.readFileSync(path.join(dir, "b.txt"), "utf8")).toBe("second");
         expect(listInstalledExtensions(extensionsDir)).toHaveLength(1);
+        expect(fs.readdirSync(extensionsDir)).toEqual(["acme.hello-1.0.0"]);
     });
 
-    it("uninstall removes all versions; a repeated call is a no-op", async () => {
-        await installVsix(
+    it("deleteExtensionDir removes exactly one version; a repeated call is a no-op", async () => {
+        const { dir } = await installVsix(
             await makeVsix("v1.vsix", vsixEntries({ name: "hello", publisher: "acme", version: "1.0.0" })),
             extensionsDir,
         );
-        fs.mkdirSync(path.join(extensionsDir, "acme.hello-9.9.9"), { recursive: true });
-        fs.writeFileSync(
-            path.join(extensionsDir, "acme.hello-9.9.9", "package.json"),
-            JSON.stringify({ name: "hello", publisher: "acme", version: "9.9.9" }),
-        );
         await installVsix(
-            await makeVsix("other.vsix", vsixEntries({ name: "thing", publisher: "acme", version: "1.0.0" })),
+            await makeVsix("v2.vsix", vsixEntries({ name: "hello", publisher: "acme", version: "2.0.0" })),
             extensionsDir,
         );
 
-        const first = uninstallExtension("acme.hello", extensionsDir);
-        expect(first.removed).toHaveLength(2);
-        expect(listInstalledExtensions(extensionsDir).map((e) => e.id)).toEqual(["acme.thing"]);
+        deleteExtensionDir(dir);
+        deleteExtensionDir(dir);
 
-        const second = uninstallExtension("acme.hello", extensionsDir);
-        expect(second.removed).toEqual([]);
+        expect(listInstalledExtensions(extensionsDir).map((e) => `${e.id}@${e.version}`)).toEqual(["acme.hello@2.0.0"]);
     });
 
     it("list returns the manifest displayName and description shown by the marketplace", async () => {
@@ -363,10 +408,8 @@ describe("ExtensionInstaller", () => {
         expect(list.map((e) => `${e.id}@${e.version}`)).toEqual(["acme.alpha@5.0.0", "acme.zeta@1.0.0"]);
     });
 
-    it("list/uninstall on a missing extensions directory yield nothing", () => {
-        const missing = path.join(tempRoot, "does-not-exist");
-        expect(listInstalledExtensions(missing)).toEqual([]);
-        expect(uninstallExtension("acme.hello", missing)).toEqual({ removed: [] });
+    it("list on a missing extensions directory yields nothing", () => {
+        expect(listInstalledExtensions(path.join(tempRoot, "does-not-exist"))).toEqual([]);
     });
 
     it("a malformed zip gives a clear error and temp is cleaned up", async () => {

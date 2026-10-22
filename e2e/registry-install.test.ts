@@ -384,6 +384,85 @@ describe("SEA binary — install from file registry", () => {
         expect(list.stdout.trim()).toBe(`${id}@1.10.0`);
     });
 
+    /** Publishes `versions` of `acme.updated` (the meta lists exactly these); returns each artifact path. */
+    async function publishUpdated(versions: readonly string[]): Promise<Record<string, string>> {
+        const records = [];
+        const artifacts: Record<string, string> = {};
+        for (const version of versions) {
+            const rel = `artifacts/acme.updated-${version}.vsix`;
+            const vsix = path.join(registryDir, rel);
+            await buildVsix(vsix, {
+                "extension/package.json": JSON.stringify({ name: "updated", publisher: "acme", version }),
+            });
+            const sha256 = crypto
+                .createHash("sha256")
+                .update(await fs.promises.readFile(vsix))
+                .digest("hex");
+            records.push({ version, engines: { vscode: "*" }, artifact: { type: "path", path: rel }, sha256 });
+            artifacts[version] = vsix;
+        }
+        await fs.promises.writeFile(
+            path.join(registryDir, "meta", "acme.updated.json"),
+            JSON.stringify({
+                schemaVersion: 1,
+                id: "acme.updated",
+                publisher: "acme",
+                name: "updated",
+                displayName: "Updated",
+                description: "",
+                kind: "native",
+                versions: records,
+            }),
+        );
+        return artifacts;
+    }
+
+    it("ExtensionUpdates stage 0: an update keeps the previous version until the next editor start; the CLI deletes nothing", async () => {
+        const userData = path.join(tempRoot, "user-data-updated");
+        const extensionsDir = path.join(userData, "extensions");
+        const obsolete = (): unknown => JSON.parse(fs.readFileSync(path.join(extensionsDir, ".obsolete"), "utf8"));
+        const versionDirs = (): string[] =>
+            fs
+                .readdirSync(extensionsDir, { withFileTypes: true })
+                .filter((e) => e.isDirectory() && !e.name.startsWith("."))
+                .map((e) => e.name)
+                .sort();
+        const cli = (...args: string[]) =>
+            runCli(binary, ["--user-data-dir", userData, "--registry", registryDir, ...args]);
+        await publishUpdated(["1.0.0"]);
+        expect((await cli("--install-extension", "acme.updated")).stdout).toContain("Installed acme.updated@1.0.0");
+
+        // US-0.1 via the CLI: the new version lands next to the old one.
+        const artifacts = await publishUpdated(["1.0.0", "1.1.0"]);
+        const update = await cli("--install-extension", "acme.updated");
+        expect(update.stderr).toBe("");
+        expect(update.code).toBe(0);
+        expect(update.stdout).toContain("Installed acme.updated@1.1.0");
+        expect(update.stdout).toContain("Previous version(s) will be removed on next start: 1.0.0");
+        expect(update.stdout).not.toContain("Removed previous version");
+        expect(versionDirs()).toEqual(["acme.updated-1.0.0", "acme.updated-1.1.0"]);
+        expect(obsolete()).toEqual({ "acme.updated-1.0.0": true });
+        // US-0.11: the profile's version, not whichever directory comes first.
+        expect((await cli("--list-extensions")).stdout.trim()).toBe("acme.updated@1.1.0");
+        // The CLI never cleans up (decision V1): both versions are still there.
+        expect(versionDirs()).toEqual(["acme.updated-1.0.0", "acme.updated-1.1.0"]);
+
+        // US-0.5: back to the marked version from a .vsix — it is unmarked, the replaced one is marked.
+        const back = await cli("--install-extension", artifacts["1.0.0"]!);
+        expect(back.code).toBe(0);
+        expect(back.stdout).toContain("Installed acme.updated@1.0.0");
+        expect(back.stdout).toContain("Previous version(s) will be removed on next start: 1.1.0");
+        expect(obsolete()).toEqual({ "acme.updated-1.1.0": true });
+        expect((await cli("--list-extensions")).stdout.trim()).toBe("acme.updated@1.0.0");
+
+        // US-0.4: uninstall marks instead of deleting.
+        const uninstall = await cli("--uninstall-extension", "acme.updated");
+        expect(uninstall.code).toBe(0);
+        expect(versionDirs()).toEqual(["acme.updated-1.0.0", "acme.updated-1.1.0"]);
+        expect(obsolete()).toEqual({ "acme.updated-1.0.0": true, "acme.updated-1.1.0": true });
+        expect((await cli("--list-extensions")).stdout.trim()).toBe("");
+    });
+
     it("unknown id fails with a registry error", async () => {
         const res = await runCli(binary, [
             "--user-data-dir",
