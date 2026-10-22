@@ -1,7 +1,7 @@
 import { packRgb } from "@tuidom/core/common/colorUtils";
 import { Point, Size } from "@tuidom/core/common/geometryPromitives";
 import { StyleFlags } from "@tuidom/core/common/styleFlags";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { TestApp } from "../../../TestUtils/TestApp.ts";
 import { MarkerSeverity } from "../../platform/markers/common/iMarker.ts";
@@ -151,9 +151,14 @@ describe("EditorElement — cursor above other layers", () => {
     });
 
     it("occurrence highlight is off in multi-cursor", () => {
+        vi.useFakeTimers();
         const { app, editor, viewState, gw } = createEditor("foo bar foo");
         viewState.selections = [createCursorSelection(0, 1)];
         editor.focus();
+        app.render();
+        // The occurrence query runs after the frame (upstream `WordHighlighter.runDelayer`).
+        vi.advanceTimersByTime(50);
+        vi.useRealTimers();
         app.render();
         const highlighted = app.backend.getBgAt(new Point(gw + 8, 0));
         expect(highlighted).not.toBe(editor.resolvedStyle.bg);

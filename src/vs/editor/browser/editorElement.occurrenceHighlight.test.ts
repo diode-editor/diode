@@ -1,6 +1,7 @@
 import { packRgb } from "@tuidom/core/common/colorUtils";
 import { Point, Size } from "@tuidom/core/common/geometryPromitives";
-import { describe, expect, it } from "vitest";
+import { TUIKeyboardEvent } from "@tuidom/core/dom/events/tuiKeyboardEvent";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { TestApp } from "../../../TestUtils/TestApp.ts";
 import { createCursorSelection, createSelection } from "../common/core/iSelection.ts";
@@ -10,6 +11,8 @@ import { EditorViewState } from "../common/viewModel/editorViewState.ts";
 import { EditorElement } from "./editorElement.ts";
 
 const OCCURRENCE_BG = packRgb(71, 71, 71);
+// Upstream `WordHighlighter.runDelayer`.
+const RUN_DELAY_MS = 50;
 
 function createEditor(
     text: string,
@@ -23,11 +26,30 @@ function createEditor(
     return { app, editor, viewState, gw: editor.gutterWidth };
 }
 
+/** The frame arms the query, the timer runs it, the next frame paints it. */
+function settle(app: TestApp): void {
+    app.render();
+    vi.advanceTimersByTime(RUN_DELAY_MS);
+    app.render();
+}
+
+function press(editor: EditorElement, key: string): void {
+    editor.dispatchEvent(new TUIKeyboardEvent("keypress", { key }));
+}
+
 describe("EditorElement — occurrence highlight (word under cursor)", () => {
+    beforeEach(() => {
+        vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+        vi.useRealTimers();
+    });
+
     it("highlights every occurrence of the word under the cursor", () => {
         const { app, viewState, gw } = createEditor("foo bar foo");
         viewState.selections = [createCursorSelection(0, 1)];
-        app.render();
+        settle(app);
 
         expect(app.backend.getBgAt(new Point(gw + 0, 0))).toBe(OCCURRENCE_BG);
         expect(app.backend.getBgAt(new Point(gw + 2, 0))).toBe(OCCURRENCE_BG);
@@ -35,10 +57,32 @@ describe("EditorElement — occurrence highlight (word under cursor)", () => {
         expect(app.backend.getBgAt(new Point(gw + 10, 0))).toBe(OCCURRENCE_BG);
     });
 
+    it("computes the occurrences after the frame, once the cursor settles", () => {
+        const { app, editor, viewState, gw } = createEditor("foo bar foo");
+        viewState.selections = [createCursorSelection(0, 1)];
+        app.render();
+        expect(app.backend.getBgAt(new Point(gw + 8, 0))).toBe(editor.resolvedStyle.bg);
+
+        vi.advanceTimersByTime(RUN_DELAY_MS - 1);
+        app.render();
+        expect(app.backend.getBgAt(new Point(gw + 8, 0))).toBe(editor.resolvedStyle.bg);
+
+        vi.advanceTimersByTime(1);
+        app.render();
+        expect(app.backend.getBgAt(new Point(gw + 8, 0))).toBe(OCCURRENCE_BG);
+    });
+
+    it("highlights the word under the initial cursor without a cursor move", () => {
+        const { app, gw } = createEditor("foo bar foo");
+        settle(app);
+
+        expect(app.backend.getBgAt(new Point(gw + 8, 0))).toBe(OCCURRENCE_BG);
+    });
+
     it("does not highlight the intervening non-matching word", () => {
         const { app, editor, viewState, gw } = createEditor("foo bar foo");
         viewState.selections = [createCursorSelection(0, 0)];
-        app.render();
+        settle(app);
 
         expect(app.backend.getBgAt(new Point(gw + 4, 0))).toBe(editor.resolvedStyle.bg);
     });
@@ -48,7 +92,7 @@ describe("EditorElement — occurrence highlight (word under cursor)", () => {
         const { app, editor, viewState, gw } = createEditor("foo foo");
         editor.setStyleVars({ "editor.wordHighlightBackground": custom });
         viewState.selections = [createCursorSelection(0, 0)];
-        app.render();
+        settle(app);
 
         expect(app.backend.getBgAt(new Point(gw + 0, 0))).toBe(custom);
         expect(app.backend.getBgAt(new Point(gw + 4, 0))).toBe(custom);
@@ -57,7 +101,7 @@ describe("EditorElement — occurrence highlight (word under cursor)", () => {
     it("highlights nothing when the cursor rests on whitespace", () => {
         const { app, editor, viewState, gw } = createEditor("foo  foo");
         viewState.selections = [createCursorSelection(0, 4)]; // between the two spaces
-        app.render();
+        settle(app);
 
         expect(app.backend.getBgAt(new Point(gw + 0, 0))).toBe(editor.resolvedStyle.bg);
         expect(app.backend.getBgAt(new Point(gw + 5, 0))).toBe(editor.resolvedStyle.bg);
@@ -66,33 +110,120 @@ describe("EditorElement — occurrence highlight (word under cursor)", () => {
     it("suppresses the highlight while a selection is active", () => {
         const { app, editor, viewState, gw } = createEditor("foo bar foo");
         viewState.selections = [createSelection(0, 4, 0, 7)];
-        app.render();
+        settle(app);
 
         expect(app.backend.getBgAt(new Point(gw + 0, 0))).toBe(editor.resolvedStyle.bg);
+    });
+
+    it("hides the highlight in the very frame a selection appears", () => {
+        const { app, editor, viewState, gw } = createEditor("foo bar foo");
+        viewState.selections = [createCursorSelection(0, 0)];
+        settle(app);
+
+        viewState.selections = [createSelection(0, 4, 0, 7)];
+        app.render();
+
+        expect(app.backend.getBgAt(new Point(gw + 8, 0))).toBe(editor.resolvedStyle.bg);
     });
 
     it("does nothing when disabled", () => {
         const { app, editor, viewState, gw } = createEditor("foo foo");
         editor.occurrenceHighlightEnabled = false;
         viewState.selections = [createCursorSelection(0, 0)];
-        app.render();
+        settle(app);
 
         expect(app.backend.getBgAt(new Point(gw + 0, 0))).toBe(editor.resolvedStyle.bg);
         expect(app.backend.getBgAt(new Point(gw + 4, 0))).toBe(editor.resolvedStyle.bg);
     });
 
+    it("drops a pending query when disabled before it runs", () => {
+        const { app, editor, viewState, gw } = createEditor("foo foo");
+        viewState.selections = [createCursorSelection(0, 0)];
+        app.render();
+        editor.occurrenceHighlightEnabled = false;
+        vi.advanceTimersByTime(RUN_DELAY_MS);
+        editor.occurrenceHighlightEnabled = true;
+        app.render();
+
+        expect(app.backend.getBgAt(new Point(gw + 4, 0))).toBe(editor.resolvedStyle.bg);
+    });
+
+    it("highlights again once re-enabled", () => {
+        const { app, editor, gw } = createEditor("foo foo");
+        editor.occurrenceHighlightEnabled = false;
+        settle(app);
+        editor.occurrenceHighlightEnabled = true;
+        settle(app);
+
+        expect(app.backend.getBgAt(new Point(gw + 4, 0))).toBe(OCCURRENCE_BG);
+    });
+
     it("keeps the highlight stable across re-renders and updates it when the cursor moves", () => {
         const { app, editor, viewState, gw } = createEditor("foo bar foo");
         viewState.selections = [createCursorSelection(0, 0)];
-
-        app.render(); // first pass computes and caches
-        app.render(); // second pass with the same caret hits the cache
+        settle(app);
+        app.render();
         expect(app.backend.getBgAt(new Point(gw + 0, 0))).toBe(OCCURRENCE_BG);
 
         viewState.selections = [createCursorSelection(0, 4)];
-        app.render();
+        settle(app);
         expect(app.backend.getBgAt(new Point(gw + 4, 0))).toBe(OCCURRENCE_BG);
         expect(app.backend.getBgAt(new Point(gw + 0, 0))).toBe(editor.resolvedStyle.bg);
+    });
+
+    it("keeps the set while the cursor moves within a highlighted word (upstream `_run`)", () => {
+        const { app, editor, viewState } = createEditor("foo bar foo");
+        editor.setStyleVars({ "editorOverviewRuler.wordHighlightForeground": packRgb(1, 2, 3) });
+        viewState.selections = [createCursorSelection(0, 0)];
+        settle(app);
+        const before = editor.getScrollBarMarkers();
+
+        viewState.selections = [createCursorSelection(0, 9)];
+        settle(app);
+
+        // The marks are rebuilt only when the occurrence set itself changes.
+        expect(editor.getScrollBarMarkers()).toBe(before);
+    });
+
+    it("an edit drops the highlight and does not search the file again (upstream `_stopAll`)", () => {
+        const { app, editor, viewState, gw } = createEditor("foo bar foo");
+        viewState.selections = [createCursorSelection(0, 3)];
+        settle(app);
+        expect(app.backend.getBgAt(new Point(gw + 8, 0))).toBe(OCCURRENCE_BG);
+
+        press(editor, "x");
+        settle(app);
+
+        // A query after the edit would highlight `foox`, the word now under the cursor.
+        expect(viewState.document.getLineContent(0)).toBe("foox bar foo");
+        expect(app.backend.getBgAt(new Point(gw + 0, 0))).toBe(editor.resolvedStyle.bg);
+        expect(app.backend.getBgAt(new Point(gw + 9, 0))).toBe(editor.resolvedStyle.bg);
+    });
+
+    it("an explicit cursor move after an edit brings the highlight back", async () => {
+        const { app, editor, viewState, gw } = createEditor("foo bar foo");
+        press(editor, "x");
+        // The edit's task ends: the next cursor move is the user's.
+        await Promise.resolve();
+        viewState.selections = [createCursorSelection(0, 6)];
+        settle(app);
+
+        expect(app.backend.getBgAt(new Point(gw + 5, 0))).toBe(OCCURRENCE_BG);
+        expect(app.backend.getBgAt(new Point(gw + 0, 0))).toBe(editor.resolvedStyle.bg);
+    });
+
+    it("paints occurrences on the visible rows of a scrolled file", () => {
+        const text = Array.from({ length: 1000 }, (_, i) => `foo ${i}`).join("\n");
+        const { app, editor, viewState, gw } = createEditor(text, 30, 5);
+        viewState.selections = [createCursorSelection(500, 0)];
+        viewState.scrollTop = 498;
+        settle(app);
+
+        for (let row = 0; row < 5; row++) {
+            expect(app.backend.getBgAt(new Point(gw + 0, row))).toBe(OCCURRENCE_BG);
+            expect(app.backend.getBgAt(new Point(gw + 2, row))).toBe(OCCURRENCE_BG);
+            expect(app.backend.getBgAt(new Point(gw + 4, row))).toBe(editor.resolvedStyle.bg);
+        }
     });
 
     it("selection background wins over the occurrence highlight on overlap", () => {
@@ -101,7 +232,7 @@ describe("EditorElement — occurrence highlight (word under cursor)", () => {
         // Primary collapsed cursor on "foo" plus a second selection covering the
         // second "foo" — the selection paints on top of the occurrence highlight.
         viewState.selections = [createCursorSelection(0, 0), createSelection(0, 4, 0, 7)];
-        app.render();
+        settle(app);
 
         expect(app.backend.getBgAt(new Point(gw + 4, 0))).toBe(SELECTION_BG);
     });

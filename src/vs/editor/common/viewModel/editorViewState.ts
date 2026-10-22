@@ -318,6 +318,11 @@ export class EditorViewState {
         this.onDidChangeViewEmitter.fire();
     }
 
+    /** Grows on every fold change, including a region collapsed in place. */
+    public get foldStateVersion(): number {
+        return this.foldsVersion;
+    }
+
     private bumpFoldsVersion(): void {
         this.foldsVersion++;
         this.fireViewChange();
