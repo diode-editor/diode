@@ -943,6 +943,25 @@ describe("SearchComponent", () => {
             expect(cursorId(component)).toBe("match:src/a.ts:0");
         });
 
+        it("a lone match under the cursor is opened again", () => {
+            const reveal = fakeReveal();
+            const component = make(
+                fakeSearch([fileMatch("/work/project/a.ts", [[4, "", "foo", ""]])]).service,
+                fakeWorkspace(ROOT),
+                { reveal: reveal.target },
+            );
+            typeQuery(component, "foo");
+
+            component.focusNextResult();
+            component.focusNextResult();
+
+            expect(cursorId(component)).toBe("match:a.ts:0");
+            expect(reveal.positions).toEqual([
+                [3, 0],
+                [3, 0],
+            ]);
+        });
+
         it("without results it is a no-op", () => {
             const reveal = fakeReveal();
             const component = make(fakeSearch([]).service, fakeWorkspace(ROOT), { reveal: reveal.target });
