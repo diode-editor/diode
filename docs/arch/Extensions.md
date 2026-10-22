@@ -1281,8 +1281,11 @@ Workbench** (адаптеры над `EditorService`; мост файловых 
 `TerminalEditorService` (`contrib/terminal/browser/`), родитель — туда же, где он (редакторный —
 справа от его группы, `splitInstance`), без `location` — по `terminal.integrated.defaultLocation`;
 `show()` редакторного терминала показывает его вкладку (`revealActiveEditor`), `hide()` его не
-трогает. Вкладка-терминал не становится `activeTerminal` (отступление: активный инстанс у нас —
-только в виде TERMINAL). Pty расширения (`ExtensionTerminalOptions`, `ExtHostPseudoterminal`
+трогает. `activeTerminal` — как `_evaluateActiveInstance` эталона: у каждого хоста (вид TERMINAL,
+область редакторов) свой активный инстанс, глобальный — последний активированный из них
+(`TerminalService.getActiveInstanceAcrossHosts`). Вкладка-терминал становится активной, когда она —
+активный редактор или её показал `show()`; файл, ставший активным, её не сбрасывает. Иначе
+`activeTerminal.show()` стокового Claude Code раскрывал бы панель со старым шеллом. Pty расширения (`ExtensionTerminalOptions`, `ExtHostPseudoterminal`
 эталона): на хосте — инстанс с сессией-эмулятором без процесса (`ExtensionPtySession` поверх общего
 с шеллом `XtermSurface`, фабрика `ExtensionPtySessionFactoryDIToken`, в сервис — готовой сессией в
 опции `session`, как `customPtyImplementation` эталона). Хост сразу после создания шлёт

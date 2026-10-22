@@ -49,7 +49,11 @@ export default defineScenario({
         await editor.waitForText((t) => t.includes("Demo Agent ×") && echoed(t));
         await editor.capture("moved-back");
         await editor.sendKey("Ctrl+W");
-        await editor.waitForText((t) => !t.includes("Demo Agent ×") && t.includes("ev:close3"));
+        // The tab was `activeTerminal`: after `close` (reason User) comes `onDidChangeActiveTerminal(undefined)`,
+        // as upstream, so the last event is `active` and nothing is active.
+        await editor.waitForText(
+            (t) => !t.includes("Demo Agent ×") && t.includes("ev:active") && /ls:\s+act:-/u.test(t),
+        );
         await editor.capture("closed");
     },
 });

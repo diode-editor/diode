@@ -61,7 +61,7 @@ export class ExtensionTerminalAdapter implements IExtensionTerminalSink, IExtens
         ].sort((a, b) => a.id - b.id);
         return {
             terminals: all.map((instance) => this.toOpened(instance)),
-            activeId: this.terminals.getActiveInstance()?.id ?? null,
+            activeId: this.terminals.getActiveInstanceAcrossHosts()?.id ?? null,
         };
     }
 
@@ -94,7 +94,7 @@ export class ExtensionTerminalAdapter implements IExtensionTerminalSink, IExtens
             }),
         );
         store.add(
-            this.terminals.onDidChangeActiveInstance((instance) => {
+            this.terminals.onDidChangeActiveInstanceAcrossHosts((instance) => {
                 events.activeChanged(instance === null ? null : instance.id);
             }),
         );
@@ -126,6 +126,8 @@ export class ExtensionTerminalAdapter implements IExtensionTerminalSink, IExtens
         if (id === undefined) return;
         this.terminals.showInstance(id);
         if (this.terminals.getInstance(id)?.target === "editor") {
+            // Upstream `setActiveInstance`: the tab is the active terminal even when revealed in an inactive group.
+            this.terminals.setActiveEditorInstance(id);
             this.editorTerminals.reveal(id, preserveFocus);
             return;
         }

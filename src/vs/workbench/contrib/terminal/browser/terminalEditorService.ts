@@ -25,9 +25,9 @@ export interface ITerminalEditorLocation {
 /**
  * Tab and instance lifetimes are bound both ways: closing the tab kills the process
  * (`user`), removing the instance closes the tab. Moving between the panel and the
- * editor area doesn't touch the process. The tab never becomes the service's active
- * terminal (`window.activeTerminal`) — a deviation, see
- * docs/arch/Extensions.md.
+ * editor area doesn't touch the process. A tab that becomes the active editor becomes the
+ * editor host's active terminal, as upstream: `window.activeTerminal` is whichever host
+ * activated one last ({@link TerminalService.getActiveInstanceAcrossHosts}).
  */
 export class TerminalEditorService extends Disposable implements IContextKeyContributor {
     public static dependencies = [TerminalServiceDIToken, EditorServiceDIToken, TerminalColorsServiceDIToken] as const;
@@ -49,6 +49,11 @@ export class TerminalEditorService extends Disposable implements IContextKeyCont
         this.register(
             terminals.onDidChangeInstanceTitle((instance) => {
                 this.panes.get(instance.id)?.refreshLabel();
+            }),
+        );
+        this.register(
+            editors.editorGroups.onDidChangeActivePane((pane) => {
+                if (pane instanceof TerminalEditorPane) terminals.setActiveEditorInstance(pane.instance.id);
             }),
         );
         this.register(
