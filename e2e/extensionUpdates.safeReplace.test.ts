@@ -37,7 +37,7 @@ import { waitUntil } from "./helpers/waitFor.ts";
 
 /**
  * Acceptance tests of ExtensionUpdates stage 0 — safe version replacement (docs/TODO/ExtensionUpdates.md,
- * "Спека этапа 0"). Black box: the CLI, the extensions directory, the profile's `extensions.json`,
+ * stage 0 spec). Black box: the CLI, the extensions directory, the profile's `extensions.json`,
  * `extensions/.obsolete` and a live window with the extension's own OUTPUT channel.
  */
 
@@ -217,7 +217,7 @@ describe("ExtensionUpdates stage 0 — safe version replacement", () => {
     );
 
     // The first reload turns the original process into a supervisor that stays alive (restartProcess.ts):
-    // whatever protects a live window's directories (decision В1) must not outlive its extension host.
+    // whatever protects a live window's directories (decision V1) must not outlive its extension host.
     it(
         "US-0.2: Reload Window after an update loads the new version and deletes the old one",
         async () => {
@@ -393,7 +393,7 @@ describe("ExtensionUpdates stage 0 — safe version replacement", () => {
     );
 
     /**
-     * `it.fails` until the extraction stops crashing the CLI (docs/TESTING.md, "Тесты, ждущие фичу или починку"):
+     * `it.fails` until the extraction stops crashing the CLI (docs/TESTING.md, the it.fails convention):
      * `extractExtensionPayload` calls `fs.mkdirSync` inside the `openReadStream` callback, its EEXIST escapes as an
      * uncaught exception, the process dies with a Node stack and no rollback runs — `acme.lib-1.0.0` and the
      * `.vsix-install-*` temp stay on disk, referenced by no profile. Fixed — the test turns red: drop the marker.
