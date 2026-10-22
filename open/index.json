@@ -1958,5 +1958,19 @@
       "large",
       "xlarge"
     ]
+  },
+  {
+    "file": "2026-10-22-de273ea867fb.json",
+    "generatedAt": "2026-10-22T07:03:34.215Z",
+    "commit": "de273ea867fb",
+    "binaryVersion": "nightly-de273ea",
+    "ci": true,
+    "conditions": "CI, shared runner (GitHub Actions)",
+    "sizes": [
+      "small",
+      "medium",
+      "large",
+      "xlarge"
+    ]
   }
 ]
