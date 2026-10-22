@@ -174,13 +174,14 @@ async function extractExtensionPayload(vsixPath: string, destDir: string): Promi
                         return;
                     }
                     /* v8 ignore stop */
+                    // Stryker disable BlockStatement: a swallowed mkdir error resurfaces as the write stream's ENOTDIR/EACCES and fails the same way; the catch only keeps the throw from escaping the promise
                     try {
                         fs.mkdirSync(path.dirname(target), { recursive: true });
-                        // Stryker disable next-line BlockStatement: a swallowed mkdir error resurfaces as the write stream's ENOTDIR/EACCES and fails the same way; the catch only keeps the throw from escaping the promise
                     } catch (err) {
                         fail(err as Error);
                         return;
                     }
+                    // Stryker restore BlockStatement
                     const writeStream = fs.createWriteStream(target);
                     // Stryker disable next-line StringLiteral,CallExpression: a read error on an already open entry (disk failure mid-read) can't be reproduced in tests
                     readStream.on("error", fail);
