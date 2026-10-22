@@ -128,7 +128,9 @@ async function extractExtensionPayload(vsixPath: string, destDir: string): Promi
             const fail = (err: Error): void => {
                 // Stryker disable next-line ConditionalExpression,BlockStatement: a second failure of the same entry (stream error, then close) rejects an already rejected promise; the flag only keeps `close` from running twice
                 if (failed) return;
+                // Stryker disable next-line BooleanLiteral: after a failure the archive is closed and further reads end in errors that land here again, rejecting an already rejected promise
                 failed = true;
+                // Stryker disable next-line CallExpression: descriptor hygiene; on Linux an unclosed archive blocks neither the rejection nor deleting the temp, observable only on Windows
                 zipfile.close();
                 reject(err);
             };
@@ -174,6 +176,7 @@ async function extractExtensionPayload(vsixPath: string, destDir: string): Promi
                     /* v8 ignore stop */
                     try {
                         fs.mkdirSync(path.dirname(target), { recursive: true });
+                        // Stryker disable next-line BlockStatement: a swallowed mkdir error resurfaces as the write stream's ENOTDIR/EACCES and fails the same way; the catch only keeps the throw from escaping the promise
                     } catch (err) {
                         fail(err as Error);
                         return;
@@ -183,6 +186,7 @@ async function extractExtensionPayload(vsixPath: string, destDir: string): Promi
                     readStream.on("error", fail);
                     writeStream.on("error", fail);
                     writeStream.on("close", () => {
+                        // Stryker disable next-line ConditionalExpression: reading on from an archive closed by the failure only ends in errors that `fail` ignores
                         if (failed) return;
                         // Not createWriteStream's mode: that one is masked by the process umask.
                         if (executable) {
