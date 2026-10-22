@@ -2014,5 +2014,19 @@
       "large",
       "xlarge"
     ]
+  },
+  {
+    "file": "2026-10-22-4c77a38ddc69.json",
+    "generatedAt": "2026-10-22T16:52:33.310Z",
+    "commit": "4c77a38ddc69",
+    "binaryVersion": "nightly-4c77a38",
+    "ci": true,
+    "conditions": "CI, shared runner (GitHub Actions)",
+    "sizes": [
+      "small",
+      "medium",
+      "large",
+      "xlarge"
+    ]
   }
 ]
