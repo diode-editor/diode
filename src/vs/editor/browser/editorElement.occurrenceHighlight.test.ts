@@ -218,6 +218,8 @@ describe("EditorElement — occurrence highlight (word under cursor)", () => {
 
     it("an explicit cursor move after an edit brings the highlight back", async () => {
         const { app, editor, viewState, gw } = createEditor("foo bar foo");
+        // The element's own initial query is spent: only the move can query again.
+        settle(app);
         press(editor, "x");
         // The edit's task ends: the next cursor move is the user's.
         await Promise.resolve();
@@ -226,6 +228,78 @@ describe("EditorElement — occurrence highlight (word under cursor)", () => {
 
         expect(app.backend.getBgAt(new Point(gw + 5, 0))).toBe(OCCURRENCE_BG);
         expect(app.backend.getBgAt(new Point(gw + 0, 0))).toBe(editor.resolvedStyle.bg);
+    });
+
+    it("an edit withdraws only the query of its own task, not the one made before", async () => {
+        const { app, viewState, gw } = createEditor("foo bar foo");
+        settle(app);
+        viewState.selections = [createCursorSelection(0, 5)];
+        await Promise.resolve();
+        // Away from the caret, in a later task and before the frame: the query stands.
+        viewState.document.applyEdits([{ range: createRange(0, 11, 0, 11), text: " bar" }]);
+        settle(app);
+
+        expect(app.backend.getBgAt(new Point(gw + 4, 0))).toBe(OCCURRENCE_BG);
+        expect(app.backend.getBgAt(new Point(gw + 12, 0))).toBe(OCCURRENCE_BG);
+    });
+
+    it("asks for a frame once the query has found the occurrences", () => {
+        const { app, editor } = createEditor("foo bar foo");
+        app.render();
+        expect(editor.isLayoutDirty).toBe(false);
+
+        vi.advanceTimersByTime(RUN_DELAY_MS);
+
+        expect(editor.isLayoutDirty).toBe(true);
+    });
+
+    it("a newer query restarts the delay (upstream `runDelayer.trigger`)", () => {
+        const { app, editor, viewState, gw } = createEditor("foo bar foo");
+        app.render();
+        vi.advanceTimersByTime(RUN_DELAY_MS - 10);
+        viewState.selections = [createCursorSelection(0, 5)];
+        app.render();
+        vi.advanceTimersByTime(RUN_DELAY_MS - 10);
+        app.render();
+        expect(app.backend.getBgAt(new Point(gw + 4, 0))).toBe(editor.resolvedStyle.bg);
+
+        vi.advanceTimersByTime(10);
+        app.render();
+        expect(app.backend.getBgAt(new Point(gw + 4, 0))).toBe(OCCURRENCE_BG);
+    });
+
+    it.each([
+        ["start", 0],
+        ["end", 3],
+    ])("keeps the set with the caret at the word's %s (both ends count)", (_, character) => {
+        const { app, editor, viewState } = createEditor("foo bar foo");
+        editor.setStyleVars({ "editorOverviewRuler.wordHighlightForeground": packRgb(1, 2, 3) });
+        viewState.selections = [createCursorSelection(0, 1)];
+        settle(app);
+        const before = editor.getScrollBarMarkers();
+
+        viewState.selections = [createCursorSelection(0, character)];
+        settle(app);
+
+        expect(editor.getScrollBarMarkers()).toBe(before);
+    });
+
+    it("queries again with the caret past the last occurrence", () => {
+        const { app, viewState, gw } = createEditor("foo bar foo baz");
+        viewState.selections = [createCursorSelection(0, 1)];
+        settle(app);
+        viewState.selections = [createCursorSelection(0, 13)];
+        settle(app);
+
+        expect(app.backend.getBgAt(new Point(gw + 12, 0))).toBe(OCCURRENCE_BG);
+        expect(app.backend.getBgAt(new Point(gw + 0, 0))).not.toBe(OCCURRENCE_BG);
+    });
+
+    it("reports whether it is enabled", () => {
+        const { editor } = createEditor("foo");
+        expect(editor.occurrenceHighlightEnabled).toBe(true);
+        editor.occurrenceHighlightEnabled = false;
+        expect(editor.occurrenceHighlightEnabled).toBe(false);
     });
 
     it("paints occurrences on the visible rows of a scrolled file", () => {

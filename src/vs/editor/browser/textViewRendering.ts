@@ -83,7 +83,6 @@ function fragmentStartColumn(
  */
 export class TextViewportRow {
     private displayLineValue: DisplayLine | null = null;
-    private fragmentStartColumnValue = -1;
 
     public constructor(
         private readonly viewState: EditorViewState,
@@ -111,45 +110,38 @@ export class TextViewportRow {
     }
 
     public get fragmentStartColumn(): number {
-        if (this.fragmentStartColumnValue < 0) {
-            this.fragmentStartColumnValue = this.displayLine.offsetToColumn(
-                composedOffset(this.phantom, this.logLine, this.fragStart),
-            );
-        }
-        return this.fragmentStartColumnValue;
+        return this.displayLine.offsetToColumn(composedOffset(this.phantom, this.logLine, this.fragStart));
     }
 }
 
-/** Logical lines grow with screenY, so the result is sorted by `logLine`. */
+/**
+ * Logical lines grow with screenY, so the result is sorted by `logLine`. `Array.from`, not a
+ * counting loop: a `screenY--` mutant never reached the bound and timed out on the whole suite.
+ */
 export function buildViewportRows(
     viewState: EditorViewState,
     scrollTop: number,
     visibleLines: number,
-    viewLineCount: number,
     phantom: ILinePhantom | null,
 ): TextViewportRow[] {
-    const rows: TextViewportRow[] = [];
-    for (let screenY = 0; screenY < visibleLines; screenY++) {
+    const rows = Array.from({ length: visibleLines }, (_, screenY) => {
         const viewLine = scrollTop + screenY;
-        if (viewLine >= viewLineCount) break;
         const logLine = viewState.visualToLogicalLine(viewLine);
-        // A view zone row has no text to highlight.
-        if (logLine < 0) continue;
+        // A view zone row and a row past the end have no text to highlight.
+        if (logLine < 0) return null;
         const frag = viewState.viewLineRange(viewLine);
-        rows.push(
-            new TextViewportRow(
-                viewState,
-                phantom,
-                screenY,
-                viewLine,
-                logLine,
-                viewState.document.getLineContent(logLine),
-                frag.start,
-                frag.end,
-            ),
+        return new TextViewportRow(
+            viewState,
+            phantom,
+            screenY,
+            viewLine,
+            logLine,
+            viewState.document.getLineContent(logLine),
+            frag.start,
+            frag.end,
         );
-    }
-    return rows;
+    });
+    return rows.filter((row) => row !== null);
 }
 
 export function forEachRangeCell(

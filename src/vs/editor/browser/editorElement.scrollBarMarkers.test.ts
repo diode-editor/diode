@@ -258,6 +258,30 @@ describe("EditorElement — scrollbar markers", () => {
             expect(editor.getScrollBarMarkers()).not.toBe(markers);
         });
 
+        type SmallMarks = Pick<EditorElement, "gutterChangeDecorations" | "markerDecorations">;
+        const error = (range: ReturnType<typeof createRange>): SmallMarks => ({
+            gutterChangeDecorations: [],
+            markerDecorations: [{ range, severity: MarkerSeverity.Error }],
+        });
+        const change = (color: number): SmallMarks => ({
+            gutterChangeDecorations: [{ range: createRange(1, 0, 2, 0), color }],
+            markerDecorations: [],
+        });
+        it.each<[string, SmallMarks, SmallMarks]>([
+            ["only the start row", error(createRange(1, 0, 2, 0)), error(createRange(0, 0, 2, 0))],
+            ["only the end row", error(createRange(1, 0, 2, 0)), error(createRange(1, 0, 3, 0))],
+            ["only the color", change(ADDED), change(ERROR)],
+            // A change bar and an error of the same color on the same rows: only the lane differs.
+            ["only the priority", change(ERROR), error(createRange(1, 0, 2, 0))],
+        ])("rebuilds when a mark of the same count changes %s", (_, before, after) => {
+            const editor = occurrenceEditor();
+            Object.assign(editor, before);
+            const markers = markersOf(editor);
+            Object.assign(editor, after);
+
+            expect(editor.getScrollBarMarkers()).not.toBe(markers);
+        });
+
         it("rebuilds when the word highlight color changes", () => {
             const editor = occurrenceEditor();
             const markers = markersOf(editor);

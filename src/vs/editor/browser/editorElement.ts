@@ -172,9 +172,9 @@ export class EditorElement extends TUIElement implements IScrollable {
     }
 
     public set occurrenceHighlightEnabled(enabled: boolean) {
+        // Off hides the set at once (`occurrenceCaret`), on queries again.
         this.occurrenceHighlightEnabledValue = enabled;
-        if (enabled) this.requestOccurrences();
-        else this.dropOccurrences();
+        this.requestOccurrences();
     }
 
     /**
@@ -266,7 +266,7 @@ export class EditorElement extends TUIElement implements IScrollable {
             vs.document.versionId,
             vs.foldStateVersion,
             vs.viewZones,
-            vs.isWordWrapActive ? vs.viewportWidth : -1,
+            vs.isWordWrapActive ? vs.viewportWidth : null,
             vs.tabSize,
         ];
         const occurrences = this.getOccurrenceHighlights();
@@ -886,7 +886,7 @@ export class EditorElement extends TUIElement implements IScrollable {
             contentCols,
             gutterW,
             phantom,
-            rows: buildViewportRows(this.viewState, scrollTop, visibleLines, viewLineCount, phantom),
+            rows: buildViewportRows(this.viewState, scrollTop, visibleLines, phantom),
         };
 
         // Guides go before highlight passes: those set only `bg` and lie over the glyph.
@@ -1068,6 +1068,7 @@ export class EditorElement extends TUIElement implements IScrollable {
 
     private currentOccurrenceTask(): { edited: boolean; requested: boolean } {
         if (this.occurrenceTask === null) {
+            // Stryker disable next-line ObjectLiteral: `{}` reads both flags as undefined, i.e. false
             this.occurrenceTask = { edited: false, requested: false };
             queueMicrotask(() => {
                 this.occurrenceTask = null;
@@ -1082,10 +1083,12 @@ export class EditorElement extends TUIElement implements IScrollable {
         this.markDirty();
     }
 
-    /** Like upstream `_stopAll`, a query already armed stays: it reads the caret when it runs. */
+    /**
+     * Like upstream `_stopAll`, a query already armed stays: it reads the caret when it runs.
+     * No repaint of its own: the edit that drops it repaints anyway.
+     */
     private dropOccurrences(): void {
         this.occurrences = null;
-        this.markDirty();
     }
 
     /**
@@ -1102,10 +1105,8 @@ export class EditorElement extends TUIElement implements IScrollable {
     /** Upstream `WordHighlighter._run`: a caret still inside a highlighted word keeps the set. */
     private runOccurrences(): void {
         const pos = this.occurrenceCaret;
-        if (pos === null) {
-            this.dropOccurrences();
-            return;
-        }
+        // Without a caret the set stays hidden by `getOccurrenceHighlights`; an edit drops it.
+        if (pos === null) return;
         if (this.occurrences !== null && sortedRangesContain(this.occurrences, pos)) return;
         this.occurrences = computeWordOccurrences(this.viewState.document, pos);
         this.markDirty();
