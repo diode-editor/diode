@@ -105,8 +105,9 @@ node-pty на Unix — `pty.node` + бинарь `spawn-helper` (нужен то
 - Клавиши: `Ctrl+W` во вкладке-терминале закрывает её (`terminalEditorFocus`), в виде TERMINAL уходит
   шеллу; `focusNext`/`focusPrevious` терминалов — только в виде.
 - `terminal.integrated.defaultLocation` (`view`/`editor`) — куда ставят New Terminal и `createTerminal`
-  без `location`. **Отступления:** вкладка-терминал не становится активным терминалом, нет
-  `confirmOnKill`, иконки терминала на вкладке, окон.
+  без `location`. Вкладка — свой хост активного терминала: активный редактор-терминал становится
+  `activeTerminal` для расширений ([Extensions.md](../Extensions.md)), активный инстанс вида TERMINAL
+  он не меняет. **Отступления:** нет `confirmOnKill`, иконки терминала на вкладке, окон.
 
 ## Терминал задачи
 

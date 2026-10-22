@@ -130,13 +130,24 @@ export class TerminalService extends Disposable implements IContextKeyContributo
     private instances: TerminalInstanceRecord[] = [];
     private backgroundInstances: TerminalInstanceRecord[] = [];
     private editorInstances: TerminalInstanceRecord[] = [];
+    /** The panel host's active instance (the TERMINAL view tab list). */
     private activeId: number | null = null;
+    /**
+     * Upstream `_hostActiveTerminals` for the editor host: the terminal tab last active in the editor area.
+     * Never reset: {@link editorActive} looks it up among the live editor instances, and ids are not reused.
+     */
+    private editorActiveId: number | null = null;
+    /** Upstream `TerminalService._activeInstance`: the last active of the two hosts — `window.activeTerminal`. */
+    private activeAcrossHostsId: number | null = null;
     private nextId = 1;
     private cwd: string | null = null;
 
     private readonly onDidOpenInstanceEmitter = this.register(new Emitter<ITerminalInstance>());
     private readonly onDidCloseInstanceEmitter = this.register(new Emitter<ITerminalInstance>());
     private readonly onDidChangeActiveInstanceEmitter = this.register(new Emitter<ITerminalInstance | null>());
+    private readonly onDidChangeActiveInstanceAcrossHostsEmitter = this.register(
+        new Emitter<ITerminalInstance | null>(),
+    );
     private readonly onDidRequestFocusEmitter = this.register(new Emitter<void>());
     private readonly onDidCreateInstanceEmitter = this.register(new Emitter<ITerminalInstance>());
     private readonly onDidDisposeInstanceEmitter = this.register(new Emitter<IDisposedTerminalInstance>());
@@ -185,8 +196,26 @@ export class TerminalService extends Disposable implements IContextKeyContributo
         return this.instances;
     }
 
+    /** The panel's; for `window.activeTerminal` see {@link getActiveInstanceAcrossHosts}. */
     public getActiveInstance(): ITerminalInstance | null {
         return this.active() ?? null;
+    }
+
+    /**
+     * Upstream `ITerminalService.activeInstance`: whichever host — the panel or the editor area —
+     * activated a terminal last. A file tab becoming active does not reset it, so an extension's
+     * `activeTerminal.show()` returns to the terminal tab instead of opening the panel.
+     */
+    public getActiveInstanceAcrossHosts(): ITerminalInstance | null {
+        return this.find(this.activeAcrossHostsId ?? undefined) ?? null;
+    }
+
+    /** Upstream `TerminalEditorService.setActiveInstance`: a terminal tab became the active editor. */
+    public setActiveEditorInstance(id: number): void {
+        const instance = this.editorInstances.find((i) => i.id === id);
+        if (instance === undefined) return;
+        this.editorActiveId = id;
+        this.evaluateActiveAcrossHosts(instance, undefined);
     }
 
     /** Including background ones. */
@@ -264,7 +293,7 @@ export class TerminalService extends Disposable implements IContextKeyContributo
         this.activeId = id;
         this.onDidCreateInstanceEmitter.fire(instance);
         this.onDidOpenInstanceEmitter.fire(instance);
-        this.onDidChangeActiveInstanceEmitter.fire(instance);
+        this.firePanelActive(instance);
         return instance;
     }
 
@@ -325,7 +354,7 @@ export class TerminalService extends Disposable implements IContextKeyContributo
         this.instances.push(instance);
         this.activeId = id;
         this.onDidOpenInstanceEmitter.fire(instance);
-        this.onDidChangeActiveInstanceEmitter.fire(instance);
+        this.firePanelActive(instance);
         return instance;
     }
 
@@ -342,7 +371,7 @@ export class TerminalService extends Disposable implements IContextKeyContributo
         const instance = this.instances.find((i) => i.id === id);
         if (instance === undefined || this.activeId === id) return;
         this.activeId = id;
-        this.onDidChangeActiveInstanceEmitter.fire(instance);
+        this.firePanelActive(instance);
     }
 
     public setActiveInstanceByIndex(index: number): void {
@@ -385,8 +414,11 @@ export class TerminalService extends Disposable implements IContextKeyContributo
 
     public readonly onDidCloseInstance = this.onDidCloseInstanceEmitter.event;
 
-    /** `null` — no terminals left. */
+    /** The panel's; `null` — no terminals left in it. */
     public readonly onDidChangeActiveInstance = this.onDidChangeActiveInstanceEmitter.event;
+
+    /** {@link getActiveInstanceAcrossHosts} changed; `null` — no active terminal in either host. */
+    public readonly onDidChangeActiveInstanceAcrossHosts = this.onDidChangeActiveInstanceAcrossHostsEmitter.event;
 
     public readonly onDidRequestFocus = this.onDidRequestFocusEmitter.event;
 
@@ -446,6 +478,7 @@ export class TerminalService extends Disposable implements IContextKeyContributo
             list.splice(index, 1);
             this.destroyInstance(instance);
             this.onDidDisposeInstanceEmitter.fire(disposed);
+            if (this.editorActiveId === instance.id) this.evaluateActiveAcrossHosts(null, this.active());
             return;
         }
         this.removeFromPanel(
@@ -471,10 +504,30 @@ export class TerminalService extends Disposable implements IContextKeyContributo
         if (!wasActive) return;
         const next = this.instances.at(Math.min(index, this.instances.length - 1)) ?? null;
         this.activeId = next === null ? null : next.id;
-        this.onDidChangeActiveInstanceEmitter.fire(next);
+        this.firePanelActive(next);
         if (next !== null) return;
         if (!this.configuration.get("terminal.integrated.hideOnLastClosed")) return;
         this.viewsService.closeView(TERMINAL_VIEW_ID);
+    }
+
+    private firePanelActive(instance: TerminalInstanceRecord | null): void {
+        this.onDidChangeActiveInstanceEmitter.fire(instance);
+        this.evaluateActiveAcrossHosts(instance, this.editorActive());
+    }
+
+    /**
+     * Upstream `_evaluateActiveInstance`: a host's new active instance wins; a host left without one
+     * hands over to the other host's (`fallback`).
+     */
+    private evaluateActiveAcrossHosts(
+        instance: TerminalInstanceRecord | null,
+        fallback: TerminalInstanceRecord | undefined,
+    ): void {
+        const next = instance ?? fallback ?? null;
+        const nextId = next === null ? null : next.id;
+        if (nextId === this.activeAcrossHostsId) return;
+        this.activeAcrossHostsId = nextId;
+        this.onDidChangeActiveInstanceAcrossHostsEmitter.fire(next);
     }
 
     private destroyInstance(instance: TerminalInstanceRecord): void {
@@ -488,6 +541,10 @@ export class TerminalService extends Disposable implements IContextKeyContributo
 
     private active(): TerminalInstanceRecord | undefined {
         return this.instances.find((i) => i.id === this.activeId);
+    }
+
+    private editorActive(): TerminalInstanceRecord | undefined {
+        return this.editorInstances.find((i) => i.id === this.editorActiveId);
     }
 
     private fireFocus(): void {

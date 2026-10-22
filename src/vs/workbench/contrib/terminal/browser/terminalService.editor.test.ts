@@ -136,4 +136,69 @@ describe("TerminalService — instances in the editor area", () => {
         expect(h.sessions[0].disposed).toBe(true);
         expect(h.service.getEditorInstances()).toStrictEqual([]);
     });
+
+    describe("active across hosts (upstream `_evaluateActiveInstance`, `window.activeTerminal`)", () => {
+        function withAcross(settings: Record<string, unknown> = {}) {
+            const h = buildHarness(settings);
+            const across: string[] = [];
+            h.service.onDidChangeActiveInstanceAcrossHosts((i) => across.push(i === null ? "null" : String(i.id)));
+            return { ...h, across };
+        }
+
+        it("the last host to activate wins, once per change; an unknown or panel id is ignored", () => {
+            const h = withAcross();
+            const panel = h.service.createInstance();
+            const editor = h.service.createInstance({ target: "editor" });
+            expect(h.service.getActiveInstanceAcrossHosts()).toBe(panel);
+
+            h.service.setActiveEditorInstance(editor.id);
+            h.service.setActiveEditorInstance(editor.id);
+            h.service.setActiveEditorInstance(panel.id);
+            h.service.setActiveEditorInstance(999);
+            expect(h.service.getActiveInstanceAcrossHosts()).toBe(editor);
+            // The panel's own active instance is not touched.
+            expect(h.service.getActiveInstance()).toBe(panel);
+
+            const second = h.service.createInstance();
+            expect(h.service.getActiveInstanceAcrossHosts()).toBe(second);
+            h.service.setActiveInstance(panel.id);
+            expect(h.across).toStrictEqual([panel.id, editor.id, second.id, panel.id].map(String));
+            h.service.dispose();
+        });
+
+        it("the active editor terminal exits: the panel's active one takes over, or none", () => {
+            const h = withAcross();
+            const panel = h.service.createInstance();
+            const editor = h.service.createInstance({ target: "editor" });
+            const other = h.service.createInstance({ target: "editor" });
+            h.service.setActiveEditorInstance(editor.id);
+
+            h.service.closeInstance(other.id);
+            expect(h.service.getActiveInstanceAcrossHosts()).toBe(editor);
+            h.sessions[1].emitExit(0);
+            expect(h.service.getActiveInstanceAcrossHosts()).toBe(panel);
+
+            const last = h.service.createInstance({ target: "editor" });
+            h.service.setActiveEditorInstance(last.id);
+            h.service.closeInstance(panel.id);
+            expect(h.service.getActiveInstanceAcrossHosts()).toBe(last);
+            h.service.closeInstance(last.id);
+            expect(h.service.getActiveInstanceAcrossHosts()).toBeNull();
+            expect(h.across.at(-1)).toBe("null");
+            h.service.dispose();
+        });
+
+        it("moveToPanel of the active editor terminal: it stays active, now as the panel's, and leaves the editor host", () => {
+            const h = withAcross();
+            const editor = h.service.createInstance({ target: "editor" });
+            h.service.setActiveEditorInstance(editor.id);
+            h.service.moveToPanel(editor.id);
+            expect(h.service.getActiveInstanceAcrossHosts()).toBe(editor);
+
+            // Closing it must not fall back to a stale editor-host entry.
+            h.service.closeInstance(editor.id);
+            expect(h.service.getActiveInstanceAcrossHosts()).toBeNull();
+            h.service.dispose();
+        });
+    });
 });
