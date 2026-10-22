@@ -94,14 +94,18 @@ describe("SEA binary — extension install CLI", () => {
         const uninstall = await runCli(binary, ["--user-data-dir", userDataDir, "--uninstall-extension", "acme.demo"]);
         expect(uninstall.code).toBe(0);
         expect(uninstall.stdout).toContain("Uninstalled acme.demo");
-        expect(fs.existsSync(extDir)).toBe(false);
+        // Marked for removal on the next editor start: the CLI never deletes (a running window may use it).
+        expect(fs.existsSync(extDir)).toBe(true);
+        expect(
+            JSON.parse(fs.readFileSync(path.join(userDataDir, "extensions", ".obsolete"), "utf8")) as unknown,
+        ).toEqual({ "acme.demo-1.2.3": true });
 
         const listAfter = await runCli(binary, ["--user-data-dir", userDataDir, "--list-extensions"]);
         expect(listAfter.code).toBe(0);
         expect(listAfter.stdout.trim()).toBe("");
     });
 
-    it("--profile: installs, lists and uninstalls within a profile; the shared directory is cleaned up once no profile needs the extension", async () => {
+    it("--profile: installs, lists and uninstalls within a profile; the shared directory is marked for removal once no profile needs the extension", async () => {
         const root = path.join(tempRoot, "user-data-profiles");
         const cli = (...args: string[]) => runCli(binary, ["--user-data-dir", root, ...args]);
         // The `work` profile from a previous version; set an empty set explicitly — without the file, migration
@@ -125,10 +129,12 @@ describe("SEA binary — extension install CLI", () => {
         expect((await cli("--profile", "work", "--list-extensions")).stdout.trim()).toBe("");
         expect((await cli("--list-extensions")).stdout.trim()).toBe("acme.demo@1.2.3");
         expect(fs.existsSync(extDir)).toBe(true);
+        const obsoleteFile = path.join(root, "extensions", ".obsolete");
+        expect(fs.existsSync(obsoleteFile)).toBe(false);
 
-        // Removed from the last profile — gone from disk too.
+        // Removed from the last profile — marked for removal on the next editor start.
         expect((await cli("--uninstall-extension", "acme.demo")).code).toBe(0);
-        expect(fs.existsSync(extDir)).toBe(false);
+        expect(JSON.parse(fs.readFileSync(obsoleteFile, "utf8")) as unknown).toEqual({ "acme.demo-1.2.3": true });
     });
 
     it("reports a clear error and exits non-zero for a broken .vsix", async () => {

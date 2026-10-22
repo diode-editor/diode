@@ -56,18 +56,16 @@ function versionDirs(app: HeadlessApp): string[] {
         .sort();
 }
 
+/** Output lines carry a timestamp and a level (`12:00:00.000 [info] lazy version 1.0.0`): only the message is returned. */
 async function lazyVersionAfterCommand(app: HeadlessApp, calls: number): Promise<string> {
+    const messages = (text: string): string[] => [...text.matchAll(/lazy (?:version|error) \S+/gu)].map((m) => m[0]);
     await app.session.executeCommand("lazyVersion.show");
     const output = await waitUntil(
         () => app.session.getOutput("Lazy Version"),
-        (text) =>
-            text
-                .trim()
-                .split("\n")
-                .filter((line) => line.startsWith("lazy ")).length >= calls,
+        (text) => messages(text).length >= calls,
         { describe: "Lazy Version output", timeoutMs: 30_000, diagnose: (text) => String(text) },
     );
-    return output.trim().split("\n").at(-1) ?? "";
+    return messages(output).at(-1) ?? "";
 }
 
 describe("Extension update under a running host (ExtensionUpdates stage 0)", () => {
