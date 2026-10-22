@@ -1930,5 +1930,19 @@
       "large",
       "xlarge"
     ]
+  },
+  {
+    "file": "2026-10-22-dcc6c03e6bc6.json",
+    "generatedAt": "2026-10-22T00:49:32.443Z",
+    "commit": "dcc6c03e6bc6",
+    "binaryVersion": "nightly-dcc6c03",
+    "ci": true,
+    "conditions": "CI, shared runner (GitHub Actions)",
+    "sizes": [
+      "small",
+      "medium",
+      "large",
+      "xlarge"
+    ]
   }
 ]
