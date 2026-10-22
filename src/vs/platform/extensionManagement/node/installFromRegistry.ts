@@ -17,7 +17,8 @@ import {
     resolveCompatibleVersion,
 } from "../common/resolveCompatibleVersion.ts";
 
-import { installVsix, listInstalledExtensions, readVsixManifest, uninstallExtension } from "./extensionInstaller.ts";
+import { deleteExtensionDir, installVsix, listInstalledExtensions, readVsixManifest } from "./extensionInstaller.ts";
+import { unmarkObsolete } from "./obsoleteExtensions.ts";
 
 export interface IInstallFromRegistryOptions {
     readonly extensionsDir: string;
@@ -29,7 +30,8 @@ export interface IInstallFromRegistryOptions {
 export interface IInstalledFromRegistry {
     readonly id: string;
     readonly version: string;
-    readonly previous: string[];
+    /** For `ProfileExtensions.add`: the profile points to exactly this version. */
+    readonly dir: string;
 }
 
 export interface IDependencyInstallResult {
@@ -91,19 +93,42 @@ function describeHost(host: IHostVersions): string {
 
 interface IPreparedExtension {
     readonly id: string;
-    readonly vsixPath: string;
+    readonly version: string;
     readonly manifest: Record<string, unknown>;
+    /** A downloaded artifact, or an intact directory of the same version already on disk. */
+    readonly from: { readonly vsixPath: string } | { readonly existingDir: string };
 }
 
-/** Doesn't touch `extensionsDir`. The manifest id is checked here: the registry may point to someone else's artifact. */
+/**
+ * Upstream `extractUserExtension(removeIfExists = false)`: the directory of this version is reused
+ * if its manifest reads and matches; a directory marked for removal too (upstream `unsetIfRemoved`).
+ */
+function readReusableDir(
+    extensionsDir: string,
+    id: string,
+    version: string,
+): { dir: string; manifest: Record<string, unknown> } | undefined {
+    const dir = path.join(extensionsDir, `${id}-${version}`);
+    let manifest: Record<string, unknown>;
+    try {
+        manifest = JSON.parse(fs.readFileSync(path.join(dir, "package.json"), "utf8")) as Record<string, unknown>;
+    } catch {
+        return undefined;
+    }
+    const matches = `${String(manifest.publisher)}.${String(manifest.name)}` === id && manifest.version === version;
+    return matches ? { dir, manifest } : undefined;
+}
+
+/** Doesn't write to `extensionsDir`. The manifest id is checked here: the registry may point to someone else's artifact. */
 async function prepare(
     source: IExtensionRegistrySource,
     meta: IRegistryExtensionMeta,
     extensionId: string,
-    host: IHostVersions,
+    options: IInstallFromRegistryOptions,
     version: string | undefined,
     tempDir: string,
 ): Promise<IPreparedExtension> {
+    const { host } = options;
     let picked: IRegistryVersion | undefined;
     if (version !== undefined) {
         // An exact version bypasses engines (the user asked for "this one"), but not the
@@ -123,6 +148,16 @@ async function prepare(
         }
     }
 
+    const reusable = readReusableDir(options.extensionsDir, extensionId, picked.version);
+    if (reusable !== undefined) {
+        return {
+            id: extensionId,
+            version: picked.version,
+            manifest: reusable.manifest,
+            from: { existingDir: reusable.dir },
+        };
+    }
+
     // The source may give every downloaded file the same name.
     const artifactDir = fs.mkdtempSync(path.join(tempDir, "artifact-"));
     const vsixPath = await source.fetchArtifact(picked, artifactDir);
@@ -139,7 +174,7 @@ async function prepare(
     if (actualId !== extensionId) {
         throw new Error(`Registry entry "${extensionId}" points to a .vsix of "${actualId}" — refusing to install`);
     }
-    return { id: extensionId, vsixPath, manifest };
+    return { id: extensionId, version: picked.version, manifest, from: { vsixPath } };
 }
 
 /**
@@ -172,7 +207,7 @@ async function prepareDependencies(
         let one: IPreparedExtension;
         try {
             // Use the registry's id casing: that's what is checked against the artifact manifest.
-            one = await prepare(source, meta, meta.id, options.host, undefined, tempDir);
+            one = await prepare(source, meta, meta.id, options, undefined, tempDir);
         } catch (err) {
             const reason = err instanceof Error ? err.message : String(err);
             throw new Error(`Cannot install ${rootId}: its dependency "${dep}" cannot be installed — ${reason}`, {
@@ -186,19 +221,30 @@ async function prepareDependencies(
 }
 
 /**
- * The root goes last. A failure uninstalls what this call installed (upstream rollback);
- * the root never needs removing, and its previous version stays in place.
+ * The root goes last. A failure deletes exactly the directories this call created (upstream
+ * rollback, US-0.7); other versions of the same ids stay in place.
  */
 async function installPrepared(
     prepared: readonly IPreparedExtension[],
     extensionsDir: string,
 ): Promise<IInstalledFromRegistry[]> {
     const done: IInstalledFromRegistry[] = [];
+    const created: string[] = [];
     try {
-        for (const one of prepared) done.push(await installVsix(one.vsixPath, extensionsDir));
+        for (const one of prepared) {
+            if ("existingDir" in one.from) {
+                const dir = one.from.existingDir;
+                unmarkObsolete(extensionsDir, [path.basename(dir)]);
+                done.push({ id: one.id, version: one.version, dir });
+                continue;
+            }
+            const installed = await installVsix(one.from.vsixPath, extensionsDir);
+            created.push(installed.dir);
+            done.push(installed);
+        }
         return done;
     } catch (err) {
-        for (const one of done) uninstallExtension(one.id, extensionsDir);
+        for (const dir of created) deleteExtensionDir(dir);
         throw err;
     }
 }
@@ -229,7 +275,7 @@ export async function installFromRegistry(
         throw new Error(`Extension "${extensionId}" not found in registry`);
     }
     return withTempDir(async (tempDir) => {
-        const root = await prepare(source, meta, extensionId, options.host, options.version, tempDir);
+        const root = await prepare(source, meta, extensionId, options, options.version, tempDir);
         const deps = await prepareDependencies(source, extensionId, root.manifest, options, tempDir);
         const installed = await installPrepared([...deps.prepared, root], options.extensionsDir);
         return {

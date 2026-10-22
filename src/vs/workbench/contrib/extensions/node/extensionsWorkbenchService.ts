@@ -75,16 +75,20 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
         return meta;
     }
 
-    /** Also "update": `installVsix` removes other versions of the same id. */
+    /**
+     * Also "update": the profile switches to the new version, the old one stays on disk for the running
+     * host and is removed on the next start.
+     */
     public async install(id: string): Promise<IExtensionInstallResult> {
         try {
             // Dependencies are installed without asking, as in VS Code, and also wait for a window reload.
-            const { version, dependencies } = await installFromRegistry(this.source, id, {
+            const installed = await installFromRegistry(this.source, id, {
                 extensionsDir: this.profile.extensionsDir,
                 host: this.host,
             });
+            const { version, dependencies } = installed;
             // Into the profile, including dependencies already on disk for another profile.
-            this.profile.add([id]);
+            this.profile.add([installed, ...dependencies]);
             for (const dep of dependencies) this.pendingReload.add(dep.id);
             this.markChanged(id);
             return { ok: true, version };

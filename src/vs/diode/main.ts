@@ -56,11 +56,17 @@ import {
     installFromRegistry,
 } from "../platform/extensionManagement/node/installFromRegistry.ts";
 import {
+    cleanUpExtensions,
+    releaseExtensionLease,
+    writeExtensionLease,
+} from "../platform/extensionManagement/node/obsoleteExtensions.ts";
+import {
     createProfileExtensions,
-    deleteUnusedExtensions,
+    markUnusedExtensions,
     migrateProfileExtensions,
     PROFILE_EXTENSIONS_FILE,
     profileExtensionsFiles,
+    referencedExtensionDirs,
 } from "../platform/extensionManagement/node/profileExtensions.ts";
 import { currentTargetPlatform } from "../platform/extensionManagement/node/targetPlatform.ts";
 import { extensionKey, readExtensionDependencies } from "../platform/extensions/common/extensionDependencies.ts";
@@ -246,15 +252,24 @@ async function runEditor(): Promise<void> {
 
     // The profile registry comes first: the profile directory depends on it. Resolved like upstream:
     // `--profile` → workspace binding → Default.
-    const { basePaths, applicationState, profilesService } = openProfiles(cli, profilesLogger);
-    // Upstream does this cleanup on the next start (`deleteExtensionsNotInProfiles`).
+    const { basePaths, applicationState, profilesService } = openProfiles(cli, profilesLogger, extensionsLogger);
+    // Like upstream `deleteExtensionsNotInProfiles`: deleted on the next start, not under a running host.
     profilesService.onDidChangeProfiles((e) => {
         if (e.removed.length === 0) return;
         try {
-            const deleted = deleteUnusedExtensions(basePaths.extensionsDir, allProfileExtensionsFiles(profilesService));
-            if (deleted.length > 0) extensionsLogger.info("Deleted extensions no profile uses", { deleted });
+            const marked = markUnusedExtensions(
+                basePaths.extensionsDir,
+                allProfileExtensionsFiles(profilesService),
+                undefined,
+                extensionsLogger,
+            );
+            if (marked.length > 0) {
+                extensionsLogger.info("Extensions no profile uses will be removed on next start", {
+                    marked: marked.map((e) => `${e.id}@${e.version}`),
+                });
+            }
         } catch (err) {
-            extensionsLogger.error("Failed to delete extensions no profile uses", err);
+            extensionsLogger.error("Failed to mark extensions no profile uses", err);
         }
     });
     const workspaceKey = (() => {
@@ -291,7 +306,8 @@ async function runEditor(): Promise<void> {
     const builtinExtensions = await scanExtensions(assets, BUILTIN_PREFIX, { isBuiltin: true }, extensionsLogger);
     // `--disable-extensions` disables only user extensions, like VS Code: built-ins would take grammars and
     // language configurations with them. The profile is fixed per process: switching means a window reload and a rescan.
-    const profileExtensionKeys = new Set(
+    // By directory, not id: several versions of one id may lie on disk, the profile entry picks one.
+    const profileExtensionDirs = new Set(
         createProfileExtensions({
             extensionsDir: userDataPaths.extensionsDir,
             profile: activeProfile,
@@ -299,15 +315,20 @@ async function runEditor(): Promise<void> {
             logger: extensionsLogger,
         })
             .list()
-            .map((e) => extensionKey(e.id)),
+            .map((e) => path.basename(e.dir)),
     );
     const userExtensions =
         !cli.disableExtensions && fs.existsSync(userDataPaths.extensionsDir)
             ? (await scanExtensions(assets, USER_PREFIX, { isBuiltin: false }, extensionsLogger)).filter((e) =>
-                  profileExtensionKeys.has(extensionKey(e.id)),
+                  profileExtensionDirs.has(e.location.slice(USER_PREFIX.length, -1)),
               )
             : [];
     if (cli.disableExtensions) extensionsLogger.info("user extensions disabled by --disable-extensions");
+    leaseUserExtensions(
+        userDataPaths.extensionsDir,
+        userExtensions.map((e) => e.location.slice(USER_PREFIX.length, -1)),
+        extensionsLogger,
+    );
     const allExtensions = mergeExtensions(builtinExtensions, userExtensions, extensionsLogger);
     mark("main:extensions-scanned", { builtin: builtinExtensions.length, user: userExtensions.length });
 
@@ -431,6 +452,8 @@ async function runEditor(): Promise<void> {
                     workspace: relaunchWorkspace(relaunch?.workspace, workspaceKey, current),
                 });
                 bootstrapLogger.info("reloading window", { args: next });
+                // The first reload turns this process into the supervisor: it lives on, but loads nothing.
+                releaseExtensionLease(userDataPaths.extensionsDir);
                 restartProcess(currentProcessSnapshot(), realRestartHooks, next);
             },
         },
@@ -639,12 +662,13 @@ async function runExtensionManagement(cli: ICliArgs): Promise<void> {
                 dependencies = installed;
             }
             // Into the profile, together with dependencies, including those already on disk for another profile.
-            profileExtensions.add([result.id]);
-            const { id, version, previous } = result;
+            const { obsolete } = profileExtensions.add([result, ...dependencies.dependencies]);
+            const { id, version } = result;
             console.log(`Installed ${id}@${version}`);
-            const removed = previous.filter((v) => v !== version);
-            if (removed.length > 0) {
-                console.log(`Removed previous version(s): ${removed.join(", ")}`);
+            // Not deleted here: a running window may still load files from them. The CLI never deletes (decision V1).
+            const previous = obsolete.filter((e) => extensionKey(e.id) === extensionKey(id)).map((e) => e.version);
+            if (previous.length > 0) {
+                console.log(`Previous version(s) will be removed on next start: ${previous.join(", ")}`);
             }
             const report = describeDependencyInstall(id, dependencies);
             for (const line of report.info) console.log(line);
@@ -686,8 +710,11 @@ function resolvePathsFor(cli: ICliArgs, profileId?: string): IUserDataPaths {
     });
 }
 
-/** A failure migrating the extension set goes to the log: it does not break startup. */
-function openProfiles(cli: ICliArgs, logger?: ILogger) {
+/**
+ * A failure migrating the extension set goes to the log: it does not break startup. With `extensionsLogger` (the
+ * editor, never the CLI) also deletes the versions marked for removal, before anything scans extensions.
+ */
+function openProfiles(cli: ICliArgs, logger?: ILogger, extensionsLogger?: ILogger) {
     const basePaths = resolvePathsFor(cli);
     const applicationState = loadApplicationState(basePaths.applicationStateFile, logger);
     const profilesService = new UserDataProfilesService({
@@ -704,7 +731,39 @@ function openProfiles(cli: ICliArgs, logger?: ILogger) {
     } catch (err) {
         logger?.error("Failed to migrate profile extensions", err);
     }
+    if (extensionsLogger !== undefined) {
+        try {
+            cleanUpExtensions(basePaths.extensionsDir, {
+                referencedDirs: () =>
+                    referencedExtensionDirs(basePaths.extensionsDir, allProfileExtensionsFiles(profilesService)),
+                logger: extensionsLogger,
+            });
+        } catch (err) {
+            extensionsLogger.error("Failed to delete extensions marked for removal", err);
+        }
+    }
     return { basePaths, applicationState, profilesService };
+}
+
+/**
+ * Decision V1: another window's cleanup must not delete what this process loaded. Released on exit and
+ * on reload; a crash leaves a lease of a dead pid, which the next cleanup drops.
+ */
+function leaseUserExtensions(extensionsDir: string, dirs: readonly string[], logger: ILogger): void {
+    if (dirs.length === 0) return;
+    try {
+        writeExtensionLease(extensionsDir, dirs);
+    } catch (err) {
+        logger.warn("Failed to lease the loaded extensions", err);
+        return;
+    }
+    process.on("exit", () => {
+        try {
+            releaseExtensionLease(extensionsDir);
+        } catch {
+            /* nothing to do on exit — swallow */
+        }
+    });
 }
 
 function allProfileExtensionsFiles(profiles: UserDataProfilesService): string[] {

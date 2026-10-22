@@ -11,6 +11,7 @@ import type { IHostVersions } from "../common/resolveCompatibleVersion.ts";
 import { listInstalledExtensions } from "./extensionInstaller.ts";
 import { FileExtensionRegistrySource } from "./fileRegistrySource.ts";
 import { installFromRegistry, sha256File } from "./installFromRegistry.ts";
+import { markObsolete, readObsolete } from "./obsoleteExtensions.ts";
 
 const HOST: IHostVersions = { diode: "0.3.0", vscode: "1.127.0" };
 
@@ -106,14 +107,14 @@ describe("installFromRegistry", () => {
         expect(result).toEqual({
             id: "acme.hello",
             version: "1.2.0",
-            previous: [],
+            dir: path.join(extensionsDir, "acme.hello-1.2.0"),
             dependencies: [],
             missingDependencies: [],
         });
         expect(listInstalledExtensions(extensionsDir).map((e) => `${e.id}@${e.version}`)).toEqual(["acme.hello@1.2.0"]);
     });
 
-    it("upgrade: the previous version is removed after the new one installs successfully", async () => {
+    it("upgrade installs next to the previous version: the profile decides which one is used (US-0.1)", async () => {
         await seedExtension("acme", "hello", [
             { version: "1.0.0", engines: { vscode: "*" } },
             { version: "1.1.0", engines: { vscode: "*" } },
@@ -130,11 +131,83 @@ describe("installFromRegistry", () => {
         expect(second).toEqual({
             id: "acme.hello",
             version: "1.1.0",
-            previous: ["1.0.0"],
+            dir: path.join(extensionsDir, "acme.hello-1.1.0"),
             dependencies: [],
             missingDependencies: [],
         });
-        expect(listInstalledExtensions(extensionsDir).map((e) => e.version)).toEqual(["1.1.0"]);
+        expect(listInstalledExtensions(extensionsDir).map((e) => e.version)).toEqual(["1.0.0", "1.1.0"]);
+    });
+
+    describe("US-0.5: a directory of the same version", () => {
+        async function installOld(): Promise<string> {
+            await seedExtension("acme", "hello", [
+                { version: "1.0.0", engines: { vscode: "*" } },
+                { version: "1.1.0", engines: { vscode: "*" } },
+            ]);
+            const { dir } = await installFromRegistry(source(), "acme.hello", {
+                extensionsDir,
+                host: HOST,
+                version: "1.0.0",
+            });
+            return dir;
+        }
+
+        it("intact and marked for removal is reused without download and unmarked", async () => {
+            const dir = await installOld();
+            fs.writeFileSync(path.join(dir, "marker.txt"), "kept");
+            markObsolete(extensionsDir, ["acme.hello-1.0.0"]);
+            // Any download would fail now.
+            await fs.promises.rm(path.join(registryDir, "artifacts"), { recursive: true });
+
+            const result = await installFromRegistry(source(), "acme.hello", {
+                extensionsDir,
+                host: HOST,
+                version: "1.0.0",
+            });
+
+            expect(result).toEqual({
+                id: "acme.hello",
+                version: "1.0.0",
+                dir,
+                dependencies: [],
+                missingDependencies: [],
+            });
+            expect(fs.readFileSync(path.join(dir, "marker.txt"), "utf8")).toBe("kept");
+            expect(readObsolete(extensionsDir)).toEqual(new Set());
+        });
+
+        it.each([
+            ["without a manifest", (dir: string) => fs.rmSync(path.join(dir, "package.json"))],
+            ["with a broken manifest", (dir: string) => fs.writeFileSync(path.join(dir, "package.json"), "{")],
+            [
+                "with another version in the manifest",
+                (dir: string) =>
+                    fs.writeFileSync(
+                        path.join(dir, "package.json"),
+                        JSON.stringify({ publisher: "acme", name: "hello", version: "9.9.9" }),
+                    ),
+            ],
+            [
+                "with another id in the manifest",
+                (dir: string) =>
+                    fs.writeFileSync(
+                        path.join(dir, "package.json"),
+                        JSON.stringify({ publisher: "acme", name: "other", version: "1.0.0" }),
+                    ),
+            ],
+        ])("%s is replaced from the registry", async (_what, damage) => {
+            const dir = await installOld();
+            fs.writeFileSync(path.join(dir, "marker.txt"), "stale");
+            damage(dir);
+
+            await installFromRegistry(source(), "acme.hello", { extensionsDir, host: HOST, version: "1.0.0" });
+
+            expect(fs.existsSync(path.join(dir, "marker.txt"))).toBe(false);
+            expect(JSON.parse(fs.readFileSync(path.join(dir, "package.json"), "utf8"))).toMatchObject({
+                version: "1.0.0",
+                name: "hello",
+            });
+        });
     });
 
     it("the exact requested version installs even when a higher one exists", async () => {

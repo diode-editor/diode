@@ -1,0 +1,22 @@
+{
+    "name": "lazy-version",
+    "displayName": "Lazy Version",
+    "description": "Synthetic marketplace extension: its command loads a module from the extension directory only when invoked, like a language server bundle, and prints the version it found to OUTPUT.",
+    "version": "0.0.1",
+    "publisher": "test",
+    "main": "./extension.js",
+    "engines": {
+        "vscode": "^1.0.0"
+    },
+    "activationEvents": [
+        "onCommand:lazyVersion.show"
+    ],
+    "contributes": {
+        "commands": [
+            {
+                "command": "lazyVersion.show",
+                "title": "Show Lazy Version"
+            }
+        ]
+    }
+}

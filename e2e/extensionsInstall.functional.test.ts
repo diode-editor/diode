@@ -73,16 +73,23 @@ async function pageButtons(app: HeadlessApp): Promise<{ label: string; enabled: 
 }
 
 /**
- * Installed extension directories in the session's user-data-dir. Next to them lies
- * `extensions.json` — the Default profile's contents, which is not an extension directory.
+ * Installed extension directories in the session's user-data-dir. Next to them lie
+ * `extensions.json` — the Default profile's contents — and service entries (`.obsolete`, `.inuse`).
  */
 function installedDirs(app: HeadlessApp): string[] {
     const dir = join(app.env.userDataDir, "extensions");
     if (!existsSync(dir)) return [];
     return readdirSync(dir, { withFileTypes: true })
-        .filter((entry) => entry.isDirectory())
+        .filter((entry) => entry.isDirectory() && !entry.name.startsWith("."))
         .map((entry) => entry.name)
         .sort();
+}
+
+/** Directories marked for removal on the next start. */
+function obsoleteDirs(app: HeadlessApp): string[] {
+    const file = join(app.env.userDataDir, "extensions", ".obsolete");
+    if (!existsSync(file)) return [];
+    return Object.keys(JSON.parse(readFileSync(file, "utf8")) as Record<string, true>).sort();
 }
 
 /** Ids in the Default profile (`extensions/extensions.json`) — what is enabled in the window. */
@@ -190,8 +197,17 @@ describe("Extensions install (functional e2e)", () => {
         await app.session.key("Enter");
         await app.session.waitForText((t) => t.includes("Installed 0.0.2"));
 
-        // The install removed the old version — exactly one directory on disk.
+        // The old version stays for the running host and is marked for removal on the next start.
+        expect(installedDirs(app)).toEqual(["test.sample-lang-0.0.1", "test.sample-lang-0.0.2"]);
+        expect(obsoleteDirs(app)).toEqual(["test.sample-lang-0.0.1"]);
+
+        // The reply to this input may never arrive: the window restarts along with the socket.
+        await app.session.sendKey("Enter").catch(() => undefined);
+        await app.session.reconnect();
+        await app.session.waitForText((t) => t.includes("Diode Sample"), { timeoutMs: 60_000 });
+        // Exactly one version on disk after the reload.
         expect(installedDirs(app)).toEqual(["test.sample-lang-0.0.2"]);
+        expect(obsoleteDirs(app)).toEqual([]);
     });
 
     it("US-15: Uninstall removes the extension from disk", async () => {
@@ -203,8 +219,9 @@ describe("Extensions install (functional e2e)", () => {
         await app.session.key("Enter");
         await app.session.waitForText((t) => t.includes("Not installed"));
 
-        // No longer in any profile — removed from disk too.
-        expect(installedDirs(app)).toEqual([]);
+        // No longer in any profile — marked for removal; the running host keeps its files until the next start.
+        expect(installedDirs(app)).toEqual(["test.sample-lang-0.0.1"]);
+        expect(obsoleteDirs(app)).toEqual(["test.sample-lang-0.0.1"]);
         expect(defaultProfileIds(app)).toEqual([]);
         expect(frameToText(await app.session.captureFrame())).toContain("reload window to apply");
     });
