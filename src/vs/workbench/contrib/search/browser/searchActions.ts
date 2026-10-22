@@ -1,8 +1,10 @@
 import type { CommandAction } from "../../../../platform/actions/common/commandAction.ts";
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import { parseChord, parseKeybinding } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
+import { KeybindingWeight } from "../../../../platform/keybinding/common/keybindingResolver.ts";
 import { viewMenuVisible } from "../../../browser/actions/menuContexts.ts";
 import { SidebarServiceDIToken } from "../../../browser/parts/sidebar/sidebarService.ts";
+import { ViewsServiceDIToken } from "../../../browser/parts/views/viewsService.ts";
 
 import { SEARCH_VIEW_ID, SEARCH_VIEWLET_ID, SearchComponentDIToken } from "./searchComponent.ts";
 
@@ -120,6 +122,35 @@ export const focusSearchFromResultsAction: CommandAction = {
     },
 };
 
+/**
+ * VS Code: F4/Shift+F4 at `WorkbenchContrib` weight, global (no focus condition). The shared key is split by weight:
+ * references-view (built-in extension) outranks it while it has a result, peek references would sit below.
+ * Like upstream, the view is revealed and the match opens in the editor.
+ */
+export const focusNextSearchResultAction: CommandAction = {
+    id: "search.action.focusNextSearchResult",
+    title: "Search: Focus Next Search Result",
+    when: "hasSearchResult",
+    keybinding: parseKeybinding("f4"),
+    weight: KeybindingWeight.WorkbenchContrib,
+    run(accessor) {
+        accessor.get(ViewsServiceDIToken).openView(SEARCH_VIEW_ID);
+        accessor.get(SearchComponentDIToken).focusNextResult();
+    },
+};
+
+export const focusPreviousSearchResultAction: CommandAction = {
+    id: "search.action.focusPreviousSearchResult",
+    title: "Search: Focus Previous Search Result",
+    when: "hasSearchResult",
+    keybinding: parseKeybinding("shift+f4"),
+    weight: KeybindingWeight.WorkbenchContrib,
+    run(accessor) {
+        accessor.get(ViewsServiceDIToken).openView(SEARCH_VIEW_ID);
+        accessor.get(SearchComponentDIToken).focusPreviousResult();
+    },
+};
+
 export const toggleSearchDetailsAction: CommandAction = {
     id: "workbench.action.search.toggleQueryDetails",
     title: "Search: Toggle Search Details",
@@ -161,4 +192,6 @@ export const SEARCH_ACTIONS: readonly CommandAction[] = [
     focusNextInputBoxAction,
     focusPreviousInputBoxAction,
     focusSearchFromResultsAction,
+    focusNextSearchResultAction,
+    focusPreviousSearchResultAction,
 ];

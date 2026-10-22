@@ -6,19 +6,23 @@ import { ContextKeyService } from "../../../../platform/contextkey/common/contex
 import { Container, type ServiceAccessor } from "../../../../platform/instantiation/common/diContainer.ts";
 import { formatKeybinding, KeybindingRegistry } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import { SidebarServiceDIToken } from "../../../browser/parts/sidebar/sidebarService.ts";
+import { ViewsServiceDIToken } from "../../../browser/parts/views/viewsService.ts";
+import { nextReferenceAction, previousReferenceAction } from "../../references/browser/referencesActions.ts";
 
 import {
     collapseSearchResultsAction,
     expandSearchResultsAction,
     focusNextInputBoxAction,
+    focusNextSearchResultAction,
     focusPreviousInputBoxAction,
+    focusPreviousSearchResultAction,
     focusSearchFromResultsAction,
     searchViewAsListAction,
     searchViewAsTreeAction,
     showSearchAction,
     toggleSearchDetailsAction,
 } from "./searchActions.ts";
-import { SEARCH_VIEWLET_ID } from "./searchComponent.ts";
+import { SEARCH_VIEW_ID, SEARCH_VIEWLET_ID } from "./searchComponent.ts";
 import { SearchComponentDIToken } from "./searchComponent.ts";
 
 describe("showSearchAction", () => {
@@ -152,5 +156,84 @@ describe("collapse/expand, focus ring and details delegate to SearchComponent", 
         toggleSearchDetailsAction.run(accessorWith(component));
         expect(component.toggleQueryDetails).toHaveBeenCalledOnce();
         expect(toggleSearchDetailsAction.when).toBe("searchViewletFocus");
+    });
+});
+
+describe("F4/Shift+F4: next/previous search result", () => {
+    const F4 = { key: "F4", ctrlKey: false, shiftKey: false, altKey: false, metaKey: false };
+    const SHIFT_F4 = { ...F4, shiftKey: true };
+
+    function registerAll(): KeybindingRegistry {
+        const commands = new CommandRegistry();
+        const keybindings = new KeybindingRegistry();
+        for (const action of [
+            nextReferenceAction,
+            previousReferenceAction,
+            focusNextSearchResultAction,
+            focusPreviousSearchResultAction,
+        ]) {
+            registerAction(commands, keybindings, new Container(), action);
+        }
+        return keybindings;
+    }
+
+    function resolve(
+        keybindings: KeybindingRegistry,
+        event: typeof F4,
+        keys: { hasSearchResult?: boolean; hasReferenceResult?: boolean },
+    ): string {
+        const ctx = new ContextKeyService();
+        ctx.set("hasSearchResult", keys.hasSearchResult ?? false);
+        ctx.set("hasReferenceResult", keys.hasReferenceResult ?? false);
+        const resolution = keybindings.resolveKey(event, ctx);
+        keybindings.resetPending();
+        return resolution.kind === "command" ? resolution.commandId : resolution.kind;
+    }
+
+    it("command ids, titles and keys are VS Code's", () => {
+        expect(focusNextSearchResultAction.id).toBe("search.action.focusNextSearchResult");
+        expect(focusNextSearchResultAction.title).toBe("Search: Focus Next Search Result");
+        expect(focusPreviousSearchResultAction.id).toBe("search.action.focusPreviousSearchResult");
+        expect(focusPreviousSearchResultAction.title).toBe("Search: Focus Previous Search Result");
+    });
+
+    it("search results alone: F4 and Shift+F4 walk the search", () => {
+        const keybindings = registerAll();
+        expect(resolve(keybindings, F4, { hasSearchResult: true })).toBe("search.action.focusNextSearchResult");
+        expect(resolve(keybindings, SHIFT_F4, { hasSearchResult: true })).toBe(
+            "search.action.focusPreviousSearchResult",
+        );
+    });
+
+    it("a references result outranks the search, as references-view (built-in extension) does upstream", () => {
+        const keybindings = registerAll();
+        const both = { hasSearchResult: true, hasReferenceResult: true };
+        expect(resolve(keybindings, F4, both)).toBe("references-view.next");
+        expect(resolve(keybindings, SHIFT_F4, both)).toBe("references-view.prev");
+    });
+
+    it("without any result F4 is not bound", () => {
+        expect(resolve(registerAll(), F4, {})).toBe("none");
+    });
+
+    it("reveals the Search view, then steps the result", () => {
+        const calls: string[] = [];
+        const accessor = {
+            get(token: unknown) {
+                if (token === ViewsServiceDIToken) return { openView: (id: string) => calls.push(`open:${id}`) };
+                if (token === SearchComponentDIToken) {
+                    return {
+                        focusNextResult: () => calls.push("next"),
+                        focusPreviousResult: () => calls.push("prev"),
+                    };
+                }
+                throw new Error("unexpected token");
+            },
+        } as unknown as ServiceAccessor;
+
+        focusNextSearchResultAction.run(accessor);
+        focusPreviousSearchResultAction.run(accessor);
+
+        expect(calls).toEqual([`open:${SEARCH_VIEW_ID}`, "next", `open:${SEARCH_VIEW_ID}`, "prev"]);
     });
 });

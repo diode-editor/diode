@@ -3,6 +3,8 @@ export const KeybindingWeight = {
     EditorCore: 0,
     EditorContrib: 100,
     WorkbenchContrib: 200,
+    /** Bindings of VS Code's built-in extensions (references-view) that we implement natively. */
+    BuiltinExtension: 300,
 } as const;
 
 /** User beats extension, extension beats defaults, regardless of weight and layer registration order. */

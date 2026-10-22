@@ -258,6 +258,8 @@
     "search.focus.nextInputBox",
     "search.focus.previousInputBox",
     "search.action.focusSearchFromResults",
+    "search.action.focusNextSearchResult",
+    "search.action.focusPreviousSearchResult",
     "workbench.files.action.showActiveFileInExplorer",
     "workbench.action.increaseSidebarWidth",
     "workbench.action.decreaseSidebarWidth",

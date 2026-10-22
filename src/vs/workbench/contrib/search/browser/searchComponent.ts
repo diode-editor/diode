@@ -285,6 +285,32 @@ export class SearchComponent extends Component implements IContextKeyContributor
         this.refreshResultKeys();
     }
 
+    /** Upstream `selectNextMatch`: the match after the cursor in display order, wrapping; collapsed ancestors expand. */
+    public focusNextResult(): void {
+        this.stepMatch(1);
+    }
+
+    /** Upstream `selectPreviousMatch`: from a file row it is the last match of the file above. */
+    public focusPreviousResult(): void {
+        this.stepMatch(-1);
+    }
+
+    private stepMatch(delta: 1 | -1): void {
+        // Only an empty list has no cursor, and then the loop below does not run.
+        const cursorId = this.results.getCursorElement()?.id;
+        // rowMeta keeps insertion order, which is the display order of the rows.
+        const rows = [...this.rowMeta];
+        const start = rows.findIndex(([id]) => id === cursorId);
+        // The last step comes back to the cursor itself: a lone match is reopened, as upstream.
+        for (let step = 1; step <= rows.length; step++) {
+            const [id, meta] = rows[(((start + delta * step) % rows.length) + rows.length) % rows.length];
+            if (meta.kind !== "match") continue;
+            this.results.setCursorTo(id);
+            this.activateRow(id);
+            return;
+        }
+    }
+
     public focusNextInputBox(): void {
         if (this.queryInput.isFocused) {
             if (this.detailsExpanded) {
