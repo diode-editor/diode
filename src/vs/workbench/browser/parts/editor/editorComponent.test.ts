@@ -515,6 +515,21 @@ describe("EditorComponent + TextFileModel (pair)", () => {
             const app = renderView(off, 100);
             expect(off.view.getChild().layoutSize.width).toBe(99);
             expect(app.backend.getTextAt(new Point(99, 9), 1)).toBe("░");
+            expect(off.view.markerPlacement).toBe("none");
+        });
+
+        it("relayouts a rendered editor when the placement changes", () => {
+            const ctrl = openLongFile();
+            ctrl.setScrollbarMarkers("inside");
+            const app = renderView(ctrl, 40);
+            expect(ctrl.view.getChild().layoutSize.width).toBe(39);
+
+            const markDirty = vi.spyOn(ctrl.view, "markDirty");
+            ctrl.setScrollbarMarkers("outside");
+            expect(markDirty).toHaveBeenCalled();
+            app.render();
+            expect(ctrl.view.markerPlacement).toBe("outside");
+            expect(ctrl.view.getChild().layoutSize.width).toBe(38);
         });
 
         it("inside keeps the marks in the scrollbar column on a wide editor too", () => {

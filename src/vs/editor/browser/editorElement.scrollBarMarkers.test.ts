@@ -49,6 +49,13 @@ describe("EditorElement — scrollbar markers", () => {
         expect(markersOf(makeEditor(lines(10)))).toEqual([]);
     });
 
+    it("resolves no color token when nothing is highlighted", () => {
+        // An unmounted element has no theme: asking it for a token would throw.
+        const editor = new EditorElement(new EditorViewState(new TextDocument(lines(3))));
+        editor.occurrenceHighlightEnabled = false;
+        expect(editor.getScrollBarMarkers()).toEqual([]);
+    });
+
     it("marks diagnostics by severity and skips hints", () => {
         const editor = makeEditor(lines(10));
         editor.markerDecorations = [
@@ -105,6 +112,38 @@ describe("EditorElement — scrollbar markers", () => {
             { start: 0, end: 1 },
             { start: 2, end: 3 },
         ]);
+    });
+
+    it("puts a mark hidden by a fold further down on that fold's header row", () => {
+        const doc = new TextDocument("x\ny\na:\n  b\n  c\nd");
+        const viewState = new EditorViewState(doc);
+        viewState.setFoldingRegions(computeIndentationFolds(doc, viewState.tabSize));
+        viewState.toggleFold(2);
+        const editor = new EditorElement(viewState);
+        editor.occurrenceHighlightEnabled = false;
+        editor.setStyleVars({ "editorOverviewRuler.errorForeground": ERROR });
+        editor.markerDecorations = [{ range: createRange(4, 0, 4, 1), severity: MarkerSeverity.Error }];
+
+        expect(markersOf(editor).map(({ start, end }) => ({ start, end }))).toEqual([{ start: 2, end: 3 }]);
+    });
+
+    it("puts a stale mark past the end of the file on the last line", () => {
+        const editor = makeEditor(lines(5));
+        editor.markerDecorations = [{ range: createRange(9, 0, 9, 1), severity: MarkerSeverity.Error }];
+
+        expect(markersOf(editor).map(({ start, end }) => ({ start, end }))).toEqual([{ start: 4, end: 5 }]);
+    });
+
+    it("marks the wrapped row a position lands on", () => {
+        const editor = makeEditor(`short\n${"word ".repeat(40)}`);
+        editor.viewState.wordWrap = "on";
+        editor.markerDecorations = [{ range: createRange(1, 150, 1, 151), severity: MarkerSeverity.Error }];
+
+        const [marker] = markersOf(editor);
+
+        // 200 characters wrap into several rows under the 40-column viewport; column 150 is not on the first.
+        expect(marker.start).toBe(editor.viewState.viewLineForPosition(1, 150));
+        expect(marker.start).toBeGreaterThan(editor.viewState.logicalToVisualLine(1));
     });
 
     it("shows up on the editor's scrollbar", () => {

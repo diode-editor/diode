@@ -214,15 +214,19 @@ export class EditorElement extends TUIElement implements IScrollable {
             for (const range of searchMatches) add(range, color, ScrollBarMarkerPriority.FindMatch);
         }
 
-        for (const decoration of this.markerDecorations) {
-            const lane = this.severityRulerLane(decoration.severity);
-            if (lane !== undefined) add(decoration.range, lane.color, lane.priority);
+        for (const { range, severity } of this.markerDecorations) {
+            // Hints have no ruler mark in VS Code either.
+            if (severity === MarkerSeverity.Hint) continue;
+            const lane = this.severityRulerLane(severity);
+            add(range, lane.color, lane.priority);
         }
         return markers;
     }
 
-    /** Hints have no ruler mark in VS Code either. */
-    private severityRulerLane(severity: MarkerSeverity): { color: number; priority: number } | undefined {
+    private severityRulerLane(severity: Exclude<MarkerSeverity, MarkerSeverity.Hint>): {
+        color: number;
+        priority: number;
+    } {
         switch (severity) {
             case MarkerSeverity.Error:
                 return {
@@ -239,14 +243,14 @@ export class EditorElement extends TUIElement implements IScrollable {
                     color: this.styleVar("editorOverviewRuler.infoForeground"),
                     priority: ScrollBarMarkerPriority.Info,
                 };
-            case MarkerSeverity.Hint:
-                return undefined;
         }
     }
 
     /** A line hidden by a fold marks the fold's header row, the one the user can see. */
     private viewRowForPosition(line: number, character: number): number {
-        let visibleLine = Math.min(line, this.viewState.document.lineCount - 1);
+        // Past the end, `logicalToVisualLine` is -1 too, so the loop walks back to the last line.
+        let visibleLine = Math.min(line, this.viewState.document.lineCount);
+        // Stryker disable next-line ConditionalExpression,EqualityOperator: line 0 is never hidden, the guard only stops a runaway loop
         while (visibleLine > 0 && this.viewState.logicalToVisualLine(visibleLine) < 0) visibleLine--;
         if (visibleLine !== line) return Math.max(0, this.viewState.logicalToVisualLine(visibleLine));
         return Math.max(0, this.viewState.viewLineForPosition(line, character));
