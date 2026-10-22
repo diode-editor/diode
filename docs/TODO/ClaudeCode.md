@@ -13,10 +13,10 @@
   активную группу — ту, где терминал `claude`. Сделана блокировка групп по эталону (#771):
   `workbench.editor.autoLockGroups.terminalEditor` запирает группу терминала, `findGroup` обходит
   запертые ([EditorPart.md](../arch/workbench/EditorPart.md#группы-редакторов)).
-- [~] **Внизу открывается пустой терминал.** Расширение после диффа, `close_tab`, ✓/↺ и
+- [x] **Внизу открывается пустой терминал.** Расширение после диффа, `close_tab`, ✓/↺ и
   at-mention зовёт `window.activeTerminal?.show()`, чтобы вернуть фокус в `claude`. Терминал-вкладка
   у нас не становилась активной, `activeTerminal` был последним шеллом панели, и его `show()`
-  раскрывал панель. Сделан активный инстанс по хостам, как в эталоне (`_hostActiveTerminals`,
+  раскрывал панель. Сделан активный инстанс по хостам, как в эталоне (#773, `_hostActiveTerminals`,
   [Extensions.md](../arch/Extensions.md)).
 - [ ] **`claude` в боковой панели.** `Open in Side Bar` — путь webview (`claudeVSCodeSidebarSecondary`),
   у нас молчит. У `claude-vscode.terminal.open` есть третий аргумент `"bottom"` — терминал в
