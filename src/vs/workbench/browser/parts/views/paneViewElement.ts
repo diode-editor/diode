@@ -21,6 +21,8 @@ export interface IPaneOptions {
      * the header. Defaults to `true`.
      */
     readonly headerVisible?: boolean;
+    /** The header title opens the sidebar container switcher ({@link PaneViewElement.onDidRequestSwitcher}). */
+    readonly switcher?: boolean;
 }
 
 interface PaneRecord {
@@ -47,6 +49,7 @@ export class PaneViewElement extends TUIElement {
     public onDidChangeState?: () => void;
     public onDidRequestPaneMenu?: (paneId: string, anchor: IPaneMenuAnchor) => void;
     public onDidRequestPaneAction?: (paneId: string, actionId: string) => void;
+    public onDidRequestSwitcher?: (anchor: IPaneMenuAnchor) => void;
 
     private panes: PaneRecord[] = [];
 
@@ -58,6 +61,7 @@ export class PaneViewElement extends TUIElement {
         const headerVisible = options.headerVisible ?? true;
         const header = new PaneHeaderElement(options.title, { collapsible });
         header.hidden = !headerVisible;
+        header.setSwitcher(options.switcher ?? false);
         header.id = `paneHeader-${options.id.replaceAll(".", "-")}`;
         const record: PaneRecord = {
             id: options.id,
@@ -78,6 +82,7 @@ export class PaneViewElement extends TUIElement {
         };
         header.onMenu = (anchor) => this.onDidRequestPaneMenu?.(record.id, anchor);
         header.onAction = (actionId) => this.onDidRequestPaneAction?.(record.id, actionId);
+        header.onSwitch = (anchor) => this.onDidRequestSwitcher?.(anchor);
         this.panes.push(record);
         this.appendChild(header);
         this.appendChild(options.body);

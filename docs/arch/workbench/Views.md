@@ -8,8 +8,9 @@ ViewContainer/PaneView/ViewsService VS Code). Ей подчиняются ВСЕ
 Terminal в нижней панели.
 
 **Дескрипторы (`viewsService.ts`).** Контейнер — «активити»:
-`{id, title, location: "sidebar" | "panel" | "auxiliarybar", order?,
-isDefault?, rejectAddedViews?}`. Контейнер
+`{id, title, label?, location: "sidebar" | "panel" | "auxiliarybar", order?,
+isDefault?, rejectAddedViews?}` (`label` — название в авторском регистре для
+переключателя, у встроенных его нет). Контейнер
 регистрирует фича-владелец в своём конструкторе (как `registerViewContainer`
 VS Code), строит их все `attachRegisteredContainers()` из `mount()` — по
 `order`, а не по порядку резолва компонентов: Explorer 0 (`isDefault`),
@@ -28,6 +29,10 @@ requiresWorkspaceFolder?, canMoveView?}`. `containerId` —
 `body === null` рисует `placeholder` (аналог `viewsWelcome`); тело и виджет
 заголовка меняются на месте (`setViewBody`/`setViewTitleWidget`), поэтому
 место держит одну и ту же ссылку на корень контейнера всю жизнь.
+`unregisterView` снимает вид, где бы он ни стоял (вид расширения, чей `when`
+стал ложным); опустевший контейнер уходит с места, сохранённое состояние
+секции остаётся до повторной регистрации. `focusViewHeader` — фокус для вида
+без своего тела: на заголовок его секции.
 
 **Расположение видов** (аналог `IViewDescriptorService` эталона — у нас
 в том же `ViewsService`, где реестр). Место контейнера — поле записи
@@ -63,7 +68,8 @@ requiresWorkspaceFolder?, canMoveView?}`. `containerId` —
   Location» — контекстное меню вкладки части (правый клик, Shift+F10;
   `PanelContainerElement.onTabContextMenu` → `requestTabContextMenu`
   реестра части), у вьюлета сайдбара — в «⋯» заголовка (отступление:
-  activity bar, где эталон держит это меню, у нас нет).
+  эталон держит это меню на иконке activity bar, а наш переключатель
+  контейнеров — выпадающий список, у его пунктов контекстного меню нет).
 - **Фичи не знают, где стоит их вид.** Показ, скрытие и «на экране ли»
   — словарь `ViewsService`, а не `PanelService`/`LayoutService`:
   `openView(id, focus, activate)` (`activate: false` — показ без
@@ -198,6 +204,80 @@ Problems / Output / Terminal (`location: "panel"`, по одной секции;
 тематический `editorGutter.background`, иначе гуттер остался бы полосой
 цвета редакторской группы.
 
+## Переключатель контейнеров (вместо activity bar)
+
+Колонки иконок, как у эталона, в терминале нет: она отнимала бы место у
+сайдбара. Роль activity bar играет **заголовок сайдбара**: после названия
+контейнера стоит шеврон (тот же глиф, что у секций), клик по названию, а
+также Enter или пробел на заголовке открывают выпадающий список контейнеров
+сайдбара прямо под заголовком. Текущий контейнер отмечен `●`, выбор открывает
+контейнер с фокусом (`openViewContainer(id, true)`). Это отступление от
+эталона, оно и заменяет activity bar.
+
+- Кто несёт переключатель: заголовок контейнера (`ViewContainerHeaderElement`,
+  2+ видимых секции) или, когда секция одна и слита с контейнером, заголовок
+  этой секции (`PaneHeaderElement`, опция `switcher` у `addPane`). Зона —
+  метка названия (`ViewTitleRowElement.setSwitcher`, зона `switcher` в
+  `hitZone`, фон при наведении); наполнитель справа, кнопки и «⋯» работают
+  как раньше.
+- В панели и вторичном сайдбаре переключателя нет: там контейнеры уже
+  переключаются вкладками. Контейнер, перенесённый в панель, уходит из
+  списка.
+- Список собирает `containerSwitcherEntries` (`containerSwitcher.ts`) из
+  `getViewContainers()`: только `location: "sidebar"`, по `order`. Название —
+  `label` контейнера, иначе `switcherLabel(title)`: заглавный встроенный
+  `SOURCE CONTROL` читается как «Source Control», название в авторском
+  регистре (у сгенерированного контейнера — название вида) не трогается.
+- Контейнеры расширений (`contributes.viewsContainers.activitybar`) попадают
+  в список сами — это обычные контейнеры сайдбара (раздел ниже).
+
+## Виды расширений (`contributes.viewsContainers` / `views`)
+
+`api/browser/viewsExtensionPoint.ts` — аналог `ViewsExtensionHandler` эталона
+(`viewsExtensionPoint.ts`): `registerExtensionViews` переводит манифесты в
+контейнеры и виды `ViewsService`. Зовётся из `startWorkbench` до `mount()`,
+поэтому контейнеры расширений собираются вместе со встроенными и restore
+layout'а находит их.
+
+- **Контейнеры.** Ключ места: `activitybar` → сайдбар (и переключатель),
+  `panel` → нижняя панель, `secondarySidebar` → вторичный сайдбар; прочие
+  ключи — предупреждение в лог. id — `workbench.view.extension.<id>`,
+  `order` — после встроенных (7+ в сайдбаре, как `CUSTOM_VIEWS_START_ORDER`),
+  `title` хранится заглавными (как CSS `text-transform` эталона), исходное —
+  в `label`. Проверка как у `isValidViewsContainer`: один плохой элемент
+  (`id` вне `[a-z0-9_-]`, нет строкового `title` или `icon`) отбрасывает
+  весь список этого места; пустой `title` — id. Контейнер без видимых видов
+  места не занимает (`hideIfEmpty`). Команда показа
+  `workbench.view.extension.<id>` («View: Show <title>») — в палитре.
+- **Виды.** Ключ контейнера: `explorer`, `scm` или id из `viewsContainers`;
+  неизвестный (`debug`, `test`…) — в Explorer с предупреждением, как у
+  эталона. Порядок — по манифесту в своём контейнере, после встроенных
+  секций в чужом (у эталона — по `group`); в Explorer и Source Control
+  чужие виды стартуют свёрнутыми (`showCollapsed`), `visibility: collapsed` —
+  тоже. Список с элементом без `id` отбрасывается целиком; дубль id и
+  неизвестный `type` — ошибка в лог, вид пропускается.
+- **Тело — заглушка**: дерево (`TreeView`-API) ещё не рисуется, секция
+  показывает «Extension tree views are not rendered yet.» (`placeholder`
+  блоком — переносится в узком сайдбаре). Секция нужна уже сейчас: контейнер,
+  пункт переключателя, `<view>.focus` и `onView:` работают.
+- **`when`** вычисляется по `ContextKeyService` и перевычисляется на каждое
+  его изменение: вид регистрируется, пока условие истинно, и снимается
+  `unregisterView`, когда ложно, — контейнер появляется и исчезает вместе с
+  ним (`go.showExplorer` stock-расширения Go ставит само расширение через
+  `setContext`).
+- **Webview-виды** (`type: "webview"`) не регистрируются вовсе — в терминале
+  их не нарисовать ([потолок](../../public/API-COVERAGE.md#not-supported-by-design)); контейнер из одних
+  webview остаётся пустым и скрытым. Их `<view>.focus` отвечает тостом.
+- **`<view>.focus`** есть у каждого вида (чат-расширения зовут его перед
+  сообщением в панель, Supermaven): у древовидного — `openView(id, true)`,
+  фокус на заголовок секции (`focusViewHeader`); в палитру не попадает.
+- **Активация.** `contributes.views` даёт неявный `onView:<id>`
+  (`activationEvents.ts`), `bindViewActivation` (проводка в
+  `extensionHostModule`) активирует его на `onDidShowView` любого вида — как
+  эталон; показ до регистрации расширений ждёт барьера `ExtensionService`.
+- Не поддержаны: `visibility: hidden`, `viewsWelcome`, иконки контейнеров и
+  видов, `contextualTitle`, `initialSize`, `group` — [трекер](../../TODO/Extensions.md#ui-вклады-viewscontainers--views).
+
 ## Общие контролы списков
 
 - `browser/parts/views/headerBodyViewElement.ts` — общая раскладка «шапка
@@ -250,8 +330,8 @@ Find All References наполняет вьюлет сайдбара `REFERENCES
   ссылки, не уводя фокус из редактора; те же клавиши у поиска уступают ссылкам по
   весу (`BuiltinExtension` против `WorkbenchContrib`, как у эталона) — после
   `references-view.clear` F4 снова ходит по результатам поиска. `workbench.view.references` (Ctrl+K R) —
-  наше отступление, вынужденное отсутствием activity bar: без него к панели не
-  вернуться, переключившись на Explorer.
+  наше отступление: у эталона к панели возвращает иконка activity bar, у нас мышью — переключатель
+  контейнеров, а клавиатуре нужен свой аккорд.
 - **Peek-виджета (`Shift+F12`) нет осознанно**: это редактор внутри оверлея со своим
   скроллом и роутингом клавиш, в терминале панель полезнее. Нет и истории прошлых
   запросов, удаления результата и переключателя list/tree. Каретка не на слове —

@@ -7,6 +7,17 @@ import { defineScenario, repoRoot } from "./framework.ts";
 const CHEVRON_EXPANDED = "";
 const CHEVRON_COLLAPSED = "";
 
+/**
+ * The screen without the sidebar title row: its container switcher draws the same angle_down glyph, so
+ * chevron checks of the result list must not see it.
+ */
+function withoutTitle(text: string): string {
+    return text
+        .split("\n")
+        .filter((line) => !line.includes(" SEARCH "))
+        .join("\n");
+}
+
 async function typeText(driver: { sendKey(name: string): Promise<void> }, text: string): Promise<void> {
     for (const ch of text) {
         await driver.sendKey(ch);
@@ -38,7 +49,7 @@ export default defineScenario({
 
         // Case-insensitive by default, so a lowercase query matches the mixed-case identifier.
         await typeText(driver, "textsearchservice");
-        await driver.waitForText((t) => t.includes("results in") && t.includes(CHEVRON_EXPANDED));
+        await driver.waitForText((t) => t.includes("results in") && withoutTitle(t).includes(CHEVRON_EXPANDED));
         await driver.capture("results-list");
 
         await driver.sendKey("F9");
@@ -64,10 +75,10 @@ export default defineScenario({
 
         // Staged: the first call collapses matches under files, the second the whole tree.
         await driver.sendKey("F10");
-        await driver.waitForText((t) => t.includes(CHEVRON_COLLAPSED) && t.includes(CHEVRON_EXPANDED));
+        await driver.waitForText((t) => t.includes(CHEVRON_COLLAPSED) && withoutTitle(t).includes(CHEVRON_EXPANDED));
         await driver.capture("collapsed-files");
         await driver.sendKey("F10");
-        await driver.waitForText((t) => t.includes(CHEVRON_COLLAPSED) && !t.includes(CHEVRON_EXPANDED));
+        await driver.waitForText((t) => t.includes(CHEVRON_COLLAPSED) && !withoutTitle(t).includes(CHEVRON_EXPANDED));
         await driver.capture("collapsed-all");
 
         await driver.sendKey("F11");

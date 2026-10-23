@@ -1,0 +1,38 @@
+{
+    "name": "build-tools",
+    "displayName": "Build Tools",
+    "description": "E2E demo extension: an activity bar container with two tree views; it activates only when one of its views is shown.",
+    "version": "0.0.1",
+    "publisher": "test",
+    "main": "./extension.js",
+    "engines": {
+        "vscode": "^1.0.0"
+    },
+    "activationEvents": [
+        "onView:buildTools.targets"
+    ],
+    "contributes": {
+        "viewsContainers": {
+            "activitybar": [
+                {
+                    "id": "buildTools",
+                    "title": "Build Tools",
+                    "icon": "media/build.svg"
+                }
+            ]
+        },
+        "views": {
+            "buildTools": [
+                {
+                    "id": "buildTools.targets",
+                    "name": "Run Targets"
+                },
+                {
+                    "id": "buildTools.history",
+                    "name": "Build History",
+                    "visibility": "collapsed"
+                }
+            ]
+        }
+    }
+}

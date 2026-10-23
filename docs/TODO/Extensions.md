@@ -23,9 +23,9 @@
 ### Не типизированы в `IExtensionManifest`
 
 Секции ниже манифест принимает как `unknown` (индексная сигнатура `contributes`); тип и потребитель
-появляются вместе с фичей. `iconThemes`, `snippets`, `viewsContainers` — пунктами выше и ниже.
+появляются вместе с фичей. `iconThemes`, `snippets` — пунктами выше и ниже.
 
-- [ ] `viewsWelcome`
+- [ ] `viewsWelcome` — в «UI-вкладах» ниже
 - [ ] `colors`
 - [ ] `debuggers`, `breakpoints`, `problemMatchers`, `problemPatterns`
 - [ ] `jsonValidation`
@@ -56,20 +56,21 @@
 
 ## UI-вклады: `viewsContainers` / `views`
 
-Модель `ViewsService` (container↔view, места `sidebar`/`panel`) готова и общая со встроенными панелями
-([arch/workbench/Views.md](../arch/workbench/Views.md)) — контрибьютор ложится на готовый контракт.
+Устройство — [arch/workbench/Views.md](../arch/workbench/Views.md#виды-расширений-contributesviewscontainers--views).
 Виды `type: "webview"` — ⛔ by design, как весь webview ([API-COVERAGE](../public/API-COVERAGE.md#not-supported-by-design)).
 
-- [~] Типы `IViewContribution` / `IViewContainerContribution` в `iExtensionManifest.ts`: `views` есть,
-  `viewsContainers` — нет.
-- [~] Команда `<viewId>.focus` на каждый вид (`extensionViewFocusCommands.ts`): пока видов нет —
-  тост с причиной и успех. Отступление: в палитру не попадает. Когда виды начнут рисоваться —
-  показывает контейнер, фокусирует вид и будит `onView:<id>`.
-- [ ] `extensionViewsContributor.ts` рядом с `extensionKeybindingContributor.ts` (декларативно, без
-  host'а): контейнер + пустые секции с welcome-текстом; набор — из `IExtensionService.extensions` в
-  своём DI-модуле, а не из `main.ts`.
-- [ ] Команда показа контейнера расширения (`workbench.view.<id>`) — activity bar'а нет.
-- [ ] Активация `onView:<id>`.
+- [x] Переключатель контейнеров на заголовке сайдбара — замена activity bar (`containerSwitcher.ts`).
+- [x] `viewsContainers` (`activitybar`/`panel`/`secondarySidebar`) и `views` —
+  `api/browser/viewsExtensionPoint.ts`: контейнеры, секции-заглушки, `when` вживую, `collapsed`,
+  команда `workbench.view.extension.<id>`, `<view>.focus`, неявный `onView:<id>` и его активация.
+- [ ] `visibility: hidden` — вид скрыт до явного показа (нужен начальный «скрыт» без записи в
+  пользовательский выбор).
+- [ ] `viewsWelcome` — markdown-строки в `IViewWelcomeBlock[]` (ссылки `command:` — кнопки) со своим `when`;
+  потребитель — стоковый terraform (`terraform.providers`, `terraform.modules`…).
+- [ ] Иконки контейнеров и видов (codicon `$(name)` в переключателе), `contextualTitle`, `initialSize`,
+  `group` (порядок чужого вида в контейнере).
+- [ ] Контекстное меню пункта переключателя («Move To», «Reset Location» — у эталона на иконке
+  activity bar); сейчас — в «⋯» заголовка.
 - [~] TreeView-API поверх RPC (`registerTreeDataProvider`/`createTreeView`, pull как у completion,
   рендер в `TreeViewElement`): типы подняты, рантайм — заглушка `api/common/treeViewNoop.ts`
   (регистрация проходит, `TreeView` инертный). Первый стоковый потребитель — форк bazel-java

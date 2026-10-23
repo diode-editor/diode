@@ -42,6 +42,8 @@ import { PanelServiceDIToken } from "../panel/panelService.ts";
 import type { BooleanContextKey, SidebarService } from "../sidebar/sidebarService.ts";
 import { SidebarServiceDIToken } from "../sidebar/sidebarService.ts";
 
+import { containerSwitcherEntries } from "./containerSwitcher.ts";
+import type { IPaneMenuAnchor } from "./paneHeaderElement.ts";
 import { PaneViewElement } from "./paneViewElement.ts";
 import { inlineActions, isSelectionSubmenu, NAVIGATION_GROUP, overflowEntries, runAction } from "./titleMenuEntries.ts";
 import { ViewContainerHeaderElement } from "./viewContainerHeaderElement.ts";
@@ -60,6 +62,11 @@ export interface IViewContainerDescriptor {
     readonly id: string;
     /** No leading spaces (`"SOURCE CONTROL"`): the header draws the indent. */
     readonly title: string;
+    /**
+     * The title in its author's casing ("HashiCorp Terraform") for the container switcher; without it
+     * the switcher derives one from the upper-case `title`.
+     */
+    readonly label?: string;
     readonly location: ViewContainerLocation;
     /** Lower comes first; containers without it go after all ordered ones. */
     readonly order?: number;
@@ -101,6 +108,7 @@ export interface IViewDescriptor {
 export interface IViewContainerSnapshot {
     readonly id: string;
     readonly title: string;
+    readonly label?: string;
     readonly location: ViewContainerLocation;
     /** Visible sections in display order. */
     readonly views: readonly IViewSnapshot[];
@@ -346,6 +354,17 @@ export class ViewsService implements IContextKeyContributor {
         this.syncPresence(entry);
     }
 
+    /**
+     * The view leaves wherever it is now (an extension view whose `when` turned false); an emptied
+     * container leaves its location. Its stored state stays, so registering it again restores it.
+     */
+    public unregisterView(viewId: string): void {
+        const found = this.findRecord(viewId);
+        if (found === undefined) return;
+        this.removeRecord(found);
+        this.syncPresence(found.entry);
+    }
+
     /** `null` returns to the empty state; collapsed state and weight are kept. */
     public setViewBody(viewId: string, body: TUIElement | null): void {
         const { entry, record } = this.recordOrThrow(viewId);
@@ -504,6 +523,9 @@ export class ViewsService implements IContextKeyContributor {
                 getEntries: () => this.paneMenuEntries(entry, paneId),
             });
         };
+        paneView.onDidRequestSwitcher = (anchor) => {
+            this.showContainerSwitcher(paneView, anchor);
+        };
         paneView.onDidRequestPaneAction = (paneId, actionId) => {
             runAction(this.viewTitleGroups(paneId), actionId);
         };
@@ -522,6 +544,10 @@ export class ViewsService implements IContextKeyContributor {
         };
         header.onAction = (actionId) => {
             runAction(this.titleGroups(entry), actionId);
+        };
+        header.setSwitcher(!tabbed);
+        header.onSwitch = (anchor) => {
+            this.showContainerSwitcher(header, anchor);
         };
         entry.header = header;
         if (tabbed) {
@@ -554,6 +580,19 @@ export class ViewsService implements IContextKeyContributor {
             },
             entry.descriptor.visibleContextKey,
         );
+    }
+
+    /** The sidebar title's dropdown of sidebar containers ({@link containerSwitcherEntries}). */
+    private showContainerSwitcher(owner: TUIElement, anchor: IPaneMenuAnchor): void {
+        this.contextMenuService.showContextMenu({
+            getOwner: () => owner,
+            getAnchor: () => anchor,
+            getEntries: () =>
+                // Only sidebar containers are listed, and showing a viewlet already focuses it.
+                containerSwitcherEntries(this.getViewContainers(), this.sidebarService.getActiveViewletId(), (id) => {
+                    this.openViewContainer(id);
+                }),
+        });
     }
 
     private tabIndexOf(target: AttachedEntryDescriptor): number {
@@ -638,6 +677,7 @@ export class ViewsService implements IContextKeyContributor {
             .map((entry) => ({
                 id: entry.descriptor.id,
                 title: containerTitle(entry),
+                label: entry.descriptor.label,
                 location: entry.location,
                 views: this.getContainerViews(entry.descriptor.id).filter((view) => view.visible),
                 rejectAddedViews: entry.descriptor.rejectAddedViews === true,
@@ -890,16 +930,20 @@ export class ViewsService implements IContextKeyContributor {
 
     /** Moves a view record to another container ({@link syncPresence} rebuilds the locations). */
     private moveRecord(found: { entry: ContainerEntry; record: ViewRecord }, target: ContainerEntry): void {
-        const { entry: source, record } = found;
-        source.views.splice(source.views.indexOf(record), 1);
-        source.hidden.delete(record.id);
-        // The remaining sections can't all be hidden (see setViewVisible).
-        if (source.views.length > 0 && source.hidden.size === source.views.length) {
-            source.hidden.delete(source.views[0].id);
-        }
+        const { record } = found;
+        this.removeRecord(found);
         record.containerId = attached(target).descriptor.id;
         target.views.push(record);
         target.views.sort((a, b) => a.order - b.order || a.id.localeCompare(b.id));
+    }
+
+    private removeRecord({ entry, record }: { entry: ContainerEntry; record: ViewRecord }): void {
+        entry.views.splice(entry.views.indexOf(record), 1);
+        entry.hidden.delete(record.id);
+        // The remaining sections can't all be hidden (see setViewVisible).
+        if (entry.views.length > 0 && entry.hidden.size === entry.views.length) {
+            entry.hidden.delete(entry.views[0].id);
+        }
     }
 
     private setContainerLocation(entry: ContainerEntry, location: ViewContainerLocation): void {
@@ -1041,6 +1085,13 @@ export class ViewsService implements IContextKeyContributor {
         const body = this.bodyOf(target);
         if (body instanceof ViewWelcomeElement && body.focusFirstButton()) return;
         target.focus();
+    }
+
+    /** For a view without a body of its own (an extension view's placeholder): focus lands on its header. */
+    public focusViewHeader(viewId: string): void {
+        const found = this.findRecord(viewId);
+        if (found?.entry.paneView == null || found.entry.hidden.has(viewId)) return;
+        found.entry.paneView.focusPane(viewId);
     }
 
     private viewTitleGroups(viewId: string): IMenuEntryGroup[] {
@@ -1381,6 +1432,7 @@ export class ViewsService implements IContextKeyContributor {
                 minBodyHeight: view.minBodyHeight,
                 collapsible: !merged,
                 headerVisible,
+                switcher: merged && !this.isTabbed(entry),
             });
         }
         paneView.setWeights(weights);

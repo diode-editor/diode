@@ -40,6 +40,7 @@ import { NotificationExtensionAdapter } from "../../workbench/api/browser/notifi
 import { ProgressStatusBarAdapter } from "../../workbench/api/browser/progressStatusBarAdapter.ts";
 import { QuickInputExtensionAdapter } from "../../workbench/api/browser/quickInputExtensionAdapter.ts";
 import { ThemeColorResolverAdapter } from "../../workbench/api/browser/themeColorResolverAdapter.ts";
+import { bindViewActivation } from "../../workbench/api/browser/viewsExtensionPoint.ts";
 import { WorkspaceFoldersExtensionAdapter } from "../../workbench/api/browser/workspaceFoldersExtensionAdapter.ts";
 import type { WireMarker } from "../../workbench/api/common/wireTypes.ts";
 import { WATCHER_INCLUDE_SETTING, watcherIncludesUnder } from "../../workbench/api/node/watcherIncludes.ts";
@@ -368,6 +369,9 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
             void service.activateByEvent(`onLanguage:${languageId}`);
             void service.activateByEvent("onLanguage");
         });
+        // Views shown before registration (layout restore of an extension's container) are buffered the same way.
+        // Stryker disable next-line ArrowFunction,CallExpression: production module wiring — the producer is covered by the bindViewActivation unit tests, end to end by the view-container-switcher e2e scenario
+        bindViewActivation(container.get(ViewsServiceDIToken).onDidShowView, (event) => service.activateByEvent(event));
 
         // Stryker disable next-line CallExpression: production module wiring; behavior is covered by bindExtensionTasks unit tests and the extension-tasks e2e scenario
         bindExtensionTasks(

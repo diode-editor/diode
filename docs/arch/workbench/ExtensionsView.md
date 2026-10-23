@@ -5,8 +5,9 @@
 [../../TODO/Extensions.md](../../TODO/Extensions.md#магазин).
 
 Вьюлет `EXTENSIONS` (поиск + каталог + установленные) и страница расширения во вкладке, установка,
-обновление и удаление кнопкой — раскладка как в VS Code. Activity bar'а нет, поэтому показ вьюлета —
-команда `workbench.view.extensions` (`Ctrl+Shift+X`, аккорд `Ctrl+K X` для legacy-терминалов;
+обновление и удаление кнопкой — раскладка как в VS Code. Activity bar'а нет: вьюлет выбирают в
+[переключателе контейнеров](Views.md#переключатель-контейнеров-вместо-activity-bar) на заголовке сайдбара
+или командой `workbench.view.extensions` (`Ctrl+Shift+X`, аккорд `Ctrl+K X` для legacy-терминалов;
 конвенция `workbench.view.*`, как Explorer/Search/SCM).
 
 ## Устройство

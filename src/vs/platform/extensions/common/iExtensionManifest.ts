@@ -84,7 +84,16 @@ export interface IExtensionContributions {
 
     readonly taskDefinitions?: readonly ITaskDefinitionContribution[];
 
-    /** Views are not rendered yet (docs/TODO/Extensions.md); only the `<id>.focus` command is taken. */
+    /**
+     * Keyed by location: `activitybar` (our sidebar), `panel`, `secondarySidebar`. Foreign data — the
+     * registrar (`api/browser/viewsExtensionPoint.ts`) validates it.
+     */
+    readonly viewsContainers?: Readonly<Record<string, readonly IViewContainerContribution[]>>;
+
+    /**
+     * Keyed by container: `explorer`, `scm` or an id from `viewsContainers`. Tree views get a section
+     * with a placeholder (the tree itself is not rendered yet, docs/TODO/Extensions.md).
+     */
     readonly views?: Readonly<Record<string, readonly IViewContribution[]>>;
 
     /** Not strictly typed: the manifest is foreign data, the registrar validates it. */
@@ -157,7 +166,18 @@ export interface IViewContribution {
     readonly id: string;
     readonly name?: string;
     readonly type?: string;
+    /** The view exists only while the clause holds (re-evaluated on every context key change). */
     readonly when?: string;
+    /** `visible` (default), `collapsed`; `hidden` is not supported yet and reads as `visible`. */
+    readonly visibility?: string;
+    readonly [key: string]: unknown;
+}
+
+/** Upstream requires all three; `icon` is checked but not drawn (the switcher lists titles). */
+export interface IViewContainerContribution {
+    readonly id: string;
+    readonly title: string;
+    readonly icon: string;
     readonly [key: string]: unknown;
 }
 
