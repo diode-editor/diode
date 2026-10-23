@@ -11,11 +11,6 @@
   "categories": [
     "Other"
   ],
-  "activationEvents": [
-    "*"
-  ],
-  "main": "./out/extension.js",
-  "browser": "./dist/browser/extension.js",
   "icon": "resources/icons/git.png",
   "scripts": {
     "compile": "gulp compile-extension:git-base",
@@ -29,21 +24,6 @@
     }
   },
   "contributes": {
-    "commands": [
-      {
-        "command": "git-base.api.getRemoteSources",
-        "title": "%command.api.getRemoteSources%",
-        "category": "Git Base API"
-      }
-    ],
-    "menus": {
-      "commandPalette": [
-        {
-          "command": "git-base.api.getRemoteSources",
-          "when": "false"
-        }
-      ]
-    },
     "languages": [
       {
         "id": "git-commit",

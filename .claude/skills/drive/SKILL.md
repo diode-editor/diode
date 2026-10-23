@@ -108,9 +108,6 @@ npm run -s drive -- stop                       # и ни одного проце
   затем `tmux -L t display -p '#{pane_title}'`, в конце `tmux -L t kill-server`. Так же
   смотрят всё, что зависит от tmux (DCS passthrough, `TMUX` в окружении — его герметичная
   сессия drive вырезает).
-- **Шум dev-режима:** `vscode.git-base: failed to register … out/extension.js` в
-  канале Extensions из исходников — известное (у стокового git-base нет сборки в
-  dev), к твоей правке не относится.
 
 ## Чтение состояния
 

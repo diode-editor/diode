@@ -38,6 +38,21 @@ function assertSelfContained(outfile, id) {
     );
 }
 
+/**
+ * A builtin manifest with `main` but no `main.ts` beside it promises code nobody ships: the host reads
+ * the entry point of every builtin with `main`, and a missing one is `<id>: failed to register (builtin)`
+ * in the Extensions channel on every start (upstream `git-base` did that until the import script
+ * started stripping its runtime fields).
+ */
+export function assertEntryPointHasSource(id, manifest, hasSource) {
+    if (hasSource || typeof manifest.main !== "string") return;
+    throw new Error(
+        `[build-extensions] ${id}: the manifest declares main "${manifest.main}" but there is no ${SOURCE_ENTRY} to compile.\n` +
+            `A language pack must not promise code: re-run scripts/import-vscode-extensions.mjs (it strips main,\n` +
+            `browser, activationEvents and the command contributions) or add the source.`,
+    );
+}
+
 export async function buildExtensions({ repoRoot }) {
     const builtinDir = resolve(repoRoot, "extensions");
     // BEFORE esbuild: `diode-settings/main.ts` imports `settings-schema.generated.ts`.
@@ -47,7 +62,9 @@ export async function buildExtensions({ repoRoot }) {
         if (!entry.isDirectory()) continue;
         const dir = join(builtinDir, entry.name);
         const entryPoint = join(dir, SOURCE_ENTRY);
-        if (!statSync(entryPoint, { throwIfNoEntry: false })?.isFile()) continue; // a language pack
+        const hasSource = statSync(entryPoint, { throwIfNoEntry: false })?.isFile() === true;
+        assertEntryPointHasSource(entry.name, JSON.parse(readFileSync(join(dir, "package.json"), "utf8")), hasSource);
+        if (!hasSource) continue; // a language pack
         const outfile = join(dir, COMPILED_BUILTIN_ENTRY);
         await build({
             entryPoints: [entryPoint],
