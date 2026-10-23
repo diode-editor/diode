@@ -137,7 +137,7 @@ Node в терминальном редакторе — красная тряп�
 
 Главная цифра — **«наших мс»**: время до кадра с текстом минус пол самого Node. Медиана на CI ≈100 мс,
 на 4-ядерном ноутбуке ≈175, после распила бандла, CJS-ядра и V8-снапшота (было 321). Цифры и
-методика — [public/BENCHMARKS.md](public/BENCHMARKS.md), живые данные — [public/BENCH-OPEN.md](public/BENCH-OPEN.md);
+методика — [public/PERFORMANCE.md](public/PERFORMANCE.md), живые данные — [график](https://diode-editor.github.io/benchmarks/);
 план — [TODO/OpenPerformance.md](TODO/OpenPerformance.md). Прежние «26мс воркбенча» были ошибкой
 замера (пол по `node --version`) и отозваны. Число, которым хвастаемся, защищено перф-гейтом CI.
 

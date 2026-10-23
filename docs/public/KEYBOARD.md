@@ -28,8 +28,7 @@ setting, see [terminal setup](TERMINAL.md).
 
 ## Every command has a key that works everywhere
 
-Diode never leaves a command reachable only through a key the terminal can't send, and a test in
-the build enforces it. The Ctrl+Shift shortcuts have a `Ctrl+K <letter>` chord next to them, and
+Diode never leaves a command reachable only through a key the terminal can't send. The Ctrl+Shift shortcuts have a `Ctrl+K <letter>` chord next to them, and
 the chord works at every level:
 
 | command | VS Code key | works everywhere |

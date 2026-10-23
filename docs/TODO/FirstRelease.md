@@ -24,8 +24,8 @@ watcher и Go в магазине — после поста.
 
 - [x] **Установка одной командой**: `install.sh` на сайте (`curl | sh`, методы binary/apt/brew/npm),
       apt-репозиторий, npm-обёртка `@diode-editor/diode`, brew cask — [packaging/README.md](../../packaging/README.md).
-- [x] **Витрина на лендинге**: бейдж alpha, ссылки на [ROADMAP.md](../public/ROADMAP.md),
-      [API-COVERAGE.md](../public/API-COVERAGE.md) и [BENCHMARKS.md](../public/BENCHMARKS.md).
+- [x] **Витрина на лендинге**: бейдж alpha, ссылки на [STATUS.md](../public/STATUS.md) (тогда ROADMAP.md),
+      [API-COVERAGE.md](../public/API-COVERAGE.md) и [PERFORMANCE.md](../public/PERFORMANCE.md) (тогда BENCHMARKS.md).
 - [x] **`.gitignore` в поиске и Quick Open** (#593). Дерево (`explorer.excludeGitIgnore`) — нет,
       это хвост дерева «после поста».
 - [x] **Перф-гейт старта** `e2e/bench/startupBudget.bench.ts`: бюджет
@@ -49,7 +49,7 @@ watcher и Go в магазине — после поста.
 ### Цифры, тексты, кадр
 
 - [ ] **Честные цифры**: сравнительная таблица vim · nvim голый · nvim+LazyVim/NvChad · helix ·
-      diode одним прогоном на одной машине, методика — в [BENCHMARKS.md](../public/BENCHMARKS.md);
+      diode одним прогоном на одной машине, методика — в [PERFORMANCE.md](../public/PERFORMANCE.md);
       «26 мс воркбенча» из BENCHMARKS.md и VISION.md уже убраны (2026-10-21), на лендинге
       «~100 ms» — ещё нет (репозиторий сайта).
       Не одно число, а лестница старта (пол Node → первый кадр → редактор готов; extension host

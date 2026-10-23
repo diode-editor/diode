@@ -572,7 +572,7 @@ npm run test:coverage      # = vitest run --coverage
 
 ## Перф-гейт и бенчмарк открытия файла
 
-Публичные цифры [docs/public/BENCH-OPEN.md](public/BENCH-OPEN.md) снимает `npm run bench:open`
+Публичные цифры [docs/public/PERFORMANCE.md](public/PERFORMANCE.md) и графика `/benchmarks/` снимает `npm run bench:open`
 (`e2e/bench/benchOpen.ts`): SEA-бинарь в PTY, чёрный ящик по таймстемпам чанков stdout плюс белый
 ящик — трасса вех `performance.mark` того же процесса (`DIODE_STARTUP_TRACE=<файл>`,
 см. [arch/Common.md](arch/Common.md#вехи-старта-performancets)). Главная цифра — «наших мс» =
@@ -586,7 +586,7 @@ DI, `npm run bench:services -- <каталог>/*.json` печатает по н
 
 Гейт: `e2e/bench/startupBudget.bench.ts` в `npm run test:perf` (`vitest.perf.config.ts` включает
 `e2e/bench/**/*.bench.ts`) меряет `small` тем же модулем и роняет прогон, если медиана «наших мс»
-над полом node выше бюджета `STARTUP_BUDGET_OURS_MS`. В CI он идёт шагом `npm run test:perf:startup`
+над полом node выше бюджета `STARTUP_BUDGET_OURS_MS`. Второй гейт — `e2e/bench/xlargeBudget.bench.ts`: на файле 13 МБ «наших мс» до текста ≤ 350, Enter/undo после фоновой токенизации ≤ 20/16 мс. В CI он идёт шагом `npm run test:perf:startup`
 job'а `e2e (ubuntu-latest)` — бюджет откалиброван по этому раннеру, локальная машина может быть
 медленнее. Бюджет — храповик: этап «Кухня»
 ([TODO/OpenPerformance.md](TODO/OpenPerformance.md)) зажимает его по мере снятия стоимости; ослаблять

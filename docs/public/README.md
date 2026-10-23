@@ -17,19 +17,24 @@
 пересказываем — ссылаемся на code.visualstudio.com. Пишем то, чем diode отличается или чего у
 VS Code нет.
 
-- [INSTALL.md](INSTALL.md) — все каналы установки: quick install, npm, Homebrew, apt, winget, mise, nightly
+- [INSTALL.md](INSTALL.md) — каналы установки одной командой каждый, пин версии; устройство каналов — в packaging/README.md, не здесь
 - [FIRST-RUN.md](FIRST-RUN.md) — первые десять минут: CLI, навигация, выход, где лежат настройки и профили
+- [DIFFERENCES.md](DIFFERENCES.md) — отличия от VS Code в одном месте: что меняет терминал и что выбрано осознанно (ссылки на подробности по страницам)
 - [KEYBOARD.md](KEYBOARD.md) — что терминал не доставляет (Ctrl+Shift, Ctrl+Tab, Cmd) и таблица замен `Ctrl+K`, уровни legacy/extended/cmd, Keyboard Doctor
 - [TERMINAL.md](TERMINAL.md) — настройка терминала: цвета, расширенные клавиши по эмуляторам, буфер обмена (OSC 52), ssh, tmux (клавиши, буфер, заголовок окна), screen
 - [EXTENSIONS.md](EXTENSIONS.md) — магазин и курируемый реестр, установка из редактора и из CLI, `.vsix`, где лежат, что не может работать, публикация в реестр
 - [API-COVERAGE.md](API-COVERAGE.md) — матрица готовности API расширений VS Code (для авторов расширений)
-- [ROADMAP.md](ROADMAP.md) — статус «альфа»: что работает, чего пока нет, что дальше, чего не будет
-- [PERFORMANCE.md](PERFORMANCE.md) — скорость: «наши мс» над полом node, что меряет `bench.yml` (цифры джоб кладёт в ветку `bench-data`, страница `/benchmarks/` рисует их оттуда), лестница старта, сравнение с другими редакторами (запланировано), перф-гейт `npm run test:perf`
+- [STATUS.md](STATUS.md) — статус «альфа»: чего нет, что планируется, чего не будет. Только видимое пользователю: без плана выпуска, механики и внутренних названий задач — это живёт в docs/TODO
+- [PERFORMANCE.md](PERFORMANCE.md) — скорость для пользователя: старт, большой файл, как мерим (абзац), ссылка на график `/benchmarks/` (данные из ветки `bench-data`); гейты и локальный запуск — в [TESTING.md](../TESTING.md#перф-гейт-и-бенчмарк-открытия-файла)
 
 Карта сайта (сайдбар — в `astro.config.mjs` репозитория сайта): Getting started — Install, First run,
-Keyboard, Terminal setup; Extensions — Installing extensions, API coverage; Reference — Settings;
-Project — Roadmap, Performance. Старые адреса (`tmux`, `reference/api-coverage`, `benchmarks`,
-`bench-open`) редиректят туда же.
+Differences from VS Code, Keyboard, Terminal setup; Extensions — Installing extensions, API coverage;
+Reference — Settings; Project — Status, Performance. Старые адреса (`tmux`, `reference/api-coverage`,
+`benchmarks`, `bench-open`, `project/roadmap`) редиректят туда же.
+
+Для кого пишем: для пользователя, не для автора. План выпуска, механика («damage tracking», «streaming
+reads»), имена тестов и npm-скриптов, истории «зачем мы это сделали» — в docs/TODO и внутренней доке;
+сюда — что человек увидит и что ему нажать.
 
 Правила каталога:
 

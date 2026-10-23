@@ -8,7 +8,7 @@ from the store, the same way they do in VS Code.
 
 The store at [diode-editor.github.io/marketplace](https://diode-editor.github.io/marketplace/) is a
 **curated** index, not a mirror of Open VSX: every extension in it has been checked to work in a
-terminal, and the latest version of each one is smoke-tested on every Diode pull request. The
+terminal, and the latest version of each one is tested against every Diode build. The
 `.vsix` files stay where their authors publish them (Open VSX or GitHub Releases); the index pins
 a URL and a sha256 for every version.
 
@@ -16,9 +16,9 @@ Some extensions carry a **Partial** badge: the extension works, but some of its 
 browser or a GUI and are listed under "Does not work" on its page, before you install it. A typical
 example: the language server works, the extension's webview chat or tree views don't.
 
-What is there today: Python (basedpyright, ruff), ESLint, Prettier, Go (gopls), Java (Eclipse JDT),
-Terraform, Protocol Buffers, EditorConfig, `#region` folding, Catppuccin themes, Claude Code with a
-diff tab for proposed edits, and Supermaven inline completions.
+Today it has languages (Python, Go, Java, Terraform, Protocol Buffers), linters and formatters
+(ESLint, Prettier, ruff), themes, Claude Code with a diff tab for proposed edits, and inline
+completions; the [store](https://diode-editor.github.io/marketplace/) has the current list.
 
 ## Installing from inside the editor
 

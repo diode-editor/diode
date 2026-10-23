@@ -36,13 +36,11 @@ Source Control, Extensions and the containers your extensions add. Each view is 
 | Go to file | `Ctrl+P` | `Ctrl+P` |
 | Explorer | `Ctrl+Shift+E` | `Ctrl+K E` |
 | Search in files | `Ctrl+Shift+F` | `Ctrl+K F` |
-| Source control | `Ctrl+Shift+G` | `Ctrl+K G` |
-| Problems | `Ctrl+Shift+M` | `Ctrl+K M` |
 | Terminal | ``Ctrl+` `` | `Ctrl+K T` |
-| Extensions | `Ctrl+Shift+X` | `Ctrl+K X` |
-| Toggle sidebar | `Ctrl+B` | `Ctrl+B` |
-| Toggle panel | `Ctrl+J` | `Ctrl+J` |
 | Next / previous tab | `Ctrl+PageDown` / `Ctrl+PageUp` | same, or `Alt+PageDown` / `Alt+PageUp` |
+
+The full table is on the [keyboard](KEYBOARD.md#every-command-has-a-key-that-works-everywhere) page;
+menus and the command palette show the chord next to each command, so you don't have to remember it.
 
 The mouse works: click to place the caret, drag to select, scroll, click tabs and tree items.
 There is a menu bar too, so a command you can't remember is a click away.
@@ -83,6 +81,7 @@ back with the same profile next time. `diode --profile <name> .` starts with a g
 
 ## Next
 
+- [Differences from VS Code](DIFFERENCES.md): everything that works differently, in one place.
 - [Keyboard](KEYBOARD.md): which keys a terminal can't deliver and what to press instead.
 - [Terminal setup](TERMINAL.md): colors, extended keys, clipboard over ssh, tmux.
 - [Extensions](EXTENSIONS.md): languages and tools from the store.
