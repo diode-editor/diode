@@ -3,6 +3,12 @@ import { Disposable, type IDisposable } from "../../../../base/common/lifecycle.
 import type { Uri } from "../../../../base/common/uri.ts";
 import type { ILanguageService } from "../../../../editor/common/languages/iLanguageService.ts";
 import { LanguageServiceDIToken } from "../../../../editor/common/languages/iLanguageService.ts";
+import {
+    DEFAULT_LARGE_FILE_OPTIONS,
+    type ILargeFileOptions,
+} from "../../../../editor/common/model/largeFileOptions.ts";
+import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
+import { IConfigurationServiceDIToken } from "../../../../platform/configuration/common/iConfigurationServiceDIToken.ts";
 import { type IFileService, IFileServiceDIToken } from "../../../../platform/files/common/files.ts";
 import type { IFileWatcher } from "../../../../platform/files/common/iFileWatcher.ts";
 import { IFileWatcherDIToken } from "../../../../platform/files/common/iFileWatcherDIToken.ts";
@@ -20,6 +26,25 @@ export const TextFileModelServiceDIToken = token<TextFileModelService>("TextFile
 export type SaveParticipantProvider = (model: TextFileModel) => SaveParticipant | null;
 
 /**
+ * Upstream `ModelService.getCreationOptions`: read at the model's first load, per language
+ * (`"[log]": { "editor.largeFileOptimizations": false }` works). Without a configuration service — the
+ * upstream constants. No fallback of our own: the schema guarantees the defaults.
+ */
+export function largeFileOptionsFromConfiguration(
+    configuration: IConfigurationService | undefined,
+): (languageId: string) => ILargeFileOptions {
+    if (configuration === undefined) return () => DEFAULT_LARGE_FILE_OPTIONS;
+    return (languageId) => {
+        const overrides = { overrideIdentifier: languageId };
+        return {
+            largeFileOptimizations: configuration.get("editor.largeFileOptimizations", overrides),
+            sizeThresholdMb: configuration.get("editor.largeFileSizeThreshold", overrides),
+            lineCountThreshold: configuration.get("editor.largeFileLineCountThreshold", overrides),
+        };
+    };
+}
+
+/**
  * Counterpart of `ITextFileService.files`/`.untitled`. Knows nothing of tabs and views, which
  * `EditorService` builds; synthetic buffers (Output, `jdt:`, snapshots) are not included.
  */
@@ -29,6 +54,7 @@ export class TextFileModelService extends Disposable {
         UndoRedoServiceDIToken,
         IFileServiceDIToken,
         IFileWatcherDIToken,
+        IConfigurationServiceDIToken,
     ] as const;
 
     private readonly registry = new TextFileModelRegistry((uri) => this.createFileModel(uri));
@@ -54,13 +80,17 @@ export class TextFileModelService extends Disposable {
     /** Upstream `ITextFileEditorModelManager.onDidChangeOrphaned`. */
     public readonly onDidChangeModelOrphaned = this.onDidChangeModelOrphanedEmitter.event;
 
+    private readonly largeFileOptions: (languageId: string) => ILargeFileOptions;
+
     public constructor(
         private readonly languageService: ILanguageService,
         private readonly undoRedoService: UndoRedoService,
         private readonly files: IFileService,
         private readonly fileWatcher: IFileWatcher,
+        configuration?: IConfigurationService,
     ) {
         super();
+        this.largeFileOptions = largeFileOptionsFromConfiguration(configuration);
     }
 
     /** Registration order is execution order. */
@@ -120,6 +150,7 @@ export class TextFileModelService extends Disposable {
     private wireModel(model: TextFileModel): void {
         model.fileWatcher = this.fileWatcher;
         model.saveParticipant = this.saveParticipant;
+        model.largeFileOptions = this.largeFileOptions;
         // Subscribes first, before tabs: the registry must rebind the key before tabs
         // repaint the name after saveAs. The model's emitter disposes it along with itself.
         model.onDidSaveDocument(() => {

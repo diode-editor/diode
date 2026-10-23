@@ -11,6 +11,12 @@ export interface IDocumentSyncSource {
     /** The model's `versionId`. */
     readonly version: number;
     readonly isDirty: boolean;
+    /**
+     * The model's large-file mode (`isTooLargeForTokenization`): such a document is not synced, as upstream
+     * does above `_MODEL_SYNC_LIMIT` — on 50 MB even the cheap sync is ~100 ms (#794), and extensions have
+     * no business with a read-only giant.
+     */
+    readonly isTooLargeForTokenization: boolean;
     /** Characters of the LF-normalized text, without building it. */
     readonly length: number;
     /** LF-normalized, like `IWireDocumentSyncSnapshot.text`. */

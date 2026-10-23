@@ -180,6 +180,56 @@ Ctrl+D и родня — состояние плюс чистые функции
   `TextFileModel.openSynthetic/appendOwnedContent` — как `OutputEditor extends
   AbstractTextResourceEditor` эталона) и виртуальные документы расширений. Демо —
   `e2e/scenarios/readonlyEditor.scenario.ts`.
+- На нём же стоит [режим большого файла](#режим-большого-файла): вкладка такого файла открывается
+  read-only.
+
+## Режим большого файла
+
+Аналог `largeFileOptimizations` эталона (`TextModel._isTooLargeForTokenization`, предупреждение
+`LargeFileOptimizationsWarner`): файл выше порога открывается с выключенными тяжёлыми функциями.
+Отступление от эталона (решение человека 2026-10-22): у эталона такой файл остаётся редактируемым, у
+нас он **открывается только для чтения**, а редактирование включается кнопкой тоста — это тот же
+шов, которым этап 4 OpenPerformance ([TODO](../TODO/OpenPerformance.md#этап-4--гигантские-файлы-отдельный-режим-только-чтение-со-стримингом-)) позже
+подменит загрузку документа с диска на загрузку в PieceTree.
+
+- **Порог и решение.** `editor.largeFileOptimizations` (ключ, дефолт и описание эталона) плюс наши
+  ключи `editor.largeFileSizeThreshold` (МиБ символов, дефолт 20 — константа эталона) и
+  `editor.largeFileLineCountThreshold` (дефолт 300 000) — порог настраиваемый по решению человека
+  2026-10-23, читается на языке файла (`"[log]": { … }` работает). Чистая функция и дефолты —
+  `editor/common/model/largeFileOptions.ts`; `TextFileModelService` отдаёт опции модели
+  (`TextFileModel.largeFileOptions`, как `ModelService.getCreationOptions` эталона), а модель решает
+  **один раз, на первой загрузке** (`openFile`/`openProvided`) по длине и числу строк готового
+  piece tree — как эталон в конструкторе `TextModel`: перечитка (revert, смена кодировки, внешняя
+  правка) решение не меняет. Флаг — `BaseTextEditorModel.isTooLargeForTokenization` (имя эталона),
+  единственный переход true → false — `forcefullyEnableFeatures()` с событием
+  `onDidChangeTooLargeForTokenization`.
+- **Что выключено и где** (потребители флага те же, что у эталона):
+  токенизация — `EditorComponent.ensureTokenizerForLanguage` отдаёт `PlainTextTokenizer` и не грузит
+  грамматику (эталон: `tokenizerSyntaxTokenBackend`); фолдинг — `recomputeFoldingRegions` снимает
+  регионы и не считает (эталон: `folding.ts`); wrap — `applyWordWrap` принудительно `off`, запрос
+  конфигурации хранится отдельно (эталон: `viewModelImpl` даёт строки как есть); вхождения —
+  `applyOccurrenceHighlight` (эталон: `wordHighlighter.ts`); семантические токены — документ не
+  подключается к `DocumentSemanticTokensFeature`; quick diff — `QuickDiffService.refresh` отдаёт
+  пустые бары (эталон — через лимит синхронизации воркера); sync в extension host —
+  `IDocumentSyncSource.isTooLargeForTokenization`, `DocumentsCustomer` такой документ не открывает
+  (как эталон выше `_MODEL_SYNC_LIMIT`; на 50 МБ даже дешёвый sync — ~100 мс, #794). Не выключены:
+  развёртка ширины строк (idle-ломтики, как у эталона «самая широкая из виденных») и фоновый проход
+  `DocumentTokenStore` с plain-токенизатором (дёшев, но на миллион строк заводит миллион пустых
+  массивов — кандидат на 4.2, где документ на диске сам без хранилища токенов).
+- **Read-only.** `TextEditorPane` при создании ставит `viewState.readOnly` по флагу модели и подписан на
+  событие: «Включить редактирование» снимает read-only у всех вкладок модели (файл в двух группах).
+  Контекст-ключ `editorReadonly` пересчитывает команда.
+- **Тост и выход.** Фича `workbench/contrib/largeFile/`: contribution `LargeFileOptimizationsWarner`
+  (фаза `ready`) по `onActiveEditorChanged` показывает вопрос-тост «<файл>: opened read-only;
+  tokenization, wrapping, folding, word highlighting, quick diff and extension sync have been turned off
+  for this large file …» с кнопкой **Enable Editing** — один раз на модель, не на вкладку; detached-панели
+  и стороны диффа не считаются. Кнопка и команда `workbench.action.files.enableLargeFileEditing` (палитра:
+  «File: Enable Editing of Large File», когда тост уже уехал) делают одно и то же:
+  `model.forcefullyEnableFeatures()` + пересчёт контекст-ключей; компонент по событию возвращает
+  токенизатор, фолдинг, wrap, вхождения и семантику, адаптер sync шлёт flush (документ открывается
+  субпроцессу), quick diff пересчитывает. Отступление: эталонная кнопка «Forcefully Enable Features»
+  пишет `editor.largeFileOptimizations: false` в settings.json и просит переоткрыть файл — у нас
+  сессионно и для одной модели, настройка не трогается. Демо — `e2e/scenarios/largeFileMode.scenario.ts`.
 
 ## Tracked decorations (декорации, которые едут с текстом)
 `editor/common/model/trackedDecorations.ts` — аналог дерева декораций `textModel` эталона: `ITextDocument.deltaDecorations(oldIds, [{ range, options: { description, stickiness } }])` → id, `getDecorationRange(id)` — текущий диапазон. Сдвиг — порт `nodeAcceptEdit` (`intervalTree.ts`) в позициях вместо офсетов: `TextDocument.applyEdits` двигает декорации ДО применения батча к буферу, снизу вверх по правкам (смещения внутри заменяемого диапазона меряются по старому тексту; длины нужны только строк правки до её последней, а их нижние правки не трогают), то есть раньше любых событий правки; поведение краёв — `TrackedRangeStickiness` (те же 4 значения), проверено дословной таблицей «Decorations and editing» эталона. Диапазон при добавлении приводится к документу (`validateRange`). `setText` (flush) правок не несёт — диапазоны остаются на прежних координатах, приведённые к новому тексту (отступление: эталон на `setValue` декорации сносит, но перечитку файла проводит диффом правок, и декорации переживают её). Упрощение — плоский `Map` и линейный проход на правку, без `IntervalTree`; `forceMoveMarkers`/`collapseOnReplaceEdit` нет. Владельцы — вью: декорации маркеров каждой `EditorViewState` свои и снимаются её `dispose`. Остальные декорации (поиск, вхождения, gutter-бары) пока пересчитываются владельцами — follow-up в [docs/TODO/TrackedDecorations.md](../TODO/TrackedDecorations.md).

@@ -6,7 +6,8 @@
 `log` (`outputView.ts`, `OutputEditor extends AbstractTextResourceEditor`).
 
 Сделано: флаг read-only с тремя уровнями защиты и detached pane для Output — устройство в
-[arch/Editor.md](../arch/Editor.md#read-only-редактор).
+[arch/Editor.md](../arch/Editor.md#read-only-редактор). На том же флаге — режим большого файла
+(OpenPerformance 4.1, [arch/Editor.md](../arch/Editor.md#режим-большого-файла)).
 
 ## Открытые фазы
 

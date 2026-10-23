@@ -45,6 +45,14 @@ export abstract class BaseTextEditorModel extends Disposable {
     private readonly onDidChangeLanguageEmitter = this.register(new Emitter<IDocumentLanguageChange>());
     private readonly onDidChangeEolEmitter = this.register(new Emitter<void>());
     private readonly onDidChangeContentEmitter = this.register(new Emitter<void>());
+    private readonly onDidChangeTooLargeForTokenizationEmitter = this.register(new Emitter<void>());
+    /**
+     * Upstream `TextModel._isTooLargeForTokenization`: decided once, when the file is first loaded
+     * (`largeFileOptimizations` and the thresholds), and kept through reloads — "permanently respect this
+     * decision". Our deviation: the file also opens read-only, and {@link forcefullyEnableFeatures} is the
+     * only way out (upstream's "Forcefully Enable Features" turns the setting off and asks to reopen).
+     */
+    private tooLargeForTokenization = false;
     protected uriValue: Uri;
     protected savedVersionId = 0;
     protected savedEol: EndOfLine;
@@ -77,6 +85,29 @@ export abstract class BaseTextEditorModel extends Disposable {
 
     /** Fires on any path: a command, undo/redo, a reload with a different EOL. */
     public readonly onDidChangeEol = this.onDidChangeEolEmitter.event;
+
+    /** Only one transition, true → false ({@link forcefullyEnableFeatures}). */
+    public readonly onDidChangeTooLargeForTokenization = this.onDidChangeTooLargeForTokenizationEmitter.event;
+
+    /**
+     * The large-file mode: tokenization, wrapping, folding, word highlighting, quick diff and the
+     * extension host sync are off, and the file's tabs open read-only.
+     */
+    public get isTooLargeForTokenization(): boolean {
+        return this.tooLargeForTokenization;
+    }
+
+    /** A subclass decides on load; the mode never turns on later (as upstream). */
+    protected markTooLargeForTokenization(): void {
+        this.tooLargeForTokenization = true;
+    }
+
+    /** Upstream's "Forcefully Enable Features" for this model only, in the session: the features come back. */
+    public forcefullyEnableFeatures(): void {
+        if (!this.tooLargeForTokenization) return;
+        this.tooLargeForTokenization = false;
+        this.onDidChangeTooLargeForTokenizationEmitter.fire();
+    }
 
     protected constructor(languageService: ILanguageService, undoRedoService: UndoRedoService, uri: Uri) {
         super();

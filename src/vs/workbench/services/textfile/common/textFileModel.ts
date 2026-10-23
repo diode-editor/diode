@@ -13,6 +13,11 @@ import {
     encodeChunks,
     type IDecodedStream,
 } from "../../../../editor/common/model/encodingStream.ts";
+import {
+    DEFAULT_LARGE_FILE_OPTIONS,
+    type ILargeFileOptions,
+    isTooLargeForTokenization,
+} from "../../../../editor/common/model/largeFileOptions.ts";
 import { createTextBufferFactoryFromChunks } from "../../../../editor/common/model/textDocument.ts";
 import {
     etag,
@@ -104,6 +109,12 @@ export class TextFileModel extends BaseTextEditorModel {
     /** Shared by all models of `EditorService`; runs in both `save` and `saveAs`. */
     public saveParticipant: TextFileSaveParticipant | null = null;
 
+    /**
+     * Upstream `ModelService.getCreationOptions`: `editor.largeFileOptimizations` and the thresholds, read
+     * per language at the first load. Injected by the owning service; the default is the upstream constants.
+     */
+    public largeFileOptions: (languageId: string) => ILargeFileOptions = () => DEFAULT_LARGE_FILE_OPTIONS;
+
     /** The file changed externally while there are unsaved edits, so it cannot be auto-reloaded. */
     public get hasDiskConflict(): boolean {
         return this.diskConflictValue;
@@ -187,8 +198,20 @@ export class TextFileModel extends BaseTextEditorModel {
         this.uriValue = uri;
         const filePath = uri.fsPath;
         this.loadDocumentFromDisk(filePath);
+        this.decideLargeFile();
         this.adoptWorkspaceUndo(filePath, path.basename(filePath));
         this.startWatchingFile(filePath);
+    }
+
+    /**
+     * Once, on the first load, like upstream's decision in the `TextModel` constructor: a reload (revert,
+     * encoding, external change) keeps it. Measured on the built document: the piece tree knows both numbers.
+     */
+    private decideLargeFile(): void {
+        const options = this.largeFileOptions(this.doc.languageId);
+        if (isTooLargeForTokenization(this.doc.getValueLength(), this.doc.lineCount, options)) {
+            this.markTooLargeForTokenization();
+        }
     }
 
     /**
@@ -202,6 +225,7 @@ export class TextFileModel extends BaseTextEditorModel {
         }
         this.uriValue = uri;
         this.applyProvided(bytes);
+        this.decideLargeFile();
         this.providedWatch = this.files.onDidFilesChange((uris) => {
             if (uris.some((changed) => changed.toString() === uri.toString())) void this.reloadProvided();
         });

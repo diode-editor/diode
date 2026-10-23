@@ -56,6 +56,24 @@ export class TextEditorPane<TModel extends BaseTextEditorModel = BaseTextEditorM
         super();
         this.register(component);
         this.register(modelOwnership ?? model);
+        // The large-file mode (docs/arch/Editor.md): a deviation from upstream, where the file stays editable.
+        // Every tab of the model opens read-only; "Enable Editing" releases them all through the model event,
+        // whose only transition is true → false.
+        if (model.isTooLargeForTokenization) component.viewState.readOnly = true;
+        this.register(
+            model.onDidChangeTooLargeForTokenization(() => {
+                this.readOnly = false;
+            }),
+        );
+    }
+
+    /** The model's large-file mode; consumers that skip work on it (quick diff) read it from the pane. */
+    public get isTooLargeForTokenization(): boolean {
+        return this.model.isTooLargeForTokenization;
+    }
+
+    public onDidChangeTooLargeForTokenization(listener: () => void): IDisposable {
+        return this.model.onDidChangeTooLargeForTokenization(listener);
     }
 
     public onDidChangeState(cb: () => void): IDisposable {

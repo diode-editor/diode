@@ -19,16 +19,24 @@ const DELETED = 0xff0000;
 const FILE = Uri.file("/repo/a.ts");
 const ORIGINAL = Uri.from({ scheme: "git", path: "/repo/a.ts", query: '{"path":"/repo/a.ts","ref":"HEAD"}' });
 
-function fakeEditor(uri: Uri, text: string) {
+function fakeEditor(uri: Uri, text: string, tooLarge = false) {
     const listeners: (() => void)[] = [];
+    const modeListeners: (() => void)[] = [];
     const pushed: (readonly IGutterChangeDecoration[])[] = [];
     let current = text;
     const editor: IQuickDiffEditor = {
         uri,
+        get isTooLargeForTokenization() {
+            return tooLarge;
+        },
         getLinesContent: () => current.split("\n"),
         onDidChangeContent: (cb) => {
             listeners.push(cb);
             return { dispose: () => listeners.splice(listeners.indexOf(cb), 1) };
+        },
+        onDidChangeTooLargeForTokenization: (cb) => {
+            modeListeners.push(cb);
+            return { dispose: () => modeListeners.splice(modeListeners.indexOf(cb), 1) };
         },
         setGutterChangeDecorations: (d) => pushed.push(d),
     };
@@ -38,6 +46,10 @@ function fakeEditor(uri: Uri, text: string) {
         type: (next: string) => {
             current = next;
             for (const cb of [...listeners]) cb();
+        },
+        enableFeatures: () => {
+            tooLarge = false;
+            for (const cb of [...modeListeners]) cb();
         },
         get last() {
             return pushed.at(-1);
@@ -127,10 +139,11 @@ interface ISetupOptions {
     readonly text?: string;
     readonly original?: string | null;
     readonly config?: Record<string, unknown>;
+    readonly tooLarge?: boolean;
 }
 
 function setup(options: ISetupOptions = {}) {
-    const ed = fakeEditor(FILE, options.text ?? "a\nb\nc");
+    const ed = fakeEditor(FILE, options.text ?? "a\nb\nc", options.tooLarge);
     const src = fakeSource(ed.editor);
     const registry = new FileService();
     const prov = fakeProvider(options.original ?? "a\nb\nc");
@@ -199,6 +212,26 @@ describe("QuickDiffService", () => {
         await new Promise((resolve) => setTimeout(resolve, 40));
 
         expect(ed.pushed.length).toBe(before + 1);
+    });
+
+    it("a file in the large-file mode gets no bars, not even a diff; Enable Editing recomputes", async () => {
+        const { ed } = setup({ text: "a\nB2\nc", original: "a\nb\nc", tooLarge: true });
+        await settle();
+        expect(ed.last).toEqual([]);
+
+        ed.type("a\nB3\nc");
+        await settle();
+        expect(ed.pushed.every((bars) => bars.length === 0)).toBe(true);
+
+        ed.enableFeatures();
+        await settle();
+        expect(ed.last).toEqual([
+            {
+                range: { start: { line: 1, character: 0 }, end: { line: 1, character: 0 } },
+                color: MODIFIED,
+                dashed: true,
+            },
+        ]);
     });
 
     it("no original (untracked): no bars and nothing breaks", async () => {

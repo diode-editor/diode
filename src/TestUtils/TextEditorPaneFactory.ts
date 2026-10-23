@@ -5,6 +5,7 @@ import type { ILanguageService } from "../vs/editor/common/languages/iLanguageSe
 import { NULL_LANGUAGE_SERVICE } from "../vs/editor/common/languages/iLanguageService.ts";
 import { NULL_TOKEN_STYLE_RESOLVER } from "../vs/editor/common/languages/iTokenStyleResolver.ts";
 import { TokenizationRegistry } from "../vs/editor/common/languages/tokenizationRegistry.ts";
+import type { ILargeFileOptions } from "../vs/editor/common/model/largeFileOptions.ts";
 import type { DocumentSemanticTokensFeature } from "../vs/editor/contrib/semanticTokens/browser/documentSemanticTokens.ts";
 import type { IFileService } from "../vs/platform/files/common/files.ts";
 import { WorkbenchTheme } from "../vs/platform/theme/common/workbenchTheme.ts";
@@ -35,6 +36,8 @@ export interface IEditorPaneOverrides {
      * component treats differently: folds are recomputed at once instead of after the delay.
      */
     readonly file?: Uri;
+    /** The thresholds of the large-file mode, applied to the model before {@link file} is loaded. */
+    readonly largeFileOptions?: ILargeFileOptions;
 }
 
 /** Builds the pair the same way as `TextEditorPaneBuilder.build`. */
@@ -45,6 +48,10 @@ export function createEditorPane(overrides: IEditorPaneOverrides = {}): TextEdit
         overrides.undoRedoService ?? new UndoRedoService(),
         overrides.files ?? diskFileService(),
     );
+    if (overrides.largeFileOptions !== undefined) {
+        const options = overrides.largeFileOptions;
+        model.largeFileOptions = () => options;
+    }
     if (overrides.file !== undefined) model.openFile(overrides.file);
     const component = new EditorComponent(
         overrides.registry ?? new TokenizationRegistry(),

@@ -22,9 +22,15 @@ const DEFAULT_DEBOUNCE_MS = 200;
 /** `TextEditorPane` matches structurally; the DI module does the binding. */
 export interface IQuickDiffEditor {
     readonly uri: Uri;
+    /**
+     * The large-file mode (docs/arch/Editor.md): no bars, like upstream above its sync limit, where the
+     * diff worker never sees the model. The event fires when the mode is left ("Enable Editing").
+     */
+    readonly isTooLargeForTokenization: boolean;
     /** Not a whole-text string: recompute runs on every edit. */
     getLinesContent(): string[];
     onDidChangeContent(listener: () => void): IDisposable;
+    onDidChangeTooLargeForTokenization(listener: () => void): IDisposable;
     setGutterChangeDecorations(decorations: readonly IGutterChangeDecoration[]): void;
 }
 
@@ -66,6 +72,7 @@ export class QuickDiffService extends Disposable {
      */
     private readonly originals = new Map<string, string[]>();
     private activeContentSubscription: IDisposable | null = null;
+    private activeModeSubscription: IDisposable | null = null;
     private debounceTimer: ReturnType<typeof setTimeout> | undefined;
     private readonly latest = new LatestRequest();
 
@@ -127,6 +134,12 @@ export class QuickDiffService extends Disposable {
             editor?.onDidChangeContent(() => {
                 this.scheduleRefresh(editor);
             }) ?? null;
+        this.activeModeSubscription?.dispose();
+        this.activeModeSubscription =
+            // Stryker disable next-line LogicalOperator: a subscription is an object, "||" cannot tell it from "??"
+            editor?.onDidChangeTooLargeForTokenization(() => {
+                void this.refresh(editor);
+            }) ?? null;
     }
 
     private scheduleRefresh(editor: IQuickDiffEditor): void {
@@ -142,7 +155,7 @@ export class QuickDiffService extends Disposable {
         if (editor === null) return;
         const ticket = this.latest.start();
 
-        if (!this.isEnabled()) {
+        if (!this.isEnabled() || editor.isTooLargeForTokenization) {
             editor.setGutterChangeDecorations([]);
             return;
         }
@@ -212,5 +225,6 @@ export class QuickDiffService extends Disposable {
     private teardown(): void {
         if (this.debounceTimer !== undefined) clearTimeout(this.debounceTimer);
         this.activeContentSubscription?.dispose();
+        this.activeModeSubscription?.dispose();
     }
 }

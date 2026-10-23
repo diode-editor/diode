@@ -17,7 +17,7 @@ import { dirname, join } from "node:path";
 import { removeTempDir } from "../helpers/appSession.ts";
 import { getBinaryPath } from "../helpers/buildOnce.ts";
 
-import { generateFixture, MiB, SIZES, type SizeSpec } from "./openFixtures.ts";
+import { generateFixture, MiB, OPT_IN_SIZES, SIZES, type SizeSpec } from "./openFixtures.ts";
 import { COLS, measureOpenOnce, type OpenRunResult, ROWS } from "./openMeasure.ts";
 import { formatMs, type FullReport, renderMarkdown, type SizeReport, summarizeSize } from "./openReport.ts";
 import { BINARY_FLOOR_ARGS, measureFloorPty, NODE_FLOOR_ARGS, NODE_VERSION_ARGS } from "./ptyFloor.ts";
@@ -48,10 +48,11 @@ export function parseCli(argv: readonly string[]): CliOptions {
     for (const arg of argv) {
         if (arg.startsWith("--sizes=")) {
             const keys = arg.slice("--sizes=".length).split(",");
-            const picked = SIZES.filter((s) => keys.includes(s.key));
+            const known = [...SIZES, ...OPT_IN_SIZES];
+            const picked = known.filter((s) => keys.includes(s.key));
             if (picked.length !== keys.length) {
-                const known = SIZES.map((s) => s.key).join(", ");
-                throw new Error(`--sizes: unknown key in "${keys.join(",")}" (known: ${known})`);
+                const names = known.map((s) => s.key).join(", ");
+                throw new Error(`--sizes: unknown key in "${keys.join(",")}" (known: ${names})`);
             }
             options.sizes = picked;
         } else if (arg.startsWith("--runs=")) {

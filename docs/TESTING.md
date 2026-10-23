@@ -580,7 +580,9 @@ npm run test:coverage      # = vitest run --coverage
 подъёма V8 и полом быть не может). После открытия бенч гоняет нагрузку (вставка, Enter, undo,
 сохранение — Ctrl+S до `×` на вкладке, Ctrl+End, поиск) и меряет латентность клавиши до кадра; колонка peak RSS — `VmHWM` процесса.
 Локально: `npm run bench:open -- --sizes=small,medium,xlarge --runs=5 --label="условия"` — под лизой
-`heavy-run` (бенч собирает SEA). `--keep-traces=<каталог>` сохраняет трассы прогонов вместе с трассой созданий
+`heavy-run` (бенч собирает SEA). Размеры `log50m`/`log100m` (`OPT_IN_SIZES`) в матрицу по умолчанию не
+входят — только по `--sizes=`, с `--no-workload`: выше порога файл открыт только для чтения
+([arch/Editor.md](arch/Editor.md#режим-большого-файла)). `--keep-traces=<каталог>` сохраняет трассы прогонов вместе с трассой созданий
 DI, `npm run bench:services -- <каталог>/*.json` печатает по ним таблицу сервисов и контрибуций
 ([arch/Common.md](arch/Common.md#вехи-старта-performancets)).
 

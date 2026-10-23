@@ -108,6 +108,26 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
     },
     { key: "editor.insertSpaces", type: "boolean", default: true, description: "Insert spaces when pressing Tab." },
     {
+        key: "editor.largeFileLineCountThreshold",
+        type: "number",
+        default: 300000,
+        description:
+            "The number of lines above which a file is treated as large when `editor.largeFileOptimizations` is on.",
+    },
+    {
+        key: "editor.largeFileOptimizations",
+        type: "boolean",
+        default: true,
+        description: "Special handling for large files to disable certain memory intensive features.",
+    },
+    {
+        key: "editor.largeFileSizeThreshold",
+        type: "number",
+        default: 20,
+        description:
+            "The size in megabytes above which a file is treated as large when `editor.largeFileOptimizations` is on: it opens read-only with tokenization, wrapping, folding, word highlighting, quick diff and extension sync turned off.",
+    },
+    {
         key: "editor.occurrencesHighlight",
         type: "string",
         default: "singleFile",

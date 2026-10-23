@@ -64,6 +64,7 @@ function src(text = "hello", version = 1, uri = "file:///a.ts"): IDocumentSyncSo
         languageId: "typescript",
         version,
         isDirty: false,
+        isTooLargeForTokenization: false,
         length: text.length,
         built: 0,
         getText: (): string => {
@@ -189,6 +190,22 @@ describe("DocumentsCustomer — mirrored document sync", () => {
         expect(h.received).toEqual([]);
         const warning = `warn:skipping document sync: document too large ${JSON.stringify([{ uri: "file:///a.ts", length: huge.length }])}`;
         expect(h.logLines).toEqual([warning, warning]);
+    });
+
+    it("a document in the large-file mode is not opened, quietly; leaving the mode (a flush) opens it", async () => {
+        const h = makeCustomer();
+        const large = { ...src(), isTooLargeForTokenization: true };
+        h.customer.didOpenTextDocument(large);
+        h.customer.didChangeTextDocumentContent(delta());
+        await flushMicrotasks();
+        expect(h.received).toEqual([]);
+        expect(h.logLines).toEqual([]);
+        expect(h.customer.isSynced("file:///a.ts")).toBe(false);
+
+        h.customer.didChangeTextDocument(src("hello", 2));
+        await flushMicrotasks();
+        expect(h.received).toEqual([{ method: "editor.didOpen", params: snap("hello", 2) }]);
+        expect(h.customer.isSynced("file:///a.ts")).toBe(true);
     });
 
     it("a flush that outgrows the limit closes the document for the subprocess", async () => {

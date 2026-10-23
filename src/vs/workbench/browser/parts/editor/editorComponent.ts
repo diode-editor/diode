@@ -104,6 +104,13 @@ export class EditorComponent extends Component {
     private quickDiffGutterChanges: readonly IGutterChangeDecoration[] = [];
     private extensionGutterChanges: readonly IGutterChangeDecoration[] = [];
     private readonly editTargetValue: ITextEditTarget;
+    /**
+     * What the configuration asked for; the large-file mode overrides both with "off" until
+     * `forcefullyEnableFeatures`, so the request is kept apart from what is applied.
+     */
+    private occurrenceHighlightRequested = true;
+    private wordWrapRequested: { readonly mode: WordWrapMode; readonly column: number } | null = null;
+    private readonly semanticTokensFeature: DocumentSemanticTokensFeature | undefined;
     /** Not on the view state: it is recreated on reload from disk, and the extension host subscriber must survive that. */
     private readonly onDidChangeSelectionEmitter = new Emitter<void>();
     /** On the component for the same reason. */
@@ -165,6 +172,7 @@ export class EditorComponent extends Component {
         this.indentConfiguration = indentConfiguration;
 
         this.editorViewState = new EditorViewState(model.document, undefined, indentConfiguration);
+        this.semanticTokensFeature = semanticTokens;
         // The TM token cache subscribes to the document, which outlives the view: without
         // dispose the subscription would stay on the model after the tab is closed.
         this.tokenStore = this.register(
@@ -188,7 +196,8 @@ export class EditorComponent extends Component {
         this.view = new ScrollBarDecorator(this.editor);
         // The `editor.scrollbarMarkers` default, for surfaces the configuration never reaches.
         this.view.markerPlacement = "auto";
-        if (semanticTokens !== undefined) this.attachSemanticTokens(semanticTokens);
+        this.attachSemanticTokensUnlessTooLarge();
+        this.applyOccurrenceHighlight();
 
         // The closures read component fields, so they survive EditorElement
         // recreation on reload.
@@ -228,6 +237,16 @@ export class EditorComponent extends Component {
                 this.scheduleFoldingRecompute();
             }),
         );
+        // Upstream's "Forcefully Enable Features" for this model: every gate below re-reads the flag.
+        this.register(
+            model.onDidChangeTooLargeForTokenization(() => {
+                this.applyTokenizer();
+                this.attachSemanticTokensUnlessTooLarge();
+                this.applyOccurrenceHighlight();
+                this.applyWordWrap();
+                this.scheduleFoldingRecompute();
+            }),
+        );
         this.register({
             dispose: () => {
                 this.foldingScheduler.dispose();
@@ -239,6 +258,23 @@ export class EditorComponent extends Component {
         // Not on the path to the first frame: on a 200K-line file the indentation pass is ~100 ms, and
         // the delay lands past the frame (upstream triggers the same scheduler on model change).
         this.scheduleFoldingRecompute();
+    }
+
+    /**
+     * Upstream `isTooLargeForTokenization` gate (`tokenizerSyntaxTokenBackend`, `folding`, `wordHighlighter`,
+     * `viewModelImpl` for wrapping): the large-file mode of docs/arch/Editor.md.
+     */
+    private get tooLarge(): boolean {
+        return this.model.isTooLargeForTokenization;
+    }
+
+    /**
+     * Semantic tokens need the document in the extension host, which a large file never reaches. Called
+     * twice at most: here at construction, and once more on the model's single true → false transition.
+     */
+    private attachSemanticTokensUnlessTooLarge(): void {
+        if (this.semanticTokensFeature === undefined || this.tooLarge) return;
+        this.attachSemanticTokens(this.semanticTokensFeature);
     }
 
     private attachSemanticTokens(feature: DocumentSemanticTokensFeature): void {
@@ -381,6 +417,12 @@ export class EditorComponent extends Component {
     }
 
     public setOccurrenceHighlightEnabled(enabled: boolean): void {
+        this.occurrenceHighlightRequested = enabled;
+        this.applyOccurrenceHighlight();
+    }
+
+    private applyOccurrenceHighlight(): void {
+        const enabled = this.occurrenceHighlightRequested && !this.tooLarge;
         if (this.editor.occurrenceHighlightEnabled === enabled) return;
         this.editor.occurrenceHighlightEnabled = enabled;
         this.editor.markDirty();
@@ -406,6 +448,15 @@ export class EditorComponent extends Component {
      * the cursor: the projection renumbers rows (upstream does the same).
      */
     public setWordWrap(mode: WordWrapMode, column: number): void {
+        this.wordWrapRequested = { mode, column };
+        this.applyWordWrap();
+    }
+
+    /** Upstream `viewModelImpl`: a model too large for tokenization gets the lines as they are, unwrapped. */
+    private applyWordWrap(): void {
+        if (this.wordWrapRequested === null) return;
+        const { column } = this.wordWrapRequested;
+        const mode = this.tooLarge ? "off" : this.wordWrapRequested.mode;
         const viewState = this.editorViewState;
         if (viewState.wordWrap === mode && viewState.wordWrapColumn === column) return;
         viewState.wordWrap = mode;
@@ -487,6 +538,9 @@ export class EditorComponent extends Component {
     }
 
     private ensureTokenizerForLanguage(languageId: string): ITokenizationSupport {
+        // Upstream `tokenizerSyntaxTokenBackend`: no tokenizer for a model too large for tokenization — and no
+        // grammar load either; the TextMate pass over 300K+ lines is what the mode exists to avoid.
+        if (this.tooLarge) return new PlainTextTokenizer();
         void this.tokenizationRegistry.load(languageId); // fire-and-forget: load() never rejects
         const support = this.tokenizationRegistry.get(languageId);
         if (support === undefined) return new PlainTextTokenizer();
@@ -524,6 +578,10 @@ export class EditorComponent extends Component {
         // The view's owner sets the regions: an automatic recompute would overwrite them, and its
         // reveal would break the synced scrolling of the diff sides.
         if (this.foldingOwnedExternally) return;
+        // Upstream `FoldingController.onModelChanged`: no folding model for a model too large for tokenization.
+        // The mode is decided before the component exists and only ever ends, so nothing is in flight
+        // and no regions were applied: there is nothing to cancel or clear.
+        if (this.tooLarge) return;
         // Snapshot which start lines are collapsed BEFORE the request: the user
         // may fold while it is in flight, the apply unions both.
         const collapsedStarts = this.collapsedStartLines();

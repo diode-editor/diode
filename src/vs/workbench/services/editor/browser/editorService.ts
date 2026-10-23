@@ -207,7 +207,15 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
         const fileService = files ?? this.register(new FileService());
         this.textFileModels =
             textFileModels ??
-            this.register(new TextFileModelService(languageService, undoRedoService, fileService, fileWatcher));
+            this.register(
+                new TextFileModelService(
+                    languageService,
+                    undoRedoService,
+                    fileService,
+                    fileWatcher,
+                    configurationService,
+                ),
+            );
         this.paneBuilder =
             paneBuilder ??
             new TextEditorPaneBuilder(
