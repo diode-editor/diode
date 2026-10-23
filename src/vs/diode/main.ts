@@ -28,6 +28,7 @@ import { ColorMapTokenStyleResolver } from "../editor/common/languages/colorMapT
 import type { ILanguageService } from "../editor/common/languages/iLanguageService.ts";
 import { TokenizationRegistry } from "../editor/common/languages/tokenizationRegistry.ts";
 import { OscClipboard } from "../platform/clipboard/common/oscClipboard.ts";
+import { AdjustableClockDIToken } from "../platform/clock/common/clock.ts";
 import { CommandRegistryDIToken } from "../platform/commands/common/commandRegistry.ts";
 import { ConfigurationRegistry } from "../platform/configuration/common/configurationRegistry.ts";
 import { loadConfiguration } from "../platform/configuration/node/configurationService.ts";
@@ -578,6 +579,7 @@ async function runEditor(): Promise<void> {
                             contextKeys: container.get(ContextKeyServiceDIToken),
                             ready: startupComplete.promise,
                             pid: process.pid,
+                            clock: container.get(AdjustableClockDIToken),
                         },
                     );
                     // The port is released before exit: the reloaded window takes the same one.

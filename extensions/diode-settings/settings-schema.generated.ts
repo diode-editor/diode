@@ -241,6 +241,28 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
         description: "Controls whether file decorations should use colors.",
     },
     {
+        key: "extensions.autoCheckUpdates",
+        type: "boolean",
+        default: true,
+        description:
+            "When enabled, automatically checks extensions for updates. If an extension has an update, it is marked as outdated in the Extensions view. The updates are fetched from the extension registry.",
+    },
+    {
+        key: "extensions.autoUpdate",
+        type: "string | boolean",
+        default: "on",
+        description:
+            "Controls the automatic update behavior of extensions. The updates are fetched from the extension registry.",
+        enum: ["on", "off", true, false],
+    },
+    {
+        key: "extensions.autoUpdateDelay",
+        type: "number",
+        default: 2,
+        description:
+            "Controls the delay in hours after an extension update is published before it is automatically installed. Only applies when `#extensions.autoUpdate#` is set to `on`. This delay helps avoid installing potentially problematic updates immediately after release.",
+    },
+    {
         key: "extensions.confirmedUriHandlerExtensionIds",
         type: "array",
         default: [],

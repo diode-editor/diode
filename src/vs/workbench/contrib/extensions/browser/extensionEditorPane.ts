@@ -70,6 +70,11 @@ export class ExtensionEditorPane extends Disposable implements IEditorPane {
                 this.syncEntry();
             }),
         );
+        this.register(
+            actions.onDidChangeAutoUpdate(() => {
+                this.render();
+            }),
+        );
     }
 
     public get label(): string {
@@ -96,7 +101,11 @@ export class ExtensionEditorPane extends Disposable implements IEditorPane {
     }
 
     private buttons(): ReturnType<typeof describeExtensionButtons> {
-        return describeExtensionButtons(this.entry, { busy: this.busy, needsReload: this.needsReload });
+        return describeExtensionButtons(this.entry, {
+            busy: this.busy,
+            needsReload: this.needsReload,
+            autoUpdate: this.actions.isAutoUpdateEnabled(),
+        });
     }
 
     private render(): void {
@@ -116,6 +125,10 @@ export class ExtensionEditorPane extends Disposable implements IEditorPane {
             void this.installAnotherVersion();
             return;
         }
+        if (kind === "toggleAutoUpdate") {
+            void this.toggleAutoUpdate();
+            return;
+        }
         // install and update are the same operation: installing removes previous versions.
         void this.runOperation(() => this.actions.install(this.entry.id));
     }
@@ -133,6 +146,13 @@ export class ExtensionEditorPane extends Disposable implements IEditorPane {
         }
         if (version === undefined) return;
         await this.runOperation(() => this.actions.install(id, { version }));
+    }
+
+    /** Not an operation: only the pin changes, so no busy state and no reload; the card brings the new label. */
+    private async toggleAutoUpdate(): Promise<void> {
+        const result = await this.actions.setAutoUpdate(this.entry.id, this.entry.pinned);
+        this.operationError = result.ok ? null : result.error;
+        this.render();
     }
 
     private async runOperation(run: () => Promise<IExtensionOperationResult>): Promise<void> {

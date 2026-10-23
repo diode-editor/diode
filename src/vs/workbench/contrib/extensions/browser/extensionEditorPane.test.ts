@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import { renderElement } from "../../../../../TestUtils/renderElement.ts";
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
+import { Emitter } from "../../../../base/common/event.ts";
 import type { IRegistryExtensionMeta } from "../../../../platform/extensionManagement/common/registryFormat.ts";
 import type { IEditorPane } from "../../../browser/parts/editor/iEditorPane.ts";
 import type { IExtensionListEntry, IExtensionsWorkbenchService } from "../common/extensionsWorkbench.ts";
@@ -44,6 +45,9 @@ function fakeService(initial: IExtensionListEntry[]): {
         checkForUpdates: () => Promise.resolve(),
         getOutdated: () => [],
         updateAll: () => Promise.resolve({ updated: [], failed: [] }),
+        updateExtensions: () => Promise.resolve({ updated: [], failed: [] }),
+        setPinned: () => Promise.resolve({ ok: true }),
+        onDidReadCatalog: () => ({ dispose: () => undefined }),
         getCompatibleVersions: () => Promise.resolve([]),
         install: () => Promise.resolve({ ok: true, version: "1.0.0" }),
         uninstall: () => Promise.resolve({ ok: true }),
@@ -80,11 +84,24 @@ function fakeActions(
         uninstall?: IExtensionOperationResult;
         /** `Error` rejects. */
         pick?: string | undefined | Error;
+        setAutoUpdate?: IExtensionOperationResult;
     } = {},
-): IExtensionPageActions & { calls: string[] } {
+): IExtensionPageActions & { calls: string[]; setAutoUpdateSetting: (enabled: boolean) => void } {
     const calls: string[] = [];
+    let autoUpdate = true;
+    const autoUpdateChanged = new Emitter<void>();
     return {
         calls,
+        setAutoUpdateSetting: (enabled) => {
+            autoUpdate = enabled;
+            autoUpdateChanged.fire();
+        },
+        setAutoUpdate: (id, enabled) => {
+            calls.push(`autoUpdate:${id}:${String(enabled)}`);
+            return Promise.resolve(results.setAutoUpdate ?? { ok: true });
+        },
+        isAutoUpdateEnabled: () => autoUpdate,
+        onDidChangeAutoUpdate: autoUpdateChanged.event,
         install: (id, options) => {
             calls.push(options?.version === undefined ? `install:${id}` : `install:${id}@${options.version}`);
             return Promise.resolve(results.install ?? { ok: true, version: options?.version ?? "1.0.0" });
@@ -342,7 +359,7 @@ describe("ExtensionEditorPane", () => {
     it("buttons are disabled during an operation — a second install cannot start", async () => {
         const { service } = fakeService([entry()]);
         let finish = (): void => {};
-        const actions: IExtensionPageActions & { calls: string[] } = {
+        const actions: IExtensionPageActions = {
             ...fakeActions(),
             install: () =>
                 new Promise((resolve) => {
@@ -369,7 +386,12 @@ describe("ExtensionEditorPane", () => {
 
         update([entry({ installedVersion: "1.0.0", availability: "installed", needsReload: true })]);
 
-        expect(buttonLabels(pane)).toEqual(["Reload Window", "Install Specific Version...", "Uninstall"]);
+        expect(buttonLabels(pane)).toEqual([
+            "Reload Window",
+            "Install Specific Version...",
+            "Uninstall",
+            "[x] Auto Update",
+        ]);
     });
 
     it("an unrelated card update does not invent a pending reload", () => {
@@ -380,7 +402,7 @@ describe("ExtensionEditorPane", () => {
         update([entry({ installedVersion: "1.0.0", availability: "installed" })]);
 
         // Installed elsewhere and not in this session, so no reload is needed.
-        expect(buttonLabels(pane)).toEqual(["Install Specific Version...", "Uninstall"]);
+        expect(buttonLabels(pane)).toEqual(["Install Specific Version...", "Uninstall", "[x] Auto Update"]);
     });
 
     describe("Install Specific Version... (ExtensionUpdates stage 1)", () => {
@@ -413,7 +435,7 @@ describe("ExtensionEditorPane", () => {
 
         it("the buttons are not disabled while the picker is open — only during the install itself", () => {
             const { service } = fakeService([entry()]);
-            const actions: IExtensionPageActions & { calls: string[] } = {
+            const actions: IExtensionPageActions = {
                 ...fakeActions(),
                 pickVersion: () => new Promise(() => undefined),
             };
@@ -460,6 +482,72 @@ describe("ExtensionEditorPane", () => {
         pressSync(pane, "reload");
 
         expect(actions.calls).toEqual(["reload"]);
+    });
+
+    describe("Auto Update toggle (ExtensionUpdates stage 3, US-3.8)", () => {
+        const installed = entry({ installedVersion: "1.0.0", availability: "installed" });
+
+        it("unchecking pins: the action, no reload, and the focus stays on the toggle as the card follows", async () => {
+            const { service, update } = fakeService([installed]);
+            const actions = fakeActions();
+            const pane = new ExtensionEditorPane(service, actions, installed, META, null);
+            mount(pane);
+            pane.view.querySelector("#extensionPageButton-toggleAutoUpdate")!.focus();
+
+            await press(pane, "toggleAutoUpdate");
+            update([{ ...installed, pinned: true }]);
+
+            expect(actions.calls).toEqual(["autoUpdate:acme.tools:false"]);
+            expect(buttonLabels(pane)).toEqual(["Install Specific Version...", "Uninstall", "[ ] Auto Update"]);
+            expect(pane.view.querySelector("#extensionPageButton-toggleAutoUpdate")?.isFocused).toBe(true);
+        });
+
+        it("checking a pinned one asks to unpin it", async () => {
+            const pinned = { ...installed, pinned: true };
+            const { service } = fakeService([pinned]);
+            const actions = fakeActions();
+            const pane = new ExtensionEditorPane(service, actions, pinned, META, null);
+            mount(pane);
+
+            await press(pane, "toggleAutoUpdate");
+
+            expect(actions.calls).toEqual(["autoUpdate:acme.tools:true"]);
+        });
+
+        it("a failure stays on the page as text", async () => {
+            const { service } = fakeService([installed]);
+            const actions = fakeActions({ setAutoUpdate: { ok: false, error: "disk full" } });
+            const pane = new ExtensionEditorPane(service, actions, installed, META, null);
+            mount(pane);
+
+            await press(pane, "toggleAutoUpdate");
+
+            expect(headerLines(pane)).toContain("disk full");
+        });
+
+        it("`extensions.autoUpdate` turned off on the fly — the open page disables the toggle", () => {
+            const { service } = fakeService([installed]);
+            const actions = fakeActions();
+            const pane = new ExtensionEditorPane(service, actions, installed, META, null);
+            mount(pane);
+
+            actions.setAutoUpdateSetting(false);
+
+            expect(buttonLabels(pane).at(-1)).toBe("[ ] Auto Update (extensions.autoUpdate is off)");
+            expect(enabledFlags(pane).at(-1)).toBe(false);
+        });
+
+        it("a closed page no longer follows the setting", () => {
+            const { service } = fakeService([installed]);
+            const actions = fakeActions();
+            const pane = new ExtensionEditorPane(service, actions, installed, META, null);
+            mount(pane);
+
+            pane.dispose();
+            actions.setAutoUpdateSetting(false);
+
+            expect(buttonLabels(pane).at(-1)).toBe("[x] Auto Update");
+        });
     });
 
     it("a vanished card no longer offers uninstall — nothing left to remove", () => {

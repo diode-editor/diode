@@ -254,6 +254,19 @@ export class HeadlessSession {
         if (!ready) throw new Error(`Diode.whenReady: editor not ready within ${String(timeoutMs)} ms`);
     }
 
+    /**
+     * Moves the editor's clock for hour-long schedules (extension update checks): the timers it passed fire.
+     * Frames, input and `waitFor*` stay on real time.
+     */
+    public async advanceClock(ms: number): Promise<void> {
+        await this.rpc("Diode.advanceClock", { ms });
+    }
+
+    /** A context key's value; `undefined` when it is not set. */
+    public async getContextKey(key: string): Promise<unknown> {
+        return (await this.rpc<{ value: unknown }>("Diode.getContextKey", { key })).value ?? undefined;
+    }
+
     /** Output channel text (by id or label). */
     public async getOutput(channel: string): Promise<string> {
         return (await this.rpc<{ text: string }>("Diode.getOutput", { channel })).text;

@@ -37,12 +37,19 @@ export interface IExtensionListEntry {
      * With no compatible version, the index's latest, for the reason text. `null` means no registry entry.
      */
     readonly latestVersion: string | null;
+    /**
+     * `publishedAt` of {@link latestVersion} (upstream `gallery.lastUpdated`), for `extensions.autoUpdateDelay`.
+     * `null`: the registry's metadata has no date for it. Unset: not known — the metadata was not read (a failure, or
+     * the target came from the index, which carries no dates) or there is no registry entry.
+     */
+    readonly latestPublishedAt?: string | null;
     /** Installed version; `null` means not installed. */
     readonly installedVersion: string | null;
     readonly availability: ExtensionAvailability;
     /**
-     * The profile entry has `metadata.pinned` (a version the user chose). It changes neither `availability` nor the
-     * `Update to X` button, nor `Update All` (decision E1), like upstream: only auto-update (stage 3) skips pinned ones.
+     * The profile entry has `metadata.pinned`: a version the user chose, or the page's `Auto Update` unchecked (one
+     * flag, decision J2). It changes neither `availability` nor the `Update to X` button, nor `Update All` (decision
+     * E1), like upstream: only auto-update skips pinned ones.
      */
     readonly pinned: boolean;
     /** Installed/uninstalled in this session: contributions are scanned once at startup, takes effect after a window reload. */
@@ -70,15 +77,33 @@ export interface IExtensionUpdateAllResult {
     readonly failed: readonly { readonly id: string; readonly error: string }[];
 }
 
+export interface IExtensionCheckOptions {
+    /**
+     * The scheduled check (stage 3): a failure goes to the log, not to {@link IExtensionsWorkbenchService.getCatalogError},
+     * so no `Retry —` row appears under a list the user already has; the first viewlet show then reads the catalog
+     * itself if there is none.
+     */
+    readonly background?: boolean;
+}
+
 /** Network failures are not thrown: the catalog is empty and the reason is in {@link getCatalogError}. */
 export interface IExtensionsWorkbenchService {
-    /** Called on the first viewlet show, so no network access at startup; repeated calls do nothing. */
+    /**
+     * Called on the first viewlet show, so no network access at startup; repeated calls do nothing. A catalog read
+     * by the background check is reused.
+     */
     ensureLoaded(): Promise<void>;
 
     refresh(): Promise<void>;
 
     /** Upstream `checkForUpdates`: {@link refresh} plus a re-read of the metadata, so target versions are fresh. */
-    checkForUpdates(): Promise<void>;
+    checkForUpdates(options?: IExtensionCheckOptions): Promise<void>;
+
+    /**
+     * After every catalog read — first show, Refresh, Check, background — once the entries are rebuilt; `ok` is
+     * whether it succeeded. Auto-update follows a successful one (upstream `syncInstalledExtensionsWithGallery`).
+     */
+    onDidReadCatalog(listener: (ok: boolean) => void): IDisposable;
 
     /** Entries: registry entries first, then installed extensions outside the registry. */
     getEntries(): readonly IExtensionListEntry[];
@@ -93,6 +118,19 @@ export interface IExtensionsWorkbenchService {
      * failure does not stop the rest.
      */
     updateAll(): Promise<IExtensionUpdateAllResult>;
+
+    /**
+     * {@link updateAll} over the given ids (auto-update's candidates). Before each install the profile is read
+     * again: an entry already at its target or no longer in the profile (another window, the CLI) is skipped and is
+     * not in the result (US-3.12).
+     */
+    updateExtensions(ids: readonly string[]): Promise<IExtensionUpdateAllResult>;
+
+    /**
+     * Upstream `updateMetadata(local, { pinned })`: only the profile entry's pin; no reload needed. The page's
+     * `Auto Update` toggle: unchecked is pinned.
+     */
+    setPinned(id: string, pinned: boolean): Promise<IExtensionOperationResult>;
 
     /** Full metadata for the extension page; `undefined` means the registry doesn't know the id. */
     getMeta(id: string): Promise<IRegistryExtensionMeta | undefined>;

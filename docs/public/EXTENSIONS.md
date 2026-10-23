@@ -32,14 +32,25 @@ After an install or uninstall, run **Reload Window** (File menu or the command p
 are loaded at startup, there is no hot reload. The catalog is fetched the first time you open the
 view; **Extensions: Refresh** reloads it.
 
-Extensions do not update themselves. An update is the same button on the same page. An open window
-keeps working with the version it started with: the old files stay on disk and are removed the next
-time diode starts. The same goes for an uninstall.
+Extensions update themselves, like in VS Code. Shortly after startup (never during it) and then every
+12 hours diode checks the registry in the background; extensions with a newer compatible version are
+installed, and one notification says **Updated N extensions** with a **Reload Window** button. The
+window is never reloaded for you. A release is installed only once it is
+`extensions.autoUpdateDelay` hours old (2 by default). Turn it all off with
+`"extensions.autoUpdate": "off"` (outdated extensions are still marked, and
+**Extensions: Update All Extensions** updates them), or stop the checks with
+`"extensions.autoCheckUpdates": false`. To keep one extension at its version, uncheck **Auto Update**
+on its page.
+
+An update by hand is the **Update to x.y.z** button on the page, or **Extensions: Check for Extension
+Updates** and **Extensions: Update All Extensions**. An open window keeps working with the version it
+started with: the old files stay on disk and are removed the next time diode starts. The same goes
+for an uninstall.
 
 To go back to an older version, press **Install Specific Version...** on the extension page (or run
 **Extensions: Install Specific Version of Extension...** from the command palette) and pick one of
 the versions that work with your build. A version chosen this way is pinned in the profile, like in
-VS Code.
+VS Code: auto-update leaves it alone until you check **Auto Update** again.
 
 ## From the command line
 

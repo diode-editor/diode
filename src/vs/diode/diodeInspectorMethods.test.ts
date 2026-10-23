@@ -19,7 +19,9 @@ function setup(overrides: Partial<IDiodeInspectorPorts> = {}): {
     commands: CommandRegistry;
     contextKeys: ContextKeyService;
     methods: Map<string, Handler>;
+    moves: number[];
 } {
+    const moves: number[] = [];
     const methods = new Map<string, Handler>();
     const commands = new CommandRegistry();
     const contextKeys = new ContextKeyService();
@@ -36,6 +38,7 @@ function setup(overrides: Partial<IDiodeInspectorPorts> = {}): {
         },
         ready: Promise.resolve(),
         pid: 4242,
+        clock: { advance: (ms) => moves.push(ms) },
         ...overrides,
     };
     registerDiodeInspectorMethods((method, handler) => {
@@ -46,7 +49,7 @@ function setup(overrides: Partial<IDiodeInspectorPorts> = {}): {
         if (handler === undefined) throw new Error(`not registered: ${method}`);
         return handler(params);
     };
-    return { call, commands, contextKeys, methods };
+    return { call, commands, contextKeys, methods, moves };
 }
 
 afterEach(() => {
@@ -281,5 +284,23 @@ describe("toWire", () => {
         cyclic.self = cyclic;
         expect(toWire(cyclic)).toBe("<unserializable: object>");
         expect(toWire(10n)).toBe("10");
+    });
+});
+
+describe("advanceClock (the e2e hook for hour-long timers)", () => {
+    it("moves the clock forward by ms", async () => {
+        const { call, moves } = setup();
+
+        expect(await call(DiodeInspectorMethod.advanceClock, { ms: 12 * 60 * 60 * 1000 })).toEqual({});
+        expect(moves).toEqual([12 * 60 * 60 * 1000]);
+    });
+
+    it.each([[{}], [{ ms: -1 }], [{ ms: "1h" }], [undefined]])("invalid %j — protocol error", async (params) => {
+        const { call, moves } = setup();
+
+        await expect(call(DiodeInspectorMethod.advanceClock, params)).rejects.toThrow(
+            "'ms' must be a non-negative number",
+        );
+        expect(moves).toEqual([]);
     });
 });

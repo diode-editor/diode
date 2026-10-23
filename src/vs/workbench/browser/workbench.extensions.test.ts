@@ -69,6 +69,9 @@ function fakeService(): IExtensionsWorkbenchService {
         checkForUpdates: () => Promise.resolve(),
         getOutdated: () => [],
         updateAll: () => Promise.resolve({ updated: [], failed: [] }),
+        updateExtensions: () => Promise.resolve({ updated: [], failed: [] }),
+        setPinned: () => Promise.resolve({ ok: true }),
+        onDidReadCatalog: () => ({ dispose: () => undefined }),
         getCompatibleVersions: () => Promise.resolve([]),
         onDidChange: () => ({ dispose: () => {} }),
     };

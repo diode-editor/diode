@@ -23,6 +23,7 @@ import type {
 import type { ILogger } from "../../../../platform/log/common/iLogger.ts";
 import type {
     ExtensionAvailability,
+    IExtensionCheckOptions,
     IExtensionInstallOptions,
     IExtensionInstallResult,
     IExtensionListEntry,
@@ -37,6 +38,7 @@ import type {
  */
 export class ExtensionsWorkbenchService extends Disposable implements IExtensionsWorkbenchService {
     private readonly onDidChangeEmitter = this.register(new Emitter<void>());
+    private readonly onDidReadCatalogEmitter = this.register(new Emitter<boolean>());
     private readonly metaCache = new Map<string, IRegistryExtensionMeta | undefined>();
     /** Installed/uninstalled in this session: contributions won't apply until a window reload. */
     private readonly pendingReload = new Set<string>();
@@ -49,7 +51,7 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
     private catalogError: string | null = null;
     private entries: readonly IExtensionListEntry[];
     /** A promise, not a flag: concurrent shows wait for one fetch. */
-    private loading: Promise<void> | null = null;
+    private loading: Promise<unknown> | null = null;
 
     public constructor(
         private readonly source: IExtensionRegistrySource,
@@ -62,14 +64,20 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
         this.entries = this.computeEntries();
     }
 
-    public ensureLoaded(): Promise<void> {
-        this.loading ??= this.load(false);
-        return this.loading;
+    /** A background check that failed before any catalog leaves nothing to show: the show reads it itself. */
+    public async ensureLoaded(): Promise<void> {
+        do await (this.loading ??= this.load(false));
+        while (!this.hasCatalogAnswer());
     }
 
-    public refresh(): Promise<void> {
+    /** A method, not an inline check: the awaited read may reset `loading`, which narrowing would not see. */
+    private hasCatalogAnswer(): boolean {
+        return this.loading !== null;
+    }
+
+    public async refresh(): Promise<void> {
         this.loading = this.load(false);
-        return this.loading;
+        await this.loading;
     }
 
     public getEntries(): readonly IExtensionListEntry[] {
@@ -77,10 +85,18 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
     }
 
     /** Like {@link refresh}, plus fresh metadata: a new compatible version may have appeared. */
-    public checkForUpdates(): Promise<void> {
-        this.loading = this.load(true);
-        return this.loading;
+    public checkForUpdates(options: IExtensionCheckOptions = {}): Promise<void> {
+        const background = options.background === true;
+        const loading: Promise<void> = this.load(true, background).then(() => {
+            // Nothing read and no error to show: the first viewlet show must not settle for an empty list. A read
+            // started after this one is its own answer.
+            if (background && this.catalog === null && this.loading === loading) this.loading = null;
+        });
+        this.loading = loading;
+        return loading;
     }
+
+    public readonly onDidReadCatalog = this.onDidReadCatalogEmitter.event;
 
     public getCatalogError(): string | null {
         return this.catalogError;
@@ -90,18 +106,54 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
         return this.entries.filter((entry) => entry.availability === "outdated" && !this.installing.has(entry.id));
     }
 
+    public updateAll(): Promise<IExtensionUpdateAllResult> {
+        return this.updateExtensions(this.getOutdated().map((entry) => entry.id));
+    }
+
     /** One after another: each install rewrites the profile file. The whole batch counts as being installed. */
-    public async updateAll(): Promise<IExtensionUpdateAllResult> {
+    public async updateExtensions(ids: readonly string[]): Promise<IExtensionUpdateAllResult> {
         const updated: { id: string; version: string }[] = [];
         const failed: { id: string; error: string }[] = [];
-        const ids = this.getOutdated().map((entry) => entry.id);
-        for (const id of ids) this.installing.add(id);
-        for (const id of ids) {
+        const wanted = new Set(ids);
+        const targets = this.getOutdated().filter((entry) => wanted.has(entry.id));
+        for (const { id } of targets) this.installing.add(id);
+        for (const { id, latestVersion } of targets) {
+            if (this.isHandledElsewhere(id, String(latestVersion))) {
+                // Another window or the CLI got there first (US-3.12) — updated or uninstalled it; this window still
+                // runs the old version.
+                this.installing.delete(id);
+                this.markChanged(id);
+                continue;
+            }
             const result = await this.install(id);
             if (result.ok) updated.push({ id, version: result.version });
             else failed.push({ id, error: result.error });
         }
         return { updated, failed };
+    }
+
+    /** The profile on disk, not the session's copy: other processes write it too. */
+    private isHandledElsewhere(id: string, target: string): boolean {
+        const key = id.toLowerCase();
+        const current = this.profile.list().find((e) => e.id.toLowerCase() === key);
+        if (current === undefined) return true;
+        // Stryker disable next-line OptionalChaining: an outdated entry exists only once the catalog (and semver) is read
+        const semver = this.catalog?.semver;
+        // Stryker disable next-line ConditionalExpression: the same — the check is for the types
+        return semver !== undefined && !isNewer(target, current.version, semver);
+    }
+
+    public setPinned(id: string, pinned: boolean): Promise<IExtensionOperationResult> {
+        try {
+            if (!this.profile.setPinned(id, pinned)) {
+                return Promise.resolve({ ok: false, error: `Extension ${id} is not installed` });
+            }
+            // Not `markChanged`: the pin is not a contribution, the running host is still right.
+            this.reloadInstalled();
+            return Promise.resolve({ ok: true });
+        } catch (error) {
+            return Promise.resolve({ ok: false, error: messageOf(error) });
+        }
     }
 
     /** A miss (`undefined`) is cached, "not in the registry" is an answer too; a network failure is not, it is thrown to the caller. */
@@ -175,20 +227,28 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
         this.rebuildEntries();
     }
 
-    /** `freshMeta`: re-fetch the metadata, but only once the index is read — offline keeps the last targets. */
-    private async load(freshMeta: boolean): Promise<void> {
+    /**
+     * `freshMeta`: re-fetch the metadata, but only once the index is read — offline keeps the last targets.
+     * `background`: a failure is only logged. `true` means the catalog was read.
+     */
+    private async load(freshMeta: boolean, background = false): Promise<boolean> {
+        let ok = true;
         try {
             const [index, semver] = await Promise.all([this.source.getIndex(), loadSemver()]);
             await this.loadTargetMeta(index, semver, freshMeta);
             this.catalog = { index, semver };
             this.catalogError = null;
         } catch (error) {
+            ok = false;
             // Keep the last successful index: a stale list is better
             // than an empty one, and the reason is shown on a separate row.
-            this.catalogError = messageOf(error);
+            if (background) this.logger.warn(`Could not check for extension updates: ${messageOf(error)}`);
+            else this.catalogError = messageOf(error);
         }
         this.installed = this.profile.list();
         this.rebuildEntries();
+        this.onDidReadCatalogEmitter.fire(ok);
+        return ok;
     }
 
     /**
@@ -224,17 +284,21 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
     }
 
     /**
-     * From the metadata when it is known and not older than the index; otherwise the latest if its `engines` fit.
-     * `undefined`: none compatible.
+     * From the metadata when it is known and not older than the index; otherwise the latest if its `engines` fit
+     * (the index carries no date). `undefined`: none compatible.
      */
-    private targetVersionOf(entry: IRegistryIndexEntry, semver: Semver): string | undefined {
+    private targetVersionOf(
+        entry: IRegistryIndexEntry,
+        semver: Semver,
+    ): { readonly version: string; readonly publishedAt?: string | null } | undefined {
         const latestFits = areEnginesCompatible(entry.latest.engines, this.host, semver);
         const meta = this.metaCache.get(entry.id);
         const current = meta?.versions.some((v) => v.version === entry.latest.version) === true;
         if (meta !== undefined && (current || !latestFits)) {
-            return resolveCompatibleVersion(meta.versions, this.host, semver)?.version;
+            const version = resolveCompatibleVersion(meta.versions, this.host, semver);
+            return version && { version: version.version, publishedAt: version.publishedAt ?? null };
         }
-        return latestFits ? entry.latest.version : undefined;
+        return latestFits ? { version: entry.latest.version } : undefined;
     }
 
     private rebuildEntries(): void {
@@ -273,9 +337,10 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
             description: entry.description,
             kind: entry.kind,
             support: entry.support,
-            latestVersion: target ?? entry.latest.version,
+            latestVersion: target?.version ?? entry.latest.version,
+            latestPublishedAt: target?.publishedAt,
             installedVersion: installed?.version ?? null,
-            availability: availabilityOf(target, installed, semver),
+            availability: availabilityOf(target?.version, installed, semver),
             pinned: installed?.pinned ?? false,
             needsReload: this.pendingReload.has(entry.id),
         };

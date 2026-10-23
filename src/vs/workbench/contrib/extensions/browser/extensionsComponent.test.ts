@@ -103,6 +103,18 @@ class FakeService implements IExtensionsWorkbenchService {
         return Promise.resolve({ updated: [], failed: [] });
     }
 
+    public updateExtensions(): Promise<{ updated: []; failed: [] }> {
+        return Promise.resolve({ updated: [], failed: [] });
+    }
+
+    public setPinned(): Promise<{ ok: true }> {
+        return Promise.resolve({ ok: true });
+    }
+
+    public onDidReadCatalog(): { dispose: () => void } {
+        return { dispose: () => undefined };
+    }
+
     public getCatalogError(): string | null {
         return this.error;
     }
@@ -147,6 +159,9 @@ const PAGE_ACTIONS: IExtensionPageActions = {
     uninstall: () => Promise.resolve({ ok: true }),
     pickVersion: () => Promise.resolve(undefined),
     reloadWindow: () => {},
+    setAutoUpdate: () => Promise.resolve({ ok: true }),
+    isAutoUpdateEnabled: () => true,
+    onDidChangeAutoUpdate: () => ({ dispose: () => {} }),
 };
 
 function make(

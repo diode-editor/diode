@@ -20,6 +20,11 @@ export const DiodeInspectorMethod = {
     getContextKey: "Diode.getContextKey",
     /** `{expr}` → `{value}`: a when-expression over the current context keys. */
     evaluateWhen: "Diode.evaluateWhen",
+    /**
+     * `{ms}` → `{}`: moves the editor's clock (`IClock`) forward; the timers it passed fire. For schedules of hours
+     * (extension update checks) in an e2e of seconds; frames and input are not on this clock.
+     */
+    advanceClock: "Diode.advanceClock",
 } as const;
 
 export interface IDiodeInspectorPorts {
@@ -36,6 +41,7 @@ export interface IDiodeInspectorPorts {
         getRaw(key: string): unknown;
         evaluate(when: string): boolean;
     };
+    readonly clock: { advance(ms: number): void };
     /** Resolves once startup has finished; never rejects. */
     readonly ready: Promise<void>;
     readonly pid: number;
@@ -90,6 +96,13 @@ export function registerDiodeInspectorMethods(register: RegisterInspectorMethod,
     register(DiodeInspectorMethod.evaluateWhen, (params) => ({
         value: ports.contextKeys.evaluate(requiredString(params, "expr")),
     }));
+
+    register(DiodeInspectorMethod.advanceClock, (params) => {
+        const ms = optionalNumber(params, "ms");
+        if (ms === undefined) throw new Error("'ms' must be a non-negative number");
+        ports.clock.advance(ms);
+        return {};
+    });
 }
 
 type Settled<T> = { settled: true; value: T } | { settled: false };

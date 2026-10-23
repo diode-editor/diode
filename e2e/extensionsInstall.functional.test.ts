@@ -140,6 +140,8 @@ describe("Extensions install (functional e2e)", () => {
             { label: "Reload Window", enabled: true },
             ANOTHER_VERSION,
             { label: "Uninstall", enabled: true },
+            // Installed from the marketplace: not pinned, auto-update is on (ExtensionUpdates stage 3).
+            { label: "[x] Auto Update", enabled: true },
         ]);
         expect(installedDirs(app)).toEqual(["test.sample-lang-0.0.2"]);
         expect(existsSync(join(app.env.userDataDir, "extensions", "test.sample-lang-0.0.2", "package.json"))).toBe(
@@ -196,6 +198,8 @@ describe("Extensions install (functional e2e)", () => {
             { label: "Update to 0.0.2", enabled: true },
             ANOTHER_VERSION,
             { label: "Uninstall", enabled: true },
+            // A `.vsix` is pinned (stage 1).
+            { label: "[ ] Auto Update", enabled: true },
         ]);
 
         await app.session.key("Enter");

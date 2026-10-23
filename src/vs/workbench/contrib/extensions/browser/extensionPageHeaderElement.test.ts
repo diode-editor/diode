@@ -163,6 +163,26 @@ describe("ExtensionPageHeaderElement", () => {
         expect(header.getButtons()[2].isFocused).toBe(true);
     });
 
+    it("setContent moves the focus to the new button of the same kind, the first one too", () => {
+        const header = createHeader({ buttons: [INSTALL, ANOTHER_VERSION, UNINSTALL] });
+        TestApp.createWithContent(header).render();
+        header.getButtons()[0].focus();
+
+        header.setContent(content(), [{ ...INSTALL, label: "Install again" }, ANOTHER_VERSION]);
+
+        expect(header.getButtons()[0].isFocused).toBe(true);
+    });
+
+    it("setContent leaves the focus alone when the focused kind is gone or disabled", () => {
+        const header = createHeader({ buttons: [INSTALL, UNINSTALL] });
+        TestApp.createWithContent(header).render();
+        header.getButtons()[1].focus();
+
+        header.setContent(content(), [INSTALL, { ...UNINSTALL, enabled: false }]);
+
+        expect(header.getButtons().some((b) => b.isFocused)).toBe(false);
+    });
+
     it("wrapping uses the width minus the padding and the scrollbar column", () => {
         const long = content({ entry: { ...ENTRY, description: "alpha beta gamma delta epsilon zeta eta theta" } });
         const header = createHeader({ content: long });

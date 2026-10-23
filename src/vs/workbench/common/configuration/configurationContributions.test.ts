@@ -95,6 +95,9 @@ const EXPECTED_SCOPES: Readonly<Record<string, ConfigurationScope>> = {
     "task.saveBeforeRun": "window",
     "task.verboseLogging": "window",
     "extensions.confirmedUriHandlerExtensionIds": "application",
+    "extensions.autoUpdate": "application",
+    "extensions.autoUpdateDelay": "application",
+    "extensions.autoCheckUpdates": "application",
 };
 
 const registered = new ConfigurationRegistry(CONFIGURATION_CONTRIBUTIONS).getConfigurationProperties();

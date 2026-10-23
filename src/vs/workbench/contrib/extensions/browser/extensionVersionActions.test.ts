@@ -91,6 +91,9 @@ function harness(
         checkForUpdates: () => Promise.resolve(),
         getOutdated: () => [],
         updateAll: () => Promise.resolve({ updated: [], failed: [] }),
+        updateExtensions: () => Promise.resolve({ updated: [], failed: [] }),
+        setPinned: () => Promise.resolve({ ok: true }),
+        onDidReadCatalog: () => ({ dispose: () => undefined }),
         getCompatibleVersions: () => Promise.resolve([]),
         install: () => Promise.resolve({ ok: true, version: "1.0.0" }),
         uninstall: () => Promise.resolve({ ok: true }),
@@ -111,6 +114,9 @@ function harness(
             return version instanceof Error ? Promise.reject(version) : Promise.resolve(version);
         },
         reloadWindow: () => undefined,
+        setAutoUpdate: () => Promise.resolve({ ok: true }),
+        isAutoUpdateEnabled: () => true,
+        onDidChangeAutoUpdate: () => ({ dispose: () => undefined }),
     };
     const container = new Container();
     const commands = new CommandRegistry();

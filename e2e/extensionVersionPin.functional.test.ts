@@ -146,7 +146,7 @@ describe("Install Specific Version (ExtensionUpdates stage 1, functional e2e)", 
     it("US-1.1/US-1.2: the page picker lists compatible versions; picking an older one rolls back, pinned, and survives reload", async () => {
         const app = await openExtensions([vsix("1.1.0")]);
         await openPage(app, "pin", PAGE);
-        expect(await pageButtons(app)).toEqual(["Install Specific Version...", "Uninstall"]);
+        expect(await pageButtons(app)).toEqual(["Install Specific Version...", "Uninstall", "[ ] Auto Update"]);
 
         await pressButton(app, "Install Specific Version...");
         const picker = await waitForScreen(app, "Select Version to Install");
@@ -163,6 +163,7 @@ describe("Install Specific Version (ExtensionUpdates stage 1, functional e2e)", 
             "Update to 1.1.0",
             "Install Specific Version...",
             "Uninstall",
+            "[ ] Auto Update",
         ]);
         expect(await screen(app)).toContain(`Installed ${ID}@1.0.0 — reload window to activate`);
         expect(profileEntry(app)).toBe("1.0.0 pinned=true");
@@ -196,7 +197,7 @@ describe("Install Specific Version (ExtensionUpdates stage 1, functional e2e)", 
         await app.session.key("Enter");
         await app.session.waitForNoNode("#quickInput");
 
-        expect(await pageButtons(app)).toEqual(["Install Specific Version...", "Uninstall"]);
+        expect(await pageButtons(app)).toEqual(["Install Specific Version...", "Uninstall", "[ ] Auto Update"]);
         expect(profileEntry(app)).toBe(before);
         expect(obsoleteDirs(app)).toEqual([]);
     });

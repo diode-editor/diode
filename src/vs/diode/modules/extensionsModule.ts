@@ -6,6 +6,11 @@ import type { ContainerModule } from "../../platform/instantiation/common/diCont
 import { ILogServiceDIToken } from "../../platform/log/common/iLogServiceDIToken.ts";
 import { IUserDataProfilesServiceDIToken } from "../../platform/userDataProfile/common/userDataProfile.ts";
 import {
+    ExtensionAutoUpdateContribution,
+    ExtensionAutoUpdateContributionDIToken,
+    WorkbenchExtensionUpdateScheduler,
+} from "../../workbench/contrib/extensions/browser/extensionAutoUpdate.ts";
+import {
     ExtensionPageActions,
     ExtensionPageActionsDIToken,
 } from "../../workbench/contrib/extensions/browser/extensionPageActions.ts";
@@ -23,6 +28,7 @@ import {
     ExtensionVersionContributionDIToken,
 } from "../../workbench/contrib/extensions/browser/extensionVersionActions.ts";
 import { ExtensionsWorkbenchServiceDIToken } from "../../workbench/contrib/extensions/common/extensionsWorkbench.ts";
+import { ExtensionUpdateSchedulerDIToken } from "../../workbench/contrib/extensions/common/extensionUpdateScheduler.ts";
 import { ExtensionsWorkbenchService } from "../../workbench/contrib/extensions/node/extensionsWorkbenchService.ts";
 import { EditorServiceDIToken } from "../../workbench/services/editor/common/editorService.ts";
 import { IUserDataProfileServiceDIToken } from "../../workbench/services/userDataProfile/common/userDataProfile.ts";
@@ -48,5 +54,7 @@ export const extensionsModule: ContainerModule<ExtensionsModuleContext> = (conta
     container.bind(ExtensionsComponentDIToken, ExtensionsComponent);
     container.bind(ExtensionVersionContributionDIToken, ExtensionVersionContribution);
     container.bind(ExtensionUpdateContributionDIToken, ExtensionUpdateContribution);
+    container.bind(ExtensionUpdateSchedulerDIToken, WorkbenchExtensionUpdateScheduler);
+    container.bind(ExtensionAutoUpdateContributionDIToken, ExtensionAutoUpdateContribution);
     container.bind(ExtensionsEditorTargetDIToken, () => container.get(EditorServiceDIToken));
 };

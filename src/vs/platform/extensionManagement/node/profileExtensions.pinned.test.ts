@@ -231,4 +231,51 @@ describe("ProfileExtensions pinned", () => {
                 .map((e) => `${e.id}:${String(e.pinned)}`),
         ).toEqual(["acme.a:true", "acme.b:false", "acme.c:false"]);
     });
+
+    describe("setPinned (stage 3: the page's Auto Update toggle)", () => {
+        it("changes only the pin: the version, the location, the other metadata and unknown fields stay", () => {
+            onDisk("acme.demo", "1.0.0");
+            onDisk("acme.tools", "2.0.0");
+            writeProfileExtensions(workFile, [
+                entry("acme.demo", "1.0.0", { metadata: { source: "gallery" }, location: { x: 1 } }),
+                entry("acme.tools", "2.0.0"),
+            ]);
+
+            expect(profile(workFile).setPinned("ACME.Demo", true)).toBe(true);
+
+            expect(readProfileExtensions(workFile)).toEqual([
+                entry("acme.demo", "1.0.0", { metadata: { source: "gallery", pinned: true }, location: { x: 1 } }),
+                entry("acme.tools", "2.0.0"),
+            ]);
+        });
+
+        it("unpinning writes `pinned: false` (upstream) and the list reads the entry unpinned", () => {
+            onDisk("acme.demo", "1.0.0");
+            writeProfileExtensions(workFile, [entry("acme.demo", "1.0.0", { metadata: { pinned: true } })]);
+
+            expect(profile(workFile).setPinned("acme.demo", false)).toBe(true);
+
+            expect(readProfileExtensions(workFile)).toEqual([
+                entry("acme.demo", "1.0.0", { metadata: { pinned: false } }),
+            ]);
+            expect(
+                profile(workFile)
+                    .list()
+                    .map((e) => e.pinned),
+            ).toEqual([false]);
+        });
+
+        it("an id the profile doesn't have is `false` and the file is left as is", () => {
+            writeProfileExtensions(workFile, [entry("acme.demo", "1.0.0")]);
+
+            expect(profile(workFile).setPinned("acme.other", true)).toBe(false);
+
+            expect(readProfileExtensions(workFile)).toEqual([entry("acme.demo", "1.0.0")]);
+        });
+
+        it("no file is `false` and creates none", () => {
+            expect(profile(workFile).setPinned("acme.demo", true)).toBe(false);
+            expect(readProfileExtensions(workFile)).toBeUndefined();
+        });
+    });
 });
