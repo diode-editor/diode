@@ -2,6 +2,7 @@ import { EventEmitter } from "node:events";
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { syncSourceOf } from "../../../../../TestUtils/documentSyncSource.ts";
 import { registerAndActivate, testRegistration } from "../../../../../TestUtils/ExtensionTestHarness.ts";
 import type { IDisposable } from "../../../../base/common/lifecycle.ts";
 import { Uri } from "../../../../base/common/uri.ts";
@@ -1641,7 +1642,7 @@ describe("ExtensionHost — handshake seeds", () => {
         const opened = { uri: Uri.file("/repo/a.ts").toString(), languageId: "typescript", version: 1, text: "a" };
         const host = spawnReadyHost(child, new FakeEditorOptions(), {
             configuration: makeConfigProvider().provider,
-            openDocumentsProvider: () => [opened],
+            openDocumentsProvider: () => [syncSourceOf(opened)],
         });
         await registerAndActivate(host, makeReg("ext.a", "/a.js"));
 

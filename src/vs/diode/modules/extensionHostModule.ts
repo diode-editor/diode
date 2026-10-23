@@ -25,7 +25,7 @@ import { URLServiceDIToken } from "../../platform/url/common/url.ts";
 import type { IWorkspaceContextService } from "../../platform/workspace/common/iWorkspaceContextService.ts";
 import { IWorkspaceContextServiceDIToken } from "../../platform/workspace/common/iWorkspaceContextServiceDIToken.ts";
 import { CommandServiceAdapter } from "../../workbench/api/browser/commandServiceAdapter.ts";
-import { bindDocumentSync, openDocumentSnapshots } from "../../workbench/api/browser/documentSyncAdapter.ts";
+import { bindDocumentSync, openDocumentSyncSources } from "../../workbench/api/browser/documentSyncAdapter.ts";
 import { EditorDecorationsServiceAdapter } from "../../workbench/api/browser/editorDecorationsServiceAdapter.ts";
 import { EditorLayoutServiceAdapter } from "../../workbench/api/browser/editorLayoutServiceAdapter.ts";
 import { EditorOptionsServiceAdapter } from "../../workbench/api/browser/editorOptionsServiceAdapter.ts";
@@ -276,7 +276,8 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
             editorDecorations,
             fileDecorations,
             themeColorResolver,
-            openDocumentsProvider: () => openDocumentSnapshots(group),
+            // Stryker disable next-line ArrowFunction: production module wiring — the seed is covered by DocumentsCustomer unit tests and the handshake seed test; end-to-end — the stock LanguageServers suites (vscode-languageclient reads `workspace.textDocuments` on start)
+            openDocumentsProvider: () => openDocumentSyncSources(group),
             editorLayout,
             fileWatcher,
             storageHomes,

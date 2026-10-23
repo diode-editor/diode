@@ -1,7 +1,7 @@
 import { DisposableStore, type IDisposable } from "../../../../../base/common/lifecycle.ts";
 import type { ILogger } from "../../../../../platform/log/common/iLogger.ts";
 import type { HostRpc } from "../../../../api/common/extHostProtocol.ts";
-import type { IDocumentSyncTarget } from "../../../../api/common/iDocumentSyncTarget.ts";
+import type { IDocumentSyncSource, IDocumentSyncTarget } from "../../../../api/common/iDocumentSyncTarget.ts";
 import type { IWireDocumentChangedEvent, IWireDocumentSyncSnapshot } from "../../../../api/common/wireTypes.ts";
 import type { ISaveEdit, ISaveSnapshot } from "../../../textfile/common/iSaveParticipant.ts";
 import type { IExtensionHostContext, IExtensionHostCustomer } from "../../common/extensionHostCustomer.ts";
@@ -10,14 +10,16 @@ import { loggingRequest } from "../requestPolicy.ts";
 
 /**
  * In characters, like upstream `_MODEL_SYNC_LIMIT`. Decided on open (and on full content
- * replacement): a document above the limit doesn't exist for extensions.
+ * replacement) from the document's length, before its text is built: a document above the
+ * limit doesn't exist for extensions.
  */
 export const MAX_SYNCED_DOCUMENT_CHARS = 50 * 1024 * 1024;
 
 export interface IDocumentsCustomerOptions {
     /** In ms. */
     readonly willSaveTimeoutMs: number;
-    readonly openDocumentsProvider: (() => IWireDocumentSyncSnapshot[]) | undefined;
+    /** Sources, not snapshots: the seed builds each text right before sending it, one document at a time. */
+    readonly openDocumentsProvider: (() => IDocumentSyncSource[]) | undefined;
     readonly maxSyncedDocumentChars: number;
     readonly logger: ILogger | undefined;
 }
@@ -47,7 +49,7 @@ export class DocumentsCustomer implements IExtensionHostCustomer, IDocumentSyncT
         const live = this.live;
         if (live === null) return;
         const openDocuments = this.options.openDocumentsProvider?.() ?? [];
-        for (const snapshot of openDocuments) this.didOpenTextDocument(snapshot);
+        for (const source of openDocuments) this.didOpenTextDocument(source);
     }
 
     /** Requests for an unsynced document get an empty reply without RPC: requests don't carry the text. */
@@ -81,27 +83,28 @@ export class DocumentsCustomer implements IExtensionHostCustomer, IDocumentSyncT
         live.rpc.notify("workspace.didSaveTextDocument", meta);
     }
 
-    public didOpenTextDocument(snapshot: IWireDocumentSyncSnapshot): void {
+    /** The text is read from the source only here, right before it goes out: no subprocess, no text. */
+    public didOpenTextDocument(source: IDocumentSyncSource): void {
         const live = this.live;
-        if (live === null || !this.fitsDocumentSyncLimit(snapshot)) return;
-        live.rpc.notify("editor.didOpen", snapshot);
-        live.synced.add(snapshot.uri);
+        if (live === null || !this.fitsDocumentSyncLimit(source)) return;
+        live.rpc.notify("editor.didOpen", snapshotOf(source));
+        live.synced.add(source.uri);
     }
 
     /**
      * A synced document that outgrew the limit is closed (the mirror would diverge forever); one that became small
      * enough is opened.
      */
-    public didChangeTextDocument(snapshot: IWireDocumentSyncSnapshot): void {
+    public didChangeTextDocument(source: IDocumentSyncSource): void {
         const live = this.live;
         if (live === null) return;
-        const synced = live.synced.has(snapshot.uri);
-        if (this.fitsDocumentSyncLimit(snapshot)) {
-            live.rpc.notify(synced ? "editor.didChange" : "editor.didOpen", snapshot);
-            live.synced.add(snapshot.uri);
+        const synced = live.synced.has(source.uri);
+        if (this.fitsDocumentSyncLimit(source)) {
+            live.rpc.notify(synced ? "editor.didChange" : "editor.didOpen", snapshotOf(source));
+            live.synced.add(source.uri);
         } else if (synced) {
-            live.synced.delete(snapshot.uri);
-            live.rpc.notify("editor.didClose", { uri: snapshot.uri });
+            live.synced.delete(source.uri);
+            live.rpc.notify("editor.didClose", { uri: source.uri });
         }
     }
 
@@ -143,12 +146,27 @@ export class DocumentsCustomer implements IExtensionHostCustomer, IDocumentSyncT
         return store;
     }
 
-    private fitsDocumentSyncLimit(snapshot: IWireDocumentSyncSnapshot): boolean {
-        if (snapshot.text.length <= this.options.maxSyncedDocumentChars) return true;
+    private fitsDocumentSyncLimit(source: IDocumentSyncSource): boolean {
+        if (source.length <= this.options.maxSyncedDocumentChars) return true;
         this.options.logger?.warn("skipping document sync: document too large", {
-            uri: snapshot.uri,
-            length: snapshot.text.length,
+            uri: source.uri,
+            length: source.length,
         });
         return false;
     }
+}
+
+/**
+ * One string, not upstream's `IModelAddedData.lines`: measured on the 200k-line bench fixture, the lines cost
+ * the main thread more (`getLinesContent` 11 ms + `JSON.stringify` 35 ms vs ~0 + 31 ms for the piece tree's
+ * lazily concatenated text) and 200 KB more on the wire, for 6 ms of `split` saved in the subprocess.
+ */
+function snapshotOf(source: IDocumentSyncSource): IWireDocumentSyncSnapshot {
+    return {
+        uri: source.uri,
+        languageId: source.languageId,
+        version: source.version,
+        text: source.getText(),
+        isDirty: source.isDirty,
+    };
 }

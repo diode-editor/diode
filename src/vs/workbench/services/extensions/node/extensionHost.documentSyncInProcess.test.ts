@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
+import { syncSourceOf } from "../../../../../TestUtils/documentSyncSource.ts";
 import { flushMicrotasks } from "../../../../../TestUtils/timing.ts";
 import type { ICommandService } from "../../../api/common/iCommandService.ts";
 import type { IEditorOptionsService } from "../../../api/common/iEditorOptionsService.ts";
@@ -39,12 +40,12 @@ describe("ExtensionHost — document sync (in-process)", () => {
         for (const method of ["editor.didOpen", "editor.didChange", "editor.didClose"]) {
             peer.handleNotification(method, () => received.push(method));
         }
-        host.didOpenTextDocument(SNAPSHOT);
+        host.didOpenTextDocument(syncSourceOf(SNAPSHOT));
         (host as unknown as { installHostHandlers(rpc: RpcEndpoint): void }).installHostHandlers(new RpcEndpoint(a));
 
-        host.didOpenTextDocument(SNAPSHOT);
+        host.didOpenTextDocument(syncSourceOf(SNAPSHOT));
         host.didChangeTextDocumentContent({ uri: SNAPSHOT.uri, version: 2, changes: [] });
-        host.didChangeTextDocument({ ...SNAPSHOT, version: 3 });
+        host.didChangeTextDocument(syncSourceOf({ ...SNAPSHOT, version: 3 }));
         host.didCloseTextDocument(SNAPSHOT.uri);
         await flushMicrotasks();
         expect(received).toEqual(["editor.didOpen", "editor.didChange", "editor.didChange", "editor.didClose"]);
@@ -60,7 +61,7 @@ describe("ExtensionHost — document sync (in-process)", () => {
         const sent = vi.spyOn(hostRpc, "request");
         peer.handleRequest("workspace.willSaveTextDocument", () => new Promise(() => undefined));
         (host as unknown as { installHostHandlers(rpc: RpcEndpoint): void }).installHostHandlers(hostRpc);
-        host.didOpenTextDocument(SNAPSHOT);
+        host.didOpenTextDocument(syncSourceOf(SNAPSHOT));
         peer.notify("workspace.updateSubscriptions", { willSave: true });
         await flushMicrotasks();
 

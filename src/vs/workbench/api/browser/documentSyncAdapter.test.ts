@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { diskFileService } from "../../../../TestUtils/diskFileService.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../../TestUtils/TempWorkspace.ts";
@@ -15,10 +15,10 @@ import { UndoRedoService } from "../../../platform/undoRedo/common/undoRedoServi
 import { EditorService } from "../../services/editor/browser/editorService.ts";
 import { darkPlusTheme } from "../../services/themes/common/themes/darkPlus.ts";
 import { ThemeService } from "../../services/themes/common/themeService.ts";
-import type { IDocumentSyncTarget } from "../common/iDocumentSyncTarget.ts";
-import type { IWireDocumentChangedEvent, IWireDocumentSyncSnapshot } from "../common/wireTypes.ts";
+import type { IDocumentSyncSource, IDocumentSyncTarget } from "../common/iDocumentSyncTarget.ts";
+import type { IWireDocumentChangedEvent } from "../common/wireTypes.ts";
 
-import { bindDocumentSync, openDocumentSnapshots } from "./documentSyncAdapter.ts";
+import { bindDocumentSync, documentSyncSourceOfModel, openDocumentSyncSources } from "./documentSyncAdapter.ts";
 
 describe("documentSyncAdapter", () => {
     let ws: ITempWorkspace;
@@ -57,13 +57,13 @@ describe("documentSyncAdapter", () => {
         opened: string[];
         changed: string[];
         deltas: IWireDocumentChangedEvent[];
-        flushes: IWireDocumentSyncSnapshot[];
+        flushes: IDocumentSyncSource[];
         closed: string[];
     } {
         const opened: string[] = [];
         const changed: string[] = [];
         const deltas: IWireDocumentChangedEvent[] = [];
-        const flushes: IWireDocumentSyncSnapshot[] = [];
+        const flushes: IDocumentSyncSource[] = [];
         const closed: string[] = [];
         const host: IDocumentSyncTarget = {
             didOpenTextDocument: (snapshot) => opened.push(snapshot.uri),
@@ -80,13 +80,33 @@ describe("documentSyncAdapter", () => {
         return { host, opened, changed, deltas, flushes, closed };
     }
 
-    it("openDocumentSnapshots: a document in two groups yields one snapshot", () => {
+    it("openDocumentSyncSources: a document in two groups yields one source", () => {
         service.openFile(ws.path("a.ts"));
         service.splitActiveGroup();
         service.openFile(ws.path("b.ts"));
 
-        const snapshots = openDocumentSnapshots(service);
-        expect(snapshots.map((s) => s.text)).toEqual(["alpha", "beta"]);
+        const sources = openDocumentSyncSources(service);
+        expect(sources.map((s) => s.getText())).toEqual(["alpha", "beta"]);
+    });
+
+    it("documentSyncSourceOfModel: identity, version, dirty and length come from the model; the text is built only by getText", () => {
+        service.openFile(ws.path("a.ts"));
+        const editor = service.getActiveEditor()!;
+        editor.viewState.type("x");
+        const built = vi.spyOn(editor.model.document, "getText");
+
+        const source = documentSyncSourceOfModel(editor.model);
+
+        expect(built).not.toHaveBeenCalled();
+        expect(source).toMatchObject({
+            uri: editor.uri.toString(),
+            languageId: "plaintext",
+            version: editor.model.document.versionId,
+            isDirty: true,
+            length: "xalpha".length,
+        });
+        expect(source.getText()).toBe("xalpha");
+        expect(built).toHaveBeenCalledTimes(1);
     });
 
     it("bindDocumentSync: didOpen per document, didChange per edit, didClose on the last tab", () => {
@@ -140,7 +160,7 @@ describe("documentSyncAdapter", () => {
         ws.writeFile("a.ts", "from disk");
         editor.revertToDisk();
 
-        expect(flushes.at(-1)?.text).toBe("from disk");
+        expect(flushes.at(-1)?.getText()).toBe("from disk");
         expect(flushes.at(-1)!.version).toBeGreaterThan(versionBefore);
     });
 
@@ -162,10 +182,10 @@ describe("documentSyncAdapter", () => {
     });
 
     it("bindDocumentSync: a language change without a uri change reopens the document with the new language", () => {
-        const opened: IWireDocumentSyncSnapshot[] = [];
+        const opened: IDocumentSyncSource[] = [];
         const closed: string[] = [];
         const host: IDocumentSyncTarget = {
-            didOpenTextDocument: (snapshot) => opened.push(snapshot),
+            didOpenTextDocument: (source) => opened.push(source),
             didChangeTextDocument: () => undefined,
             didChangeTextDocumentContent: () => undefined,
             didCloseTextDocument: (uri) => closed.push(uri),

@@ -24,6 +24,8 @@ export interface ITextDocument {
     getLineContent(lineIndex: number): string;
     getLineLength(lineIndex: number): number;
     getText(): string;
+    /** `getText().length` without building the text (the piece tree knows its length). */
+    getValueLength(): number;
     setText(text: string): void;
     getTextInRange(range: IRange): string;
 

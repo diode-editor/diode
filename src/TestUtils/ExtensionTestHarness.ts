@@ -46,7 +46,7 @@ import { NULL_LOG_SERVICE } from "../vs/platform/log/common/nullLogService.ts";
 import type { IEnvironmentVariableCollectionStore } from "../vs/platform/terminal/common/environmentVariable.ts";
 import { UndoRedoService } from "../vs/platform/undoRedo/common/undoRedoService.ts";
 import { CommandServiceAdapter } from "../vs/workbench/api/browser/commandServiceAdapter.ts";
-import { openDocumentSnapshots } from "../vs/workbench/api/browser/documentSyncAdapter.ts";
+import { openDocumentSyncSources } from "../vs/workbench/api/browser/documentSyncAdapter.ts";
 import { EditorLayoutServiceAdapter } from "../vs/workbench/api/browser/editorLayoutServiceAdapter.ts";
 import { EditorOptionsServiceAdapter } from "../vs/workbench/api/browser/editorOptionsServiceAdapter.ts";
 import { ThemeColorResolverAdapter } from "../vs/workbench/api/browser/themeColorResolverAdapter.ts";
@@ -295,7 +295,7 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
         configuration,
         storageHomes,
         ...(options.logger !== undefined ? { logger: options.logger } : {}),
-        openDocumentsProvider: () => openDocumentSnapshots(group),
+        openDocumentsProvider: () => openDocumentSyncSources(group),
         editorLayout,
         ...(options.diagnosticsSink !== undefined ? { diagnosticsSink: options.diagnosticsSink } : {}),
         ...(options.markers !== undefined ? { markers: options.markers } : {}),

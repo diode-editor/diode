@@ -278,12 +278,18 @@
   применяются текстом со стрипом плейсхолдеров. Люфты — [API-COVERAGE](../public/API-COVERAGE.md).
 - **Document sync (LSP) — зеркало документа в субпроцессе (G3, как `$acceptModelChanged` эталона):**
   `editor.didOpen` — полный снапшот (`IWireDocumentSyncSnapshot`: uri, languageId, `version` =
-  `versionId` модели, text), дальше `editor.didChange` — правки батча модели
+  `versionId` модели, text — одной строкой, а не `lines` эталона: на 200 К строк массив строк
+  стоит главному потоку больше, см. комментарий `snapshotOf`), дальше `editor.didChange` — правки батча модели
   (`IWireDocumentChangedEvent`: `{range, text}[]` в порядке применения, `version` после батча,
   isDirty) из `ITextDocument.onDidChangeModelContent`; замена содержимого целиком (flush, перечитка
   с диска) едет снапшотом в том же `didChange`. Продюсер — `bindDocumentSync`
   (`api/browser/documentSyncAdapter.ts`, проводка в module/харнессе) через порт
-  `IDocumentSyncTarget`. Документ для расширений — пара «uri + languageId», а не модель: продюсер
+  `IDocumentSyncTarget`. Через порт едет не снапшот, а **источник** (`IDocumentSyncSource`: uri,
+  languageId, version, isDirty, `length` — длина LF-текста из PieceTree без его сборки, `getText()`):
+  текст строится только в `DocumentsCustomer`, прямо перед отправкой, для живого субпроцесса и
+  документа в пределах порога; без субпроцесса (файл открыт раньше, чем он поднялся) и для документа
+  сверх порога текст не строится вовсе, а семя на handshake строит тексты по одному, не все разом.
+  Документ для расширений — пара «uri + languageId», а не модель: продюсер
   помнит, под какими uri и языком открыл модель субпроцессу, и Save As (новый uri у той же модели)
   или смена языка шлют `didClose` прежнего uri и `didOpen` нового снапшота, как эталон
   (`$acceptModelLanguageChanged`, Save As в новый ресурс); закрытие последней вкладки закрывает
@@ -292,8 +298,8 @@
   бы зеркало. Хост (`DocumentsCustomer`) шлёт правки только документам, которые субпроцессу открыл
   (`synced` спавна; семя открытых документов на handshake тоже открывает); порог синхронизации — 50
   Mi символов (опция `maxSyncedDocumentChars`, как `_MODEL_SYNC_LIMIT` эталона) решается на
-  открытии: документ сверх него для расширений не существует, а flush, переросший порог, его
-  закрывает. Синхронизируются документы вкладок и сторон дифф-вкладок
+  открытии по `length` источника, как `isTooLargeForSyncing` эталона по длине буфера: документ сверх
+  него для расширений не существует, а flush, переросший порог, его закрывает. Синхронизируются документы вкладок и сторон дифф-вкладок
   (`IEditorService.getTextSurfaces`), но не панели Output: строка лога канала RPC, уехав правкой,
   порождала бы новую. Субпроцесс (`DocumentSyncTracker`): `open` — снапшот (новый ресурс →
   `onDidOpenTextDocument`, изменившийся текст → одна full-range правка), `change` — правки

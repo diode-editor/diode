@@ -84,6 +84,10 @@ export class TextDocument implements ITextDocument {
         return this.buffer.getValueInRange(this.fullRange(), EndOfLinePreference.LF);
     }
 
+    public getValueLength(): number {
+        return this.buffer.getValueLengthInRange(this.fullRange(), EndOfLinePreference.LF);
+    }
+
     public serialize(): string {
         return this.buffer.getValueInRange(this.fullRange(), EndOfLinePreference.TextDefined);
     }

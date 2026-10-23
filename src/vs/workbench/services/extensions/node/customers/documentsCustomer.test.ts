@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { flushMicrotasks } from "../../../../../../TestUtils/timing.ts";
 import type { ILogger } from "../../../../../platform/log/common/iLogger.ts";
+import type { IDocumentSyncSource } from "../../../../api/common/iDocumentSyncTarget.ts";
 import { createInProcessChannelPair } from "../../../../api/common/inProcessChannelPair.ts";
 import { RpcEndpoint } from "../../../../api/common/rpcEndpoint.ts";
 import type { IWireDocumentChangedEvent, IWireDocumentSyncSnapshot } from "../../../../api/common/wireTypes.ts";
@@ -31,7 +32,7 @@ const LIMIT = 10;
 function makeCustomer(
     options: {
         attached?: boolean;
-        openDocuments?: () => IWireDocumentSyncSnapshot[];
+        openDocuments?: () => IDocumentSyncSource[];
     } = {},
 ) {
     const { logger, lines } = makeLogger();
@@ -51,8 +52,26 @@ function makeCustomer(
     return { customer, peer, attached, received, logLines: lines };
 }
 
-function snap(text = "hello", version = 1): IWireDocumentSyncSnapshot {
-    return { uri: "file:///a.ts", languageId: "typescript", version, text };
+/** What goes over the wire for {@link src} of the same arguments. */
+function snap(text = "hello", version = 1, uri = "file:///a.ts"): IWireDocumentSyncSnapshot {
+    return { uri, languageId: "typescript", version, text, isDirty: false };
+}
+
+/** What the producer hands over; `built` counts how many times the text was built. */
+function src(text = "hello", version = 1, uri = "file:///a.ts"): IDocumentSyncSource & { built: number } {
+    const source = {
+        uri,
+        languageId: "typescript",
+        version,
+        isDirty: false,
+        length: text.length,
+        built: 0,
+        getText: (): string => {
+            source.built++;
+            return text;
+        },
+    };
+    return source;
 }
 
 async function subscribe(
@@ -85,8 +104,8 @@ function delta(uri = "file:///a.ts", version = 2): IWireDocumentChangedEvent {
 describe("DocumentsCustomer — mirrored document sync", () => {
     it("without a spawn nothing is sent", async () => {
         const detached = makeCustomer({ attached: false });
-        detached.customer.didOpenTextDocument(snap());
-        detached.customer.didChangeTextDocument(snap("b", 2));
+        detached.customer.didOpenTextDocument(src());
+        detached.customer.didChangeTextDocument(src("b", 2));
         detached.customer.didChangeTextDocumentContent(delta());
         detached.customer.didCloseTextDocument("file:///a.ts");
         await flushMicrotasks();
@@ -95,7 +114,7 @@ describe("DocumentsCustomer — mirrored document sync", () => {
 
     it("open sends a snapshot; edits go as deltas, immediately and each one, without a change subscription", async () => {
         const h = makeCustomer();
-        h.customer.didOpenTextDocument(snap());
+        h.customer.didOpenTextDocument(src());
         h.customer.didChangeTextDocumentContent(delta("file:///a.ts", 2));
         h.customer.didChangeTextDocumentContent(delta("file:///a.ts", 3));
         await flushMicrotasks();
@@ -115,9 +134,9 @@ describe("DocumentsCustomer — mirrored document sync", () => {
 
     it("flush of an opened one — snapshot in didChange; of an unopened one — open", async () => {
         const h = makeCustomer();
-        h.customer.didOpenTextDocument(snap());
-        h.customer.didChangeTextDocument(snap("reloaded", 5));
-        const other = { ...snap("b"), uri: "file:///b.ts" };
+        h.customer.didOpenTextDocument(src());
+        h.customer.didChangeTextDocument(src("reloaded", 5));
+        const other = src("b", 1, "file:///b.ts");
         h.customer.didChangeTextDocument(other);
         h.customer.didChangeTextDocumentContent(delta("file:///b.ts"));
         await flushMicrotasks();
@@ -128,13 +147,13 @@ describe("DocumentsCustomer — mirrored document sync", () => {
             "editor.didChange",
         ]);
         expect(h.received[1].params).toEqual(snap("reloaded", 5));
-        expect(h.received[2].params).toEqual(other);
+        expect(h.received[2].params).toEqual(snap("b", 1, "file:///b.ts"));
     });
 
     it("close — only an opened one, no edits are sent after it", async () => {
         const h = makeCustomer();
         h.customer.didCloseTextDocument("file:///a.ts");
-        h.customer.didOpenTextDocument(snap());
+        h.customer.didOpenTextDocument(src());
         h.customer.didCloseTextDocument("file:///a.ts");
         h.customer.didCloseTextDocument("file:///a.ts");
         h.customer.didChangeTextDocumentContent(delta());
@@ -147,7 +166,7 @@ describe("DocumentsCustomer — mirrored document sync", () => {
 
     it("spawn exit forgets opened documents: edits are not sent to a new spawn without an open", async () => {
         const first = makeCustomer();
-        first.customer.didOpenTextDocument(snap());
+        first.customer.didOpenTextDocument(src());
         first.attached?.dispose();
         const [a, b] = createInProcessChannelPair();
         const peer = new RpcEndpoint(b);
@@ -162,8 +181,8 @@ describe("DocumentsCustomer — mirrored document sync", () => {
     it("a too-large document is not opened and is logged; its edits are not sent", async () => {
         const h = makeCustomer();
         const huge = "x".repeat(LIMIT + 1);
-        h.customer.didOpenTextDocument(snap(huge));
-        h.customer.didChangeTextDocument(snap(huge, 2));
+        h.customer.didOpenTextDocument(src(huge));
+        h.customer.didChangeTextDocument(src(huge, 2));
         h.customer.didChangeTextDocumentContent(delta());
         await flushMicrotasks();
 
@@ -174,8 +193,8 @@ describe("DocumentsCustomer — mirrored document sync", () => {
 
     it("a flush that outgrows the limit closes the document for the subprocess", async () => {
         const h = makeCustomer();
-        h.customer.didOpenTextDocument(snap());
-        h.customer.didChangeTextDocument(snap("x".repeat(LIMIT + 1), 2));
+        h.customer.didOpenTextDocument(src());
+        h.customer.didChangeTextDocument(src("x".repeat(LIMIT + 1), 2));
         h.customer.didChangeTextDocumentContent(delta());
         await flushMicrotasks();
         expect(h.received).toEqual([
@@ -197,7 +216,7 @@ describe("DocumentsCustomer — mirrored document sync", () => {
         await flushMicrotasks();
         const huge = "x".repeat(LIMIT + 1);
         expect(() => {
-            customer.didOpenTextDocument(snap(huge));
+            customer.didOpenTextDocument(src(huge));
         }).not.toThrow();
         expect(customer.isSynced("file:///a.ts")).toBe(false);
         await expect(customer.willSaveTextDocument({ ...SAVE_SNAPSHOT, text: huge })).resolves.toEqual([]);
@@ -205,7 +224,7 @@ describe("DocumentsCustomer — mirrored document sync", () => {
 
     it("a document exactly at the limit still opens", async () => {
         const h = makeCustomer();
-        h.customer.didOpenTextDocument(snap("x".repeat(LIMIT)));
+        h.customer.didOpenTextDocument(src("x".repeat(LIMIT)));
         await flushMicrotasks();
         expect(h.received).toHaveLength(1);
         expect(h.customer.isSynced("file:///a.ts")).toBe(true);
@@ -216,7 +235,7 @@ describe("DocumentsCustomer — isSynced", () => {
     it("open — synced; close — not; foreign uri — not", () => {
         const h = makeCustomer();
         expect(h.customer.isSynced("file:///a.ts")).toBe(false);
-        h.customer.didOpenTextDocument(snap());
+        h.customer.didOpenTextDocument(src());
         expect(h.customer.isSynced("file:///a.ts")).toBe(true);
         expect(h.customer.isSynced("file:///b.ts")).toBe(false);
         h.customer.didCloseTextDocument("file:///a.ts");
@@ -225,11 +244,11 @@ describe("DocumentsCustomer — isSynced", () => {
 
     it("without a spawn nothing is synced; spawn exit forgets opened ones", () => {
         const detached = makeCustomer({ attached: false });
-        detached.customer.didOpenTextDocument(snap());
+        detached.customer.didOpenTextDocument(src());
         expect(detached.customer.isSynced("file:///a.ts")).toBe(false);
 
         const h = makeCustomer();
-        h.customer.didOpenTextDocument(snap());
+        h.customer.didOpenTextDocument(src());
         h.attached?.dispose();
         expect(h.customer.isSynced("file:///a.ts")).toBe(false);
         // A new spawn doesn't know the document until it is reopened.
@@ -239,24 +258,24 @@ describe("DocumentsCustomer — isSynced", () => {
 
     it("over the threshold — not synced: neither on open nor after flush; flush within the threshold — synced", () => {
         const h = makeCustomer();
-        h.customer.didOpenTextDocument(snap("x".repeat(LIMIT + 1)));
+        h.customer.didOpenTextDocument(src("x".repeat(LIMIT + 1)));
         expect(h.customer.isSynced("file:///a.ts")).toBe(false);
-        h.customer.didChangeTextDocument(snap("small", 2));
+        h.customer.didChangeTextDocument(src("small", 2));
         expect(h.customer.isSynced("file:///a.ts")).toBe(true);
-        h.customer.didChangeTextDocument(snap("x".repeat(LIMIT + 1), 3));
+        h.customer.didChangeTextDocument(src("x".repeat(LIMIT + 1), 3));
         expect(h.customer.isSynced("file:///a.ts")).toBe(false);
     });
 
     it("the handshake seed syncs opened documents", () => {
-        const h = makeCustomer({ openDocuments: () => [snap("a"), { ...snap("b"), uri: "file:///b.ts" }] });
+        const h = makeCustomer({ openDocuments: () => [src("a"), src("b", 1, "file:///b.ts")] });
         h.customer.pushInitialState();
         expect(h.customer.isSynced("file:///a.ts")).toBe(true);
         expect(h.customer.isSynced("file:///b.ts")).toBe(true);
     });
 
     it("the seed respects the threshold: a document over it is not opened, even if opened before the spawn", async () => {
-        const huge = { ...snap("x".repeat(LIMIT + 1)), uri: "file:///huge.ts" };
-        const h = makeCustomer({ openDocuments: () => [snap("a"), huge] });
+        const huge = src("x".repeat(LIMIT + 1), 1, "file:///huge.ts");
+        const h = makeCustomer({ openDocuments: () => [src("a"), huge] });
         h.customer.pushInitialState();
         await flushMicrotasks();
         expect(h.received).toEqual([{ method: "editor.didOpen", params: snap("a") }]);
@@ -266,13 +285,13 @@ describe("DocumentsCustomer — isSynced", () => {
 
 describe("DocumentsCustomer — seed and save", () => {
     it("the seed of opened documents goes to a live spawn and opens them for edits", async () => {
-        const docs = [snap("a"), { ...snap("b"), uri: "file:///b.ts" }];
+        const docs = [src("a"), src("b", 1, "file:///b.ts")];
         const h = makeCustomer({ openDocuments: () => docs });
         h.customer.pushInitialState();
         h.customer.didChangeTextDocumentContent(delta("file:///b.ts"));
         await flushMicrotasks();
         expect(h.received).toEqual([
-            ...docs.map((params) => ({ method: "editor.didOpen", params })),
+            ...[snap("a"), snap("b", 1, "file:///b.ts")].map((params) => ({ method: "editor.didOpen", params })),
             { method: "editor.didChange", params: delta("file:///b.ts") },
         ]);
 
@@ -290,7 +309,7 @@ describe("DocumentsCustomer — seed and save", () => {
         await expect(detached.customer.willSaveTextDocument(SAVE_SNAPSHOT)).resolves.toEqual([]);
 
         const h = makeCustomer();
-        h.customer.didOpenTextDocument(snap());
+        h.customer.didOpenTextDocument(src());
         const requests: unknown[] = [];
         h.peer.handleRequest("workspace.willSaveTextDocument", (params) => {
             requests.push(params);
@@ -327,11 +346,11 @@ describe("DocumentsCustomer — seed and save", () => {
         await subscribe(h, { willSave: true });
 
         await expect(h.customer.willSaveTextDocument(SAVE_SNAPSHOT)).resolves.toEqual([]);
-        h.customer.didOpenTextDocument(snap("x".repeat(LIMIT + 1)));
+        h.customer.didOpenTextDocument(src("x".repeat(LIMIT + 1)));
         await expect(h.customer.willSaveTextDocument(SAVE_SNAPSHOT)).resolves.toEqual([]);
         expect(uris).toEqual([]);
 
-        h.customer.didOpenTextDocument(snap("x".repeat(LIMIT)));
+        h.customer.didOpenTextDocument(src("x".repeat(LIMIT)));
         await expect(h.customer.willSaveTextDocument(SAVE_SNAPSHOT)).resolves.toEqual([]);
         expect(uris).toEqual(["file:///a.ts"]);
 
@@ -361,5 +380,58 @@ describe("DocumentsCustomer — seed and save", () => {
         h.customer.didSaveTextDocument(meta);
         await flushMicrotasks();
         expect(h.received).toHaveLength(1);
+    });
+});
+
+describe("DocumentsCustomer — the text is built only for a document that is sent", () => {
+    it("without a spawn the text is never built", () => {
+        const detached = makeCustomer({ attached: false });
+        const opened = src();
+        const flushed = src("b", 2);
+        detached.customer.didOpenTextDocument(opened);
+        detached.customer.didChangeTextDocument(flushed);
+        expect([opened.built, flushed.built]).toEqual([0, 0]);
+    });
+
+    it("the limit is decided on the length, before the text exists: over it, nothing is built", () => {
+        const h = makeCustomer();
+        const huge = src("x".repeat(LIMIT + 1));
+        h.customer.didOpenTextDocument(huge);
+        h.customer.didChangeTextDocument(huge);
+        expect(huge.built).toBe(0);
+        expect(h.logLines).toHaveLength(2);
+    });
+
+    it("an open or a flush that goes out builds the text exactly once and sends what it built", async () => {
+        const h = makeCustomer();
+        const opened = src("hello");
+        const flushed = src("reloaded", 2);
+        h.customer.didOpenTextDocument(opened);
+        h.customer.didChangeTextDocument(flushed);
+        await flushMicrotasks();
+        expect([opened.built, flushed.built]).toEqual([1, 1]);
+        expect(h.received.map((r) => r.params)).toEqual([snap("hello"), snap("reloaded", 2)]);
+    });
+
+    it("the seed builds each document's text once, in order, only for those within the limit", async () => {
+        const docs = [src("a"), src("x".repeat(LIMIT + 1), 1, "file:///huge.ts"), src("c", 1, "file:///c.ts")];
+        const h = makeCustomer({ openDocuments: () => docs });
+        h.customer.pushInitialState();
+        await flushMicrotasks();
+        expect(docs.map((d) => d.built)).toEqual([1, 0, 1]);
+        expect(h.received.map((r) => r.params)).toEqual([snap("a"), snap("c", 1, "file:///c.ts")]);
+    });
+
+    it("the seed of a detached customer reads no source at all", () => {
+        let asked = 0;
+        const detached = makeCustomer({
+            attached: false,
+            openDocuments: () => {
+                asked++;
+                return [src()];
+            },
+        });
+        detached.customer.pushInitialState();
+        expect(asked).toBe(0);
     });
 });

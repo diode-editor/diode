@@ -70,7 +70,7 @@ import type { ILogger } from "../../../../platform/log/common/iLogger.ts";
 import type { IEnvironmentVariableCollectionStore } from "../../../../platform/terminal/common/environmentVariable.ts";
 import type { HostRpc } from "../../../api/common/extHostProtocol.ts";
 import type { ICommandService } from "../../../api/common/iCommandService.ts";
-import type { IDocumentSyncTarget } from "../../../api/common/iDocumentSyncTarget.ts";
+import type { IDocumentSyncSource, IDocumentSyncTarget } from "../../../api/common/iDocumentSyncTarget.ts";
 import {
     type IEditorDecorationsService,
     NULL_EDITOR_DECORATIONS_SERVICE,
@@ -98,7 +98,6 @@ import type { IWorkspaceFoldersSink } from "../../../api/common/iWorkspaceFolder
 import type { IWireLanguageProviderRegistration } from "../../../api/common/wireTypes.ts";
 import {
     type IWireDocumentChangedEvent,
-    type IWireDocumentSyncSnapshot,
     type IWireExtensionCatalog,
     type IWireExtensionDescription,
 } from "../../../api/common/wireTypes.ts";
@@ -215,7 +214,7 @@ export interface IExtensionHostOptions {
     readonly externalOpener?: IExternalOpener;
     readonly environment?: IExtensionHostEnvironment;
     /** Pushed on `host.ready` before the first activation: stock vscode-languageclient reads the registry on `start()`. */
-    readonly openDocumentsProvider?: () => IWireDocumentSyncSnapshot[];
+    readonly openDocumentsProvider?: () => IDocumentSyncSource[];
     readonly fileWatcher?: IExtensionFileWatcher;
     readonly editorLayout?: IEditorLayoutService;
     /** Read on every activation: the workspace folder is known only after host creation, and `storageUri` depends on it. */
@@ -740,12 +739,12 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
         this.documents.didSaveTextDocument(meta);
     }
 
-    public didOpenTextDocument(snapshot: IWireDocumentSyncSnapshot): void {
-        this.documents.didOpenTextDocument(snapshot);
+    public didOpenTextDocument(source: IDocumentSyncSource): void {
+        this.documents.didOpenTextDocument(source);
     }
 
-    public didChangeTextDocument(snapshot: IWireDocumentSyncSnapshot): void {
-        this.documents.didChangeTextDocument(snapshot);
+    public didChangeTextDocument(source: IDocumentSyncSource): void {
+        this.documents.didChangeTextDocument(source);
     }
 
     public didChangeTextDocumentContent(event: IWireDocumentChangedEvent): void {

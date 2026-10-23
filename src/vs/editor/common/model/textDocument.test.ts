@@ -6,6 +6,18 @@ import { createDeleteEdit, createInsertEdit, createTextEdit } from "../core/iTex
 import { TextDocument } from "./textDocument.ts";
 
 describe("TextDocument", () => {
+    it("getValueLength is the length of the LF text, without building it, and follows edits", () => {
+        const doc = new TextDocument("aaa\r\nbb\r\nc");
+        expect(doc.getValueLength()).toBe("aaa\nbb\nc".length);
+        expect(doc.getValueLength()).toBe(doc.getText().length);
+
+        doc.applyEdits([createInsertEdit(1, 0, "xyz\n")]);
+        expect(doc.getValueLength()).toBe(doc.getText().length);
+
+        doc.setText("");
+        expect(doc.getValueLength()).toBe(0);
+    });
+
     it("creates from empty string", () => {
         const doc = new TextDocument("");
         expect(doc.lineCount).toBe(1);

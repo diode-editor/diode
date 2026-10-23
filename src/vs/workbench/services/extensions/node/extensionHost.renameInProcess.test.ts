@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
+import { syncSourceOf } from "../../../../../TestUtils/documentSyncSource.ts";
 import type { ICancellationToken } from "../../../../base/common/cancellation.ts";
 import type { IRenameRequest } from "../../../../editor/common/languages/iRenameSource.ts";
 import type { ILogger } from "../../../../platform/log/common/iLogger.ts";
@@ -57,7 +58,7 @@ function makeHost(
     const peer = new RpcEndpoint(b);
     (host as unknown as { installHostHandlers(rpc: RpcEndpoint): void }).installHostHandlers(hostRpc);
     (host as unknown as { rpc: RpcEndpoint }).rpc = hostRpc;
-    if (open) host.didOpenTextDocument(DOCUMENT);
+    if (open) host.didOpenTextDocument(syncSourceOf(DOCUMENT));
     return { host, peer, warnings, debugs };
 }
 
