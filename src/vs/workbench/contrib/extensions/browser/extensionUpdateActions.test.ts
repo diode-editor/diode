@@ -300,6 +300,16 @@ describe("describeUpdateAllResult", () => {
 });
 
 describe("hasOutdatedExtensions (US-2.9)", () => {
+    it("is right from construction when the catalog is already read", () => {
+        const h = harness();
+        h.setOutdated([entry("acme.tools")]);
+        const contextKeys = new ContextKeyService();
+
+        new ExtensionUpdateContribution(h.service, contextKeys).dispose();
+
+        expect(contextKeys.evaluate("hasOutdatedExtensions")).toBe(true);
+    });
+
     it("follows the outdated list of the service, false until the catalog says otherwise", () => {
         const h = harness();
         const contextKeys = new ContextKeyService();

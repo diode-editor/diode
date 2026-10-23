@@ -242,6 +242,15 @@ describe("ExtensionsWorkbenchService — updates (ExtensionUpdates stage 2)", ()
             expect(service.getOutdated()).toEqual([]);
         });
 
+        it("a manifest version that is not semver cannot be compared: installed, not outdated, no failure", async () => {
+            installed("acme.tools", "nightly");
+            const service = createService(await registry({ "acme.tools": [{ version: "1.1.0" }] }));
+
+            await service.ensureLoaded();
+
+            expect(card(service, "acme.tools")).toEqual({ latest: "1.1.0", installed: "nightly", state: "installed" });
+        });
+
         it("US-2.3: a pinned older version is outdated and stays pinned", async () => {
             installed("acme.tools", "1.0.0", true);
             const service = createService(
