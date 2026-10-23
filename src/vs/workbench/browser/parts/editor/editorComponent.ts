@@ -21,7 +21,7 @@ import type { IGhostText } from "../../../../editor/common/model/iGhostText.ts";
 import type { IGutterChangeDecoration } from "../../../../editor/common/model/iGutterChangeDecoration.ts";
 import type { IUndoElement } from "../../../../editor/common/model/iUndoElement.ts";
 import { DocumentTokenStore } from "../../../../editor/common/tokens/documentTokenStore.ts";
-import type { WordWrapMode } from "../../../../editor/common/viewModel/editorViewState.ts";
+import type { IIndentDefaults, WordWrapMode } from "../../../../editor/common/viewModel/editorViewState.ts";
 import { EditorViewState } from "../../../../editor/common/viewModel/editorViewState.ts";
 import { computeIndentationFolds } from "../../../../editor/contrib/folding/foldingRangeProvider.ts";
 import type { IFoldingRegion } from "../../../../editor/contrib/folding/iFoldingRegion.ts";
@@ -43,10 +43,10 @@ function mergeFoldingRegions(indentation: IFoldingRegion[], provider: readonly I
 
 const DEFAULT_BACKGROUND_TOKEN = "editor.background";
 
-export interface IIndentConfiguration {
-    readonly tabSize?: number;
-    readonly insertSpaces?: boolean;
-    readonly detectIndentation?: boolean;
+export type IIndentConfiguration = IIndentDefaults;
+
+export function sameIndentConfiguration(a: IIndentConfiguration, b: IIndentConfiguration): boolean {
+    return a.tabSize === b.tabSize && a.insertSpaces === b.insertSpaces && a.detectIndentation === b.detectIndentation;
 }
 
 /** Values of `editor.scrollbarMarkers`. */
@@ -67,7 +67,7 @@ export class EditorComponent extends Component {
     private editor: EditorElement;
     private tokenStore: DocumentTokenStore;
     /** Lives on the component, not the view state: the latter is recreated when the document is reloaded. */
-    private indentConfiguration: IIndentConfiguration = {};
+    private indentConfiguration: IIndentConfiguration;
     private foldingRecomputeScheduled = false;
     private readonly foldingProviders: LanguageFeatureRegistry<FoldingRangeProvider>;
     private backgroundTokenValue: WorkbenchColorKey = DEFAULT_BACKGROUND_TOKEN;
@@ -133,6 +133,7 @@ export class EditorComponent extends Component {
         languageConfiguration: ILanguageConfigurationService = NULL_LANGUAGE_CONFIGURATION_SERVICE,
         foldingProviders = new LanguageFeatureRegistry<FoldingRangeProvider>(),
         semanticTokens?: DocumentSemanticTokensFeature,
+        indentConfiguration: IIndentConfiguration = {},
     ) {
         super();
         this.foldingProviders = foldingProviders;
@@ -141,8 +142,9 @@ export class EditorComponent extends Component {
         this.tokenizationRegistry = tokenizationRegistry;
         this.tokenStyleResolver = tokenStyleResolver;
         this.languageConfiguration = languageConfiguration;
+        this.indentConfiguration = indentConfiguration;
 
-        this.editorViewState = new EditorViewState(model.document);
+        this.editorViewState = new EditorViewState(model.document, undefined, indentConfiguration);
         // The TM token cache subscribes to the document, which outlives the view: without
         // dispose the subscription would stay on the model after the tab is closed.
         this.tokenStore = this.register(
@@ -348,21 +350,14 @@ export class EditorComponent extends Component {
      * beats the setting (as upstream).
      */
     public applyIndentConfiguration(config: IIndentConfiguration): void {
+        // Detection reruns on a change of its inputs only, as upstream `setModelOptionsForModel`:
+        // the configuration is reapplied on every `editor.*` change, including Alt+Z.
+        if (sameIndentConfiguration(this.indentConfiguration, config)) return;
         const before = { tabSize: this.editorViewState.tabSize, insertSpaces: this.editorViewState.insertSpaces };
         this.indentConfiguration = config;
-        this.applyIndentConfigurationToViewState();
+        this.editorViewState.applyIndentDefaults(config);
         this.editor.markDirty();
         this.notifyIndentIfChanged(before);
-    }
-
-    private applyIndentConfigurationToViewState(): void {
-        const { insertSpaces, detectIndentation } = this.indentConfiguration;
-        // A non-positive `tabSize` is treated as a missing key.
-        const tabSize = this.indentConfiguration.tabSize ?? 0;
-        if (tabSize > 0) this.editorViewState.configuredTabSize = tabSize;
-        if (insertSpaces !== undefined) this.editorViewState.configuredInsertSpaces = insertSpaces;
-        if (detectIndentation !== undefined) this.editorViewState.detectIndentation = detectIndentation;
-        this.editorViewState.runDetectIndentation();
     }
 
     public setOccurrenceHighlightEnabled(enabled: boolean): void {

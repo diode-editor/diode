@@ -139,3 +139,29 @@ describe("runDetectIndentation: source priority", () => {
         expect(state.insertSpaces).toBe(false);
     });
 });
+
+describe("constructor indent defaults", () => {
+    it("are applied before the first detection: the config covers an unindented file", () => {
+        const state = new EditorViewState(new TextDocument("no indentation here"), undefined, {
+            tabSize: 3,
+            insertSpaces: true,
+        });
+        expect(state.tabSize).toBe(3);
+        expect(state.insertSpaces).toBe(true);
+    });
+
+    it("detection off in the defaults keeps the config over the file", () => {
+        const state = new EditorViewState(new TextDocument("function foo() {\n  const x = 1;\n}"), undefined, {
+            tabSize: 8,
+            insertSpaces: false,
+            detectIndentation: false,
+        });
+        expect(state.tabSize).toBe(8);
+        expect(state.insertSpaces).toBe(false);
+    });
+
+    it("a non-positive tabSize counts as a missing key", () => {
+        const state = new EditorViewState(new TextDocument("x"), undefined, { tabSize: 0 });
+        expect(state.tabSize).toBe(4);
+    });
+});

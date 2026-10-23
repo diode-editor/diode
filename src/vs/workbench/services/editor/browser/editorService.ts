@@ -655,7 +655,11 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
                 editor = this.createVirtualPane(uri, content);
             } else {
                 const ref = this.textFileModels.acquire(uri);
-                editor = this.paneBuilder.build(ref.model, ref);
+                editor = this.paneBuilder.build(
+                    ref.model,
+                    ref,
+                    this.editorConfiguration.indentConfigurationFor(ref.model.languageId),
+                );
                 this.editorConfiguration.apply(editor);
             }
             if (viewState !== undefined) applyViewState(editor, viewState);
