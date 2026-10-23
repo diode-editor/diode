@@ -12,6 +12,7 @@ export function describeVersionPicks(
     now: number,
 ): QuickPickItem[] {
     return versions.map((v) => {
+        // Stryker disable next-line StringLiteral: any non-date string parses to NaN, the same as no date
         const published = Date.parse(v.publishedAt ?? "");
         const parts = [
             Number.isNaN(published) ? undefined : fromNow(published, now, true),
