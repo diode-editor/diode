@@ -76,6 +76,26 @@ describe("spawnSelfAsRole", () => {
         await new Promise((resolve) => child.once("exit", resolve));
     });
 
+    /**
+     * A `Map` tells the wire format apart: JSON (the default, which the tests above run on) flattens it
+     * to `{}`, the structured clone keeps it. One child, like the tests above: two at once starved on the
+     * 2-vCPU Stryker dry run.
+     */
+    it("IPC serialization: the structured clone on request, and Node tells the child about it", async () => {
+        const child = spawnSelfAsRole("DIODE_FILE_WATCHER", {
+            stderr: "ignore",
+            spec: {
+                command: process.execPath,
+                args: ["-e", `process.send({ map: new Map([["k", 1]]) }, () => process.exit(0));`],
+            },
+            serialization: "advanced",
+        });
+        const message = await new Promise((resolve) => child.once("message", resolve));
+
+        expect(message).toEqual({ map: new Map([["k", 1]]) });
+        await new Promise((resolve) => child.once("exit", resolve));
+    });
+
     /** `/proc/self/stat` fields are read after the last `)`: `comm` may contain spaces and parentheses. */
     const groupProbe = [
         'const fs = require("node:fs");',

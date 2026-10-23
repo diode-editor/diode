@@ -33,12 +33,19 @@ export interface ISpawnSelfAsRoleOptions {
      * no longer reaches the child, the owner must handle it.
      */
     readonly ownProcessGroup?: boolean;
+    /**
+     * IPC wire format; Node passes it to the child through `NODE_CHANNEL_SERIALIZATION_MODE`, so both ends
+     * agree. `"advanced"` (structured clone via `v8.serialize`) is several times cheaper than JSON on big
+     * payloads but rejects functions and symbols instead of dropping them — the channel owner must cope.
+     */
+    readonly serialization?: "json" | "advanced";
 }
 
 export function spawnSelfAsRole(role: SelfProcessRole, options: ISpawnSelfAsRoleOptions): ChildProcess {
     const spec = options.spec ?? selfSpawnArgs();
     return spawn(spec.command, spec.args, {
         stdio: ["ignore", options.stdout ?? "ignore", options.stderr, "ipc"],
+        serialization: options.serialization ?? "json",
         env: { ...(options.env ?? process.env), [role]: "1" },
         // Stryker disable next-line ConditionalExpression,StringLiteral: on a posix runner `platform !== "win32"` is always true, the mutant is equivalent; e2e on windows covers the win32 branch
         detached: options.ownProcessGroup === true && process.platform !== "win32",

@@ -142,8 +142,21 @@
     ставится.
 
 ## Extensions/Host/ — extension host (real subprocess)
-Изоляция кода расширений от ядра. Host форкает **один subprocess** (тот же бинарь / `main.ts` с env `DIODE_EXTENSION_HOST=1`) и общается с ним через **RPC поверх Node IPC**. Швы:
+Изоляция кода расширений от ядра. Host форкает **один subprocess** (тот же бинарь / `main.ts` с env `DIODE_EXTENSION_HOST=1`) и общается с ним через **RPC поверх Node IPC**. Отступление от эталона: VS Code гоняет extension host по своему `RPCProtocol` (сокет, `MessageBuffer`/`VSBuffer`, JSON со спецслучаями для буферов и `$mid`-revive), у нас — канал Node. Швы:
 - **`IMessageChannel`** — транспортно-агностичный двунаправленный канал. Реализации: `IpcMessageChannel` (Node IPC) и `createInProcessChannelPair()` (unit-тесты).
+  **Формат провода — структурный клон** (`serialization: "advanced"` у форка роли в `spawnSelfAsRole`,
+  `v8.serialize`; watcher остаётся на JSON): sync документа 13 МБ стоит главному потоку ~10 мс вместо
+  ~55 у JSON. Отличия от JSON, на которые нельзя опираться: `undefined`-поля и `Map`/`Set`/`Date`/typed
+  arrays доходят как есть, `toJSON()` не зовётся (у `vscode.Uri` на провод уходят собственные поля
+  `scheme/authority/path/query/fragment`, не `$mid` — `reviveWireUri` принимает обе формы), прототипы
+  теряются. Парсеры провода сравнивают `!== undefined`, а не наличие поля. **Предохранитель:** клон
+  бросает на функции, символе, Proxy, Promise — там, где JSON молча выбрасывал. `IpcMessageChannel`
+  отличает это от закрытого канала по `endpoint.connected`, шлёт сообщение повторно его JSON-образом
+  (`JSON.parse(JSON.stringify(...))` — ровно байты старого транспорта) и пишет `warn` с конвертом
+  (`notif window.statusBarItem.update`); если и JSON его не берёт (цикл рядом с функцией) — `error` и
+  сообщение отброшено, канал жив. Ни одно сообщение не теряется молча; в субпроцессе лог идёт в stderr
+  с префиксом `[ext-host]` и попадает в канал Extensions хоста. In-process пара зеркалит то же
+  (`structuredClone` → JSON-образ).
 - **`RpcEndpoint`** — request/response/notification поверх канала, **симметричный** (запросы шлют обе стороны).
 - **Сторона ядра — фасад и customers** (`services/extensions/node/`, как `mainThread*` эталона).
   `ExtensionHost` — фасад с прежним публичным API: держит реестр и активацию (таблица фаз

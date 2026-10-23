@@ -60,6 +60,25 @@ describe("InProcessChannelPair", () => {
         expect(received).toEqual({ v: 1 });
     });
 
+    it("mirrors the IPC transport: a Map and an undefined field survive the structured clone", async () => {
+        const [a, b] = createInProcessChannelPair();
+        const received: unknown[] = [];
+        b.onMessage((m) => received.push(m));
+        a.postMessage({ gap: undefined, map: new Map([["k", 1]]) });
+        await Promise.resolve();
+        expect(received).toEqual([{ gap: undefined, map: new Map([["k", 1]]) }]);
+        expect(Object.keys(received[0] as object)).toEqual(["gap", "map"]);
+    });
+
+    it("mirrors the IPC fallback: a function in the payload is dropped the way JSON dropped it, the message arrives", async () => {
+        const [a, b] = createInProcessChannelPair();
+        const received: unknown[] = [];
+        b.onMessage((m) => received.push(m));
+        a.postMessage({ arguments: [1, () => 2], fn: () => 3 });
+        await Promise.resolve();
+        expect(received).toEqual([{ arguments: [1, null] }]);
+    });
+
     it("unsubscribed listener stops receiving", async () => {
         const [a, b] = createInProcessChannelPair();
         const received: unknown[] = [];

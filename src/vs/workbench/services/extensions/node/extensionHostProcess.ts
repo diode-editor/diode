@@ -54,12 +54,15 @@ export class ExtensionHostProcess {
         });
         // Own group so the signal reaches grandchildren: extensions start language servers
         // themselves (jdtls, gopls), and a signal to the direct child doesn't reach them.
+        // Structured clone instead of JSON: syncing a 13 MB document costs the main thread ~10 ms, not ~55
+        // (`IpcMessageChannel` handles what the clone rejects).
         const child = spawnSelfAsRole("DIODE_EXTENSION_HOST", {
             stdout,
             stderr,
             spec,
             env: spec.env,
             ownProcessGroup: true,
+            serialization: "advanced",
         });
         this.guard = new GuardedChildProcess(child, { label: "extension-host", logger: this.logger });
         if (child.stdout !== null && stdoutLogger !== undefined) {
@@ -80,7 +83,7 @@ export class ExtensionHostProcess {
             onExit(end.code, end.signal);
         });
         this.child = child;
-        this.channel = new IpcMessageChannel(child as unknown as IIpcEndpoint);
+        this.channel = new IpcMessageChannel(child as unknown as IIpcEndpoint, this.logger);
         this.rpc = new RpcEndpoint(this.channel, options.rpcLogger);
     }
 

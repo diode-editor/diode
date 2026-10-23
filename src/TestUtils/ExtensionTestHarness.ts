@@ -196,6 +196,8 @@ export interface IExtensionHarnessOptions {
     readonly secrets?: IExtensionSecretStore;
     readonly extensionState?: IExtensionStateStore;
     readonly logger?: ILogger;
+    /** The subprocess's stderr, line by line (`[ext-host] …` warnings land here). */
+    readonly stderrLogger?: ILogger;
     readonly workspaceScanner?: IWorkspaceScanner;
     readonly environment?: IExtensionHostEnvironment;
     readonly environmentVariableCollections?: IEnvironmentVariableCollectionStore;
@@ -295,6 +297,7 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
         configuration,
         storageHomes,
         ...(options.logger !== undefined ? { logger: options.logger } : {}),
+        ...(options.stderrLogger !== undefined ? { stderrLogger: options.stderrLogger } : {}),
         openDocumentsProvider: () => openDocumentSyncSources(group),
         editorLayout,
         ...(options.diagnosticsSink !== undefined ? { diagnosticsSink: options.diagnosticsSink } : {}),
