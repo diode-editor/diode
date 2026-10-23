@@ -1,9 +1,9 @@
 # File open benchmark
 
-- Recorded: 2026-10-23T22:17:51.364Z, commit `7113f3c13a77`, diode nightly-7113f3c
-- Machine: AMD EPYC 9V74 80-Core Processor (4 cores, 16 GB), linux 7.0.0-1017-azure
+- Recorded: 2026-10-23T22:33:41.762Z, commit `0a5504251277`, diode nightly-0a55042
+- Machine: AMD EPYC 9V45 96-Core Processor (4 cores, 16 GB), linux 7.0.0-1017-azure
 - Conditions: CI, shared runner (GitHub Actions)
-- node floor (`node -e ""` over PTY, median): 22 ms; binary floor (`diode --version` over PTY, median): 51 ms; for reference `node --version`: 4 ms (answers before V8 starts)
+- node floor (`node -e ""` over PTY, median): 26 ms; binary floor (`diode --version` over PTY, median): 46 ms; for reference `node --version`: 4 ms (answers before V8 starts)
 
 ## Over the floor
 
@@ -11,10 +11,10 @@ The headline number is **our ms**: time to text minus the node floor (what every
 
 | file | size | lines | our ms | over binary floor | to text | to highlight | IQR (to text) | peak RSS | runs |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| `small` | 6.0 KB | 100 | **107 ms** | 77 ms | 129 ms | 224 ms | 8 ms | 245 MB | 11 |
-| `medium` | 126.7 KB | 2000 | **116 ms** | 86 ms | 138 ms | 228 ms | 8 ms | 266 MB | 11 |
-| `large` | 1.3 MB | 20000 | **127 ms** | 97 ms | 148 ms | 239 ms | 5 ms | 287 MB | 7 |
-| `xlarge` | 13.1 MB | 200000 | **195 ms** | 165 ms | 217 ms | 298 ms | 3 ms | 464 MB | 5 |
+| `small` | 6.0 KB | 100 | **88 ms** | 68 ms | 114 ms | 194 ms | 10 ms | 243 MB | 11 |
+| `medium` | 126.7 KB | 2000 | **91 ms** | 71 ms | 117 ms | 195 ms | 6 ms | 246 MB | 11 |
+| `large` | 1.3 MB | 20000 | **102 ms** | 82 ms | 128 ms | 204 ms | 5 ms | 290 MB | 7 |
+| `xlarge` | 13.1 MB | 200000 | **161 ms** | 140 ms | 186 ms | 250 ms | 13 ms | 466 MB | 5 |
 
 ## Mark ladder (white box)
 
@@ -22,32 +22,32 @@ The headline number is **our ms**: time to text minus the node floor (what every
 
 | mark | `small` | `medium` | `large` | `xlarge` |
 | --- | ---: | ---: | ---: | ---: |
-| process start (timeOrigin) | 6 ms | 6 ms | 6 ms | 9 ms |
-| node ready (bootstrapComplete) | 55 ms | 59 ms | 60 ms | 71 ms |
-| bundle executed (main:start) | 55 ms | 59 ms | 60 ms | 71 ms |
-| config loaded | 71 ms | 76 ms | 76 ms | 88 ms |
-| keybindings loaded | 71 ms | 76 ms | 77 ms | 88 ms |
-| session state loaded | 72 ms | 76 ms | 77 ms | 88 ms |
-| extensions scanned | 68 ms | 74 ms | 74 ms | 86 ms |
-| themes ready | 74 ms | 79 ms | 79 ms | 90 ms |
-| DI container created | 78 ms | 84 ms | 84 ms | 94 ms |
-| workbench mounted | 101 ms | 106 ms | 108 ms | 119 ms |
-| first frame | 101 ms | 106 ms | 108 ms | 119 ms |
-| workbench activated | 105 ms | 111 ms | 112 ms | 123 ms |
-| grammars preloaded | 110 ms | 116 ms | 117 ms | 130 ms |
-| file read from disk | 111 ms | 118 ms | 127 ms | 193 ms |
-| file decoded | 111 ms | 118 ms | 127 ms | 193 ms |
-| document built | 111 ms | 118 ms | 127 ms | 193 ms |
-| tokenizer attached to editor | 127 ms | 137 ms | 148 ms | 217 ms |
-| tabs opened | 115 ms | 124 ms | 134 ms | 202 ms |
-| built-in extensions registered | 239 ms | 244 ms | 255 ms | 313 ms |
-| frame with file text | 127 ms | 134 ms | 146 ms | 215 ms |
-| frame with highlighting | 223 ms | 227 ms | 239 ms | 298 ms |
-| extension host up | 426 ms | 444 ms | 510 ms | 894 ms |
-| startup complete | 235 ms | 240 ms | 251 ms | 310 ms |
-| to text (black box) | 129 ms | 138 ms | 148 ms | 217 ms |
-| to highlight (black box) | 224 ms | 228 ms | 239 ms | 298 ms |
-| gap black − white (text) | 1 ms | 2 ms | 2 ms | 2 ms |
+| process start (timeOrigin) | 6 ms | 5 ms | 8 ms | 8 ms |
+| node ready (bootstrapComplete) | 52 ms | 51 ms | 55 ms | 60 ms |
+| bundle executed (main:start) | 52 ms | 51 ms | 55 ms | 60 ms |
+| config loaded | 62 ms | 64 ms | 70 ms | 73 ms |
+| keybindings loaded | 64 ms | 65 ms | 71 ms | 73 ms |
+| session state loaded | 64 ms | 65 ms | 72 ms | 73 ms |
+| extensions scanned | 61 ms | 62 ms | 68 ms | 69 ms |
+| themes ready | 66 ms | 67 ms | 74 ms | 76 ms |
+| DI container created | 69 ms | 70 ms | 77 ms | 79 ms |
+| workbench mounted | 90 ms | 90 ms | 94 ms | 99 ms |
+| first frame | 90 ms | 90 ms | 94 ms | 99 ms |
+| workbench activated | 93 ms | 93 ms | 97 ms | 103 ms |
+| grammars preloaded | 101 ms | 98 ms | 103 ms | 110 ms |
+| file read from disk | 102 ms | 100 ms | 111 ms | 169 ms |
+| file decoded | 102 ms | 100 ms | 111 ms | 169 ms |
+| document built | 102 ms | 100 ms | 111 ms | 169 ms |
+| tokenizer attached to editor | 114 ms | 117 ms | 128 ms | 187 ms |
+| tabs opened | 105 ms | 104 ms | 118 ms | 176 ms |
+| built-in extensions registered | 209 ms | 209 ms | 219 ms | 264 ms |
+| frame with file text | 113 ms | 115 ms | 126 ms | 185 ms |
+| frame with highlighting | 194 ms | 195 ms | 205 ms | 250 ms |
+| extension host up | 369 ms | 369 ms | 413 ms | 787 ms |
+| startup complete | 206 ms | 205 ms | 215 ms | 261 ms |
+| to text (black box) | 114 ms | 117 ms | 128 ms | 186 ms |
+| to highlight (black box) | 194 ms | 195 ms | 204 ms | 250 ms |
+| gap black − white (text) | 1 ms | 2 ms | 2 ms | 1 ms |
 
 ## Workload after open
 
@@ -55,9 +55,9 @@ Keystroke latency: from the write to the PTY to the frame where the change is vi
 
 | file | insert char | Enter | undo (Enter) | undo (char) | save | Ctrl+End | word search |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| `small` | 25 ms | 11 ms | 8 ms | 10 ms | 10 ms | 5 ms | 2 ms |
-| `medium` | 25 ms | 12 ms | 10 ms | 8 ms | 13 ms | 5 ms | 3 ms |
-| `large` | 35 ms | 18 ms | 18 ms | 14 ms | 46 ms | 12 ms | 15 ms |
-| `xlarge` | 26 ms | 24 ms | 12 ms | 16 ms | 116 ms | 14 ms | 63 ms |
+| `small` | 16 ms | 11 ms | 9 ms | 6 ms | 9 ms | 5 ms | 2 ms |
+| `medium` | 24 ms | 11 ms | 7 ms | 8 ms | 13 ms | 4 ms | 2 ms |
+| `large` | 23 ms | 13 ms | 12 ms | 13 ms | 42 ms | 9 ms | 13 ms |
+| `xlarge` | 24 ms | 20 ms | 10 ms | 14 ms | 106 ms | 10 ms | 43 ms |
 
 Methodology: the SEA binary runs in a PTY (120×32) in a hermetic environment (its own user-data-dir and HOME); time is counted from process spawn; the moment text/highlighting appears is recovered from stdout chunk timestamps. The node and binary floors are taken in the same run the same way (spawn over PTY, until the first output chunk): the node floor is `node -e ""`, the minimal process with a full V8 bootstrap (`node --version` answers before V8 starts and cannot be the runtime floor); the binary floor is `diode --version`, i.e. plus SEA bundle parsing. "To highlight" is the first frame where a keyword is colored by the theme. Peak RSS is the editor process `VmHWM` over the whole run (startup + workload). LSP is not measured. The first run of each size is a warm-up and is excluded from the stats.
