@@ -76,30 +76,24 @@ describe("spawnSelfAsRole", () => {
         await new Promise((resolve) => child.once("exit", resolve));
     });
 
-    /** A `Map` tells the wire format apart: JSON flattens it to `{}`, the structured clone keeps it. */
-    const mapProbe = `process.send({ map: new Map([["k", 1]]) }, () => process.exit(0));`;
-
-    it("IPC serialization is JSON by default and structured clone on request; Node tells the child", async () => {
-        const json = spawnSelfAsRole("DIODE_FILE_WATCHER", {
+    /**
+     * A `Map` tells the wire format apart: JSON (the default, which the tests above run on) flattens it
+     * to `{}`, the structured clone keeps it. One child, like the tests above: two at once starved on the
+     * 2-vCPU Stryker dry run.
+     */
+    it("IPC serialization: the structured clone on request, and Node tells the child about it", async () => {
+        const child = spawnSelfAsRole("DIODE_FILE_WATCHER", {
             stderr: "ignore",
-            spec: { command: process.execPath, args: ["-e", mapProbe] },
-        });
-        const advanced = spawnSelfAsRole("DIODE_FILE_WATCHER", {
-            stderr: "ignore",
-            spec: { command: process.execPath, args: ["-e", mapProbe] },
+            spec: {
+                command: process.execPath,
+                args: ["-e", `process.send({ map: new Map([["k", 1]]) }, () => process.exit(0));`],
+            },
             serialization: "advanced",
         });
-        const [fromJson, fromAdvanced] = await Promise.all([
-            new Promise((resolve) => json.once("message", resolve)),
-            new Promise((resolve) => advanced.once("message", resolve)),
-        ]);
+        const message = await new Promise((resolve) => child.once("message", resolve));
 
-        expect(fromJson).toEqual({ map: {} });
-        expect(fromAdvanced).toEqual({ map: new Map([["k", 1]]) });
-        await Promise.all([
-            new Promise((resolve) => json.once("exit", resolve)),
-            new Promise((resolve) => advanced.once("exit", resolve)),
-        ]);
+        expect(message).toEqual({ map: new Map([["k", 1]]) });
+        await new Promise((resolve) => child.once("exit", resolve));
     });
 
     /** `/proc/self/stat` fields are read after the last `)`: `comm` may contain spaces and parentheses. */
