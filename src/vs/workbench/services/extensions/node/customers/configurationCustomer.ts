@@ -22,11 +22,12 @@ export class ConfigurationCustomer implements IExtensionHostCustomer {
      * the extension already reads getConfiguration in activate().
      */
     public pushInitialState(): void {
+        const workspaceFile = this.configuration.getWorkspaceFile();
         this.rpc?.notify("workspace.initialize", {
             configuration: this.configuration.getSnapshot(),
             workspaceFolders: this.configuration.getWorkspaceFolders(),
-            // `undefined` for a folder window: the (JSON) wire doesn't carry such a field.
-            workspaceFile: this.configuration.getWorkspaceFile(),
+            // A folder window has no such field: the structured-clone wire would carry an `undefined` one.
+            ...(workspaceFile !== undefined ? { workspaceFile } : {}),
         });
     }
 

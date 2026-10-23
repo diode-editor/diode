@@ -117,6 +117,12 @@ describe("ExtensionHostProcess — start", () => {
         ]);
     });
 
+    it("the IPC channel runs the structured clone (`advanced`), not JSON: the big document sync is what it is for", () => {
+        start(new FakeChild());
+
+        expect(spawnMock.mock.calls[0]?.[2]).toMatchObject({ serialization: "advanced" });
+    });
+
     it("without its own env the child gets the parent's environment and the role marker", () => {
         start(new FakeChild());
         start(new FakeChild(), { spawnArgs: () => ({ command: "node", args: [], env: { ONLY: "this" } }) });

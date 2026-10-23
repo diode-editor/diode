@@ -76,6 +76,32 @@ describe("spawnSelfAsRole", () => {
         await new Promise((resolve) => child.once("exit", resolve));
     });
 
+    /** A `Map` tells the wire format apart: JSON flattens it to `{}`, the structured clone keeps it. */
+    const mapProbe = `process.send({ map: new Map([["k", 1]]) }, () => process.exit(0));`;
+
+    it("IPC serialization is JSON by default and structured clone on request; Node tells the child", async () => {
+        const json = spawnSelfAsRole("DIODE_FILE_WATCHER", {
+            stderr: "ignore",
+            spec: { command: process.execPath, args: ["-e", mapProbe] },
+        });
+        const advanced = spawnSelfAsRole("DIODE_FILE_WATCHER", {
+            stderr: "ignore",
+            spec: { command: process.execPath, args: ["-e", mapProbe] },
+            serialization: "advanced",
+        });
+        const [fromJson, fromAdvanced] = await Promise.all([
+            new Promise((resolve) => json.once("message", resolve)),
+            new Promise((resolve) => advanced.once("message", resolve)),
+        ]);
+
+        expect(fromJson).toEqual({ map: {} });
+        expect(fromAdvanced).toEqual({ map: new Map([["k", 1]]) });
+        await Promise.all([
+            new Promise((resolve) => json.once("exit", resolve)),
+            new Promise((resolve) => advanced.once("exit", resolve)),
+        ]);
+    });
+
     /** `/proc/self/stat` fields are read after the last `)`: `comm` may contain spaces and parentheses. */
     const groupProbe = [
         'const fs = require("node:fs");',

@@ -94,8 +94,8 @@ export function runExtensionHostSubprocess(): void {
         console.error(`[ext-host] unexpected error: ${describeRejection(e)}`);
     });
 
-    const channel = new IpcMessageChannel(process as unknown as IIpcEndpoint);
     const logger = createStderrLogger();
+    const channel = new IpcMessageChannel(process as unknown as IIpcEndpoint, logger);
     const rpc: SubprocessRpc = new RpcEndpoint(channel, logger);
 
     const {
