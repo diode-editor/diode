@@ -25,6 +25,29 @@ export interface IStoredProfileExtension {
     readonly identifier: { readonly id: string };
     readonly version: string;
     readonly relativeLocation?: string;
+    /** Upstream keeps more here than we know about: a rewrite keeps the other fields. */
+    readonly metadata?: IStoredProfileExtensionMetadata;
+}
+
+export interface IStoredProfileExtensionMetadata {
+    /** A version the user chose (upstream `installGivenVersion`): stage 2 `Update All` and stage 3 auto-update skip it. */
+    readonly pinned?: boolean;
+    readonly [key: string]: unknown;
+}
+
+/** What a profile lists: the version on disk plus the entry's pin. */
+export interface IProfileExtension extends IInstalledExtension {
+    readonly pinned: boolean;
+}
+
+export interface IProfileExtensionsAddOptions {
+    /** For the extensions given, not their dependencies; unset keeps what the entry had. */
+    readonly pinned?: boolean;
+    /**
+     * Installed together with them (upstream dependency tasks, `pinned: false`): the profile points to these
+     * directories, never pins them, and a dependency the profile already has keeps its entry and its pin.
+     */
+    readonly dependencies?: readonly IExtensionLocation[];
 }
 
 /** What an install hands to the profile: the id and the directory of the version it installed. */
@@ -67,6 +90,20 @@ function toStoredExtension(installed: IInstalledExtension): IStoredProfileExtens
         version: installed.version,
         relativeLocation: dirName(installed),
     };
+}
+
+/**
+ * Upstream `pinned: installGivenVersion ? true : (options.pinned ?? existing.pinned)`; the rest of the previous
+ * entry stays. No pin and no metadata before means no `metadata` at all.
+ */
+function rewriteEntry(
+    installed: IInstalledExtension,
+    previous: IStoredProfileExtension | undefined,
+    pinned: boolean | undefined,
+): IStoredProfileExtension {
+    const metadata = pinned === undefined ? previous?.metadata : { ...previous?.metadata, pinned };
+    // `metadata: undefined` is not written: JSON drops it.
+    return { ...previous, ...toStoredExtension(installed), metadata };
 }
 
 function dirName(installed: IInstalledExtension): string {
@@ -255,7 +292,7 @@ export class ProfileExtensions {
      * the same as the startup cleanup decides, so the CLI and the window agree. An unreadable
      * file yields an empty list and a logged error: the window starts and the file stays untouched.
      */
-    public list(): IInstalledExtension[] {
+    public list(): IProfileExtension[] {
         const file = this.options.profileFile;
         let entries: IStoredProfileExtension[];
         try {
@@ -265,7 +302,7 @@ export class ProfileExtensions {
             return [];
         }
         const disk = readDisk(this.options.extensionsDir);
-        const byKey = new Map<string, IInstalledExtension>();
+        const byKey = new Map<string, IProfileExtension>();
         for (const entry of entries) {
             const id = entry.identifier.id;
             const key = extensionKey(id);
@@ -276,7 +313,7 @@ export class ProfileExtensions {
                     `Extension ${id}@${entry.version} in ${file} has no directory; using ${chosen.version} (on disk: ${versions.join(", ")})`,
                 );
             });
-            if (installed !== undefined) byKey.set(key, installed);
+            if (installed !== undefined) byKey.set(key, { ...installed, pinned: entry.metadata?.pinned === true });
         }
         return [...byKey.values()].sort((a, b) => a.id.localeCompare(b.id));
     }
@@ -286,7 +323,10 @@ export class ProfileExtensions {
      * transitively: a dependency installed earlier for another profile is needed in this one.
      * A dependency the profile already has keeps its entry. An unreadable file is an error, not a rewrite.
      */
-    public add(installed: readonly IExtensionLocation[]): IProfileExtensionsChange {
+    public add(
+        installed: readonly IExtensionLocation[],
+        options: IProfileExtensionsAddOptions = {},
+    ): IProfileExtensionsChange {
         const entries = readProfileExtensions(this.options.profileFile) ?? [];
         const disk = readDisk(this.options.extensionsDir);
         const adding = new Map<string, IInstalledExtension>();
@@ -297,14 +337,31 @@ export class ProfileExtensions {
             adding.set(extensionKey(found.id), found);
             queue.push(found);
         }
-        const visited = new Set(adding.keys());
+        const roots = new Set(adding.keys());
+        const visited = new Set(roots);
+        const keep = (key: string): IInstalledExtension | undefined => {
+            const existing = entries.find((e) => extensionKey(e.identifier.id) === key);
+            return existing === undefined ? undefined : resolveEntry(existing, disk, () => undefined);
+        };
+        for (const one of options.dependencies ?? []) {
+            const found = disk.installed.find((e) => dirName(e) === path.basename(one.dir));
+            if (found === undefined || visited.has(extensionKey(found.id))) continue;
+            const key = extensionKey(found.id);
+            visited.add(key);
+            const kept = keep(key);
+            if (kept !== undefined) {
+                queue.push(kept);
+                continue;
+            }
+            adding.set(key, found);
+            queue.push(found);
+        }
         for (let one = queue.shift(); one !== undefined; one = queue.shift()) {
             for (const dependency of one.dependencies) {
                 const key = extensionKey(dependency);
                 if (visited.has(key)) continue;
                 visited.add(key);
-                const existing = entries.find((e) => extensionKey(e.identifier.id) === key);
-                const kept = existing === undefined ? undefined : resolveEntry(existing, disk, () => undefined);
+                const kept = keep(key);
                 if (kept !== undefined) {
                     queue.push(kept);
                     continue;
@@ -317,7 +374,12 @@ export class ProfileExtensions {
             }
         }
         const kept = entries.filter((e) => !adding.has(extensionKey(e.identifier.id)));
-        writeProfileExtensions(this.options.profileFile, [...kept, ...[...adding.values()].map(toStoredExtension)]);
+        const written = [...adding].map(([key, one]) => {
+            const previous = entries.find((e) => extensionKey(e.identifier.id) === key);
+            // A dependency new to the profile is written without a pin (upstream dependency tasks: `pinned: false`).
+            return rewriteEntry(one, previous, roots.has(key) ? options.pinned : undefined);
+        });
+        writeProfileExtensions(this.options.profileFile, [...kept, ...written]);
         return { obsolete: this.markUnused([...adding.keys()]) };
     }
 

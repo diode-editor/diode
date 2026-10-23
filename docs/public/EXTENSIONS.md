@@ -36,10 +36,16 @@ Extensions do not update themselves. An update is the same button on the same pa
 keeps working with the version it started with: the old files stay on disk and are removed the next
 time diode starts. The same goes for an uninstall.
 
+To go back to an older version, press **Install Specific Version...** on the extension page (or run
+**Extensions: Install Specific Version of Extension...** from the command palette) and pick one of
+the versions that work with your build. A version chosen this way is pinned in the profile, like in
+VS Code.
+
 ## From the command line
 
 ```sh
 diode --install-extension charliermarsh.ruff   # by id, from the store
+diode --install-extension publisher.name@1.2.3   # exactly this version, pinned
 diode --install-extension ./my-extension.vsix  # a local .vsix
 diode --uninstall-extension charliermarsh.ruff
 diode --list-extensions

@@ -22,6 +22,7 @@ const ENTRY: IExtensionListEntry = {
     latestVersion: "1.0.0",
     installedVersion: null,
     availability: "available",
+    pinned: false,
     needsReload: false,
 };
 
@@ -31,6 +32,11 @@ function content(overrides: Partial<IExtensionPageContent> = {}): IExtensionPage
 
 const INSTALL: IExtensionButton = { kind: "install", label: "Install", enabled: true };
 const UNINSTALL: IExtensionButton = { kind: "uninstall", label: "Uninstall", enabled: true };
+const ANOTHER_VERSION: IExtensionButton = {
+    kind: "installAnotherVersion",
+    label: "Install Specific Version...",
+    enabled: true,
+};
 
 function createHeader(
     options: { content?: IExtensionPageContent; buttons?: IExtensionButton[]; onActivate?: () => void } = {},
@@ -99,6 +105,62 @@ describe("ExtensionPageHeaderElement", () => {
         expect(rows[buttonRow]).toBe(" [ Install ]  [ Uninstall ]");
         // The spacer under the buttons separates the header from the readme.
         expect(rows[buttonRow + 1]).toBe("");
+    });
+
+    it("buttons that do not fit the width wrap to the next row, the height counts the rows", () => {
+        const header = createHeader({ buttons: [INSTALL, ANOTHER_VERSION, UNINSTALL] });
+
+        // 38 columns for buttons: `[ Install ]` (11) + 2 + `[ Install Specific Version... ]` (31) does not fit,
+        // neither does 31 + 2 + `[ Uninstall ]` (13).
+        expect(header.getMaxIntrinsicHeight(40)).toBe(lines(header).length + 3 + 1);
+        const rows = frame(renderElement(header, 40, 16, { themeVars: true }));
+        const first = rows.findIndex((row) => row.includes("[ Install ]"));
+        expect(rows.slice(first, first + 4)).toEqual([
+            " [ Install ]",
+            " [ Install Specific Version... ]",
+            " [ Uninstall ]",
+            "",
+        ]);
+    });
+
+    it("buttons fill a row before wrapping; at a wide width they share one row", () => {
+        const header = createHeader({ buttons: [ANOTHER_VERSION, INSTALL, UNINSTALL] });
+
+        const narrow = frame(renderElement(header, 50, 16, { themeVars: true }));
+        expect(narrow).toContain(" [ Install Specific Version... ]  [ Install ]");
+        expect(narrow).toContain(" [ Uninstall ]");
+
+        const wide = frame(renderElement(header, 80, 12, { themeVars: true }));
+        expect(wide).toContain(" [ Install Specific Version... ]  [ Install ]  [ Uninstall ]");
+        expect(header.getMaxIntrinsicHeight(80)).toBe(lines(header).length + 2);
+    });
+
+    it("the row measure is the width minus two columns, the gap is two: exactly fitting buttons share a row", () => {
+        // `[ Install ]` (11) + 2 + `[ Uninstall ]` (13) = 26 columns.
+        const header = createHeader({ buttons: [INSTALL, UNINSTALL] });
+
+        expect(frame(renderElement(header, 28, 16, { themeVars: true }))).toContain(" [ Install ]  [ Uninstall ]");
+        const narrow = frame(renderElement(header, 27, 16, { themeVars: true }));
+        expect(narrow).toContain(" [ Install ]");
+        expect(narrow).toContain(" [ Uninstall ]");
+        expect(narrow).not.toContain(" [ Install ]  [ Uninstall ]");
+    });
+
+    it("no buttons still keep an (empty) button row above the spacer", () => {
+        const header = createHeader({ buttons: [] });
+
+        expect(header.getMaxIntrinsicHeight(40)).toBe(lines(header).length + 2);
+        expect(header.getButtons()).toEqual([]);
+    });
+
+    it("a focused button keeps focus when a width change rearranges the rows", () => {
+        const header = createHeader({ buttons: [INSTALL, ANOTHER_VERSION, UNINSTALL] });
+        TestApp.createWithContent(header).render();
+        header.getButtons()[2].focus();
+
+        header.getMaxIntrinsicHeight(30);
+
+        expect(header.getButtons()[2].isFocused).toBe(true);
     });
 
     it("wrapping uses the width minus the padding and the scrollbar column", () => {

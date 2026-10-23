@@ -65,6 +65,8 @@ async function openPage(app: HeadlessApp, query: string, pageId: string): Promis
     await app.session.waitForNode(`#extensionPage-${pageId}`);
 }
 
+const ANOTHER_VERSION = { label: "Install Specific Version...", enabled: true };
+
 /** Page buttons as the user sees them: label and enablement. */
 async function pageButtons(app: HeadlessApp): Promise<{ label: string; enabled: boolean }[]> {
     const header = await app.session.node("#extensionPageHeader");
@@ -129,13 +131,14 @@ describe("Extensions install (functional e2e)", () => {
     it("US-11/12: the Install button installs the extension to disk and asks to reload the window", async () => {
         const app = await openExtensions();
         await openPage(app, "sample", "test-sample-lang");
-        expect(await pageButtons(app)).toEqual([{ label: "Install", enabled: true }]);
+        expect(await pageButtons(app)).toEqual([{ label: "Install", enabled: true }, ANOTHER_VERSION]);
 
         await app.session.key("Enter");
         await app.session.waitForText((t) => t.includes("Installed 0.0.2"));
 
         expect(await pageButtons(app)).toEqual([
             { label: "Reload Window", enabled: true },
+            ANOTHER_VERSION,
             { label: "Uninstall", enabled: true },
         ]);
         expect(installedDirs(app)).toEqual(["test.sample-lang-0.0.2"]);
@@ -191,6 +194,7 @@ describe("Extensions install (functional e2e)", () => {
         await openPage(app, "sample", "test-sample-lang");
         expect(await pageButtons(app)).toEqual([
             { label: "Update to 0.0.2", enabled: true },
+            ANOTHER_VERSION,
             { label: "Uninstall", enabled: true },
         ]);
 
@@ -215,7 +219,9 @@ describe("Extensions install (functional e2e)", () => {
             installVsix: [join(registry, "artifacts", "test.sample-lang-0.0.1.vsix")],
         });
         await openPage(app, "sample", "test-sample-lang");
-        await app.session.key("ArrowRight"); // from "Update to …" to "Uninstall"
+        // From "Update to …" past "Install Specific Version..." to "Uninstall".
+        await app.session.key("ArrowRight");
+        await app.session.key("ArrowRight");
         await app.session.key("Enter");
         await app.session.waitForText((t) => t.includes("Not installed"));
 
@@ -230,7 +236,8 @@ describe("Extensions install (functional e2e)", () => {
         const app = await openExtensions();
         await openPage(app, "legacy", "old-legacy");
 
-        expect(await pageButtons(app)).toEqual([{ label: "Install", enabled: false }]);
+        // An older version could still be compatible: only the registry's version list knows.
+        expect(await pageButtons(app)).toEqual([{ label: "Install", enabled: false }, ANOTHER_VERSION]);
         const screen = frameToText(await app.session.captureFrame());
         expect(screen).toContain("Incompatible with this build of Diode");
         // The reason is shown alongside: the registry entry's requirement.
@@ -246,6 +253,6 @@ describe("Extensions install (functional e2e)", () => {
 
         expect(installedDirs(app)).toEqual([]);
         // The button is enabled again — retrying is possible right away.
-        expect(await pageButtons(app)).toEqual([{ label: "Install", enabled: true }]);
+        expect(await pageButtons(app)).toEqual([{ label: "Install", enabled: true }, ANOTHER_VERSION]);
     });
 });

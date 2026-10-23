@@ -2,6 +2,7 @@ import type { IDisposable } from "../../../../base/common/lifecycle.ts";
 import type {
     IRegistryExtensionMeta,
     IRegistrySupport,
+    IRegistryVersion,
     RegistryExtensionKind,
 } from "../../../../platform/extensionManagement/common/registryFormat.ts";
 import {
@@ -35,12 +36,25 @@ export interface IExtensionListEntry {
     /** Installed version; `null` means not installed. */
     readonly installedVersion: string | null;
     readonly availability: ExtensionAvailability;
+    /**
+     * The profile entry has `metadata.pinned` (a version the user chose). It changes neither `availability` nor the
+     * `Update to X` button, like upstream: stages 2 (`Update All`) and 3 (auto-update) skip pinned ones.
+     */
+    readonly pinned: boolean;
     /** Installed/uninstalled in this session: contributions are scanned once at startup, takes effect after a window reload. */
     readonly needsReload: boolean;
 }
 
 /** The error is a value, not an exception: the reason goes to the UI as text, like the catalog read error. */
 export type IExtensionOperationResult = { readonly ok: true } | { readonly ok: false; readonly error: string };
+
+export interface IExtensionInstallOptions {
+    /**
+     * Exactly this version (upstream `installGivenVersion`): it bypasses `engines`, not the platform, and the
+     * profile entry gets pinned. Unset means the highest compatible one, and the entry keeps its pin.
+     */
+    readonly version?: string;
+}
 
 export type IExtensionInstallResult =
     | { readonly ok: true; readonly version: string }
@@ -65,7 +79,13 @@ export interface IExtensionsWorkbenchService {
      * Also "update": the profile switches to the new version; a previous one no profile uses is removed on the
      * next start, so the running extension host keeps its files.
      */
-    install(id: string): Promise<IExtensionInstallResult>;
+    install(id: string, options?: IExtensionInstallOptions): Promise<IExtensionInstallResult>;
+
+    /**
+     * For the version picker (upstream `getAllCompatibleVersions`): newest first, compatible with this build.
+     * Empty when the registry doesn't know the id; a network failure is thrown, like {@link getMeta}.
+     */
+    getCompatibleVersions(id: string): Promise<readonly IRegistryVersion[]>;
 
     /** From this profile; the files go on the next start, when no profile needs the extension. */
     uninstall(id: string): Promise<IExtensionOperationResult>;

@@ -64,9 +64,12 @@ Options:
   --inspect-tui[=host:port] Start the TUIDom inspector (default: ${DEFAULT_INSPECT_TUI})
   --headless[=<cols>x<rows>] Run without a terminal: render to memory, drive it
                            through the inspector (requires --inspect-tui; default: ${DEFAULT_HEADLESS_SIZE.cols}x${DEFAULT_HEADLESS_SIZE.rows})
-  --install-extension <path.vsix | id>  Install an extension and exit. An argument
-                           ending in .vsix is a file path, otherwise a
-                           publisher.name id from the registry
+  --install-extension <path.vsix | id[@version]>  Install an extension and exit.
+                           An argument ending in .vsix is a file path,
+                           otherwise a publisher.name id from the registry.
+                           To install a specific version provide '@<version>',
+                           for example: 'publisher.name@1.2.3'; such a version
+                           and a .vsix are pinned in the profile
   --registry <path|url>    Extension registry for installing by id and for the
                            Extensions viewlet: a directory or an http(s) URL
                            (default: ${DEFAULT_REGISTRY_URL})

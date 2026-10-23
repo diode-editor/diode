@@ -7,14 +7,21 @@ import type {
     IRegistryExtensionMeta,
     IRegistryIndex,
     IRegistryIndexEntry,
+    IRegistryVersion,
 } from "../../../../platform/extensionManagement/common/registryFormat.ts";
 import type { IHostVersions } from "../../../../platform/extensionManagement/common/resolveCompatibleVersion.ts";
-import { areEnginesCompatible } from "../../../../platform/extensionManagement/common/resolveCompatibleVersion.ts";
-import type { IInstalledExtension } from "../../../../platform/extensionManagement/node/extensionInstaller.ts";
+import {
+    areEnginesCompatible,
+    compatibleVersions,
+} from "../../../../platform/extensionManagement/common/resolveCompatibleVersion.ts";
 import { installFromRegistry } from "../../../../platform/extensionManagement/node/installFromRegistry.ts";
-import type { ProfileExtensions } from "../../../../platform/extensionManagement/node/profileExtensions.ts";
+import type {
+    IProfileExtension,
+    ProfileExtensions,
+} from "../../../../platform/extensionManagement/node/profileExtensions.ts";
 import type {
     ExtensionAvailability,
+    IExtensionInstallOptions,
     IExtensionInstallResult,
     IExtensionListEntry,
     IExtensionOperationResult,
@@ -33,7 +40,7 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
 
     /** semver is a lazy chunk: loaded together with the index, not at startup. */
     private catalog: { readonly index: IRegistryIndex; readonly semver: Semver } | null = null;
-    private installed: readonly IInstalledExtension[];
+    private installed: readonly IProfileExtension[];
     private catalogError: string | null = null;
     private entries: readonly IExtensionListEntry[];
     /** A promise, not a flag: concurrent shows wait for one fetch. */
@@ -79,22 +86,32 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
      * Also "update": the profile switches to the new version, the old one stays on disk for the running
      * host and is removed on the next start.
      */
-    public async install(id: string): Promise<IExtensionInstallResult> {
+    public async install(id: string, options: IExtensionInstallOptions = {}): Promise<IExtensionInstallResult> {
         try {
             // Dependencies are installed without asking, as in VS Code, and also wait for a window reload.
             const installed = await installFromRegistry(this.source, id, {
                 extensionsDir: this.profile.extensionsDir,
                 host: this.host,
+                version: options.version,
             });
             const { version, dependencies } = installed;
-            // Into the profile, including dependencies already on disk for another profile.
-            this.profile.add([installed, ...dependencies]);
+            // Into the profile, including dependencies already on disk for another profile. A given version is
+            // pinned (upstream `installGivenVersion`); otherwise the entry keeps its pin.
+            this.profile.add([installed], {
+                ...(options.version !== undefined ? { pinned: true } : {}),
+                dependencies,
+            });
             for (const dep of dependencies) this.pendingReload.add(dep.id);
             this.markChanged(id);
             return { ok: true, version };
         } catch (error) {
             return { ok: false, error: messageOf(error) };
         }
+    }
+
+    public async getCompatibleVersions(id: string): Promise<readonly IRegistryVersion[]> {
+        const [meta, semver] = await Promise.all([this.getMeta(id), loadSemver()]);
+        return meta === undefined ? [] : compatibleVersions(meta.versions, this.host, semver);
     }
 
     public uninstall(id: string): Promise<IExtensionOperationResult> {
@@ -163,7 +180,7 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
 
     private toCatalogEntry(
         entry: IRegistryIndexEntry,
-        installed: IInstalledExtension | undefined,
+        installed: IProfileExtension | undefined,
         semver: Semver,
     ): IExtensionListEntry {
         return {
@@ -177,6 +194,7 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
             latestVersion: entry.latest.version,
             installedVersion: installed?.version ?? null,
             availability: availabilityOf(entry, installed, this.host, semver),
+            pinned: installed?.pinned ?? false,
             needsReload: this.pendingReload.has(entry.id),
         };
     }
@@ -192,7 +210,7 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
  */
 function availabilityOf(
     entry: IRegistryIndexEntry,
-    installed: IInstalledExtension | undefined,
+    installed: IProfileExtension | undefined,
     host: IHostVersions,
     semver: Semver,
 ): ExtensionAvailability {
@@ -202,7 +220,7 @@ function availabilityOf(
 }
 
 /** Installed outside the marketplace: only the manifest is known, the entry is always `installed`. */
-function toSideloadedEntry(installed: IInstalledExtension, needsReload: boolean): IExtensionListEntry {
+function toSideloadedEntry(installed: IProfileExtension, needsReload: boolean): IExtensionListEntry {
     const dot = installed.id.indexOf(".");
     return {
         id: installed.id,
@@ -215,6 +233,7 @@ function toSideloadedEntry(installed: IInstalledExtension, needsReload: boolean)
         latestVersion: null,
         installedVersion: installed.version,
         availability: "installed",
+        pinned: installed.pinned,
         needsReload,
     };
 }

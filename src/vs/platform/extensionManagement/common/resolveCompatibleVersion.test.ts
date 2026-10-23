@@ -2,7 +2,12 @@ import * as semver from "semver";
 import { describe, expect, it } from "vitest";
 
 import type { IRegistryEngines, IRegistryVersion } from "./registryFormat.ts";
-import { type IHostVersions, isVersionCompatible, resolveCompatibleVersion } from "./resolveCompatibleVersion.ts";
+import {
+    compatibleVersions,
+    type IHostVersions,
+    isVersionCompatible,
+    resolveCompatibleVersion,
+} from "./resolveCompatibleVersion.ts";
 
 function version(v: string, engines: IRegistryEngines, targetPlatform?: string): IRegistryVersion {
     return {
@@ -177,5 +182,44 @@ describe("resolveCompatibleVersion", () => {
         expect(
             resolveCompatibleVersion([version("1.0.0", { vscode: "*" }, "darwin-x64")], LINUX_HOST, semver),
         ).toBeUndefined();
+    });
+});
+
+describe("compatibleVersions", () => {
+    it("only compatible ones, newest first by semver, not list order", () => {
+        const versions = [
+            version("1.2.0", { vscode: "^1.90.0" }),
+            version("1.10.0", { vscode: "^1.90.0" }),
+            version("2.0.0", { vscode: "^2.0.0" }),
+            version("1.9.0-beta", { vscode: "^1.90.0" }),
+            version("not-semver", { vscode: "*" }),
+        ];
+
+        expect(compatibleVersions(versions, HOST, semver).map((v) => v.version)).toEqual([
+            "1.10.0",
+            "1.9.0-beta",
+            "1.2.0",
+        ]);
+    });
+
+    it.each([
+        ["universal first", [undefined, "linux-x64"]],
+        ["platform first", ["linux-x64", undefined]],
+    ] satisfies [string, (string | undefined)[]][])(
+        "one row per version, the platform record wins over universal: %s",
+        (_label, order) => {
+            const versions = [
+                ...order.map((target) => version("1.0.0", { vscode: "*" }, target)),
+                version("1.1.0", { vscode: "*" }, "darwin-arm64"),
+            ];
+            expect(
+                compatibleVersions(versions, LINUX_HOST, semver).map((v) => `${v.version} ${String(v.targetPlatform)}`),
+            ).toEqual(["1.0.0 linux-x64"]);
+        },
+    );
+
+    it("nothing compatible is an empty list", () => {
+        expect(compatibleVersions([version("1.0.0", { vscode: "^2.0.0" })], HOST, semver)).toEqual([]);
+        expect(compatibleVersions([], HOST, semver)).toEqual([]);
     });
 });

@@ -14,6 +14,10 @@ import {
     ExtensionsComponentDIToken,
     ExtensionsEditorTargetDIToken,
 } from "../../workbench/contrib/extensions/browser/extensionsComponent.ts";
+import {
+    ExtensionVersionContribution,
+    ExtensionVersionContributionDIToken,
+} from "../../workbench/contrib/extensions/browser/extensionVersionActions.ts";
 import { ExtensionsWorkbenchServiceDIToken } from "../../workbench/contrib/extensions/common/extensionsWorkbench.ts";
 import { ExtensionsWorkbenchService } from "../../workbench/contrib/extensions/node/extensionsWorkbenchService.ts";
 import { EditorServiceDIToken } from "../../workbench/services/editor/common/editorService.ts";
@@ -37,5 +41,6 @@ export const extensionsModule: ContainerModule<ExtensionsModuleContext> = (conta
     });
     container.bind(ExtensionPageActionsDIToken, ExtensionPageActions);
     container.bind(ExtensionsComponentDIToken, ExtensionsComponent);
+    container.bind(ExtensionVersionContributionDIToken, ExtensionVersionContribution);
     container.bind(ExtensionsEditorTargetDIToken, () => container.get(EditorServiceDIToken));
 };

@@ -26,6 +26,8 @@ export interface IFixtureExtension {
     readonly readme?: string;
     /** Declare a wrong sha256: the install must refuse and leave no garbage behind. */
     readonly corruptSha?: boolean;
+    /** ISO date for the version picker's "2 days ago"; none by default. */
+    readonly publishedAt?: string;
 }
 
 /** Returns the path for `--registry`. Several versions of one id are passed as several entries. */
@@ -60,6 +62,7 @@ export async function createRegistryFixture(
             engines,
             artifact: { type: "path", path: relArtifact },
             sha256: extension.corruptSha === true ? "0".repeat(64) : sha256(join(dir, relArtifact)),
+            ...(extension.publishedAt === undefined ? {} : { publishedAt: extension.publishedAt }),
         };
         const displayName = extension.displayName ?? (manifest["displayName"] as string | undefined) ?? name!;
         const description = extension.description ?? (manifest["description"] as string | undefined) ?? "";

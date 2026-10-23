@@ -394,6 +394,7 @@
     "git.deleteRemoteTag",
     "workbench.view.extensions",
     "extensions.refresh",
+    "workbench.extensions.action.install.specificVersion",
     "references-view.findReferences",
     "workbench.view.references",
     "references-view.next",

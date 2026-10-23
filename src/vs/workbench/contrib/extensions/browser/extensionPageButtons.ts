@@ -1,7 +1,10 @@
 import type { IExtensionListEntry } from "../common/extensionsWorkbench.ts";
 
-/** `update` is the same install: it removes previous versions. */
-export type ExtensionButtonKind = "install" | "update" | "uninstall" | "reload";
+/**
+ * `update` is the same install: it removes previous versions. `installAnotherVersion` is upstream
+ * `InstallAnotherVersionAction`, which lives in the extension's context menu there; there is no such menu here.
+ */
+export type ExtensionButtonKind = "install" | "update" | "installAnotherVersion" | "uninstall" | "reload";
 
 export interface IExtensionButton {
     readonly kind: ExtensionButtonKind;
@@ -21,20 +24,22 @@ export function describeExtensionButtons(entry: IExtensionListEntry, state: IExt
     // and the page focus lands on it.
     if (state.needsReload) buttons.push({ kind: "reload", label: "Reload Window", enabled: true });
     const compatible = entry.availability !== "incompatible";
+    const latest = entry.latestVersion;
     if (entry.installedVersion === null) {
         // No registry entry: the button would lead to "not found in registry". Incompatible gets a disabled
         // button: "can't install" is an answer, while a missing button reads as unfinished work.
-        if (entry.latestVersion !== null) {
+        if (latest !== null) {
             buttons.push({ kind: "install", label: "Install", enabled: compatible });
         }
-    } else {
-        const latest = entry.latestVersion;
+    } else if (latest !== null && latest !== entry.installedVersion && compatible) {
         // Updating to an incompatible version is a dead end, not an action: no button.
-        if (latest !== null && latest !== entry.installedVersion && compatible) {
-            buttons.push({ kind: "update", label: `Update to ${latest}`, enabled: true });
-        }
-        buttons.push({ kind: "uninstall", label: "Uninstall", enabled: true });
+        buttons.push({ kind: "update", label: `Update to ${latest}`, enabled: true });
     }
+    // Only the registry knows other versions; an incompatible latest may still have older compatible ones.
+    if (latest !== null) {
+        buttons.push({ kind: "installAnotherVersion", label: "Install Specific Version...", enabled: true });
+    }
+    if (entry.installedVersion !== null) buttons.push({ kind: "uninstall", label: "Uninstall", enabled: true });
     if (!state.busy) return buttons;
     return buttons.map((button) => ({ ...button, enabled: false }));
 }

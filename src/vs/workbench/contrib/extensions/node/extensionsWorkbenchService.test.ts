@@ -661,5 +661,96 @@ describe("ExtensionsWorkbenchService", () => {
             expect(service.getEntries().map((e) => e.id)).toEqual(["other.thing"]);
             expect(service.getEntries()[0]?.needsReload).toBe(false);
         });
+
+        describe("a specific version (ExtensionUpdates stage 1)", () => {
+            /** `acme.tools` 1.0.0, 1.1.0 and an incompatible 2.0.0; the index's latest is 1.1.0. */
+            async function withVersions(): Promise<ExtensionsWorkbenchService> {
+                const metas = await Promise.all(["1.0.0", "1.1.0"].map((v) => registryMeta("acme.tools", v)));
+                const incompatible: IRegistryVersion = {
+                    ...metas[1].versions[0],
+                    version: "2.0.0",
+                    engines: { vscode: "^2.0.0" },
+                };
+                const meta = {
+                    ...metas[0],
+                    versions: [incompatible, ...metas.flatMap((m) => m.versions)],
+                };
+                const latest = { version: "1.1.0", engines: { vscode: "^1.90.0" } };
+                return createService(
+                    new FakeSource(index(entry({ id: "acme.tools", latest })), { "acme.tools": meta }),
+                );
+            }
+
+            function storedPin(): unknown {
+                return readProfileExtensions(ws!.path(PROFILE_FILE))?.map((e) => [e.version, e.metadata?.pinned]);
+            }
+
+            it("US-1.2: installs exactly that version, pinned, and the entry says so", async () => {
+                const service = await withVersions();
+                await service.ensureLoaded();
+                // Not installed: nothing to pin.
+                expect(service.getEntries()[0]?.pinned).toBe(false);
+                await service.install("acme.tools");
+                expect(service.getEntries()[0]?.pinned).toBe(false);
+
+                const result = await service.install("acme.tools", { version: "1.0.0" });
+
+                expect(result).toEqual({ ok: true, version: "1.0.0" });
+                expect(storedPin()).toEqual([["1.0.0", true]]);
+                expect(readObsolete(ws!.path("extensions"))).toEqual(new Set(["acme.tools-1.1.0"]));
+                const card = service.getEntries()[0];
+                expect(card.installedVersion).toBe("1.0.0");
+                expect(card.pinned).toBe(true);
+                // Pinning does not change `outdated` (decision D1, like upstream).
+                expect(card.availability).toBe("outdated");
+                expect(card.needsReload).toBe(true);
+            });
+
+            it("a dependency installed with a given version is not pinned (QA report #1)", async () => {
+                const { service } = await withInstallable("1.0.0", { dependsOn: "acme.base" });
+
+                await service.install("acme.tools", { version: "1.0.0" });
+
+                expect(
+                    readProfileExtensions(ws!.path(PROFILE_FILE))?.map((e) => [e.identifier.id, e.metadata?.pinned]),
+                ).toEqual([
+                    ["acme.tools", true],
+                    ["acme.base", undefined],
+                ]);
+            });
+
+            it("US-1.7: a plain update of a pinned version keeps the pin", async () => {
+                const service = await withVersions();
+                await service.install("acme.tools", { version: "1.0.0" });
+
+                await service.install("acme.tools");
+
+                expect(storedPin()).toEqual([["1.1.0", true]]);
+            });
+
+            it("a sideloaded entry is never pinned", () => {
+                ws = createTempWorkspace({ prefix: "diode-extensions-view-" });
+                installOnDisk(ws, "solo.thing", "0.1.0");
+
+                expect(createService(new FakeSource(index())).getEntries()[0]?.pinned).toBe(false);
+            });
+
+            it("getCompatibleVersions: compatible versions of the registry entry, newest first", async () => {
+                const service = await withVersions();
+
+                const versions = await service.getCompatibleVersions("acme.tools");
+
+                expect(versions.map((v) => v.version)).toEqual(["1.1.0", "1.0.0"]);
+            });
+
+            it("getCompatibleVersions: an id unknown to the registry has none; a network failure is thrown", async () => {
+                const source = new FakeSource(index());
+                const service = createService(source);
+                await expect(service.getCompatibleVersions("acme.missing")).resolves.toEqual([]);
+
+                source.getMeta = () => Promise.reject(new Error("offline"));
+                await expect(service.getCompatibleVersions("acme.other")).rejects.toThrow("offline");
+            });
+        });
     });
 });
