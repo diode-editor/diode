@@ -53,11 +53,7 @@ updates come through `apt` afterwards
 curl -fsSL https://raw.githubusercontent.com/diode-editor/diode/main/install.sh | sh -s -- --method=apt
 ```
 
-**winget** (Windows)
-
-```powershell
-winget install DiodeEditor.Diode
-```
+**winget** (Windows): coming soon, the package is awaiting review. Until then, npm or the manual download.
 
 **Nightly** build from `main`, fixed tag `nightly`:
 

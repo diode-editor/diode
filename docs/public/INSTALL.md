@@ -40,14 +40,11 @@ Adds the Diode repository and installs the package; it asks for your password th
 Updates then come with `apt upgrade`. A `.deb` is also attached to each release for a one-off
 `dpkg -i`.
 
-## winget (Windows)
+## winget (Windows): coming soon
 
-```powershell
-winget install DiodeEditor.Diode
-```
-
-The binary is not code-signed: Windows Defender SmartScreen may warn when the `.exe` is launched
-from Explorer. Launching `diode` from a terminal does not trigger it.
+The package is awaiting review in the winget repository. Until then, use npm or the manual
+download. The binary is not code-signed: SmartScreen may warn when it is launched from Explorer,
+not from a terminal.
 
 ## mise
 
