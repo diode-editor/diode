@@ -209,9 +209,10 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
         await Promise.all(
             ids.map(async (id) => {
                 try {
-                    this.metaCache.set(id, fresh ? await this.source.getMeta(id) : await this.getMeta(id));
+                    // Fresh on every read: a cached answer (a page, the picker) may predate the release.
+                    this.metaCache.set(id, await this.source.getMeta(id));
                 } catch (error) {
-                    // Not a catalog error: the rest of the catalog is fine. A fresh fetch keeps the previous answer.
+                    // Not a catalog error: the rest of the catalog is fine; the previous answer stays.
                     this.logger.warn(`Could not read the metadata of ${id}: ${messageOf(error)}`);
                 }
             }),
@@ -222,11 +223,18 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
         for (const id of [...this.metaCache.keys()]) if (!kept.has(id)) this.metaCache.delete(id);
     }
 
-    /** From the metadata when it is known; otherwise the latest if its `engines` fit. `undefined`: none compatible. */
+    /**
+     * From the metadata when it is known and not older than the index; otherwise the latest if its `engines` fit.
+     * `undefined`: none compatible.
+     */
     private targetVersionOf(entry: IRegistryIndexEntry, semver: Semver): string | undefined {
+        const latestFits = areEnginesCompatible(entry.latest.engines, this.host, semver);
         const meta = this.metaCache.get(entry.id);
-        if (meta !== undefined) return resolveCompatibleVersion(meta.versions, this.host, semver)?.version;
-        return areEnginesCompatible(entry.latest.engines, this.host, semver) ? entry.latest.version : undefined;
+        const current = meta?.versions.some((v) => v.version === entry.latest.version) === true;
+        if (meta !== undefined && (current || !latestFits)) {
+            return resolveCompatibleVersion(meta.versions, this.host, semver)?.version;
+        }
+        return latestFits ? entry.latest.version : undefined;
     }
 
     private rebuildEntries(): void {

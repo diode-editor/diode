@@ -353,20 +353,50 @@ describe("ExtensionsWorkbenchService — updates (ExtensionUpdates stage 2)", ()
             expect(source.metaCalls).toEqual([]);
         });
 
-        it("refresh reuses the metadata cache; checkForUpdates re-reads the index and the metadata", async () => {
+        it("every catalog read re-reads the metadata the targets need", async () => {
             const source = await registry({
                 "acme.tools": [{ version: "1.1.0" }, { version: "2.0.0", engines: INCOMPATIBLE }],
             });
             const service = createService(source);
             await service.ensureLoaded();
             await service.refresh();
-            expect(source.metaCalls).toEqual(["acme.tools"]);
-            expect(source.indexCalls).toBe(2);
-
             await service.checkForUpdates();
 
             expect(source.indexCalls).toBe(3);
-            expect(source.metaCalls).toEqual(["acme.tools", "acme.tools"]);
+            expect(source.metaCalls).toEqual(["acme.tools", "acme.tools", "acme.tools"]);
+        });
+
+        it("Refresh sees a release in the metadata the page cached earlier (stage 1 QA, US-1.1)", async () => {
+            installed("acme.tools", "1.1.0");
+            const before = await registry({ "acme.tools": [{ version: "1.0.0" }, { version: "1.1.0" }] });
+            const service = createService(before);
+            await service.ensureLoaded();
+            await service.getCompatibleVersions("acme.tools");
+
+            const after = await registry({
+                "acme.tools": [{ version: "1.0.0" }, { version: "1.1.0" }, { version: "1.2.0" }],
+            });
+            before.index = after.index;
+            before.metas = after.metas;
+            await service.refresh();
+
+            expect(card(service, "acme.tools")).toEqual({ latest: "1.2.0", installed: "1.1.0", state: "outdated" });
+            expect((await service.getCompatibleVersions("acme.tools")).map((v) => v.version)).toEqual([
+                "1.2.0",
+                "1.1.0",
+                "1.0.0",
+            ]);
+        });
+
+        it("metadata cached by a page that does not know the index's latest is not used for the target", async () => {
+            const before = await registry({ "acme.fresh": [{ version: "1.0.0" }] });
+            const service = createService(before);
+            await service.getMeta("acme.fresh");
+
+            before.index = (await registry({ "acme.fresh": [{ version: "1.0.0" }, { version: "1.1.0" }] })).index;
+            await service.ensureLoaded();
+
+            expect(card(service, "acme.fresh")).toEqual({ latest: "1.1.0", installed: null, state: "available" });
         });
 
         it("QA #1: checkForUpdates with the registry unreachable keeps the last targets, like Refresh", async () => {
