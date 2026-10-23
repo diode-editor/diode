@@ -75,9 +75,8 @@ export class ExtensionUpdateScheduler extends Disposable {
 
     public readonly onDidChangeAutoUpdate = this.onDidChangeAutoUpdateEmitter.event;
 
-    /** The `eventually` phase: the first check after {@link FIRST_CHECK_DELAY_MS}. */
+    /** The `eventually` phase: the first check after {@link FIRST_CHECK_DELAY_MS}; again — the same single timer. */
     public start(): void {
-        if (this.started) return;
         this.started = true;
         this.scheduleCheck(FIRST_CHECK_DELAY_MS);
     }
