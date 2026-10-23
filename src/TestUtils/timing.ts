@@ -9,3 +9,15 @@ export async function flushMicrotasks(turns = 3): Promise<void> {
 export async function settle(ms = 200): Promise<void> {
     await new Promise<void>((resolve) => setTimeout(resolve, ms));
 }
+
+/**
+ * Polls `probe` until it holds; for state that arrives at its own pace — a debounced recompute
+ * (folding: 200+ ms after the trigger) plus a subprocess round trip. Throws with `what` on timeout.
+ */
+export async function waitUntil(what: string, probe: () => boolean, timeoutMs = 10_000): Promise<void> {
+    const deadline = Date.now() + timeoutMs;
+    while (!probe()) {
+        if (Date.now() > deadline) throw new Error(`waitUntil: ${what} did not happen within ${timeoutMs} ms`);
+        await settle(20);
+    }
+}

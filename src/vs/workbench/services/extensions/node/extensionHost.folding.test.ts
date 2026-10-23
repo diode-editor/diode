@@ -7,10 +7,11 @@ import {
     type IExtensionHarness,
     provideFoldingRegions,
 } from "../../../../../TestUtils/ExtensionTestHarness.ts";
-import { settle } from "../../../../../TestUtils/timing.ts";
+import { settle, waitUntil } from "../../../../../TestUtils/timing.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import type { IFoldingRequest } from "../../../../editor/common/languages/iFoldingSource.ts";
 import type { ILanguageService } from "../../../../editor/common/languages/iLanguageService.ts";
+import type { IFoldingRegion } from "../../../../editor/contrib/folding/iFoldingRegion.ts";
 
 const CSHARP_LANGUAGE_SERVICE: ILanguageService = {
     getLanguageIdForResource: () => "csharp",
@@ -80,11 +81,12 @@ describe("ExtensionHost — folding bridge (subprocess)", () => {
             extensions: [extensionFixture("test.providesFolding", "providesFolding.cjs")],
         });
         try {
-            await harness.flushRpc(6);
-            await settle();
-            await harness.flushRpc(6);
-            const regions = harness.group.getActiveEditor()?.viewState.foldedRegions ?? [];
-            expect(regions.some((r) => r.startLine === 0 && r.endLine === 3)).toBe(true);
+            // The registration schedules the recompute (200+ ms), then the request makes a round trip.
+            const regions = (): readonly IFoldingRegion[] =>
+                harness.group.getActiveEditor()?.viewState.foldedRegions ?? [];
+            await waitUntil("the provider's region in the open editor", () =>
+                regions().some((r) => r.startLine === 0 && r.endLine === 3),
+            );
         } finally {
             await harness.dispose();
         }

@@ -1,5 +1,6 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { foldsSettled } from "../../../../../TestUtils/foldingClock.ts";
 import { renderElement } from "../../../../../TestUtils/renderElement.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
 import { createEditorPane, type TextEditorPane } from "../../../../../TestUtils/TextEditorPaneFactory.ts";
@@ -9,11 +10,6 @@ import { createCursorSelection } from "../../../../editor/common/core/iSelection
 import { LanguageFeatureRegistry } from "../../../../editor/common/languageFeatureRegistry.ts";
 import type { FoldingRangeProvider } from "../../../../editor/common/languages/iFoldingSource.ts";
 import type { IFoldingRegion } from "../../../../editor/contrib/folding/iFoldingRegion.ts";
-
-/** The provider merge resolves on a microtask; a macrotask tick flushes it. */
-function flush(): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, 0));
-}
 
 function starts(ctrl: TextEditorPane): number[] {
     return ctrl.viewState.foldedRegions.map((r) => r.startLine).sort((a, b) => a - b);
@@ -27,10 +23,12 @@ describe("EditorComponent – extension folding provider merge", () => {
     let ws: ITempWorkspace;
 
     beforeEach(() => {
+        vi.useFakeTimers();
         ws = createTempWorkspace({ prefix: "diode-foldprov-" });
     });
     afterEach(() => {
         ws.dispose();
+        vi.useRealTimers();
     });
 
     let providers: LanguageFeatureRegistry<FoldingRangeProvider>;
@@ -50,7 +48,7 @@ describe("EditorComponent – extension folding provider merge", () => {
 
         // Registering a provider by itself recomputes the regions of an open document.
         providers.register("*", providerOf([{ startLine: 0, endLine: 3, isCollapsed: false }]));
-        await flush();
+        await foldsSettled();
 
         expect(starts(ctrl)).toEqual([0]);
         expect(ctrl.viewState.foldedRegions.find((r) => r.startLine === 0)?.endLine).toBe(3);
@@ -62,7 +60,7 @@ describe("EditorComponent – extension folding provider merge", () => {
         expect(starts(ctrl)).toEqual([0]);
 
         providers.register("*", providerOf([{ startLine: 3, endLine: 4, isCollapsed: false }]));
-        await flush();
+        await foldsSettled();
 
         expect(starts(ctrl)).toEqual([0, 3]);
     });
@@ -73,7 +71,7 @@ describe("EditorComponent – extension folding provider merge", () => {
         expect(ctrl.viewState.foldedRegions.find((r) => r.startLine === 0)?.endLine).toBe(2);
 
         providers.register("*", providerOf([{ startLine: 0, endLine: 3, isCollapsed: false }]));
-        await flush();
+        await foldsSettled();
 
         expect(ctrl.viewState.foldedRegions.find((r) => r.startLine === 0)?.endLine).toBe(3);
     });
@@ -81,13 +79,13 @@ describe("EditorComponent – extension folding provider merge", () => {
     it("collapsed survives the provider merge by startLine", async () => {
         const ctrl = open("a\nb\nc\nd\ne");
         providers.register("*", providerOf([{ startLine: 0, endLine: 3, isCollapsed: false }]));
-        await flush();
+        await foldsSettled();
 
         ctrl.viewState.foldRegionContaining(0);
         expect(ctrl.viewState.foldedRegions.find((r) => r.startLine === 0)?.isCollapsed).toBe(true);
 
         providers.register("*", providerOf([{ startLine: 0, endLine: 3, isCollapsed: false }]));
-        await flush();
+        await foldsSettled();
         expect(ctrl.viewState.foldedRegions.find((r) => r.startLine === 0)?.isCollapsed).toBe(true);
     });
 
@@ -100,7 +98,7 @@ describe("EditorComponent – extension folding provider merge", () => {
                 throw new Error("provider boom");
             },
         });
-        await flush();
+        await foldsSettled();
 
         expect(starts(ctrl)).toEqual([0]);
     });
@@ -114,7 +112,7 @@ describe("EditorComponent – extension folding provider merge", () => {
                 return Promise.resolve([{ startLine: 0, endLine: 3, isCollapsed: false }]);
             },
         });
-        await flush();
+        await foldsSettled();
 
         expect(asked).toBe(false);
         expect(starts(ctrl)).toEqual([]);
@@ -123,11 +121,11 @@ describe("EditorComponent – extension folding provider merge", () => {
     it("unregistering the provider recomputes ranges: its regions go away", async () => {
         const ctrl = open("a\nb\nc\nd\ne");
         const registration = providers.register("*", providerOf([{ startLine: 0, endLine: 3, isCollapsed: false }]));
-        await flush();
+        await foldsSettled();
         expect(starts(ctrl)).toEqual([0]);
 
         registration.dispose();
-        await flush();
+        await foldsSettled();
 
         expect(starts(ctrl)).toEqual([]);
     });
@@ -141,11 +139,11 @@ describe("EditorComponent – extension folding provider merge", () => {
                     answer = resolve;
                 }),
         });
-        await flush();
+        await foldsSettled();
 
         registration.dispose();
         answer([{ startLine: 0, endLine: 3, isCollapsed: false }]);
-        await flush();
+        await foldsSettled();
 
         expect(starts(ctrl)).toEqual([]);
     });
@@ -155,7 +153,7 @@ describe("EditorComponent – extension folding provider merge", () => {
         expect(starts(ctrl)).toEqual([0]);
 
         providers.register("*", providerOf([]));
-        await flush();
+        await foldsSettled();
 
         expect(starts(ctrl)).toEqual([0]);
     });
@@ -170,10 +168,10 @@ describe("EditorComponent – extension folding provider merge", () => {
                 }),
         });
 
-        await flush();
+        await foldsSettled();
         ctrl.component.dispose();
         resolve([{ startLine: 0, endLine: 3, isCollapsed: false }]);
-        await flush();
+        await foldsSettled();
 
         expect(starts(ctrl)).toEqual([]);
     });
@@ -187,7 +185,7 @@ describe("EditorComponent – extension folding provider merge", () => {
                 return new Promise(() => undefined);
             },
         });
-        await flush();
+        await foldsSettled();
         // Earlier recomputes are already cancelled by later ones — only the last is live.
         expect(tokens.at(-1)?.isCancellationRequested).toBe(false);
 
@@ -245,14 +243,14 @@ describe("EditorComponent – extension folding provider merge", () => {
         it("a folded method with a multi-line signature does not unfold on a keystroke", async () => {
             const ctrl = open(source);
             const provider = registerDeferredProvider();
-            await flush();
+            await foldsSettled();
             ctrl.viewState.foldRegionContaining(1); // fold the whole of first
             expect(frame(ctrl)).not.toContain("body1");
 
             provider.defer();
             ctrl.viewState.selections = [createCursorSelection(7, 16)];
             ctrl.viewState.type("!"); // type into the expanded second
-            await flush();
+            await foldsSettled();
 
             // The provider is still thinking: the body of first must stay hidden,
             // or the text above the cursor jumps on every keystroke.
@@ -260,7 +258,7 @@ describe("EditorComponent – extension folding provider merge", () => {
             expect(frame(ctrl)).toContain("body2();!");
 
             provider.answer(methodRegions);
-            await flush();
+            await foldsSettled();
 
             expect(frame(ctrl)).not.toContain("body1");
             expect(ctrl.viewState.foldedRegions.find((r) => r.startLine === 1)).toMatchObject({
@@ -272,7 +270,7 @@ describe("EditorComponent – extension folding provider merge", () => {
         it("empty provider response after an edit → indentation folds", async () => {
             const ctrl = open(source);
             const provider = registerDeferredProvider();
-            await flush();
+            await foldsSettled();
             const methodEnd = (): number | undefined =>
                 ctrl.viewState.foldedRegions.find((r) => r.startLine === 1)?.endLine;
             expect(methodEnd()).toBe(4); // the whole method, from the provider
@@ -280,11 +278,11 @@ describe("EditorComponent – extension folding provider merge", () => {
             provider.defer();
             ctrl.viewState.selections = [createCursorSelection(7, 16)];
             ctrl.viewState.type("!");
-            await flush();
+            await foldsSettled();
             expect(methodEnd()).toBe(4); // until the reply, the previous regions stay
 
             provider.answer([]);
-            await flush();
+            await foldsSettled();
 
             expect(methodEnd()).toBe(2); // the provider has nothing to say — indentation folds apply
         });

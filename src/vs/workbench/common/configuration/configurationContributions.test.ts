@@ -29,6 +29,7 @@ const EXPECTED_SCOPES: Readonly<Record<string, ConfigurationScope>> = {
     "editor.detectIndentation": "language-overridable",
     "editor.cursorSurroundingLines": "language-overridable",
     "editor.emptySelectionClipboard": "language-overridable",
+    "editor.foldingMaximumRegions": "language-overridable",
     "editor.contextmenu": "language-overridable",
     "editor.wordWrap": "language-overridable",
     "editor.wordWrapColumn": "language-overridable",

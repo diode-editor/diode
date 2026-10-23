@@ -256,7 +256,8 @@
   подошедших провайдеров (пачкой) и **мержит их поверх indentation-фолдов** (union: provider ∪
   indentation, provider выигрывает по общей `startLine`), перенося `isCollapsed` по `startLine`.
   Пересчёт идёт и на `onDidChange` реестра — на каждую регистрацию/снятие, так что провайдер,
-  появившийся после открытия файла (в том числе второй), подхватывается сразу. Стоковый
+  появившийся после открытия файла (в том числе второй), подхватывается — после задержки
+  пересчёта ([Editor.md](Editor.md#folding)), тестам — `waitUntil` из `TestUtils/timing.ts`. Стоковый
   `maptz.regionfolder` заводится этим путём (тест `extensionHost.maptzRegionfolder.test.ts`).
 - **Editor-write seam (#194):** `TextEditor.edit(cb)` (с `TextEditorEdit` insert/replace/delete),
   `editor.selection(s)` геттер/сеттер, `window.visibleTextEditors`, value-тип `Selection`.

@@ -1,14 +1,10 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { foldsSettled } from "../../../../../TestUtils/foldingClock.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
 import { createEditorPane, type TextEditorPane } from "../../../../../TestUtils/TextEditorPaneFactory.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import { createCursorSelection } from "../../../../editor/common/core/iSelection.ts";
-
-/** The folding recompute runs on a microtask; a macrotask tick flushes it. */
-function flush(): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, 0));
-}
 
 function regionAt(ctrl: TextEditorPane, startLine: number) {
     return ctrl.viewState.foldedRegions.find((r) => r.startLine === startLine);
@@ -18,10 +14,12 @@ describe("EditorComponent – folding recompute keeps the caret visible", () => 
     let ws: ITempWorkspace;
 
     beforeEach(() => {
+        vi.useFakeTimers();
         ws = createTempWorkspace({ prefix: "diode-fold-" });
     });
     afterEach(() => {
         ws.dispose();
+        vi.useRealTimers();
     });
 
     function open(content: string): TextEditorPane {
@@ -41,7 +39,7 @@ describe("EditorComponent – folding recompute keeps the caret visible", () => 
         ctrl.viewState.foldRegionContaining(0); // collapse 0..1 → line 1 hidden
         ctrl.viewState.selections = [createCursorSelection(2, 0)]; // on the still-visible "tail"
         ctrl.viewState.type("  "); // indent "tail" → now nests under the block
-        await flush();
+        await foldsSettled();
 
         // Recompute extends the region to 0..2 and, since startLine 0 was collapsed,
         // re-collapses it — which would hide the caret. The fix reveals it again.
@@ -62,7 +60,7 @@ describe("EditorComponent – folding recompute keeps the caret visible", () => 
 
         ctrl.viewState.selections = [createCursorSelection(3, 4)];
         ctrl.viewState.type("!"); // edit after the region
-        await flush();
+        await foldsSettled();
 
         expect(regionAt(ctrl, 0)?.isCollapsed).toBe(true);
     });
@@ -74,7 +72,7 @@ describe("EditorComponent – folding recompute keeps the caret visible", () => 
 
         ctrl.viewState.selections = [createCursorSelection(0, 0)];
         ctrl.viewState.type("x"); // edit ON the header line
-        await flush();
+        await foldsSettled();
 
         // The region is rebuilt from indentation but its collapsed state is lost —
         // editing a header line unfolds it (documented divergence from VS Code).
@@ -87,7 +85,7 @@ describe("EditorComponent – folding recompute keeps the caret visible", () => 
         ctrl.viewState.selections = [createCursorSelection(3, 4)];
         ctrl.viewState.type("x"); // schedules recompute
         ctrl.viewState.type("y"); // second edit hits the already-scheduled guard
-        await flush();
+        await foldsSettled();
 
         expect(regionAt(ctrl, 0)).toBeDefined();
         expect(ctrl.viewState.document.getLineContent(3)).toBe("tailxy");

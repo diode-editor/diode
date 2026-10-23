@@ -31,6 +31,19 @@ export const editorConfiguration = {
             default: 3,
             description: "Controls the minimal number of visible leading lines around the cursor.",
         },
+        // Upstream's limit is applied by nesting level to the merged regions (provider ∪ indentation); the
+        // "folding regions limit reached" status-bar reporter is not ported.
+        "editor.foldingMaximumRegions": {
+            scope: "language-overridable",
+            type: "number",
+            default: 5000,
+            minimum: 10,
+            // Upstream: "limit must be less than foldingRanges MAX_FOLDING_REGIONS".
+            maximum: 65000,
+            description:
+                "The maximum number of foldable regions. Increasing this value may result in the editor becoming " +
+                "less responsive when the current source has a large number of foldable regions.",
+        },
         // "multiFile" is not supported and behaves like "singleFile".
         "editor.occurrencesHighlight": {
             scope: "language-overridable",

@@ -146,6 +146,21 @@ describe("TextEditorConfiguration", () => {
             }
         });
 
+        it("editor.foldingMaximumRegions reaches the editor, 5000 by default", () => {
+            const spy = vi.spyOn(TextEditorPane.prototype, "setFoldingMaximumRegions");
+            try {
+                createEditorService({
+                    configurationService: stubConfigurationService({ "editor.foldingMaximumRegions": 100 }),
+                }).openFile(writeFile("a.ts", "const x = 1;"));
+                expect(spy).toHaveBeenLastCalledWith(100);
+
+                createEditorService().openFile(writeFile("b.ts", "const y = 1;"));
+                expect(spy).toHaveBeenLastCalledWith(5000);
+            } finally {
+                spy.mockRestore();
+            }
+        });
+
         it("editor.occurrencesHighlight: off disables occurrence highlighting, the default enables it", () => {
             const spy = vi.spyOn(TextEditorPane.prototype, "setOccurrenceHighlightEnabled");
             try {

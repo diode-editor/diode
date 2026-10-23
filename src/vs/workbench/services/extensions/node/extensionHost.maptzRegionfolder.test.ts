@@ -8,7 +8,7 @@ import { manifestWithDefaults } from "../../../../../TestUtils/ExtensionTestHarn
 import { createExtensionTestHarness } from "../../../../../TestUtils/ExtensionTestHarness.ts";
 import { MARKETPLACE_OFFLINE } from "../../../../../TestUtils/marketplaceEnv.ts";
 import { fetchStockVsix } from "../../../../../TestUtils/stockVsix.ts";
-import { settle } from "../../../../../TestUtils/timing.ts";
+import { settle, waitUntil } from "../../../../../TestUtils/timing.ts";
 import { createSelection } from "../../../../editor/common/core/iSelection.ts";
 import type { ILanguageService } from "../../../../editor/common/languages/iLanguageService.ts";
 import { LanguageFeaturesServiceDIToken } from "../../../../editor/common/services/languageFeatures.ts";
@@ -77,15 +77,15 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — stock maptz.regionfolder
             activateEvents: ["onStartupFinished"],
         });
         try {
-            // activate() registers the provider, and folds are re-delivered to the open editor.
+            // activate() registers the provider, and folds are re-delivered to the open editor:
+            // the registration schedules the recompute (200+ ms), then the request makes a round trip.
             await harness.flushRpc(8);
-            await settle();
-            await harness.flushRpc(8);
-
             expect(harness.host.hasExtension(EXT_ID)).toBe(true);
 
-            const regions = harness.group.getActiveEditor()?.viewState.foldedRegions ?? [];
-            expect(regions.some((r) => r.startLine === 0 && r.endLine === 3)).toBe(true);
+            const regions = () => harness.group.getActiveEditor()?.viewState.foldedRegions ?? [];
+            await waitUntil("the #region fold in the open editor", () =>
+                regions().some((r) => r.startLine === 0 && r.endLine === 3),
+            );
         } finally {
             await harness.dispose();
         }

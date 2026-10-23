@@ -2,6 +2,7 @@ import { TUIContextMenuEvent } from "@tuidom/core/dom/events/tuiMouseEvent";
 import type { OverlayAnchorPosition } from "@tuidom/core/dom/overlayLayer";
 import { ScrollBarDecorator } from "@tuidom/elements/scrollbar/scrollContainerElement";
 
+import { RunOnceScheduler } from "../../../../base/common/async.ts";
 import { LatestRequest } from "../../../../base/common/cancellation.ts";
 import { Emitter } from "../../../../base/common/event.ts";
 import type { IDisposable } from "../../../../base/common/lifecycle.ts";
@@ -20,10 +21,15 @@ import type { IExternalDecorations } from "../../../../editor/common/model/iEdit
 import type { IGhostText } from "../../../../editor/common/model/iGhostText.ts";
 import type { IGutterChangeDecoration } from "../../../../editor/common/model/iGutterChangeDecoration.ts";
 import type { IUndoElement } from "../../../../editor/common/model/iUndoElement.ts";
+import { FeatureDebounce } from "../../../../editor/common/services/languageFeatureDebounce.ts";
 import { DocumentTokenStore } from "../../../../editor/common/tokens/documentTokenStore.ts";
 import type { IIndentDefaults, WordWrapMode } from "../../../../editor/common/viewModel/editorViewState.ts";
 import { EditorViewState } from "../../../../editor/common/viewModel/editorViewState.ts";
 import { computeIndentationFolds } from "../../../../editor/contrib/folding/foldingRangeProvider.ts";
+import {
+    FOLDING_MAXIMUM_REGIONS_DEFAULT,
+    limitFoldingRegions,
+} from "../../../../editor/contrib/folding/foldingRegionsLimit.ts";
 import type { IFoldingRegion } from "../../../../editor/contrib/folding/iFoldingRegion.ts";
 import { provideFoldingRanges } from "../../../../editor/contrib/folding/syntaxRangeProvider.ts";
 import type { DocumentSemanticTokensFeature } from "../../../../editor/contrib/semanticTokens/browser/documentSemanticTokens.ts";
@@ -42,6 +48,11 @@ function mergeFoldingRegions(indentation: IFoldingRegion[], provider: readonly I
 }
 
 const DEFAULT_BACKGROUND_TOKEN = "editor.background";
+
+/** Upstream `languageFeatureDebounceService.for(foldingRangeProvider, 'Folding', { min: 200 })`. */
+const FOLDING_DEBOUNCE_MIN_MS = 200;
+/** Upstream's default `max` is `min ** 2`. */
+const FOLDING_DEBOUNCE_MAX_MS = FOLDING_DEBOUNCE_MIN_MS ** 2;
 
 export type IIndentConfiguration = IIndentDefaults;
 
@@ -68,14 +79,23 @@ export class EditorComponent extends Component {
     private tokenStore: DocumentTokenStore;
     /** Lives on the component, not the view state: the latter is recreated when the document is reloaded. */
     private indentConfiguration: IIndentConfiguration;
-    private foldingRecomputeScheduled = false;
     private readonly foldingProviders: LanguageFeatureRegistry<FoldingRangeProvider>;
+    /**
+     * Upstream `FoldingController.updateScheduler`: a trailing delay from the last trigger, adapted
+     * to how long the last recomputes took (`FeatureDebounce`), so a slow provider or a huge file
+     * is asked less often. Never on the keystroke itself: the indentation pass walks every line.
+     */
+    private readonly foldingScheduler = new RunOnceScheduler(() => {
+        this.recomputeFoldingRegions();
+    }, FOLDING_DEBOUNCE_MIN_MS);
+    private readonly foldingDebounce = new FeatureDebounce(FOLDING_DEBOUNCE_MIN_MS, FOLDING_DEBOUNCE_MAX_MS);
+    /** `editor.foldingMaximumRegions`. */
+    private foldingMaximumRegions = FOLDING_MAXIMUM_REGIONS_DEFAULT;
     private backgroundTokenValue: WorkbenchColorKey = DEFAULT_BACKGROUND_TOKEN;
     /** Regions are set by the view's owner (the diff pane); set this before the first recompute. */
     public foldingOwnedExternally = false;
     /** Guards the sync-indentation ↔ async-provider race: a late reply to a superseded request is dropped. */
     private readonly foldingRequest = new LatestRequest();
-    private componentDisposed = false;
     /**
      * Two independent producers: quick diff (git) and extension decoration types. Each one replaces only
      * its own set — otherwise an extension clearing its bars on every keystroke wipes the git bars until the
@@ -182,20 +202,18 @@ export class EditorComponent extends Component {
         };
         this.register(model.attachEditTarget(this.editTargetValue));
 
+        // One subscription for both: the model's own content event fires after the document's flush, and
+        // a schedule from it would cancel the provider request the flush handler has just sent.
         this.register(
             model.document.onDidChangeContent((change) => {
                 if (change.isFlush === true) this.handleDocumentFlush();
+                else this.scheduleFoldingRecompute();
             }),
         );
         this.register(
             model.onDidChangeLanguage(() => {
                 this.applyTokenizer();
                 void this.languageConfiguration.ensureLoaded(this.model.languageId);
-            }),
-        );
-        this.register(
-            model.onDidChangeContent(() => {
-                this.scheduleFoldingRecompute();
             }),
         );
         // A grammar may be registered after the file is already open.
@@ -207,18 +225,20 @@ export class EditorComponent extends Component {
         // Recompute on every registration, not only on the "none ↔ some" transition.
         this.register(
             foldingProviders.onDidChange(() => {
-                this.recomputeFoldingRegions();
+                this.scheduleFoldingRecompute();
             }),
         );
         this.register({
             dispose: () => {
-                this.componentDisposed = true;
+                this.foldingScheduler.dispose();
                 this.foldingRequest.dispose();
                 this.viewStateCursorSubscription?.dispose();
                 this.editorViewState.dispose();
             },
         });
-        this.recomputeFoldingRegions();
+        // Not on the path to the first frame: on a 200K-line file the indentation pass is ~100 ms, and
+        // the delay lands past the frame (upstream triggers the same scheduler on model change).
+        this.scheduleFoldingRecompute();
     }
 
     private attachSemanticTokens(feature: DocumentSemanticTokensFeature): void {
@@ -481,17 +501,15 @@ export class EditorComponent extends Component {
     }
 
     /**
-     * On a microtask: the document fires `onDidChangeContent` mid-edit, BEFORE the view state
-     * shifts the regions, and the recompute must see them already shifted.
+     * Upstream `triggerFoldingModelChanged`: the in-flight request is cancelled at once (its reply
+     * would describe the text before the edit; the regions on screen are shifted by the edit instead),
+     * the recompute waits out the delay from the LAST trigger. The document fires
+     * `onDidChangeContent` mid-edit, BEFORE the view state shifts the regions; by the time the
+     * recompute runs they are shifted.
      */
     private scheduleFoldingRecompute(): void {
-        if (this.foldingRecomputeScheduled) return;
-        this.foldingRecomputeScheduled = true;
-        queueMicrotask(() => {
-            this.foldingRecomputeScheduled = false;
-            if (this.componentDisposed) return;
-            this.recomputeFoldingRegions();
-        });
+        this.foldingRequest.cancel();
+        this.foldingScheduler.schedule(this.foldingDebounce.get(this.model.uri.toString()));
     }
 
     /**
@@ -499,22 +517,25 @@ export class EditorComponent extends Component {
      * With a provider, the current regions stay until it replies, as upstream does:
      * an intermediate indentation apply would fold a Java method with a multi-line
      * signature by its parameters only — the body would flicker on every keystroke.
+     * So the indentation pass (every line of the file) runs only once the provider has replied.
      */
     private recomputeFoldingRegions(): void {
+        this.foldingScheduler.cancel();
         // The view's owner sets the regions: an automatic recompute would overwrite them, and its
         // reveal would break the synced scrolling of the diff sides.
         if (this.foldingOwnedExternally) return;
         // Snapshot which start lines are collapsed BEFORE the request: the user
         // may fold while it is in flight, the apply unions both.
         const collapsedStarts = this.collapsedStartLines();
-        const indentation = computeIndentationFolds(this.model.document, this.editorViewState.tabSize);
+        const started = Date.now();
 
         // Every recompute supersedes the in-flight request — even one that found no
         // providers: a late reply from a removed provider must not come back.
         const ticket = this.foldingRequest.start();
         const providers = this.foldingProviders.ordered(this.model);
         if (providers.length === 0) {
-            this.applyFoldingRegions(indentation, collapsedStarts);
+            this.applyFoldingRegions(this.computeIndentationFolds(), collapsedStarts);
+            this.foldingDebounce.update(this.model.uri.toString(), Date.now() - started);
             return;
         }
 
@@ -528,8 +549,24 @@ export class EditorComponent extends Component {
             ticket.token,
         ).then((providerRegions) => {
             if (ticket.isStale()) return;
-            this.applyFoldingRegions(mergeFoldingRegions(indentation, providerRegions), collapsedStarts);
+            this.applyFoldingRegions(
+                mergeFoldingRegions(this.computeIndentationFolds(), providerRegions),
+                collapsedStarts,
+            );
+            // As upstream, the provider's round trip counts: a slow one is asked less often.
+            this.foldingDebounce.update(this.model.uri.toString(), Date.now() - started);
         });
+    }
+
+    private computeIndentationFolds(): IFoldingRegion[] {
+        return computeIndentationFolds(this.model.document, this.editorViewState.tabSize);
+    }
+
+    /** `editor.foldingMaximumRegions`; a change recomputes, as upstream `onModelChanged` does. */
+    public setFoldingMaximumRegions(limit: number): void {
+        if (this.foldingMaximumRegions === limit) return;
+        this.foldingMaximumRegions = limit;
+        this.scheduleFoldingRecompute();
     }
 
     private collapsedStartLines(): Set<number> {
@@ -544,7 +581,8 @@ export class EditorComponent extends Component {
      * `priorCollapsed` is unioned with the currently collapsed regions — a fold made before
      * the recompute survives an intermediate empty apply.
      */
-    private applyFoldingRegions(regions: IFoldingRegion[], priorCollapsed: ReadonlySet<number>): void {
+    private applyFoldingRegions(computed: IFoldingRegion[], priorCollapsed: ReadonlySet<number>): void {
+        const regions = limitFoldingRegions(computed, this.foldingMaximumRegions);
         const collapsedStarts = this.collapsedStartLines();
         for (const start of priorCollapsed) collapsedStarts.add(start);
         for (const region of regions) {
