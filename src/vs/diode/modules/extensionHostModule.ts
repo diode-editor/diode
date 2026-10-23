@@ -255,7 +255,7 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
         // Stryker restore ArrowFunction
 
         // Lazy, like `getWorkspaceFolders`: `storageUri` depends on a folder that is set after the host is created.
-        // Stryker disable next-line ArrowFunction,CallExpression: production module wiring; the choice of roots lives in `extensionStorageHomes`, covered by unit tests; end-to-end — e2e scenario extension-storage
+        // Stryker disable next-line ArrowFunction: production module wiring; the choice of roots lives in `extensionStorageHomes`, covered by unit tests; end-to-end — e2e scenario extension-storage
         const storageHomes = (): IExtensionStorageHomes =>
             extensionStorageHomes(environment, workspaceContext.getWorkspace().id);
 
@@ -370,7 +370,7 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
             void service.activateByEvent("onLanguage");
         });
         // Views shown before registration (layout restore of an extension's container) are buffered the same way.
-        // Stryker disable next-line ArrowFunction: production module wiring — the producer is covered by the bindViewActivation unit tests, end to end by the view-container-switcher e2e scenario
+        // Stryker disable next-line ArrowFunction,CallExpression: production module wiring — the producer is covered by the bindViewActivation unit tests, end to end by the view-container-switcher e2e scenario
         bindViewActivation(container.get(ViewsServiceDIToken).onDidShowView, (event) => service.activateByEvent(event));
 
         // Stryker disable next-line CallExpression: production module wiring; behavior is covered by bindExtensionTasks unit tests and the extension-tasks e2e scenario

@@ -294,14 +294,18 @@ describe("registerExtensionViews — views", () => {
                 "Acme Chat",
             ),
             extension("acme.bare", { views: { explorer: [{ id: "bare.web", type: "webview" }] } }, ""),
+            // A non-string displayName (foreign data) is ignored too.
+            extension("acme.odd", { views: { explorer: [{ id: "odd.web", type: "webview" }] } }, 42 as never),
         ]);
         expect(h.service.getViewContainerByViewId("acme.chatView")).toBeNull();
         expect(locations(h)).not.toContain("sidebar:workbench.view.extension.chat:CHAT");
         expect(h.commands.execute("acme.chatView.focus")).toBeUndefined();
         h.commands.execute("bare.web.focus");
+        h.commands.execute("odd.web.focus");
         expect(toasts).toEqual([
             `Acme Chat: view "Chat" is a webview — webviews can't be shown in the terminal`,
             `acme.bare: view "bare.web" is a webview — webviews can't be shown in the terminal`,
+            `acme.odd: view "odd.web" is a webview — webviews can't be shown in the terminal`,
         ]);
         // Focus commands stay out of the palette, as before.
         expect(h.commands.listCommands().map((c) => c.id)).not.toContain("acme.chatView.focus");
