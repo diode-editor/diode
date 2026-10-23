@@ -20,8 +20,15 @@
 - `contrib/extensions/node/extensionsWorkbenchService.ts` — каталог реестра
   (через `createRegistrySource`, кэш в памяти на сессию) ∪ установленное на
   диске (`listInstalledExtensions`); состояние карточки
-  (`available`/`installed`/`outdated`/`incompatible`) считается по
-  `latest.engines` и версиям. Установленное **не из магазина** — тоже карточка,
+  (`available`/`installed`/`outdated`/`incompatible`) считается от **целевой версии** —
+  максимальной совместимой в реестре (`resolveCompatibleVersion`: платформа и `engines`). Совместим
+  `latest` индекса — он и есть цель, `meta` не нужна; иначе цель берётся из `meta`, и её догружают при
+  чтении каталога **только** для записей с несовместимым `latest` (тот же кэш, что у страницы; сбой
+  одной `meta` — запись `incompatible`, `warn` в лог `Extensions`, не ошибка каталога). `latestVersion`
+  карточки — цель (совместимых нет — `latest` индекса, для текста причины); `incompatible` — только
+  когда совместимых нет вовсе; `outdated` — установленная **ниже** цели по semver (`semver.gt`, как
+  эталон): откат и `.vsix` новее реестра обновлением не выглядят. По `availability`, а не по
+  неравенству версий, рисуются бейдж `Update X`, кнопка `Update to X` и статус страницы. Установленное **не из магазина** — тоже карточка,
   поля из его манифеста. Сетевой сбой не бросается: `getCatalogError()`.
 - **Каталог** читается при первом показе вьюлета (`focus`), дальше фильтрация
   локальная (`searchRegistryIndex`), обновление — команда `extensions.refresh`
@@ -29,7 +36,30 @@
   приложение в сеть не ходит. Пока каталог читается, список говорит
   `Loading extensions…` — пустой список на медленной сети читался бы как
   «магазин пуст»; сбой — строка `Retry — <причина>` в секции магазина, карточки
-  установленного остаются.
+  установленного остаются. Кэш `meta` живёт всю сессию; его сбрасывает только
+  `Check for Updates`.
+- **Запрос `@outdated`** (как `/@outdated/i` эталона, в любом месте и регистре): только устаревшие,
+  остаток запроса фильтрует как обычно (`parseExtensionQuery` в `common/`). Устаревшие установлены по
+  определению, поэтому под `@outdated` секции `MARKETPLACE` нет — строки не дублируются.
+- **Ручное обновление** (ExtensionUpdates, этап 2; эталон — `checkForUpdates` / `updateAll` в
+  `extensions.contribution.ts`), `browser/extensionUpdateActions.ts`:
+  - `Extensions: Check for Extension Updates` (`workbench.extensions.action.checkForUpdates`) —
+    `IExtensionsWorkbenchService.checkForUpdates()`: сброс кэша `meta` + перечитывание индекса, прогресс
+    в секции. Есть устаревшие — вьюлет показывается с поиском `@outdated ` (`openSearch` эталона,
+    `ExtensionsComponent.setQuery`); нет — модальное `All extensions are up to date.`; реестр
+    недоступен — уведомление `Could not check for extension updates: <причина>` и строка `Retry —`.
+    Доступна всегда: сама читает каталог.
+  - `Extensions: Update All Extensions` (`workbench.extensions.action.updateAllExtensions`) —
+    `updateAll()`: все `getOutdated()` (профиль, известные реестру, **включая закреплённые** — решение
+    Е1, как эталон; закрепление блокирует только автообновление) обычной установкой без `version`, по
+    одной, закрепление сохраняется; сбой одного не останавливает остальные. Прогресс `Updating
+    extensions` в окне, итог — **одно** уведомление (`describeUpdateAllResult`): `Updated N extension(s).
+    Reload the window to apply.` или `Updated N of M extensions. Failed: <id> — <причина>; …`, кнопка
+    `Reload Window` (та же команда, что на странице), если обновилось хоть одно. Доступность —
+    typed when-контекст `hasOutdatedExtensions` (имя эталона, `ExtensionUpdateContribution`): до
+    первого чтения каталога ложен.
+  - Обе — в меню `⋯` заголовка секции `EXTENSIONS`, группа `1_updates`, порядок 1 и 2 (у эталона —
+    `ViewContainerTitle`; у нас в контейнере одна секция, и её `⋯` — то же место).
 - `contrib/extensions/browser/extensionsComponent.ts` — вьюлет `EXTENSIONS`
   (`view.id = "extensionsView"`): `InputElement` + `ListViewElement` с двумя
   группами (MARKETPLACE / INSTALLED), раскладка «шапка + тело» — общий
@@ -90,7 +120,9 @@
   реестра-фикстуры на настоящих `.vsix` — `e2e/extensionsView.functional.test.ts`
   (просмотр) и `e2e/extensionsInstall.functional.test.ts` (установка,
   обновление, удаление, перезагрузка окна переподключением инспектора),
-  `e2e/extensionVersionPin.functional.test.ts` / `.cli.test.ts` (пикер версий, откат, закрепление) —
+  `e2e/extensionVersionPin.functional.test.ts` / `.cli.test.ts` (пикер версий, откат, закрепление),
+  `e2e/extensionsUpdateAll.functional.test.ts` (целевая версия, `Check for Updates`, `@outdated`,
+  `Update All`) —
   [TESTING.md](../../TESTING.md#extensions-view-герметичный-сьют).
 
 ## Чего сознательно не делаем
@@ -103,6 +135,10 @@
 - **Установку из списка одной кнопкой** (inline-кнопка строки в VS Code) —
   установка живёт на странице, чтобы решение принималось после просмотра readme
   и совместимости.
+- **Бейдж с числом обновлений на контейнере** (`NumberBadge` эталона на activity bar) — у контейнеров
+  нет бейджей; строка в [TODO/Extensions.md](../../TODO/Extensions.md).
+- **Inline-кнопка `Update` в строке списка** — тот же довод, что у установки: обновление живёт на
+  странице и в `Update All`.
 - **Встроенные расширения в `INSTALLED`** — builtin нельзя удалить, в списке они
   были бы мёртвыми строками.
 - **Несовместимые версии в пикере** — как эталон, показываем только совместимые (решение Д2);

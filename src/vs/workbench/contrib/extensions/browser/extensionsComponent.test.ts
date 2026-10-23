@@ -61,6 +61,7 @@ function entry(overrides: Partial<IExtensionListEntry> & { id: string }): IExten
 class FakeService implements IExtensionsWorkbenchService {
     public ensureLoadedCalls = 0;
     public refreshCalls = 0;
+    public checkForUpdatesCalls = 0;
     public metaError: Error | null = null;
     private entries: IExtensionListEntry[];
     private error: string | null;
@@ -85,8 +86,21 @@ class FakeService implements IExtensionsWorkbenchService {
         return Promise.resolve();
     }
 
+    public checkForUpdates(): Promise<void> {
+        this.checkForUpdatesCalls++;
+        return Promise.resolve();
+    }
+
     public getEntries(): readonly IExtensionListEntry[] {
         return this.entries;
+    }
+
+    public getOutdated(): readonly IExtensionListEntry[] {
+        return this.entries.filter((e) => e.availability === "outdated");
+    }
+
+    public updateAll(): Promise<{ updated: []; failed: [] }> {
+        return Promise.resolve({ updated: [], failed: [] });
     }
 
     public getCatalogError(): string | null {
@@ -446,6 +460,42 @@ describe("ExtensionsComponent", () => {
         const service = new FakeService([]);
         await make(service).refresh();
         expect(service.refreshCalls).toBe(1);
+    });
+
+    it("checkForUpdates delegates to the service behind the loading row", async () => {
+        const service = new FakeService([]);
+        const component = make(service);
+        const pending = component.checkForUpdates();
+        expect(render(component).screenToString()).toContain("Loading extensions…");
+        await pending;
+        expect(service.checkForUpdatesCalls).toBe(1);
+        expect(render(component).screenToString()).toContain("No extensions found");
+    });
+
+    it("US-2.4/US-2.5: setQuery puts @outdated in the search box and the list shows outdated ones once", () => {
+        const service = new FakeService([
+            entry({ id: "acme.tools", displayName: "Tools", installedVersion: "0.9.0", availability: "outdated" }),
+            entry({ id: "acme.current", displayName: "Current", installedVersion: "1.0.0", availability: "installed" }),
+            entry({ id: "acme.fresh", displayName: "Fresh" }),
+        ]);
+        const component = make(service);
+
+        component.setQuery("@outdated ");
+
+        expect(component.getQuery()).toBe("@outdated ");
+        const screen = render(component, 60).screenToString();
+        expect(screen).toContain("@outdated");
+        // Outdated ones are installed by definition: one INSTALLED section, not each twice.
+        expect(screen).not.toContain("MARKETPLACE");
+        expect(screen.match(/Tools/g)).toHaveLength(1);
+        expect(screen).not.toContain("Current");
+        expect(screen).not.toContain("Fresh");
+    });
+
+    it("US-2.4: under @outdated the catalog error row stays visible", () => {
+        const component = make(new FakeService([], "offline"));
+        component.setQuery("@outdated ");
+        expect(render(component, 60).screenToString()).toContain("Retry — offline");
     });
 
     describe("opening the page", () => {

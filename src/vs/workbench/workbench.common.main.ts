@@ -138,6 +138,7 @@ import { DiffSnapshotRefreshContributionDIToken } from "./contrib/diff/browser/d
 import { VscodeDiffCommandContributionDIToken } from "./contrib/diff/browser/vscodeDiffCommandContribution.ts";
 import { EXTENSIONS_ACTIONS } from "./contrib/extensions/browser/extensionsActions.ts";
 import { ExtensionsComponentDIToken } from "./contrib/extensions/browser/extensionsComponent.ts";
+import { ExtensionUpdateContributionDIToken } from "./contrib/extensions/browser/extensionUpdateActions.ts";
 import { ExtensionVersionContributionDIToken } from "./contrib/extensions/browser/extensionVersionActions.ts";
 import { AutoRevealContributionDIToken } from "./contrib/files/browser/autoRevealContribution.ts";
 import { ExplorerComponentDIToken } from "./contrib/files/browser/explorerComponent.ts";
@@ -218,6 +219,7 @@ export const WORKBENCH_CONTRIBUTIONS: readonly IWorkbenchContributionRegistratio
     { token: SearchComponentDIToken, phase: "blockStartup" },
     { token: ExtensionsComponentDIToken, phase: "blockStartup" },
     { token: ExtensionVersionContributionDIToken, phase: "blockStartup" },
+    { token: ExtensionUpdateContributionDIToken, phase: "blockStartup" },
     { token: ReferencesComponentDIToken, phase: "blockStartup" },
     { token: QuickOpenServiceDIToken, phase: "blockStartup" },
     // Stryker disable next-line ObjectLiteral,StringLiteral: the component is resolved anyway (CompletionService in the next entry holds it) — the entry only hands lifetime ownership to the registry, which a unit test can't observe

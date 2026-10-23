@@ -1,6 +1,6 @@
 # ExtensionUpdates — обновление и откат расширений из UI
 
-Статус: `[~]` — план согласован 2026-10-22; этапы 0 и 1 сделаны (спеки ниже).
+Статус: `[~]` — план согласован 2026-10-22; этапы 0, 1 и 2 сделаны (спеки ниже).
 
 Цель: в Extensions view появляются действия для работы с версиями — ручное обновление, автообновление
 и откат на нужную версию. Устройство магазина — [arch/workbench/ExtensionsView.md](../arch/workbench/ExtensionsView.md),
@@ -16,8 +16,8 @@
   `--install-extension id@1.2.3`, выбранная версия закрепляется (`metadata.pinned`).
 - Кнопки страницы — чистая `describeExtensionButtons` (`extensionPageButtons.ts`); quick pick —
   `QuickInputService`; есть реестр настроек и `IStateService`.
-- Откатиться можно кнопкой `Install Specific Version...` (этап 1); кнопка `Update to …` откат отменит, пока
-  закрепление не читают `Update All` и автообновление (этапы 2–3).
+- Откатиться можно кнопкой `Install Specific Version...` (этап 1); кнопка `Update to …` и `Update All`
+  (этап 2) откат отменят — закрепление блокирует только автообновление (этап 3), как у эталона.
 
 ## Блокер: замена версии под живым host'ом
 
@@ -40,11 +40,14 @@
   - **Выбранная руками версия закрепляется** (`metadata.pinned` в записи `extensions.json`, как у
     эталона); `Update to X` у закреплённого остаётся, `Unpin` нет (Д1) — снимает его переключатель этапа 3.
   - `--install-extension id@1.2.3` в CLI ставит ровно эту версию и закрепляет её; `.vsix` тоже закрепляет.
-- [~] **2. Ручное обновление.** Спека — [ниже](#спека-этапа-2--ручное-обновление); где она расходится с этим планом, верна спека.
-  - «Последняя» — **максимальная совместимая** по `meta` (`resolveCompatibleVersion`), а не `latest`
-    индекса: сейчас при несовместимом `latest` обновление на более новую совместимую не предлагается.
-  - В заголовке вьюлета — `Check for Updates` и `Update All` (кроме закреплённых).
-  - Бейдж `↑ X.Y.Z` на устаревших строках списка; после обновлений — один `Reload Window`.
+- [x] **2. Ручное обновление.** Спека — [ниже](#спека-этапа-2--ручное-обновление) (PR «check for extension updates and update all»).
+  - Целевая версия — **максимальная совместимая** (`resolveCompatibleVersion`), а не `latest` индекса;
+    `meta` догружается только для записей с несовместимым `latest`; `outdated` — по `semver.gt`.
+  - В меню `⋯` секции `EXTENSIONS` (группа `1_updates`) и в палитре — `Extensions: Check for Extension
+    Updates` (поиск `@outdated ` или `All extensions are up to date.`) и `Extensions: Update All Extensions`
+    (`hasOutdatedExtensions`; **все** устаревшие, закреплённые тоже, pin сохраняется — Е1).
+  - Бейдж `Update X.Y.Z` на устаревших строках (был с этапа 0, теперь по `availability`); итог пачки — одно
+    уведомление с одним `Reload Window`.
 - [ ] **3. Автообновление.**
   - Настройки как у эталона: `extensions.autoCheckUpdates` (bool), `extensions.autoUpdate` (bool;
     `onlyEnabledExtensions` не нужен — выключения расширений нет).
@@ -425,7 +428,7 @@ abstractExtensionManagementService.ts` и `node/extensionManagementService.ts` (
 
 ## Спека этапа 2 — ручное обновление
 
-Статус: черновик 2026-10-23, по нему пишем тесты, потом код. Эталон — vscode 1.127:
+Статус: сделано 2026-10-23 (уточнения — [ниже](#уточнения-при-реализации-этапа-2)). Эталон — vscode 1.127:
 `workbench/contrib/extensions/browser/extensions.contribution.ts` (`workbench.extensions.action.checkForUpdates`,
 `workbench.extensions.action.updateAllExtensions`, меню `ViewContainerTitle` группы `1_updates`),
 `extensionsWorkbenchService.ts` (`checkForUpdates`, `updateAll`, `outdated`, `HasOutdatedExtensionsContext`),
@@ -547,6 +550,29 @@ abstractExtensionManagementService.ts` и `node/extensionManagementService.ts` (
     запроса.
   - б) без фильтра: уведомление `N updates available` с кнопкой `Update All`. Отступление, зато без синтаксиса
     запросов.
+
+### Уточнения при реализации этапа 2
+
+Отличия от текста спеки выше (в спеке оставлены как были, здесь — как сделано):
+
+- **Итог `Update All`** — с правильным числом: `Updated 1 extension.` / `Updated 2 extensions.`; `extension(s)` в
+  спеке читался как «единственное или множественное». Всё упало — `Updated 0 of M extensions. Failed: …` с
+  уровнем `error` и без `Reload Window`; часть — уровень `warn`. Пачка без устаревших (команда вызвана по
+  устаревшему контексту) — `All extensions are up to date.`
+- **`Check for Updates` при недоступном реестре** показывает вьюлет (иначе строки `Retry —` не видно), поиск не
+  трогает; уведомление — `Could not check for extension updates: <причина>`.
+- **Под `@outdated` секции `MARKETPLACE` нет**: устаревшие установлены по определению, иначе каждая строка
+  была бы дважды. После `Update All` под `@outdated` — `No extensions found` (как у эталона: обновлённые уже не
+  устаревшие); бейдж `Reload` видно без фильтра.
+- **Меню** — `ViewTitle` секции (`viewMenuVisible`), а не `ViewContainerTitle` эталона: у контейнера одна
+  секция, `⋯` — то же место. `Update All` — `enablement` (`precondition` эталона): пункт виден, но выключен.
+- **Бейдж `Reload` важнее `Update`** (с этапа 0): расширение, поставленное в этой сессии и ставшее устаревшим,
+  в списке `@outdated` показывает `Reload`.
+- **Найденный баг модальных сообщений**: `focusOnOpen` ставил фокус на контейнер диалога, и Enter не нажимал
+  `[ OK ]` — `All extensions are up to date.` (и `This extension has no other versions.` этапа 1) закрывались
+  только Escape. Исправлено в `notificationsComponent.ts`: при первом открытии фокус на первой кнопке, как у
+  эталона.
+- **`meta`** догружается до публикации нового каталога: список не мигает `incompatible` → `outdated`.
 
 ### Вне этапа
 

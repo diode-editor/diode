@@ -31,9 +31,10 @@ export function describeExtensionButtons(entry: IExtensionListEntry, state: IExt
         if (latest !== null) {
             buttons.push({ kind: "install", label: "Install", enabled: compatible });
         }
-    } else if (latest !== null && latest !== entry.installedVersion && compatible) {
-        // Updating to an incompatible version is a dead end, not an action: no button.
-        buttons.push({ kind: "update", label: `Update to ${latest}`, enabled: true });
+    } else if (entry.availability === "outdated") {
+        // By semver against the highest compatible version: a newer `.vsix` or a rollback of the registry is not
+        // an update, and an incompatible latest is not a target (US-2.1, US-2.3).
+        buttons.push({ kind: "update", label: `Update to ${String(latest)}`, enabled: true });
     }
     // Only the registry knows other versions; an incompatible latest may still have older compatible ones.
     if (latest !== null) {

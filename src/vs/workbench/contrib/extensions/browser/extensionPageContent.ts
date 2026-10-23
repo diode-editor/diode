@@ -63,12 +63,12 @@ function splitLongWord(word: string, limit: number): string[] {
     return Array.from({ length: chunks }, (_, i) => word.slice(i * limit, (i + 1) * limit));
 }
 
-/** By versions, not by `availability`: this way every branch has a reachable state. */
+/** "Update available" is by `availability`: the target is newer by semver, not just different (US-2.3). */
 export function statusLine(entry: IExtensionListEntry): string {
     if (entry.availability === "incompatible") return "Incompatible with this build of Diode";
     if (entry.installedVersion === null) return "Not installed";
-    if (entry.latestVersion !== null && entry.latestVersion !== entry.installedVersion) {
-        return `Installed ${entry.installedVersion} · update available: ${entry.latestVersion}`;
+    if (entry.availability === "outdated") {
+        return `Installed ${entry.installedVersion} · update available: ${String(entry.latestVersion)}`;
     }
     return `Installed ${entry.installedVersion}`;
 }

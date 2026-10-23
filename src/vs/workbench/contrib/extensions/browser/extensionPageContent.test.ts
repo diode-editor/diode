@@ -118,6 +118,12 @@ describe("statusLine", () => {
         );
     });
 
+    it("US-2.3: installed newer than the target — no update offered", () => {
+        expect(
+            statusLine(entry({ availability: "installed", installedVersion: "1.5.0", latestVersion: "1.1.0" })),
+        ).toBe("Installed 1.5.0");
+    });
+
     it("incompatible", () => {
         expect(statusLine(entry({ availability: "incompatible" }))).toBe("Incompatible with this build of Diode");
     });

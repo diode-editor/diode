@@ -214,8 +214,6 @@ export class NotificationsComponent extends Component {
         const ask = this.ask;
         if (ask !== null) {
             if (ask.widget instanceof MessageDialog) {
-                // The session ITSELF sets focus (`focusOnOpen`): positions are also recomputed
-                // when a passive toast expires, and our own `focusDefault()` would reset the button choice.
                 this.openCentered(ask, attached.host);
             } else {
                 askRows = ask.element.getMaxIntrinsicHeight(TOAST_WIDTH);
@@ -238,7 +236,11 @@ export class NotificationsComponent extends Component {
         const px = Math.max(0, Math.floor((host.layoutSize.width - width) / 2));
         const py = Math.max(0, Math.floor((host.layoutSize.height - height) / 2));
         ask.session.setPosition(new Point(px, py));
+        if (ask.session.isOpen()) return;
         ask.session.open();
+        // `focusOnOpen` focuses the dialog's container, which takes no Enter: the first button gets it, like
+        // upstream's dialog. Only on the first open: positions are recomputed when a passive toast expires.
+        ask.widget.focusDefault();
     }
 
     private closeAsk(): void {

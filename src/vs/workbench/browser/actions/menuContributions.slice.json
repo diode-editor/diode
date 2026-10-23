@@ -379,6 +379,10 @@
         "1_actions": [
             "scm.graph.loadMore"
         ],
+        "1_updates": [
+            "workbench.extensions.action.checkForUpdates",
+            "workbench.extensions.action.updateAllExtensions"
+        ],
         "1_view": [
             "search.action.viewAsList",
             "scm.action.viewAsTree",

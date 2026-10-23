@@ -10,7 +10,11 @@ import { FilteredListControl } from "../../../browser/parts/views/filteredListCo
 import type { ViewsService } from "../../../browser/parts/views/viewsService.ts";
 import { ViewsServiceDIToken } from "../../../browser/parts/views/viewsService.ts";
 import type { IExtensionListEntry, IExtensionsWorkbenchService } from "../common/extensionsWorkbench.ts";
-import { ExtensionsWorkbenchServiceDIToken, filterExtensionEntries } from "../common/extensionsWorkbench.ts";
+import {
+    ExtensionsWorkbenchServiceDIToken,
+    filterExtensionEntries,
+    parseExtensionQuery,
+} from "../common/extensionsWorkbench.ts";
 
 import { ExtensionEditorPane } from "./extensionEditorPane.ts";
 import type { IExtensionPageActions } from "./extensionPageActions.ts";
@@ -126,6 +130,10 @@ export class ExtensionsComponent extends Component {
         return this.withLoadingRow(() => this.service.refresh());
     }
 
+    public checkForUpdates(): Promise<void> {
+        return this.withLoadingRow(() => this.service.checkForUpdates());
+    }
+
     /** Without "Loading…" the first show on a slow network looks like an empty marketplace. */
     private async withLoadingRow(read: () => Promise<void>): Promise<void> {
         this.loading = true;
@@ -142,9 +150,16 @@ export class ExtensionsComponent extends Component {
         return this.control.getQuery();
     }
 
+    /** Upstream `openSearch`: the query goes into the search box and filters the list at once. */
+    public setQuery(query: string): void {
+        this.control.setQuery(query);
+    }
+
     private rebuildRows(): void {
-        const entries = filterExtensionEntries(this.service.getEntries(), this.getQuery());
-        const catalog = entries.filter((e) => e.latestVersion !== null);
+        const query = this.getQuery();
+        const entries = filterExtensionEntries(this.service.getEntries(), query);
+        // Outdated ones are installed by definition: under `@outdated` the catalog would only repeat them.
+        const catalog = parseExtensionQuery(query).outdated ? [] : entries.filter((e) => e.latestVersion !== null);
         const installed = entries.filter((e) => e.installedVersion !== null);
 
         this.list.clear();

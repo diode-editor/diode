@@ -13,12 +13,14 @@ import type { IHostVersions } from "../../../../platform/extensionManagement/com
 import {
     areEnginesCompatible,
     compatibleVersions,
+    resolveCompatibleVersion,
 } from "../../../../platform/extensionManagement/common/resolveCompatibleVersion.ts";
 import { installFromRegistry } from "../../../../platform/extensionManagement/node/installFromRegistry.ts";
 import type {
     IProfileExtension,
     ProfileExtensions,
 } from "../../../../platform/extensionManagement/node/profileExtensions.ts";
+import type { ILogger } from "../../../../platform/log/common/iLogger.ts";
 import type {
     ExtensionAvailability,
     IExtensionInstallOptions,
@@ -26,6 +28,7 @@ import type {
     IExtensionListEntry,
     IExtensionOperationResult,
     IExtensionsWorkbenchService,
+    IExtensionUpdateAllResult,
 } from "../common/extensionsWorkbench.ts";
 
 /**
@@ -50,6 +53,7 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
         private readonly source: IExtensionRegistrySource,
         private readonly profile: ProfileExtensions,
         private readonly host: IHostVersions,
+        private readonly logger: Pick<ILogger, "warn">,
     ) {
         super();
         this.installed = profile.list();
@@ -70,8 +74,30 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
         return this.entries;
     }
 
+    /** The cleared cache makes `load` fetch the metadata again: a new compatible version may have appeared. */
+    public checkForUpdates(): Promise<void> {
+        this.metaCache.clear();
+        return this.refresh();
+    }
+
     public getCatalogError(): string | null {
         return this.catalogError;
+    }
+
+    public getOutdated(): readonly IExtensionListEntry[] {
+        return this.entries.filter((entry) => entry.availability === "outdated");
+    }
+
+    /** One after another: each install rewrites the profile file. */
+    public async updateAll(): Promise<IExtensionUpdateAllResult> {
+        const updated: { id: string; version: string }[] = [];
+        const failed: { id: string; error: string }[] = [];
+        for (const { id } of this.getOutdated()) {
+            const result = await this.install(id);
+            if (result.ok) updated.push({ id, version: result.version });
+            else failed.push({ id, error: result.error });
+        }
+        return { updated, failed };
     }
 
     /** A miss (`undefined`) is cached, "not in the registry" is an answer too; a network failure is not, it is thrown to the caller. */
@@ -145,6 +171,7 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
     private async load(): Promise<void> {
         try {
             const [index, semver] = await Promise.all([this.source.getIndex(), loadSemver()]);
+            await this.loadMetaOfIncompatibleLatest(index, semver);
             this.catalog = { index, semver };
             this.catalogError = null;
         } catch (error) {
@@ -154,6 +181,33 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
         }
         this.installed = this.profile.list();
         this.rebuildEntries();
+    }
+
+    /**
+     * The index carries only the latest version: when it is compatible it is the target, otherwise the target is in
+     * the metadata. So only these entries cost a request, and only once the catalog is read (no network at startup).
+     */
+    private async loadMetaOfIncompatibleLatest(index: IRegistryIndex, semver: Semver): Promise<void> {
+        const ids = index.extensions
+            .filter((entry) => !areEnginesCompatible(entry.latest.engines, this.host, semver))
+            .map((entry) => entry.id);
+        await Promise.all(
+            ids.map(async (id) => {
+                try {
+                    await this.getMeta(id);
+                } catch (error) {
+                    // Not a catalog error: the rest of the catalog is fine, the entry just stays incompatible.
+                    this.logger.warn(`Could not read the metadata of ${id}: ${messageOf(error)}`);
+                }
+            }),
+        );
+    }
+
+    /** `undefined`: no compatible version. Missing metadata (a failed fetch) counts as none. */
+    private targetVersionOf(entry: IRegistryIndexEntry, semver: Semver): string | undefined {
+        if (areEnginesCompatible(entry.latest.engines, this.host, semver)) return entry.latest.version;
+        const versions = this.metaCache.get(entry.id)?.versions ?? [];
+        return resolveCompatibleVersion(versions, this.host, semver)?.version;
     }
 
     private rebuildEntries(): void {
@@ -183,6 +237,7 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
         installed: IProfileExtension | undefined,
         semver: Semver,
     ): IExtensionListEntry {
+        const target = this.targetVersionOf(entry, semver);
         return {
             id: entry.id,
             publisher: entry.publisher,
@@ -191,9 +246,9 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
             description: entry.description,
             kind: entry.kind,
             support: entry.support,
-            latestVersion: entry.latest.version,
+            latestVersion: target ?? entry.latest.version,
             installedVersion: installed?.version ?? null,
-            availability: availabilityOf(entry, installed, this.host, semver),
+            availability: availabilityOf(target, installed, semver),
             pinned: installed?.pinned ?? false,
             needsReload: this.pendingReload.has(entry.id),
         };
@@ -205,18 +260,18 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
 }
 
 /**
- * Incompatibility is by `latest.engines` (the index has no other versions) and beats "installed":
- * knowing there is nothing to update to matters more.
+ * Incompatibility (no compatible version at all) beats "installed": knowing there is nothing to update to matters
+ * more. Outdated is by semver, like upstream `semver.gt`: a rollback or a newer `.vsix` is not an update.
  */
 function availabilityOf(
-    entry: IRegistryIndexEntry,
+    target: string | undefined,
     installed: IProfileExtension | undefined,
-    host: IHostVersions,
     semver: Semver,
 ): ExtensionAvailability {
-    if (!areEnginesCompatible(entry.latest.engines, host, semver)) return "incompatible";
+    if (target === undefined) return "incompatible";
     if (installed === undefined) return "available";
-    return installed.version === entry.latest.version ? "installed" : "outdated";
+    // A manifest version that is not semver can't be compared: not outdated, like upstream's failing `gt`.
+    return semver.valid(installed.version) !== null && semver.gt(target, installed.version) ? "outdated" : "installed";
 }
 
 /** Installed outside the marketplace: only the manifest is known, the entry is always `installed`. */

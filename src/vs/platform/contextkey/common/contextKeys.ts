@@ -94,6 +94,8 @@ export interface ContextKeyTypes {
      * something to list. Before the catalog is read, any installed extension counts.
      */
     extensionsCanInstallSpecificVersion: boolean;
+    /** Upstream `HasOutdatedExtensionsContext`: by the last catalog read, false until the first one. */
+    hasOutdatedExtensions: boolean;
     referencesViewletVisible: boolean;
     hasReferenceResult: boolean;
     referencesViewHasSomeCollapsibleResult: boolean;
