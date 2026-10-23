@@ -12,7 +12,7 @@ export function describeVersionPicks(
     now: number,
 ): QuickPickItem[] {
     return versions.map((v) => {
-        const published = v.publishedAt === undefined ? Number.NaN : Date.parse(v.publishedAt);
+        const published = Date.parse(v.publishedAt ?? "");
         const parts = [
             Number.isNaN(published) ? undefined : fromNow(published, now, true),
             v.version === installedVersion ? "(current)" : undefined,

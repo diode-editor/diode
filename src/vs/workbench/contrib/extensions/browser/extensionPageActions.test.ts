@@ -246,6 +246,19 @@ describe("ExtensionPageActions", () => {
             expect(picks[0]?.items.map((i) => i.description)).toEqual(["2 days ago", undefined]);
         });
 
+        it("the installed version is looked up by id: another installed extension is not current, a missing entry is fine", async () => {
+            const other = { ...installedEntry("1.1.0"), id: "acme.other" };
+            const { actions, picks } = createActions(
+                fakeService({ versions: VERSIONS, entries: [other, installedEntry(null)] }),
+                "1.1.0",
+            );
+            await expect(actions.pickVersion("acme.demo")).resolves.toBe("1.1.0");
+            expect(picks[0]?.items.map((i) => i.description)).toEqual(["2 days ago", undefined]);
+
+            const missing = createActions(fakeService({ versions: VERSIONS, entries: [] }), "1.1.0");
+            await expect(missing.actions.pickVersion("acme.demo")).resolves.toBe("1.1.0");
+        });
+
         it("US-1.4: no compatible versions — a modal info like upstream, and no picker", async () => {
             const { actions, picks, messages } = createActions(fakeService({ versions: [] }), "1.0.0");
 

@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
+import { CommandRegistryDIToken } from "../../platform/commands/common/commandRegistry.ts";
 import { REGISTRY_SCHEMA_VERSION } from "../../platform/extensionManagement/common/registryFormat.ts";
 import type { LogEntry } from "../../platform/log/common/iLogService.ts";
 import { ILogServiceDIToken } from "../../platform/log/common/iLogServiceDIToken.ts";
@@ -10,6 +11,11 @@ import {
     ExtensionsComponentDIToken,
     ExtensionsEditorTargetDIToken,
 } from "../../workbench/contrib/extensions/browser/extensionsComponent.ts";
+import {
+    ExtensionVersionContribution,
+    ExtensionVersionContributionDIToken,
+    INSTALL_ANOTHER_VERSION_COMMAND_ID,
+} from "../../workbench/contrib/extensions/browser/extensionVersionActions.ts";
 import { ExtensionsWorkbenchServiceDIToken } from "../../workbench/contrib/extensions/common/extensionsWorkbench.ts";
 import { EditorServiceDIToken } from "../../workbench/services/editor/common/editorService.ts";
 
@@ -150,5 +156,13 @@ describe("extensionsModule", () => {
             ok: false,
             error: "Extension acme.tools is not installed",
         });
+    });
+
+    it("the version contribution registers the page command over the same marketplace", () => {
+        ws = createTempWorkspace({ prefix: "diode-extensions-module-" });
+        const container = setup();
+
+        expect(container.get(ExtensionVersionContributionDIToken)).toBeInstanceOf(ExtensionVersionContribution);
+        expect(container.get(CommandRegistryDIToken).has(INSTALL_ANOTHER_VERSION_COMMAND_ID)).toBe(true);
     });
 });

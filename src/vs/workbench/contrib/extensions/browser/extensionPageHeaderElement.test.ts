@@ -135,6 +135,24 @@ describe("ExtensionPageHeaderElement", () => {
         expect(header.getMaxIntrinsicHeight(80)).toBe(lines(header).length + 2);
     });
 
+    it("the row measure is the width minus two columns, the gap is two: exactly fitting buttons share a row", () => {
+        // `[ Install ]` (11) + 2 + `[ Uninstall ]` (13) = 26 columns.
+        const header = createHeader({ buttons: [INSTALL, UNINSTALL] });
+
+        expect(frame(renderElement(header, 28, 16, { themeVars: true }))).toContain(" [ Install ]  [ Uninstall ]");
+        const narrow = frame(renderElement(header, 27, 16, { themeVars: true }));
+        expect(narrow).toContain(" [ Install ]");
+        expect(narrow).toContain(" [ Uninstall ]");
+        expect(narrow).not.toContain(" [ Install ]  [ Uninstall ]");
+    });
+
+    it("no buttons still keep an (empty) button row above the spacer", () => {
+        const header = createHeader({ buttons: [] });
+
+        expect(header.getMaxIntrinsicHeight(40)).toBe(lines(header).length + 2);
+        expect(header.getButtons()).toEqual([]);
+    });
+
     it("a focused button keeps focus when a width change rearranges the rows", () => {
         const header = createHeader({ buttons: [INSTALL, ANOTHER_VERSION, UNINSTALL] });
         TestApp.createWithContent(header).render();

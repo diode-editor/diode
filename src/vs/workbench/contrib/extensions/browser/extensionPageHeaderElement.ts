@@ -23,8 +23,6 @@ export class ExtensionPageHeaderElement extends TUIElement {
     private readonly stack = new VStackElement();
     /** Buttons that don't fit the width wrap to the next row; before the first layout all are in one. */
     private buttonRows: HFlexElement[] = [];
-    /** Button count per row; rows are rebuilt only when it changes. */
-    private buttonGrouping = "";
     private readonly spacer = new TextLabelElement("");
     private readonly padded: TUIElement;
     private content: IExtensionPageContent;
@@ -47,7 +45,6 @@ export class ExtensionPageHeaderElement extends TUIElement {
         // Buttons are built right away, without waiting for layout: the page is focused
         // before the first frame (tab open), and there would be nothing to focus.
         this.buttonElements = this.buttons.map((button) => this.createButton(button));
-        this.arrangeButtons();
         this.syncStack();
     }
 
@@ -55,9 +52,7 @@ export class ExtensionPageHeaderElement extends TUIElement {
         this.content = content;
         this.buttons = buttons;
         this.buttonElements = this.buttons.map((button) => this.createButton(button));
-        this.buttonGrouping = "";
         this.rebuildTextRows();
-        this.arrangeButtons();
         this.syncStack();
     }
 
@@ -101,7 +96,6 @@ export class ExtensionPageHeaderElement extends TUIElement {
         if (width === this.wrappedWidth) return;
         this.wrappedWidth = width;
         this.rebuildTextRows();
-        this.arrangeButtons();
         this.syncStack();
     }
 
@@ -117,16 +111,31 @@ export class ExtensionPageHeaderElement extends TUIElement {
         });
     }
 
-    /** `replaceChildren` marks the tree dirty itself. */
+    /** `replaceChildren` marks the tree dirty itself. Button rows are regrouped for the width; focus survives the move. */
     private syncStack(): void {
+        const focused = this.buttonElements.find((element) => element.isFocused);
+        for (const row of this.buttonRows) row.replaceChildren([]);
+        this.buttonRows = this.groupButtons().map((group) => {
+            const row = new HFlexElement();
+            const children: TUIElement[] = [];
+            for (const [i, element] of group.entries()) {
+                if (i > 0) children.push(gap(BUTTON_GAP));
+                element.layoutStyle = { width: hflexFit(), height: 1 };
+                children.push(element);
+            }
+            row.replaceChildren(children);
+            return row;
+        });
         const rows: TUIElement[] = [...this.textRows, ...this.buttonRows, this.spacer];
         for (const row of rows) row.layoutStyle = { width: "fill", height: 1 };
         this.stack.replaceChildren(rows);
+        focused?.focus();
     }
 
-    /** Greedy, in order; a button wider than the row gets a row of its own. Focus survives the move. */
-    private arrangeButtons(): void {
+    /** Greedy, in order; a button wider than the row gets a row of its own. No buttons is still one (empty) row. */
+    private groupButtons(): ButtonElement[][] {
         // The same measure as the text: the indent column on the left and the scrollbar column on the right.
+        // Stryker disable next-line ConditionalExpression: before the first layout the grouping is never seen — every height query and paint sets the width first
         const available = this.wrappedWidth === null ? Number.POSITIVE_INFINITY : this.wrappedWidth - 2;
         const groups: ButtonElement[][] = [];
         let used = 0;
@@ -141,25 +150,7 @@ export class ExtensionPageHeaderElement extends TUIElement {
             groups.push([element]);
             used = width;
         }
-        const grouping = groups.map((group) => group.length).join(",");
-        if (grouping === this.buttonGrouping && this.buttonRows.length > 0) return;
-        this.buttonGrouping = grouping;
-        const focused = this.buttonElements.find((element) => element.isFocused);
-        for (const row of this.buttonRows) row.replaceChildren([]);
-        // No buttons is still one (empty) row: the page layout keeps its shape.
-        this.buttonRows = (groups.length > 0 ? groups : [[]]).map((group) => {
-            const row = new HFlexElement();
-            const children: TUIElement[] = [];
-            for (const [i, element] of group.entries()) {
-                if (i > 0) children.push(gap(BUTTON_GAP));
-                element.layoutStyle = { width: hflexFit(), height: 1 };
-                children.push(element);
-            }
-            row.replaceChildren(children);
-            return row;
-        });
-        if (focused !== undefined) this.syncStack();
-        focused?.focus();
+        return groups.length > 0 ? groups : [[]];
     }
 
     private createButton(button: IExtensionButton): ButtonElement {

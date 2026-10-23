@@ -204,6 +204,19 @@ describe("Install Specific Version of Extension... (US-1.6)", () => {
         ]);
         // The catalog is read first: without it nothing is known to the registry.
         expect(h.calls).toEqual(["ensureLoaded", "pickVersion:acme.zeta", "install:acme.zeta@1.0.0", "open:acme.zeta"]);
+        expect(h.messages).toEqual([]);
+    });
+
+    it.each([
+        ["nothing picked", { version: undefined }],
+        ["the versions cannot be read", { version: new Error("offline") }],
+        ["the install fails", { version: "1.0.0", install: { ok: false as const, error: "sha256 mismatch" } }],
+    ])("%s — the extension page does not open", async (_label, options) => {
+        const h = harness([entry("acme.demo")], { pickAnswers: ["demo"], ...options });
+
+        await installSpecificVersionOfExtensionAction.run(h.container);
+
+        expect(h.calls.filter((c) => c.startsWith("open:"))).toEqual([]);
     });
 
     it("Escape in the extension list does nothing", async () => {

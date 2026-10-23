@@ -688,6 +688,8 @@ describe("ExtensionsWorkbenchService", () => {
             it("US-1.2: installs exactly that version, pinned, and the entry says so", async () => {
                 const service = await withVersions();
                 await service.ensureLoaded();
+                // Not installed: nothing to pin.
+                expect(service.getEntries()[0]?.pinned).toBe(false);
                 await service.install("acme.tools");
                 expect(service.getEntries()[0]?.pinned).toBe(false);
 

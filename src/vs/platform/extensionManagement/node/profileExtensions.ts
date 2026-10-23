@@ -102,11 +102,8 @@ function rewriteEntry(
     pinned: boolean | undefined,
 ): IStoredProfileExtension {
     const metadata = pinned === undefined ? previous?.metadata : { ...previous?.metadata, pinned };
-    return {
-        ...previous,
-        ...toStoredExtension(installed),
-        ...(metadata !== undefined ? { metadata } : {}),
-    };
+    // `metadata: undefined` is not written: JSON drops it.
+    return { ...previous, ...toStoredExtension(installed), metadata };
 }
 
 function dirName(installed: IInstalledExtension): string {

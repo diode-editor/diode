@@ -118,6 +118,7 @@ describe("ProfileExtensions pinned", () => {
 
     it("dependencies installed together with a given version are written unpinned (QA report #1)", () => {
         const demo = onDisk("acme.demo", "1.0.0", ["acme.base"]);
+        onDisk("acme.base", "1.0.0");
         const base = onDisk("acme.base", "2.0.0");
         onDisk("acme.base", "3.0.0");
 
@@ -126,10 +127,43 @@ describe("ProfileExtensions pinned", () => {
             dependencies: [{ id: "acme.base", dir: base }],
         });
 
-        // Exactly the directory installed with it, not the highest on disk.
+        // Exactly the directory installed with it, not the highest or the first on disk.
         expect(readProfileExtensions(workFile)).toEqual([
             entry("acme.demo", "1.0.0", { metadata: { pinned: true } }),
             entry("acme.base", "2.0.0"),
+        ]);
+    });
+
+    it("a given dependency brings its own dependencies from disk, unpinned", () => {
+        const demo = onDisk("acme.demo", "1.0.0", ["acme.base"]);
+        const base = onDisk("acme.base", "1.0.0", ["acme.core"]);
+        onDisk("acme.core", "1.0.0");
+
+        profile(workFile).add([{ id: "acme.demo", dir: demo }], {
+            pinned: true,
+            dependencies: [{ id: "acme.base", dir: base }],
+        });
+
+        expect(readProfileExtensions(workFile)).toEqual([
+            entry("acme.demo", "1.0.0", { metadata: { pinned: true } }),
+            entry("acme.base", "1.0.0"),
+            entry("acme.core", "1.0.0"),
+        ]);
+    });
+
+    it("a given dependency the profile already has keeps its entry, and its own dependencies come too", () => {
+        const demo = onDisk("acme.demo", "1.0.0", ["acme.base"]);
+        const base = onDisk("acme.base", "1.0.0", ["acme.core"]);
+        onDisk("acme.core", "1.0.0");
+        const pinnedBase = entry("acme.base", "1.0.0", { metadata: { pinned: true } });
+        writeProfileExtensions(workFile, [pinnedBase]);
+
+        profile(workFile).add([{ id: "acme.demo", dir: demo }], { dependencies: [{ id: "acme.base", dir: base }] });
+
+        expect(readProfileExtensions(workFile)).toEqual([
+            pinnedBase,
+            entry("acme.demo", "1.0.0"),
+            entry("acme.core", "1.0.0"),
         ]);
     });
 
