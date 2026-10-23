@@ -552,10 +552,18 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
         enum: ["auto", "legacy", "csi-u", "kitty"],
     },
     {
+        key: "window.autoDetectColorScheme",
+        type: "boolean",
+        default: false,
+        description:
+            "If enabled, will automatically select a color theme based on the system color mode. If the system color mode is dark, `#workbench.preferredDarkColorTheme#` is used, else `#workbench.preferredLightColorTheme#`.",
+    },
+    {
         key: "workbench.colorTheme",
         type: "string",
         default: "Dark Modern",
-        description: "Specifies the color theme used in the workbench.",
+        description:
+            "Specifies the color theme used in the workbench when `#window.autoDetectColorScheme#` is not enabled.",
         enum: ["Dark 2026", "Dark Modern", "Dark+", "Monokai", "Light Modern", "Light+"],
     },
     {
@@ -593,6 +601,22 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
         description:
             "Controls how to open items in trees and lists using the mouse (if supported). Note that some trees and lists might choose to ignore this setting if it is not applicable.",
         enum: ["singleClick", "doubleClick"],
+    },
+    {
+        key: "workbench.preferredDarkColorTheme",
+        type: "string",
+        default: "Dark Modern",
+        description:
+            "Specifies the color theme when system color mode is dark and `#window.autoDetectColorScheme#` is enabled.",
+        enum: ["Dark 2026", "Dark Modern", "Dark+", "Monokai", "Light Modern", "Light+"],
+    },
+    {
+        key: "workbench.preferredLightColorTheme",
+        type: "string",
+        default: "Light Modern",
+        description:
+            "Specifies the color theme when system color mode is light and `#window.autoDetectColorScheme#` is enabled.",
+        enum: ["Dark 2026", "Dark Modern", "Dark+", "Monokai", "Light Modern", "Light+"],
     },
     {
         key: "workbench.secondarySideBar.defaultVisibility",

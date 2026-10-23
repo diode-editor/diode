@@ -111,6 +111,10 @@ import { LifecycleServiceDIToken } from "../workbench/services/lifecycle/browser
 import { OutputServiceDIToken } from "../workbench/services/output/common/outputService.ts";
 import { SemanticTokenStyleResolver } from "../workbench/services/themes/common/semanticTokenStyleResolver.ts";
 import { createTextMateTheme } from "../workbench/services/themes/common/textMateTheme.ts";
+import {
+    getColorThemeSettingId,
+    LAST_HOST_COLOR_SCHEME,
+} from "../workbench/services/themes/common/themeConfiguration.ts";
 import { createBuiltinThemeRegistry } from "../workbench/services/themes/common/themeRegistry.ts";
 import { DEFAULT_COLOR_THEME } from "../workbench/services/themes/common/themes/builtinThemes.ts";
 import { ThemeServiceDIToken } from "../workbench/services/themes/common/themeTokens.ts";
@@ -372,8 +376,10 @@ async function runEditor(): Promise<void> {
     const themeRegistry = createBuiltinThemeRegistry();
     const themeContributor = new ExtensionThemeContributor(assets, allExtensions, themeRegistry, extensionsLogger);
     await themeContributor.apply();
-    // The setting is left alone: if the extension comes back, so does its theme.
-    const colorThemeLabel = configurationService.get("workbench.colorTheme");
+    // The setting is left alone: if the extension comes back, so does its theme. With scheme detection the
+    // terminal hasn't answered yet — the scheme it reported last time picks the key (HostColorSchemeService).
+    const lastHostColorScheme = stateService.get(LAST_HOST_COLOR_SCHEME) ?? undefined;
+    const colorThemeLabel = configurationService.get(getColorThemeSettingId(configurationService, lastHostColorScheme));
     let initialTheme = themeRegistry.resolve(colorThemeLabel);
     if (initialTheme === undefined) {
         extensionsLogger.warn(`Color theme "${colorThemeLabel}" not found, falling back to "${DEFAULT_COLOR_THEME}"`);
@@ -580,6 +586,7 @@ async function runEditor(): Promise<void> {
                             ready: startupComplete.promise,
                             pid: process.pid,
                             clock: container.get(AdjustableClockDIToken),
+                            ...(headlessBackend !== null ? { hostTerminal: headlessBackend } : {}),
                         },
                     );
                     // The port is released before exit: the reloaded window takes the same one.

@@ -83,4 +83,6 @@ SEA-бинаре) и в `--headless`, методы уровня редактор
   убирает. Зомби считается мёртвым (init контейнера пожинает не всегда).
 - **Методы `Diode.*`** (`src/vs/diode/diodeInspectorMethods.ts`) — сервисы
   портами, регистрация через публичный `InspectorCore.register`; клиент —
-  `tools/drive/driveClient.ts`.
+  `tools/drive/driveClient.ts`. `Diode.setHostColorScheme` — только `--headless`:
+  виртуальный терминал сообщает смену светлой/тёмной схемы (режим 2031), клиент —
+  `HeadlessSession.setHostColorScheme` в e2e.

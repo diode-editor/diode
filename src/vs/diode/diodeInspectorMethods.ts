@@ -25,6 +25,8 @@ export const DiodeInspectorMethod = {
      * (extension update checks) in an e2e of seconds; frames and input are not on this clock.
      */
     advanceClock: "Diode.advanceClock",
+    /** `{scheme: "dark" | "light"}` → `{}`: headless only — the terminal reports its scheme flipped (mode 2031). */
+    setHostColorScheme: "Diode.setHostColorScheme",
 } as const;
 
 export interface IDiodeInspectorPorts {
@@ -42,6 +44,10 @@ export interface IDiodeInspectorPorts {
         evaluate(when: string): boolean;
     };
     readonly clock: { advance(ms: number): void };
+    /** Headless only: there is no real terminal to flip its scheme. */
+    readonly hostTerminal?: {
+        sendColorScheme(scheme: "dark" | "light"): void;
+    };
     /** Resolves once startup has finished; never rejects. */
     readonly ready: Promise<void>;
     readonly pid: number;
@@ -101,6 +107,15 @@ export function registerDiodeInspectorMethods(register: RegisterInspectorMethod,
         const ms = optionalNumber(params, "ms");
         if (ms === undefined) throw new Error("'ms' must be a non-negative number");
         ports.clock.advance(ms);
+        return {};
+    });
+
+    register(DiodeInspectorMethod.setHostColorScheme, (params) => {
+        const scheme = requiredString(params, "scheme");
+        if (scheme !== "dark" && scheme !== "light") throw new Error(`scheme must be "dark" or "light": ${scheme}`);
+        if (ports.hostTerminal === undefined)
+            throw new Error("setHostColorScheme needs --headless: a real terminal reports its own scheme");
+        ports.hostTerminal.sendColorScheme(scheme);
         return {};
     });
 }

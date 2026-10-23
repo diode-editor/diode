@@ -16,6 +16,9 @@ import { CONFIGURATION_CONTRIBUTIONS } from "./configurationContributions.ts";
  */
 const EXPECTED_SCOPES: Readonly<Record<string, ConfigurationScope>> = {
     "workbench.colorTheme": "window",
+    "workbench.preferredDarkColorTheme": "window",
+    "workbench.preferredLightColorTheme": "window",
+    "window.autoDetectColorScheme": "window",
     "workbench.editor.enablePreview": "window",
     "workbench.editor.autoLockGroups": "window",
     "workbench.editor.closeOnFileDelete": "window",

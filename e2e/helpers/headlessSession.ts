@@ -245,6 +245,11 @@ export class HeadlessSession {
         await this.rpc("Diode.executeCommand", { id, args });
     }
 
+    /** The virtual terminal reports that its scheme flipped, as a real one does when the OS switches appearance. */
+    public async setHostColorScheme(scheme: "dark" | "light"): Promise<void> {
+        await this.rpc("Diode.setHostColorScheme", { scheme });
+    }
+
     /**
      * Extension host activated (`*`, `workspaceContains:`, `onStartupFinished`) and phase `eventually`.
      * Text on screen does not mean ready: extensions come up later, as in upstream.

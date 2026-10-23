@@ -2,11 +2,17 @@ import { Size } from "@tuidom/core/common/geometryPromitives";
 import { describe, expect, it } from "vitest";
 
 import { TestApp } from "../../../TestUtils/TestApp.ts";
+import { Event } from "../../base/common/event.ts";
 import { createTestContainer } from "../../diode/modules/testProfile.ts";
 import { CommandRegistry, CommandRegistryDIToken } from "../../platform/commands/common/commandRegistry.ts";
 import { IConfigurationServiceDIToken } from "../../platform/configuration/common/iConfigurationServiceDIToken.ts";
 import { NULL_CONFIGURATION_SERVICE } from "../../platform/configuration/common/nullConfigurationService.ts";
 import { themeTypeLabel } from "../contrib/themes/browser/themeActions.ts";
+import {
+    type HostColorSchemeService,
+    HostColorSchemeServiceDIToken,
+} from "../services/themes/browser/hostColorSchemeService.ts";
+import type { ColorScheme } from "../services/themes/common/themeConfiguration.ts";
 import { ThemeService } from "../services/themes/common/themeService.ts";
 import { ThemeServiceDIToken } from "../services/themes/common/themeTokens.ts";
 
@@ -20,10 +26,19 @@ interface ThemeContext {
     writes: { key: string; value: unknown }[];
 }
 
-function createThemeApp(writes: { key: string; value: unknown }[] = []): ThemeContext {
+function createThemeApp(
+    writes: { key: string; value: unknown }[] = [],
+    settings: Record<string, unknown> = {},
+    hostScheme?: ColorScheme,
+): ThemeContext {
     const { container, bindApp } = createTestContainer();
+    container.bind(
+        HostColorSchemeServiceDIToken,
+        () => ({ colorScheme: hostScheme, onDidChangeColorScheme: Event.None }) as unknown as HostColorSchemeService,
+    );
     container.bind(IConfigurationServiceDIToken, () => ({
         ...NULL_CONFIGURATION_SERVICE,
+        get: (key: string) => settings[key] as never,
         updateValue: (key: string, value: unknown) => {
             writes.push({ key, value });
             return Promise.resolve();
@@ -77,6 +92,18 @@ describe("Workbench color-theme picker", () => {
 
         expect(themeService.theme.name).toBe("Light Modern");
         expect(writes).toEqual([{ key: "workbench.colorTheme", value: "Light Modern" }]);
+    });
+
+    it("with scheme detection on, the pick goes to the preferred theme of the host scheme", async () => {
+        const writes: { key: string; value: unknown }[] = [];
+        const { commands, testApp } = createThemeApp(writes, { "window.autoDetectColorScheme": true }, "light");
+
+        commands.execute("workbench.action.selectTheme");
+        testApp.sendKey("ArrowDown");
+        testApp.sendKey("Enter");
+        await flush();
+
+        expect(writes).toEqual([{ key: "workbench.preferredLightColorTheme", value: "Monokai" }]);
     });
 
     it("does not preview anything while the query filters every theme out", async () => {

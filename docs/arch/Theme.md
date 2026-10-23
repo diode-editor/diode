@@ -21,12 +21,24 @@ themes/*.ts ──▶ ThemeRegistry (label → IThemeFile) ──▶ resolve(lab
                     ▲                                                          │
    contributes.themes расширений (ExtensionThemeContributor, на старте) ────────│
                                                                                │
-   workbench.colorTheme (Configuration) ──▶ выбор активной ──▶ ThemeService ──┤ onThemeChange
+   workbench.colorTheme / preferred*ColorTheme ──▶ выбор активной ──▶ ThemeService ──┤ onThemeChange
+   (по схеме терминала: HostColorSchemeService)                                │
                                                                                ▼
                               WorkbenchComponent: applyThemeVars → корневой var-scope → каскад
 ```
 
 Выбор темы: `main.ts` — после сканирования расширений и `await contributor.apply()` — читает `workbench.colorTheme` → `ThemeRegistry.resolve` (неизвестное имя, в том числе тема ещё не установленного расширения, → `DEFAULT_COLOR_THEME` с warning в лог `extensions`; настройка не переписывается). Поэтому первый кадр уже в теме расширения, без промежуточного Dark Modern. Рантайм-смена — команда `workbench.action.selectTheme`: quick-pick с **live preview**, Enter применяет и persist'ит через `IConfigurationService.updateValue`, Escape откатывает.
+
+### Тема по схеме терминала (`window.autoDetectColorScheme`)
+
+Как у эталона: при включённой настройке активную тему называет не `workbench.colorTheme`, а `workbench.preferredDarkColorTheme` / `workbench.preferredLightColorTheme` — по схеме хоста. Выбор ключа — `getColorThemeSettingId` (`services/themes/common/themeConfiguration.ts`, аналог `ThemeConfiguration.getColorThemeSettingId`). Им пользуются все три места, которые читают или пишут тему: `main.ts` (первый кадр), `ThemeConfigContribution` (смена любого из трёх ключей, самой настройки и схемы хоста) и пикер (Enter пишет в ключ текущей схемы, как `setColorTheme` эталона: выбранный в тёмном режиме Catppuccin Frappé становится тёмной темой, светлая не трогается). Парную тему diode не угадывает — пользователь один раз выбирает тему в каждом режиме.
+
+«Системная схема» у нас — **схема терминала**: TUI не может спросить ОС, и по ssh это всё равно терминал пользователя, а не ОС удалённой машины. Её ведёт `HostColorSchemeService` (`services/themes/browser/`, аналог `IHostColorSchemeService`). Источников два, оба через `ITerminalBackend` tuidom:
+
+- **отчёты режима 2031** (`onColorSchemeChange`: Ghostty, kitty, Contour, tmux ≥ 3.6) — ответ на запрос при старте и сообщение при каждой смене. Так тема переключается на лету, когда ОС сменила оформление, а тема терминала следует за ней;
+- **яркость фона OSC 11** (`probeHostColors`, относительная яркость меньше середины — тёмная) — один раз, для терминалов без 2031. Отчёт 2031 главнее догадки по фону, даже пришедший позже.
+
+Запросы уходят не раньше фазы `restored` (tty уже в raw-режиме, иначе ответ эхом лёг бы на экран) и только при включённой настройке: с выключенной diode в терминал ничего нового не шлёт. Терминал без обоих протоколов, а также терминал с зафиксированной темой (не следующей за ОС) — схема не меняется. Последняя схема хранится в состоянии (`LAST_HOST_COLOR_SCHEME`, scope `application`): первый кадр рисуется до ответа терминала, и без неё светлый терминал стартовал бы в тёмной теме и через мгновение перекрашивался. Схема ни разу не известна (первый запуск, терминал молчит) — `workbench.colorTheme`, как с выключенной настройкой (отступление: у эталона схема ОС известна всегда). Не поддержано: `window.autoDetectHighContrast` и пара high-contrast тем — терминал о контрасте не сообщает; периодический опрос OSC 11 для терминалов без 2031. Демо — `e2e/scenarios/autoDetectColorScheme.scenario.ts` (смену схемы в headless шлёт метод инспектора `Diode.setHostColorScheme`).
 
 ### Темы расширений: решения
 

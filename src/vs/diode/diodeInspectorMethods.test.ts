@@ -265,6 +265,32 @@ describe("registerDiodeInspectorMethods", () => {
         });
         await expect(call(DiodeInspectorMethod.evaluateWhen, { expr: "listFocus" })).resolves.toEqual({ value: false });
     });
+
+    describe("setHostColorScheme", () => {
+        it("headless: the virtual terminal reports the scheme", async () => {
+            const sendColorScheme = vi.fn();
+            const { call } = setup({ hostTerminal: { sendColorScheme } });
+            await expect(call(DiodeInspectorMethod.setHostColorScheme, { scheme: "light" })).resolves.toEqual({});
+            await call(DiodeInspectorMethod.setHostColorScheme, { scheme: "dark" });
+            expect(sendColorScheme.mock.calls).toEqual([["light"], ["dark"]]);
+        });
+
+        it("an unknown scheme is a protocol error and reaches nobody", async () => {
+            const sendColorScheme = vi.fn();
+            const { call } = setup({ hostTerminal: { sendColorScheme } });
+            await expect(call(DiodeInspectorMethod.setHostColorScheme, { scheme: "sepia" })).rejects.toThrow(
+                'scheme must be "dark" or "light": sepia',
+            );
+            expect(sendColorScheme).not.toHaveBeenCalled();
+        });
+
+        it("a real terminal: error, it reports its own scheme", async () => {
+            const { call } = setup();
+            await expect(call(DiodeInspectorMethod.setHostColorScheme, { scheme: "dark" })).rejects.toThrow(
+                "setHostColorScheme needs --headless",
+            );
+        });
+    });
 });
 
 describe("toWire", () => {
