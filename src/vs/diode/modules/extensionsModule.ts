@@ -15,6 +15,10 @@ import {
     ExtensionsEditorTargetDIToken,
 } from "../../workbench/contrib/extensions/browser/extensionsComponent.ts";
 import {
+    ExtensionUpdateContribution,
+    ExtensionUpdateContributionDIToken,
+} from "../../workbench/contrib/extensions/browser/extensionUpdateActions.ts";
+import {
     ExtensionVersionContribution,
     ExtensionVersionContributionDIToken,
 } from "../../workbench/contrib/extensions/browser/extensionVersionActions.ts";
@@ -31,16 +35,18 @@ export interface ExtensionsModuleContext {
 export const extensionsModule: ContainerModule<ExtensionsModuleContext> = (container, { host, onProblem }) => {
     container.bind(ExtensionsWorkbenchServiceDIToken, () => {
         const { registry, extensionsDir } = container.get(IEnvironmentServiceDIToken);
+        const logger = container.get(ILogServiceDIToken).createLogger("extensions", { label: "Extensions" });
         const profile = createProfileExtensions({
             extensionsDir,
             profile: container.get(IUserDataProfileServiceDIToken).currentProfile,
             profiles: container.get(IUserDataProfilesServiceDIToken),
-            logger: container.get(ILogServiceDIToken).createLogger("extensions", { label: "Extensions" }),
+            logger,
         });
-        return new ExtensionsWorkbenchService(createRegistrySource(registry, onProblem), profile, host);
+        return new ExtensionsWorkbenchService(createRegistrySource(registry, onProblem), profile, host, logger);
     });
     container.bind(ExtensionPageActionsDIToken, ExtensionPageActions);
     container.bind(ExtensionsComponentDIToken, ExtensionsComponent);
     container.bind(ExtensionVersionContributionDIToken, ExtensionVersionContribution);
+    container.bind(ExtensionUpdateContributionDIToken, ExtensionUpdateContribution);
     container.bind(ExtensionsEditorTargetDIToken, () => container.get(EditorServiceDIToken));
 };

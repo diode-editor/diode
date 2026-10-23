@@ -15,8 +15,9 @@ import { token } from "../../../../platform/instantiation/common/diContainer.ts"
 // a `browser → node` exception in scripts/check-layers.mjs.
 
 /**
- * `installed`: the version matches the latest in the registry, or the entry was installed outside the
- * marketplace (`latestVersion` is empty); `incompatible`: the latest registry version fails this build's `engines`.
+ * Against the target version (the highest compatible one in the registry): `outdated` — the installed version is
+ * lower by semver; `installed` — not lower (a newer `.vsix` is not "outdated"), or the entry was installed outside
+ * the marketplace (`latestVersion` is empty); `incompatible` — the registry has no version compatible with this build.
  */
 export type ExtensionAvailability = "available" | "installed" | "outdated" | "incompatible";
 
@@ -31,14 +32,17 @@ export interface IExtensionListEntry {
     readonly kind: RegistryExtensionKind | undefined;
     /** `undefined`: no registry entry, or the registry did not set the flag. */
     readonly support: IRegistrySupport | undefined;
-    /** Latest version in the registry; `null` means no registry entry. */
+    /**
+     * The target version: the highest compatible one in the registry (upstream `gallery` is the compatible one too).
+     * With no compatible version, the index's latest, for the reason text. `null` means no registry entry.
+     */
     readonly latestVersion: string | null;
     /** Installed version; `null` means not installed. */
     readonly installedVersion: string | null;
     readonly availability: ExtensionAvailability;
     /**
      * The profile entry has `metadata.pinned` (a version the user chose). It changes neither `availability` nor the
-     * `Update to X` button, like upstream: stages 2 (`Update All`) and 3 (auto-update) skip pinned ones.
+     * `Update to X` button, nor `Update All` (decision E1), like upstream: only auto-update (stage 3) skips pinned ones.
      */
     readonly pinned: boolean;
     /** Installed/uninstalled in this session: contributions are scanned once at startup, takes effect after a window reload. */
@@ -60,6 +64,12 @@ export type IExtensionInstallResult =
     | { readonly ok: true; readonly version: string }
     | { readonly ok: false; readonly error: string };
 
+/** One entry per outdated extension, in list order. */
+export interface IExtensionUpdateAllResult {
+    readonly updated: readonly { readonly id: string; readonly version: string }[];
+    readonly failed: readonly { readonly id: string; readonly error: string }[];
+}
+
 /** Network failures are not thrown: the catalog is empty and the reason is in {@link getCatalogError}. */
 export interface IExtensionsWorkbenchService {
     /** Called on the first viewlet show, so no network access at startup; repeated calls do nothing. */
@@ -67,10 +77,22 @@ export interface IExtensionsWorkbenchService {
 
     refresh(): Promise<void>;
 
+    /** Upstream `checkForUpdates`: {@link refresh} plus a re-read of the metadata, so target versions are fresh. */
+    checkForUpdates(): Promise<void>;
+
     /** Entries: registry entries first, then installed extensions outside the registry. */
     getEntries(): readonly IExtensionListEntry[];
 
     getCatalogError(): string | null;
+
+    /** Upstream `outdated`: profile entries the registry knows with `availability` `outdated`, pinned ones too. */
+    getOutdated(): readonly IExtensionListEntry[];
+
+    /**
+     * Upstream `updateAll`: every {@link getOutdated} entry by a plain install (pins stay), one after another; one
+     * failure does not stop the rest.
+     */
+    updateAll(): Promise<IExtensionUpdateAllResult>;
 
     /** Full metadata for the extension page; `undefined` means the registry doesn't know the id. */
     getMeta(id: string): Promise<IRegistryExtensionMeta | undefined>;
@@ -95,8 +117,25 @@ export interface IExtensionsWorkbenchService {
 
 export const ExtensionsWorkbenchServiceDIToken = token<IExtensionsWorkbenchService>("ExtensionsWorkbenchService");
 
-/** `searchRegistryIndex` semantics (shared predicate in `registryFormat.ts`). */
+/** Upstream `/@outdated/i`: anywhere in the query, any case. */
+const OUTDATED_FILTER = /@outdated/giu;
+
+export interface IExtensionQuery {
+    /** `@outdated`: only outdated entries. */
+    readonly outdated: boolean;
+    /** The rest of the query, normalized for {@link matchesExtensionQuery}. */
+    readonly text: string;
+}
+
+export function parseExtensionQuery(query: string): IExtensionQuery {
+    const text = query.replace(OUTDATED_FILTER, "");
+    return { outdated: text !== query, text: normalizeExtensionQuery(text) };
+}
+
+/** `searchRegistryIndex` semantics (shared predicate in `registryFormat.ts`) plus the `@outdated` filter. */
 export function filterExtensionEntries(entries: readonly IExtensionListEntry[], query: string): IExtensionListEntry[] {
-    const needle = normalizeExtensionQuery(query);
-    return entries.filter((entry) => matchesExtensionQuery(entry, needle));
+    const { outdated, text } = parseExtensionQuery(query);
+    return entries.filter(
+        (entry) => (!outdated || entry.availability === "outdated") && matchesExtensionQuery(entry, text),
+    );
 }

@@ -127,7 +127,7 @@ describe("ExtensionsWorkbenchService", () => {
             profileFile: root.path(PROFILE_FILE),
             allProfileFiles: () => [root.path(PROFILE_FILE), root.path(OTHER_PROFILE_FILE)],
         });
-        return new ExtensionsWorkbenchService(source, profile, HOST);
+        return new ExtensionsWorkbenchService(source, profile, HOST, { warn: () => undefined });
     }
 
     describe("profile contents", () => {

@@ -6,6 +6,7 @@ import { viewMenuVisible } from "../../../browser/actions/menuContexts.ts";
 import { SidebarServiceDIToken } from "../../../browser/parts/sidebar/sidebarService.ts";
 
 import { EXTENSIONS_VIEW_ID, EXTENSIONS_VIEWLET_ID, ExtensionsComponentDIToken } from "./extensionsComponent.ts";
+import { checkForUpdatesAction, updateAllExtensionsAction } from "./extensionUpdateActions.ts";
 import { installSpecificVersionOfExtensionAction } from "./extensionVersionActions.ts";
 
 /** nf-cod-refresh */
@@ -52,4 +53,6 @@ export const EXTENSIONS_ACTIONS: readonly CommandAction[] = [
     showExtensionsAction,
     refreshExtensionsAction,
     installSpecificVersionOfExtensionAction,
+    checkForUpdatesAction,
+    updateAllExtensionsAction,
 ];

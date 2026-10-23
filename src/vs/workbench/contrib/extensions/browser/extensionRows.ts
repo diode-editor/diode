@@ -49,14 +49,14 @@ export function describeExtensionRow(entry: IExtensionListEntry): IExtensionRowL
     };
 }
 
-/** The badge is by versions (like the page status), except incompatibility: only `availability` knows it. */
+/** By `availability`: only it knows incompatibility and that the target is newer by semver (US-2.3). */
 function badgeTextOf(entry: IExtensionListEntry): { text: string; kind: ExtensionRowBadge } | null {
     // "Waiting for reload" overrides everything: the state on disk and in the running editor differ.
     if (entry.needsReload) return { text: "Reload", kind: "reload" };
     if (entry.availability === "incompatible") return { text: "Incompatible", kind: "incompatible" };
     if (entry.installedVersion === null) return null;
-    if (entry.latestVersion !== null && entry.latestVersion !== entry.installedVersion) {
-        return { text: `Update ${entry.latestVersion}`, kind: "update" };
+    if (entry.availability === "outdated") {
+        return { text: `Update ${String(entry.latestVersion)}`, kind: "update" };
     }
     return { text: "Installed", kind: "installed" };
 }

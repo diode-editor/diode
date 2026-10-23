@@ -66,6 +66,9 @@ function fakeService(): IExtensionsWorkbenchService {
         install: () => Promise.resolve({ ok: true as const, version: "1.0.0" }),
         uninstall: () => Promise.resolve({ ok: true as const }),
         getMeta: () => Promise.resolve(META),
+        checkForUpdates: () => Promise.resolve(),
+        getOutdated: () => [],
+        updateAll: () => Promise.resolve({ updated: [], failed: [] }),
         getCompatibleVersions: () => Promise.resolve([]),
         onDidChange: () => ({ dispose: () => {} }),
     };

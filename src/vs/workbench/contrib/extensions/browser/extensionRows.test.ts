@@ -53,6 +53,13 @@ describe("describeExtensionRow", () => {
         expect(row.text.slice(row.badge!.start, row.badge!.start + row.badge!.length)).toBe("Update 1.0.0");
     });
 
+    it("US-2.3: an installed version newer than the target is Installed, not an update", () => {
+        const row = describeExtensionRow(
+            entry({ installedVersion: "1.5.0", latestVersion: "1.1.0", availability: "installed" }),
+        );
+        expect(row.text).toBe("Acme Tools  1.5.0  Installed");
+    });
+
     it("reload pending — the badge says so before anything else", () => {
         // The installed version is visible, but it starts working only after
         // a window reload, which is the key fact about such an entry.

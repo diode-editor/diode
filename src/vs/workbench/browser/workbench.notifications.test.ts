@@ -1,4 +1,5 @@
 import { Point } from "@tuidom/core/common/geometryPromitives";
+import { ButtonElement } from "@tuidom/elements/button/buttonElement";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTestHarness.ts";
@@ -188,6 +189,31 @@ describe("Workbench — messages on the frame", () => {
         h.testApp.sendKey("Escape");
         // Escape on a modal returns the isCloseAffordance button.
         await expect(answered.answered).resolves.toBe(1);
+    });
+
+    it("a modal message focuses its first button: Enter answers it, and OK of a message without buttons closes it", async () => {
+        const question = notifications.show({
+            severity: "info",
+            message: "Proceed?",
+            modal: true,
+            items: ["Proceed", "Cancel"],
+        });
+        expect(h.testApp.focusedElement).toBeInstanceOf(ButtonElement);
+        h.testApp.sendKey("Enter");
+        await expect(question.answered).resolves.toBe(0);
+
+        const info = notifications.show({ severity: "info", message: "All done.", modal: true, items: [] });
+        h.testApp.sendKey("Enter");
+        await expect(info.answered).resolves.toBeUndefined();
+        expect(screen()).not.toContain("All done.");
+    });
+
+    it("a passive toast expiring under a modal does not reset its button choice", () => {
+        notifications.show({ severity: "info", message: "Pick", modal: true, items: ["One", "Two"] });
+        h.testApp.sendKey("ArrowRight");
+        const chosen = h.testApp.focusedElement;
+        notifications.show({ severity: "error", message: "passive", modal: false, items: [] });
+        expect(h.testApp.focusedElement).toBe(chosen);
     });
 
     it("the next question shows by itself once the previous one is answered", async () => {

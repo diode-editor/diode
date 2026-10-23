@@ -51,6 +51,14 @@ describe("describeExtensionButtons", () => {
         ]);
     });
 
+    it("US-2.3: an installed version newer than the target is not an update", () => {
+        const entryValue = entry({ installedVersion: "1.5.0", latestVersion: "1.1.0", availability: "installed" });
+        expect(describeExtensionButtons(entryValue, IDLE).map((b) => b.label)).toEqual([
+            "Install Specific Version...",
+            "Uninstall",
+        ]);
+    });
+
     it("US-1.7: a pinned outdated version still offers the update (decision D1, like upstream)", () => {
         const entryValue = entry({ installedVersion: "0.9.0", availability: "outdated", pinned: true });
         expect(describeExtensionButtons(entryValue, IDLE).map((b) => b.label)).toEqual([

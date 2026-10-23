@@ -35,6 +35,9 @@ function fakeService(
         getEntries: () => results.entries ?? [],
         getCatalogError: () => null,
         getMeta: () => Promise.resolve(undefined),
+        checkForUpdates: () => Promise.resolve(),
+        getOutdated: () => [],
+        updateAll: () => Promise.resolve({ updated: [], failed: [] }),
         getCompatibleVersions: () =>
             results.versions instanceof Error
                 ? Promise.reject(results.versions)
