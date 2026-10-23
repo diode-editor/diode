@@ -40,6 +40,8 @@ export interface ScenarioDriver {
     wheel(x: number, y: number, direction: "up" | "down" | "left" | "right"): Promise<void>;
     /** Capture and save `screenshots/<scenario>-<shot>.png`; returns the path. */
     capture(shot: string): Promise<string>;
+    /** The terminal reports a light/dark flip (mode 2031), as when the OS switches appearance. */
+    setHostColorScheme(scheme: "dark" | "light"): Promise<void>;
     /** After `workbench.action.reloadWindow` the process replaces itself; the inspector returns on the same port. */
     reconnect(): Promise<void>;
 }
@@ -119,6 +121,7 @@ export async function runScenario(spec: ScenarioSpec): Promise<CapturedShot[]> {
         clickNode: (selector, opts) => session.clickNode(selector, opts),
         wheel: (x, y, direction) => session.wheel(x, y, direction),
         reconnect: () => session.reconnect(),
+        setHostColorScheme: (scheme) => session.setHostColorScheme(scheme),
         capture: async (shot) => {
             const frame = await session.captureFrame();
             const path = saveScreenshot(`${spec.name}-${shot}`, frame);

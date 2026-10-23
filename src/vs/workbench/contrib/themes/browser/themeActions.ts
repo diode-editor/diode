@@ -4,6 +4,8 @@ import { IConfigurationServiceDIToken } from "../../../../platform/configuration
 import type { ServiceAccessor } from "../../../../platform/instantiation/common/diContainer.ts";
 import { parseChord } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import { QuickInputServiceDIToken } from "../../../browser/parts/quickinput/quickInputService.ts";
+import { HostColorSchemeServiceDIToken } from "../../../services/themes/browser/hostColorSchemeService.ts";
+import { getColorThemeSettingId } from "../../../services/themes/common/themeConfiguration.ts";
 import { ThemeRegistryDIToken, ThemeServiceDIToken } from "../../../services/themes/common/themeTokens.ts";
 
 export function themeTypeLabel(type: "dark" | "light" | "hc" | "hcLight"): string {
@@ -24,6 +26,7 @@ async function selectColorTheme(accessor: ServiceAccessor): Promise<void> {
     const themeRegistry = accessor.get(ThemeRegistryDIToken);
     const configurationService = accessor.get(IConfigurationServiceDIToken);
     const quickInput = accessor.get(QuickInputServiceDIToken);
+    const hostColorScheme = accessor.get(HostColorSchemeServiceDIToken);
 
     const originalTheme = themeService.theme;
     const descriptors = themeRegistry.list();
@@ -60,7 +63,9 @@ async function selectColorTheme(accessor: ServiceAccessor): Promise<void> {
     }
 
     applyByLabel(picked.label);
-    void configurationService.updateValue("workbench.colorTheme", picked.label);
+    // With detection on, the pick goes to the preferred theme of the current scheme, as upstream `setColorTheme`.
+    const settingId = getColorThemeSettingId(configurationService, hostColorScheme.colorScheme);
+    void configurationService.updateValue(settingId, picked.label);
 }
 
 export const selectThemeAction: CommandAction = {

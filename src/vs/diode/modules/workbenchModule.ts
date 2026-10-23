@@ -369,6 +369,10 @@ import {
     TextFileModelService,
     TextFileModelServiceDIToken,
 } from "../../workbench/services/textfile/common/textFileModelService.ts";
+import {
+    HostColorSchemeService,
+    HostColorSchemeServiceDIToken,
+} from "../../workbench/services/themes/browser/hostColorSchemeService.ts";
 import { IUserDataProfileServiceDIToken } from "../../workbench/services/userDataProfile/common/userDataProfile.ts";
 import {
     MENU_CONTRIBUTIONS,
@@ -496,6 +500,7 @@ export const workbenchModule: ContainerModule = (container) => {
     container.bind(ContextMenuServiceDIToken, ContextMenuService);
     container.bind(EditorContextMenuControllerDIToken, EditorContextMenuController);
     container.bind(AutoRevealContributionDIToken, AutoRevealContribution);
+    container.bind(HostColorSchemeServiceDIToken, HostColorSchemeService);
     container.bind(ThemeConfigContributionDIToken, ThemeConfigContribution);
     container.bind(WindowTitleContributionDIToken, WindowTitleContribution);
     container.bind(OpenFileCommandContributionDIToken, OpenFileCommandContribution);

@@ -1,16 +1,34 @@
 import type { IConfigurationNode } from "../../../platform/configuration/common/configurationRegistry.ts";
-import { DEFAULT_COLOR_THEME } from "../../services/themes/common/themes/builtinThemes.ts";
+import { DEFAULT_COLOR_THEME, DEFAULT_LIGHT_COLOR_THEME } from "../../services/themes/common/themes/builtinThemes.ts";
 
 export const workbenchConfiguration = {
     id: "workbench",
     title: "Workbench",
     properties: {
-        // The schema generator adds the enum of built-in themes from ThemeRegistry to the completion catalog.
+        // The schema generator adds the enum of built-in themes from ThemeRegistry to the completion catalog
+        // (here and in both preferred keys).
         "workbench.colorTheme": {
             scope: "window",
             type: "string",
             default: DEFAULT_COLOR_THEME,
-            description: "Specifies the color theme used in the workbench.",
+            description:
+                "Specifies the color theme used in the workbench when `#window.autoDetectColorScheme#` is not enabled.",
+        },
+        // The "system color mode" is the host terminal's scheme here: diode can only learn it from the terminal.
+        // Upstream defaults are Dark 2026 / Light 2026; ours pair with the `workbench.colorTheme` default.
+        "workbench.preferredDarkColorTheme": {
+            scope: "window",
+            type: "string",
+            default: DEFAULT_COLOR_THEME,
+            description:
+                "Specifies the color theme when system color mode is dark and `#window.autoDetectColorScheme#` is enabled.",
+        },
+        "workbench.preferredLightColorTheme": {
+            scope: "window",
+            type: "string",
+            default: DEFAULT_LIGHT_COLOR_THEME,
+            description:
+                "Specifies the color theme when system color mode is light and `#window.autoDetectColorScheme#` is enabled.",
         },
         // Only the Explorer opens previews: upstream's `enablePreviewFromQuickOpen` and
         // `enablePreviewFromCodeNavigation` are off by default.

@@ -19,3 +19,6 @@ export const builtinThemes: readonly IThemeFile[] = [
 
 /** Mirrored by the configuration default in `workbench/common/configuration/workbenchConfiguration.ts`. */
 export const DEFAULT_COLOR_THEME = "Dark Modern";
+
+/** The `workbench.preferredLightColorTheme` default: the light pair of {@link DEFAULT_COLOR_THEME}. */
+export const DEFAULT_LIGHT_COLOR_THEME = "Light Modern";

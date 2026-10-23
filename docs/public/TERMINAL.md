@@ -14,6 +14,20 @@ depth is the outer terminal's, so nothing changes.
 The integrated terminal's 16 colors come from the theme. Set `terminal.integrated.colorSource` to
 `host` to use your terminal's own palette instead; Diode reads it at startup.
 
+### Light and dark
+
+Set `window.autoDetectColorScheme` to `true`, and Diode picks the color theme from your terminal's
+scheme: `workbench.preferredDarkColorTheme` on a dark one, `workbench.preferredLightColorTheme` on
+a light one. While it's on, the theme you choose in **Preferences: Color Theme** becomes the theme
+for the current scheme.
+
+- Ghostty, kitty, Contour and tmux 3.6+ report every switch, so when your OS changes between
+  light and dark and the terminal's theme follows it, Diode switches too, right away.
+- Other terminals: Diode looks at the terminal's background color once, at startup.
+
+Diode follows your terminal, not the OS. If your terminal keeps one theme whatever the OS does,
+Diode keeps one too.
+
 ## Keys
 
 The Ctrl+Shift shortcuts, `Ctrl+Tab`, `Ctrl+Enter` and ``Ctrl+` `` need an extended keyboard

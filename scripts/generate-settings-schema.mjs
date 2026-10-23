@@ -96,11 +96,9 @@ export async function generateSettingsSchema({ repoRoot }) {
     const byKey = new Map();
     // App nodes first; contributes override them (they have a richer description/enum).
     for (const e of await loadAppConfiguration(repoRoot)) byKey.set(e.key, prune(e));
-    if (byKey.has("workbench.colorTheme")) {
-        byKey.set("workbench.colorTheme", {
-            ...byKey.get("workbench.colorTheme"),
-            enum: await loadThemeNames(repoRoot),
-        });
+    const themeNames = await loadThemeNames(repoRoot);
+    for (const key of ["workbench.colorTheme", "workbench.preferredDarkColorTheme", "workbench.preferredLightColorTheme"]) {
+        if (byKey.has(key)) byKey.set(key, { ...byKey.get(key), enum: themeNames });
     }
     for (const e of collectBuiltinContributions(repoRoot)) byKey.set(e.key, { ...byKey.get(e.key), ...e });
 

@@ -8,6 +8,7 @@ import { scmConfiguration } from "./scmConfiguration.ts";
 import { searchConfiguration } from "./searchConfiguration.ts";
 import { tasksConfiguration } from "./tasksConfiguration.ts";
 import { terminalConfiguration } from "./terminalConfiguration.ts";
+import { windowConfiguration } from "./windowConfiguration.ts";
 import { workbenchConfiguration } from "./workbenchConfiguration.ts";
 
 /**
@@ -16,6 +17,7 @@ import { workbenchConfiguration } from "./workbenchConfiguration.ts";
  */
 export const CONFIGURATION_CONTRIBUTIONS = [
     workbenchConfiguration,
+    windowConfiguration,
     editorConfiguration,
     explorerConfiguration,
     filesConfiguration,
