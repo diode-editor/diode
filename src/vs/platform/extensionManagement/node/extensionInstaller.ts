@@ -121,9 +121,20 @@ async function extractExtensionPayload(vsixPath: string, destDir: string): Promi
             }
 
             const destRoot = path.resolve(destDir);
-            zipfile.on("error", (err: Error) => {
+            // The callbacks below run outside the promise executor: a synchronous throw there (EEXIST when a file
+            // and a directory share a path, EACCES, ENOSPC) would escape the promise and crash the process
+            // instead of rolling the install back. Every failure goes through here, once.
+            let failed = false;
+            const fail = (err: Error): void => {
+                // Stryker disable next-line ConditionalExpression,BlockStatement: a second failure of the same entry (stream error, then close) rejects an already rejected promise; the flag only keeps `close` from running twice
+                if (failed) return;
+                // Stryker disable next-line BooleanLiteral: after a failure the archive is closed and further reads end in errors that land here again, rejecting an already rejected promise
+                failed = true;
+                // Stryker disable next-line CallExpression: descriptor hygiene; on Linux an unclosed archive blocks neither the rejection nor deleting the temp, observable only on Windows
+                zipfile.close();
                 reject(err);
-            });
+            };
+            zipfile.on("error", fail);
             zipfile.on("end", () => {
                 resolve();
             });
@@ -163,13 +174,35 @@ async function extractExtensionPayload(vsixPath: string, destDir: string): Promi
                         return;
                     }
                     /* v8 ignore stop */
-                    fs.mkdirSync(path.dirname(target), { recursive: true });
+                    // Stryker disable BlockStatement: a swallowed mkdir error resurfaces as the write stream's ENOTDIR/EACCES and fails the same way; the catch only keeps the throw from escaping the promise
+                    try {
+                        fs.mkdirSync(path.dirname(target), { recursive: true });
+                    } catch (err) {
+                        fail(err as Error);
+                        return;
+                    }
+                    // Stryker restore BlockStatement
                     const writeStream = fs.createWriteStream(target);
-                    readStream.on("error", reject);
-                    writeStream.on("error", reject);
+                    // Stryker disable next-line StringLiteral,CallExpression: a read error on an already open entry (disk failure mid-read) can't be reproduced in tests
+                    readStream.on("error", fail);
+                    writeStream.on("error", fail);
                     writeStream.on("close", () => {
+                        // Stryker disable next-line ConditionalExpression: reading on from an archive closed by the failure only ends in errors that `fail` ignores
+                        if (failed) return;
                         // Not createWriteStream's mode: that one is masked by the process umask.
-                        if (executable) fs.chmodSync(target, 0o755);
+                        if (executable) {
+                            try {
+                                fs.chmodSync(target, 0o755);
+                                // Stryker disable next-line BlockStatement: chmod of a file this process has just written does not fail in tests
+                            } catch (err) {
+                                /* v8 ignore start -- defensive: see above */
+                                // Stryker disable all: same
+                                fail(err as Error);
+                                return;
+                                // Stryker restore all
+                                /* v8 ignore stop */
+                            }
+                        }
                         zipfile.readEntry();
                     });
                     readStream.pipe(writeStream);

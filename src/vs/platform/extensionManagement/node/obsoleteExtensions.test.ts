@@ -188,16 +188,52 @@ describe("obsoleteExtensions", () => {
             });
         }
 
-        it("no .obsolete: neither profiles nor the extensions directory are read", () => {
-            onDisk("acme.demo-1.0.0");
-            ws.writeFile("extensions/acme.demo-1.0.0.ab12.vsctmp/package.json", "{}");
+        it("no extensions directory: the profiles are not even read", () => {
             const referencedDirs = vi.fn(() => new Set<string>());
 
             expect(cleanUp({ referencedDirs })).toEqual([]);
 
             expect(referencedDirs).not.toHaveBeenCalled();
-            // The leftover sweep did not run either.
-            expect(exists("acme.demo-1.0.0.ab12.vsctmp")).toBe(true);
+            expect(fs.existsSync(extensionsDir)).toBe(false);
+        });
+
+        it("orphans (decision 2, upstream deleteExtensionsNotInProfiles): marked now, deleted on the next start", () => {
+            onDisk("acme.used-1.0.0");
+            onDisk("acme.orphan-1.0.0");
+            // Not an extension: no manifest, so not an orphan either.
+            fs.mkdirSync(path.join(extensionsDir, "notes"));
+            const logger = fakeLogger();
+
+            expect(cleanUp({ referenced: ["acme.used-1.0.0"], logger })).toEqual([]);
+            expect(exists("acme.orphan-1.0.0")).toBe(true);
+            expect(readObsolete(extensionsDir)).toEqual(new Set(["acme.orphan-1.0.0"]));
+            expect(logger.info).toHaveBeenCalledWith(
+                "Extensions no profile uses are marked for removal on next start",
+                { orphans: ["acme.orphan-1.0.0"] },
+            );
+
+            expect(cleanUp({ referenced: ["acme.used-1.0.0"] })).toEqual(["acme.orphan-1.0.0"]);
+            expect(fs.readdirSync(extensionsDir).sort()).toEqual(["acme.used-1.0.0", "notes"]);
+        });
+
+        it("an orphan a profile points to by the next start (an install finishing in another process) survives", () => {
+            onDisk("acme.fresh-1.0.0");
+
+            cleanUp();
+            expect(cleanUp({ referenced: ["acme.fresh-1.0.0"] })).toEqual([]);
+
+            expect(exists("acme.fresh-1.0.0")).toBe(true);
+            expect(fs.existsSync(obsoleteFile)).toBe(false);
+        });
+
+        it("no .obsolete: leftovers of a crashed install are swept all the same", () => {
+            onDisk("acme.demo-1.0.0");
+            ws.writeFile("extensions/acme.demo-1.0.0.ab12.vsctmp/package.json", "{}");
+            ws.writeFile("extensions/.vsix-install-200-abc/package.json", "{}");
+
+            cleanUp({ referenced: ["acme.demo-1.0.0"] });
+
+            expect(fs.readdirSync(extensionsDir)).toEqual(["acme.demo-1.0.0"]);
         });
 
         it("deletes marked directories nobody references and removes the file once empty (US-0.2)", () => {

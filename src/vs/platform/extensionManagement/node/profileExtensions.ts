@@ -129,12 +129,14 @@ function highest(candidates: readonly IInstalledExtension[]): IInstalledExtensio
 
 /**
  * Like upstream, by `relativeLocation`; entries from older versions (US-0.9) by `<id>-<version>`,
- * then by any unmarked version of the id on disk. A directory of another id is never taken.
+ * then by the highest unmarked version of the id on disk. A directory of another id is never taken. The guess
+ * is reported when the id has several versions on disk, marked ones included: the startup cleanup marks the
+ * versions no profile uses before the window lists, and the user should still learn the entry is stale.
  */
 function resolveEntry(
     entry: IStoredProfileExtension,
     disk: IDiskState,
-    onGuess: (candidates: readonly IInstalledExtension[]) => void,
+    onGuess: (chosen: IInstalledExtension, onDisk: readonly IInstalledExtension[]) => void,
 ): IInstalledExtension | undefined {
     const key = extensionKey(entry.identifier.id);
     const own = disk.installed.filter((e) => extensionKey(e.id) === key);
@@ -143,8 +145,9 @@ function resolveEntry(
     if (exact !== undefined) return exact;
     const candidates = versionsOf(disk, key, false);
     if (candidates.length === 0) return undefined;
-    if (candidates.length > 1) onGuess(candidates);
-    return highest(candidates);
+    const chosen = highest(candidates);
+    if (own.length > 1) onGuess(chosen, own);
+    return chosen;
 }
 
 /** Directory names the profiles point to. An unreadable profile file is an error: it may hold anything. */
@@ -248,7 +251,8 @@ export class ProfileExtensions {
     }
 
     /**
-     * The version each entry points to (US-0.3), never one marked for removal. An unreadable
+     * The version each entry points to (US-0.3), even one marked for removal: the profile wins over the mark,
+     * the same as the startup cleanup decides, so the CLI and the window agree. An unreadable
      * file yields an empty list and a logged error: the window starts and the file stays untouched.
      */
     public list(): IInstalledExtension[] {
@@ -266,20 +270,13 @@ export class ProfileExtensions {
             const id = entry.identifier.id;
             const key = extensionKey(id);
             if (byKey.has(key)) continue;
-            const installed = resolveEntry(entry, disk, (candidates) => {
-                const versions = candidates.map((e) => e.version).sort(compareLooseVersions);
+            const installed = resolveEntry(entry, disk, (chosen, onDisk) => {
+                const versions = onDisk.map((e) => e.version).sort(compareLooseVersions);
                 this.logger.warn(
-                    `Extension ${id}@${entry.version} in ${file} has no directory; using the highest of ${versions.join(", ")}`,
+                    `Extension ${id}@${entry.version} in ${file} has no directory; using ${chosen.version} (on disk: ${versions.join(", ")})`,
                 );
             });
-            if (installed === undefined) continue;
-            if (disk.obsolete.has(dirName(installed))) {
-                this.logger.warn(
-                    `Extension ${id} in ${file} points to ${dirName(installed)}, which is marked for removal; skipping it`,
-                );
-                continue;
-            }
-            byKey.set(key, installed);
+            if (installed !== undefined) byKey.set(key, installed);
         }
         return [...byKey.values()].sort((a, b) => a.id.localeCompare(b.id));
     }

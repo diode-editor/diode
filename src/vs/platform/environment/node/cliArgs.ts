@@ -70,7 +70,9 @@ Options:
   --registry <path|url>    Extension registry for installing by id and for the
                            Extensions viewlet: a directory or an http(s) URL
                            (default: ${DEFAULT_REGISTRY_URL})
-  --uninstall-extension <publisher.name>  Uninstall an extension (all versions) and exit
+  --uninstall-extension <publisher.name>  Uninstall an extension from the profile
+                           (--profile, default: Default) and exit; its files
+                           are removed on the next editor start
   --list-extensions        List the installed extensions and exit.
   -h, --help               Print usage.
   -v, --version            Print version.
