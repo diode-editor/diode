@@ -32,7 +32,7 @@ describe("ExtensionsWorkbenchService — auto update (ExtensionUpdates stage 3)"
             ]);
         });
 
-        it("is unset without a date in the registry, and for an entry outside it", async () => {
+        it("is null when the read metadata has no date, unknown for an entry outside the registry", async () => {
             installed("acme.tools", "1.0.0");
             installed("acme.local", "1.0.0");
             const source = await registry({ "acme.tools": [{ version: "1.0.0" }, { version: "1.1.0" }] });
@@ -41,9 +41,24 @@ describe("ExtensionsWorkbenchService — auto update (ExtensionUpdates stage 3)"
             await service.ensureLoaded();
 
             expect(service.getEntries().map((e) => [e.id, e.latestPublishedAt])).toEqual([
-                ["acme.tools", undefined],
+                ["acme.tools", null],
                 ["acme.local", undefined],
             ]);
+        });
+
+        it("is unknown when the metadata could not be read: the target is the index's latest (QA #796 bug 2)", async () => {
+            installed("acme.tools", "1.0.0");
+            const source = await registry({
+                "acme.tools": [{ version: "1.0.0" }, { version: "1.1.0", publishedAt: "2026-10-23T11:30:00Z" }],
+            });
+            source.failMeta.add("acme.tools");
+            const service = createService(source);
+
+            await service.ensureLoaded();
+
+            const entry = service.getOutdated().find((e) => e.id === "acme.tools");
+            expect(entry?.latestVersion).toBe("1.1.0");
+            expect(entry?.latestPublishedAt).toBeUndefined();
         });
     });
 

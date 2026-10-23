@@ -23,7 +23,8 @@ export interface IAutoUpdatePlan {
 
 /**
  * Upstream `autoUpdateExtensions`: the outdated entries minus pinned ones (`shouldAutoUpdateExtension`) and minus
- * versions published less than `delayHours` ago (`getAutoUpdateDelayRemaining`).
+ * versions published less than `delayHours` ago (`getAutoUpdateDelayRemaining`). Ours: a version whose date is not
+ * known (its metadata failed to read) waits for the next successful read — "no date" would let it skip the delay.
  */
 export function planAutoUpdate(
     outdated: readonly IExtensionListEntry[],
@@ -33,7 +34,7 @@ export function planAutoUpdate(
     const ready: IExtensionListEntry[] = [];
     let retryIn: number | undefined;
     for (const entry of outdated) {
-        if (entry.pinned) continue;
+        if (entry.pinned || entry.latestPublishedAt === undefined) continue;
         const remaining = delayRemaining(entry.latestPublishedAt, delayHours * HOUR_MS, now);
         if (remaining > 0) {
             retryIn = Math.min(retryIn ?? remaining, remaining);
@@ -45,7 +46,7 @@ export function planAutoUpdate(
 }
 
 /** No date, an unreadable one or one in the future (clock skew): no delay, like upstream. */
-function delayRemaining(publishedAt: string | undefined, delay: number, now: number): number {
+function delayRemaining(publishedAt: string | null, delay: number, now: number): number {
     // Stryker disable next-line StringLiteral: any non-date string parses to NaN, the same as no date
     const published = Date.parse(publishedAt ?? "");
     // Stryker disable next-line ConditionalExpression: equivalent — a NaN delay is not `> 0` either, but the check says so

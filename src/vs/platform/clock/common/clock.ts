@@ -14,6 +14,9 @@ export const ClockDIToken = token<IClock>("Clock");
 /** The same instance as {@link ClockDIToken}: only the inspector (`Diode.advanceClock`) moves it. */
 export const AdjustableClockDIToken = token<AdjustableClock>("AdjustableClock");
 
+/** Longer, `setTimeout` fires after 1 ms (and warns). */
+const MAX_TIMEOUT_MS = 2 ** 31 - 1;
+
 interface IClockTimer {
     readonly callback: () => void;
     readonly due: number;
@@ -53,13 +56,19 @@ export class AdjustableClock implements IClock {
         }
     }
 
+    /** A deadline beyond what `setTimeout` holds is reached in steps. */
     private arm(timer: IClockTimer): void {
+        const remaining = Math.max(0, timer.due - this.now());
         timer.handle = setTimeout(
             () => {
+                if (remaining > MAX_TIMEOUT_MS) {
+                    this.arm(timer);
+                    return;
+                }
                 this.timers.delete(timer);
                 timer.callback();
             },
-            Math.max(0, timer.due - this.now()),
+            Math.min(remaining, MAX_TIMEOUT_MS),
         );
     }
 }

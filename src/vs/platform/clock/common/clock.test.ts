@@ -59,6 +59,31 @@ describe("AdjustableClock", () => {
         expect(passed).toHaveBeenCalledTimes(1);
     });
 
+    it("a timer longer than setTimeout can hold (2^31-1 ms) fires on time, not at once (QA #796 bug 1)", () => {
+        const clock = new AdjustableClock();
+        const fired = vi.fn();
+        const thousandHours = 1000 * 60 * 60 * 1000;
+        clock.setTimeout(fired, thousandHours);
+
+        vi.advanceTimersByTime(1000);
+        expect(fired).not.toHaveBeenCalled();
+        vi.advanceTimersByTime(thousandHours - 1001);
+        expect(fired).not.toHaveBeenCalled();
+        vi.advanceTimersByTime(1);
+        expect(fired).toHaveBeenCalledTimes(1);
+    });
+
+    it("a long timer moved past by the clock fires right away", () => {
+        const clock = new AdjustableClock();
+        const fired = vi.fn();
+        clock.setTimeout(fired, 2 ** 32);
+
+        clock.advance(2 ** 32);
+        vi.advanceTimersByTime(0);
+
+        expect(fired).toHaveBeenCalledTimes(1);
+    });
+
     it("a zero move changes nothing", () => {
         const clock = new AdjustableClock();
         clock.advance(0);

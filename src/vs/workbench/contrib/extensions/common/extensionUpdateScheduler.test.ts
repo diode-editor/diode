@@ -34,6 +34,7 @@ function outdated(id: string, extra: Partial<IExtensionListEntry> = {}): IExtens
         availability: "outdated",
         pinned: false,
         needsReload: false,
+        latestPublishedAt: null,
         ...extra,
     };
 }
@@ -418,6 +419,24 @@ describe("ExtensionUpdateScheduler", () => {
             clock.advance(1.5 * HOUR);
             await wait(SECOND);
 
+            expect(service.updates).toEqual([["acme.a"]]);
+        });
+
+        it("a delay longer than the check interval waits for the next 12-hour check, not a longer timer (QA #796 bug 1)", async () => {
+            settings.values.autoCheckUpdates = false;
+            settings.values.autoUpdateDelayHours = 1000;
+            service.outdated = [outdated("acme.a", { latestPublishedAt: publishedAgo(0.5) })];
+            service.onDidReadCatalogEmitter.fire(true);
+            await wait(SECOND);
+
+            // Re-planned every 12 hours: quiet in between, no install until the delay is over.
+            await wait(5 * SECOND);
+            expect(service.updates).toEqual([]);
+            await wait(48 * HOUR);
+            expect(service.updates).toEqual([]);
+
+            settings.values.autoUpdateDelayHours = 2;
+            await wait(12 * HOUR);
             expect(service.updates).toEqual([["acme.a"]]);
         });
 

@@ -39,9 +39,10 @@ export interface IExtensionListEntry {
     readonly latestVersion: string | null;
     /**
      * `publishedAt` of {@link latestVersion} (upstream `gallery.lastUpdated`), for `extensions.autoUpdateDelay`.
-     * Unset when the registry has no date or no entry.
+     * `null`: the registry's metadata has no date for it. Unset: not known — the metadata was not read (a failure, or
+     * the target came from the index, which carries no dates) or there is no registry entry.
      */
-    readonly latestPublishedAt?: string;
+    readonly latestPublishedAt?: string | null;
     /** Installed version; `null` means not installed. */
     readonly installedVersion: string | null;
     readonly availability: ExtensionAvailability;

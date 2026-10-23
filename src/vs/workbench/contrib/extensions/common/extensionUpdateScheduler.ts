@@ -138,12 +138,16 @@ export class ExtensionUpdateScheduler extends Disposable {
         const { clock, service, settings } = this.ports;
         const plan = planAutoUpdate(service.getOutdated(), settings.autoUpdateDelayHours(), clock.now());
         const retryIn = plan.retryIn;
+        // Not longer than the check interval: a delay of weeks is re-planned on the way (QA #796).
         this.delayTimer.value =
             retryIn === undefined
                 ? undefined
-                : clock.setTimeout(() => {
-                      this.onDidEndDelay();
-                  }, retryIn);
+                : clock.setTimeout(
+                      () => {
+                          this.onDidEndDelay();
+                      },
+                      Math.min(retryIn, UPDATES_CHECK_INTERVAL_MS),
+                  );
         if (plan.ready.length === 0) return;
         this.updating = true;
         let result: IExtensionUpdateAllResult;

@@ -26,8 +26,8 @@ import { useHeadlessApp } from "./helpers/useApp.ts";
 /**
  * QA of ExtensionUpdates stage 3 (docs/TODO/ExtensionUpdates.md, "stage 3 spec") from the outside: the window talks
  * to the fixture registry over HTTP, so every request is counted and any path can fail. The edge cases the
- * implementer's suite (`extensionsAutoUpdate.functional.test.ts`) does not cover; `it.fails` marks a found bug and
- * names its item in the QA report on PR #796.
+ * implementer's suite (`extensionsAutoUpdate.functional.test.ts`) does not cover; a comment "QA report, bug N" marks a found bug,
+ * fixed in the same PR.
  */
 
 const here = fileURLToPath(new URL(".", import.meta.url));
@@ -453,10 +453,10 @@ describe("Extension auto-update — QA of stage 3 (functional e2e, HTTP registry
     });
 
     describe("US-3.6: the publish delay", () => {
-        // QA report, bug 1: a delay remaining beyond 2^31-1 ms (~596 h) overflows Node's `setTimeout`, which then
+        // QA report, bug 1 (fixed in PR #796: the delay timer is capped at 12 h, the clock arms long timers in steps): a delay remaining beyond 2^31-1 ms (~596 h) overflows Node's `setTimeout`, which then
         // fires after 1 ms — the delay timer becomes a busy loop of background checks against the registry (and a
         // `TimeoutOverflowWarning` on stderr, over the TUI).
-        it.fails("bug 1: `autoUpdateDelay: 1000` (hours) waits quietly instead of re-checking in a loop", async () => {
+        it("bug 1: `autoUpdateDelay: 1000` (hours) waits quietly instead of re-checking in a loop", async () => {
             resetRequests();
             const app = await start({
                 seedUserData: await seed([FRESH]),
@@ -471,9 +471,9 @@ describe("Extension auto-update — QA of stage 3 (functional e2e, HTTP registry
             expect(profile(app)).toEqual([`${FRESH}@1.0.0 pinned=false`]);
         });
 
-        // QA report, bug 2: when the candidate's metadata cannot be read (one 500), the target comes from the index,
+        // QA report, bug 2 (fixed in PR #796: an unknown date waits for the next read): when the candidate's metadata cannot be read (one 500), the target comes from the index,
         // which has no date — "no date, no delay" — and a version published 30 minutes ago is installed at once.
-        it.fails("bug 2: an unreadable meta does not bypass the delay — a fresh version is not installed", async () => {
+        it("bug 2: an unreadable meta does not bypass the delay — a fresh version is not installed", async () => {
             resetRequests();
             registry.fail(metaPath(FRESH), 1);
             const app = await start({ seedUserData: await seed([FRESH]) });

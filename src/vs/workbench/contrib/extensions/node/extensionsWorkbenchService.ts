@@ -290,12 +290,13 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
     private targetVersionOf(
         entry: IRegistryIndexEntry,
         semver: Semver,
-    ): Pick<IRegistryVersion, "version" | "publishedAt"> | undefined {
+    ): { readonly version: string; readonly publishedAt?: string | null } | undefined {
         const latestFits = areEnginesCompatible(entry.latest.engines, this.host, semver);
         const meta = this.metaCache.get(entry.id);
         const current = meta?.versions.some((v) => v.version === entry.latest.version) === true;
         if (meta !== undefined && (current || !latestFits)) {
-            return resolveCompatibleVersion(meta.versions, this.host, semver);
+            const version = resolveCompatibleVersion(meta.versions, this.host, semver);
+            return version && { version: version.version, publishedAt: version.publishedAt ?? null };
         }
         return latestFits ? { version: entry.latest.version } : undefined;
     }

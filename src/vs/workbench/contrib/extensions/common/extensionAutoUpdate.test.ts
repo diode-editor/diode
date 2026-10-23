@@ -20,6 +20,7 @@ function outdated(id: string, extra: Partial<IExtensionListEntry> = {}): IExtens
         availability: "outdated",
         pinned: false,
         needsReload: false,
+        latestPublishedAt: null,
         ...extra,
     };
 }
@@ -118,6 +119,17 @@ describe("planAutoUpdate", () => {
 
         expect(ids(plan.ready)).toEqual(["none", "garbage", "future"]);
         expect(plan.retryIn).toBeUndefined();
+    });
+
+    it("an unknown date (the metadata was not read) waits for the next read, with no timer (QA #796 bug 2)", () => {
+        const plan = planAutoUpdate([outdated("a", { latestPublishedAt: undefined }), outdated("b")], 2, NOW);
+
+        expect(ids(plan.ready)).toEqual(["b"]);
+        expect(plan.retryIn).toBeUndefined();
+    });
+
+    it("an unknown date waits even with `autoUpdateDelay: 0`", () => {
+        expect(ids(planAutoUpdate([outdated("a", { latestPublishedAt: undefined })], 0, NOW).ready)).toEqual([]);
     });
 
     it("`autoUpdateDelay: 0` — a version published a second ago goes now", () => {

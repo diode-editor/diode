@@ -33,6 +33,7 @@ function outdated(id: string, extra: Partial<IExtensionListEntry> = {}): IExtens
         availability: "outdated",
         pinned: false,
         needsReload: false,
+        latestPublishedAt: null,
         ...extra,
     };
 }
