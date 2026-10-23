@@ -158,7 +158,7 @@ trap 'd stop' EXIT
 NODE_OPTIONS="--cpu-prof --cpu-prof-interval=100 --cpu-prof-dir=$OUT" \
   npm run -s drive -- -s prof start --binary-path dist/diode --seed ./seed --open big.ts
 d wait text 'export function' --timeout 60000
-date +%s%3N > "$OUT/mark"                    # окно правок — отрезать открытие в профиле
+cut -d' ' -f1 /proc/uptime > "$OUT/mark"     # окно правок — отрезать открытие в профиле
 for i in $(seq 1 15); do d type 'x'; d wait idle; done
 for i in $(seq 1 15); do d key Enter; d wait idle; done
 d stop                                       # именно stop, не kill: иначе профиля нет
@@ -168,6 +168,11 @@ d stop                                       # именно stop, не kill: и�
   tsserver). Главный — самый крупный (pid процесса есть в имени файла).
 - Смотреть — DevTools (Performance → Load profile) или self-time по функциям
   скриптом над `nodes`/`samples`/`timeDeltas`, начиная с отметки `mark`.
+- **Часы профиля — монотонные, с загрузки машины** (`startTime` в микросекундах ≈
+  `/proc/uptime` × 10⁶), не эпоха: отметка `date +%s%3N` в профиле не найдётся. Отметки —
+  из `/proc/uptime`, либо режь окно по структуре: кадр — непрерывная серия сэмплов с
+  `renderFrame` в стеке (сэмплы `(garbage collector)` внутри кадра — его часть), время кадра
+  — сумма их `timeDeltas`; так считают медиану/p90 кадра до и после.
 - Бинарь — `npm run build:sea` под node 26.12 (системный 25.x его ломает).
 - Одна такая сессия за раз: две drive-сессии с tsserver на 13 МБ файле умирали,
   похоже, от памяти.
