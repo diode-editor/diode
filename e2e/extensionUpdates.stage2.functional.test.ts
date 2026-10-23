@@ -25,7 +25,7 @@ import { useHeadlessApp } from "./helpers/useApp.ts";
  * Acceptance tests for ExtensionUpdates stage 2 in the window (docs/TODO/ExtensionUpdates.md, "stage 2 spec"): the
  * edge cases the implementer's `extensionsUpdateAll.functional.test.ts` leaves out — a registry that goes away, a
  * platform-only release, a newer `.vsix`, `@OUTDATED` with text, a partial failure, dependencies, profile B and a
- * double `Update All`. A test marked `it.fails` is a found bug; the comment names the item of the QA report in PR #792.
+ * double `Update All`. A comment "QA report #N" names the bug of PR #792 the test caught (fixed in the same PR).
  */
 
 const here = fileURLToPath(new URL(".", import.meta.url));
@@ -255,33 +255,31 @@ describe("Manual extension updates edge cases (ExtensionUpdates stage 2 QA, func
         removeTempDir(root);
     });
 
-    // QA report #1: `checkForUpdates` clears the metadata cache BEFORE reading the index. When the read fails, the
-    // previous index is kept (like Refresh) but its targets are recomputed without metadata: every entry whose
-    // latest is incompatible turns `Incompatible`, leaves `@outdated`, and `hasOutdatedExtensions` goes false.
-    it.fails(
-        "US-2.4: Check for Updates with the registry gone keeps the last list — the outdated row stays outdated",
-        async () => {
-            const dir = copyRegistry();
-            const app = await start({ registry: dir, installVsix: [artifact(META, "1.0.0")] });
-            await showViewlet(app);
-            await waitForRow(app, "installed", META, /^Qa Meta {2}1\.0\.0 {2}Update 1\.1\.0$/u);
+    // QA report #1 (fixed): `checkForUpdates` cleared the metadata cache BEFORE reading the index. When the read failed,
+    // the previous index was kept (like Refresh) but its targets were recomputed without metadata: every entry whose
+    // latest is incompatible turned `Incompatible`, left `@outdated`, and `hasOutdatedExtensions` went false.
+    it("US-2.4: Check for Updates with the registry gone keeps the last list — the outdated row stays outdated", async () => {
+        const dir = copyRegistry();
+        const app = await start({ registry: dir, installVsix: [artifact(META, "1.0.0")] });
+        await showViewlet(app);
+        await waitForRow(app, "installed", META, /^Qa Meta {2}1\.0\.0 {2}Update 1\.1\.0$/u);
 
-            renameSync(dir, `${dir}-gone`);
-            await runPaletteCommand(app, "Extensions: Check for Extension Updates");
-            await waitForScreen(app, "Could not check for extension updates:");
+        renameSync(dir, `${dir}-gone`);
+        await runPaletteCommand(app, "Extensions: Check for Extension Updates");
+        await waitForScreen(app, "Could not check for extension updates:");
 
-            // The stale list, as after a failed Refresh: the reason is on the `Retry —` row, the rows are as they were.
-            expect(await rowText(app, "installed", META)).toMatch(/^Qa Meta {2}1\.0\.0 {2}Update 1\.1\.0$/u);
-            // Update All stays available: it is enabled by the last loaded catalog (US-2.6).
-            await app.session.executeCommand("workbench.extensions.action.updateAllExtensions");
-            await waitForScreen(app, "Updated 1 extension.");
-        },
-    );
+        // The stale list, as after a failed Refresh: the reason is on the `Retry —` row, the rows are as they were.
+        expect(await rowText(app, "installed", META)).toMatch(/^Qa Meta {2}1\.0\.0 {2}Update 1\.1\.0$/u);
+        // Update All stays available: it is enabled by the last loaded catalog (US-2.6). It runs and, with the
+        // registry gone, reports the failure in its summary.
+        await app.session.executeCommand("workbench.extensions.action.updateAllExtensions");
+        await waitForScreen(app, "Updated 0 of 1 extensions. Failed:");
+    });
 
-    // QA report #2: the target is the index's latest whenever its `engines` fit, but the index knows no platform. A
-    // release published only for another platform is then "outdated" forever: Update All reinstalls the old version
-    // (`installFromRegistry` resolves by platform) and says `Updated 1 extension.`; the row stays `Update 1.1.0`.
-    it.fails("US-2.1/US-2.6: a newer version for another platform only is not an update on this host", async () => {
+    // QA report #2 (fixed): the target was the index's latest whenever its `engines` fit, but the index knows no
+    // platform. A release published only for another platform was then "outdated" forever: Update All reinstalled the
+    // old version (`installFromRegistry` resolves by platform) and said `Updated 1 extension.`.
+    it("US-2.1/US-2.6: a newer version for another platform only is not an update on this host", async () => {
         const dir = copyRegistry();
         const foreign = currentTargetPlatform() === "win32-arm64" ? "darwin-x64" : "win32-arm64";
         const metaFile = join(dir, "meta", `${PLATFORM}.json`);

@@ -40,6 +40,8 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
     private readonly metaCache = new Map<string, IRegistryExtensionMeta | undefined>();
     /** Installed/uninstalled in this session: contributions won't apply until a window reload. */
     private readonly pendingReload = new Set<string>();
+    /** Being installed (upstream: not `state === Installed`): not outdated, so a second Update All skips them. */
+    private readonly installing = new Set<string>();
 
     /** semver is a lazy chunk: loaded together with the index, not at startup. */
     private catalog: { readonly index: IRegistryIndex; readonly semver: Semver } | null = null;
@@ -61,12 +63,12 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
     }
 
     public ensureLoaded(): Promise<void> {
-        this.loading ??= this.load();
+        this.loading ??= this.load(false);
         return this.loading;
     }
 
     public refresh(): Promise<void> {
-        this.loading = this.load();
+        this.loading = this.load(false);
         return this.loading;
     }
 
@@ -74,10 +76,10 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
         return this.entries;
     }
 
-    /** The cleared cache makes `load` fetch the metadata again: a new compatible version may have appeared. */
+    /** Like {@link refresh}, plus fresh metadata: a new compatible version may have appeared. */
     public checkForUpdates(): Promise<void> {
-        this.metaCache.clear();
-        return this.refresh();
+        this.loading = this.load(true);
+        return this.loading;
     }
 
     public getCatalogError(): string | null {
@@ -85,14 +87,16 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
     }
 
     public getOutdated(): readonly IExtensionListEntry[] {
-        return this.entries.filter((entry) => entry.availability === "outdated");
+        return this.entries.filter((entry) => entry.availability === "outdated" && !this.installing.has(entry.id));
     }
 
-    /** One after another: each install rewrites the profile file. */
+    /** One after another: each install rewrites the profile file. The whole batch counts as being installed. */
     public async updateAll(): Promise<IExtensionUpdateAllResult> {
         const updated: { id: string; version: string }[] = [];
         const failed: { id: string; error: string }[] = [];
-        for (const { id } of this.getOutdated()) {
+        const ids = this.getOutdated().map((entry) => entry.id);
+        for (const id of ids) this.installing.add(id);
+        for (const id of ids) {
             const result = await this.install(id);
             if (result.ok) updated.push({ id, version: result.version });
             else failed.push({ id, error: result.error });
@@ -113,6 +117,7 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
      * host and is removed on the next start.
      */
     public async install(id: string, options: IExtensionInstallOptions = {}): Promise<IExtensionInstallResult> {
+        this.installing.add(id);
         try {
             // Dependencies are installed without asking, as in VS Code, and also wait for a window reload.
             const installed = await installFromRegistry(this.source, id, {
@@ -132,6 +137,8 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
             return { ok: true, version };
         } catch (error) {
             return { ok: false, error: messageOf(error) };
+        } finally {
+            this.installing.delete(id);
         }
     }
 
@@ -168,10 +175,11 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
         this.rebuildEntries();
     }
 
-    private async load(): Promise<void> {
+    /** `freshMeta`: re-fetch the metadata, but only once the index is read — offline keeps the last targets. */
+    private async load(freshMeta: boolean): Promise<void> {
         try {
             const [index, semver] = await Promise.all([this.source.getIndex(), loadSemver()]);
-            await this.loadMetaOfIncompatibleLatest(index, semver);
+            await this.loadTargetMeta(index, semver, freshMeta);
             this.catalog = { index, semver };
             this.catalogError = null;
         } catch (error) {
@@ -184,30 +192,41 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
     }
 
     /**
-     * The index carries only the latest version: when it is compatible it is the target, otherwise the target is in
-     * the metadata. So only these entries cost a request, and only once the catalog is read (no network at startup).
+     * The index carries only the latest version and knows neither the other versions nor platforms. The metadata
+     * decides where that matters: an incompatible latest (the target may be older), and a latest above the installed
+     * version (it may exist only for another platform — then it is no update). Only these entries cost a request,
+     * and only once the catalog is read (no network at startup).
      */
-    private async loadMetaOfIncompatibleLatest(index: IRegistryIndex, semver: Semver): Promise<void> {
+    private async loadTargetMeta(index: IRegistryIndex, semver: Semver, fresh: boolean): Promise<void> {
+        const installed = new Map(this.profile.list().map((e) => [e.id, e.version]));
         const ids = index.extensions
-            .filter((entry) => !areEnginesCompatible(entry.latest.engines, this.host, semver))
+            .filter(
+                (entry) =>
+                    !areEnginesCompatible(entry.latest.engines, this.host, semver) ||
+                    isNewer(entry.latest.version, installed.get(entry.id), semver),
+            )
             .map((entry) => entry.id);
         await Promise.all(
             ids.map(async (id) => {
                 try {
-                    await this.getMeta(id);
+                    this.metaCache.set(id, fresh ? await this.source.getMeta(id) : await this.getMeta(id));
                 } catch (error) {
-                    // Not a catalog error: the rest of the catalog is fine, the entry just stays incompatible.
+                    // Not a catalog error: the rest of the catalog is fine. A fresh fetch keeps the previous answer.
                     this.logger.warn(`Could not read the metadata of ${id}: ${messageOf(error)}`);
                 }
             }),
         );
+        if (!fresh) return;
+        // The rest (pages, the version picker) is fetched again on demand.
+        const kept = new Set(ids);
+        for (const id of [...this.metaCache.keys()]) if (!kept.has(id)) this.metaCache.delete(id);
     }
 
-    /** `undefined`: no compatible version. Missing metadata (a failed fetch) counts as none. */
+    /** From the metadata when it is known; otherwise the latest if its `engines` fit. `undefined`: none compatible. */
     private targetVersionOf(entry: IRegistryIndexEntry, semver: Semver): string | undefined {
-        if (areEnginesCompatible(entry.latest.engines, this.host, semver)) return entry.latest.version;
-        const versions = this.metaCache.get(entry.id)?.versions ?? [];
-        return resolveCompatibleVersion(versions, this.host, semver)?.version;
+        const meta = this.metaCache.get(entry.id);
+        if (meta !== undefined) return resolveCompatibleVersion(meta.versions, this.host, semver)?.version;
+        return areEnginesCompatible(entry.latest.engines, this.host, semver) ? entry.latest.version : undefined;
     }
 
     private rebuildEntries(): void {
@@ -270,8 +289,13 @@ function availabilityOf(
 ): ExtensionAvailability {
     if (target === undefined) return "incompatible";
     if (installed === undefined) return "available";
-    // A manifest version that is not semver can't be compared: not outdated, like upstream's failing `gt`.
-    return semver.valid(installed.version) !== null && semver.gt(target, installed.version) ? "outdated" : "installed";
+    return isNewer(target, installed.version, semver) ? "outdated" : "installed";
+}
+
+/** A manifest version that is not semver can't be compared: never older, like upstream's failing `gt`. */
+function isNewer(target: string, installed: string | undefined, semver: Semver): boolean {
+    // Stryker disable next-line ConditionalExpression: equivalent — `semver.valid(undefined)` is null as well; the check is for the types
+    return installed !== undefined && semver.valid(installed) !== null && semver.gt(target, installed);
 }
 
 /** Installed outside the marketplace: only the manifest is known, the entry is always `installed`. */

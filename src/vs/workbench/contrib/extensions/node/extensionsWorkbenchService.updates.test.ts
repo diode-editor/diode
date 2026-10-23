@@ -45,7 +45,7 @@ class FakeSource implements IExtensionRegistrySource {
 
     public constructor(
         public index: IRegistryIndex,
-        private readonly metas: Record<string, IRegistryExtensionMeta>,
+        public metas: Record<string, IRegistryExtensionMeta>,
     ) {}
 
     public getIndex(): Promise<IRegistryIndex> {
@@ -174,15 +174,48 @@ describe("ExtensionsWorkbenchService — updates (ExtensionUpdates stage 2)", ()
     }
 
     describe("target version and availability", () => {
-        it("a compatible latest is the target, and no metadata is fetched for it", async () => {
+        it("a compatible latest is the target; metadata only confirms an update of an installed one", async () => {
             installed("acme.tools", "1.0.0");
-            const source = await registry({ "acme.tools": [{ version: "1.0.0" }, { version: "1.1.0" }] });
+            installed("acme.current", "1.1.0");
+            const source = await registry({
+                "acme.tools": [{ version: "1.0.0" }, { version: "1.1.0" }],
+                "acme.current": [{ version: "1.1.0" }],
+                "acme.fresh": [{ version: "1.1.0" }],
+            });
             const service = createService(source);
 
             await service.ensureLoaded();
 
             expect(card(service, "acme.tools")).toEqual({ latest: "1.1.0", installed: "1.0.0", state: "outdated" });
-            expect(source.metaCalls).toEqual([]);
+            expect(card(service, "acme.current")).toEqual({ latest: "1.1.0", installed: "1.1.0", state: "installed" });
+            expect(card(service, "acme.fresh")).toEqual({ latest: "1.1.0", installed: null, state: "available" });
+            // The index knows no platform: only an update candidate needs the metadata (QA report #2).
+            expect(source.metaCalls).toEqual(["acme.tools"]);
+        });
+
+        it("QA #2: a newer version for another platform only is not an update on this host", async () => {
+            installed("acme.tools", "1.0.0");
+            const source = await registry({
+                "acme.tools": [{ version: "1.0.0" }, { version: "1.1.0", targetPlatform: "win32-arm64" }],
+            });
+            const service = createService(source, { ...HOST, targetPlatform: "linux-x64" });
+
+            await service.ensureLoaded();
+
+            expect(card(service, "acme.tools")).toEqual({ latest: "1.0.0", installed: "1.0.0", state: "installed" });
+            expect(service.getOutdated()).toEqual([]);
+        });
+
+        it("an update candidate whose metadata fails keeps the index's latest", async () => {
+            installed("acme.tools", "1.0.0");
+            const source = await registry({ "acme.tools": [{ version: "1.0.0" }, { version: "1.1.0" }] });
+            source.failMeta.add("acme.tools");
+            const service = createService(source);
+
+            await service.ensureLoaded();
+
+            expect(card(service, "acme.tools")).toEqual({ latest: "1.1.0", installed: "1.0.0", state: "outdated" });
+            expect(warnings).toHaveLength(1);
         });
 
         it("US-2.1: an incompatible latest with a newer compatible version — outdated to that version", async () => {
@@ -336,6 +369,65 @@ describe("ExtensionsWorkbenchService — updates (ExtensionUpdates stage 2)", ()
             expect(source.metaCalls).toEqual(["acme.tools", "acme.tools"]);
         });
 
+        it("QA #1: checkForUpdates with the registry unreachable keeps the last targets, like Refresh", async () => {
+            installed("acme.tools", "1.0.0");
+            const source = await registry({
+                "acme.tools": [{ version: "1.0.0" }, { version: "1.1.0" }, { version: "2.0.0", engines: INCOMPATIBLE }],
+            });
+            const service = createService(source);
+            await service.ensureLoaded();
+            const offline = new Error("offline");
+            source.getIndex = () => Promise.reject(offline);
+            source.failMeta.add("acme.tools");
+
+            await service.checkForUpdates();
+
+            expect(service.getCatalogError()).toBe("offline");
+            expect(card(service, "acme.tools")).toEqual({ latest: "1.1.0", installed: "1.0.0", state: "outdated" });
+            expect(service.getOutdated().map((e) => e.id)).toEqual(["acme.tools"]);
+        });
+
+        it("the first catalog read and Refresh keep the page metadata already fetched", async () => {
+            const source = await registry({ "acme.fresh": [{ version: "1.0.0" }] });
+            const service = createService(source);
+            await service.getMeta("acme.fresh");
+
+            await service.ensureLoaded();
+            await service.refresh();
+            await service.getMeta("acme.fresh");
+
+            expect(source.metaCalls).toEqual(["acme.fresh"]);
+        });
+
+        it("after a successful check the page metadata is fetched anew too", async () => {
+            const source = await registry({ "acme.fresh": [{ version: "1.0.0" }] });
+            const service = createService(source);
+            await service.ensureLoaded();
+            await service.getMeta("acme.fresh");
+            await service.getMeta("acme.fresh");
+            expect(source.metaCalls).toEqual(["acme.fresh"]);
+
+            await service.checkForUpdates();
+            await service.getMeta("acme.fresh");
+
+            expect(source.metaCalls).toEqual(["acme.fresh", "acme.fresh"]);
+        });
+
+        it("checkForUpdates keeps the previous metadata of an entry whose fresh fetch fails", async () => {
+            installed("acme.tools", "1.0.0");
+            const source = await registry({
+                "acme.tools": [{ version: "1.0.0" }, { version: "1.1.0" }, { version: "2.0.0", engines: INCOMPATIBLE }],
+            });
+            const service = createService(source);
+            await service.ensureLoaded();
+            source.failMeta.add("acme.tools");
+
+            await service.checkForUpdates();
+
+            expect(service.getCatalogError()).toBeNull();
+            expect(card(service, "acme.tools")).toMatchObject({ latest: "1.1.0", state: "outdated" });
+        });
+
         it("checkForUpdates sees a version that appeared in the registry", async () => {
             installed("acme.tools", "1.0.0");
             const before = await registry({ "acme.tools": [{ version: "1.0.0" }] });
@@ -343,7 +435,9 @@ describe("ExtensionsWorkbenchService — updates (ExtensionUpdates stage 2)", ()
             await service.ensureLoaded();
             expect(service.getOutdated()).toEqual([]);
 
-            before.index = (await registry({ "acme.tools": [{ version: "1.0.0" }, { version: "1.1.0" }] })).index;
+            const after = await registry({ "acme.tools": [{ version: "1.0.0" }, { version: "1.1.0" }] });
+            before.index = after.index;
+            before.metas = after.metas;
             await service.checkForUpdates();
 
             expect(service.getOutdated().map((e) => e.id)).toEqual(["acme.tools"]);
@@ -431,6 +525,51 @@ describe("ExtensionsWorkbenchService — updates (ExtensionUpdates stage 2)", ()
                 ["acme.broken", "1.0.0", false],
                 ["acme.plain", "1.1.0", false],
             ]);
+        });
+
+        it("QA #3: an extension being installed is not outdated; two Update All at once install each once", async () => {
+            installed("acme.plain", "1.0.0");
+            installed("acme.other", "1.0.0");
+            const service = createService(
+                await registry({
+                    "acme.plain": [{ version: "1.0.0" }, { version: "1.1.0" }],
+                    "acme.other": [{ version: "1.0.0" }, { version: "1.1.0" }],
+                }),
+            );
+            await service.ensureLoaded();
+
+            const first = service.updateAll();
+            expect(service.getOutdated()).toEqual([]);
+            const second = service.updateAll();
+
+            expect((await first).updated.map((u) => u.id)).toEqual(["acme.plain", "acme.other"]);
+            expect(await second).toEqual({ updated: [], failed: [] });
+            expect(service.getOutdated()).toEqual([]);
+        });
+
+        it("a single install hides its entry from the outdated list until it is done", async () => {
+            installed("acme.plain", "1.0.0");
+            const service = createService(
+                await registry({ "acme.plain": [{ version: "1.0.0" }, { version: "1.1.0" }] }),
+            );
+            await service.ensureLoaded();
+
+            const pending = service.install("acme.plain");
+            expect(service.getOutdated()).toEqual([]);
+            await pending;
+            expect(card(service, "acme.plain")).toMatchObject({ installed: "1.1.0", state: "installed" });
+        });
+
+        it("a failed install makes the entry outdated again", async () => {
+            installed("acme.broken", "1.0.0");
+            const service = createService(
+                await registry({ "acme.broken": [{ version: "1.0.0" }, { version: "1.1.0", corrupt: true }] }),
+            );
+            await service.ensureLoaded();
+
+            await service.install("acme.broken");
+
+            expect(service.getOutdated().map((e) => e.id)).toEqual(["acme.broken"]);
         });
 
         it("nothing outdated — nothing to do", async () => {
