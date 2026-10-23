@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { IRegistryVersion } from "../../../../platform/extensionManagement/common/registryFormat.ts";
 import { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
+import type { IRegistryVersion } from "../../../../platform/extensionManagement/common/registryFormat.ts";
 import { ProgressService } from "../../../../platform/progress/common/progressService.ts";
 import { NULL_STATE_SERVICE } from "../../../../platform/state/common/nullStateService.ts";
 import type { QuickPickOptions } from "../../../browser/parts/quickinput/quickInputService.ts";

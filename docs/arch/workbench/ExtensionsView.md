@@ -45,10 +45,30 @@
   микротаск значило бы показать пустую страницу первым кадром.
 - **Кнопки страницы** — настоящие `ButtonElement` в закреплённой шапке; состав
   считает чистая `describeExtensionButtons` (`Install` / `Update to X.Y.Z` +
-  `Uninstall` / выключенный `Install` у несовместимого с причиной / `Reload
-  Window` после операции). Клавиатура — приём модальных диалогов: стрелки по
-  ряду, `Tab` уводит в readme и обратно; фокус вкладки встаёт на первую доступную
-  кнопку — в том числе на `Reload Window` сразу после установки.
+  `Install Specific Version...` у всего, что знает реестр, + `Uninstall` / выключенный `Install` у
+  несовместимого с причиной / `Reload Window` после операции). Не влезающие в ширину кнопки
+  переносятся на следующую строку (жадно, по порядку; фокус переживает перестройку). Клавиатура —
+  приём модальных диалогов: стрелки по ряду, `Tab` уводит в readme и обратно; фокус вкладки встаёт
+  на первую доступную кнопку — в том числе на `Reload Window` сразу после установки.
+- **Конкретная версия и закрепление** (ExtensionUpdates, этап 1; эталон —
+  `InstallAnotherVersionAction` / `InstallSpecificVersionOfExtensionAction`). Кнопка
+  `Install Specific Version...` (у эталона — пункт контекстного меню расширения, которого у нас нет)
+  открывает quick pick `Select Version to Install`: версии из `meta`, **совместимые** с этой сборкой
+  (`compatibleVersions`: платформа и `engines`, по строке на версию, от новой к старой), описание —
+  возраст `publishedAt` (`fromNow(…, true)` эталона, `2 mos ago`) и ` (current)` у установленной.
+  Выбор текущей или Escape — ничего; совместимых нет — модальное `This extension has no other
+  versions.` (`dialogService.info` эталона). Выбранная версия ставится как обычная установка
+  (`install(id, { version })`) и **закрепляется**: `metadata.pinned` в `extensions.json` профиля
+  ([Extensions.md](../Extensions.md)). Закрепление не меняет `outdated` и кнопку `Update to X` (как
+  эталон); его читают будущие `Update All` и автообновление. В палитре —
+  `Extensions: Install Specific Version of Extension...`
+  (`workbench.extensions.action.install.specificVersion`): `Select Extension` по установленным
+  расширениям из реестра, затем тот же выбор версии, затем открывается страница расширения.
+  Доступность — typed when-контекст `extensionsCanInstallSpecificVersion` (`ExtensionVersionContribution`):
+  до чтения каталога (на старте в сеть не ходим) считается любое установленное, после — только
+  известные реестру; не нашлось — `There are no installed extensions from the marketplace.` Команда
+  кнопки `workbench.extensions.action.install.anotherVersion` (аргумент — id) без заголовка, в
+  палитре её нет.
 - **Установка и удаление** — `ExtensionPageActions` (`browser/extensionPageActions.ts`):
   прогресс неопределённый (`ProgressService`, локация `window`: `fetchArtifact`
   не отдаёт прогресс скачивания), транзиентное сообщение в статус-баре
@@ -68,19 +88,21 @@
 - Тесты: юниты рядом с кодом и герметичные e2e против файлового
   реестра-фикстуры на настоящих `.vsix` — `e2e/extensionsView.functional.test.ts`
   (просмотр) и `e2e/extensionsInstall.functional.test.ts` (установка,
-  обновление, удаление, перезагрузка окна переподключением инспектора) —
+  обновление, удаление, перезагрузка окна переподключением инспектора),
+  `e2e/extensionVersionPin.functional.test.ts` / `.cli.test.ts` (пикер версий, откат, закрепление) —
   [TESTING.md](../../TESTING.md#extensions-view-герметичный-сьют).
 
 ## Чего сознательно не делаем
 
 - **Дисковый кэш индекса и оффлайн-режим** — заводятся вместе со своей
   инвалидацией и потребителем; пока кэш в памяти на сессию + явный Refresh.
-- **Категории, сортировки, рейтинги, «популярное», авто-обновление** — в реестре
-  из десятка записей это UI ради UI; `categories` вдобавок нет в мете.
+- **Категории, сортировки, рейтинги, «популярное»** — в реестре
+  из десятка записей это UI ради UI; `categories` вдобавок нет в мете. Автообновление —
+  этап 3 [ExtensionUpdates](../../TODO/ExtensionUpdates.md).
 - **Установку из списка одной кнопкой** (inline-кнопка строки в VS Code) —
   установка живёт на странице, чтобы решение принималось после просмотра readme
   и совместимости.
 - **Встроенные расширения в `INSTALLED`** — builtin нельзя удалить, в списке они
   были бы мёртвыми строками.
-- **Установку конкретной версии из UI** — `installFromRegistry` умеет
-  (`options.version`), пикер версий — позже.
+- **Несовместимые версии в пикере** — как эталон, показываем только совместимые (решение Д2);
+  точную несовместимую версию ставит CLI `--install-extension id@version`.

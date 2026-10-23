@@ -62,7 +62,7 @@ export function compatibleVersions(
     for (const candidate of versions) {
         if (!isVersionCompatible(candidate, host, semver) || semver.valid(candidate.version) === null) continue;
         const known = byVersion.get(candidate.version);
-        if (known === undefined || known.targetPlatform === undefined) byVersion.set(candidate.version, candidate);
+        if (known?.targetPlatform === undefined) byVersion.set(candidate.version, candidate);
     }
     return [...byVersion.values()].sort((a, b) => semver.rcompare(a.version, b.version));
 }

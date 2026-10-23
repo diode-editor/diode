@@ -89,7 +89,11 @@
   `extensions.json` профиля (аналог `extensionsProfileScannerService` эталона): у именованного —
   `User/profiles/<id>/extensions.json`, у Default — `<extensionsDir>/extensions.json`
   (`getDefaultProfileExtensionsLocation` эталона). Запись —
-  `{ identifier: { id }, version, relativeLocation }`; каталог — по `relativeLocation`, у записей
+  `{ identifier: { id }, version, relativeLocation, metadata? }`; `metadata.pinned: true` — версию
+  выбрал пользователь (`installGivenVersion` эталона: пикер версий, `--install-extension id@version`,
+  `.vsix`); обычная установка/обновление сохраняет прежнее значение, зависимости не закрепляются,
+  удаление стирает запись вместе с пометкой, прочие поля записи при перезаписи `add` сохраняются.
+  Каталог — по `relativeLocation`, у записей
   старых версий — `<id>-<version>`, нет и его — единственный каталог этого id, при нескольких —
   наибольшая semver с `warn` (файл при этом не переписывается). Каталог другого id не берётся
   никогда; каталог, на который ссылается профиль, в `list` попадает и помеченный (профиль сильнее
@@ -99,7 +103,7 @@
   каталогам из `list()` (не по id: версий на диске может быть несколько) **до** всех вкладов (темы,
   языки, грамматики, конфигурация, extension host видят один набор); смена профиля — перезагрузка
   окна, то есть новый скан, отдельного перезапуска host'а нет. Кто пишет: `ProfileExtensions` —
-  `add` (установка из магазина и `--install-extension`: запись указывает на **только что
+  `add` (установка из магазина и `--install-extension`, `{ pinned }` для заданной версии: запись указывает на **только что
   поставленный** каталог, `extensionDependencies` — с диска: уже записанная в профиле зависимость
   сохраняет запись, новая берёт наибольшую непомеченную версию), `remove` (Uninstall,
   `--uninstall-extension`: из профиля), `list` (Extensions view, `--list-extensions`). После `add` и

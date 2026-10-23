@@ -16,12 +16,15 @@ import { buildExtensionHeaderLines, TONE_COLORS } from "./extensionPageContent.t
 
 const BUTTON_GAP = 2;
 
-/** Rows the header takes beyond the text: the button row and the spacer under it. */
-const CHROME_HEIGHT = 2;
+/** The spacer under the button rows. */
+const SPACER_HEIGHT = 1;
 
 export class ExtensionPageHeaderElement extends TUIElement {
     private readonly stack = new VStackElement();
-    private readonly buttonRow = new HFlexElement();
+    /** Buttons that don't fit the width wrap to the next row; before the first layout all are in one. */
+    private buttonRows: HFlexElement[] = [];
+    /** Button count per row; rows are rebuilt only when it changes. */
+    private buttonGrouping = "";
     private readonly spacer = new TextLabelElement("");
     private readonly padded: TUIElement;
     private content: IExtensionPageContent;
@@ -43,15 +46,18 @@ export class ExtensionPageHeaderElement extends TUIElement {
         this.appendChild(this.padded);
         // Buttons are built right away, without waiting for layout: the page is focused
         // before the first frame (tab open), and there would be nothing to focus.
-        this.buttonElements = this.buildButtonRow();
+        this.buttonElements = this.buttons.map((button) => this.createButton(button));
+        this.arrangeButtons();
         this.syncStack();
     }
 
     public setContent(content: IExtensionPageContent, buttons: readonly IExtensionButton[]): void {
         this.content = content;
         this.buttons = buttons;
-        this.buttonElements = this.buildButtonRow();
+        this.buttonElements = this.buttons.map((button) => this.createButton(button));
+        this.buttonGrouping = "";
         this.rebuildTextRows();
+        this.arrangeButtons();
         this.syncStack();
     }
 
@@ -81,7 +87,7 @@ export class ExtensionPageHeaderElement extends TUIElement {
      */
     public override getMaxIntrinsicHeight(width: number): number {
         this.ensureRows(width);
-        return this.textRows.length + CHROME_HEIGHT;
+        return this.textRows.length + this.buttonRows.length + SPACER_HEIGHT;
     }
 
     protected override performLayout(constraints: BoxConstraints): Size {
@@ -95,6 +101,7 @@ export class ExtensionPageHeaderElement extends TUIElement {
         if (width === this.wrappedWidth) return;
         this.wrappedWidth = width;
         this.rebuildTextRows();
+        this.arrangeButtons();
         this.syncStack();
     }
 
@@ -112,21 +119,47 @@ export class ExtensionPageHeaderElement extends TUIElement {
 
     /** `replaceChildren` marks the tree dirty itself. */
     private syncStack(): void {
-        const rows: TUIElement[] = [...this.textRows, this.buttonRow, this.spacer];
+        const rows: TUIElement[] = [...this.textRows, ...this.buttonRows, this.spacer];
         for (const row of rows) row.layoutStyle = { width: "fill", height: 1 };
         this.stack.replaceChildren(rows);
     }
 
-    private buildButtonRow(): ButtonElement[] {
-        const elements = this.buttons.map((button) => this.createButton(button));
-        const children: TUIElement[] = [];
-        for (const [i, element] of elements.entries()) {
-            if (i > 0) children.push(gap(BUTTON_GAP));
-            element.layoutStyle = { width: hflexFit(), height: 1 };
-            children.push(element);
+    /** Greedy, in order; a button wider than the row gets a row of its own. Focus survives the move. */
+    private arrangeButtons(): void {
+        // The same measure as the text: the indent column on the left and the scrollbar column on the right.
+        const available = this.wrappedWidth === null ? Number.POSITIVE_INFINITY : this.wrappedWidth - 2;
+        const groups: ButtonElement[][] = [];
+        let used = 0;
+        for (const element of this.buttonElements) {
+            const width = element.getMaxIntrinsicWidth(1);
+            const current = groups.at(-1);
+            if (current !== undefined && used + BUTTON_GAP + width <= available) {
+                current.push(element);
+                used += BUTTON_GAP + width;
+                continue;
+            }
+            groups.push([element]);
+            used = width;
         }
-        this.buttonRow.replaceChildren(children);
-        return elements;
+        const grouping = groups.map((group) => group.length).join(",");
+        if (grouping === this.buttonGrouping && this.buttonRows.length > 0) return;
+        this.buttonGrouping = grouping;
+        const focused = this.buttonElements.find((element) => element.isFocused);
+        for (const row of this.buttonRows) row.replaceChildren([]);
+        // No buttons is still one (empty) row: the page layout keeps its shape.
+        this.buttonRows = (groups.length > 0 ? groups : [[]]).map((group) => {
+            const row = new HFlexElement();
+            const children: TUIElement[] = [];
+            for (const [i, element] of group.entries()) {
+                if (i > 0) children.push(gap(BUTTON_GAP));
+                element.layoutStyle = { width: hflexFit(), height: 1 };
+                children.push(element);
+            }
+            row.replaceChildren(children);
+            return row;
+        });
+        if (focused !== undefined) this.syncStack();
+        focused?.focus();
     }
 
     private createButton(button: IExtensionButton): ButtonElement {

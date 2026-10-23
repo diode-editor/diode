@@ -697,11 +697,11 @@ describe("ExtensionsWorkbenchService", () => {
                 expect(storedPin()).toEqual([["1.0.0", true]]);
                 expect(readObsolete(ws!.path("extensions"))).toEqual(new Set(["acme.tools-1.1.0"]));
                 const card = service.getEntries()[0];
-                expect(card?.installedVersion).toBe("1.0.0");
-                expect(card?.pinned).toBe(true);
+                expect(card.installedVersion).toBe("1.0.0");
+                expect(card.pinned).toBe(true);
                 // Pinning does not change `outdated` (decision D1, like upstream).
-                expect(card?.availability).toBe("outdated");
-                expect(card?.needsReload).toBe(true);
+                expect(card.availability).toBe("outdated");
+                expect(card.needsReload).toBe(true);
             });
 
             it("US-1.7: a plain update of a pinned version keeps the pin", async () => {

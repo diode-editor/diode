@@ -136,7 +136,11 @@ describe("ProfileExtensions pinned", () => {
         profile(workFile, [defaultFile]).add([{ id: "acme.demo", dir: old }], { pinned: true });
 
         expect(readProfileExtensions(defaultFile)).toEqual([entry("acme.demo", "1.1.0")]);
-        expect(profile(defaultFile).list().map((e) => e.pinned)).toEqual([false]);
+        expect(
+            profile(defaultFile)
+                .list()
+                .map((e) => e.pinned),
+        ).toEqual([false]);
     });
 
     it("list() reports the pin; anything but true is not pinned", () => {
@@ -149,10 +153,10 @@ describe("ProfileExtensions pinned", () => {
             entry("acme.c", "1.0.0"),
         ]);
 
-        expect(profile(workFile).list().map((e) => `${e.id}:${String(e.pinned)}`)).toEqual([
-            "acme.a:true",
-            "acme.b:false",
-            "acme.c:false",
-        ]);
+        expect(
+            profile(workFile)
+                .list()
+                .map((e) => `${e.id}:${String(e.pinned)}`),
+        ).toEqual(["acme.a:true", "acme.b:false", "acme.c:false"]);
     });
 });

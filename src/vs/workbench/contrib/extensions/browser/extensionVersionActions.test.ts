@@ -8,7 +8,7 @@ import {
 } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { Container } from "../../../../platform/instantiation/common/diContainer.ts";
 import { KeybindingRegistry } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
-import type { QuickPickOptions, QuickInputService } from "../../../browser/parts/quickinput/quickInputService.ts";
+import type { QuickInputService, QuickPickOptions } from "../../../browser/parts/quickinput/quickInputService.ts";
 import { QuickInputServiceDIToken } from "../../../browser/parts/quickinput/quickInputService.ts";
 import type {
     INotificationMessage,
