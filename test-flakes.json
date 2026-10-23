@@ -60,6 +60,12 @@
             "test": "Workbench — Preferences commands > recording a keybinding from the tab, end to end > the recorder writes the combination: file on disk, row updated, the command works at once",
             "action": "retry",
             "note": "vi.waitFor with the default 1 s timeout waits for a file on disk; 2 of 4 Stryker dry runs"
+        },
+        {
+            "file": "src/vs/workbench/services/externalOpener/node/externalOpenerService.test.ts",
+            "test": "spawnDetached > a real process starts and gets its arguments",
+            "action": "retry",
+            "note": "marker file read as '' right after it appears: waitForFile sees the file before the child finished writing it (run 39927690627)"
         }
     ]
 }

@@ -59,8 +59,11 @@ describe("IdentityProjection", () => {
     it("answers -1 outside the document in both directions", () => {
         expect(projection.docLineOfRow(3)).toBe(-1);
         expect(projection.docLineOfRow(-1)).toBe(-1);
+        // -2 and not only -1: a bounds check that lets a negative row through would hand back -1 by accident.
+        expect(projection.docLineOfRow(-2)).toBe(-1);
         expect(projection.firstRowOfDocLine(3)).toBe(-1);
         expect(projection.firstRowOfDocLine(-1)).toBe(-1);
+        expect(projection.firstRowOfDocLine(-2)).toBe(-1);
     });
 });
 
@@ -79,6 +82,8 @@ describe("buildArrayProjection", () => {
         const projection = buildArrayProjection(2, [], NO_BREAKS, []);
         expect(projection.docLineOfRow(2)).toBe(-1);
         expect(projection.docLineOfRow(-1)).toBe(-1);
+        expect(projection.docLineOfRow(-2)).toBe(-1);
+        expect(projection.firstRowOfDocLine(-2)).toBe(-1);
         expect(projection.startOffsetOfRow(2)).toBe(0);
         expect(projection.startOffsetOfRow(-1)).toBe(0);
         expect(projection.firstRowOfDocLine(2)).toBe(-1);

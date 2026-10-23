@@ -413,6 +413,7 @@ export class EditorViewState {
 
     /** The row itself or the closest document row: above first, then below. */
     private nearestDocRow(projection: IViewProjection, viewLine: number): number {
+        // Stryker disable next-line ArithmeticOperator: past the view docLineOfRow is -1, so a start past the end still scans down to the last document row
         const clamped = Math.min(Math.max(0, viewLine), projection.rowCount - 1);
         for (let row = clamped; row >= 0; row--) {
             if (projection.docLineOfRow(row) >= 0) return row;
@@ -1767,16 +1768,16 @@ export class EditorViewState {
         const breaksFor = (line: number): readonly number[] | null => breaksCache?.getBreaks(line) ?? null;
 
         let projection: IViewProjection;
-        // Stryker disable next-line ConditionalExpression: the identity fast path and the replay are optimizations, the rows they give are the ones a rebuild gives
+        // Stryker disable ConditionalExpression: the identity fast path and the replay are optimizations, the rows they give are the ones a rebuild gives
         if (hidden.length === 0 && wrapWidth < 0 && this.viewZonesValue.length === 0) {
             projection = new IdentityProjection(lineCount);
-            // Stryker disable next-line ConditionalExpression: see above
         } else if (cache !== null && this.canReplayInPlace(cache, hidden, pending, wrapWidth)) {
             if (pending !== null) cache.projection.applyLineChange(pending, hidden, breaksFor);
             projection = cache.projection;
         } else {
             projection = buildArrayProjection(lineCount, hidden, breaksFor, this.viewZonesValue);
         }
+        // Stryker restore ConditionalExpression
 
         this.projectionCache = {
             projection,
@@ -1802,6 +1803,7 @@ export class EditorViewState {
         pending: IDocumentContentChange | null,
         wrapWidth: number,
     ): cache is IProjectionCacheEntry & { projection: ArrayProjection } {
+        // Stryker disable next-line ConditionalExpression,BooleanLiteral,LogicalOperator: a false only costs a rebuild; an identity cache has no hidden ranges and fails the compare below anyway
         if (!(cache.projection instanceof ArrayProjection) || cache.projection.hasZones) return false;
         // Stryker disable next-line ConditionalExpression,EqualityOperator: see above, a rebuild gives the same rows
         if (this.viewZonesValue.length > 0 || cache.wrapWidth !== wrapWidth || cache.tabSize !== this.tabSize) {

@@ -315,6 +315,7 @@ function insertViewZones(
         rowDocLine.push(visible[i]);
         rowStartOffset.push(startOffsets[i]);
         const next = i + 1 < visible.length ? visible[i + 1] : Number.MAX_SAFE_INTEGER;
+        // Stryker disable next-line ConditionalExpression: zones are sorted, every zone below `visible[i]` was consumed by the previous row, so the lower bound always holds
         while (zi < zones.length && zones[zi].afterLine >= visible[i] && zones[zi].afterLine < next) {
             pushZone(zones[zi]);
             zi++;
