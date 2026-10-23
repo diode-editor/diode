@@ -4,6 +4,7 @@ import type {
     IConfigurationOverrides,
     IConfigurationService,
 } from "../../../../platform/configuration/common/iConfigurationService.ts";
+import type { IIndentConfiguration } from "../../../browser/parts/editor/editorComponent.ts";
 import type { TextEditorPane } from "../../../browser/parts/editor/textEditorPane.ts";
 
 /**
@@ -27,6 +28,17 @@ export class TextEditorConfiguration extends Disposable {
         );
     }
 
+    /** The baseline a pane is built with, so that `apply` right after finds nothing new to detect. */
+    public indentConfigurationFor(languageId: string): IIndentConfiguration {
+        const overrides = { overrideIdentifier: languageId };
+        // Not `setIndentOptions`: it disables detection, and `get()` returns defaults too — detection would always be off.
+        return {
+            tabSize: this.configurationService.get("editor.tabSize", overrides),
+            insertSpaces: this.configurationService.get("editor.insertSpaces", overrides),
+            detectIndentation: this.configurationService.get("editor.detectIndentation", overrides),
+        };
+    }
+
     public apply(editor: TextEditorPane): void {
         // `"[makefile]": { "editor.insertSpaces": false }` from any layer beats the plain value.
         const overrides = { overrideIdentifier: editor.languageId };
@@ -37,13 +49,8 @@ export class TextEditorConfiguration extends Disposable {
         editor.setCursorSurroundingLines(this.configurationService.get("editor.cursorSurroundingLines", overrides));
         editor.setScrollbarMarkers(this.configurationService.get("editor.scrollbarMarkers", overrides));
 
-        // Indent config is a baseline, not an order: with `editor.detectIndentation` the file wins. Not
-        // `setIndentOptions`: it disables detection, and `get()` returns defaults too — detection would always be off.
-        editor.applyIndentConfiguration({
-            tabSize: this.configurationService.get("editor.tabSize", overrides),
-            insertSpaces: this.configurationService.get("editor.insertSpaces", overrides),
-            detectIndentation: this.configurationService.get("editor.detectIndentation", overrides),
-        });
+        // Indent config is a baseline, not an order: with `editor.detectIndentation` the file wins.
+        editor.applyIndentConfiguration(this.indentConfigurationFor(editor.languageId));
 
         // The Alt+Z session override beats the configuration (transient, as in VS Code).
         editor.setWordWrap(

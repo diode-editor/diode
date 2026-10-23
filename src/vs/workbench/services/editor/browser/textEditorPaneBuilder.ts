@@ -14,7 +14,7 @@ import {
     DocumentSemanticTokensFeatureDIToken,
 } from "../../../../editor/contrib/semanticTokens/browser/documentSemanticTokens.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
-import { EditorComponent } from "../../../browser/parts/editor/editorComponent.ts";
+import { EditorComponent, type IIndentConfiguration } from "../../../browser/parts/editor/editorComponent.ts";
 import { TextEditorPane } from "../../../browser/parts/editor/textEditorPane.ts";
 import type { BaseTextEditorModel } from "../../../common/editor/textEditorModel.ts";
 
@@ -43,10 +43,14 @@ export class TextEditorPaneBuilder {
         private readonly semanticTokens?: DocumentSemanticTokensFeature,
     ) {}
 
-    /** `modelOwnership` — the registry reference the tab owns; without it the tab owns the model exclusively. */
+    /**
+     * `modelOwnership` — the registry reference the tab owns; without it the tab owns the model exclusively.
+     * `indent` — the `editor.*` indentation baseline known up front, so the view detects indentation once.
+     */
     public build<TModel extends BaseTextEditorModel>(
         model: TModel,
         modelOwnership?: IDisposable,
+        indent?: IIndentConfiguration,
     ): TextEditorPane<TModel> {
         const component = new EditorComponent(
             this.tokenizationRegistry,
@@ -55,6 +59,7 @@ export class TextEditorPaneBuilder {
             this.languageConfigurationService,
             this.languageFeatures.foldingRangeProvider,
             this.semanticTokens,
+            indent,
         );
         const editor = new TextEditorPane(model, component, modelOwnership);
         // The editor context menu policy listens for "contextmenu" on the pair's wrapper;

@@ -40,21 +40,45 @@ import {
 import { LONG_LINE_TRUNCATION_BADGE_WIDTH, STOP_RENDERING_LINE_AFTER } from "./longLineRendering.ts";
 import type { ICursorStateComputer } from "./trackedSelections.ts";
 import { planTrackedSelections, resolveTrackedSelections } from "./trackedSelections.ts";
+import type { IHiddenRange, IViewProjection } from "./viewProjection.ts";
+import {
+    ArrayProjection,
+    buildArrayProjection,
+    collectHiddenRanges,
+    hiddenRangesEqual,
+    IdentityProjection,
+    mergeLineChanges,
+    shiftHiddenRanges,
+} from "./viewProjection.ts";
 
 export type WordWrapMode = "off" | "on" | "wordWrapColumn" | "bounded";
+
+/** `editor.tabSize` / `editor.insertSpaces` / `editor.detectIndentation`: a baseline for detection, not an order. */
+export interface IIndentDefaults {
+    readonly tabSize?: number;
+    readonly insertSpaces?: boolean;
+    readonly detectIndentation?: boolean;
+}
 
 interface IViewMarkerDecoration {
     readonly id: string;
     readonly severity: IMarkerDecoration["severity"];
 }
 
-/** Parallel arrays, not per-row objects: the projection is document-sized, a per-row allocation would hurt large files. */
-interface IViewProjection {
-    /** `>= 0` is a document line number, `< 0` is a view zone code ({@link encodeViewZoneRow}). */
-    rowDocLine: number[];
-    rowStartOffset: number[];
-    /** -1 means the line is hidden by a fold. */
-    firstRowOfDocLine: Int32Array;
+/**
+ * What the cached projection was built from. Wrap width and tab size are snapshots, not version
+ * counters: wordWrap/viewportWidth/tabSize have many writers, and "don't forget to bump the
+ * version" invites bugs. `wrapWidth === -1` means wrap is off.
+ */
+interface IProjectionCacheEntry {
+    readonly projection: IViewProjection;
+    readonly docVersion: number;
+    readonly foldsVersion: number;
+    readonly zonesVersion: number;
+    readonly wrapWidth: number;
+    readonly tabSize: number;
+    /** The collapsed folds the rows were built with: a fold recompute that keeps them is not a rebuild. */
+    readonly hidden: readonly IHiddenRange[];
 }
 
 export class EditorViewState {
@@ -147,25 +171,11 @@ export class EditorViewState {
      */
     public multiCursorSession: IMultiCursorFindSession | null = null;
 
-    private projectionCache: IViewProjection | null = null;
-    private zoneStartRowsCache: Map<number, number> | null = null;
-    // Version sentinels carry no meaning: the first rebuild is gated by projectionCache === null.
-    // Stryker disable next-line UnaryOperator: see above
-    private projectionCacheDocVersion = -1;
+    private projectionCache: IProjectionCacheEntry | null = null;
+    /** The edits since the cached projection, merged into one; replayed in place by {@link buildProjection}. */
+    private pendingProjectionChange: IDocumentContentChange | null = null;
     private foldsVersion = 0;
-    // Stryker disable next-line UnaryOperator: see above
-    private projectionCacheFoldsVersion = -1;
     private zonesVersion = 0;
-    // Stryker disable next-line UnaryOperator: see above
-    private projectionCacheZonesVersion = -1;
-    /**
-     * Snapshots of the wrap inputs, not version counters: wordWrap/viewportWidth/tabSize have many
-     * writers, and "don't forget to bump the version" invites bugs. `-1` means wrap is off.
-     */
-    // Stryker disable next-line UnaryOperator: the sentinel carries no meaning, the first rebuild is gated by projectionCache === null
-    private projectionCacheWrapWidth = -1;
-    // Stryker disable next-line UnaryOperator: see above
-    private projectionCacheTabSize = -1;
     private lineBreaksCacheValue: LineBreaksCache | null = null;
 
     /**
@@ -177,12 +187,24 @@ export class EditorViewState {
     // Stryker disable next-line ArrayDeclaration: the document doesn't know a junk element without an id, getDecorationRange returns null
     private markerDecorationIds: readonly IViewMarkerDecoration[] = [];
 
-    public constructor(document: ITextDocument, selections?: ISelection[]) {
+    /** `indent` goes in before the first detection: a view built with its configuration detects once, not twice. */
+    public constructor(document: ITextDocument, selections?: ISelection[], indent: IIndentDefaults = {}) {
         this.document = document;
         this.docContentSubscription = document.onDidChangeContent((change) => {
+            this.pendingProjectionChange =
+                this.pendingProjectionChange === null ? change : mergeLineChanges(this.pendingProjectionChange, change);
             if (!this.applyingOwnEdits) this.remapForDocumentChange(change);
         });
         this.selections = selections && selections.length > 0 ? selections : [createCursorSelection(0, 0)];
+        this.applyIndentDefaults(indent);
+    }
+
+    /** A missing key keeps the current baseline; a non-positive `tabSize` counts as missing. */
+    public applyIndentDefaults(indent: IIndentDefaults): void {
+        const tabSize = indent.tabSize ?? 0;
+        if (tabSize > 0) this.configuredTabSize = tabSize;
+        if (indent.insertSpaces !== undefined) this.configuredInsertSpaces = indent.insertSpaces;
+        if (indent.detectIndentation !== undefined) this.detectIndentation = indent.detectIndentation;
         this.runDetectIndentation();
     }
 
@@ -370,38 +392,34 @@ export class EditorViewState {
     }
 
     public viewLineKind(viewLine: number): ViewLineKind {
-        const row = this.buildVisibleLines().at(viewLine);
-        if (viewLine < 0 || row === undefined) return "none";
+        const row = this.buildProjection().docLineOfRow(viewLine);
+        if (row === -1) return "none";
         return row >= 0 ? "doc" : "zone";
     }
 
     public zoneAnchorForViewLine(viewLine: number): number | null {
-        const row = this.buildVisibleLines().at(viewLine);
-        if (viewLine < 0 || row === undefined || row >= 0) return null;
-        return decodeViewZoneAnchor(row);
+        return this.buildProjection().zoneRowAt(viewLine)?.anchor ?? null;
     }
 
-    /** O(1): view zone start rows are cached with the projection, since the row encoding doesn't store the offset. */
     public zoneRowForViewLine(viewLine: number): { anchor: number; offset: number } | null {
-        const rows = this.buildVisibleLines();
-        const row = rows.at(viewLine);
-        if (viewLine < 0 || row === undefined || row >= 0) return null;
-        const anchor = decodeViewZoneAnchor(row);
-        /* v8 ignore start -- ?? is unreachable: the same buildVisibleLines builds the start cache, the anchor comes from the projection */
-        const start = this.zoneStartRowsCache?.get(anchor) ?? 0;
-        /* v8 ignore stop */
-        return { anchor, offset: viewLine - start };
+        return this.buildProjection().zoneRowAt(viewLine);
     }
 
     /** For a view zone, its anchor (the visible line above); for a zone before the file start, the first visible line below. */
     public docLineForViewLine(viewLine: number): number {
-        const rows = this.buildVisibleLines();
-        const clamped = Math.min(Math.max(0, viewLine), rows.length - 1);
-        for (let i = clamped; i >= 0; i--) {
-            if (rows[i] >= 0) return rows[i];
+        const projection = this.buildProjection();
+        return projection.docLineOfRow(this.nearestDocRow(projection, viewLine));
+    }
+
+    /** The row itself or the closest document row: above first, then below. */
+    private nearestDocRow(projection: IViewProjection, viewLine: number): number {
+        const clamped = Math.min(Math.max(0, viewLine), projection.rowCount - 1);
+        for (let row = clamped; row >= 0; row--) {
+            if (projection.docLineOfRow(row) >= 0) return row;
         }
-        for (let i = clamped + 1; i < rows.length; i++) {
-            if (rows[i] >= 0) return rows[i];
+        // Stryker disable next-line ArithmeticOperator,EqualityOperator: the rows up to `clamped` were just seen to be zones, and past the view docLineOfRow is -1: extra iterations change nothing
+        for (let row = clamped + 1; row < projection.rowCount; row++) {
+            if (projection.docLineOfRow(row) >= 0) return row;
         }
         /* v8 ignore start -- unreachable: a document is never empty, the view has at least one doc line */
         return 0;
@@ -584,7 +602,7 @@ export class EditorViewState {
     }
 
     public getViewLineCount(): number {
-        return this.buildVisibleLines().length;
+        return this.buildProjection().rowCount;
     }
 
     public getViewLine(visualLineNumber: number): string {
@@ -612,44 +630,42 @@ export class EditorViewState {
 
     /** -1 means the line is hidden by a fold. */
     public logicalToVisualLine(logicalLine: number): number {
-        const { firstRowOfDocLine } = this.buildProjection();
-        if (logicalLine < 0 || logicalLine >= firstRowOfDocLine.length) return -1;
-        return firstRowOfDocLine[logicalLine];
+        return this.buildProjection().firstRowOfDocLine(logicalLine);
     }
 
     /** -1 both out of bounds and on a view zone row: {@link viewLineKind} tells them apart, {@link docLineForViewLine} gives the nearest line. */
     public visualToLogicalLine(visualLine: number): number {
-        const visible = this.buildVisibleLines();
-        if (visualLine < 0 || visualLine >= visible.length) {
-            return -1;
-        }
-        const row = visible[visualLine];
+        const row = this.buildProjection().docLineOfRow(visualLine);
         return row >= 0 ? row : -1;
     }
 
     /** `[start, end)`; `{0, 0}` for view zones and outside the view. */
     public viewLineRange(viewLine: number): { start: number; end: number } {
-        const { rowDocLine, rowStartOffset } = this.buildProjection();
-        const doc = rowDocLine.at(viewLine);
-        if (viewLine < 0 || doc === undefined || doc < 0) return { start: 0, end: 0 };
-        const start = rowStartOffset[viewLine];
+        const projection = this.buildProjection();
+        const doc = projection.docLineOfRow(viewLine);
+        if (doc < 0) return { start: 0, end: 0 };
+        const start = projection.startOffsetOfRow(viewLine);
         // A line's fragments are contiguous (a view zone only goes after the last one).
-        const end = rowDocLine[viewLine + 1] === doc ? rowStartOffset[viewLine + 1] : this.document.getLineLength(doc);
+        const end =
+            projection.docLineOfRow(viewLine + 1) === doc
+                ? projection.startOffsetOfRow(viewLine + 1)
+                : this.document.getLineLength(doc);
         return { start, end };
     }
 
     public viewLineStartColumn(viewLine: number): number {
-        const { rowDocLine, rowStartOffset } = this.buildProjection();
-        const start = rowStartOffset[viewLine];
+        const projection = this.buildProjection();
+        const start = projection.startOffsetOfRow(viewLine);
         if (!start) return 0;
-        return this.displayLineFor(this.document.getLineContent(rowDocLine[viewLine])).offsetToColumn(start);
+        const content = this.document.getLineContent(projection.docLineOfRow(viewLine));
+        return this.displayLineFor(content).offsetToColumn(start);
     }
 
     /** An offset on a fragment boundary maps to the NEXT row (no cursor affinity, v1 simplification, see docs/TODO/WordWrap.md). */
     public viewLineForPosition(line: number, character: number): number {
-        let row = this.logicalToVisualLine(line);
-        const { rowDocLine, rowStartOffset } = this.buildProjection();
-        while (rowDocLine[row + 1] === line && rowStartOffset[row + 1] <= character) {
+        const projection = this.buildProjection();
+        let row = projection.firstRowOfDocLine(line);
+        while (projection.docLineOfRow(row + 1) === line && projection.startOffsetOfRow(row + 1) <= character) {
             row++;
         }
         return row;
@@ -1019,13 +1035,14 @@ export class EditorViewState {
             return { line: fallbackLine, character: dl.columnToOffset(idealAbs), idealColumn: idealAbs };
         }
 
-        const { rowDocLine } = this.buildProjection();
+        const projection = this.buildProjection();
         let targetRow = currentRow + direction;
-        // An out-of-range index yields undefined, which stops the scan by itself (not < 0).
-        while (rowDocLine[targetRow] < 0) {
+        // Zone rows are skipped; past the view docLineOfRow is -1 and the bounds check below answers.
+        // Stryker disable next-line EqualityOperator: one step past the end is -1 as well, the bounds check below answers the same
+        while (targetRow >= 0 && targetRow < projection.rowCount && projection.docLineOfRow(targetRow) < 0) {
             targetRow += direction;
         }
-        if (targetRow < 0 || targetRow >= rowDocLine.length) return null;
+        if (targetRow < 0 || targetRow >= projection.rowCount) return null;
 
         const idealInRow = Math.max(0, idealAbs - this.viewLineStartColumn(currentRow));
         return this.landOnRow(targetRow, idealInRow);
@@ -1033,7 +1050,7 @@ export class EditorViewState {
 
     /** On a non-last fragment, clamps to the last grapheme: the boundary offset belongs to the next row. */
     private landOnRow(targetRow: number, idealInRow: number): { line: number; character: number; idealColumn: number } {
-        const targetLine = this.buildProjection().rowDocLine[targetRow];
+        const targetLine = this.buildProjection().docLineOfRow(targetRow);
         const targetStartCol = this.viewLineStartColumn(targetRow);
         const targetDl = this.displayLineFor(this.document.getLineContent(targetLine));
         const range = this.viewLineRange(targetRow);
@@ -1259,13 +1276,7 @@ export class EditorViewState {
             /* v8 ignore stop */
             const targetView = Math.min(Math.max(0, currentView + direction * pageSize), this.getViewLineCount() - 1);
             // A view zone row maps to the nearest document row, as in docLineForViewLine: above first, then below.
-            const { rowDocLine } = this.buildProjection();
-            let targetRow = targetView;
-            while (rowDocLine[targetRow] < 0) targetRow--;
-            if (targetRow < 0) {
-                targetRow = targetView;
-                while (rowDocLine[targetRow] < 0) targetRow++;
-            }
+            const targetRow = this.nearestDocRow(this.buildProjection(), targetView);
             const idealInRow = Math.max(0, idealAbs - this.viewLineStartColumn(currentView));
             const landing = this.landOnRow(targetRow, idealInRow);
             return this.buildSelection(sel, landing.line, landing.character, landing.idealColumn, inSelectionMode);
@@ -1733,137 +1744,96 @@ export class EditorViewState {
         }
     }
 
-    private buildVisibleLines(): number[] {
-        return this.buildProjection().rowDocLine;
-    }
-
     private buildProjection(): IViewProjection {
         const wrapWidth = this.effectiveWrapWidth() ?? -1;
+        const cache = this.projectionCache;
         if (
-            // Stryker disable next-line ConditionalExpression: the null gate is pure memoization; version sentinels never match real versions, so the mutant still rebuilds
-            this.projectionCache !== null &&
-            this.projectionCacheDocVersion === this.document.versionId &&
-            this.projectionCacheFoldsVersion === this.foldsVersion &&
-            this.projectionCacheZonesVersion === this.zonesVersion &&
-            this.projectionCacheWrapWidth === wrapWidth &&
-            this.projectionCacheTabSize === this.tabSize
+            // Stryker disable next-line ConditionalExpression: pure memoization, a rebuild gives the same rows
+            cache !== null &&
+            cache.docVersion === this.document.versionId &&
+            cache.foldsVersion === this.foldsVersion &&
+            cache.zonesVersion === this.zonesVersion &&
+            cache.wrapWidth === wrapWidth &&
+            cache.tabSize === this.tabSize
         ) {
-            return this.projectionCache;
+            return cache.projection;
         }
 
-        const hiddenRanges: { from: number; to: number }[] = [];
-        for (const region of this.foldedRegions) {
-            if (region.isCollapsed) {
-                hiddenRanges.push({ from: region.startLine + 1, to: region.endLine });
-            }
-        }
-
-        hiddenRanges.sort((a, b) => a.from - b.from);
-
-        const visible: number[] = [];
-        const startOffsets: number[] = [];
+        const hidden = collectHiddenRanges(this.foldedRegions);
+        const pending = this.pendingProjectionChange;
+        this.pendingProjectionChange = null;
+        const lineCount = this.document.lineCount;
         const breaksCache = wrapWidth >= 0 ? this.wrapBreaks(wrapWidth) : null;
-        const hiddenIdx = 0;
+        const breaksFor = (line: number): readonly number[] | null => breaksCache?.getBreaks(line) ?? null;
 
-        for (let line = 0; line < this.document.lineCount; line++) {
-            let isHidden = false;
-            for (let h = hiddenIdx; h < hiddenRanges.length; h++) {
-                const range = hiddenRanges[h];
-                if (line < range.from) {
-                    break;
-                }
-                if (line >= range.from && line <= range.to) {
-                    isHidden = true;
-                    break;
-                }
-            }
-            if (!isHidden) {
-                visible.push(line);
-                startOffsets.push(0);
-                const breaks = breaksCache?.getBreaks(line);
-                if (breaks != null) {
-                    for (const breakOffset of breaks) {
-                        visible.push(line);
-                        startOffsets.push(breakOffset);
-                    }
-                }
-            }
+        let projection: IViewProjection;
+        // Stryker disable next-line ConditionalExpression: the identity fast path and the replay are optimizations, the rows they give are the ones a rebuild gives
+        if (hidden.length === 0 && wrapWidth < 0 && this.viewZonesValue.length === 0) {
+            projection = new IdentityProjection(lineCount);
+            // Stryker disable next-line ConditionalExpression: see above
+        } else if (cache !== null && this.canReplayInPlace(cache, hidden, pending, wrapWidth)) {
+            if (pending !== null) cache.projection.applyLineChange(pending, hidden, breaksFor);
+            projection = cache.projection;
+        } else {
+            projection = buildArrayProjection(lineCount, hidden, breaksFor, this.viewZonesValue);
         }
 
-        const { rowDocLine, rowStartOffset } =
-            // Stryker disable next-line ConditionalExpression: fast path, insertViewZones with an empty zone list returns the same arrays
-            this.viewZonesValue.length === 0
-                ? { rowDocLine: visible, rowStartOffset: startOffsets }
-                : insertViewZones(visible, startOffsets, this.viewZonesValue);
-
-        // Anchors are unique after normalization, so the first row seen for a view zone is its start.
-        let zoneStarts: Map<number, number> | null = null;
-        if (this.viewZonesValue.length > 0) {
-            zoneStarts = new Map();
-            // Filter mutants are unkillable: an "anchor" from a document row (decoding a
-            // positive number) lands in a foreign key space (<= -3 vs real >= -1)
-            // and is never read.
-            // Stryker disable EqualityOperator,ConditionalExpression: see above
-            for (let i = 0; i < rowDocLine.length; i++) {
-                if (rowDocLine[i] < 0) {
-                    const anchor = decodeViewZoneAnchor(rowDocLine[i]);
-                    if (!zoneStarts.has(anchor)) zoneStarts.set(anchor, i);
-                }
-            }
-            // Stryker restore EqualityOperator,ConditionalExpression
-        }
-        this.zoneStartRowsCache = zoneStarts;
-
-        const firstRowOfDocLine = new Int32Array(this.document.lineCount).fill(-1);
-        // Stryker disable next-line EqualityOperator: the extra iteration reads undefined and is filtered by the -1 comparison
-        for (let i = 0; i < rowDocLine.length; i++) {
-            const doc = rowDocLine[i];
-            // View zone codes filter themselves out: an Int32Array at a negative index gives undefined, not -1.
-            if (firstRowOfDocLine[doc] === -1) firstRowOfDocLine[doc] = i;
-        }
-
-        this.projectionCache = { rowDocLine, rowStartOffset, firstRowOfDocLine };
-        this.projectionCacheDocVersion = this.document.versionId;
-        this.projectionCacheFoldsVersion = this.foldsVersion;
-        this.projectionCacheZonesVersion = this.zonesVersion;
-        this.projectionCacheWrapWidth = wrapWidth;
-        this.projectionCacheTabSize = this.tabSize;
-        return this.projectionCache;
+        this.projectionCache = {
+            projection,
+            docVersion: this.document.versionId,
+            foldsVersion: this.foldsVersion,
+            zonesVersion: this.zonesVersion,
+            wrapWidth,
+            tabSize: this.tabSize,
+            hidden,
+        };
+        return projection;
     }
 
-    private previousVisibleLine(logicalLine: number): number {
-        const { rowDocLine: visible, firstRowOfDocLine } = this.buildProjection();
-        const currentIdx = firstRowOfDocLine[logicalLine];
-        if (currentIdx > 0) {
-            for (let i = currentIdx - 1; i >= 0; i--) {
-                if (visible[i] >= 0) return visible[i];
-            }
-            return -1;
+    /**
+     * The cached rows can take the edit in place when the wrap inputs are the same, no zones are
+     * involved on either side, and the collapsed folds after the edit are exactly the shifted
+     * ones the rows were built with. A `false` is never wrong, only slower: the mutants that
+     * widen it to a rebuild are equivalent.
+     */
+    private canReplayInPlace(
+        cache: IProjectionCacheEntry,
+        hidden: readonly IHiddenRange[],
+        pending: IDocumentContentChange | null,
+        wrapWidth: number,
+    ): cache is IProjectionCacheEntry & { projection: ArrayProjection } {
+        if (!(cache.projection instanceof ArrayProjection) || cache.projection.hasZones) return false;
+        // Stryker disable next-line ConditionalExpression,EqualityOperator: see above, a rebuild gives the same rows
+        if (this.viewZonesValue.length > 0 || cache.wrapWidth !== wrapWidth || cache.tabSize !== this.tabSize) {
+            return false;
         }
-        if (currentIdx === -1) {
-            for (let i = visible.length - 1; i >= 0; i--) {
-                if (visible[i] >= 0 && visible[i] < logicalLine) {
-                    return visible[i];
-                }
-            }
+        // Stryker disable next-line ConditionalExpression: see above
+        if (pending === null) {
+            // A version change without an event is a desync (as in LineBreaksCache): rebuild rather than guess.
+            // Stryker disable next-line EqualityOperator,ConditionalExpression: the guard is unreachable in a synced document, every version change fires an event
+            return cache.docVersion === this.document.versionId && hiddenRangesEqual(cache.hidden, hidden);
+        }
+        const expected = shiftHiddenRanges(cache.hidden, pending);
+        // Stryker disable next-line ConditionalExpression: see above
+        return expected !== null && hiddenRangesEqual(expected, hidden);
+    }
+
+    /** The closest visible line above, or -1; works for a hidden `logicalLine` too. */
+    private previousVisibleLine(logicalLine: number): number {
+        const projection = this.buildProjection();
+        for (let line = logicalLine - 1; line >= 0; line--) {
+            if (projection.firstRowOfDocLine(line) >= 0) return line;
         }
         return -1;
     }
 
+    /** The closest visible line below, or -1; works for a hidden `logicalLine` too. */
     private nextVisibleLine(logicalLine: number): number {
-        const { rowDocLine: visible, firstRowOfDocLine } = this.buildProjection();
-        const currentIdx = firstRowOfDocLine[logicalLine];
-        if (currentIdx >= 0) {
-            // Rows ascend by line: `>` filters out both view zones and wrap fragments of the same line.
-            for (let i = currentIdx + 1; i < visible.length; i++) {
-                if (visible[i] > logicalLine) return visible[i];
-            }
-            return -1;
-        }
-        for (const vLine of visible) {
-            if (vLine >= 0 && vLine > logicalLine) {
-                return vLine;
-            }
+        const projection = this.buildProjection();
+        // Stryker disable next-line EqualityOperator: past the document firstRowOfDocLine is -1, the extra iteration returns nothing
+        for (let line = logicalLine + 1; line < this.document.lineCount; line++) {
+            // Stryker disable next-line EqualityOperator: a line after another one never starts at row 0
+            if (projection.firstRowOfDocLine(line) >= 0) return line;
         }
         return -1;
     }
@@ -2047,52 +2017,4 @@ function findWordBoundaryRight(line: string, offset: number): number {
         pos++;
     }
     return pos;
-}
-
-/** `-(afterLine + 3)`: `-1` stays the "not found" sentinel, anchor `-1` encodes as `-2`. */
-function encodeViewZoneRow(afterLine: number): number {
-    return -(afterLine + 3);
-}
-
-function decodeViewZoneAnchor(row: number): number {
-    // `-3 - row`, not `-(row + 3)`: the latter would give -0 for anchor 0.
-    return -3 - row;
-}
-
-/**
- * A view zone goes after the last visible line with `docLine <= afterLine`: an anchor hidden by a
- * fold doesn't lose its zone, since the diff must keep alignment (upstream: `showInHiddenAreas`).
- * Intermediate wrap fragments have `next === visible[i]`, so the zone goes only after the last one.
- */
-function insertViewZones(
-    visible: readonly number[],
-    startOffsets: readonly number[],
-    zones: readonly IViewZone[],
-): { rowDocLine: number[]; rowStartOffset: number[] } {
-    const rowDocLine: number[] = [];
-    const rowStartOffset: number[] = [];
-    const pushZone = (zone: IViewZone): void => {
-        for (let k = 0; k < zone.size; k++) {
-            rowDocLine.push(encodeViewZoneRow(zone.afterLine));
-            rowStartOffset.push(0);
-        }
-    };
-    let zi = 0;
-    /* v8 ignore start -- ?? is unreachable: the visible list is never empty, a fold doesn't hide its own header */
-    const firstVisible = visible[0] ?? Number.MAX_SAFE_INTEGER;
-    /* v8 ignore stop */
-    while (zi < zones.length && zones[zi].afterLine < firstVisible) {
-        pushZone(zones[zi]);
-        zi++;
-    }
-    for (let i = 0; i < visible.length; i++) {
-        rowDocLine.push(visible[i]);
-        rowStartOffset.push(startOffsets[i]);
-        const next = i + 1 < visible.length ? visible[i + 1] : Number.MAX_SAFE_INTEGER;
-        while (zi < zones.length && zones[zi].afterLine >= visible[i] && zones[zi].afterLine < next) {
-            pushZone(zones[zi]);
-            zi++;
-        }
-    }
-    return { rowDocLine, rowStartOffset };
 }
