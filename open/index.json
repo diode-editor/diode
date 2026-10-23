@@ -2112,5 +2112,19 @@
       "large",
       "xlarge"
     ]
+  },
+  {
+    "file": "2026-10-23-dfe54142450a.json",
+    "generatedAt": "2026-10-23T10:30:35.429Z",
+    "commit": "dfe54142450a",
+    "binaryVersion": "nightly-dfe5414",
+    "ci": true,
+    "conditions": "CI, shared runner (GitHub Actions)",
+    "sizes": [
+      "small",
+      "medium",
+      "large",
+      "xlarge"
+    ]
   }
 ]
