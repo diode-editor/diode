@@ -1,9 +1,15 @@
 import { Size } from "@tuidom/core/common/geometryPromitives";
+import { ScrollBarDecorator } from "@tuidom/elements/scrollbar/scrollContainerElement";
 import { describe, expect, it } from "vitest";
 
+import { encodedResult } from "../../../TestUtils/encodedTokens.ts";
 import { TestApp } from "../../../TestUtils/TestApp.ts";
 import { createCursorSelection, createSelection } from "../common/core/iSelection.ts";
+import type { EncodedTokenizationResult, ITokenizationSupport } from "../common/languages.ts";
+import type { IState } from "../common/languages/iState.ts";
+import { NullState } from "../common/languages/nullTokenize.ts";
 import { TextDocument } from "../common/model/textDocument.ts";
+import { DocumentTokenStore } from "../common/tokens/documentTokenStore.ts";
 import { EditorViewState } from "../common/viewModel/editorViewState.ts";
 
 import { EditorElement } from "./editorElement.ts";
@@ -49,5 +55,59 @@ describe("EditorElement.inspectState", () => {
         expect(state.scrollTop).toBe(2);
         expect(state.foldedRegions).toEqual([{ startLine: 3, endLine: 5 }]);
         expect((state.selections as { collapsed: boolean }[])[0].collapsed).toBe(false);
+    });
+});
+
+/** One `setImmediate` turn: the next slice of background work (tokenizer, width sweep) has run. */
+function idleTick(): Promise<void> {
+    return new Promise((resolve) => setImmediate(resolve));
+}
+
+/** Bounded wait: a mutant that never settles must fail the test, not hang the mutation run. */
+async function until(condition: () => boolean): Promise<void> {
+    for (let i = 0; i < 500 && !condition(); i++) await idleTick();
+    if (!condition()) throw new Error("background work did not settle");
+}
+
+const nullTokenizer: ITokenizationSupport = {
+    getInitialState: (): IState => NullState,
+    tokenizeEncoded: (): EncodedTokenizationResult => encodedResult([[0, 0]], NullState),
+};
+
+describe("EditorElement.inspectState — background work after open (perf gate)", () => {
+    it("tokenizationComplete follows the token store: false while the background tokenizer runs, true once it has finished", async () => {
+        const { editor, viewState } = createEditor(new Array<string>(400).fill("x").join("\n"));
+        expect(editor.inspectState().tokenizationComplete).toBe(true);
+
+        viewState.tokenStore = new DocumentTokenStore(viewState.document, nullTokenizer);
+        expect(editor.inspectState().tokenizationComplete).toBe(false);
+
+        await until(() => editor.inspectState().tokenizationComplete === true);
+        expect(viewState.tokenStore.isBackgroundTokenizationCompleted).toBe(true);
+        viewState.tokenStore.dispose();
+    });
+
+    it("contentWidthFinal: false until the width sweep has measured every line, true after", async () => {
+        const text = new Array<string>(1000).fill("0123456789").join("\n");
+        const doc = new TextDocument(text);
+        const viewState = new EditorViewState(doc);
+        const editor = new EditorElement(viewState);
+        editor.occurrenceHighlightEnabled = false;
+        // Not rendered yet: nothing is measured.
+        expect(editor.inspectState().contentWidthFinal).toBe(false);
+
+        // The scrollbar reads `contentWidth` on the frame, which is what starts the sweep (as in the app).
+        const app = TestApp.createWithContent(new ScrollBarDecorator(editor), new Size(40, 8));
+        app.render();
+        // The frame measures its own rows; the rest of the file is still pending.
+        expect(editor.inspectState().contentWidthFinal).toBe(false);
+
+        await until(() => editor.inspectState().contentWidthFinal === true);
+    });
+
+    it("contentWidthFinal is true under word wrap: the width is the viewport's, there is nothing to sweep", () => {
+        const { editor, viewState } = createEditor(new Array<string>(1000).fill("0123456789").join("\n"));
+        viewState.wordWrap = "on";
+        expect(editor.inspectState().contentWidthFinal).toBe(true);
     });
 });

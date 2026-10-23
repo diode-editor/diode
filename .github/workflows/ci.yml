@@ -345,3 +345,9 @@ jobs:
       - name: Startup budget (small)
         if: runner.os == 'Linux'
         run: npm run test:perf:startup
+
+      # Big-file perf gate (e2e/bench/xlargeBudget.bench.ts): xlarge (13 MB) to text and the
+      # keystroke after the background tokenization has settled. Calibrated on the same runner.
+      - name: Open and keystroke budget (xlarge)
+        if: runner.os == 'Linux'
+        run: npm run test:perf:xlarge

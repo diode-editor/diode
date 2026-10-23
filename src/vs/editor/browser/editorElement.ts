@@ -467,6 +467,13 @@ export class EditorElement extends TUIElement implements IScrollable {
             hasSelection: selections.some((s) => !s.collapsed),
             foldedRegions: vs.foldedRegions.map((r) => ({ startLine: r.startLine, endLine: r.endLine })),
             viewZones: vs.viewZones.map((z) => ({ afterLine: z.afterLine, size: z.size })),
+            // Background work after open, for the perf gate (e2e/bench): the keystroke is measured once both
+            // have settled, otherwise it measures the tokenizer's backlog, not the edit.
+            tokenizationComplete: vs.tokenStore?.isBackgroundTokenizationCompleted ?? true,
+            // Under wrap the width is the viewport's and the sweep never runs; before the first frame nothing
+            // is measured yet.
+            contentWidthFinal:
+                vs.isWordWrapActive || (this.lineWidthCache !== null && !this.lineWidthCache.hasUnmeasuredLines),
             ghostText:
                 this.ghostTextValue === null
                     ? null

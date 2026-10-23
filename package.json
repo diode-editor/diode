@@ -21,6 +21,7 @@
     "test:e2e": "node scripts/e2e.mjs",
     "test:perf": "vitest bench --run --config vitest.perf.config.ts",
     "test:perf:startup": "vitest bench --run --config vitest.perf.config.ts e2e/bench/startupBudget.bench.ts",
+    "test:perf:xlarge": "vitest bench --run --config vitest.perf.config.ts e2e/bench/xlargeBudget.bench.ts",
     "bench:open": "tsx e2e/bench/benchOpen.ts",
     "bench:services": "tsx e2e/bench/startupServices.ts",
     "test:mutation": "node scripts/mutation-diff.mjs --ignoreStatic --incremental",
