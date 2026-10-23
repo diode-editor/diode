@@ -1,3 +1,4 @@
+import type { IDisposable } from "../../../../base/common/lifecycle.ts";
 import type { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
 import { CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
@@ -17,6 +18,8 @@ import type {
     IExtensionsWorkbenchService,
 } from "../common/extensionsWorkbench.ts";
 import { ExtensionsWorkbenchServiceDIToken } from "../common/extensionsWorkbench.ts";
+import type { ExtensionUpdateScheduler } from "../common/extensionUpdateScheduler.ts";
+import { ExtensionUpdateSchedulerDIToken } from "../common/extensionUpdateScheduler.ts";
 
 import { describeVersionPicks } from "./extensionVersionPicks.ts";
 
@@ -41,7 +44,18 @@ export interface IExtensionPageActions {
     pickVersion(id: string): Promise<string | undefined>;
     uninstall(id: string): Promise<IExtensionOperationResult>;
     reloadWindow(): void;
+    /** The page's `Auto Update` toggle (decision J2): unchecked pins the entry; checked unpins it and auto-updates. */
+    setAutoUpdate(id: string, enabled: boolean): Promise<IExtensionOperationResult>;
+    /** `extensions.autoUpdate` is `on`: otherwise the toggle is disabled. */
+    isAutoUpdateEnabled(): boolean;
+    onDidChangeAutoUpdate(listener: () => void): IDisposable;
 }
+
+/** What the page needs from the scheduler. */
+export type IExtensionAutoUpdateControl = Pick<
+    ExtensionUpdateScheduler,
+    "eventuallyAutoUpdate" | "isAutoUpdateEnabled" | "onDidChangeAutoUpdate"
+>;
 
 export class ExtensionPageActions implements IExtensionPageActions {
     public static dependencies = [
@@ -51,6 +65,7 @@ export class ExtensionPageActions implements IExtensionPageActions {
         CommandRegistryDIToken,
         QuickInputServiceDIToken,
         NotificationServiceDIToken,
+        ExtensionUpdateSchedulerDIToken,
     ] as const;
 
     /** The clock for the picker's "2 days ago": a field, not module state (the V8 snapshot has no clock). */
@@ -63,6 +78,7 @@ export class ExtensionPageActions implements IExtensionPageActions {
         private readonly commands: CommandRegistry,
         private readonly quickInput: Pick<IExtensionPageActionsHost, "quickPick">,
         private readonly notifications: Pick<IExtensionPageActionsHost, "show">,
+        private readonly autoUpdate: IExtensionAutoUpdateControl,
     ) {}
 
     /** Indeterminate progress: artifact download has no percentage channel. */
@@ -102,6 +118,24 @@ export class ExtensionPageActions implements IExtensionPageActions {
             this.notice(`Uninstalled ${id} — reload window to apply`);
         }
         return result;
+    }
+
+    /**
+     * Upstream `updateAutoUpdateEnablementFor` + `eventuallyAutoUpdateExtensions`: the pass goes through the same
+     * rules as any other (the publish delay included), not a direct install.
+     */
+    public async setAutoUpdate(id: string, enabled: boolean): Promise<IExtensionOperationResult> {
+        const result = await this.service.setPinned(id, !enabled);
+        if (result.ok && enabled) this.autoUpdate.eventuallyAutoUpdate();
+        return result;
+    }
+
+    public isAutoUpdateEnabled(): boolean {
+        return this.autoUpdate.isAutoUpdateEnabled();
+    }
+
+    public onDidChangeAutoUpdate(listener: () => void): IDisposable {
+        return this.autoUpdate.onDidChangeAutoUpdate(listener);
     }
 
     /**

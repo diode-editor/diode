@@ -3,8 +3,15 @@ import type { IExtensionListEntry } from "../common/extensionsWorkbench.ts";
 /**
  * `update` is the same install: it removes previous versions. `installAnotherVersion` is upstream
  * `InstallAnotherVersionAction`, which lives in the extension's context menu there; there is no such menu here.
+ * `toggleAutoUpdate` is upstream `ToggleAutoUpdateForExtensionAction`.
  */
-export type ExtensionButtonKind = "install" | "update" | "installAnotherVersion" | "uninstall" | "reload";
+export type ExtensionButtonKind =
+    | "install"
+    | "update"
+    | "installAnotherVersion"
+    | "uninstall"
+    | "reload"
+    | "toggleAutoUpdate";
 
 export interface IExtensionButton {
     readonly kind: ExtensionButtonKind;
@@ -16,6 +23,8 @@ export interface IExtensionButton {
 export interface IExtensionButtonState {
     readonly busy: boolean;
     readonly needsReload: boolean;
+    /** `extensions.autoUpdate` is `on`. */
+    readonly autoUpdate: boolean;
 }
 
 export function describeExtensionButtons(entry: IExtensionListEntry, state: IExtensionButtonState): IExtensionButton[] {
@@ -41,6 +50,16 @@ export function describeExtensionButtons(entry: IExtensionListEntry, state: IExt
         buttons.push({ kind: "installAnotherVersion", label: "Install Specific Version...", enabled: true });
     }
     if (entry.installedVersion !== null) buttons.push({ kind: "uninstall", label: "Uninstall", enabled: true });
+    // Only the registry updates (decision J2: checked is not pinned). With the setting off upstream keeps the
+    // toggle for an allow-list we don't have: here it is visible, unchecked and disabled, and names the reason.
+    if (entry.installedVersion !== null && latest !== null) buttons.push(autoUpdateButton(entry, state.autoUpdate));
     if (!state.busy) return buttons;
     return buttons.map((button) => ({ ...button, enabled: false }));
+}
+
+function autoUpdateButton(entry: IExtensionListEntry, autoUpdate: boolean): IExtensionButton {
+    if (!autoUpdate) {
+        return { kind: "toggleAutoUpdate", label: "[ ] Auto Update (extensions.autoUpdate is off)", enabled: false };
+    }
+    return { kind: "toggleAutoUpdate", label: `${entry.pinned ? "[ ]" : "[x]"} Auto Update`, enabled: true };
 }

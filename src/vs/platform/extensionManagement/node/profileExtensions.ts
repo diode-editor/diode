@@ -30,7 +30,10 @@ export interface IStoredProfileExtension {
 }
 
 export interface IStoredProfileExtensionMetadata {
-    /** A version the user chose (upstream `installGivenVersion`): stage 2 `Update All` and stage 3 auto-update skip it. */
+    /**
+     * A version the user chose (upstream `installGivenVersion`) or the page's `Auto Update` unchecked: auto-update
+     * skips it; `Update All` does not (decision E1).
+     */
     readonly pinned?: boolean;
     readonly [key: string]: unknown;
 }
@@ -381,6 +384,21 @@ export class ProfileExtensions {
         });
         writeProfileExtensions(this.options.profileFile, [...kept, ...written]);
         return { obsolete: this.markUnused([...adding.keys()]) };
+    }
+
+    /**
+     * Upstream `updateMetadata(local, { pinned })`: the entry keeps its version, location and the rest. `false`: the
+     * profile has no such entry, and the file is not written.
+     */
+    public setPinned(id: string, pinned: boolean): boolean {
+        const key = extensionKey(id);
+        const entries = readProfileExtensions(this.options.profileFile) ?? [];
+        const index = entries.findIndex((e) => extensionKey(e.identifier.id) === key);
+        if (index < 0) return false;
+        const previous = entries[index];
+        entries[index] = { ...previous, metadata: { ...previous.metadata, pinned } };
+        writeProfileExtensions(this.options.profileFile, entries);
+        return true;
     }
 
     /** No longer used by any profile, its versions are marked for removal (upstream `onDidRemoveExtensions`). */

@@ -209,7 +209,7 @@ describe("Install Specific Version edge cases (ExtensionUpdates stage 1 QA, func
 
         const text = await waitForScreen(app, "sha256 mismatch");
         expect(text).not.toContain("Reload Window");
-        expect(await pageButtons(app)).toEqual(["Install Specific Version...", "Uninstall"]);
+        expect(await pageButtons(app)).toEqual(["Install Specific Version...", "Uninstall", "[ ] Auto Update"]);
         expect(describeProfile(defaultProfileFile(app.env.userDataDir))).toEqual(before);
         expect(existsSync(join(app.env.userDataDir, "extensions", `${ID}-1.0.0`))).toBe(false);
         expect(obsoleteDirs(app)).toEqual([]);

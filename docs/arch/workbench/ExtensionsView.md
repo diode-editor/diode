@@ -63,6 +63,41 @@
     первого чтения каталога ложен.
   - Обе — в меню `⋯` заголовка секции `EXTENSIONS`, группа `1_updates`, порядок 1 и 2 (у эталона —
     `ViewContainerTitle`; у нас в контейнере одна секция, и её `⋯` — то же место).
+- **Фоновая проверка и автообновление** (ExtensionUpdates, этап 3; эталон — `initializeAutoUpdate`,
+  `eventuallyCheckForUpdates`, `autoUpdateExtensions` в `extensionsWorkbenchService.ts`). Расписание и
+  правила — чистый `ExtensionUpdateScheduler` (`common/extensionUpdateScheduler.ts`, часы `IClock` из
+  `platform/clock` инъецируются), кандидаты — чистая `planAutoUpdate` (`common/extensionAutoUpdate.ts`),
+  обвязка — `browser/extensionAutoUpdate.ts`:
+  - Настройки — как эталон (`extensionsConfiguration.ts`): `extensions.autoCheckUpdates` (`true`),
+    `extensions.autoUpdate` (`on`/`off`, дефолт `on`; старые `true`/`false` читаются как `on`/`off` —
+    схема их перечисляет, иначе наша валидация заменила бы `false` дефолтом), `extensions.autoUpdateDelay`
+    (часы, `2`).
+  - **Проверка** — `checkForUpdates({ background: true })`: то же, что ручная, но сбой только в лог
+    `Extensions` (`Could not check for extension updates: …`), без уведомления и без строки `Retry —`;
+    не было списка — первый показ вьюлета читает каталог сам. Первая — через 10 с после фазы `eventually`
+    (`ExtensionAutoUpdateContribution`; на старте в сеть не ходим), дальше каждые 12 ч; любое чтение
+    каталога (показ, Refresh, `Check`) сдвигает следующую. Включили `autoCheckUpdates` — проверка сразу.
+    Удачная фоновая проверка — это и каталог первого показа вьюлета (второго запроса нет).
+  - **Автообновление** — после **любого** удачного чтения (`onDidReadCatalog`), через секунду (как
+    `autoUpdateDelayer` эталона: ручной `Check` успевает поставить `@outdated `): `getOutdated()` минус
+    закреплённые и минус версии моложе `autoUpdateDelay` по `publishedAt` цели (`latestPublishedAt`
+    строки; нет даты или она в будущем — без задержки). Для отложенных — таймер на ближайший срок, по нему
+    проверка (без фоновых проверок — проход по текущему каталогу). Ставит `updateExtensions(ids)` —
+    путь `Update All`; перед каждой установкой профиль перечитывается с диска, и уже обновлённое или удалённое другим
+    окном или CLI пропускается (межпроцессной блокировки нет, решение Ж4). Итог — одно уведомление
+    `describeUpdateAllResult` без упавших (они — в лог) с `Reload Window`; ничего не обновилось — тишина.
+    **Отступление:** эталон молчит — у него бейдж на контейнере и перезапуск extension host, у нас нет
+    ни того, ни другого. Окно сами не перезагружаем. `autoUpdate: off` снимает таймер задержки, `on` —
+    сразу проход по текущему каталогу.
+  - **Флажок `Auto Update`** на странице (последняя кнопка, `[x]`/`[ ]`; эталон
+    `ToggleAutoUpdateForExtensionAction`, команда `workbench.extensions.action.toggleAutoUpdateForExtension`
+    с id, без заголовка) — это `pinned` (решение Ж2): снять — `setPinned(id, true)` на текущей версии,
+    отметить — открепить и проход автообновления (эталон `updateAutoUpdateEnablementFor`). Только у
+    установленных из реестра; при `autoUpdate: off` виден выключенным: `[ ] Auto Update
+    (extensions.autoUpdate is off)` (у эталона там список «обновлять это», которого у нас нет). Фокус после
+    нажатия остаётся на флажке: шапка при пересборке возвращает фокус кнопке того же вида.
+  - Время в e2e — метод инспектора `Diode.advanceClock {ms}` (`HeadlessSession.advanceClock`): двигает
+    `AdjustableClock`, пройденные таймеры срабатывают. Без инспектора часы — `Date.now`/`setTimeout`.
 - `contrib/extensions/browser/extensionsComponent.ts` — вьюлет `EXTENSIONS`
   (`view.id = "extensionsView"`): `InputElement` + `ListViewElement` с двумя
   группами (MARKETPLACE / INSTALLED), раскладка «шапка + тело» — общий
@@ -92,8 +127,8 @@
   Выбор текущей или Escape — ничего; совместимых нет — модальное `This extension has no other
   versions.` (`dialogService.info` эталона). Выбранная версия ставится как обычная установка
   (`install(id, { version })`) и **закрепляется**: `metadata.pinned` в `extensions.json` профиля
-  ([Extensions.md](../Extensions.md)). Закрепление не меняет `outdated` и кнопку `Update to X` (как
-  эталон); его читают будущие `Update All` и автообновление. В палитре —
+  ([Extensions.md](../Extensions.md)). Закрепление не меняет `outdated`, кнопку `Update to X` и
+  `Update All` (как эталон) — его пропускает только автообновление; снимает его флажок `Auto Update`. В палитре —
   `Extensions: Install Specific Version of Extension...`
   (`workbench.extensions.action.install.specificVersion`): `Select Extension` по установленным
   расширениям из реестра, затем тот же выбор версии, затем открывается страница расширения.
@@ -125,7 +160,8 @@
   обновление, удаление, перезагрузка окна переподключением инспектора),
   `e2e/extensionVersionPin.functional.test.ts` / `.cli.test.ts` (пикер версий, откат, закрепление),
   `e2e/extensionsUpdateAll.functional.test.ts` (целевая версия, `Check for Updates`, `@outdated`,
-  `Update All`) —
+  `Update All`), `e2e/extensionsAutoUpdate.functional.test.ts` (фоновая проверка, автообновление,
+  задержка, флажок, офлайн, два окна) —
   [TESTING.md](../../TESTING.md#extensions-view-герметичный-сьют).
 
 ## Чего сознательно не делаем
@@ -133,13 +169,15 @@
 - **Дисковый кэш индекса и оффлайн-режим** — заводятся вместе со своей
   инвалидацией и потребителем; пока кэш в памяти на сессию + явный Refresh.
 - **Категории, сортировки, рейтинги, «популярное»** — в реестре
-  из десятка записей это UI ради UI; `categories` вдобавок нет в мете. Автообновление —
-  этап 3 [ExtensionUpdates](../../TODO/ExtensionUpdates.md).
+  из десятка записей это UI ради UI; `categories` вдобавок нет в мете.
 - **Установку из списка одной кнопкой** (inline-кнопка строки в VS Code) —
   установка живёт на странице, чтобы решение принималось после просмотра readme
   и совместимости.
 - **Бейдж с числом обновлений на контейнере** (`NumberBadge` эталона на activity bar) — у контейнеров
   нет бейджей; строка в [TODO/Extensions.md](../../TODO/Extensions.md).
+- **Перезапуск extension host после автообновления** (`extensions.autoRestart` эталона), согласие на
+  обновление с исполняемым кодом, доверенные издатели без задержки, лимитные подключения, автообновление
+  встроенных и пре-релизов — вне этапа 3 [ExtensionUpdates](../../TODO/ExtensionUpdates.md).
 - **Inline-кнопка `Update` в строке списка** — тот же довод, что у установки: обновление живёт на
   странице и в `Update All`.
 - **Встроенные расширения в `INSTALLED`** — builtin нельзя удалить, в списке они

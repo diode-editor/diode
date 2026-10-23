@@ -136,6 +136,7 @@ import { COMMENT_ACTIONS } from "./contrib/comment/browser/commentActions.ts";
 import { COMPARE_ACTIONS } from "./contrib/diff/browser/compareActions.ts";
 import { DiffSnapshotRefreshContributionDIToken } from "./contrib/diff/browser/diffSnapshotRefreshContribution.ts";
 import { VscodeDiffCommandContributionDIToken } from "./contrib/diff/browser/vscodeDiffCommandContribution.ts";
+import { ExtensionAutoUpdateContributionDIToken } from "./contrib/extensions/browser/extensionAutoUpdate.ts";
 import { EXTENSIONS_ACTIONS } from "./contrib/extensions/browser/extensionsActions.ts";
 import { ExtensionsComponentDIToken } from "./contrib/extensions/browser/extensionsComponent.ts";
 import { ExtensionUpdateContributionDIToken } from "./contrib/extensions/browser/extensionUpdateActions.ts";
@@ -297,6 +298,8 @@ export const WORKBENCH_CONTRIBUTIONS: readonly IWorkbenchContributionRegistratio
     // Stryker disable next-line ObjectLiteral,StringLiteral: see HistoryService above — removing the entry is unobservable in a unit test, the wiring is checked by app startup
     { token: ScmBusyContextContributionDIToken, phase: "ready" },
     { token: TaskStatusBarContributionDIToken, phase: "afterRestored" },
+    // The background extension checks: never at startup, after the first frame (ExtensionUpdates stage 3).
+    { token: ExtensionAutoUpdateContributionDIToken, phase: "eventually" },
 ];
 
 /**

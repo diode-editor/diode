@@ -1,177 +1,23 @@
-import * as fs from "node:fs";
-import * as path from "node:path";
-
 import { afterEach, describe, expect, it } from "vitest";
-import yazl from "yazl";
 
-import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
-import type { IExtensionRegistrySource } from "../../../../platform/extensionManagement/common/iExtensionRegistrySource.ts";
 import {
-    type IRegistryEngines,
-    type IRegistryExtensionMeta,
-    type IRegistryIndex,
-    type IRegistryVersion,
-    REGISTRY_SCHEMA_VERSION,
-} from "../../../../platform/extensionManagement/common/registryFormat.ts";
-import type { IHostVersions } from "../../../../platform/extensionManagement/common/resolveCompatibleVersion.ts";
-import { sha256File } from "../../../../platform/extensionManagement/node/installFromRegistry.ts";
-import {
-    ProfileExtensions,
-    readProfileExtensions,
-    writeProfileExtensions,
-} from "../../../../platform/extensionManagement/node/profileExtensions.ts";
-
-import { ExtensionsWorkbenchService } from "./extensionsWorkbenchService.ts";
+    createUpdatesFixture,
+    FakeSource,
+    HOST,
+    INCOMPATIBLE,
+    type IVersionSpec,
+} from "../../../../../TestUtils/extensionUpdatesFixture.ts";
+import type { IRegistryExtensionMeta } from "../../../../platform/extensionManagement/common/registryFormat.ts";
 
 /** ExtensionUpdates stage 2: the target version, `outdated` by semver, `checkForUpdates` and `updateAll`. */
 
-const HOST: IHostVersions = { diode: "1.0.0", vscode: "1.90.0" };
-const COMPATIBLE: IRegistryEngines = { vscode: "^1.90.0" };
-const INCOMPATIBLE: IRegistryEngines = { vscode: "^2.0.0" };
-const PROFILE_FILE = "extensions/extensions.json";
-
-interface IVersionSpec {
-    readonly version: string;
-    readonly engines?: IRegistryEngines;
-    readonly targetPlatform?: string;
-    /** A wrong sha256: installing this version fails. */
-    readonly corrupt?: boolean;
-}
-
-class FakeSource implements IExtensionRegistrySource {
-    public indexCalls = 0;
-    public readonly metaCalls: string[] = [];
-    public failMeta = new Set<string>();
-
-    public constructor(
-        public index: IRegistryIndex,
-        public metas: Record<string, IRegistryExtensionMeta>,
-    ) {}
-
-    public getIndex(): Promise<IRegistryIndex> {
-        this.indexCalls++;
-        return Promise.resolve(this.index);
-    }
-
-    public getMeta(id: string): Promise<IRegistryExtensionMeta | undefined> {
-        this.metaCalls.push(id);
-        if (this.failMeta.has(id)) return Promise.reject(new Error(`meta of ${id} is unreachable`));
-        return Promise.resolve(this.metas[id]);
-    }
-
-    public fetchArtifact(version: IRegistryVersion): Promise<string> {
-        return Promise.resolve((version.artifact as { path: string }).path);
-    }
-}
-
-function buildVsix(file: string, manifest: object): Promise<void> {
-    return new Promise((resolve, reject) => {
-        const zip = new yazl.ZipFile();
-        zip.addBuffer(Buffer.from(JSON.stringify(manifest)), "extension/package.json");
-        const out = fs.createWriteStream(file);
-        out.on("close", () => {
-            resolve();
-        });
-        out.on("error", reject);
-        zip.outputStream.pipe(out);
-        zip.end();
-    });
-}
-
 describe("ExtensionsWorkbenchService — updates (ExtensionUpdates stage 2)", () => {
-    let ws: ITempWorkspace | undefined;
-    const warnings: string[] = [];
+    const fixture = createUpdatesFixture();
+    const { warnings, registry, installed, createService, card, profileState } = fixture;
 
     afterEach(() => {
-        ws?.dispose();
-        ws = undefined;
-        warnings.length = 0;
+        fixture.dispose();
     });
-
-    function workspace(): ITempWorkspace {
-        ws ??= createTempWorkspace({ prefix: "diode-extension-updates-" });
-        return ws;
-    }
-
-    /** The index's `latest` is the last spec of each id, like a registry built in that order. */
-    async function registry(extensions: Record<string, readonly IVersionSpec[]>): Promise<FakeSource> {
-        const root = workspace();
-        const metas: Record<string, IRegistryExtensionMeta> = {};
-        const entries = [];
-        for (const [id, specs] of Object.entries(extensions)) {
-            const [publisher, name] = id.split(".");
-            const versions: IRegistryVersion[] = [];
-            for (const spec of specs) {
-                const vsix = root.path(`artifacts/${id}-${spec.version}-${spec.targetPlatform ?? "universal"}.vsix`);
-                fs.mkdirSync(path.dirname(vsix), { recursive: true });
-                await buildVsix(vsix, { publisher, name, version: spec.version });
-                versions.push({
-                    version: spec.version,
-                    engines: spec.engines ?? COMPATIBLE,
-                    artifact: { type: "path", path: vsix },
-                    sha256: spec.corrupt === true ? "0".repeat(64) : await sha256File(vsix),
-                    ...(spec.targetPlatform === undefined ? {} : { targetPlatform: spec.targetPlatform }),
-                });
-            }
-            const latest = specs[specs.length - 1];
-            metas[id] = {
-                schemaVersion: REGISTRY_SCHEMA_VERSION,
-                id,
-                publisher,
-                name,
-                displayName: name,
-                description: "",
-                kind: "native",
-                versions,
-            };
-            entries.push({
-                id,
-                publisher,
-                name,
-                displayName: name,
-                description: "",
-                kind: "native" as const,
-                latest: { version: latest.version, engines: latest.engines ?? COMPATIBLE },
-            });
-        }
-        return new FakeSource({ schemaVersion: REGISTRY_SCHEMA_VERSION, extensions: entries }, metas);
-    }
-
-    /** `pinned` marks the profile entry as pinned (a version chosen by hand). */
-    function installed(id: string, version: string, pinned = false): void {
-        const root = workspace();
-        const [publisher, name] = id.split(".");
-        root.writeFile(`extensions/${id}-${version}/package.json`, JSON.stringify({ publisher, name, version }));
-        const entries = readProfileExtensions(root.path(PROFILE_FILE)) ?? [];
-        writeProfileExtensions(root.path(PROFILE_FILE), [
-            ...entries,
-            { identifier: { id }, version, ...(pinned ? { metadata: { pinned: true } } : {}) },
-        ]);
-    }
-
-    function createService(source: IExtensionRegistrySource, host: IHostVersions = HOST): ExtensionsWorkbenchService {
-        const root = workspace();
-        const profile = new ProfileExtensions({
-            extensionsDir: root.path("extensions"),
-            profileFile: root.path(PROFILE_FILE),
-            allProfileFiles: () => [root.path(PROFILE_FILE)],
-        });
-        return new ExtensionsWorkbenchService(source, profile, host, {
-            warn: (message: string) => warnings.push(message),
-        });
-    }
-
-    function card(service: ExtensionsWorkbenchService, id: string): unknown {
-        const found = service.getEntries().find((e) => e.id === id);
-        return found && { latest: found.latestVersion, installed: found.installedVersion, state: found.availability };
-    }
-
-    /** By id: the profile moves a reinstalled entry to its end, which is not what these tests are about. */
-    function profileState(): unknown {
-        return readProfileExtensions(workspace().path(PROFILE_FILE))
-            ?.map((e) => [e.identifier.id, e.version, e.metadata?.pinned ?? false])
-            .sort(([a], [b]) => String(a).localeCompare(String(b)));
-    }
 
     describe("target version and availability", () => {
         it("a compatible latest is the target; metadata only confirms an update of an installed one", async () => {

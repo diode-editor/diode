@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { Emitter } from "../../../../base/common/event.ts";
 import { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
 import type { IRegistryVersion } from "../../../../platform/extensionManagement/common/registryFormat.ts";
 import { ProgressService } from "../../../../platform/progress/common/progressService.ts";
@@ -21,15 +22,18 @@ function fakeService(
     results: {
         install?: IExtensionInstallResult;
         uninstall?: IExtensionOperationResult;
+        setPinned?: IExtensionOperationResult;
         versions?: readonly IRegistryVersion[] | Error;
         entries?: IExtensionListEntry[];
     } = {},
-): IExtensionsWorkbenchService & { installed: string[]; uninstalled: string[] } {
+): IExtensionsWorkbenchService & { installed: string[]; uninstalled: string[]; pins: string[] } {
     const installed: string[] = [];
     const uninstalled: string[] = [];
+    const pins: string[] = [];
     return {
         installed,
         uninstalled,
+        pins,
         ensureLoaded: () => Promise.resolve(),
         refresh: () => Promise.resolve(),
         getEntries: () => results.entries ?? [],
@@ -38,6 +42,12 @@ function fakeService(
         checkForUpdates: () => Promise.resolve(),
         getOutdated: () => [],
         updateAll: () => Promise.resolve({ updated: [], failed: [] }),
+        updateExtensions: () => Promise.resolve({ updated: [], failed: [] }),
+        setPinned: (id, pinned) => {
+            pins.push(`${id}:${String(pinned)}`);
+            return Promise.resolve(results.setPinned ?? { ok: true });
+        },
+        onDidReadCatalog: () => ({ dispose: () => {} }),
         getCompatibleVersions: () =>
             results.versions instanceof Error
                 ? Promise.reject(results.versions)
@@ -56,6 +66,7 @@ function fakeService(
 
 interface IHarness {
     actions: ExtensionPageActions;
+    autoUpdate: FakeAutoUpdate;
     statusBar: StatusBarService;
     commands: CommandRegistry;
     progress: ProgressService;
@@ -64,6 +75,21 @@ interface IHarness {
 }
 
 /** `answer` picks the row with that label; `undefined` is Escape. */
+class FakeAutoUpdate {
+    public enabled = true;
+    public passes = 0;
+    public readonly onDidChangeEmitter = new Emitter<void>();
+    public readonly onDidChangeAutoUpdate = this.onDidChangeEmitter.event;
+
+    public isAutoUpdateEnabled(): boolean {
+        return this.enabled;
+    }
+
+    public eventuallyAutoUpdate(): void {
+        this.passes++;
+    }
+}
+
 function createActions(service: IExtensionsWorkbenchService, answer?: string): IHarness {
     const statusBar = new StatusBarService(NULL_STATE_SERVICE);
     const commands = new CommandRegistry();
@@ -80,9 +106,10 @@ function createActions(service: IExtensionsWorkbenchService, answer?: string): I
             return { id: messages.length, answered: Promise.resolve(undefined) };
         },
     };
-    const actions = new ExtensionPageActions(service, progress, statusBar, commands, host, host);
+    const autoUpdate = new FakeAutoUpdate();
+    const actions = new ExtensionPageActions(service, progress, statusBar, commands, host, host, autoUpdate);
     actions.now = () => Date.parse("2026-10-23T12:00:00Z");
-    return { actions, statusBar, commands, progress, picks, messages };
+    return { actions, autoUpdate, statusBar, commands, progress, picks, messages };
 }
 
 function registryVersion(version: string, publishedAt?: string): IRegistryVersion {
@@ -287,6 +314,47 @@ describe("ExtensionPageActions", () => {
 
             expect(service.installed).toEqual(["acme.demo@1.0.0"]);
             expect(statusTexts(statusBar)).toEqual(["Installed acme.demo@1.0.0 — reload window to activate"]);
+        });
+    });
+
+    describe("the Auto Update toggle (US-3.8)", () => {
+        it("unchecking pins the entry at its version and starts nothing", async () => {
+            const service = fakeService();
+            const { actions, autoUpdate } = createActions(service);
+
+            expect(await actions.setAutoUpdate("acme.demo", false)).toEqual({ ok: true });
+
+            expect(service.pins).toEqual(["acme.demo:true"]);
+            expect(autoUpdate.passes).toBe(0);
+        });
+
+        it("checking unpins it and asks for an auto-update pass right away (upstream updateAutoUpdateEnablementFor)", async () => {
+            const service = fakeService();
+            const { actions, autoUpdate } = createActions(service);
+
+            await actions.setAutoUpdate("acme.demo", true);
+
+            expect(service.pins).toEqual(["acme.demo:false"]);
+            expect(autoUpdate.passes).toBe(1);
+        });
+
+        it("a failed unpin asks for nothing and returns the reason", async () => {
+            const service = fakeService({ setPinned: { ok: false, error: "disk full" } });
+            const { actions, autoUpdate } = createActions(service);
+
+            expect(await actions.setAutoUpdate("acme.demo", true)).toEqual({ ok: false, error: "disk full" });
+            expect(autoUpdate.passes).toBe(0);
+        });
+
+        it("tells the page whether `extensions.autoUpdate` is on, and when it changes", () => {
+            const { actions, autoUpdate } = createActions(fakeService());
+            const seen: boolean[] = [];
+            actions.onDidChangeAutoUpdate(() => seen.push(actions.isAutoUpdateEnabled()));
+
+            autoUpdate.enabled = false;
+            autoUpdate.onDidChangeEmitter.fire();
+
+            expect(seen).toEqual([false]);
         });
     });
 
