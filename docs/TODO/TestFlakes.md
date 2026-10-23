@@ -29,6 +29,10 @@
 Известные флаки юнит-набора и e2e; PR-диффом не задеты, `gh run rerun --failed` зеленит. Юнит-тесты
 отсюда стоят в `test-flakes.json`, кроме помеченных.
 
+- [ ] e2e `extensionUpdates.stage3.functional.test.ts` › «US-3.3: many clock moves in a row — exactly one
+  check per 12 hours, no piled-up timers» (windows): `expected 1 to be 2` — после серии `Diode.advanceClock`
+  вторая проверка обновлений не успела дойти до реестра. Свалил e2e windows на PR #798 (ран 40034642872,
+  дифф — темы), перезапуск зелёный. e2e, в `test-flakes.json` не стоит.
 - [ ] `workbench.encoding.test.ts` › «Save with Encoding on an untitled buffer goes to Save As with the
   encoding set»: `ENOENT: no such file or directory, open '…/untitled-out.txt'` — файл читается раньше,
   чем Save As его дописал. Свалил dry run мутаций (`There were failed tests in the initial test run`)
