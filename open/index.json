@@ -2070,5 +2070,19 @@
       "large",
       "xlarge"
     ]
+  },
+  {
+    "file": "2026-10-23-cc1ed1b60332.json",
+    "generatedAt": "2026-10-23T00:24:10.379Z",
+    "commit": "cc1ed1b60332",
+    "binaryVersion": "nightly-cc1ed1b",
+    "ci": true,
+    "conditions": "CI, shared runner (GitHub Actions)",
+    "sizes": [
+      "small",
+      "medium",
+      "large",
+      "xlarge"
+    ]
   }
 ]
