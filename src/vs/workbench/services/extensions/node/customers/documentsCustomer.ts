@@ -147,6 +147,8 @@ export class DocumentsCustomer implements IExtensionHostCustomer, IDocumentSyncT
     }
 
     private fitsDocumentSyncLimit(source: IDocumentSyncSource): boolean {
+        // Quietly: the large-file mode is the user's visible state, not a surprise worth a log line.
+        if (source.isTooLargeForTokenization) return false;
         if (source.length <= this.options.maxSyncedDocumentChars) return true;
         this.options.logger?.warn("skipping document sync: document too large", {
             uri: source.uri,

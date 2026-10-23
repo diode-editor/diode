@@ -1,3 +1,7 @@
+import {
+    LARGE_FILE_LINE_COUNT_THRESHOLD,
+    LARGE_FILE_SIZE_THRESHOLD_MB,
+} from "../../../editor/common/model/largeFileOptions.ts";
 import type { IConfigurationNode } from "../../../platform/configuration/common/configurationRegistry.ts";
 
 export const editorConfiguration = {
@@ -118,6 +122,34 @@ export const editorConfiguration = {
             type: "number",
             default: 80,
             description: "Controls the wrapping column when `editor.wordWrap` is 'wordWrapColumn' or 'bounded'.",
+        },
+        // Upstream: a file above 20 MB or 300K lines gets its heavy features turned off. Our deviation: it also
+        // opens read-only (docs/arch/Editor.md, "Large-file mode"), and the thresholds are settings of our own.
+        "editor.largeFileOptimizations": {
+            scope: "language-overridable",
+            type: "boolean",
+            default: true,
+            description: "Special handling for large files to disable certain memory intensive features.",
+        },
+        // Our own keys (human's decision 2026-10-23: the threshold is a setting); upstream has constants.
+        "editor.largeFileSizeThreshold": {
+            scope: "language-overridable",
+            type: "number",
+            default: LARGE_FILE_SIZE_THRESHOLD_MB,
+            minimum: 1,
+            description:
+                "The size in megabytes above which a file is treated as large when `editor.largeFileOptimizations` " +
+                "is on: it opens read-only with tokenization, wrapping, folding, word highlighting, quick diff and " +
+                "extension sync turned off.",
+        },
+        "editor.largeFileLineCountThreshold": {
+            scope: "language-overridable",
+            type: "number",
+            default: LARGE_FILE_LINE_COUNT_THRESHOLD,
+            minimum: 1,
+            description:
+                "The number of lines above which a file is treated as large when `editor.largeFileOptimizations` " +
+                "is on.",
         },
         "editor.formatOnSave": {
             scope: "language-overridable",

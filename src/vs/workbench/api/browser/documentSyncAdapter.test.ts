@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { diskFileService } from "../../../../TestUtils/diskFileService.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../../TestUtils/TempWorkspace.ts";
+import { createTestConfigurationService } from "../../../../TestUtils/testConfigurationService.ts";
 import { createTestEditorContextMenuController } from "../../../../TestUtils/testEditorContextMenu.ts";
 import { createRange } from "../../../editor/common/core/iRange.ts";
 import { NULL_LANGUAGE_SERVICE } from "../../../editor/common/languages/iLanguageService.ts";
@@ -233,5 +234,49 @@ describe("documentSyncAdapter", () => {
 
         service.openFile(ws.path("b.ts"));
         expect(opened).toHaveLength(2);
+    });
+
+    describe("the large-file mode", () => {
+        let large: EditorService;
+
+        beforeEach(() => {
+            ws.writeFile("big.log", "1\n2\n3\n4");
+            large = new EditorService(
+                new ThemeService(WorkbenchTheme.fromThemeFile(darkPlusTheme)),
+                new TokenizationRegistry(),
+                NULL_TOKEN_STYLE_RESOLVER,
+                NULL_LANGUAGE_SERVICE,
+                createTestConfigurationService({ "editor.largeFileLineCountThreshold": 2 }),
+                new UndoRedoService(),
+                NULL_FILE_WATCHER,
+                createTestEditorContextMenuController(),
+                NULL_LOG_SERVICE,
+                undefined,
+                undefined,
+                [],
+                undefined,
+                diskFileService(),
+            );
+        });
+
+        afterEach(() => {
+            large.dispose();
+        });
+
+        it("the source carries the mode, and leaving it is a flush the host opens the document on", () => {
+            const { host, opened, flushes } = recordingHost();
+            large.openFile(ws.path("big.log"));
+            const editor = large.getActiveEditor()!;
+            expect(editor.model.isTooLargeForTokenization).toBe(true);
+
+            bindDocumentSync(large, large.editorGroups, host);
+            // The adapter hands every document over; the host decides by the flag (documentsCustomer).
+            expect(opened).toEqual([editor.uri.toString()]);
+            expect(documentSyncSourceOfModel(editor.model).isTooLargeForTokenization).toBe(true);
+
+            editor.model.forcefullyEnableFeatures();
+            expect(flushes.map((f) => [f.uri, f.isTooLargeForTokenization])).toEqual([[editor.uri.toString(), false]]);
+            expect(flushes[0].getText()).toBe("1\n2\n3\n4");
+        });
     });
 });

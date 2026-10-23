@@ -18,6 +18,7 @@ export function documentSyncSourceOfModel(model: BaseTextEditorModel): IDocument
         languageId: model.languageId,
         version: document.versionId,
         isDirty: model.isModified,
+        isTooLargeForTokenization: model.isTooLargeForTokenization,
         length: document.getValueLength(),
         getText: () => document.getText(),
     };
@@ -102,6 +103,12 @@ export function bindDocumentSync(group: IEditorService, groups: IEditorGroupsSer
         subscriptions.add(
             model.onDidChangeLanguage(() => {
                 resyncIdentity(model, record);
+            }),
+        );
+        // "Enable Editing" on a large file: the document now fits, and a flush opens it (`didChangeTextDocument`).
+        subscriptions.add(
+            model.onDidChangeTooLargeForTokenization(() => {
+                host.didChangeTextDocument(documentSyncSourceOfModel(model));
             }),
         );
     };

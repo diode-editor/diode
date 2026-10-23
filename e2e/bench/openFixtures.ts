@@ -23,6 +23,16 @@ export const SIZES: readonly SizeSpec[] = [
     // (CI, 2026-09-27). It comes back with the "Streaming" stage; the kind=log generator stays.
 ];
 
+/**
+ * Not in the default matrix (the CI bench and the public page): opt in with `--sizes=log50m,log100m`.
+ * Above the large-file threshold (docs/TODO/OpenPerformance.md, stage 4) the file opens read-only, so
+ * these are measured with `--no-workload`; `log500m` returns with the document on disk (4.2).
+ */
+export const OPT_IN_SIZES: readonly SizeSpec[] = [
+    { key: "log50m", kind: "log", amount: 50 * MiB, runs: 3, timeoutMs: 180_000 },
+    { key: "log100m", kind: "log", amount: 100 * MiB, runs: 3, timeoutMs: 300_000 },
+];
+
 // Highlighting is checked by the darkPlus keyword color on the `c` cell of the word `const` (as in sea-startup),
 // so the line starts with it.
 export const TS_MARKER = "benchMarker";

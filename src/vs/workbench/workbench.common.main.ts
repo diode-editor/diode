@@ -159,6 +159,8 @@ import { INLINE_COMPLETIONS_ACTIONS } from "./contrib/inlineCompletions/browser/
 import { InlineCompletionsServiceDIToken } from "./contrib/inlineCompletions/browser/inlineCompletionsService.ts";
 import { KEYBOARD_DOCTOR_ACTIONS } from "./contrib/keyboardDoctor/browser/keyboardDoctorActions.ts";
 import { KeyboardDoctorComponentDIToken } from "./contrib/keyboardDoctor/browser/keyboardDoctorComponent.ts";
+import { LARGE_FILE_ACTIONS } from "./contrib/largeFile/browser/largeFileActions.ts";
+import { LargeFileOptimizationsWarnerDIToken } from "./contrib/largeFile/browser/largeFileOptimizationsWarner.ts";
 import { LINES_OPERATIONS_ACTIONS } from "./contrib/linesOperations/browser/linesOperationsActions.ts";
 import { DiagnosticsServiceDIToken } from "./contrib/markers/browser/diagnosticsService.ts";
 import { ProblemsComponentDIToken } from "./contrib/markers/browser/problemsComponent.ts";
@@ -276,6 +278,7 @@ export const WORKBENCH_CONTRIBUTIONS: readonly IWorkbenchContributionRegistratio
     // Subscribe before the first open, otherwise the very first failure goes unnoticed.
     // Stryker disable next-line ObjectLiteral,StringLiteral: removing the entry is unobservable in a unit test; without it the toast doesn't appear, which the virtualDocument e2e scenario catches
     { token: OpenFailureNotificationContributionDIToken, phase: "ready" },
+    { token: LargeFileOptimizationsWarnerDIToken, phase: "ready" },
     // Stryker disable next-line ObjectLiteral,StringLiteral: removing the entry is unobservable in a unit test; without it there is no toast, which the move-to-new-file-undo e2e scenario catches
     { token: UndoRefusalNotificationContributionDIToken, phase: "ready" },
     // Subscribe before the first operation, otherwise its start is missed.
@@ -305,6 +308,7 @@ export const WORKBENCH_CONTRIBUTIONS: readonly IWorkbenchContributionRegistratio
  */
 export const WORKBENCH_ACTIONS: readonly CommandAction[] = [
     ...FILES_ACTIONS,
+    ...LARGE_FILE_ACTIONS,
     ...PREFERENCES_ACTIONS,
     ...KEYBOARD_DOCTOR_ACTIONS,
     showAboutDialogAction,
