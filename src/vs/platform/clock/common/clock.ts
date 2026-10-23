@@ -61,6 +61,7 @@ export class AdjustableClock implements IClock {
         const remaining = Math.max(0, timer.due - this.now());
         timer.handle = setTimeout(
             () => {
+                // Stryker disable next-line EqualityOperator: equivalent — at exactly the limit one more step of 0 ms fires at the same moment
                 if (remaining > MAX_TIMEOUT_MS) {
                     this.arm(timer);
                     return;
