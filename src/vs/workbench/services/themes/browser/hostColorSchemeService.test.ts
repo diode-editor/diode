@@ -121,6 +121,19 @@ describe("HostColorSchemeService", () => {
         expect(service.colorScheme).toBe("light");
     });
 
+    it("turning detection on before the restored phase still waits for raw mode", async () => {
+        const { configuration, lifecycle, subscribe, probe } = build({
+            phase: "ready",
+            settings: { "window.autoDetectColorScheme": false },
+        });
+        await configuration.updateValue("window.autoDetectColorScheme", true);
+        expect(subscribe).not.toHaveBeenCalled();
+        expect(probe).not.toHaveBeenCalled();
+
+        lifecycle.setPhase("restored");
+        expect(subscribe).toHaveBeenCalledOnce();
+    });
+
     it("a phase other than restored does not start detection", () => {
         const { lifecycle, subscribe } = build({ phase: "starting" });
         lifecycle.setPhase("ready");

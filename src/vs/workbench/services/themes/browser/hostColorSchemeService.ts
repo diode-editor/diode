@@ -66,6 +66,7 @@ export class HostColorSchemeService extends Disposable {
             );
         this.register(
             configuration.onDidChangeConfiguration((event) => {
+                // Stryker disable next-line ConditionalExpression: equivalent — startDetectionIfNeeded rereads the setting itself; the filter only skips a no-op call
                 if (event.affectsConfiguration(AUTO_DETECT_COLOR_SCHEME_SETTING)) this.startDetectionIfNeeded();
             }),
         );
