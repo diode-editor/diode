@@ -85,6 +85,10 @@
   сообщением на экране, а оно ещё от прошлого текста («Please enter a name» для пустого), пока
   асинхронная проверка `exists` для набранного имени не вернулась (на windows диск медленнее); Enter
   молча терялся. Теперь, как у эталона, Enter ждёт проверки именно этого текста.
+- [ ] e2e-сценарий `searchNextResult` (`scenarios-1`): `waitUntil(screen text predicate) timed out after
+  10000ms` (`searchNextResult.scenario.ts:32`) — windows на ране 39858081412 (ветка ExtensionUpdates
+  этапа 0), ubuntu на #784 (ран 39874481793); оба диффа — установка расширений, поиск не трогают. Не в
+  test-flakes.json: e2e его не читает.
 
 ## Цена полного прогона
 
