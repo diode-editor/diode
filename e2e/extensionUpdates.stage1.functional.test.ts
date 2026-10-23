@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, readFileSync } from "node:fs";
+import { cpSync, existsSync, mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -326,5 +326,35 @@ describe("Install Specific Version edge cases (ExtensionUpdates stage 1 QA, func
         // Default still uses 1.1.0.
         expect(obsoleteDirs(app)).toEqual([]);
         expect(await screen(app)).toContain("Update to 1.1.0");
+    });
+
+    // `getMeta` caches per session: the picker must still see a version the registry published meanwhile.
+    it("US-1.1: after Extensions: Refresh the picker lists a version published meanwhile", async () => {
+        const live = await createRegistryFixture(join(root, "live-registry"), [
+            { id: ID, version: "1.0.0", sourceDir: SAMPLE, displayName: "QA UI" },
+            { id: ID, version: "1.1.0", sourceDir: SAMPLE, displayName: "QA UI" },
+        ]);
+        const app = await start({ installVsix: [artifact(registry, ID, "1.1.0")], registry: live });
+        await openExtensions(app);
+        await openPage(app, "qa", PAGE);
+        await pressButton(app, "Install Specific Version...");
+        await waitForScreen(app, "Select Version to Install");
+        await app.session.key("Escape");
+        await app.session.waitForNoNode("#quickInput");
+
+        // The registry publishes 1.2.0 while the window is open.
+        const next = await createRegistryFixture(join(root, "live-registry-next"), [
+            { id: ID, version: "1.0.0", sourceDir: SAMPLE, displayName: "QA UI" },
+            { id: ID, version: "1.1.0", sourceDir: SAMPLE, displayName: "QA UI" },
+            { id: ID, version: "1.2.0", sourceDir: SAMPLE, displayName: "QA UI" },
+        ]);
+        cpSync(next, live, { recursive: true });
+        await app.session.executeCommand("extensions.refresh");
+        await waitForScreen(app, "Update to 1.2.0");
+        // The page command behind the button; the focus is no longer on the page after the refresh.
+        void app.session.executeCommand("workbench.extensions.action.install.anotherVersion", ID);
+
+        const picker = await waitForScreen(app, "Select Version to Install");
+        expect(picker).toMatch(/1\.2\.0/u);
     });
 });
