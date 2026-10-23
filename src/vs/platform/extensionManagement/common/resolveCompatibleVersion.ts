@@ -49,6 +49,24 @@ export function areEnginesCompatible(engines: IRegistryEngines, host: IHostVersi
     return true;
 }
 
+/**
+ * Upstream `getAllCompatibleVersions` for the version picker: newest first, one record per version
+ * (the platform one over universal, like {@link resolveCompatibleVersion}).
+ */
+export function compatibleVersions(
+    versions: readonly IRegistryVersion[],
+    host: IHostVersions,
+    semver: Semver,
+): IRegistryVersion[] {
+    const byVersion = new Map<string, IRegistryVersion>();
+    for (const candidate of versions) {
+        if (!isVersionCompatible(candidate, host, semver) || semver.valid(candidate.version) === null) continue;
+        const known = byVersion.get(candidate.version);
+        if (known === undefined || known.targetPlatform === undefined) byVersion.set(candidate.version, candidate);
+    }
+    return [...byVersion.values()].sort((a, b) => semver.rcompare(a.version, b.version));
+}
+
 /** `versions` order is not part of the format contract. On equal semver, a platform record beats universal. */
 export function resolveCompatibleVersion(
     versions: readonly IRegistryVersion[],

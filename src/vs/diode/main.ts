@@ -45,6 +45,7 @@ import type { IStartupTargets, IStartupWorkspace } from "../platform/environment
 import { logicalWorkingDirectory, resolveStartupTargets } from "../platform/environment/node/startupTargets.ts";
 import type { IUserDataPaths } from "../platform/environment/node/userDataPaths.ts";
 import { resolveUserDataPaths } from "../platform/environment/node/userDataPaths.ts";
+import { getIdAndVersion } from "../platform/extensionManagement/common/getIdAndVersion.ts";
 import type { IExtensionRegistrySource } from "../platform/extensionManagement/common/iExtensionRegistrySource.ts";
 import { createRegistrySource } from "../platform/extensionManagement/node/createRegistrySource.ts";
 import { installVsix, readVsixManifest } from "../platform/extensionManagement/node/extensionInstaller.ts";
@@ -644,6 +645,8 @@ async function runExtensionManagement(cli: ICliArgs): Promise<void> {
             };
             let result: IInstalledFromRegistry;
             let dependencies: IDependencyInstallResult = { dependencies: [], missingDependencies: [] };
+            // Upstream `installGivenVersion`: `id@version` and a `.vsix` pin the version in the profile.
+            let givenVersion = true;
             if (target.endsWith(".vsix")) {
                 const vsixPath = path.resolve(target);
                 result = await installVsix(vsixPath, extensionsDir);
@@ -657,12 +660,26 @@ async function runExtensionManagement(cli: ICliArgs): Promise<void> {
                     }
                 }
             } else {
-                const installed = await installFromRegistry(registry(), target, options);
+                const [extensionId, version] = getIdAndVersion(target);
+                givenVersion = version !== undefined;
+                const current = profileExtensions
+                    .list()
+                    .find((e) => extensionKey(e.id) === extensionKey(extensionId) && e.version === version);
+                if (current !== undefined) {
+                    // Upstream says the same without `--force`; deviation (decision D4): the entry gets pinned.
+                    profileExtensions.add([current], { pinned: true });
+                    console.log(`Extension '${extensionId}@${current.version}' is already installed.`);
+                    return;
+                }
+                const installed = await installFromRegistry(registry(), extensionId, { ...options, version });
                 result = installed;
                 dependencies = installed;
             }
             // Into the profile, together with dependencies, including those already on disk for another profile.
-            const { obsolete } = profileExtensions.add([result, ...dependencies.dependencies]);
+            const { obsolete } = profileExtensions.add(
+                [result, ...dependencies.dependencies],
+                givenVersion ? { pinned: true } : {},
+            );
             const { id, version } = result;
             console.log(`Installed ${id}@${version}`);
             // Not deleted here: a running window may still load files from them. The CLI never deletes (decision V1).

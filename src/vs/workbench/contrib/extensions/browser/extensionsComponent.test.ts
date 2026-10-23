@@ -52,6 +52,7 @@ function entry(overrides: Partial<IExtensionListEntry> & { id: string }): IExten
         latestVersion: "1.0.0",
         installedVersion: null,
         availability: "available",
+        pinned: false,
         needsReload: false,
         ...overrides,
     };
@@ -106,6 +107,10 @@ class FakeService implements IExtensionsWorkbenchService {
         return Promise.resolve({ ok: true });
     }
 
+    public getCompatibleVersions(): Promise<readonly []> {
+        return Promise.resolve([]);
+    }
+
     public onDidChange(listener: () => void): { dispose: () => void } {
         this.listeners.add(listener);
         return { dispose: () => this.listeners.delete(listener) };
@@ -126,6 +131,7 @@ function fakeTarget(): { target: IExtensionsEditorTarget; opened: IEditorPane[] 
 const PAGE_ACTIONS: IExtensionPageActions = {
     install: () => Promise.resolve({ ok: true, version: "1.0.0" }),
     uninstall: () => Promise.resolve({ ok: true }),
+    pickVersion: () => Promise.resolve(undefined),
     reloadWindow: () => {},
 };
 

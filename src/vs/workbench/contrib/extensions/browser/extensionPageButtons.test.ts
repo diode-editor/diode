@@ -16,6 +16,7 @@ function entry(overrides: Partial<IExtensionListEntry> = {}): IExtensionListEntr
         latestVersion: "1.0.0",
         installedVersion: null,
         availability: "available",
+        pinned: false,
         needsReload: false,
         ...overrides,
     };
@@ -23,35 +24,53 @@ function entry(overrides: Partial<IExtensionListEntry> = {}): IExtensionListEntr
 
 const IDLE = { busy: false, needsReload: false };
 
+const ANOTHER_VERSION = { kind: "installAnotherVersion", label: "Install Specific Version...", enabled: true };
+
 describe("describeExtensionButtons", () => {
-    it("not installed — a single Install button", () => {
-        expect(describeExtensionButtons(entry(), IDLE)).toEqual([{ kind: "install", label: "Install", enabled: true }]);
+    it("not installed — Install, then the version picker (US-1.5)", () => {
+        expect(describeExtensionButtons(entry(), IDLE)).toEqual([
+            { kind: "install", label: "Install", enabled: true },
+            ANOTHER_VERSION,
+        ]);
     });
 
-    it("latest version installed — uninstall only", () => {
+    it("latest version installed — the version picker and uninstall", () => {
         const entryValue = entry({ installedVersion: "1.0.0", availability: "installed" });
         expect(describeExtensionButtons(entryValue, IDLE)).toEqual([
+            ANOTHER_VERSION,
             { kind: "uninstall", label: "Uninstall", enabled: true },
         ]);
     });
 
-    it("a newer version exists — the update button names it and comes before uninstall", () => {
+    it("a newer version exists — the update button names it and comes first", () => {
         const entryValue = entry({ installedVersion: "0.9.0", availability: "outdated" });
         expect(describeExtensionButtons(entryValue, IDLE)).toEqual([
             { kind: "update", label: "Update to 1.0.0", enabled: true },
+            ANOTHER_VERSION,
             { kind: "uninstall", label: "Uninstall", enabled: true },
         ]);
     });
 
-    it("an incompatible one cannot be installed: the button is visible but disabled", () => {
-        expect(describeExtensionButtons(entry({ availability: "incompatible" }), IDLE)).toEqual([
-            { kind: "install", label: "Install", enabled: false },
+    it("US-1.7: a pinned outdated version still offers the update (decision D1, like upstream)", () => {
+        const entryValue = entry({ installedVersion: "0.9.0", availability: "outdated", pinned: true });
+        expect(describeExtensionButtons(entryValue, IDLE).map((b) => b.label)).toEqual([
+            "Update to 1.0.0",
+            "Install Specific Version...",
+            "Uninstall",
         ]);
     });
 
-    it("an installed incompatible one can only be uninstalled — nothing to update to", () => {
+    it("an incompatible one cannot be installed as latest, but an older compatible version may exist", () => {
+        expect(describeExtensionButtons(entry({ availability: "incompatible" }), IDLE)).toEqual([
+            { kind: "install", label: "Install", enabled: false },
+            ANOTHER_VERSION,
+        ]);
+    });
+
+    it("an installed incompatible one — nothing to update to", () => {
         const entryValue = entry({ installedVersion: "0.9.0", availability: "incompatible" });
         expect(describeExtensionButtons(entryValue, IDLE)).toEqual([
+            ANOTHER_VERSION,
             { kind: "uninstall", label: "Uninstall", enabled: true },
         ]);
     });
@@ -61,7 +80,7 @@ describe("describeExtensionButtons", () => {
         expect(describeExtensionButtons(entryValue, IDLE)).toEqual([]);
     });
 
-    it("sideloaded — uninstall only", () => {
+    it("US-1.14: sideloaded — uninstall only, no version picker", () => {
         const entryValue = entry({ latestVersion: null, installedVersion: "0.1.0", availability: "installed" });
         expect(describeExtensionButtons(entryValue, IDLE)).toEqual([
             { kind: "uninstall", label: "Uninstall", enabled: true },
@@ -72,15 +91,16 @@ describe("describeExtensionButtons", () => {
         const entryValue = entry({ installedVersion: "1.0.0", availability: "installed" });
         expect(describeExtensionButtons(entryValue, { busy: false, needsReload: true })).toEqual([
             { kind: "reload", label: "Reload Window", enabled: true },
+            ANOTHER_VERSION,
             { kind: "uninstall", label: "Uninstall", enabled: true },
         ]);
     });
 
-    it("during an operation all buttons are disabled, including reload", () => {
+    it("during an operation all buttons are disabled, including reload and the version picker", () => {
         const entryValue = entry({ installedVersion: "0.9.0", availability: "outdated" });
         const buttons = describeExtensionButtons(entryValue, { busy: true, needsReload: true });
 
-        expect(buttons.map((b) => b.kind)).toEqual(["reload", "update", "uninstall"]);
+        expect(buttons.map((b) => b.kind)).toEqual(["reload", "update", "installAnotherVersion", "uninstall"]);
         expect(buttons.every((b) => !b.enabled)).toBe(true);
     });
 });

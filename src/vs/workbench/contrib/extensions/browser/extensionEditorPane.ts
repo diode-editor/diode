@@ -112,8 +112,27 @@ export class ExtensionEditorPane extends Disposable implements IEditorPane {
             void this.runOperation(() => this.actions.uninstall(this.entry.id));
             return;
         }
+        if (kind === "installAnotherVersion") {
+            void this.installAnotherVersion();
+            return;
+        }
         // install and update are the same operation: installing removes previous versions.
         void this.runOperation(() => this.actions.install(this.entry.id));
+    }
+
+    /** The buttons stay enabled while the picker is open: nothing runs until a version is picked. */
+    private async installAnotherVersion(): Promise<void> {
+        const id = this.entry.id;
+        let version: string | undefined;
+        try {
+            version = await this.actions.pickVersion(id);
+        } catch (error) {
+            this.operationError = error instanceof Error ? error.message : String(error);
+            this.render();
+            return;
+        }
+        if (version === undefined) return;
+        await this.runOperation(() => this.actions.install(id, { version }));
     }
 
     private async runOperation(run: () => Promise<IExtensionOperationResult>): Promise<void> {

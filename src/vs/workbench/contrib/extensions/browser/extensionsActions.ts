@@ -6,6 +6,7 @@ import { viewMenuVisible } from "../../../browser/actions/menuContexts.ts";
 import { SidebarServiceDIToken } from "../../../browser/parts/sidebar/sidebarService.ts";
 
 import { EXTENSIONS_VIEW_ID, EXTENSIONS_VIEWLET_ID, ExtensionsComponentDIToken } from "./extensionsComponent.ts";
+import { installSpecificVersionOfExtensionAction } from "./extensionVersionActions.ts";
 
 /** nf-cod-refresh */
 const REFRESH_ICON = "\ueb37";
@@ -47,4 +48,8 @@ export const refreshExtensionsAction: CommandAction = {
     },
 };
 
-export const EXTENSIONS_ACTIONS: readonly CommandAction[] = [showExtensionsAction, refreshExtensionsAction];
+export const EXTENSIONS_ACTIONS: readonly CommandAction[] = [
+    showExtensionsAction,
+    refreshExtensionsAction,
+    installSpecificVersionOfExtensionAction,
+];

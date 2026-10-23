@@ -40,6 +40,7 @@ const ENTRY: IExtensionListEntry = {
     latestVersion: "1.2.0",
     installedVersion: null,
     availability: "available",
+    pinned: false,
     needsReload: false,
 };
 
@@ -65,6 +66,7 @@ function fakeService(): IExtensionsWorkbenchService {
         install: () => Promise.resolve({ ok: true as const, version: "1.0.0" }),
         uninstall: () => Promise.resolve({ ok: true as const }),
         getMeta: () => Promise.resolve(META),
+        getCompatibleVersions: () => Promise.resolve([]),
         onDidChange: () => ({ dispose: () => {} }),
     };
 }

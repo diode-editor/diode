@@ -1,21 +1,28 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import type { IRegistryVersion } from "../../../../platform/extensionManagement/common/registryFormat.ts";
 import { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
 import { ProgressService } from "../../../../platform/progress/common/progressService.ts";
 import { NULL_STATE_SERVICE } from "../../../../platform/state/common/nullStateService.ts";
+import type { QuickPickOptions } from "../../../browser/parts/quickinput/quickInputService.ts";
+import type { QuickPickItem } from "../../../common/quickPickItem.ts";
+import type { INotificationMessage } from "../../../services/notification/browser/notificationService.ts";
 import { StatusBarService } from "../../../services/statusbar/common/statusBarService.ts";
 import type {
     IExtensionInstallResult,
+    IExtensionListEntry,
     IExtensionOperationResult,
     IExtensionsWorkbenchService,
 } from "../common/extensionsWorkbench.ts";
 
-import { ExtensionPageActions } from "./extensionPageActions.ts";
+import { ExtensionPageActions, type IExtensionPageActionsHost } from "./extensionPageActions.ts";
 
 function fakeService(
     results: {
         install?: IExtensionInstallResult;
         uninstall?: IExtensionOperationResult;
+        versions?: readonly IRegistryVersion[] | Error;
+        entries?: IExtensionListEntry[];
     } = {},
 ): IExtensionsWorkbenchService & { installed: string[]; uninstalled: string[] } {
     const installed: string[] = [];
@@ -25,12 +32,16 @@ function fakeService(
         uninstalled,
         ensureLoaded: () => Promise.resolve(),
         refresh: () => Promise.resolve(),
-        getEntries: () => [],
+        getEntries: () => results.entries ?? [],
         getCatalogError: () => null,
         getMeta: () => Promise.resolve(undefined),
-        install: (id) => {
-            installed.push(id);
-            return Promise.resolve(results.install ?? { ok: true, version: "1.2.0" });
+        getCompatibleVersions: () =>
+            results.versions instanceof Error
+                ? Promise.reject(results.versions)
+                : Promise.resolve(results.versions ?? []),
+        install: (id, options) => {
+            installed.push(options?.version === undefined ? id : `${id}@${options.version}`);
+            return Promise.resolve(results.install ?? { ok: true, version: options?.version ?? "1.2.0" });
         },
         uninstall: (id) => {
             uninstalled.push(id);
@@ -40,16 +51,62 @@ function fakeService(
     };
 }
 
-function createActions(service: IExtensionsWorkbenchService): {
+interface IHarness {
     actions: ExtensionPageActions;
     statusBar: StatusBarService;
     commands: CommandRegistry;
     progress: ProgressService;
-} {
+    picks: QuickPickOptions[];
+    messages: INotificationMessage[];
+}
+
+/** `answer` picks the row with that label; `undefined` is Escape. */
+function createActions(service: IExtensionsWorkbenchService, answer?: string): IHarness {
     const statusBar = new StatusBarService(NULL_STATE_SERVICE);
     const commands = new CommandRegistry();
     const progress = new ProgressService();
-    return { actions: new ExtensionPageActions(service, progress, statusBar, commands), statusBar, commands, progress };
+    const picks: QuickPickOptions[] = [];
+    const messages: INotificationMessage[] = [];
+    const host: IExtensionPageActionsHost = {
+        quickPick: (options) => {
+            picks.push(options);
+            return Promise.resolve(options.items.find((item: QuickPickItem) => item.label === answer));
+        },
+        show: (message) => {
+            messages.push(message);
+            return { id: messages.length, answered: Promise.resolve(undefined) };
+        },
+    };
+    const actions = new ExtensionPageActions(service, progress, statusBar, commands, host, host);
+    actions.now = () => Date.parse("2026-10-23T12:00:00Z");
+    return { actions, statusBar, commands, progress, picks, messages };
+}
+
+function registryVersion(version: string, publishedAt?: string): IRegistryVersion {
+    return {
+        version,
+        engines: { vscode: "*" },
+        artifact: { type: "path", path: `${version}.vsix` },
+        sha256: "a".repeat(64),
+        publishedAt,
+    };
+}
+
+function installedEntry(installedVersion: string | null): IExtensionListEntry {
+    return {
+        id: "acme.demo",
+        publisher: "acme",
+        name: "demo",
+        displayName: "Acme Demo",
+        description: "",
+        kind: "native",
+        support: undefined,
+        latestVersion: "1.1.0",
+        installedVersion,
+        availability: "installed",
+        pinned: false,
+        needsReload: false,
+    };
 }
 
 function statusTexts(statusBar: StatusBarService): string[] {
@@ -155,6 +212,66 @@ describe("ExtensionPageActions", () => {
         await running;
 
         expect(service.uninstalled).toEqual(["acme.tools"]);
+    });
+
+    describe("pickVersion (ExtensionUpdates stage 1)", () => {
+        const VERSIONS = [registryVersion("1.1.0", "2026-10-21T12:00:00Z"), registryVersion("1.0.0")];
+
+        it("US-1.1: a quick pick of the compatible versions, the installed one marked current", async () => {
+            const service = fakeService({ versions: VERSIONS, entries: [installedEntry("1.1.0")] });
+            const { actions, picks } = createActions(service, "1.0.0");
+
+            await expect(actions.pickVersion("acme.demo")).resolves.toBe("1.0.0");
+
+            expect(picks).toHaveLength(1);
+            expect(picks[0]?.placeholder).toBe("Select Version to Install");
+            expect(picks[0]?.items.map((i) => [i.label, i.description])).toEqual([
+                ["1.1.0", "2 days ago (current)"],
+                ["1.0.0", undefined],
+            ]);
+        });
+
+        it("US-1.3: the current version or Escape picks nothing", async () => {
+            const service = fakeService({ versions: VERSIONS, entries: [installedEntry("1.1.0")] });
+
+            await expect(createActions(service, "1.1.0").actions.pickVersion("acme.demo")).resolves.toBeUndefined();
+            await expect(createActions(service, undefined).actions.pickVersion("acme.demo")).resolves.toBeUndefined();
+        });
+
+        it("US-1.5: not installed — every version can be picked, none is current", async () => {
+            const service = fakeService({ versions: VERSIONS, entries: [installedEntry(null)] });
+            const { actions, picks } = createActions(service, "1.1.0");
+
+            await expect(actions.pickVersion("acme.demo")).resolves.toBe("1.1.0");
+            expect(picks[0]?.items.map((i) => i.description)).toEqual(["2 days ago", undefined]);
+        });
+
+        it("US-1.4: no compatible versions — a modal info like upstream, and no picker", async () => {
+            const { actions, picks, messages } = createActions(fakeService({ versions: [] }), "1.0.0");
+
+            await expect(actions.pickVersion("acme.demo")).resolves.toBeUndefined();
+
+            expect(picks).toEqual([]);
+            expect(messages).toEqual([
+                { severity: "info", message: "This extension has no other versions.", modal: true, items: [] },
+            ]);
+        });
+
+        it("a registry failure reaches the caller", async () => {
+            const { actions } = createActions(fakeService({ versions: new Error("offline") }));
+
+            await expect(actions.pickVersion("acme.demo")).rejects.toThrow("offline");
+        });
+
+        it("US-1.2: install with a version passes it to the service, under the same progress and notice", async () => {
+            const service = fakeService();
+            const { actions, statusBar } = createActions(service);
+
+            await actions.install("acme.demo", { version: "1.0.0" });
+
+            expect(service.installed).toEqual(["acme.demo@1.0.0"]);
+            expect(statusTexts(statusBar)).toEqual(["Installed acme.demo@1.0.0 — reload window to activate"]);
+        });
     });
 
     it("reload goes through the command — the same path as the command palette and menus", () => {

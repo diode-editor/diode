@@ -23,6 +23,7 @@ function entry(overrides: Partial<IExtensionListEntry> = {}): IExtensionListEntr
         latestVersion: "1.0.0",
         installedVersion: null,
         availability: "available",
+        pinned: false,
         needsReload: false,
         ...overrides,
     };
@@ -40,6 +41,7 @@ function fakeService(initial: IExtensionListEntry[]): {
         getEntries: () => entries,
         getCatalogError: () => null,
         getMeta: () => Promise.resolve(undefined),
+        getCompatibleVersions: () => Promise.resolve([]),
         install: () => Promise.resolve({ ok: true, version: "1.0.0" }),
         uninstall: () => Promise.resolve({ ok: true }),
         onDidChange: (listener) => {
@@ -70,14 +72,23 @@ const META: IRegistryExtensionMeta = {
 };
 
 function fakeActions(
-    results: { install?: IExtensionInstallResult; uninstall?: IExtensionOperationResult } = {},
+    results: {
+        install?: IExtensionInstallResult;
+        uninstall?: IExtensionOperationResult;
+        /** `Error` rejects. */
+        pick?: string | undefined | Error;
+    } = {},
 ): IExtensionPageActions & { calls: string[] } {
     const calls: string[] = [];
     return {
         calls,
-        install: (id) => {
-            calls.push(`install:${id}`);
-            return Promise.resolve(results.install ?? { ok: true, version: "1.0.0" });
+        install: (id, options) => {
+            calls.push(options?.version === undefined ? `install:${id}` : `install:${id}@${options.version}`);
+            return Promise.resolve(results.install ?? { ok: true, version: options?.version ?? "1.0.0" });
+        },
+        pickVersion: (id) => {
+            calls.push(`pick:${id}`);
+            return results.pick instanceof Error ? Promise.reject(results.pick) : Promise.resolve(results.pick);
         },
         uninstall: (id) => {
             calls.push(`uninstall:${id}`);
@@ -282,7 +293,7 @@ describe("ExtensionEditorPane", () => {
         expect(actions.calls).toEqual(["install:acme.tools"]);
         // The install button is replaced by the reload prompt and focus is on it:
         // that is the next step, no need to search the command palette.
-        expect(buttonLabels(pane)).toEqual(["Reload Window", "Install"]);
+        expect(buttonLabels(pane)).toEqual(["Reload Window", "Install", "Install Specific Version..."]);
         expect(pane.view.querySelector("#extensionPageButton-reload")?.isFocused).toBe(true);
     });
 
@@ -321,8 +332,8 @@ describe("ExtensionEditorPane", () => {
 
         expect(headerLines(pane)).toContain("sha256 mismatch");
         // Nothing changed, so no reload is needed; retry is available right away.
-        expect(buttonLabels(pane)).toEqual(["Install"]);
-        expect(enabledFlags(pane)).toEqual([true]);
+        expect(buttonLabels(pane)).toEqual(["Install", "Install Specific Version..."]);
+        expect(enabledFlags(pane)).toEqual([true, true]);
     });
 
     it("buttons are disabled during an operation — a second install cannot start", async () => {
@@ -341,11 +352,11 @@ describe("ExtensionEditorPane", () => {
         mount(pane);
 
         const running = press(pane, "install");
-        expect(enabledFlags(pane)).toEqual([false]);
+        expect(enabledFlags(pane)).toEqual([false, false]);
 
         finish();
         await running;
-        expect(enabledFlags(pane)).toEqual([true, true]);
+        expect(enabledFlags(pane)).toEqual([true, true, true]);
     });
 
     it("a pending reload also comes from the card — installed from elsewhere", () => {
@@ -355,7 +366,7 @@ describe("ExtensionEditorPane", () => {
 
         update([entry({ installedVersion: "1.0.0", availability: "installed", needsReload: true })]);
 
-        expect(buttonLabels(pane)).toEqual(["Reload Window", "Uninstall"]);
+        expect(buttonLabels(pane)).toEqual(["Reload Window", "Install Specific Version...", "Uninstall"]);
     });
 
     it("an unrelated card update does not invent a pending reload", () => {
@@ -366,7 +377,74 @@ describe("ExtensionEditorPane", () => {
         update([entry({ installedVersion: "1.0.0", availability: "installed" })]);
 
         // Installed elsewhere and not in this session, so no reload is needed.
-        expect(buttonLabels(pane)).toEqual(["Uninstall"]);
+        expect(buttonLabels(pane)).toEqual(["Install Specific Version...", "Uninstall"]);
+    });
+
+    describe("Install Specific Version... (ExtensionUpdates stage 1)", () => {
+        it("US-1.2: the picked version is installed and the page asks to reload", async () => {
+            const installed = entry({ installedVersion: "1.1.0", latestVersion: "1.1.0", availability: "installed" });
+            const { service } = fakeService([installed]);
+            const actions = fakeActions({ pick: "1.0.0" });
+            const pane = new ExtensionEditorPane(service, actions, installed, META, null);
+            mount(pane);
+
+            await press(pane, "installAnotherVersion");
+
+            expect(actions.calls).toEqual(["pick:acme.tools", "install:acme.tools@1.0.0"]);
+            expect(buttonLabels(pane)[0]).toBe("Reload Window");
+            expect(pane.view.querySelector("#extensionPageButton-reload")?.isFocused).toBe(true);
+        });
+
+        it("US-1.3: nothing picked — no install, the page stays as it was", async () => {
+            const { service } = fakeService([entry()]);
+            const actions = fakeActions({ pick: undefined });
+            const pane = new ExtensionEditorPane(service, actions, entry(), META, null);
+            mount(pane);
+
+            await press(pane, "installAnotherVersion");
+
+            expect(actions.calls).toEqual(["pick:acme.tools"]);
+            expect(buttonLabels(pane)).toEqual(["Install", "Install Specific Version..."]);
+            expect(enabledFlags(pane)).toEqual([true, true]);
+        });
+
+        it("the buttons are not disabled while the picker is open — only during the install itself", () => {
+            const { service } = fakeService([entry()]);
+            const actions: IExtensionPageActions & { calls: string[] } = {
+                ...fakeActions(),
+                pickVersion: () => new Promise(() => undefined),
+            };
+            const pane = new ExtensionEditorPane(service, actions, entry(), META, null);
+            mount(pane);
+
+            pressSync(pane, "installAnotherVersion");
+
+            expect(enabledFlags(pane)).toEqual([true, true]);
+        });
+
+        it("US-1.13: a failure to read the versions stays on the page as text", async () => {
+            const { service } = fakeService([entry()]);
+            const actions = fakeActions({ pick: new Error("registry offline") });
+            const pane = new ExtensionEditorPane(service, actions, entry(), META, null);
+            mount(pane);
+
+            await press(pane, "installAnotherVersion");
+
+            expect(headerLines(pane)).toContain("registry offline");
+            expect(actions.calls).toEqual(["pick:acme.tools"]);
+        });
+
+        it("US-1.13: a failed install of the picked version stays on the page, nothing to reload", async () => {
+            const { service } = fakeService([entry()]);
+            const actions = fakeActions({ pick: "1.0.0", install: { ok: false, error: "sha256 mismatch" } });
+            const pane = new ExtensionEditorPane(service, actions, entry(), META, null);
+            mount(pane);
+
+            await press(pane, "installAnotherVersion");
+
+            expect(headerLines(pane)).toContain("sha256 mismatch");
+            expect(buttonLabels(pane)).toEqual(["Install", "Install Specific Version..."]);
+        });
     });
 
     it("the Reload Window button reloads the window", () => {

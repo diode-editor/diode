@@ -89,6 +89,11 @@ export interface ContextKeyTypes {
     hasSearchResult: boolean;
     viewHasSomeCollapsibleResult: boolean;
     extensionsViewletVisible: boolean;
+    /**
+     * Not a VS Code key (upstream computes the action's `enabled`): `Install Specific Version of Extension...` has
+     * something to list. Before the catalog is read, any installed extension counts.
+     */
+    extensionsCanInstallSpecificVersion: boolean;
     referencesViewletVisible: boolean;
     hasReferenceResult: boolean;
     referencesViewHasSomeCollapsibleResult: boolean;
