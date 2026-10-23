@@ -8,6 +8,7 @@ import { packRgb } from "@tuidom/core/common/colorUtils";
 
 import { AnsiScreen } from "../helpers/AnsiScreen.ts";
 import { prepareAppEnv } from "../helpers/appSession.ts";
+import { findNode } from "../helpers/inspectorClient.ts";
 import { DiodeSession } from "../helpers/runDiode.ts";
 
 import type { OpenFixture } from "./openFixtures.ts";
@@ -99,6 +100,11 @@ export interface OpenRunResult {
     readonly outcome: "ok" | "timeout" | "crash";
     /** ms from spawn to the first frame with the file's text. */
     readonly contentMs: number | null;
+    /**
+     * ms from spawn until the background work after open has settled (`quiet` option): the tokenizer has
+     * reached the end of the file and the width sweep has measured every line. Null — not requested.
+     */
+    readonly quietMs: number | null;
     /** ms from spawn to a colored token; null for plaintext. */
     readonly highlightMs: number | null;
     readonly exitCode: number | null;
@@ -123,8 +129,19 @@ export interface OpenMeasureOptions {
     readonly fixture: OpenFixture;
     readonly timeoutMs: number;
     readonly warmup?: boolean;
-    /** Whether to run the workload after opening (edits, Ctrl+End, search). Defaults to true. */
-    readonly workload?: boolean;
+    /**
+     * The workload after opening. `true` (default) — the full one (edits, save, Ctrl+End, search);
+     * `{ editCycles }` — only the edit keys (insert, Enter, undo, undo), repeated that many times
+     * with a pause between the cycles — the perf gate's steady-state keystroke; `false` — none.
+     */
+    readonly workload?: boolean | { readonly editCycles: number };
+    /**
+     * Before the workload, wait until the background work after open has settled (tokenizer at the end
+     * of the file, width sweep done) — read from the editor's inspector state, so the run starts the
+     * TUIDom inspector (`--inspect-tui`; it listens before the file opens, a few ms on the startup
+     * path). Without it the first keys after Go to Line measure the tokenizer's backlog, not the edit.
+     */
+    readonly quiet?: boolean;
     /** How long to wait for the trace (the extension host starts after the frame). */
     readonly traceWaitMs?: number;
     /** When set, the trace also records instantiated services (`DIODE_STARTUP_TRACE_INSTANTIATIONS=1`). */
@@ -220,17 +237,18 @@ async function settle(ctx: StepContext, predicate: (screen: AnsiScreen) => boole
     throw new Error(`workload: screen did not reach the expected state within ${String(ctx.timeoutMs)} ms`);
 }
 
-async function runWorkload(ctx: StepContext, fixture: OpenFixture): Promise<WorkloadStepResult[]> {
-    const results: WorkloadStepResult[] = [];
+/** Setup (not measured): jump to the middle of the file via Go to Line; returns the screen prefix of that line. */
+async function gotoMiddle(ctx: StepContext, fixture: OpenFixture): Promise<string> {
     const middle = Math.floor(fixture.lines / 2);
-
-    // Setup (not measured): jump to the middle of the file via Go to Line.
     ctx.session.write(KEY_CTRL_G);
     await settle(ctx, () => true);
     ctx.session.write(`${String(middle + 1)}${KEY_ENTER}`);
     await settle(ctx, (s) => s.findText(linePrefix(fixture, middle)) !== null);
+    return linePrefix(fixture, middle);
+}
 
-    const middleLine = linePrefix(fixture, middle);
+/** Insert a char at the line start, Enter, undo the Enter, undo the char: the document text is back as it was. */
+async function measureEditCycle(ctx: StepContext, middleLine: string): Promise<WorkloadStepResult[]> {
     const insertVisible = (s: AnsiScreen) => s.findText(INSERT_CHAR) !== null;
     // Enter after `@` at the line start: the line itself moves one row down, `@`
     // stays on its row. Compare row positions rather than "the rest of the row is
@@ -245,11 +263,17 @@ async function runWorkload(ctx: StepContext, fixture: OpenFixture): Promise<Work
         const line = s.findText(middleLine);
         return at !== null && line !== null && line.y === at.y && line.x === at.x + 1;
     };
+    return [
+        await measureStep(ctx, "insert", INSERT_CHAR, insertVisible),
+        await measureStep(ctx, "enter", KEY_ENTER, lineSplitBelowChar),
+        await measureStep(ctx, "undoEnter", KEY_CTRL_Z, lineJoinedAfterChar),
+        await measureStep(ctx, "undoInsert", KEY_CTRL_Z, (s) => !insertVisible(s)),
+    ];
+}
 
-    results.push(await measureStep(ctx, "insert", INSERT_CHAR, insertVisible));
-    results.push(await measureStep(ctx, "enter", KEY_ENTER, lineSplitBelowChar));
-    results.push(await measureStep(ctx, "undoEnter", KEY_CTRL_Z, lineJoinedAfterChar));
-    results.push(await measureStep(ctx, "undoInsert", KEY_CTRL_Z, (s) => !insertVisible(s)));
+async function runWorkload(ctx: StepContext, fixture: OpenFixture): Promise<WorkloadStepResult[]> {
+    const middleLine = await gotoMiddle(ctx, fixture);
+    const results: WorkloadStepResult[] = await measureEditCycle(ctx, middleLine);
     // After two undos the text matches the disk, but the document is dirty (the
     // version moved forward): saving writes the same content — the fixture stays intact.
     // The visible result is the tab marker changing from `●` to `×`.
@@ -275,6 +299,47 @@ async function runWorkload(ctx: StepContext, fixture: OpenFixture): Promise<Work
     return results;
 }
 
+/**
+ * The pause before each edit cycle: no output for this long. Covers the work an edit schedules after
+ * itself (folding recompute — `FeatureDebounce` 200–300 ms, occurrence highlight), so a cycle measures
+ * the keystroke itself, not the tail of the previous one.
+ */
+const EDIT_CYCLE_PAUSE_MS = 500;
+
+/** The gate's workload: the edit keys only, `cycles` times, each cycle after a pause. */
+async function runEditCycles(ctx: StepContext, fixture: OpenFixture, cycles: number): Promise<WorkloadStepResult[]> {
+    const middleLine = await gotoMiddle(ctx, fixture);
+    const results: WorkloadStepResult[] = [];
+    for (let i = 0; i < cycles; i++) {
+        await settle(ctx, () => true, EDIT_CYCLE_PAUSE_MS);
+        results.push(...(await measureEditCycle(ctx, middleLine)));
+    }
+    return results;
+}
+
+/** The editor's background work, as `EditorElement.inspectState()` reports it; null — no editor in the tree yet. */
+async function editorBackgroundState(
+    session: DiodeSession,
+): Promise<{ tokenizationComplete: boolean; contentWidthFinal: boolean } | null> {
+    const { root } = await session.getDocument();
+    const state = findNode(root, (n) => n.type === "EditorElement")?.state;
+    if (state === undefined) return null;
+    return {
+        tokenizationComplete: state.tokenizationComplete === true,
+        contentWidthFinal: state.contentWidthFinal === true,
+    };
+}
+
+/** Polls the inspector until the background work has settled; ms since `t0`, or null on timeout. */
+async function waitForQuiet(session: DiodeSession, t0: number, deadline: number): Promise<number | null> {
+    while (performance.now() < deadline) {
+        if (session.isExited) return null;
+        const state = await editorBackgroundState(session);
+        if (state !== null && state.tokenizationComplete && state.contentWidthFinal) return performance.now() - t0;
+        await sleep(50);
+    }
+    return null;
+}
 
 export async function measureOpenOnce(options: OpenMeasureOptions): Promise<OpenRunResult> {
     const { binary, fixture, timeoutMs } = options;
@@ -299,6 +364,7 @@ export async function measureOpenOnce(options: OpenMeasureOptions): Promise<Open
         binary,
         cols: COLS,
         rows: ROWS,
+        inspect: options.quiet === true,
         onData: (data) => chunks.push({ t: performance.now() - t0, data }),
     });
     const rss = startRssSampler(session.pid);
@@ -311,6 +377,7 @@ export async function measureOpenOnce(options: OpenMeasureOptions): Promise<Open
     // already changed screen.
     let measuredChunks = 0;
     let ladder: Ladder | null = null;
+    let quietMs: number | null = null;
     let workload: WorkloadStepResult[] = [];
     let workloadOutcome: OpenRunResult["workloadOutcome"] = "skipped";
     let workloadError: string | null = null;
@@ -340,11 +407,24 @@ export async function measureOpenOnce(options: OpenMeasureOptions): Promise<Open
             const trace = traceText === null ? null : parseTrace(traceText);
             if (traceText !== null && options.keepTraceAs !== undefined) writeFileSync(options.keepTraceAs, traceText);
             ladder = trace === null ? null : ladderFromTrace(trace, spawnEpoch);
-            if (options.workload !== false) {
+            if (options.quiet === true) {
+                // Bounded by the run's timeout, like the workload steps: a tokenizer that never finishes
+                // is a finding, not a hang.
+                quietMs = await waitForQuiet(session, t0, t0 + timeoutMs);
+                if (quietMs === null) {
+                    workloadOutcome = "failed";
+                    workloadError = `background work did not settle within ${String(timeoutMs)} ms`;
+                }
+            }
+            if (options.workload !== false && workloadOutcome !== "failed") {
                 // Process death on an edit is a workload result, not a bench failure:
                 // opening is already measured, the remaining sizes must still run.
                 try {
-                    workload = await runWorkload({ session, chunks, t0, timeoutMs }, fixture);
+                    const ctx = { session, chunks, t0, timeoutMs };
+                    workload =
+                        typeof options.workload === "object"
+                            ? await runEditCycles(ctx, fixture, options.workload.editCycles)
+                            : await runWorkload(ctx, fixture);
                     workloadOutcome = workload.every((w) => w.outcome === "ok") ? "ok" : "failed";
                 } catch (error: unknown) {
                     workloadOutcome = session.isExited ? "crash" : "failed";
@@ -364,6 +444,7 @@ export async function measureOpenOnce(options: OpenMeasureOptions): Promise<Open
         return {
             outcome,
             contentMs: null,
+            quietMs: null,
             highlightMs: null,
             exitCode,
             signal,
@@ -379,6 +460,7 @@ export async function measureOpenOnce(options: OpenMeasureOptions): Promise<Open
     return {
         outcome: "ok",
         contentMs: firstSatisfiedAt(chunks, (s) => contentVisible(s, fixture.marker), range),
+        quietMs,
         highlightMs: fixture.kind === "ts" ? firstSatisfiedAt(chunks, highlightVisible, range) : null,
         exitCode,
         signal,

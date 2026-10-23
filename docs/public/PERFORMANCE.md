@@ -60,6 +60,8 @@ taken in a single run; until then this page has no numbers for other editors on 
 
 A number we boast about must be guarded by a test. The perf gate `e2e/bench/startupBudget.bench.ts`
 (`npm run test:perf`) keeps the median of "our ms" on a small file within budget, currently 200 ms.
-The budget is a ratchet: it goes down as optimizations land and is relaxed only with a measurement.
+A second gate, `e2e/bench/xlargeBudget.bench.ts`, does the same for a 13 MB file: "our ms" to text
+within 350 ms, and Enter/undo once the background tokenization has settled within 20/16 ms.
+The budgets are a ratchet: they go down as optimizations land and are relaxed only with a measurement.
 
 Local run from a checkout: `npm run bench:open -- --sizes=small,medium,xlarge --runs=5 --label="conditions"`.
