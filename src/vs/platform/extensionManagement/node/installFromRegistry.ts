@@ -135,7 +135,7 @@ async function prepare(
         // platform: a foreign native binary is useless on this host no matter what.
         // On equal versions the platform record beats universal, as in `resolveCompatibleVersion`.
         const matching = meta.versions.filter((v) => v.version === version && matchesHostPlatform(v, host));
-        picked = matching.find((v) => v.targetPlatform !== undefined) ?? matching[0];
+        picked = matching.find((v) => v.targetPlatform !== undefined) ?? matching.at(0);
         if (picked === undefined) {
             throw new Error(
                 `Extension "${extensionId}" has no version ${version} for this host (${describeHost(host)}) in registry; available: ${meta.versions.map(describeVersion).join(", ")}`,
