@@ -704,6 +704,19 @@ describe("ExtensionsWorkbenchService", () => {
                 expect(card.needsReload).toBe(true);
             });
 
+            it("a dependency installed with a given version is not pinned (QA report #1)", async () => {
+                const { service } = await withInstallable("1.0.0", { dependsOn: "acme.base" });
+
+                await service.install("acme.tools", { version: "1.0.0" });
+
+                expect(
+                    readProfileExtensions(ws!.path(PROFILE_FILE))?.map((e) => [e.identifier.id, e.metadata?.pinned]),
+                ).toEqual([
+                    ["acme.tools", true],
+                    ["acme.base", undefined],
+                ]);
+            });
+
             it("US-1.7: a plain update of a pinned version keeps the pin", async () => {
                 const service = await withVersions();
                 await service.install("acme.tools", { version: "1.0.0" });

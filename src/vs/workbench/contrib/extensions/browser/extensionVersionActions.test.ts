@@ -70,6 +70,7 @@ function harness(
         pickAnswers?: (string | undefined)[];
         version?: string | undefined | Error;
         install?: IExtensionInstallResult;
+        catalogError?: string;
     } = {},
 ): IHarness {
     let entries = initial;
@@ -85,7 +86,7 @@ function harness(
         },
         refresh: () => Promise.resolve(),
         getEntries: () => entries,
-        getCatalogError: () => null,
+        getCatalogError: () => options.catalogError ?? null,
         getMeta: () => Promise.resolve(undefined),
         getCompatibleVersions: () => Promise.resolve([]),
         install: () => Promise.resolve({ ok: true, version: "1.0.0" }),
@@ -211,6 +212,26 @@ describe("Install Specific Version of Extension... (US-1.6)", () => {
         await installSpecificVersionOfExtensionAction.run(h.container);
 
         expect(h.calls).toEqual(["ensureLoaded"]);
+    });
+
+    it("US-1.13: the registry is down and nothing is known to be from it — the registry error, like the Install button", async () => {
+        const h = harness([entry("acme.demo", { latestVersion: null })], { catalogError: "ENOENT: no such registry" });
+
+        await installSpecificVersionOfExtensionAction.run(h.container);
+
+        expect(h.picks).toEqual([]);
+        expect(h.messages).toEqual([
+            { severity: "error", message: "ENOENT: no such registry", modal: false, items: [] },
+        ]);
+    });
+
+    it("a stale catalog after a failed refresh is still listed", async () => {
+        const h = harness([entry("acme.demo")], { catalogError: "offline", pickAnswers: [undefined] });
+
+        await installSpecificVersionOfExtensionAction.run(h.container);
+
+        expect(h.picks).toHaveLength(1);
+        expect(h.messages).toEqual([]);
     });
 
     it("no installed registry extension after reading the catalog — an info message instead of an empty list", async () => {

@@ -66,7 +66,8 @@
   расширениям из реестра, затем тот же выбор версии, затем открывается страница расширения.
   Доступность — typed when-контекст `extensionsCanInstallSpecificVersion` (`ExtensionVersionContribution`):
   до чтения каталога (на старте в сеть не ходим) считается любое установленное, после — только
-  известные реестру; не нашлось — `There are no installed extensions from the marketplace.` Команда
+  известные реестру; не нашлось — `There are no installed extensions from the marketplace.`, реестр
+  недоступен — его ошибка. Команда
   кнопки `workbench.extensions.action.install.anotherVersion` (аргумент — id) без заголовка, в
   палитре её нет.
 - **Установка и удаление** — `ExtensionPageActions` (`browser/extensionPageActions.ts`):

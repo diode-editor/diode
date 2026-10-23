@@ -106,8 +106,8 @@ describe("CLI id@version edge cases (ExtensionUpdates stage 1 QA)", () => {
         removeTempDir(root);
     });
 
-    // QA report #1: the dependencies are passed to `ProfileExtensions.add` as roots, so they get the root's pin.
-    it.fails(
+    // Regression test, QA report #1 (fixed in this PR): the dependencies are passed to `ProfileExtensions.add` as roots, so they get the root's pin.
+    it(
         "a dependency installed together with id@version is not pinned (upstream: dependency tasks pinned: false)",
         async () => {
             const userData = freshUserData();
@@ -123,8 +123,8 @@ describe("CLI id@version edge cases (ExtensionUpdates stage 1 QA)", () => {
         },
     );
 
-    // QA report #1: the same for a `.vsix` whose dependency comes from the registry.
-    it.fails("a dependency pulled by a .vsix is not pinned", async () => {
+    // Regression test, QA report #1 (fixed in this PR): the same for a `.vsix` whose dependency comes from the registry.
+    it("a dependency pulled by a .vsix is not pinned", async () => {
         const userData = freshUserData();
 
         const install = await runCli(
@@ -317,9 +317,9 @@ describe("CLI id@version edge cases (ExtensionUpdates stage 1 QA)", () => {
         expect(existsSync(defaultProfileFile(userData)) ? readEntries(defaultProfileFile(userData)) : []).toEqual([]);
     });
 
-    // QA report #3: an exact version takes the FIRST record of that version for the host (`find`), not the platform
+    // Regression test, QA report #3 (fixed in this PR): an exact version takes the FIRST record of that version for the host (`find`), not the platform
     // one over universal like `resolveCompatibleVersion` and the picker (`compatibleVersions`) do.
-    it.skipIf(currentTargetPlatform() === undefined).fails(
+    it.skipIf(currentTargetPlatform() === undefined)(
         "US-1.10: id@version takes the host platform's record over the universal one, like a plain install",
         async () => {
             const platformRegistry = join(root, "universal-and-platform-registry");

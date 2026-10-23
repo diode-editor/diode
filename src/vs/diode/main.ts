@@ -676,10 +676,10 @@ async function runExtensionManagement(cli: ICliArgs): Promise<void> {
                 dependencies = installed;
             }
             // Into the profile, together with dependencies, including those already on disk for another profile.
-            const { obsolete } = profileExtensions.add(
-                [result, ...dependencies.dependencies],
-                givenVersion ? { pinned: true } : {},
-            );
+            const { obsolete } = profileExtensions.add([result], {
+                ...(givenVersion ? { pinned: true } : {}),
+                dependencies: dependencies.dependencies,
+            });
             const { id, version } = result;
             console.log(`Installed ${id}@${version}`);
             // Not deleted here: a running window may still load files from them. The CLI never deletes (decision V1).

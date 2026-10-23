@@ -215,9 +215,9 @@ describe("Install Specific Version edge cases (ExtensionUpdates stage 1 QA, func
         expect(obsoleteDirs(app)).toEqual([]);
     });
 
-    // QA report #2: with the registry down the command says "no installed extensions from the marketplace"
+    // Regression test, QA report #2 (fixed in this PR): with the registry down the command says "no installed extensions from the marketplace"
     // instead of the registry error: before the catalog is read every installed extension looks sideloaded.
-    it.fails(
+    it(
         "US-1.13: the palette command with the registry down shows the registry error, not 'no extensions'",
         async () => {
             const app = await start({
@@ -292,8 +292,8 @@ describe("Install Specific Version edge cases (ExtensionUpdates stage 1 QA, func
         expect(picker).not.toMatch(/1\.0\.0 +(\d+ \w+ ago|now|in \d)/u);
     });
 
-    // QA report #1: the service passes the dependencies to `ProfileExtensions.add` as roots, so they get the pin.
-    it.fails("a dependency installed by the version picker is not pinned", async () => {
+    // Regression test, QA report #1 (fixed in this PR): the service passes the dependencies to `ProfileExtensions.add` as roots, so they get the pin.
+    it("a dependency installed by the version picker is not pinned", async () => {
         const app = await start();
         await openExtensions(app);
         await openPage(app, "lang pack", "test-lang-pack");
@@ -352,7 +352,10 @@ describe("Install Specific Version edge cases (ExtensionUpdates stage 1 QA, func
         await app.session.executeCommand("extensions.refresh");
         await waitForScreen(app, "Update to 1.2.0");
         // The page command behind the button; the focus is no longer on the page after the refresh.
-        void app.session.executeCommand("workbench.extensions.action.install.anotherVersion", ID);
+        // The command waits on the quick pick, so its reply never comes: the session closes with it in flight.
+        app.session
+            .executeCommand("workbench.extensions.action.install.anotherVersion", ID)
+            .catch(() => undefined);
 
         const picker = await waitForScreen(app, "Select Version to Install");
         expect(picker).toMatch(/1\.2\.0/u);

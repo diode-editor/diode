@@ -116,6 +116,44 @@ describe("ProfileExtensions pinned", () => {
         ]);
     });
 
+    it("dependencies installed together with a given version are written unpinned (QA report #1)", () => {
+        const demo = onDisk("acme.demo", "1.0.0", ["acme.base"]);
+        const base = onDisk("acme.base", "2.0.0");
+        onDisk("acme.base", "3.0.0");
+
+        profile(workFile).add([{ id: "acme.demo", dir: demo }], {
+            pinned: true,
+            dependencies: [{ id: "acme.base", dir: base }],
+        });
+
+        // Exactly the directory installed with it, not the highest on disk.
+        expect(readProfileExtensions(workFile)).toEqual([
+            entry("acme.demo", "1.0.0", { metadata: { pinned: true } }),
+            entry("acme.base", "2.0.0"),
+        ]);
+    });
+
+    it("a dependency already in the profile keeps its entry and its pin; one not on disk is skipped", () => {
+        const demo = onDisk("acme.demo", "1.0.0", ["acme.base"]);
+        onDisk("acme.base", "1.0.0");
+        const newer = onDisk("acme.base", "2.0.0");
+        const pinnedBase = entry("acme.base", "1.0.0", { metadata: { pinned: true } });
+        writeProfileExtensions(workFile, [pinnedBase]);
+
+        profile(workFile).add([{ id: "acme.demo", dir: demo }], {
+            pinned: true,
+            dependencies: [
+                { id: "acme.base", dir: newer },
+                { id: "acme.gone", dir: ws.path("extensions/acme.gone-1.0.0") },
+            ],
+        });
+
+        expect(readProfileExtensions(workFile)).toEqual([
+            pinnedBase,
+            entry("acme.demo", "1.0.0", { metadata: { pinned: true } }),
+        ]);
+    });
+
     it("US-1.8: uninstall drops the pin together with the entry; the next plain install is not pinned", () => {
         const demo = onDisk("acme.demo");
         const work = profile(workFile);

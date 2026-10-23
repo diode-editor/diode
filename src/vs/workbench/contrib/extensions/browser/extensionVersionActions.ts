@@ -65,6 +65,12 @@ export const installSpecificVersionOfExtensionAction: CommandAction = {
             .filter((e) => e.installedVersion !== null && e.latestVersion !== null)
             .sort((a, b) => a.displayName.localeCompare(b.displayName));
         if (installed.length === 0) {
+            // Without the catalog nothing is known to be from the registry: the reason is the answer (US-1.13).
+            const catalogError = service.getCatalogError();
+            if (catalogError !== null) {
+                notifyError(accessor, catalogError);
+                return;
+            }
             // Deviation: upstream never gets here, its command is disabled; ours could only guess before the catalog.
             accessor.get(NotificationServiceDIToken).show({
                 severity: "info",

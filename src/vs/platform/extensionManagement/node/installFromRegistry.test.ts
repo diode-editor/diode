@@ -295,6 +295,28 @@ describe("installFromRegistry", () => {
             expect(installedDescription("acme.hello", "1.0.0")).toBe("linux-x64");
         });
 
+        it.each([
+            ["universal first", [undefined, "linux-x64"]],
+            ["platform first", ["linux-x64", undefined]],
+        ] satisfies [string, (string | undefined)[]][])(
+            "the exact version takes the host platform record over universal, like the highest compatible: %s",
+            async (_label, order) => {
+                await seedExtension(
+                    "acme",
+                    "hello",
+                    order.map((targetPlatform) => ({ version: "1.0.0", engines: { vscode: "*" }, targetPlatform })),
+                );
+
+                await installFromRegistry(source(), "acme.hello", {
+                    extensionsDir,
+                    host: LINUX_HOST,
+                    version: "1.0.0",
+                });
+
+                expect(installedDescription("acme.hello", "1.0.0")).toBe("linux-x64");
+            },
+        );
+
         it("an exact version only for a foreign target fails with the host platform", async () => {
             await seedExtension("acme", "hello", [
                 { version: "1.0.0", engines: { vscode: "*" }, targetPlatform: "darwin-arm64" },

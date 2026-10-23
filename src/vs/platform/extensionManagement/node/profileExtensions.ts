@@ -43,6 +43,11 @@ export interface IProfileExtension extends IInstalledExtension {
 export interface IProfileExtensionsAddOptions {
     /** For the extensions given, not their dependencies; unset keeps what the entry had. */
     readonly pinned?: boolean;
+    /**
+     * Installed together with them (upstream dependency tasks, `pinned: false`): the profile points to these
+     * directories, never pins them, and a dependency the profile already has keeps its entry and its pin.
+     */
+    readonly dependencies?: readonly IExtensionLocation[];
 }
 
 /** What an install hands to the profile: the id and the directory of the version it installed. */
@@ -337,13 +342,29 @@ export class ProfileExtensions {
         }
         const roots = new Set(adding.keys());
         const visited = new Set(roots);
+        const keep = (key: string): IInstalledExtension | undefined => {
+            const existing = entries.find((e) => extensionKey(e.identifier.id) === key);
+            return existing === undefined ? undefined : resolveEntry(existing, disk, () => undefined);
+        };
+        for (const one of options.dependencies ?? []) {
+            const found = disk.installed.find((e) => dirName(e) === path.basename(one.dir));
+            if (found === undefined || visited.has(extensionKey(found.id))) continue;
+            const key = extensionKey(found.id);
+            visited.add(key);
+            const kept = keep(key);
+            if (kept !== undefined) {
+                queue.push(kept);
+                continue;
+            }
+            adding.set(key, found);
+            queue.push(found);
+        }
         for (let one = queue.shift(); one !== undefined; one = queue.shift()) {
             for (const dependency of one.dependencies) {
                 const key = extensionKey(dependency);
                 if (visited.has(key)) continue;
                 visited.add(key);
-                const existing = entries.find((e) => extensionKey(e.identifier.id) === key);
-                const kept = existing === undefined ? undefined : resolveEntry(existing, disk, () => undefined);
+                const kept = keep(key);
                 if (kept !== undefined) {
                     queue.push(kept);
                     continue;
@@ -358,7 +379,7 @@ export class ProfileExtensions {
         const kept = entries.filter((e) => !adding.has(extensionKey(e.identifier.id)));
         const written = [...adding].map(([key, one]) => {
             const previous = entries.find((e) => extensionKey(e.identifier.id) === key);
-            // Upstream dependency tasks install with `pinned: false`; here a dependency just keeps what it had.
+            // A dependency new to the profile is written without a pin (upstream dependency tasks: `pinned: false`).
             return rewriteEntry(one, previous, roots.has(key) ? options.pinned : undefined);
         });
         writeProfileExtensions(this.options.profileFile, [...kept, ...written]);

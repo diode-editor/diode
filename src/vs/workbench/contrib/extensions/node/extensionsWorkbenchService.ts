@@ -97,7 +97,10 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
             const { version, dependencies } = installed;
             // Into the profile, including dependencies already on disk for another profile. A given version is
             // pinned (upstream `installGivenVersion`); otherwise the entry keeps its pin.
-            this.profile.add([installed, ...dependencies], options.version !== undefined ? { pinned: true } : {});
+            this.profile.add([installed], {
+                ...(options.version !== undefined ? { pinned: true } : {}),
+                dependencies,
+            });
             for (const dep of dependencies) this.pendingReload.add(dep.id);
             this.markChanged(id);
             return { ok: true, version };
