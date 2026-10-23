@@ -6,10 +6,9 @@ import { createTempWorkspace, type ITempWorkspace } from "../../../../TestUtils/
 import { Uri } from "../../../base/common/uri.ts";
 import { isTextEditorPane } from "../../browser/parts/editor/textEditorPane.ts";
 import { EditorServiceDIToken, type IEditorService } from "../../services/editor/common/editorService.ts";
-import type { IDocumentSyncTarget } from "../common/iDocumentSyncTarget.ts";
-import type { IWireDocumentSyncSnapshot } from "../common/wireTypes.ts";
+import type { IDocumentSyncSource, IDocumentSyncTarget } from "../common/iDocumentSyncTarget.ts";
 
-import { bindDocumentSync, openDocumentSnapshots } from "./documentSyncAdapter.ts";
+import { bindDocumentSync, openDocumentSyncSources } from "./documentSyncAdapter.ts";
 import { EditorLayoutServiceAdapter } from "./editorLayoutServiceAdapter.ts";
 
 describe("EditorLayoutServiceAdapter — untitled document without a tab", () => {
@@ -18,7 +17,7 @@ describe("EditorLayoutServiceAdapter — untitled document without a tab", () =>
     let service: IEditorService;
     let adapter: EditorLayoutServiceAdapter;
     let log: string[];
-    let opened: IWireDocumentSyncSnapshot[];
+    let opened: IDocumentSyncSource[];
 
     beforeEach(() => {
         ws = createTempWorkspace({ prefix: "diode-untitled-doc-", files: { "a.txt": "a" } });
@@ -50,10 +49,11 @@ describe("EditorLayoutServiceAdapter — untitled document without a tab", () =>
 
         expect(uri).toBe("untitled:Untitled-1");
         expect(log).toEqual([`open ${uri}`]);
-        expect(opened[0]).toMatchObject({ uri, languageId: "markdown", text: "# Tools\n", isDirty: true });
+        expect(opened[0]).toMatchObject({ uri, languageId: "markdown", isDirty: true });
+        expect(opened[0].getText()).toBe("# Tools\n");
         expect(service.editorGroups.activeGroup.editorCount).toBe(0);
         // The handshake seed (subprocess restart) carries this document too.
-        expect(openDocumentSnapshots(service).map((snapshot) => snapshot.uri)).toEqual([uri]);
+        expect(openDocumentSyncSources(service).map((snapshot) => snapshot.uri)).toEqual([uri]);
     });
 
     it("without options — a clean empty buffer; the number comes from the counter shared with New Untitled File", () => {
@@ -61,13 +61,14 @@ describe("EditorLayoutServiceAdapter — untitled document without a tab", () =>
         const { uri } = adapter.createUntitledDocument({});
 
         expect(uri).toBe("untitled:Untitled-2");
-        expect(opened.at(-1)).toMatchObject({ uri, languageId: "plaintext", text: "", isDirty: false });
+        expect(opened.at(-1)).toMatchObject({ uri, languageId: "plaintext", length: 0, isDirty: false });
+        expect(opened.at(-1)?.getText()).toBe("");
     });
 
     it("empty content is also a clean buffer (like upstream `!!initialValue`)", () => {
         const { uri } = adapter.createUntitledDocument({ content: "" });
 
-        expect(opened.at(-1)).toMatchObject({ uri, text: "", isDirty: false });
+        expect(opened.at(-1)).toMatchObject({ uri, length: 0, isDirty: false });
     });
 
     it("showTextDocument shows the same model as an Untitled-N tab — without a repeated open/close", async () => {

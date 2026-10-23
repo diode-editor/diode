@@ -3,16 +3,23 @@ import type { IModelContentChangedEvent } from "../../../editor/common/model/iDo
 import type { BaseTextEditorModel } from "../../common/editor/textEditorModel.ts";
 import type { IEditorGroupsService } from "../../services/editor/common/editorGroupsService.ts";
 import type { IEditorService } from "../../services/editor/common/editorService.ts";
-import type { IDocumentSyncTarget } from "../common/iDocumentSyncTarget.ts";
-import type { IWireDocumentChangedEvent, IWireDocumentSyncSnapshot } from "../common/wireTypes.ts";
+import type { IDocumentSyncSource, IDocumentSyncTarget } from "../common/iDocumentSyncTarget.ts";
+import type { IWireDocumentChangedEvent } from "../common/wireTypes.ts";
 
-export function documentSyncSnapshotOfModel(model: BaseTextEditorModel): IWireDocumentSyncSnapshot {
+/**
+ * The text is not built here: the target reads it only when it sends the document (live subprocess, within
+ * the sync limit). On a 200k-line file the built text is a 13 MB string that a host without a subprocess
+ * would drop on the floor.
+ */
+export function documentSyncSourceOfModel(model: BaseTextEditorModel): IDocumentSyncSource {
+    const document = model.document;
     return {
         uri: model.uri.toString(),
         languageId: model.languageId,
-        version: model.document.versionId,
-        text: model.getText(),
+        version: document.versionId,
         isDirty: model.isModified,
+        length: document.getValueLength(),
+        getText: () => document.getText(),
     };
 }
 
@@ -33,8 +40,8 @@ export function documentChangedEventOfModel(
  * The host pushes them as `editor.didOpen` on `host.ready`: `workspace.textDocuments` must be complete
  * before extensions activate (the stock vscode-languageclient reads it on `start()`).
  */
-export function openDocumentSnapshots(group: IEditorService): IWireDocumentSyncSnapshot[] {
-    return [...openDocumentModels(group)].map(documentSyncSnapshotOfModel);
+export function openDocumentSyncSources(group: IEditorService): IDocumentSyncSource[] {
+    return [...openDocumentModels(group)].map(documentSyncSourceOfModel);
 }
 
 /** Plus untitled buffers without a tab: `openTextDocument({ content })` opens the document before showing it, as upstream. */
@@ -45,7 +52,7 @@ function openDocumentModels(group: IEditorService): Set<BaseTextEditorModel> {
     return models;
 }
 
-type IOpenedDocument = Pick<IWireDocumentSyncSnapshot, "uri" | "languageId">;
+type IOpenedDocument = Pick<IDocumentSyncSource, "uri" | "languageId">;
 
 interface ITrackedDocument {
     openedAs: IOpenedDocument;
@@ -61,9 +68,9 @@ export function bindDocumentSync(group: IEditorService, groups: IEditorGroupsSer
     const tracked = new Map<BaseTextEditorModel, ITrackedDocument>();
 
     const openModel = (model: BaseTextEditorModel): IOpenedDocument => {
-        const snapshot = documentSyncSnapshotOfModel(model);
-        host.didOpenTextDocument(snapshot);
-        return { uri: snapshot.uri, languageId: snapshot.languageId };
+        const source = documentSyncSourceOfModel(model);
+        host.didOpenTextDocument(source);
+        return { uri: source.uri, languageId: source.languageId };
     };
 
     /** A new uri (Save As) or language is a different document for extensions, as upstream: didClose and didOpen. */
@@ -87,7 +94,7 @@ export function bindDocumentSync(group: IEditorService, groups: IEditorGroupsSer
         // the edit; message order stands in for a version in the request, like `$acceptModelChanged`.
         subscriptions.add(
             model.document.onDidChangeModelContent((event) => {
-                if (event.isFlush) host.didChangeTextDocument(documentSyncSnapshotOfModel(model));
+                if (event.isFlush) host.didChangeTextDocument(documentSyncSourceOfModel(model));
                 else host.didChangeTextDocumentContent(documentChangedEventOfModel(model, event));
             }),
         );
