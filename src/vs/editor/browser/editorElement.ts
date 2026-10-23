@@ -11,6 +11,7 @@ import { RenderContext, TUIElement } from "@tuidom/core/dom/tuiElement";
 import type { IScrollable, IScrollBarMarker } from "@tuidom/elements/scrollbar/iScrollable";
 
 import { findFirstIdxMonotonousOrArrLen } from "../../base/common/arraysFind.ts";
+import { runWhenGlobalIdle } from "../../base/common/async.ts";
 import { Emitter } from "../../base/common/event.ts";
 import type { IDisposable } from "../../base/common/lifecycle.ts";
 import type { IMarkerDecoration } from "../../platform/markers/common/iMarker.ts";
@@ -73,6 +74,11 @@ const NO_CACHED_SCROLL_BAR_MARKERS: ICachedScrollBarMarkers = { sources: [], mar
 
 /** Upstream `WordHighlighter.runDelayer`: the occurrence query runs once the cursor settles. */
 const OCCURRENCE_RUN_DELAY_MS = 50;
+/**
+ * Lines the width sweep measures per idle slice: about a millisecond of code lines through
+ * the generic grapheme path, so a keystroke between slices never waits on it.
+ */
+export const WIDTH_SWEEP_BATCH_LINES = 128;
 
 /**
  * Who wins a scrollbar cell shared by several marks. VS Code splits the ruler into lanes; a
@@ -196,6 +202,8 @@ export class EditorElement extends TUIElement implements IScrollable {
     public decorations: IExternalDecorations = EMPTY_EXTERNAL_DECORATIONS;
 
     private lineWidthCache: LineWidthCache | null = null;
+    /** The pending idle slice of the width sweep ({@link runWidthSweep}); null while none is scheduled. */
+    private widthSweep: IDisposable | null = null;
     private occurrenceHighlightEnabledValue = true;
     /**
      * Word occurrences are computed off the frame path, like the upstream `WordHighlighter`: a
@@ -377,14 +385,56 @@ export class EditorElement extends TUIElement implements IScrollable {
         return Math.max(0, this.viewState.viewLineForPosition(line, character));
     }
 
+    /**
+     * The width the horizontal scrollbar shows: like upstream `ViewLines._maxLineWidth`, the
+     * widest line seen so far. The viewport's lines are measured here, on the frame; the rest
+     * of the file follows in idle slices ({@link runWidthSweep}), so a big file shows its text
+     * before its width is known and the scrollbar grows as long lines turn up.
+     */
     public get contentWidth(): number {
         // Under wrap the content is no wider than the viewport, so the horizontal scrollbar has nothing to show.
         if (this.viewState.isWordWrapActive) return this.viewState.viewportWidth;
         // The cache binds to the document once: an EditorElement's document never changes (a reload
         // from disk builds a new element).
-        this.lineWidthCache ??= new LineWidthCache(this.viewState.document, this.tabSize);
-        this.lineWidthCache.setTabSize(this.tabSize);
-        return this.lineWidthCache.getMaxWidth();
+        const cache = (this.lineWidthCache ??= new LineWidthCache(this.viewState.document, this.tabSize));
+        cache.setTabSize(this.tabSize);
+        cache.measureLines(this.visibleDocLines());
+        // Stryker disable next-line ConditionalExpression: a slice scheduled with nothing left finds nothing
+        if (cache.hasUnmeasuredLines) this.scheduleWidthSweep(cache);
+        return cache.getMaxWidth();
+    }
+
+    /** Document lines on the viewport's rows (a row of a view zone or past the end maps to the nearest line). */
+    private visibleDocLines(): number[] {
+        const vs = this.viewState;
+        const first = vs.scrollTop;
+        return Array.from({ length: vs.viewportHeight }, (_, row) => vs.docLineForViewLine(first + row));
+    }
+
+    /**
+     * A detached editor (closed tab, hidden group) has no frame to widen: the sweep stops with
+     * it ({@link onDidDisconnect}) and the first frame after a reattach schedules it again.
+     */
+    private scheduleWidthSweep(cache: LineWidthCache): void {
+        if (this.widthSweep !== null || !this.isConnected) return;
+        this.widthSweep = runWhenGlobalIdle(() => {
+            this.widthSweep = null;
+            this.runWidthSweep(cache);
+        });
+    }
+
+    /** One slice of the sweep; a wider maximum is a new scrollbar, so it asks for a frame. */
+    private runWidthSweep(cache: LineWidthCache): void {
+        const before = cache.getMaxWidth();
+        const more = cache.measurePending(WIDTH_SWEEP_BATCH_LINES);
+        // Under wrap the width on screen is the viewport's: nothing to repaint.
+        if (cache.getMaxWidth() !== before && !this.viewState.isWordWrapActive) this.markDirty();
+        if (more) this.scheduleWidthSweep(cache);
+    }
+
+    protected override onDidDisconnect(): void {
+        this.widthSweep?.dispose();
+        this.widthSweep = null;
     }
 
     public get scrollTop(): number {

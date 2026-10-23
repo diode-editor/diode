@@ -14,10 +14,13 @@ damage-tracking'ом кадра (2026-08-04).** Обнаружено на Output
 - **`DisplayLine.stopAfter`** (движок): за порогом сегментируется только префикс,
   `columnMap` аллоцируется по длине префикса, выставляется `isTruncated`. Дефолт
   `Infinity` — нередакторные вызовы не тронуты.
-- **Инкрементальный кеш ширины** `LineWidthCache`
+- **Ленивый кеш ширины** `LineWidthCache`
   (`src/vs/editor/common/viewModel/lineWidthCache.ts`): подписан на
   `onDidChangeContent`, пересчитывает только изменённые строки. Это и снимает
-  Output-фриз (append бампает `versionId`, но пересчитываются 1–2 строки).
+  Output-фриз (append бампает `versionId`, но пересчитываются 1–2 строки). Строки
+  меряются по требованию — видимые на кадре, остальные порциями в idle
+  (`EditorElement.runWidthSweep`), максимум растёт по мере измерения — см.
+  [arch/Editor.md](../arch/Editor.md#ширина-контента-и-горизонтальный-скроллбар).
 - **Единый seam** `EditorViewState.displayLineFor()` с порогом — через него идут
   все per-строчные постройки `DisplayLine` (рендер, каретка, навигация, hit-test).
 - **Плашка `Long line trimmed`** на месте отреза (warning-фон); ширина учтена в
