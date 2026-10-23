@@ -1779,6 +1779,7 @@ export class EditorViewState {
         }
         // Stryker restore ConditionalExpression
 
+        // Stryker disable next-line ObjectLiteral: pure memoization, an empty entry only means a rebuild on the next call
         this.projectionCache = {
             projection,
             docVersion: this.document.versionId,
