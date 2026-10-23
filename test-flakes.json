@@ -2,6 +2,12 @@
     "$comment": "Known flaky tests: vitest retries (retry) or skips (skip) them, see src/TestUtils/flakeTestRunner.ts. Process and details: docs/TODO/TestFlakes.md.",
     "flakes": [
         {
+            "file": "src/vs/workbench/browser/workbench.encoding.test.ts",
+            "test": "Workbench — Change File Encoding > Save with Encoding on an untitled buffer goes to Save As with the encoding set",
+            "action": "retry",
+            "note": "ENOENT on untitled-out.txt right after Save As; broke the mutation dry run on perf-occ (run 39853223940)"
+        },
+        {
             "file": "src/vs/workbench/contrib/files/browser/explorerComponent.decorations.test.ts",
             "test": "ExplorerComponent — decorations bubble up to folders > a collapsed folder with a modified file deep inside — the file's color and '●'",
             "action": "retry",

@@ -546,10 +546,18 @@ describe("EditorComponent + TextFileModel (pair)", () => {
         // Occurrence-highlight background from darkPlus (#474747).
         const OCCURRENCE_BG = packRgb(71, 71, 71);
 
+        /** The occurrence query runs after a frame (upstream `WordHighlighter.runDelayer`). */
         function renderRow0Bg(ctrl: TextEditorPane, col: number): number {
-            const app = TestApp.createWithContent(ctrl.view, new Size(20, 3));
-            app.render();
-            return app.backend.getBgAt(new Point(col, 0));
+            vi.useFakeTimers();
+            try {
+                const app = TestApp.createWithContent(ctrl.view, new Size(20, 3));
+                app.render();
+                vi.advanceTimersByTime(50);
+                app.render();
+                return app.backend.getBgAt(new Point(col, 0));
+            } finally {
+                vi.useRealTimers();
+            }
         }
 
         it("highlights the word under the cursor using the theme's wordHighlight color", () => {

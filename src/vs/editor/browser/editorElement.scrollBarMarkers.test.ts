@@ -2,7 +2,7 @@ import { packRgb } from "@tuidom/core/common/colorUtils";
 import { Point, Size } from "@tuidom/core/common/geometryPromitives";
 import type { IScrollBarMarker } from "@tuidom/elements/scrollbar/iScrollable";
 import { ScrollBarDecorator } from "@tuidom/elements/scrollbar/scrollContainerElement";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { TestApp } from "../../../TestUtils/TestApp.ts";
 import { MarkerSeverity } from "../../platform/markers/common/iMarker.ts";
@@ -34,9 +34,18 @@ function makeEditor(content: string, occurrences = false): EditorElement {
     return editor;
 }
 
-/** Style vars resolve during a render pass, so the editor is mounted before it is asked. */
+/**
+ * Style vars resolve during a render pass, so the editor is mounted before it is asked. Word
+ * occurrences are queried after a frame (upstream `WordHighlighter.runDelayer`).
+ */
 function markersOf(editor: EditorElement): readonly IScrollBarMarker[] {
-    TestApp.createWithContent(editor, new Size(40, 10)).render();
+    vi.useFakeTimers();
+    try {
+        TestApp.createWithContent(editor, new Size(40, 10)).render();
+        vi.advanceTimersByTime(50);
+    } finally {
+        vi.useRealTimers();
+    }
     return editor.getScrollBarMarkers();
 }
 
@@ -174,5 +183,114 @@ describe("EditorElement — scrollbar markers", () => {
             expect(app.backend.getTextAt(new Point(29, y), 1)).toBe(" ");
             expect(app.backend.getBgAt(new Point(29, y))).toBe(ADDED);
         }
+    });
+
+    describe("built once per change of the sources, not per frame", () => {
+        function occurrenceEditor(): EditorElement {
+            const editor = makeEditor("a:\n  foo\n  foo\nfoo", true);
+            editor.viewState.setFoldingRegions(computeIndentationFolds(editor.viewState.document, 4));
+            editor.viewState.selections = [createCursorSelection(3, 0)];
+            return editor;
+        }
+
+        it("returns the same array while nothing changes", () => {
+            const editor = occurrenceEditor();
+            const markers = markersOf(editor);
+
+            expect(markers).toHaveLength(3);
+            expect(editor.getScrollBarMarkers()).toBe(markers);
+        });
+
+        it("keeps the array when diagnostics are set again with equal content", () => {
+            const editor = occurrenceEditor();
+            editor.markerDecorations = [{ range: createRange(0, 0, 0, 1), severity: MarkerSeverity.Error }];
+            const markers = markersOf(editor);
+            editor.markerDecorations = [{ range: createRange(0, 0, 0, 1), severity: MarkerSeverity.Error }];
+
+            expect(editor.getScrollBarMarkers()).toBe(markers);
+        });
+
+        it("does not map the occurrences again when only diagnostics change", () => {
+            const editor = occurrenceEditor();
+            const [occurrence] = markersOf(editor);
+            editor.markerDecorations = [{ range: createRange(0, 0, 0, 1), severity: MarkerSeverity.Error }];
+            const markers = editor.getScrollBarMarkers();
+
+            expect(markers).toHaveLength(4);
+            expect(markers[0]).toBe(occurrence);
+        });
+
+        it("rebuilds when a fold moves the rows", () => {
+            const editor = occurrenceEditor();
+            markersOf(editor);
+            editor.viewState.toggleFold(0);
+
+            expect(editor.getScrollBarMarkers().map((m) => m.start)).toEqual([0, 0, 1]);
+        });
+
+        it.each([
+            ["find matches", (e: EditorElement) => (e.viewState.searchMatches = [createRange(0, 0, 0, 1)])],
+            [
+                "SCM changes",
+                (e: EditorElement) => (e.gutterChangeDecorations = [{ range: createRange(0, 0, 0, 0), color: ADDED }]),
+            ],
+            [
+                "diagnostics",
+                (e: EditorElement) =>
+                    (e.markerDecorations = [{ range: createRange(0, 0, 0, 1), severity: MarkerSeverity.Info }]),
+            ],
+            [
+                "diagnostic severity",
+                (e: EditorElement) =>
+                    (e.markerDecorations = [{ range: createRange(1, 0, 1, 1), severity: MarkerSeverity.Warning }]),
+            ],
+            ["the tab size", (e: EditorElement) => (e.tabSize = 8)],
+            [
+                "the text",
+                (e: EditorElement) => e.viewState.document.applyEdits([{ range: createRange(0, 0, 0, 0), text: "x" }]),
+            ],
+        ])("rebuilds when %s change", (_, change) => {
+            const editor = occurrenceEditor();
+            editor.markerDecorations = [{ range: createRange(1, 0, 1, 1), severity: MarkerSeverity.Error }];
+            const markers = markersOf(editor);
+            change(editor);
+
+            expect(editor.getScrollBarMarkers()).not.toBe(markers);
+        });
+
+        type SmallMarks = Pick<EditorElement, "gutterChangeDecorations" | "markerDecorations">;
+        const error = (range: ReturnType<typeof createRange>): SmallMarks => ({
+            gutterChangeDecorations: [],
+            markerDecorations: [{ range, severity: MarkerSeverity.Error }],
+        });
+        const change = (color: number): SmallMarks => ({
+            gutterChangeDecorations: [{ range: createRange(1, 0, 2, 0), color }],
+            markerDecorations: [],
+        });
+        it.each<[string, SmallMarks, SmallMarks]>([
+            ["only the start row", error(createRange(1, 0, 2, 0)), error(createRange(0, 0, 2, 0))],
+            ["only the end row", error(createRange(1, 0, 2, 0)), error(createRange(1, 0, 3, 0))],
+            ["only the color", change(ADDED), change(ERROR)],
+            // A change bar and an error of the same color on the same rows: only the lane differs.
+            ["only the priority", change(ERROR), error(createRange(1, 0, 2, 0))],
+        ])("rebuilds when a mark of the same count changes %s", (_, before, after) => {
+            const editor = occurrenceEditor();
+            Object.assign(editor, before);
+            const markers = markersOf(editor);
+            Object.assign(editor, after);
+
+            expect(editor.getScrollBarMarkers()).not.toBe(markers);
+        });
+
+        it("rebuilds when the word highlight color changes", () => {
+            const editor = occurrenceEditor();
+            const markers = markersOf(editor);
+            const color = packRgb(1, 2, 3);
+            editor.setStyleVars({ "editorOverviewRuler.wordHighlightForeground": color });
+            TestApp.createWithContent(editor, new Size(40, 10)).render();
+
+            expect(editor.getScrollBarMarkers()).not.toBe(markers);
+            expect(editor.getScrollBarMarkers()[0].color).toBe(color);
+        });
     });
 });

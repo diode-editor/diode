@@ -3,6 +3,7 @@ import { Point, Size } from "@tuidom/core/common/geometryPromitives";
 import { StyleFlags } from "@tuidom/core/common/styleFlags";
 import type { RenderContext } from "@tuidom/core/dom/tuiElement";
 
+import { findFirstIdxMonotonousOrArrLen } from "../../base/common/arraysFind.ts";
 import type { IRange } from "../common/core/iRange.ts";
 import type { ISelection } from "../common/core/iSelection.ts";
 import type { ResolvedTokenStyle } from "../common/languages/iTokenStyleResolver.ts";
@@ -19,6 +20,8 @@ export interface ITextViewportGeometry {
     contentCols: number;
     gutterW: number;
     phantom: ILinePhantom | null;
+    /** Document rows of the viewport (view zones left out), from {@link buildViewportRows}. */
+    rows: readonly TextViewportRow[];
 }
 
 /**
@@ -74,31 +77,90 @@ function fragmentStartColumn(
     return displayLine.offsetToColumn(composedOffset(phantom, line, start));
 }
 
-export function forEachRangeCell(
+/**
+ * One document row of the viewport, resolved once per frame: every overlay pass of the frame
+ * reads it instead of asking the projection per range (200 K occurrences × screen rows).
+ */
+export class TextViewportRow {
+    private displayLineValue: DisplayLine | null = null;
+
+    public constructor(
+        private readonly viewState: EditorViewState,
+        private readonly phantom: ILinePhantom | null,
+        public readonly screenY: number,
+        public readonly viewLine: number,
+        public readonly logLine: number,
+        public readonly lineContent: string,
+        /** `[fragStart, fragEnd)` of the line on this row; the whole line without wrap. */
+        public readonly fragStart: number,
+        public readonly fragEnd: number,
+    ) {}
+
+    /** Only the last fragment carries the virtual newline cell (+1 past the end). */
+    public get isLastFragment(): boolean {
+        return this.fragEnd === this.lineContent.length;
+    }
+
+    /** The composed line, otherwise the highlight drifts from the tail after the phantom. */
+    public get displayLine(): DisplayLine {
+        this.displayLineValue ??= this.viewState.displayLineFor(
+            composedLineContent(this.phantom, this.logLine, this.lineContent),
+        );
+        return this.displayLineValue;
+    }
+
+    public get fragmentStartColumn(): number {
+        return this.displayLine.offsetToColumn(composedOffset(this.phantom, this.logLine, this.fragStart));
+    }
+}
+
+/**
+ * Logical lines grow with screenY, so the result is sorted by `logLine`. `Array.from`, not a
+ * counting loop: a `screenY--` mutant never reached the bound and timed out on the whole suite.
+ */
+export function buildViewportRows(
     viewState: EditorViewState,
+    scrollTop: number,
+    visibleLines: number,
+    phantom: ILinePhantom | null,
+): TextViewportRow[] {
+    const rows = Array.from({ length: visibleLines }, (_, screenY) => {
+        const viewLine = scrollTop + screenY;
+        const logLine = viewState.visualToLogicalLine(viewLine);
+        // A view zone row and a row past the end have no text to highlight.
+        if (logLine < 0) return null;
+        const frag = viewState.viewLineRange(viewLine);
+        return new TextViewportRow(
+            viewState,
+            phantom,
+            screenY,
+            viewLine,
+            logLine,
+            viewState.document.getLineContent(logLine),
+            frag.start,
+            frag.end,
+        );
+    });
+    return rows.filter((row) => row !== null);
+}
+
+export function forEachRangeCell(
     range: IRange,
     geo: ITextViewportGeometry,
     visit: (screenX: number, screenY: number) => void,
 ): void {
-    for (let screenY = 0; screenY < geo.visibleLines; screenY++) {
-        const viewLine = geo.scrollTop + screenY;
-        if (viewLine >= geo.viewLineCount) break;
-
-        const logLine = viewState.visualToLogicalLine(viewLine);
-        if (logLine < range.start.line || logLine > range.end.line) continue;
-
-        const lineContent = viewState.getViewLine(viewLine);
-        // Use the composed line, otherwise the highlight drifts from the tail after the phantom.
-        const dl = viewState.displayLineFor(composedLineContent(geo.phantom, logLine, lineContent));
-        // Only the last fragment carries the virtual newline cell (+1 past the end).
-        const frag = viewState.viewLineRange(viewLine);
-        const isLastFragment = frag.end === lineContent.length;
+    const rows = geo.rows;
+    const first = findFirstIdxMonotonousOrArrLen(rows, (row) => row.logLine >= range.start.line);
+    for (let i = first; i < rows.length && rows[i].logLine <= range.end.line; i++) {
+        const row = rows[i];
+        const { logLine, lineContent } = row;
+        const dl = row.displayLine;
         const rangeStartChar = logLine === range.start.line ? range.start.character : 0;
         const rangeEndChar = logLine === range.end.line ? range.end.character : lineContent.length + 1;
-        const startChar = Math.max(rangeStartChar, frag.start);
-        const endChar = Math.min(rangeEndChar, isLastFragment ? lineContent.length + 1 : frag.end);
+        const startChar = Math.max(rangeStartChar, row.fragStart);
+        const endChar = Math.min(rangeEndChar, row.isLastFragment ? lineContent.length + 1 : row.fragEnd);
 
-        const fragStartCol = fragmentStartColumn(viewState, dl, geo.phantom, logLine, viewLine);
+        const fragStartCol = row.fragmentStartColumn;
         const startCol = dl.offsetToColumn(composedOffset(geo.phantom, logLine, startChar)) - fragStartCol;
         const endCol =
             (endChar > lineContent.length
@@ -109,7 +171,7 @@ export function forEachRangeCell(
         const screenXEnd = Math.min(geo.contentCols, endCol - geo.scrollLeft);
 
         for (let screenX = screenXStart; screenX < screenXEnd; screenX++) {
-            visit(geo.gutterW + screenX, screenY);
+            visit(geo.gutterW + screenX, row.screenY);
         }
     }
 }
@@ -117,14 +179,36 @@ export function forEachRangeCell(
 /** Only `bg`: the glyph and fg under the highlight are kept. */
 export function paintRangeBackground(
     context: RenderContext,
-    viewState: EditorViewState,
     range: IRange,
     bg: number,
     geo: ITextViewportGeometry,
 ): void {
-    forEachRangeCell(viewState, range, geo, (screenX, screenY) => {
+    forEachRangeCell(range, geo, (screenX, screenY) => {
         context.setCell(screenX, screenY, { bg });
     });
+}
+
+/**
+ * Ranges sorted by position and not overlapping (find matches, word occurrences): two binary
+ * searches cut them down to the visible lines, so the cost follows the screen, not the file.
+ * `skipIndex` leaves one out (the current find match is painted later, on top).
+ */
+export function paintSortedRangeBackgrounds(
+    context: RenderContext,
+    ranges: readonly IRange[],
+    bg: number,
+    geo: ITextViewportGeometry,
+    skipIndex = -1,
+): void {
+    const rows = geo.rows;
+    if (rows.length === 0) return;
+    const firstLine = rows[0].logLine;
+    const lastLine = rows[rows.length - 1].logLine;
+    const first = findFirstIdxMonotonousOrArrLen(ranges, (range) => range.end.line >= firstLine);
+    for (let i = first; i < ranges.length && ranges[i].start.line <= lastLine; i++) {
+        if (i === skipIndex) continue;
+        paintRangeBackground(context, ranges[i], bg, geo);
+    }
 }
 
 export interface IPaintTextLineParams {

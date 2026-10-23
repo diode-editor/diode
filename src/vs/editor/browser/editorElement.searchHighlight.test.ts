@@ -39,6 +39,42 @@ describe("EditorElement — search-match highlight", () => {
         expect(app.backend.getBgAt(new Point(gw + 8, 0))).toBe(FIND_MATCH_CURRENT_BG);
     });
 
+    it("paints the matches of the visible rows of a scrolled file, multi-line ones included", () => {
+        // Line i is "ab"; one match per line, plus one spanning lines 501..502 from its middle.
+        const text = Array.from({ length: 1000 }, () => "ab").join("\n");
+        const { app, editor, viewState, gw } = createEditor(text, 30, 5);
+        const matches = Array.from({ length: 1000 }, (_, i) => createRange(i, 0, i, 1));
+        matches.splice(502, 0, createRange(501, 1, 502, 0));
+        viewState.searchMatches = matches;
+        viewState.currentSearchMatchIndex = 500;
+        viewState.scrollTop = 499;
+        app.render();
+
+        // Rows show lines 499..503.
+        expect(app.backend.getBgAt(new Point(gw, 0))).toBe(FIND_MATCH_BG);
+        expect(app.backend.getBgAt(new Point(gw, 1))).toBe(FIND_MATCH_CURRENT_BG);
+        expect(app.backend.getBgAt(new Point(gw + 1, 1))).toBe(editor.resolvedStyle.bg);
+        // The spanning match covers line 501 from char 1 through the virtual newline cell.
+        expect(app.backend.getBgAt(new Point(gw + 1, 2))).toBe(FIND_MATCH_BG);
+        expect(app.backend.getBgAt(new Point(gw + 2, 2))).toBe(FIND_MATCH_BG);
+        expect(app.backend.getBgAt(new Point(gw + 3, 2))).toBe(editor.resolvedStyle.bg);
+        expect(app.backend.getBgAt(new Point(gw, 4))).toBe(FIND_MATCH_BG);
+        expect(app.backend.getBgAt(new Point(gw + 1, 4))).toBe(editor.resolvedStyle.bg);
+    });
+
+    it("paints nothing for matches above or below the viewport", () => {
+        const text = Array.from({ length: 100 }, () => "ab").join("\n");
+        const { app, editor, viewState, gw } = createEditor(text, 30, 5);
+        viewState.searchMatches = [createRange(10, 0, 10, 1), createRange(90, 0, 90, 1)];
+        viewState.currentSearchMatchIndex = -1;
+        viewState.scrollTop = 50;
+        app.render();
+
+        for (let row = 0; row < 5; row++) {
+            expect(app.backend.getBgAt(new Point(gw, row))).toBe(editor.resolvedStyle.bg);
+        }
+    });
+
     it("draws the current match on top of an overlapping selection", () => {
         const { app, viewState, gw } = createEditor("foo");
         viewState.selections = [createSelection(0, 0, 0, 3)];
