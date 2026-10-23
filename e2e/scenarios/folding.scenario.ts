@@ -16,6 +16,13 @@ export default defineScenario({
         await editor.waitForText((t) => t.includes("alpha"));
         await editor.capture("rest");
 
+        // The regions are computed after a delay (not on the path to the first frame), and the frame at rest
+        // shows nothing of them: wait for the state, or the fold command would land on no region.
+        await editor.waitForState("EditorElement", (state) => {
+            const regions = state?.foldedRegions;
+            return Array.isArray(regions) && regions.length > 0;
+        });
+
         // Line 0 is a comment, alpha's region is lines 1..3. Ctrl+K Ctrl+L, because the key DSL can't serialize
         // Ctrl+Shift+[.
         await editor.sendKey("ArrowDown");

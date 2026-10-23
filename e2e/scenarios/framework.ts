@@ -26,6 +26,12 @@ export interface ScenarioDriver {
     waitForReady(timeoutMs?: number): Promise<void>;
     getDocument(): Promise<GetDocumentResult>;
     waitForNode(selector: string, opts?: { timeoutMs?: number; intervalMs?: number }): Promise<NodeSnapshot>;
+    /** The node's `inspectState()`; for what the frame does not show, such as folding regions computed after a delay. */
+    waitForState(
+        selector: string,
+        predicate: (state: Record<string, unknown> | undefined) => boolean,
+        opts?: { timeoutMs?: number; intervalMs?: number },
+    ): Promise<NodeSnapshot>;
     /** 0-based screen cells. */
     sendMouse(params: SendMouseParams): Promise<void>;
     /** 0-based cell. */
@@ -107,6 +113,7 @@ export async function runScenario(spec: ScenarioSpec): Promise<CapturedShot[]> {
         waitForReady: (timeoutMs) => session.waitForReady(timeoutMs),
         getDocument: () => session.getDocument(),
         waitForNode: (selector, opts) => session.waitForNode(selector, opts),
+        waitForState: (selector, predicate, opts) => session.waitForState(selector, predicate, opts),
         sendMouse: (params) => session.sendMouse(params),
         click: (x, y, opts) => session.click(x, y, opts),
         clickNode: (selector, opts) => session.clickNode(selector, opts),

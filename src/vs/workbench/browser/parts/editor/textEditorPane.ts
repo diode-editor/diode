@@ -322,6 +322,10 @@ export class TextEditorPane<TModel extends BaseTextEditorModel = BaseTextEditorM
         this.component.setScrollbarMarkers(placement);
     }
 
+    public setFoldingMaximumRegions(limit: number): void {
+        this.component.setFoldingMaximumRegions(limit);
+    }
+
     /**
      * Diff sides are aligned by view lines, and wrapping would break that. The override lives in
      * the setter rather than in the callers, so it covers both config live reload and Alt+Z.

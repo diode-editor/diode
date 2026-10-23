@@ -1,3 +1,4 @@
+import type { Uri } from "../vs/base/common/uri.ts";
 import type { LanguageFeatureRegistry } from "../vs/editor/common/languageFeatureRegistry.ts";
 import type { FoldingRangeProvider } from "../vs/editor/common/languages/iFoldingSource.ts";
 import type { ILanguageService } from "../vs/editor/common/languages/iLanguageService.ts";
@@ -28,6 +29,12 @@ export interface IEditorPaneOverrides {
     readonly files?: IFileService;
     /** Absent — TextMate only. */
     readonly semanticTokens?: DocumentSemanticTokensFeature;
+    /**
+     * Loaded into the model BEFORE the component is built, as `EditorService.openUri` does (the registry
+     * loads the file first). `pane.openFile` after the build is the reload path (`isFlush`), which the
+     * component treats differently: folds are recomputed at once instead of after the delay.
+     */
+    readonly file?: Uri;
 }
 
 /** Builds the pair the same way as `TextEditorPaneBuilder.build`. */
@@ -38,6 +45,7 @@ export function createEditorPane(overrides: IEditorPaneOverrides = {}): TextEdit
         overrides.undoRedoService ?? new UndoRedoService(),
         overrides.files ?? diskFileService(),
     );
+    if (overrides.file !== undefined) model.openFile(overrides.file);
     const component = new EditorComponent(
         overrides.registry ?? new TokenizationRegistry(),
         NULL_TOKEN_STYLE_RESOLVER,

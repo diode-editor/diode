@@ -67,6 +67,13 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
         description: "Controls whether copying without a selection copies the current line.",
     },
     {
+        key: "editor.foldingMaximumRegions",
+        type: "number",
+        default: 5000,
+        description:
+            "The maximum number of foldable regions. Increasing this value may result in the editor becoming less responsive when the current source has a large number of foldable regions.",
+    },
+    {
         key: "editor.formatOnSave",
         type: "boolean",
         default: false,
