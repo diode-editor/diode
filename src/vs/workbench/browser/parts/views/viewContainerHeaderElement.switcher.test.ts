@@ -73,6 +73,38 @@ describe("ViewContainerHeaderElement — container switcher", () => {
     });
 });
 
+describe("container switcher — without a switcher or a listener", () => {
+    it("a click on the title of a header without a switcher does not call onSwitch", () => {
+        for (const header of [
+            new ViewContainerHeaderElement("SCM"),
+            new PaneHeaderElement("EXPLORER", { collapsible: false }),
+        ]) {
+            const onSwitch = vi.fn();
+            header.onSwitch = onSwitch;
+            placed(header);
+            click(header, 2);
+            expect(onSwitch).not.toHaveBeenCalled();
+        }
+    });
+
+    it("a switcher with nobody listening does nothing and does not throw", () => {
+        const container = new ViewContainerHeaderElement("SCM");
+        const pane = new PaneHeaderElement("EXPLORER", { collapsible: false });
+        for (const header of [container, pane]) {
+            header.setSwitcher(true);
+            placed(header);
+            expect(() => {
+                click(header, 2);
+                key(header, "Enter");
+            }).not.toThrow();
+        }
+        const paneView = new PaneViewElement();
+        paneView.addPane({ id: "p", title: "P", body: new PaneViewElement(), collapsible: false, switcher: true });
+        TestApp.createWithContent(paneView, new Size(30, 5)).render();
+        expect(() => key(paneView.querySelector("#paneHeader-p") as PaneHeaderElement, "Enter")).not.toThrow();
+    });
+});
+
 describe("PaneHeaderElement — container switcher (merged section)", () => {
     it("a click on the title opens the switcher instead of collapsing", () => {
         const header = new PaneHeaderElement("EXPLORER", { collapsible: false });

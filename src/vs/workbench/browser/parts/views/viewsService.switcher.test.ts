@@ -1,4 +1,5 @@
 import { TUIKeyboardEvent } from "@tuidom/core/dom/events/tuiKeyboardEvent";
+import { TUIMouseEvent } from "@tuidom/core/dom/events/tuiMouseEvent";
 import type { MenuItemEntry } from "@tuidom/elements/menu/popupMenuElement";
 import { describe, expect, it } from "vitest";
 
@@ -63,6 +64,20 @@ describe("ViewsService — container switcher on the sidebar title", () => {
         const header = h.paneView("explorer").querySelector("#paneHeader-explorer-files") as PaneHeaderElement;
         header.onSwitch?.({ screenX: 0, screenY: 1 });
         expect(labels(h.shown.at(-1)?.getEntries?.() ?? [])).toEqual(["●Explorer"]);
+    });
+
+    it("a click on a section title of a several-section container collapses it instead of switching", () => {
+        const h = harness();
+        h.showViewlet("scm");
+        const section = h.paneView("scm").querySelector("#paneHeader-scm-changes") as PaneHeaderElement;
+        const before = h.shown.length;
+        for (const type of ["mousedown", "mouseup"] as const) {
+            section.dispatchEvent(
+                new TUIMouseEvent(type, { button: "left", screenX: 3, screenY: 0, localX: 3, localY: 0 }),
+            );
+        }
+        expect(h.shown.length).toBe(before);
+        expect(h.paneView("scm").isCollapsed("scm.changes")).toBe(true);
     });
 
     it("a section that stops being merged hands the switcher to the container header", () => {

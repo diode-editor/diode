@@ -68,6 +68,7 @@ describe("computeActivationEvents", () => {
                             terraform: [{ id: "terraform.providers" }, { id: "" }, {} as never],
                             explorer: [{ id: "terraform.modules", type: "webview" }],
                             broken: "not-a-list" as never,
+                            object: { id: "not.a.list" } as never,
                         },
                     },
                 },

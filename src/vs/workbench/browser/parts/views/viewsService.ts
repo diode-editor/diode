@@ -588,8 +588,9 @@ export class ViewsService implements IContextKeyContributor {
             getOwner: () => owner,
             getAnchor: () => anchor,
             getEntries: () =>
+                // Only sidebar containers are listed, and showing a viewlet already focuses it.
                 containerSwitcherEntries(this.getViewContainers(), this.sidebarService.getActiveViewletId(), (id) => {
-                    this.openViewContainer(id, true);
+                    this.openViewContainer(id);
                 }),
         });
     }
@@ -676,7 +677,7 @@ export class ViewsService implements IContextKeyContributor {
             .map((entry) => ({
                 id: entry.descriptor.id,
                 title: containerTitle(entry),
-                ...(entry.descriptor.label === undefined ? {} : { label: entry.descriptor.label }),
+                label: entry.descriptor.label,
                 location: entry.location,
                 views: this.getContainerViews(entry.descriptor.id).filter((view) => view.visible),
                 rejectAddedViews: entry.descriptor.rejectAddedViews === true,

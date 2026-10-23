@@ -1,5 +1,5 @@
 import { Size } from "@tuidom/core/common/geometryPromitives";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { renderElement } from "../../../../TestUtils/renderElement.ts";
 import { TestApp } from "../../../../TestUtils/TestApp.ts";
@@ -143,6 +143,33 @@ describe("registerExtensionViews — containers", () => {
         expect(h.shownViewlets.at(-1)).toEqual({ id: "workbench.view.extension.infra", reveal: true });
     });
 
+    it("extension containers are ordered from 7: a built-in container with a later order stays after them", () => {
+        const h = makeViewsHarness();
+        h.service.registerContainer({ id: "late", title: "LATE", location: "sidebar", order: 20 });
+        h.service.registerView(testView("late.view", "late", 0));
+        registerExtensionViews([TERRAFORM_LIKE], {
+            views: h.service,
+            commands: h.commands,
+            contextKeys: h.contextKeys,
+            notify: () => {},
+        });
+        h.service.attachRegisteredContainers();
+        expect(h.service.getViewContainers().map((c) => c.id)).toEqual([
+            "workbench.view.extension.infra",
+            "workbench.view.extension.infra-cloud",
+            "late",
+            "workbench.view.extension.infra-panel",
+        ]);
+    });
+
+    it("the show command of a panel container focuses it", () => {
+        const { h } = setup([TERRAFORM_LIKE]);
+        const focused = vi.spyOn(h.service, "focusViewHeader");
+        h.commands.execute("workbench.view.extension.infra-panel");
+        expect(h.panelService.getActiveViewId()).toBe("workbench.view.extension.infra-panel");
+        expect(focused).toHaveBeenCalledWith("infra.plan");
+    });
+
     it("secondarySidebar goes to the auxiliary bar; an unknown location is a warning", () => {
         const { h, log } = setup([
             extension("acme.side", {
@@ -215,7 +242,7 @@ describe("registerExtensionViews — containers", () => {
 
 describe("registerExtensionViews — views", () => {
     it("views in Explorer and Source Control come after the built-in sections, collapsed", () => {
-        const { h } = setup([
+        const { h, log } = setup([
             extension("acme.go", {
                 views: {
                     explorer: [{ id: "go.explorer", name: "go" }],
@@ -227,6 +254,7 @@ describe("registerExtensionViews — views", () => {
         expect(h.paneView("explorer").isCollapsed("go.explorer")).toBe(true);
         expect(paneTitles(h.paneView("scm"))).toEqual(["SCM.CHANGES", "GO SCM"]);
         expect(h.paneView("scm").isCollapsed("go.scm")).toBe(true);
+        expect(log).toEqual([]);
     });
 
     it("an unknown container key sends the views to Explorer with a warning; the name falls back to the id", () => {
@@ -238,12 +266,20 @@ describe("registerExtensionViews — views", () => {
     it("a view of a foreign extension container goes after the owner's sections", () => {
         const { h } = setup([
             TERRAFORM_LIKE,
-            extension("acme.addon", { views: { infra: [{ id: "addon.view", name: "Addon" }] } }),
+            extension("acme.addon", {
+                views: {
+                    infra: [
+                        { id: "addon.view", name: "Addon" },
+                        { id: "addon.second", name: "Addon Second" },
+                    ],
+                },
+            }),
         ]);
         expect(paneTitles(h.paneView("workbench.view.extension.infra"))).toEqual([
             "PROVIDERS",
             "MODULE CALLS",
             "ADDON",
+            "ADDON SECOND",
         ]);
     });
 
@@ -289,6 +325,44 @@ describe("registerExtensionViews — views", () => {
         expect(app.focusedElement?.id).toBe("paneHeader-infra-modules");
     });
 
+    it("extension views can be moved, like upstream's", () => {
+        const { h } = setup([TERRAFORM_LIKE]);
+        h.service.moveViewToLocation("infra.providers", "panel");
+        expect(h.service.getViewContainerByViewId("infra.providers")).toMatch(/^workbench\.views\.service\.panel\./);
+    });
+
+    it("an existing `<view>.focus` command is not overridden", () => {
+        const h = makeViewsHarness();
+        const calls: string[] = [];
+        h.commands.register("infra.providers.focus", () => calls.push("own"));
+        registerExtensionViews([TERRAFORM_LIKE], {
+            views: h.service,
+            commands: h.commands,
+            contextKeys: h.contextKeys,
+            notify: () => {},
+        });
+        h.commands.execute("infra.providers.focus");
+        expect(calls).toEqual(["own"]);
+    });
+
+    it("a duplicate of a view that is not registered (webview, false `when`) is still a duplicate", () => {
+        const { log } = setup([
+            extension("acme.a", {
+                views: {
+                    explorer: [
+                        { id: "chat", type: "webview" },
+                        { id: "g", when: "no" },
+                    ],
+                },
+            }),
+            extension("acme.b", { views: { explorer: [{ id: "chat" }, { id: "g" }] } }),
+        ]);
+        expect(log).toEqual([
+            'error: acme.b: a view with id "chat" is already registered',
+            'error: acme.b: a view with id "g" is already registered',
+        ]);
+    });
+
     it("rejected views: unknown type, a duplicate id, a list without ids, a non-list", () => {
         const { h, log } = setup([
             extension("acme.junk", {
@@ -320,10 +394,24 @@ describe("registerExtensionViews — views", () => {
         const { h, dispose } = setup(
             [
                 TERRAFORM_LIKE,
-                extension("acme.junk", { viewsContainers: { remote: [] }, views: { nowhere: [{ id: "x" }] } }),
+                extension("acme.junk", {
+                    viewsContainers: {
+                        remote: [],
+                        panel: "nope" as never,
+                        activitybar: [{ id: "infra", title: "Dup", icon: "i" }],
+                    },
+                    views: {
+                        nowhere: [{ id: "x" }],
+                        explorer: [{ id: "infra.providers" }, { id: "odd", type: "notebook" }],
+                        scm: [{ name: "no id" } as never],
+                        broken: "not-a-list" as never,
+                    },
+                }),
+                extension("acme.bare", undefined),
             ],
             { logger: false },
         );
+        expect(h.service.getViewContainerByViewId("x")).toBe("explorer");
         expect(h.commands.has("infra.providers.focus")).toBe(true);
         dispose();
         expect(h.commands.has("infra.providers.focus")).toBe(false);
@@ -382,6 +470,19 @@ describe("registerExtensionViews — `when`", () => {
         expect(h.service.getViewContainerByViewId("go.explorer")).toBe("explorer");
         expect(h.service.getViewContainerByViewId("blank.view")).toBe("explorer");
         expect(h.service.getViewContainerByViewId("go.profiles")).toBeNull();
+    });
+
+    it("an unrelated context change leaves a shown view alone (no rebuild, focus stays)", async () => {
+        const { h } = setup([GATED]);
+        h.contextKeys.setRaw("go.showExplorer", true);
+        await Promise.resolve();
+        const app = TestApp.createWithContent(h.root("explorer"), new Size(30, 12));
+        app.render();
+        h.service.focusViewHeader("go.explorer");
+        expect(app.focusedElement?.id).toBe("paneHeader-go-explorer");
+        h.contextKeys.setRaw("unrelated", 1);
+        await Promise.resolve();
+        expect(app.focusedElement?.id).toBe("paneHeader-go-explorer");
     });
 
     it("dispose stops following the context keys", async () => {

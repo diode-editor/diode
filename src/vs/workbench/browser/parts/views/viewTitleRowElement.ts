@@ -131,6 +131,7 @@ export class ViewTitleRowElement extends HFlexElement {
      * button of its own (zone `switcher`, hover background).
      */
     public setSwitcher(enabled: boolean): void {
+        // Stryker disable next-line ConditionalExpression: without the early return the same text and style are set again — nothing changes in the frame
         if (this.switcher === enabled) return;
         this.switcher = enabled;
         this.titleLabel.setText(this.composeTitle());

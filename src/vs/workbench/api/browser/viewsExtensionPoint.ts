@@ -96,15 +96,13 @@ export function registerExtensionViews(extensions: readonly IExtension[], host: 
     for (const extension of extensions) {
         registerViews(extension, host, owners, viewIds, conditional, disposables);
     }
-    if (conditional.length > 0) {
-        syncConditionalViews(conditional, host);
-        // Changes are coalesced per tick by the service; a handful of clauses is cheap to re-evaluate.
-        disposables.push(
-            host.contextKeys.onDidChange(() => {
-                syncConditionalViews(conditional, host);
-            }),
-        );
-    }
+    syncConditionalViews(conditional, host);
+    // Changes are coalesced per tick by the service; a handful of clauses is cheap to re-evaluate.
+    disposables.push(
+        host.contextKeys.onDidChange(() => {
+            syncConditionalViews(conditional, host);
+        }),
+    );
     return {
         dispose: () => {
             for (const disposable of disposables) disposable.dispose();
@@ -251,7 +249,7 @@ function registerViews(
                 id,
                 containerId: target,
                 title: name.toUpperCase(),
-                order: ownContainer ? index + 1 : FOREIGN_VIEW_ORDER + index,
+                order: ownContainer ? index : FOREIGN_VIEW_ORDER + index,
                 body: null,
                 placeholder: TREE_PLACEHOLDER,
                 collapsed: COLLAPSED_CONTAINERS.has(target) || view.visibility === "collapsed",
