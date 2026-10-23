@@ -83,7 +83,7 @@
   уборка не трогает каталоги живых pid (`process.kill(pid, 0)`), аренды мёртвых удаляет, нечитаемая
   аренда живого pid защищает всё. Риск переиспользования pid принят: аренда мёртвого окна, чей pid
   достался чужому процессу, только откладывает удаление, данные не теряются. Межпроцессной блокировки `.obsolete` и `extensions.json` нет —
-  гонка CLI и окна может потерять пометку (хвост в [TODO/ExtensionUpdates.md](../TODO/ExtensionUpdates.md)).
+  гонка CLI и окна может потерять пометку (хвост в [TODO/Extensions.md](../TODO/Extensions.md)).
 - **Состав по профилю (`profileExtensions.ts`, `platform/extensionManagement/node/`)** — каталог
   `extensions/` один на установку, а какие расширения включены и **какой версии**, решает
   `extensions.json` профиля (аналог `extensionsProfileScannerService` эталона): у именованного —

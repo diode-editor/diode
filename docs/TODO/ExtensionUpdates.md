@@ -1,6 +1,7 @@
 # ExtensionUpdates — обновление и откат расширений из UI
 
-Статус: `[~]` — план согласован 2026-10-22; этапы 0, 1, 2 и 3 сделаны (спеки ниже).
+Статус: `[x]` — этапы 0–4 сделаны (2026-10-22…24, спеки ниже). Открытый хвост — межпроцессная блокировка
+`extensions.json`/`.obsolete` — перенесён в [TODO/Extensions.md](Extensions.md).
 
 Цель: в Extensions view появляются действия для работы с версиями — ручное обновление, автообновление
 и откат на нужную версию. Устройство магазина — [arch/workbench/ExtensionsView.md](../arch/workbench/ExtensionsView.md),
@@ -59,7 +60,11 @@
     перезагружаем.
   - Отключение автообновления для одного расширения — флажок `Auto Update` на странице, тот же `pinned` (Ж2).
   - Два окна — без блокировки, перед каждой установкой профиль перечитывается (Ж4).
-- [ ] **4. Доки и тесты.**
+- [x] **4. Доки и тесты.** Сделано по ходу этапов 0–3: `ExtensionsView.md` (пикера версий и автообновления в
+  «сознательно не делаем» нет), `Extensions.md` (`.obsolete`, аренды, `pinned`); e2e `extensionVersionPin.*`,
+  `extensionsUpdateAll.*`, `extensionsAutoUpdate.*`, приёмочные `extensionUpdates.*`; сценарии-демо
+  `extensionVersionRollback`, `extensionUpdate`, `extensionUpdateAll`, `extensionAutoUpdate`; юниты
+  `extensionAutoUpdate.test.ts`, `extensionPageButtons.test.ts`.
   - `ExtensionsView.md` (убрать «пикер версий» и «авто-обновление» из «сознательно не делаем»),
     `Extensions.md`, [TODO/Extensions.md](Extensions.md).
   - Герметичные e2e на файловом реестре-фикстуре с несколькими версиями одного `.vsix`: откат,
@@ -275,7 +280,8 @@
   внутри колбэка `openReadStream`, `EEXIST`/`EACCES`/`ENOSPC` роняют CLI со стеком Node, откат не идёт —
   зависимость остаётся на диске без профиля, временная распаковка — тоже. Тест-документ — `it.fails` у US-0.7
   в `e2e/extensionUpdates.safeReplace.test.ts`; исправлено в #784, пометка снята.
-- [ ] Межпроцессная блокировка `extensions.json` и `.obsolete` (гонка CLI и окна) — хвост этапа 0.
+- [ ] Межпроцессная блокировка `extensions.json` и `.obsolete` (гонка CLI и окна) — хвост этапа 0; перенесён в
+  [TODO/Extensions.md](Extensions.md).
 - Уведомление «нужен reload» после обновления — этап 2.
 
 ## Спека этапа 1 — конкретная версия и откат
