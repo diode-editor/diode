@@ -37,9 +37,9 @@ import type { HeadlessSession } from "./helpers/headlessSession.ts";
 import { waitUntil } from "./helpers/waitFor.ts";
 
 /**
- * Acceptance tests of ExtensionUpdates stage 0 — safe version replacement (docs/TODO/ExtensionUpdates.md,
- * stage 0 spec). Black box: the CLI, the extensions directory, the profile's `extensions.json`,
- * `extensions/.obsolete` and a live window with the extension's own OUTPUT channel.
+ * Acceptance tests of ExtensionUpdates stage 0 — safe version replacement (the stage 0 spec of the closed tracker,
+ * `git show 188ea93e:docs/TODO/ExtensionUpdates.md`). Black box: the CLI, the extensions directory, the profile's
+ * `extensions.json`, `extensions/.obsolete` and a live window with the extension's own OUTPUT channel.
  */
 
 const ID = "acme.probe";

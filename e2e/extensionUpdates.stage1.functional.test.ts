@@ -14,10 +14,11 @@ import { createRegistryFixture } from "./helpers/registryFixture.ts";
 import { useHeadlessApp } from "./helpers/useApp.ts";
 
 /**
- * Acceptance tests for ExtensionUpdates stage 1 in the window (docs/TODO/ExtensionUpdates.md, "stage 1 spec"): the
- * stories and edge cases the implementer's `extensionVersionPin.functional.test.ts` leaves out — errors (US-1.13),
- * sideloaded extensions (US-1.14), the palette precondition (US-1.6), profile B (US-1.9), dependencies and dates.
- * A test marked `it.fails` is a found bug; the comment names the item of the QA report in PR #785.
+ * Acceptance tests for ExtensionUpdates stage 1 in the window (the "stage 1 spec" of the closed tracker,
+ * `git show 188ea93e:docs/TODO/ExtensionUpdates.md`): the stories and edge cases the implementer's
+ * `extensionVersionPin.functional.test.ts` leaves out — errors (US-1.13), sideloaded extensions (US-1.14), the palette
+ * precondition (US-1.6), profile B (US-1.9), dependencies and dates. A test marked `it.fails` is a found bug; the
+ * comment names the item of the QA report in PR #785.
  */
 
 const here = fileURLToPath(new URL(".", import.meta.url));

@@ -37,7 +37,7 @@ PR #601, #602.
   profile.») и не-`application`-ключи в `User/settings.json`, пока активен именованный. У нас — только
   warn в канал `configuration`. Место — диагностики настроек (`contrib/preferences`,
   `settingsDiagnostics.ts`).
-- [x] **Одна версия расширения на все профили** — снято этапом 0 [ExtensionUpdates](ExtensionUpdates.md):
+- [x] **Одна версия расширения на все профили** — снято этапом 0 ExtensionUpdates ([Extensions.md](../arch/Extensions.md)):
   каталоги `<id>-<version>` лежат рядом, версию профиля решает его `extensions.json` (решение В2 —
   по профилю, как эталон). Остаётся `metadata` записи (pre-release, источник, pinned) — этап 1.
 - [x] **Уборка общего каталога расширений на старте** — `.obsolete` и `cleanUpExtensions` в

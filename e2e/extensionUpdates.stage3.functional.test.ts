@@ -24,10 +24,11 @@ import { createRegistryFixture } from "./helpers/registryFixture.ts";
 import { useHeadlessApp } from "./helpers/useApp.ts";
 
 /**
- * QA of ExtensionUpdates stage 3 (docs/TODO/ExtensionUpdates.md, "stage 3 spec") from the outside: the window talks
- * to the fixture registry over HTTP, so every request is counted and any path can fail. The edge cases the
- * implementer's suite (`extensionsAutoUpdate.functional.test.ts`) does not cover; a comment "QA report, bug N" marks a found bug,
- * fixed in the same PR.
+ * QA of ExtensionUpdates stage 3 (the "stage 3 spec" of the closed tracker,
+ * `git show 188ea93e:docs/TODO/ExtensionUpdates.md`) from the outside: the window talks to the fixture registry over
+ * HTTP, so every request is counted and any path can fail. The edge cases the implementer's suite
+ * (`extensionsAutoUpdate.functional.test.ts`) does not cover; a comment "QA report, bug N" marks a found bug, fixed in
+ * the same PR.
  */
 
 const here = fileURLToPath(new URL(".", import.meta.url));

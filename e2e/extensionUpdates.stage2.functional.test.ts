@@ -22,10 +22,11 @@ import { createRegistryFixture } from "./helpers/registryFixture.ts";
 import { useHeadlessApp } from "./helpers/useApp.ts";
 
 /**
- * Acceptance tests for ExtensionUpdates stage 2 in the window (docs/TODO/ExtensionUpdates.md, "stage 2 spec"): the
- * edge cases the implementer's `extensionsUpdateAll.functional.test.ts` leaves out — a registry that goes away, a
- * platform-only release, a newer `.vsix`, `@OUTDATED` with text, a partial failure, dependencies, profile B and a
- * double `Update All`. A comment "QA report #N" names the bug of PR #792 the test caught (fixed in the same PR).
+ * Acceptance tests for ExtensionUpdates stage 2 in the window (the "stage 2 spec" of the closed tracker,
+ * `git show 188ea93e:docs/TODO/ExtensionUpdates.md`): the edge cases the implementer's
+ * `extensionsUpdateAll.functional.test.ts` leaves out — a registry that goes away, a platform-only release, a newer
+ * `.vsix`, `@OUTDATED` with text, a partial failure, dependencies, profile B and a double `Update All`. A comment "QA
+ * report #N" names the bug of PR #792 the test caught (fixed in the same PR).
  */
 
 const here = fileURLToPath(new URL(".", import.meta.url));

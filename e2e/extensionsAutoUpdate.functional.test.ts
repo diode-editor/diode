@@ -14,10 +14,11 @@ import { createRegistryFixture } from "./helpers/registryFixture.ts";
 import { useHeadlessApp } from "./helpers/useApp.ts";
 
 /**
- * ExtensionUpdates stage 3 as the user sees it (docs/TODO/ExtensionUpdates.md, "stage 3 spec"): the background
- * check after startup, auto-update with one notification, pinned entries and the publish delay, the page's
- * `Auto Update` toggle, offline and two windows. Hermetic registry of real `.vsix` files; the hours pass through
- * `Diode.advanceClock`, the editor's clock for long timers.
+ * ExtensionUpdates stage 3 as the user sees it (the "stage 3 spec" of the closed tracker,
+ * `git show 188ea93e:docs/TODO/ExtensionUpdates.md`): the background check after startup, auto-update with one
+ * notification, pinned entries and the publish delay, the page's `Auto Update` toggle, offline and two windows.
+ * Hermetic registry of real `.vsix` files; the hours pass through `Diode.advanceClock`, the editor's clock for long
+ * timers.
  */
 
 const here = fileURLToPath(new URL(".", import.meta.url));

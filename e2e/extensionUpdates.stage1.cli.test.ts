@@ -14,9 +14,10 @@ import { createNamedProfile } from "./helpers/extensionsDisk.ts";
 import { createRegistryFixture } from "./helpers/registryFixture.ts";
 
 /**
- * Acceptance tests for ExtensionUpdates stage 1 in the CLI (docs/TODO/ExtensionUpdates.md, "stage 1 spec"): the edge
- * cases around `--install-extension id@version` and the `pinned` rule the implementer's suite does not cover.
- * A test marked `it.fails` is a found bug; the comment names the item of the QA report in PR #785.
+ * Acceptance tests for ExtensionUpdates stage 1 in the CLI (the "stage 1 spec" of the closed tracker,
+ * `git show 188ea93e:docs/TODO/ExtensionUpdates.md`): the edge cases around `--install-extension id@version` and the
+ * `pinned` rule the implementer's suite does not cover. A test marked `it.fails` is a found bug; the comment names the
+ * item of the QA report in PR #785.
  */
 
 const here = fileURLToPath(new URL(".", import.meta.url));
