@@ -21,9 +21,10 @@ import { median } from "./stats.ts";
 // 1. To text − node floor, median over `SAMPLES` runs, no workload and no inspector (same path as the
 //    `small` gate and the public bench). Calibration (CI, 2026-10-23, bench-data runs after #788–#791):
 //    `xlarge` median 229–251 ms of ours, `small` 131–146 on the same runs (small's own CI range over the
-//    month: 92–146). The budget is the small budget + 150 ms (the human's reference point): 1.4× the worst
-//    observed CI value — the same margin the small gate has (200 vs 146). It catches a new eager pass over
-//    all lines on the scale of "lost lazy width" (+1000 ms) or "lost lazy folding" (+100 ms).
+//    month: 92–146); on this gate's first CI run 195 (`small` 110). The budget is the small budget + 150 ms
+//    (the human's reference point): 1.4× the worst observed CI value — the same margin the small gate has
+//    (200 vs 146). It catches a new eager pass over all lines on the scale of "lost lazy width" (+1000 ms)
+//    or "lost lazy folding" (+100 ms).
 //
 // 2. Enter and both undos after the background work has settled: the tokenizer has reached the end of the
 //    file and the width sweep has measured every line (read from the editor's inspector state, no blind
@@ -32,12 +33,16 @@ import { median } from "./stats.ts";
 //    why `insert` is not gated here (human's decision 2026-10-23: not until the tokenizer starts from the
 //    viewport after a jump — stage 3). Each run presses `EDIT_CYCLES` cycles of insert/Enter/undo/undo with a
 //    pause between the cycles; the budget applies to the median over all cycles of all runs.
-//    Calibration: see `KEY_BUDGET_MS`.
+//    Calibration (CI, 2026-10-23, PR #793, a fast runner: `small` 110 ms of ours on the same job): medians over
+//    10 cycles — Enter 8, undo (Enter) 5, undo (char) 5, insert 5 ms; single samples up to 23 ms. Budgets 20/16/16:
+//    2.5–3× the median, so that a runner 1.6× slower (the small gate's observed spread, 92–146 ms) still has
+//    1.5× headroom; a sync pass over the file on the key path (folding, projection: +50 ms and more) is caught.
 //
-// Cost: the quiet moment comes ~45 s after spawn locally (4 cores: the TextMate tokenizer walks 200 K lines on
-// the main thread, ~200 µs a line), so every key run is the expensive part. Hence few runs and several cycles
-// per run, and no warmup run for the keys: the to-text bench above has already warmed the FS cache for the
-// same binary and fixture. Locally the file takes ~2 min; CI is faster.
+// Cost: the quiet moment comes ~20 s after spawn on CI (~45 s locally on 4 slower cores): the TextMate
+// tokenizer walks 200 K lines on the main thread, ~100–200 µs a line. So every key run is the expensive part —
+// hence few runs with several cycles each, and no warmup run for the keys: the to-text bench above has
+// already warmed the FS cache for the same binary and fixture. The CI step takes ~50 s (the small gate: 3 s);
+// locally the file takes ~2 min.
 //
 // Vitest bench has no budgets: an exception thrown from the bench function fails the file with a nonzero code.
 
@@ -45,9 +50,9 @@ import { median } from "./stats.ts";
 export const XLARGE_BUDGET_OURS_MS = 350;
 /** Median keystroke latency (ms) after the background work has settled; keys not listed are reported only. */
 export const KEY_BUDGET_MS: Readonly<Partial<Record<WorkloadStepKey, number>>> = {
-    enter: 60,
-    undoEnter: 60,
-    undoInsert: 60,
+    enter: 20,
+    undoEnter: 16,
+    undoInsert: 16,
 };
 const SAMPLES = 5;
 const KEY_RUNS = 2;
