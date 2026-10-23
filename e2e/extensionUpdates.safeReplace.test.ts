@@ -2,6 +2,7 @@ import {
     chmodSync,
     createWriteStream,
     existsSync,
+    mkdirSync,
     mkdtempSync,
     readdirSync,
     readFileSync,
@@ -392,13 +393,7 @@ describe("ExtensionUpdates stage 0 — safe version replacement", () => {
         LIVE_TIMEOUT,
     );
 
-    /**
-     * `it.fails` until the extraction stops crashing the CLI (docs/TESTING.md, the it.fails convention):
-     * `extractExtensionPayload` calls `fs.mkdirSync` inside the `openReadStream` callback, its EEXIST escapes as an
-     * uncaught exception, the process dies with a Node stack and no rollback runs — `acme.lib-1.0.0` and the
-     * `.vsix-install-*` temp stay on disk, referenced by no profile. Fixed — the test turns red: drop the marker.
-     */
-    it.fails(
+    it(
         "US-0.7: a root install failing after its dependencies rolls back only what this call created",
         async () => {
             const { userDataDir } = newRoot();
@@ -540,10 +535,40 @@ describe("ExtensionUpdates stage 0 — safe version replacement", () => {
             ]);
             writeFileSync(obsoleteFile(userDataDir), JSON.stringify({ [dirOf("1.0.0")]: true }));
 
+            // The profile wins over the mark (US-0.3): the CLI lists what the window will load.
+            expect(await listed(userDataDir)).toEqual([`${ID}@1.0.0`]);
             const window = await openWindow(root);
 
             await waitForProbe(window, `activated from ${dirOf("1.0.0")}`);
             expect(versionDirs(userDataDir, ID)).toEqual([dirOf("1.0.0")]);
+            expect(existsSync(obsoleteFile(userDataDir))).toBe(false);
+        },
+        LIVE_TIMEOUT,
+    );
+
+    it(
+        "US-0.10: an orphan directory is marked on one start and deleted on the next; a dead install's temp goes at once",
+        async () => {
+            const { root, userDataDir } = newRoot();
+            await seedVersionDirs(userDataDir, join(root, "seed"), [vsixOf("1.0.0"), vsixOf("1.1.0")]);
+            writeProfile(defaultProfileFile(userDataDir), [
+                { identifier: { id: ID }, version: "1.1.0", relativeLocation: dirOf("1.1.0") },
+            ]);
+            // An install that died before writing the profile: no process has this pid.
+            const deadTemp = join(extensionsDir(userDataDir), ".vsix-install-99999999-orphan");
+            mkdirSync(join(deadTemp, "extension"), { recursive: true });
+
+            const first = await openWindow(root);
+            await waitForProbe(first, `activated from ${dirOf("1.1.0")}`);
+
+            expect(versionDirs(userDataDir, ID)).toEqual([dirOf("1.0.0"), dirOf("1.1.0")]);
+            expect(obsoleteKeys(userDataDir)).toEqual([dirOf("1.0.0")]);
+            expect(existsSync(deadTemp)).toBe(false);
+
+            await closeWindow(first);
+            const second = await openWindow(root);
+            await waitForProbe(second, `activated from ${dirOf("1.1.0")}`);
+            expect(versionDirs(userDataDir, ID)).toEqual([dirOf("1.1.0")]);
             expect(existsSync(obsoleteFile(userDataDir))).toBe(false);
         },
         LIVE_TIMEOUT,
