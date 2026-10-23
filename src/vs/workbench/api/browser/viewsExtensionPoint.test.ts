@@ -293,7 +293,7 @@ describe("registerExtensionViews — views", () => {
                 },
                 "Acme Chat",
             ),
-            extension("acme.bare", { views: { explorer: [{ id: "bare.web", type: "webview" }] } }),
+            extension("acme.bare", { views: { explorer: [{ id: "bare.web", type: "webview" }] } }, ""),
         ]);
         expect(h.service.getViewContainerByViewId("acme.chatView")).toBeNull();
         expect(locations(h)).not.toContain("sidebar:workbench.view.extension.chat:CHAT");
@@ -374,18 +374,21 @@ describe("registerExtensionViews — views", () => {
                         { id: "junk.tree" },
                     ],
                     scm: [{ id: "ok.but.rejected" }, { name: "no id" } as never],
+                    emptyId: [{ id: "also.rejected" }, { id: "" }],
                     broken: "not-a-list" as never,
                 },
             }),
         ]);
         expect(paneTitles(h.paneView("explorer"))).toEqual(["EXPLORER.FILES", "TREE"]);
         expect(h.service.getViewContainerByViewId("ok.but.rejected")).toBeNull();
+        expect(h.service.getViewContainerByViewId("also.rejected")).toBeNull();
         expect(h.commands.has("junk.odd.focus")).toBe(false);
         expect(log).toEqual([
             'error: acme.junk: view "junk.odd" has unknown type "notebook"',
             'error: acme.junk: a view with id "explorer.files" is already registered',
             'error: acme.junk: a view with id "junk.tree" is already registered',
             "error: acme.junk: views.scm: property `id` is mandatory and must be a string",
+            "error: acme.junk: views.emptyId: property `id` is mandatory and must be a string",
             "error: acme.junk: views.broken: views must be an array",
         ]);
     });

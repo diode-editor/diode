@@ -255,7 +255,7 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
         // Stryker restore ArrowFunction
 
         // Lazy, like `getWorkspaceFolders`: `storageUri` depends on a folder that is set after the host is created.
-        // Stryker disable next-line ArrowFunction: production module wiring; the choice of roots lives in `extensionStorageHomes`, covered by unit tests; end-to-end — e2e scenario extension-storage
+        // Stryker disable next-line ArrowFunction,CallExpression: production module wiring; the choice of roots lives in `extensionStorageHomes`, covered by unit tests; end-to-end — e2e scenario extension-storage
         const storageHomes = (): IExtensionStorageHomes =>
             extensionStorageHomes(environment, workspaceContext.getWorkspace().id);
 

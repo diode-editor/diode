@@ -27,11 +27,12 @@ describe("ViewsService — container switcher on the sidebar title", () => {
     it("a merged sidebar section's header carries it and lists the sidebar containers", () => {
         const h = harness();
         const header = h.paneView("explorer").querySelector("#paneHeader-explorer-files") as PaneHeaderElement;
-        header.onSwitch?.({ screenX: 0, screenY: 1 });
+        // Enter goes through the header itself: it opens the switcher only if the section really has one.
+        header.dispatchEvent(new TUIKeyboardEvent("keydown", { key: "Enter" }));
 
         const delegate = h.shown.at(-1);
         expect(delegate?.getOwner()).toBe(h.paneView("explorer"));
-        expect(delegate?.getAnchor()).toEqual({ screenX: 0, screenY: 1 });
+        expect(delegate?.getAnchor()).toEqual({ screenX: 0, screenY: 0 });
         expect(labels(delegate?.getEntries?.() ?? [])).toEqual(["●Explorer", " Source Control"]);
     });
 
