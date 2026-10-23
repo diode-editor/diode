@@ -249,7 +249,11 @@ describe("IpcMessageChannel", () => {
             const [a] = pair();
             const logger = fakeLogger();
             const ch = new IpcMessageChannel(a, logger);
+            let sends = 0;
             a.send = (): boolean => {
+                sends += 1;
+                // The first send rejects the payload (the channel is open); the fallback send finds it closed.
+                if (sends === 1) throw new Error("could not be cloned");
                 a.dead = true;
                 throw new Error("ERR_IPC_CHANNEL_CLOSED");
             };
@@ -259,7 +263,9 @@ describe("IpcMessageChannel", () => {
             a.send = sendSpy;
             ch.postMessage("after");
 
+            expect(sends).toBe(2);
             expect(sendSpy).not.toHaveBeenCalled();
+            expect(logger.warn).toHaveBeenCalledTimes(1);
             expect(logger.error).not.toHaveBeenCalled();
             ch.dispose();
         });
@@ -278,16 +284,22 @@ describe("IpcMessageChannel", () => {
             ch.postMessage("after");
 
             expect(logger.error).toHaveBeenCalledTimes(1);
+            expect(logger.error.mock.calls[0]?.[0]).toContain("dropped");
             expect(sendSpy).toHaveBeenCalledWith("after");
             ch.dispose();
         });
 
-        it("without a logger the fallback still delivers", async () => {
+        it("without a logger the fallback still delivers, and a dropped message does not throw", async () => {
             const [a, b] = pair();
             const chA = new IpcMessageChannel(a);
             const chB = new IpcMessageChannel(b);
             const received: unknown[] = [];
             chB.onMessage((m) => received.push(m));
+            const cyclic: Record<string, unknown> = { fn: () => 1 };
+            cyclic.self = cyclic;
+            expect(() => {
+                chA.postMessage(cyclic);
+            }).not.toThrow();
             chA.postMessage({ fn: () => 1, n: 1 });
             await Promise.resolve();
             expect(received).toEqual([{ n: 1 }]);
