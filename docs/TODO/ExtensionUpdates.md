@@ -31,7 +31,7 @@
   `.obsolete` у эталона в `extensions/`) и удаляется на следующем старте. `ExtensionScanner` и
   `profileExtensions` берут версию из записи `extensions.json`, а не «единственный каталог с этим id».
   Тест: обновление при работающем host'е не трогает его каталог; после reload на диске одна версия.
-- [ ] **1. Конкретная версия и откат.**
+- [~] **1. Конкретная версия и откат.** Спека — [ниже](#спека-этапа-1--конкретная-версия-и-откат); где она расходится с этим планом, верна спека.
   - `install(id, { version? })` в контракте `IExtensionsWorkbenchService`.
   - Команда `extensions.installSpecificVersion` («Install Specific Version…») — quick pick по версиям из
     `meta`: версия, дата, `current`; несовместимые показаны с причиной (точная версия обходит `engines`,
@@ -271,6 +271,144 @@
   в `e2e/extensionUpdates.safeReplace.test.ts`; исправлено в #784, пометка снята.
 - [ ] Межпроцессная блокировка `extensions.json` и `.obsolete` (гонка CLI и окна) — хвост этапа 0.
 - Уведомление «нужен reload» после обновления — этап 2.
+
+## Спека этапа 1 — конкретная версия и откат
+
+Статус: черновик 2026-10-23, по нему пишем тесты, потом код. Эталон — vscode 1.127:
+`workbench/contrib/extensions/browser/extensionsActions.ts` (`InstallAnotherVersionAction`,
+`InstallSpecificVersionOfExtensionAction`), `extensions.contribution.ts` (регистрация, меню),
+`extensionsWorkbenchService.ts` (`pinned`, `outdated`), `platform/extensionManagement/common/
+abstractExtensionManagementService.ts` и `node/extensionManagementService.ts` (`installGivenVersion` →
+`pinned`), `common/extensionManagementCLI.ts` (`id@version`).
+
+### Что есть после этапа 0 (по коду)
+
+- `installFromRegistry` принимает `options.version`: точная версия обходит `engines`, но не платформу;
+  каталог той же версии переиспользуется, помеченный в `.obsolete` — снимается с пометки. Откат на
+  старую версию на уровне диска уже безопасен (этап 0, US-0.5).
+- `IExtensionsWorkbenchService.install(id)` версию не принимает; `IExtensionListEntry` про `pinned` не знает.
+- `ProfileExtensions.add` переписывает запись расширения заново (`toStoredExtension`): посторонние поля
+  записи, в том числе `metadata`, при обновлении **теряются** (сохраняются только у нетронутых записей).
+- CLI `--install-extension id@1.2.3` ищет в реестре id `id@1.2.3` → «not found».
+- На странице — только кнопки `describeExtensionButtons` (`install`/`update`/`uninstall`/`reload`);
+  контекстного меню расширения (у эталона `MenuId.ExtensionContext`, шестерёнка) нет.
+- Quick pick — `QuickInputServiceDIToken`, `quickPick({...})` (пример — `encodingActions.ts`).
+- `meta/<id>.json` содержит все версии с `engines`, `targetPlatform`, необязательным `publishedAt`.
+
+### Модель
+
+- **Установка заданной версии** = установка из реестра с `version` (как `installGivenVersion` у эталона).
+  Она **закрепляет** версию: `metadata.pinned: true` в записи `extensions.json` текущего профиля
+  (по профилю — решение В2 этапа 0).
+- Правило `pinned` при записи (эталон: `pinned: installGivenVersion ? true : (options.pinned ?? existing.pinned)`):
+  - заданная версия (пикер, CLI `id@version`, CLI `.vsix`) → `true`;
+  - обычная установка/обновление → сохраняется прежнее значение записи (нет записи → не закреплено);
+  - зависимости → никогда не закрепляются (эталон: `pinned: false` для dep-задач);
+  - удаление из профиля стирает запись вместе с `pinned`.
+- Прочие поля `metadata` записи при перезаписи сохраняются (эталон хранит там больше, чем мы знаем).
+- Закрепление **не меняет** вычисление `outdated` и кнопку `Update to X` (эталон: `outdated` не смотрит на
+  `pinned`; см. Д1). Его потребители — этапы 2 (`Update All`) и 3 (автообновление, переключатель).
+
+### Поведение (пользовательские истории — по ним тесты)
+
+- **US-1.1 Пикер со страницы.** На странице расширения из реестра есть кнопка `Install Specific Version...`
+  (Д3). Нажатие открывает quick pick с placeholder `Select Version to Install`: по строке на версию из `meta`,
+  **совместимую** с этой сборкой (`isVersionCompatible`: платформа и `engines`; Д2), от новой к старой (semver).
+  Описание строки — относительная дата `publishedAt` (`2 months ago`, как `fromNow(…, true)` эталона; нет
+  даты — пусто) и ` (current)` у установленной версии.
+- **US-1.2 Откат.** Установлен `1.1.0`, выбираю `1.0.0` → прогресс `Installing acme.demo`, затем уведомление
+  как у обычной установки и кнопка `Reload Window`; после reload работает `1.0.0`. В `extensions.json`
+  профиля: `version: 1.0.0`, `metadata.pinned: true`. Каталог `1.1.0` уходит в `.obsolete` (этап 0).
+- **US-1.3 Выбор текущей / отмена.** Выбор строки `(current)` или Escape — ничего не происходит (эталон:
+  `if (local.version === pick.id) return`).
+- **US-1.4 Нет вариантов.** Совместимых версий нет (или meta пуст) → информационное уведомление
+  `This extension has no other versions.` (эталон), пикер не открывается.
+- **US-1.5 Не установлено.** Кнопка есть и у неустановленного расширения из реестра (эталон: контекстное
+  меню для `uninstalled`); выбор версии ставит её закреплённой.
+- **US-1.6 Палитра.** Команда `workbench.extensions.action.install.specificVersion`, заголовок
+  `Extensions: Install Specific Version of Extension...`: сначала quick pick `Select Extension` по установленным в
+  профиле расширениям, известным реестру (подпись — `displayName`, описание — id, сортировка по
+  `displayName`), затем тот же выбор версии, что в US-1.1. Нет таких расширений — команда недоступна (`precondition`/
+  typed when-контекст; эталон: `enabled = local.some(...)`). Отдельная команда страницы —
+  `workbench.extensions.action.install.anotherVersion` (аргумент — id расширения), в палитре не показывается.
+- **US-1.7 Закрепление переживает обычное обновление.** Закреплённый `1.0.0`, жму `Update to 1.1.0` → ставится
+  `1.1.0`, `pinned` остаётся `true` (эталон). Кнопка `Update to X` у закреплённого есть (Д1).
+- **US-1.8 Удаление снимает закрепление.** `Uninstall`, затем обычный `Install` → запись без `pinned`.
+- **US-1.9 Профили независимы.** Откат и закрепление в профиле A не меняют запись профиля B.
+- **US-1.10 CLI `id@version`.** `diode --install-extension acme.demo@1.0.0` ставит ровно `1.0.0` (поверх более
+  новой — откат), запись закреплена, вывод `Installed acme.demo@1.0.0`. Разбор как у эталона: последний
+  `@`, справа — semver (`/^([^.]+\..+)@(\d+\.\d+\.\d+(-.*)?)$/`); иначе вся строка — id (`.vsix` по суффиксу
+  проверяется раньше, как сейчас). Нет такой версии для этой платформы → ошибка
+  `prepare` (список доступных), код 1. Справка `--install-extension` упоминает `<id>[@<version>]`.
+- **US-1.11 CLI `.vsix` закрепляет.** `--install-extension ./acme.demo-1.0.0.vsix` → `pinned: true` (эталон
+  ставит `installGivenVersion` для VSIX).
+- **US-1.12 CLI той же версии.** `id@version`, когда в профиле уже ровно эта версия → `Extension 'acme.demo'
+  v1.0.0 is already installed.`, код 0, но запись закрепляется (отступление: у эталона нужен `--force`, у нас
+  его нет — Д4).
+- **US-1.13 Ошибки.** Реестр недоступен или артефакт битый → уведомление об ошибке, как у кнопки `Install`;
+  на диске и в профиле ничего не меняется (откат этапа 0).
+- **US-1.14 Боковое расширение** (не из реестра): кнопки нет, в списке палитры его нет.
+
+### Устройство (что меняется)
+
+- `platform/extensionManagement/node/profileExtensions.ts`: `IStoredProfileExtension.metadata?: { pinned?:
+  boolean; [k]: unknown }`; `add(installed, { pinned? })` — правило `pinned` из «Модели» (явное значение для
+  корней, прежнее — иначе, зависимости — без `pinned`), прочие поля записи сохраняются; `list()` отдаёт `pinned`
+  в `IInstalledExtension`.
+- `workbench/contrib/extensions/common/extensionsWorkbench.ts`: `install(id, options?: { version?: string })`;
+  `IExtensionListEntry.pinned: boolean`; `getCompatibleVersions(id)` или чистая функция
+  `describeVersionPicks(meta, host, installedVersion, now)` → строки пикера (тестируется юнитом).
+- `node/extensionsWorkbenchService.ts`: прокидывает `version` в `installFromRegistry` и `pinned: true` в `add`.
+- `browser/extensionPageButtons.ts`: новый вид `installAnotherVersion` (`Install Specific Version...`) — у
+  записей с `latestVersion !== null`, не во время `busy` (тогда disabled, как прочие); порядок — после
+  `Install`/`Update`, перед `Uninstall`.
+- `browser/extensionsActions.ts`: две команды с id эталона, typed when-контекст для палитры.
+- `fromNow` — перенос из эталона `base/common/date.ts` (только нужное, английские строки), время — через
+  инъекцию часов, не `Date.now` на уровне модуля (V8-снапшот).
+- `vs/diode/main.ts` + `cliArgs.ts`: разбор `id@version`, `version` в `options`, `pinned` в `add`, справка.
+- Доки: [arch/workbench/ExtensionsView.md](../arch/workbench/ExtensionsView.md) — убрать «Установку конкретной
+  версии из UI» из «сознательно не делаем», описать пикер и `pinned`; [arch/Extensions.md](../arch/Extensions.md)
+  — `metadata.pinned` в `extensions.json`; план этапа 1 выше — привести к этой спеке.
+
+### Тесты
+
+- Юниты: `describeVersionPicks` (фильтр совместимости и платформы, порядок semver, `(current)`, дата/без даты,
+  пусто); `describeExtensionButtons` (новая кнопка: есть у реестровых, нет у боковых, disabled при `busy`);
+  `profileExtensions` (правило `pinned`: given/обычная/зависимость/удаление/прочие поля `metadata` целы,
+  профили независимы); разбор `id@version` в CLI.
+- e2e CLI (`registry-install.test.ts` или рядом, фикстура с версиями `1.0.0`/`1.1.0`): US-1.10, US-1.11,
+  US-1.12, ошибка несуществующей версии.
+- e2e UI (`extensionsInstall.functional.test.ts` или рядом): US-1.1–US-1.4, US-1.6, US-1.7 до кадра —
+  строки пикера, уведомление, `Reload Window`, после переподключения — версия на странице.
+- Сценарий-демо в `e2e/scenarios/`: откат через `Install Specific Version...`.
+- Мутационный гейт, живой запуск (`drive`) US-1.2.
+
+### Решения человека (дефолт принимается, если нет ответа до старта кода)
+
+- **Д1. Что делает `pinned` в UI этапа 1.** План говорил: «у закреплённого нет `Update to X`, есть `Unpin`».
+  У эталона иначе: `Update` остаётся, `pinned` только выключает автообновление, а снимается переключателем
+  `Auto Update` (этап 3).
+  - **(дефолт) а) как эталон:** кнопка `Update to X` остаётся, `Unpin` нет; до этапа 3 закрепление видно
+    только в `extensions.json` и по пропуску в `Update All` (этап 2). Цена — 0.
+  - б) как в плане: скрыть `Update to X` и добавить `Unpin`. Отступление; этап 3 тогда переделает кнопку в
+    переключатель.
+- **Д2. Несовместимые версии в пикере.** План: показывать с причиной (точная версия обходит `engines`).
+  Эталон: только совместимые (`getAllCompatibleVersions`).
+  - **(дефолт) а) как эталон**, только совместимые. CLI `id@version` по-прежнему обходит `engines` (как сейчас).
+  - б) показать несовместимые серыми с причиной `requires vscode ^1.130.0` и разрешить выбор — отступление.
+- **Д3. Где живёт действие.** У эталона — контекстное меню расширения (шестерёнка/ПКМ), которого у нас нет.
+  - **(дефолт) а) кнопка `Install Specific Version...`** на странице расширения, рядом с прочими — отступление по
+    форме, подпись эталонная. Цена — мала.
+  - б) завести меню «Manage» (шестерёнка) на странице и в строках списка, как эталон, — отдельная работа ~1–2 дня.
+- **Д4. `id@version` той же версии в CLI** — (дефолт) сообщение, код 0, запись закрепляется (US-1.12); у
+  эталона без `--force` — только сообщение. Альтернатива — ровно как эталон, без закрепления.
+
+### Вне этапа
+
+- Переключатель `Auto Update` для одного расширения, `Unpin` — этап 3.
+- `Update All` с пропуском закреплённых, «последняя» как максимальная совместимая — этап 2.
+- Пре-релизы (у реестра их нет).
+- Установка из `.vsix` через UI (`Install from VSIX...`).
 
 ## Открытые вопросы (решает человек)
 
