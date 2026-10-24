@@ -16,9 +16,9 @@ export interface IDocumentContentChange {
     /** The growth that ends the background pass: the document's end is final (until something is appended). */
     readonly isFinalGrowth?: boolean;
     /**
-     * Lines came in from outside, after the last one: the index of a document on disk grew, or its file did
-     * (docs/arch/Editor.md) — no version bump; or the file of a document in memory did (`TextDocument.appendText`,
-     * an edit). The view's follow (`EditorViewState.followTail`) rides on it.
+     * Lines were appended to the file, after the last one: of a document on disk (`DiskTextBuffer.extendTo`, with
+     * `isGrowth`, no version bump), or of a document in memory (`TextDocument.appendText`, an edit). The view's
+     * follow (`EditorViewState.followTail`) rides on it; the growth of the index alone is not an append.
      */
     readonly isAppend?: boolean;
 }

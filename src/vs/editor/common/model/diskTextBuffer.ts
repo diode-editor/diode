@@ -95,6 +95,8 @@ export class DiskTextBuffer implements IDocumentBuffer {
      * cleared: a later tail only moves the end.
      */
     private tailKnown = false;
+    /** The file grew after it was opened ({@link extendTo}): from then on the growth is an append (`isAppend`). */
+    private appended = false;
     private passRunning = false;
     private indexingError: unknown = null;
     private disposed = false;
@@ -161,6 +163,7 @@ export class DiskTextBuffer implements IDocumentBuffer {
         if (size <= this.sizeValue) return true;
         const oldSize = this.sizeValue;
         if (!this.tailUnchanged(oldSize)) return false;
+        this.appended = true;
         this.sizeValue = size;
         this.growPages();
         if (this.passRunning || !this.tailKnown) return true;
@@ -320,7 +323,7 @@ export class DiskTextBuffer implements IDocumentBuffer {
             startLine: before - 1,
             oldEndLine: before - 1,
             newEndLine: after - 1,
-            isAppend: true,
+            ...(this.appended ? { isAppend: true } : {}),
         });
     }
 

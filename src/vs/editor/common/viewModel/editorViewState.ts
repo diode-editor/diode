@@ -221,6 +221,13 @@ export class EditorViewState {
      * and by the next flush.
      */
     private followingEnds = new WeakSet<IPosition>();
+    /**
+     * The ends of {@link followingEnds} a flush put there (clamped or carried): they ride the growth of the index
+     * too (`isGrowth`), where the new end is still provisional. A cursor the user put on the last line rides only
+     * what was appended to the file (`isAppend`): on a provisional end it stays (OpenPerformance 4.3), and Ctrl+End
+     * while the index is built is {@link pendingTarget}'s.
+     */
+    private flushEnds = new WeakSet<IPosition>();
     /** The visible state of the set: on while some cursor rides the end. Its toggle is {@link setFollowTail}. */
     private followTailValue = false;
     /**
@@ -333,20 +340,23 @@ export class EditorViewState {
         if (this.continuePendingTarget(change)) return;
 
         const carried = this.followingEnds;
-        if (change.isFlush === true) this.followingEnds = new WeakSet();
+        if (change.isFlush === true) {
+            this.followingEnds = new WeakSet();
+            this.flushEnds = new WeakSet();
+        }
         const followed: IPosition[] = [];
         let following = false;
         const remapped = this.selectionsValue.map((sel) => {
             let anchor = this.remapPosition(sel.anchor, change, lineDelta);
             let active = this.remapPosition(sel.active, change, lineDelta);
             if (change.isFlush === true) {
-                if (carried.has(sel.anchor)) anchor = this.moveToEnd(anchor, change.newEndLine, followed);
-                else if (sel.anchor.line > change.newEndLine) this.followingEnds.add(anchor);
+                if (carried.has(sel.anchor)) anchor = this.moveToEnd(anchor, change.newEndLine, followed, true);
+                else if (sel.anchor.line > change.newEndLine) this.addFlushEnd(anchor);
                 if (carried.has(sel.active)) {
-                    active = this.moveToEnd(active, change.newEndLine, followed);
+                    active = this.moveToEnd(active, change.newEndLine, followed, true);
                     following = true;
                 } else if (sel.active.line > change.newEndLine) {
-                    this.followingEnds.add(active);
+                    this.addFlushEnd(active);
                     following = true;
                 }
             } else {
@@ -383,21 +393,30 @@ export class EditorViewState {
     }
 
     /**
-     * Growth of a document on disk arrives as an `isAppend` change on its last line (its index or its file grew).
-     * A selection end that rides the end moves to the new last line, as `less +F` would show it; any other
+     * Growth arrives as a change on the last line: `isAppend` — the file grew, `isGrowth` — the index of a document
+     * on disk did (both, when the index reads what was appended). A selection end that rides the end moves to the
+     * new last line, as `less +F` would show it (see {@link flushEnds} for which growth it rides); any other
      * position is as {@link remapPosition} left it. An edit is never the end moving on: a replacement that ends
      * on the last line of a document in memory leaves a clamped cursor where it is.
      */
     private followEnd(pos: IPosition, change: IDocumentContentChange, followed: IPosition[]): IPosition {
-        if (change.isAppend !== true || !this.followingEnds.has(pos)) return pos;
-        return this.moveToEnd(pos, change.newEndLine, followed);
+        if (!this.followingEnds.has(pos)) return pos;
+        const viaFlush = this.flushEnds.has(pos);
+        if (change.isAppend !== true && !(change.isGrowth === true && viaFlush)) return pos;
+        return this.moveToEnd(pos, change.newEndLine, followed, viaFlush);
     }
 
-    private moveToEnd(pos: IPosition, line: number, followed: IPosition[]): IPosition {
+    private moveToEnd(pos: IPosition, line: number, followed: IPosition[], viaFlush: boolean): IPosition {
         const moved = { line, character: Math.min(pos.character, this.document.getLineLength(line)) };
-        this.followingEnds.add(moved);
+        if (viaFlush) this.addFlushEnd(moved);
+        else this.followingEnds.add(moved);
         followed.push(moved);
         return moved;
+    }
+
+    private addFlushEnd(pos: IPosition): void {
+        this.followingEnds.add(pos);
+        this.flushEnds.add(pos);
     }
 
     private remapPosition(pos: IPosition, change: IDocumentContentChange, lineDelta: number): IPosition {
@@ -1868,7 +1887,8 @@ export class EditorViewState {
         const target = this.pendingTarget;
         if (target === null) return false;
         this.pendingTarget = null;
-        if (change.isGrowth !== true) return false;
+        // An append to the file is follow's: the index is over, and the cursor rides it if it is on the end.
+        if (change.isGrowth !== true || change.isAppend === true) return false;
         const [only] = this.selectionsValue;
         if (
             this.selectionsValue.length !== 1 ||

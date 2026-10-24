@@ -81,7 +81,16 @@ describe("TextFileModel — follow: the file under the document on disk grows", 
         expect(model.document.getLineContent(18_002)).toBe(`18002 ${LINE}`);
         expect(model.document.versionId).toBe(version);
         expect(model.document.onDisk).toBe(disk);
-        expect(changes).toEqual([{ startLine: 18_000, oldEndLine: 18_000, newEndLine: 18_003, isAppend: true }]);
+        expect(changes).toEqual([
+            {
+                startLine: 18_000,
+                oldEndLine: 18_000,
+                newEndLine: 18_003,
+                isAppend: true,
+                isGrowth: true,
+                isFinalGrowth: true,
+            },
+        ]);
         expect(diskStateChanges()).toBe(0);
         expect(model.isModified).toBe(false);
 
