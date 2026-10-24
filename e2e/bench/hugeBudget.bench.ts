@@ -229,8 +229,7 @@ describe("log500m: the giant file opens read-only on disk like a small one", () 
     const loadKeySamples: number[] = [];
     const editKeySamples: WorkloadStepResult[] = [];
     let editingCalls = 0;
-    // TODO(#803): enable once the streaming Enable Editing is on main.
-    bench.skip(
+    bench(
         `log500m: Enable Editing ≤ ${String(EDITABLE_BUDGET_MS)} ms, key during the load ≤ ${String(LOAD_KEY_BUDGET_MS)} ms, after it ≤ ${String(EDIT_KEY_BUDGET_MS)} ms (median)`,
         async () => {
             editingCalls++;
