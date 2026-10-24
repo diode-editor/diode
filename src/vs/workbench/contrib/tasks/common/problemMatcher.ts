@@ -531,10 +531,19 @@ function createLocation(
     return toRange(startLine, 1, startLine, END_OF_LINE_COLUMN);
 }
 
-/** 1-based (0 for a whole-file problem) to 0-based. */
+/**
+ * 1-based to 0-based, sanitized as upstream's `MarkerService._toMarker`: a line or column below 1 or not a number
+ * (a whole-file problem's 0, a column group that captured text) is 1, the end is not before the start.
+ */
 function toRange(startLine: number, startColumn: number, endLine: number, endColumn: number): IRange {
-    const zeroBased = (value: number): number => Math.max(0, value - 1);
-    return createRange(zeroBased(startLine), zeroBased(startColumn), zeroBased(endLine), zeroBased(endColumn));
+    const line = startLine > 0 ? startLine : 1;
+    const column = startColumn > 0 ? startColumn : 1;
+    return createRange(
+        line - 1,
+        column - 1,
+        (endLine >= line ? endLine : line) - 1,
+        (endColumn > 0 ? endColumn : column) - 1,
+    );
 }
 
 class SingleLineMatcher extends AbstractLineMatcher implements ILineMatcher {

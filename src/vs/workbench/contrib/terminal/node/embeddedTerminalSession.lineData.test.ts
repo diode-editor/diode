@@ -69,7 +69,12 @@ describe("EmbeddedTerminalSession — output lines", () => {
     // `cat` of ~110 KB and more, exiting right away: the terminal stopped at line 2685 of 3000 ("main.c(3," and
     // then "Terminal will be reused by tasks"), so a lint of a big project lost the last problems. With `sleep 1`
     // before the exit all 3000 lines arrive. Same on main before #808; a process task (`cat big.txt`) too.
-    it("a process that prints a lot and exits at once: every line is reported before the exit", async () => {
+    //
+    // Skipped: the bytes never reach node-pty's `onData` — a bare node-pty script loses the tail of the same output
+    // in 1–2 runs of 40, with our 1.1.0 and with upstream's 1.2.0-beta.13 alike, and a longer socket destroy timeout
+    // doesn't help: what is still unread in the pty when the process closes it is dropped below us. The exit already
+    // waits for late output (upstream's DataFlushTimeout). Tracked in docs/TODO/Tasks.md.
+    it.skip("a process that prints a lot and exits at once: every line is reported before the exit", async () => {
         const dir = mkdtempSync(join(tmpdir(), "diode-linedata-"));
         dirs.push(dir);
         const file = join(dir, "big.txt");

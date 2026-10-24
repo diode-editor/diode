@@ -91,8 +91,8 @@ export abstract class XtermSurface implements ITerminalSurface, IDisposable {
     private readonly onDidInputAfterExitEmitter = new Emitter<void>();
     private readonly onLineDataEmitter = new Emitter<string>();
     private loading = true;
-    /** Row of the unterminated last line sent on exit: the line feed that later ends it must not send it again. */
-    private flushedRow: number | undefined;
+    /** While our own text (a message, a relaunch preface) is parsed: it is not output. */
+    private linesMuted = false;
     // Reused cell — getCell(x, cell) doesn't allocate a new object per cell.
     private cellBuffer: IBufferCell | undefined;
     protected cols: number;
@@ -128,10 +128,9 @@ export abstract class XtermSurface implements ITerminalSurface, IDisposable {
         // Upstream `LineDataEventAddon`: a line is complete at the line feed after it. Upstream also skips a line
         // feed onto a wrapped row, but wrapping is not a line feed: the row after one never continues a line.
         term.onLineFeed(() => {
+            if (this.linesMuted) return;
             const buffer = term.buffer.active;
-            const row = buffer.baseY + buffer.cursorY - 1;
-            if (this.flushedRow === row) this.flushedRow = undefined;
-            else this.sendLineData(buffer, row);
+            this.sendLineData(buffer, buffer.baseY + buffer.cursorY - 1);
         });
         this.term = term;
         for (const item of this.pendingOutput.splice(0)) {
@@ -176,7 +175,6 @@ export abstract class XtermSurface implements ITerminalSurface, IDisposable {
         const buffer = this.term.buffer.active;
         const row = buffer.baseY + buffer.cursorY;
         if (rowText(buffer, row, true) === "") return;
-        this.flushedRow = row;
         this.sendLineData(buffer, row);
     }
 
@@ -199,8 +197,6 @@ export abstract class XtermSurface implements ITerminalSurface, IDisposable {
 
     private writeToTerm(term: Terminal, data: string): void {
         term.write(data, () => {
-            // Its line feeds are parsed by now: only the first one after the exit may end the flushed line.
-            this.flushedRow = undefined;
             // New output returns the viewport to the bottom — otherwise the frame drifts against the growing baseY.
             this.viewportScrollOffset = 0;
             this.emitUpdate();
@@ -226,8 +222,8 @@ export abstract class XtermSurface implements ITerminalSurface, IDisposable {
      * previous process exits.
      */
     public relaunch(options: ITerminalRelaunchOptions): void {
-        this.feedOutput(options.clear === true ? CLEAR_ALL : NEW_LINE_AT_START);
-        if (options.message !== undefined) this.feedOutput(`${options.message}\r\n`);
+        const preface = options.clear === true ? CLEAR_ALL : NEW_LINE_AT_START;
+        this.printMessage(options.message === undefined ? preface : `${preface}${options.message}\r\n`);
         this.exited = false;
         this.relaunchProcess(options);
     }
@@ -240,7 +236,14 @@ export abstract class XtermSurface implements ITerminalSurface, IDisposable {
 
     /** Text goes to the emulator as process output; it isn't sent to the process. */
     public printMessage(text: string): void {
+        // Upstream registers the line listener after `initialText` is written: a task banner is not a line.
+        this.afterOutputParsed(() => {
+            this.linesMuted = true;
+        });
         this.feedOutput(text);
+        this.afterOutputParsed(() => {
+            this.linesMuted = false;
+        });
     }
 
     /** Clamped on read: `baseY` can shrink (resize, clear) after scrolling up. */

@@ -11,6 +11,12 @@ import { XtermSurface } from "./xtermSurface.ts";
 
 export type { CoreMouseEvent } from "./xtermSurface.ts";
 
+/**
+ * Upstream `ShutdownConstants.DataFlushTimeout`: node-pty may report the exit before the last output is read, so
+ * the exit waits until the output has been quiet this long.
+ */
+export const DATA_FLUSH_TIMEOUT_MS = 250;
+
 export interface EmbeddedTerminalOptions {
     cols: number;
     rows: number;
@@ -56,6 +62,8 @@ function currentEnv(): Record<string, string> {
 export class EmbeddedTerminalSession extends XtermSurface {
     public shell: string;
     private pty: IPty;
+    /** Upstream `_closeTimeout`: the process exited, its output may still be arriving. */
+    private closeTimeout: ReturnType<typeof setTimeout> | undefined;
 
     /** @param environment extension environment collections; not applied with `strictEnv`. */
     public constructor(
@@ -66,7 +74,7 @@ export class EmbeddedTerminalSession extends XtermSurface {
 
         // `TerminalOptions.message` is `writeln` into the emulator (upstream `_writeInitialText`)
         // before the first shell output: xterm writes are queued in order.
-        if (options.message !== undefined) this.feedOutput(`${options.message}\r\n`);
+        if (options.message !== undefined) this.printMessage(`${options.message}\r\n`);
 
         this.shell = options.shell ?? getSystemShell();
         this.pty = this.spawn(this.shell, options);
@@ -85,6 +93,7 @@ export class EmbeddedTerminalSession extends XtermSurface {
     }
 
     protected disposeProcess(): void {
+        clearTimeout(this.closeTimeout);
         // kill can't find an already exited process — its failure is swallowed here.
         try {
             this.pty.kill();
@@ -97,6 +106,15 @@ export class EmbeddedTerminalSession extends XtermSurface {
     protected relaunchProcess(options: ITerminalRelaunchOptions): void {
         this.shell = options.shell ?? getSystemShell();
         this.pty = this.spawn(this.shell, { ...options, cols: this.cols, rows: this.rows });
+    }
+
+    /** Upstream `_queueProcessExit`: every output chunk after the exit restarts the wait. */
+    private queueProcessExit(exitCode: number): void {
+        clearTimeout(this.closeTimeout);
+        this.closeTimeout = setTimeout(() => {
+            this.closeTimeout = undefined;
+            this.markExited(exitCode);
+        }, DATA_FLUSH_TIMEOUT_MS);
     }
 
     private spawn(shell: string, options: EmbeddedTerminalOptions): IPty {
@@ -121,11 +139,14 @@ export class EmbeddedTerminalSession extends XtermSurface {
             cwd,
             env,
         });
+        let exitCode = 0;
         pty.onData((data) => {
             this.feedOutput(data);
+            if (this.closeTimeout !== undefined) this.queueProcessExit(exitCode);
         });
-        pty.onExit(({ exitCode }) => {
-            this.markExited(exitCode);
+        pty.onExit((event) => {
+            exitCode = event.exitCode;
+            this.queueProcessExit(exitCode);
         });
         return pty;
     }
