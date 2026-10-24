@@ -13,6 +13,7 @@ import { rmSync } from "node:fs";
 import path from "node:path";
 
 import {
+    CLAUDE_GIT_ENV,
     HTTPS_ORIGIN,
     LABELS,
     REPO_ROOT,
@@ -92,7 +93,7 @@ for (const name of [
 }
 
 const claudeCmd = `claude --model ${model} --permission-mode bypassPermissions "/task-manager ${issue}"`;
-const env = { AGENT_LOOP_TASK: issue, AGENT_LOOP_MODEL: model, AGENT_LOOP_HOME: loopHome() };
+const env = { ...CLAUDE_GIT_ENV, AGENT_LOOP_TASK: issue, AGENT_LOOP_MODEL: model, AGENT_LOOP_HOME: loopHome() };
 const envFlags = Object.entries(env).flatMap(([k, v]) => ["-e", `${k}=${v}`]);
 const created = tmux(["new-session", "-d", "-s", session, "-n", "manager", "-c", REPO_ROOT, ...envFlags, claudeCmd]);
 if (!created.ok) {
