@@ -43,7 +43,11 @@
   свой, `shared` — свой или последний освободившийся той же `presentation.group`, `new` — всегда
   новый; `clear` стирает вывод. События — в порядке эталона: Start → Active → ProcessStarted →
   ProcessEnded → Inactive → End (+ Terminated, если терминал закрыли), плюс `changed` на смену
-  набора бегущих. `reveal` always/silent (показать при коде ≠ 0)/never, `focus`.
+  набора бегущих. `reveal` always/silent (показать при коде ≠ 0)/never, `focus`. Терминал задачи,
+  перенесённый в editor area, показывается своей вкладкой (`TerminalEditorService.reveal`, фокус —
+  только при `focus`), панель не трогается — как `revealTerminal` эталона; новый терминал задача
+  всегда создаёт в панели. **Отступление** (#814): silent-при-ошибке и Show Running Task тоже
+  editor-aware, у эталона они зовут `showPanel` вслепую.
 - **Сервис** (`browser/taskService.ts`): списки (tasks.json + провайдеры с таймаутом 5 с,
   `task.autoDetect`, `when` типа из `contributes.taskDefinitions`), запуск с `task.saveBeforeRun`
   (`prompt` — модальный `DialogService.confirm`, как `dialogService.confirm` эталона; безымянные
