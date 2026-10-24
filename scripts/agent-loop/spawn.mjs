@@ -12,6 +12,7 @@ import { readFileSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
 import {
+    CLAUDE_GIT_ENV,
     REPO_ROOT,
     ROLES,
     loopHome,
@@ -45,7 +46,7 @@ const promptFile = path.join(taskDir(task), `${role}-prompt.md`);
 writeFileSync(promptFile, prompt);
 rmSync(statusFile(task, role), { force: true });
 
-const env = { AGENT_LOOP_TASK: task, AGENT_LOOP_MODEL: model, AGENT_LOOP_HOME: loopHome() };
+const env = { ...CLAUDE_GIT_ENV, AGENT_LOOP_TASK: task, AGENT_LOOP_MODEL: model, AGENT_LOOP_HOME: loopHome() };
 const envFlags = Object.entries(env).flatMap(([k, v]) => ["-e", `${k}=${v}`]);
 const cmd = `claude --model ${model} --permission-mode bypassPermissions "$(cat ${JSON.stringify(promptFile)})"`;
 const res = tmux(["new-window", "-d", "-t", `=${session}`, "-n", role, "-c", REPO_ROOT, ...envFlags, cmd]);

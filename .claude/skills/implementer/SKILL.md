@@ -73,7 +73,7 @@ claude-lease run -- node scripts/agent-loop/mutation-budget.mjs -- npm run test:
 
 ## Отчёт тестировщика
 
-- **`approve`** — зелёный CI → `gh pr merge <pr> --squash --delete-branch` → статус `done`.
+- **`approve`** — зелёный CI → `gh pr merge <pr> --squash --delete-branch --author-email noreply@anthropic.com` → статус `done`.
 - **`bugs`** — `git fetch origin issue/<N>/tests` и `git merge origin/issue/<N>/tests`: в
   статусе список багов с путями к падающим тестам. Чини каждый, пока его тест не станет
   зелёным; временный или дублирующий тест, который ничего не добавляет, можно убрать — но
