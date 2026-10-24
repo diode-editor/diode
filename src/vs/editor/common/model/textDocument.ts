@@ -147,7 +147,8 @@ export class TextDocument implements ITextDocument {
     private attachBuffer(buffer: IDocumentBuffer): void {
         this.buffer = buffer;
         buffer.onDidAppendLines?.((change) => {
-            this.fireChange(change);
+            // Stryker disable next-line OptionalChaining: only the document on disk appends lines; the chain is for the type
+            this.fireChange({ ...change, isGrowth: true, isFinalGrowth: this.onDisk?.indexing.done === true });
         });
     }
 

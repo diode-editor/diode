@@ -40,7 +40,9 @@
   совпадение от курсора); подсветка/reveal — `setSearchDecorations`/
   `revealRange` активного `TextEditorPane`. Смена активного редактора закрывает
   виджет (подписка на `onActiveEditorChanged` — find оперирует только
-  активным редактором).
+  активным редактором). На документе с диска проход идёт фоном порциями
+  (`BackgroundFind`, счётчик «Searching…»/«N of M…», кап 19 999, Next/Prev за капом ищут по документу) —
+  [Editor.md](../Editor.md#документ-на-диске).
 
 ## Suggest
 

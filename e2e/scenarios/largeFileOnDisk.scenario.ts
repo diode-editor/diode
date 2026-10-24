@@ -64,7 +64,8 @@ export default defineScenario({
             timeoutMs: 120_000,
         });
         const indexed = await editor.captureFrame();
-        if (frameToText(indexed).includes("Indexing ")) throw new Error("the status bar still shows the index as running");
+        if (frameToText(indexed).includes("Indexing "))
+            throw new Error("the status bar still shows the index as running");
         await editor.waitForText((t) => t.includes("Enable Editing"));
         await editor.capture("indexed");
 
@@ -77,8 +78,39 @@ export default defineScenario({
         // line, so the check is its timestamp plus the status bar's line number.
         await editor.sendKey("Ctrl+End");
         await editor.waitForText(
-            (t) => t.includes(LAST_LINE.slice(0, "2026-01-01T23:59:59.999Z".length)) && t.includes(`Ln ${String(LINES + 1)}`),
+            (t) =>
+                t.includes(LAST_LINE.slice(0, "2026-01-01T23:59:59.999Z".length)) &&
+                t.includes(`Ln ${String(LINES + 1)}`),
         );
         await editor.capture("end-of-file");
+
+        // Find walks the lines in the background (OpenPerformance 4.3). A query on every line stops at the
+        // upstream limit right away: "1 of 19999+".
+        await editor.sendKey("Ctrl+F");
+        await editor.sendText("request");
+        await editor.waitForText((t) => t.includes("of 19999+"));
+        await editor.capture("find-capped");
+
+        // A query that matches nowhere: "Searching…" while the 2.4 M lines are walked, "No results" at the end.
+        // Escape leaves the cursor on the current match; Ctrl+F seeds the query from that selection and selects
+        // it in the input, so typing replaces it.
+        await editor.sendKey("Escape");
+        await editor.sendKey("Ctrl+F");
+        await editor.sendText("zzz");
+        await editor.waitForText((t) => t.includes("Searching…"));
+        await editor.capture("find-searching");
+        await editor.waitForText((t) => t.includes("No results"), { timeoutMs: 120_000 });
+
+        // The walk starts at the cursor: from the end of the file it wraps to the top at once, and the lone
+        // match on the first line is current as soon as the wrap reaches it; the editor reveals it.
+        await editor.sendKey("Escape");
+        await editor.sendKey("Ctrl+End");
+        await editor.sendKey("Ctrl+F");
+        await editor.sendText("log-start");
+        // The widget covers the tail of the first line: the top of the file is recognised by its fourth line.
+        await editor.waitForText((t) => t.includes("1 of 1") && t.includes("request 3 handled in 3ms"), {
+            timeoutMs: 120_000,
+        });
+        await editor.capture("find-lone-match");
     },
 });

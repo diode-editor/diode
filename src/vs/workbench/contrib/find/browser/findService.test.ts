@@ -5,6 +5,7 @@ import { Point, Size } from "@tuidom/core/common/geometryPromitives";
 import { TUIMouseEvent } from "@tuidom/core/dom/events/tuiMouseEvent";
 import { BodyElement } from "@tuidom/elements/body/bodyElement";
 import type { InputElement } from "@tuidom/elements/inputbox/inputElement";
+import type { TextLabelElement } from "@tuidom/elements/text/textLabelElement";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
@@ -60,6 +61,13 @@ function typeQuery(widget: FindWidget, query: string): void {
     const input = widget.view.querySelector("InputElement") as InputElement;
     input.inputState.value = query;
     input.onChange?.(query);
+}
+
+function counterText(widget: FindWidget): string {
+    const texts = (widget.view.querySelectorAll("TextLabelElement") as TextLabelElement[]).map((label) =>
+        label.getText(),
+    );
+    return texts.find((text) => /of|results|Searching/u.test(text)) ?? "";
 }
 
 const NO_GROUP_HOSTS: IGroupOverlayHosts = { groupOverlayHost: () => null };
@@ -154,12 +162,15 @@ describe("FindService", () => {
         expect(find.isVisible()).toBe(true);
     });
 
-    it("typing seeds match highlights on the editor", () => {
+    it("typing seeds match highlights on the editor and leaves the selection alone", () => {
         const { find, widget, editor } = setup("foo bar foo");
+        editor.viewState.selections = [createSelection(0, 1, 0, 1)];
         find.open();
         typeQuery(widget, "foo");
         expect(editor.viewState.searchMatches).toHaveLength(2);
-        expect(editor.viewState.currentSearchMatchIndex).toBe(0);
+        expect(editor.viewState.currentSearchMatchIndex).toBe(1);
+        // Only F3 with the widget closed selects; the widget's query does not move the cursor.
+        expect(editor.viewState.selections[0].active).toEqual({ line: 0, character: 1 });
     });
 
     it("next() and prev() cycle through matches with wrap-around", () => {
@@ -449,5 +460,39 @@ describe("FindService", () => {
             find.close();
         }).not.toThrow();
         expect(find.isVisible()).toBe(false);
+    });
+
+    /** Upstream `findModel`: a walk over the document is for a list the limit cut short; a complete list steps. */
+    it("Next/Prev inside a complete list step through it without walking the document", () => {
+        const text = ["foo", ...Array.from({ length: 50 }, () => "bar"), "foo"].join("\n");
+        const { find, widget, editor } = setup(text);
+        find.open();
+        typeQuery(widget, "foo");
+        const reads = vi.spyOn(editor.viewState.document, "getLineContent");
+        find.next();
+        find.next(); // wraps
+        find.prev(); // wraps backwards
+        // Revealing a match reads its line; a walk would read the fifty lines in between.
+        const linesRead = new Set(reads.mock.calls.map((call) => call[0]));
+        expect([...linesRead].every((line) => line === 0 || line === 51)).toBe(true);
+        expect(editor.viewState.currentSearchMatchIndex).toBe(1);
+    });
+
+    it("below the large-file threshold the find is the synchronous walk it was: a 10 000-line file is counted in full at once", () => {
+        const text = Array.from({ length: 10_000 }, (_, i) => `line ${String(i)} foo`).join("\n");
+        const { find, widget, editor } = setup(text);
+        find.open();
+        typeQuery(widget, "foo");
+        expect(editor.viewState.searchMatches).toHaveLength(10_000);
+        expect(counterText(widget)).toBe("1 of 10000");
+    });
+
+    it("the current match is the first one at or after the cursor, not the first of the document", () => {
+        const { find, widget, editor } = setup("foo bar foo");
+        editor.viewState.selections = [createSelection(0, 5, 0, 5)];
+        find.open();
+        typeQuery(widget, "foo");
+        expect(editor.viewState.currentSearchMatchIndex).toBe(1);
+        expect(counterText(widget)).toBe("2 of 2");
     });
 });

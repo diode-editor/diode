@@ -49,6 +49,7 @@ export class FindWidget extends Disposable {
     private preferredWidth = DEFAULT_WIDTH;
     private matchCurrent = 0;
     private matchTotal = 0;
+    private searching = false;
 
     private host: OverlayHostElement | null = null;
     private session: OverlaySessionHandle | null = null;
@@ -122,10 +123,14 @@ export class FindWidget extends Disposable {
         this.input.markDirty();
     }
 
-    /** Updates the match counter. `current` is 1-based; `total` 0 means no matches. */
-    public setCounter(current: number, total: number): void {
+    /**
+     * Updates the match counter. `current` is 1-based, 0 when no match is current; `total` 0 means no matches.
+     * `searching`: the walk over a document on disk is still running, the total is what it has found so far.
+     */
+    public setCounter(current: number, total: number, searching = false): void {
         this.matchCurrent = current;
         this.matchTotal = total;
+        this.searching = searching;
         this.refreshCounter();
     }
 
@@ -164,19 +169,26 @@ export class FindWidget extends Disposable {
         const counter = this.counterText();
         this.counterLabel.setText(counter);
         this.counterLabel.setColors(
-            this.matchTotal === 0 ? "editorError.foreground" : "descriptionForeground",
+            this.matchTotal === 0 && !this.searching ? "editorError.foreground" : "descriptionForeground",
             INHERITED_BG,
         );
         this.counterGap.layoutStyle = { width: hflexFixed(counter === "" ? 0 : COUNTER_GAP), height: 1 };
         this.counterGap.markDirty();
     }
 
+    /**
+     * Upstream's "{i} of {n}", "No results" and "19999+". The ellipsis is ours: upstream walks the whole model at
+     * once and has no "still searching" state; on a document on disk the walk runs in the background and the
+     * counter grows as it goes (docs/arch/Editor.md).
+     */
     private counterText(): string {
         if (this.input.inputState.value.length === 0) return "";
-        if (this.matchTotal === 0) return "No results";
+        if (this.matchTotal === 0) return this.searching ? "Searching…" : "No results";
         // The collection stops at the limit (upstream "19999+"): the total is a floor, not a count.
         const total = this.matchTotal >= MATCHES_LIMIT ? `${String(MATCHES_LIMIT)}+` : String(this.matchTotal);
-        return `${String(this.matchCurrent)} of ${total}`;
+        // "?": matches so far, none of them after the cursor yet (upstream shows "?" when the cursor is off a match).
+        const current = this.matchCurrent > 0 ? String(this.matchCurrent) : "?";
+        return `${current} of ${total}${this.searching ? "…" : ""}`;
     }
 
     private updatePosition(): void {

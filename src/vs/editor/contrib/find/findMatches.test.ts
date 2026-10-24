@@ -1,8 +1,15 @@
 import { describe, expect, it } from "vitest";
 
+import { createRange } from "../../common/core/iRange.ts";
 import { TextDocument } from "../../common/model/textDocument.ts";
 
-import { findMatches, findTextMatches } from "./findMatches.ts";
+import {
+    findMatches,
+    findNextMatch,
+    findPreviousMatch,
+    findTextMatches,
+    type ITextMatchOptions,
+} from "./findMatches.ts";
 
 describe("findMatches", () => {
     it("returns no matches for an empty query", () => {
@@ -78,5 +85,54 @@ describe("findTextMatches word boundaries", () => {
         // `textual` is rejected by the char on the RIGHT, `pretext` by the left one. Without
         // the right check, the start of `textual` would match too.
         expect(whole("textual text pretext", "text")).toEqual([8]);
+    });
+});
+
+/**
+ * Upstream `findNextMatch`/`findPreviousMatch`: how Next and Prev move once the collection stopped at
+ * `MATCHES_LIMIT` and the list does not hold the whole document.
+ */
+describe("findNextMatch / findPreviousMatch", () => {
+    const PLAIN: ITextMatchOptions = { matchCase: false, wholeWord: false };
+    const doc = new TextDocument("foo bar foo\nnothing\nfoo foofoo");
+
+    it("next: the first match at or after the position, same line included", () => {
+        expect(findNextMatch(doc, { line: 0, character: 0 }, "foo", PLAIN)).toEqual(createRange(0, 0, 0, 3));
+        expect(findNextMatch(doc, { line: 0, character: 1 }, "foo", PLAIN)).toEqual(createRange(0, 8, 0, 11));
+        expect(findNextMatch(doc, { line: 0, character: 11 }, "foo", PLAIN)).toEqual(createRange(2, 0, 2, 3));
+        expect(findNextMatch(doc, { line: 2, character: 4 }, "foo", PLAIN)).toEqual(createRange(2, 4, 2, 7));
+    });
+
+    it("next wraps around the end of the document back to the first match", () => {
+        expect(findNextMatch(doc, { line: 2, character: 8 }, "foo", PLAIN)).toEqual(createRange(0, 0, 0, 3));
+        expect(findNextMatch(doc, { line: 2, character: 10 }, "foo", PLAIN)).toEqual(createRange(0, 0, 0, 3));
+    });
+
+    it("previous: the last match that ends at or before the position, wrapping around the start", () => {
+        expect(findPreviousMatch(doc, { line: 2, character: 10 }, "foo", PLAIN)).toEqual(createRange(2, 7, 2, 10));
+        expect(findPreviousMatch(doc, { line: 2, character: 9 }, "foo", PLAIN)).toEqual(createRange(2, 4, 2, 7));
+        expect(findPreviousMatch(doc, { line: 2, character: 0 }, "foo", PLAIN)).toEqual(createRange(0, 8, 0, 11));
+        expect(findPreviousMatch(doc, { line: 0, character: 3 }, "foo", PLAIN)).toEqual(createRange(0, 0, 0, 3));
+        expect(findPreviousMatch(doc, { line: 0, character: 0 }, "foo", PLAIN)).toEqual(createRange(2, 7, 2, 10));
+    });
+
+    it("a lone match is its own next and previous", () => {
+        const lone = new TextDocument("a\nb\nc");
+        expect(findNextMatch(lone, { line: 1, character: 1 }, "b", PLAIN)).toEqual(createRange(1, 0, 1, 1));
+        expect(findPreviousMatch(lone, { line: 1, character: 0 }, "b", PLAIN)).toEqual(createRange(1, 0, 1, 1));
+    });
+
+    it("no match anywhere, or an empty query: null", () => {
+        expect(findNextMatch(doc, { line: 0, character: 0 }, "zzz", PLAIN)).toBeNull();
+        expect(findPreviousMatch(doc, { line: 0, character: 0 }, "zzz", PLAIN)).toBeNull();
+        expect(findNextMatch(doc, { line: 0, character: 0 }, "", PLAIN)).toBeNull();
+        expect(findPreviousMatch(doc, { line: 0, character: 0 }, "", PLAIN)).toBeNull();
+    });
+
+    it("honours the match options", () => {
+        const strict: ITextMatchOptions = { matchCase: true, wholeWord: true };
+        const cased = new TextDocument("Foo foobar foo");
+        expect(findNextMatch(cased, { line: 0, character: 0 }, "foo", strict)).toEqual(createRange(0, 11, 0, 14));
+        expect(findPreviousMatch(cased, { line: 0, character: 10 }, "foo", strict)).toEqual(createRange(0, 11, 0, 14));
     });
 });
