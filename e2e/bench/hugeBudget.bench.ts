@@ -221,8 +221,7 @@ describe("log500m: the giant file opens read-only on disk like a small one", () 
 
     const followSamples: number[] = [];
     let followCalls = 0;
-    // TODO(#802): enable once follow is on main (this branch gets rebased).
-    bench.skip(
+    bench(
         `log500m: follow, appended line to frame ≤ ${String(FOLLOW_BUDGET_MS)} ms (median)`,
         async () => {
             followCalls++;
