@@ -14,8 +14,12 @@
 - **Все user-facing `git.*`-команды живут в ядре** (`CommandAction` в `SCM_ACTIONS` → `WORKBENCH_ACTIONS`):
   пикеры и диалоги — в ядре. Расширение `extensions/git` регистрирует только приватные мосты
   `diode.git.*` (одноимённая регистрация невозможна — `CommandRegistry` перезаписывает по id).
-  Исключение — `git.refresh`, он за расширением. Транспорт — приватные двусторонние команды, `scm`-неймспейс
-  `vscode.d.ts` не раскомментирован.
+  Транспорт — приватные двусторонние команды, `scm`-неймспейс `vscode.d.ts` не раскомментирован.
+- **Refresh** (`git.refresh` — кнопка ⟳ в заголовке CHANGES и палитра, `scm.graph.refresh` — кнопка GRAPH) —
+  op `refresh` диспетчера `diode.git.op`: сам git не зовёт, работу делает общий `refreshAll` в конце
+  очереди (взведённый debounce watcher'а сбрасывается). Промис резолвится после публикации changes,
+  repo-state и лога, поэтому спиннер держится до конца; секцию для спиннера задаёт вызывающий (`viewId`
+  у `runGitOp`/`withGitProgress`).
 - **Мосты**: мутации staging (`diode.git.stage/unstage/clean` — списки uri), семантический диспетчер
   `diode.git.op {op, params}` (не generic-exec: argv собирает расширение), запросы
   `diode.git.query {kind: refs|stashes|remotes}` для пикеров, push-каналы `diode.scm.publishChanges`

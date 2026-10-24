@@ -21,7 +21,7 @@ export interface IGitProgressTarget {
 const NETWORK_OPS = new Set(["pull", "push", "fetch", "sync"]);
 
 /** Everything else goes to CHANGES. */
-const GRAPH_OPS = new Set(["logLoadMore", "refresh"]);
+const GRAPH_OPS = new Set(["logLoadMore"]);
 
 /** An unknown operation gets "Working…": the title is cosmetic, nothing worth failing over. */
 export function gitProgressTitle(op: string): string {
@@ -76,16 +76,18 @@ export function gitProgressTitle(op: string): string {
         case "tagDelete":
             return "Updating Tags…";
         case "logLoadMore":
-        case "refresh":
             return "Loading History…";
+        case "refresh":
+            return "Refreshing…";
         default:
             return "Working…";
     }
 }
 
-export function gitProgressTarget(op: string): IGitProgressTarget {
+/** `viewId` overrides the section: one op is started from several titles (`refresh` from CHANGES and GRAPH). */
+export function gitProgressTarget(op: string, viewId?: string): IGitProgressTarget {
     return {
-        viewId: GRAPH_OPS.has(op) ? SCM_GRAPH_VIEW_ID : SCM_CHANGES_VIEW_ID,
+        viewId: viewId ?? (GRAPH_OPS.has(op) ? SCM_GRAPH_VIEW_ID : SCM_CHANGES_VIEW_ID),
         window: NETWORK_OPS.has(op),
     };
 }

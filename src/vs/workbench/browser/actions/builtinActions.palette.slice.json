@@ -326,6 +326,7 @@
     "workbench.scm.focus",
     "scm.action.focusChanges",
     "git.showOutput",
+    "git.refresh",
     "scm.graph.refresh",
     "scm.graph.loadMore",
     "git.graph.checkoutDetached",

@@ -31,7 +31,8 @@ describe("gitProgressTitle", () => {
         }
         for (const op of ["remoteAdd", "remoteRemove"]) expect(gitProgressTitle(op)).toBe("Updating Remotes…");
         for (const op of ["tagCreate", "tagDelete"]) expect(gitProgressTitle(op)).toBe("Updating Tags…");
-        for (const op of ["logLoadMore", "refresh"]) expect(gitProgressTitle(op)).toBe("Loading History…");
+        expect(gitProgressTitle("logLoadMore")).toBe("Loading History…");
+        expect(gitProgressTitle("refresh")).toBe("Refreshing…");
         expect(gitProgressTitle("cherryPick")).toBe("Cherry-Picking…");
         expect(gitProgressTitle("reset")).toBe("Resetting…");
         expect(gitProgressTitle("revert")).toBe("Reverting…");
@@ -50,7 +51,12 @@ describe("gitProgressTarget", () => {
 
     it("history: the GRAPH section", () => {
         expect(gitProgressTarget("logLoadMore")).toEqual({ viewId: SCM_GRAPH_VIEW_ID, window: false });
-        expect(gitProgressTarget("refresh")).toEqual({ viewId: SCM_GRAPH_VIEW_ID, window: false });
+    });
+
+    it("refresh goes to CHANGES unless the caller names its own section", () => {
+        expect(gitProgressTarget("refresh")).toEqual({ viewId: SCM_CHANGES_VIEW_ID, window: false });
+        expect(gitProgressTarget("refresh", SCM_GRAPH_VIEW_ID)).toEqual({ viewId: SCM_GRAPH_VIEW_ID, window: false });
+        expect(gitProgressTarget("pull", SCM_GRAPH_VIEW_ID)).toEqual({ viewId: SCM_GRAPH_VIEW_ID, window: true });
     });
 
     it("network operations are duplicated in the status bar so they are visible from the Explorer too", () => {
