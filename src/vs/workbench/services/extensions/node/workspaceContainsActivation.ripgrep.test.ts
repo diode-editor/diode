@@ -121,7 +121,8 @@ describe("createRipgrepWorkspaceScanner — real rg on fixtures", () => {
     });
 
     it("spaces and unicode in the folder path need no quoting", async () => {
-        const folder = path.join(root, "мой проект (copy)");
+        // "my project" in Cyrillic.
+        const folder = path.join(root, "\u043c\u043e\u0439 \u043f\u0440\u043e\u0435\u043a\u0442 (copy)");
         fs.mkdirSync(path.join(folder, "infra"), { recursive: true });
         fs.writeFileSync(path.join(folder, "infra", "main.tf"), "");
         await expect(
