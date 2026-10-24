@@ -72,6 +72,7 @@ interface IViewMarkerDecoration {
  */
 interface IProjectionCacheEntry {
     readonly projection: IViewProjection;
+    /** {@link EditorViewState.contentRevision}, not `versionId`: growth of a document on disk has no version. */
     readonly docVersion: number;
     readonly foldsVersion: number;
     readonly zonesVersion: number;
@@ -131,6 +132,11 @@ export class EditorViewState {
      * `undefined`, like upstream `executeEdits` → `false`; cursor, scroll and folding still work.
      */
     public readOnly = false;
+    /**
+     * The large-file mode (docs/arch/Editor.md), mirrored from the model by the component: the view skips the
+     * passes over every line (the width sweep) and paints only what it shows.
+     */
+    public isTooLargeForTokenization = false;
     private selectionsValue!: ISelection[];
     private readonly onDidChangeCursorPositionEmitter = new Emitter<void>();
     public readonly onDidChangeCursorPosition = this.onDidChangeCursorPositionEmitter.event;
@@ -174,6 +180,13 @@ export class EditorViewState {
     private projectionCache: IProjectionCacheEntry | null = null;
     /** The edits since the cached projection, merged into one; replayed in place by {@link buildProjection}. */
     private pendingProjectionChange: IDocumentContentChange | null = null;
+    /**
+     * Counts every content change the view has seen, edits and growth alike. The document's `versionId` is
+     * not enough as a cache key: a document on disk appends lines while its index is built without bumping
+     * it (it is not modified), and a projection keyed by version kept the old row count — Ctrl+End moved the
+     * cursor past the rows the view knew and the screen stayed at the top.
+     */
+    private contentRevision = 0;
     private foldsVersion = 0;
     private zonesVersion = 0;
     private lineBreaksCacheValue: LineBreaksCache | null = null;
@@ -191,6 +204,8 @@ export class EditorViewState {
     public constructor(document: ITextDocument, selections?: ISelection[], indent: IIndentDefaults = {}) {
         this.document = document;
         this.docContentSubscription = document.onDidChangeContent((change) => {
+            // Stryker disable next-line UpdateOperator: revisions only need to differ, "--" works too
+            this.contentRevision++;
             this.pendingProjectionChange =
                 this.pendingProjectionChange === null ? change : mergeLineChanges(this.pendingProjectionChange, change);
             if (!this.applyingOwnEdits) this.remapForDocumentChange(change);
@@ -1751,7 +1766,7 @@ export class EditorViewState {
         if (
             // Stryker disable next-line ConditionalExpression: pure memoization, a rebuild gives the same rows
             cache !== null &&
-            cache.docVersion === this.document.versionId &&
+            cache.docVersion === this.contentRevision &&
             cache.foldsVersion === this.foldsVersion &&
             cache.zonesVersion === this.zonesVersion &&
             cache.wrapWidth === wrapWidth &&
@@ -1782,7 +1797,7 @@ export class EditorViewState {
         // Stryker disable next-line ObjectLiteral: pure memoization, an empty entry only means a rebuild on the next call
         this.projectionCache = {
             projection,
-            docVersion: this.document.versionId,
+            docVersion: this.contentRevision,
             foldsVersion: this.foldsVersion,
             zonesVersion: this.zonesVersion,
             wrapWidth,
@@ -1814,7 +1829,7 @@ export class EditorViewState {
         if (pending === null) {
             // A version change without an event is a desync (as in LineBreaksCache): rebuild rather than guess.
             // Stryker disable next-line EqualityOperator,ConditionalExpression: the guard is unreachable in a synced document, every version change fires an event
-            return cache.docVersion === this.document.versionId && hiddenRangesEqual(cache.hidden, hidden);
+            return cache.docVersion === this.contentRevision && hiddenRangesEqual(cache.hidden, hidden);
         }
         const expected = shiftHiddenRanges(cache.hidden, pending);
         // Stryker disable next-line ConditionalExpression: see above

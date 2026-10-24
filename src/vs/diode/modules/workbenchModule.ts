@@ -160,6 +160,10 @@ import {
     InlineCompletionsServiceDIToken,
 } from "../../workbench/contrib/inlineCompletions/browser/inlineCompletionsService.ts";
 import {
+    LargeFileIndexingStatus,
+    LargeFileIndexingStatusDIToken,
+} from "../../workbench/contrib/largeFile/browser/largeFileIndexingStatus.ts";
+import {
     LargeFileOptimizationsWarner,
     LargeFileOptimizationsWarnerDIToken,
 } from "../../workbench/contrib/largeFile/browser/largeFileOptimizationsWarner.ts";
@@ -394,6 +398,7 @@ export const workbenchModule: ContainerModule = (container) => {
     container.bind(NotificationsComponentDIToken, NotificationsComponent);
     container.bind(OpenFailureNotificationContributionDIToken, OpenFailureNotificationContribution);
     container.bind(LargeFileOptimizationsWarnerDIToken, LargeFileOptimizationsWarner);
+    container.bind(LargeFileIndexingStatusDIToken, LargeFileIndexingStatus);
     container.bind(UndoRefusalNotificationContributionDIToken, UndoRefusalNotificationContribution);
     container.bind(ExternalOpenerDIToken, () => {
         const notifications = container.get(NotificationServiceDIToken);

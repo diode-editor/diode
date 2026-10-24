@@ -102,11 +102,16 @@ export abstract class BaseTextEditorModel extends Disposable {
         this.tooLargeForTokenization = true;
     }
 
-    /** Upstream's "Forcefully Enable Features" for this model only, in the session: the features come back. */
-    public forcefullyEnableFeatures(): void {
-        if (!this.tooLargeForTokenization) return;
+    /**
+     * Upstream's "Forcefully Enable Features" for this model only, in the session: the features come back.
+     * `false` — the model refused (a document on disk too large for memory, `TextFileModel`); otherwise the
+     * mode is off afterwards, whether or not it was on.
+     */
+    public forcefullyEnableFeatures(): boolean {
+        if (!this.tooLargeForTokenization) return true;
         this.tooLargeForTokenization = false;
         this.onDidChangeTooLargeForTokenizationEmitter.fire();
+        return true;
     }
 
     protected constructor(languageService: ILanguageService, undoRedoService: UndoRedoService, uri: Uri) {
@@ -124,6 +129,8 @@ export abstract class BaseTextEditorModel extends Disposable {
         this.register({
             dispose: () => {
                 this.undoRedoService.clear(this.undoContext);
+                // The piece tree has nothing to free; the document on disk closes its file and stops indexing.
+                this.doc.dispose();
             },
         });
     }

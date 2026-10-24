@@ -21,6 +21,10 @@ export const LARGE_FILE_MESSAGE =
     "opened read-only; tokenization, wrapping, folding, word highlighting, quick diff and extension sync " +
     "have been turned off for this large file in order to reduce memory usage and avoid freezing or crashing.";
 
+/** Appended when a file above the size threshold is in memory because the document on disk reads UTF-8 only. */
+export const LOADED_INTO_MEMORY_ENCODING_NOTE =
+    " The file is loaded into memory: reading from disk supports UTF-8 only.";
+
 /**
  * Port of upstream `LargeFileOptimizationsWarner`: the toast of the large-file mode with the way out
  * (docs/arch/Editor.md). Once per model, not per tab: a file in two groups is one file. The toast is a
@@ -56,14 +60,16 @@ export class LargeFileOptimizationsWarner extends Disposable implements IWorkben
         const { model } = editor;
         if (!model.isTooLargeForTokenization || this.warned.has(model)) return;
         this.warned.add(model);
+        // Stryker disable next-line OptionalChaining: only a TextFileModel decides on the mode, so a pane in it has a fileModel; the chaining is for the type
+        const note = editor.fileModel?.onDiskDeclinedReason === "encoding" ? LOADED_INTO_MEMORY_ENCODING_NOTE : "";
         const handle = this.notifications.show({
             severity: "info",
-            message: `${editor.label}: ${LARGE_FILE_MESSAGE}`,
+            message: `${editor.label}: ${LARGE_FILE_MESSAGE}${note}`,
             modal: false,
             items: [ENABLE_EDITING_LABEL],
         });
         void handle.answered.then((index) => {
-            if (index === 0) enableLargeFileEditing(model, this.contextKeys);
+            if (index === 0) enableLargeFileEditing(model, this.contextKeys, this.notifications);
         });
     }
 }

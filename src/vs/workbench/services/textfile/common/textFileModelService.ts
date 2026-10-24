@@ -12,6 +12,10 @@ import { IConfigurationServiceDIToken } from "../../../../platform/configuration
 import { type IFileService, IFileServiceDIToken } from "../../../../platform/files/common/files.ts";
 import type { IFileWatcher } from "../../../../platform/files/common/iFileWatcher.ts";
 import { IFileWatcherDIToken } from "../../../../platform/files/common/iFileWatcherDIToken.ts";
+import {
+    type IRandomAccessFileOpener,
+    IRandomAccessFileOpenerDIToken,
+} from "../../../../platform/files/common/iRandomAccessFile.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import { UndoRedoService, UndoRedoServiceDIToken } from "../../../../platform/undoRedo/common/undoRedoService.ts";
 
@@ -55,6 +59,7 @@ export class TextFileModelService extends Disposable {
         IFileServiceDIToken,
         IFileWatcherDIToken,
         IConfigurationServiceDIToken,
+        IRandomAccessFileOpenerDIToken,
     ] as const;
 
     private readonly registry = new TextFileModelRegistry((uri) => this.createFileModel(uri));
@@ -88,6 +93,8 @@ export class TextFileModelService extends Disposable {
         private readonly files: IFileService,
         private readonly fileWatcher: IFileWatcher,
         configuration?: IConfigurationService,
+        /** Without it a large file is read into memory (docs/arch/Editor.md, the document on disk). */
+        private readonly randomAccessFiles: IRandomAccessFileOpener | null = null,
     ) {
         super();
         this.largeFileOptions = largeFileOptionsFromConfiguration(configuration);
@@ -151,6 +158,7 @@ export class TextFileModelService extends Disposable {
         model.fileWatcher = this.fileWatcher;
         model.saveParticipant = this.saveParticipant;
         model.largeFileOptions = this.largeFileOptions;
+        model.randomAccessFiles = this.randomAccessFiles;
         // Subscribes first, before tabs: the registry must rebind the key before tabs
         // repaint the name after saveAs. The model's emitter disposes it along with itself.
         model.onDidSaveDocument(() => {

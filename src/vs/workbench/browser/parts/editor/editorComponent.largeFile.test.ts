@@ -87,6 +87,10 @@ describe("EditorComponent — the large-file mode (upstream `isTooLargeForTokeni
         expect(firstForeground(pane)).toBe(TS_FOREGROUND);
         expect(load).toHaveBeenCalledWith("typescript");
         expect(getMarks().filter((m) => m.name === "editor:tokenizer-ready")).toHaveLength(1);
+        // A language change afterwards re-targets the one store instead of building another.
+        const store = pane.viewState.tokenStore;
+        pane.model.setLanguage("plaintext");
+        expect(pane.viewState.tokenStore).toBe(store);
         pane.dispose();
     });
 
@@ -179,6 +183,26 @@ describe("EditorComponent — the large-file mode (upstream `isTooLargeForTokeni
         expect(firstForeground(pane)).toBe(TS_FOREGROUND);
         pane.setWordWrap("on", 10);
         expect(pane.viewState.wordWrap).toBe("on");
+        pane.dispose();
+    });
+
+    it("no token store at all in the mode (no per-line arrays, no background pass); one appears with Enable Editing", () => {
+        const pane = openLarge();
+        expect(pane.viewState.tokenStore).toBeUndefined();
+        expect(pane.viewState.isTooLargeForTokenization).toBe(true);
+        // The view paints without a store and reports its background work as settled.
+        const editor = pane.component.view.getChildren()[0];
+        expect(editor).toBeInstanceOf(EditorElement);
+        TestApp.createWithContent(pane.view, new Size(80, 10)).render();
+        expect((editor as EditorElement).inspectState()).toMatchObject({
+            tokenizationComplete: true,
+            contentWidthFinal: true,
+        });
+
+        pane.model.forcefullyEnableFeatures();
+        expect(pane.viewState.isTooLargeForTokenization).toBe(false);
+        expect(pane.viewState.tokenStore).toBeDefined();
+        expect(firstForeground(pane)).toBe(TS_FOREGROUND);
         pane.dispose();
     });
 });

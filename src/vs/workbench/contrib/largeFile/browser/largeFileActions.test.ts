@@ -1,9 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
+import { memoryFileOpener } from "../../../../../TestUtils/memoryRandomAccessFile.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
 import { createTestActiveEditorService } from "../../../../../TestUtils/testActiveEditorService.ts";
 import { createEditorPane, type TextEditorPane } from "../../../../../TestUtils/TextEditorPaneFactory.ts";
 import { Uri } from "../../../../base/common/uri.ts";
+import { MAX_STRING_LENGTH } from "../../../../editor/common/model/diskTextBuffer.ts";
 import type { ILargeFileOptions } from "../../../../editor/common/model/largeFileOptions.ts";
 import { registerAction } from "../../../../platform/actions/common/commandAction.ts";
 import { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
@@ -11,8 +13,16 @@ import { Container } from "../../../../platform/instantiation/common/diContainer
 import { KeybindingRegistry } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import { type WorkbenchContextKeys, WorkbenchContextKeysDIToken } from "../../../browser/workbenchContextKeys.ts";
 import { EditorServiceDIToken } from "../../../services/editor/common/editorService.ts";
+import {
+    NotificationService,
+    NotificationServiceDIToken,
+} from "../../../services/notification/browser/notificationService.ts";
 
-import { ENABLE_LARGE_FILE_EDITING_COMMAND_ID, LARGE_FILE_ACTIONS } from "./largeFileActions.ts";
+import {
+    ENABLE_LARGE_FILE_EDITING_COMMAND_ID,
+    LARGE_FILE_ACTIONS,
+    TOO_LARGE_TO_EDIT_MESSAGE,
+} from "./largeFileActions.ts";
 
 const TINY: ILargeFileOptions = { largeFileOptimizations: true, sizeThresholdMb: 1, lineCountThreshold: 2 };
 
@@ -39,8 +49,10 @@ describe("workbench.action.files.enableLargeFileEditing", () => {
         const accessor = new Container();
         accessor.bind(EditorServiceDIToken, () => createTestActiveEditorService(editor));
         accessor.bind(WorkbenchContextKeysDIToken, () => contextKeys as unknown as WorkbenchContextKeys);
+        const notifications = new NotificationService();
+        accessor.bind(NotificationServiceDIToken, () => notifications);
         for (const action of LARGE_FILE_ACTIONS) registerAction(commands, new KeybindingRegistry(), accessor, action);
-        return { commands, contextKeys };
+        return { commands, contextKeys, notifications };
     }
 
     function open(content: string): TextEditorPane {
@@ -77,5 +89,19 @@ describe("workbench.action.files.enableLargeFileEditing", () => {
 
         const none = setup(null);
         expect(() => none.commands.execute(ENABLE_LARGE_FILE_EDITING_COMMAND_ID)).not.toThrow();
+    });
+
+    it("a document on disk that no string can hold: the command warns and the tab stays read-only", () => {
+        const editor = createEditorPane({
+            largeFileOptions: { largeFileOptimizations: true, sizeThresholdMb: 1, lineCountThreshold: 1e6 },
+            randomAccessFiles: memoryFileOpener({ size: MAX_STRING_LENGTH + 1 }),
+            file: Uri.file(ws.writeFile("huge.log", "x".repeat(1024 * 1024 + 1))),
+        });
+        const { commands, contextKeys, notifications } = setup(editor);
+        commands.execute(ENABLE_LARGE_FILE_EDITING_COMMAND_ID);
+        expect(editor.readOnly).toBe(true);
+        expect(contextKeys.updates).toBe(0);
+        expect(notifications.passive()).toMatchObject([{ severity: "warn", message: TOO_LARGE_TO_EDIT_MESSAGE }]);
+        editor.dispose();
     });
 });
