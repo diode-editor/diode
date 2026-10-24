@@ -186,18 +186,18 @@ describe("BackgroundFind", () => {
         const doc = new TextDocument("foo");
         const { find, reports, scheduler } = start(doc, "", 0);
         expect(find.done).toBe(true);
-        expect(reports).toEqual([{ matches: [], done: true, wrapped: true }]);
+        expect(reports).toEqual([{ matches: [], done: true, wrapped: true, gap: null }]);
         expect(scheduler.queued).toBe(0);
     });
 
     it("a query without matches reports the empty progress of the first slice and then the end", () => {
         const doc = new TextDocument(lines(10, (i) => `line ${String(i)}`));
         const { reports, scheduler } = start(doc, "zzz", 0, { sliceLines: 4 });
-        expect(reports).toEqual([{ matches: [], done: false, wrapped: false }]);
+        expect(reports).toEqual([{ matches: [], done: false, wrapped: false, gap: null }]);
         scheduler.drain();
         expect(reports).toEqual([
-            { matches: [], done: false, wrapped: false },
-            { matches: [], done: true, wrapped: true },
+            { matches: [], done: false, wrapped: false, gap: null },
+            { matches: [], done: true, wrapped: true, gap: null },
         ]);
     });
 
@@ -287,13 +287,14 @@ describe("BackgroundFind", () => {
             buffer.dispose();
         });
 
-        it("a walk that started in the middle covers the lines that arrive after its wrap", async () => {
+        it("a walk that started in the middle wraps only after the index is done: the lines above wait for the ones below", async () => {
             const { doc, file, buffer, growth } = growing(25);
             const { find, reports, scheduler } = start(doc, "row", 5, { sliceLines: 100, growth });
             scheduler.drain();
-            expect(reports[reports.length - 1].matches.map((m) => m.start.line)).toEqual([
-                0, 1, 2, 3, 4, 5, 6, 7, 8, 9,
-            ]);
+            // QA 4.3: the lines above the start line are not walked while the index still grows.
+            const paused = reports[reports.length - 1];
+            expect(paused.matches.map((m) => m.start.line)).toEqual([5, 6, 7, 8, 9]);
+            expect(paused).toMatchObject({ done: false, wrapped: false });
             expect(find.done).toBe(false);
             file.openGate();
             await new Promise<void>((resolve) => {
@@ -365,7 +366,7 @@ describe("BackgroundFind — slice and report boundaries", () => {
                 sliceLines: 2,
             });
             find.start();
-            expect(reports).toEqual([{ matches: [], done: false, wrapped: false }]);
+            expect(reports).toEqual([{ matches: [], done: false, wrapped: false, gap: null }]);
             vi.advanceTimersByTime(10);
             scheduler.step(); // lines 2..3: the first matches, reported at once
             expect(reports).toHaveLength(2);
@@ -385,5 +386,27 @@ describe("BackgroundFind — slice and report boundaries", () => {
         } finally {
             vi.useRealTimers();
         }
+    });
+
+    describe("BackgroundFind — the gap a cap after the wrap leaves", () => {
+        it("reports the lines between the last match collected above the start line and the start line", () => {
+            const doc = new TextDocument(lines(MATCHES_LIMIT + 100, () => "q"));
+            const { reports, scheduler } = start(doc, "q", MATCHES_LIMIT + 90, { sliceLines: 100_000 });
+            scheduler.drain();
+            const last = reports[reports.length - 1];
+            expect(last.done).toBe(true);
+            // 10 lines from the start on, then 19 989 from the top: lines 0..19 988.
+            expect(last.gap).toEqual({
+                start: { line: MATCHES_LIMIT - 11, character: 1 },
+                end: { line: MATCHES_LIMIT + 90, character: 0 },
+            });
+        });
+
+        it("a cap before the wrap leaves no gap: the list's ends are where the walk stopped", () => {
+            const doc = new TextDocument(lines(MATCHES_LIMIT + 100, () => "q"));
+            const { reports, scheduler } = start(doc, "q", 50, { sliceLines: 100_000 });
+            scheduler.drain();
+            expect(reports[reports.length - 1]).toMatchObject({ done: true, gap: null });
+        });
     });
 });

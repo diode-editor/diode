@@ -1,5 +1,6 @@
 import type { IDisposable } from "../../../base/common/lifecycle.ts";
 import { setTimeout0 } from "../../../base/common/platform.ts";
+import type { IPosition } from "../../common/core/iPosition.ts";
 import type { IRange } from "../../common/core/iRange.ts";
 import type { ITextDocument } from "../../common/model/iTextDocument.ts";
 
@@ -28,6 +29,18 @@ export interface IBackgroundFindProgress {
      * (unless the document grows), so the first match of the list is the one to reveal when none is after it.
      */
     readonly wrapped: boolean;
+    /**
+     * The lines the walk did not reach because the limit stopped it after the wrap: between the end of the last
+     * match collected above the start line and the start line itself. The list holds matches on both sides of
+     * it but none inside, so a step across it must search the document (QA 4.3). `null` without such a hole.
+     */
+    readonly gap: IFindGap | null;
+}
+
+/** `[start, end)` in positions: no match of the list starts inside. */
+export interface IFindGap {
+    readonly start: IPosition;
+    readonly end: IPosition;
 }
 
 /**
@@ -81,6 +94,7 @@ export class BackgroundFind implements IDisposable {
     private reportedTotal = -1;
     private lastReportAt = 0;
     private growthSubscription: IDisposable | null = null;
+    private gap: IFindGap | null = null;
 
     public constructor(
         private readonly document: ITextDocument,
@@ -122,6 +136,13 @@ export class BackgroundFind implements IDisposable {
     private runSlice(): void {
         if (this.disposed || this.doneValue) return;
         const lineCount = this.document.lineCount;
+        // The lines from the start line on come first and all of them: while the index still grows, the wrap
+        // waits (a match above the cursor must not become current before the real next one is in, QA 4.3).
+        if (this.afterLine >= lineCount && this.isGrowing()) {
+            this.waitForGrowth();
+            this.report(true);
+            return;
+        }
         const inAfterPass = this.afterLine < lineCount;
         const from = inAfterPass ? this.afterLine : this.beforeLine;
         const to = Math.min(inAfterPass ? lineCount : this.startLine, from + this.sliceLines);
@@ -135,17 +156,19 @@ export class BackgroundFind implements IDisposable {
             else this.beforeLine = line + 1;
             if (!appendLineMatches(line, content, this.query, out, MATCHES_LIMIT - (this.total() - out.length))) {
                 this.doneValue = true;
+                if (!inAfterPass)
+                    this.gap = { start: out[out.length - 1].end, end: { line: this.startLine, character: 0 } };
                 break;
             }
             chars += content.length;
             if (chars >= this.sliceChars) break;
         }
         let pausing = false;
-        if (!this.doneValue && this.afterLine >= this.document.lineCount && this.beforeLine >= this.startLine) {
-            if (this.growth?.isGrowing() === true) {
+        if (!this.doneValue && this.afterLine >= this.document.lineCount) {
+            if (this.isGrowing()) {
                 this.waitForGrowth();
                 pausing = true;
-            } else {
+            } else if (this.beforeLine >= this.startLine) {
                 this.doneValue = true;
             }
         }
@@ -156,6 +179,10 @@ export class BackgroundFind implements IDisposable {
                 this.runSlice();
             });
         }
+    }
+
+    private isGrowing(): boolean {
+        return this.growth?.isGrowing() === true;
     }
 
     private total(): number {
@@ -189,7 +216,8 @@ export class BackgroundFind implements IDisposable {
         this.onProgress({
             matches: this.before.concat(this.after),
             done: this.doneValue,
-            wrapped: this.doneValue || this.afterLine >= this.document.lineCount,
+            wrapped: this.doneValue || (this.afterLine >= this.document.lineCount && !this.isGrowing()),
+            gap: this.gap,
         });
     }
 }

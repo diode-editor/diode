@@ -218,6 +218,9 @@ export class EditorViewState {
      * built, docs/arch/Editor.md): the cursor is parked on the provisional end and carried on with each growth.
      */
     private pendingTarget: IPendingNavigationTarget | null = null;
+    private pendingTargetMovedAt = 0;
+    /** How often a cursor parked by {@link pendingTarget} moves on with the growth; tests set 0. */
+    public growthFollowIntervalMs = 250;
     private readonly docContentSubscription: IDisposable;
     // Stryker disable next-line ArrayDeclaration: the document doesn't know a junk element without an id, getDecorationRange returns null
     private markerDecorationIds: readonly IViewMarkerDecoration[] = [];
@@ -1157,6 +1160,7 @@ export class EditorViewState {
         this.pendingTarget = inSelectionMode
             ? null
             : { line: END_OF_DOCUMENT, character: END_OF_DOCUMENT, parkedAt: createPosition(lastLine, lastChar) };
+        this.pendingTargetMovedAt = Date.now();
     }
 
     /** Smart home, as in upstream: indentation ↔ column 0. */
@@ -1776,6 +1780,7 @@ export class EditorViewState {
         // A line past the end may still arrive (the index of a document on disk): the jump is finished then.
         this.pendingTarget =
             line > clampedLine ? { line, character, parkedAt: createPosition(clampedLine, clampedChar) } : null;
+        this.pendingTargetMovedAt = Date.now();
     }
 
     /**
@@ -1796,6 +1801,18 @@ export class EditorViewState {
         ) {
             // Stryker disable next-line BooleanLiteral: with the target dropped the growth has nothing left to remap, every position is before the old end
             return false;
+        }
+        // Every chunk of the index is a growth (80 a second on a 6 GB log): moving the parked cursor with each
+        // one sent a selection and a layout message to the extension host each time (QA 4.3). The cursor moves
+        // at most once per interval, at once when its line is in, and on the growth that ends the index.
+        const reached = target.line < this.document.lineCount;
+        if (
+            !reached &&
+            change.isFinalGrowth !== true &&
+            Date.now() - this.pendingTargetMovedAt < this.growthFollowIntervalMs
+        ) {
+            this.pendingTarget = target;
+            return true;
         }
         // Re-parks itself while the target is still past the end.
         this.goToPosition(target.line, target.character);

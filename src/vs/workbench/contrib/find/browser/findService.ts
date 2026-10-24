@@ -6,7 +6,11 @@ import { comparePositions } from "../../../../editor/common/core/iPosition.ts";
 import type { IRange } from "../../../../editor/common/core/iRange.ts";
 import { rangesEqual } from "../../../../editor/common/core/iRange.ts";
 import { createSelection } from "../../../../editor/common/core/iSelection.ts";
-import { BackgroundFind, type IBackgroundFindProgress } from "../../../../editor/contrib/find/backgroundFind.ts";
+import {
+    BackgroundFind,
+    type IBackgroundFindProgress,
+    type IFindGap,
+} from "../../../../editor/contrib/find/backgroundFind.ts";
 import {
     findMatches,
     findNextMatch,
@@ -47,6 +51,13 @@ interface IFindSession {
     search: BackgroundFind | null;
     /** Where the cursor was when the search started: the current match is the first one from here on. */
     anchor: IPosition;
+    /** The lines a capped walk left out after its wrap ({@link IFindGap}); a step across them searches the document. */
+    gap: IFindGap | null;
+    /**
+     * F3 / Shift+F3 with the widget closed came before the walk had the match to select (QA 4.3): the report that
+     * brings it selects it, as upstream's `NextMatchFindAction` does at once.
+     */
+    pendingSelect: 1 | -1 | null;
 }
 
 /** One session per group (US-33): find in group A keeps its query while group B is searched. */
@@ -149,6 +160,8 @@ export class FindService extends Disposable implements IContextKeyContributor {
             search: null,
             // Stryker disable next-line ObjectLiteral: recompute sets the anchor before any walk reads it
             anchor: { line: 0, character: 0 },
+            gap: null,
+            pendingSelect: null,
         };
         // Switching tabs in THIS group closes its session; other groups are unaffected (US-33).
         session.paneSubscription = group.onDidChangeActivePane((pane) => {
@@ -219,6 +232,11 @@ export class FindService extends Disposable implements IContextKeyContributor {
         const startedNewSession =
             session.matches.length === 0 || session.target !== this.editorService.getActiveEditor();
         if (startedNewSession && !this.startDetachedSession(group, widget)) return;
+        // The walk has not found the match to go to yet: the report that brings it selects it.
+        if (startedNewSession && session.search !== null && session.currentIndex < 0) {
+            session.pendingSelect = direction;
+            return;
+        }
         if (session.matches.length === 0) return;
 
         // The first press goes to the nearest match from the cursor (picked by
@@ -243,7 +261,7 @@ export class FindService extends Disposable implements IContextKeyContributor {
         // Stryker disable next-line ConditionalExpression: a capped list stepped back through the document lands on the same previous match, only slower
         const atEnd = direction === 1 ? currentIndex === matches.length - 1 : currentIndex === 0;
         // Stryker disable next-line ConditionalExpression: `target` lives and dies with `matches` (see recompute/close); the check is for the type
-        if (matches.length >= MATCHES_LIMIT && atEnd && target !== null) {
+        if (matches.length >= MATCHES_LIMIT && (atEnd || this.crossesGap(session, direction)) && target !== null) {
             const current = matches[currentIndex];
             const document = target.viewState.document;
             const found =
@@ -254,11 +272,41 @@ export class FindService extends Disposable implements IContextKeyContributor {
             // Stryker disable next-line ConditionalExpression: unreachable for the same reason as for coverage
             if (found === null) return currentIndex;
             /* v8 ignore stop */
+            this.narrowGap(session, found, direction);
             return this.indexOfOrInsert(session, found);
         }
         // A session without a current match yet (the walk has not reached the cursor): Next starts at the top.
         if (currentIndex < 0) return direction === 1 ? 0 : matches.length - 1;
         return (currentIndex + direction + matches.length) % matches.length;
+    }
+
+    /**
+     * The list's neighbour of the current match is on the other side of the lines the capped walk left out:
+     * stepping to it would skip every match in between (QA 4.3: Shift+Enter on the 2 GB log went from line
+     * 21 690 999 to 19 242). Matches of the list are never inside the gap, only on its sides.
+     */
+    private crossesGap(session: IFindSession, direction: 1 | -1): boolean {
+        const { gap, matches, currentIndex } = session;
+        if (gap === null || currentIndex < 0) return false;
+        const current = matches[currentIndex];
+        const neighbour = matches[currentIndex + direction] as IRange | undefined;
+        if (neighbour === undefined) return false;
+        return direction === 1
+            ? comparePositions(current.end, gap.start) <= 0 && comparePositions(neighbour.start, gap.end) >= 0
+            : comparePositions(current.start, gap.end) >= 0 && comparePositions(neighbour.end, gap.start) <= 0;
+    }
+
+    /** A match found inside the gap joins the list: the gap now begins after it (Next) or ends before it (Prev). */
+    private narrowGap(session: IFindSession, found: IRange, direction: 1 | -1): void {
+        const { gap } = session;
+        if (gap === null) return;
+        const inside = comparePositions(found.start, gap.start) >= 0 && comparePositions(found.start, gap.end) < 0;
+        if (!inside) {
+            // The search went across the gap without a match in it: there is nothing left to find there.
+            session.gap = null;
+            return;
+        }
+        session.gap = direction === 1 ? { start: found.end, end: gap.end } : { start: gap.start, end: found.start };
     }
 
     private indexOfOrInsert(session: IFindSession, range: IRange): number {
@@ -319,6 +367,8 @@ export class FindService extends Disposable implements IContextKeyContributor {
         }
 
         session.anchor = editor.viewState.selections[0].active;
+        session.gap = null;
+        session.pendingSelect = null;
         // Stryker disable next-line UnaryOperator: the new list holds new range objects, so a stale index finds nothing in it either way
         session.currentIndex = -1;
         const query = widget.getQuery();
@@ -326,7 +376,7 @@ export class FindService extends Disposable implements IContextKeyContributor {
         // Stryker disable next-line OptionalChaining: a pane without a file model (untitled) has no document on disk; the chain is for the type
         if (model?.isOnDisk !== true) {
             const matches = findMatches(editor.viewState.document, query);
-            this.applyMatches(session, widget, editor, { matches, done: true, wrapped: true });
+            this.applyMatches(session, widget, editor, { matches, done: true, wrapped: true, gap: null });
             return;
         }
         session.search = new BackgroundFind(
@@ -367,12 +417,37 @@ export class FindService extends Disposable implements IContextKeyContributor {
         const kept = previous === null ? -1 : session.matches.indexOf(previous);
         session.currentIndex =
             kept >= 0 ? kept : this.pickCurrentIndex(session.matches, session.anchor, progress.wrapped);
+        session.gap = progress.gap;
+        this.applyPendingSelect(session, widget, editor, progress);
 
         editor.setSearchDecorations(session.matches, session.currentIndex);
         if (session.currentIndex >= 0 && session.matches[session.currentIndex] !== previous) {
             editor.revealRange(session.matches[session.currentIndex]);
         }
         widget.setCounter(session.currentIndex + 1, session.matches.length, !progress.done);
+    }
+
+    /**
+     * F3 selects the first match from the cursor as soon as the walk has it; Shift+F3 the one before the cursor,
+     * which only the finished walk knows (the lines above the cursor are walked last).
+     */
+    private applyPendingSelect(
+        session: IFindSession,
+        widget: FindWidget,
+        editor: TextEditorPane,
+        progress: IBackgroundFindProgress,
+    ): void {
+        const direction = session.pendingSelect;
+        if (direction === null) return;
+        const ready = direction === 1 ? session.currentIndex >= 0 : progress.done;
+        if (!ready) return;
+        session.pendingSelect = null;
+        if (session.matches.length === 0) return;
+        if (direction === -1) session.currentIndex = this.step(session, widget, -1);
+        const match = session.matches[session.currentIndex];
+        editor.viewState.selections = [
+            createSelection(match.start.line, match.start.character, match.end.line, match.end.character),
+        ];
     }
 
     private setCurrent(groupId: GroupId, index: number): void {

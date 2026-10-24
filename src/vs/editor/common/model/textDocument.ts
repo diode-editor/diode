@@ -147,7 +147,7 @@ export class TextDocument implements ITextDocument {
     private attachBuffer(buffer: IDocumentBuffer): void {
         this.buffer = buffer;
         buffer.onDidAppendLines?.((change) => {
-            this.fireChange({ ...change, isGrowth: true });
+            this.fireChange({ ...change, isGrowth: true, isFinalGrowth: this.onDisk?.indexing.done === true });
         });
     }
 

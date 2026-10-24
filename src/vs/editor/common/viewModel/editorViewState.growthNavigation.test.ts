@@ -23,6 +23,8 @@ function growing(lines: number) {
     const viewState = new EditorViewState(doc);
     viewState.viewportHeight = 5;
     viewState.viewportWidth = 40;
+    // Every growth moves the parked cursor; the throttle has its own test.
+    viewState.growthFollowIntervalMs = 0;
     expect(doc.lineCount).toBe(10);
     return {
         doc,
@@ -182,5 +184,32 @@ describe("EditorViewState — Go to Line and Ctrl+End while the document grows",
         await last.grow();
         expect(last.viewState.selections[0].active).toEqual({ line: 9, character: 0 });
         expect(last.viewState.scrollTop).toBe(0);
+    });
+
+    it("the parked cursor moves at most once per interval and on the growth that ends the index (QA 4.3)", async () => {
+        const { doc, viewState, grow, finish } = growing(80);
+        viewState.growthFollowIntervalMs = 60_000;
+        let moves = 0;
+        viewState.onDidChangeCursorPosition(() => moves++);
+        viewState.cursorBottom();
+        moves = 0;
+        await grow();
+        await grow();
+        await grow();
+        // Within the interval: the cursor waits where it was parked, nothing is sent.
+        expect(moves).toBe(0);
+        expect(viewState.selections[0].active.line).toBe(9);
+        await finish();
+        expect(doc.lineCount).toBe(81);
+        expect(viewState.selections[0].active).toEqual({ line: 80, character: 0 });
+        expect(moves).toBe(1);
+    });
+
+    it("a parked Go to Line moves at once when its line comes in, even inside the interval", async () => {
+        const { viewState, grow } = growing(80);
+        viewState.growthFollowIntervalMs = 60_000;
+        viewState.goToPosition(15, 2);
+        await grow();
+        expect(viewState.selections[0].active).toEqual({ line: 15, character: 2 });
     });
 });

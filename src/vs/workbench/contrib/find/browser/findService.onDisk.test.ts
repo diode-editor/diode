@@ -389,12 +389,20 @@ describe("FindService over a document on disk", () => {
             fs.writeFileSync(ws.path("gap.log"), "needle needle tail\n" + "filler line of the log\n".repeat(60_000));
         }
 
-        it("F3 with the widget closed goes to the first of them, Shift+F3 to the last", () => {
+        it("F3 with the widget closed goes to the first of them once the walk wrapped, Shift+F3 to the last", async () => {
             writeGap();
             const first = setup("gap.log");
             first.editor.viewState.selections = [createCursorSelection(0, 18)];
             first.widget.setQuery("needle");
             first.find.next();
+            // No match after the cursor: the walk has to see the whole file before it wraps to line 0.
+            expect(first.editor.viewState.selections[0].active).toEqual({ line: 0, character: 18 });
+            await vi.waitFor(
+                () => {
+                    expect(first.editor.viewState.selections[0].active).toEqual({ line: 0, character: 6 });
+                },
+                { timeout: 20_000, interval: 20 },
+            );
             expect(first.editor.viewState.searchMatches).toHaveLength(2);
             expect(first.editor.viewState.currentSearchMatchIndex).toBe(0);
             expect(first.editor.viewState.selections[0]).toMatchObject({
@@ -406,7 +414,12 @@ describe("FindService over a document on disk", () => {
             last.editor.viewState.selections = [createCursorSelection(0, 18)];
             last.widget.setQuery("needle");
             last.find.prev();
-            expect(last.editor.viewState.currentSearchMatchIndex).toBe(1);
+            await vi.waitFor(
+                () => {
+                    expect(last.editor.viewState.currentSearchMatchIndex).toBe(1);
+                },
+                { timeout: 20_000, interval: 20 },
+            );
             expect(last.editor.viewState.selections[0]).toMatchObject({
                 anchor: { line: 0, character: 7 },
                 active: { line: 0, character: 13 },
@@ -511,25 +524,92 @@ describe("FindService over a document on disk", () => {
             find.open();
             // Lines whose number ends in 1: every tenth line, far below the limit.
             typeQuery(widget, "1 2026");
-            // The wrap brought line 1 in front of the cursor's first match (line 11).
+            // The walk waits for the index below the cursor; the first match after it (line 11) is current.
             await vi.waitFor(
                 () => {
-                    expect(counterText(widget)).toMatch(/^2 of \d+…$/u);
+                    expect(counterText(widget)).toMatch(/^1 of \d+…$/u);
                 },
                 { timeout: 20_000, interval: 20 },
             );
             expect(editor.viewState.searchMatches[editor.viewState.currentSearchMatchIndex].start.line).toBe(11);
-            find.prev();
-            expect(editor.viewState.currentSearchMatchIndex).toBe(0);
-            expect(editor.viewState.searchMatches[0].start.line).toBe(1);
+            find.next();
+            const stepped = editor.viewState.searchMatches[editor.viewState.currentSearchMatchIndex];
+            expect(stepped.start.line).toBe(21);
             editor.viewState.scrollTop = 5000;
 
             file.openGate();
             await indexed(editor);
             await searchDone(widget);
-            expect(counterText(widget)).toMatch(/^1 of \d+$/u);
-            expect(editor.viewState.currentSearchMatchIndex).toBe(0);
+            // The wrap put line 1 in front of it: the same match, now third.
+            expect(editor.viewState.searchMatches[editor.viewState.currentSearchMatchIndex]).toBe(stepped);
+            expect(counterText(widget)).toMatch(/^3 of \d+$/u);
             expect(editor.viewState.scrollTop).toBe(5000);
+        });
+    });
+
+    describe("the lines a capped walk left out after its wrap", () => {
+        it("Next from the last match above the gap goes to the line just below it, not across to the cursor", async () => {
+            const { find, widget, editor } = setup();
+            await indexed(editor);
+            const cursorLine = lines - 10_000;
+            editor.viewState.selections = [createCursorSelection(cursorLine, 0)];
+            find.open();
+            typeQuery(widget, "request");
+            await searchDone(widget);
+            const current = () => editor.viewState.searchMatches[editor.viewState.currentSearchMatchIndex];
+            // Walk back to the first match after the cursor, then one more Prev into the gap and Next out of it.
+            find.prev();
+            expect(current().start.line).toBe(cursorLine - 1);
+            find.prev();
+            expect(current().start.line).toBe(cursorLine - 2);
+            find.next();
+            expect(current().start.line).toBe(cursorLine - 1);
+            find.next();
+            expect(current().start.line).toBe(cursorLine);
+
+            // The top of the list: the last match collected above the gap, Next goes to the line after it.
+            const top = MATCHES_LIMIT - 1 - (lines - cursorLine);
+            editor.viewState.selections = [createCursorSelection(0, 0)];
+            find.close();
+            editor.viewState.selections = [createCursorSelection(cursorLine, 0)];
+            find.open();
+            await searchDone(widget);
+            const lastAbove = editor.viewState.searchMatches.findIndex((m) => m.start.line >= cursorLine) - 1;
+            expect(editor.viewState.searchMatches[lastAbove].start.line).toBe(top);
+            for (let i = editor.viewState.currentSearchMatchIndex; i > lastAbove; i--) find.prev();
+            expect(current().start.line).toBe(cursorLine - 1);
+        });
+
+        it("a gap without matches in it closes after the first step across: the list's neighbour is the match", async () => {
+            // The top lines match until the limit is exactly full, then a block without the query, then the cursor's lines.
+            const below = 10;
+            const filler = "a".repeat(60);
+            const body = [
+                ...Array.from({ length: MATCHES_LIMIT - below }, () => `q ${filler}`),
+                ...Array.from({ length: 2_000 }, () => filler),
+                ...Array.from({ length: below }, () => `q ${filler}`),
+            ];
+            fs.writeFileSync(ws.path("holes.log"), body.join("\n") + "\n");
+            const { find, widget, editor } = setup("holes.log");
+            await indexed(editor);
+            const cursorLine = MATCHES_LIMIT - below + 2_000;
+            editor.viewState.selections = [createCursorSelection(cursorLine, 0)];
+            find.open();
+            typeQuery(widget, "q");
+            await searchDone(widget);
+            expect(editor.viewState.searchMatches).toHaveLength(MATCHES_LIMIT);
+            const current = () => editor.viewState.searchMatches[editor.viewState.currentSearchMatchIndex];
+            expect(current().start.line).toBe(cursorLine);
+            const reads = vi.spyOn(editor.viewState.document, "getLineContent");
+            find.prev();
+            expect(current().start.line).toBe(MATCHES_LIMIT - below - 1);
+            expect(editor.viewState.searchMatches).toHaveLength(MATCHES_LIMIT);
+            // The document was searched across the empty block once; after it the steps are the list's.
+            expect(reads.mock.calls.length).toBeGreaterThan(1_000);
+            reads.mockClear();
+            find.next();
+            expect(current().start.line).toBe(cursorLine);
+            expect(reads.mock.calls.length).toBeLessThan(10);
         });
     });
 });

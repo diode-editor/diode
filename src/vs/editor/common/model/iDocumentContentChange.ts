@@ -13,6 +13,8 @@ export interface IDocumentContentChange {
      * not an edit, the version did not move, and a navigation target past the old end may now be reachable.
      */
     readonly isGrowth?: boolean;
+    /** The growth that ends the background pass: the document's end is final (until something is appended). */
+    readonly isFinalGrowth?: boolean;
 }
 
 /**
