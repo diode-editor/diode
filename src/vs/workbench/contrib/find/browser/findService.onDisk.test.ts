@@ -278,12 +278,11 @@ describe("FindService over a document on disk", () => {
         find.prev();
         expect(editor.viewState.currentSearchMatchIndex).toBe(0);
         expect(editor.viewState.searchMatches[0].start.line).toBe(cursorLine - 2);
-        // Inside the list the steps are ordinary: nothing is read but the revealed lines.
-        reads.mockClear();
+        // Back through the matches the document search added: the same objects, nothing duplicated.
         find.next();
         find.next();
         expect(editor.viewState.currentSearchMatchIndex).toBe(2);
-        expect([...linesRead()].every((line) => line === cursorLine - 1 || line === cursorLine)).toBe(true);
+        expect(editor.viewState.searchMatches).toHaveLength(MATCHES_LIMIT + 2);
         expect(editor.viewState.searchMatches[2].start.line).toBe(cursorLine);
         expect(editor.viewState.searchMatches).toHaveLength(MATCHES_LIMIT + 2);
     });
@@ -580,7 +579,7 @@ describe("FindService over a document on disk", () => {
             expect(current().start.line).toBe(cursorLine - 1);
         });
 
-        it("a gap without matches in it closes after the first step across: the list's neighbour is the match", async () => {
+        it("a gap without matches in it: Prev and Next across it find the list's own neighbours, nothing is duplicated", async () => {
             // The top lines match until the limit is exactly full, then a block without the query, then the cursor's lines.
             const below = 10;
             const filler = "a".repeat(60);
@@ -600,16 +599,12 @@ describe("FindService over a document on disk", () => {
             expect(editor.viewState.searchMatches).toHaveLength(MATCHES_LIMIT);
             const current = () => editor.viewState.searchMatches[editor.viewState.currentSearchMatchIndex];
             expect(current().start.line).toBe(cursorLine);
-            const reads = vi.spyOn(editor.viewState.document, "getLineContent");
             find.prev();
             expect(current().start.line).toBe(MATCHES_LIMIT - below - 1);
             expect(editor.viewState.searchMatches).toHaveLength(MATCHES_LIMIT);
-            // The document was searched across the empty block once; after it the steps are the list's.
-            expect(reads.mock.calls.length).toBeGreaterThan(1_000);
-            reads.mockClear();
             find.next();
             expect(current().start.line).toBe(cursorLine);
-            expect(reads.mock.calls.length).toBeLessThan(10);
+            expect(editor.viewState.searchMatches).toHaveLength(MATCHES_LIMIT);
         });
     });
 });

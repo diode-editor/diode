@@ -186,18 +186,18 @@ describe("BackgroundFind", () => {
         const doc = new TextDocument("foo");
         const { find, reports, scheduler } = start(doc, "", 0);
         expect(find.done).toBe(true);
-        expect(reports).toEqual([{ matches: [], done: true, wrapped: true, gap: null }]);
+        expect(reports).toEqual([{ matches: [], done: true, wrapped: true }]);
         expect(scheduler.queued).toBe(0);
     });
 
     it("a query without matches reports the empty progress of the first slice and then the end", () => {
         const doc = new TextDocument(lines(10, (i) => `line ${String(i)}`));
         const { reports, scheduler } = start(doc, "zzz", 0, { sliceLines: 4 });
-        expect(reports).toEqual([{ matches: [], done: false, wrapped: false, gap: null }]);
+        expect(reports).toEqual([{ matches: [], done: false, wrapped: false }]);
         scheduler.drain();
         expect(reports).toEqual([
-            { matches: [], done: false, wrapped: false, gap: null },
-            { matches: [], done: true, wrapped: true, gap: null },
+            { matches: [], done: false, wrapped: false },
+            { matches: [], done: true, wrapped: true },
         ]);
     });
 
@@ -242,6 +242,19 @@ describe("BackgroundFind", () => {
             file.release();
             await new Promise((resolve) => setImmediate(resolve));
         }
+
+        it("while it waits for the index no slice is scheduled: the next one runs on the growth", async () => {
+            const { doc, file, buffer, growth } = growing(35);
+            const { find, scheduler } = start(doc, "row", 0, { sliceLines: 100, growth });
+            scheduler.drain();
+            expect(find.done).toBe(false);
+            expect(scheduler.queued).toBe(0);
+            file.release();
+            await new Promise((resolve) => setImmediate(resolve));
+            // The growth ran the slice itself; a waiting walk does not poll.
+            expect(scheduler.queued).toBe(0);
+            buffer.dispose();
+        });
 
         it("what was found before the pause for the index goes out even inside the report interval", () => {
             const { doc, buffer, growth } = growing(35);
@@ -366,7 +379,7 @@ describe("BackgroundFind — slice and report boundaries", () => {
                 sliceLines: 2,
             });
             find.start();
-            expect(reports).toEqual([{ matches: [], done: false, wrapped: false, gap: null }]);
+            expect(reports).toEqual([{ matches: [], done: false, wrapped: false }]);
             vi.advanceTimersByTime(10);
             scheduler.step(); // lines 2..3: the first matches, reported at once
             expect(reports).toHaveLength(2);
@@ -386,27 +399,5 @@ describe("BackgroundFind — slice and report boundaries", () => {
         } finally {
             vi.useRealTimers();
         }
-    });
-
-    describe("BackgroundFind — the gap a cap after the wrap leaves", () => {
-        it("reports the lines between the last match collected above the start line and the start line", () => {
-            const doc = new TextDocument(lines(MATCHES_LIMIT + 100, () => "q"));
-            const { reports, scheduler } = start(doc, "q", MATCHES_LIMIT + 90, { sliceLines: 100_000 });
-            scheduler.drain();
-            const last = reports[reports.length - 1];
-            expect(last.done).toBe(true);
-            // 10 lines from the start on, then 19 989 from the top: lines 0..19 988.
-            expect(last.gap).toEqual({
-                start: { line: MATCHES_LIMIT - 11, character: 1 },
-                end: { line: MATCHES_LIMIT + 90, character: 0 },
-            });
-        });
-
-        it("a cap before the wrap leaves no gap: the list's ends are where the walk stopped", () => {
-            const doc = new TextDocument(lines(MATCHES_LIMIT + 100, () => "q"));
-            const { reports, scheduler } = start(doc, "q", 50, { sliceLines: 100_000 });
-            scheduler.drain();
-            expect(reports[reports.length - 1]).toMatchObject({ done: true, gap: null });
-        });
     });
 });

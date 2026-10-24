@@ -205,6 +205,17 @@ describe("EditorViewState — Go to Line and Ctrl+End while the document grows",
         expect(moves).toBe(1);
     });
 
+    it("a target on the line just past the new end is not reached yet: the cursor keeps waiting", async () => {
+        const { doc, viewState, grow } = growing(80);
+        viewState.growthFollowIntervalMs = 60_000;
+        viewState.goToPosition(20, 0);
+        await grow();
+        expect(doc.lineCount).toBe(20);
+        expect(viewState.selections[0].active).toEqual({ line: 9, character: 0 });
+        await grow();
+        expect(viewState.selections[0].active).toEqual({ line: 20, character: 0 });
+    });
+
     it("a parked Go to Line moves at once when its line comes in, even inside the interval", async () => {
         const { viewState, grow } = growing(80);
         viewState.growthFollowIntervalMs = 60_000;

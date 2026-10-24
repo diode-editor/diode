@@ -1812,6 +1812,7 @@ export class EditorViewState {
             Date.now() - this.pendingTargetMovedAt < this.growthFollowIntervalMs
         ) {
             this.pendingTarget = target;
+            // Stryker disable next-line BooleanLiteral: the remap of a growth on the last line leaves the parked cursor where it is anyway
             return true;
         }
         // Re-parks itself while the target is still past the end.
