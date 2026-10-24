@@ -1,14 +1,22 @@
 import { describe, expect, it } from "vitest";
 
+import { registerAction } from "../../../../platform/actions/common/commandAction.ts";
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import { CommandRegistry, CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
+import {
+    ContextKeyService,
+    ContextKeyServiceDIToken,
+} from "../../../../platform/contextkey/common/contextKeyService.ts";
 import type { ServiceAccessor } from "../../../../platform/instantiation/common/diContainer.ts";
+import { KeybindingRegistry } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import { ProgressService, ProgressServiceDIToken } from "../../../../platform/progress/common/progressService.ts";
 import { StatusBarServiceDIToken } from "../../../services/statusbar/common/statusBarService.ts";
+import { CommandsQuickAccessProvider } from "../../quickaccess/browser/commandsQuickAccessProvider.ts";
 import { GIT_OP_COMMAND } from "../common/gitProtocol.ts";
 import { SCM_CHANGES_VIEW_ID, SCM_GRAPH_VIEW_ID } from "../common/scmViews.ts";
 
 import { gitRefreshAction, REFRESH_ICON } from "./refreshActions.ts";
+import { SCM_ACTIONS } from "./scmActions.ts";
 
 function makeAccessor(
     commands: CommandRegistry,
@@ -90,5 +98,29 @@ describe("gitRefreshAction", () => {
         ).resolves.toBeUndefined();
         expect(progress.isBusy()).toBe(false);
         expect(notices).toEqual([]);
+    });
+});
+
+describe("Git: Refresh in the command palette", () => {
+    // The palette as the user opens it: the shipped action (busy enablement included) registered the
+    // way the workbench registers it, then `>Git: Refresh` typed.
+    function paletteLabels(hasRepo: boolean): string[] {
+        const commands = new CommandRegistry();
+        const contextKeys = new ContextKeyService();
+        contextKeys.set("gitHasRepo", hasRepo);
+        const services = new Map<unknown, unknown>([[ContextKeyServiceDIToken, contextKeys]]);
+        const accessor = { get: (t: unknown) => services.get(t) } as unknown as ServiceAccessor;
+        const action = SCM_ACTIONS.find((a) => a.id === "git.refresh")!;
+        registerAction(commands, new KeybindingRegistry(), accessor, action);
+        const provider = new CommandsQuickAccessProvider(commands, new KeybindingRegistry(), contextKeys);
+        return provider.getItems(">Git: Refresh").map((item) => item.label);
+    }
+
+    it("is listed inside a repository", () => {
+        expect(paletteLabels(true)).toEqual(["Git: Refresh"]);
+    });
+
+    it("is absent outside a repository", () => {
+        expect(paletteLabels(false)).toEqual([]);
     });
 });
