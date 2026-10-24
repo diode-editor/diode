@@ -130,21 +130,42 @@ describe("TerminalLinkSurface", () => {
         expect(underlined(0)).toBe("_ ________");
     });
 
-    it("Ctrl+click opens the link and doesn't reach the emulator; a plain click does", async () => {
+    function click(col: number, row: number, options: Partial<TerminalMouseEventData> = {}): void {
+        surface.sendMouse(mouse(col, row, { action: "down", button: "left", ...options }));
+        surface.sendMouse(mouse(col, row, { action: "up", button: "left", ...options }));
+    }
+
+    it("Ctrl+click opens the link on release and doesn't reach the emulator; a plain click does", async () => {
         await setup("src/a.ts:3:2");
         const forwarded = vi.spyOn(session, "sendMouse");
         surface.sendMouse(mouse(3, 0, { action: "down", button: "left" }));
+        await new Promise((resolve) => setTimeout(resolve, 10));
+        expect(opened).toEqual([]);
+        // Moves after the release don't supersede the activation lookup.
+        surface.sendMouse(mouse(5, 0, { action: "up", button: "left" }));
+        surface.sendMouse(mouse(20, 0));
         await vi.waitFor(() => {
             expect(opened.map((link) => link.text)).toEqual(["src/a.ts:3:2"]);
         });
-        expect(forwarded).not.toHaveBeenCalled();
+        expect(forwarded).toHaveBeenCalledTimes(1);
 
-        surface.sendMouse(mouse(3, 0, { action: "down", button: "left", ctrl: false }));
+        forwarded.mockClear();
+        click(3, 0, { ctrl: false });
         surface.sendMouse(mouse(3, 0, { action: "down", button: "right" }));
-        surface.sendMouse(mouse(20, 0, { action: "down", button: "left" }));
+        click(20, 0);
         await new Promise((resolve) => setTimeout(resolve, 10));
-        expect(forwarded).toHaveBeenCalledTimes(2);
+        expect(forwarded).toHaveBeenCalledTimes(3);
         expect(opened).toHaveLength(1);
+    });
+
+    it("Ctrl+press on a link and release off it opens nothing", async () => {
+        await setup("src/a.ts:3:2 ./b.ts");
+        surface.sendMouse(mouse(3, 0, { action: "down", button: "left" }));
+        surface.sendMouse(mouse(15, 0, { action: "up", button: "left" }));
+        surface.sendMouse(mouse(3, 0, { action: "down", button: "left" }));
+        surface.sendMouse(mouse(3, 1, { action: "up", button: "left" }));
+        await new Promise((resolve) => setTimeout(resolve, 20));
+        expect(opened).toEqual([]);
     });
 
     it("an opener failure is reported, not thrown into the input path", async () => {
@@ -155,6 +176,7 @@ describe("TerminalLinkSurface", () => {
         const errors = await import("../../../../../base/common/errors.ts");
         const reported = vi.spyOn(errors, "onUnexpectedError").mockImplementation(() => undefined);
         failing.sendMouse(mouse(1, 0, { action: "down", button: "left" }));
+        failing.sendMouse(mouse(1, 0, { action: "up", button: "left" }));
         await vi.waitFor(() => {
             expect(reported).toHaveBeenCalled();
         });

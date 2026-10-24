@@ -41,7 +41,13 @@ export class TerminalLinkOpener {
         const suffix = link.parsedLink ? link.parsedLink.suffix : getLinkSuffix(link.text);
         const key = link.uri.toString();
         await this.jumps.jumpAsync(async () => {
-            await this.editors.openUri(link.uri);
+            // Upstream `revealIfOpened: true`: a tab in another group is activated there, not duplicated here.
+            const groups = this.editors.editorGroups;
+            const owner =
+                groups.activeGroup.findPaneIndex(link.uri) >= 0
+                    ? undefined
+                    : groups.groups.find((group) => group.findPaneIndex(link.uri) >= 0);
+            await this.editors.openUri(link.uri, owner === undefined ? {} : { group: owner });
             const row = suffix?.row;
             if (row === undefined) return;
             const editor = this.editors.getActiveEditor();

@@ -17,7 +17,8 @@ export interface ITerminalLinkSource {
 
 /**
  * The session as the terminal widget sees it, plus file links (upstream `TerminalLinkManager` over xterm's link
- * provider API): with Ctrl held, the link under the pointer is underlined, and Ctrl+click opens it. A program that
+ * provider API): with Ctrl held, the link under the pointer is underlined, and Ctrl+click opens it: on release,
+ * when the press and the release are on the same link (xterm's `Linkifier._handleMouseUp`). A program that
  * turned mouse tracking on (vim `mouse=a`, htop) owns the mouse — then there are no links.
  *
  * Ctrl alone is not a mouse event: its press and release arrive as keys only under the kitty protocol, so on
@@ -29,6 +30,8 @@ export class TerminalLinkSurface implements ITerminalSurface {
     private pointer: { readonly col: number; readonly row: number } | undefined;
     /** Only the latest lookup applies: detection is async and the pointer keeps moving. */
     private request = 0;
+    /** Viewport cell of a Ctrl+left press, kept for its release. */
+    private pressed: { readonly col: number; readonly row: number } | undefined;
     private readonly onDidChangeHoverEmitter = new Emitter<void>();
 
     public constructor(
@@ -74,6 +77,7 @@ export class TerminalLinkSurface implements ITerminalSurface {
 
     public sendMouse(event: TerminalMouseEventData): void {
         if (this.session.mouseEventsActive) {
+            this.pressed = undefined;
             this.clearHover();
             this.session.sendMouse(event);
             return;
@@ -82,7 +86,12 @@ export class TerminalLinkSurface implements ITerminalSurface {
             this.pointer = { col: event.col, row: event.row };
             this.updateHover(event.ctrl);
         } else if (event.action === "down" && event.button === "left" && event.ctrl) {
-            this.activate(event.col, event.row);
+            this.pressed = { col: event.col, row: event.row };
+            return;
+        } else if (event.action === "up" && event.button === "left" && this.pressed !== undefined) {
+            const pressed = this.pressed;
+            this.pressed = undefined;
+            this.activate(pressed, { col: event.col, row: event.row });
             return;
         }
         this.session.sendMouse(event);
@@ -137,15 +146,23 @@ export class TerminalLinkSurface implements ITerminalSurface {
         });
     }
 
-    private activate(col: number, row: number): void {
-        void this.linkAt(col, row).then(async (link) => {
-            if (link === null || link === undefined) return;
+    /** Not superseded by later pointer moves: a click is never dropped. */
+    private activate(
+        pressed: { readonly col: number; readonly row: number },
+        released: { readonly col: number; readonly row: number },
+    ): void {
+        const buffer = this.session.buffer;
+        if (buffer === undefined) return;
+        const pressY = buffer.viewportY + pressed.row;
+        void this.links.provideLinks(buffer, pressY).then(async (links) => {
+            const link = links.find((candidate) => isInLink(candidate, pressed.col, pressY));
+            if (link === undefined || !isInLink(link, released.col, buffer.viewportY + released.row)) return;
             try {
                 await this.open(link);
             } catch (error) {
                 onUnexpectedError(error);
             }
-        });
+        }, onUnexpectedError);
     }
 
     /** `null` — a newer lookup superseded this one. */
