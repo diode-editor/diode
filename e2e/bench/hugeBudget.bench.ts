@@ -44,6 +44,11 @@ import { median } from "./stats.ts";
 // 5. A key during the index: ArrowDown sent while "Indexing N%" is up, to the status bar's next `Ln`, in other
 //    runs. The index must leave the editor answering (4.2); a walk that blocks the thread for the whole index
 //    (planted by the tester of #805: 445–555 ms a key vs 20–43) keeps (1)–(4) green and shows only here.
+//    Calibration (CI, PR #805, run 40103572500 — a fast runner: `small` 102, index from spawn 749 vs 1060–1078 on
+//    the earlier runs, 1.44× slower): walk 343/344 ms, budget 700 — 1.4× the walk scaled to the slower runner
+//    (~495), so a 2× walk is caught there (~990) and is borderline on the fastest one (~690). Keys: median 7 ms
+//    (5–9; the first key of a run, at the index start, shares the thread with the startup: 138–144), budget 20 —
+//    2.5–3× the median like the `xlarge` keys.
 // 6. Follow (4.4): `Ctrl+End`, then a line appended to the file, timed to the frame that shows it. The watcher's
 //    window is 50 ms, so the floor is ~55 ms (4.4: median 55.7, p90 57.9 locally); a budget below the window
 //    would take a decision for the whole watcher. It catches a re-read of the file instead of the tail.
@@ -57,7 +62,9 @@ import { median } from "./stats.ts";
 // 8. Enable Editing (4.5): from the toast's button to the editable tab, ArrowDown while the file streams into
 //    memory, and edit cycles (insert, Enter, undo, undo) right after the switch, when tokenization and folding come
 //    back on 500 MB and take the main thread in 200–300 ms slices. It catches a load that freezes again and a
-//    restored feature that walks the file on the key path.
+//    restored feature that walks the file on the key path. Calibration (CI, the same fast run): to editable
+//    1813/1860 ms, budget 3800 (1.4× the value scaled to the slower runner); keys during the load median 10 ms
+//    (2–48), budget 30; edit keys after the switch median 9 ms (3–86), budget 25 — 2.5–3× the median.
 //
 // `log2g` (2 GB, 21.7 M lines) is not in the gate: it gives no signal of its own. Its first screen is the same
 // single chunk (locally 221 ms vs 208 for `log500m`), the index and its memory are linear in the line count and
@@ -77,11 +84,11 @@ export const INDEX_BUDGET_MS = 1600;
 /** Median peak RSS of the process, the index included. */
 export const RSS_BUDGET_BYTES = 420 * MiB;
 const SAMPLES = 5;
-// TODO(calibrate on CI): the index, follow and Enable Editing budgets are first guesses from local numbers.
+// TODO(calibrate on CI after #802): the follow budget is a first guess from the local numbers of 4.4.
 /** Median ms of the index walk between `WALK_FROM_PERCENT` and `WALK_TO_PERCENT`. */
-export const WALK_BUDGET_MS = 1500;
+export const WALK_BUDGET_MS = 700;
 /** Median ms of ArrowDown while the line index runs. */
-export const INDEX_KEY_BUDGET_MS = 100;
+export const INDEX_KEY_BUDGET_MS = 20;
 /** Median ms from a line appended to the file to the frame that shows it, follow on. */
 export const FOLLOW_BUDGET_MS = 150;
 /** Median ms from pasting a query with one match in the middle of the file to the counter showing it. */
@@ -89,11 +96,11 @@ export const FIND_FIRST_MATCH_BUDGET_MS = 2400;
 /** Median ms of a typed character in the find input while a walk over the file runs. */
 export const FIND_KEY_BUDGET_MS = 20;
 /** Median ms from pressing Enable Editing to the editable tab. */
-export const EDITABLE_BUDGET_MS = 8000;
+export const EDITABLE_BUDGET_MS = 3800;
 /** Median ms of ArrowDown while the file streams into memory. */
-export const LOAD_KEY_BUDGET_MS = 200;
+export const LOAD_KEY_BUDGET_MS = 30;
 /** Median ms of the edit keys right after the switch, while the restored features catch up. */
-export const EDIT_KEY_BUDGET_MS = 100;
+export const EDIT_KEY_BUDGET_MS = 25;
 /** Runs of each step after the to-text bench; the FS cache is warm by then. */
 const STEP_RUNS = 2;
 /** Index runs: odd ones time the walk, even ones press keys. */
@@ -122,7 +129,7 @@ interface Budget {
     readonly budget: number;
 }
 
-/** Throws when a median is over its budget (or there are no samples); otherwise logs the numbers. */
+/** Logs the numbers, then throws when a median is over its budget (or there are no samples). */
 function checkBudgets(step: string, budgets: readonly Budget[], note?: string): void {
     const lines = budgets.map(
         (b) =>
@@ -133,8 +140,9 @@ function checkBudgets(step: string, budgets: readonly Budget[], note?: string): 
     const over = budgets
         .filter((b) => !(median(b.values) <= b.budget))
         .map((b) => `${b.label} ${fmt(median(b.values))} > ${String(b.budget)}`);
-    if (over.length > 0) throw new Error(`log500m ${step} over budget: ${over.join(", ")} (${detail})`);
+    // Logged before the verdict: vitest reports only the first error of a file, the numbers of every step stay in the log.
     console.error(`[perf] log500m ${step}: ${detail}`);
+    if (over.length > 0) throw new Error(`log500m ${step} over budget: ${over.join(", ")} (${detail})`);
 }
 
 describe("log500m: the giant file opens read-only on disk like a small one", () => {
@@ -181,10 +189,10 @@ describe("log500m: the giant file opens read-only on disk like a small one", () 
                 if (rss !== null && rss > RSS_BUDGET_BYTES) {
                     over.push(`peak RSS ${fmtMiB(rss)} > ${fmtMiB(RSS_BUDGET_BYTES)} MiB`);
                 }
-                if (over.length > 0) throw new Error(`log500m over budget: ${over.join(", ")} (${detail})`);
                 console.error(
                     `[perf] log500m: our ${fmt(ours)} ms over the node floor, index ${fmt(index)} ms (${detail})`,
                 );
+                if (over.length > 0) throw new Error(`log500m over budget: ${over.join(", ")} (${detail})`);
             }
         },
         { iterations: SAMPLES, time: 0, warmupIterations: 1, warmupTime: 0 },

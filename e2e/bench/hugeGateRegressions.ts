@@ -18,7 +18,7 @@ import { COLS, contentVisible, ROWS } from "./openMeasure.ts";
 // when the gate passed a regression or leaked its fixture. Heavy (one gate run per regression, a binary build
 // each): run under the lease.
 //
-//   claude-lease run -r машина -- npx tsx e2e/bench/hugeGateRegressions.ts [name ...]
+//   claude-lease run -r <the machine resource, see .claude/skills/heavy-run> -- npx tsx e2e/bench/hugeGateRegressions.ts [name ...]
 //
 // `--probe` (with a regression planted by hand) only measures an ArrowDown sent while "Indexing N%" is on screen:
 // the frozen UI that the three budgets do not see.
@@ -132,26 +132,29 @@ interface GateRun {
     readonly red: boolean;
     readonly verdict: string;
     readonly leaked: readonly string[];
-    /** Medians of the gate's samples: ms over the node floor, ms to the index, MiB of peak RSS. */
-    readonly medians: Medians | null;
+    /** Medians of the gate's samples found in its output (a bench that did not run has none). */
+    readonly medians: Medians;
 }
 
-interface Medians {
-    readonly text: number;
-    readonly index: number;
-    readonly rss: number;
-}
+/**
+ * ms over the node floor, ms to the index, MiB of peak RSS, ms of the index walk (10→90 %), ms of ArrowDown during
+ * the index.
+ */
+type Medians = Partial<Record<"text" | "index" | "rss" | "walk" | "indexKey", number>>;
 
 /**
  * The gate is calibrated on the CI runner, and this machine may be slower (the clean run may already be red here).
  * So the verdict is the CI equivalent: the regression's median over the clean median on this machine, times the CI
- * median of the PR's run (40099005560, e2e ubuntu), against the budget. Budgets as in `hugeBudget.bench.ts`
- * (not imported: its top level writes the 500 MB fixture).
+ * median of the PR's runs (e2e ubuntu: text, index and RSS from 40099005560, the walk and the key from
+ * 40103572500), against the budget. Budgets as in `hugeBudget.bench.ts` (not imported: its
+ * top level writes the 500 MB fixture).
  */
 const CI: Record<keyof Medians, { readonly median: number; readonly budget: number; readonly unit: string }> = {
     text: { median: 145, budget: 300, unit: "ms" },
     index: { median: 1078, budget: 1600, unit: "ms" },
     rss: { median: 293, budget: 420, unit: "MiB" },
+    walk: { median: 343, budget: 700, unit: "ms" },
+    indexKey: { median: 7, budget: 20, unit: "ms" },
 };
 
 function medianOf(values: readonly number[]): number {
@@ -160,22 +163,29 @@ function medianOf(values: readonly number[]): number {
     return sorted.length % 2 === 1 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
 }
 
-function parseMedians(verdict: string): Medians | null {
-    const samples = (label: string): number[] | null => {
-        const match = new RegExp(`${label} \\[([^\\]]*)\\]`).exec(verdict);
-        return match === null ? null : match[1].split(", ").map(Number);
+function parseMedians(output: string): Medians {
+    const medians: Medians = {};
+    const patterns: Record<keyof Medians, RegExp> = {
+        text: /to text \[([^\]]*)\]/,
+        index: /index \[([^\]]*)\]/,
+        rss: /peak RSS \[([^\]]*)\]/,
+        walk: /walk: median \S+ ms \(budget \d+\) \[([^\]]*)\]/,
+        indexKey: /ArrowDown during the index: median \S+ ms \(budget \d+\) \[([^\]]*)\]/,
     };
-    const text = samples("to text");
-    const index = samples("index");
-    const rss = samples("peak RSS");
-    if (text === null || index === null || rss === null) return null;
-    return { text: medianOf(text), index: medianOf(index), rss: medianOf(rss) };
+    for (const key of Object.keys(patterns) as (keyof Medians)[]) {
+        const match = patterns[key].exec(output);
+        if (match !== null) medians[key] = medianOf(match[1].split(", ").map(Number));
+    }
+    return medians;
 }
 
 /** The budgets the regression would break on CI, as `index 1610 > 1600 ms`; empty — it would pass. */
 function overOnCi(clean: Medians, regression: Medians): string[] {
     return (Object.keys(CI) as (keyof Medians)[]).flatMap((key) => {
-        const value = (regression[key] / clean[key]) * CI[key].median;
+        const before = clean[key];
+        const after = regression[key];
+        if (before === undefined || after === undefined) return [];
+        const value = (after / before) * CI[key].median;
         return value > CI[key].budget
             ? [`${key} ${String(Math.round(value))} > ${String(CI[key].budget)} ${CI[key].unit}`]
             : [];
@@ -186,13 +196,15 @@ function runGate(): GateRun {
     const before = fixtureDirs();
     const result = spawnSync("npm", ["run", "test:perf:huge"], { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
     const output = `${result.stdout}\n${result.stderr}`;
+    const lines = output.split("\n").filter((line) => line.includes("over budget") || line.includes("[perf] log500m"));
     const verdict =
-        output.split("\n").find((line) => line.includes("over budget") || line.includes("[perf] log500m")) ??
-        `no verdict line (exit ${String(result.status)})`;
+        lines.length > 0
+            ? lines.map((line) => line.trim()).join(" | ")
+            : `no verdict line (exit ${String(result.status)})`;
     const leaked = [...fixtureDirs()].filter((name) => !before.has(name));
     // The gate's own leftover is not this harness's business to keep: the next run would see it as old.
     for (const name of leaked) removeTempDir(join(os.tmpdir(), name));
-    return { red: result.status !== 0, verdict: verdict.trim(), leaked, medians: parseMedians(verdict) };
+    return { red: result.status !== 0, verdict, leaked, medians: parseMedians(lines.join("\n")) };
 }
 
 function runProbe(): number {
@@ -277,14 +289,9 @@ async function main(): Promise<number> {
         try {
             const run = runGate();
             const probe = regression.probe === true ? `; ArrowDown during the index ${String(runProbe())} ms` : "";
-            const over = clean.medians !== null && run.medians !== null ? overOnCi(clean.medians, run.medians) : null;
-            const caught = over === null ? run.red : over.length > 0;
-            const onCi =
-                over === null
-                    ? "no samples to compare"
-                    : over.length > 0
-                      ? `on CI: ${over.join(", ")}`
-                      : "on CI: within all budgets";
+            const over = overOnCi(clean.medians, run.medians);
+            const caught = over.length > 0;
+            const onCi = caught ? `on CI: ${over.join(", ")}` : "on CI: within all budgets";
             console.log(
                 `${regression.name}: ${caught ? "caught" : "MISSED"} (${regression.what}); here ${run.red ? "red" : "green"}, ${onCi} — ${run.verdict}${probe}`,
             );
