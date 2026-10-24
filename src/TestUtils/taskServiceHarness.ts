@@ -21,6 +21,7 @@ import type { IEditorService } from "../vs/workbench/services/editor/common/edit
 import { NotificationService } from "../vs/workbench/services/notification/browser/notificationService.ts";
 import type { OutputService } from "../vs/workbench/services/output/common/outputService.ts";
 
+import { FakeEditorTerminals } from "./FakeEditorTerminals.ts";
 import { FakeTerminalSurface } from "./FakeTerminalSurface.ts";
 import { TASK_FOLDER } from "./taskFixtures.ts";
 import { createTestConfigurationService } from "./testConfigurationService.ts";
@@ -106,6 +107,7 @@ export function buildTaskServiceHarness(options: ITaskServiceHarnessOptions = {}
     const logger = createLoggerSpy();
     const logService = { createLogger: () => logger } as unknown as ILogService;
     const output = { showChannel: vi.fn<(id: string) => void>() };
+    const editorTerminals = new FakeEditorTerminals(terminals);
     const service = new TaskService(
         terminals,
         views.service,
@@ -120,6 +122,7 @@ export function buildTaskServiceHarness(options: ITaskServiceHarnessOptions = {}
         contextKeys,
         logService,
         output as unknown as OutputService,
+        editorTerminals,
     );
     return {
         output,

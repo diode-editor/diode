@@ -38,6 +38,7 @@ import {
 } from "../../../services/notification/browser/notificationService.ts";
 import { OUTPUT_VIEW_ID } from "../../../services/output/common/output.ts";
 import { type OutputService, OutputServiceDIToken } from "../../../services/output/common/outputService.ts";
+import { TerminalEditorServiceDIToken } from "../../terminal/browser/terminalEditorService.ts";
 import { type TerminalService, TerminalServiceDIToken } from "../../terminal/browser/terminalService.ts";
 import { type DefaultShellResolver, DefaultShellResolverDIToken } from "../../terminal/common/defaultShell.ts";
 import type { IExtensionPtyTerminals } from "../../terminal/common/extensionPtyTerminals.ts";
@@ -50,6 +51,7 @@ import {
 import { compareTasks, type IConfiguringTask, type ITask, taskMatches } from "../common/tasks.ts";
 
 import {
+    type ITaskEditorTerminals,
     type ITaskEvent,
     type ITaskExecuteResult,
     type ITaskRunContext,
@@ -122,6 +124,7 @@ export class TaskService extends Disposable {
         ContextKeyServiceDIToken,
         ILogServiceDIToken,
         OutputServiceDIToken,
+        TerminalEditorServiceDIToken,
     ] as const;
 
     private readonly system: TerminalTaskSystem;
@@ -153,11 +156,12 @@ export class TaskService extends Disposable {
         private readonly contextKeys: ContextKeyService,
         logService: ILogService,
         private readonly output: OutputService,
+        editorTerminals: ITaskEditorTerminals,
     ) {
         super();
         // Stryker disable next-line StringLiteral,ObjectLiteral: log channel name and label are wiring; the e2e tasks scenario sees "Tasks"
         this.logger = logService.createLogger(TASKS_LOG_CHANNEL, { label: "Tasks" });
-        this.system = this.register(new TerminalTaskSystem(terminalService, views, defaultShell));
+        this.system = this.register(new TerminalTaskSystem(terminalService, views, defaultShell, editorTerminals));
         this.onDidStateChange = this.system.onDidStateChange;
         this.register(
             this.onDidStateChange((event) => {
