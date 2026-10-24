@@ -41,7 +41,10 @@ import { median } from "./stats.ts";
 // 5. Find (4.3) on the read-only document: a query whose only match is in the middle of the file, from the paste
 //    to the counter (half a walk from the cursor at line 1), and characters typed while the walks run — each one
 //    starts a new walk over the whole file, the next one must not wait for it. It catches a synchronous walk
-//    (the key would take the whole walk: ~25 s on `log2g` before 4.3) and a slower walk.
+//    (the key would take the whole walk: ~25 s on `log2g` before 4.3) and a slower walk. Calibration (CI, PR #805,
+//    after #800): first match 1639/1680 ms, budget 2400 (1.4× the worst); keys median 8 ms (6–9), budget 20 like
+//    the `xlarge` Enter: 2.5× the median, so that a 1.6× slower runner keeps headroom — a slice of the walk is
+//    ~6 ms (4096 lines), a bigger or synchronous one shows.
 // 6. Enable Editing (4.5): from the toast's button to the editable tab, ArrowDown while the file streams into
 //    memory, and edit cycles (insert, Enter, undo, undo) right after the switch, when tokenization and folding come
 //    back on 500 MB and take the main thread in 200–300 ms slices. It catches a load that freezes again and a
@@ -64,13 +67,13 @@ export const INDEX_BUDGET_MS = 1600;
 /** Median peak RSS of the process, the index included. */
 export const RSS_BUDGET_BYTES = 420 * MiB;
 const SAMPLES = 5;
-// TODO(calibrate on CI): the step budgets below are first guesses from the local numbers of 4.3–4.5.
+// TODO(calibrate on CI): follow and Enable Editing budgets are first guesses from the local numbers of 4.4–4.5.
 /** Median ms from a line appended to the file to the frame that shows it, follow on. */
 export const FOLLOW_BUDGET_MS = 150;
 /** Median ms from pasting a query with one match in the middle of the file to the counter showing it. */
-export const FIND_FIRST_MATCH_BUDGET_MS = 6000;
+export const FIND_FIRST_MATCH_BUDGET_MS = 2400;
 /** Median ms of a typed character in the find input while a walk over the file runs. */
-export const FIND_KEY_BUDGET_MS = 100;
+export const FIND_KEY_BUDGET_MS = 20;
 /** Median ms from pressing Enable Editing to the editable tab. */
 export const EDITABLE_BUDGET_MS = 8000;
 /** Median ms of ArrowDown while the file streams into memory. */
