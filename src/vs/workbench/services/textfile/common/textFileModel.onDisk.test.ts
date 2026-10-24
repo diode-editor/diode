@@ -215,24 +215,76 @@ describe("TextFileModel — the document on disk", () => {
         small.dispose();
     });
 
-    it("save is a no-op that reports saved; Save As refuses", async () => {
+    it("save is a no-op that reports saved", async () => {
         const path = ws.path("big.log");
         const big = open("big.log", bigLog());
         const before = fs.statSync(path).mtimeMs;
         await new Promise((resolve) => setTimeout(resolve, 5));
         expect(await big.save()).toBe("saved");
         expect(fs.statSync(path).mtimeMs).toBe(before);
-        await expect(big.saveAs(ws.path("copy.log"))).rejects.toThrow(/document on disk/);
-        expect(fs.existsSync(ws.path("copy.log"))).toBe(false);
         big.dispose();
     });
 
-    it("Enable Editing reads the file into memory first: the document leaves the disk and the mode", () => {
+    it("Save As copies the file byte for byte and the model reopens on disk at the new path", async () => {
+        const content = Buffer.concat([
+            Buffer.from([0xef, 0xbb, 0xbf]),
+            Buffer.from(bigLog().replaceAll("\n", "\r\n")),
+        ]);
+        const opener = memoryFileOpener();
+        const big = open("big.log", content, opener);
+        let saved = 0;
+        big.onDidSaveDocument(() => saved++);
+        await big.saveAs(ws.path("copy.log"));
+        expect(fs.readFileSync(ws.path("copy.log")).equals(content)).toBe(true);
+        expect(big.uri.fsPath).toBe(ws.path("copy.log"));
+        expect(big.isOnDisk).toBe(true);
+        expect(big.isModified).toBe(false);
+        expect(big.encoding).toBe("utf8bom");
+        expect(big.document.getLineContent(17_999)).toBe(`17999 ${LINE}`);
+        expect(saved).toBe(1);
+        // The old descriptor is closed: the lines come from the file the model names.
+        expect(opener.opened.map((file) => file.disposed)).toEqual([true, false]);
+
+        // Onto itself: nothing to copy, the model stays.
+        await big.saveAs(ws.path("copy.log"));
+        expect(fs.readFileSync(ws.path("copy.log")).equals(content)).toBe(true);
+        expect(saved).toBe(2);
+        big.dispose();
+    });
+
+    it("Save As over an existing file replaces it; a new path the opener refuses is read into memory", async () => {
+        fs.writeFileSync(ws.path("taken.log"), "old content");
+        const big = open("big.log", bigLog());
+        await big.saveAs(ws.path("taken.log"));
+        expect(fs.readFileSync(ws.path("taken.log"), "utf8")).toBe(bigLog());
+
+        let opens = 0;
+        const opener = memoryFileOpener();
+        const refusingCopies: IRandomAccessFileOpener = {
+            open: (path) => {
+                if (opens++ > 0) throw Object.assign(new Error("EACCES: permission denied"), { code: "EACCES" });
+                return opener.open(path);
+            },
+        };
+        const other = open("other.log", bigLog(), refusingCopies);
+        await other.saveAs(ws.path("unreadable.log"));
+        expect(other.isOnDisk).toBe(false);
+        expect(other.uri.fsPath).toBe(ws.path("unreadable.log"));
+        expect(other.document.getLineContent(17_999)).toBe(`17999 ${LINE}`);
+        expect(other.isModified).toBe(false);
+        big.dispose();
+        other.dispose();
+    });
+
+    it("Enable Editing streams the file into memory first: the document leaves the disk and the mode", async () => {
         const opener = memoryFileOpener();
         const big = open("big.log", bigLog(), opener);
         let fired = 0;
         big.onDidChangeTooLargeForTokenization(() => fired++);
-        expect(big.forcefullyEnableFeatures()).toBe(true);
+        // The synchronous door refuses a document on disk: its text has to come in first.
+        expect(big.forcefullyEnableFeatures()).toBe(false);
+        expect(fired).toBe(0);
+        expect(await big.enableEditing()).toBeNull();
         expect(big.isOnDisk).toBe(false);
         expect(big.isTooLargeForTokenization).toBe(false);
         expect(fired).toBe(1);
@@ -249,16 +301,18 @@ describe("TextFileModel — the document on disk", () => {
         await indexed(big);
         let fired = 0;
         big.onDidChangeTooLargeForTokenization(() => fired++);
-        expect(big.forcefullyEnableFeatures()).toBe(false);
+        expect(await big.enableEditing()).toBe("too-large");
         expect(big.isOnDisk).toBe(true);
         expect(big.isTooLargeForTokenization).toBe(true);
         expect(fired).toBe(0);
+        // Refused before a byte is read: no descriptor beyond the document's own.
+        expect(opener.opened).toHaveLength(1);
         big.dispose();
 
         // Exactly the limit still fits a string.
         const atLimit = open("limit.log", bigLog(), memoryFileOpener({ size: MAX_STRING_LENGTH }));
         await indexed(atLimit);
-        expect(atLimit.forcefullyEnableFeatures()).toBe(true);
+        expect(await atLimit.enableEditing()).toBeNull();
         expect(atLimit.isOnDisk).toBe(false);
         atLimit.dispose();
     });

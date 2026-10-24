@@ -17,6 +17,13 @@ import type { UndoRedoService } from "../../../platform/undoRedo/common/undoRedo
 let nextUndoContextId = 1;
 
 /**
+ * Why "Enable Editing" did not happen ({@link BaseTextEditorModel.enableEditing}): the file holds more than a string
+ * can (`too-large`), would not fit the memory left (`out-of-memory`), or could not be read (`read-failed`).
+ * `cancelled` is silent: the model was reloaded or closed while the file streamed in.
+ */
+export type EnableEditingRefusal = "too-large" | "out-of-memory" | "read-failed" | "cancelled";
+
+/**
  * Model edits go through the acting view's view state, which holds selections and the
  * inverse edits for undo. There can be several targets (a document in several groups):
  * the caller passes the acting one, and `markDirty` is broadcast to all.
@@ -112,6 +119,16 @@ export abstract class BaseTextEditorModel extends Disposable {
         this.tooLargeForTokenization = false;
         this.onDidChangeTooLargeForTokenizationEmitter.fire();
         return true;
+    }
+
+    /**
+     * "Enable Editing" of the large-file toast: whatever has to happen before the features come back, then
+     * {@link forcefullyEnableFeatures}. A model whose text is already in memory has nothing to wait for; a document
+     * on disk is streamed into memory first (`TextFileModel`). `null` — the mode is off.
+     */
+    public enableEditing(): Promise<EnableEditingRefusal | null> {
+        this.forcefullyEnableFeatures();
+        return Promise.resolve(null);
     }
 
     protected constructor(languageService: ILanguageService, undoRedoService: UndoRedoService, uri: Uri) {
@@ -215,9 +232,13 @@ export abstract class BaseTextEditorModel extends Disposable {
         this.undoRedoService.adopt(this.undoContext, resource, label);
     }
 
-    protected markSaved(): void {
-        this.savedVersionId = this.doc.versionId;
-        this.savedEol = this.doc.eol;
+    /**
+     * A streamed save passes the version and EOL its snapshot was taken at: edits typed while the bytes were being
+     * written are not in the file and keep the buffer modified.
+     */
+    protected markSaved(versionId = this.doc.versionId, eol = this.doc.eol): void {
+        this.savedVersionId = versionId;
+        this.savedEol = eol;
     }
 
     /**

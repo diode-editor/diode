@@ -1,7 +1,7 @@
 import * as path from "node:path";
 
 import { Uri } from "../../../../base/common/uri.ts";
-import { encodeChunks } from "../../../../editor/common/model/encodingStream.ts";
+import { encodeStream } from "../../../../editor/common/model/encodingStream.ts";
 import type { CommandAction } from "../../../../platform/actions/common/commandAction.ts";
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import { CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
@@ -24,9 +24,6 @@ import { WorkbenchContextKeysDIToken } from "../../../browser/workbenchContextKe
 import { DialogServiceDIToken } from "../../../services/dialogs/browser/dialogService.ts";
 import { FileDialogServiceDIToken } from "../../../services/dialogs/browser/fileDialogService.ts";
 import { EditorServiceDIToken } from "../../../services/editor/common/editorService.ts";
-import { NotificationServiceDIToken } from "../../../services/notification/browser/notificationService.ts";
-import { SAVE_AS_ON_DISK_MESSAGE } from "../../../services/textfile/common/textFileModel.ts";
-import { ENABLE_EDITING_LABEL, enableLargeFileEditing } from "../../largeFile/browser/largeFileActions.ts";
 
 import { FileOperationsServiceDIToken } from "./fileOperationsService.ts";
 
@@ -135,23 +132,6 @@ async function runSaveAs(accessor: ServiceAccessor): Promise<void> {
     const editorService = accessor.get(EditorServiceDIToken);
     const editor = editorService.getActiveTabEditor();
     if (!editor) return;
-    // Before the dialog: the model would refuse after it, and a refusal that only reaches the log is a silent
-    // failure. The toast offers the way out, as the large-file toast does.
-    if (editor.fileModel?.isOnDisk === true) {
-        const notifications = accessor.get(NotificationServiceDIToken);
-        const handle = notifications.show({
-            severity: "warn",
-            message: SAVE_AS_ON_DISK_MESSAGE,
-            modal: false,
-            items: [ENABLE_EDITING_LABEL],
-        });
-        void handle.answered.then((index) => {
-            if (index === 0) {
-                enableLargeFileEditing(editor.model, accessor.get(WorkbenchContextKeysDIToken), notifications);
-            }
-        });
-        return;
-    }
     const files = accessor.get(IFileServiceDIToken);
 
     // An untitled buffer starts from the workspace folder (or cwd without one) and a suggested name like `Untitled-3.txt`.
@@ -174,7 +154,7 @@ async function runSaveAs(accessor: ServiceAccessor): Promise<void> {
             // written to disk and opened as a regular file, like upstream's Save As of a non-file resource.
             await files.writeFile(
                 Uri.file(resolved),
-                await encodeChunks(editor.model.document.createSnapshot(), editor.encoding),
+                encodeStream(editor.model.document.createSnapshot(), editor.encoding),
             );
             editorService.openFile(resolved);
         }

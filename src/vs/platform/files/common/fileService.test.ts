@@ -11,6 +11,7 @@ import {
     FileOperationResult,
     FileSystemProviderCapabilities,
     FileType,
+    type FileWriteContent,
     type IFileOperationEvent,
     type IFileSystemProvider,
     isFileOperationError,
@@ -22,7 +23,7 @@ const disposables = ensureNoDisposablesAreLeakedInTestSuite();
 
 const mem = (path: string): Uri => Uri.from({ scheme: "mem", path });
 const bytes = (text: string): Uint8Array => new TextEncoder().encode(text);
-const text = (value: Uint8Array): string => new TextDecoder().decode(value);
+const text = (value: FileWriteContent): string => new TextDecoder().decode(value as Uint8Array);
 
 function setup(capabilities?: FileSystemProviderCapabilities): {
     files: FileService;

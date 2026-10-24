@@ -16,11 +16,13 @@ import {
     DEFAULT_ENCODING,
     getEncodingInfo,
     resolveDecodeEncoding,
+    stripBOM,
 } from "../../../../editor/common/model/encoding.ts";
 import {
+    createStreamDecoder,
     decodeStream,
     decodeStreamByBOM,
-    encodeChunks,
+    encodeStream,
     type IDecodedStream,
 } from "../../../../editor/common/model/encodingStream.ts";
 import {
@@ -28,7 +30,10 @@ import {
     type ILargeFileOptions,
     isTooLargeForTokenization,
 } from "../../../../editor/common/model/largeFileOptions.ts";
-import { createTextBufferFactoryFromChunks } from "../../../../editor/common/model/textDocument.ts";
+import {
+    createTextBufferFactoryBuilder,
+    createTextBufferFactoryFromChunks,
+} from "../../../../editor/common/model/textDocument.ts";
 import {
     etag,
     FileOperationResult,
@@ -37,9 +42,13 @@ import {
     isFileOperationError,
 } from "../../../../platform/files/common/files.ts";
 import type { IFileWatcher } from "../../../../platform/files/common/iFileWatcher.ts";
-import type { IRandomAccessFileOpener } from "../../../../platform/files/common/iRandomAccessFile.ts";
+import type {
+    IRandomAccessFile,
+    IRandomAccessFileOpener,
+} from "../../../../platform/files/common/iRandomAccessFile.ts";
+import type { IMemoryProbe } from "../../../../platform/memory/common/iMemoryProbe.ts";
 import type { UndoRedoService } from "../../../../platform/undoRedo/common/undoRedoService.ts";
-import { BaseTextEditorModel } from "../../../common/editor/textEditorModel.ts";
+import { BaseTextEditorModel, type EnableEditingRefusal } from "../../../common/editor/textEditorModel.ts";
 
 import type { TextFileSaveParticipant } from "./textFileSaveParticipant.ts";
 
@@ -64,9 +73,23 @@ const UNTITLED_PLACEHOLDER_URI = Uri.from({ scheme: "untitled", path: "Untitled"
  */
 export const ORPHAN_CHECK_DELAY_MS = 100;
 
-/** The refusal of {@link TextFileModel.saveAs} on a document on disk; the command shows it as a toast. */
-export const SAVE_AS_ON_DISK_MESSAGE =
-    "Save As is not available for a document on disk: the file is read-only. Enable Editing first.";
+/** Progress of a file streaming into memory ({@link TextFileModel.memoryLoading}). */
+export interface IMemoryLoadingProgress {
+    readonly loadedBytes: number;
+    readonly totalBytes: number;
+}
+
+/**
+ * Memory a file takes per byte once in a piece tree, as a bound: one byte per character of an ASCII text (two for
+ * UTF-16 strings), the line starts, and the features that come back with editing. Checked before the stream starts.
+ */
+export const MEMORY_PER_FILE_BYTE = 2;
+
+/** The stream stops when less than this is left: the process must survive the refusal and paint its toast. */
+export const MEMORY_RESERVE_BYTES = 256 * 1024 * 1024;
+
+/** Outcome of {@link TextFileModel.streamIntoMemory}: `modified` — the buffer was edited while the file streamed in. */
+type StreamOutcome = EnableEditingRefusal | "modified" | null;
 
 /**
  * Counterpart of `ITextFileEditorModel`: a file on disk, a resource of an extension's FS provider
@@ -135,7 +158,32 @@ export class TextFileModel extends BaseTextEditorModel {
      * it (tests, synthetic hosts) a large file is read into memory as before.
      */
     public randomAccessFiles: IRandomAccessFileOpener | null = null;
+    /** Asked before and while a large file streams into memory. Injected by the owning service; without it, nobody asks. */
+    public memory: IMemoryProbe | null = null;
     private onDiskDeclinedReasonValue: "encoding" | null = null;
+    /** The progress and the load that owns it: a newer load replaces it, an older one must not clear it. */
+    private memoryLoadingState: { readonly generation: number; readonly progress: IMemoryLoadingProgress } | null =
+        null;
+    private readonly onDidChangeMemoryLoadingEmitter = this.register(new Emitter<void>());
+    /**
+     * "Enable Editing" is streaming the file in: an external change waits for the switch (the stat check after it
+     * reloads), instead of reopening the document on disk under the load and cancelling it (QA 4.5: a log written to
+     * while it loaded stayed read-only for good).
+     */
+    private streamingForEditing = false;
+    /** A second click on "Enable Editing" while the file streams in waits for the same load. */
+    private pendingEnableEditing: Promise<EnableEditingRefusal | null> | null = null;
+
+    /** Fires as a large file streams into memory, chunk by chunk, and when it ends either way. */
+    public readonly onDidChangeMemoryLoading = this.onDidChangeMemoryLoadingEmitter.event;
+
+    /**
+     * A large file streaming into memory ("Enable Editing" on the document on disk, a reload of a large in-memory
+     * buffer); `null` when nothing is. The status bar shows it.
+     */
+    public get memoryLoading(): IMemoryLoadingProgress | null {
+        return this.memoryLoadingState?.progress ?? null;
+    }
     private readonly onDidChangeDiskIndexingEmitter = this.register(new Emitter<void>());
 
     /** Progress of the index of the document on disk; fires with each chunk and at the end. */
@@ -244,7 +292,7 @@ export class TextFileModel extends BaseTextEditorModel {
         // Above the size threshold the document stays on disk and the mode is on by construction; otherwise
         // the file is read into memory and the line-count axis decides.
         if (!this.openOnDisk(filePath)) {
-            this.loadDocumentFromDisk(filePath);
+            this.readIntoMemory(filePath);
             this.decideLargeFile();
         }
         this.adoptWorkspaceUndo(filePath, path.basename(filePath));
@@ -315,20 +363,137 @@ export class TextFileModel extends BaseTextEditorModel {
         return true;
     }
 
-    /**
-     * Upstream's "Forcefully Enable Features" on a document on disk first reads the file into memory the old
-     * way (stage 4.5 of OpenPerformance streams it with progress). A file no string can hold stays on disk:
-     * the features being enabled (`getText()` for providers, formatting, sync) could not work on it anyway.
-     */
+    /** A document on disk refuses: its text has to stream into memory first, which is {@link enableEditing}. */
     public override forcefullyEnableFeatures(): boolean {
+        if (this.isOnDisk) return false;
+        return super.forcefullyEnableFeatures();
+    }
+
+    /**
+     * Upstream's "Forcefully Enable Features" on a document on disk: the file streams into a piece tree chunk by
+     * chunk between awaits, with {@link memoryLoading} for the status bar, while the document on disk stays on
+     * screen; at the end the model switches to the piece tree in one flush and leaves the mode. A file no string can
+     * hold stays on disk: the features being enabled (`getText()` for providers, formatting) could not work on it.
+     */
+    public override enableEditing(): Promise<EnableEditingRefusal | null> {
         const disk = this.doc.onDisk;
         const filePath = this.filePath;
         // Stryker disable next-line ConditionalExpression: a document on disk always came from a path; the second check is for the type
-        if (disk !== null && filePath !== null) {
-            if (disk.size > MAX_STRING_LENGTH) return false;
-            this.applyDecoded(filePath, decodeStreamByBOM(this.readDiskChunks(filePath)));
+        if (disk === null || filePath === null) return super.enableEditing();
+        if (disk.size > MAX_STRING_LENGTH) return Promise.resolve("too-large");
+        this.pendingEnableEditing ??= this.enableEditingFromDisk(filePath).finally(() => {
+            this.pendingEnableEditing = null;
+        });
+        return this.pendingEnableEditing;
+    }
+
+    private async enableEditingFromDisk(filePath: string): Promise<EnableEditingRefusal | null> {
+        let outcome: StreamOutcome;
+        this.streamingForEditing = true;
+        try {
+            outcome = await this.streamIntoMemory(filePath);
+        } finally {
+            this.streamingForEditing = false;
         }
-        return super.forcefullyEnableFeatures();
+        // Stryker disable next-line ConditionalExpression,StringLiteral: a document on disk is read-only, its version never moves, so "modified" cannot come back here; the mapping is for the type
+        if (outcome === "modified") return "cancelled";
+        if (outcome !== null) return outcome;
+        super.forcefullyEnableFeatures();
+        this.recheckDiskAfterStream(filePath);
+        return null;
+    }
+
+    /**
+     * Reads the file into a piece tree in chunks of {@link READ_CHUNK_SIZE}, each after an await (`fs.read` in the
+     * libuv pool), so frames and keys get the main thread in between; the decoder and the builder take the chunks
+     * one by one (A4). The text replaces the document only at the end, in one flush (`setText`, as upstream
+     * `updateModel` replaces a reloaded model's text); until then the old text stays. The encoding is sniffed by BOM,
+     * like any reload. A newer load, a reload or a dispose cancels this one (`loadGeneration`); an edit made
+     * meanwhile wins over the file (`modified`). `null` — the text is in.
+     */
+    private async streamIntoMemory(filePath: string): Promise<StreamOutcome> {
+        // Stryker disable next-line UpdateOperator: see readDiskBytes
+        const generation = ++this.loadGeneration;
+        const version = this.doc.versionId;
+        const stat = this.readDiskStat(filePath);
+        const file = this.openRandomAccess(filePath);
+        if (file === null) return "read-failed";
+        try {
+            if (this.memory !== null && file.size * MEMORY_PER_FILE_BYTE > this.memory.availableBytes()) {
+                return "out-of-memory";
+            }
+            const head = Buffer.alloc(BOM_SNIFF_LENGTH);
+            const headBytes = head.subarray(0, file.readSync(head, 0));
+            const info = resolveDecodeEncoding(headBytes, undefined);
+            const decoder = createStreamDecoder(info.id);
+            const builder = createTextBufferFactoryBuilder();
+            const chunk = Buffer.allocUnsafe(READ_CHUNK_SIZE);
+            const bomLength = headBytes.length - stripBOM(headBytes, info).length;
+            this.setMemoryLoading(generation, { loadedBytes: 0, totalBytes: file.size });
+            // Laid out up front from the size at open (docs/MUTATION.md: a mutant cannot stall the loop). Bytes appended
+            // meanwhile are caught by the stat check after the stream.
+            for (const offset of chunkOffsets(bomLength, file.size, READ_CHUNK_SIZE)) {
+                const read = await file.read(chunk, offset);
+                if (generation !== this.loadGeneration) return "cancelled";
+                // The file shrank under the stream: what was read is the text; the stat check reloads the rest.
+                if (read <= 0) break;
+                // The decoder copies the tail it holds back: the scratch buffer can be reused.
+                builder.acceptChunk(decoder.write(chunk.subarray(0, read)));
+                if (this.memory !== null && this.memory.availableBytes() < MEMORY_RESERVE_BYTES) return "out-of-memory";
+                this.setMemoryLoading(generation, { loadedBytes: offset + read, totalBytes: file.size });
+            }
+            builder.acceptChunk(decoder.end());
+            if (this.doc.versionId !== version) return "modified";
+            const factory = builder.finish();
+            this.applyEncoding(info.id);
+            this.diskStat = stat;
+            this.diskConflictValue = false;
+            this.setOrphaned(false);
+            // The document on disk closes its descriptor here, when the piece tree replaces it. The language stays: the
+            // document is the same one, and a language the user picked for it survives.
+            this.replaceText(factory);
+            return null;
+        } catch (error) {
+            // A read failure (EIO, a file gone under a network mount) refuses; anything else is a bug.
+            if (!isFileSystemError(error)) throw error;
+            return generation === this.loadGeneration ? "read-failed" : "cancelled";
+        } finally {
+            file.dispose();
+            this.endMemoryLoading(generation);
+        }
+    }
+
+    /** `null`: unreadable (EACCES, a directory) — the caller refuses. Anything that is not the file system's surfaces. */
+    private openRandomAccess(filePath: string): IRandomAccessFile | null {
+        const opener = this.randomAccessFiles;
+        // Stryker disable next-line ConditionalExpression: both callers come here only with an opener (a document on disk, or a streamed reload gated on it); the check is for the type
+        if (opener === null) return null;
+        try {
+            return opener.open(filePath);
+        } catch (error) {
+            if (!isFileSystemError(error)) throw error;
+            return null;
+        }
+    }
+
+    private setMemoryLoading(generation: number, progress: IMemoryLoadingProgress): void {
+        this.memoryLoadingState = { generation, progress };
+        this.onDidChangeMemoryLoadingEmitter.fire();
+    }
+
+    /** A newer load owns the progress by now: an older one ending must not clear it. */
+    private endMemoryLoading(generation: number): void {
+        if (this.memoryLoadingState?.generation !== generation) return;
+        this.memoryLoadingState = null;
+        this.onDidChangeMemoryLoadingEmitter.fire();
+    }
+
+    /**
+     * The file may have changed while it streamed in (a log appended to, 4.4): the stat taken before the stream is
+     * the model's, so a difference now is an external change like any other and reloads the clean buffer.
+     */
+    private recheckDiskAfterStream(filePath: string): void {
+        this.handleExternalFileChange(filePath);
     }
 
     /**
@@ -385,11 +550,42 @@ export class TextFileModel extends BaseTextEditorModel {
     /**
      * The encoding is re-detected (BOM sniff, otherwise utf-8), like reload in VS Code; an explicit one is
      * {@link reopenWithEncoding}. A reload of a model in the large-file mode goes back on disk when the file is
-     * still above the threshold (a reload never turns the mode on: upstream's "decided once").
+     * still above the threshold (a reload never turns the mode on: upstream's "decided once"). A large file in
+     * memory (editing enabled) streams in, like "Enable Editing": a synchronous read of 500 MB froze the editor for
+     * seconds on every external change. The text is replaced in one flush, not diffed (docs/arch/Editor.md).
      */
     private loadDocumentFromDisk(filePath: string): void {
         if (this.isTooLargeForTokenization && this.openOnDisk(filePath)) return;
+        if (this.streamsOnReload(filePath)) {
+            void this.reloadStreaming(filePath);
+            return;
+        }
+        this.readIntoMemory(filePath);
+    }
+
+    /** Synchronous: the first open needs the built document to decide the mode on it. */
+    private readIntoMemory(filePath: string): void {
         this.applyDecoded(filePath, decodeStreamByBOM(this.readDiskChunks(filePath)));
+    }
+
+    /** Above the size threshold, with the means to stream (the opener of the document on disk). */
+    private streamsOnReload(filePath: string): boolean {
+        if (this.randomAccessFiles === null) return false;
+        const stat = this.readDiskStat(filePath);
+        return stat !== null && isTooLargeForTokenization(stat.size, 0, this.largeFileOptions(this.doc.languageId));
+    }
+
+    /**
+     * The old text stays editable while the new one streams in. An edit meanwhile, or no memory for a second copy,
+     * leaves the buffer as it is, in conflict with the disk: the user decides, as with a dirty buffer.
+     */
+    private async reloadStreaming(filePath: string): Promise<void> {
+        const outcome = await this.streamIntoMemory(filePath);
+        if (outcome === null) {
+            this.fireDiskStateChange();
+        } else if (outcome === "modified" || outcome === "out-of-memory") {
+            this.setDiskConflict(true);
+        }
     }
 
     private readDiskChunks(filePath: string): Iterable<Buffer> {
@@ -437,9 +633,13 @@ export class TextFileModel extends BaseTextEditorModel {
         }
         const participation = this.saveParticipant?.participate(this) ?? null;
         if (participation !== null) await participation;
+        // The snapshot is the saved state: edits typed while the bytes stream to disk stay unsaved.
+        const savedVersion = this.doc.versionId;
+        const savedEol = this.doc.eol;
         let written: IFileStat;
         try {
-            const bytes = await encodeChunks(this.doc.createSnapshot(), this.encodingValue);
+            // Streamed: the encoded snapshot goes to the file a megabyte at a time, no buffer of the whole file (A4).
+            const bytes = encodeStream(this.doc.createSnapshot(), this.encodingValue);
             written = await this.files.writeFile(this.uriValue, bytes, {
                 atomic: true,
                 // Same guard as above, but at write time: the file may have changed
@@ -452,7 +652,7 @@ export class TextFileModel extends BaseTextEditorModel {
             return "conflict";
         }
         if (filePath !== null) this.diskStat = { mtimeMs: written.mtime, size: written.size };
-        this.markSaved();
+        this.markSaved(savedVersion, savedEol);
         this.setDiskConflict(false);
         this.setOrphaned(false);
         this.fireSaved();
@@ -504,17 +704,39 @@ export class TextFileModel extends BaseTextEditorModel {
      * {@link undoContext}, tied to the editor rather than to its path.
      */
     public async saveAs(newPath: string): Promise<void> {
-        // Stage 4.5 streams a copy; until then the snapshot would go through one buffer of the file's size.
-        if (this.isOnDisk) throw new Error(SAVE_AS_ON_DISK_MESSAGE);
+        if (this.isOnDisk) {
+            await this.copyOnDiskTo(path.resolve(newPath));
+            return;
+        }
         this.uriValue = Uri.file(path.resolve(newPath));
         this.providedWatch?.dispose();
         this.providedWatch = null;
         const participation = this.saveParticipant?.participate(this) ?? null;
         if (participation !== null) await participation;
-        const bytes = await encodeChunks(this.doc.createSnapshot(), this.encodingValue);
+        const savedVersion = this.doc.versionId;
+        const savedEol = this.doc.eol;
+        const bytes = encodeStream(this.doc.createSnapshot(), this.encodingValue);
         const written = await this.files.writeFile(this.uriValue, bytes, { atomic: true });
         this.diskStat = { mtimeMs: written.mtime, size: written.size };
         this.doc.setLanguage(this.resolveLanguageId(newPath));
+        this.markSaved(savedVersion, savedEol);
+        this.setDiskConflict(false);
+        this.setOrphaned(false);
+        this.startWatchingFile(newPath);
+        this.fireSaved();
+    }
+
+    /**
+     * Save As of a document on disk: its text is the file's bytes (read-only, UTF-8, the file's own EOL), so the copy
+     * is the file service's — the kernel copies, nothing passes through memory — and save participants have nothing
+     * to edit. The model then reopens on disk at the new path, so that its lines come from the file it names.
+     */
+    private async copyOnDiskTo(newPath: string): Promise<void> {
+        const target = Uri.file(newPath);
+        // The same path: the file already is the document.
+        if (target.toString() !== this.uriValue.toString()) await this.files.copy(this.uriValue, target, true);
+        this.uriValue = target;
+        if (!this.openOnDisk(newPath)) this.readIntoMemory(newPath);
         this.markSaved();
         this.setDiskConflict(false);
         this.setOrphaned(false);
@@ -559,7 +781,7 @@ export class TextFileModel extends BaseTextEditorModel {
         }
         this.cancelOrphanCheck();
         this.setOrphaned(false);
-        if (!this.differsFromDisk(current)) return;
+        if (this.streamingForEditing || !this.differsFromDisk(current)) return;
         if (this.isModified) {
             this.setDiskConflict(true);
         } else {
@@ -615,6 +837,13 @@ export const READ_CHUNK_SIZE = 4 * 1024 * 1024;
 /** The longest BOM (utf-8): enough to tell utf-8 from UTF-16 before deciding where the text lives. */
 const BOM_SNIFF_LENGTH = 3;
 
+/** Offsets of the chunks from `start` to `size`: a streamed read is bounded by them, not by a counter. */
+function chunkOffsets(start: number, size: number, chunkSize: number): number[] {
+    // Stryker disable next-line ArithmeticOperator: "size + start" lays out at most one offset past the end, whose read returns nothing and ends the loop
+    const count = Math.max(0, Math.ceil((size - start) / chunkSize));
+    return Array.from({ length: count }, (_, index) => start + index * chunkSize);
+}
+
 /** The file is closed at the end of the pass or when the pass is abandoned. No file yields no chunks. */
 function* readFileChunks(filePath: string): Generator<Buffer> {
     let bytes = 0;
@@ -636,7 +865,11 @@ function* readFileChunks(filePath: string): Generator<Buffer> {
     mark("textfile:read", { bytes });
 }
 
-/** An `fs` failure carries a `code` (EACCES, EISDIR); a thrown `TypeError` does not. */
+/**
+ * An `fs` failure carries an errno code (EACCES, EISDIR, EIO). Node's own argument errors carry `ERR_*` codes and are
+ * bugs, like a thrown `TypeError`.
+ */
 function isFileSystemError(error: unknown): boolean {
-    return error instanceof Error && typeof (error as { code?: unknown }).code === "string";
+    const code = error instanceof Error ? (error as { code?: unknown }).code : undefined;
+    return /^E[A-Z]+$/.test(String(code));
 }

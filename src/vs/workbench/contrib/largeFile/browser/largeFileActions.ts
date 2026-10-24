@@ -1,6 +1,6 @@
 import type { CommandAction } from "../../../../platform/actions/common/commandAction.ts";
 import { type WorkbenchContextKeys, WorkbenchContextKeysDIToken } from "../../../browser/workbenchContextKeys.ts";
-import type { BaseTextEditorModel } from "../../../common/editor/textEditorModel.ts";
+import type { BaseTextEditorModel, EnableEditingRefusal } from "../../../common/editor/textEditorModel.ts";
 import { EditorServiceDIToken } from "../../../services/editor/common/editorService.ts";
 import {
     type NotificationService,
@@ -12,23 +12,32 @@ export const ENABLE_LARGE_FILE_EDITING_COMMAND_ID = "workbench.action.files.enab
 /** The button of the large-file toast (upstream: "Forcefully Enable Features"). */
 export const ENABLE_EDITING_LABEL = "Enable Editing";
 
-/** The model refused: a document on disk that no string can hold (`TextFileModel.forcefullyEnableFeatures`). */
-export const TOO_LARGE_TO_EDIT_MESSAGE =
-    "This file is too large to load into memory; it stays read-only on disk. Streaming edits are planned.";
+/**
+ * The toast for each refusal of `BaseTextEditorModel.enableEditing`; a cancelled load (the file was reloaded or
+ * closed meanwhile) says nothing.
+ */
+export const ENABLE_EDITING_REFUSALS: Readonly<Record<Exclude<EnableEditingRefusal, "cancelled">, string>> = {
+    "too-large":
+        "This file is too large to edit: it holds more text than fits in one string. It stays read-only on disk.",
+    "out-of-memory": "There is not enough free memory to load this file for editing. It stays read-only on disk.",
+    "read-failed": "The file could not be read into memory for editing. It stays read-only on disk.",
+};
 
 /**
  * Upstream's "Forcefully Enable Features", for this model and this session only: upstream turns
  * `editor.largeFileOptimizations` off in settings.json and asks to reopen the file; here the tabs
  * leave read-only and the features come back at once, through the model event (docs/arch/Editor.md).
- * A document on disk is read into memory first, or refused with a toast when it cannot be.
+ * A document on disk streams into memory first, with progress in the status bar, or is refused with a toast.
  */
-export function enableLargeFileEditing(
+export async function enableLargeFileEditing(
     model: BaseTextEditorModel,
     contextKeys: WorkbenchContextKeys,
     notifications: NotificationService,
-): void {
-    if (!model.forcefullyEnableFeatures()) {
-        notifications.show({ severity: "warn", message: TOO_LARGE_TO_EDIT_MESSAGE, modal: false, items: [] });
+): Promise<void> {
+    const refusal = await model.enableEditing();
+    if (refusal === "cancelled") return;
+    if (refusal !== null) {
+        notifications.show({ severity: "warn", message: ENABLE_EDITING_REFUSALS[refusal], modal: false, items: [] });
         return;
     }
     // `editorReadonly` derives from editor state, not focus: it won't recompute by itself.
@@ -42,8 +51,8 @@ export const enableLargeFileEditingAction: CommandAction = {
     shortTitle: ENABLE_EDITING_LABEL,
     run(accessor) {
         const editor = accessor.get(EditorServiceDIToken).getActiveEditor();
-        if (editor === null || editor.detached || !editor.isTooLargeForTokenization) return;
-        enableLargeFileEditing(
+        if (editor === null || editor.detached || !editor.isTooLargeForTokenization) return undefined;
+        return enableLargeFileEditing(
             editor.model,
             accessor.get(WorkbenchContextKeysDIToken),
             accessor.get(NotificationServiceDIToken),

@@ -6,9 +6,11 @@ import {
     FileOperationResult,
     FileSystemProviderCapabilities,
     FileType,
+    type FileWriteContent,
     type IFileSystemProvider,
     type IProviderWriteOptions,
     type IStat,
+    joinFileWriteContent,
 } from "./files.ts";
 
 interface IEntry {
@@ -50,8 +52,12 @@ export class InMemoryFileSystemProvider implements IFileSystemProvider {
         return Promise.resolve(result);
     }
 
-    /** Atomicity is free in memory: a write can't be interrupted midway anyway. */
-    public writeFile(resource: Uri, content: Uint8Array, options?: IProviderWriteOptions): Promise<void> {
+    /** Atomicity is free in memory: a write can't be interrupted midway anyway. A stream is joined: an entry is bytes. */
+    public async writeFile(resource: Uri, content: FileWriteContent, options?: IProviderWriteOptions): Promise<void> {
+        return this.writeBytes(resource, await joinFileWriteContent(content), options);
+    }
+
+    private writeBytes(resource: Uri, content: Uint8Array, options?: IProviderWriteOptions): Promise<void> {
         const path = resource.path;
         const parent = this.entries.get(parentOf(path));
         if (parent?.type !== FileType.Directory) {

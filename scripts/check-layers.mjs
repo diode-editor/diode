@@ -92,7 +92,8 @@ const NODE_IMPORT_DEBT = [
     // history is an open question in docs/TODO/FileService.md.
     ["src/vs/workbench/services/editor/browser/editorPaneFactory.ts", "node:fs"],
     ["src/vs/workbench/services/history/browser/historyService.ts", "node:fs"],
-    // Synchronous loading from disk moves along with async opening (PR 5).
+    // Small files are read synchronously by decision (OpenPerformance 4.5), large ones through IRandomAccessFile;
+    // moving reads onto the file service is optional debt (docs/TODO/FileService.md).
     ["src/vs/workbench/services/textfile/common/textFileModel.ts", "node:fs"],
 ];
 

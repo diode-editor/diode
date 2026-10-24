@@ -3,14 +3,19 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { memoryFileOpener } from "../../../../../TestUtils/memoryRandomAccessFile.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
 import { createEditorPane, type TextEditorPane } from "../../../../../TestUtils/TextEditorPaneFactory.ts";
-import { Emitter } from "../../../../base/common/event.ts";
+import { Emitter, Event } from "../../../../base/common/event.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import type { ILargeFileOptions } from "../../../../editor/common/model/largeFileOptions.ts";
 import { NULL_STATE_SERVICE } from "../../../../platform/state/common/nullStateService.ts";
 import type { IEditorService } from "../../../services/editor/common/editorService.ts";
 import { StatusBarService } from "../../../services/statusbar/common/statusBarService.ts";
 
-import { INDEXING_STATUS_ID, indexingStatusText, LargeFileIndexingStatus } from "./largeFileIndexingStatus.ts";
+import {
+    INDEXING_STATUS_ID,
+    indexingStatusText,
+    LargeFileIndexingStatus,
+    loadingStatusText,
+} from "./largeFileIndexingStatus.ts";
 
 const ON_DISK: ILargeFileOptions = { largeFileOptimizations: true, sizeThresholdMb: 1, lineCountThreshold: 1_000_000 };
 
@@ -55,7 +60,7 @@ describe("LargeFileIndexingStatus", () => {
             randomAccessFiles: opener,
             file: Uri.file(ws.writeFile(name, content)),
         });
-        return { editor, file: opener.opened[0] };
+        return { editor, file: opener.opened[0], opener };
     }
 
     function setup(initial: TextEditorPane | null) {
@@ -103,6 +108,29 @@ describe("LargeFileIndexingStatus", () => {
         small.dispose();
     });
 
+    it("a model left behind by the active editor no longer reaches the bar: neither its index nor its load", async () => {
+        const big = openGated();
+        const small = createEditorPane({ file: Uri.file(ws.writeFile("small.log", "one")) });
+        const { entry, activate, status } = setup(big.editor);
+        expect(entry()?.text).toBe("Indexing 50%");
+        activate(small);
+        expect(entry()).toBeNull();
+
+        // The index goes on and the file streams into memory, both behind the user's back.
+        const enabled = big.editor.model.enableEditing();
+        expect(entry()).toBeNull();
+        big.file.release();
+        await new Promise((resolve) => setImmediate(resolve));
+        expect(entry()).toBeNull();
+        for (const file of big.opener.opened) file.openGate();
+        expect(await enabled).toBeNull();
+        expect(entry()).toBeNull();
+
+        status.dispose();
+        big.editor.dispose();
+        small.dispose();
+    });
+
     it("dispose removes the entry and stops following the model", async () => {
         const { editor, file } = openGated();
         const { entry, status, statusBar } = setup(editor);
@@ -123,6 +151,8 @@ describe("LargeFileIndexingStatus", () => {
         let indexing = { indexedBytes: 10, totalBytes: 1000, done: false };
         const model = {
             onDidChangeDiskIndexing: progress.event,
+            onDidChangeMemoryLoading: Event.None,
+            memoryLoading: null,
             get diskIndexing() {
                 return indexing;
             },
@@ -144,6 +174,34 @@ describe("LargeFileIndexingStatus", () => {
         expect(entry()?.text).toBe("Indexing 50%");
         expect(statusBar.entries().filter((candidate) => candidate.id === INDEXING_STATUS_ID)).toHaveLength(1);
         status.dispose();
+    });
+
+    it("while Enable Editing streams the file into memory the entry shows the load, and goes when the text is in", async () => {
+        const content = bigLog();
+        const opener = memoryFileOpener({ size: 2 * Buffer.byteLength(content), gated: true });
+        const editor = createEditorPane({
+            largeFileOptions: ON_DISK,
+            randomAccessFiles: opener,
+            file: Uri.file(ws.writeFile("big.log", content)),
+        });
+        const { entry, status } = setup(editor);
+        expect(entry()?.text).toBe("Indexing 50%");
+
+        const enabled = editor.model.enableEditing();
+        // The load wins over the index of the document it is about to replace.
+        expect(entry()?.text).toBe("Loading 0%");
+        opener.opened[1].release();
+        expect(await enabled).toBeNull();
+        expect(editor.fileModel?.isOnDisk).toBe(false);
+        expect(entry()).toBeNull();
+        status.dispose();
+        editor.dispose();
+    });
+
+    it("loadingStatusText floors the percentage of the bytes read", () => {
+        expect(loadingStatusText(0, 100)).toBe("Loading 0%");
+        expect(loadingStatusText(999, 1000)).toBe("Loading 99%");
+        expect(loadingStatusText(5, 0)).toBe("Loading 100%");
     });
 
     it("indexingStatusText floors the percentage and treats an empty file as done", () => {

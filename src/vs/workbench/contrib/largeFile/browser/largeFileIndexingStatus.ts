@@ -5,6 +5,7 @@ import type { IWorkbenchContribution } from "../../../common/iWorkbenchContribut
 import { EditorServiceDIToken, type IEditorService } from "../../../services/editor/common/editorService.ts";
 import type { IStatusBarEntryHandle, StatusBarService } from "../../../services/statusbar/common/statusBarService.ts";
 import { StatusBarServiceDIToken } from "../../../services/statusbar/common/statusBarService.ts";
+import type { TextFileModel } from "../../../services/textfile/common/textFileModel.ts";
 
 export const LargeFileIndexingStatusDIToken =
     // Stryker disable next-line StringLiteral: token() returns a new Token and dependencies resolve by reference to it; the string inside is only a debug label
@@ -15,16 +16,26 @@ export const INDEXING_STATUS_ID = "status.largeFile.indexing";
 /** Where window progress shows (`ProgressStatusBarContribution`): the index is the file's own progress. */
 const INDEXING_PRIORITY = 60;
 
+function percentOf(doneBytes: number, totalBytes: number): string {
+    return String(totalBytes <= 0 ? 100 : Math.min(100, Math.floor((doneBytes / totalBytes) * 100)));
+}
+
 /** `Indexing 45%`; the percentage is of the file's bytes. */
 export function indexingStatusText(indexedBytes: number, totalBytes: number): string {
-    const percent = totalBytes <= 0 ? 100 : Math.min(100, Math.floor((indexedBytes / totalBytes) * 100));
-    return `Indexing ${String(percent)}%`;
+    return `Indexing ${percentOf(indexedBytes, totalBytes)}%`;
+}
+
+/** `Loading 45%`: the file streaming into memory for editing; the percentage is of the file's bytes. */
+export function loadingStatusText(loadedBytes: number, totalBytes: number): string {
+    return `Loading ${percentOf(loadedBytes, totalBytes)}%`;
 }
 
 /**
  * The status bar shows how far the line index of the active editor's document on disk has got
- * (docs/arch/Editor.md): the line count grows while it runs. No upstream analog — upstream has no
- * document on disk. Transient and without a `name`: it has no place in the visibility menu.
+ * (docs/arch/Editor.md): the line count grows while it runs. While the file streams into memory ("Enable
+ * Editing", a reload of a large buffer) the same entry shows that instead: it is what the user waits for. No
+ * upstream analog — upstream has no document on disk and reads a file before showing it. Transient and without a
+ * `name`: it has no place in the visibility menu.
  */
 export class LargeFileIndexingStatus extends Disposable implements IWorkbenchContribution {
     public static dependencies = [EditorServiceDIToken, StatusBarServiceDIToken] as const;
@@ -60,18 +71,27 @@ export class LargeFileIndexingStatus extends Disposable implements IWorkbenchCon
             this.clear();
             return;
         }
-        this.progressSubscription = model.onDidChangeDiskIndexing(() => {
-            this.sync(model.diskIndexing);
+        const indexing = model.onDidChangeDiskIndexing(() => {
+            this.sync(model);
         });
-        this.sync(model.diskIndexing);
+        const loading = model.onDidChangeMemoryLoading(() => {
+            this.sync(model);
+        });
+        this.progressSubscription = {
+            dispose: () => {
+                indexing.dispose();
+                loading.dispose();
+            },
+        };
+        this.sync(model);
     }
 
-    private sync(indexing: { indexedBytes: number; totalBytes: number; done: boolean } | null): void {
-        if (indexing === null || indexing.done) {
+    private sync(model: TextFileModel): void {
+        const text = statusText(model);
+        if (text === null) {
             this.clear();
             return;
         }
-        const text = indexingStatusText(indexing.indexedBytes, indexing.totalBytes);
         // Chunks arrive every few milliseconds; the bar repaints only when the percentage moves.
         if (text === this.lastText) return;
         this.lastText = text;
@@ -92,4 +112,13 @@ export class LargeFileIndexingStatus extends Disposable implements IWorkbenchCon
         this.handle = null;
         this.lastText = null;
     }
+}
+
+/** The load into memory wins: when it ends, the document on disk and its index are gone. */
+function statusText(model: TextFileModel): string | null {
+    const loading = model.memoryLoading;
+    if (loading !== null) return loadingStatusText(loading.loadedBytes, loading.totalBytes);
+    const indexing = model.diskIndexing;
+    if (indexing === null || indexing.done) return null;
+    return indexingStatusText(indexing.indexedBytes, indexing.totalBytes);
 }

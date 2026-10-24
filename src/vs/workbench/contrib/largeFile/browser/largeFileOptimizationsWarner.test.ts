@@ -14,7 +14,7 @@ import type { WorkbenchContextKeys } from "../../../browser/workbenchContextKeys
 import type { IEditorService } from "../../../services/editor/common/editorService.ts";
 import { NotificationService } from "../../../services/notification/browser/notificationService.ts";
 
-import { ENABLE_EDITING_LABEL, TOO_LARGE_TO_EDIT_MESSAGE } from "./largeFileActions.ts";
+import { ENABLE_EDITING_LABEL, ENABLE_EDITING_REFUSALS } from "./largeFileActions.ts";
 import {
     LARGE_FILE_MESSAGE,
     LargeFileOptimizationsWarner,
@@ -106,6 +106,16 @@ describe("LargeFileOptimizationsWarner", () => {
         other.dispose();
     });
 
+    it("editing enabled another way (the command): the toast goes, its button would do nothing", async () => {
+        const editor = open("big.log", "1\n2\n3");
+        const { notifications } = setup(editor);
+        expect(notifications.current()?.items).toEqual(["Enable Editing"]);
+        expect(await editor.model.enableEditing()).toBeNull();
+        expect(notifications.current()).toBeNull();
+        expect(notifications.isEmpty()).toBe(true);
+        editor.dispose();
+    });
+
     it("once per model: a second tab of the same file, or activating it again, is silent", () => {
         const editor = open("big.log", "1\n2\n3");
         const { notifications, activate, warner } = setup(null);
@@ -180,7 +190,9 @@ describe("LargeFileOptimizationsWarner", () => {
             expect(editor.readOnly).toBe(true);
             expect(contextKeys.updates).toBe(0);
             // No button: a passive toast.
-            expect(notifications.passive()).toMatchObject([{ severity: "warn", message: TOO_LARGE_TO_EDIT_MESSAGE }]);
+            expect(notifications.passive()).toMatchObject([
+                { severity: "warn", message: ENABLE_EDITING_REFUSALS["too-large"] },
+            ]);
             editor.dispose();
         });
     });

@@ -17,6 +17,7 @@ import {
     IRandomAccessFileOpenerDIToken,
 } from "../../../../platform/files/common/iRandomAccessFile.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
+import { type IMemoryProbe, IMemoryProbeDIToken } from "../../../../platform/memory/common/iMemoryProbe.ts";
 import { UndoRedoService, UndoRedoServiceDIToken } from "../../../../platform/undoRedo/common/undoRedoService.ts";
 
 import type { SaveParticipant } from "./iSaveParticipant.ts";
@@ -60,6 +61,7 @@ export class TextFileModelService extends Disposable {
         IFileWatcherDIToken,
         IConfigurationServiceDIToken,
         IRandomAccessFileOpenerDIToken,
+        IMemoryProbeDIToken,
     ] as const;
 
     private readonly registry = new TextFileModelRegistry((uri) => this.createFileModel(uri));
@@ -95,6 +97,8 @@ export class TextFileModelService extends Disposable {
         configuration?: IConfigurationService,
         /** Without it a large file is read into memory (docs/arch/Editor.md, the document on disk). */
         private readonly randomAccessFiles: IRandomAccessFileOpener | null = null,
+        /** Without it a large file is read into memory without asking how much is left. */
+        private readonly memory: IMemoryProbe | null = null,
     ) {
         super();
         this.largeFileOptions = largeFileOptionsFromConfiguration(configuration);
@@ -159,6 +163,7 @@ export class TextFileModelService extends Disposable {
         model.saveParticipant = this.saveParticipant;
         model.largeFileOptions = this.largeFileOptions;
         model.randomAccessFiles = this.randomAccessFiles;
+        model.memory = this.memory;
         // Subscribes first, before tabs: the registry must rebind the key before tabs
         // repaint the name after saveAs. The model's emitter disposes it along with itself.
         model.onDidSaveDocument(() => {

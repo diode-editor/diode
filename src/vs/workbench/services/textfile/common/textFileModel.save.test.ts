@@ -2,6 +2,7 @@ import * as fs from "node:fs";
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
+import { diskFileService } from "../../../../../TestUtils/diskFileService.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
 import { createEditorPane, type TextEditorPane } from "../../../../../TestUtils/TextEditorPaneFactory.ts";
 import { Uri } from "../../../../base/common/uri.ts";
@@ -44,6 +45,59 @@ describe("TextFileModel — save participant", () => {
         await controller.save();
 
         expect(fs.readFileSync(fp, "utf-8")).toBe("abc\n");
+        controller.dispose();
+    });
+
+    it("the file service gets a stream, not one buffer of the file; edits typed during the write stay unsaved", async () => {
+        const files = diskFileService();
+        const writes: unknown[] = [];
+        const write = files.writeFile.bind(files);
+        let typeDuringWrite = (): void => undefined;
+        files.writeFile = async (resource, value, options) => {
+            writes.push(value);
+            typeDuringWrite();
+            return write(resource, value, options);
+        };
+        const controller = createEditorPane({ files });
+        const fp = writeFile("streamed.txt", "one\n");
+        controller.openFile(Uri.file(fp));
+        controller.model.document.applyEdits([
+            { range: { start: { line: 0, character: 3 }, end: { line: 0, character: 3 } }, text: "!" },
+        ]);
+        typeDuringWrite = () => {
+            controller.model.document.applyEdits([
+                { range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } }, text: "late " },
+            ]);
+        };
+
+        expect(await controller.model.save()).toBe("saved");
+
+        expect(writes).toHaveLength(1);
+        expect(writes[0]).not.toBeInstanceOf(Uint8Array);
+        // The file holds the snapshot taken before the write; the late edit is not in it and keeps the buffer dirty.
+        expect(fs.readFileSync(fp, "utf-8")).toBe("one!\n");
+        expect(controller.model.isModified).toBe(true);
+        controller.dispose();
+    });
+
+    it("Save As of a modified buffer in conflict with its file: the copy holds the edits, the buffer is clean", async () => {
+        const controller = createEditorPane();
+        const fp = writeFile("conflict.txt", "one\n");
+        controller.openFile(Uri.file(fp));
+        controller.model.document.applyEdits([
+            { range: { start: { line: 0, character: 3 }, end: { line: 0, character: 3 } }, text: "!" },
+        ]);
+        // Changed on disk meanwhile: a plain save refuses with a conflict.
+        fs.writeFileSync(fp, "someone else's text, longer\n");
+        expect(await controller.model.save()).toBe("conflict");
+        expect(controller.model.hasDiskConflict).toBe(true);
+
+        const target = ws.path("resolved.txt");
+        await controller.model.saveAs(target);
+
+        expect(fs.readFileSync(target, "utf-8")).toBe("one!\n");
+        expect(controller.model.isModified).toBe(false);
+        expect(controller.model.hasDiskConflict).toBe(false);
         controller.dispose();
     });
 

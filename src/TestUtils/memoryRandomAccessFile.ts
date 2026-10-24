@@ -38,7 +38,8 @@ export class MemoryRandomAccessFile implements IRandomAccessFile {
     public readSync(target: Uint8Array, position: number): number {
         this.syncReads++;
         const count = Math.max(0, Math.min(target.length, this.visibleSize - position));
-        this.bytes.copy(target, 0, position, position + count);
+        // Past the end of the bytes: `copy` would throw on the source offset, a file just reads nothing.
+        if (count > 0) this.bytes.copy(target, 0, position, position + count);
         return count;
     }
 

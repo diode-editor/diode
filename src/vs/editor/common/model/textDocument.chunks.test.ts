@@ -17,6 +17,27 @@ function documentFacts(doc: TextDocument): unknown {
     return { lines, eol: doc.eol, text: doc.getText(), serialized: doc.serialize() };
 }
 
+describe("TextDocument — a snapshot outlives an EOL change", () => {
+    it("a snapshot taken before setEol reads the text of its moment; the document has the new EOL", () => {
+        // Edits make a tree of many pieces over several buffers: setEol must not rewrite what the snapshot reads.
+        const doc = new TextDocument(Array.from({ length: 5_000 }, (_, i) => `line ${String(i)}`).join("\n"));
+        doc.applyEdits([createInsertEdit(2_500, 0, "mid ")]);
+        const before = doc.serialize();
+        const snapshot = doc.createSnapshot();
+        doc.setEol(EndOfLine.CRLF);
+        expect([...snapshot].join("")).toBe(before);
+        expect(doc.serialize()).toBe(before.replaceAll("\n", "\r\n"));
+        expect(doc.getLineContent(2_500)).toBe("mid line 2500");
+    });
+
+    it("a U+FEFF at the start is text, and stays text through setEol", () => {
+        const doc = new TextDocument("\ufeffbom\nline");
+        doc.setEol(EndOfLine.CRLF);
+        expect(doc.getLineContent(0)).toBe("\ufeffbom");
+        expect(doc.serialize()).toBe("\ufeffbom\r\nline");
+    });
+});
+
 describe("TextDocument from chunks", () => {
     const SAMPLES = ["", "a\r\nb\r\nc", "a\r\nb\nc\r\n", "x\ry\r", "😀\r\n𝄞\n", "\ufeffbom\r\nline", "\r\n\r\n"];
 

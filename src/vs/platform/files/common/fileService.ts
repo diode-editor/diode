@@ -9,6 +9,7 @@ import {
     FileOperationResult,
     FileSystemProviderCapabilities,
     FileType,
+    type FileWriteContent,
     type IDeleteOptions,
     type IFileContent,
     type IFileOperationEvent,
@@ -119,7 +120,7 @@ export class FileService extends Disposable implements IFileService {
         return { ...toFileStat(resource, stat), value: await provider.readFile(resource) };
     }
 
-    public writeFile(resource: Uri, value: Uint8Array, options: IWriteFileOptions = {}): Promise<IFileStat> {
+    public writeFile(resource: Uri, value: FileWriteContent, options: IWriteFileOptions = {}): Promise<IFileStat> {
         return this.queue(resource, async () => {
             const provider = this.writable(resource, "writeFile");
             if (provider.writeFile === undefined || provider.stat === undefined) {

@@ -68,8 +68,14 @@ export class LargeFileOptimizationsWarner extends Disposable implements IWorkben
             modal: false,
             items: [ENABLE_EDITING_LABEL],
         });
+        // Editing enabled another way (the command, Save As): the toast's button would do nothing, so the toast goes.
+        const leftMode = model.onDidChangeTooLargeForTokenization(() => {
+            this.notifications.dismiss(handle.id);
+        });
         void handle.answered.then((index) => {
-            if (index === 0) enableLargeFileEditing(model, this.contextKeys, this.notifications);
+            // Stryker disable next-line CallExpression: dismissing a settled toast is a no-op; disposing only drops the listener
+            leftMode.dispose();
+            if (index === 0) void enableLargeFileEditing(model, this.contextKeys, this.notifications);
         });
     }
 }

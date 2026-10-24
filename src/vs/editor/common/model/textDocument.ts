@@ -14,7 +14,11 @@ import type { IApplyEditsResult, ITextDocument } from "./iTextDocument.ts";
 import { PieceTreeDocumentBuffer, toLf } from "./pieceTreeDocumentBuffer.ts";
 import { type IModelDeltaDecoration, TrackedDecorations } from "./trackedDecorations.ts";
 
-export { createTextBufferFactoryFromChunks } from "./pieceTreeDocumentBuffer.ts";
+export {
+    createTextBufferFactoryBuilder,
+    createTextBufferFactoryFromChunks,
+    type ITextBufferFactoryBuilder,
+} from "./pieceTreeDocumentBuffer.ts";
 
 /**
  * The 0-based {@link ITextDocument} over an {@link IDocumentBuffer}: the piece tree of upstream behind

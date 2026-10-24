@@ -9,6 +9,7 @@ import { MAX_STRING_LENGTH } from "../../../../editor/common/model/diskTextBuffe
 import type { ILargeFileOptions } from "../../../../editor/common/model/largeFileOptions.ts";
 import { registerAction } from "../../../../platform/actions/common/commandAction.ts";
 import { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
+import type { IRandomAccessFileOpener } from "../../../../platform/files/common/iRandomAccessFile.ts";
 import { Container } from "../../../../platform/instantiation/common/diContainer.ts";
 import { KeybindingRegistry } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import { type WorkbenchContextKeys, WorkbenchContextKeysDIToken } from "../../../browser/workbenchContextKeys.ts";
@@ -19,10 +20,20 @@ import {
 } from "../../../services/notification/browser/notificationService.ts";
 
 import {
+    ENABLE_EDITING_REFUSALS,
     ENABLE_LARGE_FILE_EDITING_COMMAND_ID,
     LARGE_FILE_ACTIONS,
-    TOO_LARGE_TO_EDIT_MESSAGE,
 } from "./largeFileActions.ts";
+
+/** Above 1 MiB the file stays on disk; the line axis is left alone. */
+const ON_DISK: ILargeFileOptions = { largeFileOptimizations: true, sizeThresholdMb: 1, lineCountThreshold: 1e6 };
+
+/** ~1.5 MiB of numbered lines: above the size threshold of {@link ON_DISK}. */
+function bigLog(): string {
+    return Array.from({ length: 30_000 }, (_, i) => `${String(i)} INFO worker request handled path=/api/v1/items`).join(
+        "\n",
+    );
+}
 
 const TINY: ILargeFileOptions = { largeFileOptimizations: true, sizeThresholdMb: 1, lineCountThreshold: 2 };
 
@@ -59,12 +70,12 @@ describe("workbench.action.files.enableLargeFileEditing", () => {
         return createEditorPane({ largeFileOptions: TINY, file: Uri.file(ws.writeFile("doc.txt", content)) });
     }
 
-    it("leaves the large-file mode of the active editor and recomputes the context keys", () => {
+    it("leaves the large-file mode of the active editor and recomputes the context keys", async () => {
         const editor = open("1\n2\n3");
         const { commands, contextKeys } = setup(editor);
         expect(editor.readOnly).toBe(true);
 
-        commands.execute(ENABLE_LARGE_FILE_EDITING_COMMAND_ID);
+        await commands.execute(ENABLE_LARGE_FILE_EDITING_COMMAND_ID);
 
         expect(editor.model.isTooLargeForTokenization).toBe(false);
         expect(editor.readOnly).toBe(false);
@@ -72,17 +83,17 @@ describe("workbench.action.files.enableLargeFileEditing", () => {
         editor.dispose();
     });
 
-    it("an ordinary file, a detached pane, no editor: a silent no-op", () => {
+    it("an ordinary file, a detached pane, no editor: a silent no-op", async () => {
         const small = open("1");
         const { commands, contextKeys } = setup(small);
-        commands.execute(ENABLE_LARGE_FILE_EDITING_COMMAND_ID);
+        await commands.execute(ENABLE_LARGE_FILE_EDITING_COMMAND_ID);
         expect(contextKeys.updates).toBe(0);
         small.dispose();
 
         const detached = open("1\n2\n3");
         detached.detached = true;
         const detachedSetup = setup(detached);
-        detachedSetup.commands.execute(ENABLE_LARGE_FILE_EDITING_COMMAND_ID);
+        await detachedSetup.commands.execute(ENABLE_LARGE_FILE_EDITING_COMMAND_ID);
         expect(detached.model.isTooLargeForTokenization).toBe(true);
         expect(detachedSetup.contextKeys.updates).toBe(0);
         detached.dispose();
@@ -91,17 +102,71 @@ describe("workbench.action.files.enableLargeFileEditing", () => {
         expect(() => none.commands.execute(ENABLE_LARGE_FILE_EDITING_COMMAND_ID)).not.toThrow();
     });
 
-    it("a document on disk that no string can hold: the command warns and the tab stays read-only", () => {
+    it("a document on disk streams into memory: the tab becomes editable, the keys recompute, no toast", async () => {
         const editor = createEditorPane({
-            largeFileOptions: { largeFileOptimizations: true, sizeThresholdMb: 1, lineCountThreshold: 1e6 },
-            randomAccessFiles: memoryFileOpener({ size: MAX_STRING_LENGTH + 1 }),
-            file: Uri.file(ws.writeFile("huge.log", "x".repeat(1024 * 1024 + 1))),
+            largeFileOptions: ON_DISK,
+            randomAccessFiles: memoryFileOpener(),
+            file: Uri.file(ws.writeFile("big.log", bigLog())),
         });
         const { commands, contextKeys, notifications } = setup(editor);
-        commands.execute(ENABLE_LARGE_FILE_EDITING_COMMAND_ID);
+        expect(editor.fileModel?.isOnDisk).toBe(true);
+        await commands.execute(ENABLE_LARGE_FILE_EDITING_COMMAND_ID);
+        expect(editor.fileModel?.isOnDisk).toBe(false);
+        expect(editor.readOnly).toBe(false);
+        expect(contextKeys.updates).toBe(1);
+        expect(notifications.passive()).toEqual([]);
+        editor.dispose();
+    });
+
+    it("each refusal of the model is a warning toast of its own, and the tab stays read-only", async () => {
+        const cases = [
+            { reason: "too-large", randomAccessFiles: memoryFileOpener({ size: MAX_STRING_LENGTH + 1 }) },
+            { reason: "out-of-memory", randomAccessFiles: memoryFileOpener(), memory: { availableBytes: () => 0 } },
+            { reason: "read-failed", randomAccessFiles: refusingSecondOpen() },
+        ] as const;
+        for (const { reason, ...overrides } of cases) {
+            const editor = createEditorPane({
+                largeFileOptions: ON_DISK,
+                ...overrides,
+                file: Uri.file(ws.writeFile("huge.log", bigLog())),
+            });
+            const { commands, contextKeys, notifications } = setup(editor);
+            await commands.execute(ENABLE_LARGE_FILE_EDITING_COMMAND_ID);
+            expect(editor.readOnly).toBe(true);
+            expect(contextKeys.updates).toBe(0);
+            // A warning without buttons: there is nothing to retry from the toast.
+            expect(notifications.passive()).toMatchObject([
+                { severity: "warn", message: ENABLE_EDITING_REFUSALS[reason], items: [] },
+            ]);
+            editor.dispose();
+        }
+    });
+
+    it("a load cancelled by a reload of the file says nothing", async () => {
+        const opener = memoryFileOpener({ gated: true });
+        const path = ws.writeFile("big.log", bigLog());
+        const editor = createEditorPane({ largeFileOptions: ON_DISK, randomAccessFiles: opener, file: Uri.file(path) });
+        const { commands, contextKeys, notifications } = setup(editor);
+        const run = commands.execute(ENABLE_LARGE_FILE_EDITING_COMMAND_ID) as Promise<void>;
+        // The reload reopens the document on disk; the pending stream read finds itself stale.
+        editor.fileModel?.revertToDisk();
+        for (const file of opener.opened) file.openGate();
+        await run;
         expect(editor.readOnly).toBe(true);
         expect(contextKeys.updates).toBe(0);
-        expect(notifications.passive()).toMatchObject([{ severity: "warn", message: TOO_LARGE_TO_EDIT_MESSAGE }]);
+        expect(notifications.passive()).toEqual([]);
         editor.dispose();
     });
 });
+
+/** Opens the first time (the document on disk) and refuses the second (the stream), as a file whose mode changed. */
+function refusingSecondOpen(): IRandomAccessFileOpener {
+    const opener = memoryFileOpener();
+    return {
+        open: (path) => {
+            if (opener.opened.length > 0)
+                throw Object.assign(new Error("EACCES: permission denied"), { code: "EACCES" });
+            return opener.open(path);
+        },
+    };
+}
