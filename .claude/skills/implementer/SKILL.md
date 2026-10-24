@@ -87,6 +87,30 @@ claude-lease run -- node scripts/agent-loop/mutation-budget.mjs -- npm run test:
 
 Записал `done` — работа закончена, больше ничего не делай: сессию закроет менеджер.
 
+## Спутники: tuidom, сайт, доки, магазин
+
+Задача может упираться в соседний репозиторий: движок [`tuidom/tuidom`](https://github.com/tuidom/tuidom)
+(пакеты `@tuidom/*`), лендинг и реестр расширений `diode-editor/diode-editor.github.io`, сайт
+документации `diode-editor/docs`, веб-витрина магазина `diode-editor/marketplace`. Решение человека
+2026-10-24: в лупе ты **сам** ведёшь там ветки, открываешь PR, вливаешь по зелёному CI и **сам
+публикуешь tuidom** — спрашивать некого. Правила самого репозитория (его AGENTS.md) читай и соблюдай;
+push везде по https (`git push https://github.com/<owner>/<repo>.git <ветка>`), ssh-ключа на машине нет.
+
+- **Чекаут tuidom** — `$TUIDOM_DIR`, иначе `/workspaces/tuidom/tuidom`; нет ни того, ни другого —
+  `git clone https://github.com/tuidom/tuidom.git` в каталог рядом с diode и дальше работай там.
+  Проверить правку движка на diode до публикации — `npm run engine:link` (`--tuidom <dir>`).
+- **Публикация tuidom** — релиз едет по тегу: в tuidom `npm run set-version X.Y.Z` → PR
+  `release: X.Y.Z` → зелёный CI → влить → на влитом коммите `main`
+  `git tag -a vX.Y.Z -m "TUIDom X.Y.Z"` и push тега по https. Дальше `release.yml` публикует
+  пакеты сам (OIDC). **Дождись версии**: раз в минуту `npm view @tuidom/core@X.Y.Z version`, пока не
+  ответит; обычно минуты, через 20 минут тишины — смотри `gh run list -R tuidom/tuidom`, упавший
+  канал — `gh run rerun <id> --failed`, не новая версия.
+- **Поднять `@tuidom/*` в diode** — в ветке своей задачи (`package.json` + `package-lock.json`,
+  `npm install`), это часть той же работы; в теле PR назови версию движка. Пока версия не приехала
+  в npm, diode на неё не завязывай (CI не соберётся).
+- Сайт, доки, витрина — свой PR в их репозитории по их правилам, вливаешь по зелёному CI сам; Pages
+  выкладывают сами. В теле PR diode — ссылки на эти PR.
+
 ## Вернуть задачу
 
 В любой момент, когда дальше нельзя без человека:

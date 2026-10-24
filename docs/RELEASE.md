@@ -33,3 +33,9 @@ gh release view vX.Y.Z --json url,assets --jq '.url, (.assets | length)'
 `npm run set-version X.Y.Z`, затем PR `release: X.Y.Z`, после мержа тег
 `git tag -a vX.Y.Z -m "TUIDom X.Y.Z"` и push тега по https. Workflow `release.yml` tuidom сам сверяет
 версию и публикует пакеты через OIDC. После публикации подними `@tuidom/*` в diode отдельным PR.
+
+Версия «приехала», когда `npm view @tuidom/core@X.Y.Z version` отвечает (опрашивай раз в минуту;
+20 минут тишины — смотри `gh run list -R tuidom/tuidom`, упавшую job перезапускай, новую версию не
+выпускай). В агентском лупе ([scripts/agent-loop/README.md](../scripts/agent-loop/README.md))
+реализатор публикует без запроса, и подъём `@tuidom/*` идёт в ветке его задачи — решение человека
+2026-10-24.

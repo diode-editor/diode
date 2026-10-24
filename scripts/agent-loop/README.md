@@ -105,6 +105,16 @@ claude-lease run -- node scripts/agent-loop/mutation-budget.mjs -- npm run test:
 пройти mutation-job в CI. Давление на реализатора — в скилле: тест до/вместе с кодом, первый
 прогон только после зелёного `check:diff`, мутантов проверять точечно `--mutate`.
 
+## Спутники и публикация tuidom
+
+Решение человека 2026-10-24: реализатор в лупе сам ведёт ветки и PR в соседних репозиториях —
+движок `tuidom/tuidom`, лендинг и реестр `diode-editor/diode-editor.github.io`, сайт доков
+`diode-editor/docs`, витрина `diode-editor/marketplace` — вливает их по зелёному CI и сам публикует
+tuidom (тег `vX.Y.Z` на влитом `release: X.Y.Z`, затем ждёт `npm view @tuidom/core@X.Y.Z version`).
+Это отступление от общего правила AGENTS.md «публикацию в npm запрашивай у человека»: действует только
+в сессии лупа. Подробности и порядок — в скилле [`implementer`](../../.claude/skills/implementer/SKILL.md),
+рецепт — [docs/RELEASE.md](../../docs/RELEASE.md#tuidom).
+
 ## Нагрузка
 
 Тяжёлое сериализует лиза (`машина=1`, `.claude/leases.json`), `npm test` в манифест не добавлен,
