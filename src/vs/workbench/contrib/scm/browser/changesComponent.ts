@@ -305,7 +305,7 @@ export class ChangesComponent extends Component {
      */
     private rebuild(): void {
         const cursorId = this.list.getCursorElement()?.id;
-        const cursorMeta = cursorId === undefined ? undefined : this.rowMeta.get(cursorId);
+        const cursorMeta = [...this.rowMeta].find(([id]) => id === cursorId)?.[1];
         const cursorIndex = this.visibleRowIds().findIndex((id) => id === cursorId);
         const collapsedGroups = SCM_GROUP_IDS.filter((id) => this.list.isCollapsed(`scmGroup-${id}`));
         this.list.clear();
@@ -316,7 +316,7 @@ export class ChangesComponent extends Component {
             this.list.appendRow(buildGroupRow(groupRowId, group.label, group.changes.length), {
                 label: group.label,
             });
-            // Stryker disable next-line StringLiteral: kind is only compared with "file" and "folder"; anything else is a group
+            // Stryker disable next-line StringLiteral,ArrayDeclaration: kind is only compared with "file" and "folder"; a group has no ancestors, and an unknown ancestor id is never collapsed
             this.rowMeta.set(groupRowId, { kind: "group", group: group.id, changes: group.changes, ancestors: [] });
 
             if (this.viewMode === "flat") {
