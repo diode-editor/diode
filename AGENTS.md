@@ -10,9 +10,10 @@ Diode — терминальный текстовый редактор (клон
 - docs/STYLE.md — идиомы под линт; docs/COMMITS.md — коммиты; docs/PR.md — что обязано быть в PR и влитие; docs/GIT.md — git-помощники, стек PR, уборка worktree; docs/RELEASE.md — выпуск версии
 - docs/TODO/ — трекер задач (индекс — README.md); docs/public/ — страницы сайта документации diode-editor.github.io/docs, по-английски (правила — в его README.md); packaging/README.md — каналы дистрибуции
 - Скиллы `.claude/skills/`: `drive` (живой запуск), `heavy-run` (лиза на тяжёлые прогоны), `orchestrate` (волна дочерних сессий)
+- scripts/agent-loop/README.md — автономный агентский луп по GitHub issues (`ready to implement` → диспатчер → менеджер → реализатор + тестировщик); скиллы ролей `dispatch`, `task-manager`, `implementer`, `tester`, `loop-spawn`
 
 # Трекер задач
-Берёшь задачу — статус `[~]` в docs/TODO/, закончил — `[x]`.
+Берёшь задачу — статус `[~]` в docs/TODO/, закончил — `[x]`. Задача пришла из GitHub issue (агентский луп) — трекер правишь только если issue ссылается на его пункт.
 
 # Worktree
 Задачу, начатую с планирования, ведём в отдельном worktree (EnterWorktree), если человек явно не сказал иначе. Worktree живут **только** в `.claude/worktrees/<имя>`. Сразу после входа — `npm run git:wt-bootstrap` (`node_modules` часто отстают от lock-файла, в том числе `@tuidom/*`). В итоге по задаче **всегда указывай полный путь к worktree** — человек оттуда запускает и проверяет.
