@@ -76,6 +76,16 @@ function publish(h: IHarness, staged: string[], changed: string[]): void {
     ]);
 }
 
+/** What git reports after the calls so far: staged files move to Staged Changes. */
+function refresh(h: IHarness, names: string[]): void {
+    const staged = new Set(h.calls.map((call) => call.replace(/^stage /, "")));
+    publish(
+        h,
+        names.filter((n) => staged.has(n)),
+        names.filter((n) => !staged.has(n)),
+    );
+}
+
 /** Cursor on the first file under the only group header, as Home + ArrowDown do. */
 function cursorOnFirstFile(h: IHarness): void {
     h.component.list.focusFirst();
@@ -94,9 +104,9 @@ describe("ChangesComponent — Space toggles stage on files with non-ASCII or pu
         cursorOnFirstFile(h);
 
         await space(h);
-        publish(h, names.slice(0, 1), names.slice(1));
+        refresh(h, names);
         await space(h);
-        publish(h, names.slice(0, 2), names.slice(2));
+        refresh(h, names);
         await space(h);
 
         expect(h.calls).toEqual(["stage альфа.ts", "stage бета.ts", "stage гамма.ts"]);
@@ -109,11 +119,12 @@ describe("ChangesComponent — Space toggles stage on files with non-ASCII or pu
         cursorOnFirstFile(h);
 
         await space(h);
-        publish(h, names.slice(0, 1), names.slice(1));
+        refresh(h, names);
         await space(h);
-        publish(h, names.slice(0, 2), names.slice(2));
+        refresh(h, names);
         await space(h);
 
-        expect(h.calls).toEqual(["stage a b.ts", "stage a.b.ts", "stage a-b.ts"]);
+        // Display order is localeCompare: "a b", "a-b", "a.b".
+        expect(h.calls).toEqual(["stage a b.ts", "stage a-b.ts", "stage a.b.ts"]);
     });
 });

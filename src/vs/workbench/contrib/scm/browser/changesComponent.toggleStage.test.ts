@@ -294,6 +294,53 @@ describe("ChangesComponent — Space toggles stage", () => {
         expect(h.calls).toEqual(["stage c.txt"]);
     });
 
+    it("a gapped selection: next is counted from its last row, not from the gap", async () => {
+        const h = make();
+        publish(h, files("a.txt", "b.txt", "c.txt", "d.txt"));
+        const list = h.component.list;
+        renderElement(h.component.listView, 30, 10, { themeVars: true });
+        list.setCursorTo(rowIdOf("a.txt"));
+        list.dispatchEvent(
+            new TUIMouseEvent("click", { button: "left", ctrlKey: true, screenX: 0, screenY: 0, localX: 2, localY: 3 }),
+        ); // selection {a, c}, cursor on c
+
+        await space(h);
+
+        expect(h.calls).toEqual(["stage a.txt,c.txt"]);
+        expect(cursor(h)).toBe(rowIdOf("d.txt"));
+    });
+
+    it("a header row that disappears hands the cursor to the row at its position", () => {
+        const h = make();
+        publish(h, [STAGED("s.txt"), ...files("a.txt", "b.txt")]);
+        h.component.list.setCursorTo("scmGroup-index");
+        publish(h, [STAGED("s.txt"), ...files("a.txt", "b.txt")]);
+        expect(cursor(h)).toBe("scmGroup-index");
+
+        h.component.list.setCursorTo(rowIdOf("s.txt", "index"));
+        publish(h, files("a.txt", "b.txt"));
+
+        // [Staged, s, Changes, a, b] → [Changes, a, b]: position 1 is a.txt.
+        expect(cursor(h)).toBe(rowIdOf("a.txt"));
+
+        publish(h, [STAGED("s.txt"), ...files("a.txt", "b.txt")]);
+        h.component.list.setCursorTo("scmGroup-index");
+        publish(h, files("a.txt", "b.txt"));
+        expect(cursor(h)).toBe("scmGroup-worktree");
+    });
+
+    it("the list empties under the cursor: no cursor, no error", () => {
+        const h = make();
+        publish(h, files("a.txt"));
+        h.component.list.setCursorTo(rowIdOf("a.txt"));
+
+        publish(h, []);
+
+        expect(cursor(h)).toBeUndefined();
+        publish(h, files("b.txt"));
+        expect(h.component.list.rowCount).toBe(2);
+    });
+
     it("an MM file: Space in Changes stages it, in Staged unstages; the cursor stays in the pressed group", async () => {
         const h = make();
         publish(h, [STAGED("m.txt"), STAGED("s.txt"), ...files("m.txt", "w.txt")]);
