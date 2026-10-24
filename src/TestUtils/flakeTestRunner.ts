@@ -5,11 +5,12 @@ import { applyTestFlake, flakeRetriedLine, readTestFlakes, TestFlakeIndex } from
 type Task = Parameters<VitestTestRunner["onBeforeRunTask"]>[0];
 
 /**
- * The vitest runner (`test.runner` in vitest.config.ts): a test from test-flakes.json gets retries
- * or is skipped. Stryker reuses vitest.config.ts, so its dry run sees the same list.
+ * The vitest runner (`test.runner` in vitest.config.ts and vitest.e2e.config.ts): a test from
+ * test-flakes.json gets retries or is skipped. Stryker reuses vitest.config.ts, so its dry run sees the
+ * same list. Screenshot scenarios are looked up by e2e/scenarios/suite.ts; their retried pass is printed here too.
  */
 export default class FlakeTestRunner extends VitestTestRunner {
-    private readonly flakes = new TestFlakeIndex(this.config.root, readTestFlakes(this.config.root));
+    private readonly flakes = new TestFlakeIndex(this.config.root, readTestFlakes(this.config.root), process.platform);
 
     public override async onBeforeRunTask(test: Task): Promise<void> {
         const flake =
