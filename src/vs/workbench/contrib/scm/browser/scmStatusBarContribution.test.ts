@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 
+import { createSwitchableIcons } from "../../../../../TestUtils/switchableIcons.ts";
 import { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
 import { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { NULL_STATE_SERVICE } from "../../../../platform/state/common/nullStateService.ts";
+import type { IProductIconService } from "../../../../platform/theme/common/productIconService.ts";
 import { StatusBarService } from "../../../services/statusbar/common/statusBarService.ts";
 
 import { PUBLISH_REPO_STATE_COMMAND, ScmRepoStateService } from "./repoStateService.ts";
@@ -20,7 +22,7 @@ const STATE = {
     state: "idle",
 };
 
-function setup(): {
+function setup(icons?: IProductIconService): {
     contribution: ScmStatusBarContribution;
     commands: CommandRegistry;
     statusBar: StatusBarService;
@@ -32,7 +34,7 @@ function setup(): {
     const commands = new CommandRegistry();
     const statusBar = new StatusBarService(NULL_STATE_SERVICE);
     const repoState = new ScmRepoStateService(commands, new ContextKeyService());
-    const contribution = new ScmStatusBarContribution(statusBar, repoState, commands);
+    const contribution = new ScmStatusBarContribution(statusBar, repoState, commands, icons);
     const executed: string[] = [];
     for (const id of ["git.checkout", "git.sync", "git.publish"]) {
         commands.register(id, () => executed.push(id));
@@ -58,6 +60,17 @@ describe("ScmStatusBarContribution", () => {
         expect(h.texts()).toEqual([]);
 
         h.publish(STATE);
+        expect(h.texts()).toEqual([`${BRANCH_GLYPH} main`, "↓2 ↑1"]);
+    });
+
+    it("diode.icons.nerdFont: the branch glyph follows the setting live", async () => {
+        const { icons, set } = createSwitchableIcons(true);
+        const h = setup(icons);
+        h.publish(STATE);
+
+        await set(false);
+        expect(h.texts()).toEqual(["⎇ main", "↓2 ↑1"]);
+        await set(true);
         expect(h.texts()).toEqual([`${BRANCH_GLYPH} main`, "↓2 ↑1"]);
     });
 

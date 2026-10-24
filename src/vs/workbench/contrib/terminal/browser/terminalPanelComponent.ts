@@ -94,21 +94,23 @@ export class TerminalPanelComponent extends Disposable implements IContextKeyCon
         private readonly icons: IProductIconService = NERD_FONT_ICONS,
     ) {
         super();
-        this.tabs = new TerminalTabsList({
-            onDidSelectInstance: (id) => {
-                this.terminalService.setActiveInstance(id);
-                if (this.configuration.get("terminal.integrated.tabs.focusMode") === "singleClick") {
+        this.tabs = new TerminalTabsList(
+            {
+                onDidSelectInstance: (id) => {
+                    this.terminalService.setActiveInstance(id);
+                    if (this.configuration.get("terminal.integrated.tabs.focusMode") === "singleClick") {
+                        this.terminalService.focusActive();
+                    }
+                },
+                onDidActivateInstance: () => {
                     this.terminalService.focusActive();
-                }
+                },
+                onDidRequestContextMenu: (id, screenX, screenY) => {
+                    this.showTabContextMenu(id, screenX, screenY);
+                },
             },
-            onDidActivateInstance: () => {
-                this.terminalService.focusActive();
-            },
-            onDidRequestContextMenu: (id, screenX, screenY) => {
-                this.showTabContextMenu(id, screenX, screenY);
-            },
-        });
-        this.tabs.nerdFont = icons.nerdFont;
+            icons.nerdFont,
+        );
         this.register(
             icons.onDidChange(() => {
                 this.tabs.nerdFont = icons.nerdFont;

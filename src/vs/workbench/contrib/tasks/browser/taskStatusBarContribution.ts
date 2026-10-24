@@ -38,8 +38,9 @@ export class TaskStatusBarContribution extends Disposable {
     ) {
         super();
         this.register(
+            // With no running task there is no segment, and update keeps it that way.
             icons.onDidChange(() => {
-                if (this.handle !== null) this.update();
+                this.update();
             }),
         );
         this.register(

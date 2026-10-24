@@ -28,7 +28,7 @@ export function terminalTabRowId(instanceId: number): string {
 }
 
 /** Like upstream `getSingleTabLabel`. */
-export function terminalTabLabel(instance: ITerminalInstance, nerdFont = true): string {
+export function terminalTabLabel(instance: ITerminalInstance, nerdFont: boolean): string {
     return `${iconGlyph(TERMINAL_ICON, nerdFont)} ${instance.title}`;
 }
 
@@ -52,10 +52,11 @@ export class TerminalTabsList {
     // No rows before the first setInstances, so onSelect never fires — the initial value has no effect.
     // Stryker disable next-line BooleanLiteral: the initial value is unobservable — see above
     private syncing = false;
-    /** `diode.icons.nerdFont`; the owner re-syncs the rows after a change. */
-    public nerdFont = true;
-
-    public constructor(handlers: ITerminalTabsListHandlers) {
+    public constructor(
+        handlers: ITerminalTabsListHandlers,
+        /** `diode.icons.nerdFont`; the owner re-syncs the rows after a change. */
+        public nerdFont: boolean,
+    ) {
         this.list.id = TERMINAL_TABS_LIST_ID;
         this.list.onSelect = (element) => {
             if (this.syncing) return;

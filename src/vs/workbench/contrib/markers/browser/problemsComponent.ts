@@ -111,8 +111,9 @@ export class ProblemsComponent extends Component {
             }, PROBLEMS_UPDATE_DELAY_MS),
         );
         this.register(
+            // Without markers the tree is detached from the tab (placeholder): its refresh is invisible.
             icons.onDidChange(() => {
-                if (this.treeShown) void this.tree.refresh();
+                void this.tree.refresh();
             }),
         );
         this.register(

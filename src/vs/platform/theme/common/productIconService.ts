@@ -85,6 +85,7 @@ export class ProductIconService extends ProductIcons implements IDisposable {
         this.nerdFontValue = this.resolve();
         this.disposables.add(
             config.onDidChangeConfiguration((event) => {
+                // Stryker disable next-line ConditionalExpression: a fast path — for any other key the resolved mode is unchanged and the equality guard below returns anyway
                 if (!event.affectsConfiguration(NERD_FONT_SETTING)) return;
                 const next = this.resolve();
                 if (next === this.nerdFontValue) return;
