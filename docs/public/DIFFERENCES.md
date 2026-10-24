@@ -19,6 +19,9 @@ This page collects both in one place; what is missing altogether is on [Status](
   ([colors](TERMINAL.md#colors)).
 - **No webviews.** Anything in an extension that needs a browser is a no-op: the rest of the
   extension keeps working ([what can't work](EXTENSIONS.md#what-cant-work)).
+- **File links in the integrated terminal** open with `Ctrl`+click on every platform: a terminal
+  doesn't report Cmd with the mouse. There is no "Follow link" hover, and only paths that exist are
+  links: URLs, and words looked up with Quick Open, are not yet.
 - **No tooltips, no drag and drop.** Hover information is a widget under the caret, a status bar
   item's tooltip is not shown, and tabs and tree items are not draggable.
 

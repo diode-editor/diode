@@ -1,5 +1,7 @@
 // PTY half of the embedded terminal (node-pty); the emulator half, shared with extension ptys, is `XtermSurface`.
 
+import { readlink } from "node:fs/promises";
+
 import type { IPty } from "node-pty";
 
 import { getSystemShell } from "../../../../base/node/shell.ts";
@@ -56,6 +58,7 @@ function currentEnv(): Record<string, string> {
 export class EmbeddedTerminalSession extends XtermSurface {
     public shell: string;
     private pty: IPty;
+    private initialCwd = "";
 
     /** @param environment extension environment collections; not applied with `strictEnv`. */
     public constructor(
@@ -74,6 +77,15 @@ export class EmbeddedTerminalSession extends XtermSurface {
 
     public get pid(): number {
         return this.pty.pid;
+    }
+
+    /** Linux and other `/proc` systems see `cd` in the shell; elsewhere — the cwd the process started in. */
+    public async getCwd(): Promise<string> {
+        try {
+            return await readlink(`/proc/${String(this.pty.pid)}/cwd`);
+        } catch {
+            return this.initialCwd;
+        }
     }
 
     protected sendInput(data: string): void {
@@ -101,6 +113,7 @@ export class EmbeddedTerminalSession extends XtermSurface {
 
     private spawn(shell: string, options: EmbeddedTerminalOptions): IPty {
         const cwd = options.cwd ?? process.cwd();
+        this.initialCwd = cwd;
         const strict = options.strictEnv === true;
         const environment = strict ? undefined : this.environment;
         const env = buildEnv(

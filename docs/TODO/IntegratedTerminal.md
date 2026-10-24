@@ -23,8 +23,10 @@
 ## UX
 
 - [ ] Скролбэк колесом в e2e: инспектор-протокол пока не инъецирует колесо (enabler `TUIDom.sendMouse`),
-  сценарий `terminalScrollback` крутит вьюпорт клавиатурой. Выделение и копирование, кликабельные
-  ссылки, bracketed-paste.
+  сценарий `terminalScrollback` крутит вьюпорт клавиатурой. Выделение и копирование, bracketed-paste.
+- [x] Ссылки на файлы: Ctrl+наведение подчёркивает, Ctrl+клик открывает (#816,
+  [Terminal.md](../arch/workbench/Terminal.md#ссылки-на-файлы)). Дальше — quick pick «Open Detected Link…»,
+  URL и word-ссылки.
 - [ ] **Сплиты терминалов** (`split`/`splitActiveTab`/`unsplit`, группы), с ними — `hideCondition:
   singleGroup` по группам и префиксы `┌ ├ └` в списке.
 - [ ] **Rename терминала** (`rename`, `renameActiveTab` — F2 в списке) и `tabs.title`/`description`/

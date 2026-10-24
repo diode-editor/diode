@@ -1,0 +1,239 @@
+import { DEFAULT_COLOR } from "@tuidom/core/common/colorUtils";
+import type { TerminalCell, TerminalMouseEventData } from "@tuidom/core/common/iTerminalSurface";
+import { StyleFlags } from "@tuidom/core/common/styleFlags";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+import type { ExtensionPtySession } from "../../../terminal/node/extensionPtySession.ts";
+import type { ITerminalLink } from "../common/terminalLinkProvider.ts";
+import { emulatorWith, fakeLinkProvider, feed } from "../common/terminalLinks.testUtils.ts";
+
+import { TerminalLinkSurface } from "./terminalLinkSurface.ts";
+
+const DISK = { "/ws/src/a.ts": "file", "/ws/b.ts": "file" } as const;
+
+function mouse(
+    col: number,
+    row: number,
+    { action = "move", button = "none", ctrl = true }: Partial<TerminalMouseEventData> = {},
+): TerminalMouseEventData {
+    return { col, row, action, button, ctrl, alt: false, shift: false };
+}
+
+describe("TerminalLinkSurface", () => {
+    let session: ExtensionPtySession;
+    let surface: TerminalLinkSurface;
+    let opened: ITerminalLink[];
+    let updates: number;
+
+    async function setup(output: string, cols = 40): Promise<void> {
+        session = await emulatorWith(output, cols, 5);
+        opened = [];
+        surface = new TerminalLinkSurface(session, fakeLinkProvider({ disk: DISK }), (link) => {
+            opened.push(link);
+            return Promise.resolve();
+        });
+        updates = 0;
+        surface.onUpdate(() => {
+            updates++;
+        });
+    }
+
+    afterEach(() => {
+        session.dispose();
+    });
+
+    function styleAt(x: number, y: number): number | undefined {
+        const cell: TerminalCell = { char: " ", fg: DEFAULT_COLOR, bg: DEFAULT_COLOR, style: 0, width: 1 };
+        return surface.readCell(x, y, cell) ? cell.style : undefined;
+    }
+
+    function underlined(y: number, width = 40): string {
+        return Array.from({ length: width }, (_, x) => ((styleAt(x, y) ?? 0) & StyleFlags.Underline ? "_" : " "))
+            .join("")
+            .trimEnd();
+    }
+
+    const hovered = (): string | undefined => surface.hoveredLink?.text;
+
+    it("Ctrl+hover underlines exactly the link's cells; without Ctrl nothing", async () => {
+        await setup("see src/a.ts:3:2 here");
+        surface.sendMouse(mouse(6, 0, { ctrl: false }));
+        await Promise.resolve();
+        expect(underlined(0)).toBe("");
+
+        surface.sendMouse(mouse(6, 0));
+        await vi.waitFor(() => {
+            expect(hovered()).toBe("src/a.ts:3:2");
+        });
+        expect(underlined(0)).toBe("    ____________");
+        expect(updates).toBeGreaterThan(0);
+    });
+
+    it("moving off the link or releasing Ctrl removes the underline", async () => {
+        await setup("see src/a.ts:3:2 here");
+        surface.sendMouse(mouse(6, 0));
+        await vi.waitFor(() => {
+            expect(hovered()).toBeDefined();
+        });
+        surface.sendMouse(mouse(18, 0));
+        await vi.waitFor(() => {
+            expect(hovered()).toBeUndefined();
+        });
+
+        surface.sendMouse(mouse(6, 0));
+        await vi.waitFor(() => {
+            expect(hovered()).toBeDefined();
+        });
+        surface.sendMouse(mouse(7, 0, { ctrl: false }));
+        expect(hovered()).toBeUndefined();
+        expect(underlined(0)).toBe("");
+    });
+
+    it("Ctrl press and release under a resting pointer toggle the underline; leaving the widget clears it", async () => {
+        await setup("src/a.ts");
+        surface.sendMouse(mouse(2, 0, { ctrl: false }));
+        surface.setModifier(true);
+        await vi.waitFor(() => {
+            expect(hovered()).toBe("src/a.ts");
+        });
+        surface.setModifier(false);
+        expect(hovered()).toBeUndefined();
+
+        surface.setModifier(true);
+        await vi.waitFor(() => {
+            expect(hovered()).toBe("src/a.ts");
+        });
+        surface.pointerLeft();
+        expect(hovered()).toBeUndefined();
+        surface.setModifier(true);
+        await Promise.resolve();
+        expect(hovered()).toBeUndefined();
+    });
+
+    it("a stale lookup doesn't override a newer pointer position", async () => {
+        await setup("src/a.ts ./b.ts");
+        surface.sendMouse(mouse(1, 0));
+        surface.sendMouse(mouse(11, 0));
+        await vi.waitFor(() => {
+            expect(hovered()).toBe("./b.ts");
+        });
+        await new Promise((resolve) => setTimeout(resolve, 10));
+        expect(hovered()).toBe("./b.ts");
+    });
+
+    it("text the program already underlined stays underlined", async () => {
+        await setup("\x1b[4mx\x1b[0m src/a.ts");
+        surface.sendMouse(mouse(3, 0));
+        await vi.waitFor(() => {
+            expect(hovered()).toBeDefined();
+        });
+        expect(underlined(0)).toBe("_ ________");
+    });
+
+    it("Ctrl+click opens the link and doesn't reach the emulator; a plain click does", async () => {
+        await setup("src/a.ts:3:2");
+        const forwarded = vi.spyOn(session, "sendMouse");
+        surface.sendMouse(mouse(3, 0, { action: "down", button: "left" }));
+        await vi.waitFor(() => {
+            expect(opened.map((link) => link.text)).toEqual(["src/a.ts:3:2"]);
+        });
+        expect(forwarded).not.toHaveBeenCalled();
+
+        surface.sendMouse(mouse(3, 0, { action: "down", button: "left", ctrl: false }));
+        surface.sendMouse(mouse(3, 0, { action: "down", button: "right" }));
+        surface.sendMouse(mouse(20, 0, { action: "down", button: "left" }));
+        await new Promise((resolve) => setTimeout(resolve, 10));
+        expect(forwarded).toHaveBeenCalledTimes(2);
+        expect(opened).toHaveLength(1);
+    });
+
+    it("an opener failure is reported, not thrown into the input path", async () => {
+        await setup("src/a.ts");
+        const failing = new TerminalLinkSurface(session, fakeLinkProvider({ disk: DISK }), () =>
+            Promise.reject(new Error("boom")),
+        );
+        const errors = await import("../../../../../base/common/errors.ts");
+        const reported = vi.spyOn(errors, "onUnexpectedError").mockImplementation(() => undefined);
+        failing.sendMouse(mouse(1, 0, { action: "down", button: "left" }));
+        await vi.waitFor(() => {
+            expect(reported).toHaveBeenCalled();
+        });
+        reported.mockRestore();
+    });
+
+    it("a program with mouse tracking owns the mouse: no underline, Ctrl+click goes to the program", async () => {
+        await setup("src/a.ts\x1b[?1000h");
+        expect(surface.mouseEventsActive).toBe(true);
+        const forwarded = vi.spyOn(session, "sendMouse");
+        surface.sendMouse(mouse(1, 0));
+        surface.setModifier(true);
+        surface.sendMouse(mouse(1, 0, { action: "down", button: "left" }));
+        await new Promise((resolve) => setTimeout(resolve, 10));
+        expect(hovered()).toBeUndefined();
+        expect(opened).toEqual([]);
+        expect(forwarded).toHaveBeenCalledTimes(2);
+    });
+
+    it("a wrapped link is underlined on both rows", async () => {
+        await setup("xx src/a.ts:3", 10);
+        surface.sendMouse(mouse(1, 1));
+        await vi.waitFor(() => {
+            expect(hovered()).toBe("src/a.ts:3");
+        });
+        expect(underlined(0, 10)).toBe("   _______");
+        expect(underlined(1, 10)).toBe("___");
+    });
+
+    it("links work in the scrolled-up history; new output re-checks the hover", async () => {
+        await setup(`src/a.ts:9\r\n${"filler\r\n".repeat(10)}`);
+        surface.scrollLines(-100);
+        expect(surface.scrollOffset).toBeGreaterThan(0);
+        surface.sendMouse(mouse(2, 0));
+        await vi.waitFor(() => {
+            expect(hovered()).toBe("src/a.ts:9");
+        });
+        expect(underlined(0)).toBe("__________");
+
+        // Output returns the viewport to the bottom: the pointer is now over another row.
+        await feed(session, "more\r\n");
+        await vi.waitFor(() => {
+            expect(hovered()).toBeUndefined();
+        });
+    });
+
+    it("a lookup failure is reported and leaves the hover as it was", async () => {
+        await setup("src/a.ts");
+        const failing = new TerminalLinkSurface(
+            session,
+            { provideLinks: () => Promise.reject(new Error("disk")) },
+            () => Promise.resolve(),
+        );
+        const errors = await import("../../../../../base/common/errors.ts");
+        const reported = vi.spyOn(errors, "onUnexpectedError").mockImplementation(() => undefined);
+        failing.sendMouse(mouse(1, 0));
+        await vi.waitFor(() => {
+            expect(reported).toHaveBeenCalled();
+        });
+        expect(failing.hoveredLink).toBeUndefined();
+        reported.mockRestore();
+    });
+
+    it("delegates the rest of the surface to the session", async () => {
+        await setup("ab");
+        const write = vi.spyOn(session, "write");
+        const resize = vi.spyOn(session, "resize");
+        surface.write("x");
+        surface.resize(30, 4);
+        expect(write).toHaveBeenCalledWith("x");
+        expect(resize).toHaveBeenCalledWith(30, 4);
+        expect(surface.getCursor()).toEqual(session.getCursor());
+        expect(surface.isExited).toBe(false);
+        expect(styleAt(0, 0)).toBe(0);
+        expect(styleAt(-1, 99)).toBeUndefined();
+        const exits: number[] = [];
+        surface.onExit((code) => exits.push(code));
+        session.exit(3);
+        expect(exits).toEqual([3]);
+        expect(surface.isExited).toBe(true);
+    });
+});

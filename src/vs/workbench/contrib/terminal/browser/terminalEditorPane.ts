@@ -1,5 +1,5 @@
 import type { TUIElement } from "@tuidom/core/dom/tuiElement";
-import { TerminalViewElement } from "@tuidom/elements/terminal/terminalViewElement";
+import type { TerminalViewElement } from "@tuidom/elements/terminal/terminalViewElement";
 
 import { Emitter } from "../../../../base/common/event.ts";
 import { Disposable } from "../../../../base/common/lifecycle.ts";
@@ -40,10 +40,11 @@ export class TerminalEditorPane extends Disposable implements IEditorPane {
     public constructor(
         public readonly instance: ITerminalInstance,
         colors: ITerminalColors,
+        widget: TerminalViewElement,
     ) {
         super();
         this.uri = terminalEditorUri(instance.id);
-        this.widget = new TerminalViewElement(instance.session);
+        this.widget = widget;
         // No dots in the id — `#terminalEditor-3` works as an inspector selector.
         this.widget.id = `terminalEditor-${String(instance.id)}`;
         applyTerminalColors(instance, this.widget, colors);

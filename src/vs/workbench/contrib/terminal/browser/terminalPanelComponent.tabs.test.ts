@@ -27,6 +27,7 @@ import {
 } from "./terminalPanelComponent.ts";
 import { TERMINAL_VIEW_ID, TerminalService } from "./terminalService.ts";
 import { SWITCH_TERMINAL_SHOW_TABS, TERMINAL_TABS_WIDTH, terminalTabRowId } from "./terminalTabsList.ts";
+import { createPlainTerminalWidget } from "./terminalWidgetFactory.ts";
 
 const WIDTH = 80;
 const HEIGHT = 12;
@@ -58,6 +59,7 @@ function buildHarness(settings: Readonly<Record<string, unknown>> = {}, shells: 
         contextMenu,
         commands,
         makeTerminalColors(new ThemeService(WorkbenchTheme.fromThemeFile(darkPlusTheme)), configuration).colors,
+        createPlainTerminalWidget,
     );
     const testApp = TestApp.createWithContent(panelComponent.view, new Size(WIDTH, HEIGHT));
     const screen = (): string => {

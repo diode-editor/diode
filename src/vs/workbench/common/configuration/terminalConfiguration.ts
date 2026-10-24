@@ -109,6 +109,16 @@ export const terminalConfiguration = {
             description:
                 "Whether to hide the terminal view when the last terminal is closed. This will only happen when the terminal is the only visible view in the view container.",
         },
+        // There is no remote here: "notRemote" behaves as "on".
+        "terminal.integrated.enableFileLinks": {
+            scope: "window",
+            type: "string",
+            default: "on",
+            enum: ["off", "on", "notRemote"],
+            enumDescriptions: ["Always off.", "Always on.", "Enable only when not in a remote workspace."],
+            description:
+                "Whether to enable file links in terminals. Links can be slow when working on a network drive in particular because each file link is verified against the file system. Changing this will take effect only in new terminals.",
+        },
         // Ours: vscode has no host terminal, and its integrated one always takes colors from the theme (our "theme" default).
         "terminal.integrated.colorSource": {
             scope: "application",

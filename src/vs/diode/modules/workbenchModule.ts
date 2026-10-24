@@ -294,6 +294,7 @@ import {
     TerminalPanelComponentDIToken,
 } from "../../workbench/contrib/terminal/browser/terminalPanelComponent.ts";
 import { TerminalService, TerminalServiceDIToken } from "../../workbench/contrib/terminal/browser/terminalService.ts";
+import { TerminalWidgetFactoryDIToken } from "../../workbench/contrib/terminal/browser/terminalWidgetFactory.ts";
 import { DefaultShellResolverDIToken } from "../../workbench/contrib/terminal/common/defaultShell.ts";
 import {
     EnvironmentVariableService,
@@ -306,6 +307,12 @@ import {
 } from "../../workbench/contrib/terminal/common/terminalSessionFactory.ts";
 import { EmbeddedTerminalSession } from "../../workbench/contrib/terminal/node/embeddedTerminalSession.ts";
 import { ExtensionPtySession } from "../../workbench/contrib/terminal/node/extensionPtySession.ts";
+import { TerminalLinkOpener } from "../../workbench/contrib/terminalContrib/links/browser/terminalLinkOpener.ts";
+import {
+    TerminalLinkOpenerDIToken,
+    TerminalLinkService,
+    TerminalLinkServiceDIToken,
+} from "../../workbench/contrib/terminalContrib/links/browser/terminalLinkService.ts";
 import {
     ThemeConfigContribution,
     ThemeConfigContributionDIToken,
@@ -547,6 +554,12 @@ export const workbenchModule: ContainerModule = (container) => {
     container.bind(TaskStatusBarContributionDIToken, TaskStatusBarContribution);
     container.bind(TerminalFocusFallbackDIToken, () => container.get(EditorServiceDIToken));
     container.bind(TerminalColorsServiceDIToken, TerminalColorsService);
+    container.bind(TerminalLinkOpenerDIToken, TerminalLinkOpener);
+    container.bind(TerminalLinkServiceDIToken, TerminalLinkService);
+    container.bind(TerminalWidgetFactoryDIToken, () => {
+        const links = container.get(TerminalLinkServiceDIToken);
+        return (instance) => links.createWidget(instance);
+    });
     container.bind(TerminalPanelComponentDIToken, TerminalPanelComponent);
     container.bind(TerminalEditorServiceDIToken, TerminalEditorService);
     container.bind(DiagnosticsEditorSourceDIToken, () => container.get(EditorServiceDIToken));
