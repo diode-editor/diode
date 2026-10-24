@@ -134,8 +134,9 @@ describe("workbench.action.files.enableLargeFileEditing", () => {
             await commands.execute(ENABLE_LARGE_FILE_EDITING_COMMAND_ID);
             expect(editor.readOnly).toBe(true);
             expect(contextKeys.updates).toBe(0);
+            // A warning without buttons: there is nothing to retry from the toast.
             expect(notifications.passive()).toMatchObject([
-                { severity: "warn", message: ENABLE_EDITING_REFUSALS[reason] },
+                { severity: "warn", message: ENABLE_EDITING_REFUSALS[reason], items: [] },
             ]);
             editor.dispose();
         }

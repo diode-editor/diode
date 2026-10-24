@@ -476,6 +476,15 @@ describe("TextFileModel — a reload of a large file in memory streams", () => {
         expect(model.document.lineCount).toBe(30_001);
     });
 
+    it("a large buffer whose file is gone reloads the old way, which knows what a missing file is", async () => {
+        const opener = gatedAfterFirst();
+        const { model, path } = await editable(opener);
+        fs.rmSync(path);
+        expect(model.revertToDisk()).toBe(true);
+        expect(model.memoryLoading).toBeNull();
+        expect(opener.opened).toHaveLength(2);
+    });
+
     it("a small file reloads synchronously, as before", async () => {
         const opener = gatedAfterFirst();
         const { model, path } = await editable(opener);
