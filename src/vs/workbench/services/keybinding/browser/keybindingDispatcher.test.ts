@@ -170,10 +170,13 @@ describe("KeybindingDispatcher — chords", () => {
 
         h.dispatcher.dispatchKeyDown(keyDown({ key: "k", ctrlKey: true }));
 
-        // A lone modifier (Kitty) neither breaks nor advances the chord.
+        // A lone modifier (Kitty) neither breaks nor advances the chord — in both phases, as the root runs them.
         const modifier = keyDown({ key: "Control", ctrlKey: true });
         h.dispatcher.handleKeyDownCapture(modifier);
+        h.dispatcher.handleKeyDown(modifier);
         expect(modifier.defaultPrevented).toBe(false);
+        expect(h.keybindings.pendingLength).toBe(1);
+        expect(h.statusTexts()).toEqual(["(Ctrl+K) was pressed. Waiting for next key…"]);
 
         const continuation = keyDown({ key: "s" });
         h.dispatcher.handleKeyDownCapture(continuation);
@@ -398,6 +401,24 @@ describe("KeybindingDispatcher — printable key swallow and armory", () => {
         expect(committed).toBe(0);
 
         h.dispatcher.handleKeyUp(new TUIKeyboardEvent("keyup", { key: "Control" }));
+        expect(committed).toBe(1);
+    });
+
+    it("a lone modifier keydown does not end the hold session", () => {
+        const h = createHarness();
+        let committed = 0;
+        h.keybindings.register(parseKeybinding("ctrl+tab"), "test.mruNext");
+        h.commands.register("test.mruNext", () => {
+            h.armory.armOnHoldRelease(() => {
+                committed += 1;
+            });
+        });
+        h.dispatcher.dispatchKeyDown(keyDown({ key: "Tab", ctrlKey: true }));
+
+        expect(h.dispatcher.dispatchKeyDown(keyDown({ key: "Shift", ctrlKey: true, shiftKey: true }))).toBe(false);
+        expect(committed).toBe(0);
+
+        h.dispatcher.dispatchKeyDown(keyDown({ key: "x" }));
         expect(committed).toBe(1);
     });
 });
