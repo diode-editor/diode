@@ -163,9 +163,17 @@ describe("FileSystemProviderAdapter", () => {
             "'_claude_fs_right:/repo/missing.ts' does not exist",
         );
         expect(new TextDecoder().decode(harness.written.get(right.toString()))).toBe("second");
+        // A stream crosses the RPC as one buffer: the extension's provider takes bytes.
+        async function* pieces(): AsyncGenerator<Uint8Array> {
+            yield new TextEncoder().encode("thi");
+            yield new TextEncoder().encode("rd");
+        }
+        await registry.writeFile(right, pieces());
+        expect(new TextDecoder().decode(harness.written.get(right.toString()))).toBe("third");
         expect(stat.size).toBe(new TextEncoder().encode("second").length);
         expect(operations.mock.calls.map(([e]) => (e as { operation: FileOperation }).operation)).toEqual([
             FileOperation.Create,
+            FileOperation.Write,
             FileOperation.Write,
         ]);
     });

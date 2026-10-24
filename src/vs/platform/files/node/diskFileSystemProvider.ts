@@ -8,6 +8,7 @@ import {
     FileOperationResult,
     FileSystemProviderCapabilities,
     FileType,
+    type FileWriteContent,
     type IFileSystemProvider,
     type IProviderWriteOptions,
     type IStat,
@@ -49,7 +50,8 @@ export class DiskFileSystemProvider implements IFileSystemProvider {
         );
     }
 
-    public async writeFile(resource: Uri, content: Uint8Array, options: IProviderWriteOptions): Promise<void> {
+    /** A stream goes to the file piece by piece (`fs.promises.writeFile` takes an async iterable): no buffer of the whole file. */
+    public async writeFile(resource: Uri, content: FileWriteContent, options: IProviderWriteOptions): Promise<void> {
         const fsPath = resource.fsPath;
         const replace = options.atomic ? await atomicReplacement(fsPath) : null;
         if (replace !== null) {

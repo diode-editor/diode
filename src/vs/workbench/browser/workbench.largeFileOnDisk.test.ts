@@ -45,72 +45,60 @@ describe("Workbench — the document on disk", () => {
     }
 
     /**
-     * Live run: Save As on a document on disk opened the dialog, the new name was confirmed, and nothing
-     * happened — the model's refusal ("Save As is not available for a document on disk; Enable Editing
-     * first") went to the log only (`fileActions.ts`, "Save As failed"), no file, no toast. A refusal the
-     * user cannot see is a silent failure: whichever way the command refuses (before the dialog or after
-     * it), the user must be told, like the "too large to load into memory" toast of Enable Editing.
+     * Until 4.5 Save As refused a document on disk with a toast (QA of #799: a refusal only in the log is a silent
+     * failure). Now it copies the file through the file service and the tab follows the copy, still on disk.
      */
-    it("Save As on a document on disk tells the user it is unavailable instead of failing silently", async () => {
+    it("Save As on a document on disk writes the copy through the dialog and the tab follows it", async () => {
         h.workbench.openFile(ws.path("huge.log"));
         h.workbench.focusEditor();
         const editor = h.activeEditor();
         expect(editor.fileModel?.isOnDisk).toBe(true);
         const notifications = h.container.get(NotificationServiceDIToken);
-        // The large-file toast is not the one under test.
         notifications.clearAll();
 
         const dialog = fileDialogDriver(h);
-        const run = h.commands.execute("workbench.action.files.saveAs") as Promise<void> | undefined;
+        const run = h.commands.execute("workbench.action.files.saveAs") as Promise<void>;
         const newPath = ws.path("copy.log");
-        // The command may refuse up front (no dialog) or after the dialog: both are fine, silence is not.
         await vi.waitFor(() => {
-            expect(dialog.component.isOpen() || !notifications.isEmpty()).toBe(true);
+            expect(dialog.component.isOpen()).toBe(true);
         });
-        if (dialog.component.isOpen()) {
-            await dialog.settle({ query: ws.path("huge.log") });
-            dialog.replaceQuery(newPath);
-            await dialog.settle({ query: newPath });
-            dialog.key("Enter");
-            await run;
-        }
+        await dialog.settle({ query: ws.path("huge.log") });
+        dialog.replaceQuery(newPath);
+        await dialog.settle({ query: newPath });
+        dialog.key("Enter");
+        await run;
 
-        expect(fs.existsSync(newPath)).toBe(false);
+        expect(fs.readFileSync(newPath, "utf8")).toBe(bigLog());
+        expect(editor.uri.fsPath).toBe(newPath);
         expect(editor.fileModel?.isOnDisk).toBe(true);
-        await vi.waitFor(() => {
-            expect(notifications.isEmpty()).toBe(false);
-        });
-        expect(notifications.current()?.message).toMatch(/Save As/);
-        expect(screen()).toMatch(/Save As/);
+        expect(editor.readOnly).toBe(true);
+        expect(notifications.isEmpty()).toBe(true);
+        expect(screen()).toContain("copy.log");
     });
 
-    it("the Save As toast offers Enable Editing: the button loads the file into memory, dismissing does not", async () => {
+    it("the toast's Enable Editing streams the file in: the tab becomes writable, and a save writes the edit", async () => {
         h.workbench.openFile(ws.path("huge.log"));
         h.workbench.focusEditor();
         const editor = h.activeEditor();
         const notifications = h.container.get(NotificationServiceDIToken);
-        notifications.clearAll();
+        expect(notifications.current()?.items).toEqual(["Enable Editing"]);
 
-        void h.commands.execute("workbench.action.files.saveAs");
-        await vi.waitFor(() => {
-            expect(notifications.current()?.message).toMatch(/Save As/);
-        });
-        // A toast, not a modal: the editor stays usable behind it.
-        expect(notifications.current()?.modal).toBe(false);
-        notifications.dismiss(notifications.current()!.id);
-        await flushMicrotasks();
-        expect(editor.fileModel?.isOnDisk).toBe(true);
-        expect(editor.readOnly).toBe(true);
-
-        void h.commands.execute("workbench.action.files.saveAs");
-        await vi.waitFor(() => {
-            expect(notifications.current()?.items).toEqual(["Enable Editing"]);
-        });
         notifications.answer(notifications.current()!.id, 0);
-        await flushMicrotasks();
+        await vi.waitFor(() => {
+            expect(editor.readOnly).toBe(false);
+        });
         expect(editor.fileModel?.isOnDisk).toBe(false);
         expect(editor.model.isTooLargeForTokenization).toBe(false);
-        expect(editor.readOnly).toBe(false);
         expect(editor.lineCount).toBe(18_001);
+        // The status bar's progress went with the load.
+        expect(screen()).not.toMatch(/Loading \d+%|Indexing \d+%/);
+
+        editor.viewState.type("x");
+        await h.commands.execute("workbench.action.files.save");
+        await vi.waitFor(() => {
+            expect(editor.model.isModified).toBe(false);
+        });
+        expect(fs.readFileSync(ws.path("huge.log"), "utf8")).toBe(`x${bigLog()}`);
+        await flushMicrotasks();
     });
 });

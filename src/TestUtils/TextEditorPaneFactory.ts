@@ -9,6 +9,7 @@ import type { ILargeFileOptions } from "../vs/editor/common/model/largeFileOptio
 import type { DocumentSemanticTokensFeature } from "../vs/editor/contrib/semanticTokens/browser/documentSemanticTokens.ts";
 import type { IFileService } from "../vs/platform/files/common/files.ts";
 import type { IRandomAccessFileOpener } from "../vs/platform/files/common/iRandomAccessFile.ts";
+import type { IMemoryProbe } from "../vs/platform/memory/common/iMemoryProbe.ts";
 import { WorkbenchTheme } from "../vs/platform/theme/common/workbenchTheme.ts";
 import { UndoRedoService } from "../vs/platform/undoRedo/common/undoRedoService.ts";
 import { EditorComponent } from "../vs/workbench/browser/parts/editor/editorComponent.ts";
@@ -41,6 +42,8 @@ export interface IEditorPaneOverrides {
     readonly largeFileOptions?: ILargeFileOptions;
     /** Absent — a large file is read into memory; with it, a file above the size threshold stays on disk. */
     readonly randomAccessFiles?: IRandomAccessFileOpener;
+    /** Absent — nobody asks how much memory is left before a file streams in. */
+    readonly memory?: IMemoryProbe;
 }
 
 /** Builds the pair the same way as `TextEditorPaneBuilder.build`. */
@@ -56,6 +59,7 @@ export function createEditorPane(overrides: IEditorPaneOverrides = {}): TextEdit
         model.largeFileOptions = () => options;
     }
     model.randomAccessFiles = overrides.randomAccessFiles ?? null;
+    model.memory = overrides.memory ?? null;
     if (overrides.file !== undefined) model.openFile(overrides.file);
     const component = new EditorComponent(
         overrides.registry ?? new TokenizationRegistry(),

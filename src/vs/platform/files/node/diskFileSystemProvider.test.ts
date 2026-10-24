@@ -107,6 +107,17 @@ describe("DiskFileSystemProvider", () => {
         expect(fs.readdirSync(dir).sort()).toEqual(["a.txt", "new.txt"]);
     });
 
+    it("a stream is written piece by piece, in place and atomically", async () => {
+        async function* pieces(...parts: string[]): AsyncGenerator<Uint8Array> {
+            for (const part of parts) yield bytes(part);
+        }
+        await provider.writeFile(at("s.txt"), pieces("in ", "place"), { atomic: false });
+        expect(fs.readFileSync(path.join(dir, "s.txt"), "utf-8")).toBe("in place");
+        await provider.writeFile(at("s.txt"), pieces("atom", "ic"), { atomic: true });
+        expect(fs.readFileSync(path.join(dir, "s.txt"), "utf-8")).toBe("atomic");
+        expect(fs.readdirSync(dir)).toEqual(["s.txt"]);
+    });
+
     it("an atomic write to a symlink or a hard-linked file happens in place", async () => {
         fs.writeFileSync(path.join(dir, "target.txt"), "old");
         fs.symlinkSync(path.join(dir, "target.txt"), path.join(dir, "link.txt"));

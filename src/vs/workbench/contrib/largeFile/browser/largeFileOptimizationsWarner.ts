@@ -69,7 +69,7 @@ export class LargeFileOptimizationsWarner extends Disposable implements IWorkben
             items: [ENABLE_EDITING_LABEL],
         });
         void handle.answered.then((index) => {
-            if (index === 0) enableLargeFileEditing(model, this.contextKeys, this.notifications);
+            if (index === 0) void enableLargeFileEditing(model, this.contextKeys, this.notifications);
         });
     }
 }

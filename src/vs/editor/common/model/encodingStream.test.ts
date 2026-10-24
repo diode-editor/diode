@@ -3,7 +3,14 @@ import { afterEach, describe, expect, it } from "vitest";
 import { setLazyModuleLoader } from "../../../base/common/lazyModule.ts";
 
 import { decodeBuffer, encodeText } from "./encoding.ts";
-import { decodeStream, decodeStreamByBOM, encodeChunks } from "./encodingStream.ts";
+import {
+    createStreamDecoder,
+    decodeStream,
+    decodeStreamByBOM,
+    encodeChunks,
+    ENCODED_CHUNK_SIZE,
+    encodeStream,
+} from "./encodingStream.ts";
 
 function splits(bytes: Buffer): Buffer[][] {
     const result: Buffer[][] = [[bytes], [...bytes].map((b) => Buffer.from([b]))];
@@ -108,6 +115,58 @@ describe("decodeStream / decodeStreamByBOM", () => {
         }
         expect(pulled).toEqual([0, 1]);
         expect(closed).toBe(true);
+    });
+});
+
+describe("createStreamDecoder", () => {
+    it("utf-8 fed byte by byte across a multibyte character == one-shot decoding", () => {
+        const bytes = Buffer.from("a😀β", "utf8");
+        const decoder = createStreamDecoder("utf8bom");
+        const parts = [...bytes].map((byte) => decoder.write(Buffer.from([byte])));
+        parts.push(decoder.end());
+        expect(parts.join("")).toBe("a😀β");
+    });
+
+    it("UTF-16 is native too; a non-Unicode encoding has no streaming codec", () => {
+        const decoder = createStreamDecoder("utf16le");
+        expect(decoder.write(Buffer.from("hi", "utf16le")) + decoder.end()).toBe("hi");
+        expect(() => createStreamDecoder("windows1251")).toThrow(/No native codec/);
+    });
+});
+
+describe("encodeStream", () => {
+    async function pieces(chunks: string[], encoding: string): Promise<Buffer[]> {
+        const result: Buffer[] = [];
+        for await (const piece of encodeStream(chunks, encoding)) result.push(piece);
+        return result;
+    }
+
+    it("yields about a megabyte at a time, the BOM first; the joined pieces are the one-shot encoding", async () => {
+        const chunk = "x".repeat(64 * 1024);
+        const chunks = Array.from({ length: 40 }, () => chunk);
+        const result = await pieces(chunks, "utf8bom");
+        // 2.5 MiB of text plus the BOM: two full pieces and the rest.
+        expect(result.map((piece) => piece.length)).toEqual([ENCODED_CHUNK_SIZE + 3, ENCODED_CHUNK_SIZE, 512 * 1024]);
+        expect(Buffer.concat(result).equals(await encodeText(chunks.join(""), "utf8bom"))).toBe(true);
+    });
+
+    it("reads the snapshot only as the pieces are taken", async () => {
+        let read = 0;
+        function* snapshot(): Generator<string> {
+            for (let i = 0; i < 3; i++) {
+                read++;
+                yield "y".repeat(ENCODED_CHUNK_SIZE);
+            }
+        }
+        const stream = encodeStream(snapshot(), "utf8");
+        expect(read).toBe(0);
+        await stream.next();
+        expect(read).toBe(1);
+    });
+
+    it("a non-Unicode encoding still encodes, at once", async () => {
+        const result = await pieces(["caf", "\u00e9"], "windows1252");
+        expect(Buffer.concat(result).equals(await encodeText("caf\u00e9", "windows1252"))).toBe(true);
     });
 });
 

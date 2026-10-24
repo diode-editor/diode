@@ -51,6 +51,20 @@ export interface IFileStatWithChildren extends IFileStat {
     readonly children: readonly IFileStatChild[];
 }
 
+/**
+ * What a write takes: the bytes at once, or a stream of pieces written one by one, so that saving a large file
+ * never holds all of its bytes (upstream `VSBuffer | VSBufferReadableStream`). A stream is consumed once.
+ */
+export type FileWriteContent = Uint8Array | AsyncIterable<Uint8Array>;
+
+/** For a provider that writes bytes at once (memory, an extension's provider across the RPC): a stream is joined. */
+export async function joinFileWriteContent(content: FileWriteContent): Promise<Uint8Array> {
+    if (content instanceof Uint8Array) return content;
+    const parts: Uint8Array[] = [];
+    for await (const part of content) parts.push(part);
+    return Buffer.concat(parts);
+}
+
 export interface IFileContent extends IFileStat {
     readonly value: Uint8Array;
 }
@@ -82,7 +96,7 @@ export interface IFileSystemProvider {
     readFile(resource: Uri): Promise<Uint8Array>;
     stat?(resource: Uri): Promise<IStat>;
     readdir?(resource: Uri): Promise<[string, FileType][]>;
-    writeFile?(resource: Uri, content: Uint8Array, options: IProviderWriteOptions): Promise<void>;
+    writeFile?(resource: Uri, content: FileWriteContent, options: IProviderWriteOptions): Promise<void>;
     mkdir?(resource: Uri): Promise<void>;
     delete?(resource: Uri, options: Required<IDeleteOptions>): Promise<void>;
     rename?(source: Uri, target: Uri, options: { readonly overwrite: boolean }): Promise<void>;
@@ -152,7 +166,7 @@ export interface IFileService {
     resolve(resource: Uri): Promise<IFileStatWithChildren>;
     readFile(resource: Uri, options?: IReadFileOptions): Promise<IFileContent>;
 
-    writeFile(resource: Uri, value: Uint8Array, options?: IWriteFileOptions): Promise<IFileStat>;
+    writeFile(resource: Uri, value: FileWriteContent, options?: IWriteFileOptions): Promise<IFileStat>;
     /** Creates missing parents too. */
     createFolder(resource: Uri): Promise<void>;
     del(resource: Uri, options?: IDeleteOptions): Promise<void>;

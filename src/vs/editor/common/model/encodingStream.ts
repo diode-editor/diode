@@ -11,7 +11,7 @@ import {
 // decoding, does not pull this into its role.
 
 /** For any chunk boundaries, the joined output equals a one-shot decode of the joined input. */
-interface IChunkDecoder {
+export interface IChunkDecoder {
     write(chunk: Buffer): string;
     end(): string;
 }
@@ -224,14 +224,48 @@ export async function decodeStream(bytes: Iterable<Buffer>, explicitEncoding?: s
     return { encoding: info.id, text: decodeChunks(stripBOM(head, info), source, decoder) };
 }
 
-/** Chunks are read after iconv-lite loads, so the snapshot must already be taken. */
-export async function encodeChunks(chunks: Iterable<string>, encoding: string): Promise<Buffer> {
+/**
+ * A decoder fed by the caller, chunk by chunk, across awaits: the streaming load of the document on disk reads
+ * its bytes asynchronously (OpenPerformance 4.5). Native codecs only — that document is UTF-8.
+ */
+export function createStreamDecoder(encoding: string): IChunkDecoder {
+    const codec = STREAM_CODECS.get(resolveEncodeEncoding(encoding).iconvName);
+    if (codec === undefined) throw new Error(`No native codec for streaming: ${encoding}`);
+    return codec.createDecoder();
+}
+
+/** What {@link encodeStream} yields at a time: a write per megabyte, not per 64 KB snapshot chunk. */
+export const ENCODED_CHUNK_SIZE = 1024 * 1024;
+
+/**
+ * The encoded bytes of a snapshot in pieces of about {@link ENCODED_CHUNK_SIZE}, the BOM first: a save writes
+ * them one by one, and no buffer of the whole file exists (upstream `toEncodeReadable`). Chunks are read only as
+ * the bytes are consumed, so the snapshot must already be taken. Non-Unicode encodings still encode at once.
+ */
+export async function* encodeStream(chunks: Iterable<string>, encoding: string): AsyncGenerator<Buffer> {
     const info = resolveEncodeEncoding(encoding);
     const codec = STREAM_CODECS.get(info.iconvName);
     // Like stripBOM in decodeBuffer, addBOM is a no-op for non-Unicode codecs.
     const encoder = codec !== undefined ? codec.createEncoder() : iconvEncoder(await loadIconv(), info.iconvName);
-    const parts: Buffer[] = info.bom === undefined ? [] : [Buffer.from(info.bom)];
-    for (const chunk of chunks) parts.push(encoder.write(chunk));
+    let parts: Buffer[] = info.bom === undefined ? [] : [Buffer.from(info.bom)];
+    let length = 0;
+    for (const chunk of chunks) {
+        const bytes = encoder.write(chunk);
+        parts.push(bytes);
+        length += bytes.length;
+        if (length >= ENCODED_CHUNK_SIZE) {
+            yield Buffer.concat(parts);
+            parts = [];
+            length = 0;
+        }
+    }
     parts.push(encoder.end());
+    yield Buffer.concat(parts);
+}
+
+/** {@link encodeStream} joined: for a caller that needs the bytes at once. */
+export async function encodeChunks(chunks: Iterable<string>, encoding: string): Promise<Buffer> {
+    const parts: Buffer[] = [];
+    for await (const bytes of encodeStream(chunks, encoding)) parts.push(bytes);
     return Buffer.concat(parts);
 }

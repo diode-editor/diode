@@ -7,6 +7,7 @@ import {
     type IFileService,
     type IFileSystemProvider,
     type IStat,
+    joinFileWriteContent,
 } from "../../../platform/files/common/files.ts";
 import type { IExtensionFileSystemBridge } from "../common/iExtensionFileSystem.ts";
 
@@ -79,7 +80,7 @@ export class FileSystemProviderAdapter extends Disposable {
                 }
                 return stat;
             },
-            writeFile: (uri, content) => this.bridge.writeProvidedFile(uri, content),
+            writeFile: async (uri, content) => this.bridge.writeProvidedFile(uri, await joinFileWriteContent(content)),
         });
     }
 

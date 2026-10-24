@@ -14,7 +14,7 @@ import type { WorkbenchContextKeys } from "../../../browser/workbenchContextKeys
 import type { IEditorService } from "../../../services/editor/common/editorService.ts";
 import { NotificationService } from "../../../services/notification/browser/notificationService.ts";
 
-import { ENABLE_EDITING_LABEL, TOO_LARGE_TO_EDIT_MESSAGE } from "./largeFileActions.ts";
+import { ENABLE_EDITING_LABEL, ENABLE_EDITING_REFUSALS } from "./largeFileActions.ts";
 import {
     LARGE_FILE_MESSAGE,
     LargeFileOptimizationsWarner,
@@ -180,7 +180,9 @@ describe("LargeFileOptimizationsWarner", () => {
             expect(editor.readOnly).toBe(true);
             expect(contextKeys.updates).toBe(0);
             // No button: a passive toast.
-            expect(notifications.passive()).toMatchObject([{ severity: "warn", message: TOO_LARGE_TO_EDIT_MESSAGE }]);
+            expect(notifications.passive()).toMatchObject([
+                { severity: "warn", message: ENABLE_EDITING_REFUSALS["too-large"] },
+            ]);
             editor.dispose();
         });
     });

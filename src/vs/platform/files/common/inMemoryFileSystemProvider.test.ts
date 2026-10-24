@@ -49,6 +49,16 @@ describe("InMemoryFileSystemProvider", () => {
         expect(second).toEqual({ type: FileType.File, mtime: 2, size: 5 });
     });
 
+    it("a stream is joined into the entry's bytes", async () => {
+        const provider = new InMemoryFileSystemProvider();
+        async function* pieces(): AsyncGenerator<Uint8Array> {
+            yield bytes("str");
+            yield bytes("eam");
+        }
+        await provider.writeFile(mem("/s.txt"), pieces(), atomic);
+        expect(text(await provider.readFile(mem("/s.txt")))).toBe("stream");
+    });
+
     it("writing without a parent or over a directory fails; reading a directory fails", async () => {
         const provider = new InMemoryFileSystemProvider();
         await expectResult(

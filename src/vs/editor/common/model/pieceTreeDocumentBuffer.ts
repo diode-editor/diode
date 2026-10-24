@@ -104,10 +104,27 @@ export class PieceTreeDocumentBuffer implements IDocumentBuffer {
 
 /** A chunk boundary may split `\r\n` or a surrogate pair; the builder holds the tail until the next chunk. */
 export function createTextBufferFactoryFromChunks(chunks: Iterable<string>): ITextBufferFactory {
-    const builder = new PieceTreeTextBufferBuilder();
+    const builder = createTextBufferFactoryBuilder();
     for (const chunk of chunks) builder.acceptChunk(chunk);
-    // Stryker disable next-line BooleanLiteral: without normalization the buffer converts EOL on every read (regex over text); same semantics, different cost
-    return builder.finish(true);
+    return builder.finish();
+}
+
+/** Takes chunks one at a time, across awaits: a streaming load feeds it as bytes arrive (A4, OpenPerformance 4.5). */
+export interface ITextBufferFactoryBuilder {
+    acceptChunk(chunk: string): void;
+    finish(): ITextBufferFactory;
+}
+
+/** {@link createTextBufferFactoryFromChunks} for a source that is not an iterable: upstream `createTextBufferFactoryFromStream`. */
+export function createTextBufferFactoryBuilder(): ITextBufferFactoryBuilder {
+    const builder = new PieceTreeTextBufferBuilder();
+    return {
+        acceptChunk: (chunk) => {
+            builder.acceptChunk(chunk);
+        },
+        // Stryker disable next-line BooleanLiteral: without normalization the buffer converts EOL on every read (regex over text); same semantics, different cost
+        finish: () => builder.finish(true),
+    };
 }
 
 /** Snapshot chunk merge threshold, as in upstream `TextModelSnapshot`. */

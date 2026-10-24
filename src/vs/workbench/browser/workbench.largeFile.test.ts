@@ -101,12 +101,12 @@ describe("Workbench — the large-file mode", () => {
         expect(notifications.isEmpty()).toBe(true);
     });
 
-    it("the command from the palette is the same door", () => {
+    it("the command from the palette is the same door", async () => {
         h.workbench.openFile(ws.path("big.log"));
         h.workbench.focusEditor();
         expect(contextKeys().get("editorReadonly")).toBe(true);
 
-        h.commands.execute(ENABLE_LARGE_FILE_EDITING_COMMAND_ID);
+        await h.commands.execute(ENABLE_LARGE_FILE_EDITING_COMMAND_ID);
 
         expect(h.activeEditor().readOnly).toBe(false);
         expect(contextKeys().get("editorReadonly")).toBe(false);
