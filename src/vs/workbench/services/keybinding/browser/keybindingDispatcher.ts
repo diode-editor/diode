@@ -8,7 +8,11 @@ import { deserializeWhen, whenPositiveKeys } from "../../../../platform/contextk
 import type { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { ContextKeyServiceDIToken } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
-import type { Keybinding, KeybindingRegistry } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
+import type {
+    Keybinding,
+    KeybindingRegistry,
+    KeybindingResolution,
+} from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import {
     formatKeybinding,
     keybindingLabelStyle,
@@ -73,6 +77,9 @@ function isModifierKey(key: string): boolean {
 // eslint-disable-next-line no-control-regex
 const CSI_U_KEY_RAW = /^\x1b\[[0-9;:]*u$/;
 
+/** `focus`: left to the focused widget's default action — no command runs, the root's later listeners don't see it. */
+type KeyDownOutcome = "consumed" | "unhandled" | "focus";
+
 function eventToKeybinding(event: TUIKeyboardEvent): Keybinding {
     return {
         key: event.key,
@@ -85,7 +92,8 @@ function eventToKeybinding(event: TUIKeyboardEvent): Keybinding {
 
 /**
  * Does not own the view: WorkbenchComponent attaches capture/bubble listeners to BodyElement and
- * supplies the {@link updateContextKeys} and {@link hasKeyboardCapturingOverlay} hooks.
+ * supplies the {@link updateContextKeys} and {@link hasKeyboardCapturingOverlay} hooks; the terminal supplies
+ * {@link isKeyForFocusedWidget}.
  */
 export class KeybindingDispatcher extends Disposable {
     public static dependencies = [
@@ -103,6 +111,13 @@ export class KeybindingDispatcher extends Disposable {
     };
 
     public hasKeyboardCapturingOverlay: () => boolean = () => false;
+
+    /**
+     * Asked outside a chord, before anything runs, with what the key would do: `true` leaves the key
+     * to the focused widget (the terminal sends it to the shell, like upstream's
+     * `attachCustomKeyEventHandler`). The owner of that widget supplies it.
+     */
+    public isKeyForFocusedWidget: (event: TUIKeyboardEvent, resolution: KeybindingResolution) => boolean = () => false;
 
     private keybindings: KeybindingRegistry;
     private contextKeys: ContextKeyService;
@@ -165,11 +180,11 @@ export class KeybindingDispatcher extends Disposable {
     // Bubble phase: a non-modifier key gets here only outside a chord (capture stops it otherwise);
     // a lone modifier keydown gets here in a chord too, and dispatchKeyDown ignores it.
     public readonly handleKeyDown = (event: TUIKeyboardEvent): void => {
-        if (this.dispatchKeyDown(event)) {
-            event.preventDefault();
-            // A consumed key does not reach the root's other listeners — menu mnemonics.
-            event.stopImmediatePropagation();
-        }
+        const outcome = this.dispatchKeyDownOutcome(event);
+        if (outcome === "consumed") event.preventDefault();
+        // Neither a consumed key nor one left to the focused widget reaches the root's other
+        // listeners — menu mnemonics: Alt+F in the terminal is the shell's, not the File menu's.
+        if (outcome !== "unhandled") event.stopImmediatePropagation();
     };
 
     // Releasing a modifier ends command "hold sessions" (MRU tabs) via
@@ -188,9 +203,13 @@ export class KeybindingDispatcher extends Disposable {
 
     /** `true` means the key was consumed (the caller calls preventDefault). */
     public dispatchKeyDown(event: TUIKeyboardEvent): boolean {
+        return this.dispatchKeyDownOutcome(event) === "consumed";
+    }
+
+    private dispatchKeyDownOutcome(event: TUIKeyboardEvent): KeyDownOutcome {
         // A lone modifier keydown (Kitty) is not a keystroke, like VS Code's `_doDispatch`: it neither
         // resolves, breaks nor advances a chord, and does not end a hold session.
-        if (isModifierKey(event.key)) return false;
+        if (isModifierKey(event.key)) return "unhandled";
         // A keypress that does not extend the hold session ends it: legacy terminals send no modifier
         // keyup, so a Ctrl+Tab series would otherwise live until the next switch.
         const armedBefore = this.armory.pendingGeneration;
@@ -201,12 +220,20 @@ export class KeybindingDispatcher extends Disposable {
         }
     }
 
-    private dispatchResolvedKeyDown(event: TUIKeyboardEvent): boolean {
+    private dispatchResolvedKeyDown(event: TUIKeyboardEvent): KeyDownOutcome {
         this.updateContextKeys();
         this.clearChordTimeout();
         this.clearNotFoundTimer();
         this.swallowNextKeyPress = false;
         const pendingBefore = this.keybindings.pendingLength;
+        // Mid-chord the key always continues the chord (upstream's `inChordMode`).
+        if (
+            pendingBefore === 0 &&
+            this.isKeyForFocusedWidget(event, this.keybindings.softResolveKey(event, this.contextKeys))
+        ) {
+            this.setChordHint(null);
+            return "focus";
+        }
         // Capture the chord prefix BEFORE resolving (resolveKey clears it on a break).
         const prefix = pendingBefore > 0 ? this.keybindings.getPendingChord(this.contextKeys) : [];
         const res = this.keybindings.resolveKey(event, this.contextKeys);
@@ -233,7 +260,7 @@ export class KeybindingDispatcher extends Disposable {
                 // No new chord may start while an overlay owns the keyboard.
                 this.keybindings.resetPending();
                 this.setChordHint(null);
-                return false;
+                return "unhandled";
             }
             // Prefix key of a chord — swallow its keypress and wait for the next.
             this.swallowNextKeyPress = true;
@@ -241,7 +268,7 @@ export class KeybindingDispatcher extends Disposable {
                 `(${formatKeybinding(res.chord, keybindingLabelStyle(this.contextKeys))}) was pressed. Waiting for next key…`,
             );
             this.startChordTimeout();
-            return true;
+            return "consumed";
         }
 
         // A continuation key (command or none) ends chord mode; its keypress
@@ -254,7 +281,7 @@ export class KeybindingDispatcher extends Disposable {
                 // A workbench/navigation shortcut fired while an overlay owns the keyboard:
                 // swallow it (no preventDefault) instead of acting behind the overlay.
                 this.setChordHint(null);
-                return false;
+                return "unhandled";
             }
             this.setChordHint(null);
             // Chord modifiers are for hold sessions (MRU tabs). Passed via context, not as a positional
@@ -276,7 +303,7 @@ export class KeybindingDispatcher extends Disposable {
             // consumed the keydown, the keypress must not also hit the widget: Enter would insert a newline
             // behind acceptSelectedSuggestion, PageDown would page a list twice.
             this.swallowNextKeyPress = true;
-            return true;
+            return "consumed";
         }
 
         if (wasInChord) {
@@ -286,11 +313,11 @@ export class KeybindingDispatcher extends Disposable {
                 keybindingLabelStyle(this.contextKeys),
             );
             this.showChordNotFound(combo);
-            return true; // consumed (no command, no leak)
+            return "consumed"; // no command, no leak
         }
 
         this.setChordHint(null);
-        return false;
+        return "unhandled";
     }
 
     /** Lives as a regular StatusBarService entry, left of the other left-side segments. */

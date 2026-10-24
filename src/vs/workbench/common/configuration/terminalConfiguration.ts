@@ -1,5 +1,7 @@
 import type { IConfigurationNode } from "../../../platform/configuration/common/configurationRegistry.ts";
 
+import { DEFAULT_COMMANDS_TO_SKIP_SHELL } from "./terminalCommandsToSkipShell.ts";
+
 export const terminalConfiguration = {
     id: "terminal",
     title: "Terminal",
@@ -108,6 +110,39 @@ export const terminalConfiguration = {
             default: true,
             description:
                 "Whether to hide the terminal view when the last terminal is closed. This will only happen when the terminal is the only visible view in the view container.",
+        },
+        // Keys while the terminal has focus: `terminalKeyRouting.ts`. Our schema can't express `items: string`.
+        "terminal.integrated.sendKeybindingsToShell": {
+            scope: "window",
+            type: "boolean",
+            default: false,
+            description:
+                "Dispatches most keybindings to the terminal instead of the workbench, overriding `#terminal.integrated.commandsToSkipShell#`, which can be used alternatively for fine tuning.",
+        },
+        "terminal.integrated.commandsToSkipShell": {
+            scope: "window",
+            type: "array",
+            default: [],
+            description: `A set of command IDs whose keybindings will not be sent to the shell but instead always be handled by VS Code. This allows keybindings that would normally be consumed by the shell to act instead the same as when the terminal is not focused, for example \`Ctrl+P\` to launch Quick Open.\n\n&nbsp;\n\nMany commands are skipped by default. To override a default and pass that command's keybinding to the shell instead, add the command prefixed with the \`-\` character. For example add \`-workbench.action.quickOpen\` to allow \`Ctrl+P\` to reach the shell.\n\n&nbsp;\n\nThe following list of default skipped commands is truncated when viewed in Settings Editor. To see the full list, [open the default settings JSON](command:workbench.action.openRawDefaultSettings 'Open Default Settings (JSON)') and search for the first command from the list below.\n\n&nbsp;\n\nDefault Skipped Commands:\n\n${[
+                ...DEFAULT_COMMANDS_TO_SKIP_SHELL,
+            ]
+                .sort()
+                .map((command) => `- ${command}`)
+                .join("\n")}`,
+        },
+        "terminal.integrated.allowChords": {
+            scope: "window",
+            type: "boolean",
+            default: true,
+            description:
+                "Whether or not to allow chord keybindings in the terminal. Note that when this is true and the keystroke results in a chord it will bypass `#terminal.integrated.commandsToSkipShell#`, setting this to false is particularly useful when you want ctrl+k to go to your shell (not VS Code).",
+        },
+        "terminal.integrated.allowMnemonics": {
+            scope: "window",
+            type: "boolean",
+            default: false,
+            description:
+                "Whether to allow menubar mnemonics (for example Alt+F) to trigger the open of the menubar. Note that this will cause all alt keystrokes to skip the shell when true. This does nothing on macOS.",
         },
         // Ours: vscode has no host terminal, and its integrated one always takes colors from the theme (our "theme" default).
         "terminal.integrated.colorSource": {

@@ -190,7 +190,9 @@ EOL); экшены фич — `contrib/<f>/browser/*Actions.ts`. Как они �
 (`platform/keybinding/common/modifierReleaseArmory.ts`), runtime-детект CSI-u. View
 не знает: владелец корневого дерева (`WorkbenchComponent`) вешает его
 capture/bubble-листенеры и подключает хук-шов `hasKeyboardCapturingOverlay`; второй
-хук — `updateContextKeys` — замыкает на себя `WorkbenchContextKeys`. Пользовательские
+хук — `updateContextKeys` — замыкает на себя `WorkbenchContextKeys`; третий — `isKeyForFocusedWidget` —
+ставит терминал: клавиша остаётся default action сфокусированного виджета, команда не выполняется,
+мнемоники её не видят ([Terminal.md](Terminal.md#клавиши-в-фокусе-терминала)). Пользовательские
 `keybindings.json` применяет `KeybindingsEditorService`
 ([KeybindingsEditor.md](KeybindingsEditor.md)).
 

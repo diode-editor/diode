@@ -525,6 +525,19 @@ export class KeybindingRegistry implements IDisposable {
         return { kind: "none" };
     }
 
+    /**
+     * {@link resolveKey} without side effects: the pending chord stays as it was. Upstream's
+     * `softDispatch` — asks what the key would do before deciding who gets it.
+     */
+    public softResolveKey(event: KeyboardEventLike, contextKeys?: ContextKeyService): KeybindingResolution {
+        const pending = this.pendingEvents;
+        try {
+            return this.resolveKey(event, contextKeys);
+        } finally {
+            this.pendingEvents = pending;
+        }
+    }
+
     /** Number of key presses accumulated for an in-progress chord (diagnostics). */
     public get pendingLength(): number {
         return this.pendingEvents.length;
