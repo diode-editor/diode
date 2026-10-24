@@ -153,8 +153,11 @@ describe("EditorViewState — Go to Line and Ctrl+End while the document grows",
         first.doc.setText(second.doc.onDisk!);
         expect(first.viewState.selections[0].active.line).toBe(9);
         await second.grow();
-        // Not 19: the target of the old document is gone; the flush did not clamp the cursor (it was on line 9 already).
-        expect(first.viewState.selections[0].active.line).toBe(9);
+        // The target of the old document is gone: line 45 is past the new file's 30 lines and is never reached. The
+        // cursor parked on the last line followed, though, and follow survives a reload (4.4): it rides the new end.
+        expect(first.viewState.selections[0].active.line).toBe(19);
+        await second.finish();
+        expect(first.viewState.selections[0].active.line).toBe(30);
     });
 
     it("in memory a target past the end is clamped as before, and an edit does not move the cursor", () => {

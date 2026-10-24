@@ -149,14 +149,19 @@ describe("EditorViewState over a document that grows (the document on disk)", ()
             });
         });
 
-        it("a flush forgets the clamps of the one before it, even when it leaves the cursor in place", async () => {
+        it("a clamped end follows on across the next flush: it goes to the new end, like `tail -F` after a rotation", async () => {
             const { doc, viewState } = await openedAtEnd(100);
             // The first reload clamps the cursor to line 19 and the pass never gets going.
             doc.setText(growingBuffer(60).buffer);
             expect(viewState.selections[0].active).toEqual({ line: 19, character: 0 });
-            // The second reload finds the cursor inside its first chunk: nothing to clamp, nothing to follow.
+            // The second reload finds the cursor inside its first chunk: nothing to clamp, but the end followed.
             await reloadAndGrow(doc, 40);
-            expect(viewState.selections[0].active).toEqual({ line: 19, character: 0 });
+            expect(viewState.selections[0].active).toEqual({ line: 40, character: 0 });
+
+            // A cursor the user moved off the end is not carried: the next flush leaves it in place.
+            viewState.selections = [createCursorSelection(10, 0)];
+            await reloadAndGrow(doc, 50);
+            expect(viewState.selections[0].active).toEqual({ line: 10, character: 0 });
         });
 
         it("in memory, after a reload that clamped: an edit elsewhere is an ordinary remap, no reveal", () => {

@@ -24,6 +24,12 @@ export const DISK_CACHED_PAGES = 32;
  */
 export const DISK_LINE_BYTE_CAP = MiB;
 /**
+ * Before the tail of a grown file is appended, this many bytes before the old end are read again and compared
+ * with the cached page: a file truncated and rewritten past its old size within one watcher window is not an
+ * append (follow, docs/arch/Editor.md). The last page is cached whenever the end was on screen.
+ */
+export const DISK_TAIL_CHECK_BYTES = 4 * KiB;
+/**
  * `buffer.constants.MAX_STRING_LENGTH` of node on 64-bit (V8's limit). Not imported: the editor's common
  * layer takes no node modules. Whole-text reads of a document on disk refuse above it with an error
  * instead of V8's `RangeError: Invalid string length` after seconds of work.
@@ -35,6 +41,7 @@ const CARRIAGE_RETURN = 0x0d;
 export interface IDiskIndexingProgress {
     readonly indexedBytes: number;
     readonly totalBytes: number;
+    /** No pass is running: the initial one is over and no tail is being read in the background. */
     readonly done: boolean;
     /** The pass stopped on a read error; what was indexed stays readable. */
     readonly error: unknown;
@@ -63,6 +70,11 @@ export interface IDiskTextBufferOptions {
  * {@link onDidAppendLines} (a change on the last line) and {@link onDidChangeIndexing} (progress). While the
  * pass runs the line whose end is not known yet is not counted; when it ends, the final line appears, empty
  * when the file ends with `\n` (as in the piece tree).
+ *
+ * A file that grows afterwards (a log being written; follow, stage 4.4) is extended in place with
+ * {@link extendTo}: the tail is read from the indexed end and its lines are appended, the last line included —
+ * nothing before it is read again. A tail of up to one chunk is read synchronously (the common case: a few
+ * lines per watcher window); a bigger one in a background pass like the initial one.
  */
 export class DiskTextBuffer implements IDocumentBuffer {
     public readonly isReadOnly = true;
@@ -75,9 +87,17 @@ export class DiskTextBuffer implements IDocumentBuffer {
     private readonly maxStringLength: number;
     /** Insertion order is the LRU order: a hit re-inserts. */
     private readonly pages = new Map<number, Buffer>();
+    /** The file's size as last told by the caller (the open, then {@link extendTo}); the passes read up to it. */
+    private sizeValue: number;
     private indexedBytes: number;
-    private done = false;
-    private indexingStarted = false;
+    /**
+     * The initial pass is over: the last line is counted, and the file's end is where the indexed bytes end. Never
+     * cleared: a later tail only moves the end.
+     */
+    private tailKnown = false;
+    /** The file grew after it was opened ({@link extendTo}): from then on the growth is an append (`isAppend`). */
+    private appended = false;
+    private passRunning = false;
     private indexingError: unknown = null;
     private disposed = false;
     private eolValue = EndOfLine.LF;
@@ -100,48 +120,81 @@ export class DiskTextBuffer implements IDocumentBuffer {
         this.cachedPages = options.cachedPages ?? DISK_CACHED_PAGES;
         this.lineByteCap = options.lineByteCap ?? DISK_LINE_BYTE_CAP;
         this.maxStringLength = options.maxStringLength ?? MAX_STRING_LENGTH;
+        this.sizeValue = file.size;
         this.indexedBytes = this.bomLength;
         this.starts.append(this.bomLength);
         const chunk = Buffer.allocUnsafe(this.chunkSize);
         const read = file.readSync(chunk, this.bomLength);
         this.indexChunk(chunk.subarray(0, read), this.bomLength);
-        if (this.indexedBytes >= file.size) this.finish();
+        if (this.indexedBytes >= this.sizeValue) this.finish();
     }
 
+    /** As last told: the size at open, or the one given to {@link extendTo}. */
     public get size(): number {
-        return this.file.size;
+        return this.sizeValue;
     }
 
     public get indexing(): IDiskIndexingProgress {
         return {
             indexedBytes: this.indexedBytes,
-            totalBytes: this.file.size,
-            done: this.done,
+            totalBytes: this.sizeValue,
+            done: this.tailKnown && !this.passRunning,
             error: this.indexingError,
         };
     }
 
     /** Idempotent. The pass stops with {@link dispose}. */
     public startIndexing(): void {
-        if (this.indexingStarted || this.done) return;
-        this.indexingStarted = true;
-        void this.indexRest();
+        if (this.passRunning || this.tailKnown) return;
+        void this.runPass();
     }
 
-    private async indexRest(): Promise<void> {
+    /**
+     * The file grew to `size` bytes (the caller compared the stats; follow, stage 4.4): the bytes from the indexed
+     * end are read and their lines appended, so the index, the pages and the lines before the old end stay. The
+     * event is a change on the old last line (its content may have grown) through the new one.
+     *
+     * `false`: the bytes before the old end no longer match the cached page — the file was truncated and rewritten
+     * past its old size within one watcher window, and the caller re-indexes from scratch. While a pass runs the
+     * new size is only recorded: the pass reads whatever has arrived when its layout is exhausted.
+     */
+    public extendTo(size: number): boolean {
+        // Stryker disable next-line EqualityOperator: at the same size the rest finds no tail to read and no page to grow; the return only saves the tail check
+        if (size <= this.sizeValue) return true;
+        const oldSize = this.sizeValue;
+        if (!this.tailUnchanged(oldSize)) return false;
+        this.appended = true;
+        this.sizeValue = size;
+        this.growPages();
+        if (this.passRunning || !this.tailKnown) return true;
+        if (size - this.indexedBytes > this.chunkSize) {
+            void this.runPass();
+            return true;
+        }
+        const before = this.lineCount;
+        const indexedBefore = this.indexedBytes;
+        this.appendTailSync();
+        this.fireTail(before, indexedBefore);
+        return true;
+    }
+
+    private async runPass(): Promise<void> {
+        this.passRunning = true;
+        this.indexingError = null;
         const chunk = Buffer.allocUnsafe(this.chunkSize);
         try {
-            // The chunks are laid out up front from the size at open: the pass is bounded by them, not by a
-            // counter that a mutant could stall (docs/MUTATION.md). A file that grows meanwhile is 4.4.
+            // The chunks are laid out up front from the size as told: the pass is bounded by them, not by a
+            // counter that a mutant could stall (docs/MUTATION.md). Bytes that arrive meanwhile are read by finish.
             for (const offset of this.chunkOffsets()) {
                 // A dispose can only land under the await: the loop body is synchronous otherwise.
                 const read = await this.file.read(chunk, offset);
                 if (!this.isLive()) return;
-                // The file shrank under us: what was indexed stays, the tail is gone (rotation is 4.4).
+                // The file shrank under us: what was indexed stays; the watcher reports the truncation separately.
                 if (read <= 0) break;
                 const before = this.lineCount;
+                const indexedBefore = this.indexedBytes;
                 this.indexChunk(chunk.subarray(0, read), offset);
-                this.fireGrowth(before);
+                this.fireTail(before, indexedBefore);
                 this.onDidChangeIndexingEmitter.fire();
             }
         } catch (error) {
@@ -151,11 +204,78 @@ export class DiskTextBuffer implements IDocumentBuffer {
         this.finish();
     }
 
-    /** Offsets of the chunks still to read, from the indexed end to the file size. */
+    /** Offsets of the chunks still to read, from the indexed end to the size as told. */
     private chunkOffsets(): number[] {
         const first = this.indexedBytes;
-        const count = Math.ceil((this.file.size - first) / this.chunkSize);
+        const count = Math.ceil((this.sizeValue - first) / this.chunkSize);
         return Array.from({ length: Math.max(0, count) }, (_, index) => first + index * this.chunkSize);
+    }
+
+    /** The tail up to the size as told, read on the calling thread; a short read ends it (the file shrank meanwhile). */
+    private appendTailSync(): void {
+        const offsets = this.chunkOffsets();
+        // Stryker disable next-line ConditionalExpression,EqualityOperator: with no chunk to read the loop below does nothing; the return only saves the allocation
+        if (offsets.length === 0) return;
+        // Sized to the tail, not to a chunk: a 4 MiB scratch buffer per appended line (20 a second) was 80 MB/s of
+        // external allocation, and V8's GC ran after it — a third of the CPU of follow.
+        // Stryker disable next-line MethodExpression,ArithmeticOperator: a bigger scratch buffer reads the same bytes (each read is bounded below); only the allocation differs
+        const chunk = Buffer.allocUnsafe(Math.min(this.chunkSize, this.sizeValue - this.indexedBytes));
+        // One `some` over the precomputed offsets: leaves on the first short read, bounded without a counter.
+        offsets.some((offset) => {
+            // Up to the size as told, not past it: bytes written after the stat belong to the next growth event.
+            const read = this.file.readSync(chunk.subarray(0, Math.min(chunk.length, this.sizeValue - offset)), offset);
+            // Stryker disable next-line BooleanLiteral: going on past an empty read only reads the later offsets, empty too, and indexes none of them
+            if (read <= 0) return true;
+            this.indexChunk(chunk.subarray(0, read), offset);
+            return false;
+        });
+    }
+
+    /**
+     * The end of the cached page around the old end still reads the same (up to {@link DISK_TAIL_CHECK_BYTES}).
+     * The whole cached page counts, not only the bytes before the old end: a page read after a write but before
+     * its watcher event holds bytes past the old end, and if those were rewritten, they are stale too. Nothing
+     * cached there — trusted: the end was never on screen, and a rewrite that keeps the old bytes as a prefix is
+     * an append by content.
+     */
+    private tailUnchanged(oldEnd: number): boolean {
+        const lastPage = Math.floor((oldEnd - 1) / this.pageSize);
+        // The last page may never have been read: a file ending with `\n` has an empty last line, and the frame
+        // reads the content of the line before it, which may end on the previous page.
+        for (const pageIndex of [lastPage, lastPage - 1]) {
+            const page = this.pages.get(pageIndex);
+            if (page === undefined) continue;
+            const from = Math.max(0, page.length - DISK_TAIL_CHECK_BYTES);
+            const probe = Buffer.allocUnsafe(page.length - from);
+            const read = this.file.readSync(probe, pageIndex * this.pageSize + from);
+            // A short read (the file shrank meanwhile) leaves fewer bytes, and a shorter buffer is never equal.
+            return probe.subarray(0, read).equals(page.subarray(from));
+        }
+        return true;
+    }
+
+    /**
+     * A page that ended with the file is short: the new bytes are read into the room it has left — one `pread`
+     * that returns the few new bytes, no allocation, where dropping it would re-read and re-allocate a whole page
+     * on the next frame, for every appended line. A full page has no room and is left as it is (a few dozen pages
+     * at most). Like any page read, it takes whatever the file holds, past the size as told too: the lines are
+     * bounded by the index, and {@link tailUnchanged} compares the whole page.
+     */
+    private growPages(): void {
+        for (const [index, page] of Array.from(this.pages.entries())) {
+            // `set` on a present key keeps its place in the LRU order.
+            this.pages.set(index, this.growPage(index, page));
+        }
+    }
+
+    /** {@link page} allocates every page whole (never from the shared pool): the short page is a view of its head. */
+    private growPage(index: number, page: Buffer): Buffer {
+        const want = this.pageSize - page.length;
+        // Stryker disable next-line ConditionalExpression,EqualityOperator: a full page has no room; the read into an empty view would return 0 and the same page, the return only saves the call
+        if (want <= 0) return page;
+        const room = Buffer.from(page.buffer, page.byteOffset + page.length, want);
+        const read = this.file.readSync(room, index * this.pageSize + page.length);
+        return Buffer.from(page.buffer, page.byteOffset, page.length + read);
     }
 
     /** A method, not the field: the flag flips under an `await`, which TypeScript's narrowing does not see. */
@@ -176,19 +296,36 @@ export class DiskTextBuffer implements IDocumentBuffer {
         }
     }
 
-    /** The last line becomes final (and visible); the pass is over either way. */
+    /**
+     * The pass is over: the last line becomes final (and visible), and the bytes that arrived while the pass ran
+     * ({@link extendTo} raised the size) are read now, on this thread.
+     */
     private finish(): void {
         const before = this.lineCount;
-        this.done = true;
-        this.lastLine = null;
-        this.fireGrowth(before);
+        const indexedBefore = this.indexedBytes;
+        this.passRunning = false;
+        this.tailKnown = true;
+        // Not after a read error: the rest of the file could be gigabytes, and the pass that failed was the way to
+        // read them off the thread; the next growth starts a new one.
+        if (this.indexingError === null) this.appendTailSync();
+        this.fireTail(before, indexedBefore);
         this.onDidChangeIndexingEmitter.fire();
     }
 
-    private fireGrowth(before: number): void {
+    /**
+     * A change from the old last line to the new one. Once the tail is known, the last line is on screen and its
+     * content may have grown without a new line — fired when bytes were indexed even if the count stands.
+     */
+    private fireTail(before: number, indexedBefore: number): void {
         const after = this.lineCount;
-        if (after === before) return;
-        this.onDidAppendLinesEmitter.fire({ startLine: before - 1, oldEndLine: before - 1, newEndLine: after - 1 });
+        if (after === before && !(this.tailKnown && this.indexedBytes !== indexedBefore)) return;
+        this.lastLine = null;
+        this.onDidAppendLinesEmitter.fire({
+            startLine: before - 1,
+            oldEndLine: before - 1,
+            newEndLine: after - 1,
+            ...(this.appended ? { isAppend: true } : {}),
+        });
     }
 
     public get eol(): EndOfLine {
@@ -200,7 +337,7 @@ export class DiskTextBuffer implements IDocumentBuffer {
      * one: a document always has a line, so a file without a `\n` in its first chunk shows what is read.
      */
     public get lineCount(): number {
-        return this.done ? this.starts.count : Math.max(1, this.starts.count - 1);
+        return this.tailKnown ? this.starts.count : Math.max(1, this.starts.count - 1);
     }
 
     public getLineContent(line: number): string {
@@ -344,7 +481,9 @@ export class DiskTextBuffer implements IDocumentBuffer {
             this.pages.set(index, cached);
             return cached;
         }
-        const buffer = Buffer.allocUnsafe(this.pageSize);
+        // Not `allocUnsafe`: below 4 KiB it slices node's shared pool, and growing a short page in place
+        // ({@link growPage}) writes past its view — into someone else's bytes, if the page came from the pool.
+        const buffer = Buffer.allocUnsafeSlow(this.pageSize);
         const read = this.file.readSync(buffer, index * this.pageSize);
         const page = buffer.subarray(0, read);
         this.pages.set(index, page);

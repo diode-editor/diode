@@ -161,6 +161,7 @@ import { InlineCompletionsServiceDIToken } from "./contrib/inlineCompletions/bro
 import { KEYBOARD_DOCTOR_ACTIONS } from "./contrib/keyboardDoctor/browser/keyboardDoctorActions.ts";
 import { KeyboardDoctorComponentDIToken } from "./contrib/keyboardDoctor/browser/keyboardDoctorComponent.ts";
 import { LARGE_FILE_ACTIONS } from "./contrib/largeFile/browser/largeFileActions.ts";
+import { LargeFileFollowStatusDIToken } from "./contrib/largeFile/browser/largeFileFollowStatus.ts";
 import { LargeFileIndexingStatusDIToken } from "./contrib/largeFile/browser/largeFileIndexingStatus.ts";
 import { LargeFileOptimizationsWarnerDIToken } from "./contrib/largeFile/browser/largeFileOptimizationsWarner.ts";
 import { LINES_OPERATIONS_ACTIONS } from "./contrib/linesOperations/browser/linesOperationsActions.ts";
@@ -283,6 +284,8 @@ export const WORKBENCH_CONTRIBUTIONS: readonly IWorkbenchContributionRegistratio
     { token: LargeFileOptimizationsWarnerDIToken, phase: "ready" },
     // Stryker disable next-line ObjectLiteral,StringLiteral: removing the entry is unobservable in a unit test; without it there is no progress, which the large-file-on-disk e2e scenario catches
     { token: LargeFileIndexingStatusDIToken, phase: "ready" },
+    // Stryker disable next-line ObjectLiteral,StringLiteral: removing the entry is unobservable in a unit test; without it there is no Follow entry, which the large-file-follow e2e scenario catches
+    { token: LargeFileFollowStatusDIToken, phase: "ready" },
     // Stryker disable next-line ObjectLiteral,StringLiteral: removing the entry is unobservable in a unit test; without it there is no toast, which the move-to-new-file-undo e2e scenario catches
     { token: UndoRefusalNotificationContributionDIToken, phase: "ready" },
     // Subscribe before the first operation, otherwise its start is missed.

@@ -27,7 +27,7 @@ export class MemoryRandomAccessFile implements IRandomAccessFile {
     private waiting: (() => void)[] = [];
 
     public constructor(
-        private readonly bytes: Buffer,
+        private bytes: Buffer,
         options: IMemoryRandomAccessFileOptions = {},
     ) {
         this.size = options.size ?? bytes.length;
@@ -52,6 +52,23 @@ export class MemoryRandomAccessFile implements IRandomAccessFile {
         }
         if (this.failAsync !== null) throw this.failAsync;
         return this.readSync(target, position);
+    }
+
+    /** All the bytes, the hidden tail included. */
+    public get length(): number {
+        return this.bytes.length;
+    }
+
+    /** The file grows under the open document (follow): the new bytes are readable at once. */
+    public append(more: Buffer | string): void {
+        this.bytes = Buffer.concat([this.bytes, typeof more === "string" ? Buffer.from(more) : more]);
+        this.visibleSize = this.bytes.length;
+    }
+
+    /** The file is truncated and rewritten in place (same inode): the old bytes are gone. */
+    public rewrite(content: Buffer | string): void {
+        this.bytes = typeof content === "string" ? Buffer.from(content) : content;
+        this.visibleSize = this.bytes.length;
     }
 
     /** How many async reads are waiting for {@link release}. */
