@@ -15,7 +15,7 @@ const dir = join(tmpdir(), "diode-scenario-large-file-editing");
 const file = join(dir, "editing.log");
 
 /** nf-cod-lock — the read-only tab marker, see tuidom/ui/editorgroup/editorTabItemElement.ts. */
-const LOCK = "";
+const LOCK = "\uea75";
 const FIRST_LINE = "2026-01-01T00:00:00.000Z INFO diode-scenario-edit-start";
 const EDIT = "EDITED ";
 
