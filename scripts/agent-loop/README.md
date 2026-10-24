@@ -26,7 +26,7 @@ bash scripts/agent-loop/dispatch.sh    # Enter — тик сейчас, q — в
 
 Переменные (все необязательны): `AGENT_LOOP_MODEL` (дефолт `opus` — алиас последнего Opus;
 зафиксировать версию — `claude-opus-5-5`), `AGENT_LOOP_INTERVAL`, `AGENT_LOOP_HOME`,
-`AGENT_LOOP_MAX_TASKS` (3), `AGENT_LOOP_LOAD5_MAX` (nproc/2), `AGENT_LOOP_MEM_MIN_PCT` (30),
+`AGENT_LOOP_MAX_TASKS` (2), `AGENT_LOOP_LOAD5_MAX` (nproc/2), `AGENT_LOOP_MEM_MIN_PCT` (30),
 `AGENT_LOOP_TASK_TIMEOUT_HOURS` (8), `AGENT_LOOP_MUTATION_BUDGET_MIN` (20).
 
 Посмотреть на задачу глазами — `tmux attach -t task-<N>`: окна `manager`, `implementer`, `tester`.
@@ -118,8 +118,9 @@ tuidom (тег `vX.Y.Z` на влитом `release: X.Y.Z`, затем ждёт 
 
 ## Нагрузка
 
-Тяжёлое сериализует лиза (`машина=1`, `.claude/leases.json`), `npm test` в манифест не добавлен,
-но детям велено гонять его под лизой всегда. Медленность и таймауты на загруженной машине —
+Тяжёлое сериализует лиза (`машина=1`, `.claude/leases.json`): кроме линта, мутаций и e2e там
+`check:diff`, `typecheck` и `npm test` — 2026-10-24 три задачи разом прогнали их мимо лизы и уронили под
+по памяти. Одновременно не больше 2 задач. Бенчи и перф-гейты локально не гоняются, только CI. Медленность и таймауты на загруженной машине —
 повтор под лизой, не расследование. Пороги старта новой задачи — в `facts.mjs` через переменные
 выше; человек наблюдает и подкручивает.
 

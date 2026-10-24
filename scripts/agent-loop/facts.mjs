@@ -70,7 +70,7 @@ function machine() {
 
 function limits(m) {
     return {
-        maxTasks: num("AGENT_LOOP_MAX_TASKS", 3),
+        maxTasks: num("AGENT_LOOP_MAX_TASKS", 2),
         load5Max: num("AGENT_LOOP_LOAD5_MAX", m.nproc / 2),
         memAvailableMinPct: num("AGENT_LOOP_MEM_MIN_PCT", 30),
         taskTimeoutHours: num("AGENT_LOOP_TASK_TIMEOUT_HOURS", 8),
