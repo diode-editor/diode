@@ -32,12 +32,28 @@ import { median } from "./stats.ts";
 //    1.4× the worst observed value, it catches the file text in memory (783 MB with the old path) and a fat index
 //    (4 bytes a line today: 21 MB on `log500m`).
 //
+// Then three steps on the indexed file (`hugeMeasure.ts`), `STEP_RUNS` live editors each, budgets on the median of
+// all samples of all runs:
+//
+// 4. Follow (4.4): `Ctrl+End`, then a line appended to the file, timed to the frame that shows it. The watcher's
+//    window is 50 ms, so the floor is ~55 ms (4.4: median 55.7, p90 57.9 locally); a budget below the window
+//    would take a decision for the whole watcher. It catches a re-read of the file instead of the tail.
+// 5. Find (4.3) on the read-only document: a query whose only match is in the middle of the file, from the paste
+//    to the counter (half a walk from the cursor at line 1), and characters typed while the walks run — each one
+//    starts a new walk over the whole file, the next one must not wait for it. It catches a synchronous walk
+//    (the key would take the whole walk: ~25 s on `log2g` before 4.3) and a slower walk.
+// 6. Enable Editing (4.5): from the toast's button to the editable tab, ArrowDown while the file streams into
+//    memory, and edit cycles (insert, Enter, undo, undo) right after the switch, when tokenization and folding come
+//    back on 500 MB and take the main thread in 200–300 ms slices. It catches a load that freezes again and a
+//    restored feature that walks the file on the key path.
+//
 // `log2g` (2 GB, 21.7 M lines) is not in the gate: it gives no signal of its own. Its first screen is the same
 // single chunk (locally 221 ms vs 208 for `log500m`), the index and its memory are linear in the line count and
 // are guarded by (2) and (3) on `log500m`. The price would be 2 GB of the runner's disk and ~4× the fixture
 // write and the index time per run. It stays an opt-in size of `bench:open` (`--sizes=log2g`).
 //
-// Cost: the fixture write (~10 s on CI) plus 6 runs of ~1.5 s (text, index, shutdown).
+// Cost: the fixture write (~10 s on CI), 6 runs of ~1.5 s (text, index, shutdown), then the steps: ~10 s each
+// for follow and find and ~15 s for Enable Editing locally (two runs each). Disk: the 500 MB fixture.
 //
 // Vitest bench has no budgets: an exception thrown from the bench function fails the file with a nonzero code.
 
@@ -157,7 +173,8 @@ describe("log500m: the giant file opens read-only on disk like a small one", () 
 
     const followSamples: number[] = [];
     let followCalls = 0;
-    bench(
+    // TODO(#802): enable once follow is on main (this branch gets rebased).
+    bench.skip(
         `log500m: follow, appended line to frame ≤ ${String(FOLLOW_BUDGET_MS)} ms (median)`,
         async () => {
             followCalls++;
@@ -179,7 +196,8 @@ describe("log500m: the giant file opens read-only on disk like a small one", () 
     const findKeySamples: number[] = [];
     const keysDuringWalk: number[] = [];
     let findCalls = 0;
-    bench(
+    // TODO(#800): enable once the background find is on main.
+    bench.skip(
         `log500m: find, first match ≤ ${String(FIND_FIRST_MATCH_BUDGET_MS)} ms, key during the walk ≤ ${String(FIND_KEY_BUDGET_MS)} ms (median)`,
         async () => {
             findCalls++;
@@ -209,7 +227,8 @@ describe("log500m: the giant file opens read-only on disk like a small one", () 
     const loadKeySamples: number[] = [];
     const editKeySamples: WorkloadStepResult[] = [];
     let editingCalls = 0;
-    bench(
+    // TODO(#803): enable once the streaming Enable Editing is on main.
+    bench.skip(
         `log500m: Enable Editing ≤ ${String(EDITABLE_BUDGET_MS)} ms, key during the load ≤ ${String(LOAD_KEY_BUDGET_MS)} ms, after it ≤ ${String(EDIT_KEY_BUDGET_MS)} ms (median)`,
         async () => {
             editingCalls++;
