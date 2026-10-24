@@ -13,6 +13,7 @@ import { FileService } from "../../../../platform/files/common/fileService.ts";
 import { DiskFileSystemProvider } from "../../../../platform/files/node/diskFileSystemProvider.ts";
 import type { ServiceAccessor } from "../../../../platform/instantiation/common/diContainer.ts";
 import { StateFileStore } from "../../../../platform/state/node/stateService.ts";
+import { NERD_FONT_ICONS, ProductIconServiceDIToken } from "../../../../platform/theme/common/productIconService.ts";
 import {
     type IUserDataProfile,
     IUserDataProfilesServiceDIToken,
@@ -28,7 +29,6 @@ import { LifecycleServiceDIToken } from "../../../services/lifecycle/browser/lif
 import { HostProcessDIToken, type IRelaunchRequest } from "../../../services/lifecycle/common/hostProcess.ts";
 import { NotificationServiceDIToken } from "../../../services/notification/browser/notificationService.ts";
 import { IUserDataProfileServiceDIToken } from "../../../services/userDataProfile/common/userDataProfile.ts";
-import { NERD_FONT_ICONS, ProductIconServiceDIToken } from "../../../../platform/theme/common/productIconService.ts";
 
 import {
     copyProfileContents,

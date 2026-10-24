@@ -1,6 +1,5 @@
-import { describe, expect, it } from "vitest";
-
 import { getCharDisplayWidth } from "@tuidom/core/common/unicodeWidth";
+import { describe, expect, it } from "vitest";
 
 import { CODICON_GLYPHS } from "./codicons.generated.ts";
 import { codicon, iconGlyph, renderCodicons } from "./codicons.ts";
