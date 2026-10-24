@@ -78,6 +78,8 @@ const EXPECTED_SCOPES: Readonly<Record<string, ConfigurationScope>> = {
 
     "terminal.tier": "machine",
     "keyboard.platform": "machine",
+    // The font of the terminal Diode runs in, like `terminal.integrated.colorSource`.
+    "diode.icons.nerdFont": "application",
     "terminal.capabilities": "machine",
     "terminal.modes": "machine",
     "terminal.customModes": "window",

@@ -78,13 +78,13 @@ describe("codicon fallback table", () => {
     const entries = Object.entries(CODICON_UNICODE);
 
     it("has no Private Use Area character", () => {
-        const pua = entries.filter(([, char]) => /[-]|[\u{F0000}-\u{10FFFF}]/u.test(char ?? ""));
+        const pua = entries.filter(([, char]) => /[\uE000-\uF8FF]|[\u{F0000}-\u{10FFFF}]/u.test(char ?? ""));
         expect(pua).toEqual([]);
     });
 
     it("holds single one-cell code points: no emoji, no wide character, no variation selector", () => {
         const bad = entries.filter(([, char]) => {
-            const points = [...(char ?? "")];
+            const points = Array.from(char ?? "");
             return points.length !== 1 || getCharDisplayWidth(points[0].codePointAt(0) ?? 0) !== 1;
         });
         expect(bad).toEqual([]);

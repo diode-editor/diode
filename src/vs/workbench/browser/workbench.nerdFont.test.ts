@@ -14,7 +14,7 @@ const PUA = /[\uE000-\uF8FF]|[\u{F0000}-\u{10FFFF}]/gu;
  * Glyphs drawn inside tuidom widgets (the tree chevrons): the follow-up task of the chain moves them
  * to the setting, they need an engine release.
  */
-const TUIDOM_WIDGET_GLYPHS = new Set(["", ""]);
+const TUIDOM_WIDGET_GLYPHS = new Set(["\uf107", "\uf105"]);
 
 /** Lines with a PUA character of Diode's own: what a font without Nerd Font symbols draws as tofu. */
 function puaOnScreen(screen: string): string[] {
