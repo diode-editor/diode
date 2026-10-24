@@ -1,4 +1,3 @@
-
 import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import * as os from "node:os";
 import { basename, join } from "node:path";
@@ -19,7 +18,6 @@ import { type Ladder, ladderFromTrace, parseTrace } from "./startupLadder.ts";
 export const COLS = 120;
 export const ROWS = 32;
 
-
 const KEYWORD_FG = packRgb(0x56, 0x9c, 0xd6);
 
 export function contentVisible(screen: AnsiScreen, marker: string): boolean {
@@ -31,7 +29,6 @@ export function highlightVisible(screen: AnsiScreen): boolean {
     if (pos === null) return false;
     return screen.cellAt(pos.x, pos.y).fg === KEYWORD_FG;
 }
-
 
 export interface Chunk {
     /** ms since spawn. */
@@ -75,7 +72,6 @@ export function firstSatisfiedAt(
     }
     return chunks[found].t;
 }
-
 
 export type WorkloadStepKey = "insert" | "enter" | "undoEnter" | "undoInsert" | "save" | "ctrlEnd" | "search";
 
@@ -172,7 +168,6 @@ async function waitForTrace(path: string, deadline: number): Promise<string | nu
     return null;
 }
 
-
 const KEY_CTRL_G = "\x07";
 const KEY_CTRL_F = "\x06";
 const KEY_CTRL_Z = "\x1a";
@@ -186,7 +181,7 @@ function bracketedPaste(text: string): string {
     return `\x1b[200~${text}\x1b[201~`;
 }
 
-interface StepContext {
+export interface StepContext {
     readonly session: DiodeSession;
     readonly chunks: Chunk[];
     readonly t0: number;
@@ -221,7 +216,7 @@ async function measureStep(
 }
 
 /** A document line on screen: a unique prefix, so truncation by width does not matter. */
-function linePrefix(fixture: OpenFixture, index: number): string {
+export function linePrefix(fixture: OpenFixture, index: number): string {
     return fixture.lineAt(index).slice(0, 70);
 }
 
@@ -255,7 +250,7 @@ async function gotoMiddle(ctx: StepContext, fixture: OpenFixture): Promise<strin
 }
 
 /** Insert a char at the line start, Enter, undo the Enter, undo the char: the document text is back as it was. */
-async function measureEditCycle(ctx: StepContext, middleLine: string): Promise<WorkloadStepResult[]> {
+export async function measureEditCycle(ctx: StepContext, middleLine: string): Promise<WorkloadStepResult[]> {
     const insertVisible = (s: AnsiScreen) => s.findText(INSERT_CHAR) !== null;
     // Enter after `@` at the line start: the line itself moves one row down, `@`
     // stays on its row. Compare row positions rather than "the rest of the row is
