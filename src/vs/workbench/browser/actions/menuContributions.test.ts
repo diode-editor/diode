@@ -190,6 +190,8 @@ describe("MENU_CONTRIBUTIONS — resulting built-in menus", () => {
         contextKeys.set("gitHasRepo", true);
         contextKeys.set("gitHasRemotes", true);
         expect(labels(MenuId.ViewTitle, { view: "workbench.scm.changes" }, contextKeys)).toEqual([
+            "Refresh",
+            "─",
             "View as Tree",
             "View as List",
             "─",

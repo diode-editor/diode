@@ -24,6 +24,7 @@ const MUTATING = [
     "git.stash",
     "git.stashPop",
     "scm.graph.refresh",
+    "git.refresh",
 ];
 
 /** Reads need no disabling: a file can be opened even during a commit. */

@@ -15,6 +15,7 @@ import { compareWithHeadAction } from "./compareWithHeadAction.ts";
 import { gitMutating } from "./gitProgress.ts";
 import { GRAPH_VIEW_ACTIONS } from "./graphActions.ts";
 import { GRAPH_COMMIT_ACTIONS } from "./graphCommitActions.ts";
+import { gitRefreshAction } from "./refreshActions.ts";
 import { gitShowOutputAction, REMOTE_TAG_ACTIONS } from "./remoteTagActions.ts";
 import {
     gitCleanAction,
@@ -42,6 +43,7 @@ export const SCM_ACTIONS: readonly CommandAction[] = [
     scmFocusChangesAction,
     gitShowOutputAction,
     ...[
+        gitRefreshAction,
         ...GRAPH_VIEW_ACTIONS,
         ...GRAPH_COMMIT_ACTIONS,
         gitStageAction,

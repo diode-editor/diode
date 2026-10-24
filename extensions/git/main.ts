@@ -225,14 +225,6 @@ class GitDecorations {
         );
 
         this.disposables.push(
-            vscode.commands.registerCommand("git.refresh", () => {
-                this.guard("git.refresh", () => {
-                    this.scheduleRefresh();
-                });
-            }),
-        );
-
-        this.disposables.push(
             vscode.commands.registerCommand(STAGE_COMMAND, (payload: unknown) =>
                 this.enqueueMutation((paths) => this.stage(paths), payload),
             ),
@@ -296,9 +288,14 @@ class GitDecorations {
         };
     }
 
+    private cancelScheduledRefresh(): void {
+        if (this.refreshTimer !== undefined) clearTimeout(this.refreshTimer);
+        this.refreshTimer = undefined;
+    }
+
     private scheduleRefresh(): void {
         if (this.isDisposed()) return;
-        if (this.refreshTimer !== undefined) clearTimeout(this.refreshTimer);
+        this.cancelScheduledRefresh();
         const debounce = this.config().debounce;
         this.refreshTimer = setTimeout(() => {
             this.refreshTimer = undefined;
@@ -611,6 +608,12 @@ class GitDecorations {
                     break;
                 case "logLoadMore":
                     this.logLimit = this.currentLogLimit() + this.logPageSize();
+                    result = { ok: true };
+                    break;
+                case "refresh":
+                    // The core's `git.refresh`: the work is the refreshAll every op ends with. A pending
+                    // watcher debounce would only repeat it right after.
+                    this.cancelScheduledRefresh();
                     result = { ok: true };
                     break;
                 case "pushDelete":
