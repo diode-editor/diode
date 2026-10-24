@@ -2440,5 +2440,20 @@
       "xlarge",
       "log500m"
     ]
+  },
+  {
+    "file": "2026-10-24-cfdc75ad83a4.json",
+    "generatedAt": "2026-10-24T15:33:20.832Z",
+    "commit": "cfdc75ad83a4",
+    "binaryVersion": "nightly-cfdc75a",
+    "ci": true,
+    "conditions": "CI, shared runner (GitHub Actions)",
+    "sizes": [
+      "small",
+      "medium",
+      "large",
+      "xlarge",
+      "log500m"
+    ]
   }
 ]
