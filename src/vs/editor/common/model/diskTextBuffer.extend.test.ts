@@ -315,6 +315,24 @@ describe("DiskTextBuffer.extendTo — the file grew (follow)", () => {
         buffer.dispose();
     });
 
+    it("a tail of several chunks that the file no longer has, read when a pass ends: the index stops at the bytes there", async () => {
+        const text = Array.from({ length: 6 }, (_, i) => `line ${String(i)}`).join("\n") + "\n";
+        const file = new MemoryRandomAccessFile(Buffer.from(text), { gated: true });
+        const buffer = new DiskTextBuffer(file, OPTIONS);
+        buffer.startIndexing();
+        file.append("more\n");
+        // The stat saw three chunks more than the file has by the time the pass ends (it shrank meanwhile).
+        expect(buffer.extendTo(file.length + 24)).toBe(true);
+
+        const done = indexed(buffer);
+        file.openGate();
+        await done;
+        expect(lines(buffer)).toEqual(expected(text + "more\n"));
+        // The empty read ends the tail: the chunks after it are not counted as indexed.
+        expect(buffer.indexing.indexedBytes).toBe(file.length);
+        buffer.dispose();
+    });
+
     it("growth before the pass started is read by the pass", async () => {
         const text = "line 0\nline 1\nline 2\n";
         const file = new MemoryRandomAccessFile(Buffer.from(text));

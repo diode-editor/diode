@@ -224,6 +224,7 @@ export class DiskTextBuffer implements IDocumentBuffer {
         offsets.some((offset) => {
             // Up to the size as told, not past it: bytes written after the stat belong to the next growth event.
             const read = this.file.readSync(chunk.subarray(0, Math.min(chunk.length, this.sizeValue - offset)), offset);
+            // Stryker disable next-line BooleanLiteral: going on past an empty read only reads the later offsets, empty too, and indexes none of them
             if (read <= 0) return true;
             this.indexChunk(chunk.subarray(0, read), offset);
             return false;

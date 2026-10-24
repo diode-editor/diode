@@ -340,6 +340,7 @@ export class EditorViewState {
         if (this.continuePendingTarget(change)) return;
 
         const carried = this.followingEnds;
+        // Stryker disable next-line ConditionalExpression,BooleanLiteral,BlockStatement: every carried end is replaced below by a new position, and a reload resets the undo history that could bring an old one back; the reset only drops dead entries early
         if (change.isFlush === true) {
             this.followingEnds = new WeakSet();
             this.flushEnds = new WeakSet();
@@ -408,6 +409,7 @@ export class EditorViewState {
 
     private moveToEnd(pos: IPosition, line: number, followed: IPosition[], viaFlush: boolean): IPosition {
         const moved = { line, character: Math.min(pos.character, this.document.getLineLength(line)) };
+        // Stryker disable next-line ConditionalExpression: an end moved by an append is on a buffer whose every later growth is an append too (a reload starts the sets afresh), so riding `isGrowth` as well changes nothing reachable
         if (viaFlush) this.addFlushEnd(moved);
         else this.followingEnds.add(moved);
         followed.push(moved);

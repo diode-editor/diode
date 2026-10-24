@@ -205,7 +205,8 @@ describe("EditorViewState.followTail — the screen rides the tail of a document
         viewState.cursorBottom();
         expect(viewState.followTail).toBe(true);
         doc.setText(log(200));
-        expect(viewState.selections[0].active.line).toBe(200);
+        // Both ends of the collapsed cursor: the anchor rides to the new end too, no selection opens.
+        expect(viewState.selections[0]).toMatchObject({ anchor: { line: 200 }, active: { line: 200 } });
         expect(viewState.followTail).toBe(true);
 
         // Not following, and a reload that clamps: on.

@@ -838,11 +838,15 @@ export class TextFileModel extends BaseTextEditorModel {
     private appendInMemory(filePath: string, current: IDiskStat): boolean {
         const end = this.memoryEnd;
         const known = this.diskStat;
-        if (end === null || this.doc.onDisk !== null || known === null) return false;
+        // The document on disk has no end in memory: openOnDisk clears it.
+        if (end === null) return false;
+        // Stryker disable next-line ConditionalExpression,BooleanLiteral: differsFromDisk let the event through only with a known stat; the check is for the type
+        if (known === null) return false;
         if (current.ino !== known.ino || current.size <= end.bytes || current.size - end.bytes > READ_CHUNK_SIZE) {
             return false;
         }
         const from = end.bytes - end.tail.length;
+        // Stryker disable next-line ArithmeticOperator: a longer read stops at the end of the file, which is the stat's size unless bytes were written in between
         const read = readRange(filePath, from, current.size - from);
         if (!read.subarray(0, end.tail.length).equals(end.tail)) return false;
         const added = read.subarray(end.tail.length);
@@ -852,6 +856,7 @@ export class TextFileModel extends BaseTextEditorModel {
         const tail = Buffer.concat([end.tail, whole]);
         this.memoryEnd = {
             bytes: end.bytes + whole.length,
+            // Stryker disable next-line MethodExpression: keeping the whole tail (at most a chunk) checks more bytes next time, the same verdict
             tail: Buffer.from(tail.subarray(Math.max(0, tail.length - DISK_TAIL_CHECK_BYTES))),
         };
         return true;
@@ -961,9 +966,11 @@ function readEnd(filePath: string, bytes: number): { bytes: number; tail: Buffer
 /** The bytes up to the last whole UTF-8 sequence: an append may end in the middle of a character. */
 function completeUtf8Length(bytes: Buffer): number {
     // A lead byte within the last three: its sequence ends past the buffer when it is longer than what is left.
+    // Stryker disable next-line MethodExpression: a lead further back starts a sequence of at most four bytes, which ends within the buffer
     for (let i = bytes.length - 1; i >= Math.max(0, bytes.length - 3); i--) {
         const byte = bytes[i];
         if ((byte & 0xc0) === 0x80) continue;
+        // Stryker disable next-line EqualityOperator: 0xC0 (and 0xC1) is never a lead in UTF-8, an overlong form; only `byte >= 0xc0` of the three can be one off
         const length = byte >= 0xf0 ? 4 : byte >= 0xe0 ? 3 : byte >= 0xc0 ? 2 : 1;
         return i + length > bytes.length ? i : bytes.length;
     }
