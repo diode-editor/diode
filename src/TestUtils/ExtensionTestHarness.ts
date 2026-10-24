@@ -199,6 +199,7 @@ export interface IExtensionHarnessOptions {
     /** The subprocess's stderr, line by line (`[ext-host] …` warnings land here). */
     readonly stderrLogger?: ILogger;
     readonly workspaceScanner?: IWorkspaceScanner;
+    readonly workspaceContainsTimeoutMs?: number;
     readonly environment?: IExtensionHostEnvironment;
     readonly environmentVariableCollections?: IEnvironmentVariableCollectionStore;
     readonly languageConfigurations?: Pick<ILanguageConfigurationService, "register">;
@@ -315,6 +316,9 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
         ...(options.secrets !== undefined ? { secrets: options.secrets } : {}),
         ...(options.extensionState !== undefined ? { extensionState: options.extensionState } : {}),
         ...(options.workspaceScanner !== undefined ? { workspaceScanner: options.workspaceScanner } : {}),
+        ...(options.workspaceContainsTimeoutMs !== undefined
+            ? { workspaceContainsTimeoutMs: options.workspaceContainsTimeoutMs }
+            : {}),
         ...(options.environment !== undefined ? { environment: options.environment } : {}),
         ...(options.environmentVariableCollections !== undefined
             ? { environmentVariableCollections: options.environmentVariableCollections }

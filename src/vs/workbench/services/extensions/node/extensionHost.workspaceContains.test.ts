@@ -9,8 +9,8 @@ import { settle } from "../../../../../TestUtils/timing.ts";
 import type { IWorkspaceScanner } from "./workspaceContainsActivation.ts";
 
 /**
- * Fixtures are real files in the harness `tmpDir` (its workspace folder);
- * the walk semantics are in the scanner's unit tests.
+ * Fixtures are real files in the harness `tmpDir` (its workspace folder), globs go to the real rg;
+ * the glob semantics are in the scanner's tests (`workspaceContainsActivation.ripgrep.test.ts`).
  */
 describe("ExtensionHost — activation by workspaceContains:", () => {
     it("a path pattern matches a file in a workspace folder → the extension is active", async () => {
@@ -169,7 +169,7 @@ describe("ExtensionHost — activation by workspaceContains:", () => {
         try {
             await harness.host.activateByWorkspaceContains();
             expect(scanner.exists).not.toHaveBeenCalled();
-            expect(scanner.readDirectory).not.toHaveBeenCalled();
+            expect(scanner.findFile).not.toHaveBeenCalled();
             expect(harness.host.hasExtension("test.other")).toBe(false);
         } finally {
             await harness.dispose();
@@ -184,7 +184,7 @@ describe("ExtensionHost — activation by workspaceContains:", () => {
                     absolutePath.endsWith("boom.txt")
                         ? Promise.reject(new Error("boom"))
                         : Promise.resolve(absolutePath.endsWith("pom.xml")),
-                readDirectory: () => Promise.resolve([]),
+                findFile: () => Promise.resolve(null),
             },
             extensions: [
                 {
@@ -255,9 +255,9 @@ describe("ExtensionHost — activation by workspaceContains:", () => {
 function spyScanner(): {
     scanner: IWorkspaceScanner;
     exists: ReturnType<typeof vi.fn>;
-    readDirectory: ReturnType<typeof vi.fn>;
+    findFile: ReturnType<typeof vi.fn>;
 } {
     const exists = vi.fn((absolutePath: string) => Promise.resolve(absolutePath.endsWith("pom.xml")));
-    const readDirectory = vi.fn(() => Promise.resolve([]));
-    return { scanner: { exists, readDirectory }, exists, readDirectory };
+    const findFile = vi.fn(() => Promise.resolve(null));
+    return { scanner: { exists, findFile }, exists, findFile };
 }

@@ -151,8 +151,7 @@ import { parseWireMementoUpdate } from "./hostWireParsers.ts";
 import { extensionRootPath, type IExtensionRegistration } from "./iExtensionEntry.ts";
 import { DEFAULT_REQUEST_TIMEOUTS, type RequestTimeouts } from "./requestPolicy.ts";
 import {
-    createNodeWorkspaceScanner,
-    type IWorkspaceContainsResult,
+    createRipgrepWorkspaceScanner,
     type IWorkspaceScanner,
     matchWorkspaceContains,
 } from "./workspaceContainsActivation.ts";
@@ -221,6 +220,7 @@ export interface IExtensionHostOptions {
     readonly storageHomes?: () => IExtensionStorageHomes;
     readonly secrets?: IExtensionSecretStore;
     readonly extensionState?: IExtensionStateStore;
+    /** Production passes one over the configuration service; the default knows no `files.exclude`/`search.exclude`. */
     readonly workspaceScanner?: IWorkspaceScanner;
     /** Ms; when it expires the extension stays inactive — like upstream `WORKSPACE_CONTAINS_TIMEOUT`. */
     readonly workspaceContainsTimeoutMs?: number;
@@ -285,6 +285,8 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
     /** `workspaceState` belongs to THIS workspace: a write after a folder change would leak into another store. */
     private readonly activationWorkspaces = new Map<string, string | null>();
     private readonly workspaceScanner: IWorkspaceScanner;
+    /** Live `workspaceContains` searches: window exit and a folder change cancel them, which kills their rg. */
+    private readonly workspaceContainsSearches = new Set<CancellationTokenSource>();
     private readonly languageFeatures: LanguageFeaturesCustomer;
     public constructor(
         editorOptions: IEditorOptionsService,
@@ -333,7 +335,7 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
         this.uriHandlersCustomer = this.register(new UriHandlersCustomer());
         this.storageHomes = options.storageHomes ?? fallbackExtensionStorageHomes;
         this.extensionState = options.extensionState ?? createTransientExtensionStateStore();
-        this.workspaceScanner = options.workspaceScanner ?? createNodeWorkspaceScanner();
+        this.workspaceScanner = options.workspaceScanner ?? createRipgrepWorkspaceScanner();
         this.env = new EnvCustomer(
             options.clipboard,
             options.externalOpener,
@@ -481,56 +483,71 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
             if (hasWorkspaceContainsPatterns(patterns)) candidates.push({ reg, patterns });
         }
         const folders = this.workspaceFolderPaths();
-        const matched: { reg: IExtensionRegistration; pattern: string }[] = [];
-        for (const candidate of candidates) {
-            const result = await this.matchWorkspaceContainsWithTimeout(candidate.reg.id, folders, candidate.patterns);
-            if (result.pattern !== null) matched.push({ reg: candidate.reg, pattern: result.pattern });
-        }
+        // In parallel, each with its own timeout (upstream searches per extension independently); activation
+        // keeps manifest order, so the log reads the same.
+        const patterns = await Promise.all(
+            candidates.map((candidate) =>
+                this.matchWorkspaceContainsWithTimeout(candidate.reg.id, folders, candidate.patterns),
+            ),
+        );
         // One at a time so the log shows each one's reason.
-        for (const hit of matched) {
-            await this.activateRegistrations([hit.reg], `workspaceContains:${hit.pattern}`);
+        for (const [index, candidate] of candidates.entries()) {
+            const pattern = patterns[index];
+            if (pattern !== null) await this.activateRegistrations([candidate.reg], `workspaceContains:${pattern}`);
         }
     }
 
     /**
-     * A timeout per manifest so one `**` can't eat the others' time. It's a race, not just token cancellation: a
-     * hung `readdir` won't notice a flag. Truncation is logged, otherwise it would read as "didn't match".
+     * A timeout per manifest so one `**` can't eat the others' time; it cancels the search, which kills its rg.
+     * It's a race, not just token cancellation: a `stat` hung on a dead mount won't notice a flag.
      */
     private async matchWorkspaceContainsWithTimeout(
         id: string,
         folders: readonly string[],
         patterns: IWorkspaceContainsPatterns,
-    ): Promise<IWorkspaceContainsResult> {
+    ): Promise<string | null> {
         const source = new CancellationTokenSource();
-        const timer = setTimeout(() => {
-            source.cancel();
-        }, this.options.workspaceContainsTimeoutMs);
-        // Own `catch` is required: otherwise the `Promise.race` loser would crash the process via unhandledRejection.
-        // Stryker disable next-line ObjectLiteral: the token here stops the BACKGROUND scan after the timeout has won the race; the caller gets the same answer without it — no observable difference
-        const scan = matchWorkspaceContains(this.workspaceScanner, folders, patterns, {
-            token: source.token,
-        }).catch((err: unknown): IWorkspaceContainsResult => {
-            this.logger?.error(`workspaceContains scan for "${id}" failed`, err);
-            return { pattern: null, truncated: true };
+        this.workspaceContainsSearches.add(source);
+        let timer: ReturnType<typeof setTimeout> | undefined;
+        // Settles BEFORE the cancellation below so the race tells a timeout from a window exit.
+        const timedOut = new Promise<"timeout">((resolve) => {
+            timer = setTimeout(() => {
+                resolve("timeout");
+                source.cancel();
+            }, this.options.workspaceContainsTimeoutMs);
         });
-        const cancelled = new Promise<IWorkspaceContainsResult>((resolve) => {
+        // Own `catch` is required: otherwise the `Promise.race` loser would crash the process via unhandledRejection.
+        const scan = matchWorkspaceContains(this.workspaceScanner, folders, patterns, source.token).catch(
+            (err: unknown): null => {
+                this.logger?.error(`workspaceContains scan for "${id}" failed`, err);
+                return null;
+            },
+        );
+        const cancelled = new Promise<null>((resolve) => {
             source.token.onCancellationRequested(() => {
-                resolve({ pattern: null, truncated: true });
+                resolve(null);
             });
         });
         // Clean up before logging: a throwing foreign logger must not leave a live timer.
-        const result = await Promise.race([scan, cancelled]);
-        // Stryker disable next-line CallExpression: a fired timer only triggers `source.cancel()`, which nobody listens to anymore — no observable difference
+        const result = await Promise.race([scan, timedOut, cancelled]);
         clearTimeout(timer);
-        // Stryker disable next-line CallExpression: removes listeners of a cancelled source; the caller's answer is already settled — no observable difference
+        this.workspaceContainsSearches.delete(source);
+        // Stryker disable next-line CallExpression: removes listeners of a settled source; the caller's answer is already settled — no observable difference
         source.dispose();
-        if (result.truncated) {
-            this.logger?.warn(`workspaceContains scan for "${id}" was cut short`, {
-                paths: patterns.paths,
-                globs: patterns.globs,
-            });
+        if (result === "timeout") {
+            // Like upstream; without it a timeout would read as "didn't match".
+            const searched = [...patterns.paths, ...patterns.globs].join(",");
+            this.logger?.warn(
+                `Not activating extension '${id}': Timed out while searching for 'workspaceContains' pattern ${searched}`,
+            );
+            return null;
         }
         return result;
+    }
+
+    /** Their answer is `null`: an interrupted search is no match, and it isn't a timeout either. */
+    private cancelWorkspaceContainsSearches(): void {
+        for (const source of this.workspaceContainsSearches) source.cancel();
     }
 
     /** Non-`file:` folders are dropped: the scanner can't walk them. */
@@ -940,6 +957,8 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
     public override dispose(): void {
         if (this.hostDisposed) return;
         this.hostDisposed = true;
+        // The window is going away: an rg still walking a slow mount must not outlive it.
+        this.cancelWorkspaceContainsSearches();
         this.phases.clear();
         // Stubs live in the core's shared command registry — after dispose there's nothing left for them to activate.
         this.commands.disarmAll();
@@ -1062,6 +1081,8 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
      * Here the window lives on and only the subprocess restarts.
      */
     public async restartForWorkspaceChange(): Promise<void> {
+        // The old folders' searches are moot: the pass below searches the new ones.
+        this.cancelWorkspaceContainsSearches();
         // No spawn (also for a disposed host) — nothing to restart.
         if (this.rpc === null) {
             await this.activateByWorkspaceContains();

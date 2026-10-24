@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { packBundle } from "../../../../base/common/assets/assetBundleFormat.ts";
 
-import { loadRipgrepPath, resolveRipgrepPath } from "./loadRipgrep.ts";
+import { loadRipgrepPath, resolveRipgrepPath, RIPGREP_PATH_ENV } from "./loadRipgrep.ts";
 
 const RG = process.platform === "win32" ? "rg.exe" : "rg";
 
@@ -49,5 +49,16 @@ describe("resolveRipgrepPath", () => {
         const first = loadRipgrepPath();
         expect(first).toBe(resolveRipgrepPath(null));
         expect(loadRipgrepPath()).toBe(first);
+    });
+});
+
+describe("loadRipgrepPath — DIODE_RIPGREP_PATH", () => {
+    it("a set variable wins over the bundled rg", () => {
+        expect(loadRipgrepPath({ [RIPGREP_PATH_ENV]: "/opt/fake/rg" })).toBe("/opt/fake/rg");
+    });
+
+    it("an empty variable is the same as unset: the bundled rg", () => {
+        expect(loadRipgrepPath({ [RIPGREP_PATH_ENV]: "" })).toBe(loadRipgrepPath({}));
+        expect(loadRipgrepPath({})).toMatch(/ripgrep/);
     });
 });
