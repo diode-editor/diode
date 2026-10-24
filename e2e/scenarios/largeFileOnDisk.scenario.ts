@@ -107,7 +107,10 @@ export default defineScenario({
         await editor.sendKey("Ctrl+End");
         await editor.sendKey("Ctrl+F");
         await editor.sendText("log-start");
-        await editor.waitForText((t) => t.includes("1 of 1") && t.includes(FIRST_LINE), { timeoutMs: 120_000 });
+        // The widget covers the tail of the first line: the top of the file is recognised by its fourth line.
+        await editor.waitForText((t) => t.includes("1 of 1") && t.includes("request 3 handled in 3ms"), {
+            timeoutMs: 120_000,
+        });
         await editor.capture("find-lone-match");
     },
 });
