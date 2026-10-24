@@ -15,6 +15,11 @@ export interface IDocumentContentChange {
     readonly isGrowth?: boolean;
     /** The growth that ends the background pass: the document's end is final (until something is appended). */
     readonly isFinalGrowth?: boolean;
+    /**
+     * Lines came in from outside, after the last one: the index of a document on disk grew, or its file did
+     * (docs/arch/Editor.md). No version bump; the view's follow (`EditorViewState.followTail`) rides on it.
+     */
+    readonly isAppend?: boolean;
 }
 
 /**

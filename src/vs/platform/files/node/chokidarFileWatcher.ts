@@ -23,7 +23,10 @@ export function toChokidarPath(fsPath: string): string {
 }
 
 /**
- * Debounces event bursts: an atomic write is unlink+add within a couple of milliseconds.
+ * Coalesces event bursts into one callback per {@link WATCH_COALESCE_MS} window: an atomic write is unlink+add
+ * within a couple of milliseconds. The window starts with the first event and is not extended by the next ones
+ * (a throttle, not a debounce): a log appended every few milliseconds would otherwise never be reported, and
+ * follow (docs/arch/Editor.md) rides on these callbacks — the window is also its frame rate cap.
  *
  * **Chokidar gets the file's directory, not the file itself** (`depth: 0`, siblings
  * filtered out). For a file root chokidar holds an `fs.watch` on the inode, shared
@@ -36,6 +39,8 @@ export function toChokidarPath(fsPath: string): string {
  * existing ancestor and move closer to the file as segments appear. A file that already
  * appeared by the time we move counts as a change: `ignoreInitial` would not report it.
  */
+export const WATCH_COALESCE_MS = 50;
+
 export class ChokidarFileWatcher implements IFileWatcher {
     private readonly logger: ILogger | undefined;
 
@@ -48,11 +53,11 @@ export class ChokidarFileWatcher implements IFileWatcher {
         let timer: ReturnType<typeof setTimeout> | null = null;
 
         const notify = (): void => {
-            if (timer !== null) clearTimeout(timer);
+            if (timer !== null) return;
             timer = setTimeout(() => {
                 timer = null;
                 onChange();
-            }, 50);
+            }, WATCH_COALESCE_MS);
         };
 
         /** `fileMayExist`: the file may have appeared while we weren't watching. */

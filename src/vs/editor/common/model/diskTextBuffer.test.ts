@@ -106,9 +106,9 @@ describe("DiskTextBuffer", () => {
         // Chunk 2 ("hree\nfour") completes "three", chunk 3 ("\n") completes "four"; the end of the
         // file makes the empty last line final.
         expect(events).toEqual([
-            { startLine: 1, oldEndLine: 1, newEndLine: 2 },
-            { startLine: 2, oldEndLine: 2, newEndLine: 3 },
-            { startLine: 3, oldEndLine: 3, newEndLine: 4 },
+            { startLine: 1, oldEndLine: 1, newEndLine: 2, isAppend: true },
+            { startLine: 2, oldEndLine: 2, newEndLine: 3, isAppend: true },
+            { startLine: 3, oldEndLine: 3, newEndLine: 4, isAppend: true },
         ]);
         expect(counts).toEqual([3, 4, 5]);
         // Progress: one per chunk read, one for the end.

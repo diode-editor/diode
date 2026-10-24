@@ -58,6 +58,8 @@ export type SaveOutcome = "saved" | "conflict" | "no-file";
 interface IDiskStat {
     mtimeMs: number;
     size: number;
+    /** Tells the same file grown from another one under the same name (a rotated log); unknown after our own write. */
+    ino?: number;
 }
 
 function diskEtag(stat: IDiskStat): string {
@@ -747,7 +749,7 @@ export class TextFileModel extends BaseTextEditorModel {
     private readDiskStat(filePath: string): IDiskStat | null {
         try {
             const stat = fs.statSync(filePath);
-            return { mtimeMs: stat.mtimeMs, size: stat.size };
+            return { mtimeMs: stat.mtimeMs, size: stat.size, ino: stat.ino };
         } catch {
             return null;
         }
@@ -784,10 +786,25 @@ export class TextFileModel extends BaseTextEditorModel {
         if (this.streamingForEditing || !this.differsFromDisk(current)) return;
         if (this.isModified) {
             this.setDiskConflict(true);
+        } else if (this.extendOnDisk(current)) {
+            this.diskStat = current;
         } else {
             this.revertToDisk();
             this.fireDiskStateChange();
         }
+    }
+
+    /**
+     * Follow (docs/arch/Editor.md, OpenPerformance 4.4): the same file grew, so the document on disk reads the tail
+     * and keeps everything before it. Anything else — truncation, a rotated file under the same name (another
+     * inode), a rewrite the buffer's tail check catches — re-indexes from scratch like a reload. `false` — not that case.
+     */
+    private extendOnDisk(current: IDiskStat): boolean {
+        const disk = this.doc.onDisk;
+        const known = this.diskStat;
+        if (disk === null || known === null) return false;
+        if (current.ino === undefined || current.ino !== known.ino || current.size <= known.size) return false;
+        return disk.extendTo(current.size);
     }
 
     private scheduleOrphanCheck(filePath: string): void {

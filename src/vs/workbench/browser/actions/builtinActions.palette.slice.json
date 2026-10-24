@@ -23,6 +23,7 @@
     "firstCompressedFolder",
     "lastCompressedFolder",
     "workbench.action.files.enableLargeFileEditing",
+    "workbench.action.editor.toggleFollowTail",
     "workbench.action.openSettings",
     "workbench.action.openSettingsJson",
     "workbench.action.openWorkspaceSettings",
