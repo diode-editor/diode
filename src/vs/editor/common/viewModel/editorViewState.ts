@@ -1794,6 +1794,7 @@ export class EditorViewState {
             !isSelectionCollapsed(only) ||
             !positionsEqual(only.active, target.parkedAt)
         ) {
+            // Stryker disable next-line BooleanLiteral: with the target dropped the growth has nothing left to remap, every position is before the old end
             return false;
         }
         // Re-parks itself while the target is still past the end.

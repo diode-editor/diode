@@ -140,14 +140,17 @@ export class BackgroundFind implements IDisposable {
             chars += content.length;
             if (chars >= this.sliceChars) break;
         }
+        let pausing = false;
         if (!this.doneValue && this.afterLine >= this.document.lineCount && this.beforeLine >= this.startLine) {
             if (this.growth?.isGrowing() === true) {
                 this.waitForGrowth();
+                pausing = true;
             } else {
                 this.doneValue = true;
             }
         }
-        this.report();
+        // A pause for the index may last seconds: what was found so far goes out even inside the interval.
+        this.report(pausing);
         if (!this.doneValue && this.growthSubscription === null) {
             this.schedule(() => {
                 this.runSlice();
@@ -162,18 +165,20 @@ export class BackgroundFind implements IDisposable {
     /** The end of what is indexed so far: the next slice runs when more lines are in (or the growth is over). */
     private waitForGrowth(): void {
         /* v8 ignore start -- runSlice is not re-entered while a subscription is live: a slice is scheduled only without one */
+        // Stryker disable next-line ConditionalExpression,LogicalOperator,EqualityOperator: unreachable for the same reason as for coverage; the null check is for the type
         if (this.growthSubscription !== null || this.growth === null) return;
         /* v8 ignore stop */
         this.growthSubscription = this.growth.onDidGrow(() => {
+            // Stryker disable next-line OptionalChaining: the field is assigned right after the subscription; the chain covers an event that fires inside it
             this.growthSubscription?.dispose();
             this.growthSubscription = null;
             this.runSlice();
         });
     }
 
-    private report(): void {
+    private report(force = false): void {
         const total = this.total();
-        if (!this.doneValue) {
+        if (!this.doneValue && !force) {
             if (total === this.reportedTotal) return;
             // The first match goes out at once (it is what the find reveals); after it the counter is throttled.
             if (this.reportedTotal > 0 && Date.now() - this.lastReportAt < this.reportIntervalMs) return;

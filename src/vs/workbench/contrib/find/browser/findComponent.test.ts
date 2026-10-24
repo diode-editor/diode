@@ -240,3 +240,25 @@ describe("FindWidget — focus", () => {
         expect(testApp.focusedElement).toBe(input(component));
     });
 });
+
+describe("FindWidget — counter colors and the state before the first count", () => {
+    it("a query without a count yet reads «No results», not «Searching…»", () => {
+        const component = make();
+        component.setQuery("foo");
+        const screen = render(component).screenToString();
+        expect(screen).toContain("No results");
+        expect(screen).not.toContain("Searching");
+    });
+
+    it("a counter with matches is not painted in the error color", () => {
+        const component = make();
+        component.setQuery("foo");
+        component.setCounter(1, 3);
+        const backend = render(component);
+        const screen = backend.screenToString();
+        const rows = screen.split("\n");
+        const y = rows.findIndex((row) => row.includes("1 of 3"));
+        const x = rows[y].indexOf("1 of 3");
+        expect(backend.getFgAt(new Point(x, y))).not.toBe(theme.getRequiredColor("editorError.foreground"));
+    });
+});

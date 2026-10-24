@@ -112,9 +112,11 @@ describe("EditorViewState — Go to Line and Ctrl+End while the document grows",
 
         const two = growing(50);
         two.viewState.goToPosition(45, 0);
-        two.viewState.selections = [createCursorSelection(2, 0), createCursorSelection(9, 0)];
+        // The parked cursor stays where it was; the second one is the reason to drop the target.
+        two.viewState.selections = [createCursorSelection(9, 0), createCursorSelection(9, 3)];
         await two.grow();
-        expect(two.viewState.selections.map((sel) => sel.active.line)).toEqual([2, 9]);
+        expect(two.viewState.selections.map((sel) => sel.active.character)).toEqual([0, 3]);
+        expect(two.viewState.selections.map((sel) => sel.active.line)).toEqual([9, 9]);
     });
 
     it("Shift+Ctrl+End extends the selection to the provisional end and does not follow", async () => {
@@ -163,5 +165,22 @@ describe("EditorViewState — Go to Line and Ctrl+End while the document grows",
             { range: { start: { line: 9, character: 6 }, end: { line: 9, character: 6 } }, text: "\nmore\nmore" },
         ]);
         expect(viewState.selections[0].active).toEqual({ line: 9, character: 0 });
+    });
+
+    it("a jump inside the document sets no target: growth does not pull the viewport back to the cursor", async () => {
+        const inside = growing(50);
+        inside.viewState.goToPosition(3, 0);
+        inside.viewState.scrollTop = 5;
+        await inside.grow();
+        expect(inside.viewState.selections[0].active).toEqual({ line: 3, character: 0 });
+        expect(inside.viewState.scrollTop).toBe(5);
+
+        // The last line itself is inside the document too.
+        const last = growing(50);
+        last.viewState.goToPosition(9, 0);
+        last.viewState.scrollTop = 0;
+        await last.grow();
+        expect(last.viewState.selections[0].active).toEqual({ line: 9, character: 0 });
+        expect(last.viewState.scrollTop).toBe(0);
     });
 });

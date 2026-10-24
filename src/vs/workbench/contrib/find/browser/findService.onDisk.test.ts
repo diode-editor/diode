@@ -6,7 +6,11 @@ import type { InputElement } from "@tuidom/elements/inputbox/inputElement";
 import type { TextLabelElement } from "@tuidom/elements/text/textLabelElement";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+// The walks over the 6 MiB file wait for the index and for the end of the walk with 20 s waits.
+vi.setConfig({ testTimeout: 60_000 });
+
 import { diskFileService } from "../../../../../TestUtils/diskFileService.ts";
+import { memoryFileOpener } from "../../../../../TestUtils/memoryRandomAccessFile.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
 import { createTestConfigurationService } from "../../../../../TestUtils/testConfigurationService.ts";
@@ -19,6 +23,7 @@ import { TokenizationRegistry } from "../../../../editor/common/languages/tokeni
 import { DISK_INDEX_CHUNK_SIZE } from "../../../../editor/common/model/diskTextBuffer.ts";
 import { MATCHES_LIMIT } from "../../../../editor/contrib/find/findMatches.ts";
 import { NULL_FILE_WATCHER } from "../../../../platform/files/common/iFileWatcher.ts";
+import type { IRandomAccessFileOpener } from "../../../../platform/files/common/iRandomAccessFile.ts";
 import { nodeRandomAccessFileOpener } from "../../../../platform/files/node/nodeRandomAccessFile.ts";
 import { NULL_LOG_SERVICE } from "../../../../platform/log/common/nullLogService.ts";
 import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";
@@ -81,7 +86,7 @@ describe("FindService over a document on disk", () => {
         ws.dispose();
     });
 
-    function setup() {
+    function setup(name = "huge.log", opener: IRandomAccessFileOpener = nodeRandomAccessFileOpener) {
         const themeService = new ThemeService(WorkbenchTheme.fromThemeFile(darkPlusTheme));
         // Above 1 MiB the file stays on disk (docs/arch/Editor.md).
         const configuration = createTestConfigurationService({ "editor.largeFileSizeThreshold": 1 });
@@ -93,7 +98,7 @@ describe("FindService over a document on disk", () => {
             files,
             NULL_FILE_WATCHER,
             configuration,
-            nodeRandomAccessFileOpener,
+            opener,
         );
         const group = new EditorService(
             themeService,
@@ -118,7 +123,7 @@ describe("FindService over a document on disk", () => {
             createTestContextMenuService(),
             group.editorGroups,
         );
-        group.openFile(ws.path("huge.log"));
+        group.openFile(ws.path(name));
         const body = new BodyElement();
         body.setContent(groupComponent.view);
         const testApp = TestApp.create(body, new Size(100, 24));
@@ -260,19 +265,25 @@ describe("FindService over a document on disk", () => {
         expect(editor.viewState.searchMatches[0].start.line).toBe(cursorLine);
         expect(editor.viewState.currentSearchMatchIndex).toBe(0);
 
+        // Past the first element the document is read (the line before the list's first line).
+        const reads = vi.spyOn(editor.viewState.document, "getLineContent");
+        const linesRead = () => new Set(reads.mock.calls.map((call) => call[0]));
         find.prev();
         expect(editor.viewState.currentSearchMatchIndex).toBe(0);
         expect(editor.viewState.searchMatches[0].start.line).toBe(cursorLine - 1);
         expect(editor.viewState.searchMatches).toHaveLength(MATCHES_LIMIT + 1);
         expect(counterText(widget)).toBe(`1 of ${String(MATCHES_LIMIT)}+`);
+        expect(linesRead().has(cursorLine - 1)).toBe(true);
 
         find.prev();
         expect(editor.viewState.currentSearchMatchIndex).toBe(0);
         expect(editor.viewState.searchMatches[0].start.line).toBe(cursorLine - 2);
-        // Inside the list the steps are ordinary.
+        // Inside the list the steps are ordinary: nothing is read but the revealed lines.
+        reads.mockClear();
         find.next();
         find.next();
         expect(editor.viewState.currentSearchMatchIndex).toBe(2);
+        expect([...linesRead()].every((line) => line === cursorLine - 1 || line === cursorLine)).toBe(true);
         expect(editor.viewState.searchMatches[2].start.line).toBe(cursorLine);
         expect(editor.viewState.searchMatches).toHaveLength(MATCHES_LIMIT + 2);
     });
@@ -292,9 +303,12 @@ describe("FindService over a document on disk", () => {
         expect(editor.viewState.currentSearchMatchIndex).toBe(MATCHES_LIMIT - 1);
 
         // Next from the document's last match wraps to its first, which the list holds already.
+        const reads = vi.spyOn(editor.viewState.document, "getLineContent");
         find.next();
         expect(editor.viewState.currentSearchMatchIndex).toBe(0);
         expect(editor.viewState.searchMatches).toHaveLength(MATCHES_LIMIT);
+        // The document was searched (the empty last line, then the top), not the list stepped.
+        expect(reads.mock.calls.some((call) => call[0] === lines)).toBe(true);
         // And back.
         find.prev();
         expect(editor.viewState.currentSearchMatchIndex).toBe(MATCHES_LIMIT - 1);
@@ -309,7 +323,8 @@ describe("FindService over a document on disk", () => {
         find.close();
         expect(editor.viewState.searchMatches).toEqual([]);
         await indexed(editor);
-        await new Promise((resolve) => setTimeout(resolve, 50));
+        // Long enough for a walk that was not stopped to reach the needle and report it.
+        await new Promise((resolve) => setTimeout(resolve, 1000));
         expect(editor.viewState.searchMatches).toEqual([]);
         expect(editor.viewState.currentSearchMatchIndex).toBe(-1);
 
@@ -332,5 +347,120 @@ describe("FindService over a document on disk", () => {
         await searchDone(widget);
         expect(counterText(widget)).toBe("1 of 1");
         expect(editor.viewState.currentSearchMatchIndex).toBe(0);
+    });
+
+    it("the walk is case-insensitive and matches inside words, as the in-memory find does", () => {
+        const { find, widget, editor } = setup();
+        find.open();
+        typeQuery(widget, "REQ");
+        const [first] = editor.viewState.searchMatches;
+        expect(first).toBeDefined();
+        expect(first.end.character - first.start.character).toBe(3);
+    });
+
+    it("disposing the service stops the walk: no late report reaches the editor", async () => {
+        const { find, widget, editor } = setup();
+        find.open();
+        typeQuery(widget, "needle");
+        find.dispose();
+        await indexed(editor);
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        expect(editor.viewState.searchMatches).toEqual([]);
+        expect(editor.viewState.currentSearchMatchIndex).toBe(-1);
+    });
+
+    it("Prev from the first of a list that starts at the top wraps to the document's last match and appends it", async () => {
+        const { find, widget, editor } = setup();
+        await indexed(editor);
+        find.open();
+        typeQuery(widget, "request");
+        await searchDone(widget);
+        expect(editor.viewState.searchMatches[0].start.line).toBe(0);
+        expect(editor.viewState.currentSearchMatchIndex).toBe(0);
+        find.prev();
+        expect(editor.viewState.currentSearchMatchIndex).toBe(MATCHES_LIMIT);
+        expect(editor.viewState.searchMatches).toHaveLength(MATCHES_LIMIT + 1);
+        expect(editor.viewState.searchMatches[MATCHES_LIMIT].start.line).toBe(lines - 1);
+    });
+
+    describe("matches found so far only before the cursor on its own line", () => {
+        /** Line 0 holds two needles, the rest is filler: the first slice has no match after the cursor and the walk is not over. */
+        function writeGap(): void {
+            fs.writeFileSync(ws.path("gap.log"), "needle needle tail\n" + "filler line of the log\n".repeat(60_000));
+        }
+
+        it("F3 with the widget closed goes to the first of them, Shift+F3 to the last", () => {
+            writeGap();
+            const first = setup("gap.log");
+            first.editor.viewState.selections = [createCursorSelection(0, 18)];
+            first.widget.setQuery("needle");
+            first.find.next();
+            expect(first.editor.viewState.searchMatches).toHaveLength(2);
+            expect(first.editor.viewState.currentSearchMatchIndex).toBe(0);
+            expect(first.editor.viewState.selections[0]).toMatchObject({
+                anchor: { line: 0, character: 0 },
+                active: { line: 0, character: 6 },
+            });
+
+            const last = setup("gap.log");
+            last.editor.viewState.selections = [createCursorSelection(0, 18)];
+            last.widget.setQuery("needle");
+            last.find.prev();
+            expect(last.editor.viewState.currentSearchMatchIndex).toBe(1);
+            expect(last.editor.viewState.selections[0]).toMatchObject({
+                anchor: { line: 0, character: 7 },
+                active: { line: 0, character: 13 },
+            });
+        });
+    });
+
+    describe("with the index held back (gated reads)", () => {
+        function setupGated() {
+            const opener = memoryFileOpener({ size: 32 * 1024 * 1024, gated: true });
+            const result = setup("huge.log", opener);
+            return { ...result, file: opener.opened[0] };
+        }
+
+        it("the walk waits at the indexed end for the index and goes on when it grows", async () => {
+            const { find, widget, editor, file } = setupGated();
+            expect(editor.lineCount).toBeLessThan(NEEDLE_LINE);
+            find.open();
+            typeQuery(widget, "needle");
+            await new Promise((resolve) => setTimeout(resolve, 300));
+            // The indexed part is walked; the walk is not over, the index is.
+            expect(counterText(widget)).toBe("Searching…");
+            expect(editor.viewState.searchMatches).toEqual([]);
+            file.openGate();
+            await indexed(editor);
+            await searchDone(widget);
+            expect(counterText(widget)).toBe("1 of 1");
+        });
+
+        it("the current match the user stepped to survives the final report, which does not scroll the view either", async () => {
+            const { find, widget, editor, file } = setupGated();
+            editor.viewState.selections = [createCursorSelection(10, 0)];
+            find.open();
+            // Lines whose number ends in 1: every tenth line, far below the limit.
+            typeQuery(widget, "1 2026");
+            // The wrap brought line 1 in front of the cursor's first match (line 11).
+            await vi.waitFor(
+                () => {
+                    expect(counterText(widget)).toMatch(/^2 of \d+…$/u);
+                },
+                { timeout: 20_000, interval: 20 },
+            );
+            expect(editor.viewState.searchMatches[editor.viewState.currentSearchMatchIndex].start.line).toBe(11);
+            find.prev();
+            expect(editor.viewState.currentSearchMatchIndex).toBe(0);
+            expect(editor.viewState.searchMatches[0].start.line).toBe(1);
+            editor.viewState.scrollTop = 5000;
+
+            file.openGate();
+            await indexed(editor);
+            await searchDone(widget);
+            expect(counterText(widget)).toMatch(/^1 of \d+$/u);
+            expect(editor.viewState.currentSearchMatchIndex).toBe(0);
+            expect(editor.viewState.scrollTop).toBe(5000);
+        });
     });
 });

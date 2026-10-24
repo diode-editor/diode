@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { MemoryRandomAccessFile } from "../../../../TestUtils/memoryRandomAccessFile.ts";
 import type { IRange } from "../../common/core/iRange.ts";
@@ -19,8 +19,9 @@ function manualScheduler() {
             pending.push(slice);
         },
         /** Runs the slices queued so far, and the ones they queue, until the queue is empty. */
+        /** Bounded: a mutant that stalls the walk fails the test's `done` assertion instead of timing out. */
         drain: () => {
-            while (pending.length > 0) pending.shift()!();
+            for (let i = 0; i < 100_000 && pending.length > 0; i++) pending.shift()!();
         },
         step: () => {
             pending.shift()?.();
@@ -242,6 +243,22 @@ describe("BackgroundFind", () => {
             await new Promise((resolve) => setImmediate(resolve));
         }
 
+        it("what was found before the pause for the index goes out even inside the report interval", () => {
+            const { doc, buffer, growth } = growing(35);
+            expect(doc.lineCount).toBe(10);
+            const { find, reports, scheduler } = start(doc, "row", 0, {
+                sliceLines: 3,
+                growth,
+                reportIntervalMs: 60_000,
+            });
+            scheduler.drain();
+            expect(find.done).toBe(false);
+            const last = reports[reports.length - 1];
+            expect(last.done).toBe(false);
+            expect(last.matches).toHaveLength(10);
+            buffer.dispose();
+        });
+
         it("waits at the indexed end for more lines and ends when the index does", async () => {
             const { doc, file, buffer, growth } = growing(35);
             expect(doc.lineCount).toBe(10);
@@ -323,5 +340,50 @@ describe("BackgroundFind", () => {
             expect(buffer.indexing.done).toBe(false);
             buffer.dispose();
         });
+    });
+});
+
+describe("BackgroundFind — slice and report boundaries", () => {
+    it("the character budget is inclusive: a line that fills it exactly ends the slice", () => {
+        const doc = new TextDocument(["a".repeat(50), "b"].join("\n"));
+        const { reports, scheduler } = start(doc, "b", 0, { sliceLines: 100, sliceChars: 50 });
+        expect(reports[0]).toMatchObject({ done: false });
+        expect(reports[0].matches).toEqual([]);
+        scheduler.drain();
+        expect(reports[reports.length - 1].matches).toHaveLength(1);
+    });
+
+    it("with the default interval: the first matches go out at once even after an empty slice, later counts wait for the interval", () => {
+        vi.useFakeTimers();
+        try {
+            const doc = new TextDocument(lines(10, (i) => (i < 2 ? "none" : `line ${String(i)}`)));
+            const scheduler = manualScheduler();
+            const reports: IBackgroundFindProgress[] = [];
+            const find = new BackgroundFind(doc, "line", PLAIN, (progress) => reports.push(progress), {
+                startLine: 0,
+                schedule: scheduler.schedule,
+                sliceLines: 2,
+            });
+            find.start();
+            expect(reports).toEqual([{ matches: [], done: false, wrapped: false }]);
+            vi.advanceTimersByTime(10);
+            scheduler.step(); // lines 2..3: the first matches, reported at once
+            expect(reports).toHaveLength(2);
+            expect(reports[1].matches).toHaveLength(2);
+            vi.advanceTimersByTime(50);
+            scheduler.step(); // lines 4..5: within the interval, no report
+            expect(reports).toHaveLength(2);
+            vi.advanceTimersByTime(60);
+            scheduler.step(); // lines 6..7: the interval has passed
+            expect(reports).toHaveLength(3);
+            expect(reports[2]).toMatchObject({ done: false });
+            expect(reports[2].matches).toHaveLength(6);
+            scheduler.step(); // lines 8..9: the end always reports
+            expect(reports).toHaveLength(4);
+            expect(reports[3]).toMatchObject({ done: true });
+            expect(reports[3].matches).toHaveLength(8);
+        } finally {
+            vi.useRealTimers();
+        }
     });
 });

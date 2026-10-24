@@ -238,8 +238,10 @@ export class FindService extends Disposable implements IContextKeyContributor {
      */
     private step(session: IFindSession, widget: FindWidget, direction: 1 | -1): number {
         const { matches, currentIndex, target } = session;
+        // `atEnd` implies a current match: the list is not empty here, so its ends are real indices.
         const atEnd = direction === 1 ? currentIndex === matches.length - 1 : currentIndex === 0;
-        if (matches.length >= MATCHES_LIMIT && atEnd && currentIndex >= 0 && target !== null) {
+        // Stryker disable next-line ConditionalExpression: `target` lives and dies with `matches` (see recompute/close); the check is for the type
+        if (matches.length >= MATCHES_LIMIT && atEnd && target !== null) {
             const current = matches[currentIndex];
             const document = target.viewState.document;
             const found =
@@ -247,6 +249,7 @@ export class FindService extends Disposable implements IContextKeyContributor {
                     ? findNextMatch(document, current.end, widget.getQuery(), FIND_OPTIONS)
                     : findPreviousMatch(document, current.start, widget.getQuery(), FIND_OPTIONS);
             /* v8 ignore start -- the list is non-empty, so the document has a match to wrap to */
+            // Stryker disable next-line ConditionalExpression: unreachable for the same reason as for coverage
             if (found === null) return currentIndex;
             /* v8 ignore stop */
             return this.indexOfOrInsert(session, found);
@@ -314,9 +317,11 @@ export class FindService extends Disposable implements IContextKeyContributor {
         }
 
         session.anchor = editor.viewState.selections[0].active;
+        // Stryker disable next-line UnaryOperator: the new list holds new range objects, so a stale index finds nothing in it either way
         session.currentIndex = -1;
         const query = widget.getQuery();
         const model = editor.fileModel;
+        // Stryker disable next-line OptionalChaining: a pane without a file model (untitled) has no document on disk; the chain is for the type
         if (model?.isOnDisk !== true) {
             const matches = findMatches(editor.viewState.document, query);
             this.applyMatches(session, widget, editor, { matches, done: true, wrapped: true });
