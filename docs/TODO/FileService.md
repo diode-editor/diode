@@ -11,6 +11,11 @@ Explorer (#470, #475), `WorkspaceEditService` в `contrib/bulkEdit/browser` с u
 
 ## PR 5 — асинхронная загрузка модели
 
+Проверено в 4.2 OpenPerformance (документ на диске): асинхронная загрузка там не понадобилась — модель
+рождается синхронно с первым куском (4 МиБ) и первым экраном, остальное дочитывает фон внутри буфера, а
+байты идут через свой seam `IRandomAccessFile` (`pread`), не через `IFileService`. PR 5 остаётся за 4.5
+(стриминговая загрузка в PieceTree), где чтение всего файла и становится асинхронным.
+
 - [ ] `TextFileModel.resolve()`, `registry.resolve(uri): Promise<ref>` с дедупом по незавершённой
   загрузке (второй `resolve` того же uri ждёт тот же промис), ветка `file:` в `EditorService.openUri`
   сливается с `openVirtualUri`, слежение через `onDidFilesChange`. Снимает последние записи

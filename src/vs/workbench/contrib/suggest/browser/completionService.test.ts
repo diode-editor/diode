@@ -2301,11 +2301,17 @@ describe("CompletionService — quick suggest (upstream suggestModel)", () => {
 });
 
 describe("CompletionService — editor.wordBasedSuggestions", () => {
-    function wordSetup(settings: TestSettings, options: { inline?: boolean; otherLanguage?: string } = {}) {
+    function wordSetup(
+        settings: TestSettings,
+        options: { inline?: boolean; otherLanguage?: string; tooLarge?: "active" | "sameLanguage" } = {},
+    ) {
         const fake = makeEditor("", 0, "alpha beta");
         const sameLanguage = makeEditor("", 0, "gamma");
         const otherLanguage = makeEditor("", 0, "delta");
         Object.assign(otherLanguage.editor, { languageId: options.otherLanguage ?? "python" });
+        if (options.tooLarge === "active") Object.assign(fake.editor, { isTooLargeForTokenization: true });
+        if (options.tooLarge === "sameLanguage")
+            Object.assign(sameLanguage.editor, { isTooLargeForTokenization: true });
         const group = makeGroup(fake.editor, undefined, [sameLanguage.editor, otherLanguage.editor]);
         const languageFeatures = new LanguageFeaturesService();
         if (options.inline === true) {
@@ -2329,6 +2335,16 @@ describe("CompletionService — editor.wordBasedSuggestions", () => {
             "beta",
             "gamma",
         ]);
+    });
+
+    it("a large file contributes no words (its text may not fit a string), as upstream's worker never sees one", async () => {
+        expect(await wordSetup({}, { tooLarge: "sameLanguage" }).labels()).toEqual(["alpha", "beta"]);
+        expect(
+            await wordSetup({ "editor.wordBasedSuggestions": "allDocuments" }, { tooLarge: "sameLanguage" }).labels(),
+        ).toEqual(["alpha", "beta", "delta"]);
+        const large = wordSetup({}, { tooLarge: "active" });
+        expect(await large.labels()).toEqual([]);
+        expect(large.service.isOpen()).toBe(false);
     });
 
     it("allDocuments — all open; currentDocument — only the active one; off — nothing", async () => {

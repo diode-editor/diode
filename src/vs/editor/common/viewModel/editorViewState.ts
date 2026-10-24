@@ -72,6 +72,7 @@ interface IViewMarkerDecoration {
  */
 interface IProjectionCacheEntry {
     readonly projection: IViewProjection;
+    /** {@link EditorViewState.contentRevision}, not `versionId`: growth of a document on disk has no version. */
     readonly docVersion: number;
     readonly foldsVersion: number;
     readonly zonesVersion: number;
@@ -131,6 +132,11 @@ export class EditorViewState {
      * `undefined`, like upstream `executeEdits` → `false`; cursor, scroll and folding still work.
      */
     public readOnly = false;
+    /**
+     * The large-file mode (docs/arch/Editor.md), mirrored from the model by the component: the view skips the
+     * passes over every line (the width sweep) and paints only what it shows.
+     */
+    public isTooLargeForTokenization = false;
     private selectionsValue!: ISelection[];
     private readonly onDidChangeCursorPositionEmitter = new Emitter<void>();
     public readonly onDidChangeCursorPosition = this.onDidChangeCursorPositionEmitter.event;
@@ -174,6 +180,13 @@ export class EditorViewState {
     private projectionCache: IProjectionCacheEntry | null = null;
     /** The edits since the cached projection, merged into one; replayed in place by {@link buildProjection}. */
     private pendingProjectionChange: IDocumentContentChange | null = null;
+    /**
+     * Counts every content change the view has seen, edits and growth alike. The document's `versionId` is
+     * not enough as a cache key: a document on disk appends lines while its index is built without bumping
+     * it (it is not modified), and a projection keyed by version kept the old row count — Ctrl+End moved the
+     * cursor past the rows the view knew and the screen stayed at the top.
+     */
+    private contentRevision = 0;
     private foldsVersion = 0;
     private zonesVersion = 0;
     private lineBreaksCacheValue: LineBreaksCache | null = null;
@@ -183,6 +196,13 @@ export class EditorViewState {
      * {@link remapForDocumentChange} remap would shift them a second time.
      */
     private applyingOwnEdits = false;
+    /**
+     * Selection ends a reload (flush) clamped because they were past the new end. A document on disk is reloaded
+     * with its first chunk only (docs/arch/Editor.md): the end moves on as the index grows, and an end clamped to
+     * a provisional last line would otherwise be left in the middle of the file. The set holds the position
+     * objects themselves: one the user moves is a new object and drops out. Reset by the next flush.
+     */
+    private endsClampedByFlush = new WeakSet<IPosition>();
     private readonly docContentSubscription: IDisposable;
     // Stryker disable next-line ArrayDeclaration: the document doesn't know a junk element without an id, getDecorationRange returns null
     private markerDecorationIds: readonly IViewMarkerDecoration[] = [];
@@ -191,6 +211,8 @@ export class EditorViewState {
     public constructor(document: ITextDocument, selections?: ISelection[], indent: IIndentDefaults = {}) {
         this.document = document;
         this.docContentSubscription = document.onDidChangeContent((change) => {
+            // Stryker disable next-line UpdateOperator: revisions only need to differ, "--" works too
+            this.contentRevision++;
             this.pendingProjectionChange =
                 this.pendingProjectionChange === null ? change : mergeLineChanges(this.pendingProjectionChange, change);
             if (!this.applyingOwnEdits) this.remapForDocumentChange(change);
@@ -278,9 +300,18 @@ export class EditorViewState {
 
         this.adjustFoldingRegionsForLineChange(change.startLine, change.oldEndLine, lineDelta);
 
+        if (change.isFlush === true) this.endsClampedByFlush = new WeakSet();
+        const followed: IPosition[] = [];
         const remapped = this.selectionsValue.map((sel) => {
-            const anchor = this.remapPosition(sel.anchor, change, lineDelta);
-            const active = this.remapPosition(sel.active, change, lineDelta);
+            let anchor = this.remapPosition(sel.anchor, change, lineDelta);
+            let active = this.remapPosition(sel.active, change, lineDelta);
+            if (change.isFlush === true) {
+                if (sel.anchor.line > change.newEndLine) this.endsClampedByFlush.add(anchor);
+                if (sel.active.line > change.newEndLine) this.endsClampedByFlush.add(active);
+            } else {
+                anchor = this.followEnd(anchor, change, followed);
+                active = this.followEnd(active, change, followed);
+            }
             return anchor === sel.anchor && active === sel.active
                 ? sel
                 : { anchor, active, idealColumn: sel.idealColumn };
@@ -288,6 +319,11 @@ export class EditorViewState {
         // Only on a real shift: an idle cursor change would poke the status bar and the extension host.
         if (remapped.some((sel, i) => sel !== this.selectionsValue[i])) {
             this.selections = remapped;
+        }
+        // An end that followed the growing document takes the viewport along, as the reload in memory would have.
+        if (followed.length > 0) {
+            this.ensureCursorVisible();
+            return;
         }
 
         // Edit above the viewport: keep the same lines on screen. With folds and view zones
@@ -301,6 +337,22 @@ export class EditorViewState {
         ) {
             this.scrollTop = Math.max(0, this.scrollTopValue + lineDelta);
         }
+    }
+
+    /**
+     * Growth of a document on disk arrives as a change on its last line. A selection end the reload clamped
+     * there moves to the new last line, as the in-memory reload would have put it; any other position is as
+     * {@link remapPosition} left it.
+     */
+    private followEnd(pos: IPosition, change: IDocumentContentChange, followed: IPosition[]): IPosition {
+        const line = change.newEndLine;
+        // Only a change that starts on the old last line and reaches the new one is the end moving on.
+        const endMoved = change.startLine === change.oldEndLine && line === this.document.lineCount - 1;
+        if (!endMoved || !this.endsClampedByFlush.has(pos)) return pos;
+        const moved = { line, character: Math.min(pos.character, this.document.getLineLength(line)) };
+        this.endsClampedByFlush.add(moved);
+        followed.push(moved);
+        return moved;
     }
 
     private remapPosition(pos: IPosition, change: IDocumentContentChange, lineDelta: number): IPosition {
@@ -1751,7 +1803,7 @@ export class EditorViewState {
         if (
             // Stryker disable next-line ConditionalExpression: pure memoization, a rebuild gives the same rows
             cache !== null &&
-            cache.docVersion === this.document.versionId &&
+            cache.docVersion === this.contentRevision &&
             cache.foldsVersion === this.foldsVersion &&
             cache.zonesVersion === this.zonesVersion &&
             cache.wrapWidth === wrapWidth &&
@@ -1782,7 +1834,7 @@ export class EditorViewState {
         // Stryker disable next-line ObjectLiteral: pure memoization, an empty entry only means a rebuild on the next call
         this.projectionCache = {
             projection,
-            docVersion: this.document.versionId,
+            docVersion: this.contentRevision,
             foldsVersion: this.foldsVersion,
             zonesVersion: this.zonesVersion,
             wrapWidth,
@@ -1814,7 +1866,7 @@ export class EditorViewState {
         if (pending === null) {
             // A version change without an event is a desync (as in LineBreaksCache): rebuild rather than guess.
             // Stryker disable next-line EqualityOperator,ConditionalExpression: the guard is unreachable in a synced document, every version change fires an event
-            return cache.docVersion === this.document.versionId && hiddenRangesEqual(cache.hidden, hidden);
+            return cache.docVersion === this.contentRevision && hiddenRangesEqual(cache.hidden, hidden);
         }
         const expected = shiftHiddenRanges(cache.hidden, pending);
         // Stryker disable next-line ConditionalExpression: see above

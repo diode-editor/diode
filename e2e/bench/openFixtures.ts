@@ -10,6 +10,12 @@ export interface SizeSpec {
     /** Measured runs (plus one warm-up run that isn't counted in the stats). */
     readonly runs: number;
     readonly timeoutMs: number;
+    /**
+     * Above the large-file threshold (docs/arch/Editor.md): the file opens read-only on disk, so there is no
+     * workload, and the run waits for the line index to finish (the status bar's "Indexing N%" goes away) so
+     * that peak RSS covers the index.
+     */
+    readonly readOnly?: boolean;
 }
 
 export const MiB = 1024 * 1024;
@@ -19,18 +25,20 @@ export const SIZES: readonly SizeSpec[] = [
     { key: "medium", kind: "ts", amount: 2_000, runs: 11, timeoutMs: 30_000 },
     { key: "large", kind: "ts", amount: 20_000, runs: 7, timeoutMs: 60_000 },
     { key: "xlarge", kind: "ts", amount: 200_000, runs: 5, timeoutMs: 120_000 },
-    // `log500m` (500 MB) was removed: it takes 88 s to open and dies with a V8 heap OOM on the first edit
-    // (CI, 2026-09-27). It comes back with the "Streaming" stage; the kind=log generator stays.
+    // Back since the document on disk (OpenPerformance 4.2): before it `log500m` took 88 s to open and died
+    // with a V8 heap OOM on the first edit (CI, 2026-09-27). Read-only: no workload (the gate is 4.6).
+    { key: "log500m", kind: "log", amount: 500 * MiB, runs: 3, timeoutMs: 180_000, readOnly: true },
 ];
 
 /**
- * Not in the default matrix (the CI bench and the public page): opt in with `--sizes=log50m,log100m`.
- * Above the large-file threshold (docs/TODO/OpenPerformance.md, stage 4) the file opens read-only, so
- * these are measured with `--no-workload`; `log500m` returns with the document on disk (4.2).
+ * Not in the default matrix (the CI bench and the public page): opt in with `--sizes=log50m,log2g`.
+ * Above the large-file threshold (docs/TODO/OpenPerformance.md, stage 4) the file opens read-only on disk;
+ * `log2g` needs 2 GB of free disk for the fixture.
  */
 export const OPT_IN_SIZES: readonly SizeSpec[] = [
-    { key: "log50m", kind: "log", amount: 50 * MiB, runs: 3, timeoutMs: 180_000 },
-    { key: "log100m", kind: "log", amount: 100 * MiB, runs: 3, timeoutMs: 300_000 },
+    { key: "log50m", kind: "log", amount: 50 * MiB, runs: 3, timeoutMs: 180_000, readOnly: true },
+    { key: "log100m", kind: "log", amount: 100 * MiB, runs: 3, timeoutMs: 300_000, readOnly: true },
+    { key: "log2g", kind: "log", amount: 2048 * MiB, runs: 3, timeoutMs: 600_000, readOnly: true },
 ];
 
 // Highlighting is checked by the darkPlus keyword color on the `c` cell of the word `const` (as in sea-startup),

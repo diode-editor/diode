@@ -122,7 +122,9 @@ async function main(): Promise<void> {
                     fixture,
                     timeoutMs: spec.timeoutMs,
                     warmup,
-                    workload: cli.workload,
+                    // A read-only file takes no keys; its "quiet" is the end of the line index.
+                    workload: spec.readOnly === true ? false : cli.workload,
+                    waitForIndexing: spec.readOnly === true,
                     keepTraceAs:
                         cli.traceDir === null || warmup
                             ? undefined

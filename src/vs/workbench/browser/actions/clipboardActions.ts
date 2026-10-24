@@ -6,6 +6,10 @@ import { IConfigurationServiceDIToken } from "../../../platform/configuration/co
 import type { ServiceAccessor } from "../../../platform/instantiation/common/diContainer.ts";
 import { parseKeybinding } from "../../../platform/keybinding/common/keybindingRegistry.ts";
 import { EditorServiceDIToken } from "../../services/editor/common/editorService.ts";
+import { NotificationServiceDIToken } from "../../services/notification/browser/notificationService.ts";
+
+/** A document on disk refuses a text no string can hold (`DiskTextBuffer`); the user is told instead of the log. */
+export const COPY_TOO_LARGE_MESSAGE = "The selection is too large to copy: it does not fit in memory. Select less.";
 
 function isEmptySelectionClipboardEnabled(accessor: ServiceAccessor): boolean {
     return accessor.get(IConfigurationServiceDIToken).get("editor.emptySelectionClipboard");
@@ -24,7 +28,17 @@ export const clipboardCopyAction: CommandAction = {
     async run(accessor) {
         // Via the pane, not viewState: the diff drops the placeholder lines of collapsed regions.
         const editorService = accessor.get(EditorServiceDIToken);
-        const text = joinSelectedTexts(editorService.getActivePane()?.getSelectedTexts() ?? []);
+        let text: string;
+        try {
+            text = joinSelectedTexts(editorService.getActivePane()?.getSelectedTexts() ?? []);
+        } catch (error) {
+            // Select All on a 2 GB document on disk: the text is refused up front (docs/arch/Editor.md).
+            if (!(error instanceof RangeError)) throw error;
+            accessor
+                .get(NotificationServiceDIToken)
+                .show({ severity: "warn", message: COPY_TOO_LARGE_MESSAGE, modal: false, items: [] });
+            return;
+        }
         if (text !== "") {
             await accessor.get(ClipboardDIToken).writeText(text);
             // Stryker disable next-line ObjectLiteral: an empty object is equivalent — a missing isFromEmptySelection reads as false

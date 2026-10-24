@@ -76,7 +76,13 @@ export class EditorComponent extends Component {
     private readonly languageConfiguration: ILanguageConfigurationService;
     private editorViewState: EditorViewState;
     private editor: EditorElement;
-    private tokenStore: DocumentTokenStore;
+    /**
+     * `null` in the large-file mode: upstream's plain-text backend still walks every line in the background and
+     * keeps an (empty) token array per line — a million of them on a 1M-line file, and for a document on disk
+     * every line would be read from disk for nothing. The store is created when the mode ends.
+     */
+    private tokenStore: DocumentTokenStore | null = null;
+    private tokenStoreSubscription: IDisposable | null = null;
     /** Lives on the component, not the view state: the latter is recreated when the document is reloaded. */
     private indentConfiguration: IIndentConfiguration;
     private readonly foldingProviders: LanguageFeatureRegistry<FoldingRangeProvider>;
@@ -172,19 +178,10 @@ export class EditorComponent extends Component {
         this.indentConfiguration = indentConfiguration;
 
         this.editorViewState = new EditorViewState(model.document, undefined, indentConfiguration);
+        this.editorViewState.isTooLargeForTokenization = this.tooLarge;
         this.semanticTokensFeature = semanticTokens;
-        // The TM token cache subscribes to the document, which outlives the view: without
-        // dispose the subscription would stay on the model after the tab is closed.
-        this.tokenStore = this.register(
-            new DocumentTokenStore(model.document, this.ensureTokenizerForLanguage(model.languageId)),
-        );
-        this.editorViewState.tokenStore = this.tokenStore;
         this.editor = new EditorElement(this.editorViewState);
-        this.register(
-            this.tokenStore.onDidChangeTokens(({ fromLine, toLine }) => {
-                this.editor.handleTokensChanged(fromLine, toLine);
-            }),
-        );
+        this.applyTokenizer();
         this.editor.tokenStyleResolver = tokenStyleResolver;
         this.attachLanguageConfiguration();
         this.editor.focusable = true;
@@ -240,6 +237,7 @@ export class EditorComponent extends Component {
         // Upstream's "Forcefully Enable Features" for this model: every gate below re-reads the flag.
         this.register(
             model.onDidChangeTooLargeForTokenization(() => {
+                this.editorViewState.isTooLargeForTokenization = false;
                 this.applyTokenizer();
                 this.attachSemanticTokensUnlessTooLarge();
                 this.applyOccurrenceHighlight();
@@ -252,6 +250,7 @@ export class EditorComponent extends Component {
                 this.foldingScheduler.dispose();
                 this.foldingRequest.dispose();
                 this.viewStateCursorSubscription?.dispose();
+                this.disposeTokenStore();
                 this.editorViewState.dispose();
             },
         });
@@ -538,9 +537,6 @@ export class EditorComponent extends Component {
     }
 
     private ensureTokenizerForLanguage(languageId: string): ITokenizationSupport {
-        // Upstream `tokenizerSyntaxTokenBackend`: no tokenizer for a model too large for tokenization — and no
-        // grammar load either; the TextMate pass over 300K+ lines is what the mode exists to avoid.
-        if (this.tooLarge) return new PlainTextTokenizer();
         void this.tokenizationRegistry.load(languageId); // fire-and-forget: load() never rejects
         const support = this.tokenizationRegistry.get(languageId);
         if (support === undefined) return new PlainTextTokenizer();
@@ -549,9 +545,39 @@ export class EditorComponent extends Component {
         return support;
     }
 
+    /**
+     * Upstream `tokenizerSyntaxTokenBackend`: no tokenizer for a model too large for tokenization — and no grammar
+     * load either; the TextMate pass over 300K+ lines is what the mode exists to avoid. Here not even the store:
+     * the view paints plain text without one. The mode is decided at load and only ever turns off, so a model in
+     * it has no store to drop: none was built.
+     */
     private applyTokenizer(): void {
-        this.tokenStore.setTokenizationSupport(this.ensureTokenizerForLanguage(this.model.languageId));
+        if (!this.tooLarge) {
+            if (this.tokenStore === null) {
+                // The TM token cache subscribes to the document, which outlives the view: without
+                // dispose the subscription would stay on the model after the tab is closed.
+                const store = new DocumentTokenStore(
+                    this.model.document,
+                    this.ensureTokenizerForLanguage(this.model.languageId),
+                );
+                this.tokenStore = store;
+                this.editorViewState.tokenStore = store;
+                this.tokenStoreSubscription = store.onDidChangeTokens(({ fromLine, toLine }) => {
+                    this.editor.handleTokensChanged(fromLine, toLine);
+                });
+            } else {
+                this.tokenStore.setTokenizationSupport(this.ensureTokenizerForLanguage(this.model.languageId));
+            }
+        }
         this.editor.markDirty();
+    }
+
+    private disposeTokenStore(): void {
+        this.tokenStoreSubscription?.dispose();
+        this.tokenStoreSubscription = null;
+        this.tokenStore?.dispose();
+        this.tokenStore = null;
+        this.editorViewState.tokenStore = undefined;
     }
 
     /**

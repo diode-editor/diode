@@ -6,7 +6,17 @@ import type { IDisposable } from "../../../../base/common/lifecycle.ts";
 import { mark } from "../../../../base/common/performance.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import type { ILanguageService } from "../../../../editor/common/languages/iLanguageService.ts";
-import { decodeBufferByBOM, DEFAULT_ENCODING, getEncodingInfo } from "../../../../editor/common/model/encoding.ts";
+import {
+    DiskTextBuffer,
+    type IDiskIndexingProgress,
+    MAX_STRING_LENGTH,
+} from "../../../../editor/common/model/diskTextBuffer.ts";
+import {
+    decodeBufferByBOM,
+    DEFAULT_ENCODING,
+    getEncodingInfo,
+    resolveDecodeEncoding,
+} from "../../../../editor/common/model/encoding.ts";
 import {
     decodeStream,
     decodeStreamByBOM,
@@ -27,6 +37,7 @@ import {
     isFileOperationError,
 } from "../../../../platform/files/common/files.ts";
 import type { IFileWatcher } from "../../../../platform/files/common/iFileWatcher.ts";
+import type { IRandomAccessFileOpener } from "../../../../platform/files/common/iRandomAccessFile.ts";
 import type { UndoRedoService } from "../../../../platform/undoRedo/common/undoRedoService.ts";
 import { BaseTextEditorModel } from "../../../common/editor/textEditorModel.ts";
 
@@ -52,6 +63,10 @@ const UNTITLED_PLACEHOLDER_URI = Uri.from({ scheme: "untitled", path: "Untitled"
  * delete immediately followed by a new file, so a disappearance is re-checked after a delay.
  */
 export const ORPHAN_CHECK_DELAY_MS = 100;
+
+/** The refusal of {@link TextFileModel.saveAs} on a document on disk; the command shows it as a toast. */
+export const SAVE_AS_ON_DISK_MESSAGE =
+    "Save As is not available for a document on disk: the file is read-only. Enable Editing first.";
 
 /**
  * Counterpart of `ITextFileEditorModel`: a file on disk, a resource of an extension's FS provider
@@ -114,6 +129,35 @@ export class TextFileModel extends BaseTextEditorModel {
      * per language at the first load. Injected by the owning service; the default is the upstream constants.
      */
     public largeFileOptions: (languageId: string) => ILargeFileOptions = () => DEFAULT_LARGE_FILE_OPTIONS;
+
+    /**
+     * Positional reads for the document on disk (docs/arch/Editor.md). Injected by the owning service; without
+     * it (tests, synthetic hosts) a large file is read into memory as before.
+     */
+    public randomAccessFiles: IRandomAccessFileOpener | null = null;
+    private onDiskDeclinedReasonValue: "encoding" | null = null;
+    private readonly onDidChangeDiskIndexingEmitter = this.register(new Emitter<void>());
+
+    /** Progress of the index of the document on disk; fires with each chunk and at the end. */
+    public readonly onDidChangeDiskIndexing = this.onDidChangeDiskIndexingEmitter.event;
+
+    /** The text lives on disk and is read by lines (the large-file mode above the size threshold). */
+    public get isOnDisk(): boolean {
+        return this.doc.onDisk !== null;
+    }
+
+    /** `null` when the document is in memory. */
+    public get diskIndexing(): IDiskIndexingProgress | null {
+        return this.doc.onDisk?.indexing ?? null;
+    }
+
+    /**
+     * Why a file above the size threshold is in memory anyway: the document on disk reads UTF-8 only (human's
+     * decision 2026-10-23), a UTF-16 file takes the old path, and the toast says so.
+     */
+    public get onDiskDeclinedReason(): "encoding" | null {
+        return this.onDiskDeclinedReasonValue;
+    }
 
     /** The file changed externally while there are unsaved edits, so it cannot be auto-reloaded. */
     public get hasDiskConflict(): boolean {
@@ -197,8 +241,12 @@ export class TextFileModel extends BaseTextEditorModel {
         }
         this.uriValue = uri;
         const filePath = uri.fsPath;
-        this.loadDocumentFromDisk(filePath);
-        this.decideLargeFile();
+        // Above the size threshold the document stays on disk and the mode is on by construction; otherwise
+        // the file is read into memory and the line-count axis decides.
+        if (!this.openOnDisk(filePath)) {
+            this.loadDocumentFromDisk(filePath);
+            this.decideLargeFile();
+        }
         this.adoptWorkspaceUndo(filePath, path.basename(filePath));
         this.startWatchingFile(filePath);
     }
@@ -212,6 +260,75 @@ export class TextFileModel extends BaseTextEditorModel {
         if (isTooLargeForTokenization(this.doc.getValueLength(), this.doc.lineCount, options)) {
             this.markTooLargeForTokenization();
         }
+    }
+
+    /**
+     * The document on disk (docs/arch/Editor.md): a file above the size threshold — bytes on disk, where upstream
+     * counts characters — is not read into memory. The first chunk is indexed here, synchronously, so the model is
+     * born with its first screen; the rest of the index is built in the background. UTF-8 and ASCII only: a BOM
+     * of UTF-16 sends the file down the old path, with {@link onDiskDeclinedReason} for the toast. `false` — not
+     * on disk, load as before.
+     */
+    private openOnDisk(filePath: string): boolean {
+        const opener = this.randomAccessFiles;
+        if (opener === null) return false;
+        const languageId = this.resolveLanguageId(filePath);
+        const stat = this.readDiskStat(filePath);
+        if (stat === null || !isTooLargeForTokenization(stat.size, 0, this.largeFileOptions(languageId))) {
+            return false;
+        }
+        let file;
+        try {
+            file = opener.open(filePath);
+        } catch (error) {
+            // Unreadable (EACCES, a directory): the old path reports it the way it always did. Anything else is a bug.
+            if (!isFileSystemError(error)) throw error;
+            return false;
+        }
+        const head = Buffer.alloc(BOM_SNIFF_LENGTH);
+        const info = resolveDecodeEncoding(head.subarray(0, file.readSync(head, 0)), undefined);
+        if (info.iconvName !== "utf8") {
+            file.dispose();
+            this.onDiskDeclinedReasonValue = "encoding";
+            return false;
+        }
+        this.onDiskDeclinedReasonValue = null;
+        // Stryker disable next-line UpdateOperator: see readDiskBytes
+        this.loadGeneration++;
+        const buffer = new DiskTextBuffer(file, { bomLength: info.id === "utf8bom" ? BOM_SNIFF_LENGTH : 0 });
+        // The startup ladder marks (docs/TODO/OpenPerformance.md): read and decoded are the first chunk.
+        mark("textfile:read", { bytes: buffer.indexing.indexedBytes });
+        mark("textfile:decoded", { chars: buffer.getValueLength() });
+        this.applyEncoding(info.id);
+        this.diskStat = stat;
+        // No conflict to clear: a document on disk is read-only, and the mode never turns on after an edit.
+        this.setOrphaned(false);
+        this.replaceText(buffer);
+        mark("textfile:document-built", { lines: this.doc.lineCount });
+        this.markTooLargeForTokenization();
+        this.doc.setLanguage(languageId);
+        // The buffer's emitter dies with the buffer (the next reload disposes it), so the relay needs no bookkeeping.
+        buffer.onDidChangeIndexing(() => {
+            this.onDidChangeDiskIndexingEmitter.fire();
+        });
+        buffer.startIndexing();
+        return true;
+    }
+
+    /**
+     * Upstream's "Forcefully Enable Features" on a document on disk first reads the file into memory the old
+     * way (stage 4.5 of OpenPerformance streams it with progress). A file no string can hold stays on disk:
+     * the features being enabled (`getText()` for providers, formatting, sync) could not work on it anyway.
+     */
+    public override forcefullyEnableFeatures(): boolean {
+        const disk = this.doc.onDisk;
+        const filePath = this.filePath;
+        // Stryker disable next-line ConditionalExpression: a document on disk always came from a path; the second check is for the type
+        if (disk !== null && filePath !== null) {
+            if (disk.size > MAX_STRING_LENGTH) return false;
+            this.applyDecoded(filePath, decodeStreamByBOM(this.readDiskChunks(filePath)));
+        }
+        return super.forcefullyEnableFeatures();
     }
 
     /**
@@ -265,8 +382,13 @@ export class TextFileModel extends BaseTextEditorModel {
         this.fireDiskStateChange();
     }
 
-    /** The encoding is re-detected (BOM sniff, otherwise utf-8), like reload in VS Code; an explicit one is {@link reopenWithEncoding}. */
+    /**
+     * The encoding is re-detected (BOM sniff, otherwise utf-8), like reload in VS Code; an explicit one is
+     * {@link reopenWithEncoding}. A reload of a model in the large-file mode goes back on disk when the file is
+     * still above the threshold (a reload never turns the mode on: upstream's "decided once").
+     */
     private loadDocumentFromDisk(filePath: string): void {
+        if (this.isTooLargeForTokenization && this.openOnDisk(filePath)) return;
         this.applyDecoded(filePath, decodeStreamByBOM(this.readDiskChunks(filePath)));
     }
 
@@ -304,6 +426,9 @@ export class TextFileModel extends BaseTextEditorModel {
     public async save(options?: { overwrite?: boolean }): Promise<SaveOutcome> {
         const filePath = this.filePath;
         if (filePath === null && !this.isProvided) return "no-file";
+        // A document on disk cannot be modified, so the file already holds its text: writing it back would
+        // stream the whole file through one buffer for nothing.
+        if (this.isOnDisk) return "saved";
         // A provider resource has no snapshot: its conflict is raised by the reload.
         // Stryker disable next-line ConditionalExpression: equivalent, since without a file `diskStat` is empty and a "no file" stat does not differ from it
         if (options?.overwrite !== true && filePath !== null && this.hasExternalChange(filePath)) {
@@ -379,6 +504,8 @@ export class TextFileModel extends BaseTextEditorModel {
      * {@link undoContext}, tied to the editor rather than to its path.
      */
     public async saveAs(newPath: string): Promise<void> {
+        // Stage 4.5 streams a copy; until then the snapshot would go through one buffer of the file's size.
+        if (this.isOnDisk) throw new Error(SAVE_AS_ON_DISK_MESSAGE);
         this.uriValue = Uri.file(path.resolve(newPath));
         this.providedWatch?.dispose();
         this.providedWatch = null;
@@ -485,6 +612,9 @@ export class TextFileModel extends BaseTextEditorModel {
  */
 export const READ_CHUNK_SIZE = 4 * 1024 * 1024;
 
+/** The longest BOM (utf-8): enough to tell utf-8 from UTF-16 before deciding where the text lives. */
+const BOM_SNIFF_LENGTH = 3;
+
 /** The file is closed at the end of the pass or when the pass is abandoned. No file yields no chunks. */
 function* readFileChunks(filePath: string): Generator<Buffer> {
     let bytes = 0;
@@ -504,4 +634,9 @@ function* readFileChunks(filePath: string): Generator<Buffer> {
         }
     }
     mark("textfile:read", { bytes });
+}
+
+/** An `fs` failure carries a `code` (EACCES, EISDIR); a thrown `TypeError` does not. */
+function isFileSystemError(error: unknown): boolean {
+    return error instanceof Error && typeof (error as { code?: unknown }).code === "string";
 }

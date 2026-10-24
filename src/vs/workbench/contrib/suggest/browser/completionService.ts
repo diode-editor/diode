@@ -631,8 +631,13 @@ export class CompletionService extends Disposable implements IContextKeyContribu
         ) {
             return [];
         }
-        // Stryker disable next-line ConditionalExpression,MethodExpression: equivalent — collectWordCompletions dedupes words, so the active document twice changes nothing
-        const others = this.group.getEditors().filter((candidate) => candidate !== editor);
+        // Upstream computes word completions in the editor worker, which never sees a model above the sync limit;
+        // a large file (docs/arch/Editor.md) contributes no words here either — its text may not fit a string.
+        if (editor.isTooLargeForTokenization) return [];
+        const others = this.group.getEditors().filter((candidate) => {
+            // Stryker disable next-line ConditionalExpression,MethodExpression: equivalent — collectWordCompletions dedupes words, so the active document twice changes nothing
+            return candidate !== editor && !candidate.isTooLargeForTokenization;
+        });
         const sources =
             mode === "currentDocument"
                 ? [editor]

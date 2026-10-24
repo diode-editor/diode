@@ -142,6 +142,13 @@ export interface OpenMeasureOptions {
      * path). Without it the first keys after Go to Line measure the tokenizer's backlog, not the edit.
      */
     readonly quiet?: boolean;
+    /**
+     * A read-only file above the large-file threshold: after the text, wait until the status bar's
+     * "Indexing N%" of the document on disk has gone (black box, no inspector), so `quietMs` is the end of
+     * the line index and peak RSS covers it. A file indexed within its first chunk never shows the entry:
+     * a short grace period decides that nothing is coming.
+     */
+    readonly waitForIndexing?: boolean;
     /** How long to wait for the trace (the extension host starts after the frame). */
     readonly traceWaitMs?: number;
     /** When set, the trace also records instantiated services (`DIODE_STARTUP_TRACE_INSTANTIATIONS=1`). */
@@ -330,6 +337,26 @@ async function editorBackgroundState(
     };
 }
 
+/** The status bar entry of the document on disk (`largeFileIndexingStatus.ts`). */
+const INDEXING_STATUS_PREFIX = "Indexing ";
+
+/** Grace for the entry to appear after the text: the first frame may land before the status bar follows the tab. */
+const INDEXING_APPEAR_GRACE_MS = 500;
+
+/** Polls the screen until the indexing entry has come and gone (or never came); ms since `t0`, or null on timeout. */
+async function waitForIndexingToSettle(session: DiodeSession, t0: number, deadline: number): Promise<number | null> {
+    const graceEnd = performance.now() + INDEXING_APPEAR_GRACE_MS;
+    let seen = false;
+    while (performance.now() < deadline) {
+        if (session.isExited) return null;
+        const shown = session.parseScreen().findText(INDEXING_STATUS_PREFIX) !== null;
+        if (shown) seen = true;
+        else if (seen || performance.now() >= graceEnd) return performance.now() - t0;
+        await sleep(25);
+    }
+    return null;
+}
+
 /** Polls the inspector until the background work has settled; ms since `t0`, or null on timeout. */
 async function waitForQuiet(session: DiodeSession, t0: number, deadline: number): Promise<number | null> {
     while (performance.now() < deadline) {
@@ -414,6 +441,12 @@ export async function measureOpenOnce(options: OpenMeasureOptions): Promise<Open
                 if (quietMs === null) {
                     workloadOutcome = "failed";
                     workloadError = `background work did not settle within ${String(timeoutMs)} ms`;
+                }
+            } else if (options.waitForIndexing === true) {
+                quietMs = await waitForIndexingToSettle(session, t0, t0 + timeoutMs);
+                if (quietMs === null) {
+                    workloadOutcome = "failed";
+                    workloadError = `the line index did not finish within ${String(timeoutMs)} ms`;
                 }
             }
             if (options.workload !== false && workloadOutcome !== "failed") {

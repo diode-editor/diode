@@ -47,6 +47,26 @@ describe("Workbench — the large-file mode", () => {
         return h.testApp.backend.screenToString();
     }
 
+    it("above the size threshold the document stays on disk: the container wires the opener into the model", () => {
+        const line = "2026-01-01T00:00:00.000Z INFO worker request handled path=/api/v1/items";
+        ws.writeFile("huge.log", Array.from({ length: 18_000 }, (_, i) => `${String(i)} ${line}`).join("\n") + "\n");
+        h.dispose();
+        h = createAppTestHarness({
+            workspaceFolder: ws.dir,
+            size: new Size(100, 30),
+            configurationService: createTestConfigurationService({ "editor.largeFileSizeThreshold": 1 }),
+        });
+        h.workbench.openFile(ws.path("huge.log"));
+        const editor = h.activeEditor();
+        expect(editor.fileModel?.isOnDisk).toBe(true);
+        expect(editor.isTooLargeForTokenization).toBe(true);
+        expect(editor.readOnly).toBe(true);
+        expect(editor.lineCount).toBe(18_001);
+        editor.goToPosition(17_999);
+        expect(editor.primaryCursorLine).toBe(17_999);
+        expect(editor.model.document.getLineContent(17_999)).toBe(`17999 ${line}`);
+    });
+
     it("above the configured threshold: read-only tab, editorReadonly, the toast with the button", () => {
         h.workbench.openFile(ws.path("big.log"));
         h.workbench.focusEditor();

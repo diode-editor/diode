@@ -84,6 +84,13 @@ const workbench = container.get(WorkbenchComponentDIToken);
 - Все биндинги — lazy singletons.
 - Классы остаются plain (`static dependencies` не влияет на конструктор) — в
   тестах экземпляры создаются напрямую, `new StatusBarComponent(fake, theme)`.
+- **Необязательный параметр конструктора, которого нет в `static dependencies`, из контейнера не
+  приходит** — компилятор это пропускает (параметр опционален), а класс молча работает с дефолтом.
+  Урок PR 4.2 OpenPerformance: `randomAccessFiles` добавили в `TextFileModelService` и протянули через
+  `EditorService`, но тот создаёт сервис сам только в тестах — в приложении его даёт контейнер, и
+  документ на диске не включался вовсе; юниты с ручным `new` были зелёными. Новый параметр
+  DI-сервиса — сразу в `dependencies`, а проверка — тестом уровня приложения
+  (`AppTestHarness`, `workbench.largeFile.test.ts`), который берёт сервис из контейнера.
 - Кто кого создал на старте и за сколько — трасса созданий
   (`instantiationTrace.ts`, аналог `Trace` эталона): `Container.get` пишет каждое
   создание (self/inclusive, родитель, фаза контрибуций), когда она включена, и не

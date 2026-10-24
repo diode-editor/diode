@@ -2,6 +2,7 @@ import { compositeOver, packRgb } from "@tuidom/core/common/colorUtils";
 import type { DisplayLine } from "@tuidom/core/common/displayLine";
 import type { BoxConstraints, Size } from "@tuidom/core/common/geometryPromitives";
 import { Point } from "@tuidom/core/common/geometryPromitives";
+import { measureTextWidth } from "@tuidom/core/common/measureTextWidth";
 import { StyleFlags } from "@tuidom/core/common/styleFlags";
 import type { TUIEventBase } from "@tuidom/core/dom/events/tuiEventBase";
 import type { TUIKeyboardEvent } from "@tuidom/core/dom/events/tuiKeyboardEvent";
@@ -46,7 +47,11 @@ import type { IUndoElement } from "../common/model/iUndoElement.ts";
 import { UndoManager } from "../common/model/undoManager.ts";
 import { EditorViewState } from "../common/viewModel/editorViewState.ts";
 import { LineWidthCache } from "../common/viewModel/lineWidthCache.ts";
-import { LONG_LINE_TRUNCATION_BADGE } from "../common/viewModel/longLineRendering.ts";
+import {
+    LONG_LINE_TRUNCATION_BADGE,
+    LONG_LINE_TRUNCATION_BADGE_WIDTH,
+    STOP_RENDERING_LINE_AFTER,
+} from "../common/viewModel/longLineRendering.ts";
 import { computeWordOccurrences } from "../contrib/find/computeWordOccurrences.ts";
 import { computeIndentLevel } from "../contrib/folding/foldingRangeProvider.ts";
 import type { IFoldingRegion } from "../contrib/folding/iFoldingRegion.ts";
@@ -202,6 +207,12 @@ export class EditorElement extends TUIElement implements IScrollable {
     public decorations: IExternalDecorations = EMPTY_EXTERNAL_DECORATIONS;
 
     private lineWidthCache: LineWidthCache | null = null;
+    /**
+     * The large-file mode has no {@link LineWidthCache}: its array of one number per line and the idle sweep over
+     * the file are what the mode avoids (for a document on disk the sweep would read the whole file). Like
+     * upstream `ViewLines._maxLineWidth`, the width is the widest line painted so far.
+     */
+    private largeFileMaxWidth = 0;
     /** The pending idle slice of the width sweep ({@link runWidthSweep}); null while none is scheduled. */
     private widthSweep: IDisposable | null = null;
     private occurrenceHighlightEnabledValue = true;
@@ -394,6 +405,7 @@ export class EditorElement extends TUIElement implements IScrollable {
     public get contentWidth(): number {
         // Under wrap the content is no wider than the viewport, so the horizontal scrollbar has nothing to show.
         if (this.viewState.isWordWrapActive) return this.viewState.viewportWidth;
+        if (this.viewState.isTooLargeForTokenization) return this.measureVisibleWidth();
         // The cache binds to the document once: an EditorElement's document never changes (a reload
         // from disk builds a new element).
         const cache = (this.lineWidthCache ??= new LineWidthCache(this.viewState.document, this.tabSize));
@@ -402,6 +414,19 @@ export class EditorElement extends TUIElement implements IScrollable {
         // Stryker disable next-line ConditionalExpression: a slice scheduled with nothing left finds nothing
         if (cache.hasUnmeasuredLines) this.scheduleWidthSweep(cache);
         return cache.getMaxWidth();
+    }
+
+    /** The widest of the viewport's lines and of those painted before; a reload starts over. */
+    private measureVisibleWidth(): number {
+        const document = this.viewState.document;
+        for (const line of this.visibleDocLines()) {
+            const content = document.getLineContent(line);
+            let width = measureTextWidth(content, this.tabSize, STOP_RENDERING_LINE_AFTER);
+            if (content.length > STOP_RENDERING_LINE_AFTER) width += LONG_LINE_TRUNCATION_BADGE_WIDTH;
+            // Stryker disable next-line EqualityOperator: storing an equal width changes nothing — equivalent
+            if (width > this.largeFileMaxWidth) this.largeFileMaxWidth = width;
+        }
+        return this.largeFileMaxWidth;
     }
 
     /** Document lines on the viewport's rows (a row of a view zone or past the end maps to the nearest line). */
@@ -473,7 +498,9 @@ export class EditorElement extends TUIElement implements IScrollable {
             // Under wrap the width is the viewport's and the sweep never runs; before the first frame nothing
             // is measured yet.
             contentWidthFinal:
-                vs.isWordWrapActive || (this.lineWidthCache !== null && !this.lineWidthCache.hasUnmeasuredLines),
+                vs.isWordWrapActive ||
+                vs.isTooLargeForTokenization ||
+                (this.lineWidthCache !== null && !this.lineWidthCache.hasUnmeasuredLines),
             ghostText:
                 this.ghostTextValue === null
                     ? null
@@ -577,7 +604,8 @@ export class EditorElement extends TUIElement implements IScrollable {
         this.viewState.onDidChangeView(() => {
             this.markDirty();
         });
-        this.viewState.document.onDidChangeContent(() => {
+        this.viewState.document.onDidChangeContent((change) => {
+            if (change.isFlush === true) this.largeFileMaxWidth = 0;
             // Upstream `onDidChangeModelContent` → `_stopAll`: no full-file search per keystroke.
             this.dropOccurrences();
             const task = this.currentOccurrenceTask();

@@ -8,6 +8,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { renderElement } from "../../../../../TestUtils/renderElement.ts";
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
+import { MATCHES_LIMIT } from "../../../../editor/contrib/find/findMatches.ts";
 import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";
 import { darkPlusTheme } from "../../../services/themes/common/themes/darkPlus.ts";
 import { ThemeService } from "../../../services/themes/common/themeService.ts";
@@ -137,6 +138,13 @@ describe("FindWidget — counter", () => {
         component.setQuery("foo");
         component.setCounter(1, 3);
         expect(render(component).screenToString()).toContain("1 of 3");
+    });
+
+    it("renders «19999+» when the collection stopped at the upstream limit", () => {
+        const component = make();
+        component.setQuery("e");
+        component.setCounter(7, MATCHES_LIMIT);
+        expect(render(component).screenToString()).toContain("7 of 19999+");
     });
 
     it("renders «No results» with the error color when there are no matches", () => {
