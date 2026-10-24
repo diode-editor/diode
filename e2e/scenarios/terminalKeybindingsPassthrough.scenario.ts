@@ -25,9 +25,12 @@ export default defineScenario({
         await editor.waitForText((t) => t.includes("TERMINAL"));
         await editor.waitForText((t) => t.includes("$") || t.includes("❯"));
 
-        // `stty -ixon`: otherwise the tty takes ^S as XOFF (flow control) and `cat` never sees it.
-        await editor.sendText("stty -ixon; cat -v");
+        // `stty -ixon`: otherwise the tty takes ^S as XOFF (flow control) and `cat` never sees it. Keys go
+        // only after the marker (split by an empty substitution, whole only in the output): typed ahead,
+        // ^S would hit the tty before `stty` ran.
+        await editor.sendText('stty -ixon; echo stty""-done; cat -v');
         await editor.sendKey("Enter");
+        await editor.waitForText((t) => t.includes("stty-done"));
         await editor.sendKey("Ctrl+B");
         await editor.sendKey("Ctrl+S");
         await editor.sendKey("Alt+f");
