@@ -1,8 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 
+import { FakeEditorTerminals } from "../../../../../TestUtils/FakeEditorTerminals.ts";
 import { FakeExtensionPtySession } from "../../../../../TestUtils/FakeExtensionPtySession.ts";
 import { FakeTerminalSurface } from "../../../../../TestUtils/FakeTerminalSurface.ts";
-import { makeTask, taskVariables } from "../../../../../TestUtils/taskFixtures.ts";
+import { type ITaskFixtureOptions, makeTask, taskVariables } from "../../../../../TestUtils/taskFixtures.ts";
 import { createTestConfigurationService } from "../../../../../TestUtils/testConfigurationService.ts";
 import { formatMessageForTerminal } from "../../../../platform/terminal/common/terminalStrings.ts";
 import { makeViewsHarness } from "../../../browser/parts/views/viewsService.testUtils.ts";
@@ -41,7 +42,8 @@ function buildHarness() {
         focus: () => undefined,
     });
     views.service.attachRegisteredContainers();
-    const system = new TerminalTaskSystem(terminals, views.service, () => "/bin/bash");
+    const editorTerminals = new FakeEditorTerminals(terminals);
+    const system = new TerminalTaskSystem(terminals, views.service, () => "/bin/bash", editorTerminals);
     const events: string[] = [];
     const raw: ITaskEvent[] = [];
     system.onDidStateChange((event) => {
@@ -59,7 +61,20 @@ function buildHarness() {
         system.dispose();
         terminals.dispose();
     };
-    return { views, terminals, sessions, factoryCalls, system, events, raw, focus, context, setVariables, dispose };
+    return {
+        views,
+        terminals,
+        editorTerminals,
+        sessions,
+        factoryCalls,
+        system,
+        events,
+        raw,
+        focus,
+        context,
+        setVariables,
+        dispose,
+    };
 }
 
 function describeEvent(event: ITaskEvent): string {
@@ -359,6 +374,89 @@ describe("TerminalTaskSystem — revealing the terminal", () => {
         h.terminals.showInstance(1);
         expect(h.system.revealTask(task)).toBe(true);
         expect(h.terminals.getActiveInstance()?.id).toBe(2);
+        h.dispose();
+    });
+});
+
+describe("TerminalTaskSystem — revealing a task terminal moved into the editor area", () => {
+    /** The task ran once, its idle terminal was moved into a tab and the panel was closed. */
+    function movedToEditor(presentation: ITaskFixtureOptions["presentation"] = {}) {
+        const h = buildHarness();
+        const task = makeTask({ presentation });
+        h.system.run(task, h.context());
+        h.sessions[0].emitExit(0);
+        h.terminals.moveToEditor(1);
+        h.views.panelService.setVisible(false);
+        h.focus.mockClear();
+        return { h, task };
+    }
+
+    it("reveal always: the rerun reuses the tab — it comes forward without focus, the panel stays closed", () => {
+        const { h, task } = movedToEditor();
+        h.system.run(task, h.context());
+        expect(h.sessions).toHaveLength(1);
+        expect(h.editorTerminals.revealed).toStrictEqual([{ id: 1, preserveFocus: true }]);
+        expect(h.terminals.getActiveInstanceAcrossHosts()?.id).toBe(1);
+        expect(h.views.panelService.visible).toBe(false);
+        expect(h.focus).not.toHaveBeenCalled();
+        h.dispose();
+    });
+
+    it("focus: the tab takes focus; the panel's terminal does not", () => {
+        const { h, task } = movedToEditor({ reveal: "never", focus: true });
+        h.system.run(task, h.context());
+        expect(h.editorTerminals.revealed).toStrictEqual([{ id: 1, preserveFocus: false }]);
+        expect(h.views.panelService.visible).toBe(false);
+        expect(h.focus).not.toHaveBeenCalled();
+        h.dispose();
+    });
+
+    it("an open panel stays open on its own active terminal", () => {
+        const { h, task } = movedToEditor();
+        const other = h.terminals.createInstance({});
+        h.views.panelService.setActiveView("other");
+        h.views.panelService.setVisible(true);
+        h.system.run(task, h.context());
+        expect(h.views.panelService.visible).toBe(true);
+        expect(h.views.panelService.getActiveViewId()).toBe("other");
+        expect(h.terminals.getActiveInstance()?.id).toBe(other.id);
+        expect(h.editorTerminals.revealed).toStrictEqual([{ id: 1, preserveFocus: true }]);
+        h.dispose();
+    });
+
+    it("silent: a non-zero exit reveals the tab, code 0 does not; never — nothing", () => {
+        const { h, task } = movedToEditor({ reveal: "silent" });
+        h.system.run(task, h.context());
+        h.sessions[0].emitExit(0);
+        expect(h.editorTerminals.revealed).toStrictEqual([]);
+        h.system.run(task, h.context());
+        h.sessions[0].emitExit(2);
+        expect(h.editorTerminals.revealed).toStrictEqual([{ id: 1, preserveFocus: true }]);
+        expect(h.views.panelService.visible).toBe(false);
+
+        const never = movedToEditor({ reveal: "never" });
+        never.h.system.run(never.task, never.h.context());
+        never.h.sessions[0].emitExit(1);
+        expect(never.h.editorTerminals.revealed).toStrictEqual([]);
+        h.dispose();
+        never.h.dispose();
+    });
+
+    it("revealTask (Show Running Task) reveals the tab, not the panel", () => {
+        const { h, task } = movedToEditor({ reveal: "never" });
+        expect(h.system.revealTask(task)).toBe(true);
+        expect(h.editorTerminals.revealed).toStrictEqual([{ id: 1, preserveFocus: true }]);
+        expect(h.views.panelService.visible).toBe(false);
+        h.dispose();
+    });
+
+    it("moved back into the panel — the rerun opens the panel again", () => {
+        const { h, task } = movedToEditor();
+        h.terminals.moveToPanel(1);
+        h.views.panelService.setVisible(false);
+        h.system.run(task, h.context());
+        expect(h.views.panelService.visible).toBe(true);
+        expect(h.editorTerminals.revealed).toStrictEqual([]);
         h.dispose();
     });
 });

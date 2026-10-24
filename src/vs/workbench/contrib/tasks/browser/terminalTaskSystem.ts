@@ -8,6 +8,7 @@ import { Emitter } from "../../../../base/common/event.ts";
 import { Disposable } from "../../../../base/common/lifecycle.ts";
 import { formatMessageForTerminal } from "../../../../platform/terminal/common/terminalStrings.ts";
 import type { ViewsService } from "../../../browser/parts/views/viewsService.ts";
+import type { TerminalEditorService } from "../../terminal/browser/terminalEditorService.ts";
 import {
     type ITerminalInstance,
     TERMINAL_VIEW_ID,
@@ -98,6 +99,9 @@ interface ILaunch {
     readonly resolvedDefinition: Readonly<Record<string, unknown>>;
 }
 
+/** A task terminal moved into the editor area is revealed as its tab. */
+export type ITaskEditorTerminals = Pick<TerminalEditorService, "reveal">;
+
 export interface ITaskRunContext {
     readonly variables: ITaskVariableContext;
     readonly platform: TaskPlatform;
@@ -158,6 +162,7 @@ export class TerminalTaskSystem extends Disposable {
         private readonly terminalService: TerminalService,
         private readonly views: ViewsService,
         private readonly defaultShell: DefaultShellResolver,
+        private readonly editorTerminals: ITaskEditorTerminals,
     ) {
         super();
         this.register(
@@ -388,8 +393,19 @@ export class TerminalTaskSystem extends Disposable {
         if (focus || reveal === "always") this.show(terminalId, focus);
     }
 
+    /**
+     * A terminal in the editor area is revealed as its tab and the panel is left alone (upstream `revealTerminal`).
+     * The `silent` failure and `revealTask` paths do the same, unlike upstream's blind `showPanel`.
+     */
     private show(terminalId: number, focus: boolean): void {
         this.terminalService.showInstance(terminalId);
+        // Stryker disable next-line OptionalChaining: equivalent: only live task terminals are shown (removed ones are forgotten)
+        if (this.terminalService.getInstance(terminalId)?.target === "editor") {
+            // Upstream `setActiveInstance`: the tab is the active terminal even when revealed in an inactive group.
+            this.terminalService.setActiveEditorInstance(terminalId);
+            this.editorTerminals.reveal(terminalId, !focus);
+            return;
+        }
         this.views.openView(TERMINAL_VIEW_ID, false, false);
         if (focus) this.terminalService.focusActive();
     }
