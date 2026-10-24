@@ -2,6 +2,12 @@
     "$comment": "Known flaky tests: vitest retries (retry) or skips (skip) them, see src/TestUtils/flakeTestRunner.ts. Process and details: docs/TODO/TestFlakes.md.",
     "flakes": [
         {
+            "file": "src/vs/workbench/browser/parts/editor/editorComponent.diskReload.test.ts",
+            "test": "EditorComponent — the document on disk reloaded after an external change > the in-memory reload is the reference: the cursor lands on the new last line",
+            "action": "retry",
+            "note": "timed out in 5000 ms; failed the test job on main a0ec0c24 (run 40098148744, docs only) and on #805 (run 40099005560)"
+        },
+        {
             "file": "src/vs/workbench/browser/workbench.encoding.test.ts",
             "test": "Workbench — Change File Encoding > Save with Encoding on an untitled buffer goes to Save As with the encoding set",
             "action": "retry",

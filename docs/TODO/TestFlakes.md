@@ -29,6 +29,9 @@
 Известные флаки юнит-набора и e2e; PR-диффом не задеты, `gh run rerun --failed` зеленит. Юнит-тесты
 отсюда стоят в `test-flakes.json`, кроме помеченных.
 
+- [ ] `editorComponent.diskReload.test.ts` › «the in-memory reload is the reference: the cursor lands on the new
+  last line»: `Test timed out in 5000ms`. Свалил job `test` на `main` a0ec0c24 (ран 40098148744, дифф — доки)
+  и на PR #805 (ран 40099005560, дифф — e2e-бенч), соседний тест того же файла зелёный.
 - [ ] e2e `extensionUpdates.stage3.functional.test.ts` › «US-3.3: many clock moves in a row — exactly one
   check per 12 hours, no piled-up timers» (windows): `expected 1 to be 2` — после серии `Diode.advanceClock`
   вторая проверка обновлений не успела дойти до реестра. Свалил e2e windows на PR #798 (ран 40034642872,
