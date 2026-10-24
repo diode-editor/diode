@@ -344,7 +344,13 @@ describe("parity with the VS Code mac keymap (upstream 1.138)", () => {
     const macCmd: Environment = { name: "mac-cmd", tier: "kitty", rung: "cmd" };
     const FOCUS: readonly Readonly<Record<string, boolean>>[] = [
         {},
-        { textViewFocus: true, textInputFocus: true, editorGroupHasEditors: true, editorTabsMultiple: true },
+        {
+            textViewFocus: true,
+            textInputFocus: true,
+            editorAreaFocus: true,
+            editorGroupHasEditors: true,
+            editorTabsMultiple: true,
+        },
         { textViewFocus: true, textInputFocus: true, suggestWidgetVisible: true },
         {
             textViewFocus: true,

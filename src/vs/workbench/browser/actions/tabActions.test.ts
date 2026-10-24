@@ -95,12 +95,21 @@ describe("TabActions", () => {
     it("nextEditor/previousEditor metadata: titles, keybindings with Alt duplicates, when", () => {
         expect(nextEditorAction.title).toBe("Open Next Editor");
         expect(previousEditorAction.title).toBe("Open Previous Editor");
-        expect(nextEditorAction.when).toBe("textViewFocus || terminalEditorFocus");
-        expect(previousEditorAction.when).toBe("textViewFocus || terminalEditorFocus");
+        expect(nextEditorAction.when).toBe("editorAreaFocus");
+        expect(previousEditorAction.when).toBe("editorAreaFocus");
         expect(nextEditorAction.keybinding).toEqual(parseKeybinding("ctrl+pagedown"));
         expect(nextEditorAction.keybindings).toEqual([parseKeybinding("alt+pagedown")]);
         expect(previousEditorAction.keybinding).toEqual(parseKeybinding("ctrl+pageup"));
         expect(previousEditorAction.keybindings).toEqual([parseKeybinding("alt+pageup")]);
+    });
+
+    it("tab commands are gated on focus anywhere in the editor area, not on text focus", () => {
+        expect(nextEditorInGroupAction.when).toBe("editorAreaFocus && editorTabsMultiple");
+        expect(previousEditorInGroupAction.when).toBe("editorAreaFocus && editorTabsMultiple");
+        expect(openPreviousRecentlyUsedEditorInGroupAction.when).toBe(
+            "editorAreaFocus && editorTabsMultiple && !terminalEditorFocus",
+        );
+        expect(closeActiveEditorAction.when).toBe("editorAreaFocus && editorGroupHasEditors && !terminalEditorFocus");
     });
 
     it("nextEditor / previousEditor cycle in visual order without a hold session", () => {

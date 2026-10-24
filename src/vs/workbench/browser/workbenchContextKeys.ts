@@ -1,6 +1,7 @@
 import type { TUIFocusEvent } from "@tuidom/core/dom/events/tuiFocusEvent";
 import type { TUIElement } from "@tuidom/core/dom/tuiElement";
 import type { BodyElement } from "@tuidom/elements/body/bodyElement";
+import { EditorPartElement } from "@tuidom/elements/editorpart/editorPartElement";
 import { InputElement } from "@tuidom/elements/inputbox/inputElement";
 import { ListViewElement } from "@tuidom/elements/list/listViewElement";
 import { TerminalViewElement } from "@tuidom/elements/terminal/terminalViewElement";
@@ -118,6 +119,11 @@ export class WorkbenchContextKeys extends Disposable {
         );
         this.contextKeys.set("activeEditorGroupLocked", this.groups.activeGroup.isLocked);
         this.contextKeys.set("terminalFocus", active instanceof TerminalViewElement);
+        // Upstream name. Overlays (palette, dialogs, menus) live outside the part, so they read false.
+        this.contextKeys.set(
+            "editorAreaFocus",
+            active?.getAncestorPath().some((element) => element instanceof EditorPartElement) ?? false,
+        );
         // Upstream key: workspace commands show in the command palette only with a folder open.
         this.contextKeys.set("workbenchState", this.workspaceContext.getWorkbenchState());
         for (const contributor of this.contributors) {

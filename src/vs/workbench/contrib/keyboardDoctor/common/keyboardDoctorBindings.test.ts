@@ -23,6 +23,8 @@ describe("editorContextFor", () => {
         const cmd = editorContextFor(MAC_CMD);
         expect(cmd.evaluate("macKeys >= 3 && cap_super && cap_extendedKeys && cap_kittyGraphics")).toBe(true);
         expect(cmd.evaluate("mode_local && !mode_tmux && textViewFocus && textInputFocus")).toBe(true);
+        // Tab commands (Ctrl+W, Ctrl+PgUp) are gated on the editor area, not on text focus.
+        expect(cmd.evaluate("editorAreaFocus && editorGroupHasEditors")).toBe(true);
         expect(cmd.evaluate("isLinux || isWindows")).toBe(false);
         expect(cmd.evaluate("os == 'mac'")).toBe(true);
         const linux = editorContextFor({ ...MAC_CMD, os: "linux" });

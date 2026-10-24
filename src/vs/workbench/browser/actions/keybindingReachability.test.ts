@@ -199,10 +199,14 @@ describe("default keybinding collisions", () => {
         {
             textViewFocus: true,
             textInputFocus: true,
+            editorAreaFocus: true,
             editorGroupHasEditors: true,
             editorTabsMultiple: true,
             editorHasMultipleSelections: true,
         },
+        // A non-text tab: the Keyboard Shortcuts search box and its list.
+        { inputWidgetFocus: true, editorAreaFocus: true, editorGroupHasEditors: true, editorTabsMultiple: true },
+        { listFocus: true, editorAreaFocus: true, editorGroupHasEditors: true, editorTabsMultiple: true },
         { textViewFocus: true, textInputFocus: true, suggestWidgetVisible: true },
         { textViewFocus: true, textInputFocus: true, findWidgetVisible: true },
         { inputWidgetFocus: true },

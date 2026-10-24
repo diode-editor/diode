@@ -42,7 +42,13 @@ const CHORD_NOT_FOUND_MS = 4000;
 // Focus-scoped context keys (set from `activeElement`). While a capturing overlay owns the
 // keyboard, only bindings whose `when` names one of these may run — otherwise a shortcut
 // would act on a panel behind the still-visible overlay. See dispatchKeyDown.
-const FOCUS_SCOPED_CONTEXT_KEYS = ["inputWidgetFocus", "textInputFocus", "textViewFocus", "listFocus"] as const;
+const FOCUS_SCOPED_CONTEXT_KEYS = [
+    "inputWidgetFocus",
+    "textInputFocus",
+    "textViewFocus",
+    "listFocus",
+    "editorAreaFocus",
+] as const;
 
 /** The binding requires a focus key to be true (in a non-negated position: `!listFocus` is not focus-scoped). */
 function isFocusScopedWhen(when: string | undefined): boolean {

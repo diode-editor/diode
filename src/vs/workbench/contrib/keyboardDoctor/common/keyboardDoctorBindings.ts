@@ -24,7 +24,13 @@ export function editorContextFor(env: KeyboardDoctorEnv): ContextKeyService {
         capabilities: Object.fromEntries(env.capabilities.map((capability) => [capability, true])),
         modes: Object.fromEntries(env.modes.map((mode) => [mode, true])),
     });
-    for (const focus of ["textViewFocus", "textInputFocus", "editorGroupHasEditors", "editorTabsMultiple"] as const) {
+    for (const focus of [
+        "textViewFocus",
+        "textInputFocus",
+        "editorAreaFocus",
+        "editorGroupHasEditors",
+        "editorTabsMultiple",
+    ] as const) {
         contextKeys.set(focus, true);
     }
     return contextKeys;
