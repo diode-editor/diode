@@ -6,6 +6,7 @@ import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/Tem
 import { createTestConfigurationService } from "../../../TestUtils/testConfigurationService.ts";
 import { flushMicrotasks } from "../../../TestUtils/timing.ts";
 import { ContextKeyServiceDIToken } from "../../platform/contextkey/common/contextKeyService.ts";
+import { nodeMemoryProbe } from "../../platform/memory/node/nodeMemoryProbe.ts";
 import {
     ENABLE_EDITING_LABEL,
     ENABLE_LARGE_FILE_EDITING_COMMAND_ID,
@@ -47,7 +48,7 @@ describe("Workbench — the large-file mode", () => {
         return h.testApp.backend.screenToString();
     }
 
-    it("above the size threshold the document stays on disk: the container wires the opener into the model", () => {
+    it("above the size threshold the document stays on disk: the container wires the opener and the memory probe into the model", () => {
         const line = "2026-01-01T00:00:00.000Z INFO worker request handled path=/api/v1/items";
         ws.writeFile("huge.log", Array.from({ length: 18_000 }, (_, i) => `${String(i)} ${line}`).join("\n") + "\n");
         h.dispose();
@@ -65,6 +66,8 @@ describe("Workbench — the large-file mode", () => {
         editor.goToPosition(17_999);
         expect(editor.primaryCursorLine).toBe(17_999);
         expect(editor.model.document.getLineContent(17_999)).toBe(`17999 ${line}`);
+        // "Enable Editing" asks it before the file streams in.
+        expect(editor.fileModel?.memory).toBe(nodeMemoryProbe);
     });
 
     it("above the configured threshold: read-only tab, editorReadonly, the toast with the button", () => {
