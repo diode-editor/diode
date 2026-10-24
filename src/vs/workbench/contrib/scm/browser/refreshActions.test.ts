@@ -44,7 +44,7 @@ describe("gitRefreshAction", () => {
         expect(gitRefreshAction.id).toBe("git.refresh");
         expect(gitRefreshAction.title).toBe("Git: Refresh");
         expect(gitRefreshAction.shortTitle).toBe("Refresh");
-        expect(gitRefreshAction.when).toBe("gitHasRepo");
+        expect(gitRefreshAction.enablement).toBe("gitHasRepo");
     });
 
     it("a refresh icon in the CHANGES title only, and only in a repository", () => {

@@ -17,7 +17,9 @@ export const gitRefreshAction: CommandAction = {
     id: "git.refresh",
     title: "Git: Refresh",
     shortTitle: "Refresh",
-    when: "gitHasRepo",
+    // Not `when`: that scopes keybindings only, the palette filters by enablement (VS Code's
+    // `commandPalette` when for this command is `gitOpenRepositoryCount != 0`).
+    enablement: "gitHasRepo",
     menus: [
         {
             menuId: MenuId.ViewTitle,
