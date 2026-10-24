@@ -99,7 +99,8 @@ function space(h: IHarness): Promise<unknown> {
 describe("ChangesComponent — Space toggles stage on files with non-ASCII or punctuated names", () => {
     it("Space, refresh, Space, refresh, Space on Cyrillic names stages the files in display order", async () => {
         const h = make();
-        const names = ["альфа.ts", "бета.ts", "гамма.ts", "дельта.ts"];
+        // Cyrillic a, b, v, g: each sanitizes to the same row id base.
+        const names = ["\u0430.ts", "\u0431.ts", "\u0432.ts", "\u0433.ts"];
         publish(h, [], names);
         cursorOnFirstFile(h);
 
@@ -109,7 +110,7 @@ describe("ChangesComponent — Space toggles stage on files with non-ASCII or pu
         refresh(h, names);
         await space(h);
 
-        expect(h.calls).toEqual(["stage альфа.ts", "stage бета.ts", "stage гамма.ts"]);
+        expect(h.calls).toEqual([`stage ${names[0]}`, `stage ${names[1]}`, `stage ${names[2]}`]);
     });
 
     it("Space, refresh, Space, refresh, Space on 'a b.ts', 'a.b.ts', 'a-b.ts' stages them in display order", async () => {
