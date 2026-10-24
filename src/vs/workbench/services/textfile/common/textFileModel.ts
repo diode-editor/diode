@@ -803,7 +803,7 @@ export class TextFileModel extends BaseTextEditorModel {
         const disk = this.doc.onDisk;
         const known = this.diskStat;
         if (disk === null) return false;
-        // Stryker disable next-line ConditionalExpression: a document on disk always has its stat (openOnDisk sets it); the check is for the type
+        // Stryker disable next-line ConditionalExpression,BooleanLiteral: a document on disk always has its stat (openOnDisk sets it); the check is for the type
         if (known === null) return false;
         if (current.ino !== known.ino || current.size <= known.size) return false;
         return disk.extendTo(current.size);
