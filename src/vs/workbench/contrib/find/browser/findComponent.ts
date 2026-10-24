@@ -10,6 +10,7 @@ import { SizedBoxElement } from "@tuidom/elements/layout/sizedBoxElement";
 import { TextLabelElement } from "@tuidom/elements/text/textLabelElement";
 
 import { Disposable } from "../../../../base/common/lifecycle.ts";
+import { MATCHES_LIMIT } from "../../../../editor/contrib/find/findMatches.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import { EditorPartComponentDIToken } from "../../../browser/parts/editor/editorPartComponent.ts";
 import type { GroupId } from "../../../services/editor/browser/editorGroupModel.ts";
@@ -173,7 +174,9 @@ export class FindWidget extends Disposable {
     private counterText(): string {
         if (this.input.inputState.value.length === 0) return "";
         if (this.matchTotal === 0) return "No results";
-        return `${this.matchCurrent} of ${this.matchTotal}`;
+        // The collection stops at the limit (upstream "19999+"): the total is a floor, not a count.
+        const total = this.matchTotal >= MATCHES_LIMIT ? `${String(MATCHES_LIMIT)}+` : String(this.matchTotal);
+        return `${String(this.matchCurrent)} of ${total}`;
     }
 
     private updatePosition(): void {

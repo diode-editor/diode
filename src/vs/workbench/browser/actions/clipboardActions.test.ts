@@ -25,10 +25,19 @@ import { WorkbenchTheme } from "../../../platform/theme/common/workbenchTheme.ts
 import { UndoRedoService } from "../../../platform/undoRedo/common/undoRedoService.ts";
 import { EditorService } from "../../services/editor/browser/editorService.ts";
 import { EditorServiceDIToken } from "../../services/editor/common/editorService.ts";
+import {
+    NotificationService,
+    NotificationServiceDIToken,
+} from "../../services/notification/browser/notificationService.ts";
 import { darkPlusTheme } from "../../services/themes/common/themes/darkPlus.ts";
 import { ThemeService } from "../../services/themes/common/themeService.ts";
 
-import { clipboardCopyAction, clipboardCutAction, clipboardPasteAction } from "./clipboardActions.ts";
+import {
+    clipboardCopyAction,
+    clipboardCutAction,
+    clipboardPasteAction,
+    COPY_TOO_LARGE_MESSAGE,
+} from "./clipboardActions.ts";
 
 function memoryClipboard(initial = ""): IClipboard {
     let text = initial;
@@ -50,8 +59,10 @@ function openEditor(content: string, clipboard: IClipboard, emptySelectionClipbo
 
     const commands = new CommandRegistry();
     const accessor = new Container();
+    const notifications = new NotificationService();
     accessor.bind(EditorServiceDIToken, () => ctrl);
     accessor.bind(ClipboardDIToken, () => clipboard);
+    accessor.bind(NotificationServiceDIToken, () => notifications);
     accessor.bind(IConfigurationServiceDIToken, () =>
         createTestConfigurationService({ "editor.emptySelectionClipboard": emptySelectionClipboard }),
     );
@@ -60,7 +71,7 @@ function openEditor(content: string, clipboard: IClipboard, emptySelectionClipbo
         registerAction(commands, new KeybindingRegistry(), accessor, action);
         await commands.execute(action.id);
     }
-    return { ctrl, editor, exec };
+    return { ctrl, editor, exec, notifications };
 }
 
 beforeEach(() => {
@@ -155,6 +166,26 @@ describe("clipboardCopyAction", () => {
         await exec(clipboardCopyAction);
 
         expect(await clipboard.readText()).toBe("alpha");
+    });
+
+    it("a selection no string can hold (Select All on a 2 GB document on disk) is refused with a toast", async () => {
+        const clipboard = memoryClipboard("before");
+        const { editor, exec, notifications } = openEditor("abc", clipboard);
+        vi.spyOn(editor, "getSelectedTexts").mockImplementation(() => {
+            throw new RangeError("The document on disk is 2166234800 bytes, more than a string can hold");
+        });
+        await exec(clipboardCopyAction);
+        expect(notifications.passive()).toMatchObject([{ severity: "warn", message: COPY_TOO_LARGE_MESSAGE }]);
+        expect(await clipboard.readText()).toBe("before");
+    });
+
+    it("any other failure of the copy is a bug and surfaces", async () => {
+        const { editor, exec, notifications } = openEditor("abc", memoryClipboard());
+        vi.spyOn(editor, "getSelectedTexts").mockImplementation(() => {
+            throw new TypeError("boom");
+        });
+        await expect(exec(clipboardCopyAction)).rejects.toThrow(TypeError);
+        expect(notifications.isEmpty()).toBe(true);
     });
 });
 

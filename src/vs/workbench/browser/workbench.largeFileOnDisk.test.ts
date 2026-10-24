@@ -7,6 +7,7 @@ import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTe
 import { fileDialogDriver } from "../../../TestUtils/fileDialogDriver.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
 import { createTestConfigurationService } from "../../../TestUtils/testConfigurationService.ts";
+import { flushMicrotasks } from "../../../TestUtils/timing.ts";
 import { NotificationServiceDIToken } from "../services/notification/browser/notificationService.ts";
 
 const LINE = "2026-01-01T00:00:00.000Z INFO worker request handled path=/api/v1/items";
@@ -81,5 +82,35 @@ describe("Workbench — the document on disk", () => {
         });
         expect(notifications.current()?.message).toMatch(/Save As/);
         expect(screen()).toMatch(/Save As/);
+    });
+
+    it("the Save As toast offers Enable Editing: the button loads the file into memory, dismissing does not", async () => {
+        h.workbench.openFile(ws.path("huge.log"));
+        h.workbench.focusEditor();
+        const editor = h.activeEditor();
+        const notifications = h.container.get(NotificationServiceDIToken);
+        notifications.clearAll();
+
+        void h.commands.execute("workbench.action.files.saveAs");
+        await vi.waitFor(() => {
+            expect(notifications.current()?.message).toMatch(/Save As/);
+        });
+        // A toast, not a modal: the editor stays usable behind it.
+        expect(notifications.current()?.modal).toBe(false);
+        notifications.dismiss(notifications.current()!.id);
+        await flushMicrotasks();
+        expect(editor.fileModel?.isOnDisk).toBe(true);
+        expect(editor.readOnly).toBe(true);
+
+        void h.commands.execute("workbench.action.files.saveAs");
+        await vi.waitFor(() => {
+            expect(notifications.current()?.items).toEqual(["Enable Editing"]);
+        });
+        notifications.answer(notifications.current()!.id, 0);
+        await flushMicrotasks();
+        expect(editor.fileModel?.isOnDisk).toBe(false);
+        expect(editor.model.isTooLargeForTokenization).toBe(false);
+        expect(editor.readOnly).toBe(false);
+        expect(editor.lineCount).toBe(18_001);
     });
 });

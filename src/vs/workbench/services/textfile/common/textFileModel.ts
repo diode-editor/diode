@@ -64,6 +64,10 @@ const UNTITLED_PLACEHOLDER_URI = Uri.from({ scheme: "untitled", path: "Untitled"
  */
 export const ORPHAN_CHECK_DELAY_MS = 100;
 
+/** The refusal of {@link TextFileModel.saveAs} on a document on disk; the command shows it as a toast. */
+export const SAVE_AS_ON_DISK_MESSAGE =
+    "Save As is not available for a document on disk: the file is read-only. Enable Editing first.";
+
 /**
  * Counterpart of `ITextFileEditorModel`: a file on disk, a resource of an extension's FS provider
  * ({@link openProvided}) or an untitled buffer; synthetic content is `SyntheticTextModel`.
@@ -501,7 +505,7 @@ export class TextFileModel extends BaseTextEditorModel {
      */
     public async saveAs(newPath: string): Promise<void> {
         // Stage 4.5 streams a copy; until then the snapshot would go through one buffer of the file's size.
-        if (this.isOnDisk) throw new Error("Save As is not available for a document on disk; Enable Editing first");
+        if (this.isOnDisk) throw new Error(SAVE_AS_ON_DISK_MESSAGE);
         this.uriValue = Uri.file(path.resolve(newPath));
         this.providedWatch?.dispose();
         this.providedWatch = null;

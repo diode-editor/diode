@@ -196,6 +196,12 @@ export class EditorViewState {
      * {@link remapForDocumentChange} remap would shift them a second time.
      */
     private applyingOwnEdits = false;
+    /**
+     * A reload (flush) clamped a cursor that was past the new end. A document on disk is reloaded with its
+     * first chunk only (docs/arch/Editor.md): the end moves on as the index grows, and a cursor clamped to a
+     * provisional end would otherwise be left in the middle of the file. Cleared by the next flush.
+     */
+    private cursorsClampedByFlush = false;
     private readonly docContentSubscription: IDisposable;
     // Stryker disable next-line ArrayDeclaration: the document doesn't know a junk element without an id, getDecorationRange returns null
     private markerDecorationIds: readonly IViewMarkerDecoration[] = [];
@@ -293,6 +299,18 @@ export class EditorViewState {
 
         this.adjustFoldingRegionsForLineChange(change.startLine, change.oldEndLine, lineDelta);
 
+        if (change.isFlush === true) {
+            this.cursorsClampedByFlush = this.selectionsValue.some((sel) => sel.active.line > change.newEndLine);
+        } else if (this.cursorsClampedByFlush && change.startLine === change.oldEndLine) {
+            // Growth of a document on disk: new lines after the last one.
+            const atEnd = (sel: ISelection) =>
+                sel.active.line === change.oldEndLine && sel.anchor.line === change.oldEndLine;
+            if (this.selectionsValue.some(atEnd)) {
+                this.followGrowth(change.newEndLine, atEnd);
+                return;
+            }
+        }
+
         const remapped = this.selectionsValue.map((sel) => {
             const anchor = this.remapPosition(sel.anchor, change, lineDelta);
             const active = this.remapPosition(sel.active, change, lineDelta);
@@ -316,6 +334,23 @@ export class EditorViewState {
         ) {
             this.scrollTop = Math.max(0, this.scrollTopValue + lineDelta);
         }
+    }
+
+    /**
+     * The cursors the reload left on the last line move to the new last line and stay in view, as the in-memory
+     * reload would have put them; the other selections stay.
+     */
+    private followGrowth(line: number, atEnd: (sel: ISelection) => boolean): void {
+        const length = this.document.getLineLength(line);
+        this.selections = this.selectionsValue.map((sel) => {
+            if (!atEnd(sel)) return sel;
+            return {
+                anchor: { line, character: Math.min(sel.anchor.character, length) },
+                active: { line, character: Math.min(sel.active.character, length) },
+                idealColumn: sel.idealColumn,
+            };
+        });
+        this.ensureCursorVisible();
     }
 
     private remapPosition(pos: IPosition, change: IDocumentContentChange, lineDelta: number): IPosition {
