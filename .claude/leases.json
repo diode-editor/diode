@@ -9,7 +9,7 @@
     "leases": [
         {
             "resource": "машина",
-            "why": "мутационный гейт, e2e, сборка бинарника, полный линт и бенчи съедают CPU и память целиком; два прогона разом дают флаки, 30-секундные таймауты и OOM",
+            "why": "мутационный гейт, e2e, сборка бинарника, полный линт, typecheck, check:diff, npm test и бенчи съедают CPU и память целиком; два прогона разом дают флаки, 30-секундные таймауты и OOM (2026-10-24 под на 7.5 ГБ упал от check:diff + typecheck + lint разом)",
             "match": [
                 "npm run lint",
                 "npm run test:mutation",
@@ -24,7 +24,16 @@
                 "npx vitest run --config vitest.e2e.config.ts",
                 "node scripts/e2e.mjs",
                 "node scripts/e2e-artifacts.mjs",
-                "vitest run e2e/"
+                "vitest run e2e/",
+                "npm run check:diff",
+                "npm run -s check:diff",
+                "node scripts/check-diff.mjs",
+                "npm run typecheck",
+                "npm run -s typecheck",
+                "npx tsc",
+                "npm test",
+                "npm run test:perf",
+                "vitest bench"
             ],
             "except": [
                 "--scope-only",

@@ -13,6 +13,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 
 import {
+    HTTPS_ORIGIN,
     LABELS,
     ROLES,
     branchName,
@@ -69,7 +70,7 @@ function machine() {
 
 function limits(m) {
     return {
-        maxTasks: num("AGENT_LOOP_MAX_TASKS", 3),
+        maxTasks: num("AGENT_LOOP_MAX_TASKS", 2),
         load5Max: num("AGENT_LOOP_LOAD5_MAX", m.nproc / 2),
         memAvailableMinPct: num("AGENT_LOOP_MEM_MIN_PCT", 30),
         taskTimeoutHours: num("AGENT_LOOP_TASK_TIMEOUT_HOURS", 8),
@@ -186,7 +187,7 @@ function queue() {
             const bug = Number(b.labels.includes(LABELS.bug)) - Number(a.labels.includes(LABELS.bug));
             return bug !== 0 ? bug : a.createdAt.localeCompare(b.createdAt);
         });
-    const remoteBranches = git(["ls-remote", "--heads", "origin", "issue/*"]).stdout;
+    const remoteBranches = git(["ls-remote", "--heads", HTTPS_ORIGIN, "issue/*"]).stdout;
     const all = eligible.map((i) => ({
         number: i.number,
         title: i.title,

@@ -46,12 +46,15 @@ import { median } from "./stats.ts";
 //    (planted by the tester of #805: 445–555 ms a key vs 20–43) keeps (1)–(4) green and shows only here.
 //    Calibration (CI, PR #805, run 40103572500 — a fast runner: `small` 102, index from spawn 749 vs 1060–1078 on
 //    the earlier runs, 1.44× slower): walk 343/344 ms, budget 700 — 1.4× the walk scaled to the slower runner
-//    (~495), so a 2× walk is caught there (~990) and is borderline on the fastest one (~690). Keys: median 7 ms
+//    (~495; seen later on #829 with `small` 134: 515/544), so a 2× walk is caught there and is borderline on
+//    the fastest runner (~690). Keys: median 7 ms
 //    (5–9; the first key of a run, at the index start, shares the thread with the startup: 138–144), budget 20 —
 //    2.5–3× the median like the `xlarge` keys.
 // 6. Follow (4.4): `Ctrl+End`, then a line appended to the file, timed to the frame that shows it. The watcher's
 //    window is 50 ms, so the floor is ~55 ms (4.4: median 55.7, p90 57.9 locally); a budget below the window
 //    would take a decision for the whole watcher. It catches a re-read of the file instead of the tail.
+//    Calibration (CI, PR #829, a slow runner: `small` 134): median 54 ms (53–55, the window plus a frame),
+//    budget 80 — 1.4× the worst; a doubled window or a re-read of the file shows.
 // 7. Find (4.3) on the read-only document: a query whose only match is in the middle of the file, from the paste
 //    to the counter (half a walk from the cursor at line 1), and characters typed while the walks run — each one
 //    starts a new walk over the whole file, the next one must not wait for it. It catches a synchronous walk
@@ -84,13 +87,12 @@ export const INDEX_BUDGET_MS = 1600;
 /** Median peak RSS of the process, the index included. */
 export const RSS_BUDGET_BYTES = 420 * MiB;
 const SAMPLES = 5;
-// TODO(calibrate on CI after #802): the follow budget is a first guess from the local numbers of 4.4.
 /** Median ms of the index walk between `WALK_FROM_PERCENT` and `WALK_TO_PERCENT`. */
 export const WALK_BUDGET_MS = 700;
 /** Median ms of ArrowDown while the line index runs. */
 export const INDEX_KEY_BUDGET_MS = 20;
 /** Median ms from a line appended to the file to the frame that shows it, follow on. */
-export const FOLLOW_BUDGET_MS = 150;
+export const FOLLOW_BUDGET_MS = 80;
 /** Median ms from pasting a query with one match in the middle of the file to the counter showing it. */
 export const FIND_FIRST_MATCH_BUDGET_MS = 2400;
 /** Median ms of a typed character in the find input while a walk over the file runs. */
@@ -221,8 +223,7 @@ describe("log500m: the giant file opens read-only on disk like a small one", () 
 
     const followSamples: number[] = [];
     let followCalls = 0;
-    // TODO(#802): enable once follow is on main (this branch gets rebased).
-    bench.skip(
+    bench(
         `log500m: follow, appended line to frame ≤ ${String(FOLLOW_BUDGET_MS)} ms (median)`,
         async () => {
             followCalls++;

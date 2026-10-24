@@ -17,6 +17,14 @@ export const REPO_ROOT = (() => {
 export const HTTPS_ORIGIN = "https://github.com/diode-editor/diode.git";
 export const LABELS = { ready: "ready to implement", inProgress: "in progress", returned: "returned", bug: "bug" };
 export const ROLES = ["implementer", "tester"];
+/** Loop commits are Claude's alone: the human's git identity stays out of author and committer. */
+export const CLAUDE_GIT_EMAIL = "noreply@anthropic.com";
+export const CLAUDE_GIT_ENV = {
+    GIT_AUTHOR_NAME: "Claude",
+    GIT_AUTHOR_EMAIL: CLAUDE_GIT_EMAIL,
+    GIT_COMMITTER_NAME: "Claude",
+    GIT_COMMITTER_EMAIL: CLAUDE_GIT_EMAIL,
+};
 /** Exit code of mutation-budget.mjs when the task's budget is spent (75 is the lease's "busy"). */
 export const EXIT_BUDGET_SPENT = 76;
 
