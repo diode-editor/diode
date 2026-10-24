@@ -63,10 +63,11 @@ export const enableLargeFileEditingAction: CommandAction = {
 export const TOGGLE_FOLLOW_TAIL_COMMAND_ID = "workbench.action.editor.toggleFollowTail";
 
 /**
- * Follow of a document on disk (docs/arch/Editor.md): the counterpart of upstream's
+ * Follow of a large file (docs/arch/Editor.md): the counterpart of upstream's
  * `workbench.output.action.toggleAutoScroll` of the Output panel, for a file — a deviation, upstream has no
- * document on disk. On: the cursor goes to the end and rides the tail; off: it stays. A no-op on a document in
- * memory, like the sibling above; the status bar entry (`largeFileFollowStatus.ts`) is the usual door.
+ * follow for a file. On: the cursor goes to the end and rides the tail; off: it stays. A no-op outside the
+ * large-file mode, like the sibling above; the status bar entry (`largeFileFollowStatus.ts`) is the usual door.
+ * The mode, not the disk: a rotated log goes into memory when it is small and is followed there too.
  */
 export const toggleFollowTailAction: CommandAction = {
     id: TOGGLE_FOLLOW_TAIL_COMMAND_ID,
@@ -74,7 +75,7 @@ export const toggleFollowTailAction: CommandAction = {
     shortTitle: "Toggle Follow Tail",
     run(accessor) {
         const editor = accessor.get(EditorServiceDIToken).getActiveEditor();
-        if (editor === null || editor.detached || editor.fileModel?.isOnDisk !== true) return;
+        if (editor === null || editor.detached || editor.fileModel?.isTooLargeForTokenization !== true) return;
         editor.viewState.setFollowTail(!editor.viewState.followTail);
     },
 };

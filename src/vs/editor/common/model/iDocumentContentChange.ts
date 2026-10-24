@@ -17,7 +17,8 @@ export interface IDocumentContentChange {
     readonly isFinalGrowth?: boolean;
     /**
      * Lines came in from outside, after the last one: the index of a document on disk grew, or its file did
-     * (docs/arch/Editor.md). No version bump; the view's follow (`EditorViewState.followTail`) rides on it.
+     * (docs/arch/Editor.md) — no version bump; or the file of a document in memory did (`TextDocument.appendText`,
+     * an edit). The view's follow (`EditorViewState.followTail`) rides on it.
      */
     readonly isAppend?: boolean;
 }

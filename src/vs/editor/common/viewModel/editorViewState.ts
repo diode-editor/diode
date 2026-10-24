@@ -215,8 +215,10 @@ export class EditorViewState {
      * `output.smartScroll`: an explicit move onto the last line turns it on, off it — off) and the ends a reload
      * (flush) clamped because they were past the new end (a document on disk is reloaded with its first chunk
      * only: the end moves on as the index grows, and an end clamped to a provisional last line would otherwise
-     * be left in the middle of the file). The set holds the position objects themselves: one the user moves is a
-     * new object and drops out. Reset by every explicit cursor move and by the next flush.
+     * be left in the middle of the file). An end that followed before a flush moves to the new end and follows on:
+     * a rotated log (a new file under the same name) is followed like `tail -F`. The set holds the position
+     * objects themselves: one the user moves is a new object and drops out. Reset by every explicit cursor move
+     * and by the next flush.
      */
     private followingEnds = new WeakSet<IPosition>();
     /** The visible state of the set: on while some cursor rides the end. Its toggle is {@link setFollowTail}. */
@@ -330,17 +332,22 @@ export class EditorViewState {
 
         if (this.continuePendingTarget(change)) return;
 
+        const carried = this.followingEnds;
         if (change.isFlush === true) this.followingEnds = new WeakSet();
         const followed: IPosition[] = [];
-        let clamped = false;
+        let following = false;
         const remapped = this.selectionsValue.map((sel) => {
             let anchor = this.remapPosition(sel.anchor, change, lineDelta);
             let active = this.remapPosition(sel.active, change, lineDelta);
             if (change.isFlush === true) {
-                if (sel.anchor.line > change.newEndLine) this.followingEnds.add(anchor);
-                if (sel.active.line > change.newEndLine) {
+                if (carried.has(sel.anchor)) anchor = this.moveToEnd(anchor, change.newEndLine, followed);
+                else if (sel.anchor.line > change.newEndLine) this.followingEnds.add(anchor);
+                if (carried.has(sel.active)) {
+                    active = this.moveToEnd(active, change.newEndLine, followed);
+                    following = true;
+                } else if (sel.active.line > change.newEndLine) {
                     this.followingEnds.add(active);
-                    clamped = true;
+                    following = true;
                 }
             } else {
                 anchor = this.followEnd(anchor, change, followed);
@@ -350,8 +357,8 @@ export class EditorViewState {
                 ? sel
                 : { anchor, active, idealColumn: sel.idealColumn };
         });
-        // A reload turns follow on exactly when it clamped a cursor past the new end (the QA rule of 4.2).
-        if (change.isFlush === true) this.setFollowTailValue(clamped);
+        // A reload keeps follow on and turns it on when it clamped a cursor past the new end (the QA rule of 4.2).
+        if (change.isFlush === true) this.setFollowTailValue(following);
         // Only on a real shift: an idle cursor change would poke the status bar and the extension host.
         if (remapped.some((sel, i) => sel !== this.selectionsValue[i])) {
             this.replaceSelections(remapped);
@@ -383,7 +390,10 @@ export class EditorViewState {
      */
     private followEnd(pos: IPosition, change: IDocumentContentChange, followed: IPosition[]): IPosition {
         if (change.isAppend !== true || !this.followingEnds.has(pos)) return pos;
-        const line = change.newEndLine;
+        return this.moveToEnd(pos, change.newEndLine, followed);
+    }
+
+    private moveToEnd(pos: IPosition, line: number, followed: IPosition[]): IPosition {
         const moved = { line, character: Math.min(pos.character, this.document.getLineLength(line)) };
         this.followingEnds.add(moved);
         followed.push(moved);

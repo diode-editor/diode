@@ -187,7 +187,7 @@ describe("EditorViewState.followTail — the screen rides the tail of a document
         });
     });
 
-    it("a reload (flush) turns follow on only when it clamped a cursor past the new end", () => {
+    it("a reload (flush) keeps follow on and turns it on when it clamped a cursor past the new end", () => {
         const { viewState } = opened(100);
         viewState.cursorBottom();
         const doc = viewState.document;
@@ -200,11 +200,13 @@ describe("EditorViewState.followTail — the screen rides the tail of a document
         doc.setText(log(80));
         expect(viewState.followTail).toBe(false);
 
-        // Following, and a reload that does not clamp: off — the cursor is no longer on the end.
+        // Following, and a reload that does not clamp (a rotated log, longer than the old one): the cursor goes to
+        // the new end and follows on.
         viewState.cursorBottom();
         expect(viewState.followTail).toBe(true);
         doc.setText(log(200));
-        expect(viewState.followTail).toBe(false);
+        expect(viewState.selections[0].active.line).toBe(200);
+        expect(viewState.followTail).toBe(true);
 
         // Not following, and a reload that clamps: on.
         viewState.selections = [createCursorSelection(150, 0)];

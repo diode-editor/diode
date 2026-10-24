@@ -20,10 +20,11 @@ export const FOLLOW_ON_TEXT = "Follow: On";
 export const FOLLOW_OFF_TEXT = "Follow: Off";
 
 /**
- * The status bar shows whether the active editor's document on disk follows its tail (docs/arch/Editor.md,
+ * The status bar shows whether the active editor's large file follows its tail (docs/arch/Editor.md,
  * `EditorViewState.followTail`): a cursor on the last line rides along as the file grows, like `less +F`. The
  * entry is a click away from toggling it, like the lock button of upstream's Output panel; it is shown for every
- * document on disk, on or off, so the mode is discoverable. No upstream analog for a file (a deviation).
+ * large file (the mode, on disk or in memory), on or off, so the mode is discoverable. No upstream analog for a
+ * file (a deviation).
  */
 export class LargeFileFollowStatus extends Disposable implements IWorkbenchContribution {
     public static dependencies = [EditorServiceDIToken, StatusBarServiceDIToken] as const;
@@ -62,17 +63,16 @@ export class LargeFileFollowStatus extends Disposable implements IWorkbenchContr
             viewState.onDidChangeFollowTail(() => {
                 this.sync(editor, model);
             }),
-            // "Enable Editing" reloads the document into memory with a flush: the entry goes with the disk.
-            model.document.onDidChangeContent((change) => {
-                // Stryker disable next-line ConditionalExpression: an append changes nothing the entry shows; the check only skips a sync per appended line
-                if (change.isFlush === true) this.sync(editor, model);
+            // "Enable Editing" leaves the mode: the entry goes with it.
+            model.onDidChangeTooLargeForTokenization(() => {
+                this.sync(editor, model);
             }),
         );
         this.sync(editor, model);
     }
 
     private sync(editor: TextEditorPane, model: TextFileModel): void {
-        if (!model.isOnDisk) {
+        if (!model.isTooLargeForTokenization) {
             this.clear();
             return;
         }

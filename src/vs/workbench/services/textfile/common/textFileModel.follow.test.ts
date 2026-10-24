@@ -12,7 +12,7 @@ import type { ILargeFileOptions } from "../../../../editor/common/model/largeFil
 import { nodeRandomAccessFileOpener } from "../../../../platform/files/node/nodeRandomAccessFile.ts";
 import { UndoRedoService } from "../../../../platform/undoRedo/common/undoRedoService.ts";
 
-import { TextFileModel } from "./textFileModel.ts";
+import { READ_CHUNK_SIZE, TextFileModel } from "./textFileModel.ts";
 
 /** Above 1 MiB the file stays on disk. */
 const ON_DISK: ILargeFileOptions = { largeFileOptimizations: true, sizeThresholdMb: 1, lineCountThreshold: 1_000_000 };
@@ -164,14 +164,92 @@ describe("TextFileModel — follow: the file under the document on disk grows", 
         model.dispose();
     });
 
-    it("a document in memory (below the threshold) reloads on growth, as before", async () => {
-        const { model, path, changes } = await open("small.log", bigLog(10));
-        expect(model.isOnDisk).toBe(false);
-        fs.appendFileSync(path, bigLog(2, 10));
-        bumpMtime(path);
-        watcher.fire(path);
-        expect(changes[0]).toMatchObject({ isFlush: true });
-        expect(model.document.lineCount).toBe(13);
-        model.dispose();
+    describe("a document in memory (below the threshold): the tail goes into the piece tree", () => {
+        function grow(path: string, text: string | Buffer): void {
+            fs.appendFileSync(path, text);
+            bumpMtime(path);
+            watcher.fire(path);
+        }
+
+        it("an append is an edit at the end: isAppend, clean, the mirror sees it, no reload", async () => {
+            const { model, path, changes, diskStateChanges } = await open("small.log", bigLog(10));
+            expect(model.isOnDisk).toBe(false);
+            const version = model.document.versionId;
+            const mirrored: string[] = [];
+            model.document.onDidChangeModelContent((event) => {
+                for (const change of event.changes) mirrored.push(change.text);
+            });
+            grow(path, bigLog(2, 10));
+            expect(changes).toEqual([{ startLine: 10, oldEndLine: 10, newEndLine: 12, isAppend: true }]);
+            expect(model.document.lineCount).toBe(13);
+            expect(model.document.getLineContent(11)).toBe(`11 ${LINE}`);
+            expect(model.document.versionId).toBe(version + 1);
+            expect(model.isModified).toBe(false);
+            expect(mirrored).toEqual([bigLog(2, 10)]);
+            expect(diskStateChanges()).toBe(0);
+
+            // And again: the end moved with the first append.
+            grow(path, "tail\n");
+            expect(changes[1]).toMatchObject({ isAppend: true });
+            expect(model.document.getText()).toBe(bigLog(12) + "tail\n");
+            model.dispose();
+        });
+
+        it("a rewrite before the old end, truncation and another file under the name reload", async () => {
+            const { model, path, changes } = await open("small.log", bigLog(10));
+            fs.writeFileSync(path, bigLog(10).replace("0 ", "X ") + "more\n");
+            bumpMtime(path);
+            watcher.fire(path);
+            expect(changes.at(-1)).toMatchObject({ isFlush: true });
+            expect(model.document.getLineContent(0)).toBe(`X ${LINE}`);
+
+            fs.truncateSync(path, 10);
+            bumpMtime(path);
+            watcher.fire(path);
+            expect(changes.at(-1)).toMatchObject({ isFlush: true });
+
+            fs.renameSync(path, ws.path("small.log.1"));
+            fs.writeFileSync(path, "x".repeat(20) + "\nnew\n");
+            watcher.fire(path);
+            expect(changes.at(-1)).toMatchObject({ isFlush: true });
+            expect(model.document.getText()).toBe("x".repeat(20) + "\nnew\n");
+            model.dispose();
+        });
+
+        it("a CRLF split by the append reloads: the old CR was already a line break", async () => {
+            const { model, path, changes } = await open("small.log", "a\r\nb\r");
+            grow(path, "\nc\r\n");
+            expect(changes.at(-1)).toMatchObject({ isFlush: true });
+            expect(model.document.getLinesContent()).toEqual(["a", "b", "c", ""]);
+            model.dispose();
+        });
+
+        it("a character split by the append waits for its last bytes", async () => {
+            const { model, path, changes } = await open("small.log", "a\n");
+            const text = Buffer.from("é€😀\n");
+            grow(path, text.subarray(0, 2));
+            grow(path, text.subarray(2, 4));
+            grow(path, text.subarray(4, 8));
+            grow(path, text.subarray(8));
+            expect(changes.every((change) => change.isAppend === true)).toBe(true);
+            expect(model.document.getText()).toBe("a\né€😀\n");
+            model.dispose();
+        });
+
+        it("a tail longer than a chunk, or a file not in UTF-8, reloads", async () => {
+            const { model, path, changes } = await open("small.log", "a\n");
+            grow(path, "b".repeat(READ_CHUNK_SIZE) + "\n");
+            expect(changes.at(-1)).toMatchObject({ isFlush: true });
+            grow(path, "c\n");
+            expect(changes.at(-1)).toMatchObject({ isAppend: true });
+            model.dispose();
+
+            const latin = await open("latin.log", "a\n");
+            await latin.model.reopenWithEncoding("iso88591");
+            grow(latin.path, "b\n");
+            expect(latin.changes.at(-1)).toMatchObject({ isFlush: true });
+            expect(latin.model.document.getText()).toBe("a\nb\n");
+            latin.model.dispose();
+        });
     });
 });

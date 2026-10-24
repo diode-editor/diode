@@ -7,6 +7,7 @@ import { mark } from "../../../../base/common/performance.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import type { ILanguageService } from "../../../../editor/common/languages/iLanguageService.ts";
 import {
+    DISK_TAIL_CHECK_BYTES,
     DiskTextBuffer,
     type IDiskIndexingProgress,
     MAX_STRING_LENGTH,
@@ -107,6 +108,14 @@ export class TextFileModel extends BaseTextEditorModel {
     private readonly onDidChangeEncodingEmitter = this.register(new Emitter<void>());
     /** Tells an external change from our own write. `null`: the file did not exist when opened. */
     private diskStat: IDiskStat | null = null;
+    /**
+     * Where a document in memory ends in its file (follow, OpenPerformance 4.4): the bytes read, and the last of
+     * them ({@link DISK_TAIL_CHECK_BYTES}) to tell an append from a rewrite. `null` — growth reloads: not UTF-8,
+     * not read from the file (a save, a provider), or on disk (the buffer keeps its own).
+     */
+    private memoryEnd: { bytes: number; tail: Buffer } | null = null;
+    /** Bytes of the last {@link readDiskChunks} pass, set when it ends. */
+    private loadedBytes = 0;
     private diskConflictValue = false;
     private readonly onDidChangeDiskStateEmitter = this.register(new Emitter<void>());
     private fileWatch: IDisposable | null = null;
@@ -343,6 +352,7 @@ export class TextFileModel extends BaseTextEditorModel {
             return false;
         }
         this.onDiskDeclinedReasonValue = null;
+        this.memoryEnd = null;
         // Stryker disable next-line UpdateOperator: see readDiskBytes
         this.loadGeneration++;
         const buffer = new DiskTextBuffer(file, { bomLength: info.id === "utf8bom" ? BOM_SNIFF_LENGTH : 0 });
@@ -434,6 +444,7 @@ export class TextFileModel extends BaseTextEditorModel {
             this.setMemoryLoading(generation, { loadedBytes: 0, totalBytes: file.size });
             // Laid out up front from the size at open (docs/MUTATION.md: a mutant cannot stall the loop). Bytes appended
             // meanwhile are caught by the stat check after the stream.
+            let loaded = bomLength;
             for (const offset of chunkOffsets(bomLength, file.size, READ_CHUNK_SIZE)) {
                 const read = await file.read(chunk, offset);
                 if (generation !== this.loadGeneration) return "cancelled";
@@ -442,7 +453,8 @@ export class TextFileModel extends BaseTextEditorModel {
                 // The decoder copies the tail it holds back: the scratch buffer can be reused.
                 builder.acceptChunk(decoder.write(chunk.subarray(0, read)));
                 if (this.memory !== null && this.memory.availableBytes() < MEMORY_RESERVE_BYTES) return "out-of-memory";
-                this.setMemoryLoading(generation, { loadedBytes: offset + read, totalBytes: file.size });
+                loaded = offset + read;
+                this.setMemoryLoading(generation, { loadedBytes: loaded, totalBytes: file.size });
             }
             builder.acceptChunk(decoder.end());
             if (this.doc.versionId !== version) return "modified";
@@ -454,6 +466,9 @@ export class TextFileModel extends BaseTextEditorModel {
             // The document on disk closes its descriptor here, when the piece tree replaces it. The language stays: the
             // document is the same one, and a language the user picked for it survives.
             this.replaceText(factory);
+            // Where the text ends in the file: what was appended during the stream is the append of the stat check
+            // after it (follow, 4.4), not a second stream.
+            this.memoryEnd = info.iconvName === "utf8" ? readEnd(filePath, loaded) : null;
             return null;
         } catch (error) {
             // A read failure (EIO, a file gone under a network mount) refuses; anything else is a bug.
@@ -492,7 +507,8 @@ export class TextFileModel extends BaseTextEditorModel {
 
     /**
      * The file may have changed while it streamed in (a log appended to, 4.4): the stat taken before the stream is
-     * the model's, so a difference now is an external change like any other and reloads the clean buffer.
+     * the model's, so a difference now is an external change like any other: an append goes into the piece tree
+     * ({@link appendInMemory}), anything else reloads the clean buffer.
      */
     private recheckDiskAfterStream(filePath: string): void {
         this.handleExternalFileChange(filePath);
@@ -593,7 +609,9 @@ export class TextFileModel extends BaseTextEditorModel {
     private readDiskChunks(filePath: string): Iterable<Buffer> {
         // Stryker disable next-line UpdateOperator: the generation is only compared for equality, so "--" is a new value too
         this.loadGeneration++;
-        return readFileChunks(filePath);
+        return readFileChunks(filePath, (bytes) => {
+            this.loadedBytes = bytes;
+        });
     }
 
     /** The buffer is built straight from decoder chunks: a whole-file string never exists (A4, docs/TODO/VscodeModel.md). */
@@ -615,6 +633,8 @@ export class TextFileModel extends BaseTextEditorModel {
         // The file came back but the watcher stayed silent. A reload does not resurrect a missing file.
         if (this.diskStat !== null) this.setOrphaned(false);
         this.replaceText(factory);
+        // The bytes as read, not the stat: the file may have grown since, and those bytes are the next append.
+        this.memoryEnd = encoding === "utf8" || encoding === "utf8bom" ? readEnd(filePath, this.loadedBytes) : null;
         mark("textfile:document-built", { lines: this.doc.lineCount });
         // Language goes after the text: on first open a language change moves the tokenizer
         // of an already-built view onto the document with text rather than an empty one.
@@ -786,7 +806,7 @@ export class TextFileModel extends BaseTextEditorModel {
         if (this.streamingForEditing || !this.differsFromDisk(current)) return;
         if (this.isModified) {
             this.setDiskConflict(true);
-        } else if (this.extendOnDisk(current)) {
+        } else if (this.extendOnDisk(current) || this.appendInMemory(filePath, current)) {
             this.diskStat = current;
         } else {
             this.revertToDisk();
@@ -807,6 +827,34 @@ export class TextFileModel extends BaseTextEditorModel {
         if (known === null) return false;
         if (current.ino !== known.ino || current.size <= known.size) return false;
         return disk.extendTo(current.size);
+    }
+
+    /**
+     * Follow of a document in memory: the same file grew after the bytes it was read from, which still read the
+     * same — the new bytes are decoded and appended to the piece tree, where a reload would read and build the
+     * whole file again on every line of a growing log. A split `\r\n` (the old `\r` was a line break already)
+     * and a tail of more than a chunk reload; an incomplete UTF-8 sequence at the end waits for the next event.
+     */
+    private appendInMemory(filePath: string, current: IDiskStat): boolean {
+        const end = this.memoryEnd;
+        const known = this.diskStat;
+        if (end === null || this.doc.onDisk !== null || known === null) return false;
+        if (current.ino !== known.ino || current.size <= end.bytes || current.size - end.bytes > READ_CHUNK_SIZE) {
+            return false;
+        }
+        const from = end.bytes - end.tail.length;
+        const read = readRange(filePath, from, current.size - from);
+        if (!read.subarray(0, end.tail.length).equals(end.tail)) return false;
+        const added = read.subarray(end.tail.length);
+        if (end.tail.at(-1) === CR && added[0] === LF) return false;
+        const whole = added.subarray(0, completeUtf8Length(added));
+        this.appendFromDisk(whole.toString("utf8"));
+        const tail = Buffer.concat([end.tail, whole]);
+        this.memoryEnd = {
+            bytes: end.bytes + whole.length,
+            tail: Buffer.from(tail.subarray(Math.max(0, tail.length - DISK_TAIL_CHECK_BYTES))),
+        };
+        return true;
     }
 
     private scheduleOrphanCheck(filePath: string): void {
@@ -863,8 +911,11 @@ function chunkOffsets(start: number, size: number, chunkSize: number): number[] 
     return Array.from({ length: count }, (_, index) => start + index * chunkSize);
 }
 
+const CR = 0x0d;
+const LF = 0x0a;
+
 /** The file is closed at the end of the pass or when the pass is abandoned. No file yields no chunks. */
-function* readFileChunks(filePath: string): Generator<Buffer> {
+function* readFileChunks(filePath: string, onEnd: (bytes: number) => void): Generator<Buffer> {
     let bytes = 0;
     if (fs.existsSync(filePath)) {
         const fd = fs.openSync(filePath, "r");
@@ -881,7 +932,42 @@ function* readFileChunks(filePath: string): Generator<Buffer> {
             fs.closeSync(fd);
         }
     }
+    onEnd(bytes);
     mark("textfile:read", { bytes });
+}
+
+/** Up to `length` bytes at `position`; fewer when the file is shorter, none when it is gone. */
+function readRange(filePath: string, position: number, length: number): Buffer {
+    let fd;
+    try {
+        fd = fs.openSync(filePath, "r");
+    } catch {
+        return Buffer.alloc(0);
+    }
+    try {
+        const buffer = Buffer.allocUnsafe(length);
+        return buffer.subarray(0, fs.readSync(fd, buffer, 0, length, position));
+    } finally {
+        fs.closeSync(fd);
+    }
+}
+
+/** The end of a document read from the file: `bytes` and the last of them, for {@link TextFileModel.appendInMemory}. */
+function readEnd(filePath: string, bytes: number): { bytes: number; tail: Buffer } {
+    const length = Math.min(bytes, DISK_TAIL_CHECK_BYTES);
+    return { bytes, tail: readRange(filePath, bytes - length, length) };
+}
+
+/** The bytes up to the last whole UTF-8 sequence: an append may end in the middle of a character. */
+function completeUtf8Length(bytes: Buffer): number {
+    // A lead byte within the last three: its sequence ends past the buffer when it is longer than what is left.
+    for (let i = bytes.length - 1; i >= Math.max(0, bytes.length - 3); i--) {
+        const byte = bytes[i];
+        if ((byte & 0xc0) === 0x80) continue;
+        const length = byte >= 0xf0 ? 4 : byte >= 0xe0 ? 3 : byte >= 0xc0 ? 2 : 1;
+        return i + length > bytes.length ? i : bytes.length;
+    }
+    return bytes.length;
 }
 
 /**
