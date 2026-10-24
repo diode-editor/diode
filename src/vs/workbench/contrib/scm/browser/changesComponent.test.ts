@@ -26,8 +26,10 @@ import { SCM_CHANGES_VIEW_ID } from "../common/scmViews.ts";
 import { ChangesComponent } from "./changesComponent.ts";
 import { PUBLISH_CHANGES_COMMAND, ScmChangesService } from "./changesService.ts";
 import { ScmRepoStateService } from "./repoStateService.ts";
-import { buildFolderRow, OPEN_FILE_BUTTON_WIDTH, OPEN_FILE_GLYPH } from "./scmChangeRows.ts";
+import { buildFolderRow, OPEN_FILE_BUTTON_WIDTH, OPEN_FILE_ICON } from "./scmChangeRows.ts";
 import { ScmInputComponent } from "./scmInputComponent.ts";
+
+const OPEN_FILE_GLYPH = OPEN_FILE_ICON.nerdFont;
 
 const theme = WorkbenchTheme.fromThemeFile(darkPlusTheme);
 

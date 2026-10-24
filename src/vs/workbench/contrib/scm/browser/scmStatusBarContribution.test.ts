@@ -6,7 +6,9 @@ import { NULL_STATE_SERVICE } from "../../../../platform/state/common/nullStateS
 import { StatusBarService } from "../../../services/statusbar/common/statusBarService.ts";
 
 import { PUBLISH_REPO_STATE_COMMAND, ScmRepoStateService } from "./repoStateService.ts";
-import { BRANCH_GLYPH, ScmStatusBarContribution } from "./scmStatusBarContribution.ts";
+import { BRANCH_ICON, ScmStatusBarContribution } from "./scmStatusBarContribution.ts";
+
+const BRANCH_GLYPH = BRANCH_ICON.nerdFont;
 
 const STATE = {
     branch: "main",

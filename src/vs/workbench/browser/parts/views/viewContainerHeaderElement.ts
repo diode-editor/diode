@@ -74,6 +74,10 @@ export class ViewContainerHeaderElement extends TUIElement {
         this.row.setTitle(title);
     }
 
+    public setNerdFont(nerdFont: boolean): void {
+        this.row.setNerdFont(nerdFont);
+    }
+
     public setSwitcher(enabled: boolean): void {
         this.row.setSwitcher(enabled);
     }

@@ -1,3 +1,4 @@
+import type { IProductIcon } from "../../../base/common/codicons.ts";
 import { token } from "../../instantiation/common/diContainer.ts";
 
 import type { MenuId } from "./menuId.ts";
@@ -18,7 +19,8 @@ export interface IMenuContribution {
     /** Sorted as a string. */
     readonly group?: string;
     readonly order?: number;
-    readonly icon?: string;
+    /** A product icon follows `diode.icons.nerdFont`; a plain string is a literal. */
+    readonly icon?: IProductIcon | string;
     readonly args?: (context: unknown) => readonly unknown[];
     /** `false` hides the shortcut; a string is a literal; otherwise it is resolved from `KeybindingRegistry`. */
     readonly shortcut?: string | false;

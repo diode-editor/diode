@@ -2,6 +2,7 @@ import type { TUIElement } from "@tuidom/core/dom/tuiElement";
 import { ListViewElement } from "@tuidom/elements/list/listViewElement";
 import { TextLabelElement } from "@tuidom/elements/text/textLabelElement";
 
+import { codicon, iconGlyph } from "../../../../base/common/codicons.ts";
 import { listRowId } from "../../../../base/common/listRowId.ts";
 
 import type { ITerminalInstance } from "./terminalService.ts";
@@ -17,8 +18,8 @@ export const TERMINAL_TABS_WIDTH = 20;
 
 export const SWITCH_TERMINAL_SHOW_TABS = "Show Tabs";
 
-/** `$(terminal)` (upstream `tabs.defaultIcon`). */
-const TERMINAL_ICON = "\uea85";
+/** Upstream `tabs.defaultIcon`. */
+const TERMINAL_ICON = codicon("terminal");
 
 const ROW_ID_PREFIX = "terminalTab-";
 
@@ -27,8 +28,8 @@ export function terminalTabRowId(instanceId: number): string {
 }
 
 /** Like upstream `getSingleTabLabel`. */
-export function terminalTabLabel(instance: ITerminalInstance): string {
-    return `${TERMINAL_ICON} ${instance.title}`;
+export function terminalTabLabel(instance: ITerminalInstance, nerdFont = true): string {
+    return `${iconGlyph(TERMINAL_ICON, nerdFont)} ${instance.title}`;
 }
 
 export function terminalIndexedLabel(index: number, instance: ITerminalInstance): string {
@@ -51,6 +52,8 @@ export class TerminalTabsList {
     // No rows before the first setInstances, so onSelect never fires — the initial value has no effect.
     // Stryker disable next-line BooleanLiteral: the initial value is unobservable — see above
     private syncing = false;
+    /** `diode.icons.nerdFont`; the owner re-syncs the rows after a change. */
+    public nerdFont = true;
 
     public constructor(handlers: ITerminalTabsListHandlers) {
         this.list.id = TERMINAL_TABS_LIST_ID;
@@ -70,7 +73,7 @@ export class TerminalTabsList {
         this.syncing = true;
         this.list.clear();
         for (const instance of instances) {
-            const row = new TextLabelElement(` ${terminalTabLabel(instance)}`);
+            const row = new TextLabelElement(` ${terminalTabLabel(instance, this.nerdFont)}`);
             row.id = terminalTabRowId(instance.id);
             // No `label`: only typeahead needs it, and typeahead is off.
             this.list.appendRow(row);

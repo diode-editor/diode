@@ -7,6 +7,11 @@ import type { IRange } from "../../../../editor/common/core/iRange.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { MarkerService } from "../../../../platform/markers/common/markerService.ts";
 import { MarkerServiceDIToken } from "../../../../platform/markers/common/markerService.ts";
+import {
+    type IProductIconService,
+    NERD_FONT_ICONS,
+    ProductIconServiceDIToken,
+} from "../../../../platform/theme/common/productIconService.ts";
 import { Component } from "../../../browser/component.ts";
 import type { ViewsService } from "../../../browser/parts/views/viewsService.ts";
 import { ViewsServiceDIToken } from "../../../browser/parts/views/viewsService.ts";
@@ -47,6 +52,7 @@ export class ProblemsComponent extends Component {
         ViewsServiceDIToken,
         MarkerRevealTargetDIToken,
         JumpRecorderDIToken,
+        ProductIconServiceDIToken,
     ] as const;
 
     public readonly tree: TreeViewElement<ProblemNode>;
@@ -64,9 +70,11 @@ export class ProblemsComponent extends Component {
         private readonly viewsService: ViewsService,
         private readonly revealTarget: IMarkerRevealTarget,
         private readonly jumps: IJumpRecorder,
+        icons: IProductIconService = NERD_FONT_ICONS,
     ) {
         super();
         this.provider = new ProblemsTreeDataProvider();
+        this.provider.icons = icons;
         this.tree = new TreeViewElement(this.provider);
         this.tree.style = { fg: "editor.foreground", bg: "panel.background" };
         // Token names — the tree resolves colors (resolveColor) in its own scope.
@@ -101,6 +109,11 @@ export class ProblemsComponent extends Component {
             new RunOnceScheduler(() => {
                 void this.update();
             }, PROBLEMS_UPDATE_DELAY_MS),
+        );
+        this.register(
+            icons.onDidChange(() => {
+                if (this.treeShown) void this.tree.refresh();
+            }),
         );
         this.register(
             this.markerService.onDidChangeMarkers(() => {

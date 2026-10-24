@@ -87,7 +87,7 @@ export function createProductionContainer(ctx: ProductionProfileContext): Contai
         })
         .use(stateModule, { stateService: ctx.stateService })
         .use(userDataProfileModule, ctx.userDataProfile)
-        .use(terminalEnvironmentModule, { backend: ctx.backend })
+        .use(terminalEnvironmentModule, { backend: ctx.backend, term: process.env.TERM })
         .use(keybindingsModule, { rules: ctx.userKeybindings })
         .use(workspaceModule)
         .use(fileWatcherModule)

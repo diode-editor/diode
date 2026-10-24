@@ -12,6 +12,11 @@ import { ContextMenuServiceDIToken } from "../../../../platform/contextview/brow
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { IStateService } from "../../../../platform/state/common/iStateService.ts";
 import { StateServiceDIToken } from "../../../../platform/state/common/iStateService.ts";
+import {
+    type IProductIconService,
+    NERD_FONT_ICONS,
+    ProductIconServiceDIToken,
+} from "../../../../platform/theme/common/productIconService.ts";
 import type { ScmMenuContext } from "../../../browser/actions/menuContexts.ts";
 import { Component } from "../../../browser/component.ts";
 import type { ViewsService } from "../../../browser/parts/views/viewsService.ts";
@@ -64,6 +69,7 @@ export class ChangesComponent extends Component {
         StateServiceDIToken,
         ViewsServiceDIToken,
         ScmInputComponentDIToken,
+        ProductIconServiceDIToken,
     ] as const;
 
     public readonly list = new ListViewElement();
@@ -76,7 +82,7 @@ export class ChangesComponent extends Component {
     private viewMode: ScmViewMode;
     private rowMeta = new Map<string, ScmRowMeta>();
     // The cascade resolves gitDecoration.* names, so no restyle is needed on theme change.
-    private readonly rowStyles: IScmRowStyles = {
+    private rowStyles: IScmRowStyles = {
         statusColors: Object.fromEntries(GIT_STATUS_COLOR_IDS.map((id) => [id, id])),
     };
 
@@ -87,8 +93,16 @@ export class ChangesComponent extends Component {
         private readonly stateService: IStateService,
         viewsService: ViewsService,
         scmInput: ScmInputComponent,
+        icons: IProductIconService = NERD_FONT_ICONS,
     ) {
         super();
+        this.rowStyles = { ...this.rowStyles, nerdFont: icons.nerdFont };
+        this.register(
+            icons.onDidChange(() => {
+                this.rowStyles = { ...this.rowStyles, nerdFont: icons.nerdFont };
+                this.rebuild();
+            }),
+        );
         this.viewMode = this.stateService.get(SCM_VIEW_MODE_STATE);
         this.register(
             this.stateService.onDidOpenWorkspace(() => {

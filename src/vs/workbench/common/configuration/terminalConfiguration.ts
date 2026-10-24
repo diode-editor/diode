@@ -19,6 +19,20 @@ export const terminalConfiguration = {
             description:
                 'Keyboard platform: "auto" detects it (LC_DIODE_PLATFORM, the terminal, the local OS); set it when detection guesses wrong, e.g. over ssh from a Mac.',
         },
+        // Ours: vscode ships its codicon font. The `null` of `workbench.iconTheme` is the nearest upstream analogue.
+        "diode.icons.nerdFont": {
+            scope: "application",
+            type: "string",
+            default: "auto",
+            enum: ["auto", "on", "off"],
+            enumDescriptions: [
+                "Use Nerd Font glyphs unless the terminal is known to lack them (the Linux console).",
+                "Always use Nerd Font glyphs.",
+                "Never use Nerd Font glyphs.",
+            ],
+            description:
+                "Controls whether icons are drawn with Nerd Font glyphs. Use `off` when the terminal font has no Nerd Font symbols: icons fall back to plain Unicode characters and file icons are hidden.",
+        },
         "terminal.capabilities": {
             scope: "machine",
             type: "object",

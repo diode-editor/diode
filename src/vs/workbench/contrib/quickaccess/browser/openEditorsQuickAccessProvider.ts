@@ -1,9 +1,13 @@
 import * as nodePath from "node:path";
 
-import { getFileIcon } from "../../../../base/common/fileIcons.ts";
 import type { PreparedQuery } from "../../../../base/common/fuzzySearch.ts";
 import { fuzzyMatchPrepared, prepareQuery } from "../../../../base/common/fuzzySearch.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
+import {
+    type IProductIconService,
+    NERD_FONT_ICONS,
+    ProductIconServiceDIToken,
+} from "../../../../platform/theme/common/productIconService.ts";
 import type { IWorkspaceContextService } from "../../../../platform/workspace/common/iWorkspaceContextService.ts";
 import { IWorkspaceContextServiceDIToken } from "../../../../platform/workspace/common/iWorkspaceContextServiceDIToken.ts";
 import type { IEditorPane } from "../../../browser/parts/editor/iEditorPane.ts";
@@ -45,11 +49,16 @@ export class OpenEditorsQuickAccessProvider implements IQuickAccessProvider {
     /** With a space, as in vscode: `edt` without it stays a file query. */
     public static readonly PREFIX = "edt ";
 
-    public static dependencies = [OpenEditorsSourceDIToken, IWorkspaceContextServiceDIToken] as const;
+    public static dependencies = [
+        OpenEditorsSourceDIToken,
+        IWorkspaceContextServiceDIToken,
+        ProductIconServiceDIToken,
+    ] as const;
 
     public constructor(
         private readonly editors: IOpenEditorsSource,
         private readonly workspace: IWorkspaceContextService,
+        private readonly icons: IProductIconService = NERD_FONT_ICONS,
     ) {}
 
     public getPlaceholder(): string {
@@ -102,7 +111,7 @@ export class OpenEditorsQuickAccessProvider implements IQuickAccessProvider {
             searchTextOf(entry).length - entry.label.length,
         );
         return {
-            icon: getFileIcon(entry.label).icon,
+            icon: this.icons.fileIcon(entry.label)?.icon,
             label: entry.label,
             description: entry.description,
             hint: entry.pane.isModified ? MODIFIED_MARKER : undefined,

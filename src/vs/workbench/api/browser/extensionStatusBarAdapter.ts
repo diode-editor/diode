@@ -1,5 +1,5 @@
-import { renderCodicons } from "../../../base/common/codicons.ts";
 import type { ILogger } from "../../../platform/log/common/iLogger.ts";
+import { type IProductIconService, NERD_FONT_ICONS } from "../../../platform/theme/common/productIconService.ts";
 import type { IStatusBarEntryHandle, StatusBarService } from "../../services/statusbar/common/statusBarService.ts";
 import type { ICommandService } from "../common/iCommandService.ts";
 import type { IStatusBarItemSink } from "../common/iExtensionWindowSinks.ts";
@@ -26,12 +26,18 @@ const FALLBACK_GLYPH = "•";
 interface IItemRecord {
     readonly entryId: string;
     readonly bar: IStatusBarEntryHandle;
+    /** The raw item: a glyph set switch re-renders its text. */
+    item: IWireStatusBarItem;
     command: string | undefined;
     args: readonly unknown[];
 }
 
-export function renderStatusBarItemText(raw: string, maxWidth: number = MAX_ITEM_WIDTH): string {
-    const rendered = renderCodicons(raw);
+export function renderStatusBarItemText(
+    raw: string,
+    maxWidth: number = MAX_ITEM_WIDTH,
+    icons: IProductIconService = NERD_FONT_ICONS,
+): string {
+    const rendered = icons.renderCodicons(raw);
     // By code points, not `.length`: a surrogate pair must not be cut in half.
     const glyphs = Array.from(rendered);
     const clipped = glyphs.length > maxWidth ? `${glyphs.slice(0, maxWidth - 1).join("")}…` : rendered;
@@ -41,18 +47,21 @@ export function renderStatusBarItemText(raw: string, maxWidth: number = MAX_ITEM
     return raw === "" ? "" : FALLBACK_GLYPH;
 }
 
-function entryFields(item: IWireStatusBarItem): {
+function entryFields(
+    item: IWireStatusBarItem,
+    icons: IProductIconService,
+): {
     text: string;
     alignment: "left" | "right";
     priority: number;
     name?: string;
 } {
     return {
-        text: renderStatusBarItemText(item.text),
+        text: renderStatusBarItemText(item.text, MAX_ITEM_WIDTH, icons),
         alignment: item.alignment,
         priority: item.priority ?? NO_PRIORITY,
         // The name is the item's caption in the bar's visibility menu, also a label.
-        ...(item.name !== undefined ? { name: renderCodicons(item.name) } : {}),
+        ...(item.name !== undefined ? { name: icons.renderCodicons(item.name) } : {}),
     };
 }
 
@@ -63,7 +72,13 @@ export class ExtensionStatusBarAdapter implements IStatusBarItemSink {
         private readonly statusBar: StatusBarService,
         private readonly commands: ICommandService,
         private readonly logger?: ILogger,
-    ) {}
+        private readonly icons: IProductIconService = NERD_FONT_ICONS,
+    ) {
+        // One adapter per window, like the status bar it writes to: nobody disposes the subscription.
+        icons.onDidChange(() => {
+            for (const record of this.items.values()) record.bar.update(entryFields(record.item, icons));
+        });
+    }
 
     public update(item: IWireStatusBarItem): void {
         const entryId = EXTENSION_ENTRY_PREFIX + item.id;
@@ -71,7 +86,8 @@ export class ExtensionStatusBarAdapter implements IStatusBarItemSink {
         if (existing?.entryId === entryId) {
             existing.command = item.command;
             existing.args = item.arguments ?? [];
-            existing.bar.update(entryFields(item));
+            existing.item = item;
+            existing.bar.update(entryFields(item, this.icons));
             return;
         }
         // No item yet, or its id changed (the extension set the name after
@@ -79,11 +95,12 @@ export class ExtensionStatusBarAdapter implements IStatusBarItemSink {
         this.remove(item.handle);
         const record: IItemRecord = {
             entryId,
+            item,
             command: item.command,
             args: item.arguments ?? [],
             bar: this.statusBar.addEntry({
                 id: entryId,
-                ...entryFields(item),
+                ...entryFields(item, this.icons),
                 onClick: () => {
                     this.runCommand(record);
                 },

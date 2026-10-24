@@ -68,7 +68,7 @@ describe("CommandsCustomer — subprocess command proxies", () => {
         await flushMicrotasks();
 
         const [proxy] = h.commands.live("ext.run");
-        expect(proxy).toMatchObject({ title: renderCodicons("$(play) Run"), category: "Ext" });
+        expect(proxy).toMatchObject({ title: renderCodicons("$(play) Run", true), category: "Ext" });
         expect(proxy.title).not.toContain("$(");
         await expect(proxy.invoke([1, 2])).resolves.toEqual({ id: "ext.run", args: [1, 2] });
     });

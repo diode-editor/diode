@@ -2,11 +2,11 @@ import * as path from "node:path";
 
 import type { ITreeDataProvider, ITreeItem } from "@tuidom/elements/tree/iTreeDataProvider";
 
-import { getFileIcon } from "../../../../base/common/fileIcons.ts";
 import { Disposable, DisposableMap } from "../../../../base/common/lifecycle.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import { FileType, type IFileService } from "../../../../platform/files/common/files.ts";
 import type { ITreeFileWatcher } from "../../../../platform/files/common/iTreeFileWatcher.ts";
+import { type IProductIconService, NERD_FONT_ICONS } from "../../../../platform/theme/common/productIconService.ts";
 import { isExcludedPath } from "../../../common/configuration/excludeSettings.ts";
 
 export interface FileTreeNode {
@@ -76,6 +76,7 @@ export class FileTreeDataProvider extends Disposable implements ITreeDataProvide
         private readonly files: IFileService,
         private readonly treeWatcher: ITreeFileWatcher,
         private readonly compactFolders: () => boolean,
+        private readonly icons: IProductIconService = NERD_FONT_ICONS,
     ) {
         super();
         this.rootPath = rootPath;
@@ -100,11 +101,11 @@ export class FileTreeDataProvider extends Disposable implements ITreeDataProvide
                 badge,
             };
         }
-        const fileIcon = getFileIcon(element.name);
+        const fileIcon = this.icons.fileIcon(element.name);
         return {
             label: element.name,
-            icon: fileIcon.icon,
-            iconColor: fileIcon.color,
+            icon: fileIcon?.icon,
+            iconColor: fileIcon?.color,
             collapsible: false,
             symlink: element.isSymbolicLink,
             labelColor: status?.color,

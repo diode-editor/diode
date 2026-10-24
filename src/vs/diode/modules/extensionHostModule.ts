@@ -21,6 +21,7 @@ import { LogLevel } from "../../platform/log/common/logLevel.ts";
 import { type IMarkerData, MarkerSeverity } from "../../platform/markers/common/iMarker.ts";
 import { MarkerServiceDIToken } from "../../platform/markers/common/markerService.ts";
 import { StateServiceDIToken } from "../../platform/state/common/iStateService.ts";
+import { ProductIconServiceDIToken } from "../../platform/theme/common/productIconService.ts";
 import { URLServiceDIToken } from "../../platform/url/common/url.ts";
 import type { IWorkspaceContextService } from "../../platform/workspace/common/iWorkspaceContextService.ts";
 import { IWorkspaceContextServiceDIToken } from "../../platform/workspace/common/iWorkspaceContextServiceDIToken.ts";
@@ -238,6 +239,7 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
         const editorDecorations = new EditorDecorationsServiceAdapter(group);
         const fileDecorations = new FileDecorationsServiceAdapter(explorer);
         const themeColorResolver = new ThemeColorResolverAdapter(container.get(ThemeServiceDIToken));
+        const icons = container.get(ProductIconServiceDIToken);
 
         const editorLayout = new EditorLayoutServiceAdapter(group, container.get(EditorGroupsServiceDIToken));
 
@@ -276,6 +278,7 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
             editorDecorations,
             fileDecorations,
             themeColorResolver,
+            icons,
             // Stryker disable next-line ArrowFunction: production module wiring — the seed is covered by DocumentsCustomer unit tests and the handshake seed test; end-to-end — the stock LanguageServers suites (vscode-languageclient reads `workspace.textDocuments` on start)
             openDocumentsProvider: () => openDocumentSyncSources(group),
             editorLayout,
@@ -286,13 +289,14 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
             diagnosticsSink,
             markers: markerService,
             languageConfigurations: container.get(LanguageConfigurationServiceDIToken),
-            progressSink: new ProgressStatusBarAdapter(container.get(StatusBarServiceDIToken)),
+            progressSink: new ProgressStatusBarAdapter(container.get(StatusBarServiceDIToken), undefined, icons),
             statusBarItemSink: new ExtensionStatusBarAdapter(
                 container.get(StatusBarServiceDIToken),
                 commandAdapter,
                 logger,
+                icons,
             ),
-            quickInputSink: new QuickInputExtensionAdapter(container.get(QuickInputServiceDIToken)),
+            quickInputSink: new QuickInputExtensionAdapter(container.get(QuickInputServiceDIToken), icons),
             notificationSink: new NotificationExtensionAdapter(container.get(NotificationServiceDIToken)),
             fileDialogSink: new FileDialogExtensionAdapter(container.get(FileDialogServiceDIToken)),
             // The opener is resolved on request: the workbench module registers it.
@@ -321,6 +325,7 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
                     // Stryker disable next-line CallExpression: production module wiring (like `environment` above) — the show callback is covered by the ExtensionOutputAdapter unit test, revealing the view in place by ViewsService.openView unit tests
                     container.get(ViewsServiceDIToken).openView(OUTPUT_VIEW_ID);
                 },
+                icons,
             ),
             terminalSink: terminals(),
             environmentVariableCollections: container.get(EnvironmentVariableServiceDIToken),

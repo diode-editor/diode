@@ -1,3 +1,4 @@
+import { codicon } from "../../../../base/common/codicons.ts";
 import type { CommandAction } from "../../../../platform/actions/common/commandAction.ts";
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import { parseChord, parseKeybinding } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
@@ -8,10 +9,8 @@ import { ViewsServiceDIToken } from "../../../browser/parts/views/viewsService.t
 
 import { SEARCH_VIEW_ID, SEARCH_VIEWLET_ID, SearchComponentDIToken } from "./searchComponent.ts";
 
-/** nf-cod-collapse_all */
-const COLLAPSE_ALL_ICON = "\ueac5";
-/** nf-cod-expand_all */
-const EXPAND_ALL_ICON = "\ueb95";
+const COLLAPSE_ALL_ICON = codicon("collapse-all");
+const EXPAND_ALL_ICON = codicon("expand-all");
 
 export const showSearchAction: CommandAction = {
     id: "workbench.view.search",

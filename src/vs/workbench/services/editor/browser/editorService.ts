@@ -31,6 +31,11 @@ import { token } from "../../../../platform/instantiation/common/diContainer.ts"
 import type { ILogger } from "../../../../platform/log/common/iLogger.ts";
 import type { ILogService } from "../../../../platform/log/common/iLogService.ts";
 import { ILogServiceDIToken } from "../../../../platform/log/common/iLogServiceDIToken.ts";
+import {
+    type IProductIconService,
+    NERD_FONT_ICONS,
+    ProductIconServiceDIToken,
+} from "../../../../platform/theme/common/productIconService.ts";
 import { UndoRedoService, UndoRedoServiceDIToken } from "../../../../platform/undoRedo/common/undoRedoService.ts";
 import type { IActivatable } from "../../../browser/iActivatable.ts";
 import { DiffEditorPane2 } from "../../../browser/parts/editor/diffEditorPane2.ts";
@@ -122,6 +127,7 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
         TextFileModelServiceDIToken,
         TextEditorPaneBuilderDIToken,
         EditorGroupsServiceDIToken,
+        ProductIconServiceDIToken,
     ] as const;
 
     public readonly editorGroups: IEditorGroupsService;
@@ -195,6 +201,7 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
         textFileModels?: TextFileModelService,
         paneBuilder?: TextEditorPaneBuilder,
         editorGroups?: IEditorGroupsService,
+        icons: IProductIconService = NERD_FONT_ICONS,
     ) {
         super();
         this.register(
@@ -284,10 +291,11 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
         );
         // Diff sides are editing surfaces too: editor.* must reach them as well.
         this.editorConfiguration = this.register(
-            new TextEditorConfiguration(this.configurationService, () => [
-                ...this.textPanes(),
-                ...this.diffSidePanes(),
-            ]),
+            new TextEditorConfiguration(
+                this.configurationService,
+                () => [...this.textPanes(), ...this.diffSidePanes()],
+                icons,
+            ),
         );
         // A new language means different `"[lang]"` settings sections.
         this.register(
