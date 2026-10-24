@@ -58,6 +58,14 @@ describe("Workbench — chords with a standalone modifier keydown (Kitty)", () =
         return statusTexts(h.testApp.querySelector("#statusBar") as HFlexElement);
     }
 
+    it("a lone Shift keydown (press event type) keeps the chord pending", async () => {
+        const { h } = await open();
+
+        send(h, CTRL_K_DOWN, "\x1b[57441;1:1u");
+
+        expect(hints(h).some((t) => t.includes("Waiting for next key"))).toBe(true);
+    });
+
     it("a lone Alt keydown keeps the chord pending, without a 'not a command' hint", async () => {
         const { h } = await open();
 
