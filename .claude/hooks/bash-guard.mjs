@@ -85,9 +85,35 @@ function pushOverSsh(words, cwd) {
 (<sha-на-сервере> — из \`git ls-remote ${HTTPS_ORIGIN} refs/heads/<ветка>\` ДО rebase.)`;
 }
 
-export function checkBash(cmdline, cwd) {
+const MUTATION_RUN = [
+    (w, i) => w[i] === "npm" && w[i + 1] === "run" && w[i + 2] === "test:mutation",
+    (w, i) => w[i] === "npx" && w[i + 1] === "stryker",
+    (w, i) => w[i] === "node" && /scripts\/(mutation-diff|verify-mutants)\.mjs$/.test(w[i + 1] ?? ""),
+];
+
+/**
+ * В сессии агентского лупа (`AGENT_LOOP_TASK` в окружении, scripts/agent-loop/README.md) у
+ * реализатора 20 минут мутационных прогонов на задачу. Считает их обёртка
+ * `mutation-budget.mjs`; прямой запуск мимо неё — обход бюджета. `--scope-only` бесплатен.
+ */
+function mutationBudget(words, env) {
+    const task = env.AGENT_LOOP_TASK;
+    if (task === undefined || task === "") return undefined;
+    if (words.some((w) => /scripts\/agent-loop\/mutation-budget\.mjs$/.test(w))) return undefined;
+    const at = words.findIndex((_, i) => MUTATION_RUN.some((isRun) => isRun(words, i)));
+    if (at < 0) return undefined;
+    if (words.includes("--scope-only") || words.includes("--help")) return undefined;
+    // Обёртки перед прогоном (`claude-lease run --`, `timeout 600`) в подсказку не попадают.
+    return `Мутационный прогон в задаче лупа #${task} идёт только через бюджет (20 минут прогонов на задачу,
+ожидание лизы не считается):
+  claude-lease run -- node scripts/agent-loop/mutation-budget.mjs -- ${words.slice(at).join(" ")}
+Код 76 — бюджет исчерпан: дальше только CI, \`npm run ci:run -- mutation\`. Скилл implementer.`;
+}
+
+export function checkBash(cmdline, cwd, env = process.env) {
     for (const words of simpleCommands(cmdline)) {
-        const why = mutationPositional(words) ?? fetchPrune(words) ?? pushOverSsh(words, cwd);
+        const why =
+            mutationBudget(words, env) ?? mutationPositional(words) ?? fetchPrune(words) ?? pushOverSsh(words, cwd);
         if (why !== undefined) return why;
     }
     return undefined;

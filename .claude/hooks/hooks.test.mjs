@@ -110,7 +110,15 @@ describe("bash-guard: test:mutation", () => {
     });
     it("редиректы, пайпы и цепочки после команды — не аргументы", () => {
         const wrapped = `claude-lease run -- timeout 600 ${run} --base origin/main`;
-        const tails = ["2>&1", "> /tmp/log 2>&1", ">/tmp/log", "2>/dev/null | tail", "&> log &", "|| true", "; echo ok"];
+        const tails = [
+            "2>&1",
+            "> /tmp/log 2>&1",
+            ">/tmp/log",
+            "2>/dev/null | tail",
+            "&> log &",
+            "|| true",
+            "; echo ok",
+        ];
         for (const tail of tails) {
             assert.equal(checkBash(`${wrapped} ${tail}`, "/"), undefined, tail);
         }
@@ -124,6 +132,31 @@ describe("bash-guard: test:mutation", () => {
     it("прочие ошибки аргументов оставляет гейту", () => {
         assert.equal(checkBash(`${run} --verify-jobs много`, "/"), undefined);
         assert.equal(checkBash(`${run} --base`, "/"), undefined);
+    });
+});
+
+describe("bash-guard: бюджет мутаций в задаче лупа", () => {
+    const loop = { AGENT_LOOP_TASK: "611" };
+    const run = "npm run test:mutation";
+    it("вне лупа не вмешивается", () => {
+        assert.equal(checkBash(`claude-lease run -- ${run}`, "/", {}), undefined);
+    });
+    it("в лупе прямой прогон мимо обёртки — отказ с подсказкой", () => {
+        assert.match(
+            checkBash(`claude-lease run -- ${run}`, "/", loop),
+            /mutation-budget\.mjs -- npm run test:mutation/,
+        );
+        assert.match(checkBash(`${run} -- --mutate src/a.ts`, "/", loop), /#611/);
+        assert.ok(checkBash("npx stryker run", "/", loop));
+        assert.ok(checkBash("node scripts/mutation-diff.mjs --base origin/main", "/", loop));
+    });
+    it("через обёртку, --scope-only и прочие команды — пропуск", () => {
+        assert.equal(
+            checkBash(`claude-lease run -- node scripts/agent-loop/mutation-budget.mjs -- ${run}`, "/", loop),
+            undefined,
+        );
+        assert.equal(checkBash(`${run} -- --scope-only`, "/", loop), undefined);
+        assert.equal(checkBash("claude-lease run -- npm test", "/", loop), undefined);
     });
 });
 
