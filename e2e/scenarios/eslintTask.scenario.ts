@@ -7,7 +7,8 @@ import { ensureEslintLibrary, ESLINT_FLAT_CONFIG, linkEslintLibrary } from "../.
 import type { ScenarioDriver } from "./framework.ts";
 import { defineScenario } from "./framework.ts";
 
-// The `$eslint-stylish` problem matcher isn't applied (docs/TODO/Tasks.md); the task just runs until it exits.
+// The task's `$eslint-stylish` matcher turns the output into Problems: app.js is not open, so they come from the task,
+// not from the language server.
 
 const sampleDir = mkdtempSync(join(tmpdir(), "diode-eslint-task-"));
 
@@ -21,7 +22,7 @@ async function runCommand(editor: ScenarioDriver, title: string): Promise<void> 
 
 export default defineScenario({
     name: "eslint-task",
-    title: "Stock extension task: vscode-eslint — Run Task 'lint whole folder'",
+    title: "Stock extension task: vscode-eslint — Run Task 'lint whole folder', its problems in Problems",
     open: [sampleDir],
     installVsix: ["dbaeumer.vscode-eslint"],
     settings: { "eslint.lintTask.enable": true },
@@ -49,5 +50,13 @@ export default defineScenario({
             timeoutMs: 60_000,
         });
         await editor.capture("eslint-lint-whole-folder");
+        await runCommand(editor, "View: Toggle Problems (Errors, Warnings, Infos)");
+        await editor.waitForText(
+            (t) =>
+                t.includes("app.js") &&
+                t.includes("'unused' is assigned a value but never used") && // no-unused-vars
+                t.includes("Unnecessary semicolon"), // no-extra-semi
+        );
+        await editor.capture("eslint-task-problems");
     },
 });

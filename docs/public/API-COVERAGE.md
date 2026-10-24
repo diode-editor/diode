@@ -173,7 +173,10 @@ extension terminals work; trees register but are not drawn; webview is the ceili
 `ProcessExecution`, `CustomExecution`, `TaskDefinition`, `TaskProvider`, `TaskExecution`, events)
 are declared. Tasks are run by the editor: Run Task, the task terminal, Rerun / Restart / Terminate
 / Show Running Tasks, the same as for tasks from `.diode/tasks.json` (VS Code: `.vscode/tasks.json`).
-**Problem matchers are not executed**: a task simply runs until the process exits.
+Problem matchers run for tasks that are not background ones: the built-in ones (`$msCompile`,
+`$eslint-stylish`, `$eslint-compact`, `$go`, …) and inline ones from `tasks.json` turn the task
+output into Problems. Matchers contributed by extensions (`contributes.problemMatchers`, `$tsc`) are
+not supported yet; a background task ignores its matcher and runs until the process exits.
 
 | member | status | comment |
 | --- | :-: | --- |
@@ -190,7 +193,7 @@ The task types follow the contract, with differences:
 | symbol | difference |
 | --- | --- |
 | `Task.group`, `TaskGroup` | stored, but there are no build/test groups yet (Run Build Task); does not affect running |
-| `Task.problemMatchers` | stored, not executed |
+| `Task.problemMatchers` | built-in matchers run for tasks that are not background ones; matchers contributed by extensions are not resolved yet |
 | `TaskScope.Global` | a task without a folder; runs as is |
 | `RunOptions` | `reevaluateOnRerun` works; `instancePolicy` for `tasks.json` tasks as well; an `instanceLimit` above 1 behaves as 1; `runOn: folderOpen` does not start on its own |
 | `TaskPresentationOptions` | `reveal`, `focus`, `echo`, `panel` (dedicated/shared/new), `showReuseMessage`, `clear`, `group`, `close` |

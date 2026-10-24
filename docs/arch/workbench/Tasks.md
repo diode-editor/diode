@@ -48,6 +48,28 @@
   только при `focus`), панель не трогается — как `revealTerminal` эталона; новый терминал задача
   всегда создаёт в панели. **Отступление** (#814): silent-при-ошибке и Show Running Task тоже
   editor-aware, у эталона они зовут `showPanel` вслепую.
+- **Матчеры проблем** (#808; `common/problemMatcher.ts` + `common/problemCollectors.ts` — перенос
+  `problemMatcher.ts`/`problemCollectors.ts` эталона): модель, разбор inline-матчера tasks.json
+  (сообщения эталона в лог `Tasks`, битый матчер пропускается, задача остаётся), встроенные паттерны и
+  матчеры эталона дословно. В `ITask.problemMatchers` — имя (как написано, с `$` или без) или
+  разобранный объект; имя разрешается при запуске (`_resolveMatchers`: неизвестное — «Problem matcher
+  … can't be resolved» в лог), в `filePrefix` подставляются переменные задачи. Секция ОС заменяет
+  `problemMatcher` задачи; кастомизация провайдерской задачи перекрывает его матчеры целиком. Обычная
+  задача с матчерами получает `StartStopProblemCollector` (стратегия Clean): строки терминала задачи
+  (`onLineData` сессии терминала — `LineDataEventAddon` эталона в `XtermSurface`: перенесённые строки
+  склеены, без escape-последовательностей; шелл и pty `CustomExecution` одинаково) идут в матчеры по
+  очереди, маркеры ресурса уходят в `MarkerService` под `owner` матчера, когда вывод перешёл к другому
+  ресурсу, остальное — на выходе. Ресурсы, где у этих owner'ов были маркеры до запуска и которые вывод
+  не упомянул, к выходу очищаются (с учётом `applyTo`: открыт ли документ — модель текстового файла
+  в редакторе). Выход процесса у терминала ждёт разбора всего вывода до него (последняя строка без
+  перевода — тоже строка), а события конца задачи (ProcessEnded…End) — доставки маркеров. Terminate
+  и закрытие терминала оставляют найденное. `presentation.revealProblems`: `always` — Problems вместо
+  терминала на старте, `onProblem` — Problems на выходе, если было совпадение; `reveal: silent`
+  показывает терминал и при ошибках (severity ≥ Error) в выводе с кодом 0. **Отступления:** у
+  `isBackground`-задачи матчер игнорируется с предупреждением «Problem matchers are not supported for
+  background tasks yet; the matcher is ignored» (у эталона — `WatchingProblemCollector`); в tasks.json
+  неизвестное имя матчера не ошибка разбора («Invalid problemMatcher reference» эталона), а сообщение
+  при запуске; `Severity` эвристика Windows (`#77475`, длиннее сообщение — заменяет) не перенесена.
 - **Сервис** (`browser/taskService.ts`): списки (tasks.json + провайдеры с таймаутом 5 с,
   `task.autoDetect`, `when` типа из `contributes.taskDefinitions`), запуск с `task.saveBeforeRun`
   (`prompt` — модальный `DialogService.confirm`, как `dialogService.confirm` эталона; безымянные
