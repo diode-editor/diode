@@ -10,7 +10,7 @@ Diode — терминальный текстовый редактор (клон
 - docs/STYLE.md — идиомы под линт; docs/COMMITS.md — коммиты; docs/PR.md — что обязано быть в PR и влитие; docs/GIT.md — git-помощники, стек PR, уборка worktree; docs/RELEASE.md — выпуск версии
 - docs/TODO/ — трекер задач (индекс — README.md); docs/public/ — страницы сайта документации diode-editor.github.io/docs, по-английски (правила — в его README.md); packaging/README.md — каналы дистрибуции
 - Скиллы `.claude/skills/`: `drive` (живой запуск), `heavy-run` (лиза на тяжёлые прогоны), `orchestrate` (волна дочерних сессий)
-- scripts/agent-loop/README.md — автономный агентский луп по GitHub issues (`ready to implement` → диспатчер → менеджер → реализатор + тестировщик); скиллы ролей `dispatch`, `task-manager`, `implementer`, `tester`, `loop-spawn`
+- scripts/agent-loop/README.md — автономный агентский луп по GitHub issues (`ready to implement` → диспатчер → менеджер → реализатор + тестировщик); скиллы ролей `dispatch`, `task-manager`, `implementer`, `tester`, `loop-spawn`; спеку и цепочку issues для него готовит человек со скиллом `spec`
 
 # Трекер задач
 Берёшь задачу — статус `[~]` в docs/TODO/, закончил — `[x]`. Задача пришла из GitHub issue (агентский луп) — трекер правишь только если issue ссылается на его пункт.

@@ -22,7 +22,9 @@ node scripts/agent-loop/facts.mjs
 В JSON: `machine` (нагрузка, память, лиза), `limits`, `verdict.canStart` с причинами, `sessions`
 (живые `task-<N>`), `inProgress` (issues в работе: `sessionAlive`, `managerAlive`, `ageHours`,
 `expired`, статусы ролей), `queue` (кандидаты по порядку: `bug` первыми, потом старые;
-`branchExists`), `worktrees`.
+`branchExists`), `blocked` (issues с `ready to implement`, у которых открыт хотя бы один блокер —
+нативное «Blocked by» GitHub или строка `Blocked by #N` в теле; в очередь не входят, их не
+трогай — освободятся сами, когда блокер закроется), `worktrees`.
 
 ## 2. Свернуть то, что умерло
 

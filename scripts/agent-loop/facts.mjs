@@ -16,6 +16,7 @@ import {
     LABELS,
     ROLES,
     branchName,
+    gh,
     ghJson,
     git,
     loopHome,
@@ -139,7 +140,33 @@ function inProgress(lim) {
     });
 }
 
+/**
+ * Blockers of an issue: GitHub's native dependencies ("Blocked by" in the UI) plus a
+ * `Blocked by #A, #B` line in the body. Each as { number, state }; `blocked` while any is open.
+ */
+function blockers(issue, repo) {
+    const byNumber = new Map();
+    const native = gh(["api", `repos/${repo}/issues/${issue.number}/dependencies/blocked_by`]);
+    if (native.ok) {
+        try {
+            for (const b of JSON.parse(native.stdout)) byNumber.set(b.number, { number: b.number, state: b.state });
+        } catch {
+            // the endpoint answered with something unexpected: body text still counts
+        }
+    }
+    const line = /blocked by:?\s*((?:#\d+[,\s]*)+)/i.exec(issue.body ?? "");
+    for (const m of line === null ? [] : line[1].matchAll(/#(\d+)/g)) {
+        const n = Number(m[1]);
+        if (byNumber.has(n)) continue;
+        const res = gh(["issue", "view", String(n), "--json", "state", "--jq", ".state"]);
+        byNumber.set(n, { number: n, state: res.ok ? res.stdout.trim().toLowerCase() : "unknown" });
+    }
+    const list = [...byNumber.values()];
+    return { blockedBy: list, blocked: list.some((b) => b.state !== "closed") };
+}
+
 function queue() {
+    const repo = ghJson(["repo", "view", "--json", "nameWithOwner"]).nameWithOwner;
     const issues = ghJson([
         "issue",
         "list",
@@ -150,7 +177,7 @@ function queue() {
         "--limit",
         "100",
         "--json",
-        "number,title,labels,createdAt,url",
+        "number,title,labels,createdAt,url,body",
     ]);
     const eligible = issues
         .map((i) => ({ ...i, labels: i.labels.map((l) => l.name) }))
@@ -160,7 +187,7 @@ function queue() {
             return bug !== 0 ? bug : a.createdAt.localeCompare(b.createdAt);
         });
     const remoteBranches = git(["ls-remote", "--heads", "origin", "issue/*"]).stdout;
-    return eligible.map((i) => ({
+    const all = eligible.map((i) => ({
         number: i.number,
         title: i.title,
         url: i.url,
@@ -168,7 +195,9 @@ function queue() {
         createdAt: i.createdAt,
         branch: branchName(i.number),
         branchExists: new RegExp(`\\srefs/heads/${branchName(i.number)}(\\s|$)`).test(remoteBranches),
+        ...blockers(i, repo),
     }));
+    return { queue: all.filter((i) => !i.blocked), blocked: all.filter((i) => i.blocked) };
 }
 
 function taskDirs() {
@@ -198,12 +227,13 @@ const facts = {
     verdict: { canStart: reasons.length === 0, runningTasks: running, reasons },
     sessions: sess,
     inProgress: inProgress(lim),
-    queue: queue(),
+    ...queue(),
     taskDirs: taskDirs(),
     worktrees: worktrees(),
 };
 if (flags.brief) {
     facts.queue = facts.queue.slice(0, 3);
+    facts.blocked = facts.blocked.map((i) => ({ number: i.number, blockedBy: i.blockedBy }));
     delete facts.worktrees;
     delete facts.taskDirs;
 }
