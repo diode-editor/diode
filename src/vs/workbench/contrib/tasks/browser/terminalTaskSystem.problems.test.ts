@@ -155,6 +155,34 @@ describe("TerminalTaskSystem — problem matchers", () => {
         h.dispose();
     });
 
+    it("search without include lists nothing; the name is absolute", async () => {
+        const h = buildTerminalTaskSystemHarness();
+        const searching: IProblemMatcher = {
+            owner: "search",
+            applyTo: "allDocuments",
+            fileLocation: "search",
+            filePrefix: { exclude: ["${workspaceFolder}/gen"] },
+            pattern: { regexp: /^(\S+):(\d+) (.*)$/, file: 1, line: 2, message: 3 },
+        };
+        const result = h.system.run(lint({ problemMatchers: [searching] }), h.context());
+        h.sessions[0].emitLines("/abs/x.ts:1 m");
+        h.sessions[0].emitExit(1);
+        await result.promise;
+        expect(messages(h, "search")).toStrictEqual(["/abs/x.ts: m"]);
+        expect(h.listedDirectories).toStrictEqual([]);
+        h.dispose();
+    });
+
+    it("lines after the exit belong to no run: they don't count for revealProblems", async () => {
+        const h = buildTerminalTaskSystemHarness();
+        const result = h.system.run(lint({ presentation: { revealProblems: "onProblem" } }), h.context());
+        h.sessions[0].emitExit(0);
+        h.sessions[0].emitLines("/ws/src/a.ts(1,1): error E1: from whatever comes next");
+        await result.promise;
+        expect(h.views.service.isViewShown(PROBLEMS_VIEW_ID)).toBe(false);
+        h.dispose();
+    });
+
     it("terminate: problems found before the stop stay", async () => {
         const h = buildTerminalTaskSystemHarness();
         const task = lint();

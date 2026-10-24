@@ -556,14 +556,9 @@ export class TerminalTaskSystem extends Disposable {
             else {
                 const resolveAll = (v: string | readonly string[] | undefined): string | string[] | undefined =>
                     typeof v === "string" ? resolve(v) : v?.map(resolve);
-                const include = resolveAll(prefix.include);
-                const exclude = resolveAll(prefix.exclude);
                 result.push({
                     ...matcher,
-                    filePrefix: {
-                        ...(include !== undefined ? { include } : {}),
-                        ...(exclude !== undefined ? { exclude } : {}),
-                    },
+                    filePrefix: { include: resolveAll(prefix.include), exclude: resolveAll(prefix.exclude) },
                 });
             }
         }

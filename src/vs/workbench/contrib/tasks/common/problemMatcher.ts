@@ -77,197 +77,155 @@ interface IProblemData {
 
 type ProblemDataProperty = Exclude<keyof IProblemData, "kind">;
 
-function fileLocationFrom(value: string): FileLocationKind | undefined {
-    switch (value.toLowerCase()) {
-        case "absolute":
-            return "absolute";
-        case "relative":
-            return "relative";
-        case "autodetect":
-            return "autoDetect";
-        case "search":
-            return "search";
-        default:
-            return undefined;
-    }
-}
+/** Keys are lower case: upstream compares ignoring case. */
+const FILE_LOCATIONS: ReadonlyMap<string, FileLocationKind> = new Map<string, FileLocationKind>([
+    ["absolute", "absolute"],
+    ["relative", "relative"],
+    ["autodetect", "autoDetect"],
+    ["search", "search"],
+]);
 
-function problemLocationFrom(value: string): ProblemLocationKind | undefined {
-    const lower = value.toLowerCase();
-    return lower === "file" || lower === "location" ? lower : undefined;
-}
+const PROBLEM_LOCATIONS: ReadonlyMap<string, ProblemLocationKind> = new Map<string, ProblemLocationKind>([
+    ["file", "file"],
+    ["location", "location"],
+]);
 
-function applyToFrom(value: string): ApplyToKind | undefined {
-    switch (value.toLowerCase()) {
-        case "alldocuments":
-            return "allDocuments";
-        case "opendocuments":
-            return "openDocuments";
-        case "closeddocuments":
-            return "closedDocuments";
-        default:
-            return undefined;
-    }
-}
+/** An unknown value means all documents. */
+const APPLY_TO: ReadonlyMap<string, ApplyToKind> = new Map<string, ApplyToKind>([
+    ["opendocuments", "openDocuments"],
+    ["closeddocuments", "closedDocuments"],
+]);
+
+const SEVERITIES: ReadonlyMap<string, MarkerSeverity> = new Map([
+    ["error", MarkerSeverity.Error],
+    ["warning", MarkerSeverity.Warning],
+    ["warn", MarkerSeverity.Warning],
+    ["info", MarkerSeverity.Info],
+]);
+
+/** Severity letters of a captured severity (upstream's `getSeverity`), compared case-sensitively. */
+const SEVERITY_LETTERS: ReadonlyMap<string, MarkerSeverity> = new Map([
+    ["E", MarkerSeverity.Error],
+    ["W", MarkerSeverity.Warning],
+    ["I", MarkerSeverity.Info],
+]);
 
 /** Upstream's `Severity.fromValue`: `undefined` is `Severity.Ignore`. */
 export function severityFromValue(value: string): MarkerSeverity | undefined {
-    switch (value.toLowerCase()) {
-        case "error":
-            return MarkerSeverity.Error;
-        case "warning":
-        case "warn":
-            return MarkerSeverity.Warning;
-        case "info":
-            return MarkerSeverity.Info;
-        default:
-            return undefined;
-    }
+    return SEVERITIES.get(value.toLowerCase());
 }
 
 // --- built-in patterns and matchers (upstream's `fillDefaults`, verbatim) ---
 
-const BUILTIN_PATTERNS: ReadonlyMap<string, IProblemPattern | readonly IProblemPattern[]> = new Map<
-    string,
-    IProblemPattern | readonly IProblemPattern[]
->([
-    [
-        "msCompile",
+const PATTERNS = {
+    msCompile: {
+        regexp: /^\s*(?:\s*\d+>)?(\S.*?)(?:\((\d+|\d+,\d+|\d+,\d+,\d+,\d+)\))?\s*:\s+(?:(\S+)\s+)?((?:fatal +)?error|warning|info)\s+(\w+\d+)?\s*:\s*(.*)$/,
+        kind: "location",
+        file: 1,
+        location: 2,
+        severity: 4,
+        code: 5,
+        message: 6,
+    },
+    "gulp-tsc": {
+        regexp: /^([^\s].*)\((\d+|\d+,\d+|\d+,\d+,\d+,\d+)\):\s+(\d+)\s+(.*)$/,
+        kind: "location",
+        file: 1,
+        location: 2,
+        code: 3,
+        message: 4,
+    },
+    cpp: {
+        regexp: /^(\S.*)\((\d+|\d+,\d+|\d+,\d+,\d+,\d+)\):\s+(error|warning|info)\s+(C\d+)\s*:\s*(.*)$/,
+        kind: "location",
+        file: 1,
+        location: 2,
+        severity: 3,
+        code: 4,
+        message: 5,
+    },
+    csc: {
+        regexp: /^(\S.*)\((\d+|\d+,\d+|\d+,\d+,\d+,\d+)\):\s+(error|warning|info)\s+(CS\d+)\s*:\s*(.*)$/,
+        kind: "location",
+        file: 1,
+        location: 2,
+        severity: 3,
+        code: 4,
+        message: 5,
+    },
+    vb: {
+        regexp: /^(\S.*)\((\d+|\d+,\d+|\d+,\d+,\d+,\d+)\):\s+(error|warning|info)\s+(BC\d+)\s*:\s*(.*)$/,
+        kind: "location",
+        file: 1,
+        location: 2,
+        severity: 3,
+        code: 4,
+        message: 5,
+    },
+    lessCompile: {
+        regexp: /^\s*(.*) in file (.*) line no. (\d+)$/,
+        kind: "location",
+        message: 1,
+        file: 2,
+        line: 3,
+    },
+    jshint: {
+        regexp: /^(.*):\s+line\s+(\d+),\s+col\s+(\d+),\s(.+?)(?:\s+\((\w)(\d+)\))?$/,
+        kind: "location",
+        file: 1,
+        line: 2,
+        character: 3,
+        message: 4,
+        severity: 5,
+        code: 6,
+    },
+    "jshint-stylish": [
+        { regexp: /^(.+)$/, kind: "location", file: 1 },
         {
-            regexp: /^\s*(?:\s*\d+>)?(\S.*?)(?:\((\d+|\d+,\d+|\d+,\d+,\d+,\d+)\))?\s*:\s+(?:(\S+)\s+)?((?:fatal +)?error|warning|info)\s+(\w+\d+)?\s*:\s*(.*)$/,
-            kind: "location",
-            file: 1,
-            location: 2,
+            regexp: /^\s+line\s+(\d+)\s+col\s+(\d+)\s+(.+?)(?:\s+\((\w)(\d+)\))?$/,
+            line: 1,
+            character: 2,
+            message: 3,
             severity: 4,
             code: 5,
-            message: 6,
+            loop: true,
         },
     ],
-    [
-        "gulp-tsc",
+    "eslint-compact": {
+        regexp: /^(.+):\sline\s(\d+),\scol\s(\d+),\s(Error|Warning|Info)\s-\s(.+)\s\((.+)\)$/,
+        file: 1,
+        kind: "location",
+        line: 2,
+        character: 3,
+        severity: 4,
+        message: 5,
+        code: 6,
+    },
+    "eslint-stylish": [
+        { regexp: /^((?:[a-zA-Z]:)*[./\\]+.*?)$/, kind: "location", file: 1 },
         {
-            regexp: /^([^\s].*)\((\d+|\d+,\d+|\d+,\d+,\d+,\d+)\):\s+(\d+)\s+(.*)$/,
-            kind: "location",
-            file: 1,
-            location: 2,
-            code: 3,
+            regexp: /^\s+(\d+):(\d+)\s+(error|warning|info)\s+(.+?)(?:\s\s+(.*))?$/,
+            line: 1,
+            character: 2,
+            severity: 3,
             message: 4,
+            code: 5,
+            loop: true,
         },
     ],
-    [
-        "cpp",
-        {
-            regexp: /^(\S.*)\((\d+|\d+,\d+|\d+,\d+,\d+,\d+)\):\s+(error|warning|info)\s+(C\d+)\s*:\s*(.*)$/,
-            kind: "location",
-            file: 1,
-            location: 2,
-            severity: 3,
-            code: 4,
-            message: 5,
-        },
-    ],
-    [
-        "csc",
-        {
-            regexp: /^(\S.*)\((\d+|\d+,\d+|\d+,\d+,\d+,\d+)\):\s+(error|warning|info)\s+(CS\d+)\s*:\s*(.*)$/,
-            kind: "location",
-            file: 1,
-            location: 2,
-            severity: 3,
-            code: 4,
-            message: 5,
-        },
-    ],
-    [
-        "vb",
-        {
-            regexp: /^(\S.*)\((\d+|\d+,\d+|\d+,\d+,\d+,\d+)\):\s+(error|warning|info)\s+(BC\d+)\s*:\s*(.*)$/,
-            kind: "location",
-            file: 1,
-            location: 2,
-            severity: 3,
-            code: 4,
-            message: 5,
-        },
-    ],
-    [
-        "lessCompile",
-        {
-            regexp: /^\s*(.*) in file (.*) line no. (\d+)$/,
-            kind: "location",
-            message: 1,
-            file: 2,
-            line: 3,
-        },
-    ],
-    [
-        "jshint",
-        {
-            regexp: /^(.*):\s+line\s+(\d+),\s+col\s+(\d+),\s(.+?)(?:\s+\((\w)(\d+)\))?$/,
-            kind: "location",
-            file: 1,
-            line: 2,
-            character: 3,
-            message: 4,
-            severity: 5,
-            code: 6,
-        },
-    ],
-    [
-        "jshint-stylish",
-        [
-            { regexp: /^(.+)$/, kind: "location", file: 1 },
-            {
-                regexp: /^\s+line\s+(\d+)\s+col\s+(\d+)\s+(.+?)(?:\s+\((\w)(\d+)\))?$/,
-                line: 1,
-                character: 2,
-                message: 3,
-                severity: 4,
-                code: 5,
-                loop: true,
-            },
-        ],
-    ],
-    [
-        "eslint-compact",
-        {
-            regexp: /^(.+):\sline\s(\d+),\scol\s(\d+),\s(Error|Warning|Info)\s-\s(.+)\s\((.+)\)$/,
-            file: 1,
-            kind: "location",
-            line: 2,
-            character: 3,
-            severity: 4,
-            message: 5,
-            code: 6,
-        },
-    ],
-    [
-        "eslint-stylish",
-        [
-            { regexp: /^((?:[a-zA-Z]:)*[./\\]+.*?)$/, kind: "location", file: 1 },
-            {
-                regexp: /^\s+(\d+):(\d+)\s+(error|warning|info)\s+(.+?)(?:\s\s+(.*))?$/,
-                line: 1,
-                character: 2,
-                severity: 3,
-                message: 4,
-                code: 5,
-                loop: true,
-            },
-        ],
-    ],
-    [
-        "go",
-        {
-            regexp: /^([^:]*: )?((.:)?[^:]*):(\d+)(:(\d+))?: (.*)$/,
-            kind: "location",
-            file: 2,
-            line: 4,
-            character: 6,
-            message: 7,
-        },
-    ],
-]);
+    go: {
+        regexp: /^([^:]*: )?((.:)?[^:]*):(\d+)(:(\d+))?: (.*)$/,
+        kind: "location",
+        file: 2,
+        line: 4,
+        character: 6,
+        message: 7,
+    },
+} satisfies Readonly<Record<string, IProblemPattern | readonly IProblemPattern[]>>;
+
+const BUILTIN_PATTERNS: ReadonlyMap<string, IProblemPattern | readonly IProblemPattern[]> = new Map(
+    Object.entries(PATTERNS),
+);
 
 function builtinPattern(name: string): IProblemPattern | readonly IProblemPattern[] {
     const pattern = BUILTIN_PATTERNS.get(name);
@@ -284,7 +242,7 @@ const BUILTIN_MATCHERS: ReadonlyMap<string, IProblemMatcher> = new Map<string, I
             source: "cpp",
             applyTo: "allDocuments",
             fileLocation: "absolute",
-            pattern: builtinPattern("msCompile"),
+            pattern: PATTERNS.msCompile,
         },
     ],
     [
@@ -294,7 +252,7 @@ const BUILTIN_MATCHERS: ReadonlyMap<string, IProblemMatcher> = new Map<string, I
             source: "less",
             applyTo: "allDocuments",
             fileLocation: "absolute",
-            pattern: builtinPattern("lessCompile"),
+            pattern: PATTERNS.lessCompile,
             severity: MarkerSeverity.Error,
         },
     ],
@@ -306,7 +264,7 @@ const BUILTIN_MATCHERS: ReadonlyMap<string, IProblemMatcher> = new Map<string, I
             applyTo: "closedDocuments",
             fileLocation: "relative",
             filePrefix: "${workspaceFolder}",
-            pattern: builtinPattern("gulp-tsc"),
+            pattern: PATTERNS["gulp-tsc"],
         },
     ],
     [
@@ -316,7 +274,7 @@ const BUILTIN_MATCHERS: ReadonlyMap<string, IProblemMatcher> = new Map<string, I
             source: "jshint",
             applyTo: "allDocuments",
             fileLocation: "absolute",
-            pattern: builtinPattern("jshint"),
+            pattern: PATTERNS.jshint,
         },
     ],
     [
@@ -326,7 +284,7 @@ const BUILTIN_MATCHERS: ReadonlyMap<string, IProblemMatcher> = new Map<string, I
             source: "jshint",
             applyTo: "allDocuments",
             fileLocation: "absolute",
-            pattern: builtinPattern("jshint-stylish"),
+            pattern: PATTERNS["jshint-stylish"],
         },
     ],
     [
@@ -337,7 +295,7 @@ const BUILTIN_MATCHERS: ReadonlyMap<string, IProblemMatcher> = new Map<string, I
             applyTo: "allDocuments",
             fileLocation: "absolute",
             filePrefix: "${workspaceFolder}",
-            pattern: builtinPattern("eslint-compact"),
+            pattern: PATTERNS["eslint-compact"],
         },
     ],
     [
@@ -347,7 +305,7 @@ const BUILTIN_MATCHERS: ReadonlyMap<string, IProblemMatcher> = new Map<string, I
             source: "eslint",
             applyTo: "allDocuments",
             fileLocation: "absolute",
-            pattern: builtinPattern("eslint-stylish"),
+            pattern: PATTERNS["eslint-stylish"],
         },
     ],
     [
@@ -358,7 +316,7 @@ const BUILTIN_MATCHERS: ReadonlyMap<string, IProblemMatcher> = new Map<string, I
             applyTo: "allDocuments",
             fileLocation: "relative",
             filePrefix: "${workspaceFolder}",
-            pattern: builtinPattern("go"),
+            pattern: PATTERNS.go,
         },
     ],
 ]);
@@ -396,14 +354,13 @@ export async function getResource(
             "FileLocationKind is not actionable. Does the matcher have a filePrefix? This should never happen.",
         );
     }
-    fullPath = paths.normalize(fullPath).replace(/\\/g, "/");
-    if (!fullPath.startsWith("/")) fullPath = `/${fullPath}`;
-    return Uri.file(fullPath);
+    // Upstream also prepends "/" to a path without one; `Uri.file` does that itself.
+    return Uri.file(paths.normalize(fullPath).replace(/\\/g, "/"));
 }
 
 function asArray(value: string | readonly string[] | undefined): readonly string[] {
-    if (value === undefined) return [];
-    return typeof value === "string" ? [value] : value;
+    // Stryker disable next-line ArrayDeclaration: equivalent: a made-up directory is neither listed nor excluded
+    return [value ?? []].flat();
 }
 
 /** Depth-first: the files of a directory before its subdirectories. */
@@ -421,6 +378,7 @@ async function searchForFileLocation(
         } catch {
             return undefined;
         }
+        // Stryker disable next-line ArrayDeclaration: equivalent: a made-up entry is not a directory that can be listed
         const subdirs: Uri[] = [];
         for (const child of children) {
             if (child.type === FileType.Directory) subdirs.push(child.resource);
@@ -469,46 +427,33 @@ abstract class AbstractLineMatcher {
         private readonly files: IProblemMatcherFiles,
     ) {}
 
+    /** Upstream's `fillProblemData`: a property keeps its first capture, the message collects all. */
     protected fillProblemData(data: IProblemData, pattern: IProblemPattern, matches: RegExpExecArray): void {
-        this.fillProperty(data, "file", pattern, matches, true);
-        this.appendProperty(data, "message", pattern, matches);
-        this.fillProperty(data, "code", pattern, matches, true);
-        this.fillProperty(data, "severity", pattern, matches, true);
-        this.fillProperty(data, "location", pattern, matches, true);
-        this.fillProperty(data, "line", pattern, matches);
-        this.fillProperty(data, "character", pattern, matches);
-        this.fillProperty(data, "endLine", pattern, matches);
-        this.fillProperty(data, "endCharacter", pattern, matches);
+        this.capture(data, "file", pattern, matches, "trim");
+        this.capture(data, "message", pattern, matches, "append");
+        this.capture(data, "code", pattern, matches, "trim");
+        this.capture(data, "severity", pattern, matches, "trim");
+        // Stryker disable next-line StringLiteral: equivalent: `parseInt` skips the whitespace trimming removes
+        this.capture(data, "location", pattern, matches, "trim");
+        this.capture(data, "line", pattern, matches, "raw");
+        this.capture(data, "character", pattern, matches, "raw");
+        this.capture(data, "endLine", pattern, matches, "raw");
+        this.capture(data, "endCharacter", pattern, matches, "raw");
     }
 
-    /** A message captured on several lines is joined with line breaks. */
-    private appendProperty(
+    /** A group the pattern doesn't have, or one that didn't participate, captures nothing. */
+    private capture(
         data: IProblemData,
         property: ProblemDataProperty,
         pattern: IProblemPattern,
         matches: RegExpExecArray,
+        mode: "raw" | "trim" | "append",
     ): void {
-        const index = pattern[property];
+        const value = matches[pattern[property] ?? -1] as string | undefined;
+        if (value === undefined) return;
         const current = data[property];
-        if (current === undefined) {
-            this.fillProperty(data, property, pattern, matches, true);
-        } else if (index !== undefined && index < matches.length) {
-            const value = matches[index] as string | undefined;
-            if (value !== undefined) data[property] = `${current}${endOfLine()}${value.trim()}`;
-        }
-    }
-
-    private fillProperty(
-        data: IProblemData,
-        property: ProblemDataProperty,
-        pattern: IProblemPattern,
-        matches: RegExpExecArray,
-        trim = false,
-    ): void {
-        const index = pattern[property];
-        if (data[property] !== undefined || index === undefined || index >= matches.length) return;
-        const value = matches[index] as string | undefined;
-        if (value !== undefined) data[property] = trim ? value.trim() : value;
+        if (current === undefined) data[property] = mode === "raw" ? value : value.trim();
+        else if (mode === "append") data[property] = `${current}${endOfLine()}${value.trim()}`;
     }
 
     protected getMarkerMatch(data: IProblemData): IProblemMatch | undefined {
@@ -518,7 +463,7 @@ abstract class AbstractLineMatcher {
             severity: this.getSeverity(data),
             range,
             message: data.message,
-            ...(data.code !== undefined ? { code: data.code } : {}),
+            ...(isSet(data.code) ? { code: data.code } : {}),
             ...(this.matcher.source !== undefined ? { source: this.matcher.source } : {}),
         };
         return { description: this.matcher, resource: getResource(data.file, this.matcher, this.files), marker };
@@ -536,23 +481,19 @@ abstract class AbstractLineMatcher {
         return createLocation(startLine, startColumn, endLine, endColumn);
     }
 
+    /** A captured severity by name or letter (hint and note are info), else the matcher's, else error. */
     private getSeverity(data: IProblemData): MarkerSeverity {
-        let result: MarkerSeverity | undefined;
-        const value = data.severity;
-        if (isSet(value)) {
-            result = severityFromValue(value);
-            if (result === undefined) {
-                if (value === "E") result = MarkerSeverity.Error;
-                else if (value === "W") result = MarkerSeverity.Warning;
-                else if (value === "I") result = MarkerSeverity.Info;
-                else if (value.toLowerCase() === "hint" || value.toLowerCase() === "note") result = MarkerSeverity.Info;
-            }
-        }
-        return result ?? this.matcher.severity ?? MarkerSeverity.Error;
+        const value = data.severity ?? "";
+        const captured =
+            severityFromValue(value) ??
+            SEVERITY_LETTERS.get(value) ??
+            (/^(?:hint|note)$/i.test(value) ? MarkerSeverity.Info : undefined);
+        return captured ?? this.matcher.severity ?? MarkerSeverity.Error;
     }
 }
 
 function endOfLine(): string {
+    // Stryker disable next-line all: the Windows line break is not reachable on the platforms the gate runs on
     return process.platform === "win32" ? "\r\n" : "\n";
 }
 
@@ -566,7 +507,8 @@ function nonEmptyInt(value: string | undefined): number | undefined {
 }
 
 function parseLocationInfo(value: string): IRange | null {
-    if (!/(\d+|\d+,\d+|\d+,\d+,\d+,\d+)/.test(value)) return null;
+    // Upstream's unanchored `(\d+|\d+,\d+|\d+,\d+,\d+,\d+)` is "has a digit".
+    if (!/\d/.test(value)) return null;
     const parts = value.split(",");
     const startLine = parseInt(parts[0]);
     const startColumn = parts.length > 1 ? parseInt(parts[1]) : undefined;
@@ -607,13 +549,12 @@ class SingleLineMatcher extends AbstractLineMatcher implements ILineMatcher {
     }
 
     public handle(lines: readonly string[], start: number): IHandleResult {
-        const data: IProblemData = {};
-        if (this.pattern.kind !== undefined) data.kind = this.pattern.kind;
+        const data: IProblemData = { kind: this.pattern.kind };
         const matches = this.pattern.regexp.exec(lines[start]);
         if (matches !== null) {
             this.fillProblemData(data, this.pattern, matches);
-            // A location pattern that captured no location reports the whole file.
-            if (data.kind === "location" && !isSet(data.location) && !isSet(data.line) && isSet(data.file)) {
+            // A location pattern that captured no location reports the whole file (a file pattern already does).
+            if (!isSet(data.location) && !isSet(data.line) && isSet(data.file)) {
                 data.kind = "file";
             }
             const match = this.getMarkerMatch(data);
@@ -628,8 +569,8 @@ class SingleLineMatcher extends AbstractLineMatcher implements ILineMatcher {
 }
 
 class MultiLineMatcher extends AbstractLineMatcher implements ILineMatcher {
-    /** What the first patterns captured, for the looping last one. */
-    private data: IProblemData | undefined;
+    /** What the patterns before the last one captured, for the looping last one. */
+    private data: IProblemData = {};
 
     public constructor(
         matcher: IProblemMatcher,
@@ -651,22 +592,18 @@ class MultiLineMatcher extends AbstractLineMatcher implements ILineMatcher {
             const pattern = this.patterns[i];
             const matches = pattern.regexp.exec(lines[i + start]);
             if (matches === null) return { match: null, continue: false };
-            // Only the last pattern can loop: its captures don't go into the shared data.
-            if (pattern.loop === true && i === last) data = { ...data };
+            // The last line's captures stay out of the shared data: a looping pattern starts from it each time.
+            if (i === last) data = { ...data };
             this.fillProblemData(data, pattern, matches);
         }
-        const loop = this.patterns[last].loop === true;
-        if (!loop) this.data = undefined;
-        return { match: this.getMarkerMatch(data) ?? null, continue: loop };
+        return { match: this.getMarkerMatch(data) ?? null, continue: this.patterns[last].loop === true };
     }
 
+    /** Only called after {@link handle} matched with a looping last pattern. */
     public next(line: string): IProblemMatch | null {
         const pattern = this.patterns[this.patterns.length - 1];
         const matches = pattern.regexp.exec(line);
-        if (matches === null || this.data === undefined) {
-            this.data = undefined;
-            return null;
-        }
+        if (matches === null) return null;
         const data = { ...this.data };
         this.fillProblemData(data, pattern, matches);
         return this.getMarkerMatch(data) ?? null;
@@ -715,16 +652,18 @@ function createSinglePattern(value: Json, setDefaults: boolean, report: ProblemR
     const regexp = createRegularExpression(value.regexp as string, report);
     if (regexp === undefined) return undefined;
     const result: MutablePattern = { regexp };
-    if (typeof value.kind === "string" && value.kind !== "") result.kind = problemLocationFrom(value.kind);
+    if (typeof value.kind === "string") result.kind = PROBLEM_LOCATIONS.get(value.kind.toLowerCase());
     for (const [resultKey, sourceKey] of PATTERN_PROPERTIES) {
         const index = value[sourceKey];
         if (typeof index === "number") (result as Record<string, unknown>)[resultKey] = index;
     }
+    // Stryker disable next-line ConditionalExpression: equivalent: a `loop` of another type reads as false
     if (typeof value.loop === "boolean") result.loop = value.loop;
     if (setDefaults) {
         // Only properties the pattern doesn't set.
+        // Upstream's `result.location || …`: group 0 is no location.
         const defaults: Partial<IProblemPattern> =
-            (result.location !== undefined && result.location !== 0) || result.kind === "file"
+            (result.location ?? 0) !== 0 || result.kind === "file"
                 ? { file: 1, message: 0 }
                 : { file: 1, line: 2, character: 3, message: 0 };
         return { ...defaults, ...result };
@@ -782,8 +721,8 @@ function createMultiLinePattern(values: readonly Json[], report: ProblemReporter
     for (let i = 0; i < values.length; i++) {
         const pattern = createSinglePattern(values[i], false, report);
         if (pattern === undefined) return undefined;
+        // Upstream also resets such a `loop`; only the last pattern's is ever read.
         if (i < values.length - 1 && pattern.loop === true) {
-            pattern.loop = false;
             report("The loop property is only supported on the last line matcher.");
         }
         result.push(pattern);
@@ -807,8 +746,8 @@ function createProblemPattern(
             if (result === undefined) report(`Error: the pattern with the identifier ${value} doesn't exist.`);
             return result;
         }
-        if (value.length === 0) report("Error: the pattern property refers to an empty identifier.");
-        else report(`Error: the pattern property ${value} is not a valid pattern variable name.`);
+        // An empty string never gets here: it is no pattern at all.
+        report(`Error: the pattern property ${value} is not a valid pattern variable name.`);
         return undefined;
     }
     return parseProblemPattern(value, report);
@@ -822,22 +761,22 @@ interface IFileLocation {
 function fileLocationOf(value: unknown): IFileLocation {
     if (value === undefined) return { fileLocation: "relative", filePrefix: "${workspaceFolder}" };
     if (typeof value === "string") {
-        const kind = fileLocationFrom(value);
-        if (kind === "relative" || kind === "autoDetect")
+        const kind = FILE_LOCATIONS.get(value.toLowerCase());
+        if (kind === "relative" || kind === "autoDetect") {
             return { fileLocation: kind, filePrefix: "${workspaceFolder}" };
+        }
         if (kind === "search") return { fileLocation: kind, filePrefix: { include: ["${workspaceFolder}"] } };
-        return kind === undefined ? {} : { fileLocation: kind };
+        return { fileLocation: kind };
     }
     if (isStringArray(value)) {
-        if (value.length === 0) return {};
-        const kind = fileLocationFrom(value[0]);
+        const kind = FILE_LOCATIONS.get(value.at(0)?.toLowerCase() ?? "");
         if (value.length === 1 && kind === "absolute") return { fileLocation: kind };
         if (value.length === 2 && (kind === "relative" || kind === "autoDetect") && value[1] !== "") {
             return { fileLocation: kind, filePrefix: value[1] };
         }
         return {};
     }
-    if (Array.isArray(value) && typeof value[0] === "string" && fileLocationFrom(value[0]) === "search") {
+    if (Array.isArray(value) && String(value[0]).toLowerCase() === "search") {
         const args: unknown = value[1];
         return {
             fileLocation: "search",
@@ -850,9 +789,16 @@ function fileLocationOf(value: unknown): IFileLocation {
 function searchArgsOf(value: Json): ISearchFileLocationArgs {
     const pick = (v: unknown): string | readonly string[] | undefined =>
         typeof v === "string" || isStringArray(v) ? v : undefined;
-    const include = pick(value.include);
-    const exclude = pick(value.exclude);
-    return { ...(include !== undefined ? { include } : {}), ...(exclude !== undefined ? { exclude } : {}) };
+    return { include: pick(value.include), exclude: pick(value.exclude) };
+}
+
+/** Upstream's: an empty severity is none; an unknown one is reported and is error. */
+function severityOf(value: unknown, report: ProblemReporter): MarkerSeverity | undefined {
+    if (typeof value !== "string" || value === "") return undefined;
+    const severity = severityFromValue(value);
+    if (severity !== undefined) return severity;
+    report(`Info: unknown severity ${value}. Valid values are error, warning and info.\n`);
+    return MarkerSeverity.Error;
 }
 
 /** Upstream's `ProblemMatcherParser.parse`: an inline `problemMatcher` object of tasks.json. */
@@ -872,50 +818,33 @@ export function parseProblemMatcher(json: Json, report: ProblemReporter): IProbl
 
 function createProblemMatcher(description: Json, report: ProblemReporter): IProblemMatcher | undefined {
     const owner = typeof description.owner === "string" ? description.owner : crypto.randomUUID();
-    const source = typeof description.source === "string" ? description.source : undefined;
-    const applyTo =
-        (typeof description.applyTo === "string" ? applyToFrom(description.applyTo) : undefined) ?? "allDocuments";
+    const source = typeof description.source === "string" && description.source !== "" ? description.source : undefined;
+    const applyTo = APPLY_TO.get(String(description.applyTo).toLowerCase()) ?? "allDocuments";
     const { fileLocation, filePrefix } = fileLocationOf(description.fileLocation);
+    // Upstream's `description.pattern ? … : undefined`.
     const pattern =
         description.pattern === undefined || description.pattern === null || description.pattern === ""
             ? undefined
             : createProblemPattern(description.pattern, report);
-    let severity: MarkerSeverity | undefined;
-    if (typeof description.severity === "string" && description.severity !== "") {
-        severity = severityFromValue(description.severity);
-        if (severity === undefined) {
-            report(`Info: unknown severity ${description.severity}. Valid values are error, warning and info.\n`);
-            severity = MarkerSeverity.Error;
-        }
-    }
+    const severity = severityOf(description.severity, report);
 
     if (typeof description.base === "string") {
-        const base =
-            description.base.length > 1 && description.base.startsWith("$")
-                ? BUILTIN_MATCHERS.get(description.base.substring(1))
-                : undefined;
+        const base = description.base.startsWith("$") ? BUILTIN_MATCHERS.get(description.base.substring(1)) : undefined;
         if (base === undefined) return undefined;
         // The base, with what the description sets (and parsed) on top.
         return {
             ...base,
             ...(description.owner !== undefined ? { owner } : {}),
-            ...(description.source !== undefined && source !== undefined ? { source } : {}),
+            ...(source !== undefined ? { source } : {}),
+            // Without `fileLocation` in the description the base keeps its own, not the default.
             ...(description.fileLocation !== undefined && fileLocation !== undefined
                 ? { fileLocation, filePrefix }
                 : {}),
-            ...(description.pattern !== undefined && pattern !== undefined ? { pattern } : {}),
-            ...(description.severity !== undefined && severity !== undefined ? { severity } : {}),
+            ...(pattern !== undefined ? { pattern } : {}),
+            ...(severity !== undefined ? { severity } : {}),
             ...(description.applyTo !== undefined ? { applyTo } : {}),
         };
     }
     if (fileLocation === undefined || pattern === undefined) return undefined;
-    return {
-        owner,
-        applyTo,
-        fileLocation,
-        pattern,
-        ...(source !== undefined && source !== "" ? { source } : {}),
-        ...(filePrefix !== undefined ? { filePrefix } : {}),
-        ...(severity !== undefined ? { severity } : {}),
-    };
+    return { owner, applyTo, fileLocation, pattern, source, filePrefix, severity };
 }

@@ -49,9 +49,11 @@ describe("XtermSurface — output lines (onLineData)", () => {
     it("rows wrapped by the terminal width are one line", async () => {
         const { session, lines } = make(10);
         const long = "abcdefghij".repeat(2) + "klmno";
-        session.feed(`${long}\r\nnext\r\n`);
+        // Spaces at the end of a wrapped row are part of the line.
+        const spaced = "abc       xyz";
+        session.feed(`${long}\r\nnext\r\n${spaced}\r\n`);
         await vi.waitFor(() => {
-            expect(lines).toStrictEqual([long, "next"]);
+            expect(lines).toStrictEqual([long, "next", spaced]);
         });
         session.dispose();
     });

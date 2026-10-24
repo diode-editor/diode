@@ -58,7 +58,7 @@ describe("parseTasksJson — problemMatcher forms", () => {
 
     it("a broken inline matcher is reported and skipped; the task stays with the rest", () => {
         const { tasks, problems } = parse([
-            { label: "a", command: "x", problemMatcher: ["$go", { owner: "o", pattern: { regexp: "(" } }, 7] },
+            { label: "a", command: "x", problemMatcher: ["$go", { owner: "o", pattern: { regexp: "(" } }, 7, null] },
         ]);
         expect(tasks.map((t) => [t._label, t.problemMatchers, t.hasDefinedMatchers])).toStrictEqual([
             ["a", ["$go"], true],
@@ -66,6 +66,7 @@ describe("parseTasksJson — problemMatcher forms", () => {
         expect(problems).toStrictEqual([
             "Error: The string ( is not a valid regular expression.\n",
             `Error: the description can't be converted into a problem matcher:\n${JSON.stringify({ owner: "o", pattern: { regexp: "(" } }, null, 4)}\n`,
+            `Error: the description can't be converted into a problem matcher:\n${JSON.stringify({}, null, 4)}\n`,
             `Error: the description can't be converted into a problem matcher:\n${JSON.stringify({}, null, 4)}\n`,
         ]);
     });

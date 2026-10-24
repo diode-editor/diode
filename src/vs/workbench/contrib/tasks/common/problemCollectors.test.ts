@@ -207,6 +207,49 @@ describe("StartStopProblemCollector", () => {
         expect(h.messages("eslint", B)).toStrictEqual(["Unexpected console statement", "Missing semicolon"]);
     });
 
+    it("another owner on the same resource is a move too: the previous owner's markers are delivered", async () => {
+        const h = build([
+            matcher(),
+            matcher({ owner: "second", pattern: { regexp: /^2 (\S+):(\d+) (.*)$/, file: 1, line: 2, message: 3 } }),
+        ]);
+        const collector = h.make();
+        collector.processLine("/ws/a.ts(1,1): error E1: first owner");
+        collector.processLine("2 /ws/a.ts:3 second owner");
+        await settle();
+        expect(h.messages("msCompile", A)).toStrictEqual(["first owner"]);
+        expect(h.messages("second", A)).toStrictEqual([]);
+        await collector.done();
+        expect(h.messages("second", A)).toStrictEqual(["second owner"]);
+    });
+
+    it("a multi-line matcher: no file line before a problem line is no problem, even as the first line", async () => {
+        const stylish = getBuiltinProblemMatcher("$jshint-stylish")!;
+        const h = build([matcher(), stylish]);
+        const collector = h.make();
+        collector.processLine("  line 1  col 1  Orphan at start. (E1)");
+        collector.processLine("/ws/a.ts(1,1): error E1: single");
+        // Right after a single-line match the buffer starts over: this is not a problem of the line above.
+        collector.processLine("  line 2  col 1  Orphan after a match. (E1)");
+        collector.processLine("noise");
+        collector.processLine("/ws/b.ts(2,1): error E1: after noise");
+        await collector.done();
+        expect(h.markers.read().map((m) => m.message)).toStrictEqual(["single", "after noise"]);
+    });
+
+    it("a multi-line matcher alone; each looping problem line counts as a match", async () => {
+        const errors: unknown[] = [];
+        setUnexpectedErrorHandler((e) => errors.push(e));
+        const h = build([getBuiltinProblemMatcher("$eslint-stylish")!]);
+        const collector = h.make();
+        for (const line of ["noise", "more noise", "/ws/a.ts", "  1:1  error  one  r1", "  2:1  error  two  r2"]) {
+            collector.processLine(line);
+        }
+        await collector.done();
+        expect(errors).toStrictEqual([]);
+        expect(collector.numberOfMatches).toBe(2);
+        expect(h.messages("eslint", A)).toStrictEqual(["one", "two"]);
+    });
+
     it("a file name that can't be resolved is reported and skipped; later lines still match", async () => {
         const errors: unknown[] = [];
         setUnexpectedErrorHandler((e) => errors.push(e));

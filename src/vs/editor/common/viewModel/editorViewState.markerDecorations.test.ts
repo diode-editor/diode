@@ -23,7 +23,7 @@ describe("EditorViewState — marker decorations", () => {
     });
 
     it("an empty range covers the word at it; on a blank line, past the text or off a word it stays empty", () => {
-        const doc = new TextDocument("    count = 1;  \n\n   \nx  y");
+        const doc = new TextDocument("    count = 1;  \n\n   \nx  y\nab  ");
         const viewState = new EditorViewState(doc);
         const empty = (line: number, character: number) => ({
             range: createRange(line, character, line, character),
@@ -38,6 +38,8 @@ describe("EditorViewState — marker decorations", () => {
             empty(2, 1),
             empty(3, 1),
             empty(3, 2),
+            // Right after the last word, at its last non-whitespace column: upstream keeps it empty.
+            empty(4, 2),
         ]);
         expect(viewState.getMarkerDecorations().map((d) => d.range)).toEqual([
             createRange(0, 4, 0, 9),
@@ -48,6 +50,7 @@ describe("EditorViewState — marker decorations", () => {
             createRange(2, 1, 2, 1),
             createRange(3, 0, 3, 1),
             createRange(3, 2, 3, 2),
+            createRange(4, 2, 4, 2),
         ]);
     });
 

@@ -11,6 +11,7 @@ import {
     type IProblemMatch,
     type IProblemMatcher,
     type IProblemMatcherFiles,
+    type IProblemPattern,
     parseProblemMatcher,
     parseProblemPattern,
 } from "./problemMatcher.ts";
@@ -647,6 +648,30 @@ describe("line matchers — edges", () => {
         ]);
     });
 
+    it("a multi-line matcher reads its lines from the start index; kind file comes from the first pattern", async () => {
+        const lineMatcher = createLineMatcher(
+            simple({
+                pattern: [
+                    { regexp: /^F (.*)$/, kind: "file", file: 1 },
+                    { regexp: /^M (.*)$/, message: 1 },
+                ],
+            }),
+            NO_FILES,
+        );
+        const match = lineMatcher.handle(["noise", "F /a", "M whole file"], 1).match;
+        expect(match === null ? null : await found(match)).toStrictEqual({
+            resource: "/a",
+            severity: MarkerSeverity.Error,
+            range: [0, 0, 0, 0],
+            message: "whole file",
+        });
+    });
+
+    it("an invalid pattern gives no matcher", () => {
+        expect(parse({ owner: "o", pattern: [{ regexp: "x", line: 1, message: 0 }] }).matcher).toBeUndefined();
+        expect(parse({ owner: "o", pattern: [{ regexp: "x", file: 1, message: 0 }] }).matcher).toBeUndefined();
+    });
+
     it("the looping pattern's captures don't leak into the next loop line", async () => {
         const matcher = simple({
             pattern: [
@@ -701,5 +726,179 @@ describe("getResource — file names to resources", () => {
         expect(
             (await getResource("/abs/z.ts", matcher({ fileLocation: "search", filePrefix: {} }), files)).fsPath,
         ).toBe("/abs/z.ts");
+    });
+
+    it("a backslash path becomes a slash path", async () => {
+        expect((await getResource("dir\\sub\\x.ts", matcher({}), NO_FILES)).path).toBe("/dir/sub/x.ts");
+    });
+
+    it("search: a directory whose name ends with the file name is not the file", async () => {
+        const files = filesOf("/ws/a.ts/inner.txt", "/ws/sub/a.ts");
+        const search = matcher({ fileLocation: "search", filePrefix: { include: "/ws" } });
+        expect((await getResource("a.ts", search, files)).fsPath).toBe("/ws/sub/a.ts");
+    });
+});
+
+describe("problem matchers — captures, severities, locations", () => {
+    const inline = (pattern: unknown, extra: Record<string, unknown> = {}): IProblemMatcher => {
+        const { matcher, problems } = parse({ owner: "o", fileLocation: "absolute", pattern, ...extra });
+        expect(problems).toStrictEqual([]);
+        return matcher!;
+    };
+
+    it("file, code, severity and message captures are trimmed", async () => {
+        const matcher = inline({
+            regexp: "^F([^|]*)\\|L(\\d+)\\|C([^|]*)\\|S([^|]*)\\|M(.*)$",
+            file: 1,
+            line: 2,
+            code: 3,
+            severity: 4,
+            message: 5,
+            // Otherwise the default column group 3 is the code.
+            column: 9,
+        });
+        expect(await matchLines(matcher, ["F /a.js |L3|C E1 |S warning |M  spaced message "])).toStrictEqual([
+            {
+                resource: "/a.js",
+                severity: MarkerSeverity.Warning,
+                range: [2, 0, 2, WHOLE_LINE],
+                message: "spaced message",
+                code: "E1",
+            },
+        ]);
+    });
+
+    it("a marker without code or source has no such keys; an empty code is none", () => {
+        const lineMatcher = createLineMatcher(
+            inline({ regexp: "^(\\S+):(\\d+) (\\w*) ?(.*)$", file: 1, line: 2, code: 3, message: 4 }),
+            NO_FILES,
+        );
+        expect(lineMatcher.handle(["/a:1  m"], 0).match?.marker).toStrictEqual({
+            severity: MarkerSeverity.Error,
+            range: { start: { line: 0, character: 0 }, end: { line: 0, character: WHOLE_LINE } },
+            message: "m",
+        });
+    });
+
+    it("a group index past the regexp's groups captures nothing", async () => {
+        const matcher = inline({ regexp: "^(\\S+):(\\d+) (.*)$", file: 1, line: 2, message: 3, code: 9 });
+        expect((await matchLines(matcher, ["/a:1 m"]))[0].code).toBeUndefined();
+    });
+
+    it("captured severity letters E/W/I and hint/note; anything else is the matcher's severity", async () => {
+        const pattern = { regexp: "^(\\S+):(\\d+) (\\S+) (.*)$", file: 1, line: 2, severity: 3, message: 4 };
+        const severities = async (severity: string, lines: string[]) =>
+            (await matchLines(inline(pattern, { severity }), lines)).map((f) => f.severity);
+        expect(await severities("info", ["/a:1 E m", "/a:1 W m", "/a:1 hint m", "/a:1 e m"])).toStrictEqual([
+            MarkerSeverity.Error,
+            MarkerSeverity.Warning,
+            MarkerSeverity.Info,
+            MarkerSeverity.Info,
+        ]);
+        expect(
+            await severities("error", ["/a:1 I m", "/a:1 NOTE m", "/a:1 a-note m", "/a:1 hints m", "/a:1 Warn m"]),
+        ).toStrictEqual([
+            MarkerSeverity.Info,
+            MarkerSeverity.Info,
+            MarkerSeverity.Error,
+            MarkerSeverity.Error,
+            MarkerSeverity.Warning,
+        ]);
+    });
+
+    it("a location without digits is no match; three numbers are line and column", async () => {
+        const matcher = inline({ regexp: "^(\\S+)\\((.*)\\): (.*)$", file: 1, location: 2, message: 3 });
+        expect((await matchLines(matcher, ["/a(x): m", "/a(5,6,7): m"])).map((f) => f.range)).toStrictEqual([
+            [4, 5, 4, 5],
+        ]);
+    });
+
+    it("an end column without a start column spans the whole line", async () => {
+        const matcher = inline({
+            regexp: "^(\\S+) (\\d+):(\\d*)-(\\d+) (.*)$",
+            file: 1,
+            line: 2,
+            column: 3,
+            endColumn: 4,
+            message: 5,
+        });
+        expect((await matchLines(matcher, ["/a 2:-9 m"])).map((f) => f.range)).toStrictEqual([[1, 0, 1, WHOLE_LINE]]);
+    });
+
+    it("a multi-line problem whose line capture is empty is no match", async () => {
+        const matcher = inline([
+            { regexp: "^F (.*)$", file: 1 },
+            { regexp: "^L (\\d*) (.*)$", line: 1, message: 2 },
+        ]);
+        expect(await matchLines(matcher, ["F /a", "L  m"])).toStrictEqual([]);
+    });
+
+    it("a multi-line message keeps each part trimmed", async () => {
+        const matcher = inline([
+            { regexp: "^(\\S+):(\\d+) (.*)$", file: 1, line: 2, message: 3 },
+            { regexp: "^>(.*)$", message: 1 },
+        ]);
+        expect((await matchLines(matcher, ["/a:1  head ", ">   tail  "])).map((f) => f.message)).toStrictEqual([
+            "head\ntail",
+        ]);
+    });
+
+    it("parsing ignores case: kind, fileLocation, applyTo, severity names", () => {
+        const pattern = { regexp: "^(.*)$", kind: "File", message: 1 };
+        expect(
+            parse({ owner: "o", pattern, fileLocation: "Absolute", applyTo: "ClosedDocuments", severity: "WARN" })
+                .matcher,
+        ).toMatchObject({
+            fileLocation: "absolute",
+            applyTo: "closedDocuments",
+            severity: MarkerSeverity.Warning,
+            pattern: { kind: "file", file: 1 },
+        });
+        expect(parse({ owner: "o", pattern, fileLocation: ["AutoDetect", "/b"] }).matcher).toMatchObject({
+            fileLocation: "autoDetect",
+            filePrefix: "/b",
+        });
+        expect(parse({ owner: "o", pattern, fileLocation: ["Search", {}] }).matcher).toMatchObject({
+            fileLocation: "search",
+        });
+        expect(parse({ owner: "o", pattern, applyTo: "nonsense" }).matcher?.applyTo).toBe("allDocuments");
+    });
+
+    it("kind location on a later line of a multi-line pattern is an error; an empty kind is none", () => {
+        expect(
+            parse({
+                owner: "o",
+                pattern: [
+                    { regexp: "x", file: 1 },
+                    { regexp: "y", line: 1, message: 0, kind: "Location" },
+                ],
+            }).problems[0],
+        ).toBe("The problem pattern is invalid. The kind property must be provided only in the first element");
+        expect(parse({ owner: "o", pattern: { regexp: "x", kind: "" } }).matcher?.pattern).toMatchObject({
+            kind: "location",
+            line: 2,
+        });
+    });
+
+    it("pattern defaults: location group 0 is no location; kind file needs no line", () => {
+        expect(parseProblemPattern({ regexp: "x", location: 0 }, () => undefined)).toMatchObject({
+            line: 2,
+            character: 3,
+        });
+        const fileOnly = parseProblemPattern({ regexp: "x", kind: "file" }, () => undefined) as IProblemPattern;
+        expect([fileOnly.line, fileOnly.file, fileOnly.message]).toStrictEqual([undefined, 1, 0]);
+    });
+
+    it("base: an empty source or a non-string severity keeps the base's", () => {
+        expect(parse({ base: "$eslint-stylish", source: "", severity: 3 }).matcher).toStrictEqual(
+            builtin("eslint-stylish"),
+        );
+    });
+
+    it("a source is kept only when non-empty; an empty or null pattern is no pattern", () => {
+        const pattern = { regexp: "^(.*)$", kind: "file", message: 1 };
+        expect(parse({ owner: "o", pattern, source: "" }).matcher?.source).toBeUndefined();
+        expect(parse({ owner: "o", pattern: "" }).matcher).toBeUndefined();
+        expect(parse({ owner: "o", pattern: null }).problems).toHaveLength(1);
     });
 });

@@ -305,9 +305,10 @@ export class EditorViewState {
         const end = clamp(range.end);
         if (!positionsEqual(start, end)) return { start, end };
         const text = this.document.getLineContent(start.line);
-        // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- upstream's `||`: a blank line has no last non-whitespace column
+
         const maxCharacter = text.trimEnd().length || text.length;
-        if (maxCharacter === 0 || end.character >= maxCharacter) return { start, end };
+        // An empty line has `maxCharacter` 0, so it stays empty too.
+        if (end.character >= maxCharacter) return { start, end };
         const word = getWordAtText(start.character, DEFAULT_WORD_REGEXP, text);
         if (word === null) return { start, end };
         return createRange(start.line, word.start, start.line, word.end);

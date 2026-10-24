@@ -125,14 +125,13 @@ export abstract class XtermSurface implements ITerminalSurface, IDisposable {
         term.onData((data) => {
             this.write(data);
         });
-        // Upstream `LineDataEventAddon`: a line is complete at the line feed after it, unless the new row
-        // continues a wrapped line.
+        // Upstream `LineDataEventAddon`: a line is complete at the line feed after it. Upstream also skips a line
+        // feed onto a wrapped row, but wrapping is not a line feed: the row after one never continues a line.
         term.onLineFeed(() => {
             const buffer = term.buffer.active;
-            const row = buffer.baseY + buffer.cursorY;
-            if (buffer.getLine(row)?.isWrapped === true) return;
-            if (this.flushedRow === row - 1) this.flushedRow = undefined;
-            else this.sendLineData(buffer, row - 1);
+            const row = buffer.baseY + buffer.cursorY - 1;
+            if (this.flushedRow === row) this.flushedRow = undefined;
+            else this.sendLineData(buffer, row);
         });
         this.term = term;
         for (const item of this.pendingOutput.splice(0)) {
@@ -163,13 +162,10 @@ export abstract class XtermSurface implements ITerminalSurface, IDisposable {
 
     /** Wrapped rows are joined into one line; cell text carries no escape sequences. */
     private sendLineData(buffer: IBuffer, row: number): void {
-        let line = buffer.getLine(row);
-        if (line === undefined) return;
-        let text = line.translateToString(true);
-        while (row > 0 && line.isWrapped) {
-            line = buffer.getLine(--row);
-            if (line === undefined) break;
-            text = line.translateToString(false) + text;
+        let text = rowText(buffer, row, true);
+        // Stryker disable next-line ConditionalExpression,EqualityOperator,OptionalChaining: equivalent: row 0 never continues a line, and the rows above an existing row exist
+        for (let first = row; first > 0 && buffer.getLine(first)?.isWrapped === true; first--) {
+            text = rowText(buffer, first - 1, false) + text;
         }
         this.onLineDataEmitter.fire(text);
     }
@@ -179,7 +175,7 @@ export abstract class XtermSurface implements ITerminalSurface, IDisposable {
         if (this.term === undefined) return;
         const buffer = this.term.buffer.active;
         const row = buffer.baseY + buffer.cursorY;
-        if (buffer.getLine(row)?.translateToString(true) === "") return;
+        if (rowText(buffer, row, true) === "") return;
         this.flushedRow = row;
         this.sendLineData(buffer, row);
     }
@@ -360,6 +356,12 @@ export abstract class XtermSurface implements ITerminalSurface, IDisposable {
         this.viewportScrollOffset = next;
         this.emitUpdate();
     }
+}
+
+/** Rows up to the cursor always exist; the fallback is for types. */
+function rowText(buffer: IBuffer, row: number, trimRight: boolean): string {
+    // Stryker disable next-line OptionalChaining,LogicalOperator,StringLiteral: equivalent: see above
+    return buffer.getLine(row)?.translateToString(trimRight) ?? "";
 }
 
 function coreMouseService(term: Terminal): ICoreMouseService {

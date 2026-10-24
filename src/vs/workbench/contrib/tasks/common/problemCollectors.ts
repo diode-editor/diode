@@ -24,19 +24,29 @@ export interface IProblemCollectorHost {
 /** Upstream's `IMarkerData.makeKeyOptionalMessage(marker, false)`: the message is not part of the key. */
 function markerKey(marker: IMarkerData): string {
     const { start, end } = marker.range;
-    return [
-        marker.source ?? "",
-        marker.code ?? "",
-        String(marker.severity),
-        String(start.line),
-        String(start.character),
-        String(end.line),
-        String(end.character),
-    ].join("¦");
+    return JSON.stringify([
+        marker.source,
+        marker.code,
+        marker.severity,
+        start.line,
+        start.character,
+        end.line,
+        end.character,
+    ]);
 }
 
 function mergeApplyTo(current: ApplyToKind, value: ApplyToKind): ApplyToKind {
+    // Stryker disable next-line StringLiteral: equivalent: an unknown applyTo applies to all documents too
     return current === value ? current : "allDocuments";
+}
+
+/** The markers found for one resource of one owner, and how many of them the marker service has. */
+interface IResourceMarkers {
+    readonly owner: string;
+    readonly resource: string;
+    /** By {@link markerKey}. */
+    readonly markers: Map<string, IMarkerData>;
+    delivered: number;
 }
 
 /**
@@ -48,19 +58,17 @@ export class StartStopProblemCollector {
     /** By pattern line count. */
     private readonly matchers = new Map<number, ILineMatcher[]>();
     private activeMatcher: ILineMatcher | null = null;
-    private buffer: string[] = [];
+    private buffer: readonly string[] = [];
     private bufferLength = 1;
     private matches = 0;
     private maxSeverity: MarkerSeverity | undefined;
     private tail: Promise<void> = Promise.resolve();
     /** By owner: the merged `applyTo` of its matchers and the resources to clean. */
     private readonly owners = new Map<string, { applyTo: ApplyToKind; readonly toClean: Set<string> }>();
-    /** owner → resource → marker key → marker. */
-    private readonly markers = new Map<string, Map<string, Map<string, IMarkerData>>>();
-    /** owner → resource → number of markers delivered. */
-    private readonly deliveredMarkers = new Map<string, Map<string, number>>();
-    private currentOwner: string | undefined;
-    private currentResource: string | undefined;
+    /** By `[owner, resource]`. */
+    private readonly found = new Map<string, IResourceMarkers>();
+    /** Where the output is now: its markers are delivered once it moves on. */
+    private current: IResourceMarkers | undefined;
 
     public constructor(
         problemMatchers: readonly IProblemMatcher[],
@@ -77,6 +85,7 @@ export class StartStopProblemCollector {
                 owner.applyTo = mergeApplyTo(owner.applyTo, problemMatcher.applyTo);
                 continue;
             }
+            // Stryker disable next-line ObjectLiteral: equivalent: clearing another owner's resource for this owner changes nothing
             const toClean = new Set(host.markers.read({ owner: problemMatcher.owner }).map((m) => m.resource));
             this.owners.set(problemMatcher.owner, { applyTo: problemMatcher.applyTo, toClean });
         }
@@ -107,16 +116,13 @@ export class StartStopProblemCollector {
         if (markerMatch === null) return;
         const owner = markerMatch.description.owner;
         const resource = (await markerMatch.resource).toString();
+        // Stryker disable next-line OptionalChaining: equivalent: every matcher's owner is in the map
         this.owners.get(owner)?.toClean.delete(resource);
         if (!this.shouldApplyMatch(markerMatch.description.applyTo, resource)) return;
-        this.recordMarker(markerMatch.marker, owner, resource);
-        if (this.currentOwner !== owner || this.currentResource !== resource) {
-            if (this.currentOwner !== undefined && this.currentResource !== undefined) {
-                this.deliverMarkers(this.currentOwner, this.currentResource);
-            }
-            this.currentOwner = owner;
-            this.currentResource = resource;
-        }
+        const found = this.recordMarker(markerMatch.marker, owner, resource);
+        if (this.current === found) return;
+        if (this.current !== undefined) this.deliver(this.current);
+        this.current = found;
     }
 
     private tryFindMarker(line: string): IProblemMatch | null {
@@ -129,8 +135,7 @@ export class StartStopProblemCollector {
             this.buffer = [];
             this.activeMatcher = null;
         }
-        if (this.buffer.length < this.bufferLength) this.buffer.push(line);
-        else this.buffer = [...this.buffer.slice(1), line];
+        this.buffer = [...this.buffer, line].slice(-this.bufferLength);
         const result = this.tryMatchers();
         if (result !== null) this.buffer = [];
         return result;
@@ -140,11 +145,13 @@ export class StartStopProblemCollector {
     private tryMatchers(): IProblemMatch | null {
         this.activeMatcher = null;
         const length = this.buffer.length;
+        // Stryker disable next-line EqualityOperator: equivalent: there are no matchers of zero lines
         for (let startIndex = 0; startIndex < length; startIndex++) {
             for (const matcher of this.matchers.get(length - startIndex) ?? []) {
                 const result = matcher.handle(this.buffer, startIndex);
                 if (result.match !== null) {
                     this.captureMatch(result.match);
+                    // Stryker disable next-line ConditionalExpression: equivalent: a single-line matcher never continues, and dropping it resets nothing a match did not
                     if (result.continue) this.activeMatcher = matcher;
                     return result.match;
                 }
@@ -155,9 +162,7 @@ export class StartStopProblemCollector {
 
     private captureMatch(match: IProblemMatch): void {
         this.matches++;
-        if (this.maxSeverity === undefined || match.marker.severity > this.maxSeverity) {
-            this.maxSeverity = match.marker.severity;
-        }
+        this.maxSeverity = Math.max(this.maxSeverity ?? 0, match.marker.severity);
     }
 
     private shouldApplyMatch(applyTo: ApplyToKind, resource: string): boolean {
@@ -166,39 +171,28 @@ export class StartStopProblemCollector {
         return true;
     }
 
-    private recordMarker(marker: IMarkerData, owner: string, resource: string): void {
-        let byResource = this.markers.get(owner);
-        if (byResource === undefined) {
-            byResource = new Map();
-            this.markers.set(owner, byResource);
-        }
-        let byKey = byResource.get(resource);
-        if (byKey === undefined) {
-            byKey = new Map();
-            byResource.set(resource, byKey);
+    /** The first of equal problems (the message aside) stays. */
+    private recordMarker(marker: IMarkerData, owner: string, resource: string): IResourceMarkers {
+        const id = JSON.stringify([owner, resource]);
+        let found = this.found.get(id);
+        if (found === undefined) {
+            found = { owner, resource, markers: new Map(), delivered: 0 };
+            this.found.set(id, found);
         }
         const key = markerKey(marker);
-        if (!byKey.has(key)) byKey.set(key, marker);
+        if (!found.markers.has(key)) found.markers.set(key, marker);
+        return found;
     }
 
     private reportMarkers(): void {
-        for (const [owner, byResource] of this.markers) {
-            for (const resource of byResource.keys()) this.deliverMarkers(owner, resource);
-        }
+        for (const found of this.found.values()) this.deliver(found);
     }
 
     /** Only when the set grew since the last delivery. */
-    private deliverMarkers(owner: string, resource: string): void {
-        const markers = this.markers.get(owner)?.get(resource);
-        if (markers === undefined) return;
-        let delivered = this.deliveredMarkers.get(owner);
-        if (delivered === undefined) {
-            delivered = new Map();
-            this.deliveredMarkers.set(owner, delivered);
-        }
-        if (markers.size === delivered.get(resource)) return;
-        this.host.markers.changeOne(owner, resource, [...markers.values()]);
-        delivered.set(resource, markers.size);
+    private deliver(found: IResourceMarkers): void {
+        if (found.markers.size === found.delivered) return;
+        this.host.markers.changeOne(found.owner, found.resource, [...found.markers.values()]);
+        found.delivered = found.markers.size;
     }
 
     private cleanAllMarkers(): void {
@@ -206,7 +200,6 @@ export class StartStopProblemCollector {
             for (const resource of toClean) {
                 if (this.shouldApplyMatch(applyTo, resource)) this.host.markers.changeOne(owner, resource, []);
             }
-            toClean.clear();
         }
     }
 }
