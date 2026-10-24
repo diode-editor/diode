@@ -127,7 +127,7 @@ describe("EditorViewState over a document that grows (the document on disk)", ()
             ]);
         });
 
-        it("a selection anchored inside the document with its end clamped stays a selection", async () => {
+        it("a selection to the end of the file keeps reaching the end: only the clamped end follows", async () => {
             const { doc, viewState } = await openedAtEnd(100);
             viewState.selections = [
                 { anchor: { line: 10, character: 0 }, active: { line: 100, character: 0 }, idealColumn: undefined },
@@ -135,20 +135,28 @@ describe("EditorViewState over a document that grows (the document on disk)", ()
             await reloadAndGrow(doc, 60);
             expect(viewState.selections[0]).toMatchObject({
                 anchor: { line: 10, character: 0 },
-                active: { line: 19, character: 0 },
+                active: { line: 60, character: 0 },
+            });
+
+            const reversed = await openedAtEnd(100);
+            reversed.viewState.selections = [
+                { anchor: { line: 100, character: 0 }, active: { line: 10, character: 0 }, idealColumn: undefined },
+            ];
+            await reloadAndGrow(reversed.doc, 60);
+            expect(reversed.viewState.selections[0]).toMatchObject({
+                anchor: { line: 60, character: 0 },
+                active: { line: 10, character: 0 },
             });
         });
 
-        it("a selection anchored on the last line with its active end inside stays a selection too", async () => {
+        it("a flush forgets the clamps of the one before it, even when it leaves the cursor in place", async () => {
             const { doc, viewState } = await openedAtEnd(100);
-            viewState.selections = [
-                { anchor: { line: 100, character: 0 }, active: { line: 10, character: 0 }, idealColumn: undefined },
-            ];
-            await reloadAndGrow(doc, 60);
-            expect(viewState.selections[0]).toMatchObject({
-                anchor: { line: 19, character: 0 },
-                active: { line: 10, character: 0 },
-            });
+            // The first reload clamps the cursor to line 19 and the pass never gets going.
+            doc.setText(growingBuffer(60).buffer);
+            expect(viewState.selections[0].active).toEqual({ line: 19, character: 0 });
+            // The second reload finds the cursor inside its first chunk: nothing to clamp, nothing to follow.
+            await reloadAndGrow(doc, 40);
+            expect(viewState.selections[0].active).toEqual({ line: 19, character: 0 });
         });
 
         it("in memory, after a reload that clamped: an edit elsewhere is an ordinary remap, no reveal", () => {
@@ -165,6 +173,13 @@ describe("EditorViewState over a document that grows (the document on disk)", ()
             doc.applyEdits([{ range: createRange(10, 0, 19, 0), text: lines(25) + "\n" }]);
             expect(doc.lineCount).toBe(36);
             expect(viewState.selections[0].active).toEqual({ line: 19, character: 6 });
+
+            // A clamped cursor is moved only by the growth of its own line's end: an edit on another line leaves it.
+            viewState.selections = [createCursorSelection(35, 0)];
+            doc.setText(lines(20));
+            expect(viewState.selections[0].active).toEqual({ line: 19, character: 0 });
+            doc.applyEdits([{ range: createRange(5, 0, 5, 2), text: "ZZ" }]);
+            expect(viewState.selections[0].active).toEqual({ line: 19, character: 0 });
 
             // A cursor away from the end: lines appended after the last one do not scroll to it.
             viewState.selections = [createCursorSelection(5, 0)];
