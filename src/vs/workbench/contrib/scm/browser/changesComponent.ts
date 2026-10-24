@@ -229,8 +229,8 @@ export class ChangesComponent extends Component {
         const cursor = this.list.getCursorElement();
         if (cursor === null) return undefined;
         const cursorId = listRowId(cursor);
-        const meta = this.rowMeta.get(cursorId);
-        if (meta === undefined) return undefined;
+        // Every row of the list has its meta: rebuild() registers them together.
+        const meta = this.rowMeta.get(cursorId)!;
         if (meta.kind !== "file") {
             this.list.toggleCollapsed(cursorId);
             return undefined;
@@ -238,8 +238,8 @@ export class ChangesComponent extends Component {
 
         const selected = this.list.getSelectedElements().map(listRowId);
         const targets = (selected.includes(cursorId) ? selected : [cursorId]).filter((id) => {
-            const target = this.rowMeta.get(id);
-            return target?.kind === "file" && target.group === meta.group;
+            const target = this.rowMeta.get(id)!;
+            return target.kind === "file" && target.group === meta.group;
         });
         const uris = targets.map((id) => (this.rowMeta.get(id) as { change: IScmChange }).change.uri.toString());
 
@@ -294,7 +294,7 @@ export class ChangesComponent extends Component {
      */
     private rebuild(): void {
         const cursorId = this.list.getCursorElement()?.id;
-        const cursorIndex = cursorId === undefined ? -1 : this.visibleRowIds().indexOf(cursorId);
+        const cursorIndex = this.visibleRowIds().findIndex((id) => id === cursorId);
         const collapsedGroups = SCM_GROUP_IDS.filter((id) => this.list.isCollapsed(`scmGroup-${id}`));
         this.list.clear();
         this.rowMeta.clear();
@@ -304,6 +304,7 @@ export class ChangesComponent extends Component {
             this.list.appendRow(buildGroupRow(groupRowId, group.label, group.changes.length), {
                 label: group.label,
             });
+            // Stryker disable next-line StringLiteral: kind is only compared with "file" and "folder"; anything else is a group
             this.rowMeta.set(groupRowId, { kind: "group", group: group.id, changes: group.changes, parentId: null });
 
             if (this.viewMode === "flat") {
@@ -335,10 +336,12 @@ export class ChangesComponent extends Component {
         for (const id of collapsedGroups) this.list.setCollapsed(`scmGroup-${id}`, true);
         if (cursorId !== undefined && this.rowMeta.has(cursorId)) {
             this.list.setCursorTo(cursorId);
-        } else if (cursorIndex >= 0) {
+        } else {
             // The row is gone (its group emptied): the nearest remaining row, not the top of the list.
+            // No cursor before (-1) or no rows now: nothing to restore.
             const visible = this.visibleRowIds();
-            if (visible.length > 0) this.list.setCursorTo(visible[Math.min(cursorIndex, visible.length - 1)]);
+            const nearest = visible.slice(0, cursorIndex + 1).at(-1);
+            if (nearest !== undefined) this.list.setCursorTo(nearest);
         }
     }
 
@@ -358,12 +361,13 @@ export class ChangesComponent extends Component {
     /** A file of `group` after the last target, else before it; targets and rows in flight are skipped. */
     private nextFileRow(group: ScmGroupId, targets: readonly string[]): string | null {
         const files = this.visibleRowIds().filter((id) => {
-            const meta = this.rowMeta.get(id);
-            return meta?.kind === "file" && meta.group === group;
+            const meta = this.rowMeta.get(id)!;
+            return meta.kind === "file" && meta.group === group;
         });
         const last = Math.max(...targets.map((id) => files.indexOf(id)));
         const free = (id: string): boolean => !targets.includes(id) && !this.toggling.has(id);
-        return files.slice(last + 1).find(free) ?? files.slice(0, last).findLast(free) ?? null;
+        // Nothing free after the last target means the last free one overall is before it.
+        return files.slice(last + 1).find(free) ?? files.findLast(free) ?? null;
     }
 
     /** Display order, without rows under a collapsed group or folder. */
@@ -371,7 +375,7 @@ export class ChangesComponent extends Component {
         const isShown = (meta: ScmRowMeta): boolean => {
             for (let parentId = meta.parentId; parentId !== null; ) {
                 if (this.list.isCollapsed(parentId)) return false;
-                parentId = this.rowMeta.get(parentId)?.parentId ?? null;
+                parentId = this.rowMeta.get(parentId)!.parentId;
             }
             return true;
         };
