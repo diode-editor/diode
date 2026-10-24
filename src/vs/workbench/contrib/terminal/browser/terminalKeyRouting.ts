@@ -16,13 +16,17 @@ import { KeybindingDispatcherDIToken } from "../../../services/keybinding/browse
 
 export const TerminalKeyRoutingDIToken = token<TerminalKeyRouting>("TerminalKeyRouting");
 
-/** Upstream `_updateConfig`: `-<id>` removes a default, `<id>` adds one. Our schema has no `items: string`. */
-export function computeCommandsToSkipShell(commandsToSkipShell: readonly unknown[]): Set<string> {
-    const skip = new Set(DEFAULT_COMMANDS_TO_SKIP_SHELL);
+const DEFAULT_SKIP_SHELL: ReadonlySet<string> = new Set(DEFAULT_COMMANDS_TO_SKIP_SHELL);
+
+/**
+ * Upstream `_updateConfig` + `shouldCommandSkipShell`: the defaults, then the user's entries in order —
+ * `-<id>` removes a command, `<id>` adds one. Our schema has no `items: string`: other values never match.
+ */
+export function shouldCommandSkipShell(commandId: string, commandsToSkipShell: readonly unknown[]): boolean {
+    let skip = DEFAULT_SKIP_SHELL.has(commandId);
     for (const command of commandsToSkipShell) {
-        if (typeof command !== "string") continue;
-        if (command.startsWith("-")) skip.delete(command.slice(1));
-        else skip.add(command);
+        if (command === commandId) skip = true;
+        else if (command === `-${commandId}`) skip = false;
     }
     return skip;
 }
@@ -30,7 +34,7 @@ export function computeCommandsToSkipShell(commandsToSkipShell: readonly unknown
 /**
  * With the terminal focused (panel or editor) the key is the shell's; the workbench keeps only chords,
  * the skip set and keys the terminal doesn't encode — upstream's `attachCustomKeyEventHandler`
- * (`terminalInstance.ts`). The settings apply on the fly, without restarting the terminal.
+ * (`terminalInstance.ts`). Settings are read on every key: they apply without restarting the terminal.
  */
 export class TerminalKeyRouting extends Disposable implements IWorkbenchContribution {
     public static dependencies = [
@@ -39,8 +43,6 @@ export class TerminalKeyRouting extends Disposable implements IWorkbenchContribu
         ContextKeyServiceDIToken,
     ] as const;
 
-    private skipShell: Set<string> | null = null;
-
     public constructor(
         dispatcher: KeybindingDispatcher,
         private readonly configuration: IConfigurationService,
@@ -48,11 +50,6 @@ export class TerminalKeyRouting extends Disposable implements IWorkbenchContribu
     ) {
         super();
         dispatcher.isKeyForFocusedWidget = (event, resolution) => this.isKeyForShell(event, resolution);
-        this.register(
-            configuration.onDidChangeConfiguration((event) => {
-                if (event.affectsConfiguration("terminal.integrated.commandsToSkipShell")) this.skipShell = null;
-            }),
-        );
     }
 
     private isKeyForShell(event: TUIKeyboardEvent, resolution: KeybindingResolution): boolean {
@@ -67,8 +64,13 @@ export class TerminalKeyRouting extends Disposable implements IWorkbenchContribu
         }
         if (
             !this.configuration.get("terminal.integrated.sendKeybindingsToShell") &&
+            // Stryker disable next-line ConditionalExpression: `true` is equivalent — an unbound Meta key left to the workbench runs nothing, the terminal's default action still writes it and mnemonics ignore Meta; `false` is killed by the skip-set tests (Ctrl+P)
             resolution.kind === "command" &&
-            (event.metaKey || this.commandsToSkipShell().has(resolution.commandId))
+            (event.metaKey ||
+                shouldCommandSkipShell(
+                    resolution.commandId,
+                    this.configuration.get("terminal.integrated.commandsToSkipShell"),
+                ))
         ) {
             return false;
         }
@@ -82,12 +84,5 @@ export class TerminalKeyRouting extends Disposable implements IWorkbenchContribu
         // Ours: no xterm.js. A key the terminal can't encode (Ctrl+, , Ctrl+Shift+letter) goes back to the
         // workbench, the way xterm.js leaves it unhandled and it bubbles.
         return encodeKeyForPty(event) !== "";
-    }
-
-    private commandsToSkipShell(): Set<string> {
-        this.skipShell ??= computeCommandsToSkipShell(
-            this.configuration.get("terminal.integrated.commandsToSkipShell"),
-        );
-        return this.skipShell;
     }
 }

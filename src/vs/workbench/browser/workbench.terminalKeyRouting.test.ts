@@ -166,6 +166,14 @@ describe("Workbench — keys in the focused terminal go to the shell, like VS Co
             expect(surface.writes).toEqual([]);
         });
 
+        it("an unbound key with Meta goes to the shell: Super+Y (kitty) is ESC y", () => {
+            boot();
+
+            h.testApp.backend.sendRaw("\x1b[121;9u");
+
+            expect(surface.writes).toEqual(["\x1by"]);
+        });
+
         it("Ctrl+, which the terminal can't encode, opens the settings", async () => {
             boot();
 
@@ -234,12 +242,16 @@ describe("Workbench — keys in the focused terminal go to the shell, like VS Co
             expect(surface.writes).toEqual([]);
         });
 
-        it("allowMnemonics does nothing with a Mac keyboard: Alt+F still reaches the shell", () => {
-            boot({ "terminal.integrated.allowMnemonics": true, "keyboard.platform": "mac" });
+        it("allowMnemonics does nothing with a Mac keyboard: Alt+F still reaches the shell, even when bound", () => {
+            boot({ "terminal.integrated.allowMnemonics": true, "keyboard.platform": "mac" }, "panel", [
+                { key: "alt+f", command: TOGGLE_SIDEBAR },
+            ]);
+            const before = sidebarVisible();
 
             h.testApp.sendKey("Alt+f");
 
             expect(surface.writes).toEqual(["\x1bf"]);
+            expect(sidebarVisible()).toBe(before);
             expect(menuOpen()).toBe(false);
         });
 

@@ -77,8 +77,11 @@ function isModifierKey(key: string): boolean {
 // eslint-disable-next-line no-control-regex
 const CSI_U_KEY_RAW = /^\x1b\[[0-9;:]*u$/;
 
-/** `focus`: left to the focused widget's default action — no command runs, the root's later listeners don't see it. */
-type KeyDownOutcome = "consumed" | "unhandled" | "focus";
+/**
+ * `true` — consumed, `false` — not handled; `focus` — left to the focused widget's default action: no command
+ * runs, the root's later listeners don't see it.
+ */
+type KeyDownOutcome = boolean | "focus";
 
 function eventToKeybinding(event: TUIKeyboardEvent): Keybinding {
     return {
@@ -117,6 +120,7 @@ export class KeybindingDispatcher extends Disposable {
      * to the focused widget (the terminal sends it to the shell, like upstream's
      * `attachCustomKeyEventHandler`). The owner of that widget supplies it.
      */
+    // Stryker disable next-line ArrowFunction: equivalent — `undefined` from the mutated default is just as falsy as `false`
     public isKeyForFocusedWidget: (event: TUIKeyboardEvent, resolution: KeybindingResolution) => boolean = () => false;
 
     private keybindings: KeybindingRegistry;
@@ -181,10 +185,10 @@ export class KeybindingDispatcher extends Disposable {
     // a lone modifier keydown gets here in a chord too, and dispatchKeyDown ignores it.
     public readonly handleKeyDown = (event: TUIKeyboardEvent): void => {
         const outcome = this.dispatchKeyDownOutcome(event);
-        if (outcome === "consumed") event.preventDefault();
+        if (outcome === true) event.preventDefault();
         // Neither a consumed key nor one left to the focused widget reaches the root's other
         // listeners — menu mnemonics: Alt+F in the terminal is the shell's, not the File menu's.
-        if (outcome !== "unhandled") event.stopImmediatePropagation();
+        if (outcome === true || outcome === "focus") event.stopImmediatePropagation();
     };
 
     // Releasing a modifier ends command "hold sessions" (MRU tabs) via
@@ -203,13 +207,13 @@ export class KeybindingDispatcher extends Disposable {
 
     /** `true` means the key was consumed (the caller calls preventDefault). */
     public dispatchKeyDown(event: TUIKeyboardEvent): boolean {
-        return this.dispatchKeyDownOutcome(event) === "consumed";
+        return this.dispatchKeyDownOutcome(event) === true;
     }
 
     private dispatchKeyDownOutcome(event: TUIKeyboardEvent): KeyDownOutcome {
         // A lone modifier keydown (Kitty) is not a keystroke, like VS Code's `_doDispatch`: it neither
         // resolves, breaks nor advances a chord, and does not end a hold session.
-        if (isModifierKey(event.key)) return "unhandled";
+        if (isModifierKey(event.key)) return false;
         // A keypress that does not extend the hold session ends it: legacy terminals send no modifier
         // keyup, so a Ctrl+Tab series would otherwise live until the next switch.
         const armedBefore = this.armory.pendingGeneration;
@@ -260,7 +264,7 @@ export class KeybindingDispatcher extends Disposable {
                 // No new chord may start while an overlay owns the keyboard.
                 this.keybindings.resetPending();
                 this.setChordHint(null);
-                return "unhandled";
+                return false;
             }
             // Prefix key of a chord — swallow its keypress and wait for the next.
             this.swallowNextKeyPress = true;
@@ -268,7 +272,7 @@ export class KeybindingDispatcher extends Disposable {
                 `(${formatKeybinding(res.chord, keybindingLabelStyle(this.contextKeys))}) was pressed. Waiting for next key…`,
             );
             this.startChordTimeout();
-            return "consumed";
+            return true;
         }
 
         // A continuation key (command or none) ends chord mode; its keypress
@@ -281,7 +285,7 @@ export class KeybindingDispatcher extends Disposable {
                 // A workbench/navigation shortcut fired while an overlay owns the keyboard:
                 // swallow it (no preventDefault) instead of acting behind the overlay.
                 this.setChordHint(null);
-                return "unhandled";
+                return false;
             }
             this.setChordHint(null);
             // Chord modifiers are for hold sessions (MRU tabs). Passed via context, not as a positional
@@ -303,7 +307,7 @@ export class KeybindingDispatcher extends Disposable {
             // consumed the keydown, the keypress must not also hit the widget: Enter would insert a newline
             // behind acceptSelectedSuggestion, PageDown would page a list twice.
             this.swallowNextKeyPress = true;
-            return "consumed";
+            return true;
         }
 
         if (wasInChord) {
@@ -313,11 +317,11 @@ export class KeybindingDispatcher extends Disposable {
                 keybindingLabelStyle(this.contextKeys),
             );
             this.showChordNotFound(combo);
-            return "consumed"; // no command, no leak
+            return true; // no command, no leak
         }
 
         this.setChordHint(null);
-        return "unhandled";
+        return false;
     }
 
     /** Lives as a regular StatusBarService entry, left of the other left-side segments. */

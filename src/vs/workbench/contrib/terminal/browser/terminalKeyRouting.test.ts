@@ -1,29 +1,28 @@
 import { describe, expect, it } from "vitest";
 
-import { DEFAULT_COMMANDS_TO_SKIP_SHELL } from "../../../common/configuration/terminalCommandsToSkipShell.ts";
+import { shouldCommandSkipShell } from "./terminalKeyRouting.ts";
 
-import { computeCommandsToSkipShell } from "./terminalKeyRouting.ts";
+const QUICK_OPEN = "workbench.action.quickOpen";
+const SAVE = "workbench.action.files.save";
 
-describe("computeCommandsToSkipShell", () => {
-    it("is the default set without user entries", () => {
-        expect(computeCommandsToSkipShell([])).toEqual(new Set(DEFAULT_COMMANDS_TO_SKIP_SHELL));
+describe("shouldCommandSkipShell", () => {
+    it("without user entries: the default skip set", () => {
+        expect(shouldCommandSkipShell(QUICK_OPEN, [])).toBe(true);
+        expect(shouldCommandSkipShell(SAVE, [])).toBe(false);
     });
 
     it("`-<id>` removes a default, `<id>` adds a command", () => {
-        const skip = computeCommandsToSkipShell(["-workbench.action.quickOpen", "workbench.action.files.save"]);
-
-        expect(skip.has("workbench.action.quickOpen")).toBe(false);
-        expect(skip.has("workbench.action.files.save")).toBe(true);
-        expect(skip.size).toBe(DEFAULT_COMMANDS_TO_SKIP_SHELL.length);
+        expect(shouldCommandSkipShell(QUICK_OPEN, [`-${QUICK_OPEN}`])).toBe(false);
+        expect(shouldCommandSkipShell(SAVE, [SAVE])).toBe(true);
     });
 
-    it("ignores entries that are not strings", () => {
-        expect(computeCommandsToSkipShell([42, null, "my.command"])).toEqual(
-            new Set([...DEFAULT_COMMANDS_TO_SKIP_SHELL, "my.command"]),
-        );
+    it("entries apply in order: the last one wins", () => {
+        expect(shouldCommandSkipShell(QUICK_OPEN, [`-${QUICK_OPEN}`, QUICK_OPEN])).toBe(true);
+        expect(shouldCommandSkipShell(SAVE, [SAVE, `-${SAVE}`])).toBe(false);
     });
 
-    it("a `-` only in the middle of an id adds it as is", () => {
-        expect(computeCommandsToSkipShell(["my-ext.run"]).has("my-ext.run")).toBe(true);
+    it("other commands' entries and non-strings don't matter", () => {
+        expect(shouldCommandSkipShell(SAVE, [42, null, "my-ext.run", `-${QUICK_OPEN}`])).toBe(false);
+        expect(shouldCommandSkipShell(QUICK_OPEN, [42, null, `-${SAVE}`])).toBe(true);
     });
 });
