@@ -2,7 +2,8 @@
 /**
  * Remove worktrees whose PR is merged and nobody works in (no process has its cwd there),
  * whoever created them. Also prunes stale worktree records, deletes local `issue/*` branches of
- * merged PRs and the tester branches `issue/<N>/tests` of merged tasks on origin.
+ * merged PRs and the tester branches `issue/<N>/tests` of merged tasks on origin (read and deleted
+ * over https: the forwarded ssh agent dies with the human's connection).
  * Unmerged or busy worktrees are left alone; uncommitted changes in a merged one are not saved.
  * "Merged" is the PR state (PRs are squash-merged, so git ancestry cannot tell).
  *
@@ -56,7 +57,7 @@ for (const b of localBranches) {
     act(`delete local branch ${b} (PR merged)`, () => git(["branch", "-D", b]));
 }
 
-const remote = git(["ls-remote", "--heads", "origin", "issue/*/tests"], { timeout: 60_000 }).stdout;
+const remote = git(["ls-remote", "--heads", HTTPS_ORIGIN, "issue/*/tests"], { timeout: 60_000 }).stdout;
 for (const line of remote.trim().split("\n").filter(Boolean)) {
     const tests = line.split(/\s+/)[1].replace("refs/heads/", "");
     const task = tests.replace(/\/tests$/, "");

@@ -18,10 +18,11 @@ bash scripts/agent-loop/dispatch.sh    # Enter — тик сейчас, q — в
 ```
 
 `dispatch.sh` на старте проверяет `gh auth status`, `claude`, `node`, ёмкость лизы, чистый `main`;
-что-то не так — печатает и выходит. Дальше цикл: `git pull --ff-only` → свежая сессия
+что-то не так — печатает и выходит. Дальше цикл: свежая сессия
 `claude -p --model $AGENT_LOOP_MODEL --permission-mode bypassPermissions "/dispatch"` → пауза
-`AGENT_LOOP_INTERVAL` (600 с). Каждый тик берёт свежий код из `main` — обновления подхватываются
-сами. Лог тиков — `~/.claude/agent-loop/dispatch.log`.
+`AGENT_LOOP_INTERVAL` (600 с). Сессия первым делом делает `git pull --ff-only`, а когда ssh-агент
+пропал (человек отключился от пода) — тянет по https: репа публичная, ключ не нужен. Так обновления
+`main` подхватываются сами, с отставанием на тик. Лог тиков — `~/.claude/agent-loop/dispatch.log`.
 
 Переменные (все необязательны): `AGENT_LOOP_MODEL` (дефолт `opus` — алиас последнего Opus;
 зафиксировать версию — `claude-opus-5-5`), `AGENT_LOOP_INTERVAL`, `AGENT_LOOP_HOME`,

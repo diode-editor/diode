@@ -4,8 +4,9 @@
 #
 #   bash scripts/agent-loop/dispatch.sh
 #
-# Every tick: fast-forward main, then one fresh `claude -p "/dispatch"` session does one pass by
-# the rules of .claude/skills/dispatch/SKILL.md and exits (it remembers nothing between ticks).
+# Every tick: one fresh `claude -p "/dispatch"` session fast-forwards main (falling back to https
+# when the forwarded ssh agent is gone) and does one pass by the rules of
+# .claude/skills/dispatch/SKILL.md, then exits (it remembers nothing between ticks).
 # Then it waits AGENT_LOOP_INTERVAL seconds; Enter runs the next tick now, q quits.
 # Task sessions (`task-<N>`) are created in this tmux server by scripts/agent-loop/start-task.mjs.
 #
@@ -47,12 +48,8 @@ echo "dispatch: Enter — tick now, q — quit"
 
 while :; do
     log "tick"
-    if git pull --ff-only --quiet; then
-        claude -p --model "$AGENT_LOOP_MODEL" --permission-mode bypassPermissions "/dispatch" 2>&1 | tee -a "$LOG"
-        log "tick done (exit ${PIPESTATUS[0]})"
-    else
-        log "git pull --ff-only failed, tick skipped"
-    fi
+    claude -p --model "$AGENT_LOOP_MODEL" --permission-mode bypassPermissions "/dispatch" 2>&1 | tee -a "$LOG"
+    log "tick done (exit ${PIPESTATUS[0]})"
     echo "dispatch: next tick in ${AGENT_LOOP_INTERVAL}s (Enter — now, q — quit)"
     if read -r -t "$AGENT_LOOP_INTERVAL" key; then
         [[ "$key" == "q" ]] && exit 0
