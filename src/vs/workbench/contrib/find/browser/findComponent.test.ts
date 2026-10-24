@@ -1,8 +1,10 @@
 import { BoxConstraints, Point, Size } from "@tuidom/core/common/geometryPromitives";
+import { TUIKeyboardEvent } from "@tuidom/core/dom/events/tuiKeyboardEvent";
 import { TUIMouseEvent } from "@tuidom/core/dom/events/tuiMouseEvent";
 import type { ButtonElement } from "@tuidom/elements/button/buttonElement";
 import { OverlayHostElement } from "@tuidom/elements/contextview/overlayHostElement";
-import type { InputElement } from "@tuidom/elements/inputbox/inputElement";
+import { InputElement } from "@tuidom/elements/inputbox/inputElement";
+import { VStackElement } from "@tuidom/elements/layout/vStackElement";
 import type { MockTerminalBackend } from "@tuidom/testing/mockTerminalBackend";
 import { describe, expect, it, vi } from "vitest";
 
@@ -238,6 +240,27 @@ describe("FindWidget — focus", () => {
         const testApp = TestApp.createWithContent(component.view, new Size(80, 24));
         component.focus();
         expect(testApp.focusedElement).toBe(input(component));
+    });
+
+    it("Tab and Shift+Tab keep focus in the query input; Ctrl/Alt/Meta+Tab are left to keybindings", () => {
+        const component = make();
+        const other = new InputElement();
+        const stack = new VStackElement();
+        stack.addChild(component.view, { width: "stretch", height: 3 });
+        stack.addChild(other, { width: "stretch", height: 1 });
+        const testApp = TestApp.createWithContent(stack, new Size(80, 24));
+        component.focus();
+
+        testApp.sendKey("Tab");
+        expect(testApp.focusedElement).toBe(input(component));
+        testApp.sendKey("Shift+Tab");
+        expect(testApp.focusedElement).toBe(input(component));
+
+        for (const modifier of [{ ctrlKey: true }, { altKey: true }, { metaKey: true }]) {
+            const chord = new TUIKeyboardEvent("keydown", { key: "Tab", ...modifier });
+            input(component).dispatchEvent(chord);
+            expect(chord.defaultPrevented).toBe(false);
+        }
     });
 });
 

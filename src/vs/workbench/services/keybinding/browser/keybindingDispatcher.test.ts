@@ -326,6 +326,17 @@ describe("KeybindingDispatcher — modal overlays", () => {
         expect(h.executed).toEqual(["test.inputCopy"]);
     });
 
+    it("editorAreaFocus is focus-scoped: tab commands keep working from the editor behind an overlay", () => {
+        const h = createHarness();
+        h.bind("ctrl+w", "test.closeTab", "editorAreaFocus && editorGroupHasEditors");
+        h.contextKeys.set("editorAreaFocus", true);
+        h.contextKeys.set("editorGroupHasEditors", true);
+        h.dispatcher.hasKeyboardCapturingOverlay = () => true;
+
+        expect(h.dispatcher.dispatchKeyDown(keyDown({ key: "w", ctrlKey: true }))).toBe(true);
+        expect(h.executed).toEqual(["test.closeTab"]);
+    });
+
     it("a negated focus key does not make a command focus-scoped, so it is swallowed behind an overlay", () => {
         const h = createHarness();
         // Regression: the focus key was matched as a substring, so `!listFocus` got past the overlay.
