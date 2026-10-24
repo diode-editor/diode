@@ -1,13 +1,9 @@
-import { mkdtempSync } from "node:fs";
-import * as os from "node:os";
-import { join } from "node:path";
-
-import { afterAll, bench, describe } from "vitest";
+import { bench, describe } from "vitest";
 
 import { removeTempDir } from "../helpers/appSession.ts";
 import { getBinaryPath } from "../helpers/buildOnce.ts";
 
-import { generateFixture, SIZES } from "./openFixtures.ts";
+import { gateFixtureDir, generateFixture, SIZES } from "./openFixtures.ts";
 import { COLS, measureOpenOnce, ROWS } from "./openMeasure.ts";
 import { measureFloorPty, NODE_FLOOR_ARGS } from "./ptyFloor.ts";
 import { median } from "./stats.ts";
@@ -29,7 +25,7 @@ const SAMPLES = 5;
 // NB: fixtures and the floor live at module top level: in `vitest bench` mode a heavy
 // beforeAll misbehaves (the bench collects no samples).
 const binary = await getBinaryPath();
-const fixtureDir = mkdtempSync(join(os.tmpdir(), "diode-perf-open-"));
+const fixtureDir = gateFixtureDir("diode-perf-open");
 const small = SIZES.find((s) => s.key === "small");
 if (small === undefined) throw new Error("size matrix has no small");
 const fixture = await generateFixture(fixtureDir, small);
@@ -58,6 +54,8 @@ describe("Startup: our cost over the node floor (SEA in PTY, small)", () => {
             if (calls === 1) return;
             samples.push(result.contentMs - nodeFloorMs);
             if (samples.length === SAMPLES) {
+                // The last sample: the fixture is not needed any more (`gateFixtureDir`: no afterAll in bench mode).
+                removeTempDir(fixtureDir);
                 const ours = median(samples);
                 const detail = `node floor ${String(Math.round(nodeFloorMs))} ms, samples [${samples.map((v) => String(Math.round(v))).join(", ")}]`;
                 if (ours > STARTUP_BUDGET_OURS_MS) {
@@ -70,8 +68,4 @@ describe("Startup: our cost over the node floor (SEA in PTY, small)", () => {
         },
         { iterations: SAMPLES, time: 0, warmupIterations: 1, warmupTime: 0 },
     );
-
-    afterAll(() => {
-        removeTempDir(fixtureDir);
-    });
 });

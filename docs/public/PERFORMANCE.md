@@ -18,21 +18,32 @@ next frame, the extension host starts after it, and the language server comes la
 A 13 MB TypeScript file of 200,000 lines shows its text within 350 ms of Diode's own time, and once
 background highlighting has settled, Enter and undo in the middle of it take under 20 ms. The
 document is VS Code's PieceTree and tokenization runs by viewport, so jumping to the end of the
-file doesn't wait for anything. Files of hundreds of megabytes are still slow to open
-([status](STATUS.md)).
+file doesn't wait for anything.
+
+## Giant files
+
+Above 20 MB or 300,000 lines a file opens read-only straight from disk, the way VS Code turns its
+heavy features off for a large file: the first screen is read at once and the rest is indexed in
+the background. A 500 MB log of 5.3 million lines shows its text in about 145 ms of Diode's own
+time — the same as a 100-line file — the index is done in about a second, and the editor stays
+under 300 MB of memory. While the index runs, keys keep answering. Find walks the file in the
+background: a match in the middle of the 500 MB log shows in under two seconds, and typing in the
+find box stays under 20 ms while the walk goes on. A log that is being written follows its tail
+on screen when the cursor is on the last line. **Enable Editing** in the notification streams the
+file into memory with a progress counter, and the editor answers keys during the load.
 
 ## How it is measured
 
 The real release binary is launched in a 120×32 pseudo-terminal in a hermetic environment (its
 own home and user-data directory). Timing starts at process spawn; the moments when text and
 highlighting appear are recovered from the timestamps of the output. The matrix runs from 100 to
-200,000 lines; after the open, a character is inserted in the middle of the file, Enter, undo,
+200,000 lines, plus the 500 MB log; after the open, a character is inserted in the middle of the file, Enter, undo,
 `Ctrl+End` and a word search are timed from the keystroke to the frame where the change is
 visible; peak memory is recorded for the whole run. Each size runs several times, the first run is
 a warm-up, and the median is reported with its spread.
 
-The budgets are tests in CI: startup and the large-file numbers above fail the build when they
-regress, and the budgets only go down as optimizations land. How to run the benchmarks from a
+The budgets are tests in CI: startup, the large-file and the giant-file numbers above fail the
+build when they regress, and the budgets only go down as optimizations land. How to run the benchmarks from a
 checkout is in the repository's developer documentation.
 
 ## Other editors

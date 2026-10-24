@@ -1,4 +1,3 @@
-
 import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import * as os from "node:os";
 import { basename, join } from "node:path";
@@ -19,7 +18,6 @@ import { type Ladder, ladderFromTrace, parseTrace } from "./startupLadder.ts";
 export const COLS = 120;
 export const ROWS = 32;
 
-
 const KEYWORD_FG = packRgb(0x56, 0x9c, 0xd6);
 
 export function contentVisible(screen: AnsiScreen, marker: string): boolean {
@@ -31,7 +29,6 @@ export function highlightVisible(screen: AnsiScreen): boolean {
     if (pos === null) return false;
     return screen.cellAt(pos.x, pos.y).fg === KEYWORD_FG;
 }
-
 
 export interface Chunk {
     /** ms since spawn. */
@@ -75,7 +72,6 @@ export function firstSatisfiedAt(
     }
     return chunks[found].t;
 }
-
 
 export type WorkloadStepKey = "insert" | "enter" | "undoEnter" | "undoInsert" | "save" | "ctrlEnd" | "search";
 
@@ -146,9 +142,10 @@ export interface OpenMeasureOptions {
      * A read-only file above the large-file threshold: after the text, wait until the status bar's
      * "Indexing N%" of the document on disk has gone (black box, no inspector), so `quietMs` is the end of
      * the line index and peak RSS covers it. A file indexed within its first chunk never shows the entry:
-     * a short grace period decides that nothing is coming.
+     * a short grace period decides that nothing is coming; `"required"` — the entry must show (a file far above
+     * the first chunk: a missing entry means the index is gone or synchronous, not done).
      */
-    readonly waitForIndexing?: boolean;
+    readonly waitForIndexing?: boolean | "required";
     /** How long to wait for the trace (the extension host starts after the frame). */
     readonly traceWaitMs?: number;
     /** When set, the trace also records instantiated services (`DIODE_STARTUP_TRACE_INSTANTIATIONS=1`). */
@@ -172,7 +169,6 @@ async function waitForTrace(path: string, deadline: number): Promise<string | nu
     return null;
 }
 
-
 const KEY_CTRL_G = "\x07";
 const KEY_CTRL_F = "\x06";
 const KEY_CTRL_Z = "\x1a";
@@ -186,7 +182,7 @@ function bracketedPaste(text: string): string {
     return `\x1b[200~${text}\x1b[201~`;
 }
 
-interface StepContext {
+export interface StepContext {
     readonly session: DiodeSession;
     readonly chunks: Chunk[];
     readonly t0: number;
@@ -221,7 +217,7 @@ async function measureStep(
 }
 
 /** A document line on screen: a unique prefix, so truncation by width does not matter. */
-function linePrefix(fixture: OpenFixture, index: number): string {
+export function linePrefix(fixture: OpenFixture, index: number): string {
     return fixture.lineAt(index).slice(0, 70);
 }
 
@@ -255,7 +251,7 @@ async function gotoMiddle(ctx: StepContext, fixture: OpenFixture): Promise<strin
 }
 
 /** Insert a char at the line start, Enter, undo the Enter, undo the char: the document text is back as it was. */
-async function measureEditCycle(ctx: StepContext, middleLine: string): Promise<WorkloadStepResult[]> {
+export async function measureEditCycle(ctx: StepContext, middleLine: string): Promise<WorkloadStepResult[]> {
     const insertVisible = (s: AnsiScreen) => s.findText(INSERT_CHAR) !== null;
     // Enter after `@` at the line start: the line itself moves one row down, `@`
     // stays on its row. Compare row positions rather than "the rest of the row is
@@ -344,14 +340,20 @@ const INDEXING_STATUS_PREFIX = "Indexing ";
 const INDEXING_APPEAR_GRACE_MS = 500;
 
 /** Polls the screen until the indexing entry has come and gone (or never came); ms since `t0`, or null on timeout. */
-async function waitForIndexingToSettle(session: DiodeSession, t0: number, deadline: number): Promise<number | null> {
+async function waitForIndexingToSettle(
+    session: DiodeSession,
+    t0: number,
+    deadline: number,
+    required: boolean,
+): Promise<number | null> {
     const graceEnd = performance.now() + INDEXING_APPEAR_GRACE_MS;
     let seen = false;
     while (performance.now() < deadline) {
         if (session.isExited) return null;
         const shown = session.parseScreen().findText(INDEXING_STATUS_PREFIX) !== null;
         if (shown) seen = true;
-        else if (seen || performance.now() >= graceEnd) return performance.now() - t0;
+        else if (seen) return performance.now() - t0;
+        else if (performance.now() >= graceEnd) return required ? null : performance.now() - t0;
         await sleep(25);
     }
     return null;
@@ -442,11 +444,14 @@ export async function measureOpenOnce(options: OpenMeasureOptions): Promise<Open
                     workloadOutcome = "failed";
                     workloadError = `background work did not settle within ${String(timeoutMs)} ms`;
                 }
-            } else if (options.waitForIndexing === true) {
-                quietMs = await waitForIndexingToSettle(session, t0, t0 + timeoutMs);
+            } else if (options.waitForIndexing !== undefined && options.waitForIndexing !== false) {
+                const required = options.waitForIndexing === "required";
+                quietMs = await waitForIndexingToSettle(session, t0, t0 + timeoutMs, required);
                 if (quietMs === null) {
                     workloadOutcome = "failed";
-                    workloadError = `the line index did not finish within ${String(timeoutMs)} ms`;
+                    workloadError = required
+                        ? `the line index did not show within ${String(INDEXING_APPEAR_GRACE_MS)} ms or finish within ${String(timeoutMs)} ms`
+                        : `the line index did not finish within ${String(timeoutMs)} ms`;
                 }
             }
             if (options.workload !== false && workloadOutcome !== "failed") {

@@ -1,5 +1,5 @@
-
-import { createWriteStream } from "node:fs";
+import { createWriteStream, mkdtempSync, readdirSync, rmSync } from "node:fs";
+import * as os from "node:os";
 import { join } from "node:path";
 
 export interface SizeSpec {
@@ -106,4 +106,32 @@ export async function generateFixture(dir: string, spec: SizeSpec): Promise<Open
         for (let i = 0; i < lineCount; i++) yield logLine(i);
     });
     return { key: spec.key, kind: "log", path, lines: lineCount, marker: LOG_MARKER, lineAt: logLine };
+}
+
+function processAlive(pid: number): boolean {
+    try {
+        process.kill(pid, 0);
+        return true;
+    } catch (error: unknown) {
+        // EPERM: alive, someone else's.
+        return (error as NodeJS.ErrnoException).code === "EPERM";
+    }
+}
+
+/**
+ * A temp directory for a perf gate's fixture, named after this process. `vitest bench` never calls `afterAll` and
+ * kills its worker (no `exit` event either), so a gate removes its directory at the end of its last bench, and the
+ * directories of dead processes with the same prefix — a run that failed before the end — here, before writing a new
+ * fixture (500 MB for `log500m`). A directory of a live process is another gate running now and stays.
+ */
+export function gateFixtureDir(prefix: string): string {
+    const tmp = os.tmpdir();
+    for (const name of readdirSync(tmp)) {
+        if (!name.startsWith(`${prefix}-`)) continue;
+        const pid = Number(name.slice(prefix.length + 1).split("-")[0]);
+        if (Number.isInteger(pid) && pid > 0 && !processAlive(pid)) {
+            rmSync(join(tmp, name), { recursive: true, force: true });
+        }
+    }
+    return mkdtempSync(join(tmp, `${prefix}-${String(process.pid)}-`));
 }
