@@ -156,7 +156,8 @@ export class KeybindingDispatcher extends Disposable {
         event.stopImmediatePropagation();
     };
 
-    // Bubble phase: reached only when no chord is pending (capture stops propagation otherwise).
+    // Bubble phase: a non-modifier key gets here only outside a chord (capture stops it otherwise);
+    // a lone modifier keydown gets here in a chord too, and dispatchKeyDown ignores it.
     public readonly handleKeyDown = (event: TUIKeyboardEvent): void => {
         if (this.dispatchKeyDown(event)) {
             event.preventDefault();
@@ -181,9 +182,12 @@ export class KeybindingDispatcher extends Disposable {
 
     /** `true` means the key was consumed (the caller calls preventDefault). */
     public dispatchKeyDown(event: TUIKeyboardEvent): boolean {
+        // A lone modifier keydown (Kitty) is not a keystroke, like VS Code's `_doDispatch`: it neither
+        // resolves, breaks nor advances a chord, and does not end a hold session.
+        if (isModifierKey(event.key)) return false;
         // A keypress that does not extend the hold session ends it: legacy terminals send no modifier
         // keyup, so a Ctrl+Tab series would otherwise live until the next switch.
-        const armedBefore = isModifierKey(event.key) ? null : this.armory.pendingGeneration;
+        const armedBefore = this.armory.pendingGeneration;
         try {
             return this.dispatchResolvedKeyDown(event);
         } finally {
