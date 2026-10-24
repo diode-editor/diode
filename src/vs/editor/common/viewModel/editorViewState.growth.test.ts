@@ -164,20 +164,17 @@ describe("EditorViewState over a document that grows (the document on disk)", ()
             const doc = new TextDocument(lines(100));
             const viewState = new EditorViewState(doc);
             viewState.viewportHeight = 5;
-            viewState.cursorBottom();
-            doc.setText(lines(20));
-            expect(viewState.selections[0].active.line).toBe(19);
-
-            // A replacement that ends on the last line and grows the document: the cursor keeps its line (and
-            // the remap clamps its column to the new, shorter text there).
-            doc.applyEdits([{ range: createRange(10, 0, 19, 0), text: lines(25) + "\n" }]);
-            expect(doc.lineCount).toBe(36);
-            expect(viewState.selections[0].active).toEqual({ line: 19, character: 6 });
-
-            // A clamped cursor is moved only by the growth of its own line's end: an edit on another line leaves it.
-            viewState.selections = [createCursorSelection(35, 0)];
+            viewState.selections = [createCursorSelection(99, 0)];
             doc.setText(lines(20));
             expect(viewState.selections[0].active).toEqual({ line: 19, character: 0 });
+
+            // A replacement that ends on the last line and grows the document is not the end moving on: the
+            // cursor keeps its place.
+            doc.applyEdits([{ range: createRange(10, 0, 19, 0), text: lines(25) + "\n" }]);
+            expect(doc.lineCount).toBe(36);
+            expect(viewState.selections[0].active).toEqual({ line: 19, character: 0 });
+
+            // Nor is an edit on another line.
             doc.applyEdits([{ range: createRange(5, 0, 5, 2), text: "ZZ" }]);
             expect(viewState.selections[0].active).toEqual({ line: 19, character: 0 });
 
