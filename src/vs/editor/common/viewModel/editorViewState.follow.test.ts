@@ -113,6 +113,14 @@ describe("EditorViewState.followTail — the screen rides the tail of a document
         });
     });
 
+    it("a range anchored on the last line with its active end above is not a cursor at the end either", () => {
+        const { viewState } = opened(100);
+        viewState.selections = [
+            { anchor: { line: 100, character: 0 }, active: { line: 90, character: 0 }, idealColumn: undefined },
+        ];
+        expect(viewState.followTail).toBe(false);
+    });
+
     it("several cursors: the ones on the last line follow, the other stays", () => {
         const { viewState, append } = opened(100);
         viewState.selections = [createCursorSelection(5, 1), createCursorSelection(100, 0)];

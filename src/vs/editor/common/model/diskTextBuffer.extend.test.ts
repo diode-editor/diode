@@ -181,6 +181,44 @@ describe("DiskTextBuffer.extendTo — the file grew (follow)", () => {
         buffer.dispose();
     });
 
+    it("a page read after a write but before its event is checked whole: rewritten bytes past the old end are caught", async () => {
+        // Pages of 4: "ab\nc" (cached by the EOL check) and "d\n" — not read yet.
+        const { buffer, file } = open("ab\ncd\n", { pageSize: 4 });
+        await indexed(buffer);
+        file.append("xx\n");
+        // The frame reads "cd" before the watcher reports the growth: page 1 is cached as "d\nxx".
+        expect(buffer.getLineContent(1)).toBe("cd");
+        file.rewrite("ab\ncd\nyy\n");
+        expect(buffer.extendTo(file.length)).toBe(false);
+        buffer.dispose();
+
+        // Not rewritten: the same page is an append, and the lines read the new bytes.
+        const kept = open("ab\ncd\n", { pageSize: 4 });
+        await indexed(kept.buffer);
+        kept.file.append("xx\n");
+        expect(kept.buffer.getLineContent(1)).toBe("cd");
+        expect(kept.buffer.extendTo(kept.file.length)).toBe(true);
+        expect(lines(kept.buffer)).toEqual(["ab", "cd", "xx", ""]);
+        kept.buffer.dispose();
+    });
+
+    it("bytes past the size as told stay out of the index when a pass ends: its tail stops at the told size", async () => {
+        const text = "line 0\nline 1\n";
+        const file = new MemoryRandomAccessFile(Buffer.from(text), { gated: true });
+        const buffer = new DiskTextBuffer(file, OPTIONS);
+        buffer.startIndexing();
+        const more = Array.from({ length: 4 }, (_, i) => `more ${String(i)}`).join("\n") + "\n";
+        file.append(more + "late\n");
+        // The stat was taken before "late\n" arrived.
+        expect(buffer.extendTo(file.length - 5)).toBe(true);
+        const done = indexed(buffer);
+        file.openGate();
+        await done;
+        expect(buffer.indexing.indexedBytes).toBe(file.length - 5);
+        expect(lines(buffer)).toEqual(expected(text + more));
+        buffer.dispose();
+    });
+
     it("the lines before the old end are not read again", async () => {
         const { buffer, file } = open("ab\ncd\nef\n");
         await indexed(buffer);

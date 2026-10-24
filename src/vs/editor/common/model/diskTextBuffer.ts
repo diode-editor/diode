@@ -228,9 +228,11 @@ export class DiskTextBuffer implements IDocumentBuffer {
     }
 
     /**
-     * The bytes right before the old end still read the same (up to {@link DISK_TAIL_CHECK_BYTES}, compared with
-     * the cached page). Nothing cached there — trusted: the end was never on screen, and a rewrite that keeps
-     * the old bytes as a prefix is an append by content.
+     * The end of the cached page around the old end still reads the same (up to {@link DISK_TAIL_CHECK_BYTES}).
+     * The whole cached page counts, not only the bytes before the old end: a page read after a write but before
+     * its watcher event holds bytes past the old end, and if those were rewritten, they are stale too. Nothing
+     * cached there — trusted: the end was never on screen, and a rewrite that keeps the old bytes as a prefix is
+     * an append by content.
      */
     private tailUnchanged(oldEnd: number): boolean {
         const lastPage = Math.floor((oldEnd - 1) / this.pageSize);
@@ -239,20 +241,21 @@ export class DiskTextBuffer implements IDocumentBuffer {
         for (const pageIndex of [lastPage, lastPage - 1]) {
             const page = this.pages.get(pageIndex);
             if (page === undefined) continue;
-            const base = pageIndex * this.pageSize;
-            const to = Math.min(oldEnd - base, page.length);
-            const from = Math.max(0, to - DISK_TAIL_CHECK_BYTES);
-            const probe = Buffer.allocUnsafe(to - from);
-            const read = this.file.readSync(probe, base + from);
-            return read === probe.length && probe.equals(page.subarray(from, to));
+            const from = Math.max(0, page.length - DISK_TAIL_CHECK_BYTES);
+            const probe = Buffer.allocUnsafe(page.length - from);
+            const read = this.file.readSync(probe, pageIndex * this.pageSize + from);
+            // A short read (the file shrank meanwhile) leaves fewer bytes, and a shorter buffer is never equal.
+            return probe.subarray(0, read).equals(page.subarray(from));
         }
         return true;
     }
 
     /**
-     * A page that ended with the file is short: the new bytes are read into the room it has left — one `pread` of
-     * the few new bytes, no allocation, where dropping it would re-read and re-allocate a whole page on the next
-     * frame, for every appended line. A full page has no room and is left as it is (a few dozen pages at most).
+     * A page that ended with the file is short: the new bytes are read into the room it has left — one `pread`
+     * that returns the few new bytes, no allocation, where dropping it would re-read and re-allocate a whole page
+     * on the next frame, for every appended line. A full page has no room and is left as it is (a few dozen pages
+     * at most). Like any page read, it takes whatever the file holds, past the size as told too: the lines are
+     * bounded by the index, and {@link tailUnchanged} compares the whole page.
      */
     private growPages(): void {
         for (const [index, page] of Array.from(this.pages.entries())) {
@@ -263,8 +266,8 @@ export class DiskTextBuffer implements IDocumentBuffer {
 
     /** {@link page} allocates every page whole (never from the shared pool): the short page is a view of its head. */
     private growPage(index: number, page: Buffer): Buffer {
-        const want = Math.min(this.pageSize, this.sizeValue - index * this.pageSize) - page.length;
-        // Stryker disable next-line ConditionalExpression,EqualityOperator: a page that is full or at the new end has nothing to read; the return only saves the empty read
+        const want = this.pageSize - page.length;
+        // Stryker disable next-line ConditionalExpression,EqualityOperator: a full page has no room; the read into an empty view would return 0 and the same page, the return only saves the call
         if (want <= 0) return page;
         const room = Buffer.from(page.buffer, page.byteOffset + page.length, want);
         const read = this.file.readSync(room, index * this.pageSize + page.length);
