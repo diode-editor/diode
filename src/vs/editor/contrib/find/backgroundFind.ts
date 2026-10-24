@@ -176,6 +176,7 @@ export class BackgroundFind implements IDisposable {
         });
     }
 
+    // Stryker disable next-line BooleanLiteral: every slice passes the flag; start() reports only a finished walk, where it is not read
     private report(force = false): void {
         const total = this.total();
         if (!this.doneValue && !force) {

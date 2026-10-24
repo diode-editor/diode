@@ -147,6 +147,7 @@ export class FindService extends Disposable implements IContextKeyContributor {
             target: null,
             paneSubscription: null,
             search: null,
+            // Stryker disable next-line ObjectLiteral: recompute sets the anchor before any walk reads it
             anchor: { line: 0, character: 0 },
         };
         // Switching tabs in THIS group closes its session; other groups are unaffected (US-33).
@@ -239,6 +240,7 @@ export class FindService extends Disposable implements IContextKeyContributor {
     private step(session: IFindSession, widget: FindWidget, direction: 1 | -1): number {
         const { matches, currentIndex, target } = session;
         // `atEnd` implies a current match: the list is not empty here, so its ends are real indices.
+        // Stryker disable next-line ConditionalExpression: a capped list stepped back through the document lands on the same previous match, only slower
         const atEnd = direction === 1 ? currentIndex === matches.length - 1 : currentIndex === 0;
         // Stryker disable next-line ConditionalExpression: `target` lives and dies with `matches` (see recompute/close); the check is for the type
         if (matches.length >= MATCHES_LIMIT && atEnd && target !== null) {
@@ -338,6 +340,7 @@ export class FindService extends Disposable implements IContextKeyContributor {
             {
                 startLine: session.anchor.line,
                 growth: {
+                    // Stryker disable next-line OptionalChaining: a model on disk always has its indexing progress; the chain is for the type
                     isGrowing: () => model.diskIndexing?.done === false,
                     onDidGrow: (listener) => model.onDidChangeDiskIndexing(listener),
                 },
@@ -357,8 +360,10 @@ export class FindService extends Disposable implements IContextKeyContributor {
         editor: TextEditorPane,
         progress: IBackgroundFindProgress,
     ): void {
+        // Stryker disable next-line ConditionalExpression: matches[-1] is undefined, which indexOf finds no more than null
         const previous = session.currentIndex >= 0 ? session.matches[session.currentIndex] : null;
         session.matches = progress.matches;
+        // Stryker disable next-line ConditionalExpression: indexOf(null) is -1 too; the branch only skips the scan
         const kept = previous === null ? -1 : session.matches.indexOf(previous);
         session.currentIndex =
             kept >= 0 ? kept : this.pickCurrentIndex(session.matches, session.anchor, progress.wrapped);
