@@ -32,8 +32,9 @@ const KEY_DOWN = "\x1b[B";
 const LOCK = "";
 /** Status bar entries of the document on disk (`largeFileIndexingStatus.ts`, `largeFileFollowStatus.ts`). */
 const INDEXING = "Indexing ";
-/** Grace for the indexing entry to appear after the text (as `waitForIndexingToSettle` in `openMeasure.ts`). */
-const INDEXING_APPEAR_GRACE_MS = 500;
+/** The indexing entry follows the first frame by a frame or two; later than this, something else ran first. */
+const INDEXING_APPEAR_MS = 2000;
+const INDEXING_PERCENT = /Indexing (\d+)%/;
 const LOADING = /Loading \d+%/;
 const FOLLOW_ON = "Follow: On";
 
@@ -48,6 +49,8 @@ function bracketedPaste(text: string): string {
 /** A live editor on the indexed giant file; `dispose` kills it and removes its profile. */
 interface IndexedSession extends StepContext {
     readonly fixture: OpenFixture;
+    /** A chunk whose screen shows the index progress (set by `openIndexing`). */
+    indexingChunk: number;
     dispose(): Promise<void>;
 }
 
@@ -93,8 +96,11 @@ async function measureChange(
     return shown - written;
 }
 
-/** Opens the fixture and waits until the first screen is up and the line index is done. */
-async function openIndexed(binary: string, fixture: OpenFixture, timeoutMs: number): Promise<IndexedSession> {
+/**
+ * Opens the fixture and waits until the first screen is up and the index progress is on the status bar. The entry is
+ * required: a 500 MB file never fits the first chunk, so an index that never shows means it is gone or synchronous.
+ */
+async function openIndexing(binary: string, fixture: OpenFixture, timeoutMs: number): Promise<IndexedSession> {
     const env = await prepareAppEnv({ open: [fixture.path] });
     const chunks: Chunk[] = [];
     const t0 = performance.now();
@@ -113,6 +119,7 @@ async function openIndexed(binary: string, fixture: OpenFixture, timeoutMs: numb
         t0,
         timeoutMs,
         fixture,
+        indexingChunk: -1,
         async dispose() {
             await session.dispose();
             env.dispose();
@@ -120,18 +127,99 @@ async function openIndexed(binary: string, fixture: OpenFixture, timeoutMs: numb
     };
     try {
         await waitScreen(indexed, (s) => contentVisible(s, fixture.marker) && s.findText(LOCK) !== null, "the text");
-        // The progress entry follows the first frame; once seen, its absence is the end of the index.
-        const graceEnd = performance.now() + INDEXING_APPEAR_GRACE_MS;
-        await waitScreen(
-            indexed,
-            (s) => s.findText(INDEXING) !== null || performance.now() >= graceEnd,
-            "the index progress",
-        );
+        const shown = performance.now();
+        await waitScreen(indexed, (s) => s.findText(INDEXING) !== null, "the index progress");
+        indexed.indexingChunk = chunks.length - 1;
+        if (performance.now() - shown > INDEXING_APPEAR_MS) {
+            throw new Error(
+                `the index progress came ${String(Math.round(performance.now() - shown))} ms after the text`,
+            );
+        }
+        return indexed;
+    } catch (error: unknown) {
+        await indexed.dispose();
+        throw error;
+    }
+}
+
+/** Opens the fixture and waits until the first screen is up and the line index is done. */
+async function openIndexed(binary: string, fixture: OpenFixture, timeoutMs: number): Promise<IndexedSession> {
+    const indexed = await openIndexing(binary, fixture, timeoutMs);
+    try {
         await waitScreen(indexed, (s) => s.findText(INDEXING) === null, "the index to finish");
         return indexed;
     } catch (error: unknown) {
         await indexed.dispose();
         throw error;
+    }
+}
+
+/** The percentage of `Indexing N%` on the screen, or null when the entry is not there. */
+function indexingPercent(screen: AnsiScreen): number | null {
+    const match = INDEXING_PERCENT.exec(screen.toString());
+    return match === null ? null : Number(match[1]);
+}
+
+export interface IndexResult {
+    /**
+     * ms from the first frame with `Indexing` at `WALK_FROM_PERCENT`% or more to the first one at `WALK_TO_PERCENT`%
+     * or more (or gone): the walk itself, without the startup work that shares the main thread with its first chunks.
+     * Null when keys were pressed (they share the thread too).
+     */
+    readonly walkMs: number | null;
+    /** ArrowDown sent while `Indexing N%` is on screen: ms until the status bar shows the next line. */
+    readonly keyMs: readonly number[];
+}
+
+/** Percent window of the index walk timed by {@link measureIndex}. */
+export const WALK_FROM_PERCENT = 10;
+export const WALK_TO_PERCENT = 90;
+
+/**
+ * The line index of the document on disk (4.2) while it runs: either the walk's own time from the progress entry
+ * (`keys: false`), or ArrowDown pressed while the entry is up (`keys: true`) — the editor must answer during the
+ * index. A key counts when it was sent with the entry on screen, even if the answer comes after the index: a
+ * frozen walk shows exactly as such a key.
+ */
+export async function measureIndex(
+    binary: string,
+    fixture: OpenFixture,
+    options: { readonly timeoutMs: number; readonly keys: boolean; readonly gapMs: number },
+): Promise<IndexResult> {
+    const ctx = await openIndexing(binary, fixture, options.timeoutMs);
+    try {
+        const keyMs: number[] = [];
+        let line = 1;
+        while (options.keys && ctx.session.parseScreen().findText(INDEXING) !== null) {
+            const next = `Ln ${String(line + 1)},`;
+            keyMs.push(
+                await measureChange(
+                    ctx,
+                    () => ctx.session.write(KEY_DOWN),
+                    (s) => s.findText(next) !== null,
+                    `ArrowDown to line ${String(line + 1)}`,
+                ),
+            );
+            line++;
+            await sleep(options.gapMs);
+        }
+        await waitScreen(ctx, (s) => s.findText(INDEXING) === null, "the index to finish");
+        if (options.keys) return { walkMs: null, keyMs };
+
+        // Up to the chunk seen with the entry nothing hides it, so "the entry is up" is monotonic there; from its
+        // first frame on, "at N% or gone" is monotonic to the end.
+        const visible = (s: AnsiScreen): boolean => indexingPercent(s) !== null;
+        const appeared = firstSatisfiedAt(ctx.chunks, visible, { from: 0, to: ctx.indexingChunk });
+        const first = ctx.chunks.findIndex((c) => c.t === appeared);
+        if (first < 0) throw new Error("the index progress is not in the chunks");
+        const range = { from: first, to: ctx.chunks.length - 1 };
+        const atLeast = (percent: number) => (s: AnsiScreen) => (indexingPercent(s) ?? 100) >= percent;
+        const start = firstSatisfiedAt(ctx.chunks, atLeast(WALK_FROM_PERCENT), range);
+        const end = firstSatisfiedAt(ctx.chunks, atLeast(WALK_TO_PERCENT), range);
+        if (start === null || end === null) throw new Error("the index progress did not reach its end in the chunks");
+        return { walkMs: end - start, keyMs };
+    } finally {
+        await ctx.dispose();
     }
 }
 

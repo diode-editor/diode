@@ -1,14 +1,17 @@
-import { mkdtempSync } from "node:fs";
-import * as os from "node:os";
-import { join } from "node:path";
-
-import { afterAll, bench, describe } from "vitest";
+import { bench, describe } from "vitest";
 
 import { removeTempDir } from "../helpers/appSession.ts";
 import { getBinaryPath } from "../helpers/buildOnce.ts";
 
-import { generateFixture, MiB, SIZES } from "./openFixtures.ts";
-import { measureEnableEditing, measureFind, measureFollow } from "./hugeMeasure.ts";
+import {
+    measureEnableEditing,
+    measureFind,
+    measureFollow,
+    measureIndex,
+    WALK_FROM_PERCENT,
+    WALK_TO_PERCENT,
+} from "./hugeMeasure.ts";
+import { gateFixtureDir, generateFixture, MiB, SIZES } from "./openFixtures.ts";
 import { COLS, measureOpenOnce, ROWS, type WorkloadStepKey, type WorkloadStepResult } from "./openMeasure.ts";
 import { measureFloorPty, NODE_FLOOR_ARGS } from "./ptyFloor.ts";
 import { median } from "./stats.ts";
@@ -25,27 +28,33 @@ import { median } from "./stats.ts";
 //    budget is the small budget + 100 ms (the human's reference point): 2× the worst observed value. It catches
 //    the file read into memory again (the old path: 4016 ms locally) and a new pass over the file before the
 //    first frame; a regression of tens of ms is the `small` gate's business.
-// 2. The line index done: ms from spawn until the status bar's "Indexing N%" is gone (black box). CI: 723–1129 ms.
-//    The budget is 1.4× the worst observed value, the margin of the `small` gate (200 vs 146). It catches a
-//    slower index walk (a per-line allocation, a lost block read).
+// 2. The line index done: ms from spawn until the status bar's "Indexing N%" is gone (black box); the entry must
+//    show at all (an index that never shows is gone or synchronous, not done). CI: 723–1129 ms. The budget is 1.4×
+//    the worst observed value, the margin of the `small` gate (200 vs 146). It catches the index lost or made
+//    synchronous before the first frame; the walk is only part of this wall time (startup and the extension host
+//    share the thread with its first chunks), so a 2× slower walk moves it by 12–50 % — that is (4)'s job.
 // 3. Peak RSS of the process over the run, the index included. CI: 259–296 MB (`small`: 237–251). The budget is
 //    1.4× the worst observed value, it catches the file text in memory (783 MB with the old path) and a fat index
 //    (4 bytes a line today: 21 MB on `log500m`).
 //
-// Then three steps on the indexed file (`hugeMeasure.ts`), `STEP_RUNS` live editors each, budgets on the median of
-// all samples of all runs:
+// Then steps on live editors (`hugeMeasure.ts`), budgets on the median of all samples of all runs:
 //
-// 4. Follow (4.4): `Ctrl+End`, then a line appended to the file, timed to the frame that shows it. The watcher's
+// 4. The index walk itself: from the first frame with "Indexing 10%" to the first with 90% (or gone), in runs
+//    without input — the bytes in between are walked after the startup work is over, so the time is the walk's.
+// 5. A key during the index: ArrowDown sent while "Indexing N%" is up, to the status bar's next `Ln`, in other
+//    runs. The index must leave the editor answering (4.2); a walk that blocks the thread for the whole index
+//    (planted by the tester of #805: 445–555 ms a key vs 20–43) keeps (1)–(4) green and shows only here.
+// 6. Follow (4.4): `Ctrl+End`, then a line appended to the file, timed to the frame that shows it. The watcher's
 //    window is 50 ms, so the floor is ~55 ms (4.4: median 55.7, p90 57.9 locally); a budget below the window
 //    would take a decision for the whole watcher. It catches a re-read of the file instead of the tail.
-// 5. Find (4.3) on the read-only document: a query whose only match is in the middle of the file, from the paste
+// 7. Find (4.3) on the read-only document: a query whose only match is in the middle of the file, from the paste
 //    to the counter (half a walk from the cursor at line 1), and characters typed while the walks run — each one
 //    starts a new walk over the whole file, the next one must not wait for it. It catches a synchronous walk
 //    (the key would take the whole walk: ~25 s on `log2g` before 4.3) and a slower walk. Calibration (CI, PR #805,
 //    after #800): first match 1639/1680 ms, budget 2400 (1.4× the worst); keys median 8 ms (6–9), budget 20 like
 //    the `xlarge` Enter: 2.5× the median, so that a 1.6× slower runner keeps headroom — a slice of the walk is
 //    ~6 ms (4096 lines), a bigger or synchronous one shows.
-// 6. Enable Editing (4.5): from the toast's button to the editable tab, ArrowDown while the file streams into
+// 8. Enable Editing (4.5): from the toast's button to the editable tab, ArrowDown while the file streams into
 //    memory, and edit cycles (insert, Enter, undo, undo) right after the switch, when tokenization and folding come
 //    back on 500 MB and take the main thread in 200–300 ms slices. It catches a load that freezes again and a
 //    restored feature that walks the file on the key path.
@@ -56,7 +65,8 @@ import { median } from "./stats.ts";
 // write and the index time per run. It stays an opt-in size of `bench:open` (`--sizes=log2g`).
 //
 // Cost: the fixture write (~10 s on CI), 6 runs of ~1.5 s (text, index, shutdown), then the steps: ~10 s each
-// for follow and find and ~15 s for Enable Editing locally (two runs each). Disk: the 500 MB fixture.
+// for the index, follow and find and ~15 s for Enable Editing locally. Disk: the 500 MB fixture, removed at the end
+// of the last bench (`gateFixtureDir`).
 //
 // Vitest bench has no budgets: an exception thrown from the bench function fails the file with a nonzero code.
 
@@ -67,7 +77,11 @@ export const INDEX_BUDGET_MS = 1600;
 /** Median peak RSS of the process, the index included. */
 export const RSS_BUDGET_BYTES = 420 * MiB;
 const SAMPLES = 5;
-// TODO(calibrate on CI): follow and Enable Editing budgets are first guesses from the local numbers of 4.4–4.5.
+// TODO(calibrate on CI): the index, follow and Enable Editing budgets are first guesses from local numbers.
+/** Median ms of the index walk between `WALK_FROM_PERCENT` and `WALK_TO_PERCENT`. */
+export const WALK_BUDGET_MS = 1500;
+/** Median ms of ArrowDown while the line index runs. */
+export const INDEX_KEY_BUDGET_MS = 100;
 /** Median ms from a line appended to the file to the frame that shows it, follow on. */
 export const FOLLOW_BUDGET_MS = 150;
 /** Median ms from pasting a query with one match in the middle of the file to the counter showing it. */
@@ -82,6 +96,8 @@ export const LOAD_KEY_BUDGET_MS = 200;
 export const EDIT_KEY_BUDGET_MS = 100;
 /** Runs of each step after the to-text bench; the FS cache is warm by then. */
 const STEP_RUNS = 2;
+/** Index runs: odd ones time the walk, even ones press keys. */
+const INDEX_RUNS = 4;
 const FOLLOW_APPENDS = 10;
 /** Typed after the find query `<n> `: `request <n> handled in …`. */
 const FIND_TYPED = "handled";
@@ -90,7 +106,7 @@ const EDIT_CYCLES = 3;
 // NB: fixtures and the floor live at module top level: in `vitest bench` mode a heavy
 // beforeAll misbehaves (the bench collects no samples).
 const binary = await getBinaryPath();
-const fixtureDir = mkdtempSync(join(os.tmpdir(), "diode-perf-huge-"));
+const fixtureDir = gateFixtureDir("diode-perf-huge");
 const log500m = SIZES.find((s) => s.key === "log500m");
 if (log500m === undefined) throw new Error("size matrix has no log500m");
 const fixture = await generateFixture(fixtureDir, log500m);
@@ -136,7 +152,7 @@ describe("log500m: the giant file opens read-only on disk like a small one", () 
                 fixture,
                 timeoutMs: log500m.timeoutMs,
                 workload: false,
-                waitForIndexing: true,
+                waitForIndexing: "required",
                 traceWaitMs: 0,
             });
             if (result.outcome !== "ok" || result.contentMs === null) {
@@ -172,6 +188,27 @@ describe("log500m: the giant file opens read-only on disk like a small one", () 
             }
         },
         { iterations: SAMPLES, time: 0, warmupIterations: 1, warmupTime: 0 },
+    );
+
+    const walkSamples: number[] = [];
+    const indexKeySamples: number[] = [];
+    let indexCalls = 0;
+    bench(
+        `log500m: index walk ${String(WALK_FROM_PERCENT)}→${String(WALK_TO_PERCENT)}% ≤ ${String(WALK_BUDGET_MS)} ms, key during the index ≤ ${String(INDEX_KEY_BUDGET_MS)} ms (median)`,
+        async () => {
+            indexCalls++;
+            const keys = indexCalls % 2 === 0;
+            const result = await measureIndex(binary, fixture, { timeoutMs: log500m.timeoutMs, keys, gapMs: 50 });
+            if (result.walkMs !== null) walkSamples.push(result.walkMs);
+            indexKeySamples.push(...result.keyMs);
+            if (indexCalls === INDEX_RUNS) {
+                checkBudgets("index", [
+                    { label: "walk", values: walkSamples, budget: WALK_BUDGET_MS },
+                    { label: "ArrowDown during the index", values: indexKeySamples, budget: INDEX_KEY_BUDGET_MS },
+                ]);
+            }
+        },
+        { iterations: INDEX_RUNS, time: 0, warmupIterations: 0, warmupTime: 0 },
     );
 
     const followSamples: number[] = [];
@@ -242,6 +279,8 @@ describe("log500m: the giant file opens read-only on disk like a small one", () 
             loadKeySamples.push(...result.loadKeyMs);
             editKeySamples.push(...result.editKeys);
             if (editingCalls === STEP_RUNS) {
+                // The last run of the last bench (`gateFixtureDir`: no afterAll in bench mode).
+                removeTempDir(fixtureDir);
                 const latency = (keys: readonly WorkloadStepKey[]): number[] =>
                     editKeySamples.filter((w) => keys.includes(w.key)).map((w) => w.latencyMs ?? Number.NaN);
                 checkBudgets("Enable Editing", [
@@ -257,8 +296,4 @@ describe("log500m: the giant file opens read-only on disk like a small one", () 
         },
         { iterations: STEP_RUNS, time: 0, warmupIterations: 0, warmupTime: 0 },
     );
-
-    afterAll(() => {
-        removeTempDir(fixtureDir);
-    });
 });

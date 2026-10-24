@@ -22,7 +22,6 @@ import { COLS, measureOpenOnce, type OpenRunResult, ROWS } from "./openMeasure.t
 import { formatMs, type FullReport, renderMarkdown, type SizeReport, summarizeSize } from "./openReport.ts";
 import { BINARY_FLOOR_ARGS, measureFloorPty, NODE_FLOOR_ARGS, NODE_VERSION_ARGS } from "./ptyFloor.ts";
 
-
 interface CliOptions {
     sizes: readonly SizeSpec[];
     runsOverride: number | null;

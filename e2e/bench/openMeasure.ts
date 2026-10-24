@@ -142,9 +142,10 @@ export interface OpenMeasureOptions {
      * A read-only file above the large-file threshold: after the text, wait until the status bar's
      * "Indexing N%" of the document on disk has gone (black box, no inspector), so `quietMs` is the end of
      * the line index and peak RSS covers it. A file indexed within its first chunk never shows the entry:
-     * a short grace period decides that nothing is coming.
+     * a short grace period decides that nothing is coming; `"required"` — the entry must show (a file far above
+     * the first chunk: a missing entry means the index is gone or synchronous, not done).
      */
-    readonly waitForIndexing?: boolean;
+    readonly waitForIndexing?: boolean | "required";
     /** How long to wait for the trace (the extension host starts after the frame). */
     readonly traceWaitMs?: number;
     /** When set, the trace also records instantiated services (`DIODE_STARTUP_TRACE_INSTANTIATIONS=1`). */
@@ -339,14 +340,20 @@ const INDEXING_STATUS_PREFIX = "Indexing ";
 const INDEXING_APPEAR_GRACE_MS = 500;
 
 /** Polls the screen until the indexing entry has come and gone (or never came); ms since `t0`, or null on timeout. */
-async function waitForIndexingToSettle(session: DiodeSession, t0: number, deadline: number): Promise<number | null> {
+async function waitForIndexingToSettle(
+    session: DiodeSession,
+    t0: number,
+    deadline: number,
+    required: boolean,
+): Promise<number | null> {
     const graceEnd = performance.now() + INDEXING_APPEAR_GRACE_MS;
     let seen = false;
     while (performance.now() < deadline) {
         if (session.isExited) return null;
         const shown = session.parseScreen().findText(INDEXING_STATUS_PREFIX) !== null;
         if (shown) seen = true;
-        else if (seen || performance.now() >= graceEnd) return performance.now() - t0;
+        else if (seen) return performance.now() - t0;
+        else if (performance.now() >= graceEnd) return required ? null : performance.now() - t0;
         await sleep(25);
     }
     return null;
@@ -437,11 +444,14 @@ export async function measureOpenOnce(options: OpenMeasureOptions): Promise<Open
                     workloadOutcome = "failed";
                     workloadError = `background work did not settle within ${String(timeoutMs)} ms`;
                 }
-            } else if (options.waitForIndexing === true) {
-                quietMs = await waitForIndexingToSettle(session, t0, t0 + timeoutMs);
+            } else if (options.waitForIndexing !== undefined && options.waitForIndexing !== false) {
+                const required = options.waitForIndexing === "required";
+                quietMs = await waitForIndexingToSettle(session, t0, t0 + timeoutMs, required);
                 if (quietMs === null) {
                     workloadOutcome = "failed";
-                    workloadError = `the line index did not finish within ${String(timeoutMs)} ms`;
+                    workloadError = required
+                        ? `the line index did not show within ${String(INDEXING_APPEAR_GRACE_MS)} ms or finish within ${String(timeoutMs)} ms`
+                        : `the line index did not finish within ${String(timeoutMs)} ms`;
                 }
             }
             if (options.workload !== false && workloadOutcome !== "failed") {
