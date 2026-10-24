@@ -1504,7 +1504,7 @@ describe("ExtensionHost — activation reason in the log", () => {
         }
     });
 
-    it("extensions search IN PARALLEL, each with its own timeout; activation keeps manifest order", async () => {
+    it("extensions search IN PARALLEL and each activates on its own answer, not waiting for the others", async () => {
         const child = new FakeChild();
         const logger = makeLogger();
         const answers = new Map<string, (found: string | null) => void>();
@@ -1526,7 +1526,10 @@ describe("ExtensionHost — activation reason in the log", () => {
         const pass = host.activateByWorkspaceContains();
         // Both searches are running before either answers: one slow mount doesn't queue the others.
         await waitUntil(() => answers.size === 2);
+        // The second in manifest order answers first and is up while the first still searches.
         answers.get("**/*.py")?.("x.py");
+        await waitUntil(() => host.hasExtension("ext.b"));
+        expect(host.hasExtension("ext.a")).toBe(false);
         answers.get("**/*.tf")?.("main.tf");
         await pass;
 
@@ -1534,8 +1537,8 @@ describe("ExtensionHost — activation reason in the log", () => {
             .map(([message]) => String(message))
             .filter((message) => message.startsWith("activated extension"));
         expect(order).toEqual([
-            'activated extension "ext.a" (workspaceContains:**/*.tf)',
             'activated extension "ext.b" (workspaceContains:**/*.py)',
+            'activated extension "ext.a" (workspaceContains:**/*.tf)',
         ]);
         host.dispose();
     });

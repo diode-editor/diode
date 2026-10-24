@@ -483,18 +483,19 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
             if (hasWorkspaceContainsPatterns(patterns)) candidates.push({ reg, patterns });
         }
         const folders = this.workspaceFolderPaths();
-        // In parallel, each with its own timeout (upstream searches per extension independently); activation
-        // keeps manifest order, so the log reads the same.
-        const patterns = await Promise.all(
-            candidates.map((candidate) =>
-                this.matchWorkspaceContainsWithTimeout(candidate.reg.id, folders, candidate.patterns),
-            ),
+        // Independent, like upstream `checkActivateWorkspaceContainsExtension`: each searches with its own timeout
+        // and activates on its own match, so one search hung on a slow mount holds back nobody else. Per extension
+        // so the log shows each one's reason.
+        await Promise.all(
+            candidates.map(async (candidate) => {
+                const pattern = await this.matchWorkspaceContainsWithTimeout(
+                    candidate.reg.id,
+                    folders,
+                    candidate.patterns,
+                );
+                if (pattern !== null) await this.activateRegistrations([candidate.reg], `workspaceContains:${pattern}`);
+            }),
         );
-        // One at a time so the log shows each one's reason.
-        for (const [index, candidate] of candidates.entries()) {
-            const pattern = patterns[index];
-            if (pattern !== null) await this.activateRegistrations([candidate.reg], `workspaceContains:${pattern}`);
-        }
     }
 
     /**
