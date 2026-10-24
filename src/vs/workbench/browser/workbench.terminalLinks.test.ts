@@ -164,6 +164,69 @@ describe("Workbench — terminal file links", () => {
         expect(h.container.get(EditorServiceDIToken).getActiveEditor()).toBeNull();
     });
 
+    // Upstream (xterm Linkifier `_handleMouseUp`) activates a link on mouse-up, and only when both the
+    // press and the release are on that same link.
+    it("Ctrl+press on a link and release off it (a drag) opens nothing", async () => {
+        boot();
+        const view = await panelTerminalWith("src/a.ts:3:2 is here\r\n");
+        mouse(view, 4, 0, "move");
+        await vi.waitFor(() => {
+            expect(underlined(view, 0)).toBe("____________");
+        });
+        mouse(view, 4, 0, "press", { button: "left" });
+        // A human holds the button a moment before dragging.
+        await new Promise((resolve) => setTimeout(resolve, 100));
+        mouse(view, 9, 0, "move", { button: "left" });
+        mouse(view, 30, 0, "move", { button: "left" });
+        mouse(view, 30, 0, "release", { button: "left" });
+        await new Promise((resolve) => setTimeout(resolve, 300));
+        expect(h.container.get(EditorServiceDIToken).getActiveEditor()).toBeNull();
+    });
+
+    it("Ctrl+press alone doesn't open the file — it opens on release over the link", async () => {
+        boot();
+        const view = await panelTerminalWith("src/a.ts:3:2\r\n");
+        mouse(view, 4, 0, "move");
+        await vi.waitFor(() => {
+            expect(underlined(view, 0)).toBe("____________");
+        });
+        mouse(view, 4, 0, "press", { button: "left" });
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        expect(h.container.get(EditorServiceDIToken).getActiveEditor()).toBeNull();
+        mouse(view, 4, 0, "release", { button: "left" });
+        await vi.waitFor(() => {
+            expect(h.activeEditor().uri.fsPath).toBe(ws.path("src/a.ts"));
+        });
+    });
+
+    // Spec item 3 «уже открытый — активируется»; upstream opens with `revealIfOpened: true`.
+    it("a file already open in another editor group is revealed there, not opened again in the active group", async () => {
+        boot();
+        const groups = h.container.get(EditorServiceDIToken).editorGroups;
+        // Group 1: b.ts, a.ts. Group 2: b.ts only, active.
+        h.workbench.openFile(ws.path("pkg/inner/b.ts"));
+        h.commands.execute("workbench.action.splitEditorRight");
+        h.commands.execute("workbench.action.focusFirstEditorGroup");
+        h.workbench.openFile(ws.path("src/a.ts"));
+        h.commands.execute("workbench.action.focusSecondEditorGroup");
+        const [first, second] = groups.groups;
+        expect([first.editorCount, second.editorCount]).toEqual([2, 1]);
+        expect(groups.activeGroup === second).toBe(true);
+
+        const view = await panelTerminalWith("src/a.ts:4\r\n");
+        mouse(view, 3, 0, "move");
+        await vi.waitFor(() => {
+            expect(underlined(view, 0)).toBe("__________");
+        });
+        ctrlClick(view, 3, 0);
+        await vi.waitFor(() => {
+            expect(h.activeEditor().uri.fsPath).toBe(ws.path("src/a.ts"));
+        });
+        expect(groups.activeGroup === first).toBe(true);
+        expect(second.editorCount).toBe(1);
+        expect(h.activeEditor().primaryCursorLine).toBe(3);
+    });
+
     it("a terminal in an editor tab has links too", async () => {
         boot();
         const session = await emulator();
