@@ -104,7 +104,7 @@ describe("DiskTextBuffer", () => {
         buffer.onDidChangeIndexing(() => progress++);
         await indexed(buffer);
         // Chunk 2 ("hree\nfour") completes "three", chunk 3 ("\n") completes "four"; the end of the
-        // file makes the empty last line final.
+        // file makes the empty last line final. The index growing is not an append to the file (no `isAppend`).
         expect(events).toEqual([
             { startLine: 1, oldEndLine: 1, newEndLine: 2 },
             { startLine: 2, oldEndLine: 2, newEndLine: 3 },

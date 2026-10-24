@@ -23,6 +23,7 @@ import {
     ENABLE_EDITING_REFUSALS,
     ENABLE_LARGE_FILE_EDITING_COMMAND_ID,
     LARGE_FILE_ACTIONS,
+    TOGGLE_FOLLOW_TAIL_COMMAND_ID,
 } from "./largeFileActions.ts";
 
 /** Above 1 MiB the file stays on disk; the line axis is left alone. */
@@ -170,3 +171,72 @@ function refusingSecondOpen(): IRandomAccessFileOpener {
         },
     };
 }
+
+describe("workbench.action.editor.toggleFollowTail", () => {
+    let ws: ITempWorkspace;
+
+    beforeEach(() => {
+        ws = createTempWorkspace({ prefix: "diode-toggle-follow-tail-" });
+    });
+    afterEach(() => {
+        ws.dispose();
+    });
+
+    function setup(editor: TextEditorPane | null) {
+        const commands = new CommandRegistry();
+        const accessor = new Container();
+        accessor.bind(EditorServiceDIToken, () => createTestActiveEditorService(editor));
+        for (const action of LARGE_FILE_ACTIONS) registerAction(commands, new KeybindingRegistry(), accessor, action);
+        return commands;
+    }
+
+    function openOnDisk(): TextEditorPane {
+        const line = "2026-01-01T00:00:00.000Z INFO worker request handled path=/api/v1/items";
+        const content = Array.from({ length: 18_000 }, (_, i) => `${String(i)} ${line}`).join("\n") + "\n";
+        return createEditorPane({
+            largeFileOptions: { largeFileOptimizations: true, sizeThresholdMb: 1, lineCountThreshold: 1e6 },
+            randomAccessFiles: memoryFileOpener(),
+            file: Uri.file(ws.writeFile("big.log", content)),
+        });
+    }
+
+    it("toggles follow of the active document on disk: on moves the cursor to the end, off leaves it", () => {
+        const editor = openOnDisk();
+        const commands = setup(editor);
+        // The palette shows the title; menus and the status bar the short one.
+        expect(commands.getTitle(TOGGLE_FOLLOW_TAIL_COMMAND_ID)).toBe("File: Toggle Follow Tail of Large File");
+        expect(LARGE_FILE_ACTIONS.find((action) => action.id === TOGGLE_FOLLOW_TAIL_COMMAND_ID)?.shortTitle).toBe(
+            "Toggle Follow Tail",
+        );
+        expect(editor.viewState.followTail).toBe(false);
+
+        commands.execute(TOGGLE_FOLLOW_TAIL_COMMAND_ID);
+        expect(editor.viewState.followTail).toBe(true);
+        expect(editor.viewState.selections[0].active.line).toBe(editor.model.document.lineCount - 1);
+
+        commands.execute(TOGGLE_FOLLOW_TAIL_COMMAND_ID);
+        expect(editor.viewState.followTail).toBe(false);
+        expect(editor.viewState.selections[0].active.line).toBe(editor.model.document.lineCount - 1);
+        editor.dispose();
+    });
+
+    it("a document in memory, a detached pane, no editor: a silent no-op", () => {
+        const small = createEditorPane({ file: Uri.file(ws.writeFile("small.log", "1\n2\n3")) });
+        setup(small).execute(TOGGLE_FOLLOW_TAIL_COMMAND_ID);
+        expect(small.viewState.followTail).toBe(false);
+        expect(small.viewState.selections[0].active.line).toBe(0);
+        small.dispose();
+
+        const detached = openOnDisk();
+        detached.detached = true;
+        setup(detached).execute(TOGGLE_FOLLOW_TAIL_COMMAND_ID);
+        expect(detached.viewState.followTail).toBe(false);
+        detached.dispose();
+
+        expect(() => setup(null).execute(TOGGLE_FOLLOW_TAIL_COMMAND_ID)).not.toThrow();
+
+        // A synthetic buffer (Output, a virtual document) has no file model.
+        const synthetic = { detached: false, fileModel: null } as unknown as TextEditorPane;
+        expect(() => setup(synthetic).execute(TOGGLE_FOLLOW_TAIL_COMMAND_ID)).not.toThrow();
+    });
+});

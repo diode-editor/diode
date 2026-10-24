@@ -260,6 +260,21 @@ export abstract class BaseTextEditorModel extends Disposable {
     }
 
     /**
+     * Text the file gained at its end (follow, OpenPerformance 4.4): the document stays clean, and the undo
+     * history stays too — its steps are all before the old end.
+     */
+    protected appendFromDisk(text: string): void {
+        this.replacingText = true;
+        try {
+            this.doc.appendText(text);
+        } finally {
+            this.replacingText = false;
+        }
+        this.markSaved();
+        this.onDidChangeContentEmitter.fire();
+    }
+
+    /**
      * The step token answers "will MY step be the one undone" ({@link IUndoRedoElement.canUndo});
      * on undo/redo the entry moves to the other stack as a new object, so the token re-reads it.
      */

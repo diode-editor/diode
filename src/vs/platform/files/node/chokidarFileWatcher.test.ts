@@ -1,13 +1,13 @@
 import { EventEmitter } from "node:events";
 
 import type { ChokidarOptions, FSWatcher } from "chokidar";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import type { LogEntry } from "../../log/common/iLogService.ts";
 import { LogLevel } from "../../log/common/logLevel.ts";
 import { LogService } from "../../log/common/logService.ts";
 
-import { ChokidarFileWatcher, toChokidarPath } from "./chokidarFileWatcher.ts";
+import { ChokidarFileWatcher, toChokidarPath, WATCH_COALESCE_MS } from "./chokidarFileWatcher.ts";
 
 class FakeWatcher extends EventEmitter {
     public closed = 0;
@@ -119,7 +119,7 @@ describe("ChokidarFileWatcher", () => {
         expect(entries[0].args[0]).toMatchObject({ code: "EACCES" });
     });
 
-    it("debounces change events and stops notifying after dispose", async () => {
+    it("coalesces change events into one callback and stops notifying after dispose", async () => {
         const watcher = new TestFileWatcher();
         let calls = 0;
         const handle = watcher.watchFile("/tmp/file.txt", () => {
@@ -283,5 +283,49 @@ describe("ChokidarFileWatcher", () => {
             handle.dispose();
             expect(watcher.created[0].closed).toBe(1);
         });
+    });
+});
+
+describe("ChokidarFileWatcher — the coalescing window is a throttle, not a debounce", () => {
+    it("a file appended more often than the window is still reported once per window (follow)", () => {
+        vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+        try {
+            const watcher = new TestFileWatcher();
+            let calls = 0;
+            const handle = watcher.watchFile("/tmp/app.log", () => {
+                calls++;
+            });
+            // A writer every 20 ms: a debounce that restarts on every event would never fire.
+            for (let i = 0; i < 10; i++) {
+                watcher.created[0].emit("change");
+                vi.advanceTimersByTime(20);
+            }
+            // Windows open with the events at 0, 60 and 120 ms and close 50 ms later; the one opened at 180 is pending.
+            expect(calls).toBe(3);
+            vi.advanceTimersByTime(WATCH_COALESCE_MS);
+            expect(calls).toBe(4);
+            handle.dispose();
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
+    it("a burst within one window is one callback, delivered when the window closes", () => {
+        vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+        try {
+            const watcher = new TestFileWatcher();
+            let calls = 0;
+            watcher.watchFile("/tmp/app.log", () => {
+                calls++;
+            });
+            watcher.created[0].emit("unlink");
+            vi.advanceTimersByTime(WATCH_COALESCE_MS - 1);
+            watcher.created[0].emit("add");
+            expect(calls).toBe(0);
+            vi.advanceTimersByTime(1);
+            expect(calls).toBe(1);
+        } finally {
+            vi.useRealTimers();
+        }
     });
 });

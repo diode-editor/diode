@@ -5,7 +5,7 @@
             "file": "src/vs/workbench/browser/parts/editor/editorComponent.diskReload.test.ts",
             "test": "EditorComponent — the document on disk reloaded after an external change > the in-memory reload is the reference: the cursor lands on the new last line",
             "action": "retry",
-            "note": "timed out in 5000 ms; failed the test job on main a0ec0c24 (run 40098148744, docs only) and on #805 (run 40099005560)"
+            "note": "reads ~5 MiB into memory twice: 4.8 s of the 5 s timeout on main (run 40082417816); timed out on main a0ec0c24 (run 40098148744), on #805 (run 40099005560) and on #802 (run 40088033182); 0.9 s locally"
         },
         {
             "file": "src/vs/workbench/browser/workbench.encoding.test.ts",

@@ -169,6 +169,21 @@ export class TextDocument implements ITextDocument {
     }
 
     public applyEdits(edits: readonly ITextEdit[]): IApplyEditsResult {
+        return this.applyEditsAs(edits, false);
+    }
+
+    /**
+     * Text that came in from outside after the end of a document in memory — its file grew (follow,
+     * OpenPerformance 4.4): an edit at the end, with the version bump and the mirror's event like any edit, and
+     * `isAppend` for the view's follow, like the growth of a document on disk.
+     */
+    public appendText(text: string): void {
+        const lastLine = this.lineCount - 1;
+        const end = { line: lastLine, character: this.getLineLength(lastLine) };
+        this.applyEditsAs([{ range: { start: end, end }, text }], true);
+    }
+
+    private applyEditsAs(edits: readonly ITextEdit[], isAppend: boolean): IApplyEditsResult {
         if (edits.length === 0) {
             return { appliedVersion: this.innerVersionId, inverseEdits: [] };
         }
@@ -211,6 +226,7 @@ export class TextDocument implements ITextDocument {
                 startLine: startLine + lineShift,
                 oldEndLine: oldEndLine + lineShift,
                 newEndLine: newEndLine + lineShift,
+                ...(isAppend ? { isAppend } : {}),
             });
             lineShift += newEndLine - oldEndLine;
         }
