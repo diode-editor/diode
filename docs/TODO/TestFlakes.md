@@ -12,21 +12,25 @@
 1. **Поймал** (упал тест вне диффа, на соседних прогонах зелёный): `gh run rerun <run id> --failed`.
 2. **Записал — в два места, прямо в `main`, без PR:**
    - `test-flakes.json` — файл от корня, полное имя `describe > … > it` (как в выводе vitest),
-     `action: "retry"`, короткий `note` по-английски. С этого коммита vitest и dry run Stryker'а
+     `action: "retry"`, короткий `note` по-английски. Это и юнит-, и e2e-тесты; сценарий-демо —
+     файл сценария и его `name` (`"file": "e2e/scenarios/regionFolding.scenario.ts"`,
+     `"test": "region-folding"`), не слайс `scenarios-<N>.test.ts`. Флак только одной ОС —
+     `"platforms": ["win32"]`. С этого коммита vitest (юнит и e2e) и dry run Stryker'а
      повторяют тест сами ([TESTING.md](../TESTING.md#список-известных-флаков-test-flakesjson-testutilsflaketestrunnerts));
    - строка в разделе [«Флаки»](#флаки) ниже — симптом, номер PR и ран. Уже есть — допиши новый ран:
      частота — главный довод, что чинить первым.
 
    `skip` вместо `retry` — только тесту, который храповики не держит (сеть, порог по стенке).
-   Списком не лечатся падение в `beforeAll` и необработанная ошибка после теста, а e2e его не читает —
-   у таких в строке пометка «не в test-flakes.json».
-3. **Видно, что жив:** прошедший с повтора тест печатает аннотацию `Known flake retried` в job `test`.
+   Списком не лечатся падение в `beforeAll` и необработанная ошибка после теста — у таких в строке
+   пометка «не в test-flakes.json».
+3. **Видно, что жив:** прошедший с повтора тест печатает аннотацию `Known flake retried` в job `test`
+   или `e2e`.
 4. **Починил** — удали запись из `test-flakes.json` и строку отсюда в том же PR. Тест переименован —
    запись правится там же, иначе `testFlakes.test.ts` покраснеет.
 
 ## Флаки
 
-Известные флаки юнит-набора и e2e; PR-диффом не задеты, `gh run rerun --failed` зеленит. Юнит-тесты
+Известные флаки юнит-набора и e2e; PR-диффом не задеты, `gh run rerun --failed` зеленит. Тесты
 отсюда стоят в `test-flakes.json`, кроме помеченных.
 
 - [ ] `editorComponent.diskReload.test.ts` › «the in-memory reload is the reference: the cursor lands on the new
@@ -38,7 +42,7 @@
 - [ ] e2e `extensionUpdates.stage3.functional.test.ts` › «US-3.3: many clock moves in a row — exactly one
   check per 12 hours, no piled-up timers» (windows): `expected 1 to be 2` — после серии `Diode.advanceClock`
   вторая проверка обновлений не успела дойти до реестра. Свалил e2e windows на PR #798 (ран 40034642872,
-  дифф — темы), перезапуск зелёный. e2e, в `test-flakes.json` не стоит.
+  дифф — темы), перезапуск зелёный. В `test-flakes.json` (только `win32`).
 - [ ] `workbench.encoding.test.ts` › «Save with Encoding on an untitled buffer goes to Save As with the
   encoding set»: `ENOENT: no such file or directory, open '…/untitled-out.txt'` — файл читается раньше,
   чем Save As его дописал. Свалил dry run мутаций (`There were failed tests in the initial test run`)
@@ -97,7 +101,7 @@
   4000ms` на ожидании попапа `editor.` — упал дважды (с автоповтором) на #678 и снова дважды на #787
   (ран 39947482759; дифф — фолдинг, автодополнения настроек не касается; перезапуск job'а зелёный);
   на #795 (ран 40006403681, дифф — манифест git-base и скрипты импорта) упал на первом прогоне и прошёл на
-  автоповторе.
+  автоповторе. В `test-flakes.json`.
 - [ ] e2e-сценарий `region-folding` (ubuntu): `the provider fold did not appear in 20 attempts` — дважды
   (с автоповтором) на #795 (ран 40006403681; дифф — манифест git-base и скрипты импорта, фолдинга не
   касается); локально на том же коммите сценарий зелёный за 14 с, перезапуск job'а зелёный. Провайдер
@@ -105,7 +109,7 @@
   Снова на #802 (ран 40082114620, дифф — follow документа на диске, фолдинга не касается): дважды, с
   автоповтором.
   Снова дважды (с автоповтором) на #804 (ран 40093826414; дифф — скрипты и скиллы агентского лупа, `src/`
-  не тронут; первый коммит той же ветки e2e прошёл). В `test-flakes.json` не стоит — e2e его не читает.
+  не тронут; первый коммит той же ветки e2e прошёл). В `test-flakes.json`.
 - [x] e2e-сценарий `explorer-compact-segments` (windows): `waitUntil(screen text predicate) timed out
   after 10000ms` — дважды (с автоповтором) на #714 (ран 39587566978), дифф — только комментарии в
   editor, на первом прогоне того же PR зелёный. Причина — баг `QuickInputService.input`: Enter гейтился
@@ -114,8 +118,8 @@
   молча терялся. Теперь, как у эталона, Enter ждёт проверки именно этого текста.
 - [ ] e2e-сценарий `searchNextResult` (`scenarios-1`): `waitUntil(screen text predicate) timed out after
   10000ms` (`searchNextResult.scenario.ts:32`) — windows на ране 39858081412 (ветка ExtensionUpdates
-  этапа 0), ubuntu на #784 (ран 39874481793); оба диффа — установка расширений, поиск не трогают. Не в
-  test-flakes.json: e2e его не читает.
+  этапа 0), ubuntu на #784 (ран 39874481793); оба диффа — установка расширений, поиск не трогают. В
+  `test-flakes.json`.
 
 - [ ] `externalOpenerService.test.ts` › «spawnDetached › a real process starts and gets its arguments»:
   `expected '' to be 'ok'` — `waitForFile` ждёт появления файла-маркера, а дочерний node ещё не дописал
