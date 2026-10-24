@@ -1,4 +1,3 @@
-
 export function quantile(values: readonly number[], q: number): number {
     const sorted = [...values].sort((a, b) => a - b);
     const idx = (sorted.length - 1) * q;

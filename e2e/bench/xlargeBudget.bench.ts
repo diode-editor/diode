@@ -1,13 +1,9 @@
-import { mkdtempSync } from "node:fs";
-import * as os from "node:os";
-import { join } from "node:path";
-
-import { afterAll, bench, describe } from "vitest";
+import { bench, describe } from "vitest";
 
 import { removeTempDir } from "../helpers/appSession.ts";
 import { getBinaryPath } from "../helpers/buildOnce.ts";
 
-import { generateFixture, SIZES } from "./openFixtures.ts";
+import { gateFixtureDir, generateFixture, SIZES } from "./openFixtures.ts";
 import { COLS, measureOpenOnce, ROWS, type WorkloadStepKey, type WorkloadStepResult } from "./openMeasure.ts";
 import { measureFloorPty, NODE_FLOOR_ARGS } from "./ptyFloor.ts";
 import { median } from "./stats.ts";
@@ -61,7 +57,7 @@ const EDIT_CYCLES = 5;
 // NB: fixtures and the floor live at module top level: in `vitest bench` mode a heavy
 // beforeAll misbehaves (the bench collects no samples).
 const binary = await getBinaryPath();
-const fixtureDir = mkdtempSync(join(os.tmpdir(), "diode-perf-xlarge-"));
+const fixtureDir = gateFixtureDir("diode-perf-xlarge");
 const xlarge = SIZES.find((s) => s.key === "xlarge");
 if (xlarge === undefined) throw new Error("size matrix has no xlarge");
 const fixture = await generateFixture(fixtureDir, xlarge);
@@ -129,6 +125,8 @@ describe("xlarge: our cost over the node floor and the keystroke after the backg
             quietSamples.push(result.quietMs);
             keySamples.push(...result.workload);
             if (keyCalls === KEY_RUNS) {
+                // The last run of the last bench (`gateFixtureDir`: no afterAll in bench mode).
+                removeTempDir(fixtureDir);
                 const lines: string[] = [`quiet at [${quietSamples.map(fmt).join(", ")}] ms since spawn`];
                 const over: string[] = [];
                 for (const key of ["insert", "enter", "undoEnter", "undoInsert"] as const) {
@@ -147,8 +145,4 @@ describe("xlarge: our cost over the node floor and the keystroke after the backg
         },
         { iterations: KEY_RUNS, time: 0, warmupIterations: 0, warmupTime: 0 },
     );
-
-    afterAll(() => {
-        removeTempDir(fixtureDir);
-    });
 });
