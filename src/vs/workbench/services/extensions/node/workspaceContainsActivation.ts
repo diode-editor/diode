@@ -83,15 +83,15 @@ export function createRipgrepWorkspaceScanner(
         findFile: async (folder, globs, token) => {
             if (token.isCancellationRequested) return null;
             const args = buildRgFilesArgs(searchExcludeGlobs(config), readUseIgnoreFiles(config), globs);
-            // The folder is `cwd`, not a shell word: spaces and unicode in the path need no quoting.
+            // The folder is `cwd`, not a shell word: spaces and unicode in the path need no quoting. stderr is
+            // dropped, not piped: nobody reads it, and a full pipe would stall rg before it prints the answer.
             const child = spawn(ripgrepPath(), args, { cwd: folder, stdio: ["ignore", "pipe", "ignore"] });
-            // Stryker disable next-line StringLiteral,ObjectLiteral: no logger here — the label never reaches a log; `waitForStdio` only orders `close` after the last line, which `finish` already ignores
+            // Stryker disable next-line StringLiteral,ObjectLiteral,BooleanLiteral: no logger here — the label never reaches a log; `waitForStdio` ends on `close` so a line still in the pipe after `exit` isn't lost — a race no test can force
             const guard = new GuardedChildProcess(child, { label: "rg", waitForStdio: true });
             return new Promise<string | null>((resolve, reject) => {
-                let done = false;
+                // Runs again on the `close` after a kill or a cancel: every step is idempotent, the promise settles once.
                 const finish = (found: string | null, error?: unknown): void => {
-                    if (done) return;
-                    done = true;
+                    // Stryker disable next-line CallExpression: hygiene — a listener left on the token only calls this idempotent `finish` again; the host disposes the source right after anyway
                     cancellation.dispose();
                     // SIGKILL: the first line is the answer, the rest of the walk is waste.
                     guard.dispose();
@@ -103,7 +103,6 @@ export function createRipgrepWorkspaceScanner(
                     finish(null);
                 });
                 splitLines(child.stdout, (line) => {
-                    // Stryker disable next-line ConditionalExpression: rg never prints an empty path; the guard is for a stray blank line only
                     if (line !== "") finish(line);
                 });
                 // Exit codes 1 (nothing) and 2 (some directories unreadable) aren't failures, as in

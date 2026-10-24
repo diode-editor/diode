@@ -94,7 +94,8 @@ describe.skipIf(process.platform === "win32")("SEA binary — exit while a works
             installVsix: [vsix],
             env: { DIODE_RIPGREP_PATH: fakeRg },
         });
-        await session.waitForNode("EditorElement");
+        // No editor to wait for (only the folder is open): the rg start itself says the window is up — the
+        // `workspaceContains` pass is the last startup step.
         const editorPid = session.pid;
         expect(editorPid).toBeDefined();
         await waitUntil(

@@ -1450,6 +1450,20 @@ describe("ExtensionHost — activation reason in the log", () => {
         host.dispose();
     });
 
+    it("a timeout without a logger is still just a miss, not a crash", async () => {
+        const child = new FakeChild();
+        const host = spawnReadyHost(child, new FakeEditorOptions(), {
+            configuration: makeConfigProvider().provider,
+            workspaceContainsTimeoutMs: 1,
+            workspaceScanner: { exists: () => Promise.resolve(false), findFile: () => new Promise(() => undefined) },
+        });
+        host.registerExtension({ ...makeReg("ext.a", "/a.js"), activationEvents: ["workspaceContains:**/*.tf"] });
+
+        await expect(host.activateByWorkspaceContains()).resolves.toBeUndefined();
+        expect(host.hasExtension("ext.a")).toBe(false);
+        host.dispose();
+    });
+
     it("a `stat` hung on a dead mount is cut off too: the timeout races, it does not wait for the scanner", async () => {
         const child = new FakeChild();
         const logger = makeLogger();

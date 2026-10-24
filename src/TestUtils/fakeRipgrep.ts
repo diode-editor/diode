@@ -22,6 +22,8 @@ export interface IFakeRipgrepOptions {
     readonly stdoutLines?: readonly string[];
     readonly hang?: boolean;
     readonly code?: number;
+    /** Written to stderr BEFORE stdout: more than a pipe holds blocks a reader that never drains it. */
+    readonly stderrBytes?: number;
 }
 
 export function writeFakeRipgrep(options: IFakeRipgrepOptions = {}): IFakeRipgrep {
@@ -36,6 +38,7 @@ export function writeFakeRipgrep(options: IFakeRipgrepOptions = {}): IFakeRipgre
             `echo $$ >> '${file("pids")}'`,
             `pwd > '${file("cwd")}'`,
             `printf '%s\\n' "$@" > '${file("args")}'`,
+            ...(options.stderrBytes !== undefined ? [`head -c ${String(options.stderrBytes)} /dev/zero >&2`] : []),
             `cat '${file("stdout")}'`,
             // `exec`: the pid on record IS the sleeping process, so "killed" means the search is gone.
             ...(options.hang === true ? ["exec sleep 60"] : []),

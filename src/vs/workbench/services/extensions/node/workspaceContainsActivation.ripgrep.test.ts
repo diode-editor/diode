@@ -254,6 +254,16 @@ describe.skipIf(process.platform === "win32")("createRipgrepWorkspaceScanner —
         await expect(scanner.findFile(root, ["**/*.tf"], CancellationTokenNone)).resolves.toBeNull();
     });
 
+    it("a blank line is not an answer: the next path is", async () => {
+        const scanner = scannerOver({ stdoutLines: ["", "main.tf"] });
+        await expect(scanner.findFile(root, ["**/*.tf"], CancellationTokenNone)).resolves.toBe("main.tf");
+    });
+
+    it("a lot of stderr does not stall rg: stderr is not a pipe nobody drains", async () => {
+        const scanner = scannerOver({ stdoutLines: ["main.tf"], stderrBytes: 1024 * 1024 });
+        await expect(scanner.findFile(root, ["**/*.tf"], CancellationTokenNone)).resolves.toBe("main.tf");
+    }, 5000);
+
     it("exit code 1 (nothing) is a miss", async () => {
         const scanner = scannerOver({ code: 1 });
         await expect(scanner.findFile(root, ["**/*.tf"], CancellationTokenNone)).resolves.toBeNull();

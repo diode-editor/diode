@@ -532,6 +532,7 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
         // Clean up before logging: a throwing foreign logger must not leave a live timer.
         const result = await Promise.race([scan, timedOut, cancelled]);
         clearTimeout(timer);
+        // Stryker disable next-line CallExpression: hygiene — cancelling an already settled source later changes nothing observable; it only keeps the set from growing
         this.workspaceContainsSearches.delete(source);
         // Stryker disable next-line CallExpression: removes listeners of a settled source; the caller's answer is already settled — no observable difference
         source.dispose();
