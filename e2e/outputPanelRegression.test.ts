@@ -60,12 +60,11 @@ describe("Output panel fix — regressions in neighboring mechanisms", () => {
     }, 180_000);
 
     /**
-     * `it.fails` documents a known defect (not from #197; repro in docs/TODO/E2E.md):
-     * once fixed, it turns red and asks for the marker to be removed. The workspace is a hermetic
-     * folder, not repoRoot: the defect is a focus race, and on a large repository background noise
-     * (LSP, git, builds into `dist/`) caused a flake both ways.
+     * Was a known defect (`it.fails`): closing find on a tab switch sent focus back into the hidden tab.
+     * Fixed in TUIDom (restoreFocus keeps focus that left the overlay, #818). The workspace is a hermetic
+     * folder, not repoRoot: on a large repository background noise (LSP, git, builds into `dist/`) caused flakes.
      */
-    it.fails("find left open survives a tab switch", async () => {
+    it("find left open survives a tab switch", async () => {
         const workspace = mkdtempSync(join(tmpdir(), "diode-find-focus-"));
         const first = join(workspace, "alpha.ts");
         writeFileSync(first, "export const greeting = 'hello';\n");
