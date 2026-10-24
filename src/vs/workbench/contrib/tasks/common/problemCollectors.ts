@@ -135,6 +135,7 @@ export class StartStopProblemCollector {
             this.buffer = [];
             this.activeMatcher = null;
         }
+        // Stryker disable next-line MethodExpression: equivalent: a longer buffer offers the matchers the same tails; the slice bounds memory
         this.buffer = [...this.buffer, line].slice(-this.bufferLength);
         const result = this.tryMatchers();
         if (result !== null) this.buffer = [];

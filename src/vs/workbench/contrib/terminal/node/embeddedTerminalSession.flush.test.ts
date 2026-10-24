@@ -7,13 +7,16 @@ import { DATA_FLUSH_TIMEOUT_MS, EmbeddedTerminalSession } from "./embeddedTermin
 // Upstream `_queueProcessExit`: node-pty can report the exit before the last output is read, so the session's exit
 // waits until the output has been quiet for DATA_FLUSH_TIMEOUT_MS. A fake pty controls the order of the events.
 
-const fake = vi.hoisted(() => ({ ptys: [] as { data: (d: string) => void; exit: (code: number) => void }[] }));
+const fake = vi.hoisted(() => ({
+    ptys: [] as { data: (d: string) => void; exit: (code: number) => void; calls: string[] }[],
+}));
 
 vi.mock("./loadNodePty.ts", () => ({
     loadNodePty: () => ({
         spawn: () => {
             const data = new Emitter<string>();
             const exit = new Emitter<{ exitCode: number }>();
+            const calls: string[] = [];
             fake.ptys.push({
                 data: (d) => {
                     data.fire(d);
@@ -21,13 +24,14 @@ vi.mock("./loadNodePty.ts", () => ({
                 exit: (exitCode) => {
                     exit.fire({ exitCode });
                 },
+                calls,
             });
             return {
                 pid: 1,
                 onData: data.event,
                 onExit: exit.event,
-                write: () => undefined,
-                resize: () => undefined,
+                write: (d: string) => calls.push(`write ${d}`),
+                resize: (cols: number, rows: number) => calls.push(`resize ${String(cols)}x${String(rows)}`),
                 kill: () => undefined,
             };
         },
@@ -60,6 +64,19 @@ describe("EmbeddedTerminalSession — output after the process exit", () => {
         await vi.runAllTimersAsync();
         expect(exits).toStrictEqual([3]);
         expect(lines).toStrictEqual(["first", "late"]);
+        session.dispose();
+    });
+
+    it("during the wait input and resize don't reach the exited pty (its fd is closed: a resize threw EBADF)", async () => {
+        const session = new EmbeddedTerminalSession({ cols: 40, rows: 4 });
+        await session.xtermReady;
+        const [pty] = fake.ptys;
+        session.resize(50, 5);
+        session.write("a");
+        pty.exit(0);
+        session.resize(60, 6);
+        session.write("b");
+        expect(pty.calls).toStrictEqual(["resize 50x5", "write a"]);
         session.dispose();
     });
 

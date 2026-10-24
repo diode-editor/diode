@@ -236,6 +236,16 @@ describe("StartStopProblemCollector", () => {
         expect(h.markers.read().map((m) => m.message)).toStrictEqual(["single", "after noise"]);
     });
 
+    it("when a loop ends, the buffer starts over: the line that ended it is no other matcher's first line", async () => {
+        const h = build([getBuiltinProblemMatcher("$eslint-stylish")!, getBuiltinProblemMatcher("$jshint-stylish")!]);
+        const collector = h.make();
+        for (const line of ["/ws/a.ts", "  1:1  error  in a loop  r1", "  line 2  col 1  Not a loop line. (E1)"]) {
+            collector.processLine(line);
+        }
+        await collector.done();
+        expect(h.markers.read().map((m) => m.message)).toStrictEqual(["in a loop"]);
+    });
+
     it("a multi-line matcher alone; each looping problem line counts as a match", async () => {
         const errors: unknown[] = [];
         setUnexpectedErrorHandler((e) => errors.push(e));

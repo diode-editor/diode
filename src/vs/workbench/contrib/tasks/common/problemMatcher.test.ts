@@ -732,6 +732,18 @@ describe("getResource — file names to resources", () => {
         expect((await getResource("dir\\sub\\x.ts", matcher({}), NO_FILES)).path).toBe("/dir/sub/x.ts");
     });
 
+    it("search: only a file is a hit, not another kind of entry with that name", async () => {
+        const files: IProblemMatcherFiles = {
+            exists: () => Promise.resolve(false),
+            resolve: () =>
+                Promise.resolve({
+                    children: [{ name: "a.ts", type: FileType.Unknown, resource: Uri.file("/ws/a.ts") }],
+                } as unknown as IFileStatWithChildren),
+        };
+        const search = matcher({ fileLocation: "search", filePrefix: { include: "/ws" } });
+        expect((await getResource("/abs/a.ts", search, files)).fsPath).toBe("/abs/a.ts");
+    });
+
     it("search: a directory whose name ends with the file name is not the file", async () => {
         const files = filesOf("/ws/a.ts/inner.txt", "/ws/sub/a.ts");
         const search = matcher({ fileLocation: "search", filePrefix: { include: "/ws" } });

@@ -227,13 +227,6 @@ const BUILTIN_PATTERNS: ReadonlyMap<string, IProblemPattern | readonly IProblemP
     Object.entries(PATTERNS),
 );
 
-function builtinPattern(name: string): IProblemPattern | readonly IProblemPattern[] {
-    const pattern = BUILTIN_PATTERNS.get(name);
-    // Stryker disable next-line ConditionalExpression,BlockStatement,StringLiteral: a guard for the static table below
-    if (pattern === undefined) throw new Error(`No built-in problem pattern ${name}`);
-    return pattern;
-}
-
 const BUILTIN_MATCHERS: ReadonlyMap<string, IProblemMatcher> = new Map<string, IProblemMatcher>([
     [
         "msCompile",
@@ -429,31 +422,37 @@ abstract class AbstractLineMatcher {
 
     /** Upstream's `fillProblemData`: a property keeps its first capture, the message collects all. */
     protected fillProblemData(data: IProblemData, pattern: IProblemPattern, matches: RegExpExecArray): void {
-        this.capture(data, "file", pattern, matches, "trim");
-        this.capture(data, "message", pattern, matches, "append");
-        this.capture(data, "code", pattern, matches, "trim");
-        this.capture(data, "severity", pattern, matches, "trim");
-        // Stryker disable next-line StringLiteral: equivalent: `parseInt` skips the whitespace trimming removes
-        this.capture(data, "location", pattern, matches, "trim");
-        this.capture(data, "line", pattern, matches, "raw");
-        this.capture(data, "character", pattern, matches, "raw");
-        this.capture(data, "endLine", pattern, matches, "raw");
-        this.capture(data, "endCharacter", pattern, matches, "raw");
+        this.fill(data, "file", pattern, matches, true);
+        this.appendMessage(data, pattern, matches);
+        this.fill(data, "code", pattern, matches, true);
+        this.fill(data, "severity", pattern, matches, true);
+        // Stryker disable BooleanLiteral: equivalent: `parseInt` skips the whitespace trimming removes
+        this.fill(data, "location", pattern, matches, true);
+        this.fill(data, "line", pattern, matches, false);
+        this.fill(data, "character", pattern, matches, false);
+        this.fill(data, "endLine", pattern, matches, false);
+        this.fill(data, "endCharacter", pattern, matches, false);
+        // Stryker restore BooleanLiteral
     }
 
-    /** A group the pattern doesn't have, or one that didn't participate, captures nothing. */
-    private capture(
+    /** A property keeps its first capture. */
+    private fill(
         data: IProblemData,
         property: ProblemDataProperty,
         pattern: IProblemPattern,
         matches: RegExpExecArray,
-        mode: "raw" | "trim" | "append",
+        trim: boolean,
     ): void {
-        const value = matches[pattern[property] ?? -1] as string | undefined;
+        const value = captureOf(matches, pattern[property]);
+        if (value === undefined || data[property] !== undefined) return;
+        data[property] = trim ? value.trim() : value;
+    }
+
+    /** The message collects the captures of all lines, one per line. */
+    private appendMessage(data: IProblemData, pattern: IProblemPattern, matches: RegExpExecArray): void {
+        const value = captureOf(matches, pattern.message)?.trim();
         if (value === undefined) return;
-        const current = data[property];
-        if (current === undefined) data[property] = mode === "raw" ? value : value.trim();
-        else if (mode === "append") data[property] = `${current}${endOfLine()}${value.trim()}`;
+        data.message = data.message === undefined ? value : `${data.message}${endOfLine()}${value}`;
     }
 
     protected getMarkerMatch(data: IProblemData): IProblemMatch | undefined {
@@ -495,6 +494,11 @@ abstract class AbstractLineMatcher {
 function endOfLine(): string {
     // Stryker disable next-line all: the Windows line break is not reachable on the platforms the gate runs on
     return process.platform === "win32" ? "\r\n" : "\n";
+}
+
+/** A group the pattern doesn't have, or one that didn't participate, captures nothing. */
+function captureOf(matches: RegExpExecArray, group: number | undefined): string | undefined {
+    return matches[group ?? -1] as string | undefined;
 }
 
 /** Upstream tests captures for truthiness: an empty capture is no capture. */

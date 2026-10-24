@@ -64,6 +64,8 @@ export class EmbeddedTerminalSession extends XtermSurface {
     private pty: IPty;
     /** Upstream `_closeTimeout`: the process exited, its output may still be arriving. */
     private closeTimeout: ReturnType<typeof setTimeout> | undefined;
+    /** The pty reported the exit: its fd is closed (a resize would throw EBADF), though the session waits for output. */
+    private ptyExited = false;
 
     /** @param environment extension environment collections; not applied with `strictEnv`. */
     public constructor(
@@ -85,11 +87,11 @@ export class EmbeddedTerminalSession extends XtermSurface {
     }
 
     protected sendInput(data: string): void {
-        this.pty.write(data);
+        if (!this.ptyExited) this.pty.write(data);
     }
 
     protected onDidResize(cols: number, rows: number): void {
-        this.pty.resize(cols, rows);
+        if (!this.ptyExited) this.pty.resize(cols, rows);
     }
 
     protected disposeProcess(): void {
@@ -144,7 +146,9 @@ export class EmbeddedTerminalSession extends XtermSurface {
             this.feedOutput(data);
             if (this.closeTimeout !== undefined) this.queueProcessExit(exitCode);
         });
+        this.ptyExited = false;
         pty.onExit((event) => {
+            this.ptyExited = true;
             exitCode = event.exitCode;
             this.queueProcessExit(exitCode);
         });
