@@ -142,11 +142,11 @@ describe("LargeFileFollowStatus", () => {
         second.dispose();
     });
 
-    it("Enable Editing takes the document off the disk: the entry goes", () => {
+    it("Enable Editing takes the document off the disk: the entry goes", async () => {
         const editor = openOnDisk();
         const { entry, status } = setup(editor);
         expect(entry()).not.toBeNull();
-        expect(editor.model.forcefullyEnableFeatures()).toBe(true);
+        expect(await editor.model.enableEditing()).toBeNull();
         expect(editor.fileModel?.isOnDisk).toBe(false);
         expect(entry()).toBeNull();
         status.dispose();

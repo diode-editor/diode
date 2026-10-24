@@ -329,7 +329,7 @@ describe("TextFileModel — a large file streams into memory", () => {
         expect(opener.opened[1].disposed).toBe(true);
     });
 
-    it("a file changed while it streamed in: the clean buffer reloads it after the switch", async () => {
+    it("a file appended to while it streamed in: the stat check after the switch takes the tail (follow, 4.4)", async () => {
         const watcher = new FakeFileWatcher();
         const opener = gatedAfterFirst();
         const model = new TextFileModel(LOG_LANGUAGE_SERVICE, new UndoRedoService(), diskFileService());
@@ -347,11 +347,9 @@ describe("TextFileModel — a large file streams into memory", () => {
         fs.appendFileSync(path, "appended line\n");
         opener.opened[1].release();
         expect(await enabled).toBeNull();
-        // The reload streams too: the file is still above the threshold.
-        expect(model.memoryLoading).not.toBeNull();
-        await waitForPendingRead(opener.opened[2]);
-        opener.opened[2].release();
-        await streamed(model);
+        // No second stream: the stream read up to the size at open, and the stat check appends the rest.
+        expect(model.memoryLoading).toBeNull();
+        expect(opener.opened).toHaveLength(2);
         expect(model.document.getLineContent(24_000)).toBe("appended line");
         expect(model.isModified).toBe(false);
     });

@@ -24,6 +24,19 @@ function bigLog(lines = 18_000, from = 0): string {
     return Array.from({ length: lines }, (_, i) => `${String(from + i)} ${LINE}`).join("\n") + "\n";
 }
 
+/** A streamed reload (4.5) is over. */
+async function streamed(model: TextFileModel): Promise<void> {
+    if (model.memoryLoading !== null) {
+        await new Promise<void>((resolve) => {
+            const subscription = model.onDidChangeMemoryLoading(() => {
+                if (model.memoryLoading !== null) return;
+                subscription.dispose();
+                resolve();
+            });
+        });
+    }
+}
+
 function indexed(model: TextFileModel): Promise<void> {
     if (model.diskIndexing?.done !== false) return Promise.resolve();
     return new Promise((resolve) => {
@@ -248,6 +261,8 @@ describe("TextFileModel — follow: the file under the document on disk grows", 
         it("a tail longer than a chunk, or a file not in UTF-8, reloads", async () => {
             const { model, path, changes } = await open("small.log", "a\n");
             grow(path, "b".repeat(READ_CHUNK_SIZE) + "\n");
+            // Above the threshold now: the reload streams in (4.5), and the stream sets the end for the next append.
+            await streamed(model);
             expect(changes.at(-1)).toMatchObject({ isFlush: true });
             grow(path, "c\n");
             expect(changes.at(-1)).toMatchObject({ isAppend: true });
