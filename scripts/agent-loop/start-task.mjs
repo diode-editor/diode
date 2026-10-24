@@ -13,6 +13,7 @@ import { rmSync } from "node:fs";
 import path from "node:path";
 
 import {
+    HTTPS_ORIGIN,
     LABELS,
     REPO_ROOT,
     ROLES,
@@ -50,7 +51,7 @@ if (labels.includes(LABELS.inProgress) || labels.includes(LABELS.returned))
     fail(`issue #${issue} is in progress or returned`, 3);
 if (tmuxHasSession(session)) fail(`tmux session ${session} already exists`, 3);
 
-const remote = git(["ls-remote", "--heads", "origin", branch], { timeout: 60_000 }).stdout.trim();
+const remote = git(["ls-remote", "--heads", HTTPS_ORIGIN, branch], { timeout: 60_000 }).stdout.trim();
 if (remote !== "") {
     gh([
         "issue",
