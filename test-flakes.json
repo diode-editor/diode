@@ -66,6 +66,12 @@
             "test": "spawnDetached > a real process starts and gets its arguments",
             "action": "retry",
             "note": "marker file read as '' right after it appears: waitForFile sees the file before the child finished writing it (run 39927690627)"
+        },
+        {
+            "file": "src/vs/platform/userDataProfile/node/userDataProfilesService.test.ts",
+            "test": "UserDataProfilesService > removeProfile > once the last profile is removed, the registry and binding keys leave the file",
+            "action": "retry",
+            "note": "ENOENT on storage.json after flushSync: the debounced writeAsync clears `dirty` before its awaits, so a flushSync landing in that window writes nothing and the file is read before the async write lands; job test on #799 (run 40078667744)"
         }
     ]
 }

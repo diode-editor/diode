@@ -33,6 +33,12 @@
   encoding set»: `ENOENT: no such file or directory, open '…/untitled-out.txt'` — файл читается раньше,
   чем Save As его дописал. Свалил dry run мутаций (`There were failed tests in the initial test run`)
   на ветке PR 1 этапа 2 OpenPerformance (ран 39853223940, дифф — рендер редактора).
+- [ ] `userDataProfilesService.test.ts` › «once the last profile is removed, the registry and binding keys
+  leave the file»: `ENOENT … globalStorage/storage.json` после `state.flushSync()`. Похоже на гонку в
+  `StateService`, а не в тесте: `writeAsync` (по debounce-таймеру) снимает `dirty` **до** своих `await`, и
+  `flushSync`, попавший в это окно, не пишет ничего («не грязно»), а файл читается раньше, чем асинхронная
+  запись доехала. Job `test` на #799 (ран 40078667744, дифф — документ на диске, platform/state не тронут).
+  Починка — держать `dirty` до фактической записи или дожидаться незавершённой записи в `flushSync`.
 - [ ] e2e `inline-completion` (не флак — детерминированно от **имени ветки**): на 100 колонках имя
   ветки в статус-баре плюс «Initializing JS/TS language features…» выталкивают «Ln…, Col 43» за край,
   и последний шаг ждёт его 4 с впустую. На `main` имя короткое; ветка
