@@ -4,6 +4,7 @@ import { Uri } from "../vs/base/common/uri.ts";
 import { ContextKeyService } from "../vs/platform/contextkey/common/contextKeyService.ts";
 import type { IFileContent, IFileService } from "../vs/platform/files/common/files.ts";
 import type { ILogService } from "../vs/platform/log/common/iLogService.ts";
+import { MarkerService } from "../vs/platform/markers/common/markerService.ts";
 import type {
     IWorkspaceContextService,
     IWorkspaceFolder,
@@ -84,13 +85,15 @@ export function buildTaskServiceHarness(options: ITaskServiceHarnessOptions = {}
         return Promise.resolve();
     });
     let openModel: { isModified: boolean; revertToDisk: ReturnType<typeof vi.fn> } | null = null;
+    const openDocuments = new Set<string>();
     const editors = {
         getActiveTabEditor: () => activeEditor,
         getActiveEditor: () => opened,
         collectDirty: () => dirty,
         saveAll,
         openUri,
-        textFileModels: { get: () => openModel },
+        // A document opened by a test, otherwise the tasks.json model (if any).
+        textFileModels: { get: (uri: Uri) => (openDocuments.has(uri.toString()) ? {} : openModel) },
     } as unknown as IEditorService;
     const confirm = vi.fn(() => Promise.resolve(true));
     const dialogs = { confirm } as unknown as DialogService;
@@ -108,6 +111,7 @@ export function buildTaskServiceHarness(options: ITaskServiceHarnessOptions = {}
     const logService = { createLogger: () => logger } as unknown as ILogService;
     const output = { showChannel: vi.fn<(id: string) => void>() };
     const editorTerminals = new FakeEditorTerminals(terminals);
+    const markers = new MarkerService();
     const service = new TaskService(
         terminals,
         views.service,
@@ -123,9 +127,11 @@ export function buildTaskServiceHarness(options: ITaskServiceHarnessOptions = {}
         logService,
         output as unknown as OutputService,
         editorTerminals,
+        markers,
     );
     return {
         output,
+        markers,
         views,
         terminals,
         sessions,
@@ -146,6 +152,9 @@ export function buildTaskServiceHarness(options: ITaskServiceHarnessOptions = {}
             return openModel;
         },
         saveAll,
+        openDocument: (path: string): void => {
+            openDocuments.add(Uri.file(path).toString());
+        },
         confirm,
         notifications,
         picks,

@@ -8,6 +8,7 @@ import {
     type IPresentationOptions,
     type IRunOptions,
     type ITask,
+    type TaskProblemMatcher,
 } from "../vs/workbench/contrib/tasks/common/tasks.ts";
 import type { ITaskVariableContext } from "../vs/workbench/contrib/tasks/common/taskVariables.ts";
 
@@ -24,6 +25,7 @@ export interface ITaskFixtureOptions {
     readonly detail?: string;
     readonly hide?: boolean;
     readonly definition?: Readonly<Record<string, unknown>>;
+    readonly problemMatchers?: readonly TaskProblemMatcher[];
 }
 
 export function makeTask(options: ITaskFixtureOptions = {}): ITask {
@@ -66,8 +68,8 @@ export function makeTask(options: ITaskFixtureOptions = {}): ITask {
         isBackground: options.isBackground ?? false,
         ...(options.detail !== undefined ? { detail: options.detail } : {}),
         ...(options.hide !== undefined ? { hide: options.hide } : {}),
-        problemMatchers: [],
-        hasDefinedMatchers: false,
+        problemMatchers: options.problemMatchers ?? [],
+        hasDefinedMatchers: options.problemMatchers !== undefined,
         runOptions: { ...DEFAULT_RUN_OPTIONS, ...options.runOptions },
     };
 }

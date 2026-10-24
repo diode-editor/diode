@@ -12,6 +12,7 @@ import { token } from "../../../../platform/instantiation/common/diContainer.ts"
 import type { ILogger } from "../../../../platform/log/common/iLogger.ts";
 import type { ILogService } from "../../../../platform/log/common/iLogService.ts";
 import { ILogServiceDIToken } from "../../../../platform/log/common/iLogServiceDIToken.ts";
+import { type MarkerService, MarkerServiceDIToken } from "../../../../platform/markers/common/markerService.ts";
 import type {
     IWorkspaceContextService,
     IWorkspaceFolder,
@@ -125,6 +126,7 @@ export class TaskService extends Disposable {
         ILogServiceDIToken,
         OutputServiceDIToken,
         TerminalEditorServiceDIToken,
+        MarkerServiceDIToken,
     ] as const;
 
     private readonly system: TerminalTaskSystem;
@@ -157,11 +159,22 @@ export class TaskService extends Disposable {
         logService: ILogService,
         private readonly output: OutputService,
         editorTerminals: ITaskEditorTerminals,
+        markers: MarkerService,
     ) {
         super();
         // Stryker disable next-line StringLiteral,ObjectLiteral: log channel name and label are wiring; the e2e tasks scenario sees "Tasks"
         this.logger = logService.createLogger(TASKS_LOG_CHANNEL, { label: "Tasks" });
-        this.system = this.register(new TerminalTaskSystem(terminalService, views, defaultShell, editorTerminals));
+        this.system = this.register(
+            new TerminalTaskSystem(terminalService, views, defaultShell, editorTerminals, {
+                markers,
+                // Upstream's open models: a document open in an editor.
+                isOpen: (resource) => editors.textFileModels.get(Uri.parse(resource)) !== null,
+                files,
+                warn: (message) => {
+                    this.logger.warn(message);
+                },
+            }),
+        );
         this.onDidStateChange = this.system.onDidStateChange;
         this.register(
             this.onDidStateChange((event) => {

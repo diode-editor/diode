@@ -1,13 +1,15 @@
 // Task event order matches upstream: Start → Active → ProcessStarted → … →
 // ProcessEnded → Inactive → End (plus Terminated if the terminal was closed).
-// Problem matchers are not run (docs/TODO/Tasks.md).
+// Problem matchers run on tasks that are not background ones (docs/TODO/Tasks.md).
 
 import * as paths from "node:path";
 
 import { Emitter } from "../../../../base/common/event.ts";
-import { Disposable } from "../../../../base/common/lifecycle.ts";
+import { Disposable, type IDisposable } from "../../../../base/common/lifecycle.ts";
+import { MarkerSeverity } from "../../../../platform/markers/common/iMarker.ts";
 import { formatMessageForTerminal } from "../../../../platform/terminal/common/terminalStrings.ts";
 import type { ViewsService } from "../../../browser/parts/views/viewsService.ts";
+import { PROBLEMS_VIEW_ID } from "../../markers/browser/problemsComponent.ts";
 import type { TerminalEditorService } from "../../terminal/browser/terminalEditorService.ts";
 import {
     type ITerminalInstance,
@@ -18,6 +20,8 @@ import {
 } from "../../terminal/browser/terminalService.ts";
 import type { DefaultShellResolver } from "../../terminal/common/defaultShell.ts";
 import type { IExtensionPtyTerminals } from "../../terminal/common/extensionPtyTerminals.ts";
+import { type IProblemCollectorHost, StartStopProblemCollector } from "../common/problemCollectors.ts";
+import { getBuiltinProblemMatcher, type IProblemMatcher } from "../common/problemMatcher.ts";
 import type { TaskPlatform } from "../common/taskConfiguration.ts";
 import {
     type CommandString,
@@ -80,11 +84,17 @@ interface IIdleTerminal {
     readonly data: ITerminalData;
 }
 
+interface IProblemCollection {
+    readonly collector: StartStopProblemCollector;
+    readonly lines: IDisposable;
+}
+
 interface IActiveTask {
     readonly task: ITask;
     readonly terminalId: number;
     readonly terminal: ITerminalData;
     readonly summary: PromiseWithResolvers<ITaskSummary>;
+    readonly problems: IProblemCollection | undefined;
 }
 
 interface ILaunch {
@@ -97,6 +107,13 @@ interface ILaunch {
     readonly message?: string;
     readonly waitOnExit: TerminalWaitOnExit;
     readonly resolvedDefinition: Readonly<Record<string, unknown>>;
+    /** Resolved, with task variables substituted in `filePrefix`. */
+    readonly matchers: readonly IProblemMatcher[];
+}
+
+/** Where task problems go; `warn` writes to the `Tasks` log. */
+export interface ITaskProblemsHost extends IProblemCollectorHost {
+    warn(message: string): void;
 }
 
 /** A task terminal moved into the editor area is revealed as its tab. */
@@ -163,6 +180,7 @@ export class TerminalTaskSystem extends Disposable {
         private readonly views: ViewsService,
         private readonly defaultShell: DefaultShellResolver,
         private readonly editorTerminals: ITaskEditorTerminals,
+        private readonly problemsHost: ITaskProblemsHost,
     ) {
         super();
         this.register(
@@ -254,6 +272,7 @@ export class TerminalTaskSystem extends Disposable {
             terminalId: instance.id,
             terminal,
             summary: Promise.withResolvers<ITaskSummary>(),
+            problems: this.collectProblems(task, launch.matchers, instance),
         };
         this.active.set(key, active);
         this.lastTask = { task, launch };
@@ -265,6 +284,26 @@ export class TerminalTaskSystem extends Disposable {
         this.reveal(task, instance.id);
         this.fire({ kind: "changed" });
         return { kind: "started", task, promise: active.summary.promise };
+    }
+
+    /** Upstream's `StartStopProblemCollector` over the terminal's lines; background tasks get none yet. */
+    private collectProblems(
+        task: ITask,
+        matchers: readonly IProblemMatcher[],
+        instance: ITerminalInstance,
+    ): IProblemCollection | undefined {
+        if (matchers.length === 0) return undefined;
+        if (task.isBackground) {
+            this.problemsHost.warn(
+                "Problem matchers are not supported for background tasks yet; the matcher is ignored",
+            );
+            return undefined;
+        }
+        const collector = new StartStopProblemCollector(matchers, this.problemsHost);
+        const lines = instance.session.onLineData((line) => {
+            collector.processLine(line);
+        });
+        return { collector, lines };
     }
 
     /**
@@ -354,12 +393,15 @@ export class TerminalTaskSystem extends Disposable {
         });
     }
 
-    /** No `reason`: the process exited by itself; with one, the terminal was closed. The task ends once. */
+    /**
+     * No `reason`: the process exited by itself; with one, the terminal was closed. The task ends once. With
+     * problem matchers the end events wait for the last lines to become markers.
+     */
     private handleExit(terminalId: number, exitCode: number | undefined, reason: TerminalExitReason | undefined): void {
         const entry = [...this.active].find(([, a]) => a.terminalId === terminalId);
         if (entry === undefined) return;
         const [key, active] = entry;
-        const { task } = active;
+        const { task, problems } = active;
         this.active.delete(key);
         this.fire({ kind: "changed" });
         // A process that exited by itself leaves the terminal idle so it can be reused.
@@ -369,8 +411,32 @@ export class TerminalTaskSystem extends Disposable {
             if (task.command.presentation.panel === "shared") {
                 this.idleTaskTerminals = [idle, ...this.idleTaskTerminals.filter((other) => other.key !== key)];
             }
-            // `silent` reveals the terminal only if the task failed.
-            if (task.command.presentation.reveal === "silent" && exitCode !== 0) this.show(terminalId, false);
+        }
+        if (problems === undefined) {
+            this.endTask(active, exitCode, reason, undefined);
+            return;
+        }
+        problems.lines.dispose();
+        void problems.collector.done().then(() => {
+            this.endTask(active, exitCode, reason, problems.collector);
+        });
+    }
+
+    private endTask(
+        active: IActiveTask,
+        exitCode: number | undefined,
+        reason: TerminalExitReason | undefined,
+        collector: StartStopProblemCollector | undefined,
+    ): void {
+        const { task, terminalId } = active;
+        const { reveal, revealProblems } = task.command.presentation;
+        const foundProblems = collector !== undefined && collector.numberOfMatches > 0;
+        const foundErrors = foundProblems && (collector.maxMarkerSeverity ?? 0) >= MarkerSeverity.Error;
+        if (revealProblems === "onProblem" && foundProblems) {
+            this.views.openView(PROBLEMS_VIEW_ID);
+        } else if (reason === undefined && reveal === "silent" && (exitCode !== 0 || foundErrors)) {
+            // `silent` reveals the terminal only if the task failed or its output has errors.
+            this.show(terminalId, false);
         }
         this.fire({ kind: "processEnded", task, terminalId, exitCode });
         this.fire({ kind: "inactive", task, terminalId });
@@ -388,9 +454,11 @@ export class TerminalTaskSystem extends Disposable {
         this.idleTaskTerminals = this.idleTaskTerminals.filter((idle) => idle.id !== id);
     }
 
+    /** `revealProblems: always` shows Problems instead of the terminal. */
     private reveal(task: ITask, terminalId: number): void {
-        const { reveal, focus } = task.command.presentation;
-        if (focus || reveal === "always") this.show(terminalId, focus);
+        const { reveal, focus, revealProblems } = task.command.presentation;
+        if (revealProblems === "always") this.views.openView(PROBLEMS_VIEW_ID);
+        else if (focus || reveal === "always") this.show(terminalId, focus);
     }
 
     /**
@@ -420,12 +488,14 @@ export class TerminalTaskSystem extends Disposable {
         const waitOnExit = waitOnExitOf(command.presentation, task.isBackground);
         const name = task.name;
         const resolvedDefinition = resolveDeep(task.definition, resolve);
+        const matchers = this.resolveMatchers(task, resolve);
         if (command.runtime === "custom") {
             return {
                 kind: "custom",
                 name,
                 waitOnExit,
                 resolvedDefinition,
+                matchers,
                 ...(command.presentation.echo ? { message: executingMessage(task._label) } : {}),
             };
         }
@@ -439,6 +509,7 @@ export class TerminalTaskSystem extends Disposable {
             name,
             waitOnExit,
             resolvedDefinition,
+            matchers,
             cwd,
             // Stryker disable next-line ConditionalExpression: equivalent: env: undefined is dropped on terminal create and relaunch
             ...(env !== undefined ? { env } : {}),
@@ -471,6 +542,40 @@ export class TerminalTaskSystem extends Disposable {
             shellArgs: shellArgsOf(context.platform, shell, commandLine),
             ...(command.presentation.echo ? { message: executingMessage(commandLine) } : {}),
         };
+    }
+
+    /** Upstream's `_resolveMatchers`: a name with or without `$`; an unknown one is reported and skipped. */
+    private resolveMatchers(task: ITask, resolve: (value: string) => string): IProblemMatcher[] {
+        const result: IProblemMatcher[] = [];
+        for (const value of task.problemMatchers) {
+            const matcher = typeof value === "string" ? this.builtinMatcher(value) : value;
+            if (matcher === undefined) continue;
+            const prefix = matcher.filePrefix;
+            if (prefix === undefined) result.push(matcher);
+            else if (typeof prefix === "string") result.push({ ...matcher, filePrefix: resolve(prefix) });
+            else {
+                const resolveAll = (v: string | readonly string[] | undefined): string | string[] | undefined =>
+                    typeof v === "string" ? resolve(v) : v?.map(resolve);
+                const include = resolveAll(prefix.include);
+                const exclude = resolveAll(prefix.exclude);
+                result.push({
+                    ...matcher,
+                    filePrefix: {
+                        ...(include !== undefined ? { include } : {}),
+                        ...(exclude !== undefined ? { exclude } : {}),
+                    },
+                });
+            }
+        }
+        return result;
+    }
+
+    private builtinMatcher(name: string): IProblemMatcher | undefined {
+        const matcher = getBuiltinProblemMatcher(name);
+        if (matcher === undefined) {
+            this.problemsHost.warn(`Problem matcher ${name} can't be resolved. The matcher will be ignored`);
+        }
+        return matcher;
     }
 
     /** A relative `cwd` is resolved against the task folder; without `cwd`, the folder or the terminal's directory. */

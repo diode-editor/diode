@@ -28,6 +28,7 @@ describe("parseTasksJson — shell/process task", () => {
             presentation: {
                 echo: false,
                 reveal: "Silent",
+                revealProblems: "OnProblem",
                 focus: true,
                 panel: "dedicated",
                 showReuseMessage: false,
@@ -58,6 +59,7 @@ describe("parseTasksJson — shell/process task", () => {
                 presentation: {
                     echo: false,
                     reveal: "silent",
+                    revealProblems: "onProblem",
                     focus: true,
                     panel: "dedicated",
                     showReuseMessage: false,

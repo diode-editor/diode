@@ -176,6 +176,7 @@ describe("taskFromWire", () => {
         ).toStrictEqual({
             echo: false,
             reveal: "never",
+            revealProblems: "never",
             focus: true,
             panel: "dedicated",
             showReuseMessage: false,

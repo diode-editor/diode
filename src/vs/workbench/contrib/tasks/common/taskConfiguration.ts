@@ -6,6 +6,7 @@ import { parse, type ParseError, printParseErrorCode } from "jsonc-parser";
 import type { IWorkspaceFolder } from "../../../../platform/workspace/common/iWorkspaceContextService.ts";
 import { createTaskIdentifier, type ITaskDefinitionSchema } from "../../../api/common/taskIdentity.ts";
 
+import { parseProblemMatcher } from "./problemMatcher.ts";
 import {
     type CommandString,
     DEFAULT_PRESENTATION,
@@ -22,8 +23,10 @@ import {
     type ITaskGroup,
     type PanelKind,
     type RevealKind,
+    type RevealProblemKind,
     type RuntimeType,
     type ShellQuoting,
+    type TaskProblemMatcher,
 } from "./tasks.ts";
 
 export type TaskPlatform = "windows" | "osx" | "linux";
@@ -137,6 +140,13 @@ function revealFrom(value: string): RevealKind {
     return lower === "silent" || lower === "never" ? lower : "always";
 }
 
+/** Upstream's `RevealProblemKind.fromString`: unknown means `onProblem`. */
+function revealProblemsFrom(value: string): RevealProblemKind {
+    const lower = value.toLowerCase();
+    if (lower === "always" || lower === "never") return lower;
+    return "onProblem";
+}
+
 /** Unknown means `shared`. */
 function panelFrom(value: string): PanelKind {
     const lower = value.toLowerCase();
@@ -149,6 +159,9 @@ function presentationFrom(value: unknown): Partial<IPresentationOptions> | undef
     return {
         ...(typeof value.echo === "boolean" ? { echo: value.echo } : {}),
         ...(typeof value.reveal === "string" ? { reveal: revealFrom(value.reveal) } : {}),
+        ...(typeof value.revealProblems === "string"
+            ? { revealProblems: revealProblemsFrom(value.revealProblems) }
+            : {}),
         ...(typeof value.focus === "boolean" ? { focus: value.focus } : {}),
         ...(typeof value.panel === "string" ? { panel: panelFrom(value.panel) } : {}),
         ...(typeof value.showReuseMessage === "boolean" ? { showReuseMessage: value.showReuseMessage } : {}),
@@ -371,7 +384,7 @@ function customizationFrom(
         ...(typeof external.hide === "boolean" ? { hide: external.hide } : {}),
         ...groupFrom(external.group),
         ...(typeof external.isBackground === "boolean" ? { isBackground: external.isBackground } : {}),
-        ...(external.problemMatcher !== undefined ? { problemMatchers: matchersOf(external.problemMatcher) } : {}),
+        ...matchersWithOs(external, os, problems),
         presentation,
         ...(Object.keys(options).length > 0 ? { options } : {}),
         runOptions: runOptionsFrom(external.runOptions, name, problems),
@@ -435,7 +448,7 @@ function taskFrom(
         ...globals.presentation,
         ...parts.presentation,
     };
-    const problemMatchers = matchersOf(external.problemMatcher);
+    const matchers = matchersWithOs(external, platformSection(external, platform), problems);
     const id = `${WORKSPACE_TASK_ID_PREFIX}${label}`;
     return {
         _id: id,
@@ -457,8 +470,8 @@ function taskFrom(
         ...(typeof external.detail === "string" ? { detail: external.detail } : {}),
         ...(typeof external.hide === "boolean" ? { hide: external.hide } : {}),
         ...groupFrom(external.group),
-        problemMatchers,
-        hasDefinedMatchers: external.problemMatcher !== undefined,
+        problemMatchers: matchers.problemMatchers ?? [],
+        hasDefinedMatchers: matchers.problemMatchers !== undefined,
         runOptions: runOptionsFrom(external.runOptions, label, problems),
         configIndex: index,
     };
@@ -474,8 +487,35 @@ function groupFrom(value: unknown): { group?: ITaskGroup } {
     return {};
 }
 
-function matchersOf(value: unknown): string[] {
-    if (typeof value === "string") return [value];
-    if (Array.isArray(value)) return (value as readonly unknown[]).filter((m): m is string => typeof m === "string");
-    return [];
+function platformSection(external: Json, platform: TaskPlatform): Json {
+    const section = external[platform];
+    return isObject(section) ? section : {};
+}
+
+/** Upstream's `ProblemMatcherConverter.fromWithOsConfig`: the platform section's matchers replace the task's. */
+function matchersWithOs(
+    external: Json,
+    os: Json,
+    problems: string[],
+): { problemMatchers?: readonly TaskProblemMatcher[] } {
+    const value = os.problemMatcher ?? external.problemMatcher;
+    return value === undefined ? {} : { problemMatchers: matchersOf(value, problems) };
+}
+
+/**
+ * A name stays a name: it is resolved when the task runs (an unknown one is reported then). An inline matcher
+ * is parsed here; a broken one is reported and skipped.
+ */
+function matchersOf(value: unknown, problems: string[]): TaskProblemMatcher[] {
+    const items: readonly unknown[] = Array.isArray(value) ? (value as readonly unknown[]) : [value];
+    const result: TaskProblemMatcher[] = [];
+    for (const item of items) {
+        if (typeof item === "string") {
+            result.push(item);
+            continue;
+        }
+        const matcher = parseProblemMatcher(isObject(item) ? item : {}, (message) => problems.push(message));
+        if (matcher !== undefined) result.push(matcher);
+    }
+    return result;
 }
