@@ -8,6 +8,11 @@ export interface IDocumentContentChange {
     readonly newEndLine: number;
     /** Same document, but anything derived from the old text (indentation, folds) must be re-derived. */
     readonly isFlush?: boolean;
+    /**
+     * Lines appended by the background pass of a document on disk (its index being built, docs/arch/Editor.md):
+     * not an edit, the version did not move, and a navigation target past the old end may now be reachable.
+     */
+    readonly isGrowth?: boolean;
 }
 
 /**

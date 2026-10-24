@@ -6,7 +6,7 @@ import type { IMarkerDecoration } from "../../../platform/markers/common/iMarker
 import type { IFoldingRegion } from "../../contrib/folding/iFoldingRegion.ts";
 import type { IMultiCursorFindSession } from "../../contrib/multicursor/iMultiCursorFindSession.ts";
 import type { IPosition } from "../core/iPosition.ts";
-import { comparePositions, createPosition } from "../core/iPosition.ts";
+import { comparePositions, createPosition, positionsEqual } from "../core/iPosition.ts";
 import type { IRange } from "../core/iRange.ts";
 import { createRange, rangeContainsPosition } from "../core/iRange.ts";
 import type { ISelection } from "../core/iSelection.ts";
@@ -63,6 +63,16 @@ export interface IIndentDefaults {
 interface IViewMarkerDecoration {
     readonly id: string;
     readonly severity: IMarkerDecoration["severity"];
+}
+
+/** Ctrl+End: whatever the last line turns out to be. */
+const END_OF_DOCUMENT = Number.MAX_SAFE_INTEGER;
+
+/** See {@link EditorViewState.goToPosition}: the requested position and where the cursor waits for it. */
+interface IPendingNavigationTarget {
+    readonly line: number;
+    readonly character: number;
+    readonly parkedAt: IPosition;
 }
 
 /**
@@ -203,6 +213,11 @@ export class EditorViewState {
      * objects themselves: one the user moves is a new object and drops out. Reset by the next flush.
      */
     private endsClampedByFlush = new WeakSet<IPosition>();
+    /**
+     * A Go to Line or Ctrl+End whose line is not indexed yet (the document on disk grows while its index is
+     * built, docs/arch/Editor.md): the cursor is parked on the provisional end and carried on with each growth.
+     */
+    private pendingTarget: IPendingNavigationTarget | null = null;
     private readonly docContentSubscription: IDisposable;
     // Stryker disable next-line ArrayDeclaration: the document doesn't know a junk element without an id, getDecorationRange returns null
     private markerDecorationIds: readonly IViewMarkerDecoration[] = [];
@@ -299,6 +314,8 @@ export class EditorViewState {
         const lineDelta = change.newEndLine - change.oldEndLine;
 
         this.adjustFoldingRegionsForLineChange(change.startLine, change.oldEndLine, lineDelta);
+
+        if (this.continuePendingTarget(change)) return;
 
         if (change.isFlush === true) this.endsClampedByFlush = new WeakSet();
         const followed: IPosition[] = [];
@@ -1136,6 +1153,10 @@ export class EditorViewState {
         });
         this.reconcileHiddenCursors();
         this.ensureCursorVisible();
+        // The end of a document whose index is still being built is provisional: the cursor keeps going there.
+        this.pendingTarget = inSelectionMode
+            ? null
+            : { line: END_OF_DOCUMENT, character: END_OF_DOCUMENT, parkedAt: createPosition(lastLine, lastChar) };
     }
 
     /** Smart home, as in upstream: indentation ↔ column 0. */
@@ -1752,6 +1773,32 @@ export class EditorViewState {
         this.selections = [createCursorSelection(clampedLine, clampedChar)];
         this.ensureLineVisible(clampedLine);
         this.revealPosition(this.selections[0].active);
+        // A line past the end may still arrive (the index of a document on disk): the jump is finished then.
+        this.pendingTarget =
+            line > clampedLine ? { line, character, parkedAt: createPosition(clampedLine, clampedChar) } : null;
+    }
+
+    /**
+     * Growth of a document on disk: a Go to Line or Ctrl+End that was clamped to the provisional end carries
+     * on to its target (or the new provisional end). A cursor the user moved off the parked spot, more than
+     * one cursor, or any other change of the document drop the target.
+     */
+    private continuePendingTarget(change: IDocumentContentChange): boolean {
+        const target = this.pendingTarget;
+        if (target === null) return false;
+        this.pendingTarget = null;
+        if (change.isGrowth !== true) return false;
+        const [only] = this.selectionsValue;
+        if (
+            this.selectionsValue.length !== 1 ||
+            !isSelectionCollapsed(only) ||
+            !positionsEqual(only.active, target.parkedAt)
+        ) {
+            return false;
+        }
+        // Re-parks itself while the target is still past the end.
+        this.goToPosition(target.line, target.character);
+        return true;
     }
 
     public restoreSelections(selections: readonly ISelection[]): void {

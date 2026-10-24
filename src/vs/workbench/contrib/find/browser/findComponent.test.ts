@@ -160,6 +160,41 @@ describe("FindWidget — counter", () => {
         const x = rows[y].indexOf("No results");
         expect(backend.getFgAt(new Point(x, y))).toBe(theme.getRequiredColor("editorError.foreground"));
     });
+
+    /** The walk over a document on disk runs in the background: the counter shows what it has found so far. */
+    describe("while the search is still running", () => {
+        it("renders «Searching…» in the description color, not the red «No results», while nothing is found yet", () => {
+            const component = make();
+            component.setQuery("zzz");
+            component.setCounter(0, 0, true);
+            const backend = render(component);
+            const screen = backend.screenToString();
+            expect(screen).toContain("Searching…");
+            expect(screen).not.toContain("No results");
+            const rows = screen.split("\n");
+            const y = rows.findIndex((row) => row.includes("Searching"));
+            const x = rows[y].indexOf("Searching");
+            expect(backend.getFgAt(new Point(x, y))).not.toBe(theme.getRequiredColor("editorError.foreground"));
+        });
+
+        it("renders «{i} of {n}…» with the count so far, and «? of {n}…» before a match after the cursor is in", () => {
+            const component = make();
+            component.setQuery("foo");
+            component.setCounter(2, 57, true);
+            expect(render(component).screenToString()).toContain("2 of 57…");
+            component.setCounter(0, 57, true);
+            expect(render(component).screenToString()).toContain("? of 57…");
+            component.setCounter(2, 57);
+            expect(render(component).screenToString()).toContain("2 of 57 ");
+        });
+
+        it("the limit reached ends the search: «19999+» without the ellipsis", () => {
+            const component = make();
+            component.setQuery("e");
+            component.setCounter(1, MATCHES_LIMIT);
+            expect(render(component).screenToString()).toContain("1 of 19999+ ");
+        });
+    });
 });
 
 describe("FindWidget — overlay session", () => {

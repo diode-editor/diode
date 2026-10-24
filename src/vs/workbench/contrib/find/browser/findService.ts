@@ -1,10 +1,19 @@
+import { findFirstIdxMonotonousOrArrLen } from "../../../../base/common/arraysFind.ts";
 import type { IDisposable } from "../../../../base/common/lifecycle.ts";
 import { Disposable } from "../../../../base/common/lifecycle.ts";
 import type { IPosition } from "../../../../editor/common/core/iPosition.ts";
 import { comparePositions } from "../../../../editor/common/core/iPosition.ts";
 import type { IRange } from "../../../../editor/common/core/iRange.ts";
+import { rangesEqual } from "../../../../editor/common/core/iRange.ts";
 import { createSelection } from "../../../../editor/common/core/iSelection.ts";
-import { findMatches } from "../../../../editor/contrib/find/findMatches.ts";
+import { BackgroundFind, type IBackgroundFindProgress } from "../../../../editor/contrib/find/backgroundFind.ts";
+import {
+    findMatches,
+    findNextMatch,
+    findPreviousMatch,
+    type ITextMatchOptions,
+    MATCHES_LIMIT,
+} from "../../../../editor/contrib/find/findMatches.ts";
 import type { IContextKeyContributor } from "../../../../platform/contextkey/common/contextKeyContributor.ts";
 import type { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
@@ -20,6 +29,10 @@ import { FindComponentDIToken } from "./findComponent.ts";
 
 export const FindServiceDIToken = token<FindService>("FindService");
 
+/** The widget has no case/word toggles yet: the same options `findMatches` uses. */
+// Stryker disable next-line ObjectLiteral: the walks read the fields as truthy values, and a missing field equals false
+const FIND_OPTIONS: ITextMatchOptions = { matchCase: false, wholeWord: false };
+
 /** Search session state of one group (the widget may be closed: F3). */
 interface IFindSession {
     matches: IRange[];
@@ -30,6 +43,10 @@ interface IFindSession {
      */
     target: TextEditorPane | null;
     paneSubscription: IDisposable | null;
+    /** The walk over a document on disk while it runs (docs/arch/Editor.md); the matches are what it found so far. */
+    search: BackgroundFind | null;
+    /** Where the cursor was when the search started: the current match is the first one from here on. */
+    anchor: IPosition;
 }
 
 /** One session per group (US-33): find in group A keeps its query while group B is searched. */
@@ -124,7 +141,14 @@ export class FindService extends Disposable implements IContextKeyContributor {
     private sessionFor(group: EditorGroup): IFindSession {
         const existing = this.sessions.get(group.id);
         if (existing !== undefined) return existing;
-        const session: IFindSession = { matches: [], currentIndex: -1, target: null, paneSubscription: null };
+        const session: IFindSession = {
+            matches: [],
+            currentIndex: -1,
+            target: null,
+            paneSubscription: null,
+            search: null,
+            anchor: { line: 0, character: 0 },
+        };
         // Switching tabs in THIS group closes its session; other groups are unaffected (US-33).
         session.paneSubscription = group.onDidChangeActivePane((pane) => {
             if (pane !== session.target) this.closeGroup(group.id);
@@ -137,7 +161,13 @@ export class FindService extends Disposable implements IContextKeyContributor {
         const session = this.sessions.get(groupId);
         if (session === undefined) return;
         session.paneSubscription?.dispose();
+        this.stopSearch(session);
         this.sessions.delete(groupId);
+    }
+
+    private stopSearch(session: IFindSession): void {
+        session.search?.dispose();
+        session.search = null;
     }
 
     private closeGroup(groupId: GroupId): void {
@@ -149,6 +179,7 @@ export class FindService extends Disposable implements IContextKeyContributor {
         // (focus is in the widget input), and highlights would be cleared from the wrong one.
         const editor = session.target;
         session.target = null;
+        this.stopSearch(session);
         if (editor) {
             // Leave the cursor on the current match (VS Code behaviour), then clear highlights.
             if (session.currentIndex >= 0 && session.currentIndex < session.matches.length) {
@@ -180,7 +211,7 @@ export class FindService extends Disposable implements IContextKeyContributor {
 
         if (widget.isOpen()) {
             if (session.matches.length === 0) return;
-            this.setCurrent(groupId, this.step(session, direction));
+            this.setCurrent(groupId, this.step(session, widget, direction));
             return;
         }
 
@@ -192,13 +223,45 @@ export class FindService extends Disposable implements IContextKeyContributor {
         // The first press goes to the nearest match from the cursor (picked by
         // recompute), subsequent ones step. Backward steps right away: the nearest "forward"
         // match would move the wrong way for Shift+F3.
-        const index = startedNewSession && direction === 1 ? session.currentIndex : this.step(session, direction);
+        const index =
+            startedNewSession && direction === 1 && session.currentIndex >= 0
+                ? session.currentIndex
+                : this.step(session, widget, direction);
         this.setCurrent(groupId, index);
         this.selectMatch(session, index);
     }
 
-    private step(session: IFindSession, direction: 1 | -1): number {
-        return (session.currentIndex + direction + session.matches.length) % session.matches.length;
+    /**
+     * The next index in the list, wrapping around. Once the collection stopped at {@link MATCHES_LIMIT} the
+     * list is not the whole document: past its ends the document itself is searched from the current match
+     * (upstream `_moveToNextMatch` → `findNextMatch`), and the match found joins the list in its place.
+     */
+    private step(session: IFindSession, widget: FindWidget, direction: 1 | -1): number {
+        const { matches, currentIndex, target } = session;
+        const atEnd = direction === 1 ? currentIndex === matches.length - 1 : currentIndex === 0;
+        if (matches.length >= MATCHES_LIMIT && atEnd && currentIndex >= 0 && target !== null) {
+            const current = matches[currentIndex];
+            const document = target.viewState.document;
+            const found =
+                direction === 1
+                    ? findNextMatch(document, current.end, widget.getQuery(), FIND_OPTIONS)
+                    : findPreviousMatch(document, current.start, widget.getQuery(), FIND_OPTIONS);
+            /* v8 ignore start -- the list is non-empty, so the document has a match to wrap to */
+            if (found === null) return currentIndex;
+            /* v8 ignore stop */
+            return this.indexOfOrInsert(session, found);
+        }
+        // A session without a current match yet (the walk has not reached the cursor): Next starts at the top.
+        if (currentIndex < 0) return direction === 1 ? 0 : matches.length - 1;
+        return (currentIndex + direction + matches.length) % matches.length;
+    }
+
+    private indexOfOrInsert(session: IFindSession, range: IRange): number {
+        const { matches } = session;
+        const at = findFirstIdxMonotonousOrArrLen(matches, (match) => comparePositions(match.start, range.start) >= 0);
+        if (at < matches.length && rangesEqual(matches[at], range)) return at;
+        session.matches = [...matches.slice(0, at), range, ...matches.slice(at)];
+        return at;
     }
 
     /** An empty query is seeded from a single-line selection (`seedSearchStringFromSelection`); false means stop navigating. */
@@ -232,10 +295,16 @@ export class FindService extends Disposable implements IContextKeyContributor {
         ];
     }
 
+    /**
+     * In memory the walk is synchronous, as before. A document on disk is walked in the background from the
+     * cursor's line on (docs/arch/Editor.md, OpenPerformance 4.3): the matches show up as they are found, the
+     * counter grows, and the walk waits at the indexed end while the index is still being built.
+     */
     private recompute(groupId: GroupId): void {
         const widget = this.component.widgetIfExists(groupId);
         const session = this.sessions.get(groupId);
         if (widget === null || session === undefined) return;
+        this.stopSearch(session);
         const editor = session.target;
         if (!editor) {
             session.matches = [];
@@ -244,19 +313,56 @@ export class FindService extends Disposable implements IContextKeyContributor {
             return;
         }
 
-        session.matches = findMatches(editor.viewState.document, widget.getQuery());
-
-        if (session.matches.length === 0) {
-            session.currentIndex = -1;
-        } else {
-            session.currentIndex = this.pickCurrentIndex(session.matches, editor.viewState.selections[0].active);
+        session.anchor = editor.viewState.selections[0].active;
+        session.currentIndex = -1;
+        const query = widget.getQuery();
+        const model = editor.fileModel;
+        if (model?.isOnDisk !== true) {
+            const matches = findMatches(editor.viewState.document, query);
+            this.applyMatches(session, widget, editor, { matches, done: true, wrapped: true });
+            return;
         }
+        session.search = new BackgroundFind(
+            editor.viewState.document,
+            query,
+            FIND_OPTIONS,
+            (progress) => {
+                if (progress.done) this.stopSearch(session);
+                this.applyMatches(session, widget, editor, progress);
+            },
+            {
+                startLine: session.anchor.line,
+                growth: {
+                    isGrowing: () => model.diskIndexing?.done === false,
+                    onDidGrow: (listener) => model.onDidChangeDiskIndexing(listener),
+                },
+            },
+        );
+        session.search.start();
+    }
+
+    /**
+     * The current match survives a progress report (the list only grows, the range objects are the same); the
+     * first current one is the nearest after the cursor, which the walk from the cursor's line finds first.
+     * Revealed only when it changes: a report must not scroll the user back.
+     */
+    private applyMatches(
+        session: IFindSession,
+        widget: FindWidget,
+        editor: TextEditorPane,
+        progress: IBackgroundFindProgress,
+    ): void {
+        const previous = session.currentIndex >= 0 ? session.matches[session.currentIndex] : null;
+        session.matches = progress.matches;
+        const kept = previous === null ? -1 : session.matches.indexOf(previous);
+        session.currentIndex =
+            kept >= 0 ? kept : this.pickCurrentIndex(session.matches, session.anchor, progress.wrapped);
 
         editor.setSearchDecorations(session.matches, session.currentIndex);
-        if (session.currentIndex >= 0) {
+        if (session.currentIndex >= 0 && session.matches[session.currentIndex] !== previous) {
             editor.revealRange(session.matches[session.currentIndex]);
         }
-        widget.setCounter(session.currentIndex + 1, session.matches.length);
+        widget.setCounter(session.currentIndex + 1, session.matches.length, !progress.done);
     }
 
     private setCurrent(groupId: GroupId, index: number): void {
@@ -273,13 +379,17 @@ export class FindService extends Disposable implements IContextKeyContributor {
         /* v8 ignore stop */
         editor.setSearchDecorations(session.matches, index);
         editor.revealRange(session.matches[index]);
-        widget.setCounter(index + 1, session.matches.length);
+        widget.setCounter(index + 1, session.matches.length, session.search !== null);
     }
 
-    private pickCurrentIndex(matches: IRange[], cursor: IPosition): number {
-        for (let i = 0; i < matches.length; i++) {
-            if (comparePositions(matches[i].start, cursor) >= 0) return i;
-        }
-        return 0;
+    /**
+     * The first match at or after the cursor; when there is none, the first of the document (the wrap) — but
+     * only once the walk has seen the lines after the cursor: before that, the match to reveal is still to come.
+     */
+    private pickCurrentIndex(matches: IRange[], cursor: IPosition, wrapped: boolean): number {
+        if (matches.length === 0) return -1;
+        const index = findFirstIdxMonotonousOrArrLen(matches, (match) => comparePositions(match.start, cursor) >= 0);
+        if (index < matches.length) return index;
+        return wrapped ? 0 : -1;
     }
 }
