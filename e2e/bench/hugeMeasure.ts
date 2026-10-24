@@ -206,11 +206,11 @@ export async function measureFind(
             (s) => s.findText("1 of 1") !== null,
             "the first match",
         );
-        // The query is checked on the counter's row: the editor reveals the matched line, which holds it as well.
-        const queryRowShows = (s: AnsiScreen, text: string): boolean => {
-            const counter = s.findText(" of ");
-            return counter !== null && s.lineText(counter.y).includes(text);
-        };
+        // The query is checked on the widget's row, taken from the counter once: while a walk has no match yet the
+        // counter is "Searching…", and the editor reveals the matched line, which holds the query as well.
+        const widgetRow = ctx.session.parseScreen().findText("1 of 1")?.y;
+        if (widgetRow === undefined) throw new Error("the find counter left the screen");
+        const queryRowShows = (s: AnsiScreen, text: string): boolean => s.lineText(widgetRow).includes(text);
         const keyMs: number[] = [];
         let keysDuringWalk = 0;
         let typed = query;
