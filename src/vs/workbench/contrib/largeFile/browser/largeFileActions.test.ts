@@ -203,6 +203,11 @@ describe("workbench.action.editor.toggleFollowTail", () => {
     it("toggles follow of the active document on disk: on moves the cursor to the end, off leaves it", () => {
         const editor = openOnDisk();
         const commands = setup(editor);
+        // The palette shows the title; menus and the status bar the short one.
+        expect(commands.getTitle(TOGGLE_FOLLOW_TAIL_COMMAND_ID)).toBe("File: Toggle Follow Tail of Large File");
+        expect(LARGE_FILE_ACTIONS.find((action) => action.id === TOGGLE_FOLLOW_TAIL_COMMAND_ID)?.shortTitle).toBe(
+            "Toggle Follow Tail",
+        );
         expect(editor.viewState.followTail).toBe(false);
 
         commands.execute(TOGGLE_FOLLOW_TAIL_COMMAND_ID);
@@ -229,5 +234,9 @@ describe("workbench.action.editor.toggleFollowTail", () => {
         detached.dispose();
 
         expect(() => setup(null).execute(TOGGLE_FOLLOW_TAIL_COMMAND_ID)).not.toThrow();
+
+        // A synthetic buffer (Output, a virtual document) has no file model.
+        const synthetic = { detached: false, fileModel: null } as unknown as TextEditorPane;
+        expect(() => setup(synthetic).execute(TOGGLE_FOLLOW_TAIL_COMMAND_ID)).not.toThrow();
     });
 });

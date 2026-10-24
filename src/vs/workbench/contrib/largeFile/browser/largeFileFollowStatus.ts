@@ -5,6 +5,7 @@ import type { IWorkbenchContribution } from "../../../common/iWorkbenchContribut
 import { EditorServiceDIToken, type IEditorService } from "../../../services/editor/common/editorService.ts";
 import type { IStatusBarEntryHandle, StatusBarService } from "../../../services/statusbar/common/statusBarService.ts";
 import { StatusBarServiceDIToken } from "../../../services/statusbar/common/statusBarService.ts";
+import type { TextFileModel } from "../../../services/textfile/common/textFileModel.ts";
 
 export const LargeFileFollowStatusDIToken =
     // Stryker disable next-line StringLiteral: token() returns a new Token and dependencies resolve by reference to it; the string inside is only a debug label
@@ -53,26 +54,25 @@ export class LargeFileFollowStatus extends Disposable implements IWorkbenchContr
         this.unsubscribe();
         // The entry's click is bound to the editor it was made for: a new editor gets a new entry.
         this.clear();
-        const model = editor !== null && !editor.detached ? editor.fileModel : null;
-        if (model === null || editor === null) {
-            this.clear();
-            return;
-        }
+        if (editor === null || editor.detached) return;
+        const model = editor.fileModel;
+        if (model === null) return;
         const viewState = editor.viewState;
         this.subscriptions.push(
             viewState.onDidChangeFollowTail(() => {
-                this.sync(editor);
+                this.sync(editor, model);
             }),
             // "Enable Editing" reloads the document into memory with a flush: the entry goes with the disk.
             model.document.onDidChangeContent((change) => {
-                if (change.isFlush === true) this.sync(editor);
+                // Stryker disable next-line ConditionalExpression: an append changes nothing the entry shows; the check only skips a sync per appended line
+                if (change.isFlush === true) this.sync(editor, model);
             }),
         );
-        this.sync(editor);
+        this.sync(editor, model);
     }
 
-    private sync(editor: TextEditorPane): void {
-        if (editor.fileModel?.isOnDisk !== true) {
+    private sync(editor: TextEditorPane, model: TextFileModel): void {
+        if (!model.isOnDisk) {
             this.clear();
             return;
         }

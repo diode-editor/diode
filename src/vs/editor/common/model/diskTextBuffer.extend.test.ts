@@ -120,6 +120,67 @@ describe("DiskTextBuffer.extendTo — the file grew (follow)", () => {
         buffer.dispose();
     });
 
+    it("pages grown in place across several growths, spilling into the next page, read like the piece tree", async () => {
+        const { buffer, file } = open("ab\ncd\n", { pageSize: 4, chunkSize: 64 });
+        await indexed(buffer);
+        let text = "ab\ncd\n";
+        for (const tail of ["e", "f\ng", "hijklmnop\n", "q\nrs\ntu"]) {
+            // The end is on screen: its page is cached before every growth.
+            expect(buffer.getLineContent(buffer.lineCount - 1)).toBe(expected(text).at(-1));
+            file.append(tail);
+            text += tail;
+            expect(buffer.extendTo(file.length)).toBe(true);
+            expect(lines(buffer), JSON.stringify(text)).toEqual(expected(text));
+        }
+        buffer.dispose();
+    });
+
+    it("bytes written after the stat are left for the next growth: the read stops at the size as told", async () => {
+        const { buffer, file, events } = await grown("ab\n", "");
+        file.append("cd\nef\n");
+        expect(buffer.extendTo(file.length - 3)).toBe(true);
+        expect(lines(buffer)).toEqual(["ab", "cd", ""]);
+        expect(buffer.indexing).toMatchObject({ indexedBytes: 6, totalBytes: 6 });
+        expect(buffer.extendTo(file.length)).toBe(true);
+        expect(lines(buffer)).toEqual(["ab", "cd", "ef", ""]);
+        expect(events).toHaveLength(2);
+        buffer.dispose();
+    });
+
+    it("a tail of exactly one chunk is still read at once", async () => {
+        const { buffer, file } = await grown("a\n", "");
+        file.append("x".repeat((OPTIONS.chunkSize ?? 0) - 1) + "\n");
+        expect(buffer.extendTo(file.length)).toBe(true);
+        expect(buffer.indexing.done).toBe(true);
+        expect(buffer.lineCount).toBe(3);
+        buffer.dispose();
+    });
+
+    it("growth during an extension pass is only recorded: the tail is read once, in order", async () => {
+        const { buffer, file } = await grown("a\n", "");
+        const first = Array.from({ length: 5 }, (_, i) => `first ${String(i)}`).join("\n") + "\n";
+        file.append(first);
+        expect(buffer.extendTo(file.length)).toBe(true);
+        expect(buffer.indexing.done).toBe(false);
+        // A small growth while that pass runs: not read on the thread, or the pass would index it twice.
+        file.append("second\n");
+        expect(buffer.extendTo(file.length)).toBe(true);
+        expect(buffer.lineCount).toBe(2);
+        await indexed(buffer);
+        expect(lines(buffer)).toEqual(expected("a\n" + first + "second\n"));
+        buffer.dispose();
+    });
+
+    it("the tail check looks at the page before the last when only that one is cached", async () => {
+        // 12 bytes over pages of 4: "ab\nc" "d\nef" "\ngh\n". Reading "ef" caches page 1 (and page 0, for the EOL).
+        const { buffer, file } = open("ab\ncd\nef\ngh\n");
+        await indexed(buffer);
+        expect(buffer.getLineContent(2)).toBe("ef");
+        file.rewrite("ab\ncd\nXY\ngh\nij\n");
+        expect(buffer.extendTo(file.length)).toBe(false);
+        buffer.dispose();
+    });
+
     it("the lines before the old end are not read again", async () => {
         const { buffer, file } = open("ab\ncd\nef\n");
         await indexed(buffer);
@@ -202,14 +263,16 @@ describe("DiskTextBuffer.extendTo — the file grew (follow)", () => {
         buffer.startIndexing();
         expect(buffer.indexing.done).toBe(false);
 
-        file.append("more\n");
+        // More than two chunks arrive: the pass's layout does not cover them, its end reads them all.
+        const more = "more\nand more\nand even more\n";
+        file.append(more);
         expect(buffer.extendTo(file.length)).toBe(true);
         expect(buffer.indexing.totalBytes).toBe(file.length);
 
         const done = indexed(buffer);
         file.openGate();
         await done;
-        expect(lines(buffer)).toEqual(expected(text + "more\n"));
+        expect(lines(buffer)).toEqual(expected(text + more));
         expect(buffer.indexing).toMatchObject({ indexedBytes: file.length, done: true });
         buffer.dispose();
     });

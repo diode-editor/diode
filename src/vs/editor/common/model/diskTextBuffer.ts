@@ -157,11 +157,12 @@ export class DiskTextBuffer implements IDocumentBuffer {
      * new size is only recorded: the pass reads whatever has arrived when its layout is exhausted.
      */
     public extendTo(size: number): boolean {
+        // Stryker disable next-line EqualityOperator: at the same size the rest finds no tail to read and no page to grow; the return only saves the tail check
         if (size <= this.sizeValue) return true;
         const oldSize = this.sizeValue;
         if (!this.tailUnchanged(oldSize)) return false;
         this.sizeValue = size;
-        this.refreshPagesFrom(oldSize);
+        this.growPages();
         if (this.passRunning || !this.tailKnown) return true;
         if (size - this.indexedBytes > this.chunkSize) {
             void this.runPass();
@@ -214,10 +215,12 @@ export class DiskTextBuffer implements IDocumentBuffer {
         if (offsets.length === 0) return;
         // Sized to the tail, not to a chunk: a 4 MiB scratch buffer per appended line (20 a second) was 80 MB/s of
         // external allocation, and V8's GC ran after it — a third of the CPU of follow.
+        // Stryker disable next-line MethodExpression,ArithmeticOperator: a bigger scratch buffer reads the same bytes (each read is bounded below); only the allocation differs
         const chunk = Buffer.allocUnsafe(Math.min(this.chunkSize, this.sizeValue - this.indexedBytes));
         // One `some` over the precomputed offsets: leaves on the first short read, bounded without a counter.
         offsets.some((offset) => {
-            const read = this.file.readSync(chunk, offset);
+            // Up to the size as told, not past it: bytes written after the stat belong to the next growth event.
+            const read = this.file.readSync(chunk.subarray(0, Math.min(chunk.length, this.sizeValue - offset)), offset);
             if (read <= 0) return true;
             this.indexChunk(chunk.subarray(0, read), offset);
             return false;
@@ -247,23 +250,18 @@ export class DiskTextBuffer implements IDocumentBuffer {
     }
 
     /**
-     * The page holding the old end was short (it ended with the file): the new bytes are read into the room it
-     * has left — one `pread` of the few new bytes, no allocation, where dropping it would re-read and re-allocate
-     * a whole page on the next frame, for every appended line. Pages past the old end are empty: stale, dropped.
+     * A page that ended with the file is short: the new bytes are read into the room it has left — one `pread` of
+     * the few new bytes, no allocation, where dropping it would re-read and re-allocate a whole page on the next
+     * frame, for every appended line. A full page has no room and is left as it is (a few dozen pages at most).
      */
-    private refreshPagesFrom(oldEnd: number): void {
+    private growPages(): void {
         for (const [index, page] of Array.from(this.pages.entries())) {
-            const base = index * this.pageSize;
-            if (base + this.pageSize <= oldEnd) continue;
-            if (base >= oldEnd) {
-                this.pages.delete(index);
-                continue;
-            }
+            // `set` on a present key keeps its place in the LRU order.
             this.pages.set(index, this.growPage(index, page));
         }
     }
 
-    /** `allocUnsafe(pageSize)` reserved the full page; the short page is a view of its head, the rest is ours to fill. */
+    /** {@link page} allocates every page whole (never from the shared pool): the short page is a view of its head. */
     private growPage(index: number, page: Buffer): Buffer {
         const want = Math.min(this.pageSize, this.sizeValue - index * this.pageSize) - page.length;
         // Stryker disable next-line ConditionalExpression,EqualityOperator: a page that is full or at the new end has nothing to read; the return only saves the empty read
@@ -476,7 +474,9 @@ export class DiskTextBuffer implements IDocumentBuffer {
             this.pages.set(index, cached);
             return cached;
         }
-        const buffer = Buffer.allocUnsafe(this.pageSize);
+        // Not `allocUnsafe`: below 4 KiB it slices node's shared pool, and growing a short page in place
+        // ({@link growPage}) writes past its view — into someone else's bytes, if the page came from the pool.
+        const buffer = Buffer.allocUnsafeSlow(this.pageSize);
         const read = this.file.readSync(buffer, index * this.pageSize);
         const page = buffer.subarray(0, read);
         this.pages.set(index, page);

@@ -65,10 +65,16 @@ describe("LargeFileFollowStatus", () => {
     it("shows the follow state of the active document on disk and tracks the cursor", () => {
         const editor = openOnDisk();
         const { entry, status } = setup(editor);
-        expect(entry()).toMatchObject({ text: FOLLOW_OFF_TEXT, alignment: "right", name: "Follow Tail" });
+        // The literal texts and id: the e2e scenario and the user read them.
+        expect(entry()).toMatchObject({
+            id: "status.largeFile.followTail",
+            text: "Follow: Off",
+            alignment: "right",
+            name: "Follow Tail",
+        });
 
         editor.viewState.cursorBottom();
-        expect(entry()?.text).toBe(FOLLOW_ON_TEXT);
+        expect(entry()?.text).toBe("Follow: On");
         editor.viewState.cursorUp();
         expect(entry()?.text).toBe(FOLLOW_OFF_TEXT);
         status.dispose();
@@ -118,6 +124,22 @@ describe("LargeFileFollowStatus", () => {
         big.dispose();
         other.dispose();
         small.dispose();
+    });
+
+    it("switching straight between two documents on disk: the entry and its click belong to the new one", () => {
+        const first = openOnDisk();
+        const second = openOnDisk("second.log");
+        const { entry, activate, status } = setup(first);
+        activate(second);
+        // The first editor is no longer listened to.
+        first.viewState.cursorBottom();
+        expect(entry()?.text).toBe(FOLLOW_OFF_TEXT);
+        entry()?.onClick?.();
+        expect(second.viewState.followTail).toBe(true);
+        expect(entry()?.text).toBe(FOLLOW_ON_TEXT);
+        status.dispose();
+        first.dispose();
+        second.dispose();
     });
 
     it("Enable Editing takes the document off the disk: the entry goes", () => {

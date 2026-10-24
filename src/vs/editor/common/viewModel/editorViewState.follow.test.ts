@@ -155,6 +155,20 @@ describe("EditorViewState.followTail — the screen rides the tail of a document
             expect(viewState.followTail).toBe(true);
         });
 
+        it("on with a cursor already on the last line keeps every cursor where it is", () => {
+            const { viewState, append } = opened(100);
+            viewState.selections = [createCursorSelection(5, 1), createCursorSelection(100, 0)];
+            viewState.setFollowTail(false);
+            viewState.setFollowTail(true);
+            expect(viewState.followTail).toBe(true);
+            expect(viewState.selections.map((sel) => sel.active)).toEqual([
+                { line: 5, character: 1 },
+                { line: 100, character: 0 },
+            ]);
+            append(log(1, 100));
+            expect(viewState.selections.map((sel) => sel.active.line)).toEqual([5, 101]);
+        });
+
         it("on when already following and off when not: no change, no event", () => {
             const { viewState, flips } = opened(100);
             viewState.setFollowTail(false);
@@ -177,6 +191,18 @@ describe("EditorViewState.followTail — the screen rides the tail of a document
         viewState.selections = [createCursorSelection(5, 0)];
         doc.setText(log(80));
         expect(viewState.followTail).toBe(false);
+
+        // Following, and a reload that does not clamp: off — the cursor is no longer on the end.
+        viewState.cursorBottom();
+        expect(viewState.followTail).toBe(true);
+        doc.setText(log(200));
+        expect(viewState.followTail).toBe(false);
+
+        // Not following, and a reload that clamps: on.
+        viewState.selections = [createCursorSelection(150, 0)];
+        expect(viewState.followTail).toBe(false);
+        doc.setText(log(20));
+        expect(viewState.followTail).toBe(true);
     });
 
     it("in memory, an edit by another view after the cursor's last line is an ordinary remap, not follow", () => {
