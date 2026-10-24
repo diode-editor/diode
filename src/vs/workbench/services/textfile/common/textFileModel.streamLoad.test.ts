@@ -109,12 +109,14 @@ describe("TextFileModel — a large file streams into memory", () => {
         return model;
     }
 
-    it("Enable Editing reads chunk by chunk with progress; the text, encoding and language are the file's", async () => {
+    it("Enable Editing reads chunk by chunk with progress; the text and encoding are the file's, the language stays", async () => {
         const content = multiChunkLog();
         const bytes = Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), Buffer.from(content)]);
         const opener = gatedAfterFirst();
         const big = open("big.log", bytes, opener);
         expect(big.isOnDisk).toBe(true);
+        // Picked by the user on the read-only document: the switch keeps it, the document is the same one.
+        big.setLanguage("json");
         const progress: (IMemoryLoadingProgress | null)[] = [];
         big.onDidChangeMemoryLoading(() => progress.push(big.memoryLoading));
         let flushes = 0;
@@ -145,7 +147,8 @@ describe("TextFileModel — a large file streams into memory", () => {
         expect(big.isTooLargeForTokenization).toBe(false);
         expect(big.document.getText()).toBe(content);
         expect(big.encoding).toBe("utf8bom");
-        expect(big.languageId).toBe("log");
+        expect(big.languageId).toBe("json");
+        expect(big.isOrphaned).toBe(false);
         expect(big.isModified).toBe(false);
         // One flush: the switch to the piece tree is a single replacement.
         expect(flushes).toBe(1);
@@ -183,11 +186,54 @@ describe("TextFileModel — a large file streams into memory", () => {
         expect(opener.opened[1].asyncReads).toBe(0);
         expect(opener.opened[1].disposed).toBe(true);
 
-        // Enough for the file and above the reserve the stream keeps.
-        const enough = open("enough.log", content, memoryFileOpener(), {
-            availableBytes: () => Math.max(needed, MEMORY_RESERVE_BYTES),
+        // A refusal is not remembered: with memory freed, the next click loads.
+        let freed = false;
+        const retry = open("retry.log", content, memoryFileOpener(), {
+            availableBytes: () => (freed ? Number.MAX_SAFE_INTEGER : 0),
         });
-        expect(await enough.enableEditing()).toBeNull();
+        expect(await retry.enableEditing()).toBe("out-of-memory");
+        freed = true;
+        expect(await retry.enableEditing()).toBeNull();
+        expect(retry.isOnDisk).toBe(false);
+
+        // Exactly the bound is enough before the stream; while it streams, the reserve is what counts.
+        let asked = 0;
+        const exact = open("exact.log", content, memoryFileOpener(), {
+            availableBytes: () => (asked++ === 0 ? needed : MEMORY_RESERVE_BYTES),
+        });
+        expect(await exact.enableEditing()).toBeNull();
+    });
+
+    it("a file that shrinks under the stream: what is still there is the text, and the progress stops with it", async () => {
+        const content = Buffer.from(multiChunkLog());
+        const opener = gatedAfterFirst();
+        const big = open("big.log", content, opener);
+        const progress: (IMemoryLoadingProgress | null)[] = [];
+        big.onDidChangeMemoryLoading(() => progress.push(big.memoryLoading));
+        const enabled = big.enableEditing();
+        const stream = opener.opened[1];
+        const left = READ_CHUNK_SIZE + 100;
+        stream.visibleSize = left;
+        for (let chunk = 0; chunk < 3; chunk++) {
+            await waitForPendingRead(stream);
+            stream.release();
+        }
+        expect(await enabled).toBeNull();
+        expect(progress).toEqual([
+            { loadedBytes: 0, totalBytes: content.length },
+            { loadedBytes: READ_CHUNK_SIZE, totalBytes: content.length },
+            { loadedBytes: left, totalBytes: content.length },
+            null,
+        ]);
+        expect(big.document.getText()).toBe(content.subarray(0, left).toString("utf8"));
+    });
+
+    it("a file that ends inside a multibyte character ends with a replacement character, as a one-shot decode", async () => {
+        const bytes = Buffer.concat([Buffer.from(bigLog()), Buffer.from([0xe2, 0x82])]);
+        const big = open("cut.log", bytes);
+        expect(await big.enableEditing()).toBeNull();
+        const last = big.document.lineCount - 1;
+        expect(big.document.getLineContent(last)).toBe("\ufffd");
     });
 
     it("memory running out while the file streams in stops the stream and refuses", async () => {
@@ -228,6 +274,31 @@ describe("TextFileModel — a large file streams into memory", () => {
         broken.opened[1].release();
         await expect(rejected).rejects.toThrow(TypeError);
         expect(other.memoryLoading).toBeNull();
+
+        // Node's own errors carry `ERR_*` codes: a bug in the call, not the file's state, so they surface too.
+        const misused = gatedAfterFirst();
+        const third = open("third.log", bigLog(), misused);
+        const surfaced = third.enableEditing();
+        misused.opened[1].failAsync = Object.assign(new Error("src and dest cannot be the same"), {
+            code: "ERR_FS_CP_EINVAL",
+        });
+        await waitForPendingRead(misused.opened[1]);
+        misused.opened[1].release();
+        await expect(surfaced).rejects.toThrow(/cannot be the same/);
+    });
+
+    it("an opener that fails with a bug, not a file system error, surfaces it", async () => {
+        let opens = 0;
+        const opener = memoryFileOpener();
+        const broken: IRandomAccessFileOpener = {
+            open: (path) => {
+                if (opens++ > 0) throw new TypeError("not a file system error");
+                return opener.open(path);
+            },
+        };
+        const big = open("big.log", bigLog(), broken);
+        await expect(big.enableEditing()).rejects.toThrow(TypeError);
+        expect(big.isOnDisk).toBe(true);
     });
 
     it("an unreadable file refuses before the stream starts", async () => {
@@ -251,6 +322,8 @@ describe("TextFileModel — a large file streams into memory", () => {
         const enabled = big.enableEditing();
         await waitForPendingRead(opener.opened[1]);
         big.dispose();
+        // The read fails once the model is gone: the load was cancelled, not refused.
+        opener.opened[1].failAsync = Object.assign(new Error("EBADF: bad file descriptor"), { code: "EBADF" });
         opener.opened[1].release();
         expect(await enabled).toBe("cancelled");
         expect(opener.opened[1].disposed).toBe(true);
@@ -319,7 +392,8 @@ describe("TextFileModel — a reload of a large file in memory streams", () => {
     it("revert keeps the old text until the new one is in, then replaces it in one flush", async () => {
         const opener = gatedAfterFirst();
         const { model, path } = await editable(opener);
-        fs.writeFileSync(path, bigLog(30_000));
+        // The encoding is sniffed again, like any reload: the file gained a BOM.
+        fs.writeFileSync(path, Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), Buffer.from(bigLog(30_000))]));
         let diskStateChanges = 0;
         model.onDidChangeDiskState(() => diskStateChanges++);
 
@@ -330,6 +404,8 @@ describe("TextFileModel — a reload of a large file in memory streams", () => {
         opener.opened[2].release();
         await streamed(model);
         expect(model.document.lineCount).toBe(30_001);
+        expect(model.document.getLineContent(0)).toBe("0 INFO worker request handled path=/api/v1/items");
+        expect(model.encoding).toBe("utf8bom");
         expect(model.isOnDisk).toBe(false);
         expect(model.isTooLargeForTokenization).toBe(false);
         expect(diskStateChanges).toBe(1);
@@ -372,11 +448,32 @@ describe("TextFileModel — a reload of a large file in memory streams", () => {
         // A newer reload of the same file overtakes the pending one, which finds itself stale.
         model.revertToDisk();
         opener.opened[2].release();
-        await waitForPendingRead(opener.opened[3]);
+        for (let tick = 0; tick < 50 && !opener.opened[2].disposed; tick++) {
+            await new Promise((resolve) => setImmediate(resolve));
+        }
+        await new Promise((resolve) => setImmediate(resolve));
+        // The stale one has ended: the newer load still owns the progress, and nothing is in conflict.
+        expect(opener.opened[2].disposed).toBe(true);
+        expect(model.memoryLoading).not.toBeNull();
+        expect(model.hasDiskConflict).toBe(false);
         opener.opened[3].release();
         await streamed(model);
         expect(model.document.lineCount).toBe(30_001);
         expect(model.hasDiskConflict).toBe(false);
+    });
+
+    it("without an opener a large file in memory reloads synchronously, as before", async () => {
+        const model = new TextFileModel(LOG_LANGUAGE_SERVICE, new UndoRedoService(), diskFileService());
+        models.push(model);
+        model.largeFileOptions = () => ON_DISK;
+        const path = ws.path("plain.log");
+        fs.writeFileSync(path, bigLog());
+        model.openFile(Uri.file(path));
+        expect(await model.enableEditing()).toBeNull();
+        fs.writeFileSync(path, bigLog(30_000));
+        expect(model.revertToDisk()).toBe(true);
+        expect(model.memoryLoading).toBeNull();
+        expect(model.document.lineCount).toBe(30_001);
     });
 
     it("a small file reloads synchronously, as before", async () => {

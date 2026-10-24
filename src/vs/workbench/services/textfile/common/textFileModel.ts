@@ -16,6 +16,7 @@ import {
     DEFAULT_ENCODING,
     getEncodingInfo,
     resolveDecodeEncoding,
+    stripBOM,
 } from "../../../../editor/common/model/encoding.ts";
 import {
     createStreamDecoder,
@@ -160,9 +161,9 @@ export class TextFileModel extends BaseTextEditorModel {
     /** Asked before and while a large file streams into memory. Injected by the owning service; without it, nobody asks. */
     public memory: IMemoryProbe | null = null;
     private onDiskDeclinedReasonValue: "encoding" | null = null;
-    private memoryLoadingValue: IMemoryLoadingProgress | null = null;
-    /** The load that owns {@link memoryLoadingValue}: a newer load replaces it, an older one must not clear it. */
-    private memoryLoadingGeneration = -1;
+    /** The progress and the load that owns it: a newer load replaces it, an older one must not clear it. */
+    private memoryLoadingState: { readonly generation: number; readonly progress: IMemoryLoadingProgress } | null =
+        null;
     private readonly onDidChangeMemoryLoadingEmitter = this.register(new Emitter<void>());
     /** A second click on "Enable Editing" while the file streams in waits for the same load. */
     private pendingEnableEditing: Promise<EnableEditingRefusal | null> | null = null;
@@ -175,7 +176,7 @@ export class TextFileModel extends BaseTextEditorModel {
      * buffer); `null` when nothing is. The status bar shows it.
      */
     public get memoryLoading(): IMemoryLoadingProgress | null {
-        return this.memoryLoadingValue;
+        return this.memoryLoadingState?.progress ?? null;
     }
     private readonly onDidChangeDiskIndexingEmitter = this.register(new Emitter<void>());
 
@@ -403,7 +404,7 @@ export class TextFileModel extends BaseTextEditorModel {
         const generation = ++this.loadGeneration;
         const version = this.doc.versionId;
         const stat = this.readDiskStat(filePath);
-        const file = stat === null ? null : this.openRandomAccess(filePath);
+        const file = this.openRandomAccess(filePath);
         if (file === null) return "read-failed";
         try {
             if (this.memory !== null && file.size * MEMORY_PER_FILE_BYTE > this.memory.availableBytes()) {
@@ -415,7 +416,7 @@ export class TextFileModel extends BaseTextEditorModel {
             const decoder = createStreamDecoder(info.id);
             const builder = createTextBufferFactoryBuilder();
             const chunk = Buffer.allocUnsafe(READ_CHUNK_SIZE);
-            const bomLength = info.bom !== undefined && headBytes.length >= info.bom.length ? info.bom.length : 0;
+            const bomLength = headBytes.length - stripBOM(headBytes, info).length;
             this.setMemoryLoading(generation, { loadedBytes: 0, totalBytes: file.size });
             // Laid out up front from the size at open (docs/MUTATION.md: a mutant cannot stall the loop). Bytes appended
             // meanwhile are caught by the stat check after the stream.
@@ -432,15 +433,13 @@ export class TextFileModel extends BaseTextEditorModel {
             builder.acceptChunk(decoder.end());
             if (this.doc.versionId !== version) return "modified";
             const factory = builder.finish();
-            mark("textfile:read", { bytes: file.size });
             this.applyEncoding(info.id);
             this.diskStat = stat;
             this.diskConflictValue = false;
             this.setOrphaned(false);
-            // The document on disk closes its descriptor here, when the piece tree replaces it.
+            // The document on disk closes its descriptor here, when the piece tree replaces it. The language stays: the
+            // document is the same one, and a language the user picked for it survives.
             this.replaceText(factory);
-            mark("textfile:document-built", { lines: this.doc.lineCount });
-            this.doc.setLanguage(this.resolveLanguageId(filePath));
             return null;
         } catch (error) {
             // A read failure (EIO, a file gone under a network mount) refuses; anything else is a bug.
@@ -448,7 +447,7 @@ export class TextFileModel extends BaseTextEditorModel {
             return generation === this.loadGeneration ? "read-failed" : "cancelled";
         } finally {
             file.dispose();
-            this.setMemoryLoading(generation, null);
+            this.endMemoryLoading(generation);
         }
     }
 
@@ -465,15 +464,15 @@ export class TextFileModel extends BaseTextEditorModel {
         }
     }
 
-    private setMemoryLoading(generation: number, progress: IMemoryLoadingProgress | null): void {
-        if (progress === null) {
-            // A newer load owns the progress now: an older one ending must not clear it.
-            if (this.memoryLoadingGeneration !== generation) return;
-            this.memoryLoadingGeneration = -1;
-        } else {
-            this.memoryLoadingGeneration = generation;
-        }
-        this.memoryLoadingValue = progress;
+    private setMemoryLoading(generation: number, progress: IMemoryLoadingProgress): void {
+        this.memoryLoadingState = { generation, progress };
+        this.onDidChangeMemoryLoadingEmitter.fire();
+    }
+
+    /** A newer load owns the progress by now: an older one ending must not clear it. */
+    private endMemoryLoading(generation: number): void {
+        if (this.memoryLoadingState?.generation !== generation) return;
+        this.memoryLoadingState = null;
         this.onDidChangeMemoryLoadingEmitter.fire();
     }
 
@@ -482,7 +481,7 @@ export class TextFileModel extends BaseTextEditorModel {
      * the model's, so a difference now is an external change like any other and reloads the clean buffer.
      */
     private recheckDiskAfterStream(filePath: string): void {
-        if (this.differsFromDisk(this.readDiskStat(filePath))) this.handleExternalFileChange(filePath);
+        this.handleExternalFileChange(filePath);
     }
 
     /**
@@ -828,6 +827,7 @@ const BOM_SNIFF_LENGTH = 3;
 
 /** Offsets of the chunks from `start` to `size`: a streamed read is bounded by them, not by a counter. */
 function chunkOffsets(start: number, size: number, chunkSize: number): number[] {
+    // Stryker disable next-line ArithmeticOperator: "size + start" lays out at most one offset past the end, whose read returns nothing and ends the loop
     const count = Math.max(0, Math.ceil((size - start) / chunkSize));
     return Array.from({ length: count }, (_, index) => start + index * chunkSize);
 }
@@ -859,5 +859,5 @@ function* readFileChunks(filePath: string): Generator<Buffer> {
  */
 function isFileSystemError(error: unknown): boolean {
     const code = error instanceof Error ? (error as { code?: unknown }).code : undefined;
-    return typeof code === "string" && /^E[A-Z]+$/.test(code);
+    return /^E[A-Z]+$/.test(String(code));
 }

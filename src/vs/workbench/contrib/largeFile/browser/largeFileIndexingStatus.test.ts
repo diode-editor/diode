@@ -60,7 +60,7 @@ describe("LargeFileIndexingStatus", () => {
             randomAccessFiles: opener,
             file: Uri.file(ws.writeFile(name, content)),
         });
-        return { editor, file: opener.opened[0] };
+        return { editor, file: opener.opened[0], opener };
     }
 
     function setup(initial: TextEditorPane | null) {
@@ -101,6 +101,29 @@ describe("LargeFileIndexingStatus", () => {
         activate(big.editor);
         expect(entry()).toBeNull();
         activate(null);
+        expect(entry()).toBeNull();
+
+        status.dispose();
+        big.editor.dispose();
+        small.dispose();
+    });
+
+    it("a model left behind by the active editor no longer reaches the bar: neither its index nor its load", async () => {
+        const big = openGated();
+        const small = createEditorPane({ file: Uri.file(ws.writeFile("small.log", "one")) });
+        const { entry, activate, status } = setup(big.editor);
+        expect(entry()?.text).toBe("Indexing 50%");
+        activate(small);
+        expect(entry()).toBeNull();
+
+        // The index goes on and the file streams into memory, both behind the user's back.
+        const enabled = big.editor.model.enableEditing();
+        expect(entry()).toBeNull();
+        big.file.release();
+        await new Promise((resolve) => setImmediate(resolve));
+        expect(entry()).toBeNull();
+        for (const file of big.opener.opened) file.openGate();
+        expect(await enabled).toBeNull();
         expect(entry()).toBeNull();
 
         status.dispose();

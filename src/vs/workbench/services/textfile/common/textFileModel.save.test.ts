@@ -80,6 +80,27 @@ describe("TextFileModel — save participant", () => {
         controller.dispose();
     });
 
+    it("Save As of a modified buffer in conflict with its file: the copy holds the edits, the buffer is clean", async () => {
+        const controller = createEditorPane();
+        const fp = writeFile("conflict.txt", "one\n");
+        controller.openFile(Uri.file(fp));
+        controller.model.document.applyEdits([
+            { range: { start: { line: 0, character: 3 }, end: { line: 0, character: 3 } }, text: "!" },
+        ]);
+        // Changed on disk meanwhile: a plain save refuses with a conflict.
+        fs.writeFileSync(fp, "someone else's text, longer\n");
+        expect(await controller.model.save()).toBe("conflict");
+        expect(controller.model.hasDiskConflict).toBe(true);
+
+        const target = ws.path("resolved.txt");
+        await controller.model.saveAs(target);
+
+        expect(fs.readFileSync(target, "utf-8")).toBe("one!\n");
+        expect(controller.model.isModified).toBe(false);
+        expect(controller.model.hasDiskConflict).toBe(false);
+        controller.dispose();
+    });
+
     it("an EOL change from a participant (kind: eol) writes CRLF", async () => {
         const controller = createEditorPane();
         const fp = writeFile("eol.txt", "a\nb\n");

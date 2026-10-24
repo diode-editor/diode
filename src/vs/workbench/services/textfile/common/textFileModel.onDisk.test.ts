@@ -252,6 +252,30 @@ describe("TextFileModel — the document on disk", () => {
         big.dispose();
     });
 
+    it("Save As over an existing file replaces it; a new path the opener refuses is read into memory", async () => {
+        fs.writeFileSync(ws.path("taken.log"), "old content");
+        const big = open("big.log", bigLog());
+        await big.saveAs(ws.path("taken.log"));
+        expect(fs.readFileSync(ws.path("taken.log"), "utf8")).toBe(bigLog());
+
+        let opens = 0;
+        const opener = memoryFileOpener();
+        const refusingCopies: IRandomAccessFileOpener = {
+            open: (path) => {
+                if (opens++ > 0) throw Object.assign(new Error("EACCES: permission denied"), { code: "EACCES" });
+                return opener.open(path);
+            },
+        };
+        const other = open("other.log", bigLog(), refusingCopies);
+        await other.saveAs(ws.path("unreadable.log"));
+        expect(other.isOnDisk).toBe(false);
+        expect(other.uri.fsPath).toBe(ws.path("unreadable.log"));
+        expect(other.document.getLineContent(17_999)).toBe(`17999 ${LINE}`);
+        expect(other.isModified).toBe(false);
+        big.dispose();
+        other.dispose();
+    });
+
     it("Enable Editing streams the file into memory first: the document leaves the disk and the mode", async () => {
         const opener = memoryFileOpener();
         const big = open("big.log", bigLog(), opener);
