@@ -34,7 +34,10 @@ function bigLog(): string {
  * open after the first (the document on disk indexes at once), so the test steps the stream; the watcher is fired by
  * hand where the real one would fire, while the stream is still reading.
  */
-describe("Workbench — Enable Editing while the file changes on disk", () => {
+/** Two streams of the fixture (the load, then the reload the stat check starts), with room for a loaded CI runner. */
+const STREAMS_TIMEOUT_MS = 10_000;
+
+describe("Workbench — Enable Editing while the file changes on disk", { timeout: 2 * STREAMS_TIMEOUT_MS }, () => {
     let ws: ITempWorkspace;
     let h: IAppHarness;
     const watcher = new FakeFileWatcher();
@@ -93,13 +96,20 @@ describe("Workbench — Enable Editing while the file changes on disk", () => {
         return stream;
     }
 
-    /** Lets every later open stream through on its own and waits until the load has ended either way. */
+    /**
+     * Lets every later open stream through on its own and waits until the load has ended either way. A change during
+     * the load means a second stream after the switch (the stat check reloads the file), and under vitest one stream of
+     * 8 MiB takes about a second (`CharCode` is not inlined, docs/arch/Editor.md) — past `vi.waitFor`'s default 1 s.
+     */
     async function letStreamsFinish(): Promise<void> {
         for (const file of opened) file.openGate();
-        await vi.waitFor(() => {
-            for (const file of opened) file.openGate();
-            expect(screen()).not.toMatch(/Loading \d+%/);
-        });
+        await vi.waitFor(
+            () => {
+                for (const file of opened) file.openGate();
+                expect(screen()).not.toMatch(/Loading \d+%/);
+            },
+            { timeout: STREAMS_TIMEOUT_MS },
+        );
     }
 
     it("nothing changes on disk meanwhile: the load ends editable (the control for the cases below)", async () => {
@@ -124,7 +134,8 @@ describe("Workbench — Enable Editing while the file changes on disk", () => {
         const editor = h.activeEditor();
         expect(editor.readOnly).toBe(false);
         expect(editor.fileModel?.isOnDisk).toBe(false);
-        expect(editor.model.document.getLineContent(editor.lineCount - 1)).toBe("appended while loading");
+        // The file ends with a line feed: the appended line is the one before the last, empty one.
+        expect(editor.model.document.getLineContent(editor.lineCount - 2)).toBe("appended while loading");
         expect(h.container.get(NotificationServiceDIToken).isEmpty()).toBe(true);
     });
 

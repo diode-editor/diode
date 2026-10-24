@@ -18,18 +18,10 @@ import { PieceTreeTextBufferBuilder } from "./pieceTreeTextBuffer/pieceTreeTextB
  */
 export class PieceTreeDocumentBuffer implements IDocumentBuffer {
     public readonly isReadOnly = false;
-    private readonly buffer: ITextBuffer;
+    private buffer: ITextBuffer;
 
     public constructor(text: string | ITextBufferFactory) {
-        const factory = typeof text === "string" ? createTextBufferFactoryFromChunks([text]) : text;
-        const { textBuffer } = factory.create(DefaultEndOfLine.LF);
-        // The builder strips a leading BOM into a separate field, but our decoder already
-        // removed the BOM (`encoding.ts`): here U+FEFF is an ordinary character, put it back.
-        if (textBuffer.getBOM() !== "") {
-            // Stryker disable next-line BooleanLiteral: neither auto-whitespace nor the inverse edit is read here
-            textBuffer.applyEdits([toBufferOperation(new Range(1, 1, 1, 1), UTF8_BOM_CHARACTER)], false, false);
-        }
-        this.buffer = textBuffer;
+        this.buffer = textBufferOf(typeof text === "string" ? createTextBufferFactoryFromChunks([text]) : text);
     }
 
     public get eol(): EndOfLine {
@@ -72,8 +64,15 @@ export class PieceTreeDocumentBuffer implements IDocumentBuffer {
         return this.buffer.getLinesContent();
     }
 
+    /**
+     * On a copy of the tree: upstream `setEOL` rebuilds the tree's buffers in place, and a snapshot taken before (a save
+     * streaming to disk, OpenPerformance 4.5) reads pieces of the old tree by offsets into those buffers — it would
+     * write a mix of both EOLs. The old tree stays as it was for whoever still reads it. O(n) either way.
+     */
     public setEol(eol: EndOfLine): void {
-        this.buffer.setEOL(eolToSequence(eol));
+        const copy = textBufferOf(createTextBufferFactoryFromChunks(readSnapshot(this.buffer.createSnapshot(false))));
+        copy.setEOL(eolToSequence(eol));
+        this.buffer = copy;
     }
 
     public applyEdits(edits: readonly ITextEdit[]): readonly ITextEdit[] {
@@ -125,6 +124,19 @@ export function createTextBufferFactoryBuilder(): ITextBufferFactoryBuilder {
         // Stryker disable next-line BooleanLiteral: without normalization the buffer converts EOL on every read (regex over text); same semantics, different cost
         finish: () => builder.finish(true),
     };
+}
+
+/**
+ * The builder strips a leading BOM into a separate field, but our decoder already removed the BOM (`encoding.ts`):
+ * here U+FEFF is an ordinary character, put it back.
+ */
+function textBufferOf(factory: ITextBufferFactory): ITextBuffer {
+    const { textBuffer } = factory.create(DefaultEndOfLine.LF);
+    if (textBuffer.getBOM() !== "") {
+        // Stryker disable next-line BooleanLiteral: neither auto-whitespace nor the inverse edit is read here
+        textBuffer.applyEdits([toBufferOperation(new Range(1, 1, 1, 1), UTF8_BOM_CHARACTER)], false, false);
+    }
+    return textBuffer;
 }
 
 /** Snapshot chunk merge threshold, as in upstream `TextModelSnapshot`. */

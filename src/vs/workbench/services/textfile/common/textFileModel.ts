@@ -165,6 +165,12 @@ export class TextFileModel extends BaseTextEditorModel {
     private memoryLoadingState: { readonly generation: number; readonly progress: IMemoryLoadingProgress } | null =
         null;
     private readonly onDidChangeMemoryLoadingEmitter = this.register(new Emitter<void>());
+    /**
+     * "Enable Editing" is streaming the file in: an external change waits for the switch (the stat check after it
+     * reloads), instead of reopening the document on disk under the load and cancelling it (QA 4.5: a log written to
+     * while it loaded stayed read-only for good).
+     */
+    private streamingForEditing = false;
     /** A second click on "Enable Editing" while the file streams in waits for the same load. */
     private pendingEnableEditing: Promise<EnableEditingRefusal | null> | null = null;
 
@@ -382,7 +388,13 @@ export class TextFileModel extends BaseTextEditorModel {
     }
 
     private async enableEditingFromDisk(filePath: string): Promise<EnableEditingRefusal | null> {
-        const outcome = await this.streamIntoMemory(filePath);
+        let outcome: StreamOutcome;
+        this.streamingForEditing = true;
+        try {
+            outcome = await this.streamIntoMemory(filePath);
+        } finally {
+            this.streamingForEditing = false;
+        }
         // Stryker disable next-line ConditionalExpression,StringLiteral: a document on disk is read-only, its version never moves, so "modified" cannot come back here; the mapping is for the type
         if (outcome === "modified") return "cancelled";
         if (outcome !== null) return outcome;
@@ -769,7 +781,7 @@ export class TextFileModel extends BaseTextEditorModel {
         }
         this.cancelOrphanCheck();
         this.setOrphaned(false);
-        if (!this.differsFromDisk(current)) return;
+        if (this.streamingForEditing || !this.differsFromDisk(current)) return;
         if (this.isModified) {
             this.setDiskConflict(true);
         } else {
