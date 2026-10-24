@@ -32,6 +32,9 @@
 - [ ] `editorComponent.diskReload.test.ts` › «the in-memory reload is the reference: the cursor lands on the new
   last line»: `Test timed out in 5000ms`. Свалил job `test` на `main` a0ec0c24 (ран 40098148744, дифф — доки)
   и на PR #805 (ран 40099005560, дифф — e2e-бенч), соседний тест того же файла зелёный.
+  И на #802 (ран 40088033182, дифф — follow, путь перечитки в память не трогает). Тест читает ~5 МиБ в piece
+  tree дважды: на `main` он же идёт 4,8 с из 5 (ран 40082417816), локально 0,9 с. Лечение — файл поменьше или
+  свой срок с замером, а не голый подъём таймаута.
 - [ ] e2e `extensionUpdates.stage3.functional.test.ts` › «US-3.3: many clock moves in a row — exactly one
   check per 12 hours, no piled-up timers» (windows): `expected 1 to be 2` — после серии `Diode.advanceClock`
   вторая проверка обновлений не успела дойти до реестра. Свалил e2e windows на PR #798 (ран 40034642872,
@@ -99,6 +102,8 @@
   (с автоповтором) на #795 (ран 40006403681; дифф — манифест git-base и скрипты импорта, фолдинга не
   касается); локально на том же коммите сценарий зелёный за 14 с, перезапуск job'а зелёный. Провайдер
   стокового `maptz.regionfolder` (`onStartupFinished`) на медленном раннере не успевает за 20 попыток чорда.
+  Снова на #802 (ран 40082114620, дифф — follow документа на диске, фолдинга не касается): дважды, с
+  автоповтором.
   Снова дважды (с автоповтором) на #804 (ран 40093826414; дифф — скрипты и скиллы агентского лупа, `src/`
   не тронут; первый коммит той же ветки e2e прошёл). В `test-flakes.json` не стоит — e2e его не читает.
 - [x] e2e-сценарий `explorer-compact-segments` (windows): `waitUntil(screen text predicate) timed out

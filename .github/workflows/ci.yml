@@ -351,3 +351,9 @@ jobs:
       - name: Open and keystroke budget (xlarge)
         if: runner.os == 'Linux'
         run: npm run test:perf:xlarge
+
+      # Giant-file perf gate (e2e/bench/hugeBudget.bench.ts): log500m (497 MB) opens read-only on
+      # disk — to text, the line index, peak RSS. 500 MB of the runner's disk; log2g is not gated.
+      - name: Giant file budget (log500m)
+        if: runner.os == 'Linux'
+        run: npm run test:perf:huge

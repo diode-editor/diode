@@ -14,8 +14,9 @@ differently is on [Differences from VS Code](DIFFERENCES.md).
 - **Source control extensions.** Built-in git works (diffs, commit graph, staging); an extension
   that brings another version control system has no API to plug into yet.
 - **Notebooks, chat and language model APIs** are not exposed to extensions.
-- **Very large files.** Tens of megabytes open and edit fine; a file of hundreds of megabytes takes
-  long to open and the first edit is slow.
+- **Very large files.** A file above 20 MB opens read-only at once, whatever the size; editing it
+  means **Enable Editing**, which loads the whole file into memory (a few seconds for 500 MB), and a
+  file that does not fit in memory stays read-only.
 - **Very long lines.** A line of hundreds of thousands of characters is rendered in full and slows
   the editor down.
 - **Extensions don't update themselves.** An update is a button on the extension's page
@@ -28,8 +29,7 @@ For the status of each member of the extension API, see the
 
 No dates promised, in the order that seems right today.
 
-- Large files that open and edit like small ones, whatever the size, and long lines without the
-  slowdown.
+- Long lines without the slowdown.
 - `.gitignore` honoured in the file tree, as it already is in search and Quick Open.
 - Snippets, file icon themes and tree views from extensions.
 - Automatic extension updates.

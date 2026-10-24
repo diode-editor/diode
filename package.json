@@ -1,6 +1,6 @@
 {
   "name": "diode",
-  "version": "0.10.0",
+  "version": "0.10.1",
   "type": "module",
   "engines": {
     "node": ">=24.0.0"
@@ -22,7 +22,9 @@
     "test:perf": "vitest bench --run --config vitest.perf.config.ts",
     "test:perf:startup": "vitest bench --run --config vitest.perf.config.ts e2e/bench/startupBudget.bench.ts",
     "test:perf:xlarge": "vitest bench --run --config vitest.perf.config.ts e2e/bench/xlargeBudget.bench.ts",
+    "test:perf:huge": "vitest bench --run --config vitest.perf.config.ts e2e/bench/hugeBudget.bench.ts",
     "bench:open": "tsx e2e/bench/benchOpen.ts",
+    "bench:follow": "tsx e2e/bench/benchFollow.ts",
     "bench:services": "tsx e2e/bench/startupServices.ts",
     "test:mutation": "node scripts/mutation-diff.mjs --ignoreStatic --incremental",
     "ci:run": "node scripts/ci-run.mjs",

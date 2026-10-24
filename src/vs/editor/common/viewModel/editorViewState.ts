@@ -152,6 +152,9 @@ export class EditorViewState {
     public readonly onDidChangeCursorPosition = this.onDidChangeCursorPositionEmitter.event;
     private readonly onDidChangeViewEmitter = new Emitter<void>();
     public readonly onDidChangeView = this.onDidChangeViewEmitter.event;
+    private readonly onDidChangeFollowTailEmitter = new Emitter<void>();
+    /** {@link followTail} flipped: by a cursor move, a reload or {@link setFollowTail}. */
+    public readonly onDidChangeFollowTail = this.onDidChangeFollowTailEmitter.event;
     public get searchMatches(): IRange[] {
         return this.searchMatchesValue;
     }
@@ -207,12 +210,26 @@ export class EditorViewState {
      */
     private applyingOwnEdits = false;
     /**
-     * Selection ends a reload (flush) clamped because they were past the new end. A document on disk is reloaded
-     * with its first chunk only (docs/arch/Editor.md): the end moves on as the index grows, and an end clamped to
-     * a provisional last line would otherwise be left in the middle of the file. The set holds the position
-     * objects themselves: one the user moves is a new object and drops out. Reset by the next flush.
+     * Selection ends that ride the end of a document on disk as it grows (docs/arch/Editor.md): the cursors the
+     * user put on the last line (follow, `tail -f`, OpenPerformance 4.4 — decided like upstream's Output panel
+     * `output.smartScroll`: an explicit move onto the last line turns it on, off it — off) and the ends a reload
+     * (flush) clamped because they were past the new end (a document on disk is reloaded with its first chunk
+     * only: the end moves on as the index grows, and an end clamped to a provisional last line would otherwise
+     * be left in the middle of the file). An end that followed before a flush moves to the new end and follows on:
+     * a rotated log (a new file under the same name) is followed like `tail -F`. The set holds the position
+     * objects themselves: one the user moves is a new object and drops out. Reset by every explicit cursor move
+     * and by the next flush.
      */
-    private endsClampedByFlush = new WeakSet<IPosition>();
+    private followingEnds = new WeakSet<IPosition>();
+    /**
+     * The ends of {@link followingEnds} a flush put there (clamped or carried): they ride the growth of the index
+     * too (`isGrowth`), where the new end is still provisional. A cursor the user put on the last line rides only
+     * what was appended to the file (`isAppend`): on a provisional end it stays (OpenPerformance 4.3), and Ctrl+End
+     * while the index is built is {@link pendingTarget}'s.
+     */
+    private flushEnds = new WeakSet<IPosition>();
+    /** The visible state of the set: on while some cursor rides the end. Its toggle is {@link setFollowTail}. */
+    private followTailValue = false;
     /**
      * A Go to Line or Ctrl+End whose line is not indexed yet (the document on disk grows while its index is
      * built, docs/arch/Editor.md): the cursor is parked on the provisional end and carried on with each growth.
@@ -235,7 +252,8 @@ export class EditorViewState {
                 this.pendingProjectionChange === null ? change : mergeLineChanges(this.pendingProjectionChange, change);
             if (!this.applyingOwnEdits) this.remapForDocumentChange(change);
         });
-        this.selections = selections && selections.length > 0 ? selections : [createCursorSelection(0, 0)];
+        // Not through the setter: the initial cursor is nobody's move, and a one-line first screen would turn follow on.
+        this.replaceSelections(selections && selections.length > 0 ? selections : [createCursorSelection(0, 0)]);
         this.applyIndentDefaults(indent);
     }
 
@@ -252,6 +270,7 @@ export class EditorViewState {
         this.docContentSubscription.dispose();
         this.setMarkerDecorations([]);
         this.lineBreaksCacheValue?.dispose();
+        this.onDidChangeFollowTailEmitter.dispose();
     }
 
     /** Ranges become document decorations and move with the text (upstream `MarkerDecorations.update`). */
@@ -320,14 +339,27 @@ export class EditorViewState {
 
         if (this.continuePendingTarget(change)) return;
 
-        if (change.isFlush === true) this.endsClampedByFlush = new WeakSet();
+        const carried = this.followingEnds;
+        // Stryker disable next-line ConditionalExpression,BooleanLiteral,BlockStatement: every carried end is replaced below by a new position, and a reload resets the undo history that could bring an old one back; the reset only drops dead entries early
+        if (change.isFlush === true) {
+            this.followingEnds = new WeakSet();
+            this.flushEnds = new WeakSet();
+        }
         const followed: IPosition[] = [];
+        let following = false;
         const remapped = this.selectionsValue.map((sel) => {
             let anchor = this.remapPosition(sel.anchor, change, lineDelta);
             let active = this.remapPosition(sel.active, change, lineDelta);
             if (change.isFlush === true) {
-                if (sel.anchor.line > change.newEndLine) this.endsClampedByFlush.add(anchor);
-                if (sel.active.line > change.newEndLine) this.endsClampedByFlush.add(active);
+                if (carried.has(sel.anchor)) anchor = this.moveToEnd(anchor, change.newEndLine, followed, true);
+                else if (sel.anchor.line > change.newEndLine) this.addFlushEnd(anchor);
+                if (carried.has(sel.active)) {
+                    active = this.moveToEnd(active, change.newEndLine, followed, true);
+                    following = true;
+                } else if (sel.active.line > change.newEndLine) {
+                    this.addFlushEnd(active);
+                    following = true;
+                }
             } else {
                 anchor = this.followEnd(anchor, change, followed);
                 active = this.followEnd(active, change, followed);
@@ -336,9 +368,11 @@ export class EditorViewState {
                 ? sel
                 : { anchor, active, idealColumn: sel.idealColumn };
         });
+        // A reload keeps follow on and turns it on when it clamped a cursor past the new end (the QA rule of 4.2).
+        if (change.isFlush === true) this.setFollowTailValue(following);
         // Only on a real shift: an idle cursor change would poke the status bar and the extension host.
         if (remapped.some((sel, i) => sel !== this.selectionsValue[i])) {
-            this.selections = remapped;
+            this.replaceSelections(remapped);
         }
         // An end that followed the growing document takes the viewport along, as the reload in memory would have.
         if (followed.length > 0) {
@@ -360,19 +394,31 @@ export class EditorViewState {
     }
 
     /**
-     * Growth of a document on disk arrives as a change on its last line. A selection end the reload clamped
-     * there moves to the new last line, as the in-memory reload would have put it; any other position is as
-     * {@link remapPosition} left it.
+     * Growth arrives as a change on the last line: `isAppend` — the file grew, `isGrowth` — the index of a document
+     * on disk did (both, when the index reads what was appended). A selection end that rides the end moves to the
+     * new last line, as `less +F` would show it (see {@link flushEnds} for which growth it rides); any other
+     * position is as {@link remapPosition} left it. An edit is never the end moving on: a replacement that ends
+     * on the last line of a document in memory leaves a clamped cursor where it is.
      */
     private followEnd(pos: IPosition, change: IDocumentContentChange, followed: IPosition[]): IPosition {
-        const line = change.newEndLine;
-        // Only a change that starts on the old last line and reaches the new one is the end moving on.
-        const endMoved = change.startLine === change.oldEndLine && line === this.document.lineCount - 1;
-        if (!endMoved || !this.endsClampedByFlush.has(pos)) return pos;
+        if (!this.followingEnds.has(pos)) return pos;
+        const viaFlush = this.flushEnds.has(pos);
+        if (change.isAppend !== true && !(change.isGrowth === true && viaFlush)) return pos;
+        return this.moveToEnd(pos, change.newEndLine, followed, viaFlush);
+    }
+
+    private moveToEnd(pos: IPosition, line: number, followed: IPosition[], viaFlush: boolean): IPosition {
         const moved = { line, character: Math.min(pos.character, this.document.getLineLength(line)) };
-        this.endsClampedByFlush.add(moved);
+        // Stryker disable next-line ConditionalExpression: an end moved by an append is on a buffer whose every later growth is an append too (a reload starts the sets afresh), so riding `isGrowth` as well changes nothing reachable
+        if (viaFlush) this.addFlushEnd(moved);
+        else this.followingEnds.add(moved);
         followed.push(moved);
         return moved;
+    }
+
+    private addFlushEnd(pos: IPosition): void {
+        this.followingEnds.add(pos);
+        this.flushEnds.add(pos);
     }
 
     private remapPosition(pos: IPosition, change: IDocumentContentChange, lineDelta: number): IPosition {
@@ -400,8 +446,59 @@ export class EditorViewState {
     }
 
     public set selections(value: readonly ISelection[]) {
+        this.replaceSelections(value);
+        this.pinCursorsAtEnd();
+    }
+
+    /** A selection change that is not the user's: a remap for a foreign edit or growth does not decide follow. */
+    private replaceSelections(value: readonly ISelection[]): void {
         this.selectionsValue = sortAndMergeSelections(value);
         this.fireCursorChange();
+    }
+
+    /** An explicit move decides follow anew: the cursors on the last line ride the end, nothing else does. */
+    private pinCursorsAtEnd(): void {
+        this.followingEnds = new WeakSet();
+        const atEnd = this.selectionsValue.filter((sel) => this.isCursorAtEnd(sel));
+        for (const sel of atEnd) {
+            this.followingEnds.add(sel.anchor);
+            this.followingEnds.add(sel.active);
+        }
+        this.setFollowTailValue(atEnd.length > 0);
+    }
+
+    /** Some cursor rides the end of the document as it grows; see {@link followingEnds}. */
+    public get followTail(): boolean {
+        return this.followTailValue;
+    }
+
+    /**
+     * The toggle command. On: a cursor goes to the end of the document first (like `less +F`), where the next
+     * growth picks it up; off: the cursors stay where they are, and the next growth leaves them behind.
+     */
+    public setFollowTail(value: boolean): void {
+        if (!value) {
+            this.followingEnds = new WeakSet();
+            this.setFollowTailValue(false);
+            return;
+        }
+        if (this.selectionsValue.some((sel) => this.isCursorAtEnd(sel))) {
+            this.pinCursorsAtEnd();
+            return;
+        }
+        this.cursorBottom();
+    }
+
+    private setFollowTailValue(value: boolean): void {
+        if (this.followTailValue === value) return;
+        this.followTailValue = value;
+        this.onDidChangeFollowTailEmitter.fire();
+    }
+
+    /** A cursor (not a range) on the document's last line; the column does not matter. */
+    private isCursorAtEnd(sel: ISelection): boolean {
+        const lastLine = this.document.lineCount - 1;
+        return sel.active.line === lastLine && sel.anchor.line === lastLine;
     }
 
     private fireCursorChange(): void {
@@ -1792,7 +1889,8 @@ export class EditorViewState {
         const target = this.pendingTarget;
         if (target === null) return false;
         this.pendingTarget = null;
-        if (change.isGrowth !== true) return false;
+        // An append to the file is follow's: the index is over, and the cursor rides it if it is on the end.
+        if (change.isGrowth !== true || change.isAppend === true) return false;
         const [only] = this.selectionsValue;
         if (
             this.selectionsValue.length !== 1 ||

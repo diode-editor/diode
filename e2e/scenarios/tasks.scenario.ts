@@ -66,5 +66,16 @@ export default defineScenario({
         await editor.sendKey("Enter");
         await editor.waitForText((t) => !t.includes("Executing task: sleep 600"));
         await editor.capture("terminated");
+
+        // A task terminal moved into the editor area: the rerun goes into its tab and the panel stays closed.
+        await runTask(editor, "build");
+        await editor.waitForText((t) => t.includes("building tasks") && t.includes("TERMINAL"));
+        await runCommand(editor, "Terminal: Move Terminal into Editor Area");
+        // The panel hides with its last terminal.
+        await editor.waitForText((t) => t.includes("build ×") && !t.includes("TERMINAL"));
+        await runTask(editor, "build");
+        await editor.waitForText((t) => t.split("Executing task: echo building tasks").length === 3);
+        await editor.waitForText((t) => t.includes("build ×") && !t.includes("TERMINAL"));
+        await editor.capture("rerun-in-editor-terminal");
     },
 });
