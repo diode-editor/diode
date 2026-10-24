@@ -399,6 +399,7 @@ export class TerminalTaskSystem extends Disposable {
      */
     private show(terminalId: number, focus: boolean): void {
         this.terminalService.showInstance(terminalId);
+        // Stryker disable next-line OptionalChaining: equivalent: only live task terminals are shown (removed ones are forgotten)
         if (this.terminalService.getInstance(terminalId)?.target === "editor") {
             // Upstream `setActiveInstance`: the tab is the active terminal even when revealed in an inactive group.
             this.terminalService.setActiveEditorInstance(terminalId);
