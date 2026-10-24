@@ -181,7 +181,7 @@ describe("Workbench — Enable Editing while the file changes on disk", { timeou
     });
 });
 
-describe("Workbench — a reload of a large buffer in memory", () => {
+describe("Workbench — a reload of a large buffer in memory", { timeout: 2 * STREAMS_TIMEOUT_MS }, () => {
     let ws: ITempWorkspace;
     let h: IAppHarness;
     const watcher = new FakeFileWatcher();
@@ -220,9 +220,13 @@ describe("Workbench — a reload of a large buffer in memory", () => {
 
         fs.appendFileSync(ws.path("app.log"), "appended after enabling\n");
         watcher.fire(ws.path("app.log"));
-        await vi.waitFor(() => {
-            expect(editor.model.document.getLineContent(editor.lineCount - 2)).toBe("appended after enabling");
-        });
+        // The reload streams the whole file again: about a second under vitest, more under coverage on CI.
+        await vi.waitFor(
+            () => {
+                expect(editor.model.document.getLineContent(editor.lineCount - 2)).toBe("appended after enabling");
+            },
+            { timeout: STREAMS_TIMEOUT_MS },
+        );
 
         expect(editor.readOnly).toBe(false);
         expect(editor.primaryCursorLine).toBe(50_000);

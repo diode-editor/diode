@@ -73,6 +73,7 @@ export class LargeFileOptimizationsWarner extends Disposable implements IWorkben
             this.notifications.dismiss(handle.id);
         });
         void handle.answered.then((index) => {
+            // Stryker disable next-line CallExpression: dismissing a settled toast is a no-op; disposing only drops the listener
             leftMode.dispose();
             if (index === 0) void enableLargeFileEditing(model, this.contextKeys, this.notifications);
         });
