@@ -369,16 +369,16 @@ export class FindService extends Disposable implements IContextKeyContributor {
         editor: TextEditorPane,
         progress: IBackgroundFindProgress,
     ): void {
-        // Stryker disable next-line ConditionalExpression: matches[-1] is undefined, which indexOf finds no more than null
-        const previous = session.currentIndex >= 0 ? session.matches[session.currentIndex] : null;
+        // `matches[-1]` is undefined, which the new list never holds: without a current match nothing is kept.
+        const previous = session.matches[session.currentIndex];
         session.matches = progress.matches;
-        // Stryker disable next-line ConditionalExpression: indexOf(null) is -1 too; the branch only skips the scan
-        const kept = previous === null ? -1 : session.matches.indexOf(previous);
+        const kept = session.matches.indexOf(previous);
         session.currentIndex =
-            kept >= 0 ? kept : this.pickCurrentIndex(session.matches, session.anchor, progress.wrapped);
+            kept === -1 ? this.pickCurrentIndex(session.matches, session.anchor, progress.wrapped) : kept;
         this.applyPendingSelect(session, widget, editor, progress);
 
         editor.setSearchDecorations(session.matches, session.currentIndex);
+        // Stryker disable next-line ConditionalExpression: a report never takes the current match away (the list only grows), so at -1 there was none before either and matches[-1] is the undefined `previous`
         if (session.currentIndex >= 0 && session.matches[session.currentIndex] !== previous) {
             editor.revealRange(session.matches[session.currentIndex]);
         }

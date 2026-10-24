@@ -333,6 +333,14 @@ describe("FindService over a document on disk", () => {
         await searchDone(widget);
         expect(counterText(widget)).toBe("1 of 1");
         expect(editor.viewState.searchMatches).toHaveLength(1);
+
+        // A query typed while the previous walk runs: only the new walk reports.
+        typeQuery(widget, "needle");
+        typeQuery(widget, "zzz");
+        await searchDone(widget);
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        expect(counterText(widget)).toBe("No results");
+        expect(editor.viewState.searchMatches).toEqual([]);
     });
 
     it("Next before any match after the cursor is in starts at the top of the list", async () => {
@@ -502,6 +510,24 @@ describe("FindService over a document on disk", () => {
             return { ...result, file: opener.opened[0] };
         }
 
+        it("F3 with the widget closed keeps waiting through the pause for the index and selects the match it brings", async () => {
+            const { find, widget, editor, file } = setupGated();
+            expect(editor.lineCount).toBeLessThan(NEEDLE_LINE);
+            editor.viewState.selections = [createCursorSelection(0, 0)];
+            widget.setQuery("needle");
+            find.next();
+            // The walk reaches the indexed end and reports its empty progress while it waits.
+            await new Promise((resolve) => setTimeout(resolve, 300));
+            expect(editor.viewState.selections[0].active).toEqual({ line: 0, character: 0 });
+            file.openGate();
+            await indexed(editor);
+            await searchDone(widget);
+            expect(editor.viewState.selections[0]).toMatchObject({
+                anchor: { line: NEEDLE_LINE },
+                active: { line: NEEDLE_LINE },
+            });
+        });
+
         it("the walk waits at the indexed end for the index and goes on when it grows", async () => {
             const { find, widget, editor, file } = setupGated();
             expect(editor.lineCount).toBeLessThan(NEEDLE_LINE);
@@ -605,6 +631,43 @@ describe("FindService over a document on disk", () => {
             find.next();
             expect(current().start.line).toBe(cursorLine);
             expect(editor.viewState.searchMatches).toHaveLength(MATCHES_LIMIT);
+        });
+    });
+
+    describe("Shift+F3 with the widget closed before the walk has the match", () => {
+        /** Needles on two lines past the first slice; the cursor at the top, so the previous match is the document's last. */
+        function writeTwo(): void {
+            const body = Array.from({ length: 90_000 }, (_, i) =>
+                i === 70_000 || i === 75_000 || i === 80_000 ? `${String(i)} ${LINE} needle` : `${String(i)} ${LINE}`,
+            );
+            fs.writeFileSync(ws.path("two.log"), body.join("\n") + "\n");
+        }
+
+        it("selects the document's last match once the walk is over, not the first one it finds", async () => {
+            writeTwo();
+            const { find, widget, editor } = setup("two.log");
+            await indexed(editor);
+            editor.viewState.selections = [createCursorSelection(0, 0)];
+            widget.setQuery("needle");
+            find.prev();
+            await searchDone(widget);
+            expect(editor.viewState.searchMatches.map((m) => m.start.line)).toEqual([70_000, 75_000, 80_000]);
+            expect(editor.viewState.selections[0]).toMatchObject({
+                anchor: { line: 80_000 },
+                active: { line: 80_000 },
+            });
+            expect(editor.viewState.currentSearchMatchIndex).toBe(2);
+        });
+
+        it("a query without matches answers nothing and does not fail", async () => {
+            const { find, widget, editor } = setup();
+            await indexed(editor);
+            editor.viewState.selections = [createCursorSelection(5, 2)];
+            widget.setQuery("zzz");
+            find.prev();
+            await searchDone(widget);
+            expect(editor.viewState.searchMatches).toEqual([]);
+            expect(editor.viewState.selections[0].active).toEqual({ line: 5, character: 2 });
         });
     });
 });

@@ -162,12 +162,15 @@ describe("FindService", () => {
         expect(find.isVisible()).toBe(true);
     });
 
-    it("typing seeds match highlights on the editor", () => {
+    it("typing seeds match highlights on the editor and leaves the selection alone", () => {
         const { find, widget, editor } = setup("foo bar foo");
+        editor.viewState.selections = [createSelection(0, 1, 0, 1)];
         find.open();
         typeQuery(widget, "foo");
         expect(editor.viewState.searchMatches).toHaveLength(2);
-        expect(editor.viewState.currentSearchMatchIndex).toBe(0);
+        expect(editor.viewState.currentSearchMatchIndex).toBe(1);
+        // Only F3 with the widget closed selects; the widget's query does not move the cursor.
+        expect(editor.viewState.selections[0].active).toEqual({ line: 0, character: 1 });
     });
 
     it("next() and prev() cycle through matches with wrap-around", () => {
