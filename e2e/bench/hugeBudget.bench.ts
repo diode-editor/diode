@@ -196,8 +196,7 @@ describe("log500m: the giant file opens read-only on disk like a small one", () 
     const findKeySamples: number[] = [];
     const keysDuringWalk: number[] = [];
     let findCalls = 0;
-    // TODO(#800): enable once the background find is on main.
-    bench.skip(
+    bench(
         `log500m: find, first match ≤ ${String(FIND_FIRST_MATCH_BUDGET_MS)} ms, key during the walk ≤ ${String(FIND_KEY_BUDGET_MS)} ms (median)`,
         async () => {
             findCalls++;
