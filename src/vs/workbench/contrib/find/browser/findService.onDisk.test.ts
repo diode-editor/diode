@@ -414,6 +414,75 @@ describe("FindService over a document on disk", () => {
         });
     });
 
+    describe("edges found by QA (OpenPerformance 4.3)", () => {
+        it("Prev from the first match after the cursor goes to the line just above it when the cap was hit after the wrap", async () => {
+            const { find, widget, editor } = setup();
+            await indexed(editor);
+            // Every line matches. The lines from the cursor on hold fewer than the limit, so the walk wraps and
+            // stops at the limit on the top of the file: the lines between that stop and the cursor are not in.
+            const cursorLine = lines - 10_000;
+            editor.viewState.selections = [createCursorSelection(cursorLine, 0)];
+            find.open();
+            typeQuery(widget, "request");
+            await searchDone(widget);
+            const current = () => editor.viewState.searchMatches[editor.viewState.currentSearchMatchIndex];
+            expect(current().start.line).toBe(cursorLine);
+
+            find.prev();
+            // The previous match of the document is on the line above the cursor, as upstream's Shift+Enter gives.
+            expect(current().start.line).toBe(cursorLine - 1);
+            expect(editor.viewState.scrollTop).toBeLessThanOrEqual(cursorLine - 1);
+        });
+
+        it("the current match is the first after the cursor even when the index brings it in after the walk wrapped", async () => {
+            // A needle on line 1 (above the cursor) and one past the first chunk (below it, indexed later).
+            const body: string[] = [];
+            for (let i = 0; i < 90_000; i++) {
+                body.push(i === 1 || i === NEEDLE_LINE ? `${String(i)} ${LINE} needle` : `${String(i)} ${LINE}`);
+            }
+            fs.writeFileSync(ws.path("wrap.log"), body.join("\n") + "\n");
+            const opener = memoryFileOpener({ size: 32 * 1024 * 1024, gated: true });
+            const { find, widget, editor } = setup("wrap.log", opener);
+            expect(editor.lineCount).toBeLessThan(NEEDLE_LINE);
+            editor.viewState.selections = [createCursorSelection(10, 0)];
+            find.open();
+            typeQuery(widget, "needle");
+            await new Promise((resolve) => setTimeout(resolve, 300));
+            opener.opened[0].openGate();
+            await indexed(editor);
+            await searchDone(widget);
+
+            // Upstream's research picks the nearest match after the cursor: line 70 000, the second of two.
+            expect(counterText(widget)).toBe("2 of 2");
+            const current = editor.viewState.searchMatches[editor.viewState.currentSearchMatchIndex];
+            expect(current.start.line).toBe(NEEDLE_LINE);
+        });
+
+        it("F3 with the widget closed selects a match the walk finds past the first slice", async () => {
+            const { find, widget, editor } = setup();
+            await indexed(editor);
+            find.open();
+            typeQuery(widget, "needle");
+            await searchDone(widget);
+            find.close();
+            editor.viewState.selections = [createCursorSelection(0, 0)];
+
+            // F3: the needle is far past the first slice, the walk finds it in the background.
+            find.next();
+            await vi.waitFor(
+                () => {
+                    expect(editor.viewState.searchMatches).toHaveLength(1);
+                },
+                { timeout: 20_000, interval: 20 },
+            );
+            // As upstream's NextMatchFindAction: the match becomes the selection.
+            expect(editor.viewState.selections[0]).toMatchObject({
+                anchor: { line: NEEDLE_LINE },
+                active: { line: NEEDLE_LINE },
+            });
+        });
+    });
+
     describe("with the index held back (gated reads)", () => {
         function setupGated() {
             const opener = memoryFileOpener({ size: 32 * 1024 * 1024, gated: true });
