@@ -37,7 +37,7 @@ export default defineScenario({
         await editor.waitForText((t) => t.includes("033   [   Z 033   [   1   ;   5   D 033   [   1   5   ~  \\n"));
         await editor.capture("modified-keys");
 
-        await editor.sendText("printf '\\e[?1h'; echo app""-cursor; od -c");
+        await editor.sendText(`printf '\\e[?1h'; echo app""-cursor; od -c`);
         await editor.sendKey("Enter");
         await editor.waitForText((t) => t.includes("app-cursor"));
         await editor.sendKey("ArrowUp");

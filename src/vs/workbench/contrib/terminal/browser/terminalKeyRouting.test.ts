@@ -11,6 +11,11 @@ describe("shouldCommandSkipShell", () => {
         expect(shouldCommandSkipShell(SAVE, [])).toBe(false);
     });
 
+    it("ours: notifications.focusMessage (F6) is in the default set and can be removed", () => {
+        expect(shouldCommandSkipShell("notifications.focusMessage", [])).toBe(true);
+        expect(shouldCommandSkipShell("notifications.focusMessage", ["-notifications.focusMessage"])).toBe(false);
+    });
+
     it("`-<id>` removes a default, `<id>` adds a command", () => {
         expect(shouldCommandSkipShell(QUICK_OPEN, [`-${QUICK_OPEN}`])).toBe(false);
         expect(shouldCommandSkipShell(SAVE, [SAVE])).toBe(true);

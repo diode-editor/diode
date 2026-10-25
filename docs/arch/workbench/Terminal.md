@@ -125,6 +125,8 @@ node-pty на Unix — `pty.node` + бинарь `spawn-helper` (нужен то
 Skip-набор — `DEFAULT_COMMANDS_TO_SKIP_SHELL` эталона вместе с командами `terminalContrib`
 (`common/configuration/terminalCommandsToSkipShell.ts`, дословно, включая id, которых у нас нет) ±
 `terminal.integrated.commandsToSkipShell` (`-<id>` убирает). Настройки применяются на лету.
+**Отступление:** к набору добавлен наш `notifications.focusMessage` — у эталона F6 это `focusNextPart` из
+набора, а у нас F6 — единственный путь с клавиатуры к кнопкам тоста-вопроса (#856).
 **Отступление:** xterm.js нет — «терминал не кодирует» значит `TerminalViewElement.encodeKey(event) === ""`
 (tuidom, `encodeKeyForPty` в режиме DECCKM поверхности): такая клавиша (Ctrl+, , Ctrl+Shift+буква, Meta+стрелка)
 достаётся бинду редактора, как всплывший из xterm keydown. Сама кодировка — легаси xterm.js
