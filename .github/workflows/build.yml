@@ -63,13 +63,13 @@ jobs:
       # The build node version. For mode: selfextract keep it in lockstep with
       # NODE_VERSION in scripts/build-selfextract.mjs: that node goes into
       # the payload and becomes the user's runtime.
-      # An exact version, not a major: in a process started from a V8 snapshot (SEA `useSnapshot`)
+      # An exact version (.nvmrc), not a major: in a process started from a V8 snapshot (SEA `useSnapshot`)
       # node before 26.11 crashes a worker that uses `node:net`/`http`/`v8` (SIGABRT
       # `shutdown_wrap_template_.IsEmpty()`), and setup-node with a major may pick
       # an old 26.x from the runner's cache.
       - uses: actions/setup-node@v4
         with:
-          node-version: "26.12.0"
+          node-version-file: .nvmrc
 
       - run: npm install
 
