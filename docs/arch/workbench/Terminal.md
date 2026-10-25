@@ -125,8 +125,12 @@ node-pty на Unix — `pty.node` + бинарь `spawn-helper` (нужен то
 Skip-набор — `DEFAULT_COMMANDS_TO_SKIP_SHELL` эталона вместе с командами `terminalContrib`
 (`common/configuration/terminalCommandsToSkipShell.ts`, дословно, включая id, которых у нас нет) ±
 `terminal.integrated.commandsToSkipShell` (`-<id>` убирает). Настройки применяются на лету.
-**Отступление:** xterm.js нет — «терминал не кодирует» значит `encodeKeyForPty(event) === ""` (tuidom):
-такая клавиша (Ctrl+, , Ctrl+Shift+буква) достаётся бинду редактора, как всплывший из xterm keydown.
+**Отступление:** xterm.js нет — «терминал не кодирует» значит `TerminalViewElement.encodeKey(event) === ""`
+(tuidom, `encodeKeyForPty` в режиме DECCKM поверхности): такая клавиша (Ctrl+, , Ctrl+Shift+буква, Meta+стрелка)
+достаётся бинду редактора, как всплывший из xterm keydown. Сама кодировка — легаси xterm.js
+`evaluateKeyboardEvent` (#856): Shift+Tab → `CSI Z`, модификаторы в `CSI 1;<mod>X` у стрелок/Home/End/F-клавиш,
+F1–F12, в режиме application cursor keys (`XtermSurface.applicationCursorKeys` ← `term.modes`) голые стрелки —
+`SS3`. Kitty keyboard protocol для шелла не поддержан.
 Нет `TabFocus`-режима и Alt+F4 на Windows.
 
 ## Терминал задачи
