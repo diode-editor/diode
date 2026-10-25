@@ -1,7 +1,7 @@
 {
     "name": "tree-outline",
     "displayName": "Tree Outline",
-    "description": "E2E demo extension: a build-targets tree whose module extends vscode.TreeItem; a target's command shows a toast, Add Target fires onDidChangeTreeData.",
+    "description": "E2E demo extension: a build-targets tree whose module extends vscode.TreeItem; a target's command shows a toast, Add Target fires onDidChangeTreeData; view/item/context items by contextValue and an inline Edit on targets write the element they got to the Tree Outline output.",
     "version": "0.0.1",
     "publisher": "test",
     "main": "./extension.js",
@@ -17,8 +17,49 @@
             {
                 "command": "treeOutline.run",
                 "title": "Tree Outline: Run Target"
+            },
+            {
+                "command": "treeOutline.inspect",
+                "title": "Inspect Target"
+            },
+            {
+                "command": "treeOutline.build",
+                "title": "Build Package"
+            },
+            {
+                "command": "treeOutline.copyName",
+                "title": "Copy Name"
+            },
+            {
+                "command": "treeOutline.edit",
+                "title": "Edit Target",
+                "icon": "$(edit)"
             }
         ],
+        "menus": {
+            "view/item/context": [
+                {
+                    "command": "treeOutline.inspect",
+                    "when": "view == treeOutline.targets && viewItem == runTarget",
+                    "group": "navigation"
+                },
+                {
+                    "command": "treeOutline.build",
+                    "when": "view == treeOutline.targets && viewItem == package",
+                    "group": "navigation"
+                },
+                {
+                    "command": "treeOutline.copyName",
+                    "when": "view == treeOutline.targets && viewItem =~ /^(runTarget|package)$/",
+                    "group": "9_copy"
+                },
+                {
+                    "command": "treeOutline.edit",
+                    "when": "view == treeOutline.targets && viewItem == runTarget",
+                    "group": "inline"
+                }
+            ]
+        },
         "views": {
             "explorer": [
                 {

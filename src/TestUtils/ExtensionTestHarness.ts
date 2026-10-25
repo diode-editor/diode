@@ -183,6 +183,8 @@ export interface IExtensionHarnessOptions {
     readonly notificationSink?: INotificationSink;
     readonly workspaceFoldersSink?: IWorkspaceFoldersSink;
     readonly treeViewsSink?: IExtensionTreeViewsSink;
+    /** The workbench's registry, when its menus (a tree row's `view/item/context`) must see the extension's commands. */
+    readonly commandRegistry?: CommandRegistry;
     readonly editorDecorations?: IEditorDecorationsService;
     readonly fileDecorations?: IFileDecorationsService;
     readonly themeColorResolver?: IThemeColorResolver;
@@ -255,7 +257,7 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
         diskFileService(),
     );
     const adapter = new EditorOptionsServiceAdapter(group, group.editorGroups, workspaceEditService);
-    const commandRegistry = new CommandRegistry();
+    const commandRegistry = options.commandRegistry ?? new CommandRegistry();
     const commandAdapter = new CommandServiceAdapter(commandRegistry);
     const folders = (options.workspaceFolders ?? [tmpDir]).map((folder, index) =>
         typeof folder === "string" ? { uri: Uri.file(folder).toString(), name: path.basename(folder), index } : folder,

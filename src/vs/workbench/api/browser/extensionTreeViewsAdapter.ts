@@ -1,10 +1,19 @@
 import { codicon } from "../../../base/common/codicons.ts";
+import { Emitter } from "../../../base/common/event.ts";
 import { DisposableStore, type IDisposable } from "../../../base/common/lifecycle.ts";
 import { Uri } from "../../../base/common/uri.ts";
 import { MenuId } from "../../../platform/actions/common/menuId.ts";
-import type { MenuRegistry } from "../../../platform/actions/common/menuRegistry.ts";
+import type {
+    IMenuEntryGroup,
+    IResolvedMenuItemEntry,
+    MenuContextKeys,
+    MenuRegistry,
+} from "../../../platform/actions/common/menuRegistry.ts";
+import type { MenuService } from "../../../platform/actions/common/menuService.ts";
 import type { CommandRegistry } from "../../../platform/commands/common/commandRegistry.ts";
 import type { IConfigurationService } from "../../../platform/configuration/common/iConfigurationService.ts";
+import type { ContextKeyService } from "../../../platform/contextkey/common/contextKeyService.ts";
+import type { ContextMenuService } from "../../../platform/contextview/browser/contextMenuService.ts";
 import type { ILogger } from "../../../platform/log/common/iLogger.ts";
 import { type IProductIconService, NERD_FONT_ICONS } from "../../../platform/theme/common/productIconService.ts";
 import type { IWorkspaceContextService } from "../../../platform/workspace/common/iWorkspaceContextService.ts";
@@ -27,6 +36,11 @@ export interface IExtensionTreeViewsAdapterServices {
     readonly welcomes: Pick<ExtensionViewWelcomes, "setTree">;
     readonly commands: CommandRegistry;
     readonly menus: MenuRegistry;
+    /** `view/item/context` with its submenus, resolved per row. */
+    readonly menuService: Pick<MenuService, "getEntryGroups">;
+    readonly contextMenu: Pick<ContextMenuService, "showContextMenu">;
+    /** A change of a key a row's menu reads redraws the inline buttons. */
+    readonly contextKeys: Pick<ContextKeyService, "onDidChange">;
     readonly configuration: IConfigurationService;
     readonly workspace: IWorkspaceContextService;
     readonly colors: Pick<IThemeColorResolver, "resolve">;
@@ -54,9 +68,12 @@ export class ExtensionTreeViewsAdapter implements IExtensionTreeViewsSink, IDisp
     private readonly trees = new Map<string, IRegisteredTree>();
     private readonly store = new DisposableStore();
     private readonly host: IExtensionTreeViewHost;
+    private readonly onDidChangeItemMenu = new Emitter<void>();
+    /** An Output line once per command: the rows ask for the menu on every redraw. */
+    private readonly reportedCommands = new Set<string>();
 
     public constructor(private readonly services: IExtensionTreeViewsAdapterServices) {
-        const { views, configuration, workspace } = services;
+        const { views, configuration, workspace, menus, contextKeys } = services;
         this.host = {
             openOnSingleClick: () => configuration.get("workbench.list.openMode") !== "doubleClick",
             expandOnRowClick: () => configuration.get("workbench.tree.expandMode") !== "doubleClick",
@@ -67,8 +84,31 @@ export class ExtensionTreeViewsAdapter implements IExtensionTreeViewsSink, IDisp
             hasColor: (token) => typeof services.colors.resolve(token) === "number",
             relativeDirectory: (uri) => relativeDirectory(workspace, uri),
             icons: services.icons ?? NERD_FONT_ICONS,
+            itemMenu: (viewId, contextValue) => this.itemMenu(viewId, contextValue),
+            onDidChangeItemMenu: this.onDidChangeItemMenu.event,
+            showContextMenu: (owner, anchor, entries) => {
+                services.contextMenu.showContextMenu({
+                    getOwner: () => owner,
+                    getAnchor: () => anchor,
+                    getEntries: () => entries,
+                });
+            },
+            executeCommand: (id, args) => services.commands.execute(id, ...args),
             logger: services.logger,
         };
+        // Stryker disable next-line CallExpression: hygiene — the trees listening to it are disposed by `reset()` first
+        this.store.add(this.onDidChangeItemMenu);
+        this.store.add(
+            menus.onDidChangeMenu((menuId) => {
+                if (menuId === MenuId.ViewItemContext) this.onDidChangeItemMenu.fire();
+            }),
+        );
+        this.store.add(
+            contextKeys.onDidChange((changed) => {
+                const read = menus.getMenuContexts(MenuId.ViewItemContext);
+                if ([...changed].some((key) => read.has(key))) this.onDidChangeItemMenu.fire();
+            }),
+        );
         const sync = (): void => {
             this.syncVisibility();
         };
@@ -145,6 +185,32 @@ export class ExtensionTreeViewsAdapter implements IExtensionTreeViewsSink, IDisp
         this.reset();
         // Stryker disable next-line CallExpression: equivalent — after reset() there is no tree left for the view events to update
         this.store.dispose();
+    }
+
+    /**
+     * Upstream `TreeMenus`: the row's own `view` and `viewItem` over the global keys. Upstream skips an item of a
+     * command no extension declares when it reads the manifest; here the command may come later, so the row
+     * drops it until it exists.
+     */
+    private itemMenu(viewId: string, contextValue: string | undefined): IMenuEntryGroup[] {
+        const keys: MenuContextKeys =
+            // Stryker disable next-line ConditionalExpression: equivalent — an overlay key set to `undefined` reads as absent
+            contextValue === undefined ? { view: viewId } : { view: viewId, viewItem: contextValue };
+        return this.services.menuService.getEntryGroups(MenuId.ViewItemContext, undefined, keys).map((group) => ({
+            group: group.group,
+            entries: group.entries.filter((entry) => {
+                // A submenu has no `id` and stays as the registry resolved it.
+                const id = (entry as IResolvedMenuItemEntry).id;
+                if (id === undefined || this.services.commands.has(id)) return true;
+                if (!this.reportedCommands.has(id)) {
+                    this.reportedCommands.add(id);
+                    this.services.logger?.warn(
+                        `view/item/context: command "${id}" is not registered, its item is not shown`,
+                    );
+                }
+                return false;
+            }),
+        }));
     }
 
     private syncVisibility(): void {

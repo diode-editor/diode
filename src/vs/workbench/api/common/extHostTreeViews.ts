@@ -1,7 +1,12 @@
 import type * as vscode from "vscode";
 
 import type { SubprocessRpc } from "./extHostProtocol.ts";
-import type { IWireTreeItem, IWireTreeViewReveal, WireTreeItemCollapsibleState } from "./treeViewWireTypes.ts";
+import type {
+    IWireTreeItem,
+    IWireTreeItemHandleArg,
+    IWireTreeViewReveal,
+    WireTreeItemCollapsibleState,
+} from "./treeViewWireTypes.ts";
 import type { ExtensionOwner } from "./vscodeHostContext.ts";
 import { DisposableImpl, EventEmitter, MarkdownString, ThemeIcon, TreeItemCollapsibleState } from "./vscodeTypes.ts";
 
@@ -28,6 +33,11 @@ export const TREE_REFRESH_DELAY_MS = 200;
 export interface ITreeViewMembers {
     registerTreeDataProvider: <T>(viewId: string, treeDataProvider: vscode.TreeDataProvider<T>) => vscode.Disposable;
     createTreeView: <T>(viewId: string, options: vscode.TreeViewOptions<T>) => vscode.TreeView<T>;
+    /**
+     * Upstream's argument processor: a host command argument naming a row (or an array of them, the
+     * selection) becomes the provider's element; anything else passes through.
+     */
+    processArgument: (arg: unknown) => unknown;
 }
 
 export interface IExtHostTreeViewsOptions {
@@ -100,7 +110,18 @@ export function createExtHostTreeViews(rpc: SubprocessRpc, options: IExtHostTree
         });
     }
 
+    /** Upstream `_convertArgument`: a row the view no longer has, or a view that is gone, is `undefined`. */
+    const convertArgument = (arg: IWireTreeItemHandleArg): unknown =>
+        views.get(arg.$treeViewId)?.getExtensionElement(arg.$treeItemHandle);
+
     return {
+        processArgument: (arg) => {
+            if (isTreeItemHandleArg(arg)) return convertArgument(arg);
+            if (Array.isArray(arg)) {
+                return arg.map((entry: unknown) => (isTreeItemHandleArg(entry) ? convertArgument(entry) : entry));
+            }
+            return arg;
+        },
         registerTreeDataProvider: <T>(
             viewId: string,
             treeDataProvider: vscode.TreeDataProvider<T>,
@@ -213,6 +234,10 @@ class ExtHostTreeView<T> {
             return [];
         }
         return (parent.children ?? (await this.fetchChildren(parent))).map(itemOf);
+    }
+
+    public getExtensionElement(handle: string): T | undefined {
+        return this.byHandle.get(handle)?.element;
     }
 
     public async executeCommand(handle: string): Promise<void> {
@@ -484,6 +509,13 @@ class ExtHostTreeView<T> {
         this.disposed = true;
         this.dataSubscription?.dispose();
     }
+}
+
+/** Upstream `isTreeViewConvertableItem`, without `$focusedTreeItem` (`view/title` gets no row). */
+function isTreeItemHandleArg(arg: unknown): arg is IWireTreeItemHandleArg {
+    // `null` and `undefined` read as an empty object; a primitive has no such fields either.
+    const { $treeViewId, $treeItemHandle } = (arg ?? {}) as Partial<Record<keyof IWireTreeItemHandleArg, unknown>>;
+    return typeof $treeViewId === "string" && typeof $treeItemHandle === "string";
 }
 
 function itemOf<T>(node: ITreeNode<T>): IWireTreeItem {

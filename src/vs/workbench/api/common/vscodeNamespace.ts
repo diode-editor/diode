@@ -210,7 +210,13 @@ export function buildVscodeNamespace(rpc: SubprocessRpc, disk: IExtHostDisk): IV
         showTextDocument: (uri, options) => window.showTextDocument(uri, options),
         openExternal: (target) => env.openExternal(target),
     });
-    const commands = buildCommandsNamespace(rpc, () => window.activeTextEditor, ctx.owner, apiCommands);
+    const commands = buildCommandsNamespace(
+        rpc,
+        () => window.activeTextEditor,
+        ctx.owner,
+        apiCommands,
+        treeViews.processArgument,
+    );
     const { languages } = createLanguagesNamespace(ctx, {
         applyEdit: (edit, metadata) => workspace.applyEdit(edit, metadata),
         executeCommand: (command, ...args) => commands.executeCommand(command, ...args),

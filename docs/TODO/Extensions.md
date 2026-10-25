@@ -75,8 +75,9 @@
   activity bar); сейчас — в «⋯» заголовка.
 - [x] TreeView-API поверх RPC (`registerTreeDataProvider`/`createTreeView`, pull по handles как
   `extHostTreeViews` эталона, рендер в `TreeViewElement`) — #822. Хвосты: чекбоксы, drag and drop,
-  `resolveTreeItem`, tooltip, `TreeItemLabel.highlights`; меню пункта (`view/item/context`, inline) —
-  следующая задача цепочки.
+  `resolveTreeItem`, tooltip, `TreeItemLabel.highlights`.
+- [x] Меню пункта дерева расширения (`view/item/context`, inline-глифы, аргумент — объект провайдера,
+  мультивыбор) — #824. Хвост: `$focusedTreeItem` (`TreeViewPaneHandleArg`) для команд `view/title`.
 
 ## Магазин
 

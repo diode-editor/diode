@@ -9,6 +9,7 @@ import { Emitter } from "../../../base/common/event.ts";
 import type { IDisposable } from "../../../base/common/lifecycle.ts";
 import type { CommandRegistry } from "../../commands/common/commandRegistry.ts";
 import { CommandRegistryDIToken } from "../../commands/common/commandRegistry.ts";
+import { deserializeWhen, whenKeys } from "../../contextkey/common/contextKeyExpr.ts";
 import type { ContextKeyService, ContextKeySettableValue } from "../../contextkey/common/contextKeyService.ts";
 import { ContextKeyServiceDIToken } from "../../contextkey/common/contextKeyService.ts";
 import { token } from "../../instantiation/common/diContainer.ts";
@@ -203,6 +204,24 @@ export class MenuRegistry {
         keys?: MenuContextKeys,
     ): MenuEntry[] {
         return joinMenuGroups(this.getMenuItemGroups(menuId, context, resolveSubmenu, keys));
+    }
+
+    /**
+     * Upstream `menuService.getMenuContexts`: every key the menu's `when`, `enablement` and `toggled` read — a
+     * persistent rendering of the menu redraws only when one of them changes.
+     */
+    public getMenuContexts(menuId: MenuId): ReadonlySet<string> {
+        const keys = new Set<string>();
+        for (const item of this.items) {
+            if (item.menuId !== menuId) continue;
+            const conditions = isSubmenuContribution(item) ? [item.when] : [item.when, item.enablement, item.toggled];
+            for (const condition of conditions) {
+                // Stryker disable next-line ConditionalExpression: equivalent — a missing condition parses to no expression too
+                const expr = condition === undefined ? undefined : deserializeWhen(condition);
+                if (expr !== undefined) for (const key of whenKeys(expr)) keys.add(key);
+            }
+        }
+        return keys;
     }
 
     public getSubmenus(menuId: MenuId): ISubmenuEntry[] {

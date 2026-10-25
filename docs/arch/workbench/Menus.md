@@ -64,7 +64,7 @@ Format Selection, Refactor…, Source Action…) → `1_quickfix` (Quick Fix) �
 `registerExtensionMenus` (`services/extensions/common/extensionMenuContributor.ts`,
 аналог upstream `menusExtensionPoint.ts`) переводит строковые id точек VS Code
 (`editor/context`, `editor/title`, `explorer/context`, `scm/resourceState/context`,
-`view/title`, …) в наши `MenuId` и кладёт пункты в реестр через
+`view/title`, `view/item/context`, …) в наши `MenuId` и кладёт пункты в реестр через
 `appendMenuItem`. Разбор — как в эталоне: `group@order` → группа и порядок,
 `when` → when-выражение, `title` пункта перебивает титул команды, ключом
 `menus` может быть и собственное подменю расширения из `contributes.submenus`

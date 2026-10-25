@@ -677,7 +677,10 @@
   **выполняется в субпроцессе** (`vscode.commands.executeCommand` с её `arguments`): аргументы —
   объекты расширения, через провод они дошли бы копиями без прототипа (эталон делает то же через
   `_internal_command_delegation`); ошибка команды — reject запроса и тост на хосте. Кэш детей —
-  до refresh: `onDidChangeTreeData` чистит поддерево и идёт через debounce эталона (первое изменение
+  до refresh. Команда пункта `view/item/context` идёт обычным `commands.executeCommand` с аргументом
+  `{ $treeViewId, $treeItemHandle }` (массив таких — выделение): обработчик в субпроцессе пропускает
+  каждый аргумент через `processArgument` деревьев (argument processor эталона, `_convertArgument`) и
+  отдаёт команде объект провайдера; неизвестная строка или вид — `undefined`. `onDidChangeTreeData` чистит поддерево и идёт через debounce эталона (первое изменение
   сразу, следующие в окне 200 мс — одним запросом). Устаревший ответ провайдера (refresh пришёл, пока
   расширение отвечало) не регистрирует узлов. Хост: `TreeViewsCustomer` → порт
   `IExtensionTreeViewsSink` → `ExtensionTreeViewsAdapter` (`api/browser`), который ставит телом

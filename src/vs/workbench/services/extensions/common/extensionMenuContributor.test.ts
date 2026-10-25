@@ -139,6 +139,7 @@ describe("registerExtensionMenus", () => {
                     menus: {
                         "editor/context": [{ command: "ext.editor" }],
                         "explorer/context": [{ command: "ext.explorer" }],
+                        "view/item/context": [{ command: "ext.row", group: "inline" }],
                     },
                 }),
             ],
@@ -147,6 +148,7 @@ describe("registerExtensionMenus", () => {
 
         expect(labels(menus, MenuId.EditorContext)).toEqual(["In Editor"]);
         expect(labels(menus, MenuId.ExplorerContext)).toEqual(["In Explorer"]);
+        expect(menus.getMenuItemGroups(MenuId.ViewItemContext).map((group) => group.group)).toEqual(["inline"]);
     });
 
     it("unknown point — a log line, the extension's other items survive", () => {

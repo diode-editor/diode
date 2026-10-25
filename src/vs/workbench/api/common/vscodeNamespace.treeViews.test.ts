@@ -42,6 +42,23 @@ describe("tree views in the vscode namespace", () => {
         });
     });
 
+    it("a host command naming a row reaches the extension's command as the provider's element", async () => {
+        const stub = makeStubRpc();
+        const host = buildVscodeNamespace(stub.rpc, createNodeExtHostDisk());
+        const element = new TreeItem("row");
+        const seen: unknown[][] = [];
+        host.namespace.commands.registerCommand("ext.open", (...args: unknown[]) => seen.push(args));
+        host.namespace.window.registerTreeDataProvider("v", {
+            getTreeItem: (row: TreeItem) => row,
+            getChildren: () => [element],
+        });
+        await stub.callRequest("treeView.getChildren", { viewId: "v" });
+        const arg = { $treeViewId: "v", $treeItemHandle: "0/0:row" };
+        await stub.callRequest("commands.executeCommand", { id: "ext.open", args: [arg, [arg]] });
+        expect(seen).toEqual([[element, [element]]]);
+        expect(seen[0][0]).toBe(element);
+    });
+
     it("`window` alone sends a row's command to the host and names the owner", async () => {
         const stub = makeStubRpc();
         const registry = new DocumentRegistry();
