@@ -75,6 +75,13 @@ import {
 } from "./onSaveParticipants.ts";
 import { TextEditorConfiguration } from "./textEditorConfiguration.ts";
 import { TextEditorPaneBuilder, TextEditorPaneBuilderDIToken } from "./textEditorPaneBuilder.ts";
+import {
+    createInsertFinalNewlineOnSaveParticipant,
+    createTrimFinalNewlinesOnSaveParticipant,
+    createTrimWhitespaceOnSaveParticipant,
+    isWhitespaceSaveSettingOn,
+    type WhitespaceSaveSetting,
+} from "./whitespaceSaveParticipants.ts";
 
 const PREVIEW_SETTING_KEY = "workbench.editor.enablePreview";
 
@@ -247,10 +254,19 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
             languageFeatures,
             paneForUri: (uri) => this.textPanes().find((pane) => pane.uri.toString() === uri) ?? null,
         };
-        // The pipeline is assembled at save time from live settings; VS Code order:
-        // code actions → format → extensions' will-save.
+        // The pipeline is assembled at save time from live settings; VS Code order: trim whitespace →
+        // code actions → format → insert final newline → trim final newlines → extensions' will-save
+        // (the last one is ours: it stays at the end, as before).
         const codeActionsOnSave = createCodeActionsOnSaveParticipant(onSaveHost);
         const formatOnSave = createFormatOnSaveParticipant(onSaveHost);
+        // Off means no participant at all: the write stays in the same tick, no whole-file `getText()`.
+        const whenOn = (setting: WhitespaceSaveSetting, participant: SaveParticipant) => (model: TextFileModel) =>
+            isWhitespaceSaveSettingOn(configurationService, setting, model.languageId) ? participant : null;
+        this.register(
+            this.textFileModels.addSaveParticipant(
+                whenOn("files.trimTrailingWhitespace", createTrimWhitespaceOnSaveParticipant(onSaveHost)),
+            ),
+        );
         this.register(
             this.textFileModels.addSaveParticipant((model) =>
                 // The filter only saves a pass: without a provider and kinds the participant is a no-op anyway.
@@ -270,6 +286,16 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
                 configurationService.get("editor.formatOnSave", { overrideIdentifier: model.languageId })
                     ? formatOnSave
                     : null,
+            ),
+        );
+        this.register(
+            this.textFileModels.addSaveParticipant(
+                whenOn("files.insertFinalNewline", createInsertFinalNewlineOnSaveParticipant()),
+            ),
+        );
+        this.register(
+            this.textFileModels.addSaveParticipant(
+                whenOn("files.trimFinalNewlines", createTrimFinalNewlinesOnSaveParticipant()),
             ),
         );
         this.register(this.textFileModels.addSaveParticipant(() => this.saveParticipantValue ?? null));

@@ -63,6 +63,10 @@ const EXPECTED_SCOPES: Readonly<Record<string, ConfigurationScope>> = {
     "explorer.decorations.badges": "window",
 
     "files.autoSave": "language-overridable",
+    "files.trimTrailingWhitespace": "language-overridable",
+    "files.trimTrailingWhitespaceInRegexAndStrings": "language-overridable",
+    "files.insertFinalNewline": "language-overridable",
+    "files.trimFinalNewlines": "language-overridable",
     "files.enableTrash": "window",
     "files.refactoring.autoSave": "window",
     "files.exclude": "resource",

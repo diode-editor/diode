@@ -69,8 +69,7 @@ API (no-op провайдеры и наивные стабы) — [API-COVERAGE]
   `editor.defaultFormatter` языка; в проводе — личность провайдера (сейчас ядро видит только правки).
 - [ ] **Остальная система (отложено):** `editor.formatOnType` (отдельный шов: правка → запрос по
   строке), `editor.formatOnPaste`, `editor.formatOnSaveMode` (`file`/`modifications` — дифф против
-  git-версии в ядре есть), `files.trimTrailingWhitespace` / `insertFinalNewline` как участники
-  сохранения.
+  git-версии в ядре есть).
 - [ ] `Prettier: Create Configuration File` и `eslint.createConfig` упирались в отсутствие
   `showOpenDialog` и `createTerminal` — оба теперь есть: проверить живьём и снять пункт из
   `support.limits` записи prettier.
