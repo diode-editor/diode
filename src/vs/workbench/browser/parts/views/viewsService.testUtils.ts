@@ -12,6 +12,7 @@ import type { IContextMenuDelegate } from "../../../../platform/contextview/comm
 import { KeybindingRegistry } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import type { IStateDescriptor, IStateService } from "../../../../platform/state/common/iStateService.ts";
 import { NULL_STATE_SERVICE } from "../../../../platform/state/common/nullStateService.ts";
+import type { IProductIconService } from "../../../../platform/theme/common/productIconService.ts";
 import type { WorkspaceId } from "../../../../platform/workspace/common/iWorkspaceContextService.ts";
 import { WorkspaceContextService } from "../../../../platform/workspace/common/workspaceContextService.ts";
 import { AuxiliaryBarService } from "../auxiliarybar/auxiliaryBarService.ts";
@@ -51,7 +52,10 @@ export interface IViewsHarness {
     header(containerId: string): ViewContainerHeaderElement | null;
 }
 
-export function makeViewsHarness(contributions: readonly MenuContribution[] = []): IViewsHarness {
+export function makeViewsHarness(
+    contributions: readonly MenuContribution[] = [],
+    icons?: IProductIconService,
+): IViewsHarness {
     const registered = new Map<string, { view: TUIElement; focus: () => void }>();
     const shownViewlets: { id: string; reveal: boolean | undefined }[] = [];
     // The active viewlet decides whether ViewsService computes header buttons now or when shown.
@@ -136,6 +140,7 @@ export function makeViewsHarness(contributions: readonly MenuContribution[] = []
             workspace,
             commands,
             auxiliaryBarService,
+            icons,
         ),
         panelService,
         auxiliaryBarService,

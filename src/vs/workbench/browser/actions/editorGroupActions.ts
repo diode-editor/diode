@@ -1,3 +1,4 @@
+import { codicon } from "../../../base/common/codicons.ts";
 import type { CommandAction } from "../../../platform/actions/common/commandAction.ts";
 import { MenuId } from "../../../platform/actions/common/menuId.ts";
 import type { ServiceAccessor } from "../../../platform/instantiation/common/diContainer.ts";
@@ -317,8 +318,7 @@ export const joinAllGroupsAction: CommandAction = {
     },
 };
 
-/** nf-cod-lock. */
-const LOCK_ICON = "\uea75";
+const LOCK_ICON = codicon("lock");
 
 /** Upstream `CLOSE_ORDER - 1`: the unlock button sits at the right end of the title. */
 const UNLOCK_BUTTON_ORDER = 999_999;

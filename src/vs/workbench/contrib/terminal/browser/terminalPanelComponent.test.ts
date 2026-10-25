@@ -20,6 +20,7 @@ import type { TerminalSessionFactory } from "../common/terminalSessionFactory.ts
 import { makeTerminalColors } from "./terminalColorsService.testUtils.ts";
 import { TerminalPanelComponent } from "./terminalPanelComponent.ts";
 import { TERMINAL_VIEW_ID, TerminalService } from "./terminalService.ts";
+import { createPlainTerminalWidget } from "./terminalWidgetFactory.ts";
 
 function buildHarness(settings: Readonly<Record<string, unknown>> = {}) {
     const themeService = new ThemeService(WorkbenchTheme.fromThemeFile(darkPlusTheme));
@@ -53,6 +54,7 @@ function buildHarness(settings: Readonly<Record<string, unknown>> = {}) {
         contextMenu,
         commands,
         colors,
+        createPlainTerminalWidget,
     );
     const testApp = TestApp.createWithContent(panelComponent.view, new Size(70, 12));
     const dispose = (): void => {
@@ -240,6 +242,7 @@ describe("TerminalPanelComponent", () => {
             {} as ContextMenuService,
             new CommandRegistry(),
             makeTerminalColors(themeService, configuration).colors,
+            createPlainTerminalWidget,
         );
 
         expect(views.paneView(TERMINAL_VIEW_ID).querySelectorAll("TerminalViewElement")).toHaveLength(1);

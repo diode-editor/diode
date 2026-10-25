@@ -14,6 +14,7 @@ import { TerminalColorsServiceDIToken } from "./terminalColorsService.ts";
 import { TerminalEditorPane } from "./terminalEditorPane.ts";
 import type { ITerminalCreateOptions, ITerminalInstance, TerminalService } from "./terminalService.ts";
 import { TerminalServiceDIToken } from "./terminalService.ts";
+import { type TerminalWidgetFactory, TerminalWidgetFactoryDIToken } from "./terminalWidgetFactory.ts";
 
 /** No column — the active group; `preserveFocus` — without taking focus or changing the active group. */
 export interface ITerminalEditorLocation {
@@ -30,7 +31,12 @@ export interface ITerminalEditorLocation {
  * activated one last ({@link TerminalService.getActiveInstanceAcrossHosts}).
  */
 export class TerminalEditorService extends Disposable implements IContextKeyContributor {
-    public static dependencies = [TerminalServiceDIToken, EditorServiceDIToken, TerminalColorsServiceDIToken] as const;
+    public static dependencies = [
+        TerminalServiceDIToken,
+        EditorServiceDIToken,
+        TerminalColorsServiceDIToken,
+        TerminalWidgetFactoryDIToken,
+    ] as const;
 
     private readonly panes = new Map<number, TerminalEditorPane>();
 
@@ -38,6 +44,7 @@ export class TerminalEditorService extends Disposable implements IContextKeyCont
         private readonly terminals: TerminalService,
         private readonly editors: IEditorService,
         private readonly colors: TerminalColorsService,
+        private readonly createWidget: TerminalWidgetFactory,
     ) {
         super();
         this.register(
@@ -134,7 +141,7 @@ export class TerminalEditorService extends Disposable implements IContextKeyCont
         const previous = groups.activeGroup;
         const group = location.group ?? columnToEditorGroup(groups, location.viewColumn ?? ACTIVE_GROUP);
         const focus = location.preserveFocus !== true;
-        const pane = new TerminalEditorPane(instance, this.colors.colors);
+        const pane = new TerminalEditorPane(instance, this.colors.colors, this.createWidget(instance));
         this.panes.set(instance.id, pane);
         // `closePane` removes the tab from `panes` — on the instance removal that
         // the close itself triggers.

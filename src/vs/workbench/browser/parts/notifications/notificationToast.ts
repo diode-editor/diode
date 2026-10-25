@@ -5,7 +5,7 @@ import { wrapText } from "@tuidom/elements/completionlist/completionDetailsEleme
 import { HFlexElement, hflexFill, hflexFit, hflexFixed } from "@tuidom/elements/layout/hFlexElement";
 import { TextLabelElement } from "@tuidom/elements/text/textLabelElement";
 
-import { renderCodicons } from "../../../../base/common/codicons.ts";
+import { type IProductIconService, NERD_FONT_ICONS } from "../../../../platform/theme/common/productIconService.ts";
 import type {
     IActiveNotification,
     NotificationSeverity,
@@ -69,13 +69,17 @@ export class NotificationToast extends DialogComponent {
     private hint: TextLabelElement | null = null;
     private readonly unfocusedHint: string;
 
-    public constructor(notification: IActiveNotification, answerKeyLabel?: string) {
+    public constructor(
+        notification: IActiveNotification,
+        answerKeyLabel?: string,
+        icons: IProductIconService = NERD_FONT_ICONS,
+    ) {
         super(TOAST_ELEMENT_ID);
         this.notification = notification;
         this.unfocusedHint = toastUnfocusedHint(answerKeyLabel);
 
         const header = SEVERITY_HEADERS[notification.severity];
-        const stack = this.buildFrame(renderCodicons(header.title), header.fg);
+        const stack = this.buildFrame(icons.renderCodicons(header.title), header.fg);
 
         for (const line of toastLines(notification.message)) {
             stack.addChild(new TextLabelElement(line), { width: "stretch", height: 1 });

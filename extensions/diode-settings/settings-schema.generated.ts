@@ -15,6 +15,14 @@ export interface ISettingSchemaEntry {
 
 export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
     {
+        key: "diode.icons.nerdFont",
+        type: "string",
+        default: "auto",
+        description:
+            "Controls whether icons are drawn with Nerd Font glyphs. Use `off` when the terminal font has no Nerd Font symbols: icons fall back to plain Unicode characters and file icons are hidden.",
+        enum: ["auto", "on", "off"],
+    },
+    {
         key: "diode.lsp.typescript.enabled",
         type: "boolean",
         default: true,
@@ -514,6 +522,14 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
         default: "view",
         description: "Controls where newly created terminals will appear.",
         enum: ["editor", "view"],
+    },
+    {
+        key: "terminal.integrated.enableFileLinks",
+        type: "string",
+        default: "on",
+        description:
+            "Whether to enable file links in terminals. Links can be slow when working on a network drive in particular because each file link is verified against the file system. Changing this will take effect only in new terminals.",
+        enum: ["off", "on", "notRemote"],
     },
     {
         key: "terminal.integrated.hideOnLastClosed",

@@ -3,6 +3,11 @@ import type { IEnvironmentService } from "../../../../platform/environment/commo
 import { IEnvironmentServiceDIToken } from "../../../../platform/environment/common/environment.ts";
 import { type IFileService, IFileServiceDIToken } from "../../../../platform/files/common/files.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
+import {
+    type IProductIconService,
+    NERD_FONT_ICONS,
+    ProductIconServiceDIToken,
+} from "../../../../platform/theme/common/productIconService.ts";
 import type { IWorkspaceContextService } from "../../../../platform/workspace/common/iWorkspaceContextService.ts";
 import { IWorkspaceContextServiceDIToken } from "../../../../platform/workspace/common/iWorkspaceContextServiceDIToken.ts";
 import type { QuickInputService } from "../../../browser/parts/quickinput/quickInputService.ts";
@@ -27,6 +32,7 @@ export class FileDialogService implements IFileDialogService {
         IFileServiceDIToken,
         IEnvironmentServiceDIToken,
         IWorkspaceContextServiceDIToken,
+        ProductIconServiceDIToken,
     ] as const;
 
     public constructor(
@@ -34,6 +40,7 @@ export class FileDialogService implements IFileDialogService {
         private readonly files: IFileService,
         private readonly environment: IEnvironmentService,
         private readonly workspace: IWorkspaceContextService,
+        private readonly icons: IProductIconService = NERD_FONT_ICONS,
     ) {}
 
     public showOpenDialog(options?: IOpenDialogOptions): Promise<Uri[] | undefined> {
@@ -47,9 +54,14 @@ export class FileDialogService implements IFileDialogService {
     /** The dialog is single-use: each show has its own typing and loading state. */
     private createDialog(): SimpleFileDialog {
         const userHome = this.environment.userHome;
-        return new SimpleFileDialog(this.quickInput, this.files, {
-            userHome,
-            defaultFolder: () => this.workspace.getWorkspace().folders.at(0)?.uri.fsPath ?? userHome,
-        });
+        return new SimpleFileDialog(
+            this.quickInput,
+            this.files,
+            {
+                userHome,
+                defaultFolder: () => this.workspace.getWorkspace().folders.at(0)?.uri.fsPath ?? userHome,
+            },
+            this.icons,
+        );
     }
 }

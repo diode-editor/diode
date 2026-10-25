@@ -1,8 +1,7 @@
 // Our picker has no group separators: the group label is a hint on the group's first
 // row, where upstream draws the separator label.
-
-import { renderCodicons } from "../../../../base/common/codicons.ts";
 import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
+import { type IProductIconService, NERD_FONT_ICONS } from "../../../../platform/theme/common/productIconService.ts";
 import type { QuickInputService } from "../../../browser/parts/quickinput/quickInputService.ts";
 import { compareTasks, type IConfiguringTask, type ITask } from "../common/tasks.ts";
 
@@ -44,19 +43,21 @@ export async function pickTaskToRun(
     quickInput: QuickInputService,
     configuration: IConfigurationService,
     startAtType?: string,
+    icons: IProductIconService = NERD_FONT_ICONS,
 ): Promise<ITask | null | undefined> {
-    if (startAtType !== undefined) return pickFromLevels(service, quickInput, startAtType);
+    if (startAtType !== undefined) return pickFromLevels(service, quickInput, icons, startAtType);
     const configured = await configuredTasks(service);
     if (configured.tasks.length + configured.configuring.length === 1 && configuration.get("task.quickOpen.skip")) {
         const single = configured.configuring.at(0);
         return single === undefined ? configured.tasks[0] : service.resolveConfiguringTask(single);
     }
-    return pickFromLevels(service, quickInput, undefined, configured);
+    return pickFromLevels(service, quickInput, icons, undefined, configured);
 }
 
 async function pickFromLevels(
     service: TaskService,
     quickInput: QuickInputService,
+    icons: IProductIconService,
     type: string | undefined,
     configured?: IConfiguredTasks,
 ): Promise<ITask | null | undefined> {
@@ -64,7 +65,7 @@ async function pickFromLevels(
     for (;;) {
         const entry =
             level === undefined
-                ? await pick(quickInput, await firstLevel(service, configured))
+                ? await pick(quickInput, await firstLevel(service, icons, configured))
                 : await pick(quickInput, await secondLevel(service, level));
         if (entry === undefined) return undefined;
         if (entry.task !== undefined) return entry.task;
@@ -84,19 +85,23 @@ async function pick(
     return (await quickInput.quickPick({ placeholder: RUN_TASK_PLACEHOLDER, items })) as IRunTaskEntry | undefined;
 }
 
-async function firstLevel(service: TaskService, configured?: IConfiguredTasks): Promise<IRunTaskEntry[]> {
+async function firstLevel(
+    service: TaskService,
+    icons: IProductIconService,
+    configured?: IConfiguredTasks,
+): Promise<IRunTaskEntry[]> {
     const { tasks, configuring } = configured ?? (await configuredTasks(service));
     const configuredEntries: IRunTaskEntry[] = [
         ...service.taskEntries(tasks),
         ...configuring.map((entry) => ({ label: entry._label, configuring: entry })),
     ].sort((a, b) => a.label.localeCompare(b.label));
     if (configuredEntries.length === 0)
-        configuredEntries.push({ label: renderCodicons(CONFIGURE_A_TASK), configure: true });
+        configuredEntries.push({ label: icons.renderCodicons(CONFIGURE_A_TASK), configure: true });
     const entries: IRunTaskEntry[] = withGroupLabel(configuredEntries, "configured");
     const types = service.taskTypes();
     if (types.length > 0) {
         const typeEntries: IRunTaskEntry[] = types.map((type) => ({
-            label: renderCodicons(`$(folder) ${type}`),
+            label: icons.renderCodicons(`$(folder) ${type}`),
             type,
         }));
         entries.push(...withGroupLabel(typeEntries, "contributed"), { label: SHOW_ALL_TASKS, showAll: true });

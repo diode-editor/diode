@@ -19,6 +19,7 @@ import { ThemeService } from "../../../services/themes/common/themeService.ts";
 import { makeTerminalColors } from "./terminalColorsService.testUtils.ts";
 import { TerminalPanelComponent } from "./terminalPanelComponent.ts";
 import { TERMINAL_VIEW_ID, TerminalService } from "./terminalService.ts";
+import { createPlainTerminalWidget } from "./terminalWidgetFactory.ts";
 
 const DARK = WorkbenchTheme.fromThemeFile(darkPlusTheme);
 const LIGHT = WorkbenchTheme.fromThemeFile(lightPlusTheme);
@@ -52,6 +53,7 @@ function buildHarness(settings: Readonly<Record<string, unknown>> = {}) {
         {} as ContextMenuService,
         new CommandRegistry(),
         colors,
+        createPlainTerminalWidget,
     );
     const testApp = TestApp.createWithContent(panelComponent.view, new Size(70, 12));
     const widget = (): TUIElement => views.paneView(TERMINAL_VIEW_ID).querySelectorAll("TerminalViewElement")[0];

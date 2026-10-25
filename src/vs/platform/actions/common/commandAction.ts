@@ -1,3 +1,4 @@
+import type { IProductIcon } from "../../../base/common/codicons.ts";
 import type { IDisposable } from "../../../base/common/lifecycle.ts";
 import type { CommandRegistry } from "../../commands/common/commandRegistry.ts";
 import { ContextKeyServiceDIToken } from "../../contextkey/common/contextKeyService.ts";
@@ -27,7 +28,8 @@ export interface CommandMenuPlacement {
     readonly toggled?: string;
     readonly group?: string;
     readonly order?: number;
-    readonly icon?: string;
+    /** A product icon follows `diode.icons.nerdFont`; a plain string is a literal. */
+    readonly icon?: IProductIcon | string;
     readonly args?: (context: unknown) => readonly unknown[];
     /** `false` hides the shortcut; a string is a literal; otherwise it comes from `KeybindingRegistry`. */
     readonly shortcut?: string | false;

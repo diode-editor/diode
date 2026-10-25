@@ -78,6 +78,8 @@ const EXPECTED_SCOPES: Readonly<Record<string, ConfigurationScope>> = {
 
     "terminal.tier": "machine",
     "keyboard.platform": "machine",
+    // The font of the terminal Diode runs in, like `terminal.integrated.colorSource`.
+    "diode.icons.nerdFont": "application",
     "terminal.capabilities": "machine",
     "terminal.modes": "machine",
     "terminal.customModes": "window",
@@ -87,6 +89,7 @@ const EXPECTED_SCOPES: Readonly<Record<string, ConfigurationScope>> = {
     "terminal.integrated.tabs.location": "window",
     "terminal.integrated.tabs.focusMode": "window",
     "terminal.integrated.hideOnLastClosed": "window",
+    "terminal.integrated.enableFileLinks": "window",
     "terminal.integrated.defaultLocation": "window",
     "terminal.integrated.sendKeybindingsToShell": "window",
     "terminal.integrated.commandsToSkipShell": "window",

@@ -26,6 +26,11 @@ import { ContextMenuServiceDIToken } from "../../../../platform/contextview/brow
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { IStateService } from "../../../../platform/state/common/iStateService.ts";
 import { StateServiceDIToken } from "../../../../platform/state/common/iStateService.ts";
+import {
+    type IProductIconService,
+    NERD_FONT_ICONS,
+    ProductIconServiceDIToken,
+} from "../../../../platform/theme/common/productIconService.ts";
 import type { IWorkspaceContextService } from "../../../../platform/workspace/common/iWorkspaceContextService.ts";
 import { IWorkspaceContextServiceDIToken } from "../../../../platform/workspace/common/iWorkspaceContextServiceDIToken.ts";
 import {
@@ -261,6 +266,7 @@ export class ViewsService implements IContextKeyContributor {
         IWorkspaceContextServiceDIToken,
         CommandRegistryDIToken,
         AuxiliaryBarServiceDIToken,
+        ProductIconServiceDIToken,
     ] as const;
 
     private readonly containers = new Map<string, ContainerEntry>();
@@ -289,7 +295,16 @@ export class ViewsService implements IContextKeyContributor {
         private readonly workspaceContext: IWorkspaceContextService,
         private readonly commands: CommandRegistry,
         private readonly auxiliaryBarService: AuxiliaryBarService,
+        private readonly icons: IProductIconService = NERD_FONT_ICONS,
     ) {
+        // Chevrons are drawn by the headers; inline button glyphs come with the next title actions resolve.
+        icons.onDidChange(() => {
+            for (const entry of this.containers.values()) {
+                entry.paneView?.setNerdFont(icons.nerdFont);
+                entry.header?.setNerdFont(icons.nerdFont);
+            }
+            this.refreshTitleActions();
+        });
         // The service is a per-window singleton: there is nobody to dispose the subscription.
         workspaceContext.onDidChangeWorkspaceFolders(() => {
             this.refreshWorkspaceGatedViews();
@@ -575,6 +590,7 @@ export class ViewsService implements IContextKeyContributor {
     private buildContainer(entry: AttachedEntryDescriptor): void {
         const containerId = entry.descriptor.id;
         const paneView = new PaneViewElement();
+        paneView.setNerdFont(this.icons.nerdFont);
         // Dots in the container id become dashes: inspector/e2e selectors don't
         // support them (`workbench.panel.output` → `#viewContainer-workbench-panel-output`).
         const domId = containerId.replaceAll(".", "-");
@@ -602,6 +618,7 @@ export class ViewsService implements IContextKeyContributor {
         const tabbed = this.isTabbed(entry);
         const header = new ViewContainerHeaderElement(tabbed ? "" : containerTitle(entry));
         header.id = `viewContainerHeader-${domId}`;
+        header.setNerdFont(this.icons.nerdFont);
         header.onMenu = (anchor) => {
             this.contextMenuService.showContextMenu({
                 getOwner: () => header,

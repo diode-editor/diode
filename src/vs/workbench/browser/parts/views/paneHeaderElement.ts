@@ -114,6 +114,10 @@ export class PaneHeaderElement extends TUIElement {
         this.row.setDescription(description);
     }
 
+    public setNerdFont(nerdFont: boolean): void {
+        this.row.setNerdFont(nerdFont);
+    }
+
     public setSwitcher(enabled: boolean): void {
         this.row.setSwitcher(enabled);
     }

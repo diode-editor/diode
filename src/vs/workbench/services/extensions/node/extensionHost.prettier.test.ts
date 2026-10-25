@@ -26,8 +26,9 @@ import { formatDocumentAction, formatSelectionAction } from "../../../contrib/fo
 import { type StatusBarService, StatusBarServiceDIToken } from "../../../services/statusbar/common/statusBarService.ts";
 import { EditorServiceDIToken } from "../../editor/common/editorService.ts";
 
-// Subprocess WITHOUT tsx (`subprocessLoader: "node"`): the extension is ESM, and the tsx hook
-// sends `import … from "vscode"` to the CJS resolver, hiding the real load path.
+// The subprocess runs under tsx, like `npm start`; prettier is ESM and the tsx hook sends
+// `import … from "vscode"` to the CJS resolver, so the real ESM load path is proven on the
+// built binary by e2e/prettierFormat.test.ts, not here.
 let installed: IInstalledPrettier;
 
 function registerFormatActions(harness: {
@@ -57,7 +58,6 @@ async function harnessWith(file: {
     content: string;
 }): Promise<Awaited<ReturnType<typeof createExtensionTestHarness>>> {
     return createExtensionTestHarness({
-        subprocessLoader: "node",
         languageService: PRETTIER_LANGUAGE_SERVICE,
         initialFile: file,
         extensions: [installed.registration],

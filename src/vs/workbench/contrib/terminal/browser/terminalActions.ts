@@ -1,3 +1,4 @@
+import { codicon } from "../../../../base/common/codicons.ts";
 import type { CommandAction } from "../../../../platform/actions/common/commandAction.ts";
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import { IConfigurationServiceDIToken } from "../../../../platform/configuration/common/iConfigurationServiceDIToken.ts";
@@ -27,9 +28,8 @@ import { SWITCH_TERMINAL_SHOW_TABS, terminalIndexedLabel } from "./terminalTabsL
 /** Tiers where Ctrl+symbol is encoded unambiguously (in legacy, Ctrl+` is NUL). */
 const MODERN_TIER = "tier == 'kitty' || tier == 'csi-u'";
 
-/** `$(plus)` / `$(trash)`. */
-const PLUS_ICON = "";
-const TRASH_ICON = "";
+const PLUS_ICON = codicon("plus");
+const TRASH_ICON = codicon("trash");
 
 /** Doesn't wake the lazy spawn; the view opens where it is, like upstream `showPanel`. */
 function showTerminalView(accessor: ServiceAccessor): void {

@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 import { DEFAULT_COLOR } from "@tuidom/core/common/colorUtils";
 import type { GridSnapshot } from "@tuidom/core/rendering/gridSnapshot";
 
+import { CODICON_UNICODE } from "../../src/vs/base/common/codiconsUnicode.ts";
 import { SPINNER_FRAMES } from "../../src/vs/platform/progress/common/progressService.ts";
 import { BUNDLED_FONT_FILES, renderSnapshotToPng } from "./renderScreenshot.ts";
 
@@ -66,6 +67,13 @@ describe("screenshot rasterizer", () => {
     it("vendored fonts cover every spinner frame", () => {
         const covered = BUNDLED_FONT_FILES.map(fontCodePoints);
         const missing = SPINNER_FRAMES.filter((frame) => !covered.some((set) => set.has(frame.codePointAt(0)!)));
+        expect(missing).toEqual([]);
+    });
+
+    it("vendored fonts cover every Unicode icon fallback (diode.icons.nerdFont: off)", () => {
+        const covered = BUNDLED_FONT_FILES.map(fontCodePoints);
+        const chars = [...new Set(Object.values(CODICON_UNICODE))].filter((char) => char !== undefined);
+        const missing = chars.filter((char) => !covered.some((set) => set.has(char.codePointAt(0)!)));
         expect(missing).toEqual([]);
     });
 

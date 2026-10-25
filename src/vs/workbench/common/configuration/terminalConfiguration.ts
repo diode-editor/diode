@@ -21,6 +21,20 @@ export const terminalConfiguration = {
             description:
                 'Keyboard platform: "auto" detects it (LC_DIODE_PLATFORM, the terminal, the local OS); set it when detection guesses wrong, e.g. over ssh from a Mac.',
         },
+        // Ours: vscode ships its codicon font. The `null` of `workbench.iconTheme` is the nearest upstream analogue.
+        "diode.icons.nerdFont": {
+            scope: "application",
+            type: "string",
+            default: "auto",
+            enum: ["auto", "on", "off"],
+            enumDescriptions: [
+                "Use Nerd Font glyphs unless the terminal is known to lack them (the Linux console).",
+                "Always use Nerd Font glyphs.",
+                "Never use Nerd Font glyphs.",
+            ],
+            description:
+                "Controls whether icons are drawn with Nerd Font glyphs. Use `off` when the terminal font has no Nerd Font symbols: icons fall back to plain Unicode characters and file icons are hidden.",
+        },
         "terminal.capabilities": {
             scope: "machine",
             type: "object",
@@ -143,6 +157,16 @@ export const terminalConfiguration = {
             default: false,
             description:
                 "Whether to allow menubar mnemonics (for example Alt+F) to trigger the open of the menubar. Note that this will cause all alt keystrokes to skip the shell when true. This does nothing on macOS.",
+        },
+        // There is no remote here: "notRemote" behaves as "on".
+        "terminal.integrated.enableFileLinks": {
+            scope: "window",
+            type: "string",
+            default: "on",
+            enum: ["off", "on", "notRemote"],
+            enumDescriptions: ["Always off.", "Always on.", "Enable only when not in a remote workspace."],
+            description:
+                "Whether to enable file links in terminals. Links can be slow when working on a network drive in particular because each file link is verified against the file system. Changing this will take effect only in new terminals.",
         },
         // Ours: vscode has no host terminal, and its integrated one always takes colors from the theme (our "theme" default).
         "terminal.integrated.colorSource": {

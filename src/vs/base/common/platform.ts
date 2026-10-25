@@ -22,3 +22,17 @@ export function setTimeout0(callback: () => void): void {
         }
     });
 }
+
+// A const object, not upstream's `const enum`: erasable syntax only.
+export const OperatingSystem = {
+    Windows: 1,
+    Macintosh: 2,
+    Linux: 3,
+} as const;
+export type OperatingSystem = (typeof OperatingSystem)[keyof typeof OperatingSystem];
+
+/** Upstream's `OS` is a module-level constant: reading `process.platform` there would break the V8 snapshot. */
+export function currentOperatingSystem(): OperatingSystem {
+    if (process.platform === "win32") return OperatingSystem.Windows;
+    return process.platform === "darwin" ? OperatingSystem.Macintosh : OperatingSystem.Linux;
+}

@@ -18,6 +18,8 @@ import {
     keybindingLabelStyle,
     KeybindingRegistryDIToken,
 } from "../../keybinding/common/keybindingRegistry.ts";
+import type { IProductIconService } from "../../theme/common/productIconService.ts";
+import { NERD_FONT_ICONS, ProductIconServiceDIToken } from "../../theme/common/productIconService.ts";
 
 import type { IMenuContribution, ISubmenuContribution, MenuContribution } from "./iMenuContribution.ts";
 import { isSubmenuContribution, MenuContributionsDIToken } from "./iMenuContribution.ts";
@@ -100,6 +102,7 @@ export class MenuRegistry {
         KeybindingRegistryDIToken,
         ContextKeyServiceDIToken,
         MenuContributionsDIToken,
+        ProductIconServiceDIToken,
     ] as const;
 
     private readonly items: MenuContribution[];
@@ -110,6 +113,7 @@ export class MenuRegistry {
         private readonly keybindings: KeybindingRegistry,
         private readonly contextKeys: ContextKeyService,
         contributions: readonly MenuContribution[],
+        private readonly icons: IProductIconService = NERD_FONT_ICONS,
     ) {
         this.items = [...contributions];
     }
@@ -232,21 +236,26 @@ export class MenuRegistry {
         // Captured at resolve time, like VS Code when opening a popup; inline buttons
         // do not go stale: their groups are re-resolved both on click and on context change.
         const enabled = item.enablement === undefined || this.contextKeys.evaluate(item.enablement, keys);
+        // Stryker disable next-line ConditionalExpression: equivalent — an absent `toggled` evaluates to false, the icon stays the item's
+        const toggled = item.toggled !== undefined && this.contextKeys.evaluate(item.toggled, keys);
         return {
             label,
             id: item.command,
             enabled,
             disabled: !enabled,
             shortcut: this.resolveShortcut(item),
-            // Stryker disable next-line ConditionalExpression: equivalent — an absent `toggled` evaluates to false, the icon stays the item's
-            icon:
-                item.toggled !== undefined && this.contextKeys.evaluate(item.toggled, keys) ? CHECKED_ICON : item.icon,
+            icon: toggled ? CHECKED_ICON : this.iconOf(item),
             onSelect: () => {
                 // A contribution may point to an extension command that has no guard of its own.
                 if (!enabled) return;
                 this.commands.execute(item.command, ...resolvedArgs);
             },
         };
+    }
+
+    /** Resolved per call, like the rest of the entry: a glyph set switch shows on the next resolve. */
+    private iconOf(item: IMenuContribution): string | undefined {
+        return item.icon === undefined ? undefined : this.icons.glyph(item.icon);
     }
 
     private resolveShortcut(item: IMenuContribution): string | undefined {

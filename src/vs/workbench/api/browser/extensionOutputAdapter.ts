@@ -1,6 +1,6 @@
-import { renderCodicons } from "../../../base/common/codicons.ts";
 import type { ILogger } from "../../../platform/log/common/iLogger.ts";
 import type { ILogService } from "../../../platform/log/common/iLogService.ts";
+import { type IProductIconService, NERD_FONT_ICONS } from "../../../platform/theme/common/productIconService.ts";
 import type { IOutputChannelRegistry } from "../../services/output/common/output.ts";
 import type { OutputService } from "../../services/output/common/outputService.ts";
 import type { IOutputSink } from "../common/iExtensionWindowSinks.ts";
@@ -18,6 +18,7 @@ export class ExtensionOutputAdapter implements IOutputSink {
         private readonly logService: ILogService,
         private readonly outputService: OutputService,
         private readonly revealPanel: () => void,
+        private readonly icons: IProductIconService = NERD_FONT_ICONS,
     ) {}
 
     public append(channel: string, label: string, level: WireOutputLevel, value: string): void {
@@ -34,7 +35,7 @@ export class ExtensionOutputAdapter implements IOutputSink {
     private loggerFor(channel: string, label: string): ILogger {
         let logger = this.loggers.get(channel);
         if (logger === undefined) {
-            this.registry.registerChannel({ id: channel, label: renderCodicons(label) });
+            this.registry.registerChannel({ id: channel, label: this.icons.renderCodicons(label) });
             logger = this.logService.createLogger(channel);
             this.loggers.set(channel, logger);
         }

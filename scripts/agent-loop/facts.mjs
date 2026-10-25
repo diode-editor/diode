@@ -2,8 +2,8 @@
 /**
  * One JSON with everything a /dispatch tick needs to decide: machine load, limits and the
  * resulting `canStart` verdict, task tmux sessions, issues in progress (with claim time and
- * whether their session is alive), the ordered queue of ready issues, status files and
- * worktrees. The skill reads it, decides by text rules, and acts through the sibling scripts.
+ * whether their session is alive), the ordered queue of ready issues (with `sessionAlive` for
+ * one that is in fact running here under the wrong label), status files and worktrees. The skill reads it, decides by text rules, and acts through the sibling scripts.
  *
  *   node scripts/agent-loop/facts.mjs            full JSON
  *   node scripts/agent-loop/facts.mjs --brief    machine + verdict + queue heads only
@@ -20,6 +20,7 @@ import {
     gh,
     ghJson,
     git,
+    latestHandoff,
     loopHome,
     nowIso,
     parseFlags,
@@ -85,8 +86,15 @@ function sessions() {
         .map((s) => ({ ...s, task: Number(s.name.slice(5)), windows: tmuxWindows(s.name).map((w) => w.name) }));
 }
 
+/**
+ * The claim that owns the task now: the first one after the last hand-off (`returned:` /
+ * `requeued:`). Claims of earlier runs belong to those runs — counting the age from the very
+ * first claim made a resumed task look expired minutes after it was resumed.
+ */
 function claimOf(comments) {
+    const handoff = latestHandoff(comments);
     const claims = comments
+        .slice(handoff === undefined ? 0 : handoff.index + 1)
         .map((c) => ({ m: /^claim:\s*(\S+)\s+(\S+)/m.exec(c.body ?? ""), createdAt: c.createdAt }))
         .filter((c) => c.m !== null)
         .map((c) => ({ host: c.m[1], at: c.m[2], commentedAt: c.createdAt }));
@@ -102,7 +110,7 @@ function statuses(task) {
     return out;
 }
 
-function inProgress(lim) {
+function inProgress(lim, hostname) {
     const issues = ghJson([
         "issue",
         "list",
@@ -123,12 +131,17 @@ function inProgress(lim) {
         const session = sessionName(i.number);
         const alive = tmuxHasSession(session);
         const windows = alive ? tmuxWindows(session).map((w) => w.name) : [];
+        // Dispatchers run on several machines: a task claimed elsewhere has its session there,
+        // so `sessionAlive: false` means nothing here. Only its owner sweeps a task; an expired
+        // one is swept by anyone, because an owner that is gone for good would never do it.
+        const mine = claim === undefined || claim.host === hostname;
         return {
             number: i.number,
             title: i.title,
             url: i.url,
             labels: i.labels.map((l) => l.name),
             claim,
+            mine,
             takenAt,
             ageHours: ageHours === undefined ? undefined : Math.round(ageHours * 10) / 10,
             expired: ageHours !== undefined && ageHours > lim.taskTimeoutHours,
@@ -166,7 +179,7 @@ function blockers(issue, repo) {
     return { blockedBy: list, blocked: list.some((b) => b.state !== "closed") };
 }
 
-function queue() {
+function queue(sess) {
     const repo = ghJson(["repo", "view", "--json", "nameWithOwner"]).nameWithOwner;
     const issues = ghJson([
         "issue",
@@ -182,22 +195,31 @@ function queue() {
     ]);
     const eligible = issues
         .map((i) => ({ ...i, labels: i.labels.map((l) => l.name) }))
-        .filter((i) => !i.labels.includes(LABELS.inProgress) && !i.labels.includes(LABELS.returned))
+        .filter((i) => !i.labels.includes(LABELS.inProgress) && !i.labels.includes(LABELS.returned));
+    const remoteBranches = git(["ls-remote", "--heads", HTTPS_ORIGIN, "issue/*"]).stdout;
+    const all = eligible
+        .map((i) => ({
+            number: i.number,
+            title: i.title,
+            url: i.url,
+            labels: i.labels,
+            createdAt: i.createdAt,
+            branch: branchName(i.number),
+            // A branch on origin: the task was in the loop before and start-task.mjs resumes it.
+            branchExists: new RegExp(`\\srefs/heads/${branchName(i.number)}(\\s|$)`).test(remoteBranches),
+            // A live `task-<N>` session on this host under a `ready to implement` label: the task is
+            // running and only mislabelled (a mistaken sweep elsewhere) — reclaim-task.mjs, not start.
+            sessionAlive: sess.some((s) => s.task === i.number),
+            sessionSince: sess.find((s) => s.task === i.number)?.createdAt,
+            ...blockers(i, repo),
+        }))
+        // Finishing what is half done comes before starting anew; then bugs; then the oldest.
         .sort((a, b) => {
+            const resume = Number(b.branchExists) - Number(a.branchExists);
+            if (resume !== 0) return resume;
             const bug = Number(b.labels.includes(LABELS.bug)) - Number(a.labels.includes(LABELS.bug));
             return bug !== 0 ? bug : a.createdAt.localeCompare(b.createdAt);
         });
-    const remoteBranches = git(["ls-remote", "--heads", HTTPS_ORIGIN, "issue/*"]).stdout;
-    const all = eligible.map((i) => ({
-        number: i.number,
-        title: i.title,
-        url: i.url,
-        labels: i.labels,
-        createdAt: i.createdAt,
-        branch: branchName(i.number),
-        branchExists: new RegExp(`\\srefs/heads/${branchName(i.number)}(\\s|$)`).test(remoteBranches),
-        ...blockers(i, repo),
-    }));
     return { queue: all.filter((i) => !i.blocked), blocked: all.filter((i) => i.blocked) };
 }
 
@@ -227,8 +249,8 @@ const facts = {
     limits: lim,
     verdict: { canStart: reasons.length === 0, runningTasks: running, reasons },
     sessions: sess,
-    inProgress: inProgress(lim),
-    ...queue(),
+    inProgress: inProgress(lim, m.hostname),
+    ...queue(sess),
     taskDirs: taskDirs(),
     worktrees: worktrees(),
 };

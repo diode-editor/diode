@@ -16,8 +16,10 @@ import {
     type IScmFileRowParts,
     type IScmRowStyles,
     OPEN_FILE_BUTTON_WIDTH,
-    OPEN_FILE_GLYPH,
+    OPEN_FILE_ICON,
 } from "./scmChangeRows.ts";
+
+const OPEN_FILE_GLYPH = OPEN_FILE_ICON.nerdFont;
 
 const MODIFIED = packRgb(226, 192, 141);
 const STYLES: IScmRowStyles = {

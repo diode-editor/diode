@@ -1,21 +1,32 @@
+import type { IProductIcon } from "../../../../base/common/codicons.ts";
 import { Disposable } from "../../../../base/common/lifecycle.ts";
 import type { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
 import { CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
+import {
+    type IProductIconService,
+    NERD_FONT_ICONS,
+    ProductIconServiceDIToken,
+} from "../../../../platform/theme/common/productIconService.ts";
 import type { IStatusBarEntryHandle, StatusBarService } from "../../../services/statusbar/common/statusBarService.ts";
 import { StatusBarServiceDIToken } from "../../../services/statusbar/common/statusBarService.ts";
 
 import type { ScmRepoStateService } from "./repoStateService.ts";
 import { ScmRepoStateServiceDIToken } from "./repoStateService.ts";
 
-/** nf-dev-git_branch. */
-export const BRANCH_GLYPH = "";
+/** nf-dev-git_branch, as before the Unicode fallback (not the codicon). */
+export const BRANCH_ICON: IProductIcon = { nerdFont: "\ue725", unicode: "\u2387" }; // ⎇
 
 export const ScmStatusBarContributionDIToken = token<ScmStatusBarContribution>("ScmStatusBarContribution");
 
 /** Appears with the first repo-state publish — only in a git repository. */
 export class ScmStatusBarContribution extends Disposable {
-    public static dependencies = [StatusBarServiceDIToken, ScmRepoStateServiceDIToken, CommandRegistryDIToken] as const;
+    public static dependencies = [
+        StatusBarServiceDIToken,
+        ScmRepoStateServiceDIToken,
+        CommandRegistryDIToken,
+        ProductIconServiceDIToken,
+    ] as const;
 
     private branchHandle: IStatusBarEntryHandle | null = null;
     private syncHandle: IStatusBarEntryHandle | null = null;
@@ -24,8 +35,14 @@ export class ScmStatusBarContribution extends Disposable {
         private readonly statusBar: StatusBarService,
         private readonly repoState: ScmRepoStateService,
         private readonly commands: CommandRegistry,
+        private readonly icons: IProductIconService = NERD_FONT_ICONS,
     ) {
         super();
+        this.register(
+            icons.onDidChange(() => {
+                this.update();
+            }),
+        );
         this.register(
             repoState.onDidChangeState(() => {
                 this.update();
@@ -46,7 +63,7 @@ export class ScmStatusBarContribution extends Disposable {
 
         const branchLabel = state.detached ? "detached" : (state.branch ?? "unborn");
         const opSuffix = state.state === "idle" ? "" : ` (${state.state})`;
-        const branchText = `${BRANCH_GLYPH} ${branchLabel}${opSuffix}`;
+        const branchText = `${this.icons.glyph(BRANCH_ICON)} ${branchLabel}${opSuffix}`;
         if (this.branchHandle === null) {
             this.branchHandle = this.statusBar.addEntry({
                 id: "status.scm.branch",
