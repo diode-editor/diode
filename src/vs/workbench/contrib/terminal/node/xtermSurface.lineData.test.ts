@@ -58,6 +58,15 @@ describe("XtermSurface — output lines (onLineData)", () => {
         session.dispose();
     });
 
+    it("a wide character that does not fit wraps and leaves its cell blank in the line, as upstream", async () => {
+        const { session, lines } = make(10);
+        session.feed("abcdefghi中x\r\n");
+        await vi.waitFor(() => {
+            expect(lines).toStrictEqual(["abcdefghi 中x"]);
+        });
+        session.dispose();
+    });
+
     it("the unterminated last line is reported on exit, before the exit event", async () => {
         const { session, lines, exits } = make();
         session.feed("first\r\nlast without newline");

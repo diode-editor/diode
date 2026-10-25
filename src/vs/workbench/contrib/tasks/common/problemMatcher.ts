@@ -482,6 +482,7 @@ abstract class AbstractLineMatcher {
 
     /** A captured severity by name or letter (hint and note are info), else the matcher's, else error. */
     private getSeverity(data: IProblemData): MarkerSeverity {
+        // Stryker disable next-line StringLiteral: equivalent: no severity name, letter or hint/note is that text either
         const value = data.severity ?? "";
         const captured =
             severityFromValue(value) ??
@@ -545,6 +546,7 @@ function toRange(startLine: number, startColumn: number, endLine: number, endCol
     return createRange(
         line - 1,
         column - 1,
+        // Stryker disable next-line EqualityOperator: equivalent: at endLine === line both branches give line
         (endLine >= line ? endLine : line) - 1,
         (endColumn > 0 ? endColumn : column) - 1,
     );
@@ -685,6 +687,7 @@ function createSinglePattern(value: Json, setDefaults: boolean, report: ProblemR
 }
 
 function validatePattern(values: readonly IProblemPattern[], report: ProblemReporter): boolean {
+    // Stryker disable next-line StringLiteral: equivalent: both callers set the first kind before validating
     const locationKind = values[0].kind ?? "location";
     if (values.slice(1).some((pattern) => pattern.kind !== undefined)) {
         report("The problem pattern is invalid. The kind property must be provided only in the first element");
@@ -782,6 +785,7 @@ function fileLocationOf(value: unknown): IFileLocation {
         return { fileLocation: kind };
     }
     if (isStringArray(value)) {
+        // Stryker disable next-line StringLiteral: equivalent: an empty array finds no kind under any key
         const kind = FILE_LOCATIONS.get(value.at(0)?.toLowerCase() ?? "");
         if (value.length === 1 && kind === "absolute") return { fileLocation: kind };
         if (value.length === 2 && (kind === "relative" || kind === "autoDetect") && value[1] !== "") {

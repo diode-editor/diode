@@ -67,6 +67,7 @@ export class EmbeddedTerminalSession extends XtermSurface {
     /** Upstream `_closeTimeout`: the process exited, its output may still be arriving. */
     private closeTimeout: ReturnType<typeof setTimeout> | undefined;
     /** The pty reported the exit: its fd is closed (a resize would throw EBADF), though the session waits for output. */
+    // Stryker disable next-line BooleanLiteral: spawn() in the constructor resets it before any read.
     private ptyExited = false;
     // Stryker disable next-line StringLiteral: spawn() in the constructor overwrites it before any read.
     private initialCwd = "";

@@ -682,6 +682,22 @@ describe("line matchers — edges", () => {
         const result = await matchLines(matcher, ["F /a", "L 1 C1 one", "L 2 two"]);
         expect(result.map((f) => f.code)).toStrictEqual(["C1", undefined]);
     });
+
+    it("a property keeps the first line's capture; a later line without a message adds none", async () => {
+        const matcher = simple({
+            pattern: [
+                { regexp: /^F (\S+) (.*)$/, kind: "location", file: 1, message: 2 },
+                { regexp: /^G (\S+):(\d+)$/, file: 1, line: 2 },
+            ],
+        });
+        expect(await matchLines(matcher, ["F /a head", "G /b:3"])).toStrictEqual([
+            { resource: "/a", severity: MarkerSeverity.Error, range: [2, 0, 2, WHOLE_LINE], message: "head" },
+        ]);
+    });
+
+    it("a single-line matcher never loops", () => {
+        expect(createLineMatcher(simple(), NO_FILES).next("/a:1:2 m")).toBeNull();
+    });
 });
 
 describe("getResource — file names to resources", () => {
@@ -741,7 +757,8 @@ describe("getResource — file names to resources", () => {
                 } as unknown as IFileStatWithChildren),
         };
         const search = matcher({ fileLocation: "search", filePrefix: { include: "/ws" } });
-        expect((await getResource("/abs/a.ts", search, files)).fsPath).toBe("/abs/a.ts");
+        // Not found: the name as an absolute path.
+        expect((await getResource("a.ts", search, files)).fsPath).toBe("/a.ts");
     });
 
     it("search: a directory whose name ends with the file name is not the file", async () => {
@@ -837,6 +854,29 @@ describe("problem matchers — captures, severities, locations", () => {
         expect((await matchLines(matcher, ["/a 2:-9 m"])).map((f) => f.range)).toStrictEqual([[1, 0, 1, WHOLE_LINE]]);
     });
 
+    it("an end line without an end column is a point at the start", async () => {
+        const matcher = inline({
+            regexp: "^(\\S+) (\\d+):(\\d+)-(\\d+) (.*)$",
+            file: 1,
+            line: 2,
+            column: 3,
+            endLine: 4,
+            message: 5,
+        });
+        expect((await matchLines(matcher, ["/a 2:3-5 m"])).map((f) => f.range)).toStrictEqual([[1, 2, 1, 2]]);
+    });
+
+    it("kind file reports the whole file even with a line capture", async () => {
+        const matcher = inline({ regexp: "^(\\S+):(\\d+) (.*)$", kind: "file", file: 1, line: 2, message: 3 });
+        expect((await matchLines(matcher, ["/a:5 m"])).map((f) => f.range)).toStrictEqual([[0, 0, 0, 0]]);
+    });
+
+    it("a null pattern element is a missing regular expression, not a crash", () => {
+        const problems: string[] = [];
+        expect(parseProblemPattern([null], (message) => problems.push(message))).toBeUndefined();
+        expect(problems).toStrictEqual(["The problem pattern is missing a regular expression."]);
+    });
+
     it("a multi-line problem whose line capture is empty is no match", async () => {
         const matcher = inline([
             { regexp: "^F (.*)$", file: 1 },
@@ -899,6 +939,46 @@ describe("problem matchers — captures, severities, locations", () => {
         });
         const fileOnly = parseProblemPattern({ regexp: "x", kind: "file" }, () => undefined) as IProblemPattern;
         expect([fileOnly.line, fileOnly.file, fileOnly.message]).toStrictEqual([undefined, 1, 0]);
+    });
+
+    it("pattern defaults: a location group gets no line and column groups", () => {
+        const pattern = parseProblemPattern({ regexp: "x", location: 2 }, () => undefined) as IProblemPattern;
+        expect([pattern.location, pattern.line, pattern.character]).toStrictEqual([2, undefined, undefined]);
+    });
+
+    it("fileLocation strings: relative gets the folder, absolute gets no prefix", () => {
+        const pattern = { regexp: "^(.*)$", kind: "file", message: 1 };
+        const location = (fileLocation: unknown) => {
+            const matcher = parse({ owner: "o", pattern, fileLocation }).matcher;
+            return [matcher?.fileLocation, matcher?.filePrefix];
+        };
+        expect(location("relative")).toStrictEqual(["relative", "${workspaceFolder}"]);
+        expect(location("absolute")).toStrictEqual(["absolute", undefined]);
+    });
+
+    it("search args: an include or exclude that is not a string or string array is dropped", () => {
+        const pattern = { regexp: "^(.*)$", kind: "file", message: 1 };
+        expect(
+            parse({ owner: "o", pattern, fileLocation: ["search", { include: 5, exclude: [1] }] }).matcher?.filePrefix,
+        ).toStrictEqual({ include: undefined, exclude: undefined });
+    });
+
+    it("an empty severity is none and not reported; a non-string source is none", () => {
+        const pattern = { regexp: "^(.*)$", kind: "file", message: 1 };
+        const { matcher, problems } = parse({ owner: "o", pattern, severity: "", source: 5 });
+        expect(problems).toStrictEqual([]);
+        expect([matcher?.severity, matcher?.source]).toStrictEqual([undefined, undefined]);
+    });
+
+    it("an empty pattern is reported once, as a matcher that can't be converted", () => {
+        const { problems } = parse({ owner: "o", pattern: "" });
+        expect(problems).toHaveLength(1);
+        expect(problems[0]).toMatch(/^Error: the description can't be converted into a problem matcher/);
+    });
+
+    it("base: a name without $ is no base; an unknown fileLocation and no applyTo keep the base's", () => {
+        expect(parse({ base: "xgulp-tsc" }).matcher).toBeUndefined();
+        expect(parse({ base: "$gulp-tsc", fileLocation: "nonsense" }).matcher).toStrictEqual(builtin("gulp-tsc"));
     });
 
     it("base: an empty source or a non-string severity keeps the base's", () => {
