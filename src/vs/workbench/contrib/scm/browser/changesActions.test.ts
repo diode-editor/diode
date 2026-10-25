@@ -189,13 +189,21 @@ describe("scm.action.openChanges", () => {
     it("an explicit uri wins over the cursor row; the group picks that uri's entry", async () => {
         const merged = entry("/a.txt", "merge");
         const staged = entry("/a.txt", "index");
-        const h = openChangesHarness([merged, staged], entry("/b.txt", "index"));
+        const h = openChangesHarness([entry("/other.txt", "index"), merged, staged], entry("/b.txt", "index"));
 
         await scmOpenChangesAction.run(h.accessor, staged.uri.toString(), "index");
 
         // The index entry asks git for the index; the merge entry would open the file without asking.
         expect(h.requested).toEqual([`/a.txt@~`]);
         expect((h.editors.openUri.mock.calls[0][0] as Uri).path).toBe("/a.txt");
+    });
+
+    it("a uri without a group takes its first entry in the change set", async () => {
+        const h = openChangesHarness([entry("/other.txt", "merge"), entry("/a.txt", "index")], null);
+
+        await scmOpenChangesAction.run(h.accessor, Uri.file("/a.txt").toString());
+
+        expect(h.requested).toEqual([`/a.txt@~`]);
     });
 
     it("a group with no entry for the uri falls back to comparing with HEAD", async () => {
