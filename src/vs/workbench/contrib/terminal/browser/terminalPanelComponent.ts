@@ -1,6 +1,6 @@
 import type { TUIElement } from "@tuidom/core/dom/tuiElement";
 import { type ISelectOptionItem, SelectBoxElement } from "@tuidom/elements/selectbox/selectBoxElement";
-import { TerminalViewElement } from "@tuidom/elements/terminal/terminalViewElement";
+import type { TerminalViewElement } from "@tuidom/elements/terminal/terminalViewElement";
 import { TextLabelElement } from "@tuidom/elements/text/textLabelElement";
 
 import { Disposable } from "../../../../base/common/lifecycle.ts";
@@ -37,6 +37,7 @@ import {
     terminalTabLabel,
     TerminalTabsList,
 } from "./terminalTabsList.ts";
+import { type TerminalWidgetFactory, TerminalWidgetFactoryDIToken } from "./terminalWidgetFactory.ts";
 
 /** Where to return focus when the last terminal leaves; `EditorService` fits structurally. */
 export interface ITerminalFocusFallback {
@@ -69,6 +70,7 @@ export class TerminalPanelComponent extends Disposable implements IContextKeyCon
         ContextMenuServiceDIToken,
         CommandRegistryDIToken,
         TerminalColorsServiceDIToken,
+        TerminalWidgetFactoryDIToken,
         ProductIconServiceDIToken,
     ] as const;
 
@@ -91,6 +93,7 @@ export class TerminalPanelComponent extends Disposable implements IContextKeyCon
         private readonly contextMenuService: ContextMenuService,
         private readonly commands: CommandRegistry,
         private readonly colors: TerminalColorsService,
+        private readonly createWidget: TerminalWidgetFactory,
         private readonly icons: IProductIconService = NERD_FONT_ICONS,
     ) {
         super();
@@ -201,7 +204,7 @@ export class TerminalPanelComponent extends Disposable implements IContextKeyCon
     }
 
     private handleOpen(instance: ITerminalInstance): void {
-        const widget = new TerminalViewElement(instance.session);
+        const widget = this.createWidget(instance);
         applyTerminalColors(instance, widget, this.colors.colors);
         this.widgets.set(instance.id, widget);
     }

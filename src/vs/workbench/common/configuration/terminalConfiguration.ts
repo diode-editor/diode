@@ -158,6 +158,16 @@ export const terminalConfiguration = {
             description:
                 "Whether to allow menubar mnemonics (for example Alt+F) to trigger the open of the menubar. Note that this will cause all alt keystrokes to skip the shell when true. This does nothing on macOS.",
         },
+        // There is no remote here: "notRemote" behaves as "on".
+        "terminal.integrated.enableFileLinks": {
+            scope: "window",
+            type: "string",
+            default: "on",
+            enum: ["off", "on", "notRemote"],
+            enumDescriptions: ["Always off.", "Always on.", "Enable only when not in a remote workspace."],
+            description:
+                "Whether to enable file links in terminals. Links can be slow when working on a network drive in particular because each file link is verified against the file system. Changing this will take effect only in new terminals.",
+        },
         // Ours: vscode has no host terminal, and its integrated one always takes colors from the theme (our "theme" default).
         "terminal.integrated.colorSource": {
             scope: "application",
