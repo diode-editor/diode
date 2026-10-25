@@ -9,6 +9,7 @@ import { Uri } from "../../../base/common/uri.ts";
 import { MenuId } from "../../../platform/actions/common/menuId.ts";
 import { ConfigurationRegistry } from "../../../platform/configuration/common/configurationRegistry.ts";
 import { InMemoryConfigurationService } from "../../../platform/configuration/common/inMemoryConfigurationService.ts";
+import { ContextKeyService } from "../../../platform/contextkey/common/contextKeyService.ts";
 import type { ILogger } from "../../../platform/log/common/iLogger.ts";
 import { computeThemeVars } from "../../../platform/theme/browser/themeStyleVars.ts";
 import {
@@ -22,6 +23,7 @@ import type { IExtensionTreeDataSource } from "../common/iExtensionTreeViewsSink
 import type { IWireTreeItem } from "../common/treeViewWireTypes.ts";
 
 import { ExtensionTreeViewsAdapter } from "./extensionTreeViewsAdapter.ts";
+import { ExtensionViewWelcomes } from "./extensionViewWelcomes.ts";
 
 const VIEW = "ext.targets";
 
@@ -91,6 +93,9 @@ function setup(
     const logger = { warn: (message: string) => warnings.push(message), error: () => undefined } as unknown as ILogger;
     const adapter = new ExtensionTreeViewsAdapter({
         views: h.service,
+        welcomes: new ExtensionViewWelcomes(h.service, new ContextKeyService(), h.commands, {
+            open: () => Promise.resolve(false),
+        }),
         commands: h.commands,
         menus: h.menuRegistry,
         configuration: new InMemoryConfigurationService(new ConfigurationRegistry(), options.settings ?? {}),

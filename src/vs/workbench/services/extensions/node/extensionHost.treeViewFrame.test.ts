@@ -10,8 +10,10 @@ import { TestApp } from "../../../../../TestUtils/TestApp.ts";
 import { settle, waitUntil } from "../../../../../TestUtils/timing.ts";
 import { ConfigurationRegistry } from "../../../../platform/configuration/common/configurationRegistry.ts";
 import { InMemoryConfigurationService } from "../../../../platform/configuration/common/inMemoryConfigurationService.ts";
+import { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import type { ILogger } from "../../../../platform/log/common/iLogger.ts";
 import { ExtensionTreeViewsAdapter } from "../../../api/browser/extensionTreeViewsAdapter.ts";
+import { ExtensionViewWelcomes } from "../../../api/browser/extensionViewWelcomes.ts";
 import { makeViewsHarness, testView } from "../../../browser/parts/views/viewsService.testUtils.ts";
 
 const VIEW = "test.rootFail";
@@ -39,6 +41,9 @@ describe("ExtensionHost — extension tree view in the frame", () => {
         } as unknown as ILogger;
         const adapter = new ExtensionTreeViewsAdapter({
             views: h.service,
+            welcomes: new ExtensionViewWelcomes(h.service, new ContextKeyService(), h.commands, {
+                open: () => Promise.resolve(false),
+            }),
             commands: h.commands,
             menus: h.menuRegistry,
             configuration: new InMemoryConfigurationService(new ConfigurationRegistry()),

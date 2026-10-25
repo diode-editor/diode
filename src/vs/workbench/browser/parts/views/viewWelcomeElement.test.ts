@@ -21,8 +21,12 @@ function make(blocks: readonly IViewWelcomeBlock[] = EXPLORER_WELCOME): {
     readonly ran: { command: string; args: readonly unknown[] }[];
 } {
     const ran: { command: string; args: readonly unknown[] }[] = [];
-    const welcome = new ViewWelcomeElement(blocks, (command, args) => {
-        ran.push({ command, args });
+    const welcome = new ViewWelcomeElement(blocks, (target) => {
+        ran.push(
+            "command" in target
+                ? { command: target.command, args: target.args ?? [] }
+                : { command: target.url, args: [] },
+        );
     });
     return { welcome, ran };
 }

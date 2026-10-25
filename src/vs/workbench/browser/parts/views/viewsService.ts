@@ -1479,8 +1479,9 @@ export class ViewsService implements IContextKeyContributor {
         if (placeholder === undefined || typeof placeholder === "string") {
             return createViewPlaceholder(placeholder ?? "");
         }
-        return new ViewWelcomeElement(placeholder, (command, args) => {
-            this.commands.execute(command, ...args);
+        // Built-in empty states only name commands; URLs are an extension's (`ExtensionViewWelcomes`).
+        return new ViewWelcomeElement(placeholder, (target) => {
+            if ("command" in target) this.commands.execute(target.command, ...(target.args ?? []));
         });
     }
 

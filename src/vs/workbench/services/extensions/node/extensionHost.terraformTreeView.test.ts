@@ -19,6 +19,7 @@ import { ConfigurationRegistry } from "../../../../platform/configuration/common
 import { InMemoryConfigurationService } from "../../../../platform/configuration/common/inMemoryConfigurationService.ts";
 import type { IExtensionManifest } from "../../../../platform/extensions/common/iExtensionManifest.ts";
 import { ExtensionTreeViewsAdapter } from "../../../api/browser/extensionTreeViewsAdapter.ts";
+import { ExtensionViewWelcomes } from "../../../api/browser/extensionViewWelcomes.ts";
 import { registerExtensionViews } from "../../../api/browser/viewsExtensionPoint.ts";
 import { makeViewsHarness } from "../../../browser/parts/views/viewsService.testUtils.ts";
 import { SetContextCommandContribution } from "../../../browser/setContextCommandContribution.ts";
@@ -109,6 +110,9 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — stock hashicorp.terrafor
             const errors: string[] = [];
             const adapter = new ExtensionTreeViewsAdapter({
                 views: views.service,
+                welcomes: new ExtensionViewWelcomes(views.service, views.contextKeys, views.commands, {
+                    open: () => Promise.resolve(false),
+                }),
                 commands: views.commands,
                 menus: views.menuRegistry,
                 configuration: new InMemoryConfigurationService(new ConfigurationRegistry()),
