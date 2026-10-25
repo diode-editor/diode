@@ -2,8 +2,8 @@
 /**
  * One JSON with everything a /dispatch tick needs to decide: machine load, limits and the
  * resulting `canStart` verdict, task tmux sessions, issues in progress (with claim time and
- * whether their session is alive), the ordered queue of ready issues, status files and
- * worktrees. The skill reads it, decides by text rules, and acts through the sibling scripts.
+ * whether their session is alive), the ordered queue of ready issues (with `sessionAlive` for
+ * one that is in fact running here under the wrong label), status files and worktrees. The skill reads it, decides by text rules, and acts through the sibling scripts.
  *
  *   node scripts/agent-loop/facts.mjs            full JSON
  *   node scripts/agent-loop/facts.mjs --brief    machine + verdict + queue heads only
@@ -179,7 +179,7 @@ function blockers(issue, repo) {
     return { blockedBy: list, blocked: list.some((b) => b.state !== "closed") };
 }
 
-function queue() {
+function queue(sess) {
     const repo = ghJson(["repo", "view", "--json", "nameWithOwner"]).nameWithOwner;
     const issues = ghJson([
         "issue",
@@ -207,6 +207,10 @@ function queue() {
             branch: branchName(i.number),
             // A branch on origin: the task was in the loop before and start-task.mjs resumes it.
             branchExists: new RegExp(`\\srefs/heads/${branchName(i.number)}(\\s|$)`).test(remoteBranches),
+            // A live `task-<N>` session on this host under a `ready to implement` label: the task is
+            // running and only mislabelled (a mistaken sweep elsewhere) — reclaim-task.mjs, not start.
+            sessionAlive: sess.some((s) => s.task === i.number),
+            sessionSince: sess.find((s) => s.task === i.number)?.createdAt,
             ...blockers(i, repo),
         }))
         // Finishing what is half done comes before starting anew; then bugs; then the oldest.
@@ -246,7 +250,7 @@ const facts = {
     verdict: { canStart: reasons.length === 0, runningTasks: running, reasons },
     sessions: sess,
     inProgress: inProgress(lim, m.hostname),
-    ...queue(),
+    ...queue(sess),
     taskDirs: taskDirs(),
     worktrees: worktrees(),
 };

@@ -69,6 +69,9 @@ ready to implement ──start-task──▶ in progress ──PR влит (Clos
   (`returned:`/`requeued:`): его время — начало отсчёта таймаута задачи, его хост — хозяин
   задачи. Только хозяин сворачивает задачу по пропавшей сессии (`mine` в `facts.mjs`), чужую
   сворачивает кто угодно, но лишь просроченную. Claim'ы прошлых заходов к текущему не относятся.
+  Если у задачи с меткой `ready to implement` на машине жива её сессия `task-<N>` (чужой диспатчер
+  или человек сменили метку у работающей задачи), диспатчер этой машины возвращает ей
+  `in progress` свежим claim'ом (`reclaim-task.mjs`), а не запускает второй раз.
 - Ветка `issue/<N>` с открытым PR уже на origin — задача **возобновляется** (ниже). Ветка без
   PR — `returned` с объяснением: продолжать нечего, человек прибирает ветку.
 - `returned`: комментарий с причиной, id сессий и хвостами всех панелей (`<details>` по окнам),
@@ -172,6 +175,7 @@ tuidom (тег `vX.Y.Z` на влитом `release: X.Y.Z`, затем ждёт 
 | `dispatch.sh`                                                  | внешний цикл: pull → `/dispatch` → пауза; Enter/q                                                        |
 | `facts.mjs`                                                    | JSON фактов для тика: машина, лимиты, вердикт, сессии, in progress, очередь, worktree                    |
 | `start-task.mjs --issue N`                                     | claim, метки, каталог задачи, `tmux new-session task-N` с менеджером; ветка с PR — `resume.json`         |
+| `reclaim-task.mjs --issue N [--dry-run]`                       | живой на этой машине задаче с меткой `ready to implement` — свежий `claim:` и `in progress` обратно      |
 | `return-task.mjs --task N --reason … [--requeue]`              | комментарий с id сессий и хвостами панелей; `returned` + PR → draft, либо обратно в `ready to implement` |
 | `spawn.mjs --task N --role R [--note f]`                       | окно роли в сессии задачи, фиксированный `--session-id` или `--resume`                                   |
 | `wait.mjs --task N --role R [--expect S] [--timeout] [--idle]` | ждать статус/аварию роли                                                                                 |
