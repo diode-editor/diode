@@ -34,6 +34,7 @@ export function trimTrailingWhitespaceRanges(
 /** Offset where the run of trailing spaces/tabs begins; `content.length` when there is none. */
 export function trailingWhitespaceStart(content: string): number {
     let start = content.length;
+    // Stryker disable next-line ConditionalExpression,EqualityOperator: the bound is only a guard; at 0 `charCodeAt(-1)` is NaN, not a space, so the loop stops there anyway
     while (start > 0 && isSpaceOrTab(content.charCodeAt(start - 1))) start--;
     return start;
 }
