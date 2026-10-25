@@ -378,7 +378,10 @@ describe("TerminalLinkSurface", () => {
         const exits: number[] = [];
         surface.onExit((code) => exits.push(code));
         session.exit(3);
-        expect(exits).toEqual([3]);
+        // The exit waits until the output before it is parsed.
+        await vi.waitFor(() => {
+            expect(exits).toEqual([3]);
+        });
         expect(surface.isExited).toBe(true);
     });
 });
