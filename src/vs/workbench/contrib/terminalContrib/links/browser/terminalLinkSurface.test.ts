@@ -255,6 +255,14 @@ describe("TerminalLinkSurface", () => {
         expect(opened).toEqual([]);
     });
 
+    it("Ctrl+click on plain text, with a link elsewhere on the row, opens nothing", async () => {
+        await setup("echo src/a.ts:3:2");
+        surface.sendMouse(mouse(1, 0, { action: "down", button: "left" }));
+        surface.sendMouse(mouse(1, 0, { action: "up", button: "left" }));
+        await new Promise((resolve) => setTimeout(resolve, 20));
+        expect(opened).toEqual([]);
+    });
+
     it("an opener failure is reported, not thrown into the input path", async () => {
         await setup("src/a.ts");
         const failing = new TerminalLinkSurface(session, fakeLinkProvider({ disk: DISK }), () =>

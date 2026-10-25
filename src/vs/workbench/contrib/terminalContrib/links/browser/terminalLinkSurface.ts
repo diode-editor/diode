@@ -143,9 +143,10 @@ export class TerminalLinkSurface implements ITerminalSurface {
             this.clearHover();
             return;
         }
+        // The rejection path is for a bug, not for I/O: `linkAt` reports a provider failure itself.
         void this.linkAt(pointer.col, pointer.row).then((link) => {
             if (link !== null) this.setHover(link);
-        });
+        }, onUnexpectedError);
     }
 
     /** Not superseded by later pointer moves: a click is never dropped. */
