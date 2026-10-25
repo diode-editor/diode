@@ -102,7 +102,7 @@ function statuses(task) {
     return out;
 }
 
-function inProgress(lim) {
+function inProgress(lim, hostname) {
     const issues = ghJson([
         "issue",
         "list",
@@ -123,12 +123,17 @@ function inProgress(lim) {
         const session = sessionName(i.number);
         const alive = tmuxHasSession(session);
         const windows = alive ? tmuxWindows(session).map((w) => w.name) : [];
+        // Dispatchers run on several machines: a task claimed elsewhere has its session there,
+        // so `sessionAlive: false` means nothing here. Only its owner sweeps a task; an expired
+        // one is swept by anyone, because an owner that is gone for good would never do it.
+        const mine = claim === undefined || claim.host === hostname;
         return {
             number: i.number,
             title: i.title,
             url: i.url,
             labels: i.labels.map((l) => l.name),
             claim,
+            mine,
             takenAt,
             ageHours: ageHours === undefined ? undefined : Math.round(ageHours * 10) / 10,
             expired: ageHours !== undefined && ageHours > lim.taskTimeoutHours,
@@ -232,7 +237,7 @@ const facts = {
     limits: lim,
     verdict: { canStart: reasons.length === 0, runningTasks: running, reasons },
     sessions: sess,
-    inProgress: inProgress(lim),
+    inProgress: inProgress(lim, m.hostname),
     ...queue(),
     taskDirs: taskDirs(),
     worktrees: worktrees(),
