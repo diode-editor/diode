@@ -559,7 +559,7 @@ export const workbenchModule: ContainerModule = (container) => {
     container.bind(TerminalServiceDIToken, TerminalService);
     // Stryker disable next-line ArrowFunction,CallExpression: DI binding without a unit test (the test profile sets its own shell); end-to-end — e2e scenario tasks
     container.bind(DefaultShellResolverDIToken, () => () => getSystemShell());
-    // Stryker disable next-line ArrowFunction: DI binding; the registry is made ready by the extension host module (`bindExtensionTasks`)
+    // Stryker disable next-line ArrowFunction,CallExpression: DI binding (the test profile binds a ready registry of its own); end-to-end — e2e scenario tsc-problem-matcher-task
     container.bind(ProblemMatcherRegistryDIToken, () => new ProblemMatcherRegistry());
     container.bind(TaskServiceDIToken, TaskService);
     container.bind(TaskStatusBarContributionDIToken, TaskStatusBarContribution);
