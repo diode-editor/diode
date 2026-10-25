@@ -35,6 +35,6 @@
 - [ ] Мышь в списке вкладок: средний клик — kill, мультивыделение, drag-and-drop.
 - [ ] Остальная цветовая механика xterm.js: `terminal.integrated.minimumContrastRatio` (дефолт 4.5),
   `drawBoldTextInBrightColors`, `terminalCursor.*`, `terminal.selectionBackground`.
-- [ ] Проброс клавиш à la `terminal.integrated.commandsToSkipShell`: список команд, которые перехватывает
-  редактор (сейчас фокус в терминале съедает почти весь ввод).
+- [x] Проброс клавиш à la `terminal.integrated.commandsToSkipShell`: список команд, которые перехватывает
+  редактор, плюс `sendKeybindingsToShell`, `allowChords`, `allowMnemonics` (#820).
 - [ ] Не покрыто автоматизацией: живой Ctrl+`` ` `` на tier kitty/csi-u.
