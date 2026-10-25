@@ -95,6 +95,7 @@ export class ViewTitleRowElement extends HFlexElement {
     /** `null` or empty — no description. */
     public setDescription(description: string | null): void {
         const next = description === "" ? null : description;
+        // Stryker disable next-line ConditionalExpression: equivalent — the same description set again rebuilds the same row
         if (this.description === next) return;
         this.description = next;
         // Stryker disable next-line ConditionalExpression: equivalent — with no description the label is out of the row, its text unseen

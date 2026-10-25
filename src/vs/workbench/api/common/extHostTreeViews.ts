@@ -312,8 +312,8 @@ class ExtHostTreeView<T> {
         return node;
     }
 
+    /** The parent has no children cached: nothing under it is registered (a failed fetch forgets its rows too). */
     private async fetchChildren(parent: ITreeNode<T> | undefined): Promise<ITreeNode<T>[]> {
-        this.clearChildren(parent);
         const token = {};
         if (parent === undefined) this.rootFetchToken = token;
         else parent.fetchToken = token;
@@ -332,9 +332,9 @@ class ExtHostTreeView<T> {
                 nodes.push(this.registerNode(elements[index], item, parent));
             });
         } catch (err: unknown) {
-            // Not cached half-built: the next request asks the extension again.
-            if (parent === undefined) this.roots = undefined;
-            else parent.children = undefined;
+            // Not cached half-built: the rows registered so far are forgotten, the next request asks the
+            // extension again.
+            this.clearChildren(parent);
             throw err;
         }
         return nodes;
@@ -365,7 +365,11 @@ class ExtHostTreeView<T> {
         return node;
     }
 
-    /** Upstream `_createHandle`: `1/<id>`, or `<parent>/<n>:<label>` with the first free `n` among the siblings. */
+    /**
+     * Upstream `_createHandle`: `1/<id>`, or `<parent>/<n>:<label>` with the first free `n` among the siblings.
+     * The element's own node is never registered at this point (a refreshed row is unregistered first), so
+     * upstream's "its own handle counts as free" and the bound by the sibling count never apply.
+     */
     private createHandle(
         element: T,
         { id, label, resourceUri }: vscode.TreeItem,
@@ -378,14 +382,10 @@ class ExtHostTreeView<T> {
             "/",
             "//",
         );
-        const existing = this.byElement.get(element)?.item.handle;
-        const siblings = (parent === undefined ? this.roots : parent.children)?.length ?? 0;
-        let handle = `${prefix}/0:${elementId}`;
-        for (let counter = 0; counter <= siblings; counter++) {
-            handle = `${prefix}/${counter}:${elementId}`;
-            if (!this.byHandle.has(handle) || existing === handle) break;
+        for (let counter = 0; ; counter++) {
+            const handle = `${prefix}/${counter}:${elementId}`;
+            if (!this.byHandle.has(handle)) return handle;
         }
-        return handle;
     }
 
     /** Forgets the subtree under the node (the whole tree for the root), as upstream `_addChildrenToClear`. */
@@ -419,7 +419,8 @@ class ExtHostTreeView<T> {
             this.debounceTimer = undefined;
             const pending = this.pending;
             this.pending = new Set();
-            if (pending.size > 0) this.queueRefresh(pending);
+            // An empty set refreshes nothing.
+            this.queueRefresh(pending);
         }, this.options.refreshDelayMs ?? TREE_REFRESH_DELAY_MS);
     }
 

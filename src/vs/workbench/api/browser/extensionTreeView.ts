@@ -268,6 +268,7 @@ export class ExtensionTreeView implements IDisposable {
         let handle = node.item.parentHandle;
         while (handle !== undefined) {
             if (this.failed.has(handle)) return true;
+            // Stryker disable next-line OptionalChaining: equivalent — every listed row's parent is listed too
             handle = this.nodes.get(handle)?.item.parentHandle;
         }
         return false;
@@ -332,9 +333,9 @@ function iconOf(item: IWireTreeItem, host: IExtensionTreeViewHost): IRowIcon | n
         return fileIcon === undefined ? null : { glyph: fileIcon.icon, color: fileIcon.color };
     }
     if (themeIcon === undefined) return null;
-    // `hasOwn`: `toString` is no codicon. A name missing from the Unicode set is no icon either.
+    // `hasOwn`: `toString` is no codicon. A name missing from the Unicode set is `""`, and the tree draws
+    // an empty icon as none.
     const glyph = Object.hasOwn(CODICON_GLYPHS, themeIcon.id) ? host.icons.codicon(themeIcon.id) : "";
-    if (glyph === "") return null;
     const color = themeIcon.color;
     // Stryker disable next-line ConditionalExpression: equivalent — no theme has an `undefined` token, the row is uncolored either way
     return { glyph, color: color !== undefined && host.hasColor(color) ? color : undefined };

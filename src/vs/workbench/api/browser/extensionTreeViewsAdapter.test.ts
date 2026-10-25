@@ -11,6 +11,10 @@ import { ConfigurationRegistry } from "../../../platform/configuration/common/co
 import { InMemoryConfigurationService } from "../../../platform/configuration/common/inMemoryConfigurationService.ts";
 import type { ILogger } from "../../../platform/log/common/iLogger.ts";
 import { computeThemeVars } from "../../../platform/theme/browser/themeStyleVars.ts";
+import {
+    type IProductIconService,
+    StaticProductIconService,
+} from "../../../platform/theme/common/productIconService.ts";
 import { WorkbenchTheme } from "../../../platform/theme/common/workbenchTheme.ts";
 import { makeViewsHarness, paneTitles, testView } from "../../browser/parts/views/viewsService.testUtils.ts";
 import { darkPlusTheme } from "../../services/themes/common/themes/darkPlus.ts";
@@ -69,6 +73,7 @@ function setup(
         folders?: readonly string[];
         settings?: Record<string, unknown>;
         withoutLogger?: boolean;
+        icons?: IProductIconService;
     } = {},
 ) {
     const h = makeViewsHarness();
@@ -93,6 +98,7 @@ function setup(
         colors: { resolve: (id) => options.colors?.[id] },
         notifyError: (message) => errors.push(message),
         logger: options.withoutLogger === true ? undefined : logger,
+        icons: options.icons,
     });
     const app = TestApp.createWithContent(h.root("sb"), new Size(40, 12));
     const frame = (): string => {
@@ -161,14 +167,43 @@ describe("ExtensionTreeViewsAdapter", () => {
         expect(frame()).toContain("alpha");
     });
 
+    it("a view in a container is not warned about even without its focus command", () => {
+        const { adapter, warnings } = setup();
+        adapter.register({ viewId: "sb.files", showCollapseAll: false, canSelectMany: false }, source());
+        expect(warnings).toEqual([]);
+    });
+
+    it("unregister drops the tree's subscription to the glyph set", () => {
+        const subscriptions = { live: 0 };
+        const icons = new StaticProductIconService(true);
+        const counting: IProductIconService = Object.assign(Object.create(icons) as IProductIconService, {
+            onDidChange: () => {
+                subscriptions.live++;
+                return {
+                    dispose: () => {
+                        subscriptions.live--;
+                    },
+                };
+            },
+        });
+        const { adapter } = setup({ icons: counting });
+        adapter.register({ viewId: VIEW, showCollapseAll: false, canSelectMany: false }, source());
+        expect(subscriptions.live).toBe(1);
+        adapter.unregister(VIEW);
+        expect(subscriptions.live).toBe(0);
+    });
+
     it("a repeated registration rereads from the new provider", async () => {
         const { adapter, frame } = setup();
         adapter.register({ viewId: VIEW, showCollapseAll: false, canSelectMany: false }, source());
         await flushMicrotasks(10);
+        const first = adapter.getTree(VIEW);
         const second = source({ "": [item("b", "beta")] });
         adapter.register({ viewId: VIEW, showCollapseAll: false, canSelectMany: false }, second);
         await flushMicrotasks(10);
         expect(second.visibility).toEqual([true]);
+        // The same tree, so expansion and the cursor stay by handle.
+        expect(adapter.getTree(VIEW)).toBe(first);
         expect(frame()).toContain("beta");
         expect(frame()).not.toContain("alpha");
     });

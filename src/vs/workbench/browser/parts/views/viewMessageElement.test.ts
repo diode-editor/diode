@@ -32,5 +32,8 @@ describe("ViewMessageElement", () => {
                 .split("\n")
                 .map((line) => line.trimEnd()),
         ).toEqual([" hello", " world", ""]);
+        const vars = computeThemeVars(WorkbenchTheme.fromThemeFile(darkPlusTheme));
+        expect(vars.descriptionForeground).not.toBe(vars.foreground);
+        expect(app.backend.getFgAt(new Point(1, 0))).toBe(vars.descriptionForeground);
     });
 });
