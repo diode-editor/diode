@@ -34,6 +34,7 @@ export class TreeViewsCustomer implements IExtensionHostCustomer {
         store.add(
             rpc.handleNotification("treeView.register", (params) => {
                 const registration = parseWireTreeViewRegistration(params);
+                // Stryker disable next-line ConditionalExpression: equivalent — without the check `null.viewId` throws before the sink is called, RpcEndpoint swallows the notification exception, the result is the same "ignored"
                 if (registration !== null) sink.register(registration, dataSource(rpc, registration.viewId));
             }),
         );
@@ -60,6 +61,7 @@ export class TreeViewsCustomer implements IExtensionHostCustomer {
         store.add(
             rpc.handleNotification("treeView.setMessage", (params) => {
                 const request = parseWireTreeViewMessage(params);
+                // Stryker disable next-line ConditionalExpression: equivalent — without the check `null.viewId` throws before the sink is called, RpcEndpoint swallows the notification exception
                 if (request !== null) sink.setMessage(request.viewId, request.message);
             }),
         );
@@ -81,12 +83,7 @@ export class TreeViewsCustomer implements IExtensionHostCustomer {
 function dataSource(rpc: HostRpc, viewId: string): IExtensionTreeDataSource {
     return {
         getChildren: async (parentHandle) =>
-            parseWireTreeItems(
-                await rpc.request("treeView.getChildren", {
-                    viewId,
-                    ...(parentHandle === undefined ? {} : { parentHandle }),
-                }),
-            ),
+            parseWireTreeItems(await rpc.request("treeView.getChildren", { viewId, parentHandle })),
         executeCommand: async (handle) => {
             await rpc.request("treeView.executeCommand", { viewId, handle });
         },
@@ -97,11 +94,7 @@ function dataSource(rpc: HostRpc, viewId: string): IExtensionTreeDataSource {
             rpc.notify("treeView.setExpanded", { viewId, handle, expanded });
         },
         setSelection: (handles, focusedHandle) => {
-            rpc.notify("treeView.setSelection", {
-                viewId,
-                handles,
-                ...(focusedHandle === undefined ? {} : { focusedHandle }),
-            });
+            rpc.notify("treeView.setSelection", { viewId, handles, focusedHandle });
         },
     };
 }

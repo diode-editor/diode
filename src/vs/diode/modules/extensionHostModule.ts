@@ -329,7 +329,7 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
             ),
             terminalSink: terminals(),
             environmentVariableCollections: container.get(EnvironmentVariableServiceDIToken),
-            // Stryker disable ObjectLiteral,ArrowFunction,BlockStatement,StringLiteral,BooleanLiteral,ArrayDeclaration: production module wiring — the decisions live in ExtensionTreeViewsAdapter/ExtensionTreeView, covered by unit tests; end-to-end — e2e scenario extension-tree-view
+            // Stryker disable ObjectLiteral,ArrowFunction,BlockStatement,StringLiteral,BooleanLiteral,ArrayDeclaration,CallExpression: production module wiring — the decisions live in ExtensionTreeViewsAdapter/ExtensionTreeView, covered by unit tests; end-to-end — e2e scenario extension-tree-view
             treeViewsSink: new ExtensionTreeViewsAdapter({
                 views: container.get(ViewsServiceDIToken),
                 commands: container.get(CommandRegistryDIToken),
@@ -344,7 +344,7 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
                 },
                 logger: logService.createLogger("extensions"),
             }),
-            // Stryker restore ObjectLiteral,ArrowFunction,BlockStatement,StringLiteral,BooleanLiteral,ArrayDeclaration
+            // Stryker restore ObjectLiteral,ArrowFunction,BlockStatement,StringLiteral,BooleanLiteral,ArrayDeclaration,CallExpression
             taskSink: new ExtensionTaskAdapter(
                 container.get(TaskServiceDIToken),
                 workspaceContext,

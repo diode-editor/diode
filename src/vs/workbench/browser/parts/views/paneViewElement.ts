@@ -118,12 +118,6 @@ export class PaneViewElement extends TUIElement {
         this.paneOrThrow(id).header.setActions(actions);
     }
 
-    public setPaneTitle(id: string, title: string, description: string | null): void {
-        const { header } = this.paneOrThrow(id);
-        header.setTitle(title);
-        header.setDescription(description);
-    }
-
     public setPaneTitleWidget(id: string, widget: TUIElement | null): void {
         this.paneOrThrow(id).header.setTitleWidget(widget);
     }

@@ -1,7 +1,10 @@
-import { Size } from "@tuidom/core/common/geometryPromitives";
+import { Point, Size } from "@tuidom/core/common/geometryPromitives";
 import { describe, expect, it } from "vitest";
 
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
+import { computeThemeVars } from "../../../../platform/theme/browser/themeStyleVars.ts";
+import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";
+import { darkPlusTheme } from "../../../services/themes/common/themes/darkPlus.ts";
 
 import { ViewMessageElement } from "./viewMessageElement.ts";
 

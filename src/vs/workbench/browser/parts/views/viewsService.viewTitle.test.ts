@@ -34,6 +34,13 @@ describe("ViewsService.setViewTitle", () => {
         expect(headerState(h, "sb.b")).toMatchObject({ description: null });
     });
 
+    it("a new description under the same title is shown", () => {
+        const h = harness();
+        h.service.setViewTitle("sb.b", "TARGETS", "one");
+        h.service.setViewTitle("sb.b", "TARGETS", "two");
+        expect(headerState(h, "sb.b")).toMatchObject({ description: "two" });
+    });
+
     it("the same title and description again doesn't rebuild the sections", () => {
         const h = harness();
         h.service.setViewTitle("sb.b", "TARGETS", null);

@@ -1,12 +1,7 @@
 import type * as vscode from "vscode";
 
 import type { SubprocessRpc } from "./extHostProtocol.ts";
-import type {
-    IWireThemeIcon,
-    IWireTreeItem,
-    IWireTreeViewReveal,
-    WireTreeItemCollapsibleState,
-} from "./treeViewWireTypes.ts";
+import type { IWireTreeItem, IWireTreeViewReveal, WireTreeItemCollapsibleState } from "./treeViewWireTypes.ts";
 import type { ExtensionOwner } from "./vscodeHostContext.ts";
 import { DisposableImpl, EventEmitter, MarkdownString, ThemeIcon, TreeItemCollapsibleState } from "./vscodeTypes.ts";
 
@@ -42,11 +37,14 @@ export interface IExtHostTreeViewsOptions {
     readonly refreshDelayMs?: number;
 }
 
-interface ITreeNode {
+interface ITreeNode<T> {
     item: IWireTreeItem;
-    readonly extensionItem: vscode.TreeItem;
-    readonly parent: ITreeNode | undefined;
-    children: ITreeNode[] | undefined;
+    readonly element: T;
+    extensionItem: vscode.TreeItem;
+    readonly parent: ITreeNode<T> | undefined;
+    children: ITreeNode<T>[] | undefined;
+    /** Upstream `_childrenFetchTokens`: the latest fetch of the children; an overtaken one registers nothing. */
+    fetchToken: object | undefined;
 }
 
 /** The view registered last under the id answers the host (a re-registration replaces it, as upstream). */
@@ -86,15 +84,13 @@ export function createExtHostTreeViews(rpc: SubprocessRpc, options: IExtHostTree
         // The extension's input is not trusted to match the types.
         const given: unknown = (viewOptions as Partial<vscode.TreeViewOptions<T>> | null | undefined)?.treeDataProvider;
         if (given === undefined || given === null) throw new Error("Options with treeDataProvider is mandatory");
-        const provider = viewOptions.treeDataProvider;
-        const view = new ExtHostTreeView<T>(viewId, provider, rpc, options);
+        const view = new ExtHostTreeView<T>(viewId, viewOptions.treeDataProvider, rpc, options);
         views.set(viewId, view as ExtHostTreeView<unknown>);
-        const extensionId = options.owner?.current;
         rpc.notify("treeView.register", {
             viewId,
             showCollapseAll: viewOptions.showCollapseAll === true,
             canSelectMany: viewOptions.canSelectMany === true,
-            ...(extensionId === undefined ? {} : { extensionId }),
+            extensionId: options.owner?.current,
         });
         return view.createApi(() => {
             // A view replaced by a new registration under the same id leaves the new one alone.
@@ -119,12 +115,10 @@ export function createExtHostTreeViews(rpc: SubprocessRpc, options: IExtHostTree
 }
 
 class ExtHostTreeView<T> {
-    private roots: ITreeNode[] | undefined = undefined;
-    private readonly elements = new Map<string, T>();
-    private readonly nodes = new Map<T, ITreeNode>();
-    /** Upstream `_childrenFetchTokens`: a fetch overtaken by a refresh must not register its stale nodes. */
-    private readonly fetchTokens = new Map<T | typeof ROOT_FETCH_KEY, number>();
-    private fetchCounter = 0;
+    private roots: ITreeNode<T>[] | undefined = undefined;
+    private rootFetchToken: object | undefined = undefined;
+    private readonly byHandle = new Map<string, ITreeNode<T>>();
+    private readonly byElement = new Map<T, ITreeNode<T>>();
 
     private visible = false;
     private selectedHandles: readonly string[] = [];
@@ -139,11 +133,9 @@ class ExtHostTreeView<T> {
     private readonly onDidChangeVisibility = new EventEmitter<vscode.TreeViewVisibilityChangeEvent>();
     private readonly onDidChangeCheckboxState = new EventEmitter<vscode.TreeCheckboxChangeEvent<T>>();
 
-    /** Changes waiting for the debounce window; `undefined` in the list is the root. */
-    private pendingElements: (T | undefined)[] = [];
+    /** Changes heard after the leading one in the current debounce window; `undefined` is the root. */
+    private pending = new Set<T | undefined>();
     private debounceTimer: ReturnType<typeof setTimeout> | undefined = undefined;
-    /** Changes heard after the leading one in the current window. */
-    private debouncedCount = 0;
     /** Settles when the refreshes sent so far are applied by the host: `reveal` waits for it. */
     private refreshQueue: Promise<void> = Promise.resolve();
     private readonly dataSubscription: vscode.Disposable | undefined;
@@ -214,19 +206,17 @@ class ExtHostTreeView<T> {
     }
 
     public async getChildren(parentHandle: string | undefined): Promise<IWireTreeItem[]> {
-        const parentElement = parentHandle === undefined ? undefined : this.elements.get(parentHandle);
-        if (parentHandle !== undefined && parentElement === undefined) {
+        if (parentHandle === undefined) return (this.roots ?? (await this.fetchChildren(undefined))).map(itemOf);
+        const parent = this.byHandle.get(parentHandle);
+        if (parent === undefined) {
             console.error(`[tree view ${this.viewId}] No tree item with id '${parentHandle}' found.`);
             return [];
         }
-        const cached = parentElement === undefined ? this.roots : this.nodes.get(parentElement)?.children;
-        const nodes = cached ?? (await this.fetchChildren(parentElement));
-        return nodes.map((node) => node.item);
+        return (parent.children ?? (await this.fetchChildren(parent))).map(itemOf);
     }
 
     public async executeCommand(handle: string): Promise<void> {
-        const element = this.elements.get(handle);
-        const command = element === undefined ? undefined : this.nodes.get(element)?.extensionItem.command;
+        const command = this.byHandle.get(handle)?.extensionItem.command;
         if (command === undefined) return;
         await this.options.executeCommand(command.command, ...((command.arguments ?? []) as unknown[]));
     }
@@ -238,10 +228,10 @@ class ExtHostTreeView<T> {
     }
 
     public setExpanded(handle: string, expanded: boolean): void {
-        const element = this.elements.get(handle);
-        if (element === undefined) return;
+        const node = this.byHandle.get(handle);
+        if (node === undefined) return;
         const emitter = expanded ? this.onDidExpandElement : this.onDidCollapseElement;
-        emitter.fire(Object.freeze({ element }));
+        emitter.fire(Object.freeze({ element: node.element }));
     }
 
     public setSelection(handles: readonly string[]): void {
@@ -253,22 +243,19 @@ class ExtHostTreeView<T> {
     private selectedElements(): T[] {
         const elements: T[] = [];
         for (const handle of this.selectedHandles) {
-            const element = this.elements.get(handle);
-            if (element !== undefined) elements.push(element);
+            const node = this.byHandle.get(handle);
+            if (node !== undefined) elements.push(node.element);
         }
         return elements;
     }
 
     private notifyTitle(): void {
-        this.rpc.notify("treeView.setTitle", {
-            viewId: this.viewId,
-            ...(this.title === undefined ? {} : { title: this.title }),
-            ...(this.description === undefined ? {} : { description: this.description }),
-        });
+        this.rpc.notify("treeView.setTitle", { viewId: this.viewId, title: this.title, description: this.description });
     }
 
     private async reveal(element: T | undefined, revealOptions?: IRevealOptions): Promise<void> {
-        if (typeof this.provider.getParent !== "function") {
+        const getParent = this.provider.getParent?.bind(this.provider);
+        if (getParent === undefined) {
             throw new Error(
                 "Required registered TreeDataProvider to implement 'getParent' method to access 'reveal' method",
             );
@@ -283,12 +270,12 @@ class ExtHostTreeView<T> {
         let request: IWireTreeViewReveal;
         try {
             await this.refreshQueue;
-            const parentChain = await this.resolveParentChain(element);
+            const parentChain = await this.resolveParentChain(element, getParent);
             const node = await this.resolveTreeNode(element, parentChain.at(-1));
             request = {
                 viewId: this.viewId,
                 item: node.item,
-                parentChain: parentChain.map((parent) => parent.item),
+                parentChain: parentChain.map(itemOf),
                 select,
                 focus,
                 expand,
@@ -301,98 +288,88 @@ class ExtHostTreeView<T> {
         await this.rpc.request("treeView.reveal", request);
     }
 
-    /** From the root down to the element's parent. */
-    private async resolveParentChain(element: T): Promise<ITreeNode[]> {
-        const parent = await this.resolveParent(element);
+    /** From the root down to the element's parent; `getParent` is the provider's, as upstream asks it. */
+    private async resolveParentChain(
+        element: T,
+        getParent: (element: T) => vscode.ProviderResult<T>,
+    ): Promise<ITreeNode<T>[]> {
+        const parent = await getParent(element);
         if (parent === undefined || parent === null) return [];
-        const chain = await this.resolveParentChain(parent);
+        const chain = await this.resolveParentChain(parent, getParent);
         chain.push(await this.resolveTreeNode(parent, chain.at(-1)));
         return chain;
     }
 
-    private async resolveParent(element: T): Promise<T | null | undefined> {
-        const node = this.nodes.get(element);
-        if (node !== undefined)
-            return node.parent === undefined ? undefined : this.elements.get(node.parent.item.handle);
-        // Checked by `reveal` before the chain is walked.
-        return this.provider.getParent?.(element);
-    }
-
-    private async resolveTreeNode(element: T, parent: ITreeNode | undefined): Promise<ITreeNode> {
-        const known = this.nodes.get(element);
+    private async resolveTreeNode(element: T, parent: ITreeNode<T> | undefined): Promise<ITreeNode<T>> {
+        const known = this.byElement.get(element);
         if (known !== undefined) return known;
         const extensionItem = await this.provider.getTreeItem(element);
-        const handle = this.createHandle(element, extensionItem, parent, true);
+        const handle = this.createHandle(element, extensionItem, parent);
         // Fetching the parent's children registers the element's node under the very same handle.
         await this.getChildren(parent?.item.handle);
-        const cached = this.elements.get(handle);
-        const node = cached === undefined ? undefined : this.nodes.get(cached);
+        const node = this.byHandle.get(handle);
         if (node === undefined) throw new Error(`Cannot resolve tree item for element ${handle}`);
         return node;
     }
 
-    private async fetchChildren(parentElement: T | undefined): Promise<ITreeNode[]> {
-        this.clearChildren(parentElement);
-        const key = parentElement ?? ROOT_FETCH_KEY;
-        const token = ++this.fetchCounter;
-        this.fetchTokens.set(key, token);
-        const elements = ((await this.provider.getChildren(parentElement)) ?? []).filter(
+    private async fetchChildren(parent: ITreeNode<T> | undefined): Promise<ITreeNode<T>[]> {
+        this.clearChildren(parent);
+        const token = {};
+        if (parent === undefined) this.rootFetchToken = token;
+        else parent.fetchToken = token;
+        const elements = ((await this.provider.getChildren(parent?.element)) ?? []).filter(
             (element): element is T => element !== undefined && element !== null,
         );
         const treeItems = await Promise.all(elements.map(async (element) => this.provider.getTreeItem(element)));
         // A refresh came in while the extension answered: its result is stale, the next request asks again.
-        if (this.fetchTokens.get(key) !== token || this.disposed) return [];
-        const parentNode = parentElement === undefined ? undefined : this.nodes.get(parentElement);
+        if (!this.isLatestFetch(parent, token)) return [];
         // Synchronous and one by one: a handle counts the siblings registered before it.
-        const nodes: ITreeNode[] = [];
-        if (parentNode === undefined) {
-            this.roots = nodes;
-        } else {
-            parentNode.children = nodes;
-        }
+        const nodes: ITreeNode<T>[] = [];
+        if (parent === undefined) this.roots = nodes;
+        else parent.children = nodes;
         try {
             treeItems.forEach((item, index) => {
-                nodes.push(this.registerNode(elements[index], item, parentNode));
+                nodes.push(this.registerNode(elements[index], item, parent));
             });
         } catch (err: unknown) {
             // Not cached half-built: the next request asks the extension again.
-            if (parentNode === undefined) this.roots = undefined;
-            else parentNode.children = undefined;
+            if (parent === undefined) this.roots = undefined;
+            else parent.children = undefined;
             throw err;
         }
         return nodes;
     }
 
-    private registerNode(element: T, extensionItem: vscode.TreeItem, parent: ITreeNode | undefined): ITreeNode {
-        const node = this.createNode(element, extensionItem, parent);
-        // Upstream drops a stale element registered under the same `id` by another object.
-        const previous = this.elements.get(node.item.handle);
-        if (previous !== undefined && previous !== element) this.nodes.delete(previous);
-        this.elements.set(node.item.handle, element);
-        this.nodes.set(element, node);
-        return node;
+    /** A parent dropped by a refresh in the meantime is no longer in the tree: its fetch is stale too. */
+    private isLatestFetch(parent: ITreeNode<T> | undefined, token: object): boolean {
+        if (parent === undefined) return this.rootFetchToken === token;
+        return parent.fetchToken === token && this.byHandle.get(parent.item.handle) === parent;
     }
 
-    private createNode(element: T, extensionItem: vscode.TreeItem, parent: ITreeNode | undefined): ITreeNode {
-        const value: unknown = extensionItem;
-        if (typeof value !== "object" || value === null) {
-            throw new Error(`Tree view ${this.viewId} has provided an invalid tree item.`);
-        }
+    private registerNode(element: T, extensionItem: vscode.TreeItem, parent: ITreeNode<T> | undefined): ITreeNode<T> {
+        validateTreeItem(this.viewId, extensionItem);
         const handle = this.createHandle(element, extensionItem, parent);
-        return {
+        const node: ITreeNode<T> = {
             item: toWireItem(handle, parent?.item.handle, extensionItem),
+            element,
             extensionItem,
             parent,
             children: undefined,
+            fetchToken: undefined,
         };
+        // Upstream drops a stale element registered under the same `id` by another object.
+        const previous = this.byHandle.get(handle);
+        if (previous !== undefined) this.byElement.delete(previous.element);
+        this.byHandle.set(handle, node);
+        this.byElement.set(element, node);
+        return node;
     }
 
     /** Upstream `_createHandle`: `1/<id>`, or `<parent>/<n>:<label>` with the first free `n` among the siblings. */
     private createHandle(
         element: T,
         { id, label, resourceUri }: vscode.TreeItem,
-        parent: ITreeNode | undefined,
-        returnFirst = false,
+        parent: ITreeNode<T> | undefined,
     ): string {
         if (typeof id === "string" && id !== "") return `${ID_HANDLE_PREFIX}/${id}`;
         const prefix = parent?.item.handle ?? LABEL_HANDLE_PREFIX;
@@ -401,61 +378,53 @@ class ExtHostTreeView<T> {
             "/",
             "//",
         );
-        const existing = this.nodes.get(element)?.item.handle;
+        const existing = this.byElement.get(element)?.item.handle;
         const siblings = (parent === undefined ? this.roots : parent.children)?.length ?? 0;
         let handle = `${prefix}/0:${elementId}`;
         for (let counter = 0; counter <= siblings; counter++) {
             handle = `${prefix}/${counter}:${elementId}`;
-            if (returnFirst || !this.elements.has(handle) || existing === handle) break;
+            if (!this.byHandle.has(handle) || existing === handle) break;
         }
         return handle;
     }
 
-    /** Forgets the subtree under the element (the whole tree for the root), as upstream `_addChildrenToClear`. */
-    private clearChildren(parentElement: T | undefined): void {
-        if (parentElement === undefined) {
+    /** Forgets the subtree under the node (the whole tree for the root), as upstream `_addChildrenToClear`. */
+    private clearChildren(parent: ITreeNode<T> | undefined): void {
+        if (parent === undefined) {
             this.roots = undefined;
-            this.nodes.clear();
-            this.elements.clear();
-            this.fetchTokens.clear();
+            this.rootFetchToken = undefined;
+            this.byHandle.clear();
+            this.byElement.clear();
             return;
         }
-        const node = this.nodes.get(parentElement);
-        if (node === undefined) return;
-        for (const child of node.children ?? []) {
-            const childElement = this.elements.get(child.item.handle);
-            if (childElement === undefined) continue;
-            this.clearChildren(childElement);
-            this.nodes.delete(childElement);
-            this.elements.delete(child.item.handle);
-            this.fetchTokens.delete(childElement);
+        if (parent.children === undefined) return;
+        for (const child of parent.children) {
+            this.clearChildren(child);
+            this.byElement.delete(child.element);
+            this.byHandle.delete(child.item.handle);
         }
-        node.children = undefined;
+        parent.children = undefined;
     }
 
     private onDidChangeData(change: T | T[] | null | undefined): void {
-        if (this.disposed) return;
-        const changed = Array.isArray(change) ? change : [change === null ? undefined : (change as T | undefined)];
+        const changed = Array.isArray(change) ? change : [change ?? undefined];
         if (this.debounceTimer === undefined) {
             // Leading edge: the first change of a quiet tree goes at once.
             this.queueRefresh(changed);
         } else {
-            this.pendingElements.push(...changed);
-            this.debouncedCount++;
+            for (const element of changed) this.pending.add(element);
             clearTimeout(this.debounceTimer);
         }
         this.debounceTimer = setTimeout(() => {
             this.debounceTimer = undefined;
-            const pending = this.pendingElements;
-            const count = this.debouncedCount;
-            this.pendingElements = [];
-            this.debouncedCount = 0;
-            if (count > 0) this.queueRefresh(pending);
+            const pending = this.pending;
+            this.pending = new Set();
+            if (pending.size > 0) this.queueRefresh(pending);
         }, this.options.refreshDelayMs ?? TREE_REFRESH_DELAY_MS);
     }
 
-    private queueRefresh(elements: readonly (T | undefined)[]): void {
-        const distinct = [...new Set(elements)];
+    private queueRefresh(elements: Iterable<T | undefined>): void {
+        const distinct = new Set(elements);
         this.refreshQueue = this.refreshQueue
             .then(() => this.refresh(distinct))
             .catch((err: unknown) => {
@@ -463,86 +432,85 @@ class ExtHostTreeView<T> {
             });
     }
 
-    private async refresh(elements: readonly (T | undefined)[]): Promise<void> {
+    private async refresh(elements: ReadonlySet<T | undefined>): Promise<void> {
+        // A change queued just before `dispose()` is not sent.
         if (this.disposed) return;
-        if (elements.includes(undefined)) {
+        if (elements.has(undefined)) {
             this.clearChildren(undefined);
             await this.rpc.request("treeView.refresh", { viewId: this.viewId });
             return;
         }
         const items: IWireTreeItem[] = [];
-        for (const element of this.topLevelChanged(elements as readonly T[])) {
-            const node = await this.refreshNode(element);
-            if (node !== null) items.push(node.item);
+        for (const node of this.topLevelChanged(elements as ReadonlySet<T>)) {
+            await this.refreshNode(node);
+            items.push(node.item);
         }
         if (items.length > 0) await this.rpc.request("treeView.refresh", { viewId: this.viewId, items });
     }
 
     /** Upstream `_getHandlesToRefresh`: unknown elements and those under another changed element drop out. */
-    private topLevelChanged(elements: readonly T[]): T[] {
-        const changed = new Set(elements.filter((element) => this.nodes.has(element)));
-        return [...changed].filter((element) => {
-            for (let parent = this.nodes.get(element)?.parent; parent !== undefined; parent = parent.parent) {
-                const parentElement = this.elements.get(parent.item.handle);
-                if (parentElement !== undefined && changed.has(parentElement)) return false;
+    private topLevelChanged(elements: ReadonlySet<T>): ITreeNode<T>[] {
+        const changed = new Set<ITreeNode<T>>();
+        for (const element of elements) {
+            const node = this.byElement.get(element);
+            if (node !== undefined) changed.add(node);
+        }
+        return [...changed].filter((node) => {
+            for (let parent = node.parent; parent !== undefined; parent = parent.parent) {
+                if (changed.has(parent)) return false;
             }
             return true;
         });
     }
 
-    private async refreshNode(element: T): Promise<ITreeNode | null> {
-        const existing = this.nodes.get(element);
-        if (existing === undefined) return null;
-        const extensionItem = await this.provider.getTreeItem(element);
-        this.clearChildren(element);
-        const node = this.createNode(element, extensionItem, existing.parent);
-        if (node.item.handle !== existing.item.handle) this.elements.delete(existing.item.handle);
-        this.elements.set(node.item.handle, element);
-        this.nodes.set(element, node);
-        const siblings = existing.parent === undefined ? this.roots : existing.parent.children;
-        const index = siblings?.indexOf(existing) ?? -1;
-        if (siblings !== undefined && index >= 0) siblings[index] = node;
-        return node;
+    /** The row is rebuilt in place: the same node, maybe under a new handle, without its children cache. */
+    private async refreshNode(node: ITreeNode<T>): Promise<void> {
+        const extensionItem = await this.provider.getTreeItem(node.element);
+        validateTreeItem(this.viewId, extensionItem);
+        this.clearChildren(node);
+        this.byHandle.delete(node.item.handle);
+        node.item = toWireItem(
+            this.createHandle(node.element, extensionItem, node.parent),
+            node.parent?.item.handle,
+            extensionItem,
+        );
+        node.extensionItem = extensionItem;
+        this.byHandle.set(node.item.handle, node);
     }
 
+    /** The host no longer asks this view; dropping the provider's subscription is all that is left. */
     private dispose(): void {
-        if (this.disposed) return;
         this.disposed = true;
         this.dataSubscription?.dispose();
-        if (this.debounceTimer !== undefined) clearTimeout(this.debounceTimer);
-        this.clearChildren(undefined);
-        for (const emitter of [
-            this.onDidExpandElement,
-            this.onDidCollapseElement,
-            this.onDidChangeSelection,
-            this.onDidChangeVisibility,
-            this.onDidChangeCheckboxState,
-        ]) {
-            emitter.dispose();
-        }
     }
 }
 
-const ROOT_FETCH_KEY = Symbol("treeViewRoot");
+function itemOf<T>(node: ITreeNode<T>): IWireTreeItem {
+    return node.item;
+}
+
+function validateTreeItem(viewId: string, extensionItem: vscode.TreeItem): void {
+    const value: unknown = extensionItem;
+    if (typeof value !== "object" || value === null) {
+        throw new Error(`Tree view ${viewId} has provided an invalid tree item.`);
+    }
+}
 
 function toWireItem(handle: string, parentHandle: string | undefined, item: vscode.TreeItem): IWireTreeItem {
-    const resourceUri = item.resourceUri?.toString();
-    const label = labelText(item.label) || (item.resourceUri === undefined ? "" : uriBasename(item.resourceUri));
-    const description =
-        typeof item.description === "string" || item.description === true ? item.description : undefined;
-    const themeIcon = item.iconPath instanceof ThemeIcon ? toWireThemeIcon(item.iconPath) : undefined;
     return {
         handle,
-        ...(parentHandle === undefined ? {} : { parentHandle }),
-        label,
-        ...(description === undefined ? {} : { description }),
+        parentHandle,
+        label: labelText(item.label) || (item.resourceUri === undefined ? "" : uriBasename(item.resourceUri)),
+        description: typeof item.description === "string" || item.description === true ? item.description : undefined,
         collapsibleState: collapsibleStateOf(item.collapsibleState),
-        ...(themeIcon === undefined ? {} : { themeIcon }),
-        ...(resourceUri === undefined ? {} : { resourceUri }),
-        ...(typeof item.contextValue === "string" ? { contextValue: item.contextValue } : {}),
-        ...(item.command === undefined
-            ? {}
-            : { command: { id: item.command.command, title: String(item.command.title as unknown) } }),
+        themeIcon:
+            item.iconPath instanceof ThemeIcon ? { id: item.iconPath.id, color: item.iconPath.color?.id } : undefined,
+        resourceUri: item.resourceUri?.toString(),
+        contextValue: typeof item.contextValue === "string" ? item.contextValue : undefined,
+        command:
+            item.command === undefined
+                ? undefined
+                : { id: item.command.command, title: String(item.command.title as unknown) },
     };
 }
 
@@ -552,11 +520,6 @@ function collapsibleStateOf(state: vscode.TreeItemCollapsibleState | undefined):
     if (value === (TreeItemCollapsibleState.Collapsed as number)) return 1;
     if (value === (TreeItemCollapsibleState.Expanded as number)) return 2;
     return 0;
-}
-
-function toWireThemeIcon(icon: ThemeIcon): IWireThemeIcon {
-    const color = icon.color?.id;
-    return typeof color === "string" ? { id: icon.id, color } : { id: icon.id };
 }
 
 /** Upstream `toTreeItemLabel`; `highlights` are not drawn. */
@@ -570,8 +533,7 @@ function labelText(label: string | vscode.TreeItemLabel | undefined): string {
 }
 
 function uriBasename(uri: vscode.Uri): string {
-    const segments = uri.path.split("/");
-    return segments.at(-1) ?? "";
+    return uri.path.slice(uri.path.lastIndexOf("/") + 1);
 }
 
 /** A `MarkdownString` (proposed upstream) is shown as its source text: there is no markdown renderer for a line. */

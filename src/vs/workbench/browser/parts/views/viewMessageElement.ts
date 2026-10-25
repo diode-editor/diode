@@ -38,6 +38,7 @@ export class ViewMessageElement extends TUIElement {
     }
 
     public override render(context: RenderContext): void {
+        // Stryker disable next-line CallExpression: equivalent — the element has no background or children of its own to paint
         super.render(context);
         const { fg, bg } = this.resolvedStyle;
         for (const [y, line] of this.lines(this.layoutSize.width).entries()) {

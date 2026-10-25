@@ -238,6 +238,7 @@ export class MenuRegistry {
             enabled,
             disabled: !enabled,
             shortcut: this.resolveShortcut(item),
+            // Stryker disable next-line ConditionalExpression: equivalent — an absent `toggled` evaluates to false, the icon stays the item's
             icon:
                 item.toggled !== undefined && this.contextKeys.evaluate(item.toggled, keys) ? CHECKED_ICON : item.icon,
             onSelect: () => {

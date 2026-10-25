@@ -60,7 +60,7 @@ export class ExtensionTreeViewsAdapter implements IExtensionTreeViewsSink, IDisp
             // `typeof`: a theme table answers `toString` too.
             hasColor: (token) => typeof services.colors.resolve(token) === "number",
             relativeDirectory: (uri) => relativeDirectory(workspace, uri),
-            ...(services.logger === undefined ? {} : { logger: services.logger }),
+            logger: services.logger,
         };
         const sync = (): void => {
             this.syncVisibility();
@@ -97,7 +97,6 @@ export class ExtensionTreeViewsAdapter implements IExtensionTreeViewsSink, IDisp
         if (registered === undefined) return;
         this.trees.delete(viewId);
         registered.store.dispose();
-        registered.tree.dispose();
         this.services.views.setViewBody(viewId, null);
         this.services.views.setViewTitle(viewId, undefined, null);
     }
@@ -110,10 +109,9 @@ export class ExtensionTreeViewsAdapter implements IExtensionTreeViewsSink, IDisp
     public async reveal(request: IWireTreeViewReveal): Promise<void> {
         const registered = this.trees.get(request.viewId);
         if (registered === undefined) return;
-        if (this.services.views.getViewContainerByViewId(request.viewId) !== null) {
-            this.services.views.openView(request.viewId, request.focus);
-        }
-        this.syncVisibility();
+        // A view that is not registered right now (its `when` is false) is not opened; showing a section reaches
+        // the tree through the view events.
+        this.services.views.openView(request.viewId, request.focus);
         await registered.tree.reveal(request);
     }
 
@@ -137,6 +135,7 @@ export class ExtensionTreeViewsAdapter implements IExtensionTreeViewsSink, IDisp
 
     public dispose(): void {
         this.reset();
+        // Stryker disable next-line CallExpression: equivalent — after reset() there is no tree left for the view events to update
         this.store.dispose();
     }
 
@@ -144,9 +143,9 @@ export class ExtensionTreeViewsAdapter implements IExtensionTreeViewsSink, IDisp
         for (const [viewId, { tree }] of this.trees) tree.setVisible(this.isVisible(viewId));
     }
 
+    /** `isViewShown` is false for a view that is not registered, so `isViewExpanded` is never asked about one. */
     private isVisible(viewId: string): boolean {
         const { views } = this.services;
-        if (views.getViewContainerByViewId(viewId) === null) return false;
         return views.isViewShown(viewId) && views.isViewExpanded(viewId);
     }
 
@@ -164,7 +163,6 @@ export class ExtensionTreeViewsAdapter implements IExtensionTreeViewsSink, IDisp
             this.services.menus.appendMenuItem({
                 menuId: MenuId.ViewTitle,
                 command: id,
-                title: "Collapse All",
                 when: `view == ${tree.viewId}`,
                 group: "navigation",
                 order: Number.MAX_SAFE_INTEGER,
@@ -181,10 +179,11 @@ function relativeDirectory(workspace: IWorkspaceContextService, uri: string): st
     const resource = Uri.parse(uri);
     const directory = resource.path.slice(0, Math.max(0, resource.path.lastIndexOf("/")));
     for (const folder of workspace.getWorkspace().folders) {
-        const root = folder.uri.path.replace(/\/$/u, "");
+        const root = folder.uri.path;
         if (folder.uri.scheme !== resource.scheme) continue;
         if (directory === root) return "";
         if (directory.startsWith(`${root}/`)) return directory.slice(root.length + 1);
     }
+    // Stryker disable next-line ConditionalExpression,EqualityOperator,StringLiteral,ObjectLiteral: equivalent on POSIX — `fsPath` is the path there; it differs on Windows (drive letter, backslashes)
     return resource.scheme === "file" ? resource.with({ path: directory }).fsPath : directory;
 }

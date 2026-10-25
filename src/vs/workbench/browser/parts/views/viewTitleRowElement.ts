@@ -50,6 +50,7 @@ export interface IViewTitleRowOptions {
 export class ViewTitleRowElement extends HFlexElement {
     private readonly titleLabel: TextLabelElement;
     /** Upstream `TreeView.description`: dimmed after the title, clipped first on a narrow header. */
+    // Stryker disable next-line StringLiteral: equivalent — the label joins the row only after setDescription sets its text
     private readonly descriptionLabel = new TextLabelElement("");
     private description: string | null = null;
     private readonly filler = new FillerElement();
@@ -92,7 +93,8 @@ export class ViewTitleRowElement extends HFlexElement {
         const next = description === "" ? null : description;
         if (this.description === next) return;
         this.description = next;
-        this.descriptionLabel.setText(next === null ? "" : ` ${next}`);
+        // Stryker disable next-line ConditionalExpression: equivalent — with no description the label is out of the row, its text unseen
+        if (next !== null) this.descriptionLabel.setText(` ${next}`);
         this.syncChildren();
     }
 

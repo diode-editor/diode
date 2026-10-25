@@ -1,20 +1,27 @@
-import { Size } from "@tuidom/core/common/geometryPromitives";
+import { Point, Size } from "@tuidom/core/common/geometryPromitives";
+import { TUIKeyboardEvent } from "@tuidom/core/dom/events/tuiKeyboardEvent";
 import { describe, expect, it } from "vitest";
 
 import { TestApp } from "../../../../TestUtils/TestApp.ts";
 import { flushMicrotasks } from "../../../../TestUtils/timing.ts";
+import { CODICON_GLYPHS } from "../../../base/common/codicons.generated.ts";
 import { Uri } from "../../../base/common/uri.ts";
 import { MenuId } from "../../../platform/actions/common/menuId.ts";
 import { ConfigurationRegistry } from "../../../platform/configuration/common/configurationRegistry.ts";
 import { InMemoryConfigurationService } from "../../../platform/configuration/common/inMemoryConfigurationService.ts";
 import type { ILogger } from "../../../platform/log/common/iLogger.ts";
+import { computeThemeVars } from "../../../platform/theme/browser/themeStyleVars.ts";
+import { WorkbenchTheme } from "../../../platform/theme/common/workbenchTheme.ts";
 import { makeViewsHarness, paneTitles, testView } from "../../browser/parts/views/viewsService.testUtils.ts";
+import { darkPlusTheme } from "../../services/themes/common/themes/darkPlus.ts";
 import type { IExtensionTreeDataSource } from "../common/iExtensionTreeViewsSink.ts";
 import type { IWireTreeItem } from "../common/treeViewWireTypes.ts";
 
 import { ExtensionTreeViewsAdapter } from "./extensionTreeViewsAdapter.ts";
 
 const VIEW = "ext.targets";
+
+const themeVars = computeThemeVars(WorkbenchTheme.fromThemeFile(darkPlusTheme));
 
 function item(handle: string, label: string, extra: Partial<IWireTreeItem> = {}): IWireTreeItem {
     return { handle, label, collapsibleState: 0, ...extra };
@@ -23,6 +30,9 @@ function item(handle: string, label: string, extra: Partial<IWireTreeItem> = {})
 interface IRecordingSource extends IExtensionTreeDataSource {
     readonly visibility: boolean[];
     readonly requests: (string | undefined)[];
+    readonly executed: string[];
+    readonly selections: (readonly string[])[];
+    commandError: Error | null;
     children: Record<string, readonly IWireTreeItem[]>;
 }
 
@@ -30,26 +40,41 @@ function source(children: Record<string, readonly IWireTreeItem[]> = { "": [item
     const recorded: IRecordingSource = {
         visibility: [],
         requests: [],
+        executed: [],
+        selections: [],
+        commandError: null,
         children,
         getChildren: (parent) => {
             recorded.requests.push(parent);
             return Promise.resolve(recorded.children[parent ?? ""] ?? []);
         },
-        executeCommand: () => Promise.resolve(),
+        executeCommand: (handle) => {
+            recorded.executed.push(handle);
+            return recorded.commandError === null ? Promise.resolve() : Promise.reject(recorded.commandError);
+        },
         setVisible: (visible) => {
             recorded.visibility.push(visible);
         },
         setExpanded: () => undefined,
-        setSelection: () => undefined,
+        setSelection: (handles) => {
+            recorded.selections.push(handles);
+        },
     };
     return recorded;
 }
 
-function setup(options: { colors?: Record<string, number>; folders?: readonly string[] } = {}) {
+function setup(
+    options: {
+        colors?: Record<string, number>;
+        folders?: readonly string[];
+        settings?: Record<string, unknown>;
+        withoutLogger?: boolean;
+    } = {},
+) {
     const h = makeViewsHarness();
     h.service.registerContainer({ id: "sb", title: "SB", location: "sidebar", order: 0, isDefault: true });
     h.service.registerView(testView("sb.files", "sb", 0));
-    h.service.registerView(testView(VIEW, "sb", 1, { body: null, placeholder: "nothing yet" }));
+    h.service.registerView(testView(VIEW, "sb", 1, { body: null, placeholder: "nothing yet", canMoveView: true }));
     h.service.registerContainer({ id: "other", title: "OTHER", location: "sidebar", order: 1 });
     h.service.registerView(testView("other.view", "other", 0));
     h.commands.register(`${VIEW}.focus`, () => undefined);
@@ -63,18 +88,18 @@ function setup(options: { colors?: Record<string, number>; folders?: readonly st
         views: h.service,
         commands: h.commands,
         menus: h.menuRegistry,
-        configuration: new InMemoryConfigurationService(new ConfigurationRegistry()),
+        configuration: new InMemoryConfigurationService(new ConfigurationRegistry(), options.settings ?? {}),
         workspace: h.workspace,
         colors: { resolve: (id) => options.colors?.[id] },
         notifyError: (message) => errors.push(message),
-        logger,
+        logger: options.withoutLogger === true ? undefined : logger,
     });
     const app = TestApp.createWithContent(h.root("sb"), new Size(40, 12));
     const frame = (): string => {
         app.render();
         return app.backend.screenToString();
     };
-    return { h, adapter, warnings, errors, frame };
+    return { h, adapter, warnings, errors, frame, app };
 }
 
 describe("ExtensionTreeViewsAdapter", () => {
@@ -168,6 +193,7 @@ describe("ExtensionTreeViewsAdapter", () => {
         const { h, adapter } = setup();
         adapter.setTitle({ viewId: VIEW, title: "Ignored before registration" });
         adapter.register({ viewId: VIEW, showCollapseAll: false, canSelectMany: false }, source());
+        expect(paneTitles(h.paneView("sb"))).toEqual(["SB.FILES", "EXT.TARGETS"]);
         adapter.setTitle({ viewId: VIEW, title: "Providers", description: "2 found" });
         expect(paneTitles(h.paneView("sb"))).toEqual(["SB.FILES", "PROVIDERS"]);
         expect(h.paneView("sb").querySelector("#paneHeader-ext-targets")?.inspectState()).toMatchObject({
@@ -266,10 +292,16 @@ describe("ExtensionTreeViewsAdapter", () => {
         adapter.register({ viewId: VIEW, showCollapseAll: false, canSelectMany: false }, tree);
         await flushMicrotasks(10);
         const text = frame();
-        expect(text).toContain("main.tf infra");
-        expect(text).toMatch(/root\.tf\s*\n/u);
-        expect(text).toContain("far.tf /elsewhere/x");
-        expect(text).toContain("web.tf /scratch");
+        const line = (label: string): string | undefined =>
+            text
+                .split("\n")
+                .find((row) => row.includes(label))
+                ?.replace(/^[\s\uE000-\uF8FF]+/u, "")
+                .trimEnd();
+        expect(line("main.tf")).toBe("main.tf infra");
+        expect(line("root.tf")).toBe("root.tf");
+        expect(line("far.tf")).toBe("far.tf /elsewhere/x");
+        expect(line("web.tf")).toBe("web.tf /scratch");
     });
 
     it("dispose drops every tree and stops listening", async () => {
@@ -305,5 +337,147 @@ describe("ExtensionTreeViewsAdapter", () => {
         await flushMicrotasks(10);
         expect(tree.visibility.at(-1)).toBe(true);
         expect(frame()).toContain("deep child");
+    });
+
+    it("`workbench.list.openMode` decides whether a single click runs a row's command", async () => {
+        const run = async (settings: Record<string, unknown>): Promise<string[]> => {
+            const { adapter, app, frame } = setup({ settings });
+            const tree = source({ "": [item("a", "runnable", { command: { id: "x", title: "X" } })] });
+            adapter.register({ viewId: VIEW, showCollapseAll: false, canSelectMany: false }, tree);
+            await flushMicrotasks(10);
+            const row = frame()
+                .split("\n")
+                .findIndex((line) => line.includes("runnable"));
+            for (const action of ["press", "release"] as const) {
+                app.backend.simulateMouse({
+                    kind: "mouse",
+                    button: "left",
+                    x: 8,
+                    y: row + 1,
+                    action,
+                    shiftKey: false,
+                    altKey: false,
+                    ctrlKey: false,
+                    raw: "",
+                });
+            }
+            await flushMicrotasks(10);
+            return tree.executed;
+        };
+        expect(await run({})).toEqual(["a"]);
+        expect(await run({ "workbench.list.openMode": "doubleClick" })).toEqual([]);
+    });
+
+    it("`workbench.tree.expandMode: doubleClick` keeps Enter from toggling a row without a command", async () => {
+        const rows = async (settings: Record<string, unknown>): Promise<number> => {
+            const { adapter } = setup({ settings });
+            const tree = source({
+                "": [item("p", "pkg", { collapsibleState: 1 })],
+                p: [item("p/c", "child", { parentHandle: "p" })],
+            });
+            adapter.register({ viewId: VIEW, showCollapseAll: false, canSelectMany: false }, tree);
+            await flushMicrotasks(10);
+            const element = adapter.getTree(VIEW)?.treeElement;
+            element?.focus();
+            element?.dispatchEvent(new TUIKeyboardEvent("keypress", { key: "Enter" }));
+            await flushMicrotasks(10);
+            return element?.contentHeight ?? -1;
+        };
+        expect(await rows({})).toBe(2);
+        expect(await rows({ "workbench.tree.expandMode": "doubleClick" })).toBe(1);
+    });
+
+    it("a failed row command is an error toast", async () => {
+        const { adapter, errors } = setup();
+        const tree = source({ "": [item("a", "runnable", { command: { id: "x", title: "X" } })] });
+        tree.commandError = new Error("command exploded");
+        adapter.register({ viewId: VIEW, showCollapseAll: false, canSelectMany: false }, tree);
+        await flushMicrotasks(10);
+        const element = adapter.getTree(VIEW)?.treeElement;
+        element?.focus();
+        element?.dispatchEvent(new TUIKeyboardEvent("keypress", { key: "Enter" }));
+        await flushMicrotasks(10);
+        expect(errors).toEqual(["command exploded"]);
+    });
+
+    it("a ThemeIcon is tinted by its color when the theme resolves it", async () => {
+        const known = setup({ colors: { "terminal.ansiRed": 0x112233 } });
+        const unknown = setup();
+        for (const { adapter } of [known, unknown]) {
+            adapter.register(
+                { viewId: VIEW, showCollapseAll: false, canSelectMany: false },
+                source({ "": [item("a", "tinted", { themeIcon: { id: "package", color: "terminal.ansiRed" } })] }),
+            );
+        }
+        await flushMicrotasks(10);
+        const iconFg = (f: typeof known): number => {
+            const text = f.frame().split("\n");
+            const y = text.findIndex((line) => line.includes("tinted"));
+            const x = (text.at(y) ?? "").indexOf(CODICON_GLYPHS.package ?? "");
+            return f.app.backend.getFgAt(new Point(x, y));
+        };
+        expect(iconFg(known)).toBe(themeVars["terminal.ansiRed"]);
+        expect(iconFg(unknown)).not.toBe(themeVars["terminal.ansiRed"]);
+    });
+
+    it("canSelectMany reports every selected row", async () => {
+        const { adapter } = setup();
+        const tree = source({ "": [item("a", "alpha"), item("b", "beta")] });
+        adapter.register({ viewId: VIEW, showCollapseAll: false, canSelectMany: true }, tree);
+        await flushMicrotasks(10);
+        const element = adapter.getTree(VIEW)?.treeElement;
+        element?.focus();
+        element?.dispatchEvent(new TUIKeyboardEvent("keypress", { key: "ArrowDown", shiftKey: true }));
+        expect(tree.selections.at(-1)).toEqual(["a", "b"]);
+    });
+
+    it("without a logger a tree for a view nobody contributed is still drawn nowhere and nothing throws", () => {
+        const { adapter } = setup({ withoutLogger: true });
+        expect(() => {
+            adapter.register({ viewId: "ghost.view", showCollapseAll: false, canSelectMany: false }, source());
+        }).not.toThrow();
+    });
+
+    it("no Collapse All without showCollapseAll", () => {
+        const { h, adapter } = setup();
+        adapter.register({ viewId: VIEW, showCollapseAll: false, canSelectMany: false }, source());
+        expect(h.commands.has(`workbench.actions.treeView.${VIEW}.collapseAll`)).toBe(false);
+        expect(h.menuService.getEntryGroups(MenuId.ViewTitle, { view: VIEW }, { view: VIEW })).toEqual([]);
+    });
+
+    it("Collapse All shows up in the section header at once, with its codicon", async () => {
+        const { h, adapter, frame } = setup();
+        adapter.register({ viewId: VIEW, showCollapseAll: true, canSelectMany: false }, source());
+        await flushMicrotasks(10);
+        const entry = h.menuService
+            .getEntryGroups(MenuId.ViewTitle, { view: VIEW }, { view: VIEW })
+            .flatMap((group) => group.entries)[0];
+        expect(entry.type !== "separator" && entry.type !== "submenu" ? entry.icon : null).toBe(
+            CODICON_GLYPHS["collapse-all"],
+        );
+        expect(
+            frame()
+                .split("\n")
+                .find((line) => line.includes("EXT.TARGETS")),
+        ).toContain(CODICON_GLYPHS["collapse-all"]);
+    });
+
+    it("a section moved into a container that isn't shown is no longer visible", async () => {
+        const { h, adapter } = setup();
+        const tree = source();
+        adapter.register({ viewId: VIEW, showCollapseAll: false, canSelectMany: false }, tree);
+        await flushMicrotasks(10);
+        h.service.moveViewsToContainer([VIEW], "other");
+        expect(tree.visibility.at(-1)).toBe(false);
+    });
+
+    it("`description: true` of a non-file resource under a folder's path stays the full folder", async () => {
+        const { adapter, frame } = setup({ folders: ["/work/app"] });
+        adapter.register(
+            { viewId: VIEW, showCollapseAll: false, canSelectMany: false },
+            source({ "": [item("a", "web.tf", { description: true, resourceUri: "untitled:/work/app/x/web.tf" })] }),
+        );
+        await flushMicrotasks(10);
+        expect(frame()).toContain("web.tf /work/app/x");
     });
 });

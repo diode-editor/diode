@@ -3,7 +3,7 @@ import type * as vscode from "vscode";
 
 import { createExtHostTreeViews, type ITreeViewMembers, TREE_REFRESH_DELAY_MS } from "./extHostTreeViews.ts";
 import { type IStubRpc, makeStubRpc } from "./testStubRpc.ts";
-import type { IWireTreeItem } from "./treeViewWireTypes.ts";
+import type { IWireTreeItem, IWireTreeViewReveal } from "./treeViewWireTypes.ts";
 import { ExtensionOwner } from "./vscodeHostContext.ts";
 import {
     EventEmitter,
@@ -246,6 +246,37 @@ describe("extHostTreeViews — rows", () => {
         ]);
     });
 
+    it("a second element under the same id replaces the first", async () => {
+        const { members, stub, children, executed } = setup();
+        const first = new TreeItem("first");
+        first.id = "same";
+        first.command = { command: "x.first", title: "First" };
+        const second = new TreeItem("second");
+        second.id = "same";
+        second.command = { command: "x.second", title: "Second" };
+        const firstNode = node(first);
+        const p = provider(() => [firstNode, node(second)]);
+        members.createTreeView("v", { treeDataProvider: p });
+        await children();
+        await stub.callRequest("treeView.executeCommand", { viewId: "v", handle: "1/same" });
+        expect(executed).toEqual([["x.second"]]);
+        p.changed.fire(firstNode);
+        await Promise.resolve();
+        await Promise.resolve();
+        expect(requests(stub, "treeView.refresh")).toEqual([]);
+    });
+
+    it("a tree item that is not an object is invalid", async () => {
+        const { members, children } = setup();
+        members.createTreeView("v", {
+            treeDataProvider: {
+                getTreeItem: () => 42 as unknown as TreeItem,
+                getChildren: () => ["a"],
+            },
+        });
+        await expect(children()).rejects.toThrow("Tree view v has provided an invalid tree item.");
+    });
+
     it("children come from the cache until a refresh clears it", async () => {
         let calls = 0;
         const { members, children } = setup();
@@ -336,6 +367,9 @@ describe("extHostTreeViews — TreeView state", () => {
         view.onDidChangeSelection((e) => events.push(`selection:${e.selection.map(labelOf).join(",")}`));
         await children();
         expect(view.visible).toBe(false);
+        expect(view.selection).toEqual([]);
+        // Nothing selected yet: an empty selection is no change.
+        stub.fire("treeView.setSelection", { viewId: "v", handles: [] });
         stub.fire("treeView.setVisible", { viewId: "v", visible: true });
         stub.fire("treeView.setVisible", { viewId: "v", visible: true });
         stub.fire("treeView.setExpanded", { viewId: "v", handle: "0/0:a", expanded: true });
@@ -361,7 +395,9 @@ describe("extHostTreeViews — TreeView state", () => {
         const { members, stub } = setup();
         const view = members.createTreeView("v", { treeDataProvider: provider(() => []) });
         expect(view.title).toBeUndefined();
+        expect(view.message).toBe("");
         view.title = "Title";
+        expect(view.title).toBe("Title");
         view.description = "desc";
         view.title = undefined;
         view.message = "hello";
@@ -631,22 +667,112 @@ describe("extHostTreeViews — refresh", () => {
         expect(fresh.map((item) => item.label)).toEqual(["fresh"]);
     });
 
-    it("a view disposed while its provider answers registers nothing", async () => {
-        const { members, stub } = setup();
+    it("a change queued right before dispose is not sent", async () => {
+        const { members, stub, children } = setup();
+        const p = provider(() => [node("a")]);
+        const view = members.createTreeView("v", { treeDataProvider: p });
+        await children();
+        p.changed.fire(undefined);
+        view.dispose();
+        await drain();
+        expect(requests(stub, "treeView.refresh")).toEqual([]);
+    });
+
+    it("a child fetch overtaken by a root refresh registers nothing; the next request asks again", async () => {
+        const { members, stub, children } = setup();
         let release: (nodes: INode[]) => void = () => undefined;
-        const view = members.createTreeView("v", {
+        let slow = true;
+        const parent = node("p", [node("c")]);
+        const p = provider(() => [parent]);
+        members.createTreeView("v", {
             treeDataProvider: {
-                getTreeItem: (e: INode) => e.item,
-                getChildren: () =>
-                    new Promise<INode[]>((resolve) => {
+                ...p,
+                getChildren: (element?: INode) => {
+                    if (element === undefined) return [parent];
+                    if (!slow) return element.children;
+                    return new Promise<INode[]>((resolve) => {
                         release = resolve;
-                    }),
+                    });
+                },
             },
         });
-        const pending = stub.callRequest("treeView.getChildren", { viewId: "v" }) as Promise<IWireTreeItem[]>;
+        await children();
+        const stale = children("0/0:p");
+        p.changed.fire(undefined);
+        await drain();
+        release([node("stale")]);
+        expect(await stale).toEqual([]);
+        await expect(children("0/0:p")).resolves.toEqual([]);
+        slow = false;
+        await children();
+        expect((await children("0/0:p")).map((item) => item.label)).toEqual(["c"]);
+    });
+
+    it("two children fetched at once both answer", async () => {
+        const { members, children } = setup();
+        const releases: (() => void)[] = [];
+        const a = node("a", [node("a1")]);
+        const b = node("b", [node("b1")]);
+        members.createTreeView("v", {
+            treeDataProvider: {
+                getTreeItem: (element: INode) => element.item,
+                getChildren: (element?: INode) =>
+                    element === undefined
+                        ? [a, b]
+                        : new Promise<INode[]>((resolve) => {
+                              releases.push(() => {
+                                  resolve(element.children ?? []);
+                              });
+                          }),
+            },
+        });
+        await children();
+        const first = children("0/0:a");
+        const second = children("0/0:b");
+        await drain();
+        for (const release of releases) release();
+        expect((await first).map((item) => item.label)).toEqual(["a1"]);
+        expect((await second).map((item) => item.label)).toEqual(["b1"]);
+    });
+
+    it("a child dropped by its parent's refresh is no longer refreshed", async () => {
+        const { members, stub, children } = setup();
+        const child = node("child");
+        const parent = node("parent", [child]);
+        const p = provider(() => [parent]);
+        members.createTreeView("v", { treeDataProvider: p });
+        await children();
+        await children("0/0:parent");
+        parent.children = [node("other")];
+        p.changed.fire(parent);
+        await drain();
+        await vi.advanceTimersByTimeAsync(TREE_REFRESH_DELAY_MS);
+        p.changed.fire(child);
+        await drain();
+        expect(requests(stub, "treeView.refresh")).toHaveLength(1);
+    });
+
+    it("dispose drops the provider's subscription; a provider without the event disposes too", () => {
+        const { members } = setup();
+        const subscriptions: string[] = [];
+        const view = members.createTreeView("v", {
+            treeDataProvider: {
+                onDidChangeTreeData: () => {
+                    subscriptions.push("subscribed");
+                    return { dispose: () => subscriptions.push("disposed") };
+                },
+                getTreeItem: (element: INode) => element.item,
+                getChildren: () => [],
+            },
+        });
         view.dispose();
-        release([node("late")]);
-        expect(await pending).toEqual([]);
+        expect(subscriptions).toEqual(["subscribed", "disposed"]);
+        const quiet = members.createTreeView("w", {
+            treeDataProvider: { getTreeItem: (element: INode) => element.item, getChildren: () => [] },
+        });
+        expect(() => {
+            quiet.dispose();
+        }).not.toThrow();
     });
 });
 
@@ -702,6 +828,28 @@ describe("extHostTreeViews — reveal", () => {
                 expand: false,
             },
         ]);
+    });
+
+    it("a null element is the view only, too", async () => {
+        const { members, stub } = setup();
+        const view = members.createTreeView("v", { treeDataProvider: provider(() => [], true) });
+        await view.reveal(null as unknown as INode);
+        expect(requests(stub, "treeView.reveal")).toEqual([
+            { viewId: "v", parentChain: [], select: true, focus: false, expand: false },
+        ]);
+    });
+
+    it("a chain three levels deep keeps every ancestor in order", async () => {
+        const { members, stub } = setup();
+        const leaf = node("leaf");
+        const c = node("c", [leaf]);
+        const b = node("b", [c]);
+        const a = node("a", [b]);
+        const view = members.createTreeView("v", { treeDataProvider: provider(() => [a], true) });
+        await view.reveal(leaf);
+        const [request] = requests(stub, "treeView.reveal") as IWireTreeViewReveal[];
+        expect(request.parentChain.map((item) => item.label)).toEqual(["a", "b", "c"]);
+        expect(request.item?.handle).toBe("0/0:a/0:b/0:c/0:leaf");
     });
 
     it("without an element only the view is revealed", async () => {

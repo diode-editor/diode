@@ -165,7 +165,8 @@ interface ViewRecord {
     readonly canMoveView: boolean;
     /** The descriptor's title, which {@link ViewsService.setViewTitle} with `undefined` returns to. */
     readonly defaultTitle: string;
-    /** The owner may rename the section (an extension's `TreeView.title`). */
+    /** The owner's name for the section (an extension's `TreeView.title`); `undefined` — the descriptor's. */
+    titleOverride: string | undefined;
     title: string;
     description: string | null;
     readonly order: number;
@@ -184,7 +185,7 @@ interface ViewRecord {
 
 interface IDetachedViewState {
     body: TUIElement | null;
-    title?: string;
+    title: string | undefined;
     description: string | null;
 }
 
@@ -341,13 +342,13 @@ export class ViewsService implements IContextKeyContributor {
             entry.views.splice(existing, 1);
         }
         const detached = this.detached.get(descriptor.id);
-        this.detached.delete(descriptor.id);
         entry.views.push({
             id: descriptor.id,
             containerId: previous?.record.containerId ?? descriptor.containerId,
             defaultContainerId: descriptor.containerId,
             canMoveView: descriptor.canMoveView ?? false,
             defaultTitle: descriptor.title,
+            titleOverride: detached?.title,
             title: detached?.title ?? descriptor.title,
             description: detached?.description ?? null,
             order: descriptor.order,
@@ -381,13 +382,7 @@ export class ViewsService implements IContextKeyContributor {
         const found = this.findRecord(viewId);
         if (found === undefined) return;
         const { record } = found;
-        if (record.body !== null || record.title !== record.defaultTitle || record.description !== null) {
-            this.detached.set(viewId, {
-                body: record.body,
-                ...(record.title === record.defaultTitle ? {} : { title: record.title }),
-                description: record.description,
-            });
-        }
+        this.detached.set(viewId, { body: record.body, title: record.titleOverride, description: record.description });
         this.removeRecord(found);
         this.syncPresence(found.entry);
         // A view that is gone is not expanded: registered again, it reports expanding once more.
@@ -422,14 +417,14 @@ export class ViewsService implements IContextKeyContributor {
         const found = this.findRecord(viewId);
         if (found === undefined) {
             const state = this.detachedState(viewId);
-            if (title === undefined) delete state.title;
-            else state.title = title;
+            state.title = title;
             state.description = description;
             return;
         }
         const { entry, record } = found;
         const nextTitle = title ?? record.defaultTitle;
         if (record.title === nextTitle && record.description === description) return;
+        record.titleOverride = title;
         record.title = nextTitle;
         record.description = description;
         if (entry.paneView === null || entry.hidden.has(viewId)) return;
@@ -439,7 +434,8 @@ export class ViewsService implements IContextKeyContributor {
     private detachedState(viewId: string): IDetachedViewState {
         let state = this.detached.get(viewId);
         if (state === undefined) {
-            state = { body: null, description: null };
+            // Stryker disable next-line ObjectLiteral: equivalent — registerView falls back to the same defaults for every missing field
+            state = { body: null, title: undefined, description: null };
             this.detached.set(viewId, state);
         }
         return state;
@@ -850,10 +846,9 @@ export class ViewsService implements IContextKeyContributor {
             part.setVisible(true);
         }
         // Upstream `ViewPaneContainer.openView`: the opened section is expanded, as if the user did it.
-        const paneView = found.entry.paneView;
-        if (paneView?.getPaneIds().includes(viewId) === true && paneView.isCollapsed(viewId)) {
-            paneView.toggleCollapsed(viewId);
-        }
+        // The container is built (checked above) and the section is shown (setViewVisible).
+        const paneView = attached(found.entry).paneView;
+        if (paneView.isCollapsed(viewId)) paneView.toggleCollapsed(viewId);
         if (!focus) return;
         const body = this.bodyOf(found.record);
         if (body instanceof ViewWelcomeElement && body.focusFirstButton()) return;

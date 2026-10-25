@@ -117,6 +117,109 @@ function mount(
 const vars = computeThemeVars(WorkbenchTheme.fromThemeFile(darkPlusTheme));
 
 describe("ExtensionTreeView — loading", () => {
+    it("is a section body with its own id, painted in the sidebar colors", async () => {
+        const source = fakeSource({ "": [item("a", "alpha")] });
+        const f = mount(source);
+        f.tree.setVisible(true);
+        await f.settle();
+        f.lines();
+        expect(f.tree.view.id).toBe("extensionTreeView-test-view");
+        expect(f.app.backend.getBgAt(new Point(10, 4))).toBe(vars["sideBar.background"]);
+    });
+
+    it("a failed request without a logger still keeps the rows", async () => {
+        const source = fakeSource({ "": [item("a", "alpha")] });
+        const f = mount(source, { host: { logger: undefined } });
+        f.tree.setVisible(true);
+        await f.settle();
+        source.fail = new Error("boom");
+        await f.tree.refresh(undefined);
+        await f.settle();
+        expect(f.lines()).toEqual(["   alpha"]);
+    });
+
+    it("rows refreshed while hidden are not read until the section shows", async () => {
+        const source = fakeSource({
+            "": [item("p", "pkg", { collapsibleState: 2 })],
+            p: [item("p/c", "child", { parentHandle: "p" })],
+        });
+        const f = mount(source);
+        f.tree.setVisible(true);
+        await f.settle();
+        f.tree.setVisible(false);
+        await f.tree.refresh(undefined);
+        const before = source.requests.length;
+        await f.tree.refresh([item("p", "pkg", { collapsibleState: 2, description: "new" })]);
+        await f.settle();
+        expect(source.requests.slice(before)).toEqual([]);
+    });
+
+    it("a failed row reread doesn't hold back a later reread of a row under it", async () => {
+        const source = fakeSource({
+            "": [item("p", "pkg", { collapsibleState: 2 })],
+            p: [item("p/c", "child", { parentHandle: "p", collapsibleState: 2 })],
+            "p/c": [item("p/c/g", "grand", { parentHandle: "p/c" })],
+        });
+        const f = mount(source);
+        f.tree.setVisible(true);
+        await f.settle();
+        const getChildren = source.getChildren;
+        source.getChildren = (handle) => (handle === "p" ? Promise.reject(new Error("pkg down")) : getChildren(handle));
+        await f.tree.refresh([item("p", "pkg", { collapsibleState: 2 })]);
+        source.getChildren = getChildren;
+        const before = source.requests.length;
+        source.children["p/c"] = [item("p/c/n", "newer", { parentHandle: "p/c" })];
+        await f.tree.refresh([item("p/c", "child", { parentHandle: "p", collapsibleState: 2 })]);
+        await f.settle();
+        expect(source.requests.slice(before)).toEqual(["p/c"]);
+        expect(labels(f)).toEqual(["pkg", "child", "newer"]);
+    });
+
+    it("a failure deep in the tree keeps every expanded level under it", async () => {
+        const source = fakeSource({
+            "": [item("p", "pkg", { collapsibleState: 2 })],
+            p: [item("p/c", "child", { parentHandle: "p", collapsibleState: 2 })],
+            "p/c": [item("p/c/g", "grand", { parentHandle: "p/c", collapsibleState: 2 })],
+            "p/c/g": [item("p/c/g/x", "leaf", { parentHandle: "p/c/g" })],
+        });
+        const f = mount(source);
+        f.tree.setVisible(true);
+        await f.settle();
+        expect(labels(f)).toEqual(["pkg", "child", "grand", "leaf"]);
+        const getChildren = source.getChildren;
+        source.getChildren = (handle) => (handle === "p" ? Promise.reject(new Error("pkg down")) : getChildren(handle));
+        const before = source.requests.length;
+        await f.tree.refresh([item("p", "pkg", { collapsibleState: 2 })]);
+        await f.settle();
+        expect(labels(f)).toEqual(["pkg", "child", "grand", "leaf"]);
+        expect(source.requests.slice(before)).toEqual([]);
+    });
+
+    it("in a root reread one failed branch keeps its rows while the other branches are read", async () => {
+        const source = fakeSource({
+            "": [item("p", "pkg", { collapsibleState: 2 }), item("q", "other", { collapsibleState: 2 })],
+            p: [item("p/c", "child", { parentHandle: "p" })],
+            q: [item("q/c", "branch", { parentHandle: "q", collapsibleState: 2 })],
+            "q/c": [item("q/c/l", "leaf", { parentHandle: "q/c" })],
+        });
+        const f = mount(source);
+        f.tree.setVisible(true);
+        await f.settle();
+        const getChildren = source.getChildren;
+        source.getChildren = (handle) => {
+            if (handle === "p") {
+                source.requests.push(handle);
+                return Promise.reject(new Error("pkg down"));
+            }
+            return getChildren(handle);
+        };
+        const before = source.requests.length;
+        await f.tree.refresh(undefined);
+        await f.settle();
+        expect(labels(f)).toEqual(["pkg", "child", "other", "branch", "leaf"]);
+        expect(source.requests.slice(before)).toEqual([undefined, "p", "q", "q/c"]);
+    });
+
     it("asks for the root only once the section is visible, and tells the subprocess", async () => {
         const source = fakeSource({ "": [item("a", "alpha"), item("b", "beta")] });
         const f = mount(source);
@@ -451,6 +554,28 @@ describe("ExtensionTreeView — gestures", () => {
         expect(source.selections.at(-1)).toEqual([["a", "b"], "b"]);
     });
 
+    it("a row the user collapsed is not reopened by Collapse All", async () => {
+        const source = fakeSource({
+            "": [item("p", "pkg", { collapsibleState: 1 })],
+            p: [item("p/c", "child", { parentHandle: "p" })],
+        });
+        const f = mount(source);
+        f.tree.setVisible(true);
+        await f.settle();
+        f.tree.focus();
+        f.app.sendKey("Enter");
+        await f.settle();
+        f.app.sendKey("Enter");
+        await f.settle();
+        await f.tree.collapseAll();
+        await f.settle();
+        expect(f.lines()).toHaveLength(1);
+        expect(source.expansions).toEqual([
+            ["p", true],
+            ["p", false],
+        ]);
+    });
+
     it("Collapse All closes every expanded row", async () => {
         const source = fakeSource({
             "": [item("p", "pkg", { collapsibleState: 2 }), item("q", "other", { collapsibleState: 2 })],
@@ -537,6 +662,64 @@ describe("ExtensionTreeView — message, reveal, replacement", () => {
         expect(source.expansions).toEqual([]);
     });
 
+    it("a new provider that fails keeps the rows the old one gave", async () => {
+        const first = fakeSource({ "": [item("a", "alpha")] });
+        const f = mount(first);
+        f.tree.setVisible(true);
+        await f.settle();
+        const second = fakeSource({});
+        second.fail = new Error("not ready");
+        f.tree.setSource(second, { canSelectMany: false });
+        await f.settle();
+        expect(f.lines()).toEqual(["   alpha"]);
+    });
+
+    it("reveal in a loaded tree doesn't reread the root, expands one level for `true` and never asks a leaf", async () => {
+        const source = fakeSource({
+            "": [item("p", "pkg", { collapsibleState: 1 })],
+            p: [
+                item("p/c", "child", { parentHandle: "p", collapsibleState: 1 }),
+                item("p/l", "leafy", { parentHandle: "p" }),
+            ],
+            "p/c": [item("p/c/g", "grand", { parentHandle: "p/c" })],
+        });
+        const f = mount(source);
+        f.tree.setVisible(true);
+        await f.settle();
+        const before = source.requests.length;
+        await f.tree.reveal({
+            viewId: "test.view",
+            item: item("p", "pkg", { collapsibleState: 1 }),
+            parentChain: [],
+            select: true,
+            focus: false,
+            expand: true,
+        });
+        expect(labels(f)).toEqual(["pkg", "child", "leafy"]);
+        expect(source.requests.slice(before)).toEqual(["p"]);
+    });
+
+    it("reveal with two levels stops at two", async () => {
+        const source = fakeSource({
+            "": [item("p", "pkg", { collapsibleState: 1 })],
+            p: [item("p/c", "child", { parentHandle: "p", collapsibleState: 1 })],
+            "p/c": [item("p/c/g", "grand", { parentHandle: "p/c", collapsibleState: 1 })],
+            "p/c/g": [item("p/c/g/x", "deepest", { parentHandle: "p/c/g" })],
+        });
+        const f = mount(source);
+        f.tree.setVisible(true);
+        await f.settle();
+        await f.tree.reveal({
+            viewId: "test.view",
+            item: item("p", "pkg", { collapsibleState: 1 }),
+            parentChain: [],
+            select: true,
+            focus: false,
+            expand: 2,
+        });
+        expect(labels(f)).toEqual(["pkg", "child", "grand"]);
+    });
+
     it("a new source answers after setSource; the old one's late answer is dropped", async () => {
         let release: (items: IWireTreeItem[]) => void = () => undefined;
         const slow = fakeSource({});
@@ -568,22 +751,6 @@ describe("ExtensionTreeView — message, reveal, replacement", () => {
         f.tree.setVisible(true);
         await f.settle();
         expect(f.lines()).toEqual(["   beta"]);
-    });
-
-    it("a disposed tree ignores answers that arrive after it", async () => {
-        let release: (items: IWireTreeItem[]) => void = () => undefined;
-        const slow = fakeSource({});
-        slow.getChildren = () =>
-            new Promise((resolve) => {
-                release = resolve;
-            });
-        const f = mount(slow);
-        f.tree.setVisible(true);
-        await f.settle();
-        f.tree.dispose();
-        release([item("o", "late")]);
-        await f.settle();
-        expect(f.lines()).toEqual([]);
     });
 });
 

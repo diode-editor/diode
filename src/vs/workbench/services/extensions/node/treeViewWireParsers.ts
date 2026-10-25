@@ -10,12 +10,15 @@ import type {
 } from "../../../api/common/treeViewWireTypes.ts";
 
 // Tree view messages from the subprocess (`treeView.*`); `null` — a malformed message, ignored.
+// An absent optional field stays `undefined` (the wire carries `undefined` as is).
 
-type Envelope = Readonly<Record<string, unknown>> | null | undefined;
+type Fields = Readonly<Record<string, unknown>>;
 
-function viewIdOf(raw: unknown): string | null {
-    const viewId = (raw as Envelope)?.viewId;
-    return typeof viewId === "string" && viewId !== "" ? viewId : null;
+/** The message's fields, when it names a view. */
+function viewEnvelope(raw: unknown): (Fields & { readonly viewId: string }) | null {
+    const p = raw as Fields | null | undefined;
+    const viewId = p?.viewId;
+    return typeof viewId === "string" && viewId !== "" ? (p as Fields & { readonly viewId: string }) : null;
 }
 
 function optionalString(value: unknown): string | undefined {
@@ -23,64 +26,51 @@ function optionalString(value: unknown): string | undefined {
 }
 
 export function parseWireTreeViewRegistration(raw: unknown): IWireTreeViewRegistration | null {
-    const viewId = viewIdOf(raw);
-    if (viewId === null) return null;
-    const p = raw as Envelope;
-    const extensionId = optionalString(p?.extensionId);
+    const p = viewEnvelope(raw);
+    if (p === null) return null;
     return {
-        viewId,
-        showCollapseAll: p?.showCollapseAll === true,
-        canSelectMany: p?.canSelectMany === true,
-        ...(extensionId === undefined ? {} : { extensionId }),
+        viewId: p.viewId,
+        showCollapseAll: p.showCollapseAll === true,
+        canSelectMany: p.canSelectMany === true,
+        extensionId: optionalString(p.extensionId),
     };
 }
 
 export function parseWireTreeViewId(raw: unknown): string | null {
-    return viewIdOf(raw);
+    return viewEnvelope(raw)?.viewId ?? null;
 }
 
 export function parseWireTreeViewRefresh(raw: unknown): IWireTreeViewRefresh | null {
-    const viewId = viewIdOf(raw);
-    if (viewId === null) return null;
-    const items = (raw as Envelope)?.items;
-    if (items === undefined) return { viewId };
-    return Array.isArray(items) ? { viewId, items: parseWireTreeItems(items) } : null;
+    const p = viewEnvelope(raw);
+    if (p === null) return null;
+    if (p.items === undefined) return { viewId: p.viewId };
+    return Array.isArray(p.items) ? { viewId: p.viewId, items: parseWireTreeItems(p.items) } : null;
 }
 
 export function parseWireTreeViewMessage(raw: unknown): IWireTreeViewMessage | null {
-    const viewId = viewIdOf(raw);
-    const message = (raw as Envelope)?.message;
-    return viewId === null || typeof message !== "string" ? null : { viewId, message };
+    const p = viewEnvelope(raw);
+    if (p === null || typeof p.message !== "string") return null;
+    return { viewId: p.viewId, message: p.message };
 }
 
 export function parseWireTreeViewTitle(raw: unknown): IWireTreeViewTitle | null {
-    const viewId = viewIdOf(raw);
-    if (viewId === null) return null;
-    const p = raw as Envelope;
-    const title = optionalString(p?.title);
-    const description = optionalString(p?.description);
-    return {
-        viewId,
-        ...(title === undefined ? {} : { title }),
-        ...(description === undefined ? {} : { description }),
-    };
+    const p = viewEnvelope(raw);
+    if (p === null) return null;
+    return { viewId: p.viewId, title: optionalString(p.title), description: optionalString(p.description) };
 }
 
 export function parseWireTreeViewReveal(raw: unknown): IWireTreeViewReveal | null {
-    const viewId = viewIdOf(raw);
-    if (viewId === null) return null;
-    const p = raw as Envelope;
-    const item = p?.item === undefined ? undefined : parseWireTreeItem(p.item);
+    const p = viewEnvelope(raw);
+    if (p === null) return null;
+    const item = p.item === undefined ? undefined : parseWireTreeItem(p.item);
     if (item === null) return null;
-    const chain = Array.isArray(p?.parentChain) ? parseWireTreeItems(p.parentChain as unknown[]) : [];
-    const expand = typeof p?.expand === "number" || p?.expand === true ? p.expand : false;
     return {
-        viewId,
-        ...(item === undefined ? {} : { item }),
-        parentChain: chain,
-        select: p?.select !== false,
-        focus: p?.focus === true,
-        expand,
+        viewId: p.viewId,
+        item,
+        parentChain: parseWireTreeItems(p.parentChain),
+        select: p.select !== false,
+        focus: p.focus === true,
+        expand: typeof p.expand === "number" || p.expand === true ? p.expand : false,
     };
 }
 
@@ -96,26 +86,18 @@ export function parseWireTreeItems(raw: unknown): IWireTreeItem[] {
 }
 
 function parseWireTreeItem(raw: unknown): IWireTreeItem | null {
-    const p = raw as Envelope;
-    if (typeof p?.handle !== "string" || p.handle === "") return null;
-    const parentHandle = optionalString(p.parentHandle);
-    const description = typeof p.description === "string" || p.description === true ? p.description : undefined;
-    const themeIcon = parseThemeIcon(p.themeIcon);
-    const resourceUri = optionalString(p.resourceUri);
-    const contextValue = optionalString(p.contextValue);
-    const command = p.command as Envelope;
+    const row = raw as Fields | null | undefined;
+    if (typeof row?.handle !== "string" || row.handle === "") return null;
     return {
-        handle: p.handle,
-        ...(parentHandle === undefined ? {} : { parentHandle }),
-        label: optionalString(p.label) ?? "",
-        ...(description === undefined ? {} : { description }),
-        collapsibleState: collapsibleStateOf(p.collapsibleState),
-        ...(themeIcon === undefined ? {} : { themeIcon }),
-        ...(resourceUri === undefined ? {} : { resourceUri }),
-        ...(contextValue === undefined ? {} : { contextValue }),
-        ...(typeof command?.id === "string"
-            ? { command: { id: command.id, title: optionalString(command.title) ?? "" } }
-            : {}),
+        handle: row.handle,
+        parentHandle: optionalString(row.parentHandle),
+        label: optionalString(row.label) ?? "",
+        description: typeof row.description === "string" || row.description === true ? row.description : undefined,
+        collapsibleState: collapsibleStateOf(row.collapsibleState),
+        themeIcon: parseThemeIcon(row.themeIcon),
+        resourceUri: optionalString(row.resourceUri),
+        contextValue: optionalString(row.contextValue),
+        command: parseCommand(row.command),
     };
 }
 
@@ -124,8 +106,13 @@ function collapsibleStateOf(raw: unknown): WireTreeItemCollapsibleState {
 }
 
 function parseThemeIcon(raw: unknown): IWireThemeIcon | undefined {
-    const p = raw as Envelope;
+    const p = raw as Fields | null | undefined;
     if (typeof p?.id !== "string") return undefined;
-    const color = optionalString(p.color);
-    return color === undefined ? { id: p.id } : { id: p.id, color };
+    return { id: p.id, color: optionalString(p.color) };
+}
+
+function parseCommand(raw: unknown): IWireTreeItem["command"] {
+    const p = raw as Fields | null | undefined;
+    if (typeof p?.id !== "string") return undefined;
+    return { id: p.id, title: optionalString(p.title) ?? "" };
 }
