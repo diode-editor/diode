@@ -332,6 +332,11 @@ export class TextEditorPane<TModel extends BaseTextEditorModel = BaseTextEditorM
         this.component.setOccurrenceHighlightEnabled(enabled);
     }
 
+    /** `diode.icons.nerdFont`: the glyph set of the folding chevrons. */
+    public setNerdFont(nerdFont: boolean): void {
+        this.component.setNerdFont(nerdFont);
+    }
+
     public setCursorSurroundingLines(lines: number): void {
         this.component.setCursorSurroundingLines(lines);
     }

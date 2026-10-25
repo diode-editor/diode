@@ -4,9 +4,14 @@ import { BodyElement } from "@tuidom/elements/body/bodyElement";
 import { describe, expect, it } from "vitest";
 
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
+import { getFileIcon } from "../../../../base/common/fileIcons.ts";
 import type { IDisposable } from "../../../../base/common/lifecycle.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
+import {
+    type IProductIconService,
+    StaticProductIconService,
+} from "../../../../platform/theme/common/productIconService.ts";
 import type { MruCycleState } from "../../../services/editor/browser/editorGroupModel.ts";
 import type { IEditorGroupsService } from "../../../services/editor/common/editorGroupsService.ts";
 import type { IEditorService } from "../../../services/editor/common/editorService.ts";
@@ -79,9 +84,9 @@ describe("TabSwitcherComponent — without an attached host", () => {
 });
 
 describe("TabSwitcherComponent — overlay session", () => {
-    function withHost() {
+    function withHost(icons?: IProductIconService) {
         const { service, fireCycle, fireActiveGroup } = stubEditorService();
-        const component = new TabSwitcherComponent(service, service as unknown as IEditorGroupsService);
+        const component = new TabSwitcherComponent(service, service as unknown as IEditorGroupsService, icons);
         const body = new BodyElement();
         const testApp = TestApp.create(body, new Size(80, 24));
         component.attachHost(body);
@@ -131,5 +136,22 @@ describe("TabSwitcherComponent — overlay session", () => {
 
         expect(body.overlayLayer.getItems().some((item) => item.element === component.view)).toBe(false);
         expect(component.isOpen()).toBe(false);
+    });
+
+    it("diode.icons.nerdFont: rows carry the file icon when on and no icon column when off", () => {
+        const row = (icons: IProductIconService): string => {
+            const { component, testApp, fireCycle } = withHost(icons);
+            fireCycle(cycle(1));
+            testApp.render();
+            const line = testApp.backend
+                .screenToString()
+                .split("\n")
+                .find((candidate) => candidate.includes("a.ts"));
+            component.dispose();
+            return line ?? "";
+        };
+
+        expect(row(new StaticProductIconService(true))).toContain(`│ ${getFileIcon("a.ts").icon} a.ts`);
+        expect(row(new StaticProductIconService(false))).toContain("│ a.ts");
     });
 });

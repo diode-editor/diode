@@ -13,6 +13,7 @@ import { FileService } from "../../../../platform/files/common/fileService.ts";
 import { DiskFileSystemProvider } from "../../../../platform/files/node/diskFileSystemProvider.ts";
 import type { ServiceAccessor } from "../../../../platform/instantiation/common/diContainer.ts";
 import { StateFileStore } from "../../../../platform/state/node/stateService.ts";
+import { NERD_FONT_ICONS, ProductIconServiceDIToken } from "../../../../platform/theme/common/productIconService.ts";
 import {
     type IUserDataProfile,
     IUserDataProfilesServiceDIToken,
@@ -117,6 +118,7 @@ describe("profile actions", () => {
         ]);
         const services = new Map<unknown, unknown>([
             [IUserDataProfilesServiceDIToken, profiles],
+            [ProductIconServiceDIToken, NERD_FONT_ICONS],
             [
                 IUserDataProfileServiceDIToken,
                 {

@@ -28,6 +28,19 @@ for the current scheme.
 Diode follows your terminal, not the OS. If your terminal keeps one theme whatever the OS does,
 Diode keeps one too.
 
+## Icons
+
+Diode draws icons with [Nerd Font](https://www.nerdfonts.com/) glyphs: file icons in the Explorer
+and on tabs, chevrons, toolbar buttons, Problems severities, the branch in the status bar.
+WezTerm, kitty and Ghostty carry these glyphs themselves, whatever your font. In other terminals,
+install a Nerd Font and pick it in the terminal settings.
+
+Without one, the icons come out as empty boxes or question marks. Then set
+`"diode.icons.nerdFont": "off"`: icons become plain Unicode characters that every monospace font
+has, and file icons are hidden. The default, `auto`, turns the glyphs off only on the Linux console
+(`TERM=linux`), whose font is known to lack them: the font of any other terminal can't be detected.
+The setting applies at once, no restart needed.
+
 ## Keys
 
 The Ctrl+Shift shortcuts, `Ctrl+Tab`, `Ctrl+Enter` and ``Ctrl+` `` need an extended keyboard

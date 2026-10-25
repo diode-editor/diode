@@ -6,9 +6,9 @@ import { FillerElement } from "@tuidom/elements/layout/fillerElement";
 import { HFlexElement, hflexFill, hflexFit } from "@tuidom/elements/layout/hFlexElement";
 import { VFlexElement, vflexFill, vflexFixed } from "@tuidom/elements/layout/vFlexElement";
 
-import { getFileIcon } from "../../../../base/common/fileIcons.ts";
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import type { ContextMenuService } from "../../../../platform/contextview/browser/contextMenuService.ts";
+import { type IProductIconService, NERD_FONT_ICONS } from "../../../../platform/theme/common/productIconService.ts";
 import type { EditorGroup } from "../../../services/editor/browser/editorGroupModel.ts";
 import type { IEditorGroupsService } from "../../../services/editor/common/editorGroupsService.ts";
 import type { IEditorService } from "../../../services/editor/common/editorService.ts";
@@ -40,8 +40,14 @@ export class EditorGroupComponent extends Component {
         private readonly contextMenuService: ContextMenuService,
         private readonly groups: IEditorGroupsService,
         titleActions?: IEditorTitleActionsServices,
+        private readonly icons: IProductIconService = NERD_FONT_ICONS,
     ) {
         super();
+        this.register(
+            icons.onDidChange(() => {
+                this.syncTabs();
+            }),
+        );
         this.titleActions =
             titleActions === undefined ? null : this.register(new EditorTitleActions(group, titleActions));
         this.titleRow.layoutStyle = { height: vflexFixed(1), width: "fill" };
@@ -157,11 +163,12 @@ export class EditorGroupComponent extends Component {
         const editors = this.group.getPanes();
         const labels = computeTabLabels(editors, (editor) => this.editorService.displayName(editor));
         const tabs: TabInfo[] = editors.map((editor, i) => {
-            const fi = getFileIcon(this.editorService.displayName(editor));
+            const fi = this.icons.fileIcon(this.editorService.displayName(editor));
             return {
                 label: labels[i],
-                icon: fi.icon,
-                iconColor: fi.color,
+                // An empty icon drops the column and its gap.
+                icon: fi?.icon ?? "",
+                iconColor: fi?.color ?? 0,
                 isModified: editor.isModified,
                 isReadOnly: editor.readOnly,
                 isDeleted: editor.isOrphaned === true,

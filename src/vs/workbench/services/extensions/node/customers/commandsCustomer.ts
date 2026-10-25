@@ -1,7 +1,7 @@
-import { renderCodicons } from "../../../../../base/common/codicons.ts";
 import { DisposableMap, DisposableStore, type IDisposable } from "../../../../../base/common/lifecycle.ts";
 import { withCursorChangeSource } from "../../../../../editor/common/core/cursorChangeSource.ts";
 import type { ILogger } from "../../../../../platform/log/common/iLogger.ts";
+import { type IProductIconService, NERD_FONT_ICONS } from "../../../../../platform/theme/common/productIconService.ts";
 import type { ICommandService } from "../../../../api/common/iCommandService.ts";
 import type { IExtensionHostContext, IExtensionHostCustomer } from "../../common/extensionHostCustomer.ts";
 
@@ -25,6 +25,7 @@ export class CommandsCustomer implements IExtensionHostCustomer {
         private readonly commandService: ICommandService,
         private readonly activate: (event: string) => Promise<void>,
         private readonly logger: ILogger | undefined,
+        private readonly icons: IProductIconService = NERD_FONT_ICONS,
     ) {}
 
     /**
@@ -33,10 +34,10 @@ export class CommandsCustomer implements IExtensionHostCustomer {
      */
     public addPaletteMetadata(metadata: ICommandPaletteMetadata): void {
         for (const [id, title] of Object.entries(metadata.commandTitles ?? {})) {
-            this.titles.set(id, renderCodicons(title));
+            this.titles.set(id, this.icons.renderCodicons(title));
         }
         for (const [id, category] of Object.entries(metadata.commandCategories ?? {})) {
-            this.categories.set(id, renderCodicons(category));
+            this.categories.set(id, this.icons.renderCodicons(category));
         }
     }
 

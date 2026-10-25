@@ -10,6 +10,11 @@ import { type IFileService, IFileServiceDIToken } from "../../../../platform/fil
 import type { ITreeFileWatcher } from "../../../../platform/files/common/iTreeFileWatcher.ts";
 import { ITreeFileWatcherDIToken } from "../../../../platform/files/common/iTreeFileWatcherDIToken.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
+import {
+    type IProductIconService,
+    NERD_FONT_ICONS,
+    ProductIconServiceDIToken,
+} from "../../../../platform/theme/common/productIconService.ts";
 import { FILES_EXCLUDE_SETTING, filesExcludeGlobs } from "../../../common/configuration/excludeSettings.ts";
 
 import { bubbleFileDecorations, type IFileDecorationEntry } from "./bubbleFileDecorations.ts";
@@ -84,6 +89,7 @@ export class ExplorerService extends Disposable {
         IConfigurationServiceDIToken,
         IFileServiceDIToken,
         ITreeFileWatcherDIToken,
+        ProductIconServiceDIToken,
     ] as const;
 
     public provider: FileTreeDataProvider | null = null;
@@ -101,9 +107,15 @@ export class ExplorerService extends Disposable {
         configurationService: IConfigurationService,
         private readonly files: IFileService,
         private readonly treeWatcher: ITreeFileWatcher,
+        private readonly icons: IProductIconService = NERD_FONT_ICONS,
     ) {
         super();
         this.configurationService = configurationService;
+        this.register(
+            icons.onDidChange(() => {
+                void this.refresh();
+            }),
+        );
         this.register(
             fileClipboard.onDidChange((entry) => {
                 this.setCutPaths(entry?.mode === "cut" ? entry.paths : []);
@@ -142,6 +154,7 @@ export class ExplorerService extends Disposable {
                 this.files,
                 this.treeWatcher,
                 () => this.configurationService.get(COMPACT_FOLDERS_SETTING),
+                this.icons,
             ),
         );
         this.onDidChangeRootEmitter.fire();

@@ -4,6 +4,7 @@ import type {
     IConfigurationOverrides,
     IConfigurationService,
 } from "../../../../platform/configuration/common/iConfigurationService.ts";
+import { type IProductIconService, NERD_FONT_ICONS } from "../../../../platform/theme/common/productIconService.ts";
 import type { IIndentConfiguration } from "../../../browser/parts/editor/editorComponent.ts";
 import type { TextEditorPane } from "../../../browser/parts/editor/textEditorPane.ts";
 
@@ -18,8 +19,14 @@ export class TextEditorConfiguration extends Disposable {
     public constructor(
         private readonly configurationService: IConfigurationService,
         private readonly surfaces: () => readonly TextEditorPane[],
+        private readonly icons: IProductIconService = NERD_FONT_ICONS,
     ) {
         super();
+        this.register(
+            icons.onDidChange(() => {
+                this.reapply();
+            }),
+        );
         this.register(
             this.configurationService.onDidChangeConfiguration((event) => {
                 if (!event.affectsConfiguration("editor")) return;
@@ -49,6 +56,7 @@ export class TextEditorConfiguration extends Disposable {
         editor.setCursorSurroundingLines(this.configurationService.get("editor.cursorSurroundingLines", overrides));
         editor.setScrollbarMarkers(this.configurationService.get("editor.scrollbarMarkers", overrides));
         editor.setFoldingMaximumRegions(this.configurationService.get("editor.foldingMaximumRegions", overrides));
+        editor.setNerdFont(this.icons.nerdFont);
 
         // Indent config is a baseline, not an order: with `editor.detectIndentation` the file wins.
         editor.applyIndentConfiguration(this.indentConfigurationFor(editor.languageId));

@@ -15,6 +15,14 @@ export interface ISettingSchemaEntry {
 
 export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
     {
+        key: "diode.icons.nerdFont",
+        type: "string",
+        default: "auto",
+        description:
+            "Controls whether icons are drawn with Nerd Font glyphs. Use `off` when the terminal font has no Nerd Font symbols: icons fall back to plain Unicode characters and file icons are hidden.",
+        enum: ["auto", "on", "off"],
+    },
+    {
         key: "diode.lsp.typescript.enabled",
         type: "boolean",
         default: true,

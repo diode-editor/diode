@@ -1,3 +1,4 @@
+import { codicon } from "../../../../base/common/codicons.ts";
 import type { CommandAction } from "../../../../platform/actions/common/commandAction.ts";
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import { explorerPathArg, viewMenuVisible } from "../../../browser/actions/menuContexts.ts";
@@ -5,10 +6,9 @@ import { explorerPathArg, viewMenuVisible } from "../../../browser/actions/menuC
 import { EXPLORER_VIEW_ID } from "./explorerComponent.ts";
 import { FileOperationsServiceDIToken } from "./fileOperationsService.ts";
 
-/** nf-cod-new_file — inline button in the Explorer header. */
-const NEW_FILE_ICON = "";
-/** nf-cod-new_folder — the same for a folder. */
-const NEW_FOLDER_ICON = "";
+/** Inline buttons in the Explorer header. */
+const NEW_FILE_ICON = codicon("new-file");
+const NEW_FOLDER_ICON = codicon("new-folder");
 
 /** No keybindings, like `explorer.newFile`/`explorer.newFolder` in VS Code. */
 export const explorerNewFileAction: CommandAction = {

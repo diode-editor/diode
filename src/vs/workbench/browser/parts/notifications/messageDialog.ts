@@ -3,7 +3,7 @@ import { wrapText } from "@tuidom/elements/completionlist/completionDetailsEleme
 import { HFlexElement, hflexFill, hflexFit, hflexFixed } from "@tuidom/elements/layout/hFlexElement";
 import { TextLabelElement } from "@tuidom/elements/text/textLabelElement";
 
-import { renderCodicons } from "../../../../base/common/codicons.ts";
+import { type IProductIconService, NERD_FONT_ICONS } from "../../../../platform/theme/common/productIconService.ts";
 import type {
     IActiveNotification,
     NotificationSeverity,
@@ -36,11 +36,11 @@ export class MessageDialog extends DialogComponent {
     public readonly notification: IActiveNotification;
     private readonly buttons: readonly ButtonElement[];
 
-    public constructor(notification: IActiveNotification) {
+    public constructor(notification: IActiveNotification, icons: IProductIconService = NERD_FONT_ICONS) {
         super(MESSAGE_DIALOG_ELEMENT_ID);
         this.notification = notification;
 
-        const stack = this.buildFrame(renderCodicons(SEVERITY_TITLES[notification.severity]));
+        const stack = this.buildFrame(icons.renderCodicons(SEVERITY_TITLES[notification.severity]));
         const messageLines = wrapText(notification.message, MESSAGE_DIALOG_TEXT_WIDTH);
         const detailLines =
             notification.detail === undefined ? [] : wrapText(notification.detail, MESSAGE_DIALOG_TEXT_WIDTH);

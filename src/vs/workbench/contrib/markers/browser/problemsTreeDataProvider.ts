@@ -3,9 +3,11 @@ import * as path from "node:path";
 import type { StyleColor } from "@tuidom/core/dom/styles/tuiStyle";
 import type { ITreeDataProvider, ITreeItem } from "@tuidom/elements/tree/iTreeDataProvider";
 
+import { codicon, type IProductIcon } from "../../../../base/common/codicons.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import type { IMarker } from "../../../../platform/markers/common/iMarker.ts";
 import { MarkerSeverity } from "../../../../platform/markers/common/iMarker.ts";
+import { type IProductIconService, NERD_FONT_ICONS } from "../../../../platform/theme/common/productIconService.ts";
 
 /** `path.basename` must not be applied to a uri resource: on `untitled:Untitled-1` it gives a wrong answer. */
 function resourceLabel(resource: string): string {
@@ -25,15 +27,16 @@ export interface SeverityColors {
     hint: StyleColor;
 }
 
-const SEVERITY_GLYPH: Record<MarkerSeverity, string> = {
-    [MarkerSeverity.Error]: "", // error
-    [MarkerSeverity.Warning]: "", // warning
-    [MarkerSeverity.Info]: "", // info
-    [MarkerSeverity.Hint]: "", // lightbulb
+const SEVERITY_ICON: Record<MarkerSeverity, IProductIcon> = {
+    [MarkerSeverity.Error]: codicon("error"),
+    [MarkerSeverity.Warning]: codicon("warning"),
+    [MarkerSeverity.Info]: codicon("info"),
+    [MarkerSeverity.Hint]: codicon("lightbulb"),
 };
 
 export class ProblemsTreeDataProvider implements ITreeDataProvider<ProblemNode> {
     public severityColors: SeverityColors = { error: 0, warning: 0, info: 0, hint: 0 };
+    public icons: IProductIconService = NERD_FONT_ICONS;
     public onChange?: (element?: ProblemNode) => void;
 
     private byResource = new Map<string, readonly IMarker[]>();
@@ -73,7 +76,7 @@ export class ProblemsTreeDataProvider implements ITreeDataProvider<ProblemNode> 
         return {
             label: `${element.marker.message}  [Ln ${start.line + 1}, Col ${start.character + 1}]`,
             collapsible: false,
-            icon: SEVERITY_GLYPH[element.marker.severity],
+            icon: this.icons.glyph(SEVERITY_ICON[element.marker.severity]),
             iconColor: this.colorFor(element.marker.severity),
         };
     }

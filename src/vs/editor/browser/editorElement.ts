@@ -13,6 +13,7 @@ import type { IScrollable, IScrollBarMarker } from "@tuidom/elements/scrollbar/i
 
 import { findFirstIdxMonotonousOrArrLen } from "../../base/common/arraysFind.ts";
 import { runWhenGlobalIdle } from "../../base/common/async.ts";
+import { codicon, iconGlyph } from "../../base/common/codicons.ts";
 import { Emitter } from "../../base/common/event.ts";
 import type { IDisposable } from "../../base/common/lifecycle.ts";
 import type { IMarkerDecoration } from "../../platform/markers/common/iMarker.ts";
@@ -105,8 +106,8 @@ const GUTTER_CHANGE_BAR_DASHED = "┋";
 const GUTTER_LEFT_PADDING = 2;
 
 // Codicons as in VS Code: thinner than the file tree's Nerd Font fa-angle, they don't crowd the text.
-const FOLD_ICON_EXPANDED = "\ueab4"; //  nf-cod-chevron_down
-const FOLD_ICON_COLLAPSED = "\ueab6"; //  nf-cod-chevron_right
+const FOLD_ICON_EXPANDED = codicon("chevron-down");
+const FOLD_ICON_COLLAPSED = codicon("chevron-right");
 const FOLD_GAP_LEFT = 1;
 const FOLD_GAP_RIGHT = 1;
 const FOLD_COLLAPSED_MARKER = "⋯";
@@ -193,6 +194,8 @@ export class EditorElement extends TUIElement implements IScrollable {
      * `editor.background`, and an editor with its own background (Output) would get a foreign gutter strip.
      */
     public gutterBackgroundToken: string | null = "editorGutter.background";
+    /** `diode.icons.nerdFont`: Nerd Font or plain Unicode folding chevrons. */
+    public nerdFont = true;
 
     /** Stored by the document: ranges move with the text on edits. */
     public get markerDecorations(): readonly IMarkerDecoration[] {
@@ -865,7 +868,7 @@ export class EditorElement extends TUIElement implements IScrollable {
                 const foldState = isContinuation ? undefined : foldHeaderByLine.get(logLine);
                 const showChevron = foldState === true || (foldState === false && this.foldGutterHovered);
                 if (showChevron) {
-                    const icon = foldState ? FOLD_ICON_COLLAPSED : FOLD_ICON_EXPANDED;
+                    const icon = iconGlyph(foldState ? FOLD_ICON_COLLAPSED : FOLD_ICON_EXPANDED, this.nerdFont);
                     context.setCell(foldCol, screenY, { char: icon, fg: foldFg, bg: rowGutBg });
                 }
             } else {

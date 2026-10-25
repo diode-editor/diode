@@ -11,9 +11,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { diskFileService } from "../../../../../TestUtils/diskFileService.ts";
 import { renderElement } from "../../../../../TestUtils/renderElement.ts";
+import { createSwitchableIcons } from "../../../../../TestUtils/switchableIcons.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
 import { createTestContextMenuService } from "../../../../../TestUtils/testContextMenuService.ts";
 import { createTestEditorContextMenuController } from "../../../../../TestUtils/testEditorContextMenu.ts";
+import { getFileIcon } from "../../../../base/common/fileIcons.ts";
 import { EndOfLine } from "../../../../editor/common/core/endOfLine.ts";
 import type { ILanguageService } from "../../../../editor/common/languages/iLanguageService.ts";
 import { NULL_LANGUAGE_SERVICE } from "../../../../editor/common/languages/iLanguageService.ts";
@@ -23,6 +25,7 @@ import { NULL_CONFIGURATION_SERVICE } from "../../../../platform/configuration/c
 import { type IFileWatcher, NULL_FILE_WATCHER } from "../../../../platform/files/common/iFileWatcher.ts";
 import { NULL_LOG_SERVICE } from "../../../../platform/log/common/nullLogService.ts";
 import { applyThemeVars } from "../../../../platform/theme/browser/themeStyleVars.ts";
+import type { IProductIconService } from "../../../../platform/theme/common/productIconService.ts";
 import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";
 import { UndoRedoService } from "../../../../platform/undoRedo/common/undoRedoService.ts";
 import { DialogService } from "../../../services/dialogs/browser/dialogService.ts";
@@ -44,6 +47,7 @@ function createEditorGroup(
         languageService?: ILanguageService;
         themeService?: ThemeService;
         fileWatcher?: IFileWatcher;
+        icons?: IProductIconService;
     } = {},
 ): IEditorGroup {
     const themeService = overrides.themeService ?? new ThemeService(WorkbenchTheme.fromThemeFile(darkPlusTheme));
@@ -70,6 +74,8 @@ function createEditorGroup(
         service,
         createTestContextMenuService(),
         service.editorGroups,
+        undefined,
+        overrides.icons,
     );
     return { service, component, dialogs };
 }
@@ -228,6 +234,22 @@ describe("EditorGroupComponent", () => {
             expect(items).toHaveLength(2);
             expect(items[0].getLabel()).toBe("a.ts");
             expect(items[1].getLabel()).toBe("b.ts");
+        });
+
+        it("diode.icons.nerdFont: the tab icon and its color follow the setting live", async () => {
+            const { icons, set } = createSwitchableIcons(true);
+            const { service, component } = createEditorGroup({ icons });
+            service.openFile(writeFile("a.ts", "a"));
+            const setTabs = vi.spyOn(tabStrip(component), "setTabs");
+            const tsIcon = getFileIcon("a.ts");
+
+            await set(false);
+            // No icon at all, not a blank cell: the strip drops the column together with its gap.
+            expect(setTabs.mock.lastCall?.[0][0]).toMatchObject({ label: "a.ts", icon: "", iconColor: 0 });
+
+            await set(true);
+            expect(setTabs.mock.lastCall?.[0][0]).toMatchObject({ icon: tsIcon.icon, iconColor: tsIcon.color });
+            expect(tabStrip(component).getItemElements()[0].getIcon()).toBe(tsIcon.icon);
         });
 
         it("sets active index on tab strip", () => {

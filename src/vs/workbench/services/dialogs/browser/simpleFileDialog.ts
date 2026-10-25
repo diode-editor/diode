@@ -1,8 +1,9 @@
 import * as path from "node:path";
 
-import { CODICON_GLYPHS } from "../../../../base/common/codicons.generated.ts";
+import { codicon } from "../../../../base/common/codicons.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import { FileType, type IFileService } from "../../../../platform/files/common/files.ts";
+import { type IProductIconService, NERD_FONT_ICONS } from "../../../../platform/theme/common/productIconService.ts";
 import type { QuickInputService } from "../../../browser/parts/quickinput/quickInputService.ts";
 import type {
     QuickPickSession,
@@ -64,8 +65,8 @@ export interface ISimpleFileDialogEnvironment {
     readonly defaultFolder: () => string;
 }
 
-const FOLDER_ICON = CODICON_GLYPHS.folder;
-const FILE_ICON = CODICON_GLYPHS.file;
+const FOLDER_ICON = codicon("folder");
+const FILE_ICON = codicon("file");
 
 /**
  * Port of upstream `SimpleFileDialog` (its terminal dialog, `files.simpleDialog.enable`).
@@ -106,6 +107,7 @@ export class SimpleFileDialog {
         private readonly quickInput: QuickInputService,
         private readonly files: IFileService,
         private readonly environment: ISimpleFileDialogEnvironment,
+        private readonly icons: IProductIconService = NERD_FONT_ICONS,
     ) {}
 
     public async showOpenDialog(options: IOpenDialogOptions = {}): Promise<Uri[] | undefined> {
@@ -518,9 +520,14 @@ export class SimpleFileDialog {
         for (const child of children) {
             const full = path.join(currentFolder, child.name);
             if ((child.type & FileType.Directory) !== 0) {
-                items.push({ label: child.name, icon: FOLDER_ICON, path: withSeparator(full), isFolder: true });
+                items.push({
+                    label: child.name,
+                    icon: this.icons.glyph(FOLDER_ICON),
+                    path: withSeparator(full),
+                    isFolder: true,
+                });
             } else if (this.allowFileSelection && matchesFilters(full, this.filters)) {
-                items.push({ label: child.name, icon: FILE_ICON, path: full, isFolder: false });
+                items.push({ label: child.name, icon: this.icons.glyph(FILE_ICON), path: full, isFolder: false });
             }
         }
         items.sort((a, b) => {
@@ -529,7 +536,12 @@ export class SimpleFileDialog {
         });
         const parent = path.dirname(stripTrailingSeparator(currentFolder));
         if (!pathsEqual(parent, currentFolder) && (await this.files.exists(fileUri(parent)))) {
-            items.unshift({ label: "..", icon: FOLDER_ICON, path: withSeparator(parent), isFolder: true });
+            items.unshift({
+                label: "..",
+                icon: this.icons.glyph(FOLDER_ICON),
+                path: withSeparator(parent),
+                isFolder: true,
+            });
         }
         return items;
     }

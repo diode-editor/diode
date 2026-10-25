@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { createSwitchableIcons } from "../../../../TestUtils/switchableIcons.ts";
 import { CODICON_GLYPHS } from "../../../base/common/codicons.generated.ts";
 import type { ILogger } from "../../../platform/log/common/iLogger.ts";
 import { NULL_STATE_SERVICE } from "../../../platform/state/common/nullStateService.ts";
@@ -265,6 +266,20 @@ describe("ExtensionStatusBarAdapter", () => {
 
         expect(bar.entries()).toEqual([]);
         expect(bar.allEntries().map((e) => e.text)).toEqual(["Demo 42"]);
+    });
+
+    it("switching diode.icons.nerdFont re-renders the icons of the items already shown", async () => {
+        const bar = new StatusBarService(NULL_STATE_SERVICE);
+        const { icons, set } = createSwitchableIcons(true);
+        const adapter = new ExtensionStatusBarAdapter(bar, makeCommands().service, undefined, icons);
+        adapter.update(wireItem({ text: "$(check) Demo", name: "$(check) Status" }));
+        expect(entry(bar, "extensions.demo").text).toBe(`${CODICON_GLYPHS.check ?? ""} Demo`);
+
+        await set(false);
+        expect(entry(bar, "extensions.demo")).toMatchObject({ text: "✓ Demo", name: "✓ Status" });
+
+        await set(true);
+        expect(entry(bar, "extensions.demo").text).toBe(`${CODICON_GLYPHS.check ?? ""} Demo`);
     });
 });
 

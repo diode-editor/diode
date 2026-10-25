@@ -14,6 +14,11 @@ import type { ContextKeyService } from "../../../../platform/contextkey/common/c
 import type { ContextMenuService } from "../../../../platform/contextview/browser/contextMenuService.ts";
 import { ContextMenuServiceDIToken } from "../../../../platform/contextview/browser/contextMenuService.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
+import {
+    type IProductIconService,
+    NERD_FONT_ICONS,
+    ProductIconServiceDIToken,
+} from "../../../../platform/theme/common/productIconService.ts";
 import type { ViewsService } from "../../../browser/parts/views/viewsService.ts";
 import { ViewsServiceDIToken } from "../../../browser/parts/views/viewsService.ts";
 
@@ -66,6 +71,7 @@ export class TerminalPanelComponent extends Disposable implements IContextKeyCon
         CommandRegistryDIToken,
         TerminalColorsServiceDIToken,
         TerminalWidgetFactoryDIToken,
+        ProductIconServiceDIToken,
     ] as const;
 
     private widgets = new Map<number, TerminalViewElement>();
@@ -88,22 +94,32 @@ export class TerminalPanelComponent extends Disposable implements IContextKeyCon
         private readonly commands: CommandRegistry,
         private readonly colors: TerminalColorsService,
         private readonly createWidget: TerminalWidgetFactory,
+        private readonly icons: IProductIconService = NERD_FONT_ICONS,
     ) {
         super();
-        this.tabs = new TerminalTabsList({
-            onDidSelectInstance: (id) => {
-                this.terminalService.setActiveInstance(id);
-                if (this.configuration.get("terminal.integrated.tabs.focusMode") === "singleClick") {
+        this.tabs = new TerminalTabsList(
+            {
+                onDidSelectInstance: (id) => {
+                    this.terminalService.setActiveInstance(id);
+                    if (this.configuration.get("terminal.integrated.tabs.focusMode") === "singleClick") {
+                        this.terminalService.focusActive();
+                    }
+                },
+                onDidActivateInstance: () => {
                     this.terminalService.focusActive();
-                }
+                },
+                onDidRequestContextMenu: (id, screenX, screenY) => {
+                    this.showTabContextMenu(id, screenX, screenY);
+                },
             },
-            onDidActivateInstance: () => {
-                this.terminalService.focusActive();
-            },
-            onDidRequestContextMenu: (id, screenX, screenY) => {
-                this.showTabContextMenu(id, screenX, screenY);
-            },
-        });
+            icons.nerdFont,
+        );
+        this.register(
+            icons.onDidChange(() => {
+                this.tabs.nerdFont = icons.nerdFont;
+                this.syncChrome();
+            }),
+        );
         this.view = new TerminalTabbedViewElement(this.tabs.list, TERMINAL_TABS_WIDTH);
         this.activeTabLabel.id = TERMINAL_ACTIVE_TAB_ID;
         this.activeTabLabel.style = { fg: "descriptionForeground" };
@@ -266,7 +282,7 @@ export class TerminalPanelComponent extends Disposable implements IContextKeyCon
         }
         if (!this.shouldShowActiveTerminal(instances.length)) return null;
         this.activeTabInstanceId = active.id;
-        this.activeTabLabel.setText(` ${terminalTabLabel(active)} `);
+        this.activeTabLabel.setText(` ${terminalTabLabel(active, this.icons.nerdFont)} `);
         return this.activeTabLabel;
     }
 

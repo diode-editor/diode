@@ -2,10 +2,14 @@ import { Point } from "@tuidom/core/common/geometryPromitives";
 import type { OverlaySessionHandle } from "@tuidom/core/dom/overlayLayer";
 import type { BodyElement } from "@tuidom/elements/body/bodyElement";
 
-import { getFileIcon } from "../../../../base/common/fileIcons.ts";
 import type { IContextKeyContributor } from "../../../../platform/contextkey/common/contextKeyContributor.ts";
 import type { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
+import {
+    type IProductIconService,
+    NERD_FONT_ICONS,
+    ProductIconServiceDIToken,
+} from "../../../../platform/theme/common/productIconService.ts";
 import type { MruCycleState } from "../../../services/editor/browser/editorGroupModel.ts";
 import type { IEditorGroupsService } from "../../../services/editor/common/editorGroupsService.ts";
 import { EditorGroupsServiceDIToken } from "../../../services/editor/common/editorGroupsService.ts";
@@ -25,7 +29,7 @@ export const TabSwitcherComponentDIToken = token<TabSwitcherComponent>("TabSwitc
  * The session is passthrough and takes no focus: input goes to the editor and Ctrl+Tab bindings keep working.
  */
 export class TabSwitcherComponent extends Component implements IContextKeyContributor {
-    public static dependencies = [EditorServiceDIToken, EditorGroupsServiceDIToken] as const;
+    public static dependencies = [EditorServiceDIToken, EditorGroupsServiceDIToken, ProductIconServiceDIToken] as const;
 
     public readonly view: TabSwitcherElement;
 
@@ -35,6 +39,7 @@ export class TabSwitcherComponent extends Component implements IContextKeyContri
     public constructor(
         private readonly editorService: IEditorService,
         private readonly groups: IEditorGroupsService,
+        private readonly icons: IProductIconService = NERD_FONT_ICONS,
     ) {
         super();
         this.view = new TabSwitcherElement();
@@ -94,10 +99,10 @@ export class TabSwitcherComponent extends Component implements IContextKeyContri
     private show(state: MruCycleState): void {
         const labels = computeTabLabels(state.panes, (pane) => this.editorService.displayName(pane));
         const items: TabSwitcherItem[] = state.panes.map((pane, index) => {
-            const fi = getFileIcon(this.editorService.displayName(pane));
+            const fi = this.icons.fileIcon(this.editorService.displayName(pane));
             return {
-                icon: fi.icon,
-                iconColor: fi.color,
+                icon: fi?.icon,
+                iconColor: fi?.color,
                 label: labels[index],
                 isModified: pane.isModified,
             };

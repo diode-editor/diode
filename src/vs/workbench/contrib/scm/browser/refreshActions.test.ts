@@ -56,7 +56,7 @@ describe("gitRefreshAction", () => {
             icon: REFRESH_ICON,
             when: "gitHasRepo",
         });
-        expect(REFRESH_ICON).toBe("\ueb37");
+        expect(REFRESH_ICON).toEqual({ nerdFont: "\ueb37", unicode: "\u21bb" });
         expect(placement.visible?.({ view: SCM_CHANGES_VIEW_ID })).toBe(true);
         expect(placement.visible?.({ view: SCM_GRAPH_VIEW_ID })).toBe(false);
     });

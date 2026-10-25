@@ -11,6 +11,10 @@ import { ContextKeyServiceDIToken } from "../../../../platform/contextkey/common
 import type { ContextMenuService } from "../../../../platform/contextview/browser/contextMenuService.ts";
 import { ContextMenuServiceDIToken } from "../../../../platform/contextview/browser/contextMenuService.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
+import {
+    type IProductIconService,
+    ProductIconServiceDIToken,
+} from "../../../../platform/theme/common/productIconService.ts";
 import type { GroupId } from "../../../services/editor/browser/editorGroupModel.ts";
 import type { IEditorGroupsService } from "../../../services/editor/common/editorGroupsService.ts";
 import {
@@ -33,6 +37,7 @@ export class EditorPartComponent extends Component {
         MenuServiceDIToken,
         ContextKeyServiceDIToken,
         IConfigurationServiceDIToken,
+        ProductIconServiceDIToken,
     ] as const;
 
     public readonly view: EditorPartElement;
@@ -48,6 +53,7 @@ export class EditorPartComponent extends Component {
         private readonly menus: MenuService,
         private readonly contextKeys: ContextKeyService,
         private readonly configuration: IConfigurationService,
+        private readonly icons: IProductIconService,
     ) {
         super();
         this.view = new EditorPartElement();
@@ -155,12 +161,20 @@ export class EditorPartComponent extends Component {
             if (!this.groupComponents.has(group.id)) {
                 this.groupComponents.set(
                     group.id,
-                    new EditorGroupComponent(group, this.editorService, this.contextMenuService, this.groups, {
-                        menus: this.menus,
-                        configuration: this.configuration,
-                        contextKeys: this.contextKeys,
-                        contextMenu: this.contextMenuService,
-                    }),
+                    new EditorGroupComponent(
+                        group,
+                        this.editorService,
+                        this.contextMenuService,
+                        this.groups,
+                        {
+                            menus: this.menus,
+                            configuration: this.configuration,
+                            contextKeys: this.contextKeys,
+                            contextMenu: this.contextMenuService,
+                            icons: this.icons,
+                        },
+                        this.icons,
+                    ),
                 );
             }
         }
