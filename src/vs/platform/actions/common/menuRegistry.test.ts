@@ -373,3 +373,23 @@ describe("MenuRegistry — enablement", () => {
         expect(h.registry.hasItems(MenuId.ExplorerContext)).toBe(true);
     });
 });
+
+// Upstream's view pane binds `view = <id>` in its scoped context key service: an extension's
+// `view/title` item says `when: view == <id>`, and several sections are on screen at once.
+describe("MenuRegistry — owner context keys", () => {
+    it("`when`, `enablement` and `toggled` see the owner's keys on top of the global ones", () => {
+        const h = setup([
+            { menuId: MenuId.ViewTitle, command: "mine", when: "view == ext.a", enablement: "view == ext.a" },
+            { menuId: MenuId.ViewTitle, command: "toggle", toggled: "view == ext.a" },
+            { menuId: MenuId.ViewTitle, command: "other", when: "view == ext.b" },
+        ]);
+        const resolved = items(h.registry.getMenuItems(MenuId.ViewTitle, undefined, undefined, { view: "ext.a" }));
+        expect(resolved.map((entry) => entry.label)).toEqual(["Title:mine", "Title:toggle"]);
+        expect((resolved[0] as IResolvedMenuItemEntry).enabled).toBe(true);
+        expect(resolved[1].icon).not.toBeUndefined();
+        expect(h.contextKeys.get("view")).toBeUndefined();
+        const global = items(h.registry.getMenuItems(MenuId.ViewTitle));
+        expect(global.map((entry) => entry.label)).toEqual(["Title:toggle"]);
+        expect(global[0].icon).toBeUndefined();
+    });
+});

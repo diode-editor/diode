@@ -5,6 +5,7 @@ import { type ColorContribution, isColorReference } from "../colorRegistry.ts";
 import { WorkbenchTheme } from "../workbenchTheme.ts";
 
 import { baseColors } from "./baseColors.ts";
+import { chartsColors } from "./chartsColors.ts";
 import { COLOR_CONTRIBUTIONS, type IWorkbenchColors } from "./colorContributions.ts";
 import { controlColors } from "./controlColors.ts";
 import { diffColors } from "./diffColors.ts";
@@ -95,6 +96,7 @@ describe("default color registry coverage", () => {
             gitColors,
             scmGraphColors,
             terminalColors,
+            chartsColors,
         ];
         const totalKeys = groups.reduce((sum, group) => sum + Object.keys(group).length, 0);
         expect(Object.keys(COLOR_CONTRIBUTIONS)).toHaveLength(totalKeys);

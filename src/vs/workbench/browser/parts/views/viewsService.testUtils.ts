@@ -30,6 +30,7 @@ export interface IViewsHarness {
     readonly panelService: PanelService;
     readonly auxiliaryBarService: AuxiliaryBarService;
     readonly menuService: MenuService;
+    readonly menuRegistry: MenuRegistry;
     readonly commands: CommandRegistry;
     readonly contextKeys: ContextKeyService;
     readonly workspace: WorkspaceContextService;
@@ -94,9 +95,8 @@ export function makeViewsHarness(
     const auxiliaryBarService = new AuxiliaryBarService();
     const commands = new CommandRegistry();
     const contextKeys = new ContextKeyService();
-    const menuService = new MenuService(
-        new MenuRegistry(commands, new KeybindingRegistry(), contextKeys, contributions),
-    );
+    const menuRegistry = new MenuRegistry(commands, new KeybindingRegistry(), contextKeys, contributions);
+    const menuService = new MenuService(menuRegistry);
 
     const stored = new Map<string, unknown>();
     const openWorkspaceEmitter = new Emitter<WorkspaceId>();
@@ -145,6 +145,7 @@ export function makeViewsHarness(
         panelService,
         auxiliaryBarService,
         menuService,
+        menuRegistry,
         commands,
         contextKeys,
         workspace,

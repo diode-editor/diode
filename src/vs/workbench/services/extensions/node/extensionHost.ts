@@ -80,6 +80,7 @@ import { type IEditorLayoutService, NULL_EDITOR_LAYOUT_SERVICE } from "../../../
 import type { IEditorOptionsService } from "../../../api/common/iEditorOptionsService.ts";
 import { type IExtensionFileWatcher, NULL_EXTENSION_FILE_WATCHER } from "../../../api/common/iExtensionFileWatcher.ts";
 import type { IExtensionTaskSink } from "../../../api/common/iExtensionTaskSink.ts";
+import type { IExtensionTreeViewsSink } from "../../../api/common/iExtensionTreeViewsSink.ts";
 import type {
     DiagnosticsSink,
     IExtensionTerminalSink,
@@ -135,6 +136,7 @@ import { LanguageFeaturesCustomer } from "./customers/languageFeaturesCustomer.t
 import { SecretsCustomer } from "./customers/secretsCustomer.ts";
 import { TasksCustomer } from "./customers/tasksCustomer.ts";
 import { TerminalCustomer } from "./customers/terminalCustomer.ts";
+import { TreeViewsCustomer } from "./customers/treeViewsCustomer.ts";
 import { UriHandlersCustomer } from "./customers/uriHandlersCustomer.ts";
 import { WindowCustomer } from "./customers/windowCustomer.ts";
 import { WorkspaceFoldersCustomer } from "./customers/workspaceFoldersCustomer.ts";
@@ -212,6 +214,8 @@ export interface IExtensionHostOptions {
     readonly terminalSink?: IExtensionTerminalSink;
     readonly environmentVariableCollections?: IEnvironmentVariableCollectionStore;
     readonly taskSink?: IExtensionTaskSink;
+    /** When the subprocess dies, the host itself calls `reset()`: every extension tree goes back to an empty section. */
+    readonly treeViewsSink?: IExtensionTreeViewsSink;
     readonly clipboard?: IClipboard;
     readonly externalOpener?: IExternalOpener;
     readonly environment?: IExtensionHostEnvironment;
@@ -372,6 +376,7 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
             this.terminals,
             this.environmentVariableCollections,
             new TasksCustomer(options.taskSink),
+            new TreeViewsCustomer(options.treeViewsSink),
             new LanguageConfigurationCustomer(options.languageConfigurations ?? NULL_LANGUAGE_CONFIGURATION_SERVICE),
             new WorkspaceFoldersCustomer(options.workspaceFoldersSink),
             this.uriHandlersCustomer,

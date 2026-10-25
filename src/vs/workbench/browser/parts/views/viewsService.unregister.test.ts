@@ -33,6 +33,26 @@ describe("ViewsService.unregisterView", () => {
         expect(h.viewlets).toContain("solo");
     });
 
+    it("an expanded section that goes away reports collapsing; registered again, it expands again", () => {
+        const h = harness();
+        h.showViewlet("sb");
+        const events: string[] = [];
+        h.service.onDidChangeViewExpanded(({ viewId, expanded }) => events.push(`${viewId}:${expanded}`));
+        h.service.unregisterView("sb.b");
+        h.service.unregisterView("sb.b");
+        h.service.registerView(testView("sb.b", "sb", 1));
+        expect(events).toEqual(["sb.b:false", "sb.b:true"]);
+    });
+
+    it("a collapsed section that goes away says nothing", () => {
+        const h = harness();
+        h.paneView("sb").toggleCollapsed("sb.b");
+        const events: string[] = [];
+        h.service.onDidChangeViewExpanded(({ viewId, expanded }) => events.push(`${viewId}:${expanded}`));
+        h.service.unregisterView("sb.b");
+        expect(events).toEqual([]);
+    });
+
     it("the remaining sections never end up all hidden", () => {
         const h = harness();
         h.service.setViewVisible("sb.b", false);

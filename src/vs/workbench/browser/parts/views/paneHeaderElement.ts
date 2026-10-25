@@ -110,6 +110,10 @@ export class PaneHeaderElement extends TUIElement {
         this.row.setTitle(title);
     }
 
+    public setDescription(description: string | null): void {
+        this.row.setDescription(description);
+    }
+
     public setNerdFont(nerdFont: boolean): void {
         this.row.setNerdFont(nerdFont);
     }
@@ -186,6 +190,7 @@ export class PaneHeaderElement extends TUIElement {
     public override inspectState(): Record<string, unknown> {
         return {
             title: this.row.getTitle(),
+            description: this.row.getDescription(),
             expanded: this.row.isExpanded,
             dragEnabled: this.dragEnabled,
             collapsible: this.collapsible,

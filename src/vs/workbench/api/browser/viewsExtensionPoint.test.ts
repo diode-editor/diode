@@ -1,4 +1,5 @@
 import { Size } from "@tuidom/core/common/geometryPromitives";
+import type { TUIElement } from "@tuidom/core/dom/tuiElement";
 import { describe, expect, it, vi } from "vitest";
 
 import { renderElement } from "../../../../TestUtils/renderElement.ts";
@@ -9,7 +10,6 @@ import type { IExtensionManifest } from "../../../platform/extensions/common/iEx
 import type { ILogger } from "../../../platform/log/common/iLogger.ts";
 import type { IViewsHarness } from "../../browser/parts/views/viewsService.testUtils.ts";
 import { makeViewsHarness, paneTitles, testView } from "../../browser/parts/views/viewsService.testUtils.ts";
-import { ViewWelcomeElement } from "../../browser/parts/views/viewWelcomeElement.ts";
 
 import { bindViewActivation, registerExtensionViews } from "./viewsExtensionPoint.ts";
 
@@ -117,15 +117,14 @@ describe("registerExtensionViews — containers", () => {
         expect(paneView.isCollapsed("infra.modules")).toBe(true);
     });
 
-    it("a section shows the placeholder: the tree itself is not rendered", () => {
+    it("a section is empty until the extension registers its tree, as upstream", () => {
         const { h } = setup([TERRAFORM_LIKE]);
         const placeholder = h
             .root("workbench.view.extension.infra-cloud")
             .querySelector("#viewPlaceholder-infra-workspaces");
-        expect(placeholder).toBeInstanceOf(ViewWelcomeElement);
-        // Wraps in a narrow sidebar instead of being clipped.
-        const screen = renderElement(placeholder as ViewWelcomeElement, 24, 3).screenToString();
-        expect(screen.replace(/\s+/g, " ").trim()).toBe("Extension tree views are not rendered yet.");
+        expect(placeholder).not.toBeNull();
+        const screen = renderElement(placeholder!, 24, 3).screenToString();
+        expect(screen.trim()).toBe("");
     });
 
     it("`workbench.view.extension.<id>` opens the container and shows up in the palette under View", () => {

@@ -8,7 +8,6 @@ import type {
 } from "../../../platform/extensions/common/iExtensionManifest.ts";
 import type { ILogger } from "../../../platform/log/common/iLogger.ts";
 import type { IViewDescriptor, ViewContainerLocation, ViewsService } from "../../browser/parts/views/viewsService.ts";
-import type { IViewWelcomeBlock } from "../../browser/parts/views/viewWelcomeElement.ts";
 
 /** Upstream id of an extension's container; the `<id>` part is what `views` keys refer to. */
 export const EXTENSION_VIEW_CONTAINER_PREFIX = "workbench.view.extension.";
@@ -44,14 +43,6 @@ const COLLAPSED_CONTAINERS: ReadonlySet<string> = new Set(["explorer", "scm"]);
 const FOREIGN_VIEW_ORDER = 100;
 
 const CONTAINER_ID_PATTERN = /^[a-z0-9_-]+$/i;
-
-/**
- * Wraps in the narrow sidebar (a plain label would be clipped). The tree is not drawn yet: the
- * section exists so the container, the switcher entry, `<view>.focus` and `onView:` work.
- */
-const TREE_PLACEHOLDER: readonly IViewWelcomeBlock[] = [
-    { kind: "text", text: "Extension tree views are not rendered yet." },
-];
 
 /** The slice of `ContextKeyService` a view's `when` needs. */
 export interface IViewWhenContext {
@@ -250,8 +241,8 @@ function registerViews(
                 containerId: target,
                 title: name.toUpperCase(),
                 order: ownContainer ? index : FOREIGN_VIEW_ORDER + index,
+                // Empty until the extension registers its tree (`ExtensionTreeViewsAdapter`), as upstream.
                 body: null,
-                placeholder: TREE_PLACEHOLDER,
                 collapsed: COLLAPSED_CONTAINERS.has(target) || view.visibility === "collapsed",
                 canMoveView: true,
                 focus: () => {

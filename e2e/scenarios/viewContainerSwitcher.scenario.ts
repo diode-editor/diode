@@ -7,7 +7,7 @@ import { defineScenario, repoRoot, type ScenarioDriver } from "./framework.ts";
 
 // The container switcher — our activity bar: a click on the sidebar title lists the sidebar containers,
 // built-in ones and an extension's `viewsContainers.activitybar` entry alike. Picking "Build Tools" shows the
-// extension's tree sections (placeholders: trees are not drawn yet) and starts the extension by `onView:`.
+// extension's tree sections (empty until the extension registers its trees) and starts the extension by `onView:`.
 
 const sampleFile = resolve(repoRoot, "e2e", "fixtures", "sample.ts");
 const userData = resolve(repoRoot, "e2e", "fixtures", "user-data-with-view-container");
@@ -26,7 +26,7 @@ export default defineScenario({
     open: [repoRoot, sampleFile],
     cols: 120,
     rows: 32,
-    // Extension host scenario: the CI safety net runs on Linux only (like tree-view-noop).
+    // Extension host scenario: the CI safety net runs on Linux only (like extension-tree-view).
     skipOn: ["win32"],
     userKeybindings: ACTIVATION_LOG_KEYBINDINGS,
     async run(editor) {

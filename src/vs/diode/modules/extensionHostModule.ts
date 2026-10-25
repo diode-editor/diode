@@ -4,6 +4,7 @@ import {
     type ILanguageFeaturesService,
     LanguageFeaturesServiceDIToken,
 } from "../../editor/common/services/languageFeatures.ts";
+import { MenuRegistryDIToken } from "../../platform/actions/common/menuRegistry.ts";
 import { ClipboardDIToken } from "../../platform/clipboard/common/iClipboard.ts";
 import { CommandRegistryDIToken } from "../../platform/commands/common/commandRegistry.ts";
 import type { ConfigurationRegistry } from "../../platform/configuration/common/configurationRegistry.ts";
@@ -32,6 +33,7 @@ import { EditorLayoutServiceAdapter } from "../../workbench/api/browser/editorLa
 import { EditorOptionsServiceAdapter } from "../../workbench/api/browser/editorOptionsServiceAdapter.ts";
 import { ExtensionOutputAdapter } from "../../workbench/api/browser/extensionOutputAdapter.ts";
 import { ExtensionStatusBarAdapter } from "../../workbench/api/browser/extensionStatusBarAdapter.ts";
+import { ExtensionTreeViewsAdapter } from "../../workbench/api/browser/extensionTreeViewsAdapter.ts";
 import { FileDecorationsServiceAdapter } from "../../workbench/api/browser/fileDecorationsServiceAdapter.ts";
 import { FileDialogExtensionAdapter } from "../../workbench/api/browser/fileDialogExtensionAdapter.ts";
 import { FileSystemProviderAdapter } from "../../workbench/api/browser/fileSystemProviderAdapter.ts";
@@ -332,6 +334,23 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
             ),
             terminalSink: terminals(),
             environmentVariableCollections: container.get(EnvironmentVariableServiceDIToken),
+            // Stryker disable ObjectLiteral,ArrowFunction,BlockStatement,StringLiteral,BooleanLiteral,ArrayDeclaration,CallExpression: production module wiring — the decisions live in ExtensionTreeViewsAdapter/ExtensionTreeView, covered by unit tests; end-to-end — e2e scenario extension-tree-view
+            treeViewsSink: new ExtensionTreeViewsAdapter({
+                views: container.get(ViewsServiceDIToken),
+                commands: container.get(CommandRegistryDIToken),
+                menus: container.get(MenuRegistryDIToken),
+                configuration: configService,
+                workspace: workspaceContext,
+                colors: themeColorResolver,
+                icons,
+                notifyError: (message) => {
+                    container
+                        .get(NotificationServiceDIToken)
+                        .show({ severity: "error", message, modal: false, items: [] });
+                },
+                logger: logService.createLogger("extensions"),
+            }),
+            // Stryker restore ObjectLiteral,ArrowFunction,BlockStatement,StringLiteral,BooleanLiteral,ArrayDeclaration,CallExpression
             taskSink: new ExtensionTaskAdapter(
                 container.get(TaskServiceDIToken),
                 workspaceContext,

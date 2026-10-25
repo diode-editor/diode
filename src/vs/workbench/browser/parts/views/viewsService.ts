@@ -168,7 +168,12 @@ interface ViewRecord {
     containerId: string;
     readonly defaultContainerId: string;
     readonly canMoveView: boolean;
-    readonly title: string;
+    /** The descriptor's title, which {@link ViewsService.setViewTitle} with `undefined` returns to. */
+    readonly defaultTitle: string;
+    /** The owner's name for the section (an extension's `TreeView.title`); `undefined` — the descriptor's. */
+    titleOverride: string | undefined;
+    title: string;
+    description: string | null;
     readonly order: number;
     readonly focus: () => void;
     readonly minBodyHeight: number | undefined;
@@ -181,6 +186,12 @@ interface ViewRecord {
     /** Kept in the record so it survives section rebuilds. */
     spinner: string | null;
     placeholderView: TUIElement | null;
+}
+
+interface IDetachedViewState {
+    body: TUIElement | null;
+    title: string | undefined;
+    description: string | null;
 }
 
 interface ContainerEntry {
@@ -265,6 +276,11 @@ export class ViewsService implements IContextKeyContributor {
     private readonly onDidChangeLocationsEmitter = new Emitter<void>();
     private readonly onDidActivateViewEmitter = new Emitter<string>();
     private readonly onDidShowViewEmitter = new Emitter<string>();
+    /**
+     * What the owner gave a view that is not registered right now (an extension view whose `when` is
+     * false, or one its tree arrived for first): it returns with the view.
+     */
+    private readonly detached = new Map<string, IDetachedViewState>();
     /** Stored moves are applied (from then on, late views place themselves by them). */
     private customizationsApplied = false;
     /** Restoring or resetting moves: the store is not written, this is not a user action. */
@@ -340,12 +356,16 @@ export class ViewsService implements IContextKeyContributor {
         if (existing >= 0) {
             entry.views.splice(existing, 1);
         }
+        const detached = this.detached.get(descriptor.id);
         entry.views.push({
             id: descriptor.id,
             containerId: previous?.record.containerId ?? descriptor.containerId,
             defaultContainerId: descriptor.containerId,
             canMoveView: descriptor.canMoveView ?? false,
-            title: descriptor.title,
+            defaultTitle: descriptor.title,
+            titleOverride: detached?.title,
+            title: detached?.title ?? descriptor.title,
+            description: detached?.description ?? null,
             order: descriptor.order,
             focus: descriptor.focus,
             minBodyHeight: descriptor.minBodyHeight,
@@ -353,7 +373,7 @@ export class ViewsService implements IContextKeyContributor {
             requiresWorkspaceFolder: descriptor.requiresWorkspaceFolder ?? false,
             canToggleVisibility: descriptor.canToggleVisibility ?? true,
             collapsed: descriptor.collapsed ?? false,
-            body: descriptor.body,
+            body: descriptor.body ?? detached?.body ?? null,
             titleWidget: null,
             spinner: null,
             placeholderView: null,
@@ -376,17 +396,64 @@ export class ViewsService implements IContextKeyContributor {
     public unregisterView(viewId: string): void {
         const found = this.findRecord(viewId);
         if (found === undefined) return;
+        const { record } = found;
+        this.detached.set(viewId, { body: record.body, title: record.titleOverride, description: record.description });
         this.removeRecord(found);
         this.syncPresence(found.entry);
+        // A view that is gone is not expanded: registered again, it reports expanding once more.
+        if (this.expandedState.get(viewId) === true) {
+            this.expandedState.delete(viewId);
+            this.onDidChangeViewExpandedEmitter.fire({ viewId, expanded: false });
+        }
     }
 
-    /** `null` returns to the empty state; collapsed state and weight are kept. */
+    /**
+     * `null` returns to the empty state; collapsed state and weight are kept. A view that is not
+     * registered gets the body when it is.
+     */
     public setViewBody(viewId: string, body: TUIElement | null): void {
-        const { entry, record } = this.recordOrThrow(viewId);
+        const found = this.findRecord(viewId);
+        if (found === undefined) {
+            this.detachedState(viewId).body = body;
+            return;
+        }
+        const { entry, record } = found;
         if (record.body === body) return;
         record.body = body;
         if (entry.paneView === null || entry.hidden.has(viewId)) return;
         entry.paneView.setPaneBody(viewId, this.bodyOf(record));
+    }
+
+    /**
+     * Upstream `TreeView.title`/`description`: `title` replaces the section name (`undefined` returns the
+     * registered one), `description` is dimmed next to it. A view that is not registered gets them when it is.
+     */
+    public setViewTitle(viewId: string, title: string | undefined, description: string | null): void {
+        const found = this.findRecord(viewId);
+        if (found === undefined) {
+            const state = this.detachedState(viewId);
+            state.title = title;
+            state.description = description;
+            return;
+        }
+        const { entry, record } = found;
+        const nextTitle = title ?? record.defaultTitle;
+        if (record.title === nextTitle && record.description === description) return;
+        record.titleOverride = title;
+        record.title = nextTitle;
+        record.description = description;
+        if (entry.paneView === null || entry.hidden.has(viewId)) return;
+        this.rebuildPanes(entry);
+    }
+
+    private detachedState(viewId: string): IDetachedViewState {
+        let state = this.detached.get(viewId);
+        if (state === undefined) {
+            // Stryker disable next-line ObjectLiteral: equivalent — registerView falls back to the same defaults for every missing field
+            state = { body: null, title: undefined, description: null };
+            this.detached.set(viewId, state);
+        }
+        return state;
     }
 
     /** Escape hatch for controls that cannot be a menu item (Output channels). */
@@ -795,6 +862,10 @@ export class ViewsService implements IContextKeyContributor {
             part.setActiveView(found.record.containerId);
             part.setVisible(true);
         }
+        // Upstream `ViewPaneContainer.openView`: the opened section is expanded, as if the user did it.
+        // The container is built (checked above) and the section is shown (setViewVisible).
+        const paneView = attached(found.entry).paneView;
+        if (paneView.isCollapsed(viewId)) paneView.toggleCollapsed(viewId);
         if (!focus) return;
         const body = this.bodyOf(found.record);
         if (body instanceof ViewWelcomeElement && body.focusFirstButton()) return;
@@ -1111,9 +1182,10 @@ export class ViewsService implements IContextKeyContributor {
         found.entry.paneView.focusPane(viewId);
     }
 
+    /** Upstream's view pane binds `view = <id>` in its scoped context: extension items say `when: view == <id>`. */
     private viewTitleGroups(viewId: string): IMenuEntryGroup[] {
         const context: ViewMenuContext = { view: viewId };
-        return this.menuService.getEntryGroups(MenuId.ViewTitle, context);
+        return this.menuService.getEntryGroups(MenuId.ViewTitle, context, { view: viewId });
     }
 
     private containerTitleGroups(containerId: string): IMenuEntryGroup[] {
@@ -1445,6 +1517,7 @@ export class ViewsService implements IContextKeyContributor {
                 id: view.id,
                 // Merged in the sidebar: the single section's header is the container header.
                 title: merged && !this.isTabbed(entry) ? containerPaneTitle(entry) : view.title,
+                description: view.description,
                 body: this.bodyOf(view),
                 minBodyHeight: view.minBodyHeight,
                 collapsible: !merged,

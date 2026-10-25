@@ -18,7 +18,8 @@ export class MenuId {
     public static readonly TerminalTabContext = new MenuId("TerminalTabContext");
     /**
      * Filtered by `menuContext.view` (`viewMenuVisible`): a global when key does not
-     * work, since the sidebar shows several sections at once.
+     * work, since the sidebar shows several sections at once. The section's header also
+     * resolves it with its own `view` key, so an extension's `when: view == <id>` holds there.
      */
     public static readonly ViewTitle = new MenuId("ViewTitle");
     /** Filtered by `menuContext.container` (`containerMenuVisible`). */
