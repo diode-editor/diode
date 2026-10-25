@@ -33,7 +33,7 @@ description: Реализатор задачи агентского лупа —
    Если это твоя же сессия, продолженная через `--resume`, всё равно сверь: что реально
    запушено и что говорит CI.
 2. Worktree: есть `.claude/worktrees/issue-<N>` — работай в нём (`cd`, `git fetch origin
-   issue/<N>`, `git checkout issue/<N>`, `git reset --hard origin/issue/<N>`, если локальная
+issue/<N>`, `git checkout issue/<N>`, `git reset --hard origin/issue/<N>`, если локальная
    ветка отстала; незакоммиченное там — твоё же, посмотри, прежде чем сбрасывать). Нет —
    `EnterWorktree` с именем `issue-<N>`, затем `git fetch origin issue/<N>` и
    `git checkout -B issue/<N> origin/issue/<N>`. В обоих случаях `node scripts/git/wt-bootstrap.mjs`.
@@ -74,7 +74,11 @@ claude-lease run -- node scripts/agent-loop/mutation-budget.mjs -- npm run test:
   прогона после каждой правки. Выжившего убиваешь тестом или гасишь
   `// Stryker disable next-line …: причина` по правилам docs/MUTATION.md, не ассертом ради балла.
 - Код 76 — бюджет исчерпан: локально больше нельзя, гоняй в CI `npm run ci:run -- mutation`
-  и чини по его отчёту. Код 75 — лиза не дала слот, прогон не запускался, повтори без `-w`.
+  и чини по его отчёту. Бюджет — потолок и для идущего прогона: когда остаток вышел, обёртка
+  убивает прогон и отдаёт тот же код 76; его вывод — не вердикт. Перепроверка мутантов за минуту
+  до потолка сворачивается сама, оставшиеся — inconclusive: их проверяй точечно вживлением
+  (`scripts/mutation-inject.mjs`) или смотри в CI. Код 75 — лиза не дала слот, прогон не
+  запускался, повтори без `-w`.
 - Храповик не опускаем: PR всё равно должен пройти mutation-job в CI.
 
 ## PR и `ready-for-test`
@@ -84,16 +88,16 @@ claude-lease run -- node scripts/agent-loop/mutation-budget.mjs -- npm run test:
    PR по docs/PR.md: заголовок и тело по-английски, в теле `Closes #<N>`, как воспроизвести,
    принятые решения по неясностям; фича с видимой частью — сценарий-демо в `e2e/scenarios/`.
 3. **Сразу после создания PR**, не дожидаясь CI:
-   ```sh
-   node scripts/agent-loop/status.mjs write --task <N> --role implementer --status ready-for-test \
-       --pr <номер> --branch issue/<N> --note "<решения по спеке и отступления, если есть>"
-   ```
+    ```sh
+    node scripts/agent-loop/status.mjs write --task <N> --role implementer --status ready-for-test \
+        --pr <номер> --branch issue/<N> --note "<решения по спеке и отступления, если есть>"
+    ```
 4. Дальше параллельно: доводи CI до зелёного (`gh pr checks <pr> --watch`, красное чинить,
    флаки по docs/PR.md) и жди тестировщика — в фоне:
-   ```sh
-   node scripts/agent-loop/wait.mjs --task <N> --role tester --timeout 2h
-   ```
-   Пушить в `issue/<N>` можно: тестировщик работает в своей ветке `issue/<N>/tests`.
+    ```sh
+    node scripts/agent-loop/wait.mjs --task <N> --role tester --timeout 2h
+    ```
+    Пушить в `issue/<N>` можно: тестировщик работает в своей ветке `issue/<N>/tests`.
 
 ## Отчёт тестировщика
 
@@ -103,9 +107,9 @@ claude-lease run -- node scripts/agent-loop/mutation-budget.mjs -- npm run test:
   зелёным; временный или дублирующий тест, который ничего не добавляет, можно убрать — но
   баг он поймал настоящий, починить его обязан. Бюджет мутаций общий на всю задачу. Потом
   зелёный CI → влить → `done`:
-  ```sh
-  node scripts/agent-loop/status.mjs write --task <N> --role implementer --status done --pr <номер> --branch issue/<N>
-  ```
+    ```sh
+    node scripts/agent-loop/status.mjs write --task <N> --role implementer --status done --pr <номер> --branch issue/<N>
+    ```
 - **`window-gone`, `idle`, `timeout`** тестировщика — не вливай. Останови работу: менеджер
   сворачивает задачу, человек разберётся. Без вердикта тестировщика PR в `main` не попадает.
 

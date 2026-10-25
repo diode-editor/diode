@@ -58,7 +58,8 @@ export function parseArgs(argv) {
         }
         if (!arg.startsWith("-")) {
             const prev = strykerArgs.at(-1);
-            const isFlagValue = prev !== undefined && prev.startsWith("-") && !prev.includes("=") && !STRYKER_BOOLEAN_FLAGS.has(prev);
+            const isFlagValue =
+                prev !== undefined && prev.startsWith("-") && !prev.includes("=") && !STRYKER_BOOLEAN_FLAGS.has(prev);
             if (!isFlagValue) {
                 throw new PositionalArgumentError(arg);
             }
@@ -66,6 +67,18 @@ export function parseArgs(argv) {
         strykerArgs.push(arg);
     }
     return { base, scopeOnly, verify, strykerArgs: ensureJsonReporter(strykerArgs) };
+}
+
+/**
+ * `--verify-budget` from the environment when the flag is absent: MUTATION_DEADLINE_MS is an
+ * epoch-ms moment set by the local budget wrapper (scripts/agent-loop/mutation-budget.mjs);
+ * the re-verification gets whatever is left until then (nothing, if it is already past).
+ */
+export function verifyBudgetUntil(verify, env = process.env, now = Date.now()) {
+    if (verify.budgetMs !== undefined) return verify;
+    const deadline = Number(env.MUTATION_DEADLINE_MS);
+    if (!Number.isFinite(deadline) || deadline <= 0) return verify;
+    return { ...verify, budgetMs: Math.max(0, deadline - now) };
 }
 
 /** Flag → `verifyMutants` option and unit multiplier. */
@@ -132,7 +145,16 @@ export function filterReportToScope(report, scope) {
  * (Stryker gives NaN, which does not break the threshold either).
  */
 export function scoreReport(report) {
-    const counts = { Killed: 0, Timeout: 0, Survived: 0, NoCoverage: 0, RuntimeError: 0, CompileError: 0, Ignored: 0, Pending: 0 };
+    const counts = {
+        Killed: 0,
+        Timeout: 0,
+        Survived: 0,
+        NoCoverage: 0,
+        RuntimeError: 0,
+        CompileError: 0,
+        Ignored: 0,
+        Pending: 0,
+    };
     for (const data of Object.values(report.files ?? {})) {
         for (const mutant of data.mutants ?? []) {
             if (mutant.status in counts) counts[mutant.status]++;

@@ -24,6 +24,8 @@
  *   --verify-full          third stage: the whole suite for mutants not killed by narrow runs;
  *   --verify-timeout <s>   vitest run timeout (default 120 s + 3 s per file);
  *   --verify-budget <min>  re-verification budget: mutants left over are inconclusive.
+ *                          Without the flag, MUTATION_DEADLINE_MS (epoch ms; set by the
+ *                          agent loop's mutation-budget.mjs) bounds it the same way.
  *
  * Mutants Stryker did not kill are re-verified by injection in
  * `scripts/verify-mutants.mjs`; classes go to `reports/mutation/verdict.json`.
@@ -38,7 +40,14 @@ import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } 
 import * as path from "node:path";
 
 import { changedCodeRanges } from "./code-tokens.mjs";
-import { filterReportToScope, parseArgs, parseDiff, parseScope, scoreReport } from "./mutation-gate.mjs";
+import {
+    filterReportToScope,
+    parseArgs,
+    parseDiff,
+    parseScope,
+    scoreReport,
+    verifyBudgetUntil,
+} from "./mutation-gate.mjs";
 import { blockingVerdicts, countClasses, isCandidate, mergeVerdicts } from "./mutation-inject.mjs";
 import { formatSummary, verifyMutants, writeVerdictFile } from "./verify-mutants.mjs";
 
@@ -106,7 +115,9 @@ function git(args) {
         maxBuffer: 1024 * 1024 * 1024,
     });
     if (result.status !== 0) {
-        const why = result.error ? `${result.error.message}${result.signal ? ` (${result.signal})` : ""}` : result.stderr;
+        const why = result.error
+            ? `${result.error.message}${result.signal ? ` (${result.signal})` : ""}`
+            : result.stderr;
         throw new Error(`git ${args.join(" ")} failed:\n${why}`);
     }
     return result.stdout;
@@ -160,28 +171,13 @@ function finish(outcome, code, extra = {}) {
     process.exit(code);
 }
 
-const added = new Set(
-    git(["diff", "--name-only", "--diff-filter=A", mergeBase, "--"])
-        .split("\n")
-        .filter(Boolean),
-);
+const added = new Set(git(["diff", "--name-only", "--diff-filter=A", mergeBase, "--"]).split("\n").filter(Boolean));
 
 // Files not added to the index are missing from the diff but are copied into the Stryker sandbox.
-const untracked = git(["ls-files", "--others", "--exclude-standard"])
-    .split("\n")
-    .filter(Boolean);
+const untracked = git(["ls-files", "--others", "--exclude-standard"]).split("\n").filter(Boolean);
 for (const file of untracked) added.add(file);
 
-const diff = git([
-    "diff",
-    "-U0",
-    "--no-prefix",
-    "--no-color",
-    "--no-ext-diff",
-    mergeBase,
-    "--",
-    ...SOURCE_ROOTS,
-]);
+const diff = git(["diff", "-U0", "--no-prefix", "--no-color", "--no-ext-diff", mergeBase, "--", ...SOURCE_ROOTS]);
 const { scope, headers } = parseDiff(diff);
 
 if (diff.trim() !== "" && headers === 0) {
@@ -201,7 +197,11 @@ for (const [file, hunks] of scope) {
         continue;
     }
     // A renamed file has no text at the base under its new path: its hunks stay whole.
-    const before = spawnSync("git", ["show", `${mergeBase}:${file}`], { cwd: repoRoot, encoding: "utf8", maxBuffer: 1 << 28 });
+    const before = spawnSync("git", ["show", `${mergeBase}:${file}`], {
+        cwd: repoRoot,
+        encoding: "utf8",
+        maxBuffer: 1 << 28,
+    });
     const ranges =
         before.status === 0
             ? changedCodeRanges(file, before.stdout, readFileSync(path.join(repoRoot, file), "utf8"), hunks)
@@ -338,9 +338,15 @@ console.log(
 );
 let verdicts = [];
 try {
-    verdicts = await verifyMutants({ root: repoRoot, report: firstReport, ...args.verify });
+    verdicts = await verifyMutants({
+        root: repoRoot,
+        report: firstReport,
+        ...verifyBudgetUntil(args.verify, process.env),
+    });
 } catch (error) {
-    console.error(`\nRe-verification failed: ${error instanceof Error ? (error.stack ?? error.message) : String(error)}`);
+    console.error(
+        `\nRe-verification failed: ${error instanceof Error ? (error.stack ?? error.message) : String(error)}`,
+    );
     finish("error", 1, { reason: "re-verification by injection failed" });
 }
 mergeVerdicts(firstReport, verdicts);

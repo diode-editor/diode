@@ -137,7 +137,12 @@ ready to implement ──start-task──▶ in progress ──PR влит (Clos
 claude-lease run -- node scripts/agent-loop/mutation-budget.mjs -- npm run test:mutation [-- --mutate src/x.ts]
 ```
 
-Исчерпан — код 76, дальше только CI (`npm run ci:run -- mutation`); начатый прогон не обрывается.
+Исчерпан — код 76, дальше только CI (`npm run ci:run -- mutation`). Бюджет — жёсткий потолок и
+для идущего прогона: обёртка держит команду в своей группе процессов и убивает её, как только
+остаток бюджета вышел (тоже код 76, в ledger `cut: true`); за минуту до этого перепроверка
+мутантов сама сворачивается по `MUTATION_DEADLINE_MS` и дописывает отчёт (оставшиеся —
+inconclusive). Повод: один прогон продержал единственный слот лизы два часа, и все остальные
+задачи машины встали за ним.
 Прямой `test:mutation`/`stryker`/`mutation-diff.mjs` при `AGENT_LOOP_TASK` в окружении режет
 `.claude/hooks/bash-guard.mjs`; `--scope-only` бесплатен. Храповик не опускаем: PR всё равно должен
 пройти mutation-job в CI. Давление на реализатора — в скилле: тест до/вместе с кодом, первый

@@ -11,9 +11,13 @@ import {
     parseScope,
     PositionalArgumentError,
     scoreReport,
+    verifyBudgetUntil,
 } from "./mutation-gate.mjs";
 
-const at = (line, column, endLine, endColumn) => ({ start: { line, column }, end: { line: endLine, column: endColumn } });
+const at = (line, column, endLine, endColumn) => ({
+    start: { line, column },
+    end: { line: endLine, column: endColumn },
+});
 
 test("parseArgs: base only via flag, npm script flags in front do not interfere", () => {
     const parsed = parseArgs(["--ignoreStatic", "--incremental", "--base", "origin/main", "--concurrency", "4"]);
@@ -104,12 +108,38 @@ test("scoreReport: Stryker's formula, RuntimeError/CompileError/Ignored are outs
 });
 
 test("parseArgs: injection re-verification flags are consumed and not passed to Stryker", () => {
-    const parsed = parseArgs(["--incremental", "--verify-jobs", "2", "--verify-full", "--verify-timeout", "30", "--verify-budget", "15"]);
+    const parsed = parseArgs([
+        "--incremental",
+        "--verify-jobs",
+        "2",
+        "--verify-full",
+        "--verify-timeout",
+        "30",
+        "--verify-budget",
+        "15",
+    ]);
     assert.deepEqual(parsed.verify, { jobs: 2, full: true, timeoutMs: 30_000, budgetMs: 900_000 });
     assert.deepEqual(parsed.strykerArgs, ["--incremental"]);
     assert.deepEqual(parseArgs([]).verify, {});
     assert.throws(() => parseArgs(["--verify-jobs"]), /positive number/);
     assert.throws(() => parseArgs(["--verify-budget", "x"]), /positive number/);
+});
+
+test("verifyBudgetUntil: MUTATION_DEADLINE_MS bounds the re-verification unless --verify-budget was given", () => {
+    const now = 1_000_000;
+    assert.deepEqual(verifyBudgetUntil({}, { MUTATION_DEADLINE_MS: String(now + 90_000) }, now), { budgetMs: 90_000 });
+    // A deadline already past: nothing is left, every mutant is inconclusive.
+    assert.deepEqual(verifyBudgetUntil({ jobs: 2 }, { MUTATION_DEADLINE_MS: String(now - 1) }, now), {
+        jobs: 2,
+        budgetMs: 0,
+    });
+    // The flag wins over the environment.
+    assert.deepEqual(verifyBudgetUntil({ budgetMs: 5 }, { MUTATION_DEADLINE_MS: String(now + 90_000) }, now), {
+        budgetMs: 5,
+    });
+    // No or garbage deadline: untouched.
+    assert.deepEqual(verifyBudgetUntil({}, {}, now), {});
+    assert.deepEqual(verifyBudgetUntil({}, { MUTATION_DEADLINE_MS: "soon" }, now), {});
 });
 
 test("parseDiff: hunks keep both sides, pure deletions and /dev/null are skipped", () => {
