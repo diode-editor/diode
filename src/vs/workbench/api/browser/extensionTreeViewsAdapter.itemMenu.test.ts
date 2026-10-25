@@ -73,6 +73,14 @@ const SUBMENUS = extension("pub.s", {
             { submenu: "pub.inline", when: "viewItem == provider", group: "inline" },
             { submenu: "pub.other", when: "viewItem == go:explorer:envfile" },
             { command: "ext.copy", group: "9_copy" },
+            // Two items in a group; an env row's other item has the same title but another command.
+            { command: "ext.openDocs", when: "viewItem == provider", group: "9_copy" },
+            {
+                command: "ext.reveal",
+                title: "Open Documentation",
+                when: "viewItem == go:explorer:envfile",
+                group: "9_copy",
+            },
         ],
         "pub.more": [{ command: "ext.copy" }],
         "pub.other": [{ command: "ext.copy" }],
@@ -460,7 +468,7 @@ describe("ExtensionTreeViewsAdapter — multiple selection", () => {
         const f = await setup({ canSelectMany: true, extensions: [SUBMENUS], rows: [ROWS[0], GCP] });
         await selectFirstTwo(f, ["1/prov", "1/gcp"]);
         f.rightClick("aws");
-        expect(f.menu()).toEqual(["More", "─", "Copy Name"]);
+        expect(f.menu()).toEqual(["More", "─", "Copy Name", "Open Documentation"]);
     });
 
     it("a right click outside the selection is that row alone", async () => {

@@ -437,11 +437,10 @@ export class ExtensionTreeView implements IWelcomeTree, IDisposable {
 
     /** The command's icon, or its title when it has none (or its glyph is missing from the font set). */
     private inlineActions(item: IWireTreeItem): ITreeItemAction[] {
-        return inlineEntries(this.menuGroups(item, true)).map((entry) =>
-            entry.icon === undefined || entry.icon === ""
-                ? { label: entry.label }
-                : { label: entry.label, icon: entry.icon },
-        );
+        return inlineEntries(this.menuGroups(item, true)).map((entry) => ({
+            label: entry.label,
+            icon: entry.icon === "" ? undefined : entry.icon,
+        }));
     }
 
     /** `undefined` and `""` are no description. */
