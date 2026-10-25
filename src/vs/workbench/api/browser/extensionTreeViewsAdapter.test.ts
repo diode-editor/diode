@@ -282,4 +282,28 @@ describe("ExtensionTreeViewsAdapter", () => {
         h.showViewlet("other");
         expect(tree.visibility).toEqual([true]);
     });
+
+    it("reveal with focus expands a collapsed section and shows the row, like upstream's openView", async () => {
+        const { h, adapter, frame } = setup();
+        const tree = source({
+            "": [item("p", "pkg", { collapsibleState: 1 })],
+            p: [item("p/c", "deep child", { parentHandle: "p" })],
+        });
+        adapter.register({ viewId: VIEW, showCollapseAll: false, canSelectMany: false }, tree);
+        await flushMicrotasks(10);
+        h.paneView("sb").toggleCollapsed(VIEW);
+        expect(frame()).not.toContain("pkg");
+
+        await adapter.reveal({
+            viewId: VIEW,
+            item: item("p/c", "deep child", { parentHandle: "p" }),
+            parentChain: [item("p", "pkg", { collapsibleState: 1 })],
+            select: true,
+            focus: true,
+            expand: false,
+        });
+        await flushMicrotasks(10);
+        expect(tree.visibility.at(-1)).toBe(true);
+        expect(frame()).toContain("deep child");
+    });
 });
