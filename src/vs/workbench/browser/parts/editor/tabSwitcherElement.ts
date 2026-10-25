@@ -15,9 +15,10 @@ const ICON_WIDTH = 2;
 const MODIFIED_MARKER = " ●";
 
 export interface TabSwitcherItem {
-    readonly icon: string;
+    /** `undefined`: no file icons (`diode.icons.nerdFont: off`), the column and its gap disappear. */
+    readonly icon?: string;
     /** Packed RGB, as in the tab strip. */
-    readonly iconColor: number;
+    readonly iconColor?: number;
     readonly label: string;
     readonly isModified: boolean;
 }
@@ -100,13 +101,16 @@ export class TabSwitcherElement extends TUIElement {
 
         row.addChild(new FillerElement(), { width: hflexFixed(CONTENT_PAD), height: 1 });
 
-        const icon = new TextLabelElement(item.icon);
-        icon.style = { fg: item.iconColor };
-        row.addChild(icon, { width: hflexFixed(ICON_WIDTH), height: 1 });
+        const iconWidth = item.icon === undefined ? 0 : ICON_WIDTH;
+        if (item.icon !== undefined) {
+            const icon = new TextLabelElement(item.icon);
+            icon.style = { fg: item.iconColor };
+            row.addChild(icon, { width: hflexFixed(ICON_WIDTH), height: 1 });
+        }
 
         const marker = item.isModified ? MODIFIED_MARKER : null;
         const markerWidth = marker === null ? 0 : new DisplayLine(marker).displayWidth;
-        const budget = Math.max(0, innerWidth - CONTENT_PAD * 2 - ICON_WIDTH - markerWidth);
+        const budget = Math.max(0, innerWidth - CONTENT_PAD * 2 - iconWidth - markerWidth);
         const label = new TextLabelElement(truncateEnd(item.label, budget));
         row.addChild(label, { width: hflexFixed(new DisplayLine(label.getText()).displayWidth), height: 1 });
 

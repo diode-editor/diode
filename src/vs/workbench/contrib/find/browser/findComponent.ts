@@ -66,6 +66,11 @@ export class FindWidget extends Disposable {
         this.input.onChange = (value) => {
             this.onQueryChange?.(value);
         };
+        // Tab stays in the widget, as upstream (there it walks the widget's toggles; ours are not focusable).
+        // Otherwise focus would leave for the menu bar and closing the widget would not return it to the editor.
+        this.input.addEventListener("keydown", (event) => {
+            if (event.key === "Tab" && !event.ctrlKey && !event.altKey && !event.metaKey) event.preventDefault();
+        });
 
         this.counterLabel = new TextLabelElement("");
         this.counterGap = new TextLabelElement("");

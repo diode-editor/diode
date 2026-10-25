@@ -45,7 +45,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '24'
+          node-version-file: .nvmrc
 
       - run: npm install
 
@@ -85,12 +85,8 @@ jobs:
       # The core's V8 snapshot (SEA `useSnapshot`): main.cjs builds into a snapshot, the
       # module top level doesn't read the build environment (traps + a poisoned build),
       # and after deserialization it sees the launch environment (scripts/check-snapshot.mjs).
-      # With the node the release embeds (build.yml): node before 26.11 crashes a worker
-      # with node:net in a process from a snapshot, and the gate's probe catches that.
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '26.12.0'
-
+      # The job's node is the one the release embeds (.nvmrc, build.yml): node before 26.11
+      # crashes a worker with node:net in a process from a snapshot, and the gate's probe catches that.
       - name: Snapshot
         id: snapshot
         continue-on-error: true
@@ -119,7 +115,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '24'
+          node-version-file: .nvmrc
 
       - run: npm install
 
@@ -163,7 +159,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '24'
+          node-version-file: .nvmrc
 
       - run: npm install
 
@@ -218,9 +214,11 @@ jobs:
           mkdir -p reports/mutation
           # Re-verification by planting runs after Stryker in the same step; the budget leaves
           # headroom under the job's timeout-minutes: the ones that don't make it are inconclusive (red).
+          # Two sandboxes: a big diff left ~30 mutants without a verdict at one (~2.5 min each),
+          # and the narrow per-file runs do not saturate the runner's cores.
           node scripts/mutation-diff.mjs --base "$base" \
             --ignoreStatic --incremental --reporters json,html,clear-text \
-            --verify-budget 40 \
+            --verify-budget 40 --verify-jobs 2 \
             2>&1 | tee reports/mutation/mutation.log
 
       # always(): the next push needs the results even when the score is below the threshold:
@@ -305,7 +303,7 @@ jobs:
       # The same node the release build embeds (build.yml): e2e runs the SEA binary.
       - uses: actions/setup-node@v4
         with:
-          node-version: '26.12.0'
+          node-version-file: .nvmrc
 
       # node-pty builds from source when there is no prebuild for the current Node version.
       # Ubuntu needs build-essential + python3 (macOS already has them from Xcode CLT,

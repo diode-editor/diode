@@ -16,13 +16,17 @@ export async function runGitOp(
     accessor: ServiceAccessor,
     op: string,
     params?: Record<string, unknown>,
-    options?: { silent?: boolean },
+    options?: { silent?: boolean; viewId?: string },
 ): Promise<GitOpResult | null> {
     const commands = accessor.get(CommandRegistryDIToken);
     if (!commands.has(GIT_OP_COMMAND)) return null;
-    const raw = await withGitProgress(accessor, op, () =>
-        // Stryker disable next-line ArrowFunction: parseGitOpResult returns null for both null and undefined
-        Promise.resolve(commands.execute(GIT_OP_COMMAND, { op, params })).catch(() => null),
+    const raw = await withGitProgress(
+        accessor,
+        op,
+        () =>
+            // Stryker disable next-line ArrowFunction: parseGitOpResult returns null for both null and undefined
+            Promise.resolve(commands.execute(GIT_OP_COMMAND, { op, params })).catch(() => null),
+        options?.viewId,
     );
     const result = parseGitOpResult(raw);
     if (result === null) return null;
@@ -37,9 +41,14 @@ export async function runGitOp(
  * This also puts the extension's mutation queue under progress, and the spinner stops after
  * its refresh, once the changes list has settled.
  */
-export function withGitProgress<T>(accessor: ServiceAccessor, op: string, task: () => Promise<T>): Promise<T> {
+export function withGitProgress<T>(
+    accessor: ServiceAccessor,
+    op: string,
+    task: () => Promise<T>,
+    targetViewId?: string,
+): Promise<T> {
     const progress = accessor.get(ProgressServiceDIToken);
-    const { viewId, window } = gitProgressTarget(op);
+    const { viewId, window } = gitProgressTarget(op, targetViewId);
     const title = gitProgressTitle(op);
     const inView = (): Promise<T> => progress.withProgress({ location: "view", viewId, title }, task);
     if (!window) return inView();

@@ -77,6 +77,7 @@ describe("WorkbenchContextKeys", () => {
         expect(h.contextKeys.get("inputWidgetFocus")).toBe(false);
         expect(h.contextKeys.get("listFocus")).toBe(false);
         expect(h.contextKeys.get("terminalFocus")).toBe(false);
+        expect(h.contextKeys.get("editorAreaFocus")).toBe(false);
         // The name is a contract: manifests look the key up by it (`editorLangId == python`).
         expect(h.contextKeys.get("editorTextFocus")).toBe(false);
         expect(h.contextKeys.get("editorLangId")).toBe("");

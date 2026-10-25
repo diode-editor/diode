@@ -67,6 +67,8 @@ export interface ProductionProfileContext {
 }
 
 export function createProductionContainer(ctx: ProductionProfileContext): Container {
+    // Stryker disable next-line ObjectLiteral: production composition root, no unit test boots it; the $TERM decision lives in `resolveNerdFont` (unit tests), the wiring runs in every e2e scenario
+    const terminalEnvironment = { backend: ctx.backend, term: process.env.TERM };
     return new Container()
         .use(coreModule, { app: ctx.app })
         .use(environmentModule, ctx.environment)
@@ -87,7 +89,7 @@ export function createProductionContainer(ctx: ProductionProfileContext): Contai
         })
         .use(stateModule, { stateService: ctx.stateService })
         .use(userDataProfileModule, ctx.userDataProfile)
-        .use(terminalEnvironmentModule, { backend: ctx.backend })
+        .use(terminalEnvironmentModule, terminalEnvironment)
         .use(keybindingsModule, { rules: ctx.userKeybindings })
         .use(workspaceModule)
         .use(fileWatcherModule)

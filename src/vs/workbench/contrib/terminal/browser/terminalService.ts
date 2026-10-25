@@ -50,7 +50,7 @@ export interface ITerminalInstance {
      * deduplicated — as in upstream.
      */
     readonly title: string;
-    readonly session: ITerminalSurface & Pick<ITerminalSession, "setAnsiColors" | "onLineData">;
+    readonly session: ITerminalSurface & Pick<ITerminalSession, "setAnsiColors" | "onLineData" | "buffer" | "getCwd">;
     /** `undefined` if there is no process on our side. */
     readonly processId: number | undefined;
     readonly launch: ITerminalLaunchInfo;

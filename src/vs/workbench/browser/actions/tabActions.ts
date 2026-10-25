@@ -26,8 +26,13 @@ function cycleMruStep(accessor: ServiceAccessor, direction: 1 | -1): void {
     });
 }
 
-/** Upstream lists tab commands in `commandsToSkipShell`, so they never reach the terminal shell. */
-const EDITOR_TABS_FOCUS = "textViewFocus || terminalEditorFocus";
+/**
+ * Any tab of the editor area (text, diff, keybindings, extension page, terminal), not the
+ * Explorer or the panel. Upstream has no gate (`when: undefined`); ours keeps tab keys away
+ * from views that use them. Upstream lists tab commands in `commandsToSkipShell`, so in a
+ * terminal tab they never reach the shell.
+ */
+const EDITOR_TABS_FOCUS = "editorAreaFocus";
 
 /**
  * Visual order across all groups, wrapping around; no hold session. The Alt duplicate is for
@@ -77,7 +82,7 @@ export const nextEditorInGroupAction: CommandAction = {
         { keys: parseKeybinding("ctrl+down"), when: TAB_SWITCHER_ARROWS },
         { keys: parseKeybinding("ctrl+shift+down"), when: TAB_SWITCHER_ARROWS },
     ],
-    when: "textViewFocus && editorTabsMultiple || terminalEditorFocus && editorTabsMultiple",
+    when: "editorAreaFocus && editorTabsMultiple",
     run(accessor) {
         cycleMruStep(accessor, 1);
     },
@@ -94,7 +99,7 @@ export const previousEditorInGroupAction: CommandAction = {
         { keys: parseKeybinding("ctrl+up"), when: TAB_SWITCHER_ARROWS },
         { keys: parseKeybinding("ctrl+shift+up"), when: TAB_SWITCHER_ARROWS },
     ],
-    when: "textViewFocus && editorTabsMultiple || terminalEditorFocus && editorTabsMultiple",
+    when: "editorAreaFocus && editorTabsMultiple",
     run(accessor) {
         cycleMruStep(accessor, -1);
     },
@@ -110,7 +115,8 @@ export const openPreviousRecentlyUsedEditorInGroupAction: CommandAction = {
     shortTitle: "Alternate Editor",
     menus: [{ menuId: MenuId.MenubarGoMenu, group: "2_editors", order: 15 }],
     keybinding: parseKeybinding("ctrl+6"),
-    when: "textViewFocus && editorTabsMultiple",
+    // A terminal tab keeps Ctrl+6 for the shell.
+    when: "editorAreaFocus && editorTabsMultiple && !terminalEditorFocus",
     run(accessor) {
         const group = accessor.get(EditorGroupsServiceDIToken).activeGroup;
         group.cycleMru(1);
@@ -155,7 +161,8 @@ export const closeActiveEditorAction: CommandAction = {
         { menuId: MenuId.EditorTitleContext, group: "1_close", order: 10, args: editorTabTargetArg },
     ],
     keybinding: parseKeybinding("mod+w"),
-    when: "textViewFocus && editorGroupHasEditors",
+    // In a terminal tab Ctrl+W belongs to `workbench.action.terminal.killEditor` (closes and kills the process).
+    when: "editorAreaFocus && editorGroupHasEditors && !terminalEditorFocus",
     run(accessor, ...args) {
         const service = accessor.get(EditorServiceDIToken);
         // From the menu, the tab UNDER THE POINTER (right-click does not activate it); otherwise the active one.

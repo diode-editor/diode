@@ -37,7 +37,13 @@ export const ENVIRONMENTS: readonly Environment[] = [
 /** Representative focus contexts: bindings with different focus have mutually exclusive `when` clauses anyway. */
 export const FOCUS_CONTEXTS: readonly Readonly<Record<string, boolean>>[] = [
     {},
-    { textViewFocus: true, textInputFocus: true, editorGroupHasEditors: true, editorTabsMultiple: true },
+    {
+        textViewFocus: true,
+        textInputFocus: true,
+        editorAreaFocus: true,
+        editorGroupHasEditors: true,
+        editorTabsMultiple: true,
+    },
     { inputWidgetFocus: true },
     { listFocus: true },
 ];

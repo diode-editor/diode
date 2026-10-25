@@ -415,6 +415,12 @@ export class EditorComponent extends Component {
         this.notifyIndentIfChanged(before);
     }
 
+    public setNerdFont(nerdFont: boolean): void {
+        if (this.editor.nerdFont === nerdFont) return;
+        this.editor.nerdFont = nerdFont;
+        this.editor.markDirty();
+    }
+
     public setOccurrenceHighlightEnabled(enabled: boolean): void {
         this.occurrenceHighlightRequested = enabled;
         this.applyOccurrenceHighlight();

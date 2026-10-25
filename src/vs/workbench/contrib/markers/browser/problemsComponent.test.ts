@@ -1,8 +1,10 @@
 import { Size } from "@tuidom/core/common/geometryPromitives";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { createSwitchableIcons, type ISwitchableIcons } from "../../../../../TestUtils/switchableIcons.ts";
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
 import { settle } from "../../../../../TestUtils/timing.ts";
+import { codicon } from "../../../../base/common/codicons.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import { createRange } from "../../../../editor/common/core/iRange.ts";
 import { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
@@ -59,6 +61,7 @@ describe("ProblemsComponent", () => {
     let component: ProblemsComponent;
     let revealTarget: ReturnType<typeof makeRevealTarget>;
     let testApp: TestApp;
+    let switchIcons: ISwitchableIcons["set"];
 
     beforeEach(() => {
         const themeService = new ThemeService(WorkbenchTheme.fromThemeFile(darkPlusTheme));
@@ -67,7 +70,9 @@ describe("ProblemsComponent", () => {
         panelService = views.panelService;
         panelComponent = new PanelComponent(panelService, new CommandRegistry());
         revealTarget = makeRevealTarget();
-        component = new ProblemsComponent(markerService, views.service, revealTarget, NULL_JUMP_RECORDER);
+        const { icons, set } = createSwitchableIcons(true);
+        switchIcons = set;
+        component = new ProblemsComponent(markerService, views.service, revealTarget, NULL_JUMP_RECORDER, icons);
         // The PROBLEMS container is built by the workbench's mount() — here it plays that role.
         views.service.attachRegisteredContainers();
         testApp = TestApp.createWithContent(panelComponent.view, new Size(70, 12));
@@ -93,6 +98,33 @@ describe("ProblemsComponent", () => {
         expect(screen).toContain("settings.json");
         expect(screen).toContain("Unknown Setting: x");
         expect(screen).toContain("[Ln 2, Col 1]");
+    });
+
+    it("diode.icons.nerdFont: severity icons redraw live, both ways", async () => {
+        // Before any marker the tree is detached: a switch there is harmless.
+        await switchIcons(false);
+        await switchIcons(true);
+        markerService.changeOne("settings", RESOURCE, [warning("Unknown Setting: x", 1)]);
+        await settleMarkers();
+        const line = (): string => {
+            testApp.render();
+            return (
+                testApp.backend
+                    .screenToString()
+                    .split("\n")
+                    .find((l) => l.includes("Unknown Setting")) ?? ""
+            );
+        };
+        expect(line()).toContain(codicon("warning").nerdFont);
+
+        await switchIcons(false);
+        await vi.waitFor(() => {
+            expect(line()).toContain("⚠ Unknown Setting: x");
+        });
+        await switchIcons(true);
+        await vi.waitFor(() => {
+            expect(line()).toContain(`${codicon("warning").nerdFont} Unknown Setting: x`);
+        });
     });
 
     it("falls back to the placeholder when the markers clear", async () => {

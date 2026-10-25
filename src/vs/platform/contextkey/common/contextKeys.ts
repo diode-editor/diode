@@ -8,6 +8,8 @@ export interface ContextKeyTypes {
     textViewFocus: boolean;
     inputWidgetFocus: boolean;
     editorGroupHasEditors: boolean;
+    /** Focus anywhere in the editor area: any group, any tab kind (upstream name). */
+    editorAreaFocus: boolean;
     editorTabsMultiple: boolean;
     editorHasMultipleSelections: boolean;
     editorReadonly: boolean;

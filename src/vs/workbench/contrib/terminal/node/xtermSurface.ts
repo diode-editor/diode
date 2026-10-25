@@ -19,6 +19,7 @@ import { onUnexpectedError } from "../../../../base/common/errors.ts";
 import { Emitter } from "../../../../base/common/event.ts";
 import { importLazyModule } from "../../../../base/common/lazyModule.ts";
 import type { IDisposable } from "../../../../base/common/lifecycle.ts";
+import type { ITerminalBuffer } from "../common/terminalBuffer.ts";
 import type { ITerminalRelaunchOptions } from "../common/terminalSessionFactory.ts";
 import {
     buildXtermPalette,
@@ -249,6 +250,18 @@ export abstract class XtermSurface implements ITerminalSurface, IDisposable {
     /** Clamped on read: `baseY` can shrink (resize, clear) after scrolling up. */
     public get scrollOffset(): number {
         return Math.min(this.viewportScrollOffset, this.maxScrollOffset);
+    }
+
+    /** `undefined` until the emulator loads. */
+    public get buffer(): ITerminalBuffer | undefined {
+        if (this.term === undefined) return undefined;
+        const active = this.term.buffer.active;
+        return {
+            cols: this.cols,
+            viewportY: active.baseY - this.scrollOffset,
+            length: active.length,
+            getLine: (y) => active.getLine(y),
+        };
     }
 
     public get mouseEventsActive(): boolean {

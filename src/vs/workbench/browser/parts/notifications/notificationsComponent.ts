@@ -15,6 +15,11 @@ import {
     keybindingLabelStyle,
     KeybindingRegistryDIToken,
 } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
+import {
+    type IProductIconService,
+    NERD_FONT_ICONS,
+    ProductIconServiceDIToken,
+} from "../../../../platform/theme/common/productIconService.ts";
 import type { IActiveNotification } from "../../../services/notification/browser/notificationService.ts";
 import {
     type NotificationService,
@@ -70,6 +75,7 @@ export class NotificationsComponent extends Component {
         NotificationServiceDIToken,
         KeybindingRegistryDIToken,
         ContextKeyServiceDIToken,
+        ProductIconServiceDIToken,
     ] as const;
 
     public readonly view: SizedBoxElement;
@@ -86,6 +92,7 @@ export class NotificationsComponent extends Component {
         private readonly notifications: NotificationService,
         private readonly keybindings: KeybindingRegistry,
         private readonly contextKeys: ContextKeyService,
+        private readonly icons: IProductIconService = NERD_FONT_ICONS,
     ) {
         super();
         this.view = new SizedBoxElement(TOAST_WIDTH);
@@ -177,7 +184,7 @@ export class NotificationsComponent extends Component {
         if (current !== null && current.id === this.ask?.id) return;
         this.closeAsk();
         if (current === null) return;
-        const widget = current.modal ? new MessageDialog(current) : this.makeToast(current);
+        const widget = current.modal ? new MessageDialog(current, this.icons) : this.makeToast(current);
         const element = current.modal ? widget.view : fixedWidth(widget.view);
         widget.onSelect = (index) => {
             this.notifications.answer(current.id, index);
@@ -266,7 +273,7 @@ export class NotificationsComponent extends Component {
     private makeToast(notification: IActiveNotification): NotificationToast {
         const chord = this.keybindings.getKeybindingForCommand(FOCUS_MESSAGE_COMMAND_ID, this.contextKeys);
         const label = chord === undefined ? undefined : formatKeybinding(chord, keybindingLabelStyle(this.contextKeys));
-        const toast = new NotificationToast(notification, label);
+        const toast = new NotificationToast(notification, label, this.icons);
         // A passive toast has no other way to go away before the timeout.
         toast.onClose = () => {
             this.notifications.dismiss(notification.id);

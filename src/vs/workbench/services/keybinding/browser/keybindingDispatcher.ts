@@ -8,7 +8,11 @@ import { deserializeWhen, whenPositiveKeys } from "../../../../platform/contextk
 import type { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { ContextKeyServiceDIToken } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
-import type { Keybinding, KeybindingRegistry } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
+import type {
+    Keybinding,
+    KeybindingRegistry,
+    KeybindingResolution,
+} from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import {
     formatKeybinding,
     keybindingLabelStyle,
@@ -42,7 +46,13 @@ const CHORD_NOT_FOUND_MS = 4000;
 // Focus-scoped context keys (set from `activeElement`). While a capturing overlay owns the
 // keyboard, only bindings whose `when` names one of these may run — otherwise a shortcut
 // would act on a panel behind the still-visible overlay. See dispatchKeyDown.
-const FOCUS_SCOPED_CONTEXT_KEYS = ["inputWidgetFocus", "textInputFocus", "textViewFocus", "listFocus"] as const;
+const FOCUS_SCOPED_CONTEXT_KEYS = [
+    "inputWidgetFocus",
+    "textInputFocus",
+    "textViewFocus",
+    "listFocus",
+    "editorAreaFocus",
+] as const;
 
 /** The binding requires a focus key to be true (in a non-negated position: `!listFocus` is not focus-scoped). */
 function isFocusScopedWhen(when: string | undefined): boolean {
@@ -67,6 +77,12 @@ function isModifierKey(key: string): boolean {
 // eslint-disable-next-line no-control-regex
 const CSI_U_KEY_RAW = /^\x1b\[[0-9;:]*u$/;
 
+/**
+ * `true` — consumed, `false` — not handled; `focus` — left to the focused widget's default action: no command
+ * runs, the root's later listeners don't see it.
+ */
+type KeyDownOutcome = boolean | "focus";
+
 function eventToKeybinding(event: TUIKeyboardEvent): Keybinding {
     return {
         key: event.key,
@@ -79,7 +95,8 @@ function eventToKeybinding(event: TUIKeyboardEvent): Keybinding {
 
 /**
  * Does not own the view: WorkbenchComponent attaches capture/bubble listeners to BodyElement and
- * supplies the {@link updateContextKeys} and {@link hasKeyboardCapturingOverlay} hooks.
+ * supplies the {@link updateContextKeys} and {@link hasKeyboardCapturingOverlay} hooks; the terminal supplies
+ * {@link isKeyForFocusedWidget}.
  */
 export class KeybindingDispatcher extends Disposable {
     public static dependencies = [
@@ -97,6 +114,14 @@ export class KeybindingDispatcher extends Disposable {
     };
 
     public hasKeyboardCapturingOverlay: () => boolean = () => false;
+
+    /**
+     * Asked outside a chord, before anything runs, with what the key would do: `true` leaves the key
+     * to the focused widget (the terminal sends it to the shell, like upstream's
+     * `attachCustomKeyEventHandler`). The owner of that widget supplies it.
+     */
+    // Stryker disable next-line ArrowFunction: equivalent — `undefined` from the mutated default is just as falsy as `false`
+    public isKeyForFocusedWidget: (event: TUIKeyboardEvent, resolution: KeybindingResolution) => boolean = () => false;
 
     private keybindings: KeybindingRegistry;
     private contextKeys: ContextKeyService;
@@ -159,11 +184,11 @@ export class KeybindingDispatcher extends Disposable {
     // Bubble phase: a non-modifier key gets here only outside a chord (capture stops it otherwise);
     // a lone modifier keydown gets here in a chord too, and dispatchKeyDown ignores it.
     public readonly handleKeyDown = (event: TUIKeyboardEvent): void => {
-        if (this.dispatchKeyDown(event)) {
-            event.preventDefault();
-            // A consumed key does not reach the root's other listeners — menu mnemonics.
-            event.stopImmediatePropagation();
-        }
+        const outcome = this.dispatchKeyDownOutcome(event);
+        if (outcome === true) event.preventDefault();
+        // Neither a consumed key nor one left to the focused widget reaches the root's other
+        // listeners — menu mnemonics: Alt+F in the terminal is the shell's, not the File menu's.
+        if (outcome === true || outcome === "focus") event.stopImmediatePropagation();
     };
 
     // Releasing a modifier ends command "hold sessions" (MRU tabs) via
@@ -182,6 +207,10 @@ export class KeybindingDispatcher extends Disposable {
 
     /** `true` means the key was consumed (the caller calls preventDefault). */
     public dispatchKeyDown(event: TUIKeyboardEvent): boolean {
+        return this.dispatchKeyDownOutcome(event) === true;
+    }
+
+    private dispatchKeyDownOutcome(event: TUIKeyboardEvent): KeyDownOutcome {
         // A lone modifier keydown (Kitty) is not a keystroke, like VS Code's `_doDispatch`: it neither
         // resolves, breaks nor advances a chord, and does not end a hold session.
         if (isModifierKey(event.key)) return false;
@@ -195,12 +224,20 @@ export class KeybindingDispatcher extends Disposable {
         }
     }
 
-    private dispatchResolvedKeyDown(event: TUIKeyboardEvent): boolean {
+    private dispatchResolvedKeyDown(event: TUIKeyboardEvent): KeyDownOutcome {
         this.updateContextKeys();
         this.clearChordTimeout();
         this.clearNotFoundTimer();
         this.swallowNextKeyPress = false;
         const pendingBefore = this.keybindings.pendingLength;
+        // Mid-chord the key always continues the chord (upstream's `inChordMode`).
+        if (
+            pendingBefore === 0 &&
+            this.isKeyForFocusedWidget(event, this.keybindings.softResolveKey(event, this.contextKeys))
+        ) {
+            this.setChordHint(null);
+            return "focus";
+        }
         // Capture the chord prefix BEFORE resolving (resolveKey clears it on a break).
         const prefix = pendingBefore > 0 ? this.keybindings.getPendingChord(this.contextKeys) : [];
         const res = this.keybindings.resolveKey(event, this.contextKeys);
@@ -280,7 +317,7 @@ export class KeybindingDispatcher extends Disposable {
                 keybindingLabelStyle(this.contextKeys),
             );
             this.showChordNotFound(combo);
-            return true; // consumed (no command, no leak)
+            return true; // no command, no leak
         }
 
         this.setChordHint(null);

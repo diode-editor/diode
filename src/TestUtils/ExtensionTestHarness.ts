@@ -95,22 +95,16 @@ const SUBPROCESS_ENTRY = fileURLToPath(
 );
 
 /**
- * - `"tsx"` — full `tsx`, not `tsx/esm`: extensions are loaded via `createRequire`, and a
- *   `.ts` main (builtin `git`) needs the CJS hook;
- * - `"node"` — native type stripping; the only mode that exercises real ESM extension
- *   resolution: `tsx` routes `import … from "vscode"` to the CJS resolver and masks a
- *   missing ESM hook of ours. Fixtures for such a test are `.cjs`/`.mjs`.
+ * Under vitest `process.argv[1]` is the vitest CLI, not `main.ts`, hence a dedicated entry.
+ * Full `tsx`, not `tsx/esm`: extensions are loaded via `createRequire`, and a `.ts` main
+ * (builtin `git`) needs the CJS hook. The same loader `npm start` runs the host with; the
+ * tsx ESM hook routes `import … from "vscode"` to the CJS resolver, so the ESM path of our
+ * `vscode` hook is proven only on the built binary (e2e/prettierFormat.test.ts), not here.
  */
-export type SubprocessLoader = "tsx" | "node";
-
-/** Under vitest `process.argv[1]` is the vitest CLI, not `main.ts`, hence a dedicated entry. */
-export function subprocessSpawnArgsForTests(
-    loader: SubprocessLoader = "tsx",
-): () => { command: string; args: string[]; env?: NodeJS.ProcessEnv } {
-    const loaderArgs = loader === "tsx" ? ["--import", "tsx"] : ["--experimental-transform-types", "--no-warnings"];
+export function subprocessSpawnArgsForTests(): () => { command: string; args: string[]; env?: NodeJS.ProcessEnv } {
     return () => ({
         command: process.execPath,
-        args: [...loaderArgs, SUBPROCESS_ENTRY],
+        args: ["--import", "tsx", SUBPROCESS_ENTRY],
         env: { ...process.env },
     });
 }
@@ -199,10 +193,10 @@ export interface IExtensionHarnessOptions {
     /** The subprocess's stderr, line by line (`[ext-host] …` warnings land here). */
     readonly stderrLogger?: ILogger;
     readonly workspaceScanner?: IWorkspaceScanner;
+    readonly workspaceContainsTimeoutMs?: number;
     readonly environment?: IExtensionHostEnvironment;
     readonly environmentVariableCollections?: IEnvironmentVariableCollectionStore;
     readonly languageConfigurations?: Pick<ILanguageConfigurationService, "register">;
-    readonly subprocessLoader?: SubprocessLoader;
 }
 
 export interface IExtensionHarness {
@@ -293,7 +287,7 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
             logsHome: path.join(tmpDir, "logs"),
         }));
     const host = new ExtensionHost(adapter, commandAdapter, {
-        spawnArgs: subprocessSpawnArgsForTests(options.subprocessLoader),
+        spawnArgs: subprocessSpawnArgsForTests(),
         configuration,
         storageHomes,
         ...(options.logger !== undefined ? { logger: options.logger } : {}),
@@ -315,6 +309,9 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
         ...(options.secrets !== undefined ? { secrets: options.secrets } : {}),
         ...(options.extensionState !== undefined ? { extensionState: options.extensionState } : {}),
         ...(options.workspaceScanner !== undefined ? { workspaceScanner: options.workspaceScanner } : {}),
+        ...(options.workspaceContainsTimeoutMs !== undefined
+            ? { workspaceContainsTimeoutMs: options.workspaceContainsTimeoutMs }
+            : {}),
         ...(options.environment !== undefined ? { environment: options.environment } : {}),
         ...(options.environmentVariableCollections !== undefined
             ? { environmentVariableCollections: options.environmentVariableCollections }

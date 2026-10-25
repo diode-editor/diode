@@ -86,6 +86,7 @@ describe("XtermSurface — emulator from a lazy chunk", () => {
         expect(session.getCursor()).toBeNull();
         expect(session.mouseEventsActive).toBe(false);
         expect(session.scrollOffset).toBe(0);
+        expect(session.buffer).toBeUndefined();
         expect(onInput).not.toHaveBeenCalled();
         expect(updates).not.toHaveBeenCalled();
 
@@ -96,6 +97,7 @@ describe("XtermSurface — emulator from a lazy chunk", () => {
             expect(row(session, 1, 30)).toBe("second");
         });
         expect(session.getCursor()).toStrictEqual({ x: 6, y: 1 });
+        expect(session.buffer?.getLine(1)?.translateToString(true)).toBe("second");
         // The mouse mode from queued output reached the emulator.
         expect(session.mouseEventsActive).toBe(true);
         expect(updates).toHaveBeenCalled();

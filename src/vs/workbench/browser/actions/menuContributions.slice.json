@@ -412,6 +412,7 @@
             "search.action.collapseSearchResults",
             "search.action.expandSearchResults",
             "workbench.action.terminal.new",
+            "git.refresh",
             "scm.graph.refresh",
             "extensions.refresh",
             "references-view.collapseAll",

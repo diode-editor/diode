@@ -1,3 +1,4 @@
+import { codicon } from "../../../../base/common/codicons.ts";
 import type { CommandAction } from "../../../../platform/actions/common/commandAction.ts";
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import { parseChord, parseKeybinding } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
@@ -8,12 +9,9 @@ import { SidebarServiceDIToken } from "../../../browser/parts/sidebar/sidebarSer
 import { REFERENCES_VIEW_ID, REFERENCES_VIEWLET_ID, ReferencesComponentDIToken } from "./referencesComponent.ts";
 import { ReferencesServiceDIToken } from "./referencesService.ts";
 
-/** nf-cod-collapse_all */
-const COLLAPSE_ALL_ICON = "\ueac5";
-/** nf-cod-expand_all */
-const EXPAND_ALL_ICON = "\ueb95";
-/** nf-cod-clear_all */
-const CLEAR_ALL_ICON = "\ueabf";
+const COLLAPSE_ALL_ICON = codicon("collapse-all");
+const EXPAND_ALL_ICON = codicon("expand-all");
+const CLEAR_ALL_ICON = codicon("clear-all");
 
 /**
  * Command id is from VS Code references-view (Shift+Alt+F12). A leader chord sits next to it: F-keys with

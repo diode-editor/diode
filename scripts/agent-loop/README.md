@@ -26,8 +26,8 @@ bash scripts/agent-loop/dispatch.sh    # Enter — тик сейчас, q — в
 
 Переменные (все необязательны): `AGENT_LOOP_MODEL` (дефолт `opus` — алиас последнего Opus;
 зафиксировать версию — `claude-opus-5-5`), `AGENT_LOOP_INTERVAL`, `AGENT_LOOP_HOME`,
-`AGENT_LOOP_MAX_TASKS` (3), `AGENT_LOOP_LOAD5_MAX` (nproc/2), `AGENT_LOOP_MEM_MIN_PCT` (30),
-`AGENT_LOOP_TASK_TIMEOUT_HOURS` (8), `AGENT_LOOP_MUTATION_BUDGET_MIN` (20).
+`AGENT_LOOP_MAX_TASKS` (2), `AGENT_LOOP_LOAD5_MAX` (nproc/2), `AGENT_LOOP_MEM_MIN_PCT` (30),
+`AGENT_LOOP_TASK_TIMEOUT_HOURS` (8), `AGENT_LOOP_MUTATION_BUDGET_MIN` (20), `AGENT_LOOP_MAX_RESUMES` (2).
 
 Посмотреть на задачу глазами — `tmux attach -t task-<N>`: окна `manager`, `implementer`, `tester`.
 
@@ -49,8 +49,12 @@ bash scripts/agent-loop/dispatch.sh    # Enter — тик сейчас, q — в
 
 ```
 ready to implement ──start-task──▶ in progress ──PR влит (Closes #N)──▶ closed
-                                       │
-                                       └──return-task──▶ returned  (человек разбирает руками)
+        ▲                              │
+        │                              ├──return-task (вопрос к человеку)──▶ returned
+        │                              │                                        │
+        └──return-task --requeue───────┘                 человек ставит ready to implement
+        (таймаут, смерть машины; ≤ AGENT_LOOP_MAX_RESUMES раз)                  │
+        ◀───────────────────────────────────────────────────────────────────────┘
 ```
 
 - Очередь: открытые issues с `ready to implement` без `in progress`/`returned` и без открытых
@@ -61,12 +65,38 @@ ready to implement ──start-task──▶ in progress ──PR влит (Clos
   закрылся — попадает в очередь сама. Так ставится цепочка из 3–5 последовательных задач.
   Спеку и цепочку готовит человек со скиллом [`spec`](../../.claude/skills/spec/SKILL.md).
 - Захват: комментарий `claim: <host> <ISO>` + `session: task-<N>`; перечитать — чужой более
-  ранний claim выигрывает (два пода). Время claim'а — начало отсчёта таймаута задачи.
-- Ветка `issue/<N>` уже на origin — задача не берётся, ставится `returned` с объяснением:
-  луп стартует только с нуля, автовозобновления нет.
-- `returned`: комментарий с причиной и хвостами всех панелей (`<details>` по окнам), PR в draft,
-  сессия убита, worktree снесёт уборка. Человек отвечает в issue, прибирает ветку и снова
-  ставит `ready to implement`.
+  ранний claim выигрывает (два пода). Время claim'а — начало отсчёта таймаута задачи. Хост из
+  claim — хозяин задачи: только он сворачивает её по пропавшей сессии (`mine` в `facts.mjs`),
+  чужую сворачивает кто угодно, но лишь просроченную.
+- Ветка `issue/<N>` с открытым PR уже на origin — задача **возобновляется** (ниже). Ветка без
+  PR — `returned` с объяснением: продолжать нечего, человек прибирает ветку.
+- `returned`: комментарий с причиной, id сессий и хвостами всех панелей (`<details>` по окнам),
+  PR в draft, сессия убита, worktree лежит до уборки. Человек отвечает в issue и снова ставит
+  `ready to implement` — ветку сносить не надо, луп продолжит с PR.
+
+## Возобновление
+
+Решение человека 2026-10-25: таймаут и смерть машины — не повод делать задачу заново. Диспатчер
+работает на разных машинах, поэтому всё, что нужно для продолжения, лежит в GitHub:
+
+- `return-task.mjs --requeue` (таймауты `wait.mjs`, `idle`, `window-gone`, мёртвая сессия,
+  просроченная задача) пишет в issue `requeued: <причина>`, `resume: k/MAX` и
+  `sessions: <host> manager <id> implementer <id> tester <id>`, возвращает метку
+  `ready to implement`, PR не трогает. Без флага (вопрос к человеку) — `returned:` с той же
+  строкой `sessions:`. Больше `AGENT_LOOP_MAX_RESUMES` requeue подряд — `returned` человеку.
+- `facts.mjs` ставит такие задачи (`branchExists: true`) в начало очереди: доделать важнее, чем
+  начать новое.
+- `start-task.mjs` видит ветку с открытым PR и пишет `resume.json`: PR, причина последнего
+  возврата, вердикт тестировщика из его комментария в PR (первая строка `verdict: approve|bugs`;
+  найден — восстанавливается и `tester.json`), id сессий, если прошлый прогон был на **этой**
+  машине и транскрипты (`~/.claude/projects/*/<id>.jsonl`) на диске. Draft снимается. Claim
+  считается заново: старые `claim:` до последнего `returned:`/`requeued:` не участвуют в гонке.
+- `spawn.mjs` запускает каждое окно с фиксированным `--session-id`; при возобновлении на той же
+  машине — `claude --resume <id>` (контекст сохраняется), иначе свежую сессию. В обоих случаях к
+  промпту роли добавлен абзац «Resumed task: …». Менеджер с вердиктом тестировщика сразу ждёт
+  `done`; без вердикта — обычный круг, реализатор пишет `ready-for-test` заново.
+- Под умер с потерей диска — продолжение идёт без контекста, по PR и комментариям; это
+  штатный, а не аварийный путь.
 
 ## Контракт ролей — статус-файлы
 
@@ -79,6 +109,8 @@ ready to implement ──start-task──▶ in progress ──PR влит (Clos
 | `mutation-budget.json` | `mutation-budget.mjs` | — | `usedSeconds`, `runs` |
 | `test-plan.md` | тестировщик | — | use cases до проверки |
 | `<роль>-prompt.md` | `spawn.mjs` | — | промпт окна |
+| `sessions.json` | `start-task.mjs`, `spawn.mjs` | — | id сессий claude по ролям |
+| `resume.json` | `start-task.mjs` | — | что уже есть у возобновлённой задачи: `pr`, `handoff`, `testerVerdict`, `sessions` |
 
 Ход: реализатор пишет `ready-for-test` **сразу после создания PR** (CI ещё бежит) → менеджер
 запускает тестировщика (с `note` реализатора) → тестировщик пишет `approve`/`bugs` → реализатор
@@ -88,8 +120,9 @@ ready to implement ──start-task──▶ in progress ──PR влит (Clos
 `wait.mjs` блокируется до первого события: `status` (0), `window-gone` (10), `idle` (11 — панель не
 меняется 15 мин **и** у claude окна нет выполняемой команды; ждущие `claude-lease`, `gh … --watch`
 и сам `wait.mjs` — выполняемые команды, они не idle), `timeout` (12). Таймауты: реализатор 4 ч,
-тестировщик 2 ч, фикс багов 2 ч, задача целиком 8 ч (её считает диспатчер — на случай смерти
-менеджера).
+тестировщик 2 ч, фикс багов и влитие после вердикта 4 ч (круг «пуш → mutation-job в CI» на большом
+диффе — час-полтора), задача целиком 8 ч (её считает диспатчер — на случай смерти менеджера).
+По таймауту задача не пропадает, а возвращается в очередь (`--requeue`, см. «Возобновление»).
 
 ## Бюджет мутаций
 
@@ -118,8 +151,9 @@ tuidom (тег `vX.Y.Z` на влитом `release: X.Y.Z`, затем ждёт 
 
 ## Нагрузка
 
-Тяжёлое сериализует лиза (`машина=1`, `.claude/leases.json`), `npm test` в манифест не добавлен,
-но детям велено гонять его под лизой всегда. Медленность и таймауты на загруженной машине —
+Тяжёлое сериализует лиза (`машина=1`, `.claude/leases.json`): кроме линта, мутаций и e2e там
+`check:diff`, `typecheck` и `npm test` — 2026-10-24 три задачи разом прогнали их мимо лизы и уронили под
+по памяти. Одновременно не больше 2 задач. Бенчи и перф-гейты локально не гоняются, только CI. Медленность и таймауты на загруженной машине —
 повтор под лизой, не расследование. Пороги старта новой задачи — в `facts.mjs` через переменные
 выше; человек наблюдает и подкручивает.
 
@@ -136,9 +170,9 @@ tuidom (тег `vX.Y.Z` на влитом `release: X.Y.Z`, затем ждёт 
 | --- | --- |
 | `dispatch.sh` | внешний цикл: pull → `/dispatch` → пауза; Enter/q |
 | `facts.mjs` | JSON фактов для тика: машина, лимиты, вердикт, сессии, in progress, очередь, worktree |
-| `start-task.mjs --issue N` | claim, метки, каталог задачи, `tmux new-session task-N` с менеджером |
-| `return-task.mjs --task N --reason …` | комментарий с хвостами панелей, PR → draft, `returned`, kill-session |
-| `spawn.mjs --task N --role R [--note f]` | окно роли в сессии задачи |
+| `start-task.mjs --issue N` | claim, метки, каталог задачи, `tmux new-session task-N` с менеджером; ветка с PR — `resume.json` |
+| `return-task.mjs --task N --reason … [--requeue]` | комментарий с id сессий и хвостами панелей; `returned` + PR → draft, либо обратно в `ready to implement` |
+| `spawn.mjs --task N --role R [--note f]` | окно роли в сессии задачи, фиксированный `--session-id` или `--resume` |
 | `wait.mjs --task N --role R [--expect S] [--timeout] [--idle]` | ждать статус/аварию роли |
 | `status.mjs write\|read --task N --role R …` | статус-файлы |
 | `mutation-budget.mjs -- <cmd>` | бюджет мутационных прогонов |

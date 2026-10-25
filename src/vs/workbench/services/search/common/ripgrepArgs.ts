@@ -40,8 +40,14 @@ export function rgIgnoreFilesArgs(useIgnoreFiles: IUseIgnoreFiles): string[] {
 /**
  * `--hidden`: dotfiles are filtered by `files.exclude`/ignore files, not by the leading dot.
  * Symlinks are not followed: upstream `--follow` sits behind `search.followSymlinks`, which
- * we do not have.
+ * we do not have. `includes` go before the excludes, as upstream: in rg the later glob wins,
+ * so an include never resurrects an excluded subtree.
  */
-export function buildRgFilesArgs(excludes: readonly string[], useIgnoreFiles: IUseIgnoreFiles): string[] {
-    return ["--files", "--hidden", ...rgExcludeArgs(excludes), ...rgIgnoreFilesArgs(useIgnoreFiles)];
+export function buildRgFilesArgs(
+    excludes: readonly string[],
+    useIgnoreFiles: IUseIgnoreFiles,
+    includes: readonly string[] = [],
+): string[] {
+    const includeArgs = includes.flatMap((glob) => ["--glob", anchorRgGlob(glob)]);
+    return ["--files", "--hidden", ...includeArgs, ...rgExcludeArgs(excludes), ...rgIgnoreFilesArgs(useIgnoreFiles)];
 }

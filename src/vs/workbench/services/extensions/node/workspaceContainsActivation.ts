@@ -1,125 +1,75 @@
+import { spawn } from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
 
 import { CancellationTokenNone, type ICancellationToken } from "../../../../base/common/cancellation.ts";
 import { matchGlob } from "../../../../base/common/glob.ts";
+import { GuardedChildProcess, splitLines } from "../../../../base/node/childProcessGuard.ts";
+import {
+    type IExcludeConfigReader,
+    readUseIgnoreFiles,
+    searchExcludeGlobs,
+} from "../../../common/configuration/excludeSettings.ts";
+import { buildRgFilesArgs } from "../../search/common/ripgrepArgs.ts";
+import { loadRipgrepPath } from "../../search/node/loadRipgrep.ts";
 import type { IWorkspaceContainsPatterns } from "../common/activationEvents.ts";
 
-export interface IWorkspaceDirectoryEntry {
-    readonly name: string;
-    readonly isDirectory: boolean;
-}
-
 /**
- * Both operations answer rather than throw: a directory without permissions must not break activation of all
+ * `exists` answers rather than throws: a directory without permissions must not break activation of all
  * extensions.
  */
 export interface IWorkspaceScanner {
     exists(absolutePath: string): Promise<boolean>;
-    /** Directory entries; an inaccessible or vanished directory yields an empty list. */
-    readDirectory(absolutePath: string): Promise<readonly IWorkspaceDirectoryEntry[]>;
+    /**
+     * Relative posix path of the first file under `folder` matching any of `globs`, `null` — none. A cancelled
+     * token ends the search at once with `null`; the search itself must not outlive it.
+     */
+    findFile(folder: string, globs: readonly string[], token: ICancellationToken): Promise<string | null>;
 }
 
-/** Upstream `files.exclude` defaults: a `pom.xml` inside a dependency doesn't mark the project. */
-export const DEFAULT_WORKSPACE_CONTAINS_EXCLUDES: ReadonlySet<string> = new Set([".git", "node_modules"]);
-
-/** Directory budget per folder: without it `workspaceContains:**\/x` on a home directory would hold up startup. */
-export const DEFAULT_MAX_DIRECTORIES = 5000;
-
-export interface IWorkspaceContainsSearchOptions {
-    readonly excludeDirectories?: ReadonlySet<string>;
-    readonly maxDirectories?: number;
-    readonly token?: ICancellationToken;
-}
-
-export interface IWorkspaceContainsResult {
-    readonly pattern: string | null;
-    /** `pattern === null` with `truncated` means "not found", not "absent": the caller must report why. */
-    readonly truncated: boolean;
-}
-
-const NO_MATCH: IWorkspaceContainsResult = { pattern: null, truncated: false };
-
-/** Cheap `exists` over all folders first, then the tree walk, as upstream. */
+/** Cheap `exists` over all folders first, then one glob search per folder, as upstream. `null` — no match. */
 export async function matchWorkspaceContains(
     scanner: IWorkspaceScanner,
     folders: readonly string[],
     patterns: IWorkspaceContainsPatterns,
-    options: IWorkspaceContainsSearchOptions = {},
-): Promise<IWorkspaceContainsResult> {
-    const token = options.token ?? CancellationTokenNone;
+    token: ICancellationToken = CancellationTokenNone,
+): Promise<string | null> {
     for (const folder of folders) {
         for (const pattern of patterns.paths) {
-            if (token.isCancellationRequested) return { pattern: null, truncated: true };
-            if (await scanner.exists(path.join(folder, pattern))) return { pattern, truncated: false };
+            if (token.isCancellationRequested) return null;
+            if (await scanner.exists(path.join(folder, pattern))) return pattern;
         }
     }
-    if (patterns.globs.length === 0) return NO_MATCH;
-    let truncated = false;
+    if (patterns.globs.length === 0) return null;
     for (const folder of folders) {
-        const result = await searchGlobs(scanner, folder, patterns.globs, options);
-        if (result.pattern !== null) return result;
-        truncated = truncated || result.truncated;
+        if (token.isCancellationRequested) return null;
+        const found = await scanner.findFile(folder, patterns.globs, token);
+        if (found !== null) return matchedGlob(patterns.globs, found);
     }
-    return { pattern: null, truncated };
-}
-
-/** Breadth-first: real patterns are shallow (`*\/pom.xml`, `*.py`), the match sits near the root. */
-async function searchGlobs(
-    scanner: IWorkspaceScanner,
-    root: string,
-    globs: readonly string[],
-    options: IWorkspaceContainsSearchOptions,
-): Promise<IWorkspaceContainsResult> {
-    const excludes = options.excludeDirectories ?? DEFAULT_WORKSPACE_CONTAINS_EXCLUDES;
-    const maxDirectories = options.maxDirectories ?? DEFAULT_MAX_DIRECTORIES;
-    const token = options.token ?? CancellationTokenNone;
-    const maxDepth = maxGlobDepth(globs);
-
-    let frontier: { absolutePath: string; relativePath: string }[] = [{ absolutePath: root, relativePath: "" }];
-    let read = 0;
-    for (let depth = 0; depth <= maxDepth && frontier.length > 0; depth++) {
-        const next: typeof frontier = [];
-        for (const dir of frontier) {
-            if (token.isCancellationRequested) return { pattern: null, truncated: true };
-            if (read >= maxDirectories) return { pattern: null, truncated: true };
-            read++;
-            for (const entry of await scanner.readDirectory(dir.absolutePath)) {
-                // Relative posix path from the workspace folder, which is how `matchGlob` anchors (`*` doesn't
-                // cross `/`).
-                const relativePath = dir.relativePath === "" ? entry.name : `${dir.relativePath}/${entry.name}`;
-                if (entry.isDirectory) {
-                    if (!excludes.has(entry.name)) {
-                        next.push({ absolutePath: path.join(dir.absolutePath, entry.name), relativePath });
-                    }
-                    continue;
-                }
-                // Directories aren't matched against globs: the event is about a FILE; a directory is covered
-                // by a pattern without glob characters via `exists`.
-                const hit = globs.find((glob) => matchGlob(glob, relativePath));
-                if (hit !== undefined) return { pattern: hit, truncated: false };
-            }
-        }
-        frontier = next;
-    }
-    return NO_MATCH;
+    return null;
 }
 
 /**
- * Without `**` a pattern fixes the segment count, so there's no point searching deeper. `/` inside
- * `{a/b,c}` overestimates: an extra level is safer than a missed match.
+ * The reason names the glob that fits the found path. rg's dialect may differ from ours on exotic patterns;
+ * the file was found by one of the globs anyway, so the first declared one stands in.
  */
-function maxGlobDepth(globs: readonly string[]): number {
-    let depth = 0;
-    for (const glob of globs) {
-        if (glob.includes("**")) return Number.POSITIVE_INFINITY;
-        depth = Math.max(depth, glob.split("/").length - 1);
-    }
-    return depth;
+function matchedGlob(globs: readonly string[], relativePath: string): string {
+    return globs.find((glob) => matchGlob(glob, relativePath)) ?? globs[0];
 }
 
-/** Symlinks to directories aren't followed (`Dirent.isDirectory()` is false for them), so the walk doesn't loop. */
-export function createNodeWorkspaceScanner(): IWorkspaceScanner {
+const NO_SETTINGS: IExcludeConfigReader = { get: () => undefined };
+
+/**
+ * Globs go to an rg subprocess, as upstream `checkGlobFileExists` (a file search with `exists`): a `readdir`
+ * on a slow FUSE/network mount would sit in the libuv pool, and `process.exit` waits for that pool. Flags and
+ * exclusions are Quick Open's (`buildRgFilesArgs`, `search.exclude` + `files.exclude`, ignore files), so the
+ * file sets don't diverge. Settings are read per search: the next pass sees a changed value. Without `config`
+ * nothing is excluded but ignore files.
+ */
+export function createRipgrepWorkspaceScanner(
+    config: IExcludeConfigReader = NO_SETTINGS,
+    ripgrepPath: () => string = loadRipgrepPath,
+): IWorkspaceScanner {
     return {
         exists: async (absolutePath: string): Promise<boolean> => {
             try {
@@ -129,13 +79,38 @@ export function createNodeWorkspaceScanner(): IWorkspaceScanner {
                 return false;
             }
         },
-        readDirectory: async (absolutePath: string): Promise<readonly IWorkspaceDirectoryEntry[]> => {
-            try {
-                const entries = await fs.promises.readdir(absolutePath, { withFileTypes: true });
-                return entries.map((entry) => ({ name: entry.name, isDirectory: entry.isDirectory() }));
-            } catch {
-                return [];
-            }
+        // `async`: an rg path that fails to resolve rejects like any other failure instead of throwing.
+        findFile: async (folder, globs, token) => {
+            if (token.isCancellationRequested) return null;
+            const args = buildRgFilesArgs(searchExcludeGlobs(config), readUseIgnoreFiles(config), globs);
+            // The folder is `cwd`, not a shell word: spaces and unicode in the path need no quoting. stderr is
+            // dropped, not piped: nobody reads it, and a full pipe would stall rg before it prints the answer.
+            const child = spawn(ripgrepPath(), args, { cwd: folder, stdio: ["ignore", "pipe", "ignore"] });
+            // Stryker disable next-line StringLiteral,ObjectLiteral,BooleanLiteral: no logger here — the label never reaches a log; `waitForStdio` ends on `close` so a line still in the pipe after `exit` isn't lost — a race no test can force
+            const guard = new GuardedChildProcess(child, { label: "rg", waitForStdio: true });
+            return new Promise<string | null>((resolve, reject) => {
+                // Runs again on the `close` after a kill or a cancel: every step is idempotent, the promise settles once.
+                const finish = (found: string | null, error?: unknown): void => {
+                    // Stryker disable next-line CallExpression: hygiene — a listener left on the token only calls this idempotent `finish` again; the host disposes the source right after anyway
+                    cancellation.dispose();
+                    // SIGKILL: the first line is the answer, the rest of the walk is waste.
+                    guard.dispose();
+                    if (error === undefined) resolve(found);
+                    // A ChildProcess `error` event always carries an Error.
+                    else reject(error as Error);
+                };
+                const cancellation = token.onCancellationRequested(() => {
+                    finish(null);
+                });
+                splitLines(child.stdout, (line) => {
+                    if (line !== "") finish(line);
+                });
+                // Exit codes 1 (nothing) and 2 (some directories unreadable) aren't failures, as in
+                // `FileSearchService`. A failed spawn (no rg, no folder) is: the extension stays inactive with a reason.
+                guard.onDidEnd((end) => {
+                    finish(null, end.error);
+                });
+            });
         },
     };
 }

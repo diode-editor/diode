@@ -1,16 +1,13 @@
 import type { CommandAction } from "../../../../platform/actions/common/commandAction.ts";
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
-import { CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
 import { viewMenuVisible } from "../../../browser/actions/menuContexts.ts";
 import { SCM_GRAPH_VIEW_ID } from "../common/scmViews.ts";
 
-import { runGitOp, withGitProgress } from "./gitOpClient.ts";
+import { runGitOp } from "./gitOpClient.ts";
 import { GRAPH_LOAD_MORE_COMMAND } from "./graphViewComponent.ts";
+import { REFRESH_ICON } from "./refreshActions.ts";
 
-/** nf-cod-refresh. */
-const REFRESH_ICON = "\ueb37";
-
-/** Before the extension activates there is no `git.refresh` command: silent no-op. */
+/** Same op as `git.refresh`, but the spinner goes to GRAPH; before the extension activates, a silent no-op. */
 export const scmGraphRefreshAction: CommandAction = {
     id: "scm.graph.refresh",
     title: "Source Control: Refresh Graph",
@@ -25,11 +22,8 @@ export const scmGraphRefreshAction: CommandAction = {
             visible: viewMenuVisible(SCM_GRAPH_VIEW_ID),
         },
     ],
-    run(accessor) {
-        const commands = accessor.get(CommandRegistryDIToken);
-        if (!commands.has("git.refresh")) return undefined;
-        // Don't drop the proxy command's promise: the spinner holds it.
-        return withGitProgress(accessor, "refresh", () => Promise.resolve(commands.execute("git.refresh")));
+    async run(accessor) {
+        await runGitOp(accessor, "refresh", undefined, { viewId: SCM_GRAPH_VIEW_ID });
     },
 };
 

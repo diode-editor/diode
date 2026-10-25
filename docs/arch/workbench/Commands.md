@@ -190,7 +190,9 @@ EOL); экшены фич — `contrib/<f>/browser/*Actions.ts`. Как они �
 (`platform/keybinding/common/modifierReleaseArmory.ts`), runtime-детект CSI-u. View
 не знает: владелец корневого дерева (`WorkbenchComponent`) вешает его
 capture/bubble-листенеры и подключает хук-шов `hasKeyboardCapturingOverlay`; второй
-хук — `updateContextKeys` — замыкает на себя `WorkbenchContextKeys`. Пользовательские
+хук — `updateContextKeys` — замыкает на себя `WorkbenchContextKeys`; третий — `isKeyForFocusedWidget` —
+ставит терминал: клавиша остаётся default action сфокусированного виджета, команда не выполняется,
+мнемоники её не видят ([Terminal.md](Terminal.md#клавиши-в-фокусе-терминала)). Пользовательские
 `keybindings.json` применяет `KeybindingsEditorService`
 ([KeybindingsEditor.md](KeybindingsEditor.md)).
 
@@ -200,7 +202,9 @@ capture/bubble-листенеры и подключает хук-шов `hasKeyb
 (`platform/contextkey/common/contextKeys.ts`) из фокуса и сервисов: `update()` читает активный элемент
 из FocusManager корневой view (шов `attachView`; ключи
 `textInputFocus`/`textViewFocus`/`inputWidgetFocus`/`listFocus`/
-`terminalFocus`, фокусный редактор `editorReadonly`/
+`terminalFocus`, `editorAreaFocus` — фокус где угодно внутри `EditorPartElement`, любая вкладка;
+оверлеи окна живут вне части и дают false; на нём команды вкладок Ctrl+W/Ctrl+Tab/Ctrl+PgUp,
+в эталоне у них `when` нет вовсе, фокусный редактор `editorReadonly`/
 `editorHasMultipleSelections`) и состояние групп и истории
 (`editorGroupHasEditors`/`editorTabsMultiple`/`activeEditorGroup*`/
 `canNavigate*`), потом опрашивает контрибьюторов фич (ниже). Ключи с
@@ -239,7 +243,7 @@ focus/blur листенеры вешает владелец дерева) сбр
 `TabSwitcherComponent` (`tabSwitcherVisible`); `InputWidgetService` ключей
 не ставит, но активное поле забирает в том же опросе. В центре остались
 только общефокусные ключи (`textInputFocus`/`textViewFocus`/
-`inputWidgetFocus`/`listFocus`/`terminalFocus`), фокусный редактор
+`inputWidgetFocus`/`listFocus`/`terminalFocus`/`editorAreaFocus`), фокусный редактор
 (`editorReadonly`/`editorHasMultipleSelections`), группы и история;
 импортов из `contrib/` у него нет.
 

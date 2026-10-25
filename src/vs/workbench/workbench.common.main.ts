@@ -201,6 +201,7 @@ import { TaskServiceDIToken } from "./contrib/tasks/browser/taskService.ts";
 import { TaskStatusBarContributionDIToken } from "./contrib/tasks/browser/taskStatusBarContribution.ts";
 import { TERMINAL_ACTIONS } from "./contrib/terminal/browser/terminalActions.ts";
 import { TerminalEditorServiceDIToken } from "./contrib/terminal/browser/terminalEditorService.ts";
+import { TerminalKeyRoutingDIToken } from "./contrib/terminal/browser/terminalKeyRouting.ts";
 import { TerminalPanelComponentDIToken } from "./contrib/terminal/browser/terminalPanelComponent.ts";
 import { TerminalServiceDIToken } from "./contrib/terminal/browser/terminalService.ts";
 import { THEME_ACTIONS } from "./contrib/themes/browser/themeActions.ts";
@@ -253,6 +254,8 @@ export const WORKBENCH_CONTRIBUTIONS: readonly IWorkbenchContributionRegistratio
     { token: ScmRepoStateServiceDIToken, phase: "blockStartup" },
     { token: TerminalServiceDIToken, phase: "blockStartup" },
     { token: TerminalPanelComponentDIToken, phase: "blockStartup" },
+    // Keys in the terminal are routed from the first key press.
+    { token: TerminalKeyRoutingDIToken, phase: "blockStartup" },
     // Task providers register on the first extension activation.
     { token: TaskServiceDIToken, phase: "blockStartup" },
     // Stryker disable next-line ObjectLiteral,StringLiteral: without the entry the recorder resolves lazily on the first recording command — the entry only hands over lifetime ownership

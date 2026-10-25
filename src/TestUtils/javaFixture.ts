@@ -13,10 +13,25 @@ import { fetchStockVsix } from "./stockVsix.ts";
 /**
  * The stock redhat.java vsix from the marketplace. Under vitest `DIODE_VERSION` is `0.0.0-dev`,
  * the `engines.diode` gate does not block, and resolution returns the platform entry with an
- * embedded JRE: the machine needs no JDK of its own.
+ * embedded JRE. That JRE runs jdt.ls itself; the project still needs a JDK, see `JDK_MISSING`.
  */
 
 export const JAVA_ID = "redhat.java";
+
+/**
+ * redhat.java refuses to activate without a JDK ("Please download and install a JDK to compile
+ * your project" in OUTPUT, `activate()` rejects) — the suites that start it use
+ * `describe.skipIf(MARKETPLACE_OFFLINE || JDK_MISSING)`. GitHub runners ship a JDK; a bare dev
+ * box or the agent-loop machine may not, and there the red would be about the box, not the code.
+ * The lookup mirrors the extension's own: `JAVA_HOME`/`JDK_HOME`, then `javac` on PATH.
+ */
+export const JDK_MISSING = !hasJdk();
+
+export function hasJdk(env: NodeJS.ProcessEnv = process.env, platform: NodeJS.Platform = process.platform): boolean {
+    if ((env.JAVA_HOME ?? "") !== "" || (env.JDK_HOME ?? "") !== "") return true;
+    const javac = platform === "win32" ? "javac.exe" : "javac";
+    return (env.PATH ?? "").split(path.delimiter).some((dir) => dir !== "" && fs.existsSync(path.join(dir, javac)));
+}
 
 export const JAVA_LANGUAGE_SERVICE: ILanguageService = {
     ...NULL_LANGUAGE_SERVICE,

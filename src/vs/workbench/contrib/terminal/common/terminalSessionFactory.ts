@@ -4,6 +4,8 @@ import type { Event } from "../../../../base/common/event.ts";
 import type { IDisposable } from "../../../../base/common/lifecycle.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 
+import type { ITerminalBuffer } from "./terminalBuffer.ts";
+
 export interface ITerminalSessionOptions {
     cols: number;
     rows: number;
@@ -44,6 +46,13 @@ export type ITerminalSession = ITerminalSurface &
          * `onExit`), wrapped rows joined, without escape sequences. Task problem matchers read it.
          */
         readonly onLineData: Event<string>;
+        /** The emulator buffer for link detection; absent or `undefined` — no links. */
+        readonly buffer?: ITerminalBuffer | undefined;
+        /**
+         * The process's current working directory, else its initial one; `undefined` when there is no process
+         * on our side. Relative paths in the output resolve against it (upstream reads it from shell integration).
+         */
+        getCwd?(): Promise<string | undefined>;
     };
 
 export type TerminalSessionFactory = (options: ITerminalSessionOptions) => ITerminalSession;

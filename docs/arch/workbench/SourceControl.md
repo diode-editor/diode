@@ -14,8 +14,12 @@
 - **Все user-facing `git.*`-команды живут в ядре** (`CommandAction` в `SCM_ACTIONS` → `WORKBENCH_ACTIONS`):
   пикеры и диалоги — в ядре. Расширение `extensions/git` регистрирует только приватные мосты
   `diode.git.*` (одноимённая регистрация невозможна — `CommandRegistry` перезаписывает по id).
-  Исключение — `git.refresh`, он за расширением. Транспорт — приватные двусторонние команды, `scm`-неймспейс
-  `vscode.d.ts` не раскомментирован.
+  Транспорт — приватные двусторонние команды, `scm`-неймспейс `vscode.d.ts` не раскомментирован.
+- **Refresh** (`git.refresh` — кнопка ⟳ в заголовке CHANGES и палитра, `scm.graph.refresh` — кнопка GRAPH) —
+  op `refresh` диспетчера `diode.git.op`: сам git не зовёт, работу делает общий `refreshAll` в конце
+  очереди (взведённый debounce watcher'а сбрасывается). Промис резолвится после публикации changes,
+  repo-state и лога, поэтому спиннер держится до конца; секцию для спиннера задаёт вызывающий (`viewId`
+  у `runGitOp`/`withGitProgress`).
 - **Мосты**: мутации staging (`diode.git.stage/unstage/clean` — списки uri), семантический диспетчер
   `diode.git.op {op, params}` (не generic-exec: argv собирает расширение), запросы
   `diode.git.query {kind: refs|stashes|remotes}` для пикеров, push-каналы `diode.scm.publishChanges`
@@ -39,6 +43,14 @@
 - **Инлайн-кнопка строки одна — Open File**: раскрывается на строке под мышью или под курсором
   сфокусированного списка (`LIST_ROW_ACTIVE_STATE`), в покое отдаёт колонки имени. Stage/unstage/discard
   инлайн-кнопок нет — осознанное отклонение: те же действия есть в контекстном меню и палитре.
+- **Space на файле — stage/unstage** (отступление: в VS Code это `list.toggleExpand`, открывающий
+  файл; у нас — как в lazygit). Приватная команда `diode.scm.toggleStage` без заголовка в палитре,
+  keybinding `space` при `focusedView == 'workbench.scm.changes' && listFocus` — регистрирует
+  `ChangesComponent`. Группа строки под курсором задаёт направление (Staged → unstage, иначе stage),
+  выделение с курсором внутри фильтруется по этой группе. Курсор сразу уходит на следующий файл той же
+  группы в порядке показа (нет — на предыдущий), refresh держит его по id; опустевшая группа — курсор
+  на ближайшей строке той же позиции. Нажатия идут очередью: `git.stage` выключен, пока идёт git-операция
+  (`gitMutating`), и без очереди быстрый повтор терялся бы. На группе и папке Space сворачивает, как в эталоне.
 - **Commit input box** — в теле view над списком (собирает `ChangesComponent`), безрамочный
   `InputElement`, черновик персистится (workspace-scope). Ctrl+Enter — commit; в legacy-терминалах он
   неотличим от Enter — команды доступны из палитры. **Action button** под полем — правила VS Code: есть

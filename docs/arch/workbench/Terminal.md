@@ -109,12 +109,59 @@ node-pty на Unix — `pty.node` + бинарь `spawn-helper` (нужен то
   `activeTerminal` для расширений ([Extensions.md](../Extensions.md)), активный инстанс вида TERMINAL
   он не меняет. **Отступления:** нет `confirmOnKill`, иконки терминала на вкладке, окон.
 
+## Клавиши в фокусе терминала
+
+Как `attachCustomKeyEventHandler` эталона (`terminalInstance.ts`): в фокусе терминала (вид или вкладка)
+клавиша — шелла, редактор забирает только своё. `TerminalKeyRouting`
+(`contrib/terminal/browser/terminalKeyRouting.ts`) ставит хук `isKeyForFocusedWidget` диспетчера
+([Commands.md](Commands.md)); диспетчер спрашивает его вне аккорда, передав `softResolveKey` — что
+клавиша сделала бы. Порядок:
+
+1. идёт аккорд или клавиша его начинает (`allowChords`, не Escape) → редактору;
+2. `sendKeybindingsToShell` выключен, бинд найден и (Meta **или** команда в skip-наборе) → редактору;
+3. `allowMnemonics`, клавиатура не Mac, зажат Alt → редактору (мнемоники меню);
+4. иначе шеллу — если терминал её кодирует. Отданную терминалу клавишу не видят и мнемоники.
+
+Skip-набор — `DEFAULT_COMMANDS_TO_SKIP_SHELL` эталона вместе с командами `terminalContrib`
+(`common/configuration/terminalCommandsToSkipShell.ts`, дословно, включая id, которых у нас нет) ±
+`terminal.integrated.commandsToSkipShell` (`-<id>` убирает). Настройки применяются на лету.
+**Отступление:** xterm.js нет — «терминал не кодирует» значит `encodeKeyForPty(event) === ""` (tuidom):
+такая клавиша (Ctrl+, , Ctrl+Shift+буква) достаётся бинду редактора, как всплывший из xterm keydown.
+Нет `TabFocus`-режима и Alt+F4 на Windows.
+
 ## Терминал задачи
 
 Как `TerminalInstance` эталона: `waitOnExit` (процесс вышел — инстанс остаётся, сообщение о коде и текст
 ожидания, любая клавиша закрывает), `onDidExitInstance` (выход процесса раньше снятия инстанса — по нему
 кончается задача), `relaunchInstance` (`reuseTerminal`: новый процесс в том же эмуляторе, вывод прежнего
 выше или стёрт при `clear`). Перезапускается только ждущий инстанс.
+
+## Ссылки на файлы
+
+Как `terminalContrib/links` эталона, только локальные пути (URL, word-ссылок, OSC 8 и
+`registerTerminalLinkProvider` нет). Живёт в `contrib/terminalContrib/links/`:
+
+- `common/terminalLinkParsing.ts` + тесты — шим эталона дословно (суффиксы `:line:col`, `(line, col)`,
+  `", line N"` и т. д.); `terminalLinkHelpers.ts` — перевод строковых индексов в ячейки с учётом wide-символов
+  и переносов; `terminalLocalLinkDetector.ts` — кандидаты из wrapped-строки, `fallbackMatchers`, лимиты
+  эталона; `terminalLinkResolver.ts` — `stat` через `IFileService` с кэшем на 10 с (ключ — абсолютный путь,
+  не текст: тот же `x.ts` после `cd` — другой файл); `terminalLinkProvider.ts` — склейка wrapped-строк вокруг
+  строки буфера.
+- `browser/terminalLinkSurface.ts` — декоратор `ITerminalSurface` между сессией и виджетом: мышь с Ctrl
+  подчёркивает ссылку (`StyleFlags.Underline` в `readCell`, цвет не трогает), Ctrl+клик левой открывает
+  (`terminalLinkOpener.ts`: файл — `openUri` + позиция из суффикса, папка воркспейса — Explorer). Включила
+  программа mouse-tracking (`mouseEventsActive`) — мышь её, ссылок нет. `terminalLinkService.ts` строит виджет
+  через шов `TerminalWidgetFactoryDIToken` (`contrib/terminal/browser/terminalWidgetFactory.ts`) — им пользуются
+  и панель, и вкладка-терминал; `enableFileLinks` читается один раз на инстанс («только в новых терминалах»).
+- Буфер для детектора — `ITerminalSession.buffer` (`common/terminalBuffer.ts`, структурное подмножество
+  `IBuffer` xterm; есть у `XtermSurface`, у фейков — нет, и ссылок там нет).
+- **Отступления.** cwd для относительных путей — не shell integration (её нет), а
+  `ITerminalSession.getCwd()`: `/proc/<pid>/cwd` шелла, иначе его начальный cwd, у pty расширения — `cwd`
+  запуска; потом корни воркспейса. Модификатор — всегда Ctrl (ключа `editor.multiCursorModifier` нет, Cmd до
+  нас в отчёте мыши не доходит), подсказки «Follow link» нет. Папка вне воркспейса — не ссылка. Прохода по
+  атрибутам ячеек (`getXtermRangesByAttr`) нет. Голый Ctrl — не событие мыши: нажатие и отпускание без
+  движения видны только на tier `kitty` (keydown/keyup `Control`), на остальных подчёркивание следует за
+  Ctrl-битом следующего движения мыши.
 
 ## Цвета
 

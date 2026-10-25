@@ -1,4 +1,5 @@
 import { CODICON_GLYPHS } from "../../../../base/common/codicons.generated.ts";
+import { codicon, type IProductIcon } from "../../../../base/common/codicons.ts";
 import type { IMenuContribution, ISubmenuContribution } from "../../../../platform/actions/common/iMenuContribution.ts";
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import type { MenuRegistry } from "../../../../platform/actions/common/menuRegistry.ts";
@@ -119,7 +120,7 @@ function toContribution(
     menuId: MenuId,
     item: IExtensionMenuItemContribution,
     submenus: ReadonlyMap<string, { readonly menuId: MenuId; readonly label: string }>,
-    icons: ReadonlyMap<string, string | undefined>,
+    icons: ReadonlyMap<string, IProductIcon | undefined>,
     logger?: ILogger,
 ): IMenuContribution | ISubmenuContribution | null {
     const placement = {
@@ -155,14 +156,15 @@ function toContribution(
 const THEME_ICON = /^\$\(([a-z0-9-]+)(?:~[a-z0-9-]+)?\)$/u;
 
 /** An SVG icon can't be drawn in a terminal, so such a command has no icon. */
-function commandIcons(extensions: readonly IExtension[]): Map<string, string | undefined> {
-    const icons = new Map<string, string | undefined>();
+function commandIcons(extensions: readonly IExtension[]): Map<string, IProductIcon | undefined> {
+    const icons = new Map<string, IProductIcon | undefined>();
     for (const ext of extensions) {
         // Stryker disable next-line ArrayDeclaration: without commands there is nothing to iterate — the placeholder string's elements have no `icon`, the check below filters them out
         for (const command of ext.manifest.contributes?.commands ?? []) {
             // Stryker disable next-line ConditionalExpression: narrowing for TS — an SVG object under the regex would become the string "[object Object]" and not match
             const match = typeof command.icon === "string" ? THEME_ICON.exec(command.icon) : null;
-            if (match !== null) icons.set(command.command, CODICON_GLYPHS[match[1]]);
+            if (match !== null)
+                icons.set(command.command, CODICON_GLYPHS[match[1]] === undefined ? undefined : codicon(match[1]));
         }
     }
     return icons;

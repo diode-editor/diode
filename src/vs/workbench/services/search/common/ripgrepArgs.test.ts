@@ -75,4 +75,21 @@ describe("buildRgFilesArgs", () => {
             "--no-ignore-global",
         ]);
     });
+
+    it("includes are anchored like excludes and go BEFORE them: the later glob wins in rg", () => {
+        expect(buildRgFilesArgs(["**/node_modules"], DEFAULTS, ["**/*.tf", "*/pom.xml"])).toEqual([
+            "--files",
+            "--hidden",
+            "--glob",
+            "**/*.tf",
+            "--glob",
+            "/*/pom.xml",
+            "--glob",
+            "!**/node_modules",
+            "--no-require-git",
+            "--no-config",
+            "--no-ignore-parent",
+            "--no-ignore-global",
+        ]);
+    });
 });

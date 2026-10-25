@@ -70,7 +70,7 @@ function machine() {
 
 function limits(m) {
     return {
-        maxTasks: num("AGENT_LOOP_MAX_TASKS", 3),
+        maxTasks: num("AGENT_LOOP_MAX_TASKS", 2),
         load5Max: num("AGENT_LOOP_LOAD5_MAX", m.nproc / 2),
         memAvailableMinPct: num("AGENT_LOOP_MEM_MIN_PCT", 30),
         taskTimeoutHours: num("AGENT_LOOP_TASK_TIMEOUT_HOURS", 8),
@@ -102,7 +102,7 @@ function statuses(task) {
     return out;
 }
 
-function inProgress(lim) {
+function inProgress(lim, hostname) {
     const issues = ghJson([
         "issue",
         "list",
@@ -123,12 +123,17 @@ function inProgress(lim) {
         const session = sessionName(i.number);
         const alive = tmuxHasSession(session);
         const windows = alive ? tmuxWindows(session).map((w) => w.name) : [];
+        // Dispatchers run on several machines: a task claimed elsewhere has its session there,
+        // so `sessionAlive: false` means nothing here. Only its owner sweeps a task; an expired
+        // one is swept by anyone, because an owner that is gone for good would never do it.
+        const mine = claim === undefined || claim.host === hostname;
         return {
             number: i.number,
             title: i.title,
             url: i.url,
             labels: i.labels.map((l) => l.name),
             claim,
+            mine,
             takenAt,
             ageHours: ageHours === undefined ? undefined : Math.round(ageHours * 10) / 10,
             expired: ageHours !== undefined && ageHours > lim.taskTimeoutHours,
@@ -182,22 +187,27 @@ function queue() {
     ]);
     const eligible = issues
         .map((i) => ({ ...i, labels: i.labels.map((l) => l.name) }))
-        .filter((i) => !i.labels.includes(LABELS.inProgress) && !i.labels.includes(LABELS.returned))
+        .filter((i) => !i.labels.includes(LABELS.inProgress) && !i.labels.includes(LABELS.returned));
+    const remoteBranches = git(["ls-remote", "--heads", HTTPS_ORIGIN, "issue/*"]).stdout;
+    const all = eligible
+        .map((i) => ({
+            number: i.number,
+            title: i.title,
+            url: i.url,
+            labels: i.labels,
+            createdAt: i.createdAt,
+            branch: branchName(i.number),
+            // A branch on origin: the task was in the loop before and start-task.mjs resumes it.
+            branchExists: new RegExp(`\\srefs/heads/${branchName(i.number)}(\\s|$)`).test(remoteBranches),
+            ...blockers(i, repo),
+        }))
+        // Finishing what is half done comes before starting anew; then bugs; then the oldest.
         .sort((a, b) => {
+            const resume = Number(b.branchExists) - Number(a.branchExists);
+            if (resume !== 0) return resume;
             const bug = Number(b.labels.includes(LABELS.bug)) - Number(a.labels.includes(LABELS.bug));
             return bug !== 0 ? bug : a.createdAt.localeCompare(b.createdAt);
         });
-    const remoteBranches = git(["ls-remote", "--heads", HTTPS_ORIGIN, "issue/*"]).stdout;
-    const all = eligible.map((i) => ({
-        number: i.number,
-        title: i.title,
-        url: i.url,
-        labels: i.labels,
-        createdAt: i.createdAt,
-        branch: branchName(i.number),
-        branchExists: new RegExp(`\\srefs/heads/${branchName(i.number)}(\\s|$)`).test(remoteBranches),
-        ...blockers(i, repo),
-    }));
     return { queue: all.filter((i) => !i.blocked), blocked: all.filter((i) => i.blocked) };
 }
 
@@ -227,7 +237,7 @@ const facts = {
     limits: lim,
     verdict: { canStart: reasons.length === 0, runningTasks: running, reasons },
     sessions: sess,
-    inProgress: inProgress(lim),
+    inProgress: inProgress(lim, m.hostname),
     ...queue(),
     taskDirs: taskDirs(),
     worktrees: worktrees(),

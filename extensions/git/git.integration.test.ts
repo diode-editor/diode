@@ -212,7 +212,7 @@ describe("builtin git plugin (integration)", () => {
         });
     });
 
-    it("publishes recent commits to the core (Graph view); git.refresh republishes", async () => {
+    it("publishes recent commits to the core (Graph view); the refresh op republishes", async () => {
         const published: unknown[] = [];
         harness = await createExtensionTestHarness({
             editorDecorations: makeEditorSpy().service,
@@ -255,9 +255,8 @@ describe("builtin git plugin (integration)", () => {
 
         git(harness.tmpDir, "add", "-A");
         git(harness.tmpDir, "commit", "-qm", "second");
-        await harness.commandRegistry.execute("git.refresh");
-        const republished = await waitFor(() => latest()?.commits.some((c) => c.subject === "second") ?? false);
-        expect(republished).toBe(true);
+        await harness.commandRegistry.execute("diode.git.op", { op: "refresh" });
+        expect(latest()?.commits.some((c) => c.subject === "second")).toBe(true);
         expect(latest()!.commits.map((c) => c.subject)).toEqual(["second", "init"]);
         expect(latest()!.commits[0].parents).toEqual([latest()!.commits[1].sha]);
     });

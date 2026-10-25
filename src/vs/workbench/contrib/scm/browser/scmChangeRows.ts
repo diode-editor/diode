@@ -4,6 +4,7 @@ import { HFlexElement, hflexFill, hflexFixed } from "@tuidom/elements/layout/hFl
 import { LIST_ROW_ACTIVE_STATE } from "@tuidom/elements/list/listViewElement";
 import { TextLabelElement } from "@tuidom/elements/text/textLabelElement";
 
+import { codicon, iconGlyph } from "../../../../base/common/codicons.ts";
 import type { IWorkbenchColors } from "../../../../platform/theme/common/colors/colorContributions.ts";
 
 import type { IScmChange } from "./changesService.ts";
@@ -21,13 +22,15 @@ export const GIT_STATUS_COLOR_IDS = [
 /** Selection and hover are painted by ListViewElement itself. */
 export interface IScmRowStyles {
     readonly statusColors: Partial<Record<string, StyleColor>>;
+    /** `diode.icons.nerdFont`; Nerd Font glyphs when absent. */
+    readonly nerdFont?: boolean;
 }
 
-/** nf-cod-go_to_file; the container delegates the click. */
-export const OPEN_FILE_GLYPH = "";
+/** The container delegates the click. */
+export const OPEN_FILE_ICON = codicon("go-to-file");
 
-/** Padding around the glyph is the click area. */
-export const OPEN_FILE_BUTTON_WIDTH = OPEN_FILE_GLYPH.length + 2;
+/** Padding around the one-cell glyph is the click area. */
+export const OPEN_FILE_BUTTON_WIDTH = 3;
 
 /**
  * The Open File button gets columns only while the row is active ({@link LIST_ROW_ACTIVE_STATE}),
@@ -68,7 +71,7 @@ export function buildFileRow(
     onOpenFile: () => void,
 ): IScmFileRowParts {
     const name = new TextLabelElement("");
-    const openButton = new TextLabelElement(` ${OPEN_FILE_GLYPH} `);
+    const openButton = new TextLabelElement(` ${iconGlyph(OPEN_FILE_ICON, styles.nerdFont ?? true)} `);
     const status = new TextLabelElement("");
 
     // No own hover on purpose: the mouse belongs to the list, and `in:hover` would be true

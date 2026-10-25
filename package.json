@@ -3,7 +3,7 @@
   "version": "0.10.1",
   "type": "module",
   "engines": {
-    "node": ">=24.0.0"
+    "node": ">=26.12.0"
   },
   "scripts": {
     "start": "tsx src/vs/diode/main.ts",
@@ -77,12 +77,12 @@
     "yazl": "^3.3.1"
   },
   "dependencies": {
-    "@tuidom/core": "^0.17.0",
-    "@tuidom/elements": "^0.17.0",
-    "@tuidom/headless-backend": "^0.17.0",
-    "@tuidom/inspector": "^0.17.0",
-    "@tuidom/terminal-backend": "^0.17.0",
-    "@tuidom/testing": "^0.17.0",
+    "@tuidom/core": "^0.18.1",
+    "@tuidom/elements": "^0.18.1",
+    "@tuidom/headless-backend": "^0.18.1",
+    "@tuidom/inspector": "^0.18.1",
+    "@tuidom/terminal-backend": "^0.18.1",
+    "@tuidom/testing": "^0.18.1",
     "@vscode/ripgrep": "^1.18.0",
     "@xterm/headless": "^6.0.0",
     "chokidar": "^5.0.0",

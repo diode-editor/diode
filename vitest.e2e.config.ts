@@ -19,8 +19,11 @@ const shared = {
     testTimeout: 60_000,
     hookTimeout: 180_000,
     pool: "forks",
-    // A vitest retry hides flakes; scripts/e2e.mjs reruns and names them out loud.
+    // A vitest retry hides flakes; scripts/e2e.mjs reruns and names them out loud. The exception is a known
+    // flake from test-flakes.json: it should not cost a rerun, and its retried pass prints `Known flake retried`.
     retry: 0,
+    // The same list as the unit suite (docs/TODO/TestFlakes.md); scenarios are matched in e2e/scenarios/suite.ts.
+    runner: "src/TestUtils/flakeTestRunner.ts",
 } as const;
 
 export default defineConfig({

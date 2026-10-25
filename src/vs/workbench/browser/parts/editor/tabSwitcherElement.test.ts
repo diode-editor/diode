@@ -67,6 +67,20 @@ describe("TabSwitcherElement — layout", () => {
         expect(line).not.toContain("veryLongFileName.ts");
     });
 
+    it("an item without an icon (diode.icons.nerdFont off) gives the icon column and its gap to the label", () => {
+        const switcher = makeSwitcher(16);
+        switcher.setItems([{ label: "veryLongFileName.ts", isModified: true }], 0);
+
+        expectScreen(
+            render(switcher, 16),
+            screen`
+                ╭──────────────╮
+                │ veryLongF… ● │
+                ╰──────────────╯
+            `,
+        );
+    });
+
     it("a long label does not eat the dirty marker: the label budget accounts for its column", () => {
         const switcher = makeSwitcher(16);
         switcher.setItems([item("veryLongFileName.ts", { isModified: true })], 0);

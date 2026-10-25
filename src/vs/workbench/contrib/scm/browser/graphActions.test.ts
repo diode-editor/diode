@@ -18,20 +18,30 @@ function makeAccessor(commands: CommandRegistry, progress = new ProgressService(
 }
 
 describe("scmGraphRefreshAction", () => {
-    it("delegates to git.refresh when the extension command is registered", () => {
+    it("sends the refresh op to the extension, the same one git.refresh sends", async () => {
         const commands = new CommandRegistry();
-        let refreshed = 0;
-        commands.register("git.refresh", () => {
-            refreshed++;
+        const payloads: unknown[] = [];
+        commands.register(GIT_OP_COMMAND, (payload) => {
+            payloads.push(payload);
+            return { ok: true };
         });
-        scmGraphRefreshAction.run(makeAccessor(commands));
-        expect(refreshed).toBe(1);
+        await scmGraphRefreshAction.run(makeAccessor(commands));
+        expect(payloads).toEqual([{ op: "refresh", params: undefined }]);
     });
 
-    it("refresh progress is addressed to the GRAPH section", async () => {
+    it("the GRAPH spinner holds until the op (and its refreshAll) settles", async () => {
         const commands = new CommandRegistry();
         let release!: () => void;
-        commands.register("git.refresh", () => new Promise<void>((resolve) => (release = resolve)));
+        commands.register(
+            GIT_OP_COMMAND,
+            () =>
+                new Promise(
+                    (resolve) =>
+                        (release = () => {
+                            resolve({ ok: true });
+                        }),
+                ),
+        );
         const progress = new ProgressService({ delayMs: 0, minVisibleMs: 0, intervalMs: 100 });
 
         const running = scmGraphRefreshAction.run(makeAccessor(commands, progress)) as Promise<void>;
@@ -39,7 +49,7 @@ describe("scmGraphRefreshAction", () => {
         await new Promise((resolve) => setTimeout(resolve, 0));
         expect(progress.isBusy(SCM_GRAPH_VIEW_ID)).toBe(true);
         expect(progress.isBusy(SCM_CHANGES_VIEW_ID)).toBe(false);
-        expect(progress.viewProgress().get(SCM_GRAPH_VIEW_ID)?.title).toBe("Loading History…");
+        expect(progress.viewProgress().get(SCM_GRAPH_VIEW_ID)?.title).toBe("Refreshing…");
 
         release();
         await running;
@@ -47,10 +57,10 @@ describe("scmGraphRefreshAction", () => {
         progress.dispose();
     });
 
-    it("before the extension activates: neither the command nor progress", () => {
+    it("before the extension activates: neither the command nor progress", async () => {
         const commands = new CommandRegistry();
         const progress = new ProgressService();
-        expect(() => scmGraphRefreshAction.run(makeAccessor(commands, progress))).not.toThrow();
+        await expect(scmGraphRefreshAction.run(makeAccessor(commands, progress))).resolves.toBeUndefined();
         // A spinner without an operation would lie: no extension, nothing to run.
         expect(progress.isBusy()).toBe(false);
     });

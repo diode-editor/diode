@@ -11,7 +11,15 @@ const ASSET_NAME = "rg.bundle";
 
 let cached: string | null = null;
 
-export function loadRipgrepPath(): string {
+/**
+ * Test seam for e2e and `drive`: a fake rg stands in for a search hung on a slow file system.
+ * Read on every call, not at module level (the binary starts from a V8 snapshot).
+ */
+export const RIPGREP_PATH_ENV = "DIODE_RIPGREP_PATH";
+
+export function loadRipgrepPath(env: NodeJS.ProcessEnv = process.env): string {
+    const override = env[RIPGREP_PATH_ENV];
+    if (override !== undefined && override !== "") return override;
     // Stryker disable next-line AssignmentOperator: without the cache the path is the same — only the saved asset re-read is lost
     cached ??= resolveRipgrepPath();
     return cached;

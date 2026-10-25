@@ -13,10 +13,13 @@ import {
     registerAndActivate,
 } from "../../src/TestUtils/ExtensionTestHarness.ts";
 import { settle } from "../../src/TestUtils/timing.ts";
+import type { ITreeFileChange } from "../../src/vs/platform/files/common/iTreeFileWatcher.ts";
 import { ChokidarTreeWatcher } from "../../src/vs/platform/files/node/chokidarTreeWatcher.ts";
 import { FileWatcherAdapter } from "../../src/vs/workbench/api/browser/fileWatcherAdapter.ts";
+import type { IExtensionFileWatcher } from "../../src/vs/workbench/api/common/iExtensionFileWatcher.ts";
 import { PUBLISH_CHANGES_COMMAND } from "../../src/vs/workbench/contrib/scm/browser/changesService.ts";
 import { PUBLISH_REPO_STATE_COMMAND } from "../../src/vs/workbench/contrib/scm/browser/repoStateService.ts";
+import { GIT_OP_COMMAND } from "../../src/vs/workbench/contrib/scm/common/gitProtocol.ts";
 import type { IExtensionRegistration } from "../../src/vs/workbench/services/extensions/node/iExtensionEntry.ts";
 
 /**
@@ -59,6 +62,20 @@ function realWatcher(): FileWatcherAdapter {
     return new FileWatcherAdapter(new ChokidarTreeWatcher(), () => []);
 }
 
+/** Events only on demand: a debounce timer armed at a known moment, without chokidar's latency. */
+function manualWatcher(): IExtensionFileWatcher & { fire(path: string): void } {
+    const sinks: ((changes: readonly ITreeFileChange[]) => void)[] = [];
+    return {
+        fire: (changed) => {
+            for (const sink of sinks) sink([{ type: "changed", path: changed }]);
+        },
+        watch: (_base, _recursive, onChanges) => {
+            sinks.push(onChanges);
+            return { dispose: () => undefined };
+        },
+    };
+}
+
 interface IPublishedChange {
     readonly path: string;
     readonly status: string;
@@ -94,12 +111,17 @@ describe("builtin git plugin — live watching", () => {
     /** Not `harness.tmpDir`: the workspace root must exist before start, and in the worktree scenario it is nested. */
     async function startOver(
         makeWorkspace: (dir: string) => string,
+        options: { git?: Readonly<Record<string, unknown>>; fileWatcher?: IExtensionFileWatcher } = {},
     ): Promise<{ changes: IPublishedChange[][]; repoStates: IPublishedRepoState[]; root: string }> {
         const changes: IPublishedChange[][] = [];
         const repoStates: IPublishedRepoState[] = [];
         workDir = fs.mkdtempSync(path.join(os.tmpdir(), "diode-git-watch-"));
         const root = makeWorkspace(workDir);
-        harness = await createExtensionTestHarness({ fileWatcher: realWatcher(), workspaceFolders: [root] });
+        harness = await createExtensionTestHarness({
+            fileWatcher: options.fileWatcher ?? realWatcher(),
+            workspaceFolders: [root],
+            ...(options.git === undefined ? {} : { configuration: { git: options.git } }),
+        });
         harness.commandRegistry.register(PUBLISH_CHANGES_COMMAND, (payload) => {
             changes.push(payload as IPublishedChange[]);
         });
@@ -205,5 +227,47 @@ describe("builtin git plugin — live watching", () => {
             changes.at(-1)?.some((c) => c.path === "tracked.txt") === true ? changes.at(-1) : undefined,
         );
         expect(seen?.map((c) => `${c.path} ${c.status} ${c.group}`)).toContain("tracked.txt M worktree");
+    }, 30000);
+
+    it("git.autorefresh: false — an outside edit stays unseen until git.refresh, which resolves after publishing", async () => {
+        const { changes, root } = await startOver(
+            (dir) => {
+                makeRepo(dir);
+                return dir;
+            },
+            { git: { autorefresh: false } },
+        );
+        expect(await waitFor(() => (changes.length > 0 ? changes.at(-1) : undefined))).toEqual([]);
+
+        fs.writeFileSync(path.join(root, "tracked.txt"), "a\nCHANGED\nc\n");
+        await settle(800);
+        expect(changes.at(-1)).toEqual([]);
+
+        const result = await harness!.commandRegistry.execute(GIT_OP_COMMAND, { op: "refresh" });
+        expect(result).toEqual({ ok: true });
+        // Already there when the promise settles: the core's spinner holds exactly this long.
+        expect(changes.at(-1)?.map((c) => `${c.path} ${c.status} ${c.group}`)).toEqual(["tracked.txt M worktree"]);
+    }, 30000);
+
+    it("git.refresh drops a pending watcher debounce instead of running git status twice", async () => {
+        const watcher = manualWatcher();
+        const { changes, root } = await startOver(
+            (dir) => {
+                makeRepo(dir);
+                return dir;
+            },
+            { git: { refreshDebounce: 1500 }, fileWatcher: watcher },
+        );
+        expect(await waitFor(() => (changes.length > 0 ? changes.at(-1) : undefined))).toEqual([]);
+
+        fs.writeFileSync(path.join(root, "tracked.txt"), "a\nCHANGED\nc\n");
+        watcher.fire(path.join(root, "tracked.txt"));
+        await settle(100);
+        const before = changes.length;
+        await harness!.commandRegistry.execute(GIT_OP_COMMAND, { op: "refresh" });
+        expect(changes.length).toBe(before + 1);
+
+        await settle(2000);
+        expect(changes.length).toBe(before + 1);
     }, 30000);
 });

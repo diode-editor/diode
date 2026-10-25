@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTestHarness.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
 import { createTestConfigurationService } from "../../../TestUtils/testConfigurationService.ts";
+import { codicon } from "../../base/common/codicons.ts";
 import { MenuId } from "../../platform/actions/common/menuId.ts";
 import { MenuRegistryDIToken } from "../../platform/actions/common/menuRegistry.ts";
 import { MenuServiceDIToken } from "../../platform/actions/common/menuService.ts";
@@ -216,5 +217,24 @@ describe("Workbench — group action bar (editor/title)", () => {
         expect(h.testApp.querySelector(`#editorTitleActions-${String(groups[1].id)}`)).not.toBeNull();
         expect(new Set(seen)).toStrictEqual(new Set(groups.map((g) => g.id)));
         expect(tabRow().split(CHECK)).toHaveLength(3);
+    });
+
+    it("diode.icons.nerdFont: a built-in button redraws in the new glyph set, both ways", async () => {
+        boot();
+        h.container.get(MenuRegistryDIToken).appendMenuItem({
+            menuId: MenuId.EditorTitle,
+            command: "demo.accept",
+            group: "navigation",
+            icon: codicon("check"),
+        });
+        await flush();
+        expect(tabRow()).toContain(CHECK);
+
+        await configuration.updateValue("diode.icons.nerdFont", "off");
+        expect(tabRow()).not.toContain(CHECK);
+        expect(tabRow().trimEnd().endsWith("✓")).toBe(true);
+
+        await configuration.updateValue("diode.icons.nerdFont", "on");
+        expect(tabRow()).toContain(CHECK);
     });
 });

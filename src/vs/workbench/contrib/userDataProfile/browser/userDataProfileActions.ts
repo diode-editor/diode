@@ -1,6 +1,5 @@
 import { applyEdits, type FormattingOptions, modify, parse as parseJsonc } from "jsonc-parser";
 
-import { renderCodicons } from "../../../../base/common/codicons.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import type { CommandAction } from "../../../../platform/actions/common/commandAction.ts";
 import type { ConfigurationScope } from "../../../../platform/configuration/common/configurationRegistry.ts";
@@ -8,6 +7,7 @@ import { ConfigurationRegistryDIToken } from "../../../../platform/configuration
 import { APPLICATION_SCOPES } from "../../../../platform/configuration/common/workspaceSettings.ts";
 import { type IFileService, IFileServiceDIToken } from "../../../../platform/files/common/files.ts";
 import type { ServiceAccessor } from "../../../../platform/instantiation/common/diContainer.ts";
+import { ProductIconServiceDIToken } from "../../../../platform/theme/common/productIconService.ts";
 import {
     type IUserDataProfile,
     IUserDataProfilesServiceDIToken,
@@ -71,12 +71,13 @@ async function enterProfile(accessor: ServiceAccessor, profile: IUserDataProfile
 async function switchProfile(accessor: ServiceAccessor): Promise<void> {
     const profiles = accessor.get(IUserDataProfilesServiceDIToken);
     const current = accessor.get(IUserDataProfileServiceDIToken).currentProfile;
+    const icons = accessor.get(ProductIconServiceDIToken);
     const items: IProfilePickItem[] = [...profiles.profiles]
         .sort((a, b) => a.name.localeCompare(b.name))
         .map((profile) => ({
             // Upstream markup is `$(check) name`; we substitute the glyph ourselves — the widget
             // carries the label as is (substitution lives at the extension boundary).
-            label: profile.id === current.id ? renderCodicons(`$(check) ${profile.name}`) : profile.name,
+            label: profile.id === current.id ? icons.renderCodicons(`$(check) ${profile.name}`) : profile.name,
             profile,
         }));
     const picked = (await accessor.get(QuickInputServiceDIToken).quickPick({
