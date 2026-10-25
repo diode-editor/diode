@@ -144,10 +144,13 @@ describe("welcomeBlocks", () => {
     });
 
     it("unicode text passes through", () => {
-        expect(welcomeBlocks([{ contents: "Нет файлов — 日本 [открыть](command:open)" }])).toEqual([
+        expect(welcomeBlocks([{ contents: "Κανένα αρχείο — 日本 [άνοιγμα](command:open)" }])).toEqual([
             {
                 kind: "paragraph",
-                nodes: ["Нет файлов — 日本 ", { label: "открыть", command: "open", args: [], enablement: undefined }],
+                nodes: [
+                    "Κανένα αρχείο — 日本 ",
+                    { label: "άνοιγμα", command: "open", args: [], enablement: undefined },
+                ],
             },
         ]);
     });
