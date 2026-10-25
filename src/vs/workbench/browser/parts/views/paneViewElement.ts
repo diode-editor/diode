@@ -52,6 +52,13 @@ export class PaneViewElement extends TUIElement {
     public onDidRequestSwitcher?: (anchor: IPaneMenuAnchor) => void;
 
     private panes: PaneRecord[] = [];
+    private nerdFont = true;
+
+    /** Applies to the headers added later too. */
+    public setNerdFont(nerdFont: boolean): void {
+        this.nerdFont = nerdFont;
+        for (const pane of this.panes) pane.header.setNerdFont(nerdFont);
+    }
 
     public addPane(options: IPaneOptions): void {
         if (this.findPane(options.id) !== undefined) {
@@ -62,6 +69,7 @@ export class PaneViewElement extends TUIElement {
         const header = new PaneHeaderElement(options.title, { collapsible });
         header.hidden = !headerVisible;
         header.setSwitcher(options.switcher ?? false);
+        header.setNerdFont(this.nerdFont);
         header.id = `paneHeader-${options.id.replaceAll(".", "-")}`;
         const record: PaneRecord = {
             id: options.id,

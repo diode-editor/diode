@@ -1,3 +1,4 @@
+import { codicon } from "../../../../base/common/codicons.ts";
 import type { CommandAction } from "../../../../platform/actions/common/commandAction.ts";
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import { parseKeybinding } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
@@ -7,8 +8,8 @@ import { EXPLORER_VIEW_ID, ExplorerComponentDIToken } from "./explorerComponent.
 import { ExplorerServiceDIToken } from "./explorerService.ts";
 import { FileOperationsServiceDIToken } from "./fileOperationsService.ts";
 
-/** nf-cod-refresh — inline button in the Explorer header. */
-const REFRESH_ICON = "\ueb37";
+/** Inline button in the Explorer header. */
+const REFRESH_ICON = codicon("refresh");
 
 export const fileDeleteAction: CommandAction = {
     id: "fileOperations.deleteFile",

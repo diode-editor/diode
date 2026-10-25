@@ -1,4 +1,4 @@
-import { renderCodicons } from "../../../base/common/codicons.ts";
+import { type IProductIconService, NERD_FONT_ICONS } from "../../../platform/theme/common/productIconService.ts";
 import type { InputValidation, QuickInputService } from "../../browser/parts/quickinput/quickInputService.ts";
 import type {
     QuickPickSession,
@@ -25,7 +25,7 @@ interface IExtensionQuickPick {
 }
 
 /**
- * Request labels go through {@link renderCodicons}, except `value`: it is edited and goes back to
+ * Request labels expand `$(name)`, except `value`: it is edited and goes back to
  * the extension. There is one overlay for the whole app: a token may only dismiss our own live
  * show; a preempted service has already resolved to `undefined` itself.
  */
@@ -33,15 +33,19 @@ export class QuickInputExtensionAdapter implements IQuickInputSink {
     private currentHandle: number | null = null;
     private readonly quickPicks = new Map<number, IExtensionQuickPick>();
 
-    public constructor(private readonly quickInput: QuickInputService) {}
+    public constructor(
+        private readonly quickInput: QuickInputService,
+        private readonly icons: IProductIconService = NERD_FONT_ICONS,
+    ) {}
 
     public async showInputBox(request: IQuickInputBoxRequest): Promise<string | undefined> {
         const ask = request.validate;
         // Always pass the validator: without a channel it answers "ok" to any text, which for
         // the widget is the same as no validation.
+        const renderLabel = labelRenderer(this.icons);
         const validateInput = async (value: string): Promise<InputValidation | null> =>
             // Stryker disable next-line OptionalChaining: without `?.` validateInput rejects when the extension sent no validator, but it is called from the fire-and-forget runValidation branch, outside the test's stack. The "no validation" tests still PASS: the unhandled rejection crashes the runner (RuntimeError) instead of failing the test. A gap in localizing listener errors (docs/MUTATION.md → #275), not a gap in this line's tests.
-            toValidation(await ask?.(value));
+            toValidation(await ask?.(value), this.icons);
         this.currentHandle = request.handle;
         try {
             // No conditional spreads: for picker options a missing field and
@@ -63,8 +67,9 @@ export class QuickInputExtensionAdapter implements IQuickInputSink {
     public async showQuickPick(request: IWireQuickPickRequest): Promise<readonly number[] | undefined> {
         // Build the items once and reply with INDICES into this array: the extension
         // must get back its own objects, not ones rebuilt over the wire.
+        const renderLabel = labelRenderer(this.icons);
         const items: QuickPickItem[] = request.items.map((item) => ({
-            label: renderCodicons(item.label),
+            label: this.icons.renderCodicons(item.label),
             description: renderLabel(item.description),
         }));
         this.currentHandle = request.handle;
@@ -97,7 +102,7 @@ export class QuickInputExtensionAdapter implements IQuickInputSink {
             pick = this.createQuickPick(update.handle, emit);
             this.quickPicks.set(update.handle, pick);
         }
-        const changes = toSessionChanges(update, pick);
+        const changes = toSessionChanges(update, pick, this.icons);
         // Hide before applying the diff, show after: the picker must open already
         // in the new state and close without flashing it.
         if (update.visible === false) pick.session.hide();
@@ -147,21 +152,26 @@ export class QuickInputExtensionAdapter implements IQuickInputSink {
 }
 
 /** Silence (no validator) and `null` mean the same: the value is valid. */
-function toValidation(message: IWireValidationMessage | null | undefined): InputValidation | null {
+function toValidation(
+    message: IWireValidationMessage | null | undefined,
+    icons: IProductIconService,
+): InputValidation | null {
     if (message == null) return null;
-    return { message: renderCodicons(message.message), severity: message.severity };
+    return { message: icons.renderCodicons(message.message), severity: message.severity };
 }
 
 /** For picker options a missing field and an empty string mean different things. */
-function renderLabel(text: string | undefined): string | undefined {
-    return text === undefined ? undefined : renderCodicons(text);
+function labelRenderer(icons: IProductIconService): (text: string | undefined) => string | undefined {
+    return (text) => (text === undefined ? undefined : icons.renderCodicons(text));
 }
 
 /** Items are rebuilt entirely, and `activeItems`/`selectedItems` resolve against the NEW set. */
 function toSessionChanges(
     update: IWireQuickPickUpdate,
     pick: IExtensionQuickPick,
+    icons: IProductIconService,
 ): Partial<QuickPickSessionState<IExtensionQuickPickItem>> {
+    const renderLabel = labelRenderer(icons);
     const changes: Record<string, unknown> = {};
     for (const key of LABEL_FIELDS) {
         if (key in update) changes[key] = renderLabel(update[key] ?? undefined);
@@ -170,7 +180,7 @@ function toSessionChanges(
         if (key in update) changes[key] = update[key] ?? undefined;
     }
     if (update.items !== undefined) {
-        const items = update.items.map(toSessionItem);
+        const items = update.items.map((item) => toSessionItem(item, icons));
         pick.byHandle = new Map(items.map((item) => [item.handle, item]));
         changes.items = items;
     }
@@ -201,12 +211,12 @@ const PLAIN_FIELDS = [
  * Our single-line row cannot show `detail`: it takes the description's place when there is no
  * description (as in `showQuickPick`), and is still passed as `detail` for search.
  */
-function toSessionItem(item: IWireQuickPickSessionItem): IExtensionQuickPickItem {
+function toSessionItem(item: IWireQuickPickSessionItem, icons: IProductIconService): IExtensionQuickPickItem {
     const shown = nonEmpty(item.description) ?? nonEmpty(item.detail);
     return {
         handle: item.handle,
-        label: renderCodicons(item.label),
-        description: renderLabel(shown),
+        label: icons.renderCodicons(item.label),
+        description: labelRenderer(icons)(shown),
         detail: item.detail,
         alwaysShow: item.alwaysShow,
     };

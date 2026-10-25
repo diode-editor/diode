@@ -1,3 +1,4 @@
+import { codicon } from "../../../../base/common/codicons.ts";
 import type { CommandAction } from "../../../../platform/actions/common/commandAction.ts";
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import { parseChord, parseKeybinding } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
@@ -9,8 +10,7 @@ import { EXTENSIONS_VIEW_ID, EXTENSIONS_VIEWLET_ID, ExtensionsComponentDIToken }
 import { checkForUpdatesAction, updateAllExtensionsAction } from "./extensionUpdateActions.ts";
 import { installSpecificVersionOfExtensionAction } from "./extensionVersionActions.ts";
 
-/** nf-cod-refresh */
-const REFRESH_ICON = "\ueb37";
+const REFRESH_ICON = codicon("refresh");
 
 /** Leader chord next to the canonical binding: on a legacy terminal Ctrl+Shift+X is indistinguishable from Ctrl+X (like Search). */
 export const showExtensionsAction: CommandAction = {

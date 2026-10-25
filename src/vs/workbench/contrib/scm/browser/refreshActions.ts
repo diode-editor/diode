@@ -1,3 +1,4 @@
+import { codicon } from "../../../../base/common/codicons.ts";
 import type { CommandAction } from "../../../../platform/actions/common/commandAction.ts";
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import { viewMenuVisible } from "../../../browser/actions/menuContexts.ts";
@@ -5,8 +6,8 @@ import { SCM_CHANGES_VIEW_ID } from "../common/scmViews.ts";
 
 import { runGitOp } from "./gitOpClient.ts";
 
-/** nf-cod-refresh: CHANGES and GRAPH titles share the glyph. */
-export const REFRESH_ICON = "\ueb37";
+/** CHANGES and GRAPH titles share the icon. */
+export const REFRESH_ICON = codicon("refresh");
 
 /**
  * VS Code `git.refresh` (`scm/title`, group `navigation`). The extension's op queue runs

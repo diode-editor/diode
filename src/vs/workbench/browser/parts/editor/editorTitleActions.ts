@@ -6,6 +6,7 @@ import type { MenuService } from "../../../../platform/actions/common/menuServic
 import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
 import type { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import type { ContextMenuService } from "../../../../platform/contextview/browser/contextMenuService.ts";
+import type { IProductIconService } from "../../../../platform/theme/common/productIconService.ts";
 import type { EditorGroup } from "../../../services/editor/browser/editorGroupModel.ts";
 import type { EditorTitleBarMenuContext } from "../../actions/menuContexts.ts";
 import { inlineActions, overflowEntries, runAction } from "../views/titleMenuEntries.ts";
@@ -18,6 +19,7 @@ export interface IEditorTitleActionsServices {
     readonly configuration: IConfigurationService;
     readonly contextKeys: ContextKeyService;
     readonly contextMenu: ContextMenuService;
+    readonly icons: IProductIconService;
 }
 
 /**
@@ -60,6 +62,11 @@ export class EditorTitleActions extends Disposable {
         );
         this.register(
             services.contextKeys.onDidChange(() => {
+                this.refresh();
+            }),
+        );
+        this.register(
+            services.icons.onDidChange(() => {
                 this.refresh();
             }),
         );

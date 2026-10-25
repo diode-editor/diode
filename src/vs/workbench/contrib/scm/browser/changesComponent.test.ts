@@ -1,9 +1,10 @@
-import { Size } from "@tuidom/core/common/geometryPromitives";
+import { Point, Size } from "@tuidom/core/common/geometryPromitives";
 import { TUIKeyboardEvent } from "@tuidom/core/dom/events/tuiKeyboardEvent";
 import { TUIContextMenuEvent, TUIMouseEvent } from "@tuidom/core/dom/events/tuiMouseEvent";
 import { describe, expect, it, vi } from "vitest";
 
 import { renderElement } from "../../../../../TestUtils/renderElement.ts";
+import { createSwitchableIcons } from "../../../../../TestUtils/switchableIcons.ts";
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
 import { Emitter } from "../../../../base/common/event.ts";
 import { Uri } from "../../../../base/common/uri.ts";
@@ -15,6 +16,7 @@ import { KeybindingRegistry } from "../../../../platform/keybinding/common/keybi
 import { ProgressService } from "../../../../platform/progress/common/progressService.ts";
 import type { IStateDescriptor, IStateService } from "../../../../platform/state/common/iStateService.ts";
 import { NULL_STATE_SERVICE } from "../../../../platform/state/common/nullStateService.ts";
+import type { IProductIconService } from "../../../../platform/theme/common/productIconService.ts";
 import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";
 import type { WorkspaceId } from "../../../../platform/workspace/common/iWorkspaceContextService.ts";
 import type { ViewsService } from "../../../browser/parts/views/viewsService.ts";
@@ -26,8 +28,10 @@ import { SCM_CHANGES_VIEW_ID } from "../common/scmViews.ts";
 import { ChangesComponent } from "./changesComponent.ts";
 import { PUBLISH_CHANGES_COMMAND, ScmChangesService } from "./changesService.ts";
 import { ScmRepoStateService } from "./repoStateService.ts";
-import { buildFolderRow, OPEN_FILE_BUTTON_WIDTH, OPEN_FILE_GLYPH } from "./scmChangeRows.ts";
+import { buildFolderRow, OPEN_FILE_BUTTON_WIDTH, OPEN_FILE_ICON } from "./scmChangeRows.ts";
 import { ScmInputComponent } from "./scmInputComponent.ts";
+
+const OPEN_FILE_GLYPH = OPEN_FILE_ICON.nerdFont;
 
 const theme = WorkbenchTheme.fromThemeFile(darkPlusTheme);
 
@@ -82,7 +86,9 @@ interface IHarness {
     views: { id: string; canMoveView?: boolean }[];
 }
 
-function make(opts: { state?: IStateService; menuEntries?: FakeMenuEntry[] } = {}): IHarness {
+function make(
+    opts: { state?: IStateService; menuEntries?: FakeMenuEntry[]; icons?: IProductIconService } = {},
+): IHarness {
     const commands = new CommandRegistry();
     const scm = new ScmChangesService(commands);
     const { service: menuService, menu } = fakeMenu(opts.menuEntries);
@@ -110,6 +116,7 @@ function make(opts: { state?: IStateService; menuEntries?: FakeMenuEntry[] } = {
         viewsService,
         scmInput,
         new KeybindingRegistry(),
+        opts.icons,
     );
 
     const executed: [string, unknown[]][] = [];
@@ -196,6 +203,34 @@ describe("ChangesComponent — flat mode (default)", () => {
 
         h.component.list.blur();
         expect(screen()).not.toContain(OPEN_FILE_GLYPH);
+    });
+
+    it("diode.icons.nerdFont: the Open File button redraws live; status colors stay", async () => {
+        const { icons, set } = createSwitchableIcons(true);
+        const h = make({ icons });
+        publish(h.commands, [{ rel: "a.txt" }]);
+        const app = TestApp.createWithContent(h.component.view, new Size(40, 12));
+        const screen = (): string => {
+            app.render();
+            return app.backend.screenToString();
+        };
+        const statusFg = (): number | undefined => {
+            const lines = screen().split("\n");
+            const y = lines.findIndex((line) => line.includes("a.txt"));
+            return app.backend.getFgAt(new Point(lines[y].lastIndexOf("M"), y));
+        };
+        h.component.list.setCursorTo(rowIdOf("a.txt"));
+        h.component.focus();
+        expect(screen()).toContain(OPEN_FILE_GLYPH);
+        const fg = statusFg();
+
+        await set(false);
+        expect(screen()).not.toContain(OPEN_FILE_GLYPH);
+        expect(screen()).toContain(`${OPEN_FILE_ICON.unicode} `);
+        expect(statusFg()).toBe(fg);
+
+        await set(true);
+        expect(screen()).toContain(OPEN_FILE_GLYPH);
     });
 
     it("commit controls live in the view body above the list", () => {

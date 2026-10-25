@@ -1,7 +1,11 @@
-import { renderCodicons } from "../../../../base/common/codicons.ts";
 import { Disposable } from "../../../../base/common/lifecycle.ts";
 import { type CommandRegistry, CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
+import {
+    type IProductIconService,
+    NERD_FONT_ICONS,
+    ProductIconServiceDIToken,
+} from "../../../../platform/theme/common/productIconService.ts";
 import {
     type IStatusBarEntryHandle,
     type StatusBarService,
@@ -17,7 +21,12 @@ export const RUNNING_TASKS_STATUS_ID = "status.runningTasks";
 
 /** Upstream's "Building..." progress relies on a build group with matchers; we have none, so no progress either. */
 export class TaskStatusBarContribution extends Disposable {
-    public static dependencies = [StatusBarServiceDIToken, TaskServiceDIToken, CommandRegistryDIToken] as const;
+    public static dependencies = [
+        StatusBarServiceDIToken,
+        TaskServiceDIToken,
+        CommandRegistryDIToken,
+        ProductIconServiceDIToken,
+    ] as const;
 
     private handle: IStatusBarEntryHandle | null = null;
 
@@ -25,8 +34,15 @@ export class TaskStatusBarContribution extends Disposable {
         private readonly statusBar: StatusBarService,
         private readonly tasks: TaskService,
         private readonly commands: CommandRegistry,
+        private readonly icons: IProductIconService = NERD_FONT_ICONS,
     ) {
         super();
+        this.register(
+            // With no running task there is no segment, and update keeps it that way.
+            icons.onDidChange(() => {
+                this.update();
+            }),
+        );
         this.register(
             tasks.onDidStateChange((event) => {
                 // Stryker disable next-line ConditionalExpression,EqualityOperator: equivalent: update is idempotent, "changed" trims extra ones
@@ -47,7 +63,7 @@ export class TaskStatusBarContribution extends Disposable {
             this.handle = null;
             return;
         }
-        const text = renderCodicons(`$(tools) ${String(count)}`);
+        const text = this.icons.renderCodicons(`$(tools) ${String(count)}`);
         if (this.handle !== null) {
             this.handle.update({ text });
             return;

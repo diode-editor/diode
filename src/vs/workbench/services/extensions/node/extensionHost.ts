@@ -68,6 +68,7 @@ import type { IStat } from "../../../../platform/files/common/files.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { ILogger } from "../../../../platform/log/common/iLogger.ts";
 import type { IEnvironmentVariableCollectionStore } from "../../../../platform/terminal/common/environmentVariable.ts";
+import type { IProductIconService } from "../../../../platform/theme/common/productIconService.ts";
 import type { HostRpc } from "../../../api/common/extHostProtocol.ts";
 import type { ICommandService } from "../../../api/common/iCommandService.ts";
 import type { IDocumentSyncSource, IDocumentSyncTarget } from "../../../api/common/iDocumentSyncTarget.ts";
@@ -192,6 +193,8 @@ export interface IExtensionHostOptions {
     readonly editorDecorations?: IEditorDecorationsService;
     readonly fileDecorations?: IFileDecorationsService;
     readonly themeColorResolver?: IThemeColorResolver;
+    /** Expands `$(name)` in command titles from the manifest; Nerd Font glyphs when absent. */
+    readonly icons?: IProductIconService;
     readonly diagnosticsSink?: DiagnosticsSink;
     readonly markers?: IMarkerReader;
     readonly languageConfigurations?: Pick<ILanguageConfigurationService, "register">;
@@ -326,7 +329,12 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
         this.editor = new EditorCustomer(editorOptions, options.editorLayout ?? NULL_EDITOR_LAYOUT_SERVICE);
         this.configurationCustomer =
             options.configuration === undefined ? undefined : new ConfigurationCustomer(options.configuration);
-        this.commands = new CommandsCustomer(commandService, (event) => this.activateByEvent(event), this.logger);
+        this.commands = new CommandsCustomer(
+            commandService,
+            (event) => this.activateByEvent(event),
+            this.logger,
+            options.icons,
+        );
         this.fileSystem = this.register(new FileSystemCustomer(options.fileWatcher ?? NULL_EXTENSION_FILE_WATCHER));
         this.terminals = new TerminalCustomer(options.terminalSink);
         this.environmentVariableCollections = new EnvironmentVariableCollectionsCustomer(

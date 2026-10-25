@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
+import { createSwitchableIcons } from "../../../../../TestUtils/switchableIcons.ts";
 import { makeTask } from "../../../../../TestUtils/taskFixtures.ts";
 import { buildTaskServiceHarness } from "../../../../../TestUtils/taskServiceHarness.ts";
 import { CODICON_GLYPHS } from "../../../../base/common/codicons.generated.ts";
@@ -57,5 +58,26 @@ describe("TaskStatusBarContribution", () => {
         }).not.toThrow();
         expect(bar.entries().some((e) => e.id === RUNNING_TASKS_STATUS_ID)).toBe(false);
         contribution.dispose();
+    });
+
+    it("diode.icons.nerdFont: the running segment redraws its icon live; with nothing running nothing appears", async () => {
+        const h = buildTaskServiceHarness();
+        const bar = new StatusBarService(NULL_STATE_SERVICE);
+        const { icons, set } = createSwitchableIcons(true);
+        const contribution = new TaskStatusBarContribution(bar, h.service, new CommandRegistry(), icons);
+        const entry = () => bar.entries().find((e) => e.id === RUNNING_TASKS_STATUS_ID);
+
+        await set(false);
+        expect(entry()).toBeUndefined();
+
+        void h.service.run(makeTask({ label: "a" }));
+        await vi.waitFor(() => {
+            expect(entry()?.text).toBe("⚒ 1");
+        });
+        await set(true);
+        expect(entry()?.text).toBe(`${CODICON_GLYPHS.tools ?? ""} 1`);
+
+        contribution.dispose();
+        h.dispose();
     });
 });

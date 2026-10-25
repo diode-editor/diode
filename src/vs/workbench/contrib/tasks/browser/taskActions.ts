@@ -2,6 +2,7 @@ import type { CommandAction } from "../../../../platform/actions/common/commandA
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import { IConfigurationServiceDIToken } from "../../../../platform/configuration/common/iConfigurationServiceDIToken.ts";
 import type { ServiceAccessor } from "../../../../platform/instantiation/common/diContainer.ts";
+import { ProductIconServiceDIToken } from "../../../../platform/theme/common/productIconService.ts";
 import { QuickInputServiceDIToken } from "../../../browser/parts/quickinput/quickInputService.ts";
 import type { ITask } from "../common/tasks.ts";
 
@@ -35,6 +36,7 @@ export async function runTaskCommand(accessor: ServiceAccessor, arg?: unknown): 
             accessor.get(QuickInputServiceDIToken),
             accessor.get(IConfigurationServiceDIToken),
             type,
+            accessor.get(ProductIconServiceDIToken),
         );
         // `null` is "Configure a Task" of the empty picker.
         if (task === null) await configureTaskCommand(accessor);

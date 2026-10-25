@@ -4,6 +4,11 @@ import { describe, expect, it } from "vitest";
 import { getFileIcon } from "../../../../base/common/fileIcons.ts";
 import type { IDisposable } from "../../../../base/common/lifecycle.ts";
 import { Uri } from "../../../../base/common/uri.ts";
+import {
+    type IProductIconService,
+    NERD_FONT_ICONS,
+    StaticProductIconService,
+} from "../../../../platform/theme/common/productIconService.ts";
 import { WorkspaceContextService } from "../../../../platform/workspace/common/workspaceContextService.ts";
 import type { IEditorPane } from "../../../browser/parts/editor/iEditorPane.ts";
 
@@ -38,7 +43,11 @@ interface Harness {
     revealed: IEditorPane[];
 }
 
-function createProvider(panes: IEditorPane[], root: string | null = ROOT): Harness {
+function createProvider(
+    panes: IEditorPane[],
+    root: string | null = ROOT,
+    icons: IProductIconService = NERD_FONT_ICONS,
+): Harness {
     const revealed: IEditorPane[] = [];
     const editors: IOpenEditorsSource = {
         getOpenEditorsMru: () => panes,
@@ -49,7 +58,7 @@ function createProvider(panes: IEditorPane[], root: string | null = ROOT): Harne
     // and a stub would test its own prefix match instead of the real one.
     const workspace = new WorkspaceContextService();
     if (root !== null) workspace.setWorkspaceFolder(root);
-    return { provider: new OpenEditorsQuickAccessProvider(editors, workspace), revealed };
+    return { provider: new OpenEditorsQuickAccessProvider(editors, workspace, icons), revealed };
 }
 
 function query(filter: string): string {
@@ -121,6 +130,16 @@ describe("OpenEditorsQuickAccessProvider — list and order", () => {
             getFileIcon("index.ts").icon,
             getFileIcon("readme.md").icon,
         ]);
+    });
+
+    it("diode.icons.nerdFont off: rows carry no icon at all", () => {
+        const { provider } = createProvider(
+            [makePane(`${ROOT}/src/index.ts`)],
+            ROOT,
+            new StaticProductIconService(false),
+        );
+
+        expect(provider.getItems(query("")).map((item) => item.icon)).toEqual([undefined]);
     });
 });
 

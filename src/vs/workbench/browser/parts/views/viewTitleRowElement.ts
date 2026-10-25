@@ -4,8 +4,11 @@ import { FillerElement } from "@tuidom/elements/layout/fillerElement";
 import { HFlexElement, hflexFill, hflexFit, hflexFixed } from "@tuidom/elements/layout/hFlexElement";
 import { TextLabelElement } from "@tuidom/elements/text/textLabelElement";
 
-const ICON_EXPANDED = ""; //  nf-fa-angle_down
-const ICON_COLLAPSED = ""; //  nf-fa-angle_right
+import { iconGlyph, type IProductIcon } from "../../../../base/common/codicons.ts";
+
+/** nf-fa-angle_down / nf-fa-angle_right, the same chevrons as the tuidom tree. */
+const ICON_EXPANDED: IProductIcon = { nerdFont: "\uf107", unicode: "\u25be" }; // ▾
+const ICON_COLLAPSED: IProductIcon = { nerdFont: "\uf105", unicode: "\u25b8" }; // ▸
 
 const MENU_ICON = "⋯";
 
@@ -61,6 +64,7 @@ export class ViewTitleRowElement extends HFlexElement {
     private titleWidget: TUIElement | null = null;
     private menuVisible = true;
     private switcher = false;
+    private nerdFont = true;
 
     public constructor(title: string, options?: IViewTitleRowOptions) {
         super();
@@ -90,6 +94,13 @@ export class ViewTitleRowElement extends HFlexElement {
     public setExpanded(expanded: boolean): void {
         if (this.expanded === expanded) return;
         this.expanded = expanded;
+        this.titleLabel.setText(this.composeTitle());
+    }
+
+    /** `diode.icons.nerdFont`: the chevrons are drawn here; button glyphs come resolved in the actions. */
+    public setNerdFont(nerdFont: boolean): void {
+        if (this.nerdFont === nerdFont) return;
+        this.nerdFont = nerdFont;
         this.titleLabel.setText(this.composeTitle());
     }
 
@@ -178,10 +189,11 @@ export class ViewTitleRowElement extends HFlexElement {
     }
 
     private composeTitle(): string {
-        const switcher = this.switcher ? ` ${SWITCHER_ICON} ` : "";
+        const switcher = this.switcher ? ` ${iconGlyph(SWITCHER_ICON, this.nerdFont)} ` : "";
         const tail = (this.spinner === null ? "" : ` ${this.spinner}`) + switcher;
         if (!this.chevron) return ` ${this.title}${tail}`;
-        return ` ${this.expanded ? ICON_EXPANDED : ICON_COLLAPSED} ${this.title}${tail}`;
+        const chevron = iconGlyph(this.expanded ? ICON_EXPANDED : ICON_COLLAPSED, this.nerdFont);
+        return ` ${chevron} ${this.title}${tail}`;
     }
 
     private syncChildren(): void {

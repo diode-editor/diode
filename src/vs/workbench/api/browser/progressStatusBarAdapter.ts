@@ -1,5 +1,5 @@
-import { renderCodicons } from "../../../base/common/codicons.ts";
 import { SPINNER_FRAMES } from "../../../platform/progress/common/progressService.ts";
+import { type IProductIconService, NERD_FONT_ICONS } from "../../../platform/theme/common/productIconService.ts";
 import type { IStatusBarEntryHandle, StatusBarService } from "../../services/statusbar/common/statusBarService.ts";
 import type { IProgressSink } from "../common/iExtensionWindowSinks.ts";
 
@@ -16,29 +16,36 @@ class ProgressEntry {
     public bar!: IStatusBarEntryHandle;
     public timer!: ReturnType<typeof setInterval>;
 
-    public constructor(public readonly title: string) {}
+    /** Captions are kept raw: the spinner re-renders the entry anyway, so a glyph set switch shows on the next tick. */
+    public constructor(
+        public readonly title: string,
+        private readonly icons: IProductIconService,
+    ) {}
 
     public render(): string {
         const spinner = SPINNER_FRAMES[this.frame];
-        const parts = [this.title, this.message].filter((p): p is string => p !== undefined && p !== "");
+        const parts = [this.title, this.message]
+            .filter((p): p is string => p !== undefined && p !== "")
+            .map((p) => this.icons.renderCodicons(p));
         const percent = this.percent !== undefined ? ` (${String(Math.round(this.percent))}%)` : "";
         return `${spinner} ${parts.join(" · ")}${percent}`;
     }
 }
 
-/** Captions go through {@link renderCodicons}: upstream this is `ProgressLocation.Window`, which expands icons. */
+/** Captions expand `$(name)`: upstream this is `ProgressLocation.Window`, which expands icons. */
 export class ProgressStatusBarAdapter implements IProgressSink {
     private readonly entries = new Map<number, ProgressEntry>();
 
     public constructor(
         private readonly statusBar: StatusBarService,
         private readonly spinnerIntervalMs: number = SPINNER_INTERVAL_MS,
+        private readonly icons: IProductIconService = NERD_FONT_ICONS,
     ) {}
 
     public start(handle: number, title: string): void {
         // A repeated start of the same handle: defensively dismiss the previous entry.
         if (this.entries.has(handle)) this.end(handle);
-        const entry = new ProgressEntry(renderCodicons(title));
+        const entry = new ProgressEntry(title, this.icons);
         entry.bar = this.statusBar.addEntry({
             id: `status.extensionProgress.${String(handle)}`,
             text: entry.render(),
@@ -55,7 +62,7 @@ export class ProgressStatusBarAdapter implements IProgressSink {
     public report(handle: number, message?: string, increment?: number): void {
         const entry = this.entries.get(handle);
         if (entry === undefined) return;
-        if (message !== undefined) entry.message = renderCodicons(message);
+        if (message !== undefined) entry.message = message;
         if (increment !== undefined) {
             entry.percent = Math.min(100, Math.max(0, (entry.percent ?? 0) + increment));
         }

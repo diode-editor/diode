@@ -5,6 +5,7 @@ import { TerminalViewElement } from "@tuidom/elements/terminal/terminalViewEleme
 import { describe, expect, it, vi } from "vitest";
 
 import { FakeTerminalSurface } from "../../../../../TestUtils/FakeTerminalSurface.ts";
+import { createSwitchableIcons } from "../../../../../TestUtils/switchableIcons.ts";
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
 import { createTestConfigurationService } from "../../../../../TestUtils/testConfigurationService.ts";
 import { CODICON_GLYPHS } from "../../../../base/common/codicons.generated.ts";
@@ -13,6 +14,7 @@ import { CommandRegistry } from "../../../../platform/commands/common/commandReg
 import { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import type { ContextMenuService } from "../../../../platform/contextview/browser/contextMenuService.ts";
 import type { IContextMenuMenuDelegate } from "../../../../platform/contextview/common/contextMenuDelegate.ts";
+import type { IProductIconService } from "../../../../platform/theme/common/productIconService.ts";
 import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";
 import { PanelComponent } from "../../../browser/parts/panel/panelComponent.ts";
 import { makeViewsHarness } from "../../../browser/parts/views/viewsService.testUtils.ts";
@@ -31,7 +33,11 @@ import { SWITCH_TERMINAL_SHOW_TABS, TERMINAL_TABS_WIDTH, terminalTabRowId } from
 const WIDTH = 80;
 const HEIGHT = 12;
 
-function buildHarness(settings: Readonly<Record<string, unknown>> = {}, shells: readonly string[] = []) {
+function buildHarness(
+    settings: Readonly<Record<string, unknown>> = {},
+    shells: readonly string[] = [],
+    icons?: IProductIconService,
+) {
     const views = makeViewsHarness();
     const panelComponent = new PanelComponent(views.panelService, new CommandRegistry());
     const configuration = createTestConfigurationService(settings);
@@ -58,6 +64,7 @@ function buildHarness(settings: Readonly<Record<string, unknown>> = {}, shells: 
         contextMenu,
         commands,
         makeTerminalColors(new ThemeService(WorkbenchTheme.fromThemeFile(darkPlusTheme)), configuration).colors,
+        icons,
     );
     const testApp = TestApp.createWithContent(panelComponent.view, new Size(WIDTH, HEIGHT));
     const screen = (): string => {
@@ -163,6 +170,26 @@ describe("TerminalPanelComponent — tabs list in the frame", () => {
         // The active terminal's name is no longer in the title — the list plays that role.
         const tabRow = h.lines().find((line) => line.includes("TERMINAL")) ?? "";
         expect(tabRow).not.toContain("zsh");
+        h.dispose();
+    });
+
+    it("diode.icons.nerdFont: the rows and the single terminal's title follow the setting live", async () => {
+        const { icons, set } = createSwitchableIcons(false);
+        const h = buildHarness({}, ["/bin/bash", "/usr/bin/zsh"], icons);
+        h.service.newTerminal();
+        const titleRow = (): string => h.lines().find((line) => line.includes("TERMINAL")) ?? "";
+        expect(titleRow()).toContain("› bash");
+
+        h.service.newTerminal();
+        expect(h.screen()).toContain("│ › bash");
+        expect(h.screen()).not.toContain(tab("bash"));
+
+        await set(true);
+        expect(count(h.screen(), tab("bash"))).toBe(1);
+        expect(count(h.screen(), tab("zsh"))).toBe(1);
+
+        await set(false);
+        expect(h.screen()).toContain("│ › zsh");
         h.dispose();
     });
 
