@@ -916,6 +916,7 @@
             "mac-legacy (tmux) #2": "ctrl+k alt+t",
             "mac-legacy (tmux) #3": "ctrl+k alt+t"
         },
+        "workbench.action.terminal.openDetectedLink": "ctrl+shift+o",
         "workbench.action.terminal.toggleTerminal": {
             "*": "ctrl+`",
             "pc legacy #0": "ctrl+k t",

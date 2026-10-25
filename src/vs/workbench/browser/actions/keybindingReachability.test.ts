@@ -149,6 +149,8 @@ describe("tier gate asymmetry — user-facing contract", () => {
         "workbench.action.search.toggleQueryDetails | Ctrl+K Alt+J | Ctrl+Shift+J",
         "workbench.action.terminal.focusTabs | Ctrl+K \\ | Ctrl+Shift+\\",
         "workbench.action.terminal.new | Ctrl+K Alt+T | Ctrl+Shift+`",
+        // No legacy fallback (#817): the palette runs it there; the label is the canonical binding.
+        "workbench.action.terminal.openDetectedLink | Ctrl+Shift+O | Ctrl+Shift+O",
         "workbench.action.terminal.toggleTerminal | Ctrl+K T | Ctrl+`",
         "workbench.action.toggleEditorGroupLayout | Ctrl+K Alt+0 | Shift+Alt+0",
         "workbench.actions.view.problems | Ctrl+K M | Ctrl+Shift+M",
