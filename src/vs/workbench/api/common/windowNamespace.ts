@@ -2,6 +2,7 @@ import type * as vscode from "vscode";
 
 import { implementsApi } from "./apiSurface.ts";
 import type { ExtHostTextDocument } from "./extHostDocuments.ts";
+import { createExtHostTreeViews, type ITreeViewMembers } from "./extHostTreeViews.ts";
 import {
     normalizeDecorationRanges,
     serializeDecorationRenderOptions,
@@ -13,7 +14,6 @@ import { createMessageApi } from "./messageNamespace.ts";
 import { createQuickInputApi } from "./quickInputNamespace.ts";
 import { createStatusBarMessage } from "./statusBarMessage.ts";
 import { createTerminalNamespace, type ITerminalNamespace } from "./terminalNamespace.ts";
-import { createTreeViewNoopMembers } from "./treeViewNoop.ts";
 import { createUriHandlers } from "./uriHandlers.ts";
 import type { IVscodeHostContext } from "./vscodeHostContext.ts";
 import {
@@ -94,10 +94,17 @@ export function slugifyChannelName(name: string): string {
     return slugify(name, "channel");
 }
 
-/** `terminals` is passed when `vscode.tasks` shares terminals with `window` (pty `CustomExecution`). */
+/**
+ * `terminals` is passed when `vscode.tasks` shares terminals with `window` (pty `CustomExecution`);
+ * `treeViews` — when a row's command must reach the extension's own commands (`vscode.commands`).
+ */
 export function createWindowNamespace(
     ctx: IVscodeHostContext,
     terminals: ITerminalNamespace = createTerminalNamespace(ctx.rpc),
+    treeViews: ITreeViewMembers = createExtHostTreeViews(ctx.rpc, {
+        executeCommand: (id, ...args) => ctx.rpc.request("commands.executeCommand", { id, args }),
+        owner: ctx.owner,
+    }),
 ): typeof vscode.window {
     const { rpc, registry, owner } = ctx;
 
@@ -707,8 +714,7 @@ export function createWindowNamespace(
     const windowNs = {
         // There are no webviews, but without these members an extension with a chat panel failed activation entirely.
         ...createWebviewNoopMembers(rpc),
-        // Trees are not rendered, but without registration an extension with a tree failed activation.
-        ...createTreeViewNoopMembers(rpc),
+        ...treeViews,
 
         createStatusBarItem,
         // The message item has no owner: its id has no extension prefix.

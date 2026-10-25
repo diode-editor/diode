@@ -1,3 +1,4 @@
+import type { MenuEntry } from "@tuidom/elements/menu/popupMenuElement";
 import { describe, expect, it } from "vitest";
 
 import { ensureNoDisposablesAreLeakedInTestSuite } from "../../../../TestUtils/disposableLeaks.ts";
@@ -7,7 +8,7 @@ import { KeybindingRegistry } from "../../keybinding/common/keybindingRegistry.t
 
 import type { MenuContribution } from "./iMenuContribution.ts";
 import { MenuId } from "./menuId.ts";
-import { MenuRegistry } from "./menuRegistry.ts";
+import { joinMenuGroups, MenuRegistry } from "./menuRegistry.ts";
 import { MenuService } from "./menuService.ts";
 
 const disposables = ensureNoDisposablesAreLeakedInTestSuite();
@@ -80,5 +81,28 @@ describe("MenuService — live menus (IMenu)", () => {
 
         registry.appendMenuItem({ menuId: MenuId.EditorContext, command: "x" });
         expect(fired).toBe(0);
+    });
+});
+
+function entryLabel(entry: MenuEntry): string {
+    return entry.type === "separator" ? "─" : entry.label;
+}
+
+describe("MenuService — owner context keys", () => {
+    it("getEntryGroups evaluates `when` with the owner's keys, in submenus too", () => {
+        const sub = new MenuId("test.ownerKeysSub");
+        const { service } = setup([
+            { menuId: MenuId.ViewTitle, command: "top", title: "Top", when: "view == ext.a" },
+            { menuId: MenuId.ViewTitle, submenu: sub, title: "More", when: "view == ext.a" },
+            { menuId: sub, command: "inner", title: "Inner", when: "view == ext.a" },
+            { menuId: sub, command: "stranger", title: "Stranger", when: "view == ext.b" },
+        ]);
+        const groups = service.getEntryGroups(MenuId.ViewTitle, undefined, { view: "ext.a" });
+        const entries = joinMenuGroups(groups);
+        expect(entries.map(entryLabel)).toEqual(["Top", "More"]);
+        const submenu = entries[1];
+        const inner = submenu.type === "submenu" && Array.isArray(submenu.entries) ? submenu.entries : [];
+        expect(inner.map(entryLabel)).toEqual(["Inner"]);
+        expect(service.getEntryGroups(MenuId.ViewTitle)).toEqual([]);
     });
 });

@@ -9,7 +9,7 @@ import { Emitter } from "../../../base/common/event.ts";
 import type { IDisposable } from "../../../base/common/lifecycle.ts";
 import type { CommandRegistry } from "../../commands/common/commandRegistry.ts";
 import { CommandRegistryDIToken } from "../../commands/common/commandRegistry.ts";
-import type { ContextKeyService } from "../../contextkey/common/contextKeyService.ts";
+import type { ContextKeyService, ContextKeySettableValue } from "../../contextkey/common/contextKeyService.ts";
 import { ContextKeyServiceDIToken } from "../../contextkey/common/contextKeyService.ts";
 import { token } from "../../instantiation/common/diContainer.ts";
 import type { KeybindingRegistry } from "../../keybinding/common/keybindingRegistry.ts";
@@ -50,6 +50,9 @@ export interface IMenuEntryGroup {
     readonly group: string;
     readonly entries: readonly ResolvedMenuEntry[];
 }
+
+/** Context keys a menu owner adds on top of the global ones for one resolve. */
+export type MenuContextKeys = Readonly<Record<string, ContextKeySettableValue>>;
 
 export function joinMenuGroups(groups: readonly IMenuEntryGroup[]): MenuEntry[] {
     const result: MenuEntry[] = [];
@@ -131,19 +134,28 @@ export class MenuRegistry {
         this.onDidChangeMenuEmitter.fire(menuId);
     }
 
-    public getMenuItemGroups(menuId: MenuId, context?: unknown, resolveSubmenu?: SubmenuResolver): IMenuEntryGroup[] {
+    /**
+     * `keys` are the menu owner's context keys on top of the global ones, like upstream's scoped
+     * context key service: a section's title menu evaluates `view == <id>` with its own `view`.
+     */
+    public getMenuItemGroups(
+        menuId: MenuId,
+        context?: unknown,
+        resolveSubmenu?: SubmenuResolver,
+        keys?: MenuContextKeys,
+    ): IMenuEntryGroup[] {
         const visible = this.items.filter((item) => {
             if (item.menuId !== menuId) return false;
             // Without a resolver, submenu entries are consumed only by `getSubmenus` (the menu bar).
             if (isSubmenuContribution(item)) {
                 if (resolveSubmenu === undefined) return false;
-                if (item.when !== undefined && !this.contextKeys.evaluate(item.when)) return false;
+                if (item.when !== undefined && !this.contextKeys.evaluate(item.when, keys)) return false;
                 // Sidebar section submenus are filtered by `menuContext.view`: a when key
                 // does not work, since the sidebar shows several sections.
                 if (item.visible !== undefined && !item.visible(context)) return false;
                 return true;
             }
-            if (item.when !== undefined && !this.contextKeys.evaluate(item.when)) return false;
+            if (item.when !== undefined && !this.contextKeys.evaluate(item.when, keys)) return false;
             if (item.visible !== undefined && !item.visible(context)) return false;
             return true;
         });
@@ -158,7 +170,7 @@ export class MenuRegistry {
                     if (entry !== null)
                         groupEntries.push(item.isSelection === true ? { ...entry, isSelection: true } : entry);
                 } else {
-                    groupEntries.push(this.toEntry(item, context));
+                    groupEntries.push(this.toEntry(item, context, keys));
                 }
             }
             if (groupEntries.length === 0) continue;
@@ -180,8 +192,13 @@ export class MenuRegistry {
         });
     }
 
-    public getMenuItems(menuId: MenuId, context?: unknown, resolveSubmenu?: SubmenuResolver): MenuEntry[] {
-        return joinMenuGroups(this.getMenuItemGroups(menuId, context, resolveSubmenu));
+    public getMenuItems(
+        menuId: MenuId,
+        context?: unknown,
+        resolveSubmenu?: SubmenuResolver,
+        keys?: MenuContextKeys,
+    ): MenuEntry[] {
+        return joinMenuGroups(this.getMenuItemGroups(menuId, context, resolveSubmenu, keys));
     }
 
     public getSubmenus(menuId: MenuId): ISubmenuEntry[] {
@@ -205,19 +222,24 @@ export class MenuRegistry {
         };
     }
 
-    private toEntry(item: IMenuContribution, context: unknown): IResolvedMenuItemEntry {
+    private toEntry(
+        item: IMenuContribution,
+        context: unknown,
+        keys: MenuContextKeys | undefined,
+    ): IResolvedMenuItemEntry {
         const label = item.title ?? this.commands.getTitle(item.command) ?? item.command;
         const resolvedArgs = item.args ? item.args(context) : [];
         // Captured at resolve time, like VS Code when opening a popup; inline buttons
         // do not go stale: their groups are re-resolved both on click and on context change.
-        const enabled = item.enablement === undefined || this.contextKeys.evaluate(item.enablement);
+        const enabled = item.enablement === undefined || this.contextKeys.evaluate(item.enablement, keys);
         return {
             label,
             id: item.command,
             enabled,
             disabled: !enabled,
             shortcut: this.resolveShortcut(item),
-            icon: item.toggled !== undefined && this.contextKeys.evaluate(item.toggled) ? CHECKED_ICON : item.icon,
+            icon:
+                item.toggled !== undefined && this.contextKeys.evaluate(item.toggled, keys) ? CHECKED_ICON : item.icon,
             onSelect: () => {
                 // A contribution may point to an extension command that has no guard of its own.
                 if (!enabled) return;

@@ -91,8 +91,8 @@ export interface IExtensionContributions {
     readonly viewsContainers?: Readonly<Record<string, readonly IViewContainerContribution[]>>;
 
     /**
-     * Keyed by container: `explorer`, `scm` or an id from `viewsContainers`. Tree views get a section
-     * with a placeholder (the tree itself is not rendered yet, docs/TODO/Extensions.md).
+     * Keyed by container: `explorer`, `scm` or an id from `viewsContainers`. Tree views get a section,
+     * empty until the extension registers its tree (`window.createTreeView`).
      */
     readonly views?: Readonly<Record<string, readonly IViewContribution[]>>;
 

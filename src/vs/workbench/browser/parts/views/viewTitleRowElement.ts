@@ -41,7 +41,7 @@ export interface IViewTitleRowOptions {
 }
 
 /**
- * `[ ␣chevron? ␣TITLE ][ fill ][ widget? ][ inline buttons ][ ⋯ ]`
+ * `[ ␣chevron? ␣TITLE ][ ␣description? ][ fill ][ widget? ][ inline buttons ][ ⋯ ]`
  *
  * The owner handles gestures: it takes mouse input on the labels (otherwise pointer capture for the
  * boundary drag won't work), so which button was hit is zone arithmetic in {@link hitZone}.
@@ -49,6 +49,9 @@ export interface IViewTitleRowOptions {
  */
 export class ViewTitleRowElement extends HFlexElement {
     private readonly titleLabel: TextLabelElement;
+    /** Upstream `TreeView.description`: dimmed after the title, clipped first on a narrow header. */
+    private readonly descriptionLabel = new TextLabelElement("");
+    private description: string | null = null;
     private readonly filler = new FillerElement();
     private readonly menuLabel: TextLabelElement;
     private readonly chevron: boolean;
@@ -67,6 +70,7 @@ export class ViewTitleRowElement extends HFlexElement {
         this.title = title;
         this.chevron = options?.chevron ?? true;
         this.titleLabel = new TextLabelElement(this.composeTitle());
+        this.descriptionLabel.style = { fg: "descriptionForeground" };
         this.menuLabel = new TextLabelElement(buttonLabel(MENU_ICON));
         // "⋯" is always enabled: it opens a popup rather than running a command.
         this.menuLabel.style = buttonStyle(true);
@@ -81,6 +85,19 @@ export class ViewTitleRowElement extends HFlexElement {
         if (this.title === title) return;
         this.title = title;
         this.titleLabel.setText(this.composeTitle());
+    }
+
+    /** `null` or empty — no description. */
+    public setDescription(description: string | null): void {
+        const next = description === "" ? null : description;
+        if (this.description === next) return;
+        this.description = next;
+        this.descriptionLabel.setText(next === null ? "" : ` ${next}`);
+        this.syncChildren();
+    }
+
+    public getDescription(): string | null {
+        return this.description;
     }
 
     public get isExpanded(): boolean {
@@ -192,9 +209,12 @@ export class ViewTitleRowElement extends HFlexElement {
             return label;
         });
         this.titleLabel.layoutStyle = { width: hflexFit(), height: 1 };
+        this.descriptionLabel.layoutStyle = { width: hflexFit(), height: 1 };
         this.filler.layoutStyle = { width: hflexFill(), height: 1 };
         this.menuLabel.layoutStyle = { width: hflexFixed(BUTTON_WIDTH), height: 1 };
-        const children: TUIElement[] = [this.titleLabel, this.filler];
+        const children: TUIElement[] = [this.titleLabel];
+        if (this.description !== null) children.push(this.descriptionLabel);
+        children.push(this.filler);
         if (this.titleWidget !== null) {
             this.titleWidget.layoutStyle = { width: hflexFit(), height: 1 };
             children.push(this.titleWidget);

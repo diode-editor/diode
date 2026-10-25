@@ -29,6 +29,7 @@ import { createExtensionsNamespace } from "./extensionsNamespace.ts";
 import type { IExtHostDisk } from "./extHostDisk.ts";
 import { DocumentRegistry, DocumentSyncTracker } from "./extHostDocuments.ts";
 import type { SubprocessRpc } from "./extHostProtocol.ts";
+import { createExtHostTreeViews } from "./extHostTreeViews.ts";
 import { createL10nNamespace } from "./l10nNamespace.ts";
 import { createLanguagesNamespace } from "./languagesNamespace.ts";
 import { createTasksNamespace } from "./tasksNamespace.ts";
@@ -196,7 +197,12 @@ export function buildVscodeNamespace(rpc: SubprocessRpc, disk: IExtHostDisk): IV
 
     // Terminals are shared by `window` and `tasks`: a `CustomExecution` pty attaches to the task's terminal.
     const terminals = createTerminalNamespace(rpc);
-    const window = createWindowNamespace(ctx, terminals);
+    // Deferred call: a row's command may be the extension's own, and `commands` is built after `window`.
+    const treeViews = createExtHostTreeViews(rpc, {
+        executeCommand: (id, ...args) => commands.executeCommand(id, ...args),
+        owner: ctx.owner,
+    });
+    const window = createWindowNamespace(ctx, terminals, treeViews);
     // Deferred call: `tasks` is not built yet (it needs the `workspace` folders).
     const workspace = createWorkspaceNamespace(ctx, (type, provider) => tasks.registerTaskProvider(type, provider));
     // Built BEFORE languages: applyCodeAction runs the actions' commands.

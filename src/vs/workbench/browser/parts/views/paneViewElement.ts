@@ -12,6 +12,8 @@ export interface IPaneOptions {
     /** Unique within the container; dots become dashes in the header id because inspector/e2e selectors don't support them. */
     readonly id: string;
     readonly title: string;
+    /** Dimmed next to the title (upstream `TreeView.description`). */
+    readonly description?: string | null;
     readonly body: TUIElement;
     readonly minBodyHeight?: number;
     /** `false` for a merged section: no chevron, click/Enter on the header does nothing. Defaults to `true`. */
@@ -62,6 +64,7 @@ export class PaneViewElement extends TUIElement {
         const header = new PaneHeaderElement(options.title, { collapsible });
         header.hidden = !headerVisible;
         header.setSwitcher(options.switcher ?? false);
+        header.setDescription(options.description ?? null);
         header.id = `paneHeader-${options.id.replaceAll(".", "-")}`;
         const record: PaneRecord = {
             id: options.id,
@@ -113,6 +116,12 @@ export class PaneViewElement extends TUIElement {
 
     public setPaneActions(id: string, actions: readonly IViewTitleAction[]): void {
         this.paneOrThrow(id).header.setActions(actions);
+    }
+
+    public setPaneTitle(id: string, title: string, description: string | null): void {
+        const { header } = this.paneOrThrow(id);
+        header.setTitle(title);
+        header.setDescription(description);
     }
 
     public setPaneTitleWidget(id: string, widget: TUIElement | null): void {

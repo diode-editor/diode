@@ -22,7 +22,9 @@ export const OWNED_MEMBERS = {
         "createOutputChannel",
         "createStatusBarItem",
         "createTextEditorDecorationType",
+        "createTreeView",
         "registerFileDecorationProvider",
+        "registerTreeDataProvider",
         "registerUriHandler",
     ],
     languages: [

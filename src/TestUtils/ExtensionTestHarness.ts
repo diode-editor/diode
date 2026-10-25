@@ -52,6 +52,7 @@ import { EditorOptionsServiceAdapter } from "../vs/workbench/api/browser/editorO
 import { ThemeColorResolverAdapter } from "../vs/workbench/api/browser/themeColorResolverAdapter.ts";
 import type { IEditorDecorationsService } from "../vs/workbench/api/common/iEditorDecorationsService.ts";
 import type { IExtensionFileWatcher } from "../vs/workbench/api/common/iExtensionFileWatcher.ts";
+import type { IExtensionTreeViewsSink } from "../vs/workbench/api/common/iExtensionTreeViewsSink.ts";
 import type {
     DiagnosticsSink,
     INotificationSink,
@@ -187,6 +188,7 @@ export interface IExtensionHarnessOptions {
     readonly quickInputSink?: IQuickInputSink;
     readonly notificationSink?: INotificationSink;
     readonly workspaceFoldersSink?: IWorkspaceFoldersSink;
+    readonly treeViewsSink?: IExtensionTreeViewsSink;
     readonly editorDecorations?: IEditorDecorationsService;
     readonly fileDecorations?: IFileDecorationsService;
     readonly themeColorResolver?: IThemeColorResolver;
@@ -309,6 +311,7 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
         ...(options.quickInputSink !== undefined ? { quickInputSink: options.quickInputSink } : {}),
         ...(options.notificationSink !== undefined ? { notificationSink: options.notificationSink } : {}),
         ...(options.workspaceFoldersSink !== undefined ? { workspaceFoldersSink: options.workspaceFoldersSink } : {}),
+        ...(options.treeViewsSink !== undefined ? { treeViewsSink: options.treeViewsSink } : {}),
         ...(options.editorDecorations !== undefined ? { editorDecorations: options.editorDecorations } : {}),
         ...(options.fileDecorations !== undefined ? { fileDecorations: options.fileDecorations } : {}),
         themeColorResolver: options.themeColorResolver ?? new ThemeColorResolverAdapter(themeService),

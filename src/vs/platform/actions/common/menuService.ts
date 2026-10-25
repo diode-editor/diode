@@ -6,7 +6,7 @@ import { token } from "../../instantiation/common/diContainer.ts";
 
 import type { MenuContribution } from "./iMenuContribution.ts";
 import type { MenuId } from "./menuId.ts";
-import type { IMenuEntryGroup, ISubmenuEntry, MenuRegistry, SubmenuResolver } from "./menuRegistry.ts";
+import type { IMenuEntryGroup, ISubmenuEntry, MenuContextKeys, MenuRegistry, SubmenuResolver } from "./menuRegistry.ts";
 import { joinMenuGroups, MenuRegistryDIToken } from "./menuRegistry.ts";
 
 export const MenuServiceDIToken = token<MenuService>("MenuService");
@@ -39,17 +39,23 @@ export class MenuService {
         return this.registry.hasItems(menuId, context, predicate);
     }
 
-    public getEntryGroups(menuId: MenuId, context?: unknown): IMenuEntryGroup[] {
+    /** `keys` — the owner's context keys on top of the global ones ({@link MenuRegistry.getMenuItemGroups}). */
+    public getEntryGroups(menuId: MenuId, context?: unknown, keys?: MenuContextKeys): IMenuEntryGroup[] {
         const seen = new Set<MenuId>([menuId]);
-        return this.registry.getMenuItemGroups(menuId, context, this.submenuResolver(context, seen));
+        return this.registry.getMenuItemGroups(menuId, context, this.submenuResolver(context, seen, keys), keys);
     }
 
     /** Empty submenus are dropped; `seen` breaks `MenuId` cycles (like `submenuIds` in vscode `menu.ts`). */
-    private submenuResolver(context: unknown, seen: Set<MenuId>): SubmenuResolver {
+    private submenuResolver(context: unknown, seen: Set<MenuId>, keys?: MenuContextKeys): SubmenuResolver {
         return (submenu) => {
             if (seen.has(submenu.submenu)) return null;
             seen.add(submenu.submenu);
-            const entries = this.registry.getMenuItems(submenu.submenu, context, this.submenuResolver(context, seen));
+            const entries = this.registry.getMenuItems(
+                submenu.submenu,
+                context,
+                this.submenuResolver(context, seen, keys),
+                keys,
+            );
             if (entries.length === 0) return null;
             return { type: "submenu", label: submenu.title, entries };
         };

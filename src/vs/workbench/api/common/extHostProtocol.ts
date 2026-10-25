@@ -26,6 +26,20 @@ import type {
     WireTaskExecuteRequest,
 } from "./taskWireTypes.ts";
 import type {
+    IWireTreeItem,
+    IWireTreeViewExpansion,
+    IWireTreeViewGetChildren,
+    IWireTreeViewId,
+    IWireTreeViewItemRef,
+    IWireTreeViewMessage,
+    IWireTreeViewRefresh,
+    IWireTreeViewRegistration,
+    IWireTreeViewReveal,
+    IWireTreeViewSelection,
+    IWireTreeViewTitle,
+    IWireTreeViewVisibility,
+} from "./treeViewWireTypes.ts";
+import type {
     IWireActivateExtensionParams,
     IWireApplyEditParams,
     IWireApplyWorkspaceEditParams,
@@ -195,6 +209,11 @@ export interface IHostToSubprocess {
 
         readonly "tasks.provideTasks": readonly [IWireTaskProviderHandle, IWireTask[]];
 
+        /** Upstream `$getChildren`; rejects for a view that is not registered in the subprocess. */
+        readonly "treeView.getChildren": readonly [IWireTreeViewGetChildren, IWireTreeItem[]];
+        /** Runs the row's `TreeItem.command` there, with its arguments; rejects with the command's error. */
+        readonly "treeView.executeCommand": readonly [IWireTreeViewItemRef, null];
+
         readonly "host.activateExtension": readonly [IWireActivateExtensionParams, null];
         readonly "host.deactivateExtension": readonly [IWireExtensionId, null];
         readonly "host.shutdown": readonly [undefined, null];
@@ -239,6 +258,10 @@ export interface IHostToSubprocess {
         readonly "tasks.didStartProcess": IWireTaskProcessStarted;
         readonly "tasks.didEndProcess": IWireTaskProcessEnded;
         readonly "tasks.didEnd": IWireTaskEnded;
+
+        readonly "treeView.setVisible": IWireTreeViewVisibility;
+        readonly "treeView.setExpanded": IWireTreeViewExpansion;
+        readonly "treeView.setSelection": IWireTreeViewSelection;
     };
 }
 
@@ -285,6 +308,10 @@ export interface ISubprocessToHost {
         readonly "tasks.fetch": readonly [IWireTaskFilter, IWireTask[]];
         /** Responds when the task has started, not when it has finished. */
         readonly "tasks.execute": readonly [WireTaskExecuteRequest, IWireTaskExecution];
+
+        /** Responds once the tree has reread: `reveal` waits for a refresh in flight, as upstream. */
+        readonly "treeView.refresh": readonly [IWireTreeViewRefresh, null];
+        readonly "treeView.reveal": readonly [IWireTreeViewReveal, null];
     };
     readonly notifications: {
         readonly "languages.register": IWireLanguageProviderRegistration;
@@ -340,6 +367,11 @@ export interface ISubprocessToHost {
         readonly "tasks.registerProvider": IWireTaskProviderRegistration;
         readonly "tasks.unregisterProvider": IWireTaskProviderHandle;
         readonly "tasks.terminate": IWireTaskExecutionId;
+
+        readonly "treeView.register": IWireTreeViewRegistration;
+        readonly "treeView.dispose": IWireTreeViewId;
+        readonly "treeView.setMessage": IWireTreeViewMessage;
+        readonly "treeView.setTitle": IWireTreeViewTitle;
 
         /** `host.activateExtension` may be sent. */
         readonly "host.ready": null;

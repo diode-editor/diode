@@ -1,7 +1,9 @@
-import { BoxConstraints, Size } from "@tuidom/core/common/geometryPromitives";
+import { BoxConstraints, Point, Size } from "@tuidom/core/common/geometryPromitives";
 import { TUIMouseEvent } from "@tuidom/core/dom/events/tuiMouseEvent";
 import { FillerElement } from "@tuidom/elements/layout/fillerElement";
 import { describe, expect, it, vi } from "vitest";
+
+import { TestApp } from "../../../../../TestUtils/TestApp.ts";
 
 import { PaneHeaderElement } from "./paneHeaderElement.ts";
 
@@ -49,11 +51,27 @@ describe("PaneHeaderElement", () => {
         expect(header.isDragEnabled).toBe(true);
         expect(header.inspectState()).toEqual({
             title: "CHANGES",
+            description: null,
             expanded: false,
             dragEnabled: true,
             collapsible: true,
             busy: false,
         });
+    });
+
+    it("a description is dimmed after the title; empty or null removes it", () => {
+        const { header } = makeHeader();
+        const app = TestApp.createWithContent(header, new Size(30, 1));
+        header.setDescription("3 found");
+        app.render();
+        expect(app.backend.screenToString()).toMatch(/ CHANGES 3 found +⋯/u);
+        expect(app.backend.getFgAt(new Point(11, 0))).not.toBe(app.backend.getFgAt(new Point(3, 0)));
+        header.setDescription("");
+        app.render();
+        expect(app.backend.screenToString()).toMatch(/ CHANGES +⋯/u);
+        expect(header.inspectState()).toMatchObject({ description: null });
+        header.setDescription(null);
+        expect(header.inspectState()).toMatchObject({ description: null });
     });
 
     it("setExpanded to the same state is a no-op", () => {
