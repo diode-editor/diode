@@ -213,14 +213,14 @@ describe("ChangesComponent — flat mode (default)", () => {
         expect(frame(h).trim()).toBe("");
     });
 
-    it("Enter on a file runs scm.action.openChanges with the uri as a string", () => {
+    it("Enter on a file runs scm.action.openChanges with the uri as a string and the row's group", () => {
         const h = make();
         publish(h.commands, [{ rel: "a.txt" }]);
 
         h.component.list.setCursorTo(rowIdOf("a.txt"));
         pressEnter(h);
 
-        expect(h.executed).toEqual([["scm.action.openChanges", [uriOf("a.txt")]]]);
+        expect(h.executed).toEqual([["scm.action.openChanges", [uriOf("a.txt"), "worktree"]]]);
     });
 
     it("Enter on a group header collapses it together with its files", () => {

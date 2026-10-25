@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { fromGitUri, GIT_SCHEME, toGitUri } from "./gitUri.ts";
+import { fromGitUri, GIT_SCHEME, gitRefOf, INDEX_REF, toGitUri } from "./gitUri.ts";
 
 describe("toGitUri", () => {
     it("sets the git scheme, keeps the path and writes params into the query", () => {
@@ -50,5 +50,18 @@ describe("fromGitUri", () => {
     it("rejects non-string fields", () => {
         expect(fromGitUri({ scheme: "git", query: '{"path":1,"ref":"HEAD"}' })).toBeNull();
         expect(fromGitUri({ scheme: "git", query: '{"path":"/a.ts","ref":2}' })).toBeNull();
+    });
+});
+
+describe("gitRefOf", () => {
+    it("maps the index ref ~ to the empty revision of `git show :path`", () => {
+        expect(gitRefOf(INDEX_REF)).toBe("");
+    });
+
+    it("keeps an explicit ref and falls back to HEAD for none, empty or a non-string", () => {
+        expect(gitRefOf("main")).toBe("main");
+        expect(gitRefOf(undefined)).toBe("HEAD");
+        expect(gitRefOf("")).toBe("HEAD");
+        expect(gitRefOf(42)).toBe("HEAD");
     });
 });

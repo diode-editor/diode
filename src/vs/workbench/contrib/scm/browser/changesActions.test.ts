@@ -22,7 +22,8 @@ import {
 import { ChangesComponentDIToken } from "./changesComponent.ts";
 import { ScmInputComponentDIToken } from "./scmInputComponent.ts";
 
-// scm.action.openChanges is covered end-to-end by workbench.changes.test.ts; here: target resolution and view mode.
+// scm.action.openChanges is covered end-to-end by workbench.changes.test.ts (pairs by group); here: target
+// resolution and view mode.
 
 function accessorWith(services: Map<unknown, unknown>): ServiceAccessor {
     return {
@@ -145,6 +146,12 @@ describe("scm.action.openFile", () => {
 });
 
 describe("scm.action.openChanges", () => {
+    it("takes the uri together with its group from the ScmContext open-context: an MM file is in two groups", () => {
+        const staged = { kind: "resource", uris: ["file:///repo/a.txt"], groups: ["index"] };
+        expect(scmOpenChangesAction.menus?.[0].args?.(staged)).toEqual(["file:///repo/a.txt", "index"]);
+        expect(scmOpenChangesAction.menus?.[0].visible?.(staged)).toBe(true);
+    });
+
     it("is a no-op without argument and without a file row under the cursor", () => {
         const component = { getCursorChange: () => null };
         const accessor = accessorWith(new Map<unknown, unknown>([[ChangesComponentDIToken, component]]));

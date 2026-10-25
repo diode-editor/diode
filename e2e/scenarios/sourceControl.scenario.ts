@@ -76,7 +76,7 @@ export default defineScenario({
         await editor.sendMouse({ action: "release", button: "left", x, y });
         await editor.sendMouse({ action: "press", button: "left", x, y });
         await editor.sendMouse({ action: "release", button: "left", x, y });
-        await editor.waitForText((t) => t.includes("↔ HEAD"));
+        await editor.waitForText((t) => t.includes("(Working Tree)"));
         await editor.capture("diff");
 
         await editor.sendKey("Alt+T");

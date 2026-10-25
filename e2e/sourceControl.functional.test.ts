@@ -113,7 +113,7 @@ describe("Source Control in the sidebar (functional e2e, PR #207)", () => {
         expect(await session.focusedType()).toBe("ListViewElement");
     }, 120_000);
 
-    it("double-clicking a modified file opens the 'file ↔ HEAD' diff", async () => {
+    it("double-clicking a modified file opens the 'index ↔ working tree' diff", async () => {
         const repo = makeRepo({ committed: { "app.ts": APP_TS }, modify: { "app.ts": APP_TS_MOD } });
         app = await open(repo);
         const { session } = app;
@@ -136,8 +136,8 @@ describe("Source Control in the sidebar (functional e2e, PR #207)", () => {
 
         // The diff opened as the ONLY tab: the tab bar mentions app.ts exactly once
         // (the diff label); there is no file tab.
-        const frame = await session.waitForText((t) => t.includes("↔ HEAD")).then(frameToText);
-        const tabsLine = lineWith(frame, "↔ HEAD");
+        const frame = await session.waitForText((t) => t.includes("(Working Tree)")).then(frameToText);
+        const tabsLine = lineWith(frame, "(Working Tree)");
         expect(tabsLine.split("app.ts").length - 1).toBe(1);
     }, 120_000);
 
@@ -162,7 +162,7 @@ describe("Source Control in the sidebar (functional e2e, PR #207)", () => {
 
         // The file itself opened (its content is all new); no diff and no notice.
         const frame = await session.waitForText((t) => t.includes("export const answer = 42;")).then(frameToText);
-        expect(frame).not.toContain("↔ HEAD");
+        expect(frame).not.toContain("(Working Tree)");
         expect(frame).not.toContain("No changes to compare");
     }, 120_000);
 
@@ -186,7 +186,7 @@ describe("Source Control in the sidebar (functional e2e, PR #207)", () => {
         await session.sendMouse({ action: "release", button: "left", x: buttonX, y: rowY });
 
         const frame = await session.waitForText((t) => t.includes('"hello " + name')).then(frameToText);
-        expect(frame).not.toContain("↔ HEAD");
+        expect(frame).not.toContain("(Working Tree)");
     }, 120_000);
 
     it("scm.action.viewAsTree folds paths into compact folders, viewAsList restores the list", async () => {
@@ -299,7 +299,7 @@ describe("Source Control in the sidebar (functional e2e, PR #207)", () => {
         expect(frame).toContain("src/deep/mod.ts");
     }, 120_000);
 
-    it("double-clicking a deleted file (status D) opens the 'HEAD ↔ empty' diff", async () => {
+    it("double-clicking a deleted file (status D) opens the 'index ↔ empty' diff", async () => {
         const repo = makeRepo({ committed: { "app.ts": APP_TS }, clean: true });
         // Delete the committed file on disk → unstaged deletion (D).
         execFileSync("rm", [join(repo, "app.ts")]);
@@ -318,12 +318,11 @@ describe("Source Control in the sidebar (functional e2e, PR #207)", () => {
         await session.sendMouse({ action: "press", button: "left", x, y });
         await session.sendMouse({ action: "release", button: "left", x, y });
 
-        // The file is gone from disk — the modified side is empty: the whole HEAD version shows
+        // The file is gone from disk — the modified side is empty: the whole index version shows
         // as deleted. At 100 columns the panel is below the threshold — the diff is inline (PR-6):
-        // HEAD lines are shown as ghost rows without numbers; no plus lines with text.
-        const frame = await session.waitForText((t) => t.includes("↔ HEAD")).then(frameToText);
+        // index lines are shown as ghost rows without numbers; no plus lines with text.
+        const frame = await session.waitForText((t) => t.includes("app.ts (Deleted)")).then(frameToText);
         expect(frame).toContain("export function greet");
-        expect(frame).toContain("HEAD ↔ app.ts");
         expect(frame).not.toMatch(/\d\+ +\S/u);
         expect(session.getStderr()).not.toMatch(/Error|Exception|unhandled/i);
     }, 120_000);

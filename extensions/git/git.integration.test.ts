@@ -712,6 +712,13 @@ describe("builtin git plugin (integration)", () => {
         // about it, so the path stays new.
         const atRef = (await harness.commandRegistry.execute("diode.scm.originalResource", movedUri, "main")) as string;
         expect(Uri.parse(atRef).query).toContain("moved.txt");
+
+        // The index (`~`) is read by the new path and holds the staged rename without the
+        // working tree edit: Open Changes on the Changes row diffs exactly that edit.
+        const atIndex = (await harness.commandRegistry.execute("diode.scm.originalResource", movedUri, "~")) as string;
+        const indexBytes = await harness.host.readProvidedFile(Uri.parse(atIndex));
+        expect(new TextDecoder().decode(indexBytes)).toBe(TRACKED_AT_HEAD);
+        expect(JSON.parse(Uri.parse(atIndex).query)).toMatchObject({ ref: "" });
     });
 
     it("stays inert (no throw, no decorations) outside a git repository", async () => {
