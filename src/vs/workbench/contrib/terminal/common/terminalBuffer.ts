@@ -15,6 +15,8 @@ export interface ITerminalBufferLine {
 /** The emulator's active buffer: scrollback plus screen, rows are absolute and 0-based. */
 export interface ITerminalBuffer {
     readonly cols: number;
+    /** Viewport height: xterm's `Terminal.rows`. */
+    readonly rows: number;
     /** Absolute row of the viewport top: accounts for the scrollback offset. */
     readonly viewportY: number;
     readonly length: number;

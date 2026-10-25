@@ -52,6 +52,7 @@ describe("TerminalService — instances", () => {
         const keys = new ContextKeyService();
         h.service.updateContextKeys(keys);
         expect(keys.get("terminalIsOpen")).toBe(false);
+        expect(keys.get("terminalHasBeenCreated")).toBe(false);
 
         h.service.openTerminal();
 
@@ -59,6 +60,7 @@ describe("TerminalService — instances", () => {
         expect(h.service.hasOpenTerminals).toBe(true);
         h.service.updateContextKeys(keys);
         expect(keys.get("terminalIsOpen")).toBe(true);
+        expect(keys.get("terminalHasBeenCreated")).toBe(true);
         expect(h.service.getActiveInstance()?.session).toBe(h.created[0]);
         expect(onOpen).toHaveBeenCalledTimes(1);
         expect(onActive).toHaveBeenCalledWith(h.service.getActiveInstance());

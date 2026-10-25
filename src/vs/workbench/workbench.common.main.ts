@@ -204,6 +204,7 @@ import { TerminalEditorServiceDIToken } from "./contrib/terminal/browser/termina
 import { TerminalKeyRoutingDIToken } from "./contrib/terminal/browser/terminalKeyRouting.ts";
 import { TerminalPanelComponentDIToken } from "./contrib/terminal/browser/terminalPanelComponent.ts";
 import { TerminalServiceDIToken } from "./contrib/terminal/browser/terminalService.ts";
+import { TERMINAL_LINK_ACTIONS } from "./contrib/terminalContrib/links/browser/terminalLinkActions.ts";
 import { THEME_ACTIONS } from "./contrib/themes/browser/themeActions.ts";
 import { ThemeConfigContributionDIToken } from "./contrib/themes/browser/themeConfigContribution.ts";
 import { URL_ACTIONS } from "./contrib/url/browser/urlActions.ts";
@@ -445,6 +446,7 @@ export const WORKBENCH_ACTIONS: readonly CommandAction[] = [
     ...VIEW_LOCATION_ACTIONS,
     ...OUTPUT_ACTIONS,
     ...TERMINAL_ACTIONS,
+    ...TERMINAL_LINK_ACTIONS,
     ...TASKS_ACTIONS,
     clearNotificationsAction,
     focusNotificationAction,

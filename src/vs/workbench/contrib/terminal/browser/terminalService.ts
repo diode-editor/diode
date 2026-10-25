@@ -189,6 +189,8 @@ export class TerminalService extends Disposable implements IContextKeyContributo
     public updateContextKeys(contextKeys: ContextKeyService): void {
         contextKeys.set("terminalIsOpen", this.hasOpenTerminals);
         contextKeys.set("terminalCount", this.instances.length);
+        // Ids are never reused: one handed out means a terminal was created, wherever it lives now.
+        contextKeys.set("terminalHasBeenCreated", this.nextId > 1);
     }
 
     /** Excludes editor and background ones. */

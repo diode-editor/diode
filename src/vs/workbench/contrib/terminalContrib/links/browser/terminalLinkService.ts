@@ -11,7 +11,8 @@ import { token } from "../../../../../platform/instantiation/common/diContainer.
 import type { IWorkspaceContextService } from "../../../../../platform/workspace/common/iWorkspaceContextService.ts";
 import { IWorkspaceContextServiceDIToken } from "../../../../../platform/workspace/common/iWorkspaceContextServiceDIToken.ts";
 import type { ITerminalInstance } from "../../../terminal/browser/terminalService.ts";
-import { TerminalLinkProvider } from "../common/terminalLinkProvider.ts";
+import { getDetectedLinks, getRecentFileLink, type IDetectedLinks } from "../common/terminalDetectedLinks.ts";
+import { type ITerminalLink, TerminalLinkProvider } from "../common/terminalLinkProvider.ts";
 import { TerminalLinkResolver } from "../common/terminalLinkResolver.ts";
 
 import type { TerminalLinkOpener } from "./terminalLinkOpener.ts";
@@ -37,6 +38,8 @@ export class TerminalLinkService {
 
     /** Per instance: the setting at creation and the resolver whose cache survives moving the terminal. */
     private readonly links = new WeakMap<ITerminalInstance, TerminalLinkProvider | null>();
+    /** The surface of the instance's current widget: the one on screen after a move between hosts. */
+    private readonly surfaces = new WeakMap<ITerminalInstance, TerminalLinkSurface>();
 
     public constructor(
         private readonly configuration: IConfigurationService,
@@ -50,6 +53,7 @@ export class TerminalLinkService {
         const provider = this.providerFor(instance);
         if (provider === null) return new TerminalViewElement(instance.session);
         const surface = new TerminalLinkSurface(instance.session, provider, (link) => this.opener.open(link));
+        this.surfaces.set(instance, surface);
         const widget = new TerminalViewElement(surface);
         widget.addEventListener("mouseleave", () => {
             surface.pointerLeft();
@@ -62,6 +66,43 @@ export class TerminalLinkService {
             if (event.key === "Control") surface.setModifier(false);
         });
         return widget;
+    }
+
+    /** Upstream `TerminalLinkManager.getLinks`; nothing with `enableFileLinks: "off"` or before the emulator loads. */
+    public getLinks(instance: ITerminalInstance): {
+        readonly viewport: Promise<IDetectedLinks>;
+        readonly all: Promise<IDetectedLinks>;
+    } {
+        const provider = this.providerFor(instance);
+        const buffer = instance.session.buffer;
+        if (provider === null || buffer === undefined) {
+            const none = Promise.resolve<IDetectedLinks>({ fileLinks: [], folderLinks: [] });
+            return { viewport: none, all: none };
+        }
+        return getDetectedLinks(buffer, provider);
+    }
+
+    /** Upstream `openRecentLink('localFile')`: opens the bottom file link, as a Ctrl+click on it would. */
+    public async openRecentLink(instance: ITerminalInstance): Promise<void> {
+        const provider = this.providerFor(instance);
+        const buffer = instance.session.buffer;
+        if (provider === null || buffer === undefined) return;
+        const link = await getRecentFileLink(buffer, provider);
+        if (link !== undefined) await this.opener.open(link);
+    }
+
+    /**
+     * Upstream `markTracker.revealRange`: the link is underlined and, when its first row is off screen, scrolled to a
+     * quarter of the viewport from the top (the output below a path matters more than above it).
+     */
+    public revealLink(instance: ITerminalInstance, link: ITerminalLink | undefined): void {
+        this.surfaces.get(instance)?.setRevealedLink(link);
+        const buffer = instance.session.buffer;
+        if (link === undefined || buffer === undefined) return;
+        const top = buffer.viewportY;
+        if (link.start.y >= top && link.start.y < top + buffer.rows) return;
+        const target = Math.max(link.start.y - Math.floor(buffer.rows / 4), 0);
+        instance.session.scrollLines(target - top);
     }
 
     private providerFor(instance: ITerminalInstance): TerminalLinkProvider | null {

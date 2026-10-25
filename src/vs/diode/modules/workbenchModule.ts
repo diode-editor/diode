@@ -313,6 +313,10 @@ import { EmbeddedTerminalSession } from "../../workbench/contrib/terminal/node/e
 import { ExtensionPtySession } from "../../workbench/contrib/terminal/node/extensionPtySession.ts";
 import { TerminalLinkOpener } from "../../workbench/contrib/terminalContrib/links/browser/terminalLinkOpener.ts";
 import {
+    TerminalLinkQuickpick,
+    TerminalLinkQuickpickDIToken,
+} from "../../workbench/contrib/terminalContrib/links/browser/terminalLinkQuickpick.ts";
+import {
     TerminalLinkOpenerDIToken,
     TerminalLinkService,
     TerminalLinkServiceDIToken,
@@ -561,6 +565,7 @@ export const workbenchModule: ContainerModule = (container) => {
     container.bind(TerminalColorsServiceDIToken, TerminalColorsService);
     container.bind(TerminalLinkOpenerDIToken, TerminalLinkOpener);
     container.bind(TerminalLinkServiceDIToken, TerminalLinkService);
+    container.bind(TerminalLinkQuickpickDIToken, TerminalLinkQuickpick);
     container.bind(TerminalWidgetFactoryDIToken, () => {
         const links = container.get(TerminalLinkServiceDIToken);
         return (instance) => links.createWidget(instance);

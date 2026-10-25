@@ -75,6 +75,8 @@ export interface ContextKeyTypes {
 
     terminalFocus: boolean;
     terminalIsOpen: boolean;
+    /** Upstream key: a terminal was created in this window, even if all are closed since. */
+    terminalHasBeenCreated: boolean;
     terminalCount: number;
     terminalTabsFocus: boolean;
     terminalEditorFocus: boolean;
