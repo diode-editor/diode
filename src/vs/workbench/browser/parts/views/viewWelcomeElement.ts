@@ -118,7 +118,8 @@ export class ViewWelcomeElement extends TUIElement {
                 continue;
             }
             if (block.kind !== "button") continue;
-            const element = new ButtonElement(block.label);
+            // Upstream welcome buttons are full-width and wrap their label in a narrow sidebar.
+            const element = new ButtonElement(block.label, { wrap: true });
             const entry: IWelcomeButton = {
                 element,
                 style: element.style,
@@ -167,12 +168,9 @@ export class ViewWelcomeElement extends TUIElement {
         const width = this.textWidth(size.width);
         for (const [y, row] of this.rowsFor(width).entries()) {
             if (row.kind !== "button") continue;
-            this.layoutChild(
-                this.buttons[row.index].element,
-                LEFT_PADDING,
-                y,
-                BoxConstraints.loose(new Size(width, 1)),
-            );
+            const button = this.buttons[row.index].element;
+            const height = button.getMaxIntrinsicHeight(width);
+            this.layoutChild(button, LEFT_PADDING, y, BoxConstraints.loose(new Size(width, height)));
         }
         for (const link of this.links) this.layoutChild(link, 0, 0, BoxConstraints.tight(new Size(0, 0)));
         return size;
@@ -248,6 +246,9 @@ export class ViewWelcomeElement extends TUIElement {
         for (const block of this.blocks) {
             if (block.kind === "button") {
                 rows.push({ kind: "button", index: buttonIndex });
+                // A wrapped label's further rows belong to the button: no text there.
+                const height = this.buttons[buttonIndex].element.getMaxIntrinsicHeight(width);
+                for (let row = 1; row < height; row++) rows.push({ kind: "text", segments: [] });
                 buttonIndex++;
                 continue;
             }
