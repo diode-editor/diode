@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { syncSourceOf } from "../../../../../TestUtils/documentSyncSource.ts";
 import { registerAndActivate, testRegistration } from "../../../../../TestUtils/ExtensionTestHarness.ts";
+import type { ICancellationToken } from "../../../../base/common/cancellation.ts";
 import type { IDisposable } from "../../../../base/common/lifecycle.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import type { ICommandService } from "../../../api/common/iCommandService.ts";
@@ -1031,7 +1032,7 @@ describe("ExtensionHost — subprocess death", () => {
             configuration: makeConfigProvider().provider,
             // No workspaceContains candidates, so the scan never starts, yet
             // the revive must happen anyway.
-            workspaceScanner: { exists: () => Promise.resolve(false), readDirectory: () => Promise.resolve([]) },
+            workspaceScanner: { exists: () => Promise.resolve(false), findFile: () => Promise.resolve(null) },
         });
         await registerAndActivate(host, makeReg("ext.a", "/a.js"));
 
@@ -1058,7 +1059,7 @@ describe("ExtensionHost — subprocess death", () => {
                     // A match would make the scan start the extension.
                     return Promise.resolve(true);
                 },
-                readDirectory: () => Promise.resolve([]),
+                findFile: () => Promise.resolve(null),
             },
         });
         host.registerExtension({ ...makeReg("ext.java", "/j.js"), activationEvents: ["workspaceContains:pom.xml"] });
@@ -1091,7 +1092,7 @@ describe("ExtensionHost — subprocess death", () => {
             configuration: makeConfigProvider().provider,
             workspaceScanner: {
                 exists: (absolutePath: string) => Promise.resolve(absolutePath.endsWith("pom.xml")),
-                readDirectory: () => Promise.resolve([]),
+                findFile: () => Promise.resolve(null),
             },
         });
         host.registerExtension({ ...makeReg("ext.java", "/j.js"), activationEvents: ["workspaceContains:pom.xml"] });
@@ -1182,7 +1183,7 @@ describe("ExtensionHost — subprocess death", () => {
         const child = new FakeChild();
         const host = spawnReadyHost(child, new FakeEditorOptions(), {
             configuration: makeConfigProvider().provider,
-            workspaceScanner: { exists: () => Promise.resolve(false), readDirectory: () => Promise.resolve([]) },
+            workspaceScanner: { exists: () => Promise.resolve(false), findFile: () => Promise.resolve(null) },
         });
         host.registerExtension({
             ...makeReg("ext.a", "/a.js"),
@@ -1281,7 +1282,7 @@ describe("ExtensionHost — window workspace change", () => {
                     scanned.push(filePath);
                     return Promise.resolve(filePath.startsWith("/new"));
                 },
-                readDirectory: () => Promise.resolve([]),
+                findFile: () => Promise.resolve(null),
             },
         });
         host.registerExtension({ ...makeReg("ext.java", "/j.js"), activationEvents: ["workspaceContains:pom.xml"] });
@@ -1333,7 +1334,7 @@ describe("ExtensionHost — activation reason in the log", () => {
             configuration: makeConfigProvider().provider,
             workspaceScanner: {
                 exists: (absolutePath: string) => Promise.resolve(absolutePath.endsWith("build.gradle")),
-                readDirectory: () => Promise.resolve([]),
+                findFile: () => Promise.resolve(null),
             },
         });
         host.registerExtension({
@@ -1349,42 +1350,41 @@ describe("ExtensionHost — activation reason in the log", () => {
         host.dispose();
     });
 
-    it("scanner throws: the walk counts as INTERRUPTED and says so in the log", async () => {
+    it("scanner throws: an error in the log, the extension stays inactive, no timeout warning", async () => {
         const child = new FakeChild();
         const logger = makeLogger();
         const host = spawnReadyHost(child, new FakeEditorOptions(), {
             logger,
             configuration: makeConfigProvider().provider,
             workspaceScanner: {
-                exists: () => Promise.reject(new Error("boom")),
-                readDirectory: () => Promise.resolve([]),
+                exists: () => Promise.resolve(false),
+                findFile: () => Promise.reject(new Error("spawn rg ENOENT")),
             },
         });
         host.registerExtension({
             ...makeReg("ext.a", "/a.js"),
-            activationEvents: ["workspaceContains:pom.xml"],
+            activationEvents: ["workspaceContains:**/*.tf"],
         });
 
         await host.activateByWorkspaceContains();
 
-        expect(logger.error).toHaveBeenCalledWith('workspaceContains scan for "ext.a" failed', expect.anything());
-        // A silently aborted scan would read as "nothing matched", but these
-        // are different things, and only this line tells them apart.
-        expect(logger.warn).toHaveBeenCalledWith('workspaceContains scan for "ext.a" was cut short', {
-            paths: ["pom.xml"],
-            globs: [],
-        });
+        // A silently failed search would read as "nothing matched"; only this line tells them apart.
+        expect(logger.error).toHaveBeenCalledWith(
+            'workspaceContains scan for "ext.a" failed',
+            expect.objectContaining({ message: "spawn rg ENOENT" }),
+        );
+        expect(logger.warn).not.toHaveBeenCalled();
         expect(host.hasExtension("ext.a")).toBe(false);
         host.dispose();
     });
 
-    it("walk completes: NO interruption warning", async () => {
+    it("search completes: NO timeout warning", async () => {
         const child = new FakeChild();
         const logger = makeLogger();
         const host = spawnReadyHost(child, new FakeEditorOptions(), {
             logger,
             configuration: makeConfigProvider().provider,
-            workspaceScanner: { exists: () => Promise.resolve(false), readDirectory: () => Promise.resolve([]) },
+            workspaceScanner: { exists: () => Promise.resolve(false), findFile: () => Promise.resolve(null) },
         });
         host.registerExtension({
             ...makeReg("ext.a", "/a.js"),
@@ -1399,10 +1399,10 @@ describe("ExtensionHost — activation reason in the log", () => {
 
     it("without a configuration provider there are no workspace folders: the walk does not start", async () => {
         const child = new FakeChild();
-        const readDirectory = vi.fn(() => Promise.resolve([]));
+        const findFile = vi.fn(() => Promise.resolve(null));
         const exists = vi.fn(() => Promise.resolve(true));
         const host = spawnReadyHost(child, new FakeEditorOptions(), {
-            workspaceScanner: { exists, readDirectory },
+            workspaceScanner: { exists, findFile },
         });
         host.registerExtension({
             ...makeReg("ext.a", "/a.js"),
@@ -1412,37 +1412,208 @@ describe("ExtensionHost — activation reason in the log", () => {
         await host.activateByWorkspaceContains();
 
         expect(exists).not.toHaveBeenCalled();
-        expect(readDirectory).not.toHaveBeenCalled();
+        expect(findFile).not.toHaveBeenCalled();
         expect(host.hasExtension("ext.a")).toBe(false);
         host.dispose();
     });
 
-    it("a HUNG walk is cut off by a timeout instead of waiting on the FS forever", async () => {
+    it("a HUNG search is cut off by the timeout: its token is cancelled, a warning names the patterns", async () => {
+        const child = new FakeChild();
+        const logger = makeLogger();
+        const tokens: ICancellationToken[] = [];
+        const host = spawnReadyHost(child, new FakeEditorOptions(), {
+            logger,
+            configuration: makeConfigProvider().provider,
+            workspaceContainsTimeoutMs: 1,
+            workspaceScanner: {
+                exists: () => Promise.resolve(false),
+                // rg walking a cold FUSE mount: no answer until the token kills it.
+                findFile: (_folder: string, _globs: readonly string[], token: ICancellationToken) => {
+                    tokens.push(token);
+                    return new Promise(() => undefined);
+                },
+            },
+        });
+        host.registerExtension({
+            ...makeReg("ext.a", "/a.js"),
+            activationEvents: ["workspaceContains:pom.xml", "workspaceContains:*/pom.xml", "workspaceContains:**/*.tf"],
+        });
+
+        await host.activateByWorkspaceContains();
+
+        expect(tokens).toHaveLength(1);
+        expect(tokens[0]?.isCancellationRequested).toBe(true);
+        expect(logger.warn).toHaveBeenCalledWith(
+            "Not activating extension 'ext.a': Timed out while searching for 'workspaceContains' pattern pom.xml,*/pom.xml,**/*.tf",
+        );
+        expect(host.hasExtension("ext.a")).toBe(false);
+        host.dispose();
+    });
+
+    it("a timeout without a logger is still just a miss, not a crash", async () => {
+        const child = new FakeChild();
+        const host = spawnReadyHost(child, new FakeEditorOptions(), {
+            configuration: makeConfigProvider().provider,
+            workspaceContainsTimeoutMs: 1,
+            workspaceScanner: { exists: () => Promise.resolve(false), findFile: () => new Promise(() => undefined) },
+        });
+        host.registerExtension({ ...makeReg("ext.a", "/a.js"), activationEvents: ["workspaceContains:**/*.tf"] });
+
+        await expect(host.activateByWorkspaceContains()).resolves.toBeUndefined();
+        expect(host.hasExtension("ext.a")).toBe(false);
+        host.dispose();
+    });
+
+    it("a `stat` hung on a dead mount is cut off too: the timeout races, it does not wait for the scanner", async () => {
         const child = new FakeChild();
         const logger = makeLogger();
         const host = spawnReadyHost(child, new FakeEditorOptions(), {
             logger,
             configuration: makeConfigProvider().provider,
-            // A `readDirectory` that NEVER answers (network FS, detached
-            // volume): the cancellation flag is not enough, it is only checked between directories.
             workspaceContainsTimeoutMs: 1,
             workspaceScanner: {
-                exists: () => Promise.resolve(false),
-                readDirectory: () => new Promise(() => undefined),
+                exists: () => new Promise(() => undefined),
+                findFile: () => Promise.resolve("never.asked"),
             },
         });
-        host.registerExtension({
-            ...makeReg("ext.a", "/a.js"),
-            activationEvents: ["workspaceContains:*/pom.xml"],
-        });
+        host.registerExtension({ ...makeReg("ext.a", "/a.js"), activationEvents: ["workspaceContains:pom.xml"] });
 
         await host.activateByWorkspaceContains();
 
-        expect(logger.warn).toHaveBeenCalledWith('workspaceContains scan for "ext.a" was cut short', {
-            paths: [],
-            globs: ["*/pom.xml"],
-        });
+        expect(logger.warn).toHaveBeenCalledWith(
+            "Not activating extension 'ext.a': Timed out while searching for 'workspaceContains' pattern pom.xml",
+        );
         expect(host.hasExtension("ext.a")).toBe(false);
+        host.dispose();
+    });
+
+    it("a search answered in time is not cancelled and leaves no timer behind", async () => {
+        vi.useFakeTimers();
+        try {
+            const child = new FakeChild();
+            const logger = makeLogger();
+            const tokens: ICancellationToken[] = [];
+            const host = spawnReadyHost(child, new FakeEditorOptions(), {
+                logger,
+                configuration: makeConfigProvider().provider,
+                workspaceContainsTimeoutMs: 50,
+                workspaceScanner: {
+                    exists: () => Promise.resolve(false),
+                    findFile: (_folder: string, _globs: readonly string[], token: ICancellationToken) => {
+                        tokens.push(token);
+                        return Promise.resolve(null);
+                    },
+                },
+            });
+            host.registerExtension({ ...makeReg("ext.a", "/a.js"), activationEvents: ["workspaceContains:**/*.tf"] });
+
+            await host.activateByWorkspaceContains();
+            await vi.advanceTimersByTimeAsync(100);
+
+            expect(tokens[0]?.isCancellationRequested).toBe(false);
+            expect(logger.warn).not.toHaveBeenCalled();
+            host.dispose();
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
+    it("extensions search IN PARALLEL and each activates on its own answer, not waiting for the others", async () => {
+        const child = new FakeChild();
+        const logger = makeLogger();
+        const answers = new Map<string, (found: string | null) => void>();
+        const host = spawnReadyHost(child, new FakeEditorOptions(), {
+            logger,
+            configuration: makeConfigProvider().provider,
+            workspaceScanner: {
+                exists: () => Promise.resolve(false),
+                findFile: (_folder: string, globs: readonly string[]) =>
+                    new Promise((resolve) => {
+                        answers.set(globs[0] ?? "", resolve);
+                    }),
+            },
+        });
+        host.registerExtension({ ...makeReg("ext.a", "/a.js"), activationEvents: ["workspaceContains:**/*.tf"] });
+        host.registerExtension({ ...makeReg("ext.b", "/b.js"), activationEvents: ["workspaceContains:**/*.py"] });
+
+        armNextChild();
+        const pass = host.activateByWorkspaceContains();
+        // Both searches are running before either answers: one slow mount doesn't queue the others.
+        await waitUntil(() => answers.size === 2);
+        // The second in manifest order answers first and is up while the first still searches.
+        answers.get("**/*.py")?.("x.py");
+        await waitUntil(() => host.hasExtension("ext.b"));
+        expect(host.hasExtension("ext.a")).toBe(false);
+        answers.get("**/*.tf")?.("main.tf");
+        await pass;
+
+        const order = logger.info.mock.calls
+            .map(([message]) => String(message))
+            .filter((message) => message.startsWith("activated extension"));
+        expect(order).toEqual([
+            'activated extension "ext.b" (workspaceContains:**/*.py)',
+            'activated extension "ext.a" (workspaceContains:**/*.tf)',
+        ]);
+        host.dispose();
+    });
+
+    it("window exit (dispose) cancels a live search — its rg dies with the window; no timeout warning", async () => {
+        const child = new FakeChild();
+        const logger = makeLogger();
+        const tokens: ICancellationToken[] = [];
+        const host = spawnReadyHost(child, new FakeEditorOptions(), {
+            logger,
+            configuration: makeConfigProvider().provider,
+            workspaceScanner: {
+                exists: () => Promise.resolve(false),
+                findFile: (_folder: string, _globs: readonly string[], token: ICancellationToken) => {
+                    tokens.push(token);
+                    return new Promise(() => undefined);
+                },
+            },
+        });
+        host.registerExtension({ ...makeReg("ext.a", "/a.js"), activationEvents: ["workspaceContains:**/*.tf"] });
+        const pass = host.activateByWorkspaceContains();
+        await waitUntil(() => tokens.length === 1);
+        expect(tokens[0]?.isCancellationRequested).toBe(false);
+
+        host.disposeNow();
+
+        expect(tokens[0]?.isCancellationRequested).toBe(true);
+        await pass;
+        expect(logger.warn).not.toHaveBeenCalled();
+        expect(host.hasExtension("ext.a")).toBe(false);
+    });
+
+    it("a folder change cancels the old folders' search and searches the new ones", async () => {
+        const logger = makeLogger();
+        const workspace = makeSwitchableWorkspace("/old");
+        const searches: { folder: string; token: ICancellationToken }[] = [];
+        const host = new ExtensionHost(new FakeEditorOptions(), NULL_COMMAND_SERVICE, {
+            spawnArgs,
+            logger,
+            configuration: workspace.provider,
+            workspaceScanner: {
+                exists: () => Promise.resolve(false),
+                findFile: (folder: string, _globs: readonly string[], token: ICancellationToken) => {
+                    searches.push({ folder, token });
+                    return folder === "/new" ? Promise.resolve("main.tf") : new Promise(() => undefined);
+                },
+            },
+        });
+        host.registerExtension({ ...makeReg("ext.tf", "/t.js"), activationEvents: ["workspaceContains:**/*.tf"] });
+        const oldPass = host.activateByWorkspaceContains();
+        await waitUntil(() => searches.length === 1);
+
+        workspace.switchTo("/new");
+        const next = armNextChild();
+        await host.restartForWorkspaceChange();
+        await oldPass;
+
+        expect(searches.map((search) => search.folder)).toEqual(["/old", "/new"]);
+        expect(searches[0]?.token.isCancellationRequested).toBe(true);
+        expect(activated(next, "ext.tf")).toBe(true);
+        expect(logger.warn).not.toHaveBeenCalled();
         host.dispose();
     });
 });

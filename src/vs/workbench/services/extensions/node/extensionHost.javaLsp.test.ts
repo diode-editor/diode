@@ -9,6 +9,7 @@ import {
     JAVA_ACTIVATION_EVENT,
     JAVA_ID,
     JAVA_LANGUAGE_SERVICE,
+    JDK_MISSING,
 } from "../../../../../TestUtils/javaFixture.ts";
 import { MARKETPLACE_OFFLINE } from "../../../../../TestUtils/marketplaceEnv.ts";
 import { Uri } from "../../../../base/common/uri.ts";
@@ -23,7 +24,7 @@ import type { WireMarker } from "../../../api/common/wireTypes.ts";
 // would mask the real cause with "Cannot read properties of undefined".
 let installed: IInstalledJava | undefined;
 
-describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — stock redhat.java (jdt.ls, end to end)", () => {
+describe.skipIf(MARKETPLACE_OFFLINE || JDK_MISSING)("ExtensionHost — stock redhat.java (jdt.ls, end to end)", () => {
     beforeAll(async () => {
         installed = await installJava();
         expect(installed.registration.id).toBe(JAVA_ID);

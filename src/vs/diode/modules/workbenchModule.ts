@@ -289,6 +289,10 @@ import {
     TerminalEditorServiceDIToken,
 } from "../../workbench/contrib/terminal/browser/terminalEditorService.ts";
 import {
+    TerminalKeyRouting,
+    TerminalKeyRoutingDIToken,
+} from "../../workbench/contrib/terminal/browser/terminalKeyRouting.ts";
+import {
     TerminalFocusFallbackDIToken,
     TerminalPanelComponent,
     TerminalPanelComponentDIToken,
@@ -500,6 +504,7 @@ export const workbenchModule: ContainerModule = (container) => {
     container.bind(EditorStatusContributionDIToken, EditorStatusContribution);
     container.bind(TerminalEnvStatusContributionDIToken, TerminalEnvStatusContribution);
     container.bind(TerminalEnvContextKeysContributionDIToken, TerminalEnvContextKeysContribution);
+    container.bind(TerminalKeyRoutingDIToken, TerminalKeyRouting);
     container.bind(StatusBarComponentDIToken, StatusBarComponent);
     container.bind(WorkbenchContributionsDIToken, () => WORKBENCH_CONTRIBUTIONS);
     container.bind(WorkbenchContributionsRegistryDIToken, WorkbenchContributionsRegistry);

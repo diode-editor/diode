@@ -10,6 +10,11 @@ import { CommandRegistryDIToken } from "../../../../platform/commands/common/com
 import type { ContextMenuService } from "../../../../platform/contextview/browser/contextMenuService.ts";
 import { ContextMenuServiceDIToken } from "../../../../platform/contextview/browser/contextMenuService.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
+import type { KeybindingRegistry } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
+import {
+    KeybindingRegistryDIToken,
+    parseKeybinding,
+} from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import type { IStateService } from "../../../../platform/state/common/iStateService.ts";
 import { StateServiceDIToken } from "../../../../platform/state/common/iStateService.ts";
 import {
@@ -51,10 +56,42 @@ const SCM_WELCOME: readonly IViewWelcomeBlock[] = [
     { kind: "button", label: "Open Folder", command: "workbench.action.files.openFolder" },
 ];
 
+/**
+ * `group` is the display group: an untracked file is in "worktree", under its header.
+ * `ancestors` are the group and folder row ids above the row, outermost first.
+ */
 type ScmRowMeta =
-    | { readonly kind: "file"; readonly parts: IScmFileRowParts; readonly change: IScmChange; readonly label: string }
-    | { readonly kind: "folder"; readonly group: ScmGroupId; readonly changes: readonly IScmChange[] }
-    | { readonly kind: "group"; readonly group: ScmGroupId; readonly changes: readonly IScmChange[] };
+    | {
+          readonly kind: "file";
+          readonly parts: IScmFileRowParts;
+          readonly change: IScmChange;
+          readonly label: string;
+          readonly group: ScmGroupId;
+          readonly ancestors: readonly string[];
+      }
+    | {
+          readonly kind: "folder";
+          readonly group: ScmGroupId;
+          readonly changes: readonly IScmChange[];
+          readonly ancestors: readonly string[];
+      }
+    | {
+          readonly kind: "group";
+          readonly group: ScmGroupId;
+          readonly changes: readonly IScmChange[];
+          readonly ancestors: readonly string[];
+      };
+
+/**
+ * A file row's identity across rebuilds. Not the row id: names that sanitize alike ("a b", "a.b",
+ * Cyrillic) get position-based suffixes, which shift when a sibling leaves the group.
+ */
+function fileKey(change: IScmChange): string {
+    return `${change.group} ${change.uri.toString()}`;
+}
+
+/** Private: the target of the Space binding, not in the palette (there is no such command upstream). */
+export const SCM_TOGGLE_STAGE_COMMAND = "diode.scm.toggleStage";
 
 /** The e2e selector `#id` matches only `[A-Za-z0-9_-]`; a suffix separates collisions ("a.b" ↔ "a-b"). */
 function sanitizeIdSegment(value: string): string {
@@ -69,6 +106,7 @@ export class ChangesComponent extends Component {
         StateServiceDIToken,
         ViewsServiceDIToken,
         ScmInputComponentDIToken,
+        KeybindingRegistryDIToken,
         ProductIconServiceDIToken,
     ] as const;
 
@@ -81,6 +119,9 @@ export class ChangesComponent extends Component {
 
     private viewMode: ScmViewMode;
     private rowMeta = new Map<string, ScmRowMeta>();
+    /** Rows whose stage/unstage is still running: rapid Space presses skip them when moving on. */
+    private readonly toggling = new Set<string>();
+    private toggleQueue: Promise<void> = Promise.resolve();
     // The cascade resolves gitDecoration.* names, so no restyle is needed on theme change.
     private rowStyles: IScmRowStyles = {
         statusColors: Object.fromEntries(GIT_STATUS_COLOR_IDS.map((id) => [id, id])),
@@ -93,6 +134,7 @@ export class ChangesComponent extends Component {
         private readonly stateService: IStateService,
         viewsService: ViewsService,
         scmInput: ScmInputComponent,
+        keybindings: KeybindingRegistry,
         icons: IProductIconService = NERD_FONT_ICONS,
     ) {
         super();
@@ -161,6 +203,17 @@ export class ChangesComponent extends Component {
             this.showContextMenu(meta, screenX, screenY);
         };
 
+        // Deviation from VS Code (`list.toggleExpand` opens the file): Space on a file toggles stage,
+        // as in lazygit; on groups and folders it still collapses.
+        this.register(this.commands.register(SCM_TOGGLE_STAGE_COMMAND, () => this.toggleStageAtCursor()));
+        this.register(
+            keybindings.register(
+                parseKeybinding("space"),
+                SCM_TOGGLE_STAGE_COMMAND,
+                `focusedView == '${SCM_CHANGES_VIEW_ID}' && listFocus`,
+            ),
+        );
+
         this.register(
             this.changesService.onDidChangeChanges(() => {
                 this.rebuild();
@@ -189,6 +242,46 @@ export class ChangesComponent extends Component {
             if (meta?.kind === "file") changes.push(meta.change);
         }
         return changes;
+    }
+
+    /**
+     * Space: the file under the cursor is staged (Changes, Merge Changes) or unstaged (Staged Changes),
+     * with the whole selection if the cursor is in it; the cursor row's group picks the direction and
+     * filters the selection. The cursor moves on at once to the next file of that group (the previous
+     * one at the end), and the refresh keeps it there by id.
+     */
+    public toggleStageAtCursor(): Promise<void> | undefined {
+        const cursor = this.list.getCursorElement();
+        if (cursor === null) return undefined;
+        const cursorId = listRowId(cursor);
+        const meta = this.rowMeta.get(cursorId);
+        // Stryker disable next-line ConditionalExpression: every list row has its meta, rebuild() registers both together
+        if (meta === undefined) return undefined;
+        if (meta.kind !== "file") {
+            this.list.toggleCollapsed(cursorId);
+            return undefined;
+        }
+
+        const selected = this.list.getSelectedElements().map(listRowId);
+        const chosen = selected.includes(cursorId) ? selected : [cursorId];
+        const targets = this.fileRows(meta.group).filter(([id]) => chosen.includes(id));
+        const keys = targets.map(([, change]) => fileKey(change));
+        const uris = targets.map(([, change]) => change.uri.toString());
+
+        const next = this.nextFileRow(meta.group, keys);
+        if (next !== null) this.list.setCursorTo(next);
+
+        for (const key of keys) this.toggling.add(key);
+        const done = (): void => {
+            for (const key of keys) this.toggling.delete(key);
+        };
+        const command = meta.group === "index" ? "git.unstage" : "git.stage";
+        // One after another: `git.stage` is disabled while a git operation runs (`gitMutating`),
+        // so a press made before the previous one finished would be dropped.
+        this.toggleQueue = this.toggleQueue
+            .then(() => Promise.resolve(this.commands.execute(command, uris)))
+            .then(done, done);
+        return this.toggleQueue;
     }
 
     public getViewMode(): ScmViewMode {
@@ -226,6 +319,8 @@ export class ChangesComponent extends Component {
      */
     private rebuild(): void {
         const cursorId = this.list.getCursorElement()?.id;
+        const cursorMeta = [...this.rowMeta].find(([id]) => id === cursorId)?.[1];
+        const cursorIndex = this.visibleRowIds().findIndex((id) => id === cursorId);
         const collapsedGroups = SCM_GROUP_IDS.filter((id) => this.list.isCollapsed(`scmGroup-${id}`));
         this.list.clear();
         this.rowMeta.clear();
@@ -235,14 +330,16 @@ export class ChangesComponent extends Component {
             this.list.appendRow(buildGroupRow(groupRowId, group.label, group.changes.length), {
                 label: group.label,
             });
-            this.rowMeta.set(groupRowId, { kind: "group", group: group.id, changes: group.changes });
+            // Stryker disable next-line StringLiteral,ArrayDeclaration: kind is only compared with "file" and "folder"; a group has no ancestors, and an unknown ancestor id is never collapsed
+            this.rowMeta.set(groupRowId, { kind: "group", group: group.id, changes: group.changes, ancestors: [] });
 
             if (this.viewMode === "flat") {
                 for (const change of sortChangesFlat(group.changes)) {
-                    this.appendFileRow(change, displayPath(change), groupRowId);
+                    this.appendFileRow(change, displayPath(change), [groupRowId], group.id);
                 }
             } else {
-                const emit = (nodes: readonly ScmTreeNode[], parentId: string): void => {
+                const emit = (nodes: readonly ScmTreeNode[], ancestors: readonly string[]): void => {
+                    const parentId = ancestors[ancestors.length - 1];
                     for (const node of nodes) {
                         if (node.kind === "folder") {
                             const id = this.uniqueRowId(`scmDir-${group.id}-${sanitizeIdSegment(node.path)}`);
@@ -251,20 +348,33 @@ export class ChangesComponent extends Component {
                                 kind: "folder",
                                 group: group.id,
                                 changes: ChangesComponent.collectFiles(node.children),
+                                ancestors,
                             });
-                            emit(node.children, id);
+                            emit(node.children, [...ancestors, id]);
                         } else {
-                            this.appendFileRow(node.change, node.name, parentId);
+                            this.appendFileRow(node.change, node.name, ancestors, group.id);
                         }
                     }
                 };
-                emit(buildScmTree(group.changes), groupRowId);
+                emit(buildScmTree(group.changes), [groupRowId]);
             }
         }
 
         for (const id of collapsedGroups) this.list.setCollapsed(`scmGroup-${id}`, true);
-        if (cursorId !== undefined && this.rowMeta.has(cursorId)) {
-            this.list.setCursorTo(cursorId);
+        const sameRow =
+            cursorMeta?.kind === "file"
+                ? this.fileRows(cursorMeta.group).find(
+                      ([, change]) => fileKey(change) === fileKey(cursorMeta.change),
+                  )?.[0]
+                : cursorId;
+        if (sameRow !== undefined && this.rowMeta.has(sameRow)) {
+            this.list.setCursorTo(sameRow);
+        } else {
+            // The row is gone (its group emptied): the nearest remaining row, not the top of the list.
+            // No cursor before (-1) or no rows now: nothing to restore.
+            const visible = this.visibleRowIds();
+            const nearest = visible.slice(0, cursorIndex + 1).at(-1);
+            if (nearest !== undefined) this.list.setCursorTo(nearest);
         }
     }
 
@@ -272,13 +382,39 @@ export class ChangesComponent extends Component {
      * The id carries the entry's real group, not its header: untracked shows under "Changes"
      * but stays `scmRow-untracked-…`, so the selector tells the truth about the file.
      */
-    private appendFileRow(change: IScmChange, label: string, parentId: string): void {
+    private appendFileRow(change: IScmChange, label: string, ancestors: readonly string[], group: ScmGroupId): void {
         const rowId = this.uniqueRowId(`scmRow-${change.group}-${sanitizeIdSegment(displayPath(change))}`);
         const parts = buildFileRow(rowId, change, label, this.rowStyles, () => {
             this.commands.execute("scm.action.openFile", change.uri.toString());
         });
-        this.list.appendRow(parts.root, { parentId, label });
-        this.rowMeta.set(rowId, { kind: "file", parts, change, label });
+        this.list.appendRow(parts.root, { parentId: ancestors[ancestors.length - 1], label });
+        this.rowMeta.set(rowId, { kind: "file", parts, change, label, group, ancestors });
+    }
+
+    /** File rows of a display group, in display order. */
+    private fileRows(group: ScmGroupId): [string, IScmChange][] {
+        const rows: [string, IScmChange][] = [];
+        for (const [id, meta] of this.rowMeta)
+            if (meta.kind === "file" && meta.group === group) rows.push([id, meta.change]);
+        return rows;
+    }
+
+    /** A visible file of `group` after the last target, else before it; targets and files in flight are skipped. */
+    private nextFileRow(group: ScmGroupId, targets: readonly string[]): string | null {
+        const visible = new Set(this.visibleRowIds());
+        const files = this.fileRows(group).filter(([id]) => visible.has(id));
+        const last = Math.max(...files.flatMap(([, change], i) => (targets.includes(fileKey(change)) ? [i] : [])));
+        const free = ([, change]: [string, IScmChange]): boolean =>
+            !targets.includes(fileKey(change)) && !this.toggling.has(fileKey(change));
+        // Nothing free after the last target means the last free one overall is before it.
+        return (files.slice(last + 1).find(free) ?? files.findLast(free))?.[0] ?? null;
+    }
+
+    /** Display order, without rows under a collapsed group or folder. */
+    private visibleRowIds(): string[] {
+        return [...this.rowMeta]
+            .filter(([, meta]) => !meta.ancestors.some((id) => this.list.isCollapsed(id)))
+            .map(([id]) => id);
     }
 
     private uniqueRowId(base: string): string {

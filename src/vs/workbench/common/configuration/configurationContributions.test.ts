@@ -90,6 +90,10 @@ const EXPECTED_SCOPES: Readonly<Record<string, ConfigurationScope>> = {
     "terminal.integrated.tabs.focusMode": "window",
     "terminal.integrated.hideOnLastClosed": "window",
     "terminal.integrated.defaultLocation": "window",
+    "terminal.integrated.sendKeybindingsToShell": "window",
+    "terminal.integrated.commandsToSkipShell": "window",
+    "terminal.integrated.allowChords": "window",
+    "terminal.integrated.allowMnemonics": "window",
     // There is one host terminal per process, not per window or folder.
     "terminal.integrated.colorSource": "application",
 

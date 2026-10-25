@@ -19,6 +19,7 @@ import {
     JAVA_ACTIVATION_EVENT,
     JAVA_ID,
     JAVA_LANGUAGE_SERVICE,
+    JDK_MISSING,
 } from "../../../../../TestUtils/javaFixture.ts";
 import { MARKETPLACE_OFFLINE } from "../../../../../TestUtils/marketplaceEnv.ts";
 import { resolveScopesStyle } from "../../../../../TestUtils/textMateThemeProbe.ts";
@@ -48,7 +49,7 @@ let appUri: string;
 const outputLines: { level: string; value: string }[] = [];
 const statusBarItems: IWireStatusBarItem[] = [];
 
-describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — stock redhat.java: language features", () => {
+describe.skipIf(MARKETPLACE_OFFLINE || JDK_MISSING)("ExtensionHost — stock redhat.java: language features", () => {
     beforeAll(async () => {
         installed = await installJava();
         project = createMavenProject();

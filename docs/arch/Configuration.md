@@ -195,10 +195,11 @@ gitignore. Действуют на оба поиска: индекс Quick Open 
 Поиск по содержимому и `findFiles` отдельного сигнала не требуют: они собирают
 набор на каждый запрос.
 
-Четвёртый набор, `DEFAULT_WORKSPACE_CONTAINS_EXCLUDES`
-(`workspaceContainsActivation.ts`), пользовательской настройке НЕ подчиняется:
-`workspaceContains:`-паттерн подразумевает сам проект, а не его зависимости, и
-семантика взята у эталона.
+Поиск по глобам `workspaceContains:` (`workspaceContainsActivation.ts`) своего
+набора не держит: это тот же `rg --files`, что у индекса Quick Open, с тем же
+`searchExcludeGlobs` и ignore-файлами, как `checkGlobFileExists` эталона.
+Зависимости (`node_modules`) расширение не поднимают через `search.exclude`, `.git` —
+через `files.exclude`; настройки читаются на каждый поиск.
 
 
 ## StateService — машинное состояние (отдельно от настроек)

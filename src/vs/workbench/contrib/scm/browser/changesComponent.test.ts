@@ -115,6 +115,7 @@ function make(
         state,
         viewsService,
         scmInput,
+        new KeybindingRegistry(),
         opts.icons,
     );
 

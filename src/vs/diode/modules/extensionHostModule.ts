@@ -90,6 +90,7 @@ import {
     type IExtensionStorageHomes,
 } from "../../workbench/services/extensions/node/extensionStoragePaths.ts";
 import { resolveMachineId } from "../../workbench/services/extensions/node/machineIdState.ts";
+import { createRipgrepWorkspaceScanner } from "../../workbench/services/extensions/node/workspaceContainsActivation.ts";
 import { ExternalOpenerDIToken } from "../../workbench/services/externalOpener/common/iExternalOpener.ts";
 import { LifecycleServiceDIToken } from "../../workbench/services/lifecycle/browser/lifecycleService.ts";
 import { NotificationServiceDIToken } from "../../workbench/services/notification/browser/notificationService.ts";
@@ -286,6 +287,8 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
             storageHomes,
             secrets,
             extensionState,
+            // The same `files.exclude`/`search.exclude`/ignore files as Quick Open.
+            workspaceScanner: createRipgrepWorkspaceScanner(configService),
             diagnosticsSink,
             markers: markerService,
             languageConfigurations: container.get(LanguageConfigurationServiceDIToken),
