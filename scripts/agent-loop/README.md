@@ -33,12 +33,12 @@ bash scripts/agent-loop/dispatch.sh    # Enter — тик сейчас, q — в
 
 ## Роли
 
-| Роль | Где | Скилл | Делает |
-| --- | --- | --- | --- |
-| Диспатчер | окно 1 сессии `loop`, одноразовая `claude -p` на тик | [`dispatch`](../../.claude/skills/dispatch/SKILL.md) | сворачивает потерянные/просроченные задачи, чистит worktree, берёт одну issue |
-| Менеджер | `task-<N>:manager` | [`task-manager`](../../.claude/skills/task-manager/SKILL.md) | запускает роли, ждёт статусов, при аварии сворачивает задачу |
-| Реализатор | `task-<N>:implementer` | [`implementer`](../../.claude/skills/implementer/SKILL.md) | делает задачу в `issue/<N>`, PR, CI, чинит баги, вливает |
-| Тестировщик | `task-<N>:tester` | [`tester`](../../.claude/skills/tester/SKILL.md) | use cases по спеке, проверка, баги падающими тестами в `issue/<N>/tests` |
+| Роль        | Где                                                  | Скилл                                                        | Делает                                                                        |
+| ----------- | ---------------------------------------------------- | ------------------------------------------------------------ | ----------------------------------------------------------------------------- |
+| Диспатчер   | окно 1 сессии `loop`, одноразовая `claude -p` на тик | [`dispatch`](../../.claude/skills/dispatch/SKILL.md)         | сворачивает потерянные/просроченные задачи, чистит worktree, берёт одну issue |
+| Менеджер    | `task-<N>:manager`                                   | [`task-manager`](../../.claude/skills/task-manager/SKILL.md) | запускает роли, ждёт статусов, при аварии сворачивает задачу                  |
+| Реализатор  | `task-<N>:implementer`                               | [`implementer`](../../.claude/skills/implementer/SKILL.md)   | делает задачу в `issue/<N>`, PR, CI, чинит баги, вливает                      |
+| Тестировщик | `task-<N>:tester`                                    | [`tester`](../../.claude/skills/tester/SKILL.md)             | use cases по спеке, проверка, баги падающими тестами в `issue/<N>/tests`      |
 
 Запуск детей — скилл [`loop-spawn`](../../.claude/skills/loop-spawn/SKILL.md) и `spawn.mjs`
 (аналог `tmux-continue`: окно в сессии задачи, модель и `bypassPermissions` форсированы).
@@ -65,9 +65,10 @@ ready to implement ──start-task──▶ in progress ──PR влит (Clos
   закрылся — попадает в очередь сама. Так ставится цепочка из 3–5 последовательных задач.
   Спеку и цепочку готовит человек со скиллом [`spec`](../../.claude/skills/spec/SKILL.md).
 - Захват: комментарий `claim: <host> <ISO>` + `session: task-<N>`; перечитать — чужой более
-  ранний claim выигрывает (два пода). Время claim'а — начало отсчёта таймаута задачи. Хост из
-  claim — хозяин задачи: только он сворачивает её по пропавшей сессии (`mine` в `facts.mjs`),
-  чужую сворачивает кто угодно, но лишь просроченную.
+  ранний claim выигрывает (два пода). Считается только claim после последней передачи
+  (`returned:`/`requeued:`): его время — начало отсчёта таймаута задачи, его хост — хозяин
+  задачи. Только хозяин сворачивает задачу по пропавшей сессии (`mine` в `facts.mjs`), чужую
+  сворачивает кто угодно, но лишь просроченную. Claim'ы прошлых заходов к текущему не относятся.
 - Ветка `issue/<N>` с открытым PR уже на origin — задача **возобновляется** (ниже). Ветка без
   PR — `returned` с объяснением: продолжать нечего, человек прибирает ветку.
 - `returned`: комментарий с причиной, id сессий и хвостами всех панелей (`<details>` по окнам),
@@ -102,15 +103,15 @@ ready to implement ──start-task──▶ in progress ──PR влит (Clos
 
 `~/.claude/agent-loop/tasks/<N>/`, запись атомарная (`status.mjs`), чтение — `wait.mjs`:
 
-| Файл | Кто пишет | `status` | Поля |
-| --- | --- | --- | --- |
-| `implementer.json` | реализатор | `ready-for-test` → `done` / `returned` | `pr`, `branch`, `note` (решения по спеке), `question` |
-| `tester.json` | тестировщик | `approve` / `bugs` / `returned` | `branch`, `bugs: [{title, test, note}]`, `question` |
-| `mutation-budget.json` | `mutation-budget.mjs` | — | `usedSeconds`, `runs` |
-| `test-plan.md` | тестировщик | — | use cases до проверки |
-| `<роль>-prompt.md` | `spawn.mjs` | — | промпт окна |
-| `sessions.json` | `start-task.mjs`, `spawn.mjs` | — | id сессий claude по ролям |
-| `resume.json` | `start-task.mjs` | — | что уже есть у возобновлённой задачи: `pr`, `handoff`, `testerVerdict`, `sessions` |
+| Файл                   | Кто пишет                     | `status`                               | Поля                                                                               |
+| ---------------------- | ----------------------------- | -------------------------------------- | ---------------------------------------------------------------------------------- |
+| `implementer.json`     | реализатор                    | `ready-for-test` → `done` / `returned` | `pr`, `branch`, `note` (решения по спеке), `question`                              |
+| `tester.json`          | тестировщик                   | `approve` / `bugs` / `returned`        | `branch`, `bugs: [{title, test, note}]`, `question`                                |
+| `mutation-budget.json` | `mutation-budget.mjs`         | —                                      | `usedSeconds`, `runs`                                                              |
+| `test-plan.md`         | тестировщик                   | —                                      | use cases до проверки                                                              |
+| `<роль>-prompt.md`     | `spawn.mjs`                   | —                                      | промпт окна                                                                        |
+| `sessions.json`        | `start-task.mjs`, `spawn.mjs` | —                                      | id сессий claude по ролям                                                          |
+| `resume.json`          | `start-task.mjs`              | —                                      | что уже есть у возобновлённой задачи: `pr`, `handoff`, `testerVerdict`, `sessions` |
 
 Ход: реализатор пишет `ready-for-test` **сразу после создания PR** (CI ещё бежит) → менеджер
 запускает тестировщика (с `note` реализатора) → тестировщик пишет `approve`/`bugs` → реализатор
@@ -166,18 +167,18 @@ tuidom (тег `vX.Y.Z` на влитом `release: X.Y.Z`, затем ждёт 
 
 ## Скрипты
 
-| Скрипт | Зачем |
-| --- | --- |
-| `dispatch.sh` | внешний цикл: pull → `/dispatch` → пауза; Enter/q |
-| `facts.mjs` | JSON фактов для тика: машина, лимиты, вердикт, сессии, in progress, очередь, worktree |
-| `start-task.mjs --issue N` | claim, метки, каталог задачи, `tmux new-session task-N` с менеджером; ветка с PR — `resume.json` |
-| `return-task.mjs --task N --reason … [--requeue]` | комментарий с id сессий и хвостами панелей; `returned` + PR → draft, либо обратно в `ready to implement` |
-| `spawn.mjs --task N --role R [--note f]` | окно роли в сессии задачи, фиксированный `--session-id` или `--resume` |
-| `wait.mjs --task N --role R [--expect S] [--timeout] [--idle]` | ждать статус/аварию роли |
-| `status.mjs write\|read --task N --role R …` | статус-файлы |
-| `mutation-budget.mjs -- <cmd>` | бюджет мутационных прогонов |
-| `cleanup-worktrees.mjs [--dry-run]` | уборка влитого |
-| `lib.mjs` | общее: пути, tmux, процессы, worktree |
+| Скрипт                                                         | Зачем                                                                                                    |
+| -------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `dispatch.sh`                                                  | внешний цикл: pull → `/dispatch` → пауза; Enter/q                                                        |
+| `facts.mjs`                                                    | JSON фактов для тика: машина, лимиты, вердикт, сессии, in progress, очередь, worktree                    |
+| `start-task.mjs --issue N`                                     | claim, метки, каталог задачи, `tmux new-session task-N` с менеджером; ветка с PR — `resume.json`         |
+| `return-task.mjs --task N --reason … [--requeue]`              | комментарий с id сессий и хвостами панелей; `returned` + PR → draft, либо обратно в `ready to implement` |
+| `spawn.mjs --task N --role R [--note f]`                       | окно роли в сессии задачи, фиксированный `--session-id` или `--resume`                                   |
+| `wait.mjs --task N --role R [--expect S] [--timeout] [--idle]` | ждать статус/аварию роли                                                                                 |
+| `status.mjs write\|read --task N --role R …`                   | статус-файлы                                                                                             |
+| `mutation-budget.mjs -- <cmd>`                                 | бюджет мутационных прогонов                                                                              |
+| `cleanup-worktrees.mjs [--dry-run]`                            | уборка влитого                                                                                           |
+| `lib.mjs`                                                      | общее: пути, tmux, процессы, worktree                                                                    |
 
 Скрипты — по-английски (храповик `cyrillic-check`), тексты в issues — по-русски (их пишут
 LLM-роли и передают скриптам как есть), PR и код — по-английски.

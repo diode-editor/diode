@@ -20,6 +20,7 @@ import {
     gh,
     ghJson,
     git,
+    latestHandoff,
     loopHome,
     nowIso,
     parseFlags,
@@ -85,8 +86,15 @@ function sessions() {
         .map((s) => ({ ...s, task: Number(s.name.slice(5)), windows: tmuxWindows(s.name).map((w) => w.name) }));
 }
 
+/**
+ * The claim that owns the task now: the first one after the last hand-off (`returned:` /
+ * `requeued:`). Claims of earlier runs belong to those runs — counting the age from the very
+ * first claim made a resumed task look expired minutes after it was resumed.
+ */
 function claimOf(comments) {
+    const handoff = latestHandoff(comments);
     const claims = comments
+        .slice(handoff === undefined ? 0 : handoff.index + 1)
         .map((c) => ({ m: /^claim:\s*(\S+)\s+(\S+)/m.exec(c.body ?? ""), createdAt: c.createdAt }))
         .filter((c) => c.m !== null)
         .map((c) => ({ host: c.m[1], at: c.m[2], commentedAt: c.createdAt }));
