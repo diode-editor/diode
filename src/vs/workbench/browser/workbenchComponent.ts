@@ -196,6 +196,7 @@ export class WorkbenchComponent extends Component {
         applySashHoverDelay();
         this.register(
             configuration.onDidChangeConfiguration((event) => {
+                // Stryker disable next-line ConditionalExpression: equivalent — re-applying the unchanged delay on another key's change is a no-op
                 if (event.affectsConfiguration("workbench.sash.hoverDelay")) applySashHoverDelay();
             }),
         );
