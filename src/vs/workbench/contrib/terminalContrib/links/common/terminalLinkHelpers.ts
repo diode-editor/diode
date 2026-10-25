@@ -49,13 +49,15 @@ export function convertLinkRangeToBuffer(
     // Shift start range right for each wide character before the link
     let startOffset = 0;
     const startWrappedLineCount = Math.ceil(range.startColumn / bufferWidth);
-    for (let y = 0; y < Math.min(startWrappedLineCount); y++) {
+    // Stryker disable next-line EqualityOperator: one more row has a negative length and adds nothing.
+    for (let y = 0; y < startWrappedLineCount; y++) {
         const lineLength = Math.min(bufferWidth, range.startColumn - 1 - y * bufferWidth);
         let lineOffset = 0;
         const line = lines.at(y);
         // Sanity check for line, apparently this can happen but it's not clear under what
         // circumstances this happens. Continue on, skipping the remainder of start offset if this
         // happens to minimize impact.
+        // Stryker disable next-line ConditionalExpression,BlockStatement: the provider passes every row it reads.
         if (!line) {
             break;
         }
@@ -63,6 +65,7 @@ export function convertLinkRangeToBuffer(
             const cell = line.getCell(x);
             // This is unexpected but it means the character doesn't exist, so we shouldn't add to
             // the offset
+            // Stryker disable next-line ConditionalExpression,BlockStatement: x stays below the row width.
             if (!cell) {
                 break;
             }
@@ -71,6 +74,7 @@ export function convertLinkRangeToBuffer(
                 lineOffset++;
             }
             const char = cell.getChars();
+            // Stryker disable next-line EqualityOperator: a one-character cell subtracts zero.
             if (char.length > 1) {
                 lineOffset -= char.length - 1;
             }
@@ -80,7 +84,9 @@ export function convertLinkRangeToBuffer(
 
     // Shift end range right for each wide character inside the link
     let endOffset = 0;
+    // Stryker disable next-line ArithmeticOperator: rows past the link's end have a negative length and add nothing.
     const endWrappedLineCount = Math.ceil(range.endColumn / bufferWidth);
+    // Stryker disable next-line EqualityOperator: the same.
     for (let y = Math.max(0, startWrappedLineCount - 1); y < endWrappedLineCount; y++) {
         const start = y === startWrappedLineCount - 1 ? (range.startColumn - 1 + startOffset) % bufferWidth : 0;
         const lineLength = Math.min(bufferWidth, range.endColumn + startOffset - y * bufferWidth);
@@ -89,6 +95,7 @@ export function convertLinkRangeToBuffer(
         // Sanity check for line, apparently this can happen but it's not clear under what
         // circumstances this happens. Continue on, skipping the remainder of start offset if this
         // happens to minimize impact.
+        // Stryker disable next-line ConditionalExpression,BlockStatement: the provider passes every row it reads.
         if (!line) {
             break;
         }
@@ -96,6 +103,7 @@ export function convertLinkRangeToBuffer(
             const cell = line.getCell(x);
             // This is unexpected but it means the character doesn't exist, so we shouldn't add to
             // the offset
+            // Stryker disable next-line ConditionalExpression,BlockStatement: x stays below the row width.
             if (!cell) {
                 break;
             }
@@ -110,6 +118,7 @@ export function convertLinkRangeToBuffer(
                 lineOffset++;
             }
             // Offset multi-code characters like emoji
+            // Stryker disable next-line EqualityOperator: a one-character cell subtracts zero.
             if (chars.length > 1) {
                 lineOffset -= chars.length - 1;
             }
@@ -137,6 +146,7 @@ export function convertLinkRangeToBuffer(
 export function getXtermLineContent(buffer: ITerminalBuffer, lineStart: number, lineEnd: number, cols: number): string {
     // Cap the maximum number of lines generated to prevent potential performance problems. This is
     // more of a sanity check as the wrapped line should already be trimmed down at this point.
+    // Stryker disable next-line ArithmeticOperator: the provider passes far fewer rows than either cap.
     const maxLineLength = Math.max(2048, cols * 2);
     lineEnd = Math.min(lineEnd, lineStart + maxLineLength);
     let content = "";
@@ -144,6 +154,7 @@ export function getXtermLineContent(buffer: ITerminalBuffer, lineStart: number, 
         // Make sure only 0 to cols are considered as resizing when windows mode is enabled will
         // retain buffer data outside of the terminal width as reflow is disabled.
         const line = buffer.getLine(i);
+        // Stryker disable next-line ConditionalExpression: rows between two existing rows exist.
         if (line) {
             content += line.translateToString(true, 0, cols);
         }

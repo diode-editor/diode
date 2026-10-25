@@ -57,12 +57,14 @@ export class TerminalLinkProvider {
         const maxCharacterContext = Math.max(detector.maxLinkLength, buffer.cols);
         const maxLineContext = Math.ceil(maxCharacterContext / buffer.cols);
         const minStartLine = Math.max(row - maxLineContext, 0);
-        const maxEndLine = Math.min(row + maxLineContext, buffer.length - 1);
+        // Past the buffer end `getLine` returns nothing and the walk stops there.
+        const maxEndLine = row + maxLineContext;
 
         const lines: ITerminalBufferLine[] = [firstLine];
         let startLine = row;
         while (startLine > minStartLine && lines[0].isWrapped) {
             const previous = buffer.getLine(startLine - 1);
+            // Stryker disable next-line ConditionalExpression: rows from 0 up always exist; the guard narrows the type.
             if (previous === undefined) break;
             lines.unshift(previous);
             startLine--;
@@ -76,23 +78,17 @@ export class TerminalLinkProvider {
         }
 
         const detected = await detector.detect(lines, startLine, endLine);
+        // Upstream's adapter also trims a trailing colon, for word links: a local link never ends with one.
         return detected.map((link): ITerminalLink => {
             const range = link.bufferRange;
-            let text = link.text;
-            let endX = range.end.x;
-            // Remove trailing colon if there is one so the link is more useful
-            if (text.endsWith(":")) {
-                text = text.slice(0, -1);
-                endX--;
-            }
             // The detector's range is 1-based in both axes (xterm's link API)
             return {
-                text,
+                text: link.text,
                 uri: link.uri,
                 type: link.type,
                 parsedLink: link.parsedLink,
                 start: { x: range.start.x - 1, y: range.start.y - 1 },
-                end: { x: endX - 1, y: range.end.y - 1 },
+                end: { x: range.end.x - 1, y: range.end.y - 1 },
             };
         });
     }

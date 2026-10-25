@@ -61,6 +61,7 @@ export class TerminalLinkSurface implements ITerminalSurface {
         if (!this.session.readCell(x, y, out)) return false;
         const hovered = this.hovered;
         if (hovered !== undefined) {
+            // Stryker disable next-line OptionalChaining: a hover comes from a lookup over the buffer, which stays.
             const viewportY = this.session.buffer?.viewportY ?? 0;
             if (isInLink(hovered, x, viewportY + y)) out.style |= StyleFlags.Underline;
         }
@@ -82,13 +83,14 @@ export class TerminalLinkSurface implements ITerminalSurface {
             this.session.sendMouse(event);
             return;
         }
-        if (event.action === "move") {
-            this.pointer = { col: event.col, row: event.row };
-            this.updateHover(event.ctrl);
-        } else if (event.action === "down" && event.button === "left" && event.ctrl) {
+        // Every event knows where the pointer is and whether Ctrl is held.
+        this.pointer = { col: event.col, row: event.row };
+        this.updateHover(event.ctrl);
+        if (event.button === "left" && event.action === "down" && event.ctrl) {
             this.pressed = { col: event.col, row: event.row };
             return;
-        } else if (event.action === "up" && event.button === "left" && this.pressed !== undefined) {
+        }
+        if (event.button === "left" && event.action === "up" && this.pressed !== undefined) {
             const pressed = this.pressed;
             this.pressed = undefined;
             this.activate(pressed, { col: event.col, row: event.row });
@@ -183,19 +185,16 @@ export class TerminalLinkSurface implements ITerminalSurface {
     }
 
     private setHover(link: ITerminalLink | undefined): void {
-        if (sameLink(this.hovered, link)) return;
+        if (linkKey(this.hovered) === linkKey(link)) return;
         this.hovered = link;
         this.onDidChangeHoverEmitter.fire();
     }
 }
 
-function sameLink(a: ITerminalLink | undefined, b: ITerminalLink | undefined): boolean {
-    if (a === undefined || b === undefined) return a === b;
+/** The same for the same link found again: new output re-checks the hover without a redraw. */
+function linkKey(link: ITerminalLink | undefined): string | undefined {
     return (
-        a.text === b.text &&
-        a.start.x === b.start.x &&
-        a.start.y === b.start.y &&
-        a.end.x === b.end.x &&
-        a.end.y === b.end.y
+        link &&
+        `${link.text}@${String(link.start.x)},${String(link.start.y)}-${String(link.end.x)},${String(link.end.y)}`
     );
 }

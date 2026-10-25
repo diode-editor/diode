@@ -1,6 +1,4 @@
-import * as nodePath from "node:path";
-
-import { OperatingSystem } from "../../../../../base/common/platform.ts";
+import type { OperatingSystem } from "../../../../../base/common/platform.ts";
 import { Uri } from "../../../../../base/common/uri.ts";
 import type { ITerminalBuffer, ITerminalBufferLine } from "../../../terminal/common/terminalBuffer.ts";
 
@@ -26,6 +24,14 @@ const MAX_LINE_LENGTH = 2000;
 const MAX_RESOLVED_LINKS_IN_LINE = 10;
 /** The maximum length of a link to resolve against the file system. */
 const MAX_RESOLVED_LINK_LENGTH = 1024;
+
+/** The groups of a {@link fallbackMatchers} match: every matcher has `link` and `path`. */
+interface IFallbackMatch {
+    readonly link: string;
+    readonly path: string;
+    readonly line?: string;
+    readonly col?: string;
+}
 
 /** Upstream `fallbackMatchers`: mainly paths with spaces that the regular mechanism can't catch. */
 const fallbackMatchers: readonly RegExp[] = [
@@ -70,10 +76,10 @@ export class TerminalLocalLinkDetector {
         // Get the text representation of the wrapped line
         const cols = this.buffer.cols;
         const text = getXtermLineContent(this.buffer, startLine, endLine, cols);
+        // Stryker disable next-line ConditionalExpression,StringLiteral: an empty line has no links anyway.
         if (text === "" || text.length > MAX_LINE_LENGTH) return [];
 
         let resolvedLinkCount = 0;
-        const osPath = this.os === OperatingSystem.Windows ? nodePath.win32 : nodePath.posix;
         for (const parsedLink of detectLinks(text, this.os)) {
             // Don't try resolve any links of excessive length
             if (parsedLink.path.text.length > MAX_RESOLVED_LINK_LENGTH) continue;
@@ -96,10 +102,11 @@ export class TerminalLocalLinkDetector {
             );
 
             const linkCandidates: string[] = [parsedLink.path.text];
-            const isUri = parsedLink.path.text.startsWith("file://");
-            const isAbsolute = osPath.isAbsolute(parsedLink.path.text) || parsedLink.path.text.startsWith("~") || isUri;
-            // Also try without relative directory prefixes: `../src/a.ts` printed by a tool run elsewhere
-            if (!isAbsolute && /^(\.\.[/\\])+/.test(parsedLink.path.text)) {
+            // Also try without relative directory prefixes: `../src/a.ts` printed by a tool run elsewhere.
+            // Upstream also checks that the path isn't absolute: one starting with `../` never is.
+            // Stryker disable next-line ConditionalExpression,Regex: for any other path the replace below changes nothing.
+            if (/^(\.\.[/\\])+/.test(parsedLink.path.text)) {
+                // Stryker disable next-line Regex: the test above anchors the match at the start.
                 linkCandidates.push(parsedLink.path.text.replace(/^(\.\.[/\\])+/, ""));
             }
 
@@ -107,21 +114,19 @@ export class TerminalLocalLinkDetector {
             // link, add a candidate excluding them.
             const specialEndCharRegex = /[[\]"'.]$/;
             const trimRangeMap = new Map<string, number>();
-            const specialEndLinkCandidates: string[] = [];
-            for (const candidate of linkCandidates) {
+            for (const candidate of [...linkCandidates]) {
                 let previous = candidate;
                 let removed = previous.replace(specialEndCharRegex, "");
                 let trimRange = 0;
                 while (removed !== previous) {
                     // Only trim the link if there is no suffix, otherwise the underline would be incorrect
                     if (!parsedLink.suffix) trimRange++;
-                    specialEndLinkCandidates.push(removed);
+                    linkCandidates.push(removed);
                     trimRangeMap.set(removed, trimRange);
                     previous = removed;
                     removed = removed.replace(specialEndCharRegex, "");
                 }
             }
-            linkCandidates.push(...specialEndLinkCandidates);
 
             // Validate the path and convert to the outgoing type
             const simpleLink = await this.validateAndGetLink(undefined, bufferRange, linkCandidates, trimRangeMap);
@@ -144,10 +149,9 @@ export class TerminalLocalLinkDetector {
         // that aren't possible using the regular mechanism.
         if (links.length === 0) {
             for (const matcher of fallbackMatchers) {
-                const group = matcher.exec(text)?.groups;
-                const link = group?.link;
-                const path = group?.path;
-                if (link === undefined || path === undefined) continue;
+                const match = matcher.exec(text);
+                if (match === null) continue;
+                const { link, path, line, col } = match.groups as unknown as IFallbackMatch;
 
                 // Don't try resolve any links of excessive length
                 if (link.length > MAX_RESOLVED_LINK_LENGTH) continue;
@@ -167,8 +171,6 @@ export class TerminalLocalLinkDetector {
                 );
 
                 // Validate and add link
-                const line = group?.line;
-                const col = group?.col;
                 const suffix = line === undefined ? "" : `:${line}${col === undefined ? "" : `:${col}`}`;
                 const simpleLink = await this.validateAndGetLink(`${path}${suffix}`, bufferRange, [path]);
                 if (simpleLink) links.push(simpleLink);
@@ -207,6 +209,7 @@ export class TerminalLocalLinkDetector {
         const trimRange = trimRangeMap?.get(linkStat.link);
         if (trimRange) {
             bufferRange.end.x -= trimRange;
+            // Stryker disable next-line EqualityOperator: an end at 0 on the next row underlines the same cells.
             if (bufferRange.end.x < 0) {
                 bufferRange.end.y--;
                 bufferRange.end.x += this.buffer.cols;

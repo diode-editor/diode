@@ -81,7 +81,8 @@ export class TerminalLinkService {
             getCwds: async () => {
                 const cwd = (await instance.session.getCwd?.()) ?? instance.launch.cwd;
                 const roots = this.workspace.getWorkspace().folders.map((folder) => folder.uri.fsPath);
-                return [...new Set([cwd, ...roots])];
+                // A repeated directory costs nothing: the resolver caches by absolute path.
+                return [cwd, ...roots];
             },
         });
         return new TerminalLinkProvider({

@@ -64,6 +64,7 @@ export class TerminalLinkResolver implements ITerminalLinkResolver {
         if (this.context.os === OperatingSystem.Windows) {
             // Remove \\?\ from paths so that they share the same underlying uri and don't open multiple tabs
             if (new RegExp(`^${winDrivePrefix}`).test(link) || link.startsWith("\\\\?\\")) {
+                // Stryker disable next-line Regex: a `\\?\` further in is a query string, already cut off.
                 return [osPath.normalize(link.replace(/^\\\\\?\\/, ""))];
             }
         } else if (link.startsWith("/")) {

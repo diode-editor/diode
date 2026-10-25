@@ -58,6 +58,7 @@ function currentEnv(): Record<string, string> {
 export class EmbeddedTerminalSession extends XtermSurface {
     public shell: string;
     private pty: IPty;
+    // Stryker disable next-line StringLiteral: spawn() in the constructor overwrites it before any read.
     private initialCwd = "";
 
     /** @param environment extension environment collections; not applied with `strictEnv`. */

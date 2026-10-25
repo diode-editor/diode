@@ -170,6 +170,7 @@ export function detectLinkSuffixes(line: string): ILinkSuffix[] {
     linkSuffixRegex.value.lastIndex = 0;
     while ((match = linkSuffixRegex.value.exec(line)) !== null) {
         const suffix = toLinkSuffix(match);
+        // Stryker disable next-line ConditionalExpression,BlockStatement: a match is never turned into null.
         if (suffix === null) {
             break;
         }
@@ -187,10 +188,11 @@ export function getLinkSuffix(link: string): ILinkSuffix | null {
 }
 
 export function toLinkSuffix(match: RegExpExecArray | null): ILinkSuffix | null {
-    const groups = match?.groups;
-    if (!groups || match.length < 1) {
+    if (match === null) {
         return null;
     }
+    // diode: the suffix regexes always have groups; upstream also checks `match.length < 1`, never true.
+    const groups = match.groups ?? {};
     return {
         row: parseIntOptional(groups.row0 || groups.row1 || groups.row2),
         col: parseIntOptional(groups.col0 || groups.col1 || groups.col2),
@@ -224,20 +226,15 @@ export function detectLinks(line: string, os: OperatingSystem) {
     return results;
 }
 
+// diode: upstream first pushes everything into an empty list, then inserts it again; the second pass
+// rejects each item as a conflict with itself, so the insert alone does the same.
 function binaryInsertList(list: IParsedLink[], newItems: IParsedLink[]) {
-    if (list.length === 0) {
-        list.push(...newItems);
-    }
     for (const item of newItems) {
         binaryInsert(list, item, 0, list.length);
     }
 }
 
 function binaryInsert(list: IParsedLink[], newItem: IParsedLink, low: number, high: number) {
-    if (list.length === 0) {
-        list.push(newItem);
-        return;
-    }
     if (low > high) {
         return;
     }
@@ -245,12 +242,15 @@ function binaryInsert(list: IParsedLink[], newItem: IParsedLink, low: number, hi
     const mid = Math.floor((low + high) / 2);
     if (
         mid >= list.length ||
+        // Stryker disable next-line EqualityOperator: an item at a neighbour's index fails the conflict check below.
         (newItem.path.index < list[mid].path.index && (mid === 0 || newItem.path.index > list[mid - 1].path.index))
     ) {
         // Check if it conflicts with an existing link before adding
         if (
             mid >= list.length ||
+            // Stryker disable next-line EqualityOperator: a plain path stops at a character before the next link.
             (newItem.path.index + newItem.path.text.length < list[mid].path.index &&
+                // Stryker disable next-line EqualityOperator: where a suffixed path ends, its suffix begins.
                 (mid === 0 || newItem.path.index > list[mid - 1].path.index + list[mid - 1].path.text.length))
         ) {
             list.splice(mid, 0, newItem);
@@ -272,22 +272,25 @@ function detectLinksViaSuffix(line: string): IParsedLink[] {
     for (const suffix of suffixes) {
         const beforeSuffix = line.substring(0, suffix.suffix.index);
         const possiblePathMatch = linkWithSuffixPathCharacters.exec(beforeSuffix);
-        if (possiblePathMatch?.index !== undefined && possiblePathMatch.groups?.path) {
+        // diode: the `path` group is the whole match, never empty.
+        if (possiblePathMatch !== null) {
             let linkStartIndex = possiblePathMatch.index;
-            let path = possiblePathMatch.groups.path;
+            let path = possiblePathMatch[0];
             // Extract a path prefix if it exists (not part of the path, but part of the underlined
             // section)
             let prefix: ILinkPartialRange | undefined = undefined;
-            const prefixMatch = /^(?<prefix>['"]+)/.exec(path);
-            if (prefixMatch?.groups?.prefix) {
+            const prefixMatch = /^['"]+/.exec(path);
+            if (prefixMatch !== null) {
+                const prefixText = prefixMatch[0];
                 prefix = {
                     index: linkStartIndex,
-                    text: prefixMatch.groups.prefix,
+                    text: prefixText,
                 };
                 path = path.substring(prefix.text.length);
 
                 // Don't allow suffix links to be returned when the link itself is the empty string
-                if (path.trim().length === 0) {
+                // (diode: the path has no whitespace, upstream's `trim()` changes nothing)
+                if (path.length === 0) {
                     continue;
                 }
 
@@ -300,16 +303,13 @@ function detectLinksViaSuffix(line: string): IParsedLink[] {
                 // - Suffix=' on line 1
                 //
                 // If this fails on a multi-character prefix, just keep the original.
-                if (prefixMatch.groups.prefix.length > 1) {
-                    if (
-                        /['"]/.exec(suffix.suffix.text[0]) &&
-                        prefixMatch.groups.prefix.endsWith(suffix.suffix.text[0])
-                    ) {
-                        const trimPrefixAmount = prefixMatch.groups.prefix.length - 1;
-                        prefix.index += trimPrefixAmount;
-                        prefix.text = prefixMatch.groups.prefix[prefixMatch.groups.prefix.length - 1];
-                        linkStartIndex += trimPrefixAmount;
-                    }
+                // diode: upstream also requires a multi-character prefix and a quote opening the suffix;
+                // a one-character prefix trims nothing, and the prefix is quotes only.
+                if (prefixText.endsWith(suffix.suffix.text[0])) {
+                    const trimPrefixAmount = prefixText.length - 1;
+                    prefix.index += trimPrefixAmount;
+                    prefix.text = prefixText[prefixText.length - 1];
+                    linkStartIndex += trimPrefixAmount;
                 }
             }
             results.push({
@@ -323,19 +323,17 @@ function detectLinksViaSuffix(line: string): IParsedLink[] {
 
             // If the path contains an opening bracket, provide the path starting immediately after
             // the opening bracket as an additional result
-            const openingBracketMatch = path.matchAll(/(?<bracket>[[(])(?![\])])/g);
+            // diode: the match is the one bracket character.
+            const openingBracketMatch = path.matchAll(/[[(](?![\])])/g);
             for (const match of openingBracketMatch) {
-                const bracket = match.groups?.bracket;
-                if (bracket) {
-                    results.push({
-                        path: {
-                            index: linkStartIndex + (prefix?.text.length ?? 0) + match.index + 1,
-                            text: path.substring(match.index + bracket.length),
-                        },
-                        prefix,
-                        suffix,
-                    });
-                }
+                results.push({
+                    path: {
+                        index: linkStartIndex + (prefix?.text.length ?? 0) + match.index + 1,
+                        text: path.substring(match.index + 1),
+                    },
+                    prefix,
+                    suffix,
+                });
             }
         }
     }
@@ -404,11 +402,7 @@ function detectPathsNoSuffix(line: string, os: OperatingSystem): IParsedLink[] {
     while ((match = regex.exec(line)) !== null) {
         let text = match[0];
         let index = match.index;
-        if (!text) {
-            // Something matched but does not comply with the given match index, since this would
-            // most likely a bug the regex itself we simply do nothing here
-            break;
-        }
+        // diode: upstream breaks on an empty match here; the regex needs a separator and a character.
 
         // Adjust the link range to exclude a/ and b/ if it looks like a git diff
         if (

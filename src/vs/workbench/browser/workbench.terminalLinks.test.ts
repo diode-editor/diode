@@ -1,3 +1,5 @@
+import * as path from "node:path";
+
 import { Point } from "@tuidom/core/common/geometryPromitives";
 import { StyleFlags } from "@tuidom/core/common/styleFlags";
 import type { MouseToken } from "@tuidom/core/input/rawTerminalToken";
@@ -6,30 +8,35 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTestHarness.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
+import { feed } from "../../../TestUtils/terminalLinks.ts";
 import { createTestConfigurationService } from "../../../TestUtils/testConfigurationService.ts";
+import type { InMemoryConfigurationService } from "../../platform/configuration/common/inMemoryConfigurationService.ts";
+import { EXPLORER_VIEWLET_ID } from "../contrib/files/browser/explorerComponent.ts";
 import { ExplorerServiceDIToken } from "../contrib/files/browser/explorerService.ts";
+import { SEARCH_VIEWLET_ID } from "../contrib/search/browser/searchComponent.ts";
 import { TerminalEditorServiceDIToken } from "../contrib/terminal/browser/terminalEditorService.ts";
 import { type TerminalService, TerminalServiceDIToken } from "../contrib/terminal/browser/terminalService.ts";
 import { ExtensionPtySession } from "../contrib/terminal/node/extensionPtySession.ts";
-import { feed } from "../contrib/terminalContrib/links/common/terminalLinks.testUtils.ts";
 import { EditorServiceDIToken } from "../services/editor/common/editorService.ts";
+
+import { SidebarServiceDIToken } from "./parts/sidebar/sidebarService.ts";
 
 const FILES = {
     "src/a.ts": "line 1\nline 2\nabcdef\nline 4\n",
     "pkg/inner/b.ts": "export {};\n",
+    "long.txt": Array.from({ length: 300 }, (_, i) => `row ${String(i + 1)}`).join("\n"),
 };
 
 describe("Workbench — terminal file links", () => {
     let ws: ITempWorkspace;
     let h: IAppHarness;
     let terminal: TerminalService;
+    let configuration: InMemoryConfigurationService;
 
     function boot(settings: Record<string, unknown> = {}): void {
         ws = createTempWorkspace({ prefix: "diode-terminal-links-", files: FILES });
-        h = createAppTestHarness({
-            workspaceFolder: ws.dir,
-            configurationService: createTestConfigurationService(settings),
-        });
+        configuration = createTestConfigurationService(settings);
+        h = createAppTestHarness({ workspaceFolder: ws.dir, configurationService: configuration });
         terminal = h.container.get(TerminalServiceDIToken);
     }
 
@@ -146,12 +153,103 @@ describe("Workbench — terminal file links", () => {
         boot();
         const view = await panelTerminalWith("ls pkg/inner\r\n");
         await h.workbench.activate();
+        const sidebar = h.container.get(SidebarServiceDIToken);
+        sidebar.showViewlet(SEARCH_VIEWLET_ID);
         ctrlClick(view, 5, 0);
         await vi.waitFor(() => {
             expect(h.container.get(ExplorerServiceDIToken).getSelectedPaths()).toEqual([ws.path("pkg/inner")]);
         });
+        expect(sidebar.getActiveViewletId()).toBe(EXPLORER_VIEWLET_ID);
         h.testApp.render();
         expect(h.testApp.backend.screenToString()).toMatch(/inner/);
+    });
+
+    it("a folder outside the workspace is not a link", async () => {
+        boot();
+        const view = await panelTerminalWith(`cd ${path.dirname(ws.dir)}\r\n`);
+        mouse(view, 5, 0, "move");
+        ctrlClick(view, 5, 0);
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        expect(underlined(view, 0)).toBe("");
+        expect(h.container.get(ExplorerServiceDIToken).getSelectedPaths()).toEqual([]);
+    });
+
+    // Kitty protocol: Control alone is a key with press (event type 1) and release (3) events.
+    const CONTROL_PRESS = "\x1b[57442;5u";
+    const CONTROL_RELEASE = "\x1b[57442;1:3u";
+
+    function rawKey(sequence: string): void {
+        h.testApp.backend.sendRaw(sequence);
+        h.testApp.backend.flushInput();
+    }
+
+    it("Ctrl alone under a resting pointer underlines; its release, another key or leaving the widget clear it", async () => {
+        boot();
+        const view = await panelTerminalWith("src/a.ts:3:2 is here\r\n");
+        mouse(view, 4, 0, "move", { ctrlKey: false });
+        const hover = async (): Promise<void> => {
+            rawKey(CONTROL_PRESS);
+            await vi.waitFor(() => {
+                expect(underlined(view, 0)).toBe("____________");
+            });
+        };
+        await hover();
+        rawKey(CONTROL_RELEASE);
+        expect(underlined(view, 0)).toBe("");
+
+        await hover();
+        h.testApp.sendKey("a");
+        expect(underlined(view, 0)).toBe("");
+
+        await hover();
+        mouse(view, 4, -3, "move");
+        expect(underlined(view, 0)).toBe("");
+
+        // Another key let go while Ctrl stays held keeps the underline.
+        mouse(view, 4, 0, "move", { ctrlKey: false });
+        await hover();
+        rawKey("\x1b[97;5:3u");
+        await new Promise((resolve) => setTimeout(resolve, 20));
+        expect(underlined(view, 0)).toBe("____________");
+    });
+
+    it("relative paths resolve against the shell's cwd, else the cwd the terminal started in", async () => {
+        boot();
+        const started = await emulator();
+        terminal.createInstance({ session: started, cwd: ws.path("pkg") });
+        h.commands.execute("workbench.action.terminal.toggleTerminal");
+        await feed(started, "inner/b.ts src/a.ts\r\n");
+        let view = widget();
+        mouse(view, 3, 0, "move");
+        await vi.waitFor(() => {
+            expect(underlined(view, 0)).toBe("__________");
+        });
+        // Not under the cwd: the workspace root is the next base.
+        mouse(view, 13, 0, "move");
+        await vi.waitFor(() => {
+            expect(underlined(view, 0)).toBe("           ________");
+        });
+
+        const moved = Object.assign(await emulator(), { getCwd: () => Promise.resolve(ws.path("pkg/inner")) });
+        terminal.createInstance({ session: moved, cwd: ws.dir });
+        await feed(moved, "b.ts\r\n");
+        view = widget();
+        mouse(view, 1, 0, "move");
+        await vi.waitFor(() => {
+            expect(underlined(view, 0)).toBe("____");
+        });
+    });
+
+    it("a terminal keeps the `enableFileLinks` value it was created with, also in a new widget", async () => {
+        boot();
+        await panelTerminalWith("src/a.ts:3:2\r\n");
+        await configuration.updateValue("terminal.integrated.enableFileLinks", "off");
+        h.commands.execute("workbench.action.terminal.moveToEditor");
+        const view = widget();
+        mouse(view, 3, 0, "move");
+        await vi.waitFor(() => {
+            expect(underlined(view, 0)).toBe("____________");
+        });
     });
 
     it('`terminal.integrated.enableFileLinks: "off"` — no underline, no opening', async () => {
@@ -199,7 +297,7 @@ describe("Workbench — terminal file links", () => {
         });
     });
 
-    // Spec item 3 «уже открытый — активируется»; upstream opens with `revealIfOpened: true`.
+    // Spec item 3 "an already open file is activated"; upstream opens with `revealIfOpened: true`.
     it("a file already open in another editor group is revealed there, not opened again in the active group", async () => {
         boot();
         const groups = h.container.get(EditorServiceDIToken).editorGroups;
@@ -225,6 +323,68 @@ describe("Workbench — terminal file links", () => {
         expect(groups.activeGroup === first).toBe(true);
         expect(second.editorCount).toBe(1);
         expect(h.activeEditor().primaryCursorLine).toBe(3);
+    });
+
+    it("a file open only in another group, as its first tab, is revealed there", async () => {
+        boot();
+        const groups = h.container.get(EditorServiceDIToken).editorGroups;
+        // Group 1: a.ts. Group 2: b.ts, active.
+        h.workbench.openFile(ws.path("src/a.ts"));
+        h.commands.execute("workbench.action.splitEditorRight");
+        h.workbench.openFile(ws.path("pkg/inner/b.ts"));
+        h.commands.execute("workbench.action.closeOtherEditors");
+        const [first, second] = groups.groups;
+        expect([first.editorCount, second.editorCount]).toEqual([1, 1]);
+
+        const view = await panelTerminalWith("src/a.ts:2\r\n");
+        ctrlClick(view, 3, 0);
+        await vi.waitFor(() => {
+            expect(groups.activeGroup === first).toBe(true);
+        });
+        expect(second.editorCount).toBe(1);
+        expect(h.activeEditor().primaryCursorLine).toBe(1);
+    });
+
+    it("a file open in the active group and in another one is activated in the active group", async () => {
+        boot();
+        const groups = h.container.get(EditorServiceDIToken).editorGroups;
+        h.workbench.openFile(ws.path("src/a.ts"));
+        h.commands.execute("workbench.action.splitEditorRight");
+        const [first, second] = groups.groups;
+        expect(groups.activeGroup === second).toBe(true);
+
+        const view = await panelTerminalWith("src/a.ts:2\r\n");
+        ctrlClick(view, 3, 0);
+        await vi.waitFor(() => {
+            expect(h.activeEditor().primaryCursorLine).toBe(1);
+        });
+        expect(groups.activeGroup === second).toBe(true);
+        expect([first.editorCount, second.editorCount]).toEqual([1, 1]);
+    });
+
+    // An opener failure goes to onUnexpectedError, which fails the test (unexpectedErrors.setup.ts).
+    it("a path without line:col activates the file and keeps its cursor", async () => {
+        boot();
+        h.workbench.openFile(ws.path("src/a.ts"));
+        h.activeEditor().goToPosition(2, 3);
+        const view = await panelTerminalWith("src/a.ts\r\n");
+        ctrlClick(view, 3, 0);
+        await vi.waitFor(() => {
+            expect(h.testApp.focusedElement).not.toBeInstanceOf(TerminalViewElement);
+        });
+        await new Promise((resolve) => setTimeout(resolve, 20));
+        expect([h.activeEditor().primaryCursorLine, h.activeEditor().primaryCursorColumn]).toEqual([2, 3]);
+    });
+
+    it("a line far below the first screen is scrolled into view", async () => {
+        boot();
+        const view = await panelTerminalWith("long.txt:250\r\n");
+        ctrlClick(view, 3, 0);
+        await vi.waitFor(() => {
+            expect(h.activeEditor().primaryCursorLine).toBe(249);
+        });
+        h.testApp.render();
+        expect(h.activeEditor().viewState.scrollTop).toBeGreaterThan(200);
     });
 
     it("a terminal in an editor tab has links too", async () => {

@@ -3,9 +3,10 @@ import type { TerminalCell, TerminalMouseEventData } from "@tuidom/core/common/i
 import { StyleFlags } from "@tuidom/core/common/styleFlags";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { FakeTerminalSurface } from "../../../../../../TestUtils/FakeTerminalSurface.ts";
+import { emulatorWith, fakeLinkProvider, feed } from "../../../../../../TestUtils/terminalLinks.ts";
 import type { ExtensionPtySession } from "../../../terminal/node/extensionPtySession.ts";
 import type { ITerminalLink } from "../common/terminalLinkProvider.ts";
-import { emulatorWith, fakeLinkProvider, feed } from "../common/terminalLinks.testUtils.ts";
 
 import { TerminalLinkSurface } from "./terminalLinkSurface.ts";
 
@@ -121,6 +122,79 @@ describe("TerminalLinkSurface", () => {
         expect(hovered()).toBe("./b.ts");
     });
 
+    it("a late lookup doesn't override a newer one, even with the hover cleared in between", async () => {
+        await setup("src/a.ts ./b.ts");
+        const links = await fakeLinkProvider({ disk: DISK }).provideLinks(session.buffer!, 0);
+        const pending: ((links: ITerminalLink[]) => void)[] = [];
+        const slow = new TerminalLinkSurface(
+            session,
+            { provideLinks: () => new Promise((resolve) => pending.push(resolve)) },
+            () => Promise.resolve(),
+        );
+        slow.sendMouse(mouse(1, 0));
+        slow.setModifier(false);
+        slow.sendMouse(mouse(11, 0));
+        pending[1](links);
+        await vi.waitFor(() => {
+            expect(slow.hoveredLink?.text).toBe("./b.ts");
+        });
+        pending[0](links);
+        await new Promise((resolve) => setTimeout(resolve, 10));
+        expect(slow.hoveredLink?.text).toBe("./b.ts");
+    });
+
+    it("moving within the hovered link doesn't redraw", async () => {
+        await setup("see src/a.ts:3:2 here");
+        surface.sendMouse(mouse(5, 0));
+        await vi.waitFor(() => {
+            expect(hovered()).toBe("src/a.ts:3:2");
+        });
+        const before = updates;
+        surface.sendMouse(mouse(9, 0));
+        await new Promise((resolve) => setTimeout(resolve, 10));
+        expect(updates).toBe(before);
+        expect(hovered()).toBe("src/a.ts:3:2");
+    });
+
+    it("output re-checks the hover: a grown link is re-underlined, output elsewhere keeps it, no Ctrl — no hover", async () => {
+        await setup("src/a.ts");
+        surface.sendMouse(mouse(2, 0, { ctrl: false }));
+        await feed(session, "\x1b[3;1Hzz\x1b[1;9H");
+        await new Promise((resolve) => setTimeout(resolve, 10));
+        expect(hovered()).toBeUndefined();
+
+        surface.sendMouse(mouse(2, 0));
+        await vi.waitFor(() => {
+            expect(hovered()).toBe("src/a.ts");
+        });
+        await feed(session, ":3");
+        await vi.waitFor(() => {
+            expect(hovered()).toBe("src/a.ts:3");
+        });
+        expect(underlined(0)).toBe("__________");
+        await feed(session, "\x1b[4;1Hyy");
+        await new Promise((resolve) => setTimeout(resolve, 10));
+        expect(hovered()).toBe("src/a.ts:3");
+    });
+
+    it("with the view scrolled part-way the hover and the click land on the link's viewport row", async () => {
+        await setup(`f0\r\nf1\r\nf2\r\nsrc/a.ts:9\r\n${"filler\r\n".repeat(8)}`);
+        surface.scrollLines(-6);
+        const viewportY = session.buffer!.viewportY;
+        expect(viewportY).toBeGreaterThan(0);
+        const row = 3 - viewportY;
+        surface.sendMouse(mouse(2, row));
+        await vi.waitFor(() => {
+            expect(hovered()).toBe("src/a.ts:9");
+        });
+        expect(underlined(row)).toBe("__________");
+        expect(underlined(3)).toBe("");
+        click(2, row);
+        await vi.waitFor(() => {
+            expect(opened.map((link) => link.text)).toEqual(["src/a.ts:9"]);
+        });
+    });
+
     it("text the program already underlined stays underlined", async () => {
         await setup("\x1b[4mx\x1b[0m src/a.ts");
         surface.sendMouse(mouse(3, 0));
@@ -156,6 +230,19 @@ describe("TerminalLinkSurface", () => {
         await new Promise((resolve) => setTimeout(resolve, 10));
         expect(forwarded).toHaveBeenCalledTimes(3);
         expect(opened).toHaveLength(1);
+    });
+
+    it("a drag within the link opens it on the left button's release only", async () => {
+        await setup("src/a.ts:3:2");
+        surface.sendMouse(mouse(3, 0, { action: "down", button: "left" }));
+        surface.sendMouse(mouse(5, 0, { action: "move", button: "left" }));
+        surface.sendMouse(mouse(5, 0, { action: "up", button: "right" }));
+        await new Promise((resolve) => setTimeout(resolve, 10));
+        expect(opened).toEqual([]);
+        surface.sendMouse(mouse(6, 0, { action: "up", button: "left" }));
+        await vi.waitFor(() => {
+            expect(opened).toHaveLength(1);
+        });
     });
 
     it("Ctrl+press on a link and release off it opens nothing", async () => {
@@ -194,6 +281,34 @@ describe("TerminalLinkSurface", () => {
         expect(hovered()).toBeUndefined();
         expect(opened).toEqual([]);
         expect(forwarded).toHaveBeenCalledTimes(2);
+    });
+
+    it("a program turning mouse tracking on takes the hover away, Ctrl doesn't bring it back", async () => {
+        await setup("src/a.ts");
+        surface.sendMouse(mouse(2, 0));
+        await vi.waitFor(() => {
+            expect(hovered()).toBe("src/a.ts");
+        });
+        await feed(session, "\x1b[?1000h");
+        surface.sendMouse(mouse(3, 0));
+        expect(hovered()).toBeUndefined();
+        surface.setModifier(true);
+        await new Promise((resolve) => setTimeout(resolve, 10));
+        expect(hovered()).toBeUndefined();
+    });
+
+    it("before the emulator has a buffer: no hover, Ctrl+click opens nothing", async () => {
+        await setup("");
+        const bare = new TerminalLinkSurface(new FakeTerminalSurface(), fakeLinkProvider({ disk: DISK }), (link) => {
+            opened.push(link);
+            return Promise.resolve();
+        });
+        bare.sendMouse(mouse(1, 0));
+        bare.sendMouse(mouse(1, 0, { action: "down", button: "left" }));
+        bare.sendMouse(mouse(1, 0, { action: "up", button: "left" }));
+        await new Promise((resolve) => setTimeout(resolve, 10));
+        expect(bare.hoveredLink).toBeUndefined();
+        expect(opened).toEqual([]);
     });
 
     it("a wrapped link is underlined on both rows", async () => {

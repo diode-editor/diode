@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 
+import { type FakeDisk, fakeFileService } from "../../../../../../TestUtils/terminalLinks.ts";
 import { OperatingSystem } from "../../../../../base/common/platform.ts";
 import { Uri } from "../../../../../base/common/uri.ts";
 
 import { type ITerminalLinkResolverContext, TerminalLinkResolver } from "./terminalLinkResolver.ts";
-import { type FakeDisk, fakeFileService } from "./terminalLinks.testUtils.ts";
 
 function resolverOver(
     disk: FakeDisk,
@@ -27,7 +27,7 @@ function resolverOver(
 
 describe("TerminalLinkResolver", () => {
     it("strips the line/column suffix and the query string before the stat", async () => {
-        const { resolver } = resolverOver({ "/ws/a.ts": "file" });
+        const { resolver } = resolverOver({ "/ws": "dir", "/ws/a.ts": "file" });
         const resolved = await resolver.resolveLink("a.ts:3:4");
         expect(resolved).toMatchObject({ link: "a.ts:3:4", isDirectory: false });
         expect(resolved?.uri.toString()).toBe("file:///ws/a.ts");
@@ -53,7 +53,9 @@ describe("TerminalLinkResolver", () => {
     it("expands `~` to the home folder, and without a home a `~` path is not a link", async () => {
         const disk: FakeDisk = { "/home/user/a.ts": "file" };
         expect((await resolverOver(disk).resolver.resolveLink("~/a.ts"))?.uri.fsPath).toBe("/home/user/a.ts");
-        expect(await resolverOver(disk, { userHome: undefined }).resolver.resolveLink("~/a.ts")).toBeNull();
+        const homeless = resolverOver(disk, { userHome: undefined });
+        expect(await homeless.resolver.resolveLink("~/a.ts")).toBeNull();
+        expect(homeless.stats).toEqual([]);
     });
 
     it("reports a directory as such", async () => {
@@ -112,11 +114,14 @@ describe("TerminalLinkResolver", () => {
             await resolver.resolveLink("\\\\?\\C:\\foo\\b.ts");
             await resolver.resolveLink("src\\c.ts");
             await resolver.resolveLink("~\\d.ts");
+            // The `\\?\` prefix goes, with or without a drive after it.
+            await resolver.resolveLink("\\\\?\\UNC\\srv\\e.ts");
             expect(stats).toEqual([
                 Uri.file("c:\\foo\\a.ts").fsPath,
                 Uri.file("C:\\foo\\b.ts").fsPath,
                 Uri.file("C:\\ws\\src\\c.ts").fsPath,
                 Uri.file("C:\\Users\\u\\d.ts").fsPath,
+                Uri.file("UNC\\srv\\e.ts").fsPath,
             ]);
         });
     });

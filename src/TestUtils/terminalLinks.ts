@@ -1,10 +1,9 @@
-import { OperatingSystem } from "../../../../../base/common/platform.ts";
-import type { Uri } from "../../../../../base/common/uri.ts";
-import type { IFileService, IFileStat } from "../../../../../platform/files/common/files.ts";
-import { ExtensionPtySession } from "../../../terminal/node/extensionPtySession.ts";
-
-import { TerminalLinkProvider } from "./terminalLinkProvider.ts";
-import { TerminalLinkResolver } from "./terminalLinkResolver.ts";
+import { OperatingSystem } from "../vs/base/common/platform.ts";
+import type { Uri } from "../vs/base/common/uri.ts";
+import type { IFileService, IFileStat } from "../vs/platform/files/common/files.ts";
+import { ExtensionPtySession } from "../vs/workbench/contrib/terminal/node/extensionPtySession.ts";
+import { TerminalLinkProvider } from "../vs/workbench/contrib/terminalContrib/links/common/terminalLinkProvider.ts";
+import { TerminalLinkResolver } from "../vs/workbench/contrib/terminalContrib/links/common/terminalLinkResolver.ts";
 
 /** Paths that exist: `"file"` or `"dir"`; everything else fails `stat` like a missing file. */
 export type FakeDisk = Readonly<Record<string, "file" | "dir">>;
