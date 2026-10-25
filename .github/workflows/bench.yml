@@ -43,7 +43,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '26.12.0'
+          node-version-file: .nvmrc
 
       # node-pty builds from source when there is no prebuild for the current
       # Node version (same caveat as in ci.yml / e2e).
