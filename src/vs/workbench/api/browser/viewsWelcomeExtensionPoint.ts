@@ -54,8 +54,8 @@ export function readViewsWelcome(
 }
 
 function validWelcome(entry: unknown): { readonly view: string; readonly content: IViewWelcomeContent } | null {
-    if (typeof entry !== "object" || entry === null) return null;
-    const { view, contents, when, enablement } = entry as Record<string, unknown>;
+    // A JSON primitive has none of the properties; only `null` cannot be destructured.
+    const { view, contents, when, enablement } = (entry ?? {}) as Record<string, unknown>;
     if (typeof view !== "string" || typeof contents !== "string") return null;
     return {
         view,

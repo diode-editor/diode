@@ -255,11 +255,19 @@ describe("ExtensionViewWelcomes — welcome against the tree", () => {
     });
 
     it("an empty tree with no applicable entry shows the (empty) tree", async () => {
-        const { adapter, welcomes, frame } = setup();
+        const { h, adapter, welcomes, frame } = setup();
+        const bodies: unknown[] = [];
+        const setViewBody = h.service.setViewBody.bind(h.service);
+        h.service.setViewBody = (viewId, body) => {
+            bodies.push(body);
+            setViewBody(viewId, body);
+        };
         welcomes.registerContents(new Map([[VIEW, [{ contents: "keyed", when: "nope" }]]]));
         adapter.register({ viewId: VIEW, showCollapseAll: false, canSelectMany: false }, source({ root: [] }));
         await flushMicrotasks(10);
         expect(frame()).not.toContain("keyed");
+        // The tree element itself, not the empty state.
+        expect(bodies.at(-1)).not.toBeNull();
     });
 
     it("a TreeView.message hides the welcome; clearing it brings the welcome back", async () => {
