@@ -26,7 +26,7 @@ import { TERMINAL_VIEW_ID, TerminalServiceDIToken } from "./terminalService.ts";
 import { SWITCH_TERMINAL_SHOW_TABS, terminalIndexedLabel } from "./terminalTabsList.ts";
 
 /** Tiers where Ctrl+symbol is encoded unambiguously (in legacy, Ctrl+` is NUL). */
-const MODERN_TIER = "tier == 'kitty' || tier == 'csi-u'";
+export const MODERN_TIER = "tier == 'kitty' || tier == 'csi-u'";
 
 const PLUS_ICON = codicon("plus");
 const TRASH_ICON = codicon("trash");

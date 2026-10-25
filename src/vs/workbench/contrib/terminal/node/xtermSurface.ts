@@ -258,6 +258,7 @@ export abstract class XtermSurface implements ITerminalSurface, IDisposable {
         const active = this.term.buffer.active;
         return {
             cols: this.cols,
+            rows: this.rows,
             viewportY: active.baseY - this.scrollOffset,
             length: active.length,
             getLine: (y) => active.getLine(y),

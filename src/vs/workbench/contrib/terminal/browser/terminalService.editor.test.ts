@@ -166,6 +166,23 @@ describe("TerminalService — instances in the editor area", () => {
             h.service.dispose();
         });
 
+        it("the panel's focused terminal wins over a terminal tab activated after it; a non-panel id is ignored", () => {
+            const h = withAcross();
+            // An earlier panel terminal: a lookup that ignores the id would pick it.
+            h.service.createInstance();
+            const second = h.service.createInstance();
+            const editor = h.service.createInstance({ target: "editor" });
+            h.service.setActiveEditorInstance(editor.id);
+
+            h.service.setFocusedPanelInstance(editor.id);
+            h.service.setFocusedPanelInstance(999);
+            expect(h.service.getActiveInstanceAcrossHosts()).toBe(editor);
+
+            h.service.setFocusedPanelInstance(second.id);
+            expect(h.service.getActiveInstanceAcrossHosts()).toBe(second);
+            h.service.dispose();
+        });
+
         it("with several terminal tabs, the one named is activated, and the panel hands over to that one", () => {
             const h = withAcross();
             // An earlier tab: a lookup that ignores the id would pick it.

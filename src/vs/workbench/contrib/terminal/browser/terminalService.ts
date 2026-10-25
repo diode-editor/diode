@@ -189,6 +189,8 @@ export class TerminalService extends Disposable implements IContextKeyContributo
     public updateContextKeys(contextKeys: ContextKeyService): void {
         contextKeys.set("terminalIsOpen", this.hasOpenTerminals);
         contextKeys.set("terminalCount", this.instances.length);
+        // Ids are never reused: one handed out means a terminal was created, wherever it lives now.
+        contextKeys.set("terminalHasBeenCreated", this.nextId > 1);
     }
 
     /** Excludes editor and background ones. */
@@ -210,7 +212,16 @@ export class TerminalService extends Disposable implements IContextKeyContributo
         return this.find(this.activeAcrossHostsId ?? undefined) ?? null;
     }
 
-    /** Upstream `TerminalEditorService.setActiveInstance`: a terminal tab became the active editor. */
+    /**
+     * Upstream `host.onDidFocusInstance` of the panel: the focused terminal is the active one across hosts, even
+     * when a terminal tab was activated after it.
+     */
+    public setFocusedPanelInstance(id: number): void {
+        const instance = this.instances.find((i) => i.id === id);
+        if (instance !== undefined) this.evaluateActiveAcrossHosts(instance, undefined);
+    }
+
+    /** Upstream `TerminalEditorService.setActiveInstance`: a terminal tab became the active editor (or got the focus). */
     public setActiveEditorInstance(id: number): void {
         const instance = this.editorInstances.find((i) => i.id === id);
         if (instance === undefined) return;

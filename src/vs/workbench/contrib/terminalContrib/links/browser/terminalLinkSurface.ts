@@ -26,6 +26,8 @@ export interface ITerminalLinkSource {
  */
 export class TerminalLinkSurface implements ITerminalSurface {
     private hovered: ITerminalLink | undefined;
+    /** The link the quick pick points at; unlike the hover, the pointer and new output don't clear it. */
+    private revealed: ITerminalLink | undefined;
     /** Viewport cell of the last pointer move; `undefined` after the pointer left the widget. */
     private pointer: { readonly col: number; readonly row: number } | undefined;
     /** Only the latest lookup applies: detection is async and the pointer keeps moving. */
@@ -60,10 +62,17 @@ export class TerminalLinkSurface implements ITerminalSurface {
     public readCell(x: number, y: number, out: TerminalCell): boolean {
         if (!this.session.readCell(x, y, out)) return false;
         const hovered = this.hovered;
-        if (hovered !== undefined) {
-            // Stryker disable next-line OptionalChaining: a hover comes from a lookup over the buffer, which stays.
-            const viewportY = this.session.buffer?.viewportY ?? 0;
-            if (isInLink(hovered, x, viewportY + y)) out.style |= StyleFlags.Underline;
+        const revealed = this.revealed;
+        // Stryker disable next-line ConditionalExpression: a shortcut for the usual cell with no link to underline; the checks inside are false then anyway
+        if (hovered !== undefined || revealed !== undefined) {
+            // Stryker disable next-line OptionalChaining: both links come from a lookup over the buffer, which stays.
+            const row = (this.session.buffer?.viewportY ?? 0) + y;
+            if (
+                (hovered !== undefined && isInLink(hovered, x, row)) ||
+                (revealed !== undefined && isInLink(revealed, x, row))
+            ) {
+                out.style |= StyleFlags.Underline;
+            }
         }
         return true;
     }
@@ -130,6 +139,13 @@ export class TerminalLinkSurface implements ITerminalSurface {
     public pointerLeft(): void {
         this.pointer = undefined;
         this.clearHover();
+    }
+
+    /** Underlines the link until the next call; `undefined` removes the underline. */
+    public setRevealedLink(link: ITerminalLink | undefined): void {
+        if (linkKey(this.revealed) === linkKey(link)) return;
+        this.revealed = link;
+        this.onDidChangeHoverEmitter.fire();
     }
 
     public clearHover(): void {

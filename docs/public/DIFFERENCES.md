@@ -21,7 +21,9 @@ This page collects both in one place; what is missing altogether is on [Status](
   extension keeps working ([what can't work](EXTENSIONS.md#what-cant-work)).
 - **File links in the integrated terminal** open with `Ctrl`+click on every platform: a terminal
   doesn't report Cmd with the mouse. There is no "Follow link" hover, and only paths that exist are
-  links: URLs, and words looked up with Quick Open, are not yet.
+  links: URLs, and words looked up with Quick Open, are not yet. **Terminal: Open Detected Link...**
+  (`Ctrl+Shift+O`) lists the files and folders only, and doesn't preview the file in an editor; in a
+  terminal that can't tell `Ctrl+Shift+O` from `Ctrl+O` it runs from the Command Palette.
 - **No tooltips, no drag and drop.** Hover information is a widget under the caret, a status bar
   item's tooltip is not shown, and tabs and tree items are not draggable.
 

@@ -163,6 +163,32 @@ Skip-набор — `DEFAULT_COMMANDS_TO_SKIP_SHELL` эталона вместе
   движения видны только на tier `kitty` (keydown/keyup `Control`), на остальных подчёркивание следует за
   Ctrl-битом следующего движения мыши.
 
+### Open Detected Link (`Ctrl+Shift+O`)
+
+С клавиатуры ссылки открываются quick pick'ом эталона (`terminalLinkQuickpick.ts` + `terminalLinkActions.ts`,
+#817) — нужно там, где хост-терминал съедает Ctrl+клик:
+
+- `workbench.action.terminal.openDetectedLink` — `Ctrl+Shift+O` при `terminalFocus` (вес `WorkbenchContrib + 1`),
+  `enablement: terminalHasBeenCreated` (ключ эталона, ставит `TerminalService`: выданный id = терминал был).
+  Цель — `getActiveInstanceAcrossHosts()`: терминал панели или вкладки, что активировали или сфокусировали последним (фокус виджета — `host.onDidFocusInstance` эталона: `setFocusedPanelInstance` / `setActiveEditorInstance`).
+  `workbench.action.terminal.openFileLink` («Open Last Local File Link») — без клавиши и без списка.
+- Сбор — `common/terminalDetectedLinks.ts` по `TerminalLinkManager.getLinks` эталона: видимая область снизу
+  вверх (ссылки строки — справа налево), затем ниже неё и выше неё. Одна ссылка — один раз, хотя её отдаёт каждая
+  строка wrapped-строки. «Последняя» ссылка — первая ссылка самой нижней строки со ссылкой на файл, поиск от конца
+  буфера до верха вьюпорта, скролбэк выше вьюпорта не смотрится (как `openRecentLink` эталона).
+- Список: метка — `basename` + суффикс `:row[-rowEnd][:col[-colEnd]]`, описание — каталог относительно папки
+  воркспейса (вне её — абсолютный), дубли по «метка + каталог» схлопнуты. Активный пункт подчёркнут
+  в терминале (`TerminalLinkSurface.setRevealedLink`, отдельно от Ctrl-наведения) и, если вне экрана, прокручен на
+  четверть вьюпорта от верха (`revealRange` эталона; для этого у `ITerminalBuffer` есть `rows`). Закрытие —
+  Enter или Escape — возвращает прокрутку (`scrollOffset`) и снимает подчёркивание; Enter открывает ссылку тем же
+  `TerminalLinkOpener`, что и Ctrl+клик, в микрозадаче — остаток Enter не уходит в шелл.
+- **Отступления.** Разделителей в нашем пикере нет — «File»/«Folder» стоят подсказкой на первой строке группы
+  (как у задач). Сначала всегда только видимая область, весь буфер — с первым вводом (эталон ждёт весь буфер до
+  500 мс и, если успел, показывает сразу его). Активный файл не открывается превью в редакторе
+  (`PickerEditorState` эталона). URL, word-ссылок и accessible view (`Ctrl+Shift+G`) нет. На tier `legacy`
+  `Ctrl+Shift+O` неотличим от `Ctrl+O` (у bash — operate-and-get-next), поэтому бинд гейтится `kitty`/`csi-u`, а
+  там команда — из палитры.
+
 ## Цвета
 
 Токены `terminal.ansi*` (дефолты dark/light эталона) → `TerminalColorsService` → палитра сессии

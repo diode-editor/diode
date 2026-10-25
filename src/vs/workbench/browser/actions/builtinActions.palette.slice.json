@@ -299,6 +299,8 @@
     "workbench.action.terminal.killAll",
     "workbench.action.terminal.switchTerminal",
     "workbench.action.quickOpenTerm",
+    "workbench.action.terminal.openDetectedLink",
+    "workbench.action.terminal.openFileLink",
     "workbench.action.tasks.runTask",
     "workbench.action.tasks.reRunTask",
     "workbench.action.tasks.restartTask",
