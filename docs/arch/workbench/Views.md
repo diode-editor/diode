@@ -256,10 +256,18 @@ layout'а находит их.
   чужие виды стартуют свёрнутыми (`showCollapsed`), `visibility: collapsed` —
   тоже. Список с элементом без `id` отбрасывается целиком; дубль id и
   неизвестный `type` — ошибка в лог, вид пропускается.
-- **Тело — заглушка**: дерево (`TreeView`-API) ещё не рисуется, секция
-  показывает «Extension tree views are not rendered yet.» (`placeholder`
-  блоком — переносится в узком сайдбаре). Секция нужна уже сейчас: контейнер,
-  пункт переключателя, `<view>.focus` и `onView:` работают.
+- **Тело — дерево расширения**: до `createTreeView`/`registerTreeDataProvider`
+  секция пустая, как у эталона (`viewsWelcome` — следующая задача); регистрация
+  ставит телом `ExtensionTreeView` (`api/browser/extensionTreeView.ts`: строка
+  `TreeView.message` над `TreeViewElement`) через `ExtensionTreeViewsAdapter` —
+  см. «Деревья расширений» в [Extensions.md](../Extensions.md). Дерево для
+  вида, чей `when` сейчас ложен, `ViewsService` держит и отдаёт секции, когда та
+  зарегистрируется (`setViewBody`/`setViewTitle` на незарегистрированный вид).
+- **Заголовок секции** — `TreeView.title` заменяет название (заглавными),
+  `TreeView.description` приглушённо рядом (`ViewsService.setViewTitle`).
+  Меню заголовка секции резолвится с ключом `view = <id>` поверх глобальных
+  (`MenuService.getEntryGroups(…, keys)`, как scoped context key service эталона),
+  поэтому `when: view == <id>` у `view/title` расширений работает.
 - **`when`** вычисляется по `ContextKeyService` и перевычисляется на каждое
   его изменение: вид регистрируется, пока условие истинно, и снимается
   `unregisterView`, когда ложно, — контейнер появляется и исчезает вместе с

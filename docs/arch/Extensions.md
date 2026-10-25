@@ -164,7 +164,7 @@
   полёте), оркестрацию спавна и делегаторы. Процесс — `ExtensionHostProcess` (spawn, stdio, ready,
   выключение host.shutdown → SIGTERM → SIGKILL). Каждая поверхность API — customer в `customers/`
   (`secrets`, `env`, `window`, `diagnostics`, `decorations`, `fileSystem`, `commands`, `editor`,
-  `configuration`, `documents`, `languageFeatures`, `terminal`, `tasks`) с контрактом
+  `configuration`, `documents`, `languageFeatures`, `terminal`, `tasks`, `treeViews`) с контрактом
   `IExtensionHostCustomer.attach(ctx): IDisposable` (`common/extensionHostCustomer.ts`): объект
   customer'а живёт столько же, сколько хост, а всё состояние одного спавна — обработчики RPC,
   подписки на ядро, handle'ы — заводится в `attach` и снимается возвращённым disposable вместе со
@@ -664,18 +664,34 @@
   заодно команды и провайдеры. Вызов возвращает инертный объект и пишет в Output одну строку про
   неподдерживаемый webview; декларации в `vscode.d.ts` остаются закомментированными — статус ⛔
   рантайм-заглушка не меняет.
-- **Деревья как заглушка (`treeViewNoop.ts`):** `window.registerTreeDataProvider`/`createTreeView`
-  существуют, но дерево не рисуется (Phase 8b в [docs/TODO/Extensions.md](../TODO/Extensions.md)). В
-  отличие от webview это не потолок, а временная ступень: декларации деревьев подняты в
-  `vscode.d.ts` целиком (кроме `TreeViewOptions.dragAndDropController`), значения
-  `TreeItem`/`TreeItemCollapsibleState`/`TreeItemCheckboxState`/`ThemeIcon` — эталонные
-  (`vscodeTypes.ts`; поля `TreeItem` — `declare`, чтобы не затенять геттеры подкласса). Без них
-  расширение с деревом умирало дважды: модуль с `class X extends vscode.TreeItem` не грузился вовсе,
-  а `registerTreeDataProvider` в `activate()` давал `is not a function`. Форма — эталонная
-  (`registerTreeDataProvider` = `createTreeView` + dispose, без `treeDataProvider` — бросок);
-  `TreeView` инертный, человеку — одна warn-строка в Output на `viewId` за жизнь субпроцесса
-  (отступление: эталон незаконтрибьюченный view встречает тостом-ошибкой, а у нас view
-  законтрибьючен, просто не рисуется). Честная проводка заменит заглушку без смены поверхности.
+- **Деревья расширений (TreeView):**
+  `window.createTreeView`/`registerTreeDataProvider` — как `extHostTreeViews`/`mainThreadTreeViews`
+  эталона. **Объекты расширения живут только в субпроцессе** (`api/common/extHostTreeViews.ts`),
+  хост знает строки по **handle**: `1/<TreeItem.id>` либо `<handle родителя>/<n>:<label>` (первый
+  `/` в метке удваивается, `n` — первый свободный среди уже зарегистрированных соседей, поэтому
+  узлы регистрируются по одному). Протокол (`treeViewWireTypes.ts`): субпроцесс шлёт
+  `treeView.register {viewId, showCollapseAll, canSelectMany, extensionId}` / `dispose` /
+  `setMessage` / `setTitle` и запросы `treeView.refresh {items?}` (без `items` — корень) и
+  `treeView.reveal`; хост просит `treeView.getChildren {parentHandle?}` и
+  `treeView.executeCommand {handle}`, шлёт `setVisible`/`setExpanded`/`setSelection`. Команда строки
+  **выполняется в субпроцессе** (`vscode.commands.executeCommand` с её `arguments`): аргументы —
+  объекты расширения, через провод они дошли бы копиями без прототипа (эталон делает то же через
+  `_internal_command_delegation`); ошибка команды — reject запроса и тост на хосте. Кэш детей —
+  до refresh: `onDidChangeTreeData` чистит поддерево и идёт через debounce эталона (первое изменение
+  сразу, следующие в окне 200 мс — одним запросом). Устаревший ответ провайдера (refresh пришёл, пока
+  расширение отвечало) не регистрирует узлов. Хост: `TreeViewsCustomer` → порт
+  `IExtensionTreeViewsSink` → `ExtensionTreeViewsAdapter` (`api/browser`), который ставит телом
+  законтрибьюченной секции `ExtensionTreeView` и считает `visible` = «контейнер показан и секция
+  развёрнута» на `onDidShowView`/`onDidChangeViewExpanded`/`onDidChangeLocations`. Корень читается,
+  когда секция видна (terraform ставит контекст-ключи прямо из `getChildren`), дети — на раскрытии;
+  `Expanded` раскрывает узел при первом появлении; ответ с ошибкой — строка в Output (канал
+  Extensions), дерево показывает прежние строки. Повторная регистрация того же `viewId` подменяет
+  провайдер, `dispose` старого вида новый не трогает; смерть субпроцесса — все секции пустые.
+  Отступления: дерево для незаконтрибьюченного вида — warn в Output, а не ошибка эталона; иконки — по
+  решению 2026-10-24 (`ThemeIcon` — глиф codicon, цвет — токен темы, если тема его знает, иначе без
+  цвета: неизвестный токен ронял бы кадр; `resourceUri` — значок файла как в Explorer; SVG/PNG — без
+  иконки); tooltip не показывается (ховеров нет), `badge` хранится, но не рисуется; чекбоксы, drag and
+  drop, `resolveTreeItem`, `TreeItemLabel.highlights`, `activeItem` не поддержаны.
 - **Сток диагностик (LSP):** `languages.createDiagnosticCollection` (наивная: хранит оригинальные
   `Diagnostic`, честные get/has/forEach/итератор; `dispose` снимает её и из контекста code actions)
   → notify `diagnostics.publish` с owner — ключом `MarkerService`, уникальным на коллекцию:

@@ -71,10 +71,10 @@
   `group` (порядок чужого вида в контейнере).
 - [ ] Контекстное меню пункта переключателя («Move To», «Reset Location» — у эталона на иконке
   activity bar); сейчас — в «⋯» заголовка.
-- [~] TreeView-API поверх RPC (`registerTreeDataProvider`/`createTreeView`, pull как у completion,
-  рендер в `TreeViewElement`): типы подняты, рантайм — заглушка `api/common/treeViewNoop.ts`
-  (регистрация проходит, `TreeView` инертный). Первый стоковый потребитель — форк bazel-java
-  (`tihonove.bazel-java-tihonove`, view `bazelTaskOutline`).
+- [x] TreeView-API поверх RPC (`registerTreeDataProvider`/`createTreeView`, pull по handles как
+  `extHostTreeViews` эталона, рендер в `TreeViewElement`) — #822. Хвосты: чекбоксы, drag and drop,
+  `resolveTreeItem`, tooltip, `TreeItemLabel.highlights`; меню пункта (`view/item/context`, inline) —
+  следующая задача цепочки.
 
 ## Магазин
 
