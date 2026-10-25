@@ -10,7 +10,7 @@ Diode — терминальный текстовый редактор (клон
 - docs/TESTING.md — как тестировать каждый слой, e2e, приёмы отладки; docs/MUTATION.md — мутационный гейт (Stryker)
 - docs/STYLE.md — идиомы под линт; docs/COMMITS.md — коммиты; docs/PR.md — что обязано быть в PR и влитие; docs/GIT.md — git-помощники, стек PR, уборка worktree; docs/RELEASE.md — выпуск версии
 - docs/TODO/ — трекер задач (индекс — README.md); docs/public/ — страницы сайта документации diode-editor.github.io/docs, по-английски (правила — в его README.md); packaging/README.md — каналы дистрибуции
-- Скиллы `.claude/skills/`: `drive` (живой запуск), `heavy-run` (лиза на тяжёлые прогоны), `orchestrate` (волна дочерних сессий)
+- Скиллы `.claude/skills/`: `drive` (живой запуск), `heavy-run` (лиза на тяжёлые прогоны), `orchestrate` (волна дочерних сессий), `dogfood-notes` (пачка заметок догфудинга → сессии `spec` → issues)
 - scripts/agent-loop/README.md — автономный агентский луп по GitHub issues (`ready to implement` → диспатчер → менеджер → реализатор + тестировщик); скиллы ролей `dispatch`, `task-manager`, `implementer`, `tester`, `loop-spawn`; спеку и цепочку issues для него готовит человек со скиллом `spec`
 
 # Трекер задач
