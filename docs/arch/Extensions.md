@@ -810,6 +810,12 @@
   Рантайм «как VS Code»: JS-энтрипоинты запускаются `process.execPath` субпроцесса (dev/self-extract
   — настоящий node; SEA — diode-бинарь в node-режиме `DIODE_RUN_AS_NODE=1` — ранний branch
   `runAsNode.ts`, калька `ELECTRON_RUN_AS_NODE`; env сервера всегда снимает `DIODE_EXTENSION_HOST`).
+  У bundled-сервера **ATA выключен** (`disableAutomaticTypingAcquisition`, typingsInstaller не
+  упакован, `scripts/pack-ts-server.mjs`): автоимпорт и члены встроенных модулей Node (`path`, `fs`, …)
+  есть только при `@types/node` в проекте — в TS так и в эталоне, а в JS VS Code после первого
+  `require('path')` сам ставит `@types/node` в `~/.cache/typescript`. Решение человека 2026-10-25:
+  оставить как есть (проверено вживую: с `@types/node` completion с импортом и quick fix
+  «Add import» работают в TS и JS).
   Middleware `provideCodeActions` — **холостая «Organize Imports»** (`lib/organizeImports.ts`):
   стоковый сервер при пустом ответе tsserver'а (менять нечего — импорты упорядочены, CommonJS
   `require()`) действия не отдаёт, а эталонное `typescript-language-features` отдаёт его на любой
