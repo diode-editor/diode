@@ -63,7 +63,7 @@ export function customizationEntryOf(task: ITask): Json {
     const { _key: _ignored, ...identifier } = task.definition;
     return {
         ...identifier,
-        problemMatcher: [...task.problemMatchers],
+        problemMatcher: task.problemMatchers.filter((matcher) => typeof matcher === "string"),
         ...(task.group !== undefined ? { group: groupToJson(task.group) } : {}),
         label: task._label,
         ...(task.detail !== undefined ? { detail: task.detail } : {}),

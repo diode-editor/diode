@@ -41,6 +41,11 @@ export type ITerminalSession = ITerminalSurface &
         setAnsiColors(ansi: readonly number[]): void;
         /** Key press for "press any key to close" (upstream `waitOnExit`). */
         readonly onDidInputAfterExit: Event<void>;
+        /**
+         * Upstream `onLineData`: each output line once complete (the unterminated last one on exit, before
+         * `onExit`), wrapped rows joined, without escape sequences. Task problem matchers read it.
+         */
+        readonly onLineData: Event<string>;
         /** The emulator buffer for link detection; absent or `undefined` — no links. */
         readonly buffer?: ITerminalBuffer | undefined;
         /**

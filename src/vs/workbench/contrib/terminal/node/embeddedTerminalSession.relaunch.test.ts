@@ -107,10 +107,10 @@ describe("XtermSurface — editor messages and input after exit", () => {
         session.feed("two");
         session.write("k");
         session.exit(2);
-        expect(exits.mock.calls).toStrictEqual([[1], [2]]);
         expect(onInput.mock.calls).toStrictEqual([["k"]]);
         await vi.waitFor(() => {
             expect(screen(session, 4, 20)).toBe("one\nagain\ntwo");
+            expect(exits.mock.calls).toStrictEqual([[1], [2]]);
         });
         session.dispose();
     });

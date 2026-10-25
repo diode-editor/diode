@@ -15,6 +15,7 @@ import type { ITextEdit } from "../core/iTextEdit.ts";
 import { compareTextEditsInDocumentOrder, createTextEdit } from "../core/iTextEdit.ts";
 import { sortAndMergeSelections } from "../core/sortAndMergeSelections.ts";
 import { charClass } from "../core/wordClassification.ts";
+import { DEFAULT_WORD_REGEXP, getWordAtText } from "../core/wordHelper.ts";
 import { computeNewLinePlan } from "../languages/autoIndent.ts";
 import type { IDocumentContentChange } from "../model/iDocumentContentChange.ts";
 import { detectIndentation } from "../model/indentationDetector.ts";
@@ -278,7 +279,7 @@ export class EditorViewState {
         const ids = this.document.deltaDecorations(
             this.markerDecorationIds.map((decoration) => decoration.id),
             decorations.map((decoration) => ({
-                range: decoration.range,
+                range: this.markerDecorationRange(decoration.range),
                 options: {
                     // Stryker disable next-line StringLiteral: the description is for debugging only, as in upstream
                     description: "marker-decoration",
@@ -287,6 +288,30 @@ export class EditorViewState {
             })),
         );
         this.markerDecorationIds = ids.map((id, i) => ({ id, severity: decorations[i].severity }));
+    }
+
+    /**
+     * Upstream `_createDecorationRange`: the range is clamped to the text, and an empty one inside a line's text
+     * covers the word at it (a problem with only a line and column); on an empty line or past the text it stays
+     * empty.
+     */
+    private markerDecorationRange(range: IRange): IRange {
+        const lastLine = this.document.lineCount - 1;
+        const clamp = (position: IPosition): IPosition => {
+            const line = Math.min(Math.max(position.line, 0), lastLine);
+            return createPosition(line, Math.min(Math.max(position.character, 0), this.document.getLineLength(line)));
+        };
+        const start = clamp(range.start);
+        const end = clamp(range.end);
+        if (!positionsEqual(start, end)) return { start, end };
+        const text = this.document.getLineContent(start.line);
+
+        const maxCharacter = text.trimEnd().length || text.length;
+        // An empty line has `maxCharacter` 0, so it stays empty too.
+        if (end.character >= maxCharacter) return { start, end };
+        const word = getWordAtText(start.character, DEFAULT_WORD_REGEXP, text);
+        if (word === null) return { start, end };
+        return createRange(start.line, word.start, start.line, word.end);
     }
 
     public getMarkerDecorations(): IMarkerDecoration[] {

@@ -208,7 +208,7 @@ describe("XtermSurface — emulator from a lazy chunk", () => {
         session.dispose();
     }, 20000);
 
-    it("a shell that printed and exited before the chunk: output on screen, exit code as it was", async () => {
+    it("a shell that printed and exited before the chunk: the exit waits for the emulator, output first", async () => {
         const loader = holdLoader();
         const session = new EmbeddedTerminalSession({
             cols: 40,
@@ -216,16 +216,40 @@ describe("XtermSurface — emulator from a lazy chunk", () => {
             shell: "/bin/bash",
             args: ["-c", "echo early-bird; exit 3"],
         });
-        const code = await new Promise<number>((resolve) => {
+        const lines: string[] = [];
+        session.onLineData((line) => lines.push(line));
+        const exited = new Promise<number>((resolve) => {
             session.onExit(resolve);
         });
-        expect(code).toBe(3);
-        expect(row(session, 0, 40)).toBe("");
-        loader.release();
-        await session.xtermReady;
         await vi.waitFor(() => {
-            expect(row(session, 0, 40)).toBe("early-bird");
+            expect(session.isExited).toBe(true);
         });
+        loader.release();
+        expect(await exited).toBe(3);
+        // By the exit event the output is on screen and its lines are reported.
+        expect(row(session, 0, 40)).toBe("early-bird");
+        expect(lines).toStrictEqual(["early-bird"]);
+        session.dispose();
+    }, 20000);
+
+    it("the chunk failed to load after the shell exited: the exit keeps the shell's code", async () => {
+        setUnexpectedErrorHandler(() => {});
+        const loader = holdLoader();
+        const session = new EmbeddedTerminalSession({
+            cols: 40,
+            rows: 4,
+            shell: "/bin/bash",
+            args: ["-c", "exit 4"],
+        });
+        const exits = vi.fn();
+        session.onExit(exits);
+        await vi.waitFor(() => {
+            expect(session.isExited).toBe(true);
+        });
+        expect(exits).not.toHaveBeenCalled();
+        loader.fail(new Error("broken chunk"));
+        await session.xtermReady;
+        expect(exits.mock.calls).toStrictEqual([[4]]);
         session.dispose();
     }, 20000);
 

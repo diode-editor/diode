@@ -53,8 +53,11 @@ describe("ExtensionPtySession — emulator without a process", () => {
         session.onExit(exits);
         session.exit(undefined);
         session.exit(5);
-        expect(exits.mock.calls).toStrictEqual([[0]]);
         expect(session.isExited).toBe(true);
+        // The event waits for the emulator to parse the output written before the exit.
+        await vi.waitFor(() => {
+            expect(exits.mock.calls).toStrictEqual([[0]]);
+        });
         session.feed("late");
         session.write("x");
         session.resize(60, 12);
@@ -65,12 +68,14 @@ describe("ExtensionPtySession — emulator without a process", () => {
         session.dispose();
     });
 
-    it("exit with a code passes it as is", () => {
+    it("exit with a code passes it as is", async () => {
         const { session } = make();
         const exits = vi.fn();
         session.onExit(exits);
         session.exit(3);
-        expect(exits).toHaveBeenCalledWith(3);
+        await vi.waitFor(() => {
+            expect(exits).toHaveBeenCalledWith(3);
+        });
         session.dispose();
     });
 

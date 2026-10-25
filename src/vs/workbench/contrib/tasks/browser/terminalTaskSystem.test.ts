@@ -4,13 +4,15 @@ import { FakeEditorTerminals } from "../../../../../TestUtils/FakeEditorTerminal
 import { FakeExtensionPtySession } from "../../../../../TestUtils/FakeExtensionPtySession.ts";
 import { FakeTerminalSurface } from "../../../../../TestUtils/FakeTerminalSurface.ts";
 import { type ITaskFixtureOptions, makeTask, taskVariables } from "../../../../../TestUtils/taskFixtures.ts";
+import {
+    buildTerminalTaskSystemHarness,
+    describeTaskEvent,
+} from "../../../../../TestUtils/terminalTaskSystemHarness.ts";
 import { createTestConfigurationService } from "../../../../../TestUtils/testConfigurationService.ts";
 import { formatMessageForTerminal } from "../../../../platform/terminal/common/terminalStrings.ts";
 import { makeViewsHarness } from "../../../browser/parts/views/viewsService.testUtils.ts";
 import { TERMINAL_VIEW_ID, TerminalService } from "../../terminal/browser/terminalService.ts";
 import type { IExtensionPtyTerminalOptions } from "../../terminal/common/extensionPtyTerminals.ts";
-import type { ITerminalSessionOptions } from "../../terminal/common/terminalSessionFactory.ts";
-import type { ITaskVariableContext } from "../common/taskVariables.ts";
 import { TaskVariableError } from "../common/taskVariables.ts";
 
 import { type ITaskEvent, TerminalTaskSystem, waitOnExitOf } from "./terminalTaskSystem.ts";
@@ -19,82 +21,9 @@ const REUSE_MESSAGE = "Terminal will be reused by tasks, press any key to close 
 const executing = (text: string): string =>
     formatMessageForTerminal(`Executing task: ${text}`, { excludeLeadingNewLine: true });
 
-function buildHarness() {
-    const views = makeViewsHarness();
-    const sessions: FakeTerminalSurface[] = [];
-    const factoryCalls: ITerminalSessionOptions[] = [];
-    let nextPid = 100;
-    const terminals = new TerminalService(views.service, createTestConfigurationService({}), (options) => {
-        factoryCalls.push(options);
-        const session = new FakeTerminalSurface(options.shell ?? "/bin/sh", nextPid++);
-        sessions.push(session);
-        return session;
-    });
-    // A neighbor panel tab, for "panel visible, but not on the terminal".
-    views.service.registerContainer({ id: "other", title: "OTHER", location: "panel", order: 1 });
-    views.service.registerView({
-        id: "other",
-        containerId: "other",
-        title: "OTHER",
-        order: 1,
-        body: null,
-        placeholder: "",
-        focus: () => undefined,
-    });
-    views.service.attachRegisteredContainers();
-    const editorTerminals = new FakeEditorTerminals(terminals);
-    const system = new TerminalTaskSystem(terminals, views.service, () => "/bin/bash", editorTerminals);
-    const events: string[] = [];
-    const raw: ITaskEvent[] = [];
-    system.onDidStateChange((event) => {
-        raw.push(event);
-        events.push(describeEvent(event));
-    });
-    const focus = vi.fn();
-    terminals.onDidRequestFocus(focus);
-    let variables = taskVariables();
-    const context = () => ({ variables, platform: "linux" as const });
-    const setVariables = (overrides: Partial<ITaskVariableContext>): void => {
-        variables = taskVariables(overrides);
-    };
-    const dispose = (): void => {
-        system.dispose();
-        terminals.dispose();
-    };
-    return {
-        views,
-        terminals,
-        editorTerminals,
-        sessions,
-        factoryCalls,
-        system,
-        events,
-        raw,
-        focus,
-        context,
-        setVariables,
-        dispose,
-    };
-}
-
-function describeEvent(event: ITaskEvent): string {
-    switch (event.kind) {
-        case "changed":
-            return "changed";
-        case "processStarted":
-            return `processStarted:${event.task.name}:${String(event.processId)}`;
-        case "processEnded":
-            return `processEnded:${event.task.name}:${String(event.exitCode)}`;
-        case "terminated":
-            return `terminated:${event.task.name}:${event.exitReason}`;
-        default:
-            return `${event.kind}:${event.task.name}:${String(event.terminalId)}`;
-    }
-}
-
 describe("TerminalTaskSystem — running a shell task", () => {
     it("terminal: task name, system shell with -c and the command line, folder, message, wait; events in order", async () => {
-        const h = buildHarness();
+        const h = buildTerminalTaskSystemHarness();
         const task = makeTask({ label: "build", command: { name: "make", args: ["all"] } });
         const result = h.system.run(task, h.context());
         expect(result.kind).toBe("started");
@@ -125,7 +54,7 @@ describe("TerminalTaskSystem — running a shell task", () => {
     });
 
     it("definition in the start event — without _key, with resolved variables", () => {
-        const h = buildHarness();
+        const h = buildTerminalTaskSystemHarness();
         h.system.run(
             makeTask({
                 definition: {
@@ -152,7 +81,7 @@ describe("TerminalTaskSystem — running a shell task", () => {
     });
 
     it("variables in command, args, cwd, env and shell; a relative cwd is resolved against the folder", () => {
-        const h = buildHarness();
+        const h = buildTerminalTaskSystemHarness();
         h.system.run(
             makeTask({
                 command: {
@@ -180,7 +109,7 @@ describe("TerminalTaskSystem — running a shell task", () => {
     });
 
     it("absolute cwd as is; without a folder and cwd — the terminal cwd", () => {
-        const h = buildHarness();
+        const h = buildTerminalTaskSystemHarness();
         h.system.run(makeTask({ label: "a", command: { options: { cwd: "/abs" } } }), h.context());
         h.system.run(
             makeTask({ label: "b", folder: null, extension: { type: "t", extensionId: "e", source: "S" } }),
@@ -200,7 +129,7 @@ describe("TerminalTaskSystem — running a shell task", () => {
     });
 
     it("echo: false — no message; a configured shell without args — no -c", () => {
-        const h = buildHarness();
+        const h = buildTerminalTaskSystemHarness();
         h.system.run(
             makeTask({ presentation: { echo: false }, command: { options: { shell: { executable: "/bin/fish" } } } }),
             h.context(),
@@ -216,7 +145,7 @@ describe("TerminalTaskSystem — running a shell task", () => {
     });
 
     it("process: executable and args as values, the message is the space-joined command", () => {
-        const h = buildHarness();
+        const h = buildTerminalTaskSystemHarness();
         h.system.run(
             makeTask({
                 command: {
@@ -239,7 +168,7 @@ describe("TerminalTaskSystem — running a shell task", () => {
     });
 
     it("process without a command — empty string; echo: false — no message", () => {
-        const h = buildHarness();
+        const h = buildTerminalTaskSystemHarness();
         h.system.run(
             makeTask({
                 command: { runtime: "process", name: undefined, args: undefined },
@@ -252,7 +181,7 @@ describe("TerminalTaskSystem — running a shell task", () => {
     });
 
     it("unresolvable variable — throws before the terminal is created, no events", () => {
-        const h = buildHarness();
+        const h = buildTerminalTaskSystemHarness();
         expect(() => h.system.run(makeTask({ command: { name: "${input:x}" } }), h.context())).toThrow(
             TaskVariableError,
         );
@@ -262,7 +191,7 @@ describe("TerminalTaskSystem — running a shell task", () => {
     });
 
     it("the same task is already running — `active` with its promise, no second terminal", () => {
-        const h = buildHarness();
+        const h = buildTerminalTaskSystemHarness();
         const task = makeTask();
         const first = h.system.run(task, h.context());
         const second = h.system.run(makeTask(), h.context());
@@ -276,7 +205,7 @@ describe("TerminalTaskSystem — running a shell task", () => {
 
 describe("TerminalTaskSystem — revealing the terminal", () => {
     it("reveal always — the panel on the TERMINAL tab, without focus", () => {
-        const h = buildHarness();
+        const h = buildTerminalTaskSystemHarness();
         h.system.run(makeTask(), h.context());
         expect(h.views.panelService.visible).toBe(true);
         expect(h.views.panelService.getActiveViewId()).toBe(TERMINAL_VIEW_ID);
@@ -285,7 +214,7 @@ describe("TerminalTaskSystem — revealing the terminal", () => {
     });
 
     it("focus — the panel and focus in the terminal even with reveal never", () => {
-        const h = buildHarness();
+        const h = buildTerminalTaskSystemHarness();
         h.system.run(makeTask({ presentation: { reveal: "never", focus: true } }), h.context());
         expect(h.views.panelService.visible).toBe(true);
         expect(h.focus).toHaveBeenCalledTimes(1);
@@ -293,7 +222,7 @@ describe("TerminalTaskSystem — revealing the terminal", () => {
     });
 
     it("silent — not revealed on start or on code 0, revealed on non-zero", () => {
-        const h = buildHarness();
+        const h = buildTerminalTaskSystemHarness();
         h.system.run(makeTask({ label: "a", presentation: { reveal: "silent" } }), h.context());
         expect(h.views.panelService.visible).toBe(false);
         h.sessions[0].emitExit(0);
@@ -307,7 +236,7 @@ describe("TerminalTaskSystem — revealing the terminal", () => {
     });
 
     it("silent: task stopped — the terminal is not revealed (reveal only on process exit)", async () => {
-        const h = buildHarness();
+        const h = buildTerminalTaskSystemHarness();
         // Another terminal is open, so the panel does not hide with the last one.
         h.terminals.createInstance({});
         const task = makeTask({ presentation: { reveal: "silent" } });
@@ -318,7 +247,7 @@ describe("TerminalTaskSystem — revealing the terminal", () => {
     });
 
     it("never — not revealed on start or on error", () => {
-        const h = buildHarness();
+        const h = buildTerminalTaskSystemHarness();
         h.system.run(makeTask({ presentation: { reveal: "never" } }), h.context());
         h.sessions[0].emitExit(1);
         expect(h.views.panelService.visible).toBe(false);
@@ -326,7 +255,7 @@ describe("TerminalTaskSystem — revealing the terminal", () => {
     });
 
     it("revealTask/isTaskVisible: of a running and a finished task; without a terminal — false", () => {
-        const h = buildHarness();
+        const h = buildTerminalTaskSystemHarness();
         const a = makeTask({ label: "a", presentation: { reveal: "never" } });
         const b = makeTask({ label: "b", presentation: { reveal: "never", panel: "new" } });
         expect(h.system.revealTask(a)).toBe(false);
@@ -358,7 +287,7 @@ describe("TerminalTaskSystem — revealing the terminal", () => {
     });
 
     it("isTaskVisible: no terminals at all — false, even on an open TERMINAL tab", () => {
-        const h = buildHarness();
+        const h = buildTerminalTaskSystemHarness();
         h.views.panelService.setActiveView(TERMINAL_VIEW_ID);
         h.views.panelService.setVisible(true);
         expect(h.system.isTaskVisible(makeTask())).toBe(false);
@@ -366,7 +295,7 @@ describe("TerminalTaskSystem — revealing the terminal", () => {
     });
 
     it("revealTask of a running task — its current terminal, not the previous one where it finished", () => {
-        const h = buildHarness();
+        const h = buildTerminalTaskSystemHarness();
         const task = makeTask({ presentation: { reveal: "never", panel: "new" } });
         h.system.run(task, h.context());
         h.sessions[0].emitExit(0);
@@ -381,7 +310,7 @@ describe("TerminalTaskSystem — revealing the terminal", () => {
 describe("TerminalTaskSystem — revealing a task terminal moved into the editor area", () => {
     /** The task ran once, its idle terminal was moved into a tab and the panel was closed. */
     function movedToEditor(presentation: ITaskFixtureOptions["presentation"] = {}) {
-        const h = buildHarness();
+        const h = buildTerminalTaskSystemHarness();
         const task = makeTask({ presentation });
         h.system.run(task, h.context());
         h.sessions[0].emitExit(0);
@@ -463,7 +392,7 @@ describe("TerminalTaskSystem — revealing a task terminal moved into the editor
 
 describe("TerminalTaskSystem — task terminal by presentation.panel", () => {
     it("shared: an own waiting task restarts its terminal in place (clear gets through)", () => {
-        const h = buildHarness();
+        const h = buildTerminalTaskSystemHarness();
         const task = makeTask({ presentation: { clear: true } });
         h.system.run(task, h.context());
         h.sessions[0].emitExit(0);
@@ -483,7 +412,7 @@ describe("TerminalTaskSystem — task terminal by presentation.panel", () => {
     });
 
     it("shared: a waiting terminal of another task without a group is reused, with the new name", () => {
-        const h = buildHarness();
+        const h = buildTerminalTaskSystemHarness();
         h.system.run(makeTask({ label: "a" }), h.context());
         h.sessions[0].emitExit(0);
         h.system.run(makeTask({ label: "b" }), h.context());
@@ -494,7 +423,7 @@ describe("TerminalTaskSystem — task terminal by presentation.panel", () => {
     });
 
     it("shared: the group must match; the last freed goes first", () => {
-        const h = buildHarness();
+        const h = buildTerminalTaskSystemHarness();
         h.system.run(makeTask({ label: "a", presentation: { group: "g" } }), h.context());
         h.system.run(makeTask({ label: "b", presentation: { group: "g", panel: "shared" } }), h.context());
         h.system.run(makeTask({ label: "c" }), h.context());
@@ -515,7 +444,7 @@ describe("TerminalTaskSystem — task terminal by presentation.panel", () => {
     });
 
     it("shared: a repeated exit of the same task adds no entries; a restart takes its own", () => {
-        const h = buildHarness();
+        const h = buildTerminalTaskSystemHarness();
         const a = makeTask({ label: "a" });
         h.system.run(a, h.context());
         h.sessions[0].emitExit(0);
@@ -529,7 +458,7 @@ describe("TerminalTaskSystem — task terminal by presentation.panel", () => {
     });
 
     it("dedicated: only its own terminal; does not take another task's waiting one; does not give its own to shared", () => {
-        const h = buildHarness();
+        const h = buildTerminalTaskSystemHarness();
         const a = makeTask({ label: "a", presentation: { panel: "dedicated" } });
         h.system.run(a, h.context());
         h.sessions[0].emitExit(0);
@@ -544,7 +473,7 @@ describe("TerminalTaskSystem — task terminal by presentation.panel", () => {
     });
 
     it("new: always a new terminal, after exit — 'Press any key to close the terminal.'", () => {
-        const h = buildHarness();
+        const h = buildTerminalTaskSystemHarness();
         const task = makeTask({ presentation: { panel: "new" } });
         h.system.run(task, h.context());
         h.sessions[0].emitExit(0);
@@ -557,7 +486,7 @@ describe("TerminalTaskSystem — task terminal by presentation.panel", () => {
     });
 
     it("a waiting terminal closed by the user is forgotten — the next run creates a new one", () => {
-        const h = buildHarness();
+        const h = buildTerminalTaskSystemHarness();
         const shared = makeTask({ label: "a" });
         const dedicated = makeTask({ label: "b", presentation: { panel: "dedicated" } });
         h.system.run(shared, h.context());
@@ -574,7 +503,7 @@ describe("TerminalTaskSystem — task terminal by presentation.panel", () => {
     });
 
     it("shared: an own waiting terminal comes before any last freed one", () => {
-        const h = buildHarness();
+        const h = buildTerminalTaskSystemHarness();
         h.system.run(makeTask({ label: "a" }), h.context());
         h.system.run(makeTask({ label: "b" }), h.context());
         h.sessions[0].emitExit(0);
@@ -586,7 +515,7 @@ describe("TerminalTaskSystem — task terminal by presentation.panel", () => {
     });
 
     it("shared: a waiting terminal closed by the user leaves the queue — the next one takes a live one", () => {
-        const h = buildHarness();
+        const h = buildTerminalTaskSystemHarness();
         h.system.run(makeTask({ label: "a" }), h.context());
         h.system.run(makeTask({ label: "b" }), h.context());
         h.sessions[0].emitExit(0);
@@ -600,7 +529,7 @@ describe("TerminalTaskSystem — task terminal by presentation.panel", () => {
     });
 
     it("a closed task terminal is forgotten: revealTask does not show it; a non-task one — no errors", () => {
-        const h = buildHarness();
+        const h = buildTerminalTaskSystemHarness();
         const errors = vi.spyOn(console, "error").mockImplementation(() => undefined);
         const task = makeTask();
         h.system.run(task, h.context());
@@ -615,7 +544,7 @@ describe("TerminalTaskSystem — task terminal by presentation.panel", () => {
     });
 
     it("a shared task does not hold its terminal as dedicated: once dedicated, it creates a new one", () => {
-        const h = buildHarness();
+        const h = buildTerminalTaskSystemHarness();
         h.system.run(makeTask({ label: "a" }), h.context());
         h.sessions[0].emitExit(0);
         // b took a's idle terminal and finished too.
@@ -628,7 +557,7 @@ describe("TerminalTaskSystem — task terminal by presentation.panel", () => {
     });
 
     it("a reused terminal gets the new task's env", () => {
-        const h = buildHarness();
+        const h = buildTerminalTaskSystemHarness();
         h.system.run(makeTask({ label: "a" }), h.context());
         h.sessions[0].emitExit(0);
         h.system.run(makeTask({ label: "b", command: { options: { env: { X: "1" } } } }), h.context());
@@ -637,7 +566,7 @@ describe("TerminalTaskSystem — task terminal by presentation.panel", () => {
     });
 
     it("a waiting terminal failed to restart — the task gets a new one", () => {
-        const h = buildHarness();
+        const h = buildTerminalTaskSystemHarness();
         const task = makeTask({ label: "a" });
         h.system.run(task, h.context());
         h.sessions[0].emitExit(0);
@@ -649,7 +578,7 @@ describe("TerminalTaskSystem — task terminal by presentation.panel", () => {
     });
 
     it("close: true — the terminal closes itself, nothing to reuse", () => {
-        const h = buildHarness();
+        const h = buildTerminalTaskSystemHarness();
         const task = makeTask({ presentation: { close: true } });
         h.system.run(task, h.context());
         h.sessions[0].emitExit(0);
@@ -662,7 +591,7 @@ describe("TerminalTaskSystem — task terminal by presentation.panel", () => {
 
 describe("TerminalTaskSystem — stopping", () => {
     it("terminate: the terminal is closed, the task ends with Terminated(user), the promise has no code", async () => {
-        const h = buildHarness();
+        const h = buildTerminalTaskSystemHarness();
         const task = makeTask();
         const result = h.system.run(task, h.context());
         h.events.length = 0;
@@ -682,7 +611,7 @@ describe("TerminalTaskSystem — stopping", () => {
     });
 
     it("terminate of a non-running task — false; terminateAll — all running ones", async () => {
-        const h = buildHarness();
+        const h = buildTerminalTaskSystemHarness();
         await expect(h.system.terminate(makeTask())).resolves.toBe(false);
         h.system.run(makeTask({ label: "a" }), h.context());
         h.system.run(makeTask({ label: "b" }), h.context());
@@ -696,7 +625,7 @@ describe("TerminalTaskSystem — stopping", () => {
     });
 
     it("Kill of a running task's terminal from outside is also Terminated with the close reason", () => {
-        const h = buildHarness();
+        const h = buildTerminalTaskSystemHarness();
         h.system.run(makeTask(), h.context());
         h.terminals.closeInstance(1, "extension");
         expect(h.events.at(-1)).toBe("terminated:build:extension");
@@ -706,13 +635,13 @@ describe("TerminalTaskSystem — stopping", () => {
 
 describe("TerminalTaskSystem — rerunning the last task", () => {
     it("nothing to rerun — undefined", () => {
-        const h = buildHarness();
+        const h = buildTerminalTaskSystemHarness();
         expect(h.system.rerun(h.context())).toBeUndefined();
         h.dispose();
     });
 
     it("reevaluateOnRerun — variables resolved anew; without it — the same as last time", () => {
-        const h = buildHarness();
+        const h = buildTerminalTaskSystemHarness();
         h.setVariables({ env: { V: "1" } });
         h.system.run(makeTask({ label: "a", command: { name: "echo ${env:V}" } }), h.context());
         h.sessions[0].emitExit(0);
@@ -735,7 +664,7 @@ describe("TerminalTaskSystem — rerunning the last task", () => {
     });
 
     it("rerunning a running task without reevaluation — `active`, no new terminal", () => {
-        const h = buildHarness();
+        const h = buildTerminalTaskSystemHarness();
         const run = h.system.run(makeTask({ runOptions: { reevaluateOnRerun: false } }), h.context());
         const again = h.system.rerun(h.context());
         expect(again?.kind).toBe("active");
@@ -754,7 +683,7 @@ describe("TerminalTaskSystem — CustomExecution", () => {
             ...overrides,
         });
 
-    function withPty(h: ReturnType<typeof buildHarness>) {
+    function withPty(h: ReturnType<typeof buildTerminalTaskSystemHarness>) {
         const created: IExtensionPtyTerminalOptions[] = [];
         const sessions: FakeExtensionPtySession[] = [];
         h.system.setCustomExecutionTerminals({
@@ -775,7 +704,7 @@ describe("TerminalTaskSystem — CustomExecution", () => {
     }
 
     it("without a pty bridge — refusal with an explanation", () => {
-        const h = buildHarness();
+        const h = buildTerminalTaskSystemHarness();
         expect(() => h.system.run(customTask(), h.context())).toThrow(
             "Tasks with a custom execution need the extension host, which is not running.",
         );
@@ -785,7 +714,7 @@ describe("TerminalTaskSystem — CustomExecution", () => {
     });
 
     it("pty instance: name, 'Executing task: <label>', wait; processStarted with pid -1", () => {
-        const h = buildHarness();
+        const h = buildTerminalTaskSystemHarness();
         const { created } = withPty(h);
         h.system.run(customTask(), h.context());
         expect(created).toHaveLength(1);
@@ -797,7 +726,7 @@ describe("TerminalTaskSystem — CustomExecution", () => {
     });
 
     it("echo: false — no message; a rerun reuses its pty terminal but not a shell one", () => {
-        const h = buildHarness();
+        const h = buildTerminalTaskSystemHarness();
         const { created, sessions } = withPty(h);
         h.system.run(customTask({ presentation: { echo: false } }), h.context());
         expect(created[0]).not.toHaveProperty("message");
@@ -813,7 +742,7 @@ describe("TerminalTaskSystem — CustomExecution", () => {
     });
 
     it("dedicated: its own terminal of another kind is not taken; closing the previous one does not take away the new one", () => {
-        const h = buildHarness();
+        const h = buildTerminalTaskSystemHarness();
         const { created, sessions } = withPty(h);
         const shell = customTask({
             command: { runtime: "shell", name: "echo pty" },
@@ -836,7 +765,7 @@ describe("TerminalTaskSystem — CustomExecution", () => {
     });
 
     it("shared: its own terminal of another kind is not taken; the new kind evicts the previous one from the queue", () => {
-        const h = buildHarness();
+        const h = buildTerminalTaskSystemHarness();
         const { created, sessions } = withPty(h);
         const shell = customTask({ command: { runtime: "shell", name: "echo pty" } });
         const pty = customTask();
@@ -853,7 +782,7 @@ describe("TerminalTaskSystem — CustomExecution", () => {
     });
 
     it("the bridge did not find the instance — refusal", () => {
-        const h = buildHarness();
+        const h = buildTerminalTaskSystemHarness();
         h.system.setCustomExecutionTerminals({ createPtyInstance: () => 42 });
         expect(() => h.system.run(customTask(), h.context())).toThrow("Failed to create terminal for task pty");
         h.dispose();
@@ -864,6 +793,7 @@ describe("waitOnExitOf (upstream `getWaitOnExitValue`)", () => {
     const presentation = (overrides: Partial<Parameters<typeof waitOnExitOf>[0]> = {}) => ({
         echo: true,
         reveal: "always" as const,
+        revealProblems: "never" as const,
         focus: false,
         panel: "shared" as const,
         showReuseMessage: true,

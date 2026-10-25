@@ -14,6 +14,8 @@ export class FakeTerminalSurface extends EngineFakeTerminalSurface {
     public ansiColors: readonly number[] | undefined;
     private readonly inputAfterExit = new Emitter<void>();
     public readonly onDidInputAfterExit = this.inputAfterExit.event;
+    private readonly lineData = new Emitter<string>();
+    public readonly onLineData = this.lineData.event;
 
     public constructor(
         public shell = "/bin/bash",
@@ -29,6 +31,11 @@ export class FakeTerminalSurface extends EngineFakeTerminalSurface {
             return;
         }
         super.write(data);
+    }
+
+    /** Output lines as the emulator would report them. */
+    public emitLines(...lines: string[]): void {
+        for (const line of lines) this.lineData.fire(line);
     }
 
     public relaunch(options: ITerminalRelaunchOptions): void {

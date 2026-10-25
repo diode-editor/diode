@@ -228,7 +228,8 @@ export function taskToWire(task: ITask): IWireTask {
         ...(task.group !== undefined ? { group: task.group } : {}),
         ...(task.detail !== undefined ? { detail: task.detail } : {}),
         presentationOptions: presentationToWire(task.command.presentation),
-        problemMatchers: task.problemMatchers,
+        // Upstream's `TaskDTO.from`: names only, an inline matcher has no wire form.
+        problemMatchers: task.problemMatchers.filter((matcher) => typeof matcher === "string"),
         hasDefinedMatchers: task.hasDefinedMatchers,
         runOptions: { reevaluateOnRerun: task.runOptions.reevaluateOnRerun },
     };

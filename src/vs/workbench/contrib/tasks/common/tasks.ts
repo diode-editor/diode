@@ -1,7 +1,7 @@
-// Problem matchers are stored but affect nothing (see docs/TODO/Tasks.md).
-
 import type { IWorkspaceFolder } from "../../../../platform/workspace/common/iWorkspaceContextService.ts";
 import type { IKeyedTaskIdentifier } from "../../../api/common/taskIdentity.ts";
+
+import type { IProblemMatcher } from "./problemMatcher.ts";
 
 export type RuntimeType = "shell" | "process" | "custom";
 
@@ -37,9 +37,16 @@ export type RevealKind = "always" | "silent" | "never";
 
 export type PanelKind = "shared" | "dedicated" | "new";
 
+/**
+ * Controls whether the problems panel is revealed when running this task or not. Takes precedence over option
+ * "reveal". Default is "never".
+ */
+export type RevealProblemKind = "always" | "onProblem" | "never";
+
 export interface IPresentationOptions {
     readonly echo: boolean;
     readonly reveal: RevealKind;
+    readonly revealProblems: RevealProblemKind;
     readonly focus: boolean;
     readonly panel: PanelKind;
     readonly showReuseMessage: boolean;
@@ -52,6 +59,7 @@ export interface IPresentationOptions {
 export const DEFAULT_PRESENTATION: IPresentationOptions = {
     echo: true,
     reveal: "always",
+    revealProblems: "never",
     focus: false,
     panel: "shared",
     showReuseMessage: true,
@@ -96,6 +104,9 @@ export type TaskSource =
           readonly folder: IWorkspaceFolder | undefined;
       };
 
+/** A name (`$eslint-stylish`, resolved when the task runs) or an inline matcher from tasks.json. */
+export type TaskProblemMatcher = string | IProblemMatcher;
+
 export interface ITaskGroup {
     readonly id: string;
     readonly isDefault?: boolean;
@@ -120,7 +131,7 @@ export interface ITask {
     readonly hide?: boolean;
     /** The group is stored and sent to extensions, but there are no build/test groups yet, so runs ignore it. */
     readonly group?: ITaskGroup;
-    readonly problemMatchers: readonly string[];
+    readonly problemMatchers: readonly TaskProblemMatcher[];
     readonly hasDefinedMatchers: boolean;
     readonly runOptions: IRunOptions;
     /** Entry index in tasks.json `tasks`; absent for a provider task without customization. */
@@ -134,7 +145,7 @@ export interface ITaskCustomization {
     readonly hide?: boolean;
     readonly group?: ITaskGroup;
     readonly isBackground?: boolean;
-    readonly problemMatchers?: readonly string[];
+    readonly problemMatchers?: readonly TaskProblemMatcher[];
     readonly presentation?: Partial<IPresentationOptions>;
     readonly options?: ICommandOptions;
     readonly runOptions: IRunOptions;

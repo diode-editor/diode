@@ -5,6 +5,7 @@ import { Uri } from "../../../../base/common/uri.ts";
 import type { ITaskDefinitionSchema } from "../../../api/common/taskIdentity.ts";
 import type { IWireTask } from "../../../api/common/taskWireTypes.ts";
 
+import { getBuiltinProblemMatcher } from "./problemMatcher.ts";
 import { type ITaskFromWireContext, taskFromWire, taskToWire } from "./taskDto.ts";
 import { DEFAULT_PRESENTATION, DEFAULT_RUN_OPTIONS } from "./tasks.ts";
 
@@ -176,6 +177,7 @@ describe("taskFromWire", () => {
         ).toStrictEqual({
             echo: false,
             reveal: "never",
+            revealProblems: "never",
             focus: true,
             panel: "dedicated",
             showReuseMessage: false,
@@ -222,6 +224,12 @@ describe("taskFromWire", () => {
 });
 
 describe("taskToWire", () => {
+    it("matchers: names only, as upstream's TaskDTO.from; an inline matcher is left out", () => {
+        const inline = getBuiltinProblemMatcher("$go")!;
+        const wire = taskToWire(makeTask({ problemMatchers: ["$go", inline, "eslint-stylish"] }));
+        expect([wire.problemMatchers, wire.hasDefinedMatchers]).toStrictEqual([["$go", "eslint-stylish"], true]);
+    });
+
     it("tasks.json task: $core, folder, command line, presentation as numbers, no _key", () => {
         expect(taskToWire(makeTask({ label: "a", command: { name: "make" } }))).toStrictEqual({
             id: "$core.a",

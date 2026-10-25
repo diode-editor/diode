@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { makeTask } from "../../../../../TestUtils/taskFixtures.ts";
 
+import { getBuiltinProblemMatcher } from "./problemMatcher.ts";
 import {
     appendTaskEntry,
     applyTaskTemplate,
@@ -177,5 +178,13 @@ describe("customizationEntryOf", () => {
         });
         expect(customizationEntryOf({ ...npm(), group: { id: "test", isDefault: false } }).group).toBe("test");
         expect(customizationEntryOf({ ...npm(), group: { id: "test" } }).group).toBe("test");
+    });
+
+    it("only matcher names are written: an inline matcher has no JSON form here", () => {
+        const inline = getBuiltinProblemMatcher("$go")!;
+        expect(customizationEntryOf(npm({ problemMatchers: ["$tsc", inline, "$go"] })).problemMatcher).toStrictEqual([
+            "$tsc",
+            "$go",
+        ]);
     });
 });

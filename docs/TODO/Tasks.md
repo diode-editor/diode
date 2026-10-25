@@ -1,8 +1,8 @@
 # Tasks — задачи (tasks) в Diode
 
 Аналог задач VS Code: ядро редактора (`contrib/tasks/`, Run Task и соседи) и API
-расширений `vscode.tasks`. Первая итерация — **только запуск**: problem matchers не
-делаем. Устройство и отступления от эталона — [docs/arch/workbench/Tasks.md](../arch/workbench/Tasks.md),
+расширений `vscode.tasks`. Первая итерация — **только запуск**; problem matchers обычных задач —
+#808. Устройство и отступления от эталона — [docs/arch/workbench/Tasks.md](../arch/workbench/Tasks.md),
 провод — [docs/arch/Extensions.md](../arch/Extensions.md).
 
 Эталон — `src/vs/workbench/contrib/tasks/` и `api/{common,browser,node}/*Task*.ts`
@@ -60,12 +60,25 @@
   (шелл/процесс ↔ `CustomExecution`) — у эталона так можно, у нас такая задача получает новый
   терминал.
 - [ ] `task.quickOpen.showAll` (медленный одноуровневый пикер).
-- [ ] **Problem matchers — по мере надобности** (решение человека 2026-10-21: не «не будет», а когда
-  понадобятся). Сейчас `problemMatcher` (`$tsc`, `$eslint-stylish`, …) принимается и игнорируется;
-  `isBackground`-задача без матчера «бежит» до выхода процесса — так ведёт себя и эталон без
-  матчера. Вместе с матчерами: разбор вывода задачи в маркеры PROBLEMS (`IMarkerService`), фоновые
-  задачи с `beginsPattern`/`endsPattern`, Show Task Log, toggleProblems,
-  `task.problemMatchers.neverPrompt`.
+- [x] **Problem matchers обычных задач** (#808): встроенные матчеры эталона (`$msCompile`,
+  `$lessCompile`, `$gulp-tsc`, `$jshint`, `$jshint-stylish`, `$eslint-compact`, `$eslint-stylish`,
+  `$go`), inline-форма в tasks.json (полная схема, `base`, многострочный паттерн с `loop`), вывод
+  терминала задачи построчно → маркеры Problems по мере вывода, стратегия Clean, `applyTo`,
+  `presentation.revealProblems`.
+- [ ] Матчеры и паттерны расширений (`contributes.problemMatchers`/`problemPatterns`) и `$tsc` —
+  следующая issue цепочки. Пока такое имя — «can't be resolved» в лог `Tasks`.
+- [ ] Фоновые задачи с матчером (`background.beginsPattern`/`endsPattern`, `activeOnStart`,
+  `WatchingProblemCollector`): сейчас у `isBackground`-задачи матчер игнорируется с предупреждением в
+  лог `Tasks`, задача «бежит» до выхода процесса.
+- [ ] Пикер матчера при запуске («Continue without scanning the task output») и
+  `task.problemMatchers.neverPrompt` (решение человека 2026-10-24 — не сейчас).
+- [ ] Show Task Log; события `ProblemMatcherStarted`/`FoundErrors`/`Ended` (для `dependsOn`).
+- [ ] Хвост большого быстрого вывода теряется на выходе процесса (#808, тест
+  `embeddedTerminalSession.lineData.test.ts`, `skip`): процесс напечатал ~100 КБ и сразу вышел — последние
+  килобайты не доходят до `onData` node-pty (голый скрипт на node-pty теряет их в 1–2 прогонах из 40, и на 1.1.0,
+  и на 1.2.0-beta.13 эталона; таймаут уничтожения сокета ни при чём). У нас чаще: главный поток читает pty
+  медленнее, чем pty host VS Code. Выход сессии уже ждёт поздний вывод (`DataFlushTimeout` эталона), остальное —
+  ниже нас (node-pty/ядро); разбирать, если упрётся в реальный lint большого проекта.
 
 ## Не будет (вне цели)
 
