@@ -187,7 +187,7 @@ function entryLabel(entry: MenuEntry): string {
 
 const rowArg = (handle: string) => ({ $treeViewId: VIEW, $treeItemHandle: handle });
 
-const EDIT = CODICON_GLYPHS.edit;
+const EDIT = CODICON_GLYPHS.edit ?? "";
 
 describe("ExtensionTreeViewsAdapter — view/item/context menu", () => {
     it("a right click shows the row's items by `viewItem`, `navigation` first and groups apart", async () => {

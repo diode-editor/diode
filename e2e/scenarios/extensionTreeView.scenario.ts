@@ -14,7 +14,7 @@ import { defineScenario, repoRoot, type ScenarioDriver } from "./framework.ts";
 const sampleFile = resolve(repoRoot, "e2e", "fixtures", "sample.ts");
 const userData = resolve(repoRoot, "e2e", "fixtures", "user-data-with-tree-outline");
 /** The inline item's `$(edit)`, from the same table the menu renders. */
-const EDIT_GLYPH = CODICON_GLYPHS.edit;
+const EDIT_GLYPH = CODICON_GLYPHS.edit ?? "";
 
 async function clickText(editor: ScenarioDriver, needle: string): Promise<void> {
     const frame = await editor.waitForText((t) => t.includes(needle));
