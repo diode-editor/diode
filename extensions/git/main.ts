@@ -147,12 +147,13 @@ class GitDecorations {
                 if (typeof rawUri !== "string") return null;
                 const uri = vscode.Uri.parse(rawUri);
                 if (uri.scheme !== "file") return null;
-                const absPath = uri.fsPath;
-                if (toRepoRelativePath(this.repoRoot, absPath) === null) return null;
+                const relPath = toRepoRelativePath(this.repoRoot, uri.fsPath);
+                if (relPath === null) return null;
                 const ref = gitRefOf(rawRef);
                 // Working tree status says nothing about an arbitrary ref, so untracked
-                // files and renames count only for HEAD.
-                const entry = this.status.get(absPath);
+                // files and renames count only for HEAD. The status key is rebuilt from the
+                // relative path: on Windows `fsPath` and the git root differ in drive letter case.
+                const entry = this.status.get(path.join(this.repoRoot, ...relPath.split("/")));
                 if (rawRef === undefined && entry?.xy.startsWith("?") === true) return null;
                 const source =
                     ref === "HEAD" && entry !== undefined && entry.headRelPath !== entry.relPath
