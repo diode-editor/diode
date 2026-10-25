@@ -11,14 +11,9 @@ import type { ScenarioDriver } from "./framework.ts";
 import { defineScenario } from "./framework.ts";
 
 // `diode.icons.nerdFont: off` — a terminal font without Nerd Font symbols. Every cell is checked for the Private Use
-// Area: a text dump hides tofu, and a "word on the frame" check would pass with an icon next to it. Then the user
+// Area: a text dump hides tofu, and a "word on the frame" check would pass with an icon next to it. Glyphs tuidom
+// widgets draw themselves are covered too: folder chevrons, the read-only tab lock, completion kinds. Then the user
 // setting goes back to `on` and the icons return without a restart.
-
-/**
- * Glyphs drawn inside tuidom widgets (the tree chevrons) are not Diode's: the follow-up task of the chain moves them
- * to the setting, it needs an engine release.
- */
-const TUIDOM_WIDGET_GLYPHS = new Set(["\uf107", "\uf105"]);
 
 const APP_TS = [
     "function main(): number {",
@@ -39,6 +34,8 @@ function makeRepo(): string {
     const dir = mkdtempSync(join(tmpdir(), "diode-nerd-font-off-"));
     mkdirSync(join(dir, "src"));
     writeFileSync(join(dir, "src", "app.ts"), APP_TS);
+    mkdirSync(join(dir, "docs"));
+    writeFileSync(join(dir, "docs", "guide.md"), "# Guide\n");
     writeFileSync(join(dir, "README.md"), "# Demo\n");
     writeFileSync(join(dir, "Makefile"), "all:\n\techo build\n");
     git(dir, "init", "-q", "-b", "main");
@@ -52,18 +49,18 @@ function makeRepo(): string {
 
 const repoDir = makeRepo();
 
-function diodePua(frame: GridSnapshot): string[] {
+function puaGlyphs(frame: GridSnapshot): string[] {
     const found = new Set<string>();
     for (const cell of frame.cells) {
         const code = cell.char.codePointAt(0) ?? 0;
         const pua = (code >= 0xe000 && code <= 0xf8ff) || code >= 0xf0000;
-        if (pua && !TUIDOM_WIDGET_GLYPHS.has(cell.char)) found.add(cell.char);
+        if (pua) found.add(cell.char);
     }
     return [...found];
 }
 
 function expectNoPua(frame: GridSnapshot, step: string): void {
-    const found = diodePua(frame);
+    const found = puaGlyphs(frame);
     if (found.length > 0) {
         const codes = found.map((char) => `U+${(char.codePointAt(0) ?? 0).toString(16).toUpperCase()}`);
         throw new Error(`nerd-font-off/${step}: Private Use Area glyphs ${codes.join(", ")}\n${dumpFrame(frame)}`);
@@ -92,10 +89,13 @@ export default defineScenario({
     // The TypeScript server and git run in the extension host: the CI safety net runs this on Linux only.
     skipOn: ["win32", "darwin"],
     async run(editor) {
-        // The section chevron, the branch in the status bar and file names straight after the indent.
+        // The section chevron, folder chevrons (`src` is revealed, `docs` is collapsed), the branch in the status
+        // bar and file names straight after the indent.
         await editor.waitForText(
             (t) =>
                 t.includes("▾") &&
+                lineWith(t, " src")?.includes("▾ src") === true &&
+                lineWith(t, " docs")?.includes("▸ docs") === true &&
                 t.includes("⎇ main") &&
                 lineWith(t, "README.md")?.includes("  README.md") === true &&
                 t.includes("Makefile"),
@@ -112,6 +112,23 @@ export default defineScenario({
             timeoutMs: 30_000,
         });
         expectNoPua(problems, "problems");
+
+        // Completion kinds from the TypeScript server (it has answered with the diagnostics): `ƒ` for `Math.abs`.
+        await runCommand(editor, "View: Focus Active Editor Group");
+        await editor.sendKey("Ctrl+End");
+        // Key by key: `sendText` is a bracketed paste, which opens no completion list.
+        for (const key of "Math.") await editor.sendKey(key);
+        const completion = await editor.waitForText((t) => lineWith(t, "abs")?.includes("ƒ  abs") === true, {
+            timeoutMs: 30_000,
+        });
+        expectNoPua(completion, "completion");
+        await editor.capture("completion");
+        await editor.sendKey("Escape");
+        await editor.waitForText((t) => !t.includes("ƒ  abs"));
+        for (let i = 0; i < 5; i++) await editor.sendKey("Backspace");
+
+        await runCommand(editor, "File: Toggle Active Editor Read-only in Session");
+        expectNoPua(await editor.waitForText((t) => t.includes("• app.ts")), "read-only");
         await editor.capture("off");
 
         // Back to Nerd Font through the user settings file: `"off"` → `"on"`, saved, no restart.
@@ -126,7 +143,7 @@ export default defineScenario({
         const on = await editor.waitForText((t) => t.includes('"diode.icons.nerdFont": "on"') && !t.includes("⎇"), {
             timeoutMs: 10_000,
         });
-        if (diodePua(on).length === 0) {
+        if (puaGlyphs(on).length === 0) {
             throw new Error(`nerd-font-off/on: no Nerd Font glyph came back\n${frameToText(on)}`);
         }
         await editor.capture("on");
