@@ -4,6 +4,7 @@ import { BodyElement } from "@tuidom/elements/body/bodyElement";
 import { CommandActionsDIToken, registerAction } from "../../platform/actions/common/commandAction.ts";
 import type { CommandRegistry } from "../../platform/commands/common/commandRegistry.ts";
 import { CommandRegistryDIToken } from "../../platform/commands/common/commandRegistry.ts";
+import { IConfigurationServiceDIToken } from "../../platform/configuration/common/iConfigurationServiceDIToken.ts";
 import { ContextMenuServiceDIToken } from "../../platform/contextview/browser/contextMenuService.ts";
 import type { ServiceAccessor } from "../../platform/instantiation/common/diContainer.ts";
 import { token } from "../../platform/instantiation/common/diContainer.ts";
@@ -187,6 +188,17 @@ export class WorkbenchComponent extends Component {
         this.workbenchContextKeys = this.register(accessor.get(WorkbenchContextKeysDIToken));
 
         this.workbenchLayout = new WorkbenchLayoutElement();
+        // Upstream `SashSettingsController`: the delay applies live, without a restart.
+        const configuration = accessor.get(IConfigurationServiceDIToken);
+        const applySashHoverDelay = (): void => {
+            this.workbenchLayout.setSashHoverDelay(configuration.get("workbench.sash.hoverDelay"));
+        };
+        applySashHoverDelay();
+        this.register(
+            configuration.onDidChangeConfiguration((event) => {
+                if (event.affectsConfiguration("workbench.sash.hoverDelay")) applySashHoverDelay();
+            }),
+        );
         this.workbenchLayout.setCenterContent(this.editorPartComponent.view);
         this.workbenchLayout.setBottomPanel(panelComponent.view);
         // Full-height right column (upstream puts it on the side opposite the sidebar).

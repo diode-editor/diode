@@ -47,6 +47,7 @@ Input (each waits for the render to go idle)
   type <text>            types char by char like a user (popups see every char)
   paste <text>           bracketed paste as one block (the suggest popup does NOT open)
   click <x> <y> | --node SEL | --text "…"  [--right] [--double] [--ctrl|--shift|--alt]
+  hover <x> <y> | --node SEL | --text "…"   pointer move with no button held (hover)
   wheel up|down|left|right [<x> <y> | --node SEL] [--count N]
   resize <cols>x<rows>
 
@@ -362,6 +363,15 @@ async function cmdClick(args: ParsedArgs): Promise<void> {
         }
         await settle(client);
         emit(args, { x, y }, `click ${String(x)},${String(y)}`);
+    });
+}
+
+async function cmdHover(args: ParsedArgs): Promise<void> {
+    await withClient(args, async (client) => {
+        const { x, y } = await resolvePoint(client, args, 0);
+        await client.sendMouse({ action: "move", button: "none", x, y });
+        await settle(client);
+        emit(args, { x, y }, `hover ${String(x)},${String(y)}`);
     });
 }
 
@@ -694,6 +704,7 @@ const COMMANDS: Readonly<Record<string, (args: ParsedArgs) => Promise<void> | vo
     type: cmdType,
     paste: cmdPaste,
     click: cmdClick,
+    hover: cmdHover,
     wheel: cmdWheel,
     resize: cmdResize,
     screen: cmdScreen,

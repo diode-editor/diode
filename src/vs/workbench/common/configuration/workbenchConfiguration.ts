@@ -100,6 +100,18 @@ export const workbenchConfiguration = {
                 "Controls how to open items in trees and lists using the mouse (if supported). Note that some " +
                 "trees and lists might choose to ignore this setting if it is not applicable.",
         },
+        // Deviation: upstream defaults to 300. A one-cell sash in a terminal barely flickers when the
+        // cursor flies past, and instant feedback was preferred. `workbench.sash.size` is not
+        // supported: our sash is always one cell.
+        "workbench.sash.hoverDelay": {
+            scope: "window",
+            type: "number",
+            default: 0,
+            minimum: 0,
+            maximum: 2000,
+            description:
+                "Controls the hover feedback delay in milliseconds of the dragging area in between views/editors.",
+        },
         // We can't maximize a part, so `maximized*` means "visible". Like upstream, an empty part is not shown.
         "workbench.secondarySideBar.defaultVisibility": {
             scope: "window",
