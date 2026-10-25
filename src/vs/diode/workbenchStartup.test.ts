@@ -22,6 +22,7 @@ import { StateServiceDIToken } from "../platform/state/common/iStateService.ts";
 import { loadState } from "../platform/state/node/stateService.ts";
 import { computeThemeVars } from "../platform/theme/browser/themeStyleVars.ts";
 import { IWorkspaceContextServiceDIToken } from "../platform/workspace/common/iWorkspaceContextServiceDIToken.ts";
+import { ExtensionViewWelcomesDIToken } from "../workbench/api/browser/extensionViewWelcomes.ts";
 import { DiffEditorPane2 } from "../workbench/browser/parts/editor/diffEditorPane2.ts";
 import { TextEditorPane } from "../workbench/browser/parts/editor/textEditorPane.ts";
 import { WorkbenchComponentDIToken } from "../workbench/browser/workbenchComponent.ts";
@@ -245,6 +246,25 @@ describe("startWorkbench", () => {
                 items: [],
             },
         ]);
+    });
+
+    it("viewsWelcome entries register at startup: the empty extension view shows them", async () => {
+        const startup = setup();
+        const bookmarks: IExtension = {
+            ...MENU_EXTENSION,
+            id: "test.bookmarks",
+            manifest: {
+                ...MENU_EXTENSION.manifest,
+                contributes: {
+                    views: { explorer: [{ id: "test.bookmarks.view", name: "Bookmarks" }] },
+                    viewsWelcome: [{ view: "test.bookmarks.view", contents: "No bookmarks yet." }],
+                },
+            },
+        };
+
+        await startup.run(NO_TARGETS, [bookmarks]);
+
+        expect(startup.container.get(ExtensionViewWelcomesDIToken).getWelcome("test.bookmarks.view")).not.toBeNull();
     });
 
     it("workspace folder is set before mount (present by the ready phase)", async () => {
