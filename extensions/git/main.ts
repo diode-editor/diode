@@ -17,7 +17,7 @@ import { classifyGitStderr } from "./lib/classifyGitError.ts";
 import type { IDotGit } from "./lib/dotGit.ts";
 import { parseDotGit, refsRoot, upstreamRefPath } from "./lib/dotGit.ts";
 import { showFileAtRevision, toRepoRelativePath } from "./lib/gitShow.ts";
-import { fromGitUri, GIT_SCHEME, ORIGINAL_RESOURCE_COMMAND, toGitUri } from "./lib/gitUri.ts";
+import { fromGitUri, GIT_SCHEME, gitRefOf, ORIGINAL_RESOURCE_COMMAND, toGitUri } from "./lib/gitUri.ts";
 import { LOG_FORMAT_ARGS, parseLogZ } from "./lib/logParse.ts";
 import type { IStatusDecoration } from "./lib/map.ts";
 import { statusToDecoration, xyToResourceStates } from "./lib/map.ts";
@@ -147,12 +147,13 @@ class GitDecorations {
                 if (typeof rawUri !== "string") return null;
                 const uri = vscode.Uri.parse(rawUri);
                 if (uri.scheme !== "file") return null;
-                const absPath = uri.fsPath;
-                if (toRepoRelativePath(this.repoRoot, absPath) === null) return null;
-                const ref = typeof rawRef === "string" && rawRef !== "" ? rawRef : "HEAD";
+                const relPath = toRepoRelativePath(this.repoRoot, uri.fsPath);
+                if (relPath === null) return null;
+                const ref = gitRefOf(rawRef);
                 // Working tree status says nothing about an arbitrary ref, so untracked
-                // files and renames count only for HEAD.
-                const entry = this.status.get(absPath);
+                // files and renames count only for HEAD. The status key is rebuilt from the
+                // relative path: on Windows `fsPath` and the git root differ in drive letter case.
+                const entry = this.status.get(path.join(this.repoRoot, ...relPath.split("/")));
                 if (rawRef === undefined && entry?.xy.startsWith("?") === true) return null;
                 const source =
                     ref === "HEAD" && entry !== undefined && entry.headRelPath !== entry.relPath

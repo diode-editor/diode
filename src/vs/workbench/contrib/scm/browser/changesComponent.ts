@@ -310,7 +310,7 @@ export class ChangesComponent extends Component {
             this.list.toggleCollapsed(id);
             return;
         }
-        this.commands.execute("scm.action.openChanges", meta.change.uri.toString());
+        this.commands.execute("scm.action.openChanges", meta.change.uri.toString(), meta.change.group);
     }
 
     /**

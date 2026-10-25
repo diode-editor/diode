@@ -92,6 +92,21 @@ async function clickMenuItem(session: HeadlessApp["session"], label: string): Pr
     await session.click(col + 1, row);
 }
 
+/** A single click in the list only selects: four events in a row fit the double-click window. */
+async function doubleClick(session: HeadlessApp["session"], x: number, y: number): Promise<void> {
+    await session.sendMouse({ action: "press", button: "left", x, y });
+    await session.sendMouse({ action: "release", button: "left", x, y });
+    await session.sendMouse({ action: "press", button: "left", x, y });
+    await session.sendMouse({ action: "release", button: "left", x, y });
+}
+
+async function doubleClickRow(session: HeadlessApp["session"], rowId: string): Promise<void> {
+    const row = await session.waitForNode(rowId);
+    await doubleClick(session, row.box.x + 2, row.box.y);
+}
+
+const LINES = "one\ntwo\nthree\nfour\n";
+
 describe("SCM staging (functional e2e, spec SourceControl.md)", () => {
     let app: HeadlessApp | null = null;
 
@@ -321,5 +336,63 @@ describe("SCM staging (functional e2e, spec SourceControl.md)", () => {
         await session.waitForText((t) => !t.includes("Stage Changes"));
 
         expect(git(repo, "diff", "--cached", "--name-only").trim()).toBe("st.ts");
+    }, 120_000);
+    it("#812: Open Changes on an MM file — Changes diffs index ↔ working tree, Staged diffs HEAD ↔ index", async () => {
+        const repo = makeRepo({
+            committed: { "a.ts": LINES },
+            staged: { "a.ts": "one\nTWO\nthree\nfour\n" },
+            modify: { "a.ts": "one\nTWO\nthree\nFOUR\n" },
+        });
+        app = await open(repo);
+        const { session } = app;
+
+        await session.key("Alt+C");
+        await session.waitForText((t) => t.includes("Staged Changes"));
+
+        await doubleClickRow(session, "#scmRow-worktree-a-ts");
+        let frame = frameToText(await session.waitForText((t) => t.includes("a.ts (Working Tree)")));
+        // The working tree edit only: `four` is in the index, `two` only in HEAD.
+        expect(frame).toContain("four");
+        expect(frame).toContain("FOUR");
+        expect(frame).not.toContain("two");
+
+        await doubleClickRow(session, "#scmRow-index-a-ts");
+        frame = frameToText(await session.waitForText((t) => t.includes("a.ts (Index)")));
+        expect(frame).toContain("two");
+        expect(frame).toContain("TWO");
+        expect(frame).not.toContain("FOUR");
+        // Two tabs: the Staged diff does not replace the Changes one.
+        expect(frame).toContain("a.ts (Working Tree)");
+
+        // The index side is read-only: typing does not reach it.
+        await session.text("zz");
+        await session.waitForText((t) => t.includes("a.ts (Index)"));
+        expect(frameToText(await session.captureFrame())).not.toContain("zz");
+        expect(git(repo, "show", ":a.ts")).toBe("one\nTWO\nthree\nfour\n");
+    }, 120_000);
+
+    it("#812: a staged rename diffs HEAD by the old path; a staged new file with a space and Unicode shows the index", async () => {
+        const repo = makeRepo({ committed: { "old.ts": LINES } });
+        gitQ(repo, "mv", "old.ts", "moved.ts");
+        writeFileSync(join(repo, "my fïle.ts"), "brand new\n");
+        gitQ(repo, "add", "my fïle.ts");
+        app = await open(repo);
+        const { session } = app;
+
+        await session.key("Alt+C");
+        await session.waitForText((t) => t.includes("Staged Changes") && t.includes("moved.ts") && t.includes("my fïle.ts"));
+
+        await doubleClickRow(session, "#scmRow-index-moved-ts");
+        let frame = frameToText(await session.waitForText((t) => t.includes("moved.ts (Index)")));
+        // HEAD:old.ts equals the index: no added lines, not "the whole file is new".
+        expect(frame).toContain("three");
+        expect(frame).not.toMatch(/\d\+ +\S/u);
+
+        const list = frameToText(await session.captureFrame()).split("\n");
+        const y = list.findIndex((l) => l.includes("my fïle.ts") && !l.includes("(Index)"));
+        await doubleClick(session, list[y].indexOf("my fïle.ts") + 1, y);
+        frame = frameToText(await session.waitForText((t) => t.includes("my fïle.ts (Index)")));
+        expect(frame).toContain("brand new");
+        expect(session.getStderr()).not.toMatch(/Error|Exception|unhandled/i);
     }, 120_000);
 });

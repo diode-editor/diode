@@ -31,6 +31,12 @@ export const scmUrisArg = (context: unknown): readonly unknown[] => [(context as
 
 export const scmSingleUriArg = (context: unknown): readonly unknown[] => [(context as ScmMenuContext).uris[0]];
 
+/** The uri with its group: an `MM` file has one uri in two groups. */
+export const scmSingleResourceArgs = (context: unknown): readonly unknown[] => {
+    const ctx = context as ScmMenuContext;
+    return [ctx.uris[0], ctx.groups[0]];
+};
+
 export const scmSingleResource = (context: unknown): boolean => {
     const ctx = context as ScmMenuContext;
     return ctx.kind === "resource" && ctx.uris.length === 1;

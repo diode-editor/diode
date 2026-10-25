@@ -20,9 +20,13 @@ import {
     showScmAction,
 } from "./changesActions.ts";
 import { ChangesComponentDIToken } from "./changesComponent.ts";
+import type { IScmChange, ScmGroupId } from "./changesService.ts";
+import { ScmChangesServiceDIToken } from "./changesService.ts";
+import { OriginalResourceProviderDIToken } from "./quickDiffService.ts";
 import { ScmInputComponentDIToken } from "./scmInputComponent.ts";
 
-// scm.action.openChanges is covered end-to-end by workbench.changes.test.ts; here: target resolution and view mode.
+// scm.action.openChanges is covered end-to-end by workbench.changes.test.ts (pairs by group); here: target
+// resolution and view mode.
 
 function accessorWith(services: Map<unknown, unknown>): ServiceAccessor {
     return {
@@ -145,6 +149,79 @@ describe("scm.action.openFile", () => {
 });
 
 describe("scm.action.openChanges", () => {
+    it("takes the uri together with its group from the ScmContext open-context: an MM file is in two groups", () => {
+        const staged = { kind: "resource", uris: ["file:///repo/a.txt"], groups: ["index"] };
+        expect(scmOpenChangesAction.menus?.[0].args?.(staged)).toEqual(["file:///repo/a.txt", "index"]);
+        expect(scmOpenChangesAction.menus?.[0].visible?.(staged)).toBe(true);
+    });
+
+    /** git answers "no version" to everything, so each path ends in `openUri`; the requested refs tell the paths apart. */
+    function openChangesHarness(changes: readonly IScmChange[], cursor: IScmChange | null) {
+        const requested: string[] = [];
+        const editors = { openUri: vi.fn(), getEditors: () => [] };
+        const accessor = accessorWith(
+            new Map<unknown, unknown>([
+                [EditorServiceDIToken, editors],
+                [ChangesComponentDIToken, { getCursorChange: () => cursor }],
+                [ScmChangesServiceDIToken, { changes }],
+                [
+                    OriginalResourceProviderDIToken,
+                    {
+                        provideOriginalResource: (uri: Uri, ref: string) => {
+                            requested.push(`${uri.path}@${ref}`);
+                            return Promise.resolve(null);
+                        },
+                    },
+                ],
+            ]),
+        );
+        return { accessor, requested, editors };
+    }
+
+    const entry = (path: string, group: ScmGroupId): IScmChange => ({
+        uri: Uri.file(path),
+        status: "M",
+        colorId: "",
+        path: path.slice(1),
+        group,
+    });
+
+    it("an explicit uri wins over the cursor row; the group picks that uri's entry", async () => {
+        const merged = entry("/a.txt", "merge");
+        const staged = entry("/a.txt", "index");
+        const h = openChangesHarness([entry("/other.txt", "index"), merged, staged], entry("/b.txt", "index"));
+
+        await scmOpenChangesAction.run(h.accessor, staged.uri.toString(), "index");
+
+        // The index entry asks git for the index; the merge entry would open the file without asking.
+        expect(h.requested).toEqual([`/a.txt@~`]);
+        expect((h.editors.openUri.mock.calls[0][0] as Uri).path).toBe("/a.txt");
+    });
+
+    it("a uri without a group takes its first entry in the change set", async () => {
+        const h = openChangesHarness([entry("/other.txt", "merge"), entry("/a.txt", "index")], null);
+
+        await scmOpenChangesAction.run(h.accessor, Uri.file("/a.txt").toString());
+
+        expect(h.requested).toEqual([`/a.txt@~`]);
+    });
+
+    it("a group with no entry for the uri falls back to comparing with HEAD", async () => {
+        const h = openChangesHarness([entry("/a.txt", "merge")], null);
+
+        await scmOpenChangesAction.run(h.accessor, Uri.file("/a.txt").toString(), "index");
+
+        expect(h.requested).toEqual([`/a.txt@HEAD`]);
+    });
+
+    it("an empty uri argument means the cursor row, with its group", async () => {
+        const h = openChangesHarness([], entry("/c.txt", "index"));
+
+        await scmOpenChangesAction.run(h.accessor, "");
+
+        expect(h.requested).toEqual([`/c.txt@~`]);
+    });
+
     it("is a no-op without argument and without a file row under the cursor", () => {
         const component = { getCursorChange: () => null };
         const accessor = accessorWith(new Map<unknown, unknown>([[ChangesComponentDIToken, component]]));

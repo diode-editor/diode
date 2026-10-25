@@ -37,6 +37,18 @@ export function fromGitUri(uri: { scheme: string; query: string }): IGitUriParam
 }
 
 /**
+ * The index as a {@link ORIGINAL_RESOURCE_COMMAND} ref, like upstream's `~` (`getLeftResource` in
+ * `extensions/git/src/repository.ts`); the git uri stores it as `` (`git show :path`).
+ */
+export const INDEX_REF = "~";
+
+/** The ref a git uri stores for a command argument: none or empty is HEAD. */
+export function gitRefOf(rawRef: unknown): string {
+    if (rawRef === INDEX_REF) return "";
+    return typeof rawRef === "string" && rawRef !== "" ? rawRef : "HEAD";
+}
+
+/**
  * Counterpart of `QuickDiffProvider.provideOriginalResource`. The id is duplicated in the core
  * (`contrib/scm/browser/commandOriginalResourceProvider.ts`); a temporary
  * contract until the `scm` namespace, see docs/TODO/Diff.md#долг.

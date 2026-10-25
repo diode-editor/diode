@@ -3,13 +3,21 @@ import type { CommandAction } from "../../../../platform/actions/common/commandA
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import type { ServiceAccessor } from "../../../../platform/instantiation/common/diContainer.ts";
 import { parseChord, parseKeybinding } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
-import { scmSingleResource, scmSingleUriArg, viewMenuVisible } from "../../../browser/actions/menuContexts.ts";
+import {
+    scmSingleResource,
+    scmSingleResourceArgs,
+    scmSingleUriArg,
+    viewMenuVisible,
+} from "../../../browser/actions/menuContexts.ts";
 import { SidebarServiceDIToken } from "../../../browser/parts/sidebar/sidebarService.ts";
 import { EditorServiceDIToken } from "../../../services/editor/common/editorService.ts";
 import { SCM_CHANGES_VIEW_ID, SCM_VIEWLET_ID } from "../common/scmViews.ts";
 
 import { ChangesComponentDIToken } from "./changesComponent.ts";
+import type { IScmChange } from "./changesService.ts";
+import { ScmChangesServiceDIToken } from "./changesService.ts";
 import { openDiffWithHead } from "./compareWithHeadAction.ts";
+import { openScmChange } from "./openScmChange.ts";
 import { ScmInputComponentDIToken } from "./scmInputComponent.ts";
 
 export const showScmAction: CommandAction = {
@@ -73,8 +81,9 @@ export const scmOpenFileAction: CommandAction = {
 };
 
 /**
- * A file with no git version falls back to opening the file itself: its content is "all
- * new", and the notice is left to the palette.
+ * The row's group picks the pair (`openScmChange`): an `MM` file has one uri in two groups. A uri
+ * without a group takes its first entry; a file outside the change set is compared with HEAD, and
+ * a file with no git version falls back to opening the file itself.
  */
 export const scmOpenChangesAction: CommandAction = {
     id: "scm.action.openChanges",
@@ -86,11 +95,13 @@ export const scmOpenChangesAction: CommandAction = {
             menuId: MenuId.ScmContext,
             group: "1_open",
             order: 20,
-            args: scmSingleUriArg,
+            args: scmSingleResourceArgs,
             visible: scmSingleResource,
         },
     ],
-    run(accessor, rawUri) {
+    run(accessor, rawUri, rawGroup) {
+        const change = resolveScmChange(accessor, rawUri, rawGroup);
+        if (change !== null) return openScmChange(accessor, change);
         const uri = resolveScmUri(accessor, rawUri);
         if (!uri) return;
         return openDiffWithHead(accessor, uri).then(async (result) => {
@@ -98,6 +109,16 @@ export const scmOpenChangesAction: CommandAction = {
         });
     },
 };
+
+function resolveScmChange(accessor: ServiceAccessor, rawUri: unknown, rawGroup: unknown): IScmChange | null {
+    if (typeof rawUri !== "string" || rawUri === "") return accessor.get(ChangesComponentDIToken).getCursorChange();
+    const uri = Uri.parse(rawUri).toString();
+    return (
+        accessor
+            .get(ScmChangesServiceDIToken)
+            .changes.find((c) => c.uri.toString() === uri && (rawGroup === undefined || c.group === rawGroup)) ?? null
+    );
+}
 
 /** A pair of commands instead of a toggle, as in search and VS Code. */
 export const scmViewAsTreeAction: CommandAction = {

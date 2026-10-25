@@ -58,8 +58,16 @@
   синхронно → Commit выключен; вне репозитория скрыта.
 - **Id строк** (e2e-селектор `#id` матчит только `[A-Za-z0-9_-]`): `scmGroup-<group>`,
   `scmRow-<group>-<sanitized-path>`, `scmDir-<group>-<sanitized-path>`.
-- **Упрощения:** `openChanges` диффит с HEAD для обеих групп (index↔HEAD и worktree↔index не
-  различаются); stage конфликтного файла — без проверки маркеров (VS Code спрашивает); noVerify-семейство
+- **Open Changes — по группе строки**, как `getLeftResource`/`getRightResource` эталона
+  (`openScmChange.ts`): Changes — index ↔ рабочее дерево, Staged — HEAD ↔ index (правая сторона —
+  `git:`-снимок, только чтение; staged rename — HEAD по старому пути). `A` в Staged — слева пусто, `D` —
+  справа пусто; untracked и Merge Changes открывают сам файл. Заголовок — `a.ts (Working Tree)`,
+  `a.ts (Index)`, `a.ts (Deleted)`. Группа едет в команду вторым аргументом (Enter/клик, меню —
+  `scmSingleResourceArgs`; палитра — строка под курсором): у MM-файла один uri в двух группах. Index
+  ядро просит у расширения ref'ом `~` (`diode.scm.originalResource`), в git-uri он `""` (`git show :path`).
+  Отступление от эталона: для `A`/`D` эталон открывает одну сторону без диффа, у нас — дифф с пустой.
+  Uri вне набора изменений (вызов без группы) по-прежнему сравнивается с HEAD.
+- **Упрощения:** stage конфликтного файла — без проверки маркеров (VS Code спрашивает); noVerify-семейство
   без гейта конфигом и Amend-вариантов; Signed-off отложен; Delete Remote Tag выбирает из локальных тегов.
 
 ## Граф коммитов (секция GRAPH)
