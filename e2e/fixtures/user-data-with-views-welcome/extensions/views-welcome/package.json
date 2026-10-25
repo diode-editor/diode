@@ -1,0 +1,33 @@
+{
+    "name": "views-welcome",
+    "displayName": "Views Welcome",
+    "description": "E2E demo extension: an empty Bookmarks tree shows its viewsWelcome text and button; the button adds a bookmark, the tree replaces the welcome.",
+    "version": "0.0.1",
+    "publisher": "test",
+    "main": "./extension.js",
+    "engines": {
+        "vscode": "^1.0.0"
+    },
+    "contributes": {
+        "commands": [
+            {
+                "command": "welcomeDemo.add",
+                "title": "Bookmarks: Add Bookmark"
+            }
+        ],
+        "views": {
+            "explorer": [
+                {
+                    "id": "welcomeDemo.bookmarks",
+                    "name": "Bookmarks"
+                }
+            ]
+        },
+        "viewsWelcome": [
+            {
+                "view": "welcomeDemo.bookmarks",
+                "contents": "You have no bookmarks yet. Read [the bookmarks guide](https://example.invalid/bookmarks) to learn more.\n[Add Bookmark](command:welcomeDemo.add?%5B%22main.ts%22%5D)"
+            }
+        ]
+    }
+}

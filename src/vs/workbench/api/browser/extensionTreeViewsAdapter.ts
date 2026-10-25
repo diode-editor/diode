@@ -19,9 +19,12 @@ import type {
 } from "../common/treeViewWireTypes.ts";
 
 import { ExtensionTreeView, type IExtensionTreeViewHost } from "./extensionTreeView.ts";
+import type { ExtensionViewWelcomes } from "./extensionViewWelcomes.ts";
 
 export interface IExtensionTreeViewsAdapterServices {
     readonly views: ViewsService;
+    /** Puts the tree into its section, or the view's `viewsWelcome` while the tree has nothing to show. */
+    readonly welcomes: Pick<ExtensionViewWelcomes, "setTree">;
     readonly commands: CommandRegistry;
     readonly menus: MenuRegistry;
     readonly configuration: IConfigurationService;
@@ -40,7 +43,8 @@ interface IRegisteredTree {
 
 /**
  * Upstream `MainThreadTreeViews` + the `TreeViewPane` side: a registered tree becomes the body of its
- * contributed section (`ViewsService.setViewBody`), and the section's state goes back to the subprocess.
+ * contributed section (through {@link ExtensionViewWelcomes}, which shows `viewsWelcome` instead while
+ * the tree is empty), and the section's state goes back to the subprocess.
  * `visible` is "the section is expanded in the shown container", recomputed on every show and
  * expand/collapse.
  *
@@ -92,7 +96,7 @@ export class ExtensionTreeViewsAdapter implements IExtensionTreeViewsSink, IDisp
         store.add(tree);
         if (registration.showCollapseAll) store.add(this.registerCollapseAll(tree));
         this.trees.set(viewId, { tree, store });
-        this.services.views.setViewBody(viewId, tree.view);
+        this.services.welcomes.setTree(viewId, tree);
         tree.setVisible(this.isVisible(viewId));
     }
 
@@ -101,7 +105,7 @@ export class ExtensionTreeViewsAdapter implements IExtensionTreeViewsSink, IDisp
         if (registered === undefined) return;
         this.trees.delete(viewId);
         registered.store.dispose();
-        this.services.views.setViewBody(viewId, null);
+        this.services.welcomes.setTree(viewId, null);
         this.services.views.setViewTitle(viewId, undefined, null);
     }
 

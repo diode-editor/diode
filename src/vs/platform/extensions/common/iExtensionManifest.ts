@@ -96,6 +96,12 @@ export interface IExtensionContributions {
      */
     readonly views?: Readonly<Record<string, readonly IViewContribution[]>>;
 
+    /**
+     * Text and buttons of an extension view with nothing to show. Foreign data — the registrar
+     * (`api/browser/viewsWelcomeExtensionPoint.ts`) validates it.
+     */
+    readonly viewsWelcome?: unknown;
+
     /** Not strictly typed: the manifest is foreign data, the registrar validates it. */
     readonly semanticTokenTypes?: unknown;
     readonly semanticTokenModifiers?: unknown;

@@ -25,6 +25,10 @@ import { URLService, URLServiceDIToken } from "../../platform/url/common/url.ts"
 import { IUserDataProfilesServiceDIToken } from "../../platform/userDataProfile/common/userDataProfile.ts";
 import { IWorkspaceContextServiceDIToken } from "../../platform/workspace/common/iWorkspaceContextServiceDIToken.ts";
 import {
+    ExtensionViewWelcomes,
+    ExtensionViewWelcomesDIToken,
+} from "../../workbench/api/browser/extensionViewWelcomes.ts";
+import {
     LanguageFeatureContextKeys,
     LanguageFeatureContextKeysDIToken,
 } from "../../workbench/browser/languageFeatureContextKeys.ts";
@@ -612,6 +616,7 @@ export const workbenchModule: ContainerModule = (container) => {
     container.bind(LayoutServiceDIToken, LayoutService);
     container.bind(SidebarServiceDIToken, SidebarService);
     container.bind(ViewsServiceDIToken, ViewsService);
+    container.bind(ExtensionViewWelcomesDIToken, ExtensionViewWelcomes);
     container.bind(ViewProgressContributionDIToken, ViewProgressContribution);
     container.bind(ViewTitleActionsContributionDIToken, ViewTitleActionsContribution);
     container.bind(WorkbenchStateServiceDIToken, WorkbenchStateService);

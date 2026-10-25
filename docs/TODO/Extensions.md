@@ -25,7 +25,6 @@
 Секции ниже манифест принимает как `unknown` (индексная сигнатура `contributes`); тип и потребитель
 появляются вместе с фичей. `iconThemes`, `snippets` — пунктами выше и ниже.
 
-- [ ] `viewsWelcome` — в «UI-вкладах» ниже
 - [ ] `colors`
 - [ ] `debuggers`, `breakpoints`, `problemMatchers`, `problemPatterns`
 - [ ] `jsonValidation`
@@ -65,8 +64,11 @@
   команда `workbench.view.extension.<id>`, `<view>.focus`, неявный `onView:<id>` и его активация.
 - [ ] `visibility: hidden` — вид скрыт до явного показа (нужен начальный «скрыт» без записи в
   пользовательский выбор).
-- [ ] `viewsWelcome` — markdown-строки в `IViewWelcomeBlock[]` (ссылки `command:` — кнопки) со своим `when`;
-  потребитель — стоковый terraform (`terraform.providers`, `terraform.modules`…).
+- [x] `viewsWelcome` для видов расширений — `api/browser/viewsWelcomeExtensionPoint.ts` +
+  `extensionViewWelcomes.ts`: текст со ссылками, кнопки, `when`/`default`/`enablement` вживую,
+  `command:` с JSON-аргументами, `https:` наружу; потребитель — стоковый terraform (#823).
+- [ ] `viewsWelcome` для встроенных видов (`explorer`, `scm`, `workbench.explorer.emptyView`, …) —
+  сейчас чужие записи у них не показываются; иконки `$(name)` в тексте welcome рисуются как есть.
 - [ ] Иконки контейнеров и видов (codicon `$(name)` в переключателе), `contextualTitle`, `initialSize`,
   `group` (порядок чужого вида в контейнере).
 - [ ] Контекстное меню пункта переключателя («Move To», «Reset Location» — у эталона на иконке

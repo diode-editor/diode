@@ -4,6 +4,7 @@ import type { ITreeDataProvider, ITreeItem } from "@tuidom/elements/tree/iTreeDa
 import { TreeViewElement } from "@tuidom/elements/tree/treeViewElement";
 
 import { CODICON_GLYPHS } from "../../../base/common/codicons.generated.ts";
+import { Emitter } from "../../../base/common/event.ts";
 import type { IDisposable } from "../../../base/common/lifecycle.ts";
 import { Uri } from "../../../base/common/uri.ts";
 import type { ILogger } from "../../../platform/log/common/iLogger.ts";
@@ -12,6 +13,8 @@ import { HeaderBodyViewElement } from "../../browser/parts/views/headerBodyViewE
 import { ViewMessageElement } from "../../browser/parts/views/viewMessageElement.ts";
 import type { IExtensionTreeDataSource } from "../common/iExtensionTreeViewsSink.ts";
 import type { IWireTreeItem, IWireTreeViewReveal } from "../common/treeViewWireTypes.ts";
+
+import type { IWelcomeTree } from "./extensionViewWelcomes.ts";
 
 /** What a tree needs from the workbench; the adapter wires it to the services. */
 export interface IExtensionTreeViewHost {
@@ -49,7 +52,7 @@ const NO_CHILDREN: readonly IExtensionTreeNode[] = [];
  * section is visible, children when a node expands. A refresh keeps the old rows until the answer
  * arrives, and expansion and the cursor survive it by handle (the tree's key).
  */
-export class ExtensionTreeView implements IDisposable {
+export class ExtensionTreeView implements IWelcomeTree, IDisposable {
     public readonly view: TUIElement;
     private readonly tree: TreeViewElement<IExtensionTreeNode>;
     private readonly message = new ViewMessageElement();
@@ -79,6 +82,10 @@ export class ExtensionTreeView implements IDisposable {
     /** A redraw: the rows come from the last answers, the subprocess is not asked. */
     private redrawing = false;
     private readonly iconsListener: IDisposable;
+    /** Upstream `isTreeEmpty`: `true` until the first root answer, as upstream's `_isEmpty`. */
+    private empty = true;
+    private readonly onDidChangeWelcomeStateEmitter = new Emitter<void>();
+    public readonly onDidChangeWelcomeState = this.onDidChangeWelcomeStateEmitter.event;
 
     public constructor(
         public readonly viewId: string,
@@ -127,6 +134,12 @@ export class ExtensionTreeView implements IDisposable {
 
     public dispose(): void {
         this.iconsListener.dispose();
+        this.onDidChangeWelcomeStateEmitter.dispose();
+    }
+
+    /** Upstream `TreeViewPane.shouldShowWelcome`: an empty root and no message. */
+    public shouldShowWelcome(): boolean {
+        return this.empty && this.message.getText() === "";
     }
 
     /** A repeated registration: the new provider answers, the tree rereads, expansion stays by handle. */
@@ -166,7 +179,9 @@ export class ExtensionTreeView implements IDisposable {
     }
 
     public setMessage(message: string): void {
+        const before = this.shouldShowWelcome();
         this.message.setText(message);
+        if (this.shouldShowWelcome() !== before) this.onDidChangeWelcomeStateEmitter.fire();
     }
 
     public getMessage(): string {
@@ -249,6 +264,7 @@ export class ExtensionTreeView implements IDisposable {
         if (source !== this.source) return [...(this.lastChildren.get(key) ?? NO_CHILDREN)];
         const children = items.map((item) => this.nodeFor(item));
         this.lastChildren.set(key, children);
+        if (parent === undefined) this.setEmpty(children.length === 0);
         const firstExpanded = children.filter((node) => {
             const fresh = !this.seen.has(node.handle);
             this.seen.add(node.handle);
@@ -259,6 +275,12 @@ export class ExtensionTreeView implements IDisposable {
             void this.tree.expandElements(firstExpanded);
         });
         return children;
+    }
+
+    private setEmpty(empty: boolean): void {
+        const before = this.shouldShowWelcome();
+        this.empty = empty;
+        if (this.shouldShowWelcome() !== before) this.onDidChangeWelcomeStateEmitter.fire();
     }
 
     /** The root or an ancestor of the row failed in this reread. */
