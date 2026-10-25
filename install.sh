@@ -96,11 +96,48 @@ distro_family() {
     esac
 }
 
+# musl libc (Alpine and friends): ldd says so, or the musl loader is on disk.
+is_musl() {
+    if have ldd && ldd --version 2>&1 | grep -qi musl; then
+        return 0
+    fi
+    for loader in /lib/ld-musl-*; do
+        [ -e "$loader" ] && return 0
+    done
+    return 1
+}
+
+# The installed binary $1 did not start (its stderr is in $2): say why, missing shared
+# libraries when ldd can tell, the binary's own stderr otherwise, and fail. The file
+# stays where it is, so installing the library is enough, no second download.
+report_broken() {
+    say "! $1 is in place but does not start."
+    missing=""
+    if have ldd; then
+        missing="$(ldd "$1" 2>/dev/null | awk '/=> not found/ { print $1 }')"
+    fi
+    if [ -n "$missing" ]; then
+        say "! Missing shared libraries:"
+        printf '%s\n' "$missing" | sed 's/^/    /' >&2
+        if printf '%s\n' "$missing" | grep -qx 'libatomic\.so\.1' && [ "$(distro_family)" = debian ]; then
+            say "> Install it: sudo apt-get install libatomic1"
+        fi
+    else
+        say "! $1 --version failed with:"
+        cat "$2" >&2
+    fi
+    die "$1 does not start; fix the above and check with: $1 --version"
+}
+
 # --- binary --------------------------------------------------------------------
 
 install_binary() {
     case "$os" in
-        Linux)  asset_os=linux ;;
+        Linux)
+            asset_os=linux
+            # Release builds link against glibc; on musl they do not even start.
+            is_musl && die "musl libc (e.g. Alpine) is not supported: Diode builds need glibc. Use a glibc-based distro or --method=npm"
+            ;;
         Darwin) asset_os=macos ;;
         MINGW*|MSYS*|CYGWIN*|Windows_NT)
             die "Windows: use 'winget install DiodeEditor.Diode' or --method=npm" ;;
@@ -155,9 +192,9 @@ install_binary() {
     mkdir -p "$dir"
     chmod 755 "$tmp/$asset"
     mv -f "$tmp/$asset" "$dir/diode"
-    say "> Installed $dir/diode"
 
-    installed="$("$dir/diode" --version 2>/dev/null || true)"
+    installed="$("$dir/diode" --version 2>"$tmp/run.err")" || report_broken "$dir/diode" "$tmp/run.err"
+    say "> Installed $dir/diode"
     [ -n "$installed" ] && say "> diode ${installed}"
 
     case ":$PATH:" in

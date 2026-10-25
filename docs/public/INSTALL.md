@@ -3,7 +3,8 @@
 Every channel below delivers the same single-file binary from
 [GitHub Releases](https://github.com/diode-editor/diode/releases): Linux x64/arm64, macOS
 x64/arm64, Windows x64. The Node.js runtime, the TypeScript language server and ripgrep are
-inside; nothing else is needed.
+inside. On Linux it needs glibc (musl distros such as Alpine are not supported), libstdc++ and
+libatomic; the `.deb` pulls them in, minimal images may lack `libatomic1`.
 
 ## Quick install (Linux, macOS)
 
@@ -13,7 +14,9 @@ curl -fsSL https://raw.githubusercontent.com/diode-editor/diode/main/install.sh 
 
 Puts `diode` into `/usr/local/bin` when writable, otherwise into `~/.local/bin`. Run it again to
 update. To let a package manager own the install and the updates instead, add
-`-s -- --method=apt` (or `brew`, `npm`) after `sh`.
+`-s -- --method=apt` (or `brew`, `npm`) after `sh`. The script runs the installed binary once and
+fails with the missing libraries named if it does not start; on musl it refuses before
+downloading.
 
 ## npm
 
