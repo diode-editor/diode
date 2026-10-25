@@ -2845,5 +2845,20 @@
       "xlarge",
       "log500m"
     ]
+  },
+  {
+    "file": "2026-10-25-3dcece405ead.json",
+    "generatedAt": "2026-10-25T15:21:44.194Z",
+    "commit": "3dcece405ead",
+    "binaryVersion": "nightly-3dcece4",
+    "ci": true,
+    "conditions": "CI, shared runner (GitHub Actions)",
+    "sizes": [
+      "small",
+      "medium",
+      "large",
+      "xlarge",
+      "log500m"
+    ]
   }
 ]
