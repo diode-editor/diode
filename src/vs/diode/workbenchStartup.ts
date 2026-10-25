@@ -11,7 +11,9 @@ import type { IExtension } from "../platform/extensions/common/iExtension.ts";
 import type { ServiceAccessor } from "../platform/instantiation/common/diContainer.ts";
 import { KeybindingRegistryDIToken } from "../platform/keybinding/common/keybindingRegistry.ts";
 import type { ILogger } from "../platform/log/common/iLogger.ts";
+import { ExtensionViewWelcomesDIToken } from "../workbench/api/browser/extensionViewWelcomes.ts";
 import { registerExtensionViews } from "../workbench/api/browser/viewsExtensionPoint.ts";
+import { readViewsWelcome } from "../workbench/api/browser/viewsWelcomeExtensionPoint.ts";
 import { ViewsServiceDIToken } from "../workbench/browser/parts/views/viewsService.ts";
 import { WorkbenchComponentDIToken } from "../workbench/browser/workbenchComponent.ts";
 import { EditorServiceDIToken } from "../workbench/services/editor/common/editorService.ts";
@@ -77,6 +79,9 @@ export async function startWorkbench(
         notify: (message) => notifications.show({ severity: "warn", message, modal: false, items: [] }),
         logger: options.extensionsLogger,
     });
+    accessor
+        .get(ExtensionViewWelcomesDIToken)
+        .registerContents(readViewsWelcome(options.extensions, options.extensionsLogger));
 
     // Without an explicit folder the window is empty — no scan of the current directory.
     if (options.workspace !== undefined) {

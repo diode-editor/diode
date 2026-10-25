@@ -94,6 +94,16 @@ requiresWorkspaceFolder?, canMoveView?}`. `containerId` —
 `placeholder: IViewWelcomeBlock[]` — интерактивным `ViewWelcomeElement`
 (`viewWelcomeElement.ts`): абзацы с переносом по словам и кнопки, каждая
 зовёт команду по id (как `[label](command:id)` в `viewsWelcome` эталона).
+Абзац (`kind: "paragraph"`) может нести ссылки: подпись рисуется в тексте
+цветом `textLink.foreground` с подчёркиванием и переносится вместе с ним;
+у каждой ссылки — фокусируемый ребёнок на её первом куске (Tab, Enter/Space,
+клик), клик по перенесённому хвосту ловит сам элемент. Сфокусированная
+ссылка выглядит как сфокусированная кнопка. Цель кнопки и ссылки —
+`{ command, args }` или `{ url }` (внешняя ссылка расширения). Поле
+`enablement` у кнопки или ссылки — непрозрачное условие, которое элемент
+отдаёт `updateEnablement(isEnabled)`: ложное приглушает
+(`disabledForeground`), выводит из Tab-обхода и гасит действие — как
+`precondition` эталона.
 Кнопки — обычные `ButtonElement`, то есть фокусируемые: их достаёт штатный
 Tab-обход движка, а `focusContainer` при показе секции ставит фокус на
 первую из них вместо `focus()` дескриптора — из состояния «папка не открыта»
@@ -257,7 +267,7 @@ layout'а находит их.
   тоже. Список с элементом без `id` отбрасывается целиком; дубль id и
   неизвестный `type` — ошибка в лог, вид пропускается.
 - **Тело — дерево расширения**: до `createTreeView`/`registerTreeDataProvider`
-  секция пустая, как у эталона (`viewsWelcome` — следующая задача); регистрация
+  секция пустая (или welcome, см. ниже); регистрация
   ставит телом `ExtensionTreeView` (`api/browser/extensionTreeView.ts`: строка
   `TreeView.message` над `TreeViewElement`) через `ExtensionTreeViewsAdapter` —
   см. «Деревья расширений» в [Extensions.md](../Extensions.md). Дерево для
@@ -279,11 +289,32 @@ layout'а находит их.
 - **`<view>.focus`** есть у каждого вида (чат-расширения зовут его перед
   сообщением в панель, Supermaven): у древовидного — `openView(id, true)`,
   фокус на заголовок секции (`focusViewHeader`); в палитру не попадает.
+- **`viewsWelcome`** (`api/browser/viewsWelcomeExtensionPoint.ts` — разбор,
+  `api/browser/extensionViewWelcomes.ts` — показ). Записи собираются по id
+  вида в порядке манифеста при старте (`workbenchStartup`) и отдаются
+  синглтону `ExtensionViewWelcomes`; id не проверяется — вид может прийти
+  позже или быть чужим, у встроенных видов записи не показываются. Запись без
+  строковых `view`/`contents` — строка в лог; `group` (proposed API)
+  игнорируется. Тело секции решает `ExtensionViewWelcomes` (аналог
+  `ViewWelcomeController` + `TreeViewPane.shouldShowWelcome`): welcome, пока
+  дерева нет или его корень пуст (до первого ответа — тоже пуст, как
+  `_isEmpty` эталона) **и** `TreeView.message` пуст **и** подходит хоть одна
+  запись; иначе дерево. Подходят все записи с истинным `when` (без `when` —
+  всегда), `"default"` — только если других нет. Строка `contents` — абзац,
+  строка из одной ссылки — кнопка, пустые пропускаются; между строками —
+  пустая строка (аналог отступов абзацев и кнопок эталона). `command:<id>?<JSON>`
+  — команда с аргументами (массив — как есть, иначе одним аргументом, как
+  `CommandOpener`), `http(s):` — `IExternalOpener`, прочие схемы — ничего.
+  Пересчёт — на каждое изменение `ContextKeyService` (`setContext`
+  расширения, `config.*`); тот же набор записей оставляет элемент (и фокус),
+  меняется только `enablement`. Адаптер деревьев ставит тело не сам, а через
+  `ExtensionViewWelcomes.setTree`.
 - **Активация.** `contributes.views` даёт неявный `onView:<id>`
   (`activationEvents.ts`), `bindViewActivation` (проводка в
   `extensionHostModule`) активирует его на `onDidShowView` любого вида — как
   эталон; показ до регистрации расширений ждёт барьера `ExtensionService`.
-- Не поддержаны: `visibility: hidden`, `viewsWelcome`, иконки контейнеров и
+- Не поддержаны: `visibility: hidden`, `viewsWelcome` для встроенных видов
+  (`explorer`, `scm`, …), иконки `$(name)` в тексте welcome, иконки контейнеров и
   видов, `contextualTitle`, `initialSize`, `group` — [трекер](../../TODO/Extensions.md#ui-вклады-viewscontainers--views).
 
 ## Общие контролы списков
