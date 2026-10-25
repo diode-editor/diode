@@ -1,5 +1,5 @@
 {
-    "$comment": "Known flaky tests: vitest retries (retry) or skips (skip) them, see src/TestUtils/flakeTestRunner.ts. Process and details: docs/TODO/TestFlakes.md.",
+    "$comment": "Known flaky tests, unit and e2e: vitest retries (retry) or skips (skip) them, see src/TestUtils/flakeTestRunner.ts. A screenshot scenario is keyed by its *.scenario.ts file and name (e2e/scenarios/suite.ts); optional platforms limits an entry to those process.platform values. Process and details: docs/TODO/TestFlakes.md.",
     "flakes": [
         {
             "file": "src/vs/workbench/browser/parts/editor/editorComponent.diskReload.test.ts",
@@ -78,6 +78,33 @@
             "test": "UserDataProfilesService > removeProfile > once the last profile is removed, the registry and binding keys leave the file",
             "action": "retry",
             "note": "ENOENT on storage.json after flushSync: the debounced writeAsync clears `dirty` before its awaits, so a flushSync landing in that window writes nothing and the file is read before the async write lands; job test on #799 (run 40078667744)"
+        },
+        {
+            "file": "e2e/scenarios/regionFolding.scenario.ts",
+            "test": "region-folding",
+            "action": "retry",
+            "note": "the provider fold did not appear in 20 attempts: maptz.regionfolder is late on a slow runner (runs 40006403681, 40093826414)"
+        },
+        {
+            "file": "e2e/scenarios/settings-completion.scenario.ts",
+            "test": "settings-completion",
+            "action": "retry",
+            "note": "waitUntil timed out after 4000ms on the `editor.` completion popup (run 39947482759)"
+        },
+        {
+            "file": "e2e/scenarios/searchNextResult.scenario.ts",
+            "test": "searchNextResult",
+            "action": "retry",
+            "note": "waitUntil timed out after 10000ms (runs 39858081412, 39874481793)"
+        },
+        {
+            "file": "e2e/extensionUpdates.stage3.functional.test.ts",
+            "test": "Extension auto-update — QA of stage 3 (functional e2e, HTTP registry) > US-3.1/US-3.2/US-3.3: when the registry is asked > US-3.3: many clock moves in a row — exactly one check per 12 hours, no piled-up timers",
+            "action": "retry",
+            "platforms": [
+                "win32"
+            ],
+            "note": "expected 1 to be 2: the second update check did not reach the registry after the clock moves (run 40034642872)"
         }
     ]
 }

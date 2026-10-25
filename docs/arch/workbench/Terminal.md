@@ -109,6 +109,26 @@ node-pty на Unix — `pty.node` + бинарь `spawn-helper` (нужен то
   `activeTerminal` для расширений ([Extensions.md](../Extensions.md)), активный инстанс вида TERMINAL
   он не меняет. **Отступления:** нет `confirmOnKill`, иконки терминала на вкладке, окон.
 
+## Клавиши в фокусе терминала
+
+Как `attachCustomKeyEventHandler` эталона (`terminalInstance.ts`): в фокусе терминала (вид или вкладка)
+клавиша — шелла, редактор забирает только своё. `TerminalKeyRouting`
+(`contrib/terminal/browser/terminalKeyRouting.ts`) ставит хук `isKeyForFocusedWidget` диспетчера
+([Commands.md](Commands.md)); диспетчер спрашивает его вне аккорда, передав `softResolveKey` — что
+клавиша сделала бы. Порядок:
+
+1. идёт аккорд или клавиша его начинает (`allowChords`, не Escape) → редактору;
+2. `sendKeybindingsToShell` выключен, бинд найден и (Meta **или** команда в skip-наборе) → редактору;
+3. `allowMnemonics`, клавиатура не Mac, зажат Alt → редактору (мнемоники меню);
+4. иначе шеллу — если терминал её кодирует. Отданную терминалу клавишу не видят и мнемоники.
+
+Skip-набор — `DEFAULT_COMMANDS_TO_SKIP_SHELL` эталона вместе с командами `terminalContrib`
+(`common/configuration/terminalCommandsToSkipShell.ts`, дословно, включая id, которых у нас нет) ±
+`terminal.integrated.commandsToSkipShell` (`-<id>` убирает). Настройки применяются на лету.
+**Отступление:** xterm.js нет — «терминал не кодирует» значит `encodeKeyForPty(event) === ""` (tuidom):
+такая клавиша (Ctrl+, , Ctrl+Shift+буква) достаётся бинду редактора, как всплывший из xterm keydown.
+Нет `TabFocus`-режима и Alt+F4 на Windows.
+
 ## Терминал задачи
 
 Как `TerminalInstance` эталона: `waitOnExit` (процесс вышел — инстанс остаётся, сообщение о коде и текст

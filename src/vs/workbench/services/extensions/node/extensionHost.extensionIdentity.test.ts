@@ -3,11 +3,7 @@ import * as path from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import {
-    createExtensionTestHarness,
-    EXTENSION_FIXTURES_DIR,
-    type SubprocessLoader,
-} from "../../../../../TestUtils/ExtensionTestHarness.ts";
+import { createExtensionTestHarness, EXTENSION_FIXTURES_DIR } from "../../../../../TestUtils/ExtensionTestHarness.ts";
 import { settle } from "../../../../../TestUtils/timing.ts";
 
 import type { IExtensionRegistration } from "./iExtensionEntry.ts";
@@ -61,49 +57,47 @@ interface IReport {
     readonly builtin: IComparison | null;
 }
 
-const LOADERS: readonly SubprocessLoader[] = ["node", "tsx"];
-
-for (const loader of LOADERS) {
-    describe(`ExtensionHost — each extension gets its own vscode (loader: ${loader})`, () => {
-        it("CJS, ESM and builtin get distinct objects with shared value types and live getters", async () => {
-            const harness = await createExtensionTestHarness({
-                subprocessLoader: loader,
-                extensions: [
-                    registration("alpha", "extension.cjs"),
-                    registration("esm", "extension.mjs"),
-                    builtinRegistration(),
-                    // Last: its command reads the probes of the others.
-                    registration("beta", "extension.cjs"),
-                ],
-            });
-            try {
-                const first = harness.writeFile("first.txt", "one\n");
-                harness.group.openFile(first);
-                await settle();
-                const report = (await harness.commandRegistry.execute("test.identity.report")) as IReport;
-                expect(report).toEqual({
-                    distinct: true,
-                    distinctCommands: true,
-                    helperSame: true,
-                    samePosition: true,
-                    sameEnv: true,
-                    activeAlpha: first,
-                    activeBeta: first,
-                    esm: { distinctWindow: true, samePosition: true, sameEnv: true, activeFile: first },
-                    builtin: { distinctWindow: true, samePosition: true, sameEnv: true, activeFile: first },
-                });
-
-                // The getter is read on every access, not captured when the overlay is built.
-                const second = harness.writeFile("second.txt", "two\n");
-                harness.group.openFile(second);
-                await settle();
-                const after = (await harness.commandRegistry.execute("test.identity.report")) as IReport;
-                expect([after.activeAlpha, after.activeBeta, after.esm?.activeFile, after.builtin?.activeFile]).toEqual(
-                    [second, second, second, second],
-                );
-            } finally {
-                await harness.dispose();
-            }
+describe("ExtensionHost — each extension gets its own vscode", () => {
+    it("CJS, ESM and builtin get distinct objects with shared value types and live getters", async () => {
+        const harness = await createExtensionTestHarness({
+            extensions: [
+                registration("alpha", "extension.cjs"),
+                registration("esm", "extension.mjs"),
+                builtinRegistration(),
+                // Last: its command reads the probes of the others.
+                registration("beta", "extension.cjs"),
+            ],
         });
+        try {
+            const first = harness.writeFile("first.txt", "one\n");
+            harness.group.openFile(first);
+            await settle();
+            const report = (await harness.commandRegistry.execute("test.identity.report")) as IReport;
+            expect(report).toEqual({
+                distinct: true,
+                distinctCommands: true,
+                helperSame: true,
+                samePosition: true,
+                sameEnv: true,
+                activeAlpha: first,
+                activeBeta: first,
+                esm: { distinctWindow: true, samePosition: true, sameEnv: true, activeFile: first },
+                builtin: { distinctWindow: true, samePosition: true, sameEnv: true, activeFile: first },
+            });
+
+            // The getter is read on every access, not captured when the overlay is built.
+            const second = harness.writeFile("second.txt", "two\n");
+            harness.group.openFile(second);
+            await settle();
+            const after = (await harness.commandRegistry.execute("test.identity.report")) as IReport;
+            expect([after.activeAlpha, after.activeBeta, after.esm?.activeFile, after.builtin?.activeFile]).toEqual([
+                second,
+                second,
+                second,
+                second,
+            ]);
+        } finally {
+            await harness.dispose();
+        }
     });
-}
+});

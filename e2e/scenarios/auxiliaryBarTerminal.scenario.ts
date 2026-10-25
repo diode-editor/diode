@@ -26,6 +26,11 @@ export default defineScenario({
     },
     // A real PTY is Linux-only on CI, as in terminal.scenario.ts.
     skipOn: ["win32", "darwin"],
+    // With the terminal focused its keys go to the shell (#820); like in VS Code, the user's own bindings
+    // pressed from there have to be in the skip set.
+    settings: {
+        "terminal.integrated.commandsToSkipShell": ["workbench.action.moveFocusedView", "workbench.action.reloadWindow"],
+    },
     userKeybindings: [
         { key: "ctrl+alt+t", command: "workbench.action.terminal.focus" },
         { key: "ctrl+alt+m", command: "workbench.action.moveFocusedView" },

@@ -4,7 +4,8 @@ import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
 
-import { loadScenarios, runScenario, scenarioFiles } from "./framework.ts";
+import { FLAKE_RETRY, readTestFlakes, TestFlakeIndex } from "../../src/TestUtils/testFlakes.ts";
+import { loadScenarioFiles, repoRoot, runScenario, scenarioFiles } from "./framework.ts";
 
 // CI safety net: every screenshot scenario must still produce PNGs against the real binary — no domain assertions.
 // Slices, because a single file takes minutes in one worker, and a flake retries it as a whole.
@@ -18,9 +19,10 @@ export const HEAVY_SCENARIOS: readonly string[] = ["java-lsp.scenario.ts", "java
 const e2eDir = resolve(fileURLToPath(new URL(".", import.meta.url)), "..");
 
 export async function scenarioSuite(index: number | "heavy"): Promise<void> {
-    const scenarios = await loadScenarios((file, i) =>
+    const scenarios = await loadScenarioFiles((file, i) =>
         index === "heavy" ? HEAVY_SCENARIOS.includes(file) : !HEAVY_SCENARIOS.includes(file) && i % SCENARIO_SLICES === index - 1,
     );
+    const flakes = new TestFlakeIndex(repoRoot, readTestFlakes(repoRoot), process.platform);
 
     describe(`screenshot scenarios ${String(index)}/${String(SCENARIO_SLICES)}`, () => {
         it("the slice is non-empty and there are exactly as many slice files as slices", () => {
@@ -33,8 +35,12 @@ export async function scenarioSuite(index: number | "heavy"): Promise<void> {
             expect(scenarioFiles().length).toBeGreaterThanOrEqual(SCENARIO_SLICES);
         });
 
-        for (const spec of scenarios) {
+        for (const { file, spec } of scenarios) {
+            // The slice of a scenario moves as scenarios are added, so test-flakes.json keys it by its own file and
+            // name; FlakeTestRunner never matches the slice test, but prints the retried pass.
+            const flake = flakes.find(file, spec.name);
             const skip =
+                flake?.action === "skip" ||
                 (spec.skipOn?.includes(process.platform) ?? false) ||
                 (spec.network === true && process.env.DIODE_E2E_OFFLINE === "1") ||
                 spec.requires?.() !== undefined;
@@ -45,7 +51,8 @@ export async function scenarioSuite(index: number | "heavy"): Promise<void> {
             // 300s is not enough: the java-lsp case includes installing a 139 MB platform vsix, importing a maven
             // project and starting TWO JVMs (syntax + standard server). Same convention as
             // `IMarketplaceCheck.timeoutMs`.
-            it.skipIf(skip)(`renders "${spec.name}"`, { timeout: spec.timeoutMs ?? 300_000 }, async () => {
+            const options = { timeout: spec.timeoutMs ?? 300_000, ...(flake?.action === "retry" ? { retry: FLAKE_RETRY } : {}) };
+            it.skipIf(skip)(`renders "${spec.name}"`, options, async () => {
                 const shots = await runScenario(spec);
 
                 expect(shots.length).toBeGreaterThan(0);

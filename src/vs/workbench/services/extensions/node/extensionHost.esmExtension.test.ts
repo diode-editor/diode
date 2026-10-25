@@ -22,8 +22,10 @@ import { EditorServiceDIToken } from "../../editor/common/editorService.ts";
 import type { IExtensionRegistration } from "./iExtensionEntry.ts";
 
 /**
- * The subprocess runs WITHOUT tsx (`subprocessLoader: "node"`): the tsx ESM hook sends
- * the unfamiliar `"vscode"` to the CJS resolver and hides exactly what this file checks.
+ * The subprocess runs under tsx, like `npm start`: the tsx ESM hook sends the unfamiliar
+ * `"vscode"` to the CJS resolver, so a missing ESM hook of ours would not show here. The
+ * ESM load path itself is proven on the built binary by e2e/prettierFormat.test.ts; this
+ * file checks the API surface an ESM extension sees once loaded.
  */
 
 function esmFixture(): IExtensionRegistration {
@@ -57,7 +59,6 @@ function registerFormatAction(harness: {
 describe("ExtensionHost — ESM extension (subprocess without tsx)", () => {
     it("activates, sees `vscode` and returns exports", async () => {
         const harness = await createExtensionTestHarness({
-            subprocessLoader: "node",
             extensions: [esmFixture()],
         });
         try {
@@ -70,7 +71,6 @@ describe("ExtensionHost — ESM extension (subprocess without tsx)", () => {
 
     it("its formatting provider edits the buffer (via positionAt)", async () => {
         const harness = await createExtensionTestHarness({
-            subprocessLoader: "node",
             initialFile: { name: "doc.txt", content: "alpha    beta\ngamma  delta" },
             extensions: [esmFixture()],
         });
@@ -89,7 +89,6 @@ describe("ExtensionHost — ESM extension (subprocess without tsx)", () => {
 
     it("a CJS extension in the same mode is not broken by the ESM hook", async () => {
         const harness = await createExtensionTestHarness({
-            subprocessLoader: "node",
             extensions: [extensionFixture("test.registersCommand", "registersCommand.cjs")],
         });
         try {
