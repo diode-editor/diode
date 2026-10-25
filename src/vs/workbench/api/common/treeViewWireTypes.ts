@@ -77,6 +77,15 @@ export interface IWireTreeViewGetChildren {
     readonly parentHandle?: string;
 }
 
+/**
+ * Upstream `TreeViewItemHandleArg`: a `view/item/context` command's argument for a row. The subprocess turns it
+ * back into the provider's element before the command runs (`extHostTreeViews` `processArgument`).
+ */
+export interface IWireTreeItemHandleArg {
+    readonly $treeViewId: string;
+    readonly $treeItemHandle: string;
+}
+
 export interface IWireTreeViewItemRef {
     readonly viewId: string;
     readonly handle: string;

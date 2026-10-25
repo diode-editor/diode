@@ -34,6 +34,8 @@ export interface IViewsHarness {
     readonly commands: CommandRegistry;
     readonly contextKeys: ContextKeyService;
     readonly workspace: WorkspaceContextService;
+    /** Records into {@link shown}. */
+    readonly contextMenu: ContextMenuService;
     /** The last one is the most recent. */
     readonly shown: IContextMenuDelegate[];
     readonly stored: Map<string, unknown>;
@@ -149,6 +151,7 @@ export function makeViewsHarness(
         commands,
         contextKeys,
         workspace,
+        contextMenu,
         shown,
         stored,
         openWorkspace: () => {

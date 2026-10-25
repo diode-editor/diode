@@ -5,12 +5,15 @@ import {
     LanguageFeaturesServiceDIToken,
 } from "../../editor/common/services/languageFeatures.ts";
 import { MenuRegistryDIToken } from "../../platform/actions/common/menuRegistry.ts";
+import { MenuServiceDIToken } from "../../platform/actions/common/menuService.ts";
 import { ClipboardDIToken } from "../../platform/clipboard/common/iClipboard.ts";
 import { CommandRegistryDIToken } from "../../platform/commands/common/commandRegistry.ts";
 import type { ConfigurationRegistry } from "../../platform/configuration/common/configurationRegistry.ts";
 import { ConfigurationRegistryDIToken } from "../../platform/configuration/common/configurationRegistryDIToken.ts";
 import type { IConfigurationService } from "../../platform/configuration/common/iConfigurationService.ts";
 import { IConfigurationServiceDIToken } from "../../platform/configuration/common/iConfigurationServiceDIToken.ts";
+import { ContextKeyServiceDIToken } from "../../platform/contextkey/common/contextKeyService.ts";
+import { ContextMenuServiceDIToken } from "../../platform/contextview/browser/contextMenuService.ts";
 import { IEnvironmentServiceDIToken } from "../../platform/environment/common/environment.ts";
 import { extensionKey } from "../../platform/extensions/common/extensionDependencies.ts";
 import type { IExtension } from "../../platform/extensions/common/iExtension.ts";
@@ -341,6 +344,9 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
                 welcomes: container.get(ExtensionViewWelcomesDIToken),
                 commands: container.get(CommandRegistryDIToken),
                 menus: container.get(MenuRegistryDIToken),
+                menuService: container.get(MenuServiceDIToken),
+                contextMenu: container.get(ContextMenuServiceDIToken),
+                contextKeys: container.get(ContextKeyServiceDIToken),
                 configuration: configService,
                 workspace: workspaceContext,
                 colors: themeColorResolver,

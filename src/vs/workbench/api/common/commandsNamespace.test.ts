@@ -15,6 +15,7 @@ function createBridge(
     getActiveTextEditor?: () => vscode.TextEditor | undefined,
     owner?: ExtensionOwner,
     apiCommands?: ReadonlyMap<string, (...args: unknown[]) => unknown>,
+    processArgument?: (arg: unknown) => unknown,
 ): {
     commands: ReturnType<typeof buildCommandsNamespace>;
     host: HostRpc;
@@ -23,7 +24,7 @@ function createBridge(
     const [chSub, chHost] = createInProcessChannelPair();
     const sub: SubprocessRpc = new RpcEndpoint(chSub);
     const host: HostRpc = new RpcEndpoint(chHost);
-    const commands = buildCommandsNamespace(sub, getActiveTextEditor, owner, apiCommands);
+    const commands = buildCommandsNamespace(sub, getActiveTextEditor, owner, apiCommands, processArgument);
     return {
         commands,
         host,
@@ -138,6 +139,19 @@ describe("CommandsNamespace (subprocess)", () => {
 
         expect(result).toBe("ran");
         expect(seen).toEqual([[1, 2]]);
+        dispose();
+    });
+
+    it("host → subprocess: each argument goes through the argument processor before the callback", async () => {
+        const { commands, host, dispose } = createBridge(undefined, undefined, undefined, (arg) =>
+            arg === "row" ? { element: "row" } : arg,
+        );
+        const seen: unknown[][] = [];
+        commands.registerCommand("ext.row", (...args) => seen.push(args));
+
+        await host.request("commands.executeCommand", { id: "ext.row", args: ["row", 2] });
+
+        expect(seen).toEqual([[{ element: "row" }, 2]]);
         dispose();
     });
 

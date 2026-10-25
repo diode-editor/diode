@@ -714,7 +714,8 @@ export function createWindowNamespace(
     const windowNs = {
         // There are no webviews, but without these members an extension with a chat panel failed activation entirely.
         ...createWebviewNoopMembers(rpc),
-        ...treeViews,
+        registerTreeDataProvider: treeViews.registerTreeDataProvider,
+        createTreeView: treeViews.createTreeView,
 
         createStatusBarItem,
         // The message item has no owner: its id has no extension prefix.

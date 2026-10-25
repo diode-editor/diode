@@ -22,6 +22,11 @@ export class MenuId {
      * resolves it with its own `view` key, so an extension's `when: view == <id>` holds there.
      */
     public static readonly ViewTitle = new MenuId("ViewTitle");
+    /**
+     * `view/item/context`: a row of an extension's tree. The tree resolves it per row with its own `view` and
+     * `viewItem` keys; the `inline` group is the row's glyph buttons, the rest its context menu.
+     */
+    public static readonly ViewItemContext = new MenuId("ViewItemContext");
     /** Filtered by `menuContext.container` (`containerMenuVisible`). */
     public static readonly ViewContainerTitle = new MenuId("ViewContainerTitle");
     public static readonly MenubarMainMenu = new MenuId("MenubarMainMenu");

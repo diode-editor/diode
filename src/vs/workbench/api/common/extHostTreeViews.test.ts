@@ -382,6 +382,59 @@ describe("extHostTreeViews — rows", () => {
     });
 });
 
+describe("extHostTreeViews — processArgument (view/item/context arguments)", () => {
+    it("a row's handle becomes the very element the provider returned, an array of them each element", async () => {
+        const { members, children } = setup();
+        const a = node("a", [node("a1")]);
+        const b = node("b");
+        members.createTreeView("v", { treeDataProvider: provider(() => [a, b]) });
+        await children();
+        await children("0/0:a");
+        const handleOf = (handle: string) => ({ $treeViewId: "v", $treeItemHandle: handle });
+        expect(members.processArgument(handleOf("0/0:a"))).toBe(a);
+        expect(members.processArgument(handleOf("0/0:a/0:a1"))).toBe(a.children?.[0]);
+        const selection = members.processArgument([handleOf("0/0:a"), handleOf("0/0:b"), 7]) as unknown[];
+        expect(selection).toEqual([a, b, 7]);
+        expect(selection[1]).toBe(b);
+    });
+
+    it("an unknown row or view is undefined; anything that is not a handle passes through as is", async () => {
+        const { members, children } = setup();
+        members.createTreeView("v", { treeDataProvider: provider(() => [node("a")]) });
+        await children();
+        expect(members.processArgument({ $treeViewId: "v", $treeItemHandle: "0/0:gone" })).toBeUndefined();
+        expect(members.processArgument({ $treeViewId: "other", $treeItemHandle: "0/0:a" })).toBeUndefined();
+        const plain = { $treeViewId: "v" };
+        expect(members.processArgument(plain)).toBe(plain);
+        const numericHandle = { $treeViewId: "v", $treeItemHandle: 1 };
+        expect(members.processArgument(numericHandle)).toBe(numericHandle);
+        const numericView = { $treeViewId: 1, $treeItemHandle: "0/0:a" };
+        expect(members.processArgument(numericView)).toBe(numericView);
+        expect(members.processArgument(null)).toBeNull();
+        expect(members.processArgument("0/0:a")).toBe("0/0:a");
+        expect(members.processArgument([])).toEqual([]);
+    });
+
+    it("a row refreshed with a new element under the same id resolves to the new element", async () => {
+        const { members, children, stub } = setup();
+        const first = new TreeItem("first");
+        first.id = "same";
+        let roots = [node(first)];
+        const data = provider(() => roots);
+        members.createTreeView("v", { treeDataProvider: data });
+        await children();
+        const second = new TreeItem("second");
+        second.id = "same";
+        roots = [node(second)];
+        data.changed.fire(undefined);
+        await vi.waitFor(() => {
+            expect(requests(stub, "treeView.refresh")).toHaveLength(1);
+        });
+        await children();
+        expect(members.processArgument({ $treeViewId: "v", $treeItemHandle: "1/same" })).toBe(roots[0]);
+    });
+});
+
 describe("extHostTreeViews — TreeView state", () => {
     it("visible, expansion and selection follow the host, each change once", async () => {
         const { members, children, stub } = setup();

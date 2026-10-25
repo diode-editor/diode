@@ -328,6 +328,32 @@ describe("MenuRegistry", () => {
     });
 });
 
+describe("MenuRegistry — getMenuContexts", () => {
+    it("collects the keys of the menu's when, enablement and toggled; other menus and junk add nothing", () => {
+        const { registry } = setup([
+            { menuId: MenuId.ViewItemContext, command: "a", when: "view == x && viewItem =~ /env/" },
+            { menuId: MenuId.ViewItemContext, command: "b", enablement: "!busy", toggled: "config.on" },
+            { menuId: MenuId.ViewItemContext, command: "c", when: "&& broken" },
+            { menuId: MenuId.ViewItemContext, command: "d" },
+            { menuId: MenuId.ViewTitle, command: "e", when: "other" },
+        ]);
+        registry.appendMenuItem({
+            menuId: MenuId.ViewItemContext,
+            submenu: MenuId.EditorContext,
+            title: "More",
+            when: "sub",
+        });
+        expect([...registry.getMenuContexts(MenuId.ViewItemContext)].sort()).toEqual([
+            "busy",
+            "config.on",
+            "sub",
+            "view",
+            "viewItem",
+        ]);
+        expect([...registry.getMenuContexts(MenuId.EditorContext)]).toEqual([]);
+    });
+});
+
 describe("MenuRegistry — enablement", () => {
     const item = (extra: Partial<IMenuContribution> = {}): IMenuContribution => ({
         menuId: MenuId.ExplorerContext,

@@ -8,6 +8,7 @@ import { TestApp } from "../../../../TestUtils/TestApp.ts";
 import { flushMicrotasks } from "../../../../TestUtils/timing.ts";
 import { CODICON_GLYPHS } from "../../../base/common/codicons.generated.ts";
 import { CODICON_UNICODE } from "../../../base/common/codiconsUnicode.ts";
+import { Event } from "../../../base/common/event.ts";
 import { getFileIcon } from "../../../base/common/fileIcons.ts";
 import type { ILogger } from "../../../platform/log/common/iLogger.ts";
 import { computeThemeVars } from "../../../platform/theme/browser/themeStyleVars.ts";
@@ -94,6 +95,10 @@ function mount(
             hasColor: (token) => typeof vars[token] === "number",
             relativeDirectory: (uri) => `dir-of(${uri})`,
             icons: NERD_FONT_ICONS,
+            itemMenu: () => [],
+            onDidChangeItemMenu: Event.None,
+            showContextMenu: () => undefined,
+            executeCommand: () => undefined,
             logger,
             ...options.host,
         },

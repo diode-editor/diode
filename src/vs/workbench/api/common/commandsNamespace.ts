@@ -9,13 +9,15 @@ type CommandHandler = (...args: unknown[]) => unknown;
 
 /**
  * `apiCommands` (`vscode.open`…) run right here and are not declared to the host;
- * the extension id from `owner` ends up in stderr warnings.
+ * the extension id from `owner` ends up in stderr warnings. `processArgument` is upstream's argument
+ * processor: each argument of a command the host runs is turned back into an extension object (a tree row).
  */
 export function buildCommandsNamespace(
     rpc: SubprocessRpc,
     getActiveTextEditor?: () => vscode.TextEditor | undefined,
     owner?: ExtensionOwner,
     apiCommands: ReadonlyMap<string, CommandHandler> = new Map(),
+    processArgument: (arg: unknown) => unknown = (arg) => arg,
 ): typeof vscode.commands {
     const localCommands = new Map<string, CommandHandler>();
 
@@ -25,7 +27,7 @@ export function buildCommandsNamespace(
         if (handler === undefined) {
             throw new Error(`command "${id}" not found in subprocess`);
         }
-        return handler(...args);
+        return handler(...args.map(processArgument));
     });
 
     const registerCommand = (
