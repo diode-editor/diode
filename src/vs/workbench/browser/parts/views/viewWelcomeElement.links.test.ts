@@ -142,6 +142,68 @@ describe("ViewWelcomeElement — links in text", () => {
         expect(opened).toEqual([{ label: "Learn more about providers", url: "https://example.invalid/providers" }]);
     });
 
+    it("a click on the first and last column of a link opens it; the columns around it do not", () => {
+        const { welcome, opened } = make([{ kind: "paragraph", nodes: ["ab ", { label: "go", command: "go" }, " c"] }]);
+        const app = TestApp.createWithContent(welcome, SCREEN);
+        app.render();
+
+        // " ab go c": the link is at columns 4 and 5.
+        for (const x of [0, 3, 6, 7]) mouse(app, x, 0);
+        expect(opened).toEqual([]);
+        mouse(app, 4, 0);
+        mouse(app, 5, 0);
+        expect(opened).toHaveLength(2);
+    });
+
+    it("a link right at the start of the line is not under the indent column", () => {
+        const { welcome, opened } = make([{ kind: "paragraph", nodes: [{ label: "go", command: "go" }] }]);
+        const app = TestApp.createWithContent(welcome, SCREEN);
+        app.render();
+
+        mouse(app, 0, 0);
+        expect(opened).toEqual([]);
+        mouse(app, 1, 0);
+        expect(opened).toHaveLength(1);
+    });
+
+    it("a click on a button opens the button only, even with a link where the button's own row 0 would be", () => {
+        const { welcome, opened } = make([
+            { kind: "paragraph", nodes: ["x ", { label: "link", command: "link" }] },
+            { kind: "text", text: "" },
+            { kind: "button", label: "Go", command: "go" },
+        ]);
+        const app = TestApp.createWithContent(welcome, SCREEN);
+        app.render();
+
+        // The button is `[ Go ]` at columns 1–6 of row 2; its column 3 is column 3 of row 0 in the link.
+        mouse(app, 4, 2);
+        expect(opened).toEqual([{ kind: "button", label: "Go", command: "go" }]);
+    });
+
+    it("clicks beside a button, below the rows and on a gap do nothing", () => {
+        const { welcome, opened } = make([
+            { kind: "paragraph", nodes: [{ label: "link", command: "link" }] },
+            { kind: "text", text: "" },
+            { kind: "button", label: "Go", command: "go" },
+        ]);
+        const app = TestApp.createWithContent(welcome, SCREEN);
+        app.render();
+
+        mouse(app, 0, 2);
+        mouse(app, 20, 2);
+        mouse(app, 2, 1);
+        mouse(app, 2, 5);
+        expect(opened).toEqual([]);
+    });
+
+    it("several spaces in the source collapse to one, and the characters after them keep their owner", () => {
+        const { welcome } = make([{ kind: "paragraph", nodes: ["x   ", { label: "yy", command: "y" }, "   z"] }]);
+        const screen = paint(welcome);
+
+        expect(text(screen, 0)).toBe(" x yy z");
+        expect(marks(screen, 0)).toBe("   __");
+    });
+
     it("a click on the wrapped part of a link opens it too", () => {
         const { welcome, opened } = make();
         const app = TestApp.createWithContent(welcome, SCREEN);
@@ -206,7 +268,24 @@ describe("ViewWelcomeElement — enablement", () => {
         { kind: "paragraph", nodes: ["Run ", { label: "init", command: "tf.init", enablement: "ready" }] },
         { kind: "button", label: "Open Settings", command: "tf.settings", enablement: "ready" },
         { kind: "button", label: "Always", command: "always" },
+        { kind: "paragraph", nodes: ["or ", { label: "docs", url: "https://example.invalid" }] },
     ];
+
+    it("a change repaints the shown frame: the link is dimmed without a new layout", () => {
+        const { welcome } = make(blocks);
+        const app = TestApp.createWithContent(welcome, SCREEN);
+        app.render();
+        const linkFg = app.backend.getFgAt(new Point(5, 0));
+
+        welcome.updateEnablement(() => false);
+        app.render();
+        expect(app.backend.getFgAt(new Point(5, 0))).toBe(welcome.styleVar("disabledForeground"));
+        expect(app.backend.getFgAt(new Point(4, 3))).toBe(welcome.styleVar("textLink.foreground"));
+
+        welcome.updateEnablement(() => true);
+        app.render();
+        expect(app.backend.getFgAt(new Point(5, 0))).toBe(linkFg);
+    });
 
     it("while false, the button and the command link are dimmed and do nothing", () => {
         const { welcome, opened } = make(blocks);
@@ -232,7 +311,8 @@ describe("ViewWelcomeElement — enablement", () => {
 
         expect(welcome.focusFirstButton()).toBe(true);
         expect((app.focusedElement as ButtonElement).getLabel()).toBe("Always");
-        expect(welcome.getDepthFirstFocusableOrder()).toEqual([app.focusedElement]);
+        // The web link has no enablement: it stays reachable.
+        expect(welcome.getDepthFirstFocusableOrder()).toEqual([app.focusedElement, welcome.getChildren().at(-1)]);
     });
 
     it("turning true again restores the look and the action", () => {

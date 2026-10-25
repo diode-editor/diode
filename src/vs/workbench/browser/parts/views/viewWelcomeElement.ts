@@ -45,7 +45,7 @@ export type IViewWelcomeBlock =
  */
 const LEFT_PADDING = 1;
 
-/** A run of a paragraph line: plain text (`link: -1`) or a piece of one link. */
+/** A character of a paragraph line: plain text (`link: -1`) or a link's. */
 interface ISegment {
     readonly text: string;
     readonly link: number;
@@ -67,8 +67,8 @@ interface IWelcomeButton {
 const DISABLED_BUTTON_STYLE: TUIStyle = { fg: "disabledForeground", bg: "button.secondaryBackground" };
 
 /**
- * Focus and activation of one link; the parent paints the label (it may wrap over several rows), this
- * element sits on its first piece so a click there and Tab reach it.
+ * Focus and keyboard activation of one link. The parent paints the label (it may wrap over several rows)
+ * and takes the clicks on it, so this element has no area of its own.
  */
 class WelcomeLinkElement extends TUIElement {
     public enabled = true;
@@ -79,9 +79,6 @@ class WelcomeLinkElement extends TUIElement {
     ) {
         super();
         this.focusable = true;
-        this.addEventListener("click", () => {
-            this.activate();
-        });
     }
 
     /** Enter and Space, as on a button. */
@@ -152,51 +149,32 @@ export class ViewWelcomeElement extends TUIElement {
         for (const button of this.buttons) {
             if (button.enablement === undefined) continue;
             const enabled = isEnabled(button.enablement);
-            if (enabled === button.enabled) continue;
             button.enabled = enabled;
             button.element.focusable = enabled;
             button.element.style = enabled ? button.style : DISABLED_BUTTON_STYLE;
         }
-        let changed = false;
+        // The link labels are painted here.
+        this.markDirty();
         for (const link of this.links) {
             if (link.link.enablement === undefined) continue;
-            const enabled = isEnabled(link.link.enablement);
-            if (enabled === link.enabled) continue;
-            link.enabled = enabled;
-            link.focusable = enabled;
-            changed = true;
+            link.enabled = isEnabled(link.link.enablement);
+            link.focusable = link.enabled;
         }
-        if (changed) this.markDirty();
     }
 
     protected override performLayout(constraints: BoxConstraints): Size {
         const size = super.performLayout(constraints);
         const width = this.textWidth(size.width);
-        const placed = new Set<number>();
         for (const [y, row] of this.rowsFor(width).entries()) {
-            if (row.kind === "button") {
-                this.layoutChild(
-                    this.buttons[row.index].element,
-                    LEFT_PADDING,
-                    y,
-                    BoxConstraints.loose(new Size(width, 1)),
-                );
-                continue;
-            }
-            let x = LEFT_PADDING;
-            for (const segment of row.segments) {
-                const columns = displayWidth(segment.text);
-                if (segment.link >= 0 && !placed.has(segment.link)) {
-                    placed.add(segment.link);
-                    this.layoutChild(this.links[segment.link], x, y, BoxConstraints.tight(new Size(columns, 1)));
-                }
-                x += columns;
-            }
+            if (row.kind !== "button") continue;
+            this.layoutChild(
+                this.buttons[row.index].element,
+                LEFT_PADDING,
+                y,
+                BoxConstraints.loose(new Size(width, 1)),
+            );
         }
-        // A label of only spaces has no piece to sit on.
-        for (const [index, link] of this.links.entries()) {
-            if (!placed.has(index)) this.layoutChild(link, 0, 0, BoxConstraints.tight(new Size(0, 0)));
-        }
+        for (const link of this.links) this.layoutChild(link, 0, 0, BoxConstraints.tight(new Size(0, 0)));
         return size;
     }
 
@@ -229,7 +207,7 @@ export class ViewWelcomeElement extends TUIElement {
         this.appendChild(element);
     }
 
-    /** A click on a wrapped link's later piece lands here, not on the link element. */
+    /** A click on a link's label, on any of its rows; a click on a button is the button's. */
     private onClick(event: TUIMouseEvent): void {
         if (event.target !== this) return;
         const row = this.rowsFor(this.textWidth(this.layoutSize.width)).at(event.localY);
@@ -295,37 +273,28 @@ export class ViewWelcomeElement extends TUIElement {
 }
 
 /**
- * `wrapText` of the paragraph, cut back into runs by who owns each character. Wrapping only drops
- * whitespace (a run of it becomes one space or a line break), so the lines are walked against the
- * source to find each character's owner.
+ * `wrapText` of the paragraph, one segment per character with its owner. Wrapping only drops whitespace
+ * (a run of it becomes one space or a line break), so the lines are walked against the source to find
+ * each character's owner.
  */
 function wrapLinked(text: string, owners: readonly number[], width: number): ISegment[][] {
     const result: ISegment[][] = [];
     let position = 0;
+    const skipSpaces = (): void => {
+        // `charAt` past the end is "", not a space.
+        while (/\s/.test(text.charAt(position))) position++;
+    };
     for (const line of wrapText(text, width)) {
-        while (position < text.length && isSpace(text[position])) position++;
+        skipSpaces();
         const segments: ISegment[] = [];
         for (const char of line) {
-            const owner = owners[position];
-            const last = segments.at(-1);
-            if (last?.link === owner) {
-                segments[segments.length - 1] = { text: last.text + char, link: owner };
-            } else {
-                segments.push({ text: char, link: owner });
-            }
-            if (char === " ") {
-                while (position < text.length && isSpace(text[position])) position++;
-            } else {
-                position += char.length;
-            }
+            segments.push({ text: char, link: owners[position] });
+            if (char === " ") skipSpaces();
+            else position += char.length;
         }
         result.push(segments);
     }
     return result;
-}
-
-function isSpace(char: string): boolean {
-    return /\s/.test(char);
 }
 
 function displayWidth(text: string): number {
