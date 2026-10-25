@@ -14,6 +14,8 @@ import type { IUserKeybindingRule } from "../../platform/keybinding/common/userK
 import { UserKeybindingsDIToken } from "../../platform/keybinding/common/userKeybindings.ts";
 import { TuiApplicationDIToken } from "../../platform/layout/browser/tuiApplicationDIToken.ts";
 import { applyThemeVars } from "../../platform/theme/browser/themeStyleVars.ts";
+import { bindWidgetGlyphs } from "../../platform/theme/browser/widgetGlyphs.ts";
+import { ProductIconServiceDIToken } from "../../platform/theme/common/productIconService.ts";
 import type { WorkspaceId } from "../../platform/workspace/common/iWorkspaceContextService.ts";
 import type { WorkspaceContextService } from "../../platform/workspace/common/workspaceContextService.ts";
 import { WorkspaceContextServiceDIToken } from "../../platform/workspace/common/workspaceContextService.ts";
@@ -222,6 +224,9 @@ export class WorkbenchComponent extends Component {
             }),
         );
         this.view.style = { fg: "foreground", bg: "editor.background" };
+        // Glyphs tuidom widgets draw themselves (chevrons, tab lock, completion kinds) follow
+        // `diode.icons.nerdFont` the same way, through the root.
+        this.register(bindWidgetGlyphs(this.view, accessor.get(ProductIconServiceDIToken)));
     }
 
     public mount(): void {

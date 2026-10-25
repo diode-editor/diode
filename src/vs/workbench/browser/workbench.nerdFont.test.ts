@@ -4,23 +4,17 @@ import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTe
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
 import { getFileIcon } from "../../base/common/fileIcons.ts";
 import { Uri } from "../../base/common/uri.ts";
+import type { ICoreCompletionItem } from "../../editor/common/languages/iCompletionSource.ts";
+import { LanguageFeaturesServiceDIToken } from "../../editor/common/services/languageFeatures.ts";
 import { IConfigurationServiceDIToken } from "../../platform/configuration/common/iConfigurationServiceDIToken.ts";
 import { MarkerSeverity } from "../../platform/markers/common/iMarker.ts";
 import { MarkerServiceDIToken } from "../../platform/markers/common/markerService.ts";
 
-const PUA = /[\uE000-\uF8FF]|[\u{F0000}-\u{10FFFF}]/gu;
+const PUA = /[\uE000-\uF8FF]|[\u{F0000}-\u{10FFFF}]/u;
 
-/**
- * Glyphs drawn inside tuidom widgets (the tree chevrons): the follow-up task of the chain moves them
- * to the setting, they need an engine release.
- */
-const TUIDOM_WIDGET_GLYPHS = new Set(["\uf107", "\uf105"]);
-
-/** Lines with a PUA character of Diode's own: what a font without Nerd Font symbols draws as tofu. */
+/** Lines with a PUA character: what a font without Nerd Font symbols draws as tofu. */
 function puaOnScreen(screen: string): string[] {
-    return screen
-        .split("\n")
-        .filter((line) => [...line.matchAll(PUA)].some(([char]) => !TUIDOM_WIDGET_GLYPHS.has(char)));
+    return screen.split("\n").filter((line) => PUA.test(line));
 }
 
 describe("diode.icons.nerdFont", () => {
@@ -34,6 +28,8 @@ describe("diode.icons.nerdFont", () => {
                 "app.ts": "function main() {\n    if (true) {\n        run();\n    }\n}\n",
                 "notes.md": "# Notes\n",
                 Makefile: "all:\n",
+                "lib/util.ts": "export {};\n",
+                "src/inner.ts": "export {};\n",
             },
         });
         h = createAppTestHarness({ workspaceFolder: ws.dir });
@@ -129,6 +125,47 @@ describe("diode.icons.nerdFont", () => {
             expect(lineWith("broken call")).toContain("✗"); // ✗
         });
         expect(lineWith("odd call")).toContain("⚠"); // ⚠
+        expect(puaOnScreen(screen())).toEqual([]);
+    });
+
+    it("off: Explorer folder chevrons are Unicode, expanded and collapsed", async () => {
+        await setMode("off");
+        h.testApp.querySelector("TreeViewElement")!.focus();
+        h.testApp.sendKey("s"); // typeahead lands on `src`
+        h.testApp.sendKey("ArrowRight");
+        await vi.waitFor(() => {
+            expect(lineWith("inner.ts")).toBeTruthy();
+        });
+        expect(lineWith(" src")).toContain("▾ src");
+        expect(lineWith(" lib")).toContain("▸ lib");
+        expect(puaOnScreen(screen())).toEqual([]);
+    });
+
+    it("off: a read-only tab shows the Unicode lock of a locked group", async () => {
+        await h.commands.execute("workbench.action.files.toggleActiveEditorReadonlyInSession");
+        await setMode("off");
+        await vi.waitFor(() => {
+            expect(lineWith("app.ts ×")).toContain("• app.ts");
+        });
+        expect(puaOnScreen(screen())).toEqual([]);
+    });
+
+    it("off: the completion list marks kinds with Unicode characters", async () => {
+        const items: ICoreCompletionItem[] = [
+            { label: "runAll", insertText: "runAll", id: "runAll", kind: 1 },
+            { label: "Runner", insertText: "Runner", id: "Runner", kind: 6 },
+        ];
+        h.container.get(LanguageFeaturesServiceDIToken).completionProvider.register("*", {
+            triggerCharacters: [],
+            provideCompletionItems: () => Promise.resolve({ items, isIncomplete: false }),
+        });
+        await setMode("off");
+        h.workbench.focusEditor();
+        h.testApp.sendKey("r");
+        await vi.waitFor(() => {
+            expect(lineWith("runAll")).toContain("ƒ  runAll");
+        });
+        expect(lineWith("Runner")).toContain("▭  Runner");
         expect(puaOnScreen(screen())).toEqual([]);
     });
 
