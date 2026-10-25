@@ -224,6 +224,34 @@ describe("Workbench — Terminal: Open Detected Link", () => {
         });
     });
 
+    it("a range suffix is in the label; a file outside the workspace has its absolute directory", async () => {
+        boot();
+        const outside = createTempWorkspace({ prefix: "diode-terminal-outside-", files: { "c.ts": "x\n" } });
+        try {
+            await panelTerminalWith(`src/a.ts:2:1-3.4\r\nsrc/a.ts:3:2-5\r\n${outside.path("c.ts")}\r\n`);
+            const pick = await openPicker();
+
+            expect(pick.inspectState().items).toEqual(["c.ts", "a.ts:3:2-5", "a.ts:2-3:1-4"]);
+            expect(frameLines("c.ts").at(0)).toBe(`│ c.ts ${outside.dir} File │`);
+        } finally {
+            outside.dispose();
+        }
+    });
+
+    it("Escape ends the command; it can be run again", async () => {
+        boot();
+        await panelTerminalWith("src/a.ts\r\n");
+        for (let round = 0; round < 2; round++) {
+            const done = h.commands.execute(OPEN_DETECTED_LINK);
+            await vi.waitFor(() => {
+                expect(picker()?.inspectState().items).toEqual(["a.ts"]);
+            });
+            h.testApp.sendKey("Escape");
+            await done;
+            expect(picker()).toBeUndefined();
+        }
+    });
+
     it("no links — an empty list with the same placeholder; Enter does nothing", async () => {
         boot();
         await panelTerminalWith("nothing to see\r\n");
@@ -245,6 +273,10 @@ describe("Workbench — Terminal: Open Detected Link", () => {
         typeText("a");
         await new Promise((resolve) => setTimeout(resolve, 20));
         expect(picker()?.inspectState().items).toEqual([]);
+        h.testApp.sendKey("Escape");
+
+        await h.commands.execute(OPEN_FILE_LINK);
+        expect(h.container.get(EditorServiceDIToken).getActiveEditor()).toBeNull();
     });
 
     it("works for a terminal in an editor tab", async () => {

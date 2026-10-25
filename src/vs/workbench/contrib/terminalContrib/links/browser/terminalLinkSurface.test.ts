@@ -156,6 +156,26 @@ describe("TerminalLinkSurface", () => {
         expect(hovered()).toBe("src/a.ts:3:2");
     });
 
+    it("a revealed link is underlined apart from the hover; revealing it again doesn't redraw; undefined clears it", async () => {
+        await setup("see src/a.ts:3:2 here\r\n./b.ts");
+        const [link] = await fakeLinkProvider({ disk: DISK }).provideLinks(session.buffer!, 0);
+
+        surface.setRevealedLink(link);
+        expect(updates).toBe(1);
+        expect(underlined(0)).toBe("    ____________");
+        surface.setRevealedLink({ ...link });
+        expect(updates).toBe(1);
+
+        surface.sendMouse(mouse(1, 1));
+        await vi.waitFor(() => {
+            expect(hovered()).toBe("./b.ts");
+        });
+        expect([underlined(0), underlined(1)]).toEqual(["    ____________", "______"]);
+
+        surface.setRevealedLink(undefined);
+        expect([underlined(0), underlined(1)]).toEqual(["", "______"]);
+    });
+
     it("output re-checks the hover: a grown link is re-underlined, output elsewhere keeps it, no Ctrl — no hover", async () => {
         await setup("src/a.ts");
         surface.sendMouse(mouse(2, 0, { ctrl: false }));

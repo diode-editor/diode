@@ -3,7 +3,12 @@ import { describe, expect, it, vi } from "vitest";
 import { emulatorWith, type FakeDisk, fakeLinkProvider } from "../../../../../../TestUtils/terminalLinks.ts";
 import type { ITerminalBuffer } from "../../../terminal/common/terminalBuffer.ts";
 
-import { getDetectedLinks, getRecentFileLink, type IDetectedLinks } from "./terminalDetectedLinks.ts";
+import {
+    getDetectedLinks,
+    getRecentFileLink,
+    type IDetectedLinks,
+    type ITerminalLinkLineSource,
+} from "./terminalDetectedLinks.ts";
 import type { ITerminalLink } from "./terminalLinkProvider.ts";
 
 const DISK: FakeDisk = {
@@ -29,6 +34,15 @@ async function buffer(output: string, top?: number): Promise<ITerminalBuffer> {
     return result;
 }
 
+/** The fake provider over `DISK`, recording the rows it was asked for. */
+function recording(): ITerminalLinkLineSource & { rows(): unknown[] } {
+    const provider = fakeLinkProvider({ disk: DISK });
+    const provideLinks = vi.fn(
+        (b: ITerminalBuffer, row: number): Promise<ITerminalLink[]> => provider.provideLinks(b, row),
+    );
+    return { provideLinks, rows: () => provideLinks.mock.calls.map(([, row]) => row) };
+}
+
 describe("getDetectedLinks", () => {
     it("the viewport bottom-up, each row's links right to left; files and folders apart", async () => {
         // A bare name is a link only alone on its line, as upstream.
@@ -45,6 +59,16 @@ describe("getDetectedLinks", () => {
 
         expect(texts(await viewport).files).toEqual(["d.ts", "c.ts"]);
         expect(texts(await all).files).toEqual(["d.ts", "c.ts", "e.ts", "b.ts", "a.ts"]);
+    });
+
+    it("each row of the buffer is read once: the viewport, below it, above it", async () => {
+        // Rows 0..7; the viewport shows rows 2..5.
+        const buf = await buffer("a.ts\r\nb.ts\r\nc.ts\r\n\r\n\r\nd.ts\r\ne.ts\r\nx", 2);
+        const source = recording();
+        const { viewport, all } = getDetectedLinks(buf, source);
+        await Promise.all([viewport, all]);
+
+        expect(source.rows()).toEqual([5, 4, 3, 2, 5, 4, 3, 2, 7, 6, 1, 0]);
     });
 
     it("a link on a wrapped line is listed once", async () => {
@@ -89,16 +113,18 @@ describe("getRecentFileLink", () => {
         expect(await getRecentFileLink(await buffer(output, 0), provider)).toMatchObject({ text: "b.ts" });
     });
 
+    it("the viewport's top row is searched too", async () => {
+        // Rows 0..4; the viewport shows rows 0..3, a.ts is on its top row.
+        const link = await getRecentFileLink(await buffer("a.ts\r\n\r\n\r\n\r\nx", 0), recording());
+
+        expect(link?.text).toBe("a.ts");
+    });
+
     it("stops at the first row with a file link", async () => {
         const buf = await buffer("a.ts\r\nb.ts\r\n");
-        const provider = fakeLinkProvider({ disk: DISK });
-        const source = {
-            provideLinks: vi.fn(
-                (b: ITerminalBuffer, row: number): Promise<ITerminalLink[]> => provider.provideLinks(b, row),
-            ),
-        };
+        const source = recording();
 
         expect((await getRecentFileLink(buf, source))?.text).toBe("b.ts");
-        expect(source.provideLinks.mock.calls.map(([, row]) => row)).toEqual([3, 2, 1]);
+        expect(source.rows()).toEqual([3, 2, 1]);
     });
 });

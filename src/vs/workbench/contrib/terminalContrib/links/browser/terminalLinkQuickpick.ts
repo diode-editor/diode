@@ -54,30 +54,21 @@ export class TerminalLinkQuickpick {
         const detected = this.links.getLinks(instance);
         const viewport = await detected.viewport;
         const scrollOffset = instance.session.scrollOffset;
-        let closed = false;
-        let filtered = false;
-        const close = (): void => {
-            closed = true;
-            this.links.revealLink(instance, undefined);
-            const delta = instance.session.scrollOffset - scrollOffset;
-            if (delta !== 0) instance.session.scrollLines(delta);
-        };
 
         return new Promise<void>((resolve) => {
+            // A hidden pick neither repaints nor reports the active item: an update or a reveal after closing is moot.
             const pick = this.quickInput.createQuickPick<ITerminalLinkQuickPickItem>({
                 onDidChangeValue: () => {
-                    if (filtered) return;
-                    filtered = true;
+                    // The same promise every time: the buffer is collected once.
                     void detected.all.then((all) => {
-                        if (!closed) pick.update({ items: this.picks(all) });
+                        pick.update({ items: this.picks(all) });
                     }, onUnexpectedError);
                 },
                 onDidChangeActive: (items) => {
-                    if (!closed) this.links.revealLink(instance, items.at(0)?.link);
+                    this.links.revealLink(instance, items.at(0)?.link);
                 },
                 onDidAccept: () => {
                     const link = pick.getState().activeItems.at(0)?.link;
-                    close();
                     // Deferred, as the promise flavor: the rest of this Enter must not reach the terminal.
                     queueMicrotask(() => {
                         pick.dispose();
@@ -86,7 +77,8 @@ export class TerminalLinkQuickpick {
                 },
                 onDidChangeSelection: () => undefined,
                 onDidHide: () => {
-                    if (!closed) close();
+                    this.links.revealLink(instance, undefined);
+                    instance.session.scrollLines(instance.session.scrollOffset - scrollOffset);
                     resolve();
                 },
             });
@@ -102,14 +94,14 @@ export class TerminalLinkQuickpick {
         ];
     }
 
-    /** Upstream `_generatePicks`: one item per link text and per resolved label + directory. */
+    /**
+     * Upstream `_generatePicks`: one item per label + directory. Upstream also skips a repeated link text first;
+     * the same text resolves to the same label and directory, so that is the same check.
+     */
     private toPicks(links: readonly ITerminalLink[]): ITerminalLinkQuickPickItem[] {
-        const texts = new Set<string>();
         const labels = new Set<string>();
         const picks: ITerminalLinkQuickPickItem[] = [];
         for (const link of links) {
-            if (texts.has(link.text)) continue;
-            texts.add(link.text);
             const label = nodePath.basename(link.uri.fsPath) + suffixOf(link);
             const description = this.directoryOf(link);
             const key = `${label}|${description}`;
@@ -129,10 +121,10 @@ export class TerminalLinkQuickpick {
     }
 }
 
-/** `:row[-rowEnd][:col[-colEnd]]` for a file; a folder has no suffix. */
+/** `:row[-rowEnd][:col[-colEnd]]`, as printed after the path (a folder's suffix too: it was in the output). */
 function suffixOf(link: ITerminalLink): string {
     const suffix = link.parsedLink?.suffix;
-    if (link.type !== "LocalFile" || suffix?.row === undefined) return "";
+    if (suffix?.row === undefined) return "";
     let text = `:${String(suffix.row)}`;
     if (suffix.rowEnd !== undefined) text += `-${String(suffix.rowEnd)}`;
     if (suffix.col !== undefined) {
