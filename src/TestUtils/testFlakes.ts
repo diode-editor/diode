@@ -20,6 +20,8 @@ export interface ITestFlake {
     readonly action: TestFlakeAction;
     /** Symptom and where it was caught; the details live in docs/TODO/TestFlakes.md. */
     readonly note: string;
+    /** `process.platform` values the entry holds on; omitted — everywhere. */
+    readonly platforms?: readonly string[];
 }
 
 export function parseTestFlakes(text: string): readonly ITestFlake[] {
@@ -34,27 +36,44 @@ export function parseTestFlakes(text: string): readonly ITestFlake[] {
 function validateEntry(entry: unknown, index: number): ITestFlake {
     const where = `${TEST_FLAKES_FILE}: flakes[${String(index)}]`;
     if (typeof entry !== "object" || entry === null) throw new Error(`${where}: expected an object`);
-    const { file, test, action, note } = entry as Record<string, unknown>;
+    const { file, test, action, note, platforms } = entry as Record<string, unknown>;
     if (typeof file !== "string" || file === "") throw new Error(`${where}: "file" must be a non-empty string`);
     if (typeof test !== "string" || test === "") throw new Error(`${where}: "test" must be a non-empty string`);
     if (action !== "retry" && action !== "skip") throw new Error(`${where}: "action" must be "retry" or "skip"`);
     if (typeof note !== "string" || note === "") throw new Error(`${where}: "note" must be a non-empty string`);
-    return { file, test, action, note };
+    if (platforms === undefined) return { file, test, action, note };
+    if (!isNonEmptyStringArray(platforms)) {
+        throw new Error(`${where}: "platforms" must be a non-empty array of non-empty strings`);
+    }
+    return { file, test, action, note, platforms };
+}
+
+function isNonEmptyStringArray(value: unknown): value is string[] {
+    return Array.isArray(value) && value.length > 0 && value.every((item) => typeof item === "string" && item !== "");
 }
 
 export function readTestFlakes(root: string): readonly ITestFlake[] {
     return parseTestFlakes(fs.readFileSync(path.join(root, TEST_FLAKES_FILE), "utf8"));
 }
 
-/** Lookup by an absolute test file path and the vitest full test name. */
+/**
+ * Lookup by an absolute test file path and the vitest full test name; a screenshot scenario — by its
+ * `*.scenario.ts` file and `name` (e2e/scenarios/suite.ts). Entries for other platforms are left out:
+ * there the test runs as usual.
+ */
 export class TestFlakeIndex {
     private readonly byKey = new Map<string, ITestFlake>();
 
     public constructor(
         private readonly root: string,
         flakes: readonly ITestFlake[],
+        platform: string,
     ) {
-        for (const flake of flakes) this.byKey.set(key(flake.file, flake.test), flake);
+        for (const flake of flakes) {
+            if (flake.platforms === undefined || flake.platforms.includes(platform)) {
+                this.byKey.set(key(flake.file, flake.test), flake);
+            }
+        }
     }
 
     public find(absoluteFile: string, fullTestName: string): ITestFlake | undefined {

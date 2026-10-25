@@ -145,11 +145,23 @@ export function scenarioFiles(): string[] {
 
 /** `filter` selects files before import: some scenarios prepare fixtures right at import (`mkdtempSync`). */
 export async function loadScenarios(filter: (file: string, index: number) => boolean = () => true): Promise<ScenarioSpec[]> {
+    return (await loadScenarioFiles(filter)).map(({ spec }) => spec);
+}
+
+export interface LoadedScenario {
+    /** Absolute path of the `*.scenario.ts` file: test-flakes.json keys a scenario by it and `name`. */
+    file: string;
+    spec: ScenarioSpec;
+}
+
+/** Same as `loadScenarios`, with the file each scenario came from. */
+export async function loadScenarioFiles(filter: (file: string, index: number) => boolean = () => true): Promise<LoadedScenario[]> {
     const files = scenarioFiles().filter(filter);
-    const specs: ScenarioSpec[] = [];
+    const loaded: LoadedScenario[] = [];
     for (const file of files) {
-        const mod = (await import(pathToFileURL(resolve(scenariosDir, file)).href)) as { default?: ScenarioSpec };
-        if (mod.default !== undefined) specs.push(mod.default);
+        const path = resolve(scenariosDir, file);
+        const mod = (await import(pathToFileURL(path).href)) as { default?: ScenarioSpec };
+        if (mod.default !== undefined) loaded.push({ file: path, spec: mod.default });
     }
-    return specs;
+    return loaded;
 }
