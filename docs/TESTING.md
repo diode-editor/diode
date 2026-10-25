@@ -422,6 +422,10 @@ expect(ed?.state?.hasSelection).toBe(true);
   `resolveCompatibleVersion` → `sha256`) + кэш в `node_modules/.cache`.
 - Всюду — скип в оффлайне: `DIODE_E2E_OFFLINE=1` пропускает такие сьюты (юнитам и e2e —
   `skipIf(MARKETPLACE_OFFLINE)` из `src/TestUtils/marketplaceEnv.ts`, сценариям — `network: true`).
+- Сьюты с настоящим redhat.java (`extensionHost.javaLsp*`) ещё и `|| JDK_MISSING` из
+  `src/TestUtils/javaFixture.ts`: расширение не активируется без JDK («Please download and install a JDK»),
+  встроенной JRE хватает только самому jdt.ls. На раннерах GitHub JDK есть, на голой машине (в том числе
+  машине лупа) — нет, и красное там было бы про машину, а не про код.
 
 Действующие сьюты по этой конвенции: `extensionHost.pythonLsp*`, `e2e/pythonLsp.test.ts`,
 сценарий `python-lsp`, `e2e/editorconfig-stock.test.ts`, `extensionHost.maptzRegionfolder`,

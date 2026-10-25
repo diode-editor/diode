@@ -1,9 +1,10 @@
 import * as fs from "node:fs";
+import * as os from "node:os";
 import * as path from "node:path";
 
 import { afterEach, describe, expect, it } from "vitest";
 
-import { APP_JAVA_PATH, createMavenProject, type IMavenProject, JAVA_LANGUAGE_SERVICE } from "./javaFixture.ts";
+import { APP_JAVA_PATH, createMavenProject, hasJdk, type IMavenProject, JAVA_LANGUAGE_SERVICE } from "./javaFixture.ts";
 
 // The network part (`installJava`) is covered by the extensionHost.javaLsp* suites.
 
@@ -16,6 +17,31 @@ describe("javaFixture — language service", () => {
 
     it("the fixture provides no language display name", () => {
         expect(JAVA_LANGUAGE_SERVICE.getLanguageDisplayName("java")).toBeUndefined();
+    });
+});
+
+describe("javaFixture — JDK detection", () => {
+    it("JAVA_HOME or JDK_HOME counts as a JDK", () => {
+        expect(hasJdk({ JAVA_HOME: "/opt/jdk", PATH: "" }, "linux")).toBe(true);
+        expect(hasJdk({ JDK_HOME: "/opt/jdk", PATH: "" }, "linux")).toBe(true);
+    });
+
+    it("an empty JAVA_HOME and no javac on PATH is no JDK", () => {
+        expect(hasJdk({ JAVA_HOME: "", PATH: os.tmpdir() }, "linux")).toBe(false);
+        expect(hasJdk({}, "linux")).toBe(false);
+    });
+
+    it("javac on PATH counts, javac.exe only on windows", () => {
+        const dir = fs.mkdtempSync(path.join(os.tmpdir(), "diode-jdk-"));
+        try {
+            fs.writeFileSync(path.join(dir, "javac"), "");
+            expect(hasJdk({ PATH: `${path.delimiter}${dir}` }, "linux")).toBe(true);
+            expect(hasJdk({ PATH: dir }, "win32")).toBe(false);
+            fs.writeFileSync(path.join(dir, "javac.exe"), "");
+            expect(hasJdk({ PATH: dir }, "win32")).toBe(true);
+        } finally {
+            fs.rmSync(dir, { recursive: true, force: true });
+        }
     });
 });
 
