@@ -218,7 +218,6 @@ export class TerminalService extends Disposable implements IContextKeyContributo
      */
     public setFocusedPanelInstance(id: number): void {
         const instance = this.instances.find((i) => i.id === id);
-        // Stryker disable next-line ConditionalExpression: only a panel widget calls this, and it is disposed when its instance leaves the panel
         if (instance !== undefined) this.evaluateActiveAcrossHosts(instance, undefined);
     }
 
