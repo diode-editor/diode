@@ -16,6 +16,7 @@
 #   AGENT_LOOP_HOME      state directory (default ~/.claude/agent-loop)
 #   AGENT_LOOP_MAX_TASKS, AGENT_LOOP_LOAD5_MAX, AGENT_LOOP_MEM_MIN_PCT, AGENT_LOOP_TASK_TIMEOUT_HOURS,
 #   AGENT_LOOP_MUTATION_BUDGET_MIN — limits read by facts.mjs / mutation-budget.mjs
+#   AGENT_LOOP_MAX_RESUMES — how many times a task is requeued (resumed) before it goes to the human
 set -uo pipefail
 
 export AGENT_LOOP_MODEL="${AGENT_LOOP_MODEL:-opus}"

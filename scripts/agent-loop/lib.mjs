@@ -27,6 +27,11 @@ export const CLAUDE_GIT_ENV = {
 };
 /** Exit code of mutation-budget.mjs when the task's budget is spent (75 is the lease's "busy"). */
 export const EXIT_BUDGET_SPENT = 76;
+/** How many times a task comes back into the loop by itself (return-task.mjs --requeue) before it goes to the human. */
+export const MAX_RESUMES = (() => {
+    const v = Number(process.env.AGENT_LOOP_MAX_RESUMES);
+    return Number.isFinite(v) && v >= 0 ? v : 2;
+})();
 
 export function loopHome() {
     return process.env.AGENT_LOOP_HOME ?? path.join(homedir(), ".claude", "agent-loop");
@@ -125,6 +130,88 @@ export function writeJsonAtomic(file, value) {
 
 export function statusFile(task, role) {
     return path.join(taskDir(task), `${role}.json`);
+}
+
+/** Claude session ids of the task's windows (`{ manager, implementer, tester }`), for `claude --resume`. */
+export function sessionsFile(task) {
+    return path.join(taskDir(task), "sessions.json");
+}
+
+export function recordSession(task, role, id) {
+    const sessions = readJson(sessionsFile(task), {});
+    sessions[role] = id;
+    writeJsonAtomic(sessionsFile(task), sessions);
+}
+
+/** Written by start-task.mjs when the task continues an existing branch and PR; read by spawn.mjs and the manager. */
+export function resumeFile(task) {
+    return path.join(taskDir(task), "resume.json");
+}
+
+/**
+ * The transcript of a claude session on this machine: `~/.claude/projects/<cwd slug>/<id>.jsonl`.
+ * `claude --resume` looks the id up under the project of its cwd, and every loop window starts in
+ * the main checkout, so only that slug counts: a transcript elsewhere would not resume.
+ */
+export function transcriptOf(id, cwd = REPO_ROOT) {
+    if (typeof id !== "string" || !/^[0-9a-f-]{36}$/.test(id)) return undefined;
+    const slug = cwd.replace(/[^A-Za-z0-9-]/g, "-");
+    const file = path.join(homedir(), ".claude", "projects", slug, `${id}.jsonl`);
+    return existsSync(file) ? file : undefined;
+}
+
+// --- the loop's own issue comments ---------------------------------------------------------
+//
+// `claim: <host> <ISO>` — a task taken; `returned: <reason>` — back to the human;
+// `requeued: <reason>` — back into the queue; `sessions: <host> <role> <id> …` — what to resume.
+
+export function sessionsLine(task) {
+    const sessions = readJson(sessionsFile(task), {});
+    const pairs = ROLES.concat("manager")
+        .filter((r) => typeof sessions[r] === "string")
+        .map((r) => `${r} ${sessions[r]}`);
+    return pairs.length === 0 ? undefined : `sessions: ${host()} ${pairs.join(" ")}`;
+}
+
+/** The last hand-off comment (`returned:`/`requeued:`), with its index, or undefined for a task never handed off. */
+export function latestHandoff(comments) {
+    for (let i = comments.length - 1; i >= 0; i--) {
+        const m = /^(returned|requeued):\s*(.*)$/m.exec(comments[i].body ?? "");
+        if (m !== null) return { index: i, kind: m[1], reason: m[2].trim(), body: comments[i].body ?? "" };
+    }
+    return undefined;
+}
+
+/** `{ host, ids: { role: id } }` from the latest `sessions:` line, or undefined. */
+export function sessionsFromComments(comments) {
+    for (let i = comments.length - 1; i >= 0; i--) {
+        const m = /^sessions:\s*(\S+)((?:\s+[a-z]+\s+[0-9a-f-]{36})+)/m.exec(comments[i].body ?? "");
+        if (m === null) continue;
+        const ids = {};
+        for (const pair of m[2].trim().matchAll(/([a-z]+)\s+([0-9a-f-]{36})/g)) ids[pair[1]] = pair[2];
+        return { host: m[1], ids };
+    }
+    return undefined;
+}
+
+/** Claims after the last hand-off: an earlier run's claim must not win the race for the resumed task. */
+export function claimsAfterHandoff(comments) {
+    const handoff = latestHandoff(comments);
+    const from = handoff === undefined ? 0 : handoff.index + 1;
+    return comments
+        .slice(from)
+        .map((c) => /^claim:\s*(\S+)\s+(\S+)/m.exec(c.body ?? ""))
+        .filter((m) => m !== null)
+        .map((m) => ({ host: m[1], at: m[2] }))
+        .sort((a, b) => a.at.localeCompare(b.at));
+}
+
+export function requeueCount(comments) {
+    return comments.filter((c) => /^requeued:/m.test(c.body ?? "")).length;
+}
+
+export function issueComments(issue) {
+    return ghJson(["issue", "view", String(issue), "--json", "comments", "--jq", ".comments"]) ?? [];
 }
 
 /** Run a command, return stdout; `ok: false` instead of a throw when it fails. */

@@ -214,9 +214,11 @@ jobs:
           mkdir -p reports/mutation
           # Re-verification by planting runs after Stryker in the same step; the budget leaves
           # headroom under the job's timeout-minutes: the ones that don't make it are inconclusive (red).
+          # Two sandboxes: a big diff left ~30 mutants without a verdict at one (~2.5 min each),
+          # and the narrow per-file runs do not saturate the runner's cores.
           node scripts/mutation-diff.mjs --base "$base" \
             --ignoreStatic --incremental --reporters json,html,clear-text \
-            --verify-budget 40 \
+            --verify-budget 40 --verify-jobs 2 \
             2>&1 | tee reports/mutation/mutation.log
 
       # always(): the next push needs the results even when the score is below the threshold:

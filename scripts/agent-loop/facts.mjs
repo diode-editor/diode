@@ -182,22 +182,27 @@ function queue() {
     ]);
     const eligible = issues
         .map((i) => ({ ...i, labels: i.labels.map((l) => l.name) }))
-        .filter((i) => !i.labels.includes(LABELS.inProgress) && !i.labels.includes(LABELS.returned))
+        .filter((i) => !i.labels.includes(LABELS.inProgress) && !i.labels.includes(LABELS.returned));
+    const remoteBranches = git(["ls-remote", "--heads", HTTPS_ORIGIN, "issue/*"]).stdout;
+    const all = eligible
+        .map((i) => ({
+            number: i.number,
+            title: i.title,
+            url: i.url,
+            labels: i.labels,
+            createdAt: i.createdAt,
+            branch: branchName(i.number),
+            // A branch on origin: the task was in the loop before and start-task.mjs resumes it.
+            branchExists: new RegExp(`\\srefs/heads/${branchName(i.number)}(\\s|$)`).test(remoteBranches),
+            ...blockers(i, repo),
+        }))
+        // Finishing what is half done comes before starting anew; then bugs; then the oldest.
         .sort((a, b) => {
+            const resume = Number(b.branchExists) - Number(a.branchExists);
+            if (resume !== 0) return resume;
             const bug = Number(b.labels.includes(LABELS.bug)) - Number(a.labels.includes(LABELS.bug));
             return bug !== 0 ? bug : a.createdAt.localeCompare(b.createdAt);
         });
-    const remoteBranches = git(["ls-remote", "--heads", HTTPS_ORIGIN, "issue/*"]).stdout;
-    const all = eligible.map((i) => ({
-        number: i.number,
-        title: i.title,
-        url: i.url,
-        labels: i.labels,
-        createdAt: i.createdAt,
-        branch: branchName(i.number),
-        branchExists: new RegExp(`\\srefs/heads/${branchName(i.number)}(\\s|$)`).test(remoteBranches),
-        ...blockers(i, repo),
-    }));
     return { queue: all.filter((i) => !i.blocked), blocked: all.filter((i) => i.blocked) };
 }
 
