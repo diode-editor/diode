@@ -141,7 +141,12 @@ export class TerminalEditorService extends Disposable implements IContextKeyCont
         const previous = groups.activeGroup;
         const group = location.group ?? columnToEditorGroup(groups, location.viewColumn ?? ACTIVE_GROUP);
         const focus = location.preserveFocus !== true;
-        const pane = new TerminalEditorPane(instance, this.colors.colors, this.createWidget(instance));
+        const widget = this.createWidget(instance);
+        // The tab may already be the active editor while the panel's terminal had the focus.
+        widget.addEventListener("focus", () => {
+            this.terminals.setActiveEditorInstance(instance.id);
+        });
+        const pane = new TerminalEditorPane(instance, this.colors.colors, widget);
         this.panes.set(instance.id, pane);
         // `closePane` removes the tab from `panes` — on the instance removal that
         // the close itself triggers.

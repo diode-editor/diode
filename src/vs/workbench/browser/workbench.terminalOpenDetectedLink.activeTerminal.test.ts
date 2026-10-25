@@ -88,4 +88,16 @@ describe("Workbench — Terminal: Open Detected Link targets the focused termina
         });
         expect(h.activeEditor().primaryCursorLine).toBe(1);
     });
+
+    it("focus back in the terminal tab, still the active editor: its links again", async () => {
+        await bootPanelFocusedAfterEditorTerminal();
+        await h.commands.execute("workbench.action.focusActiveEditorGroup");
+        h.testApp.render();
+        expect(h.testApp.focusedElement).toBeInstanceOf(TerminalViewElement);
+
+        await h.commands.execute("workbench.action.terminal.openFileLink");
+        await vi.waitFor(() => {
+            expect(h.activeEditor().uri.fsPath).toBe(ws.path("pkg/inner/b.ts"));
+        });
+    });
 });

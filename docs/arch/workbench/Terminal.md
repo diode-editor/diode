@@ -170,7 +170,7 @@ Skip-набор — `DEFAULT_COMMANDS_TO_SKIP_SHELL` эталона вместе
 
 - `workbench.action.terminal.openDetectedLink` — `Ctrl+Shift+O` при `terminalFocus` (вес `WorkbenchContrib + 1`),
   `enablement: terminalHasBeenCreated` (ключ эталона, ставит `TerminalService`: выданный id = терминал был).
-  Цель — `getActiveInstanceAcrossHosts()`: панель или вкладка-терминал, что активировали последним.
+  Цель — `getActiveInstanceAcrossHosts()`: терминал панели или вкладки, что активировали или сфокусировали последним (фокус виджета — `host.onDidFocusInstance` эталона: `setFocusedPanelInstance` / `setActiveEditorInstance`).
   `workbench.action.terminal.openFileLink` («Open Last Local File Link») — без клавиши и без списка.
 - Сбор — `common/terminalDetectedLinks.ts` по `TerminalLinkManager.getLinks` эталона: видимая область снизу
   вверх (ссылки строки — справа налево), затем ниже неё и выше неё. Одна ссылка — один раз, хотя её отдаёт каждая

@@ -205,6 +205,9 @@ export class TerminalPanelComponent extends Disposable implements IContextKeyCon
 
     private handleOpen(instance: ITerminalInstance): void {
         const widget = this.createWidget(instance);
+        widget.addEventListener("focus", () => {
+            this.terminalService.setFocusedPanelInstance(instance.id);
+        });
         applyTerminalColors(instance, widget, this.colors.colors);
         this.widgets.set(instance.id, widget);
     }

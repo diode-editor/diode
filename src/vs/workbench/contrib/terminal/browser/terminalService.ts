@@ -212,7 +212,17 @@ export class TerminalService extends Disposable implements IContextKeyContributo
         return this.find(this.activeAcrossHostsId ?? undefined) ?? null;
     }
 
-    /** Upstream `TerminalEditorService.setActiveInstance`: a terminal tab became the active editor. */
+    /**
+     * Upstream `host.onDidFocusInstance` of the panel: the focused terminal is the active one across hosts, even
+     * when a terminal tab was activated after it.
+     */
+    public setFocusedPanelInstance(id: number): void {
+        const instance = this.instances.find((i) => i.id === id);
+        // Stryker disable next-line ConditionalExpression: only a panel widget calls this, and it is disposed when its instance leaves the panel
+        if (instance !== undefined) this.evaluateActiveAcrossHosts(instance, undefined);
+    }
+
+    /** Upstream `TerminalEditorService.setActiveInstance`: a terminal tab became the active editor (or got the focus). */
     public setActiveEditorInstance(id: number): void {
         const instance = this.editorInstances.find((i) => i.id === id);
         if (instance === undefined) return;
