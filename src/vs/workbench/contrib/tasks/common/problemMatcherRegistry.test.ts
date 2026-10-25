@@ -165,7 +165,7 @@ describe("ProblemMatcherRegistry", () => {
 
     it("a pattern without a regular expression is reported; one without a name is skipped silently", () => {
         const { registry, reported } = registryOf(
-            synthetic("test.bad", { problemPatterns: [{ name: "noRegexp", file: 1 }, { regexp: "x" }, "x", null] }),
+            synthetic("test.bad", { problemPatterns: [{ name: "noRegexp", file: 1 }, { regexp: "(" }, "x", null] }),
         );
         expect(registry.getPattern("noRegexp")).toBeUndefined();
         expect(reported.slice(0, 2)).toStrictEqual([
@@ -237,5 +237,23 @@ describe("ProblemMatcherRegistry", () => {
         expect(registry.resolve("m")).toBeUndefined();
         expect(registry.resolve("nvcc")).toBeUndefined();
         expect(reported).toStrictEqual([]);
+    });
+
+    it("a named pattern with `regexp` and `patterns` that are not all patterns is a single one, as upstream", () => {
+        const { registry, reported } = registryOf(
+            synthetic("test.odd", {
+                problemPatterns: [{ ...NAMED_PATTERN, patterns: [{ regexp: "x" }, { file: 1 }] }],
+            }),
+        );
+        expect(single(registry.getPattern("p")).regexp.source).toBe(NAMED_PATTERN.regexp);
+        expect(reported).toStrictEqual([]);
+    });
+
+    it("an invalid matcher does not displace an earlier valid one of the same name", () => {
+        const { registry } = registryOf(
+            synthetic("test.first", { problemMatchers: [{ name: "m", owner: "first", pattern: "$go" }] }),
+            synthetic("test.second", { problemMatchers: [{ name: "m", owner: "second", pattern: "$nope" }] }),
+        );
+        expect(matcherOf(registry, "m").owner).toBe("first");
     });
 });

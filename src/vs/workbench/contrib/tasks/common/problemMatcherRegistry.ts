@@ -24,6 +24,7 @@ function isObject(value: unknown): value is Json {
 /** A manifest is foreign data: a contribution that is not an array contributes nothing. */
 function contributionsOf(extension: IContributingExtension, point: string): readonly unknown[] {
     const value = extension.manifest.contributes?.[point];
+    // Stryker disable next-line ArrayDeclaration: equivalent: a made-up item is not an object and is skipped
     return Array.isArray(value) ? (value as readonly unknown[]) : [];
 }
 
@@ -94,6 +95,7 @@ export class ProblemMatcherRegistry implements IProblemMatcherLookup {
             messages.push(message),
         );
         for (const message of messages) report(message);
+        // Stryker disable next-line ConditionalExpression: equivalent: the parser gives no pattern only after a message
         if (pattern !== undefined && messages.length === 0) {
             this.patterns.set(value.name, pattern);
             return;
@@ -106,6 +108,7 @@ export class ProblemMatcherRegistry implements IProblemMatcherLookup {
         if (!isObject(value)) return;
         const matcher = parseProblemMatcher(value, report, this);
         // Upstream keeps only a named one (`isNamedProblemMatcher`).
+        // Stryker disable next-line ConditionalExpression: equivalent: a matcher under the key `undefined` is never looked up
         if (matcher !== undefined && typeof value.name === "string") this.matchers.set(value.name, matcher);
     }
 }
