@@ -174,6 +174,23 @@ describe("Workbench — keys in the focused terminal go to the shell, like VS Co
             expect(surface.writes).toEqual(["\x1by"]);
         });
 
+        // #856: the outer terminal's legacy bytes reach the shell as the same xterm.js encoding.
+        it.each([
+            ["Shift+Tab", "\x1b[Z"],
+            ["Ctrl+Left", "\x1b[1;5D"],
+            ["Shift+Up", "\x1b[1;2A"],
+            ["Alt+Right", "\x1b[1;3C"],
+            ["F2", "\x1bOQ"],
+            ["Ctrl+Delete", "\x1b[3;5~"],
+        ])("%s reaches the shell encoded like xterm.js", (_name, bytes) => {
+            boot();
+
+            h.testApp.backend.sendRaw(bytes);
+
+            expect(surface.writes).toEqual([bytes]);
+            expect(terminalFocused()).toBe(true);
+        });
+
         it("Ctrl+, which the terminal can't encode, opens the settings", async () => {
             boot();
 

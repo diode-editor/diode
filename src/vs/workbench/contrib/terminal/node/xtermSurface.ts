@@ -269,6 +269,11 @@ export abstract class XtermSurface implements ITerminalSurface, IDisposable {
         return this.term !== undefined && coreMouseService(this.term).areMouseEventsActive;
     }
 
+    /** DECCKM (`CSI ? 1 h`): bare arrows and Home/End go to the PTY as SS3 while it is on. */
+    public get applicationCursorKeys(): boolean {
+        return this.term?.modes.applicationCursorKeysMode === true;
+    }
+
     /** `delta < 0` scrolls up; clamped to `[0, baseY]`. */
     public scrollLines(delta: number): void {
         this.setScrollOffset(this.scrollOffset - delta);

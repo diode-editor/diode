@@ -1,5 +1,4 @@
 import type { TUIKeyboardEvent } from "@tuidom/core/dom/events/tuiKeyboardEvent";
-import { encodeKeyForPty } from "@tuidom/elements/terminal/encodeKeyForPty";
 import { TerminalViewElement } from "@tuidom/elements/terminal/terminalViewElement";
 
 import { Disposable } from "../../../../base/common/lifecycle.ts";
@@ -83,6 +82,6 @@ export class TerminalKeyRouting extends Disposable implements IWorkbenchContribu
         }
         // Ours: no xterm.js. A key the terminal can't encode (Ctrl+, , Ctrl+Shift+letter) goes back to the
         // workbench, the way xterm.js leaves it unhandled and it bubbles.
-        return encodeKeyForPty(event) !== "";
+        return event.target.encodeKey(event) !== "";
     }
 }
