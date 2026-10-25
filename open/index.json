@@ -2800,5 +2800,20 @@
       "xlarge",
       "log500m"
     ]
+  },
+  {
+    "file": "2026-10-25-f8588eabdad1.json",
+    "generatedAt": "2026-10-25T12:35:58.854Z",
+    "commit": "f8588eabdad1",
+    "binaryVersion": "nightly-f8588ea",
+    "ci": true,
+    "conditions": "CI, shared runner (GitHub Actions)",
+    "sizes": [
+      "small",
+      "medium",
+      "large",
+      "xlarge",
+      "log500m"
+    ]
   }
 ]
