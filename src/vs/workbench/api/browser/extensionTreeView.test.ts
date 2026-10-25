@@ -189,6 +189,49 @@ describe("ExtensionTreeView — loading", () => {
         expect(f.lines()).toEqual(["   alpha"]);
     });
 
+    it("a failed root reread keeps the expanded rows' children without asking for them; the next reread asks again", async () => {
+        const source = fakeSource({
+            "": [item("p", "pkg", { collapsibleState: 2 }), item("z", "zed")],
+            p: [item("p/c", "child", { parentHandle: "p", collapsibleState: 2 })],
+            "p/c": [item("p/c/g", "grand", { parentHandle: "p/c" })],
+        });
+        const f = mount(source);
+        f.tree.setVisible(true);
+        await f.settle();
+        expect(labels(f)).toEqual(["pkg", "child", "grand", "zed"]);
+        const before = source.requests.length;
+
+        source.fail = new Error("root down");
+        await f.tree.refresh(undefined);
+        await f.settle();
+        expect(labels(f)).toEqual(["pkg", "child", "grand", "zed"]);
+        expect(source.requests.slice(before)).toEqual([undefined]);
+
+        source.fail = null;
+        await f.tree.refresh(undefined);
+        await f.settle();
+        expect(source.requests.slice(before + 1)).toEqual([undefined, "p", "p/c"]);
+    });
+
+    it("a failed row reread keeps its subtree; its siblings are asked as usual", async () => {
+        const source = fakeSource({
+            "": [item("p", "pkg", { collapsibleState: 2 }), item("q", "other", { collapsibleState: 2 })],
+            p: [item("p/c", "child", { parentHandle: "p", collapsibleState: 2 })],
+            "p/c": [item("p/c/g", "grand", { parentHandle: "p/c" })],
+            q: [item("q/c", "leaf", { parentHandle: "q" })],
+        });
+        const f = mount(source);
+        f.tree.setVisible(true);
+        await f.settle();
+        const before = source.requests.length;
+        const getChildren = source.getChildren;
+        source.getChildren = (handle) => (handle === "p" ? Promise.reject(new Error("pkg down")) : getChildren(handle));
+        await f.tree.refresh([item("p", "pkg", { collapsibleState: 2 }), item("q", "other", { collapsibleState: 2 })]);
+        await f.settle();
+        expect(labels(f)).toEqual(["pkg", "child", "grand", "other", "leaf"]);
+        expect(source.requests.slice(before)).toEqual(["q"]);
+    });
+
     it("a failure before any answer leaves the section empty; a non-Error reason is logged as text", async () => {
         const source = fakeSource({});
         source.fail = "down" as unknown as Error;

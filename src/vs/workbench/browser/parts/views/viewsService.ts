@@ -849,6 +849,11 @@ export class ViewsService implements IContextKeyContributor {
             part.setActiveView(found.record.containerId);
             part.setVisible(true);
         }
+        // Upstream `ViewPaneContainer.openView`: the opened section is expanded, as if the user did it.
+        const paneView = found.entry.paneView;
+        if (paneView?.getPaneIds().includes(viewId) === true && paneView.isCollapsed(viewId)) {
+            paneView.toggleCollapsed(viewId);
+        }
         if (!focus) return;
         const body = this.bodyOf(found.record);
         if (body instanceof ViewWelcomeElement && body.focusFirstButton()) return;

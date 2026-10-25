@@ -106,3 +106,19 @@ describe("ViewsService.setViewTitle", () => {
         expect(paneTitles(h.paneView("sb"))).toEqual(["SB.A", "LATER"]);
     });
 });
+
+// Upstream `ViewPaneContainer.openView` expands the section it opens (TreeView.reveal goes through it).
+describe("ViewsService.openView — a collapsed section", () => {
+    it("is expanded, persisted and reported like a user expand", () => {
+        const h = harness();
+        h.paneView("sb").toggleCollapsed("sb.b");
+        const events: string[] = [];
+        h.service.onDidChangeViewExpanded(({ viewId, expanded }) => events.push(`${viewId}:${expanded}`));
+        h.service.openView("sb.b");
+        expect(h.paneView("sb").isCollapsed("sb.b")).toBe(false);
+        expect(h.service.isViewExpanded("sb.b")).toBe(true);
+        expect(events).toEqual(["sb.b:true"]);
+        h.service.openView("sb.b");
+        expect(events).toEqual(["sb.b:true"]);
+    });
+});

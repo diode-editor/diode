@@ -2,6 +2,7 @@ import type { ColorContribution, ThemeKind } from "../colorRegistry.ts";
 import { deriveDefaultColors } from "../colorRegistry.ts";
 
 import { baseColors } from "./baseColors.ts";
+import { chartsColors } from "./chartsColors.ts";
 import { controlColors } from "./controlColors.ts";
 import { diffColors } from "./diffColors.ts";
 import { editorColors } from "./editorColors.ts";
@@ -24,6 +25,7 @@ export const COLOR_CONTRIBUTIONS = {
     ...scmGraphColors,
     ...diffColors,
     ...terminalColors,
+    ...chartsColors,
 } as const satisfies ColorContribution;
 
 export type WorkbenchColorKey = keyof typeof COLOR_CONTRIBUTIONS;

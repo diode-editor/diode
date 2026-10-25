@@ -54,6 +54,12 @@ export class ExtensionTreeView {
     private readonly lastChildren = new Map<string, IExtensionTreeNode[]>();
     /** `Expanded` applies when a row first appears, not on every reread. */
     private readonly seen = new Set<string>();
+    /**
+     * Parents (`""` is the root) whose request failed during the current reread. The subprocess dropped
+     * their subtree before asking the extension, so it would answer their expanded descendants with
+     * nothing: those keep their last rows too.
+     */
+    private readonly failed = new Set<string>();
     /** For Collapse All: the tree keeps its expansion private. */
     private readonly expanded = new Set<string>();
     private visible = false;
@@ -136,7 +142,10 @@ export class ExtensionTreeView {
             changed.push(node);
         }
         if (this.stale) return;
-        for (const node of changed) await this.tree.refresh(node);
+        for (const node of changed) {
+            this.failed.clear();
+            await this.tree.refresh(node);
+        }
     }
 
     public setMessage(message: string): void {
@@ -195,6 +204,7 @@ export class ExtensionTreeView {
 
     private loadRoot(): Promise<void> {
         this.stale = false;
+        this.failed.clear();
         const load = this.tree.refresh().finally(() => {
             if (this.loading === load) this.loading = null;
         });
@@ -204,12 +214,17 @@ export class ExtensionTreeView {
 
     private async loadChildren(parent: IExtensionTreeNode | undefined): Promise<IExtensionTreeNode[]> {
         const key = parent?.handle ?? "";
+        if (this.underFailure(parent)) {
+            this.failed.add(key);
+            return this.lastChildren.get(key) ?? [];
+        }
         const source = this.source;
         let items: readonly IWireTreeItem[];
         try {
             items = await source.getChildren(parent?.handle);
         } catch (err: unknown) {
             this.host.logger?.error(`tree view "${this.viewId}": ${err instanceof Error ? err.message : String(err)}`);
+            this.failed.add(key);
             return this.lastChildren.get(key) ?? [];
         }
         // A newer registration replaced the provider while this one answered.
@@ -228,6 +243,20 @@ export class ExtensionTreeView {
             });
         }
         return children;
+    }
+
+    /** The root or an ancestor of the row failed in this reread. */
+    private underFailure(node: IExtensionTreeNode | undefined): boolean {
+        if (this.failed.size === 0 || node === undefined) return false;
+        if (this.failed.has("")) return true;
+        for (
+            let handle = node.item.parentHandle;
+            handle !== undefined;
+            handle = this.nodes.get(handle)?.item.parentHandle
+        ) {
+            if (this.failed.has(handle)) return true;
+        }
+        return false;
     }
 
     private nodeFor(item: IWireTreeItem): IExtensionTreeNode {
