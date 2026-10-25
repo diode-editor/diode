@@ -4,9 +4,10 @@ import type { ITreeDataProvider, ITreeItem } from "@tuidom/elements/tree/iTreeDa
 import { TreeViewElement } from "@tuidom/elements/tree/treeViewElement";
 
 import { CODICON_GLYPHS } from "../../../base/common/codicons.generated.ts";
-import { getFileIcon } from "../../../base/common/fileIcons.ts";
+import type { IDisposable } from "../../../base/common/lifecycle.ts";
 import { Uri } from "../../../base/common/uri.ts";
 import type { ILogger } from "../../../platform/log/common/iLogger.ts";
+import type { IProductIconService } from "../../../platform/theme/common/productIconService.ts";
 import { HeaderBodyViewElement } from "../../browser/parts/views/headerBodyViewElement.ts";
 import { ViewMessageElement } from "../../browser/parts/views/viewMessageElement.ts";
 import type { IExtensionTreeDataSource } from "../common/iExtensionTreeViewsSink.ts";
@@ -26,6 +27,8 @@ export interface IExtensionTreeViewHost {
     hasColor(token: string): boolean;
     /** `description: true`: the folder of the resource relative to its workspace folder, `""` at its root. */
     relativeDirectory(uri: string): string;
+    /** `diode.icons.nerdFont`: the rows are redrawn when it changes. */
+    readonly icons: IProductIconService;
     readonly logger?: ILogger;
 }
 
@@ -46,7 +49,7 @@ const NO_CHILDREN: readonly IExtensionTreeNode[] = [];
  * section is visible, children when a node expands. A refresh keeps the old rows until the answer
  * arrives, and expansion and the cursor survive it by handle (the tree's key).
  */
-export class ExtensionTreeView {
+export class ExtensionTreeView implements IDisposable {
     public readonly view: TUIElement;
     private readonly tree: TreeViewElement<IExtensionTreeNode>;
     private readonly message = new ViewMessageElement();
@@ -73,6 +76,9 @@ export class ExtensionTreeView {
     private stale = true;
     /** The latest root read: `reveal` and a refresh wait for it. */
     private loading: Promise<void> = Promise.resolve();
+    /** A redraw: the rows come from the last answers, the subprocess is not asked. */
+    private redrawing = false;
+    private readonly iconsListener: IDisposable;
 
     public constructor(
         public readonly viewId: string,
@@ -114,6 +120,13 @@ export class ExtensionTreeView {
                 node.handle,
             );
         };
+        this.iconsListener = host.icons.onDidChange(() => {
+            void this.redraw();
+        });
+    }
+
+    public dispose(): void {
+        this.iconsListener.dispose();
     }
 
     /** A repeated registration: the new provider answers, the tree rereads, expansion stays by handle. */
@@ -206,9 +219,23 @@ export class ExtensionTreeView {
         return this.loading;
     }
 
+    /** The glyphs are baked into the rows: they are rebuilt from the last answers. */
+    private async redraw(): Promise<void> {
+        // Not read yet: the rows are drawn with the current glyphs when the section shows.
+        if (this.stale) return;
+        this.redrawing = true;
+        try {
+            await this.tree.refresh();
+        } finally {
+            this.redrawing = false;
+        }
+    }
+
     private async loadChildren(parent: IExtensionTreeNode | undefined): Promise<IExtensionTreeNode[]> {
         const key = parent?.handle ?? "";
-        if (this.underFailure(parent)) return [...(this.lastChildren.get(key) ?? NO_CHILDREN)];
+        // A row expanded during the redraw has no answer yet: it is asked as usual.
+        const cached = this.redrawing && this.lastChildren.has(key);
+        if (cached || this.underFailure(parent)) return [...(this.lastChildren.get(key) ?? NO_CHILDREN)];
         const source = this.source;
         let items: readonly IWireTreeItem[];
         try {
@@ -238,15 +265,12 @@ export class ExtensionTreeView {
     private underFailure(node: IExtensionTreeNode | undefined): boolean {
         if (node === undefined) return false;
         if (this.failed.has("")) return true;
-        for (let current = node; ; ) {
-            const parentHandle = current.item.parentHandle;
-            if (parentHandle === undefined) return false;
-            if (this.failed.has(parentHandle)) return true;
-            const parent = this.nodes.get(parentHandle);
-            // Stryker disable next-line ConditionalExpression: equivalent — every listed row's parent is listed too
-            if (parent === undefined) return false;
-            current = parent;
+        let handle = node.item.parentHandle;
+        while (handle !== undefined) {
+            if (this.failed.has(handle)) return true;
+            handle = this.nodes.get(handle)?.item.parentHandle;
         }
+        return false;
     }
 
     private nodeFor(item: IWireTreeItem): IExtensionTreeNode {
@@ -268,7 +292,7 @@ export class ExtensionTreeView {
     }
 
     private toTreeItem(item: IWireTreeItem): ITreeItem {
-        const icon = iconOf(item, (token) => this.host.hasColor(token));
+        const icon = iconOf(item, this.host);
         return {
             label: item.label,
             collapsible: item.collapsibleState !== 0,
@@ -298,20 +322,22 @@ interface IRowIcon {
  * `resourceUri` (or `ThemeIcon.File`/`Folder` with one) gets the file icon as in Explorer, where a folder
  * has none; an SVG/PNG `iconPath` can't be drawn in a terminal.
  */
-function iconOf(item: IWireTreeItem, hasColor: (token: string) => boolean): IRowIcon | null {
+function iconOf(item: IWireTreeItem, host: IExtensionTreeViewHost): IRowIcon | null {
     const themeIcon = item.themeIcon;
     const resourceIcon = themeIcon === undefined || themeIcon.id === "file" || themeIcon.id === "folder";
     if (resourceIcon && item.resourceUri !== undefined) {
         const isFolder = themeIcon === undefined ? item.collapsibleState !== 0 : themeIcon.id === "folder";
         if (isFolder) return null;
-        const fileIcon = getFileIcon(basename(item.resourceUri));
-        return { glyph: fileIcon.icon, color: fileIcon.color };
+        const fileIcon = host.icons.fileIcon(basename(item.resourceUri));
+        return fileIcon === undefined ? null : { glyph: fileIcon.icon, color: fileIcon.color };
     }
     if (themeIcon === undefined) return null;
-    const glyph = Object.hasOwn(CODICON_GLYPHS, themeIcon.id) ? CODICON_GLYPHS[themeIcon.id] : undefined;
-    if (glyph === undefined) return null;
+    // `hasOwn`: `toString` is no codicon. A name missing from the Unicode set is no icon either.
+    const glyph = Object.hasOwn(CODICON_GLYPHS, themeIcon.id) ? host.icons.codicon(themeIcon.id) : "";
+    if (glyph === "") return null;
     const color = themeIcon.color;
-    return { glyph, color: color !== undefined && hasColor(color) ? color : undefined };
+    // Stryker disable next-line ConditionalExpression: equivalent — no theme has an `undefined` token, the row is uncolored either way
+    return { glyph, color: color !== undefined && host.hasColor(color) ? color : undefined };
 }
 
 function basename(uri: string): string {

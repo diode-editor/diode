@@ -1,4 +1,4 @@
-import { CODICON_GLYPHS } from "../../../base/common/codicons.generated.ts";
+import { codicon } from "../../../base/common/codicons.ts";
 import { DisposableStore, type IDisposable } from "../../../base/common/lifecycle.ts";
 import { Uri } from "../../../base/common/uri.ts";
 import { MenuId } from "../../../platform/actions/common/menuId.ts";
@@ -6,6 +6,7 @@ import type { MenuRegistry } from "../../../platform/actions/common/menuRegistry
 import type { CommandRegistry } from "../../../platform/commands/common/commandRegistry.ts";
 import type { IConfigurationService } from "../../../platform/configuration/common/iConfigurationService.ts";
 import type { ILogger } from "../../../platform/log/common/iLogger.ts";
+import { type IProductIconService, NERD_FONT_ICONS } from "../../../platform/theme/common/productIconService.ts";
 import type { IWorkspaceContextService } from "../../../platform/workspace/common/iWorkspaceContextService.ts";
 import type { ViewsService } from "../../browser/parts/views/viewsService.ts";
 import type { IExtensionTreeDataSource, IExtensionTreeViewsSink } from "../common/iExtensionTreeViewsSink.ts";
@@ -28,6 +29,7 @@ export interface IExtensionTreeViewsAdapterServices {
     readonly colors: Pick<IThemeColorResolver, "resolve">;
     /** A toast: upstream `notificationService.error` for a failed row command. */
     notifyError(message: string): void;
+    readonly icons?: IProductIconService;
     readonly logger?: ILogger;
 }
 
@@ -60,6 +62,7 @@ export class ExtensionTreeViewsAdapter implements IExtensionTreeViewsSink, IDisp
             // `typeof`: a theme table answers `toString` too.
             hasColor: (token) => typeof services.colors.resolve(token) === "number",
             relativeDirectory: (uri) => relativeDirectory(workspace, uri),
+            icons: services.icons ?? NERD_FONT_ICONS,
             logger: services.logger,
         };
         const sync = (): void => {
@@ -86,6 +89,7 @@ export class ExtensionTreeViewsAdapter implements IExtensionTreeViewsSink, IDisp
         }
         const tree = new ExtensionTreeView(viewId, source, options, this.host);
         const store = new DisposableStore();
+        store.add(tree);
         if (registration.showCollapseAll) store.add(this.registerCollapseAll(tree));
         this.trees.set(viewId, { tree, store });
         this.services.views.setViewBody(viewId, tree.view);
@@ -166,7 +170,7 @@ export class ExtensionTreeViewsAdapter implements IExtensionTreeViewsSink, IDisp
                 when: `view == ${tree.viewId}`,
                 group: "navigation",
                 order: Number.MAX_SAFE_INTEGER,
-                icon: CODICON_GLYPHS["collapse-all"],
+                icon: codicon("collapse-all"),
             }),
         );
         this.services.views.refreshTitleActions();

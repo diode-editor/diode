@@ -342,6 +342,7 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
                 configuration: configService,
                 workspace: workspaceContext,
                 colors: themeColorResolver,
+                icons,
                 notifyError: (message) => {
                     container
                         .get(NotificationServiceDIToken)

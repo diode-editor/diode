@@ -3,12 +3,15 @@ import { TUIKeyboardEvent } from "@tuidom/core/dom/events/tuiKeyboardEvent";
 import type { MouseToken } from "@tuidom/core/input/rawTerminalToken";
 import { describe, expect, it } from "vitest";
 
+import { createSwitchableIcons } from "../../../../TestUtils/switchableIcons.ts";
 import { TestApp } from "../../../../TestUtils/TestApp.ts";
 import { flushMicrotasks } from "../../../../TestUtils/timing.ts";
 import { CODICON_GLYPHS } from "../../../base/common/codicons.generated.ts";
+import { CODICON_UNICODE } from "../../../base/common/codiconsUnicode.ts";
 import { getFileIcon } from "../../../base/common/fileIcons.ts";
 import type { ILogger } from "../../../platform/log/common/iLogger.ts";
 import { computeThemeVars } from "../../../platform/theme/browser/themeStyleVars.ts";
+import { NERD_FONT_ICONS } from "../../../platform/theme/common/productIconService.ts";
 import { WorkbenchTheme } from "../../../platform/theme/common/workbenchTheme.ts";
 import { darkPlusTheme } from "../../services/themes/common/themes/darkPlus.ts";
 import type { IExtensionTreeDataSource } from "../common/iExtensionTreeViewsSink.ts";
@@ -90,6 +93,7 @@ function mount(
             notifyError: (message) => errors.push(message),
             hasColor: (token) => typeof vars[token] === "number",
             relativeDirectory: (uri) => `dir-of(${uri})`,
+            icons: NERD_FONT_ICONS,
             logger,
             ...options.host,
         },
@@ -422,9 +426,97 @@ describe("ExtensionTreeView — rows", () => {
         expect(f.app.backend.getFgAt(new Point(3, 0))).toBe(fileIcon.color);
         expect(folder).toContain(" src");
         expect(folder).not.toContain(fileIcon.icon);
+        expect(folder).not.toContain(getFileIcon("src").icon);
         expect(themedFile).toBe(`   ${fileIcon.icon} main.ts`);
         expect(themedFolder).toBe("   lib");
         expect(generic).toBe(`   ${CODICON_GLYPHS.file} generic`);
+    });
+
+    it("a file icon is by the resource's name, not its path; a ThemeIcon beats the resource", async () => {
+        const docker = getFileIcon("Dockerfile");
+        const source = fakeSource({
+            "": [
+                item("d", "Dockerfile", { resourceUri: "file:///w/Dockerfile" }),
+                item("p", "main.ts", { resourceUri: "file:///w/main.ts", themeIcon: { id: "package" } }),
+            ],
+        });
+        const f = mount(source);
+        f.tree.setVisible(true);
+        await f.settle();
+        const [dockerfile, themed] = f.lines();
+        expect(docker).not.toEqual(getFileIcon("w/Dockerfile"));
+        expect(dockerfile).toBe(`   ${docker.icon} Dockerfile`);
+        expect(themed).toBe(`   ${CODICON_GLYPHS.package} main.ts`);
+    });
+
+    it("without Nerd Font a ThemeIcon is its Unicode codicon, a resource has no file icon", async () => {
+        const { icons } = createSwitchableIcons(false);
+        const source = fakeSource({
+            "": [
+                item("a", "aws", { themeIcon: { id: "package" } }),
+                item("f", "main.ts", { resourceUri: "file:///w/main.ts" }),
+                item("n", "none", { themeIcon: { id: "no-such-icon" } }),
+            ],
+        });
+        const f = mount(source, { host: { icons } });
+        f.tree.setVisible(true);
+        await f.settle();
+        expect(f.lines()).toEqual([`   ${CODICON_UNICODE.package} aws`, "   main.ts", "   none"]);
+    });
+
+    it("switching diode.icons.nerdFont redraws the rows without asking the subprocess", async () => {
+        const switchable = createSwitchableIcons(true);
+        const source = fakeSource({
+            "": [item("p", "pkg", { collapsibleState: 2, themeIcon: { id: "package" } })],
+            p: [item("p/c", "main.ts", { parentHandle: "p", resourceUri: "file:///w/main.ts" })],
+        });
+        const f = mount(source, { host: { icons: switchable.icons } });
+        f.tree.setVisible(true);
+        await f.settle();
+        expect(labels(f)).toEqual(["pkg", "main.ts"]);
+        const asked = source.requests.length;
+        await switchable.set(false);
+        await f.settle();
+        const [pkg, file] = f.lines();
+        expect(pkg).toContain(`${CODICON_UNICODE.package} pkg`);
+        expect(file).toBe("     main.ts");
+        expect(source.requests.length).toBe(asked);
+        // After the redraw the subprocess answers again.
+        await f.tree.refresh(undefined);
+        expect(source.requests.length).toBe(asked + 2);
+    });
+
+    it("a switch before the section is read draws nothing until it shows; a disposed tree no longer redraws", async () => {
+        const switchable = createSwitchableIcons(true);
+        const source = fakeSource({ "": [item("a", "aws", { themeIcon: { id: "package" } })] });
+        const f = mount(source, { host: { icons: switchable.icons } });
+        await switchable.set(false);
+        await f.settle();
+        expect(source.requests).toEqual([]);
+        f.tree.setVisible(true);
+        await f.settle();
+        expect(f.lines()).toEqual([`   ${CODICON_UNICODE.package} aws`]);
+        f.tree.dispose();
+        await switchable.set(true);
+        await f.settle();
+        expect(f.lines()).toEqual([`   ${CODICON_UNICODE.package} aws`]);
+    });
+
+    it("a row the tree already holds is updated in place when reveal names it again", async () => {
+        const source = fakeSource({ "": [item("a", "alpha")] });
+        const f = mount(source);
+        f.tree.setVisible(true);
+        await f.settle();
+        await f.tree.reveal({
+            viewId: "test.view",
+            item: item("a", "alpha"),
+            parentChain: [],
+            select: true,
+            focus: false,
+            expand: false,
+        });
+        await f.tree.refresh([item("a", "alpha", { description: "changed" })]);
+        expect(f.lines()).toEqual(["   alpha changed"]);
     });
 
     it("a refreshed row is redrawn in place; a row the tree doesn't know is ignored", async () => {
@@ -697,6 +789,31 @@ describe("ExtensionTreeView — message, reveal, replacement", () => {
         });
         expect(labels(f)).toEqual(["pkg", "child", "leafy"]);
         expect(source.requests.slice(before)).toEqual(["p"]);
+    });
+
+    it("reveal with two levels doesn't ask a leaf on the first level", async () => {
+        const source = fakeSource({
+            "": [item("p", "pkg", { collapsibleState: 1 })],
+            p: [
+                item("p/c", "child", { parentHandle: "p", collapsibleState: 1 }),
+                item("p/l", "leafy", { parentHandle: "p" }),
+            ],
+            "p/c": [item("p/c/g", "grand", { parentHandle: "p/c" })],
+        });
+        const f = mount(source);
+        f.tree.setVisible(true);
+        await f.settle();
+        const before = source.requests.length;
+        await f.tree.reveal({
+            viewId: "test.view",
+            item: item("p", "pkg", { collapsibleState: 1 }),
+            parentChain: [],
+            select: true,
+            focus: false,
+            expand: 2,
+        });
+        expect(labels(f)).toEqual(["pkg", "child", "grand", "leafy"]);
+        expect(source.requests.slice(before)).toEqual(["p", "p/c"]);
     });
 
     it("reveal with two levels stops at two", async () => {
