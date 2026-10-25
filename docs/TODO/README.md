@@ -189,6 +189,16 @@ File» для чисто текстовых многофайловых прав�
 задачей. Нужны трёхкнопочный диалог (у `DialogService` только confirm) и шаг из
 частей по документу (`MultiModelEditStackElement.split` эталона).
 
+### [ ] Интерактивный «Move to file…» (`refactor.move.file`)
+
+В меню Refactor для JS/TS есть только «Move to a new file». Пункта эталона
+«Move to file…» с выбором существующего файла нет. В VS Code его даёт
+`typescript-language-features` через interactive refactor (tsserver 5.2+,
+`includeInteractiveActions`, выбор файла quick pick'ом). У нас вместо стокового
+расширения `typescript-language-server`, и сначала надо выяснить, поддерживает ли он
+interactive refactor и что для этого нужно от клиента. Решение человека 2026-10-25:
+пока в трекер, без issue (всплыло при разборе #864).
+
 ### [ ] Буфер остаётся «изменённым» после отмены до сохранённого текста
 
 `isModified` сравнивает `versionId` документа с сохранённым, а отмена версию
