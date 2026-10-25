@@ -109,6 +109,7 @@ function make(opts: { state?: IStateService; menuEntries?: FakeMenuEntry[] } = {
         state,
         viewsService,
         scmInput,
+        new KeybindingRegistry(),
     );
 
     const executed: [string, unknown[]][] = [];
