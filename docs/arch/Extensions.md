@@ -1449,6 +1449,10 @@ workspace-состоянии `terminal.integrated.environmentVariableCollections
 `tasks.registerTaskProvider`/`executeTask` и устаревший `workspace.registerTaskProvider`.
 `contributes.taskDefinitions` дают неявное `onTaskType:<type>`; перед Run Task сервис поднимает
 `onCommand:workbench.action.tasks.runTask` и `onTaskType:` (таймаут 5 с, как у эталона).
+`contributes.problemPatterns`/`contributes.problemMatchers` — статический вклад манифеста (без
+активации): `bindExtensionTasks` кладёт их в реестр матчеров сервиса задач, паттерны раньше матчеров;
+устройство, сообщения о битых вкладах и порядок имён — в
+[workbench/Tasks.md](workbench/Tasks.md) («Матчеры из расширений»).
 
 **Мост декораций (`vscode.window.createTextEditorDecorationType` /
 `registerFileDecorationProvider`).** Value-типы

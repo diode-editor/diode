@@ -144,6 +144,10 @@ export function bindExtensionTasks(
             }),
         ),
     );
+    // Static contributions of the manifests: no activation (upstream's `problemMatchersExtPoint`).
+    tasks.registerProblemMatchers(extensions.extensions, (extension, message) => {
+        logger.warn(`${extension.id}: ${message}`);
+    });
     store.add(
         tasks.setProviderActivator(async (type) => {
             await extensions.whenInstalledExtensionsRegistered();

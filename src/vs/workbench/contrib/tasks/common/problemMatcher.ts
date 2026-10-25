@@ -1,6 +1,6 @@
 // Upstream's `problemMatcher.ts`: the matcher model, the tasks.json parser and the built-in patterns and
-// matchers, ported as is. Matchers contributed by extensions (`contributes.problemMatchers`) and background
-// (`watching`) patterns are not supported yet (docs/TODO/Tasks.md).
+// matchers, ported as is. Contributed ones live in `problemMatcherRegistry.ts`. Background (`watching`)
+// patterns are not supported yet (docs/TODO/Tasks.md).
 
 import * as paths from "node:path";
 
@@ -313,6 +313,17 @@ const BUILTIN_MATCHERS: ReadonlyMap<string, IProblemMatcher> = new Map<string, I
         },
     ],
 ]);
+
+/** Named patterns and matchers a description refers to (`"$name"`); names come without `$`. */
+export interface IProblemMatcherLookup {
+    getPattern(name: string): IProblemPattern | readonly IProblemPattern[] | undefined;
+    getMatcher(name: string): IProblemMatcher | undefined;
+}
+
+export const BUILTIN_PROBLEM_MATCHERS: IProblemMatcherLookup = {
+    getPattern: (name) => BUILTIN_PATTERNS.get(name),
+    getMatcher: (name) => BUILTIN_MATCHERS.get(name),
+};
 
 /** A built-in matcher by name, with or without `$` (upstream's `_resolveMatchers`). */
 export function getBuiltinProblemMatcher(name: string): IProblemMatcher | undefined {
@@ -751,14 +762,15 @@ function createMultiLinePattern(values: readonly Json[], report: ProblemReporter
     return validatePattern(result, report) ? result : undefined;
 }
 
-/** `"$name"` of a built-in pattern, or an inline pattern. */
+/** `"$name"` of a named pattern, or an inline pattern. */
 function createProblemPattern(
     value: unknown,
     report: ProblemReporter,
+    lookup: IProblemMatcherLookup,
 ): IProblemPattern | readonly IProblemPattern[] | undefined {
     if (typeof value === "string") {
         if (value.length > 1 && value.startsWith("$")) {
-            const result = BUILTIN_PATTERNS.get(value.substring(1));
+            const result = lookup.getPattern(value.substring(1));
             if (result === undefined) report(`Error: the pattern with the identifier ${value} doesn't exist.`);
             return result;
         }
@@ -818,9 +830,16 @@ function severityOf(value: unknown, report: ProblemReporter): MarkerSeverity | u
     return MarkerSeverity.Error;
 }
 
-/** Upstream's `ProblemMatcherParser.parse`: an inline `problemMatcher` object of tasks.json. */
-export function parseProblemMatcher(json: Json, report: ProblemReporter): IProblemMatcher | undefined {
-    const result = createProblemMatcher(json, report);
+/**
+ * Upstream's `ProblemMatcherParser.parse`: an inline `problemMatcher` object of tasks.json or a matcher an
+ * extension contributes. `$name` of `pattern` and `base` is looked up in `lookup`.
+ */
+export function parseProblemMatcher(
+    json: Json,
+    report: ProblemReporter,
+    lookup: IProblemMatcherLookup = BUILTIN_PROBLEM_MATCHERS,
+): IProblemMatcher | undefined {
+    const result = createProblemMatcher(json, report, lookup);
     const text = JSON.stringify(json, null, 4);
     if (result === undefined) {
         report(`Error: the description can't be converted into a problem matcher:\n${text}\n`);
@@ -833,7 +852,11 @@ export function parseProblemMatcher(json: Json, report: ProblemReporter): IProbl
     return result;
 }
 
-function createProblemMatcher(description: Json, report: ProblemReporter): IProblemMatcher | undefined {
+function createProblemMatcher(
+    description: Json,
+    report: ProblemReporter,
+    lookup: IProblemMatcherLookup,
+): IProblemMatcher | undefined {
     const owner = typeof description.owner === "string" ? description.owner : crypto.randomUUID();
     const source = typeof description.source === "string" && description.source !== "" ? description.source : undefined;
     const applyTo = APPLY_TO.get(String(description.applyTo).toLowerCase()) ?? "allDocuments";
@@ -842,11 +865,11 @@ function createProblemMatcher(description: Json, report: ProblemReporter): IProb
     const pattern =
         description.pattern === undefined || description.pattern === null || description.pattern === ""
             ? undefined
-            : createProblemPattern(description.pattern, report);
+            : createProblemPattern(description.pattern, report, lookup);
     const severity = severityOf(description.severity, report);
 
     if (typeof description.base === "string") {
-        const base = description.base.startsWith("$") ? BUILTIN_MATCHERS.get(description.base.substring(1)) : undefined;
+        const base = description.base.startsWith("$") ? lookup.getMatcher(description.base.substring(1)) : undefined;
         if (base === undefined) return undefined;
         // The base, with what the description sets (and parsed) on top.
         return {

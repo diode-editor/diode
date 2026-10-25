@@ -65,8 +65,8 @@
   `$go`), inline-форма в tasks.json (полная схема, `base`, многострочный паттерн с `loop`), вывод
   терминала задачи построчно → маркеры Problems по мере вывода, стратегия Clean, `applyTo`,
   `presentation.revealProblems`.
-- [ ] Матчеры и паттерны расширений (`contributes.problemMatchers`/`problemPatterns`) и `$tsc` —
-  следующая issue цепочки. Пока такое имя — «can't be resolved» в лог `Tasks`.
+- [x] Матчеры и паттерны расширений (`contributes.problemMatchers`/`problemPatterns`) и `$tsc` (#809):
+  `$tsc` — в манифесте `diode-lsp-typescript`, оживают `$nvcc` (cpp), `$lessc` (less), `$node-sass` (scss).
 - [ ] Фоновые задачи с матчером (`background.beginsPattern`/`endsPattern`, `activeOnStart`,
   `WatchingProblemCollector`): сейчас у `isBackground`-задачи матчер игнорируется с предупреждением в
   лог `Tasks`, задача «бежит» до выхода процесса.

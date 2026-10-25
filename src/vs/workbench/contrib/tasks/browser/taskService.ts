@@ -44,6 +44,12 @@ import { type TerminalService, TerminalServiceDIToken } from "../../terminal/bro
 import { type DefaultShellResolver, DefaultShellResolverDIToken } from "../../terminal/common/defaultShell.ts";
 import type { IExtensionPtyTerminals } from "../../terminal/common/extensionPtyTerminals.ts";
 import {
+    type ExtensionProblemReporter,
+    type IContributingExtension,
+    type ProblemMatcherRegistry,
+    ProblemMatcherRegistryDIToken,
+} from "../common/problemMatcherRegistry.ts";
+import {
     createCustomizedTask,
     currentTaskPlatform,
     parseTasksJson,
@@ -127,6 +133,7 @@ export class TaskService extends Disposable {
         OutputServiceDIToken,
         TerminalEditorServiceDIToken,
         MarkerServiceDIToken,
+        ProblemMatcherRegistryDIToken,
     ] as const;
 
     private readonly system: TerminalTaskSystem;
@@ -160,6 +167,7 @@ export class TaskService extends Disposable {
         private readonly output: OutputService,
         editorTerminals: ITaskEditorTerminals,
         markers: MarkerService,
+        private readonly problemMatchers: ProblemMatcherRegistry,
     ) {
         super();
         // Stryker disable next-line StringLiteral,ObjectLiteral: log channel name and label are wiring; the e2e tasks scenario sees "Tasks"
@@ -173,6 +181,7 @@ export class TaskService extends Disposable {
                 warn: (message) => {
                     this.logger.warn(message);
                 },
+                resolveMatcher: (name) => this.problemMatchers.resolve(name),
             }),
         );
         this.onDidStateChange = this.system.onDidStateChange;
@@ -205,6 +214,17 @@ export class TaskService extends Disposable {
     }
 
     public readonly onDidChangeDefinitions = this.onDidChangeDefinitionsEmitter.event;
+
+    /**
+     * `contributes.problemPatterns`/`problemMatchers` of the window's extensions. Until then tasks.json is not
+     * parsed and no task runs: a contributed matcher is not lost as unresolved.
+     */
+    public registerProblemMatchers(
+        extensions: readonly IContributingExtension[],
+        report: ExtensionProblemReporter,
+    ): void {
+        this.problemMatchers.registerExtensions(extensions, report);
+    }
 
     /** Ignores `when`. */
     public taskDefinitionTypes(): string[] {
@@ -258,8 +278,14 @@ export class TaskService extends Disposable {
         } catch {
             return NO_WORKSPACE_TASKS;
         }
-        const { tasks, configuring, problems } = parseTasksJson(text, folder, this.platform, (type) =>
-            this.definitions.get(type),
+        // A matcher of tasks.json may refer to a contributed pattern or base (upstream's `_computeWorkspaceFolderTasks`).
+        await this.problemMatchers.onReady();
+        const { tasks, configuring, problems } = parseTasksJson(
+            text,
+            folder,
+            this.platform,
+            (type) => this.definitions.get(type),
+            this.problemMatchers,
         );
         // A provider type may have appeared since the last read; report again then.
         const reportKey = JSON.stringify([text, this.taskDefinitionTypes()]);
@@ -393,6 +419,8 @@ export class TaskService extends Disposable {
     public async run(task: ITask): Promise<ITaskSummary | undefined> {
         try {
             await this.saveBeforeRun();
+            // A task run before the extensions' matchers are registered waits for them (upstream's `_executeTask`).
+            await this.problemMatchers.onReady();
             return await this.handleExecuteResult(this.system.run(task, this.runContext()));
         } catch (error) {
             this.handleError(error);

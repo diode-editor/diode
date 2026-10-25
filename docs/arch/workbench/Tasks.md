@@ -70,6 +70,27 @@
   background tasks yet; the matcher is ignored» (у эталона — `WatchingProblemCollector`); в tasks.json
   неизвестное имя матчера не ошибка разбора («Invalid problemMatcher reference» эталона), а сообщение
   при запуске; `Severity` эвристика Windows (`#77475`, длиннее сообщение — заменяет) не перенесена.
+- **Матчеры из расширений** (#809; `common/problemMatcherRegistry.ts` — `ProblemPatternRegistry` и
+  `ProblemMatcherRegistry` эталона в одном классе, экземпляр держит `TaskService`):
+  `contributes.problemPatterns` и `contributes.problemMatchers` всех расширений окна. Регистрирует их
+  `bindExtensionTasks` из каталога расширений — статический вклад манифеста, расширение не
+  активируется. Сначала паттерны всех расширений, потом матчеры (`deps` эталона): матчер может
+  ссылаться на паттерн другого расширения (`"pattern": "$tsc"`) и на `base` — встроенный или
+  зарегистрированный раньше. Невалидный вклад — сообщения эталона в лог `Tasks` с id расширения
+  (`Invalid problem pattern. The pattern will be ignored.` + JSON паттерна; у матчера — тексты
+  `ProblemMatcherParser`), остальные регистрируются. Любое сообщение парсера паттерна делает паттерн
+  невалидным: у эталона все они — `error`. Совпадение имени со встроенным или с вкладом раньше —
+  **последний выигрывает** (`add` эталона пишет в тот же словарь); порядок — порядок списка
+  расширений окна. Пока реестр не готов, `getWorkspaceConfiguration` (разбор tasks.json: `base` и
+  `$pattern` inline-матчера) и `run` ждут `onReady()`, как `_computeWorkspaceFolderTasks`/
+  `_executeTask` эталона, — матчер не теряется с «can't be resolved». Матчеры из расширений годятся в
+  tasks.json, в задачах провайдеров и как `base`. **Отступление:** дельты удаления нет — набор
+  расширений статичен на жизнь окна, удалённое или выключенное расширение пропадает из реестра после
+  перезагрузки окна (у эталона `delta.removed` удаляет имя и у встроенного матчера с тем же именем).
+  `$tsc` объявлен в манифесте `extensions/diode-lsp-typescript` дословно по
+  typescript-language-features эталона (паттерн `tsc`, матчер `tsc`: owner `typescript`, source `ts`,
+  `applyTo: closedDocuments`, `fileLocation: ["relative", "${cwd}"]`); фоновые `tsc-watch`/`tsgo-watch`
+  не перенесены. Код маркера — как у эталона, число без `TS` (`2322`).
 - **Сервис** (`browser/taskService.ts`): списки (tasks.json + провайдеры с таймаутом 5 с,
   `task.autoDetect`, `when` типа из `contributes.taskDefinitions`), запуск с `task.saveBeforeRun`
   (`prompt` — модальный `DialogService.confirm`, как `dialogService.confirm` эталона; безымянные

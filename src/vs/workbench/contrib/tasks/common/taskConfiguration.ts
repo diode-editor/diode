@@ -6,7 +6,7 @@ import { parse, type ParseError, printParseErrorCode } from "jsonc-parser";
 import type { IWorkspaceFolder } from "../../../../platform/workspace/common/iWorkspaceContextService.ts";
 import { createTaskIdentifier, type ITaskDefinitionSchema } from "../../../api/common/taskIdentity.ts";
 
-import { parseProblemMatcher } from "./problemMatcher.ts";
+import { BUILTIN_PROBLEM_MATCHERS, type IProblemMatcherLookup, parseProblemMatcher } from "./problemMatcher.ts";
 import {
     type CommandString,
     DEFAULT_PRESENTATION,
@@ -270,6 +270,7 @@ export function parseTasksJson(
     folder: IWorkspaceFolder,
     platform: TaskPlatform,
     definitionOf: TaskDefinitionLookup = () => undefined,
+    matchers: IProblemMatcherLookup = BUILTIN_PROBLEM_MATCHERS,
 ): ITaskConfigurationParseResult {
     const problems: string[] = [];
     const errors: ParseError[] = [];
@@ -301,11 +302,19 @@ export function parseTasksJson(
         if (!isObject(external)) return;
         const runtime = runtimeOf(external.type);
         if (runtime === undefined) {
-            const configuringTask = configuringTaskFrom(external, folder, platform, index, definitionOf, problems);
+            const configuringTask = configuringTaskFrom(
+                external,
+                folder,
+                platform,
+                index,
+                definitionOf,
+                matchers,
+                problems,
+            );
             if (configuringTask !== undefined) configuring.push(configuringTask);
             return;
         }
-        const task = taskFrom(external, runtime, folder, platform, globals, index, problems);
+        const task = taskFrom(external, runtime, folder, platform, globals, index, matchers, problems);
         if (task !== undefined) tasks.push(task);
     });
     return { tasks, configuring, problems };
@@ -318,6 +327,7 @@ function configuringTaskFrom(
     platform: TaskPlatform,
     index: number,
     definitionOf: TaskDefinitionLookup,
+    matchers: IProblemMatcherLookup,
     problems: string[],
 ): IConfiguringTask | undefined {
     const type = external.type;
@@ -349,7 +359,7 @@ function configuringTaskFrom(
         configures,
         folder,
         configIndex: index,
-        customization: customizationFrom(external, label, platform, problems),
+        customization: customizationFrom(external, label, platform, matchers, problems),
         element: external,
     };
 }
@@ -365,6 +375,7 @@ function customizationFrom(
     external: Json,
     label: string | undefined,
     platform: TaskPlatform,
+    matchers: IProblemMatcherLookup,
     problems: string[],
 ): ITaskCustomization {
     const section = external[platform];
@@ -384,7 +395,7 @@ function customizationFrom(
         ...(typeof external.hide === "boolean" ? { hide: external.hide } : {}),
         ...groupFrom(external.group),
         ...(typeof external.isBackground === "boolean" ? { isBackground: external.isBackground } : {}),
-        ...matchersWithOs(external, os, problems),
+        ...matchersWithOs(external, os, matchers, problems),
         presentation,
         ...(Object.keys(options).length > 0 ? { options } : {}),
         runOptions: runOptionsFrom(external.runOptions, name, problems),
@@ -423,6 +434,7 @@ function taskFrom(
     platform: TaskPlatform,
     globals: IGlobals,
     index: number,
+    matchers: IProblemMatcherLookup,
     problems: string[],
 ): ITask | undefined {
     const json = JSON.stringify(external, undefined, 4);
@@ -448,7 +460,7 @@ function taskFrom(
         ...globals.presentation,
         ...parts.presentation,
     };
-    const matchers = matchersWithOs(external, platformSection(external, platform), problems);
+    const problemMatchers = matchersWithOs(external, platformSection(external, platform), matchers, problems);
     const id = `${WORKSPACE_TASK_ID_PREFIX}${label}`;
     return {
         _id: id,
@@ -470,8 +482,8 @@ function taskFrom(
         ...(typeof external.detail === "string" ? { detail: external.detail } : {}),
         ...(typeof external.hide === "boolean" ? { hide: external.hide } : {}),
         ...groupFrom(external.group),
-        problemMatchers: matchers.problemMatchers ?? [],
-        hasDefinedMatchers: matchers.problemMatchers !== undefined,
+        problemMatchers: problemMatchers.problemMatchers ?? [],
+        hasDefinedMatchers: problemMatchers.problemMatchers !== undefined,
         runOptions: runOptionsFrom(external.runOptions, label, problems),
         configIndex: index,
     };
@@ -496,17 +508,18 @@ function platformSection(external: Json, platform: TaskPlatform): Json {
 function matchersWithOs(
     external: Json,
     os: Json,
+    matchers: IProblemMatcherLookup,
     problems: string[],
 ): { problemMatchers?: readonly TaskProblemMatcher[] } {
     const value = os.problemMatcher ?? external.problemMatcher;
-    return value === undefined ? {} : { problemMatchers: matchersOf(value, problems) };
+    return value === undefined ? {} : { problemMatchers: matchersOf(value, matchers, problems) };
 }
 
 /**
  * A name stays a name: it is resolved when the task runs (an unknown one is reported then). An inline matcher
  * is parsed here; a broken one is reported and skipped.
  */
-function matchersOf(value: unknown, problems: string[]): TaskProblemMatcher[] {
+function matchersOf(value: unknown, matchers: IProblemMatcherLookup, problems: string[]): TaskProblemMatcher[] {
     const items: readonly unknown[] = Array.isArray(value) ? (value as readonly unknown[]) : [value];
     const result: TaskProblemMatcher[] = [];
     for (const item of items) {
@@ -514,7 +527,7 @@ function matchersOf(value: unknown, problems: string[]): TaskProblemMatcher[] {
             result.push(item);
             continue;
         }
-        const matcher = parseProblemMatcher(isObject(item) ? item : {}, (message) => problems.push(message));
+        const matcher = parseProblemMatcher(isObject(item) ? item : {}, (message) => problems.push(message), matchers);
         if (matcher !== undefined) result.push(matcher);
     }
     return result;
