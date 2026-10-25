@@ -945,3 +945,70 @@ describe("ExtensionTreeView — welcome state", () => {
         expect(changes).toBe(0);
     });
 });
+
+describe("ExtensionTreeView — row menus", () => {
+    const copy = {
+        label: "Copy Name",
+        id: "ext.copy",
+        enabled: true,
+        disabled: false,
+    };
+
+    it("a row whose menu is only its inline group opens no context menu", async () => {
+        const shown: unknown[] = [];
+        const f = mount(fakeSource({ "": [item("a", "alpha")] }), {
+            host: {
+                itemMenu: () => [{ group: "inline", entries: [copy] }],
+                showContextMenu: (_owner, _anchor, entries) => shown.push(entries),
+            },
+        });
+        f.tree.setVisible(true);
+        await f.settle();
+        f.tree.focus();
+        f.app.sendKey("Shift+F10");
+        expect(shown).toEqual([]);
+    });
+
+    it("a glyph drawn before the menu lost its item runs nothing", async () => {
+        const executed: string[] = [];
+        let entries = [copy];
+        const f = mount(fakeSource({ "": [item("a", "alpha")] }), {
+            host: {
+                itemMenu: () => [{ group: "inline", entries }],
+                executeCommand: (id) => executed.push(id),
+            },
+        });
+        f.tree.setVisible(true);
+        await f.settle();
+        const node = f.tree.treeElement.getSelectedNode();
+        if (node === null) throw new Error("no row");
+        entries = [];
+        f.tree.treeElement.onInlineAction?.(node, 0);
+        expect(executed).toEqual([]);
+        entries = [copy];
+        f.tree.treeElement.onInlineAction?.(node, 0);
+        expect(executed).toEqual(["ext.copy"]);
+    });
+
+    it("an inline item whose glyph is missing from the font set shows its title", async () => {
+        const f = mount(fakeSource({ "": [item("a", "alpha")] }), {
+            host: {
+                itemMenu: () => [
+                    {
+                        group: "inline",
+                        entries: [
+                            { ...copy, icon: "" },
+                            { ...copy, label: "Edit", id: "ext.edit", icon: "✎" },
+                        ],
+                    },
+                ],
+            },
+        });
+        f.tree.setVisible(true);
+        await f.settle();
+        const row = f.lines().find((line) => line.includes("alpha")) ?? "";
+        expect(row).toContain("Copy Name");
+        expect(row).toContain("✎");
+        expect(row).not.toContain("Edit");
+    });
+});

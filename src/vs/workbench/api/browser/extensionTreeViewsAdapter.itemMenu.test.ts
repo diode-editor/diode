@@ -7,6 +7,7 @@ import { describe, expect, it, vi } from "vitest";
 import { TestApp } from "../../../../TestUtils/TestApp.ts";
 import { flushMicrotasks } from "../../../../TestUtils/timing.ts";
 import { CODICON_GLYPHS } from "../../../base/common/codicons.generated.ts";
+import { MenuId } from "../../../platform/actions/common/menuId.ts";
 import { ConfigurationRegistry } from "../../../platform/configuration/common/configurationRegistry.ts";
 import { InMemoryConfigurationService } from "../../../platform/configuration/common/inMemoryConfigurationService.ts";
 import { ContextMenuService } from "../../../platform/contextview/browser/contextMenuService.ts";
@@ -56,11 +57,36 @@ const SECOND = extension("pub.b", {
     menus: { "view/item/context": [{ command: "b.inspect", when: "viewItem == provider", group: "z_b" }] },
 });
 
+/**
+ * A submenu `More` on providers and `Other` on env rows; `Actions` is offered inline, where a submenu can't be a
+ * glyph (its own id: the registry resolves a submenu once per menu).
+ */
+const SUBMENUS = extension("pub.s", {
+    submenus: [
+        { id: "pub.more", label: "More" },
+        { id: "pub.other", label: "Other" },
+        { id: "pub.inline", label: "Actions" },
+    ],
+    menus: {
+        "view/item/context": [
+            { submenu: "pub.more", when: "viewItem == provider" },
+            { submenu: "pub.inline", when: "viewItem == provider", group: "inline" },
+            { submenu: "pub.other", when: "viewItem == go:explorer:envfile" },
+            { command: "ext.copy", group: "9_copy" },
+        ],
+        "pub.more": [{ command: "ext.copy" }],
+        "pub.other": [{ command: "ext.copy" }],
+        "pub.inline": [{ command: "ext.copy" }],
+    },
+});
+
 const ROWS = [
     item("1/prov", "aws", { contextValue: "provider", collapsibleState: 1 }),
     item("1/env", "GOPATH", { contextValue: "go:explorer:envfile" }),
     item("1/plain", "plain"),
 ];
+
+const GCP = item("1/gcp", "gcp", { contextValue: "provider" });
 
 function source(children: Record<string, readonly IWireTreeItem[]>): IExtensionTreeDataSource {
     return {
@@ -82,7 +108,12 @@ const COMMANDS: Record<string, string> = {
 };
 
 async function setup(
-    options: { rows?: readonly IWireTreeItem[]; canSelectMany?: boolean; extensions?: readonly IExtension[] } = {},
+    options: {
+        rows?: readonly IWireTreeItem[];
+        canSelectMany?: boolean;
+        extensions?: readonly IExtension[];
+        withoutLogger?: boolean;
+    } = {},
 ) {
     const h = makeViewsHarness();
     h.service.registerContainer({ id: "sb", title: "SB", location: "sidebar", order: 0, isDefault: true });
@@ -112,7 +143,7 @@ async function setup(
         workspace: h.workspace,
         colors: { resolve: () => undefined },
         notifyError: (message) => errors.push(message),
-        logger,
+        logger: options.withoutLogger === true ? undefined : logger,
     });
     const children: Record<string, readonly IWireTreeItem[]> = { "": options.rows ?? ROWS };
     adapter.register(
@@ -260,7 +291,9 @@ describe("ExtensionTreeViewsAdapter — view/item/context menu", () => {
         const f = await setup({
             extensions: [
                 extension("pub.c", {
-                    menus: { "view/item/context": [{ command: "ext.ghost" }, { command: "ext.copy" }] },
+                    menus: {
+                        "view/item/context": [{ command: "ext.ghost", group: "1_ghost" }, { command: "ext.copy" }],
+                    },
                 }),
             ],
         });
@@ -269,6 +302,49 @@ describe("ExtensionTreeViewsAdapter — view/item/context menu", () => {
         f.app.sendKey("Escape");
         f.rightClick("plain");
         expect(f.warnings).toEqual(['view/item/context: command "ext.ghost" is not registered, its item is not shown']);
+    });
+
+    it("without a logger an item of an unregistered command is still left out", async () => {
+        const f = await setup({
+            withoutLogger: true,
+            extensions: [
+                extension("pub.c", {
+                    menus: { "view/item/context": [{ command: "ext.ghost" }, { command: "ext.copy" }] },
+                }),
+            ],
+        });
+        f.rightClick("plain");
+        expect(f.menu()).toEqual(["Copy Name"]);
+    });
+
+    it("a disabled item neither runs from the menu nor from its glyph", async () => {
+        const f = await setup({ extensions: [] });
+        f.h.menuRegistry.appendMenuItem({ menuId: MenuId.ViewItemContext, command: "ext.copy", enablement: "false" });
+        f.h.menuRegistry.appendMenuItem({
+            menuId: MenuId.ViewItemContext,
+            command: "ext.edit",
+            group: "inline",
+            enablement: "false",
+        });
+        await flushMicrotasks(10);
+        f.rightClick("aws");
+        f.select("Copy Name");
+        const { y } = f.at("aws");
+        f.mouse("left", (f.lines()[y] ?? "").indexOf("Edit"), y);
+        expect(f.executed).toEqual([]);
+    });
+
+    it("an extension submenu opens with its items, which run with the row; it is no inline glyph", async () => {
+        const f = await setup({ extensions: [SUBMENUS] });
+        expect(f.lines().find((line) => line.includes("aws"))).not.toContain("Actions");
+        f.rightClick("aws");
+        const more = f.popup()?.entries.find((entry) => entry.type === "submenu");
+        expect(more?.type === "submenu" ? more.label : null).toBe("More");
+        const children = more?.type === "submenu" && Array.isArray(more.entries) ? more.entries : [];
+        const copy = children.find((entry) => entry.type !== "separator" && entry.label === "Copy Name");
+        if (copy === undefined || copy.type === "separator" || copy.type === "submenu") throw new Error("no Copy Name");
+        copy.onSelect?.();
+        expect(f.executed).toEqual([{ id: "ext.copy", args: [rowArg("1/prov")] }]);
     });
 
     it("after a refresh with a new context value the menu and the inline buttons follow it", async () => {
@@ -329,8 +405,10 @@ describe("ExtensionTreeViewsAdapter — inline buttons", () => {
         expect(f.lines().find((line) => line.includes("aws"))).not.toContain(EDIT);
         const resolves = vi.spyOn(f.h.menuService, "getEntryGroups");
         f.h.contextKeys.setRaw("unrelated", true);
+        f.h.menuRegistry.appendMenuItem({ menuId: MenuId.ViewTitle, command: "ext.copy" });
         await flushMicrotasks(10);
         expect(resolves).not.toHaveBeenCalled();
+        f.h.contextKeys.setRaw("unrelated", false);
         f.h.contextKeys.setRaw("editable", true);
         await flushMicrotasks(10);
         expect(resolves).toHaveBeenCalled();
@@ -354,20 +432,51 @@ describe("ExtensionTreeViewsAdapter — inline buttons", () => {
 });
 
 describe("ExtensionTreeViewsAdapter — multiple selection", () => {
-    async function selectBoth(f: Awaited<ReturnType<typeof setup>>): Promise<void> {
+    /** Shift+Down from the first row: the first two rows. */
+    async function selectFirstTwo(f: Awaited<ReturnType<typeof setup>>, handles: readonly string[]): Promise<void> {
         f.app.sendKey("Shift+ArrowDown");
         f.app.render();
         await flushMicrotasks(5);
-        expect(f.tree.treeElement.getSelectedNodes().map((node) => node.handle)).toEqual(["1/prov", "1/env"]);
+        expect(f.tree.treeElement.getSelectedNodes().map((node) => node.handle)).toEqual(handles);
     }
 
     it("a right click inside the selection shows only the items every selected row has, the selection goes second", async () => {
         const f = await setup({ canSelectMany: true });
-        await selectBoth(f);
-        f.rightClick("GOPATH");
+        await selectFirstTwo(f, ["1/prov", "1/env"]);
+        f.rightClick("aws");
         expect(f.menu()).toEqual(["Copy Name"]);
         f.select("Copy Name");
-        expect(f.executed).toEqual([{ id: "ext.copy", args: [rowArg("1/env"), [rowArg("1/prov"), rowArg("1/env")]] }]);
+        expect(f.executed).toEqual([{ id: "ext.copy", args: [rowArg("1/prov"), [rowArg("1/prov"), rowArg("1/env")]] }]);
+    });
+
+    it("submenus count by their label: a different one drops out", async () => {
+        const f = await setup({ canSelectMany: true, extensions: [SUBMENUS] });
+        await selectFirstTwo(f, ["1/prov", "1/env"]);
+        f.rightClick("aws");
+        expect(f.menu()).toEqual(["Copy Name"]);
+    });
+
+    it("submenus count by their label: the same one stays", async () => {
+        const f = await setup({ canSelectMany: true, extensions: [SUBMENUS], rows: [ROWS[0], GCP] });
+        await selectFirstTwo(f, ["1/prov", "1/gcp"]);
+        f.rightClick("aws");
+        expect(f.menu()).toEqual(["More", "─", "Copy Name"]);
+    });
+
+    it("a right click outside the selection is that row alone", async () => {
+        const f = await setup({ canSelectMany: true, rows: [...ROWS, GCP] });
+        await selectFirstTwo(f, ["1/prov", "1/env"]);
+        f.rightClick("gcp");
+        expect(f.menu()).toEqual(["Open Documentation", "─", "Copy Name", "─", "Inspect"]);
+        f.select("Copy Name");
+        expect(f.executed).toEqual([{ id: "ext.copy", args: [rowArg("1/gcp")] }]);
+    });
+
+    it("a lone row gets no selection argument", async () => {
+        const f = await setup({ canSelectMany: true });
+        f.rightClick("aws");
+        f.select("Copy Name");
+        expect(f.executed).toEqual([{ id: "ext.copy", args: [rowArg("1/prov")] }]);
     });
 
     it("without `canSelectMany` only the clicked row counts", async () => {

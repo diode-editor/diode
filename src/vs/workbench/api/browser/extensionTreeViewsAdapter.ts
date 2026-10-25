@@ -3,7 +3,12 @@ import { Emitter } from "../../../base/common/event.ts";
 import { DisposableStore, type IDisposable } from "../../../base/common/lifecycle.ts";
 import { Uri } from "../../../base/common/uri.ts";
 import { MenuId } from "../../../platform/actions/common/menuId.ts";
-import type { IMenuEntryGroup, MenuContextKeys, MenuRegistry } from "../../../platform/actions/common/menuRegistry.ts";
+import type {
+    IMenuEntryGroup,
+    IResolvedMenuItemEntry,
+    MenuContextKeys,
+    MenuRegistry,
+} from "../../../platform/actions/common/menuRegistry.ts";
 import type { MenuService } from "../../../platform/actions/common/menuService.ts";
 import type { CommandRegistry } from "../../../platform/commands/common/commandRegistry.ts";
 import type { IConfigurationService } from "../../../platform/configuration/common/iConfigurationService.ts";
@@ -91,6 +96,7 @@ export class ExtensionTreeViewsAdapter implements IExtensionTreeViewsSink, IDisp
             executeCommand: (id, args) => services.commands.execute(id, ...args),
             logger: services.logger,
         };
+        // Stryker disable next-line CallExpression: hygiene — the trees listening to it are disposed by `reset()` first
         this.store.add(this.onDidChangeItemMenu);
         this.store.add(
             menus.onDidChangeMenu((menuId) => {
@@ -188,25 +194,23 @@ export class ExtensionTreeViewsAdapter implements IExtensionTreeViewsSink, IDisp
      */
     private itemMenu(viewId: string, contextValue: string | undefined): IMenuEntryGroup[] {
         const keys: MenuContextKeys =
+            // Stryker disable next-line ConditionalExpression: equivalent — an overlay key set to `undefined` reads as absent
             contextValue === undefined ? { view: viewId } : { view: viewId, viewItem: contextValue };
-        return this.services.menuService
-            .getEntryGroups(MenuId.ViewItemContext, undefined, keys)
-            .map((group) => ({
-                group: group.group,
-                entries: group.entries.filter((entry) => {
-                    if (entry.type === "separator" || entry.type === "submenu") return true;
-                    // Stryker disable next-line ConditionalExpression: the registry always sets `id` (the command) on an item entry
-                    if (entry.id === undefined || this.services.commands.has(entry.id)) return true;
-                    if (!this.reportedCommands.has(entry.id)) {
-                        this.reportedCommands.add(entry.id);
-                        this.services.logger?.warn(
-                            `view/item/context: command "${entry.id}" is not registered, its item is not shown`,
-                        );
-                    }
-                    return false;
-                }),
-            }))
-            .filter((group) => group.entries.length > 0);
+        return this.services.menuService.getEntryGroups(MenuId.ViewItemContext, undefined, keys).map((group) => ({
+            group: group.group,
+            entries: group.entries.filter((entry) => {
+                // A submenu has no `id` and stays as the registry resolved it.
+                const id = (entry as IResolvedMenuItemEntry).id;
+                if (id === undefined || this.services.commands.has(id)) return true;
+                if (!this.reportedCommands.has(id)) {
+                    this.reportedCommands.add(id);
+                    this.services.logger?.warn(
+                        `view/item/context: command "${id}" is not registered, its item is not shown`,
+                    );
+                }
+                return false;
+            }),
+        }));
     }
 
     private syncVisibility(): void {

@@ -268,15 +268,19 @@ export class ExtensionTreeView implements IWelcomeTree, IDisposable {
      * only the items every selected row has. No items — no menu.
      */
     private showContextMenu(node: IExtensionTreeNode, anchor: OverlayAnchorPosition): void {
-        const targets = this.targetsOf(node);
-        const others = targets.filter((target) => target !== node).map((target) => this.menuGroups(target, false));
-        const groups = this.menuGroups(node, false)
+        const selection = this.selectionOf(node);
+        // The clicked row is in the selection: intersecting with its own menu changes nothing.
+        const menus = (selection ?? []).map((target) => this.menuGroups(target.item, false));
+        const groups = this.menuGroups(node.item, false)
             .map((group) => ({
                 group: group.group,
-                entries: group.entries.filter((entry) => others.every((other) => hasEntry(other, entry))),
+                entries: group.entries.filter((entry) => menus.every((menu) => hasEntry(menu, entry))),
             }))
             .filter((group) => group.entries.length > 0);
-        const args = this.commandArgs(node, targets);
+        const args =
+            selection === null
+                ? [this.rowArg(node)]
+                : [this.rowArg(node), selection.map((target) => this.rowArg(target))];
         const entries = joinMenuGroups(groups).map((entry) => this.bindEntry(entry, args));
         if (entries.length === 0) return;
         this.host.showContextMenu(this.tree, anchor, entries);
@@ -284,37 +288,37 @@ export class ExtensionTreeView implements IWelcomeTree, IDisposable {
 
     /** Resolved again on the click, as upstream's buttons: the item under the glyph runs with its row's element. */
     private runInlineAction(node: IExtensionTreeNode, index: number): void {
-        const entry = inlineEntries(this.menuGroups(node, true))[index] as MenuItemEntry | undefined;
+        const entry = inlineEntries(this.menuGroups(node.item, true)).at(index);
+        // A glyph drawn before the menu changed.
         if (entry === undefined) return;
-        this.runEntry(entry, this.commandArgs(node, [node]));
+        this.runEntry(entry, [this.rowArg(node)]);
     }
 
-    private menuGroups(node: IExtensionTreeNode, inline: boolean): IMenuEntryGroup[] {
+    private menuGroups(item: IWireTreeItem, inline: boolean): IMenuEntryGroup[] {
         return this.host
-            .itemMenu(this.viewId, node.item.contextValue)
+            .itemMenu(this.viewId, item.contextValue)
             .filter((group) => (group.group === INLINE_GROUP) === inline);
     }
 
-    /** Upstream `MultipleSelectionActionRunner`: the selection counts only when the row is in it. */
-    private targetsOf(node: IExtensionTreeNode): readonly IExtensionTreeNode[] {
-        if (!this.canSelectMany) return [node];
+    /** Upstream `MultipleSelectionActionRunner`: a selection of several counts only when the row is in it. */
+    private selectionOf(node: IExtensionTreeNode): readonly IExtensionTreeNode[] | null {
+        if (!this.canSelectMany) return null;
         const selected = this.tree.getSelectedNodes();
-        return selected.length > 1 && selected.includes(node) ? selected : [node];
+        // Stryker disable next-line ConditionalExpression,LogicalOperator: the tree widget moves the selection to a row right-clicked outside it; kept as upstream for a cursor outside the selection
+        return selected.length > 1 && selected.includes(node) ? selected : null;
     }
 
-    /** The row, and the whole selection second when there is one; the subprocess turns handles back into elements. */
-    private commandArgs(node: IExtensionTreeNode, targets: readonly IExtensionTreeNode[]): unknown[] {
-        const arg = (target: IExtensionTreeNode): IWireTreeItemHandleArg => ({
-            $treeViewId: this.viewId,
-            $treeItemHandle: target.handle,
-        });
-        return targets.length > 1 ? [arg(node), targets.map(arg)] : [arg(node)];
+    /** The subprocess turns it back into the provider's element. */
+    private rowArg(node: IExtensionTreeNode): IWireTreeItemHandleArg {
+        return { $treeViewId: this.viewId, $treeItemHandle: node.handle };
     }
 
     /** The registry's entry runs the command without the row; ours passes it and reports a failure. */
     private bindEntry(entry: MenuEntry, args: readonly unknown[]): MenuEntry {
+        // Stryker disable next-line ConditionalExpression,StringLiteral: equivalent — a separator given `onSelect` below is still a separator to the popup
         if (entry.type === "separator") return entry;
         if (entry.type === "submenu") {
+            // Stryker disable next-line ConditionalExpression,EqualityOperator,StringLiteral: the registry resolves submenus eagerly, a lazy list never comes here
             const entries = typeof entry.entries === "function" ? entry.entries() : entry.entries;
             return { ...entry, entries: entries.map((child) => this.bindEntry(child, args)) };
         }
@@ -421,26 +425,23 @@ export class ExtensionTreeView implements IWelcomeTree, IDisposable {
 
     private toTreeItem(item: IWireTreeItem): ITreeItem {
         const icon = iconOf(item, this.host);
-        const actions = this.inlineActions(item);
         return {
             label: item.label,
             collapsible: item.collapsibleState !== 0,
             icon: icon?.glyph,
             iconColor: icon?.color,
             description: this.descriptionOf(item),
-            ...(actions.length > 0 ? { actions } : {}),
+            actions: this.inlineActions(item),
         };
     }
 
-    /** The command's icon, or its title when it has none. */
+    /** The command's icon, or its title when it has none (or its glyph is missing from the font set). */
     private inlineActions(item: IWireTreeItem): ITreeItemAction[] {
-        const groups = this.host
-            .itemMenu(this.viewId, item.contextValue)
-            .filter((group) => group.group === INLINE_GROUP);
-        return inlineEntries(groups).map((entry) => ({
-            label: entry.label,
-            ...(entry.icon === undefined || entry.icon === "" ? {} : { icon: entry.icon }),
-        }));
+        return inlineEntries(this.menuGroups(item, true)).map((entry) =>
+            entry.icon === undefined || entry.icon === ""
+                ? { label: entry.label }
+                : { label: entry.label, icon: entry.icon },
+        );
     }
 
     /** `undefined` and `""` are no description. */
@@ -453,24 +454,22 @@ export class ExtensionTreeView implements IWelcomeTree, IDisposable {
     }
 }
 
-/** A submenu can't be a glyph: upstream's inline group shows only actions. */
+/** A submenu can't be a glyph: upstream's inline group shows only actions. A group holds no separators. */
 function inlineEntries(groups: readonly IMenuEntryGroup[]): IResolvedMenuItemEntry[] {
     return groups.flatMap((group) =>
-        group.entries.filter(
-            (entry): entry is IResolvedMenuItemEntry => entry.type !== "separator" && entry.type !== "submenu",
-        ),
+        group.entries.filter((entry): entry is IResolvedMenuItemEntry => entry.type !== "submenu"),
     );
 }
 
 /** Upstream `filterNonUniversalActions` compares action ids: an item by its command, a submenu by its label. */
 function hasEntry(groups: readonly IMenuEntryGroup[], entry: ResolvedMenuEntry): boolean {
-    return groups.some((group) =>
-        group.entries.some((other) =>
-            entry.type === "submenu"
-                ? other.type === "submenu" && other.label === entry.label
-                : other.type !== "submenu" && other.type !== "separator" && other.id === (entry as MenuItemEntry).id,
-        ),
-    );
+    const key = entryKey(entry);
+    return groups.some((group) => group.entries.some((other) => entryKey(other) === key));
+}
+
+/** A group holds items and submenus; separators only come from joining groups. */
+function entryKey(entry: ResolvedMenuEntry): string {
+    return entry.type === "submenu" ? `submenu:${entry.label}` : `command:${String((entry as MenuItemEntry).id)}`;
 }
 
 interface IRowIcon {

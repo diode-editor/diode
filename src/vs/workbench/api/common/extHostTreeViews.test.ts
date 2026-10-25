@@ -411,6 +411,7 @@ describe("extHostTreeViews — processArgument (view/item/context arguments)", (
         const numericView = { $treeViewId: 1, $treeItemHandle: "0/0:a" };
         expect(members.processArgument(numericView)).toBe(numericView);
         expect(members.processArgument(null)).toBeNull();
+        expect(members.processArgument(undefined)).toBeUndefined();
         expect(members.processArgument("0/0:a")).toBe("0/0:a");
         expect(members.processArgument([])).toEqual([]);
     });

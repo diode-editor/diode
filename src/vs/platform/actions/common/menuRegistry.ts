@@ -216,6 +216,7 @@ export class MenuRegistry {
             if (item.menuId !== menuId) continue;
             const conditions = isSubmenuContribution(item) ? [item.when] : [item.when, item.enablement, item.toggled];
             for (const condition of conditions) {
+                // Stryker disable next-line ConditionalExpression: equivalent — a missing condition parses to no expression too
                 const expr = condition === undefined ? undefined : deserializeWhen(condition);
                 if (expr !== undefined) for (const key of whenKeys(expr)) keys.add(key);
             }

@@ -513,8 +513,8 @@ class ExtHostTreeView<T> {
 
 /** Upstream `isTreeViewConvertableItem`, without `$focusedTreeItem` (`view/title` gets no row). */
 function isTreeItemHandleArg(arg: unknown): arg is IWireTreeItemHandleArg {
-    if (typeof arg !== "object" || arg === null) return false;
-    const { $treeViewId, $treeItemHandle } = arg as Partial<Record<keyof IWireTreeItemHandleArg, unknown>>;
+    // `null` and `undefined` read as an empty object; a primitive has no such fields either.
+    const { $treeViewId, $treeItemHandle } = (arg ?? {}) as Partial<Record<keyof IWireTreeItemHandleArg, unknown>>;
     return typeof $treeViewId === "string" && typeof $treeItemHandle === "string";
 }
 
