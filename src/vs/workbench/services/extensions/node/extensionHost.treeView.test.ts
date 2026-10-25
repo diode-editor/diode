@@ -100,6 +100,19 @@ describe("ExtensionHost — extension tree views over the wire", () => {
         });
     });
 
+    it("a host command with row handles reaches the extension as its own elements, the selection too", async () => {
+        await source().getChildren(undefined);
+        const row = (handle: string) => ({ $treeViewId: "test.targets", $treeItemHandle: handle });
+        await harness.commandRegistry.execute("test.tree.inspect", row("1/lib"));
+        await harness.commandRegistry.execute("test.tree.inspect", row("1/lib"), [row("0/0:///app"), row("1/lib")]);
+        await harness.commandRegistry.execute("test.tree.inspect", row("1/gone"));
+        expect((await state()).runs).toEqual([
+            "inspect //lib:same",
+            "inspect //lib:same [//app:same,//lib:same]",
+            "inspect undefined",
+        ]);
+    });
+
     it("rows carry upstream handles: `1/<id>`, or `<parent>/<n>:<label>` with the first slash escaped", async () => {
         const roots = await source().getChildren(undefined);
         expect(roots).toEqual([

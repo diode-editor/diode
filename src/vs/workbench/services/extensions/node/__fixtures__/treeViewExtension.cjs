@@ -66,6 +66,15 @@ exports.activate = function activate(context) {
             // The argument is the extension's own object, not a copy that crossed the wire.
             runs.push(target.label + (target instanceof Target ? ":same" : ":copy"));
         }),
+        // A `view/item/context` command: the host sends handles, the extension gets its own objects.
+        vscode.commands.registerCommand("test.tree.inspect", function (target, selection) {
+            const name = function (t) {
+                return t === undefined ? "undefined" : t.label + (t instanceof Target ? ":same" : ":copy");
+            };
+            runs.push(
+                "inspect " + name(target) + (selection === undefined ? "" : " [" + selection.map(name).join(",") + "]"),
+            );
+        }),
         vscode.commands.registerCommand("test.tree.state", function () {
             return { runs: runs, events: events, visible: view.visible };
         }),

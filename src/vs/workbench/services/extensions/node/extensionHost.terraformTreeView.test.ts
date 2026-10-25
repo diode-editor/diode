@@ -23,6 +23,7 @@ import { ExtensionViewWelcomes } from "../../../api/browser/extensionViewWelcome
 import { registerExtensionViews } from "../../../api/browser/viewsExtensionPoint.ts";
 import { makeViewsHarness } from "../../../browser/parts/views/viewsService.testUtils.ts";
 import { SetContextCommandContribution } from "../../../browser/setContextCommandContribution.ts";
+import { registerExtensionMenus } from "../../extensions/common/extensionMenuContributor.ts";
 
 // Stock hashicorp.terraform fills its "HashiCorp Terraform" container with trees: Providers (a flat list,
 // version as the description, `ThemeIcon("package")`) and Module Calls (a nested tree). The contract is
@@ -79,32 +80,29 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — stock hashicorp.terrafor
     });
 
     it(
-        "Providers lists aws with its installed version and package icon; Module Calls lists the local module",
+        "Providers lists aws with its installed version and package icon; Module Calls lists the local module and its menu offers Open Documentation",
         { timeout: 180_000 },
         async () => {
             const views = makeViewsHarness();
             const { registration } = installed;
             const viewsLog: string[] = [];
-            registerExtensionViews(
-                [
-                    {
-                        id: registration.id,
-                        manifest: registration.manifest as IExtensionManifest,
-                        location: "UserExtensions/terraform/",
-                        isBuiltin: false,
-                    },
-                ],
-                {
-                    views: views.service,
-                    commands: views.commands,
-                    contextKeys: views.contextKeys,
-                    notify: () => undefined,
-                    logger: {
-                        warn: (line: string) => viewsLog.push(line),
-                        error: (line: string) => viewsLog.push(line),
-                    } as never,
-                },
-            );
+            const extension = {
+                id: registration.id,
+                manifest: registration.manifest as IExtensionManifest,
+                location: "UserExtensions/terraform/",
+                isBuiltin: false,
+            };
+            registerExtensionMenus([extension], views.menuRegistry);
+            registerExtensionViews([extension], {
+                views: views.service,
+                commands: views.commands,
+                contextKeys: views.contextKeys,
+                notify: () => undefined,
+                logger: {
+                    warn: (line: string) => viewsLog.push(line),
+                    error: (line: string) => viewsLog.push(line),
+                } as never,
+            });
             views.service.attachRegisteredContainers();
             views.showViewlet(CONTAINER);
             const errors: string[] = [];
@@ -131,6 +129,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — stock hashicorp.terrafor
                 languageService: TF_LANGUAGE_SERVICE,
                 activateEvents: [],
                 treeViewsSink: adapter,
+                commandRegistry: views.commands,
                 extensions: [registration],
             });
             // The workbench's `setContext`: terraform calls it from `getChildren`.
@@ -167,6 +166,27 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — stock hashicorp.terrafor
                 const lines = frame().split("\n");
                 const aws = lines.find((line) => line.includes("hashicorp/aws 5.80.0"));
                 expect(aws).toContain(`${CODICON_GLYPHS.package} hashicorp/aws`);
+
+                // `view/item/context` `terraform.modules.openDocumentation` (`when: view == terraform.modules`).
+                const moduleRow = lines.findIndex((line) => /^\s+(?:\S\s)?x\s*$/u.test(line));
+                const column = (lines[moduleRow] ?? "").lastIndexOf("x");
+                for (const action of ["press", "release"] as const) {
+                    app.backend.simulateMouse({
+                        kind: "mouse",
+                        button: "right",
+                        x: column + 1,
+                        y: moduleRow + 1,
+                        action,
+                        shiftKey: false,
+                        altKey: false,
+                        ctrlKey: false,
+                        raw: "",
+                    });
+                }
+                const menu = views.shown.at(-1)?.getEntries?.() ?? [];
+                expect(menu.map((entry) => (entry.type === "separator" ? "─" : entry.label))).toEqual([
+                    "Open Documentation",
+                ]);
                 expect(errors).toEqual([]);
                 expect(viewsLog).toEqual([]);
             } finally {
