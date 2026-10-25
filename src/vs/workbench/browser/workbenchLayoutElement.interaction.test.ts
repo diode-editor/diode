@@ -107,6 +107,14 @@ describe("WorkbenchLayoutElement: dragging sashes with the mouse", () => {
     });
 });
 
+describe("WorkbenchLayoutElement: sash hover delay", () => {
+    it("hands the delay to all three sashes", () => {
+        const layout = rooted(new Offset(0, 0), { right: true, bottom: true });
+        layout.setSashHoverDelay(750);
+        expect(sashes(layout).map((s) => s.hoverDelay)).toEqual([750, 750, 750]);
+    });
+});
+
 describe("WorkbenchLayoutElement: commands request the repaint themselves", () => {
     it("width nudge and reset mark the layout dirty", () => {
         const layout = rooted(new Offset(0, 0));
