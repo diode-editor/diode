@@ -20,6 +20,10 @@ import { StateFileStore } from "../../platform/state/node/stateService.ts";
 import { WorkbenchTheme } from "../../platform/theme/common/workbenchTheme.ts";
 import { UserDataProfilesService } from "../../platform/userDataProfile/node/userDataProfilesService.ts";
 import { VSCODE_SHIM_VERSION } from "../../workbench/api/common/vscodeShimVersion.ts";
+import {
+    ProblemMatcherRegistry,
+    ProblemMatcherRegistryDIToken,
+} from "../../workbench/contrib/tasks/common/problemMatcherRegistry.ts";
 import { DefaultShellResolverDIToken } from "../../workbench/contrib/terminal/common/defaultShell.ts";
 import {
     ExtensionPtySessionFactoryDIToken,
@@ -140,6 +144,12 @@ export function createTestContainer(options: TestContainerOptions = {}): TestCon
     container.bind(TerminalSessionFactoryDIToken, () => () => new FakeTerminalSurface());
     // Extension pty terminals: the same fake surface with a `feed` input.
     container.bind(ExtensionPtySessionFactoryDIToken, () => (options) => new FakeExtensionPtySession(options));
+    // No extension host here: no extension contributes problem matchers, and tasks need not wait for one.
+    container.bind(ProblemMatcherRegistryDIToken, () => {
+        const registry = new ProblemMatcherRegistry();
+        registry.registerExtensions([], () => undefined);
+        return registry;
+    });
     // Fixed task shell: tests must not depend on the machine's $SHELL.
     container.bind(DefaultShellResolverDIToken, () => () => "/bin/bash");
 

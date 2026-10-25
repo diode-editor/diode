@@ -267,4 +267,39 @@ describe("bindExtensionTasks", () => {
         ).rejects.toThrow("need the extension host");
         h.dispose();
     });
+
+    it("manifests' matchers are registered without activation; a broken one goes to the `tasks` log", async () => {
+        const h = buildTaskServiceHarness({
+            matcherExtensions: null,
+            tasksJson: JSON.stringify({
+                version: "2.0.0",
+                tasks: [{ label: "t", type: "shell", command: "x", problemMatcher: { base: "$m", owner: "o" } }],
+            }),
+        });
+        const activated: string[] = [];
+        const service = {
+            extensions: [
+                {
+                    id: "pub.m",
+                    manifest: {
+                        contributes: {
+                            problemPatterns: [{ name: "broken", regexp: "(" }],
+                            problemMatchers: [{ name: "m", owner: "pub", source: "pub-src", pattern: "$go" }],
+                        },
+                    },
+                } as unknown as IExtension,
+            ],
+            whenInstalledExtensionsRegistered: () => Promise.resolve(),
+            activateByEvent: (event: string) => {
+                activated.push(event);
+                return Promise.resolve();
+            },
+        } as unknown as IExtensionService;
+        bindExtensionTasks(h.service, service, { createPtyInstance: () => 1 }, h.logger);
+        const [task] = await h.service.getWorkspaceTasks();
+        expect(task.problemMatchers).toMatchObject([{ owner: "o", source: "pub-src" }]);
+        expect(h.logger.warn).toHaveBeenCalledWith("pub.m: Invalid problem pattern. The pattern will be ignored.");
+        expect(activated).toStrictEqual([]);
+        h.dispose();
+    });
 });

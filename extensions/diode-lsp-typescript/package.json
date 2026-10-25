@@ -39,6 +39,32 @@
           "description": "Path to typescript/lib/tsserver.js for workspaces without their own TypeScript installation. Empty lets the language server resolve TypeScript itself."
         }
       }
-    }
+    },
+    "problemPatterns": [
+      {
+        "name": "tsc",
+        "regexp": "^([^\\s].*)[\\(:](\\d+)[,:](\\d+)(?:\\):\\s+|\\s+-\\s+)(error|warning|info)\\s+TS(\\d+)\\s*:\\s*(.*)$",
+        "file": 1,
+        "line": 2,
+        "column": 3,
+        "severity": 4,
+        "code": 5,
+        "message": 6
+      }
+    ],
+    "problemMatchers": [
+      {
+        "name": "tsc",
+        "label": "%typescript.problemMatchers.tsc.label%",
+        "owner": "typescript",
+        "source": "ts",
+        "applyTo": "closedDocuments",
+        "fileLocation": [
+          "relative",
+          "${cwd}"
+        ],
+        "pattern": "$tsc"
+      }
+    ]
   }
 }

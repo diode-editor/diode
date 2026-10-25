@@ -4,6 +4,7 @@ import { MarkerService } from "../vs/platform/markers/common/markerService.ts";
 import { makeViewsHarness } from "../vs/workbench/browser/parts/views/viewsService.testUtils.ts";
 import { PROBLEMS_VIEW_ID } from "../vs/workbench/contrib/markers/browser/problemsComponent.ts";
 import { type ITaskEvent, TerminalTaskSystem } from "../vs/workbench/contrib/tasks/browser/terminalTaskSystem.ts";
+import { getBuiltinProblemMatcher } from "../vs/workbench/contrib/tasks/common/problemMatcher.ts";
 import type { ITaskVariableContext } from "../vs/workbench/contrib/tasks/common/taskVariables.ts";
 import { TerminalService } from "../vs/workbench/contrib/terminal/browser/terminalService.ts";
 import type { ITerminalSessionOptions } from "../vs/workbench/contrib/terminal/common/terminalSessionFactory.ts";
@@ -63,6 +64,7 @@ export function buildTerminalTaskSystemHarness() {
             },
         },
         warn: (message) => warnings.push(message),
+        resolveMatcher: getBuiltinProblemMatcher,
     });
     const events: string[] = [];
     const raw: ITaskEvent[] = [];

@@ -280,6 +280,10 @@ import {
     TaskStatusBarContributionDIToken,
 } from "../../workbench/contrib/tasks/browser/taskStatusBarContribution.ts";
 import {
+    ProblemMatcherRegistry,
+    ProblemMatcherRegistryDIToken,
+} from "../../workbench/contrib/tasks/common/problemMatcherRegistry.ts";
+import {
     TerminalColorsService,
     TerminalColorsServiceDIToken,
 } from "../../workbench/contrib/terminal/browser/terminalColorsService.ts";
@@ -559,6 +563,8 @@ export const workbenchModule: ContainerModule = (container) => {
     container.bind(TerminalServiceDIToken, TerminalService);
     // Stryker disable next-line ArrowFunction,CallExpression: DI binding without a unit test (the test profile sets its own shell); end-to-end — e2e scenario tasks
     container.bind(DefaultShellResolverDIToken, () => () => getSystemShell());
+    // Stryker disable next-line ArrowFunction,CallExpression: DI binding (the test profile binds a ready registry of its own); end-to-end — e2e scenario tsc-problem-matcher-task
+    container.bind(ProblemMatcherRegistryDIToken, () => new ProblemMatcherRegistry());
     container.bind(TaskServiceDIToken, TaskService);
     container.bind(TaskStatusBarContributionDIToken, TaskStatusBarContribution);
     container.bind(TerminalFocusFallbackDIToken, () => container.get(EditorServiceDIToken));

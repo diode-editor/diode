@@ -21,7 +21,7 @@ import {
 import type { DefaultShellResolver } from "../../terminal/common/defaultShell.ts";
 import type { IExtensionPtyTerminals } from "../../terminal/common/extensionPtyTerminals.ts";
 import { type IProblemCollectorHost, StartStopProblemCollector } from "../common/problemCollectors.ts";
-import { getBuiltinProblemMatcher, type IProblemMatcher } from "../common/problemMatcher.ts";
+import type { IProblemMatcher } from "../common/problemMatcher.ts";
 import type { TaskPlatform } from "../common/taskConfiguration.ts";
 import {
     type CommandString,
@@ -114,6 +114,8 @@ interface ILaunch {
 /** Where task problems go; `warn` writes to the `Tasks` log. */
 export interface ITaskProblemsHost extends IProblemCollectorHost {
     warn(message: string): void;
+    /** A matcher by name, with or without `$`: built-in or contributed by an extension. */
+    resolveMatcher(name: string): IProblemMatcher | undefined;
 }
 
 /** A task terminal moved into the editor area is revealed as its tab. */
@@ -548,7 +550,7 @@ export class TerminalTaskSystem extends Disposable {
     private resolveMatchers(task: ITask, resolve: (value: string) => string): IProblemMatcher[] {
         const result: IProblemMatcher[] = [];
         for (const value of task.problemMatchers) {
-            const matcher = typeof value === "string" ? this.builtinMatcher(value) : value;
+            const matcher = typeof value === "string" ? this.namedMatcher(value) : value;
             if (matcher === undefined) continue;
             const prefix = matcher.filePrefix;
             if (prefix === undefined) result.push(matcher);
@@ -565,8 +567,8 @@ export class TerminalTaskSystem extends Disposable {
         return result;
     }
 
-    private builtinMatcher(name: string): IProblemMatcher | undefined {
-        const matcher = getBuiltinProblemMatcher(name);
+    private namedMatcher(name: string): IProblemMatcher | undefined {
+        const matcher = this.problemsHost.resolveMatcher(name);
         if (matcher === undefined) {
             this.problemsHost.warn(`Problem matcher ${name} can't be resolved. The matcher will be ignored`);
         }

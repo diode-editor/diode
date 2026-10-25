@@ -16,6 +16,10 @@ import type {
 import { makeViewsHarness } from "../vs/workbench/browser/parts/views/viewsService.testUtils.ts";
 import type { QuickPickItem } from "../vs/workbench/common/quickPickItem.ts";
 import { TaskService } from "../vs/workbench/contrib/tasks/browser/taskService.ts";
+import {
+    type IContributingExtension,
+    ProblemMatcherRegistry,
+} from "../vs/workbench/contrib/tasks/common/problemMatcherRegistry.ts";
 import { TerminalService } from "../vs/workbench/contrib/terminal/browser/terminalService.ts";
 import type { DialogService } from "../vs/workbench/services/dialogs/browser/dialogService.ts";
 import type { IEditorService } from "../vs/workbench/services/editor/common/editorService.ts";
@@ -34,6 +38,8 @@ export interface ITaskServiceHarnessOptions {
     readonly tasksJson?: string;
     /** `null` — a window without a folder. */
     readonly folder?: IWorkspaceFolder | null;
+    /** Registered into the matcher registry; `null` — not registered yet (the registry is not ready). */
+    readonly matcherExtensions?: readonly IContributingExtension[] | null;
 }
 
 export interface IFakeOpenedEditor {
@@ -128,8 +134,18 @@ export function buildTaskServiceHarness(options: ITaskServiceHarnessOptions = {}
         output as unknown as OutputService,
         editorTerminals,
         markers,
+        new ProblemMatcherRegistry(),
     );
+    const matcherProblems: string[] = [];
+    const registerMatchers = (extensions: readonly IContributingExtension[]): void => {
+        service.registerProblemMatchers(extensions, (extension, message) =>
+            matcherProblems.push(`${extension.id}: ${message}`),
+        );
+    };
+    if (options.matcherExtensions !== null) registerMatchers(options.matcherExtensions ?? []);
     return {
+        matcherProblems,
+        registerMatchers,
         output,
         markers,
         views,
