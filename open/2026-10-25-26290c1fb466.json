@@ -1,0 +1,4795 @@
+{
+  "generatedAt": "2026-10-25T23:11:43.912Z",
+  "commit": "26290c1fb466",
+  "binaryVersion": "nightly-26290c1",
+  "env": {
+    "cpu": "AMD EPYC 7763 64-Core Processor",
+    "cores": 4,
+    "memGb": 16,
+    "platform": "linux 7.0.0-1017-azure",
+    "conditions": "CI, shared runner (GitHub Actions)",
+    "ci": true
+  },
+  "floors": {
+    "binary": {
+      "command": "/home/runner/work/diode/diode/dist/diode --version",
+      "medianMs": 62.29351899999995,
+      "samplesMs": [
+        62.26357200000001,
+        62.72554400000001,
+        61.33921099999998,
+        65.77694800000006,
+        63.24892999999997,
+        61.67312000000004,
+        62.29351899999995
+      ]
+    },
+    "node": {
+      "command": "/opt/hostedtoolcache/node/26.12.0/x64/bin/node -e ",
+      "medianMs": 25.345237999999995,
+      "samplesMs": [
+        24.566238,
+        25.173110000000065,
+        25.345237999999995,
+        27.631603999999925,
+        25.43252900000016,
+        25.179758999999876,
+        27.024498999999878
+      ]
+    },
+    "nodeVersion": {
+      "command": "/opt/hostedtoolcache/node/26.12.0/x64/bin/node --version",
+      "medianMs": 4.207627999999886,
+      "samplesMs": [
+        4.675897999999961,
+        4.338656000000128,
+        4.207627999999886,
+        4.517381000000114,
+        4.168374999999969,
+        4.076451000000134,
+        4.045542999999952
+      ]
+    }
+  },
+  "sizes": [
+    {
+      "key": "small",
+      "kind": "ts",
+      "fixtureBytes": 6159,
+      "fixtureLines": 100,
+      "runs": [
+        {
+          "outcome": "ok",
+          "contentMs": 166.915839,
+          "quietMs": null,
+          "highlightMs": 285.81896000000006,
+          "exitCode": null,
+          "signal": null,
+          "peakRssBytes": 253595648,
+          "ladder": {
+            "processStart": 5.861572265625,
+            "nodeBootstrap": 63.23964926562621,
+            "mainStart": 63.269535265625,
+            "configLoaded": 78.045397265625,
+            "keybindingsLoaded": 80.060404265625,
+            "stateLoaded": 80.193916265625,
+            "extensionsScanned": 74.850787265625,
+            "themesReady": 87.832128265625,
+            "containerCreated": 92.446032265625,
+            "workbenchMounted": 126.614926265625,
+            "firstFrame": 126.565834265625,
+            "workbenchActivated": 137.260215265625,
+            "grammarsPreloaded": 142.647086265625,
+            "fileRead": 144.994940265625,
+            "fileDecoded": 145.025578265625,
+            "documentBuilt": 145.264538265625,
+            "tokenizerReady": 163.865237265625,
+            "filesOpened": 148.565448265625,
+            "frameWithText": 162.935055265625,
+            "frameWithHighlight": 285.633029265625,
+            "extensionsRegistered": 307.321697265625,
+            "extHostActivated": 538.029196265625,
+            "startupComplete": 301.406891265625
+          },
+          "workload": [
+            {
+              "key": "insert",
+              "latencyMs": 39.75740399999995,
+              "outcome": "ok"
+            },
+            {
+              "key": "enter",
+              "latencyMs": 18.05712500000027,
+              "outcome": "ok"
+            },
+            {
+              "key": "undoEnter",
+              "latencyMs": 15.884911999999986,
+              "outcome": "ok"
+            },
+            {
+              "key": "undoInsert",
+              "latencyMs": 9.880816999999752,
+              "outcome": "ok"
+            },
+            {
+              "key": "save",
+              "latencyMs": 16.378118000000086,
+              "outcome": "ok"
+            },
+            {
+              "key": "ctrlEnd",
+              "latencyMs": 16.555896000000303,
+              "outcome": "ok"
+            },
+            {
+              "key": "search",
+              "latencyMs": 2.992670000000089,
+              "outcome": "ok"
+            }
+          ],
+          "workloadOutcome": "ok",
+          "workloadError": null,
+          "warmup": true
+        },
+        {
+          "outcome": "ok",
+          "contentMs": 159.7850580000004,
+          "quietMs": null,
+          "highlightMs": 275.37979600000017,
+          "exitCode": null,
+          "signal": null,
+          "peakRssBytes": 262205440,
+          "ladder": {
+            "processStart": 5.639404296875,
+            "nodeBootstrap": 63.24709829688072,
+            "mainStart": 63.284478296875,
+            "configLoaded": 86.817331296875,
+            "keybindingsLoaded": 87.082871296875,
+            "stateLoaded": 87.212465296875,
+            "extensionsScanned": 80.731255296875,
+            "themesReady": 90.226460296875,
+            "containerCreated": 93.775604296875,
+            "workbenchMounted": 125.974059296875,
+            "firstFrame": 125.929966296875,
+            "workbenchActivated": 130.525349296875,
+            "grammarsPreloaded": 136.344117296875,
+            "fileRead": 138.839266296875,
+            "fileDecoded": 138.908636296875,
+            "documentBuilt": 139.164458296875,
+            "tokenizerReady": 158.360678296875,
+            "filesOpened": 143.196190296875,
+            "frameWithText": 157.490639296875,
+            "frameWithHighlight": 274.721733296875,
+            "extensionsRegistered": 295.762206296875,
+            "extHostActivated": 527.693195296875,
+            "startupComplete": 289.985136296875
+          },
+          "workload": [
+            {
+              "key": "insert",
+              "latencyMs": 24.39455199999975,
+              "outcome": "ok"
+            },
+            {
+              "key": "enter",
+              "latencyMs": 14.289960999999494,
+              "outcome": "ok"
+            },
+            {
+              "key": "undoEnter",
+              "latencyMs": 8.441295999999966,
+              "outcome": "ok"
+            },
+            {
+              "key": "undoInsert",
+              "latencyMs": 9.82732599999963,
+              "outcome": "ok"
+            },
+            {
+              "key": "save",
+              "latencyMs": 25.48065399999996,
+              "outcome": "ok"
+            },
+            {
+              "key": "ctrlEnd",
+              "latencyMs": 9.466737000000649,
+              "outcome": "ok"
+            },
+            {
+              "key": "search",
+              "latencyMs": 3.9882909999996627,
+              "outcome": "ok"
+            }
+          ],
+          "workloadOutcome": "ok",
+          "workloadError": null,
+          "warmup": false
+        },
+        {
+          "outcome": "ok",
+          "contentMs": 184.02045399999952,
+          "quietMs": null,
+          "highlightMs": 332.5787279999995,
+          "exitCode": null,
+          "signal": null,
+          "peakRssBytes": 263614464,
+          "ladder": {
+            "processStart": 12.93505859375,
+            "nodeBootstrap": 78.73652759374818,
+            "mainStart": 78.76442059375,
+            "configLoaded": 104.89534559375,
+            "keybindingsLoaded": 105.11391659375,
+            "stateLoaded": 105.23549559375,
+            "extensionsScanned": 96.13479159375,
+            "themesReady": 108.16729659375,
+            "containerCreated": 112.32213059375,
+            "workbenchMounted": 144.58173059375,
+            "firstFrame": 144.54489159375,
+            "workbenchActivated": 150.06134959375,
+            "grammarsPreloaded": 156.02315659375,
+            "fileRead": 159.21761259375,
+            "fileDecoded": 159.25378059375,
+            "documentBuilt": 159.48677959375,
+            "tokenizerReady": 182.97682459375,
+            "filesOpened": 163.77989359375,
+            "frameWithText": 182.14781359375,
+            "frameWithHighlight": 331.95549759375,
+            "extensionsRegistered": 351.55262259375,
+            "extHostActivated": 616.52814559375,
+            "startupComplete": 346.14833459375
+          },
+          "workload": [
+            {
+              "key": "insert",
+              "latencyMs": 36.22165099999984,
+              "outcome": "ok"
+            },
+            {
+              "key": "enter",
+              "latencyMs": 9.384933999999703,
+              "outcome": "ok"
+            },
+            {
+              "key": "undoEnter",
+              "latencyMs": 9.946614000000409,
+              "outcome": "ok"
+            },
+            {
+              "key": "undoInsert",
+              "latencyMs": 7.8662660000009055,
+              "outcome": "ok"
+            },
+            {
+              "key": "save",
+              "latencyMs": 15.958972999998878,
+              "outcome": "ok"
+            },
+            {
+              "key": "ctrlEnd",
+              "latencyMs": 5.2981070000005275,
+              "outcome": "ok"
+            },
+            {
+              "key": "search",
+              "latencyMs": 8.040791999999783,
+              "outcome": "ok"
+            }
+          ],
+          "workloadOutcome": "ok",
+          "workloadError": null,
+          "warmup": false
+        },
+        {
+          "outcome": "ok",
+          "contentMs": 178.24534799999856,
+          "quietMs": null,
+          "highlightMs": 318.8754059999992,
+          "exitCode": null,
+          "signal": null,
+          "peakRssBytes": 256131072,
+          "ladder": {
+            "processStart": 7.657958984375,
+            "nodeBootstrap": 67.44665698437893,
+            "mainStart": 67.47838698437499,
+            "configLoaded": 85.536011984375,
+            "keybindingsLoaded": 86.181807984375,
+            "stateLoaded": 86.308065984375,
+            "extensionsScanned": 82.223022984375,
+            "themesReady": 92.126081984375,
+            "containerCreated": 97.080772984375,
+            "workbenchMounted": 133.020271984375,
+            "firstFrame": 132.98864298437502,
+            "workbenchActivated": 145.535008984375,
+            "grammarsPreloaded": 151.361520984375,
+            "fileRead": 153.836311984375,
+            "fileDecoded": 153.865145984375,
+            "documentBuilt": 154.099116984375,
+            "tokenizerReady": 179.129071984375,
+            "filesOpened": 158.627073984375,
+            "frameWithText": 178.076509984375,
+            "frameWithHighlight": 318.832063984375,
+            "extensionsRegistered": 339.465539984375,
+            "extHostActivated": 605.797587984375,
+            "startupComplete": 333.709009984375
+          },
+          "workload": [
+            {
+              "key": "insert",
+              "latencyMs": 48.57575199999883,
+              "outcome": "ok"
+            },
+            {
+              "key": "enter",
+              "latencyMs": 11.793741999999838,
+              "outcome": "ok"
+            },
+            {
+              "key": "undoEnter",
+              "latencyMs": 8.459781000001385,
+              "outcome": "ok"
+            },
+            {
+              "key": "undoInsert",
+              "latencyMs": 16.95151199999964,
+              "outcome": "ok"
+            },
+            {
+              "key": "save",
+              "latencyMs": 15.780833999999231,
+              "outcome": "ok"
+            },
+            {
+              "key": "ctrlEnd",
+              "latencyMs": 9.732962000000043,
+              "outcome": "ok"
+            },
+            {
+              "key": "search",
+              "latencyMs": 7.437756999999692,
+              "outcome": "ok"
+            }
+          ],
+          "workloadOutcome": "ok",
+          "workloadError": null,
+          "warmup": false
+        },
+        {
+          "outcome": "ok",
+          "contentMs": 187.44821299999967,
+          "quietMs": null,
+          "highlightMs": 330.3985199999988,
+          "exitCode": null,
+          "signal": null,
+          "peakRssBytes": 264957952,
+          "ladder": {
+            "processStart": 6.798583984375,
+            "nodeBootstrap": 80.13508798436669,
+            "mainStart": 80.169582984375,
+            "configLoaded": 101.540036984375,
+            "keybindingsLoaded": 105.779339984375,
+            "stateLoaded": 105.902691984375,
+            "extensionsScanned": 96.501677984375,
+            "themesReady": 109.011506984375,
+            "containerCreated": 113.335738984375,
+            "workbenchMounted": 144.334136984375,
+            "firstFrame": 144.293881984375,
+            "workbenchActivated": 150.564449984375,
+            "grammarsPreloaded": 156.217845984375,
+            "fileRead": 159.019571984375,
+            "fileDecoded": 159.053886984375,
+            "documentBuilt": 159.321890984375,
+            "tokenizerReady": 181.033948984375,
+            "filesOpened": 163.430117984375,
+            "frameWithText": 180.168799984375,
+            "frameWithHighlight": 330.030538984375,
+            "extensionsRegistered": 352.182373984375,
+            "extHostActivated": 614.939515984375,
+            "startupComplete": 346.224293984375
+          },
+          "workload": [
+            {
+              "key": "insert",
+              "latencyMs": 40.844035000000076,
+              "outcome": "ok"
+            },
+            {
+              "key": "enter",
+              "latencyMs": 17.445752999999968,
+              "outcome": "ok"
+            },
+            {
+              "key": "undoEnter",
+              "latencyMs": 8.396421999999802,
+              "outcome": "ok"
+            },
+            {
+              "key": "undoInsert",
+              "latencyMs": 14.712496000000101,
+              "outcome": "ok"
+            },
+            {
+              "key": "save",
+              "latencyMs": 38.263058000000456,
+              "outcome": "ok"
+            },
+            {
+              "key": "ctrlEnd",
+              "latencyMs": 14.379387000000861,
+              "outcome": "ok"
+            },
+            {
+              "key": "search",
+              "latencyMs": 13.005452000001242,
+              "outcome": "ok"
+            }
+          ],
+          "workloadOutcome": "ok",
+          "workloadError": null,
+          "warmup": false
+        },
+        {
+          "outcome": "ok",
+          "contentMs": 220.29225399999996,
+          "quietMs": null,
+          "highlightMs": 393.9892230000005,
+          "exitCode": null,
+          "signal": null,
+          "peakRssBytes": 267612160,
+          "ladder": {
+            "processStart": 18.19140625,
+            "nodeBootstrap": 101.47694125000271,
+            "mainStart": 101.51829925,
+            "configLoaded": 128.32725425,
+            "keybindingsLoaded": 130.55631825,
+            "stateLoaded": 130.68642325000002,
+            "extensionsScanned": 122.91552425,
+            "themesReady": 135.25498925,
+            "containerCreated": 140.13999124999998,
+            "workbenchMounted": 173.20166225,
+            "firstFrame": 173.15603625,
+            "workbenchActivated": 181.34592725,
+            "grammarsPreloaded": 189.93554925,
+            "fileRead": 193.77261025,
+            "fileDecoded": 193.80417925,
+            "documentBuilt": 193.97829725,
+            "tokenizerReady": 220.86692125,
+            "filesOpened": 197.44053125,
+            "frameWithText": 219.17103025,
+            "frameWithHighlight": 393.26504325,
+            "extensionsRegistered": 426.78770325,
+            "extHostActivated": 734.47517225,
+            "startupComplete": 416.49202025
+          },
+          "workload": [
+            {
+              "key": "insert",
+              "latencyMs": 39.25033099999928,
+              "outcome": "ok"
+            },
+            {
+              "key": "enter",
+              "latencyMs": 11.973766000000978,
+              "outcome": "ok"
+            },
+            {
+              "key": "undoEnter",
+              "latencyMs": 18.10789300000033,
+              "outcome": "ok"
+            },
+            {
+              "key": "undoInsert",
+              "latencyMs": 12.098104999999123,
+              "outcome": "ok"
+            },
+            {
+              "key": "save",
+              "latencyMs": 23.756140999999843,
+              "outcome": "ok"
+            },
+            {
+              "key": "ctrlEnd",
+              "latencyMs": 6.326744999998482,
+              "outcome": "ok"
+            },
+            {
+              "key": "search",
+              "latencyMs": 6.1068580000010115,
+              "outcome": "ok"
+            }
+          ],
+          "workloadOutcome": "ok",
+          "workloadError": null,
+          "warmup": false
+        },
+        {
+          "outcome": "ok",
+          "contentMs": 165.80368499999895,
+          "quietMs": null,
+          "highlightMs": 287.05389599999944,
+          "exitCode": null,
+          "signal": null,
+          "peakRssBytes": 254300160,
+          "ladder": {
+            "processStart": 8.77783203125,
+            "nodeBootstrap": 67.10324003125424,
+            "mainStart": 67.14013903125,
+            "configLoaded": 82.94531203125,
+            "keybindingsLoaded": 83.11298803125,
+            "stateLoaded": 83.23939603125,
+            "extensionsScanned": 79.76889503125,
+            "themesReady": 88.20301503125,
+            "containerCreated": 92.71433403125,
+            "workbenchMounted": 128.72335103125,
+            "firstFrame": 128.67190403125,
+            "workbenchActivated": 138.85417303125,
+            "grammarsPreloaded": 143.77053403125,
+            "fileRead": 145.71052503125,
+            "fileDecoded": 145.75316503125,
+            "documentBuilt": 146.00985803125,
+            "tokenizerReady": 166.36728403125,
+            "filesOpened": 149.50951303125,
+            "frameWithText": 163.79898103125,
+            "frameWithHighlight": 285.13232503125,
+            "extensionsRegistered": 306.05169103125,
+            "extHostActivated": 542.57809203125,
+            "startupComplete": 301.70960103125
+          },
+          "workload": [
+            {
+              "key": "insert",
+              "latencyMs": 39.32054799999969,
+              "outcome": "ok"
+            },
+            {
+              "key": "enter",
+              "latencyMs": 7.381549999998242,
+              "outcome": "ok"
+            },
+            {
+              "key": "undoEnter",
+              "latencyMs": 9.912894999997661,
+              "outcome": "ok"
+            },
+            {
+              "key": "undoInsert",
+              "latencyMs": 10.050621999998839,
+              "outcome": "ok"
+            },
+            {
+              "key": "save",
+              "latencyMs": 12.720385999997234,
+              "outcome": "ok"
+            },
+            {
+              "key": "ctrlEnd",
+              "latencyMs": 8.346506000001682,
+              "outcome": "ok"
+            },
+            {
+              "key": "search",
+              "latencyMs": 4.438296000000264,
+              "outcome": "ok"
+            }
+          ],
+          "workloadOutcome": "ok",
+          "workloadError": null,
+          "warmup": false
+        },
+        {
+          "outcome": "ok",
+          "contentMs": 170.95000599999912,
+          "quietMs": null,
+          "highlightMs": 289.21505999999863,
+          "exitCode": null,
+          "signal": null,
+          "peakRssBytes": 254889984,
+          "ladder": {
+            "processStart": 7.017578125,
+            "nodeBootstrap": 70.64139012500527,
+            "mainStart": 70.675094125,
+            "configLoaded": 88.251857125,
+            "keybindingsLoaded": 88.989505125,
+            "stateLoaded": 89.114490125,
+            "extensionsScanned": 85.088584125,
+            "themesReady": 93.928508125,
+            "containerCreated": 98.396566125,
+            "workbenchMounted": 132.589284125,
+            "firstFrame": 132.53423112500002,
+            "workbenchActivated": 138.247491125,
+            "grammarsPreloaded": 148.477060125,
+            "fileRead": 150.448068125,
+            "fileDecoded": 150.474478125,
+            "documentBuilt": 150.691286125,
+            "tokenizerReady": 169.397104125,
+            "filesOpened": 153.981297125,
+            "frameWithText": 168.471372125,
+            "frameWithHighlight": 289.159881125,
+            "extensionsRegistered": 308.056297125,
+            "extHostActivated": 540.402057125,
+            "startupComplete": 303.703627125
+          },
+          "workload": [
+            {
+              "key": "insert",
+              "latencyMs": 37.78124100000059,
+              "outcome": "ok"
+            },
+            {
+              "key": "enter",
+              "latencyMs": 10.181871000000683,
+              "outcome": "ok"
+            },
+            {
+              "key": "undoEnter",
+              "latencyMs": 8.712743000000046,
+              "outcome": "ok"
+            },
+            {
+              "key": "undoInsert",
+              "latencyMs": 7.9275740000011865,
+              "outcome": "ok"
+            },
+            {
+              "key": "save",
+              "latencyMs": 11.621192000002338,
+              "outcome": "ok"
+            },
+            {
+              "key": "ctrlEnd",
+              "latencyMs": 11.05923299999995,
+              "outcome": "ok"
+            },
+            {
+              "key": "search",
+              "latencyMs": 5.40425999999934,
+              "outcome": "ok"
+            }
+          ],
+          "workloadOutcome": "ok",
+          "workloadError": null,
+          "warmup": false
+        },
+        {
+          "outcome": "ok",
+          "contentMs": 164.01910800000041,
+          "quietMs": null,
+          "highlightMs": 283.2241090000025,
+          "exitCode": null,
+          "signal": null,
+          "peakRssBytes": 251940864,
+          "ladder": {
+            "processStart": 7.867431640625,
+            "nodeBootstrap": 69.31257164062117,
+            "mainStart": 69.349701640625,
+            "configLoaded": 92.762401640625,
+            "keybindingsLoaded": 93.128301640625,
+            "stateLoaded": 93.235172640625,
+            "extensionsScanned": 88.255160640625,
+            "themesReady": 95.964994640625,
+            "containerCreated": 99.458635640625,
+            "workbenchMounted": 129.87904164062502,
+            "firstFrame": 129.838075640625,
+            "workbenchActivated": 134.141702640625,
+            "grammarsPreloaded": 139.983426640625,
+            "fileRead": 142.709321640625,
+            "fileDecoded": 142.766970640625,
+            "documentBuilt": 142.980322640625,
+            "tokenizerReady": 164.208407640625,
+            "filesOpened": 146.872474640625,
+            "frameWithText": 163.052880640625,
+            "frameWithHighlight": 282.823229640625,
+            "extensionsRegistered": 301.996176640625,
+            "extHostActivated": 543.077847640625,
+            "startupComplete": 297.118779640625
+          },
+          "workload": [
+            {
+              "key": "insert",
+              "latencyMs": 37.11974100000225,
+              "outcome": "ok"
+            },
+            {
+              "key": "enter",
+              "latencyMs": 11.535822000001644,
+              "outcome": "ok"
+            },
+            {
+              "key": "undoEnter",
+              "latencyMs": 11.676583000000392,
+              "outcome": "ok"
+            },
+            {
+              "key": "undoInsert",
+              "latencyMs": 8.195407999999588,
+              "outcome": "ok"
+            },
+            {
+              "key": "save",
+              "latencyMs": 13.155072000001383,
+              "outcome": "ok"
+            },
+            {
+              "key": "ctrlEnd",
+              "latencyMs": 7.185386000001017,
+              "outcome": "ok"
+            },
+            {
+              "key": "search",
+              "latencyMs": 8.342951000002358,
+              "outcome": "ok"
+            }
+          ],
+          "workloadOutcome": "ok",
+          "workloadError": null,
+          "warmup": false
+        },
+        {
+          "outcome": "ok",
+          "contentMs": 169.1584559999974,
+          "quietMs": null,
+          "highlightMs": 285.775447,
+          "exitCode": null,
+          "signal": null,
+          "peakRssBytes": 263065600,
+          "ladder": {
+            "processStart": 6.659423828125,
+            "nodeBootstrap": 68.20660882811353,
+            "mainStart": 68.23913982812499,
+            "configLoaded": 93.327753828125,
+            "keybindingsLoaded": 94.000852828125,
+            "stateLoaded": 94.135615828125,
+            "extensionsScanned": 86.097825828125,
+            "themesReady": 98.194080828125,
+            "containerCreated": 104.015626828125,
+            "workbenchMounted": 135.268458828125,
+            "firstFrame": 135.228152828125,
+            "workbenchActivated": 139.435478828125,
+            "grammarsPreloaded": 145.593338828125,
+            "fileRead": 148.369367828125,
+            "fileDecoded": 148.400125828125,
+            "documentBuilt": 148.620720828125,
+            "tokenizerReady": 169.063659828125,
+            "filesOpened": 152.651403828125,
+            "frameWithText": 168.056301828125,
+            "frameWithHighlight": 284.324918828125,
+            "extensionsRegistered": 308.480430828125,
+            "extHostActivated": 533.856266828125,
+            "startupComplete": 302.210419828125
+          },
+          "workload": [
+            {
+              "key": "insert",
+              "latencyMs": 35.60521299999891,
+              "outcome": "ok"
+            },
+            {
+              "key": "enter",
+              "latencyMs": 15.70893100000103,
+              "outcome": "ok"
+            },
+            {
+              "key": "undoEnter",
+              "latencyMs": 9.476140999999188,
+              "outcome": "ok"
+            },
+            {
+              "key": "undoInsert",
+              "latencyMs": 8.451178999999684,
+              "outcome": "ok"
+            },
+            {
+              "key": "save",
+              "latencyMs": 12.321835999999166,
+              "outcome": "ok"
+            },
+            {
+              "key": "ctrlEnd",
+              "latencyMs": 10.820752999999968,
+              "outcome": "ok"
+            },
+            {
+              "key": "search",
+              "latencyMs": 5.4133939999992435,
+              "outcome": "ok"
+            }
+          ],
+          "workloadOutcome": "ok",
+          "workloadError": null,
+          "warmup": false
+        },
+        {
+          "outcome": "ok",
+          "contentMs": 160.49401099999886,
+          "quietMs": null,
+          "highlightMs": 282.51543599999786,
+          "exitCode": null,
+          "signal": null,
+          "peakRssBytes": 267784192,
+          "ladder": {
+            "processStart": 6.656982421875,
+            "nodeBootstrap": 67.17448742187116,
+            "mainStart": 67.209923421875,
+            "configLoaded": 87.492706421875,
+            "keybindingsLoaded": 87.711388421875,
+            "stateLoaded": 87.833247421875,
+            "extensionsScanned": 82.629024421875,
+            "themesReady": 90.568620421875,
+            "containerCreated": 94.076859421875,
+            "workbenchMounted": 125.628513421875,
+            "firstFrame": 125.584200421875,
+            "workbenchActivated": 129.86287042187502,
+            "grammarsPreloaded": 135.238406421875,
+            "fileRead": 137.560901421875,
+            "fileDecoded": 137.588853421875,
+            "documentBuilt": 137.842381421875,
+            "tokenizerReady": 160.270940421875,
+            "filesOpened": 141.718903421875,
+            "frameWithText": 158.005442421875,
+            "frameWithHighlight": 282.455326421875,
+            "extensionsRegistered": 303.050943421875,
+            "extHostActivated": 532.651071421875,
+            "startupComplete": 297.721023421875
+          },
+          "workload": [
+            {
+              "key": "insert",
+              "latencyMs": 31.12806400000045,
+              "outcome": "ok"
+            },
+            {
+              "key": "enter",
+              "latencyMs": 10.76906599999711,
+              "outcome": "ok"
+            },
+            {
+              "key": "undoEnter",
+              "latencyMs": 8.267664000002696,
+              "outcome": "ok"
+            },
+            {
+              "key": "undoInsert",
+              "latencyMs": 5.864182999997865,
+              "outcome": "ok"
+            },
+            {
+              "key": "save",
+              "latencyMs": 12.936248000001797,
+              "outcome": "ok"
+            },
+            {
+              "key": "ctrlEnd",
+              "latencyMs": 7.03676600000108,
+              "outcome": "ok"
+            },
+            {
+              "key": "search",
+              "latencyMs": 4.684601000000839,
+              "outcome": "ok"
+            }
+          ],
+          "workloadOutcome": "ok",
+          "workloadError": null,
+          "warmup": false
+        },
+        {
+          "outcome": "ok",
+          "contentMs": 165.6312730000027,
+          "quietMs": null,
+          "highlightMs": 275.53784700000324,
+          "exitCode": null,
+          "signal": null,
+          "peakRssBytes": 256348160,
+          "ladder": {
+            "processStart": 7.332763671875,
+            "nodeBootstrap": 67.65818967187079,
+            "mainStart": 67.685270671875,
+            "configLoaded": 83.214984671875,
+            "keybindingsLoaded": 84.100232671875,
+            "stateLoaded": 84.227852671875,
+            "extensionsScanned": 79.183600671875,
+            "themesReady": 89.061127671875,
+            "containerCreated": 93.464892671875,
+            "workbenchMounted": 127.044026671875,
+            "firstFrame": 126.985355671875,
+            "workbenchActivated": 133.426669671875,
+            "grammarsPreloaded": 143.454569671875,
+            "fileRead": 145.971540671875,
+            "fileDecoded": 146.006336671875,
+            "documentBuilt": 146.240978671875,
+            "tokenizerReady": 165.390206671875,
+            "filesOpened": 150.171883671875,
+            "frameWithText": 164.448011671875,
+            "frameWithHighlight": 275.450249671875,
+            "extensionsRegistered": 297.124941671875,
+            "extHostActivated": 527.840783671875,
+            "startupComplete": 292.443513671875
+          },
+          "workload": [
+            {
+              "key": "insert",
+              "latencyMs": 28.080205000002024,
+              "outcome": "ok"
+            },
+            {
+              "key": "enter",
+              "latencyMs": 9.488713999999163,
+              "outcome": "ok"
+            },
+            {
+              "key": "undoEnter",
+              "latencyMs": 9.274180000000342,
+              "outcome": "ok"
+            },
+            {
+              "key": "undoInsert",
+              "latencyMs": 7.185806000001321,
+              "outcome": "ok"
+            },
+            {
+              "key": "save",
+              "latencyMs": 10.962935000003199,
+              "outcome": "ok"
+            },
+            {
+              "key": "ctrlEnd",
+              "latencyMs": 7.233075000000099,
+              "outcome": "ok"
+            },
+            {
+              "key": "search",
+              "latencyMs": 2.845246999997471,
+              "outcome": "ok"
+            }
+          ],
+          "workloadOutcome": "ok",
+          "workloadError": null,
+          "warmup": false
+        }
+      ],
+      "content": {
+        "median": 169.1584559999974,
+        "q1": 164.82519050000155,
+        "q3": 181.13290099999904,
+        "iqr": 16.307710499997484,
+        "min": 159.7850580000004,
+        "max": 220.29225399999996,
+        "count": 11,
+        "noisy": false
+      },
+      "highlight": {
+        "median": 287.05389599999944,
+        "q1": 282.8697725000002,
+        "q3": 324.636962999999,
+        "iqr": 41.76719049999883,
+        "min": 275.37979600000017,
+        "max": 393.9892230000005,
+        "count": 11,
+        "noisy": false
+      },
+      "ours": {
+        "median": 143.8132179999974,
+        "q1": 139.47995250000156,
+        "q3": 155.78766299999904,
+        "iqr": 16.307710499997484,
+        "min": 134.4398200000004,
+        "max": 194.94701599999996,
+        "count": 11,
+        "noisy": false
+      },
+      "overBinary": {
+        "median": 106.86493699999744,
+        "q1": 102.53167150000161,
+        "q3": 118.83938199999909,
+        "iqr": 16.307710499997484,
+        "min": 97.49153900000044,
+        "max": 157.998735,
+        "count": 11,
+        "noisy": false
+      },
+      "peakRss": {
+        "median": 262205440,
+        "q1": 255510528,
+        "q3": 264286208,
+        "iqr": 8775680,
+        "min": 251940864,
+        "max": 267784192,
+        "count": 11,
+        "noisy": false
+      },
+      "ladder": {
+        "processStart": {
+          "median": 7.332763671875,
+          "q1": 6.72900390625,
+          "q3": 8.3226318359375,
+          "iqr": 1.5936279296875,
+          "min": 5.639404296875,
+          "max": 18.19140625,
+          "count": 11,
+          "noisy": true
+        },
+        "nodeBootstrap": {
+          "median": 68.20660882811353,
+          "q1": 67.31057220312505,
+          "q3": 74.68895885937673,
+          "iqr": 7.378386656251678,
+          "min": 63.24709829688072,
+          "max": 101.47694125000271,
+          "count": 11,
+          "noisy": false
+        },
+        "mainStart": {
+          "median": 68.23913982812499,
+          "q1": 67.344155203125,
+          "q3": 74.719757359375,
+          "iqr": 7.375602156249997,
+          "min": 63.284478296875,
+          "max": 101.51829925,
+          "count": 11,
+          "noisy": false
+        },
+        "configLoaded": {
+          "median": 88.251857125,
+          "q1": 86.17667164062499,
+          "q3": 97.43389540625,
+          "iqr": 11.257223765625014,
+          "min": 82.94531203125,
+          "max": 128.32725425,
+          "count": 11,
+          "noisy": false
+        },
+        "keybindingsLoaded": {
+          "median": 88.989505125,
+          "q1": 86.63233964062499,
+          "q3": 99.5573847109375,
+          "iqr": 12.925045070312507,
+          "min": 83.11298803125,
+          "max": 130.55631825,
+          "count": 11,
+          "noisy": false
+        },
+        "stateLoaded": {
+          "median": 89.114490125,
+          "q1": 86.760265640625,
+          "q3": 99.6855557109375,
+          "iqr": 12.925290070312514,
+          "min": 83.23939603125,
+          "max": 130.68642325000002,
+          "count": 11,
+          "noisy": false
+        },
+        "extensionsScanned": {
+          "median": 85.088584125,
+          "q1": 81.47713914062501,
+          "q3": 92.1949761171875,
+          "iqr": 10.71783697656248,
+          "min": 79.183600671875,
+          "max": 122.91552425,
+          "count": 11,
+          "noisy": false
+        },
+        "themesReady": {
+          "median": 93.928508125,
+          "q1": 90.397540359375,
+          "q3": 103.18068871093749,
+          "iqr": 12.783148351562488,
+          "min": 88.20301503125,
+          "max": 135.25498925,
+          "count": 11,
+          "noisy": false
+        },
+        "containerCreated": {
+          "median": 98.396566125,
+          "q1": 93.92623185937501,
+          "q3": 108.16887871093749,
+          "iqr": 14.242646851562483,
+          "min": 92.71433403125,
+          "max": 140.13999124999998,
+          "count": 11,
+          "noisy": false
+        },
+        "workbenchMounted": {
+          "median": 132.589284125,
+          "q1": 127.8836888515625,
+          "q3": 139.80129790625,
+          "iqr": 11.917609054687503,
+          "min": 125.628513421875,
+          "max": 173.20166225,
+          "count": 11,
+          "noisy": false
+        },
+        "firstFrame": {
+          "median": 132.53423112500002,
+          "q1": 127.8286298515625,
+          "q3": 139.76101740625,
+          "iqr": 11.932387554687509,
+          "min": 125.584200421875,
+          "max": 173.15603625,
+          "count": 11,
+          "noisy": false
+        },
+        "workbenchActivated": {
+          "median": 138.85417303125,
+          "q1": 133.78418615625,
+          "q3": 147.7981792890625,
+          "iqr": 14.013993132812487,
+          "min": 129.86287042187502,
+          "max": 181.34592725,
+          "count": 11,
+          "noisy": false
+        },
+        "grammarsPreloaded": {
+          "median": 145.593338828125,
+          "q1": 141.71899815625,
+          "q3": 153.6923387890625,
+          "iqr": 11.973340632812494,
+          "min": 135.238406421875,
+          "max": 189.93554925,
+          "count": 11,
+          "noisy": false
+        },
+        "fileRead": {
+          "median": 148.369367828125,
+          "q1": 144.2099233359375,
+          "q3": 156.427941984375,
+          "iqr": 12.218018648437493,
+          "min": 137.560901421875,
+          "max": 193.77261025,
+          "count": 11,
+          "noisy": false
+        },
+        "fileDecoded": {
+          "median": 148.400125828125,
+          "q1": 144.2600678359375,
+          "q3": 156.459516484375,
+          "iqr": 12.19944864843751,
+          "min": 137.588853421875,
+          "max": 193.80417925,
+          "count": 11,
+          "noisy": false
+        },
+        "documentBuilt": {
+          "median": 148.620720828125,
+          "q1": 144.4950903359375,
+          "q3": 156.710503984375,
+          "iqr": 12.215413648437504,
+          "min": 137.842381421875,
+          "max": 193.97829725,
+          "count": 11,
+          "noisy": false
+        },
+        "tokenizerReady": {
+          "median": 169.063659828125,
+          "q1": 164.79930715625,
+          "q3": 180.081510484375,
+          "iqr": 15.282203328125007,
+          "min": 158.360678296875,
+          "max": 220.86692125,
+          "count": 11,
+          "noisy": false
+        },
+        "filesOpened": {
+          "median": 152.651403828125,
+          "q1": 148.1909938359375,
+          "q3": 161.028595984375,
+          "iqr": 12.837602148437497,
+          "min": 141.718903421875,
+          "max": 197.44053125,
+          "count": 11,
+          "noisy": false
+        },
+        "extensionsRegistered": {
+          "median": 308.056297125,
+          "q1": 302.52356003125,
+          "q3": 345.5090812890625,
+          "iqr": 42.985521257812536,
+          "min": 295.762206296875,
+          "max": 426.78770325,
+          "count": 11,
+          "noisy": false
+        },
+        "frameWithText": {
+          "median": 168.056301828125,
+          "q1": 163.4259308359375,
+          "q3": 179.122654984375,
+          "iqr": 15.69672414843751,
+          "min": 157.490639296875,
+          "max": 219.17103025,
+          "count": 11,
+          "noisy": false
+        },
+        "frameWithHighlight": {
+          "median": 285.13232503125,
+          "q1": 282.63927803125,
+          "q3": 324.431301484375,
+          "iqr": 41.79202345312501,
+          "min": 274.721733296875,
+          "max": 393.26504325,
+          "count": 11,
+          "noisy": false
+        },
+        "extHostActivated": {
+          "median": 542.57809203125,
+          "q1": 533.253669125,
+          "q3": 610.368551984375,
+          "iqr": 77.11488285937503,
+          "min": 527.693195296875,
+          "max": 734.47517225,
+          "count": 11,
+          "noisy": false
+        },
+        "startupComplete": {
+          "median": 302.210419828125,
+          "q1": 297.41990153125,
+          "q3": 339.9286722890625,
+          "iqr": 42.5087707578125,
+          "min": 289.985136296875,
+          "max": 416.49202025,
+          "count": 11,
+          "noisy": false
+        }
+      },
+      "boxGap": {
+        "median": 1.8726404062495305,
+        "q1": 1.1116889609361778,
+        "q3": 2.3865262890622603,
+        "iqr": 1.2748373281260825,
+        "min": 0.1688380156235496,
+        "max": 7.2794130156246695,
+        "count": 11,
+        "noisy": true
+      },
+      "workload": {
+        "insert": {
+          "median": 37.11974100000225,
+          "q1": 33.36663849999968,
+          "q3": 39.285439499999484,
+          "iqr": 5.918800999999803,
+          "min": 24.39455199999975,
+          "max": 48.57575199999883,
+          "count": 11,
+          "noisy": false
+        },
+        "enter": {
+          "median": 11.535822000001644,
+          "q1": 9.835292499999923,
+          "q3": 13.131863500000236,
+          "iqr": 3.296571000000313,
+          "min": 7.381549999998242,
+          "max": 17.445752999999968,
+          "count": 11,
+          "noisy": true
+        },
+        "undoEnter": {
+          "median": 9.274180000000342,
+          "q1": 8.450538500000675,
+          "q3": 9.929754499999035,
+          "iqr": 1.4792159999983596,
+          "min": 8.267664000002696,
+          "max": 18.10789300000033,
+          "count": 11,
+          "noisy": false
+        },
+        "undoInsert": {
+          "median": 8.451178999999684,
+          "q1": 7.896920000001046,
+          "q3": 11.07436349999898,
+          "iqr": 3.177443499997935,
+          "min": 5.864182999997865,
+          "max": 16.95151199999964,
+          "count": 11,
+          "noisy": true
+        },
+        "save": {
+          "median": 13.155072000001383,
+          "q1": 12.5211109999982,
+          "q3": 19.85755699999936,
+          "iqr": 7.33644600000116,
+          "min": 10.962935000003199,
+          "max": 38.263058000000456,
+          "count": 11,
+          "noisy": true
+        },
+        "ctrlEnd": {
+          "median": 8.346506000001682,
+          "q1": 7.111076000001049,
+          "q3": 10.276857500000006,
+          "iqr": 3.165781499998957,
+          "min": 5.2981070000005275,
+          "max": 14.379387000000861,
+          "count": 11,
+          "noisy": true
+        },
+        "search": {
+          "median": 5.4133939999992435,
+          "q1": 4.561448500000552,
+          "q3": 7.739274499999738,
+          "iqr": 3.177825999999186,
+          "min": 2.845246999997471,
+          "max": 13.005452000001242,
+          "count": 11,
+          "noisy": true
+        }
+      },
+      "workloadFailures": []
+    },
+    {
+      "key": "medium",
+      "kind": "ts",
+      "fixtureBytes": 129759,
+      "fixtureLines": 2000,
+      "runs": [
+        {
+          "outcome": "ok",
+          "contentMs": 165.94709599999987,
+          "quietMs": null,
+          "highlightMs": 280.1676609999995,
+          "exitCode": null,
+          "signal": null,
+          "peakRssBytes": 260419584,
+          "ladder": {
+            "processStart": 7.361083984375,
+            "nodeBootstrap": 65.573907984377,
+            "mainStart": 65.60250198437501,
+            "configLoaded": 79.827510984375,
+            "keybindingsLoaded": 81.047477984375,
+            "stateLoaded": 81.153968984375,
+            "extensionsScanned": 77.328342984375,
+            "themesReady": 85.177638984375,
+            "containerCreated": 90.020981984375,
+            "workbenchMounted": 124.248176984375,
+            "firstFrame": 124.201758984375,
+            "workbenchActivated": 130.472260984375,
+            "grammarsPreloaded": 140.882080984375,
+            "fileRead": 144.532987984375,
+            "fileDecoded": 144.569435984375,
+            "documentBuilt": 144.795531984375,
+            "tokenizerReady": 167.170435984375,
+            "filesOpened": 151.308074984375,
+            "frameWithText": 165.838526984375,
+            "frameWithHighlight": 279.614438984375,
+            "extensionsRegistered": 300.099085984375,
+            "extHostActivated": 543.239176984375,
+            "startupComplete": 296.053695984375
+          },
+          "workload": [
+            {
+              "key": "insert",
+              "latencyMs": 31.619832999997016,
+              "outcome": "ok"
+            },
+            {
+              "key": "enter",
+              "latencyMs": 13.262664000001678,
+              "outcome": "ok"
+            },
+            {
+              "key": "undoEnter",
+              "latencyMs": 9.625330999999278,
+              "outcome": "ok"
+            },
+            {
+              "key": "undoInsert",
+              "latencyMs": 6.131553999999596,
+              "outcome": "ok"
+            },
+            {
+              "key": "save",
+              "latencyMs": 11.739223999997193,
+              "outcome": "ok"
+            },
+            {
+              "key": "ctrlEnd",
+              "latencyMs": 7.514755999996851,
+              "outcome": "ok"
+            },
+            {
+              "key": "search",
+              "latencyMs": 5.460897000000841,
+              "outcome": "ok"
+            }
+          ],
+          "workloadOutcome": "ok",
+          "workloadError": null,
+          "warmup": true
+        },
+        {
+          "outcome": "ok",
+          "contentMs": 167.67943500000183,
+          "quietMs": null,
+          "highlightMs": 280.27302500000224,
+          "exitCode": null,
+          "signal": null,
+          "peakRssBytes": 285474816,
+          "ladder": {
+            "processStart": 6.77783203125,
+            "nodeBootstrap": 64.16153703125019,
+            "mainStart": 64.20493903125,
+            "configLoaded": 79.00629003125,
+            "keybindingsLoaded": 79.52404603125,
+            "stateLoaded": 79.64669703125,
+            "extensionsScanned": 75.86846003125,
+            "themesReady": 87.66073303125,
+            "containerCreated": 92.47388903125,
+            "workbenchMounted": 127.61760003125,
+            "firstFrame": 127.57198403125,
+            "workbenchActivated": 137.31519803125,
+            "grammarsPreloaded": 142.57240103125,
+            "fileRead": 147.03243203125,
+            "fileDecoded": 147.06707803125,
+            "documentBuilt": 147.31088703125,
+            "tokenizerReady": 169.47702103125,
+            "filesOpened": 153.14892403125,
+            "frameWithText": 167.47896803125,
+            "frameWithHighlight": 280.14282803125,
+            "extensionsRegistered": 301.42582203125,
+            "extHostActivated": 555.52117003125,
+            "startupComplete": 295.98049403125
+          },
+          "workload": [
+            {
+              "key": "insert",
+              "latencyMs": 38.44339899999977,
+              "outcome": "ok"
+            },
+            {
+              "key": "enter",
+              "latencyMs": 8.332691999999952,
+              "outcome": "ok"
+            },
+            {
+              "key": "undoEnter",
+              "latencyMs": 6.995766000000003,
+              "outcome": "ok"
+            },
+            {
+              "key": "undoInsert",
+              "latencyMs": 7.417528999998467,
+              "outcome": "ok"
+            },
+            {
+              "key": "save",
+              "latencyMs": 9.003217000001314,
+              "outcome": "ok"
+            },
+            {
+              "key": "ctrlEnd",
+              "latencyMs": 4.834979999999632,
+              "outcome": "ok"
+            },
+            {
+              "key": "search",
+              "latencyMs": 8.216026999998576,
+              "outcome": "ok"
+            }
+          ],
+          "workloadOutcome": "ok",
+          "workloadError": null,
+          "warmup": false
+        },
+        {
+          "outcome": "ok",
+          "contentMs": 171.1987139999983,
+          "quietMs": null,
+          "highlightMs": 290.68585000000166,
+          "exitCode": null,
+          "signal": null,
+          "peakRssBytes": 258842624,
+          "ladder": {
+            "processStart": 7.153564453125,
+            "nodeBootstrap": 68.99600045313127,
+            "mainStart": 69.032209453125,
+            "configLoaded": 87.692517453125,
+            "keybindingsLoaded": 87.925044453125,
+            "stateLoaded": 88.057434453125,
+            "extensionsScanned": 83.682981453125,
+            "themesReady": 92.486850453125,
+            "containerCreated": 97.145156453125,
+            "workbenchMounted": 132.268738453125,
+            "firstFrame": 132.21662045312502,
+            "workbenchActivated": 137.979455453125,
+            "grammarsPreloaded": 147.974245453125,
+            "fileRead": 151.386226453125,
+            "fileDecoded": 151.449275453125,
+            "documentBuilt": 151.675892453125,
+            "tokenizerReady": 172.610209453125,
+            "filesOpened": 157.741767453125,
+            "frameWithText": 171.092383453125,
+            "frameWithHighlight": 290.621724453125,
+            "extensionsRegistered": 310.189170453125,
+            "extHostActivated": 566.952812453125,
+            "startupComplete": 305.919785453125
+          },
+          "workload": [
+            {
+              "key": "insert",
+              "latencyMs": 26.429949999997916,
+              "outcome": "ok"
+            },
+            {
+              "key": "enter",
+              "latencyMs": 15.708281999999599,
+              "outcome": "ok"
+            },
+            {
+              "key": "undoEnter",
+              "latencyMs": 15.329669999999169,
+              "outcome": "ok"
+            },
+            {
+              "key": "undoInsert",
+              "latencyMs": 7.153172000002087,
+              "outcome": "ok"
+            },
+            {
+              "key": "save",
+              "latencyMs": 19.363451000001078,
+              "outcome": "ok"
+            },
+            {
+              "key": "ctrlEnd",
+              "latencyMs": 5.020477999998548,
+              "outcome": "ok"
+            },
+            {
+              "key": "search",
+              "latencyMs": 7.796849999998813,
+              "outcome": "ok"
+            }
+          ],
+          "workloadOutcome": "ok",
+          "workloadError": null,
+          "warmup": false
+        },
+        {
+          "outcome": "ok",
+          "contentMs": 172.97840599999836,
+          "quietMs": null,
+          "highlightMs": 276.55741900000066,
+          "exitCode": null,
+          "signal": null,
+          "peakRssBytes": 259084288,
+          "ladder": {
+            "processStart": 6.78076171875,
+            "nodeBootstrap": 65.35750171873951,
+            "mainStart": 65.38595471875,
+            "configLoaded": 86.07799671875,
+            "keybindingsLoaded": 86.69642071875,
+            "stateLoaded": 86.85577071875,
+            "extensionsScanned": 82.97066871875,
+            "themesReady": 91.56618571875,
+            "containerCreated": 96.32473071875,
+            "workbenchMounted": 131.45292171875002,
+            "firstFrame": 131.40670471875,
+            "workbenchActivated": 142.13950371875,
+            "grammarsPreloaded": 147.12071771875,
+            "fileRead": 150.53586471875,
+            "fileDecoded": 150.57076071875,
+            "documentBuilt": 150.83573971875,
+            "tokenizerReady": 171.96209871875,
+            "filesOpened": 156.72771771875,
+            "frameWithText": 170.56905671875,
+            "frameWithHighlight": 275.87381771875,
+            "extensionsRegistered": 296.99367471875,
+            "extHostActivated": 569.13516971875,
+            "startupComplete": 290.63820371875
+          },
+          "workload": [
+            {
+              "key": "insert",
+              "latencyMs": 46.21528599999874,
+              "outcome": "ok"
+            },
+            {
+              "key": "enter",
+              "latencyMs": 14.519225000003644,
+              "outcome": "ok"
+            },
+            {
+              "key": "undoEnter",
+              "latencyMs": 6.726215000002412,
+              "outcome": "ok"
+            },
+            {
+              "key": "undoInsert",
+              "latencyMs": 12.336881000002904,
+              "outcome": "ok"
+            },
+            {
+              "key": "save",
+              "latencyMs": 17.135698999998567,
+              "outcome": "ok"
+            },
+            {
+              "key": "ctrlEnd",
+              "latencyMs": 8.107097000000067,
+              "outcome": "ok"
+            },
+            {
+              "key": "search",
+              "latencyMs": 4.207738999997673,
+              "outcome": "ok"
+            }
+          ],
+          "workloadOutcome": "ok",
+          "workloadError": null,
+          "warmup": false
+        },
+        {
+          "outcome": "ok",
+          "contentMs": 168.33838799999648,
+          "quietMs": null,
+          "highlightMs": 282.2779289999962,
+          "exitCode": null,
+          "signal": null,
+          "peakRssBytes": 260718592,
+          "ladder": {
+            "processStart": 7.134033203125,
+            "nodeBootstrap": 65.4206872031209,
+            "mainStart": 65.456494203125,
+            "configLoaded": 81.898613203125,
+            "keybindingsLoaded": 82.114909203125,
+            "stateLoaded": 82.276714203125,
+            "extensionsScanned": 79.356428203125,
+            "themesReady": 87.233873203125,
+            "containerCreated": 91.853668203125,
+            "workbenchMounted": 127.426855203125,
+            "firstFrame": 127.368596203125,
+            "workbenchActivated": 138.039538203125,
+            "grammarsPreloaded": 143.930815203125,
+            "fileRead": 147.456260203125,
+            "fileDecoded": 147.485856203125,
+            "documentBuilt": 147.674912203125,
+            "tokenizerReady": 170.399427203125,
+            "filesOpened": 154.119611203125,
+            "frameWithText": 168.089249203125,
+            "frameWithHighlight": 281.679343203125,
+            "extensionsRegistered": 301.796152203125,
+            "extHostActivated": 558.507874203125,
+            "startupComplete": 297.198941203125
+          },
+          "workload": [
+            {
+              "key": "insert",
+              "latencyMs": 36.93297800000437,
+              "outcome": "ok"
+            },
+            {
+              "key": "enter",
+              "latencyMs": 12.330235000001267,
+              "outcome": "ok"
+            },
+            {
+              "key": "undoEnter",
+              "latencyMs": 9.983736000001954,
+              "outcome": "ok"
+            },
+            {
+              "key": "undoInsert",
+              "latencyMs": 7.023288999997021,
+              "outcome": "ok"
+            },
+            {
+              "key": "save",
+              "latencyMs": 13.848395000000892,
+              "outcome": "ok"
+            },
+            {
+              "key": "ctrlEnd",
+              "latencyMs": 5.73740700000053,
+              "outcome": "ok"
+            },
+            {
+              "key": "search",
+              "latencyMs": 4.855105000002368,
+              "outcome": "ok"
+            }
+          ],
+          "workloadOutcome": "ok",
+          "workloadError": null,
+          "warmup": false
+        },
+        {
+          "outcome": "ok",
+          "contentMs": 178.18808499999432,
+          "quietMs": null,
+          "highlightMs": 289.5144849999997,
+          "exitCode": null,
+          "signal": null,
+          "peakRssBytes": 280559616,
+          "ladder": {
+            "processStart": 7.085205078125,
+            "nodeBootstrap": 71.70819907811529,
+            "mainStart": 71.738155078125,
+            "configLoaded": 88.367993078125,
+            "keybindingsLoaded": 88.576245078125,
+            "stateLoaded": 88.698635078125,
+            "extensionsScanned": 84.319968078125,
+            "themesReady": 95.972827078125,
+            "containerCreated": 100.701564078125,
+            "workbenchMounted": 135.942594078125,
+            "firstFrame": 135.889134078125,
+            "workbenchActivated": 146.244589078125,
+            "grammarsPreloaded": 151.323997078125,
+            "fileRead": 155.344910078125,
+            "fileDecoded": 155.380337078125,
+            "documentBuilt": 155.632803078125,
+            "tokenizerReady": 179.219260078125,
+            "filesOpened": 162.472406078125,
+            "frameWithText": 177.544025078125,
+            "frameWithHighlight": 289.192497078125,
+            "extensionsRegistered": 312.387679078125,
+            "extHostActivated": 565.445142078125,
+            "startupComplete": 307.363054078125
+          },
+          "workload": [
+            {
+              "key": "insert",
+              "latencyMs": 36.697274999998626,
+              "outcome": "ok"
+            },
+            {
+              "key": "enter",
+              "latencyMs": 11.474543999996968,
+              "outcome": "ok"
+            },
+            {
+              "key": "undoEnter",
+              "latencyMs": 8.326032999997551,
+              "outcome": "ok"
+            },
+            {
+              "key": "undoInsert",
+              "latencyMs": 5.10158699999738,
+              "outcome": "ok"
+            },
+            {
+              "key": "save",
+              "latencyMs": 9.425714000004518,
+              "outcome": "ok"
+            },
+            {
+              "key": "ctrlEnd",
+              "latencyMs": 5.899618000003102,
+              "outcome": "ok"
+            },
+            {
+              "key": "search",
+              "latencyMs": 5.333607000000484,
+              "outcome": "ok"
+            }
+          ],
+          "workloadOutcome": "ok",
+          "workloadError": null,
+          "warmup": false
+        },
+        {
+          "outcome": "ok",
+          "contentMs": 165.8270360000024,
+          "quietMs": null,
+          "highlightMs": 281.21710200000234,
+          "exitCode": null,
+          "signal": null,
+          "peakRssBytes": 276451328,
+          "ladder": {
+            "processStart": 7.6376953125,
+            "nodeBootstrap": 68.09584731250652,
+            "mainStart": 68.1276173125,
+            "configLoaded": 89.1553013125,
+            "keybindingsLoaded": 91.3067503125,
+            "stateLoaded": 91.4605503125,
+            "extensionsScanned": 84.9209253125,
+            "themesReady": 94.4414953125,
+            "containerCreated": 98.2642663125,
+            "workbenchMounted": 127.1569993125,
+            "firstFrame": 127.1151713125,
+            "workbenchActivated": 132.4321163125,
+            "grammarsPreloaded": 138.1142693125,
+            "fileRead": 142.0629873125,
+            "fileDecoded": 142.1053573125,
+            "documentBuilt": 142.3572223125,
+            "tokenizerReady": 164.8978703125,
+            "filesOpened": 148.3747773125,
+            "frameWithText": 163.4664343125,
+            "frameWithHighlight": 281.0290543125,
+            "extensionsRegistered": 300.6830763125,
+            "extHostActivated": 550.0156223125,
+            "startupComplete": 296.1827993125
+          },
+          "workload": [
+            {
+              "key": "insert",
+              "latencyMs": 28.938700000006065,
+              "outcome": "ok"
+            },
+            {
+              "key": "enter",
+              "latencyMs": 13.258334000005561,
+              "outcome": "ok"
+            },
+            {
+              "key": "undoEnter",
+              "latencyMs": 9.510295000000042,
+              "outcome": "ok"
+            },
+            {
+              "key": "undoInsert",
+              "latencyMs": 5.933947999998054,
+              "outcome": "ok"
+            },
+            {
+              "key": "save",
+              "latencyMs": 12.617185999995854,
+              "outcome": "ok"
+            },
+            {
+              "key": "ctrlEnd",
+              "latencyMs": 5.340705000002345,
+              "outcome": "ok"
+            },
+            {
+              "key": "search",
+              "latencyMs": 4.579896999995981,
+              "outcome": "ok"
+            }
+          ],
+          "workloadOutcome": "ok",
+          "workloadError": null,
+          "warmup": false
+        },
+        {
+          "outcome": "ok",
+          "contentMs": 175.36469699999725,
+          "quietMs": null,
+          "highlightMs": 279.0088360000009,
+          "exitCode": null,
+          "signal": null,
+          "peakRssBytes": 277880832,
+          "ladder": {
+            "processStart": 6.1142578125,
+            "nodeBootstrap": 75.60669081249216,
+            "mainStart": 75.6421568125,
+            "configLoaded": 100.2961968125,
+            "keybindingsLoaded": 100.5334138125,
+            "stateLoaded": 100.6730668125,
+            "extensionsScanned": 95.8327098125,
+            "themesReady": 103.6160598125,
+            "containerCreated": 107.0207738125,
+            "workbenchMounted": 137.7382398125,
+            "firstFrame": 137.7032938125,
+            "workbenchActivated": 141.7514198125,
+            "grammarsPreloaded": 147.4515058125,
+            "fileRead": 151.3340198125,
+            "fileDecoded": 151.3727328125,
+            "documentBuilt": 151.6244868125,
+            "tokenizerReady": 174.4525168125,
+            "filesOpened": 157.3276898125,
+            "frameWithText": 172.6584668125,
+            "frameWithHighlight": 278.3048408125,
+            "extensionsRegistered": 298.8644278125,
+            "extHostActivated": 554.5693958125,
+            "startupComplete": 293.8496118125
+          },
+          "workload": [
+            {
+              "key": "insert",
+              "latencyMs": 25.566890000001877,
+              "outcome": "ok"
+            },
+            {
+              "key": "enter",
+              "latencyMs": 16.838238000003912,
+              "outcome": "ok"
+            },
+            {
+              "key": "undoEnter",
+              "latencyMs": 13.445606999994197,
+              "outcome": "ok"
+            },
+            {
+              "key": "undoInsert",
+              "latencyMs": 6.158084000002418,
+              "outcome": "ok"
+            },
+            {
+              "key": "save",
+              "latencyMs": 21.265383000005386,
+              "outcome": "ok"
+            },
+            {
+              "key": "ctrlEnd",
+              "latencyMs": 6.5051690000036615,
+              "outcome": "ok"
+            },
+            {
+              "key": "search",
+              "latencyMs": 3.56620799999655,
+              "outcome": "ok"
+            }
+          ],
+          "workloadOutcome": "ok",
+          "workloadError": null,
+          "warmup": false
+        },
+        {
+          "outcome": "ok",
+          "contentMs": 163.17962600000465,
+          "quietMs": null,
+          "highlightMs": 276.26199800000177,
+          "exitCode": null,
+          "signal": null,
+          "peakRssBytes": 282054656,
+          "ladder": {
+            "processStart": 6.52587890625,
+            "nodeBootstrap": 67.35970890623867,
+            "mainStart": 67.39058690625001,
+            "configLoaded": 84.29648490625,
+            "keybindingsLoaded": 87.56417690625,
+            "stateLoaded": 87.70214690625,
+            "extensionsScanned": 81.10772790625,
+            "themesReady": 90.97684490625,
+            "containerCreated": 94.74051390625,
+            "workbenchMounted": 124.13308990625,
+            "firstFrame": 124.09062990625,
+            "workbenchActivated": 130.22785990625,
+            "grammarsPreloaded": 135.91848990625,
+            "fileRead": 139.95685690625,
+            "fileDecoded": 139.99574990625,
+            "documentBuilt": 140.32600190625,
+            "tokenizerReady": 164.23878490625,
+            "filesOpened": 146.85343690625,
+            "frameWithText": 162.71724890625,
+            "frameWithHighlight": 275.44360990625,
+            "extensionsRegistered": 296.10417690625,
+            "extHostActivated": 549.26897890625,
+            "startupComplete": 290.73949190625
+          },
+          "workload": [
+            {
+              "key": "insert",
+              "latencyMs": 51.423154000003706,
+              "outcome": "ok"
+            },
+            {
+              "key": "enter",
+              "latencyMs": 16.870238000003155,
+              "outcome": "ok"
+            },
+            {
+              "key": "undoEnter",
+              "latencyMs": 17.461480999998457,
+              "outcome": "ok"
+            },
+            {
+              "key": "undoInsert",
+              "latencyMs": 17.405194999999367,
+              "outcome": "ok"
+            },
+            {
+              "key": "save",
+              "latencyMs": 14.704249000002164,
+              "outcome": "ok"
+            },
+            {
+              "key": "ctrlEnd",
+              "latencyMs": 8.086943000002066,
+              "outcome": "ok"
+            },
+            {
+              "key": "search",
+              "latencyMs": 6.4558410000026925,
+              "outcome": "ok"
+            }
+          ],
+          "workloadOutcome": "ok",
+          "workloadError": null,
+          "warmup": false
+        },
+        {
+          "outcome": "ok",
+          "contentMs": 159.56290399999853,
+          "quietMs": null,
+          "highlightMs": 272.1691559999963,
+          "exitCode": null,
+          "signal": null,
+          "peakRssBytes": 276787200,
+          "ladder": {
+            "processStart": 8.57666015625,
+            "nodeBootstrap": 67.98867115625762,
+            "mainStart": 68.02375715625,
+            "configLoaded": 84.55939415625,
+            "keybindingsLoaded": 86.63300015625,
+            "stateLoaded": 86.74987015625,
+            "extensionsScanned": 79.47613915625,
+            "themesReady": 90.05313215625,
+            "containerCreated": 93.59532415625,
+            "workbenchMounted": 123.79937715625,
+            "firstFrame": 123.76067415625,
+            "workbenchActivated": 129.63041115625,
+            "grammarsPreloaded": 135.08414415625,
+            "fileRead": 138.47539115625,
+            "fileDecoded": 138.50859415625,
+            "documentBuilt": 138.69409315625,
+            "tokenizerReady": 161.51299515625,
+            "filesOpened": 144.65436015625,
+            "frameWithText": 159.49958315625,
+            "frameWithHighlight": 271.84839215625,
+            "extensionsRegistered": 292.23227815625,
+            "extHostActivated": 542.43311415625,
+            "startupComplete": 286.82927015625
+          },
+          "workload": [
+            {
+              "key": "insert",
+              "latencyMs": 34.53352799999993,
+              "outcome": "ok"
+            },
+            {
+              "key": "enter",
+              "latencyMs": 15.031594000000041,
+              "outcome": "ok"
+            },
+            {
+              "key": "undoEnter",
+              "latencyMs": 7.743508999999904,
+              "outcome": "ok"
+            },
+            {
+              "key": "undoInsert",
+              "latencyMs": 8.490142000002379,
+              "outcome": "ok"
+            },
+            {
+              "key": "save",
+              "latencyMs": 19.29639699999825,
+              "outcome": "ok"
+            },
+            {
+              "key": "ctrlEnd",
+              "latencyMs": 7.293308000000252,
+              "outcome": "ok"
+            },
+            {
+              "key": "search",
+              "latencyMs": 5.663237000000663,
+              "outcome": "ok"
+            }
+          ],
+          "workloadOutcome": "ok",
+          "workloadError": null,
+          "warmup": false
+        },
+        {
+          "outcome": "ok",
+          "contentMs": 173.34307999999874,
+          "quietMs": null,
+          "highlightMs": 289.9257570000045,
+          "exitCode": null,
+          "signal": null,
+          "peakRssBytes": 287526912,
+          "ladder": {
+            "processStart": 8.47900390625,
+            "nodeBootstrap": 69.88446890623891,
+            "mainStart": 69.91401390625,
+            "configLoaded": 85.50114390625,
+            "keybindingsLoaded": 86.40862390625,
+            "stateLoaded": 86.54319690625,
+            "extensionsScanned": 81.47675390625,
+            "themesReady": 94.32086790625,
+            "containerCreated": 98.88267990625,
+            "workbenchMounted": 131.92823490625,
+            "firstFrame": 131.89245790625,
+            "workbenchActivated": 142.33395390625,
+            "grammarsPreloaded": 147.61365890625,
+            "fileRead": 151.13137490625,
+            "fileDecoded": 151.16787390625,
+            "documentBuilt": 151.43909490625,
+            "tokenizerReady": 174.46625890625,
+            "filesOpened": 157.72365290625,
+            "frameWithText": 172.58200990625,
+            "frameWithHighlight": 289.44474490625,
+            "extensionsRegistered": 315.47582690625,
+            "extHostActivated": 567.53467490625,
+            "startupComplete": 309.29136790625
+          },
+          "workload": [
+            {
+              "key": "insert",
+              "latencyMs": 37.83430899999803,
+              "outcome": "ok"
+            },
+            {
+              "key": "enter",
+              "latencyMs": 10.598088999999163,
+              "outcome": "ok"
+            },
+            {
+              "key": "undoEnter",
+              "latencyMs": 8.061993999996048,
+              "outcome": "ok"
+            },
+            {
+              "key": "undoInsert",
+              "latencyMs": 11.821833000001789,
+              "outcome": "ok"
+            },
+            {
+              "key": "save",
+              "latencyMs": 34.53909299999941,
+              "outcome": "ok"
+            },
+            {
+              "key": "ctrlEnd",
+              "latencyMs": 10.305405999999493,
+              "outcome": "ok"
+            },
+            {
+              "key": "search",
+              "latencyMs": 3.7424900000041816,
+              "outcome": "ok"
+            }
+          ],
+          "workloadOutcome": "ok",
+          "workloadError": null,
+          "warmup": false
+        },
+        {
+          "outcome": "ok",
+          "contentMs": 171.4877290000004,
+          "quietMs": null,
+          "highlightMs": 298.5076970000009,
+          "exitCode": null,
+          "signal": null,
+          "peakRssBytes": 277647360,
+          "ladder": {
+            "processStart": 7.75390625,
+            "nodeBootstrap": 75.37938625000243,
+            "mainStart": 75.41602625,
+            "configLoaded": 97.69231625,
+            "keybindingsLoaded": 98.41515725,
+            "stateLoaded": 98.53476225,
+            "extensionsScanned": 91.15554325,
+            "themesReady": 101.26708925,
+            "containerCreated": 105.10565925,
+            "workbenchMounted": 137.46589425,
+            "firstFrame": 137.42123025,
+            "workbenchActivated": 141.83956225,
+            "grammarsPreloaded": 147.44919825,
+            "fileRead": 151.01068725,
+            "fileDecoded": 151.03684625,
+            "documentBuilt": 151.21013325,
+            "tokenizerReady": 173.12120525,
+            "filesOpened": 157.26291425,
+            "frameWithText": 171.37241125,
+            "frameWithHighlight": 298.00121625,
+            "extensionsRegistered": 318.10252925,
+            "extHostActivated": 568.28470425,
+            "startupComplete": 313.02756025
+          },
+          "workload": [
+            {
+              "key": "insert",
+              "latencyMs": 33.42647299999953,
+              "outcome": "ok"
+            },
+            {
+              "key": "enter",
+              "latencyMs": 19.28560699999798,
+              "outcome": "ok"
+            },
+            {
+              "key": "undoEnter",
+              "latencyMs": 15.076348000002326,
+              "outcome": "ok"
+            },
+            {
+              "key": "undoInsert",
+              "latencyMs": 11.388348000000406,
+              "outcome": "ok"
+            },
+            {
+              "key": "save",
+              "latencyMs": 11.767575999998371,
+              "outcome": "ok"
+            },
+            {
+              "key": "ctrlEnd",
+              "latencyMs": 7.87284599999839,
+              "outcome": "ok"
+            },
+            {
+              "key": "search",
+              "latencyMs": 11.393049999998766,
+              "outcome": "ok"
+            }
+          ],
+          "workloadOutcome": "ok",
+          "workloadError": null,
+          "warmup": false
+        }
+      ],
+      "content": {
+        "median": 171.1987139999983,
+        "q1": 166.75323550000212,
+        "q3": 173.16074299999855,
+        "iqr": 6.407507499996427,
+        "min": 159.56290399999853,
+        "max": 178.18808499999432,
+        "count": 11,
+        "noisy": false
+      },
+      "highlight": {
+        "median": 281.21710200000234,
+        "q1": 277.7831275000008,
+        "q3": 289.7201210000021,
+        "iqr": 11.936993500001336,
+        "min": 272.1691559999963,
+        "max": 298.5076970000009,
+        "count": 11,
+        "noisy": false
+      },
+      "ours": {
+        "median": 145.8534759999983,
+        "q1": 141.40799750000212,
+        "q3": 147.81550499999855,
+        "iqr": 6.407507499996427,
+        "min": 134.21766599999853,
+        "max": 152.84284699999432,
+        "count": 11,
+        "noisy": false
+      },
+      "overBinary": {
+        "median": 108.90519499999834,
+        "q1": 104.45971650000217,
+        "q3": 110.8672239999986,
+        "iqr": 6.407507499996427,
+        "min": 97.26938499999858,
+        "max": 115.89456599999437,
+        "count": 11,
+        "noisy": false
+      },
+      "peakRss": {
+        "median": 277647360,
+        "q1": 268584960,
+        "q3": 281307136,
+        "iqr": 12722176,
+        "min": 258842624,
+        "max": 287526912,
+        "count": 11,
+        "noisy": false
+      },
+      "ladder": {
+        "processStart": {
+          "median": 7.134033203125,
+          "q1": 6.779296875,
+          "q3": 7.69580078125,
+          "iqr": 0.91650390625,
+          "min": 6.1142578125,
+          "max": 8.57666015625,
+          "count": 11,
+          "noisy": false
+        },
+        "nodeBootstrap": {
+          "median": 68.09584731250652,
+          "q1": 66.39019805467979,
+          "q3": 70.7963339921771,
+          "iqr": 4.406135937497311,
+          "min": 64.16153703125019,
+          "max": 75.60669081249216,
+          "count": 11,
+          "noisy": false
+        },
+        "mainStart": {
+          "median": 68.1276173125,
+          "q1": 66.4235405546875,
+          "q3": 70.8260844921875,
+          "iqr": 4.402543937499999,
+          "min": 64.20493903125,
+          "max": 75.6421568125,
+          "count": 11,
+          "noisy": false
+        },
+        "configLoaded": {
+          "median": 86.07799671875,
+          "q1": 84.42793953124999,
+          "q3": 88.76164719531249,
+          "iqr": 4.333707664062501,
+          "min": 79.00629003125,
+          "max": 100.2961968125,
+          "count": 11,
+          "noisy": false
+        },
+        "keybindingsLoaded": {
+          "median": 87.56417690625,
+          "q1": 86.52081203125,
+          "q3": 89.9414976953125,
+          "iqr": 3.4206856640625034,
+          "min": 79.52404603125,
+          "max": 100.5334138125,
+          "count": 11,
+          "noisy": false
+        },
+        "stateLoaded": {
+          "median": 87.70214690625,
+          "q1": 86.64653353125,
+          "q3": 90.0795926953125,
+          "iqr": 3.433059164062499,
+          "min": 79.64669703125,
+          "max": 100.6730668125,
+          "count": 11,
+          "noisy": false
+        },
+        "extensionsScanned": {
+          "median": 82.97066871875,
+          "q1": 80.29193353125001,
+          "q3": 84.6204466953125,
+          "iqr": 4.328513164062485,
+          "min": 75.86846003125,
+          "max": 95.8327098125,
+          "count": 11,
+          "noisy": false
+        },
+        "themesReady": {
+          "median": 92.486850453125,
+          "q1": 90.51498853125,
+          "q3": 95.2071611953125,
+          "iqr": 4.692172664062497,
+          "min": 87.233873203125,
+          "max": 103.6160598125,
+          "count": 11,
+          "noisy": false
+        },
+        "containerCreated": {
+          "median": 97.145156453125,
+          "q1": 94.16791903125,
+          "q3": 99.7921219921875,
+          "iqr": 5.6242029609375095,
+          "min": 91.853668203125,
+          "max": 107.0207738125,
+          "count": 11,
+          "noisy": false
+        },
+        "workbenchMounted": {
+          "median": 131.45292171875002,
+          "q1": 127.2919272578125,
+          "q3": 134.10566626562502,
+          "iqr": 6.813739007812515,
+          "min": 123.79937715625,
+          "max": 137.7382398125,
+          "count": 11,
+          "noisy": false
+        },
+        "firstFrame": {
+          "median": 131.40670471875,
+          "q1": 127.2418837578125,
+          "q3": 134.052877265625,
+          "iqr": 6.810993507812498,
+          "min": 123.76067415625,
+          "max": 137.7032938125,
+          "count": 11,
+          "noisy": false
+        },
+        "workbenchActivated": {
+          "median": 138.039538203125,
+          "q1": 134.87365717187498,
+          "q3": 141.989532984375,
+          "iqr": 7.115875812500008,
+          "min": 129.63041115625,
+          "max": 146.244589078125,
+          "count": 11,
+          "noisy": false
+        },
+        "grammarsPreloaded": {
+          "median": 147.12071771875,
+          "q1": 140.343335171875,
+          "q3": 147.532582359375,
+          "iqr": 7.189247187500001,
+          "min": 135.08414415625,
+          "max": 151.323997078125,
+          "count": 11,
+          "noisy": false
+        },
+        "fileRead": {
+          "median": 150.53586471875,
+          "q1": 144.547709671875,
+          "q3": 151.23269735937498,
+          "iqr": 6.684987687499984,
+          "min": 138.47539115625,
+          "max": 155.344910078125,
+          "count": 11,
+          "noisy": false
+        },
+        "fileDecoded": {
+          "median": 150.57076071875,
+          "q1": 144.58621767187498,
+          "q3": 151.27030335937502,
+          "iqr": 6.684085687500044,
+          "min": 138.50859415625,
+          "max": 155.380337078125,
+          "count": 11,
+          "noisy": false
+        },
+        "documentBuilt": {
+          "median": 150.83573971875,
+          "q1": 144.83405467187498,
+          "q3": 151.531790859375,
+          "iqr": 6.697736187500027,
+          "min": 138.69409315625,
+          "max": 155.632803078125,
+          "count": 11,
+          "noisy": false
+        },
+        "tokenizerReady": {
+          "median": 171.96209871875,
+          "q1": 167.187445671875,
+          "q3": 173.78686103125,
+          "iqr": 6.599415359375001,
+          "min": 161.51299515625,
+          "max": 179.219260078125,
+          "count": 11,
+          "noisy": false
+        },
+        "filesOpened": {
+          "median": 156.72771771875,
+          "q1": 150.76185067187498,
+          "q3": 157.525671359375,
+          "iqr": 6.763820687500015,
+          "min": 144.65436015625,
+          "max": 162.472406078125,
+          "count": 11,
+          "noisy": false
+        },
+        "extensionsRegistered": {
+          "median": 301.42582203125,
+          "q1": 297.92905126562505,
+          "q3": 311.288424765625,
+          "iqr": 13.359373499999947,
+          "min": 292.23227815625,
+          "max": 318.10252925,
+          "count": 11,
+          "noisy": false
+        },
+        "frameWithText": {
+          "median": 170.56905671875,
+          "q1": 165.472701171875,
+          "q3": 171.97721057812498,
+          "iqr": 6.50450940624998,
+          "min": 159.49958315625,
+          "max": 177.544025078125,
+          "count": 11,
+          "noisy": false
+        },
+        "frameWithHighlight": {
+          "median": 281.0290543125,
+          "q1": 277.089329265625,
+          "q3": 289.31862099218745,
+          "iqr": 12.229291726562451,
+          "min": 271.84839215625,
+          "max": 298.00121625,
+          "count": 11,
+          "noisy": false
+        },
+        "extHostActivated": {
+          "median": 558.507874203125,
+          "q1": 552.2925090625,
+          "q3": 567.2437436796874,
+          "iqr": 14.951234617187424,
+          "min": 542.43311415625,
+          "max": 569.13516971875,
+          "count": 11,
+          "noisy": false
+        },
+        "startupComplete": {
+          "median": 296.1827993125,
+          "q1": 292.294551859375,
+          "q3": 306.64141976562496,
+          "iqr": 14.34686790624994,
+          "min": 286.82927015625,
+          "max": 313.02756025,
+          "count": 11,
+          "noisy": false
+        }
+      },
+      "boxGap": {
+        "median": 0.46237709375463965,
+        "q1": 0.15789235937612034,
+        "q3": 1.5608358906255688,
+        "iqr": 1.4029435312494485,
+        "min": 0.06332084374852798,
+        "max": 2.7062301874972547,
+        "count": 11,
+        "noisy": true
+      },
+      "workload": {
+        "insert": {
+          "median": 36.697274999998626,
+          "q1": 31.1825865000028,
+          "q3": 38.1388539999989,
+          "iqr": 6.956267499996102,
+          "min": 25.566890000001877,
+          "max": 51.423154000003706,
+          "count": 11,
+          "noisy": false
+        },
+        "enter": {
+          "median": 14.519225000003644,
+          "q1": 11.902389499999117,
+          "q3": 16.273260000001756,
+          "iqr": 4.370870500002638,
+          "min": 8.332691999999952,
+          "max": 19.28560699999798,
+          "count": 11,
+          "noisy": true
+        },
+        "undoEnter": {
+          "median": 9.510295000000042,
+          "q1": 7.902751499997976,
+          "q3": 14.260977499998262,
+          "iqr": 6.358226000000286,
+          "min": 6.726215000002412,
+          "max": 17.461480999998457,
+          "count": 11,
+          "noisy": true
+        },
+        "undoInsert": {
+          "median": 7.417528999998467,
+          "q1": 6.59068649999972,
+          "q3": 11.605090500001097,
+          "iqr": 5.014404000001377,
+          "min": 5.10158699999738,
+          "max": 17.405194999999367,
+          "count": 11,
+          "noisy": true
+        },
+        "save": {
+          "median": 14.704249000002164,
+          "q1": 12.192380999997113,
+          "q3": 19.329923999999664,
+          "iqr": 7.137543000002552,
+          "min": 9.003217000001314,
+          "max": 34.53909299999941,
+          "count": 11,
+          "noisy": true
+        },
+        "ctrlEnd": {
+          "median": 6.5051690000036615,
+          "q1": 5.5390560000014375,
+          "q3": 7.979894500000228,
+          "iqr": 2.44083849999879,
+          "min": 4.834979999999632,
+          "max": 10.305405999999493,
+          "count": 11,
+          "noisy": true
+        },
+        "search": {
+          "median": 5.333607000000484,
+          "q1": 4.393817999996827,
+          "q3": 7.1263455000007525,
+          "iqr": 2.7325275000039255,
+          "min": 3.56620799999655,
+          "max": 11.393049999998766,
+          "count": 11,
+          "noisy": true
+        }
+      },
+      "workloadFailures": []
+    },
+    {
+      "key": "large",
+      "kind": "ts",
+      "fixtureBytes": 1337759,
+      "fixtureLines": 20000,
+      "runs": [
+        {
+          "outcome": "ok",
+          "contentMs": 172.93280100000266,
+          "quietMs": null,
+          "highlightMs": 295.2160110000041,
+          "exitCode": null,
+          "signal": null,
+          "peakRssBytes": 300941312,
+          "ladder": {
+            "processStart": 6.9345703125,
+            "nodeBootstrap": 65.51589531249192,
+            "mainStart": 65.55611131250001,
+            "configLoaded": 86.4031393125,
+            "keybindingsLoaded": 88.3831083125,
+            "stateLoaded": 88.5177123125,
+            "extensionsScanned": 83.0950783125,
+            "themesReady": 91.4451163125,
+            "containerCreated": 95.2136853125,
+            "workbenchMounted": 124.3516193125,
+            "firstFrame": 124.3067253125,
+            "workbenchActivated": 129.6006463125,
+            "grammarsPreloaded": 135.1108053125,
+            "fileRead": 147.1238333125,
+            "fileDecoded": 147.1623263125,
+            "documentBuilt": 147.3792343125,
+            "tokenizerReady": 172.0094993125,
+            "filesOpened": 158.2683563125,
+            "frameWithText": 170.3378503125,
+            "frameWithHighlight": 295.1620563125,
+            "extensionsRegistered": 315.8311693125,
+            "extHostActivated": 610.1486073125,
+            "startupComplete": 310.0920083125
+          },
+          "workload": [
+            {
+              "key": "insert",
+              "latencyMs": 36.13363200000458,
+              "outcome": "ok"
+            },
+            {
+              "key": "enter",
+              "latencyMs": 26.31381500000134,
+              "outcome": "ok"
+            },
+            {
+              "key": "undoEnter",
+              "latencyMs": 27.65877800000453,
+              "outcome": "ok"
+            },
+            {
+              "key": "undoInsert",
+              "latencyMs": 31.524851000001945,
+              "outcome": "ok"
+            },
+            {
+              "key": "save",
+              "latencyMs": 58.903190999997605,
+              "outcome": "ok"
+            },
+            {
+              "key": "ctrlEnd",
+              "latencyMs": 19.31416100000206,
+              "outcome": "ok"
+            },
+            {
+              "key": "search",
+              "latencyMs": 15.273658999998588,
+              "outcome": "ok"
+            }
+          ],
+          "workloadOutcome": "ok",
+          "workloadError": null,
+          "warmup": true
+        },
+        {
+          "outcome": "ok",
+          "contentMs": 178.88325500000064,
+          "quietMs": null,
+          "highlightMs": 295.8774429999976,
+          "exitCode": null,
+          "signal": null,
+          "peakRssBytes": 295124992,
+          "ladder": {
+            "processStart": 8.005126953125,
+            "nodeBootstrap": 72.62594095311943,
+            "mainStart": 72.662690953125,
+            "configLoaded": 90.703659953125,
+            "keybindingsLoaded": 94.046263953125,
+            "stateLoaded": 94.175757953125,
+            "extensionsScanned": 87.411510953125,
+            "themesReady": 96.958186953125,
+            "containerCreated": 100.730629953125,
+            "workbenchMounted": 130.28453695312498,
+            "firstFrame": 130.24144595312498,
+            "workbenchActivated": 136.044010953125,
+            "grammarsPreloaded": 141.601474953125,
+            "fileRead": 154.114816953125,
+            "fileDecoded": 154.156224953125,
+            "documentBuilt": 154.370868953125,
+            "tokenizerReady": 180.689584953125,
+            "filesOpened": 165.849210953125,
+            "frameWithText": 178.547811953125,
+            "frameWithHighlight": 295.809069953125,
+            "extensionsRegistered": 315.678601953125,
+            "extHostActivated": 632.980192953125,
+            "startupComplete": 310.398850953125
+          },
+          "workload": [
+            {
+              "key": "insert",
+              "latencyMs": 47.33057900000131,
+              "outcome": "ok"
+            },
+            {
+              "key": "enter",
+              "latencyMs": 17.702292999994825,
+              "outcome": "ok"
+            },
+            {
+              "key": "undoEnter",
+              "latencyMs": 15.646816000000399,
+              "outcome": "ok"
+            },
+            {
+              "key": "undoInsert",
+              "latencyMs": 35.31883200000448,
+              "outcome": "ok"
+            },
+            {
+              "key": "save",
+              "latencyMs": 31.94540300000517,
+              "outcome": "ok"
+            },
+            {
+              "key": "ctrlEnd",
+              "latencyMs": 12.137925000002724,
+              "outcome": "ok"
+            },
+            {
+              "key": "search",
+              "latencyMs": 15.120842000003904,
+              "outcome": "ok"
+            }
+          ],
+          "workloadOutcome": "ok",
+          "workloadError": null,
+          "warmup": false
+        },
+        {
+          "outcome": "ok",
+          "contentMs": 182.5222139999969,
+          "quietMs": null,
+          "highlightMs": 302.4425919999994,
+          "exitCode": null,
+          "signal": null,
+          "peakRssBytes": 301572096,
+          "ladder": {
+            "processStart": 6.567138671875,
+            "nodeBootstrap": 67.04592767189024,
+            "mainStart": 67.08928967187501,
+            "configLoaded": 83.795725671875,
+            "keybindingsLoaded": 84.003948671875,
+            "stateLoaded": 84.148420671875,
+            "extensionsScanned": 80.543061671875,
+            "themesReady": 89.799069671875,
+            "containerCreated": 94.573389671875,
+            "workbenchMounted": 129.853047671875,
+            "firstFrame": 129.808603671875,
+            "workbenchActivated": 140.640578671875,
+            "grammarsPreloaded": 145.689135671875,
+            "fileRead": 157.455730671875,
+            "fileDecoded": 157.493681671875,
+            "documentBuilt": 157.701543671875,
+            "tokenizerReady": 183.491142671875,
+            "filesOpened": 167.593839671875,
+            "frameWithText": 181.515642671875,
+            "frameWithHighlight": 301.868534671875,
+            "extensionsRegistered": 321.168665671875,
+            "extHostActivated": 622.571751671875,
+            "startupComplete": 316.803014671875
+          },
+          "workload": [
+            {
+              "key": "insert",
+              "latencyMs": 42.750599999999395,
+              "outcome": "ok"
+            },
+            {
+              "key": "enter",
+              "latencyMs": 17.29941300000064,
+              "outcome": "ok"
+            },
+            {
+              "key": "undoEnter",
+              "latencyMs": 18.798315000000002,
+              "outcome": "ok"
+            },
+            {
+              "key": "undoInsert",
+              "latencyMs": 33.71237700000347,
+              "outcome": "ok"
+            },
+            {
+              "key": "save",
+              "latencyMs": 41.134076000002096,
+              "outcome": "ok"
+            },
+            {
+              "key": "ctrlEnd",
+              "latencyMs": 18.42680499999551,
+              "outcome": "ok"
+            },
+            {
+              "key": "search",
+              "latencyMs": 14.20122600000468,
+              "outcome": "ok"
+            }
+          ],
+          "workloadOutcome": "ok",
+          "workloadError": null,
+          "warmup": false
+        },
+        {
+          "outcome": "ok",
+          "contentMs": 190.1261799999993,
+          "quietMs": null,
+          "highlightMs": 308.74416900000506,
+          "exitCode": null,
+          "signal": null,
+          "peakRssBytes": 296525824,
+          "ladder": {
+            "processStart": 7.326171875,
+            "nodeBootstrap": 72.31322687500506,
+            "mainStart": 72.339745875,
+            "configLoaded": 90.970666875,
+            "keybindingsLoaded": 91.869618875,
+            "stateLoaded": 91.992520875,
+            "extensionsScanned": 86.908076875,
+            "themesReady": 96.858131875,
+            "containerCreated": 101.589800875,
+            "workbenchMounted": 136.833350875,
+            "firstFrame": 136.779840875,
+            "workbenchActivated": 147.617826875,
+            "grammarsPreloaded": 152.849808875,
+            "fileRead": 165.340767875,
+            "fileDecoded": 165.382335875,
+            "documentBuilt": 165.601207875,
+            "tokenizerReady": 191.902580875,
+            "filesOpened": 176.838817875,
+            "frameWithText": 189.960974875,
+            "frameWithHighlight": 308.424399875,
+            "extensionsRegistered": 327.212725875,
+            "extHostActivated": 627.241766875,
+            "startupComplete": 322.912569875
+          },
+          "workload": [
+            {
+              "key": "insert",
+              "latencyMs": 29.69942599999922,
+              "outcome": "ok"
+            },
+            {
+              "key": "enter",
+              "latencyMs": 20.84719100000075,
+              "outcome": "ok"
+            },
+            {
+              "key": "undoEnter",
+              "latencyMs": 11.65221400000155,
+              "outcome": "ok"
+            },
+            {
+              "key": "undoInsert",
+              "latencyMs": 18.68290100000013,
+              "outcome": "ok"
+            },
+            {
+              "key": "save",
+              "latencyMs": 39.91037199999846,
+              "outcome": "ok"
+            },
+            {
+              "key": "ctrlEnd",
+              "latencyMs": 17.882377000001725,
+              "outcome": "ok"
+            },
+            {
+              "key": "search",
+              "latencyMs": 14.189012000002549,
+              "outcome": "ok"
+            }
+          ],
+          "workloadOutcome": "ok",
+          "workloadError": null,
+          "warmup": false
+        },
+        {
+          "outcome": "ok",
+          "contentMs": 173.83506999999372,
+          "quietMs": null,
+          "highlightMs": 292.76278699999966,
+          "exitCode": null,
+          "signal": null,
+          "peakRssBytes": 299659264,
+          "ladder": {
+            "processStart": 6.939208984375,
+            "nodeBootstrap": 66.65277498436626,
+            "mainStart": 66.689022984375,
+            "configLoaded": 88.151566984375,
+            "keybindingsLoaded": 91.094925984375,
+            "stateLoaded": 91.209611984375,
+            "extensionsScanned": 84.857201984375,
+            "themesReady": 93.968667984375,
+            "containerCreated": 97.576592984375,
+            "workbenchMounted": 126.541050984375,
+            "firstFrame": 126.503920984375,
+            "workbenchActivated": 131.907196984375,
+            "grammarsPreloaded": 137.678885984375,
+            "fileRead": 150.199164984375,
+            "fileDecoded": 150.237456984375,
+            "documentBuilt": 150.460616984375,
+            "tokenizerReady": 174.797950984375,
+            "filesOpened": 160.166725984375,
+            "frameWithText": 173.402642984375,
+            "frameWithHighlight": 292.851649984375,
+            "extensionsRegistered": 312.727301984375,
+            "extHostActivated": 616.855706984375,
+            "startupComplete": 307.532968984375
+          },
+          "workload": [
+            {
+              "key": "insert",
+              "latencyMs": 34.3587969999935,
+              "outcome": "ok"
+            },
+            {
+              "key": "enter",
+              "latencyMs": 23.516226999992796,
+              "outcome": "ok"
+            },
+            {
+              "key": "undoEnter",
+              "latencyMs": 15.480721999992966,
+              "outcome": "ok"
+            },
+            {
+              "key": "undoInsert",
+              "latencyMs": 13.269280000000435,
+              "outcome": "ok"
+            },
+            {
+              "key": "save",
+              "latencyMs": 46.776482000001124,
+              "outcome": "ok"
+            },
+            {
+              "key": "ctrlEnd",
+              "latencyMs": 16.985859000000346,
+              "outcome": "ok"
+            },
+            {
+              "key": "search",
+              "latencyMs": 13.77920499999891,
+              "outcome": "ok"
+            }
+          ],
+          "workloadOutcome": "ok",
+          "workloadError": null,
+          "warmup": false
+        },
+        {
+          "outcome": "ok",
+          "contentMs": 184.2356940000027,
+          "quietMs": null,
+          "highlightMs": 301.10841999999684,
+          "exitCode": null,
+          "signal": null,
+          "peakRssBytes": 295981056,
+          "ladder": {
+            "processStart": 7.996337890625,
+            "nodeBootstrap": 72.19457989063812,
+            "mainStart": 72.233251890625,
+            "configLoaded": 89.350498890625,
+            "keybindingsLoaded": 92.037799890625,
+            "stateLoaded": 92.201708890625,
+            "extensionsScanned": 85.675326890625,
+            "themesReady": 95.090087890625,
+            "containerCreated": 99.086433890625,
+            "workbenchMounted": 129.92531189062498,
+            "firstFrame": 129.88344289062502,
+            "workbenchActivated": 135.309050890625,
+            "grammarsPreloaded": 141.155160890625,
+            "fileRead": 159.286496890625,
+            "fileDecoded": 159.338363890625,
+            "documentBuilt": 159.605607890625,
+            "tokenizerReady": 184.471796890625,
+            "filesOpened": 169.917587890625,
+            "frameWithText": 182.848679890625,
+            "frameWithHighlight": 301.056985890625,
+            "extensionsRegistered": 320.899263890625,
+            "extHostActivated": 636.555268890625,
+            "startupComplete": 315.352236890625
+          },
+          "workload": [
+            {
+              "key": "insert",
+              "latencyMs": 45.60844799999904,
+              "outcome": "ok"
+            },
+            {
+              "key": "enter",
+              "latencyMs": 22.945529999997234,
+              "outcome": "ok"
+            },
+            {
+              "key": "undoEnter",
+              "latencyMs": 19.12022799999977,
+              "outcome": "ok"
+            },
+            {
+              "key": "undoInsert",
+              "latencyMs": 25.153019999997923,
+              "outcome": "ok"
+            },
+            {
+              "key": "save",
+              "latencyMs": 41.57429599999159,
+              "outcome": "ok"
+            },
+            {
+              "key": "ctrlEnd",
+              "latencyMs": 18.15796599999885,
+              "outcome": "ok"
+            },
+            {
+              "key": "search",
+              "latencyMs": 20.404177000003983,
+              "outcome": "ok"
+            }
+          ],
+          "workloadOutcome": "ok",
+          "workloadError": null,
+          "warmup": false
+        },
+        {
+          "outcome": "ok",
+          "contentMs": 188.51250299999083,
+          "quietMs": null,
+          "highlightMs": 304.2556729999924,
+          "exitCode": null,
+          "signal": null,
+          "peakRssBytes": 293015552,
+          "ladder": {
+            "processStart": 8.93310546875,
+            "nodeBootstrap": 74.10685446875868,
+            "mainStart": 74.13677046875,
+            "configLoaded": 94.54466746875,
+            "keybindingsLoaded": 94.76028346875,
+            "stateLoaded": 94.90269146875,
+            "extensionsScanned": 89.97680446875,
+            "themesReady": 100.66724746875,
+            "containerCreated": 104.10387946875,
+            "workbenchMounted": 135.07324246874998,
+            "firstFrame": 135.03480046875,
+            "workbenchActivated": 139.61972546875,
+            "grammarsPreloaded": 145.49378746875,
+            "fileRead": 161.47730346875,
+            "fileDecoded": 161.52332046875,
+            "documentBuilt": 161.79468146875,
+            "tokenizerReady": 189.66261046875,
+            "filesOpened": 173.98136846875,
+            "frameWithText": 187.37483246875,
+            "frameWithHighlight": 303.68220946875,
+            "extensionsRegistered": 323.66997446875,
+            "extHostActivated": 638.40240346875,
+            "startupComplete": 318.29019346875
+          },
+          "workload": [
+            {
+              "key": "insert",
+              "latencyMs": 59.61679400000139,
+              "outcome": "ok"
+            },
+            {
+              "key": "enter",
+              "latencyMs": 18.59768299999996,
+              "outcome": "ok"
+            },
+            {
+              "key": "undoEnter",
+              "latencyMs": 20.615279999998165,
+              "outcome": "ok"
+            },
+            {
+              "key": "undoInsert",
+              "latencyMs": 19.387149000001955,
+              "outcome": "ok"
+            },
+            {
+              "key": "save",
+              "latencyMs": 49.83973200000764,
+              "outcome": "ok"
+            },
+            {
+              "key": "ctrlEnd",
+              "latencyMs": 11.390432000000146,
+              "outcome": "ok"
+            },
+            {
+              "key": "search",
+              "latencyMs": 15.659944999992149,
+              "outcome": "ok"
+            }
+          ],
+          "workloadOutcome": "ok",
+          "workloadError": null,
+          "warmup": false
+        },
+        {
+          "outcome": "ok",
+          "contentMs": 185.7966720000113,
+          "quietMs": null,
+          "highlightMs": 296.7981390000059,
+          "exitCode": null,
+          "signal": null,
+          "peakRssBytes": 291037184,
+          "ladder": {
+            "processStart": 14.296875,
+            "nodeBootstrap": 76.84160499999416,
+            "mainStart": 76.883794,
+            "configLoaded": 97.457118,
+            "keybindingsLoaded": 97.694575,
+            "stateLoaded": 97.799061,
+            "extensionsScanned": 92.95666,
+            "themesReady": 103.788401,
+            "containerCreated": 107.698478,
+            "workbenchMounted": 138.07521500000001,
+            "firstFrame": 138.042383,
+            "workbenchActivated": 142.557017,
+            "grammarsPreloaded": 148.009266,
+            "fileRead": 160.535315,
+            "fileDecoded": 160.577755,
+            "documentBuilt": 160.835881,
+            "tokenizerReady": 186.53204,
+            "filesOpened": 171.478726,
+            "frameWithText": 185.205865,
+            "frameWithHighlight": 296.25332,
+            "extensionsRegistered": 317.02797,
+            "extHostActivated": 620.600788,
+            "startupComplete": 311.535445
+          },
+          "workload": [
+            {
+              "key": "insert",
+              "latencyMs": 34.313675999990664,
+              "outcome": "ok"
+            },
+            {
+              "key": "enter",
+              "latencyMs": 16.866015000006882,
+              "outcome": "ok"
+            },
+            {
+              "key": "undoEnter",
+              "latencyMs": 18.235774000000674,
+              "outcome": "ok"
+            },
+            {
+              "key": "undoInsert",
+              "latencyMs": 13.1955089999974,
+              "outcome": "ok"
+            },
+            {
+              "key": "save",
+              "latencyMs": 42.12006100000872,
+              "outcome": "ok"
+            },
+            {
+              "key": "ctrlEnd",
+              "latencyMs": 13.653850999995484,
+              "outcome": "ok"
+            },
+            {
+              "key": "search",
+              "latencyMs": 17.211744999993243,
+              "outcome": "ok"
+            }
+          ],
+          "workloadOutcome": "ok",
+          "workloadError": null,
+          "warmup": false
+        }
+      ],
+      "content": {
+        "median": 184.2356940000027,
+        "q1": 180.70273449999877,
+        "q3": 187.15458750000107,
+        "iqr": 6.451853000002302,
+        "min": 173.83506999999372,
+        "max": 190.1261799999993,
+        "count": 7,
+        "noisy": false
+      },
+      "highlight": {
+        "median": 301.10841999999684,
+        "q1": 296.33779100000174,
+        "q3": 303.3491324999959,
+        "iqr": 7.01134149999416,
+        "min": 292.76278699999966,
+        "max": 308.74416900000506,
+        "count": 7,
+        "noisy": false
+      },
+      "ours": {
+        "median": 158.8904560000027,
+        "q1": 155.35749649999877,
+        "q3": 161.80934950000108,
+        "iqr": 6.451853000002302,
+        "min": 148.48983199999373,
+        "max": 164.7809419999993,
+        "count": 7,
+        "noisy": false
+      },
+      "overBinary": {
+        "median": 121.94217500000275,
+        "q1": 118.40921549999882,
+        "q3": 124.86106850000112,
+        "iqr": 6.451853000002302,
+        "min": 111.54155099999377,
+        "max": 127.83266099999935,
+        "count": 7,
+        "noisy": false
+      },
+      "peakRss": {
+        "median": 295981056,
+        "q1": 294070272,
+        "q3": 298092544,
+        "iqr": 4022272,
+        "min": 291037184,
+        "max": 301572096,
+        "count": 7,
+        "noisy": false
+      },
+      "ladder": {
+        "processStart": {
+          "median": 7.996337890625,
+          "q1": 7.1326904296875,
+          "q3": 8.4691162109375,
+          "iqr": 1.33642578125,
+          "min": 6.567138671875,
+          "max": 14.296875,
+          "count": 7,
+          "noisy": false
+        },
+        "nodeBootstrap": {
+          "median": 72.31322687500506,
+          "q1": 69.62025378126418,
+          "q3": 73.36639771093905,
+          "iqr": 3.746143929674872,
+          "min": 66.65277498436626,
+          "max": 76.84160499999416,
+          "count": 7,
+          "noisy": false
+        },
+        "mainStart": {
+          "median": 72.339745875,
+          "q1": 69.66127078125001,
+          "q3": 73.39973071093749,
+          "iqr": 3.7384599296874796,
+          "min": 66.689022984375,
+          "max": 76.883794,
+          "count": 7,
+          "noisy": false
+        },
+        "configLoaded": {
+          "median": 90.703659953125,
+          "q1": 88.7510329375,
+          "q3": 92.757667171875,
+          "iqr": 4.006634234374999,
+          "min": 83.795725671875,
+          "max": 97.457118,
+          "count": 7,
+          "noisy": false
+        },
+        "keybindingsLoaded": {
+          "median": 92.037799890625,
+          "q1": 91.4822724296875,
+          "q3": 94.4032737109375,
+          "iqr": 2.9210012812499997,
+          "min": 84.003948671875,
+          "max": 97.694575,
+          "count": 7,
+          "noisy": false
+        },
+        "stateLoaded": {
+          "median": 92.201708890625,
+          "q1": 91.6010664296875,
+          "q3": 94.5392247109375,
+          "iqr": 2.938158281249997,
+          "min": 84.148420671875,
+          "max": 97.799061,
+          "count": 7,
+          "noisy": false
+        },
+        "extensionsScanned": {
+          "median": 86.908076875,
+          "q1": 85.2662644375,
+          "q3": 88.6941577109375,
+          "iqr": 3.4278932734375047,
+          "min": 80.543061671875,
+          "max": 92.95666,
+          "count": 7,
+          "noisy": false
+        },
+        "themesReady": {
+          "median": 96.858131875,
+          "q1": 94.5293779375,
+          "q3": 98.8127172109375,
+          "iqr": 4.283339273437505,
+          "min": 89.799069671875,
+          "max": 103.788401,
+          "count": 7,
+          "noisy": false
+        },
+        "containerCreated": {
+          "median": 100.730629953125,
+          "q1": 98.3315134375,
+          "q3": 102.84684017187499,
+          "iqr": 4.51532673437498,
+          "min": 94.573389671875,
+          "max": 107.698478,
+          "count": 7,
+          "noisy": false
+        },
+        "workbenchMounted": {
+          "median": 130.28453695312498,
+          "q1": 129.88917978125,
+          "q3": 135.953296671875,
+          "iqr": 6.064116890625002,
+          "min": 126.541050984375,
+          "max": 138.07521500000001,
+          "count": 7,
+          "noisy": false
+        },
+        "firstFrame": {
+          "median": 130.24144595312498,
+          "q1": 129.84602328125,
+          "q3": 135.907320671875,
+          "iqr": 6.061297390624986,
+          "min": 126.503920984375,
+          "max": 138.042383,
+          "count": 7,
+          "noisy": false
+        },
+        "workbenchActivated": {
+          "median": 139.61972546875,
+          "q1": 135.67653092187498,
+          "q3": 141.5987978359375,
+          "iqr": 5.922266914062504,
+          "min": 131.907196984375,
+          "max": 147.617826875,
+          "count": 7,
+          "noisy": false
+        },
+        "grammarsPreloaded": {
+          "median": 145.49378746875,
+          "q1": 141.378317921875,
+          "q3": 146.8492008359375,
+          "iqr": 5.470882914062486,
+          "min": 137.678885984375,
+          "max": 152.849808875,
+          "count": 7,
+          "noisy": false
+        },
+        "fileRead": {
+          "median": 159.286496890625,
+          "q1": 155.7852738125,
+          "q3": 161.006309234375,
+          "iqr": 5.221035421875001,
+          "min": 150.199164984375,
+          "max": 165.340767875,
+          "count": 7,
+          "noisy": false
+        },
+        "fileDecoded": {
+          "median": 159.338363890625,
+          "q1": 155.82495331249999,
+          "q3": 161.05053773437498,
+          "iqr": 5.2255844218749985,
+          "min": 150.237456984375,
+          "max": 165.382335875,
+          "count": 7,
+          "noisy": false
+        },
+        "documentBuilt": {
+          "median": 159.605607890625,
+          "q1": 156.03620631249998,
+          "q3": 161.315281234375,
+          "iqr": 5.279074921875008,
+          "min": 150.460616984375,
+          "max": 165.601207875,
+          "count": 7,
+          "noisy": false
+        },
+        "tokenizerReady": {
+          "median": 184.471796890625,
+          "q1": 182.09036381250002,
+          "q3": 188.09732523437498,
+          "iqr": 6.006961421874962,
+          "min": 174.797950984375,
+          "max": 191.902580875,
+          "count": 7,
+          "noisy": false
+        },
+        "filesOpened": {
+          "median": 169.917587890625,
+          "q1": 166.7215253125,
+          "q3": 172.73004723437498,
+          "iqr": 6.008521921874973,
+          "min": 160.166725984375,
+          "max": 176.838817875,
+          "count": 7,
+          "noisy": false
+        },
+        "extensionsRegistered": {
+          "median": 320.899263890625,
+          "q1": 316.35328597656246,
+          "q3": 322.4193200703125,
+          "iqr": 6.066034093750034,
+          "min": 312.727301984375,
+          "max": 327.212725875,
+          "count": 7,
+          "noisy": false
+        },
+        "frameWithText": {
+          "median": 182.848679890625,
+          "q1": 180.0317273125,
+          "q3": 186.290348734375,
+          "iqr": 6.258621421874977,
+          "min": 173.402642984375,
+          "max": 189.960974875,
+          "count": 7,
+          "noisy": false
+        },
+        "frameWithHighlight": {
+          "median": 301.056985890625,
+          "q1": 296.03119497656246,
+          "q3": 302.7753720703125,
+          "iqr": 6.744177093750068,
+          "min": 292.851649984375,
+          "max": 308.424399875,
+          "count": 7,
+          "noisy": false
+        },
+        "extHostActivated": {
+          "median": 627.241766875,
+          "q1": 621.5862698359374,
+          "q3": 634.767730921875,
+          "iqr": 13.181461085937599,
+          "min": 616.855706984375,
+          "max": 638.40240346875,
+          "count": 7,
+          "noisy": false
+        },
+        "startupComplete": {
+          "median": 315.352236890625,
+          "q1": 310.9671479765625,
+          "q3": 317.54660407031247,
+          "iqr": 6.579456093749968,
+          "min": 307.532968984375,
+          "max": 322.912569875,
+          "count": 7,
+          "noisy": false
+        }
+      },
+      "boxGap": {
+        "median": 0.5908070000113241,
+        "q1": 0.38393503124717654,
+        "q3": 1.0721209296813612,
+        "iqr": 0.6881858984341847,
+        "min": 0.1652051249992894,
+        "max": 1.3870141093777022,
+        "count": 7,
+        "noisy": true
+      },
+      "workload": {
+        "insert": {
+          "median": 42.750599999999395,
+          "q1": 34.33623649999208,
+          "q3": 46.469513500000176,
+          "iqr": 12.133277000008093,
+          "min": 29.69942599999922,
+          "max": 59.61679400000139,
+          "count": 7,
+          "noisy": true
+        },
+        "enter": {
+          "median": 18.59768299999996,
+          "q1": 17.500852999997733,
+          "q3": 21.89636049999899,
+          "iqr": 4.3955075000012584,
+          "min": 16.866015000006882,
+          "max": 23.516226999992796,
+          "count": 7,
+          "noisy": true
+        },
+        "undoEnter": {
+          "median": 18.235774000000674,
+          "q1": 15.563768999996682,
+          "q3": 18.959271499999886,
+          "iqr": 3.3955025000032037,
+          "min": 11.65221400000155,
+          "max": 20.615279999998165,
+          "count": 7,
+          "noisy": false
+        },
+        "undoInsert": {
+          "median": 19.387149000001955,
+          "q1": 15.976090500000282,
+          "q3": 29.432698500000697,
+          "iqr": 13.456608000000415,
+          "min": 13.1955089999974,
+          "max": 35.31883200000448,
+          "count": 7,
+          "noisy": true
+        },
+        "save": {
+          "median": 41.57429599999159,
+          "q1": 40.52222400000028,
+          "q3": 44.44827150000492,
+          "iqr": 3.9260475000046426,
+          "min": 31.94540300000517,
+          "max": 49.83973200000764,
+          "count": 7,
+          "noisy": false
+        },
+        "ctrlEnd": {
+          "median": 16.985859000000346,
+          "q1": 12.895887999999104,
+          "q3": 18.020171500000288,
+          "iqr": 5.124283500001184,
+          "min": 11.390432000000146,
+          "max": 18.42680499999551,
+          "count": 7,
+          "noisy": true
+        },
+        "search": {
+          "median": 15.120842000003904,
+          "q1": 14.195119000003615,
+          "q3": 16.435844999992696,
+          "iqr": 2.240725999989081,
+          "min": 13.77920499999891,
+          "max": 20.404177000003983,
+          "count": 7,
+          "noisy": false
+        }
+      },
+      "workloadFailures": []
+    },
+    {
+      "key": "xlarge",
+      "kind": "ts",
+      "fixtureBytes": 13777759,
+      "fixtureLines": 200000,
+      "runs": [
+        {
+          "outcome": "ok",
+          "contentMs": 257.9717010000022,
+          "quietMs": null,
+          "highlightMs": 363.76943200000096,
+          "exitCode": null,
+          "signal": null,
+          "peakRssBytes": 379392000,
+          "ladder": {
+            "processStart": 7.2177734375,
+            "nodeBootstrap": 69.39976443749038,
+            "mainStart": 69.4374454375,
+            "configLoaded": 92.6144214375,
+            "keybindingsLoaded": 92.8392344375,
+            "stateLoaded": 92.9935544375,
+            "extensionsScanned": 87.4277454375,
+            "themesReady": 97.6507284375,
+            "containerCreated": 101.6063904375,
+            "workbenchMounted": 134.43167443750002,
+            "firstFrame": 134.3857774375,
+            "workbenchActivated": 138.3003064375,
+            "grammarsPreloaded": 144.1517964375,
+            "fileRead": 235.1034794375,
+            "fileDecoded": 235.1484744375,
+            "documentBuilt": 235.4266884375,
+            "tokenizerReady": 260.1922964375,
+            "filesOpened": 243.5565554375,
+            "frameWithText": 257.9002544375,
+            "frameWithHighlight": 363.7267104375,
+            "extensionsRegistered": 382.4585164375,
+            "extHostActivated": 926.1598474375,
+            "startupComplete": 377.9819234375
+          },
+          "workload": [
+            {
+              "key": "insert",
+              "latencyMs": 27.952696000007563,
+              "outcome": "ok"
+            },
+            {
+              "key": "enter",
+              "latencyMs": 31.50106799999776,
+              "outcome": "ok"
+            },
+            {
+              "key": "undoEnter",
+              "latencyMs": 15.383679999999003,
+              "outcome": "ok"
+            },
+            {
+              "key": "undoInsert",
+              "latencyMs": 20.373561000000336,
+              "outcome": "ok"
+            },
+            {
+              "key": "save",
+              "latencyMs": 119.50005200000305,
+              "outcome": "ok"
+            },
+            {
+              "key": "ctrlEnd",
+              "latencyMs": 14.12581300000602,
+              "outcome": "ok"
+            },
+            {
+              "key": "search",
+              "latencyMs": 78.92445299999963,
+              "outcome": "ok"
+            }
+          ],
+          "workloadOutcome": "ok",
+          "workloadError": null,
+          "warmup": true
+        },
+        {
+          "outcome": "ok",
+          "contentMs": 283.63944000001356,
+          "quietMs": null,
+          "highlightMs": 390.76119600000675,
+          "exitCode": null,
+          "signal": null,
+          "peakRssBytes": 366518272,
+          "ladder": {
+            "processStart": 11.685302734375,
+            "nodeBootstrap": 88.59460573436809,
+            "mainStart": 88.637115734375,
+            "configLoaded": 106.657451734375,
+            "keybindingsLoaded": 108.493919734375,
+            "stateLoaded": 108.625386734375,
+            "extensionsScanned": 103.210376734375,
+            "themesReady": 113.357868734375,
+            "containerCreated": 117.964783734375,
+            "workbenchMounted": 150.414937734375,
+            "firstFrame": 150.373048734375,
+            "workbenchActivated": 156.351766734375,
+            "grammarsPreloaded": 167.384662734375,
+            "fileRead": 260.794450734375,
+            "fileDecoded": 260.843061734375,
+            "documentBuilt": 261.13454073437504,
+            "tokenizerReady": 285.551889734375,
+            "filesOpened": 270.423421734375,
+            "frameWithText": 283.523810734375,
+            "frameWithHighlight": 390.686810734375,
+            "extensionsRegistered": 409.899148734375,
+            "extHostActivated": 966.571718734375,
+            "startupComplete": 404.698835734375
+          },
+          "workload": [
+            {
+              "key": "insert",
+              "latencyMs": 31.567431999996188,
+              "outcome": "ok"
+            },
+            {
+              "key": "enter",
+              "latencyMs": 14.888257999991765,
+              "outcome": "ok"
+            },
+            {
+              "key": "undoEnter",
+              "latencyMs": 8.404596000007587,
+              "outcome": "ok"
+            },
+            {
+              "key": "undoInsert",
+              "latencyMs": 9.950247000000672,
+              "outcome": "ok"
+            },
+            {
+              "key": "save",
+              "latencyMs": 92.54821100000117,
+              "outcome": "ok"
+            },
+            {
+              "key": "ctrlEnd",
+              "latencyMs": 6.601259999995818,
+              "outcome": "ok"
+            },
+            {
+              "key": "search",
+              "latencyMs": 78.49643599998672,
+              "outcome": "ok"
+            }
+          ],
+          "workloadOutcome": "ok",
+          "workloadError": null,
+          "warmup": false
+        },
+        {
+          "outcome": "ok",
+          "contentMs": 276.4888159999973,
+          "quietMs": null,
+          "highlightMs": 378.4238519999926,
+          "exitCode": null,
+          "signal": null,
+          "peakRssBytes": 373686272,
+          "ladder": {
+            "processStart": 8.197509765625,
+            "nodeBootstrap": 78.59841076564044,
+            "mainStart": 78.633286765625,
+            "configLoaded": 98.779482765625,
+            "keybindingsLoaded": 99.030835765625,
+            "stateLoaded": 99.173363765625,
+            "extensionsScanned": 95.607058765625,
+            "themesReady": 103.412906765625,
+            "containerCreated": 108.062251765625,
+            "workbenchMounted": 141.721362765625,
+            "firstFrame": 141.677109765625,
+            "workbenchActivated": 147.421706765625,
+            "grammarsPreloaded": 158.166018765625,
+            "fileRead": 255.172300765625,
+            "fileDecoded": 255.220271765625,
+            "documentBuilt": 255.537158765625,
+            "tokenizerReady": 278.657203765625,
+            "filesOpened": 263.711069765625,
+            "frameWithText": 276.374244765625,
+            "frameWithHighlight": 378.036046765625,
+            "extensionsRegistered": 397.294631765625,
+            "extHostActivated": 970.577099765625,
+            "startupComplete": 391.825993765625
+          },
+          "workload": [
+            {
+              "key": "insert",
+              "latencyMs": 37.45663900001091,
+              "outcome": "ok"
+            },
+            {
+              "key": "enter",
+              "latencyMs": 15.348691999999573,
+              "outcome": "ok"
+            },
+            {
+              "key": "undoEnter",
+              "latencyMs": 9.79385000000184,
+              "outcome": "ok"
+            },
+            {
+              "key": "undoInsert",
+              "latencyMs": 12.93561800000316,
+              "outcome": "ok"
+            },
+            {
+              "key": "save",
+              "latencyMs": 95.6556120000023,
+              "outcome": "ok"
+            },
+            {
+              "key": "ctrlEnd",
+              "latencyMs": 8.28607300001022,
+              "outcome": "ok"
+            },
+            {
+              "key": "search",
+              "latencyMs": 87.06700200001069,
+              "outcome": "ok"
+            }
+          ],
+          "workloadOutcome": "ok",
+          "workloadError": null,
+          "warmup": false
+        },
+        {
+          "outcome": "ok",
+          "contentMs": 277.5791540000064,
+          "quietMs": null,
+          "highlightMs": 378.6702460000088,
+          "exitCode": null,
+          "signal": null,
+          "peakRssBytes": 368189440,
+          "ladder": {
+            "processStart": 8.546142578125,
+            "nodeBootstrap": 88.25277257812559,
+            "mainStart": 88.285654578125,
+            "configLoaded": 108.826686578125,
+            "keybindingsLoaded": 109.046951578125,
+            "stateLoaded": 109.177336578125,
+            "extensionsScanned": 105.650415578125,
+            "themesReady": 113.417110578125,
+            "containerCreated": 117.805663578125,
+            "workbenchMounted": 150.493866578125,
+            "firstFrame": 150.459772578125,
+            "workbenchActivated": 156.305089578125,
+            "grammarsPreloaded": 167.670771578125,
+            "fileRead": 254.080212578125,
+            "fileDecoded": 254.124726578125,
+            "documentBuilt": 254.386920578125,
+            "tokenizerReady": 278.659125578125,
+            "filesOpened": 263.526951578125,
+            "frameWithText": 276.547198578125,
+            "frameWithHighlight": 378.595057578125,
+            "extensionsRegistered": 398.390041578125,
+            "extHostActivated": 954.700244578125,
+            "startupComplete": 392.892138578125
+          },
+          "workload": [
+            {
+              "key": "insert",
+              "latencyMs": 20.020088000004762,
+              "outcome": "ok"
+            },
+            {
+              "key": "enter",
+              "latencyMs": 16.324739999996382,
+              "outcome": "ok"
+            },
+            {
+              "key": "undoEnter",
+              "latencyMs": 8.37745200000063,
+              "outcome": "ok"
+            },
+            {
+              "key": "undoInsert",
+              "latencyMs": 10.100977000009152,
+              "outcome": "ok"
+            },
+            {
+              "key": "save",
+              "latencyMs": 93.3985970000067,
+              "outcome": "ok"
+            },
+            {
+              "key": "ctrlEnd",
+              "latencyMs": 7.036066999993636,
+              "outcome": "ok"
+            },
+            {
+              "key": "search",
+              "latencyMs": 73.43541299999924,
+              "outcome": "ok"
+            }
+          ],
+          "workloadOutcome": "ok",
+          "workloadError": null,
+          "warmup": false
+        },
+        {
+          "outcome": "ok",
+          "contentMs": 258.5881609999924,
+          "quietMs": null,
+          "highlightMs": 360.70809899999585,
+          "exitCode": null,
+          "signal": null,
+          "peakRssBytes": 368230400,
+          "ladder": {
+            "processStart": 10.902099609375,
+            "nodeBootstrap": 75.34362060937565,
+            "mainStart": 75.374448609375,
+            "configLoaded": 91.867478609375,
+            "keybindingsLoaded": 94.517047609375,
+            "stateLoaded": 94.651680609375,
+            "extensionsScanned": 87.759585609375,
+            "themesReady": 97.723353609375,
+            "containerCreated": 101.057690609375,
+            "workbenchMounted": 130.653108609375,
+            "firstFrame": 130.609346609375,
+            "workbenchActivated": 135.214753609375,
+            "grammarsPreloaded": 140.887602609375,
+            "fileRead": 231.155265609375,
+            "fileDecoded": 231.197765609375,
+            "documentBuilt": 231.462133609375,
+            "tokenizerReady": 259.744588609375,
+            "filesOpened": 242.755735609375,
+            "frameWithText": 257.574954609375,
+            "frameWithHighlight": 360.651561609375,
+            "extensionsRegistered": 378.693137609375,
+            "extHostActivated": 939.775067609375,
+            "startupComplete": 374.337166609375
+          },
+          "workload": [
+            {
+              "key": "insert",
+              "latencyMs": 35.429048999998486,
+              "outcome": "ok"
+            },
+            {
+              "key": "enter",
+              "latencyMs": 21.72312600001169,
+              "outcome": "ok"
+            },
+            {
+              "key": "undoEnter",
+              "latencyMs": 9.817245000012917,
+              "outcome": "ok"
+            },
+            {
+              "key": "undoInsert",
+              "latencyMs": 11.519266999996034,
+              "outcome": "ok"
+            },
+            {
+              "key": "save",
+              "latencyMs": 108.77939999999944,
+              "outcome": "ok"
+            },
+            {
+              "key": "ctrlEnd",
+              "latencyMs": 11.237496000001556,
+              "outcome": "ok"
+            },
+            {
+              "key": "search",
+              "latencyMs": 64.12479499999608,
+              "outcome": "ok"
+            }
+          ],
+          "workloadOutcome": "ok",
+          "workloadError": null,
+          "warmup": false
+        },
+        {
+          "outcome": "ok",
+          "contentMs": 275.1174699999974,
+          "quietMs": null,
+          "highlightMs": 376.22632200000226,
+          "exitCode": null,
+          "signal": null,
+          "peakRssBytes": 373231616,
+          "ladder": {
+            "processStart": 7.811767578125,
+            "nodeBootstrap": 74.15170157811372,
+            "mainStart": 74.203419578125,
+            "configLoaded": 89.682180578125,
+            "keybindingsLoaded": 90.235241578125,
+            "stateLoaded": 90.376206578125,
+            "extensionsScanned": 86.327324578125,
+            "themesReady": 95.694819578125,
+            "containerCreated": 103.863358578125,
+            "workbenchMounted": 150.482265578125,
+            "firstFrame": 150.423745578125,
+            "workbenchActivated": 155.899614578125,
+            "grammarsPreloaded": 161.840889578125,
+            "fileRead": 254.516169578125,
+            "fileDecoded": 254.562476578125,
+            "documentBuilt": 254.856670578125,
+            "tokenizerReady": 277.303470578125,
+            "filesOpened": 263.23352157812496,
+            "frameWithText": 275.042704578125,
+            "frameWithHighlight": 376.176423578125,
+            "extensionsRegistered": 395.521763578125,
+            "extHostActivated": 957.350486578125,
+            "startupComplete": 390.039102578125
+          },
+          "workload": [
+            {
+              "key": "insert",
+              "latencyMs": 29.03966200001014,
+              "outcome": "ok"
+            },
+            {
+              "key": "enter",
+              "latencyMs": 21.970343000008143,
+              "outcome": "ok"
+            },
+            {
+              "key": "undoEnter",
+              "latencyMs": 8.149213000011514,
+              "outcome": "ok"
+            },
+            {
+              "key": "undoInsert",
+              "latencyMs": 11.229691000000457,
+              "outcome": "ok"
+            },
+            {
+              "key": "save",
+              "latencyMs": 93.1388680000091,
+              "outcome": "ok"
+            },
+            {
+              "key": "ctrlEnd",
+              "latencyMs": 9.027850999991642,
+              "outcome": "ok"
+            },
+            {
+              "key": "search",
+              "latencyMs": 75.09671800000069,
+              "outcome": "ok"
+            }
+          ],
+          "workloadOutcome": "ok",
+          "workloadError": null,
+          "warmup": false
+        }
+      ],
+      "content": {
+        "median": 276.4888159999973,
+        "q1": 275.1174699999974,
+        "q3": 277.5791540000064,
+        "iqr": 2.4616840000089724,
+        "min": 258.5881609999924,
+        "max": 283.63944000001356,
+        "count": 5,
+        "noisy": false
+      },
+      "highlight": {
+        "median": 378.4238519999926,
+        "q1": 376.22632200000226,
+        "q3": 378.6702460000088,
+        "iqr": 2.4439240000065183,
+        "min": 360.70809899999585,
+        "max": 390.76119600000675,
+        "count": 5,
+        "noisy": false
+      },
+      "ours": {
+        "median": 251.14357799999732,
+        "q1": 249.77223199999742,
+        "q3": 252.2339160000064,
+        "iqr": 2.4616840000089724,
+        "min": 233.2429229999924,
+        "max": 258.29420200001357,
+        "count": 5,
+        "noisy": false
+      },
+      "overBinary": {
+        "median": 214.19529699999737,
+        "q1": 212.82395099999746,
+        "q3": 215.28563500000644,
+        "iqr": 2.4616840000089724,
+        "min": 196.29464199999245,
+        "max": 221.34592100001362,
+        "count": 5,
+        "noisy": false
+      },
+      "peakRss": {
+        "median": 368230400,
+        "q1": 368189440,
+        "q3": 373231616,
+        "iqr": 5042176,
+        "min": 366518272,
+        "max": 373686272,
+        "count": 5,
+        "noisy": false
+      },
+      "ladder": {
+        "processStart": {
+          "median": 8.546142578125,
+          "q1": 8.197509765625,
+          "q3": 10.902099609375,
+          "iqr": 2.70458984375,
+          "min": 7.811767578125,
+          "max": 11.685302734375,
+          "count": 5,
+          "noisy": true
+        },
+        "nodeBootstrap": {
+          "median": 78.59841076564044,
+          "q1": 75.34362060937565,
+          "q3": 88.25277257812559,
+          "iqr": 12.909151968749939,
+          "min": 74.15170157811372,
+          "max": 88.59460573436809,
+          "count": 5,
+          "noisy": false
+        },
+        "mainStart": {
+          "median": 78.633286765625,
+          "q1": 75.374448609375,
+          "q3": 88.285654578125,
+          "iqr": 12.91120596875001,
+          "min": 74.203419578125,
+          "max": 88.637115734375,
+          "count": 5,
+          "noisy": false
+        },
+        "configLoaded": {
+          "median": 98.779482765625,
+          "q1": 91.867478609375,
+          "q3": 106.657451734375,
+          "iqr": 14.789973125000003,
+          "min": 89.682180578125,
+          "max": 108.826686578125,
+          "count": 5,
+          "noisy": false
+        },
+        "keybindingsLoaded": {
+          "median": 99.030835765625,
+          "q1": 94.517047609375,
+          "q3": 108.493919734375,
+          "iqr": 13.976872125,
+          "min": 90.235241578125,
+          "max": 109.046951578125,
+          "count": 5,
+          "noisy": false
+        },
+        "stateLoaded": {
+          "median": 99.173363765625,
+          "q1": 94.651680609375,
+          "q3": 108.625386734375,
+          "iqr": 13.973706124999993,
+          "min": 90.376206578125,
+          "max": 109.177336578125,
+          "count": 5,
+          "noisy": false
+        },
+        "extensionsScanned": {
+          "median": 95.607058765625,
+          "q1": 87.759585609375,
+          "q3": 103.210376734375,
+          "iqr": 15.45079112500001,
+          "min": 86.327324578125,
+          "max": 105.650415578125,
+          "count": 5,
+          "noisy": false
+        },
+        "themesReady": {
+          "median": 103.412906765625,
+          "q1": 97.723353609375,
+          "q3": 113.357868734375,
+          "iqr": 15.634515125000007,
+          "min": 95.694819578125,
+          "max": 113.417110578125,
+          "count": 5,
+          "noisy": false
+        },
+        "containerCreated": {
+          "median": 108.062251765625,
+          "q1": 103.863358578125,
+          "q3": 117.805663578125,
+          "iqr": 13.942305000000005,
+          "min": 101.057690609375,
+          "max": 117.964783734375,
+          "count": 5,
+          "noisy": false
+        },
+        "workbenchMounted": {
+          "median": 150.414937734375,
+          "q1": 141.721362765625,
+          "q3": 150.482265578125,
+          "iqr": 8.760902812500007,
+          "min": 130.653108609375,
+          "max": 150.493866578125,
+          "count": 5,
+          "noisy": false
+        },
+        "firstFrame": {
+          "median": 150.373048734375,
+          "q1": 141.677109765625,
+          "q3": 150.423745578125,
+          "iqr": 8.746635812499989,
+          "min": 130.609346609375,
+          "max": 150.459772578125,
+          "count": 5,
+          "noisy": false
+        },
+        "workbenchActivated": {
+          "median": 155.899614578125,
+          "q1": 147.421706765625,
+          "q3": 156.305089578125,
+          "iqr": 8.883382812500003,
+          "min": 135.214753609375,
+          "max": 156.351766734375,
+          "count": 5,
+          "noisy": false
+        },
+        "grammarsPreloaded": {
+          "median": 161.840889578125,
+          "q1": 158.166018765625,
+          "q3": 167.384662734375,
+          "iqr": 9.218643968750001,
+          "min": 140.887602609375,
+          "max": 167.670771578125,
+          "count": 5,
+          "noisy": false
+        },
+        "fileRead": {
+          "median": 254.516169578125,
+          "q1": 254.080212578125,
+          "q3": 255.172300765625,
+          "iqr": 1.0920881874999964,
+          "min": 231.155265609375,
+          "max": 260.794450734375,
+          "count": 5,
+          "noisy": false
+        },
+        "fileDecoded": {
+          "median": 254.562476578125,
+          "q1": 254.124726578125,
+          "q3": 255.220271765625,
+          "iqr": 1.0955451874999937,
+          "min": 231.197765609375,
+          "max": 260.843061734375,
+          "count": 5,
+          "noisy": false
+        },
+        "documentBuilt": {
+          "median": 254.856670578125,
+          "q1": 254.386920578125,
+          "q3": 255.537158765625,
+          "iqr": 1.1502381875000083,
+          "min": 231.462133609375,
+          "max": 261.13454073437504,
+          "count": 5,
+          "noisy": false
+        },
+        "tokenizerReady": {
+          "median": 278.657203765625,
+          "q1": 277.303470578125,
+          "q3": 278.659125578125,
+          "iqr": 1.355655000000013,
+          "min": 259.744588609375,
+          "max": 285.551889734375,
+          "count": 5,
+          "noisy": false
+        },
+        "filesOpened": {
+          "median": 263.526951578125,
+          "q1": 263.23352157812496,
+          "q3": 263.711069765625,
+          "iqr": 0.4775481875000196,
+          "min": 242.755735609375,
+          "max": 270.423421734375,
+          "count": 5,
+          "noisy": false
+        },
+        "extensionsRegistered": {
+          "median": 397.294631765625,
+          "q1": 395.521763578125,
+          "q3": 398.390041578125,
+          "iqr": 2.868278000000032,
+          "min": 378.693137609375,
+          "max": 409.899148734375,
+          "count": 5,
+          "noisy": false
+        },
+        "frameWithText": {
+          "median": 276.374244765625,
+          "q1": 275.042704578125,
+          "q3": 276.547198578125,
+          "iqr": 1.5044940000000224,
+          "min": 257.574954609375,
+          "max": 283.523810734375,
+          "count": 5,
+          "noisy": false
+        },
+        "frameWithHighlight": {
+          "median": 378.036046765625,
+          "q1": 376.176423578125,
+          "q3": 378.595057578125,
+          "iqr": 2.4186339999999973,
+          "min": 360.651561609375,
+          "max": 390.686810734375,
+          "count": 5,
+          "noisy": false
+        },
+        "extHostActivated": {
+          "median": 957.350486578125,
+          "q1": 954.700244578125,
+          "q3": 966.571718734375,
+          "iqr": 11.871474156250088,
+          "min": 939.775067609375,
+          "max": 970.577099765625,
+          "count": 5,
+          "noisy": false
+        },
+        "startupComplete": {
+          "median": 391.825993765625,
+          "q1": 390.039102578125,
+          "q3": 392.892138578125,
+          "iqr": 2.8530360000000314,
+          "min": 374.337166609375,
+          "max": 404.698835734375,
+          "count": 5,
+          "noisy": false
+        }
+      },
+      "boxGap": {
+        "median": 0.11562926563857445,
+        "q1": 0.11457123437230621,
+        "q3": 1.0132063906173698,
+        "iqr": 0.8986351562450636,
+        "min": 0.07476542187242785,
+        "max": 1.0319554218813778,
+        "count": 5,
+        "noisy": true
+      },
+      "workload": {
+        "insert": {
+          "median": 31.567431999996188,
+          "q1": 29.03966200001014,
+          "q3": 35.429048999998486,
+          "iqr": 6.389386999988346,
+          "min": 20.020088000004762,
+          "max": 37.45663900001091,
+          "count": 5,
+          "noisy": true
+        },
+        "enter": {
+          "median": 16.324739999996382,
+          "q1": 15.348691999999573,
+          "q3": 21.72312600001169,
+          "iqr": 6.374434000012116,
+          "min": 14.888257999991765,
+          "max": 21.970343000008143,
+          "count": 5,
+          "noisy": true
+        },
+        "undoEnter": {
+          "median": 8.404596000007587,
+          "q1": 8.37745200000063,
+          "q3": 9.79385000000184,
+          "iqr": 1.4163980000012089,
+          "min": 8.149213000011514,
+          "max": 9.817245000012917,
+          "count": 5,
+          "noisy": false
+        },
+        "undoInsert": {
+          "median": 11.229691000000457,
+          "q1": 10.100977000009152,
+          "q3": 11.519266999996034,
+          "iqr": 1.4182899999868823,
+          "min": 9.950247000000672,
+          "max": 12.93561800000316,
+          "count": 5,
+          "noisy": false
+        },
+        "save": {
+          "median": 93.3985970000067,
+          "q1": 93.1388680000091,
+          "q3": 95.6556120000023,
+          "iqr": 2.5167439999931958,
+          "min": 92.54821100000117,
+          "max": 108.77939999999944,
+          "count": 5,
+          "noisy": false
+        },
+        "ctrlEnd": {
+          "median": 8.28607300001022,
+          "q1": 7.036066999993636,
+          "q3": 9.027850999991642,
+          "iqr": 1.991783999998006,
+          "min": 6.601259999995818,
+          "max": 11.237496000001556,
+          "count": 5,
+          "noisy": true
+        },
+        "search": {
+          "median": 75.09671800000069,
+          "q1": 73.43541299999924,
+          "q3": 78.49643599998672,
+          "iqr": 5.061022999987472,
+          "min": 64.12479499999608,
+          "max": 87.06700200001069,
+          "count": 5,
+          "noisy": false
+        }
+      },
+      "workloadFailures": []
+    },
+    {
+      "key": "log500m",
+      "kind": "log",
+      "fixtureBytes": 521477377,
+      "fixtureLines": 5295839,
+      "runs": [
+        {
+          "outcome": "ok",
+          "contentMs": 174.22628099999565,
+          "quietMs": 1101.6943219999957,
+          "highlightMs": null,
+          "exitCode": null,
+          "signal": null,
+          "peakRssBytes": 310185984,
+          "ladder": {
+            "processStart": 6.724609375,
+            "nodeBootstrap": 62.65012237499468,
+            "mainStart": 62.680520375,
+            "configLoaded": 83.391531375,
+            "keybindingsLoaded": 85.478336375,
+            "stateLoaded": 85.627055375,
+            "extensionsScanned": 77.379265375,
+            "themesReady": 88.808359375,
+            "containerCreated": 92.579962375,
+            "workbenchMounted": 122.449620375,
+            "firstFrame": 122.404595375,
+            "workbenchActivated": 128.317567375,
+            "grammarsPreloaded": 130.79636937499998,
+            "fileRead": 144.446557375,
+            "fileDecoded": 144.483787375,
+            "documentBuilt": 144.597731375,
+            "tokenizerReady": null,
+            "filesOpened": 162.177745375,
+            "frameWithText": 173.694866375,
+            "frameWithHighlight": null,
+            "extensionsRegistered": 207.961063375,
+            "extHostActivated": 401.047712375,
+            "startupComplete": 202.207783375
+          },
+          "workload": [],
+          "workloadOutcome": "skipped",
+          "workloadError": null,
+          "warmup": true
+        },
+        {
+          "outcome": "ok",
+          "contentMs": 182.08007999999973,
+          "quietMs": 1064.779748999994,
+          "highlightMs": null,
+          "exitCode": null,
+          "signal": null,
+          "peakRssBytes": 277114880,
+          "ladder": {
+            "processStart": 5.903076171875,
+            "nodeBootstrap": 62.32613617187599,
+            "mainStart": 62.357084171875,
+            "configLoaded": 77.185623171875,
+            "keybindingsLoaded": 77.344783171875,
+            "stateLoaded": 77.468886171875,
+            "extensionsScanned": 73.219454171875,
+            "themesReady": 83.165721171875,
+            "containerCreated": 87.669421171875,
+            "workbenchMounted": 121.726775171875,
+            "firstFrame": 121.674106171875,
+            "workbenchActivated": 127.546401171875,
+            "grammarsPreloaded": 134.960435171875,
+            "fileRead": 147.667715171875,
+            "fileDecoded": 147.715705171875,
+            "documentBuilt": 147.843195171875,
+            "tokenizerReady": null,
+            "filesOpened": 167.024343171875,
+            "frameWithText": 179.411150171875,
+            "frameWithHighlight": null,
+            "extensionsRegistered": 214.979266171875,
+            "extHostActivated": 402.532467171875,
+            "startupComplete": 208.984311171875
+          },
+          "workload": [],
+          "workloadOutcome": "skipped",
+          "workloadError": null,
+          "warmup": false
+        },
+        {
+          "outcome": "ok",
+          "contentMs": 189.4127279999957,
+          "quietMs": 1096.5861949999962,
+          "highlightMs": null,
+          "exitCode": null,
+          "signal": null,
+          "peakRssBytes": 277663744,
+          "ladder": {
+            "processStart": 6.300048828125,
+            "nodeBootstrap": 63.55002582812449,
+            "mainStart": 63.594228828125,
+            "configLoaded": 83.396023828125,
+            "keybindingsLoaded": 83.927173828125,
+            "stateLoaded": 84.052759828125,
+            "extensionsScanned": 80.002042828125,
+            "themesReady": 88.694941828125,
+            "containerCreated": 93.388820828125,
+            "workbenchMounted": 127.054807828125,
+            "firstFrame": 127.014431828125,
+            "workbenchActivated": 133.194518828125,
+            "grammarsPreloaded": 140.489576828125,
+            "fileRead": 156.190743828125,
+            "fileDecoded": 156.228965828125,
+            "documentBuilt": 156.348570828125,
+            "tokenizerReady": null,
+            "filesOpened": 175.661248828125,
+            "frameWithText": 189.341950828125,
+            "frameWithHighlight": null,
+            "extensionsRegistered": 229.050435828125,
+            "extHostActivated": 395.356706828125,
+            "startupComplete": 223.124196828125
+          },
+          "workload": [],
+          "workloadOutcome": "skipped",
+          "workloadError": null,
+          "warmup": false
+        },
+        {
+          "outcome": "ok",
+          "contentMs": 184.57371100000455,
+          "quietMs": 1117.2103630000056,
+          "highlightMs": null,
+          "exitCode": null,
+          "signal": null,
+          "peakRssBytes": 277368832,
+          "ladder": {
+            "processStart": 6.405517578125,
+            "nodeBootstrap": 64.05983657811885,
+            "mainStart": 64.095454578125,
+            "configLoaded": 81.767745578125,
+            "keybindingsLoaded": 81.965027578125,
+            "stateLoaded": 82.078380578125,
+            "extensionsScanned": 77.675930578125,
+            "themesReady": 86.494997578125,
+            "containerCreated": 91.109527578125,
+            "workbenchMounted": 124.671788578125,
+            "firstFrame": 124.623076578125,
+            "workbenchActivated": 130.638474578125,
+            "grammarsPreloaded": 137.744285578125,
+            "fileRead": 149.912409578125,
+            "fileDecoded": 149.946142578125,
+            "documentBuilt": 150.041572578125,
+            "tokenizerReady": null,
+            "filesOpened": 169.769752578125,
+            "frameWithText": 182.060367578125,
+            "frameWithHighlight": null,
+            "extensionsRegistered": 218.763703578125,
+            "extHostActivated": 404.693364578125,
+            "startupComplete": 212.710745578125
+          },
+          "workload": [],
+          "workloadOutcome": "skipped",
+          "workloadError": null,
+          "warmup": false
+        }
+      ],
+      "content": {
+        "median": 184.57371100000455,
+        "q1": 183.32689550000214,
+        "q3": 186.99321950000012,
+        "iqr": 3.666323999997985,
+        "min": 182.08007999999973,
+        "max": 189.4127279999957,
+        "count": 3,
+        "noisy": false
+      },
+      "highlight": null,
+      "ours": {
+        "median": 159.22847300000456,
+        "q1": 157.98165750000214,
+        "q3": 161.64798150000013,
+        "iqr": 3.666323999997985,
+        "min": 156.73484199999973,
+        "max": 164.0674899999957,
+        "count": 3,
+        "noisy": false
+      },
+      "overBinary": {
+        "median": 122.2801920000046,
+        "q1": 121.03337650000219,
+        "q3": 124.69970050000018,
+        "iqr": 3.666323999997985,
+        "min": 119.78656099999978,
+        "max": 127.11920899999575,
+        "count": 3,
+        "noisy": false
+      },
+      "peakRss": {
+        "median": 277368832,
+        "q1": 277241856,
+        "q3": 277516288,
+        "iqr": 274432,
+        "min": 277114880,
+        "max": 277663744,
+        "count": 3,
+        "noisy": false
+      },
+      "ladder": {
+        "processStart": {
+          "median": 6.300048828125,
+          "q1": 6.1015625,
+          "q3": 6.352783203125,
+          "iqr": 0.251220703125,
+          "min": 5.903076171875,
+          "max": 6.405517578125,
+          "count": 3,
+          "noisy": false
+        },
+        "nodeBootstrap": {
+          "median": 63.55002582812449,
+          "q1": 62.93808100000024,
+          "q3": 63.80493120312167,
+          "iqr": 0.8668502031214302,
+          "min": 62.32613617187599,
+          "max": 64.05983657811885,
+          "count": 3,
+          "noisy": false
+        },
+        "mainStart": {
+          "median": 63.594228828125,
+          "q1": 62.9756565,
+          "q3": 63.844841703125,
+          "iqr": 0.8691852031249994,
+          "min": 62.357084171875,
+          "max": 64.095454578125,
+          "count": 3,
+          "noisy": false
+        },
+        "configLoaded": {
+          "median": 81.767745578125,
+          "q1": 79.47668437499999,
+          "q3": 82.581884703125,
+          "iqr": 3.105200328125008,
+          "min": 77.185623171875,
+          "max": 83.396023828125,
+          "count": 3,
+          "noisy": false
+        },
+        "keybindingsLoaded": {
+          "median": 81.965027578125,
+          "q1": 79.654905375,
+          "q3": 82.94610070312501,
+          "iqr": 3.2911953281250135,
+          "min": 77.344783171875,
+          "max": 83.927173828125,
+          "count": 3,
+          "noisy": false
+        },
+        "stateLoaded": {
+          "median": 82.078380578125,
+          "q1": 79.773633375,
+          "q3": 83.065570203125,
+          "iqr": 3.291936828125003,
+          "min": 77.468886171875,
+          "max": 84.052759828125,
+          "count": 3,
+          "noisy": false
+        },
+        "extensionsScanned": {
+          "median": 77.675930578125,
+          "q1": 75.447692375,
+          "q3": 78.838986703125,
+          "iqr": 3.3912943281249994,
+          "min": 73.219454171875,
+          "max": 80.002042828125,
+          "count": 3,
+          "noisy": false
+        },
+        "themesReady": {
+          "median": 86.494997578125,
+          "q1": 84.830359375,
+          "q3": 87.594969703125,
+          "iqr": 2.764610328125002,
+          "min": 83.165721171875,
+          "max": 88.694941828125,
+          "count": 3,
+          "noisy": false
+        },
+        "containerCreated": {
+          "median": 91.109527578125,
+          "q1": 89.38947437499999,
+          "q3": 92.249174203125,
+          "iqr": 2.8596998281250023,
+          "min": 87.669421171875,
+          "max": 93.388820828125,
+          "count": 3,
+          "noisy": false
+        },
+        "workbenchMounted": {
+          "median": 124.671788578125,
+          "q1": 123.199281875,
+          "q3": 125.863298203125,
+          "iqr": 2.664016328125001,
+          "min": 121.726775171875,
+          "max": 127.054807828125,
+          "count": 3,
+          "noisy": false
+        },
+        "firstFrame": {
+          "median": 124.623076578125,
+          "q1": 123.148591375,
+          "q3": 125.818754203125,
+          "iqr": 2.670162828125001,
+          "min": 121.674106171875,
+          "max": 127.014431828125,
+          "count": 3,
+          "noisy": false
+        },
+        "workbenchActivated": {
+          "median": 130.638474578125,
+          "q1": 129.092437875,
+          "q3": 131.916496703125,
+          "iqr": 2.824058828125004,
+          "min": 127.546401171875,
+          "max": 133.194518828125,
+          "count": 3,
+          "noisy": false
+        },
+        "grammarsPreloaded": {
+          "median": 137.744285578125,
+          "q1": 136.352360375,
+          "q3": 139.11693120312498,
+          "iqr": 2.764570828124988,
+          "min": 134.960435171875,
+          "max": 140.489576828125,
+          "count": 3,
+          "noisy": false
+        },
+        "fileRead": {
+          "median": 149.912409578125,
+          "q1": 148.790062375,
+          "q3": 153.051576703125,
+          "iqr": 4.261514328125003,
+          "min": 147.667715171875,
+          "max": 156.190743828125,
+          "count": 3,
+          "noisy": false
+        },
+        "fileDecoded": {
+          "median": 149.946142578125,
+          "q1": 148.830923875,
+          "q3": 153.08755420312502,
+          "iqr": 4.256630328125027,
+          "min": 147.715705171875,
+          "max": 156.228965828125,
+          "count": 3,
+          "noisy": false
+        },
+        "documentBuilt": {
+          "median": 150.041572578125,
+          "q1": 148.94238387500002,
+          "q3": 153.195071703125,
+          "iqr": 4.2526878281249765,
+          "min": 147.843195171875,
+          "max": 156.348570828125,
+          "count": 3,
+          "noisy": false
+        },
+        "tokenizerReady": null,
+        "filesOpened": {
+          "median": 169.769752578125,
+          "q1": 168.397047875,
+          "q3": 172.715500703125,
+          "iqr": 4.318452828125004,
+          "min": 167.024343171875,
+          "max": 175.661248828125,
+          "count": 3,
+          "noisy": false
+        },
+        "extensionsRegistered": {
+          "median": 218.763703578125,
+          "q1": 216.871484875,
+          "q3": 223.907069703125,
+          "iqr": 7.035584828124996,
+          "min": 214.979266171875,
+          "max": 229.050435828125,
+          "count": 3,
+          "noisy": false
+        },
+        "frameWithText": {
+          "median": 182.060367578125,
+          "q1": 180.735758875,
+          "q3": 185.701159203125,
+          "iqr": 4.965400328125014,
+          "min": 179.411150171875,
+          "max": 189.341950828125,
+          "count": 3,
+          "noisy": false
+        },
+        "frameWithHighlight": null,
+        "extHostActivated": {
+          "median": 402.532467171875,
+          "q1": 398.944587,
+          "q3": 403.612915875,
+          "iqr": 4.668328874999986,
+          "min": 395.356706828125,
+          "max": 404.693364578125,
+          "count": 3,
+          "noisy": false
+        },
+        "startupComplete": {
+          "median": 212.710745578125,
+          "q1": 210.847528375,
+          "q3": 217.917471203125,
+          "iqr": 7.069942828124994,
+          "min": 208.984311171875,
+          "max": 223.124196828125,
+          "count": 3,
+          "noisy": false
+        }
+      },
+      "boxGap": {
+        "median": 2.51334342187954,
+        "q1": 1.2920602968751211,
+        "q3": 2.591136625002136,
+        "iqr": 1.2990763281270148,
+        "min": 0.0707771718707022,
+        "max": 2.668929828124732,
+        "count": 3,
+        "noisy": true
+      },
+      "workload": {
+        "insert": null,
+        "enter": null,
+        "undoEnter": null,
+        "undoInsert": null,
+        "save": null,
+        "ctrlEnd": null,
+        "search": null
+      },
+      "workloadFailures": []
+    }
+  ]
+}
