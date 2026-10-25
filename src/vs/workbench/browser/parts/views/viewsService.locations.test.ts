@@ -1,3 +1,5 @@
+import type { TUIElement } from "@tuidom/core/dom/tuiElement";
+import { ButtonElement } from "@tuidom/elements/button/buttonElement";
 import type { MenuEntry, MenuSubmenuEntry } from "@tuidom/elements/menu/popupMenuElement";
 import { describe, expect, it } from "vitest";
 
@@ -6,6 +8,7 @@ import { SIDEBAR_VIEWS_STATE, VIEWS_CUSTOMIZATIONS_STATE } from "../../../common
 
 import type { IViewsHarness } from "./viewsService.testUtils.ts";
 import { makeViewsHarness, testView } from "./viewsService.testUtils.ts";
+import { ViewWelcomeElement } from "./viewWelcomeElement.ts";
 
 const TERMINAL = "workbench.panel.terminal";
 const OUTPUT = "workbench.panel.output";
@@ -827,5 +830,41 @@ describe("ViewsService — focus on open", () => {
         expect(focused).toEqual([]);
         h.service.openView("output", true);
         expect(focused).toEqual(["output"]);
+    });
+
+    it("a built-in welcome runs its command buttons; a URL target is not a command", () => {
+        const h = makeViewsHarness();
+        const ran: unknown[][] = [];
+        h.commands.register("openFolder", (...args: unknown[]) => ran.push(args));
+        const execute = h.commands.execute.bind(h.commands);
+        const executed: string[] = [];
+        h.commands.execute = (id, ...args) => {
+            executed.push(id);
+            return execute(id, ...args);
+        };
+        h.service.registerContainer({ id: OUTPUT, title: "OUTPUT", location: "panel" });
+        h.service.registerView(
+            testView("welcome", OUTPUT, 20, {
+                body: null,
+                placeholder: [
+                    { kind: "button", label: "Docs", url: "https://example.invalid" },
+                    { kind: "button", label: "Open Folder", command: "openFolder", args: ["x"] },
+                ],
+            }),
+        );
+        h.service.attachContainer(OUTPUT);
+        h.service.openViewContainer(OUTPUT);
+
+        const find = (element: TUIElement): ViewWelcomeElement | undefined =>
+            element instanceof ViewWelcomeElement
+                ? element
+                : element
+                      .getChildren()
+                      .reduce<ViewWelcomeElement | undefined>((found, child) => found ?? find(child), undefined);
+        const welcome = find(h.root(OUTPUT))!;
+        for (const child of welcome.getChildren()) if (child instanceof ButtonElement) child.onActivate?.();
+
+        expect(executed).toEqual(["openFolder"]);
+        expect(ran).toEqual([["x"]]);
     });
 });

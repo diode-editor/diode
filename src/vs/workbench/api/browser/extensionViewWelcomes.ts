@@ -1,5 +1,6 @@
 import type { TUIElement } from "@tuidom/core/dom/tuiElement";
 
+import { equals } from "../../../base/common/arrays.ts";
 import type { Event } from "../../../base/common/event.ts";
 import type { IDisposable } from "../../../base/common/lifecycle.ts";
 import type { CommandRegistry } from "../../../platform/commands/common/commandRegistry.ts";
@@ -28,7 +29,7 @@ interface IViewState {
     tree: IWelcomeTree | null;
     treeListener: IDisposable | null;
     /** Indexes of the shown entries, the key of {@link welcome}: the same set keeps the element (and its focus). */
-    shown: string;
+    shown: readonly number[];
     welcome: ViewWelcomeElement | null;
 }
 
@@ -56,15 +57,17 @@ export class ExtensionViewWelcomes {
     ) {
         // A window-wide singleton: there is nobody to dispose the subscription.
         contextKeys.onDidChange(() => {
-            for (const viewId of this.states.keys()) this.sync(viewId);
+            for (const [viewId, state] of this.states) this.sync(viewId, state);
         });
     }
 
     /** Once, before the extensions start: the entries of every view, keyed by view id. */
     public registerContents(contents: ReadonlyMap<string, readonly IViewWelcomeContent[]>): void {
         for (const [viewId, list] of contents) {
-            this.states.set(viewId, { contents: list, tree: null, treeListener: null, shown: "", welcome: null });
-            this.sync(viewId);
+            // Stryker disable next-line ArrayDeclaration: any other start makes the first sync rebuild, and with nothing shown it rebuilds the same `null` welcome
+            const state: IViewState = { contents: list, tree: null, treeListener: null, shown: [], welcome: null };
+            this.states.set(viewId, state);
+            this.sync(viewId, state);
         }
     }
 
@@ -79,9 +82,9 @@ export class ExtensionViewWelcomes {
         state.tree = tree;
         state.treeListener =
             tree?.onDidChangeWelcomeState(() => {
-                this.sync(viewId);
+                this.sync(viewId, state);
             }) ?? null;
-        this.sync(viewId);
+        this.sync(viewId, state);
     }
 
     /** The shown welcome of a view, `null` when the tree (or nothing) is shown. */
@@ -90,13 +93,10 @@ export class ExtensionViewWelcomes {
         return state?.welcome ?? null;
     }
 
-    private sync(viewId: string): void {
-        const state = this.states.get(viewId);
-        if (state === undefined) return;
+    private sync(viewId: string, state: IViewState): void {
         const shown = this.shownEntries(state.contents);
-        const key = shown.join(",");
-        if (key !== state.shown) {
-            state.shown = key;
+        if (!equals(shown, state.shown)) {
+            state.shown = shown;
             state.welcome =
                 shown.length === 0
                     ? null
@@ -126,6 +126,7 @@ export class ExtensionViewWelcomes {
     /** Upstream `openerService.open(href, { allowCommands: true })`: commands, and web links outside. */
     private open(target: IViewWelcomeTarget): void {
         if ("command" in target) {
+            // Stryker disable next-line ArrayDeclaration: targets here come from `targetOf`, which always sets `args`
             this.commands.execute(target.command, ...(target.args ?? []));
             return;
         }

@@ -71,8 +71,14 @@ describe("parseLinkedText", () => {
             ],
         ],
         ["[UPPER](COMMAND:foo)", [{ label: "UPPER", href: "COMMAND:foo" }]],
+        // diode: adjacent links have no empty text between them.
+        [
+            "x [a](command:a)[b](command:b)",
+            ["x ", { label: "a", href: "command:a" }, { label: "b", href: "command:b" }],
+        ],
     ])("%j", (text, nodes) => {
-        expect(parseLinkedText(text).nodes).toEqual(nodes);
+        // Strict: a link without a title has no `title` key at all.
+        expect(parseLinkedText(text).nodes).toStrictEqual(nodes);
     });
 
     it("toString is the text with links replaced by their labels", () => {

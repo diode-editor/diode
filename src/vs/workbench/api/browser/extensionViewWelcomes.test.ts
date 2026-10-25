@@ -106,6 +106,50 @@ describe("ExtensionViewWelcomes — what the section shows", () => {
         expect(frame()).not.toContain("hidden");
     });
 
+    it("a view with no entries has no welcome; the welcome element is addressable by the view id", () => {
+        const { welcomes } = setup();
+        welcomes.registerContents(new Map([[VIEW, [{ contents: "text" }]]]));
+
+        expect(welcomes.getWelcome("other.view")).toBeNull();
+        expect(welcomes.getWelcome(VIEW)!.id).toBe("viewWelcome-terraform-providers");
+    });
+
+    it("the last applicable entry going away removes the welcome", async () => {
+        const { welcomes, contextKeys, frame } = setup();
+        welcomes.registerContents(new Map([[VIEW, [{ contents: "keyed text", when: "my.key" }]]]));
+        contextKeys.setRaw("my.key", true);
+        await flushMicrotasks();
+        expect(frame()).toContain("keyed text");
+
+        contextKeys.setRaw("my.key", false);
+        await flushMicrotasks();
+        expect(welcomes.getWelcome(VIEW)).toBeNull();
+        expect(frame()).not.toContain("keyed text");
+    });
+
+    it("a replaced or removed tree is no longer listened to", () => {
+        const { welcomes } = setup();
+        welcomes.registerContents(new Map([[VIEW, [{ contents: "text" }]]]));
+        let listening = 0;
+        const tree = {
+            view: new ButtonElement("tree"),
+            shouldShowWelcome: () => true,
+            onDidChangeWelcomeState: () => {
+                listening++;
+                return {
+                    dispose: () => {
+                        listening--;
+                    },
+                };
+            },
+        };
+        welcomes.setTree(VIEW, tree);
+        expect(listening).toBe(1);
+
+        welcomes.setTree(VIEW, null);
+        expect(listening).toBe(0);
+    });
+
     it("no entry applies — the section stays empty", () => {
         const { h, welcomes, frame } = setup();
         welcomes.registerContents(new Map([[VIEW, [{ contents: "hidden", when: "false" }]]]));
@@ -299,10 +343,20 @@ describe("ExtensionViewWelcomes — buttons, links, enablement, focus", () => {
         expect(ran).toEqual([["a", 2]]);
     });
 
-    it("an https link opens outside; a file: link does nothing", () => {
+    it("http(s) links open outside; a file: link does nothing, even with `https:` inside", () => {
         const { welcomes, opened, ran, app } = setup();
         welcomes.registerContents(
-            new Map([[VIEW, [{ contents: "[Docs](https://example.invalid/docs)\n[Local](file:///tmp/a.tf)" }]]]),
+            new Map([
+                [
+                    VIEW,
+                    [
+                        {
+                            contents:
+                                "[Docs](https://example.invalid/docs)\n[Plain](http://example.invalid/plain)\n[Local](file:///tmp/https:a.tf)",
+                        },
+                    ],
+                ],
+            ]),
         );
         app.render();
         const buttons = welcomes
@@ -311,7 +365,7 @@ describe("ExtensionViewWelcomes — buttons, links, enablement, focus", () => {
             .filter((child) => child instanceof ButtonElement);
         for (const button of buttons) button.onActivate?.();
 
-        expect(opened).toEqual(["https://example.invalid/docs"]);
+        expect(opened).toEqual(["https://example.invalid/docs", "http://example.invalid/plain"]);
         expect(ran).toEqual([]);
     });
 

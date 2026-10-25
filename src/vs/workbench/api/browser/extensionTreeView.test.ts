@@ -892,3 +892,51 @@ function click(f: IFixture, x: number, y: number): void {
         f.app.backend.simulateMouse(token);
     }
 }
+
+describe("ExtensionTreeView — welcome state", () => {
+    it("empty until the root answers; an expanded row with no children doesn't make the tree empty", async () => {
+        const source = fakeSource({ "": [item("p", "pkg", { collapsibleState: 2 })], p: [] });
+        const f = mount(source);
+        expect(f.tree.shouldShowWelcome()).toBe(true);
+
+        f.tree.setVisible(true);
+        await f.settle();
+        expect(source.requests).toEqual([undefined, "p"]);
+        expect(f.tree.shouldShowWelcome()).toBe(false);
+    });
+
+    it("the change event fires only when the answer changes, not on every message or reread", async () => {
+        const source = fakeSource({ "": [] });
+        const f = mount(source);
+        let changes = 0;
+        f.tree.onDidChangeWelcomeState(() => {
+            changes++;
+        });
+
+        f.tree.setMessage("Loading…");
+        expect(changes).toBe(1);
+        f.tree.setVisible(true);
+        await f.settle();
+        source.children[""] = [item("a", "alpha")];
+        await f.tree.refresh(undefined);
+        await f.settle();
+        expect(changes).toBe(1);
+
+        f.tree.setMessage("");
+        f.tree.setMessage("Still here");
+        expect(changes).toBe(1);
+        expect(f.tree.shouldShowWelcome()).toBe(false);
+    });
+
+    it("a disposed tree notifies nobody", () => {
+        const f = mount(fakeSource({ "": [] }));
+        let changes = 0;
+        f.tree.onDidChangeWelcomeState(() => {
+            changes++;
+        });
+        f.tree.dispose();
+
+        f.tree.setMessage("after dispose");
+        expect(changes).toBe(0);
+    });
+});

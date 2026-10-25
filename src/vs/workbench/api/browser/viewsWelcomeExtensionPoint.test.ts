@@ -76,6 +76,13 @@ describe("readViewsWelcome", () => {
         expect(errors).toEqual(["a.one: viewsWelcome must be an array"]);
     });
 
+    it("an extension without contributes has no entries", () => {
+        const bare = { id: "c.three", manifest: { name: "c.three" } } as unknown as IExtension;
+        expect(read(bare, extension("a.one", [{ view: "v", contents: "c" }])).byView).toEqual({
+            v: [{ contents: "c", when: undefined, enablement: undefined }],
+        });
+    });
+
     it("works without a logger", () => {
         expect(readViewsWelcome([extension("a.one", [{}]), extension("b.two", 1)]).size).toBe(0);
     });
@@ -165,6 +172,8 @@ describe("targetOf", () => {
         ["command:foo?42", { command: "foo", args: [42] }],
         ["command:foo?not-json", { command: "foo", args: [] }],
         ["command:foo?%E0%A4%A", { command: "foo", args: [] }],
+        // Not URL-encoded and not decodable: parsed as written.
+        ['command:foo?["50%"]', { command: "foo", args: ["50%"] }],
         ["https://example.invalid/a?b=1", { url: "https://example.invalid/a?b=1" }],
         ["file:///tmp/a.tf", { url: "file:///tmp/a.tf" }],
     ])("%s", (href, target) => {

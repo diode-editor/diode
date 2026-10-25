@@ -248,6 +248,7 @@ export class ViewWelcomeElement extends TUIElement {
                 rows.push({ kind: "button", index: buttonIndex });
                 // A wrapped label's further rows belong to the button: no text there.
                 const height = this.buttons[buttonIndex].element.getMaxIntrinsicHeight(width);
+                // Stryker disable next-line ObjectLiteral,StringLiteral: a filler row; an empty text row and a row of no kind both draw and click nothing
                 for (let row = 1; row < height; row++) rows.push({ kind: "text", segments: [] });
                 buttonIndex++;
                 continue;

@@ -1,6 +1,7 @@
 import { packRgb } from "@tuidom/core/common/colorUtils";
 import { BoxConstraints, Offset, Point, Rect, Size } from "@tuidom/core/common/geometryPromitives";
 import { StyleFlags } from "@tuidom/core/common/styleFlags";
+import { TUIKeyboardEvent } from "@tuidom/core/dom/events/tuiKeyboardEvent";
 import { ROOT_STYLE_CONTEXT } from "@tuidom/core/dom/styles/tuiStyle";
 import { RenderContext } from "@tuidom/core/dom/tuiElement";
 import type { MouseToken } from "@tuidom/core/input/rawTerminalToken";
@@ -242,6 +243,26 @@ describe("ViewWelcomeElement — links in text", () => {
         expect(app.focusedElement).toBeInstanceOf(ButtonElement);
         app.render();
         expect(app.backend.getBgAt(new Point(5, 0))).toBe(app.backend.getBgAt(new Point(1, 0)));
+    });
+
+    it("Enter on a link is consumed; other keys and key presses pass by", () => {
+        const { welcome, opened } = make([{ kind: "paragraph", nodes: [{ label: "docs", command: "show.docs" }] }]);
+        const app = TestApp.createWithContent(welcome, SCREEN);
+        app.render();
+        app.sendKey("Tab");
+        const link = app.focusedElement!;
+
+        const other = new TUIKeyboardEvent("keydown", { key: "x" });
+        link.dispatchEvent(other);
+        const press = new TUIKeyboardEvent("keypress", { key: "Enter" });
+        link.dispatchEvent(press);
+        expect(opened).toEqual([]);
+        expect(other.defaultPrevented).toBe(false);
+
+        const enter = new TUIKeyboardEvent("keydown", { key: "Enter" });
+        link.dispatchEvent(enter);
+        expect(enter.defaultPrevented).toBe(true);
+        expect(opened).toHaveLength(1);
     });
 
     it("focusFirstButton skips links: they are not buttons", () => {

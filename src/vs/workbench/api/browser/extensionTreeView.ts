@@ -278,7 +278,6 @@ export class ExtensionTreeView implements IWelcomeTree, IDisposable {
     }
 
     private setEmpty(empty: boolean): void {
-        if (empty === this.empty) return;
         const before = this.shouldShowWelcome();
         this.empty = empty;
         if (this.shouldShowWelcome() !== before) this.onDidChangeWelcomeStateEmitter.fire();
