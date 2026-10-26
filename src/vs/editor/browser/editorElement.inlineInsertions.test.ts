@@ -239,6 +239,15 @@ describe("EditorElement — overlays on the composed line", () => {
         // A blank line carries the guide; its insertion at offset 1 is right of column 0.
         expect(app.backend.getTextAt(new Point(gutterW, 2), 3)).toBe("│@ ");
     });
+
+    it("an indent guide past column 0 moves only by the insertions left of it", () => {
+        const { app, editor, gutterW } = createEditor("  if {\n      a\n  }", [{ line: 1, offset: 1, text: "@" }]);
+        editor.viewState.setFoldingRegions([{ startLine: 0, endLine: 2, isCollapsed: false }]);
+        app.render();
+
+        // Header indent 2: the guide stands on document column 2, composed column 3.
+        expect(app.backend.getTextAt(new Point(gutterW, 1), 8)).toBe(" @ │   a");
+    });
 });
 
 describe("EditorElement — caret and mouse around insertions", () => {
@@ -386,6 +395,27 @@ describe("EditorElement — insertion style", () => {
         expect(cell(1).style & StyleFlags.Italic).toBe(StyleFlags.Italic);
         expect(cell(2).style & StyleFlags.Italic).toBe(0);
         expect(cell(3).style & StyleFlags.Italic).toBe(0);
+    });
+
+    it("ghost text is an italic insertion, the owner's plain one next to it is not", () => {
+        const viewState = new EditorViewState(new TextDocument("ab"));
+        const editor = new EditorElement(viewState);
+        editor.setInlineInsertions([{ line: 0, offset: 1, text: "P" }]);
+        editor.setGhostText({ line: 0, character: 1, lines: ["G"] });
+        const size = new Size(20, 2);
+        const screen = new TerminalScreen(size);
+        editor.localPosition = new Offset(0, 0);
+        editor.layout(BoxConstraints.tight(size));
+        editor.performStyleResolution({
+            ...ROOT_STYLE_CONTEXT,
+            vars: extendVarScope(ROOT_STYLE_CONTEXT.vars, STYLE_VARS),
+        });
+        editor.render(new RenderContext(screen, new Offset(0, 0), new Rect(new Point(0, 0), size)));
+
+        const cell = (col: number) => screen.getCell(new Point(editor.gutterWidth + col, 0));
+        expect([0, 1, 2, 3].map((col) => cell(col).char).join("")).toBe("aGPb");
+        expect(cell(1).style & StyleFlags.Italic).toBe(StyleFlags.Italic);
+        expect(cell(2).style & StyleFlags.Italic).toBe(0);
     });
 });
 

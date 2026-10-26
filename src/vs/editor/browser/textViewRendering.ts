@@ -270,6 +270,7 @@ export function paintTextLine(context: RenderContext, params: IPaintTextLinePara
             shift += insertions[next].length;
             next++;
         }
+        // Stryker disable next-line ConditionalExpression: past the end the array yields `undefined` anyway
         const insertion = next < insertions.length ? insertions[next] : undefined;
         if (insertion !== undefined && slot.offset >= insertion.offset + shift) {
             fg = insertion.fg;

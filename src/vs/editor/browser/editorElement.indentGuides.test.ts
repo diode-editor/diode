@@ -148,6 +148,8 @@ describe("EditorElement – indentation guides", () => {
         expect(app.backend.getTextAt(new Point(gw, 3), 1)).toBe(GUIDE);
         // Guide A (col. 0) went past the left edge; line text is there.
         expect(app.backend.getTextAt(new Point(gw, 3), 1)).not.toBe(" ");
+        // ...and it is not drawn over the gutter either.
+        expect(app.backend.getTextAt(new Point(gw - 2, 3), 1)).not.toBe(GUIDE);
     });
 
     it("skips regions that lie entirely outside the visible window", () => {

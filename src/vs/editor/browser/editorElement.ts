@@ -1153,7 +1153,9 @@ export class EditorElement extends TUIElement implements IScrollable {
                 if (bodyIndent !== -1 && bodyIndent <= col) continue;
                 const screenX =
                     geo.gutterW + col + this.insertionShiftAt(geo.insertions, logLine, col) - geo.scrollLeft;
-                if (screenX < geo.gutterW || screenX >= geo.gutterW + geo.contentCols) continue;
+                if (screenX < geo.gutterW) continue;
+                // Stryker disable next-line ConditionalExpression,EqualityOperator: the render context clips at the element's right edge, a guide past it is not drawn either way
+                if (screenX >= geo.gutterW + geo.contentCols) continue;
                 context.setCell(screenX, screenY, { char: INDENT_GUIDE, fg, bg: editorBg });
                 const columns = guideCells.get(screenY);
                 // Nested regions give several guides per row: add, don't replace.
@@ -1170,6 +1172,7 @@ export class EditorElement extends TUIElement implements IScrollable {
      * same whitespace character of the composed line. Past the end of a blank line all of them do.
      */
     private insertionShiftAt(insertions: LineInsertions, line: number, col: number): number {
+        // Stryker disable next-line ConditionalExpression: a shortcut, with no insertions the composed line is the document line and the shift is 0
         if (!insertions.has(line)) return 0;
         const content = this.viewState.document.getLineContent(line);
         const documentLine = this.viewState.displayLineFor(content);
