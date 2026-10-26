@@ -19,7 +19,7 @@ async function makeHarness() {
     };
     const harness = await createExtensionTestHarness({
         extensions: [extensionFixture("test.claude", "claudeCodeSurface.cjs")],
-        environment: { machineId: () => "f00d", defaultShell: () => "/usr/bin/fish" },
+        environment: { machineId: () => "f00d", defaultShell: () => "/usr/bin/fish", appRoot: () => "" },
         statusBarItemSink: new ExtensionStatusBarAdapter(bar, {
             execute: () => Promise.resolve(undefined),
             registerProxy: () => ({ dispose: () => undefined }),

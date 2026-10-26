@@ -35,7 +35,7 @@ works. The ⛔ surfaces live inside `window`, see [the ceiling](#not-supported-b
 | [`vscode.commands`](#vscodecommands) | 🟡 | 3/4 |
 | [`vscode.extensions`](#vscodeextensions) | 🟡 | 3/3 |
 | [`vscode.l10n`](#vscodel10n) | 🟡 | 3/3 |
-| [`vscode.env`](#vscodeenv) | 🟡 | 15/21 |
+| [`vscode.env`](#vscodeenv) | 🟡 | 16/21 |
 | [`vscode.tasks`](#vscodetasks) | 🟡 | 8/8 |
 | [`vscode.authentication`](#vscodeauthentication) | 🟡 | 4/4 |
 | [`vscode.comments`](#vscodecomments) | 🟡 | 1/1 |
@@ -210,7 +210,7 @@ The task types follow the contract, with differences:
 
 ## vscode.env
 
-🟡 **15/21.** The clipboard, opening external links and the environment constants that extensions
+🟡 **16/21.** The clipboard, opening external links and the environment constants that extensions
 read in `activate()` (language clients, telemetry reporters).
 
 | member | status | comment |
@@ -226,6 +226,7 @@ read in `activate()` (language clients, telemetry reporters).
 | `machineId` | ✅ | as in VS Code: sha256 of the first MAC address (a uuid without one), stable between runs |
 | `shell` | ✅ | the shell the integrated terminal launches (`$SHELL`, the account's shell, `sh`; `%COMSPEC%` on Windows); there are no terminal profiles to change it |
 | `onDidChangeShell` | ✅ | a valid event that never fires (the shell does not change) |
+| `appRoot` | 🟡 | an existing directory with ripgrep at VS Code's path, `node_modules/@vscode/ripgrep/bin/rg` (`rg.exe` on Windows): extensions that look for rg there (Todo Tree) find it. Deviation: Diode is a single binary with no install directory, so `appRoot` is a Diode directory in the user cache (`~/.cache/diode/rg/…`) that holds only this layout; extensions that expect other VS Code files under it (`extensions/`, `out/vs/…`) won't find them. An empty string when the cache is not writable |
 | `isNewAppInstall`, `isAppPortable` | 🕐 | |
 | `asExternalUri` | 🕐 | there is no OS protocol handler for `diode://` yet |
 | `logLevel`, `onDidChangeLogLevel` | 🕐 | |

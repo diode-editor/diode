@@ -4,8 +4,10 @@
  * cannot run from the SEA blob, so `loadRipgrep.ts` unpacks it to disk.
  *
  * The binary comes from `@vscode/ripgrep-<platform>-<arch>` of the current platform (SEA is
- * built on its own OS). The virtual name (`rg` / `rg.exe`) must match
- * `RG_BINARY_NAME` in `src/vs/workbench/services/search/node/loadRipgrep.ts`.
+ * built on its own OS). The virtual path is VS Code's app root layout,
+ * `node_modules/@vscode/ripgrep/bin/rg` (`rg.exe`): the unpacked directory is `vscode.env.appRoot`, and
+ * extensions look for rg there. It must match `RIPGREP_APP_ROOT_DIR` in
+ * `src/vs/workbench/services/search/node/loadRipgrep.ts`.
  *
  * Verified on linux-x64; macOS/Windows are not verified end to end.
  */
@@ -15,6 +17,8 @@ import { createRequire } from "node:module";
 import { join, resolve } from "node:path";
 
 import { packBundle } from "./pack-assets.mjs";
+
+export const RIPGREP_APP_ROOT_DIR = "node_modules/@vscode/ripgrep/bin";
 
 /**
  * @param {{ repoRoot: string }} params
@@ -35,7 +39,9 @@ export function buildRipgrepBundle({ repoRoot }) {
         );
     }
 
-    const bundle = packBundle([{ virtualPath: binaryName, data: readFileSync(rgBinaryPath) }]);
+    const bundle = packBundle([
+        { virtualPath: `${RIPGREP_APP_ROOT_DIR}/${binaryName}`, data: readFileSync(rgBinaryPath) },
+    ]);
     return { bundle, binaryName, rgBinaryPath };
 }
 
