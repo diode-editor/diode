@@ -30,3 +30,15 @@ export function setUnexpectedErrorHandler(handler: (e: unknown) => void): void {
 export function onUnexpectedError(e: unknown): void {
     unexpectedErrorHandler(e);
 }
+
+/**
+ * A write to a closed pipe (the reader of our stdout/stderr is gone): there is nowhere left to report it.
+ */
+export function isSigPipeError(e: unknown): e is Error {
+    if (e === null || typeof e !== "object") {
+        return false;
+    }
+
+    const cast = e as Record<string, string | undefined>;
+    return cast.code === "EPIPE" && cast.syscall?.toUpperCase() === "WRITE";
+}

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { onUnexpectedError, setUnexpectedErrorHandler } from "./errors.ts";
+import { isSigPipeError, onUnexpectedError, setUnexpectedErrorHandler } from "./errors.ts";
 
 /** Deviation from upstream: the default logs to the console instead of crashing the process (see the errors.ts header). */
 
@@ -34,5 +34,25 @@ describe("onUnexpectedError", () => {
         const error = new Error("custom");
         onUnexpectedError(error);
         expect(handler).toHaveBeenCalledExactlyOnceWith(error);
+    });
+});
+
+describe("isSigPipeError", () => {
+    const withCode = (code: string, syscall?: string): Error =>
+        Object.assign(new Error(code), { code, ...(syscall !== undefined ? { syscall } : {}) });
+
+    it("EPIPE from a write, in any case of the syscall name", () => {
+        expect(isSigPipeError(withCode("EPIPE", "write"))).toBe(true);
+        expect(isSigPipeError(withCode("EPIPE", "WRITE"))).toBe(true);
+    });
+
+    it("not EPIPE, not a write, or not an object at all", () => {
+        expect(isSigPipeError(withCode("ECONNRESET", "write"))).toBe(false);
+        expect(isSigPipeError(withCode("EPIPE", "read"))).toBe(false);
+        expect(isSigPipeError(withCode("EPIPE"))).toBe(false);
+        expect(isSigPipeError(new Error("EPIPE"))).toBe(false);
+        expect(isSigPipeError(null)).toBe(false);
+        expect(isSigPipeError(undefined)).toBe(false);
+        expect(isSigPipeError("EPIPE")).toBe(false);
     });
 });
