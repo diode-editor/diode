@@ -39,6 +39,11 @@
   И на #802 (ран 40088033182, дифф — follow, путь перечитки в память не трогает). Тест читает ~5 МиБ в piece
   tree дважды: на `main` он же идёт 4,8 с из 5 (ран 40082417816), локально 0,9 с. Лечение — файл поменьше или
   свой срок с замером, а не голый подъём таймаута.
+- [ ] e2e windows, SEA-бинарь целиком: stderr каждого запуска начинается с `Error: V8 rejected the code cache
+  of …`, и падают все тесты, которые ждут пустой stderr (установка расширений из CLI и реестра, `roleChunks`).
+  Свалил e2e windows на PR #873 (ран 40257684987, дифф — обработчик `uncaughtException` в субпроцессе
+  расширений, сборку не трогает); прошлый и следующий прогоны той же ветки зелёные. Не в `test-flakes.json`:
+  это сборка, а не тест.
 - [ ] e2e `extensionUpdates.stage3.functional.test.ts` › «US-3.3: many clock moves in a row — exactly one
   check per 12 hours, no piled-up timers» (windows): `expected 1 to be 2` — после серии `Diode.advanceClock`
   вторая проверка обновлений не успела дойти до реестра. Свалил e2e windows на PR #798 (ран 40034642872,
