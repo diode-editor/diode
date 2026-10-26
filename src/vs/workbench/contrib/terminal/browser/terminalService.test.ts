@@ -24,7 +24,7 @@ function buildHarness(shell?: string, settings: Readonly<Record<string, unknown>
     const service = new TerminalService(views.service, configuration, factory);
     // The workbench mount() builds the TERMINAL container — this stands in for it.
     views.service.attachRegisteredContainers();
-    return { panelService, views, service, created: sessions, factoryOptions };
+    return { panelService, views, service, configuration, created: sessions, factoryOptions };
 }
 
 describe("TerminalService — instances", () => {
@@ -254,6 +254,48 @@ describe("TerminalService — instance title", () => {
         h.service.openTerminal();
         expect(h.service.getInstances()[0].title).toBe("zsh");
         vi.unstubAllEnvs();
+        h.service.dispose();
+    });
+});
+
+describe("TerminalService — terminal.integrated.enableKittyKeyboardProtocol", () => {
+    it("enables the protocol on new sessions by default", () => {
+        const h = buildHarness();
+        h.service.openTerminal();
+        expect(h.created[0]?.kittyKeyboardEnabled).toBe(true);
+        h.service.dispose();
+    });
+
+    it("applies the setting to sessions of every host, given ones too", () => {
+        const h = buildHarness(undefined, { "terminal.integrated.enableKittyKeyboardProtocol": false });
+        const given = new FakeTerminalSurface();
+        h.service.createInstance();
+        h.service.createInstance({ hideFromUser: true });
+        h.service.createInstance({ target: "editor" });
+        h.service.createInstance({ session: given });
+        expect([...h.created, given].map((s) => s.kittyKeyboardEnabled)).toStrictEqual([false, false, false, false]);
+        h.service.dispose();
+    });
+
+    it("switches open terminals of every host when the setting changes", async () => {
+        const h = buildHarness();
+        h.service.createInstance();
+        h.service.createInstance({ hideFromUser: true });
+        h.service.createInstance({ target: "editor" });
+        await h.configuration.updateValue("terminal.integrated.enableKittyKeyboardProtocol", false);
+        expect(h.created.map((s) => s.kittyKeyboardEnabled)).toStrictEqual([false, false, false]);
+        await h.configuration.updateValue("terminal.integrated.enableKittyKeyboardProtocol", true);
+        expect(h.created.map((s) => s.kittyKeyboardEnabled)).toStrictEqual([true, true, true]);
+        h.service.dispose();
+    });
+
+    it("ignores other settings", async () => {
+        const h = buildHarness();
+        h.service.createInstance();
+        const session = h.created[0];
+        session.kittyKeyboardEnabled = undefined;
+        await h.configuration.updateValue("terminal.integrated.allowChords", false);
+        expect(session.kittyKeyboardEnabled).toBeUndefined();
         h.service.dispose();
     });
 });

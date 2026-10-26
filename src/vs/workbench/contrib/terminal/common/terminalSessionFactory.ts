@@ -39,6 +39,8 @@ export type ITerminalSession = ITerminalSurface &
         printMessage(text: string): void;
         /** Indices 0..15; recolors already printed output too. */
         setAnsiColors(ansi: readonly number[]): void;
+        /** `terminal.integrated.enableKittyKeyboardProtocol`; off drops the flags a program set. */
+        setKittyKeyboardEnabled(enabled: boolean): void;
         /** Key press for "press any key to close" (upstream `waitOnExit`). */
         readonly onDidInputAfterExit: Event<void>;
         /**

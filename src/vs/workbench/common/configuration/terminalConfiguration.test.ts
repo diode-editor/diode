@@ -33,3 +33,15 @@ describe("terminalConfiguration — keys in the focused terminal (verbatim upstr
         expect(listed[0]).toBe("- editor.action.accessibilityHelp");
     });
 });
+
+describe("terminalConfiguration — kitty keyboard protocol (verbatim upstream)", () => {
+    it("enableKittyKeyboardProtocol: a boolean on by default with the upstream description", () => {
+        expect(terminalConfiguration.properties["terminal.integrated.enableKittyKeyboardProtocol"]).toStrictEqual({
+            scope: "window",
+            type: "boolean",
+            default: true,
+            description:
+                "Whether to enable the kitty keyboard protocol, which allows a program in the terminal to request more detailed keyboard input reporting. This can, for example, enable `Shift+Enter` to be handled by the program.",
+        });
+    });
+});
