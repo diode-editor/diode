@@ -1,5 +1,4 @@
 import type { TUIKeyboardEvent } from "@tuidom/core/dom/events/tuiKeyboardEvent";
-import { encodeKeyForPty } from "@tuidom/elements/terminal/encodeKeyForPty";
 import { TerminalViewElement } from "@tuidom/elements/terminal/terminalViewElement";
 
 import { Disposable } from "../../../../base/common/lifecycle.ts";
@@ -16,7 +15,17 @@ import { KeybindingDispatcherDIToken } from "../../../services/keybinding/browse
 
 export const TerminalKeyRoutingDIToken = token<TerminalKeyRouting>("TerminalKeyRouting");
 
-const DEFAULT_SKIP_SHELL: ReadonlySet<string> = new Set(DEFAULT_COMMANDS_TO_SKIP_SHELL);
+/**
+ * Ours on top of upstream's set: there F6 is `workbench.action.focusNextPart` (in the set), which reaches the
+ * notification toasts among the parts; here F6 is `notifications.focusMessage`, the only keyboard path to an
+ * asking toast, so it keeps the same place.
+ */
+const DIODE_COMMANDS_TO_SKIP_SHELL: readonly string[] = ["notifications.focusMessage"];
+
+const DEFAULT_SKIP_SHELL: ReadonlySet<string> = new Set([
+    ...DEFAULT_COMMANDS_TO_SKIP_SHELL,
+    ...DIODE_COMMANDS_TO_SKIP_SHELL,
+]);
 
 /**
  * Upstream `_updateConfig` + `shouldCommandSkipShell`: the defaults, then the user's entries in order —
@@ -83,6 +92,6 @@ export class TerminalKeyRouting extends Disposable implements IWorkbenchContribu
         }
         // Ours: no xterm.js. A key the terminal can't encode (Ctrl+, , Ctrl+Shift+letter) goes back to the
         // workbench, the way xterm.js leaves it unhandled and it bubbles.
-        return encodeKeyForPty(event) !== "";
+        return event.target.encodeKey(event) !== "";
     }
 }

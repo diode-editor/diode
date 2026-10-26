@@ -404,4 +404,11 @@ describe("TerminalLinkSurface", () => {
         });
         expect(surface.isExited).toBe(true);
     });
+
+    it("application cursor keys follow the session", async () => {
+        await setup("ab");
+        expect(surface.applicationCursorKeys).toBe(false);
+        await setup("ab\x1b[?1h");
+        expect(surface.applicationCursorKeys).toBe(true);
+    });
 });

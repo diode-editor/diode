@@ -55,6 +55,10 @@ export class TerminalLinkSurface implements ITerminalSurface {
         return this.session.mouseEventsActive;
     }
 
+    public get applicationCursorKeys(): boolean {
+        return this.session.applicationCursorKeys;
+    }
+
     public get scrollOffset(): number {
         return this.session.scrollOffset;
     }

@@ -24,6 +24,11 @@ export default defineScenario({
         { key: "f8", command: "workbench.action.selectTheme" },
         { key: "f9", command: "workbench.action.terminal.toggleTerminal" },
     ],
+    // F8 is pressed with the terminal focused: like in VS Code, a user binding reaches the workbench from there only
+    // through the skip set, otherwise the key goes to the shell (#856).
+    settings: {
+        "terminal.integrated.commandsToSkipShell": ["workbench.action.selectTheme"],
+    },
     // node-pty spawns a real PTY — like terminal.scenario.ts, Linux only.
     skipOn: ["win32", "darwin"],
     async run(editor) {
