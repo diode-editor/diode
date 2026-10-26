@@ -15,6 +15,10 @@
                 "title": "Tree Outline: Add Target"
             },
             {
+                "command": "treeOutline.revealServer",
+                "title": "Tree Outline: Reveal Server"
+            },
+            {
                 "command": "treeOutline.run",
                 "title": "Tree Outline: Run Target"
             },

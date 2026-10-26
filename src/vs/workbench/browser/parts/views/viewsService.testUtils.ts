@@ -41,7 +41,7 @@ export interface IViewsHarness {
     readonly stored: Map<string, unknown>;
     openWorkspace(): void;
     readonly viewlets: string[];
-    readonly shownViewlets: { id: string; reveal: boolean | undefined }[];
+    readonly shownViewlets: { id: string; reveal: boolean | undefined; focus?: boolean }[];
     readonly hiddenViewlets: string[];
     /** ViewsService resolves header buttons only for the shown container. */
     showViewlet(containerId: string): void;
@@ -59,7 +59,7 @@ export function makeViewsHarness(
     icons?: IProductIconService,
 ): IViewsHarness {
     const registered = new Map<string, { view: TUIElement; focus: () => void }>();
-    const shownViewlets: { id: string; reveal: boolean | undefined }[] = [];
+    const shownViewlets: { id: string; reveal: boolean | undefined; focus?: boolean }[] = [];
     // The active viewlet decides whether ViewsService computes header buttons now or when shown.
     let activeViewlet: string | null = null;
     const activeViewletEmitter = new Emitter<string>();
@@ -68,8 +68,8 @@ export function makeViewsHarness(
         registerViewlet: (id: string, view: TUIElement, focus: () => void) => {
             registered.set(id, { view, focus });
         },
-        showViewlet: (id: string, reveal?: boolean) => {
-            shownViewlets.push({ id, reveal });
+        showViewlet: (id: string, reveal?: boolean, focus?: boolean) => {
+            shownViewlets.push({ id, reveal, focus });
             if (!registered.has(id) || activeViewlet === id) return;
             activeViewlet = id;
             activeViewletEmitter.fire(id);

@@ -48,7 +48,7 @@ describe("ViewsService — container switcher on the sidebar title", () => {
         const entries = (delegate?.getEntries?.() ?? []) as MenuItemEntry[];
         expect(labels(entries)).toEqual([" Explorer", "●Source Control"]);
         entries[0].onSelect?.();
-        expect(h.shownViewlets.at(-1)).toEqual({ id: "explorer", reveal: true });
+        expect(h.shownViewlets.at(-1)).toEqual({ id: "explorer", reveal: true, focus: true });
     });
 
     it("a container moved to the panel leaves the list and its tab strip gets no switcher", () => {
