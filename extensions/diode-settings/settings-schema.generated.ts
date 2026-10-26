@@ -308,10 +308,36 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
         description: "Glob patterns to hide from the file tree and from search. Matched relative to the folder.",
     },
     {
+        key: "files.insertFinalNewline",
+        type: "boolean",
+        default: false,
+        description: "When enabled, insert a final new line at the end of the file when saving it.",
+    },
+    {
         key: "files.refactoring.autoSave",
         type: "boolean",
         default: true,
         description: "Controls if files that were part of a refactoring are saved automatically",
+    },
+    {
+        key: "files.trimFinalNewlines",
+        type: "boolean",
+        default: false,
+        description:
+            "When enabled, will trim all new lines after the final new line at the end of the file when saving it.",
+    },
+    {
+        key: "files.trimTrailingWhitespace",
+        type: "boolean",
+        default: false,
+        description: "When enabled, will trim trailing whitespace when saving a file.",
+    },
+    {
+        key: "files.trimTrailingWhitespaceInRegexAndStrings",
+        type: "boolean",
+        default: true,
+        description:
+            "When enabled, trailing whitespace will be removed from multiline strings and regexes on save or when executing 'editor.action.trimTrailingWhitespace'. This can cause whitespace to not be trimmed from lines when there isn't up-to-date token information.",
     },
     {
         key: "files.watcherExclude",

@@ -27,6 +27,34 @@ export const filesConfiguration = {
             description:
                 "Controls [auto save](https://code.visualstudio.com/docs/editor/codebasics#_save-auto-save) of editors that have unsaved changes.",
         },
+        // Verbatim from upstream (`files.contribution.ts`); save participants in
+        // `services/editor/browser/whitespaceSaveParticipants.ts`.
+        "files.trimTrailingWhitespace": {
+            scope: "language-overridable",
+            type: "boolean",
+            default: false,
+            description: "When enabled, will trim trailing whitespace when saving a file.",
+        },
+        "files.trimTrailingWhitespaceInRegexAndStrings": {
+            scope: "language-overridable",
+            type: "boolean",
+            default: true,
+            description:
+                "When enabled, trailing whitespace will be removed from multiline strings and regexes on save or when executing 'editor.action.trimTrailingWhitespace'. This can cause whitespace to not be trimmed from lines when there isn't up-to-date token information.",
+        },
+        "files.insertFinalNewline": {
+            scope: "language-overridable",
+            type: "boolean",
+            default: false,
+            description: "When enabled, insert a final new line at the end of the file when saving it.",
+        },
+        "files.trimFinalNewlines": {
+            scope: "language-overridable",
+            type: "boolean",
+            default: false,
+            description:
+                "When enabled, will trim all new lines after the final new line at the end of the file when saving it.",
+        },
         // Verbatim from upstream (`bulkEditService.ts`). Without it "Move to a new file" leaves the source
         // dirty in its buffer, and closing without saving duplicates the class.
         "files.refactoring.autoSave": {

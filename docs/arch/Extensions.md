@@ -1279,13 +1279,26 @@ builtin `diode-lsp-typescript` (см. «Builtin LSP-клиент» выше) и�
   `source.fixAll.ruff`) и `apply` вернувшихся действий по порядку; формат — по свежему тексту, с
   отбросом устаревшего ответа и схлопыванием каретки (общий хвост `applyFormattingEdits` с Format
   Document).
+- **Пробелы и переводы строк** (`services/editor/browser/whitespaceSaveParticipants.ts`, upstream
+  `saveParticipants.ts`): `files.trimTrailingWhitespace` — первым, до code actions;
+  `files.insertFinalNewline` и `files.trimFinalNewlines` — после формата, перед will-save. Полный
+  порядок: trim → code actions → формат → final newline → trim final newlines → will-save (последний —
+  наше отступление, он и был последним). Настройки читаются в момент save с `overrideIdentifier`
+  языка; выключена — провайдер отдаёт `null`, участника нет. Алгоритм удаления хвоста — общий с
+  командой `editor.action.trimTrailingWhitespace`: `editor/common/commands/trimTrailingWhitespace.ts`
+  (только `' '`/`'\t'`; при `files.trimTrailingWhitespaceInRegexAndStrings: false` строка без точных
+  токенов или с хвостом в String/RegEx пропускается; токены — `viewState.tokenStore` панели, без
+  панели их нет). Строку с курсором не защищаем: автосохранения нет, а эталон защищает только при нём.
+  Финальный перевод строки — `"\n"`, на диск уходит EOL файла. Модель без edit target (ни одной
+  вкладки и стороны диффа) правок участников не принимает вовсе — `applyExternalEdits` без
+  представления no-op; это общее для всех участников.
 - **Таймаут** — 5000 мс на участника (`SAVE_PARTICIPANT_TIMEOUT_MS`): зависший или сбойный
   пропускается, сохраняем как есть (как VS Code).
 - **Люфты:** порядок kinds — порядок ключей настройки (VS Code сортирует fixAll-семейство); действия
   одного kind применяются списком без пере-запроса между apply (как в VS Code); сохранение по таймауту
   участника может получить его правки уже ПОСЛЕ записи (буфер останется «грязным»).
 - Гейты: `editorService.onSave.test.ts`, `onSaveParticipants.test.ts`,
-  `textFileSaveParticipant.test.ts`; стоковый стек — `extensionHost.ruffLsp.onSave.test.ts` (fixAll
+  `textFileSaveParticipant.test.ts`, `editorService.whitespaceOnSave.test.ts`; стоковый стек — `extensionHost.ruffLsp.onSave.test.ts` (fixAll
   чинит F401 и формат на диске за один Ctrl+S).
 
 ## Правило роста `vscode.d.ts` (важно)

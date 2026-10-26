@@ -2,16 +2,19 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
 import { createTestActiveEditorService } from "../../../../../TestUtils/testActiveEditorService.ts";
+import { createTestConfigurationService } from "../../../../../TestUtils/testConfigurationService.ts";
 import { createTestEditorContextMenuController } from "../../../../../TestUtils/testEditorContextMenu.ts";
 import { createEditorPane } from "../../../../../TestUtils/TextEditorPaneFactory.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import { createCursorSelection } from "../../../../editor/common/core/iSelection.ts";
+import { StandardTokenType } from "../../../../editor/common/encodedTokenAttributes.ts";
 import { NULL_LANGUAGE_SERVICE } from "../../../../editor/common/languages/iLanguageService.ts";
 import { NULL_TOKEN_STYLE_RESOLVER } from "../../../../editor/common/languages/iTokenStyleResolver.ts";
 import { TokenizationRegistry } from "../../../../editor/common/languages/tokenizationRegistry.ts";
 import type { CommandAction } from "../../../../platform/actions/common/commandAction.ts";
 import { registerAction } from "../../../../platform/actions/common/commandAction.ts";
 import { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
+import { IConfigurationServiceDIToken } from "../../../../platform/configuration/common/iConfigurationServiceDIToken.ts";
 import { NULL_CONFIGURATION_SERVICE } from "../../../../platform/configuration/common/nullConfigurationService.ts";
 import { NULL_FILE_WATCHER } from "../../../../platform/files/common/iFileWatcher.ts";
 import { Container } from "../../../../platform/instantiation/common/diContainer.ts";
@@ -20,6 +23,7 @@ import { NULL_LOG_SERVICE } from "../../../../platform/log/common/nullLogService
 import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";
 import { UndoRedoService } from "../../../../platform/undoRedo/common/undoRedoService.ts";
 import { redoAction, undoAction } from "../../../browser/actions/editorEditActions.ts";
+import type { TextEditorPane } from "../../../browser/parts/editor/textEditorPane.ts";
 import { EditorService } from "../../../services/editor/browser/editorService.ts";
 import { EditorServiceDIToken } from "../../../services/editor/common/editorService.ts";
 import { darkPlusTheme } from "../../../services/themes/common/themes/darkPlus.ts";
@@ -29,7 +33,7 @@ import { insertFinalNewLineAction, trimTrailingWhitespaceAction } from "./whites
 
 let ws: ITempWorkspace;
 
-function openEditor(content: string) {
+function openEditor(content: string, settings: Record<string, unknown> = {}) {
     const editor = createEditorPane();
     editor.openFile(Uri.file(ws.writeFile("doc.txt", content)));
     const ctrl = createTestActiveEditorService(editor);
@@ -38,6 +42,7 @@ function openEditor(content: string) {
     const keybindings = new KeybindingRegistry();
     const accessor = new Container();
     accessor.bind(EditorServiceDIToken, () => ctrl);
+    accessor.bind(IConfigurationServiceDIToken, () => createTestConfigurationService(settings));
 
     function exec(action: CommandAction): void {
         registerAction(commands, keybindings, accessor, action);
@@ -87,6 +92,50 @@ describe("WhitespaceActions — trimTrailingWhitespace", () => {
         exec(trimTrailingWhitespaceAction);
         expect(editor.getText()).toBe("clean\nlines\n");
         expect(editor.isModified).toBe(false);
+    });
+});
+
+describe("WhitespaceActions — trimTrailingWhitespace and files.trimTrailingWhitespaceInRegexAndStrings", () => {
+    const OFF = { "files.trimTrailingWhitespaceInRegexAndStrings": false };
+
+    /** Line 0's tail sits in a String token, the rest is code. */
+    function stringOnFirstLine(): NonNullable<TextEditorPane["viewState"]["tokenStore"]> {
+        return {
+            hasAccurateTokensForLine: () => true,
+            getLineTokens: (line: number) => ({
+                findTokenIndexAtOffset: () => 0,
+                getStandardTokenType: () => (line === 0 ? StandardTokenType.String : StandardTokenType.Other),
+            }),
+        } as unknown as NonNullable<TextEditorPane["viewState"]["tokenStore"]>;
+    }
+
+    it("off: the tail inside a string stays, code lines are trimmed", () => {
+        const { editor, exec } = openEditor("`a   \nb`;  ", OFF);
+        editor.viewState.tokenStore = stringOnFirstLine();
+        exec(trimTrailingWhitespaceAction);
+        expect(editor.getText()).toBe("`a   \nb`;");
+    });
+
+    it("on (the default): strings are trimmed too", () => {
+        const { editor, exec } = openEditor("`a   \nb`;  ");
+        editor.viewState.tokenStore = stringOnFirstLine();
+        exec(trimTrailingWhitespaceAction);
+        expect(editor.getText()).toBe("`a\nb`;");
+    });
+
+    it("off and the language override is honored: [plaintext] turns it back on", () => {
+        const { editor, exec } = openEditor("a  ", {
+            ...OFF,
+            "[plaintext]": { "files.trimTrailingWhitespaceInRegexAndStrings": true },
+        });
+        exec(trimTrailingWhitespaceAction);
+        expect(editor.getText()).toBe("a");
+    });
+
+    it("off without tokens: nothing is trimmed", () => {
+        const { editor, exec } = openEditor("a  \nb ", OFF);
+        exec(trimTrailingWhitespaceAction);
+        expect(editor.getText()).toBe("a  \nb ");
     });
 });
 

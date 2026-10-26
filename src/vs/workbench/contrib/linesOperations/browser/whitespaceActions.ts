@@ -1,5 +1,7 @@
-import { createDeleteEdit, createInsertEdit, type ITextEdit } from "../../../../editor/common/core/iTextEdit.ts";
+import { trimTrailingWhitespaceRanges } from "../../../../editor/common/commands/trimTrailingWhitespace.ts";
+import { createInsertEdit, createTextEdit } from "../../../../editor/common/core/iTextEdit.ts";
 import type { CommandAction } from "../../../../platform/actions/common/commandAction.ts";
+import { IConfigurationServiceDIToken } from "../../../../platform/configuration/common/iConfigurationServiceDIToken.ts";
 import { EditorServiceDIToken } from "../../../services/editor/common/editorService.ts";
 
 export const trimTrailingWhitespaceAction: CommandAction = {
@@ -10,15 +12,14 @@ export const trimTrailingWhitespaceAction: CommandAction = {
         const editor = accessor.get(EditorServiceDIToken).getActiveEditor();
         if (!editor) return;
 
-        const lines = editor.getText().split("\n");
-        const edits: ITextEdit[] = [];
-        for (let i = 0; i < lines.length; i++) {
-            const line = lines[i];
-            const trimmedLength = line.replace(/[ \t]+$/, "").length;
-            if (trimmedLength < line.length) {
-                edits.push(createDeleteEdit(i, trimmedLength, i, line.length));
-            }
-        }
+        const trimInRegexAndStrings = accessor
+            .get(IConfigurationServiceDIToken)
+            .get("files.trimTrailingWhitespaceInRegexAndStrings", { overrideIdentifier: editor.languageId });
+        const edits = trimTrailingWhitespaceRanges(
+            editor.getText().split("\n"),
+            trimInRegexAndStrings,
+            editor.viewState.tokenStore,
+        ).map((range) => createTextEdit(range, ""));
         editor.applyExternalEdits(edits, "Trim Trailing Whitespace");
     },
 };
