@@ -1,3 +1,4 @@
+import { onUnexpectedError } from "../../../../base/common/errors.ts";
 import { Disposable, type IDisposable } from "../../../../base/common/lifecycle.ts";
 import type { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
 import { CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
@@ -128,7 +129,10 @@ export class LanguageStatusContribution extends Disposable implements IWorkbench
             text,
             alignment: "right",
             priority: LANGUAGE_STATUS_PRIORITY,
-            onClick: () => void this.showPicker(),
+            // A fire-and-forget promise must not reject past the click: an unhandled rejection takes the process down.
+            onClick: () => {
+                this.showPicker().catch(onUnexpectedError);
+            },
         });
     }
 
