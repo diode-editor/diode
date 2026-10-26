@@ -48,3 +48,8 @@ This page collects both in one place; what is missing altogether is on [Status](
   brought back yet.
 - **Window title** is `<folder> - <profile> - Diode`, like VS Code's, and inside tmux it is the
   pane title ([window title](TERMINAL.md#window-title)).
+- **`Ctrl+Shift+E`, `Ctrl+Shift+F` and `Ctrl+Shift+G` in the integrated terminal** always show
+  Explorer, Search and Source Control, even when a program in the terminal (Claude Code, for one)
+  turns on the kitty keyboard protocol; VS Code sends them to the program then. To give one to the
+  program, add `-workbench.view.explorer` (or `.search`, `.scm`) to
+  `terminal.integrated.commandsToSkipShell`.

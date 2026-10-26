@@ -100,6 +100,7 @@ const EXPECTED_SCOPES: Readonly<Record<string, ConfigurationScope>> = {
     "terminal.integrated.commandsToSkipShell": "window",
     "terminal.integrated.allowChords": "window",
     "terminal.integrated.allowMnemonics": "window",
+    "terminal.integrated.enableKittyKeyboardProtocol": "window",
     // There is one host terminal per process, not per window or folder.
     "terminal.integrated.colorSource": "application",
 

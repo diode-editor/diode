@@ -411,4 +411,11 @@ describe("TerminalLinkSurface", () => {
         await setup("ab\x1b[?1h");
         expect(surface.applicationCursorKeys).toBe(true);
     });
+
+    it("kitty keyboard flags follow the session", async () => {
+        await setup("ab");
+        expect(surface.kittyKeyboardFlags).toBe(0);
+        await setup("ab\x1b[>5u");
+        expect(surface.kittyKeyboardFlags).toBe(5);
+    });
 });

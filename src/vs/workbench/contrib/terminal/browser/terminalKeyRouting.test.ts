@@ -16,6 +16,14 @@ describe("shouldCommandSkipShell", () => {
         expect(shouldCommandSkipShell("notifications.focusMessage", ["-notifications.focusMessage"])).toBe(false);
     });
 
+    it.each(["workbench.view.explorer", "workbench.view.search", "workbench.view.scm"])(
+        "ours: %s (Ctrl+Shift+E/F/G, encodable under the kitty protocol) is in the default set and can be removed",
+        (command) => {
+            expect(shouldCommandSkipShell(command, [])).toBe(true);
+            expect(shouldCommandSkipShell(command, [`-${command}`])).toBe(false);
+        },
+    );
+
     it("`-<id>` removes a default, `<id>` adds a command", () => {
         expect(shouldCommandSkipShell(QUICK_OPEN, [`-${QUICK_OPEN}`])).toBe(false);
         expect(shouldCommandSkipShell(SAVE, [SAVE])).toBe(true);

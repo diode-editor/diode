@@ -287,6 +287,80 @@ describe("Workbench — keys in the focused terminal go to the shell, like VS Co
         });
     });
 
+    /** #857: a program switched on the kitty keyboard protocol (CSI > 1 u); the outer terminal speaks kitty too. */
+    describe("kitty keyboard protocol in the terminal", () => {
+        function bootKitty(flags: number): void {
+            boot();
+            surface.kittyKeyboardFlags = flags;
+        }
+
+        it.each([
+            ["Shift+Enter", "\x1b[13;2u", "\x1b[13;2u"],
+            ["Ctrl+I", "\x1b[105;5u", "\x1b[105;5u"],
+            ["Ctrl+B", "\x1b[98;5u", "\x1b[98;5u"],
+            ["Escape", "\x1b[27u", "\x1b[27u"],
+            ["a", "a", "a"],
+        ])("%s reaches the shell in the protocol's encoding", (_name, raw, bytes) => {
+            bootKitty(1);
+
+            h.testApp.backend.sendRaw(raw);
+
+            expect(surface.writes).toEqual([bytes]);
+            expect(terminalFocused()).toBe(true);
+        });
+
+        it.each([
+            ["Ctrl+Shift+E", "\x1b[101;6u"],
+            ["Ctrl+Shift+F", "\x1b[102;6u"],
+            ["Ctrl+Shift+G", "\x1b[103;6u"],
+        ])("%s (skip set) opens its view instead of reaching the shell", async (_name, raw) => {
+            bootKitty(1);
+
+            h.testApp.backend.sendRaw(raw);
+
+            expect(surface.writes).toEqual([]);
+            await vi.waitFor(() => {
+                expect(terminalFocused()).toBe(false);
+            });
+        });
+
+        it("Ctrl+Shift+P (skip set) opens the command palette instead of reaching the shell", () => {
+            bootKitty(1);
+
+            h.testApp.backend.sendRaw("\x1b[112;6u");
+
+            expect(surface.writes).toEqual([]);
+            expect(quickOpenShown()).toBe(true);
+        });
+
+        it("with flag 2 the shell gets the release from the outer terminal's keyup", () => {
+            bootKitty(3);
+
+            h.testApp.backend.sendRaw("\x1b[98;5u\x1b[98;5:3u");
+
+            expect(surface.writes).toEqual(["\x1b[98;5u", "\x1b[98;5:3u"]);
+        });
+
+        // VS Code's key handler resolves the keyup like the keydown: a skip-set key or a chord never reaches xterm.js,
+        // so the program never sees a release for a press it didn't get.
+        it("with flag 2 the release of a skip-set key (Shift+PageUp scrolls) stays with the workbench too", () => {
+            bootKitty(3);
+
+            h.testApp.backend.sendRaw("\x1b[5;2~\x1b[5;2:3~");
+
+            expect(surface.writes).toEqual([]);
+            expect(terminalFocused()).toBe(true);
+        });
+
+        it("with flag 2 the release of Ctrl+K, which starts a chord, doesn't reach the shell", () => {
+            bootKitty(3);
+
+            h.testApp.backend.sendRaw("\x1b[107;5u\x1b[107;5:3u");
+
+            expect(surface.writes).toEqual([]);
+        });
+    });
+
     describe("terminal in the editor area", () => {
         it("Ctrl+B reaches the shell", () => {
             boot({}, "editor");

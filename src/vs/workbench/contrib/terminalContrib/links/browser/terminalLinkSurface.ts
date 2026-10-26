@@ -59,6 +59,10 @@ export class TerminalLinkSurface implements ITerminalSurface {
         return this.session.applicationCursorKeys;
     }
 
+    public get kittyKeyboardFlags(): number {
+        return this.session.kittyKeyboardFlags;
+    }
+
     public get scrollOffset(): number {
         return this.session.scrollOffset;
     }

@@ -144,6 +144,14 @@ export const terminalConfiguration = {
                 .map((command) => `- ${command}`)
                 .join("\n")}`,
         },
+        // Our schema has no `restricted` and `tags: ['advanced']`.
+        "terminal.integrated.enableKittyKeyboardProtocol": {
+            scope: "window",
+            type: "boolean",
+            default: true,
+            description:
+                "Whether to enable the kitty keyboard protocol, which allows a program in the terminal to request more detailed keyboard input reporting. This can, for example, enable `Shift+Enter` to be handled by the program.",
+        },
         "terminal.integrated.allowChords": {
             scope: "window",
             type: "boolean",

@@ -12,6 +12,8 @@ export class FakeTerminalSurface extends EngineFakeTerminalSurface {
     public readonly printed: string[] = [];
     /** `undefined` — never set. */
     public ansiColors: readonly number[] | undefined;
+    /** The last `setKittyKeyboardEnabled`; `undefined` — never set. */
+    public kittyKeyboardEnabled: boolean | undefined;
     private readonly inputAfterExit = new Emitter<void>();
     public readonly onDidInputAfterExit = this.inputAfterExit.event;
     private readonly lineData = new Emitter<string>();
@@ -49,5 +51,9 @@ export class FakeTerminalSurface extends EngineFakeTerminalSurface {
 
     public setAnsiColors(ansi: readonly number[]): void {
         this.ansiColors = ansi;
+    }
+
+    public setKittyKeyboardEnabled(enabled: boolean): void {
+        this.kittyKeyboardEnabled = enabled;
     }
 }
