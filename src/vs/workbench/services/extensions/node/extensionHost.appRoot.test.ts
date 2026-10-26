@@ -33,7 +33,7 @@ describe("ExtensionHost — env.appRoot (subprocess, from sources)", () => {
         });
         try {
             await vi.waitFor(() => {
-                expect(bar.entries().map((e) => e.text)).toContain("appRoot ok");
+                expect(bar.entries().map((e) => e.text)).toContain("appRoot-ok");
             });
             expect(await harness.commandRegistry.execute("test.appRoot.probe")).toStrictEqual({
                 appRoot: loadRipgrepAppRoot(),

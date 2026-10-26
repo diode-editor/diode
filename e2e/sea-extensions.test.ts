@@ -133,10 +133,10 @@ describe("SEA binary — user extensions", () => {
     it("env.appRoot holds rg at VS Code's path, unpacked from rg.bundle (Todo Tree looks there in activate())", async () => {
         const { session } = await usePtyApp({ seedUserData: appRootUserDataPath });
         const screen = await session.waitFor(
-            (s) => s.findText("appRoot ok") !== null || s.findText("appRoot missing") !== null,
+            (s) => s.findText("appRoot-ok") !== null || s.findText("appRoot-missing") !== null,
             { timeoutMs: 20_000 },
         );
-        expect(screen.findText("appRoot ok")).not.toBeNull();
+        expect(screen.findText("appRoot-ok")).not.toBeNull();
     });
 });
 
