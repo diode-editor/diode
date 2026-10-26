@@ -84,6 +84,14 @@ paste, so newlines and tabs land as text and never trigger shortcuts.
 The mouse is always on in Diode, so the terminal's own text selection needs its usual override:
 `Shift`+drag in most terminals, `Option`+drag in iTerm2.
 
+## Mouse pointer
+
+Over the borders between the Side Bar, the editor and the panels, the mouse pointer turns into a
+resize arrow and keeps it for the whole drag. Diode sets it with OSC 22, which kitty, Ghostty,
+foot, iTerm2 3.5+ and xterm support; other terminals (GNOME Terminal and other VTE ones,
+Alacritty) ignore it and keep their usual pointer. When the pointer leaves the window mid-drag,
+Diode gets no more mouse events, so the arrow stays until the pointer comes back.
+
 ## Over ssh
 
 Nothing to set up: Diode is one binary on the remote side, keys and colors are those of your
@@ -128,6 +136,8 @@ tmux blocks OSC 52 unless told otherwise:
 set -s set-clipboard on
 set -g allow-passthrough on
 ```
+
+The same passthrough carries the mouse pointer shape (OSC 22) to the outer terminal.
 
 ### Window title
 
