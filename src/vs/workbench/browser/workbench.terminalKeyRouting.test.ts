@@ -340,6 +340,25 @@ describe("Workbench — keys in the focused terminal go to the shell, like VS Co
 
             expect(surface.writes).toEqual(["\x1b[98;5u", "\x1b[98;5:3u"]);
         });
+
+        // VS Code's key handler resolves the keyup like the keydown: a skip-set key or a chord never reaches xterm.js,
+        // so the program never sees a release for a press it didn't get.
+        it("with flag 2 the release of a skip-set key (Shift+PageUp scrolls) stays with the workbench too", () => {
+            bootKitty(3);
+
+            h.testApp.backend.sendRaw("\x1b[5;2~\x1b[5;2:3~");
+
+            expect(surface.writes).toEqual([]);
+            expect(terminalFocused()).toBe(true);
+        });
+
+        it("with flag 2 the release of Ctrl+K, which starts a chord, doesn't reach the shell", () => {
+            bootKitty(3);
+
+            h.testApp.backend.sendRaw("\x1b[107;5u\x1b[107;5:3u");
+
+            expect(surface.writes).toEqual([]);
+        });
     });
 
     describe("terminal in the editor area", () => {
