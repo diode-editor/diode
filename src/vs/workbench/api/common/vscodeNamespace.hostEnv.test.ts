@@ -6,26 +6,29 @@ import { makeStubRpc } from "./testStubRpc.ts";
 import { buildVscodeNamespace } from "./vscodeNamespace.ts";
 
 describe("vscode.env — host constants (env.initialize)", () => {
-    it("machineId and shell come from the host seed", () => {
+    it("machineId, shell and appRoot come from the host seed", () => {
         const stub = makeStubRpc();
         const { env } = buildVscodeNamespace(stub.rpc, createNodeExtHostDisk()).namespace;
-        stub.fire("env.initialize", { machineId: "a1b2", shell: "/usr/bin/fish" });
+        stub.fire("env.initialize", { machineId: "a1b2", shell: "/usr/bin/fish", appRoot: "/cache/diode/rg/x" });
         expect(env.machineId).toBe("a1b2");
         expect(env.shell).toBe("/usr/bin/fish");
+        expect(env.appRoot).toBe("/cache/diode/rg/x");
     });
 
-    it("before the seed they are empty strings, not undefined (both members are string by contract)", () => {
+    it("before the seed they are empty strings, not undefined (the members are string by contract)", () => {
         const { env } = buildVscodeNamespace(makeStubRpc().rpc, createNodeExtHostDisk()).namespace;
         expect(env.machineId).toBe("");
         expect(env.shell).toBe("");
+        expect(env.appRoot).toBe("");
     });
 
     it("garbage in the seed gives empty strings", () => {
         const stub = makeStubRpc();
         const { env } = buildVscodeNamespace(stub.rpc, createNodeExtHostDisk()).namespace;
-        stub.fire("env.initialize", { machineId: 42, shell: null });
+        stub.fire("env.initialize", { machineId: 42, shell: null, appRoot: { fsPath: "/x" } });
         expect(env.machineId).toBe("");
         expect(env.shell).toBe("");
+        expect(env.appRoot).toBe("");
         stub.fire("env.initialize", "not-an-object");
         expect(env.machineId).toBe("");
     });

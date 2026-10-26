@@ -5,6 +5,7 @@ import type { IClipboard } from "../../../../../platform/clipboard/common/iClipb
 import type { HostRpc } from "../../../../api/common/extHostProtocol.ts";
 import type { IWireClipboardText } from "../../../../api/common/wireTypes.ts";
 import type { IExternalOpener } from "../../../externalOpener/common/iExternalOpener.ts";
+import { loadRipgrepAppRoot } from "../../../search/node/loadRipgrep.ts";
 import type { IExtensionHostContext, IExtensionHostCustomer } from "../../common/extensionHostCustomer.ts";
 
 /** Upstream `initData`. */
@@ -13,6 +14,8 @@ export interface IExtensionHostEnvironment {
     readonly machineId: () => string;
     /** The shell a terminal without `shellPath` would start with. */
     readonly defaultShell: () => string;
+    /** `env.appRoot`: an existing directory with VS Code's layout (rg), or `""`. */
+    readonly appRoot: () => string;
 }
 
 /** The machine id doesn't survive across runs, the shell is the system one. */
@@ -21,6 +24,7 @@ export function fallbackExtensionHostEnvironment(): IExtensionHostEnvironment {
     return {
         machineId: () => (machineId ??= getMachineId()),
         defaultShell: () => getSystemShell(),
+        appRoot: loadRipgrepAppRoot,
     };
 }
 
@@ -34,13 +38,14 @@ export class EnvCustomer implements IExtensionHostCustomer {
     ) {}
 
     /**
-     * `env.machineId`/`env.shell` are synchronous — seeded before the first activation. The shell never changes
+     * `env.machineId`/`env.shell`/`env.appRoot` are synchronous — seeded before the first activation. The shell never changes
      * (we have no terminal profiles), so there are no repeated seeds.
      */
     public pushInitialState(): void {
         this.rpc?.notify("env.initialize", {
             machineId: this.environment.machineId(),
             shell: this.environment.defaultShell(),
+            appRoot: this.environment.appRoot(),
         });
     }
 

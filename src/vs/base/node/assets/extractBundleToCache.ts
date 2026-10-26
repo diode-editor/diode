@@ -25,7 +25,9 @@ export async function extractBundleToCache(
 ): Promise<void> {
     if (isReady(targetDir)) return;
     if (tryLock(targetDir)) {
-        unpackOwned(bundle, targetDir, options);
+        publishOwned(targetDir, (tmpDir) => {
+            unpackInto(bundle, tmpDir, options);
+        });
         return;
     }
     for (const delayMs of waitForPeer(targetDir, options)) await sleep(delayMs);
@@ -36,9 +38,27 @@ export function extractBundleToCacheSync(
     targetDir: string,
     options: IExtractBundleOptions = {},
 ): void {
+    populateCacheDirSync(
+        targetDir,
+        (tmpDir) => {
+            unpackInto(bundle, tmpDir, options);
+        },
+        options,
+    );
+}
+
+/**
+ * The same protocol for content that is not a bundle (the dev ripgrep layout links a binary from
+ * node_modules): `populate` fills a private temp directory that is then published by rename.
+ */
+export function populateCacheDirSync(
+    targetDir: string,
+    populate: (tmpDir: string) => void,
+    options: Pick<IExtractBundleOptions, "waitTimeoutMs" | "pollIntervalMs"> = {},
+): void {
     if (isReady(targetDir)) return;
     if (tryLock(targetDir)) {
-        unpackOwned(bundle, targetDir, options);
+        publishOwned(targetDir, populate);
         return;
     }
     for (const delayMs of waitForPeer(targetDir, options)) sleepSync(delayMs);
@@ -74,18 +94,22 @@ function* waitForPeer(targetDir: string, options: IExtractBundleOptions): Genera
     );
 }
 
-function unpackOwned(bundle: Uint8Array, targetDir: string, options: IExtractBundleOptions): void {
+function unpackInto(bundle: Uint8Array, tmpDir: string, options: IExtractBundleOptions): void {
+    const { header, dataView } = readBundleHeader(bundle);
+    for (const [virtualPath, entry] of Object.entries(header.files)) {
+        validateVirtualPath(virtualPath); // guards against traversal in a broken bundle
+        const dest = path.join(tmpDir, ...virtualPath.split("/"));
+        mkdirSync(path.dirname(dest), { recursive: true });
+        writeFileSync(dest, dataView.subarray(entry.offset, entry.offset + entry.size));
+        if (options.executable?.(virtualPath) === true) chmodSync(dest, 0o755);
+    }
+}
+
+function publishOwned(targetDir: string, populate: (tmpDir: string) => void): void {
     try {
         // Stryker disable next-line StringLiteral: the temp directory prefix is only a name for humans; it is published by rename
         const tmpDir = mkdtempSync(path.join(path.dirname(targetDir), ".tmp-"));
-        const { header, dataView } = readBundleHeader(bundle);
-        for (const [virtualPath, entry] of Object.entries(header.files)) {
-            validateVirtualPath(virtualPath); // guards against traversal in a broken bundle
-            const dest = path.join(tmpDir, ...virtualPath.split("/"));
-            mkdirSync(path.dirname(dest), { recursive: true });
-            writeFileSync(dest, dataView.subarray(entry.offset, entry.offset + entry.size));
-            if (options.executable?.(virtualPath) === true) chmodSync(dest, 0o755);
-        }
+        populate(tmpDir);
         writeFileSync(path.join(tmpDir, READY_MARKER), "");
         // Leftovers of past crashes: rename is atomic only onto a nonexistent path.
         rmSync(targetDir, { recursive: true, force: true });
