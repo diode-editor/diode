@@ -12,6 +12,8 @@
  *
  * `--expect done` ignores a status file that still holds an earlier status (ready-for-test);
  * a `returned` status always counts.
+ * A window not seen yet gets {@link SPAWN_GRACE_MS} to appear: the implementer starts waiting for the
+ * tester right after `ready-for-test`, and the manager spawns the tester only once it sees that status.
  * A heartbeat line is printed once a minute so the caller's own pane keeps changing.
  */
 import { createHash } from "node:crypto";
@@ -42,7 +44,10 @@ const session = sessionName(task);
 const target = `=${session}:${role}`;
 const file = statusFile(task, role);
 
+const SPAWN_GRACE_MS = 120_000;
+
 const started = Date.now();
+let windowSeen = false;
 let lastChange = Date.now();
 let lastHash;
 let lastBeat = 0;
@@ -69,7 +74,12 @@ for (;;) {
     }
     if (!tmuxHasSession(session)) finish("window-gone", 10, `tmux session ${session} is gone`);
     const win = tmuxWindows(session).find((w) => w.name === role);
-    if (win === undefined) finish("window-gone", 10, `window ${target} is gone`);
+    if (win === undefined) {
+        if (windowSeen || Date.now() - started >= SPAWN_GRACE_MS) finish("window-gone", 10, `window ${target} is gone`);
+        await sleep(Math.min(intervalMs, 5_000));
+        continue;
+    }
+    windowSeen = true;
 
     const text = paneText(target) ?? "";
     const hash = createHash("sha1").update(text).digest("hex");
