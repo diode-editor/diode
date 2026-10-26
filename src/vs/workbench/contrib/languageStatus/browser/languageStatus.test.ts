@@ -222,6 +222,62 @@ describe("LanguageStatusContribution — the segment on the frame", () => {
         expect(runs).toStrictEqual([[]]);
     });
 
+    it("the active row stays on the same item when the open list is refreshed", async () => {
+        sink.update(
+            wireItem(1, { text: "First", command: { command: "test.ext.run", title: "Run first", arguments: [1] } }),
+        );
+        sink.update(
+            wireItem(2, { text: "Second", command: { command: "test.ext.run", title: "Run second", arguments: [2] } }),
+        );
+        clickOnRow(statusRow().indexOf(NERD.bracket));
+        h.testApp.sendKey("ArrowDown");
+
+        sink.update(
+            wireItem(1, { text: "First again", command: { command: "test.ext.run", title: "Run", arguments: [1] } }),
+        );
+        await flushMicrotasks();
+        h.testApp.render();
+        expect(h.testApp.backend.screenToString()).toContain("First again");
+        h.testApp.sendKey("Enter");
+        await flushMicrotasks();
+        expect(runs).toStrictEqual([[2]]);
+    });
+
+    it("an active item that goes away while the list is open leaves the first row active", async () => {
+        sink.update(wireItem(1, { text: "First", command: { command: "test.ext.run", title: "Run", arguments: [1] } }));
+        sink.update(
+            wireItem(2, { text: "Second", command: { command: "test.ext.run", title: "Run", arguments: [2] } }),
+        );
+        clickOnRow(statusRow().indexOf(NERD.bracket));
+        h.testApp.sendKey("ArrowDown");
+
+        sink.remove(2);
+        await flushMicrotasks();
+        h.testApp.render();
+        expect(h.testApp.backend.screenToString()).not.toContain("Second");
+        h.testApp.sendKey("Enter");
+        await flushMicrotasks();
+        expect(runs).toStrictEqual([[1]]);
+    });
+
+    it("the open list closes when the last item goes away, and the segment opens it again later", async () => {
+        sink.update(wireItem(1, { text: "Only", command: { command: "test.ext.run", title: "Run" } }));
+        clickOnRow(statusRow().indexOf(NERD.bracket));
+        expect(h.testApp.backend.screenToString()).toContain(LANGUAGE_STATUS_NAME);
+
+        sink.remove(1);
+        await flushMicrotasks();
+        h.testApp.render();
+        expect(h.testApp.backend.screenToString()).not.toContain(LANGUAGE_STATUS_NAME);
+
+        sink.update(wireItem(1, { text: "Back", command: { command: "test.ext.run", title: "Run" } }));
+        clickOnRow(statusRow().indexOf(NERD.bracket));
+        expect(h.testApp.backend.screenToString()).toContain("Back");
+        h.testApp.sendKey("Enter");
+        await flushMicrotasks();
+        expect(runs).toStrictEqual([[]]);
+    });
+
     it("closing the last editor takes the segment away", async () => {
         sink.update(wireItem(1));
         expect(statusRow()).toContain(NERD.bracket);
@@ -257,7 +313,13 @@ describe("LanguageStatusContribution — the segment on the frame", () => {
         h.activeEditor().setLanguage("markdown");
         expect(ids()).toEqual([LANGUAGE_STATUS_ID]);
 
+        // An open list goes away with the contribution.
+        bar.entries()[0]?.onClick?.();
+        h.testApp.render();
+        expect(h.testApp.backend.screenToString()).toContain(LANGUAGE_STATUS_NAME);
         contribution.dispose();
+        h.testApp.render();
+        expect(h.testApp.backend.screenToString()).not.toContain(LANGUAGE_STATUS_NAME);
         expect(ids()).toEqual([]);
         // Neither the language nor an item change reaches a disposed contribution.
         h.activeEditor().setLanguage("plaintext");
