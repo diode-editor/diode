@@ -224,10 +224,11 @@ describe("XtermSurface — keys under the kitty keyboard protocol", () => {
         press(view, "keydown", "Enter", true);
         press(view, "keyup", "Enter", true);
         await feed(session, "\x1b[=3u");
+        press(view, "keydown", "a");
         press(view, "keyup", "a");
         await feed(session, "\x1b[<u");
         press(view, "keydown", "Enter", true);
-        expect(input).toStrictEqual(["\r", "\x1b[13;2u", "\x1b[97;1:3u", "\r"]);
+        expect(input).toStrictEqual(["\r", "\x1b[13;2u", "a", "\x1b[97;1:3u", "\r"]);
         session.dispose();
     });
 });

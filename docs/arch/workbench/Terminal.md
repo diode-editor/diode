@@ -141,7 +141,8 @@ F1–F12, в режиме application cursor keys (`XtermSurface.applicationCurs
 эталона). Программа включает его сама (`CSI > flags u`), и пока флаги ненулевые, `encodeKeyForPty` кодирует
 перенос xterm.js `KittyKeyboard.evaluate` (tuidom `encodeKittyKey`): Shift+Enter → `CSI 13;2u`, Ctrl+I →
 `CSI 105;5u`; с флагом 2 виджет шлёт и отпускание — если хост доставил `keyup`, то есть внешний терминал сам
-говорит по kitty. Повтора (`:2`) нет: у `TUIKeyboardEvent` нет признака повтора, повтор уходит как нажатие.
+говорит по kitty, и только для клавиши, чьё нажатие ушло в PTY: отпускание префикса аккорда (Ctrl+K) или
+шортката редактора программа не видит, как и у эталона. Повтора (`:2`) нет: у `TUIKeyboardEvent` нет признака повтора, повтор уходит как нажатие.
 **Отступление:** `@xterm/headless` 6.0 протокола не знает, а в 6.1-beta флаги лежат только в приватном `_core`;
 поэтому состояние ведёт `XtermSurface` (`common/kittyKeyboardState.ts`) через публичные `parser.registerCsiHandler`
 (`CSI = / ? / > / < u`, DECSTR) и `registerEscHandler` (RIS), экран — по `buffer.onBufferChange`. Семантика —
