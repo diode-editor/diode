@@ -153,12 +153,13 @@ export abstract class XtermSurface implements ITerminalSurface, IDisposable {
         const state = this.kittyKeyboard;
         const handle = (action: (params: (number | number[])[]) => void) => (params: (number | number[])[]) => {
             if (this.kittyKeyboardEnabled) action(params);
+            // Stryker disable next-line BooleanLiteral: equivalent — @xterm/headless 6.0 has no handler of its own for these
             return true;
         };
         term.parser.registerCsiHandler(
             { prefix: "=", final: "u" },
             handle((params) => {
-                state.set(param(params, 0), params.length > 1 ? param(params, 1) || 1 : 1);
+                state.set(param(params, 0), param(params, 1) || 1);
             }),
         );
         term.parser.registerCsiHandler(
@@ -449,10 +450,12 @@ export abstract class XtermSurface implements ITerminalSurface, IDisposable {
     }
 }
 
-/** A parameter's value without its sub-parameters (upstream `params.params[i]`); a missing one is 0. */
+/**
+ * A parameter's value (upstream `params.params[i]`); a missing one is 0. The public API puts sub-parameters in an
+ * array after their parameter (`CSI 8:1;2 u` is `[8, [1], 2]`), so they don't count.
+ */
 function param(params: readonly (number | number[])[], index: number): number {
-    const value = params.at(index) ?? 0;
-    return typeof value === "number" ? value : value[0];
+    return params.filter((value) => typeof value === "number").at(index) ?? 0;
 }
 
 /** Rows up to the cursor always exist; the fallback is for types. */

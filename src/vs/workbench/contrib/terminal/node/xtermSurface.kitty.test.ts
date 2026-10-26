@@ -117,6 +117,24 @@ describe("XtermSurface — kitty keyboard protocol state", () => {
         },
     );
 
+    it("takes the value of a parameter with sub-parameters", async () => {
+        expect(await flagsAfter("\x1b[>5:3u")).toBe(5);
+        expect(await flagsAfter("\x1b[=1u", "\x1b[=8:1;2:4u")).toBe(9);
+    });
+
+    it.each([
+        ["RIS", "\x1bc"],
+        ["DECSTR", "\x1b[!p"],
+    ])("%s still resets the emulator itself (application cursor keys off)", async (_name, reset) => {
+        const { session } = make();
+        await feed(session, "\x1b[?1h\x1b[>1u");
+        expect(session.applicationCursorKeys).toBe(true);
+        await feed(session, reset);
+        expect(session.applicationCursorKeys).toBe(false);
+        expect(session.kittyKeyboardFlags).toBe(0);
+        session.dispose();
+    });
+
     it.each([
         ["RIS", "\x1bc"],
         ["DECSTR", "\x1b[!p"],

@@ -13,6 +13,9 @@ export class KittyKeyboardState {
     private mainFlags = 0;
     private altFlags = 0;
     private mainStack: number[] = [];
+    // A phantom entry at the bottom of a stack would never be observable — taking it empties the stack (flags 0)
+    // and eviction drops it first; so an empty initial stack is not pinned by tests.
+    // Stryker disable next-line ArrayDeclaration: see above
     private altStack: number[] = [];
     private isAlt = false;
 
@@ -47,12 +50,9 @@ export class KittyKeyboardState {
     /** `CSI < n u`: pop `n` entries (at least 1); an emptied stack leaves the flags at 0. */
     public pop(count: number): void {
         const stack = this.activeStack;
-        for (let i = 0; i < Math.max(1, count); i++) {
-            const flags = stack.pop();
-            if (flags === undefined) break;
-            this.flags = flags;
-        }
-        if (stack.length === 0) this.flags = 0;
+        // The deepest popped entry is the new flags.
+        const popped = stack.splice(-Math.max(1, count));
+        this.flags = stack.length === 0 ? 0 : popped[0];
     }
 
     /** DECSET/DECRST 1049/1047/47: each screen keeps its own flags. */
@@ -73,7 +73,9 @@ export class KittyKeyboardState {
         this.flags = 0;
         this.mainFlags = 0;
         this.altFlags = 0;
+        // Stryker disable next-line ArrayDeclaration: a phantom bottom entry is not observable, see the fields
         this.mainStack = [];
+        // Stryker disable next-line ArrayDeclaration: same
         this.altStack = [];
     }
 
