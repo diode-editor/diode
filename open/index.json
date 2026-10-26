@@ -3085,5 +3085,20 @@
       "xlarge",
       "log500m"
     ]
+  },
+  {
+    "file": "2026-10-26-abda294a5bf4.json",
+    "generatedAt": "2026-10-26T03:09:55.238Z",
+    "commit": "abda294a5bf4",
+    "binaryVersion": "nightly-abda294",
+    "ci": true,
+    "conditions": "CI, shared runner (GitHub Actions)",
+    "sizes": [
+      "small",
+      "medium",
+      "large",
+      "xlarge",
+      "log500m"
+    ]
   }
 ]
