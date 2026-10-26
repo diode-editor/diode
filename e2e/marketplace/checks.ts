@@ -183,6 +183,32 @@ export const MARKETPLACE_CHECKS: readonly IMarketplaceCheck[] = [
         },
     },
     {
+        // kind: "proxy-openvsx": rg from `env.appRoot` scans the workspace, the tags reach the TODOS tree.
+        // 0.0.215's highlight timer throws (`ThemeColor` without `new`) — the extension host must survive it.
+        id: "Gruntfuggly.todo-tree",
+        expectFiles: ["package.json", "dist/extension.js", "resources/todo-tree-container.svg"],
+        run: async (ctx) => {
+            const file = join(ctx.root, "a.ts");
+            writeFileSync(file, "// TODO: first\nconst a = 1;\n// FIXME: broken\n");
+            const app = await startHeadlessApp({
+                root: ctx.root,
+                keepRoot: true,
+                open: [ctx.root, file],
+                // Nodes start collapsed; the setting expands them as the user would.
+                settings: { "todo-tree.tree.expanded": true },
+            });
+            try {
+                await app.session.waitForText((t) => t.includes("// FIXME: broken"), { timeoutMs: 40_000 });
+                await app.session.executeCommand("workbench.view.extension.todo-tree-container");
+                await app.session.waitForText((t) => t.includes("TODO : first") && t.includes("FIXME : broken"), {
+                    timeoutMs: 60_000,
+                });
+            } finally {
+                await app.dispose();
+            }
+        },
+    },
+    {
         // kind: "proxy-openvsx": the stock Catppuccin theme (`contributes.themes`, inline tokenColors,
         // colors with alpha): `workbench.colorTheme` → the very first frame is themed (background =
         // `editor.background` from themes/mocha.json) and the theme is in the picker. The extension's

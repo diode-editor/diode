@@ -48,6 +48,21 @@
   kitty-протоколом; нужен `claude` CLI в PATH — терминальный режим набирает голое `claude`, вшитый
   бинарь не использует. Смоук — пункт статус-бара, лок с `ideName: "Diode"` и MCP `initialize`
   пробным клиентом (настоящий CLI не запускается — [TESTING.md](../TESTING.md)).
+- **`Gruntfuggly.todo-tree`** (#862, сайт#26/#27) — Open VSX 0.0.215 (последняя там; 0.0.226 с VS
+  Marketplace не берём — байты пришлось бы хостить). Гейт `engines.diode: ">=0.12.0"`: нужны
+  `env.appRoot` с rg по пути VS Code (#870) и субпроцесс, переживающий `uncaughtException` (#873) —
+  таймер подсветки 0.0.215 зовёт `ThemeColor(...)` без `new`, в OUTPUT → Extension Host это строка
+  `uncaught exception in extension code`, дерево живёт. `support: partial`: нет подсветки тегов в
+  тексте (мост декораций — только gutter и overview ruler), иконки контейнера, tooltip'ов, бейджей
+  Git/Problems на узлах файлов (`showBadges` лишь ставит `resourceUri` — у нас это иконка файла), и
+  иконок строк тегов по умолчанию: расширение генерирует их SVG-файлами в globalStorage, `ThemeIcon`
+  появляется только для codicon'а из настройки (`"icon": "$(flame)"`). Узлы стартуют свёрнутыми,
+  компактные папки склеивают корень воркспейса с единственной папкой (`workspace/src`), как в VS Code.
+  Внешние изменения файлов — только с `todo-tree.general.enableFileWatcher` (дефолт `false`); при
+  запуске из исходников `diode.log` в воркспейсе меняется непрерывно и сбрасывает 500-мс дебаунс
+  watcher'а — проверять на бинаре. Тот же `diode.log` даёт «лишние» теги в счётчике статус-бара
+  (замечание «6 при трёх тегах» из спеки — это он). Смоук — `TODO : first` в кадре после показа
+  контейнера с `todo-tree.tree.expanded: true`.
 - **`EditorConfig.EditorConfig`** — прокси на сток; смоук — `[*.tabbed] indent_size=3` применяется.
   **`maptz.regionfolder`** — на Open VSX не опубликован, немодифицированный vsix перевыложен в
   `artifacts/` реестра (`kind: "proxy-hosted"`, MIT).
