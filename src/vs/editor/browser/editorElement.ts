@@ -50,7 +50,7 @@ import type { IUndoElement } from "../common/model/iUndoElement.ts";
 import { UndoManager } from "../common/model/undoManager.ts";
 import { EditorViewState } from "../common/viewModel/editorViewState.ts";
 import type { LineInsertions } from "../common/viewModel/lineInsertions.ts";
-import { composedLineContent, composedOffset } from "../common/viewModel/lineInsertions.ts";
+import { composedFragmentStart, composedLineContent, composedOffset } from "../common/viewModel/lineInsertions.ts";
 import { LineWidthCache } from "../common/viewModel/lineWidthCache.ts";
 import {
     LONG_LINE_TRUNCATION_BADGE,
@@ -943,9 +943,7 @@ export class EditorElement extends TUIElement implements IScrollable {
             const semanticLine = this.viewState.getViewLineSemanticTokens(viewLine);
             const semanticIndex = semanticLine ? new SemanticTokenIndex(semanticLine, lookupSemanticStyle) : null;
             const isLastFragment = frag.end === lineContent.length;
-            const fragStartCol = isContinuation
-                ? dl.offsetToColumn(composedOffset(insertions, rowLogLine, frag.start))
-                : 0;
+            const fragStartCol = dl.offsetToColumn(composedFragmentStart(insertions, rowLogLine, frag.start));
 
             // A decorated line background wins over the token background, otherwise the
             // added/removed strip breaks on highlighted words.

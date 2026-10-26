@@ -5,6 +5,7 @@ import { TextDocument } from "../model/textDocument.ts";
 
 import {
     composedCaretOffset,
+    composedFragmentStart,
     composedLineContent,
     composedOffset,
     documentOffset,
@@ -104,6 +105,17 @@ describe("composed line math", () => {
             0, 1, 2, 2, 2, 3, 4, 4, 4, 5, 6,
         ]);
         expect(documentOffset(insertions, 1, 3)).toBe(3);
+    });
+
+    it("the first fragment starts before a leading insertion, a continuation after the insertions at its start", () => {
+        const leading = group("abcdef", [
+            { line: 0, offset: 0, text: "<<" },
+            { line: 0, offset: 3, text: "|" },
+        ]);
+
+        expect(composedFragmentStart(leading, 0, 0)).toBe(0);
+        expect(composedFragmentStart(leading, 0, 3)).toBe(6);
+        expect(composedFragmentStart(leading, 0, 4)).toBe(7);
     });
 
     it("composed offsets round-trip to document offsets", () => {

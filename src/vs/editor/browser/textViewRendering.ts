@@ -11,6 +11,7 @@ import type { EditorViewState } from "../common/viewModel/editorViewState.ts";
 import type { LineInsertions } from "../common/viewModel/lineInsertions.ts";
 import {
     composedCaretOffset,
+    composedFragmentStart,
     composedLineContent,
     composedOffset,
     documentOffset,
@@ -41,7 +42,7 @@ function fragmentStartColumn(
     viewLine: number,
 ): number {
     const start = viewState.viewLineRange(viewLine).start;
-    return displayLine.offsetToColumn(composedOffset(insertions, line, start));
+    return displayLine.offsetToColumn(composedFragmentStart(insertions, line, start));
 }
 
 /**
@@ -77,7 +78,7 @@ export class TextViewportRow {
     }
 
     public get fragmentStartColumn(): number {
-        return this.displayLine.offsetToColumn(composedOffset(this.insertions, this.logLine, this.fragStart));
+        return this.displayLine.offsetToColumn(composedFragmentStart(this.insertions, this.logLine, this.fragStart));
     }
 }
 

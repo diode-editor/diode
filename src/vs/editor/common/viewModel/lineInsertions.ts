@@ -65,6 +65,15 @@ export function composedOffset(insertions: LineInsertions, line: number, offset:
 }
 
 /**
+ * Where a wrap fragment starting at document offset `start` starts on the composed line.
+ * Insertions at a fragment boundary end the previous fragment, so a continuation starts after
+ * them; the first fragment has no previous one and starts at 0, before an insertion there.
+ */
+export function composedFragmentStart(insertions: LineInsertions, line: number, start: number): number {
+    return start === 0 ? 0 : composedOffset(insertions, line, start);
+}
+
+/**
  * INSERTION POINT offset: unlike {@link composedOffset}, a cursor exactly at an insertion point
  * stays LEFT of the insertions there (upstream injected-text affinity).
  */
