@@ -33,6 +33,10 @@
 Известные флаки юнит-набора и e2e; PR-диффом не задеты, `gh run rerun --failed` зеленит. Тесты
 отсюда стоят в `test-flakes.json`, кроме помеченных.
 
+- [ ] `extensionHost.typescriptLsp.projectStatus.test.ts` › «a .ts file and, with allowJs, a .js file under a tsconfig
+  show the tsconfig path»: статус проекта ещё не `tsconfig.json` в момент чтения (`expected { …(9) } to match object
+  { label: 'tsconfig.json', …(1) }`). Свалил dry run мутационного гейта на #885 (ран 40405134308, дифф — гайды
+  отступов, LSP не трогает).
 - [ ] `editorComponent.diskReload.test.ts` › «the in-memory reload is the reference: the cursor lands on the new
   last line»: `Test timed out in 5000ms`. Свалил job `test` на `main` a0ec0c24 (ран 40098148744, дифф — доки)
   и на PR #805 (ран 40099005560, дифф — e2e-бенч), соседний тест того же файла зелёный.

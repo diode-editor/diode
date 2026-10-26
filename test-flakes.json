@@ -2,6 +2,12 @@
     "$comment": "Known flaky tests, unit and e2e: vitest retries (retry) or skips (skip) them, see src/TestUtils/flakeTestRunner.ts. A screenshot scenario is keyed by its *.scenario.ts file and name (e2e/scenarios/suite.ts); optional platforms limits an entry to those process.platform values. Process and details: docs/TODO/TestFlakes.md.",
     "flakes": [
         {
+            "file": "src/vs/workbench/services/extensions/node/extensionHost.typescriptLsp.projectStatus.test.ts",
+            "test": "ExtensionHost — JS/TS project status from the stock typescript-language-server > a .ts file and, with allowJs, a .js file under a tsconfig show the tsconfig path",
+            "action": "retry",
+            "note": "status not yet tsconfig.json when read (expected { …(9) } to match object { label: 'tsconfig.json' }); broke the mutation dry run on #885 (run 40405134308), diff is indent guides"
+        },
+        {
             "file": "src/vs/workbench/browser/parts/editor/editorComponent.diskReload.test.ts",
             "test": "EditorComponent — the document on disk reloaded after an external change > the in-memory reload is the reference: the cursor lands on the new last line",
             "action": "retry",
