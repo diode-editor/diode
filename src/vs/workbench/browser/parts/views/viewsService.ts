@@ -672,9 +672,9 @@ export class ViewsService implements IContextKeyContributor {
             getOwner: () => owner,
             getAnchor: () => anchor,
             getEntries: () =>
-                // Only sidebar containers are listed, and showing a viewlet already focuses it.
+                // Only sidebar containers are listed; the picked one takes the keyboard.
                 containerSwitcherEntries(this.getViewContainers(), this.sidebarService.getActiveViewletId(), (id) => {
-                    this.openViewContainer(id);
+                    this.openViewContainer(id, true);
                 }),
         });
     }
@@ -842,8 +842,7 @@ export class ViewsService implements IContextKeyContributor {
             if (focus) this.focusContainer(containerId);
             return;
         }
-        // In the sidebar showing and focusing is a single step (`showViewlet` with reveal).
-        this.sidebarService.showViewlet(containerId, true);
+        this.sidebarService.showViewlet(containerId, true, focus);
     }
 
     /**

@@ -73,7 +73,10 @@ requiresWorkspaceFolder?, canMoveView?}`. `containerId` —
 - **Фичи не знают, где стоит их вид.** Показ, скрытие и «на экране ли»
   — словарь `ViewsService`, а не `PanelService`/`LayoutService`:
   `openView(id, focus, activate)` (`activate: false` — показ без
-  пробуждения ленивых фич, как прежний `setActiveView`), `closeView` (прячет
+  пробуждения ленивых фич, как прежний `setActiveView`; `focus: false` и в
+  сайдбаре показывает вьюлет, не трогая фокус — `showViewlet(id, true, false)`,
+  как `openPaneComposite(id, location, focus)` эталона: на этом стоит
+  `treeView.reveal(…, { focus: false })`, #877), `closeView` (прячет
   часть, если вид в ней активен), `isViewShown`; события
   `onDidActivateView` (пользовательская активация — спавн шелла) и
   `onDidShowView` (вид стал активным, в том числе на ресторе — ленивый

@@ -75,9 +75,10 @@ export class SidebarService implements IContextKeyContributor {
 
     /**
      * `reveal: false` (startup setup) sets only the content and leaves visibility alone:
-     * persisted layout restores it. Unknown id is a no-op.
+     * persisted layout restores it. `focus: false` reveals without taking the keyboard (upstream
+     * `openPaneComposite(id, location, focus)`). Unknown id is a no-op.
      */
-    public showViewlet(id: string, reveal = true): void {
+    public showViewlet(id: string, reveal = true, focus = true): void {
         const viewlet = this.viewlets.get(id);
         if (viewlet === undefined) return;
         const changed = this.activeId !== id;
@@ -86,7 +87,7 @@ export class SidebarService implements IContextKeyContributor {
         if (changed) this.onDidChangeActiveViewletEmitter.fire(id);
         if (reveal) {
             this.layout.setSidebarVisible(true);
-            viewlet.focus();
+            if (focus) viewlet.focus();
         }
     }
 }

@@ -139,7 +139,7 @@ describe("registerExtensionViews — containers", () => {
             ]),
         );
         h.commands.execute("workbench.view.extension.infra");
-        expect(h.shownViewlets.at(-1)).toEqual({ id: "workbench.view.extension.infra", reveal: true });
+        expect(h.shownViewlets.at(-1)).toEqual({ id: "workbench.view.extension.infra", reveal: true, focus: true });
     });
 
     it("extension containers are ordered from 7: a built-in container with a later order stays after them", () => {
@@ -315,7 +315,8 @@ describe("registerExtensionViews — views", () => {
         const app = TestApp.createWithContent(h.root("workbench.view.extension.infra"), new Size(30, 12));
         app.render();
         h.commands.execute("infra.modules.focus");
-        expect(h.shownViewlets.at(-1)).toEqual({ id: "workbench.view.extension.infra", reveal: true });
+        // The container is shown without focus: the section takes it.
+        expect(h.shownViewlets.at(-1)).toEqual({ id: "workbench.view.extension.infra", reveal: true, focus: false });
         expect(app.focusedElement?.id).toBe("paneHeader-infra-modules");
 
         // A hidden section has no header to focus: the call leaves focus alone. Hiding rebuilds the

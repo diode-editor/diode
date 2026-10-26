@@ -108,7 +108,15 @@ describe("ViewsService — openView without activation", () => {
     it("a sidebar viewlet shows even without activation", () => {
         const { h } = scene();
         h.service.openView("search", false, false);
-        expect(h.shownViewlets.at(-1)).toEqual({ id: SEARCH, reveal: true });
+        expect(h.shownViewlets.at(-1)).toEqual({ id: SEARCH, reveal: true, focus: false });
+    });
+
+    it("a sidebar viewlet takes the keyboard only on request", () => {
+        const { h } = scene();
+        h.service.openView("search");
+        expect(h.shownViewlets.at(-1)).toEqual({ id: SEARCH, reveal: true, focus: false });
+        h.service.openViewContainer(SEARCH, true);
+        expect(h.shownViewlets.at(-1)).toEqual({ id: SEARCH, reveal: true, focus: true });
     });
 });
 

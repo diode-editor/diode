@@ -55,6 +55,19 @@ describe("SidebarService", () => {
         expect(service.getActiveViewletId()).toBe("explorer");
     });
 
+    it("focus=false reveals the sidebar but leaves the keyboard where it is", () => {
+        const { layout, content, visibleCalls } = fakeLayout();
+        const service = new SidebarService(layout);
+        const focus = vi.fn();
+        service.registerViewlet("explorer", viewA, focus);
+
+        service.showViewlet("explorer", true, false);
+
+        expect(content).toEqual([viewA]);
+        expect(visibleCalls).toEqual([true]);
+        expect(focus).not.toHaveBeenCalled();
+    });
+
     it("switches the active viewlet", () => {
         const { layout, content } = fakeLayout();
         const service = new SidebarService(layout);
