@@ -409,6 +409,35 @@ export interface IWireLanguageProviderRegistration extends IWireLanguageProvider
     readonly selector: readonly IWireLanguageFilter[];
 }
 
+/** `vscode.LanguageStatusSeverity`: 0 Information, 1 Warning, 2 Error. */
+export type WireLanguageStatusSeverity = 0 | 1 | 2;
+
+/**
+ * Full-state upsert on creation and on every change of a `vscode.LanguageStatusItem`, like upstream's
+ * `$setLanguageStatus`; removed by `languages.statusItem.dispose` with the same `handle`.
+ */
+export interface IWireLanguageStatusItem {
+    readonly handle: number;
+    /** `<extension id>/<item id>`, as upstream's `fullyQualifiedId`. */
+    readonly id: string;
+    /** The owning extension's id: the second sort key after severity. */
+    readonly source: string;
+    readonly selector: readonly IWireLanguageFilter[];
+    readonly name?: string;
+    /** With `$(name)` icon markup. */
+    readonly text: string;
+    readonly detail?: string;
+    readonly severity: WireLanguageStatusSeverity;
+    readonly busy: boolean;
+    readonly command?: IWireLanguageStatusCommand;
+}
+
+export interface IWireLanguageStatusCommand {
+    readonly command: string;
+    readonly title: string;
+    readonly arguments?: readonly unknown[];
+}
+
 /** A layer over `language-configuration.json`; removed via `languages.unsetLanguageConfiguration` with the same `handle`. */
 export interface IWireLanguageConfiguration {
     readonly handle: number;

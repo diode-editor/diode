@@ -164,6 +164,10 @@ import {
     InlineCompletionsServiceDIToken,
 } from "../../workbench/contrib/inlineCompletions/browser/inlineCompletionsService.ts";
 import {
+    LanguageStatusContribution,
+    LanguageStatusContributionDIToken,
+} from "../../workbench/contrib/languageStatus/browser/languageStatus.ts";
+import {
     LargeFileFollowStatus,
     LargeFileFollowStatusDIToken,
 } from "../../workbench/contrib/largeFile/browser/largeFileFollowStatus.ts";
@@ -368,6 +372,10 @@ import {
     KeybindingDispatcher,
     KeybindingDispatcherDIToken,
 } from "../../workbench/services/keybinding/browser/keybindingDispatcher.ts";
+import {
+    LanguageStatusService,
+    LanguageStatusServiceDIToken,
+} from "../../workbench/services/languageStatus/common/languageStatusService.ts";
 import { LayoutService, LayoutServiceDIToken } from "../../workbench/services/layout/browser/layoutService.ts";
 import {
     LifecycleService,
@@ -430,6 +438,8 @@ export const workbenchModule: ContainerModule = (container) => {
     container.bind(OpenFailureNotificationContributionDIToken, OpenFailureNotificationContribution);
     container.bind(LargeFileOptimizationsWarnerDIToken, LargeFileOptimizationsWarner);
     container.bind(LargeFileIndexingStatusDIToken, LargeFileIndexingStatus);
+    container.bind(LanguageStatusServiceDIToken, LanguageStatusService);
+    container.bind(LanguageStatusContributionDIToken, LanguageStatusContribution);
     container.bind(LargeFileFollowStatusDIToken, LargeFileFollowStatus);
     container.bind(UndoRefusalNotificationContributionDIToken, UndoRefusalNotificationContribution);
     container.bind(ExternalOpenerDIToken, () => {

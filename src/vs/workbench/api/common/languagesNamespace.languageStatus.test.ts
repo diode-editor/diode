@@ -8,8 +8,8 @@ import { makeStubRpc } from "./testStubRpc.ts";
 import { ExtensionOwner, type IVscodeHostContext } from "./vscodeHostContext.ts";
 import { WorkspaceConfigStore } from "./workspaceConfigStore.ts";
 
-// Not projected into the UI, but ruff writes server state into text/severity/busy on every
-// transition and calls dispose on restart.
+// The namespace wiring: ruff writes server state into text/severity/busy on every transition and
+// calls dispose on restart. The wire traffic is covered by extHostLanguageStatus.test.ts.
 
 function makeLanguages(): ReturnType<typeof createLanguagesNamespace>["languages"] {
     const registry = new DocumentRegistry();

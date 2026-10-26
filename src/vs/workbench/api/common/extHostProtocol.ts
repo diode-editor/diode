@@ -82,6 +82,7 @@ import type {
     IWireLanguageConfiguration,
     IWireLanguageProviderRegistration,
     IWireLanguageProviderUnregistration,
+    IWireLanguageStatusItem,
     IWireMarkersChanged,
     IWireMementoUpdate,
     IWireOpenDialogRequest,
@@ -320,6 +321,8 @@ export interface ISubprocessToHost {
         /** Removed by the same `handle`. */
         readonly "languages.setLanguageConfiguration": IWireLanguageConfiguration;
         readonly "languages.unsetLanguageConfiguration": IWireProviderHandle;
+        readonly "languages.statusItem.update": IWireLanguageStatusItem;
+        readonly "languages.statusItem.dispose": IWireProviderHandle;
 
         readonly "workspace.fileSystemProvidersChanged": IWireFileSystemSchemes;
         readonly "workspace.fs.didChangeFile": IWireChangedFiles;
