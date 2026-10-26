@@ -199,6 +199,29 @@ describe("LanguageStatusContribution — the segment on the frame", () => {
         expect(runs).toStrictEqual([[]]);
     });
 
+    it("an item changing while the list is open shows its new text and command in the open list (as upstream)", async () => {
+        // Upstream renders the hover into one persistent element, so an open hover follows the item: the JS/TS
+        // project status opened during "Loading IntelliSense status" turns into "No jsconfig" without reopening.
+        sink.update(wireItem(1, { text: "Loading IntelliSense status", busy: true }));
+        clickOnRow(statusRow().indexOf(NERD.loading));
+        expect(h.testApp.backend.screenToString()).toContain("Loading IntelliSense status");
+
+        sink.update(
+            wireItem(1, { text: "No jsconfig", command: { command: "test.ext.run", title: "Configure JSConfig" } }),
+        );
+        await flushMicrotasks();
+        h.testApp.render();
+        const screen = h.testApp.backend.screenToString();
+        expect(screen).toContain(LANGUAGE_STATUS_NAME);
+        expect(screen).toContain("No jsconfig");
+        expect(screen).toContain("Configure JSConfig");
+        expect(screen).not.toContain("Loading IntelliSense status");
+
+        h.testApp.sendKey("Enter");
+        await flushMicrotasks();
+        expect(runs).toStrictEqual([[]]);
+    });
+
     it("closing the last editor takes the segment away", async () => {
         sink.update(wireItem(1));
         expect(statusRow()).toContain(NERD.bracket);
