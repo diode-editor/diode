@@ -1,3 +1,5 @@
 {
-  "typescript.problemMatchers.tsc.label": "TypeScript problems"
+  "typescript.problemMatchers.tsc.label": "TypeScript problems",
+  "javascript.goToProjectConfig.title": "Go to Project Configuration (jsconfig / tsconfig)",
+  "typescript.goToProjectConfig.title": "Go to Project Configuration (tsconfig)"
 }

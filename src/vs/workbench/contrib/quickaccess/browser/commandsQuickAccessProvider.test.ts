@@ -1,15 +1,26 @@
 import { describe, expect, it } from "vitest";
 
+import { MenuId } from "../../../../platform/actions/common/menuId.ts";
+import { MenuRegistry } from "../../../../platform/actions/common/menuRegistry.ts";
 import { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
 import { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { KeybindingRegistry } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
+import type { TextEditorPane } from "../../../browser/parts/editor/textEditorPane.ts";
 
 import { CommandsQuickAccessProvider } from "./commandsQuickAccessProvider.ts";
 
-function createProvider(): { provider: CommandsQuickAccessProvider; commands: CommandRegistry } {
+function createProvider() {
     const commands = new CommandRegistry();
-    const provider = new CommandsQuickAccessProvider(commands, new KeybindingRegistry(), new ContextKeyService());
-    return { provider, commands };
+    const keybindings = new KeybindingRegistry();
+    const contextKeys = new ContextKeyService();
+    const menus = new MenuRegistry(commands, keybindings, contextKeys, []);
+    const active: { languageId: string | undefined } = { languageId: undefined };
+    const editors = {
+        getActiveEditor: () =>
+            active.languageId === undefined ? null : ({ languageId: active.languageId } as TextEditorPane),
+    };
+    const provider = new CommandsQuickAccessProvider(commands, keybindings, contextKeys, menus, editors);
+    return { provider, commands, menus, contextKeys, active };
 }
 
 function labels(provider: CommandsQuickAccessProvider, query: string): string[] {
@@ -176,5 +187,65 @@ describe("CommandsQuickAccessProvider — order and highlights", () => {
         commands.register("c.d", () => undefined, "Go Line");
 
         expect(provider.getItems(">")[0].labelMatchRanges).toEqual([]);
+    });
+});
+
+describe("CommandsQuickAccessProvider — commandPalette items", () => {
+    it("a command with palette items is listed only while one of their when holds", () => {
+        const { provider, commands, menus, contextKeys, active } = createProvider();
+        commands.register("javascript.goToProjectConfig", () => undefined, "Go to Project", undefined, "JavaScript");
+        commands.register("files.save", () => undefined, "Save", undefined, "File");
+        for (const when of ["editorLangId == javascript", "editorLangId == javascriptreact"]) {
+            menus.appendMenuItem({ menuId: MenuId.CommandPalette, command: "javascript.goToProjectConfig", when });
+        }
+        contextKeys.set("gitHasRepo", true);
+        menus.appendMenuItem({ menuId: MenuId.CommandPalette, command: "files.save", when: "gitHasRepo" });
+
+        expect(labels(provider, "")).toEqual(["File: Save"]);
+        active.languageId = "json";
+        expect(labels(provider, "")).toEqual(["File: Save"]);
+        active.languageId = "javascriptreact";
+        expect(labels(provider, "")).toEqual(["JavaScript: Go to Project", "File: Save"]);
+    });
+
+    it("editorLangId is the active editor's language, not the focused element's (the palette has the focus)", () => {
+        const { provider, commands, menus, contextKeys, active } = createProvider();
+        commands.register("javascript.goToProjectConfig", () => undefined, "Go to Project", undefined, "JavaScript");
+        menus.appendMenuItem({
+            menuId: MenuId.CommandPalette,
+            command: "javascript.goToProjectConfig",
+            when: "editorLangId == javascript",
+        });
+
+        contextKeys.set("editorLangId", "");
+        active.languageId = "javascript";
+        expect(labels(provider, "")).toEqual(["JavaScript: Go to Project"]);
+        contextKeys.set("editorLangId", "javascript");
+        active.languageId = "json";
+        expect(labels(provider, "")).toEqual([]);
+    });
+
+    it("a palette item without when lists the command, `false` hides it", () => {
+        const { provider, commands, menus } = createProvider();
+        commands.register("a.shown", () => undefined, "Shown");
+        commands.register("a.hidden", () => undefined, "Hidden");
+        menus.appendMenuItem({ menuId: MenuId.CommandPalette, command: "a.shown" });
+        menus.appendMenuItem({ menuId: MenuId.CommandPalette, command: "a.hidden", when: "false" });
+
+        expect(labels(provider, "")).toEqual(["Shown"]);
+    });
+
+    it("items of other menus do not narrow the palette", () => {
+        const { provider, commands, menus } = createProvider();
+        commands.register("a.b", () => undefined, "Do It");
+        menus.appendMenuItem({ menuId: MenuId.EditorContext, command: "a.b", when: "false" });
+        menus.appendMenuItem({
+            menuId: MenuId.CommandPalette,
+            submenu: MenuId.EditorTitle,
+            title: "Sub",
+            when: "false",
+        });
+
+        expect(labels(provider, "")).toEqual(["Do It"]);
     });
 });

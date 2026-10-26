@@ -23,9 +23,8 @@ const MENU_IDS: Readonly<Partial<Record<string, MenuId>>> = {
     "view/title": MenuId.ViewTitle,
     "view/item/context": MenuId.ViewItemContext,
     "viewContainer/title": MenuId.ViewContainerTitle,
+    commandPalette: MenuId.CommandPalette,
 };
-
-const COMMAND_PALETTE_MENU = "commandPalette";
 
 // The bridge is called repeatedly, and `MenuId` is unique per process: one submenu's point must stay the same.
 const extensionSubmenuIds = new Map<string, MenuId>();
@@ -70,12 +69,7 @@ export function registerExtensionMenus(
         for (const [menu, items] of Object.entries(contributes.menus ?? {})) {
             const menuId = MENU_IDS[menu] ?? submenus.get(menu)?.menuId;
             if (menuId === undefined) {
-                // The palette doesn't know extension `when` yet, so the item isn't lost silently.
-                logger?.info(
-                    menu === COMMAND_PALETTE_MENU
-                        ? `${ext.id}: "commandPalette" items are not applied yet`
-                        : `${ext.id}: unknown menu "${menu}", items skipped`,
-                );
+                logger?.info(`${ext.id}: unknown menu "${menu}", items skipped`);
                 continue;
             }
             for (const item of items) {
