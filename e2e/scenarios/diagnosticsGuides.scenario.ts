@@ -5,7 +5,7 @@ import { waitUntil } from "../helpers/waitFor.ts";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// A multi-line tsserver error spans indentation with `│` guides: the glyph keeps its own color, and the error color
+// A multi-line tsserver error spans indentation with `▏` guides: the glyph keeps its own color, and the error color
 // goes to the text. The second frame has a quick pick on top: the editor's squiggle must not bleed through it.
 
 const require_ = createRequire(import.meta.url);

@@ -3,6 +3,7 @@ import { Point, Size } from "@tuidom/core/common/geometryPromitives";
 import { describe, expect, it } from "vitest";
 
 import { TestApp } from "../../../TestUtils/TestApp.ts";
+import { WorkbenchTheme } from "../../platform/theme/common/workbenchTheme.ts";
 import { createCursorSelection } from "../common/core/iSelection.ts";
 import { TextDocument } from "../common/model/textDocument.ts";
 import { EditorViewState } from "../common/viewModel/editorViewState.ts";
@@ -11,7 +12,7 @@ import { createFoldingRegion } from "../contrib/folding/iFoldingRegion.ts";
 
 import { EditorElement } from "./editorElement.ts";
 
-const GUIDE = "│";
+const GUIDE = "▏";
 
 // 0: function foo() {   ← region A (0..7), indent 0
 // 1:   const x = 1;
@@ -112,6 +113,21 @@ describe("EditorElement – indentation guides", () => {
         const gw = editor.gutterWidth;
         expect(app.backend.getFgAt(new Point(gw + 2, 3))).toBe(activeFg);
         expect(app.backend.getFgAt(new Point(gw, 3))).toBe(fg);
+    });
+
+    it("takes guide colours from the deprecated editorIndentGuide keys a theme like Monokai sets", () => {
+        const theme = WorkbenchTheme.fromThemeFile({
+            name: "monokai-like",
+            type: "dark",
+            colors: { "editorIndentGuide.background": "#464741", "editorIndentGuide.activeBackground": "#767771" },
+        });
+        const { app, editor } = createEditor(SAMPLE, 3);
+        editor.setStyleVars(theme.colors);
+        app.render();
+        const gw = editor.gutterWidth;
+        expect(app.backend.getTextAt(new Point(gw + 2, 3), 1)).toBe(GUIDE);
+        expect(app.backend.getFgAt(new Point(gw + 2, 3))).toBe(packRgb(0x76, 0x77, 0x71));
+        expect(app.backend.getFgAt(new Point(gw, 3))).toBe(packRgb(0x46, 0x47, 0x41));
     });
 
     it("draws no guide for a collapsed region's hidden body", () => {

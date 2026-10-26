@@ -179,9 +179,9 @@ describe("EditorElement — squiggle over indentation guides", () => {
     it("keeps every guide glyph and colour on the marker's whitespace cells", () => {
         const { app, editor } = makeFoldedEditor();
         const gw = editor.gutterWidth;
-        expect(app.backend.getTextAt(new Point(gw, 2), 1)).toBe("│");
+        expect(app.backend.getTextAt(new Point(gw, 2), 1)).toBe("▏");
         expect(app.backend.getFgAt(new Point(gw, 2))).toBe(ACTIVE_GUIDE_FG);
-        expect(app.backend.getTextAt(new Point(gw + 4, 2), 1)).toBe("│");
+        expect(app.backend.getTextAt(new Point(gw + 4, 2), 1)).toBe("▏");
         expect(app.backend.getFgAt(new Point(gw + 4, 2))).toBe(GUIDE_FG);
     });
 

@@ -112,7 +112,7 @@ const FOLD_GAP_LEFT = 1;
 const FOLD_GAP_RIGHT = 1;
 const FOLD_COLLAPSED_MARKER = "⋯";
 
-const INDENT_GUIDE = "│";
+const INDENT_GUIDE = "▏";
 
 /**
  * Row + column rather than a `y * width + x` key: a division mutant collapses distinct cells
