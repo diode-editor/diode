@@ -1,0 +1,19 @@
+{
+    "name": "language-status-demo",
+    "displayName": "Language Status Demo",
+    "description": "Language status demo: two items for plain text, a severity switch and a busy toggle.",
+    "version": "0.0.1",
+    "publisher": "test",
+    "main": "./extension.js",
+    "engines": {
+        "vscode": "^1.0.0"
+    },
+    "activationEvents": ["*"],
+    "contributes": {
+        "commands": [
+            { "command": "languageStatusDemo.restart", "title": "Language Status Demo: Restart" },
+            { "command": "languageStatusDemo.error", "title": "Language Status Demo: Error" },
+            { "command": "languageStatusDemo.busy", "title": "Language Status Demo: Busy" }
+        ]
+    }
+}

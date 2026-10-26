@@ -731,6 +731,16 @@
   `$(name)` в тексте подменяются глифами codicon-шрифта (см. «Значки `$(name)` в тексте расширений»
   ниже) ДО обрезки по 24 символам — иначе разметка съела бы смысл подписи. Стабы —
   `tooltip`/`color`/`backgroundColor`/`accessibilityInformation` (принимаются, ни на что не влияют).
+- **Language Status:** настоящий `languages.createLanguageStatusItem` (`extHostLanguageStatus.ts`) —
+  notify `languages.statusItem.update` (полное состояние сразу при создании и на каждое поле, как
+  `$setLanguageStatus` эталона, но без отложки на тик) / `.dispose` → `LanguageStatusCustomer` →
+  опция `ExtensionHost.languageStatusSink` → `ExtensionLanguageStatusAdapter` → `LanguageStatusService`
+  (`services/languageStatus/`, сопоставляет селектор с документом через `languageSelector.score`,
+  сортирует severity ↓, `source` (id расширения), `id`). Id пункта — `<id расширения>/<свой id>`, второй
+  живой с тем же id бросает, как в эталоне. Смерть субпроцесса — `clear()`. Сегмент рисует
+  `contrib/languageStatus` (`status.languageStatus`, priority 75 — между EOL и языком); отступление
+  от эталона: клик открывает quick pick пунктов вместо hover, нет закрепления (dedicated) и
+  `accessibilityInformation`.
 - **Вход как null-объект (`authenticationNoop.ts`) и телеметрия (`telemetryLogger.ts`):**
   `vscode.authentication` и `env.createTelemetryLogger` нужны расширению ещё до его настоящей работы
   — `@vscode/extension-telemetry` строит логгер в конструкторе репортера, а `hashicorp.terraform`
