@@ -225,6 +225,14 @@ describe("CommandsQuickAccessProvider — commandPalette items", () => {
         expect(labels(provider, "")).toEqual([]);
     });
 
+    it("without an active editor editorLangId is empty", () => {
+        const { provider, commands, menus } = createProvider();
+        commands.register("a.noEditor", () => undefined, "No Editor");
+        menus.appendMenuItem({ menuId: MenuId.CommandPalette, command: "a.noEditor", when: "!editorLangId" });
+
+        expect(labels(provider, "")).toEqual(["No Editor"]);
+    });
+
     it("a palette item without when lists the command, `false` hides it", () => {
         const { provider, commands, menus } = createProvider();
         commands.register("a.shown", () => undefined, "Shown");

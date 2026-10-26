@@ -342,6 +342,14 @@ describe("diode-lsp-typescript — JS/TS project status", () => {
         expect(fake.live()).toEqual([]);
     });
 
+    it("dispose without an item is a no-op", () => {
+        const fake = makeHost();
+        expect(() => {
+            fake.status.dispose();
+        }).not.toThrow();
+        expect(fake.host.createItem).not.toHaveBeenCalled();
+    });
+
     it("dispose removes the item", async () => {
         const fake = makeHost();
         await ready(fake, MAIN_JS);

@@ -21,6 +21,7 @@ describe("diode-lsp-typescript — project config", () => {
         ]);
         expect(projectTypeForLanguage("json")).toBeUndefined();
         expect(projectTypeForLanguage("jsonc")).toBeUndefined();
+        expect(projectTypeForLanguage("constructor")).toBeUndefined();
     });
 
     it("an inferred project is the one tsserver names under /dev/null/", () => {

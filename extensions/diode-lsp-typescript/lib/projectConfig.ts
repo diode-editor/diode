@@ -7,17 +7,16 @@ export type ProjectType = "typescript" | "javascript";
 /** Upstream `jsTsLanguageModes`. */
 export const JS_TS_LANGUAGE_IDS: readonly string[] = ["javascript", "javascriptreact", "typescript", "typescriptreact"];
 
+// A `Map`, not an object literal: `constructor` or `toString` must not resolve to a prototype member.
+const PROJECT_TYPES: ReadonlyMap<string, ProjectType> = new Map([
+    ["javascript", "javascript"],
+    ["javascriptreact", "javascript"],
+    ["typescript", "typescript"],
+    ["typescriptreact", "typescript"],
+]);
+
 export function projectTypeForLanguage(languageId: string): ProjectType | undefined {
-    switch (languageId) {
-        case "typescript":
-        case "typescriptreact":
-            return "typescript";
-        case "javascript":
-        case "javascriptreact":
-            return "javascript";
-        default:
-            return undefined;
-    }
+    return PROJECT_TYPES.get(languageId);
 }
 
 /** tsserver names an inferred project `/dev/null/inferredProject1*`. */

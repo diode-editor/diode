@@ -52,6 +52,9 @@
 - [ ] Маршрутизация ошибок RPC обратно в `editor.options =`, чтобы fire-and-forget не глотал.
 - [ ] ESM-расширения (`import * as vscode from "vscode"` через ESM loader hooks).
 - [ ] Перезапуск субпроцесса при крэше (сейчас при выходе extension host'а все RPC падают).
+- [ ] Markdown-ссылки `[текст](url)` в `window.show*Message` — тост показывает их сырым текстом, эталон
+  рендерит ссылкой (`parseLinkedText`, `src/vs/base/common/linkedText.ts` у нас уже есть). Видно на
+  «Go to Project Configuration» в JS-файле без jsconfig (#864).
 
 ## UI-вклады: `viewsContainers` / `views`
 

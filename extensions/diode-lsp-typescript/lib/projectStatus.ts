@@ -105,9 +105,13 @@ export class ProjectStatus {
 
     public async update(editor: IProjectStatusEditor | undefined): Promise<void> {
         this.editor = editor;
-        const projectType = editor === undefined ? undefined : projectTypeForLanguage(editor.languageId);
         // The client syncs only `file` documents with the server.
-        if (editor === undefined || projectType === undefined || editor.scheme !== "file" || this.failed) {
+        if (editor?.scheme !== "file" || this.failed) {
+            this.setState(NONE);
+            return;
+        }
+        const projectType = projectTypeForLanguage(editor.languageId);
+        if (projectType === undefined) {
             this.setState(NONE);
             return;
         }
@@ -127,8 +131,9 @@ export class ProjectStatus {
      */
     public async refresh(): Promise<void> {
         const state = this.state;
+        // Before the server is ready this only shows Loading again.
         if (state.type === "pending") {
-            if (this.ready) await this.update(state.editor);
+            await this.update(state.editor);
             return;
         }
         if (state.type !== "resolved") return;
@@ -218,7 +223,6 @@ export class ProjectStatus {
     }
 
     private setState(state: State): void {
-        if (this.state === state) return;
         this.state = state;
         switch (state.type) {
             case "none":
