@@ -72,7 +72,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("views extension point — stock hashicorp.
         expect(entries.map((entry) => entry.label)).toEqual(["Explorer", "HashiCorp Terraform", "HCP Terraform"]);
 
         entries[1].onSelect?.();
-        expect(h.shownViewlets.at(-1)).toEqual({ id: "workbench.view.extension.terraform", reveal: true });
+        expect(h.shownViewlets.at(-1)).toEqual({ id: "workbench.view.extension.terraform", reveal: true, focus: true });
     });
 
     it("opening a view is an activation event of the extension", () => {

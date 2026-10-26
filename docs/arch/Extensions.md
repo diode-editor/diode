@@ -731,6 +731,16 @@
   `$(name)` в тексте подменяются глифами codicon-шрифта (см. «Значки `$(name)` в тексте расширений»
   ниже) ДО обрезки по 24 символам — иначе разметка съела бы смысл подписи. Стабы —
   `tooltip`/`color`/`backgroundColor`/`accessibilityInformation` (принимаются, ни на что не влияют).
+- **Language Status:** настоящий `languages.createLanguageStatusItem` (`extHostLanguageStatus.ts`) —
+  notify `languages.statusItem.update` (полное состояние сразу при создании и на каждое поле, как
+  `$setLanguageStatus` эталона, но без отложки на тик) / `.dispose` → `LanguageStatusCustomer` →
+  опция `ExtensionHost.languageStatusSink` → `ExtensionLanguageStatusAdapter` → `LanguageStatusService`
+  (`services/languageStatus/`, сопоставляет селектор с документом через `languageSelector.score`,
+  сортирует severity ↓, `source` (id расширения), `id`). Id пункта — `<id расширения>/<свой id>`, второй
+  живой с тем же id бросает, как в эталоне. Смерть субпроцесса — `clear()`. Сегмент рисует
+  `contrib/languageStatus` (`status.languageStatus`, priority 75 — между EOL и языком); отступление
+  от эталона: клик открывает quick pick пунктов вместо hover, нет закрепления (dedicated) и
+  `accessibilityInformation`.
 - **Вход как null-объект (`authenticationNoop.ts`) и телеметрия (`telemetryLogger.ts`):**
   `vscode.authentication` и `env.createTelemetryLogger` нужны расширению ещё до его настоящей работы
   — `@vscode/extension-telemetry` строит логгер в конструкторе репортера, а `hashicorp.terraform`
@@ -821,7 +831,28 @@
   `require()`) действия не отдаёт, а эталонное `typescript-language-features` отдаёт его на любой
   запрос с `only` ⊇ `source.organizeImports.ts` и считает правки лениво; клиент дописывает действие
   с пустым `WorkspaceEdit`, и команда молчит, как в VS Code, вместо «No organize imports action for
-  'javascript'». Наивные стабы поверхности languageclient (no-op провайдеры, naive-события, env,
+  'javascript'».
+  **Статус проекта JS/TS** (`lib/projectStatus.ts`, `lib/projectConfig.ts`) — порт эталонного
+  `IntellisenseStatus` и команд `tsconfig.ts`: элемент Language Status `typescript.projectStatus`
+  («No jsconfig» → «Configure JSConfig», путь конфига → «Open Config File», «Loading IntelliSense
+  status» пока сервер не готов) и `javascript.goToProjectConfig`/`typescript.goToProjectConfig`.
+  `projectInfo` идёт через `typescript.tsserverRequest` стокового сервера (`ExecuteCommandRequest`
+  мимо middleware), логика написана против хоста-интерфейса и тестируется без `vscode`, `main.ts`
+  только связывает. Отступления: «Configure» не открывает untitled-буфер со сниппетом, а создаёт
+  `<папка>/jsconfig.json` одной `workspace.applyEdit` (createFile + текст шаблона, Ctrl+Z удаляет
+  файл) и открывает его (нет `openTextDocument(untitled:путь)` и `insertSnippet`; решение человека
+  2026-10-25); шаблон — с дефолтами `js/ts.implicitProjectConfig.*` (настроек нет); `projectInfo` без
+  ответа убирает элемент вместо вечного Loading; активный редактор — `activeTextEditor`, а не
+  активная вкладка. **Пересчёт без смены редактора:** tsserver сам замечает новый/удалённый конфиг
+  опросом (`fs.watchFile`, 2 с) и грузит проект в фоне — сервер показывает это прогрессом
+  «Initializing JS/TS language features…»; middleware `handleWorkDoneProgress` по его `end`
+  переспрашивает `projectInfo` (`ProjectStatus.refresh`, без мигания Loading). Клиентский watcher
+  (`useClientFileWatcher`, как `tsserver.watchOptions: "vscode"` эталона) пробовали: tsls просит
+  рекурсивный `**/*` на весь `node_modules` с tsserver'ом — для этой задачи слишком дорого.
+  **Грабли:** tsserver не ставит watcher на конфиг в каталоге двух уровней от корня
+  (`canWatchDirectoryOrFilePath` считает `/home/<user>`, `/tmp/<x>` домашним каталогом), поэтому
+  в `~/proj` или `/tmp/x/proj` новый конфиг без перезапуска сервера не подхватится — так и в VS Code;
+  тесты и живой прогон кладут проект глубже. Наивные стабы поверхности languageclient (no-op провайдеры, naive-события, env,
   `version` в лок-степе с `extensions/VSCODE_VERSION`) — статусы в [API-COVERAGE](../public/API-COVERAGE.md).
 - **Проекция выделения host → subprocess (#194):** первичное выделение едет в `IActiveEditorMeta` на
   смене активного редактора, а **каждое движение каретки** — отдельной нотификацией

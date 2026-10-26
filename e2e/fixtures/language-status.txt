@@ -1,0 +1,3 @@
+Language Status demo.
+
+The bracket glyph left of "Plain Text" lists the items.

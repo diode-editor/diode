@@ -18,6 +18,7 @@ import { implementsApi } from "./apiSurface.ts";
 import { scoreDocumentSelector, toWireLanguageFilters } from "./documentSelector.ts";
 import type { ExtHostTextDocument } from "./extHostDocuments.ts";
 import { createSetLanguageConfiguration } from "./extHostLanguageConfiguration.ts";
+import { createLanguageStatusItemFactory } from "./extHostLanguageStatus.ts";
 import { DocumentRangeSemanticTokensAdapter, DocumentSemanticTokensAdapter } from "./extHostSemanticTokens.ts";
 import {
     rangeFrom,
@@ -1088,18 +1089,7 @@ export function createLanguagesNamespace(
         onDidChangeDiagnostics: diagnosticsChanged.event,
         getDiagnostics,
         createDiagnosticCollection,
-        // Not projected into the UI (no room in the status bar); Ruff keeps server state in it.
-        createLanguageStatusItem: (id: string, selector: vscode.DocumentSelector): vscode.LanguageStatusItem => ({
-            id,
-            selector,
-            name: undefined,
-            text: "",
-            detail: undefined,
-            severity: 0,
-            command: undefined,
-            busy: false,
-            dispose: () => undefined,
-        }),
+        createLanguageStatusItem: createLanguageStatusItemFactory(ctx),
         // A real match: languageclient uses it to filter documents for sync — a naive
         // "always 10" fed markdown to the ts server, which crashed its handlers.
         match: (selector: vscode.DocumentSelector, document: vscode.TextDocument): number =>

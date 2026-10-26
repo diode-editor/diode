@@ -5,7 +5,8 @@
  * the tree FIRST. The Run Targets section in Explorer shows packages with their targets; a target's command
  * shows a toast, and `Tree Outline: Add Target` changes the data and fires `onDidChangeTreeData`. The
  * `view/item/context` commands (a row's menu, the inline Edit on targets) write the row they got to the
- * "Tree Outline" output: `same` means the very `Node` the provider returned.
+ * "Tree Outline" output: `same` means the very `Node` the provider returned. `Tree Outline: Reveal Server`
+ * selects the "server" row with `reveal(…, { focus: false })`.
  */
 const vscode = require("vscode");
 
@@ -16,6 +17,7 @@ class Node extends vscode.TreeItem {
             children === undefined ? vscode.TreeItemCollapsibleState.None : vscode.TreeItemCollapsibleState.Expanded,
         );
         this.children = children;
+        for (const child of children ?? []) child.parent = this;
         if (children === undefined) {
             this.iconPath = new vscode.ThemeIcon("play");
             this.contextValue = "runTarget";
@@ -44,6 +46,9 @@ exports.activate = function activate(context) {
             getChildren: function (element) {
                 return element === undefined ? roots : element.children;
             },
+            getParent: function (element) {
+                return element.parent;
+            },
         },
         showCollapseAll: true,
     });
@@ -69,6 +74,10 @@ exports.activate = function activate(context) {
         vscode.commands.registerCommand("treeOutline.edit", report("edit")),
         vscode.commands.registerCommand("treeOutline.run", function (target) {
             vscode.window.showInformationMessage("Running " + target.label);
+        }),
+        // Like Todo Tree's `autoReveal`: the row is selected while the keyboard stays where the user is.
+        vscode.commands.registerCommand("treeOutline.revealServer", function () {
+            return view.reveal(app.children[1], { select: true, focus: false });
         }),
         vscode.commands.registerCommand("treeOutline.addTarget", function () {
             roots.push(new Node("//tools", [new Node("lint")]));

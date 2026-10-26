@@ -34,6 +34,7 @@ import { bindDocumentSync, openDocumentSyncSources } from "../../workbench/api/b
 import { EditorDecorationsServiceAdapter } from "../../workbench/api/browser/editorDecorationsServiceAdapter.ts";
 import { EditorLayoutServiceAdapter } from "../../workbench/api/browser/editorLayoutServiceAdapter.ts";
 import { EditorOptionsServiceAdapter } from "../../workbench/api/browser/editorOptionsServiceAdapter.ts";
+import { ExtensionLanguageStatusAdapter } from "../../workbench/api/browser/extensionLanguageStatusAdapter.ts";
 import { ExtensionOutputAdapter } from "../../workbench/api/browser/extensionOutputAdapter.ts";
 import { ExtensionStatusBarAdapter } from "../../workbench/api/browser/extensionStatusBarAdapter.ts";
 import { ExtensionTreeViewsAdapter } from "../../workbench/api/browser/extensionTreeViewsAdapter.ts";
@@ -98,6 +99,7 @@ import {
 import { resolveMachineId } from "../../workbench/services/extensions/node/machineIdState.ts";
 import { createRipgrepWorkspaceScanner } from "../../workbench/services/extensions/node/workspaceContainsActivation.ts";
 import { ExternalOpenerDIToken } from "../../workbench/services/externalOpener/common/iExternalOpener.ts";
+import { LanguageStatusServiceDIToken } from "../../workbench/services/languageStatus/common/languageStatusService.ts";
 import { LifecycleServiceDIToken } from "../../workbench/services/lifecycle/browser/lifecycleService.ts";
 import { NotificationServiceDIToken } from "../../workbench/services/notification/browser/notificationService.ts";
 import { OUTPUT_VIEW_ID, OutputChannelRegistryDIToken } from "../../workbench/services/output/common/output.ts";
@@ -306,6 +308,7 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
                 logger,
                 icons,
             ),
+            languageStatusSink: new ExtensionLanguageStatusAdapter(container.get(LanguageStatusServiceDIToken)),
             quickInputSink: new QuickInputExtensionAdapter(container.get(QuickInputServiceDIToken), icons),
             notificationSink: new NotificationExtensionAdapter(container.get(NotificationServiceDIToken)),
             fileDialogSink: new FileDialogExtensionAdapter(container.get(FileDialogServiceDIToken)),

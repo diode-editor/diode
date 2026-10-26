@@ -24,7 +24,7 @@ import { NERD_FONT_ICONS, ProductIconServiceDIToken } from "../../theme/common/p
 
 import type { IMenuContribution, ISubmenuContribution, MenuContribution } from "./iMenuContribution.ts";
 import { isSubmenuContribution, MenuContributionsDIToken } from "./iMenuContribution.ts";
-import type { MenuId } from "./menuId.ts";
+import { MenuId } from "./menuId.ts";
 
 export interface ISubmenuEntry {
     readonly title: string;
@@ -195,6 +195,18 @@ export class MenuRegistry {
             if (item.visible !== undefined && !item.visible(context)) return false;
             return predicate?.(item) ?? true;
         });
+    }
+
+    /** See {@link MenuId.CommandPalette}; `keys` override context keys, as in {@link getMenuItems}. */
+    public isInCommandPalette(command: string, keys?: MenuContextKeys): boolean {
+        const items = this.items.filter(
+            (item): item is IMenuContribution =>
+                item.menuId === MenuId.CommandPalette && !isSubmenuContribution(item) && item.command === command,
+        );
+        return (
+            items.length === 0 ||
+            items.some((item) => item.when === undefined || this.contextKeys.evaluate(item.when, keys))
+        );
     }
 
     public getMenuItems(

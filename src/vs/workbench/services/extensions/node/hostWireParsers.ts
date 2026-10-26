@@ -38,6 +38,8 @@ import {
     type IWireLanguageFilter,
     type IWireLanguageProviderRegistration,
     type IWireLanguageProviderUnregistration,
+    type IWireLanguageStatusCommand,
+    type IWireLanguageStatusItem,
     type IWireMementoUpdate,
     type IWireMessageItem,
     type IWireOpenDialogRequest,
@@ -82,6 +84,7 @@ import {
     type WireConfigurationTarget,
     type WireFoldingRange,
     type WireLanguageFeatureKind,
+    type WireLanguageStatusSeverity,
     type WireMarker,
     type WireMessageSeverity,
     type WireOutputLevel,
@@ -196,15 +199,10 @@ export function parseWireLanguageProviderRegistration(raw: unknown): IWireLangua
     if (!isWireHandle(obj.handle) || !isWireLanguageFeatureKind(obj.kind) || !Array.isArray(obj.selector)) {
         return null;
     }
-    const selector: IWireLanguageFilter[] = [];
-    for (const item of obj.selector) {
-        const filter = parseWireLanguageFilter(item);
-        if (filter !== null) selector.push(filter);
-    }
     return {
         handle: obj.handle,
         kind: obj.kind,
-        selector,
+        selector: parseWireSelector(obj.selector),
         ...(Array.isArray(obj.triggerCharacters)
             ? { triggerCharacters: readWireCharacters(obj.triggerCharacters) }
             : {}),
@@ -229,6 +227,46 @@ function readWireLegend(raw: unknown): { legend?: IWireSemanticTokensLegend } {
     const strings = (list: unknown): string[] =>
         Array.isArray(list) ? list.map((item: unknown) => (typeof item === "string" ? item : "")) : [];
     return { legend: { tokenTypes: strings(tokenTypes), tokenModifiers: strings(tokenModifiers) } };
+}
+
+function parseWireSelector(raw: readonly unknown[]): IWireLanguageFilter[] {
+    const selector: IWireLanguageFilter[] = [];
+    for (const item of raw) {
+        const filter = parseWireLanguageFilter(item);
+        if (filter !== null) selector.push(filter);
+    }
+    return selector;
+}
+
+/** An unknown severity reads as Information, a command without a string id is dropped. */
+export function parseWireLanguageStatusItem(raw: unknown): IWireLanguageStatusItem | null {
+    // The handle check filters primitives too: their fields read as undefined.
+    const p = raw as Record<string, unknown> | null | undefined;
+    if (!isWireHandle(p?.handle) || typeof p.id !== "string" || !Array.isArray(p.selector)) return null;
+    const command = parseWireLanguageStatusCommand(p.command);
+    return {
+        handle: p.handle,
+        id: p.id,
+        source: typeof p.source === "string" ? p.source : "",
+        selector: parseWireSelector(p.selector),
+        text: typeof p.text === "string" ? p.text : "",
+        severity: p.severity === 1 || p.severity === 2 ? (p.severity as WireLanguageStatusSeverity) : 0,
+        busy: p.busy === true,
+        ...(typeof p.name === "string" ? { name: p.name } : {}),
+        ...(typeof p.detail === "string" && p.detail !== "" ? { detail: p.detail } : {}),
+        ...(command === null ? {} : { command }),
+    };
+}
+
+function parseWireLanguageStatusCommand(raw: unknown): IWireLanguageStatusCommand | null {
+    if (typeof raw !== "object" || raw === null) return null;
+    const p = raw as Record<string, unknown>;
+    if (typeof p.command !== "string" || p.command === "") return null;
+    return {
+        command: p.command,
+        title: typeof p.title === "string" ? p.title : "",
+        ...(Array.isArray(p.arguments) ? { arguments: p.arguments as readonly unknown[] } : {}),
+    };
 }
 
 export function parseWireProviderHandle(raw: unknown): IWireProviderHandle | null {

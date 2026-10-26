@@ -68,9 +68,16 @@ export function registerExtensionMenus(
         if (contributes === undefined) continue;
         const submenus = declaredSubmenus(ext.id, contributes.submenus, logger);
         for (const [menu, items] of Object.entries(contributes.menus ?? {})) {
-            const menuId = MENU_IDS[menu] ?? submenus.get(menu)?.menuId;
+            // `commandPalette` of built-ins only: their `when` is written against our context keys. A stock
+            // extension's reads upstream keys we may not set (editorconfig's `explorerResourceIsFolder`), and
+            // the filter would hide its command for good instead of showing it as before.
+            const menuId =
+                menu === COMMAND_PALETTE_MENU
+                    ? ext.isBuiltin
+                        ? MenuId.CommandPalette
+                        : undefined
+                    : (MENU_IDS[menu] ?? submenus.get(menu)?.menuId);
             if (menuId === undefined) {
-                // The palette doesn't know extension `when` yet, so the item isn't lost silently.
                 logger?.info(
                     menu === COMMAND_PALETTE_MENU
                         ? `${ext.id}: "commandPalette" items are not applied yet`

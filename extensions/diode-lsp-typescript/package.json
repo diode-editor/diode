@@ -40,6 +40,38 @@
         }
       }
     },
+    "commands": [
+      {
+        "command": "typescript.goToProjectConfig",
+        "title": "%typescript.goToProjectConfig.title%",
+        "category": "TypeScript"
+      },
+      {
+        "command": "javascript.goToProjectConfig",
+        "title": "%javascript.goToProjectConfig.title%",
+        "category": "JavaScript"
+      }
+    ],
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "typescript.goToProjectConfig",
+          "when": "editorLangId == typescript"
+        },
+        {
+          "command": "typescript.goToProjectConfig",
+          "when": "editorLangId == typescriptreact"
+        },
+        {
+          "command": "javascript.goToProjectConfig",
+          "when": "editorLangId == javascript"
+        },
+        {
+          "command": "javascript.goToProjectConfig",
+          "when": "editorLangId == javascriptreact"
+        }
+      ]
+    },
     "problemPatterns": [
       {
         "name": "tsc",

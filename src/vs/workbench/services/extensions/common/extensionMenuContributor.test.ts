@@ -173,18 +173,65 @@ describe("registerExtensionMenus", () => {
         expect(lines).toEqual(['test.ext: unknown menu "timeline/item/context", items skipped']);
     });
 
-    it("commandPalette is reported separately: it is a palette filter, not a menu point", () => {
-        const { menus, commands } = makeRegistry();
+    it("a built-in's commandPalette items become the palette filter: listed while one of their when holds", () => {
+        const { menus, commands, contextKeys } = makeRegistry();
         const { logger, lines } = collectLog();
         commands.register("ext.doThing", () => undefined, "Do Thing");
+        commands.register("ext.internal", () => undefined, "Internal");
+        commands.register("ext.free", () => undefined, "Free");
 
-        registerExtensionMenus(
-            [extension("test.ext", { menus: { commandPalette: [{ command: "ext.doThing", when: "false" }] } })],
+        const registration = registerExtensionMenus(
+            [
+                {
+                    ...extension("test.ext", {
+                        menus: {
+                            commandPalette: [
+                                { command: "ext.doThing", when: "editorLangId == javascript" },
+                                { command: "ext.doThing", when: "editorLangId == javascriptreact" },
+                                { command: "ext.internal", when: "false" },
+                            ],
+                        },
+                    }),
+                    isBuiltin: true,
+                },
+            ],
             menus,
             logger,
         );
 
-        expect(lines).toEqual(['test.ext: "commandPalette" items are not applied yet']);
+        expect(lines).toEqual([]);
+        expect(menus.isInCommandPalette("ext.doThing")).toBe(false);
+        contextKeys.set("editorLangId", "javascriptreact");
+        expect(menus.isInCommandPalette("ext.doThing")).toBe(true);
+        expect(menus.isInCommandPalette("ext.internal")).toBe(false);
+        expect(menus.isInCommandPalette("ext.free")).toBe(true);
+
+        registration.dispose();
+        expect(menus.isInCommandPalette("ext.internal")).toBe(true);
+    });
+
+    it("a stock extension's commandPalette items are not applied: its when may read keys we do not set", () => {
+        const { menus, commands } = makeRegistry();
+        const { logger, lines } = collectLog();
+        commands.register("EditorConfig.generate", () => undefined, "Generate .editorconfig");
+
+        registerExtensionMenus(
+            [
+                {
+                    ...extension("editorconfig.editorconfig", {
+                        menus: {
+                            commandPalette: [{ command: "EditorConfig.generate", when: "explorerResourceIsFolder" }],
+                        },
+                    }),
+                    isBuiltin: false,
+                },
+            ],
+            menus,
+            logger,
+        );
+
+        expect(lines).toEqual(['editorconfig.editorconfig: "commandPalette" items are not applied yet']);
+        expect(menus.isInCommandPalette("EditorConfig.generate")).toBe(true);
     });
 
     it("item without command and submenu is skipped with an explanation", () => {

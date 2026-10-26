@@ -275,6 +275,17 @@ describe("extHostTreeViews — rows", () => {
         ]);
     });
 
+    it("a numeric id from plain JS is `1/<id>` too, as upstream's truthiness test; `0` is no id", async () => {
+        const { members, children } = setup();
+        const numbered = (label: string, id: number): INode => {
+            const item = new TreeItem(label);
+            (item as { id: unknown }).id = id;
+            return node(item);
+        };
+        members.createTreeView("v", { treeDataProvider: provider(() => [numbered("x", 0), numbered("y", 1000001)]) });
+        expect((await children()).map((item) => item.handle)).toEqual(["0/0:x", "1/1000001"]);
+    });
+
     it("a second element under the same id replaces the first", async () => {
         const { members, stub, children, executed } = setup();
         const first = new TreeItem("first");

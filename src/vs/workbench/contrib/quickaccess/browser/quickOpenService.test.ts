@@ -143,7 +143,13 @@ function makeQuickAccessRegistry(deps: {
         ],
         [
             CommandsQuickAccessProviderDIToken,
-            new CommandsQuickAccessProvider(deps.commands, deps.keybindings, deps.contextKeys),
+            new CommandsQuickAccessProvider(
+                deps.commands,
+                deps.keybindings,
+                deps.contextKeys,
+                { isInCommandPalette: () => true },
+                { getActiveEditor: () => null },
+            ),
         ],
         [GotoLineQuickAccessProviderDIToken, new GotoLineQuickAccessProvider(deps.gotoSource, NULL_JUMP_RECORDER)],
         [

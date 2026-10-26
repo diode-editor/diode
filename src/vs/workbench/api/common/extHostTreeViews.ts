@@ -400,7 +400,8 @@ class ExtHostTreeView<T> {
         { id, label, resourceUri }: vscode.TreeItem,
         parent: ITreeNode<T> | undefined,
     ): string {
-        if (typeof id === "string" && id !== "") return `${ID_HANDLE_PREFIX}/${id}`;
+        // Upstream tests truthiness: a number from plain JS counts too (Todo Tree's `1e6 * build + n`), `0` does not.
+        if (id) return `${ID_HANDLE_PREFIX}/${id}`;
         const prefix = parent?.item.handle ?? LABEL_HANDLE_PREFIX;
         // Upstream escapes only the first slash.
         const elementId = (labelText(label) || (resourceUri === undefined ? "" : uriBasename(resourceUri))).replace(

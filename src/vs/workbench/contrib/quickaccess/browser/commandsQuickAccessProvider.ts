@@ -1,5 +1,7 @@
 import type { FuzzyMatch } from "../../../../base/common/fuzzySearch.ts";
 import { fuzzyMatchPrepared, prepareQuery } from "../../../../base/common/fuzzySearch.ts";
+import type { MenuRegistry } from "../../../../platform/actions/common/menuRegistry.ts";
+import { MenuRegistryDIToken } from "../../../../platform/actions/common/menuRegistry.ts";
 import type { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
 import { commandPaletteLabel, CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
 import type { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
@@ -11,6 +13,8 @@ import {
     keybindingLabelStyle,
     KeybindingRegistryDIToken,
 } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
+import type { IEditorService } from "../../../services/editor/common/editorService.ts";
+import { EditorServiceDIToken } from "../../../services/editor/common/editorService.ts";
 import type { IQuickAccessProvider, QuickAccessItem } from "../common/iQuickAccessProvider.ts";
 
 import { toMatchRanges } from "./pathMatchRanges.ts";
@@ -30,12 +34,20 @@ interface MatchedCommand {
 export class CommandsQuickAccessProvider implements IQuickAccessProvider {
     public static readonly PREFIX = ">";
 
-    public static dependencies = [CommandRegistryDIToken, KeybindingRegistryDIToken, ContextKeyServiceDIToken] as const;
+    public static dependencies = [
+        CommandRegistryDIToken,
+        KeybindingRegistryDIToken,
+        ContextKeyServiceDIToken,
+        MenuRegistryDIToken,
+        EditorServiceDIToken,
+    ] as const;
 
     public constructor(
         private readonly commands: CommandRegistry,
         private readonly keybindings: KeybindingRegistry,
         private readonly contextKeys: ContextKeyService,
+        private readonly menus: Pick<MenuRegistry, "isInCommandPalette">,
+        private readonly editors: Pick<IEditorService, "getActiveEditor">,
     ) {}
 
     public getPlaceholder(): string {
@@ -46,9 +58,13 @@ export class CommandsQuickAccessProvider implements IQuickAccessProvider {
         const prepared = prepareQuery(query.slice(CommandsQuickAccessProvider.PREFIX.length));
         // A disabled command is hidden, like VS Code (`precondition` moves into the palette item's
         // `when`): we can't gray out an item in place.
+        // Upstream reads `commandPalette` items in the active editor's scoped context: the palette has the
+        // focus now, and our focus-driven `editorLangId` would be empty.
+        const paletteKeys = { editorLangId: this.editors.getActiveEditor()?.languageId ?? "" };
         const all = this.commands
             .listCommands()
-            .filter((cmd) => cmd.enablement === undefined || this.contextKeys.evaluate(cmd.enablement));
+            .filter((cmd) => cmd.enablement === undefined || this.contextKeys.evaluate(cmd.enablement))
+            .filter((cmd) => this.menus.isInCommandPalette(cmd.id, paletteKeys));
 
         const matched = all.flatMap((cmd): MatchedCommand[] => {
             const label = commandPaletteLabel(cmd);

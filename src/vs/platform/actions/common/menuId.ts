@@ -29,6 +29,11 @@ export class MenuId {
     public static readonly ViewItemContext = new MenuId("ViewItemContext");
     /** Filtered by `menuContext.container` (`containerMenuVisible`). */
     public static readonly ViewContainerTitle = new MenuId("ViewContainerTitle");
+    /**
+     * Not a menu but the palette's filter (upstream `MenuId.CommandPalette`): a command without items here is
+     * always listed, one with items only while the `when` of one of them holds.
+     */
+    public static readonly CommandPalette = new MenuId("CommandPalette");
     public static readonly MenubarMainMenu = new MenuId("MenubarMainMenu");
     public static readonly MenubarFileMenu = new MenuId("MenubarFileMenu");
     public static readonly MenubarEditMenu = new MenuId("MenubarEditMenu");

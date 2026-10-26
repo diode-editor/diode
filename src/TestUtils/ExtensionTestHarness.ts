@@ -62,6 +62,7 @@ import type {
     IStatusBarItemSink,
 } from "../vs/workbench/api/common/iExtensionWindowSinks.ts";
 import type { IFileDecorationsService } from "../vs/workbench/api/common/iFileDecorationsService.ts";
+import type { ILanguageStatusSink } from "../vs/workbench/api/common/iLanguageStatusSink.ts";
 import type { IThemeColorResolver } from "../vs/workbench/api/common/iThemeColorResolver.ts";
 import type { IWorkspaceFoldersSink } from "../vs/workbench/api/common/iWorkspaceFoldersSink.ts";
 import { EditorGroupComponent } from "../vs/workbench/browser/parts/editor/editorGroupComponent.ts";
@@ -182,6 +183,7 @@ export interface IExtensionHarnessOptions {
     readonly quickInputSink?: IQuickInputSink;
     readonly notificationSink?: INotificationSink;
     readonly workspaceFoldersSink?: IWorkspaceFoldersSink;
+    readonly languageStatusSink?: ILanguageStatusSink;
     readonly treeViewsSink?: IExtensionTreeViewsSink;
     /** The workbench's registry, when its menus (a tree row's `view/item/context`) must see the extension's commands. */
     readonly commandRegistry?: CommandRegistry;
@@ -306,6 +308,7 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
         ...(options.quickInputSink !== undefined ? { quickInputSink: options.quickInputSink } : {}),
         ...(options.notificationSink !== undefined ? { notificationSink: options.notificationSink } : {}),
         ...(options.workspaceFoldersSink !== undefined ? { workspaceFoldersSink: options.workspaceFoldersSink } : {}),
+        ...(options.languageStatusSink !== undefined ? { languageStatusSink: options.languageStatusSink } : {}),
         ...(options.treeViewsSink !== undefined ? { treeViewsSink: options.treeViewsSink } : {}),
         ...(options.editorDecorations !== undefined ? { editorDecorations: options.editorDecorations } : {}),
         ...(options.fileDecorations !== undefined ? { fileDecorations: options.fileDecorations } : {}),

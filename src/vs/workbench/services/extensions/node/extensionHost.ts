@@ -95,6 +95,7 @@ import {
     type IFileDecorationsService,
     NULL_FILE_DECORATIONS_SERVICE,
 } from "../../../api/common/iFileDecorationsService.ts";
+import type { ILanguageStatusSink } from "../../../api/common/iLanguageStatusSink.ts";
 import { type IThemeColorResolver, NULL_THEME_COLOR_RESOLVER } from "../../../api/common/iThemeColorResolver.ts";
 import type { IWorkspaceFoldersSink } from "../../../api/common/iWorkspaceFoldersSink.ts";
 import type { IWireLanguageProviderRegistration } from "../../../api/common/wireTypes.ts";
@@ -133,6 +134,7 @@ import {
 import { FileSystemCustomer } from "./customers/fileSystemCustomer.ts";
 import { LanguageConfigurationCustomer } from "./customers/languageConfigurationCustomer.ts";
 import { LanguageFeaturesCustomer } from "./customers/languageFeaturesCustomer.ts";
+import { LanguageStatusCustomer } from "./customers/languageStatusCustomer.ts";
 import { SecretsCustomer } from "./customers/secretsCustomer.ts";
 import { TasksCustomer } from "./customers/tasksCustomer.ts";
 import { TerminalCustomer } from "./customers/terminalCustomer.ts";
@@ -211,6 +213,8 @@ export interface IExtensionHostOptions {
     readonly notificationSink?: INotificationSink;
     readonly fileDialogSink?: IFileDialogSink;
     readonly workspaceFoldersSink?: IWorkspaceFoldersSink;
+    /** When the subprocess dies, the host itself calls `clear()`: its items go with it. */
+    readonly languageStatusSink?: ILanguageStatusSink;
     readonly terminalSink?: IExtensionTerminalSink;
     readonly environmentVariableCollections?: IEnvironmentVariableCollectionStore;
     readonly taskSink?: IExtensionTaskSink;
@@ -379,6 +383,7 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
             new TreeViewsCustomer(options.treeViewsSink),
             new LanguageConfigurationCustomer(options.languageConfigurations ?? NULL_LANGUAGE_CONFIGURATION_SERVICE),
             new WorkspaceFoldersCustomer(options.workspaceFoldersSink),
+            new LanguageStatusCustomer(options.languageStatusSink),
             this.uriHandlersCustomer,
         ];
     }

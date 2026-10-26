@@ -16,8 +16,6 @@ import { ExtensionTreeViewsAdapter } from "../../../api/browser/extensionTreeVie
 import { ExtensionViewWelcomes } from "../../../api/browser/extensionViewWelcomes.ts";
 import { makeViewsHarness, testView } from "../../../browser/parts/views/viewsService.testUtils.ts";
 
-const VIEW = "test.rootFail";
-
 // The real subprocess behind the host's tree, checked in the frame: what the user sees after the extension misbehaves.
 describe("ExtensionHost — extension tree view in the frame", () => {
     let harness: IExtensionHarness | undefined;
@@ -27,11 +25,11 @@ describe("ExtensionHost — extension tree view in the frame", () => {
         harness = undefined;
     });
 
-    async function setup() {
+    async function setup(view: string, fixture: string) {
         const h = makeViewsHarness();
         h.service.registerContainer({ id: "sb", title: "SB", location: "sidebar", order: 0, isDefault: true });
-        h.service.registerView(testView(VIEW, "sb", 0, { body: null, placeholder: "nothing yet" }));
-        h.commands.register(`${VIEW}.focus`, () => undefined);
+        h.service.registerView(testView(view, "sb", 0, { body: null, placeholder: "nothing yet" }));
+        h.commands.register(`${view}.focus`, () => undefined);
         h.service.attachRegisteredContainers();
         h.showViewlet("sb");
         const errors: string[] = [];
@@ -56,7 +54,7 @@ describe("ExtensionHost — extension tree view in the frame", () => {
             logger,
         });
         harness = await createExtensionTestHarness({
-            extensions: [extensionFixture("test.rootFail", "treeViewRootFailureExtension.cjs")],
+            extensions: [extensionFixture(view, fixture)],
             treeViewsSink: adapter,
         });
         const app = TestApp.createWithContent(h.root("sb"), new Size(40, 12));
@@ -68,7 +66,7 @@ describe("ExtensionHost — extension tree view in the frame", () => {
     }
 
     it("a rejected root reread keeps the rows the tree had, the children of an expanded package included", async () => {
-        const { harness: ext, frame, errors } = await setup();
+        const { harness: ext, frame, errors } = await setup("test.rootFail", "treeViewRootFailureExtension.cjs");
         await waitUntil("the expanded package", () => frame().includes("app-test"));
 
         await ext.commandRegistry.execute("test.rootFail.set", true);
@@ -81,5 +79,36 @@ describe("ExtensionHost — extension tree view in the frame", () => {
         expect(text).toContain("//lib");
         expect(text).toContain("app-main");
         expect(text).toContain("app-test");
+    });
+
+    it("Expand and Collapse rebuilt with numeric ids, as Todo Tree: every folder opens with its rows, then closes", async () => {
+        const { harness: ext, frame } = await setup("test.rebuild", "treeViewRebuildExtension.cjs");
+        // Labels without the indent and the chevron.
+        const rows = (): string[] =>
+            frame()
+                .split("\n")
+                .slice(1)
+                .map((line) => line.replace(/^[^a-z]+/, "").trimEnd())
+                .filter((line) => line !== "");
+        await waitUntil("the collapsed workspace", () => frame().includes("workspace"));
+        expect(rows()).toEqual(["workspace", "notes"]);
+
+        await ext.commandRegistry.execute("test.rebuild.expand");
+        await waitUntil("the rows of every folder", () => frame().includes("c.py"));
+        expect(rows()).toEqual(["workspace", "src", "a.ts", "lib", "c.py", "notes"]);
+
+        await ext.commandRegistry.execute("test.rebuild.collapse");
+        await waitUntil("the folders closed", () => !frame().includes("src"));
+        expect(rows()).toEqual(["workspace", "notes"]);
+    });
+
+    it("a row fired as Expanded under the same id keeps the state it has, as upstream, with no blank rows", async () => {
+        const { harness: ext, frame } = await setup("test.rebuild", "treeViewRebuildExtension.cjs");
+        await waitUntil("the collapsed notes", () => frame().includes("notes"));
+        const before = frame();
+
+        await ext.commandRegistry.execute("test.rebuild.flipNotes");
+        await settle(100);
+        expect(frame()).toBe(before);
     });
 });

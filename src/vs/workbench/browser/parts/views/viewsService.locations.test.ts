@@ -343,7 +343,7 @@ describe("ViewsService — opening a view or container in its location", () => {
     it("a sidebar viewlet is shown with reveal", () => {
         const h = workbench();
         h.service.openViewContainer(SEARCH, true);
-        expect(h.shownViewlets.at(-1)).toEqual({ id: SEARCH, reveal: true });
+        expect(h.shownViewlets.at(-1)).toEqual({ id: SEARCH, reveal: true, focus: true });
     });
 
     it("unknown ids are a no-op", () => {
