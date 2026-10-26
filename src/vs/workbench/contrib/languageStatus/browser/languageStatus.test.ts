@@ -199,6 +199,84 @@ describe("LanguageStatusContribution — the segment on the frame", () => {
         expect(runs).toStrictEqual([[]]);
     });
 
+    it("an item changing while the list is open shows its new text and command in the open list (as upstream)", async () => {
+        // Upstream renders the hover into one persistent element, so an open hover follows the item: the JS/TS
+        // project status opened during "Loading IntelliSense status" turns into "No jsconfig" without reopening.
+        sink.update(wireItem(1, { text: "Loading IntelliSense status", busy: true }));
+        clickOnRow(statusRow().indexOf(NERD.loading));
+        expect(h.testApp.backend.screenToString()).toContain("Loading IntelliSense status");
+
+        sink.update(
+            wireItem(1, { text: "No jsconfig", command: { command: "test.ext.run", title: "Configure JSConfig" } }),
+        );
+        await flushMicrotasks();
+        h.testApp.render();
+        const screen = h.testApp.backend.screenToString();
+        expect(screen).toContain(LANGUAGE_STATUS_NAME);
+        expect(screen).toContain("No jsconfig");
+        expect(screen).toContain("Configure JSConfig");
+        expect(screen).not.toContain("Loading IntelliSense status");
+
+        h.testApp.sendKey("Enter");
+        await flushMicrotasks();
+        expect(runs).toStrictEqual([[]]);
+    });
+
+    it("the active row stays on the same item when the open list is refreshed", async () => {
+        const run = (args: number) => ({ command: "test.ext.run", title: "Run", arguments: [args] });
+        // Warnings sort first, then by id: Alpha (item-1), Bravo (item-2), Charlie (item-0).
+        sink.update(wireItem(1, { severity: 1, text: "Alpha", command: run(1) }));
+        sink.update(wireItem(2, { severity: 1, text: "Bravo", command: run(2) }));
+        sink.update(wireItem(0, { text: "Charlie", command: run(0) }));
+        clickOnRow(statusRow().indexOf(NERD.bracketDot));
+        h.testApp.sendKey("ArrowDown");
+
+        // Bravo calms down and moves to the last row; the selection follows it, not its old row.
+        sink.update(wireItem(2, { text: "Bravo calm", command: run(2) }));
+        await flushMicrotasks();
+        h.testApp.render();
+        const screen = h.testApp.backend.screenToString();
+        expect(screen.indexOf("Charlie")).toBeLessThan(screen.indexOf("Bravo calm"));
+        h.testApp.sendKey("Enter");
+        await flushMicrotasks();
+        expect(runs).toStrictEqual([[2]]);
+    });
+
+    it("an active item that goes away while the list is open leaves the first row active", async () => {
+        sink.update(wireItem(1, { text: "First", command: { command: "test.ext.run", title: "Run", arguments: [1] } }));
+        sink.update(
+            wireItem(2, { text: "Second", command: { command: "test.ext.run", title: "Run", arguments: [2] } }),
+        );
+        clickOnRow(statusRow().indexOf(NERD.bracket));
+        h.testApp.sendKey("ArrowDown");
+
+        sink.remove(2);
+        await flushMicrotasks();
+        h.testApp.render();
+        expect(h.testApp.backend.screenToString()).not.toContain("Second");
+        h.testApp.sendKey("Enter");
+        await flushMicrotasks();
+        expect(runs).toStrictEqual([[1]]);
+    });
+
+    it("the open list closes when the last item goes away, and the segment opens it again later", async () => {
+        sink.update(wireItem(1, { text: "Only", command: { command: "test.ext.run", title: "Run" } }));
+        clickOnRow(statusRow().indexOf(NERD.bracket));
+        expect(h.testApp.backend.screenToString()).toContain(LANGUAGE_STATUS_NAME);
+
+        sink.remove(1);
+        await flushMicrotasks();
+        h.testApp.render();
+        expect(h.testApp.backend.screenToString()).not.toContain(LANGUAGE_STATUS_NAME);
+
+        sink.update(wireItem(1, { text: "Back", command: { command: "test.ext.run", title: "Run" } }));
+        clickOnRow(statusRow().indexOf(NERD.bracket));
+        expect(h.testApp.backend.screenToString()).toContain("Back");
+        h.testApp.sendKey("Enter");
+        await flushMicrotasks();
+        expect(runs).toStrictEqual([[]]);
+    });
+
     it("closing the last editor takes the segment away", async () => {
         sink.update(wireItem(1));
         expect(statusRow()).toContain(NERD.bracket);
@@ -234,7 +312,13 @@ describe("LanguageStatusContribution — the segment on the frame", () => {
         h.activeEditor().setLanguage("markdown");
         expect(ids()).toEqual([LANGUAGE_STATUS_ID]);
 
+        // An open list goes away with the contribution.
+        bar.entries()[0]?.onClick?.();
+        h.testApp.render();
+        expect(h.testApp.backend.screenToString()).toContain(LANGUAGE_STATUS_NAME);
         contribution.dispose();
+        h.testApp.render();
+        expect(h.testApp.backend.screenToString()).not.toContain(LANGUAGE_STATUS_NAME);
         expect(ids()).toEqual([]);
         // Neither the language nor an item change reaches a disposed contribution.
         h.activeEditor().setLanguage("plaintext");

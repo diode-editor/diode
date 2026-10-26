@@ -4,6 +4,7 @@ import { stat, unlink, writeFile } from "node:fs/promises";
 import * as vscode from "vscode";
 import {
     CancellationToken,
+    ExecuteCommandRequest,
     LanguageClient,
     type LanguageClientOptions,
     type ProvideCodeActionsSignature,
@@ -11,6 +12,14 @@ import {
 } from "vscode-languageclient/node";
 
 import { needsNoopOrganizeImports } from "./lib/organizeImports.ts";
+import { configFileFromProjectInfo, JS_TS_LANGUAGE_IDS } from "./lib/projectConfig.ts";
+import {
+    type IProjectStatusEditor,
+    type IProjectStatusHost,
+    PROJECT_STATUS_ITEM_ID,
+    PROJECT_STATUS_ITEM_NAME,
+    ProjectStatus,
+} from "./lib/projectStatus.ts";
 import { createRefactoringEditsMiddleware, type RefactoringEditsHost } from "./lib/refactoringEdits.ts";
 import { LANGUAGE_SERVERS, resolveServerCommand } from "./lib/resolveServer.ts";
 
@@ -24,7 +33,20 @@ const BUNDLED_POLL_MS = 100;
  */
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
     const configuration = vscode.workspace.getConfiguration("diode.lsp.typescript");
-    if (!configuration.get<boolean>("enabled", true)) return;
+    // The palette commands answer even without a server: "Could not determine TypeScript or JavaScript project".
+    const projectClientRef: { current?: LanguageClient } = {};
+    const projectStatus = new ProjectStatus(projectStatusHost(projectClientRef));
+    context.subscriptions.push(projectStatus);
+    for (const [id, handler] of Object.entries(projectStatus.commands())) {
+        context.subscriptions.push(vscode.commands.registerCommand(id, handler));
+    }
+    const updateProjectStatus = (): void => void projectStatus.update(activeEditor());
+    context.subscriptions.push(vscode.window.onDidChangeActiveTextEditor(updateProjectStatus));
+    updateProjectStatus();
+    if (!configuration.get<boolean>("enabled", true)) {
+        projectStatus.setFailed();
+        return;
+    }
     const settingPath = configuration.get<string>("serverPath", "");
     const bundledServerPath = configuration.get<string>("bundledServerPath", "");
     const bundledTsserverPath = configuration.get<string>("bundledTsserverPath", "");
@@ -53,6 +75,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         );
         if (resolved === null) {
             outputChannel.appendLine(`${spec.id}: language server executable not found — skipped`);
+            projectStatus.setFailed();
             continue;
         }
         const server = resolved.command;
@@ -89,6 +112,13 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
             ...(Object.keys(initializationOptions).length > 0 ? { initializationOptions } : {}),
             middleware: {
                 provideCodeActions: withNoopOrganizeImports,
+                // tsserver notices a new or deleted config by polling it (2 s) and loads the project in the
+                // background; the server reports that load as "Initializing JS/TS language features…". Its end is
+                // the moment the project of the active file may have changed without an editor switch.
+                handleWorkDoneProgress: (token, params, next) => {
+                    next(token, params);
+                    if (params.kind === "end") void projectStatus.refresh();
+                },
                 executeCommand: (command, args, next) => refactoringEdits.executeCommand(command, args, next),
                 workspace: {
                     handleApplyEdit: (params, next) =>
@@ -99,6 +129,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
         const client = new LanguageClient(spec.id, spec.displayName, serverOptions, clientOptions);
         clientRef.current = client;
+        projectClientRef.current = client;
         context.subscriptions.push(client);
         // Activation does not block on initialize. withProgress shows a spinner
         // even if the server sends no work-done progress of its own.
@@ -108,8 +139,10 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
                 client.start().then(
                     () => {
                         outputChannel.appendLine(`${spec.id}: language server started (${server.command})`);
+                        projectStatus.setReady();
                     },
                     (err: unknown) => {
+                        projectStatus.setFailed();
                         outputChannel.appendLine(
                             `${spec.id}: failed to start: ${err instanceof Error ? err.message : String(err)}`,
                         );
@@ -117,6 +150,56 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
                 ),
         );
     }
+}
+
+function activeEditor(): IProjectStatusEditor | undefined {
+    const document = vscode.window.activeTextEditor?.document;
+    if (document === undefined) return undefined;
+    const { uri, languageId } = document;
+    return { uri: uri.toString(), scheme: uri.scheme, fsPath: uri.fsPath, languageId };
+}
+
+function projectStatusHost(clientRef: { readonly current?: LanguageClient }): IProjectStatusHost {
+    return {
+        createItem: () => {
+            const item = vscode.languages.createLanguageStatusItem(PROJECT_STATUS_ITEM_ID, [...JS_TS_LANGUAGE_IDS]);
+            item.name = PROJECT_STATUS_ITEM_NAME;
+            return item;
+        },
+        projectInfo: async (documentUri) => {
+            const client = clientRef.current;
+            if (client?.isRunning() !== true) return undefined;
+            try {
+                const response: unknown = await client.sendRequest(ExecuteCommandRequest.type, {
+                    command: "typescript.tsserverRequest",
+                    arguments: ["projectInfo", { file: documentUri, needFileNameList: false }],
+                });
+                return configFileFromProjectInfo(response);
+            } catch {
+                return undefined;
+            }
+        },
+        workspaceFolders: () => (vscode.workspace.workspaceFolders ?? []).map((folder) => folder.uri.fsPath),
+        asRelativePath: (filePath) => vscode.workspace.asRelativePath(filePath),
+        fileExists: (filePath) =>
+            stat(filePath).then(
+                () => true,
+                () => false,
+            ),
+        createFile: (filePath, text) => {
+            const uri = vscode.Uri.file(filePath);
+            const edit = new vscode.WorkspaceEdit();
+            edit.createFile(uri);
+            edit.insert(uri, new vscode.Position(0, 0), text);
+            return vscode.workspace.applyEdit(edit);
+        },
+        openFile: async (filePath) => {
+            const document = await vscode.workspace.openTextDocument(vscode.Uri.file(filePath));
+            await vscode.window.showTextDocument(document, vscode.window.activeTextEditor?.viewColumn);
+        },
+        showInformationMessage: (message, ...items) => vscode.window.showInformationMessage(message, ...items),
+        showWarningMessage: (message) => void vscode.window.showWarningMessage(message),
+    };
 }
 
 /** An empty edit applies with no changes and no undo step; see `lib/organizeImports.ts` for why. */

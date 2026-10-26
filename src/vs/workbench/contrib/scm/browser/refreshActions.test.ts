@@ -18,6 +18,10 @@ import { SCM_CHANGES_VIEW_ID, SCM_GRAPH_VIEW_ID } from "../common/scmViews.ts";
 import { gitRefreshAction, REFRESH_ICON } from "./refreshActions.ts";
 import { SCM_ACTIONS } from "./scmActions.ts";
 
+/** No extension narrows the palette here. */
+const ALL_IN_PALETTE = { isInCommandPalette: () => true };
+const NO_EDITOR = { getActiveEditor: () => null };
+
 function makeAccessor(
     commands: CommandRegistry,
     progress = new ProgressService(),
@@ -112,7 +116,13 @@ describe("Git: Refresh in the command palette", () => {
         const accessor = { get: (t: unknown) => services.get(t) } as unknown as ServiceAccessor;
         const action = SCM_ACTIONS.find((a) => a.id === "git.refresh")!;
         registerAction(commands, new KeybindingRegistry(), accessor, action);
-        const provider = new CommandsQuickAccessProvider(commands, new KeybindingRegistry(), contextKeys);
+        const provider = new CommandsQuickAccessProvider(
+            commands,
+            new KeybindingRegistry(),
+            contextKeys,
+            ALL_IN_PALETTE,
+            NO_EDITOR,
+        );
         return provider.getItems(">Git: Refresh").map((item) => item.label);
     }
 

@@ -1,4 +1,3 @@
-import { onUnexpectedError } from "../../../../base/common/errors.ts";
 import { Disposable, type IDisposable } from "../../../../base/common/lifecycle.ts";
 import type { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
 import { CommandRegistryDIToken } from "../../../../platform/commands/common/commandRegistry.ts";
@@ -10,6 +9,7 @@ import {
 import type { TextEditorPane } from "../../../browser/parts/editor/textEditorPane.ts";
 import type { QuickInputService } from "../../../browser/parts/quickinput/quickInputService.ts";
 import { QuickInputServiceDIToken } from "../../../browser/parts/quickinput/quickInputService.ts";
+import type { QuickPickSession } from "../../../browser/parts/quickinput/quickPickSession.ts";
 import type { IWorkbenchContribution } from "../../../common/iWorkbenchContribution.ts";
 import type { QuickPickItem } from "../../../common/quickPickItem.ts";
 import { EditorServiceDIToken, type IEditorService } from "../../../services/editor/common/editorService.ts";
@@ -51,7 +51,8 @@ interface ILanguageStatusPick extends QuickPickItem {
 /**
  * Upstream `LanguageStatus` (contrib/languageStatus): one combined segment for the active editor's items.
  * Deviation: a click opens a quick pick of the items instead of the hover — the bar has no hovers and not
- * every terminal has a mouse. No pinned (dedicated) segments.
+ * every terminal has a mouse. No pinned (dedicated) segments. Like upstream's hover, the open list follows
+ * the items: one that leaves "Loading" shows its new text and command without reopening.
  */
 export class LanguageStatusContribution extends Disposable implements IWorkbenchContribution {
     public static dependencies = [
@@ -64,6 +65,7 @@ export class LanguageStatusContribution extends Disposable implements IWorkbench
     ] as const;
 
     private handle: IStatusBarEntryHandle | null = null;
+    private picker: QuickPickSession<ILanguageStatusPick> | null = null;
     private languageSubscription: IDisposable | null = null;
     // Stryker disable next-line ArrayDeclaration: the constructor's `follow` overwrites it before anything reads it
     private statuses: readonly ILanguageStatus[] = [];
@@ -96,6 +98,7 @@ export class LanguageStatusContribution extends Disposable implements IWorkbench
             dispose: () => {
                 this.languageSubscription?.dispose();
                 this.handle?.dispose();
+                this.picker?.dispose();
             },
         });
         this.follow(editors.getActiveEditor());
@@ -116,8 +119,10 @@ export class LanguageStatusContribution extends Disposable implements IWorkbench
         if (this.statuses.length === 0) {
             this.handle?.dispose();
             this.handle = null;
+            this.picker?.dispose();
             return;
         }
+        this.refreshPicker();
         const text = this.icons.renderCodicons(languageStatusGlyph(this.statuses));
         if (this.handle !== null) {
             this.handle.update({ text });
@@ -129,18 +134,51 @@ export class LanguageStatusContribution extends Disposable implements IWorkbench
             text,
             alignment: "right",
             priority: LANGUAGE_STATUS_PRIORITY,
-            // A fire-and-forget promise must not reject past the click: an unhandled rejection takes the process down.
             onClick: () => {
-                this.showPicker().catch(onUnexpectedError);
+                this.showPicker();
             },
         });
     }
 
-    private async showPicker(): Promise<void> {
-        const items = this.statuses.map((status): ILanguageStatusPick => this.toPick(status));
-        const picked = (await this.quickInput.quickPick({ title: LANGUAGE_STATUS_NAME, items })) as
-            | ILanguageStatusPick
-            | undefined;
+    private showPicker(): void {
+        this.picker?.dispose();
+        const picker = this.quickInput.createQuickPick<ILanguageStatusPick>({
+            onDidChangeValue: () => undefined,
+            onDidChangeActive: () => undefined,
+            onDidChangeSelection: () => undefined,
+            onDidAccept: () => {
+                const picked = picker.getState().selectedItems[0];
+                // Deferred close: the rest of this Enter must not reach the editor that regains focus.
+                queueMicrotask(() => {
+                    picker.dispose();
+                    this.run(picked);
+                });
+            },
+            // A hidden session draws nothing and takes `update` into its state only; the next open replaces it.
+            onDidHide: () => undefined,
+        });
+        this.picker = picker;
+        picker.update({ title: LANGUAGE_STATUS_NAME, items: this.picks() });
+        picker.show();
+    }
+
+    /** The active row stays on the same item (by id) while the list is replaced. */
+    private refreshPicker(): void {
+        const picker = this.picker;
+        if (picker === null) return;
+        // Stryker disable next-line OptionalChaining: equivalent — an open list with items always has an active row, and an emptied one is disposed before it gets here
+        const activeId = picker.getState().activeItems[0]?.status.id;
+        const items = this.picks();
+        const active = items.find((item) => item.status.id === activeId);
+        // Stryker disable next-line ConditionalExpression: equivalent — `activeItems: [undefined]` matches no row, and the session then leaves the active row where the new items put it, as with no `activeItems`
+        picker.update({ items, ...(active === undefined ? {} : { activeItems: [active] }) });
+    }
+
+    private picks(): ILanguageStatusPick[] {
+        return this.statuses.map((status) => this.toPick(status));
+    }
+
+    private run(picked: ILanguageStatusPick | undefined): void {
         const command = picked?.status.command;
         if (command === undefined) return;
         const { id, arguments: args } = command;
