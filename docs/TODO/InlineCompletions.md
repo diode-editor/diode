@@ -76,14 +76,14 @@ docs/arch/Extensions.md («Inline-completion seam»).
 По ним прошла сверка механики «призрак в середине строки» (n-4); пути — от `src/vs/` эталона (`node scripts/vscode-ref.mjs`).
 
 - Ghost text у upstream — не отдельный рендер, а **injected-text декорация**: `editor/contrib/inlineCompletions/browser/view/ghostText/ghostTextView.ts` ставит `after: {content, …, cursorStops: InjectedTextCursorStops.Left}` — отсюда «каретка слева от фантома» как норма, а не как наш выбор.
-- Математика инъекций живёт во **вью-модели**: `editor/common/modelLineProjectionData.ts` (`injectionOffsets`; `translateToInputOffset` ≈ наш `documentOffset`, `translateToOutputPosition(affinity)` ≈ наши `composedOffset`/`composedCaretOffset`) и `editor/common/viewModel/monospaceLineBreaksComputer.ts` — брейки wrap считаются по тексту **с** инъекциями. Отсюда наш word-wrap-люфт ниже: у нас фантом протянут параметром через browser-рендер (`ILinePhantom`), а `common/viewModel/lineBreaksComputer.ts` получает настоящий текст строки — закрывать люфт там, а не в рендере.
+- Математика инъекций живёт во **вью-модели**: `editor/common/modelLineProjectionData.ts` (`injectionOffsets`; `translateToInputOffset` ≈ наш `documentOffset`, `translateToOutputPosition(affinity)` ≈ наши `composedOffset`/`composedCaretOffset`) и `editor/common/viewModel/monospaceLineBreaksComputer.ts` — брейки wrap считаются по тексту **с** инъекциями. Отсюда наш word-wrap-люфт ниже: у нас вставки компонует сам рендер (`common/viewModel/lineInsertions.ts`, `IInlineInsertion`), а `common/viewModel/lineBreaksComputer.ts` получает настоящий текст строки — закрывать люфт там, а не в рендере.
 - «Движение каретки гасит подсказку» — тоже эталон: `editor/contrib/inlineCompletions/browser/controller/inlineCompletionsController.ts` гасит на `CursorChangeReason.Explicit || source === 'api'`.
 
 ## Осознанные отличия v1 от upstream (люфты)
 
 - ~~**Каретка только в конце строки.**~~ Закрыто (заявка n-4): первая строка
   подсказки вклеивается фантомными колонками в layout строки каретки
-  (`ILinePhantom`, `browser/textViewRendering.ts`), хвост строки уезжает вправо, и
+  (теперь — одна из вставок `IInlineInsertion`, `common/viewModel/lineInsertions.ts`), хвост строки уезжает вправо, и
   по той же композитной строке считают колонки overlay-проходы этой строки —
   подсветка токенов хвоста, фоны диапазонов, волны диагностик, каретки, hit-test.
   Остаточные люфты этой механики:

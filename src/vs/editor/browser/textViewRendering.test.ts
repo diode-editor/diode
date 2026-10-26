@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import { createRange, type IRange } from "../common/core/iRange.ts";
 import { TextDocument } from "../common/model/textDocument.ts";
 import { EditorViewState } from "../common/viewModel/editorViewState.ts";
+import { NO_LINE_INSERTIONS } from "../common/viewModel/lineInsertions.ts";
 
 import { buildViewportRows, type ITextViewportGeometry, paintSortedRangeBackgrounds } from "./textViewRendering.ts";
 
@@ -23,8 +24,8 @@ function geometry(scrollTop: number, visibleLines: number): ITextViewportGeometr
         viewLineCount: LINES,
         contentCols: 20,
         gutterW: 0,
-        phantom: null,
-        rows: buildViewportRows(viewState, scrollTop, visibleLines, null),
+        insertions: NO_LINE_INSERTIONS,
+        rows: buildViewportRows(viewState, scrollTop, visibleLines, NO_LINE_INSERTIONS),
     };
 }
 
@@ -55,7 +56,7 @@ function countedRanges(): { ranges: readonly IRange[]; reads: () => number } {
 
 describe("buildViewportRows", () => {
     it("resolves one row per visible line, no more", () => {
-        const rows = buildViewportRows(makeViewState(), 10, 5, null);
+        const rows = buildViewportRows(makeViewState(), 10, 5, NO_LINE_INSERTIONS);
 
         expect(rows.map((row) => [row.screenY, row.logLine])).toEqual([
             [0, 10],

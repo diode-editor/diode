@@ -20,6 +20,7 @@ import type { TokenizationRegistry } from "../../../../editor/common/languages/t
 import type { IExternalDecorations } from "../../../../editor/common/model/iEditorDecoration.ts";
 import type { IGhostText } from "../../../../editor/common/model/iGhostText.ts";
 import type { IGutterChangeDecoration } from "../../../../editor/common/model/iGutterChangeDecoration.ts";
+import type { IInlineInsertion } from "../../../../editor/common/model/iInlineInsertion.ts";
 import type { IUndoElement } from "../../../../editor/common/model/iUndoElement.ts";
 import { FeatureDebounce } from "../../../../editor/common/services/languageFeatureDebounce.ts";
 import { DocumentTokenStore } from "../../../../editor/common/tokens/documentTokenStore.ts";
@@ -508,6 +509,11 @@ export class EditorComponent extends Component {
     /** Reloading from disk recreates `EditorElement`, so the ghost text goes away by itself. */
     public setGhostText(ghost: IGhostText | null): void {
         this.editor.setGhostText(ghost);
+    }
+
+    /** Cells absent from the document (color decorators); the ghost text keeps its own. */
+    public setInlineInsertions(insertions: readonly IInlineInsertion[]): void {
+        this.editor.setInlineInsertions(insertions);
     }
 
     public revealRange(range: IRange): void {
