@@ -40,6 +40,18 @@ describe("ConfigurationRegistry", () => {
         });
     });
 
+    it("a key without a default stays out of the defaults tree", () => {
+        const registry = new ConfigurationRegistry([
+            {
+                id: "editor",
+                properties: {
+                    "editor.cursorStyle": { scope: "language-overridable", type: "string", enum: ["line", "block"] },
+                },
+            },
+        ]);
+        expect(registry.getDefaultConfiguration()).toEqual({});
+    });
+
     it("registerConfiguration appends a node after construction", () => {
         const registry = new ConfigurationRegistry([editorNode]);
         registry.registerConfiguration(terminalNode);

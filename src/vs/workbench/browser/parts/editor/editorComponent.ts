@@ -1,3 +1,4 @@
+import { type CursorStyle, sameCursorStyle } from "@tuidom/core/common/cursorStyle";
 import { TUIContextMenuEvent } from "@tuidom/core/dom/events/tuiMouseEvent";
 import type { OverlayAnchorPosition } from "@tuidom/core/dom/overlayLayer";
 import { ScrollBarDecorator } from "@tuidom/elements/scrollbar/scrollContainerElement";
@@ -418,6 +419,13 @@ export class EditorComponent extends Component {
     public setNerdFont(nerdFont: boolean): void {
         if (this.editor.nerdFont === nerdFont) return;
         this.editor.nerdFont = nerdFont;
+        this.editor.markDirty();
+    }
+
+    /** `editor.cursorStyle` + `editor.cursorBlinking`; `null` — the terminal's own cursor shape. */
+    public setCursorStyle(style: CursorStyle | null): void {
+        if (sameCursorStyle(this.editor.cursorStyle, style)) return;
+        this.editor.cursorStyle = style;
         this.editor.markDirty();
     }
 

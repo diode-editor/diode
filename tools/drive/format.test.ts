@@ -25,7 +25,7 @@ function frame(lines: string[], cols: number): GridSnapshot {
             width: 1,
         })),
     );
-    return { cols, rows: lines.length, cursor: null, cells };
+    return { cols, rows: lines.length, cursor: null, cursorStyle: null, cells };
 }
 
 function node(type: string, extra: Partial<NodeSnapshot> = {}, children: NodeSnapshot[] = []): NodeSnapshot {

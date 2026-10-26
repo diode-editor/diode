@@ -16,7 +16,11 @@ export type ConfigurationValueType = "string" | "number" | "boolean" | "object" 
 
 export interface IConfigurationPropertySchema {
     readonly type: ConfigurationValueType | readonly ConfigurationValueType[];
-    readonly default: unknown;
+    /**
+     * Absent — an unset key reads `undefined`, and so does an invalid value (as upstream, where
+     * `editor.cursorStyle` without a default would be "not configured"). The typed `get` adds `undefined`.
+     */
+    readonly default?: unknown;
     /**
      * Required, unlike upstream's `WINDOW` default: silently getting `window`
      * for a folder key costs more than answering the question when adding the key.
@@ -135,7 +139,9 @@ export class ConfigurationRegistry {
     /** A nested tree (`{ editor: { tabSize: 4 } }`), not flat dotted keys. */
     public getDefaultConfiguration(): Readonly<Record<string, unknown>> {
         const defaults = new Map<string, unknown>();
-        for (const [key, schema] of this.properties) defaults.set(key, schema.default);
+        for (const [key, schema] of this.properties) {
+            if (schema.default !== undefined) defaults.set(key, schema.default);
+        }
         for (const [key, property] of this.extensionProperties) {
             if (property.default !== undefined) defaults.set(key, property.default);
         }

@@ -55,7 +55,7 @@ Reading
   screen [--numbered]    frame text (--numbered: with line numbers and a column ruler)
   screenshot <file.png>  frame PNG
   cell <x> <y>           char, code point, fg/bg (#rrggbb|default), style
-  cursor                 terminal cursor position
+  cursor                 terminal cursor position and shape (block|underline|bar, if the app set one)
   tree [SEL] [--depth N] [--state]   node tree (or subtrees of SEL matches)
   node <SEL>             first node matching the selector (Type, #id, @role, "A B": descendant)
   focus                  focus path
@@ -433,8 +433,15 @@ async function cmdCell(args: ParsedArgs): Promise<void> {
 
 async function cmdCursor(args: ParsedArgs): Promise<void> {
     await withClient(args, async (client) => {
-        const { cursor } = await client.captureFrame();
-        emit(args, cursor, cursor === null ? "cursor hidden" : `${String(cursor.x)},${String(cursor.y)}`);
+        const { cursor, cursorStyle } = await client.captureFrame();
+        // The shape only when the app set one (DECSCUSR): without it the terminal keeps its own.
+        const shape =
+            cursorStyle === null ? "" : ` ${cursorStyle.shape} ${cursorStyle.blinking ? "blinking" : "steady"}`;
+        emit(
+            args,
+            cursor === null ? null : { ...cursor, style: cursorStyle },
+            cursor === null ? "cursor hidden" : `${String(cursor.x)},${String(cursor.y)}${shape}`,
+        );
     });
 }
 

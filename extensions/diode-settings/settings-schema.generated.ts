@@ -56,6 +56,20 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
         description: "Controls whether the editor shows the context menu.",
     },
     {
+        key: "editor.cursorBlinking",
+        type: "string",
+        default: "blink",
+        description: "Control the cursor animation style.",
+        enum: ["blink", "smooth", "phase", "expand", "solid"],
+    },
+    {
+        key: "editor.cursorStyle",
+        type: "string",
+        description:
+            "Controls the cursor style in insert input mode. When not set, the cursor keeps the shape configured in the terminal.",
+        enum: ["line", "block", "underline", "line-thin", "block-outline", "underline-thin"],
+    },
+    {
         key: "editor.cursorSurroundingLines",
         type: "number",
         default: 3,

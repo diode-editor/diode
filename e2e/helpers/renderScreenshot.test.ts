@@ -59,6 +59,7 @@ function snapshotOf(text: string): GridSnapshot {
         cols: [...text].length,
         rows: 1,
         cursor: null,
+        cursorStyle: null,
         cells: [...text].map((char) => ({ char, fg: DEFAULT_COLOR, bg: DEFAULT_COLOR, style: 0, width: 1 })),
     };
 }

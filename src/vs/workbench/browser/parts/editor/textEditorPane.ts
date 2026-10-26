@@ -1,5 +1,6 @@
 import * as path from "node:path";
 
+import type { CursorStyle } from "@tuidom/core/common/cursorStyle";
 import type { OverlayAnchorPosition } from "@tuidom/core/dom/overlayLayer";
 import type { ScrollBarDecorator } from "@tuidom/elements/scrollbar/scrollContainerElement";
 
@@ -335,6 +336,10 @@ export class TextEditorPane<TModel extends BaseTextEditorModel = BaseTextEditorM
     /** `diode.icons.nerdFont`: the glyph set of the folding chevrons. */
     public setNerdFont(nerdFont: boolean): void {
         this.component.setNerdFont(nerdFont);
+    }
+
+    public setCursorStyle(style: CursorStyle | null): void {
+        this.component.setCursorStyle(style);
     }
 
     public setCursorSurroundingLines(lines: number): void {

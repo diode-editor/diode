@@ -35,6 +35,24 @@ export const editorConfiguration = {
             default: 3,
             description: "Controls the minimal number of visible leading lines around the cursor.",
         },
+        // Upstream defaults to "line"; here no default (human's decision 2026-10-26, #887): unset leaves the
+        // terminal's own cursor shape. The terminal draws three shapes, so -thin/-outline fold into their base.
+        "editor.cursorStyle": {
+            scope: "language-overridable",
+            type: "string",
+            enum: ["line", "block", "underline", "line-thin", "block-outline", "underline-thin"],
+            description:
+                "Controls the cursor style in insert input mode. " +
+                "When not set, the cursor keeps the shape configured in the terminal.",
+        },
+        // The terminal only blinks or not: every value but "solid" is a blinking cursor.
+        "editor.cursorBlinking": {
+            scope: "language-overridable",
+            type: "string",
+            enum: ["blink", "smooth", "phase", "expand", "solid"],
+            default: "blink",
+            description: "Control the cursor animation style.",
+        },
         // Upstream's limit is applied by nesting level to the merged regions (provider ∪ indentation); the
         // "folding regions limit reached" status-bar reporter is not ported.
         "editor.foldingMaximumRegions": {

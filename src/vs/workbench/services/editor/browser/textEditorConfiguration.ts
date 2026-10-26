@@ -1,4 +1,5 @@
 import { Disposable } from "../../../../base/common/lifecycle.ts";
+import { toTerminalCursorStyle } from "../../../../editor/common/config/editorCursorStyle.ts";
 import type { WordWrapMode } from "../../../../editor/common/viewModel/editorViewState.ts";
 import type {
     IConfigurationOverrides,
@@ -53,6 +54,12 @@ export class TextEditorConfiguration extends Disposable {
         const occurrencesHighlight = this.configurationService.get("editor.occurrencesHighlight", overrides);
         editor.setOccurrenceHighlightEnabled(occurrencesHighlight !== "off");
 
+        editor.setCursorStyle(
+            toTerminalCursorStyle(
+                this.configurationService.get("editor.cursorStyle", overrides),
+                this.configurationService.get("editor.cursorBlinking", overrides),
+            ),
+        );
         editor.setCursorSurroundingLines(this.configurationService.get("editor.cursorSurroundingLines", overrides));
         editor.setScrollbarMarkers(this.configurationService.get("editor.scrollbarMarkers", overrides));
         editor.setFoldingMaximumRegions(this.configurationService.get("editor.foldingMaximumRegions", overrides));
