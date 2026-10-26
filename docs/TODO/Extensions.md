@@ -18,6 +18,10 @@
 - [ ] `contributes.snippets` — парсер тел сниппетов, движок (табстопы, плейсхолдеры, трансформации),
   интеграция с автодополнением; сниппет-сессия — [Suggest](Suggest.md).
 - [ ] Запись настройки в секцию языка (`WorkspaceConfiguration.update(…, overrideInLanguage)`) — пока отказ.
+- [ ] `menus.commandPalette` стоковых расширений: фильтр палитры есть, но включён только у встроенных
+  (`extensionMenuContributor.ts`). Включить для всех — после ключей, которые читают их `when`
+  (`explorerResourceIsFolder` у editorconfig — иначе `EditorConfig.generate` пропадёт из палитры,
+  e2e `editorconfig-stock`); `redhat.java` уже совпадает с эталоном (`java:serverMode`).
 - [ ] Конфликты точек вклада: сейчас резолвятся только по id расширения, не по перекрывающимся language ids.
 
 ### Не типизированы в `IExtensionManifest`

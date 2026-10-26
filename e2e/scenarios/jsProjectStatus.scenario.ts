@@ -5,7 +5,7 @@ import { join } from "node:path";
 
 import { waitUntil } from "../helpers/waitFor.ts";
 
-import { defineScenario } from "./framework.ts";
+import { defineScenario, type ScenarioDriver } from "./framework.ts";
 
 // As in VS Code: a .js file outside any project says "No jsconfig" in Language Status, "Configure JSConfig"
 // writes jsconfig.json and opens it, and back in the .js file the status names the config.
@@ -17,6 +17,23 @@ const sampleDir = join(mkdtempSync(join(tmpdir(), "diode-js-project-status-demo-
 const shapesFile = join(sampleDir, "src", "shapes.js");
 const configFile = join(sampleDir, "jsconfig.json");
 const SEGMENT = "#statusBarItem-status-languageStatus";
+
+/** The picker shows the items as they were when it opened: reopen it until the status says `text`. */
+async function openStatusWith(editor: ScenarioDriver, text: string, timeoutMs: number): Promise<void> {
+    await waitUntil(
+        async () => {
+            await editor.clickNode(SEGMENT);
+            const found = await editor.waitForText((t) => t.includes(text), { timeoutMs: 1000 }).then(
+                () => true,
+                () => false,
+            );
+            if (!found) await editor.sendKey("Escape");
+            return found;
+        },
+        (found) => found,
+        { describe: `the language status says "${text}"`, timeoutMs, intervalMs: 250 },
+    );
+}
 
 export default defineScenario({
     name: "js-project-status",
@@ -38,12 +55,9 @@ export default defineScenario({
     },
     async run(editor) {
         await editor.waitForText((t) => t.includes("export class Circle"));
-        // The item appears once the server answers projectInfo.
+        // The item says "Loading IntelliSense status" until the server answers projectInfo.
         await editor.waitForNode(SEGMENT, { timeoutMs: 60_000 });
-        await editor.clickNode(SEGMENT);
-        await editor.waitForText((t) => t.includes("No jsconfig") && t.includes("Configure JSConfig"), {
-            timeoutMs: 60_000,
-        });
+        await openStatusWith(editor, "Configure JSConfig", 60_000);
         await editor.capture("no-jsconfig");
 
         await editor.sendKey("Enter");
@@ -59,19 +73,7 @@ export default defineScenario({
         await editor.sendKey("Ctrl+PageUp");
         await editor.waitForText((t) => t.includes("export class Circle"));
         // tsserver notices the new config by polling it; the status follows on its own.
-        await waitUntil(
-            async () => {
-                await editor.clickNode(SEGMENT);
-                const found = await editor.waitForText((t) => t.includes("Open Config File"), { timeoutMs: 1000 }).then(
-                    () => true,
-                    () => false,
-                );
-                if (!found) await editor.sendKey("Escape");
-                return found;
-            },
-            (found) => found,
-            { describe: "the status names jsconfig.json", timeoutMs: 30_000, intervalMs: 250 },
-        );
+        await openStatusWith(editor, "Open Config File", 30_000);
         await editor.capture("jsconfig-status");
         await editor.sendKey("Escape");
     },
