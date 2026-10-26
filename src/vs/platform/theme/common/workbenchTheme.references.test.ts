@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import { darkPlusTheme } from "../../../workbench/services/themes/common/themes/darkPlus.ts";
 
+import { parseHexColor } from "./colorUtils.ts";
 import { WorkbenchTheme } from "./workbenchTheme.ts";
 
 /** Modeled on Catppuccin: `editorWidget.background` is set (#181825), `quickInput.background` isn't. */
@@ -42,6 +43,36 @@ describe("WorkbenchTheme: derived defaults by reference", () => {
         // editorWidget.foreground → foreground → theme; dropdown.foreground (light) → foreground.
         expect(theme.getRequiredColor("editorWidget.foreground")).toBe(packRgb(0x10, 0x10, 0x10));
         expect(theme.getRequiredColor("menu.foreground")).toBe(packRgb(0x10, 0x10, 0x10));
+    });
+
+    it("indent guide chain: background1 → editorIndentGuide.background → editorWhitespace.foreground", () => {
+        const monokaiLike = WorkbenchTheme.fromThemeFile({
+            name: "monokai-like",
+            type: "dark",
+            colors: { "editorIndentGuide.background": "#464741", "editorIndentGuide.activeBackground": "#767771" },
+        });
+        expect(monokaiLike.getRequiredColor("editorIndentGuide.background1")).toBe(packRgb(0x46, 0x47, 0x41));
+        expect(monokaiLike.getRequiredColor("editorIndentGuide.activeBackground1")).toBe(packRgb(0x76, 0x77, 0x71));
+
+        const whitespaceOnly = WorkbenchTheme.fromThemeFile({
+            name: "whitespace-only",
+            type: "light",
+            colors: { "editorWhitespace.foreground": "#123456" },
+        });
+        expect(whitespaceOnly.getRequiredColor("editorIndentGuide.background1")).toBe(packRgb(0x12, 0x34, 0x56));
+        expect(whitespaceOnly.getRequiredColor("editorIndentGuide.activeBackground1")).toBe(packRgb(0x12, 0x34, 0x56));
+
+        // An explicit background1 (Dark+) wins over the deprecated key.
+        const darkPlus = WorkbenchTheme.fromThemeFile(darkPlusTheme);
+        expect(darkPlus.getRequiredColor("editorIndentGuide.background1")).toBe(packRgb(0x40, 0x40, 0x40));
+        expect(darkPlus.getRequiredColor("editorIndentGuide.activeBackground1")).toBe(packRgb(0x70, 0x70, 0x70));
+    });
+
+    it("bare themes get VS Code's editorWhitespace.foreground defaults for guides", () => {
+        const dark = WorkbenchTheme.fromThemeFile({ name: "bare", type: "dark", colors: {} });
+        const light = WorkbenchTheme.fromThemeFile({ name: "bare", type: "light", colors: {} });
+        expect(dark.getRequiredColor("editorIndentGuide.background1")).toBe(parseHexColor("#e3e4e229"));
+        expect(light.getRequiredColor("editorIndentGuide.activeBackground1")).toBe(parseHexColor("#33333333"));
     });
 
     it("without theme values derived keys equal the baked VS Code defaults (Dark+ is unchanged)", () => {

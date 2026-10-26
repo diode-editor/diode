@@ -5,7 +5,7 @@ import { frameToText } from "../helpers/frame.ts";
 import { defineScenario, repoRoot } from "./framework.ts";
 
 // #194. A `#region` header sits at its body's indent, so the folding guide would land on the first
-// character of every wrapped line ("const" → "│onst"); the resting screenshot is the assertion.
+// character of every wrapped line ("const" → "▏onst"); the resting screenshot is the assertion.
 
 const sampleFile = resolve(repoRoot, "e2e", "fixtures", "regionFolding.ts");
 

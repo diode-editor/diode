@@ -183,7 +183,7 @@ describe("EditorElement word wrap — fragment rendering", () => {
         app.render();
         const gw = editor.gutterWidth;
         // Row 1 is the first fragment of the body: the guide is over the indent at the header column.
-        expect(app.backend.getTextAt(new Point(gw, 1), 1)).toBe("│");
+        expect(app.backend.getTextAt(new Point(gw, 1), 1)).toBe("▏");
         // Row 2 is a continuation from column 0: text, no guide over it.
         expect(app.backend.getTextAt(new Point(gw, 2), 1)).toBe("b");
     });

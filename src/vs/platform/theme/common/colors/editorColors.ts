@@ -42,13 +42,28 @@ export const editorColors = {
         defaults: { dark: "#474747", light: "#C6C6C6" },
         description: "Background color of a symbol during read-access, for example when reading a variable.",
     },
+    // VS Code's hcLight is #CCCCCC; hc kinds map to dark/light here.
+    "editorWhitespace.foreground": {
+        defaults: { dark: "#e3e4e229", light: "#33333333" },
+        description: "Color of whitespace characters in the editor.",
+    },
+    // Deprecated in VS Code in favor of `background1`/`activeBackground1`, but still the default
+    // they derive from: themes such as Monokai set only these.
+    "editorIndentGuide.background": {
+        defaults: { dark: "editorWhitespace.foreground", light: "editorWhitespace.foreground" },
+        description: "Color of the editor indentation guides.",
+    },
+    "editorIndentGuide.activeBackground": {
+        defaults: { dark: "editorWhitespace.foreground", light: "editorWhitespace.foreground" },
+        description: "Color of the active editor indentation guides.",
+    },
     "editorIndentGuide.background1": {
-        defaults: null,
-        description: "Color of the editor indentation guides (VS Code 1.x `background1`).",
+        defaults: { dark: "editorIndentGuide.background", light: "editorIndentGuide.background" },
+        description: "Color of the editor indentation guides (1).",
     },
     "editorIndentGuide.activeBackground1": {
-        defaults: null,
-        description: "Color of the active editor indentation guide (VS Code 1.x `activeBackground1`).",
+        defaults: { dark: "editorIndentGuide.activeBackground", light: "editorIndentGuide.activeBackground" },
+        description: "Color of the active editor indentation guides (1).",
     },
     "editorError.foreground": {
         defaults: { dark: "#F14C4C", light: "#E51400" },
