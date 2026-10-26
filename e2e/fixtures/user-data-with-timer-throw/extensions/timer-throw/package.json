@@ -1,0 +1,12 @@
+{
+    "name": "timer-throw",
+    "displayName": "Timer Throw",
+    "description": "E2E test extension: throws from a timer outside any promise, then shows a status bar item a second later.",
+    "version": "0.0.1",
+    "publisher": "test",
+    "main": "./extension.js",
+    "engines": {
+        "vscode": "^1.0.0"
+    },
+    "activationEvents": ["*"]
+}

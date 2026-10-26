@@ -22,4 +22,16 @@ describe("describeRejection", () => {
         expect(describeRejection(undefined)).toBe("undefined");
         expect(describeRejection({ code: 42 })).toBe("[object Object]");
     });
+
+    it("a value that cannot be printed does not throw: the type tag and a note", () => {
+        const badStack = new Error("boom");
+        Object.defineProperty(badStack, "stack", {
+            get(): never {
+                throw new Error("no stack");
+            },
+        });
+
+        expect(describeRejection(Object.create(null))).toBe("[object Object] (could not be described)");
+        expect(describeRejection(badStack)).toBe("[object Error] (could not be described)");
+    });
 });

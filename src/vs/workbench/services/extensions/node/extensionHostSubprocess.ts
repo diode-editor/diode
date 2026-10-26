@@ -6,7 +6,7 @@ import * as path from "node:path";
 import type * as vscode from "vscode";
 
 import { describeRejection } from "../../../../base/common/describeRejection.ts";
-import { setUnexpectedErrorHandler } from "../../../../base/common/errors.ts";
+import { isSigPipeError, setUnexpectedErrorHandler } from "../../../../base/common/errors.ts";
 import type { IDisposable } from "../../../../base/common/lifecycle.ts";
 import { importModule } from "../../../../base/node/importModule.ts";
 import type { ILogger } from "../../../../platform/log/common/iLogger.ts";
@@ -65,6 +65,12 @@ interface ExtensionContext {
     readonly environmentVariableCollection: vscode.GlobalEnvironmentVariableCollection;
 }
 
+/** Logs instead of exiting; an EPIPE on our stdout/stderr is dropped: there is nowhere to write it. */
+export function reportUncaughtException(error: unknown): void {
+    if (isSigPipeError(error)) return;
+    console.error(`[ext-host] uncaught exception in extension code: ${describeRejection(error)}`);
+}
+
 /** Doesn't return in normal operation: the process lives until `host.shutdown` or `disconnect`. */
 export function runExtensionHostSubprocess(): void {
     if (typeof process.send !== "function") {
@@ -89,6 +95,9 @@ export function runExtensionHostSubprocess(): void {
     process.on("unhandledRejection", (reason: unknown) => {
         console.error(`[ext-host] unhandled rejection in extension code: ${describeRejection(reason)}`);
     });
+    // The same for a synchronous throw outside a promise (a timer, an event callback): upstream
+    // extensionHostProcess.ts logs it too instead of letting Node exit (#861).
+    process.on("uncaughtException", reportUncaughtException);
     // The `[ext-host]` prefix lets the host recognize its lines in stderr.
     setUnexpectedErrorHandler((e: unknown) => {
         console.error(`[ext-host] unexpected error: ${describeRejection(e)}`);

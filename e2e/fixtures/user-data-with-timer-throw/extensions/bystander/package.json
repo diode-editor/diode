@@ -1,0 +1,12 @@
+{
+    "name": "bystander",
+    "displayName": "Bystander",
+    "description": "E2E test extension: does nothing; its single activation shows the host was not restarted.",
+    "version": "0.0.1",
+    "publisher": "test",
+    "main": "./extension.js",
+    "engines": {
+        "vscode": "^1.0.0"
+    },
+    "activationEvents": ["*"]
+}
