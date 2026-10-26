@@ -64,6 +64,7 @@ export class LanguageStatusContribution extends Disposable implements IWorkbench
 
     private handle: IStatusBarEntryHandle | null = null;
     private languageSubscription: IDisposable | null = null;
+    // Stryker disable next-line ArrayDeclaration: the constructor's `follow` overwrites it before anything reads it
     private statuses: readonly ILanguageStatus[] = [];
 
     public constructor(
@@ -138,9 +139,10 @@ export class LanguageStatusContribution extends Disposable implements IWorkbench
             | undefined;
         const command = picked?.status.command;
         if (command === undefined) return;
+        const { id, arguments: args } = command;
         try {
             // A rejected extension command is logged by the registry.
-            this.commands.execute(command.id, ...command.arguments);
+            this.commands.execute(id, ...args);
         } catch {
             // A command that throws synchronously must not take the editor down; the item stays usable.
         }
@@ -152,8 +154,9 @@ export class LanguageStatusContribution extends Disposable implements IWorkbench
         return {
             status,
             label: render(status.label),
-            ...(status.detail === "" ? {} : { description: render(status.detail) }),
-            ...(command === undefined || command.title === "" ? {} : { hint: render(command.title) }),
+            // An empty description is not drawn at all, so it needs no guard.
+            description: render(status.detail),
+            ...(command === undefined ? {} : { hint: render(command.title) }),
         };
     }
 }

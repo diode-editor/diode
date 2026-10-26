@@ -21,6 +21,7 @@ export class ExtensionLanguageStatusAdapter implements ILanguageStatusSink {
 
     public remove(handle: number): void {
         this.items.get(handle)?.dispose();
+        // Stryker disable next-line CallExpression: a status's dispose is idempotent, a stale entry would only hold memory
         this.items.delete(handle);
     }
 

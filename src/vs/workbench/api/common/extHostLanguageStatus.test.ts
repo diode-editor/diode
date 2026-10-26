@@ -39,7 +39,8 @@ describe("languages.createLanguageStatusItem: the producer of languages.statusIt
         const { stub, create } = makeFactory();
         create("server", { language: "python", scheme: "file" });
 
-        expect(traffic(stub)).toEqual([
+        // Strict: an unset `name`/`detail` is left out, not sent as `undefined`.
+        expect(traffic(stub)).toStrictEqual([
             {
                 method: "languages.statusItem.update",
                 params: {
@@ -85,6 +86,8 @@ describe("languages.createLanguageStatusItem: the producer of languages.statusIt
         expect(item).toMatchObject({ id: "server", text: "$(check) Ruff", detail: "Native server", busy: true });
         expect(item.severity).toBe(2);
         expect(item.command.command).toBe("ruff.restart");
+        // Fields are own enumerable properties, as on upstream's object literal: spread and JSON see them.
+        expect(Object.keys(item)).toEqual(expect.arrayContaining(["text", "detail", "severity", "busy", "command"]));
     });
 
     it("a command without arguments goes without the field; Warning is 1", () => {

@@ -57,9 +57,15 @@ describe("parseWireLanguageStatusItem", () => {
             source: 5,
             name: 1,
             text: null,
-            detail: "",
+            detail: 5,
         });
         expect(parsed).toEqual({ ...minimal, source: "", text: "", severity: 0, busy: false });
+        expect(parseWireLanguageStatusItem({ ...minimal, detail: "" })).not.toHaveProperty("detail");
+    });
+
+    it("keeps a string detail", () => {
+        const parsed = parseWireLanguageStatusItem({ ...minimal, detail: "ready" });
+        expect(parsed?.detail).toBe("ready");
     });
 
     it("a command without a string id is dropped; a missing title is empty, non-array arguments are dropped", () => {
@@ -78,6 +84,7 @@ describe("parseWireLanguageStatusItem", () => {
 
     it("rejects an envelope without a handle, an id or a selector array", () => {
         expect(parseWireLanguageStatusItem(null)).toBeNull();
+        expect(parseWireLanguageStatusItem(undefined)).toBeNull();
         expect(parseWireLanguageStatusItem("x")).toBeNull();
         expect(parseWireLanguageStatusItem({ ...minimal, handle: 1.5 })).toBeNull();
         expect(parseWireLanguageStatusItem({ ...minimal, id: 7 })).toBeNull();

@@ -13,13 +13,16 @@ export class LanguageStatusCustomer implements IExtensionHostCustomer {
             rpc.handleNotification("languages.statusItem.update", (params) => {
                 const item = parseWireLanguageStatusItem(params);
                 if (item === null) return;
+                // Stryker disable next-line OptionalChaining: without a sink the access throws inside the notification handler — RpcEndpoint swallows it, the observable result is the same “dropped”
                 this.sink?.update(item);
             }),
         );
         store.add(
             rpc.handleNotification("languages.statusItem.dispose", (params) => {
                 const removed = parseWireProviderHandle(params);
+                // Stryker disable next-line ConditionalExpression: without the null check it throws on `.handle` — RpcEndpoint swallows the notification exception, the observable result is the same “ignored”
                 if (removed === null) return;
+                // Stryker disable next-line OptionalChaining: see `update` above
                 this.sink?.remove(removed.handle);
             }),
         );

@@ -48,6 +48,22 @@ describe("LanguageStatusService", () => {
         expect(ids(service)).toEqual(["error", "warn", "c", "a", "b"]);
     });
 
+    // Both insertion orders: a comparator that answers "first" for equal or reversed keys gets one of them wrong.
+    it.each([
+        ["ascending", ["a", "b", "c"]],
+        ["descending", ["c", "b", "a"]],
+    ])("the order does not depend on insertion (%s)", (_name, order) => {
+        const bySource = new LanguageStatusService();
+        // Ids sort the other way: a source comparison that falls through to the id shows up.
+        const idOf: Record<string, string> = { a: "z", b: "y", c: "x" };
+        for (const key of order) bySource.addStatus(status(idOf[key] ?? key, { source: key }));
+        expect(ids(bySource)).toEqual(["z", "y", "x"]);
+
+        const byId = new LanguageStatusService();
+        for (const key of order) byId.addStatus(status(key, { source: "same" }));
+        expect(ids(byId)).toEqual(["a", "b", "c"]);
+    });
+
     it("fires on add and on remove; a second dispose changes nothing", () => {
         const service = new LanguageStatusService();
         let changes = 0;

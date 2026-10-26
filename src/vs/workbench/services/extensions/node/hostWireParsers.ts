@@ -240,9 +240,9 @@ function parseWireSelector(raw: readonly unknown[]): IWireLanguageFilter[] {
 
 /** An unknown severity reads as Information, a command without a string id is dropped. */
 export function parseWireLanguageStatusItem(raw: unknown): IWireLanguageStatusItem | null {
-    if (typeof raw !== "object" || raw === null) return null;
-    const p = raw as Record<string, unknown>;
-    if (!isWireHandle(p.handle) || typeof p.id !== "string" || !Array.isArray(p.selector)) return null;
+    // The handle check filters primitives too: their fields read as undefined.
+    const p = raw as Record<string, unknown> | null | undefined;
+    if (!isWireHandle(p?.handle) || typeof p.id !== "string" || !Array.isArray(p.selector)) return null;
     const command = parseWireLanguageStatusCommand(p.command);
     return {
         handle: p.handle,

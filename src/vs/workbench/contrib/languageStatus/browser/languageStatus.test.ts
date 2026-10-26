@@ -6,13 +6,21 @@ import { quickPickByTitle } from "../../../../../TestUtils/domQueries.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
 import { flushMicrotasks } from "../../../../../TestUtils/timing.ts";
 import { IConfigurationServiceDIToken } from "../../../../platform/configuration/common/iConfigurationServiceDIToken.ts";
-import { NERD_FONT_SETTING } from "../../../../platform/theme/common/productIconService.ts";
+import { NULL_STATE_SERVICE } from "../../../../platform/state/common/nullStateService.ts";
+import { NERD_FONT_SETTING, ProductIconServiceDIToken } from "../../../../platform/theme/common/productIconService.ts";
 import { ExtensionLanguageStatusAdapter } from "../../../api/browser/extensionLanguageStatusAdapter.ts";
 import type { IWireLanguageStatusItem } from "../../../api/common/wireTypes.ts";
+import { QuickInputServiceDIToken } from "../../../browser/parts/quickinput/quickInputService.ts";
+import { EditorServiceDIToken } from "../../../services/editor/common/editorService.ts";
 import { LanguageStatusServiceDIToken } from "../../../services/languageStatus/common/languageStatusService.ts";
-import { StatusBarServiceDIToken } from "../../../services/statusbar/common/statusBarService.ts";
+import { StatusBarService, StatusBarServiceDIToken } from "../../../services/statusbar/common/statusBarService.ts";
 
-import { LANGUAGE_STATUS_ID, LANGUAGE_STATUS_NAME, languageStatusGlyph } from "./languageStatus.ts";
+import {
+    LANGUAGE_STATUS_ID,
+    LANGUAGE_STATUS_NAME,
+    LanguageStatusContribution,
+    languageStatusGlyph,
+} from "./languageStatus.ts";
 
 const NERD = { bracket: "", bracketDot: "", bracketError: "", loading: "" };
 const UNICODE = { bracket: "{", bracketDot: "⁅", bracketError: "‼", loading: "◌" };
@@ -189,6 +197,65 @@ describe("LanguageStatusContribution — the segment on the frame", () => {
         h.testApp.sendKey("Enter");
         await flushMicrotasks();
         expect(runs).toStrictEqual([[]]);
+    });
+
+    it("closing the last editor takes the segment away", async () => {
+        sink.update(wireItem(1));
+        expect(statusRow()).toContain(NERD.bracket);
+        await h.commands.execute("workbench.action.closeAllEditors");
+        await flushMicrotasks();
+        expect(h.container.get(EditorServiceDIToken).getActiveEditor()).toBeNull();
+        expect(statusRow()).not.toContain(NERD.bracket);
+    });
+
+    it("Escape closes the list without running anything", async () => {
+        sink.update(wireItem(1, { command: { command: "test.ext.run", title: "Run" } }));
+        clickOnRow(statusRow().indexOf(NERD.bracket));
+        expect(h.testApp.backend.screenToString()).toContain(LANGUAGE_STATUS_NAME);
+        h.testApp.sendKey("Escape");
+        await flushMicrotasks();
+        expect(h.testApp.backend.screenToString()).not.toContain(LANGUAGE_STATUS_NAME);
+        expect(runs).toStrictEqual([]);
+    });
+
+    it("created with an editor already active it shows at once; after dispose nothing brings it back", () => {
+        sink.update(wireItem(1, { selector: [{ language: "markdown" }] }));
+        const bar = new StatusBarService(NULL_STATE_SERVICE);
+        const contribution = new LanguageStatusContribution(
+            h.container.get(EditorServiceDIToken),
+            bar,
+            h.container.get(LanguageStatusServiceDIToken),
+            h.container.get(QuickInputServiceDIToken),
+            h.commands,
+            h.container.get(ProductIconServiceDIToken),
+        );
+        const ids = (): string[] => bar.entries().map((e) => e.id);
+        expect(ids()).toEqual([]);
+        h.activeEditor().setLanguage("markdown");
+        expect(ids()).toEqual([LANGUAGE_STATUS_ID]);
+
+        contribution.dispose();
+        expect(ids()).toEqual([]);
+        // Neither the language nor an item change reaches a disposed contribution.
+        h.activeEditor().setLanguage("plaintext");
+        h.activeEditor().setLanguage("markdown");
+        sink.update(wireItem(2, { selector: [{ language: "markdown" }] }));
+        expect(ids()).toEqual([]);
+    });
+
+    it("created with a matching editor already active it shows without any event", () => {
+        sink.update(wireItem(1));
+        const bar = new StatusBarService(NULL_STATE_SERVICE);
+        const contribution = new LanguageStatusContribution(
+            h.container.get(EditorServiceDIToken),
+            bar,
+            h.container.get(LanguageStatusServiceDIToken),
+            h.container.get(QuickInputServiceDIToken),
+            h.commands,
+            h.container.get(ProductIconServiceDIToken),
+        );
+        expect(bar.entries().map((e) => e.id)).toEqual([LANGUAGE_STATUS_ID]);
+        contribution.dispose();
     });
 
     it("diode.icons.nerdFont: off draws the Unicode glyph, the frame has no Private Use Area characters", async () => {
