@@ -127,12 +127,28 @@ Skip-набор — `DEFAULT_COMMANDS_TO_SKIP_SHELL` эталона вместе
 `terminal.integrated.commandsToSkipShell` (`-<id>` убирает). Настройки применяются на лету.
 **Отступление:** к набору добавлен наш `notifications.focusMessage` — у эталона F6 это `focusNextPart` из
 набора, а у нас F6 — единственный путь с клавиатуры к кнопкам тоста-вопроса (#856).
+**Отступление:** в наборе и `workbench.view.explorer`/`search`/`scm` (Ctrl+Shift+E/F/G). В легаси их терминал не
+кодирует, и они всплывают к редактору — у эталона тоже; но под kitty-протоколом они кодируются в `CSI u`, и эталон
+отдал бы их программе. У нас они остаются редактору в обоих режимах (#857).
 **Отступление:** xterm.js нет — «терминал не кодирует» значит `TerminalViewElement.encodeKey(event) === ""`
 (tuidom, `encodeKeyForPty` в режиме DECCKM поверхности): такая клавиша (Ctrl+, , Ctrl+Shift+буква, Meta+стрелка)
 достаётся бинду редактора, как всплывший из xterm keydown. Сама кодировка — легаси xterm.js
 `evaluateKeyboardEvent` (#856): Shift+Tab → `CSI Z`, модификаторы в `CSI 1;<mod>X` у стрелок/Home/End/F-клавиш,
 F1–F12, в режиме application cursor keys (`XtermSurface.applicationCursorKeys` ← `term.modes`) голые стрелки —
-`SS3`. Kitty keyboard protocol для шелла не поддержан.
+`SS3`.
+
+**Kitty keyboard protocol** (#857, `terminal.integrated.enableKittyKeyboardProtocol`, по умолчанию включён, как у
+эталона). Программа включает его сама (`CSI > flags u`), и пока флаги ненулевые, `encodeKeyForPty` кодирует
+перенос xterm.js `KittyKeyboard.evaluate` (tuidom `encodeKittyKey`): Shift+Enter → `CSI 13;2u`, Ctrl+I →
+`CSI 105;5u`; с флагом 2 виджет шлёт и отпускание — если хост доставил `keyup`, то есть внешний терминал сам
+говорит по kitty. Повтора (`:2`) нет: у `TUIKeyboardEvent` нет признака повтора, повтор уходит как нажатие.
+**Отступление:** `@xterm/headless` 6.0 протокола не знает, а в 6.1-beta флаги лежат только в приватном `_core`;
+поэтому состояние ведёт `XtermSurface` (`common/kittyKeyboardState.ts`) через публичные `parser.registerCsiHandler`
+(`CSI = / ? / > / < u`, DECSTR) и `registerEscHandler` (RIS), экран — по `buffer.onBufferChange`. Семантика —
+xterm.js `InputHandler.kittyKeyboard*`: свой стек у main и alt (до 16, старейший вытесняется), `CSI ? u` отвечает
+`CSI ? flags u` во ввод pty, RIS и DECSTR сбрасывают всё. Настройка меняется на живых терминалах
+(`TerminalService` → `session.setKittyKeyboardEnabled`); выключили — последовательности игнорируются без ответа,
+флаги сброшены. Выйдет стабильная 6.1 с флагами в публичном API — перейти на `vtExtensions.kittyKeyboard`.
 Нет `TabFocus`-режима и Alt+F4 на Windows.
 
 ## Терминал задачи

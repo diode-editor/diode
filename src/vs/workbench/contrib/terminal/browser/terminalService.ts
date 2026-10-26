@@ -180,6 +180,13 @@ export class TerminalService extends Disposable implements IContextKeyContributo
                 if (id === TERMINAL_VIEW_ID) this.ensureAndFocus();
             }),
         );
+        // Upstream `XtermTerminal.updateConfig`: the protocol switches on open terminals without a restart.
+        this.register(
+            configuration.onDidChangeConfiguration((event) => {
+                if (!event.affectsConfiguration("terminal.integrated.enableKittyKeyboardProtocol")) return;
+                for (const instance of this.allInstances()) this.applyKittyKeyboard(instance.session);
+            }),
+        );
     }
 
     public get hasOpenTerminals(): boolean {
@@ -265,6 +272,7 @@ export class TerminalService extends Disposable implements IContextKeyContributo
         const session =
             options.session ??
             this.factory({ cols: INITIAL_COLS, rows: INITIAL_ROWS, ...sessionOptions(options, cwd) });
+        this.applyKittyKeyboard(session);
         // For a ready session we print `message` ourselves — a shell session prints it on spawn.
         if (options.session !== undefined && options.message !== undefined)
             session.printMessage(`${options.message}\r\n`);
@@ -547,7 +555,15 @@ export class TerminalService extends Disposable implements IContextKeyContributo
     }
 
     private find(id: number | undefined): TerminalInstanceRecord | undefined {
-        return [...this.instances, ...this.backgroundInstances, ...this.editorInstances].find((i) => i.id === id);
+        return this.allInstances().find((i) => i.id === id);
+    }
+
+    private allInstances(): TerminalInstanceRecord[] {
+        return [...this.instances, ...this.backgroundInstances, ...this.editorInstances];
+    }
+
+    private applyKittyKeyboard(session: ITerminalSession): void {
+        session.setKittyKeyboardEnabled(this.configuration.get("terminal.integrated.enableKittyKeyboardProtocol"));
     }
 
     private active(): TerminalInstanceRecord | undefined {

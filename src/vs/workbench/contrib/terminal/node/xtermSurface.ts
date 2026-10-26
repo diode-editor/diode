@@ -19,6 +19,7 @@ import { onUnexpectedError } from "../../../../base/common/errors.ts";
 import { Emitter } from "../../../../base/common/event.ts";
 import { importLazyModule } from "../../../../base/common/lazyModule.ts";
 import type { IDisposable } from "../../../../base/common/lifecycle.ts";
+import { KittyKeyboardState } from "../common/kittyKeyboardState.ts";
 import type { ITerminalBuffer } from "../common/terminalBuffer.ts";
 import type { ITerminalRelaunchOptions } from "../common/terminalSessionFactory.ts";
 import {
@@ -102,6 +103,9 @@ export abstract class XtermSurface implements ITerminalSurface, IDisposable {
     // Viewport offset into scrollback, in lines up from the bottom (0 = live output).
     private viewportScrollOffset = 0;
     private palette: XtermPalette = DEFAULT_XTERM_PALETTE;
+    private readonly kittyKeyboard = new KittyKeyboardState();
+    /** `terminal.integrated.enableKittyKeyboardProtocol`; off — the sequences are ignored (upstream `vtExtensions`). */
+    private kittyKeyboardEnabled = true;
 
     protected constructor(options: XtermSurfaceOptions) {
         this.cols = options.cols;
@@ -133,11 +137,62 @@ export abstract class XtermSurface implements ITerminalSurface, IDisposable {
             const buffer = term.buffer.active;
             this.sendLineData(buffer, buffer.baseY + buffer.cursorY - 1);
         });
+        this.attachKittyKeyboard(term);
         this.term = term;
         for (const item of this.pendingOutput.splice(0)) {
             if (typeof item === "string") this.writeToTerm(term, item);
             else term.write("", item);
         }
+    }
+
+    /**
+     * @xterm/headless 6.0 has no kitty keyboard protocol: the sequences are handled here with upstream semantics
+     * (see {@link KittyKeyboardState}). Off, they are swallowed without a reply, as upstream.
+     */
+    private attachKittyKeyboard(term: Terminal): void {
+        const state = this.kittyKeyboard;
+        const handle = (action: (params: (number | number[])[]) => void) => (params: (number | number[])[]) => {
+            if (this.kittyKeyboardEnabled) action(params);
+            return true;
+        };
+        term.parser.registerCsiHandler(
+            { prefix: "=", final: "u" },
+            handle((params) => {
+                state.set(param(params, 0), params.length > 1 ? param(params, 1) || 1 : 1);
+            }),
+        );
+        term.parser.registerCsiHandler(
+            { prefix: "?", final: "u" },
+            handle(() => {
+                this.write(state.query());
+            }),
+        );
+        term.parser.registerCsiHandler(
+            { prefix: ">", final: "u" },
+            handle((params) => {
+                state.push(param(params, 0));
+            }),
+        );
+        term.parser.registerCsiHandler(
+            { prefix: "<", final: "u" },
+            handle((params) => {
+                state.pop(param(params, 0));
+            }),
+        );
+        // Also while off: the flags are all 0 then, but the state must know the screen when it is back on.
+        term.buffer.onBufferChange((buffer) => {
+            state.switchScreen(buffer.type === "alternate");
+        });
+        // RIS and DECSTR reset the emulator, the flags too (upstream `CoreService.reset`); `false` lets xterm
+        // run its own handler after ours.
+        term.parser.registerEscHandler({ final: "c" }, () => {
+            state.reset();
+            return false;
+        });
+        term.parser.registerCsiHandler({ intermediates: "!", final: "p" }, () => {
+            state.reset();
+            return false;
+        });
     }
 
     /**
@@ -274,6 +329,20 @@ export abstract class XtermSurface implements ITerminalSurface, IDisposable {
         return this.term?.modes.applicationCursorKeysMode === true;
     }
 
+    /** Kitty keyboard protocol flags the program set (`CSI > flags u`); `0` — legacy key encoding. */
+    public get kittyKeyboardFlags(): number {
+        return this.kittyKeyboard.flags;
+    }
+
+    /**
+     * `terminal.integrated.enableKittyKeyboardProtocol`, applied to a live terminal (upstream `updateConfig`).
+     * Switching it off drops the flags: the terminal is back to legacy encoding.
+     */
+    public setKittyKeyboardEnabled(enabled: boolean): void {
+        this.kittyKeyboardEnabled = enabled;
+        if (!enabled) this.kittyKeyboard.reset();
+    }
+
     /** `delta < 0` scrolls up; clamped to `[0, baseY]`. */
     public scrollLines(delta: number): void {
         this.setScrollOffset(this.scrollOffset - delta);
@@ -378,6 +447,12 @@ export abstract class XtermSurface implements ITerminalSurface, IDisposable {
         this.viewportScrollOffset = next;
         this.emitUpdate();
     }
+}
+
+/** A parameter's value without its sub-parameters (upstream `params.params[i]`); a missing one is 0. */
+function param(params: readonly (number | number[])[], index: number): number {
+    const value = params.at(index) ?? 0;
+    return typeof value === "number" ? value : value[0];
 }
 
 /** Rows up to the cursor always exist; the fallback is for types. */

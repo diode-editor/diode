@@ -19,8 +19,17 @@ export const TerminalKeyRoutingDIToken = token<TerminalKeyRouting>("TerminalKeyR
  * Ours on top of upstream's set: there F6 is `workbench.action.focusNextPart` (in the set), which reaches the
  * notification toasts among the parts; here F6 is `notifications.focusMessage`, the only keyboard path to an
  * asking toast, so it keeps the same place.
+ *
+ * Ctrl+Shift+E/F/G (Explorer, Search, Source Control): in the legacy encoding the terminal can't encode them and
+ * they bubble to the workbench, upstream too. Once a program switches on the kitty keyboard protocol (Claude Code
+ * does) upstream sends them to the program; here they stay with the workbench in both modes (#857).
  */
-const DIODE_COMMANDS_TO_SKIP_SHELL: readonly string[] = ["notifications.focusMessage"];
+const DIODE_COMMANDS_TO_SKIP_SHELL: readonly string[] = [
+    "notifications.focusMessage",
+    "workbench.view.explorer",
+    "workbench.view.search",
+    "workbench.view.scm",
+];
 
 const DEFAULT_SKIP_SHELL: ReadonlySet<string> = new Set([
     ...DEFAULT_COMMANDS_TO_SKIP_SHELL,

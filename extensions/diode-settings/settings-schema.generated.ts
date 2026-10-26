@@ -532,6 +532,13 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
         enum: ["off", "on", "notRemote"],
     },
     {
+        key: "terminal.integrated.enableKittyKeyboardProtocol",
+        type: "boolean",
+        default: true,
+        description:
+            "Whether to enable the kitty keyboard protocol, which allows a program in the terminal to request more detailed keyboard input reporting. This can, for example, enable `Shift+Enter` to be handled by the program.",
+    },
+    {
         key: "terminal.integrated.hideOnLastClosed",
         type: "boolean",
         default: true,
