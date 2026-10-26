@@ -217,7 +217,7 @@ export function buildVscodeNamespace(rpc: SubprocessRpc, disk: IExtHostDisk): IV
     });
 
     // The `env.initialize` seed arrives before the first activation; there are no terminal profiles, so `onDidChangeShell` never fires.
-    let hostEnvironment: IWireEnvInitialize = { machineId: "", shell: "" };
+    let hostEnvironment: IWireEnvInitialize = { machineId: "", shell: "", appRoot: "" };
     rpc.handleNotification("env.initialize", (params) => {
         hostEnvironment = parseWireEnvInitialize(params);
     });
@@ -228,6 +228,10 @@ export function buildVscodeNamespace(rpc: SubprocessRpc, disk: IExtHostDisk): IV
         },
         get shell(): string {
             return hostEnvironment.shell;
+        },
+        /** Deviation from upstream: not an install directory (the binary has none) but a cache directory with only VS Code's rg layout. */
+        get appRoot(): string {
+            return hostEnvironment.appRoot;
         },
         onDidChangeShell: new EventEmitter<string>().event,
         appName: "Diode",

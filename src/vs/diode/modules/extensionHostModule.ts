@@ -99,6 +99,7 @@ import { LifecycleServiceDIToken } from "../../workbench/services/lifecycle/brow
 import { NotificationServiceDIToken } from "../../workbench/services/notification/browser/notificationService.ts";
 import { OUTPUT_VIEW_ID, OutputChannelRegistryDIToken } from "../../workbench/services/output/common/output.ts";
 import { OutputServiceDIToken } from "../../workbench/services/output/common/outputService.ts";
+import { loadRipgrepAppRoot } from "../../workbench/services/search/node/loadRipgrep.ts";
 import { StatusBarServiceDIToken } from "../../workbench/services/statusbar/common/statusBarService.ts";
 import { ThemeServiceDIToken } from "../../workbench/services/themes/common/themeTokens.ts";
 
@@ -321,6 +322,7 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
             environment: {
                 machineId: () => resolveMachineId(container.get(StateServiceDIToken)),
                 defaultShell: container.get(DefaultShellResolverDIToken),
+                appRoot: loadRipgrepAppRoot,
             },
             // Stryker restore ObjectLiteral,ArrowFunction
             outputSink: new ExtensionOutputAdapter(

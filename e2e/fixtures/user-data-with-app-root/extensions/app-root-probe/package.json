@@ -1,0 +1,12 @@
+{
+    "name": "app-root-probe",
+    "displayName": "App Root Probe",
+    "description": "E2E test extension: looks for rg under vscode.env.appRoot in activate(), like Todo Tree, and shows the result in the status bar.",
+    "version": "0.0.1",
+    "publisher": "test",
+    "main": "./extension.js",
+    "activationEvents": ["*"],
+    "engines": {
+        "vscode": "^1.0.0"
+    }
+}

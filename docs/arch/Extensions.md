@@ -169,7 +169,7 @@
   customer'а живёт столько же, сколько хост, а всё состояние одного спавна — обработчики RPC,
   подписки на ядро, handle'ы — заводится в `attach` и снимается возвращённым disposable вместе со
   `spawnStore`. Набор customers — явный массив, который хост собирает в конструкторе из опций.
-  Семена handshake (настройки → окружение хоста `env.initialize` с `env.machineId`/`env.shell` →
+  Семена handshake (настройки → окружение хоста `env.initialize` с `env.machineId`/`env.shell`/`env.appRoot` →
   полоса групп и активный редактор → тема → каталог → открытые документы → чужие маркеры
   `diagnostics.markersChanged`) хост шлёт сам в этом порядке, зовя `pushInitialState` нужных
   customers. Стоки окна (`DiagnosticsSink`, `IProgressSink` и соседи) — порты в

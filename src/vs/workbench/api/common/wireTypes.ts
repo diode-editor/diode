@@ -1267,21 +1267,24 @@ export function parseWireClipboardText(raw: unknown): IWireClipboardText {
     return { text: typeof text === "string" ? text : "" };
 }
 
-/** Arrives before the first activation: `env.machineId` and `env.shell` are synchronous and read already in `activate()`. */
+/** Arrives before the first activation: `env.machineId`, `env.shell` and `env.appRoot` are synchronous and read already in `activate()`. */
 export interface IWireEnvInitialize {
     readonly machineId: string;
     readonly shell: string;
+    readonly appRoot: string;
 }
 
 /** A non-string becomes an empty string, like upstream's "unknown". */
 export function parseWireEnvInitialize(raw: unknown): IWireEnvInitialize {
-    const { machineId, shell } = (typeof raw === "object" && raw !== null ? raw : {}) as {
+    const { machineId, shell, appRoot } = (typeof raw === "object" && raw !== null ? raw : {}) as {
         machineId?: unknown;
         shell?: unknown;
+        appRoot?: unknown;
     };
     return {
         machineId: typeof machineId === "string" ? machineId : "",
         shell: typeof shell === "string" ? shell : "",
+        appRoot: typeof appRoot === "string" ? appRoot : "",
     };
 }
 

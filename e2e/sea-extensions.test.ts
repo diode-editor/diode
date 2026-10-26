@@ -17,6 +17,7 @@ const userDataPath = resolve(here, "fixtures", "user-data-with-hello");
 const tabbedFixturePath = resolve(here, "fixtures", "tabbed.txt");
 const tabSetterUserDataPath = resolve(here, "fixtures", "user-data-with-tab-setter");
 const willSaveUserDataPath = resolve(here, "fixtures", "user-data-with-will-save");
+const appRootUserDataPath = resolve(here, "fixtures", "user-data-with-app-root");
 
 const KEYWORD_FG = packRgb(0xc5, 0x86, 0xc0); // keyword.control — Dark Modern / Dark+ purple
 const STRING_FG = packRgb(0xce, 0x91, 0x78); // string — Dark+ orange
@@ -128,6 +129,15 @@ describe("SEA binary — user extensions", () => {
             expect(bytes).toBe("one\ntwo\n");
         },
     );
+
+    it("env.appRoot holds rg at VS Code's path, unpacked from rg.bundle (Todo Tree looks there in activate())", async () => {
+        const { session } = await usePtyApp({ seedUserData: appRootUserDataPath });
+        const screen = await session.waitFor(
+            (s) => s.findText("appRoot ok") !== null || s.findText("appRoot missing") !== null,
+            { timeoutMs: 20_000 },
+        );
+        expect(screen.findText("appRoot ok")).not.toBeNull();
+    });
 });
 
 function locateRow(screen: AnsiScreen, text: string): number {
