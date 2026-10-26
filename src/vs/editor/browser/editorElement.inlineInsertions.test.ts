@@ -233,11 +233,11 @@ describe("EditorElement — overlays on the composed line", () => {
         app.render();
 
         // Header indent 0: the guide is the first whitespace cell of the body, after the insertion.
-        expect(app.backend.getTextAt(new Point(gutterW, 1), 7)).toBe("##│   a");
+        expect(app.backend.getTextAt(new Point(gutterW, 1), 7)).toBe("##▏   a");
         expect(app.backend.getFgAt(new Point(gutterW + 2, 1))).toBe(BLUE);
         expect(app.backend.getFgAt(new Point(gutterW, 1))).toBe(EDITOR_FG);
         // A blank line carries the guide; its insertion at offset 1 is right of column 0.
-        expect(app.backend.getTextAt(new Point(gutterW, 2), 3)).toBe("│@ ");
+        expect(app.backend.getTextAt(new Point(gutterW, 2), 3)).toBe("▏@ ");
     });
 
     it("an indent guide past column 0 moves only by the insertions left of it", () => {
@@ -246,7 +246,7 @@ describe("EditorElement — overlays on the composed line", () => {
         app.render();
 
         // Header indent 2: the guide stands on document column 2, composed column 3.
-        expect(app.backend.getTextAt(new Point(gutterW, 1), 8)).toBe(" @ │   a");
+        expect(app.backend.getTextAt(new Point(gutterW, 1), 8)).toBe(" @ ▏   a");
     });
 });
 
