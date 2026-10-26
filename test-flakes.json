@@ -92,6 +92,12 @@
             "note": "the provider fold did not appear in 20 attempts: maptz.regionfolder is late on a slow runner (runs 40006403681, 40093826414)"
         },
         {
+            "file": "e2e/scenarios/tasks.scenario.ts",
+            "test": "tasks",
+            "action": "retry",
+            "note": "waitUntil(screen text) timed out after 10000ms with the 'Select an instance to terminate' picker still open, on ubuntu on #889 (run 40419055572); the same diff was green on the previous run"
+        },
+        {
             "file": "e2e/scenarios/settings-completion.scenario.ts",
             "test": "settings-completion",
             "action": "retry",

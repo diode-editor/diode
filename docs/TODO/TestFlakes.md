@@ -33,6 +33,9 @@
 Известные флаки юнит-набора и e2e; PR-диффом не задеты, `gh run rerun --failed` зеленит. Тесты
 отсюда стоят в `test-flakes.json`, кроме помеченных.
 
+- [ ] Сценарий `tasks` (`e2e/scenarios/tasks.scenario.ts`): `waitUntil(screen text predicate) timed out after 10000ms`,
+  на кадре всё ещё открыт пикер «Select an instance to terminate». Ubuntu, PR #889 (ран 40419055572, дифф — форма
+  курсора, задачи не трогает); тот же дифф на предыдущем прогоне был зелёным.
 - [ ] `extensionHost.typescriptLsp.projectStatus.test.ts` › «a .ts file and, with allowJs, a .js file under a tsconfig
   show the tsconfig path»: статус проекта ещё не `tsconfig.json` в момент чтения (`expected { …(9) } to match object
   { label: 'tsconfig.json', …(1) }`). Свалил dry run мутационного гейта на #885 (ран 40405134308, дифф — гайды
