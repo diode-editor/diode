@@ -689,6 +689,12 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
         enum: ["Dark 2026", "Dark Modern", "Dark+", "Monokai", "Light Modern", "Light+"],
     },
     {
+        key: "workbench.sash.hoverDelay",
+        type: "number",
+        default: 0,
+        description: "Controls the hover feedback delay in milliseconds of the dragging area in between views/editors.",
+    },
+    {
         key: "workbench.secondarySideBar.defaultVisibility",
         type: "string",
         default: "visibleInWorkspace",

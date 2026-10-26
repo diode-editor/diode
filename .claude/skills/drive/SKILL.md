@@ -85,6 +85,7 @@ npm run -s drive -- stop                       # и ни одного проце
   только рендер: хвосты extension host/LSP жди предикатом (`wait text`, `output`).
 - **Координаты** — 0-based ячейки, те же, что в `screen --numbered` и в `box` узлов
   `tree`. Лучше `click --node SEL` или `click --text "…"`, чем литерал.
+  Наведение без кнопки (подсветка sash'а, hover-состояния) — `hover x y` (те же `--node`/`--text`).
 - **Глифы codicon'ов в тексте кадра неразличимы** — смотри `cell x y` (код-пойнт,
   fg/bg `#rrggbb`, стиль: `undercurl` = живая диагностика LSP). Иконки nerd-font
   (PUA) в текстовом дампе теряются, и целое дерево файлов выглядит сдвинутым —

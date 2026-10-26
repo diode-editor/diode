@@ -317,6 +317,13 @@ Secondary Side Bar (`browser/parts/auxiliarybar/`) — правая колонк
   динамическая: как у сайдбара (30), но не шире четверти окна; ресайз — саш
   и `workbench.action.increaseViewSize`/`decreaseViewSize` (часть с фокусом,
   `LayoutService.resizeFocusedPart`).
+- Саши (сайдбар, вторичная панель, нижняя панель) — `SashElement` tuidom в
+  `WorkbenchLayoutElement`; подсветка при наведении ждёт
+  `workbench.sash.hoverDelay` (`workbenchComponent` раздаёт значение всем трём,
+  смена в settings.json — на лету, как `SashSettingsController` эталона).
+  Отступление: дефолт 0, а не 300 — саш в одну колонку почти не мелькает при
+  пролёте курсора, а мгновенный отклик важнее. `workbench.sash.size` не
+  поддержан: саш всегда в одну ячейку.
 - Видимость на старте — `workbench.secondarySideBar.defaultVisibility` для
   впервые открытого воркспейса, дальше — сохранённая
   (`workbench.auxiliaryBar.hidden`); часть без единого контейнера не

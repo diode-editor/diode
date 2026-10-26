@@ -177,6 +177,11 @@ export class WorkbenchLayoutElement extends TUIElement {
         this.onDidChangeLayout?.();
     }
 
+    /** `workbench.sash.hoverDelay`: how long the cursor lingers on a sash before it lights up. */
+    public setSashHoverDelay(ms: number): void {
+        for (const sash of [this.sash, this.rightSash, this.bottomSash]) sash.hoverDelay = ms;
+    }
+
     public getLeftPanel(): TUIElement | null {
         return this.leftPanel;
     }
