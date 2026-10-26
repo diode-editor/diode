@@ -154,10 +154,8 @@ export class LanguageStatusContribution extends Disposable implements IWorkbench
                     this.run(picked);
                 });
             },
-            onDidHide: () => {
-                picker.dispose();
-                if (this.picker === picker) this.picker = null;
-            },
+            // A hidden session draws nothing and takes `update` into its state only; the next open replaces it.
+            onDidHide: () => undefined,
         });
         this.picker = picker;
         picker.update({ title: LANGUAGE_STATUS_NAME, items: this.picks() });
@@ -168,9 +166,11 @@ export class LanguageStatusContribution extends Disposable implements IWorkbench
     private refreshPicker(): void {
         const picker = this.picker;
         if (picker === null) return;
+        // Stryker disable next-line OptionalChaining: equivalent — an open list with items always has an active row, and an emptied one is disposed before it gets here
         const activeId = picker.getState().activeItems[0]?.status.id;
         const items = this.picks();
         const active = items.find((item) => item.status.id === activeId);
+        // Stryker disable next-line ConditionalExpression: equivalent — `activeItems: [undefined]` matches no row, and the session then leaves the active row where the new items put it, as with no `activeItems`
         picker.update({ items, ...(active === undefined ? {} : { activeItems: [active] }) });
     }
 

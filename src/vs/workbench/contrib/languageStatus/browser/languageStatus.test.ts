@@ -223,21 +223,20 @@ describe("LanguageStatusContribution — the segment on the frame", () => {
     });
 
     it("the active row stays on the same item when the open list is refreshed", async () => {
-        sink.update(
-            wireItem(1, { text: "First", command: { command: "test.ext.run", title: "Run first", arguments: [1] } }),
-        );
-        sink.update(
-            wireItem(2, { text: "Second", command: { command: "test.ext.run", title: "Run second", arguments: [2] } }),
-        );
-        clickOnRow(statusRow().indexOf(NERD.bracket));
+        const run = (args: number) => ({ command: "test.ext.run", title: "Run", arguments: [args] });
+        // Warnings sort first, then by id: Alpha (item-1), Bravo (item-2), Charlie (item-0).
+        sink.update(wireItem(1, { severity: 1, text: "Alpha", command: run(1) }));
+        sink.update(wireItem(2, { severity: 1, text: "Bravo", command: run(2) }));
+        sink.update(wireItem(0, { text: "Charlie", command: run(0) }));
+        clickOnRow(statusRow().indexOf(NERD.bracketDot));
         h.testApp.sendKey("ArrowDown");
 
-        sink.update(
-            wireItem(1, { text: "First again", command: { command: "test.ext.run", title: "Run", arguments: [1] } }),
-        );
+        // Bravo calms down and moves to the last row; the selection follows it, not its old row.
+        sink.update(wireItem(2, { text: "Bravo calm", command: run(2) }));
         await flushMicrotasks();
         h.testApp.render();
-        expect(h.testApp.backend.screenToString()).toContain("First again");
+        const screen = h.testApp.backend.screenToString();
+        expect(screen.indexOf("Charlie")).toBeLessThan(screen.indexOf("Bravo calm"));
         h.testApp.sendKey("Enter");
         await flushMicrotasks();
         expect(runs).toStrictEqual([[2]]);
