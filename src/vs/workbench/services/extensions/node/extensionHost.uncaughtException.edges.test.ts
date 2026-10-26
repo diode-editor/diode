@@ -56,7 +56,7 @@ describe("uncaught exception in extension code — awkward thrown values (#861)"
                 `${PREFIX}null`,
                 `${PREFIX}Error: from-immediate`,
                 `${PREFIX}Error: from-next-tick`,
-                `${PREFIX}Error: юникод 🚀`,
+                `${PREFIX}Error: ünïcödé 🚀`,
                 // EPIPE is dropped only on a write; a read EPIPE is an ordinary error.
                 `${PREFIX}Error: read EPIPE`,
             ]),

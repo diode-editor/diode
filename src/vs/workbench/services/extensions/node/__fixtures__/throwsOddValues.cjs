@@ -22,7 +22,7 @@ exports.activate = function activate(context) {
             throw null;
         },
         () => {
-            throw new Error("юникод 🚀\nsecond line");
+            throw new Error("ünïcödé 🚀\nsecond line");
         },
         () => {
             throw Object.assign(new Error("read EPIPE"), { code: "EPIPE", syscall: "read" });
