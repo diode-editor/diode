@@ -122,6 +122,26 @@ describe("ColorDetector", () => {
         detector.dispose();
     });
 
+    it("the delay runs from the first edit: typing on does not push the recompute further", async () => {
+        vi.useFakeTimers();
+        const provider = new PendingProvider();
+        const { detector, document } = setup(provider, "/typing.css");
+        provider.answer([RED]);
+        await vi.advanceTimersByTimeAsync(0);
+
+        document.applyEdits([
+            { range: { start: { line: 0, character: 6 }, end: { line: 0, character: 6 } }, text: "y" },
+        ]);
+        await vi.advanceTimersByTimeAsync(200);
+        document.applyEdits([
+            { range: { start: { line: 0, character: 7 }, end: { line: 0, character: 7 } }, text: "z" },
+        ]);
+        await vi.advanceTimersByTimeAsync(150);
+
+        expect(provider.calls).toBe(2);
+        detector.dispose();
+    });
+
     it("turning off cancels a recompute scheduled by an edit, and later edits ask nothing", async () => {
         vi.useFakeTimers();
         const provider = new PendingProvider();
