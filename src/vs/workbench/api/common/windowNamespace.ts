@@ -1,5 +1,7 @@
 import type * as vscode from "vscode";
 
+import { cursorStyleFromApi, cursorStyleToApi } from "../../../editor/common/config/editorCursorStyle.ts";
+
 import { implementsApi } from "./apiSurface.ts";
 import type { ExtHostTextDocument } from "./extHostDocuments.ts";
 import { createExtHostTreeViews, type ITreeViewMembers } from "./extHostTreeViews.ts";
@@ -468,8 +470,18 @@ export function createWindowNamespace(
             }
             return toVscodeSelection(primary);
         };
+        let storedOptions: vscode.TextEditorOptions = {};
+        /** Lives with this object: a closed tab drops it from the cache, so a reopened one starts clean. */
+        let cursorStyleOverride: vscode.TextEditorCursorStyle | undefined;
+        // Upstream resolves the style from the code editor; unset in Diode means the terminal's own shape.
+        const effectiveCursorStyle = (): vscode.TextEditorCursorStyle | undefined =>
+            cursorStyleOverride ??
+            cursorStyleToApi(ctx.configStore.get("editor.cursorStyle", undefined, document.languageId));
         const editorData: vscode.TextEditor = {
-            options: {},
+            get options(): vscode.TextEditorOptions {
+                const cursorStyle = effectiveCursorStyle();
+                return cursorStyle === undefined ? { ...storedOptions } : { ...storedOptions, cursorStyle };
+            },
             document,
             /** Read from the current snapshot: renumbering does not break the object (AS-9). */
             get viewColumn(): number | undefined {
@@ -543,7 +555,12 @@ export function createWindowNamespace(
                 if (prop === "options") {
                     if (typeof value !== "object" || value === null) return false;
                     const patch = value as vscode.TextEditorOptions & { indentSize?: number | string };
-                    const normalized: { tabSize?: number; insertSpaces?: boolean; indentSize?: number } = {};
+                    const normalized: {
+                        tabSize?: number;
+                        insertSpaces?: boolean;
+                        indentSize?: number;
+                        cursorStyle?: number;
+                    } = {};
                     if (patch.tabSize !== undefined) {
                         normalized.tabSize = normalizeTabSize(patch.tabSize);
                     }
@@ -554,7 +571,17 @@ export function createWindowNamespace(
                         const indentSize = normalizeIndentSize(patch.indentSize);
                         if (indentSize !== undefined) normalized.indentSize = indentSize;
                     }
-                    target.options = { ...target.options, ...patch };
+                    // As upstream `_setOptions`: only a change goes out, so a read-modify-write of
+                    // `options` for `tabSize` does not pin the configured style as an override.
+                    if (
+                        cursorStyleFromApi(patch.cursorStyle) !== undefined &&
+                        patch.cursorStyle !== effectiveCursorStyle()
+                    ) {
+                        cursorStyleOverride = patch.cursorStyle;
+                        normalized.cursorStyle = patch.cursorStyle;
+                    }
+                    storedOptions = { ...storedOptions, ...patch };
+                    delete storedOptions.cursorStyle;
                     if (Object.keys(normalized).length > 0) {
                         void rpc.request("editor.setOptions", {
                             ...normalized,

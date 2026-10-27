@@ -86,6 +86,36 @@ declare module "vscode" {
 	}
 
 	/**
+	 * Rendering style of the cursor.
+	 */
+	export enum TextEditorCursorStyle {
+		/**
+		 * Render the cursor as a vertical thick line.
+		 */
+		Line = 1,
+		/**
+		 * Render the cursor as a block filled.
+		 */
+		Block = 2,
+		/**
+		 * Render the cursor as a thick horizontal line.
+		 */
+		Underline = 3,
+		/**
+		 * Render the cursor as a vertical thin line.
+		 */
+		LineThin = 4,
+		/**
+		 * Render the cursor as a block outlined.
+		 */
+		BlockOutline = 5,
+		/**
+		 * Render the cursor as a thin horizontal line.
+		 */
+		UnderlineThin = 6
+	}
+
+	/**
 	 * Represents a {@link TextEditor text editor}'s {@link TextEditor.options options}.
 	 */
 	export interface TextEditorOptions {
@@ -115,6 +145,13 @@ declare module "vscode" {
 		 * When setting a text editor's options, this property is optional and it can be a number or `"tabSize"`.
 		 */
 		indentSize?: number | string;
+
+		/**
+		 * The rendering style of the cursor in this editor.
+		 * When getting a text editor's options, this property will always be present.
+		 * When setting a text editor's options, this property is optional.
+		 */
+		cursorStyle?: TextEditorCursorStyle;
 	}
 
 	/**

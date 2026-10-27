@@ -54,6 +54,11 @@
 - [~] Изоляция исключений: упавшее расширение не валит host (RPC + try/catch, `unhandledRejection`-гард);
   осталась диагностика.
 - [ ] Маршрутизация ошибок RPC обратно в `editor.options =`, чтобы fire-and-forget не глотал.
+- [ ] `window.onDidChangeTextEditorOptions` — события нет; `editor.options.cursorStyle` (#888) и отступы
+  меняются без него. Нужен продюсер на хосте: смена отступов, переопределение формы курсора, смена
+  `editor.cursorStyle`.
+- [ ] Getter `editor.options.tabSize`/`insertSpaces` отдаёт то, что расширение само присвоило, а не
+  действующие значения редактора (у эталона — всегда resolved).
 - [ ] ESM-расширения (`import * as vscode from "vscode"` через ESM loader hooks).
 - [ ] Перезапуск субпроцесса при крэше (сейчас при выходе extension host'а все RPC падают).
 - [ ] Markdown-ссылки `[текст](url)` в `window.show*Message` — тост показывает их сырым текстом, эталон

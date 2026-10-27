@@ -1,4 +1,8 @@
 import { DisposableStore, type IDisposable } from "../../../../../base/common/lifecycle.ts";
+import {
+    cursorStyleFromApi,
+    type EditorCursorStyleSetting,
+} from "../../../../../editor/common/config/editorCursorStyle.ts";
 import type { HostRpc } from "../../../../api/common/extHostProtocol.ts";
 import type { IEditorLayoutService } from "../../../../api/common/iEditorLayoutService.ts";
 import type {
@@ -45,6 +49,10 @@ export class EditorCustomer implements IExtensionHostCustomer {
             rpc.handleRequest("editor.setOptions", (params): null => {
                 const patch = sanitizeOptionsPatch(params);
                 this.editorOptions.setActiveEditorOptions(patch);
+                const cursorStyle = parseCursorStyleTarget(params);
+                if (cursorStyle !== null) {
+                    this.editorOptions.setEditorCursorStyle(cursorStyle.uri, cursorStyle.groupId, cursorStyle.style);
+                }
                 return null;
             }),
         );
@@ -173,6 +181,17 @@ function sanitizeOptionsPatch(raw: unknown): IEditorOptionsPatch {
         patch.insertSpaces = obj.insertSpaces;
     }
     return patch;
+}
+
+/** `null` unless the style is 1..6 and the editor is addressed by uri and group. */
+function parseCursorStyleTarget(
+    raw: unknown,
+): { readonly uri: string; readonly groupId: number; readonly style: EditorCursorStyleSetting } | null {
+    if (typeof raw !== "object" || raw === null) return null;
+    const obj = raw as { cursorStyle?: unknown; uri?: unknown; groupId?: unknown };
+    const style = cursorStyleFromApi(obj.cursorStyle);
+    if (style === undefined || typeof obj.uri !== "string" || typeof obj.groupId !== "number") return null;
+    return { uri: obj.uri, groupId: obj.groupId, style };
 }
 
 function isFiniteNumber(value: unknown): value is number {

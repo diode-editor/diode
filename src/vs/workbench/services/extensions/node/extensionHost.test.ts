@@ -30,6 +30,9 @@ class FakeOptionsService implements IEditorOptionsService {
         this.patches.push(patch);
         this.state = { ...(this.state ?? { tabSize: 4, insertSpaces: true }), ...patch };
     }
+    public setEditorCursorStyle(): void {
+        /* no-op */
+    }
     public getActiveEditorFilePath(): string | null {
         return null;
     }

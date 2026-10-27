@@ -30,3 +30,25 @@ export function toTerminalCursorStyle(
               : "underline";
     return { shape, blinking: blinking !== "solid" };
 }
+
+/** Indexed by upstream's `TextEditorCursorStyle` value minus one (`Line = 1` … `UnderlineThin = 6`). */
+const API_CURSOR_STYLES: readonly EditorCursorStyleSetting[] = [
+    "line",
+    "block",
+    "underline",
+    "line-thin",
+    "block-outline",
+    "underline-thin",
+];
+
+/** `vscode.TextEditorCursorStyle` as the setting's string; anything but 1..6 is `undefined`. */
+export function cursorStyleFromApi(value: unknown): EditorCursorStyleSetting | undefined {
+    if (typeof value !== "number" || !Number.isInteger(value)) return undefined;
+    return API_CURSOR_STYLES[value - 1];
+}
+
+/** The setting's string as `vscode.TextEditorCursorStyle`; anything else is `undefined`. */
+export function cursorStyleToApi(style: unknown): number | undefined {
+    const index = API_CURSOR_STYLES.indexOf(style as EditorCursorStyleSetting);
+    return index < 0 ? undefined : index + 1;
+}

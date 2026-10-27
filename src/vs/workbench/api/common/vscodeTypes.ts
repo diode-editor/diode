@@ -784,6 +784,15 @@ export enum TextEditorSelectionChangeKind {
     Command = 3,
 }
 
+export enum TextEditorCursorStyle {
+    Line = 1,
+    Block = 2,
+    Underline = 3,
+    LineThin = 4,
+    BlockOutline = 5,
+    UnderlineThin = 6,
+}
+
 export enum ProgressLocation {
     SourceControl = 1,
     Window = 10,

@@ -1393,6 +1393,7 @@ Runtime-значение может опережать типовую декла
 | `version` | Возвращает версию **Diode**, а не VS Code (upstream JSDoc говорит «editor»). |
 | `Event<T>` | Слушатель `(e) => any` (upstream); хост оборачивает подписки через `EventEmitterImpl` в `api/common/vscodeTypes.ts`. |
 | `TextEditorOptions.indentSize` | Хост алиасит его к `tabSize` (Diode пока не различает); editorconfig шлёт `indent_size` так. |
+| `TextEditorOptions.cursorStyle` | Getter — `undefined`, пока стиль не задали ни расширение, ни `editor.cursorStyle` (форма терминала, решение человека по #887). Сеттер шлёт только изменение и только 1..6, в редактор по `uri` + `groupId` (не в активный); на хосте это `TextEditorPane.cursorStyleOverride` — переопределение сессии поверх настройки, живёт с вкладкой, в settings.json не пишется (#888). |
 | Namespaces / value-типы | Рантайм может опережать типы (лишние члены разрешены); отставание ловит компилятор — поверхность собирается в `api/common/*Namespace.ts` и проверяется `implementsApi<typeof vscode.*>()`. Где отставание осознанное (новый функционал не сделан), стоит точечный каст с комментарием-причиной. |
 
 **Кодировки (#106).** `workspace.openTextDocument(…, { encoding })` реально декодирует не-utf8 файлы

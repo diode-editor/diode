@@ -1,6 +1,8 @@
+import { Size } from "@tuidom/core/common/geometryPromitives";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { createTempWorkspace, type ITempWorkspace } from "../../../../TestUtils/TempWorkspace.ts";
+import { TestApp } from "../../../../TestUtils/TestApp.ts";
 import { createTestEditorContextMenuController } from "../../../../TestUtils/testEditorContextMenu.ts";
 import { Uri } from "../../../base/common/uri.ts";
 import { NULL_LANGUAGE_SERVICE } from "../../../editor/common/languages/iLanguageService.ts";
@@ -48,6 +50,14 @@ describe("EditorOptionsServiceAdapter: addressing by group", () => {
         service.dispose();
         ws.dispose();
     });
+
+    /** The terminal cursor while the pane has focus. */
+    function cursorOf(pane: TextEditorPane) {
+        const app = TestApp.createWithContent(pane.view, new Size(20, 3));
+        pane.focusEditor();
+        app.render();
+        return app.backend.cursorStyle;
+    }
 
     function editorAt(groupIndex: number, tabIndex: number): TextEditorPane {
         const pane = service.editorGroups.groups[groupIndex].getPane(tabIndex);
@@ -100,5 +110,18 @@ describe("EditorOptionsServiceAdapter: addressing by group", () => {
         expect(background.model.getText()).toBe("xalpha\nbeta");
 
         expect(adapter.applyActiveEditorEdits(Uri.file(ws.path("nope.ts")).toString(), [edit])).toBe(false);
+    });
+
+    it("setEditorCursorStyle shapes THAT group's tab; an unknown group or a foreign uri is a no-op", () => {
+        service.openFile(ws.path("a.ts"));
+        service.splitActiveGroup();
+        const uri = editorAt(0, 0).uri.toString();
+
+        adapter.setEditorCursorStyle(uri, service.editorGroups.groups[0].id, "block");
+        adapter.setEditorCursorStyle(uri, 999, "underline");
+        adapter.setEditorCursorStyle(Uri.file(ws.path("b.ts")).toString(), service.editorGroups.groups[1].id, "line");
+
+        expect(cursorOf(editorAt(0, 0))).toEqual({ shape: "block", blinking: true });
+        expect(cursorOf(editorAt(1, 0))).toBeNull();
     });
 });

@@ -54,12 +54,7 @@ export class TextEditorConfiguration extends Disposable {
         const occurrencesHighlight = this.configurationService.get("editor.occurrencesHighlight", overrides);
         editor.setOccurrenceHighlightEnabled(occurrencesHighlight !== "off");
 
-        editor.setCursorStyle(
-            toTerminalCursorStyle(
-                this.configurationService.get("editor.cursorStyle", overrides),
-                this.configurationService.get("editor.cursorBlinking", overrides),
-            ),
-        );
+        this.applyCursorStyle(editor);
         editor.setCursorSurroundingLines(this.configurationService.get("editor.cursorSurroundingLines", overrides));
         editor.setScrollbarMarkers(this.configurationService.get("editor.scrollbarMarkers", overrides));
         editor.setFoldingMaximumRegions(this.configurationService.get("editor.foldingMaximumRegions", overrides));
@@ -72,6 +67,17 @@ export class TextEditorConfiguration extends Disposable {
         editor.setWordWrap(
             this.wordWrapSessionOverride ?? this.configuredWordWrap(overrides),
             this.configurationService.get("editor.wordWrapColumn", overrides),
+        );
+    }
+
+    /** The extension's override beats the setting; the blinking always comes from the setting. */
+    public applyCursorStyle(editor: TextEditorPane): void {
+        const overrides = { overrideIdentifier: editor.languageId };
+        editor.setCursorStyle(
+            toTerminalCursorStyle(
+                editor.cursorStyleOverride ?? this.configurationService.get("editor.cursorStyle", overrides),
+                this.configurationService.get("editor.cursorBlinking", overrides),
+            ),
         );
     }
 
