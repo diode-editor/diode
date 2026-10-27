@@ -1,5 +1,6 @@
 import type { IRange } from "../../../editor/common/core/iRange.ts";
 import type { ITextEdit } from "../../../editor/common/core/iTextEdit.ts";
+import type { IColorInformation } from "../../../editor/common/languages/iColorSource.ts";
 import type {
     ICoreCompletionResult,
     ICoreResolvedCompletion,
@@ -60,6 +61,7 @@ import type {
     IWireDidSaveParams,
     IWireDisposeDecorationType,
     IWireDocumentChangedEvent,
+    IWireDocumentColorParams,
     IWireDocumentSemanticTokensParams,
     IWireDocumentSyncSnapshot,
     IWireEditorLayout,
@@ -194,6 +196,7 @@ export interface IHostToSubprocess {
         readonly "languages.prepareRename": readonly [IWirePrepareRenameParams, WireRenamePrepare | null];
         readonly "languages.provideRenameEdits": readonly [IWireRenameParams, WireRenameResult];
         readonly "languages.provideSelectionRanges": readonly [IWireSelectionRangeParams, IRange[][]];
+        readonly "languages.provideDocumentColors": readonly [IWireDocumentColorParams, IColorInformation[] | null];
 
         readonly "workspace.fs.readFile": readonly [IWireUriParams, IWireReadFileResult];
         readonly "workspace.fs.stat": readonly [IWireUriParams, IWireFileStat | null];

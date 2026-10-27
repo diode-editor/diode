@@ -359,6 +359,9 @@ export interface IWireSelectionRangeParams extends IWireDocumentParams, IWirePro
     readonly positions: readonly IPosition[];
 }
 
+/** Upstream `$provideDocumentColors`: the reply is `null` when the provider gave no colors. */
+export type IWireDocumentColorParams = IWireDocumentParams & IWireProviderHandle;
+
 export type IWireDefinitionParams = IWirePositionParams & IWireProviderHandle;
 
 export type IWireHoverParams = IWirePositionParams & IWireProviderHandle;
@@ -377,6 +380,7 @@ export const WIRE_LANGUAGE_FEATURE_KINDS = [
     "inlineCompletions",
     "rename",
     "selectionRange",
+    "color",
     "semanticTokens",
     "rangeSemanticTokens",
 ] as const;

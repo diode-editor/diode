@@ -29,7 +29,7 @@ works. The ⛔ surfaces live inside `window`, see [the ceiling](#not-supported-b
 
 | surface | status | members |
 | --- | :-: | --- |
-| [`vscode.languages`](#vscodelanguages) | 🟡 | 18/40 |
+| [`vscode.languages`](#vscodelanguages) | 🟡 | 19/40 |
 | [`vscode.workspace`](#vscodeworkspace) | 🟡 | 24/45 |
 | [`vscode.window`](#vscodewindow) | 🟡 | 35/57 |
 | [`vscode.commands`](#vscodecommands) | 🟡 | 3/4 |
@@ -68,11 +68,12 @@ registration but are not called yet.
 | `registerCodeActionsProvider` | ✅ | quickfix, organize imports, fix all; `CodeAction.disabled` as in VS Code (hidden from Quick Fix, auto-apply names the reason); there is no lightbulb indicator |
 | `registerFoldingRangeProvider` | ✅ | |
 | `registerSelectionRangeProvider` | ✅ | Expand/Shrink Selection; provider steps are merged with the built-in ones (word, subword, line, document); `vscode.executeSelectionRangeProvider` is not exposed |
+| `registerColorProvider` | ✅ | a square of the color before every range the provider returns, as for the built-in color detector; `editor.defaultColorDecorators`: in `auto` an answer with colors silences the built-in detector, an empty answer or a failure leaves the document to it (VS Code silences it by the mere registration); `always` shows both. A channel outside 0..1 is clamped, a NaN color is dropped. No color picker; `provideColorPresentations` is not called |
 | `registerDocumentSemanticTokensProvider` | ✅ | semantic highlighting on top of TextMate: deltas, `onDidChangeSemanticTokens`, theme `semanticTokenColors` with fallback to TextMate scopes, `contributes.semanticToken*`, `editor.semanticHighlighting.enabled`; `editor.semanticTokenColorCustomizations` is not supported |
 | `registerDocumentRangeSemanticTokensProvider` | ✅ | used for the visible range while full document tokens are not yet available |
 | `createLanguageStatusItem` | 🟡 | items matching the active editor show as one Language Status segment left of the language in the status bar (the glyph follows the highest severity, a spinner while any item is busy); clicking it opens a quick pick of the items instead of VS Code's hover, choosing one runs its `command`. Not supported: pinning items as their own segments, `accessibilityInformation` |
 | `match` | ✅ | works at runtime (selector scoring); not declared in `vscode.d.ts` yet |
-| other `register*Provider` (16: declaration, implementation, typeDefinition, documentHighlight, documentSymbol, workspaceSymbol, codeLens, documentLink, color, onTypeFormatting, inlayHints, inlineValues, inlineCompletion, linkedEditingRange, callHierarchy, typeHierarchy) | 🕐 | registration is accepted as a no-op; the provider is never called |
+| other `register*Provider` (15: declaration, implementation, typeDefinition, documentHighlight, documentSymbol, workspaceSymbol, codeLens, documentLink, onTypeFormatting, inlayHints, inlineValues, inlineCompletion, linkedEditingRange, callHierarchy, typeHierarchy) | 🕐 | registration is accepted as a no-op; the provider is never called |
 | `setLanguageConfiguration` | 🟡 | `wordPattern` (for `TextDocument.getWordRangeAtPosition` only; not passed to the editor's word selection and completion boundaries), `comments`, `brackets`, `autoClosingPairs` (layered over `language-configuration.json`: a set section replaces the file's, the latest layer wins, dispose removes it). Not applied: `indentationRules`, `onEnterRules`, `LineCommentRule.noIndent`, `notIn: RegEx/Other`, the deprecated `__electricCharacterSupport`/`__characterPairSupport` |
 | `getLanguages`, `setTextDocumentLanguage`, `registerEvaluatableExpressionProvider`, `registerDocumentDropEditProvider`, `registerDocumentPasteEditProvider` | 🕐 | |
 
@@ -337,7 +338,7 @@ change the ⛔ status.
 
 ## Types with a partial surface
 
-263 of 424 upstream types and classes are declared. The declared ones are complete, except those
+267 of 424 upstream types and classes are declared. The declared ones are complete, except those
 listed below, where only a subset of members is declared. `TextDocument` is listed for a different
 reason: everything is declared and implemented, but `save` is a 🟡 stub.
 

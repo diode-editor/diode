@@ -405,6 +405,15 @@
   нужен в рантайме: его конструирует конвертер vscode-languageclient. Слияние ответов со встроенными
   ступенями — `editor/contrib/smartSelect/smartSelect.ts` (порт `provideSelectionRanges` эталона),
   стек Expand/Shrink — `SmartSelectController`, команды — contrib `smartSelect`.
+- **Color seam:** `languages.registerColorProvider` — по рецепту реестра (`kind: "color"`,
+  `ILanguageFeaturesService.colorProvider`, RPC `languages.provideDocumentColors`, 5000 мс; отмена по
+  новой правке уходит провайдеру токеном). Субпроцесс отдаёт `IColorInformation[]`
+  (`serializeDocumentColors`: канал вне 0..1 клампится, NaN/битый диапазон отбрасывают один цвет) или
+  `null`, если цветов нет — пустой ответ, не массив, сбой (`reportProviderFailure` с id расширения) или
+  таймаут. `null` в `getColors` не считается ответом, и в `auto` работает встроенный детектор —
+  **отступление** по спеке #884: эталон глушит детектор самой регистрацией провайдера на документ.
+  Классы `vscode.Color`/`ColorInformation`/`ColorPresentation` — в рантайме (их конструирует
+  конвертер vscode-languageclient); пикера нет, `provideColorPresentations` не вызывается.
 - **Signature-help seam (LSP):** `languages.registerSignatureHelpProvider` — та же калька
   (`languages.provideSignatureHelp` RPC, таймаут 5000 мс), но с двумя отличиями. Первое: провайдеров
   обходим по очереди и возвращаем ПЕРВЫЙ непустой ответ (vscode API предписывает именно это —

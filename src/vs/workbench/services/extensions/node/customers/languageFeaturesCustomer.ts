@@ -8,6 +8,7 @@ import type {
     ICodeActionRequest,
     ICoreCodeAction,
 } from "../../../../../editor/common/languages/iCodeActionSource.ts";
+import type { IColorInformation, IDocumentColorRequest } from "../../../../../editor/common/languages/iColorSource.ts";
 import type {
     ICompletionRequest,
     ICoreCompletionResult,
@@ -382,6 +383,20 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
             "languages.provideSelectionRanges",
             { handle, uri: req.uri, languageId: req.languageId, version: req.versionId, positions: req.positions },
             [],
+            { token },
+        );
+    }
+
+    /** `null` — no colors, also when there is no subprocess, the document is not synced or the extension timed out. */
+    public async provideDocumentColors(
+        handle: number,
+        req: IDocumentColorRequest,
+        token?: ICancellationToken,
+    ): Promise<readonly IColorInformation[] | null> {
+        return this.request(
+            "languages.provideDocumentColors",
+            { handle, uri: req.uri, languageId: req.languageId, version: req.versionId },
+            null,
             { token },
         );
     }

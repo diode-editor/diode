@@ -3,6 +3,7 @@ import type * as vscode from "vscode";
 import { describeRejection } from "../../../base/common/describeRejection.ts";
 import { CancellationError, isCancellationError } from "../../../base/common/errorSerialization.ts";
 import type { IRange } from "../../../editor/common/core/iRange.ts";
+import type { IColorInformation } from "../../../editor/common/languages/iColorSource.ts";
 import type {
     ICoreCompletionItem,
     ICoreCompletionResult,
@@ -26,6 +27,7 @@ import {
     readDocumentation,
     serializeCompletionItem,
     serializeDefinitionLocation,
+    serializeDocumentColors,
     serializeFoldingRange,
     serializeHoverContents,
     serializeInlineCompletionItem,
@@ -58,6 +60,7 @@ import type {
     IWireCodeActionParams,
     IWireCompletionParams,
     IWireDefinitionParams,
+    IWireDocumentColorParams,
     IWireDocumentSemanticTokensParams,
     IWireEditorEdit,
     IWireFoldingParams,
@@ -123,6 +126,11 @@ export interface IRenameRegistration {
 export interface ISelectionRangeRegistration {
     readonly selector: vscode.DocumentSelector;
     readonly provider: vscode.SelectionRangeProvider;
+}
+
+export interface IColorRegistration {
+    readonly selector: vscode.DocumentSelector;
+    readonly provider: vscode.DocumentColorProvider;
 }
 
 export interface IHoverRegistration {
@@ -298,6 +306,7 @@ export function createLanguagesNamespace(
     const inlineCompletionProviders = new Map<number, Owned<IInlineCompletionRegistration>>();
     const renameProviders = new Map<number, Owned<IRenameRegistration>>();
     const selectionRangeProviders = new Map<number, Owned<ISelectionRangeRegistration>>();
+    const colorProviders = new Map<number, Owned<IColorRegistration>>();
     const semanticTokensProviders = new Map<number, Owned<IDocumentSemanticTokensRegistration>>();
     const rangeSemanticTokensProviders = new Map<number, Owned<IRangeSemanticTokensRegistration>>();
     let nextProviderHandle = 0;
@@ -497,6 +506,27 @@ export function createLanguagesNamespace(
         }
         return serializeSelectionRanges(result, wirePositions);
     });
+
+    rpc.handleRequest(
+        "languages.provideDocumentColors",
+        async (params, cancellation): Promise<IColorInformation[] | null> => {
+            const p: Received<IWireDocumentColorParams> = params;
+            // The provider may have been removed while the request was in flight: "no colors".
+            const reg = colorProviders.get(p.handle ?? -1);
+            if (reg === undefined) return null;
+            const doc = documentSync.resolve(p.uri, p.version, p.languageId);
+            if (doc === null) return null;
+            let result: unknown;
+            try {
+                result = await callWithVscodeToken(cancellation, (token) =>
+                    reg.provider.provideDocumentColors(doc, token),
+                );
+            } catch (err) {
+                reportProviderFailure("provideDocumentColors", err, reg.owner);
+            }
+            return serializeDocumentColors(result);
+        },
+    );
 
     rpc.handleRequest(
         "languages.provideSignatureHelp",
@@ -1176,7 +1206,10 @@ export function createLanguagesNamespace(
         registerWorkspaceSymbolProvider: registerNoopProvider,
         registerCodeLensProvider: registerNoopProvider,
         registerDocumentLinkProvider: registerNoopProvider,
-        registerColorProvider: registerNoopProvider,
+        registerColorProvider: (
+            selector: vscode.DocumentSelector,
+            provider: vscode.DocumentColorProvider,
+        ): vscode.Disposable => registerByHandle(colorProviders, "color", selector, { selector, provider }),
         registerOnTypeFormattingEditProvider: registerNoopProvider,
         registerSelectionRangeProvider: (
             selector: vscode.DocumentSelector,

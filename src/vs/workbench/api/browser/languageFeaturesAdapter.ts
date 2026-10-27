@@ -119,6 +119,10 @@ export class LanguageFeaturesAdapter extends Disposable {
             this.languageFeatures.selectionRangeProvider.register(selector, {
                 provideSelectionRanges: (request, token) => this.bridge.provideSelectionRanges(handle, request, token),
             }),
+        color: ({ handle, selector }) =>
+            this.languageFeatures.colorProvider.register(selector, {
+                provideDocumentColors: (request, token) => this.bridge.provideDocumentColors(handle, request, token),
+            }),
         // Upstream `MainThreadDocumentSemanticTokensProvider`: the result id is a
         // string in the core and a number on the wire; "no previous" is 0.
         semanticTokens: ({ handle, selector, legend = EMPTY_LEGEND, hasOnDidChange }) =>

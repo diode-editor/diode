@@ -1,0 +1,14 @@
+{
+    "name": "named-colors",
+    "displayName": "Named Colors",
+    "description": "E2E demo extension: a color provider for CSS named colors (red, green, blue, gold), which the built-in detector does not see.",
+    "version": "0.0.1",
+    "publisher": "test",
+    "main": "./extension.js",
+    "engines": {
+        "vscode": "^1.0.0"
+    },
+    "activationEvents": [
+        "onLanguage:css"
+    ]
+}
