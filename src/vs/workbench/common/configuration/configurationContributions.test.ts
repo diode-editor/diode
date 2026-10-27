@@ -31,6 +31,8 @@ const EXPECTED_SCOPES: Readonly<Record<string, ConfigurationScope>> = {
     "editor.tabSize": "language-overridable",
     "editor.insertSpaces": "language-overridable",
     "editor.detectIndentation": "language-overridable",
+    "editor.cursorStyle": "language-overridable",
+    "editor.cursorBlinking": "language-overridable",
     "editor.cursorSurroundingLines": "language-overridable",
     "editor.emptySelectionClipboard": "language-overridable",
     "editor.foldingMaximumRegions": "language-overridable",

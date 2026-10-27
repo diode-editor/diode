@@ -1,4 +1,5 @@
 import { compositeOver, packRgb } from "@tuidom/core/common/colorUtils";
+import type { CursorStyle } from "@tuidom/core/common/cursorStyle";
 import type { DisplayLine } from "@tuidom/core/common/displayLine";
 import type { BoxConstraints, Size } from "@tuidom/core/common/geometryPromitives";
 import { Point } from "@tuidom/core/common/geometryPromitives";
@@ -196,6 +197,8 @@ export class EditorElement extends TUIElement implements IScrollable {
     public gutterBackgroundToken: string | null = "editorGutter.background";
     /** `diode.icons.nerdFont`: Nerd Font or plain Unicode folding chevrons. */
     public nerdFont = true;
+    /** `editor.cursorStyle` as a terminal cursor; `null` — the terminal's own shape. */
+    public cursorStyle: CursorStyle | null = null;
 
     /** Stored by the document: ranges move with the text on edits. */
     public get markerDecorations(): readonly IMarkerDecoration[] {
@@ -1008,13 +1011,15 @@ export class EditorElement extends TUIElement implements IScrollable {
             this.paintMarkerDecoration(context, decoration, geometry, indentGuideCells);
         }
 
-        // Cell cursors only in multi-cursor, and all of them including the primary: `gridToSvg`
-        // ignores the hardware cursor, so a demo frame would show a hole where the primary is.
+        // Cell cursors only in multi-cursor. A block (or the terminal's shape) paints the primary too:
+        // `gridToSvg` ignores the hardware cursor, so a demo frame would show a hole there. A bar or an
+        // underline leaves the primary to the hardware cursor, or a block would sit under the bar.
         if (this.isFocused && this.viewState.selections.length > 1) {
+            const hardwareOnlyPrimary = this.cursorStyle !== null && this.cursorStyle.shape !== "block";
             paintCarets(
                 context,
                 this.viewState,
-                this.viewState.selections,
+                hardwareOnlyPrimary ? this.viewState.selections.slice(1) : this.viewState.selections,
                 {
                     fg: this.styleVar("editorCursor.background"),
                     bg: this.styleVar("editorCursor.foreground"),
@@ -1025,7 +1030,7 @@ export class EditorElement extends TUIElement implements IScrollable {
 
         const caret = caretLocalCell(this.viewState, gutterW, this.layoutSize, phantom);
         if (this.isFocused && caret !== null) {
-            context.setCursorPosition(caret.x, caret.y);
+            context.setCursorPosition(caret.x, caret.y, this.cursorStyle);
         }
 
         // After the frame, never in it: on a big file the query walks every line.

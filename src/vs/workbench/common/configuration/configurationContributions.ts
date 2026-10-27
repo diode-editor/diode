@@ -50,12 +50,17 @@ type SettingValue<S> = S extends { readonly enum: readonly (infer E)[] }
         ? ValueOfType<T>
         : unknown;
 
+/** A key without a `default` reads `undefined` until it is set. */
+type SettingOrUnset<S> = S extends { readonly default: unknown } ? SettingValue<S> : SettingValue<S> | undefined;
+
 type UnionToIntersection<U> = (U extends unknown ? (x: U) => void : never) extends (x: infer I) => void ? I : never;
 
 /** `{ "editor.tabSize": number; "editor.wordWrap": "off" | "on" | … }`. */
 export type SettingsOf<Nodes extends readonly IConfigurationNode[]> = UnionToIntersection<
     {
-        [I in keyof Nodes]: { -readonly [K in keyof Nodes[I]["properties"]]: SettingValue<Nodes[I]["properties"][K]> };
+        [I in keyof Nodes]: {
+            -readonly [K in keyof Nodes[I]["properties"]]: SettingOrUnset<Nodes[I]["properties"][K]>;
+        };
     }[number]
 >;
 

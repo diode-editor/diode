@@ -1,6 +1,7 @@
 import { writeFileSync } from "node:fs";
 import { performance as nodePerformance } from "node:perf_hooks";
 
+import type { CursorStyle } from "@tuidom/core/common/cursorStyle";
 import type { Point } from "@tuidom/core/common/geometryPromitives";
 import type { Grid } from "@tuidom/core/rendering/grid";
 import { NodeTerminalBackend } from "@tuidom/terminal-backend/nodeTerminalBackend";
@@ -42,8 +43,12 @@ export function setupStartupTrace(env: Readonly<Record<string, string | undefine
 export class TracingNodeTerminalBackend extends NodeTerminalBackend {
     private frames = 0;
 
-    public override renderFrame(grid: Grid, cursorPosition: Point | null): void {
-        super.renderFrame(grid, cursorPosition);
+    public override renderFrame(
+        grid: Grid,
+        cursorPosition: Point | null,
+        cursorStyle: CursorStyle | null = null,
+    ): void {
+        super.renderFrame(grid, cursorPosition, cursorStyle);
         this.frames++;
         mark("frame", { frame: this.frames });
     }
