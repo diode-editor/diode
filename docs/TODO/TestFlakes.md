@@ -73,8 +73,14 @@
 - [ ] `extensionHost.goLsp.test.ts` › «ExtensionHost — stock golang.go (gopls, end to end)»: сеть —
   `https://open-vsx.org/…/golang.Go-0.56.1.vsix: no data for 30000ms` в `beforeAll`, следом
   `Cannot read properties of undefined (reading 'dispose')` в `afterAll`. Job `test` на #753
-  (ран 39653146369, PR меняет только тексты в contrib). Не в test-flakes.json: падает `beforeAll`
+  (ран 39653146369, PR меняет только тексты в contrib); снова job `test` на #891 (ран 40448359524,
+  дифф — цветовые квадратики). Не в test-flakes.json: падает `beforeAll`
   (сеть), повтор теста его не повторяет — лечится кэшем `.vsix`.
+- [ ] `extensionHost.eslintLsp.codeActions.test.ts` › «ExtensionHost — code actions from the stock
+  vscode-eslint»: та же сеть — `https://open-vsx.org/…/dbaeumer.vscode-eslint-3.0.34.vsix: no data for
+  30000ms` в `beforeAll`. Свалил dry run мутаций (`There were failed tests in the initial test run`) на
+  #891 (ран 40448359524, дифф — цветовые квадратики), в том же ране, что и golang.go выше. Не в
+  test-flakes.json: падает `beforeAll` — лечится кэшем `.vsix`.
 - [ ] `explorerComponent.decorations.test.ts` › «свёрнутая папка с изменённым файлом глубоко внутри
   — цвет файла и «●»»: `expected '  old\n  pkg/a/b\n C.java\n …' to contain 'util.ts'`. Локально
   на main — 4 из 10. Валит и job `test`, и dry run мутаций (`There were failed tests in the initial
