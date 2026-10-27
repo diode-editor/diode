@@ -122,6 +122,9 @@ jobs:
       # Go for the golang.go stock extension suites (otherwise they are skipped) + gopls cache.
       - uses: ./.github/actions/go-tools
 
+      # Stock .vsix between runs: open-vsx stalls fail the stock extension suites' beforeAll.
+      - uses: ./.github/actions/stock-vsix-cache
+
       - run: npm run test:coverage
 
       # Post (or update) a comment with the coverage table and the uncovered
@@ -165,6 +168,9 @@ jobs:
 
       # Go for the golang.go stock extension suites (otherwise they are skipped) + gopls cache.
       - uses: ./.github/actions/go-tools
+
+      # Stock .vsix between runs: an open-vsx stall in the dry run fails the whole gate.
+      - uses: ./.github/actions/stock-vsix-cache
 
       # Incremental mode: the results of the previous push of this same branch live in
       # reports/stryker-incremental.json, and a mutant whose code and killing test
@@ -319,6 +325,9 @@ jobs:
       # Go for e2e goLsp and the go-lsp scenario (extension host e2e is Linux only).
       - if: runner.os == 'Linux'
         uses: ./.github/actions/go-tools
+
+      # Stock .vsix for sea-install between runs (the cache key carries the OS).
+      - uses: ./.github/actions/stock-vsix-cache
 
       # Sequential run in CI (as before parallelization): determinism on shared
       # runners matters more than speed, since several SEA/PTY processes on a weak

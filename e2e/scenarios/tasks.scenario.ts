@@ -3,7 +3,6 @@ import { resolve } from "node:path";
 import type { ScenarioDriver } from "./framework.ts";
 import { defineScenario, repoRoot } from "./framework.ts";
 
-
 const folder = resolve(repoRoot, "e2e", "fixtures", "tasks");
 
 async function runCommand(editor: ScenarioDriver, title: string): Promise<void> {
@@ -68,8 +67,15 @@ export default defineScenario({
         await editor.capture("terminated");
 
         // A task terminal moved into the editor area: the rerun goes into its tab and the panel stays closed.
+        // The reuse message is printed after the exit that frees the task: a rerun while `build` is still
+        // active opens the "Select an instance to terminate" picker instead.
         await runTask(editor, "build");
-        await editor.waitForText((t) => t.includes("building tasks") && t.includes("TERMINAL"));
+        await editor.waitForText(
+            (t) =>
+                t.includes("TERMINAL") &&
+                (t.split("Executing task: echo building tasks").at(-1)?.includes("Terminal will be reused by tasks") ??
+                    false),
+        );
         await runCommand(editor, "Terminal: Move Terminal into Editor Area");
         // The panel hides with its last terminal.
         await editor.waitForText((t) => t.includes("build ×") && !t.includes("TERMINAL"));
