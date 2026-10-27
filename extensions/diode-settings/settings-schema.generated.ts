@@ -57,7 +57,7 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
     },
     {
         key: "editor.colorDecoratorsLimit",
-        type: "number",
+        type: "integer",
         default: 500,
         description: "Controls the max number of color decorators that can be rendered in an editor at once.",
     },

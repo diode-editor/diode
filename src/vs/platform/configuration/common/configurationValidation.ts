@@ -37,7 +37,9 @@ function isFiniteNumber(value: unknown): value is number {
 }
 
 function inRange(schema: IConfigurationPropertySchema, value: number): boolean {
-    return value >= (schema.minimum ?? Number.NEGATIVE_INFINITY) && value <= (schema.maximum ?? Number.POSITIVE_INFINITY);
+    return (
+        value >= (schema.minimum ?? Number.NEGATIVE_INFINITY) && value <= (schema.maximum ?? Number.POSITIVE_INFINITY)
+    );
 }
 
 /**
