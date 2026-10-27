@@ -183,6 +183,24 @@ describe("TextEditorConfiguration", () => {
             }
         });
 
+        it("editor.colorDecoratorsLimit out of range is clamped to 1..1000000, as upstream's integer option", () => {
+            const spy = vi.spyOn(TextEditorPane.prototype, "setColorDecorators");
+            try {
+                for (const [value, limit] of [
+                    [0, 1],
+                    [-5, 1],
+                    [2e6, 1_000_000],
+                ] as const) {
+                    createEditorService({
+                        configurationService: stubConfigurationService({ "editor.colorDecoratorsLimit": value }),
+                    }).openFile(writeFile(`limit${String(value)}.css`, "a { color: #fff; }"));
+                    expect(spy).toHaveBeenLastCalledWith({ enabled: true, defaultEnablement: "auto", limit });
+                }
+            } finally {
+                spy.mockRestore();
+            }
+        });
+
         it("editor.occurrencesHighlight: off disables occurrence highlighting, the default enables it", () => {
             const spy = vi.spyOn(TextEditorPane.prototype, "setOccurrenceHighlightEnabled");
             try {
