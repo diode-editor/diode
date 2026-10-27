@@ -31,6 +31,11 @@ export const workbenchColors = {
         defaults: { dark: "#5A5D5E50", light: "#B8B8B850" },
         description: "Toolbar background when hovering over actions using the mouse.",
     },
+    "editorGroup.border": {
+        defaults: { dark: "#444444", light: "#E7E7E7" },
+        description:
+            "Color to separate multiple editor groups from each other. Editor groups are the containers of editors.",
+    },
     "editorGroupHeader.tabsBackground": {
         defaults: { dark: "#252526", light: "#F8F8F8" },
         description: "Background color of the Tabs container.",

@@ -58,6 +58,10 @@ export class EditorPartComponent extends Component {
         super();
         this.view = new EditorPartElement();
         this.view.id = "editorPart";
+        // Each group boundary gets a cell of its own with a line in vscode's separatorBorder color,
+        // over the editor background like the diff editor's separator.
+        this.view.separatorColorVar = "editorGroup.border";
+        this.view.style = { bg: "editor.background" };
         this.view.onDidChangeWeights = () => {
             this.onDidChangeGroupLayout?.();
         };

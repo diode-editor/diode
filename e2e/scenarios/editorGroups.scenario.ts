@@ -26,9 +26,10 @@ export default defineScenario({
         await editor.waitForText((t) => t.includes("folding.ts") && t.includes("sample.ts"));
         await editor.capture("independent-tabs");
 
-        const part = await editor.waitForNode("#editorPart");
-        const sashX = part.box.x + Math.floor(part.box.width / 2);
-        const midY = part.box.y + Math.floor(part.box.height / 2);
+        // The sash sits on the separator column right after the first group.
+        const left = await editor.waitForNode("#editorGroup-1");
+        const sashX = left.box.x + left.box.width;
+        const midY = left.box.y + Math.floor(left.box.height / 2);
         await editor.sendMouse({ action: "press", button: "left", x: sashX, y: midY });
         await editor.sendMouse({ action: "move", button: "left", x: sashX + 20, y: midY });
         await editor.sendMouse({ action: "release", button: "left", x: sashX + 20, y: midY });
