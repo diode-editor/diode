@@ -35,7 +35,11 @@
 
 - [ ] Сценарий `tasks` (`e2e/scenarios/tasks.scenario.ts`): `waitUntil(screen text predicate) timed out after 10000ms`,
   на кадре всё ещё открыт пикер «Select an instance to terminate». Ubuntu, PR #889 (ран 40419055572, дифф — форма
-  курсора, задачи не трогает); тот же дифф на предыдущем прогоне был зелёным.
+  курсора, задачи не трогает); тот же дифф на предыдущем прогоне был зелёным. Раньше — дважды подряд (с повтором
+  job'а) на `main`: ран 40269334122 (статус-бар языков) и ран 40296138582 (Todo Tree), оба кадра — тот же пикер.
+- [ ] Сценарий `todo-tree` (`e2e/scenarios/todo-tree.scenario.ts`): `waitUntil(screen text predicate) timed out
+  after 10000ms` на ожидании `Ln 4, Col 1` — клик по узлу «FIXME : fixed port» дерево отрисовал, а курсор остался
+  на `Ln 1, Col 1`. Ubuntu, `main` 0.12.0 (ран 40334352898, обе попытки, дифф — версия); прогоны до и после зелёные.
 - [ ] `extensionHost.typescriptLsp.projectStatus.test.ts` › «a .ts file and, with allowJs, a .js file under a tsconfig
   show the tsconfig path»: статус проекта ещё не `tsconfig.json` в момент чтения (`expected { …(9) } to match object
   { label: 'tsconfig.json', …(1) }`). Свалил dry run мутационного гейта на #885 (ран 40405134308, дифф — гайды

@@ -98,6 +98,12 @@
             "note": "waitUntil(screen text) timed out after 10000ms with the 'Select an instance to terminate' picker still open, on ubuntu on #889 (run 40419055572); the same diff was green on the previous run"
         },
         {
+            "file": "e2e/scenarios/todo-tree.scenario.ts",
+            "test": "todo-tree",
+            "action": "retry",
+            "note": "waitUntil(screen text) timed out after 10000ms waiting for 'Ln 4, Col 1': a click on the 'FIXME : fixed port' node left the cursor at Ln 1, on ubuntu on main 0.12.0 (run 40334352898), both attempts; green on the runs before and after"
+        },
+        {
             "file": "e2e/scenarios/settings-completion.scenario.ts",
             "test": "settings-completion",
             "action": "retry",
