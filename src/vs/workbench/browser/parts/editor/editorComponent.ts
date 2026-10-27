@@ -13,6 +13,7 @@ import type { IRange } from "../../../../editor/common/core/iRange.ts";
 import { LanguageFeatureRegistry } from "../../../../editor/common/languageFeatureRegistry.ts";
 import type { ITokenizationSupport } from "../../../../editor/common/languages.ts";
 import { PlainTextTokenizer } from "../../../../editor/common/languages/builtin/plainTextTokenizer.ts";
+import type { DocumentColorProvider } from "../../../../editor/common/languages/iColorSource.ts";
 import type { FoldingRangeProvider } from "../../../../editor/common/languages/iFoldingSource.ts";
 import type { ILanguageConfigurationService } from "../../../../editor/common/languages/iLanguageConfigurationService.ts";
 import { NULL_LANGUAGE_CONFIGURATION_SERVICE } from "../../../../editor/common/languages/iLanguageConfigurationService.ts";
@@ -27,6 +28,11 @@ import { FeatureDebounce } from "../../../../editor/common/services/languageFeat
 import { DocumentTokenStore } from "../../../../editor/common/tokens/documentTokenStore.ts";
 import type { IIndentDefaults, WordWrapMode } from "../../../../editor/common/viewModel/editorViewState.ts";
 import { EditorViewState } from "../../../../editor/common/viewModel/editorViewState.ts";
+import {
+    ColorDetector,
+    DEFAULT_COLOR_DECORATORS_OPTIONS,
+    type IColorDecoratorsOptions,
+} from "../../../../editor/contrib/colorPicker/browser/colorDetector.ts";
 import { computeIndentationFolds } from "../../../../editor/contrib/folding/foldingRangeProvider.ts";
 import {
     FOLDING_MAXIMUM_REGIONS_DEFAULT,
@@ -119,6 +125,10 @@ export class EditorComponent extends Component {
     private occurrenceHighlightRequested = true;
     private wordWrapRequested: { readonly mode: WordWrapMode; readonly column: number } | null = null;
     private readonly semanticTokensFeature: DocumentSemanticTokensFeature | undefined;
+    private readonly colorProviders: LanguageFeatureRegistry<DocumentColorProvider> | undefined;
+    /** `null` without providers and in the large-file mode (upstream's detector is cut off by the worker's size limit). */
+    private colorDetector: ColorDetector | null = null;
+    private colorDecoratorsOptions: IColorDecoratorsOptions = DEFAULT_COLOR_DECORATORS_OPTIONS;
     /** Not on the view state: it is recreated on reload from disk, and the extension host subscriber must survive that. */
     private readonly onDidChangeSelectionEmitter = new Emitter<void>();
     /** On the component for the same reason. */
@@ -169,6 +179,7 @@ export class EditorComponent extends Component {
         foldingProviders = new LanguageFeatureRegistry<FoldingRangeProvider>(),
         semanticTokens?: DocumentSemanticTokensFeature,
         indentConfiguration: IIndentConfiguration = {},
+        colorProviders?: LanguageFeatureRegistry<DocumentColorProvider>,
     ) {
         super();
         this.foldingProviders = foldingProviders;
@@ -182,6 +193,7 @@ export class EditorComponent extends Component {
         this.editorViewState = new EditorViewState(model.document, undefined, indentConfiguration);
         this.editorViewState.isTooLargeForTokenization = this.tooLarge;
         this.semanticTokensFeature = semanticTokens;
+        this.colorProviders = colorProviders;
         this.editor = new EditorElement(this.editorViewState);
         this.applyTokenizer();
         this.editor.tokenStyleResolver = tokenStyleResolver;
@@ -196,6 +208,7 @@ export class EditorComponent extends Component {
         // The `editor.scrollbarMarkers` default, for surfaces the configuration never reaches.
         this.view.markerPlacement = "auto";
         this.attachSemanticTokensUnlessTooLarge();
+        this.attachColorDetectorUnlessTooLarge();
         this.applyOccurrenceHighlight();
 
         // The closures read component fields, so they survive EditorElement
@@ -242,6 +255,7 @@ export class EditorComponent extends Component {
                 this.editorViewState.isTooLargeForTokenization = false;
                 this.applyTokenizer();
                 this.attachSemanticTokensUnlessTooLarge();
+                this.attachColorDetectorUnlessTooLarge();
                 this.applyOccurrenceHighlight();
                 this.applyWordWrap();
                 this.scheduleFoldingRecompute();
@@ -306,6 +320,22 @@ export class EditorComponent extends Component {
                 onDidChangeVisibleRange: this.editorViewState.onDidChangeView,
             }),
         );
+    }
+
+    /** Like semantic tokens: at construction, and once more when the large-file mode ends. */
+    private attachColorDetectorUnlessTooLarge(): void {
+        if (this.colorProviders === undefined || this.tooLarge) return;
+        this.colorDetector = this.register(
+            new ColorDetector(this.model, this.colorProviders, this.colorDecoratorsOptions, (insertions) => {
+                this.editor.setInlineInsertions(insertions);
+            }),
+        );
+    }
+
+    /** `editor.colorDecorators`, `editor.defaultColorDecorators`, `editor.colorDecoratorsLimit`. */
+    public setColorDecorators(options: IColorDecoratorsOptions): void {
+        this.colorDecoratorsOptions = options;
+        this.colorDetector?.setOptions(options);
     }
 
     /** Folds are recomputed immediately, without the debounce: regions from the old text mean nothing. */

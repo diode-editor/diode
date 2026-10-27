@@ -14,6 +14,8 @@ import {
 } from "../../../../editor/common/diff/diffV2Layout.ts";
 import { DiffViewModel } from "../../../../editor/common/diff/diffViewModel.ts";
 import type { DetailedLineRangeMapping } from "../../../../editor/common/diff/rangeMapping.ts";
+import type { LanguageFeatureRegistry } from "../../../../editor/common/languageFeatureRegistry.ts";
+import type { DocumentColorProvider } from "../../../../editor/common/languages/iColorSource.ts";
 import type { ILanguageService } from "../../../../editor/common/languages/iLanguageService.ts";
 import type { ITokenStyleResolver } from "../../../../editor/common/languages/iTokenStyleResolver.ts";
 import type { TokenizationRegistry } from "../../../../editor/common/languages/tokenizationRegistry.ts";
@@ -106,6 +108,7 @@ export class DiffEditorPane2 extends Component implements IEditorPane {
         tokenizationRegistry: TokenizationRegistry,
         tokenStyleResolver: ITokenStyleResolver,
         input: IDiffEditorPane2Input,
+        colorProviders?: LanguageFeatureRegistry<DocumentColorProvider>,
     ) {
         super();
         this.uri = input.uri;
@@ -116,8 +119,8 @@ export class DiffEditorPane2 extends Component implements IEditorPane {
         this.sideKinds = { original: input.original.kind, modified: input.modified.kind };
 
         this.sides = {
-            original: this.createSide("original", tokenizationRegistry, tokenStyleResolver, input),
-            modified: this.createSide("modified", tokenizationRegistry, tokenStyleResolver, input),
+            original: this.createSide("original", tokenizationRegistry, tokenStyleResolver, input, colorProviders),
+            modified: this.createSide("modified", tokenizationRegistry, tokenStyleResolver, input, colorProviders),
         };
         this.paneElement = new DiffPaneElement(this.sides.original.component.view, this.sides.modified.component.view, {
             original: input.originalLabel,
@@ -164,6 +167,7 @@ export class DiffEditorPane2 extends Component implements IEditorPane {
         tokenizationRegistry: TokenizationRegistry,
         tokenStyleResolver: ITokenStyleResolver,
         input: IDiffEditorPane2Input,
+        colorProviders: LanguageFeatureRegistry<DocumentColorProvider> | undefined,
     ): TextEditorPane {
         const source = input[side];
         let model: BaseTextEditorModel;
@@ -184,7 +188,16 @@ export class DiffEditorPane2 extends Component implements IEditorPane {
             this.snapshotModels[side] = snapshot;
             model = snapshot;
         }
-        const component = new EditorComponent(tokenizationRegistry, tokenStyleResolver, model);
+        const component = new EditorComponent(
+            tokenizationRegistry,
+            tokenStyleResolver,
+            model,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            colorProviders,
+        );
         component.foldingOwnedExternally = true;
         const pane = new TextEditorPane(model, component, ownership);
         pane.detached = true;

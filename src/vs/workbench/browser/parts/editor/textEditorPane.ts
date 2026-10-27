@@ -18,6 +18,7 @@ import type { IGutterChangeDecoration } from "../../../../editor/common/model/iG
 import type { IUndoElement } from "../../../../editor/common/model/iUndoElement.ts";
 import type { EditorViewState, WordWrapMode } from "../../../../editor/common/viewModel/editorViewState.ts";
 import type { ICursorStateComputer } from "../../../../editor/common/viewModel/trackedSelections.ts";
+import type { IColorDecoratorsOptions } from "../../../../editor/contrib/colorPicker/browser/colorDetector.ts";
 import type { IMarkerDecoration } from "../../../../platform/markers/common/iMarker.ts";
 import type { WorkbenchColorKey } from "../../../../platform/theme/common/colors/colorContributions.ts";
 import type { IUndoRedoElement } from "../../../../platform/undoRedo/common/iUndoRedoElement.ts";
@@ -359,6 +360,10 @@ export class TextEditorPane<TModel extends BaseTextEditorModel = BaseTextEditorM
 
     public setFoldingMaximumRegions(limit: number): void {
         this.component.setFoldingMaximumRegions(limit);
+    }
+
+    public setColorDecorators(options: IColorDecoratorsOptions): void {
+        this.component.setColorDecorators(options);
     }
 
     /**

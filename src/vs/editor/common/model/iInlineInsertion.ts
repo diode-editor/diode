@@ -8,7 +8,10 @@ export interface IInlineInsertion {
     readonly line: number;
     readonly offset: number;
     readonly text: string;
-    /** Packed 24-bit RGB, already resolved (like `IGutterChangeDecoration`); wins over {@link colorToken}. */
+    /**
+     * Packed RGB, already resolved (like `IGutterChangeDecoration`); wins over {@link colorToken}. A translucent
+     * `packRgba` is blended by the frame over the cell's background.
+     */
     readonly fg?: number;
     /** Theme token resolved at render time; neither this nor {@link fg} — the editor text color. */
     readonly colorToken?: string;

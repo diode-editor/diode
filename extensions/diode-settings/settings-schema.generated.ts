@@ -50,6 +50,18 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
             'Code action kinds to be run on save (e.g. `{"source.fixAll": true}`). Kinds match hierarchically: `source.fixAll` also runs `source.fixAll.ruff`.',
     },
     {
+        key: "editor.colorDecorators",
+        type: "boolean",
+        default: true,
+        description: "Controls whether the editor should render the inline color decorators and color picker.",
+    },
+    {
+        key: "editor.colorDecoratorsLimit",
+        type: "integer",
+        default: 500,
+        description: "Controls the max number of color decorators that can be rendered in an editor at once.",
+    },
+    {
         key: "editor.contextmenu",
         type: "boolean",
         default: true,
@@ -74,6 +86,14 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
         type: "number",
         default: 3,
         description: "Controls the minimal number of visible leading lines around the cursor.",
+    },
+    {
+        key: "editor.defaultColorDecorators",
+        type: "string",
+        default: "auto",
+        description:
+            "Controls whether inline color decorations should be shown using the default document color provider.",
+        enum: ["auto", "always", "never"],
     },
     {
         key: "editor.detectIndentation",

@@ -1,5 +1,6 @@
 import type { Uri } from "../vs/base/common/uri.ts";
 import type { LanguageFeatureRegistry } from "../vs/editor/common/languageFeatureRegistry.ts";
+import type { DocumentColorProvider } from "../vs/editor/common/languages/iColorSource.ts";
 import type { FoldingRangeProvider } from "../vs/editor/common/languages/iFoldingSource.ts";
 import type { ILanguageService } from "../vs/editor/common/languages/iLanguageService.ts";
 import { NULL_LANGUAGE_SERVICE } from "../vs/editor/common/languages/iLanguageService.ts";
@@ -28,6 +29,7 @@ export interface IEditorPaneOverrides {
     readonly themeService?: ThemeService;
     readonly undoRedoService?: UndoRedoService;
     readonly foldingProviders?: LanguageFeatureRegistry<FoldingRangeProvider>;
+    readonly colorProviders?: LanguageFeatureRegistry<DocumentColorProvider>;
     /** Defaults to the real disk. */
     readonly files?: IFileService;
     /** Absent — TextMate only. */
@@ -68,6 +70,8 @@ export function createEditorPane(overrides: IEditorPaneOverrides = {}): TextEdit
         undefined,
         overrides.foldingProviders,
         overrides.semanticTokens,
+        undefined,
+        overrides.colorProviders,
     );
     return new TextEditorPane(model, component);
 }

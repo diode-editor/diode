@@ -17,6 +17,7 @@ import { TokenizationRegistry } from "../../editor/common/languages/tokenization
 import { TokenizationRegistryDIToken } from "../../editor/common/languages/tokenizationRegistry.ts";
 import { LanguageFeaturesServiceDIToken } from "../../editor/common/services/languageFeatures.ts";
 import { LanguageFeaturesService } from "../../editor/common/services/languageFeaturesService.ts";
+import { DefaultDocumentColorProvider } from "../../editor/contrib/colorPicker/browser/defaultDocumentColorProvider.ts";
 
 import { createTestContainer } from "./testProfile.ts";
 import { tokenizationModule } from "./tokenizationModule.ts";
@@ -67,5 +68,17 @@ describe("tokenizationModule", () => {
         expect(service).toBeInstanceOf(LanguageFeaturesService);
         expect(container.get(LanguageFeaturesServiceDIToken)).toBe(service);
         expect(service.hoverProvider.has({ uri: Uri.file("/a.ts"), languageId: "typescript" })).toBe(false);
+    });
+
+    it("the color registry starts with the built-in detector, for any document", () => {
+        const service = createTestContainer().container.get(LanguageFeaturesServiceDIToken);
+        for (const target of [
+            { uri: Uri.file("/a.css"), languageId: "css" },
+            { uri: Uri.from({ scheme: "output", path: "log" }), languageId: "log" },
+        ]) {
+            const providers = service.colorProvider.ordered(target);
+            expect(providers).toHaveLength(1);
+            expect(providers[0]).toBeInstanceOf(DefaultDocumentColorProvider);
+        }
     });
 });

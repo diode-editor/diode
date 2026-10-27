@@ -58,6 +58,11 @@ export class TextEditorConfiguration extends Disposable {
         editor.setCursorSurroundingLines(this.configurationService.get("editor.cursorSurroundingLines", overrides));
         editor.setScrollbarMarkers(this.configurationService.get("editor.scrollbarMarkers", overrides));
         editor.setFoldingMaximumRegions(this.configurationService.get("editor.foldingMaximumRegions", overrides));
+        editor.setColorDecorators({
+            enabled: this.configurationService.get("editor.colorDecorators", overrides),
+            defaultEnablement: this.configurationService.get("editor.defaultColorDecorators", overrides),
+            limit: this.configurationService.get("editor.colorDecoratorsLimit", overrides),
+        });
         editor.setNerdFont(this.icons.nerdFont);
 
         // Indent config is a baseline, not an order: with `editor.detectIndentation` the file wins.

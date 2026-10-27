@@ -22,6 +22,11 @@ describe("isValidConfigurationValue", () => {
         ["number", "4", false],
         ["number", Number.NaN, false],
         ["number", Number.POSITIVE_INFINITY, false],
+        ["integer", 4, true],
+        ["integer", -4, true],
+        ["integer", 4.5, false],
+        ["integer", "4", false],
+        ["integer", Number.NaN, false],
         ["boolean", false, true],
         ["boolean", "false", false],
         ["string", "x", true],
@@ -57,6 +62,11 @@ describe("isValidConfigurationValue", () => {
         expect(isValidConfigurationValue(timeout, 0)).toBe(false);
         expect(isValidConfigurationValue(timeout, 11)).toBe(false);
         expect(isValidConfigurationValue(schema({ type: "number" }), -5)).toBe(true);
+        const limit = schema({ type: "integer", minimum: 1, maximum: 10 });
+        expect(isValidConfigurationValue(limit, 1)).toBe(true);
+        expect(isValidConfigurationValue(limit, 10)).toBe(true);
+        expect(isValidConfigurationValue(limit, 0)).toBe(false);
+        expect(isValidConfigurationValue(limit, 11)).toBe(false);
     });
 });
 
@@ -87,6 +97,33 @@ describe("sanitizeConfiguration", () => {
         const model = ConfigurationModel.fromRaw({ "editor.tabSize": 2 });
 
         expect(sanitizeConfiguration(model, schemas)).toBe(model);
+    });
+
+    it("integer, as upstream `clampedInt`: a number is clamped into the range and truncated, anything else is the default", () => {
+        const ranged = new Map([["a.limit", schema({ type: "integer", default: 500, minimum: 1, maximum: 1000 })]]);
+        const open = new Map([["a.limit", schema({ type: "integer", default: 500 })]]);
+        const sanitized = (value: unknown, schemas = ranged): unknown =>
+            sanitizeConfiguration(ConfigurationModel.fromRaw({ "a.limit": value }), schemas).get("a.limit");
+
+        expect(sanitized(7)).toBe(7);
+        expect(sanitized(1)).toBe(1);
+        expect(sanitized(1000)).toBe(1000);
+        expect(sanitized(0)).toBe(1);
+        expect(sanitized(-5)).toBe(1);
+        expect(sanitized(2e6)).toBe(1000);
+        expect(sanitized(2.7)).toBe(2);
+        expect(sanitized(-0.5)).toBe(1);
+        // Not `parseInt` of a number: its string form may be exponential.
+        expect(sanitized(5e-7)).toBe(1);
+        expect(sanitized("42")).toBe(42);
+        expect(sanitized("5000")).toBe(1000);
+        expect(sanitized("many")).toBe(500);
+        expect(sanitized(Number.NaN)).toBe(500);
+        expect(sanitized(Number.POSITIVE_INFINITY)).toBe(500);
+        expect(sanitized(true)).toBe(500);
+
+        expect(sanitized(-7.9, open)).toBe(-7);
+        expect(sanitized("-12", open)).toBe(-12);
     });
 });
 

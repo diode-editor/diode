@@ -66,6 +66,34 @@ export const editorConfiguration = {
                 "The maximum number of foldable regions. Increasing this value may result in the editor becoming " +
                 "less responsive when the current source has a large number of foldable regions.",
         },
+        // Without a color picker: "and color picker" is upstream's wording. `colorDecoratorsActivatedOn` is not ported.
+        "editor.colorDecorators": {
+            scope: "language-overridable",
+            type: "boolean",
+            default: true,
+            description: "Controls whether the editor should render the inline color decorators and color picker.",
+        },
+        "editor.defaultColorDecorators": {
+            scope: "language-overridable",
+            type: "string",
+            enum: ["auto", "always", "never"],
+            enumDescriptions: [
+                "Show default color decorators only when no extension provides colors decorators.",
+                "Always show default color decorators.",
+                "Never show default color decorators.",
+            ],
+            default: "auto",
+            description:
+                "Controls whether inline color decorations should be shown using the default document color provider.",
+        },
+        "editor.colorDecoratorsLimit": {
+            scope: "language-overridable",
+            type: "integer",
+            default: 500,
+            minimum: 1,
+            maximum: 1000000,
+            description: "Controls the max number of color decorators that can be rendered in an editor at once.",
+        },
         // "multiFile" is not supported and behaves like "singleFile".
         "editor.occurrencesHighlight": {
             scope: "language-overridable",
