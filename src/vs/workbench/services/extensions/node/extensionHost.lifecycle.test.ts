@@ -98,6 +98,9 @@ class FakeEditorOptions implements IEditorOptionsService {
     public setActiveEditorOptions(patch: IEditorOptionsPatch): void {
         this.lastPatch = patch;
     }
+    public setEditorCursorStyle(): void {
+        /* no-op */
+    }
     public getActiveEditorFilePath(): string | null {
         return this.filePath;
     }

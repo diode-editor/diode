@@ -7,6 +7,7 @@ import type { ScrollBarDecorator } from "@tuidom/elements/scrollbar/scrollContai
 import { Emitter, Event } from "../../../../base/common/event.ts";
 import { Disposable, type IDisposable } from "../../../../base/common/lifecycle.ts";
 import type { Uri } from "../../../../base/common/uri.ts";
+import type { EditorCursorStyleSetting } from "../../../../editor/common/config/editorCursorStyle.ts";
 import type { EndOfLine } from "../../../../editor/common/core/endOfLine.ts";
 import type { IRange } from "../../../../editor/common/core/iRange.ts";
 import type { ITextEdit } from "../../../../editor/common/core/iTextEdit.ts";
@@ -337,6 +338,12 @@ export class TextEditorPane<TModel extends BaseTextEditorModel = BaseTextEditorM
     public setNerdFont(nerdFont: boolean): void {
         this.component.setNerdFont(nerdFont);
     }
+
+    /**
+     * `TextEditor.options.cursorStyle` from an extension: beats `editor.cursorStyle` while the pane lives
+     * and is never written to settings (upstream `updateOptions` on the code editor).
+     */
+    public cursorStyleOverride: EditorCursorStyleSetting | undefined = undefined;
 
     public setCursorStyle(style: CursorStyle | null): void {
         this.component.setCursorStyle(style);

@@ -337,7 +337,7 @@ change the ⛔ status.
 
 ## Types with a partial surface
 
-262 of 424 upstream types and classes are declared. The declared ones are complete, except those
+263 of 424 upstream types and classes are declared. The declared ones are complete, except those
 listed below, where only a subset of members is declared. `TextDocument` is listed for a different
 reason: everything is declared and implemented, but `save` is a 🟡 stub.
 
@@ -345,7 +345,7 @@ reason: everything is declared and implemented, but `save` is a 🟡 stub.
 | --- | :-: | --- |
 | `TextEditor` | 7/12 | `visibleRanges`, `insertSnippet`, `revealRange`, `show`, `hide` |
 | `TextDocument` | 19/19 | — (the class is checked by the compiler against `vscode.TextDocument`). `save` goes through the editor with save participants and the scheme's provider; a document not open in the editor gives `false`, a closed one rejects. `getWordRangeAtPosition` uses VS Code's default word definition or the extension's regex (no language `wordPattern`; a regex matching the empty string throws). `offsetAt`/`positionAt`/`validateRange`/`validatePosition` work |
-| `TextEditorOptions` | 3/5 | `cursorStyle`, `lineNumbers` |
+| `TextEditorOptions` | 4/5 | `lineNumbers` |
 | `TerminalOptions` | 12/13 | `iconPath` |
 | `TreeViewOptions` | 4/5 | `dragAndDropController` (no drag-and-drop in a terminal) |
 | `ExtensionTerminalOptions` | 6/7 | `iconPath` |
@@ -369,6 +369,7 @@ The type matches VS Code, the meaning differs:
 | `vscode.version` | the version of **Diode**, not of VS Code |
 | `Event<T>` | subscriptions are wrapped in the extension host's own emitter |
 | `TextEditorOptions.indentSize` | aliased to `tabSize`; Diode does not distinguish them yet |
+| `TextEditorOptions.cursorStyle` | a terminal has three cursor shapes: `LineThin` draws as `Line`, `BlockOutline` as `Block`, `UnderlineThin` as `Underline`. The getter is `undefined` while neither the extension nor `editor.cursorStyle` sets a style: the editor then keeps the terminal's own cursor shape |
 | `environmentVariableCollection` | the whole API (`replace`/`append`/`prepend`, `get`, `forEach`, iteration, `delete`, `clear`, `description`, `persistent`, `getScoped` per folder). Collections of all extensions are merged as in VS Code and applied to every terminal process (a person's shells, extension terminals, tasks), except terminals with `strictEnv`; `persistent` collections survive a restart and are available in `activate()`. Deviations: `applyAtShellIntegration` has no effect (no shell integration); no "environment is stale" indicator and no relaunch on `terminal.integrated.environmentChangesRelaunch`, the next process gets the new values; `${…}` variables in values are not expanded |
 | `SecretStorage` | **unencrypted**: there is no OS keychain, secrets are stored in plain text in `<profileDir>/secrets.json` with `0600` permissions. Everything else follows the contract: `get`/`store`/`delete`/`keys`, `onDidChange` on writes and deletes, values survive a restart, one compartment per extension |
 | `Extension.extensionKind` | always `ExtensionKind.UI`, as VS Code prescribes when there is no remote extension host |

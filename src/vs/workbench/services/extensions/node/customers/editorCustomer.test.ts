@@ -34,6 +34,7 @@ function setup() {
     const editorOptions = {
         getActiveEditorOptions: () => ({ tabSize: 4, insertSpaces: true }),
         setActiveEditorOptions: vi.fn(),
+        setEditorCursorStyle: vi.fn(),
         getActiveEditorMeta: () => META,
         onActiveEditorChanged: (cb: (meta: IActiveEditorMeta) => void) => activeEditor.event(cb),
         onActiveEditorSelectionChanged: (cb: (s: IActiveEditorSelections) => void) => selection.event(cb),
@@ -144,6 +145,28 @@ describe("EditorCustomer — subprocess requests", () => {
             await expect(h.peer.request("editor.setOptions", params)).resolves.toBeNull();
         }
         expect(vi.mocked(h.editorOptions.setActiveEditorOptions).mock.calls).toEqual(cases.map(([, patch]) => [patch]));
+    });
+
+    it("editor.setOptions: a cursorStyle of 1..6 goes to the editor at uri + groupId; junk is dropped", async () => {
+        const h = setup();
+        h.attachTo();
+        const cases: readonly unknown[] = [
+            { cursorStyle: 2, uri: "file:///a.ts", groupId: 7 },
+            { cursorStyle: 6, uri: "file:///b.ts", groupId: 1, tabSize: 2 },
+            { cursorStyle: 7, uri: "file:///a.ts", groupId: 7 },
+            { cursorStyle: "2", uri: "file:///a.ts", groupId: 7 },
+            { cursorStyle: 2, groupId: 7 },
+            { cursorStyle: 2, uri: "file:///a.ts", groupId: "7" },
+            { cursorStyle: 2, uri: "file:///a.ts" },
+            null,
+        ];
+        for (const params of cases) {
+            await expect(h.peer.request("editor.setOptions", params)).resolves.toBeNull();
+        }
+        expect(vi.mocked(h.editorOptions.setEditorCursorStyle).mock.calls).toEqual([
+            ["file:///a.ts", 7, "block"],
+            ["file:///b.ts", 1, "underline-thin"],
+        ]);
     });
 
     it("editor.getOptions returns the active editor's options", async () => {

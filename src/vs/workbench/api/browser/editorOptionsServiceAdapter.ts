@@ -1,5 +1,6 @@
 import type { IDisposable } from "../../../base/common/lifecycle.ts";
 import { Uri } from "../../../base/common/uri.ts";
+import type { EditorCursorStyleSetting } from "../../../editor/common/config/editorCursorStyle.ts";
 import { currentCursorChangeSource, type CursorChangeSource } from "../../../editor/common/core/cursorChangeSource.ts";
 import { EndOfLine } from "../../../editor/common/core/endOfLine.ts";
 import { clampPositionToDocument } from "../../../editor/common/core/iPosition.ts";
@@ -62,6 +63,13 @@ export class EditorOptionsServiceAdapter implements IEditorOptionsService {
         const editor = this.group.getActiveTabEditor();
         if (editor === null) return;
         editor.setIndentOptions(patch);
+    }
+
+    public setEditorCursorStyle(uri: string, groupId: number, style: EditorCursorStyleSetting): void {
+        const editor = this.editorFor(uri, groupId);
+        if (editor === null) return;
+        editor.cursorStyleOverride = style;
+        this.group.editorConfiguration.applyCursorStyle(editor);
     }
 
     public getActiveEditorFilePath(): string | null {

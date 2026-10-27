@@ -1,0 +1,23 @@
+{
+    "name": "cursor-modes",
+    "displayName": "Cursor Modes",
+    "description": "E2E demo extension: switches the active editor's cursor like vim modes, a block in normal mode and a bar in insert mode.",
+    "version": "0.0.1",
+    "publisher": "test",
+    "main": "./extension.js",
+    "engines": {
+        "vscode": "^1.0.0"
+    },
+    "contributes": {
+        "commands": [
+            {
+                "command": "cursorModes.normal",
+                "title": "Cursor Modes: Normal"
+            },
+            {
+                "command": "cursorModes.insert",
+                "title": "Cursor Modes: Insert"
+            }
+        ]
+    }
+}

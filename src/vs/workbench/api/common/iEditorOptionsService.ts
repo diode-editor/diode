@@ -38,12 +38,18 @@ export interface IActiveEditorMeta {
 }
 
 import type { IDisposable } from "../../../base/common/lifecycle.ts";
+import type { EditorCursorStyleSetting } from "../../../editor/common/config/editorCursorStyle.ts";
 
 import type { IWireEditorEdit, IWireSelection, IWireWorkspaceEditOp, WireSelectionChangeKind } from "./wireTypes.ts";
 
 export interface IEditorOptionsService {
     getActiveEditorOptions(): IEditorOptionsState | null;
     setActiveEditorOptions(patch: IEditorOptionsPatch): void;
+    /**
+     * The extension's session override of `editor.cursorStyle` for the tab of `uri` in group `groupId`;
+     * no-op if that tab is gone.
+     */
+    setEditorCursorStyle(uri: string, groupId: number, style: EditorCursorStyleSetting): void;
     getActiveEditorFilePath(): string | null;
     getActiveEditorMeta(): IActiveEditorMeta;
     onActiveEditorChanged(cb: (meta: IActiveEditorMeta) => void): IDisposable;

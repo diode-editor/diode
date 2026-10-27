@@ -801,6 +801,8 @@ export interface IWireSetEditorOptionsParams {
     readonly tabSize?: number;
     readonly insertSpaces?: boolean;
     readonly indentSize?: number;
+    /** `vscode.TextEditorCursorStyle`, 1..6: applies to the editor at `uri` + `groupId`, not the active one. */
+    readonly cursorStyle?: number;
     readonly uri: string;
     readonly groupId: number;
 }
