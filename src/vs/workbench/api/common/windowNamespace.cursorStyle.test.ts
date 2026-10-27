@@ -94,6 +94,12 @@ describe("WindowNamespace — TextEditor.options.cursorStyle", () => {
         expect(editor.options).toEqual({});
     });
 
+    it("with no style, the getter still has the other options the extension set", () => {
+        const { editor } = makeCtx();
+        editor.options = { tabSize: 2 };
+        expect(editor.options).toEqual({ tabSize: 2 });
+    });
+
     it("other options the extension set stay readable next to the style", () => {
         const { editor } = makeCtx();
         editor.options = { tabSize: 2, cursorStyle: TextEditorCursorStyle.Line };

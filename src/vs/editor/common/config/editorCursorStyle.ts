@@ -43,8 +43,9 @@ const API_CURSOR_STYLES: readonly EditorCursorStyleSetting[] = [
 
 /** `vscode.TextEditorCursorStyle` as the setting's string; anything but 1..6 is `undefined`. */
 export function cursorStyleFromApi(value: unknown): EditorCursorStyleSetting | undefined {
-    if (typeof value !== "number" || !Number.isInteger(value)) return undefined;
-    return API_CURSOR_STYLES[value - 1];
+    // `isInteger` is false for anything but a number.
+    if (!Number.isInteger(value)) return undefined;
+    return API_CURSOR_STYLES[(value as number) - 1];
 }
 
 /** The setting's string as `vscode.TextEditorCursorStyle`; anything else is `undefined`. */
