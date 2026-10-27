@@ -8,8 +8,8 @@ import type { IColor, IColorInformation } from "./iColorSource.ts";
  * Port of upstream `defaultDocumentColorsComputer.ts`. Positions are 0-based; the regular expressions and
  * the parsing are verbatim.
  */
+/** Upstream's target without `getValue`, which the computer never calls. */
 export interface IDocumentColorComputerTarget {
-    getValue(): string;
     positionAt(offset: number): IPosition;
     findMatches(regex: RegExp): RegExpMatchArray[];
 }
@@ -167,8 +167,8 @@ function computeColors(model: IDocumentColorComputerTarget): IColorInformation[]
                     findMatches(colorParameters, regexParameters),
                     true,
                 );
-                // Stryker disable next-line ConditionalExpression: the initial expression captures no other scheme
-            } else if (colorScheme === "#") {
+            } else {
+                // `#`: the initial expression captures no other scheme.
                 colorInformation = findHexColorInformation(
                     findRange(model, initialMatch),
                     colorScheme + colorParameters,

@@ -36,7 +36,7 @@ export async function getColors(
     model: ILanguageFeatureTarget,
     request: IDocumentColorRequest,
     token: ICancellationToken,
-    defaultColorDecoratorsEnablement: DefaultColorDecoratorsEnablement = "auto",
+    defaultColorDecoratorsEnablement: DefaultColorDecoratorsEnablement,
 ): Promise<IColorInformation[]> {
     let validDocumentColorProviderFound = false;
     let defaultProvider: DefaultDocumentColorProvider | undefined;

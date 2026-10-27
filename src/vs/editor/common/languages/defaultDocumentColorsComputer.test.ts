@@ -7,10 +7,6 @@ import { computeDefaultDocumentColors, type IDocumentColorComputerTarget } from 
 class TestDocumentModel implements IDocumentColorComputerTarget {
     public constructor(private readonly content: string) {}
 
-    public getValue(): string {
-        return this.content;
-    }
-
     public positionAt(offset: number): IPosition {
         const lines = this.content.substring(0, offset).split("\n");
         return { line: lines.length - 1, character: lines[lines.length - 1].length };
@@ -119,12 +115,22 @@ describe("Default Document Colors Computer — diode", () => {
         expect(colors[0].color).toEqual(color);
     });
 
-    it.each(["a#fff", "#ggg", " #12345", " #ff00f", "rgb(300,0,0)", "rgb(1,2)", "hsl(400, 50%, 50%)", "rgba(1,2,3)"])(
-        "%s is not a color",
-        (text) => {
-            expect(colorsOf(text)).toEqual([]);
-        },
-    );
+    it.each([
+        "a#fff",
+        "a#f00f",
+        "a#ff0000",
+        "a#ff0000ff",
+        "#ggg",
+        "#zzzz",
+        " #12345",
+        " #ff00f",
+        "rgb(300,0,0)",
+        "rgb(1,2)",
+        "hsl(400, 50%, 50%)",
+        "rgba(1,2,3)",
+    ])("%s is not a color", (text) => {
+        expect(colorsOf(text)).toEqual([]);
+    });
 
     it("a hex color at the start of a later line is found (multiline)", () => {
         const colors = colorsOf("x\n#abc");

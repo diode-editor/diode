@@ -24,12 +24,9 @@ class DocumentColorComputerTarget implements IDocumentColorComputerTarget {
         }
     }
 
-    public getValue(): string {
-        return this.document.getText();
-    }
-
     public positionAt(offset: number): IPosition {
         let low = 0;
+        // Stryker disable next-line ArithmeticOperator: a `high` past the end only adds probes of undefined, which compare false
         let high = this.lineStarts.length - 1;
         while (low < high) {
             const mid = (low + high + 1) >> 1;
@@ -51,12 +48,19 @@ class DocumentColorComputerTarget implements IDocumentColorComputerTarget {
     }
 }
 
+/** Upstream `_MODEL_SYNC_LIMIT`, in characters. */
+const MODEL_SYNC_LIMIT = 50 * 1024 * 1024;
+
 /**
  * Port of upstream `DefaultDocumentColorProvider`: the built-in detector of hex/rgb/hsl colors in any file.
- * Computed in place, not in a worker: the large-file mode never asks for colors.
+ * Computed in place, not in a worker. Upstream's worker never gets a document above `_MODEL_SYNC_LIMIT` and
+ * answers `null` for it; the same here, so "Enable Editing" on a huge log does not scan it for seconds.
  */
 export class DefaultDocumentColorProvider implements DocumentColorProvider {
-    public provideDocumentColors(request: IDocumentColorRequest): Promise<IColorInformation[]> {
+    public constructor(private readonly syncLimit = MODEL_SYNC_LIMIT) {}
+
+    public provideDocumentColors(request: IDocumentColorRequest): Promise<IColorInformation[] | null> {
+        if (request.document.getValueLength() > this.syncLimit) return Promise.resolve(null);
         return Promise.resolve(computeDefaultDocumentColors(new DocumentColorComputerTarget(request.document)));
     }
 }

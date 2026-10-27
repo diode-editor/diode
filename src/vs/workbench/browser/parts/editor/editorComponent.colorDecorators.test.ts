@@ -216,6 +216,21 @@ describe("EditorComponent — color decorators", () => {
         expect(row(0)).toBe("■ #111");
     });
 
+    it("a color below empty lines gets its square on its own line", async () => {
+        const { row } = await open("\n\n#111");
+        expect(row(2)).toBe("■ #111");
+    });
+
+    it("the default detector skips a document above the sync limit, as upstream's worker does", async () => {
+        providers = new LanguageFeatureRegistry<DocumentColorProvider>();
+        providers.register("*", new DefaultDocumentColorProvider(9));
+        const within = await open("#111\n#222");
+        expect(within.row(0)).toBe("■ #111");
+
+        const above = await open("#111\n#2222");
+        expect(above.row(0)).toBe("#111");
+    });
+
     it("a file with hundreds of thousands of colors still draws the first squares", async () => {
         const errors: unknown[] = [];
         setUnexpectedErrorHandler((e) => errors.push(e));

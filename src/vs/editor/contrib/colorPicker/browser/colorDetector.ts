@@ -148,6 +148,7 @@ export class ColorDetector extends Disposable {
         this.computeRequest = request;
         const document = this.model.document;
         const versionId = document.versionId;
+        // Stryker disable next-line BooleanLiteral: the resolution of the timer is not observable in a debounce of hundreds of ms
         const sw = new StopWatch(false);
         let colors: IColorInformation[];
         try {
@@ -181,6 +182,7 @@ export class ColorDetector extends Disposable {
         const limited = colors.slice(0, this.options.limit);
         const ids = this.model.document.deltaDecorations(
             this.decorators.map((decorator) => decorator.id),
+            // Stryker disable next-line ObjectLiteral,StringLiteral: the description only names the decoration in a debugger
             limited.map((color) => ({ range: color.range, options: { description: "colorDetector" } })),
         );
         this.decorators = ids.map((id, i) => ({ id, fg: packColor(limited[i].color) }));
@@ -188,11 +190,13 @@ export class ColorDetector extends Disposable {
     }
 
     private removeAllDecorations(): void {
+        // Stryker disable next-line ConditionalExpression: publishing no squares again changes nothing on the frame
         if (this.decorators.length === 0) return;
         this.model.document.deltaDecorations(
             this.decorators.map((decorator) => decorator.id),
             [],
         );
+        // Stryker disable next-line ArrayDeclaration: an element without an id has no range and draws nothing
         this.decorators = [];
         this.publish();
     }
@@ -201,6 +205,7 @@ export class ColorDetector extends Disposable {
         const insertions: IInlineInsertion[] = [];
         for (const decorator of this.decorators) {
             const range = this.model.document.getDecorationRange(decorator.id);
+            // Stryker disable next-line ConditionalExpression: our ids live until we remove them; `null` is only for the type
             if (range === null || positionsEqual(range.start, range.end)) continue;
             insertions.push({
                 line: range.start.line,
