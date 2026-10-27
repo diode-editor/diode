@@ -161,6 +161,12 @@
   делит долю источника пополам); хуки сервису (`canAddGroupHook`,
   `focusGroupContentHook`) и персисту (`onDidChangeGroupLayout`,
   `IEditorGroupsLayoutView` для `WorkbenchStateService`).
+  Разделитель групп — `separatorColorVar = "editorGroup.border"` (аналог
+  `separatorBorder` grid-а VS Code): у каждой границы своя колонка `│` или
+  строка `─` на фоне `editor.background`, саш лежит на ней и на hover/drag
+  перекрашивает её в `sash.hoverBorder`. Отступление от эталона: линия не
+  тоньше клетки, поэтому каждая граница отнимает у групп клетку; доли и
+  минимумы — без неё, `canFit(n)` = `n×min + (n−1) ≤ main` (#894).
 - `browser/parts/editor/editorGroupComponent.ts` — контрол ОДНОЙ группы;
   **композиционный корень** из примитивов tuidom: `view` = `OverlayHostElement`
   (локальный OverlayLayer для find-виджета группы; `view.id =

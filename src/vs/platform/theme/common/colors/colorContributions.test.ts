@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { builtinThemes } from "../../../../workbench/services/themes/common/themes/builtinThemes.ts";
 import { type ColorContribution, isColorReference } from "../colorRegistry.ts";
+import { parseHexColor } from "../colorUtils.ts";
 import { WorkbenchTheme } from "../workbenchTheme.ts";
 
 import { baseColors } from "./baseColors.ts";
@@ -21,6 +22,7 @@ const REQUIRED_COLORS: (keyof IWorkbenchColors)[] = [
     "sash.hoverBorder",
     "editor.foreground",
     "editor.background",
+    "editorGroup.border",
     "editorGroupHeader.tabsBackground",
     "tab.activeBackground",
     "tab.activeForeground",
@@ -54,6 +56,15 @@ const REQUIRED_COLORS: (keyof IWorkbenchColors)[] = [
 ];
 
 describe("default color registry coverage", () => {
+    it("registers editorGroup.border with the vscode defaults and lets themes override it", () => {
+        const dark = WorkbenchTheme.fromThemeFile({ type: "dark", colors: {} });
+        const light = WorkbenchTheme.fromThemeFile({ type: "light", colors: {} });
+        const themed = WorkbenchTheme.fromThemeFile({ type: "dark", colors: { "editorGroup.border": "#34352f" } });
+        expect(dark.getColor("editorGroup.border")).toBe(parseHexColor("#444444"));
+        expect(light.getColor("editorGroup.border")).toBe(parseHexColor("#E7E7E7"));
+        expect(themed.getColor("editorGroup.border")).toBe(parseHexColor("#34352f"));
+    });
+
     for (const themeFile of builtinThemes) {
         it(`resolves every required color for "${themeFile.name ?? "Unnamed"}"`, () => {
             const theme = WorkbenchTheme.fromThemeFile(themeFile);
