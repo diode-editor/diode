@@ -557,8 +557,7 @@ function colorChannel(raw: unknown): number | null {
 }
 
 function colorFrom(raw: unknown): IColor | null {
-    if (typeof raw !== "object" || raw === null) return null;
-    const c = raw as Partial<Record<keyof IColor, unknown>>;
+    const c = (raw ?? {}) as Partial<Record<keyof IColor, unknown>>;
     const red = colorChannel(c.red);
     const green = colorChannel(c.green);
     const blue = colorChannel(c.blue);
@@ -577,8 +576,7 @@ export function serializeDocumentColors(raw: unknown): IColorInformation[] | nul
     if (!Array.isArray(raw) || raw.length === 0) return null;
     const colors: IColorInformation[] = [];
     for (const item of raw as unknown[]) {
-        if (typeof item !== "object" || item === null) continue;
-        const info = item as { range?: unknown; color?: unknown };
+        const info = (item ?? {}) as { range?: unknown; color?: unknown };
         const range = rangeFrom(info.range);
         const color = colorFrom(info.color);
         if (range !== null && color !== null) colors.push({ range, color });

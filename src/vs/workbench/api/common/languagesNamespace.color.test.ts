@@ -122,6 +122,8 @@ describe("LanguagesNamespace — languages.provideDocumentColors", () => {
                 { range: RED_RANGE, color: { red: 1, green: 0, blue: 0 } },
                 { range: RED_RANGE, color: { red: "1", green: 0, blue: 0, alpha: 1 } },
                 { range: RED_RANGE },
+                { range: RED_RANGE, color: null },
+                { range: RED_RANGE, color: 7 },
                 { range: { start: 1 }, color: new Color(1, 0, 0, 1) },
                 null,
                 7,
