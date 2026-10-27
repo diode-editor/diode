@@ -105,6 +105,23 @@ describe("ColorDetector", () => {
         detector.dispose();
     });
 
+    it("an answer for a text that has been edited since is dropped; the edit asks again", async () => {
+        vi.useFakeTimers();
+        const provider = new PendingProvider();
+        const { detector, document, published } = setup(provider, "/stale.css");
+
+        document.applyEdits([
+            { range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } }, text: "  " },
+        ]);
+        provider.answer([RED]);
+        await vi.advanceTimersByTimeAsync(0);
+        expect(published).toEqual([]);
+
+        await vi.advanceTimersByTimeAsync(5000);
+        expect(provider.calls).toBe(2);
+        detector.dispose();
+    });
+
     it("turning off cancels a recompute scheduled by an edit, and later edits ask nothing", async () => {
         vi.useFakeTimers();
         const provider = new PendingProvider();
