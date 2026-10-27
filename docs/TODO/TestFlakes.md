@@ -33,10 +33,6 @@
 Известные флаки юнит-набора и e2e; PR-диффом не задеты, `gh run rerun --failed` зеленит. Тесты
 отсюда стоят в `test-flakes.json`, кроме помеченных.
 
-- [ ] Сценарий `tasks` (`e2e/scenarios/tasks.scenario.ts`): `waitUntil(screen text predicate) timed out after 10000ms`,
-  на кадре всё ещё открыт пикер «Select an instance to terminate». Ubuntu, PR #889 (ран 40419055572, дифф — форма
-  курсора, задачи не трогает); тот же дифф на предыдущем прогоне был зелёным. Раньше — дважды подряд (с повтором
-  job'а) на `main`: ран 40269334122 (статус-бар языков) и ран 40296138582 (Todo Tree), оба кадра — тот же пикер.
 - [ ] Сценарий `todo-tree` (`e2e/scenarios/todo-tree.scenario.ts`): `waitUntil(screen text predicate) timed out
   after 10000ms` на ожидании `Ln 4, Col 1` — клик по узлу «FIXME : fixed port» дерево отрисовал, а курсор остался
   на `Ln 1, Col 1`. Ubuntu, `main` 0.12.0 (ран 40334352898, обе попытки, дифф — версия); прогоны до и после зелёные.
@@ -74,17 +70,6 @@
   и последний шаг ждёт его 4 с впустую. На `main` имя короткое; ветка
   `worktree-open-perf-stage2-occurrences` (37 символов) валила оба прохода, тот же бинарь с `main` —
   тоже. Обход — короткое имя ветки; починка — ждать результат не по статус-бару.
-- [ ] `extensionHost.goLsp.test.ts` › «ExtensionHost — stock golang.go (gopls, end to end)»: сеть —
-  `https://open-vsx.org/…/golang.Go-0.56.1.vsix: no data for 30000ms` в `beforeAll`, следом
-  `Cannot read properties of undefined (reading 'dispose')` в `afterAll`. Job `test` на #753
-  (ран 39653146369, PR меняет только тексты в contrib); снова job `test` на #891 (ран 40448359524,
-  дифф — цветовые квадратики). Не в test-flakes.json: падает `beforeAll`
-  (сеть), повтор теста его не повторяет — лечится кэшем `.vsix`.
-- [ ] `extensionHost.eslintLsp.codeActions.test.ts` › «ExtensionHost — code actions from the stock
-  vscode-eslint»: та же сеть — `https://open-vsx.org/…/dbaeumer.vscode-eslint-3.0.34.vsix: no data for
-  30000ms` в `beforeAll`. Свалил dry run мутаций (`There were failed tests in the initial test run`) на
-  #891 (ран 40448359524, дифф — цветовые квадратики), в том же ране, что и golang.go выше. Не в
-  test-flakes.json: падает `beforeAll` — лечится кэшем `.vsix`.
 - [ ] `explorerComponent.decorations.test.ts` › «свёрнутая папка с изменённым файлом глубоко внутри
   — цвет файла и «●»»: `expected '  old\n  pkg/a/b\n C.java\n …' to contain 'util.ts'`. Локально
   на main — 4 из 10. Валит и job `test`, и dry run мутаций (`There were failed tests in the initial

@@ -419,7 +419,10 @@ expect(ed?.state?.hasSelection).toBe(true);
   Сценарию — пометка `network: true`.
 - **Юнит-сьюты ext-host'а** — общий хелпер `fetchStockVsix(id)`
   (`src/TestUtils/stockVsix.ts`): клиентский резолв версии (мета →
-  `resolveCompatibleVersion` → `sha256`) + кэш в `node_modules/.cache`.
+  `resolveCompatibleVersion` → `sha256`) + кэш в `node_modules/.cache`. Запрос к реестру хелпер
+  повторяет до трёх раз: open-vsx временами молчит (`no data for 30000ms`), а падение в `beforeAll`
+  повтор теста из `test-flakes.json` не лечит. В CI кэш переживает ран — action
+  `.github/actions/stock-vsix-cache` (ключ — ОС и месяц).
 - Всюду — скип в оффлайне: `DIODE_E2E_OFFLINE=1` пропускает такие сьюты (юнитам и e2e —
   `skipIf(MARKETPLACE_OFFLINE)` из `src/TestUtils/marketplaceEnv.ts`, сценариям — `network: true`).
 - Сьюты с настоящим redhat.java (`extensionHost.javaLsp*`) ещё и `|| JDK_MISSING` из

@@ -1,0 +1,23 @@
+name: Stock .vsix cache for the stock extension suites
+description: >-
+  Restores node_modules/.cache/diode-stock-vsix (src/TestUtils/stockVsix.ts) and saves it after the job.
+  Without it every run downloads all stock extensions from open-vsx, and a stalled download
+  (`no data for 30000ms`) fails a suite's beforeAll. The fixture checks each file by the
+  registry's sha256, so a stale cache only costs a download. Call after `npm install`.
+
+runs:
+  using: composite
+  steps:
+    # The month in the key: a new extension version gets into the cache within a month,
+    # restore-keys fall back to last month so that month starts warm.
+    - name: Stock vsix cache key
+      id: key
+      shell: bash
+      run: echo "month=$(date -u +%Y-%m)" >> "$GITHUB_OUTPUT"
+
+    - uses: actions/cache@v4
+      with:
+        path: node_modules/.cache/diode-stock-vsix
+        key: stock-vsix-${{ runner.os }}-${{ steps.key.outputs.month }}
+        restore-keys: |
+          stock-vsix-${{ runner.os }}-

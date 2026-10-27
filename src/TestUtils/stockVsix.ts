@@ -26,9 +26,25 @@ export interface IStockVsix {
     readonly version: string;
 }
 
+/**
+ * open-vsx now and then stalls a download (`no data for 30000ms`): the suite's `beforeAll` fails, and a test
+ * retry from test-flakes.json does not repeat a hook, so the request is repeated here.
+ */
+const NETWORK_ATTEMPTS = 3;
+
+async function withNetworkRetry<T>(request: () => Promise<T>): Promise<T> {
+    for (let attempt = 1; ; attempt++) {
+        try {
+            return await request();
+        } catch (error) {
+            if (attempt >= NETWORK_ATTEMPTS) throw error;
+        }
+    }
+}
+
 export async function fetchStockVsix(id: string): Promise<IStockVsix> {
     const source = createRegistrySource(DEFAULT_REGISTRY_URL);
-    const meta = await source.getMeta(id);
+    const meta = await withNetworkRetry(() => source.getMeta(id));
     if (meta === undefined) {
         throw new Error(`${id} is not published in the registry at ${DEFAULT_REGISTRY_URL}`);
     }
@@ -52,7 +68,7 @@ export async function fetchStockVsix(id: string): Promise<IStockVsix> {
     }
     const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "diode-stock-vsix-"));
     try {
-        const artifact = await source.fetchArtifact(version, tempDir);
+        const artifact = await withNetworkRetry(() => source.fetchArtifact(version, tempDir));
         const actualSha = await sha256File(artifact);
         if (actualSha !== version.sha256) {
             throw new Error(
