@@ -16,11 +16,9 @@ export function isValidConfigurationValue(schema: IConfigurationPropertySchema, 
 function matchesType(type: ConfigurationValueType, schema: IConfigurationPropertySchema, value: unknown): boolean {
     switch (type) {
         case "number":
-            return (
-                isFiniteNumber(value) &&
-                value >= (schema.minimum ?? Number.NEGATIVE_INFINITY) &&
-                value <= (schema.maximum ?? Number.POSITIVE_INFINITY)
-            );
+            return isFiniteNumber(value) && inRange(schema, value);
+        case "integer":
+            return Number.isInteger(value) && inRange(schema, value as number);
         case "boolean":
             return typeof value === "boolean";
         case "string":
@@ -38,6 +36,25 @@ function isFiniteNumber(value: unknown): value is number {
     return Number.isFinite(value);
 }
 
+function inRange(schema: IConfigurationPropertySchema, value: number): boolean {
+    return value >= (schema.minimum ?? Number.NEGATIVE_INFINITY) && value <= (schema.maximum ?? Number.POSITIVE_INFINITY);
+}
+
+/**
+ * The value an invalid one is replaced with: the default, except for an `integer` given a number (or a numeric
+ * string) — upstream `EditorIntOption.clampedInt` clamps it into the range and truncates.
+ */
+function fixedValue(schema: IConfigurationPropertySchema, value: unknown): unknown {
+    if (schema.type !== "integer") return schema.default;
+    const parsed = typeof value === "string" ? parseInt(value, 10) : value;
+    if (!isFiniteNumber(parsed)) return schema.default;
+    const clamped = Math.min(
+        schema.maximum ?? Number.POSITIVE_INFINITY,
+        Math.max(schema.minimum ?? Number.NEGATIVE_INFINITY, parsed),
+    );
+    return Math.trunc(clamped);
+}
+
 /** Unregistered keys (extension settings) pass through as is. */
 export function sanitizeConfiguration(
     model: ConfigurationModel,
@@ -48,7 +65,7 @@ export function sanitizeConfiguration(
     for (const [key, schema] of schemas) {
         const value = model.get(key);
         if (value === undefined || isValidConfigurationValue(schema, value)) continue;
-        fixes[key] = schema.default;
+        fixes[key] = fixedValue(schema, value);
         invalid = true;
     }
     return invalid ? ConfigurationModel.merge(model, ConfigurationModel.fromRaw(fixes)) : model;

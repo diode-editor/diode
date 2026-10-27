@@ -12,7 +12,8 @@ export type ConfigurationScope =
     | "resource"
     | "language-overridable";
 
-export type ConfigurationValueType = "string" | "number" | "boolean" | "object" | "array" | "null";
+/** `integer` — upstream's `EditorIntOption`: an out-of-range or fractional number is clamped and truncated, not replaced by the default. */
+export type ConfigurationValueType = "string" | "number" | "integer" | "boolean" | "object" | "array" | "null";
 
 export interface IConfigurationPropertySchema {
     readonly type: ConfigurationValueType | readonly ConfigurationValueType[];

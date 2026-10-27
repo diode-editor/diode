@@ -222,7 +222,8 @@ describe("EditorComponent — color decorators", () => {
         // 60k lines, 180k colors: below the large-file thresholds, a generated palette or a minified stylesheet.
         const { row } = await open(Array.from({ length: 60_000 }, () => "#0f0 rgb(1,2,3) #abc").join("\n"));
         expect(errors).toEqual([]);
-        expect(row(0)).toBe("■ #0f0 ■ rgb(1,2,3) ■ #abc");
+        // The gutter is wider here: five digits of line numbers.
+        expect(row(0)).toMatch(/^ *1 +■ #0f0 ■ rgb\(1,2,3\) ■ #abc$/u);
     });
 
     it("without a color provider registry (the default) nothing is drawn", async () => {

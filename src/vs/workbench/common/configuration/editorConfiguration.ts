@@ -86,10 +86,9 @@ export const editorConfiguration = {
             description:
                 "Controls whether inline color decorations should be shown using the default document color provider.",
         },
-        // Upstream is an integer option (`EditorIntOption`); a fraction is floored when read.
         "editor.colorDecoratorsLimit": {
             scope: "language-overridable",
-            type: "number",
+            type: "integer",
             default: 500,
             minimum: 1,
             maximum: 1000000,

@@ -20,7 +20,8 @@ async function collect(
 ): Promise<boolean> {
     const documentColors = await provider.provideDocumentColors(request, token);
     if (Array.isArray(documentColors)) {
-        colors.push(...(documentColors as readonly IColorInformation[]));
+        // Not `push(...)`: a spread of hundreds of thousands of colors overflows the call stack.
+        for (const color of documentColors as readonly IColorInformation[]) colors.push(color);
     }
     return Array.isArray(documentColors);
 }

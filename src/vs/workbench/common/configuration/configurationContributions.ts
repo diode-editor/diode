@@ -28,7 +28,7 @@ export const CONFIGURATION_CONTRIBUTIONS = [
     extensionsConfiguration,
 ] as const satisfies readonly IConfigurationNode[];
 
-type ValueOfType<T> = T extends "number"
+type ValueOfType<T> = T extends "number" | "integer"
     ? number
     : T extends "boolean"
       ? boolean

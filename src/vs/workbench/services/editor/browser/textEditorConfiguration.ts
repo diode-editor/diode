@@ -66,7 +66,7 @@ export class TextEditorConfiguration extends Disposable {
         editor.setColorDecorators({
             enabled: this.configurationService.get("editor.colorDecorators", overrides),
             defaultEnablement: this.configurationService.get("editor.defaultColorDecorators", overrides),
-            limit: Math.floor(this.configurationService.get("editor.colorDecoratorsLimit", overrides)),
+            limit: this.configurationService.get("editor.colorDecoratorsLimit", overrides),
         });
         editor.setNerdFont(this.icons.nerdFont);
 
