@@ -131,6 +131,7 @@ export class ColorDetector extends Disposable {
             this.removeAllDecorations();
             return;
         }
+        // Stryker disable next-line ConditionalExpression: without providers the answer is empty anyway; the guard spares the edit subscription
         if (!this.registry.has(this.model)) return;
         this.localToDispose.add(
             this.model.document.onDidChangeModelContent(() => {

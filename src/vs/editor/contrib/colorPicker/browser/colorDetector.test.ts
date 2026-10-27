@@ -31,7 +31,10 @@ class PendingProvider implements DocumentColorProvider {
     }
 }
 
-function setup(provider: DocumentColorProvider): {
+function setup(
+    provider: DocumentColorProvider,
+    path = "/a.css",
+): {
     detector: ColorDetector;
     document: TextDocument;
     published: (readonly IInlineInsertion[])[];
@@ -40,7 +43,7 @@ function setup(provider: DocumentColorProvider): {
     registry.register("*", provider);
     const document = new TextDocument("#f00 x");
     const model = {
-        uri: Uri.file("/a.css"),
+        uri: Uri.file(path),
         languageId: "css",
         document,
         onDidChangeLanguage: new Emitter<unknown>().event,
@@ -58,6 +61,7 @@ async function flush(): Promise<void> {
 
 describe("ColorDetector", () => {
     afterEach(() => {
+        vi.useRealTimers();
         setUnexpectedErrorHandler((e) => {
             console.error(e);
         });
@@ -98,6 +102,77 @@ describe("ColorDetector", () => {
         await flush();
 
         expect(published).toEqual([]);
+        detector.dispose();
+    });
+
+    it("turning off cancels a recompute scheduled by an edit, and later edits ask nothing", async () => {
+        vi.useFakeTimers();
+        const provider = new PendingProvider();
+        const { detector, document, published } = setup(provider, "/off.css");
+        provider.answer([RED]);
+        await vi.advanceTimersByTimeAsync(0);
+
+        document.applyEdits([
+            { range: { start: { line: 0, character: 6 }, end: { line: 0, character: 6 } }, text: "y" },
+        ]);
+        detector.setOptions({ ...DEFAULT_COLOR_DECORATORS_OPTIONS, enabled: false });
+        document.applyEdits([
+            { range: { start: { line: 0, character: 7 }, end: { line: 0, character: 7 } }, text: "z" },
+        ]);
+        await vi.advanceTimersByTimeAsync(5000);
+
+        expect(provider.calls).toBe(1);
+        expect(published.at(-1)).toEqual([]);
+        detector.dispose();
+    });
+
+    it("a recompute replaces the previous decorations instead of leaving them in the document", async () => {
+        const provider = new PendingProvider();
+        const { detector, document } = setup(provider, "/again.css");
+        const ids: string[] = [];
+        const delta = document.deltaDecorations.bind(document);
+        vi.spyOn(document, "deltaDecorations").mockImplementation((oldIds, decorations) => {
+            const added = delta(oldIds, decorations);
+            ids.push(...added);
+            return added;
+        });
+        provider.answer([RED]);
+        await flush();
+
+        detector.setOptions({ ...DEFAULT_COLOR_DECORATORS_OPTIONS, limit: 3 });
+        provider.answer([RED]);
+        await flush();
+
+        expect(ids).toHaveLength(2);
+        expect(document.getDecorationRange(ids[0])).toBeNull();
+        expect(document.getDecorationRange(ids[1])).not.toBeNull();
+        detector.dispose();
+    });
+
+    it("the delay after an edit follows how long the providers took (upstream's feature debounce)", async () => {
+        vi.useFakeTimers();
+        const slow: DocumentColorProvider & { calls: number } = {
+            calls: 0,
+            provideDocumentColors() {
+                this.calls++;
+                return new Promise((resolve) =>
+                    setTimeout(() => {
+                        resolve([RED]);
+                    }, 1000),
+                );
+            },
+        };
+        const { detector, document } = setup(slow, "/slow.css");
+        await vi.advanceTimersByTimeAsync(1000);
+        expect(slow.calls).toBe(1);
+
+        document.applyEdits([
+            { range: { start: { line: 0, character: 6 }, end: { line: 0, character: 6 } }, text: "y" },
+        ]);
+        await vi.advanceTimersByTimeAsync(600);
+        expect(slow.calls).toBe(1);
+        await vi.advanceTimersByTimeAsync(400);
+        expect(slow.calls).toBe(2);
         detector.dispose();
     });
 

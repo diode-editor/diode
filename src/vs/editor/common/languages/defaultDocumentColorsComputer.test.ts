@@ -122,6 +122,7 @@ describe("Default Document Colors Computer — diode", () => {
         "a#ff0000ff",
         "#ggg",
         "#zzzz",
+        "#zzzzzzzz",
         " #12345",
         " #ff00f",
         "rgb(300,0,0)",
@@ -130,6 +131,10 @@ describe("Default Document Colors Computer — diode", () => {
         "rgba(1,2,3)",
     ])("%s is not a color", (text) => {
         expect(colorsOf(text)).toEqual([]);
+    });
+
+    it.each(["#f008", "#ff000080", "x\n#f008", "x\n#ff000080"])("%j: a hex color at a line start", (text) => {
+        expect(colorsOf(text)).toHaveLength(1);
     });
 
     it("a hex color at the start of a later line is found (multiline)", () => {
