@@ -8,6 +8,15 @@ import type { IRange } from "../common/core/iRange.ts";
 import type { ISelection } from "../common/core/iSelection.ts";
 import type { ResolvedTokenStyle } from "../common/languages/iTokenStyleResolver.ts";
 import type { EditorViewState } from "../common/viewModel/editorViewState.ts";
+import type { LineInsertions } from "../common/viewModel/lineInsertions.ts";
+import {
+    composedCaretOffset,
+    composedFragmentStart,
+    composedLineContent,
+    composedOffset,
+    documentOffset,
+    NO_LINE_INSERTIONS,
+} from "../common/viewModel/lineInsertions.ts";
 
 import type { SemanticTokenIndex, TokenIndex } from "./tokenIndex.ts";
 import { applySemanticStyle, packStyleFlags } from "./tokenIndex.ts";
@@ -19,62 +28,21 @@ export interface ITextViewportGeometry {
     viewLineCount: number;
     contentCols: number;
     gutterW: number;
-    phantom: ILinePhantom | null;
+    insertions: LineInsertions;
     /** Document rows of the viewport (view zones left out), from {@link buildViewportRows}. */
     rows: readonly TextViewportRow[];
-}
-
-/**
- * Counterpart of upstream injected-text decorations: text absent from the document occupies
- * columns within ONE line and pushes its tail right. One object per frame: painting and all
- * overlay passes compute columns from the same composed line, otherwise highlighting of the
- * tail drifts away from the tail itself.
- */
-export interface ILinePhantom {
-    readonly line: number;
-    /** Phantom columns sit BEFORE this document offset. */
-    readonly offset: number;
-    readonly text: string;
-}
-
-export function composedLineContent(phantom: ILinePhantom | null, line: number, lineContent: string): string {
-    if (phantom?.line !== line) return lineContent;
-    return lineContent.slice(0, phantom.offset) + phantom.text + lineContent.slice(phantom.offset);
-}
-
-/** CHARACTER offset: the character at the insertion point moves right along with the tail. */
-export function composedOffset(phantom: ILinePhantom | null, line: number, offset: number): number {
-    if (phantom?.line !== line || offset < phantom.offset) return offset;
-    return offset + phantom.text.length;
-}
-
-/**
- * INSERTION POINT offset: unlike {@link composedOffset}, a cursor exactly at the point stays
- * LEFT of the suggestion (upstream injected-text affinity).
- */
-export function composedCaretOffset(phantom: ILinePhantom | null, line: number, offset: number): number {
-    if (phantom?.line !== line || offset <= phantom.offset) return offset;
-    return offset + phantom.text.length;
-}
-
-/** A click on the phantom columns themselves maps to the insertion point. */
-export function documentOffset(phantom: ILinePhantom | null, line: number, offset: number): number {
-    // Exactly at the insertion point both branches yield `phantom.offset`, so the `<=` → `<` mutant is equivalent.
-    // Stryker disable next-line EqualityOperator: see above
-    if (phantom?.line !== line || offset <= phantom.offset) return offset;
-    return Math.max(phantom.offset, offset - phantom.text.length);
 }
 
 /** Like {@link EditorViewState.viewLineStartColumn}, but on an already built composed line. */
 function fragmentStartColumn(
     viewState: EditorViewState,
     displayLine: DisplayLine,
-    phantom: ILinePhantom | null,
+    insertions: LineInsertions,
     line: number,
     viewLine: number,
 ): number {
     const start = viewState.viewLineRange(viewLine).start;
-    return displayLine.offsetToColumn(composedOffset(phantom, line, start));
+    return displayLine.offsetToColumn(composedFragmentStart(insertions, line, start));
 }
 
 /**
@@ -86,7 +54,7 @@ export class TextViewportRow {
 
     public constructor(
         private readonly viewState: EditorViewState,
-        private readonly phantom: ILinePhantom | null,
+        private readonly insertions: LineInsertions,
         public readonly screenY: number,
         public readonly viewLine: number,
         public readonly logLine: number,
@@ -101,16 +69,16 @@ export class TextViewportRow {
         return this.fragEnd === this.lineContent.length;
     }
 
-    /** The composed line, otherwise the highlight drifts from the tail after the phantom. */
+    /** The composed line, otherwise the highlight drifts from the tail after the insertions. */
     public get displayLine(): DisplayLine {
         this.displayLineValue ??= this.viewState.displayLineFor(
-            composedLineContent(this.phantom, this.logLine, this.lineContent),
+            composedLineContent(this.insertions, this.logLine, this.lineContent),
         );
         return this.displayLineValue;
     }
 
     public get fragmentStartColumn(): number {
-        return this.displayLine.offsetToColumn(composedOffset(this.phantom, this.logLine, this.fragStart));
+        return this.displayLine.offsetToColumn(composedFragmentStart(this.insertions, this.logLine, this.fragStart));
     }
 }
 
@@ -122,7 +90,7 @@ export function buildViewportRows(
     viewState: EditorViewState,
     scrollTop: number,
     visibleLines: number,
-    phantom: ILinePhantom | null,
+    insertions: LineInsertions,
 ): TextViewportRow[] {
     const rows = Array.from({ length: visibleLines }, (_, screenY) => {
         const viewLine = scrollTop + screenY;
@@ -132,7 +100,7 @@ export function buildViewportRows(
         const frag = viewState.viewLineRange(viewLine);
         return new TextViewportRow(
             viewState,
-            phantom,
+            insertions,
             screenY,
             viewLine,
             logLine,
@@ -161,11 +129,13 @@ export function forEachRangeCell(
         const endChar = Math.min(rangeEndChar, row.isLastFragment ? lineContent.length + 1 : row.fragEnd);
 
         const fragStartCol = row.fragmentStartColumn;
-        const startCol = dl.offsetToColumn(composedOffset(geo.phantom, logLine, startChar)) - fragStartCol;
+        // Insertions at either end lie outside the range: the start is the character's column,
+        // the exclusive end an insertion point (insertions there stay right of it).
+        const startCol = dl.offsetToColumn(composedOffset(geo.insertions, logLine, startChar)) - fragStartCol;
         const endCol =
             (endChar > lineContent.length
                 ? dl.displayWidth + 1
-                : dl.offsetToColumn(composedOffset(geo.phantom, logLine, endChar))) - fragStartCol;
+                : dl.offsetToColumn(composedCaretOffset(geo.insertions, logLine, endChar))) - fragStartCol;
 
         const screenXStart = Math.max(0, startCol - geo.scrollLeft);
         const screenXEnd = Math.min(geo.contentCols, endCol - geo.scrollLeft);
@@ -230,12 +200,16 @@ export interface IPaintTextLineParams {
     bg: number;
     /** False for diff: the added/deleted line background must win over the token background. */
     allowTokenBg: boolean;
-    /** Phantom slots skip token lookup; offsets right of it are mapped back to document offsets. */
-    phantom: IPaintTextLinePhantom | null;
+    /**
+     * Sorted by offset, as in {@link LineInsertions}. Their slots skip token lookup; offsets right
+     * of them are mapped back to document offsets.
+     */
+    insertions: readonly IPaintTextLineInsertion[];
 }
 
-export interface IPaintTextLinePhantom {
-    readonly startOffset: number;
+export interface IPaintTextLineInsertion {
+    /** Document offset of the insertion point. */
+    readonly offset: number;
     readonly length: number;
     readonly fg: number;
     readonly style: number;
@@ -254,7 +228,11 @@ export function paintTextLine(context: RenderContext, params: IPaintTextLinePara
         scrollLeft,
         startColumn,
     } = params;
-    const phantomEnd = params.phantom === null ? 0 : params.phantom.startOffset + params.phantom.length;
+    const insertions = params.insertions;
+    // Slots come in increasing offset order, so the insertions are walked once per line: `shift`
+    // is the length of those already passed, the composed offset runs that far ahead.
+    let next = 0;
+    let shift = 0;
 
     let screenX = 0;
     while (screenX < contentCols) {
@@ -288,13 +266,17 @@ export function paintTextLine(context: RenderContext, params: IPaintTextLinePara
         let fg = params.fg;
         let bg = params.bg;
         let style: number = StyleFlags.None;
-        const phantom = params.phantom;
-        if (phantom !== null && slot.offset >= phantom.startOffset && slot.offset < phantomEnd) {
-            fg = phantom.fg;
-            style = phantom.style;
+        while (next < insertions.length && slot.offset >= insertions[next].offset + shift + insertions[next].length) {
+            shift += insertions[next].length;
+            next++;
+        }
+        // Stryker disable next-line ConditionalExpression,EqualityOperator: past the end the array yields `undefined` anyway
+        const insertion = next < insertions.length ? insertions[next] : undefined;
+        if (insertion !== undefined && slot.offset >= insertion.offset + shift) {
+            fg = insertion.fg;
+            style = insertion.style;
         } else {
-            // Right of the phantom the composed offset runs ahead of the document offset.
-            const offset = phantom !== null && slot.offset >= phantomEnd ? slot.offset - phantom.length : slot.offset;
+            const offset = slot.offset - shift;
             const metadata = tokenIndex?.metadataAt(offset);
             // Stryker disable next-line ConditionalExpression: with no token the resolver returns an empty style for `undefined`, giving the same fg/bg/style
             if (metadata !== undefined) {
@@ -336,7 +318,7 @@ export interface IPaintPhantomTextParams {
 
 /**
  * A ghost text view zone row (`lines[1..]`); the suggestion's first line never gets here,
- * it is spliced into its own line as phantom columns ({@link ILinePhantom}).
+ * it is spliced into its own line as an inline insertion ({@link LineInsertions}).
  */
 export function paintPhantomText(context: RenderContext, params: IPaintPhantomTextParams): void {
     const { displayLine, screenY, gutterW, contentCols, fg, bg, style } = params;
@@ -395,15 +377,15 @@ export function caretLocalCell(
     viewState: EditorViewState,
     gutterW: number,
     size: Size,
-    phantom: ILinePhantom | null = null,
+    insertions: LineInsertions = NO_LINE_INSERTIONS,
 ): Point | null {
     const primary = viewState.selections[0];
     const cursorVisualLine = viewState.viewLineForPosition(primary.active.line, primary.active.character);
     const cursorLineContent = viewState.getViewLine(cursorVisualLine);
-    const cursorDl = viewState.displayLineFor(composedLineContent(phantom, primary.active.line, cursorLineContent));
+    const cursorDl = viewState.displayLineFor(composedLineContent(insertions, primary.active.line, cursorLineContent));
     const localX =
-        cursorDl.offsetToColumn(composedCaretOffset(phantom, primary.active.line, primary.active.character)) -
-        fragmentStartColumn(viewState, cursorDl, phantom, primary.active.line, cursorVisualLine) -
+        cursorDl.offsetToColumn(composedCaretOffset(insertions, primary.active.line, primary.active.character)) -
+        fragmentStartColumn(viewState, cursorDl, insertions, primary.active.line, cursorVisualLine) -
         viewState.scrollLeft +
         gutterW;
     const localY = cursorVisualLine - viewState.scrollTop;
@@ -447,7 +429,7 @@ export function paintCarets(
         if (dl === undefined) {
             dl = viewState.displayLineFor(
                 composedLineContent(
-                    geo.phantom,
+                    geo.insertions,
                     selection.active.line,
                     viewState.document.getLineContent(selection.active.line),
                 ),
@@ -457,8 +439,8 @@ export function paintCarets(
         }
 
         const localX =
-            dl.offsetToColumn(composedCaretOffset(geo.phantom, selection.active.line, selection.active.character)) -
-            fragmentStartColumn(viewState, dl, geo.phantom, selection.active.line, row) -
+            dl.offsetToColumn(composedCaretOffset(geo.insertions, selection.active.line, selection.active.character)) -
+            fragmentStartColumn(viewState, dl, geo.insertions, selection.active.line, row) -
             geo.scrollLeft;
         if (localX < 0 || localX >= geo.contentCols) continue;
         // Stryker restore EqualityOperator,ConditionalExpression,LogicalOperator
@@ -477,7 +459,7 @@ export function docPositionAt(
     gutterW: number,
     localX: number,
     localY: number,
-    phantom: ILinePhantom | null = null,
+    insertions: LineInsertions = NO_LINE_INSERTIONS,
 ): { line: number; character: number } {
     const viewLineCount = viewState.getViewLineCount();
     /* v8 ignore start -- unreachable: a TextDocument always has at least one line and a fold header is never hidden, so getViewLineCount() is never 0 */
@@ -488,19 +470,19 @@ export function docPositionAt(
     // A view zone row maps to the nearest document line, as in VS Code.
     const logLine = viewState.docLineForViewLine(viewLine);
     const lineContent = viewState.document.getLineContent(logLine);
-    const dl = viewState.displayLineFor(composedLineContent(phantom, logLine, lineContent));
+    const dl = viewState.displayLineFor(composedLineContent(insertions, logLine, lineContent));
     // On a wrapped continuation row, column 0 is the fragment start.
-    const fragStartCol = fragmentStartColumn(viewState, dl, phantom, logLine, viewLine);
+    const fragStartCol = fragmentStartColumn(viewState, dl, insertions, logLine, viewLine);
     const displayCol = fragStartCol + (localX < gutterW ? 0 : localX - gutterW + viewState.scrollLeft);
-    let charOffset = documentOffset(phantom, logLine, dl.columnToOffset(displayCol));
+    let charOffset = documentOffset(insertions, logLine, dl.columnToOffset(displayCol));
     // A click right of a non-last fragment must not drag the cursor to the next row (the
     // boundary offset belongs to it). View zones and empty lines have frag.end = 0.
     const frag = viewState.viewLineRange(viewLine);
     if (frag.end > 0 && frag.end < lineContent.length && charOffset >= frag.end) {
         charOffset = documentOffset(
-            phantom,
+            insertions,
             logLine,
-            dl.columnToOffset(dl.offsetToColumn(composedOffset(phantom, logLine, frag.end)) - 1),
+            dl.columnToOffset(dl.offsetToColumn(composedOffset(insertions, logLine, frag.end)) - 1),
         );
     }
     return { line: logLine, character: charOffset };

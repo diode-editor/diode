@@ -18,6 +18,8 @@ import { charClass } from "../core/wordClassification.ts";
 import { DEFAULT_WORD_REGEXP, getWordAtText } from "../core/wordHelper.ts";
 import { computeNewLinePlan } from "../languages/autoIndent.ts";
 import type { IDocumentContentChange } from "../model/iDocumentContentChange.ts";
+import type { IInlineInsertion } from "../model/iInlineInsertion.ts";
+import { NO_INLINE_INSERTIONS } from "../model/iInlineInsertion.ts";
 import { detectIndentation } from "../model/indentationDetector.ts";
 import type { ITextDocument } from "../model/iTextDocument.ts";
 import type { IUndoElement } from "../model/iUndoElement.ts";
@@ -29,6 +31,8 @@ import type { SemanticTokensStore } from "../tokens/semanticTokensStore.ts";
 
 import type { IViewZone, ViewLineKind } from "./iViewZone.ts";
 import { LineBreaksCache } from "./lineBreaksCache.ts";
+import type { LineInsertions } from "./lineInsertions.ts";
+import { composedCaretOffset, composedLineContent, groupLineInsertions } from "./lineInsertions.ts";
 import type { ILineOperationResult, ITextToCopy } from "./lineOperations.ts";
 import {
     computeCopyLines,
@@ -555,6 +559,17 @@ export class EditorViewState {
 
     public get viewZones(): readonly IViewZone[] {
         return this.viewZonesValue;
+    }
+
+    /**
+     * Cells of the view absent from the document (ghost text, color decorators), set by the view:
+     * the cursor reveal measures the caret on the composed line, where it is drawn.
+     */
+    public inlineInsertions: readonly IInlineInsertion[] = NO_INLINE_INSERTIONS;
+
+    /** {@link inlineInsertions} clamped into the current document, by line. */
+    public get lineInsertions(): LineInsertions {
+        return groupLineInsertions(this.document, this.inlineInsertions);
     }
 
     /**
@@ -1974,9 +1989,11 @@ export class EditorViewState {
         }
 
         // No wrap gate here: the scrollLeft setter holds "wrap ⇒ 0", so the writes below are no-ops.
-        const lineContent = this.document.getLineContent(pos.line);
-        const dl = this.displayLineFor(lineContent);
-        const col = dl.offsetToColumn(pos.character);
+        const insertions = this.lineInsertions;
+        const dl = this.displayLineFor(
+            composedLineContent(insertions, pos.line, this.document.getLineContent(pos.line)),
+        );
+        const col = dl.offsetToColumn(composedCaretOffset(insertions, pos.line, pos.character));
         // On a truncated line, reveal up to the last cell of the truncation badge, not a clipped badge at the edge.
         const revealCol = dl.isTruncated && col >= dl.displayWidth ? col + LONG_LINE_TRUNCATION_BADGE_WIDTH - 1 : col;
         if (col < this.scrollLeft) {

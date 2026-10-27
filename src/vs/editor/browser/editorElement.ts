@@ -45,9 +45,13 @@ import { EMPTY_EXTERNAL_DECORATIONS } from "../common/model/iEditorDecoration.ts
 import type { IGhostText } from "../common/model/iGhostText.ts";
 import { ghostTextEquals } from "../common/model/iGhostText.ts";
 import type { IGutterChangeDecoration } from "../common/model/iGutterChangeDecoration.ts";
+import type { IInlineInsertion } from "../common/model/iInlineInsertion.ts";
+import { NO_INLINE_INSERTIONS } from "../common/model/iInlineInsertion.ts";
 import type { IUndoElement } from "../common/model/iUndoElement.ts";
 import { UndoManager } from "../common/model/undoManager.ts";
 import { EditorViewState } from "../common/viewModel/editorViewState.ts";
+import type { LineInsertions } from "../common/viewModel/lineInsertions.ts";
+import { composedFragmentStart, composedLineContent, composedOffset } from "../common/viewModel/lineInsertions.ts";
 import { LineWidthCache } from "../common/viewModel/lineWidthCache.ts";
 import {
     LONG_LINE_TRUNCATION_BADGE,
@@ -58,12 +62,10 @@ import { computeWordOccurrences } from "../contrib/find/computeWordOccurrences.t
 import { computeIndentLevel } from "../contrib/folding/foldingRangeProvider.ts";
 import type { IFoldingRegion } from "../contrib/folding/iFoldingRegion.ts";
 
-import type { ILinePhantom, ITextViewportGeometry } from "./textViewRendering.ts";
+import type { IPaintTextLineInsertion, ITextViewportGeometry } from "./textViewRendering.ts";
 import {
     buildViewportRows,
     caretLocalCell,
-    composedLineContent,
-    composedOffset,
     docPositionAt,
     forEachRangeCell,
     paintCarets,
@@ -100,6 +102,7 @@ const enum ScrollBarMarkerPriority {
     Error = 6,
 }
 const NO_GUTTER_CHANGE_DECORATIONS: readonly IGutterChangeDecoration[] = [];
+const NO_PAINT_INSERTIONS: readonly IPaintTextLineInsertion[] = [];
 // In a cell grid VS Code's thin dirty-diff border becomes a bold vertical bar centered in the
 // cell; modified is dashed (VS Code uses hatching).
 const GUTTER_CHANGE_BAR = "┃";
@@ -248,6 +251,7 @@ export class EditorElement extends TUIElement implements IScrollable {
         readonly markers: readonly IScrollBarMarker[];
     } | null = null;
     private ghostTextValue: IGhostText | null = null;
+    private inlineInsertionsValue: readonly IInlineInsertion[] = NO_INLINE_INSERTIONS;
     private renderedDocLines: { first: number; last: number } | undefined;
 
     public get ghostText(): IGhostText | null {
@@ -269,6 +273,36 @@ export class EditorElement extends TUIElement implements IScrollable {
         if (hadZones || needsZones) {
             this.viewState.setViewZones(needsZones ? [{ afterLine: ghost.line, size: ghost.lines.length - 1 }] : []);
         }
+        this.syncInlineInsertions();
+    }
+
+    public get inlineInsertions(): readonly IInlineInsertion[] {
+        return this.inlineInsertionsValue;
+    }
+
+    /** Insertions of the owner (color decorators); ghost text has its own, both are drawn. */
+    public setInlineInsertions(insertions: readonly IInlineInsertion[]): void {
+        this.inlineInsertionsValue = insertions;
+        this.syncInlineInsertions();
+    }
+
+    /** The suggestion's first line is one more insertion, first among those at its offset: it sits at the caret. */
+    private syncInlineInsertions(): void {
+        const ghost = this.ghostTextValue;
+        this.viewState.inlineInsertions =
+            ghost === null
+                ? this.inlineInsertionsValue
+                : [
+                      {
+                          line: ghost.line,
+                          offset: ghost.character,
+                          text: ghost.lines[0],
+                          colorToken: "editorGhostText.foreground",
+                          // Like VS Code ghost text (`.ghost-text-decoration`).
+                          italic: true,
+                      },
+                      ...this.inlineInsertionsValue,
+                  ];
         this.markDirty();
     }
 
@@ -411,6 +445,10 @@ export class EditorElement extends TUIElement implements IScrollable {
     public get contentWidth(): number {
         // Under wrap the content is no wider than the viewport, so the horizontal scrollbar has nothing to show.
         if (this.viewState.isWordWrapActive) return this.viewState.viewportWidth;
+        return Math.max(this.documentWidth(), this.insertionLinesWidth());
+    }
+
+    private documentWidth(): number {
         if (this.viewState.isTooLargeForTokenization) return this.measureVisibleWidth();
         // The cache binds to the document once: an EditorElement's document never changes (a reload
         // from disk builds a new element).
@@ -426,13 +464,31 @@ export class EditorElement extends TUIElement implements IScrollable {
     private measureVisibleWidth(): number {
         const document = this.viewState.document;
         for (const line of this.visibleDocLines()) {
-            const content = document.getLineContent(line);
-            let width = measureTextWidth(content, this.tabSize, STOP_RENDERING_LINE_AFTER);
-            if (content.length > STOP_RENDERING_LINE_AFTER) width += LONG_LINE_TRUNCATION_BADGE_WIDTH;
+            const width = this.lineWidth(document.getLineContent(line));
             // Stryker disable next-line EqualityOperator: storing an equal width changes nothing — equivalent
             if (width > this.largeFileMaxWidth) this.largeFileMaxWidth = width;
         }
         return this.largeFileMaxWidth;
+    }
+
+    /**
+     * The width cache knows only the document: a line with insertions is measured composed, on
+     * every call — such lines are few (the owner's set, not the file).
+     */
+    private insertionLinesWidth(): number {
+        const document = this.viewState.document;
+        const insertions = this.viewState.lineInsertions;
+        let max = 0;
+        for (const line of insertions.keys()) {
+            const composed = composedLineContent(insertions, line, document.getLineContent(line));
+            max = Math.max(max, this.lineWidth(composed));
+        }
+        return max;
+    }
+
+    private lineWidth(content: string): number {
+        const width = measureTextWidth(content, this.tabSize, STOP_RENDERING_LINE_AFTER);
+        return content.length > STOP_RENDERING_LINE_AFTER ? width + LONG_LINE_TRUNCATION_BADGE_WIDTH : width;
     }
 
     /** Document lines on the viewport's rows (a row of a view zone or past the end maps to the nearest line). */
@@ -535,24 +591,9 @@ export class EditorElement extends TUIElement implements IScrollable {
     }
 
     public getCaretScreenCell(): Point | null {
-        const local = caretLocalCell(this.viewState, this.gutterWidth, this.layoutSize, this.linePhantom);
+        const local = caretLocalCell(this.viewState, this.gutterWidth, this.layoutSize, this.viewState.lineInsertions);
         if (local === null) return null;
         return new Point(this.globalPosition.x + local.x, this.globalPosition.y + local.y);
-    }
-
-    /** One value for all passes of a frame: line, range backgrounds, cursors and hit-test. */
-    private get linePhantom(): ILinePhantom | null {
-        const ghost = this.ghostTextValue;
-        if (ghost === null) return null;
-        const document = this.viewState.document;
-        // The suggestion may be stale (an external edit landed before the service ended the session):
-        // all composed-line math of the frame relies on "the phantom lies within its line", so clamp here.
-        if (ghost.line < 0 || ghost.line >= document.lineCount) return null;
-        return {
-            line: ghost.line,
-            offset: Math.min(ghost.character, document.getLineLength(ghost.line)),
-            text: ghost.lines[0],
-        };
     }
 
     /**
@@ -688,10 +729,10 @@ export class EditorElement extends TUIElement implements IScrollable {
         const digitCount =
             gutterW - GUTTER_LEFT_PADDING - this.gutterMarkerColumns - FOLD_GAP_LEFT - 1 - FOLD_GAP_RIGHT;
         const foldFg = this.styleVar("editorGutter.foldingControlForeground");
-        // Italic, like VS Code ghost text (`.ghost-text-decoration`).
         const ghost = this.ghostTextValue;
         const ghostFg = ghost !== null ? this.styleVar("editorGhostText.foreground") : 0;
-        const phantom = this.linePhantom;
+        // One value for all passes of the frame: line, range backgrounds, cursors.
+        const insertions = this.viewState.lineInsertions;
 
         const foldHeaderByLine = new Map<number, boolean>();
         for (const region of this.viewState.foldedRegions) {
@@ -896,7 +937,7 @@ export class EditorElement extends TUIElement implements IScrollable {
             // Stryker disable next-line ConditionalExpression: see above
             if (dl === undefined) {
                 // Suggestion tabs and wide characters take columns counted from the line START, like text.
-                dl = this.viewState.displayLineFor(composedLineContent(phantom, rowLogLine, lineContent));
+                dl = this.viewState.displayLineFor(composedLineContent(insertions, rowLogLine, lineContent));
                 // Stryker disable next-line CallExpression: cache fill, does not change the result
                 dlByDocLine.set(rowLogLine, dl);
             }
@@ -905,9 +946,7 @@ export class EditorElement extends TUIElement implements IScrollable {
             const semanticLine = this.viewState.getViewLineSemanticTokens(viewLine);
             const semanticIndex = semanticLine ? new SemanticTokenIndex(semanticLine, lookupSemanticStyle) : null;
             const isLastFragment = frag.end === lineContent.length;
-            const fragStartCol = isContinuation
-                ? dl.offsetToColumn(composedOffset(phantom, rowLogLine, frag.start))
-                : 0;
+            const fragStartCol = dl.offsetToColumn(composedFragmentStart(insertions, rowLogLine, frag.start));
 
             // A decorated line background wins over the token background, otherwise the
             // added/removed strip breaks on highlighted words.
@@ -922,19 +961,11 @@ export class EditorElement extends TUIElement implements IScrollable {
                 contentCols,
                 scrollLeft,
                 startColumn: fragStartCol,
-                endColumnExclusive: dl.offsetToColumn(composedOffset(phantom, rowLogLine, frag.end)),
+                endColumnExclusive: dl.offsetToColumn(composedOffset(insertions, rowLogLine, frag.end)),
                 fg: editorFg,
                 bg: decoratedBg ?? editorBg,
                 allowTokenBg: decoratedBg === undefined,
-                phantom:
-                    phantom !== null && phantom.line === rowLogLine
-                        ? {
-                              startOffset: phantom.offset,
-                              length: phantom.text.length,
-                              fg: ghostFg,
-                              style: StyleFlags.Italic,
-                          }
-                        : null,
+                insertions: this.paintInsertions(insertions.get(rowLogLine), editorFg),
             });
 
             // Under wrap the truncated-line badge goes on the last fragment, where the cut is.
@@ -976,8 +1007,8 @@ export class EditorElement extends TUIElement implements IScrollable {
             viewLineCount,
             contentCols,
             gutterW,
-            phantom,
-            rows: buildViewportRows(this.viewState, scrollTop, visibleLines, phantom),
+            insertions,
+            rows: buildViewportRows(this.viewState, scrollTop, visibleLines, insertions),
         };
 
         // Guides go before highlight passes: those set only `bg` and lie over the glyph.
@@ -1028,7 +1059,7 @@ export class EditorElement extends TUIElement implements IScrollable {
             );
         }
 
-        const caret = caretLocalCell(this.viewState, gutterW, this.layoutSize, phantom);
+        const caret = caretLocalCell(this.viewState, gutterW, this.layoutSize, insertions);
         if (this.isFocused && caret !== null) {
             context.setCursorPosition(caret.x, caret.y, this.cursorStyle);
         }
@@ -1041,6 +1072,20 @@ export class EditorElement extends TUIElement implements IScrollable {
                 this.runOccurrences();
             }, OCCURRENCE_RUN_DELAY_MS);
         }
+    }
+
+    /** Colors are resolved here, on the frame: hit-test and the caret need none. */
+    private paintInsertions(
+        insertions: readonly IInlineInsertion[] | undefined,
+        editorFg: number,
+    ): readonly IPaintTextLineInsertion[] {
+        if (insertions === undefined) return NO_PAINT_INSERTIONS;
+        return insertions.map((insertion) => ({
+            offset: insertion.offset,
+            length: insertion.text.length,
+            fg: insertion.fg ?? (insertion.colorToken !== undefined ? this.styleVar(insertion.colorToken) : editorFg),
+            style: insertion.italic === true ? StyleFlags.Italic : StyleFlags.None,
+        }));
     }
 
     /**
@@ -1103,8 +1148,6 @@ export class EditorElement extends TUIElement implements IScrollable {
             if (firstBody > lastBody) continue;
 
             const col = computeIndentLevel(doc.getLineContent(region.startLine), tabSize);
-            const screenX = geo.gutterW + col - geo.scrollLeft;
-            if (screenX < geo.gutterW || screenX >= geo.gutterW + geo.contentCols) continue;
 
             const fg = region === activeRegion ? activeFg : guideFg;
             for (let logLine = firstBody; logLine <= lastBody; logLine++) {
@@ -1113,6 +1156,11 @@ export class EditorElement extends TUIElement implements IScrollable {
                 // Blank lines (-1) carry the guide through, as in VS Code.
                 const bodyIndent = computeIndentLevel(doc.getLineContent(logLine), tabSize);
                 if (bodyIndent !== -1 && bodyIndent <= col) continue;
+                const screenX =
+                    geo.gutterW + col + this.insertionShiftAt(geo.insertions, logLine, col) - geo.scrollLeft;
+                if (screenX < geo.gutterW) continue;
+                // Stryker disable next-line ConditionalExpression,EqualityOperator: the render context clips at the element's right edge, a guide past it is not drawn either way
+                if (screenX >= geo.gutterW + geo.contentCols) continue;
                 context.setCell(screenX, screenY, { char: INDENT_GUIDE, fg, bg: editorBg });
                 const columns = guideCells.get(screenY);
                 // Nested regions give several guides per row: add, don't replace.
@@ -1122,6 +1170,22 @@ export class EditorElement extends TUIElement implements IScrollable {
         }
 
         return guideCells;
+    }
+
+    /**
+     * How far the insertions push display column `col` of a line right: the guide stands on the
+     * same whitespace character of the composed line. Past the end of a blank line all of them do.
+     */
+    private insertionShiftAt(insertions: LineInsertions, line: number, col: number): number {
+        // Stryker disable next-line ConditionalExpression: a shortcut, with no insertions the composed line is the document line and the shift is 0
+        if (!insertions.has(line)) return 0;
+        const content = this.viewState.document.getLineContent(line);
+        const documentLine = this.viewState.displayLineFor(content);
+        const offset = documentLine.columnToOffset(col);
+        const composedLine = this.viewState.displayLineFor(composedLineContent(insertions, line, content));
+        return (
+            composedLine.offsetToColumn(composedOffset(insertions, line, offset)) - documentLine.offsetToColumn(offset)
+        );
     }
 
     /**
@@ -1247,7 +1311,7 @@ export class EditorElement extends TUIElement implements IScrollable {
 
     /** A gutter click maps to column 0. */
     public docPositionAt(localX: number, localY: number): { line: number; character: number } {
-        return docPositionAt(this.viewState, this.gutterWidth, localX, localY, this.linePhantom);
+        return docPositionAt(this.viewState, this.gutterWidth, localX, localY, this.viewState.lineInsertions);
     }
 
     private handleMouseDown(event: TUIMouseEvent): void {
