@@ -176,8 +176,8 @@ eval-режим node, иначе расширение молча не линти
 4. Конструкторы панелей до старта LS — `authentication.*` и `createTreeView`/`registerTreeDataProvider`
    (null-объекты — [Extensions.md](Extensions.md)).
 
-Классы-значения, которые бандл использует, но в рантайме их нет (`DocumentSymbol`, `SelectionRange`,
-`Color*`, `CallHierarchy*Call`, `InlineValue*`, …), для активации не нужны — их зовут конвертеры
+Классы-значения, которые бандл использует, но в рантайме их нет (`DocumentSymbol`,
+`CallHierarchy*Call`, `InlineValue*`, …; `SelectionRange` и `Color*` уже есть), для активации не нужны — их зовут конвертеры
 languageclient только при вызове провайдера, а соответствующие `register*Provider` у нас no-op;
 понадобятся вместе с провайдерами. Автодополнение по схеме AWS работает из вшитых схем без terraform
 CLI и `terraform init`; форматирование требует terraform в PATH (`Terraform (CLI) is required`) —

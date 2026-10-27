@@ -7,6 +7,7 @@ import type {
     ICodeActionRequest,
     ICoreCodeAction,
 } from "../../../editor/common/languages/iCodeActionSource.ts";
+import type { IColorInformation, IDocumentColorRequest } from "../../../editor/common/languages/iColorSource.ts";
 import type {
     ICompletionRequest,
     ICoreCompletionResult,
@@ -104,6 +105,12 @@ export interface IExtensionLanguageFeaturesBridge {
         request: ISelectionRangeRequest,
         token: ICancellationToken,
     ): Promise<readonly (readonly IRange[])[]>;
+    /** `null`: the provider gave no colors, the default detector may take over. */
+    provideDocumentColors(
+        handle: number,
+        request: IDocumentColorRequest,
+        token: ICancellationToken,
+    ): Promise<readonly IColorInformation[] | null>;
     /**
      * Document tokens; `previousResultId` is the numeric id of this provider's previous
      * response (0 if none). The response's `resultId` is the same id as a string.

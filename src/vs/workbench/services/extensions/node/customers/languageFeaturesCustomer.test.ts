@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { flushMicrotasks } from "../../../../../../TestUtils/timing.ts";
 import { CancellationTokenNone, CancellationTokenSource } from "../../../../../base/common/cancellation.ts";
+import type { ITextDocument } from "../../../../../editor/common/model/iTextDocument.ts";
 import type { HostRpc } from "../../../../api/common/extHostProtocol.ts";
 import { createInProcessChannelPair } from "../../../../api/common/inProcessChannelPair.ts";
 import { RpcEndpoint } from "../../../../api/common/rpcEndpoint.ts";
@@ -595,5 +596,51 @@ describe("LanguageFeaturesCustomer — selection ranges", () => {
         expect(await h.customer.provideSelectionRanges(1, REQ)).toEqual([]);
         const detached = new LanguageFeaturesCustomer(TIMEOUTS, () => true, undefined);
         expect(await detached.provideSelectionRanges(1, REQ)).toEqual([]);
+    });
+});
+
+describe("LanguageFeaturesCustomer — document colors", () => {
+    const REQ = { uri: SYNCED, languageId: "css", versionId: 7, document: {} as ITextDocument };
+    const RED = { range: CORE_RANGE, color: { red: 1, green: 0, blue: 0, alpha: 1 } };
+
+    it("the document and the token go over the wire, the reply is returned as is", async () => {
+        const seen: unknown[] = [];
+        const h = setupAnswering({
+            "languages.provideDocumentColors": (params) => {
+                seen.push(params);
+                return [RED];
+            },
+        });
+        const caller = new CancellationTokenSource();
+        expect(await h.customer.provideDocumentColors(1, REQ, caller.token)).toEqual([RED]);
+        expect(seen).toEqual([{ handle: 1, uri: SYNCED, languageId: "css", version: 7 }]);
+        expect(h.sent.mock.calls.at(-1)?.[2]).toMatchObject({ token: caller.token, timeoutMs: 5000 });
+    });
+
+    it("RPC rejection, a hung request past its timeout, no spawn or an unsynced document — no colors (null)", async () => {
+        const h = setupAnswering({
+            "languages.provideDocumentColors": () => {
+                throw new Error("boom");
+            },
+        });
+        expect(await h.customer.provideDocumentColors(1, REQ)).toBeNull();
+
+        // A hung extension holds the detector at most for the timeout.
+        vi.useFakeTimers();
+        try {
+            const hung = setupAnswering({ "languages.provideDocumentColors": () => new Promise(() => undefined) });
+            const reply = hung.customer.provideDocumentColors(1, REQ);
+            await vi.advanceTimersByTimeAsync(5000);
+            expect(await reply).toBeNull();
+        } finally {
+            vi.useRealTimers();
+        }
+
+        const detached = new LanguageFeaturesCustomer(TIMEOUTS, () => true, undefined);
+        expect(await detached.provideDocumentColors(1, REQ)).toBeNull();
+        const unsynced = new LanguageFeaturesCustomer(TIMEOUTS, () => false, undefined);
+        const [a] = createInProcessChannelPair();
+        unsynced.attach({ rpc: new RpcEndpoint(a), logger: undefined });
+        expect(await unsynced.provideDocumentColors(1, REQ)).toBeNull();
     });
 });

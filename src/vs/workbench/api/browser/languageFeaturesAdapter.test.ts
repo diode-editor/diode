@@ -5,6 +5,7 @@ import { CancellationTokenNone } from "../../../base/common/cancellation.ts";
 import { Uri } from "../../../base/common/uri.ts";
 import { createRange } from "../../../editor/common/core/iRange.ts";
 import type { IHoverRequest } from "../../../editor/common/languages/iHoverSource.ts";
+import type { ITextDocument } from "../../../editor/common/model/iTextDocument.ts";
 import { LanguageFeaturesService } from "../../../editor/common/services/languageFeaturesService.ts";
 import type { IExtensionLanguageFeaturesBridge } from "../common/iExtensionLanguageFeatures.ts";
 import type { IWireLanguageProviderRegistration } from "../common/wireTypes.ts";
@@ -73,6 +74,9 @@ function makeBridge(): IExtensionLanguageFeaturesBridge & {
             Promise.resolve({ applied: newName === `ok${String(handle)}` }),
         ),
         provideSelectionRanges: vi.fn((handle: number) => Promise.resolve([[createRange(0, 0, 0, handle)]])),
+        provideDocumentColors: vi.fn((handle: number) =>
+            Promise.resolve([{ range: createRange(0, 0, 0, handle), color: { red: 1, green: 0, blue: 0, alpha: 1 } }]),
+        ),
         provideReferences: vi.fn((handle: number) =>
             Promise.resolve([{ uri: `file:///ref${String(handle)}.ts`, range: createRange(0, 0, 0, 1) }]),
         ),
@@ -182,6 +186,31 @@ describe("LanguageFeaturesAdapter", () => {
         const token = new CancellationTokenSource().token;
         expect(await provider.provideSelectionRanges(request, token)).toEqual([[createRange(0, 0, 0, 7)]]);
         expect(bridge.provideSelectionRanges).toHaveBeenCalledWith(7, request, token);
+    });
+
+    it("color: a proxy in its registry calls the host with its handle and token", async () => {
+        const bridge = makeBridge();
+        bridge.providers = [{ handle: 5, kind: "color", selector: [{ language: "typescript" }] }];
+        const features = new LanguageFeaturesService();
+        const adapter = new LanguageFeaturesAdapter(bridge, features);
+
+        const [provider] = features.colorProvider.ordered(TS);
+        const request = {
+            uri: "file:///w/a.ts",
+            languageId: "typescript",
+            versionId: 1,
+            document: {} as ITextDocument,
+        };
+        const token = new CancellationTokenSource().token;
+        expect(await provider.provideDocumentColors(request, token)).toEqual([
+            { range: createRange(0, 0, 0, 5), color: { red: 1, green: 0, blue: 0, alpha: 1 } },
+        ]);
+        expect(bridge.provideDocumentColors).toHaveBeenCalledWith(5, request, token);
+
+        bridge.providers = [];
+        bridge.fire();
+        expect(features.colorProvider.has(TS)).toBe(false);
+        adapter.dispose();
     });
 
     it("signatureHelp: triggers come from registration metadata, empty without metadata", async () => {

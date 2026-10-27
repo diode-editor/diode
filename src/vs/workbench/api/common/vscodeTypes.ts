@@ -331,6 +331,52 @@ export class SelectionRange implements vscode.SelectionRange {
     }
 }
 
+export class Color implements vscode.Color {
+    public readonly red: number;
+    public readonly green: number;
+    public readonly blue: number;
+    public readonly alpha: number;
+
+    public constructor(red: number, green: number, blue: number, alpha: number) {
+        this.red = red;
+        this.green = green;
+        this.blue = blue;
+        this.alpha = alpha;
+    }
+}
+
+export class ColorInformation implements vscode.ColorInformation {
+    public range: Range;
+    public color: Color;
+
+    public constructor(range: Range, color: Color) {
+        // A falsy color passes, as upstream (`color && !(color instanceof Color)`).
+        const raw: unknown = color;
+        if (raw && !(raw instanceof Color)) {
+            throw new Error("Illegal argument: color");
+        }
+        if (!isRangeLike(range) || range.isEmpty) {
+            throw new Error("Illegal argument: range");
+        }
+        this.range = range;
+        this.color = color;
+    }
+}
+
+/** Accepted for the type's sake: there is no color picker, `provideColorPresentations` is never called. */
+export class ColorPresentation implements vscode.ColorPresentation {
+    public label: string;
+    public textEdit?: TextEdit;
+    public additionalTextEdits?: TextEdit[];
+
+    public constructor(label: string) {
+        if (!label || typeof label !== "string") {
+            throw new Error("Illegal argument: label");
+        }
+        this.label = label;
+    }
+}
+
 export class SemanticTokensLegend implements vscode.SemanticTokensLegend {
     public readonly tokenTypes: string[];
     public readonly tokenModifiers: string[];

@@ -7,6 +7,7 @@ import type * as vscode from "vscode";
 
 import { comparePositions, createPosition, type IPosition } from "../../../editor/common/core/iPosition.ts";
 import { createRange, type IRange } from "../../../editor/common/core/iRange.ts";
+import type { IColor, IColorInformation } from "../../../editor/common/languages/iColorSource.ts";
 import type { ICoreCompletionItem } from "../../../editor/common/languages/iCompletionSource.ts";
 import type { ICoreDefinitionLocation } from "../../../editor/common/languages/iDefinitionSource.ts";
 import type { ICoreInlineCompletionItem } from "../../../editor/common/languages/iInlineCompletionSource.ts";
@@ -547,6 +548,40 @@ export function serializeSelectionRanges(raw: unknown, positions: readonly IPosi
 
 function containsRange(outer: IRange, inner: IRange): boolean {
     return comparePositions(outer.start, inner.start) <= 0 && comparePositions(inner.end, outer.end) <= 0;
+}
+
+/** A channel outside [0, 1] is clamped; not a number (NaN included) — `null`, the color is dropped. */
+function colorChannel(raw: unknown): number | null {
+    if (typeof raw !== "number" || Number.isNaN(raw)) return null;
+    return Math.min(1, Math.max(0, raw));
+}
+
+function colorFrom(raw: unknown): IColor | null {
+    const c = (raw ?? {}) as Partial<Record<keyof IColor, unknown>>;
+    const red = colorChannel(c.red);
+    const green = colorChannel(c.green);
+    const blue = colorChannel(c.blue);
+    const alpha = colorChannel(c.alpha);
+    if (red === null || green === null || blue === null || alpha === null) return null;
+    return { red, green, blue, alpha };
+}
+
+/**
+ * Upstream `ColorProviderAdapter.provideColors`. Deviation from upstream: an empty answer (or not an
+ * array) is `null`, "no colors": in `auto` mode the default detector keeps working, as the spec of
+ * #884 asks; upstream silences it by the mere registration of a provider for the document. A broken
+ * entry is dropped, not the whole answer.
+ */
+export function serializeDocumentColors(raw: unknown): IColorInformation[] | null {
+    if (!Array.isArray(raw) || raw.length === 0) return null;
+    const colors: IColorInformation[] = [];
+    for (const item of raw as unknown[]) {
+        const info = (item ?? {}) as { range?: unknown; color?: unknown };
+        const range = rangeFrom(info.range);
+        const color = colorFrom(info.color);
+        if (range !== null && color !== null) colors.push({ range, color });
+    }
+    return colors;
 }
 
 /** Edit fields are public and writable, and the host does not re-validate the will-save response. */

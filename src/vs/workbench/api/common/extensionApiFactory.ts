@@ -31,6 +31,7 @@ export const OWNED_MEMBERS = {
         "createDiagnosticCollection",
         "createLanguageStatusItem",
         "registerCodeActionsProvider",
+        "registerColorProvider",
         "registerCompletionItemProvider",
         "registerDefinitionProvider",
         "registerDocumentFormattingEditProvider",

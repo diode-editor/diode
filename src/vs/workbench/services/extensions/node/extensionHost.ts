@@ -13,6 +13,7 @@ import type {
     ICodeActionRequest,
     ICoreCodeAction,
 } from "../../../../editor/common/languages/iCodeActionSource.ts";
+import type { IColorInformation, IDocumentColorRequest } from "../../../../editor/common/languages/iColorSource.ts";
 import type {
     ICompletionRequest,
     ICoreCompletionResult,
@@ -826,6 +827,14 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
         token?: ICancellationToken,
     ): Promise<readonly (readonly IRange[])[]> {
         return this.languageFeatures.provideSelectionRanges(handle, req, token);
+    }
+
+    public provideDocumentColors(
+        handle: number,
+        req: IDocumentColorRequest,
+        token?: ICancellationToken,
+    ): Promise<readonly IColorInformation[] | null> {
+        return this.languageFeatures.provideDocumentColors(handle, req, token);
     }
 
     public provideDocumentSemanticTokens(
