@@ -13,6 +13,7 @@ import type { TokenizationRegistry } from "../../editor/common/languages/tokeniz
 import { TokenizationRegistryDIToken } from "../../editor/common/languages/tokenizationRegistry.ts";
 import { LanguageFeaturesServiceDIToken } from "../../editor/common/services/languageFeatures.ts";
 import { LanguageFeaturesService } from "../../editor/common/services/languageFeaturesService.ts";
+import { registerDefaultDocumentColorProvider } from "../../editor/contrib/colorPicker/browser/defaultDocumentColorProvider.ts";
 import type { ContainerModule } from "../../platform/instantiation/common/diContainer.ts";
 
 export interface TokenizationModuleContext {
@@ -24,7 +25,7 @@ export interface TokenizationModuleContext {
     languageConfigurationService: ILanguageConfigurationService;
 }
 
-/** The module creates the language provider registries itself: they start empty in every profile. */
+/** The module creates the language provider registries itself: in every profile they start with the built-in color detector only. */
 export const tokenizationModule: ContainerModule<TokenizationModuleContext> = (
     container,
     {
@@ -40,5 +41,10 @@ export const tokenizationModule: ContainerModule<TokenizationModuleContext> = (
     container.bind(SemanticTokenStyleResolverDIToken, () => semanticTokenStyleResolver);
     container.bind(LanguageServiceDIToken, () => languageService);
     container.bind(LanguageConfigurationServiceDIToken, () => languageConfigurationService);
-    container.bind(LanguageFeaturesServiceDIToken, () => new LanguageFeaturesService());
+    container.bind(LanguageFeaturesServiceDIToken, () => {
+        const languageFeatures = new LanguageFeaturesService();
+        // Lives as long as the registry: never unregistered.
+        registerDefaultDocumentColorProvider(languageFeatures);
+        return languageFeatures;
+    });
 };

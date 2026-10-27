@@ -718,6 +718,25 @@ describe("Workbench — diff v2", () => {
         expect(fileEditor?.getText()).toContain("old line");
     });
 
+    it("color decorators: the built-in detector draws its squares in the file tab and on both diff sides", async () => {
+        container
+            .get(CommandRegistryDIToken)
+            .execute("workbench.openFile", ws.writeFile("c.css", "a { color: #fff; }"));
+        await settle(20);
+        app.render();
+        expect(app.backend.screenToString()).toContain("a { color: ■ #fff; }");
+
+        await openDiffPair(container, {
+            original: { text: "left: #123", label: "L", identity: "l" },
+            modified: { text: "right: #456", label: "R", identity: "r" },
+        });
+        await settle(20);
+        app.render();
+        const screen = app.backend.screenToString();
+        expect(screen).toContain("left: ■ #123");
+        expect(screen).toContain("right: ■ #456");
+    });
+
     it("US-31: a side without a resource (Clipboard) does not match; dispose clears the pending timer", async () => {
         await openDiffPair(container, {
             original: { text: "clip", label: "Clipboard", identity: "c" },

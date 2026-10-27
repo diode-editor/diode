@@ -2,6 +2,7 @@ import { Uri } from "../../../../base/common/uri.ts";
 import { LanguageServiceDIToken } from "../../../../editor/common/languages/iLanguageService.ts";
 import { TokenStyleResolverDIToken } from "../../../../editor/common/languages/iTokenStyleResolver.ts";
 import { TokenizationRegistryDIToken } from "../../../../editor/common/languages/tokenizationRegistry.ts";
+import { LanguageFeaturesServiceDIToken } from "../../../../editor/common/services/languageFeatures.ts";
 import type { IFileService } from "../../../../platform/files/common/files.ts";
 import { FileSystemProviderCapabilities, IFileServiceDIToken } from "../../../../platform/files/common/files.ts";
 import type { ServiceAccessor } from "../../../../platform/instantiation/common/diContainer.ts";
@@ -100,6 +101,7 @@ export async function openDiffPair(
         accessor.get(TokenizationRegistryDIToken),
         accessor.get(TokenStyleResolverDIToken),
         { ...input, modeOverride: accessor.get(StateServiceDIToken).get(DIFF_VIEW_MODE_STATE) },
+        accessor.get(LanguageFeaturesServiceDIToken).colorProvider,
     );
     for (const side of pane.sidePanes()) editors.editorConfiguration.apply(side);
     // For auto-refreshing snapshots on onDidChangeFile (US-31).

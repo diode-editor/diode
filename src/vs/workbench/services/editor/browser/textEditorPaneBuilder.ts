@@ -60,6 +60,7 @@ export class TextEditorPaneBuilder {
             this.languageFeatures.foldingRangeProvider,
             this.semanticTokens,
             indent,
+            this.languageFeatures.colorProvider,
         );
         const editor = new TextEditorPane(model, component, modelOwnership);
         // The editor context menu policy listens for "contextmenu" on the pair's wrapper;

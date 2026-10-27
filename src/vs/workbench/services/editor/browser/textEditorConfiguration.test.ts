@@ -161,6 +161,28 @@ describe("TextEditorConfiguration", () => {
             }
         });
 
+        it("color decorator settings reach the editor by language, the limit floored; defaults: on, auto, 500", () => {
+            const spy = vi.spyOn(TextEditorPane.prototype, "setColorDecorators");
+            try {
+                const ctrl = createEditorService({
+                    configurationService: stubConfigurationService({
+                        "editor.colorDecoratorsLimit": 2.7,
+                        "[css]": { "editor.colorDecorators": false, "editor.defaultColorDecorators": "never" },
+                    }),
+                });
+                ctrl.openFile(writeFile("a.css", "a { color: #fff; }"));
+                expect(spy).toHaveBeenLastCalledWith({ enabled: true, defaultEnablement: "auto", limit: 2 });
+
+                ctrl.getActiveEditor()!.setLanguage("css");
+                expect(spy).toHaveBeenLastCalledWith({ enabled: false, defaultEnablement: "never", limit: 2 });
+
+                createEditorService().openFile(writeFile("b.css", "a {}"));
+                expect(spy).toHaveBeenLastCalledWith({ enabled: true, defaultEnablement: "auto", limit: 500 });
+            } finally {
+                spy.mockRestore();
+            }
+        });
+
         it("editor.occurrencesHighlight: off disables occurrence highlighting, the default enables it", () => {
             const spy = vi.spyOn(TextEditorPane.prototype, "setOccurrenceHighlightEnabled");
             try {

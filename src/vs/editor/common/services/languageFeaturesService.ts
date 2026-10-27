@@ -1,5 +1,6 @@
 import { LanguageFeatureRegistry } from "../languageFeatureRegistry.ts";
 import type { CodeActionProvider } from "../languages/iCodeActionSource.ts";
+import type { DocumentColorProvider } from "../languages/iColorSource.ts";
 import type { CompletionItemProvider } from "../languages/iCompletionSource.ts";
 import type { DefinitionProvider } from "../languages/iDefinitionSource.ts";
 import type { FoldingRangeProvider } from "../languages/iFoldingSource.ts";
@@ -37,4 +38,5 @@ export class LanguageFeaturesService implements ILanguageFeaturesService {
     public readonly documentSemanticTokensProvider = new LanguageFeatureRegistry<DocumentSemanticTokensProvider>();
     public readonly documentRangeSemanticTokensProvider =
         new LanguageFeatureRegistry<DocumentRangeSemanticTokensProvider>();
+    public readonly colorProvider = new LanguageFeatureRegistry<DocumentColorProvider>();
 }
