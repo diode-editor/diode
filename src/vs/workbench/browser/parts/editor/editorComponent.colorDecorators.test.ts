@@ -216,6 +216,15 @@ describe("EditorComponent — color decorators", () => {
         expect(row(0)).toBe("■ #111");
     });
 
+    it("a file with hundreds of thousands of colors still draws the first squares", async () => {
+        const errors: unknown[] = [];
+        setUnexpectedErrorHandler((e) => errors.push(e));
+        // 60k lines, 180k colors: below the large-file thresholds, a generated palette or a minified stylesheet.
+        const { row } = await open(Array.from({ length: 60_000 }, () => "#0f0 rgb(1,2,3) #abc").join("\n"));
+        expect(errors).toEqual([]);
+        expect(row(0)).toBe("■ #0f0 ■ rgb(1,2,3) ■ #abc");
+    });
+
     it("without a color provider registry (the default) nothing is drawn", async () => {
         const pane = createEditorPane({ file: Uri.file(ws.writeFile("b.css", "x: #fff")) });
         const app = TestApp.createWithContent(pane.view, new Size(30, 2));
