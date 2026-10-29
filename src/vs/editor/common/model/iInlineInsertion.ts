@@ -1,8 +1,9 @@
 /**
  * Counterpart of upstream injected text (`IModelDecorationOptions.before/after`): cells absent
  * from the document, drawn BEFORE `offset` of `line`; the tail of the line moves right. The
- * caret never stands inside an insertion: at `offset` it is drawn left of it, and a click on
- * its cells maps to `offset`. Insertions at one offset are drawn in the order given.
+ * caret never stands inside an insertion: at `offset` it is drawn on the side given by
+ * {@link caretSide}, and a click on its cells maps to `offset`. Insertions at one offset are
+ * drawn in the order given.
  */
 export interface IInlineInsertion {
     readonly line: number;
@@ -16,6 +17,14 @@ export interface IInlineInsertion {
     /** Theme token resolved at render time; neither this nor {@link fg} — the editor text color. */
     readonly colorToken?: string;
     readonly italic?: boolean;
+    /**
+     * Where a caret at `offset` is drawn. `"left"` (the default, upstream injected-text affinity):
+     * ghost text stays right of what was typed. `"right"`: the terminal caret is a block over the
+     * cell right of the caret point, so an insertion that must never be covered by it (a color
+     * swatch) puts the caret on the character after it. Deviation from upstream: there the caret is
+     * a thin bar between cells and stays left of the swatch.
+     */
+    readonly caretSide?: "left" | "right";
 }
 
 export const NO_INLINE_INSERTIONS: readonly IInlineInsertion[] = [];

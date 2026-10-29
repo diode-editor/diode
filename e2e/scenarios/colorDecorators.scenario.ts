@@ -40,6 +40,18 @@ export default defineScenario({
         );
         await editor.capture("formats");
 
+        // The block caret at a color's start stands on the color, never on its square: End of
+        // `  color: #ff0000;`, then left past `;ff0000` to `#`.
+        await editor.sendKey("Ctrl+Home");
+        await editor.sendKey("ArrowDown");
+        await editor.sendKey("End");
+        for (let i = 0; i < 8; i++) await editor.sendKey("ArrowLeft");
+        const frame = await editor.waitForText((t) => t.includes("Ln 2, Col 10"));
+        const caret = frame.cursor;
+        const under = caret === null ? null : frame.cells[caret.y * frame.cols + caret.x].char;
+        if (under !== "#") throw new Error(`the caret is on ${JSON.stringify(under)}, expected "#"`);
+        await editor.capture("caret-on-color");
+
         // A typed color gets its square after the debounce.
         await editor.sendKey("Ctrl+End");
         await editor.sendText("/* accent: #00ff00 */");

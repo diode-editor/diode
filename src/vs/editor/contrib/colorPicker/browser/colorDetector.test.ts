@@ -80,6 +80,8 @@ describe("ColorDetector", () => {
         provider.answer([RED]);
         await flush();
         expect(published.at(-1)).toHaveLength(1);
+        // The block caret at the color's start stands on the color, never on the square.
+        expect(published.at(-1)?.[0].caretSide).toBe("right");
 
         detector.setOptions({ ...DEFAULT_COLOR_DECORATORS_OPTIONS, limit: 7 });
         detector.dispose();

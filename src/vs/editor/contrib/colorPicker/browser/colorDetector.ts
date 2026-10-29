@@ -213,6 +213,7 @@ export class ColorDetector extends Disposable {
                 offset: range.start.character,
                 text: COLOR_DECORATOR_TEXT,
                 fg: decorator.fg,
+                caretSide: "right",
             });
         }
         this.onDidChangeInsertions(insertions);
