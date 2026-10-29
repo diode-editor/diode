@@ -81,6 +81,30 @@ describe("ViewTitleRowElement — button zones", () => {
         expect(row.hitZone(3)).toEqual({ kind: "title" });
     });
 
+    // A folder name in the Explorer header (#898) is often wider than the sidebar.
+    it("a title wider than the header is clipped, the buttons and ⋯ keep their columns", () => {
+        const row = new ViewTitleRowElement("A-REALLY-LONG-PROJECT-FOLDER-NAME", { chevron: false });
+        row.setDescription("main");
+        row.setActions([{ id: "cmd.refresh", icon: "R" }]);
+
+        expect(renderElement(row, 20, 1, { themeVars: true }).screenToString().trimEnd()).toBe(
+            " A-REALLY-LON R │ ⋯",
+        );
+        expect(row.hitZone(14)).toEqual({ kind: "action", actionId: "cmd.refresh" });
+        expect(row.menuAnchorX).toBe(17);
+        // Laid out wide again, the title is whole: the clamp is per layout, not stuck in the row.
+        expect(row.getMaxIntrinsicWidth(1)).toBe(" A-REALLY-LONG-PROJECT-FOLDER-NAME main R │ ⋯ ".length);
+        expect(renderElement(row, 50, 1, { themeVars: true }).screenToString()).toContain(
+            " A-REALLY-LONG-PROJECT-FOLDER-NAME main",
+        );
+    });
+
+    it("a short title leaves the description its room before the filler", () => {
+        const row = new ViewTitleRowElement("TREE", { chevron: false });
+        row.setDescription("3 found");
+        expect(renderElement(row, 30, 1, { themeVars: true }).screenToString().trimEnd()).toBe(" TREE 3 found               ⋯");
+    });
+
     it("a single button is rebuilt when any of its fields changes", () => {
         // Specifically with a single button: with two, a weakened comparison hides behind
         // the neighbor, which yields "sets differ" anyway.

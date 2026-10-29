@@ -1,7 +1,13 @@
-import type { Point } from "@tuidom/core/common/geometryPromitives";
+import type { BoxConstraints, Point, Size } from "@tuidom/core/common/geometryPromitives";
 import type { TUIElement } from "@tuidom/core/dom/tuiElement";
 import { FillerElement } from "@tuidom/elements/layout/fillerElement";
-import { HFlexElement, hflexFill, hflexFit, hflexFixed } from "@tuidom/elements/layout/hFlexElement";
+import {
+    HFlexElement,
+    hflexFill,
+    hflexFit,
+    hflexFixed,
+    type HFlexLayoutStyle,
+} from "@tuidom/elements/layout/hFlexElement";
 import { TextLabelElement } from "@tuidom/elements/text/textLabelElement";
 
 import { iconGlyph, type IProductIcon } from "../../../../base/common/codicons.ts";
@@ -242,6 +248,31 @@ export class ViewTitleRowElement extends HFlexElement {
             children.push(control);
         });
         this.replaceChildren(children);
+    }
+
+    /**
+     * HFlex clamps greedily in child order, so a long title (a folder name) would push the buttons and "⋯"
+     * out of a narrow header. The controls keep their columns; the title, then the description, get the rest.
+     */
+    protected override performLayout(constraints: BoxConstraints): Size {
+        const shrinkable = new Set<TUIElement>([this.titleLabel, this.descriptionLabel, this.filler]);
+        let reserved = 0;
+        for (const child of this.getChildren()) {
+            if (shrinkable.has(child)) continue;
+            const width = (child.layoutStyle as HFlexLayoutStyle).width;
+            reserved += width.type === "fixed" ? width.value : child.getMaxIntrinsicWidth(1);
+        }
+        let free = Math.max(0, constraints.maxWidth - reserved);
+        for (const label of [this.titleLabel, this.descriptionLabel]) {
+            const width = Math.min(label.getMaxIntrinsicWidth(1), free);
+            label.layoutStyle = { width: hflexFixed(width), height: 1 };
+            free -= width;
+        }
+        const size = super.performLayout(constraints);
+        // Back to `fit`: the row's intrinsic width must stay the full title, not the clamp of the last layout.
+        this.titleLabel.layoutStyle = { width: hflexFit(), height: 1 };
+        this.descriptionLabel.layoutStyle = { width: hflexFit(), height: 1 };
+        return size;
     }
 }
 
