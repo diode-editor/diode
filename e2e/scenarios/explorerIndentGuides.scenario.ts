@@ -4,8 +4,8 @@ import type { GridSnapshot } from "@tuidom/core/rendering/gridSnapshot";
 
 import { defineScenario, repoRoot, type ScenarioDriver } from "./framework.ts";
 
-// The folders are expanded by clicks, not by auto-reveal of an opened file: on the Windows CI runner
-// revealing src/app/main.ts left src/app collapsed.
+// The folders are expanded by clicks, no file is opened: on the Windows CI runner auto-reveal of an opened
+// src/app/main.ts left src/app collapsed or moved the cursor off it.
 const sampleDir = resolve(repoRoot, "e2e", "fixtures", "indentGuides");
 
 const GUIDE = "│";
@@ -54,11 +54,9 @@ export default defineScenario({
         await editor.waitForText((t) => t.includes("app") && t.includes("index.ts"));
         await editor.clickNode("TreeViewElement", { dx: 6, dy: 1 });
         await editor.waitForText((t) => t.includes("util.ts"));
-        // A single click opens main.ts as a preview, the cursor stays on its row.
-        await editor.clickNode("TreeViewElement", { dx: 8, dy: 2 });
-        await editor.waitForText((t) => t.includes("indent guides"));
 
-        // Without the mouse over the tree: one bright guide of src/app through main.ts and util.ts.
+        // The cursor is on the expanded app, so its own guide is the active one. Without the mouse over the
+        // tree: only that bright guide, through main.ts and util.ts.
         await editor.sendMouse({ action: "move", x: 70, y: 10 });
         await expectGuides(editor, { app: 0, "main.ts": 1, "util.ts": 1, "index.ts": 0 });
         await editor.capture("active-only");
