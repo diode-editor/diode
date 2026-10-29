@@ -101,7 +101,7 @@ function buttonForegrounds(h: IViewsHarness, viewId: string): (string | number |
     return rest
         .filter((label) => {
             const text = (label as TextLabelElement).getText().trim();
-            return text !== "│" && text !== "⋯";
+            return text !== "│" && text !== "⋯" && label.id !== "viewTitleSwitcher";
         })
         .map((label) => label.style.fg);
 }

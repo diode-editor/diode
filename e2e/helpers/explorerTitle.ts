@@ -1,10 +1,10 @@
 import * as path from "node:path";
 
 /**
- * Columns of the Explorer header name a default 30-column sidebar shows: the header keeps its New File / New
- * Folder / Refresh buttons and "⋯", and a longer name is clipped before them.
+ * Columns of the Explorer header name a default 30-column sidebar shows: the header keeps the switcher chevron,
+ * its New File / New Folder / Refresh buttons and "⋯", and a longer name is clipped before them.
  */
-const VISIBLE_NAME_COLUMNS = 14;
+const VISIBLE_NAME_COLUMNS = 11;
 
 /**
  * What the Explorer header reads for an opened path (#898): the folder name, or `<NAME> (WORKSPACE)` for a

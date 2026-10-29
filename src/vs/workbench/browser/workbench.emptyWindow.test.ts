@@ -57,8 +57,10 @@ describe("Workbench — window without a workspace", () => {
         expect(h.container.get(SidebarServiceDIToken).getActiveViewletId()).toBe(EXPLORER_VIEWLET_ID);
         const shown = screen();
         // Upstream's empty-window view name; with one section it is the sidebar header (#898). The 30-column
-        // sidebar clips it before the header buttons.
-        expect(shown).toContain(" NO FOLDER OPEN ");
+        // sidebar clips it before the switcher chevron and the header buttons.
+        const header = h.testApp.querySelector("#paneHeader-workbench-explorer-fileView");
+        expect(header?.inspectState()).toMatchObject({ title: "NO FOLDER OPENED" });
+        expect(shown).toContain(" NO FOLDER O");
         expect(shown).toContain("You have not yet opened a");
         expect(shown).toContain("[ Open Folder ]");
     });

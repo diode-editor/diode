@@ -134,6 +134,7 @@ describe("ExplorerComponent — sidebar container", () => {
         const header = h.paneView(EXPLORER_VIEWLET_ID).querySelector("#paneHeader-workbench-explorer-fileView")!;
         const [, ...rest] = header.querySelectorAll("TextLabelElement");
         const buttons = rest
+            .filter((label) => label.id !== "viewTitleSwitcher")
             .map((label) => (label as TextLabelElement).getText().trim())
             .filter((text) => text !== "\u2502");
         // New File / New Folder / Refresh Explorer and "⋯", which holds the viewlet's "Move To".
