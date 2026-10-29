@@ -143,3 +143,27 @@ describe("ExplorerComponent — workbench.tree.renderIndentGuides", () => {
         expect(app.backend.getTextAt(new Point(0, 2), 5)).toBe("     ");
     });
 });
+
+describe("ExplorerComponent — workbench.tree.renderIndentGuides without a folder", () => {
+    it("a settings change before any folder is open is harmless", async () => {
+        const config = createTestConfigurationService();
+        const clipboard = new InMemoryFileClipboard();
+        const service = new ExplorerService(clipboard, config, diskFileService(), NULL_TREE_FILE_WATCHER);
+        const commands = new CommandRegistry();
+        const component = new ExplorerComponent(
+            service,
+            commands,
+            clipboard,
+            new ContextMenuService(
+                new MenuService(
+                    new MenuRegistry(commands, new KeybindingRegistry(), new ContextKeyService(), MENU_CONTRIBUTIONS),
+                ),
+            ),
+            makeViewsHarness().service,
+            config,
+        );
+        await expect(config.updateValue("workbench.tree.renderIndentGuides", "always")).resolves.toBeUndefined();
+        component.dispose();
+        service.dispose();
+    });
+});
