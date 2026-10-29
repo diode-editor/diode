@@ -1,5 +1,6 @@
 import { resolve } from "node:path";
 
+import { explorerTitle } from "../helpers/explorerTitle.ts";
 import { defineScenario, repoRoot } from "./framework.ts";
 
 // The fixture's `.gitignore`: `generated/` and `*.log`. Ignored files show in the tree (`explorer.excludeGitIgnore`
@@ -18,7 +19,7 @@ export default defineScenario({
     userKeybindings: [{ key: "f6", command: "workbench.view.search" }],
     async run(editor) {
         await editor.waitForText(
-            (t) => t.includes("EXPLORER") && t.includes("generated") && t.includes("server.log") && t.includes("src"),
+            (t) => t.includes(explorerTitle(sampleDir)) && t.includes("generated") && t.includes("server.log") && t.includes("src"),
         );
         await editor.capture("tree");
 

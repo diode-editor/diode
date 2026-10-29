@@ -4,6 +4,7 @@ import { join, resolve } from "node:path";
 
 import { createRegistryFixture } from "../helpers/registryFixture.ts";
 
+import { explorerTitle } from "../helpers/explorerTitle.ts";
 import { defineScenario, repoRoot } from "./framework.ts";
 
 // The registry fixture is built at module import: `extraArgs` needs its path before the editor starts.
@@ -40,7 +41,7 @@ export default defineScenario({
     // from an isolated workspace passes on Windows. Tracked in docs/TODO/E2E.md.
     skipOn: ["win32"],
     async run(editor) {
-        await editor.waitForText((t) => t.includes("EXPLORER"));
+        await editor.waitForText((t) => t.includes(explorerTitle(repoRoot)));
         await editor.sendKey("F6");
         await editor.waitForText((t) => t.includes("MARKETPLACE"));
         for (let i = 0; i < 3; i++) await editor.sendKey("F7");
@@ -63,7 +64,7 @@ export default defineScenario({
         // extension's themes in the registry.
         await editor.sendKey("Enter").catch(() => undefined);
         await editor.reconnect();
-        await editor.waitForText((t) => t.includes("EXPLORER"), { timeoutMs: 60_000 });
+        await editor.waitForText((t) => t.includes(explorerTitle(repoRoot)), { timeoutMs: 60_000 });
 
         // Color Theme picker: the extension's themes follow the built-in ones; filter
         // by name, and live preview repaints the window before Enter.

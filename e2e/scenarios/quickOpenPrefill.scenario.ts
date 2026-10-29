@@ -1,3 +1,4 @@
+import { explorerTitle } from "../helpers/explorerTitle.ts";
 import { defineScenario, repoRoot } from "./framework.ts";
 
 // The args of a user keybinding (keybindings.json) reach the command: the rule is seeded into a real keybindings.json.
@@ -13,7 +14,7 @@ export default defineScenario({
     cols: 120,
     rows: 32,
     async run(editor) {
-        await editor.waitForText((t) => t.includes("EXPLORER"));
+        await editor.waitForText((t) => t.includes(explorerTitle(repoRoot)));
 
         await editor.sendKey("F6");
         await editor.waitForText((t) => t.includes("sample.ts"));

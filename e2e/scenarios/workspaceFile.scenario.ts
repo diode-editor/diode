@@ -1,5 +1,6 @@
 import { resolve } from "node:path";
 
+import { explorerTitle } from "../helpers/explorerTitle.ts";
 import { defineScenario, repoRoot } from "./framework.ts";
 
 // `web.code-workspace` hides `backend`, `backend.code-workspace` hides `web`; the directory's `.diode/settings.json`
@@ -21,7 +22,7 @@ export default defineScenario({
     async run(editor) {
         await editor.waitForText(
             (t) =>
-                t.includes("EXPLORER") &&
+                t.includes(explorerTitle(resolve(fixture, "web.code-workspace"))) &&
                 t.includes("backend.code-workspace") &&
                 hasTopDir(t, "web") &&
                 !hasTopDir(t, "backend") &&

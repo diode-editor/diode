@@ -5,6 +5,7 @@ import { join } from "node:path";
 
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
+import { explorerTitle } from "./helpers/explorerTitle.ts";
 import type { HeadlessApp } from "./helpers/appSession.ts";
 import { startHeadlessApp } from "./helpers/appSession.ts";
 import { getBinaryPath } from "./helpers/buildOnce.ts";
@@ -266,7 +267,7 @@ runOnLinux("Diff viewer (functional e2e)", () => {
         try {
             await s.waitForText((t) => t.includes("brand new file"));
             // Let the git extension activate (otherwise the notice is for the wrong reason).
-            await s.waitForText((t) => t.includes("fresh.txt") || t.includes("EXPLORER"), { timeoutMs: 10_000 });
+            await s.waitForText((t) => t.includes("fresh.txt") || t.includes(explorerTitle(r.dir)), { timeoutMs: 10_000 });
             await invokeCompare(s);
             await s.waitForText((t) => t.includes("No changes to compare"), { timeoutMs: 15_000 });
             // There must be no diff tab.
@@ -671,7 +672,7 @@ runOnLinux("Diff viewer (functional e2e)", () => {
         const s = await open([r.dir], r.dir, 140);
         try {
             // Under full-run load, startup and the command palette can be slow.
-            await s.waitForText((t) => t.includes("EXPLORER"), { timeoutMs: 60_000 });
+            await s.waitForText((t) => t.includes(explorerTitle(r.dir)), { timeoutMs: 60_000 });
             await s.key("Ctrl+P");
             await s.text(">Compare New Untitled Text Files");
             await s.waitForText((t) => t.includes("Compare New Untitled Text Files"), { timeoutMs: 15_000 });

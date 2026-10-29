@@ -3,10 +3,14 @@ import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import { explorerTitle } from "../helpers/explorerTitle.ts";
+
 import { defineScenario } from "./framework.ts";
 
-// Header frames in a row (EXPLORER → SEARCH → SOURCE CONTROL): the viewlet title must look the same — in merged it is
+// Header frames in a row (<folder> → SEARCH → SOURCE CONTROL): the viewlet title must look the same — in merged it is
 // drawn by PaneHeaderElement, in SCM by ViewContainerHeaderElement; both read `sideBarTitle.foreground`.
+// A merged header is the single section's title (#898): Explorer reads the folder name, Source Control with GRAPH
+// hidden reads CHANGES.
 
 function git(cwd: string, ...args: string[]): void {
     execFileSync("git", args, { cwd, stdio: "ignore" });
@@ -37,7 +41,7 @@ export default defineScenario({
     skipOn: ["win32", "darwin"],
     userKeybindings: [{ key: "alt+c", command: "workbench.view.scm" }],
     async run(editor) {
-        await editor.waitForText((t) => t.includes("EXPLORER") && t.includes("app.ts"));
+        await editor.waitForText((t) => t.includes(explorerTitle(repoDir)) && t.includes("app.ts"));
         await editor.capture("explorer-title");
 
         // No custom binding: Alt+<letter> would go to the menu mnemonic, while Ctrl+K F works on any terminal.
@@ -60,10 +64,10 @@ export default defineScenario({
         await editor.waitForText((t) => t.includes("CHANGES") && t.includes("GRAPH"));
         await editor.capture("views-submenu");
 
-        // A single visible section makes the container merged: CHANGES carries its title.
+        // A single visible section makes the container merged: the header reads CHANGES, not SOURCE CONTROL.
         await editor.sendKey("ArrowDown");
         await editor.sendKey("Enter");
-        await editor.waitForText((t) => !t.includes("GRAPH"));
+        await editor.waitForText((t) => !t.includes("GRAPH") && !t.includes("SOURCE CONTROL") && t.includes("CHANGES"));
         await editor.capture("merged-after-hide");
     },
 });

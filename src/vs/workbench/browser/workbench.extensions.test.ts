@@ -1,3 +1,5 @@
+import * as path from "node:path";
+
 import { Size } from "@tuidom/core/common/geometryPromitives";
 import { TUIKeyboardEvent } from "@tuidom/core/dom/events/tuiKeyboardEvent";
 import type { ListViewElement } from "@tuidom/elements/list/listViewElement";
@@ -88,6 +90,8 @@ interface IHarness {
 
 describe("Workbench — extension marketplace in the sidebar end-to-end", () => {
     let ws: ITempWorkspace | undefined;
+    // The Explorer section is named after the open folder (#898).
+    const folderTitle = (): string => path.basename(ws!.dir).toUpperCase();
 
     afterEach(() => {
         ws?.dispose();
@@ -134,14 +138,14 @@ describe("Workbench — extension marketplace in the sidebar end-to-end", () => 
 
     it("the show command puts the marketplace viewlet in the sidebar", () => {
         const h = setup();
-        expect(h.screen()).toContain("EXPLORER");
+        expect(h.screen()).toContain(folderTitle());
 
         h.execute(SHOW_EXTENSIONS);
         const shown = h.screen();
         expect(shown).toContain("EXTENSIONS");
         expect(shown).toContain("Search Extensions");
         expect(shown).toContain("Acme Tools");
-        expect(shown).not.toContain("EXPLORER");
+        expect(shown).not.toContain(folderTitle());
     });
 
     it("switching back to Explorer restores the file tree", () => {
@@ -150,7 +154,7 @@ describe("Workbench — extension marketplace in the sidebar end-to-end", () => 
         h.execute(SHOW_EXPLORER);
 
         const shown = h.screen();
-        expect(shown).toContain("EXPLORER");
+        expect(shown).toContain(folderTitle());
         expect(shown).not.toContain("Search Extensions");
     });
 

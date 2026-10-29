@@ -18,7 +18,7 @@ describe("Workbench: a task terminal moved into the editor area", () => {
     let tasks: TaskService;
 
     function boot(): void {
-        ws = createTempWorkspace({ prefix: "diode-task-terminal-editor-", files: { "a.txt": "alpha\n" } });
+        ws = createTempWorkspace({ prefix: "diode-task-editor-", files: { "a.txt": "alpha\n" } });
         h = createAppTestHarness({
             workspaceFolder: ws.dir,
             openFile: ws.path("a.txt"),

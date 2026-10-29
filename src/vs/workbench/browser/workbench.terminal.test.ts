@@ -24,7 +24,7 @@ describe("Workbench — integrated terminal", () => {
     let terminal: TerminalService;
 
     beforeEach(() => {
-        ws = createTempWorkspace({ prefix: "diode-terminal-" });
+        ws = createTempWorkspace({ prefix: "diode-shell-" });
         h = createAppTestHarness({ workspaceFolder: ws.dir });
         contextKeys = h.container.get(ContextKeyServiceDIToken);
         terminal = h.container.get(TerminalServiceDIToken);

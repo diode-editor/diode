@@ -2,6 +2,8 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join, sep } from "node:path";
 
+import { explorerTitle } from "../helpers/explorerTitle.ts";
+
 import { defineScenario } from "./framework.ts";
 
 const MARKER = "demo-assets";
@@ -25,7 +27,7 @@ export default defineScenario({
     cols: 120,
     rows: 24,
     async run(editor) {
-        await editor.waitForText((t) => t.includes("EXPLORER") && t.includes("You have not yet opened a"));
+        await editor.waitForText((t) => t.includes("NO FOLDER OPENED") && t.includes("You have not yet opened a"));
         await editor.capture("empty");
 
         await editor.sendKey("Ctrl+K");
@@ -41,7 +43,11 @@ export default defineScenario({
         await editor.waitForText((t) => t.includes(basename(folder) + sep) && t.includes(MARKER));
         await editor.sendKey("Enter");
         // The tree must fill in, not just lose the hint: a new root loads only on refresh.
-        await editor.waitForText((t) => t.includes("greeting.ts") && !t.includes("You have not yet opened a"));
+        // The sidebar header is renamed after the opened folder at once.
+        await editor.waitForText(
+            (t) =>
+                t.includes("greeting.ts") && t.includes(explorerTitle(folder)) && !t.includes("You have not yet opened a"),
+        );
         await editor.capture("folder-opened");
     },
 });

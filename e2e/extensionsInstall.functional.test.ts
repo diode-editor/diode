@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
+import { explorerTitle } from "./helpers/explorerTitle.ts";
 import type { HeadlessApp } from "./helpers/appSession.ts";
 import { removeTempDir } from "./helpers/appSession.ts";
 import { getBinaryPath } from "./helpers/buildOnce.ts";
@@ -50,7 +51,7 @@ async function openExtensions(options: { installVsix?: string[] } = {}): Promise
         cols: 110,
         rows: 30,
     });
-    await app.session.waitForText((t) => t.includes("EXPLORER"));
+    await app.session.waitForText((t) => t.includes(explorerTitle(app.env.workspaceDir)));
     await app.session.key("F6");
     await app.session.waitForText((t) => t.includes("EXTENSIONS"));
     return app;

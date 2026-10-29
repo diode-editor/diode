@@ -1,5 +1,6 @@
 import { resolve } from "node:path";
 
+import { explorerTitle } from "../helpers/explorerTitle.ts";
 import { defineScenario, repoRoot } from "./framework.ts";
 
 // One file: ripgrep reports the matches of a file in line order, so the walk is deterministic.
@@ -20,7 +21,7 @@ export default defineScenario({
     // The e2e key-DSL can't encode Ctrl+Shift+F.
     userKeybindings: [{ key: "f6", command: "workbench.view.search" }],
     async run(driver) {
-        await driver.waitForText((t) => t.includes("EXPLORER"));
+        await driver.waitForText((t) => t.includes(explorerTitle(sampleDir)));
 
         await driver.sendKey("F6");
         await driver.waitForText((t) => t.includes("SEARCH"));

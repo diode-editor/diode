@@ -4,6 +4,7 @@ import { join, resolve } from "node:path";
 
 import { createRegistryFixture } from "../helpers/registryFixture.ts";
 
+import { explorerTitle } from "../helpers/explorerTitle.ts";
 import { defineScenario, repoRoot } from "./framework.ts";
 
 // The registry fixture is built at module import: `extraArgs` needs its path before the editor starts.
@@ -35,7 +36,7 @@ export default defineScenario({
     cols: 110,
     rows: 28,
     async run(editor) {
-        await editor.waitForText((t) => t.includes("EXPLORER"));
+        await editor.waitForText((t) => t.includes(explorerTitle(repoRoot)));
         await editor.sendKey("F6");
         await editor.waitForText((t) => t.includes("MARKETPLACE"));
         for (let i = 0; i < 3; i++) await editor.sendKey("F7");

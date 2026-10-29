@@ -1,4 +1,5 @@
 import * as fs from "node:fs";
+import * as path from "node:path";
 
 import { Size } from "@tuidom/core/common/geometryPromitives";
 import { TUIKeyboardEvent } from "@tuidom/core/dom/events/tuiKeyboardEvent";
@@ -40,6 +41,8 @@ const DELETED = "gitDecoration.deletedResourceForeground";
 
 describe("Workbench — Source Control in the sidebar end-to-end", () => {
     let ws: ITempWorkspace;
+    // The Explorer section is named after the open folder (#898).
+    const folderTitle = (): string => path.basename(ws.dir).toUpperCase();
     let workbench: WorkbenchComponent;
     let commands: CommandRegistry;
     let editors: IEditorService;
@@ -153,7 +156,7 @@ describe("Workbench — Source Control in the sidebar end-to-end", () => {
     it("the sidebar shows Explorer by default", () => {
         testApp.render();
         expect(sidebar.getActiveViewletId()).toBe("explorer");
-        expect(testApp.backend.screenToString()).toContain("EXPLORER");
+        expect(testApp.backend.screenToString()).toContain(folderTitle());
     });
 
     it("workbench.view.scm shows the list of changed files in the sidebar", async () => {
@@ -177,13 +180,13 @@ describe("Workbench — Source Control in the sidebar end-to-end", () => {
         testApp.render();
         let screen = testApp.backend.screenToString();
         expect(screen).toContain("SOURCE CONTROL");
-        expect(screen).not.toContain("EXPLORER");
+        expect(screen).not.toContain(folderTitle());
 
         commands.execute(SHOW_EXPLORER);
         testApp.render();
         screen = testApp.backend.screenToString();
         expect(sidebar.getActiveViewletId()).toBe("explorer");
-        expect(screen).toContain("EXPLORER");
+        expect(screen).toContain(folderTitle());
         expect(screen).not.toContain("SOURCE CONTROL");
     });
 

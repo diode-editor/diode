@@ -1,3 +1,5 @@
+import * as path from "node:path";
+
 import { Point } from "@tuidom/core/common/geometryPromitives";
 import { ButtonElement } from "@tuidom/elements/button/buttonElement";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -15,6 +17,8 @@ import { NotificationsComponentDIToken, TOAST_WIDTH } from "./parts/notification
 
 describe("Workbench — messages on the frame", () => {
     let ws: ITempWorkspace;
+    // The Explorer section is named after the open folder (#898).
+    const folderTitle = (): string => path.basename(ws.dir).toUpperCase();
     let h: IAppHarness;
     let notifications: NotificationService;
 
@@ -246,11 +250,11 @@ describe("Workbench — messages on the frame", () => {
 
     it("global keybindings work through a PASSIVE toast — the stack does not take the keyboard", () => {
         notifications.show({ severity: "error", message: "boom", modal: false, items: [] });
-        const sidebarBefore = screen().includes("EXPLORER");
+        const sidebarBefore = screen().includes(folderTitle());
 
         h.testApp.sendKey("Ctrl+B");
 
-        expect(screen().includes("EXPLORER")).toBe(!sidebarBefore);
+        expect(screen().includes(folderTitle())).toBe(!sidebarBefore);
         expect(screen()).toContain("boom");
     });
 
@@ -293,9 +297,9 @@ describe("Workbench — messages on the frame", () => {
         screen();
 
         // Ctrl+B toggles the sidebar; it must work through a question toast.
-        const sidebarBefore = screen().includes("EXPLORER");
+        const sidebarBefore = screen().includes(folderTitle());
         h.testApp.sendKey("Ctrl+B");
-        expect(screen().includes("EXPLORER")).toBe(!sidebarBefore);
+        expect(screen().includes(folderTitle())).toBe(!sidebarBefore);
         expect(screen()).toContain("Activate?");
         await Promise.resolve();
     });
@@ -304,10 +308,10 @@ describe("Workbench — messages on the frame", () => {
         notifications.show({ severity: "warn", message: "Delete?", modal: true, items: ["Delete"] });
         screen();
 
-        const sidebarBefore = screen().includes("EXPLORER");
+        const sidebarBefore = screen().includes(folderTitle());
         h.testApp.sendKey("Ctrl+B");
 
-        expect(screen().includes("EXPLORER")).toBe(sidebarBefore);
+        expect(screen().includes(folderTitle())).toBe(sidebarBefore);
         expect(screen()).toContain("Delete?");
     });
 

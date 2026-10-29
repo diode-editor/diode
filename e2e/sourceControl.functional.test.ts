@@ -7,6 +7,7 @@ import { afterEach, beforeAll, describe, expect, it } from "vitest";
 
 import { OPEN_FILE_BUTTON_WIDTH } from "../src/vs/workbench/contrib/scm/browser/scmChangeRows.ts";
 
+import { explorerTitle } from "./helpers/explorerTitle.ts";
 import type { HeadlessApp } from "./helpers/appSession.ts";
 import { frameToText } from "./helpers/frame.ts";
 import { getBinaryPath } from "./helpers/buildOnce.ts";
@@ -100,7 +101,7 @@ describe("Source Control in the sidebar (functional e2e, PR #207)", () => {
         app = await open(repo);
         const { session } = app;
 
-        await session.waitForText((t) => t.includes("EXPLORER") && t.includes("app.ts") && t.includes("extra.ts"));
+        await session.waitForText((t) => t.includes(explorerTitle(repo)) && t.includes("app.ts") && t.includes("extra.ts"));
 
         await session.key("Alt+C");
         const frame = await session
@@ -197,7 +198,7 @@ describe("Source Control in the sidebar (functional e2e, PR #207)", () => {
         app = await open(repo);
         const { session } = app;
 
-        await session.waitForText((t) => t.includes("EXPLORER"));
+        await session.waitForText((t) => t.includes(explorerTitle(repo)));
         await session.key("Alt+C");
         await session.waitForText((t) => t.includes("SOURCE CONTROL") && t.includes("src/deep/mod.ts"));
 
@@ -243,7 +244,7 @@ describe("Source Control in the sidebar (functional e2e, PR #207)", () => {
         app = await open(repo);
         const { session } = app;
 
-        await session.waitForText((t) => t.includes("EXPLORER"));
+        await session.waitForText((t) => t.includes(explorerTitle(repo)));
         await session.key("Alt+C");
         await session.waitForText((t) => t.includes("SOURCE CONTROL"));
 
@@ -259,7 +260,7 @@ describe("Source Control in the sidebar (functional e2e, PR #207)", () => {
         app = await open(dir);
         const { session } = app;
 
-        await session.waitForText((t) => t.includes("EXPLORER") && t.includes("note.txt"));
+        await session.waitForText((t) => t.includes(explorerTitle(dir)) && t.includes("note.txt"));
         await session.key("Alt+C");
         await session.waitForText((t) => t.includes("SOURCE CONTROL"));
 
@@ -274,11 +275,11 @@ describe("Source Control in the sidebar (functional e2e, PR #207)", () => {
         app = await open(repo);
         const { session } = app;
 
-        await session.waitForText((t) => t.includes("EXPLORER"));
+        await session.waitForText((t) => t.includes(explorerTitle(repo)));
         await session.key("Alt+C");
         await session.waitForText((t) => t.includes("SOURCE CONTROL"));
         await session.key("Alt+X");
-        await session.waitForText((t) => t.includes("EXPLORER") && t.includes("app.ts"));
+        await session.waitForText((t) => t.includes(explorerTitle(repo)) && t.includes("app.ts"));
         expect(await session.node("#explorer")).not.toBeNull();
         expect(await session.node("#changesView")).toBeNull();
     }, 120_000);
@@ -291,7 +292,7 @@ describe("Source Control in the sidebar (functional e2e, PR #207)", () => {
         app = await open(repo);
         const { session } = app;
 
-        await session.waitForText((t) => t.includes("EXPLORER"));
+        await session.waitForText((t) => t.includes(explorerTitle(repo)));
         await session.key("Alt+C");
         const frame = await session
             .waitForText((t) => t.includes("SOURCE CONTROL") && t.includes("mod.ts"))
@@ -306,7 +307,7 @@ describe("Source Control in the sidebar (functional e2e, PR #207)", () => {
         app = await open(repo);
         const { session } = app;
 
-        await session.waitForText((t) => t.includes("EXPLORER"));
+        await session.waitForText((t) => t.includes(explorerTitle(repo)));
         await session.key("Alt+C");
         await session.waitForText((t) => t.includes("SOURCE CONTROL") && t.includes("app.ts"));
         const list = await session.waitForNode("#changesView");

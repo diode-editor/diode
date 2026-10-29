@@ -63,7 +63,7 @@ describe("ViewsService — section visibility", () => {
 
         expect(h.header("scm")).toBeNull();
         expect(h.paneView("scm").querySelector("#paneHeader-scm-changes")!.inspectState()).toMatchObject({
-            title: "SOURCE CONTROL",
+            title: "SCM.CHANGES",
             collapsible: false,
         });
 

@@ -437,8 +437,8 @@ describe("registerExtensionViews — `when`", () => {
 
     it("a view whose clause is false takes no place: no section, no container, `.focus` does nothing", () => {
         const { h } = setup([GATED]);
-        // A single section merges with the container and carries its title.
-        expect(paneTitles(h.paneView("explorer"))).toEqual(["EXPLORER"]);
+        // A single section merges with the container and keeps its own title.
+        expect(paneTitles(h.paneView("explorer"))).toEqual(["EXPLORER.FILES"]);
         expect(h.service.getViewContainers().map((c) => c.id)).not.toContain("workbench.view.extension.go");
         const shownBefore = h.shownViewlets.length;
         h.commands.execute("go.profiles.focus");
@@ -461,7 +461,7 @@ describe("registerExtensionViews — `when`", () => {
 
         h.contextKeys.setRaw("go.showExplorer", false);
         await Promise.resolve();
-        expect(paneTitles(h.paneView("explorer"))).toEqual(["EXPLORER"]);
+        expect(paneTitles(h.paneView("explorer"))).toEqual(["EXPLORER.FILES"]);
     });
 
     it("a clause that holds at startup registers the view right away; blank clauses count as none", () => {

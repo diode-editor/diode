@@ -19,6 +19,7 @@ import { NULL_TREE_FILE_WATCHER } from "../../../../platform/files/common/iTreeF
 import { KeybindingRegistry } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import { applyThemeVars } from "../../../../platform/theme/browser/themeStyleVars.ts";
 import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";
+import { WorkspaceContextService } from "../../../../platform/workspace/common/workspaceContextService.ts";
 import { makeViewsHarness } from "../../../browser/parts/views/viewsService.testUtils.ts";
 import { darkPlusTheme } from "../../../services/themes/common/themes/darkPlus.ts";
 import { ThemeService } from "../../../services/themes/common/themeService.ts";
@@ -68,6 +69,7 @@ function createExplorer(themeService?: ThemeService): ExplorerHarness {
         makeContextMenuService(commands),
         makeViewsHarness().service,
         NULL_CONFIGURATION_SERVICE,
+        new WorkspaceContextService(),
     );
     return {
         service,
@@ -364,6 +366,7 @@ describe("ExplorerComponent — root assigned after construction", () => {
             makeContextMenuService(new CommandRegistry()),
             makeViewsHarness().service,
             NULL_CONFIGURATION_SERVICE,
+            new WorkspaceContextService(),
         );
         const app = TestApp.createWithContent(component.view, new Size(30, 10));
         await service.refresh();

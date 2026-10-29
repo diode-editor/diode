@@ -114,6 +114,36 @@ describe("ViewsService.setViewTitle", () => {
     });
 });
 
+// Deviation from upstream `ViewPaneContainer.getTitle` ("CONTAINER: SECTION"), a human's decision in #898:
+// a merged sidebar header is just the single section's title.
+describe("ViewsService — merged sidebar header", () => {
+    it("carries the single section's title and description; a renamed section shows there at once", () => {
+        const h = harness();
+        h.service.setViewVisible("sb.b", false);
+        expect(h.header("sb")).toBeNull();
+        expect(paneTitles(h.paneView("sb"))).toEqual(["SB.A"]);
+
+        h.service.setViewTitle("sb.a", "DIODE", "main");
+        expect(paneTitles(h.paneView("sb"))).toEqual(["DIODE"]);
+        expect(headerState(h, "sb.a")).toMatchObject({ description: "main", collapsible: false });
+    });
+
+    it("1 <-> 2 sections: the header switches between the section title and the container title", () => {
+        const h = harness();
+        h.service.setViewTitle("sb.a", "DIODE", null);
+        expect(h.header("sb")!.inspectState()).toMatchObject({ title: "SB" });
+        expect(paneTitles(h.paneView("sb"))).toEqual(["DIODE", "SB.B"]);
+
+        h.service.setViewVisible("sb.b", false);
+        expect(h.header("sb")).toBeNull();
+        expect(paneTitles(h.paneView("sb"))).toEqual(["DIODE"]);
+
+        h.service.setViewVisible("sb.b", true);
+        expect(h.header("sb")!.inspectState()).toMatchObject({ title: "SB" });
+        expect(paneTitles(h.paneView("sb"))).toEqual(["DIODE", "SB.B"]);
+    });
+});
+
 // Upstream `ViewPaneContainer.openView` expands the section it opens (TreeView.reveal goes through it).
 describe("ViewsService.openView — a collapsed section", () => {
     it("is expanded, persisted and reported like a user expand", () => {

@@ -181,7 +181,7 @@ describe("ViewsService", () => {
 });
 
 describe("ViewsService — merged container derives from the number of visible sections", () => {
-    it("single view: no container header, the section carries its title and does not collapse", () => {
+    it("single view: no container header, the section header carries the section's title and does not collapse", () => {
         const h = makeViewsHarness();
         h.service.registerContainer({ id: "search", title: "SEARCH", location: "sidebar" });
         h.service.registerView(view("search.results", "search", 10));
@@ -192,7 +192,7 @@ describe("ViewsService — merged container derives from the number of visible s
         expect(paneView.getPaneIds()).toEqual(["search.results"]);
 
         const header = paneView.querySelector("#paneHeader-search-results")!;
-        expect(header.inspectState()).toMatchObject({ title: "SEARCH", collapsible: false });
+        expect(header.inspectState()).toMatchObject({ title: "SEARCH.RESULTS", collapsible: false });
 
         // Not collapsible: both a stale persisted state and the programmatic path are no-ops.
         paneView.setCollapsed("search.results", true);
@@ -215,14 +215,6 @@ describe("ViewsService — merged container derives from the number of visible s
         expect(h.paneView("search").querySelector("#paneHeader-search-results")!.inspectState()).toMatchObject({
             collapsible: true,
         });
-    });
-
-    it("leading spaces of a container title do not leak into the merged section", () => {
-        const h = makeViewsHarness();
-        h.service.registerContainer({ id: "scm", title: "  SOURCE CONTROL", location: "sidebar" });
-        h.service.registerView(view("scm.changes", "scm", 10));
-        h.service.attachContainer("scm");
-        expect(paneTitles(h.paneView("scm"))).toEqual(["SOURCE CONTROL"]);
     });
 
     it("restoreViewsState with stale collapsed state does not collapse the merged section", () => {

@@ -1,5 +1,6 @@
 import { resolve } from "node:path";
 
+import { explorerTitle } from "../helpers/explorerTitle.ts";
 import { defineScenario, repoRoot } from "./framework.ts";
 
 // A dedicated registry fixture: the shared one sets card states up for the badge demo, and the support marker
@@ -20,7 +21,7 @@ export default defineScenario({
     cols: 110,
     rows: 28,
     async run(editor) {
-        await editor.waitForText((t) => t.includes("EXPLORER"));
+        await editor.waitForText((t) => t.includes(explorerTitle(repoRoot)));
         await editor.sendKey("F6");
         await editor.waitForText((t) => t.includes("MARKETPLACE"));
         await editor.waitForText((t) => t.includes("Acme Copilot-ish"));

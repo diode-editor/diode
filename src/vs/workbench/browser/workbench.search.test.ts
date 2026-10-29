@@ -1,3 +1,5 @@
+import * as path from "node:path";
+
 import { Size } from "@tuidom/core/common/geometryPromitives";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
@@ -16,13 +18,15 @@ const SHOW_EXPLORER = "workbench.view.explorer";
 
 describe("Workbench: Search viewlet in the sidebar", () => {
     let ws: ITempWorkspace;
+    // The Explorer section is named after the open folder (#898).
+    const folderTitle = (): string => path.basename(ws.dir).toUpperCase();
     let workbench: WorkbenchComponent;
     let commands: CommandRegistry;
     let sidebar: SidebarService;
     let testApp: TestApp;
 
     beforeEach(async () => {
-        ws = createTempWorkspace({ prefix: "diode-search-view-", files: { "a.txt": "foo\n" } });
+        ws = createTempWorkspace({ prefix: "diode-find-view-", files: { "a.txt": "foo\n" } });
         const { container, bindApp } = createTestContainer();
         workbench = container.get(WorkbenchComponentDIToken);
         commands = container.get(CommandRegistryDIToken);
@@ -43,7 +47,7 @@ describe("Workbench: Search viewlet in the sidebar", () => {
     it("by default the sidebar shows Explorer, not Search", () => {
         testApp.render();
         expect(sidebar.getActiveViewletId()).toBe("explorer");
-        expect(testApp.backend.screenToString()).toContain("EXPLORER");
+        expect(testApp.backend.screenToString()).toContain(folderTitle());
     });
 
     it("workbench.view.search shows Search in the sidebar and focuses the query", () => {
@@ -81,7 +85,7 @@ describe("Workbench: Search viewlet in the sidebar", () => {
         testApp.render();
         expect(sidebar.getActiveViewletId()).toBe("explorer");
         const screen = testApp.backend.screenToString();
-        expect(screen).toContain("EXPLORER");
+        expect(screen).toContain(folderTitle());
         expect(screen).not.toContain("SEARCH");
     });
 });

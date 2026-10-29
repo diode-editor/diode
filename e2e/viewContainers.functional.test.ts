@@ -1,5 +1,6 @@
 import { beforeAll, describe, expect, it } from "vitest";
 
+import { explorerTitle } from "./helpers/explorerTitle.ts";
 import type { HeadlessApp } from "./helpers/appSession.ts";
 import { getBinaryPath } from "./helpers/buildOnce.ts";
 import { frameToText } from "./helpers/frame.ts";
@@ -22,7 +23,7 @@ const PROBLEMS_CONTAINER = "workbench.panel.markers.view";
 
 async function openApp(): Promise<HeadlessApp> {
     const app = await useHeadlessApp({ files: FILES, keybindings: KEYS, cols: 100, rows: 30 });
-    await app.session.waitForText((t) => t.includes("EXPLORER"));
+    await app.session.waitForText((t) => t.includes(explorerTitle(app.env.workspaceDir)));
     return app;
 }
 
@@ -49,7 +50,8 @@ describe("View containers (functional e2e)", () => {
         // its title and doesn't collapse.
         expect(await session.node("#viewContainerHeader-explorer")).toBeNull();
         const header = await session.node("#paneHeader-workbench-explorer-fileView");
-        expect(header?.state).toMatchObject({ title: "EXPLORER", collapsible: false });
+        // The single section is named after the folder (#898): the isolated workspace is `workspace`.
+        expect(header?.state).toMatchObject({ title: "WORKSPACE", collapsible: false });
     });
 
     it("the Explorer header carries the create and refresh buttons", async () => {
@@ -61,8 +63,9 @@ describe("View containers (functional e2e)", () => {
         // The buttons occupy the right columns of the header row: three actions of 3 columns each
         // plus "⋯". Checked via the frame: the header row isn't empty on the right.
         const text = frameToText(await session.captureFrame());
-        const titleRow = text.split("\n").find((line) => line.includes("EXPLORER"))!;
-        expect(titleRow.trimEnd().length).toBeGreaterThan(" EXPLORER".length);
+        const title = explorerTitle(app.env.workspaceDir);
+        const titleRow = text.split("\n").find((line) => line.includes(title))!;
+        expect(titleRow.trimEnd().length).toBeGreaterThan(` ${title}`.length);
     });
 
     // ViewsService resolves header buttons only for the visible container; a hidden one
@@ -94,7 +97,7 @@ describe("View containers (functional e2e)", () => {
         expect(await session.node("#searchView")).not.toBeNull();
 
         await session.key("F7");
-        await session.waitForText((t) => t.includes("EXPLORER"));
+        await session.waitForText((t) => t.includes(explorerTitle(app.env.workspaceDir)));
         expect(await session.node("#explorer")).not.toBeNull();
     });
 
