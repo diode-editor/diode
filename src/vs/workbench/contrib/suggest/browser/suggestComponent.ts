@@ -13,6 +13,12 @@ import { CaretAnchoredOverlay } from "../../../browser/parts/editor/caretAnchore
 import type { LayoutService } from "../../../services/layout/browser/layoutService.ts";
 import { LayoutServiceDIToken } from "../../../services/layout/browser/layoutService.ts";
 
+/** Width limits are a share of the window (a deviation from VS Code's fixed 430/330px), clamped to these bounds. */
+const WIDTH_SHARE_OF_WINDOW = 0.4;
+const LIST_MIN_LIMIT = 40;
+const DETAILS_MIN_LIMIT = 60;
+const MAX_LIMIT = 100;
+
 export const SuggestComponentDIToken = token<SuggestComponent>("SuggestComponent");
 
 /** Not a ThemedComponent: the `editorSuggestWidget.*` tokens resolve from the theme palette on the root. */
@@ -64,6 +70,7 @@ export class SuggestComponent extends Component {
     /** Does NOT take focus — the editor stays active, like VS Code. */
     public openAt(anchor: OverlayAnchorPosition): void {
         this.lastAnchor = anchor;
+        this.updateWidthLimits();
         this.chooseDetailsSide(anchor);
         this.overlay.openAt(anchor);
     }
@@ -75,8 +82,16 @@ export class SuggestComponent extends Component {
     public refreshDetailsLayout(): void {
         const anchor = this.lastAnchor;
         if (anchor === null) return;
+        this.updateWidthLimits();
         this.chooseDetailsSide(anchor);
         this.overlay.setAnchor(anchor);
+    }
+
+    /** The list and details still shrink to their content; only the upper limit follows the window width. */
+    private updateWidthLimits(): void {
+        const share = Math.floor(this.hostView.layoutSize.width * WIDTH_SHARE_OF_WINDOW);
+        this.widget.list.preferredWidth = Math.min(MAX_LIMIT, Math.max(LIST_MIN_LIMIT, share));
+        this.widget.details.maxWidth = Math.min(MAX_LIMIT, Math.max(DETAILS_MIN_LIMIT, share));
     }
 
     /**
@@ -92,6 +107,8 @@ export class SuggestComponent extends Component {
 
     public setAnchor(anchor: OverlayAnchorPosition): void {
         this.lastAnchor = anchor;
+        this.updateWidthLimits();
+        this.chooseDetailsSide(anchor);
         this.overlay.setAnchor(anchor);
     }
 
