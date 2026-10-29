@@ -4,9 +4,9 @@ import type { GridSnapshot } from "@tuidom/core/rendering/gridSnapshot";
 
 import { defineScenario, repoRoot, type ScenarioDriver } from "./framework.ts";
 
-// Opening src/app/main.ts reveals it (explorer.autoReveal): src and src/app are expanded, the cursor is on main.ts.
+// The folders are expanded by clicks, not by auto-reveal of an opened file: on the Windows CI runner
+// revealing src/app/main.ts left src/app collapsed.
 const sampleDir = resolve(repoRoot, "e2e", "fixtures", "indentGuides");
-const mainFile = resolve(sampleDir, "src", "app", "main.ts");
 
 const GUIDE = "│";
 
@@ -43,12 +43,23 @@ async function expectGuides(editor: ScenarioDriver, expected: Record<string, num
 export default defineScenario({
     name: "explorer-indent-guides",
     title: "workbench.tree.renderIndentGuides: the active guide always, the rest while the mouse is over the tree",
-    open: [sampleDir, mainFile],
+    open: [sampleDir],
     cols: 100,
     rows: 20,
     async run(editor) {
-        await editor.waitForText((t) => t.includes("util.ts") && t.includes("index.ts") && t.includes("indent guides"));
-        // Without the mouse: one bright guide of src/app through main.ts and util.ts.
+        await editor.waitForText((t) => t.includes("src") && t.includes("README.md"));
+        // Rows: src, app, main.ts, util.ts, index.ts, README.md. Indent 1, chevron, space: a name at depth d
+        // starts at column 3 + 2d.
+        await editor.clickNode("TreeViewElement", { dx: 4, dy: 0 });
+        await editor.waitForText((t) => t.includes("app") && t.includes("index.ts"));
+        await editor.clickNode("TreeViewElement", { dx: 6, dy: 1 });
+        await editor.waitForText((t) => t.includes("util.ts"));
+        // A single click opens main.ts as a preview, the cursor stays on its row.
+        await editor.clickNode("TreeViewElement", { dx: 8, dy: 2 });
+        await editor.waitForText((t) => t.includes("indent guides"));
+
+        // Without the mouse over the tree: one bright guide of src/app through main.ts and util.ts.
+        await editor.sendMouse({ action: "move", x: 70, y: 10 });
         await expectGuides(editor, { app: 0, "main.ts": 1, "util.ts": 1, "index.ts": 0 });
         await editor.capture("active-only");
 
