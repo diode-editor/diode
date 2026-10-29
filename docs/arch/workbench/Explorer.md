@@ -72,7 +72,16 @@
   открывает постоянно (`list.select` эталона). Режим приходит вторым аргументом
   `onActivate` (`TreeActivateOptions { pinned, preserveFocus }`) и уходит в
   `workbench.openFile` как `{ preview: !pinned, focus: !preserveFocus }` —
-  ровно `explorerView.onDidOpen` эталона.
+  ровно `explorerView.onDidOpen` эталона. Отступные линии — настройка
+  `workbench.tree.renderIndentGuides` (`none | onHover | always`, дефолт
+  `onHover`), общая для Explorer, деревьев расширений и Problems: опция движка
+  `TreeViewElement.renderIndentGuides` читается на каждой отрисовке, смену
+  настройки ловит `onDidChangeTreeIndentGuides` (`workbench/browser/treeIndentGuides.ts`)
+  и перерисовывает дерево. Линия предка — `│` в колонке его шеврона; активна
+  линия раскрытой папки под курсором/выделением, у листа — линия родителя
+  (`tree.indentGuidesStroke`), остальные — `tree.inactiveIndentGuidesStroke`
+  (40% альфы) и в `onHover` видны, пока мышь над деревом. Отступление от
+  эталона: глиф по центру клетки вместо 1px-рамки, без анимации появления.
 - `contrib/files/browser/fileOperationsService.ts` — файловые операции поверх
   `WorkspaceEditService`/`DialogService`/`UndoRedoService`/`IFileClipboard`:
   `runCreate`/`runRename` (промпт имени через узкий шов

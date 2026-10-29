@@ -751,4 +751,11 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
             "Controls how tree folders are expanded when clicking the folder names. Note that some trees and lists might choose to ignore this setting if it is not applicable.",
         enum: ["singleClick", "doubleClick"],
     },
+    {
+        key: "workbench.tree.renderIndentGuides",
+        type: "string",
+        default: "onHover",
+        description: "Controls whether the tree should render indent guides.",
+        enum: ["none", "onHover", "always"],
+    },
 ];

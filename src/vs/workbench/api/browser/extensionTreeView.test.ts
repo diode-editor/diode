@@ -1,6 +1,7 @@
 import { Point, Size } from "@tuidom/core/common/geometryPromitives";
 import { TUIKeyboardEvent } from "@tuidom/core/dom/events/tuiKeyboardEvent";
 import type { MouseToken } from "@tuidom/core/input/rawTerminalToken";
+import type { TreeIndentGuides } from "@tuidom/elements/tree/treeViewElement";
 import { describe, expect, it } from "vitest";
 
 import { createSwitchableIcons } from "../../../../TestUtils/switchableIcons.ts";
@@ -8,7 +9,7 @@ import { TestApp } from "../../../../TestUtils/TestApp.ts";
 import { flushMicrotasks } from "../../../../TestUtils/timing.ts";
 import { CODICON_GLYPHS } from "../../../base/common/codicons.generated.ts";
 import { CODICON_UNICODE } from "../../../base/common/codiconsUnicode.ts";
-import { Event } from "../../../base/common/event.ts";
+import { Emitter, Event } from "../../../base/common/event.ts";
 import { getFileIcon } from "../../../base/common/fileIcons.ts";
 import type { ILogger } from "../../../platform/log/common/iLogger.ts";
 import { computeThemeVars } from "../../../platform/theme/browser/themeStyleVars.ts";
@@ -91,6 +92,8 @@ function mount(
         {
             openOnSingleClick: () => true,
             expandOnRowClick: () => true,
+            renderIndentGuides: () => "none",
+            onDidChangeRenderIndentGuides: Event.None,
             notifyError: (message) => errors.push(message),
             hasColor: (token) => typeof vars[token] === "number",
             relativeDirectory: (uri) => `dir-of(${uri})`,
@@ -613,6 +616,25 @@ describe("ExtensionTreeView — gestures", () => {
         f.app.sendKey("Enter");
         await f.settle();
         expect(f.lines()).toHaveLength(1);
+    });
+
+    it("`workbench.tree.renderIndentGuides`: read on every frame, a change event repaints the rows", async () => {
+        const source = fakeSource({
+            "": [item("p", "pkg", { collapsibleState: 2 })],
+            p: [item("p/c", "child", { parentHandle: "p" })],
+        });
+        let mode: TreeIndentGuides = "always";
+        const changed = new Emitter<void>();
+        const f = mount(source, {
+            host: { renderIndentGuides: () => mode, onDidChangeRenderIndentGuides: changed.event },
+        });
+        f.tree.setVisible(true);
+        await f.settle();
+        expect(f.lines()[1]).toMatch(/^ \u2502 /);
+
+        mode = "none";
+        changed.fire();
+        expect(f.lines()[1]).toMatch(/^ {3}/);
     });
 
     it("a single click opens a leaf with `workbench.list.openMode: singleClick`, not with doubleClick", async () => {

@@ -1,13 +1,15 @@
-import { Size } from "@tuidom/core/common/geometryPromitives";
+import { Point, Size } from "@tuidom/core/common/geometryPromitives";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createSwitchableIcons, type ISwitchableIcons } from "../../../../../TestUtils/switchableIcons.ts";
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
+import { createTestConfigurationService } from "../../../../../TestUtils/testConfigurationService.ts";
 import { settle } from "../../../../../TestUtils/timing.ts";
 import { codicon } from "../../../../base/common/codicons.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import { createRange } from "../../../../editor/common/core/iRange.ts";
 import { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
+import type { InMemoryConfigurationService } from "../../../../platform/configuration/common/inMemoryConfigurationService.ts";
 import type { IMarkerData } from "../../../../platform/markers/common/iMarker.ts";
 import { MarkerSeverity } from "../../../../platform/markers/common/iMarker.ts";
 import { MarkerService } from "../../../../platform/markers/common/markerService.ts";
@@ -62,6 +64,7 @@ describe("ProblemsComponent", () => {
     let revealTarget: ReturnType<typeof makeRevealTarget>;
     let testApp: TestApp;
     let switchIcons: ISwitchableIcons["set"];
+    let config: InMemoryConfigurationService;
 
     beforeEach(() => {
         const themeService = new ThemeService(WorkbenchTheme.fromThemeFile(darkPlusTheme));
@@ -72,7 +75,15 @@ describe("ProblemsComponent", () => {
         revealTarget = makeRevealTarget();
         const { icons, set } = createSwitchableIcons(true);
         switchIcons = set;
-        component = new ProblemsComponent(markerService, views.service, revealTarget, NULL_JUMP_RECORDER, icons);
+        config = createTestConfigurationService();
+        component = new ProblemsComponent(
+            markerService,
+            views.service,
+            revealTarget,
+            NULL_JUMP_RECORDER,
+            config,
+            icons,
+        );
         // The PROBLEMS container is built by the workbench's mount() — here it plays that role.
         views.service.attachRegisteredContainers();
         testApp = TestApp.createWithContent(panelComponent.view, new Size(70, 12));
@@ -125,6 +136,26 @@ describe("ProblemsComponent", () => {
         await vi.waitFor(() => {
             expect(line()).toContain(`${codicon("warning").nerdFont} Unknown Setting: x`);
         });
+    });
+
+    it("workbench.tree.renderIndentGuides: a marker row has its file's guide in column 0, the setting applies live", async () => {
+        markerService.changeOne("settings", RESOURCE, [
+            warning("Unknown Setting: x", 1),
+            warning("Unknown Setting: y", 2),
+        ]);
+        await settleMarkers();
+        const guideColumn = (): string => {
+            testApp.render();
+            const { x, y } = component.tree.globalPosition;
+            return [1, 2].map((row) => testApp.backend.getTextAt(new Point(x, y + row), 1)).join("");
+        };
+        // Rows 1-2 are the markers. The cursor is on the file row: its own guide through its markers is active, so visible on hover too.
+        expect(guideColumn()).toBe("\u2502\u2502");
+
+        await config.updateValue("workbench.tree.renderIndentGuides", "none");
+        expect(guideColumn()).toBe("  ");
+        await config.updateValue("workbench.tree.renderIndentGuides", "always");
+        expect(guideColumn()).toBe("\u2502\u2502");
     });
 
     it("falls back to the placeholder when the markers clear", async () => {

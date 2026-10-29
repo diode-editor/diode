@@ -18,6 +18,7 @@ import { Component } from "../../../browser/component.ts";
 import type { ViewsService } from "../../../browser/parts/views/viewsService.ts";
 import { ViewsServiceDIToken } from "../../../browser/parts/views/viewsService.ts";
 import type { IViewWelcomeBlock } from "../../../browser/parts/views/viewWelcomeElement.ts";
+import { onDidChangeTreeIndentGuides, treeIndentGuides } from "../../../browser/treeIndentGuides.ts";
 import type { IOpenUriOptions } from "../../../services/editor/common/editorService.ts";
 import {} from "../../../services/themes/common/themeTokens.ts";
 
@@ -91,6 +92,11 @@ export class ExplorerComponent extends Component implements IContextKeyContribut
             },
         });
         this.register(
+            onDidChangeTreeIndentGuides(configurationService, () => {
+                this.parts?.tree.markDirty();
+            }),
+        );
+        this.register(
             explorerService.onDidChangeRoot(() => {
                 this.rebuild();
             }),
@@ -137,6 +143,7 @@ export class ExplorerComponent extends Component implements IContextKeyContribut
             expandOnlyOnTwistieClick: () =>
                 this.configurationService.get("workbench.tree.expandMode") === "doubleClick",
             openOnSingleClick: () => this.configurationService.get("workbench.list.openMode") !== "doubleClick",
+            renderIndentGuides: treeIndentGuides(this.configurationService),
         });
         const scrollBars = new ScrollBarDecorator(tree);
         scrollBars.id = "explorerView";

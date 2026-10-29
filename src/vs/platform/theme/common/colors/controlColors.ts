@@ -63,6 +63,15 @@ export const controlColors = {
         defaults: { dark: "#808080", light: "#8E8E90" },
         description: "List/Tree foreground color for items that are deemphasized (e.g. cut in explorer).",
     },
+    // Upstream: `tree.inactiveIndentGuidesStroke` is `transparent(tree.indentGuidesStroke, 0.4)`, baked as hex.
+    "tree.indentGuidesStroke": {
+        defaults: { dark: "#585858", light: "#a9a9a9" },
+        description: "Tree stroke color for the indentation guides.",
+    },
+    "tree.inactiveIndentGuidesStroke": {
+        defaults: { dark: "#58585866", light: "#a9a9a966" },
+        description: "Tree stroke color for the indentation guides that are not active.",
+    },
     "list.errorForeground": {
         defaults: { dark: "#F88070", light: "#B01011" },
         description: "Foreground color of list items containing errors.",

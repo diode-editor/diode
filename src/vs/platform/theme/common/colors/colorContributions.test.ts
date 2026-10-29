@@ -1,6 +1,9 @@
+import { packRgb, packRgba } from "@tuidom/core/common/colorUtils";
 import { describe, expect, it } from "vitest";
 
 import { builtinThemes } from "../../../../workbench/services/themes/common/themes/builtinThemes.ts";
+import { darkModernTheme } from "../../../../workbench/services/themes/common/themes/darkModern.ts";
+import { lightModernTheme } from "../../../../workbench/services/themes/common/themes/lightModern.ts";
 import { type ColorContribution, isColorReference } from "../colorRegistry.ts";
 import { parseHexColor } from "../colorUtils.ts";
 import { WorkbenchTheme } from "../workbenchTheme.ts";
@@ -41,6 +44,8 @@ const REQUIRED_COLORS: (keyof IWorkbenchColors)[] = [
     "list.hoverBackground",
     "list.deemphasizedForeground",
     "list.errorForeground",
+    "tree.indentGuidesStroke",
+    "tree.inactiveIndentGuidesStroke",
     "button.background",
     "button.foreground",
     "button.hoverBackground",
@@ -73,6 +78,15 @@ describe("default color registry coverage", () => {
             }
         });
     }
+
+    it("tree indent guides take upstream defaults; the inactive stroke is the active one at 40% alpha", () => {
+        const dark = WorkbenchTheme.fromThemeFile(darkModernTheme);
+        expect(dark.getRequiredColor("tree.indentGuidesStroke")).toBe(packRgb(0x58, 0x58, 0x58));
+        expect(dark.getRequiredColor("tree.inactiveIndentGuidesStroke")).toBe(packRgba(0x58, 0x58, 0x58, 0x66));
+        const light = WorkbenchTheme.fromThemeFile(lightModernTheme);
+        expect(light.getRequiredColor("tree.indentGuidesStroke")).toBe(packRgb(0xa9, 0xa9, 0xa9));
+        expect(light.getRequiredColor("tree.inactiveIndentGuidesStroke")).toBe(packRgba(0xa9, 0xa9, 0xa9, 0x66));
+    });
 
     /** On the registry, not on themes: a theme may accidentally mask a broken reference. */
     it("reference defaults point at registered keys with defaults and form no cycles", () => {

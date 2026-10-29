@@ -4,6 +4,8 @@ import { TreeViewElement } from "@tuidom/elements/tree/treeViewElement";
 import { RunOnceScheduler } from "../../../../base/common/async.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import type { IRange } from "../../../../editor/common/core/iRange.ts";
+import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
+import { IConfigurationServiceDIToken } from "../../../../platform/configuration/common/iConfigurationServiceDIToken.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { MarkerService } from "../../../../platform/markers/common/markerService.ts";
 import { MarkerServiceDIToken } from "../../../../platform/markers/common/markerService.ts";
@@ -15,6 +17,7 @@ import {
 import { Component } from "../../../browser/component.ts";
 import type { ViewsService } from "../../../browser/parts/views/viewsService.ts";
 import { ViewsServiceDIToken } from "../../../browser/parts/views/viewsService.ts";
+import { onDidChangeTreeIndentGuides, treeIndentGuides } from "../../../browser/treeIndentGuides.ts";
 import type { IJumpRecorder } from "../../../services/history/browser/historyService.ts";
 import { JumpRecorderDIToken } from "../../../services/history/browser/historyService.ts";
 import {} from "../../../services/themes/common/themeTokens.ts";
@@ -52,6 +55,7 @@ export class ProblemsComponent extends Component {
         ViewsServiceDIToken,
         MarkerRevealTargetDIToken,
         JumpRecorderDIToken,
+        IConfigurationServiceDIToken,
         ProductIconServiceDIToken,
     ] as const;
 
@@ -70,12 +74,13 @@ export class ProblemsComponent extends Component {
         private readonly viewsService: ViewsService,
         private readonly revealTarget: IMarkerRevealTarget,
         private readonly jumps: IJumpRecorder,
+        configuration: IConfigurationService,
         icons: IProductIconService = NERD_FONT_ICONS,
     ) {
         super();
         this.provider = new ProblemsTreeDataProvider();
         this.provider.icons = icons;
-        this.tree = new TreeViewElement(this.provider);
+        this.tree = new TreeViewElement(this.provider, { renderIndentGuides: treeIndentGuides(configuration) });
         this.tree.style = { fg: "editor.foreground", bg: "panel.background" };
         // Token names — the tree resolves colors (resolveColor) in its own scope.
         this.provider.severityColors = {
@@ -109,6 +114,11 @@ export class ProblemsComponent extends Component {
             new RunOnceScheduler(() => {
                 void this.update();
             }, PROBLEMS_UPDATE_DELAY_MS),
+        );
+        this.register(
+            onDidChangeTreeIndentGuides(configuration, () => {
+                this.tree.markDirty();
+            }),
         );
         this.register(
             // Without markers the tree is detached from the tab (placeholder): its refresh is invisible.

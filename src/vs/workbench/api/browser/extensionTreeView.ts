@@ -3,7 +3,7 @@ import type { TUIElement } from "@tuidom/core/dom/tuiElement";
 import type { MenuEntry, MenuItemEntry } from "@tuidom/elements/menu/popupMenuElement";
 import { ScrollBarDecorator } from "@tuidom/elements/scrollbar/scrollContainerElement";
 import type { ITreeDataProvider, ITreeItem, ITreeItemAction } from "@tuidom/elements/tree/iTreeDataProvider";
-import { TreeViewElement } from "@tuidom/elements/tree/treeViewElement";
+import { type TreeIndentGuides, TreeViewElement } from "@tuidom/elements/tree/treeViewElement";
 
 import { CODICON_GLYPHS } from "../../../base/common/codicons.generated.ts";
 import { Emitter, type Event } from "../../../base/common/event.ts";
@@ -29,6 +29,10 @@ export interface IExtensionTreeViewHost {
     /** `workbench.list.openMode`/`workbench.tree.expandMode`, read on every gesture as Explorer does. */
     readonly openOnSingleClick: () => boolean;
     readonly expandOnRowClick: () => boolean;
+    /** `workbench.tree.renderIndentGuides`, read on every frame. */
+    readonly renderIndentGuides: () => TreeIndentGuides;
+    /** The setting changed: the rows are redrawn. */
+    readonly onDidChangeRenderIndentGuides: Event<void>;
     /** Upstream `notificationService.error` for a row command that failed. */
     notifyError(message: string): void;
     /**
@@ -127,6 +131,7 @@ export class ExtensionTreeView implements IWelcomeTree, IDisposable {
             leftPadding: 1,
             expandOnlyOnTwistieClick: (node) => node.item.command !== undefined || !host.expandOnRowClick(),
             openOnSingleClick: () => host.openOnSingleClick(),
+            renderIndentGuides: () => host.renderIndentGuides(),
         });
         const scrollBars = new ScrollBarDecorator(this.tree);
         scrollBars.style = { fg: "sideBar.foreground", bg: "sideBar.background" };
@@ -158,6 +163,11 @@ export class ExtensionTreeView implements IWelcomeTree, IDisposable {
             void this.redraw();
         };
         this.subscriptions.add(host.icons.onDidChange(redraw));
+        this.subscriptions.add(
+            host.onDidChangeRenderIndentGuides(() => {
+                this.tree.markDirty();
+            }),
+        );
         this.subscriptions.add(host.onDidChangeItemMenu(redraw));
     }
 
