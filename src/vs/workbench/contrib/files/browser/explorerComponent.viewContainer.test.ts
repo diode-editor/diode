@@ -77,8 +77,8 @@ describe("ExplorerComponent — sidebar container", () => {
         attach();
         expect(mergedTitle()).toBe("NO FOLDER OPENED");
 
-        h.workspace.setWorkspaceFolder(path.join(ws.dir, "проект"));
-        expect(mergedTitle()).toBe("ПРОЕКТ");
+        h.workspace.setWorkspaceFolder(path.join(ws.dir, "\u043f\u0440\u043e\u0435\u043a\u0442"));
+        expect(mergedTitle()).toBe("\u041f\u0420\u041e\u0415\u041a\u0422"); // "proekt": a non-Latin name is upper-cased too
         h.workspace.setWorkspaceFolder(path.join(ws.dir, "other"));
         expect(mergedTitle()).toBe("OTHER");
     });
