@@ -18,6 +18,7 @@ import type { ILogger } from "../../../platform/log/common/iLogger.ts";
 import { type IProductIconService, NERD_FONT_ICONS } from "../../../platform/theme/common/productIconService.ts";
 import type { IWorkspaceContextService } from "../../../platform/workspace/common/iWorkspaceContextService.ts";
 import type { ViewsService } from "../../browser/parts/views/viewsService.ts";
+import { onDidChangeTreeIndentGuides, treeIndentGuides } from "../../browser/treeIndentGuides.ts";
 import type { IExtensionTreeDataSource, IExtensionTreeViewsSink } from "../common/iExtensionTreeViewsSink.ts";
 import type { IThemeColorResolver } from "../common/iThemeColorResolver.ts";
 import type {
@@ -77,6 +78,8 @@ export class ExtensionTreeViewsAdapter implements IExtensionTreeViewsSink, IDisp
         this.host = {
             openOnSingleClick: () => configuration.get("workbench.list.openMode") !== "doubleClick",
             expandOnRowClick: () => configuration.get("workbench.tree.expandMode") !== "doubleClick",
+            renderIndentGuides: treeIndentGuides(configuration),
+            onDidChangeRenderIndentGuides: (listener) => onDidChangeTreeIndentGuides(configuration, listener),
             notifyError: (message) => {
                 services.notifyError(message);
             },

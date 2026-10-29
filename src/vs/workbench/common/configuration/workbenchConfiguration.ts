@@ -90,6 +90,14 @@ export const workbenchConfiguration = {
                 "Controls how tree folders are expanded when clicking the folder names. Note that some trees and " +
                 "lists might choose to ignore this setting if it is not applicable.",
         },
+        // Explorer, extension trees and Problems: all of them are `TreeViewElement`.
+        "workbench.tree.renderIndentGuides": {
+            scope: "window",
+            type: "string",
+            enum: ["none", "onHover", "always"],
+            default: "onHover",
+            description: "Controls whether the tree should render indent guides.",
+        },
         // Only the Explorer reads it so far: other trees and lists open on Enter and double click.
         "workbench.list.openMode": {
             scope: "window",

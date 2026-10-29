@@ -24,6 +24,7 @@ const EXPECTED_SCOPES: Readonly<Record<string, ConfigurationScope>> = {
     "workbench.editor.closeOnFileDelete": "window",
     "workbench.editor.editorActionsLocation": "window",
     "workbench.tree.expandMode": "window",
+    "workbench.tree.renderIndentGuides": "window",
     "workbench.list.openMode": "window",
     "workbench.sash.hoverDelay": "window",
     "workbench.secondarySideBar.defaultVisibility": "window",
