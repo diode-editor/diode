@@ -156,7 +156,12 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — stock Gruntfuggly.todo-t
                 const root = path.basename(harness.tmpDir);
                 await waitUntil("the workspace node in TODOS", () => frame().includes(root), 60_000);
                 click(root);
-                await waitUntil("src under the workspace", () => /^\s+(?:\S\s)?src\s*$/mu.test(frame()), 10_000);
+                // The cursor stays on the expanded workspace row: its indent guide runs through src.
+                await waitUntil(
+                    "src under the workspace",
+                    () => /^\s+(?:\u2502\s+)?(?:\S\s)?src\s*$/mu.test(frame()),
+                    10_000,
+                );
                 click("src");
                 await waitUntil("a.ts and b.ts under src", () => frame().includes("b.ts"), 10_000);
                 click("a.ts");
