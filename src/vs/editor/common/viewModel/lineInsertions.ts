@@ -74,14 +74,34 @@ export function composedFragmentStart(insertions: LineInsertions, line: number, 
 }
 
 /**
- * INSERTION POINT offset: unlike {@link composedOffset}, a cursor exactly at an insertion point
- * stays LEFT of the insertions there (upstream injected-text affinity).
+ * INSERTION POINT offset: unlike {@link composedOffset}, a point exactly at an insertion point
+ * stays LEFT of the insertions there (upstream injected-text affinity). Used for the exclusive end
+ * of a range, which never covers the insertions at its end.
  */
-export function composedCaretOffset(insertions: LineInsertions, line: number, offset: number): number {
+export function composedInsertionPointOffset(insertions: LineInsertions, line: number, offset: number): number {
     let composed = offset;
     for (const insertion of insertions.get(line) ?? NO_INSERTIONS) {
         if (insertion.offset >= offset) break;
         composed += insertion.text.length;
+    }
+    return composed;
+}
+
+/**
+ * CARET offset: like {@link composedInsertionPointOffset}, but the caret passes the insertions at
+ * its point up to the last one with {@link IInlineInsertion.caretSide} `"right"`, so it is drawn on
+ * the character after a color swatch rather than on the swatch.
+ */
+export function composedCaretOffset(insertions: LineInsertions, line: number, offset: number): number {
+    let composed = offset;
+    let pending = 0;
+    for (const insertion of insertions.get(line) ?? NO_INSERTIONS) {
+        if (insertion.offset > offset) break;
+        pending += insertion.text.length;
+        if (insertion.offset < offset || insertion.caretSide === "right") {
+            composed += pending;
+            pending = 0;
+        }
     }
     return composed;
 }

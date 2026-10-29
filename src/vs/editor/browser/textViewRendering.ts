@@ -12,6 +12,7 @@ import type { LineInsertions } from "../common/viewModel/lineInsertions.ts";
 import {
     composedCaretOffset,
     composedFragmentStart,
+    composedInsertionPointOffset,
     composedLineContent,
     composedOffset,
     documentOffset,
@@ -135,7 +136,7 @@ export function forEachRangeCell(
         const endCol =
             (endChar > lineContent.length
                 ? dl.displayWidth + 1
-                : dl.offsetToColumn(composedCaretOffset(geo.insertions, logLine, endChar))) - fragStartCol;
+                : dl.offsetToColumn(composedInsertionPointOffset(geo.insertions, logLine, endChar))) - fragStartCol;
 
         const screenXStart = Math.max(0, startCol - geo.scrollLeft);
         const screenXEnd = Math.min(geo.contentCols, endCol - geo.scrollLeft);
