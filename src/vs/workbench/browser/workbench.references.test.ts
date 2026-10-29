@@ -48,7 +48,8 @@ interface IHarness {
 
 describe("Workbench — Find All References end-to-end", () => {
     let ws: ITempWorkspace | undefined;
-    // The Explorer section is named after the open folder (#898).
+    // The Explorer section is named after the open folder (#898); a short prefix keeps the name within the
+    // 30-column sidebar, where a long title is clipped before the header buttons.
     const folderTitle = (): string => path.basename(ws!.dir).toUpperCase();
 
     afterEach(() => {
@@ -58,7 +59,7 @@ describe("Workbench — Find All References end-to-end", () => {
 
     function setup(): IHarness {
         ws = createTempWorkspace({
-            prefix: "diode-references-",
+            prefix: "ws-",
             files: { "main.ts": MAIN_TS, "defs.ts": DEFS_TS },
         });
         const workspace = ws;

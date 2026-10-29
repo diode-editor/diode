@@ -17,13 +17,14 @@ import { NotificationsComponentDIToken, TOAST_WIDTH } from "./parts/notification
 
 describe("Workbench — messages on the frame", () => {
     let ws: ITempWorkspace;
-    // The Explorer section is named after the open folder (#898).
+    // The Explorer section is named after the open folder (#898); a short prefix keeps the name within the
+    // 30-column sidebar, where a long title is clipped before the header buttons.
     const folderTitle = (): string => path.basename(ws.dir).toUpperCase();
     let h: IAppHarness;
     let notifications: NotificationService;
 
     beforeEach(async () => {
-        ws = createTempWorkspace({ prefix: "diode-notify-", files: { "alpha.txt": "Alpha content" } });
+        ws = createTempWorkspace({ prefix: "ws-", files: { "alpha.txt": "Alpha content" } });
         h = createAppTestHarness({ workspaceFolder: ws.dir, openFile: `${ws.dir}/alpha.txt`, focusEditor: true });
         await h.workbench.activate();
         await h.workbench.fileIndexReady;

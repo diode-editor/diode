@@ -90,7 +90,8 @@ interface IHarness {
 
 describe("Workbench — extension marketplace in the sidebar end-to-end", () => {
     let ws: ITempWorkspace | undefined;
-    // The Explorer section is named after the open folder (#898).
+    // The Explorer section is named after the open folder (#898); a short prefix keeps the name within the
+    // 30-column sidebar, where a long title is clipped before the header buttons.
     const folderTitle = (): string => path.basename(ws!.dir).toUpperCase();
 
     afterEach(() => {
@@ -99,7 +100,7 @@ describe("Workbench — extension marketplace in the sidebar end-to-end", () => 
     });
 
     function setup(): IHarness {
-        ws = createTempWorkspace({ prefix: "diode-extensions-view-", files: { "a.txt": "alpha\n" } });
+        ws = createTempWorkspace({ prefix: "ws-", files: { "a.txt": "alpha\n" } });
 
         const { container, bindApp } = createTestContainer();
         // Before the component is first resolved: in the test profile the marketplace is an empty null object.

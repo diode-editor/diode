@@ -87,9 +87,7 @@ describe("ViewTitleRowElement — button zones", () => {
         row.setDescription("main");
         row.setActions([{ id: "cmd.refresh", icon: "R" }]);
 
-        expect(renderElement(row, 20, 1, { themeVars: true }).screenToString().trimEnd()).toBe(
-            " A-REALLY-LON R │ ⋯",
-        );
+        expect(renderElement(row, 20, 1, { themeVars: true }).screenToString().trimEnd()).toBe(" A-REALLY-LON R │ ⋯");
         expect(row.hitZone(14)).toEqual({ kind: "action", actionId: "cmd.refresh" });
         expect(row.menuAnchorX).toBe(17);
         // Laid out wide again, the title is whole: the clamp is per layout, not stuck in the row.
@@ -102,7 +100,9 @@ describe("ViewTitleRowElement — button zones", () => {
     it("a short title leaves the description its room before the filler", () => {
         const row = new ViewTitleRowElement("TREE", { chevron: false });
         row.setDescription("3 found");
-        expect(renderElement(row, 30, 1, { themeVars: true }).screenToString().trimEnd()).toBe(" TREE 3 found               ⋯");
+        expect(renderElement(row, 30, 1, { themeVars: true }).screenToString().trimEnd()).toBe(
+            " TREE 3 found               ⋯",
+        );
     });
 
     it("a single button is rebuilt when any of its fields changes", () => {

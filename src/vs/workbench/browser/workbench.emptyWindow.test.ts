@@ -35,7 +35,7 @@ describe("Workbench — window without a workspace", () => {
     }
 
     beforeEach(() => {
-        ws = createTempWorkspace({ prefix: "diode-empty-window-", files: { "alpha.txt": "Alpha" } });
+        ws = createTempWorkspace({ prefix: "ws-", files: { "alpha.txt": "Alpha" } });
         terminalOptions = [];
         h = createAppTestHarness({
             size: new Size(80, 24),
@@ -56,8 +56,9 @@ describe("Workbench — window without a workspace", () => {
     it("the sidebar is built and shows Explorer with a welcome view instead of the tree", () => {
         expect(h.container.get(SidebarServiceDIToken).getActiveViewletId()).toBe(EXPLORER_VIEWLET_ID);
         const shown = screen();
-        // Upstream's empty-window view name; with one section it is the sidebar header (#898).
-        expect(shown).toContain("NO FOLDER OPENED");
+        // Upstream's empty-window view name; with one section it is the sidebar header (#898). The 30-column
+        // sidebar clips it before the header buttons.
+        expect(shown).toContain(" NO FOLDER OPEN ");
         expect(shown).toContain("You have not yet opened a");
         expect(shown).toContain("[ Open Folder ]");
     });
@@ -133,7 +134,7 @@ describe("Workbench — window without a workspace", () => {
         const shown = screen();
         // The header is renamed after the opened folder at once, without a restart.
         expect(shown).toContain(path.basename(ws.dir).toUpperCase());
-        expect(shown).not.toContain("NO FOLDER OPENED");
+        expect(shown).not.toContain("NO FOLDER");
         expect(shown).not.toContain("You have not yet opened a");
     });
 

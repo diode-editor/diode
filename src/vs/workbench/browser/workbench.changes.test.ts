@@ -41,7 +41,8 @@ const DELETED = "gitDecoration.deletedResourceForeground";
 
 describe("Workbench — Source Control in the sidebar end-to-end", () => {
     let ws: ITempWorkspace;
-    // The Explorer section is named after the open folder (#898).
+    // The Explorer section is named after the open folder (#898); a short prefix keeps the name within the
+    // 30-column sidebar, where a long title is clipped before the header buttons.
     const folderTitle = (): string => path.basename(ws.dir).toUpperCase();
     let workbench: WorkbenchComponent;
     let commands: CommandRegistry;
@@ -91,7 +92,7 @@ describe("Workbench — Source Control in the sidebar end-to-end", () => {
 
     beforeEach(async () => {
         ws = createTempWorkspace({
-            prefix: "diode-changes-",
+            prefix: "ws-",
             files: { "a.txt": AT_HEAD, "nested/b.txt": "b-on-disk\n", "untracked.txt": "brand new\n" },
         });
 

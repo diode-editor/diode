@@ -18,7 +18,8 @@ const SHOW_EXPLORER = "workbench.view.explorer";
 
 describe("Workbench: Search viewlet in the sidebar", () => {
     let ws: ITempWorkspace;
-    // The Explorer section is named after the open folder (#898).
+    // The Explorer section is named after the open folder (#898); a short prefix keeps the name within the
+    // 30-column sidebar, where a long title is clipped before the header buttons.
     const folderTitle = (): string => path.basename(ws.dir).toUpperCase();
     let workbench: WorkbenchComponent;
     let commands: CommandRegistry;
@@ -26,7 +27,7 @@ describe("Workbench: Search viewlet in the sidebar", () => {
     let testApp: TestApp;
 
     beforeEach(async () => {
-        ws = createTempWorkspace({ prefix: "diode-find-view-", files: { "a.txt": "foo\n" } });
+        ws = createTempWorkspace({ prefix: "ws-", files: { "a.txt": "foo\n" } });
         const { container, bindApp } = createTestContainer();
         workbench = container.get(WorkbenchComponentDIToken);
         commands = container.get(CommandRegistryDIToken);
