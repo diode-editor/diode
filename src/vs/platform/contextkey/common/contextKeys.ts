@@ -36,6 +36,10 @@ export interface ContextKeyTypes {
      * the switcher is a passthrough overlay without focus, not a quick pick.
      */
     tabSwitcherVisible: boolean;
+    /** Our Quick Open picker (files, commands, go to line, editors) is visible; not QuickInputService prompts. */
+    inQuickOpen: boolean;
+    /** Quick Open shows the files picker (no prefix): Ctrl+P / Ctrl+E step through it. */
+    inFilesPicker: boolean;
 
     /** "legacy" | "csi-u" | "kitty" */
     tier: string;

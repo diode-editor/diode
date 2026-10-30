@@ -1,4 +1,11 @@
 {
+    "CommandPalette": {
+        "": [
+            "workbench.action.quickOpenPreviousEditor",
+            "workbench.action.quickOpenNavigateNextInFilePicker",
+            "workbench.action.quickOpenNavigatePreviousInFilePicker"
+        ]
+    },
     "EditorContext": {
         "1_modification": [
             "editor.action.rename",

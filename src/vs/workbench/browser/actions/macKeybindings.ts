@@ -186,6 +186,9 @@ export const MAC_KEYBINDING_DELTAS: readonly MacKeybindingDelta[] = [
         ],
     },
     { command: "workbench.action.previousEditorInGroup", mac: [{ keys: "meta+k alt+meta+left", from: "cmd" }] },
+    { command: "workbench.action.quickOpen", pcOnly: ["ctrl+e"] },
+    { command: "workbench.action.quickOpenNavigateNextInFilePicker", pcOnly: ["ctrl+e"] },
+    { command: "workbench.action.quickOpenNavigatePreviousInFilePicker", pcOnly: ["ctrl+shift+e"] },
     {
         command: "workbench.action.showAllEditors",
         pcOnly: ["ctrl+k ctrl+p"],

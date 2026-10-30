@@ -481,6 +481,19 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
             "Glob patterns to exclude from search, in addition to files.exclude. Matched relative to the folder.",
     },
     {
+        key: "search.quickOpen.history.filterSortOrder",
+        type: "string",
+        default: "default",
+        description: "Controls sorting order of editor history in quick open when filtering.",
+        enum: ["default", "recency"],
+    },
+    {
+        key: "search.quickOpen.includeHistory",
+        type: "boolean",
+        default: true,
+        description: "Whether to include results from recently opened files in the file results for Quick Open.",
+    },
+    {
         key: "search.useGlobalIgnoreFiles",
         type: "boolean",
         default: false,

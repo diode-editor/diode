@@ -6,6 +6,7 @@ import { InputElement } from "@tuidom/elements/inputbox/inputElement";
 import { describe, expect, it, vi } from "vitest";
 
 import { TestApp } from "../../../../../TestUtils/TestApp.ts";
+import { createTestConfigurationService } from "../../../../../TestUtils/testConfigurationService.ts";
 import { flushMicrotasks } from "../../../../../TestUtils/timing.ts";
 import { Emitter } from "../../../../base/common/event.ts";
 import { charMask } from "../../../../base/common/fuzzySearch.ts";
@@ -135,11 +136,20 @@ function makeQuickAccessRegistry(deps: {
     contextKeys: ContextKeyService;
     gotoSource: IGotoLineEditorSource;
     openEditors: IOpenEditorsSource;
+    history: readonly Uri[];
 }): QuickAccessRegistry {
     const instances = new Map<unknown, unknown>([
         [
             FilesQuickAccessProviderDIToken,
-            new FilesQuickAccessProvider(deps.fileSearch, deps.commands, deps.gotoSource, NULL_JUMP_RECORDER),
+            new FilesQuickAccessProvider(
+                deps.fileSearch,
+                deps.commands,
+                deps.gotoSource,
+                NULL_JUMP_RECORDER,
+                { getHistory: () => deps.history, removeMissing: () => Promise.resolve(false) },
+                createTestConfigurationService(),
+                workspaceWithRoot("/root"),
+            ),
         ],
         [
             CommandsQuickAccessProviderDIToken,
@@ -170,6 +180,7 @@ interface MutableGotoLineSource extends IGotoLineEditorSource {
 function createService(
     fileResults: FileSearchResult[] = [],
     openPanes: IEditorPane[] = [],
+    history: readonly Uri[] = [],
 ): {
     service: QuickOpenService;
     commands: CommandRegistry;
@@ -191,7 +202,7 @@ function createService(
     const gotoSource: MutableGotoLineSource = { getActiveEditor: () => null };
     const openEditors = makeOpenEditorsSource(openPanes);
     const service = new QuickOpenService(
-        makeQuickAccessRegistry({ fileSearch, commands, keybindings, contextKeys, gotoSource, openEditors }),
+        makeQuickAccessRegistry({ fileSearch, commands, keybindings, contextKeys, gotoSource, openEditors, history }),
         component,
     );
 
@@ -351,10 +362,18 @@ describe("QuickOpenService — files mode", () => {
         expect(view.placeholder).toBe("Go to File...");
     });
 
-    it("open('files') calls search with empty query", () => {
-        const { service, fileSearch } = createService();
+    it("an empty query lists the recent files without searching the index", () => {
+        const { service, fileSearch, view } = createService(
+            [makeSearchResult("src/other.ts")],
+            [],
+            [Uri.file("/root/src/b.ts"), Uri.file("/root/a.ts")],
+        );
         service.show();
-        expect(fileSearch.search).toHaveBeenCalledWith("", 50);
+        expect(fileSearch.search).not.toHaveBeenCalled();
+        expect(view.items.map((item) => [item.label, item.description])).toEqual([
+            ["b.ts", "src"],
+            ["a.ts", ""],
+        ]);
     });
 
     it("open('files') kicks a throttled background re-index", () => {
@@ -417,7 +436,7 @@ describe("QuickOpenService — files mode", () => {
             makeSearchResult("src/d.ts"),
         ];
         const { service, testApp, fileSearch, view } = createService(results);
-        service.show();
+        service.show("src");
 
         testApp.sendKey("ArrowDown");
         testApp.sendKey("ArrowDown");
@@ -432,7 +451,7 @@ describe("QuickOpenService — files mode", () => {
     it("a query change resets the cursor to the top", () => {
         const results = [makeSearchResult("src/a.ts"), makeSearchResult("src/b.ts"), makeSearchResult("src/c.ts")];
         const { service, testApp, view } = createService(results);
-        service.show();
+        service.show("src");
 
         testApp.sendKey("ArrowDown");
         testApp.sendKey("ArrowDown");
@@ -445,7 +464,7 @@ describe("QuickOpenService — files mode", () => {
     it("items show basename as label and directory as description", () => {
         const results = [makeSearchResult("src/Controls/AppContainer.ts")];
         const { service, view } = createService(results);
-        service.show();
+        service.show("app");
         const items = view.items;
         expect(items[0].label).toBe("AppContainer.ts");
         expect(items[0].description).toBe("src/Controls");
@@ -454,7 +473,7 @@ describe("QuickOpenService — files mode", () => {
     it("file in root directory has empty description", () => {
         const results = [makeSearchResult("README.md")];
         const { service, view } = createService(results);
-        service.show();
+        service.show("readme");
         expect(view.items[0].description).toBe("");
     });
 
@@ -476,7 +495,7 @@ describe("QuickOpenService — files mode", () => {
             },
         ];
         const { service, view } = createService(results);
-        service.show();
+        service.show("app");
         const item = view.items[0];
         expect(item.labelMatchRanges).toEqual([[0, 3]]);
     });
@@ -492,7 +511,7 @@ describe("QuickOpenService — files mode", () => {
             },
         ];
         const { service, view } = createService(results);
-        service.show();
+        service.show("src");
         const item = view.items[0];
         expect(item.descriptionMatchRanges).toEqual([[0, 3]]);
         expect(item.labelMatchRanges).toEqual([]);
@@ -509,7 +528,7 @@ describe("QuickOpenService — files mode", () => {
             },
         ];
         const { service, view } = createService(results);
-        service.show();
+        service.show("sa");
         const item = view.items[0];
         expect(item.descriptionMatchRanges).toEqual([
             [0, 1],
@@ -528,7 +547,7 @@ describe("QuickOpenService — files mode", () => {
             },
         ];
         const { service, view } = createService(results);
-        service.show();
+        service.show("cap");
         const item = view.items[0];
         expect(item.descriptionMatchRanges).toEqual([[2, 4]]);
         expect(item.labelMatchRanges).toEqual([[0, 2]]);
@@ -538,7 +557,7 @@ describe("QuickOpenService — files mode", () => {
         const results = [makeSearchResult("src/main.ts", [])];
         const { service, commands, view } = createService(results);
         const execSpy = vi.spyOn(commands, "execute");
-        service.show();
+        service.show("main");
 
         const item = view.items[0] as QuickPickItem & { absolutePath: string };
         view.onAccept?.(item, 0);
@@ -567,7 +586,7 @@ describe("QuickOpenService — files mode", () => {
     it("accepting file closes the picker", async () => {
         const results = [makeSearchResult("src/main.ts")];
         const { service, commands, body, view } = createService(results);
-        service.show();
+        service.show("main");
         const item = view.items[0];
         view.onAccept?.(item, 0);
         await new Promise<void>((r) => {
@@ -845,6 +864,7 @@ describe("QuickOpenService — position and size", () => {
                 contextKeys: new ContextKeyService(),
                 gotoSource: { getActiveEditor: () => null },
                 openEditors: makeOpenEditorsSource(),
+                history: [],
             }),
             component,
         );
@@ -871,6 +891,7 @@ describe("QuickOpenService — position and size", () => {
                 contextKeys: new ContextKeyService(),
                 gotoSource: { getActiveEditor: () => null },
                 openEditors: makeOpenEditorsSource(),
+                history: [],
             }),
             component,
         );
@@ -1139,5 +1160,74 @@ describe("QuickOpenService — file:line suffix", () => {
         });
 
         expect(editor.goToPosition).not.toHaveBeenCalled();
+    });
+});
+
+describe("QuickOpenService — recent files navigation", () => {
+    const history = [Uri.file("/root/c.ts"), Uri.file("/root/b.ts"), Uri.file("/root/a.ts")];
+
+    it("inQuickOpen / inFilesPicker follow the picker and its mode", () => {
+        const { service, view, contextKeys } = createService([], [], history);
+        const keys = (): unknown[] => {
+            service.updateContextKeys(contextKeys);
+            return [contextKeys.get("inQuickOpen"), contextKeys.get("inFilesPicker")];
+        };
+
+        expect(keys()).toEqual([false, false]);
+        service.show();
+        expect(keys()).toEqual([true, true]);
+        view.onQueryChange?.("main");
+        expect(keys()).toEqual([true, true]);
+        view.onQueryChange?.(">");
+        expect(keys()).toEqual([true, false]);
+        view.onQueryChange?.("edt ");
+        expect(keys()).toEqual([true, false]);
+        view.onQueryChange?.("");
+        expect(keys()).toEqual([true, true]);
+        service.close();
+        expect(keys()).toEqual([false, false]);
+    });
+
+    it("navigate steps the cursor like the arrows, clamped at the ends, keeping the query", () => {
+        const { service, view } = createService([], [], history);
+        service.show();
+
+        service.navigate(true);
+        service.navigate(true);
+        expect(view.selectedIndex).toBe(2);
+        service.navigate(true);
+        expect(view.selectedIndex).toBe(2);
+        service.navigate(false);
+        expect(view.selectedIndex).toBe(1);
+        service.navigate(false);
+        service.navigate(false);
+        expect(view.selectedIndex).toBe(0);
+        expect(view.getQuery()).toBe("");
+    });
+
+    it("navigate on a closed picker does nothing", () => {
+        const { service, view } = createService([], [], history);
+        service.show();
+        service.close();
+
+        service.navigate(true);
+
+        expect(view.selectedIndex).toBe(0);
+    });
+
+    it("activateSecond opens with the cursor on the previous file", () => {
+        const { service, view } = createService([], [], history);
+
+        service.show("", { activateSecond: true });
+
+        expect(view.items[view.selectedIndex].label).toBe("b.ts");
+    });
+
+    it("without activateSecond the cursor is on the first row", () => {
+        const { service, view } = createService([], [], history);
+
+        service.show("");
+
+        expect(view.selectedIndex).toBe(0);
     });
 });

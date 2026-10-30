@@ -211,6 +211,7 @@ import { ThemeConfigContributionDIToken } from "./contrib/themes/browser/themeCo
 import { URL_ACTIONS } from "./contrib/url/browser/urlActions.ts";
 import { USER_DATA_PROFILE_ACTIONS } from "./contrib/userDataProfile/browser/userDataProfileActions.ts";
 import { WORD_HIGHLIGHTER_ACTIONS } from "./contrib/wordHighlighter/browser/wordHighlighterActions.ts";
+import { EditorHistoryServiceDIToken } from "./services/history/browser/editorHistoryService.ts";
 import { HistoryServiceDIToken } from "./services/history/browser/historyService.ts";
 import { TerminalEnvContextKeysContributionDIToken } from "./services/terminalEnvironment/node/terminalEnvContextKeysContribution.ts";
 import { TerminalEnvStatusContributionDIToken } from "./services/terminalEnvironment/node/terminalEnvStatusContribution.ts";
@@ -306,6 +307,9 @@ export const WORKBENCH_CONTRIBUTIONS: readonly IWorkbenchContributionRegistratio
     // reads it), but we don't rely on someone else's detail — the entry is explicit.
     // Stryker disable next-line ObjectLiteral,StringLiteral: see above — removing the entry is unobservable
     { token: HistoryServiceDIToken, phase: "ready" },
+    // Same reason: the restored active editor and the first opened file go on top of the recent-files list.
+    // Stryker disable next-line ObjectLiteral,StringLiteral: see above — removing the entry is unobservable in a unit test
+    { token: EditorHistoryServiceDIToken, phase: "ready" },
     { token: OutputChannelActionsDIToken, phase: "afterRestored" },
     // Diffs can be computed only once editors exist.
     { token: QuickDiffServiceDIToken, phase: "afterRestored" },
@@ -484,6 +488,7 @@ export const WORKBENCH_CONTEXT_KEY_CONTRIBUTORS: readonly Token<IContextKeyContr
     TerminalPanelComponentDIToken,
     TerminalEditorServiceDIToken,
     TabSwitcherComponentDIToken,
+    QuickOpenServiceDIToken,
     LanguageFeatureContextKeysDIToken,
     // Not keys, but the active input field for editing commands — in the same poll.
     InputWidgetServiceDIToken,
