@@ -44,7 +44,13 @@
   реализация — `search/node/fileSearchService.ts`, список файлов — `rg --files`
   с exclude-настройками и ignore-файлами), `debounceQuery`, live-refresh по
   `onIndexChanged` с сохранением курсора, `file:line[:col]`-суффикс через
-  `splitFileQuery` (`base/common/lineColumnQuery.ts`)), `CommandsQuickAccessProvider` (`>`:
+  `splitFileQuery` (`base/common/lineColumnQuery.ts`); над результатами поиска —
+  **история недавних файлов** (`EditorHistoryService`, см. EditorPart.md), как
+  `getEditorHistoryPicks` эталона: пустой запрос — только история, без файлов
+  индекса; с запросом — история, отфильтрованная по имени (по пути, если в
+  запросе есть `/`), сверху, и результаты поиска без уже показанных файлов;
+  настройки `search.quickOpen.includeHistory` и
+  `search.quickOpen.history.filterSortOrder`), `CommandsQuickAccessProvider` (`>`:
   `CommandRegistry.listCommands` + шорткаты из
   `KeybindingRegistry`/`ContextKeyService`, fuzzy-фильтр по подписи с
   сортировкой по очкам), `GotoLineQuickAccessProvider`
@@ -82,6 +88,13 @@
   `QuickAccessController`): `show(prefix)` занимает общий виджет, дальше
   ведёт запрос через реестр (смена префикса на лету переключает провайдера),
   к дорогим провайдерам применяет leading+trailing debounce 16мс. О
-  конкретных префиксах не знает. UI — тот же `QuickInputComponent`;
+  конкретных префиксах не знает. Он же — поставщик ключей `inQuickOpen` и
+  `inFilesPicker` (провайдер без префикса): на втором висят
+  `quickOpenNavigateNext/PreviousInFilePicker` — повторный Ctrl+P / Ctrl+E в
+  файловом пикере шагает вниз (с Shift — вверх), как в эталоне; в `when` у них
+  ещё `inputWidgetFocus`, иначе диспетчер глушит бинд за оверлеем. Подтверждение
+  по отпусканию Ctrl (quick navigate эталона) нет — терминал отпускание надёжно
+  не сообщает, выбор — Enter. `show(prefix, { activateSecond })` — курсор на
+  второй строке (`workbench.action.quickOpenPreviousEditor`). UI — тот же `QuickInputComponent`;
   сервис-клиент, занявший виджет позже, закрывает предыдущий показ (его
   промис отменяется через `onDidClose`).

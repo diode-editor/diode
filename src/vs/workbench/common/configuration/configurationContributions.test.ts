@@ -24,6 +24,7 @@ const EXPECTED_SCOPES: Readonly<Record<string, ConfigurationScope>> = {
     "workbench.editor.closeOnFileDelete": "window",
     "workbench.editor.editorActionsLocation": "window",
     "workbench.tree.expandMode": "window",
+    "workbench.tree.renderIndentGuides": "window",
     "workbench.list.openMode": "window",
     "workbench.sash.hoverDelay": "window",
     "workbench.secondarySideBar.defaultVisibility": "window",
@@ -80,6 +81,8 @@ const EXPECTED_SCOPES: Readonly<Record<string, ConfigurationScope>> = {
     "files.watcherInclude": "resource",
 
     "search.exclude": "resource",
+    "search.quickOpen.history.filterSortOrder": "window",
+    "search.quickOpen.includeHistory": "window",
     "search.useIgnoreFiles": "resource",
     "search.useGlobalIgnoreFiles": "resource",
     "search.useParentIgnoreFiles": "resource",

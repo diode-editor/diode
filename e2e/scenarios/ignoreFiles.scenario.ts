@@ -23,9 +23,12 @@ export default defineScenario({
         );
         await editor.capture("tree");
 
+        // An empty query lists only recently opened files: `.` matches every file of the fixture.
         await editor.sendKey("Ctrl+P");
+        const picker = await editor.waitForNode("#quickInput");
+        await editor.sendText(".");
         await editor.waitForText((t) => {
-            const list = quickOpenText(t);
+            const list = quickOpenText(t, picker.box);
             return (
                 list.includes("app.ts") &&
                 list.includes(".gitignore") &&
@@ -46,14 +49,11 @@ export default defineScenario({
     },
 });
 
-/** Right of the popup's left border and below its title: the tree on the left shows `server.log` on the same rows. */
-function quickOpenText(frame: string): string {
-    const lines = frame.split("\n");
-    const top = lines.findIndex((line) => line.includes("Go to File"));
-    if (top === -1) return "";
-    const left = lines[top].lastIndexOf("│", lines[top].indexOf("Go to File"));
-    return lines
-        .slice(top)
-        .map((line) => line.slice(left))
+/** The popup's columns from its top row down (it grows with the list): the tree beside it shows `server.log` too. */
+function quickOpenText(frame: string, box: { x: number; y: number; width: number }): string {
+    return frame
+        .split("\n")
+        .slice(box.y)
+        .map((line) => line.slice(box.x, box.x + box.width))
         .join("\n");
 }

@@ -362,6 +362,10 @@ import {
 } from "../../workbench/services/externalOpener/node/externalOpenerService.ts";
 import { FocusTracker, FocusTrackerDIToken } from "../../workbench/services/focus/browser/focusTracker.ts";
 import {
+    EditorHistoryService,
+    EditorHistoryServiceDIToken,
+} from "../../workbench/services/history/browser/editorHistoryService.ts";
+import {
     HistoryEditorSourceDIToken,
     HistoryGroupsSourceDIToken,
     HistoryService,
@@ -527,6 +531,7 @@ export const workbenchModule: ContainerModule = (container) => {
     container.bind(HistoryGroupsSourceDIToken, () => container.get(EditorGroupsServiceDIToken));
     container.bind(HistoryServiceDIToken, HistoryService);
     container.bind(JumpRecorderDIToken, () => container.get(HistoryServiceDIToken));
+    container.bind(EditorHistoryServiceDIToken, EditorHistoryService);
     container.bind(FindComponentDIToken, FindComponent);
     container.bind(FindServiceDIToken, FindService);
     container.bind(ActiveEditorStatusSourceDIToken, () => container.get(EditorServiceDIToken));

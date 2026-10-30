@@ -227,6 +227,11 @@ export class QuickPickElement extends TUIElement {
         this.moveCursorTo(clamped, { notify: false });
     }
 
+    /** Like the arrows: clamped at the list edges, fires {@link onActiveItemChanged}. */
+    public moveActive(delta: number): void {
+        this.moveSelection(delta);
+    }
+
     public getQuery(): string {
         return this.inputElement.inputState.value;
     }

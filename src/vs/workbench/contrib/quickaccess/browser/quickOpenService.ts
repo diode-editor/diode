@@ -1,4 +1,6 @@
 import { Disposable } from "../../../../base/common/lifecycle.ts";
+import type { IContextKeyContributor } from "../../../../platform/contextkey/common/contextKeyContributor.ts";
+import type { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { QuickInputComponent } from "../../../browser/parts/quickinput/quickInputComponent.ts";
 import { QuickInputComponentDIToken } from "../../../browser/parts/quickinput/quickInputComponent.ts";
@@ -16,11 +18,18 @@ export const QuickOpenServiceDIToken = token<QuickOpenService>("QuickOpenService
  * Counterpart of vscode's `QuickAccessController`. Shares its widget with `QuickInputService`, so every
  * show fully re-initializes the widget's state and callbacks.
  */
-export class QuickOpenService extends Disposable {
+export interface IQuickOpenShowOptions {
+    /** Upstream `ItemActivation.SECOND`: the cursor starts on the second row (`quickOpenPreviousEditor`). */
+    readonly activateSecond?: boolean;
+}
+
+export class QuickOpenService extends Disposable implements IContextKeyContributor {
     public static dependencies = [QuickAccessRegistryDIToken, QuickInputComponentDIToken] as const;
 
     /** null when the picker is closed. */
     private currentProvider: IQuickAccessProvider | null = null;
+    // Stryker disable next-line StringLiteral: read only while the picker is open, and every show sets it first
+    private currentPrefix = "";
     /** QuickInputService may have taken over the shared widget's session. */
     private active = false;
 
@@ -38,8 +47,8 @@ export class QuickOpenService extends Disposable {
         return this.component.view;
     }
 
-    public show(prefix = ""): void {
-        if (this.active && this.component.isOpen()) {
+    public show(prefix = "", options: IQuickOpenShowOptions = {}): void {
+        if (this.isOpen()) {
             this.view.focus();
             return;
         }
@@ -74,12 +83,33 @@ export class QuickOpenService extends Disposable {
         view.setQuery(prefix);
         this.activateProviderFor(prefix);
         this.updateItems(view.getQuery());
+        if (options.activateSecond === true) view.setActiveIndex(1);
 
         this.component.show();
     }
 
+    /**
+     * Upstream `quickOpenNavigateNext/PreviousInFilePicker` without quick navigate: the cursor steps
+     * like the arrows, the typed query stays, Enter accepts.
+     */
+    public navigate(next: boolean): void {
+        if (!this.isOpen()) return;
+        this.view.moveActive(next ? 1 : -1);
+    }
+
+    /**
+     * Upstream `inQuickOpen` and `inFilesPicker` (the default, prefix-less provider): the second keeps
+     * Ctrl+P/Ctrl+E stepping through files, not reopening the picker.
+     */
+    public updateContextKeys(contextKeys: ContextKeyService): void {
+        const open = this.isOpen();
+        contextKeys.set("inQuickOpen", open);
+        contextKeys.set("inFilesPicker", open && this.currentPrefix === "");
+    }
+
     public close(): void {
-        if (!this.active || !this.component.isOpen()) return;
+        // Stryker disable next-line ConditionalExpression: equivalent — hiding a closed component is a no-op, and a foreign session is hidden by its owner
+        if (!this.isOpen()) return;
         // Cleanup (deactivating the provider, cancelling the debounce) is in handleDidClose,
         // which onDidClose reaches on this programmatic path too.
         this.component.hide();
@@ -90,6 +120,11 @@ export class QuickOpenService extends Disposable {
         super.dispose();
     }
 
+    /** QuickInputService may have taken over the shared widget. */
+    private isOpen(): boolean {
+        return this.active && this.component.isOpen();
+    }
+
     private handleDidClose(): void {
         this.active = false;
         this.cancelPendingSearch();
@@ -98,7 +133,8 @@ export class QuickOpenService extends Disposable {
     }
 
     private activateProviderFor(query: string): IQuickAccessProvider {
-        const { provider } = this.quickAccess.getProvider(query);
+        const { prefix, provider } = this.quickAccess.getProvider(query);
+        this.currentPrefix = prefix;
         if (provider === this.currentProvider) return provider;
 
         this.currentProvider?.onHide?.();
@@ -107,7 +143,8 @@ export class QuickOpenService extends Disposable {
             // A live source update is ignored if the provider is no longer
             // active or the picker is closed/taken over (a late callback after close).
             if (this.currentProvider !== provider) return;
-            if (!this.active || !this.component.isOpen()) return;
+            // Stryker disable next-line ConditionalExpression: equivalent while closing (and a takeover) always runs handleDidClose, which drops the provider — the guard above returns first
+            if (!this.isOpen()) return;
             this.updateItems(this.view.getQuery(), preserveSelection);
         });
         this.view.placeholder = provider.getPlaceholder();

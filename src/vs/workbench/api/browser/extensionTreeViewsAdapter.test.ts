@@ -91,6 +91,7 @@ function setup(
     const warnings: string[] = [];
     const errors: string[] = [];
     const logger = { warn: (message: string) => warnings.push(message), error: () => undefined } as unknown as ILogger;
+    const configuration = new InMemoryConfigurationService(new ConfigurationRegistry(), options.settings ?? {});
     const adapter = new ExtensionTreeViewsAdapter({
         views: h.service,
         welcomes: new ExtensionViewWelcomes(h.service, new ContextKeyService(), h.commands, {
@@ -101,7 +102,7 @@ function setup(
         menuService: h.menuService,
         contextMenu: h.contextMenu,
         contextKeys: h.contextKeys,
-        configuration: new InMemoryConfigurationService(new ConfigurationRegistry(), options.settings ?? {}),
+        configuration,
         workspace: h.workspace,
         colors: { resolve: (id) => options.colors?.[id] },
         notifyError: (message) => errors.push(message),
@@ -113,7 +114,7 @@ function setup(
         app.render();
         return app.backend.screenToString();
     };
-    return { h, adapter, warnings, errors, frame, app };
+    return { h, adapter, warnings, errors, frame, app, configuration };
 }
 
 describe("ExtensionTreeViewsAdapter", () => {
@@ -428,6 +429,27 @@ describe("ExtensionTreeViewsAdapter", () => {
         };
         expect(await rows({})).toBe(2);
         expect(await rows({ "workbench.tree.expandMode": "doubleClick" })).toBe(1);
+    });
+
+    it("`workbench.tree.renderIndentGuides` draws the guides and applies live", async () => {
+        const { adapter, frame, configuration } = setup({
+            settings: { "workbench.tree.renderIndentGuides": "always" },
+        });
+        const tree = source({
+            "": [item("p", "pkg", { collapsibleState: 2 })],
+            p: [item("p/c", "child", { parentHandle: "p" })],
+        });
+        adapter.register({ viewId: VIEW, showCollapseAll: false, canSelectMany: false }, tree);
+        await flushMicrotasks(10);
+        const childLine = (): string =>
+            frame()
+                .split("\n")
+                .find((line) => line.includes("child")) ?? "";
+        expect(childLine()).toContain("\u2502");
+
+        await configuration.updateValue("workbench.tree.renderIndentGuides", "none");
+        expect(childLine()).toContain("child");
+        expect(childLine()).not.toContain("\u2502");
     });
 
     it("a failed row command is an error toast", async () => {

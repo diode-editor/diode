@@ -119,6 +119,9 @@ describe("Workbench — global keybindings are suppressed while an overlay owns 
     });
 
     it("the quickpick's own keys still work (ArrowDown moves selection, Escape closes)", () => {
+        // An empty query lists the recent files: give it two.
+        h.commands.execute("workbench.openFile", ws.path("alpha.txt"));
+        h.commands.execute("workbench.openFile", ws.path("beta.txt"));
         h.workbench.focusEditor();
         h.testApp.sendKey("Ctrl+P");
         h.testApp.render();
