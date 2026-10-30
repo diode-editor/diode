@@ -1,6 +1,6 @@
 import { resolve } from "node:path";
 
-import { findTextCell } from "../helpers/frame.ts";
+import { findTextCell, frameToText } from "../helpers/frame.ts";
 
 import type { ScenarioDriver } from "./framework.ts";
 import { defineScenario, repoRoot } from "./framework.ts";
@@ -21,7 +21,7 @@ async function clickText(editor: ScenarioDriver, text: string): Promise<void> {
 /** The section's rows, without icons and padding: "alpha.ts", "Group 1". */
 async function rows(editor: ScenarioDriver): Promise<string[]> {
     const list = await editor.waitForNode("#openEditorsList");
-    const text = (await editor.waitForText(() => true)).split("\n");
+    const text = frameToText(await editor.captureFrame()).split("\n");
     return text
         .slice(list.box.y, list.box.y + list.box.height)
         .map((line) =>

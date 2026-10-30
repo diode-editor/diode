@@ -118,6 +118,9 @@ export class OpenEditorsView extends Component implements IContextKeyContributor
             openOnSingleClick: () => configurationService.get("workbench.list.openMode") !== "doubleClick",
         });
         this.scrollBars = new ScrollBarDecorator(this.tree);
+        // Upstream's list has no horizontal scroll (a long description is cut): a bar would eat one of the
+        // rows the section is sized for.
+        this.scrollBars.horizontalScrollBar = "never";
         this.scrollBars.id = "openEditorsView";
         this.tree.id = "openEditorsList";
         this.scrollBars.style = { fg: "sideBar.foreground", bg: "sideBar.background" };
@@ -270,7 +273,8 @@ export class OpenEditorsView extends Component implements IContextKeyContributor
             // A preview tab is italic in the tab strip; the row follows it.
             italic: !group.isPinned(pane),
             collapsible: false,
-            // Upstream: ● stays on a modified editor, × shows under the mouse and on the selected row.
+            // Upstream: ● stays on a modified editor (cursor row too), × only under the mouse; a clean row shows ×
+            // under the mouse and on the cursor/selected rows.
             actions: [{ label: "Close", icon: CLOSE_GLYPH, idleIcon: pane.isModified ? MODIFIED_GLYPH : undefined }],
         };
     }
