@@ -28,6 +28,7 @@ export class QuickOpenService extends Disposable implements IContextKeyContribut
 
     /** null when the picker is closed. */
     private currentProvider: IQuickAccessProvider | null = null;
+    // Stryker disable next-line StringLiteral: read only while the picker is open, and every show sets it first
     private currentPrefix = "";
     /** QuickInputService may have taken over the shared widget's session. */
     private active = false;
@@ -107,6 +108,7 @@ export class QuickOpenService extends Disposable implements IContextKeyContribut
     }
 
     public close(): void {
+        // Stryker disable next-line ConditionalExpression: equivalent — hiding a closed component is a no-op, and a foreign session is hidden by its owner
         if (!this.isOpen()) return;
         // Cleanup (deactivating the provider, cancelling the debounce) is in handleDidClose,
         // which onDidClose reaches on this programmatic path too.
@@ -141,6 +143,7 @@ export class QuickOpenService extends Disposable implements IContextKeyContribut
             // A live source update is ignored if the provider is no longer
             // active or the picker is closed/taken over (a late callback after close).
             if (this.currentProvider !== provider) return;
+            // Stryker disable next-line ConditionalExpression: equivalent while closing (and a takeover) always runs handleDidClose, which drops the provider — the guard above returns first
             if (!this.isOpen()) return;
             this.updateItems(this.view.getQuery(), preserveSelection);
         });

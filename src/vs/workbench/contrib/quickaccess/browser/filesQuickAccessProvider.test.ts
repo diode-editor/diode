@@ -6,7 +6,7 @@ import { Emitter } from "../../../../base/common/event.ts";
 import { charMask } from "../../../../base/common/fuzzySearch.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import { CommandRegistry } from "../../../../platform/commands/common/commandRegistry.ts";
-import { NERD_FONT_ICONS } from "../../../../platform/theme/common/productIconService.ts";
+import { type IProductIconService, NERD_FONT_ICONS } from "../../../../platform/theme/common/productIconService.ts";
 import { WorkspaceContextService } from "../../../../platform/workspace/common/workspaceContextService.ts";
 import type { IJumpRecorder } from "../../../services/history/browser/historyService.ts";
 import type { FileSearchResult, IFileSearchService } from "../../../services/search/common/fileSearch.ts";
@@ -45,6 +45,7 @@ function setup(
         history?: readonly string[];
         results?: readonly FileSearchResult[];
         settings?: Readonly<Record<string, unknown>>;
+        icons?: IProductIconService;
     } = {},
 ): Setup {
     const search = vi.fn((_query: string, _max?: number) => [...(options.results ?? [])]);
@@ -78,7 +79,7 @@ function setup(
         { getHistory: () => (options.history ?? []).map((p) => Uri.file(p)), removeMissing },
         createTestConfigurationService(options.settings),
         workspace,
-        NERD_FONT_ICONS,
+        options.icons ?? NERD_FONT_ICONS,
     );
     return { provider, search, opened, editor, removeMissing, jumps };
 }
@@ -89,14 +90,19 @@ const rows = (provider: FilesQuickAccessProvider, query: string): string[] =>
 describe("FilesQuickAccessProvider — editor history", () => {
     it("an empty query lists the whole history in MRU order and does not search", () => {
         const { provider, search } = setup({
-            history: ["/root/src/c.ts", "/root/a.ts", "/elsewhere/notes.md"],
+            history: ["/root/src/deep/c.ts", "/root/a.ts", "/elsewhere/notes.md"],
             results: [searchResult("src/other.ts")],
         });
 
-        expect(rows(provider, "")).toEqual(["src/c.ts", "a.ts", "/elsewhere/notes.md"]);
+        expect(rows(provider, "")).toEqual(["src/deep/c.ts", "a.ts", "/elsewhere/notes.md"]);
         // Spaces only are still an empty query.
-        expect(rows(provider, "   ")).toEqual(["src/c.ts", "a.ts", "/elsewhere/notes.md"]);
+        expect(rows(provider, "   ")).toEqual(["src/deep/c.ts", "a.ts", "/elsewhere/notes.md"]);
         expect(search).not.toHaveBeenCalled();
+        // Nothing typed, nothing highlighted.
+        for (const item of provider.getItems("")) {
+            expect(item.labelMatchRanges).toEqual([]);
+            expect(item.descriptionMatchRanges).toEqual([]);
+        }
     });
 
     it("an empty history with an empty query is an empty list", () => {
@@ -132,6 +138,22 @@ describe("FilesQuickAccessProvider — editor history", () => {
         expect(item.label).toBe("b.ts");
         expect(item.labelMatchRanges).toEqual([[0, 3]]);
         expect(item.descriptionMatchRanges).toEqual([]);
+    });
+
+    it("without an icon for the file type the rows simply have none", () => {
+        const { provider } = setup({
+            history: ["/root/a.ts"],
+            results: [searchResult("b.md")],
+            icons: { ...NERD_FONT_ICONS, fileIcon: () => undefined },
+        });
+
+        expect(provider.getItems("a").map((item) => item.icon)).toEqual([undefined, undefined]);
+    });
+
+    it("a path query does not match a root-level file by a separator it does not have", () => {
+        const { provider } = setup({ history: ["/root/ab.ts", "/root/src/ab.ts"] });
+
+        expect(rows(provider, "/ab")).toEqual(["src/ab.ts"]);
     });
 
     it("a query with a path separator matches the folder path too", () => {

@@ -1188,6 +1188,17 @@ describe("QuickOpenService — recent files navigation", () => {
         expect(keys()).toEqual([false, false]);
     });
 
+    it("another session on the shared widget (a QuickInputService prompt) is not Quick Open", () => {
+        const { service, component, contextKeys } = createService([], [], history);
+
+        component.show();
+        service.updateContextKeys(contextKeys);
+
+        expect(component.isOpen()).toBe(true);
+        expect(contextKeys.get("inQuickOpen")).toBe(false);
+        expect(contextKeys.get("inFilesPicker")).toBe(false);
+    });
+
     it("navigate steps the cursor like the arrows, clamped at the ends, keeping the query", () => {
         const { service, view } = createService([], [], history);
         service.show();

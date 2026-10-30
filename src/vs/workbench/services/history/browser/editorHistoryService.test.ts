@@ -156,19 +156,34 @@ describe("EditorHistoryService", () => {
         expect(names(service)).toEqual(["a.ts", "c.ts"]);
     });
 
+    it(`a stored list longer than ${String(MAX_HISTORY_ITEMS)} is cut on load`, () => {
+        const state = newState();
+        state.store(
+            EDITOR_HISTORY_STATE,
+            Array.from({ length: MAX_HISTORY_ITEMS + 5 }, (_, i) => ws.path(`f${String(i)}.ts`)),
+        );
+
+        const service = createService(state);
+
+        expect(service.getHistory()).toHaveLength(MAX_HISTORY_ITEMS);
+        expect(names(service).at(-1)).toBe(`f${String(MAX_HISTORY_ITEMS - 1)}.ts`);
+    });
+
     it("an empty store gives an empty list", () => {
         const service = createService();
 
         expect(service.getHistory()).toEqual([]);
     });
 
-    it("a rename moves the entry to the new path in place", () => {
-        const service = createService();
+    it("a rename moves the entry to the new path in place, in the stored list too", () => {
+        const state = newState();
+        const service = createService(state);
         open("a.ts");
         open("b.ts");
         operations.fire({ operation: FileOperation.Move, resource: file("a.ts"), target: file("z.ts") });
 
         expect(names(service)).toEqual(["b.ts", "z.ts"]);
+        expect(state.get(EDITOR_HISTORY_STATE)).toEqual([ws.path("b.ts"), ws.path("z.ts")]);
     });
 
     it("moving a folder retargets the files under it; a rename onto a recorded file leaves one entry", () => {

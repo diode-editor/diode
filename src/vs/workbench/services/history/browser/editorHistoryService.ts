@@ -30,6 +30,7 @@ export const EditorHistoryServiceDIToken = token<EditorHistoryService>("EditorHi
 export class EditorHistoryService extends Disposable implements IWorkbenchContribution {
     public static dependencies = [HistoryEditorSourceDIToken, IFileServiceDIToken, StateServiceDIToken] as const;
 
+    // Stryker disable next-line ArrayDeclaration: equivalent — the constructor's load() overwrites it before anyone reads it
     private entries: Uri[] = [];
 
     public constructor(

@@ -41,6 +41,7 @@ export class EditorCloseHandler {
         };
         for (const pane of panes) {
             if (this.needsCloseConfirm(pane)) {
+                // Stryker disable next-line ConditionalExpression: equivalent — closing `null` looks up position -1, which the group skips
                 if (deferred !== null) close(deferred);
                 deferred = null;
                 if (!(await this.confirm(group, pane))) return false;
