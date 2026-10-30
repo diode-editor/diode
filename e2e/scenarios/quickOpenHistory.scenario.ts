@@ -5,6 +5,9 @@ import { defineScenario, repoRoot } from "./framework.ts";
 
 const RECENT_ROW = /folding\.ts[\s\S]*main\.ts[\s\S]*sample\.ts/;
 
+/** The tab strip is the second screen row. */
+const tabs = (text: string): string => text.split("\n")[1] ?? "";
+
 export default defineScenario({
     name: "quick-open-history",
     title: "Quick Open: recently opened files (Ctrl+P, Ctrl+E)",
@@ -15,21 +18,21 @@ export default defineScenario({
     async run(editor) {
         await editor.waitForReady();
 
-        const openByName = async (query: string, marker: string): Promise<void> => {
+        const openByName = async (query: string, tab: string): Promise<void> => {
             await editor.sendKey("Ctrl+P");
             await editor.waitForNode("#quickInput");
             await editor.sendText(query);
-            await editor.waitForText((t) => t.includes(marker));
+            await editor.waitForText((t) => t.includes(tab));
             await editor.sendKey("Enter");
-            await editor.waitForText((t) => !t.includes("Go to File") && t.includes(marker));
+            await editor.waitForText((t) => tabs(t).includes(tab));
         };
         await openByName("e2e/fixtures/sample.ts", "sample.ts");
         await openByName("e2e/fixtures/folding.ts", "folding.ts");
-        await openByName("lspSample/main.ts", "lspSample");
+        await openByName("lspSample/main.ts", "main.ts");
 
         // Closing main.ts does not take it out of the history.
         await editor.sendKey("Ctrl+W");
-        await editor.waitForText((t) => !t.includes("main.ts"));
+        await editor.waitForText((t) => !tabs(t).includes("main.ts"));
 
         await editor.sendKey("Ctrl+P");
         await editor.waitForText((t) => RECENT_ROW.test(t));
@@ -42,9 +45,10 @@ export default defineScenario({
         await editor.sendKey("Ctrl+E");
         await editor.waitForText((t) => RECENT_ROW.test(t));
         await editor.sendKey("Ctrl+E");
+        await editor.waitForState("#quickInput", (state) => state?.activeIndex === 1);
         await editor.capture("second-row");
         await editor.sendKey("Enter");
-        await editor.waitForText((t) => t.includes("main.ts") && !t.includes("Go to File"));
+        await editor.waitForText((t) => tabs(t).includes("main.ts"));
         await editor.capture("reopened");
 
         // The history is workspace state: after a reload the same files are listed.
