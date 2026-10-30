@@ -52,21 +52,14 @@ export default defineScenario({
     userKeybindings: [
         { key: "ctrl+alt+s", command: "workbench.action.splitEditor" },
         { key: "ctrl+alt+r", command: "workbench.action.reloadWindow" },
+        { key: "ctrl+alt+e", command: "workbench.action.focusActiveEditorGroup" },
     ],
     async run(editor) {
         const tree = await editor.waitForNode("TreeViewElement");
         await editor.waitForText((t) => t.includes("alpha.ts") && t.includes("gamma.ts"));
 
-        // Hidden by default: "⋯" → EXPLORER → Views lists it unchecked.
-        await clickText(editor, "⋯");
-        await clickText(editor, "EXPLORER");
-        await clickText(editor, "Views");
-        await editor.waitForText((t) => t.includes("OPEN EDITORS"));
-        await editor.capture("views-menu");
-        await clickText(editor, "OPEN EDITORS");
-        await editor.waitForNode("#openEditorsList");
-
-        // Three files pinned by a double click each: three rows, the active one last.
+        // Three files pinned by a double click each, while the section is still hidden: a row it
+        // added between the clicks would push the file tree down under the mouse.
         const fileTree = await editor.waitForNode("#explorerView");
         for (const index of [0, 1, 2]) {
             const y = fileTree.box.y + index;
@@ -75,7 +68,18 @@ export default defineScenario({
                 await editor.sendMouse({ action: "release", button: "left", x: tree.box.x + 5, y });
             }
         }
+
+        // Hidden by default: "⋯" → EXPLORER → Views lists it unchecked.
+        await clickText(editor, "⋯");
+        await clickText(editor, "EXPLORER");
+        await clickText(editor, "Views");
+        await editor.waitForText((t) => t.includes("OPEN EDITORS"));
+        await editor.capture("views-menu");
+        await clickText(editor, "OPEN EDITORS");
+
+        // Three rows, the active one is the cursor row.
         await waitForRows(editor, [/^alpha\.ts$/u, /^beta\.ts$/u, /^gamma\.ts +×$/u]);
+        await editor.sendKey("Ctrl+Alt+E");
 
         // A modified editor keeps ● on its row while the cursor is elsewhere.
         await editor.sendText("x");
