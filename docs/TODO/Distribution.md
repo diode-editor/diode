@@ -20,7 +20,10 @@ winget-манифесты, версия на лендинге; лицензия 
       job `site` красная; проверить первым же релизом или ручным запуском `site-version.yml`.
 - [~] Первая подача в winget: PR [microsoft/winget-pkgs#442141](https://github.com/microsoft/winget-pkgs/pull/442141)
       (2026-09-27, ветка `DiodeEditor.Diode-0.3.0` в форке `tihonove/winget-pkgs`, коммит через
-      Git Data API — клон с `tree:0` при push дотягивает всё дерево). После мержа — секрет
+      Git Data API — клон с `tree:0` при push дотягивает всё дерево). 2026-10-30 модератор вернул PR
+      (`Needs-Author-Feedback`, `Manifest-Version-Deprecated`): манифест 1.12.0 устарел, нужен 1.28.0.
+      В тот же день `packaging/render.mjs` поднят до 1.28.0, а PR переведён на версию 0.12.3 (0.3.0 не
+      работала на Windows, см. ниже); имя ветки осталось старым. После мержа — секрет
       `WINGET_TOKEN` (PAT с `public_repo`), дальше версии подаёт `release.yml`.
 - [ ] Не проверено руками: `winget install DiodeEditor.Diode` (после мержа PR) — нужна Windows.
 - [ ] **Windows-SEA до 0.8.5 не узнавал себя** (найдено в #612): `isSeaBinary()` на Windows всегда
