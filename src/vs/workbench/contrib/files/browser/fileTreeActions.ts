@@ -16,7 +16,7 @@ export const fileDeleteAction: CommandAction = {
     title: "File: Delete",
     shortTitle: "Delete",
     keybinding: parseKeybinding("delete"),
-    when: "listFocus",
+    when: "filesExplorerFocus",
     // Delete is bound to `delete`, but the menu doesn't show the shortcut — suppress it.
     menus: [{ menuId: MenuId.ExplorerContext, group: "4_modify", order: 20, args: explorerPathArg, shortcut: false }],
     run(accessor, filePath: unknown) {
@@ -30,7 +30,7 @@ export const fileRenameAction: CommandAction = {
     title: "File: Rename",
     shortTitle: "Rename...",
     keybinding: parseKeybinding("f2"),
-    when: "listFocus",
+    when: "filesExplorerFocus",
     menus: [{ menuId: MenuId.ExplorerContext, group: "4_modify", order: 10, args: explorerPathArg }],
     run(accessor, filePath: unknown) {
         const target = (filePath as string | undefined) ?? accessor.get(ExplorerServiceDIToken).getSelectedPaths()[0];
@@ -62,7 +62,7 @@ export const fileUndoAction: CommandAction = {
     id: "fileOperations.undo",
     title: "File: Undo",
     keybinding: parseKeybinding("mod+z"),
-    when: "listFocus",
+    when: "filesExplorerFocus",
     run(accessor) {
         accessor.get(FileOperationsServiceDIToken).undoWorkspace();
     },
@@ -72,7 +72,7 @@ export const fileRedoAction: CommandAction = {
     id: "fileOperations.redo",
     title: "File: Redo",
     keybindings: [parseKeybinding("mod+shift+z"), parseKeybinding("ctrl+y")],
-    when: "listFocus",
+    when: "filesExplorerFocus",
     run(accessor) {
         accessor.get(FileOperationsServiceDIToken).redoWorkspace();
     },

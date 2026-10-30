@@ -896,7 +896,7 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
      * overwrites the file even with external changes: the user's choice must not be lost.
      */
     public collectDirty(): readonly IShutdownDirtyItem[] {
-        return this.dirtyEditors().map((editor) => ({
+        return this.getDirtyEditors(this.editorGroups.groups).map((editor) => ({
             name: this.displayName(editor),
             isStillDirty: () =>
                 [...this.textPanes(), ...this.diffSidePanes()].some((pane) => pane.model === editor.model),
@@ -911,7 +911,7 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
      */
     public async saveAll(options?: { includeUntitled?: boolean }): Promise<boolean> {
         let success = true;
-        for (const editor of this.dirtyEditors()) {
+        for (const editor of this.getDirtyEditors(this.editorGroups.groups)) {
             const outcome = await this.trySave(editor);
             if (outcome === "saved" || (outcome === "no-file" && options?.includeUntitled !== true)) continue;
             success = false;
@@ -940,10 +940,14 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
      * One per model. Diff sides come after tabs: a tab has a nicer label, and a diff adds
      * only its own buffers (untitled sides, a file without a regular tab).
      */
-    private dirtyEditors(): TextEditorPane[] {
+    public getDirtyEditors(groups: readonly EditorGroup[]): TextEditorPane[] {
+        const panes = groups.flatMap((group) => [...group.getPanes()]);
+        const tabs = panes.filter((pane): pane is TextEditorPane => pane instanceof TextEditorPane);
+        // Stryker disable next-line ArrayDeclaration: a filler that is no pane is not modified and is skipped below
+        const diffSides = panes.flatMap((pane) => (pane instanceof DiffEditorPane2 ? [...pane.sidePanes()] : []));
         const seenModels = new Set<BaseTextEditorModel>();
         const editors: TextEditorPane[] = [];
-        for (const editor of [...this.textPanes(), ...this.diffSidePanes()]) {
+        for (const editor of [...tabs, ...diffSides]) {
             if (!editor.isModified || seenModels.has(editor.model)) continue;
             seenModels.add(editor.model);
             editors.push(editor);

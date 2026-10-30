@@ -61,6 +61,7 @@ export const CODICON_UNICODE: Readonly<Partial<Record<string, string>>> = {
     "dialog-warning": "⚠",
     discard: "↶",
     edit: "✎",
+    "editor-layout": "◫",
     ellipsis: "…",
     error: "✗",
     "expand-all": "⊞",

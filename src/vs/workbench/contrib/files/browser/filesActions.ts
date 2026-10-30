@@ -10,6 +10,8 @@ import {
     fileOpenAction,
     fileOpenFolderAction,
     fileSaveAction,
+    fileSaveAllAction,
+    fileSaveAllInGroupAction,
     fileSaveAsAction,
     newUntitledFileAction,
     openWorkspaceAction,
@@ -34,6 +36,8 @@ import { explorerNewFileAction, explorerNewFolderAction } from "./fileTreeCreate
 export const FILES_ACTIONS: readonly CommandAction[] = [
     fileSaveAction,
     fileSaveAsAction,
+    fileSaveAllAction,
+    fileSaveAllInGroupAction,
     newUntitledFileAction,
     fileOpenAction,
     fileOpenFolderAction,

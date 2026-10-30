@@ -17,6 +17,34 @@ export const explorerConfiguration = {
             default: true,
             description: "Ask for confirmation before undoing a destructive file operation.",
         },
+        "explorer.openEditors.visible": {
+            scope: "window",
+            type: "number",
+            description:
+                "The initial maximum number of editors shown in the Open Editors pane. Exceeding this limit will show a scroll bar and allow resizing the pane to display more items.",
+            default: 9,
+            minimum: 1,
+        },
+        "explorer.openEditors.minVisible": {
+            scope: "window",
+            type: "number",
+            description:
+                "The minimum number of editor slots pre-allocated in the Open Editors pane. If set to 0 the Open Editors pane will dynamically resize based on the number of editors.",
+            default: 0,
+            minimum: 0,
+        },
+        "explorer.openEditors.sortOrder": {
+            scope: "window",
+            type: "string",
+            enum: ["editorOrder", "alphabetical", "fullPath"],
+            description: "Controls the sorting order of editors in the Open Editors pane.",
+            enumDescriptions: [
+                "Editors are ordered in the same order editor tabs are shown.",
+                "Editors are ordered alphabetically by tab name inside each editor group.",
+                "Editors are ordered alphabetically by full path inside each editor group.",
+            ],
+            default: "editorOrder",
+        },
         "explorer.autoReveal": {
             scope: "window",
             type: "boolean",

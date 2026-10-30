@@ -1,6 +1,9 @@
 {
     "CommandPalette": {
         "": [
+            "workbench.files.action.saveAllInGroup",
+            "openEditors.closeAll",
+            "openEditors.closeEditor",
             "workbench.action.quickOpenPreviousEditor",
             "workbench.action.quickOpenNavigateNextInFilePicker",
             "workbench.action.quickOpenNavigatePreviousInFilePicker"
@@ -212,7 +215,8 @@
         ],
         "3_save": [
             "workbench.action.files.save",
-            "workbench.action.files.saveAs"
+            "workbench.action.files.saveAs",
+            "workbench.action.files.saveAll"
         ],
         "4_preferences": [
             "workbench.action.openSettings",
@@ -415,6 +419,7 @@
             "git.showOutput"
         ],
         "navigation": [
+            "workbench.action.toggleEditorGroupLayout",
             "explorer.newFile",
             "search.action.collapseSearchResults",
             "search.action.expandSearchResults",
@@ -424,9 +429,11 @@
             "extensions.refresh",
             "references-view.collapseAll",
             "references-view.expandAll",
+            "workbench.action.files.saveAll",
             "explorer.newFolder",
             "references-view.clear",
             "workbench.files.action.refreshFilesExplorer",
+            "openEditors.closeAll",
             "workbench.action.terminal.kill"
         ]
     }

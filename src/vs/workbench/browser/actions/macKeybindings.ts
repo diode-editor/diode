@@ -152,6 +152,7 @@ export const MAC_KEYBINDING_DELTAS: readonly MacKeybindingDelta[] = [
     { command: "showPrevParameterHint", mac: [{ keys: "ctrl+p", from: "cmd" }] },
     { command: "workbench.action.closeOtherEditors", mac: [{ keys: "alt+meta+t", from: "cmd" }] },
     { command: "workbench.action.files.openFolder", pcOnly: ["ctrl+k ctrl+o"] },
+    { command: "workbench.action.files.saveAll", mac: [{ keys: "alt+meta+s", from: "cmd" }] },
     {
         command: "workbench.action.moveEditorToNextGroup",
         pcOnly: ["ctrl+alt+right"],

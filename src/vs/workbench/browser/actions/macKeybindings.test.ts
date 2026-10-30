@@ -222,6 +222,7 @@ describe("mac delta table", () => {
             "showPrevParameterHint | ctrl+p@cmd",
             "workbench.action.closeOtherEditors | alt+meta+t@cmd",
             "workbench.action.files.openFolder | -ctrl+k ctrl+o",
+            "workbench.action.files.saveAll | alt+meta+s@cmd",
             "workbench.action.moveEditorToNextGroup | -ctrl+alt+right | ctrl+meta+right@cmd",
             "workbench.action.moveEditorToPreviousGroup | -ctrl+alt+left | ctrl+meta+left@cmd",
             "workbench.action.navigateBack | -ctrl+alt+- | ctrl+-@legacy",
@@ -363,7 +364,7 @@ describe("parity with the VS Code mac keymap (upstream 1.138)", () => {
         },
         { textViewFocus: true, textInputFocus: true, findWidgetVisible: true },
         { inputWidgetFocus: true },
-        { listFocus: true },
+        { listFocus: true, filesExplorerFocus: true },
     ];
     // Deliberate deviations (docs/TODO/MacKeybindings.md) and the copy-paste decision.
     const DEVIATIONS = new Set([

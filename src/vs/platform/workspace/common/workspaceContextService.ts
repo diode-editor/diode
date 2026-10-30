@@ -37,9 +37,10 @@ export class WorkspaceContextService implements IWorkspaceContextService {
     public getWorkspaceFolder(resource: Uri): IWorkspaceFolder | null {
         for (const folder of this.workspace.folders) {
             if (resource.scheme !== folder.uri.scheme) continue;
-            const base = folder.uri.path;
+            const base = withLowerCaseDrive(folder.uri.path);
             const prefix = base.endsWith("/") ? base : `${base}/`;
-            if (resource.path === base || resource.path.startsWith(prefix)) return folder;
+            const resourcePath = withLowerCaseDrive(resource.path);
+            if (resourcePath === base || resourcePath.startsWith(prefix)) return folder;
         }
         return null;
     }
@@ -86,4 +87,12 @@ export class WorkspaceContextService implements IWorkspaceContextService {
         this.onDidChangeWorkspaceFoldersEmitter.fire();
         return id;
     }
+}
+
+/**
+ * A Windows drive letter's case means nothing, and it differs in practice: `Uri.toString()` lowers it, so an
+ * editor restored after a reload is `/d:/…` in a workspace opened as `/D:/…`.
+ */
+function withLowerCaseDrive(uriPath: string): string {
+    return uriPath.replace(/^\/[A-Z]:/u, (drive) => drive.toLowerCase());
 }

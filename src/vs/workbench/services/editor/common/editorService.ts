@@ -79,6 +79,8 @@ export interface IEditorService extends IShutdownParticipant, IActivatable, IDis
     getOpenFilePaths(): string[];
     /** Doesn't overwrite files changed on disk. `true` means everything was saved. */
     saveAll(options?: { includeUntitled?: boolean }): Promise<boolean>;
+    /** Modified buffers of these groups, one per model: tabs in strip order, then diff sides. */
+    getDirtyEditors(groups: readonly EditorGroup[]): readonly TextEditorPane[];
     /** `undefined`: not open or not saved. */
     save(resource: Uri): Promise<Uri | undefined>;
     readonly onDidChangeEditors: Event<void>;

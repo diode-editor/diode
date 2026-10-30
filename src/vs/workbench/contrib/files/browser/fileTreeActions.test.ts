@@ -61,9 +61,9 @@ describe("fileDeleteAction", () => {
         expect(fileDeleteAction.title).toBe("File: Delete");
     });
 
-    it("is bound to the Delete key while a list is focused", () => {
+    it("is bound to the Delete key while the file tree is focused", () => {
         expect(fileDeleteAction.keybinding).toEqual(parseKeybinding("delete"));
-        expect(fileDeleteAction.when).toBe("listFocus");
+        expect(fileDeleteAction.when).toBe("filesExplorerFocus");
     });
 
     it("delegates an explicit path to FileOperationsService.requestDeleteFile", () => {
@@ -86,10 +86,10 @@ describe("fileDeleteAction", () => {
 });
 
 describe("fileRenameAction", () => {
-    it("is bound to F2 while a list is focused", () => {
+    it("is bound to F2 while the file tree is focused", () => {
         expect(fileRenameAction.id).toBe("fileOperations.rename");
         expect(fileRenameAction.keybinding).toEqual(parseKeybinding("f2"));
-        expect(fileRenameAction.when).toBe("listFocus");
+        expect(fileRenameAction.when).toBe("filesExplorerFocus");
     });
 
     it("delegates an explicit path to FileOperationsService.runRename", () => {
@@ -118,17 +118,17 @@ describe("refreshExplorerAction / undo / redo / context menu", () => {
         expect(calls.refreshed).toBe(1);
     });
 
-    it("fileUndoAction delegates to undoWorkspace (Ctrl+Z under listFocus)", () => {
+    it("fileUndoAction delegates to undoWorkspace (Ctrl+Z under filesExplorerFocus)", () => {
         expect(fileUndoAction.keybinding).toEqual(parseKeybinding("mod+z"));
-        expect(fileUndoAction.when).toBe("listFocus");
+        expect(fileUndoAction.when).toBe("filesExplorerFocus");
         const { accessor, calls } = makeAccessor();
         fileUndoAction.run(accessor);
         expect(calls.undone).toBe(1);
     });
 
-    it("fileRedoAction delegates to redoWorkspace (Ctrl+Shift+Z / Ctrl+Y under listFocus)", () => {
+    it("fileRedoAction delegates to redoWorkspace (Ctrl+Shift+Z / Ctrl+Y under filesExplorerFocus)", () => {
         expect(fileRedoAction.keybindings).toEqual([parseKeybinding("mod+shift+z"), parseKeybinding("ctrl+y")]);
-        expect(fileRedoAction.when).toBe("listFocus");
+        expect(fileRedoAction.when).toBe("filesExplorerFocus");
         const { accessor, calls } = makeAccessor();
         fileRedoAction.run(accessor);
         expect(calls.redone).toBe(1);

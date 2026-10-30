@@ -59,6 +59,8 @@ export interface ContextKeyTypes {
     mode_tmux: boolean;
 
     filesExplorerFocus: boolean;
+    /** Focus is inside the OPEN EDITORS section. */
+    openEditorsFocus: boolean;
     explorerViewletCompressedFocus: boolean;
     explorerViewletCompressedFirstFocus: boolean;
     explorerViewletCompressedLastFocus: boolean;

@@ -154,6 +154,25 @@ describe("WorkspaceContextService", () => {
             expect(opened().getWorkspaceFolder(Uri.parse("git:/work/project/src/x.ts"))).toBeNull();
         });
 
+        // An editor restored after a reload comes from `Uri.toString()`, which lowers the drive letter.
+        it("a drive letter matches in either case", () => {
+            const upper = new WorkspaceContextService();
+            upper.setWorkspaceFolder("/D:/work");
+            expect(upper.getWorkspaceFolder(Uri.file("/d:/work/x.ts"))?.name).toBe("work");
+            const lower = new WorkspaceContextService();
+            lower.setWorkspaceFolder("/d:/work");
+            expect(lower.getWorkspaceFolder(Uri.file("/D:/work/x.ts"))?.name).toBe("work");
+        });
+
+        it("only the drive letter is case-insensitive", () => {
+            const service = new WorkspaceContextService();
+            service.setWorkspaceFolder("/D:/work");
+            expect(service.getWorkspaceFolder(Uri.file("/d:/Work/x.ts"))).toBeNull();
+            const nested = new WorkspaceContextService();
+            nested.setWorkspaceFolder("/work/D:/project");
+            expect(nested.getWorkspaceFolder(Uri.file("/work/d:/project/x.ts"))).toBeNull();
+        });
+
         // The FS root is the only folder whose path itself ends with `/`:
         // appending a separator would give `//` and drop everything from the workspace.
         it("the root folder `/` contains any file", () => {

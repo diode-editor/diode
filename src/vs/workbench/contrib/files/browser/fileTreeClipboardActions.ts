@@ -15,13 +15,13 @@ import {
 import { ExplorerServiceDIToken } from "./explorerService.ts";
 import { FileOperationsServiceDIToken } from "./fileOperationsService.ts";
 
-/** All under `listFocus`, so ctrl+c/x/v don't clash with the editor's (those are under `textInputFocus`). */
+/** All under `filesExplorerFocus` (upstream `FilesExplorerFocusCondition`), so ctrl+c/x/v don't clash with the editor's (those are under `textInputFocus`). */
 export const fileCopyAction: CommandAction = {
     id: "fileOperations.copy",
     title: "File: Copy",
     shortTitle: "Copy",
     keybinding: parseKeybinding("ctrl+c"),
-    when: "listFocus",
+    when: "filesExplorerFocus",
     menus: [{ menuId: MenuId.ExplorerContext, group: "2_clipboard", order: 10 }],
     run(accessor) {
         accessor.get(FileOperationsServiceDIToken).copySelected();
@@ -33,7 +33,7 @@ export const fileCutAction: CommandAction = {
     title: "File: Cut",
     shortTitle: "Cut",
     keybinding: parseKeybinding("ctrl+x"),
-    when: "listFocus",
+    when: "filesExplorerFocus",
     menus: [{ menuId: MenuId.ExplorerContext, group: "2_clipboard", order: 20 }],
     run(accessor) {
         accessor.get(FileOperationsServiceDIToken).cutSelected();
@@ -45,7 +45,7 @@ export const filePasteAction: CommandAction = {
     title: "File: Paste",
     shortTitle: "Paste",
     keybinding: parseKeybinding("ctrl+v"),
-    when: "listFocus",
+    when: "filesExplorerFocus",
     menus: [{ menuId: MenuId.ExplorerContext, group: "2_clipboard", order: 30, visible: explorerCanPaste }],
     run(accessor) {
         return accessor.get(FileOperationsServiceDIToken).paste();
@@ -62,7 +62,7 @@ export const fileCopyPathAction: CommandAction = {
     shortTitle: "Copy Path",
     keybinding: parseChord("ctrl+k alt+c"),
     keybindings: [{ keys: parseKeybinding("shift+alt+c"), when: "tier != 'legacy'" }],
-    when: "listFocus",
+    when: "filesExplorerFocus",
     menus: [
         { menuId: MenuId.ExplorerContext, group: "3_copypath", order: 10, args: explorerPathArg },
         {
@@ -86,7 +86,7 @@ export const fileCopyRelativePathAction: CommandAction = {
     shortTitle: "Copy Relative Path",
     keybinding: parseChord("ctrl+k ctrl+shift+c"),
     keybindings: [parseChord("ctrl+k ctrl+c")],
-    when: "listFocus",
+    when: "filesExplorerFocus",
     menus: [
         { menuId: MenuId.ExplorerContext, group: "3_copypath", order: 20, args: explorerPathArg },
         {

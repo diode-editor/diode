@@ -283,6 +283,27 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
         description: "Controls whether file decorations should use colors.",
     },
     {
+        key: "explorer.openEditors.minVisible",
+        type: "number",
+        default: 0,
+        description:
+            "The minimum number of editor slots pre-allocated in the Open Editors pane. If set to 0 the Open Editors pane will dynamically resize based on the number of editors.",
+    },
+    {
+        key: "explorer.openEditors.sortOrder",
+        type: "string",
+        default: "editorOrder",
+        description: "Controls the sorting order of editors in the Open Editors pane.",
+        enum: ["editorOrder", "alphabetical", "fullPath"],
+    },
+    {
+        key: "explorer.openEditors.visible",
+        type: "number",
+        default: 9,
+        description:
+            "The initial maximum number of editors shown in the Open Editors pane. Exceeding this limit will show a scroll bar and allow resizing the pane to display more items.",
+    },
+    {
         key: "extensions.autoCheckUpdates",
         type: "boolean",
         default: true,
