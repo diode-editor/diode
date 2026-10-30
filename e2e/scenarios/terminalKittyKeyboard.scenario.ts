@@ -1,3 +1,4 @@
+import { explorerTitle } from "../helpers/explorerTitle.ts";
 import { defineScenario, repoRoot } from "./framework.ts";
 
 // #857: a program in the terminal switches on the kitty keyboard protocol (`CSI > 1 u`) and gets unambiguous key
@@ -19,7 +20,7 @@ export default defineScenario({
     // node-pty spawns a real PTY — Linux only on CI for now.
     skipOn: ["win32", "darwin"],
     async run(editor) {
-        await editor.waitForText((t) => t.includes("EXPLORER"));
+        await editor.waitForText((t) => t.includes(explorerTitle(repoRoot)));
         // Ctrl+K T: a chord, reachable on every tier.
         await editor.sendKey("Ctrl+K");
         await editor.sendKey("t");

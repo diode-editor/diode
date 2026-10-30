@@ -1,5 +1,6 @@
 import { resolve } from "node:path";
 
+import { explorerTitle } from "../helpers/explorerTitle.ts";
 import { defineScenario, repoRoot } from "./framework.ts";
 
 // `terminal.tier` is a machine key (`scope: machine`): the project file asks for `kitty`, but the value is not applied,
@@ -16,7 +17,7 @@ export default defineScenario({
     async run(editor) {
         await editor.waitForText(
             (t) =>
-                t.includes("EXPLORER") &&
+                t.includes(explorerTitle(folder)) &&
                 t.includes("main.py") &&
                 t.includes(".diode") &&
                 !t.includes("generated") &&

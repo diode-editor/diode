@@ -17,6 +17,7 @@ import { ContextMenuService } from "../../../../platform/contextview/browser/con
 import { NULL_TREE_FILE_WATCHER } from "../../../../platform/files/common/iTreeFileWatcher.ts";
 import { KeybindingRegistry } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";
+import { WorkspaceContextService } from "../../../../platform/workspace/common/workspaceContextService.ts";
 import { makeViewsHarness } from "../../../browser/parts/views/viewsService.testUtils.ts";
 import { darkPlusTheme } from "../../../services/themes/common/themes/darkPlus.ts";
 import { ThemeService } from "../../../services/themes/common/themeService.ts";
@@ -56,6 +57,7 @@ describe("ExplorerService — revealPath (via the ExplorerComponent tree)", () =
             contextMenuService,
             makeViewsHarness().service,
             NULL_CONFIGURATION_SERVICE,
+            new WorkspaceContextService(),
         );
         service.setRootPath(ws.dir);
         app = TestApp.createWithContent(component.view, new Size(40, 15));

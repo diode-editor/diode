@@ -1,5 +1,6 @@
 import { resolve } from "node:path";
 
+import { explorerTitle } from "../helpers/explorerTitle.ts";
 import { defineScenario, repoRoot } from "./framework.ts";
 
 // Keybinding reachability without extended keys (ssh + tmux, #376). The key frame is F1 after tier promotion: F1 was
@@ -23,12 +24,12 @@ export default defineScenario({
 
         // Hide the sidebar so the frame shows the chord opening it.
         await editor.sendKey("Ctrl+B");
-        await editor.waitForText((t) => !t.includes("EXPLORER"));
+        await editor.waitForText((t) => !t.includes(explorerTitle(repoRoot)));
         await editor.capture("sidebar-hidden");
 
         await editor.sendKey("Ctrl+K");
         await editor.sendKey("e");
-        await editor.waitForText((t) => t.includes("EXPLORER") && t.includes("sample.ts"));
+        await editor.waitForText((t) => t.includes(explorerTitle(repoRoot)) && t.includes("sample.ts"));
         await editor.capture("chord-opens-explorer");
 
         await editor.sendKey("F1");

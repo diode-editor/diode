@@ -1,3 +1,5 @@
+import * as path from "node:path";
+
 import { Size } from "@tuidom/core/common/geometryPromitives";
 import { TUIKeyboardEvent } from "@tuidom/core/dom/events/tuiKeyboardEvent";
 import type { ListViewElement } from "@tuidom/elements/list/listViewElement";
@@ -46,6 +48,9 @@ interface IHarness {
 
 describe("Workbench — Find All References end-to-end", () => {
     let ws: ITempWorkspace | undefined;
+    // The Explorer section is named after the open folder (#898); a short prefix keeps the name within the
+    // 30-column sidebar, where a long title is clipped before the header buttons.
+    const folderTitle = (): string => path.basename(ws!.dir).toUpperCase();
 
     afterEach(() => {
         ws?.dispose();
@@ -54,7 +59,7 @@ describe("Workbench — Find All References end-to-end", () => {
 
     function setup(): IHarness {
         ws = createTempWorkspace({
-            prefix: "diode-references-",
+            prefix: "ws-",
             files: { "main.ts": MAIN_TS, "defs.ts": DEFS_TS },
         });
         const workspace = ws;
@@ -122,7 +127,7 @@ describe("Workbench — Find All References end-to-end", () => {
 
     it("the command queries providers at the cursor and shows the references in the sidebar", async () => {
         const h = setup();
-        expect(h.screen()).toContain("EXPLORER");
+        expect(h.screen()).toContain(folderTitle());
 
         h.execute(FIND_REFERENCES);
         await h.awaitResults();
@@ -137,7 +142,7 @@ describe("Workbench — Find All References end-to-end", () => {
         expect(shown).toContain("main.ts");
         // Code lines are read from disk — they are not in the main.ts buffer.
         expect(shown).toContain("export function greet(");
-        expect(shown).not.toContain("EXPLORER");
+        expect(shown).not.toContain(folderTitle());
         expect(h.contextKey("referencesViewletVisible")).toBe(true);
         expect(h.contextKey("hasReferenceResult")).toBe(true);
         expect(h.focusedId()).toBe("referenceResults");
@@ -151,7 +156,7 @@ describe("Workbench — Find All References end-to-end", () => {
 
         const shown = h.screen();
         expect(shown).toContain("REFERENCES");
-        expect(shown).not.toContain("EXPLORER");
+        expect(shown).not.toContain(folderTitle());
         expect(shown).not.toContain("results in");
         expect(h.contextKey("hasReferenceResult")).toBe(false);
     });
@@ -189,7 +194,7 @@ describe("Workbench — Find All References end-to-end", () => {
         await h.awaitResults();
 
         h.execute(SHOW_EXPLORER);
-        expect(h.screen()).toContain("EXPLORER");
+        expect(h.screen()).toContain(folderTitle());
         expect(h.contextKey("referencesViewletVisible")).toBe(false);
         expect(h.contextKey("hasReferenceResult")).toBe(true);
 

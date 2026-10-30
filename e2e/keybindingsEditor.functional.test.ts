@@ -3,6 +3,7 @@ import { join } from "node:path";
 
 import { beforeAll, describe, expect, it } from "vitest";
 
+import { explorerTitle } from "./helpers/explorerTitle.ts";
 import type { HeadlessApp } from "./helpers/appSession.ts";
 import { getBinaryPath } from "./helpers/buildOnce.ts";
 import { frameToText } from "./helpers/frame.ts";
@@ -29,7 +30,7 @@ async function openEditor(): Promise<HeadlessApp> {
         cols: 110,
         rows: 32,
     });
-    await app.session.waitForText((t) => t.includes("EXPLORER"));
+    await app.session.waitForText((t) => t.includes(explorerTitle(app.env.workspaceDir)));
     await app.session.key("F6");
     await app.session.waitForText((t) => t.includes("Keyboard Shortcuts") && t.includes("Keybinding"));
     return app;

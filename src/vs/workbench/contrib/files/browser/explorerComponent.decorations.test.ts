@@ -15,6 +15,7 @@ import { ContextKeyService } from "../../../../platform/contextkey/common/contex
 import { ContextMenuService } from "../../../../platform/contextview/browser/contextMenuService.ts";
 import { NULL_TREE_FILE_WATCHER } from "../../../../platform/files/common/iTreeFileWatcher.ts";
 import { KeybindingRegistry } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
+import { WorkspaceContextService } from "../../../../platform/workspace/common/workspaceContextService.ts";
 import { makeViewsHarness } from "../../../browser/parts/views/viewsService.testUtils.ts";
 import { MENU_CONTRIBUTIONS } from "../../../workbench.common.main.ts";
 
@@ -93,6 +94,7 @@ describe("ExplorerComponent — decorations bubble up to folders", () => {
             ),
             makeViewsHarness().service,
             config,
+            new WorkspaceContextService(),
         );
         service.setRootPath(ws.dir);
         app = TestApp.createWithContent(component.view, new Size(40, 12));

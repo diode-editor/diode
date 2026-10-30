@@ -1,5 +1,6 @@
 import { resolve } from "node:path";
 
+import { explorerTitle } from "../helpers/explorerTitle.ts";
 import { defineScenario, repoRoot } from "./framework.ts";
 
 // The exclude-settings workspace with an override: `"**/__pycache__": false` disables the default (the upstream way
@@ -20,7 +21,7 @@ export default defineScenario({
     },
     userKeybindings: [{ key: "f6", command: "workbench.view.search" }],
     async run(editor) {
-        await editor.waitForText((t) => t.includes("EXPLORER") && t.includes("__pycache__") && t.includes("README.md"));
+        await editor.waitForText((t) => t.includes(explorerTitle(sampleDir)) && t.includes("__pycache__") && t.includes("README.md"));
         await editor.capture("tree");
 
         // Same "2 results in 2 files" total, but different files.

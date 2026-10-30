@@ -10,7 +10,7 @@ import type {
     IWorkspaceContextService,
 } from "../../../../platform/workspace/common/iWorkspaceContextService.ts";
 import { IWorkspaceContextServiceDIToken } from "../../../../platform/workspace/common/iWorkspaceContextServiceDIToken.ts";
-import { workspaceFileLabel } from "../../../../platform/workspace/common/workspaceFile.ts";
+import { workspaceLabel } from "../../../../platform/workspace/common/workspaceLabel.ts";
 import type { IWorkbenchContribution } from "../../../common/iWorkbenchContribution.ts";
 import {
     type IUserDataProfileService,
@@ -30,10 +30,7 @@ const TITLE_SEPARATOR = " - ";
  * Empty parts collapse together with their separator.
  */
 export function windowTitle(workspace: IWorkspace, profile: IUserDataProfile): string {
-    const rootName =
-        workspace.configuration !== undefined
-            ? `${workspaceFileLabel(workspace.configuration.fsPath)} (Workspace)`
-            : (workspace.folders.at(0)?.name ?? "");
+    const rootName = workspaceLabel(workspace);
     const profileName = profile.isDefault ? "" : profile.name;
     return [rootName, profileName, APP_NAME].filter((part) => part !== "").join(TITLE_SEPARATOR);
 }

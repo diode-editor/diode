@@ -4,6 +4,7 @@ import type { GridSnapshot } from "@tuidom/core/rendering/gridSnapshot";
 
 import { frameToText } from "../helpers/frame.ts";
 
+import { explorerTitle } from "../helpers/explorerTitle.ts";
 import type { ScenarioDriver } from "./framework.ts";
 import { defineScenario, repoRoot } from "./framework.ts";
 
@@ -65,7 +66,9 @@ async function runCommand(editor: ScenarioDriver, title: string): Promise<void> 
 /** Window reload after a profile command: the old socket closes, a new one comes up on the same port. */
 async function reloaded(editor: ScenarioDriver): Promise<void> {
     await editor.reconnect();
-    await editor.waitForText((t) => t.includes("EXPLORER"), { timeoutMs: 60_000 });
+    // Web or backend, whichever workspace file the window came back on.
+    const titles = ["web", "backend"].map((name) => explorerTitle(resolve(fixture, `${name}.code-workspace`)));
+    await editor.waitForText((t) => titles.some((title) => t.includes(title)), { timeoutMs: 60_000 });
 }
 
 export default defineScenario({
@@ -78,7 +81,7 @@ export default defineScenario({
     // On Windows, Reload Window from a scenario brings the window up without the sidebar (docs/TODO/E2E.md).
     skipOn: ["win32"],
     async run(editor) {
-        await editor.waitForText((t) => t.includes("EXPLORER"));
+        await editor.waitForText((t) => t.includes(explorerTitle(resolve(fixture, "web.code-workspace"))));
         await expectTheme(editor, false);
         await editor.capture("default");
 

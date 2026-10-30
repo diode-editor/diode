@@ -1,3 +1,5 @@
+import * as path from "node:path";
+
 import { Point } from "@tuidom/core/common/geometryPromitives";
 import { ButtonElement } from "@tuidom/elements/button/buttonElement";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -15,11 +17,14 @@ import { NotificationsComponentDIToken, TOAST_WIDTH } from "./parts/notification
 
 describe("Workbench — messages on the frame", () => {
     let ws: ITempWorkspace;
+    // The Explorer section is named after the open folder (#898); a short prefix keeps the name within the
+    // 30-column sidebar, where a long title is clipped before the header buttons.
+    const folderTitle = (): string => path.basename(ws.dir).toUpperCase();
     let h: IAppHarness;
     let notifications: NotificationService;
 
     beforeEach(async () => {
-        ws = createTempWorkspace({ prefix: "diode-notify-", files: { "alpha.txt": "Alpha content" } });
+        ws = createTempWorkspace({ prefix: "ws-", files: { "alpha.txt": "Alpha content" } });
         h = createAppTestHarness({ workspaceFolder: ws.dir, openFile: `${ws.dir}/alpha.txt`, focusEditor: true });
         await h.workbench.activate();
         await h.workbench.fileIndexReady;
@@ -246,11 +251,11 @@ describe("Workbench — messages on the frame", () => {
 
     it("global keybindings work through a PASSIVE toast — the stack does not take the keyboard", () => {
         notifications.show({ severity: "error", message: "boom", modal: false, items: [] });
-        const sidebarBefore = screen().includes("EXPLORER");
+        const sidebarBefore = screen().includes(folderTitle());
 
         h.testApp.sendKey("Ctrl+B");
 
-        expect(screen().includes("EXPLORER")).toBe(!sidebarBefore);
+        expect(screen().includes(folderTitle())).toBe(!sidebarBefore);
         expect(screen()).toContain("boom");
     });
 
@@ -293,9 +298,9 @@ describe("Workbench — messages on the frame", () => {
         screen();
 
         // Ctrl+B toggles the sidebar; it must work through a question toast.
-        const sidebarBefore = screen().includes("EXPLORER");
+        const sidebarBefore = screen().includes(folderTitle());
         h.testApp.sendKey("Ctrl+B");
-        expect(screen().includes("EXPLORER")).toBe(!sidebarBefore);
+        expect(screen().includes(folderTitle())).toBe(!sidebarBefore);
         expect(screen()).toContain("Activate?");
         await Promise.resolve();
     });
@@ -304,10 +309,10 @@ describe("Workbench — messages on the frame", () => {
         notifications.show({ severity: "warn", message: "Delete?", modal: true, items: ["Delete"] });
         screen();
 
-        const sidebarBefore = screen().includes("EXPLORER");
+        const sidebarBefore = screen().includes(folderTitle());
         h.testApp.sendKey("Ctrl+B");
 
-        expect(screen().includes("EXPLORER")).toBe(sidebarBefore);
+        expect(screen().includes(folderTitle())).toBe(sidebarBefore);
         expect(screen()).toContain("Delete?");
     });
 

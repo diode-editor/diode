@@ -12,7 +12,9 @@ const NERD_EXPANDED = "";
 const NERD_COLLAPSED = "";
 
 function titleText(element: TUIElement): string {
-    return (element.querySelector("TextLabelElement") as TextLabelElement).getText();
+    // The switcher chevron is a label of its own, right after the title.
+    const switcher = element.querySelector("#viewTitleSwitcher") as TextLabelElement | null;
+    return (element.querySelector("TextLabelElement") as TextLabelElement).getText() + (switcher?.getText() ?? "");
 }
 
 function paneHeader(view: PaneViewElement, id: string): TUIElement {

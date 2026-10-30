@@ -1,3 +1,4 @@
+import { explorerTitle } from "../helpers/explorerTitle.ts";
 import { defineScenario, repoRoot } from "./framework.ts";
 
 // keybindings.json is seeded with a conflict (selectAll on Ctrl+S over save) for the @conflicts frame. Opened via
@@ -14,7 +15,7 @@ export default defineScenario({
     cols: 110,
     rows: 30,
     async run(editor) {
-        await editor.waitForText((t) => t.includes("EXPLORER"));
+        await editor.waitForText((t) => t.includes(explorerTitle(repoRoot)));
         await editor.sendKey("F6");
         await editor.waitForText((t) => t.includes("Keyboard Shortcuts") && t.includes("Keybinding"));
         await editor.capture("tab");

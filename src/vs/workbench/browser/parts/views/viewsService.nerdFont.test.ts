@@ -10,7 +10,10 @@ import { type IViewsHarness, makeViewsHarness, testView as view } from "./viewsS
 const NERD_EXPANDED = "";
 
 function titleText(element: TUIElement | null): string {
-    return (element?.querySelector("TextLabelElement") as TextLabelElement | null)?.getText() ?? "";
+    // The switcher chevron is a label of its own, right after the title.
+    const switcher = element?.querySelector("#viewTitleSwitcher") as TextLabelElement | null | undefined;
+    const title = (element?.querySelector("TextLabelElement") as TextLabelElement | null)?.getText() ?? "";
+    return title + (switcher?.getText() ?? "");
 }
 
 function sectionTitle(h: IViewsHarness, containerId: string, viewId: string): string {

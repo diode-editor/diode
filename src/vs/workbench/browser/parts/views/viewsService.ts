@@ -1515,8 +1515,10 @@ export class ViewsService implements IContextKeyContributor {
         for (const view of visible) {
             paneView.addPane({
                 id: view.id,
-                // Merged in the sidebar: the single section's header is the container header.
-                title: merged && !this.isTabbed(entry) ? containerPaneTitle(entry) : view.title,
+                // Merged in the sidebar: the single section's header is the container header, and it
+                // carries the section's own title (upstream's `getTitle` prefixes the container name;
+                // we don't, by a human's decision in #898).
+                title: view.title,
                 description: view.description,
                 body: this.bodyOf(view),
                 minBodyHeight: view.minBodyHeight,
@@ -1563,11 +1565,6 @@ type StoredCollapsed = IViewContainerViewsState["collapsed"];
 
 function isLegacyCollapsedList(stored: StoredCollapsed): stored is readonly string[] {
     return Array.isArray(stored);
-}
-
-/** Strip the legacy format's leading spaces — the header draws the indent itself. */
-function containerPaneTitle(entry: ContainerEntry): string {
-    return containerTitle(entry).trimStart();
 }
 
 /**

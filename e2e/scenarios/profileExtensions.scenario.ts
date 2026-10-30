@@ -4,6 +4,7 @@ import { join, resolve } from "node:path";
 
 import { createRegistryFixture } from "../helpers/registryFixture.ts";
 
+import { explorerTitle } from "../helpers/explorerTitle.ts";
 import type { ScenarioDriver } from "./framework.ts";
 import { defineScenario, repoRoot } from "./framework.ts";
 
@@ -36,7 +37,7 @@ async function runCommand(editor: ScenarioDriver, title: string): Promise<void> 
 /** The old socket closes and a new one comes up on the same port. */
 async function reloaded(editor: ScenarioDriver): Promise<void> {
     await editor.reconnect();
-    await editor.waitForText((t) => t.includes("EXPLORER"), { timeoutMs: 60_000 });
+    await editor.waitForText((t) => t.includes(explorerTitle(fixture)), { timeoutMs: 60_000 });
 }
 
 /** `down`: how many steps down from "Empty" in the contents picker. */
@@ -71,7 +72,7 @@ export default defineScenario({
     // On Windows, Reload Window from a scenario brings the window up without a sidebar (docs/TODO/E2E.md).
     skipOn: ["win32"],
     async run(editor) {
-        await editor.waitForText((t) => t.includes("EXPLORER"));
+        await editor.waitForText((t) => t.includes(explorerTitle(fixture)));
         await expectLanguage(editor, "Hello Language");
         await editor.capture("default");
 

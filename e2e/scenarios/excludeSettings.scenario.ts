@@ -1,5 +1,6 @@
 import { resolve } from "node:path";
 
+import { explorerTitle } from "../helpers/explorerTitle.ts";
 import { defineScenario, repoRoot } from "./framework.ts";
 
 // The token is in four files, one per layer: `app.py`/`README.md` are regular; `__pycache__/…pyc` is a
@@ -19,7 +20,7 @@ export default defineScenario({
     async run(editor) {
         await editor.waitForText(
             (t) =>
-                t.includes("EXPLORER") &&
+                t.includes(explorerTitle(sampleDir)) &&
                 t.includes("app.py") &&
                 t.includes("README.md") &&
                 t.includes("out") &&

@@ -2,6 +2,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import { explorerTitle } from "../helpers/explorerTitle.ts";
 import { defineScenario } from "./framework.ts";
 
 const workDir = mkdtempSync(join(tmpdir(), "diode-untitled-demo-"));
@@ -14,7 +15,7 @@ export default defineScenario({
     rows: 22,
     skipOn: ["win32", "darwin"],
     async run(editor) {
-        await editor.waitForText((t) => t.includes("EXPLORER"));
+        await editor.waitForText((t) => t.includes(explorerTitle(workDir)));
 
         await editor.sendKey("Ctrl+P");
         await editor.sendText(">Compare New Untitled Text Files");

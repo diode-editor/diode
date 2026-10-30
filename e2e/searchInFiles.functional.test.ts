@@ -1,5 +1,6 @@
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 
+import { explorerTitle } from "./helpers/explorerTitle.ts";
 import type { HeadlessApp } from "./helpers/appSession.ts";
 import { getBinaryPath } from "./helpers/buildOnce.ts";
 import { clickText } from "./outputPanel.shared.ts";
@@ -25,7 +26,7 @@ const KEYS = [
 async function openSearch(files: Record<string, string> = FILES): Promise<HeadlessApp> {
     const app = await useHeadlessApp({ files, keybindings: KEYS, cols: 100, rows: 30 });
     const { session } = app;
-    await session.waitForText((t) => t.includes("EXPLORER"));
+    await session.waitForText((t) => t.includes(explorerTitle(app.env.workspaceDir)));
     await session.key("F6");
     await session.waitForText((t) => t.includes("SEARCH"));
     return app;
@@ -196,7 +197,7 @@ describe("Search panel (functional e2e)", () => {
         const app = await openSearch();
         const { session } = app;
         await session.key("F7");
-        await session.waitForText((t) => t.includes("EXPLORER"));
+        await session.waitForText((t) => t.includes(explorerTitle(app.env.workspaceDir)));
         expect(await session.node("#searchView")).toBeNull();
     }, 120_000);
 });

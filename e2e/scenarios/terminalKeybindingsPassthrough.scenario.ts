@@ -1,3 +1,4 @@
+import { explorerTitle } from "../helpers/explorerTitle.ts";
 import { defineScenario, repoRoot } from "./framework.ts";
 
 // #820: with the terminal focused, workbench shortcuts reach the shell; only the skip set
@@ -18,7 +19,7 @@ export default defineScenario({
     // node-pty spawns a real PTY — Linux only on CI for now.
     skipOn: ["win32", "darwin"],
     async run(editor) {
-        await editor.waitForText((t) => t.includes("EXPLORER"));
+        await editor.waitForText((t) => t.includes(explorerTitle(repoRoot)));
         // Ctrl+K T: a chord, reachable on every tier.
         await editor.sendKey("Ctrl+K");
         await editor.sendKey("t");
@@ -38,7 +39,7 @@ export default defineScenario({
         // `cat -v` prints the line back once Enter arrives: echo plus output, the marker shows twice.
         // The sidebar is still there (Ctrl+B didn't hide it), the File menu is closed (Alt+F didn't open it).
         await editor.waitForText(
-            (t) => t.split("^B^S^[f").length > 2 && t.includes("EXPLORER") && !t.includes("Open Folder..."),
+            (t) => t.split("^B^S^[f").length > 2 && t.includes(explorerTitle(repoRoot)) && !t.includes("Open Folder..."),
         );
         await editor.capture("keys-in-shell");
 

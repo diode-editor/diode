@@ -1,3 +1,4 @@
+import { explorerTitle } from "../helpers/explorerTitle.ts";
 import { defineScenario, repoRoot } from "./framework.ts";
 
 // Commands are on F keys: the legacy tier cannot encode Ctrl+` and Ctrl+Shift+\, and the menu bar keeps focus in the
@@ -24,7 +25,7 @@ export default defineScenario({
     // node-pty is Unix-only in the current packaging (as in terminal.scenario.ts).
     skipOn: ["win32", "darwin"],
     async run(editor) {
-        await editor.waitForText((t) => t.includes("EXPLORER"));
+        await editor.waitForText((t) => t.includes(explorerTitle(repoRoot)));
 
         // First shell: no list; the active terminal's name is in the tab title.
         await editor.sendKey("F6");

@@ -1,7 +1,13 @@
-import type { Point } from "@tuidom/core/common/geometryPromitives";
+import type { BoxConstraints, Point, Size } from "@tuidom/core/common/geometryPromitives";
 import type { TUIElement } from "@tuidom/core/dom/tuiElement";
 import { FillerElement } from "@tuidom/elements/layout/fillerElement";
-import { HFlexElement, hflexFill, hflexFit, hflexFixed } from "@tuidom/elements/layout/hFlexElement";
+import {
+    HFlexElement,
+    hflexFill,
+    hflexFit,
+    hflexFixed,
+    type HFlexLayoutStyle,
+} from "@tuidom/elements/layout/hFlexElement";
 import { TextLabelElement } from "@tuidom/elements/text/textLabelElement";
 
 import { iconGlyph, type IProductIcon } from "../../../../base/common/codicons.ts";
@@ -52,6 +58,9 @@ export interface IViewTitleRowOptions {
  */
 export class ViewTitleRowElement extends HFlexElement {
     private readonly titleLabel: TextLabelElement;
+    /** The switcher chevron is its own label: a clipped long title (a folder name) must not take it along. */
+    // Stryker disable next-line StringLiteral: equivalent — the label joins the row only after setSwitcher sets its text
+    private readonly switcherLabel = new TextLabelElement("");
     /** Upstream `TreeView.description`: dimmed after the title, clipped first on a narrow header. */
     // Stryker disable next-line StringLiteral: equivalent — the label joins the row only after setDescription sets its text
     private readonly descriptionLabel = new TextLabelElement("");
@@ -76,6 +85,7 @@ export class ViewTitleRowElement extends HFlexElement {
         this.chevron = options?.chevron ?? true;
         this.titleLabel = new TextLabelElement(this.composeTitle());
         this.descriptionLabel.style = { fg: "descriptionForeground" };
+        this.switcherLabel.id = "viewTitleSwitcher";
         this.menuLabel = new TextLabelElement(buttonLabel(MENU_ICON));
         // "⋯" is always enabled: it opens a popup rather than running a command.
         this.menuLabel.style = buttonStyle(true);
@@ -122,6 +132,7 @@ export class ViewTitleRowElement extends HFlexElement {
         if (this.nerdFont === nerdFont) return;
         this.nerdFont = nerdFont;
         this.titleLabel.setText(this.composeTitle());
+        this.syncSwitcherLabel();
     }
 
     public setActions(actions: readonly IViewTitleAction[]): void {
@@ -165,8 +176,10 @@ export class ViewTitleRowElement extends HFlexElement {
         // Stryker disable next-line ConditionalExpression: without the early return the same text and style are set again — nothing changes in the frame
         if (this.switcher === enabled) return;
         this.switcher = enabled;
-        this.titleLabel.setText(this.composeTitle());
         this.titleLabel.style = enabled ? { when: [{ states: ["hover"], bg: "toolbar.hoverBackground" }] } : {};
+        this.switcherLabel.style = this.titleLabel.style;
+        this.syncSwitcherLabel();
+        this.syncChildren();
     }
 
     public get hasSwitcher(): boolean {
@@ -181,7 +194,9 @@ export class ViewTitleRowElement extends HFlexElement {
         // A hidden "⋯" has no zone: it is left outside the tree with its stale layout,
         // and without this check its old columns would still be clickable.
         if (this.menuVisible && inZone(this.menuLabel, localX)) return { kind: "menu" };
-        if (this.switcher && inZone(this.titleLabel, localX)) return { kind: "switcher" };
+        if (this.switcher && (inZone(this.titleLabel, localX) || inZone(this.switcherLabel, localX))) {
+            return { kind: "switcher" };
+        }
         return { kind: "title" };
     }
 
@@ -201,6 +216,7 @@ export class ViewTitleRowElement extends HFlexElement {
         });
         this.menuLabel.setStyleState("hover", zone?.kind === "menu");
         this.titleLabel.setStyleState("hover", zone?.kind === "switcher");
+        this.switcherLabel.setStyleState("hover", zone?.kind === "switcher");
     }
 
     /** Only the widget: labels are presentational, but the widget must receive clicks or it can't be pressed. */
@@ -208,9 +224,12 @@ export class ViewTitleRowElement extends HFlexElement {
         return this.titleWidget?.elementFromPoint(point) ?? null;
     }
 
+    private syncSwitcherLabel(): void {
+        this.switcherLabel.setText(` ${iconGlyph(SWITCHER_ICON, this.nerdFont)} `);
+    }
+
     private composeTitle(): string {
-        const switcher = this.switcher ? ` ${iconGlyph(SWITCHER_ICON, this.nerdFont)} ` : "";
-        const tail = (this.spinner === null ? "" : ` ${this.spinner}`) + switcher;
+        const tail = this.spinner === null ? "" : ` ${this.spinner}`;
         if (!this.chevron) return ` ${this.title}${tail}`;
         const chevron = iconGlyph(this.expanded ? ICON_EXPANDED : ICON_COLLAPSED, this.nerdFont);
         return ` ${chevron} ${this.title}${tail}`;
@@ -227,7 +246,9 @@ export class ViewTitleRowElement extends HFlexElement {
         this.descriptionLabel.layoutStyle = { width: hflexFit(), height: 1 };
         this.filler.layoutStyle = { width: hflexFill(), height: 1 };
         this.menuLabel.layoutStyle = { width: hflexFixed(BUTTON_WIDTH), height: 1 };
+        this.switcherLabel.layoutStyle = { width: hflexFit(), height: 1 };
         const children: TUIElement[] = [this.titleLabel];
+        if (this.switcher) children.push(this.switcherLabel);
         if (this.description !== null) children.push(this.descriptionLabel);
         children.push(this.filler);
         if (this.titleWidget !== null) {
@@ -242,6 +263,31 @@ export class ViewTitleRowElement extends HFlexElement {
             children.push(control);
         });
         this.replaceChildren(children);
+    }
+
+    /**
+     * HFlex clamps greedily in child order, so a long title (a folder name) would push the buttons and "⋯"
+     * out of a narrow header. The controls keep their columns; the title, then the description, get the rest.
+     */
+    protected override performLayout(constraints: BoxConstraints): Size {
+        const shrinkable = new Set<TUIElement>([this.titleLabel, this.descriptionLabel, this.filler]);
+        let reserved = 0;
+        for (const child of this.getChildren()) {
+            if (shrinkable.has(child)) continue;
+            const width = (child.layoutStyle as HFlexLayoutStyle).width;
+            reserved += width.type === "fixed" ? width.value : child.getMaxIntrinsicWidth(1);
+        }
+        let free = Math.max(0, constraints.maxWidth - reserved);
+        for (const label of [this.titleLabel, this.descriptionLabel]) {
+            const width = Math.min(label.getMaxIntrinsicWidth(1), free);
+            label.layoutStyle = { width: hflexFixed(width), height: 1 };
+            free -= width;
+        }
+        const size = super.performLayout(constraints);
+        // Back to `fit`: the row's intrinsic width must stay the full title, not the clamp of the last layout.
+        this.titleLabel.layoutStyle = { width: hflexFit(), height: 1 };
+        this.descriptionLabel.layoutStyle = { width: hflexFit(), height: 1 };
+        return size;
     }
 }
 

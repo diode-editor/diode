@@ -86,12 +86,12 @@ describe("PaneHeaderElement", () => {
         expect(header.getMaxIntrinsicHeight(30)).toBe(1);
     });
 
-    it("on a narrow header the ⋯ button is clipped: a click in its zone collapses", () => {
+    it("on a narrow header the title gives way: ⋯ keeps its zone", () => {
         const { header, onToggle, onMenu } = makeHeader(4);
-        mouse(header, "mousedown", { localX: 3 });
-        mouse(header, "mouseup", { localX: 3 });
-        expect(onToggle).toHaveBeenCalledOnce();
-        expect(onMenu).not.toHaveBeenCalled();
+        mouse(header, "mousedown", { localX: 1 });
+        mouse(header, "mouseup", { localX: 1 });
+        expect(onMenu).toHaveBeenCalledOnce();
+        expect(onToggle).not.toHaveBeenCalled();
     });
 
     it("after a drag starts every move is reported, including returning to the press row", () => {

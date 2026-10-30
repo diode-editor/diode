@@ -1,3 +1,5 @@
+import * as path from "node:path";
+
 import { ButtonElement } from "@tuidom/elements/button/buttonElement";
 import type { TextLabelElement } from "@tuidom/elements/text/textLabelElement";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -10,7 +12,7 @@ import { NULL_CONFIGURATION_SERVICE } from "../../../../platform/configuration/c
 import { ContextMenuService } from "../../../../platform/contextview/browser/contextMenuService.ts";
 import { NULL_TREE_FILE_WATCHER } from "../../../../platform/files/common/iTreeFileWatcher.ts";
 import type { IViewsHarness } from "../../../browser/parts/views/viewsService.testUtils.ts";
-import { makeViewsHarness } from "../../../browser/parts/views/viewsService.testUtils.ts";
+import { makeViewsHarness, paneTitles, testView } from "../../../browser/parts/views/viewsService.testUtils.ts";
 import { ViewWelcomeElement } from "../../../browser/parts/views/viewWelcomeElement.ts";
 import { MENU_CONTRIBUTIONS } from "../../../workbench.common.main.ts";
 
@@ -42,6 +44,7 @@ describe("ExplorerComponent — sidebar container", () => {
             new ContextMenuService(h.menuService),
             h.service,
             NULL_CONFIGURATION_SERVICE,
+            h.workspace,
         );
     });
 
@@ -51,7 +54,12 @@ describe("ExplorerComponent — sidebar container", () => {
         ws.dispose();
     });
 
-    it("merged container: the single section carries the EXPLORER header and does not collapse", () => {
+    function mergedTitle(): unknown {
+        return paneTitles(h.paneView(EXPLORER_VIEWLET_ID)).at(0);
+    }
+
+    it("merged container: the single section header is the folder name and does not collapse", () => {
+        h.workspace.setWorkspaceFolder(path.join(ws.dir, "my-App"));
         service.setRootPath(ws.dir);
         attach();
 
@@ -59,10 +67,37 @@ describe("ExplorerComponent — sidebar container", () => {
         const paneView = h.paneView(EXPLORER_VIEWLET_ID);
         expect(paneView.getPaneIds()).toEqual([EXPLORER_VIEW_ID]);
         expect(paneView.querySelector("#paneHeader-workbench-explorer-fileView")?.inspectState()).toMatchObject({
-            title: "EXPLORER",
+            title: "MY-APP",
             collapsible: false,
         });
         expect(h.service.canMoveView(EXPLORER_VIEW_ID)).toBe(true);
+    });
+
+    it("without a folder the section is NO FOLDER OPENED; opening one renames it at once, collapsed state intact", () => {
+        attach();
+        expect(mergedTitle()).toBe("NO FOLDER OPENED");
+
+        h.workspace.setWorkspaceFolder(path.join(ws.dir, "\u043f\u0440\u043e\u0435\u043a\u0442"));
+        expect(mergedTitle()).toBe("\u041f\u0420\u041e\u0415\u041a\u0422"); // "proekt": a non-Latin name is upper-cased too
+        h.workspace.setWorkspaceFolder(path.join(ws.dir, "other"));
+        expect(mergedTitle()).toBe("OTHER");
+    });
+
+    it("a .code-workspace window is named like the window title, upper-cased", () => {
+        h.workspace.setWorkspaceFile(path.join(ws.dir, "web.code-workspace"), { folder: ws.dir, folderName: "src" });
+        attach();
+        expect(mergedTitle()).toBe("WEB (WORKSPACE)");
+    });
+
+    it("with a second visible section the folder name moves to the section, the header is EXPLORER", () => {
+        h.workspace.setWorkspaceFolder(ws.dir);
+        attach();
+        h.service.registerView(testView("workbench.explorer.other", EXPLORER_VIEWLET_ID, 20));
+        expect(h.header(EXPLORER_VIEWLET_ID)!.inspectState()).toMatchObject({ title: "EXPLORER" });
+        expect(paneTitles(h.paneView(EXPLORER_VIEWLET_ID))).toEqual([
+            path.basename(ws.dir).toUpperCase(),
+            "WORKBENCH.EXPLORER.OTHER",
+        ]);
     });
 
     it("before a folder is opened the section renders the welcome with an Open Folder button, after — the tree", () => {
@@ -99,6 +134,7 @@ describe("ExplorerComponent — sidebar container", () => {
         const header = h.paneView(EXPLORER_VIEWLET_ID).querySelector("#paneHeader-workbench-explorer-fileView")!;
         const [, ...rest] = header.querySelectorAll("TextLabelElement");
         const buttons = rest
+            .filter((label) => label.id !== "viewTitleSwitcher")
             .map((label) => (label as TextLabelElement).getText().trim())
             .filter((text) => text !== "\u2502");
         // New File / New Folder / Refresh Explorer and "⋯", which holds the viewlet's "Move To".

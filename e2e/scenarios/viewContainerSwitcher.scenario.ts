@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 import { ACTIVATION_LOG_KEYBINDINGS, openActivationLog, waitForActivationLine } from "../helpers/activationLog.ts";
 import { findTextCell } from "../helpers/frame.ts";
 
+import { explorerTitle } from "../helpers/explorerTitle.ts";
 import { defineScenario, repoRoot, type ScenarioDriver } from "./framework.ts";
 
 // The container switcher — our activity bar: a click on the sidebar title lists the sidebar containers,
@@ -33,7 +34,7 @@ export default defineScenario({
         await editor.waitForText((t) => t.includes("greeting"));
         await editor.waitForReady();
 
-        await clickText(editor, "EXPLORER");
+        await clickText(editor, explorerTitle(repoRoot));
         await editor.waitForText((t) => t.includes("Source Control") && t.includes("Build Tools"));
         await editor.capture("switcher");
 

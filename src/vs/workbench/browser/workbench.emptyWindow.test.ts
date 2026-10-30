@@ -1,3 +1,5 @@
+import * as path from "node:path";
+
 import { Size } from "@tuidom/core/common/geometryPromitives";
 import { ButtonElement } from "@tuidom/elements/button/buttonElement";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -33,7 +35,7 @@ describe("Workbench — window without a workspace", () => {
     }
 
     beforeEach(() => {
-        ws = createTempWorkspace({ prefix: "diode-empty-window-", files: { "alpha.txt": "Alpha" } });
+        ws = createTempWorkspace({ prefix: "ws-", files: { "alpha.txt": "Alpha" } });
         terminalOptions = [];
         h = createAppTestHarness({
             size: new Size(80, 24),
@@ -54,7 +56,11 @@ describe("Workbench — window without a workspace", () => {
     it("the sidebar is built and shows Explorer with a welcome view instead of the tree", () => {
         expect(h.container.get(SidebarServiceDIToken).getActiveViewletId()).toBe(EXPLORER_VIEWLET_ID);
         const shown = screen();
-        expect(shown).toContain("EXPLORER");
+        // Upstream's empty-window view name; with one section it is the sidebar header (#898). The 30-column
+        // sidebar clips it before the switcher chevron and the header buttons.
+        const header = h.testApp.querySelector("#paneHeader-workbench-explorer-fileView");
+        expect(header?.inspectState()).toMatchObject({ title: "NO FOLDER OPENED" });
+        expect(shown).toContain(" NO FOLDER O");
         expect(shown).toContain("You have not yet opened a");
         expect(shown).toContain("[ Open Folder ]");
     });
@@ -128,7 +134,9 @@ describe("Workbench — window without a workspace", () => {
         });
 
         const shown = screen();
-        expect(shown).toContain("EXPLORER");
+        // The header is renamed after the opened folder at once, without a restart.
+        expect(shown).toContain(path.basename(ws.dir).toUpperCase());
+        expect(shown).not.toContain("NO FOLDER");
         expect(shown).not.toContain("You have not yet opened a");
     });
 

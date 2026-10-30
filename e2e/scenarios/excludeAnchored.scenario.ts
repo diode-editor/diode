@@ -1,5 +1,6 @@
 import { resolve } from "node:path";
 
+import { explorerTitle } from "../helpers/explorerTitle.ts";
 import { defineScenario, repoRoot } from "./framework.ts";
 
 // Exclude patterns are anchored at the root in search too: rg on its own would read `common` as "at any depth".
@@ -22,7 +23,7 @@ export default defineScenario({
         // Don't wait for the compressed `nci/common` chain: it appears only once the children load, and the Windows
         // runner captures the frame earlier. A tree row is the name, trailing spaces and possibly `│` before the
         // adjacent part.
-        await editor.waitForText((t) => t.includes("EXPLORER") && t.includes("nci") && !/^\s*common\s*(│|$)/mu.test(t));
+        await editor.waitForText((t) => t.includes(explorerTitle(sampleDir)) && t.includes("nci") && !/^\s*common\s*(│|$)/mu.test(t));
         await editor.capture("tree");
 
         // The sidebar truncates the file name ("nci/common/TopicStreamConsum…"), so match by path prefix.

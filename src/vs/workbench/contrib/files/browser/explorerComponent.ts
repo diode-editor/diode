@@ -14,6 +14,12 @@ import type { ContextKeyService } from "../../../../platform/contextkey/common/c
 import type { ContextMenuService } from "../../../../platform/contextview/browser/contextMenuService.ts";
 import { ContextMenuServiceDIToken } from "../../../../platform/contextview/browser/contextMenuService.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
+import type {
+    IWorkspace,
+    IWorkspaceContextService,
+} from "../../../../platform/workspace/common/iWorkspaceContextService.ts";
+import { IWorkspaceContextServiceDIToken } from "../../../../platform/workspace/common/iWorkspaceContextServiceDIToken.ts";
+import { workspaceLabel } from "../../../../platform/workspace/common/workspaceLabel.ts";
 import { Component } from "../../../browser/component.ts";
 import type { ViewsService } from "../../../browser/parts/views/viewsService.ts";
 import { ViewsServiceDIToken } from "../../../browser/parts/views/viewsService.ts";
@@ -39,6 +45,15 @@ const EXPLORER_WELCOME: readonly IViewWelcomeBlock[] = [
     { kind: "button", label: "Open Folder", command: "workbench.action.files.openFolder" },
 ];
 
+/**
+ * Upstream `ExplorerView.title`: the workspace label; an empty window gets upstream's `EmptyView` name.
+ * Upper-cased like every section title here (upstream does it in CSS).
+ */
+export function explorerViewTitle(workspace: IWorkspace): string {
+    const label = workspaceLabel(workspace);
+    return (label === "" ? "No Folder Opened" : label).toUpperCase();
+}
+
 interface ExplorerViewParts {
     readonly tree: TreeViewElement<FileTreeNode>;
     readonly scrollBars: ScrollBarDecorator;
@@ -56,6 +71,7 @@ export class ExplorerComponent extends Component implements IContextKeyContribut
         ContextMenuServiceDIToken,
         ViewsServiceDIToken,
         IConfigurationServiceDIToken,
+        IWorkspaceContextServiceDIToken,
     ] as const;
 
     private parts: ExplorerViewParts | null = null;
@@ -67,6 +83,7 @@ export class ExplorerComponent extends Component implements IContextKeyContribut
         private readonly contextMenuService: ContextMenuService,
         private readonly viewsService: ViewsService,
         private readonly configurationService: IConfigurationService,
+        workspaceContext: IWorkspaceContextService,
     ) {
         super();
         // Until a folder is open, the section draws a welcome, like VS Code's `viewsWelcome`; there is
@@ -83,7 +100,7 @@ export class ExplorerComponent extends Component implements IContextKeyContribut
             canMoveView: true,
             id: EXPLORER_VIEW_ID,
             containerId: EXPLORER_VIEWLET_ID,
-            title: "EXPLORER",
+            title: explorerViewTitle(workspaceContext.getWorkspace()),
             order: 10,
             body: null,
             placeholder: EXPLORER_WELCOME,
@@ -91,6 +108,11 @@ export class ExplorerComponent extends Component implements IContextKeyContribut
                 this.explorerService.focus();
             },
         });
+        this.register(
+            workspaceContext.onDidChangeWorkspaceFolders(() => {
+                viewsService.setViewTitle(EXPLORER_VIEW_ID, explorerViewTitle(workspaceContext.getWorkspace()), null);
+            }),
+        );
         this.register(
             onDidChangeTreeIndentGuides(configurationService, () => {
                 this.parts?.tree.markDirty();

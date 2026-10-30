@@ -1,3 +1,4 @@
+import { explorerTitle } from "../helpers/explorerTitle.ts";
 import { defineScenario, repoRoot } from "./framework.ts";
 
 // #856: keys with modifiers reach the program in the terminal encoded like xterm.js (VS Code): Shift+Tab is
@@ -18,7 +19,7 @@ export default defineScenario({
     // node-pty spawns a real PTY — Linux only on CI for now.
     skipOn: ["win32", "darwin"],
     async run(editor) {
-        await editor.waitForText((t) => t.includes("EXPLORER"));
+        await editor.waitForText((t) => t.includes(explorerTitle(repoRoot)));
         // Ctrl+K T: a chord, reachable on every tier.
         await editor.sendKey("Ctrl+K");
         await editor.sendKey("t");

@@ -15,7 +15,9 @@ function layout(row: ViewTitleRowElement, width = 30): ViewTitleRowElement {
 }
 
 function titleText(row: ViewTitleRowElement): string {
-    return (row.querySelector("TextLabelElement") as TextLabelElement).getText();
+    // The switcher chevron is a label of its own, right after the title.
+    const switcher = row.querySelector("#viewTitleSwitcher") as TextLabelElement | null;
+    return (row.querySelector("TextLabelElement") as TextLabelElement).getText() + (switcher?.getText() ?? "");
 }
 
 describe("ViewTitleRowElement — container switcher", () => {
@@ -29,6 +31,22 @@ describe("ViewTitleRowElement — container switcher", () => {
         row.setSwitcher(false);
         expect(row.hasSwitcher).toBe(false);
         expect(titleText(layout(row))).toBe(" EXPLORER");
+    });
+
+    // The Explorer header is the folder name (#898): a long one is clipped, the switcher stays reachable.
+    it("a clipped title keeps the chevron, and the chevron is the switcher zone", () => {
+        const row = new ViewTitleRowElement("A-REALLY-LONG-PROJECT-FOLDER-NAME", { chevron: false });
+        row.setSwitcher(true);
+        row.setNerdFont(false);
+        expect(renderElement(row, 20, 1).screenToString().trimEnd()).toBe(" A-REALLY-LONG ▾  ⋯");
+        expect(row.hitZone(15)).toEqual({ kind: "switcher" });
+        expect(row.hitZone(18)).toEqual({ kind: "menu" });
+
+        row.setHoveredZone({ kind: "switcher" });
+        const chevron = row.querySelector("#viewTitleSwitcher")!;
+        expect(chevron.hasStyleState("hover")).toBe(true);
+        row.setHoveredZone({ kind: "menu" });
+        expect(chevron.hasStyleState("hover")).toBe(false);
     });
 
     it("the chevron goes after the spinner and survives title and spinner changes", () => {

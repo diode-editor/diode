@@ -1,3 +1,4 @@
+import { explorerTitle } from "../helpers/explorerTitle.ts";
 import { defineScenario, repoRoot } from "./framework.ts";
 
 // Runs against the real SEA binary, including unpacking the bundled `rg`.
@@ -41,7 +42,7 @@ export default defineScenario({
         { key: "f11", command: "search.action.expandSearchResults" },
     ],
     async run(driver) {
-        await driver.waitForText((t) => t.includes("EXPLORER"));
+        await driver.waitForText((t) => t.includes(explorerTitle(repoRoot)));
 
         await driver.sendKey("F6");
         await driver.waitForText((t) => t.includes("SEARCH") && t.includes("···"));

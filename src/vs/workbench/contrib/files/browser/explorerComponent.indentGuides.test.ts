@@ -17,6 +17,7 @@ import { ContextMenuService } from "../../../../platform/contextview/browser/con
 import { NULL_TREE_FILE_WATCHER } from "../../../../platform/files/common/iTreeFileWatcher.ts";
 import { KeybindingRegistry } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";
+import { WorkspaceContextService } from "../../../../platform/workspace/common/workspaceContextService.ts";
 import { makeViewsHarness } from "../../../browser/parts/views/viewsService.testUtils.ts";
 import { darkPlusTheme } from "../../../services/themes/common/themes/darkPlus.ts";
 import { MENU_CONTRIBUTIONS } from "../../../workbench.common.main.ts";
@@ -83,6 +84,7 @@ describe("ExplorerComponent — workbench.tree.renderIndentGuides", () => {
             contextMenuService,
             makeViewsHarness().service,
             config,
+            new WorkspaceContextService(),
         );
         service.setRootPath(ws.dir);
         app = TestApp.createWithContent(component.view, new Size(30, 10));
@@ -161,6 +163,7 @@ describe("ExplorerComponent — workbench.tree.renderIndentGuides without a fold
             ),
             makeViewsHarness().service,
             config,
+            new WorkspaceContextService(),
         );
         await expect(config.updateValue("workbench.tree.renderIndentGuides", "always")).resolves.toBeUndefined();
         component.dispose();
