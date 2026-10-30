@@ -22,6 +22,26 @@ function makeView(bounds: IPaneContentBounds, ids: readonly string[] = ["editors
     return view;
 }
 
+/** Sections top to bottom: a content-sized one has `bounds`, a regular one its `min` body height. */
+function makePanes(
+    panes: readonly { id: string; bounds?: IPaneContentBounds; min?: number }[],
+    height: number,
+): { view: PaneViewElement; app: TestApp } {
+    const view = new PaneViewElement();
+    for (const { id, bounds, min } of panes) {
+        view.addPane({
+            id,
+            title: id.toUpperCase(),
+            body: new FillerElement(),
+            contentBounds: bounds,
+            minBodyHeight: min,
+        });
+    }
+    const app = TestApp.createWithContent(view, new Size(30, height));
+    app.render();
+    return { view, app };
+}
+
 function heights(view: PaneViewElement, height = 22): Record<string, number> {
     view.layout(BoxConstraints.tight(new Size(30, height)));
     const state = view.inspectState() as { panes: { id: string; bodyHeight: number }[] };
@@ -104,5 +124,71 @@ describe("PaneViewElement — content-sized section", () => {
 
         dragHeader(app, "editors", -10);
         expect(heights(view)).toEqual({ files: 16, editors: 4 });
+    });
+
+    it("new bounds mark the layout dirty: the next frame resizes the sections", () => {
+        const { view, app } = makePanes([{ id: "editors", bounds: { min: 2, max: 2 } }, { id: "files" }], 22);
+        expect(view.isLayoutDirty).toBe(false);
+
+        view.setPaneContentBounds("editors", { min: 6, max: 6 });
+        expect(view.isLayoutDirty).toBe(true);
+        app.render();
+
+        expect(app.querySelector("#paneHeader-files")!.globalPosition.y).toBe(7);
+    });
+
+    it("a drag in a container too small for both minimums moves nothing", () => {
+        // 6 rows − 2 headers: editors gets 4 of its 9, files none of its 1.
+        const above = makePanes(
+            [
+                { id: "editors", bounds: { min: 9, max: 30 } },
+                { id: "files", min: 1 },
+            ],
+            6,
+        );
+        dragHeader(above.app, "files", -2);
+        expect(above.view.getWeights()).toEqual({ editors: 1, files: 1 });
+
+        // The same with the content-sized section below: its minimum alone exceeds the container.
+        const below = makePanes(
+            [
+                { id: "files", min: 1 },
+                { id: "editors", bounds: { min: 9, max: 30 } },
+            ],
+            6,
+        );
+        dragHeader(below.app, "editors", 1);
+        expect(below.view.getWeights()).toEqual({ files: 1, editors: 1 });
+    });
+
+    it("two sections exactly at the sum of their minimums: a drag gives the clipped one its minimum back", () => {
+        // 7 rows − 2 headers = 5: editors keeps its dragged 5, files gets 0 of its 2.
+        const { view, app } = makePanes(
+            [
+                { id: "files", min: 2 },
+                { id: "editors", bounds: { min: 3, max: 10 } },
+            ],
+            7,
+        );
+        view.setWeights({ editors: 5 });
+        app.render();
+
+        dragHeader(app, "editors", 1);
+        expect(view.getWeights()).toEqual({ files: 2, editors: 3 });
+    });
+
+    it("dragging the section's header down stops at its minimum", () => {
+        const { view, app } = makePanes(
+            [
+                { id: "files", min: 1 },
+                { id: "editors", bounds: { min: 3, max: 30 } },
+            ],
+            22,
+        );
+        expect(heights(view)).toEqual({ files: 17, editors: 3 });
+
+        dragHeader(app, "editors", 3);
+        expect(view.getWeights()).toEqual({ files: 1, editors: 1 });
+        expect(heights(view)).toEqual({ files: 17, editors: 3 });
     });
 });

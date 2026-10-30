@@ -40,10 +40,6 @@ export const OPEN_EDITORS_VIEW_ID = "workbench.explorer.openEditorsView";
 const VISIBLE_SETTING = "explorer.openEditors.visible";
 const MIN_VISIBLE_SETTING = "explorer.openEditors.minVisible";
 const SORT_ORDER_SETTING = "explorer.openEditors.sortOrder";
-/** Upstream `OpenEditorsView.DEFAULT_VISIBLE_OPEN_EDITORS`/`DEFAULT_MIN_VISIBLE_OPEN_EDITORS`: a non-number setting falls back to them. */
-const DEFAULT_VISIBLE = 9;
-const DEFAULT_MIN_VISIBLE = 0;
-
 /** The tab strip's glyphs: ● marks a modified editor, × closes. */
 const MODIFIED_GLYPH = "●";
 const CLOSE_GLYPH = "×";
@@ -96,6 +92,7 @@ export class OpenEditorsView extends Component implements IContextKeyContributor
 
     private readonly tree: TreeViewElement<OpenEditorsElement>;
     private readonly scrollBars: ScrollBarDecorator;
+    // Stryker disable next-line ArrayDeclaration: the constructor's refresh() fills it before anything reads it
     private elements: OpenEditorsElement[] = [];
 
     public constructor(
@@ -110,6 +107,7 @@ export class OpenEditorsView extends Component implements IContextKeyContributor
         super();
         const provider: ITreeDataProvider<OpenEditorsElement> = {
             getTreeItem: (element) => this.treeItem(element),
+            // Stryker disable next-line ConditionalExpression,ArrayDeclaration: rows are not collapsible, the tree never asks for their children
             getChildren: (element) => (element === undefined ? this.elements : []),
             getKey: elementKey,
         };
@@ -120,6 +118,7 @@ export class OpenEditorsView extends Component implements IContextKeyContributor
         this.scrollBars = new ScrollBarDecorator(this.tree);
         // Upstream's list has no horizontal scroll (a long description is cut): a bar would eat one of the
         // rows the section is sized for.
+        // Stryker disable next-line StringLiteral: "" is no policy and shows no bar either
         this.scrollBars.horizontalScrollBar = "never";
         this.scrollBars.id = "openEditorsView";
         this.tree.id = "openEditorsList";
@@ -155,7 +154,7 @@ export class OpenEditorsView extends Component implements IContextKeyContributor
         };
         this.register(groups.onDidChangeEditors(refresh));
         this.register(groups.onDidGroupsChange(refresh));
-        this.register(groups.onDidActiveGroupChange(refresh));
+        // Another active group fires it too, with that group's active tab.
         this.register(groups.onDidChangeActivePane(refresh));
         this.register(workspace.onDidChangeWorkspaceFolders(refresh));
         this.register(icons.onDidChange(refresh));
@@ -167,6 +166,7 @@ export class OpenEditorsView extends Component implements IContextKeyContributor
         this.refresh();
     }
 
+    // Stryker disable next-line BlockStatement: Component's contract; the section's body reaches the views service directly
     public get view(): TUIElement {
         return this.scrollBars;
     }
@@ -222,6 +222,7 @@ export class OpenEditorsView extends Component implements IContextKeyContributor
                 const aFile = a.uri.scheme === "file";
                 const bFile = b.uri.scheme === "file";
                 if (aFile !== bFile) return aFile ? 1 : -1;
+                // Stryker disable next-line MethodExpression: localeCompare orders letters case-insensitively, upper or lower alike
                 return compareNames(a.uri.toString().toLowerCase(), b.uri.toString().toLowerCase());
             });
         }
@@ -229,9 +230,8 @@ export class OpenEditorsView extends Component implements IContextKeyContributor
     }
 
     private activeElement(): OpenEditorsElement | null {
-        const group = this.groups.activeGroup;
-        const pane = group.activePane;
-        if (pane === null) return null;
+        const pane = this.groups.activeGroup.activePane;
+        // Stryker disable next-line ConditionalExpression: a group row has no pane to match
         return this.elements.find((element) => element.kind === "editor" && element.pane === pane) ?? null;
     }
 
@@ -242,8 +242,9 @@ export class OpenEditorsView extends Component implements IContextKeyContributor
      * section grow to them; the setting's description promises them).
      */
     private updateSize(): void {
-        const visible = numberSetting(this.configurationService.get(VISIBLE_SETTING), DEFAULT_VISIBLE);
-        const minVisible = numberSetting(this.configurationService.get(MIN_VISIBLE_SETTING), DEFAULT_MIN_VISIBLE);
+        // A value of the wrong type never gets here: the configuration service falls back to the default.
+        const visible = this.configurationService.get(VISIBLE_SETTING);
+        const minVisible = this.configurationService.get(MIN_VISIBLE_SETTING);
         const rows = this.elements.length;
         this.viewsService.setViewContentBounds(OPEN_EDITORS_VIEW_ID, {
             min: Math.max(Math.min(Math.max(visible, 1), rows), minVisible),
@@ -275,6 +276,7 @@ export class OpenEditorsView extends Component implements IContextKeyContributor
             collapsible: false,
             // Upstream: ● stays on a modified editor (cursor row too), × only under the mouse; a clean row shows ×
             // under the mouse and on the cursor/selected rows.
+            // Stryker disable next-line StringLiteral: the label is not drawn, the glyph is
             actions: [{ label: "Close", icon: CLOSE_GLYPH, idleIcon: pane.isModified ? MODIFIED_GLYPH : undefined }],
         };
     }
@@ -303,6 +305,7 @@ export class OpenEditorsView extends Component implements IContextKeyContributor
         }
         const index = group.getPanes().indexOf(element.pane);
         /* v8 ignore start -- defensive: rows are rebuilt on every editor change, a row's pane is in its group */
+        // Stryker disable next-line ConditionalExpression: same as above, unreachable
         if (index < 0) return;
         /* v8 ignore stop */
         this.groups.focusGroup(group.id, { focus: false });
@@ -321,8 +324,4 @@ export class OpenEditorsView extends Component implements IContextKeyContributor
         }
         void this.editors.closeAllEditors(element.group);
     }
-}
-
-function numberSetting(value: unknown, fallback: number): number {
-    return typeof value === "number" ? value : fallback;
 }

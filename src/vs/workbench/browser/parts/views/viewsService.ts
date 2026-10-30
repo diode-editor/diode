@@ -392,7 +392,7 @@ export class ViewsService implements IContextKeyContributor {
         entry.views.sort((a, b) => a.order - b.order || a.id.localeCompare(b.id));
         // A first registration only: re-registering keeps whatever the user chose since. The stored
         // choice is applied by restoreViewsState.
-        if (existing < 0 && previous === undefined && descriptor.hideByDefault === true) {
+        if (previous === undefined && descriptor.hideByDefault === true) {
             entry.hidden.add(descriptor.id);
         }
         // A view registered after moves are restored goes where it was moved last time.
@@ -739,6 +739,7 @@ export class ViewsService implements IContextKeyContributor {
             if (record?.canToggleVisibility === true) entry.hidden.add(viewId);
         }
         // A hidden-by-default section the store never saw shown stays hidden (older stores have no list).
+        // Stryker disable next-line ArrayDeclaration: no view has the id a non-empty fallback would bring
         const shown = state.visible ?? [];
         for (const record of entry.views) {
             if (record.hideByDefault && record.canToggleVisibility && !shown.includes(record.id)) {
@@ -1601,6 +1602,7 @@ type StoredCollapsed = IViewContainerViewsState["collapsed"];
  * not hidden by default comes back.
  */
 function ensureVisibleView(entry: ContainerEntry): void {
+    // Stryker disable next-line ConditionalExpression,LogicalOperator: defensive — a container without views is detached and never rebuilt
     if (entry.views.length === 0 || entry.views.some((view) => !entry.hidden.has(view.id))) return;
     const fallback = entry.views.find((view) => !view.hideByDefault) ?? entry.views[0];
     entry.hidden.delete(fallback.id);

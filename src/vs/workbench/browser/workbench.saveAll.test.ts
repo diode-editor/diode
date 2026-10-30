@@ -8,6 +8,9 @@ import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/Tem
 import { MenuId } from "../../platform/actions/common/menuId.ts";
 import { MenuServiceDIToken } from "../../platform/actions/common/menuService.ts";
 import { EditorGroupsServiceDIToken } from "../services/editor/common/editorGroupsService.ts";
+import { EditorServiceDIToken } from "../services/editor/common/editorService.ts";
+
+import { DiffEditorPane2 } from "./parts/editor/diffEditorPane2.ts";
 
 /** Upstream `workbench.action.files.saveAll` and the Open Editors group row's `saveAllInGroup`. */
 describe("Workbench — Save All", () => {
@@ -77,16 +80,29 @@ describe("Workbench — Save All", () => {
 
         // An unknown group (closed meanwhile) saves nothing.
         await h.commands.execute("workbench.files.action.saveAllInGroup", -1);
-        h.commands.execute("workbench.files.action.saveAllInGroup", first.id);
-        await vi.waitFor(() => {
-            expect(fs.readFileSync(ws.path("alpha.txt"), "utf-8")).toBe("Xalpha");
-        });
+        expect(fs.readFileSync(ws.path("alpha.txt"), "utf-8")).toBe("alpha");
+        await h.commands.execute("workbench.files.action.saveAllInGroup", first.id);
+        expect(fs.readFileSync(ws.path("alpha.txt"), "utf-8")).toBe("Xalpha");
         expect(fs.readFileSync(ws.path("beta.txt"), "utf-8")).toBe("beta");
 
         h.commands.execute("workbench.files.action.saveAllInGroup", second.id);
         await vi.waitFor(() => {
             expect(fs.readFileSync(ws.path("beta.txt"), "utf-8")).toBe("Xbeta");
         });
+    });
+
+    it("a diff tab adds its modified sides after the tabs, the diff itself is not saved", async () => {
+        edit("alpha.txt");
+        const group = h.container.get(EditorGroupsServiceDIToken).activeGroup;
+        const alpha = group.activePane;
+        h.commands.execute("workbench.files.action.compareNewUntitledTextFiles");
+        await vi.waitFor(() => {
+            expect(group.activePane instanceof DiffEditorPane2).toBe(true);
+        });
+        const sides = (group.activePane as DiffEditorPane2).sidePanes();
+        sides[1].viewState.type("x");
+
+        expect(h.container.get(EditorServiceDIToken).getDirtyEditors([group])).toEqual([alpha, sides[1]]);
     });
 
     it("File menu: Save All right after Save As", () => {

@@ -943,6 +943,7 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
     public getDirtyEditors(groups: readonly EditorGroup[]): TextEditorPane[] {
         const panes = groups.flatMap((group) => [...group.getPanes()]);
         const tabs = panes.filter((pane): pane is TextEditorPane => pane instanceof TextEditorPane);
+        // Stryker disable next-line ArrayDeclaration: a filler that is no pane is not modified and is skipped below
         const diffSides = panes.flatMap((pane) => (pane instanceof DiffEditorPane2 ? [...pane.sidePanes()] : []));
         const seenModels = new Set<BaseTextEditorModel>();
         const editors: TextEditorPane[] = [];

@@ -69,6 +69,19 @@ describe("Workbench — Explorer: Open Editors", () => {
         });
     });
 
+    it("Delete on a group row closes nothing", async () => {
+        h.commands.execute("workbench.action.splitEditor");
+        h.commands.execute("workbench.files.action.focusOpenEditorsView");
+        await frame();
+        h.testApp.sendKey("Home");
+        h.container.get(WorkbenchContextKeysDIToken).update();
+
+        h.testApp.sendKey("Delete");
+
+        await frame();
+        expect(h.container.get(EditorGroupsServiceDIToken).groups.map((group) => group.editorCount)).toEqual([2, 1]);
+    });
+
     it("the title shows Save All and Close All; Toggle Layout only with two groups", async () => {
         h.commands.execute("workbench.files.action.focusOpenEditorsView");
         const actions = (): string[] =>

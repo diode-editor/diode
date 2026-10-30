@@ -1,3 +1,4 @@
+import { BoxConstraints, Size } from "@tuidom/core/common/geometryPromitives";
 import { describe, expect, it } from "vitest";
 
 import { SIDEBAR_VIEWS_STATE } from "../../../common/stateKeys.ts";
@@ -97,6 +98,38 @@ describe("ViewsService — hideByDefault", () => {
         h.service.registerView(testView("openEditors", "explorer", 0, { hideByDefault: true }));
 
         expect(h.service.isViewVisible("openEditors")).toBe(true);
+    });
+
+    it("content bounds set while the section is hidden apply once it is shown", () => {
+        const h = explorer();
+        h.service.setViewContentBounds("openEditors", { min: 4, max: 4 });
+        h.service.setViewVisible("openEditors", true);
+
+        const view = h.paneView("explorer");
+        view.layout(BoxConstraints.tight(new Size(30, 22)));
+        const state = view.inspectState() as { panes: { id: string; bodyHeight: number }[] };
+        expect(state.panes.map((pane) => [pane.id, pane.bodyHeight])).toEqual([
+            ["openEditors", 4],
+            ["files", 16],
+        ]);
+    });
+
+    it("a regular section registered later is shown", () => {
+        const h = explorer();
+
+        h.service.registerView(testView("outline", "explorer", 20));
+
+        expect(h.service.isViewVisible("outline")).toBe(true);
+    });
+
+    it("a hidden file tree stays hidden while another regular section shows", () => {
+        const h = explorer();
+        h.service.registerView(testView("outline", "explorer", 20));
+        h.stored.set(SIDEBAR_VIEWS_STATE.key, { explorer: { collapsed: {}, weights: {}, hidden: ["files"] } });
+
+        h.service.restoreViewsState();
+
+        expect(h.paneView("explorer").getPaneIds()).toEqual(["outline"]);
     });
 
     it("a section without the flag is not affected by the visible list", () => {

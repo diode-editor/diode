@@ -2,6 +2,7 @@ import * as path from "node:path";
 
 import { BoxConstraints, Offset, Point, Rect, Size } from "@tuidom/core/common/geometryPromitives";
 import { StyleFlags } from "@tuidom/core/common/styleFlags";
+import { TUIKeyboardEvent } from "@tuidom/core/dom/events/tuiKeyboardEvent";
 import { TUIMouseEvent } from "@tuidom/core/dom/events/tuiMouseEvent";
 import { ROOT_STYLE_CONTEXT } from "@tuidom/core/dom/styles/tuiStyle";
 import { RenderContext, TUIElement } from "@tuidom/core/dom/tuiElement";
@@ -16,6 +17,7 @@ import { CommandRegistry } from "../../../../platform/commands/common/commandReg
 import type { InMemoryConfigurationService } from "../../../../platform/configuration/common/inMemoryConfigurationService.ts";
 import { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { NULL_LOG_SERVICE } from "../../../../platform/log/common/nullLogService.ts";
+import { NERD_FONT_ICONS } from "../../../../platform/theme/common/productIconService.ts";
 import type { IEditorPane } from "../../../browser/parts/editor/iEditorPane.ts";
 import type { IViewsHarness } from "../../../browser/parts/views/viewsService.testUtils.ts";
 import { makeViewsHarness, testView } from "../../../browser/parts/views/viewsService.testUtils.ts";
@@ -152,12 +154,22 @@ describe("OpenEditorsView", () => {
         );
     }
 
+    function key(name: string): void {
+        list().dispatchEvent(new TUIKeyboardEvent("keypress", { key: name }));
+    }
+
+    /** The pane under the list's cursor, or the group row's label. */
+    function cursor(): string | undefined {
+        const element = view.getFocusedElement();
+        return element?.kind === "group" ? element.label : element?.pane.label;
+    }
+
     function list(): TUIElement {
         return app.querySelector("#openEditorsList")!;
     }
 
     function mouse(
-        type: "click" | "mousemove",
+        type: "click" | "dblclick" | "mousemove",
         x: number,
         y: number,
         button: "left" | "middle" | "none" = "left",
@@ -327,5 +339,143 @@ describe("OpenEditorsView", () => {
         h.service.openView(OPEN_EDITORS_VIEW_ID, true);
         view.updateContextKeys(keys, app.focusedElement);
         expect(keys.evaluate("openEditorsFocus")).toBe(true);
+    });
+
+    it("a click activates the tab without pinning it; Enter and a double click pin it and focus the editor", async () => {
+        const group = groups.activeGroup;
+        const preview = new FakePane("preview.ts");
+        group.insertPane(preview, { preview: true });
+        const [b] = open(group, "b.ts");
+        show();
+        await rows();
+        const focusGroup = vi.spyOn(groups, "focusGroup");
+        const activateTab = vi.spyOn(group, "activateTab");
+
+        mouse("click", 3, 0);
+        expect(group.activePane).toBe(preview);
+        expect(group.isPinned(preview)).toBe(false);
+        expect(focusGroup).toHaveBeenLastCalledWith(group.id, { focus: false });
+        expect(activateTab).toHaveBeenLastCalledWith(0, { focus: false });
+
+        key("Enter");
+        expect(group.isPinned(preview)).toBe(true);
+        expect(activateTab).toHaveBeenLastCalledWith(0, { focus: true });
+
+        mouse("dblclick", 3, 1);
+        expect(group.activePane).toBe(b);
+        expect(activateTab).toHaveBeenLastCalledWith(1, { focus: true });
+    });
+
+    it("a group row: a click activates its group keeping focus, Enter focuses it; a middle click closes nothing", async () => {
+        open(groups.activeGroup, "a.ts");
+        const second = groups.addGroup(groups.activeGroup, "after")!;
+        open(second, "b.ts");
+        const first = groups.groups[0];
+        groups.focusGroup(first.id, { focus: false });
+        show();
+        await rows();
+        const focusGroup = vi.spyOn(groups, "focusGroup");
+
+        mouse("click", 3, 2);
+        expect(groups.activeGroup).toBe(second);
+        expect(focusGroup).toHaveBeenLastCalledWith(second.id, { focus: false });
+        key("Enter");
+        expect(focusGroup).toHaveBeenLastCalledWith(second.id, { focus: true });
+
+        mouse("click", 3, 0, "middle");
+        expect(editors.closed).toEqual([]);
+        expect(await texts()).toEqual(["Group 1", "a.ts", "Group 2", "b.ts"]);
+    });
+
+    it("workbench.list.openMode doubleClick: a single click only moves the cursor", async () => {
+        await config.updateValue("workbench.list.openMode", "doubleClick");
+        open(groups.activeGroup, "a.ts", "b.ts");
+        show();
+        await rows();
+
+        mouse("click", 3, 0);
+        expect(cursor()).toBe("a.ts");
+        expect(groups.activeGroup.activePane?.label).toBe("b.ts");
+    });
+
+    it("the cursor follows the active editor: another tab, another group", async () => {
+        const [a] = open(groups.activeGroup, "a.ts", "b.ts");
+        const second = groups.addGroup(groups.activeGroup, "after")!;
+        open(second, "c.ts");
+        groups.focusGroup(second.id, { focus: false });
+        show();
+        await rows();
+        expect(cursor()).toBe("c.ts");
+
+        groups.focusGroup(groups.groups[0].id, { focus: false });
+        await rows();
+        expect(cursor()).toBe("b.ts");
+
+        groups.groups[0].activateTab(groups.groups[0].getPanes().indexOf(a), { focus: false });
+        await rows();
+        expect(cursor()).toBe("a.ts");
+    });
+
+    it("a changed workspace folder changes the folders on the rows", async () => {
+        open(groups.activeGroup, "src/a.ts");
+        show();
+        expect(await texts()).toEqual(["a.ts src"]);
+
+        h.workspace.setWorkspaceFolder(path.join(ROOT, "src"));
+        expect(await texts()).toEqual(["a.ts"]);
+    });
+
+    it("an unrelated setting leaves the cursor where the user moved it", async () => {
+        open(groups.activeGroup, "a.ts", "b.ts");
+        show();
+        await rows();
+        h.service.openView(OPEN_EDITORS_VIEW_ID, true);
+        key("ArrowUp");
+        expect(cursor()).toBe("a.ts");
+
+        await config.updateValue("editor.tabSize", 8);
+        await rows();
+        expect(cursor()).toBe("a.ts");
+    });
+
+    it("a setting of the wrong type falls back to its default", async () => {
+        open(groups.activeGroup, ...Array.from({ length: 12 }, (_, i) => `f${i}.ts`));
+        await config.updateValue("explorer.openEditors.visible", "4");
+        show();
+
+        expect(await rows()).toHaveLength(9);
+    });
+
+    it("an editor without a file icon shows its name alone", async () => {
+        view.dispose();
+        h.service.unregisterView(OPEN_EDITORS_VIEW_ID);
+        const icons = Object.create(NERD_FONT_ICONS) as typeof NERD_FONT_ICONS;
+        icons.fileIcon = () => undefined;
+        view = new OpenEditorsView(h.service, groups, editors, commands, config, h.workspace, icons);
+        open(groups.activeGroup, "a.ts");
+        show();
+
+        expect(await texts()).toEqual(["a.ts"]);
+    });
+
+    it("tabs open before the section was created are listed at once", async () => {
+        view.dispose();
+        h.service.unregisterView(OPEN_EDITORS_VIEW_ID);
+        open(groups.activeGroup, "a.ts", "b.ts");
+        view = new OpenEditorsView(h.service, groups, editors, commands, config, h.workspace);
+        show();
+
+        expect(await texts()).toEqual(["a.ts", "b.ts"]);
+    });
+
+    it("fullPath puts non-file editors first from either side of the comparison", async () => {
+        const group = groups.activeGroup;
+        group.insertPane(new FakePane("Untitled-2", "untitled"));
+        open(group, "a.ts");
+        group.insertPane(new FakePane("Untitled-1", "untitled"));
+        await config.updateValue("explorer.openEditors.sortOrder", "fullPath");
+        show();
+
+        expect(await texts()).toEqual(["Untitled-1", "Untitled-2", "a.ts"]);
     });
 });

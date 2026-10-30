@@ -33,6 +33,12 @@ async function rows(editor: ScenarioDriver): Promise<string[]> {
         .filter((line) => line !== "");
 }
 
+/** A click on the section's row `index` (the tab strip shows the same names, so not by text). */
+async function clickRow(editor: ScenarioDriver, index: number): Promise<void> {
+    const list = await editor.waitForNode("#openEditorsList");
+    await editor.click(list.box.x + 3, list.box.y + index);
+}
+
 async function waitForRows(editor: ScenarioDriver, expected: readonly RegExp[]): Promise<void> {
     let seen: string[] = [];
     for (let attempt = 0; attempt < 60; attempt++) {
@@ -83,24 +89,29 @@ export default defineScenario({
 
         // A modified editor keeps ● on its row while the cursor is elsewhere.
         await editor.sendText("x");
-        await clickText(editor, "alpha.ts");
+        await clickRow(editor, 0);
         await waitForRows(editor, [/^alpha\.ts +×$/u, /^beta\.ts$/u, /^gamma\.ts +●$/u]);
         await editor.capture("modified-dot");
+
+        // Back to gamma.ts (a click keeps focus in the list): undo, so the reload below finds nothing unsaved.
+        await clickRow(editor, 2);
+        await editor.sendKey("Ctrl+Alt+E");
         await editor.sendKey("Ctrl+Z");
+        await waitForRows(editor, [/^alpha\.ts$/u, /^beta\.ts$/u, /^gamma\.ts +×$/u]);
 
         // A split adds a group: a "Group N" row above each group's tabs.
         await editor.sendKey("Ctrl+Alt+S");
-        await waitForRows(editor, [/^Group 1/u, /^alpha/u, /^beta/u, /^gamma/u, /^Group 2/u, /^alpha/u]);
+        await waitForRows(editor, [/^Group 1/u, /^alpha/u, /^beta/u, /^gamma/u, /^Group 2/u, /^gamma/u]);
         await editor.capture("two-groups");
 
         // A click on beta.ts in Group 1 makes it the active editor of that group.
-        await clickText(editor, "beta.ts");
-        await waitForRows(editor, [/^Group 1/u, /^alpha/u, /^beta\.ts +×$/u, /^gamma/u, /^Group 2/u, /^alpha/u]);
+        await clickRow(editor, 2);
+        await waitForRows(editor, [/^Group 1/u, /^alpha/u, /^beta\.ts +×$/u, /^gamma/u, /^Group 2/u, /^gamma/u]);
 
         // × on its row closes it.
         const list = await editor.waitForNode("#openEditorsList");
         await editor.click(list.box.x + list.box.width - 1, list.box.y + 2);
-        await waitForRows(editor, [/^Group 1/u, /^alpha/u, /^gamma/u, /^Group 2/u, /^alpha/u]);
+        await waitForRows(editor, [/^Group 1/u, /^alpha/u, /^gamma/u, /^Group 2/u, /^gamma/u]);
         await editor.capture("closed");
 
         // The section stays on after a window reload.
