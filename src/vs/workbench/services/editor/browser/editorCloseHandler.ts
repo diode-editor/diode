@@ -28,13 +28,27 @@ export class EditorCloseHandler {
     /**
      * Targets are held as panes, not indices: tabs shift between dialogs, so the position is looked up again.
      * Clean tabs close synchronously, before the first dialog.
+     *
+     * The active tab waits until the next dialog or the end (upstream `doCloseEditors` closes it last):
+     * closing it first would activate each next tab on the way out, reshuffling the MRU and the
+     * recent-files history. A dialog activates the tab it asks about anyway.
      */
     public async confirmAndClose(group: EditorGroup, panes: readonly IEditorPane[]): Promise<boolean> {
-        for (const pane of panes) {
-            if (this.needsCloseConfirm(pane) && !(await this.confirm(group, pane))) return false;
+        let deferred: IEditorPane | null = null;
+        const close = (pane: IEditorPane): void => {
             // The target may already be closed (during the dialog or by a concurrent request): the group skips position -1.
             group.closeTab(group.getPanes().indexOf(pane));
+        };
+        for (const pane of panes) {
+            if (this.needsCloseConfirm(pane)) {
+                if (deferred !== null) close(deferred);
+                deferred = null;
+                if (!(await this.confirm(group, pane))) return false;
+            }
+            if (pane === group.activePane) deferred = pane;
+            else close(pane);
         }
+        if (deferred !== null) close(deferred);
         return true;
     }
 
