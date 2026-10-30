@@ -85,19 +85,6 @@ export default defineScenario({
 
         // Three rows, the active one is the cursor row.
         await waitForRows(editor, [/^alpha\.ts$/u, /^beta\.ts$/u, /^gamma\.ts +×$/u]);
-        await editor.sendKey("Ctrl+Alt+E");
-
-        // A modified editor keeps ● on its row while the cursor is elsewhere.
-        await editor.sendText("x");
-        await clickRow(editor, 0);
-        await waitForRows(editor, [/^alpha\.ts +×$/u, /^beta\.ts$/u, /^gamma\.ts +●$/u]);
-        await editor.capture("modified-dot");
-
-        // Back to gamma.ts (a click keeps focus in the list): undo, so the reload below finds nothing unsaved.
-        await clickRow(editor, 2);
-        await editor.sendKey("Ctrl+Alt+E");
-        await editor.sendKey("Ctrl+Z");
-        await waitForRows(editor, [/^alpha\.ts$/u, /^beta\.ts$/u, /^gamma\.ts +×$/u]);
 
         // A split adds a group: a "Group N" row above each group's tabs.
         await editor.sendKey("Ctrl+Alt+S");
@@ -121,5 +108,15 @@ export default defineScenario({
         await editor.waitForNode("#openEditorsList");
         await editor.waitForText((t) => t.includes("OPEN EDITORS"));
         await editor.capture("after-reload");
+
+        // A modified editor keeps ● on its row while the cursor is elsewhere. Last: undo doesn't clear the
+        // modified mark, and a reload with an unsaved file would stop at the save prompt.
+        await waitForRows(editor, [/^Group 1/u, /^alpha/u, /^gamma/u, /^Group 2/u, /^gamma/u]);
+        await clickRow(editor, 4);
+        await editor.sendKey("Ctrl+Alt+E");
+        await editor.sendText("x");
+        await clickRow(editor, 1);
+        await waitForRows(editor, [/^Group 1/u, /^alpha\.ts +×$/u, /^gamma\.ts +●$/u, /^Group 2/u, /^gamma\.ts +●$/u]);
+        await editor.capture("modified-dot");
     },
 });
