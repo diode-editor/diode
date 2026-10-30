@@ -230,6 +230,9 @@ describe("mac delta table", () => {
             "workbench.action.output.toggleOutput | -ctrl+k ctrl+h | shift+meta+u@cmd",
             "workbench.action.previousEditor | -ctrl+pageup | shift+meta+[@cmd alt+meta+left@cmd",
             "workbench.action.previousEditorInGroup | meta+k alt+meta+left@cmd",
+            "workbench.action.quickOpen | -ctrl+e",
+            "workbench.action.quickOpenNavigateNextInFilePicker | -ctrl+e",
+            "workbench.action.quickOpenNavigatePreviousInFilePicker | -ctrl+shift+e",
             "workbench.action.showAllEditors | -ctrl+k ctrl+p | alt+meta+tab@cmd",
             "workbench.action.toggleEditorGroupLayout | -shift+alt+0 | alt+meta+0@cmd",
         ]);

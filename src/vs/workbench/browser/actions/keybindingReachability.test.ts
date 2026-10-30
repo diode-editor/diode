@@ -146,6 +146,8 @@ describe("tier gate asymmetry — user-facing contract", () => {
         "workbench.action.moveEditorToPreviousGroup | Ctrl+K Alt+Left | Ctrl+Alt+Left",
         "workbench.action.navigateBack | Ctrl+K Ctrl+B | Ctrl+Alt+-",
         "workbench.action.navigateForward | Ctrl+K Ctrl+F | Ctrl+Shift+-",
+        // No legacy fallback (#901): it only steps the picker up, the Up arrow does the same everywhere.
+        "workbench.action.quickOpenNavigatePreviousInFilePicker | Ctrl+Shift+P | Ctrl+Shift+P",
         "workbench.action.search.toggleQueryDetails | Ctrl+K Alt+J | Ctrl+Shift+J",
         "workbench.action.terminal.focusTabs | Ctrl+K \\ | Ctrl+Shift+\\",
         "workbench.action.terminal.new | Ctrl+K Alt+T | Ctrl+Shift+`",

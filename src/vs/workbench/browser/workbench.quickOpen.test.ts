@@ -37,7 +37,7 @@ describe("Workbench — Quick Open accept callbacks", () => {
     it("accepting a file entry opens it in the editor (workbench.openFile)", async () => {
         const executeSpy = vi.spyOn(h.commands, "execute");
         h.workbench.focusEditor();
-        h.testApp.sendKey("Ctrl+P");
+        h.commands.execute("workbench.action.quickOpen", "txt");
         h.testApp.render();
 
         const picker = h.testApp.querySelector("QuickPickElement") as QuickPickElement;
@@ -86,7 +86,7 @@ describe("Workbench — Quick Open accept callbacks", () => {
 
     it("accepting closes the quick-open overlay", async () => {
         h.workbench.focusEditor();
-        h.testApp.sendKey("Ctrl+P");
+        h.commands.execute("workbench.action.quickOpen", "txt");
         h.testApp.render();
         expect(h.testApp.root.overlayLayer.hasVisibleItems()).toBe(true);
 
