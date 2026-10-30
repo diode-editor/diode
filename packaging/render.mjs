@@ -72,17 +72,17 @@ end
 }
 
 function renderWingetVersion() {
-    return `# yaml-language-server: $schema=https://aka.ms/winget-manifest.version.1.12.0.schema.json
+    return `# yaml-language-server: $schema=https://aka.ms/winget-manifest.version.1.28.0.schema.json
 PackageIdentifier: DiodeEditor.Diode
 PackageVersion: ${version}
 DefaultLocale: en-US
 ManifestType: version
-ManifestVersion: 1.12.0
+ManifestVersion: 1.28.0
 `;
 }
 
 function renderWingetInstaller() {
-    return `# yaml-language-server: $schema=https://aka.ms/winget-manifest.installer.1.12.0.schema.json
+    return `# yaml-language-server: $schema=https://aka.ms/winget-manifest.installer.1.28.0.schema.json
 PackageIdentifier: DiodeEditor.Diode
 PackageVersion: ${version}
 InstallerLocale: en-US
@@ -98,12 +98,12 @@ Installers:
     InstallerSha256: ${sums["diode-windows-x64.exe"].toUpperCase()}
     PortableCommandAlias: diode
 ManifestType: installer
-ManifestVersion: 1.12.0
+ManifestVersion: 1.28.0
 `;
 }
 
 function renderWingetLocale() {
-    return `# yaml-language-server: $schema=https://aka.ms/winget-manifest.defaultLocale.1.12.0.schema.json
+    return `# yaml-language-server: $schema=https://aka.ms/winget-manifest.defaultLocale.1.28.0.schema.json
 PackageIdentifier: DiodeEditor.Diode
 PackageVersion: ${version}
 PackageLocale: en-US
@@ -128,7 +128,7 @@ Tags:
   - lsp
 ReleaseNotesUrl: https://github.com/${REPO}/releases/tag/v${version}
 ManifestType: defaultLocale
-ManifestVersion: 1.12.0
+ManifestVersion: 1.28.0
 `;
 }
 
