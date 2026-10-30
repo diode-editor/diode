@@ -172,6 +172,11 @@ export interface IViewContainerViewsState {
     readonly weights: Readonly<Record<string, number>>;
     /** Absent in older versions' store, meaning "nothing hidden". */
     readonly hidden?: readonly string[];
+    /**
+     * Sections shown at save time. Only a `hideByDefault` section reads it: absent here (or in an older
+     * store), it stays hidden.
+     */
+    readonly visible?: readonly string[];
 }
 
 export const SIDEBAR_VIEWS_STATE: IStateDescriptor<Partial<Record<string, IViewContainerViewsState>>> = {

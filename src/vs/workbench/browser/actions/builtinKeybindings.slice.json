@@ -20,8 +20,11 @@
         "ctrl+up: workbench.action.previousEditorInGroup [(editorAreaFocus && editorTabsMultiple) && (tabSwitcherVisible)] > scrollLineUp [(textViewFocus) && (!(macKeys >= 1))]",
         "ctrl+up: workbench.action.previousEditorInGroup [(editorAreaFocus && editorTabsMultiple) && (tabSwitcherVisible)] > search.action.focusSearchFromResults [(searchViewletVisible && firstMatchFocus) && (!(macKeys >= 3))]",
         "ctrl+up: workbench.action.previousEditorInGroup [(editorAreaFocus && editorTabsMultiple) && (tabSwitcherVisible)] > search.focus.previousInputBox [(searchViewletVisible && searchInputBoxFocus) && (!(macKeys >= 3))]",
+        "delete: openEditors.closeEditor [openEditorsFocus && !inputWidgetFocus] > deleteRight [textInputFocus && !editorReadonly]",
+        "delete: openEditors.closeEditor [openEditorsFocus && !inputWidgetFocus] > fileOperations.deleteFile [filesExplorerFocus]",
+        "delete: openEditors.closeEditor [openEditorsFocus && !inputWidgetFocus] > workbench.action.terminal.killActiveTab [terminalTabsFocus]",
         "delete: workbench.action.terminal.killActiveTab [terminalTabsFocus] > deleteRight [textInputFocus && !editorReadonly]",
-        "delete: workbench.action.terminal.killActiveTab [terminalTabsFocus] > fileOperations.deleteFile [listFocus]",
+        "delete: workbench.action.terminal.killActiveTab [terminalTabsFocus] > fileOperations.deleteFile [filesExplorerFocus]",
         "delete: workbench.action.terminal.killActiveTab [terminalTabsFocus] > input.deleteRight [inputWidgetFocus]",
         "down: selectNextSuggestion [suggestWidgetVisible] > cursorDown [textViewFocus]",
         "down: showNextParameterHint [parameterHintsVisible && parameterHintsMultipleSignatures && !suggestWidgetVisible] > cursorDown [textViewFocus]",
@@ -389,13 +392,7 @@
         },
         "explorer.openToSide": "alt+enter",
         "fileOperations.copy": "ctrl+c",
-        "fileOperations.copyPath": {
-            "*": "ctrl+k alt+c",
-            "pc csi-u #3": "shift+alt+c",
-            "pc kitty #3": "shift+alt+c",
-            "mac-extended (tmux + extended-keys) #3": "shift+alt+c",
-            "mac-cmd (kitty) #3": "shift+alt+c"
-        },
+        "fileOperations.copyPath": "ctrl+k alt+c",
         "fileOperations.copyRelativePath": {
             "*": "ctrl+k ctrl+shift+c",
             "pc legacy #0": "ctrl+k ctrl+c",
@@ -427,14 +424,10 @@
             "mac-legacy (tmux) #0": "ctrl+y",
             "mac-legacy (tmux) #1": "ctrl+y",
             "mac-legacy (tmux) #2": "ctrl+y",
-            "mac-legacy (tmux) #3": "ctrl+y",
-            "mac-cmd (kitty) #3": "shift+meta+z"
+            "mac-legacy (tmux) #3": "ctrl+y"
         },
         "fileOperations.rename": "f2",
-        "fileOperations.undo": {
-            "*": "ctrl+z",
-            "mac-cmd (kitty) #3": "meta+z"
-        },
+        "fileOperations.undo": "ctrl+z",
         "firstCompressedFolder": "home",
         "git.commit": "alt+enter",
         "hideSuggestWidget": "escape",
@@ -507,6 +500,7 @@
         "list.focusPageUp": "pageup",
         "nextCompressedFolder": "right",
         "notifications.focusMessage": "f6",
+        "openEditors.closeEditor": "delete",
         "previousCompressedFolder": "left",
         "redo": {
             "*": "ctrl+shift+z",
@@ -594,6 +588,7 @@
             "mac-cmd (kitty) #2": "meta+s",
             "mac-cmd (kitty) #3": "meta+s"
         },
+        "workbench.action.files.saveAll": "alt+meta+s",
         "workbench.action.files.saveAs": {
             "*": "ctrl+k alt+s",
             "pc csi-u #0": "ctrl+shift+s",

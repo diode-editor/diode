@@ -147,6 +147,7 @@ import {
     InputWidgetService,
     InputWidgetServiceDIToken,
 } from "../../workbench/contrib/files/browser/inputWidgetService.ts";
+import { OpenEditorsView, OpenEditorsViewDIToken } from "../../workbench/contrib/files/browser/openEditorsView.ts";
 import {
     OpenFileCommandContribution,
     OpenFileCommandContributionDIToken,
@@ -462,6 +463,7 @@ export const workbenchModule: ContainerModule = (container) => {
     container.bind(LifecycleServiceDIToken, LifecycleService);
     container.bind(ExplorerServiceDIToken, ExplorerService);
     container.bind(ExplorerComponentDIToken, ExplorerComponent);
+    container.bind(OpenEditorsViewDIToken, OpenEditorsView);
     container.bind(TextSearchServiceDIToken, TextSearchService);
     container.bind(SearchComponentDIToken, SearchComponent);
     container.bind(FileOperationsServiceDIToken, FileOperationsService);

@@ -41,6 +41,7 @@ describe("Workbench — menu bar wiring", () => {
             "Open Workspace from File...",
             "Save",
             "Save As...",
+            "Save All",
             "Settings",
             "Keyboard Shortcuts",
             "Keyboard Shortcuts (JSON)",

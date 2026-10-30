@@ -1,5 +1,6 @@
 import * as path from "node:path";
 
+import { codicon } from "../../../../base/common/codicons.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import { encodeStream } from "../../../../editor/common/model/encodingStream.ts";
 import type { CommandAction } from "../../../../platform/actions/common/commandAction.ts";
@@ -19,13 +20,20 @@ import {
     WORKSPACE_EXTENSION,
     WorkspaceFileError,
 } from "../../../../platform/workspace/common/workspaceFile.ts";
+import { viewMenuVisible } from "../../../browser/actions/menuContexts.ts";
+import type { TextEditorPane } from "../../../browser/parts/editor/textEditorPane.ts";
 import { QuickInputServiceDIToken } from "../../../browser/parts/quickinput/quickInputService.ts";
 import { WorkbenchContextKeysDIToken } from "../../../browser/workbenchContextKeys.ts";
 import { DialogServiceDIToken } from "../../../services/dialogs/browser/dialogService.ts";
 import { FileDialogServiceDIToken } from "../../../services/dialogs/browser/fileDialogService.ts";
+import type { EditorGroup } from "../../../services/editor/browser/editorGroupModel.ts";
+import { EditorGroupsServiceDIToken } from "../../../services/editor/common/editorGroupsService.ts";
 import { EditorServiceDIToken } from "../../../services/editor/common/editorService.ts";
 
 import { FileOperationsServiceDIToken } from "./fileOperationsService.ts";
+import { OPEN_EDITORS_VIEW_ID } from "./openEditorsView.ts";
+
+const HIDDEN_FROM_PALETTE = { menuId: MenuId.CommandPalette, when: "false" };
 
 /** Implemented by `WorkbenchComponent` (structurally); bound in `Workbench/Modules/WorkbenchModule.ts`. */
 export interface IWorkspaceFolderOpener {
@@ -94,14 +102,28 @@ async function runOpenWorkspace(accessor: ServiceAccessor): Promise<void> {
 
 /** If another process changed the file on disk, the write is blocked by an Overwrite/Cancel dialog, like VS Code's dirty-write protection. */
 async function runSave(accessor: ServiceAccessor): Promise<void> {
-    const editorService = accessor.get(EditorServiceDIToken);
     // Save the tab: a detached panel (Output) has no file, and `save()` would lead
     // to the Save As dialog on a plain Ctrl+S from the panel.
-    const editor = editorService.getActiveTabEditor();
+    const editor = accessor.get(EditorServiceDIToken).getActiveTabEditor();
     if (editor === null) return;
+    await saveEditor(accessor, editor);
+}
+
+/**
+ * Upstream `saveDirtyEditorsOfGroups`: each modified buffer goes the Ctrl+S way, one after another — an
+ * untitled one through the Save As dialog, a file changed on disk through the Overwrite question.
+ */
+async function saveDirtyEditorsOfGroups(accessor: ServiceAccessor, groups: readonly EditorGroup[]): Promise<void> {
+    for (const editor of accessor.get(EditorServiceDIToken).getDirtyEditors(groups)) {
+        await saveEditor(accessor, editor);
+    }
+}
+
+async function saveEditor(accessor: ServiceAccessor, editor: TextEditorPane): Promise<void> {
+    const editorService = accessor.get(EditorServiceDIToken);
     const outcome = await editor.save();
     if (outcome === "no-file") {
-        await runSaveAs(accessor);
+        await saveEditorAs(accessor, editor);
         return;
     }
     if (outcome === "conflict") {
@@ -127,11 +149,15 @@ async function runSave(accessor: ServiceAccessor): Promise<void> {
     }
 }
 
-/** The dialog itself asks about overwriting an existing file (upstream's question) — no confirmation here. */
 async function runSaveAs(accessor: ServiceAccessor): Promise<void> {
-    const editorService = accessor.get(EditorServiceDIToken);
-    const editor = editorService.getActiveTabEditor();
+    const editor = accessor.get(EditorServiceDIToken).getActiveTabEditor();
     if (!editor) return;
+    await saveEditorAs(accessor, editor);
+}
+
+/** The dialog itself asks about overwriting an existing file (upstream's question) — no confirmation here. */
+async function saveEditorAs(accessor: ServiceAccessor, editor: TextEditorPane): Promise<void> {
+    const editorService = accessor.get(EditorServiceDIToken);
     const files = accessor.get(IFileServiceDIToken);
 
     // An untitled buffer starts from the workspace folder (or cwd without one) and a suggested name like `Untitled-3.txt`.
@@ -177,6 +203,37 @@ export const fileSaveAction: CommandAction = {
     keybindings: [parseChord("mod+k s")],
     run(accessor) {
         void runSave(accessor);
+    },
+};
+
+/** No shortcut on Linux, as upstream (Ctrl+K S is Windows-only there); macOS gets Alt+Cmd+S in `macKeybindings.ts`. */
+export const fileSaveAllAction: CommandAction = {
+    id: "workbench.action.files.saveAll",
+    title: "File: Save All",
+    shortTitle: "Save All",
+    menus: [
+        { menuId: MenuId.MenubarFileMenu, group: "3_save", order: 30 },
+        {
+            menuId: MenuId.ViewTitle,
+            group: "navigation",
+            order: 20,
+            icon: codicon("save-all"),
+            visible: viewMenuVisible(OPEN_EDITORS_VIEW_ID),
+        },
+    ],
+    run(accessor) {
+        return saveDirtyEditorsOfGroups(accessor, accessor.get(EditorGroupsServiceDIToken).groups);
+    },
+};
+
+/** Upstream's id; the Open Editors group row runs it with the group id. Not in the palette, as upstream. */
+export const fileSaveAllInGroupAction: CommandAction = {
+    id: "workbench.files.action.saveAllInGroup",
+    title: "File: Save All in Group",
+    menus: [HIDDEN_FROM_PALETTE],
+    run(accessor, groupId) {
+        const group = accessor.get(EditorGroupsServiceDIToken).groups.find((candidate) => candidate.id === groupId);
+        return group === undefined ? undefined : saveDirtyEditorsOfGroups(accessor, [group]);
     },
 };
 

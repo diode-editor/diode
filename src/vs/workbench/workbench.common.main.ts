@@ -146,6 +146,8 @@ import { ExplorerComponentDIToken } from "./contrib/files/browser/explorerCompon
 import { ExplorerServiceDIToken } from "./contrib/files/browser/explorerService.ts";
 import { FILES_ACTIONS } from "./contrib/files/browser/filesActions.ts";
 import { InputWidgetServiceDIToken } from "./contrib/files/browser/inputWidgetService.ts";
+import { OPEN_EDITORS_ACTIONS, OPEN_EDITORS_MENU_ITEMS } from "./contrib/files/browser/openEditorsActions.ts";
+import { OpenEditorsViewDIToken } from "./contrib/files/browser/openEditorsView.ts";
 import { OpenFileCommandContributionDIToken } from "./contrib/files/browser/openFileCommandContribution.ts";
 import { FIND_ACTIONS } from "./contrib/find/browser/findActions.ts";
 import { FindComponentDIToken } from "./contrib/find/browser/findComponent.ts";
@@ -225,6 +227,7 @@ export const WORKBENCH_CONTRIBUTIONS: readonly IWorkbenchContributionRegistratio
     // overlay sessions is the entry order: the layer draws them in creation order.
     { token: ExplorerServiceDIToken, phase: "blockStartup" },
     { token: ExplorerComponentDIToken, phase: "blockStartup" },
+    { token: OpenEditorsViewDIToken, phase: "blockStartup" },
     { token: SearchComponentDIToken, phase: "blockStartup" },
     { token: ExtensionsComponentDIToken, phase: "blockStartup" },
     { token: ExtensionVersionContributionDIToken, phase: "blockStartup" },
@@ -328,6 +331,7 @@ export const WORKBENCH_CONTRIBUTIONS: readonly IWorkbenchContributionRegistratio
  */
 export const WORKBENCH_ACTIONS: readonly CommandAction[] = [
     ...FILES_ACTIONS,
+    ...OPEN_EDITORS_ACTIONS,
     ...LARGE_FILE_ACTIONS,
     ...PREFERENCES_ACTIONS,
     ...KEYBOARD_DOCTOR_ACTIONS,
@@ -468,6 +472,7 @@ export const WORKBENCH_ACTIONS: readonly CommandAction[] = [
 export const MENU_CONTRIBUTIONS: readonly MenuContribution[] = [
     ...MENUBAR_SUBMENUS,
     ...GIT_MENU_SUBMENUS,
+    ...OPEN_EDITORS_MENU_ITEMS,
     ...WORKBENCH_ACTIONS.flatMap(menuItemsOfAction),
 ];
 
@@ -483,6 +488,7 @@ export const WORKBENCH_CONTEXT_KEY_CONTRIBUTORS: readonly Token<IContextKeyContr
     AuxiliaryBarComponentDIToken,
     ViewsServiceDIToken,
     ExplorerComponentDIToken,
+    OpenEditorsViewDIToken,
     ScmInputComponentDIToken,
     TerminalServiceDIToken,
     TerminalPanelComponentDIToken,

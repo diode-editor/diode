@@ -1,6 +1,8 @@
 [
     "workbench.action.files.save",
     "workbench.action.files.saveAs",
+    "workbench.action.files.saveAll",
+    "workbench.files.action.saveAllInGroup",
     "workbench.action.files.newUntitledFile",
     "workbench.action.files.openFile",
     "workbench.action.files.openFolder",
@@ -22,6 +24,9 @@
     "nextCompressedFolder",
     "firstCompressedFolder",
     "lastCompressedFolder",
+    "workbench.files.action.focusOpenEditorsView",
+    "openEditors.closeAll",
+    "openEditors.closeEditor",
     "workbench.action.files.enableLargeFileEditing",
     "workbench.action.editor.toggleFollowTail",
     "workbench.action.openSettings",

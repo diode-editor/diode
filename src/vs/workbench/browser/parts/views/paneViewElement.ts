@@ -8,6 +8,15 @@ import type { IViewTitleAction } from "./viewTitleRowElement.ts";
 /** A section body shorter than this is useless; clamps both drag and height distribution. */
 const DEFAULT_MIN_BODY_HEIGHT = 3;
 
+/**
+ * Upstream `minimumBodySize`/`maximumBodySize` of a low-priority section sized by its content (Open
+ * Editors): see {@link IPaneOptions.contentBounds}.
+ */
+export interface IPaneContentBounds {
+    readonly min: number;
+    readonly max: number;
+}
+
 export interface IPaneOptions {
     /** Unique within the container; dots become dashes in the header id because inspector/e2e selectors don't support them. */
     readonly id: string;
@@ -16,6 +25,12 @@ export interface IPaneOptions {
     readonly description?: string | null;
     readonly body: TUIElement;
     readonly minBodyHeight?: number;
+    /**
+     * A section sized by its content (upstream `LayoutPriority.Low` with body size bounds): it takes its
+     * weight in rows clamped to the bounds — so `min` until the user drags it — and the other sections
+     * share what is left. Replaces {@link minBodyHeight}.
+     */
+    readonly contentBounds?: IPaneContentBounds | null;
     /** `false` for a merged section: no chevron, click/Enter on the header does nothing. Defaults to `true`. */
     readonly collapsible?: boolean;
     /**
@@ -32,6 +47,7 @@ interface PaneRecord {
     readonly header: PaneHeaderElement;
     body: TUIElement;
     readonly minBodyHeight: number;
+    contentBounds: IPaneContentBounds | null;
     readonly collapsible: boolean;
     readonly headerVisible: boolean;
     collapsed: boolean;
@@ -79,6 +95,7 @@ export class PaneViewElement extends TUIElement {
             header,
             body: options.body,
             minBodyHeight: options.minBodyHeight ?? DEFAULT_MIN_BODY_HEIGHT,
+            contentBounds: options.contentBounds ?? null,
             collapsible,
             headerVisible,
             collapsed: false,
@@ -119,6 +136,12 @@ export class PaneViewElement extends TUIElement {
         pane.body = body;
         body.hidden = pane.collapsed;
         this.appendChild(body);
+        this.markDirty();
+    }
+
+    /** See {@link IPaneOptions.contentBounds}; `null` makes the section share height by weight again. */
+    public setPaneContentBounds(id: string, bounds: IPaneContentBounds | null): void {
+        this.paneOrThrow(id).contentBounds = bounds;
         this.markDirty();
     }
 
@@ -237,10 +260,12 @@ export class PaneViewElement extends TUIElement {
         const heightBelow = belowPane.lastBodyHeight;
         // The two sections may be too cramped (their sum is below two minimums after
         // clipping); then the boundary doesn't move at all.
-        if (heightAbove + heightBelow < abovePane.minBodyHeight + belowPane.minBodyHeight) return;
+        if (heightAbove + heightBelow < minHeightOf(abovePane) + minHeightOf(belowPane)) return;
+        const total = heightAbove + heightBelow;
         const newAbove = Math.max(
-            abovePane.minBodyHeight,
-            Math.min(heightAbove + delta, heightAbove + heightBelow - belowPane.minBodyHeight),
+            minHeightOf(abovePane),
+            total - maxHeightOf(belowPane),
+            Math.min(heightAbove + delta, total - minHeightOf(belowPane), maxHeightOf(abovePane)),
         );
         const applied = newAbove - heightAbove;
         if (applied === 0) return;
@@ -292,14 +317,22 @@ export class PaneViewElement extends TUIElement {
             heights[expanded[0].index] = avail;
             return heights;
         }
+        let remaining = avail;
+        // Content-sized sections first: their rows are their own, the others share what is left.
+        for (const { pane, index } of expanded) {
+            if (pane.contentBounds === null) continue;
+            const { min, max } = pane.contentBounds;
+            heights[index] = Math.min(Math.max(min, Math.min(max, pane.weight)), remaining);
+            remaining -= heights[index];
+        }
+        const flexible = expanded.filter(({ pane }) => pane.contentBounds === null);
         const shares = distributeByWeight(
-            avail,
-            expanded.map(({ pane }) => pane.weight),
+            remaining,
+            flexible.map(({ pane }) => pane.weight),
         );
         // Clamp to minBodyHeight greedily in section order: the sum of desired ≥ avail,
         // so the remainder runs out and trailing sections may get 0.
-        let remaining = avail;
-        expanded.forEach(({ pane, index }, k) => {
+        flexible.forEach(({ pane, index }, k) => {
             const desired = Math.max(pane.minBodyHeight, shares[k]);
             const height = Math.min(desired, remaining);
             heights[index] = height;
@@ -318,6 +351,14 @@ export class PaneViewElement extends TUIElement {
             })),
         };
     }
+}
+
+function minHeightOf(pane: PaneRecord): number {
+    return pane.contentBounds?.min ?? pane.minBodyHeight;
+}
+
+function maxHeightOf(pane: PaneRecord): number {
+    return pane.contentBounds?.max ?? Number.POSITIVE_INFINITY;
 }
 
 /**

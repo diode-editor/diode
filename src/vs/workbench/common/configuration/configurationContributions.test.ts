@@ -64,6 +64,9 @@ const EXPECTED_SCOPES: Readonly<Record<string, ConfigurationScope>> = {
 
     "explorer.confirmDelete": "window",
     "explorer.confirmUndo": "window",
+    "explorer.openEditors.visible": "window",
+    "explorer.openEditors.minVisible": "window",
+    "explorer.openEditors.sortOrder": "window",
     "explorer.autoReveal": "window",
     "explorer.compactFolders": "window",
     "explorer.decorations.colors": "window",

@@ -49,6 +49,7 @@ import { SidebarServiceDIToken } from "../sidebar/sidebarService.ts";
 
 import { containerSwitcherEntries } from "./containerSwitcher.ts";
 import type { IPaneMenuAnchor } from "./paneHeaderElement.ts";
+import type { IPaneContentBounds } from "./paneViewElement.ts";
 import { PaneViewElement } from "./paneViewElement.ts";
 import { inlineActions, isSelectionSubmenu, NAVIGATION_GROUP, overflowEntries, runAction } from "./titleMenuEntries.ts";
 import { ViewContainerHeaderElement } from "./viewContainerHeaderElement.ts";
@@ -107,6 +108,11 @@ export interface IViewDescriptor {
     readonly canToggleVisibility?: boolean;
     /** Initial state only: does not override the user's saved collapsed state. */
     readonly collapsed?: boolean;
+    /**
+     * Upstream `hideByDefault`: the section starts hidden until the user shows it via "⋯"; the saved
+     * visibility wins over it.
+     */
+    readonly hideByDefault?: boolean;
     readonly canMoveView?: boolean;
 }
 
@@ -177,10 +183,13 @@ interface ViewRecord {
     readonly order: number;
     readonly focus: () => void;
     readonly minBodyHeight: number | undefined;
+    /** Set by the owner ({@link ViewsService.setViewContentBounds}), not the descriptor. */
+    contentBounds: IPaneContentBounds | null;
     readonly placeholder: string | readonly IViewWelcomeBlock[] | undefined;
     readonly requiresWorkspaceFolder: boolean;
     readonly canToggleVisibility: boolean;
     readonly collapsed: boolean;
+    readonly hideByDefault: boolean;
     body: TUIElement | null;
     titleWidget: TUIElement | null;
     /** Kept in the record so it survives section rebuilds. */
@@ -369,16 +378,23 @@ export class ViewsService implements IContextKeyContributor {
             order: descriptor.order,
             focus: descriptor.focus,
             minBodyHeight: descriptor.minBodyHeight,
+            contentBounds: null,
             placeholder: descriptor.placeholder,
             requiresWorkspaceFolder: descriptor.requiresWorkspaceFolder ?? false,
             canToggleVisibility: descriptor.canToggleVisibility ?? true,
             collapsed: descriptor.collapsed ?? false,
+            hideByDefault: descriptor.hideByDefault ?? false,
             body: descriptor.body ?? detached?.body ?? null,
             titleWidget: null,
             spinner: null,
             placeholderView: null,
         });
         entry.views.sort((a, b) => a.order - b.order || a.id.localeCompare(b.id));
+        // A first registration only: re-registering keeps whatever the user chose since. The stored
+        // choice is applied by restoreViewsState.
+        if (existing < 0 && previous === undefined && descriptor.hideByDefault === true) {
+            entry.hidden.add(descriptor.id);
+        }
         // A view registered after moves are restored goes where it was moved last time.
         // Stryker disable next-line ConditionalExpression,LogicalOperator: a re-registered view or one registered before the restore would land in the same place — the moves store already matches the current location, and the restore places early views itself
         if (previous === undefined && this.customizationsApplied) {
@@ -481,6 +497,17 @@ export class ViewsService implements IContextKeyContributor {
         this.applySpinner(entry, record);
         // Stryker disable next-line ConditionalExpression,LogicalOperator: same reason as the line above — an extra recompute is unobservable
         if (appeared && this.isTabbed(entry)) this.refreshContainerTitleActions(entry);
+    }
+
+    /**
+     * A section sized by its content (Open Editors, {@link IPaneContentBounds}): kept across rebuilds,
+     * applied at once to a shown section.
+     */
+    public setViewContentBounds(viewId: string, bounds: IPaneContentBounds): void {
+        const { entry, record } = this.recordOrThrow(viewId);
+        record.contentBounds = bounds;
+        if (entry.paneView === null || entry.hidden.has(viewId)) return;
+        entry.paneView.setPaneContentBounds(viewId, bounds);
     }
 
     public getViewTitleWidget(viewId: string): TUIElement | null {
@@ -711,10 +738,12 @@ export class ViewsService implements IContextKeyContributor {
             const record = entry.views.find((v) => v.id === viewId);
             if (record?.canToggleVisibility === true) entry.hidden.add(viewId);
         }
-        // Silently fix a stale store where everything is hidden; a built container
-        // never has zero views (syncPresence detaches it).
-        if (entry.hidden.size === entry.views.length) {
-            entry.hidden.delete(entry.views[0].id);
+        // A hidden-by-default section the store never saw shown stays hidden (older stores have no list).
+        const shown = state.visible ?? [];
+        for (const record of entry.views) {
+            if (record.hideByDefault && record.canToggleVisibility && !shown.includes(record.id)) {
+                entry.hidden.add(record.id);
+            }
         }
         this.rebuildPanes(entry);
         paneView.setWeights(state.weights);
@@ -1027,10 +1056,6 @@ export class ViewsService implements IContextKeyContributor {
     private removeRecord({ entry, record }: { entry: ContainerEntry; record: ViewRecord }): void {
         entry.views.splice(entry.views.indexOf(record), 1);
         entry.hidden.delete(record.id);
-        // The remaining sections can't all be hidden (see setViewVisible).
-        if (entry.views.length > 0 && entry.hidden.size === entry.views.length) {
-            entry.hidden.delete(entry.views[0].id);
-        }
     }
 
     private setContainerLocation(entry: ContainerEntry, location: ViewContainerLocation): void {
@@ -1502,6 +1527,7 @@ export class ViewsService implements IContextKeyContributor {
     /** Collapsed state and weights survive the rebuild, otherwise showing a hidden section would reset the layout. */
     private rebuildPanes(entry: ContainerEntry): void {
         const paneView = attached(entry).paneView;
+        ensureVisibleView(entry);
         // A section not yet in the container gets the descriptor default.
         const previous = new Map(paneView.getPaneIds().map((id) => [id, paneView.isCollapsed(id)]));
         const weights = paneView.getWeights();
@@ -1522,6 +1548,7 @@ export class ViewsService implements IContextKeyContributor {
                 description: view.description,
                 body: this.bodyOf(view),
                 minBodyHeight: view.minBodyHeight,
+                contentBounds: view.contentBounds,
                 collapsible: !merged,
                 headerVisible,
                 switcher: merged && !this.isTabbed(entry),
@@ -1538,12 +1565,17 @@ export class ViewsService implements IContextKeyContributor {
 
     private persistContainerState(containerId: string, entry: ContainerEntry): void {
         const paneView = attached(entry).paneView;
+        // Only a hidden-by-default section needs its "shown" recorded; others are visible unless listed hidden.
+        const shown = this.visibleViews(entry)
+            .filter((view) => view.hideByDefault)
+            .map((view) => view.id);
         const state: IViewContainerViewsState = {
             // Write BOTH states, not just the collapsed ones: being expanded is also
             // the user's choice and must override the descriptor default.
             collapsed: Object.fromEntries(paneView.getPaneIds().map((id) => [id, paneView.isCollapsed(id)])),
             weights: paneView.getWeights(),
             hidden: [...entry.hidden],
+            ...(shown.length > 0 ? { visible: shown } : {}),
         };
         this.stateService.store(SIDEBAR_VIEWS_STATE, {
             ...this.stateService.get(SIDEBAR_VIEWS_STATE),
@@ -1562,6 +1594,17 @@ function storedCollapsed(stored: StoredCollapsed, viewId: string): boolean | und
 }
 
 type StoredCollapsed = IViewContainerViewsState["collapsed"];
+
+/**
+ * A container never shows zero sections (see {@link ViewsService.setViewVisible}): a stale store, a
+ * removed view or a hidden-by-default one registered alone may hide them all. The first section that is
+ * not hidden by default comes back.
+ */
+function ensureVisibleView(entry: ContainerEntry): void {
+    if (entry.views.length === 0 || entry.views.some((view) => !entry.hidden.has(view.id))) return;
+    const fallback = entry.views.find((view) => !view.hideByDefault) ?? entry.views[0];
+    entry.hidden.delete(fallback.id);
+}
 
 function isLegacyCollapsedList(stored: StoredCollapsed): stored is readonly string[] {
     return Array.isArray(stored);
