@@ -59,6 +59,7 @@ export interface IViewTitleRowOptions {
 export class ViewTitleRowElement extends HFlexElement {
     private readonly titleLabel: TextLabelElement;
     /** The switcher chevron is its own label: a clipped long title (a folder name) must not take it along. */
+    // Stryker disable next-line StringLiteral: equivalent — the label joins the row only after setSwitcher sets its text
     private readonly switcherLabel = new TextLabelElement("");
     /** Upstream `TreeView.description`: dimmed after the title, clipped first on a narrow header. */
     // Stryker disable next-line StringLiteral: equivalent — the label joins the row only after setDescription sets its text

@@ -45,6 +45,8 @@ describe("ViewTitleRowElement — container switcher", () => {
         row.setHoveredZone({ kind: "switcher" });
         const chevron = row.querySelector("#viewTitleSwitcher")!;
         expect(chevron.hasStyleState("hover")).toBe(true);
+        row.setHoveredZone({ kind: "menu" });
+        expect(chevron.hasStyleState("hover")).toBe(false);
     });
 
     it("the chevron goes after the spinner and survives title and spinner changes", () => {

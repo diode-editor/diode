@@ -67,7 +67,8 @@ async function runCommand(editor: ScenarioDriver, title: string): Promise<void> 
 async function reloaded(editor: ScenarioDriver): Promise<void> {
     await editor.reconnect();
     // Web or backend, whichever workspace file the window came back on.
-    await editor.waitForText((t) => t.includes(" (WORKSPACE)"), { timeoutMs: 60_000 });
+    const titles = ["web", "backend"].map((name) => explorerTitle(resolve(fixture, `${name}.code-workspace`)));
+    await editor.waitForText((t) => titles.some((title) => t.includes(title)), { timeoutMs: 60_000 });
 }
 
 export default defineScenario({

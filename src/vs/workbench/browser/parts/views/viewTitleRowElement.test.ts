@@ -97,6 +97,14 @@ describe("ViewTitleRowElement — button zones", () => {
         );
     });
 
+    it("a button glyph wider than its column reserves only the button's fixed width", () => {
+        const row = new ViewTitleRowElement("ABCDEFGHIJ", { chevron: false });
+        // A double-width glyph: the label's own width is 4, the button column is 3.
+        row.setActions([{ id: "cmd.refresh", icon: "表" }]);
+        // Title 11 + button 3 + bar 1 + ⋯ 3: exactly 18, so the title is whole.
+        expect(renderElement(row, 18, 1, { themeVars: true }).screenToString()).toMatch(/^ ABCDEFGHIJ /);
+    });
+
     it("a short title leaves the description its room before the filler", () => {
         const row = new ViewTitleRowElement("TREE", { chevron: false });
         row.setDescription("3 found");

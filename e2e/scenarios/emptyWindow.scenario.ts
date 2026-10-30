@@ -27,7 +27,7 @@ export default defineScenario({
     cols: 120,
     rows: 24,
     async run(editor) {
-        await editor.waitForText((t) => t.includes("NO FOLDER OPENED") && t.includes("You have not yet opened a"));
+        await editor.waitForText((t) => t.includes(explorerTitle("No Folder Opened")) && t.includes("You have not yet opened a"));
         await editor.capture("empty");
 
         await editor.sendKey("Ctrl+K");
