@@ -114,6 +114,21 @@ describe("ViewsService — hideByDefault", () => {
         ]);
     });
 
+    it("content bounds set before the container is attached apply once it is", () => {
+        const h = explorer({ attach: false });
+        h.service.setViewVisible("openEditors", true);
+        h.service.setViewContentBounds("openEditors", { min: 4, max: 4 });
+        h.service.attachContainer("explorer");
+
+        const view = h.paneView("explorer");
+        view.layout(BoxConstraints.tight(new Size(30, 22)));
+        const state = view.inspectState() as { panes: { id: string; bodyHeight: number }[] };
+        expect(state.panes.map((pane) => [pane.id, pane.bodyHeight])).toEqual([
+            ["openEditors", 4],
+            ["files", 16],
+        ]);
+    });
+
     it("a regular section registered later is shown", () => {
         const h = explorer();
 
