@@ -5,6 +5,7 @@ import { createTempWorkspace, type ITempWorkspace } from "../../../../TestUtils/
 import { TestApp } from "../../../../TestUtils/TestApp.ts";
 import { createTestEditorContextMenuController } from "../../../../TestUtils/testEditorContextMenu.ts";
 import { Uri } from "../../../base/common/uri.ts";
+import { createSelection } from "../../../editor/common/core/iSelection.ts";
 import { NULL_LANGUAGE_SERVICE } from "../../../editor/common/languages/iLanguageService.ts";
 import { NULL_TOKEN_STYLE_RESOLVER } from "../../../editor/common/languages/iTokenStyleResolver.ts";
 import { TokenizationRegistry } from "../../../editor/common/languages/tokenizationRegistry.ts";
@@ -18,6 +19,7 @@ import type { IBulkEditService } from "../../contrib/bulkEdit/common/iBulkEditSe
 import { EditorService } from "../../services/editor/browser/editorService.ts";
 import { darkPlusTheme } from "../../services/themes/common/themes/darkPlus.ts";
 import { ThemeService } from "../../services/themes/common/themeService.ts";
+import type { IActiveEditorSelections } from "../common/iEditorOptionsService.ts";
 
 import { EditorOptionsServiceAdapter } from "./editorOptionsServiceAdapter.ts";
 const NO_BULK_EDITS: IBulkEditService = { applyWorkspaceEdit: () => Promise.resolve(false) };
@@ -79,6 +81,115 @@ describe("EditorOptionsServiceAdapter: addressing by group", () => {
 
         expect(editorAt(1, 0).viewState.selections[0].active).toEqual({ line: 1, character: 2 });
         expect(editorAt(0, 0).viewState.selections[0].active).toEqual({ line: 0, character: 0 });
+    });
+
+    it("[api:window.onDidChangeTextEditorSelection] an extension's own selection comes back with kind Command, an unchanged one does not", async () => {
+        service.openFile(ws.path("a.ts"));
+        const editor = service.getActiveEditor()!;
+        const uri = editor.uri.toString();
+        const received: { kind?: number; line: number }[] = [];
+        const subscription = adapter.onActiveEditorSelectionChanged((event) => {
+            received.push({ kind: event.kind, line: event.selections[0].activeLine });
+        });
+        const selection = { anchorLine: 1, anchorCharacter: 0, activeLine: 1, activeCharacter: 2 };
+
+        adapter.setActiveEditorSelections(uri, [selection]);
+        await Promise.resolve();
+        expect(received).toEqual([{ kind: 3, line: 1 }]);
+
+        adapter.setActiveEditorSelections(uri, [selection]);
+        await Promise.resolve();
+        expect(received.length).toBe(1);
+
+        // Differs from the current selection in one field only: each of them counts as a change.
+        for (const moved of [
+            { ...selection, anchorLine: 0 },
+            { ...selection, anchorLine: 0, anchorCharacter: 1 },
+            { ...selection, anchorLine: 0, anchorCharacter: 1, activeLine: 0 },
+            { ...selection, anchorLine: 0, anchorCharacter: 1, activeLine: 0, activeCharacter: 3 },
+        ]) {
+            const before = received.length;
+            adapter.setActiveEditorSelections(uri, [moved]);
+            await Promise.resolve();
+            expect(received.length).toBe(before + 1);
+        }
+
+        subscription.dispose();
+    });
+
+    it("[api:window.onDidChangeTextEditorSelection] a change in a later cursor counts, not only in the first", async () => {
+        service.openFile(ws.path("a.ts"));
+        const uri = service.getActiveEditor()!.uri.toString();
+        const first = { anchorLine: 0, anchorCharacter: 0, activeLine: 0, activeCharacter: 1 };
+        const second = { anchorLine: 1, anchorCharacter: 0, activeLine: 1, activeCharacter: 1 };
+        adapter.setActiveEditorSelections(uri, [first, second]);
+        await Promise.resolve();
+        const seen: unknown[] = [];
+        const subscription = adapter.onActiveEditorSelectionChanged((event) => seen.push(event));
+
+        adapter.setActiveEditorSelections(uri, [first, { ...second, activeCharacter: 2 }]);
+        await Promise.resolve();
+
+        expect(seen.length).toBe(1);
+        subscription.dispose();
+    });
+
+    it("[api:window.onDidChangeTextEditorSelection] the visible editor of an inactive group reports its own selection", async () => {
+        service.openFile(ws.path("a.ts"));
+        service.splitActiveGroup();
+        const inactive = service.editorGroups.groups[0];
+        const uri = editorAt(0, 0).uri.toString();
+        const seen: { groupId?: number | null; kind?: number; line: number }[] = [];
+        const subscription = adapter.onActiveEditorSelectionChanged((event) => {
+            seen.push({ groupId: event.groupId, kind: event.kind, line: event.selections[0].activeLine });
+        });
+
+        adapter.setActiveEditorSelections(
+            uri,
+            [{ anchorLine: 1, anchorCharacter: 0, activeLine: 1, activeCharacter: 1 }],
+            inactive.id,
+        );
+        await Promise.resolve();
+
+        expect(seen).toEqual([{ groupId: inactive.id, kind: 3, line: 1 }]);
+
+        // A group that became active reports through the active path, once.
+        service.editorGroups.focusGroup(inactive.id);
+        seen.length = 0;
+        adapter.setActiveEditorSelections(
+            uri,
+            [{ anchorLine: 0, anchorCharacter: 0, activeLine: 0, activeCharacter: 1 }],
+            inactive.id,
+        );
+        await Promise.resolve();
+        expect(seen.length).toBe(1);
+
+        // A closed tab is forgotten: its later changes report nothing.
+        const closed = editorAt(1, 0);
+        await service.closeAllEditors(service.editorGroups.groups[1]);
+        seen.length = 0;
+        closed.viewState.selections = [createSelection(1, 0, 1, 2)];
+        await Promise.resolve();
+        expect(seen).toEqual([]);
+
+        subscription.dispose();
+    });
+
+    it("[api:window.onDidChangeTextEditorSelection] an inactive editor reports every tick, without a kind when the source is unknown", async () => {
+        service.openFile(ws.path("a.ts"));
+        service.splitActiveGroup();
+        const inactive = editorAt(0, 0);
+        const seen: IActiveEditorSelections[] = [];
+        const subscription = adapter.onActiveEditorSelectionChanged((event) => seen.push(event));
+
+        inactive.viewState.selections = [createSelection(1, 0, 1, 1)];
+        await Promise.resolve();
+        inactive.viewState.selections = [createSelection(1, 0, 1, 2)];
+        await Promise.resolve();
+
+        expect(seen.map((event) => event.selections[0].activeCharacter)).toEqual([1, 2]);
+        expect(seen[0]).not.toHaveProperty("kind");
+        subscription.dispose();
     });
 
     it("setActiveEditorSelections: unknown groupId or foreign uri is a no-op", () => {

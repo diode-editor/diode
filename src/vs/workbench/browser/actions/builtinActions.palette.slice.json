@@ -191,6 +191,7 @@
     "workbench.action.closeOtherEditors",
     "workbench.action.closeEditorsToTheRight",
     "workbench.action.closeUnmodifiedEditors",
+    "workbench.action.closeEditorsInOtherGroups",
     "workbench.action.splitEditor",
     "workbench.action.splitEditorRight",
     "workbench.action.splitEditorLeft",

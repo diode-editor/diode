@@ -45,6 +45,20 @@ describe("Tab close actions", () => {
         expect(labels()).toEqual(["b.txt"]);
     });
 
+    it("Close Editors in Other Groups leaves only the active group", async () => {
+        openAll("a.txt", "b.txt");
+        service().splitActiveGroup();
+        h.workbench.openFile(ws.path("c.txt"));
+        const kept = group();
+        expect(service().editorGroups.groups.length).toBe(2);
+
+        await h.commands.execute("workbench.action.closeEditorsInOtherGroups");
+        await settle();
+
+        expect(service().editorGroups.groups).toEqual([kept]);
+        expect(labels(kept)).toContain("c.txt");
+    });
+
     it("Close to the Right closes only the tail on the right", async () => {
         openAll("a.txt", "b.txt", "c.txt", "d.txt");
 

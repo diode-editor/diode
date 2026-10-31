@@ -50,7 +50,8 @@ async function runSession({ suite, workDir, vsix, hang, fileTimeoutMs, buildExte
     const deadline = Date.now() + fileTimeoutMs;
     let problem;
     try {
-        await drive(["start", "-s", SESSION, "--open", workspace, "--install", vsix, ...(buildExtensions ? [] : ["--no-build"])], Math.max(fileTimeoutMs, 300_000));
+        // Wide enough for ten columns: `ViewColumn is always defined` needs them, and a group has a minimum width.
+        await drive(["start", "-s", SESSION, "--size", "320x50", "--open", workspace, "--install", vsix, ...(buildExtensions ? [] : ["--no-build"])], Math.max(fileTimeoutMs, 300_000));
         await drive(["exec", "-s", SESSION, "_apiConformance.run", "--no-await"], 60_000);
         while (Date.now() < deadline && !(existsSync(resultsFile) && parseResults(readFileSync(resultsFile, "utf8")).ended)) {
             await delay(500);
