@@ -18,6 +18,8 @@ export function documentSyncSourceOfModel(model: BaseTextEditorModel): IDocument
         languageId: model.languageId,
         version: document.versionId,
         isDirty: model.isModified,
+        eol: model.eol,
+        encoding: model.encoding,
         isTooLargeForTokenization: model.isTooLargeForTokenization,
         length: document.getValueLength(),
         getText: () => document.getText(),
@@ -45,11 +47,12 @@ export function openDocumentSyncSources(group: IEditorService): IDocumentSyncSou
     return [...openDocumentModels(group)].map(documentSyncSourceOfModel);
 }
 
-/** Plus untitled buffers without a tab: `openTextDocument({ content })` opens the document before showing it, as upstream. */
+/** Plus models without a tab: `openTextDocument` opens the document before showing it, as upstream. */
 function openDocumentModels(group: IEditorService): Set<BaseTextEditorModel> {
     const models = new Set<BaseTextEditorModel>();
     for (const editor of group.getTextSurfaces()) models.add(editor.model);
     for (const model of group.getUntitledModelsWithoutEditor()) models.add(model);
+    for (const model of group.getFileModelsWithoutEditor()) models.add(model);
     return models;
 }
 
@@ -58,6 +61,15 @@ type IOpenedDocument = Pick<IDocumentSyncSource, "uri" | "languageId">;
 interface ITrackedDocument {
     openedAs: IOpenedDocument;
     readonly subscriptions: DisposableStore;
+}
+
+function pushDocumentState(host: IDocumentSyncTarget, model: BaseTextEditorModel): void {
+    host.didChangeTextDocumentState({
+        uri: model.uri.toString(),
+        version: model.document.versionId,
+        isDirty: model.isModified,
+        eol: model.eol,
+    });
 }
 
 /**
@@ -103,6 +115,17 @@ export function bindDocumentSync(group: IEditorService, groups: IEditorGroupsSer
         subscriptions.add(
             model.onDidChangeLanguage(() => {
                 resyncIdentity(model, record);
+            }),
+        );
+        subscriptions.add(
+            model.onDidChangeEol(() => {
+                pushDocumentState(host, model);
+            }),
+        );
+        // A save moves no text, so no didChange would tell extensions the document is clean. Before the reply to `save`.
+        subscriptions.add(
+            model.onDidMarkSaved(() => {
+                pushDocumentState(host, model);
             }),
         );
         // "Enable Editing" on a large file: the document now fits, and a flush opens it (`didChangeTextDocument`).

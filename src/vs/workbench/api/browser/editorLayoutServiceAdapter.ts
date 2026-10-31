@@ -116,6 +116,10 @@ export class EditorLayoutServiceAdapter extends Disposable implements IEditorLay
         return { uri: uri.toString() };
     }
 
+    public async openTextDocument(params: IWireUriParams): Promise<IWireUriParams | null> {
+        return (await this.editors.openTextDocumentWithoutEditor(Uri.parse(params.uri))) ? { uri: params.uri } : null;
+    }
+
     /** The same confirm flow as for the user (upstream `MainThreadEditorTabs.$closeTab`); an already closed tab is a success. */
     public async closeTabs(params: IWireCloseTabsParams): Promise<boolean> {
         const targets: { group: EditorGroup; pane: IEditorPane }[] = [];

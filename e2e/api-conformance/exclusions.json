@@ -15,5 +15,11 @@
     "workspace vscode API - workspace findTextInFiles, cancellation": "proposed API: workspace.findTextInFiles",
     "workspace.tasks vscode API - tasks Tasks CustomExecution task should start and shutdown successfully": "proposed API: window.onDidWriteTerminalData",
     "env vscode API - env env.remoteName": "harness layout: expects the upstream built-in extensions vscode.git and vscode.media-preview; Diode has diode.git and no media-preview",
-    "languages vscode API - languages folding command": "harness layout: expects the upstream built-in extension vscode.json-language-features, which Diode does not bundle"
+    "languages vscode API - languages folding command": "harness layout: expects the upstream built-in extension vscode.json-language-features, which Diode does not bundle",
+    "workspace vscode API - workspace openTextDocument, actual casing first": "virtual files, deferred by the epic #912: needs a case-insensitive registerFileSystemProvider resource to resolve to one document",
+    "workspace vscode API - workspace WorkspaceEdit: edit and rename parent folder duplicates resource #42641": "virtual files, deferred by the epic #912: the test edits fake-fs:/ resources through the workspace edit; the same scenario on plain files is covered by extensionHost.documentState.test.ts",
+    "workspace vscode API - workspace Support creating binary files in a WorkspaceEdit": "virtual files, deferred by the epic #912: the test creates a fake-fs:/ file; bytes on plain files are covered by workspaceEditService.workspaceEdit.test.ts",
+    "workspace vscode API - workspace applyEdit \"edit A -> rename A to B (different case)\" -> edit B": "harness layout: on plain files the test uppercases the whole path, /TMP/... cannot be created; upstream runs it on an in-memory fake-fs",
+    "commands vscode API - commands api-command: vscode.diff": "other cause: needs a diff of registerTextDocumentContentProvider documents, the cluster of #916",
+    "editor vscode API - editors issue #16573: Extension API: insertSpaces and tabSize are undefined": "other cause: TextEditor.options is not resolved from the editor, #924"
 }

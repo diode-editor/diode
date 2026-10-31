@@ -1,4 +1,4 @@
-import type { IWireDocumentChangedEvent } from "./wireTypes.ts";
+import type { IWireDocumentChangedEvent, IWireDocumentStateChanged } from "./wireTypes.ts";
 
 /**
  * A document as the sync reads it at send time. The text is built only when it is actually sent: for a live
@@ -11,6 +11,8 @@ export interface IDocumentSyncSource {
     /** The model's `versionId`. */
     readonly version: number;
     readonly isDirty: boolean;
+    readonly eol: 1 | 2;
+    readonly encoding: string;
     /**
      * The model's large-file mode (`isTooLargeForTokenization`): such a document is not synced, as upstream
      * does above `_MODEL_SYNC_LIMIT` — on 50 MB even the cheap sync is ~100 ms (#794), and extensions have
@@ -31,4 +33,6 @@ export interface IDocumentSyncTarget {
     /** As a delta, synchronously, on every batch. */
     didChangeTextDocumentContent(event: IWireDocumentChangedEvent): void;
     didCloseTextDocument(uri: string): void;
+    /** No-op for a document the subprocess doesn't have. */
+    didChangeTextDocumentState(state: IWireDocumentStateChanged): void;
 }

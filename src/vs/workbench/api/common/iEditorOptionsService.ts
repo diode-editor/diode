@@ -58,7 +58,11 @@ export interface IEditorOptionsService {
     /** No-op if the active uri differs from `uri`: the editor changed while the RPC was in flight. */
     setActiveEditorSelections(uri: string, selections: readonly IWireSelection[], groupId?: number): void;
     /** As one undoable batch; `false` if there is no active editor, the uri differs or nothing to apply. */
-    applyActiveEditorEdits(uri: string, edits: readonly IWireEditorEdit[]): boolean;
+    applyActiveEditorEdits(
+        uri: string,
+        edits: readonly IWireEditorEdit[],
+        options?: { version?: number; setEndOfLine?: 1 | 2; undoStopBefore?: boolean; undoStopAfter?: boolean },
+    ): boolean;
     /**
      * As one undo step. All-or-nothing: if any resource fails validation, nothing is
      * applied and the result is `false`. An empty list is also `false`: the subprocess

@@ -89,6 +89,7 @@ import type { IWorkspaceScanner } from "../vs/workbench/services/extensions/node
 
 import { diskFileService } from "./diskFileService.ts";
 import { removeDirLoud } from "./removeDirLoud.ts";
+import { createTestConfigurationService } from "./testConfigurationService.ts";
 import { createTestContextMenuService } from "./testContextMenuService.ts";
 import { createTestEditorContextMenuController } from "./testEditorContextMenu.ts";
 
@@ -228,6 +229,8 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
     const undoRedoService = new UndoRedoService();
     // One instance shared by the group (on-save participants) and the host adapter, like a DI singleton.
     const languageFeatures = new LanguageFeaturesService();
+    // Shared like the DI singleton: the group follows moves through this instance's events.
+    const files = diskFileService();
     const group = new EditorService(
         themeService,
         new TokenizationRegistry(),
@@ -242,7 +245,7 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
         undefined,
         [],
         languageFeatures,
-        diskFileService(),
+        files,
     );
     const groupComponent = new EditorGroupComponent(
         group.editorGroups.activeGroup,
@@ -254,9 +257,10 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
     const workspaceEditService = new WorkspaceEditService(
         undoRedoService,
         new TrashService(),
-        configurationService,
+        // The schema default: without it a refactoring would stay in dirty models instead of reaching the disk.
+        options.configurationService ?? createTestConfigurationService({ "files.refactoring.autoSave": true }),
         new BulkEditBuffers(group, group.textFileModels),
-        diskFileService(),
+        files,
     );
     const adapter = new EditorOptionsServiceAdapter(group, group.editorGroups, workspaceEditService);
     const commandRegistry = options.commandRegistry ?? new CommandRegistry();

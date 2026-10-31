@@ -52,7 +52,7 @@ describe("TextDocument over PieceTree: EOL on load", () => {
         expect(doc.serialize()).toBe("a\r\nb\r\nc");
         expect(doc.getText()).toBe("a\nb\nc");
         expect(doc.getLineLength(0)).toBe(1);
-        expect(doc.versionId).toBe(0);
+        expect(doc.versionId).toBe(1);
     });
 });
 

@@ -127,7 +127,7 @@ export class TextFileModel extends BaseTextEditorModel {
     private loadGeneration = 0;
     private providedWatch: IDisposable | null = null;
 
-    public get encoding(): string {
+    public override get encoding(): string {
         return this.encodingValue;
     }
 
@@ -691,6 +691,15 @@ export class TextFileModel extends BaseTextEditorModel {
         if (this.filePath === null) return false;
         this.loadDocumentFromDisk(this.filePath);
         return true;
+    }
+
+    /**
+     * Upstream `revert({ soft: true })`, before the file is deleted: the text stays and is no longer unsaved, so nothing
+     * asks to save it and no save brings the file back.
+     */
+    public revertSoft(): void {
+        this.markSaved();
+        this.broadcastMarkDirty();
     }
 
     /**

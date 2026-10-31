@@ -49,6 +49,10 @@ function harness(settings: Record<string, unknown> = {}): IHarness {
     const editors = {
         getActiveTabEditor: () => panes.at(0) ?? null,
         getEditors: () => panes,
+        // No live models here: a closed file takes the disk path this suite is about.
+        holdFileModel: () => null,
+        getFileModelsWithoutEditor: () => [],
+        revertSoftBeforeDelete: () => undefined,
     } as unknown as IEditorService;
     const models = { get: () => null } as unknown as TextFileModelService;
     const service = new WorkspaceEditService(

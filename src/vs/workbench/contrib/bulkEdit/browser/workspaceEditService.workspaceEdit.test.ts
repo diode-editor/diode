@@ -62,13 +62,17 @@ function makeBuffers(open: Map<string, IFakeBuffer>, readOnly = new Set<string>(
                     buffer.text = applyToText(buffer.text, edits);
                     return buffer.step;
                 },
+                setEol: () => null,
                 save: () => Promise.resolve(),
             };
         },
+        open: () => null,
+        didReplaceOnDisk: () => undefined,
         // Only the first touched buffer is a participant: this tests the edit itself;
         // a history step across several buffers — workspaceEditService.undoAcrossFiles.test.ts.
         undoParticipants: (touched) =>
             touched.length > 0 ? [{ context: `buffer:${touched[0]}`, label: touched[0], owner: true }] : [],
+        willDelete: () => undefined,
         didDelete: NULL_BULK_EDIT_BUFFERS.didDelete,
     };
 }
@@ -608,6 +612,8 @@ describe("WorkspaceEditService.applyWorkspaceEdit — open buffers", async () =>
     });
 });
 
+const insertAtStart = (text: string) => createTextEdit(createRange(0, 0, 0, 0), text);
+
 describe("WorkspaceEditService.applyWorkspaceEdit — file operations", async () => {
     it("creates a file and writes to it right away: operation order is kept", async () => {
         const { service, undoRedo } = makeService();
@@ -689,43 +695,113 @@ describe("WorkspaceEditService.applyWorkspaceEdit — file operations", async ()
         expect(fs.existsSync(file)).toBe(false);
     });
 
-    it("a file operation on a resource ALREADY edited as text refuses the edit", async () => {
+    it("edits before a rename travel with the file, edits after it see the renamed text", async () => {
         const { service } = makeService();
         const source = write("a.ts", "content\n");
         const target = path.join(tmpDir, "b.ts");
 
-        // Edits, then move: the edits' base is taken from the old path — an honest refusal instead of corruption.
         expect(
             await service.applyWorkspaceEdit(
-                [textEdit(source, replaceFirstLine("// head\n")), { kind: "rename", from: source, to: target }],
-                "Edit",
-            ),
-        ).toBe(false);
-        expect(read(source)).toBe("content\n");
-        expect(fs.existsSync(target)).toBe(false);
-
-        // Reverse order (file operation, then edits on the new path) —
-        // works: this is exactly what extensions send.
-        expect(
-            await service.applyWorkspaceEdit(
-                [{ kind: "rename", from: source, to: target }, textEdit(target, replaceFirstLine("// head\n"))],
+                [
+                    textEdit(source, insertAtStart("BEFORE")),
+                    { kind: "rename", from: source, to: target },
+                    textEdit(target, insertAtStart("AFTER")),
+                ],
                 "Edit",
             ),
         ).toBe(true);
-        expect(read(target)).toBe("// head\ncontent\n");
+        expect(read(target)).toBe("AFTERBEFOREcontent\n");
+        expect(fs.existsSync(source)).toBe(false);
     });
 
-    it("edit + delete of the SAME resource in one edit is refused", async () => {
+    it("the batch ends at a file operation: same position, later batch goes first (#80688)", async () => {
         const { service } = makeService();
-        const victim = write("victim.ts", "content\n");
+        const edited = write("a.ts", "");
+        const other = write("b.ts", "");
 
         expect(
             await service.applyWorkspaceEdit(
-                [textEdit(victim, replaceFirstLine("// head\n")), { kind: "delete", from: victim }],
+                [
+                    textEdit(edited, insertAtStart("one;")),
+                    { kind: "rename", from: other, to: path.join(tmpDir, "new", "deep", "b.ts") },
+                    textEdit(edited, insertAtStart("two;")),
+                ],
                 "Edit",
             ),
-        ).toBe(false);
-        expect(read(victim)).toBe("content\n");
+        ).toBe(true);
+        expect(read(edited)).toBe("two;one;");
+        // The missing parent directories are created.
+        expect(fs.existsSync(path.join(tmpDir, "new", "deep", "b.ts"))).toBe(true);
+    });
+
+    it("a rename onto itself is a no-op, not a collision", async () => {
+        const { service } = makeService();
+        const file = write("a.ts", "x");
+        expect(
+            await service.applyWorkspaceEdit(
+                [{ kind: "rename", from: file, to: file }, textEdit(file, insertAtStart("y"))],
+                "Edit",
+            ),
+        ).toBe(true);
+        expect(read(file)).toBe("yx");
+    });
+
+    it("ignoreIfExists skips an occupied target only without an explicit overwrite", async () => {
+        const { service } = makeService();
+        const a = write("a.ts", "aaa");
+        const b = write("b.ts", "bbb");
+        const rename = (extra: { overwrite?: boolean; ignoreIfExists?: boolean }) =>
+            service.applyWorkspaceEdit([{ kind: "rename", from: a, to: b, ...extra }], "Edit");
+
+        expect(await rename({})).toBe(false);
+        expect(await rename({ ignoreIfExists: true })).toBe(true);
+        expect(read(b)).toBe("bbb");
+        expect(await rename({ overwrite: false, ignoreIfExists: true })).toBe(false);
+        expect(await rename({ overwrite: true, ignoreIfExists: true })).toBe(true);
+        expect(read(b)).toBe("aaa");
+    });
+
+    it("a rename onto itself is a no-op: applied, the file stays, nothing to undo", async () => {
+        const { service, undoRedo } = makeService();
+        const file = write("a.ts", "aaa");
+
+        expect(await service.applyWorkspaceEdit([{ kind: "rename", from: file, to: file }], "Edit")).toBe(true);
+
+        expect(read(file)).toBe("aaa");
+        expect(undoRedo.canUndo(WORKSPACE_UNDO_CONTEXT)).toBe(false);
+    });
+
+    it("a text edit after a create with bytes sees the decoded text", async () => {
+        const { service } = makeService();
+        const file = path.join(tmpDir, "made.ts");
+
+        const applied = await service.applyWorkspaceEdit(
+            [
+                { kind: "create", to: file, contents: new TextEncoder().encode("one\n") },
+                textEdit(file, createTextEdit(createRange(0, 3, 0, 3), "!")),
+            ],
+            "Edit",
+        );
+
+        expect(applied).toBe(true);
+        expect(read(file)).toBe("one!\n");
+    });
+
+    it("create writes bytes as they are", async () => {
+        const { service } = makeService();
+        const file = path.join(tmpDir, "bin.dat");
+        const bytes = Uint8Array.from([0xff, 0x00, 0xfe]);
+        expect(await service.applyWorkspaceEdit([{ kind: "create", to: file, contents: bytes }], "Edit")).toBe(true);
+        expect(new Uint8Array(fs.readFileSync(file))).toEqual(bytes);
+    });
+
+    it("a line ending change goes to the file without text edits", async () => {
+        const { service } = makeService();
+        const file = write("a.ts", "a\nb\n");
+        expect(
+            await service.applyWorkspaceEdit([{ resource: resourceOf(file), edits: [], setEndOfLine: 2 }], "Edit"),
+        ).toBe(true);
+        expect(read(file)).toBe("a\r\nb\r\n");
     });
 
     it("delete + edit of the deleted resource in one edit is refused (nowhere to write)", async () => {
@@ -1031,7 +1107,8 @@ describe("WorkspaceEditService.applyWorkspaceEdit — file operations", async ()
             [
                 { resource: resourceOf(closed), edits: [replaceFirstLine("after\n")] },
                 { kind: "create", to: path.join(blocked, "x", "y") },
-                { kind: "rename", from: blocked, to: path.join(tmpDir, "dst", "deep", "x") },
+                // A directory into itself: validation passes, the OS refuses.
+                { kind: "rename", from: blocked, to: path.join(blocked, "x", "inner") },
             ],
             "Edit",
         );
@@ -1039,5 +1116,170 @@ describe("WorkspaceEditService.applyWorkspaceEdit — file operations", async ()
         expect(applied).toBe(false);
         expect(read(closed)).toBe("before\n");
         expect(undoRedo.canUndo(WORKSPACE_UNDO_CONTEXT)).toBe(false);
+    });
+
+    describe("line endings, replaced files and binary contents", () => {
+        const eolBuffers = (resource: string) => {
+            const log: string[] = [];
+            const buffers: IBulkEditBuffers = {
+                ...makeBuffers(new Map()),
+                get: (uri): BulkEditTarget =>
+                    uri === resource
+                        ? {
+                              text: () => "one\n",
+                              applyEdits: () => {
+                                  log.push("edits");
+                                  return null;
+                              },
+                              setEol: (eol) => {
+                                  log.push(`eol ${String(eol)}`);
+                                  return {
+                                      label: "eol",
+                                      resources: [],
+                                      undo: () => {
+                                          log.push("undo eol");
+                                      },
+                                      redo: () => undefined,
+                                  };
+                              },
+                              save: () => Promise.resolve(),
+                          }
+                        : null,
+                didReplaceOnDisk: (uri) => log.push(`replaced ${uri}`),
+            };
+            return { log, buffers };
+        };
+
+        it("a line ending given once survives a later edit of the file, a step of its own is undone", async () => {
+            const file = write("b.ts", "one\n");
+            const resource = Uri.file(file).toString();
+            const { log, buffers } = eolBuffers(resource);
+            const { service, undoRedo } = makeService(buffers);
+
+            const applied = await service.applyWorkspaceEdit(
+                [
+                    { resource, edits: [], setEndOfLine: 2 },
+                    { resource, edits: [] },
+                ],
+                "Edit",
+            );
+
+            expect(applied).toBe(true);
+            expect(log).toEqual(["eol 2"]);
+            await undoRedo.undo(`buffer:${resource}`);
+            expect(log).toContain("undo eol");
+        });
+
+        it("a line ending given by one operation survives a later operation with text", async () => {
+            const file = write("b.ts", "one\n");
+            const resource = Uri.file(file).toString();
+            const { log, buffers } = eolBuffers(resource);
+            const { service } = makeService(buffers);
+
+            const applied = await service.applyWorkspaceEdit(
+                [{ resource, edits: [], setEndOfLine: 2 }, textEdit(file, replaceFirstLine("zero\n"))],
+                "Edit",
+            );
+
+            expect(applied).toBe(true);
+            expect(log).toEqual(["edits", "eol 2"]);
+        });
+
+        it("renaming a file open read-only moves it: only its text is refused, not the file", async () => {
+            const from = write("from.ts", "from");
+            const to = path.join(tmpDir, "to.ts");
+            const { service } = makeService(makeBuffers(new Map(), new Set([Uri.file(from).toString()])));
+
+            await expect(service.applyWorkspaceEdit([{ kind: "rename", from, to }], "Edit")).resolves.toBe(true);
+
+            expect(read(to)).toBe("from");
+            expect(fs.existsSync(from)).toBe(false);
+        });
+
+        it("a read-only resource refuses the whole edit", async () => {
+            const file = write("b.ts", "one\n");
+            const resource = Uri.file(file).toString();
+            const { service } = makeService(makeBuffers(new Map(), new Set([resource])));
+            await expect(
+                service.applyWorkspaceEdit([textEdit(file, replaceFirstLine("zero\n"))], "Edit"),
+            ).resolves.toBe(false);
+            expect(read(file)).toBe("one\n");
+        });
+
+        it.each(["create", "rename"] as const)("%s over a file reloads the target's model", async (kind) => {
+            const from = write("from.ts", "from");
+            const to = write("to.ts", "to");
+            const resource = Uri.file(to).toString();
+            const { log, buffers } = eolBuffers("none");
+            const { service } = makeService(buffers);
+            const edit: BulkEditOperation =
+                kind === "create"
+                    ? { kind, to, contents: "new", overwrite: true }
+                    : { kind, from, to, overwrite: true };
+
+            await expect(service.applyWorkspaceEdit([edit], "Edit")).resolves.toBe(true);
+
+            expect(log).toEqual([`replaced ${resource}`]);
+        });
+
+        it.each(["create", "rename"] as const)("%s onto a free path has nothing to reload", async (kind) => {
+            const from = write("from.ts", "from");
+            const to = ws.path("free.ts");
+            const { log, buffers } = eolBuffers("none");
+            const { service } = makeService(buffers);
+            const edit: BulkEditOperation = kind === "create" ? { kind, to, contents: "new" } : { kind, from, to };
+
+            await expect(service.applyWorkspaceEdit([edit], "Edit")).resolves.toBe(true);
+
+            expect(log).toEqual([]);
+        });
+
+        it("create writes binary contents as they are, and a later edit of the file sees their text", async () => {
+            const to = ws.path("bin.dat");
+            const bytes = new Uint8Array([0xff, 0x00, 0x41]);
+            const { service } = makeService();
+
+            await expect(service.applyWorkspaceEdit([{ kind: "create", to, contents: bytes }], "Edit")).resolves.toBe(
+                true,
+            );
+
+            expect([...fs.readFileSync(to)]).toEqual([...bytes]);
+        });
+
+        it("create writes a string as UTF-8; a later edit in the batch goes over it", async () => {
+            const to = ws.path("text.ts");
+            const { service } = makeService();
+
+            await expect(
+                service.applyWorkspaceEdit(
+                    [{ kind: "create", to, contents: "é\n" }, textEdit(to, replaceFirstLine("zero\n"))],
+                    "Edit",
+                ),
+            ).resolves.toBe(true);
+
+            expect(read(to)).toBe("zero\né\n");
+        });
+
+        it("a rename onto itself is nothing: the file stays, and the plan goes on", async () => {
+            const file = write("same.ts", "same");
+            const { service } = makeService();
+
+            await expect(service.applyWorkspaceEdit([{ kind: "rename", from: file, to: file }], "Edit")).resolves.toBe(
+                true,
+            );
+
+            expect(read(file)).toBe("same");
+        });
+
+        it("a rename to another occupied path without permission refuses the edit", async () => {
+            const from = write("from.ts", "from");
+            const to = write("to.ts", "to");
+            const { service } = makeService();
+
+            await expect(service.applyWorkspaceEdit([{ kind: "rename", from, to }], "Edit")).resolves.toBe(false);
+
+            expect(read(from)).toBe("from");
+            expect(read(to)).toBe("to");
+        });
     });
 });

@@ -135,3 +135,14 @@ export function arrayInsert<T>(target: T[], insertIndex: number, insertArr: T[])
     const after = target.slice(insertIndex);
     return before.concat(insertArr, after);
 }
+
+/** Spread arguments are capped by the engine (a paste of thousands of wrapped lines would overflow the call), so the items go in chunks. */
+export const SPLICE_CHUNK = 1024;
+
+export function spliceInChunks<T>(target: T[], start: number, deleteCount: number, items: readonly T[]): void {
+    target.splice(start, deleteCount, ...items.slice(0, SPLICE_CHUNK));
+    // Stryker disable next-line EqualityOperator: the extra iteration splices an empty slice, a no-op
+    for (let i = SPLICE_CHUNK; i < items.length; i += SPLICE_CHUNK) {
+        target.splice(start + i, 0, ...items.slice(i, i + SPLICE_CHUNK));
+    }
+}

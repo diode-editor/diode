@@ -24,7 +24,10 @@ async function revertAllDirty() {
     for (const document of vscode.workspace.textDocuments) {
         if (!document.isDirty) continue;
         const isFile = document.uri.scheme !== "untitled";
-        const text = isFile ? Buffer.from(await vscode.workspace.fs.readFile(document.uri)).toString("utf8") : "";
+        // A dirty document of a deleted file has no disk text to go back to: a test deleted it after editing.
+        const bytes = isFile ? await vscode.workspace.fs.readFile(document.uri).catch(() => null) : new Uint8Array();
+        if (bytes === null) continue;
+        const text = Buffer.from(bytes).toString("utf8");
         const edit = new vscode.WorkspaceEdit();
         const whole = new vscode.Range(document.positionAt(0), document.positionAt(document.getText().length));
         edit.replace(document.uri, whole, text);

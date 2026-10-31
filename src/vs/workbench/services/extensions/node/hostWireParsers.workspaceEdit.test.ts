@@ -117,3 +117,28 @@ describe("parseWireApplyWorkspaceEditParams", () => {
         ).toEqual([{ kind: "text", resource: "file:///a.ts", edits: [EDIT] }]);
     });
 });
+
+describe("parseWireApplyWorkspaceEditParams — line endings and contents", () => {
+    const parseOne = (op: Record<string, unknown>) => parseWireApplyWorkspaceEditParams({ ops: [op] })?.[0];
+    const TEXT = { kind: "text", resource: "file:///a.ts", edits: [EDIT] };
+
+    it.each([1, 2])("a text operation carries the line ending %s, also with no edits", (setEndOfLine) => {
+        expect(parseOne({ ...TEXT, setEndOfLine })).toStrictEqual({ ...TEXT, setEndOfLine });
+        expect(parseOne({ ...TEXT, edits: [], setEndOfLine })).toStrictEqual({ ...TEXT, edits: [], setEndOfLine });
+    });
+
+    it("junk in the line ending stays out", () => {
+        expect(parseOne({ ...TEXT, setEndOfLine: 3 })).toStrictEqual(TEXT);
+    });
+
+    it("create carries binary contents as base64; junk stays out", () => {
+        const CREATE = { kind: "create", resource: "file:///a.ts" };
+        expect(parseOne({ ...CREATE, contentsBase64: "AAE=" })).toStrictEqual({ ...CREATE, contentsBase64: "AAE=" });
+        expect(parseOne({ ...CREATE, contentsBase64: 1 })).toStrictEqual(CREATE);
+    });
+
+    it("rename's overwrite is a boolean or nothing", () => {
+        const RENAME = { kind: "rename", from: "file:///a.ts", to: "file:///b.ts" };
+        expect(parseOne({ ...RENAME, overwrite: "yes" })).toStrictEqual(RENAME);
+    });
+});

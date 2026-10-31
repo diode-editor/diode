@@ -1,5 +1,6 @@
 import { measureTextWidth } from "@tuidom/core/common/measureTextWidth";
 
+import { spliceInChunks } from "../../../base/common/arrays.ts";
 import { Disposable } from "../../../base/common/lifecycle.ts";
 import type { IDocumentContentChange } from "../model/iDocumentContentChange.ts";
 import type { ITextDocument } from "../model/iTextDocument.ts";
@@ -147,7 +148,7 @@ export class LineWidthCache extends Disposable {
 
         if (lineDelta > 0) {
             const placeholders = new Array<number>(lineDelta).fill(UNCOMPUTED);
-            this.lineWidths.splice(oldEndLine + 1, 0, ...placeholders);
+            spliceInChunks(this.lineWidths, oldEndLine + 1, 0, placeholders);
         } else if (lineDelta < 0) {
             for (const width of this.lineWidths.splice(newEndLine + 1, -lineDelta)) this.forget(width);
         }

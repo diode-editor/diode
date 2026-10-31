@@ -1,4 +1,4 @@
-import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
@@ -73,10 +73,11 @@ export default defineScenario({
         await editor.sendText("new file");
         await editor.sendKey("Enter");
 
+        // Not a refactoring for `workspace.applyEdit`: the file is created, its text stays in a dirty model, as upstream.
         await waitUntil(
-            () => Promise.resolve(existsSync(helperFile) ? readFileSync(helperFile, "utf8") : ""),
-            (text) => text.includes("class Helper"),
-            { describe: "Helper class in a new Helper.java on disk", timeoutMs: 120_000, intervalMs: 500 },
+            () => Promise.resolve(existsSync(helperFile)),
+            (exists) => exists,
+            { describe: "new Helper.java on disk", timeoutMs: 120_000, intervalMs: 500 },
         );
         await editor.waitForText((t) => t.includes("public class App {") && !t.includes("class Helper {"), {
             timeoutMs: 60_000,

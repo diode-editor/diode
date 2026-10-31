@@ -30,13 +30,15 @@ describe("TextFileModel — model without attached views", () => {
         model.dispose();
     });
 
-    it("applyExternalEdits without views is a no-op: nobody to apply the edit", () => {
+    it("applyExternalEdits without views edits the document: a live model needs no tab", () => {
         const model = make();
 
         model.applyExternalEdits([createInsertEdit(0, 0, "hello")], "test edit");
 
+        expect(model.getText()).toBe("hello");
+        expect(model.isModified).toBe(true);
+        model.undo();
         expect(model.getText()).toBe("");
-        expect(model.isModified).toBe(false);
         model.dispose();
     });
 

@@ -1,3 +1,7 @@
 vscode API - editors editor contents are correctly read (large file)
 vscode API - editors editor contents are correctly read (small file)
 vscode API - editors extEditor.selection can be empty #18075
+vscode API - editors issue #20757: Overlapping ranges are not allowed!
+vscode API - editors issue #6281: Edits fail to validate ranges correctly before applying
+vscode API - editors make edit
+vscode API - editors throw when using invalid edit

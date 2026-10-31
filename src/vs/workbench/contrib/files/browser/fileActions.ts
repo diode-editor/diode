@@ -201,8 +201,9 @@ export const fileSaveAction: CommandAction = {
     menus: [{ menuId: MenuId.MenubarFileMenu, group: "3_save", order: 10 }],
     keybinding: parseKeybinding("mod+s"),
     keybindings: [parseChord("mod+k s")],
+    // Returned: `executeCommand` from an extension resolves after the save (and `onDidSaveTextDocument`), as upstream.
     run(accessor) {
-        void runSave(accessor);
+        return runSave(accessor);
     },
 };
 

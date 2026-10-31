@@ -27,6 +27,9 @@ export interface IEditorLayoutService {
     /** Untitled document without a tab; {@link showTextDocument} shows it later. */
     createUntitledDocument(params: IWireCreateUntitledParams): IWireUriParams;
 
+    /** A live model without a tab, upstream `$tryOpenDocument`. `null`: not a readable file. */
+    openTextDocument(params: IWireUriParams): Promise<IWireUriParams | null>;
+
     /** `false`: the user cancelled the confirm dialog. */
     closeTabs(params: IWireCloseTabsParams): Promise<boolean>;
 
@@ -41,6 +44,7 @@ export const NULL_EDITOR_LAYOUT_SERVICE: IEditorLayoutService = {
     createUntitledDocument: () => {
         throw new Error("editor layout unavailable");
     },
+    openTextDocument: () => Promise.resolve(null),
     closeTabs: () => Promise.resolve(false),
     closeGroups: () => Promise.resolve(false),
 };

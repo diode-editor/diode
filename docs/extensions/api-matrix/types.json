@@ -6147,8 +6147,7 @@
       "class": "ok"
     },
     "TextEditor.edit": {
-      "class": "A",
-      "note": "#914: resolves before the document mirror is updated"
+      "class": "ok"
     },
     "TextEditor.hide": {
       "class": "B",
@@ -6214,20 +6213,16 @@
       "class": "ok"
     },
     "TextEditorEdit.delete": {
-      "class": "A",
-      "note": "#914: setEndOfLine does nothing; no overlap or out-of-callback errors"
+      "class": "ok"
     },
     "TextEditorEdit.insert": {
-      "class": "A",
-      "note": "#914: setEndOfLine does nothing; no overlap or out-of-callback errors"
+      "class": "ok"
     },
     "TextEditorEdit.replace": {
-      "class": "A",
-      "note": "#914: setEndOfLine does nothing; no overlap or out-of-callback errors"
+      "class": "ok"
     },
     "TextEditorEdit.setEndOfLine": {
-      "class": "A",
-      "note": "#914: setEndOfLine does nothing; no overlap or out-of-callback errors"
+      "class": "ok"
     },
     "TextEditorLineNumbersStyle": {
       "class": "B",
