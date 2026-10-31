@@ -12,15 +12,18 @@ describe("openApiTrace", () => {
     let dir: string;
     let warn: ReturnType<typeof vi.fn>;
     let logger: ILogger;
-    const listenersBefore = process.listeners("exit");
+    let listenersBefore: ReturnType<typeof process.listeners<"exit">>;
 
     beforeEach(() => {
+        listenersBefore = process.listeners("exit");
         dir = fs.mkdtempSync(path.join(os.tmpdir(), "diode-api-trace-file-"));
         warn = vi.fn();
         logger = { warn } as unknown as ILogger;
     });
 
+    // In `afterEach`: a failed assertion must not leave the worker with a replaced `setTimeout` or `cwd`.
     afterEach(() => {
+        vi.restoreAllMocks();
         vi.useRealTimers();
         for (const listener of process.listeners("exit")) {
             if (!listenersBefore.includes(listener)) process.removeListener("exit", listener);
@@ -48,7 +51,6 @@ describe("openApiTrace", () => {
         const trace = openApiTrace("relative.jsonl", logger);
         spy.mockReturnValue(os.tmpdir());
         trace.record("pub.a", "window.a", "call");
-        spy.mockRestore();
         expect(fs.existsSync(path.join(dir, "relative.jsonl"))).toBe(true);
     });
 
@@ -73,7 +75,6 @@ describe("openApiTrace", () => {
         expect(unref).toHaveBeenCalledTimes(1);
         expect(fs.readFileSync(file, "utf8").trim().split("\n")).toHaveLength(1);
 
-        timer.mockRestore();
         vi.advanceTimersByTime(250);
         expect(fs.readFileSync(file, "utf8").trim().split("\n")).toHaveLength(2);
     });
