@@ -1,0 +1,32 @@
+{
+  "members": {
+    "lm.invokeTool": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "lm.onDidChangeChatModels": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "lm.registerLanguageModelChatProvider": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "lm.registerMcpServerDefinitionProvider": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "lm.registerTool": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "lm.selectChatModels": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    },
+    "lm.tools": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    }
+  }
+}

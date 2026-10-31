@@ -1,0 +1,8 @@
+{
+  "members": {
+    "comments.createCommentController": {
+      "class": "C",
+      "note": "needs the comments surface"
+    }
+  }
+}

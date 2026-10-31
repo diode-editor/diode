@@ -1,0 +1,76 @@
+{
+  "members": {
+    "debug.activeDebugConsole": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "debug.activeDebugSession": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "debug.activeStackItem": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "debug.addBreakpoints": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "debug.asDebugSourceUri": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "debug.breakpoints": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "debug.onDidChangeActiveDebugSession": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "debug.onDidChangeActiveStackItem": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "debug.onDidChangeBreakpoints": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "debug.onDidReceiveDebugSessionCustomEvent": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "debug.onDidStartDebugSession": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "debug.onDidTerminateDebugSession": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "debug.registerDebugAdapterDescriptorFactory": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "debug.registerDebugAdapterTrackerFactory": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "debug.registerDebugConfigurationProvider": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "debug.removeBreakpoints": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "debug.startDebugging": {
+      "class": "C",
+      "note": "needs a debugger"
+    },
+    "debug.stopDebugging": {
+      "class": "C",
+      "note": "needs a debugger"
+    }
+  }
+}

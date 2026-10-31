@@ -38,6 +38,7 @@
     "cyrillic-check": "node scripts/check-cyrillic.mjs",
     "lazy-chunks-check": "node scripts/check-lazy-chunks.mjs",
     "snapshot-check": "node scripts/check-snapshot.mjs",
+    "api-matrix": "node scripts/api-matrix.mjs",
     "import:vscode-editor": "node scripts/import-vscode-editor.mjs",
     "import:codicons": "node scripts/import-codicons.mjs",
     "engine:link": "node scripts/engine-link.mjs link",

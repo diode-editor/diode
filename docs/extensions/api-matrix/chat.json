@@ -1,0 +1,8 @@
+{
+  "members": {
+    "chat.createChatParticipant": {
+      "class": "C",
+      "note": "needs a chat surface and a model backend"
+    }
+  }
+}
