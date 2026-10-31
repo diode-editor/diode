@@ -1614,3 +1614,18 @@ export interface IWireExecuteCommandParams {
 export interface IWireCommandId {
     readonly id: string;
 }
+
+export interface IWireChangeLanguageParams {
+    readonly uri: string;
+    readonly languageId: string;
+}
+
+export interface IWireChangeLanguageResult {
+    /** `false`: the core has no model of this document yet; the language is applied when it gets one. */
+    readonly applied: boolean;
+}
+
+export interface IWireDocumentLanguage {
+    /** `null`: no registered language claims this path. */
+    readonly languageId: string | null;
+}

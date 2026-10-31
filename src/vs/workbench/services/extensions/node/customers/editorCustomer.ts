@@ -143,6 +143,24 @@ export class EditorCustomer implements IExtensionHostCustomer {
                 this.editorLayout.createUntitledDocument(parseWireCreateUntitledParams(params)),
             ),
         );
+        store.add(rpc.handleRequest("languages.getLanguages", () => this.editorLayout.getLanguages()));
+        store.add(
+            rpc.handleRequest("languages.getLanguageOfDocument", (params) => {
+                const p: { uri?: unknown } = params;
+                if (typeof p.uri !== "string") throw new Error("languages.getLanguageOfDocument: malformed params");
+                return { languageId: this.editorLayout.getLanguageOfDocument(p.uri) };
+            }),
+        );
+        // The model's `onDidChangeLanguage` sends `editor.didClose`/`editor.didOpen` synchronously: the reply doesn't overtake them.
+        store.add(
+            rpc.handleRequest("languages.changeLanguage", (params) => {
+                const p: { uri?: unknown; languageId?: unknown } = params;
+                if (typeof p.uri !== "string" || typeof p.languageId !== "string") {
+                    throw new Error("languages.changeLanguage: malformed params");
+                }
+                return this.editorLayout.changeDocumentLanguage({ uri: p.uri, languageId: p.languageId });
+            }),
+        );
         store.add(
             rpc.handleRequest("editor.closeTabs", async (params): Promise<boolean> => {
                 const parsed = parseWireCloseTabsParams(params);

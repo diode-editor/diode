@@ -504,5 +504,48 @@
         "tasks.onDidEndTaskProcess",
         "tasks.onDidStartTaskProcess",
         "window.terminals"
+    ],
+    "commands vscode API - commands getCommands": [
+        "commands.getCommands"
+    ],
+    "languages vscode API - languages setTextDocumentLanguage -> close/open event": [
+        "languages.setTextDocumentLanguage"
+    ],
+    "languages vscode API - languages diagnostics & CodeActionProvider": [
+        "languages.registerCodeActionsProvider",
+        "languages.createDiagnosticCollection"
+    ],
+    "languages vscode API - languages completions with document filters": [
+        "languages.registerCompletionItemProvider"
+    ],
+    "window vscode API - window showWorkspaceFolderPick": [
+        "window.showWorkspaceFolderPick"
+    ],
+    "workspace vscode API - workspace rootPath": [
+        "workspace.rootPath"
+    ],
+    "workspace vscode API - workspace registerTextDocumentContentProvider, constrains": [
+        "workspace.registerTextDocumentContentProvider"
+    ],
+    "workspace vscode API - workspace registerTextDocumentContentProvider, multiple": [
+        "workspace.registerTextDocumentContentProvider"
+    ],
+    "workspace vscode API - workspace registerTextDocumentContentProvider, evil provider": [
+        "workspace.registerTextDocumentContentProvider"
+    ],
+    "workspace vscode API - workspace registerTextDocumentContentProvider, invalid text": [
+        "workspace.registerTextDocumentContentProvider"
+    ],
+    "workspace vscode API - workspace registerTextDocumentContentProvider, show virtual document": [
+        "workspace.registerTextDocumentContentProvider"
+    ],
+    "workspace vscode API - workspace registerTextDocumentContentProvider, open/open document": [
+        "workspace.registerTextDocumentContentProvider"
+    ],
+    "workspace vscode API - workspace registerTextDocumentContentProvider, empty doc": [
+        "workspace.registerTextDocumentContentProvider"
+    ],
+    "workspace vscode API - workspace registerTextDocumentContentProvider, change event": [
+        "workspace.registerTextDocumentContentProvider"
     ]
 }

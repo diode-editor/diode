@@ -34,7 +34,16 @@ vscode API - workspace openTextDocument, illegal path
 vscode API - workspace openTextDocument, untitled without path but language ID and content
 vscode API - workspace openTextDocument, uri scheme/auth/path
 vscode API - workspace openTextDocument, with selection
+vscode API - workspace registerTextDocumentContentProvider, change event
+vscode API - workspace registerTextDocumentContentProvider, constrains
+vscode API - workspace registerTextDocumentContentProvider, empty doc
+vscode API - workspace registerTextDocumentContentProvider, evil provider
+vscode API - workspace registerTextDocumentContentProvider, invalid text
+vscode API - workspace registerTextDocumentContentProvider, multiple
+vscode API - workspace registerTextDocumentContentProvider, open/open document
+vscode API - workspace registerTextDocumentContentProvider, show virtual document
 vscode API - workspace registerTextDocumentContentProvider, simple
+vscode API - workspace rootPath
 vscode API - workspace save
 vscode API - workspace saveAll
 vscode API - workspace workspace.applyEdit drops the TextEdit if there is a RenameFile later #77735 (without opened editor)

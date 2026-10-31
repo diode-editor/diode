@@ -218,6 +218,7 @@ describe("openDiffPair", () => {
                 return filePath.endsWith(".ts") ? "typescript" : undefined;
             },
             getLanguageDisplayName: () => undefined,
+            getRegisteredLanguageIds: () => [],
             getExtensionForLanguage: () => undefined,
             requestLanguageFeatures: () => undefined,
             onDidRequestLanguageFeatures: () => ({ dispose: () => undefined }),
@@ -283,6 +284,7 @@ describe("openDiffPair", () => {
                 return filePath.endsWith(".ts") ? "typescript" : undefined;
             },
             getLanguageDisplayName: () => undefined,
+            getRegisteredLanguageIds: () => [],
             getExtensionForLanguage: () => undefined,
             requestLanguageFeatures: () => undefined,
             onDidRequestLanguageFeatures: () => ({ dispose: () => undefined }),

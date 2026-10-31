@@ -5,6 +5,9 @@ export interface ICommandService {
     /** Throws if the command is missing, so the rejection reaches the subprocess. */
     execute(id: string, args: readonly unknown[]): unknown;
 
+    /** Every registered id, hidden from the palette or not. */
+    listCommandIds(): readonly string[];
+
     /**
      * Without `title` the command runs by id but is hidden from the palette. `category` is
      * the label prefix in the palette ("Java: Clean Workspace"), not part of the title.
@@ -19,5 +22,6 @@ export interface ICommandService {
 
 export const NULL_COMMAND_SERVICE: ICommandService = {
     execute: () => undefined,
+    listCommandIds: () => [],
     registerProxy: () => ({ dispose: () => undefined }),
 };

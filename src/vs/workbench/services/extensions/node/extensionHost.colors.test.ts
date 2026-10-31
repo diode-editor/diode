@@ -24,6 +24,7 @@ import type { TextEditorPane } from "../../../browser/parts/editor/textEditorPan
 const CSS_LANGUAGE_SERVICE: ILanguageService = {
     getLanguageIdForResource: () => "css",
     getLanguageDisplayName: () => "CSS",
+    getRegisteredLanguageIds: () => [],
     getExtensionForLanguage: () => ".css",
     requestLanguageFeatures: () => undefined,
     onDidRequestLanguageFeatures: () => ({ dispose: () => undefined }),

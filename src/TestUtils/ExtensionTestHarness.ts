@@ -287,7 +287,11 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
         () => folders,
         () => options.workspaceFile,
     );
-    const editorLayout = new EditorLayoutServiceAdapter(group, group.editorGroups);
+    const editorLayout = new EditorLayoutServiceAdapter(
+        group,
+        group.editorGroups,
+        options.languageService ?? NULL_LANGUAGE_SERVICE,
+    );
     // Inside tmpDir: a test must not write to the machine's user data.
     const storageHomes =
         options.storageHomes ??

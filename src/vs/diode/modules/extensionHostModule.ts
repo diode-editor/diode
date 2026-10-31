@@ -251,7 +251,11 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
         const themeColorResolver = new ThemeColorResolverAdapter(container.get(ThemeServiceDIToken));
         const icons = container.get(ProductIconServiceDIToken);
 
-        const editorLayout = new EditorLayoutServiceAdapter(group, container.get(EditorGroupsServiceDIToken));
+        const editorLayout = new EditorLayoutServiceAdapter(
+            group,
+            container.get(EditorGroupsServiceDIToken),
+            container.get(LanguageServiceDIToken),
+        );
 
         // Stryker disable ArrowFunction: production module wiring; the decisions live in `watcherExcludeGlobs`/`watcherIncludesUnder` and `FileWatcherAdapter`, covered by unit tests; end-to-end — live run on a Bazel workspace
         const fileWatcher = new FileWatcherAdapter(

@@ -193,6 +193,10 @@ function spawnReadyHost(
 }
 
 class FakeCommandService implements ICommandService {
+    public listCommandIds(): readonly string[] {
+        return [];
+    }
+
     public readonly executed: { id: string; args: readonly unknown[] }[] = [];
     public executeResult: unknown = "core-result";
     public executeThrows: string | null = null;

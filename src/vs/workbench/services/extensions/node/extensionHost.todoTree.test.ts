@@ -107,6 +107,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — stock Gruntfuggly.todo-t
                 treeViewsSink: adapter,
                 statusBarItemSink: new ExtensionStatusBarAdapter(bar, {
                     execute: () => Promise.resolve(undefined),
+                    listCommandIds: () => [],
                     registerProxy: () => ({ dispose: () => undefined }),
                 }),
                 commandRegistry: views.commands,

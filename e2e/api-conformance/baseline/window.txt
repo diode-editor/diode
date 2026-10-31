@@ -28,3 +28,4 @@ vscode API - window showQuickPick, never resolve promise and cancel - #22453
 vscode API - window showQuickPick, select first two
 vscode API - window showQuickPick, undefined on cancel
 vscode API - window showTextDocument ViewColumn.BESIDE
+vscode API - window showWorkspaceFolderPick

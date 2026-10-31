@@ -22,6 +22,7 @@ const NOOP_EDITOR_OPTIONS = {
 
 const NOOP_COMMANDS = {
     execute: () => undefined,
+    listCommandIds: () => [],
     registerProxy: () => ({ dispose: () => undefined }),
 } as unknown as ICommandService;
 

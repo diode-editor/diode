@@ -18,6 +18,7 @@ import type { ISemanticTokensRequest } from "../../../../editor/common/languages
 const CSHARP_LANGUAGE_SERVICE: ILanguageService = {
     getLanguageIdForResource: () => "csharp",
     getLanguageDisplayName: () => "C#",
+    getRegisteredLanguageIds: () => [],
     getExtensionForLanguage: () => ".cs",
     requestLanguageFeatures: () => undefined,
     onDidRequestLanguageFeatures: () => ({ dispose: () => undefined }),
