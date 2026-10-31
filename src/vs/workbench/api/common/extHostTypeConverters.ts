@@ -612,7 +612,11 @@ export function serializeWorkspaceEdit(edit: WorkspaceEdit): IWireWorkspaceEditO
         if (op.kind === "text") {
             const edits: IWireEditorEdit[] = [];
             let broken = false;
+            let setEndOfLine: 1 | 2 | undefined;
             for (const item of op.edits) {
+                if (!(item instanceof SnippetTextEdit) && item.newEol !== undefined) {
+                    setEndOfLine = item.newEol === EndOfLine.CRLF ? 2 : 1;
+                }
                 const range = rangeFrom(item.range);
                 if (range === null) {
                     broken = true;
@@ -622,7 +626,12 @@ export function serializeWorkspaceEdit(edit: WorkspaceEdit): IWireWorkspaceEditO
                 if (serialized !== null) edits.push(serialized);
             }
             if (edits.length === 0 && broken) return null;
-            if (edits.length > 0) ops.push({ kind: "text", resource: op.uri.toString(), edits });
+            ops.push({
+                kind: "text",
+                resource: op.uri.toString(),
+                edits,
+                ...(setEndOfLine === undefined ? {} : { setEndOfLine }),
+            });
             continue;
         }
         if (op.kind === "rename") {
@@ -630,7 +639,7 @@ export function serializeWorkspaceEdit(edit: WorkspaceEdit): IWireWorkspaceEditO
                 kind: "rename",
                 from: op.from.toString(),
                 to: op.to.toString(),
-                ...(op.options.overwrite === true ? { overwrite: true } : {}),
+                ...(op.options.overwrite === undefined ? {} : { overwrite: op.options.overwrite }),
                 ...(op.options.ignoreIfExists === true ? { ignoreIfExists: true } : {}),
             });
             continue;
@@ -640,7 +649,8 @@ export function serializeWorkspaceEdit(edit: WorkspaceEdit): IWireWorkspaceEditO
                 kind: "create",
                 resource: op.uri.toString(),
                 ...(op.options.contents === undefined ? {} : { contents: op.options.contents }),
-                ...(op.options.overwrite === true ? { overwrite: true } : {}),
+                ...(op.options.contentsBase64 === undefined ? {} : { contentsBase64: op.options.contentsBase64 }),
+                ...(op.options.overwrite === undefined ? {} : { overwrite: op.options.overwrite }),
                 ...(op.options.ignoreIfExists === true ? { ignoreIfExists: true } : {}),
             });
             continue;

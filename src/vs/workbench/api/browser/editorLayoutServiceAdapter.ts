@@ -150,7 +150,9 @@ export class EditorLayoutServiceAdapter extends Disposable implements IEditorLay
         const surface = this.editors.getTextSurfaces().find((editor) => editor.model.uri.toString() === uri);
         return (
             surface?.model ??
-            this.editors.getUntitledModelsWithoutEditor().find((model) => model.uri.toString() === uri)
+            [...this.editors.getUntitledModelsWithoutEditor(), ...this.editors.getFileModelsWithoutEditor()].find(
+                (model) => model.uri.toString() === uri,
+            )
         );
     }
 
@@ -161,6 +163,10 @@ export class EditorLayoutServiceAdapter extends Disposable implements IEditorLay
             encoding: params.encoding,
         });
         return { uri: uri.toString() };
+    }
+
+    public async openTextDocument(params: IWireUriParams): Promise<IWireUriParams | null> {
+        return (await this.editors.openTextDocumentWithoutEditor(Uri.parse(params.uri))) ? { uri: params.uri } : null;
     }
 
     /** The same confirm flow as for the user (upstream `MainThreadEditorTabs.$closeTab`); an already closed tab is a success. */

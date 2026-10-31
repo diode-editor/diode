@@ -6,12 +6,12 @@ import { cursorStyleFromApi, cursorStyleToApi } from "../../../editor/common/con
 
 import { implementsApi } from "./apiSurface.ts";
 import type { ExtHostTextDocument } from "./extHostDocuments.ts";
+import { applyTextEditorEdit } from "./extHostTextEditorEdit.ts";
 import { createExtHostTreeViews, type ITreeViewMembers } from "./extHostTreeViews.ts";
 import {
     normalizeDecorationRanges,
     serializeDecorationRenderOptions,
     toVscodeSelection,
-    toWireEditRange,
     toWireSelection,
 } from "./extHostTypeConverters.ts";
 import { createMessageApi } from "./messageNamespace.ts";
@@ -475,6 +475,9 @@ export function createWindowNamespace(
             }
             return toVscodeSelection(primary);
         };
+        // A closed tab drops the editor from the cache; a reopened one is another object, as upstream.
+        const isEditorClosed = (): boolean =>
+            document.isClosed || editorCache.get(groupId)?.get(document.uri.toString()) !== editorProxy;
         let storedOptions: vscode.TextEditorOptions = {};
         /** Lives with this object: a closed tab drops it from the cache, so a reopened one starts clean. */
         let cursorStyleOverride: vscode.TextEditorCursorStyle | undefined;
@@ -508,39 +511,11 @@ export function createWindowNamespace(
             },
             edit: (
                 callback: (editBuilder: vscode.TextEditorEdit) => void,
-                _options?: { undoStopBefore: boolean; undoStopAfter: boolean },
-            ): Thenable<boolean> => {
-                const edits: IWireEditorEdit[] = [];
-                // An edit with a broken range is dropped (the host's parser would drop it
-                // too); if all are dropped the answer is `false`, as the host would answer
-                // for an empty batch, not the vacuous success of an empty callback.
-                let dropped = false;
-                const push = (location: vscode.Position | vscode.Range, text: string): void => {
-                    const range = toWireEditRange(location);
-                    if (range === null) dropped = true;
-                    else edits.push({ range, text });
-                };
-                const builder: vscode.TextEditorEdit = {
-                    replace: (location: vscode.Position | vscode.Range | vscode.Selection, value: string) => {
-                        push(location, value);
-                    },
-                    insert: (position: vscode.Position, value: string) => {
-                        push(position, value);
-                    },
-                    delete: (location: vscode.Range | vscode.Selection) => {
-                        push(location, "");
-                    },
-                    setEndOfLine: () => {
-                        /* changing EOL from edit() is not supported yet (MVP #194) */
-                    },
-                };
-                callback(builder);
-                if (edits.length === 0) return Promise.resolve(!dropped);
-                return rpc.request("editor.applyEdit", {
-                    uri: document.uri.toString(),
-                    edits,
-                });
-            },
+                options?: { undoStopBefore: boolean; undoStopAfter: boolean },
+            ): Thenable<boolean> =>
+                applyTextEditorEdit(document, isEditorClosed(), callback, options, (params) =>
+                    rpc.request("editor.applyEdit", params),
+                ),
             setDecorations: (
                 decorationType: vscode.TextEditorDecorationType,
                 rangesOrOptions: readonly vscode.Range[] | readonly vscode.DecorationOptions[],
@@ -555,7 +530,7 @@ export function createWindowNamespace(
                 });
             },
         };
-        return new Proxy(editorData, {
+        const editorProxy: vscode.TextEditor = new Proxy(editorData, {
             set: (target, prop, value): boolean => {
                 if (prop === "options") {
                     if (typeof value !== "object" || value === null) return false;
@@ -607,6 +582,7 @@ export function createWindowNamespace(
                 return false;
             },
         });
+        return editorProxy;
     }
 
     // A uri without a decoration is sent bare, so the host clears it from the file. `undefined` (all

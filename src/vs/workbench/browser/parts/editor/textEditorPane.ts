@@ -22,7 +22,7 @@ import type { IColorDecoratorsOptions } from "../../../../editor/contrib/colorPi
 import type { IMarkerDecoration } from "../../../../platform/markers/common/iMarker.ts";
 import type { WorkbenchColorKey } from "../../../../platform/theme/common/colors/colorContributions.ts";
 import type { IUndoRedoElement } from "../../../../platform/undoRedo/common/iUndoRedoElement.ts";
-import type { BaseTextEditorModel } from "../../../common/editor/textEditorModel.ts";
+import type { BaseTextEditorModel, IUndoStops } from "../../../common/editor/textEditorModel.ts";
 import { type SaveOutcome, TextFileModel } from "../../../services/textfile/common/textFileModel.ts";
 
 import type { EditorComponent, IIndentConfiguration, ScrollbarMarkersSetting } from "./editorComponent.ts";
@@ -224,8 +224,9 @@ export class TextEditorPane<TModel extends BaseTextEditorModel = BaseTextEditorM
         edits: readonly ITextEdit[],
         label: string,
         computeCursorState?: ICursorStateComputer,
+        undoStops?: IUndoStops,
     ): void {
-        this.model.applyExternalEdits(edits, label, this.component.editTarget, computeCursorState);
+        this.model.applyExternalEdits(edits, label, this.component.editTarget, computeCursorState, undoStops);
     }
 
     /**
@@ -234,6 +235,10 @@ export class TextEditorPane<TModel extends BaseTextEditorModel = BaseTextEditorM
      */
     public applyExternalEditsDetached(edits: readonly ITextEdit[], label: string): IUndoRedoElement | null {
         return this.model.applyExternalEditsDetached(edits, label, this.component.editTarget);
+    }
+
+    public setEolDetached(eol: EndOfLine): IUndoRedoElement | null {
+        return this.model.setEolDetached(eol, this.component.editTarget);
     }
 
     public undo(): void {

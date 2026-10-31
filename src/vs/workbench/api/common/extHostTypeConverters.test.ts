@@ -447,10 +447,34 @@ describe("serializeWorkspaceEdit — broken ranges", () => {
         expect(serializeWorkspaceEdit(edit)).toBeNull();
     });
 
-    it("an operation of only EOL noise simply drops out, it is not a rejection", () => {
+    it("a file's edits that all went away leave no text operation", () => {
         const edit = new WorkspaceEdit();
-        edit.set(URI_A, [TextEdit.setEndOfLine(EndOfLine.LF)]);
+        edit.set(URI_A, []);
         expect(serializeWorkspaceEdit(edit)).toStrictEqual([]);
+    });
+
+    it("rename: `overwrite` only when given", () => {
+        const edit = new WorkspaceEdit();
+        edit.renameFile(URI_A, URI_A);
+        expect(serializeWorkspaceEdit(edit)).toStrictEqual([
+            { kind: "rename", from: URI_A.toString(), to: URI_A.toString() },
+        ]);
+    });
+
+    it("create: a text with a BOM keeps it", () => {
+        const edit = new WorkspaceEdit();
+        edit.createFile(URI_A, { contents: new Uint8Array([0xef, 0xbb, 0xbf, 0x41]) });
+        expect(serializeWorkspaceEdit(edit)).toStrictEqual([
+            { kind: "create", resource: URI_A.toString(), contents: "\uFEFFA" },
+        ]);
+    });
+
+    it("an operation of only an EOL edit carries the line ending, it is not a rejection", () => {
+        const edit = new WorkspaceEdit();
+        edit.set(URI_A, [TextEdit.setEndOfLine(EndOfLine.CRLF)]);
+        expect(serializeWorkspaceEdit(edit)).toStrictEqual([
+            { kind: "text", resource: URI_A.toString(), edits: [], setEndOfLine: 2 },
+        ]);
     });
 
     it("a snippet edit with a reversed duck-typed range becomes text with the flipped range", () => {

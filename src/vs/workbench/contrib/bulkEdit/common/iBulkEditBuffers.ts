@@ -1,3 +1,4 @@
+import type { EndOfLine } from "../../../../editor/common/core/endOfLine.ts";
 import type { ITextEdit } from "../../../../editor/common/core/iTextEdit.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { IUndoRedoElement } from "../../../../platform/undoRedo/common/iUndoRedoElement.ts";
@@ -15,19 +16,30 @@ export interface IBulkEditBuffer {
      * `null` — the edits changed nothing.
      */
     applyEdits(edits: readonly ITextEdit[], label: string): IUndoRedoElement | null;
+    /** `null` — the document already has this EOL. */
+    setEol(eol: EndOfLine): IUndoRedoElement | null;
     /** A save refusal is not an error: the buffer stays dirty, as upstream (which only logs it). */
     save(): Promise<void>;
 }
 
 /**
  * `"read-only"` — open, but the edit won't happen (`jdt:`, a diff side): the whole edit is rejected.
- * `null` — not open, edit on disk.
+ * `null` — not open: {@link IBulkEditBuffers.open} makes it so.
  */
 export type BulkEditTarget = IBulkEditBuffer | "read-only" | null;
 
 /** Resource is `uri.toString()`. */
 export interface IBulkEditBuffers {
     get(resource: string): BulkEditTarget;
+    /**
+     * A live model for a resource that is not open, as upstream's bulk edit gets one from the text model service:
+     * the edit leaves it dirty and the file untouched. `null` — no models here, the edit goes straight to disk.
+     */
+    open(resource: string): Exclude<BulkEditTarget, null> | null;
+    /** The file is about to be deleted: its unsaved edits go with it, as upstream, or a later save brings it back. */
+    willDelete(resource: string): void;
+    /** The file was replaced on disk by this edit: an open model drops its contents, unsaved ones included, as upstream. */
+    didReplaceOnDisk(resource: string): void;
     /**
      * Buckets for ONE step for the whole edit. Every open touched resource is a participant: Ctrl+Z from any
      * of its tabs undoes the whole step. None touched — a single participant without an edit: the tab where
@@ -43,6 +55,13 @@ export interface IBulkEditBuffers {
 
 export const NULL_BULK_EDIT_BUFFERS: IBulkEditBuffers = {
     get: () => null,
+    open: () => null,
+    willDelete: () => {
+        /* no models — nothing unsaved */
+    },
+    didReplaceOnDisk: () => {
+        /* no models — nothing to reload */
+    },
     undoParticipants: () => [],
     didDelete: () => {
         /* no tabs — nothing to close */

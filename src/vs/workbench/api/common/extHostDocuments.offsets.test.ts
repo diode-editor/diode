@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { DocumentRegistry, type ExtHostTextDocument } from "./extHostDocuments.ts";
-import { Position, Range, Uri } from "./vscodeTypes.ts";
+import { DocumentRegistry, DocumentSyncTracker, ExtHostTextDocument } from "./extHostDocuments.ts";
+import { EndOfLine, Position, Range, Uri } from "./vscodeTypes.ts";
 
 // The stock prettier builds its edit through `positionAt`; without it formatting silently
 // returned an empty edit list (#381).
@@ -97,5 +97,127 @@ describe("ExtHostTextDocument — validatePosition/validateRange", () => {
         const doc = docWith(TEXT);
         expect(doc.getText(new Range(0, 0, 99, 99))).toBe(TEXT);
         expect(doc.getText(new Range(0, 99, 1, 99))).toBe("\nbr");
+    });
+});
+
+describe("ExtHostTextDocument — line endings, as upstream's mirror", () => {
+    const crlf = (text: string): ExtHostTextDocument => {
+        const doc = new ExtHostTextDocument(Uri.file("/crlf.txt"));
+        doc.applyFull({ uri: doc.uri.toString(), text, eol: EndOfLine.CRLF, version: 1 });
+        return doc;
+    };
+
+    it("the host's text with `\\n` and eol CRLF reads as CRLF, the lines have no `\\r`", () => {
+        const doc = crlf("a\nb");
+        expect(doc.getText()).toBe("a\r\nb");
+        expect(doc.lineAt(0).text).toBe("a");
+        expect(doc.offsetAt(new Position(1, 0))).toBe(3);
+        expect(doc.getText(new Range(0, 0, 1, 1))).toBe("a\r\nb");
+    });
+
+    it("positionAt inside the CRLF is the end of the line", () => {
+        const doc = crlf("a\nb");
+        expect(doc.positionAt(1)).toEqual(new Position(0, 1));
+        expect(doc.positionAt(2)).toEqual(new Position(0, 1));
+        expect(doc.positionAt(3)).toEqual(new Position(1, 0));
+    });
+
+    it("a text with its own CRLF and no eol from the host is CRLF", () => {
+        const doc = new ExtHostTextDocument(Uri.file("/virtual.txt"));
+        doc.applyFull({ uri: doc.uri.toString(), text: "a\r\nb" });
+        expect(doc.eol).toBe(EndOfLine.CRLF);
+        expect(doc.getText()).toBe("a\r\nb");
+    });
+
+    it("acceptState changes the ending of the text; the same state is no change", () => {
+        const doc = new ExtHostTextDocument(Uri.file("/a.txt"));
+        doc.applyFull({ uri: doc.uri.toString(), text: "a\nb", eol: EndOfLine.LF, version: 1 });
+        expect(doc.getText()).toBe("a\nb");
+
+        expect(doc.acceptState({ version: 2, isDirty: true, eol: EndOfLine.CRLF })).toBe(true);
+        expect(doc.getText()).toBe("a\r\nb");
+        expect(doc.version).toBe(2);
+        expect(doc.isDirty).toBe(true);
+
+        expect(doc.acceptState({ version: 2, isDirty: true, eol: EndOfLine.CRLF })).toBe(false);
+        expect(doc.acceptState({ version: 2, isDirty: false, eol: EndOfLine.CRLF })).toBe(true);
+    });
+
+    it("hasSameText ignores the kind of line break", () => {
+        const doc = crlf("a\nb");
+        expect(doc.hasSameText("a\nb")).toBe(true);
+        expect(doc.hasSameText("a\r\nb")).toBe(true);
+        expect(doc.hasSameText("a\nc")).toBe(false);
+    });
+
+    it("an edit of more lines than a call takes arguments keeps the lines around it", () => {
+        const doc = new ExtHostTextDocument(Uri.file("/a.txt"));
+        doc.applyFull({ uri: doc.uri.toString(), text: "first\nlast", eol: EndOfLine.LF, version: 1 });
+        const range = { start: { line: 0, character: 5 }, end: { line: 0, character: 5 } };
+
+        doc.acceptChanges(2, [{ range, text: "\nx".repeat(200_000) }]);
+
+        expect(doc.lineCount).toBe(200_002);
+        expect(doc.lineAt(0).text).toBe("first");
+        expect(doc.lineAt(200_000).text).toBe("x");
+        expect(doc.lineAt(200_001).text).toBe("last");
+    });
+});
+
+describe("ExtHostTextDocument — what the host says about line endings wins", () => {
+    it("a CRLF text under the host's LF reads as LF", () => {
+        const doc = new ExtHostTextDocument(Uri.file("/a.txt"));
+        doc.applyFull({ uri: doc.uri.toString(), text: "a\r\nb", eol: EndOfLine.LF, version: 1 });
+        expect(doc.eol).toBe(EndOfLine.LF);
+        expect(doc.getText()).toBe("a\nb");
+    });
+
+    it.each([
+        ["version", { version: 2, isDirty: false, eol: EndOfLine.LF }],
+        ["dirty state", { version: 1, isDirty: true, eol: EndOfLine.LF }],
+        ["line ending", { version: 1, isDirty: false, eol: EndOfLine.CRLF }],
+    ])("a change of the %s alone is a change", (_name, state) => {
+        const doc = new ExtHostTextDocument(Uri.file("/a.txt"));
+        doc.applyFull({ uri: doc.uri.toString(), text: "a", eol: EndOfLine.LF, version: 1, isDirty: false });
+        expect(doc.acceptState(state)).toBe(true);
+    });
+});
+
+describe("DocumentSyncTracker.changeState", () => {
+    const URI = "file:///a.txt";
+    const STATE = { uri: URI, version: 2, isDirty: true, eol: EndOfLine.CRLF };
+    const setup = () => {
+        const registry = new DocumentRegistry();
+        const sync = new DocumentSyncTracker(registry);
+        const events: { document: unknown; contentChanges: readonly unknown[] }[] = [];
+        sync.onDidChangeEmitter.event((event) => events.push(event));
+        return { registry, sync, events };
+    };
+
+    it("a document that isn't open: no event, nothing appears in the registry", () => {
+        const { registry, sync, events } = setup();
+        sync.changeState(STATE);
+        expect(events).toEqual([]);
+        expect(registry.get(Uri.parse(URI))).toBeUndefined();
+    });
+
+    it("an open document takes the state; the event has no content changes, as upstream", () => {
+        const { registry, sync, events } = setup();
+        sync.open({ uri: URI, languageId: "plaintext", version: 1, text: "a\nb", isDirty: false, eol: EndOfLine.LF });
+        sync.changeState(STATE);
+        const doc = registry.get(Uri.parse(URI));
+        expect(doc?.version).toBe(2);
+        expect(doc?.isDirty).toBe(true);
+        expect(doc?.getText()).toBe("a\r\nb");
+        expect(events).toHaveLength(1);
+        expect(events[0].document).toBe(doc);
+        expect(events[0].contentChanges).toEqual([]);
+    });
+
+    it("the same state again is no event", () => {
+        const { sync, events } = setup();
+        sync.open({ uri: URI, languageId: "plaintext", version: 2, text: "a", isDirty: true, eol: EndOfLine.CRLF });
+        sync.changeState(STATE);
+        expect(events).toEqual([]);
     });
 });

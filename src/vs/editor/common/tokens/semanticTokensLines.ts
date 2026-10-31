@@ -1,3 +1,4 @@
+import { spliceInChunks } from "../../../base/common/arrays.ts";
 import type { IRange } from "../core/iRange.ts";
 import type { ISemanticTokensLegend } from "../languages/iSemanticTokensSource.ts";
 
@@ -243,7 +244,7 @@ export class SemanticTokensLines {
         if (eolCount > 0) {
             const inserted = new Array<IMutableLine | undefined>(eolCount - 1).fill(undefined);
             inserted.push(entry === undefined ? undefined : { legend: entry.legend, tokens: moves });
-            this.lines.splice(line + 1, 0, ...inserted);
+            spliceInChunks(this.lines, line + 1, 0, inserted);
         }
         if (entry !== undefined) entry.tokens = stays;
     }

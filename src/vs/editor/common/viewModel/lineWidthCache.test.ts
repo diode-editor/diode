@@ -336,3 +336,18 @@ describe("LineWidthCache", () => {
         });
     });
 });
+
+describe("LineWidthCache — lines inserted in the middle", () => {
+    it("the new line's width is unknown; the widths around it stay with their lines", () => {
+        const doc = new TextDocument("a\nbbbb\ncc");
+        const cache = new LineWidthCache(doc, 4);
+        measureAll(cache);
+        doc.applyEdits([createInsertEdit(0, 1, "\n")]);
+        expect(cache.hasUnmeasuredLines).toBe(true);
+        const getLineContent = vi.spyOn(doc, "getLineContent");
+
+        cache.measureLines([0, 1, 2, 3]);
+
+        expect(getLineContent.mock.calls.map((call) => call[0])).toEqual([0, 1]);
+    });
+});

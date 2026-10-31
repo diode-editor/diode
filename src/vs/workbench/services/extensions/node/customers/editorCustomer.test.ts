@@ -48,6 +48,7 @@ function setup() {
         getLayoutSnapshot: () => LAYOUT,
         onDidChangeLayout: (cb) => layout.event(cb),
         flushPendingLayout: () => log.push("flush"),
+        openTextDocument: () => Promise.resolve(null),
         showTextDocument: (params) => {
             log.push(["show", params]);
             return Promise.resolve({ viewColumn: 1 } as never);
@@ -202,9 +203,29 @@ describe("EditorCustomer — subprocess requests", () => {
         await expect(
             h.peer.request("editor.applyEdit", { uri: "file:///a.ts", edits: [{ range: RANGE, text: "x" }, 1] }),
         ).resolves.toBe(true);
-        expect(h.editorOptions.applyActiveEditorEdits).toHaveBeenCalledWith("file:///a.ts", [
-            { range: RANGE, text: "x" },
-        ]);
+        expect(h.editorOptions.applyActiveEditorEdits).toHaveBeenCalledWith(
+            "file:///a.ts",
+            [{ range: RANGE, text: "x" }],
+            {},
+        );
+        await h.peer.request("editor.applyEdit", { uri: "file:///a.ts", edits: [], version: 4, setEndOfLine: 2 });
+        expect(h.editorOptions.applyActiveEditorEdits).toHaveBeenLastCalledWith("file:///a.ts", [], {
+            version: 4,
+            setEndOfLine: 2,
+        });
+    });
+
+    it("editor.applyEdit: what isn't a version or a line ending stays out of the options", async () => {
+        const h = setup();
+        h.attachTo();
+        const options = async (params: Record<string, unknown>): Promise<unknown> => {
+            await h.peer.request("editor.applyEdit", { uri: "file:///a.ts", edits: [], ...params });
+            return vi.mocked(h.editorOptions.applyActiveEditorEdits).mock.lastCall?.[2];
+        };
+        await expect(options({ version: "4" })).resolves.toStrictEqual({});
+        await expect(options({ setEndOfLine: 3 })).resolves.toStrictEqual({});
+        await expect(options({ setEndOfLine: 1 })).resolves.toStrictEqual({ setEndOfLine: 1 });
+        await expect(options({ setEndOfLine: 2 })).resolves.toStrictEqual({ setEndOfLine: 2 });
     });
 
     it("workspace.applyEdit: junk — false without the port; a valid set — the port verdict", async () => {

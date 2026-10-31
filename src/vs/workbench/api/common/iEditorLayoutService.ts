@@ -36,6 +36,8 @@ export interface IEditorLayoutService {
 
     /** Upstream `$changeLanguage`. Throws on an unknown language. A document without a model gets it on {@link showTextDocument}. */
     changeDocumentLanguage(params: IWireChangeLanguageParams): IWireChangeLanguageResult;
+    /** A live model without a tab, upstream `$tryOpenDocument`. `null`: not a readable file. */
+    openTextDocument(params: IWireUriParams): Promise<IWireUriParams | null>;
 
     /** `false`: the user cancelled the confirm dialog. */
     closeTabs(params: IWireCloseTabsParams): Promise<boolean>;
@@ -56,6 +58,7 @@ export const NULL_EDITOR_LAYOUT_SERVICE: IEditorLayoutService = {
     changeDocumentLanguage: () => {
         throw new Error("editor layout unavailable");
     },
+    openTextDocument: () => Promise.resolve(null),
     closeTabs: () => Promise.resolve(false),
     closeGroups: () => Promise.resolve(false),
 };

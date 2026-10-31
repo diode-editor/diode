@@ -75,9 +75,21 @@ export class EditorCustomer implements IExtensionHostCustomer {
         );
         store.add(
             rpc.handleRequest("editor.applyEdit", (params): boolean => {
-                const p: { uri?: unknown; edits?: unknown } = params;
+                const p: {
+                    uri?: unknown;
+                    edits?: unknown;
+                    version?: unknown;
+                    setEndOfLine?: unknown;
+                    undoStopBefore?: unknown;
+                    undoStopAfter?: unknown;
+                } = params;
                 if (typeof p.uri !== "string") return false;
-                return this.editorOptions.applyActiveEditorEdits(p.uri, parseWireEditorEdits(p.edits));
+                return this.editorOptions.applyActiveEditorEdits(p.uri, parseWireEditorEdits(p.edits), {
+                    ...(typeof p.version === "number" ? { version: p.version } : {}),
+                    ...(p.setEndOfLine === 1 || p.setEndOfLine === 2 ? { setEndOfLine: p.setEndOfLine } : {}),
+                    ...(p.undoStopBefore === false ? { undoStopBefore: false } : {}),
+                    ...(p.undoStopAfter === false ? { undoStopAfter: false } : {}),
+                });
             }),
         );
         // Garbage in params is an honest `false`, not a partial edit.
@@ -118,6 +130,12 @@ export class EditorCustomer implements IExtensionHostCustomer {
                 this.editorLayout.flushPendingLayout();
                 return result;
             }),
+        );
+        // `editor.didOpen` goes out synchronously during opening — the reply doesn't overtake it.
+        store.add(
+            rpc.handleRequest("workspace.openTextDocument", (params) =>
+                this.editorLayout.openTextDocument({ uri: params.uri }),
+            ),
         );
         // `editor.didOpen` goes out synchronously during creation — the reply doesn't overtake it.
         store.add(

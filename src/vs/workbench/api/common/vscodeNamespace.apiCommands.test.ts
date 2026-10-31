@@ -86,14 +86,4 @@ describe("API commands and documents in the composed vscode namespace", () => {
         stub.responder = null;
         expect((await api.workspace.openTextDocument(file)).languageId).toBe("plaintext");
     });
-
-    it("a closed file document is not read through a provider: only virtual ones are", async () => {
-        const { stub, vscode: api } = setup();
-        stub.fire("editor.didOpen", { uri: file.toString(), text: "kept", languageId: "json", version: 1 });
-        stub.fire("editor.didClose", { uri: file.toString() });
-
-        const doc = await api.workspace.openTextDocument(file);
-
-        expect(doc.getText()).toBe("kept");
-    });
 });

@@ -59,7 +59,7 @@ describe("TextDocument EOL model", () => {
         expect(doc.serialize()).toBe(original);
     });
 
-    it("setEol changes eol and serialize output but not getText or version", () => {
+    it("setEol changes eol, serialize output and version but not getText", () => {
         const doc = new TextDocument("a\nb");
         const versionBefore = doc.versionId;
 
@@ -68,7 +68,7 @@ describe("TextDocument EOL model", () => {
         expect(doc.eol).toBe(EndOfLine.CRLF);
         expect(doc.getText()).toBe("a\nb");
         expect(doc.serialize()).toBe("a\r\nb");
-        expect(doc.versionId).toBe(versionBefore);
+        expect(doc.versionId).toBe(versionBefore + 1);
     });
 
     it("setEol back to LF restores LF serialization", () => {

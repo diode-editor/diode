@@ -77,6 +77,7 @@ describe("documentSyncAdapter", () => {
                 deltas.push(event);
             },
             didCloseTextDocument: (uri) => closed.push(uri),
+            didChangeTextDocumentState: () => undefined,
         };
         return { host, opened, changed, deltas, flushes, closed };
     }
@@ -190,6 +191,7 @@ describe("documentSyncAdapter", () => {
             didChangeTextDocument: () => undefined,
             didChangeTextDocumentContent: () => undefined,
             didCloseTextDocument: (uri) => closed.push(uri),
+            didChangeTextDocumentState: () => undefined,
         };
         service.openFile(ws.path("a.ts"));
         const editor = service.getActiveEditor()!;

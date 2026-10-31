@@ -191,4 +191,34 @@ describe("EditorOptionsServiceAdapter.applyWorkspaceEdit", () => {
             },
         ]);
     });
+
+    it("a text operation carries its line ending; none stays out of the model", async () => {
+        const { service, calls } = spyService();
+        const adapter = createAdapter(emptyGroup(), service);
+
+        await adapter.applyWorkspaceEdit([
+            { kind: "text", resource: A.toString(), edits: [], setEndOfLine: 2 },
+            { kind: "text", resource: B.toString(), edits: [EDIT_A] },
+        ]);
+
+        expect(calls[0].edits).toStrictEqual([
+            { resource: A.toString(), edits: [], setEndOfLine: 2 },
+            { resource: B.toString(), edits: [EDIT_A] },
+        ]);
+    });
+
+    it("create decodes binary contents from base64; none stays out of the model", async () => {
+        const { service, calls } = spyService();
+        const adapter = createAdapter(emptyGroup(), service);
+
+        await adapter.applyWorkspaceEdit([
+            { kind: "create", resource: A.toString(), contentsBase64: "AAE=" },
+            { kind: "create", resource: B.toString() },
+        ]);
+
+        expect(calls[0].edits).toStrictEqual([
+            { kind: "create", to: "/proj/a.ts", contents: Buffer.from([0, 1]) },
+            { kind: "create", to: "/proj/b.ts" },
+        ]);
+    });
 });

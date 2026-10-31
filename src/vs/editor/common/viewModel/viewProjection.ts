@@ -1,3 +1,4 @@
+import { spliceInChunks } from "../../../base/common/arrays.ts";
 import type { IFoldingRegion } from "../../contrib/folding/iFoldingRegion.ts";
 import type { IDocumentContentChange } from "../model/iDocumentContentChange.ts";
 
@@ -123,8 +124,8 @@ export class ArrayProjection implements IViewProjection {
         const firstRow = lowerBound(rows, change.startLine);
         const endRow = lowerBound(rows, change.oldEndLine + 1);
         const fresh = generateRows(change.startLine, change.newEndLine, hidden, breaksFor);
-        spliceNumbers(rows, firstRow, endRow - firstRow, fresh.docLines);
-        spliceNumbers(this.rowStartOffset, firstRow, endRow - firstRow, fresh.startOffsets);
+        spliceInChunks(rows, firstRow, endRow - firstRow, fresh.docLines);
+        spliceInChunks(this.rowStartOffset, firstRow, endRow - firstRow, fresh.startOffsets);
         // Stryker disable next-line ConditionalExpression: a guard for speed only, adding 0 changes nothing
         if (lineDelta !== 0) {
             for (let i = firstRow + fresh.docLines.length; i < rows.length; i++) rows[i] += lineDelta;
@@ -271,17 +272,6 @@ function lowerBound(sorted: readonly number[], target: number): number {
         else high = mid;
     }
     return low;
-}
-
-/** Spread arguments are capped by the engine (a paste of thousands of wrapped lines would overflow the call), so the items go in chunks. */
-export const SPLICE_CHUNK = 1024;
-
-function spliceNumbers(target: number[], start: number, deleteCount: number, items: readonly number[]): void {
-    target.splice(start, deleteCount, ...items.slice(0, SPLICE_CHUNK));
-    // Stryker disable next-line EqualityOperator: the extra iteration splices an empty slice, a no-op
-    for (let i = SPLICE_CHUNK; i < items.length; i += SPLICE_CHUNK) {
-        target.splice(start + i, 0, ...items.slice(i, i + SPLICE_CHUNK));
-    }
 }
 
 /**

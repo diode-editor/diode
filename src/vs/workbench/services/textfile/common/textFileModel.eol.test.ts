@@ -6,6 +6,7 @@ import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUti
 import { createEditorPane, type TextEditorPane } from "../../../../../TestUtils/TextEditorPaneFactory.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import { EndOfLine } from "../../../../editor/common/core/endOfLine.ts";
+import { createInsertEdit } from "../../../../editor/common/core/iTextEdit.ts";
 
 describe("TextFileModel EOL", () => {
     let ws: ITempWorkspace;
@@ -66,6 +67,29 @@ describe("TextFileModel EOL", () => {
 
         await ctrl.save();
         expect(fs.readFileSync(filePath, "utf-8")).toBe("a\r\nb\r\nc");
+        expect(ctrl.isModified).toBe(false);
+    });
+
+    it("setting the line ending back leaves an edit made in between unsaved", () => {
+        const filePath = writeFile("lf.txt", "a\nb");
+        const ctrl = createEditorPane();
+        ctrl.openFile(Uri.file(filePath));
+
+        ctrl.setEol(EndOfLine.CRLF);
+        ctrl.applyExternalEdits([createInsertEdit(0, 0, "x")], "edit");
+        ctrl.setEol(EndOfLine.LF);
+
+        expect(ctrl.isModified).toBe(true);
+    });
+
+    it("setting the line ending back on a clean document leaves it clean", () => {
+        const filePath = writeFile("lf.txt", "a\nb");
+        const ctrl = createEditorPane();
+        ctrl.openFile(Uri.file(filePath));
+
+        ctrl.setEol(EndOfLine.CRLF);
+        ctrl.setEol(EndOfLine.LF);
+
         expect(ctrl.isModified).toBe(false);
     });
 

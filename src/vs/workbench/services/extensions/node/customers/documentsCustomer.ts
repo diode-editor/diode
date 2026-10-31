@@ -2,7 +2,11 @@ import { DisposableStore, type IDisposable } from "../../../../../base/common/li
 import type { ILogger } from "../../../../../platform/log/common/iLogger.ts";
 import type { HostRpc } from "../../../../api/common/extHostProtocol.ts";
 import type { IDocumentSyncSource, IDocumentSyncTarget } from "../../../../api/common/iDocumentSyncTarget.ts";
-import type { IWireDocumentChangedEvent, IWireDocumentSyncSnapshot } from "../../../../api/common/wireTypes.ts";
+import type {
+    IWireDocumentChangedEvent,
+    IWireDocumentStateChanged,
+    IWireDocumentSyncSnapshot,
+} from "../../../../api/common/wireTypes.ts";
 import type { ISaveEdit, ISaveSnapshot } from "../../../textfile/common/iSaveParticipant.ts";
 import type { IExtensionHostContext, IExtensionHostCustomer } from "../../common/extensionHostCustomer.ts";
 import { requestWillSaveEdits } from "../hostRequests.ts";
@@ -115,6 +119,12 @@ export class DocumentsCustomer implements IExtensionHostCustomer, IDocumentSyncT
         live.rpc.notify("editor.didChange", event);
     }
 
+    public didChangeTextDocumentState(state: IWireDocumentStateChanged): void {
+        const live = this.live;
+        if (!live?.synced.has(state.uri)) return;
+        live.rpc.notify("editor.didChangeDocumentState", state);
+    }
+
     public didCloseTextDocument(uri: string): void {
         const live = this.live;
         if (!live?.synced.delete(uri)) return;
@@ -170,5 +180,7 @@ function snapshotOf(source: IDocumentSyncSource): IWireDocumentSyncSnapshot {
         version: source.version,
         text: source.getText(),
         isDirty: source.isDirty,
+        eol: source.eol,
+        encoding: source.encoding,
     };
 }

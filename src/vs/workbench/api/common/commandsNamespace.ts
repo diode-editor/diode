@@ -47,8 +47,7 @@ export function buildCommandsNamespace(
         });
     };
 
-    // The builder is a dummy: known consumers (`basedpyright.organizeimports`)
-    // read only `editor.document` and send the request to the server themselves.
+    /** Upstream `ExtHostTextEditors.registerTextEditorCommand`: what the callback returns does not delay the edit. */
     const registerTextEditorCommand = (
         id: string,
         callback: (editor: vscode.TextEditor, edit: vscode.TextEditorEdit, ...args: unknown[]) => void,
@@ -63,7 +62,18 @@ export function buildCommandsNamespace(
                 console.warn(`${tag}Cannot execute text editor command "${id}": no active text editor`);
                 return undefined;
             }
-            callback.call(thisArg, editor, noopTextEditorEdit, ...args);
+            return editor
+                .edit((edit) => {
+                    callback.call(thisArg, editor, edit, ...args);
+                })
+                .then(
+                    (applied) => {
+                        if (!applied) console.warn(`${tag}Edits from command "${id}" were not applied.`);
+                    },
+                    (error: unknown) => {
+                        console.warn(`${tag}An error occurred while running command "${id}"`, error);
+                    },
+                );
         });
     };
 
@@ -91,13 +101,6 @@ export function buildCommandsNamespace(
         getCommands,
     });
 }
-
-const noopTextEditorEdit: vscode.TextEditorEdit = {
-    replace: (): void => undefined,
-    insert: (): void => undefined,
-    delete: (): void => undefined,
-    setEndOfLine: (): void => undefined,
-};
 
 function parseExecuteParams(raw: unknown): { id: string; args: unknown[] } {
     if (typeof raw !== "object" || raw === null) {

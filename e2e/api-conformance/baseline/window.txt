@@ -3,10 +3,12 @@ vscode API - window Default value for showInput Box not accepted when it fails v
 vscode API - window Tabs - ensure active tab is correct
 vscode API - window Tabs - vscode.open & vscode.diff
 vscode API - window active editor not always correct... #49125
+vscode API - window default column when opening a file
 vscode API - window editor, active text editor
 vscode API - window editor, onDidChangeTextEditorViewColumn (move editor group)
 vscode API - window editor, onDidChangeVisibleTextEditors
 vscode API - window editor, opened via resource
+vscode API - window issue #27408 - showTextDocument & vscode.diff always default to ViewColumn.One
 vscode API - window issue #5362 - Incorrect TextEditor passed by onDidChangeTextEditorSelection
 vscode API - window showInputBox - '' on Enter
 vscode API - window showInputBox - `undefined` on Esc
@@ -25,4 +27,5 @@ vscode API - window showQuickPick, native promise - #11754
 vscode API - window showQuickPick, never resolve promise and cancel - #22453
 vscode API - window showQuickPick, select first two
 vscode API - window showQuickPick, undefined on cancel
+vscode API - window showTextDocument ViewColumn.BESIDE
 vscode API - window showWorkspaceFolderPick

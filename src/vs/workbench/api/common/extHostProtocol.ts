@@ -66,6 +66,7 @@ import type {
     IWireDocumentColorParams,
     IWireDocumentLanguage,
     IWireDocumentSemanticTokensParams,
+    IWireDocumentStateChanged,
     IWireDocumentSyncSnapshot,
     IWireEditorLayout,
     IWireEnvInitialize,
@@ -242,6 +243,7 @@ export interface IHostToSubprocess {
         /** A full snapshot is a flush: the contents are replaced entirely. */
         readonly "editor.didChange": IWireDocumentChangedEvent | IWireDocumentSyncSnapshot;
         readonly "editor.didClose": IWireUriParams;
+        readonly "editor.didChangeDocumentState": IWireDocumentStateChanged;
         readonly "editor.activeEditorChanged": IActiveEditorMeta;
         readonly "editor.selectionChanged": IActiveEditorSelections;
         readonly "editor.layoutChanged": IWireEditorLayout;
@@ -280,6 +282,11 @@ export interface ISubprocessToHost {
         readonly "workspace.applyEdit": readonly [IWireApplyWorkspaceEditParams, boolean];
         /** Responds AFTER `editor.didOpen` of the new document: after `await` it is already in the registry. */
         readonly "workspace.createUntitledDocument": readonly [IWireCreateUntitledParams, IWireUriParams];
+        /**
+         * Upstream `$tryOpenDocument`. Responds AFTER `editor.didOpen`; `null` means no live document: not a
+         * readable file (the subprocess reports it from its own read) or above the sync limit.
+         */
+        readonly "workspace.openTextDocument": readonly [IWireUriParams, IWireUriParams | null];
         /** `true`: everything was saved. */
         readonly "workspace.saveAll": readonly [IWireSaveAllParams, boolean];
         /** Without Save As. */

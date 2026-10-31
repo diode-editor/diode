@@ -333,6 +333,13 @@ export function createWorkspaceNamespace(
         if (snap !== null) documentSync.open(snap);
     });
 
+    rpc.handleNotification("editor.didChangeDocumentState", (params) => {
+        const p: { uri?: unknown; version?: unknown; isDirty?: unknown; eol?: unknown } = params;
+        if (typeof p.uri !== "string" || typeof p.isDirty !== "boolean" || typeof p.version !== "number") return;
+        if (p.eol !== 1 && p.eol !== 2) return;
+        documentSync.changeState({ uri: p.uri, version: p.version, isDirty: p.isDirty, eol: p.eol });
+    });
+
     rpc.handleNotification("editor.didClose", (params) => {
         const p: { uri?: unknown } = params;
         if (typeof p.uri !== "string" || p.uri === "") return;
@@ -505,9 +512,10 @@ export function createWorkspaceNamespace(
         // A string is a disk path (the `openTextDocument(path)` overload), not a uri.
         const uri = typeof uriOrPath === "string" ? Uri.file(uriOrPath) : uriOrPath;
         const open = registry.get(uri);
+        // A closed document stays in the registry for the references extensions keep; it is not open.
+        if (open !== undefined && !open.isClosed) return open;
+
         const isVirtual = contentProviders.has(uri.scheme);
-        // A closed virtual document has no source of text but its provider: it is read again (same object).
-        if (open !== undefined && !(isVirtual && open.isClosed)) return open;
 
         if (isVirtual) return openVirtualDocument(uri);
 
@@ -522,6 +530,14 @@ export function createWorkspaceNamespace(
 
         // For non-file schemes `fsPath` is not a path; do not pass it to node:fs.
         if (uri.scheme !== "file") throw FileSystemError.Unavailable(uri);
+
+        // The live model: edits reach this very object, a save writes the file. An explicit encoding decodes
+        // this read only, as before: the model has one encoding, and opening with another is a separate feature.
+        if (options?.encoding === undefined) {
+            await rpc.request("workspace.openTextDocument", { uri: uri.toString() });
+            const live = registry.get(uri);
+            if (live !== undefined && !live.isClosed) return live;
+        }
 
         const buffer = await ctx.disk.readFile(uri.fsPath);
         const { text, encoding } = await decodeBuffer(buffer, options?.encoding);
@@ -585,8 +601,9 @@ export function createWorkspaceNamespace(
             return workspaceFile;
         },
 
+        // A closed document stays in the registry for the references extensions keep; it is not open.
         get textDocuments(): readonly vscode.TextDocument[] {
-            return registry.all();
+            return registry.all().filter((document) => !document.isClosed);
         },
 
         fs: createFileSystemNamespace(ctx.disk.fs, fsProviders),

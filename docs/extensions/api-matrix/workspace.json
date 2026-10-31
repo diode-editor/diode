@@ -1,8 +1,8 @@
 {
   "members": {
     "workspace.applyEdit": {
-      "class": "A",
-      "note": "#914: resolves before the document mirror is updated"
+      "class": "ok",
+      "note": "A closed resource gets a dirty model without a tab, as upstream; file operations on virtual files are refused."
     },
     "workspace.asRelativePath": {
       "class": "ok"
@@ -116,7 +116,7 @@
     },
     "workspace.openTextDocument": {
       "class": "B",
-      "note": "#918: untitled: uris are rejected"
+      "note": "#918: untitled: uris are rejected. A file is a live model without a tab; an explicit encoding decodes a separate read until the encodings cluster."
     },
     "workspace.registerFileSystemProvider": {
       "class": "B",

@@ -7,7 +7,7 @@ import {
 } from "../../../editor/common/core/wordHelper.ts";
 
 import { EndOfLine, EventEmitter, Position, Range, Uri } from "./vscodeTypes.ts";
-import type { IWireDocumentChangedEvent, IWireDocumentContentChange } from "./wireTypes.ts";
+import type { IWireDocumentChangedEvent, IWireDocumentContentChange, IWireDocumentStateChanged } from "./wireTypes.ts";
 
 /**
  * editorconfig compares documents by reference (`activeTextEditor.document ===
@@ -75,7 +75,7 @@ export class ExtHostTextDocument implements vscode.TextDocument {
     public isDirty = false;
     public version = 0;
 
-    /** Source of truth is the lines (separator `\n`): edits modify them. */
+    /** Source of truth is the lines, without line breaks, as upstream's mirror: edits modify them, {@link eol} joins them. */
     private lineStore: string[] = [""];
     /** Cache, built lazily from the lines until the next mutation. */
     private textCache: string | null = "";
@@ -97,9 +97,12 @@ export class ExtHostTextDocument implements vscode.TextDocument {
 
     /** The model's `versionId` from the snapshot wins over the local counter. */
     public applyFull(snapshot: ExtHostDocumentSnapshot): void {
+        // A text with its own line breaks and no word from the host (a virtual document) speaks for itself.
+        if (snapshot.eol === undefined && snapshot.text.includes("\r\n")) this.eol = EndOfLine.CRLF;
         this.applyMeta(snapshot);
-        this.textCache = snapshot.text;
-        this.lineStore = snapshot.text.split("\n");
+        this.lineStore = splitLines(snapshot.text);
+        // Stryker disable next-line ConditionalExpression,StringLiteral: an empty cache is only rebuilt, to the same text
+        this.textCache = this.eol === EndOfLine.LF && !snapshot.text.includes("\r") ? snapshot.text : null;
         this.version = snapshot.version ?? this.version + 1;
     }
 
@@ -119,8 +122,8 @@ export class ExtHostTextDocument implements vscode.TextDocument {
             const rangeLength = this.offsetAt(range.end) - rangeOffset;
             const prefix = lines[range.start.line].slice(0, range.start.character);
             const suffix = lines[range.end.line].slice(range.end.character);
-            const inserted = (prefix + text + suffix).split("\n");
-            lines.splice(range.start.line, range.end.line - range.start.line + 1, ...inserted);
+            const inserted = splitLines(prefix + text + suffix);
+            spliceLines(lines, range.start.line, range.end.line - range.start.line + 1, inserted);
             this.textCache = null;
             result.push({ range, rangeOffset, rangeLength, text });
         }
@@ -128,8 +131,18 @@ export class ExtHostTextDocument implements vscode.TextDocument {
         return result;
     }
 
+    /** `false`: nothing an extension could see changed. */
+    public acceptState(state: { version: number; isDirty: boolean; eol: EndOfLine }): boolean {
+        const changed = state.version !== this.version || state.isDirty !== this.isDirty || state.eol !== this.eol;
+        this.textCache = null;
+        this.eol = state.eol;
+        this.isDirty = state.isDirty;
+        this.version = state.version;
+        return changed;
+    }
+
     public getText(range?: Range): string {
-        if (range === undefined) return (this.textCache ??= this.lines().join("\n"));
+        if (range === undefined) return (this.textCache ??= this.lines().join(this.eolText));
         // Per the `vscode.d.ts` contract the range "will be adjusted": an extra character
         // from a provider with a stale copy of the text is no reason to throw.
         const valid = this.validateRange(range);
@@ -142,18 +155,21 @@ export class ExtHostTextDocument implements vscode.TextDocument {
             parts.push(lines[n]);
         }
         parts.push(lines[valid.end.line].slice(0, valid.end.character));
-        return parts.join("\n");
+        return parts.join(this.eolText);
     }
 
-    /**
-     * Computed on the {@link getText} text: the CRLF `\r` stays part of the line,
-     * so "line length + 1" is exact for both EOLs.
-     */
+    /** The host's text comes with `\n` whatever the EOL: only the lines tell whether it differs. */
+    public hasSameText(text: string): boolean {
+        // Stryker disable next-line StringLiteral: splitting a text without `\r` gives the same text back
+        return this.lines().join("\n") === (text.includes("\r") ? splitLines(text).join("\n") : text);
+    }
+
+    /** Computed on the {@link getText} text. */
     public offsetAt(position: Position): number {
         const valid = this.validatePosition(position);
         const lines = this.lines();
         let offset = 0;
-        for (let n = 0; n < valid.line; n++) offset += lines[n].length + 1;
+        for (let n = 0; n < valid.line; n++) offset += lines[n].length + this.eolText.length;
         return offset + valid.character;
     }
 
@@ -169,7 +185,9 @@ export class ExtHostTextDocument implements vscode.TextDocument {
         let line = 0;
         while (remaining > lines[line].length) {
             if (line === lines.length - 1) return new Position(line, lines[line].length);
-            remaining -= lines[line].length + 1;
+            // Inside the CRLF: the end of the line, as upstream.
+            if (remaining < lines[line].length + this.eolText.length) return new Position(line, lines[line].length);
+            remaining -= lines[line].length + this.eolText.length;
             line++;
         }
         return new Position(line, remaining);
@@ -236,6 +254,25 @@ export class ExtHostTextDocument implements vscode.TextDocument {
     private lines(): string[] {
         return this.lineStore;
     }
+
+    private get eolText(): string {
+        return this.eol === EndOfLine.CRLF ? "\r\n" : "\n";
+    }
+}
+
+/**
+ * Spreading a big insert into `splice` overflows the call stack: a 200k-line edit would be lost to the mirror.
+ * Not `spliceInChunks`: `base/common/arrays` would go over the extension host chunk's budget for code shared with main.
+ */
+function spliceLines(lines: string[], start: number, deleteCount: number, inserted: readonly string[]): void {
+    const tail = lines.slice(start + deleteCount);
+    lines.length = start;
+    for (const line of inserted) lines.push(line);
+    for (const line of tail) lines.push(line);
+}
+
+function splitLines(text: string): string[] {
+    return text.includes("\r") ? text.split(/\r\n|\r|\n/) : text.split("\n");
 }
 
 function firstNonWhitespace(text: string): number {
@@ -344,11 +381,11 @@ export class DocumentSyncTracker {
             this.onDidOpenEmitter.fire(doc);
             return doc;
         }
-        const oldText = prev.getText();
-        if (oldText === snapshot.text) {
+        if (prev.hasSameText(snapshot.text)) {
             prev.applyMeta(snapshot);
             return prev;
         }
+        const oldText = prev.getText();
         // Range BEFORE the upsert: the registry mutates the stable document object.
         const fullRange = new Range(new Position(0, 0), endOfText(oldText));
         const doc = this.registry.upsertFull(snapshot);
@@ -375,6 +412,14 @@ export class DocumentSyncTracker {
         doc.applyMeta({ uri: event.uri, isDirty: event.isDirty });
         this.onDidChangeEmitter.fire({ document: doc, contentChanges, reason: undefined });
         return doc;
+    }
+
+    /** Upstream `$acceptDirtyStateChanged` and an EOL change: the event fires with empty `contentChanges`. */
+    public changeState(state: IWireDocumentStateChanged): void {
+        if (!this.opened.has(state.uri)) return;
+        const doc = this.registry.getOrCreate(Uri.parse(state.uri));
+        if (doc.acceptState(state))
+            this.onDidChangeEmitter.fire({ document: doc, contentChanges: [], reason: undefined });
     }
 
     /**

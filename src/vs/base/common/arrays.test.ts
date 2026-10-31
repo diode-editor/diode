@@ -11,6 +11,8 @@ import {
     numberComparator,
     pushMany,
     reverseOrder,
+    SPLICE_CHUNK,
+    spliceInChunks,
     sumBy,
 } from "./arrays.ts";
 
@@ -139,5 +141,16 @@ describe("arrayInsert", () => {
         expect(arrayInsert(target, 0, [0])).toEqual([0, 1, 2, 3]);
         expect(arrayInsert(target, 3, [4])).toEqual([1, 2, 3, 4]);
         expect(target).toEqual([1, 2, 3]);
+    });
+});
+
+describe("spliceInChunks", () => {
+    it("inserts more items than one spread argument list takes, in order, after the deleted ones", () => {
+        const target = [1, 2, 3, 4];
+        const items = Array.from({ length: SPLICE_CHUNK * 2 + 5 }, (_, i) => i + 100);
+
+        spliceInChunks(target, 1, 2, items);
+
+        expect(target).toEqual([1, ...items, 4]);
     });
 });

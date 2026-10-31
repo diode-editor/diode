@@ -2,7 +2,7 @@ import { Emitter } from "../../../base/common/event.ts";
 import { Disposable, type IDisposable } from "../../../base/common/lifecycle.ts";
 import type { Uri } from "../../../base/common/uri.ts";
 import type { EndOfLine } from "../../../editor/common/core/endOfLine.ts";
-import type { ISelection } from "../../../editor/common/core/iSelection.ts";
+import { createSelection, type ISelection } from "../../../editor/common/core/iSelection.ts";
 import type { ITextEdit } from "../../../editor/common/core/iTextEdit.ts";
 import type { ILanguageService } from "../../../editor/common/languages/iLanguageService.ts";
 import type { IDocumentLanguageChange } from "../../../editor/common/model/iDocumentLanguageChange.ts";
@@ -15,6 +15,8 @@ import type { IUndoRedoElement } from "../../../platform/undoRedo/common/iUndoRe
 import type { UndoRedoService } from "../../../platform/undoRedo/common/undoRedoService.ts";
 
 let nextUndoContextId = 1;
+
+const BUFFER_ENCODING = "utf8";
 
 /**
  * Why "Enable Editing" did not happen ({@link BaseTextEditorModel.enableEditing}): the file holds more than a string
@@ -38,6 +40,12 @@ export interface ITextEditTarget {
     markDirty(): void;
 }
 
+/** Upstream `TextEditor.edit` options: without a stop on either side of it, two edits are one undo step. */
+export interface IUndoStops {
+    readonly undoStopBefore?: boolean;
+    readonly undoStopAfter?: boolean;
+}
+
 export abstract class BaseTextEditorModel extends Disposable {
     /**
      * One for the model's whole lifetime: a reload replaces the text inside it ({@link replaceText})
@@ -49,10 +57,15 @@ export abstract class BaseTextEditorModel extends Disposable {
      * "saved" version; otherwise a subscriber would see the fresh text as unsaved.
      */
     private replacingText = false;
+    /** The text coming in is the file's: the document is clean already while its events go out. */
+    private loadingFromDisk = false;
+    /** Version after an edit with `undoStopAfter: false`: the next edit may join its step. */
+    private openUndoStepVersion: number | null = null;
     private readonly onDidChangeLanguageEmitter = this.register(new Emitter<IDocumentLanguageChange>());
     private readonly onDidChangeEolEmitter = this.register(new Emitter<void>());
     private readonly onDidChangeContentEmitter = this.register(new Emitter<void>());
     private readonly onDidChangeTooLargeForTokenizationEmitter = this.register(new Emitter<void>());
+    private readonly onDidMarkSavedEmitter = this.register(new Emitter<void>());
     /**
      * Upstream `TextModel._isTooLargeForTokenization`: decided once, when the file is first loaded
      * (`largeFileOptimizations` and the thresholds), and kept through reloads — "permanently respect this
@@ -92,6 +105,9 @@ export abstract class BaseTextEditorModel extends Disposable {
 
     /** Fires on any path: a command, undo/redo, a reload with a different EOL. */
     public readonly onDidChangeEol = this.onDidChangeEolEmitter.event;
+
+    /** The document matches the file again: a save or a reload. No text moved, so no content event says it. */
+    public readonly onDidMarkSaved = this.onDidMarkSavedEmitter.event;
 
     /** Only one transition, true → false ({@link forcefullyEnableFeatures}). */
     public readonly onDidChangeTooLargeForTokenization = this.onDidChangeTooLargeForTokenizationEmitter.event;
@@ -153,7 +169,13 @@ export abstract class BaseTextEditorModel extends Disposable {
     }
 
     public get isModified(): boolean {
+        if (this.loadingFromDisk) return false;
         return this.doc.versionId !== this.savedVersionId || this.doc.eol !== this.savedEol;
+    }
+
+    /** A buffer that isn't a file has no bytes to decode. */
+    public get encoding(): string {
+        return BUFFER_ENCODING;
     }
 
     public get eol(): EndOfLine {
@@ -190,6 +212,27 @@ export abstract class BaseTextEditorModel extends Disposable {
             },
         };
     }
+
+    /** A model without a view (`openTextDocument` without a tab) has nobody to track selections. */
+    private readonly headlessEditTarget: ITextEditTarget = {
+        // Stryker disable next-line ArrowFunction,ArrayDeclaration: selections are read from a view, and this is none
+        cloneSelections: () => [createSelection(0, 0, 0, 0)],
+        applyEdits: (edits, label) => {
+            const versionBefore = this.doc.versionId;
+            const { appliedVersion, inverseEdits } = this.doc.applyEdits(edits);
+            const selections = [createSelection(0, 0, 0, 0)];
+            return {
+                label,
+                versionBefore,
+                versionAfter: appliedVersion,
+                forwardEdits: edits,
+                backwardEdits: inverseEdits,
+                beforeSelections: selections,
+                afterSelections: selections,
+            };
+        },
+        markDirty: () => undefined,
+    };
 
     public get undoManager(): UndoManager {
         return this.undoManagerValue;
@@ -239,6 +282,7 @@ export abstract class BaseTextEditorModel extends Disposable {
     protected markSaved(versionId = this.doc.versionId, eol = this.doc.eol): void {
         this.savedVersionId = versionId;
         this.savedEol = eol;
+        this.onDidMarkSavedEmitter.fire();
     }
 
     /**
@@ -248,10 +292,12 @@ export abstract class BaseTextEditorModel extends Disposable {
     protected replaceText(text: TextSource, { unsaved = false }: { unsaved?: boolean } = {}): void {
         const eolBefore = this.doc.eol;
         this.replacingText = true;
+        this.loadingFromDisk = !unsaved;
         try {
             this.doc.setText(text);
         } finally {
             this.replacingText = false;
+            this.loadingFromDisk = false;
         }
         if (!unsaved) this.markSaved();
         this.resetUndoHistory();
@@ -265,10 +311,12 @@ export abstract class BaseTextEditorModel extends Disposable {
      */
     protected appendFromDisk(text: string): void {
         this.replacingText = true;
+        this.loadingFromDisk = true;
         try {
             this.doc.appendText(text);
         } finally {
             this.replacingText = false;
+            this.loadingFromDisk = false;
         }
         this.markSaved();
         this.onDidChangeContentEmitter.fire();
@@ -311,7 +359,7 @@ export abstract class BaseTextEditorModel extends Disposable {
         this.undoManagerValue.pushUndoElement({
             label: "Change End of Line Sequence",
             versionBefore: version,
-            versionAfter: version,
+            versionAfter: this.doc.versionId,
             // The step doesn't touch text: undo/redo run backwardEdits, and an EOL step's
             // forwardEdits never run, so the array mutant is unobservable.
             // Stryker disable next-line ArrayDeclaration: equivalent, see above
@@ -334,11 +382,16 @@ export abstract class BaseTextEditorModel extends Disposable {
         label: string,
         target?: ITextEditTarget,
         computeCursorState?: ICursorStateComputer,
+        undoStops: IUndoStops = {},
     ): void {
-        const acting = target ?? this.editTargets.at(0);
-        if (acting === undefined) return;
+        const acting = target ?? this.editTargets.at(0) ?? this.headlessEditTarget;
+        const joins = undoStops.undoStopBefore === false && this.openUndoStepVersion === this.doc.versionId;
         const element = acting.applyEdits(edits, label, computeCursorState);
-        if (element) this.undoManagerValue.pushUndoElement(element);
+        if (element) {
+            if (joins) this.undoManagerValue.joinUndoElement(element);
+            else this.undoManagerValue.pushUndoElement(element);
+        }
+        this.openUndoStepVersion = undoStops.undoStopAfter === false ? this.doc.versionId : null;
         this.broadcastMarkDirty();
     }
 
@@ -353,13 +406,25 @@ export abstract class BaseTextEditorModel extends Disposable {
         label: string,
         target?: ITextEditTarget,
     ): IUndoRedoElement | null {
-        const acting = target ?? this.editTargets.at(0);
-        if (acting === undefined) return null;
+        const acting = target ?? this.editTargets.at(0) ?? this.headlessEditTarget;
+        return this.captureDetachedStep(() => {
+            const element = acting.applyEdits(edits, label);
+            if (element) this.undoManagerValue.pushUndoElement(element);
+        });
+    }
+
+    /** {@link setEol} whose step goes to the caller, like {@link applyExternalEditsDetached}. */
+    public setEolDetached(eol: EndOfLine, target?: ITextEditTarget): IUndoRedoElement | null {
+        return this.captureDetachedStep(() => {
+            this.setEol(eol, target);
+        });
+    }
+
+    private captureDetachedStep(run: () => void): IUndoRedoElement | null {
         const captured: IUndoRedoElement[] = [];
         this.detachedUndoSteps = captured;
         try {
-            const element = acting.applyEdits(edits, label);
-            if (element) this.undoManagerValue.pushUndoElement(element);
+            run();
         } finally {
             this.detachedUndoSteps = null;
         }
@@ -400,6 +465,9 @@ export abstract class BaseTextEditorModel extends Disposable {
         );
         this.register(
             this.doc.onDidChangeEol(() => {
+                // A version of its own, but not a text edit: "modified" has a separate EOL axis, and setting the EOL
+                // back leaves the document clean.
+                if (this.doc.versionId - 1 === this.savedVersionId) this.savedVersionId = this.doc.versionId;
                 if (!this.replacingText) this.onDidChangeEolEmitter.fire();
             }),
         );

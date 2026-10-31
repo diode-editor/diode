@@ -23,6 +23,23 @@
         "window.showTextDocument",
         "workspace.openTextDocument"
     ],
+    "editor vscode API - editors issue #20757: Overlapping ranges are not allowed!": [
+        "TextEditor.edit",
+        "TextEditorEdit.replace"
+    ],
+    "editor vscode API - editors issue #6281: Edits fail to validate ranges correctly before applying": [
+        "TextEditor.edit",
+        "TextEditorEdit.replace"
+    ],
+    "editor vscode API - editors make edit": [
+        "TextEditor.edit",
+        "TextEditorEdit.insert",
+        "TextDocument.getText",
+        "TextDocument.isDirty"
+    ],
+    "editor vscode API - editors throw when using invalid edit": [
+        "TextEditorEdit.insert"
+    ],
     "env vscode API - env env is set": [
         "env.appName",
         "env.appRoot",
@@ -281,6 +298,11 @@
         "workspace.applyEdit",
         "workspace.openTextDocument"
     ],
+    "workspace vscode API - workspace WorkspaceEdit fails when creating then writing to file if file is open in the editor and is not empty #146964": [
+        "workspace.applyEdit",
+        "WorkspaceEdit.createFile",
+        "WorkspaceEdit.set"
+    ],
     "workspace vscode API - workspace WorkspaceEdit: create & ignoreIfExists": [
         "WorkspaceEdit",
         "workspace.applyEdit",
@@ -295,10 +317,19 @@
         "WorkspaceEdit",
         "workspace.applyEdit"
     ],
+    "workspace vscode API - workspace WorkspaceEdit: rename & ignoreIfExists": [
+        "workspace.applyEdit",
+        "WorkspaceEdit.renameFile"
+    ],
     "workspace vscode API - workspace WorkspaceEdit: rename resource followed by edit does not work #42638": [
         "WorkspaceEdit",
         "workspace.applyEdit",
         "workspace.openTextDocument"
+    ],
+    "workspace vscode API - workspace applyEdit \"edit A -> rename A to B -> edit B\"": [
+        "workspace.applyEdit",
+        "WorkspaceEdit.renameFile",
+        "WorkspaceEdit.insert"
     ],
     "workspace vscode API - workspace applyEdit should fail when editing deleted resource": [
         "WorkspaceEdit",
@@ -317,6 +348,20 @@
     ],
     "workspace vscode API - workspace encoding: text document encodings": [
         "workspace.openTextDocument"
+    ],
+    "workspace vscode API - workspace eol, change via applyEdit": [
+        "workspace.applyEdit",
+        "TextEdit.setEndOfLine",
+        "TextDocument.eol"
+    ],
+    "workspace vscode API - workspace eol, change via editor": [
+        "TextEditorEdit.setEndOfLine",
+        "TextDocument.eol"
+    ],
+    "workspace vscode API - workspace eol, change via onWillSave": [
+        "workspace.onWillSaveTextDocument",
+        "TextDocument.save",
+        "TextDocument.eol"
     ],
     "workspace vscode API - workspace eol, read": [
         "workspace.openTextDocument"
@@ -346,6 +391,10 @@
     "workspace vscode API - workspace getWorkspaceFolder": [
         "workspace.getWorkspaceFolder"
     ],
+    "workspace vscode API - workspace openTextDocument": [
+        "workspace.openTextDocument",
+        "workspace.textDocuments"
+    ],
     "workspace vscode API - workspace openTextDocument, illegal path": [
         "workspace.openTextDocument"
     ],
@@ -363,6 +412,14 @@
     "workspace vscode API - workspace registerTextDocumentContentProvider, simple": [
         "workspace.openTextDocument",
         "workspace.registerTextDocumentContentProvider"
+    ],
+    "workspace vscode API - workspace save": [
+        "workspace.save",
+        "workspace.onDidSaveTextDocument"
+    ],
+    "workspace vscode API - workspace saveAll": [
+        "workspace.saveAll",
+        "workspace.onDidSaveTextDocument"
     ],
     "workspace vscode API - workspace workspaceFile": [
         "workspace.workspaceFile"
