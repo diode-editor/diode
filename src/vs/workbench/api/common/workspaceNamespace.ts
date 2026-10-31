@@ -9,6 +9,7 @@ import { filesExcludeGlobs } from "../../common/configuration/excludeSettings.ts
 
 import { implementsApi } from "./apiSurface.ts";
 import { ExtHostTextDocument } from "./extHostDocuments.ts";
+import { ExtHostFileOperations } from "./extHostFileOperations.ts";
 import { serializeWillSaveTextEdit, serializeWorkspaceEdit } from "./extHostTypeConverters.ts";
 import { createFileSystemNamespace, SubprocessFileSystemProviders } from "./fileSystemNamespace.ts";
 import { resolveGlobPattern, SubprocessFileSystemWatchers } from "./fileWatcherNamespace.ts";
@@ -299,6 +300,7 @@ export function createWorkspaceNamespace(
         if (events !== null) fsWatchers.dispatch(events);
     });
 
+    const fileOperations = new ExtHostFileOperations(rpc);
     const onDidChangeConfigurationEmitter = new EventEmitter<vscode.ConfigurationChangeEvent>();
     const onDidOpenTextDocumentEmitter = documentSync.onDidOpenEmitter;
     const onDidCloseTextDocumentEmitter = documentSync.onDidCloseEmitter;
@@ -676,12 +678,12 @@ export function createWorkspaceNamespace(
             });
             return next.length === 1;
         },
-        onDidCreateFiles: naiveEvent(),
-        onDidDeleteFiles: naiveEvent(),
-        onDidRenameFiles: naiveEvent(),
-        onWillCreateFiles: naiveEvent(),
-        onWillDeleteFiles: naiveEvent(),
-        onWillRenameFiles: naiveEvent(),
+        onDidCreateFiles: fileOperations.onDidCreateFiles,
+        onDidDeleteFiles: fileOperations.onDidDeleteFiles,
+        onDidRenameFiles: fileOperations.onDidRenameFiles,
+        onWillCreateFiles: fileOperations.onWillCreateFiles,
+        onWillDeleteFiles: fileOperations.onWillDeleteFiles,
+        onWillRenameFiles: fileOperations.onWillRenameFiles,
         onDidOpenNotebookDocument: naiveEvent(),
         onDidCloseNotebookDocument: naiveEvent(),
         onDidChangeNotebookDocument: naiveEvent(),

@@ -70,7 +70,12 @@
   отвергнутой устаревшей правке, поэтому символы, набранные быстрее ответа хоста, встают не по порядку
   (`<em>xtte`). Живьём — только на первой правке и с интервалом клавиш около 3 мс; при обычном наборе не
   воспроизводится. Эталон отвергает устаревшую правку той же проверкой версии (`mainThreadEditor.applyEdits`).
-  **`maptz.regionfolder`** — на Open VSX не опубликован, немодифицированный vsix перевыложен в
+- **`DavidAnson.vscode-markdownlint`** — прокси на сток Open VSX 0.62.1, линтер в бандле, без языкового сервера. Гейт
+  `engines.diode: ">=0.12.5"`: на 0.12.4 `markdownlint.openConfigFile` пишет конфиг по умолчанию в активный документ,
+  а не в безымянный `.markdownlint.json` (#931). `support: partial`: нет сниппетов комментариев `markdownlint-disable`
+  (`contributes.snippets`). Смоук — MD018 в Problems, quick fix через `Ctrl+.`, конфиг в отдельной вкладке. После
+  `source.fixAll` каретка сдвигается: расширение заменяет документ целиком через `editor.edit`.
+- **`maptz.regionfolder`** — на Open VSX не опубликован, немодифицированный vsix перевыложен в
   `artifacts/` реестра (`kind: "proxy-hosted"`, MIT).
 
 ## Python: `detachhead.basedpyright` и `charliermarsh.ruff`

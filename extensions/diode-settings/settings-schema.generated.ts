@@ -537,6 +537,13 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
         description: "When enabled, insert a final new line at the end of the file when saving it.",
     },
     {
+        key: "files.participants.timeout",
+        type: "number",
+        default: 60000,
+        description:
+            "Timeout in milliseconds after which file participants for create, rename, and delete are cancelled. Use `0` to disable participants.",
+    },
+    {
         key: "files.refactoring.autoSave",
         type: "boolean",
         default: true,

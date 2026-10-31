@@ -408,6 +408,47 @@ export const MARKETPLACE_CHECKS: readonly IMarketplaceCheck[] = [
         },
     },
     {
+        // kind: "proxy-openvsx": the stock markdownlint answers with diagnostics and code actions. Without
+        // a config file `markdownlint.openConfigFile` writes the default config into an untitled document
+        // addressed by uri; a client that ignores the uri puts it into the active editor instead.
+        id: "DavidAnson.vscode-markdownlint",
+        expectFiles: ["package.json", "bundle.js"],
+        run: async (ctx) => {
+            // The command walks `workspaceFolders`, and the session root holds user-data-dir.
+            const projectRoot = join(ctx.root, "project");
+            mkdirSync(projectRoot);
+            const file = join(projectRoot, "page.md");
+            writeFileSync(file, "# Title\n\n#bad heading\n");
+            const app = await startHeadlessApp({ root: ctx.root, keepRoot: true, open: [projectRoot, file] });
+            try {
+                await app.session.executeCommand("workbench.actions.view.problems");
+                await app.session.waitForText((text) => text.includes("MD018"), { timeoutMs: 40_000 });
+                await app.session.executeCommand("workbench.action.focusActiveEditorGroup");
+                await app.session.key("Ctrl+Home");
+                await app.session.key("ArrowDown");
+                await app.session.key("ArrowDown");
+                await app.session.key("Ctrl+.");
+                await app.session.waitForText((text) => text.includes("Fix this violation of MD018"), {
+                    timeoutMs: 20_000,
+                });
+                await app.session.key("Enter");
+                await app.session.waitForText((text) => text.includes("# bad heading") && !text.includes("MD018"), {
+                    timeoutMs: 20_000,
+                });
+                await app.session.executeCommand("markdownlint.openConfigFile");
+                await app.session.waitForText((text) => text.includes(".markdownlint.json") && text.includes("MD013"), {
+                    timeoutMs: 20_000,
+                });
+                await app.session.executeCommand("workbench.action.previousEditor");
+                await app.session.waitForText((text) => text.includes("# Title") && !text.includes("MD013"), {
+                    timeoutMs: 20_000,
+                });
+            } finally {
+                await app.dispose();
+            }
+        },
+    },
+    {
         // kind: "proxy-openvsx", platform-specific vsix (~130 MB): the stock Claude Code. Its job here is
         // the ide server: the "✻ Claude Code" item and the lock file are written at the end of activate(),
         // MCP `initialize` answers with `ideName` from `env.appName`. Context, diagnostics and terminal are

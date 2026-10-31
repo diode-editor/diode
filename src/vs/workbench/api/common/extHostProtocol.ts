@@ -75,6 +75,9 @@ import type {
     IWireExtensionCatalog,
     IWireExtensionId,
     IWireFileDecorationsChanged,
+    IWireFileOperationEvent,
+    IWireFileOperationParams,
+    IWireFileOperationSubscriptions,
     IWireFileStat,
     IWireFileSystemSchemes,
     IWireFoldingParams,
@@ -157,6 +160,7 @@ import type {
     IWireWatcherDispose,
     IWireWatcherEvents,
     IWireWillSaveParams,
+    IWireWorkspaceEditOp,
     IWireWorkspaceInitialize,
     IWireWriteFileParams,
     WireCodeAction,
@@ -210,6 +214,8 @@ export interface IHostToSubprocess {
         readonly "workspace.fs.writeFile": readonly [IWireWriteFileParams, null];
         readonly "workspace.provideTextDocumentContent": readonly [IWireUriParams, IWireTextContentResult];
         readonly "workspace.willSaveTextDocument": readonly [IWireWillSaveParams, WireTextEdit[]];
+        /** Upstream `$onWillRunFileOperation`; the reply is the edits of the `waitUntil`s, in listener order. */
+        readonly "workspace.willRunFileOperation": readonly [IWireFileOperationParams, IWireWorkspaceEditOp[]];
 
         readonly "commands.executeCommand": readonly [IWireExecuteCommandParams, unknown];
 
@@ -237,6 +243,8 @@ export interface IHostToSubprocess {
         readonly "env.initialize": IWireEnvInitialize;
         readonly "workspace.configurationChanged": IWireConfigurationChanged;
         readonly "workspace.didSaveTextDocument": IWireDidSaveParams;
+        /** Upstream `$onDidRunFileOperation`. */
+        readonly "workspace.didRunFileOperation": IWireFileOperationEvent;
         readonly "workspace.watcher.events": IWireWatcherEvents;
 
         readonly "editor.didOpen": IWireDocumentSyncSnapshot;
@@ -355,6 +363,8 @@ export interface ISubprocessToHost {
         readonly "workspace.watcher.create": IWireWatcherCreate;
         readonly "workspace.watcher.dispose": IWireWatcherDispose;
         readonly "workspace.updateSubscriptions": IWireSubscriptions;
+        /** Without "will" listeners the host doesn't wait for the subprocess before a file operation. */
+        readonly "workspace.updateFileOperationSubscriptions": IWireFileOperationSubscriptions;
         readonly "workspace.updateWorkspaceFolders": IWireUpdateWorkspaceFolders;
 
         readonly "editor.setSelection": IWireSetSelectionParams;
