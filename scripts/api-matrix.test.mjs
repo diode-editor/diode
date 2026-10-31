@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 
-import { conformanceMembers, extensionGaps, findApiTags, pickCandidates, readClasses, renderMatrix, usage, validateClasses } from "./api-matrix.mjs";
+import { confirmedMembers, conformanceMembers, extensionGaps, findApiTags, pickCandidates, readClasses, renderMatrix, usage, validateClasses } from "./api-matrix.mjs";
 
 const surface = new Map([
     ["window.a", { kind: "namespace", owner: "window" }],
@@ -115,4 +115,25 @@ test("the document answers both questions and is deterministic", () => {
 
 test("an empty survey still renders", () => {
     assert.match(renderMatrix({ ...inputs(), survey: { date: "d", top: 0, extensions: [] } }), /0 of 0 bundles \(0\.0%\)/);
+});
+
+test("a journal confirms what was used; registering a provider alone does not", () => {
+    const row = (member, kind, extra = {}) => JSON.stringify({ extension: "pub.a", member, kind, count: 1, ...extra });
+    const journal = [
+        row("window.c", "call"),
+        row("window.a", "read"),
+        row("window.b", "registered"),
+        row("window.x", "registered"),
+        row("window.x", "invoked", { method: "provideHover" }),
+        row("window.gone", "call"),
+        JSON.stringify({ extension: "pub.other", member: "window.b", kind: "call", count: 1 }),
+        '{"extension":"pub.a","member":"window.b","ki',
+    ].join("\n");
+    assert.deepEqual(confirmedMembers(journal, "pub.a", surface), ["window.a", "window.c", "window.x"]);
+});
+
+test("a response field confirms the field", () => {
+    const fields = new Map([["CompletionItem.sortText", {}]]);
+    const journal = JSON.stringify({ extension: "pub.a", member: "CompletionItem.sortText", kind: "field", count: 2 });
+    assert.deepEqual(confirmedMembers(journal, "pub.a", fields), ["CompletionItem.sortText"]);
 });

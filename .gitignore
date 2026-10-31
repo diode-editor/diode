@@ -37,3 +37,5 @@ e2e/fixtures/javaSample/target/
 e2e/fixtures/javaSample/.classpath
 e2e/fixtures/javaSample/.project
 e2e/fixtures/javaSample/.settings/
+# Call journals of green marketplace checks (npm run api-matrix -- --update-confirmed)
+e2e/marketplace/api-trace/

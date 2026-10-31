@@ -98,13 +98,13 @@ export class QuickOpenService extends Disposable implements IContextKeyContribut
     }
 
     /**
-     * Upstream `inQuickOpen` and `inFilesPicker` (the default, prefix-less provider): the second keeps
-     * Ctrl+P/Ctrl+E stepping through files, not reopening the picker.
+     * Upstream `inQuickOpen` holds for every quick input on the shared widget, whoever opened it.
+     * `inFilesPicker` (the default, prefix-less provider) keeps Ctrl+P/Ctrl+E stepping through files,
+     * not reopening the picker.
      */
     public updateContextKeys(contextKeys: ContextKeyService): void {
-        const open = this.isOpen();
-        contextKeys.set("inQuickOpen", open);
-        contextKeys.set("inFilesPicker", open && this.currentPrefix === "");
+        contextKeys.set("inQuickOpen", this.component.isOpen());
+        contextKeys.set("inFilesPicker", this.isOpen() && this.currentPrefix === "");
     }
 
     public close(): void {

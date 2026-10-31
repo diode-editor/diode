@@ -37,6 +37,7 @@ import {
     mergeVerdicts,
     parseVitestJson,
     relatedTestFiles,
+    exitedWithoutFailures,
     runtimeErrorExcerpt,
     siblingTestFiles,
 } from "./mutation-inject.mjs";
@@ -383,6 +384,10 @@ export async function verifyMutants({
                 // First with --bail: the very first test usually kills a phantom.
                 let run = await runVitest(sandbox, stage.tests, { bail: true, timeoutMs: perRun, label: "mutant" });
                 if (run.timedOut) return timedOut();
+                if (exitedWithoutFailures(run)) {
+                    run = await runVitest(sandbox, stage.tests, { bail: false, timeoutMs: perRun, label: "mutant-nobail" });
+                    if (run.timedOut) return timedOut();
+                }
                 if (run.result !== null && filesOf(run.result).length > 0) {
                     const found = await analyze(stage, run, perRun);
                     if (found !== null) return found;
@@ -400,9 +405,7 @@ export async function verifyMutants({
                     }
                 }
                 // Crashed without culprit tests (unhandled error, worker, no report): compare with the run without the mutant.
-                const crashed =
-                    run.result === null ||
-                    (run.code !== 0 && run.result.failed.size === 0 && run.result.failedFiles.size === 0);
+                const crashed = run.result === null || exitedWithoutFailures(run);
                 if (crashed) {
                     const excerpt =
                         runtimeErrorExcerpt(run.output) ??

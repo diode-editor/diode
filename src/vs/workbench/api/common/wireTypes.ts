@@ -1115,6 +1115,21 @@ export interface IWireQuickPickRequest {
     readonly items: readonly IWireQuickPickItem[];
     /** Empty without `canPickMany`. */
     readonly picked: readonly number[];
+    /** Upstream `$show` before `$setItems`: `items` will come in {@link IWireQuickPickItems}. */
+    readonly itemsPending?: boolean;
+}
+
+/** The answer to a request sent with `itemsPending`. */
+export interface IWireQuickPickItems {
+    readonly handle: number;
+    readonly items: readonly IWireQuickPickItem[];
+    readonly picked: readonly number[];
+}
+
+/** Upstream `$onItemSelected`, behind `QuickPickOptions.onDidSelectItem`. */
+export interface IWireQuickPickDidSelectItem {
+    readonly handle: number;
+    readonly index: number;
 }
 
 export interface IWireValidationMessage {

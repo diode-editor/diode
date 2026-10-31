@@ -17,6 +17,19 @@ function runnableTree(command: { command: string; arguments?: unknown[] }) {
 }
 
 // A row's command goes through `vscode.commands`: the extension's own command gets its own objects.
+describe("resourceUri in the vscode namespace", () => {
+    it("window pickers describe an item by workspace.asRelativePath", async () => {
+        const stub = makeStubRpc();
+        stub.responder = () => ({ indices: null });
+        const host = buildVscodeNamespace(stub.rpc, createNodeExtHostDisk());
+        const uri = host.namespace.Uri.file("/w/a.ts");
+        await host.namespace.window.showQuickPick([{ label: "own", resourceUri: uri }]);
+        expect(stub.requests.at(-1)?.params).toMatchObject({
+            items: [{ label: "own", description: host.namespace.workspace.asRelativePath(uri) }],
+        });
+    });
+});
+
 describe("tree views in the vscode namespace", () => {
     it("a row's command reaches a command the extension registered, and the owner is named", async () => {
         const stub = makeStubRpc();

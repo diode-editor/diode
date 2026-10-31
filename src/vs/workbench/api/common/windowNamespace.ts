@@ -14,6 +14,7 @@ import {
 } from "./extHostTypeConverters.ts";
 import { createMessageApi } from "./messageNamespace.ts";
 import { createQuickInputApi } from "./quickInputNamespace.ts";
+import type { AsRelativePath } from "./quickInputResource.ts";
 import { createStatusBarMessage } from "./statusBarMessage.ts";
 import { createTerminalNamespace, type ITerminalNamespace } from "./terminalNamespace.ts";
 import { createUriHandlers } from "./uriHandlers.ts";
@@ -107,10 +108,11 @@ export function createWindowNamespace(
         executeCommand: (id, ...args) => ctx.rpc.request("commands.executeCommand", { id, args }),
         owner: ctx.owner,
     }),
+    asRelativePath?: AsRelativePath,
 ): typeof vscode.window {
     const { rpc, registry, owner } = ctx;
 
-    const quickInput = createQuickInputApi(rpc);
+    const quickInput = createQuickInputApi(rpc, asRelativePath);
     const messages = createMessageApi(rpc);
 
     let activeEditorUri: string | null = null;

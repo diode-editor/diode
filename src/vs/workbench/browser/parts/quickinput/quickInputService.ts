@@ -36,6 +36,13 @@ export interface QuickPickOptions {
     activeIndex?: number;
     /** Fires on open and on filtering too, not just on navigation; `undefined` means the list is empty. */
     onDidChangeActive?: (item: QuickPickItem | undefined, index: number) => void;
+    /** Upstream `pick(Promise)`: the picker is open and cancellable while `items` is still empty. */
+    lateItems?: Promise<LateQuickPickItems>;
+}
+
+export interface LateQuickPickItems {
+    readonly items: readonly QuickPickItem[];
+    readonly picked?: readonly QuickPickItem[];
 }
 
 /** Options for a multi-select list pick (`showQuickPick` with `canPickMany`). */
@@ -45,6 +52,8 @@ export interface QuickPickManyOptions {
     items: readonly QuickPickItem[];
     /** Matched by item reference. */
     picked?: readonly QuickPickItem[];
+    onDidChangeActive?: (item: QuickPickItem | undefined, index: number) => void;
+    lateItems?: Promise<LateQuickPickItems>;
 }
 
 type QuickInputResult = string | QuickPickItem | readonly QuickPickItem[] | undefined;
@@ -147,15 +156,18 @@ export class QuickInputService {
         this.component.hide();
 
         return new Promise<QuickPickItem | undefined>((resolve) => {
-            this.pendingResolve = resolve as (value: QuickInputResult) => void;
+            const owner = resolve as (value: QuickInputResult) => void;
+            this.pendingResolve = owner;
             this.takeOwnership();
 
-            const view = this.configurePick(opts.items, {
+            const source = { items: opts.items };
+            const view = this.configurePick(source, {
                 title: opts.title,
                 placeholder: opts.placeholder,
                 canPickMany: false,
                 onDidChangeActive: opts.onDidChangeActive,
             });
+            this.fillLate(opts.lateItems, owner, source);
             view.onAccept = (item) => {
                 // Deferred close: the rest of this Enter must not reach the editor that regains focus.
                 queueMicrotask(() => {
@@ -177,15 +189,18 @@ export class QuickInputService {
         this.component.hide();
 
         return new Promise<readonly QuickPickItem[] | undefined>((resolve) => {
-            this.pendingResolve = resolve as (value: QuickInputResult) => void;
+            const owner = resolve as (value: QuickInputResult) => void;
+            this.pendingResolve = owner;
             this.takeOwnership();
 
-            const allItems = opts.items;
-            const view = this.configurePick(allItems, {
+            const source = { items: opts.items };
+            const view = this.configurePick(source, {
                 title: opts.title,
                 placeholder: opts.placeholder,
                 canPickMany: true,
+                onDidChangeActive: opts.onDidChangeActive,
             });
+            this.fillLate(opts.lateItems, owner, source);
             // Checks go in AFTER the list is filled: the rows themselves render them.
             // Stryker disable next-line ArrayDeclaration: replacing the empty array with a non-empty one changes nothing — checks are matched by list item identity, and a foreign object in the set matches none of them
             view.setCheckedItems(opts.picked ?? []);
@@ -193,7 +208,7 @@ export class QuickInputService {
             view.onAcceptMany = () => {
                 // Filter allItems, not `view.items`: checked items hidden by the query would be lost otherwise.
                 const checked = view.checkedItems;
-                const picked = allItems.filter((item) => checked.has(item));
+                const picked = source.items.filter((item) => checked.has(item));
                 queueMicrotask(() => {
                     this.settle(picked);
                 });
@@ -203,8 +218,26 @@ export class QuickInputService {
         });
     }
 
+    /** A show that has ended by then ignores its items. */
+    private fillLate(
+        late: Promise<LateQuickPickItems> | undefined,
+        owner: (value: QuickInputResult) => void,
+        source: { items: readonly QuickPickItem[] },
+    ): void {
+        void late?.then(({ items, picked }) => {
+            if (this.pendingResolve !== owner) return;
+            source.items = items;
+            const view = this.component.view;
+            if (picked !== undefined) view.setCheckedItems(picked);
+            // Stryker disable next-line OptionalChaining: `configurePick` set it for this show, the check above says the show is still ours; nullable only by the field's type
+            view.onQueryChange?.(view.getQuery());
+            // Stryker disable next-line CallExpression: without marking dirty, layout won't rerun, and layout is what sizes the picker to the new rows — observable only in the live app (TestApp lays out every frame unconditionally)
+            view.markDirty();
+        });
+    }
+
     private configurePick(
-        allItems: readonly QuickPickItem[],
+        source: { readonly items: readonly QuickPickItem[] },
         opts: {
             title?: string;
             placeholder?: string;
@@ -231,8 +264,9 @@ export class QuickInputService {
         view.onQueryChange = (query) => {
             // Stryker disable next-line MethodExpression: trim is cosmetic here — a leading space can't be typed into the query (in multi-select the check toggle eats it, and extra spaces inside a word don't narrow the filter anyway)
             const needle = query.trim().toLowerCase();
-            // Stryker disable next-line ConditionalExpression,StringLiteral: the empty-query branch only skips a no-op filter pass; `includes("")` is true for any string, so the filtered list would equal the original
-            view.items = needle === "" ? allItems : allItems.filter((it) => it.label.toLowerCase().includes(needle));
+            view.items =
+                // Stryker disable next-line ConditionalExpression,StringLiteral: the empty-query branch only skips a no-op filter pass; `includes("")` is true for any string, so the filtered list would equal the original
+                needle === "" ? source.items : source.items.filter((it) => it.label.toLowerCase().includes(needle));
             notifyActive();
         };
         view.onActiveItemChanged = () => {
@@ -240,13 +274,40 @@ export class QuickInputService {
         };
 
         view.setQuery("");
-        view.items = allItems;
+        view.items = source.items;
         return view;
     }
 
     /** Upstream `createQuickPick`: closed only by its owner, Escape, or another show taking over the widget. */
-    public createQuickPick<T extends QuickPickSessionItem>(events: QuickPickSessionEvents<T>): QuickPickSession<T> {
-        return new QuickPickSession<T>(this.slot, events);
+    public createQuickPick<T extends QuickPickSessionItem>(
+        events: QuickPickSessionEvents<T>,
+        options: { readonly echoOwnerChanges?: boolean } = {},
+    ): QuickPickSession<T> {
+        return new QuickPickSession<T>(this.slot, events, options.echoOwnerChanges);
+    }
+
+    // Upstream `IQuickInputService.accept/cancel/navigate/toggle/focus`, for whoever owns the shared widget.
+    // With nothing open they do nothing and do not fail.
+
+    public acceptOpen(): void {
+        if (this.component.isOpen()) this.component.view.accept();
+    }
+
+    /** The owner learns through `onDidClose`, the same path as Escape. */
+    public closeOpen(): void {
+        this.component.hide();
+    }
+
+    public navigateOpen(next: boolean): void {
+        if (this.component.isOpen()) this.component.view.stepActive(next);
+    }
+
+    public toggleOpen(): void {
+        if (this.component.isOpen()) this.component.view.toggleChecked();
+    }
+
+    public focusOpen(): void {
+        if (this.component.isOpen()) this.component.view.focus();
     }
 
     /** The show's owner is `pendingResolve`, as with the promise flavors: a takeover (`settle`) tells it it lost. */

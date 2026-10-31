@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import {
+    exitedWithoutFailures,
     applyMutant,
     blockingVerdicts,
     buildReverseImportGraph,
@@ -215,4 +216,13 @@ test("countClasses/blockingVerdicts: real and phantom do not fail the gate on th
             .sort(),
         ["inconclusive", "runtime-error", "stale", "timeout"],
     );
+});
+
+test("exitedWithoutFailures: a red exit with an empty report, not a named failure, a green run or no report", () => {
+    const result = (failed, failedFiles) => ({ failed: new Set(failed), failedFiles: new Set(failedFiles) });
+    assert.equal(exitedWithoutFailures({ code: 1, result: result([], []) }), true);
+    assert.equal(exitedWithoutFailures({ code: 1, result: result(["a.test.ts > t"], []) }), false);
+    assert.equal(exitedWithoutFailures({ code: 1, result: result([], ["a.test.ts"]) }), false);
+    assert.equal(exitedWithoutFailures({ code: 0, result: result([], []) }), false);
+    assert.equal(exitedWithoutFailures({ code: 1, result: null }), false);
 });

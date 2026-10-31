@@ -4,6 +4,7 @@ import type * as vscode from "vscode";
 import { Uri } from "../../../base/common/uri.ts";
 import { createNodeExtHostDisk } from "../node/extHostDisk.ts";
 
+import { ApiTrace } from "./apiTrace.ts";
 import { createExtensionApi, OWNED_MEMBERS } from "./extensionApiFactory.ts";
 import { makeStubRpc } from "./testStubRpc.ts";
 import { buildVscodeNamespace } from "./vscodeNamespace.ts";
@@ -115,5 +116,71 @@ describe("overlay owner in failure logs", () => {
         await namespace.commands.executeCommand("pub.a.edit");
 
         expect(warns).toEqual([['[pub.a] Cannot execute text editor command "pub.a.edit": no active text editor']]);
+    });
+});
+
+describe("overlay with the call journal", () => {
+    function traced(): ReturnType<typeof build> & { written: () => string; trace: ApiTrace } {
+        const built = build();
+        let text = "";
+        const trace = new ApiTrace({
+            write: (t) => {
+                text += t;
+            },
+            schedule: () => undefined,
+            onError: () => undefined,
+        });
+        return { ...built, trace, written: () => text };
+    }
+
+    it("the contract holds: shared value types, the same keys, a module-style copy reads nothing", () => {
+        const { namespace, owner, trace, written } = traced();
+        const api1 = createExtensionApi(namespace, owner, "pub.a", trace);
+        const api2 = createExtensionApi(namespace, owner, "pub.b", trace);
+        expect(api1.Position).toBe(api2.Position);
+        expect(api1.Position).toBe(namespace.Position);
+        // An enum is an object at the top level, not a namespace.
+        expect(api1.CompletionItemKind).toBe(namespace.CompletionItemKind);
+        expect(Object.keys(api1)).toEqual(Object.keys(namespace));
+        expect(Object.keys(api1.workspace)).toEqual(Object.keys(namespace.workspace));
+
+        // What `__importStar` and the ESM shim do with the top level.
+        const copy = Object.fromEntries(
+            Object.keys(api1).map((k) => [k, (api1 as unknown as Record<string, unknown>)[k]]),
+        );
+        expect(copy.window).toBe(api1.window);
+        expect(written()).toBe("");
+    });
+
+    it("every namespace is traced under its own id, workspace.getConfiguration included", () => {
+        const { namespace, owner, trace, written } = traced();
+        const api = createExtensionApi(namespace, owner, "pub.a", trace);
+        api.workspace.getConfiguration("files");
+        expect(api.env.appName).toBe("Diode");
+        expect(api.window.activeTextEditor).toBeUndefined();
+        expect(written()).toContain(
+            '{"extension":"pub.a","member":"workspace.getConfiguration","kind":"call","count":1}',
+        );
+        expect(written()).toContain('{"extension":"pub.a","member":"env.appName","kind":"read","count":1}');
+        expect(written()).toContain('{"extension":"pub.a","member":"window.activeTextEditor","kind":"read","count":1}');
+    });
+
+    it("an owned member still reaches the host, a provider registration is recorded", () => {
+        const { namespace, owner, stub, trace, written } = traced();
+        const api = createExtensionApi(namespace, owner, "pub.a", trace);
+        const channel = api.window.createOutputChannel("traced");
+        expect(channel.name).toBe("traced");
+        api.commands.registerCommand("pub.a.cmd", () => "ok");
+        expect(stub.notifies).toContainEqual({ method: "commands.registerCommand", params: { id: "pub.a.cmd" } });
+        expect(owner.current).toBeUndefined();
+        api.languages.registerHoverProvider({ language: "python" }, { provideHover: () => undefined });
+        expect(written()).toContain('"member":"languages.registerHoverProvider","kind":"registered"');
+    });
+
+    it("without a journal the namespace members are not wrapped", () => {
+        const { namespace, owner } = build();
+        const api = createExtensionApi(namespace, owner, "pub.a");
+        expect(api.workspace.getConfiguration).toBe(namespace.workspace.getConfiguration);
+        expect(Object.getOwnPropertyDescriptor(api.env, "appName")?.value).toBe("Diode");
     });
 });

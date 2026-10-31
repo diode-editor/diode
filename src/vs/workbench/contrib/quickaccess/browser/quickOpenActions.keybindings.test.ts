@@ -65,6 +65,15 @@ describe("quick open keybindings", () => {
         );
     });
 
+    it("Escape and Shift+Escape in a quick input are closeQuickOpen, a dialog over it keeps its own", () => {
+        const input = { inQuickOpen: true, inputWidgetFocus: true };
+        const close = "workbench.action.closeQuickOpen";
+        expect(commandFor(key({ key: "Escape" }), PC_KITTY, input)).toBe(close);
+        expect(commandFor(key({ key: "Escape", shift: true }), PC_KITTY, input)).toBe(close);
+        expect(commandFor(key({ key: "Escape" }), PC_KITTY, { inQuickOpen: true })).not.toBe(close);
+        expect(commandFor(key({ key: "Escape" }), PC_KITTY, { inputWidgetFocus: true })).not.toBe(close);
+    });
+
     it("in the command palette mode Ctrl+Shift+P is the palette again, not navigation", () => {
         const palette = { inQuickOpen: true, inFilesPicker: false, inputWidgetFocus: true };
         expect(commandFor(CTRL_SHIFT_P, PC_KITTY, palette)).toBe("workbench.action.showCommands");

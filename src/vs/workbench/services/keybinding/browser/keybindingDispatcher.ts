@@ -54,6 +54,20 @@ const FOCUS_SCOPED_CONTEXT_KEYS = [
     "editorAreaFocus",
 ] as const;
 
+// They act on the quick input itself, which is the overlay: a user's binding needs no `when` to reach it.
+const QUICK_INPUT_COMMANDS: ReadonlySet<string> = new Set([
+    "workbench.action.closeQuickOpen",
+    "workbench.action.acceptSelectedQuickOpenItem",
+    "workbench.action.alternativeAcceptSelectedQuickOpenItem",
+    "workbench.action.focusQuickOpen",
+    "workbench.action.quickPickManyToggle",
+    "workbench.action.quickInputBack",
+    "workbench.action.quickOpenNavigateNext",
+    "workbench.action.quickOpenNavigatePrevious",
+    "workbench.action.quickOpenSelectNext",
+    "workbench.action.quickOpenSelectPrevious",
+]);
+
 /** The binding requires a focus key to be true (in a non-negated position: `!listFocus` is not focus-scoped). */
 function isFocusScopedWhen(when: string | undefined): boolean {
     // Stryker disable next-line ConditionalExpression: equivalent — parsing undefined also yields undefined (the parser catches its own exception); the branch is for types
@@ -114,6 +128,15 @@ export class KeybindingDispatcher extends Disposable {
     };
 
     public hasKeyboardCapturingOverlay: () => boolean = () => false;
+
+    /** The quick input holds the keyboard itself: a modal dialog over an open picker keeps its focus and its keys. */
+    private quickInputOwnsCommand(commandId: string): boolean {
+        return (
+            QUICK_INPUT_COMMANDS.has(commandId) &&
+            this.contextKeys.get("inQuickOpen") === true &&
+            this.contextKeys.get("inputWidgetFocus") === true
+        );
+    }
 
     /**
      * Asked outside a chord, before anything runs, with what the key would do: `true` leaves the key
@@ -281,7 +304,7 @@ export class KeybindingDispatcher extends Disposable {
         if (wasInChord) this.swallowNextKeyPress = true;
 
         if (res.kind === "command" && this.commands.has(res.commandId)) {
-            if (overlayCaptures && !isFocusScopedWhen(res.when)) {
+            if (overlayCaptures && !isFocusScopedWhen(res.when) && !this.quickInputOwnsCommand(res.commandId)) {
                 // A workbench/navigation shortcut fired while an overlay owns the keyboard:
                 // swallow it (no preventDefault) instead of acting behind the overlay.
                 this.setChordHint(null);

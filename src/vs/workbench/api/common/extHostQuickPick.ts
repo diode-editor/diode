@@ -1,6 +1,7 @@
 import type * as vscode from "vscode";
 
 import type { SubprocessRpc } from "./extHostProtocol.ts";
+import { type AsRelativePath, withResourceFields } from "./quickInputResource.ts";
 import { EventEmitter, QuickPickItemKind } from "./vscodeTypes.ts";
 import type { IWireQuickPickEvent, IWireQuickPickSessionItem } from "./wireTypes.ts";
 
@@ -57,6 +58,7 @@ export class ExtHostQuickPick<T extends vscode.QuickPickItem> implements vscode.
         private readonly rpc: SubprocessRpc,
         public readonly handle: number,
         private readonly onDispose: () => void,
+        private readonly asRelativePath: AsRelativePath = (uri) => uri.fsPath,
     ) {}
 
     public get title(): string | undefined {
@@ -120,8 +122,7 @@ export class ExtHostQuickPick<T extends vscode.QuickPickItem> implements vscode.
             if ((item.kind as number | undefined) === QuickPickItemKind.Separator) continue;
             wire.push({
                 handle,
-                label: item.label,
-                description: item.description,
+                ...withResourceFields(item, this.asRelativePath),
                 detail: item.detail,
                 alwaysShow: item.alwaysShow === true,
             });

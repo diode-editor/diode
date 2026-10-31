@@ -41,6 +41,7 @@ describe("QuickInputService.quickPickMany", () => {
         // Check bottom-up: gamma first, then alpha.
         testApp.sendKey("ArrowDown");
         testApp.sendKey("ArrowDown");
+        testApp.sendKey("ArrowDown");
         testApp.sendKey(" ");
         testApp.sendKey("ArrowUp");
         testApp.sendKey("ArrowUp");

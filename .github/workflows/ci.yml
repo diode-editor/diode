@@ -354,6 +354,15 @@ jobs:
         env:
           DIODE_E2E_WORKERS: '1'
 
+      # Call journals of the green marketplace checks: the input of
+      # `npm run api-matrix -- --update-confirmed` (docs/extensions/README.md).
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: api-trace-${{ runner.os }}
+          path: e2e/marketplace/api-trace/
+          if-no-files-found: ignore
+
       # Startup perf gate (e2e/bench/startupBudget.bench.ts): the "our ms" budget for
       # small is calibrated on the ubuntu runner, hence only here. The binary comes from
       # the cache test:e2e has just built.

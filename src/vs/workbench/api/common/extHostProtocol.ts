@@ -99,8 +99,10 @@ import type {
     IWireProgressStart,
     IWireProviderHandle,
     IWireQuickInputCancel,
+    IWireQuickPickDidSelectItem,
     IWireQuickPickDispose,
     IWireQuickPickEvent,
+    IWireQuickPickItems,
     IWireQuickPickRequest,
     IWireQuickPickResult,
     IWireQuickPickUpdate,
@@ -245,6 +247,7 @@ export interface IHostToSubprocess {
 
         readonly "window.themeChanged": IWireColorTheme;
         readonly "window.quickPick.event": IWireQuickPickEvent;
+        readonly "window.showQuickPick.didSelectItem": IWireQuickPickDidSelectItem;
 
         readonly "secrets.changed": IWireSecretRef;
 
@@ -360,6 +363,7 @@ export interface ISubprocessToHost {
         readonly "window.disposeTextEditorDecorationType": IWireDisposeDecorationType;
         readonly "window.fileDecorationsChanged": IWireFileDecorationsChanged;
         readonly "window.quickInput.cancel": IWireQuickInputCancel;
+        readonly "window.showQuickPick.items": IWireQuickPickItems;
         readonly "window.quickPick.update": IWireQuickPickUpdate;
         readonly "window.quickPick.dispose": IWireQuickPickDispose;
         readonly "window.registerUriHandler": IWireUriHandlerRegistration;

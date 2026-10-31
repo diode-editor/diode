@@ -29,6 +29,7 @@ import {
     parseWireProgressStart,
     parseWireQuickInputCancel,
     parseWireQuickPickDispose,
+    parseWireQuickPickItems,
     parseWireQuickPickRequest,
     parseWireQuickPickUpdate,
     parseWireSaveDialogRequest,
@@ -166,11 +167,20 @@ export class WindowCustomer implements IExtensionHostCustomer {
                 if (request === null || quickInputSink === undefined) return { indices: null };
                 quickInputHandles.add(request.handle);
                 try {
-                    const indices = await quickInputSink.showQuickPick(request);
+                    const indices = await quickInputSink.showQuickPick(request, (index) => {
+                        if (attached)
+                            rpc.notify("window.showQuickPick.didSelectItem", { handle: request.handle, index });
+                    });
                     return { indices: indices ?? null };
                 } finally {
                     quickInputHandles.delete(request.handle);
                 }
+            }),
+        );
+        store.add(
+            rpc.handleNotification("window.showQuickPick.items", (params) => {
+                const items = parseWireQuickPickItems(params);
+                if (items !== null) quickInputSink?.setQuickPickItems(items);
             }),
         );
         store.add(

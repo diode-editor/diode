@@ -191,6 +191,14 @@ const RUNTIME_ERROR_MARKERS = [
     /ERR_IPC_CHANNEL_CLOSED/,
 ];
 
+/**
+ * vitest failed, but its report names no failed test. With `--bail` this is not yet a crash: two files
+ * failing at once can cancel the run before either failure reaches the report (#921).
+ */
+export function exitedWithoutFailures(run) {
+    return run.code !== 0 && run.result !== null && run.result.failed.size === 0 && run.result.failedFiles.size === 0;
+}
+
 export function runtimeErrorExcerpt(output) {
     const lines = output.split("\n");
     const at = lines.findIndex((line) => RUNTIME_ERROR_MARKERS.some((marker) => marker.test(line)));

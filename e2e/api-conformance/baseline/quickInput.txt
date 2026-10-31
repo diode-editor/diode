@@ -1,4 +1,11 @@
+vscode API - quick input createQuickPick, continue after first accept
 vscode API - quick input createQuickPick, dispose in onDidHide
+vscode API - quick input createQuickPick, focus second
 vscode API - quick input createQuickPick, hide and dispose
 vscode API - quick input createQuickPick, hide and hide
 vscode API - quick input createQuickPick, hide show hide
+vscode API - quick input createQuickPick, match item by description derived from resourceUri
+vscode API - quick input createQuickPick, match item by label derived from resourceUri
+vscode API - quick input createQuickPick, select first and second
+vscode API - quick input createQuickPick, select second
+vscode API - quick input createQuickPick, selection events

@@ -4,6 +4,7 @@ import type {
     IWireInputBoxRequest,
     IWireOpenDialogRequest,
     IWireQuickPickEvent,
+    IWireQuickPickItems,
     IWireQuickPickRequest,
     IWireQuickPickUpdate,
     IWireSaveDialogRequest,
@@ -46,7 +47,13 @@ export interface IStatusBarItemSink {
  */
 export interface IQuickInputSink {
     showInputBox(request: IQuickInputBoxRequest): Promise<string | undefined>;
-    showQuickPick(request: IWireQuickPickRequest): Promise<readonly number[] | undefined>;
+    /** `onDidSelectItem` gets indices into the shown items, as the reply does. */
+    showQuickPick(
+        request: IWireQuickPickRequest,
+        onDidSelectItem: (index: number) => void,
+    ): Promise<readonly number[] | undefined>;
+    /** For a request sent with `itemsPending`; a late answer to a finished show is ignored. */
+    setQuickPickItems(items: IWireQuickPickItems): void;
     cancel(handle: number): void;
     /** The first update of a handle creates the picker, later ones are diffs; actions go to the FIRST update's `emit`. */
     updateQuickPick(update: IWireQuickPickUpdate, emit: (event: IWireQuickPickEvent) => void): void;

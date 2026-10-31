@@ -21,6 +21,7 @@ function makeSink(answers: {
             pickRequests.push(request);
             return (await answers.pick?.(request)) ?? undefined;
         },
+        setQuickPickItems: () => undefined,
         cancel: () => undefined,
         updateQuickPick: () => undefined,
         disposeQuickPick: () => undefined,
