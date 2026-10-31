@@ -236,14 +236,10 @@ export class ReferencesComponent extends Component {
     private findRow(target: ICoreReference | undefined): string | undefined {
         if (target === undefined) return undefined;
         const { line, character } = target.range.start;
-        return this.referenceRowIds.find((id) => {
-            const row = this.referenceRows.get(id);
-            return (
-                row?.group.uri === target.uri &&
-                row.match.lineNumber - 1 === line &&
-                row.match.startColumn === character
-            );
-        });
+        for (const [id, { group, match }] of this.referenceRows) {
+            if (group.uri === target.uri && match.lineNumber - 1 === line && match.startColumn === character) return id;
+        }
+        return undefined;
     }
 
     private activateRow(rowId: string): void {

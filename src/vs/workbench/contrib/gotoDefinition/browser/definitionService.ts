@@ -117,18 +117,14 @@ export class DefinitionService {
             this.showInfo(word === null ? "No definition found" : `No definition found for '${word}'`);
             return;
         }
-        if (model.references.length === 1) {
-            const key = editor.uri.toString();
-            const atCaret = model.references.some(
-                ({ uri, range }) => Uri.parse(uri).toString() === key && rangeContainsPosition(range, caret),
-            );
-            if (atCaret) {
-                const alternative = this.configuration.get(
-                    "editor.gotoLocation.alternativeDefinitionCommand",
-                    overrides,
-                );
-                if (await this.runAlternative(alternative, DEFINITION_COMMAND_ID)) return;
-            }
+        const [only, ...rest] = model.references;
+        if (
+            rest.length === 0 &&
+            Uri.parse(only.uri).toString() === editor.uri.toString() &&
+            rangeContainsPosition(only.range, caret)
+        ) {
+            const alternative = this.configuration.get("editor.gotoLocation.alternativeDefinitionCommand", overrides);
+            if (await this.runAlternative(alternative, DEFINITION_COMMAND_ID)) return;
         }
         await this.show(model, {
             title: "Definitions",
@@ -174,9 +170,8 @@ export class DefinitionService {
 
     /** The answer is whether the alternative took over; otherwise the result is handled as usual. */
     private async runAlternative(alternative: string, origin: string): Promise<boolean> {
-        if (alternative === "" || !this.commands.has(alternative) || this.activeAlternatives.has(alternative)) {
-            return false;
-        }
+        // An empty id isn't a registered command either.
+        if (!this.commands.has(alternative) || this.activeAlternatives.has(alternative)) return false;
         this.activeAlternatives.add(origin);
         try {
             await this.commands.execute(alternative);
@@ -238,7 +233,7 @@ function toMode(value: unknown): GoToLocationMode {
 }
 
 function wordAt(text: string, caret: IPosition): string | null {
-    const line = text.split("\n").at(caret.line) ?? "";
+    const line = text.split("\n")[caret.line];
     const word = findWordRangeAt(line, caret.character);
     return word === null ? null : line.slice(word.start, word.end);
 }

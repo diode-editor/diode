@@ -27,6 +27,7 @@ export function createLocationModel(locations: readonly ICoreDefinitionLocation[
 }
 
 function compareLocations(a: ICoreDefinitionLocation, b: ICoreDefinitionLocation): number {
+    // Stryker disable next-line EqualityOperator: equal uris don't get here, so `<=` is the same
     if (a.uri !== b.uri) return a.uri < b.uri ? -1 : 1;
     return comparePositions(a.range.start, b.range.start) || comparePositions(a.range.end, b.range.end);
 }

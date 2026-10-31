@@ -59,8 +59,9 @@ export class ReferencesService {
             readText: async (uri: Uri) => {
                 // A go-to target may be off disk (`jdt:`): the file service knows nothing about it.
                 const virtual = this.group.virtualDocumentSource;
-                if (uri.scheme !== "file" && virtual.canProvide(uri.scheme)) {
+                if (virtual.canProvide(uri.scheme)) {
                     const text = await virtual.provide(uri);
+                    // Stryker disable next-line ConditionalExpression,StringLiteral: no text and a failed read end the same way, the row is dropped
                     if (text === null) throw new Error(`No content for ${uri.toString()}`);
                     return text;
                 }

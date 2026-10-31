@@ -52,16 +52,29 @@ describe("parseGoToLocationsArguments", () => {
         });
     });
 
+    it("uri parts of the wrong type are ignored", () => {
+        const parsed = parseGoToLocationsArguments({ scheme: "file", path: "/a.ts", query: 7 }, POSITION, []);
+        expect(parsed.uri.toString()).toBe("file:///a.ts");
+    });
+
+    const URI_ERROR = "uri must be a uri";
+    const POSITION_ERROR = "position must be {line, character}";
+    const LOCATION_ERROR = "location must be {uri, range}";
+    const LOCATIONS_ERROR = "locations must be an array";
+
+    // By message: a mutated guard would still throw a native TypeError on `undefined.line`.
     it.each([
-        ["uri is missing", undefined, POSITION, []],
-        ["uri has no scheme", { path: "/a" }, POSITION, []],
-        ["position is missing", "file:///a", undefined, []],
-        ["position has no character", "file:///a", { line: 1 }, []],
-        ["position has no line", "file:///a", { character: 1 }, []],
-        ["locations isn't an array", "file:///a", POSITION, {}],
-        ["a location has no range", "file:///a", POSITION, [{ uri: "file:///a" }]],
-        ["a location is null", "file:///a", POSITION, [null]],
-    ])("malformed input throws: %s", (_name, uri, position, locations) => {
-        expect(() => parseGoToLocationsArguments(uri, position, locations)).toThrow(TypeError);
+        ["uri is missing", undefined, POSITION, [], URI_ERROR],
+        ["uri is null", null, POSITION, [], URI_ERROR],
+        ["uri has no scheme", { path: "/a" }, POSITION, [], URI_ERROR],
+        ["position is missing", "file:///a", undefined, [], POSITION_ERROR],
+        ["position is null", "file:///a", null, [], POSITION_ERROR],
+        ["position has no character", "file:///a", { line: 1 }, [], POSITION_ERROR],
+        ["position has no line", "file:///a", { character: 1 }, [], POSITION_ERROR],
+        ["locations isn't an array", "file:///a", POSITION, {}, LOCATIONS_ERROR],
+        ["a location has no range", "file:///a", POSITION, [{ uri: "file:///a" }], LOCATION_ERROR],
+        ["a location is null", "file:///a", POSITION, [null], LOCATION_ERROR],
+    ])("malformed input throws: %s", (_name, uri, position, locations, message) => {
+        expect(() => parseGoToLocationsArguments(uri, position, locations)).toThrow(new TypeError(message));
     });
 });

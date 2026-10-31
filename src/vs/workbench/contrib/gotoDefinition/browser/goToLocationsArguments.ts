@@ -30,7 +30,6 @@ export function parseGoToLocationsArguments(
 
 function parseUri(value: unknown): Uri {
     if (typeof value === "string") return Uri.parse(value);
-    if (Uri.isUri(value)) return value;
     if (!isRecord(value) || typeof value.scheme !== "string") throw new TypeError("uri must be a uri");
     return Uri.from({
         scheme: value.scheme,

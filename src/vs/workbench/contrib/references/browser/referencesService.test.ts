@@ -465,6 +465,14 @@ describe("ReferencesService — showLocations", () => {
         ]);
     });
 
+    it("active as a position without an active editor matches nothing", async () => {
+        const { calls, service } = setup({ noEditor: true });
+
+        await service.showLocations("Definitions", LOCATIONS, { line: 2, character: 15 });
+
+        expect(calls).toEqual([{ title: "Definitions", active: undefined }]);
+    });
+
     it("a later search wins over a list still reading its files", async () => {
         const { panel, service } = setup({ source: () => Promise.resolve([reference(MAIN, 0, 9, 14)]) });
 

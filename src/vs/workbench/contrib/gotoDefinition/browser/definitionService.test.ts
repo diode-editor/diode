@@ -256,6 +256,17 @@ describe("DefinitionService — Go to Definition", () => {
             expect(caret()).toMatchObject({ line: 0, character: 6 });
         });
 
+        it("the setting is read for the document's language", async () => {
+            const { defsUri } = useThreeTargets();
+            await useSetting(`[${group().getActiveEditor()?.languageId ?? ""}]`, {
+                "editor.gotoLocation.multipleDefinitions": "goto",
+            });
+
+            await service().revealDefinition();
+
+            expect(group().getActiveEditor()?.uri.toString()).toBe(defsUri);
+        });
+
         it("an unknown setting value means peek", async () => {
             const { mainUri } = useThreeTargets();
             await useSetting("editor.gotoLocation.multipleDefinitions", "nonsense");
@@ -348,6 +359,7 @@ describe("DefinitionService — Go to Definition", () => {
             await service().revealDefinition();
 
             expect(calls).toEqual(["editor.action.referenceSearch.trigger"]);
+            expect(caret()).toMatchObject({ line: 1, character: 8 });
         });
 
         it("the default alternative is Go to References", async () => {
@@ -519,6 +531,64 @@ describe("DefinitionService — Go to Definition", () => {
 
             await h.commands.execute("editor.action.goToLocations", mainUri.toString(), start, two);
             expect(group().getActiveEditor()?.uri.toString()).toBe(defsUri.toString());
+        });
+
+        it("goToLocations stays in the active group, for the start and for the jump", async () => {
+            const { mainUri, two } = targets();
+
+            await h.commands.execute("editor.action.goToLocations", mainUri.toString(), { line: 0, character: 0 }, [
+                two[0],
+            ]);
+
+            expect(group().editorGroups.groups.length).toBe(1);
+        });
+
+        it("goToLocations: an unknown `multiple` means peek", async () => {
+            const { mainUri, two } = targets();
+            const start = { line: 0, character: 0 };
+
+            await h.commands.execute("editor.action.goToLocations", mainUri.toString(), start, two, "nonsense");
+
+            expect(group().getActiveEditor()?.uri.toString()).toBe(mainUri.toString());
+            expect(panel().resultCount).toBe(2);
+        });
+
+        it("goToLocations: multipleReferences is read for the started document's language", async () => {
+            const { defsUri, mainUri, two } = targets();
+            await h.container
+                .get(IConfigurationServiceDIToken)
+                .updateValue(`[${group().getActiveEditor()?.languageId ?? ""}]`, {
+                    "editor.gotoLocation.multipleReferences": "goto",
+                });
+
+            await h.commands.execute("editor.action.goToLocations", mainUri.toString(), { line: 0, character: 0 }, two);
+
+            expect(group().getActiveEditor()?.uri.toString()).toBe(defsUri.toString());
+        });
+
+        it("goToLocations survives a start resource that doesn't open with no editor left", async () => {
+            const { two } = targets();
+            h.commands.execute("workbench.action.closeActiveEditor");
+            expect(group().getActiveEditor()).toBeNull();
+
+            await h.commands.execute("editor.action.goToLocations", "nope:/missing", { line: 0, character: 0 }, two);
+
+            expect(panel().resultCount).toBe(2);
+        });
+
+        it("an empty message is no message", async () => {
+            const { mainUri } = targets();
+
+            await h.commands.execute(
+                "editor.action.goToLocations",
+                mainUri.toString(),
+                { line: 0, character: 0 },
+                [],
+                undefined,
+                "",
+            );
+
+            expect(notifications()).toEqual([]);
         });
 
         it("an empty list: silent without a message, a toast with one, the panel stays", async () => {
