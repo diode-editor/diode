@@ -179,6 +179,9 @@ export class WorkspaceEditService {
     /** The extension host, once there is one. */
     public fileOperationParticipant: IFileOperationParticipant = NULL_FILE_OPERATION_PARTICIPANT;
 
+    /** The tail of the operations running now, see {@link oneAtATime}. */
+    private lastFileOperation: Promise<unknown> = Promise.resolve();
+
     public constructor(
         undoRedo: UndoRedoService,
         trash: ITrashService,
@@ -287,20 +290,32 @@ export class WorkspaceEditService {
 
         const members: ReversibleOp[] = [];
         const done: IFileOperationPair[] = [];
-        for (const edit of group) {
-            try {
-                const pair = await this.applyOne(edit, members, step.resources, step.willDelete);
-                if (pair !== null) done.push(pair);
-            } catch (error) {
-                // A failure of one entry doesn't abort the rest (as in pasteFiles).
-                if (step.tolerant) continue;
-                // "Did" was not sent for this group, so its rollback has nothing to reverse.
-                step.ops.push(...members);
-                throw error;
+        await this.oneAtATime(async () => {
+            for (const edit of group) {
+                try {
+                    const pair = await this.applyOne(edit, members, step.resources, step.willDelete);
+                    if (pair !== null) done.push(pair);
+                } catch (error) {
+                    // A failure of one entry doesn't abort the rest (as in pasteFiles).
+                    if (step.tolerant) continue;
+                    // "Did" was not sent for this group, so its rollback has nothing to reverse.
+                    step.ops.push(...members);
+                    throw error;
+                }
             }
-        }
+        });
         if (members.length > 0) step.ops.push(this.reportingOp(operation, done, members));
         if (done.length > 0) this.fileOperationParticipant.didRun(operation, done);
+    }
+
+    /**
+     * Participants let edits overlap for as long as they run. Checking that a target is free and taking it are two
+     * steps on the disk: two renames to one target must not both pass the check, or one source is lost.
+     */
+    private oneAtATime(task: () => Promise<void>): Promise<void> {
+        const run = this.lastFileOperation.then(task);
+        this.lastFileOperation = run.catch(() => undefined);
+        return run;
     }
 
     /** Undo and redo run the group as one and report it: upstream's reversed operation also fires "did". */
@@ -529,14 +544,15 @@ export class WorkspaceEditService {
             });
             return moved ? pairOf(current, from) : null;
         } else if (edit.kind === "rename") {
-            // `to` is an exact path, not a directory. The prompt rules out a collision; for `workspace.applyEdit` it is
-            // resolved by `overwrite` — the overwritten contents must be restored on undo.
+            // `to` is an exact path, not a directory. Only `overwrite` may replace what is there, the overwritten
+            // contents are restored on undo. Without it, a target taken since validation (participants may have run
+            // for a minute) refuses the move, as upstream's `FILE_MOVE_CONFLICT`.
             const from = edit.from;
             const to = edit.to;
-            // Always snapshot the target: if it was taken in a race, undo restores its contents.
+            const overwrite = edit.overwrite === true;
             const replaced = await keepAside(files, to);
             await files.createFolder(Uri.file(path.dirname(to)));
-            await moveToPath(files, from, to);
+            await files.move(Uri.file(from), Uri.file(to), overwrite);
             if (replaced !== null) this.buffers.didReplaceOnDisk(Uri.file(to).toString());
             let current = to;
             resources.push(from, to);
@@ -546,7 +562,7 @@ export class WorkspaceEditService {
                     await replaced?.restore();
                 },
                 redo: async () => {
-                    await moveToPath(files, current, to);
+                    await files.move(Uri.file(current), Uri.file(to), overwrite);
                     current = to;
                 },
             });

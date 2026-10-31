@@ -183,6 +183,24 @@ describe("WorkspaceEditService — file operation participants [api:workspace.on
         expect(fs.existsSync(path.join(dir, "a2.txt"))).toBe(false);
     });
 
+    it("a failed operation doesn't hold up the next one", async () => {
+        const a = write("a.txt");
+        const { service } = makeService(
+            recordingParticipant([], (_operation, files) => {
+                if (files[0].target === uriOf(path.join(dir, "x.txt"))) fs.rmSync(a);
+                return null;
+            }),
+        );
+
+        await expect(
+            service.applyWorkspaceEdit([{ kind: "rename", from: a, to: path.join(dir, "x.txt") }], "t"),
+        ).resolves.toBe(false);
+
+        const target = path.join(dir, "next.txt");
+        await expect(service.applyWorkspaceEdit([{ kind: "create", to: target }], "t")).resolves.toBe(true);
+        expect(fs.existsSync(target)).toBe(true);
+    });
+
     it("applies the participant's edit before the operation, in the same undo step", async () => {
         const log: Log = [];
         const other = write("other.txt", "BAR");
