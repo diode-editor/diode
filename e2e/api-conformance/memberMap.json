@@ -546,6 +546,45 @@
         "tasks.onDidStartTaskProcess",
         "window.terminals"
     ],
+    "workspace vscode API - workspace [Bug] Failed to create new test file when in an untitled file #1261": [
+        "workspace.applyEdit",
+        "WorkspaceEdit.createFile",
+        "workspace.openTextDocument"
+    ],
+    "workspace vscode API - workspace applyEdit": [
+        "workspace.applyEdit",
+        "TextDocument.isDirty"
+    ],
+    "workspace vscode API - workspace encoding: openTextDocument - can change the encoding of an existing untitled document": [
+        "workspace.openTextDocument",
+        "TextDocument.encoding"
+    ],
+    "workspace vscode API - workspace openTextDocument, untitled closes on save": [
+        "workspace.openTextDocument",
+        "TextDocument.save",
+        "TextDocument.isDirty",
+        "workspace.onDidCloseTextDocument"
+    ],
+    "workspace vscode API - workspace openTextDocument, untitled is dirty": [
+        "workspace.openTextDocument",
+        "TextDocument.isDirty"
+    ],
+    "workspace vscode API - workspace openTextDocument, untitled with host": [
+        "workspace.openTextDocument"
+    ],
+    "workspace vscode API - workspace openTextDocument, untitled without path": [
+        "workspace.openTextDocument",
+        "TextDocument.isDirty"
+    ],
+    "workspace vscode API - workspace openTextDocument, untitled without path but language ID": [
+        "workspace.openTextDocument",
+        "TextDocument.isDirty",
+        "TextDocument.languageId"
+    ],
+    "commands vscode API - commands api-command: vscode.open with untitled supports associated resource (#138925)": [
+        "commands.executeCommand",
+        "TextDocument.isDirty"
+    ],
     "commands vscode API - commands getCommands": [
         "commands.getCommands"
     ],

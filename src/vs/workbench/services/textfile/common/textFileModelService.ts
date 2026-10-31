@@ -21,7 +21,7 @@ import { type IMemoryProbe, IMemoryProbeDIToken } from "../../../../platform/mem
 import { UndoRedoService, UndoRedoServiceDIToken } from "../../../../platform/undoRedo/common/undoRedoService.ts";
 
 import type { SaveParticipant } from "./iSaveParticipant.ts";
-import { TextFileModel } from "./textFileModel.ts";
+import { TextFileModel, untitledUriOf } from "./textFileModel.ts";
 import { type ITextFileModelReference, TextFileModelRegistry } from "./textFileModelRegistry.ts";
 import { TextFileSaveParticipant } from "./textFileSaveParticipant.ts";
 
@@ -135,10 +135,22 @@ export class TextFileModelService extends Disposable {
     }
 
     /** Bypasses the registry (unique by construction). Owned by the caller (a tab or a diff pane). */
-    public createUntitledModel(): TextFileModel {
+    // Stryker disable next-line ArrowFunction: equivalent: `undefined` ends the loop just like `false`
+    public createUntitledModel(isTaken: (uri: Uri) => boolean = () => false): TextFileModel {
         const model = new TextFileModel(this.languageService, this.undoRedoService, this.files);
         this.wireModel(model);
-        model.setUntitled(++this.untitledCounter);
+        // An extension can name its buffer `untitled:Untitled-3` (upstream looks for a free name the same way).
+        do this.untitledCounter++;
+        while (isTaken(untitledUriOf(this.untitledCounter)));
+        model.setUntitled(this.untitledCounter);
+        return model;
+    }
+
+    /** Same ownership as {@link createUntitledModel}: the name comes from the extension, not the counter. */
+    public createUntitledModelAt(uri: Uri, options: { associated: boolean }): TextFileModel {
+        const model = new TextFileModel(this.languageService, this.undoRedoService, this.files);
+        this.wireModel(model);
+        model.setUntitledResource(uri, options);
         return model;
     }
 

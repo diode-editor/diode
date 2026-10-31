@@ -78,6 +78,7 @@ describe("EditorOptionsServiceAdapter", () => {
                 uri: Uri.parse("untitled:Untitled-1"),
                 languageId: "plaintext",
                 isModified: false,
+                isDirtyForExtensions: false,
             }),
         } as unknown as IEditorService;
         expect(createAdapter(group, NO_BULK_EDITS).getActiveEditorFilePath()).toBeNull();
@@ -90,6 +91,7 @@ describe("EditorOptionsServiceAdapter", () => {
                 uri: Uri.file("/a/b.ts"),
                 languageId: "typescript",
                 isModified: true,
+                isDirtyForExtensions: true,
                 encoding: "windows1251",
                 eol: 2,
                 viewState: { selections: [] },
@@ -137,6 +139,7 @@ describe("EditorOptionsServiceAdapter", () => {
             uri: Uri.file("/a/b.ts"),
             languageId: "typescript",
             isModified: false,
+            isDirtyForExtensions: false,
             encoding: "utf8",
             eol: 1,
             viewState: {
@@ -429,6 +432,7 @@ describe("EditorOptionsServiceAdapter", () => {
             uri: Uri.file("/a/b.ts"),
             languageId: "typescript",
             isModified: false,
+            isDirtyForExtensions: false,
             encoding: "utf8",
             eol: 1,
             viewState: { selections: [{ anchor: { line: 0, character: 0 }, active: { line: 0, character: 1 } }] },
@@ -471,6 +475,7 @@ describe("EditorOptionsServiceAdapter", () => {
                 uri: Uri.file("/a/b.ts"),
                 languageId: "typescript",
                 isModified: false,
+                isDirtyForExtensions: false,
                 encoding: "utf8",
                 eol: 1,
                 viewState: { selections: [] },

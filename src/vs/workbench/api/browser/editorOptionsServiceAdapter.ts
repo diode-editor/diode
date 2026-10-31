@@ -209,6 +209,8 @@ export class EditorOptionsServiceAdapter implements IEditorOptionsService {
         const edits = toWorkspaceEdit(ops);
         // A file operation on a non-disk resource (`output:`, `jdt:`): reject the whole edit.
         if (edits === null) return false;
+        // Everything was a legitimate skip (a create or a missing delete on an untitled uri).
+        if (edits.length === 0) return true;
         return this.workspaceEdits.applyWorkspaceEdit(edits, "Workspace Edit", {
             respectAutoSaveConfig: options?.isRefactoring === true,
         });
@@ -283,6 +285,11 @@ function toWorkspaceEdit(ops: readonly IWireWorkspaceEditOp[]): BulkEdit | null 
             });
             continue;
         }
+        // Upstream `CreateFileEdit`: "ignore, will be handled by a later edit"; a text edit brings the buffer to life.
+        // Upstream `DeleteOperation`: nothing on disk answers for it, so it is a missing resource.
+        if (Uri.parse(op.resource).scheme === "untitled" && (op.kind === "create" || op.ignoreIfNotExists === true)) {
+            continue;
+        }
         const filePath = filePathOf(op.resource);
         if (filePath === null) return null;
         if (op.kind === "create") {
@@ -328,7 +335,7 @@ function metaOf(editor: TextEditorPane | null): IActiveEditorMeta {
     return {
         uri: editor.uri.toString(),
         languageId: editor.languageId,
-        isDirty: editor.isModified,
+        isDirty: editor.isDirtyForExtensions,
         encoding: editor.encoding,
         eol: editor.eol === EndOfLine.CRLF ? 2 : 1,
         selection,

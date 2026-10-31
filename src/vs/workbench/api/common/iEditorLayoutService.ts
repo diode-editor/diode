@@ -27,7 +27,7 @@ export interface IEditorLayoutService {
     showTextDocument(params: IWireShowTextDocumentParams): Promise<IWireShowTextDocumentResult>;
 
     /** Untitled document without a tab; {@link showTextDocument} shows it later. */
-    createUntitledDocument(params: IWireCreateUntitledParams): IWireUriParams;
+    createUntitledDocument(params: IWireCreateUntitledParams): Promise<IWireUriParams>;
 
     getLanguages(): readonly string[];
 
