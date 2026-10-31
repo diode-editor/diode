@@ -117,6 +117,7 @@ export class EditorOptionsServiceAdapter implements IEditorOptionsService {
     private forwardInactiveSelections(cb: (selections: IActiveEditorSelections) => void): IDisposable {
         const pending = new Map<TextEditorPane, CursorChangeSource | undefined>();
         return this.group.onDidChangeInactiveEditorSelection((editor) => {
+            // Stryker disable next-line ConditionalExpression: equivalent, an extra flush finds nothing pending
             if (pending.size === 0) {
                 queueMicrotask(() => {
                     const flushed = [...pending];

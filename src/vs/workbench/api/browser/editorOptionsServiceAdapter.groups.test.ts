@@ -19,6 +19,7 @@ import type { IBulkEditService } from "../../contrib/bulkEdit/common/iBulkEditSe
 import { EditorService } from "../../services/editor/browser/editorService.ts";
 import { darkPlusTheme } from "../../services/themes/common/themes/darkPlus.ts";
 import { ThemeService } from "../../services/themes/common/themeService.ts";
+import type { IActiveEditorSelections } from "../common/iEditorOptionsService.ts";
 
 import { EditorOptionsServiceAdapter } from "./editorOptionsServiceAdapter.ts";
 const NO_BULK_EDITS: IBulkEditService = { applyWorkspaceEdit: () => Promise.resolve(false) };
@@ -171,6 +172,23 @@ describe("EditorOptionsServiceAdapter: addressing by group", () => {
         await Promise.resolve();
         expect(seen).toEqual([]);
 
+        subscription.dispose();
+    });
+
+    it("[api:window.onDidChangeTextEditorSelection] an inactive editor reports every tick, without a kind when the source is unknown", async () => {
+        service.openFile(ws.path("a.ts"));
+        service.splitActiveGroup();
+        const inactive = editorAt(0, 0);
+        const seen: IActiveEditorSelections[] = [];
+        const subscription = adapter.onActiveEditorSelectionChanged((event) => seen.push(event));
+
+        inactive.viewState.selections = [createSelection(1, 0, 1, 1)];
+        await Promise.resolve();
+        inactive.viewState.selections = [createSelection(1, 0, 1, 2)];
+        await Promise.resolve();
+
+        expect(seen.map((event) => event.selections[0].activeCharacter)).toEqual([1, 2]);
+        expect(seen[0]).not.toHaveProperty("kind");
         subscription.dispose();
     });
 

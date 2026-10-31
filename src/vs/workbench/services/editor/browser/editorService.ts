@@ -1,7 +1,7 @@
 import * as path from "node:path";
 
 import { Emitter } from "../../../../base/common/event.ts";
-import { Disposable, type IDisposable, toDisposable } from "../../../../base/common/lifecycle.ts";
+import { Disposable, DisposableStore, type IDisposable, toDisposable } from "../../../../base/common/lifecycle.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import type { ILanguageConfigurationService } from "../../../../editor/common/languages/iLanguageConfigurationService.ts";
 import {
@@ -156,7 +156,7 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
     private activeSelectionSubscription?: IDisposable;
     private activeSelectionEditor: TextEditorPane | null = null;
     private readonly onDidChangeInactiveEditorSelectionEmitter = new Emitter<TextEditorPane>();
-    private readonly inactiveSelectionSubscriptions = new Map<TextEditorPane, IDisposable>();
+    private readonly inactiveSelectionSubscriptions = this.register(new DisposableStore());
     private saveParticipantValue?: SaveParticipant;
     public readonly textFileModels: TextFileModelService;
     private readonly paneBuilder: TextEditorPaneBuilder;
@@ -329,12 +329,6 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
                 this.fireEditorsChanged();
             }),
         );
-        this.register({
-            dispose: () => {
-                for (const subscription of this.inactiveSelectionSubscriptions.values()) subscription.dispose();
-                this.inactiveSelectionSubscriptions.clear();
-            },
-        });
         this.register(
             this.editorGroups.onDidChangeActivePane((pane) => {
                 this.fireActiveEditorChanged(pane);
@@ -1132,20 +1126,12 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
 
     /** The visible tab of every other group: a click there moves the cursor before the group becomes active. */
     private rebindInactiveSelectionForwarding(): void {
-        const visible = new Set(
-            this.editorGroups.groups
-                .map((group) => group.activePane)
-                .filter((pane) => pane instanceof TextEditorPane && pane !== this.activeSelectionEditor),
-        ) as Set<TextEditorPane>;
-        for (const [pane, subscription] of this.inactiveSelectionSubscriptions) {
-            if (visible.has(pane)) continue;
-            subscription.dispose();
-            this.inactiveSelectionSubscriptions.delete(pane);
-        }
-        for (const pane of visible) {
-            if (this.inactiveSelectionSubscriptions.has(pane)) continue;
-            this.inactiveSelectionSubscriptions.set(
-                pane,
+        this.inactiveSelectionSubscriptions.clear();
+        for (const group of this.editorGroups.groups) {
+            const active = group.activePane;
+            const pane: TextEditorPane | null = active instanceof TextEditorPane ? active : null;
+            if (pane === null || pane === this.activeSelectionEditor) continue;
+            this.inactiveSelectionSubscriptions.add(
                 pane.onDidChangeSelection(() => {
                     this.onDidChangeInactiveEditorSelectionEmitter.fire(pane);
                 }),
