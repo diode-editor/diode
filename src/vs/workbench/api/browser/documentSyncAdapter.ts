@@ -36,6 +36,8 @@ export function documentChangedEventOfModel(
         version: event.versionId,
         changes: event.changes.map(({ range, text }) => ({ range, text })),
         isDirty: model.isModified,
+        ...(event.isUndoing ? { isUndoing: true } : {}),
+        ...(event.isRedoing ? { isRedoing: true } : {}),
     };
 }
 

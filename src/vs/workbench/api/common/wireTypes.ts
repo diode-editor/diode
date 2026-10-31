@@ -124,6 +124,8 @@ export interface IWireDocumentChangedEvent {
     readonly version: number;
     readonly changes: readonly IWireDocumentContentChange[];
     readonly isDirty?: boolean;
+    readonly isUndoing?: boolean;
+    readonly isRedoing?: boolean;
 }
 
 /** One malformed change drops the whole batch: applied partially, it would corrupt the mirror. */
@@ -145,6 +147,8 @@ export function parseWireDocumentChangedEvent(raw: unknown): IWireDocumentChange
         version: obj.version,
         changes,
         ...(typeof obj.isDirty === "boolean" ? { isDirty: obj.isDirty } : {}),
+        ...(obj.isUndoing === true ? { isUndoing: true } : {}),
+        ...(obj.isRedoing === true ? { isRedoing: true } : {}),
     };
 }
 

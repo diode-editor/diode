@@ -19,6 +19,13 @@ describe("wireTypes — document sync", () => {
         );
     });
 
+    it("edits: undo and redo marks survive parsing, anything but true is dropped", () => {
+        const base = { uri: "file:///a.ts", version: 4, changes: [] };
+        expect(parseWireDocumentChangedEvent({ ...base, isUndoing: true })).toEqual({ ...base, isUndoing: true });
+        expect(parseWireDocumentChangedEvent({ ...base, isRedoing: true })).toEqual({ ...base, isRedoing: true });
+        expect(parseWireDocumentChangedEvent({ ...base, isUndoing: "yes", isRedoing: 1 })).toEqual(base);
+    });
+
     it("edits: a broken shape or one broken edit drops the whole batch", () => {
         const valid = { uri: "file:///a.ts", version: 1, changes: [{ range: RANGE, text: "x" }] };
         for (const raw of [

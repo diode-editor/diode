@@ -87,7 +87,7 @@ surface does not.
 | --- | :-: | --- |
 | `workspaceFolders`, `name` | ✅ | |
 | `textDocuments`, `openTextDocument` | ✅ | a file opens as a live model without a tab, listed in `textDocuments`: an edit makes it dirty and leaves the disk alone, `save` writes it, and it stays dirty until saved or reverted; a clean one is released after 3 minutes or beyond 50 documents / 80 MB, as in VS Code. Deviation: with `{ encoding }` a document not open yet is a one-off decoded read, not a live model; a document above the sync limit is too. `openTextDocument({ content, language })` creates an untitled buffer; `openTextDocument(untitled:-uri)` is not supported yet |
-| `onDidOpen/onDidClose/onDidChangeTextDocument` | ✅ | |
+| `onDidOpen/onDidClose/onDidChangeTextDocument` | ✅ | `reason`: `Undo`/`Redo` for edits from the undo stack |
 | `onWillSaveTextDocument`, `onDidSaveTextDocument` | ✅ | composed with `codeActionsOnSave` and `formatOnSave` |
 | `getConfiguration`, `onDidChangeConfiguration` | ✅ | layers default → user → workspace → folder; workspace settings live in `.diode/settings.json` (VS Code: `.vscode/settings.json`), a `.code-workspace` file's `settings` block is the workspace layer with `.diode/settings.json` of the folder on top; `inspect()` reports the layers. `update()` as in VS Code: targets, `undefined` removes the key, the new value is visible to `get()` when the promise resolves; refusals (unregistered key, empty window, `application`/`machine` scope into the workspace) reject with VS Code's messages. Deviation: `overrideInLanguage` (writing a language section) is rejected |
 | `asRelativePath` | ✅ | |
