@@ -214,6 +214,23 @@
         "window.visibleTextEditors",
         "workspace.openTextDocument"
     ],
+    "window vscode API - window default column when opening a file": [
+        "window.activeTextEditor",
+        "window.showTextDocument",
+        "workspace.openTextDocument"
+    ],
+    "window vscode API - window editor, assign and check view columns": [
+        "window.showTextDocument",
+        "workspace.openTextDocument"
+    ],
+    "window vscode API - window editor, onDidChangeTextEditorViewColumn (close editor)": [
+        "commands.executeCommand",
+        "window.activeTextEditor",
+        "window.onDidChangeTextEditorViewColumn",
+        "window.showTextDocument",
+        "workspace.openTextDocument",
+        "workspace.registerTextDocumentContentProvider"
+    ],
     "window vscode API - window editor, onDidChangeTextEditorViewColumn (move editor group)": [
         "commands.executeCommand",
         "window.activeTextEditor",
@@ -230,6 +247,20 @@
     "window vscode API - window editor, opened via resource": [
         "window.activeTextEditor",
         "window.showTextDocument"
+    ],
+    "window vscode API - window editor, opening multiple at the same time #134786": [
+        "window.showTextDocument",
+        "workspace.openTextDocument"
+    ],
+    "window vscode API - window editor, selection change kind": [
+        "window.onDidChangeTextEditorSelection",
+        "window.showTextDocument",
+        "workspace.openTextDocument"
+    ],
+    "window vscode API - window issue #27408 - showTextDocument & vscode.diff always default to ViewColumn.One": [
+        "window.activeTextEditor",
+        "window.showTextDocument",
+        "workspace.openTextDocument"
     ],
     "window vscode API - window showInputBox - '' on Enter": [
         "commands.executeCommand",
@@ -292,6 +323,16 @@
     ],
     "window vscode API - window showQuickPick, undefined on cancel": [
         "window.showQuickPick"
+    ],
+    "window vscode API - window showTextDocument ViewColumn is always defined (even when opening > ViewColumn.Nine)": [
+        "window.activeTextEditor",
+        "window.showTextDocument",
+        "workspace.openTextDocument"
+    ],
+    "window vscode API - window showTextDocument ViewColumn.BESIDE": [
+        "window.activeTextEditor",
+        "window.showTextDocument",
+        "workspace.openTextDocument"
     ],
     "workspace vscode API - workspace WorkspaceEdit api - after saving a deleted file, it still shows up as deleted. #42667": [
         "WorkspaceEdit",

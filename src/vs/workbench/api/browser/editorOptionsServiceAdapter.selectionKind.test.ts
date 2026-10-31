@@ -37,6 +37,7 @@ function liveGroup(): { group: IEditorService; move: (character: number) => void
         groups: [] as unknown[],
         getEditors: () => [] as unknown[],
         getActiveTabEditor: () => editor,
+        onDidChangeInactiveEditorSelection: () => ({ dispose: () => undefined }),
         onDidChangeActiveEditorSelection: (cb: (e: unknown) => void) => {
             const wrapped = (): void => {
                 cb(editor);
