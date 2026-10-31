@@ -136,10 +136,104 @@ describe("Workbench — untitled buffer under a resource", () => {
     });
 
     it("a resource with a host or a relative one is not checked against the disk; an empty one is refused", async () => {
-        await expect(
-            service().openUntitledDocument(Uri.parse("untitled://localhost/taken.txt")),
-        ).resolves.toBeDefined();
-        await expect(service().openUntitledDocument(Uri.parse("untitled:taken.txt"))).resolves.toBeDefined();
+        const taken = ws.path("taken.txt");
+        await expect(service().openUntitledDocument(Uri.parse(`untitled://localhost${taken}`))).resolves.toBeDefined();
+        await expect(service().openUntitledDocument(Uri.parse(`untitled:${taken.slice(1)}`))).resolves.toBeDefined();
+        await expect(service().openUntitledDocument(Uri.parse("untitled://localhost"))).resolves.toBeDefined();
         await expect(service().openUntitledDocument(Uri.parse("untitled:"))).rejects.toThrow(/Invalid uri/);
+    });
+
+    it("a new document over an existing file is refused, an already open one is not checked again", async () => {
+        const late = ws.path("late.txt");
+        await expect(service().openUntitledDocument(Uri.parse(`untitled:${ws.path("taken.txt")}`))).rejects.toThrow(
+            /file already exists/,
+        );
+
+        const uri = Uri.parse(`untitled:${late}`);
+        await service().openUntitledDocument(uri);
+        fs.writeFileSync(late, "theirs");
+
+        await expect(service().openUntitledDocument(uri)).resolves.toBeDefined();
+    });
+
+    it("createUntitled under a resource: not associated by default, and only an automatic name is marked dirty", () => {
+        service().createUntitled({ uri: Uri.parse("untitled:plain.txt") });
+        service().createUntitled();
+
+        const [named, automatic] = service().getUntitledModelsWithoutEditor();
+        expect(named.isModified).toBe(false);
+        expect(named.isDirtyForExtensions).toBe(false);
+        expect(automatic.isDirtyForExtensions).toBe(true);
+    });
+
+    it("a document without a tab, saved: the file is written, the document and its model are over", async () => {
+        const target = ws.path("no-tab.txt");
+        const uri = Uri.parse(`untitled:${target}`);
+        await service().openUntitledDocument(uri);
+        const [model] = service().getUntitledModelsWithoutEditor();
+        const dispose = vi.spyOn(model, "dispose");
+        const seen: number[] = [];
+        service().onDidChangeEditors(() => seen.push(service().getUntitledModelsWithoutEditor().length));
+
+        expect((await service().save(uri))?.toString()).toBe(Uri.file(target).toString());
+
+        expect(fs.existsSync(target)).toBe(true);
+        expect(seen.at(-1)).toBe(0);
+        expect(dispose).toHaveBeenCalledOnce();
+    });
+
+    it("tabs of one document in two groups share the model: it dies with the last of them", async () => {
+        const uri = service().createUntitled({ uri: Uri.parse("untitled:shared.txt") });
+        await service().openUri(uri);
+        const first = service().getActiveEditor();
+        if (first === null) throw new Error("no editor");
+        const dispose = vi.spyOn(first.model, "dispose");
+        await service().openUri(uri, { group: "beside" });
+        const [one, two] = service().editorGroups.groups;
+
+        await service().closeEditor(two, 0);
+        expect(dispose).not.toHaveBeenCalled();
+
+        await service().closeEditor(one, 0);
+        expect(dispose).toHaveBeenCalledOnce();
+    });
+
+    it("the active editor changes for extensions only when a save changed its resource", async () => {
+        const target = ws.path("active.txt");
+        await show(`untitled:${target}`);
+        service().openFile(ws.path("taken.txt"));
+        const seen: (string | undefined)[] = [];
+        service().onActiveEditorChanged((editor) => seen.push(editor?.uri.toString()));
+
+        // In the background: the buffer is not the active editor, however its resource changed.
+        await service().save(Uri.parse(`untitled:${target}`));
+        expect(seen).toEqual([]);
+
+        const active = service().getActiveEditor();
+        active?.applyExternalEdits(
+            [{ range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } }, text: "x" }],
+            "typed",
+        );
+        await service().save(Uri.file(ws.path("taken.txt")));
+        expect(seen).toEqual([]);
+
+        const shown = ws.path("shown.txt");
+        await show(`untitled:${shown}`);
+        seen.length = 0;
+        await service().save(Uri.parse(`untitled:${shown}`));
+        expect(seen).toEqual([Uri.file(shown).toString()]);
+    });
+
+    it("a file emptied by an edit stays modified: only an untitled buffer turns clean", () => {
+        service().openFile(ws.path("taken.txt"));
+        const editor = service().getActiveEditor();
+
+        editor?.applyExternalEdits(
+            [{ range: { start: { line: 0, character: 0 }, end: { line: 0, character: 6 } }, text: "" }],
+            "emptied",
+        );
+
+        expect(editor?.getText()).toBe("");
+        expect(editor?.isModified).toBe(true);
     });
 });

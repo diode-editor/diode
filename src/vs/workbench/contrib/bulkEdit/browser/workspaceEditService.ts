@@ -100,6 +100,7 @@ class ResourceProjection {
         if (live !== null) return Promise.resolve({ text: live, encoding: DEFAULT_PROJECTION_ENCODING });
         // A text edit brings an untitled resource to life (upstream resolves one from its uri): it starts empty.
         if (filePath.startsWith("untitled:")) {
+            // Stryker disable next-line StringLiteral: only the disk branch reads this text, and a foreign resource never gets there
             return Promise.resolve({ text: "", encoding: DEFAULT_PROJECTION_ENCODING });
         }
         // Not a path: nothing on disk answers for a foreign scheme.

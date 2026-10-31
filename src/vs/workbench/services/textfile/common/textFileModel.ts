@@ -323,6 +323,7 @@ export class TextFileModel extends BaseTextEditorModel {
         this.markedDirtyForExtensions = true;
         const subscription = this.doc.onDidChangeModelContent(() => {
             this.markedDirtyForExtensions = false;
+            // Stryker disable next-line CallExpression: only frees the listener early: the flag is down, a repeat changes nothing
             subscription.dispose();
         });
     }

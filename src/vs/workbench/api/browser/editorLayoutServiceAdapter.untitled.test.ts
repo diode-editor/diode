@@ -96,6 +96,28 @@ describe("EditorLayoutServiceAdapter — untitled document without a tab", () =>
         expect(log).toEqual([`change ${uri}`]);
     });
 
+    it("showTextDocument of an untitled uri creates its buffer: a name is clean, a path has something to save", async () => {
+        const shownDirty = async (uri: string): Promise<boolean | undefined> => {
+            await adapter.showTextDocument({ uri });
+            return service.editorGroups.activeGroup.activePane?.isModified;
+        };
+
+        expect(await shownDirty("untitled:Untitled-5")).toBe(false);
+        expect(await shownDirty("untitled:a")).toBe(false);
+        expect(await shownDirty("untitled:ab")).toBe(true);
+    });
+
+    it("showTextDocument of a file does not go through an untitled buffer", async () => {
+        const uri = Uri.file(ws.path("a.txt"));
+
+        await adapter.showTextDocument({ uri: uri.toString() });
+
+        expect(service.getUntitledModelsWithoutEditor()).toEqual([]);
+        const pane = service.editorGroups.activeGroup.activePane;
+        expect(isTextEditorPane(pane) && pane.getText()).toBe("a");
+        expect(pane?.isModified).toBe(false);
+    });
+
     it("showing again activates the already open tab instead of creating a second one", async () => {
         const { uri } = await adapter.createUntitledDocument({ content: "x" });
         await adapter.showTextDocument({ uri });

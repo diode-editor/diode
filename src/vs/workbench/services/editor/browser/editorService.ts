@@ -957,6 +957,7 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
     public createUntitled({ content, languageId, encoding, uri, associated = false }: IUntitledOptions = {}): Uri {
         const existing = uri === undefined ? undefined : this.findUntitledModel(uri);
         if (existing !== undefined) {
+            // Stryker disable next-line ConditionalExpression: equivalent: setEncoding skips an unknown (or missing) encoding anyway
             if (encoding !== undefined) existing.setEncoding(encoding);
             return existing.uri;
         }

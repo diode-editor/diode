@@ -76,6 +76,7 @@ export class EditorLayoutServiceAdapter extends Disposable implements IEditorLay
         this.groups.focusGroup(target.id, { focus: false });
         // Upstream `isUntitledWithAssociatedResource`: `Untitled-N` is a name, anything else a path to save to.
         if (uri.scheme === "untitled") {
+            // Stryker disable next-line Regex: the pattern is not anchored, `\d` and `\d+` match the same names
             this.editors.createUntitled({ uri, associated: uri.path.length > 1 && !/Untitled-\d+/.test(uri.path) });
         }
         // Await the open: a non-disk resource (`jdt:`) arrives from the scheme provider

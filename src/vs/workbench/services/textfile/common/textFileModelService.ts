@@ -135,6 +135,7 @@ export class TextFileModelService extends Disposable {
     }
 
     /** Bypasses the registry (unique by construction). Owned by the caller (a tab or a diff pane). */
+    // Stryker disable next-line ArrowFunction: equivalent: `undefined` ends the loop just like `false`
     public createUntitledModel(isTaken: (uri: Uri) => boolean = () => false): TextFileModel {
         const model = new TextFileModel(this.languageService, this.undoRedoService, this.files);
         this.wireModel(model);
