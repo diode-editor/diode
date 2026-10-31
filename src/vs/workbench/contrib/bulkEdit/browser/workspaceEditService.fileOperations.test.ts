@@ -201,6 +201,33 @@ describe("WorkspaceEditService — file operation participants [api:workspace.on
         expect(fs.existsSync(target)).toBe(true);
     });
 
+    it("a participant's edit that fails past validation is dropped whole, and the operation goes on", async () => {
+        const a = write("a.txt");
+        const b = write("b.txt");
+        const c = write("c.txt");
+        const { service } = makeService(
+            recordingParticipant([], (_operation, files) => {
+                if (files[0].target === uriOf(path.join(dir, "a2.txt"))) {
+                    return [
+                        { kind: "rename", from: b, to: path.join(dir, "b2.txt") },
+                        { kind: "rename", from: c, to: path.join(dir, "c2.txt") },
+                    ];
+                }
+                // The participant's own rename: its first file disappears after validation.
+                fs.rmSync(b);
+                return null;
+            }),
+        );
+
+        await expect(
+            service.applyWorkspaceEdit([{ kind: "rename", from: a, to: path.join(dir, "a2.txt") }], "t"),
+        ).resolves.toBe(true);
+
+        expect(fs.existsSync(c)).toBe(true);
+        expect(fs.existsSync(path.join(dir, "c2.txt"))).toBe(false);
+        expect(fs.existsSync(path.join(dir, "a2.txt"))).toBe(true);
+    });
+
     it("applies the participant's edit before the operation, in the same undo step", async () => {
         const log: Log = [];
         const other = write("other.txt", "BAR");
