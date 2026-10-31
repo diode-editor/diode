@@ -106,6 +106,7 @@ describe("ExtensionHost — window.createQuickPick through a real subprocess", (
             });
             testApp.sendKey("ArrowDown");
             testApp.sendKey("ArrowDown");
+            testApp.sendKey("ArrowDown");
             testApp.sendKey(" ");
             // The check mark travels as an event; Enter must find it already at the extension.
             await vi.waitFor(() => {

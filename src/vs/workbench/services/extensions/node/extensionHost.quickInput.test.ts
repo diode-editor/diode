@@ -67,6 +67,7 @@ function makeSink(): IStubSink {
         disposeQuickPick: (handle) => {
             disposedQuickPicks.push(handle);
         },
+        setQuickPickItems: () => undefined,
         showInputBox: (request) => {
             inputRequests.push(request);
             return new Promise((resolve) => {
@@ -238,6 +239,86 @@ describe("ExtensionHost — window.showQuickPick", () => {
         });
         sink.settlePick([1]);
         await expect(pending).resolves.toEqual({ indices: [1] });
+    });
+
+    it("the sink's selection reaches the extension as a notification of that prompt", async () => {
+        const sink = makeSink();
+        const showQuickPick = sink.showQuickPick;
+        let select!: (index: number) => void;
+        sink.showQuickPick = (request, onDidSelectItem) => {
+            select = onDidSelectItem;
+            return showQuickPick(request, onDidSelectItem);
+        };
+        const { peer } = makeHost(sink);
+        const seen: unknown[] = [];
+        peer.handleNotification("window.showQuickPick.didSelectItem", (params) => seen.push(params));
+        const pending = peer.request("window.showQuickPick", { handle: 4, items: [{ label: "a" }], picked: [] });
+        await flushMicrotasks();
+        select(0);
+        await flushMicrotasks();
+        expect(seen).toEqual([{ handle: 4, index: 0 }]);
+        sink.settlePick(undefined);
+        await pending;
+    });
+
+    it("a selection after the host was disposed is not sent", async () => {
+        const sink = makeSink();
+        const showQuickPick = sink.showQuickPick;
+        let select!: (index: number) => void;
+        sink.showQuickPick = (request, onDidSelectItem) => {
+            select = onDidSelectItem;
+            return showQuickPick(request, onDidSelectItem);
+        };
+        const { host, peer } = makeHost(sink);
+        const seen: unknown[] = [];
+        peer.handleNotification("window.showQuickPick.didSelectItem", (params) => seen.push(params));
+        void peer.request("window.showQuickPick", { handle: 4, items: [{ label: "a" }], picked: [] });
+        await flushMicrotasks();
+        host.dispose();
+        select(0);
+        await flushMicrotasks();
+        expect(seen).toEqual([]);
+    });
+
+    it("late items with no sink are dropped without an error", async () => {
+        const { peer, warnings } = makeHost();
+        peer.notify("window.showQuickPick.items", { handle: 3, items: [{ label: "a" }], picked: [] });
+        await flushMicrotasks();
+        expect(warnings).toEqual([]);
+    });
+
+    it("late items reach the sink parsed, with their preselection; garbage does not", async () => {
+        const sink = makeSink();
+        const late: unknown[] = [];
+        sink.setQuickPickItems = (items) => late.push(items);
+        const { peer } = makeHost(sink);
+        peer.notify("window.showQuickPick.items", {
+            handle: 3,
+            items: [{ label: "a" }, { label: "b" }],
+            picked: [1, 9],
+        });
+        peer.notify("window.showQuickPick.items", { handle: "x", items: [], picked: [] } as never);
+        await flushMicrotasks();
+        expect(late).toEqual([
+            {
+                handle: 3,
+                items: [
+                    { label: "a", description: undefined },
+                    { label: "b", description: undefined },
+                ],
+                picked: [1],
+            },
+        ]);
+    });
+
+    it("itemsPending survives parsing", async () => {
+        const sink = makeSink();
+        const { peer } = makeHost(sink);
+        const pending = peer.request("window.showQuickPick", { handle: 5, items: [], picked: [], itemsPending: true });
+        await flushMicrotasks();
+        expect(sink.pickRequests[0].itemsPending).toBe(true);
+        sink.settlePick(undefined);
+        await pending;
     });
 
     it("cancel answers null, an empty selection answers an empty array", async () => {

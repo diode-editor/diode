@@ -3,9 +3,17 @@ import { describe, expect, it } from "vitest";
 import {
     parseWireInputBoxRequest,
     parseWireQuickInputCancel,
+    parseWireQuickPickItems,
     parseWireQuickPickRequest,
     parseWireValidationMessage,
 } from "./hostWireParsers.ts";
+
+describe("parseWireQuickPickItems", () => {
+    it("garbage gives null", () => {
+        expect(parseWireQuickPickItems(null)).toBeNull();
+        expect(parseWireQuickPickItems({ items: [] })).toBeNull();
+    });
+});
 
 describe("parseWireInputBoxRequest", () => {
     it("parses a full request", () => {

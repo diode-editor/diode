@@ -50,6 +50,7 @@ import {
     type IWireProgressStart,
     type IWireProviderHandle,
     type IWireQuickPickItem,
+    type IWireQuickPickItems,
     type IWireQuickPickRequest,
     type IWireQuickPickSessionItem,
     type IWireQuickPickUpdate,
@@ -762,7 +763,14 @@ export function parseWireQuickPickRequest(raw: unknown): IWireQuickPickRequest |
         // Preselection makes no sense without multi-select, so clear it here
         // so that downstream code doesn't have to remember this pair.
         picked: canPickMany ? picked : [],
+        ...(p.itemsPending === true ? { itemsPending: true } : {}),
     };
+}
+
+/** A multi-select's preselection travels here; for a single pick the extension sends an empty one. */
+export function parseWireQuickPickItems(raw: unknown): IWireQuickPickItems | null {
+    const request = parseWireQuickPickRequest({ ...(raw as object | null), canPickMany: true });
+    return request === null ? null : { handle: request.handle, items: request.items, picked: request.picked };
 }
 
 export function parseWireQuickInputCancel(raw: unknown): number | null {

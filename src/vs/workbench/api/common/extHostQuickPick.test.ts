@@ -4,7 +4,7 @@ import type * as vscode from "vscode";
 import { ExtHostQuickPick } from "./extHostQuickPick.ts";
 import { createQuickInputApi } from "./quickInputNamespace.ts";
 import { makeStubRpc } from "./testStubRpc.ts";
-import { QuickPickItemKind } from "./vscodeTypes.ts";
+import { QuickPickItemKind, Uri } from "./vscodeTypes.ts";
 
 interface IValueItem extends vscode.QuickPickItem {
     readonly value?: string;
@@ -326,6 +326,14 @@ describe("ExtHostQuickPick: host events", () => {
         never.pick.onDidHide(() => neverHides++);
         never.pick.dispose();
         expect(neverHides).toBe(0);
+    });
+
+    it("without a relative-path function the full path describes an item with a resourceUri", () => {
+        const stub = makeStubRpc();
+        const pick = new ExtHostQuickPick<IValueItem>(stub.rpc, 1, () => undefined);
+        pick.items = [{ label: "own", resourceUri: Uri.file("/w/a.ts") as unknown as vscode.Uri }];
+        pick.show();
+        expect(stub.notifies.at(-1)?.params).toMatchObject({ items: [{ label: "own", description: "/w/a.ts" }] });
     });
 
     it("after dispose subscribers are unsubscribed: no event reaches them", () => {

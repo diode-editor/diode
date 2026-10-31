@@ -1188,14 +1188,14 @@ describe("QuickOpenService — recent files navigation", () => {
         expect(keys()).toEqual([false, false]);
     });
 
-    it("another session on the shared widget (a QuickInputService prompt) is not Quick Open", () => {
+    it("another session on the shared widget (a QuickInputService prompt) is in quick open, as upstream, but not the files picker", () => {
         const { service, component, contextKeys } = createService([], [], history);
 
         component.show();
         service.updateContextKeys(contextKeys);
 
         expect(component.isOpen()).toBe(true);
-        expect(contextKeys.get("inQuickOpen")).toBe(false);
+        expect(contextKeys.get("inQuickOpen")).toBe(true);
         expect(contextKeys.get("inFilesPicker")).toBe(false);
     });
 

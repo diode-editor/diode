@@ -3,6 +3,7 @@ import { BodyElement } from "@tuidom/elements/body/bodyElement";
 import { describe, expect, it } from "vitest";
 
 import { TestApp } from "../../../../TestUtils/TestApp.ts";
+import { flushMicrotasks } from "../../../../TestUtils/timing.ts";
 import { QuickInputComponent } from "../../browser/parts/quickinput/quickInputComponent.ts";
 import { QuickInputService } from "../../browser/parts/quickinput/quickInputService.ts";
 import type { IWireQuickPickEvent, IWireQuickPickRequest } from "../common/wireTypes.ts";
@@ -180,12 +181,99 @@ describe("QuickInputExtensionAdapter.showQuickPick", () => {
         const pending = adapter.showQuickPick(pickRequest({ canPickMany: true }));
         testApp.sendKey("ArrowDown");
         testApp.sendKey("ArrowDown");
+        testApp.sendKey("ArrowDown");
         testApp.sendKey(" ");
         testApp.sendKey("ArrowUp");
         testApp.sendKey("ArrowUp");
         testApp.sendKey(" ");
         testApp.sendKey("Enter");
         await expect(pending).resolves.toEqual([0, 2]);
+    });
+
+    it("onDidSelectItem reports the active row on open and on a real move, not again on filtering", async () => {
+        const { adapter, testApp } = createAdapter();
+        const seen: number[] = [];
+        const pending = adapter.showQuickPick(pickRequest(), (index) => seen.push(index));
+        expect(seen).toEqual([0]);
+        testApp.sendKey("ArrowDown");
+        expect(seen).toEqual([0, 1]);
+        testApp.sendKey("b");
+        expect(seen).toEqual([0, 1]);
+        testApp.sendKey("Enter");
+        await expect(pending).resolves.toEqual([1]);
+    });
+
+    it("in a multi-select onDidSelectItem stays silent until the first step", async () => {
+        const { adapter, testApp } = createAdapter();
+        const seen: number[] = [];
+        const pending = adapter.showQuickPick(pickRequest({ canPickMany: true }), (index) => seen.push(index));
+        expect(seen).toEqual([]);
+        testApp.sendKey("ArrowDown");
+        expect(seen).toEqual([0]);
+        testApp.sendKey("Enter");
+        await expect(pending).resolves.toEqual([]);
+    });
+
+    it("late items: the reply indexes them, and they are forgotten with the show", async () => {
+        const { adapter, service, testApp } = createAdapter();
+        const seen: number[] = [];
+        const pending = adapter.showQuickPick(pickRequest({ items: [], itemsPending: true }), (index) =>
+            seen.push(index),
+        );
+        expect(seen).toEqual([]);
+        adapter.setQuickPickItems({ handle: 1, items: [{ label: "one" }, { label: "two" }], picked: [] });
+        await Promise.resolve();
+        await Promise.resolve();
+        await Promise.resolve();
+        expect(seen).toEqual([0]);
+        testApp.sendKey("ArrowDown");
+        testApp.sendKey("Enter");
+        await expect(pending).resolves.toEqual([1]);
+
+        const again = adapter.showQuickPick(pickRequest({ handle: 2, items: [], itemsPending: true }));
+        service.closeOpen();
+        await expect(again).resolves.toBeUndefined();
+        adapter.setQuickPickItems({ handle: 2, items: [{ label: "late" }], picked: [] });
+    });
+
+    it("late items bring their preselection", async () => {
+        const { adapter, testApp } = createAdapter();
+        const pending = adapter.showQuickPick(pickRequest({ canPickMany: true, items: [], itemsPending: true }));
+        adapter.setQuickPickItems({ handle: 1, items: [{ label: "one" }, { label: "two" }], picked: [1] });
+        await flushMicrotasks();
+        testApp.sendKey("Enter");
+        await expect(pending).resolves.toEqual([1]);
+    });
+
+    it("a second batch for the same show is ignored: the reply still indexes the first", async () => {
+        const { adapter, testApp } = createAdapter();
+        const pending = adapter.showQuickPick(pickRequest({ items: [], itemsPending: true }));
+        adapter.setQuickPickItems({ handle: 1, items: [{ label: "one" }, { label: "two" }], picked: [] });
+        adapter.setQuickPickItems({ handle: 1, items: [{ label: "other" }], picked: [] });
+        await flushMicrotasks();
+        testApp.sendKey("ArrowDown");
+        testApp.sendKey("Enter");
+        await expect(pending).resolves.toEqual([1]);
+    });
+
+    it("items for a show that announced none are ignored", async () => {
+        const { adapter, component, testApp } = createAdapter();
+        const pending = adapter.showQuickPick(pickRequest());
+        adapter.setQuickPickItems({ handle: 1, items: [{ label: "stray" }], picked: [] });
+        await flushMicrotasks();
+        expect(component.view.inspectState()).toMatchObject({ items: ["alpha", "beta", "gamma"] });
+        testApp.sendKey("Escape");
+        await pending;
+    });
+
+    it("filtering every row away reports nothing to onDidSelectItem", async () => {
+        const { adapter, testApp } = createAdapter();
+        const seen: number[] = [];
+        const pending = adapter.showQuickPick(pickRequest(), (index) => seen.push(index));
+        testApp.sendKey("z");
+        expect(seen).toEqual([0]);
+        testApp.sendKey("Escape");
+        await pending;
     });
 
     it("pre-picked indices open already checked", async () => {
@@ -340,6 +428,23 @@ describe("QuickInputExtensionAdapter: object picker", () => {
             { handle: 5, kind: "changeSelection", items: [2] },
             { handle: 5, kind: "accept" },
             { handle: 5, kind: "hide" },
+        ]);
+    });
+
+    it("activeItems and selectedItems set by the extension come back as events, as upstream", () => {
+        const { adapter, events, emit } = objectPick();
+        const items = [
+            { handle: 0, label: "Alpha" },
+            { handle: 2, label: "Gamma" },
+        ];
+        adapter.updateQuickPick({ handle: 5, visible: true, items }, emit);
+        events.length = 0;
+        adapter.updateQuickPick({ handle: 5, activeItems: [2] }, emit);
+        adapter.updateQuickPick({ handle: 5, selectedItems: [0] }, emit);
+        expect(events).toEqual([
+            { handle: 5, kind: "changeActive", items: [2] },
+            { handle: 5, kind: "changeSelection", items: [0] },
+            { handle: 5, kind: "accept" },
         ]);
     });
 

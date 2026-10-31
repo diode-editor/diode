@@ -162,6 +162,7 @@ describe("QuickPickElement — Space in multi-select", () => {
         picker.canPickMany = true;
         picker.items = ITEMS;
         key(picker, "ArrowDown");
+        key(picker, "ArrowDown");
         key(picker, " ");
         expect(picker.selectedIndex).toBe(1);
         expect([...picker.checkedItems]).toEqual([ITEMS[1]]);
@@ -303,7 +304,7 @@ describe("QuickPickElement — rebuilding rows keeps the screen in place", () =>
         picker.canPickMany = true;
         picker.items = longList();
         render(picker, 30);
-        for (let i = 0; i < 20; i++) key(picker, "ArrowDown");
+        for (let i = 0; i < 21; i++) key(picker, "ArrowDown");
         const scrolledIndex = picker.selectedIndex;
         expect(scrolledIndex).toBe(20);
 
@@ -318,6 +319,7 @@ describe("QuickPickElement — rebuilding rows keeps the screen in place", () =>
         const picker = makePicker();
         picker.canPickMany = true;
         picker.items = ITEMS;
+        key(picker, "ArrowDown");
         const onActive = vi.fn();
         picker.onActiveItemChanged = onActive;
         key(picker, " ");

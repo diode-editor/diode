@@ -182,6 +182,115 @@ describe("QuickPickSession — input", () => {
     });
 });
 
+describe("QuickPickSession — owner changes echoed, as for an extension", () => {
+    function echoing() {
+        const component = new QuickInputComponent();
+        const service = new QuickInputService(component);
+        const body = new BodyElement();
+        const testApp = TestApp.create(body, new Size(80, 24));
+        component.attachHost(body);
+        const log: Logged[] = [];
+        const labels = (items: readonly QuickPickSessionItem[]): string[] => items.map((item) => item.label);
+        const pick = service.createQuickPick<QuickPickSessionItem>(
+            {
+                onDidChangeValue: (value) => log.push(["value", value]),
+                onDidAccept: () => log.push(["accept"]),
+                onDidChangeActive: (items) => log.push(["active", labels(items)]),
+                onDidChangeSelection: (items) => log.push(["selection", labels(items)]),
+                onDidHide: () => log.push(["hide"]),
+            },
+            { echoOwnerChanges: true },
+        );
+        return { pick, log, testApp };
+    }
+
+    it("activeItems set before show come back on show", () => {
+        const { pick, log } = echoing();
+        pick.update({ items: FRUITS, activeItems: [FRUITS[1]] });
+        expect(log).toEqual([]);
+        pick.show();
+        expect(log).toEqual([["active", ["banana"]]]);
+    });
+
+    it("selectedItems set while open give a selection and an accept, the active row stays", () => {
+        const { pick, log } = echoing();
+        pick.update({ items: FRUITS });
+        pick.show();
+        log.length = 0;
+        pick.update({ selectedItems: [FRUITS[1]] });
+        pick.update({ selectedItems: [FRUITS[2]] });
+        expect(log).toEqual([["selection", ["banana"]], ["accept"], ["selection", ["cherry"]], ["accept"]]);
+        expect(pick.getState().activeItems).toEqual([FRUITS[0]]);
+    });
+
+    it("selectedItems set before show are confirmed on show", () => {
+        const { pick, log } = echoing();
+        pick.update({ items: FRUITS, selectedItems: [FRUITS[2]] });
+        pick.show();
+        expect(log).toEqual([["active", ["apple"]], ["selection", ["cherry"]], ["accept"]]);
+    });
+
+    it("in a multi-select they are checks: a selection without an accept, and no active row", () => {
+        const { pick, log } = echoing();
+        pick.update({ items: FRUITS, canSelectMany: true });
+        pick.show();
+        expect(log).toEqual([]);
+        pick.update({ selectedItems: [FRUITS[1]] });
+        expect(log).toEqual([["selection", ["banana"]]]);
+    });
+
+    it("activeItems set while open come back too", () => {
+        const { pick, log } = echoing();
+        pick.update({ items: FRUITS });
+        pick.show();
+        pick.update({ activeItems: [FRUITS[2]] });
+        expect(log.at(-1)).toEqual(["active", ["cherry"]]);
+    });
+
+    it("what was set before a show is confirmed once: the next show stays silent about it", () => {
+        const { pick, log } = echoing();
+        pick.update({ items: FRUITS, activeItems: [FRUITS[1]], selectedItems: [FRUITS[2]] });
+        pick.show();
+        pick.hide();
+        log.length = 0;
+        pick.show();
+        expect(log).toEqual([]);
+    });
+
+    it("an empty selection is reported, but accepts nothing", () => {
+        const { pick, log } = echoing();
+        pick.update({ items: FRUITS });
+        pick.show();
+        log.length = 0;
+        pick.update({ selectedItems: [] });
+        expect(log).toEqual([["selection", []]]);
+    });
+
+    it("an owner that hides on the selection gets no accept", () => {
+        const component = new QuickInputComponent();
+        const service = new QuickInputService(component);
+        component.attachHost(new BodyElement());
+        const log: string[] = [];
+        const pick = service.createQuickPick<QuickPickSessionItem>(
+            {
+                onDidChangeValue: () => undefined,
+                onDidAccept: () => log.push("accept"),
+                onDidChangeActive: () => undefined,
+                onDidChangeSelection: () => {
+                    log.push("selection");
+                    pick.hide();
+                },
+                onDidHide: () => log.push("hide"),
+            },
+            { echoOwnerChanges: true },
+        );
+        pick.update({ items: FRUITS });
+        pick.show();
+        pick.update({ selectedItems: [FRUITS[1]] });
+        expect(log).toEqual(["selection", "hide"]);
+    });
+});
+
 describe("QuickPickSession — multi-select", () => {
     it("Space toggles a check and reports the set in list order; Enter accepts", () => {
         const { pick, view, testApp, log } = setup();
@@ -189,6 +298,7 @@ describe("QuickPickSession — multi-select", () => {
         pick.show();
         log.length = 0;
 
+        testApp.sendKey("ArrowDown");
         testApp.sendKey("ArrowDown");
         testApp.sendKey("ArrowDown");
         testApp.sendKey(" ");
@@ -325,6 +435,7 @@ describe("QuickPickSession — targeted updates of an open picker", () => {
             selectedItems: [FRUITS[0]],
         });
         pick.show();
+        testApp.sendKey("ArrowDown");
         testApp.sendKey("ArrowDown");
         log.length = 0;
 
@@ -544,6 +655,7 @@ describe("QuickPickSession — shared widget after another flavor", () => {
 
         pick.hide();
         const many = service.quickPickMany({ items: FRUITS });
+        testApp.sendKey("ArrowDown");
         testApp.sendKey("ArrowDown");
         testApp.sendKey("ArrowDown");
         expect(view()).toMatchObject({ activeIndex: 2 });

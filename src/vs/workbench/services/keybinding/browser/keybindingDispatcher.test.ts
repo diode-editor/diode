@@ -316,6 +316,34 @@ describe("KeybindingDispatcher — modal overlays", () => {
         expect(h.executed).toEqual([]);
     });
 
+    it("a user's binding on a quick input command reaches the overlay without a when", () => {
+        const h = createHarness();
+        h.bind("ctrl+j", "workbench.action.quickOpenSelectNext");
+        h.dispatcher.hasKeyboardCapturingOverlay = () => true;
+        h.contextKeys.set("inQuickOpen", true);
+        h.contextKeys.set("inputWidgetFocus", true);
+
+        expect(h.dispatcher.dispatchKeyDown(keyDown({ key: "j", ctrlKey: true }))).toBe(true);
+        expect(h.executed).toEqual(["workbench.action.quickOpenSelectNext"]);
+    });
+
+    it("that binding is swallowed when another overlay holds the keyboard or no quick input is open", () => {
+        const h = createHarness();
+        h.bind("ctrl+j", "workbench.action.quickOpenSelectNext");
+        h.dispatcher.hasKeyboardCapturingOverlay = () => true;
+
+        // A modal dialog over the picker: the focus is on its button.
+        h.contextKeys.set("inQuickOpen", true);
+        h.contextKeys.set("inputWidgetFocus", false);
+        expect(h.dispatcher.dispatchKeyDown(keyDown({ key: "j", ctrlKey: true }))).toBe(false);
+
+        // Some other input overlay, with no quick input open.
+        h.contextKeys.set("inQuickOpen", false);
+        h.contextKeys.set("inputWidgetFocus", true);
+        expect(h.dispatcher.dispatchKeyDown(keyDown({ key: "j", ctrlKey: true }))).toBe(false);
+        expect(h.executed).toEqual([]);
+    });
+
     it("lets a focus-scoped command (when with inputWidgetFocus) through with an overlay open", () => {
         const h = createHarness();
         h.bind("ctrl+c", "test.inputCopy", "inputWidgetFocus");

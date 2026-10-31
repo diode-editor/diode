@@ -6,7 +6,14 @@
             "openEditors.closeEditor",
             "workbench.action.quickOpenPreviousEditor",
             "workbench.action.quickOpenNavigateNextInFilePicker",
-            "workbench.action.quickOpenNavigatePreviousInFilePicker"
+            "workbench.action.quickOpenNavigatePreviousInFilePicker",
+            "workbench.action.closeQuickOpen",
+            "workbench.action.acceptSelectedQuickOpenItem",
+            "workbench.action.alternativeAcceptSelectedQuickOpenItem",
+            "workbench.action.focusQuickOpen",
+            "workbench.action.quickPickManyToggle",
+            "workbench.action.quickInputBack",
+            "workbench.action.quickOpenWithModes"
         ]
     },
     "EditorContext": {

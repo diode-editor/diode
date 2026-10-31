@@ -3,7 +3,13 @@ import { describe, expect, it } from "vitest";
 import type { ServiceAccessor } from "../../../../platform/instantiation/common/diContainer.ts";
 import { parseChord, parseKeybinding } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 
-import { gotoLineAction, quickOpenAction, showAllEditorsAction, showCommandsAction } from "./quickOpenActions.ts";
+import {
+    gotoLineAction,
+    QUICK_ACCESS_ACTIONS,
+    quickOpenAction,
+    showAllEditorsAction,
+    showCommandsAction,
+} from "./quickOpenActions.ts";
 import type { QuickOpenService } from "./quickOpenService.ts";
 import { QuickOpenServiceDIToken } from "./quickOpenService.ts";
 
@@ -63,6 +69,64 @@ describe("quick open actions — prefill argument", () => {
         showAllEditorsAction.run(accessor);
         showAllEditorsAction.run(accessor, "index");
         expect(shown).toEqual(["edt ", "edt index"]);
+    });
+});
+
+describe("quick input commands, as upstream quickAccessActions.ts", () => {
+    function serviceAccessor() {
+        const calls: string[] = [];
+        const service = new Proxy(
+            {},
+            {
+                get:
+                    (_target, name: string) =>
+                    (...args: unknown[]) => {
+                        calls.push([name, ...args].join(" "));
+                    },
+            },
+        );
+        const accessor: ServiceAccessor = { get: () => service as never };
+        return { accessor, calls };
+    }
+
+    it("each one drives the open quick input", () => {
+        const { accessor, calls } = serviceAccessor();
+        const run = (id: string): void => {
+            const action = QUICK_ACCESS_ACTIONS.find((candidate) => candidate.id === `workbench.action.${id}`);
+            void action?.run(accessor);
+        };
+        run("closeQuickOpen");
+        run("acceptSelectedQuickOpenItem");
+        run("alternativeAcceptSelectedQuickOpenItem");
+        run("focusQuickOpen");
+        run("quickPickManyToggle");
+        run("quickInputBack");
+        run("quickOpenNavigateNext");
+        run("quickOpenNavigatePrevious");
+        run("quickOpenSelectNext");
+        run("quickOpenSelectPrevious");
+        run("quickOpenWithModes");
+        expect(calls).toEqual([
+            "closeOpen",
+            "acceptOpen",
+            "acceptOpen",
+            "focusOpen",
+            "toggleOpen",
+            "navigateOpen true",
+            "navigateOpen false",
+            "navigateOpen true",
+            "navigateOpen false",
+            "show",
+        ]);
+    });
+
+    it("the file's commands that upstream leaves out of the palette are hidden there, the navigation ones are not", () => {
+        const inPalette = (id: string): boolean =>
+            QUICK_ACCESS_ACTIONS.find((action) => action.id === id)?.menus === undefined;
+        expect(inPalette("workbench.action.quickOpenSelectNext")).toBe(true);
+        expect(inPalette("workbench.action.quickOpenNavigatePrevious")).toBe(true);
+        expect(inPalette("workbench.action.closeQuickOpen")).toBe(false);
+        expect(inPalette("workbench.action.acceptSelectedQuickOpenItem")).toBe(false);
     });
 });
 

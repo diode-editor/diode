@@ -80,10 +80,19 @@ export class QuickPickSession<T extends QuickPickSessionItem> {
     /** `null` while hidden. */
     private view: QuickPickElement | null = null;
     private disposed = false;
+    /** Owner changes made while hidden: upstream applies them, and so reports them, on show. */
+    private activeToConfirm = false;
+    private selectionToConfirm = false;
 
+    /**
+     * `echoOwnerChanges`: upstream's event contract for extensions, where `activeItems` and `selectedItems`
+     * set by the owner come back as events and a single selection also accepts. Off for the file dialog,
+     * which reads `onDidChangeActive` as "the user moved the highlight".
+     */
     public constructor(
         private readonly slot: IQuickInputSlot,
         private readonly events: QuickPickSessionEvents<T>,
+        private readonly echoOwnerChanges = false,
     ) {}
 
     public get visible(): boolean {
@@ -105,7 +114,11 @@ export class QuickPickSession<T extends QuickPickSessionItem> {
         const valueChanged = "value" in changes && changes.value !== previous.value;
         if (valueChanged) this.events.onDidChangeValue(this.state.value);
         const view = this.view;
-        if (view === null) return;
+        if (view === null) {
+            this.activeToConfirm ||= this.echoOwnerChanges && "activeItems" in changes;
+            this.selectionToConfirm ||= this.echoOwnerChanges && "selectedItems" in changes;
+            return;
+        }
         this.paintChrome(view);
         // Stryker disable next-line ConditionalExpression: without a value change the state holds exactly what's already in the query line (user typing is stored there too, via `onQueryChange`), and rewriting the same text changes nothing
         if (valueChanged) view.setQuery(this.state.value);
@@ -131,6 +144,9 @@ export class QuickPickSession<T extends QuickPickSessionItem> {
         if (activeMayHaveMoved) this.notifyActive(view);
         // Stryker disable next-line CallExpression: without marking dirty, layout won't rerun, and layout is what wraps the prompt and message — observable only in the live app (TestApp lays out every frame unconditionally); the gate is the quick-input e2e scenario (frame create-quick-pick-filtered)
         view.markDirty();
+        if (!this.echoOwnerChanges) return;
+        if (ownerMovedActive) this.notifyActive(view, true);
+        if ("selectedItems" in changes) this.confirmSelection(view);
     }
 
     /** No-op if already visible or disposed. */
@@ -143,6 +159,10 @@ export class QuickPickSession<T extends QuickPickSessionItem> {
         this.view = view;
         this.configure(view);
         this.slot.open();
+        if (this.selectionToConfirm) {
+            this.selectionToConfirm = false;
+            this.confirmSelection(view);
+        }
     }
 
     /** `onDidHide` arrives through the same path as for Escape. */
@@ -198,7 +218,15 @@ export class QuickPickSession<T extends QuickPickSessionItem> {
         this.applyValueSelection(view);
         this.fillList(view, false);
         if (this.state.activeItems.length > 0) this.applyActive(view);
-        this.notifyActive(view);
+        this.notifyActive(view, this.activeToConfirm);
+        this.activeToConfirm = false;
+    }
+
+    /** Upstream `onDidChangeSelection` of a selection set by the owner: a single one also accepts. */
+    private confirmSelection(view: QuickPickElement): void {
+        const selected = this.state.selectedItems;
+        this.events.onDidChangeSelection(selected);
+        if (!this.state.canSelectMany && selected.length > 0 && this.view === view) this.events.onDidAccept();
     }
 
     private applyValueSelection(view: QuickPickElement): void {
@@ -255,11 +283,11 @@ export class QuickPickSession<T extends QuickPickSessionItem> {
         if (index >= 0) view.setActiveIndex(index);
     }
 
-    private notifyActive(view: QuickPickElement): void {
+    private notifyActive(view: QuickPickElement, confirm = false): void {
         const index = view.selectedIndex;
         const active = index < 0 ? undefined : (view.items.at(index) as T | undefined);
         // Fire only on a real change, as upstream.
-        if (active === this.state.activeItems.at(0)) return;
+        if (!confirm && active === this.state.activeItems.at(0)) return;
         const items = active === undefined ? [] : [active];
         this.state = { ...this.state, activeItems: items };
         this.events.onDidChangeActive(items);

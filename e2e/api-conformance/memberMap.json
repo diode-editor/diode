@@ -39,7 +39,15 @@
         "languages.setTextDocumentLanguage",
         "workspace.openTextDocument"
     ],
+    "quickInput vscode API - quick input createQuickPick, continue after first accept": [
+        "commands.executeCommand",
+        "window.createQuickPick"
+    ],
     "quickInput vscode API - quick input createQuickPick, dispose in onDidHide": [
+        "window.createQuickPick"
+    ],
+    "quickInput vscode API - quick input createQuickPick, focus second": [
+        "commands.executeCommand",
         "window.createQuickPick"
     ],
     "quickInput vscode API - quick input createQuickPick, hide and dispose": [
@@ -49,6 +57,25 @@
         "window.createQuickPick"
     ],
     "quickInput vscode API - quick input createQuickPick, hide show hide": [
+        "window.createQuickPick"
+    ],
+    "quickInput vscode API - quick input createQuickPick, match item by description derived from resourceUri": [
+        "commands.executeCommand",
+        "window.createQuickPick"
+    ],
+    "quickInput vscode API - quick input createQuickPick, match item by label derived from resourceUri": [
+        "commands.executeCommand",
+        "window.createQuickPick"
+    ],
+    "quickInput vscode API - quick input createQuickPick, select first and second": [
+        "commands.executeCommand",
+        "window.createQuickPick"
+    ],
+    "quickInput vscode API - quick input createQuickPick, select second": [
+        "commands.executeCommand",
+        "window.createQuickPick"
+    ],
+    "quickInput vscode API - quick input createQuickPick, selection events": [
         "window.createQuickPick"
     ],
     "readonlyFileSystem vscode API - file system readonly file system - boolean": [
@@ -147,6 +174,10 @@
     "window vscode API - window #7013 - input without options": [
         "window.showInputBox"
     ],
+    "window vscode API - window Default value for showInput Box not accepted when it fails validateInput, reversing #33691": [
+        "commands.executeCommand",
+        "window.showInputBox"
+    ],
     "window vscode API - window Tabs - ensure active tab is correct": [
         "commands.executeCommand",
         "window.showTextDocument",
@@ -183,8 +214,39 @@
         "window.activeTextEditor",
         "window.showTextDocument"
     ],
+    "window vscode API - window showInputBox - '' on Enter": [
+        "commands.executeCommand",
+        "window.showInputBox"
+    ],
+    "window vscode API - window showInputBox - `undefined` on Esc": [
+        "commands.executeCommand",
+        "window.showInputBox"
+    ],
+    "window vscode API - window showInputBox - `undefined` on Esc (despite default)": [
+        "commands.executeCommand",
+        "window.showInputBox"
+    ],
     "window vscode API - window showInputBox - cancel early": [
         "window.showInputBox"
+    ],
+    "window vscode API - window showInputBox - default value on Enter": [
+        "commands.executeCommand",
+        "window.showInputBox"
+    ],
+    "window vscode API - window showInputBox - undefined on cancel": [
+        "window.showInputBox"
+    ],
+    "window vscode API - window showInputBox - value not empty on second try": [
+        "commands.executeCommand",
+        "window.showInputBox"
+    ],
+    "window vscode API - window showQuickPick, accept first": [
+        "commands.executeCommand",
+        "window.showQuickPick"
+    ],
+    "window vscode API - window showQuickPick, accept second": [
+        "commands.executeCommand",
+        "window.showQuickPick"
     ],
     "window vscode API - window showQuickPick, cancel early": [
         "window.showQuickPick"
@@ -192,7 +254,23 @@
     "window vscode API - window showQuickPick, canceled by another picker": [
         "window.showQuickPick"
     ],
+    "window vscode API - window showQuickPick, canceled by input": [
+        "window.showInputBox",
+        "window.showQuickPick"
+    ],
+    "window vscode API - window showQuickPick, keep selection (microsoft/vscode-azure-account#67)": [
+        "commands.executeCommand",
+        "window.showQuickPick"
+    ],
     "window vscode API - window showQuickPick, native promise - #11754": [
+        "window.showQuickPick"
+    ],
+    "window vscode API - window showQuickPick, never resolve promise and cancel - #22453": [
+        "commands.executeCommand",
+        "window.showQuickPick"
+    ],
+    "window vscode API - window showQuickPick, select first two": [
+        "commands.executeCommand",
         "window.showQuickPick"
     ],
     "window vscode API - window showQuickPick, undefined on cancel": [
