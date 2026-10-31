@@ -3,7 +3,7 @@ import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { findTextCell, frameToText } from "../helpers/frame.ts";
+import { findTextCell } from "../helpers/frame.ts";
 import { waitUntil } from "../helpers/waitFor.ts";
 
 import { defineScenario } from "./framework.ts";
@@ -13,11 +13,12 @@ import { defineScenario } from "./framework.ts";
 
 const require_ = createRequire(import.meta.url);
 const sampleDir = mkdtempSync(join(tmpdir(), "diode-rename-imports-demo-"));
+const UNDERCURL = 8;
 const OLD_NAME = "helper.ts";
 const NEW_NAME = "greeter.ts";
 mkdirSync(join(sampleDir, "src"));
 const mainFile = join(sampleDir, "src", "main.ts");
-writeFileSync(mainFile, 'import { greet } from "./helper";\n\ngreet();\n');
+writeFileSync(mainFile, 'import { greet } from "./helper";\n\ngreet(1);\n');
 writeFileSync(join(sampleDir, "src", OLD_NAME), "export function greet(): void {}\n");
 writeFileSync(
     join(sampleDir, "tsconfig.json"),
@@ -45,25 +46,15 @@ export default defineScenario({
         await editor.waitForText((t) => t.includes('"./helper"') && t.includes("TypeScript"), { timeoutMs: 30000 });
         await editor.capture("before");
 
-        // A definition answered means the client is up and the server has the project; an empty answer changes nothing.
-        await clickOn("greet();");
+        // The squiggle under the bad call means the server has the project. Not a repeated F12: before that the server
+        // answers with the import line, and F12 on a target under the caret opens References instead of jumping.
         await waitUntil(
-            async () => {
-                await editor.sendKey("F12");
-                return editor.captureFrame();
-            },
-            (frame) => frameToText(frame).includes("export function greet"),
-            { timeoutMs: 60000 },
+            () => editor.captureFrame(),
+            (frame) => frame.cells.some((cell) => (cell.style & UNDERCURL) !== 0),
+            { describe: "undercurl squiggle from tsserver", timeoutMs: 60000, intervalMs: 500 },
         );
-        await clickOn("main.ts");
-        await editor.waitForText((t) => t.includes('"./helper"'));
 
-        // After F12 the name is in the tab bar too, which comes first in the frame: the tree row is the last match.
-        const frame = await editor.captureFrame();
-        const rows = frameToText(frame).split("\n");
-        const row = rows.findLastIndex((line) => line.includes(OLD_NAME));
-        if (row < 0) throw new Error(`"${OLD_NAME}" is not on the screen`);
-        await editor.click(rows[row].indexOf(OLD_NAME) + 1, row);
+        await clickOn(OLD_NAME);
         await editor.sendKey("F2");
         await editor.waitForText((t) => t.includes("Rename") && t.includes(OLD_NAME));
         for (let i = 0; i < OLD_NAME.length; i++) await editor.sendKey("Backspace");
@@ -77,7 +68,7 @@ export default defineScenario({
         await editor.waitForText((t) => t.includes('"./greeter"'), { timeoutMs: 30000 });
         await editor.capture("renamed");
 
-        await clickOn("greet();");
+        await clickOn("greet(1);");
         await editor.sendKey("Ctrl+Z");
         await editor.waitForText((t) => t.includes('"./helper"') && t.includes(OLD_NAME) && !t.includes(NEW_NAME), {
             timeoutMs: 20000,
