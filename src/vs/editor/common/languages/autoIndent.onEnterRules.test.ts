@@ -99,7 +99,12 @@ describe("EditorViewState.insertNewLine — onEnterRules", () => {
     it("the rule sees the previous line, the text before the cursor and the text after it", () => {
         const rules = resolveLanguageConfiguration({
             onEnterRules: [
-                { beforeText: "^b$", afterText: "^c$", previousLineText: "^a$", action: { indent: "none", appendText: "!" } },
+                {
+                    beforeText: "^b$",
+                    afterText: "^c$",
+                    previousLineText: "^a$",
+                    action: { indent: "none", appendText: "!" },
+                },
             ],
         }).onEnterRules;
         const view = state("a\nbc");
@@ -109,7 +114,14 @@ describe("EditorViewState.insertNewLine — onEnterRules", () => {
 
     it("the text after a multiline selection comes from its last line; the first line has no previous one", () => {
         const rules = resolveLanguageConfiguration({
-            onEnterRules: [{ beforeText: "^a$", afterText: "^z$", previousLineText: "^$", action: { indent: "none", appendText: "!" } }],
+            onEnterRules: [
+                {
+                    beforeText: "^a$",
+                    afterText: "^z$",
+                    previousLineText: "^$",
+                    action: { indent: "none", appendText: "!" },
+                },
+            ],
         }).onEnterRules;
         const view = state("ab\nyz", createSelection(0, 1, 1, 1));
         view.insertNewLine(rules);

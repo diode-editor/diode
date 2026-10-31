@@ -341,7 +341,17 @@
   (`DefinitionService` + F12 `editor.action.revealDefinition`), кросс-файловая навигация паттерном
   Problems reveal (`openUri` + `goToPosition`). Результат провайдера
   `Location | Location[] | LocationLink[]` нормализуется субпроцессом (у LocationLink прицел —
-  `targetSelectionRange ?? targetRange`).
+  `targetSelectionRange ?? targetRange`). Ответы всех провайдеров сводит `createLocationModel`
+  (`goToSymbol.ts`, калька с `ReferencesModel`): сортировка по uri и диапазону, без точных дубликатов,
+  отдельно первая цель в порядке провайдера. Ноль целей — info-тост «No definition found for 'x'»
+  (инлайн-сообщения у курсора, `MessageController`, нет — отступление). Одна цель — переход, а если
+  она уже под курсором — `editor.gotoLocation.alternativeDefinitionCommand` с защитой от рекурсии.
+  Несколько — по `editor.gotoLocation.multipleDefinitions`, и роль Peek-виджета (его нет — отступление)
+  играет панель References: `ReferencesService.showLocations(title, locations, active, {reveal})`,
+  заголовок секции задаёт вызывающий. `goto` кладёт цели в панель без показа, по ним ходят F4/Shift+F4.
+  Цели в панели могут быть недисковыми: группа хранит `uri`, текст строк — от провайдера схемы.
+  Команды с аргументами от расширений (`editor.action.goToLocations`, `peekLocations`, алиас
+  `showReferences`, без пункта в палитре) терпят JSON-форму uri — разбор в `goToLocationsArguments.ts`.
 - **Провайдер содержимого недисковых ресурсов:** `workspace.registerTextDocumentContentProvider` —
   дверь, которой в редактор попадают исходники, которых нет на диске (`jdt:`/`class:` у стокового
   `redhat.java`: класс из jar, исходник JDK, декомпиляция). Проводка — калька с провайдеров ФС:
@@ -1362,6 +1372,19 @@ builtin `diode-lsp-typescript` (см. «Builtin LSP-клиент» выше) и�
 - Гейты: `editorService.onSave.test.ts`, `onSaveParticipants.test.ts`,
   `textFileSaveParticipant.test.ts`, `editorService.whitespaceOnSave.test.ts`; стоковый стек — `extensionHost.ruffLsp.onSave.test.ts` (fixAll
   чинит F401 и формат на диске за один Ctrl+S).
+
+### Участники файловых операций
+
+`workspace.onWill/onDid{Create,Delete,Rename}Files` — эталонная цепочка `WorkingCopyFileService` → `mainThreadFileSystemEventService` → `extHostFileSystemEventService`, у нас `WorkspaceEditService` → `FileOperationParticipantAdapter` → `FileOperationsCustomer` → `ExtHostFileOperations`.
+
+- **Группа.** Подряд идущие операции одного вида — одна операция с одним событием на все файлы, как `BulkFileEdits`; текстовая правка или другой вид группу заканчивают. Переименование и перенос из проводника — `move`, копия для расширения — создание.
+- **Порядок.** Проверка всей правки → `will` → правка участника → операция → `did`. Отказанная или пропущенная (`ignoreIfExists`) операция событий не даёт.
+- **Правка из `waitUntil`** применяется до операции и входит в тот же шаг отмены. Отказ или сбой правки участника операцию не останавливает. Файловые операции внутри неё сами зовут участников, как в эталоне. Автосохранение рефакторинга её буферы не трогает: они остаются грязными.
+- **Undo и redo.** Участников не зовут, но `did` посылают с обратной операцией: отмена создания — `delete`, отмена переименования — `move` наоборот.
+- **Таймаут** — `files.participants.timeout` (60 с, `0` выключает). Истёк — запрос отменён, операция идёт без правок. Слушатели вызываются по одному, следующий ждёт `waitUntil` предыдущего.
+- **Без слушателей `will`** RPC нет (`workspace.updateFileOperationSubscriptions`): зависший хост не держит переименование.
+- **Отступления от эталона:** нет вопроса «Extension wants to make refactoring changes» и нет `needsConfirmation` — предпросмотра у нас нет, правка применяется как после «OK» и отменяется одним шагом; прогресс в статус-баре, без кнопки отмены; виртуальные файлы отказываются целиком, событий не дают.
+- Гейты: `workspaceEditService.fileOperations.test.ts`, `extHostFileOperations.test.ts`, `fileOperationsCustomer.test.ts`, `extensionHost.fileOperations.test.ts`, сценарий `renameFileUpdatesImports`.
 
 ## Правило роста `vscode.d.ts` (важно)
 `src/vscode-dts/vscode.d.ts` — стадийная копия upstream `microsoft/vscode:src/vscode-dts/vscode.d.ts`, всё line-commented кроме активной поверхности. Это дословная копия реального API, а не стаб под реализацию. Инвариант: **файл меняется ТОЛЬКО снятием `// `**.

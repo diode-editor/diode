@@ -3,7 +3,10 @@ import { describe, expect, it } from "vitest";
 
 import { currentCursorChangeSource } from "../common/core/cursorChangeSource.ts";
 import { createCursorSelection, createSelection } from "../common/core/iSelection.ts";
-import { EMPTY_LANGUAGE_CONFIGURATION, resolveLanguageConfiguration } from "../common/languages/languageConfiguration.ts";
+import {
+    EMPTY_LANGUAGE_CONFIGURATION,
+    resolveLanguageConfiguration,
+} from "../common/languages/languageConfiguration.ts";
 import { TextDocument } from "../common/model/textDocument.ts";
 import { EditorViewState } from "../common/viewModel/editorViewState.ts";
 

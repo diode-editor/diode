@@ -30,6 +30,12 @@ import {
 } from "../../../../platform/undoRedo/common/undoRedoService.ts";
 import type { IBulkEditBuffer, IBulkEditBuffers } from "../common/iBulkEditBuffers.ts";
 import { IBulkEditBuffersDIToken } from "../common/iBulkEditBuffers.ts";
+import {
+    type FileOperationKind,
+    type IFileOperationPair,
+    type IFileOperationParticipant,
+    NULL_FILE_OPERATION_PARTICIPANT,
+} from "../common/iFileOperationParticipant.ts";
 import type { BulkEdit, ResourceFileEdit, WorkspaceFileEdit } from "../common/workspaceEdit.ts";
 import { isResourceFileEdit } from "../common/workspaceEdit.ts";
 
@@ -69,6 +75,20 @@ interface ITextSlot {
 type PlanEntry =
     | { readonly kind: "file"; readonly edit: WorkspaceFileEdit }
     | { readonly kind: "text"; readonly slot: ITextSlot };
+
+/** What one edit has done so far: everything here goes into its single undo step. */
+interface IEditStep {
+    readonly label: string;
+    readonly ops: ReversibleOp[];
+    readonly resources: string[];
+    /** The edit's own buffers: only these are saved after a refactoring. */
+    readonly edited: Map<string, IBulkEditBuffer>;
+    /** Buffers edited by file operation participants: in the step, not saved, as upstream. */
+    readonly participantEdited: Set<string>;
+    /** A failed entry doesn't stop the rest (the explorer), instead of rolling the edit back. */
+    readonly tolerant: boolean;
+    readonly willDelete?: (target: string) => void;
+}
 
 /**
  * "What the resource will hold by the time of the operation": without it "create a file and write to it right away"
@@ -161,6 +181,12 @@ export class WorkspaceEditService {
     private readonly config: IConfigurationService;
     private readonly buffers: IBulkEditBuffers;
 
+    /** The extension host, once there is one. */
+    public fileOperationParticipant: IFileOperationParticipant = NULL_FILE_OPERATION_PARTICIPANT;
+
+    /** The tail of the operations running now, see {@link oneAtATime}. */
+    private lastFileOperation: Promise<unknown> = Promise.resolve();
+
     public constructor(
         undoRedo: UndoRedoService,
         trash: ITrashService,
@@ -181,21 +207,22 @@ export class WorkspaceEditService {
 
     /** `null` — no operation is undoable (e.g. only a permanent delete). */
     public async applyFileEdits(edits: readonly ResourceFileEdit[], label: string): Promise<IUndoRedoElement | null> {
-        const ops: ReversibleOp[] = [];
-        const resources: string[] = [];
+        const step = createStep(label, true);
+        for (const group of groupFileEdits(edits)) await this.applyFileGroup(group, step);
 
-        for (const edit of edits) {
-            try {
-                await this.applyOne(edit, ops, resources);
-            } catch {
-                // A failure of one entry doesn't abort the rest (as in pasteFiles).
-            }
-        }
+        if (step.ops.length === 0) return null;
 
-        if (ops.length === 0) return null;
-
-        const element = buildUndoElement(label, resources, ops);
-        this.undoRedo.pushElement(element, WORKSPACE_UNDO_CONTEXT);
+        const element = buildUndoElement(label, step.resources, step.ops);
+        // Text edits of a participant put the step into the buckets of their documents too: Ctrl+Z from such a tab
+        // undoes it, and the explorer still finds it in its own bucket.
+        const participants =
+            step.participantEdited.size === 0
+                ? []
+                : [
+                      ...this.buffers.undoParticipants([...step.participantEdited]),
+                      { context: WORKSPACE_UNDO_CONTEXT, label, owner: false },
+                  ];
+        this.undoRedo.pushWorkspaceElement(element, participants);
         return element;
     }
 
@@ -215,27 +242,153 @@ export class WorkspaceEditService {
         const plan = await this.planWorkspaceEdit(edits);
         if (plan === null) return false;
 
-        const ops: ReversibleOp[] = [];
-        const resources: string[] = [];
-        const edited = new Map<string, IBulkEditBuffer>();
-        for (const entry of plan) {
-            try {
-                await this.applyPlanEntry(entry, label, ops, resources, edited);
-            } catch {
-                // Write failure after validation (race, permissions): roll back what was applied — a half-applied edit is not allowed.
-                for (let i = ops.length - 1; i >= 0; i--) await ops[i].undo();
-                return false;
-            }
-        }
+        const step = createStep(label, false, (target) => {
+            this.buffers.willDelete(Uri.file(target).toString());
+        });
+        if (!(await this.applyPlan(plan, step))) return false;
 
-        if (ops.length > 0) {
+        if (step.ops.length > 0) {
             this.undoRedo.pushWorkspaceElement(
-                buildUndoElement(label, resources, ops),
-                this.buffers.undoParticipants([...edited.keys()]),
+                buildUndoElement(label, step.resources, step.ops),
+                this.buffers.undoParticipants([...step.edited.keys(), ...step.participantEdited]),
             );
         }
-        if (options?.respectAutoSaveConfig === true) await this.saveRefactoring(plan, edited);
+        if (options?.respectAutoSaveConfig === true) await this.saveRefactoring(plan, step.edited);
         return true;
+    }
+
+    /** `false` — a write failed after validation (race, permissions) and what was applied is rolled back. */
+    private async applyPlan(plan: readonly PlanEntry[], step: IEditStep): Promise<boolean> {
+        try {
+            for (let i = 0; i < plan.length; ) {
+                const entry = plan[i];
+                if (entry.kind === "text") {
+                    await this.applyTextSlot(entry.slot, step);
+                    i++;
+                    continue;
+                }
+                const group = fileGroupAt(plan, i);
+                await this.applyFileGroup(group, step);
+                i += group.length;
+            }
+            return true;
+        } catch {
+            // A half-applied edit is not allowed.
+            for (let i = step.ops.length - 1; i >= 0; i--) await step.ops[i].undo();
+            return false;
+        }
+    }
+
+    /**
+     * Upstream `WorkingCopyFileService`: participants, the operation, then one "did" for the whole group. A
+     * consecutive run of one kind is one operation (`BulkFileEdits` groups them the same way), and the event carries
+     * all of its files.
+     */
+    private async applyFileGroup(group: readonly ResourceFileEdit[], step: IEditStep): Promise<void> {
+        const operation = operationOf(group[0]);
+        const planned: IFileOperationPair[] = [];
+        for (const edit of group) {
+            const pair = await this.plannedPair(edit);
+            if (pair !== null) planned.push(pair);
+        }
+        if (planned.length > 0) await this.runParticipants(operation, planned, step);
+
+        const members: ReversibleOp[] = [];
+        const done: IFileOperationPair[] = [];
+        await this.oneAtATime(async () => {
+            for (const edit of group) {
+                try {
+                    const pair = await this.applyOne(edit, members, step.resources, step.willDelete);
+                    if (pair !== null) done.push(pair);
+                } catch (error) {
+                    // A failure of one entry doesn't abort the rest (as in pasteFiles).
+                    if (step.tolerant) continue;
+                    // "Did" was not sent for this group, so its rollback has nothing to reverse.
+                    step.ops.push(...members);
+                    throw error;
+                }
+            }
+        });
+        if (members.length > 0) step.ops.push(this.reportingOp(operation, done, members));
+        if (done.length > 0) this.fileOperationParticipant.didRun(operation, done);
+    }
+
+    /**
+     * Participants let edits overlap for as long as they run. Checking that a target is free and taking it are two
+     * steps on the disk: two renames to one target must not both pass the check, or one source is lost.
+     */
+    private oneAtATime(task: () => Promise<void>): Promise<void> {
+        const run = this.lastFileOperation.then(task);
+        this.lastFileOperation = run.catch(() => undefined);
+        return run;
+    }
+
+    /** Undo and redo run the group as one and report it: upstream's reversed operation also fires "did". */
+    private reportingOp(
+        operation: FileOperationKind,
+        files: readonly IFileOperationPair[],
+        members: readonly ReversibleOp[],
+    ): ReversibleOp {
+        const reversed = reverseOperation(operation, files);
+        return {
+            // One kind in a group: all of its members ask, or none does.
+            confirmBeforeUndo: members[0].confirmBeforeUndo,
+            undo: async () => {
+                for (let i = members.length - 1; i >= 0; i--) await members[i].undo();
+                this.fileOperationParticipant.didRun(reversed.operation, reversed.files);
+            },
+            redo: async () => {
+                for (const op of members) await op.redo();
+                this.fileOperationParticipant.didRun(operation, files);
+            },
+        };
+    }
+
+    /** A refused or failed edit of a participant doesn't stop the operation, as upstream. */
+    private async runParticipants(
+        operation: FileOperationKind,
+        files: readonly IFileOperationPair[],
+        step: IEditStep,
+    ): Promise<void> {
+        const edit = await this.fileOperationParticipant.willRun(operation, files);
+        if (edit === null) return;
+        const plan = await this.planWorkspaceEdit(edit);
+        // Stryker disable next-line ConditionalExpression: a null plan throws inside applyPlan's try and leaves through the same return below
+        if (plan === null) return;
+        const nested = createStep(step.label, false, (target) => {
+            this.buffers.willDelete(Uri.file(target).toString());
+        });
+        if (!(await this.applyPlan(plan, nested))) return;
+        step.ops.push(...nested.ops);
+        step.resources.push(...nested.resources);
+        for (const resource of nested.edited.keys()) step.participantEdited.add(resource);
+        for (const resource of nested.participantEdited) step.participantEdited.add(resource);
+    }
+
+    /** What the event promises; a move or a copy picks its target now, the same way {@link applyOne} will. */
+    private async plannedPair(edit: ResourceFileEdit): Promise<IFileOperationPair | null> {
+        switch (edit.kind) {
+            case "create":
+                return pairOf(edit.to);
+            case "delete":
+                return pairOf(edit.from);
+            case "rename":
+                return pairOf(edit.to, edit.from);
+            case "move":
+                if (path.dirname(edit.from) === edit.to) return null;
+                return pairOf(
+                    await resolveNonConflictingDest(this.files, edit.to, path.basename(edit.from)),
+                    edit.from,
+                );
+            case "copy":
+                return pairOf(
+                    await resolveNonConflictingDest(this.files, edit.to, path.basename(edit.from)),
+                    edit.from,
+                );
+            default:
+                // A kind that bypassed the types: `applyOne` refuses it.
+                return null;
+        }
     }
 
     /**
@@ -323,20 +476,8 @@ export class WorkspaceEditService {
         };
     }
 
-    private async applyPlanEntry(
-        entry: PlanEntry,
-        label: string,
-        ops: ReversibleOp[],
-        resources: string[],
-        edited: Map<string, IBulkEditBuffer>,
-    ): Promise<void> {
-        if (entry.kind === "file") {
-            await this.applyOne(entry.edit, ops, resources, (target) => {
-                this.buffers.willDelete(Uri.file(target).toString());
-            });
-            return;
-        }
-        const slot = entry.slot;
+    private async applyTextSlot(slot: ITextSlot, step: IEditStep): Promise<void> {
+        const { label, ops, resources, edited } = step;
         // Looked up now, not in the plan: an earlier operation of this edit may have moved or replaced the model.
         const buffer = this.buffers.get(slot.resource) ?? this.buffers.open(slot.resource);
         // Stryker disable next-line ConditionalExpression,StringLiteral,CallExpression: without the guard `applyEdits` of a string throws instead, and any throw here rolls the edit back the same way; the catch drops the message
@@ -375,14 +516,15 @@ export class WorkspaceEditService {
 
     /**
      * `willDelete`: what a workspace edit does to unsaved edits of a file it removes, as upstream. The explorer passes
-     * nothing: there a dirty tab outlives its file, struck through.
+     * nothing: there a dirty tab outlives its file, struck through. Returns what really happened, for the "did" event;
+     * `null` — nothing did (a move within its own directory).
      */
     private async applyOne(
         edit: ResourceFileEdit,
         ops: ReversibleOp[],
         resources: string[],
         willDelete?: (target: string) => void,
-    ): Promise<void> {
+    ): Promise<IFileOperationPair | null> {
         const files = this.files;
         // Guard against a value that bypassed the types (kind is typed as string on purpose,
         // so the check isn't considered "always true" and stays meaningful at runtime).
@@ -395,6 +537,7 @@ export class WorkspaceEditService {
             const from = edit.from;
             const toDir = edit.to;
             let current = await moveInto(files, from, toDir);
+            const moved = current !== from;
             resources.push(from, current);
             ops.push({
                 undo: async () => {
@@ -404,15 +547,17 @@ export class WorkspaceEditService {
                     current = await moveInto(files, current, toDir);
                 },
             });
+            return moved ? pairOf(current, from) : null;
         } else if (edit.kind === "rename") {
-            // `to` is an exact path, not a directory. The prompt rules out a collision; for `workspace.applyEdit` it is
-            // resolved by `overwrite` — the overwritten contents must be restored on undo.
+            // `to` is an exact path, not a directory. Only `overwrite` may replace what is there, the overwritten
+            // contents are restored on undo. Without it, a target taken since validation (participants may have run
+            // for a minute) refuses the move, as upstream's `FILE_MOVE_CONFLICT`.
             const from = edit.from;
             const to = edit.to;
-            // Always snapshot the target: if it was taken in a race, undo restores its contents.
+            const overwrite = edit.overwrite === true;
             const replaced = await keepAside(files, to);
             await files.createFolder(Uri.file(path.dirname(to)));
-            await moveToPath(files, from, to);
+            await files.move(Uri.file(from), Uri.file(to), overwrite);
             if (replaced !== null) this.buffers.didReplaceOnDisk(Uri.file(to).toString());
             let current = to;
             resources.push(from, to);
@@ -422,14 +567,16 @@ export class WorkspaceEditService {
                     await replaced?.restore();
                 },
                 redo: async () => {
-                    await moveToPath(files, current, to);
+                    await files.move(Uri.file(current), Uri.file(to), overwrite);
                     current = to;
                 },
             });
+            return pairOf(to, from);
         } else if (edit.kind === "copy") {
             const from = edit.from;
             const toDir = edit.to;
             let created = await copyInto(files, from, toDir);
+            const firstCopy = created;
             resources.push(created);
             ops.push({
                 confirmBeforeUndo: `Are you sure you want to delete '${path.basename(created)}'?`,
@@ -438,6 +585,7 @@ export class WorkspaceEditService {
                     created = await copyInto(files, from, toDir);
                 },
             });
+            return pairOf(firstCopy, from);
         } else if (edit.kind === "delete") {
             const from = edit.from;
             resources.push(from);
@@ -464,6 +612,7 @@ export class WorkspaceEditService {
                 willDelete?.(from);
                 await removeIfExists(files, from);
             }
+            return pairOf(from);
         } else {
             const to = edit.to;
             // Collision with an explicit name is an error (per-edit try/catch → no-op); the prompt's validation guards against it.
@@ -494,8 +643,69 @@ export class WorkspaceEditService {
                 },
                 redo: doCreate,
             });
+            return pairOf(to);
         }
     }
+}
+
+function createStep(label: string, tolerant: boolean, willDelete?: (target: string) => void): IEditStep {
+    return {
+        label,
+        ops: [],
+        resources: [],
+        edited: new Map(),
+        participantEdited: new Set(),
+        tolerant,
+        willDelete,
+    };
+}
+
+function pairOf(target: string, source?: string): IFileOperationPair {
+    return {
+        ...(source === undefined ? {} : { source: Uri.file(source).toString() }),
+        target: Uri.file(target).toString(),
+    };
+}
+
+function operationOf(edit: ResourceFileEdit): FileOperationKind {
+    return edit.kind === "rename" ? "move" : edit.kind;
+}
+
+/** Runs of one operation; a rename and an explorer move are the same one. */
+function groupFileEdits(edits: readonly ResourceFileEdit[]): ResourceFileEdit[][] {
+    const groups: ResourceFileEdit[][] = [];
+    for (const edit of edits) {
+        const last = groups.at(-1);
+        if (last !== undefined && operationOf(last[0]) === operationOf(edit)) last.push(edit);
+        else groups.push([edit]);
+    }
+    return groups;
+}
+
+/** The run of file entries of one operation that starts at `start`. */
+function fileGroupAt(plan: readonly PlanEntry[], start: number): ResourceFileEdit[] {
+    const entries: ResourceFileEdit[] = [];
+    for (let i = start; i < plan.length; i++) {
+        const entry = plan[i];
+        if (entry.kind !== "file") break;
+        entries.push(entry.edit);
+    }
+    return groupFileEdits(entries)[0];
+}
+
+/** Upstream's undo of a create is a delete, and so on. */
+function reverseOperation(
+    operation: FileOperationKind,
+    files: readonly IFileOperationPair[],
+): { readonly operation: FileOperationKind; readonly files: readonly IFileOperationPair[] } {
+    if (operation === "move") {
+        return {
+            operation,
+            files: files.map((pair) => ({ source: pair.target, target: pair.source ?? pair.target })),
+        };
+    }
+    const targets = files.map((pair) => ({ target: pair.target }));
+    return { operation: operation === "delete" ? "create" : "delete", files: targets };
 }
 
 /**

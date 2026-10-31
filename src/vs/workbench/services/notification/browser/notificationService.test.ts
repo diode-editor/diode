@@ -29,6 +29,54 @@ describe("NotificationService: messages without buttons", () => {
         expect(service.current()).toBeNull();
     });
 
+    it("an identical live toast is replaced: moves to the end, with a fresh timer", () => {
+        const service = new NotificationService();
+        service.show(message({ message: "same" }));
+        service.show(message({ message: "other" }));
+        vi.advanceTimersByTime(NOTIFICATION_AUTO_HIDE_MS.info - 1);
+
+        const again = service.show(message({ message: "same" }));
+
+        expect(service.passive().map((n) => n.message)).toEqual(["other", "same"]);
+        expect(service.passive()[1].id).toBe(again.id);
+
+        vi.advanceTimersByTime(1);
+        expect(service.passive().map((n) => n.message)).toEqual(["same"]);
+
+        vi.advanceTimersByTime(NOTIFICATION_AUTO_HIDE_MS.info - 1);
+        expect(service.passive().map((n) => n.message)).toEqual([]);
+    });
+
+    it("a replaced toast takes its timer along: repeats don't pile timers up", () => {
+        const service = new NotificationService();
+
+        service.show(message());
+        service.show(message());
+        service.show(message());
+
+        expect(vi.getTimerCount()).toBe(1);
+    });
+
+    it.each([
+        ["severity", { severity: "warn" }],
+        ["message", { message: "different" }],
+        ["detail", { detail: "more" }],
+    ] as const)("a toast differing in %s is not a duplicate", (_name, patch) => {
+        const service = new NotificationService();
+        service.show(message());
+        service.show(message(patch));
+
+        expect(service.passive()).toHaveLength(2);
+    });
+
+    it("questions with the same text are not deduplicated: each asker waits for its own answer", () => {
+        const service = new NotificationService();
+        service.show(message({ items: ["Yes"] }));
+        service.show(message({ items: ["Yes"] }));
+
+        expect(service.queuedCount()).toBe(1);
+    });
+
     it("lifetime depends on severity, upstream values", () => {
         const service = new NotificationService();
         service.show(message({ severity: "info", message: "i" }));

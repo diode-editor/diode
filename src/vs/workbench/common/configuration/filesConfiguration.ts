@@ -63,6 +63,14 @@ export const filesConfiguration = {
             default: true,
             description: "Controls if files that were part of a refactoring are saved automatically",
         },
+        // Verbatim from upstream (`files.contribution.ts`).
+        "files.participants.timeout": {
+            scope: "window",
+            type: "number",
+            default: 60000,
+            description:
+                "Timeout in milliseconds after which file participants for create, rename, and delete are cancelled. Use `0` to disable participants.",
+        },
         // `**/<name>` form, as upstream: `**/<name>/**` would leave the directory in the tree as empty.
         // Only Python tool caches are added to upstream's set: nobody ever reads them. Other generated
         // output (builds, build tool caches) does get opened, so it goes in `search.exclude`.

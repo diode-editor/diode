@@ -38,8 +38,8 @@ import {
     toggleWordWrapAction,
 } from "./browser/actions/editorActions.ts";
 import {
-    deleteAllLeftAction,
     defaultTypeAction,
+    deleteAllLeftAction,
     deleteLeftAction,
     deleteRightAction,
     deleteWordLeftAction,
@@ -157,6 +157,7 @@ import { FindServiceDIToken } from "./contrib/find/browser/findService.ts";
 import { FOLDING_ACTIONS } from "./contrib/folding/browser/foldingActions.ts";
 import { FORMAT_ACTIONS } from "./contrib/format/browser/formatActions.ts";
 import { GOTO_DEFINITION_ACTIONS } from "./contrib/gotoDefinition/browser/gotoDefinitionActions.ts";
+import { GoToLocationsCommandContributionDIToken } from "./contrib/gotoDefinition/browser/goToLocationsCommandContribution.ts";
 import { HOVER_ACTIONS } from "./contrib/hover/browser/hoverActions.ts";
 import { HoverComponentDIToken } from "./contrib/hover/browser/hoverComponent.ts";
 import { HoverServiceDIToken } from "./contrib/hover/browser/hoverService.ts";
@@ -284,6 +285,8 @@ export const WORKBENCH_CONTRIBUTIONS: readonly IWorkbenchContributionRegistratio
     { token: ThemeConfigContributionDIToken, phase: "ready" },
     { token: WindowTitleContributionDIToken, phase: "ready" },
     { token: OpenFileCommandContributionDIToken, phase: "ready" },
+    // An extension may call these from activate() or a code lens before any user action.
+    { token: GoToLocationsCommandContributionDIToken, phase: "ready" },
     // An extension may call `setContext` in activate(), before any user action.
     // Stryker disable next-line ObjectLiteral,StringLiteral: removing the entry is unobservable in a unit test; without it there is no command, which the extension-storage e2e scenario catches (the extension's key doesn't come alive after Arm)
     { token: SetContextCommandContributionDIToken, phase: "ready" },

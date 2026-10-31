@@ -6,7 +6,7 @@ import { createRange } from "../../../../editor/common/core/iRange.ts";
 import type { IDefinitionRequest } from "../../../../editor/common/languages/iDefinitionSource.ts";
 import { LanguageFeaturesService } from "../../../../editor/common/services/languageFeaturesService.ts";
 
-import { getDefinitions } from "./goToSymbol.ts";
+import { createLocationModel, getDefinitions } from "./goToSymbol.ts";
 
 const TS = { uri: Uri.file("/w/a.ts"), languageId: "typescript" };
 const REQUEST: IDefinitionRequest = {
@@ -18,17 +18,67 @@ const REQUEST: IDefinitionRequest = {
 };
 const target = (line: number) => ({ uri: "file:///w/defs.ts", range: createRange(line, 0, line, 1) });
 
-describe("getDefinitions — aggregation over the registry", () => {
-    it("concatenates responses in registry order; a failing provider means 'no targets'", async () => {
-        const registry = new LanguageFeaturesService().definitionProvider;
-        registry.register("*", { provideDefinition: () => Promise.resolve([target(2)]) });
-        registry.register("*", { provideDefinition: () => Promise.reject(new Error("boom")) });
-        registry.register("typescript", { provideDefinition: () => Promise.resolve([target(1)]) });
+describe("createLocationModel", () => {
+    const at = (uri: string, line: number, from: number, to: number) => ({
+        uri,
+        range: createRange(line, from, line, to),
+    });
 
-        expect(await getDefinitions(registry, TS, REQUEST, new CancellationTokenSource().token)).toEqual([
-            target(1),
-            target(2),
+    it("sorts by uri, then by range start, then by range end", () => {
+        const model = createLocationModel([
+            at("file:///b.ts", 0, 0, 1),
+            at("file:///a.ts", 3, 0, 1),
+            at("file:///a.ts", 1, 4, 5),
+            at("file:///a.ts", 1, 2, 9),
+            at("file:///a.ts", 1, 2, 3),
         ]);
+
+        expect(model.references).toEqual([
+            at("file:///a.ts", 1, 2, 3),
+            at("file:///a.ts", 1, 2, 9),
+            at("file:///a.ts", 1, 4, 5),
+            at("file:///a.ts", 3, 0, 1),
+            at("file:///b.ts", 0, 0, 1),
+        ]);
+    });
+
+    it("drops exact duplicates only, including non-adjacent ones in the response", () => {
+        const model = createLocationModel([
+            at("file:///a.ts", 1, 0, 3),
+            at("file:///b.ts", 1, 0, 3),
+            at("file:///a.ts", 1, 0, 3),
+            at("file:///a.ts", 1, 0, 4),
+        ]);
+
+        expect(model.references).toEqual([
+            at("file:///a.ts", 1, 0, 3),
+            at("file:///a.ts", 1, 0, 4),
+            at("file:///b.ts", 1, 0, 3),
+        ]);
+    });
+
+    it("first is the provider's first target, not the first after sorting", () => {
+        const model = createLocationModel([at("file:///b.ts", 9, 0, 1), at("file:///a.ts", 0, 0, 1)]);
+
+        expect(model.first).toEqual(at("file:///b.ts", 9, 0, 1));
+    });
+
+    it("an empty response has no first target", () => {
+        expect(createLocationModel([])).toEqual({ references: [], first: undefined });
+    });
+});
+
+describe("getDefinitions — aggregation over the registry", () => {
+    it("merges responses; a failing provider means 'no targets'; first is in registry order", async () => {
+        const registry = new LanguageFeaturesService().definitionProvider;
+        registry.register("*", { provideDefinition: () => Promise.resolve([target(1)]) });
+        registry.register("*", { provideDefinition: () => Promise.reject(new Error("boom")) });
+        registry.register("typescript", { provideDefinition: () => Promise.resolve([target(2)]) });
+
+        const model = await getDefinitions(registry, TS, REQUEST, new CancellationTokenSource().token);
+
+        expect(model.references).toEqual([target(1), target(2)]);
+        expect(model.first).toEqual(target(2));
     });
 
     it("each provider gets the request token", async () => {
