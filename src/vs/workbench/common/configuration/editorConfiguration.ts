@@ -94,6 +94,45 @@ export const editorConfiguration = {
             maximum: 1000000,
             description: "Controls the max number of color decorators that can be rendered in an editor at once.",
         },
+        // `editor.inlayHints.fontSize` and `fontFamily` are not ported: a terminal has one font.
+        "editor.inlayHints.enabled": {
+            scope: "language-overridable",
+            type: "string",
+            enum: ["on", "onUnlessPressed", "offUnlessPressed", "off"],
+            enumDescriptions: [
+                "Inlay hints are enabled",
+                "Inlay hints are showing by default and hide when holding Ctrl+Alt. In diode this behaves like on: a terminal does not report key releases.",
+                "Inlay hints are hidden by default and show when holding Ctrl+Alt. In diode this behaves like off: a terminal does not report key releases.",
+                "Inlay hints are disabled",
+            ],
+            default: "on",
+            // Upstream `validate`: the value was a boolean once.
+            booleanEquivalents: { true: "on", false: "off" },
+            description: "Enables the inlay hints in the editor.",
+        },
+        "editor.inlayHints.padding": {
+            scope: "language-overridable",
+            type: "boolean",
+            default: false,
+            description: "Enables the padding around the inlay hints in the editor.",
+        },
+        "editor.inlayHints.maximumLength": {
+            scope: "language-overridable",
+            type: "integer",
+            default: 43,
+            minimum: 0,
+            description:
+                "Maximum overall length of inlay hints, for a single line, before they get truncated by the editor. Set to `0` to never truncate",
+        },
+        // Our own key, the human's decision: it stands in for the font size and family a terminal cannot honor.
+        "diode.editor.inlayHints.fontStyle": {
+            scope: "language-overridable",
+            type: "string",
+            enum: ["normal", "italic", "dim"],
+            default: "normal",
+            description:
+                "Text style of inlay hints. Diode stands in for `editor.inlayHints.fontSize` and `fontFamily`, which a terminal cannot honor.",
+        },
         // "multiFile" is not supported and behaves like "singleFile".
         "editor.occurrencesHighlight": {
             scope: "language-overridable",

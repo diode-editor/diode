@@ -20,6 +20,7 @@ export interface ContextKeyTypes {
     editorHasCodeActionsProvider: boolean;
     editorHasDocumentFormattingProvider: boolean;
     editorHasDocumentSelectionFormattingProvider: boolean;
+    editorHasInlayHintsProvider: boolean;
     editorHasSelection: boolean;
     editorLangId: string;
     /** Upstream name of our {@link textInputFocus}, kept for extension `when` clauses. */

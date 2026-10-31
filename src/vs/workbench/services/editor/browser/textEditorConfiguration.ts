@@ -16,6 +16,8 @@ import type { TextEditorPane } from "../../../browser/parts/editor/textEditorPan
 export class TextEditorConfiguration extends Disposable {
     /** Transient Alt+Z state: `null` — the configuration applies (see {@link toggleWordWrap}). */
     private wordWrapSessionOverride: "off" | "on" | null = null;
+    /** Transient state of the toggle command: `null` — the configuration applies (see {@link toggleInlayHints}). */
+    private inlayHintsSessionOverride: boolean | null = null;
 
     public constructor(
         private readonly configurationService: IConfigurationService,
@@ -30,7 +32,8 @@ export class TextEditorConfiguration extends Disposable {
         );
         this.register(
             this.configurationService.onDidChangeConfiguration((event) => {
-                if (!event.affectsConfiguration("editor")) return;
+                if (event.affectsConfiguration("editor.inlayHints.enabled")) this.inlayHintsSessionOverride = null;
+                if (!event.affectsConfiguration("editor") && !event.affectsConfiguration("diode.editor")) return;
                 this.reapply();
             }),
         );
@@ -62,6 +65,12 @@ export class TextEditorConfiguration extends Disposable {
             enabled: this.configurationService.get("editor.colorDecorators", overrides),
             defaultEnablement: this.configurationService.get("editor.defaultColorDecorators", overrides),
             limit: this.configurationService.get("editor.colorDecoratorsLimit", overrides),
+        });
+        editor.setInlayHints({
+            enabled: this.inlayHintsSessionOverride ?? this.configuredInlayHints(overrides),
+            padding: this.configurationService.get("editor.inlayHints.padding", overrides),
+            maximumLength: this.configurationService.get("editor.inlayHints.maximumLength", overrides),
+            fontStyle: this.configurationService.get("diode.editor.inlayHints.fontStyle", overrides),
         });
         editor.setNerdFont(this.icons.nerdFont);
 
@@ -101,8 +110,26 @@ export class TextEditorConfiguration extends Disposable {
         this.reapply();
     }
 
+    /**
+     * Flips what the active editor shows, in every editor, for the session and without touching settings.json. Back at
+     * the configured value the override goes away, so a `[language]` section applies again.
+     */
+    public toggleInlayHints(languageId: string | undefined): void {
+        const overrides = languageId === undefined ? undefined : { overrideIdentifier: languageId };
+        const configured = this.configuredInlayHints(overrides);
+        const next = !(this.inlayHintsSessionOverride ?? configured);
+        this.inlayHintsSessionOverride = next === configured ? null : next;
+        this.reapply();
+    }
+
     public reapply(): void {
         for (const editor of this.surfaces()) this.apply(editor);
+    }
+
+    /** A terminal does not report key releases: the "pressed" modes stay in their resting state. */
+    private configuredInlayHints(overrides?: IConfigurationOverrides): boolean {
+        const enabled = this.configurationService.get("editor.inlayHints.enabled", overrides);
+        return enabled === "on" || enabled === "onUnlessPressed";
     }
 
     /** The service has already replaced invalid settings.json values with the schema default. */

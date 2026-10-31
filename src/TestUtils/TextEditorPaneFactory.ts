@@ -2,6 +2,7 @@ import type { Uri } from "../vs/base/common/uri.ts";
 import type { LanguageFeatureRegistry } from "../vs/editor/common/languageFeatureRegistry.ts";
 import type { DocumentColorProvider } from "../vs/editor/common/languages/iColorSource.ts";
 import type { FoldingRangeProvider } from "../vs/editor/common/languages/iFoldingSource.ts";
+import type { InlayHintsProvider } from "../vs/editor/common/languages/iInlayHintsSource.ts";
 import type { ILanguageService } from "../vs/editor/common/languages/iLanguageService.ts";
 import { NULL_LANGUAGE_SERVICE } from "../vs/editor/common/languages/iLanguageService.ts";
 import { NULL_TOKEN_STYLE_RESOLVER } from "../vs/editor/common/languages/iTokenStyleResolver.ts";
@@ -30,6 +31,7 @@ export interface IEditorPaneOverrides {
     readonly undoRedoService?: UndoRedoService;
     readonly foldingProviders?: LanguageFeatureRegistry<FoldingRangeProvider>;
     readonly colorProviders?: LanguageFeatureRegistry<DocumentColorProvider>;
+    readonly inlayHintsProviders?: LanguageFeatureRegistry<InlayHintsProvider>;
     /** Defaults to the real disk. */
     readonly files?: IFileService;
     /** Absent — TextMate only. */
@@ -72,6 +74,7 @@ export function createEditorPane(overrides: IEditorPaneOverrides = {}): TextEdit
         overrides.semanticTokens,
         undefined,
         overrides.colorProviders,
+        overrides.inlayHintsProviders,
     );
     return new TextEditorPane(model, component);
 }

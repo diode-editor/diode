@@ -35,6 +35,7 @@ export class LanguageFeatureContextKeys implements IContextKeyContributor {
             "editorHasDocumentSelectionFormattingProvider",
             this.has("documentRangeFormattingEditProvider", target),
         );
+        contextKeys.set("editorHasInlayHintsProvider", this.has("inlayHintsProvider", target));
         // Upstream hides Format Selection when there is no selection.
         const selection = editor?.viewState.selections[0];
         const empty =
@@ -51,7 +52,8 @@ export class LanguageFeatureContextKeys implements IContextKeyContributor {
             | "renameProvider"
             | "codeActionProvider"
             | "documentFormattingEditProvider"
-            | "documentRangeFormattingEditProvider",
+            | "documentRangeFormattingEditProvider"
+            | "inlayHintsProvider",
         target: ILanguageFeatureTarget | null,
     ): boolean {
         return target !== null && this.languageFeatures[feature].has(target);

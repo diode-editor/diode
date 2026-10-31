@@ -10,6 +10,7 @@ import type {
     DocumentRangeFormattingEditProvider,
 } from "../languages/iFormattingSource.ts";
 import type { HoverProvider } from "../languages/iHoverSource.ts";
+import type { InlayHintsProvider } from "../languages/iInlayHintsSource.ts";
 import type { InlineCompletionsProvider } from "../languages/iInlineCompletionSource.ts";
 import type { ReferenceProvider } from "../languages/iReferenceSource.ts";
 import type { RenameProvider } from "../languages/iRenameSource.ts";
@@ -36,6 +37,7 @@ export interface ILanguageFeaturesService {
     readonly documentSemanticTokensProvider: LanguageFeatureRegistry<DocumentSemanticTokensProvider>;
     readonly documentRangeSemanticTokensProvider: LanguageFeatureRegistry<DocumentRangeSemanticTokensProvider>;
     readonly colorProvider: LanguageFeatureRegistry<DocumentColorProvider>;
+    readonly inlayHintsProvider: LanguageFeatureRegistry<InlayHintsProvider>;
 }
 
 // Stryker disable next-line StringLiteral: token() returns a new Token and dependencies resolve by its reference; the string is only a debug label

@@ -9,6 +9,7 @@ import type {
     DocumentRangeFormattingEditProvider,
 } from "../languages/iFormattingSource.ts";
 import type { HoverProvider } from "../languages/iHoverSource.ts";
+import type { InlayHintsProvider } from "../languages/iInlayHintsSource.ts";
 import type { InlineCompletionsProvider } from "../languages/iInlineCompletionSource.ts";
 import type { ReferenceProvider } from "../languages/iReferenceSource.ts";
 import type { RenameProvider } from "../languages/iRenameSource.ts";
@@ -39,4 +40,5 @@ export class LanguageFeaturesService implements ILanguageFeaturesService {
     public readonly documentRangeSemanticTokensProvider =
         new LanguageFeatureRegistry<DocumentRangeSemanticTokensProvider>();
     public readonly colorProvider = new LanguageFeatureRegistry<DocumentColorProvider>();
+    public readonly inlayHintsProvider = new LanguageFeatureRegistry<InlayHintsProvider>();
 }

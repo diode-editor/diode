@@ -17,6 +17,7 @@ import { token } from "../../../../platform/instantiation/common/diContainer.ts"
 import { EditorComponent, type IIndentConfiguration } from "../../../browser/parts/editor/editorComponent.ts";
 import { TextEditorPane } from "../../../browser/parts/editor/textEditorPane.ts";
 import type { BaseTextEditorModel } from "../../../common/editor/textEditorModel.ts";
+import { TextFileModel } from "../../textfile/common/textFileModel.ts";
 
 export const TextEditorPaneBuilderDIToken = token<TextEditorPaneBuilder>("TextEditorPaneBuilder");
 
@@ -61,6 +62,8 @@ export class TextEditorPaneBuilder {
             this.semanticTokens,
             indent,
             this.languageFeatures.colorProvider,
+            // Only the file editor, as ghost text: panels and virtual documents are synthetic models.
+            model instanceof TextFileModel ? this.languageFeatures.inlayHintsProvider : undefined,
         );
         const editor = new TextEditorPane(model, component, modelOwnership);
         // The editor context menu policy listens for "contextmenu" on the pair's wrapper;

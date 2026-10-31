@@ -64,7 +64,9 @@ describe("LanguageFeatureContextKeys", () => {
         features.codeActionProvider.register({ language: "typescript" }, noop);
         features.documentFormattingEditProvider.register({ language: "typescript" }, noop);
         features.documentRangeFormattingEditProvider.register({ language: "typescript" }, noop);
+        features.inlayHintsProvider.register({ language: "typescript" }, {} as never);
         update();
+        expect(keys.evaluate("editorHasInlayHintsProvider")).toBe(true);
         expect(keys.evaluate("editorHasDefinitionProvider")).toBe(true);
         expect(keys.evaluate("editorHasReferenceProvider")).toBe(true);
         expect(keys.evaluate("editorHasCodeActionsProvider")).toBe(true);
