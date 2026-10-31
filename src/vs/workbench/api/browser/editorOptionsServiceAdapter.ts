@@ -271,7 +271,7 @@ export class EditorOptionsServiceAdapter implements IEditorOptionsService {
  * Coordinates are passed as is; the executor clamps them. `null` means a file operation on a non-disk
  * resource: the whole edit is rejected.
  */
-function toWorkspaceEdit(ops: readonly IWireWorkspaceEditOp[]): BulkEdit | null {
+export function toWorkspaceEdit(ops: readonly IWireWorkspaceEditOp[]): BulkEdit | null {
     const result: BulkEditOperation[] = [];
     for (const op of ops) {
         if (op.kind === "text") {
