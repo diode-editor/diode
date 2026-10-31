@@ -101,7 +101,8 @@ surface does not.
 | `registerTextDocumentContentProvider` | ✅ | non-disk resources open in a read-only tab; `onDidChange` re-reads an open one; `openTextDocument` on such a scheme asks the provider |
 | `isTrusted`, `onDidGrantWorkspaceTrust` | 🟡 | no trust model: always `true`, the event never fires |
 | `getWorkspaceFolder` | ✅ | works at runtime (matches on a path segment boundary, a file outside the workspace gives `undefined`); not declared in `vscode.d.ts` yet |
-| folder and file operation events (`onDidChangeWorkspaceFolders`, `onWill/onDid{Create,Delete,Rename}Files`) | 🕐 | subscription is accepted as a no-op, the event never fires |
+| `onDidChangeWorkspaceFolders` | 🕐 | subscription is accepted as a no-op, the event never fires |
+| `onWill/onDid{Create,Delete,Rename}Files` | ✅ | fired by `applyEdit` and the explorer, for files and folders; a run of one kind is one event with all its files; a copy is a create. `waitUntil(WorkspaceEdit)` is applied before the operation and joins its undo step; `did` also fires on undo and redo with the reverse operation. `files.participants.timeout` bounds the wait (`0` disables). Deviations: no "wants to make refactoring changes" prompt (there is no preview mode, so the edit is applied as with "OK"); the wait shows in the status bar and can't be cancelled by hand; operations on virtual files are refused, so they fire nothing |
 | notebook surface (8 members: `notebookDocuments`, `openNotebookDocument`, `registerNotebookSerializer`, events) | 🕐 | |
 | `registerTaskProvider` | ✅ | the deprecated twin of `tasks.registerTaskProvider` |
 | `workspaceFile` | ✅ | the `Uri` of the `.code-workspace` file the window was opened with (single-folder files only), otherwise `undefined`; such a window is named `<file> (Workspace)` |

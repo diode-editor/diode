@@ -133,6 +133,7 @@ import {
     createInMemoryEnvironmentVariableCollectionStore,
     EnvironmentVariableCollectionsCustomer,
 } from "./customers/environmentVariableCollectionsCustomer.ts";
+import { FileOperationsCustomer } from "./customers/fileOperationsCustomer.ts";
 import { FileSystemCustomer } from "./customers/fileSystemCustomer.ts";
 import { LanguageConfigurationCustomer } from "./customers/languageConfigurationCustomer.ts";
 import { LanguageFeaturesCustomer } from "./customers/languageFeaturesCustomer.ts";
@@ -293,6 +294,7 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
     private readonly diagnostics: DiagnosticsCustomer;
     private readonly fileSystem: FileSystemCustomer;
     private readonly uriHandlersCustomer: UriHandlersCustomer;
+    public readonly fileOperations: FileOperationsCustomer;
     private readonly storageHomes: () => IExtensionStorageHomes;
     private readonly extensionState: IExtensionStateStore;
     /** `workspaceState` belongs to THIS workspace: a write after a folder change would leak into another store. */
@@ -351,6 +353,7 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
             options.environmentVariableCollections ?? createInMemoryEnvironmentVariableCollectionStore(),
         );
         this.uriHandlersCustomer = this.register(new UriHandlersCustomer());
+        this.fileOperations = new FileOperationsCustomer(this.logger);
         this.storageHomes = options.storageHomes ?? fallbackExtensionStorageHomes;
         this.extensionState = options.extensionState ?? createTransientExtensionStateStore();
         this.workspaceScanner = options.workspaceScanner ?? createRipgrepWorkspaceScanner();
@@ -387,6 +390,7 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
             new WorkspaceFoldersCustomer(options.workspaceFoldersSink),
             new LanguageStatusCustomer(options.languageStatusSink),
             this.uriHandlersCustomer,
+            this.fileOperations,
         ];
     }
 
