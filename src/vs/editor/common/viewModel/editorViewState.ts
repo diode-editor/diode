@@ -16,7 +16,8 @@ import { compareTextEditsInDocumentOrder, createTextEdit } from "../core/iTextEd
 import { sortAndMergeSelections } from "../core/sortAndMergeSelections.ts";
 import { charClass } from "../core/wordClassification.ts";
 import { DEFAULT_WORD_REGEXP, getWordAtText } from "../core/wordHelper.ts";
-import { computeNewLinePlan } from "../languages/autoIndent.ts";
+import { computeNewLinePlan, findOnEnterAction } from "../languages/autoIndent.ts";
+import type { IResolvedOnEnterRule } from "../languages/languageConfiguration.ts";
 import type { IDocumentContentChange } from "../model/iDocumentContentChange.ts";
 import type { IInlineInsertion } from "../model/iInlineInsertion.ts";
 import { NO_INLINE_INSERTIONS } from "../model/iInlineInsertion.ts";
@@ -1055,18 +1056,25 @@ export class EditorViewState {
         };
     }
 
-    public insertNewLine(): IUndoElement | undefined {
+    public insertNewLine(onEnterRules: readonly IResolvedOnEnterRule[] = []): IUndoElement | undefined {
         if (this.readOnly) return undefined;
         const beforeSelections = this.cloneSelections();
         const versionBefore = this.document.versionId;
         const sorted = this.sortedSelections();
         const plans = sorted.map((sel) => {
             const range = selectionToRange(sel);
+            const lineContent = this.document.getLineContent(range.start.line);
             return computeNewLinePlan({
-                lineContent: this.document.getLineContent(range.start.line),
+                lineContent,
                 column: range.start.character,
                 tabSize: this.tabSize,
                 insertSpaces: this.insertSpaces,
+                enterAction: findOnEnterAction(
+                    onEnterRules,
+                    range.start.line > 0 ? this.document.getLineContent(range.start.line - 1) : "",
+                    lineContent.slice(0, range.start.character),
+                    this.document.getLineContent(range.end.line).slice(range.end.character),
+                ),
             });
         });
         const edits = sorted.map((sel, i) => createTextEdit(selectionToRange(sel), plans[i].editText));

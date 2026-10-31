@@ -396,6 +396,10 @@ export class EditorComponent extends Component {
         this.editor.focus();
     }
 
+    public typeText(text: string): void {
+        this.editor.typeText(text);
+    }
+
     public pushUndo(element: IUndoElement | undefined): void {
         if (element) {
             this.editor.undoManager.pushUndoElement(element);

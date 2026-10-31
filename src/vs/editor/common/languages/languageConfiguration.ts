@@ -3,6 +3,9 @@ import type {
     IAutoClosingPair,
     ICommentRule,
     ILanguageConfiguration,
+    IOnEnterAction,
+    IOnEnterRule,
+    IRegExpDefinition,
     ISurroundingPair,
 } from "../../../platform/extensions/common/iLanguageConfiguration.ts";
 
@@ -15,6 +18,13 @@ export interface IResolvedAutoClosingPair {
     readonly notIn: readonly ("string" | "comment")[];
 }
 
+export interface IResolvedOnEnterRule {
+    readonly beforeText: RegExp;
+    readonly afterText: RegExp | undefined;
+    readonly previousLineText: RegExp | undefined;
+    readonly action: IOnEnterAction;
+}
+
 /** Like VS Code `ResolvedLanguageConfiguration`: encodings and section inheritance are resolved. */
 export interface IResolvedLanguageConfiguration {
     readonly comments: ICommentRule | undefined;
@@ -22,6 +32,7 @@ export interface IResolvedLanguageConfiguration {
     readonly autoClosingPairs: readonly IResolvedAutoClosingPair[];
     readonly surroundingPairs: readonly CharacterPair[];
     readonly autoCloseBefore: string;
+    readonly onEnterRules: readonly IResolvedOnEnterRule[];
 }
 
 export const EMPTY_LANGUAGE_CONFIGURATION: IResolvedLanguageConfiguration = {
@@ -30,6 +41,7 @@ export const EMPTY_LANGUAGE_CONFIGURATION: IResolvedLanguageConfiguration = {
     autoClosingPairs: [],
     surroundingPairs: [],
     autoCloseBefore: DEFAULT_AUTO_CLOSE_BEFORE,
+    onEnterRules: [],
 };
 
 function isCharacterPair(value: CharacterPair | IAutoClosingPair | ISurroundingPair): value is CharacterPair {
@@ -95,7 +107,39 @@ export function resolveLanguageConfiguration(raw: ILanguageConfiguration): IReso
 
     const autoCloseBefore = typeof raw.autoCloseBefore === "string" ? raw.autoCloseBefore : DEFAULT_AUTO_CLOSE_BEFORE;
 
-    return { comments, brackets, autoClosingPairs, surroundingPairs, autoCloseBefore };
+    const onEnterRules = mapSection(raw.onEnterRules, toOnEnterRule);
+
+    return { comments, brackets, autoClosingPairs, surroundingPairs, autoCloseBefore, onEnterRules };
+}
+
+function toRegExp(value: string | IRegExpDefinition | null | undefined): RegExp | undefined {
+    if (value === null || value === undefined) return undefined;
+    const definition = typeof value === "string" ? { pattern: value } : value;
+    try {
+        return new RegExp(definition.pattern, definition.flags);
+    } catch {
+        return undefined;
+    }
+}
+
+/** As upstream `_extractValidOnEnterRules`: a broken `beforeText` or `indent` drops the rule, a broken optional regex only itself. */
+function toOnEnterRule(rule: IOnEnterRule | null): IResolvedOnEnterRule | undefined {
+    if (typeof rule !== "object" || rule === null) return undefined;
+    const action = rule.action as IOnEnterAction | null | undefined;
+    if (typeof action !== "object" || action === null) return undefined;
+    if (!["none", "indent", "indentOutdent", "outdent"].includes(action.indent)) return undefined;
+    const beforeText = toRegExp(rule.beforeText);
+    if (beforeText === undefined) return undefined;
+    return {
+        beforeText,
+        afterText: toRegExp(rule.afterText),
+        previousLineText: toRegExp(rule.previousLineText),
+        action: {
+            indent: action.indent,
+            ...(typeof action.appendText === "string" ? { appendText: action.appendText } : {}),
+            ...(typeof action.removeText === "number" ? { removeText: action.removeText } : {}),
+        },
+    };
 }
 
 function resolveComments(raw: ICommentRule | null | undefined): ICommentRule | undefined {

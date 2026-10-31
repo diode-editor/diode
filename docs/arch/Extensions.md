@@ -798,12 +798,12 @@
   `LanguageConfigurationCustomer`):** по эталону `wordPattern` остаётся в субпроцессе — определение
   слова языка в `DocumentRegistry` для `getWordRangeAtPosition` (и эфемерных документов
   `openTextDocument`), а секции, которые ядро умеет из `language-configuration.json` (`comments`,
-  `brackets`, `autoClosingPairs`), уезжают notify `languages.setLanguageConfiguration` слоем в
+  `brackets`, `autoClosingPairs`, `onEnterRules`), уезжают notify `languages.setLanguageConfiguration` слоем в
   `ILanguageConfigurationService.register` — как `register(…, priority)` эталона: секция слоя
   заменяет секцию файла, поздний слой побеждает ранний, результат слияния разворачивается тем же
   `resolveLanguageConfiguration`. Снятие — `languages.unsetLanguageConfiguration` по handle; смерть
-  субпроцесса снимает все его слои (кастомер живёт один спавн). `indentationRules`/`onEnterRules` не
-  применяются: ядро не умеет их и из файла.
+  субпроцесса снимает все его слои (кастомер живёт один спавн). `indentationRules` не
+  применяются: ядро не умеет их и из файла. `onEnterRules` регулярки идут как `{ pattern, flags }`, действие — в формате файла.
 - **Значки `$(name)` в тексте расширений:** подменщик — `renderCodicons` (`base/common/codicons.ts`
   над генерируемой таблицей `codicons.generated.ts`: `scripts/import-codicons.mjs`, пин в лок-степе
   с `vscode.d.ts`). Политика: известное имя → глиф, **неизвестное выбрасывается** (литерал `$(foo)`

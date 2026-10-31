@@ -32,8 +32,13 @@ export function commandPaletteLabel(cmd: Pick<ICommandSnapshot, "title" | "categ
     return cmd.category === undefined || cmd.category === "" ? cmd.title : `${cmd.category}: ${cmd.title}`;
 }
 
+/**
+ * As upstream `CommandsRegistry`: registering an existing id shadows the handler instead of replacing it,
+ * and disposing the shadow brings the previous one back (an extension overriding `type`).
+ */
 export class CommandRegistry implements IDisposable {
-    private entries = new Map<string, CommandEntry>();
+    /** The last entry of a stack is the one in force; an empty stack is removed. */
+    private entries = new Map<string, CommandEntry[]>();
 
     public constructor(private readonly logger: ILogger = NULL_LOGGER) {}
 
@@ -44,14 +49,23 @@ export class CommandRegistry implements IDisposable {
         enablement?: string,
         category?: string,
     ): IDisposable {
-        this.entries.set(id, { handler, title, enablement, category });
+        const entry: CommandEntry = { handler, title, enablement, category };
+        const stack = this.entries.get(id);
+        if (stack === undefined) this.entries.set(id, [entry]);
+        else stack.push(entry);
         return {
             dispose: () => {
-                if (this.entries.get(id)?.handler === handler) {
-                    this.entries.delete(id);
-                }
+                const current = this.entries.get(id);
+                const index = current?.indexOf(entry) ?? -1;
+                if (current === undefined || index < 0) return;
+                current.splice(index, 1);
+                if (current.length === 0) this.entries.delete(id);
             },
         };
+    }
+
+    private top(id: string): CommandEntry | undefined {
+        return this.entries.get(id)?.at(-1);
     }
 
     /**
@@ -62,7 +76,7 @@ export class CommandRegistry implements IDisposable {
      * awaiting caller (`executeCommand`) still gets the rejection.
      */
     public execute(id: string, ...args: unknown[]): unknown {
-        const entry = this.entries.get(id);
+        const entry = this.top(id);
         if (!entry) return undefined;
         const result = entry.handler(...args);
         if (isThenable(result)) {
@@ -78,7 +92,7 @@ export class CommandRegistry implements IDisposable {
     }
 
     public getTitle(id: string): string | undefined {
-        return this.entries.get(id)?.title;
+        return this.top(id)?.title;
     }
 
     /** Unlike {@link listCommands}, with the commands that have no title. */
@@ -88,8 +102,9 @@ export class CommandRegistry implements IDisposable {
 
     public listCommands(): ICommandSnapshot[] {
         const result: ICommandSnapshot[] = [];
-        for (const [id, entry] of this.entries) {
-            if (entry.title !== undefined) {
+        for (const id of this.entries.keys()) {
+            const entry = this.top(id);
+            if (entry?.title !== undefined) {
                 result.push({ id, title: entry.title, enablement: entry.enablement, category: entry.category });
             }
         }
