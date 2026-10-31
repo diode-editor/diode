@@ -130,12 +130,17 @@ export class DefinitionService {
     /**
      * A response after an edit or a cursor move is not applied (upstream `EditorStateCancellationTokenSource`):
      * otherwise a slow provider (jdtls on a cold start) would retroactively carry the user off to another file.
+     * Switching to another editor counts too: upstream's source cancels on `onDidChangeModel`, and a pane here
+     * holds one model, so the switch is seen at the service.
      */
     private async navigate(navigation: ISymbolNavigation, toSide: boolean): Promise<void> {
         const editor = this.group.getActiveEditor();
         if (editor === null) return;
 
         const state = new EditorStateCancellationTokenSource(editor, EditorStateFlag.Value | EditorStateFlag.Position);
+        const switched = this.group.onActiveEditorChanged(() => {
+            state.cancel();
+        });
         const ticket = this.latest.start(state.token);
         const caret = editor.viewState.selections[0].active;
         let model: ILocationModel;
@@ -156,6 +161,8 @@ export class DefinitionService {
                 ticket.token,
             );
         } finally {
+            // Stryker disable next-line CallExpression: see above
+            switched.dispose();
             // Stryker disable next-line CallExpression: see above
             state.dispose();
         }

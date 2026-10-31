@@ -26,7 +26,7 @@ function makeKeys(editor: unknown): {
     const keys = new ContextKeyService();
     const features = new LanguageFeaturesService();
     const group = { getActiveEditor: () => editor } as unknown as IEditorService;
-    const contributor = new LanguageFeatureContextKeys(group, features);
+    const contributor = new LanguageFeatureContextKeys(group, features, keys);
     return {
         keys,
         features,
@@ -49,6 +49,24 @@ describe("LanguageFeatureContextKeys", () => {
         expect(keys.evaluate("editorHasCodeActionsProvider")).toBe(false);
         expect(keys.evaluate("editorHasDocumentFormattingProvider")).toBe(false);
         expect(keys.evaluate("editorHasDocumentSelectionFormattingProvider")).toBe(false);
+    });
+
+    it.each([
+        ["definitionProvider", "editorHasDefinitionProvider"],
+        ["implementationProvider", "editorHasImplementationProvider"],
+        ["referenceProvider", "editorHasReferenceProvider"],
+        ["renameProvider", "editorHasRenameProvider"],
+        ["codeActionProvider", "editorHasCodeActionsProvider"],
+        ["documentFormattingEditProvider", "editorHasDocumentFormattingProvider"],
+        ["documentRangeFormattingEditProvider", "editorHasDocumentSelectionFormattingProvider"],
+    ] as const)("%s: registering and disposing updates %s with nothing else happening", (feature, key) => {
+        const { keys, features } = makeKeys(editorStub());
+
+        const registration = features[feature].register({ language: "typescript" }, {} as never);
+        expect(keys.evaluate(key)).toBe(true);
+
+        registration.dispose();
+        expect(keys.evaluate(key)).toBe(false);
     });
 
     it("each key is raised by its own registry and only by it", () => {

@@ -1,27 +1,53 @@
+import { Disposable } from "../../base/common/lifecycle.ts";
 import type { ILanguageFeatureTarget } from "../../editor/common/languageFeatureRegistry.ts";
 import type { ILanguageFeaturesService } from "../../editor/common/services/languageFeatures.ts";
 import { LanguageFeaturesServiceDIToken } from "../../editor/common/services/languageFeatures.ts";
 import type { IContextKeyContributor } from "../../platform/contextkey/common/contextKeyContributor.ts";
 import type { ContextKeyService } from "../../platform/contextkey/common/contextKeyService.ts";
+import { ContextKeyServiceDIToken } from "../../platform/contextkey/common/contextKeyService.ts";
 import { token } from "../../platform/instantiation/common/diContainer.ts";
 import type { IEditorService } from "../services/editor/common/editorService.ts";
 import { EditorServiceDIToken } from "../services/editor/common/editorService.ts";
 
 export const LanguageFeatureContextKeysDIToken = token<LanguageFeatureContextKeys>("LanguageFeatureContextKeys");
 
+const FEATURES = [
+    "definitionProvider",
+    "implementationProvider",
+    "referenceProvider",
+    "renameProvider",
+    "codeActionProvider",
+    "documentFormattingEditProvider",
+    "documentRangeFormattingEditProvider",
+] as const;
+
 /**
- * Upstream's `EditorContextKeys.has*Provider`: menus do not promise what does not work. Polling
- * before keybinding resolution picks up a provider that arrived later, without
- * subscribing to the registry. Without an active editor all keys are `false`: otherwise they
- * would stick from the previous document.
+ * Upstream's `EditorContextKeys.has*Provider`: menus do not promise what does not work. Like
+ * upstream, a registry change updates the keys at once: a right click isn't preceded by polling
+ * before keybinding resolution, and a language server comes up with no key pressed. Without an
+ * active editor all keys are `false`: otherwise they would stick from the previous document.
  */
-export class LanguageFeatureContextKeys implements IContextKeyContributor {
-    public static dependencies = [EditorServiceDIToken, LanguageFeaturesServiceDIToken] as const;
+export class LanguageFeatureContextKeys extends Disposable implements IContextKeyContributor {
+    public static dependencies = [
+        EditorServiceDIToken,
+        LanguageFeaturesServiceDIToken,
+        ContextKeyServiceDIToken,
+    ] as const;
 
     public constructor(
         private readonly group: IEditorService,
         private readonly languageFeatures: ILanguageFeaturesService,
-    ) {}
+        contextKeys: ContextKeyService,
+    ) {
+        super();
+        for (const feature of FEATURES) {
+            this.register(
+                languageFeatures[feature].onDidChange(() => {
+                    this.updateContextKeys(contextKeys);
+                }),
+            );
+        }
+    }
 
     public updateContextKeys(contextKeys: ContextKeyService): void {
         const editor = this.group.getActiveEditor();
@@ -45,17 +71,7 @@ export class LanguageFeatureContextKeys implements IContextKeyContributor {
         contextKeys.set("editorHasSelection", !empty);
     }
 
-    private has(
-        feature:
-            | "definitionProvider"
-            | "implementationProvider"
-            | "referenceProvider"
-            | "renameProvider"
-            | "codeActionProvider"
-            | "documentFormattingEditProvider"
-            | "documentRangeFormattingEditProvider",
-        target: ILanguageFeatureTarget | null,
-    ): boolean {
+    private has(feature: (typeof FEATURES)[number], target: ILanguageFeatureTarget | null): boolean {
         return target !== null && this.languageFeatures[feature].has(target);
     }
 }
