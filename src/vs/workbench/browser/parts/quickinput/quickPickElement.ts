@@ -240,6 +240,20 @@ export class QuickPickElement extends TUIElement {
         this.moveSelection(delta);
     }
 
+    /**
+     * `quickOpenSelect*` and `quickOpenNavigate*`: a single-select wraps, as upstream `shouldLoop = !canSelectMany`.
+     * The arrows stay clamped: our keys don't change.
+     */
+    public stepActive(next: boolean): void {
+        const count = this.itemsValue.length;
+        if (this.canPickMany || this.selectedIndexValue < 0 || count === 0) {
+            this.moveSelection(next ? 1 : -1);
+            return;
+        }
+        const target = (this.selectedIndexValue + (next ? 1 : -1) + count) % count;
+        if (target !== this.selectedIndexValue) this.moveCursorTo(target, { notify: true });
+    }
+
     public getQuery(): string {
         return this.inputElement.inputState.value;
     }
@@ -439,7 +453,9 @@ export class QuickPickElement extends TUIElement {
         // With no active row, arrows land on the list edge instead of stepping from -1.
         // Stryker disable next-line EqualityOperator: `delta` is never zero — arrows and pages step by at least 1
         const from = this.selectedIndexValue < 0 ? (delta > 0 ? -1 : this.itemsValue.length) : this.selectedIndexValue;
-        const next = Math.max(0, Math.min(this.itemsValue.length - 1, from + delta));
+        // A multi-select with no active row starts from the top in both directions: upstream `focusPrevious` from none.
+        const firstStepOfMany = this.canPickMany && this.selectedIndexValue < 0;
+        const next = firstStepOfMany ? 0 : Math.max(0, Math.min(this.itemsValue.length - 1, from + delta));
         if (next === this.selectedIndexValue) return;
         this.moveCursorTo(next, { notify: true });
     }

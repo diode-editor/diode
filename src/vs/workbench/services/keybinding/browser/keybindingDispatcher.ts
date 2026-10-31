@@ -129,6 +129,15 @@ export class KeybindingDispatcher extends Disposable {
 
     public hasKeyboardCapturingOverlay: () => boolean = () => false;
 
+    /** The quick input holds the keyboard itself: a modal dialog over an open picker keeps its focus and its keys. */
+    private quickInputOwnsCommand(commandId: string): boolean {
+        return (
+            QUICK_INPUT_COMMANDS.has(commandId) &&
+            this.contextKeys.get("inQuickOpen") === true &&
+            this.contextKeys.get("inputWidgetFocus") === true
+        );
+    }
+
     /**
      * Asked outside a chord, before anything runs, with what the key would do: `true` leaves the key
      * to the focused widget (the terminal sends it to the shell, like upstream's
@@ -295,7 +304,7 @@ export class KeybindingDispatcher extends Disposable {
         if (wasInChord) this.swallowNextKeyPress = true;
 
         if (res.kind === "command" && this.commands.has(res.commandId)) {
-            if (overlayCaptures && !isFocusScopedWhen(res.when) && !QUICK_INPUT_COMMANDS.has(res.commandId)) {
+            if (overlayCaptures && !isFocusScopedWhen(res.when) && !this.quickInputOwnsCommand(res.commandId)) {
                 // A workbench/navigation shortcut fired while an overlay owns the keyboard:
                 // swallow it (no preventDefault) instead of acting behind the overlay.
                 this.setChordHint(null);

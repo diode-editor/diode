@@ -297,7 +297,7 @@ export class QuickInputService {
     }
 
     public navigateOpen(next: boolean): void {
-        if (this.component.isOpen()) this.component.view.moveActive(next ? 1 : -1);
+        if (this.component.isOpen()) this.component.view.stepActive(next);
     }
 
     public toggleOpen(): void {
