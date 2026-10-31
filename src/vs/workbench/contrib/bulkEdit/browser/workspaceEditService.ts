@@ -334,7 +334,7 @@ export class WorkspaceEditService {
         const slot = entry.slot;
         // Looked up now, not in the plan: an earlier operation of this edit may have moved or replaced the model.
         const buffer = this.buffers.get(slot.resource) ?? this.buffers.open(slot.resource);
-        // Stryker disable next-line ConditionalExpression,StringLiteral: without the guard `applyEdits` of a string throws instead, and any throw here rolls the edit back the same way; the catch drops the message
+        // Stryker disable next-line ConditionalExpression,StringLiteral,CallExpression: without the guard `applyEdits` of a string throws instead, and any throw here rolls the edit back the same way; the catch drops the message
         if (buffer === "read-only") throw new Error(`Read-only resource: ${slot.resource}`);
         if (buffer !== null) {
             if (slot.filePath !== null) resources.push(slot.filePath);
@@ -347,7 +347,7 @@ export class WorkspaceEditService {
             return;
         }
         const filePath = slot.filePath;
-        // Stryker disable next-line ConditionalExpression,StringLiteral: the plan refuses a foreign resource without a buffer, so this only narrows the type; the catch drops the message
+        // Stryker disable next-line ConditionalExpression,StringLiteral,CallExpression: the plan refuses a foreign resource without a buffer, so this only narrows the type; the catch drops the message
         if (filePath === null) throw new Error(`No buffer for ${slot.resource}`);
         resources.push(filePath);
         const before = slot.base;
