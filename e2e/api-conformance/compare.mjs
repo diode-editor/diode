@@ -41,12 +41,16 @@ export function unfinishedTitles(results) {
 export const testKey = (suite, title) => `${suite} ${title}`;
 
 /**
- * @param {{suite: string, green: Set<string>, baseline: Set<string>, exclusions: Record<string, string>}} input
+ * A baseline test that skipped itself is not red: upstream's tests skip on what the machine lacks
+ * (`window.state.focused` is false on a headless CI runner).
+ *
+ * @param {{suite: string, green: Set<string>, skipped?: Set<string>, baseline: Set<string>, exclusions: Record<string, string>}} input
  */
-export function compareSuite({ suite, green, baseline, exclusions }) {
+export function compareSuite({ suite, green, skipped = new Set(), baseline, exclusions }) {
     const isExcluded = (title) => Object.hasOwn(exclusions, testKey(suite, title));
     return {
-        regressions: [...baseline].filter((title) => !green.has(title) && !isExcluded(title)).sort(),
+        regressions: [...baseline].filter((title) => !green.has(title) && !skipped.has(title) && !isExcluded(title)).sort(),
+        baselineSkipped: [...baseline].filter((title) => skipped.has(title) && !isExcluded(title)).sort(),
         newGreen: [...green].filter((title) => !baseline.has(title) && !isExcluded(title)).sort(),
         // A flaky test passes now and then by definition, that is not news.
         excludedGreen: [...green].filter((title) => isExcluded(title) && !exclusions[testKey(suite, title)].startsWith("flaky")).sort(),
@@ -75,9 +79,11 @@ export function formatBaseline(titles) {
     return titles.length === 0 ? "" : `${[...titles].sort().join("\n")}\n`;
 }
 
-export function writeBaseline(baselineDir, suite, green, exclusions) {
+/** A baseline test that skipped itself in this run stays: the run says nothing about it. */
+export function writeBaseline(baselineDir, suite, green, exclusions, skipped = new Set()) {
     mkdirSync(baselineDir, { recursive: true });
-    const titles = [...green].filter((title) => !Object.hasOwn(exclusions, testKey(suite, title)));
+    const kept = [...readBaseline(baselineDir, suite)].filter((title) => skipped.has(title));
+    const titles = [...new Set([...green, ...kept])].filter((title) => !Object.hasOwn(exclusions, testKey(suite, title)));
     writeFileSync(baselinePath(baselineDir, suite), formatBaseline(titles));
 }
 
@@ -100,6 +106,7 @@ export function formatReport(suites) {
         if (entries.length > 0) lines.push("", title, ...entries);
     };
     section("REGRESSIONS (green in the baseline, not green now):", (c) => c.regressions);
+    section("Baseline tests that skipped themselves in this run:", (c) => c.baselineSkipped);
     section("New green tests outside the baseline. Add them: npm run test:api-conformance -- --update", (c) => c.newGreen);
     section("Excluded tests that pass. Check e2e/api-conformance/exclusions.json:", (c) => c.excludedGreen);
     return lines.join("\n");

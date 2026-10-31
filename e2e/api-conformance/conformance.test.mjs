@@ -46,18 +46,31 @@ test("planned tests a hung session never reached are unfinished, and so are not 
 
 test("a baseline test that is not green is a regression", () => {
     const comparison = compareSuite({ suite: "s", green: new Set(["a"]), baseline: new Set(["a", "b"]), exclusions: {} });
-    assert.deepEqual(comparison, { regressions: ["b"], newGreen: [], excludedGreen: [] });
+    assert.deepEqual(comparison, { regressions: ["b"], baselineSkipped: [], newGreen: [], excludedGreen: [] });
+});
+
+test("a baseline test that skipped itself is not a regression, and --update keeps it", () => {
+    const comparison = compareSuite({ suite: "s", green: new Set(), skipped: new Set(["a"]), baseline: new Set(["a"]), exclusions: {} });
+    assert.deepEqual(comparison, { regressions: [], baselineSkipped: ["a"], newGreen: [], excludedGreen: [] });
+    const dir = mkdtempSync(path.join(os.tmpdir(), "api-conformance-test-"));
+    try {
+        writeBaseline(dir, "s", new Set(["b"]), {});
+        writeBaseline(dir, "s", new Set(["c"]), {}, new Set(["b", "never green"]));
+        assert.deepEqual([...readBaseline(dir, "s")], ["b", "c"]);
+    } finally {
+        rmSync(dir, { recursive: true, force: true });
+    }
 });
 
 test("a green test outside the baseline is a hint, not a regression", () => {
     const comparison = compareSuite({ suite: "s", green: new Set(["a", "b"]), baseline: new Set(["a"]), exclusions: {} });
-    assert.deepEqual(comparison, { regressions: [], newGreen: ["b"], excludedGreen: [] });
+    assert.deepEqual(comparison, { regressions: [], baselineSkipped: [], newGreen: ["b"], excludedGreen: [] });
 });
 
 test("exclusions apply per suite, count for neither side and are reported when green", () => {
     const exclusions = { "s proposed": "proposed API", "s flaky": "flaky: races", "s red": "flaky", "other a": "not this suite" };
     const comparison = compareSuite({ suite: "s", green: new Set(["proposed", "flaky", "a"]), baseline: new Set(["red", "a"]), exclusions });
-    assert.deepEqual(comparison, { regressions: [], newGreen: [], excludedGreen: ["proposed"] });
+    assert.deepEqual(comparison, { regressions: [], baselineSkipped: [], newGreen: [], excludedGreen: ["proposed"] });
     assert.deepEqual(compareSuite({ suite: "s", green: new Set(), baseline: new Set(["a"]), exclusions }).regressions, ["a"]);
 });
 
@@ -87,19 +100,20 @@ test("the report prints totals and names what changed", () => {
         skippedCount: 3,
         unfinishedCount: 4,
         excludedCount: 5,
-        comparison: { regressions: ["r"], newGreen: ["n"], excludedGreen: ["e"] },
+        comparison: { regressions: ["r"], baselineSkipped: ["k"], newGreen: ["n"], excludedGreen: ["e"] },
     };
     const text = formatReport([suite]);
     assert.match(text, /Total: 2 green, 1 red, 3 skipped, 5 excluded\./);
     assert.match(text, /unfinished 4/);
     assert.match(text, /REGRESSIONS[^\n]*\n {2}s r/);
+    assert.match(text, /skipped themselves[^\n]*\n {2}s k/);
     assert.match(text, /--update\n {2}s n/);
     assert.match(text, /exclusions\.json:\n {2}s e/);
 });
 
 test("a clean report has no change sections", () => {
-    const text = formatReport([{ suite: "s", greenCount: 1, redCount: 0, skippedCount: 0, unfinishedCount: 0, excludedCount: 0, comparison: { regressions: [], newGreen: [], excludedGreen: [] } }]);
-    assert.doesNotMatch(text, /REGRESSIONS|New green|Excluded tests|unfinished/);
+    const text = formatReport([{ suite: "s", greenCount: 1, redCount: 0, skippedCount: 0, unfinishedCount: 0, excludedCount: 0, comparison: { regressions: [], baselineSkipped: [], newGreen: [], excludedGreen: [] } }]);
+    assert.doesNotMatch(text, /REGRESSIONS|skipped themselves|New green|Excluded tests|unfinished/);
 });
 
 test("the manifest gets our entry point, loses build fields and keeps upstream's settings", () => {

@@ -103,7 +103,7 @@ for (const [index, suite] of suites.entries()) {
     });
     const green = greenTitles(results);
     const unfinished = unfinishedTitles(results);
-    if (values.update && problem === undefined && results.loadError === undefined) writeBaseline(baselineDir, suite, green, exclusions);
+    if (values.update && problem === undefined && results.loadError === undefined) writeBaseline(baselineDir, suite, green, exclusions, new Set(results.skipped));
     const isExcluded = (title) => Object.hasOwn(exclusions, testKey(suite, title));
     const planned = results.planned.length > 0 ? results.planned : [...green];
     report.push({
@@ -113,7 +113,7 @@ for (const [index, suite] of suites.entries()) {
         skippedCount: results.skipped.length,
         unfinishedCount: unfinished.length,
         excludedCount: planned.filter(isExcluded).length,
-        comparison: compareSuite({ suite, green, baseline: readBaseline(baselineDir, suite), exclusions }),
+        comparison: compareSuite({ suite, green, skipped: new Set(results.skipped), baseline: readBaseline(baselineDir, suite), exclusions }),
     });
     details[suite] = { problem, planned: results.planned, loadError: results.loadError, green: [...green].sort(), failed: Object.fromEntries(results.failed), skipped: results.skipped, unfinished };
     console.log(`${suite}: ${String(green.size)} green of ${String(planned.length)} in ${String(Math.round((Date.now() - startedAt) / 1000))} s${problem === undefined ? "" : ` (${problem})`}`);
