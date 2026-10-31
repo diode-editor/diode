@@ -1,0 +1,19 @@
+{
+    "name": "editor-lifecycle-probe",
+    "displayName": "Editor Lifecycle Probe",
+    "description": "Reports on a toast what the window API sees around showTextDocument, vscode.diff and selection changes.",
+    "version": "0.0.1",
+    "publisher": "test",
+    "main": "./extension.js",
+    "engines": {
+        "vscode": "^1.0.0"
+    },
+    "activationEvents": ["onStartupFinished"],
+    "contributes": {
+        "commands": [
+            { "command": "editorLifecycleProbe.beside", "title": "Editor Lifecycle Probe: Beside" },
+            { "command": "editorLifecycleProbe.diff", "title": "Editor Lifecycle Probe: Diff" },
+            { "command": "editorLifecycleProbe.showMissing", "title": "Editor Lifecycle Probe: Show Missing" }
+        ]
+    }
+}
