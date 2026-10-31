@@ -6,7 +6,7 @@ import { createNodeExtHostDisk } from "../node/extHostDisk.ts";
 import { DocumentRegistry, DocumentSyncTracker } from "./extHostDocuments.ts";
 import { makeStubRpc } from "./testStubRpc.ts";
 import { ExtensionOwner, type IVscodeHostContext } from "./vscodeHostContext.ts";
-import { Uri } from "./vscodeTypes.ts";
+import { TextDocumentChangeReason, Uri } from "./vscodeTypes.ts";
 import { WorkspaceConfigStore } from "./workspaceConfigStore.ts";
 import { createWorkspaceNamespace } from "./workspaceNamespace.ts";
 
@@ -85,6 +85,21 @@ describe("WorkspaceNamespace — document sync (editor.didOpen)", () => {
 });
 
 describe("WorkspaceNamespace — document sync (editor.didChange)", () => {
+    it("[api:TextDocumentChangeEvent.reason] [api:TextDocumentChangeReason.Undo] [api:TextDocumentChangeReason.Redo] reason follows the origin of the batch", () => {
+        const { stub, workspace } = makeCtx();
+        const reasons: (vscode.TextDocumentChangeReason | undefined)[] = [];
+        workspace.onDidChangeTextDocument((e) => reasons.push(e.reason));
+        stub.fire("editor.didOpen", openParams({ text: "ab" }));
+
+        const insert = { range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } }, text: "x" };
+        const remove = { range: { start: { line: 0, character: 0 }, end: { line: 0, character: 1 } }, text: "" };
+        stub.fire("editor.didChange", { uri: URI, version: 2, changes: [insert] });
+        stub.fire("editor.didChange", { uri: URI, version: 3, changes: [remove], isUndoing: true });
+        stub.fire("editor.didChange", { uri: URI, version: 4, changes: [insert], isRedoing: true });
+
+        expect(reasons).toEqual([undefined, TextDocumentChangeReason.Undo, TextDocumentChangeReason.Redo]);
+    });
+
     it("fires onDidChangeTextDocument with one full-range edit of the old text", () => {
         const { stub, workspace } = makeCtx();
         const changes: vscode.TextDocumentChangeEvent[] = [];

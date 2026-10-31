@@ -6,7 +6,7 @@ import {
     regExpMatchesEmptyString,
 } from "../../../editor/common/core/wordHelper.ts";
 
-import { EndOfLine, EventEmitter, Position, Range, Uri } from "./vscodeTypes.ts";
+import { EndOfLine, EventEmitter, Position, Range, TextDocumentChangeReason, Uri } from "./vscodeTypes.ts";
 import type { IWireDocumentChangedEvent, IWireDocumentContentChange, IWireDocumentStateChanged } from "./wireTypes.ts";
 
 /**
@@ -340,7 +340,13 @@ export interface IDocumentContentChange {
 export interface IDocumentChangeEvent {
     readonly document: ExtHostTextDocument;
     readonly contentChanges: readonly IDocumentContentChange[];
-    readonly reason: undefined;
+    readonly reason: TextDocumentChangeReason | undefined;
+}
+
+function changeReasonOf(event: IWireDocumentChangedEvent): TextDocumentChangeReason | undefined {
+    if (event.isUndoing === true) return TextDocumentChangeReason.Undo;
+    if (event.isRedoing === true) return TextDocumentChangeReason.Redo;
+    return undefined;
 }
 
 function endOfText(text: string): Position {
@@ -410,7 +416,7 @@ export class DocumentSyncTracker {
         const doc = this.registry.getOrCreate(Uri.parse(event.uri));
         const contentChanges = doc.acceptChanges(event.version, event.changes);
         doc.applyMeta({ uri: event.uri, isDirty: event.isDirty });
-        this.onDidChangeEmitter.fire({ document: doc, contentChanges, reason: undefined });
+        this.onDidChangeEmitter.fire({ document: doc, contentChanges, reason: changeReasonOf(event) });
         return doc;
     }
 

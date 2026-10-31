@@ -22,7 +22,7 @@ A member reached through a value (`editor.document.getText()`) has no syntactic 
 
 | mark | members |
 | --- | --- |
-| test | 87 |
+| test | 90 |
 | confirmed by a real extension | 0 |
 | used by a surveyed extension | 583 |
 
@@ -2221,10 +2221,10 @@ Proposed API or a false hit: class X when real.
 | `TextDocument.version` | ok |  | 0 | 0 |  |
 | `TextDocumentChangeEvent.contentChanges` | ok |  | 0 | 0 |  |
 | `TextDocumentChangeEvent.document` | ok |  | 0 | 0 |  |
-| `TextDocumentChangeEvent.reason` | ok |  | 0 | 0 |  |
+| `TextDocumentChangeEvent.reason` | ok | yes | 0 | 0 |  |
 | `TextDocumentChangeReason` | ok |  | 0 | 0 |  |
-| `TextDocumentChangeReason.Redo` | ok |  | 10 | 128,078,595 |  |
-| `TextDocumentChangeReason.Undo` | ok |  | 10 | 128,078,595 |  |
+| `TextDocumentChangeReason.Redo` | ok | yes | 10 | 128,078,595 |  |
+| `TextDocumentChangeReason.Undo` | ok | yes | 10 | 128,078,595 |  |
 | `TextDocumentContentChangeEvent.range` | ok |  | 0 | 0 |  |
 | `TextDocumentContentChangeEvent.rangeLength` | ok |  | 0 | 0 |  |
 | `TextDocumentContentChangeEvent.rangeOffset` | ok |  | 0 | 0 |  |
