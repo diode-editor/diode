@@ -297,8 +297,21 @@ export class RpcEndpoint<
         const source = new CancellationTokenSource();
         this.incomingCancellations.set(message.id, source);
         if (this.earlyCancellations.delete(message.id)) source.cancel();
+        // In the delivery tick, as notifications: deferred, the handler would be overtaken by a notification
+        // sent after the request (`window.quickInput.cancel` right after `window.showInputBox` was lost).
+        let run: () => unknown;
+        try {
+            const result = handler(message.params, source.token);
+            run = () => result;
+        } catch (error) {
+            run = () => {
+                throw error;
+            };
+        }
+        // The reply stays a tick behind: it must not overtake what the handler's own work notifies about
+        // (a layout change after `closeAllEditors` would land in the extension's next listener).
         Promise.resolve()
-            .then(() => handler(message.params, source.token))
+            .then(run)
             .then(
                 (result) => {
                     // Stryker disable next-line CallExpression: token cleanup, see finishIncoming

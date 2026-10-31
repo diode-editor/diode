@@ -15,6 +15,5 @@
     "workspace vscode API - workspace findTextInFiles, cancellation": "proposed API: workspace.findTextInFiles",
     "workspace.tasks vscode API - tasks Tasks CustomExecution task should start and shutdown successfully": "proposed API: window.onDidWriteTerminalData",
     "env vscode API - env env.remoteName": "harness layout: expects the upstream built-in extensions vscode.git and vscode.media-preview; Diode has diode.git and no media-preview",
-    "languages vscode API - languages folding command": "harness layout: expects the upstream built-in extension vscode.json-language-features, which Diode does not bundle",
-    "window vscode API - window showInputBox - undefined on cancel": "flaky: a cancellation right after showInputBox is sometimes lost and the promise never settles (timed out in 3 of 6 runs); a bug of ours, not of the harness"
+    "languages vscode API - languages folding command": "harness layout: expects the upstream built-in extension vscode.json-language-features, which Diode does not bundle"
 }

@@ -44,6 +44,7 @@
         "escape: hideSuggestWidget [suggestWidgetVisible] > closeFindWidget [findWidgetVisible]",
         "escape: hideSuggestWidget [suggestWidgetVisible] > editor.action.inlineSuggest.hide [inlineSuggestionVisible || (inlineSuggestionRequestPending && textInputFocus)]",
         "escape: hideSuggestWidget [suggestWidgetVisible] > removeSecondaryCursors [textViewFocus && editorHasMultipleSelections]",
+        "escape: workbench.action.closeQuickOpen [inQuickOpen && inputWidgetFocus] > closeFindWidget [findWidgetVisible]",
         "f4: references-view.next [hasReferenceResult] > search.action.focusNextSearchResult [hasSearchResult]",
         "home: firstCompressedFolder [filesExplorerFocus && !inputWidgetFocus && explorerViewletCompressedFocus && !explorerViewletCompressedFirstFocus] > list.focusFirst [listFocus]",
         "meta+p: workbench.action.quickOpenNavigateNextInFilePicker [(inFilesPicker && inputWidgetFocus) && (macKeys >= 3)] > workbench.action.quickOpen [macKeys >= 3]",
@@ -566,6 +567,7 @@
             "mac-cmd (kitty) #1": "meta+k w"
         },
         "workbench.action.closeOtherEditors": "alt+meta+t",
+        "workbench.action.closeQuickOpen": "escape",
         "workbench.action.files.newUntitledFile": {
             "*": "ctrl+n",
             "mac-cmd (kitty) #0": "meta+n",

@@ -342,12 +342,80 @@ describe("window.showQuickPick (shim)", () => {
         await expect(api.showQuickPick(["a"], { canPickMany: true })).resolves.toBeUndefined();
     });
 
-    it("a promised list is awaited and sent to the host already filled", async () => {
+    it("a promised list opens the picker at once, its items follow, and the answer indexes them", async () => {
         const { stub, api } = makeApi();
-        stub.responder = () => ({ indices: [0] });
-        const items = Promise.resolve(["ready-1", "ready-2"]);
-        await expect(api.showQuickPick(items)).resolves.toBe("ready-1");
-        expect(lastRequest(stub, "window.showQuickPick").items).toEqual([{ label: "ready-1" }, { label: "ready-2" }]);
+        const show = pendingAnswer();
+        stub.responder = () => show.promise;
+        const pending = api.showQuickPick(Promise.resolve(["ready-1", "ready-2"]));
+        expect(lastRequest(stub, "window.showQuickPick")).toMatchObject({ items: [], itemsPending: true });
+        await Promise.resolve();
+        await Promise.resolve();
+        expect(stub.notifies.at(-1)).toEqual({
+            method: "window.showQuickPick.items",
+            params: { handle: 1, items: [{ label: "ready-1" }, { label: "ready-2" }], picked: [] },
+        });
+        show.answer({ indices: [1] });
+        await expect(pending).resolves.toBe("ready-2");
+    });
+
+    it("a rejected list dismisses the picker and rejects the caller, as upstream", async () => {
+        const { stub, api } = makeApi();
+        const show = pendingAnswer();
+        stub.responder = () => show.promise;
+        const pending = api.showQuickPick(Promise.reject(new Error("no list")));
+        await Promise.resolve();
+        await Promise.resolve();
+        expect(stub.notifies.at(-1)).toEqual({ method: "window.quickInput.cancel", params: { handle: 1 } });
+        show.answer({ indices: null });
+        await expect(pending).rejects.toThrow("no list");
+    });
+
+    it("a promise that never settles still opens the picker, and the host's cancel settles it", async () => {
+        const { stub, api } = makeApi();
+        stub.responder = () => ({ indices: null });
+        await expect(api.showQuickPick(new Promise<string[]>(() => undefined))).resolves.toBeUndefined();
+        expect(lastRequest(stub, "window.showQuickPick")).toMatchObject({ itemsPending: true });
+    });
+
+    it("[api:window.showQuickPick] onDidSelectItem gets the extension's own item; another handle's event does not reach it", async () => {
+        const { stub, api } = makeApi();
+        const show = pendingAnswer();
+        stub.responder = () => show.promise;
+        const beta = { label: "beta" };
+        const seen: unknown[] = [];
+        const pending = api.showQuickPick(["alpha", beta], {
+            onDidSelectItem: (item: unknown) => {
+                seen.push(item);
+            },
+        } as vscode.QuickPickOptions);
+        stub.fire("window.showQuickPick.didSelectItem", { handle: 1, index: 1 });
+        stub.fire("window.showQuickPick.didSelectItem", { handle: 99, index: 0 });
+        expect(seen).toEqual([beta]);
+        show.answer({ indices: null });
+        await pending;
+        stub.fire("window.showQuickPick.didSelectItem", { handle: 1, index: 0 });
+        expect(seen).toEqual([beta]);
+    });
+
+    it("[api:window.createQuickPick] resourceUri gives an item its label and description", () => {
+        const fileUri = {
+            path: "/w/src/a.ts",
+            fsPath: "/w/src/a.ts",
+            with: () => ({ path: "/w/src", fsPath: "/w/src" }),
+        } as unknown as vscode.Uri;
+        const relative = (uri: vscode.Uri): string => uri.fsPath.replace("/w/", "");
+        expect(toWireQuickPickItem({ label: "", resourceUri: fileUri }, relative)).toEqual({
+            label: "a.ts",
+            description: "src",
+        });
+        expect(toWireQuickPickItem({ label: "own", resourceUri: fileUri }, relative)).toEqual({
+            label: "own",
+            description: "src/a.ts",
+        });
+        expect(toWireQuickPickItem({ label: "own", description: "d", resourceUri: fileUri }, relative)).toEqual({
+            label: "own",
+            description: "d",
+        });
     });
 
     it("pre-picked items are sent as indices, and only with canPickMany", async () => {
@@ -417,17 +485,20 @@ describe("window.showQuickPick (shim)", () => {
         });
     });
 
-    it("a token cancelled while the list was being computed does not open the picker", async () => {
+    it("a token cancelled while the list is being computed dismisses the open picker", async () => {
         const { stub, api } = makeApi();
+        const show = pendingAnswer();
+        stub.responder = () => show.promise;
         const source = new CancellationTokenSource();
-        const items = Promise.resolve(["a"]).then((value) => {
-            source.cancel();
-            return value;
-        });
-        await expect(
-            api.showQuickPick(items, {}, source.token as unknown as vscode.CancellationToken),
-        ).resolves.toBeUndefined();
-        expect(stub.requests).toHaveLength(0);
+        const pending = api.showQuickPick(
+            new Promise<string[]>(() => undefined),
+            {},
+            source.token as unknown as vscode.CancellationToken,
+        );
+        source.cancel();
+        expect(stub.notifies.at(-1)).toEqual({ method: "window.quickInput.cancel", params: { handle: 1 } });
+        show.answer({ indices: null });
+        await expect(pending).resolves.toBeUndefined();
     });
 
     it("the cancellation token sends the host a dismissal", async () => {

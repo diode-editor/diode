@@ -16,14 +16,13 @@
     },
     "window.createInputBox": {
       "class": "B",
-      "note": "#915: quick input behavior differs from upstream"
+      "note": "not implemented: only the promise-based showInputBox exists"
     },
     "window.createOutputChannel": {
       "class": "ok"
     },
     "window.createQuickPick": {
-      "class": "B",
-      "note": "#915: quick input behavior differs from upstream"
+      "class": "ok"
     },
     "window.createStatusBarItem": {
       "class": "ok"
@@ -150,8 +149,7 @@
       "class": "ok"
     },
     "window.showInputBox": {
-      "class": "B",
-      "note": "#915: quick input behavior differs from upstream"
+      "class": "ok"
     },
     "window.showNotebookDocument": {
       "class": "X",
@@ -161,8 +159,7 @@
       "class": "ok"
     },
     "window.showQuickPick": {
-      "class": "B",
-      "note": "#915: quick input behavior differs from upstream"
+      "class": "ok"
     },
     "window.showSaveDialog": {
       "class": "ok"

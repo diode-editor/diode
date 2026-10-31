@@ -180,12 +180,59 @@ describe("QuickInputExtensionAdapter.showQuickPick", () => {
         const pending = adapter.showQuickPick(pickRequest({ canPickMany: true }));
         testApp.sendKey("ArrowDown");
         testApp.sendKey("ArrowDown");
+        testApp.sendKey("ArrowDown");
         testApp.sendKey(" ");
         testApp.sendKey("ArrowUp");
         testApp.sendKey("ArrowUp");
         testApp.sendKey(" ");
         testApp.sendKey("Enter");
         await expect(pending).resolves.toEqual([0, 2]);
+    });
+
+    it("onDidSelectItem reports the active row on open and on a real move, not again on filtering", async () => {
+        const { adapter, testApp } = createAdapter();
+        const seen: number[] = [];
+        const pending = adapter.showQuickPick(pickRequest(), (index) => seen.push(index));
+        expect(seen).toEqual([0]);
+        testApp.sendKey("ArrowDown");
+        expect(seen).toEqual([0, 1]);
+        testApp.sendKey("b");
+        expect(seen).toEqual([0, 1]);
+        testApp.sendKey("Enter");
+        await expect(pending).resolves.toEqual([1]);
+    });
+
+    it("in a multi-select onDidSelectItem stays silent until the first step", async () => {
+        const { adapter, testApp } = createAdapter();
+        const seen: number[] = [];
+        const pending = adapter.showQuickPick(pickRequest({ canPickMany: true }), (index) => seen.push(index));
+        expect(seen).toEqual([]);
+        testApp.sendKey("ArrowDown");
+        expect(seen).toEqual([0]);
+        testApp.sendKey("Enter");
+        await expect(pending).resolves.toEqual([]);
+    });
+
+    it("late items: the reply indexes them, and they are forgotten with the show", async () => {
+        const { adapter, service, testApp } = createAdapter();
+        const seen: number[] = [];
+        const pending = adapter.showQuickPick(pickRequest({ items: [], itemsPending: true }), (index) =>
+            seen.push(index),
+        );
+        expect(seen).toEqual([]);
+        adapter.setQuickPickItems({ handle: 1, items: [{ label: "one" }, { label: "two" }], picked: [] });
+        await Promise.resolve();
+        await Promise.resolve();
+        await Promise.resolve();
+        expect(seen).toEqual([0]);
+        testApp.sendKey("ArrowDown");
+        testApp.sendKey("Enter");
+        await expect(pending).resolves.toEqual([1]);
+
+        const again = adapter.showQuickPick(pickRequest({ handle: 2, items: [], itemsPending: true }));
+        service.closeOpen();
+        await expect(again).resolves.toBeUndefined();
+        adapter.setQuickPickItems({ handle: 2, items: [{ label: "late" }], picked: [] });
     });
 
     it("pre-picked indices open already checked", async () => {

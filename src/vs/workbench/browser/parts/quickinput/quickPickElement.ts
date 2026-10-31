@@ -88,6 +88,8 @@ export class QuickPickElement extends TUIElement {
     /** The list passes the element to onSelect, not its index. */
     private rowElements: TUIElement[] = [];
     private suppressActiveNotification = false;
+    /** The owner asked for no highlight ({@link clearActive}), as opposed to a multi-select that has none yet. */
+    private activeClearedByOwner = false;
 
     public constructor() {
         super();
@@ -142,11 +144,14 @@ export class QuickPickElement extends TUIElement {
         return this.itemsValue;
     }
 
+    /** Multi-select starts with no active row, as upstream `trySelectFirst`: the first step lands on the first row. */
     public set items(value: readonly QuickPickItem[]) {
         this.itemsValue = value;
-        this.selectedIndexValue = 0;
+        this.selectedIndexValue = this.canPickMany ? -1 : 0;
+        this.activeClearedByOwner = false;
         this.rebuildRows();
-        this.moveCursorTo(0, { notify: false });
+        this.moveCursorTo(this.selectedIndexValue, { notify: false });
+        this.clearCursorIfNoActive();
         this.list.scrollTop = 0;
         this.syncStructure();
     }
@@ -192,6 +197,7 @@ export class QuickPickElement extends TUIElement {
     /** Upstream's `activeItems = []` state: Enter accepts the typed text ({@link onAcceptEmpty}). */
     public clearActive(): void {
         this.selectedIndexValue = -1;
+        this.activeClearedByOwner = true;
         this.clearCursorIfNoActive();
     }
 
@@ -205,6 +211,8 @@ export class QuickPickElement extends TUIElement {
      * checkboxes and mask stuck around (Enter in the command palette went to onAcceptMany).
      */
     public resetFlavorState(): void {
+        // A list without an active row is multi-select's state: it must not outlive the flavor.
+        if (this.canPickMany && this.selectedIndexValue < 0) this.setActiveIndex(0);
         this.canPickMany = false;
         this.checkedValue.clear();
         this.onAcceptMany = null;
@@ -410,6 +418,8 @@ export class QuickPickElement extends TUIElement {
                 // Outside multi-select, Space is a query character: no preventDefault.
                 if (this.canPickMany) {
                     event.preventDefault();
+                    // Space on a freshly opened list still checks the first row.
+                    if (this.selectedIndexValue < 0 && !this.activeClearedByOwner) this.moveSelection(1);
                     this.toggleChecked();
                 }
                 break;
@@ -434,8 +444,9 @@ export class QuickPickElement extends TUIElement {
         this.moveCursorTo(next, { notify: true });
     }
 
-    private toggleChecked(): void {
-        if (this.selectedIndexValue < 0) return;
+    /** Upstream `toggle`: only a multi-select with an active row has something to toggle. */
+    public toggleChecked(): void {
+        if (!this.canPickMany || this.selectedIndexValue < 0) return;
         const item = this.itemsValue.at(this.selectedIndexValue);
         if (item === undefined) return;
         if (!this.checkedValue.delete(item)) this.checkedValue.add(item);
@@ -443,7 +454,8 @@ export class QuickPickElement extends TUIElement {
         this.onCheckedChange?.();
     }
 
-    private accept(): void {
+    /** Enter, a click and `acceptSelectedQuickOpenItem` all end here. */
+    public accept(): void {
         if (this.acceptMode === "value") {
             // The owner validates the accepted text itself: the message on screen may be the previous text's.
             this.onAcceptValue?.(this.getQuery());

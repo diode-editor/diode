@@ -1,12 +1,25 @@
 vscode API - window #7013 - input without options
+vscode API - window Default value for showInput Box not accepted when it fails validateInput, reversing #33691
 vscode API - window Tabs - ensure active tab is correct
 vscode API - window Tabs - vscode.open & vscode.diff
 vscode API - window active editor not always correct... #49125
 vscode API - window editor, onDidChangeTextEditorViewColumn (move editor group)
 vscode API - window editor, onDidChangeVisibleTextEditors
 vscode API - window editor, opened via resource
+vscode API - window showInputBox - '' on Enter
+vscode API - window showInputBox - `undefined` on Esc
+vscode API - window showInputBox - `undefined` on Esc (despite default)
 vscode API - window showInputBox - cancel early
+vscode API - window showInputBox - default value on Enter
+vscode API - window showInputBox - undefined on cancel
+vscode API - window showInputBox - value not empty on second try
+vscode API - window showQuickPick, accept first
+vscode API - window showQuickPick, accept second
 vscode API - window showQuickPick, cancel early
 vscode API - window showQuickPick, canceled by another picker
+vscode API - window showQuickPick, canceled by input
+vscode API - window showQuickPick, keep selection (microsoft/vscode-azure-account#67)
 vscode API - window showQuickPick, native promise - #11754
+vscode API - window showQuickPick, never resolve promise and cancel - #22453
+vscode API - window showQuickPick, select first two
 vscode API - window showQuickPick, undefined on cancel

@@ -316,6 +316,15 @@ describe("KeybindingDispatcher — modal overlays", () => {
         expect(h.executed).toEqual([]);
     });
 
+    it("a user's binding on a quick input command reaches the overlay without a when", () => {
+        const h = createHarness();
+        h.bind("ctrl+j", "workbench.action.quickOpenSelectNext");
+        h.dispatcher.hasKeyboardCapturingOverlay = () => true;
+
+        expect(h.dispatcher.dispatchKeyDown(keyDown({ key: "j", ctrlKey: true }))).toBe(true);
+        expect(h.executed).toEqual(["workbench.action.quickOpenSelectNext"]);
+    });
+
     it("lets a focus-scoped command (when with inputWidgetFocus) through with an overlay open", () => {
         const h = createHarness();
         h.bind("ctrl+c", "test.inputCopy", "inputWidgetFocus");

@@ -206,7 +206,8 @@ export function buildVscodeNamespace(rpc: SubprocessRpc, disk: IExtHostDisk): IV
         executeCommand: (id, ...args) => commands.executeCommand(id, ...args),
         owner: ctx.owner,
     });
-    const window = createWindowNamespace(ctx, terminals, treeViews);
+    // Deferred call: `workspace` is built after `window`.
+    const window = createWindowNamespace(ctx, terminals, treeViews, (uri) => workspace.asRelativePath(uri));
     // Deferred call: `tasks` is not built yet (it needs the `workspace` folders).
     const workspace = createWorkspaceNamespace(ctx, (type, provider) => tasks.registerTaskProvider(type, provider));
     // Built BEFORE languages: applyCodeAction runs the actions' commands.

@@ -2,6 +2,7 @@ import type { CommandAction } from "../../../../platform/actions/common/commandA
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import { parseChord, parseKeybinding } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import { KeybindingWeight } from "../../../../platform/keybinding/common/keybindingResolver.ts";
+import { QuickInputServiceDIToken } from "../../../browser/parts/quickinput/quickInputService.ts";
 
 import { CommandsQuickAccessProvider } from "./commandsQuickAccessProvider.ts";
 import { GotoLineQuickAccessProvider } from "./gotoLineQuickAccessProvider.ts";
@@ -74,6 +75,112 @@ export const quickOpenNavigatePreviousInFilePickerAction: CommandAction = {
     },
 };
 
+/** `inputWidgetFocus`: as `quickOpenNavigate*InFilePicker`, a dialog over the picker keeps its own Escape. */
+const IN_QUICK_INPUT = "inQuickOpen && inputWidgetFocus";
+
+// Upstream `quickAccessActions.ts`: they act on whatever quick input is open, and do nothing when none is.
+
+export const closeQuickOpenAction: CommandAction = {
+    id: "workbench.action.closeQuickOpen",
+    title: "Close Quick Open",
+    menus: HIDDEN_FROM_PALETTE,
+    when: IN_QUICK_INPUT,
+    weight: KeybindingWeight.WorkbenchContrib,
+    keybinding: parseKeybinding("escape"),
+    keybindings: [parseKeybinding("shift+escape")],
+    run(accessor) {
+        accessor.get(QuickInputServiceDIToken).closeOpen();
+    },
+};
+
+export const acceptSelectedQuickOpenItemAction: CommandAction = {
+    id: "workbench.action.acceptSelectedQuickOpenItem",
+    title: "Accept Selected Quick Open Item",
+    menus: HIDDEN_FROM_PALETTE,
+    run(accessor) {
+        accessor.get(QuickInputServiceDIToken).acceptOpen();
+    },
+};
+
+/** Upstream passes `ctrlCmd`, which opens a file to the side; our accept has no key modifiers. */
+export const alternativeAcceptSelectedQuickOpenItemAction: CommandAction = {
+    id: "workbench.action.alternativeAcceptSelectedQuickOpenItem",
+    title: "Alternative Accept Selected Quick Open Item",
+    menus: HIDDEN_FROM_PALETTE,
+    run(accessor) {
+        accessor.get(QuickInputServiceDIToken).acceptOpen();
+    },
+};
+
+export const focusQuickOpenAction: CommandAction = {
+    id: "workbench.action.focusQuickOpen",
+    title: "Focus Quick Open",
+    menus: HIDDEN_FROM_PALETTE,
+    run(accessor) {
+        accessor.get(QuickInputServiceDIToken).focusOpen();
+    },
+};
+
+export const quickPickManyToggleAction: CommandAction = {
+    id: "workbench.action.quickPickManyToggle",
+    title: "Toggle Quick Pick Item",
+    menus: HIDDEN_FROM_PALETTE,
+    run(accessor) {
+        accessor.get(QuickInputServiceDIToken).toggleOpen();
+    },
+};
+
+/** Upstream fires the Back button; our quick input has no buttons, so nobody is there to go back to. */
+export const quickInputBackAction: CommandAction = {
+    id: "workbench.action.quickInputBack",
+    title: "Quick Input Back",
+    menus: HIDDEN_FROM_PALETTE,
+    run() {
+        // Nothing to do, see above.
+    },
+};
+
+export const quickOpenWithModesAction: CommandAction = {
+    id: "workbench.action.quickOpenWithModes",
+    title: "Quick Open",
+    menus: HIDDEN_FROM_PALETTE,
+    run(accessor) {
+        accessor.get(QuickOpenServiceDIToken).show();
+    },
+};
+
+function navigateAction(id: string, title: string, next: boolean): CommandAction {
+    return {
+        id,
+        title,
+        run(accessor) {
+            accessor.get(QuickInputServiceDIToken).navigateOpen(next);
+        },
+    };
+}
+
+// No quick navigate in `Navigate*` (accept on releasing the modifier): a terminal does not report it reliably.
+export const quickOpenNavigateNextAction = navigateAction(
+    "workbench.action.quickOpenNavigateNext",
+    "Navigate Next in Quick Open",
+    true,
+);
+export const quickOpenNavigatePreviousAction = navigateAction(
+    "workbench.action.quickOpenNavigatePrevious",
+    "Navigate Previous in Quick Open",
+    false,
+);
+export const quickOpenSelectNextAction = navigateAction(
+    "workbench.action.quickOpenSelectNext",
+    "Select Next in Quick Open",
+    true,
+);
+export const quickOpenSelectPreviousAction = navigateAction(
+    "workbench.action.quickOpenSelectPrevious",
+    "Select Previous in Quick Open",
+    false,
+);
+
 export const gotoLineAction: CommandAction = {
     id: "workbench.action.gotoLine",
     title: "Go to Line/Column...",
@@ -119,6 +226,17 @@ export const QUICK_ACCESS_ACTIONS: readonly CommandAction[] = [
     quickOpenPreviousEditorAction,
     quickOpenNavigateNextInFilePickerAction,
     quickOpenNavigatePreviousInFilePickerAction,
+    closeQuickOpenAction,
+    acceptSelectedQuickOpenItemAction,
+    alternativeAcceptSelectedQuickOpenItemAction,
+    focusQuickOpenAction,
+    quickPickManyToggleAction,
+    quickInputBackAction,
+    quickOpenWithModesAction,
+    quickOpenNavigateNextAction,
+    quickOpenNavigatePreviousAction,
+    quickOpenSelectNextAction,
+    quickOpenSelectPreviousAction,
     showCommandsAction,
     showAllEditorsAction,
     gotoLineAction,

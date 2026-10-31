@@ -2,6 +2,7 @@ import type * as vscode from "vscode";
 
 import type { SubprocessRpc } from "./extHostProtocol.ts";
 import { ExtHostQuickPick } from "./extHostQuickPick.ts";
+import { type AsRelativePath, withResourceFields } from "./quickInputResource.ts";
 import { InputBoxValidationSeverity, QuickPickItemKind } from "./vscodeTypes.ts";
 import {
     type IWireQuickPickItem,
@@ -53,9 +54,13 @@ function toWireSeverity(severity: number | undefined): WireValidationSeverity {
  * Our single-line row cannot show `detail` on a separate line — it takes the place of
  * the description, but only when there is no description (docs/public/API-COVERAGE.md).
  */
-export function toWireQuickPickItem(item: string | vscode.QuickPickItem): IWireQuickPickItem {
+export function toWireQuickPickItem(
+    item: string | vscode.QuickPickItem,
+    asRelativePath: AsRelativePath = (uri) => uri.fsPath,
+): IWireQuickPickItem {
     if (typeof item === "string") return { label: item };
-    return { label: item.label, description: nonEmpty(item.description) ?? nonEmpty(item.detail) };
+    const { label, description } = withResourceFields(item, asRelativePath);
+    return { label, description: nonEmpty(description) ?? nonEmpty(item.detail) };
 }
 
 function nonEmpty(text: string | undefined): string | undefined {
@@ -70,8 +75,17 @@ function makeValidator(options: vscode.InputBoxOptions | undefined): ((value: st
     return (value: string): unknown => options.validateInput?.(value);
 }
 
-export function createQuickInputApi(rpc: SubprocessRpc): IQuickInputApi {
+export function createQuickInputApi(
+    rpc: SubprocessRpc,
+    asRelativePath: AsRelativePath = (uri) => uri.fsPath,
+): IQuickInputApi {
     let nextHandle = 1;
+    const selectListeners = new Map<number, (index: number) => void>();
+    rpc.handleNotification("window.showQuickPick.didSelectItem", (params) => {
+        const p: { handle?: unknown; index?: unknown } = params;
+        if (typeof p.handle !== "number" || typeof p.index !== "number") return;
+        selectListeners.get(p.handle)?.(p.index);
+    });
     // A map, not a single slot: an extension may hold two `showInputBox` calls at once, and
     // validation of the first may still be in flight.
     const validators = new Map<number, ((value: string) => unknown) | undefined>();
@@ -107,7 +121,7 @@ export function createQuickInputApi(rpc: SubprocessRpc): IQuickInputApi {
         createQuickPick: <T extends vscode.QuickPickItem>(): vscode.QuickPick<T> => {
             // The counter is shared with show* calls: the host uses it to address a single overlay.
             const handle = nextHandle++;
-            const quickPick = new ExtHostQuickPick<T>(rpc, handle, () => quickPicks.delete(handle));
+            const quickPick = new ExtHostQuickPick<T>(rpc, handle, () => quickPicks.delete(handle), asRelativePath);
             quickPicks.set(handle, quickPick as unknown as ExtHostQuickPick<vscode.QuickPickItem>);
             return quickPick;
         },
@@ -139,31 +153,50 @@ export function createQuickInputApi(rpc: SubprocessRpc): IQuickInputApi {
         },
 
         showQuickPick: async (items, options, token) => {
-            const canPickMany = options?.canPickMany === true;
-            // AWAIT the items promise: an empty overlay with a busy indicator is a state of the object
-            // picker, which we don't have.
-            const awaited = (await Promise.resolve(items)) as readonly (string | vscode.QuickPickItem)[];
-            // Our overlay has no group headers: a shown separator would become a pickable item.
-            const resolved = awaited.filter(
-                (item) =>
-                    // Stryker disable next-line ConditionalExpression,StringLiteral: the string check is a fast path; a string has no `kind` (`undefined`), so the second operand keeps it anyway
-                    typeof item === "string" ||
-                    (item.kind as number | undefined) !== (QuickPickItemKind.Separator as number),
-            );
             if (token?.isCancellationRequested === true) return undefined;
+            const canPickMany = options?.canPickMany === true;
             const handle = nextHandle++;
+            // Upstream `$show` first, `$setItems` later: the picker takes the widget in call order, and
+            // a promise that never settles can still be cancelled.
+            const pending = isThenable(items);
+            let resolved = pending ? [] : pickableItems(items);
+            let loadFailure: { readonly error: unknown } | undefined;
+            selectListeners.set(handle, (index) => {
+                const item = resolved.at(index);
+                if (item !== undefined) options?.onDidSelectItem?.(item);
+            });
             const unbind = bindCancellation(handle, token);
-            try {
-                const result = parseWireQuickPickResult(
-                    await rpc.request("window.showQuickPick", {
-                        handle,
-                        title: options?.title,
-                        placeHolder: options?.placeHolder,
-                        canPickMany,
-                        items: resolved.map(toWireQuickPickItem),
-                        picked: pickedIndices(resolved, canPickMany),
-                    }),
+            const toWire = (item: string | vscode.QuickPickItem): IWireQuickPickItem =>
+                toWireQuickPickItem(item, asRelativePath);
+            const reply = rpc.request("window.showQuickPick", {
+                handle,
+                title: options?.title,
+                placeHolder: options?.placeHolder,
+                canPickMany,
+                items: resolved.map(toWire),
+                picked: pickedIndices(resolved, canPickMany),
+                itemsPending: pending,
+            });
+            if (pending) {
+                void Promise.resolve(items).then(
+                    (loaded) => {
+                        resolved = pickableItems(loaded);
+                        rpc.notify("window.showQuickPick.items", {
+                            handle,
+                            items: resolved.map(toWire),
+                            picked: pickedIndices(resolved, canPickMany),
+                        });
+                    },
+                    (error: unknown) => {
+                        loadFailure = { error };
+                        rpc.notify("window.quickInput.cancel", { handle });
+                    },
                 );
+            }
+            try {
+                const result = parseWireQuickPickResult(await reply);
+                // Upstream rejects the caller with the error of its items promise.
+                if (loadFailure !== undefined) throw loadFailure.error;
                 if (result.indices === null) return undefined;
                 // An out-of-range index is a reply to another prompt: otherwise the array would hold `undefined`.
                 const picked = result.indices
@@ -172,10 +205,24 @@ export function createQuickInputApi(rpc: SubprocessRpc): IQuickInputApi {
                 if (canPickMany) return picked;
                 return picked.at(0);
             } finally {
+                selectListeners.delete(handle);
                 unbind();
             }
         },
     };
+}
+
+function isThenable(value: unknown): value is PromiseLike<unknown> {
+    return typeof (value as { then?: unknown } | null | undefined)?.then === "function";
+}
+
+/** Our overlay has no group headers: a shown separator would become a pickable item. */
+function pickableItems(items: unknown): readonly (string | vscode.QuickPickItem)[] {
+    return (items as readonly (string | vscode.QuickPickItem)[]).filter(
+        (item) =>
+            // Stryker disable next-line ConditionalExpression,StringLiteral: the string check is a fast path; a string has no `kind` (`undefined`), so the second operand keeps it anyway
+            typeof item === "string" || (item.kind as number | undefined) !== (QuickPickItemKind.Separator as number),
+    );
 }
 
 function pickedIndices(items: readonly (string | vscode.QuickPickItem)[], canPickMany: boolean): number[] {

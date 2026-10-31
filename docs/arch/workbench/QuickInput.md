@@ -29,6 +29,22 @@
   множественного выбора и маска поля пароля иначе протекают в следующего
   хозяина — палитра рисовала бы `[ ]` перед каждой командой, а Quick Open —
   звёздочки вместо запроса.
+- **Команды эталона** (`quickAccessActions.ts` → `contrib/quickaccess/browser/quickOpenActions.ts`):
+  `closeQuickOpen`, `acceptSelectedQuickOpenItem`, `quickOpenSelectNext/Previous` и родственные зовут
+  `QuickInputService.acceptOpen/closeOpen/navigateOpen/toggleOpen/focusOpen`: те работают с общим виджетом,
+  кто бы его ни открыл, и без открытого показа ничего не делают. Диспетчер пропускает эти команды к
+  оверлею и без `when` в привязке (`QUICK_INPUT_COMMANDS`): иначе пользовательская привязка глушилась бы.
+  Отступления от эталона: `alternativeAccept…` равен обычному accept (у нашего accept нет модификаторов),
+  `quickInputBack` ничего не делает (кнопок нет) и остаётся без клавиши, у `quickOpenNavigate*` нет
+  подтверждения по отпусканию, мак-привязок `⌃N`/`⌃P` на `quickOpenSelect*` нет: на маке эти клавиши заняты.
+- **Множественный выбор открывается без активной строки**, как `trySelectFirst` эталона: первый шаг встаёт
+  на первую строку. `Space` на свежем списке по-прежнему отмечает первую строку.
+- **События на действия владельца** (`createQuickPick(events, { echoOwnerChanges: true })`, так зовёт адаптер
+  расширений): `activeItems` и `selectedItems` от расширения возвращаются событиями, одиночный выбор ещё и
+  принимается. Файловый диалог этого не включает: для него `onDidChangeActive` значит «двинул пользователь».
+- **Поздние `items`** (`lateItems`, в проводе `itemsPending` + `window.showQuickPick.items`, эталонные
+  `$show` и `$setItems`): показ открыт и отменяем до их прихода, поэтому порядок показов совпадает с порядком
+  вызовов, а промис, который никогда не выполнится, не вешает `closeQuickOpen`.
 - `contrib/quickaccess/` — contribution point провайдеров Quick Open
   (аналог `IQuickAccessRegistry` vscode,
   `vs/platform/quickinput/common/quickAccess.ts`): `QuickAccessRegistry`
@@ -88,7 +104,8 @@
   `QuickAccessController`): `show(prefix)` занимает общий виджет, дальше
   ведёт запрос через реестр (смена префикса на лету переключает провайдера),
   к дорогим провайдерам применяет leading+trailing debounce 16мс. О
-  конкретных префиксах не знает. Он же — поставщик ключей `inQuickOpen` и
+  конкретных префиксах не знает. Он же — поставщик ключей `inQuickOpen`
+  (открыт любой показ на общем виджете, как в эталоне) и
   `inFilesPicker` (провайдер без префикса): на втором висят
   `quickOpenNavigateNext/PreviousInFilePicker` — повторный Ctrl+P / Ctrl+E в
   файловом пикере шагает вниз (с Shift — вверх), как в эталоне; в `when` у них

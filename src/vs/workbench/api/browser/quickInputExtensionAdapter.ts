@@ -1,5 +1,9 @@
 import { type IProductIconService, NERD_FONT_ICONS } from "../../../platform/theme/common/productIconService.ts";
-import type { InputValidation, QuickInputService } from "../../browser/parts/quickinput/quickInputService.ts";
+import type {
+    InputValidation,
+    LateQuickPickItems,
+    QuickInputService,
+} from "../../browser/parts/quickinput/quickInputService.ts";
 import type {
     QuickPickSession,
     QuickPickSessionItem,
@@ -9,6 +13,8 @@ import type { QuickPickItem } from "../../common/quickPickItem.ts";
 import type { IQuickInputBoxRequest, IQuickInputSink } from "../common/iExtensionWindowSinks.ts";
 import type {
     IWireQuickPickEvent,
+    IWireQuickPickItem,
+    IWireQuickPickItems,
     IWireQuickPickRequest,
     IWireQuickPickSessionItem,
     IWireQuickPickUpdate,
@@ -32,6 +38,7 @@ interface IExtensionQuickPick {
 export class QuickInputExtensionAdapter implements IQuickInputSink {
     private currentHandle: number | null = null;
     private readonly quickPicks = new Map<number, IExtensionQuickPick>();
+    private readonly awaitingItems = new Map<number, (late: IWireQuickPickItems) => void>();
 
     public constructor(
         private readonly quickInput: QuickInputService,
@@ -64,14 +71,35 @@ export class QuickInputExtensionAdapter implements IQuickInputSink {
         }
     }
 
-    public async showQuickPick(request: IWireQuickPickRequest): Promise<readonly number[] | undefined> {
+    public async showQuickPick(
+        request: IWireQuickPickRequest,
+        onDidSelectItem: (index: number) => void = () => undefined,
+    ): Promise<readonly number[] | undefined> {
         // Build the items once and reply with INDICES into this array: the extension
         // must get back its own objects, not ones rebuilt over the wire.
         const renderLabel = labelRenderer(this.icons);
-        const items: QuickPickItem[] = request.items.map((item) => ({
-            label: this.icons.renderCodicons(item.label),
-            description: renderLabel(item.description),
-        }));
+        const toItems = (wire: readonly IWireQuickPickItem[]): QuickPickItem[] =>
+            wire.map((item) => ({
+                label: this.icons.renderCodicons(item.label),
+                description: renderLabel(item.description),
+            }));
+        let items = toItems(request.items);
+        const lateItems =
+            request.itemsPending === true
+                ? new Promise<LateQuickPickItems>((resolve) => {
+                      this.awaitingItems.set(request.handle, (late) => {
+                          items = toItems(late.items);
+                          resolve({ items, picked: late.picked.map((index) => items[index]) });
+                      });
+                  })
+                : undefined;
+        // The widget also reports filtering that leaves the active row in place: upstream fires on a real move only.
+        let lastActive: QuickPickItem | undefined;
+        const onDidChangeActive = (item: QuickPickItem | undefined): void => {
+            if (item === undefined || item === lastActive) return;
+            lastActive = item;
+            onDidSelectItem(items.indexOf(item));
+        };
         this.currentHandle = request.handle;
         try {
             if (!request.canPickMany) {
@@ -79,6 +107,8 @@ export class QuickInputExtensionAdapter implements IQuickInputSink {
                     title: renderLabel(request.title),
                     placeholder: renderLabel(request.placeHolder),
                     items,
+                    onDidChangeActive,
+                    lateItems,
                 });
                 if (picked === undefined) return undefined;
                 return [items.indexOf(picked)];
@@ -88,12 +118,20 @@ export class QuickInputExtensionAdapter implements IQuickInputSink {
                 placeholder: renderLabel(request.placeHolder),
                 items,
                 picked: request.picked.map((index) => items[index]),
+                onDidChangeActive,
+                lateItems,
             });
             if (picked === undefined) return undefined;
             return picked.map((item) => items.indexOf(item));
         } finally {
+            this.awaitingItems.delete(request.handle);
             this.release(request.handle);
         }
+    }
+
+    public setQuickPickItems(late: IWireQuickPickItems): void {
+        this.awaitingItems.get(late.handle)?.(late);
+        this.awaitingItems.delete(late.handle);
     }
 
     public updateQuickPick(update: IWireQuickPickUpdate, emit: (event: IWireQuickPickEvent) => void): void {
@@ -119,23 +157,26 @@ export class QuickInputExtensionAdapter implements IQuickInputSink {
 
     private createQuickPick(handle: number, emit: (event: IWireQuickPickEvent) => void): IExtensionQuickPick {
         const handles = (items: readonly IExtensionQuickPickItem[]): number[] => items.map((item) => item.handle);
-        const session = this.quickInput.createQuickPick<IExtensionQuickPickItem>({
-            onDidChangeValue: (value) => {
-                emit({ handle, kind: "changeValue", value });
+        const session = this.quickInput.createQuickPick<IExtensionQuickPickItem>(
+            {
+                onDidChangeValue: (value) => {
+                    emit({ handle, kind: "changeValue", value });
+                },
+                onDidAccept: () => {
+                    emit({ handle, kind: "accept" });
+                },
+                onDidChangeActive: (items) => {
+                    emit({ handle, kind: "changeActive", items: handles(items) });
+                },
+                onDidChangeSelection: (items) => {
+                    emit({ handle, kind: "changeSelection", items: handles(items) });
+                },
+                onDidHide: () => {
+                    emit({ handle, kind: "hide" });
+                },
             },
-            onDidAccept: () => {
-                emit({ handle, kind: "accept" });
-            },
-            onDidChangeActive: (items) => {
-                emit({ handle, kind: "changeActive", items: handles(items) });
-            },
-            onDidChangeSelection: (items) => {
-                emit({ handle, kind: "changeSelection", items: handles(items) });
-            },
-            onDidHide: () => {
-                emit({ handle, kind: "hide" });
-            },
-        });
+            { echoOwnerChanges: true },
+        );
         return { session, byHandle: new Map() };
     }
 

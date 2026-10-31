@@ -92,6 +92,30 @@ describe("RpcEndpoint", () => {
         dispose();
     });
 
+    it("a notification sent right after a request runs after its handler, not before", async () => {
+        const { a, b, dispose } = createEndpointPair();
+        const order: string[] = [];
+        b.handleRequest("open", () => {
+            order.push("open");
+            return null;
+        });
+        b.handleNotification("cancel", () => order.push("cancel"));
+        const opened = a.request("open");
+        a.notify("cancel");
+        await opened;
+        expect(order).toEqual(["open", "cancel"]);
+        dispose();
+    });
+
+    it("a handler that throws synchronously rejects the request", async () => {
+        const { a, b, dispose } = createEndpointPair();
+        b.handleRequest("boom", () => {
+            throw new Error("at once");
+        });
+        await expect(a.request("boom")).rejects.toThrow("at once");
+        dispose();
+    });
+
     it("swallows a throwing notification handler but logs a warning", async () => {
         const [chA, chB] = createInProcessChannelPair();
         const a = new RpcEndpoint(chA);
