@@ -380,3 +380,29 @@ describe("CommandsNamespace (subprocess)", () => {
         dispose();
     });
 });
+
+describe("commands.getCommands", () => {
+    it("[api:commands.getCommands] lists the host's commands, internal ones hidden on request", async () => {
+        const { commands, host, dispose } = createBridge();
+        host.handleRequest("commands.getCommands", () => ["editor.action.x", "_internal", "ext._notInternal"]);
+
+        await expect(commands.getCommands()).resolves.toEqual(["editor.action.x", "_internal", "ext._notInternal"]);
+        await expect(commands.getCommands(false)).resolves.toContain("_internal");
+        await expect(commands.getCommands(true)).resolves.toEqual(["editor.action.x", "ext._notInternal"]);
+        dispose();
+    });
+
+    it("a command the extension just registered is already in the list: the notification goes first", async () => {
+        const { commands, host, dispose } = createBridge();
+        const known: string[] = [];
+        host.handleNotification("commands.registerCommand", (params) => {
+            known.push((params as { id: string }).id);
+        });
+        host.handleRequest("commands.getCommands", () => known);
+
+        commands.registerCommand("ext.fresh", () => undefined);
+
+        await expect(commands.getCommands()).resolves.toEqual(["ext.fresh"]);
+        dispose();
+    });
+});

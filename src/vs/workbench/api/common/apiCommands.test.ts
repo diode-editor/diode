@@ -2,12 +2,15 @@ import { describe, expect, it, vi } from "vitest";
 import type * as vscode from "vscode";
 
 import { createApiCommands, type IApiCommandsDeps } from "./apiCommands.ts";
-import { Uri } from "./vscodeTypes.ts";
+import { Position, Range, Selection, Uri } from "./vscodeTypes.ts";
 
 function setup(): { open: (...args: unknown[]) => Promise<unknown>; deps: IApiCommandsDeps } {
     const deps: IApiCommandsDeps = {
         showTextDocument: vi.fn(() => Promise.resolve({})),
         openExternal: vi.fn(() => Promise.resolve(true)),
+        openTextDocument: vi.fn(() => Promise.resolve({} as vscode.TextDocument)),
+        executeCompletionItemProvider: vi.fn(() => Promise.resolve({ items: [] })),
+        executeCodeActionProvider: vi.fn(() => Promise.resolve([])),
     };
     const handler = createApiCommands(deps).get("vscode.open");
     if (handler === undefined) throw new Error("vscode.open is not registered");
@@ -97,5 +100,73 @@ describe("apiCommands — vscode.open", () => {
 
         expect(deps.openExternal).toHaveBeenCalledTimes(1);
         expect(vi.mocked(deps.openExternal).mock.calls[0][0].scheme).toBe("http");
+    });
+});
+
+describe("apiCommands — vscode.execute*", () => {
+    const uri = Uri.file("/ws/a.json");
+    const doc = {} as vscode.TextDocument;
+
+    function run(id: string): { call: (...args: unknown[]) => Promise<unknown>; deps: IApiCommandsDeps } {
+        const deps: IApiCommandsDeps = {
+            showTextDocument: vi.fn(() => Promise.resolve({})),
+            openExternal: vi.fn(() => Promise.resolve(true)),
+            openTextDocument: vi.fn(() => Promise.resolve(doc)),
+            executeCompletionItemProvider: vi.fn(() => Promise.resolve({ items: [] })),
+            executeCodeActionProvider: vi.fn(() => Promise.resolve([])),
+        };
+        const handler = createApiCommands(deps).get(id);
+        if (handler === undefined) throw new Error(`${id} is not registered`);
+        return { call: async (...args) => handler(...args), deps };
+    }
+
+    it("[api:commands.executeCommand] vscode.executeCompletionItemProvider opens the document and passes the arguments", async () => {
+        const { call, deps } = run("vscode.executeCompletionItemProvider");
+        const position = new Position(1, 2);
+
+        await expect(call(uri, position, ".", 3)).resolves.toEqual({ items: [] });
+        await call(uri, position, null, null);
+
+        expect(deps.openTextDocument).toHaveBeenCalledWith(uri);
+        expect(deps.executeCompletionItemProvider).toHaveBeenNthCalledWith(1, doc, position, ".", 3);
+        expect(deps.executeCompletionItemProvider).toHaveBeenNthCalledWith(2, doc, position, undefined, undefined);
+    });
+
+    it("vscode.executeCodeActionProvider opens the document and passes the arguments, a Selection is a Range", async () => {
+        const { call, deps } = run("vscode.executeCodeActionProvider");
+        const range = new Range(0, 0, 0, 5);
+        const selection = new Selection(0, 0, 0, 1);
+
+        await expect(call(uri, range, "quickfix", 2)).resolves.toEqual([]);
+        await call(uri, selection);
+
+        expect(deps.openTextDocument).toHaveBeenCalledWith(uri);
+        expect(deps.executeCodeActionProvider).toHaveBeenNthCalledWith(1, doc, range, "quickfix", 2);
+        expect(deps.executeCodeActionProvider).toHaveBeenNthCalledWith(2, doc, selection, undefined, undefined);
+    });
+
+    it("vscode.executeLinkProvider answers an empty list: link providers are a no-op", async () => {
+        await expect(run("vscode.executeLinkProvider").call(uri)).resolves.toEqual([]);
+        await expect(run("vscode.executeLinkProvider").call(uri, 5)).resolves.toEqual([]);
+    });
+
+    it.each([
+        ["vscode.executeLinkProvider", ["nope"], "uri", "nope"],
+        ["vscode.executeLinkProvider", [uri, "x"], "linkResolveCount", "x"],
+        ["vscode.executeCompletionItemProvider", ["nope"], "uri", "nope"],
+        ["vscode.executeCompletionItemProvider", [uri, 1], "position", "1"],
+        ["vscode.executeCompletionItemProvider", [uri, new Position(0, 0), 1], "triggerCharacter", "1"],
+        ["vscode.executeCompletionItemProvider", [uri, new Position(0, 0), ".", "x"], "itemResolveCount", "x"],
+        ["vscode.executeCodeActionProvider", ["nope"], "uri", "nope"],
+        ["vscode.executeCodeActionProvider", [uri, 1], "rangeOrSelection", "1"],
+        ["vscode.executeCodeActionProvider", [uri, new Range(0, 0, 0, 1), 1], "kind", "1"],
+        ["vscode.executeCodeActionProvider", [uri, new Range(0, 0, 0, 1), "k", "x"], "itemResolveCount", "x"],
+    ])("%s refuses a bad argument %#", async (id, args, name, received) => {
+        const { call, deps } = run(id);
+
+        await expect(call(...args)).rejects.toThrow(
+            `Invalid argument '${name}' when running '${id}', received: ${received} `,
+        );
+        expect(deps.openTextDocument).not.toHaveBeenCalled();
     });
 });

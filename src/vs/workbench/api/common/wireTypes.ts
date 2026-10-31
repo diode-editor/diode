@@ -125,6 +125,8 @@ export interface IWireDocumentChangedEvent {
     readonly version: number;
     readonly changes: readonly IWireDocumentContentChange[];
     readonly isDirty?: boolean;
+    readonly isUndoing?: boolean;
+    readonly isRedoing?: boolean;
 }
 
 /** One malformed change drops the whole batch: applied partially, it would corrupt the mirror. */
@@ -146,6 +148,8 @@ export function parseWireDocumentChangedEvent(raw: unknown): IWireDocumentChange
         version: obj.version,
         changes,
         ...(typeof obj.isDirty === "boolean" ? { isDirty: obj.isDirty } : {}),
+        ...(obj.isUndoing === true ? { isUndoing: true } : {}),
+        ...(obj.isRedoing === true ? { isRedoing: true } : {}),
     };
 }
 
@@ -1616,4 +1620,19 @@ export interface IWireExecuteCommandParams {
 
 export interface IWireCommandId {
     readonly id: string;
+}
+
+export interface IWireChangeLanguageParams {
+    readonly uri: string;
+    readonly languageId: string;
+}
+
+export interface IWireChangeLanguageResult {
+    /** `false`: the core has no model of this document yet; the language is applied when it gets one. */
+    readonly applied: boolean;
+}
+
+export interface IWireDocumentLanguage {
+    /** `null`: no registered language claims this path. */
+    readonly languageId: string | null;
 }

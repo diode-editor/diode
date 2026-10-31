@@ -1,0 +1,20 @@
+{
+    "name": "show-beside-demo",
+    "displayName": "Show Beside Demo",
+    "description": "window.showTextDocument(doc, ViewColumn.Beside) demo: the shown editor is the active one, with the document from openTextDocument.",
+    "version": "0.0.1",
+    "publisher": "test",
+    "main": "./extension.js",
+    "engines": {
+        "vscode": "^1.0.0"
+    },
+    "activationEvents": ["onCommand:showBesideDemo.open"],
+    "contributes": {
+        "commands": [
+            {
+                "command": "showBesideDemo.open",
+                "title": "Show Beside Demo: Open"
+            }
+        ]
+    }
+}

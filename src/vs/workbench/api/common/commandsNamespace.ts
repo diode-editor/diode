@@ -88,10 +88,17 @@ export function buildCommandsNamespace(
         return rpc.request("commands.executeCommand", { id, args }) as Promise<T>;
     };
 
+    // Like upstream, the API commands stay out: they live here, the list comes from the core registry.
+    const getCommands = async (filterInternal = false): Promise<string[]> => {
+        const ids = await rpc.request("commands.getCommands");
+        return filterInternal ? ids.filter((id) => !id.startsWith("_")) : [...ids];
+    };
+
     return implementsApi<typeof vscode.commands>()({
         registerCommand,
         registerTextEditorCommand,
         executeCommand,
+        getCommands,
     });
 }
 

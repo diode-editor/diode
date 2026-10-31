@@ -16,6 +16,7 @@ import type { IFoldingRegion } from "../../../../editor/contrib/folding/iFolding
 const CSHARP_LANGUAGE_SERVICE: ILanguageService = {
     getLanguageIdForResource: () => "csharp",
     getLanguageDisplayName: () => "C#",
+    getRegisteredLanguageIds: () => [],
     getExtensionForLanguage: () => ".cs",
     requestLanguageFeatures: () => undefined,
     onDidRequestLanguageFeatures: () => ({ dispose: () => undefined }),

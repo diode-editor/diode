@@ -6,7 +6,7 @@ import {
     regExpMatchesEmptyString,
 } from "../../../editor/common/core/wordHelper.ts";
 
-import { EndOfLine, EventEmitter, Position, Range, Uri } from "./vscodeTypes.ts";
+import { EndOfLine, EventEmitter, Position, Range, TextDocumentChangeReason, Uri } from "./vscodeTypes.ts";
 import type { IWireDocumentChangedEvent, IWireDocumentContentChange, IWireDocumentStateChanged } from "./wireTypes.ts";
 
 /**
@@ -351,7 +351,13 @@ export interface IDocumentContentChange {
 export interface IDocumentChangeEvent {
     readonly document: ExtHostTextDocument;
     readonly contentChanges: readonly IDocumentContentChange[];
-    readonly reason: undefined;
+    readonly reason: TextDocumentChangeReason | undefined;
+}
+
+function changeReasonOf(event: IWireDocumentChangedEvent): TextDocumentChangeReason | undefined {
+    if (event.isUndoing === true) return TextDocumentChangeReason.Undo;
+    if (event.isRedoing === true) return TextDocumentChangeReason.Redo;
+    return undefined;
 }
 
 function endOfText(text: string): Position {
@@ -421,7 +427,7 @@ export class DocumentSyncTracker {
         const doc = this.registry.getOrCreate(Uri.parse(event.uri));
         const contentChanges = doc.acceptChanges(event.version, event.changes);
         doc.applyMeta({ uri: event.uri, isDirty: event.isDirty });
-        this.onDidChangeEmitter.fire({ document: doc, contentChanges, reason: undefined });
+        this.onDidChangeEmitter.fire({ document: doc, contentChanges, reason: changeReasonOf(event) });
         return doc;
     }
 
@@ -458,6 +464,22 @@ export class DocumentSyncTracker {
      * Resets the didOpen dedup: after didClose LSP requires a fresh didOpen. The document
      * stays in the registry: extensions may keep a reference to a closed one.
      */
+    /**
+     * For a document the core holds no model of, otherwise its `editor.didClose`/`editor.didOpen` do it.
+     * Upstream's order: the close listeners still see the old language.
+     */
+    public changeLanguage(doc: ExtHostTextDocument, languageId: string): void {
+        const uri = doc.uri.toString();
+        if (this.opened.has(uri)) {
+            this.close(doc.uri);
+            this.open({ uri, text: doc.getText(), languageId });
+            return;
+        }
+        this.onDidCloseEmitter.fire(doc);
+        doc.applyMeta({ uri, languageId });
+        this.onDidOpenEmitter.fire(doc);
+    }
+
     public close(uri: Uri): ExtHostTextDocument | null {
         const doc = this.registry.get(uri);
         if (doc === undefined || !this.opened.has(uri.toString())) return null;

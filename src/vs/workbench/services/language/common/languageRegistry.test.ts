@@ -279,3 +279,16 @@ describe("LanguageRegistry", () => {
         expect(registry.getLanguageIdForResource("/p/app.ini")).toBe("properties");
     });
 });
+
+describe("LanguageRegistry.getRegisteredLanguageIds", () => {
+    it("has plaintext without any contribution", () => {
+        expect(new LanguageRegistry().getRegisteredLanguageIds()).toEqual(["plaintext"]);
+    });
+
+    it("adds the contributed languages, plaintext once", () => {
+        const registry = new LanguageRegistry();
+        registry.register(makeExt("ts", [{ id: "typescript" }, { id: "plaintext" }]));
+
+        expect(registry.getRegisteredLanguageIds()).toEqual(["plaintext", "typescript"]);
+    });
+});

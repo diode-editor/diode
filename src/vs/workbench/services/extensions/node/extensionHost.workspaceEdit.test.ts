@@ -11,6 +11,7 @@ import { ExtensionHost } from "./extensionHost.ts";
 
 const NOOP_COMMANDS = {
     execute: () => undefined,
+    listCommandIds: () => [],
     registerProxy: () => ({ dispose: () => undefined }),
 } as unknown as ICommandService;
 

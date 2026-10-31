@@ -45,6 +45,9 @@ export interface ITextDocument {
     /** Leaves `versionId` alone: a language change does not make the document dirty. */
     setLanguage(languageId: string): void;
 
+    /** {@link applyEdits} of the undo stack: the batch's event says where it came from. */
+    applyUndoRedoEdits(edits: readonly ITextEdit[], origin: "undo" | "redo"): IApplyEditsResult;
+
     /** Several changes from one `applyEdits` fire one by one, in document order. */
     onDidChangeContent(listener: (change: IDocumentContentChange) => void): IDisposable;
 
