@@ -63,12 +63,10 @@
       "class": "ok"
     },
     "workspace.onDidCreateFiles": {
-      "class": "B",
-      "note": "#919: never fires"
+      "class": "ok"
     },
     "workspace.onDidDeleteFiles": {
-      "class": "B",
-      "note": "#919: never fires"
+      "class": "ok"
     },
     "workspace.onDidGrantWorkspaceTrust": {
       "class": "ok"
@@ -81,8 +79,7 @@
       "class": "ok"
     },
     "workspace.onDidRenameFiles": {
-      "class": "B",
-      "note": "#919: never fires"
+      "class": "ok"
     },
     "workspace.onDidSaveNotebookDocument": {
       "class": "X",
@@ -92,16 +89,13 @@
       "class": "ok"
     },
     "workspace.onWillCreateFiles": {
-      "class": "B",
-      "note": "#919: never fires"
+      "class": "ok"
     },
     "workspace.onWillDeleteFiles": {
-      "class": "B",
-      "note": "#919: never fires"
+      "class": "ok"
     },
     "workspace.onWillRenameFiles": {
-      "class": "B",
-      "note": "#919: never fires"
+      "class": "ok"
     },
     "workspace.onWillSaveNotebookDocument": {
       "class": "X",

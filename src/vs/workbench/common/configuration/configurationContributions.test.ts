@@ -78,6 +78,7 @@ const EXPECTED_SCOPES: Readonly<Record<string, ConfigurationScope>> = {
     "files.insertFinalNewline": "language-overridable",
     "files.trimFinalNewlines": "language-overridable",
     "files.enableTrash": "window",
+    "files.participants.timeout": "window",
     "files.refactoring.autoSave": "window",
     "files.exclude": "resource",
     "files.watcherExclude": "resource",

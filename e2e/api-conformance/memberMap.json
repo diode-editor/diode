@@ -334,6 +334,16 @@
         "window.showTextDocument",
         "workspace.openTextDocument"
     ],
+    "workspace vscode API - workspace Should send a single FileWillRenameEvent instead of separate events when moving multiple files at once#111867, 1/3": [
+        "WorkspaceEdit",
+        "workspace.applyEdit",
+        "workspace.onWillRenameFiles"
+    ],
+    "workspace vscode API - workspace Should send a single FileWillRenameEvent instead of separate events when moving multiple files at once#111867, 3/3": [
+        "WorkspaceEdit",
+        "workspace.applyEdit",
+        "workspace.onWillDeleteFiles"
+    ],
     "workspace vscode API - workspace WorkspaceEdit api - after saving a deleted file, it still shows up as deleted. #42667": [
         "WorkspaceEdit",
         "workspace.applyEdit",
@@ -468,12 +478,30 @@
     "workspace vscode API - workspace workspaceFolders": [
         "workspace.workspaceFolders"
     ],
+    "workspace.event vscode API - workspace events onWillCreate/onDidCreate": [
+        "WorkspaceEdit",
+        "workspace.applyEdit",
+        "workspace.onDidCreateFiles",
+        "workspace.onWillCreateFiles"
+    ],
+    "workspace.event vscode API - workspace events onWillCreate/onDidCreate, make changes, edit another file": [
+        "WorkspaceEdit",
+        "workspace.applyEdit",
+        "workspace.onWillCreateFiles",
+        "workspace.openTextDocument"
+    ],
     "workspace.event vscode API - workspace events onWillCreate/onDidCreate, make changes, edit new file fails": [
         "WorkspaceEdit",
         "workspace.applyEdit",
         "workspace.fs",
         "workspace.onWillCreateFiles",
         "workspace.openTextDocument"
+    ],
+    "workspace.event vscode API - workspace events onWillDelete/onDidDelete": [
+        "WorkspaceEdit",
+        "workspace.applyEdit",
+        "workspace.onDidDeleteFiles",
+        "workspace.onWillDeleteFiles"
     ],
     "workspace.event vscode API - workspace events onWillDelete/onDidDelete, make changes": [
         "WorkspaceEdit",
@@ -489,6 +517,24 @@
         "WorkspaceEdit",
         "workspace.applyEdit",
         "workspace.onWillDeleteFiles"
+    ],
+    "workspace.event vscode API - workspace events onWillRename - make changes (dirty file)": [
+        "WorkspaceEdit",
+        "workspace.applyEdit",
+        "workspace.onWillRenameFiles",
+        "workspace.openTextDocument"
+    ],
+    "workspace.event vscode API - workspace events onWillRename - make changes (saved file)": [
+        "WorkspaceEdit",
+        "workspace.applyEdit",
+        "workspace.onWillRenameFiles",
+        "workspace.openTextDocument"
+    ],
+    "workspace.event vscode API - workspace events onWillRename/onDidRename": [
+        "WorkspaceEdit",
+        "workspace.applyEdit",
+        "workspace.onDidRenameFiles",
+        "workspace.onWillRenameFiles"
     ],
     "workspace.fs vscode API - workspace-fs fs.createFolder creates recursively": [
         "workspace.fs"

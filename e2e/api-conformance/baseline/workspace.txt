@@ -1,3 +1,5 @@
+vscode API - workspace Should send a single FileWillRenameEvent instead of separate events when moving multiple files at once#111867, 1/3
+vscode API - workspace Should send a single FileWillRenameEvent instead of separate events when moving multiple files at once#111867, 3/3
 vscode API - workspace SnippetString in WorkspaceEdit with keepWhitespace
 vscode API - workspace The api workspace.applyEdit failed for some case of mixing resourceChange and textEdit #80688, 1/2
 vscode API - workspace The api workspace.applyEdit failed for some case of mixing resourceChange and textEdit #80688, 2/2

@@ -7,7 +7,11 @@ import { CancellationTokenNone, type ICancellationToken } from "../vs/base/commo
 import type { IDisposable } from "../vs/base/common/lifecycle.ts";
 import { Uri } from "../vs/base/common/uri.ts";
 import { curatedConfigInjection } from "../vs/diode/curatedConfigInjection.ts";
-import { bindExtensionHostToEditors, configProviderOver } from "../vs/diode/modules/extensionHostModule.ts";
+import {
+    bindExtensionHostToEditors,
+    bindFileOperationParticipant,
+    configProviderOver,
+} from "../vs/diode/modules/extensionHostModule.ts";
 import type { ITextEdit } from "../vs/editor/common/core/iTextEdit.ts";
 import type { ILanguageFeatureTarget } from "../vs/editor/common/languageFeatureRegistry.ts";
 import type { ICodeActionRequest, ICoreCodeAction } from "../vs/editor/common/languages/iCodeActionSource.ts";
@@ -214,6 +218,7 @@ export interface IExtensionHarness {
     readonly themeService: ThemeService;
     readonly commandRegistry: CommandRegistry;
     readonly tmpDir: string;
+    readonly workspaceEditService: WorkspaceEditService;
     writeFile(name: string, content: string): string;
     /** One RPC round trip over `queueMicrotask` takes two turns (request → handler → response). */
     flushRpc(turns?: number): Promise<void>;
@@ -254,11 +259,14 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
         group.editorGroups,
     );
 
+    const harnessConfiguration =
+        options.configurationService ??
+        createTestConfigurationService({ "files.refactoring.autoSave": true, "files.participants.timeout": 60000 });
     const workspaceEditService = new WorkspaceEditService(
         undoRedoService,
         new TrashService(),
-        // The schema default: without it a refactoring would stay in dirty models instead of reaching the disk.
-        options.configurationService ?? createTestConfigurationService({ "files.refactoring.autoSave": true }),
+        // Schema defaults: without them a refactoring would stay in dirty models instead of reaching the disk.
+        harnessConfiguration,
         new BulkEditBuffers(group, group.textFileModels),
         files,
     );
@@ -338,6 +346,9 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
     });
 
     bindExtensionHostToEditors(host, group, group.editorGroups, languageFeatures);
+    bindFileOperationParticipant(host, workspaceEditService, harnessConfiguration, {
+        withProgress: (_options, task) => task(),
+    });
 
     const writeFile = (name: string, content: string): string => {
         const fp = path.join(tmpDir, name);
@@ -376,7 +387,19 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
         removeDirLoud(tmpDir, "ExtensionTestHarness");
     };
 
-    return { app, host, group, languageFeatures, themeService, commandRegistry, tmpDir, writeFile, flushRpc, dispose };
+    return {
+        app,
+        host,
+        group,
+        languageFeatures,
+        themeService,
+        commandRegistry,
+        tmpDir,
+        workspaceEditService,
+        writeFile,
+        flushRpc,
+        dispose,
+    };
 }
 
 /** Requests carry no text: the subprocess reads its mirror of the document at this version. */

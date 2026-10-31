@@ -915,6 +915,27 @@ export type IWireWorkspaceEditOp =
           readonly ignoreIfExists?: boolean;
       };
 
+/** Upstream `SourceTargetPair`; uris. */
+export interface IWireFileOperationPair {
+    readonly source?: string;
+    readonly target: string;
+}
+
+/** Upstream `FileOperation`: a copy reaches the extension as a create, a move as a rename. */
+export interface IWireFileOperationEvent {
+    readonly operation: "create" | "copy" | "move" | "delete";
+    readonly files: readonly IWireFileOperationPair[];
+}
+
+export interface IWireFileOperationParams extends IWireFileOperationEvent {
+    /** `files.participants.timeout`: past it the request is cancelled and the operation goes on without edits. */
+    readonly timeoutMs: number;
+}
+
+export interface IWireFileOperationSubscriptions {
+    readonly will: boolean;
+}
+
 export interface IWireApplyWorkspaceEditParams {
     readonly ops: readonly IWireWorkspaceEditOp[];
     /** After applying, affected files are saved per `files.refactoring.autoSave`. */
