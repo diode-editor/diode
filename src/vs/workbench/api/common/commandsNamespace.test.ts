@@ -321,6 +321,19 @@ describe("CommandsNamespace (subprocess)", () => {
         dispose();
     });
 
+    it("registerTextEditorCommand: an applied edit doesn't warn", async () => {
+        const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+        const editor = { edit: () => Promise.resolve(true) } as unknown as vscode.TextEditor;
+        const { commands, dispose } = createBridge(() => editor);
+        commands.registerTextEditorCommand("ext.te.applied", () => undefined);
+
+        await commands.executeCommand("ext.te.applied");
+
+        expect(warn).not.toHaveBeenCalled();
+        warn.mockRestore();
+        dispose();
+    });
+
     it("registerTextEditorCommand: a refused edit or a throwing callback only warns, as upstream", async () => {
         const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
         let result: Thenable<boolean> = Promise.resolve(false);

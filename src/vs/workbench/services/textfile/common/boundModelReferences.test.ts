@@ -114,4 +114,13 @@ describe("BoundModelReferences", () => {
         vi.advanceTimersByTime(10 * MINUTE);
         expect(onChange).not.toHaveBeenCalled();
     });
+
+    it("letting a model go leaves no timer behind", () => {
+        const references = new BoundModelReferences(() => undefined);
+        const ref = reference();
+        references.add(ref);
+        expect(vi.getTimerCount()).toBe(1);
+        references.release(ref.model);
+        expect(vi.getTimerCount()).toBe(0);
+    });
 });

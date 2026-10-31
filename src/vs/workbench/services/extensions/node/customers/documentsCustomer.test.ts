@@ -46,7 +46,13 @@ function makeCustomer(
     const peer = new RpcEndpoint(b);
     const attached = options.attached === false ? null : customer.attach({ rpc: new RpcEndpoint(a), logger });
     const received: { method: string; params: unknown }[] = [];
-    for (const method of ["editor.didOpen", "editor.didChange", "editor.didClose", "workspace.didSaveTextDocument"]) {
+    for (const method of [
+        "editor.didOpen",
+        "editor.didChange",
+        "editor.didClose",
+        "editor.didChangeDocumentState",
+        "workspace.didSaveTextDocument",
+    ]) {
         peer.handleNotification(method, (p) => received.push({ method, params: p }));
     }
     return { customer, peer, attached, received, logLines: lines };
@@ -113,6 +119,24 @@ describe("DocumentsCustomer — mirrored document sync", () => {
         detached.customer.didCloseTextDocument("file:///a.ts");
         await flushMicrotasks();
         expect(detached.received).toEqual([]);
+    });
+
+    it("a state goes only for a document the extensions were told about", async () => {
+        const state = { uri: "file:///a.ts", version: 2, isDirty: true, eol: 2 as const };
+        const detached = makeCustomer({ attached: false });
+        detached.customer.didChangeTextDocumentState(state);
+        await flushMicrotasks();
+        expect(detached.received).toEqual([]);
+
+        const h = makeCustomer();
+        h.customer.didChangeTextDocumentState(state);
+        await flushMicrotasks();
+        expect(h.received).toEqual([]);
+
+        h.customer.didOpenTextDocument(src());
+        h.customer.didChangeTextDocumentState(state);
+        await flushMicrotasks();
+        expect(h.received.at(-1)).toEqual({ method: "editor.didChangeDocumentState", params: state });
     });
 
     it("open sends a snapshot; edits go as deltas, immediately and each one, without a change subscription", async () => {

@@ -215,6 +215,7 @@ export abstract class BaseTextEditorModel extends Disposable {
 
     /** A model without a view (`openTextDocument` without a tab) has nobody to track selections. */
     private readonly headlessEditTarget: ITextEditTarget = {
+        // Stryker disable next-line ArrowFunction,ArrayDeclaration: selections are read from a view, and this is none
         cloneSelections: () => [createSelection(0, 0, 0, 0)],
         applyEdits: (edits, label) => {
             const versionBefore = this.doc.versionId;

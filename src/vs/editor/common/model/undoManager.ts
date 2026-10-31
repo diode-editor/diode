@@ -28,9 +28,7 @@ export interface IUndoViewBinding {
  * Identity of a step on the stack. Comparing by document version does not work: `undo`
  * rewrites the next element's `versionAfter`, so a version captured outside goes stale.
  */
-export interface UndoStepToken {
-    readonly label: string;
-}
+export type UndoStepToken = object;
 
 /**
  * One per document, not per view: otherwise the version gate in {@link undo} would
@@ -61,7 +59,7 @@ export class UndoManager {
     }
 
     public pushUndoElement(element: IUndoElement): void {
-        this.undoStack.push({ ...element, token: { label: element.label } });
+        this.undoStack.push({ ...element, token: {} });
         this.redoStack.length = 0;
         this.onDidPush?.(element);
     }
@@ -112,7 +110,7 @@ export class UndoManager {
     private moveStep(from: MutableUndoElement[], to: MutableUndoElement[], view: IUndoViewBinding | null): boolean {
         const token = from.at(-1)?.token;
         if (token === undefined) return false;
-        const moved: UndoStepToken = { label: token.label };
+        const moved: UndoStepToken = {};
         while (from.at(-1)?.token === token) {
             if (!this.moveElement(from, to, moved, view)) return false;
         }
@@ -126,6 +124,7 @@ export class UndoManager {
         view: IUndoViewBinding | null,
     ): boolean {
         const element = from.pop();
+        // Stryker disable next-line OptionalChaining: the caller has just seen this element at the top of `from`
         if (this.doc.versionId !== element?.versionAfter) return false;
 
         const { inverseEdits } = this.doc.applyEdits(element.backwardEdits);

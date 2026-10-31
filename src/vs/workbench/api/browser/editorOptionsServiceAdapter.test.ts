@@ -185,6 +185,24 @@ describe("EditorOptionsServiceAdapter", () => {
         expect(setSelections).not.toHaveBeenCalled();
     });
 
+    it("applyActiveEditorEdits() with only a line ending changes it and makes no edit step", () => {
+        const applyExternalEdits = vi.fn();
+        const setEol = vi.fn();
+        const editor = {
+            uri: Uri.file("/a/b.ts"),
+            model: { document: { lineCount: 3, getLineLength: () => 10, versionId: 1 } },
+            applyExternalEdits,
+            setEol,
+        };
+        const group = { ...GROUP_SURFACE, getActiveTabEditor: () => editor } as unknown as IEditorService;
+        const adapter = createAdapter(group, NO_BULK_EDITS);
+
+        expect(adapter.applyActiveEditorEdits(Uri.file("/a/b.ts").toString(), [], { setEndOfLine: 2 })).toBe(true);
+
+        expect(applyExternalEdits).not.toHaveBeenCalled();
+        expect(setEol).toHaveBeenCalledExactlyOnceWith(2);
+    });
+
     it("applyActiveEditorEdits() returns false on uri mismatch, true when applied", () => {
         const applyExternalEdits = vi.fn();
         const editor = {

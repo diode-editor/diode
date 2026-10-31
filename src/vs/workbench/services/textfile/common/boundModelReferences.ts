@@ -62,12 +62,14 @@ export class BoundModelReferences extends Disposable {
         const timer = setTimeout(() => {
             this.expire(model);
         }, MAX_AGE_MS);
+        // Stryker disable next-line CallExpression: only lets the process exit while the timer waits
         timer.unref();
         return timer;
     }
 
     private expire(model: TextFileModel): void {
         const entry = this.entries.get(model);
+        // Stryker disable next-line ConditionalExpression: letting a model go clears its timer, so an entry is always there
         if (entry === undefined) return;
         if (model.isModified) {
             entry.timer = this.startTimer(model);

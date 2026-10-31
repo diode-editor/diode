@@ -1,7 +1,7 @@
 import * as fs from "node:fs";
 
 import { Size } from "@tuidom/core/common/geometryPromitives";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createAppTestHarness, type IAppHarness } from "../../../../../TestUtils/AppTestHarness.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUtils/TempWorkspace.ts";
@@ -104,6 +104,59 @@ describe("EditorService — file models without an editor", () => {
 
         expect(events).toBe(0);
         expect(heldPaths()).toEqual([ws.path("a.txt")]);
+    });
+
+    it("a held model's move and release are news for the document sync", async () => {
+        hold("a.txt");
+        let events = 0;
+        service().onDidChangeEditors(() => events++);
+
+        await files().move(Uri.file(ws.path("a.txt")), Uri.file(ws.path("moved.txt")), false);
+
+        expect(events).toBe(1);
+        expect(heldPaths()).toEqual([]);
+    });
+
+    it("a delete that lets a model go is news; one that keeps a dirty model isn't", async () => {
+        hold("a.txt");
+        edit(hold("dir/b.txt"), "X");
+        let events = 0;
+        service().onDidChangeEditors(() => events++);
+
+        await files().del(Uri.file(ws.path("dir/b.txt")));
+        expect(events).toBe(0);
+
+        await files().del(Uri.file(ws.path("a.txt")));
+        expect(events).toBe(1);
+    });
+
+    it("revertSoftBeforeDelete: the held model and a tab's under the resource lose their dirty state, others keep it", () => {
+        const under = hold("dir/b.txt");
+        const other = hold("a.txt");
+        edit(under, "X");
+        edit(other, "Y");
+        h.workbench.openFile(ws.path("dir/b.txt"));
+
+        service().revertSoftBeforeDelete(Uri.file(ws.path("dir")));
+
+        expect(under.isModified).toBe(false);
+        expect(under.getText()).toBe("Xb");
+        expect(other.isModified).toBe(true);
+    });
+
+    it("a foreign scheme isn't looked up: a provider's file isn't held", async () => {
+        const stat = vi.spyOn(files(), "stat");
+        await expect(service().openTextDocumentWithoutEditor(Uri.parse("rw:/a.txt"))).resolves.toBe(false);
+        expect(stat).not.toHaveBeenCalled();
+    });
+
+    it("the exit confirmation's save overwrites what changed on disk: the user was asked already", async () => {
+        const model = hold("a.txt");
+        edit(model, "X");
+        const save = vi.spyOn(model, "save");
+        const [item] = service().collectDirty();
+        await item.save();
+        expect(save).toHaveBeenCalledExactlyOnceWith({ overwrite: true });
     });
 
     it("a delete lets a clean model go; a dirty one stays, its edits exist nowhere else", async () => {

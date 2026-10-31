@@ -46,4 +46,21 @@ describe("wireTypes — document sync", () => {
         expect(parseWireDocumentChangedEvent(snapshot)).toBeNull();
         expect(parseWireDocumentSyncSnapshot(snapshot)).toEqual(snapshot);
     });
+
+    const BASE = { uri: "file:///a.ts", languageId: "ts", version: 1, text: "x" };
+
+    it.each([1, 2])("a snapshot carries the line ending %s", (eol) => {
+        expect(parseWireDocumentSyncSnapshot({ ...BASE, eol })).toStrictEqual({ ...BASE, eol });
+    });
+
+    it("a snapshot carries the encoding", () => {
+        expect(parseWireDocumentSyncSnapshot({ ...BASE, encoding: "utf16le" })).toStrictEqual({
+            ...BASE,
+            encoding: "utf16le",
+        });
+    });
+
+    it("junk in the line ending and the encoding stays out of the snapshot", () => {
+        expect(parseWireDocumentSyncSnapshot({ ...BASE, eol: 3, encoding: 1 })).toStrictEqual(BASE);
+    });
 });

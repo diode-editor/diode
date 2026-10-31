@@ -178,4 +178,10 @@ describe("EditorLayoutServiceAdapter — untitled document without a tab", () =>
         expect(failures).toEqual(["untitled:Untitled-9"]);
         expect(service.editorGroups.activeGroup.editorCount).toBe(0);
     });
+
+    it("openTextDocument answers with the uri of a file it opened, and null for what it can't", async () => {
+        const uri = Uri.file(ws.path("a.txt")).toString();
+        await expect(adapter.openTextDocument({ uri })).resolves.toEqual({ uri });
+        await expect(adapter.openTextDocument({ uri: Uri.file(ws.path("nope.txt")).toString() })).resolves.toBeNull();
+    });
 });

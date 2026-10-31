@@ -212,6 +212,19 @@ describe("EditorCustomer — subprocess requests", () => {
         });
     });
 
+    it("editor.applyEdit: what isn't a version or a line ending stays out of the options", async () => {
+        const h = setup();
+        h.attachTo();
+        const options = async (params: Record<string, unknown>): Promise<unknown> => {
+            await h.peer.request("editor.applyEdit", { uri: "file:///a.ts", edits: [], ...params });
+            return vi.mocked(h.editorOptions.applyActiveEditorEdits).mock.lastCall?.[2];
+        };
+        await expect(options({ version: "4" })).resolves.toStrictEqual({});
+        await expect(options({ setEndOfLine: 3 })).resolves.toStrictEqual({});
+        await expect(options({ setEndOfLine: 1 })).resolves.toStrictEqual({ setEndOfLine: 1 });
+        await expect(options({ setEndOfLine: 2 })).resolves.toStrictEqual({ setEndOfLine: 2 });
+    });
+
     it("workspace.applyEdit: junk — false without the port; a valid set — the port verdict", async () => {
         const h = setup();
         h.attachTo();

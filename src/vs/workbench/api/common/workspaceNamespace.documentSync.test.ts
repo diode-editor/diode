@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type * as vscode from "vscode";
 
 import { createNodeExtHostDisk } from "../node/extHostDisk.ts";
@@ -249,5 +249,125 @@ describe("WorkspaceNamespace — document sync listeners", () => {
         stub.fire("editor.didOpen", openParams());
 
         expect(opened).toHaveLength(0);
+    });
+});
+
+describe("WorkspaceNamespace — editor.didChangeDocumentState", () => {
+    const STATE = { uri: URI, version: 2, isDirty: true, eol: 2 };
+
+    it("a valid state reaches the document and fires onDidChangeTextDocument with no content changes", () => {
+        const { stub, ctx, workspace } = makeCtx();
+        const events: vscode.TextDocumentChangeEvent[] = [];
+        workspace.onDidChangeTextDocument((event) => events.push(event));
+        stub.fire("editor.didOpen", openParams({ text: "a\nb", eol: 1 }));
+
+        stub.fire("editor.didChangeDocumentState", STATE);
+
+        const doc = ctx.registry.get(Uri.parse(URI));
+        expect(doc?.version).toBe(2);
+        expect(doc?.isDirty).toBe(true);
+        expect(doc?.getText()).toBe("a\r\nb");
+        expect(events.map((event) => event.contentChanges)).toEqual([[]]);
+    });
+
+    it.each([1, 2])("the line ending %s passes", (eol) => {
+        const { stub, ctx } = makeCtx();
+        const changeState = vi.spyOn(ctx.documentSync, "changeState");
+        stub.fire("editor.didChangeDocumentState", { ...STATE, eol });
+        expect(changeState).toHaveBeenCalledExactlyOnceWith({ ...STATE, eol });
+    });
+
+    it.each([
+        ["uri", { ...STATE, uri: 1 }],
+        ["isDirty", { ...STATE, isDirty: "yes" }],
+        ["version", { ...STATE, version: "2" }],
+        ["line ending", { ...STATE, eol: 3 }],
+    ])("junk in the %s is dropped", (_name, params) => {
+        const { stub, ctx } = makeCtx();
+        const changeState = vi.spyOn(ctx.documentSync, "changeState");
+        stub.fire("editor.didChangeDocumentState", params);
+        expect(changeState).not.toHaveBeenCalled();
+    });
+});
+
+describe("WorkspaceNamespace — openTextDocument and the live model", () => {
+    const FILE = Uri.parse(URI);
+
+    it("an open document is returned at once", async () => {
+        const { stub, ctx, workspace } = makeCtx();
+        stub.fire("editor.didOpen", openParams());
+        await expect(workspace.openTextDocument(FILE as never)).resolves.toBe(ctx.registry.get(FILE));
+        expect(stub.requests).toEqual([]);
+    });
+
+    it("the host opens the model, and its document is what the extension gets", async () => {
+        const { stub, ctx, workspace } = makeCtx();
+        stub.responder = (method) => {
+            if (method === "workspace.openTextDocument") stub.fire("editor.didOpen", openParams());
+            return { uri: URI };
+        };
+        await expect(workspace.openTextDocument(FILE as never)).resolves.toBe(ctx.registry.get(FILE));
+        expect(stub.requests).toEqual([{ method: "workspace.openTextDocument", params: { uri: URI } }]);
+    });
+
+    it("a document closed earlier isn't open: the host is asked again", async () => {
+        const { stub, ctx, workspace } = makeCtx();
+        stub.fire("editor.didOpen", openParams());
+        stub.fire("editor.didClose", { uri: URI });
+        const closed = ctx.registry.get(FILE);
+        stub.responder = (method) => {
+            if (method === "workspace.openTextDocument") stub.fire("editor.didOpen", openParams({ text: "fresh" }));
+            return { uri: URI };
+        };
+
+        const doc = await workspace.openTextDocument(FILE as never);
+
+        expect(stub.requests.map((request) => request.method)).toEqual(["workspace.openTextDocument"]);
+        expect(doc.isClosed).toBe(false);
+        expect(doc.getText()).toBe("fresh");
+        expect(closed).toBeDefined();
+    });
+
+    it("a model the host didn't open or that closed again: the file is read from disk", async () => {
+        const { stub, ctx, workspace } = makeCtx();
+        const readFile = vi.spyOn(ctx.disk, "readFile").mockResolvedValue(Buffer.from("from disk"));
+        stub.fire("editor.didOpen", openParams());
+        stub.fire("editor.didClose", { uri: URI });
+
+        const doc = await workspace.openTextDocument(FILE as never);
+
+        expect(readFile).toHaveBeenCalledOnce();
+        expect(doc.getText()).toBe("from disk");
+    });
+
+    it("an explicit encoding reads this one time from disk, past the model", async () => {
+        const { stub, ctx, workspace } = makeCtx();
+        vi.spyOn(ctx.disk, "readFile").mockResolvedValue(Buffer.from("from disk"));
+
+        const doc = await workspace.openTextDocument(FILE as never, { encoding: "utf8" });
+
+        expect(stub.requests).toEqual([]);
+        expect(doc.getText()).toBe("from disk");
+    });
+
+    it("textDocuments has no closed documents", () => {
+        const { stub, workspace } = makeCtx();
+        stub.fire("editor.didOpen", openParams());
+        stub.fire("editor.didOpen", openParams({ uri: "file:///proj/other.ts" }));
+        stub.fire("editor.didClose", { uri: URI });
+        expect(workspace.textDocuments.map((document) => document.uri.toString())).toEqual(["file:///proj/other.ts"]);
+    });
+});
+
+describe("WorkspaceNamespace — rootPath", () => {
+    it("is the first folder's path, and nothing without folders", () => {
+        const { stub, workspace: full } = makeCtx();
+        const workspace = full as unknown as { readonly rootPath: string | undefined };
+        expect(workspace.rootPath).toBeUndefined();
+        stub.fire("workspace.initialize", {
+            configuration: { defaults: {}, user: {} },
+            workspaceFolders: [{ uri: "file:///repo", name: "repo", index: 0 }],
+        });
+        expect(workspace.rootPath).toBe(Uri.file("/repo").fsPath);
     });
 });

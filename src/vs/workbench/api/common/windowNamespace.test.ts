@@ -710,6 +710,16 @@ describe("WindowNamespace — editor write (#194)", () => {
         await expect(editor.edit(() => undefined)).rejects.toThrow("TextEditor#edit not possible on closed editors");
     });
 
+    it("[api:TextEditor.edit] an editor whose tab closed rejects, though its document stays open", async () => {
+        const { stub, editor } = editorWithText("foo");
+        await expect(editor.edit(() => undefined)).resolves.toBe(true);
+
+        stub.fire("editor.layoutChanged", { groups: [] });
+
+        expect(editor.document.isClosed).toBe(false);
+        await expect(editor.edit(() => undefined)).rejects.toThrow("TextEditor#edit not possible on closed editors");
+    });
+
     it("editor.edit without edits resolves true without RPC", async () => {
         const { stub, editor } = activeEditor();
         const ok = await editor.edit(() => {

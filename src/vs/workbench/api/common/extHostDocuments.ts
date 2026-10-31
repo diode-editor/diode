@@ -101,6 +101,7 @@ export class ExtHostTextDocument implements vscode.TextDocument {
         if (snapshot.eol === undefined && snapshot.text.includes("\r\n")) this.eol = EndOfLine.CRLF;
         this.applyMeta(snapshot);
         this.lineStore = splitLines(snapshot.text);
+        // Stryker disable next-line ConditionalExpression,StringLiteral: an empty cache is only rebuilt, to the same text
         this.textCache = this.eol === EndOfLine.LF && !snapshot.text.includes("\r") ? snapshot.text : null;
         this.version = snapshot.version ?? this.version + 1;
     }
@@ -133,7 +134,7 @@ export class ExtHostTextDocument implements vscode.TextDocument {
     /** `false`: nothing an extension could see changed. */
     public acceptState(state: { version: number; isDirty: boolean; eol: EndOfLine }): boolean {
         const changed = state.version !== this.version || state.isDirty !== this.isDirty || state.eol !== this.eol;
-        if (state.eol !== this.eol) this.textCache = null;
+        this.textCache = null;
         this.eol = state.eol;
         this.isDirty = state.isDirty;
         this.version = state.version;
@@ -159,6 +160,7 @@ export class ExtHostTextDocument implements vscode.TextDocument {
 
     /** The host's text comes with `\n` whatever the EOL: only the lines tell whether it differs. */
     public hasSameText(text: string): boolean {
+        // Stryker disable next-line StringLiteral: splitting a text without `\r` gives the same text back
         return this.lines().join("\n") === (text.includes("\r") ? splitLines(text).join("\n") : text);
     }
 
