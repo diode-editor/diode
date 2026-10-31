@@ -361,7 +361,7 @@
   Отступление: без вкладки он не закрывается по таймеру, как модель в эталоне.
 - **Язык документа без модели:** `setTextDocumentLanguage` идёт на хост (`languages.changeLanguage`).
   Есть модель — смена в ней даёт `editor.didClose`/`editor.didOpen`. Нет — ответ `applied: false`,
-  пару событий выдаёт сам субпроцесс, а хост держит выбор до `showTextDocument`
+  пару событий выдаёт сам субпроцесс, а хост держит выбор до появления вкладки
   (`EditorLayoutServiceAdapter.pendingLanguages`). Язык документа без модели субпроцесс тоже
   спрашивает у хоста (`languages.getLanguageOfDocument`), иначе там был бы `plaintext`.
 - **API-команды `vscode.execute*`** (`apiCommands.ts`): как `vscode.open`, живут в субпроцессе и в

@@ -58,6 +58,7 @@ export class EditorLayoutServiceAdapter extends Disposable implements IEditorLay
         );
         this.register(
             editors.onDidChangeEditors(() => {
+                this.applyPendingLanguages();
                 this.scheduleLayoutPush();
             }),
         );
@@ -88,7 +89,6 @@ export class EditorLayoutServiceAdapter extends Disposable implements IEditorLay
         // as a promise, and the selection from `params` must be applied to it. The group is explicit:
         // the column is already resolved, and a locked one the extension named must not redirect.
         await this.editors.openUri(uri, { focus, group: target });
-        this.applyPendingLanguage(params.uri);
 
         const opened = this.groups.activeGroup;
         const editor = opened.activePane;
@@ -139,11 +139,14 @@ export class EditorLayoutServiceAdapter extends Disposable implements IEditorLay
         return { applied: true };
     }
 
-    private applyPendingLanguage(uri: string): void {
-        const languageId = this.pendingLanguages.get(uri);
-        if (languageId === undefined) return;
-        this.pendingLanguages.delete(uri);
-        this.findModel(uri)?.setLanguage(languageId);
+    /** However the tab appeared: `showTextDocument`, quick open, the explorer. */
+    private applyPendingLanguages(): void {
+        for (const [uri, languageId] of this.pendingLanguages) {
+            const model = this.findModel(uri);
+            if (model === undefined) continue;
+            this.pendingLanguages.delete(uri);
+            model.setLanguage(languageId);
+        }
     }
 
     private findModel(uri: string): BaseTextEditorModel | undefined {

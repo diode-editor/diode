@@ -34,7 +34,7 @@ export interface IEditorLayoutService {
     /** The language set by {@link changeDocumentLanguage} while it waits for a model, otherwise by the path. */
     getLanguageOfDocument(uri: string): string | null;
 
-    /** Upstream `$changeLanguage`. Throws on an unknown language. A document without a model gets it on {@link showTextDocument}. */
+    /** Upstream `$changeLanguage`. Throws on an unknown language. A document without a model gets it when one appears. */
     changeDocumentLanguage(params: IWireChangeLanguageParams): IWireChangeLanguageResult;
     /** A live model without a tab, upstream `$tryOpenDocument`. `null`: not a readable file. */
     openTextDocument(params: IWireUriParams): Promise<IWireUriParams | null>;

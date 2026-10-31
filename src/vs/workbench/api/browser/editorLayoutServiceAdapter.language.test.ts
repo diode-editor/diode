@@ -112,6 +112,15 @@ describe("EditorLayoutServiceAdapter — language of a document", () => {
         expect(activeLanguage()).toBe("python");
     });
 
+    it("a tab opened by the user, not by the extension, gets the waiting language too", () => {
+        adapter.changeDocumentLanguage({ uri: uriOf("a.txt"), languageId: "json" });
+
+        service.openFile(ws.path("a.txt"));
+
+        expect(activeLanguage()).toBe("json");
+        expect(adapter.getLanguageOfDocument(uriOf("a.txt"))).toBeNull();
+    });
+
     it("showing another document leaves a waiting language alone", async () => {
         adapter.changeDocumentLanguage({ uri: uriOf("a.txt"), languageId: "json" });
 
